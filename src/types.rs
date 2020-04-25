@@ -7,7 +7,7 @@ use sqlparser::ast::Value;
 
 type AstTypeValue = Value;
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Serialize, Deserialize)]
 pub struct Int {
   value: BigInt
 }
@@ -18,7 +18,7 @@ impl Int {
   }
 }
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Decimal {
   value: BigDecimal
 }
@@ -29,7 +29,7 @@ impl Decimal {
   }
 }
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct VarChar {
   value: String
 }
@@ -46,7 +46,7 @@ impl From<&str> for VarChar {
   }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Type {
   Int(Int),
   Decimal(Decimal),

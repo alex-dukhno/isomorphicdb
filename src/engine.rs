@@ -1,16 +1,17 @@
 use std::collections::{BTreeMap, HashMap};
 use std::fmt::Debug;
 use std::ops::Deref;
-use std::str::FromStr;
 
-use sqlparser::ast::{Assignment, BinaryOperator, Expr, Query, Select, SetExpr, Statement, TableFactor, TableWithJoins, Value};
+use sqlparser::ast::{Assignment, BinaryOperator, Expr, Query, Select, SetExpr, Statement, TableFactor, TableWithJoins};
 use sqlparser::dialect::GenericDialect;
 use sqlparser::parser::Parser;
+use crate::types::{Type, Int};
+use std::convert::TryFrom;
 
-type ExecutionResult = Result<EngineEvent, ErrorEvent>;
+pub type ExecutionResult = Result<EngineEvent, ErrorEvent>;
 
 #[derive(Debug, PartialEq)]
-enum EngineEvent {
+pub enum EngineEvent {
   TableCreated(String),
   RecordInserted,
   RecordsSelected(Vec<Vec<u8>>),
@@ -19,19 +20,20 @@ enum EngineEvent {
 }
 
 #[derive(Debug, PartialEq)]
-enum ErrorEvent {
+pub enum ErrorEvent {
   TableAlreadyExists(String),
   UnimplementedBranch(String),
   TableDoesNotExist(String),
 }
 
-struct Engine {
+pub struct Engine {
   dialect: GenericDialect,
-  tables: HashMap<String, BTreeMap<u8, Vec<u8>>>,
+  tables: HashMap<String, BTreeMap<Int, Vec<u8>>>,
 }
 
 impl Engine {
-  fn execute(&mut self, sql: String) -> ExecutionResult {
+  #[allow(clippy::cognitive_complexity)] // TODO simplify SQL execution
+  pub fn execute(&mut self, sql: String) -> ExecutionResult {
     let mut statements = Parser::parse_sql(&self.dialect, sql).unwrap();
     match statements.pop() {
       Some(Statement::CreateTable { name, .. }) => {
@@ -51,9 +53,10 @@ impl Engine {
             let Query { body, .. } = &*source;
             if let SetExpr::Values(values) = &body {
               let values = &values.0;
-              if let Expr::Value(Value::Number(value)) = &values[0][0] {
-                if let Ok(val) = u8::from_str(value) {
-                  table.insert(val, vec![val]);
+              if let Expr::Value(value) = &values[0][0] {
+                if let Ok(Type::Int(value)) = Type::try_from(value.clone()) {
+                  let encoded = bincode::serialize(&value).unwrap();
+                  table.insert(value, encoded);
                   Ok(EngineEvent::RecordInserted)
                 } else {
                   unimplemented!(
@@ -80,8 +83,8 @@ impl Engine {
           Some(table) => {
             let keys = match selection {
               Some(Expr::BinaryOp { right, .. }) => {
-                if let Expr::Value(Value::Number(v)) = right.deref() {
-                  if let Ok(value) = u8::from_str(v) {
+                if let Expr::Value(value) = right.deref() {
+                  if let Ok(Type::Int(value)) = Type::try_from(value.clone()) {
                     vec![value]
                   } else {
                     unimplemented!()
@@ -90,15 +93,15 @@ impl Engine {
                   unimplemented!()
                 }
               }
-              None => table.keys().cloned().collect::<Vec<u8>>(),
+              None => table.keys().cloned().collect::<Vec<Int>>(),
               selection => unimplemented!(
                 "UNIMPLEMENTED HANDLING OF \n{:?}\n WHERE CLAUSE!",
                 selection
               )
             };
             let Assignment { value, .. } = &assignments[0];
-            let value = if let Expr::Value(Value::Number(v)) = value {
-              if let Ok(value) = u8::from_str(v) {
+            let value = if let Expr::Value(value) = value {
+              if let Ok(Type::Int(value)) = Type::try_from(value.clone()) {
                 value
               } else {
                 unimplemented!()
@@ -108,7 +111,7 @@ impl Engine {
             };
             for key in keys {
               if let Some(old_value) = table.get_mut(&key) {
-                *old_value = vec![value];
+                *old_value = bincode::serialize(&value).unwrap();
               }
             }
             Ok(EngineEvent::RecordsUpdated)
@@ -122,8 +125,8 @@ impl Engine {
           Some(table) => {
             let keys = match selection {
               Some(Expr::BinaryOp { right, .. }) => {
-                if let Expr::Value(Value::Number(v)) = right.deref() {
-                  if let Ok(value) = u8::from_str(v) {
+                if let Expr::Value(value) = right.deref() {
+                  if let Ok(Type::Int(value)) = Type::try_from(value.clone()) {
                     vec![value]
                   } else {
                     unimplemented!()
@@ -132,7 +135,7 @@ impl Engine {
                   unimplemented!()
                 }
               }
-              None => table.keys().cloned().collect(),
+              None => table.keys().cloned().collect::<Vec<Int>>(),
               _ => unimplemented!()
             };
             for key in keys {
@@ -158,8 +161,8 @@ impl Engine {
                 Some(Expr::BinaryOp { left: _, op, right }) => {
                   match op {
                     BinaryOperator::Eq => {
-                      if let Expr::Value(Value::Number(v)) = right.deref() {
-                        if let Ok(value) = u8::from_str(v) {
+                      if let Expr::Value(value) = right.deref() {
+                        if let Ok(Type::Int(value)) = Type::try_from(value.clone()) {
                           table.get(&value)
                               .ok_or_else(|| ErrorEvent::UnimplementedBranch("UNIMPLEMENTED HANDLING OF NO INSERTED VALUE".to_owned()))
                               .map(|record| EngineEvent::RecordsSelected(vec![record.clone()]))
@@ -177,8 +180,8 @@ impl Engine {
                   }
                 }
                 Some(Expr::Between { negated, low, high, .. }) => {
-                  if let (Expr::Value(Value::Number(low)), Expr::Value(Value::Number(high))) = (low.deref(), high.deref()) {
-                    if let (Ok(low), Ok(high)) = (u8::from_str(low), u8::from_str(high)) {
+                  if let (Expr::Value(low), Expr::Value(high)) = (low.deref(), high.deref()) {
+                    if let (Ok(Type::Int(low)), Ok(Type::Int(high))) = (Type::try_from(low.clone()), Type::try_from(high.clone())) {
                       if *negated {
                         Ok(EngineEvent::RecordsSelected(table.range(..low).chain(table.range(high..).skip(1)).map(|(_key, value)| value).cloned().collect()))
                       } else {
@@ -197,16 +200,16 @@ impl Engine {
                 Some(Expr::InList { list, negated, .. }) => {
                   let mut records = vec![];
                   let set = list.iter().map(|item| {
-                    if let Expr::Value(Value::Number(v)) = item {
-                      if let Ok(value) = u8::from_str(v) {
+                    if let Expr::Value(value) = item {
+                      if let Ok(Type::Int(value)) = Type::try_from(value.clone()) {
                         value
                       } else {
-                        unimplemented!("UNIMPLEMENTED HANDLING OF STRING PARSING IN WHERE 'IN (x, y, z)' for {:?}", v)
+                        unimplemented!("UNIMPLEMENTED HANDLING OF STRING PARSING IN WHERE 'IN (x, y, z)' for {:?}", value)
                       }
                     } else {
                       unimplemented!("UNIMPLEMENTED HANDLING OF VALUES PARSING IN WHERE 'IN (x, y, z)' for {:?}", item)
                     }
-                  }).collect::<Vec<u8>>();
+                  }).collect::<Vec<Int>>();
                   for (key, record) in table.iter() {
                     if !*negated && set.contains(key) {
                       records.push(record.clone())
@@ -318,6 +321,7 @@ mod tests {
     use std::fmt::Display;
 
     use super::*;
+    use num_bigint::BigInt;
 
     const TABLE_NAME: &'static str = "simple_table";
     const COLUMN_NAME: &'static str = "int_column";
@@ -379,6 +383,10 @@ mod tests {
       engine.execute(format!("DELETE FROM {}", TABLE_NAME))
     }
 
+    fn int(val: i32) -> Vec<u8> {
+      bincode::serialize(&BigInt::from(val)).unwrap()
+    }
+
     #[test]
     fn insert_into_not_existed_table() {
       let mut engine = Engine::default();
@@ -426,7 +434,7 @@ mod tests {
 
       assert_eq!(insert_value(&mut engine, 1), Ok(EngineEvent::RecordInserted));
 
-      assert_eq!(select_value(&mut engine, 1), Ok(EngineEvent::RecordsSelected(vec![vec![1]])));
+      assert_eq!(select_value(&mut engine, 1), Ok(EngineEvent::RecordsSelected(vec![int(1)])));
     }
 
     #[test]
@@ -438,7 +446,7 @@ mod tests {
       assert_eq!(insert_value(&mut engine, 2), Ok(EngineEvent::RecordInserted));
       assert_eq!(insert_value(&mut engine, 3), Ok(EngineEvent::RecordInserted));
 
-      assert_eq!(select_value(&mut engine, 2), Ok(EngineEvent::RecordsSelected(vec![vec![2]])));
+      assert_eq!(select_value(&mut engine, 2), Ok(EngineEvent::RecordsSelected(vec![int(2)])));
     }
 
     #[test]
@@ -450,7 +458,7 @@ mod tests {
       assert_eq!(insert_value(&mut engine, 2), Ok(EngineEvent::RecordInserted));
       assert_eq!(insert_value(&mut engine, 3), Ok(EngineEvent::RecordInserted));
 
-      assert_eq!(select_all(&mut engine), Ok(EngineEvent::RecordsSelected(vec![vec![1], vec![2], vec![3]])));
+      assert_eq!(select_all(&mut engine), Ok(EngineEvent::RecordsSelected(vec![int(1), int(2), int(3)])));
     }
 
     #[test]
@@ -463,7 +471,7 @@ mod tests {
       assert_eq!(insert_value(&mut engine, 3), Ok(EngineEvent::RecordInserted));
 
       assert_eq!(update_value(&mut engine, 4, 2), Ok(EngineEvent::RecordsUpdated));
-      assert_eq!(select_all(&mut engine), Ok(EngineEvent::RecordsSelected(vec![vec![1], vec![4], vec![3]])));
+      assert_eq!(select_all(&mut engine), Ok(EngineEvent::RecordsSelected(vec![int(1), int(4), int(3)])));
     }
 
     #[test]
@@ -476,7 +484,7 @@ mod tests {
       assert_eq!(insert_value(&mut engine, 3), Ok(EngineEvent::RecordInserted));
 
       assert_eq!(update_all(&mut engine), Ok(EngineEvent::RecordsUpdated));
-      assert_eq!(select_all(&mut engine), Ok(EngineEvent::RecordsSelected(vec![vec![100], vec![100], vec![100]])));
+      assert_eq!(select_all(&mut engine), Ok(EngineEvent::RecordsSelected(vec![int(100), int(100), int(100)])));
     }
 
     #[test]
@@ -489,7 +497,7 @@ mod tests {
       assert_eq!(insert_value(&mut engine, 3), Ok(EngineEvent::RecordInserted));
 
       assert_eq!(delete_value(&mut engine, 2), Ok(EngineEvent::RecordsDeleted));
-      assert_eq!(select_all(&mut engine), Ok(EngineEvent::RecordsSelected(vec![vec![1], vec![3]])));
+      assert_eq!(select_all(&mut engine), Ok(EngineEvent::RecordsSelected(vec![int(1), int(3)])));
     }
 
     #[test]
@@ -518,7 +526,7 @@ mod tests {
 
       assert_eq!(
         select_between(&mut engine, 2, 4),
-        Ok(EngineEvent::RecordsSelected(vec![vec![2], vec![3], vec![4]]))
+        Ok(EngineEvent::RecordsSelected(vec![int(2), int(3), int(4)]))
       );
     }
 
@@ -535,7 +543,7 @@ mod tests {
 
       assert_eq!(
         select_not_between(&mut engine, 2, 4),
-        Ok(EngineEvent::RecordsSelected(vec![vec![1], vec![5]]))
+        Ok(EngineEvent::RecordsSelected(vec![int(1), int(5)]))
       );
     }
 
@@ -552,7 +560,7 @@ mod tests {
 
       assert_eq!(
         select_in(&mut engine, 1, 3, 5),
-        Ok(EngineEvent::RecordsSelected(vec![vec![1], vec![3], vec![5]]))
+        Ok(EngineEvent::RecordsSelected(vec![int(1), int(3), int(5)]))
       )
     }
 
@@ -569,7 +577,7 @@ mod tests {
 
       assert_eq!(
         select_not_in(&mut engine, 1, 3, 5),
-        Ok(EngineEvent::RecordsSelected(vec![vec![2], vec![4]]))
+        Ok(EngineEvent::RecordsSelected(vec![int(2), int(4)]))
       )
     }
 
@@ -605,7 +613,7 @@ mod tests {
 
       assert_eq!(
         select_with_or(&mut engine, 1, 3),
-        Ok(EngineEvent::RecordsSelected(vec![vec![1], vec![3]]))
+        Ok(EngineEvent::RecordsSelected(vec![int(1), int(3)]))
       )
     }
   }
