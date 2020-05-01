@@ -1,12 +1,14 @@
 use std::collections::{BTreeMap, HashMap};
-use std::fmt::Debug;
+use std::convert::TryFrom;
+use std::fmt::{self, Debug, Display};
 use std::ops::Deref;
 
 use sqlparser::ast::{Assignment, BinaryOperator, Expr, Query, Select, SetExpr, Statement, TableFactor, TableWithJoins};
 use sqlparser::dialect::GenericDialect;
 use sqlparser::parser::Parser;
-use crate::types::{Type, Int};
-use std::convert::TryFrom;
+
+use crate::types::{Int, Type, TypeError};
+use serde::export::Formatter;
 
 pub type ExecutionResult = Result<EngineEvent, ErrorEvent>;
 
@@ -26,6 +28,16 @@ pub enum ErrorEvent {
   TableDoesNotExist(String),
 }
 
+impl Display for ErrorEvent {
+  fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+    match self {
+      ErrorEvent::TableAlreadyExists(table_name) => write!(f, "{}", table_name),
+      ErrorEvent::UnimplementedBranch(error) => write!(f, "{}", error),
+      ErrorEvent::TableDoesNotExist(table_name) => write!(f, "{}", table_name)
+    }
+  }
+}
+
 pub struct Engine {
   dialect: GenericDialect,
   tables: HashMap<String, BTreeMap<Int, Vec<u8>>>,
@@ -34,7 +46,10 @@ pub struct Engine {
 impl Engine {
   #[allow(clippy::cognitive_complexity)] // TODO simplify SQL execution
   pub fn execute(&mut self, sql: String) -> ExecutionResult {
-    let mut statements = Parser::parse_sql(&self.dialect, sql).unwrap();
+    let mut statements = match Parser::parse_sql(&self.dialect, sql) {
+      Ok(ok) => ok,
+      Err(error) => return Err(ErrorEvent::UnimplementedBranch(format!("{:?}", error)))
+    };
     match statements.pop() {
       Some(Statement::CreateTable { name, .. }) => {
         let table_name = name.to_string();
@@ -59,19 +74,31 @@ impl Engine {
                   table.insert(value, encoded);
                   Ok(EngineEvent::RecordInserted)
                 } else {
-                  unimplemented!(
-                    "UNIMPLEMENTED HANDLING OF STRING PARSING \n{:?}\n IN \"INSERT INTO <table> VALUES (v)\"",
-                    value
+                  Err(
+                    ErrorEvent::UnimplementedBranch(
+                      format!(
+                        "UNIMPLEMENTED HANDLING OF STRING PARSING \n{:?}\n IN \"INSERT INTO <table> VALUES (v)\"",
+                        value
+                      )
+                    )
                   )
                 }
               } else {
-                unimplemented!(
-                  "UNIMPLEMENTED HANDLING OF PARSING \n{:?}\n IN \"INSERT INTO <table> VALUES (v)\"",
-                  values
+                Err(
+                  ErrorEvent::UnimplementedBranch(
+                    format!(
+                      "UNIMPLEMENTED HANDLING OF PARSING \n{:?}\n IN \"INSERT INTO <table> VALUES (v)\"",
+                      values
+                    )
+                  )
                 )
               }
             } else {
-              unimplemented!("UNIMPLEMENTED HANDLING OF VALUES INSERTION \n{:?}\n", source)
+              Err(
+                ErrorEvent::UnimplementedBranch(
+                  format!("UNIMPLEMENTED HANDLING OF VALUES INSERTION \n{:?}\n", source)
+                )
+              )
             }
           }
         }
@@ -84,30 +111,55 @@ impl Engine {
             let keys = match selection {
               Some(Expr::BinaryOp { right, .. }) => {
                 if let Expr::Value(value) = right.deref() {
-                  if let Ok(Type::Int(value)) = Type::try_from(value.clone()) {
-                    vec![value]
-                  } else {
-                    unimplemented!()
+                  match Type::try_from(value.clone()) {
+                    Ok(Type::Int(value)) => vec![value],
+                    Ok(sql_type) =>
+                      return Err(
+                        ErrorEvent::UnimplementedBranch(
+                          format!("{:?} is not supported yet", sql_type)
+                        )
+                      ),
+                    Err(TypeError::Unsupported(message)) =>
+                      return Err(ErrorEvent::UnimplementedBranch(message))
                   }
                 } else {
-                  unimplemented!()
+                  return Err(
+                    ErrorEvent::UnimplementedBranch(
+                      format!("Non value RHS type {:?} is not supported", right)
+                    )
+                  );
                 }
               }
               None => table.keys().cloned().collect::<Vec<Int>>(),
-              selection => unimplemented!(
-                "UNIMPLEMENTED HANDLING OF \n{:?}\n WHERE CLAUSE!",
-                selection
-              )
+              selection =>
+                return Err(
+                  ErrorEvent::UnimplementedBranch(
+                    format!(
+                      "UNIMPLEMENTED HANDLING OF \n{:?}\n WHERE CLAUSE!",
+                      selection
+                    )
+                  )
+                )
             };
             let Assignment { value, .. } = &assignments[0];
             let value = if let Expr::Value(value) = value {
-              if let Ok(Type::Int(value)) = Type::try_from(value.clone()) {
-                value
-              } else {
-                unimplemented!()
+              match Type::try_from(value.clone()) {
+                Ok(Type::Int(value)) => value,
+                Ok(sql_type) =>
+                  return Err(
+                    ErrorEvent::UnimplementedBranch(
+                      format!("{:?} is not supported yet", sql_type)
+                    )
+                  ),
+                Err(TypeError::Unsupported(message)) =>
+                  return Err(ErrorEvent::UnimplementedBranch(message))
               }
             } else {
-              unimplemented!()
+              return Err(
+                ErrorEvent::UnimplementedBranch(
+                  format!("Non value RHS type {:?} is not supported", value)
+                )
+              );
             };
             for key in keys {
               if let Some(old_value) = table.get_mut(&key) {
@@ -126,17 +178,35 @@ impl Engine {
             let keys = match selection {
               Some(Expr::BinaryOp { right, .. }) => {
                 if let Expr::Value(value) = right.deref() {
-                  if let Ok(Type::Int(value)) = Type::try_from(value.clone()) {
-                    vec![value]
-                  } else {
-                    unimplemented!()
+                  match Type::try_from(value.clone()) {
+                    Ok(Type::Int(value)) => vec![value],
+                    Ok(sql_type) =>
+                      return Err(
+                        ErrorEvent::UnimplementedBranch(
+                          format!("{:?} is not supported yet", sql_type)
+                        )
+                      ),
+                    Err(TypeError::Unsupported(message)) =>
+                      return Err(ErrorEvent::UnimplementedBranch(message))
                   }
                 } else {
-                  unimplemented!()
+                  return Err(
+                    ErrorEvent::UnimplementedBranch(
+                      format!("Non value RHS type {:?} is not supported", right)
+                    )
+                  );
                 }
               }
               None => table.keys().cloned().collect::<Vec<Int>>(),
-              _ => unimplemented!()
+              selection =>
+                return Err(
+                  ErrorEvent::UnimplementedBranch(
+                    format!(
+                      "UNIMPLEMENTED HANDLING OF \n{:?}\n WHERE CLAUSE!",
+                      selection
+                    )
+                  )
+                )
             };
             for key in keys {
               table.remove(&key);
@@ -152,7 +222,12 @@ impl Engine {
           let TableWithJoins { relation, .. } = &from[0];
           let table_name = match relation {
             TableFactor::Table { name, .. } => name.to_string(),
-            _ => unimplemented!("UNIMPLEMENTED SELECTION FROM MULTIPLE TABLES \n{:?}\n", relation)
+            _ =>
+              return Err(
+                ErrorEvent::UnimplementedBranch(
+                  format!("UNIMPLEMENTED SELECTION FROM MULTIPLE TABLES \n{:?}\n", relation)
+                )
+              )
           };
           match self.tables.get(&table_name) {
             None => Err(ErrorEvent::TableDoesNotExist(table_name)),
@@ -167,16 +242,29 @@ impl Engine {
                               .ok_or_else(|| ErrorEvent::UnimplementedBranch("UNIMPLEMENTED HANDLING OF NO INSERTED VALUE".to_owned()))
                               .map(|record| EngineEvent::RecordsSelected(vec![record.clone()]))
                         } else {
-                          unimplemented!(
-                            "UNIMPLEMENTED HANDLING OF STRING PARSING \n{:?}\n IN WHERE X = RIGHT!",
-                            right
-                          )
+                          return Err(
+                            ErrorEvent::UnimplementedBranch(
+                              format!(
+                                "UNIMPLEMENTED HANDLING OF STRING PARSING \n{:?}\n IN WHERE X = RIGHT!",
+                                right
+                              )
+                            )
+                          );
                         }
                       } else {
-                        unimplemented!("UNIMPLEMENTED HANDLING OF \n{:?}\n IN WHERE X = RIGHT!", right)
+                        return Err(
+                          ErrorEvent::UnimplementedBranch(
+                            format!("UNIMPLEMENTED HANDLING OF \n{:?}\n IN WHERE X = RIGHT!", right)
+                          )
+                        );
                       }
                     }
-                    operator => unimplemented!("UNIMPLEMENTED HANDLING OF OPERATOR \n{:?}\n IN WHERE CLAUSE", operator)
+                    operator =>
+                      return Err(
+                        ErrorEvent::UnimplementedBranch(
+                          format!("UNIMPLEMENTED HANDLING OF OPERATOR \n{:?}\n IN WHERE CLAUSE", operator)
+                        )
+                      )
                   }
                 }
                 Some(Expr::Between { negated, low, high, .. }) => {
@@ -188,28 +276,45 @@ impl Engine {
                         Ok(EngineEvent::RecordsSelected(table.range(low..=high).map(|(_key, value)| value).cloned().collect()))
                       }
                     } else {
-                      unimplemented!(
-                        "UNIMPLEMENTED HANDLING OF STRING PARSING \n IN WHERE BETWEEN {:?} AND {:?}",
-                        low, high
-                      )
+                      return Err(
+                        ErrorEvent::UnimplementedBranch(
+                          format!(
+                            "UNIMPLEMENTED HANDLING OF STRING PARSING \n IN WHERE BETWEEN {:?} AND {:?}",
+                            low, high
+                          )
+                        )
+                      );
                     }
                   } else {
-                    unimplemented!("UNIMPLEMENTED HANDLING OF \n IN WHERE BETWEEN {:?} AND {:?}", low, high)
+                    return Err(
+                      ErrorEvent::UnimplementedBranch(
+                        format!("UNIMPLEMENTED HANDLING OF \n IN WHERE BETWEEN {:?} AND {:?}", low, high)
+                      )
+                    );
                   }
                 }
                 Some(Expr::InList { list, negated, .. }) => {
                   let mut records = vec![];
-                  let set = list.iter().map(|item| {
+                  let mut set = Vec::new();
+                  for item in list {
                     if let Expr::Value(value) = item {
                       if let Ok(Type::Int(value)) = Type::try_from(value.clone()) {
-                        value
+                        set.push(value)
                       } else {
-                        unimplemented!("UNIMPLEMENTED HANDLING OF STRING PARSING IN WHERE 'IN (x, y, z)' for {:?}", value)
+                        return Err(
+                          ErrorEvent::UnimplementedBranch(
+                            format!("UNIMPLEMENTED HANDLING OF STRING PARSING IN WHERE 'IN (x, y, z)' for {:?}", value)
+                          )
+                        );
                       }
                     } else {
-                      unimplemented!("UNIMPLEMENTED HANDLING OF VALUES PARSING IN WHERE 'IN (x, y, z)' for {:?}", item)
+                      return Err(
+                        ErrorEvent::UnimplementedBranch(
+                          format!("UNIMPLEMENTED HANDLING OF VALUES PARSING IN WHERE 'IN (x, y, z)' for {:?}", item)
+                        )
+                      );
                     }
-                  }).collect::<Vec<Int>>();
+                  }
                   for (key, record) in table.iter() {
                     if !*negated && set.contains(key) {
                       records.push(record.clone())
@@ -224,18 +329,30 @@ impl Engine {
                   let copy = table.values().cloned().collect();
                   Ok(EngineEvent::RecordsSelected(copy))
                 }
-                selection => unimplemented!(
-                  "UNIMPLEMENTED HANDLING OF \n{:?}\n WHERE CLAUSE!",
-                  selection
+                selection => return Err(
+                  ErrorEvent::UnimplementedBranch(
+                    format!(
+                      "UNIMPLEMENTED HANDLING OF \n{:?}\n WHERE CLAUSE!",
+                      selection
+                    )
+                  )
                 )
               }
             }
           }
         } else {
-          unimplemented!("UNIMPLEMENTED HANDLING OF \n{:?}\n SELECT QUERY!", query)
+          return Err(
+            ErrorEvent::UnimplementedBranch(
+              format!("UNIMPLEMENTED HANDLING OF \n{:?}\n SELECT QUERY!", query)
+            )
+          );
         }
       }
-      statement => unimplemented!("UNIMPLEMENTED HANDLING OF \n{:?}\n STATEMENT!", statement)
+      statement => return Err(
+        ErrorEvent::UnimplementedBranch(
+          format!("UNIMPLEMENTED HANDLING OF \n{:?}\n STATEMENT!", statement)
+        )
+      )
     }
   }
 }
@@ -320,8 +437,9 @@ mod tests {
   mod data_manipulation_language {
     use std::fmt::Display;
 
-    use super::*;
     use num_bigint::BigInt;
+
+    use super::*;
 
     const TABLE_NAME: &'static str = "simple_table";
     const COLUMN_NAME: &'static str = "int_column";
