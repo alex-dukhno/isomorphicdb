@@ -266,31 +266,20 @@ impl Engine {
             Some(Expr::Between { negated, low, high, .. }) => {
               if let (Expr::Value(low), Expr::Value(high)) = (low.deref(), high.deref()) {
                 if let (Ok(Type::Int(low)), Ok(Type::Int(high))) = (Type::try_from(low.clone()), Type::try_from(high.clone())) {
+                  let mut between = Where::Between(Type::Int(low.clone()), Type::Int(high.clone()));
                   if *negated {
-                    self.storage.select(&table_name, Where::Not(Box::new(Where::Between(Type::Int(low.clone()), Type::Int(high.clone())))))
-                        .map(|records| EngineEvent::RecordsSelected(records))
-                        .map_err(|_| {
-                          ErrorEvent::UnimplementedBranch(
-                            format!(
-                              "UNIMPLEMENTED HANDLING OF STRING PARSING \n IN WHERE BETWEEN {:?} AND {:?}",
-                              low, high
-                            )
-                          )
-                        })
-                    // Ok(EngineEvent::RecordsSelected(table.range(..low).chain(table.range(high..).skip(1)).map(|(_key, value)| value).cloned().collect()))
-                  } else {
-                    self.storage.select(&table_name, Where::Between(Type::Int(low.clone()), Type::Int(high.clone())))
-                        .map(|records| EngineEvent::RecordsSelected(records))
-                        .map_err(|_| {
-                          ErrorEvent::UnimplementedBranch(
-                            format!(
-                              "UNIMPLEMENTED HANDLING OF STRING PARSING \n IN WHERE BETWEEN {:?} AND {:?}",
-                              low, high
-                            )
-                          )
-                        })
-                    // Ok(EngineEvent::RecordsSelected(table.range(low..=high).map(|(_key, value)| value).cloned().collect()))
+                    between = Where::Not(Box::new(between));
                   }
+                  self.storage.select(&table_name, between)
+                      .map(|records| EngineEvent::RecordsSelected(records))
+                      .map_err(|_| {
+                        ErrorEvent::UnimplementedBranch(
+                          format!(
+                            "UNIMPLEMENTED HANDLING OF STRING PARSING \n IN WHERE BETWEEN {:?} AND {:?}",
+                            low, high
+                          )
+                        )
+                      })
                 } else {
                   return Err(
                     ErrorEvent::UnimplementedBranch(
@@ -330,29 +319,20 @@ impl Engine {
                   );
                 }
               }
-              if !*negated {
-                self.storage.select(&table_name, Where::Not(Box::new(Where::In(set))))
-                    .map(|records| EngineEvent::RecordsSelected(records))
-                    .map_err(|_| {
-                      ErrorEvent::UnimplementedBranch(
-                        format!(
-                          "UNIMPLEMENTED HANDLING OF \n{:?}\n WHERE CLAUSE!",
-                          selection
-                        )
-                      )
-                    })
-              } else {
-                self.storage.select(&table_name, Where::Not(Box::new(Where::In(set))))
-                    .map(|records| EngineEvent::RecordsSelected(records))
-                    .map_err(|_| {
-                      ErrorEvent::UnimplementedBranch(
-                        format!(
-                          "UNIMPLEMENTED HANDLING OF \n{:?}\n WHERE CLAUSE!",
-                          selection
-                        )
-                      )
-                    })
+              let mut in_list = Where::In(set);
+              if *negated {
+                in_list = Where::Not(Box::new(in_list));
               }
+              self.storage.select(&table_name, in_list)
+                  .map(|records| EngineEvent::RecordsSelected(records))
+                  .map_err(|_| {
+                    ErrorEvent::UnimplementedBranch(
+                      format!(
+                        "UNIMPLEMENTED HANDLING OF \n{:?}\n WHERE CLAUSE!",
+                        selection
+                      )
+                    )
+                  })
             }
             None => {
               self.storage.select(&table_name, Where::None)
@@ -553,6 +533,7 @@ mod tests {
       )
     }
 
+    #[ignore] // TODO define different errors for storage actions
     #[test]
     fn select_from_not_existed_table() {
       let mut engine = Engine::default();

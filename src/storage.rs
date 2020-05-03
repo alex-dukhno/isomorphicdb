@@ -3,6 +3,7 @@ use std::collections::{HashMap, BTreeMap};
 use num_bigint::BigInt;
 
 use crate::types::{Int, Type};
+use std::ops::Deref;
 
 pub fn in_memory() -> impl Storage {
   InMemoryStorage::default()
@@ -86,9 +87,19 @@ impl Storage for InMemoryStorage {
             Where::Equal(value) => {
               data.get(&value).cloned().map(|v| vec![v]).unwrap_or(vec![])
             },
-            Where::Between(left, right) => unimplemented!(),
-            Where::In(values) => unimplemented!(),
-            Where::Not(predicate) => unimplemented!(),
+            Where::Between(low, high) => {
+              data.range(low..=high).map(|(_key, value)| value).cloned().collect()
+            },
+            Where::In(values) => data.values().filter(|value| values.contains(&value[0])).cloned().collect(),
+            Where::Not(predicate) => {
+              if let Where::Between(low, high) = predicate.deref() {
+                data.range(..low).chain(data.range(high..).skip(1)).map(|(_key, value)| value).cloned().collect()
+              } else if let Where::In(values) = predicate.deref() {
+                data.values().filter(|value| !values.contains(&value[0])).cloned().collect()
+              } else {
+                vec![]
+              }
+            },
             Where::None => data.values().cloned().collect()
           }
         }).ok_or_else(|| ())
