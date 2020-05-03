@@ -142,9 +142,6 @@ mod tests {
       )
     }
 
-    // TODO: bincode does not support deserialize_any enable after
-    //       https://github.com/akubera/bigdecimal-rs/pull/51 is merged or use fork
-    #[ignore]
     #[test]
     fn decimal_value_serialize_deserialize() {
       assert_eq!(
