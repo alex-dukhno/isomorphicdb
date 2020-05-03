@@ -18,7 +18,7 @@ impl Int {
   }
 }
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Clone, Ord, Serialize, Deserialize)]
 pub struct Decimal {
   value: BigDecimal
 }
@@ -29,7 +29,7 @@ impl Decimal {
   }
 }
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Clone, Ord, Serialize, Deserialize)]
 pub struct VarChar {
   value: String
 }
@@ -46,7 +46,7 @@ impl From<&str> for VarChar {
   }
 }
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub enum Type {
   Int(Int),
   Decimal(Decimal),

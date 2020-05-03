@@ -11,6 +11,7 @@ use std::collections::HashMap;
 
 
 use database::engine::{Engine, EngineEvent};
+use database::types::Type;
 
 const PORT: usize = 7000;
 const NETWORK_BUFFER_SIZE: usize = 256;
@@ -97,7 +98,17 @@ fn main() -> io::Result<()> {
                         stream.write_all(vec![3 as u8].as_slice())?;
                         stream.write_all(vec![records.len() as u8].as_slice())?;
                         for record in records {
-                          stream.write_all(record.as_slice())?;
+                          let r = record.into_iter()
+                              .map(|sql_type| {
+                                match sql_type {
+                                  Type::Int(value) => bincode::serialize(&value).unwrap(),
+                                  Type::Decimal(value) => bincode::serialize(&value).unwrap(),
+                                  Type::VarChar(value) => bincode::serialize(&value).unwrap()
+                                }
+                              })
+                              .flat_map(|v| v.into_iter())
+                              .collect::<Vec<u8>>();
+                          stream.write_all(r.as_slice())?;
                         }
                       }
                     }
