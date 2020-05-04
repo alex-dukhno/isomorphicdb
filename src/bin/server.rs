@@ -2,13 +2,12 @@
 extern crate log;
 extern crate pretty_env_logger;
 
+use std::collections::HashMap;
 use std::io;
 use std::io::{Read, Write};
-use mio::net::{TcpListener, TcpStream};
 
 use mio::{Events, Interest, Poll, Token};
-use std::collections::HashMap;
-
+use mio::net::{TcpListener, TcpStream};
 
 use database::engine::{Engine, EngineEvent};
 use database::types::Type;
@@ -33,7 +32,8 @@ fn main() -> io::Result<()> {
   info!("SQL engine has been created");
 
   poll.registry()
-      .register(&mut server, SERVER, Interest::READABLE).unwrap();
+      .register(&mut server, SERVER, Interest::READABLE)
+      .unwrap();
 
   let mut buffer = [0 as u8; NETWORK_BUFFER_SIZE];
   info!("Network buffer of {} size created", NETWORK_BUFFER_SIZE);
@@ -57,84 +57,95 @@ fn main() -> io::Result<()> {
                       &mut stream,
                       token,
                       Interest::READABLE | Interest::WRITABLE,
-                    ).unwrap();
+                    )
+                    .unwrap();
 
                 sockets.insert(token, stream);
-              },
+              }
               Err(e) if e.kind() == io::ErrorKind::WouldBlock => break,
-              Err(e) => panic!("Unexpected error: {}", e)
+              Err(e) => panic!("Unexpected error: {}", e),
             }
           }
         }
-        token if event.is_readable() => {
-          loop {
-            let read = sockets.get_mut(&token).unwrap().read(&mut buffer);
-            match read {
-              Ok(0) => {
-                sockets.remove(&token);
-                break;
-              }
-              Ok(len) => {
-                if let Some(stream) = sockets.get_mut(&token) {
-                  trace!("{} bytes read from network connection", len);
-                  let query = String::from_utf8(buffer[0..len].to_vec()).unwrap();
-                  debug!("Received query {}", query);
-                  let query_execution_result = engine.execute(query);
-                  debug!("Query execution result");
-                  debug!("{:?}", query_execution_result);
-                  match query_execution_result {
-                    Ok(engine_event) => match engine_event {
-                      EngineEvent::TableCreated(table_name) => {
-                        stream.write_all(vec![1 as u8].as_slice())?;
-                        stream.write_all(format!("Table {} was created", table_name).as_bytes())?;
-                      }
-                      EngineEvent::RecordInserted
-                      | EngineEvent::RecordsUpdated
-                      | EngineEvent::RecordsDeleted => {
-                        stream.write_all(vec![2 as u8].as_slice())?;
-                        stream.write_all("done".as_bytes())?;
-                      }
-                      EngineEvent::RecordsSelected(records) => {
-                        stream.write_all(vec![3 as u8].as_slice())?;
-                        stream.write_all(vec![records.len() as u8].as_slice())?;
-                        for record in records {
-                          let r = record.into_iter()
-                              .map(|sql_type| {
-                                match sql_type {
-                                  Type::Int(value) => bincode::serialize(&value).unwrap(),
-                                  Type::Decimal(value) => bincode::serialize(&value).unwrap(),
-                                  Type::VarChar(value) => bincode::serialize(&value).unwrap()
-                                }
-                              })
-                              .flat_map(|v| v.into_iter())
-                              .collect::<Vec<u8>>();
-                          stream.write_all(r.as_slice())?;
-                        }
+        token if event.is_readable() => loop {
+          let read = sockets.get_mut(&token).unwrap().read(&mut buffer);
+          match read {
+            Ok(0) => {
+              sockets.remove(&token);
+              break;
+            }
+            Ok(len) => {
+              if let Some(stream) = sockets.get_mut(&token) {
+                trace!("{} bytes read from network connection", len);
+                let query = String::from_utf8(buffer[0..len].to_vec()).unwrap();
+                debug!("Received query {}", query);
+                let query_execution_result = engine.execute(query);
+                debug!("Query execution result");
+                debug!("{:?}", query_execution_result);
+                match query_execution_result {
+                  Ok(engine_event) => match engine_event {
+                    EngineEvent::TableCreated(table_name) => {
+                      stream.write_all(vec![1 as u8].as_slice())?;
+                      stream.write_all(
+                        format!("Table {} was created", table_name)
+                            .as_bytes(),
+                      )?;
+                    }
+                    EngineEvent::RecordInserted
+                    | EngineEvent::RecordsUpdated
+                    | EngineEvent::RecordsDeleted => {
+                      stream.write_all(vec![2 as u8].as_slice())?;
+                      stream.write_all("done".as_bytes())?;
+                    }
+                    EngineEvent::RecordsSelected(records) => {
+                      stream.write_all(vec![3 as u8].as_slice())?;
+                      stream
+                          .write_all(vec![records.len() as u8].as_slice())?;
+                      for record in records {
+                        let r = record
+                            .into_iter()
+                            .map(|sql_type| match sql_type {
+                              Type::Int(value) => {
+                                bincode::serialize(&value).unwrap()
+                              }
+                              Type::Decimal(value) => {
+                                bincode::serialize(&value).unwrap()
+                              }
+                              Type::VarChar(value) => {
+                                bincode::serialize(&value).unwrap()
+                              }
+                            })
+                            .flat_map(|v| v.into_iter())
+                            .collect::<Vec<u8>>();
+                        stream.write_all(r.as_slice())?;
                       }
                     }
-                    Err(e) => {
-                      stream.write_all(vec![u8::MAX].as_slice())?;
-                      stream.write_all(format!("ERROR: {}", e).as_bytes())?;
-                    }
+                  },
+                  Err(e) => {
+                    stream.write_all(vec![u8::MAX].as_slice())?;
+                    stream.write_all(format!("ERROR: {}", e).as_bytes())?;
                   }
-                  stream.flush()?;
                 }
+                stream.flush()?;
               }
-              Err(e) if e.kind() == io::ErrorKind::WouldBlock => break,
-              Err(e) => panic!("Unexpected error: {}", e)
+            }
+            Err(e) if e.kind() == io::ErrorKind::WouldBlock => break,
+            Err(e) => panic!("Unexpected error: {}", e),
+          }
+        },
+        token if event.is_writable() => match responses.remove(&token) {
+          Some(response) => {
+            for r in response {
+              sockets
+                  .get_mut(&token)
+                  .unwrap()
+                  .write_all(r.as_slice())
+                  .unwrap()
             }
           }
-        }
-        token if event.is_writable() => {
-          match responses.remove(&token) {
-            Some(response) =>
-              for r in response {
-                sockets.get_mut(&token).unwrap().write_all(r.as_slice()).unwrap()
-              }
-            None => {}
-          }
-        }
-        token => panic!("Encountered unsupported TOKEN {:?}", token)
+          None => {}
+        },
+        token => panic!("Encountered unsupported TOKEN {:?}", token),
       }
     }
   }

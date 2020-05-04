@@ -2,13 +2,15 @@
 extern crate log;
 extern crate pretty_env_logger;
 
-use std::io;
-use std::io::{Read, Write, BufRead};
-use std::net::TcpStream;
-use bincode::ErrorKind;
-use database::types::Int;
 use std::borrow::{Borrow, BorrowMut};
+use std::io;
+use std::io::{BufRead, Read, Write};
+use std::net::TcpStream;
 use std::string::FromUtf8Error;
+
+use bincode::ErrorKind;
+
+use database::types::Int;
 
 const NETWORK_BUFFER_SIZE: usize = 1024;
 
@@ -28,7 +30,6 @@ fn main() -> io::Result<()> {
   let mut handle = stdin.lock();
 
   loop {
-
     handle.read_line(&mut command)?; // TODO error handling
     debug!("typed command {:?}", command);
 
@@ -37,7 +38,6 @@ fn main() -> io::Result<()> {
     }
 
     buffer.send(command.trim().as_bytes())?; // TODO error handling
-
 
     debug!("command send to server");
 
@@ -48,22 +48,16 @@ fn main() -> io::Result<()> {
 
     match code {
       // SQL engine error
-      u8::MAX => {
-        println!("{:?}", buffer.content_as_string())
-      },
+      u8::MAX => println!("{:?}", buffer.content_as_string()),
       // Table has been created
-      1 => {
-        println!("{:?}", buffer.content_as_string())
-      },
+      1 => println!("{:?}", buffer.content_as_string()),
       // inserts, updates or deletes
-      2 => {
-        println!("{:?}", buffer.content_as_string())
-      },
+      2 => println!("{:?}", buffer.content_as_string()),
       // select
       3 => {
         println!("{:?}", buffer.content_as_string());
         // for _ in 0..size {
-          // let value: Result<Int, Box<ErrorKind>> = bincode::deserialize(&buffer[1..len]);
+        // let value: Result<Int, Box<ErrorKind>> = bincode::deserialize(&buffer[1..len]);
 
         // }
       }
@@ -82,7 +76,7 @@ struct Buffer<S: Read + Write> {
   bytes: [u8; NETWORK_BUFFER_SIZE],
   length: usize,
   consumed: usize,
-  source: S
+  source: S,
 }
 
 impl<S: Read + Write> Buffer<S> {
@@ -91,7 +85,7 @@ impl<S: Read + Write> Buffer<S> {
       bytes: [0 as u8; NETWORK_BUFFER_SIZE],
       length: 0,
       consumed: 0,
-      source
+      source,
     }
   }
 
@@ -101,11 +95,13 @@ impl<S: Read + Write> Buffer<S> {
   }
 
   pub fn wait(&mut self) -> io::Result<()> {
-    let result = self.source.read(self.bytes.borrow_mut())
-        .map(|len| {
-          self.length += len;
-        });
-    trace!("Received from server {:?}", self.bytes[self.consumed..self.length].borrow());
+    let result = self.source.read(self.bytes.borrow_mut()).map(|len| {
+      self.length += len;
+    });
+    trace!(
+      "Received from server {:?}",
+      self.bytes[self.consumed..self.length].borrow()
+    );
     result
   }
 

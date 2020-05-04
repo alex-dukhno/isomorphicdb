@@ -9,7 +9,7 @@ type AstTypeValue = Value;
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Serialize, Deserialize)]
 pub struct Int {
-  value: BigInt
+  value: BigInt,
 }
 
 impl Int {
@@ -20,7 +20,7 @@ impl Int {
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Clone, Ord, Serialize, Deserialize)]
 pub struct Decimal {
-  value: BigDecimal
+  value: BigDecimal,
 }
 
 impl Decimal {
@@ -31,7 +31,7 @@ impl Decimal {
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Clone, Ord, Serialize, Deserialize)]
 pub struct VarChar {
-  value: String
+  value: String,
 }
 
 impl VarChar {
@@ -55,7 +55,7 @@ pub enum Type {
 
 #[derive(Debug, PartialEq)]
 pub enum TypeError {
-  Unsupported(String)
+  Unsupported(String),
 }
 
 impl TryFrom<AstTypeValue> for Type {
@@ -72,7 +72,7 @@ impl TryFrom<AstTypeValue> for Type {
         }
       }
       Value::SingleQuotedString(value) => Ok(Type::VarChar(VarChar::new(value))),
-      ast_type => Err(TypeError::Unsupported(format!("{:?}", ast_type)))
+      ast_type => Err(TypeError::Unsupported(format!("{:?}", ast_type))),
     }
   }
 }
@@ -117,7 +117,8 @@ mod tests {
     fn integer_value_deserialize() {
       assert_eq!(
         Int::new(BigInt::from(100)),
-        bincode::deserialize(bincode::serialize(&BigInt::from(100)).unwrap().as_slice()).unwrap()
+        bincode::deserialize(bincode::serialize(&BigInt::from(100)).unwrap().as_slice())
+            .unwrap()
       )
     }
   }
@@ -130,7 +131,10 @@ mod tests {
     fn decimal_value() {
       assert_eq!(
         Type::try_from(decimal(1000, 1)),
-        Ok(Type::Decimal(Decimal::new(BigDecimal::new(BigInt::from(1000), 1))))
+        Ok(Type::Decimal(Decimal::new(BigDecimal::new(
+          BigInt::from(1000),
+          1,
+        ))))
       )
     }
 
@@ -146,7 +150,12 @@ mod tests {
     fn decimal_value_serialize_deserialize() {
       assert_eq!(
         Decimal::new(BigDecimal::new(BigInt::from(1000), 1)),
-        bincode::deserialize(bincode::serialize(&BigDecimal::new(BigInt::from(1000), 1)).unwrap().as_slice()).unwrap()
+        bincode::deserialize(
+          bincode::serialize(&BigDecimal::new(BigInt::from(1000), 1))
+              .unwrap()
+              .as_slice()
+        )
+            .unwrap()
       )
     }
   }
@@ -175,7 +184,8 @@ mod tests {
     fn characters_deserialize() {
       assert_eq!(
         VarChar::from("str"),
-        bincode::deserialize(bincode::serialize("str".as_bytes()).unwrap().as_slice()).unwrap()
+        bincode::deserialize(bincode::serialize("str".as_bytes()).unwrap().as_slice())
+            .unwrap()
       )
     }
   }
