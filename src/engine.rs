@@ -82,8 +82,13 @@ impl Engine {
                                 &table_name,
                                 vec![("int_column".to_owned(), Type::Int(value))],
                             ) {
-                                Err(()) => Err(ErrorEvent::TableDoesNotExist(table_name)),
-                                Ok(()) => Ok(EngineEvent::RecordInserted),
+                                Err(SqlError::TableDoesNotExists) => {
+                                    Err(ErrorEvent::TableDoesNotExist(table_name))
+                                }
+                                Ok(SqlResult::RecordInserted) => Ok(EngineEvent::RecordInserted),
+                                result => {
+                                    Err(ErrorEvent::UnimplementedBranch(format!("{:?}", result)))
+                                }
                             }
                         } else {
                             Err(
