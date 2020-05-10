@@ -5,13 +5,7 @@ authors = ["Alex Dukhno <alex.dukhno@icloud.com>"]
 edition = "2018"
 license = "Apache-2.0"
 
+[lib]
+name = "database"
+
 [dependencies]
-bigdecimal = { version = "0.1.2", features = ["serde", "string-only"] }
-bincode = "1.2.1"
-mio = { version = "0.7", features = ["os-poll", "tcp"] }
-num-bigint = { version = "0.2.6", features = ["serde"] }
-num-traits = "0.2.11"
-serde = { version = "1.0.106", features = ["derive"] }
-sqlparser = { version = "0.5.0", features = ["bigdecimal"] }
-pretty_env_logger = "0.4.0"
-log = "0.4.8"
