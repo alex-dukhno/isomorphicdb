@@ -1,3 +1,5 @@
+extern crate sql_query_engine;
+
 #[macro_use]
 extern crate log;
 extern crate pretty_env_logger;
@@ -9,8 +11,7 @@ use std::io::{Read, Write};
 use mio::net::{TcpListener, TcpStream};
 use mio::{Events, Interest, Poll, Token};
 
-use database::engine::{Engine, EngineEvent};
-use database::types::Type;
+use sql_query_engine::{Engine, EngineEvent};
 
 const PORT: usize = 7000;
 const NETWORK_BUFFER_SIZE: usize = 256;
@@ -102,21 +103,7 @@ fn main() -> io::Result<()> {
                                             stream
                                                 .write_all(vec![records.len() as u8].as_slice())?;
                                             for record in records {
-                                                let r = record
-                                                    .into_iter()
-                                                    .map(|sql_type| match sql_type {
-                                                        Type::Int(value) => {
-                                                            bincode::serialize(&value).unwrap()
-                                                        }
-                                                        Type::Decimal(value) => {
-                                                            bincode::serialize(&value).unwrap()
-                                                        }
-                                                        Type::VarChar(value) => {
-                                                            bincode::serialize(&value).unwrap()
-                                                        }
-                                                    })
-                                                    .flat_map(|v| v.into_iter())
-                                                    .collect::<Vec<u8>>();
+                                                let r = record.into_iter().collect::<Vec<u8>>();
                                                 stream.write_all(r.as_slice())?;
                                             }
                                         }
