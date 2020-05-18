@@ -8,4 +8,19 @@ license = "Apache-2.0"
 [lib]
 name = "database"
 
+[[bin]]
+name = "database"
+path = "src/bin.rs"
+
 [dependencies]
+smol = "0.1.4"
+futures = "0.3.4"
+piper = "0.1.1"
+pretty_env_logger = "0.4.0"
+log = "0.4.8"
+postgres-protocol = "0.5.1"
+byteorder = "1.0"
+bytes = "0.5"
+
+[dev-dependencies]
+postgres = "0.17.3"
