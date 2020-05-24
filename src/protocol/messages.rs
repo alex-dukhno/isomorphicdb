@@ -1,0 +1,174 @@
+use bytes::{Buf, BufMut, BytesMut};
+
+// const PARSE_COMPLETE: u8 = b'1';
+// const BIND_COMPLETE: u8 = b'2';
+// const CLOSE_COMPLETE: u8 = b'3';
+// const NOTIFICATION_RESPONSE: u8 = b'A';
+// const COPY_DONE: u8 = b'c';
+const COMMAND_COMPLETE: u8 = b'C';
+// const COPY_DATA: u8 = b'd';
+const DATA_ROW: u8 = b'D';
+// const ERROR_RESPONSE: u8 = b'E';
+// const COPY_IN_RESPONSE: u8 = b'G';
+// const COPY_OUT_RESPONSE: u8 = b'H';
+const EMPTY_QUERY_RESPONSE: u8 = b'I';
+// const BACKEND_KEY_DATA: u8 = b'K';
+// const NO_DATA: u8 = b'n';
+const NOTICE_RESPONSE: u8 = b'N';
+const AUTHENTICATION: u8 = b'R';
+// const PORTAL_SUSPENDED: u8 = b's';
+// const PARAMETER_STATUS: u8 = b'S';
+// const PARAMETER_DESCRIPTION: u8 = b't';
+const ROW_DESCRIPTION: u8 = b'T';
+const READY_FOR_QUERY: u8 = b'Z';
+
+pub enum Message {
+    Notice,
+    AuthenticationCleartextPassword,
+    AuthenticationOk,
+    ReadyForQuery,
+    DataRow(Vec<u8>),
+    RowDescription(Vec<(String, i32, i16)>),
+    CommandComplete,
+}
+
+impl Message {
+    pub fn as_vec(&self) -> Vec<u8> {
+        match self {
+            Message::Notice => vec![NOTICE_RESPONSE],
+            Message::AuthenticationCleartextPassword => {
+                vec![AUTHENTICATION, 0, 0, 0, 8, 0, 0, 0, 3]
+            }
+            Message::AuthenticationOk => vec![AUTHENTICATION, 0, 0, 0, 8, 0, 0, 0, 0],
+            Message::ReadyForQuery => vec![READY_FOR_QUERY, 0, 0, 0, 5, EMPTY_QUERY_RESPONSE],
+            Message::DataRow(row) => {
+                let mut row_buff = BytesMut::with_capacity(256);
+                for field in row.iter() {
+                    let as_string = format!("{}", field);
+                    row_buff.put_i32(as_string.len() as i32);
+                    row_buff.extend_from_slice(as_string.as_str().as_bytes());
+                }
+                let mut len_buff = BytesMut::new();
+                len_buff.put_u8(DATA_ROW);
+                len_buff.put_i32(6 + row_buff.len() as i32);
+                len_buff.put_i16(row.len() as i16);
+                len_buff.extend_from_slice(&row_buff);
+                len_buff.bytes().to_vec()
+            }
+            Message::RowDescription(description) => {
+                let mut buff = BytesMut::with_capacity(256);
+                for field in description.iter() {
+                    buff.put_slice(field.0.as_str().as_bytes());
+                    buff.put_u8(0); // end of c string
+                    buff.put_i32(0); // table id
+                    buff.put_i16(0); // column id
+                    buff.put_i32(field.1);
+                    buff.put_i16(field.2);
+                    buff.put_i32(-1); // type modifier
+                    buff.put_i16(0);
+                }
+                let mut len_buff = BytesMut::new();
+                len_buff.put_u8(ROW_DESCRIPTION);
+                len_buff.put_i32(6 + buff.len() as i32);
+                len_buff.put_i16(description.len() as i16);
+                len_buff.extend_from_slice(&buff);
+                len_buff.to_vec()
+            }
+            Message::CommandComplete => {
+                let command = b"SELECT\x00";
+                let mut command_buff = BytesMut::with_capacity(256);
+                command_buff.put_u8(COMMAND_COMPLETE);
+                command_buff.put_i32(4 + command.len() as i32);
+                command_buff.extend_from_slice(command);
+                command_buff.to_vec()
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod serialized_messages {
+    use super::*;
+
+    #[test]
+    fn notice() {
+        assert_eq!(Message::Notice.as_vec(), vec![NOTICE_RESPONSE]);
+    }
+
+    #[test]
+    fn authentication_cleartext_password() {
+        assert_eq!(
+            Message::AuthenticationCleartextPassword.as_vec(),
+            vec![AUTHENTICATION, 0, 0, 0, 8, 0, 0, 0, 3]
+        )
+    }
+
+    #[test]
+    fn authentication_ok() {
+        assert_eq!(
+            Message::AuthenticationOk.as_vec(),
+            vec![AUTHENTICATION, 0, 0, 0, 8, 0, 0, 0, 0]
+        )
+    }
+
+    #[test]
+    fn ready_for_query() {
+        assert_eq!(
+            Message::ReadyForQuery.as_vec(),
+            vec![READY_FOR_QUERY, 0, 0, 0, 5, EMPTY_QUERY_RESPONSE]
+        )
+    }
+
+    #[test]
+    fn data_row() {
+        assert_eq!(
+            Message::DataRow(vec![1, 2, 3]).as_vec(),
+            vec![DATA_ROW, 0, 0, 0, 21, 0, 3, 0, 0, 0, 1, 49, 0, 0, 0, 1, 50, 0, 0, 0, 1, 51]
+        )
+    }
+
+    #[test]
+    fn row_description() {
+        assert_eq!(
+            Message::RowDescription(vec![("c1".to_owned(), 23, 4)]).as_vec(),
+            vec![
+                ROW_DESCRIPTION,
+                0,
+                0,
+                0,
+                27,
+                0,
+                1,
+                99,
+                49,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                23,
+                0,
+                4,
+                255,
+                255,
+                255,
+                255,
+                0,
+                0
+            ]
+        );
+    }
+
+    #[test]
+    fn command_complete() {
+        assert_eq!(
+            Message::CommandComplete.as_vec(),
+            vec![COMMAND_COMPLETE, 0, 0, 0, 11, 83, 69, 76, 69, 67, 84, 0]
+        )
+    }
+}

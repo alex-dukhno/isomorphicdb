@@ -1,4 +1,4 @@
-#[test]
-fn unit_test() {
-    assert!(true, "it works!")
-}
+#[macro_use]
+extern crate log;
+
+pub mod protocol;

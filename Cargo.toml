@@ -4,6 +4,7 @@ version = "0.1.0"
 authors = ["Alex Dukhno <alex.dukhno@icloud.com>"]
 edition = "2018"
 license = "Apache-2.0"
+exclude = ["compatibility", "proof-of-concepts"]
 
 [lib]
 name = "database"
@@ -13,14 +14,16 @@ name = "database"
 path = "src/bin.rs"
 
 [dependencies]
-smol = "0.1.4"
-futures = "0.3.4"
+smol = "0.1.8"
+futures = { version = "0.3.5", features = ["std"] }
 piper = "0.1.1"
 pretty_env_logger = "0.4.0"
 log = "0.4.8"
-postgres-protocol = "0.5.1"
 byteorder = "1.0"
 bytes = "0.5"
 
 [dev-dependencies]
+async-std = { version = "1.5.0", features = ["attributes"] }
+pretty_assertions = "0.6.1"
+tempfile = "3.1.0"
 postgres = "0.17.3"
