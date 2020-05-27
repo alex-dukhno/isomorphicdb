@@ -18,6 +18,7 @@ fn main() -> io::Result<()> {
     let local_address = format!("{}:{}", HOST, PORT);
     pretty_env_logger::init();
     info!("Starting server on {}", local_address);
+    // let mut storage = Arc::new(Mutex::new(Storage::new()));
 
     smol::run(async {
         let listener = Async::<TcpListener>::bind(local_address.as_str())?;
@@ -35,6 +36,8 @@ fn main() -> io::Result<()> {
                     .expect("perform hand shake with client")
                 {
                     Ok(mut connection) => loop {
+                        // let mut handler = Handler::new(storage.clone(), connection);
+                        // handler.handle_query().await;
                         connection.handle_query().await;
                     },
                     Err(e) => error!("Error establishing protocol connection {:?}", e),
