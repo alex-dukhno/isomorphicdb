@@ -24,25 +24,7 @@ impl<R: Read + Send + Sync + Unpin + 'static, W: Write + Send + Sync + Unpin + '
         Self { reader, writer }
     }
 
-    pub async fn handle_query(&mut self) -> io::Result<()> {
-        self.send_ready_for_query().await?;
-        let _query = self.read_query().await?;
-        self.send_row_description(vec![
-            Field::new(
-                "c1".to_owned(),
-                23, // int4 type code
-                4,
-            ),
-            Field::new("c2".to_owned(), 23, 4),
-        ])
-        .await?;
-        let rows = vec![vec![1, 2], vec![3, 4], vec![5, 6]];
-        self.send_row_data(rows).await?;
-        self.send_command_complete().await;
-        Ok(())
-    }
-
-    async fn send_ready_for_query(&mut self) -> io::Result<()> {
+    pub async fn send_ready_for_query(&mut self) -> io::Result<()> {
         trace!("send ready for query message");
         self.writer
             .write(Message::ReadyForQuery.as_vec().as_slice())
@@ -50,10 +32,11 @@ impl<R: Read + Send + Sync + Unpin + 'static, W: Write + Send + Sync + Unpin + '
         Ok(())
     }
 
-    async fn read_query(&mut self) -> io::Result<Result<String>> {
+    pub async fn read_query(&mut self) -> io::Result<Result<String>> {
         let mut type_code_buff = [0u8; 1];
         match self.reader.read_exact(&mut type_code_buff).await {
             Ok(_) => {
+                debug!("FOR TEST type code = {:?}", type_code_buff);
                 trace!(
                     "type code = {:?}",
                     String::from_utf8(type_code_buff.to_vec())
@@ -61,11 +44,13 @@ impl<R: Read + Send + Sync + Unpin + 'static, W: Write + Send + Sync + Unpin + '
                 let mut len_buff = [0u8; 4];
                 match self.reader.read_exact(&mut len_buff).await {
                     Ok(_) => {
+                        debug!("FOR TEST len = {:?}", len_buff);
                         let len = NetworkEndian::read_i32(&len_buff);
                         let mut sql_buff = BytesMut::with_capacity(len as usize);
                         sql_buff.extend(0..((len as u8) - 4));
                         match self.reader.read_exact(&mut sql_buff).await {
                             Ok(_) => {
+                                debug!("FOR TEST sql = {:?}", sql_buff);
                                 let sql =
                                     String::from_utf8(sql_buff[..sql_buff.len() - 1].to_vec())
                                         .unwrap();
@@ -103,7 +88,7 @@ impl<R: Read + Send + Sync + Unpin + 'static, W: Write + Send + Sync + Unpin + '
         }
     }
 
-    async fn send_row_description(&mut self, fields: Vec<Field>) -> io::Result<()> {
+    pub async fn send_row_description(&mut self, fields: Vec<Field>) -> io::Result<()> {
         self.writer
             .write(
                 Message::RowDescription(
@@ -120,7 +105,7 @@ impl<R: Read + Send + Sync + Unpin + 'static, W: Write + Send + Sync + Unpin + '
         Ok(())
     }
 
-    async fn send_row_data(&mut self, rows: Vec<Vec<u8>>) -> io::Result<()> {
+    pub async fn send_row_data(&mut self, rows: Vec<Vec<String>>) -> io::Result<()> {
         for row in rows {
             self.writer
                 .write(Message::DataRow(row).as_vec().as_slice())
@@ -129,10 +114,8 @@ impl<R: Read + Send + Sync + Unpin + 'static, W: Write + Send + Sync + Unpin + '
         Ok(())
     }
 
-    async fn send_command_complete(&mut self) -> io::Result<()> {
-        self.writer
-            .write(Message::CommandComplete.as_vec().as_slice())
-            .await?;
+    pub async fn send_command_complete(&mut self, message: Message) -> io::Result<()> {
+        self.writer.write(message.as_vec().as_slice()).await?;
         trace!("end of the command is sent");
         Ok(())
     }
@@ -291,7 +274,11 @@ mod tests {
             stream(empty_file().into_file()),
             stream(write_content.into_file()),
         );
-        let rows = vec![vec![1, 2], vec![3, 4], vec![5, 6]];
+        let rows = vec![
+            vec!["1".to_owned(), "2".to_owned()],
+            vec!["3".to_owned(), "4".to_owned()],
+            vec!["5".to_owned(), "6".to_owned()],
+        ];
         connection.send_row_data(rows.clone()).await?;
         let mut content = Vec::new();
         path.read_to_end(&mut content)?;
@@ -311,11 +298,17 @@ mod tests {
             stream(empty_file().into_file()),
             stream(write_content.into_file()),
         );
-        connection.send_command_complete().await?;
+        connection
+            .send_command_complete(Message::CommandComplete("SELECT".to_owned()))
+            .await?;
         let mut content = Vec::new();
         path.read_to_end(&mut content)?;
         let mut expected_content = BytesMut::new();
-        expected_content.extend_from_slice(Message::CommandComplete.as_vec().as_slice());
+        expected_content.extend_from_slice(
+            Message::CommandComplete("SELECT".to_owned())
+                .as_vec()
+                .as_slice(),
+        );
         assert_eq!(expected_content, content);
         Ok(())
     }

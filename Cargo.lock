@@ -285,6 +285,7 @@ dependencies = [
  "pretty_env_logger",
  "sled",
  "smol",
+ "sqlparser",
  "tempfile",
  "thiserror",
 ]
@@ -1059,6 +1060,14 @@ dependencies = [
  "libc",
  "redox_syscall",
  "winapi 0.3.8",
+]
+
+[[package]]
+name = "sqlparser"
+version = "0.5.1-alpha-0"
+source = "git+https://github.com/andygrove/sqlparser-rs.git#c918ff042df521fdde0e780947a5d33745708a51"
+dependencies = [
+ "log",
 ]
 
 [[package]]

@@ -8,7 +8,10 @@ use bytes::{Buf, BufMut, BytesMut};
 const COMMAND_COMPLETE: u8 = b'C';
 // const COPY_DATA: u8 = b'd';
 const DATA_ROW: u8 = b'D';
-// const ERROR_RESPONSE: u8 = b'E';
+const ERROR_RESPONSE: u8 = b'E';
+const SEVERITY: u8 = b'S';
+const CODE: u8 = b'C';
+const MESSAGE: u8 = b'M';
 // const COPY_IN_RESPONSE: u8 = b'G';
 // const COPY_OUT_RESPONSE: u8 = b'H';
 const EMPTY_QUERY_RESPONSE: u8 = b'I';
@@ -27,9 +30,11 @@ pub enum Message {
     AuthenticationCleartextPassword,
     AuthenticationOk,
     ReadyForQuery,
-    DataRow(Vec<u8>),
+    DataRow(Vec<String>),
     RowDescription(Vec<(String, i32, i16)>),
-    CommandComplete,
+    CommandComplete(String),
+    EmptyResponse,
+    ErrorResponse(Option<String>, Option<String>, Option<String>),
 }
 
 impl Message {
@@ -44,7 +49,7 @@ impl Message {
             Message::DataRow(row) => {
                 let mut row_buff = BytesMut::with_capacity(256);
                 for field in row.iter() {
-                    let as_string = format!("{}", field);
+                    let as_string = field;
                     row_buff.put_i32(as_string.len() as i32);
                     row_buff.extend_from_slice(as_string.as_str().as_bytes());
                 }
@@ -74,13 +79,38 @@ impl Message {
                 len_buff.extend_from_slice(&buff);
                 len_buff.to_vec()
             }
-            Message::CommandComplete => {
-                let command = b"SELECT\x00";
+            Message::CommandComplete(command) => {
                 let mut command_buff = BytesMut::with_capacity(256);
                 command_buff.put_u8(COMMAND_COMPLETE);
-                command_buff.put_i32(4 + command.len() as i32);
-                command_buff.extend_from_slice(command);
+                command_buff.put_i32(4 + command.len() as i32 + 1);
+                command_buff.extend_from_slice(command.as_bytes());
+                command_buff.put_u8(0);
                 command_buff.to_vec()
+            }
+            Message::EmptyResponse => vec![EMPTY_QUERY_RESPONSE, 0, 0, 0, 4],
+            Message::ErrorResponse(severity, code, message) => {
+                let mut error_response_buff = BytesMut::with_capacity(256);
+                error_response_buff.put_u8(ERROR_RESPONSE);
+                let mut message_buff = BytesMut::with_capacity(256);
+                severity.as_ref().map(|severity| {
+                    message_buff.put_u8(SEVERITY);
+                    message_buff.extend_from_slice(severity.as_bytes());
+                    message_buff.put_u8(0);
+                });
+                code.as_ref().map(|code| {
+                    message_buff.put_u8(CODE);
+                    message_buff.extend_from_slice(code.as_bytes());
+                    message_buff.put_u8(0);
+                });
+                message.as_ref().map(|message| {
+                    message_buff.put_u8(MESSAGE);
+                    message_buff.extend_from_slice(message.as_bytes());
+                    message_buff.put_u8(0);
+                });
+                error_response_buff.put_i32(message_buff.len() as i32 + 4 + 1);
+                error_response_buff.extend_from_slice(message_buff.as_ref());
+                error_response_buff.put_u8(0);
+                error_response_buff.to_vec()
             }
         }
     }
@@ -122,7 +152,7 @@ mod serialized_messages {
     #[test]
     fn data_row() {
         assert_eq!(
-            Message::DataRow(vec![1, 2, 3]).as_vec(),
+            Message::DataRow(vec!["1".to_owned(), "2".to_owned(), "3".to_owned()]).as_vec(),
             vec![DATA_ROW, 0, 0, 0, 21, 0, 3, 0, 0, 0, 1, 49, 0, 0, 0, 1, 50, 0, 0, 0, 1, 51]
         )
     }
@@ -167,8 +197,24 @@ mod serialized_messages {
     #[test]
     fn command_complete() {
         assert_eq!(
-            Message::CommandComplete.as_vec(),
+            Message::CommandComplete("SELECT".to_owned()).as_vec(),
             vec![COMMAND_COMPLETE, 0, 0, 0, 11, 83, 69, 76, 69, 67, 84, 0]
+        )
+    }
+
+    #[test]
+    fn empty_response() {
+        assert_eq!(
+            Message::EmptyResponse.as_vec(),
+            vec![EMPTY_QUERY_RESPONSE, 0, 0, 0, 4]
+        )
+    }
+
+    #[test]
+    fn error_response() {
+        assert_eq!(
+            Message::ErrorResponse(None, None, None).as_vec(),
+            vec![ERROR_RESPONSE, 0, 0, 0, 5, 0]
         )
     }
 }

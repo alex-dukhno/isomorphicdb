@@ -2,19 +2,47 @@ use sled;
 use std::collections::HashMap;
 use thiserror::Error;
 
-type Result<T> = std::result::Result<T, Error>;
+pub type Result<T> = std::result::Result<T, Error>;
 
-struct Storage {
+pub trait Storage {
+    fn create_schema(&mut self, schema_name: String) -> Result<()>;
+
+    fn drop_schema(&mut self, schema_name: String) -> Result<()>;
+
+    fn create_table(&mut self, schema_name: String, table_name: String) -> Result<()>;
+
+    fn drop_table(&mut self, schema_name: String, table_name: String) -> Result<()>;
+
+    fn insert_into(&mut self, schema_name: String, table_name: String, value: String)
+        -> Result<()>;
+
+    fn select_all_from(&mut self, schema_name: String, table_name: String) -> Result<Vec<String>>;
+
+    fn update_all(
+        &mut self,
+        schema_name: String,
+        table_name: String,
+        value: String,
+    ) -> Result<usize>;
+
+    fn delete_all_from(&mut self, schema_name: String, table_name: String) -> Result<usize>;
+}
+
+pub struct SledStorage {
+    key_id_generator: usize,
     schemas: HashMap<String, sled::Db>,
 }
 
-impl Storage {
-    fn new() -> Self {
+impl SledStorage {
+    pub fn new() -> Self {
         Self {
+            key_id_generator: 0,
             schemas: HashMap::new(),
         }
     }
+}
 
+impl Storage for SledStorage {
     fn create_schema(&mut self, schema_name: String) -> Result<()> {
         if self.schemas.contains_key(&schema_name) {
             Err(Error::SchemaAlreadyExists(schema_name))
@@ -84,10 +112,12 @@ impl Storage {
             .get(&schema_name)
             .map(|schema| schema.tree_names().contains(&(table_name.as_str().into())))
         {
+            let next_key_id = self.key_id_generator;
+            self.key_id_generator += 1;
             self.schemas.get_mut(&schema_name).map(|schema| {
                 schema.open_tree(&table_name).ok().map(|table| {
-                    table.insert::<sled::IVec, sled::IVec>(
-                        value.as_str().into(),
+                    table.insert::<[u8; 8], sled::IVec>(
+                        next_key_id.to_be_bytes(),
                         value.as_str().into(),
                     )
                 })
@@ -113,8 +143,9 @@ impl Storage {
                     schema.open_tree(&table_name).ok().map(|table| {
                         table
                             .iter()
+                            .values()
                             .map(sled::Result::unwrap)
-                            .map(|(_, bytes)| String::from_utf8(bytes.to_vec()).unwrap())
+                            .map(|bytes| String::from_utf8(bytes.to_vec()).unwrap())
                             .collect()
                     })
                 })
@@ -126,19 +157,26 @@ impl Storage {
         }
     }
 
-    fn update_all(&mut self, schema_name: String, table_name: String, value: String) -> Result<()> {
+    fn update_all(
+        &mut self,
+        schema_name: String,
+        table_name: String,
+        value: String,
+    ) -> Result<usize> {
         if let Some(true) = self
             .schemas
             .get(&schema_name)
             .map(|schema| schema.tree_names().contains(&(table_name.as_str().into())))
         {
+            let mut records_updated = 0;
             self.schemas.get_mut(&schema_name).map(|schema| {
                 let table = schema.open_tree(table_name).unwrap();
                 for key in table.iter().keys() {
                     table.fetch_and_update(key.unwrap(), |old| Some(value.clone().into_bytes()));
+                    records_updated += 1;
                 }
             });
-            Ok(())
+            Ok(records_updated)
         } else {
             Err(Error::TableDoesNotExist(
                 schema_name + "." + table_name.as_str(),
@@ -146,19 +184,21 @@ impl Storage {
         }
     }
 
-    fn delete_all_from(&mut self, schema_name: String, table_name: String) -> Result<()> {
+    fn delete_all_from(&mut self, schema_name: String, table_name: String) -> Result<usize> {
         if let Some(true) = self
             .schemas
             .get(&schema_name)
             .map(|schema| schema.tree_names().contains(&(table_name.as_str().into())))
         {
+            let mut deleted_records = 0;
             self.schemas.get_mut(&schema_name).map(|schema| {
                 let mut table = schema.open_tree(table_name).unwrap();
                 for key in table.iter().keys() {
                     table.remove(key.unwrap());
+                    deleted_records += 1;
                 }
             });
-            Ok(())
+            Ok(deleted_records)
         } else {
             Err(Error::TableDoesNotExist(
                 schema_name + "." + table_name.as_str(),
@@ -168,7 +208,7 @@ impl Storage {
 }
 
 #[derive(Debug, PartialEq, Error)]
-enum Error {
+pub enum Error {
     #[error("schema {0} already exists")]
     SchemaAlreadyExists(String),
     #[error("table {0} already exists")]
@@ -185,7 +225,7 @@ mod tests {
 
     #[test]
     fn create_schemas_with_different_names() {
-        let mut storage = Storage::new();
+        let mut storage = SledStorage::new();
 
         assert_eq!(storage.create_schema("schema_1".to_owned()), Ok(()));
         assert_eq!(storage.create_schema("schema_2".to_owned()), Ok(()));
@@ -193,7 +233,7 @@ mod tests {
 
     #[test]
     fn create_schema_with_existing_name() -> Result<()> {
-        let mut storage = Storage::new();
+        let mut storage = SledStorage::new();
 
         storage.create_schema("schema_name".to_owned())?;
 
@@ -207,7 +247,7 @@ mod tests {
 
     #[test]
     fn drop_schema() -> Result<()> {
-        let mut storage = Storage::new();
+        let mut storage = SledStorage::new();
 
         storage.create_schema("schema_name".to_owned())?;
 
@@ -219,7 +259,7 @@ mod tests {
 
     #[test]
     fn drop_schema_that_was_not_created() {
-        let mut storage = Storage::new();
+        let mut storage = SledStorage::new();
 
         assert_eq!(
             storage.drop_schema("does_not_exists".to_owned()),
@@ -229,7 +269,7 @@ mod tests {
 
     #[test]
     fn drop_schema_drops_tables_in_it() -> Result<()> {
-        let mut storage = Storage::new();
+        let mut storage = SledStorage::new();
 
         storage.create_schema("schema_name".to_owned())?;
         storage.create_table("schema_name".to_owned(), "table_name_1".to_owned())?;
@@ -251,7 +291,7 @@ mod tests {
 
     #[test]
     fn create_tables_with_different_names() -> Result<()> {
-        let mut storage = Storage::new();
+        let mut storage = SledStorage::new();
 
         storage.create_schema("schema_name".to_owned())?;
 
@@ -269,7 +309,7 @@ mod tests {
 
     #[test]
     fn create_table_with_the_same_name() -> Result<()> {
-        let mut storage = Storage::new();
+        let mut storage = SledStorage::new();
 
         storage.create_schema("schema_name".to_owned())?;
         storage.create_table("schema_name".to_owned(), "table_name".to_owned())?;
@@ -285,7 +325,7 @@ mod tests {
 
     #[test]
     fn create_table_with_the_same_name_in_different_schemas() -> Result<()> {
-        let mut storage = Storage::new();
+        let mut storage = SledStorage::new();
 
         storage.create_schema("schema_name_1".to_owned())?;
         storage.create_schema("schema_name_2".to_owned())?;
@@ -302,7 +342,7 @@ mod tests {
 
     #[test]
     fn drop_table() -> Result<()> {
-        let mut storage = Storage::new();
+        let mut storage = SledStorage::new();
 
         storage.create_schema("schema_name".to_owned())?;
         storage.create_table("schema_name".to_owned(), "table_name".to_owned())?;
@@ -319,7 +359,7 @@ mod tests {
 
     #[test]
     fn drop_not_created_table() -> Result<()> {
-        let mut storage = Storage::new();
+        let mut storage = SledStorage::new();
 
         storage.create_schema("schema_name".to_owned())?;
         assert_eq!(
@@ -334,7 +374,7 @@ mod tests {
 
     #[test]
     fn insert_row_into_table() -> Result<()> {
-        let mut storage = Storage::new();
+        let mut storage = SledStorage::new();
 
         storage.create_schema("schema_name".to_owned())?;
         storage.create_table("schema_name".to_owned(), "table_name".to_owned())?;
@@ -356,7 +396,7 @@ mod tests {
 
     #[test]
     fn insert_many_rows_into_table() -> Result<()> {
-        let mut storage = Storage::new();
+        let mut storage = SledStorage::new();
 
         storage.create_schema("schema_name".to_owned())?;
         storage.create_table("schema_name".to_owned(), "table_name".to_owned())?;
@@ -381,7 +421,7 @@ mod tests {
 
     #[test]
     fn insert_into_non_existent_table() -> Result<()> {
-        let mut storage = Storage::new();
+        let mut storage = SledStorage::new();
 
         storage.create_schema("schema_name".to_owned())?;
         assert_eq!(
@@ -400,7 +440,7 @@ mod tests {
 
     #[test]
     fn select_from_table_that_does_not_exist() -> Result<()> {
-        let mut storage = Storage::new();
+        let mut storage = SledStorage::new();
 
         storage.create_schema("schema_name".to_owned())?;
         assert_eq!(
@@ -415,7 +455,7 @@ mod tests {
 
     #[test]
     fn update_all_records() -> Result<()> {
-        let mut storage = Storage::new();
+        let mut storage = SledStorage::new();
 
         storage.create_schema("schema_name".to_owned())?;
         storage.create_table("schema_name".to_owned(), "table_name".to_owned())?;
@@ -441,7 +481,7 @@ mod tests {
                 "table_name".to_owned(),
                 "567".to_owned()
             ),
-            Ok(())
+            Ok(3)
         );
         assert_eq!(
             storage.select_all_from("schema_name".to_owned(), "table_name".to_owned()),
@@ -453,7 +493,7 @@ mod tests {
 
     #[test]
     fn update_not_existed_table() -> Result<()> {
-        let mut storage = Storage::new();
+        let mut storage = SledStorage::new();
 
         storage.create_schema("schema_name".to_owned());
         assert_eq!(
@@ -472,7 +512,7 @@ mod tests {
 
     #[test]
     fn delete_all_from_table() -> Result<()> {
-        let mut storage = Storage::new();
+        let mut storage = SledStorage::new();
 
         storage.create_schema("schema_name".to_owned())?;
         storage.create_table("schema_name".to_owned(), "table_name".to_owned())?;
@@ -494,7 +534,7 @@ mod tests {
 
         assert_eq!(
             storage.delete_all_from("schema_name".to_owned(), "table_name".to_owned()),
-            Ok(())
+            Ok(3)
         );
 
         assert_eq!(
@@ -507,7 +547,7 @@ mod tests {
 
     #[test]
     fn delete_all_from_not_existed_table() -> Result<()> {
-        let mut storage = Storage::new();
+        let mut storage = SledStorage::new();
 
         storage.create_schema("schema_name".to_owned())?;
 

@@ -3,4 +3,5 @@ extern crate log;
 extern crate sled;
 
 pub mod protocol;
+pub mod sql_handler;
 pub mod storage;

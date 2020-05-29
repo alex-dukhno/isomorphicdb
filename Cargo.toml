@@ -20,6 +20,7 @@ thiserror = "1.0.19"
 futures = { version = "0.3.5", features = ["std"] }
 piper = "0.1.1"
 pretty_env_logger = "0.4.0"
+sqlparser = { git = "https://github.com/andygrove/sqlparser-rs.git" }
 log = "0.4.8"
 byteorder = "1.0"
 bytes = "0.5"
