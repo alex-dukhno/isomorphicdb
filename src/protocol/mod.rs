@@ -11,6 +11,12 @@ pub type Stream<I> = Arc<Mutex<Async<I>>>;
 #[derive(Debug, PartialEq)]
 pub struct Error;
 
+#[derive(Debug, PartialEq)]
+pub enum Command {
+    Query(String),
+    Terminate,
+}
+
 #[cfg(test)]
 mod compatibility {
     use super::*;

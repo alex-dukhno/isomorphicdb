@@ -4,6 +4,7 @@ use futures::io;
 use std::io::{Read, Write};
 
 use crate::protocol::messages::Message;
+use crate::protocol::Command;
 use piper::{Arc, Mutex};
 use sqlparser::dialect::PostgreSqlDialect;
 use sqlparser::parser::Parser;
@@ -31,88 +32,106 @@ impl<
         }
     }
 
-    pub async fn handle_query(&mut self) -> io::Result<()> {
+    pub async fn handle_query(&mut self) -> io::Result<bool> {
         self.connection.send_ready_for_query().await?;
-        let query = self.connection.read_query().await?;
-        match self.execute(query.unwrap()) {
-            Ok(QueryResult::SchemaCreated) => {
-                self.connection
-                    .send_command_complete(Message::CommandComplete("CREATE SCHEMA".to_owned()))
-                    .await?;
-            }
-            Ok(QueryResult::SchemaDropped) => {
-                self.connection
-                    .send_command_complete(Message::CommandComplete("DROP SCHEMA".to_owned()))
-                    .await?;
-            }
-            Ok(QueryResult::TableCreated) => {
-                self.connection
-                    .send_command_complete(Message::CommandComplete("CREATE TABLE".to_owned()))
-                    .await?;
-            }
-            Ok(QueryResult::TableDropped) => {
-                self.connection
-                    .send_command_complete(Message::CommandComplete("DROP TABLE".to_owned()))
-                    .await?;
-            }
-            Ok(QueryResult::RecordInserted) => {
-                self.connection
-                    .send_command_complete(Message::CommandComplete("INSERT 0 1".to_owned()))
-                    .await?;
-            }
-            Ok(QueryResult::Select(records)) => {
-                let len = records.len();
-                self.connection
-                    .send_row_description(vec![Field::new(
-                        "column_test".to_owned(),
-                        21, // int2 type code
-                        2,
-                    )])
-                    .await?;
-                for record in records {
-                    self.connection.send_row_data(vec![vec![record]]).await?;
-                }
-                self.connection
-                    .send_command_complete(Message::CommandComplete(format!("SELECT {}", len)))
-                    .await?;
-            }
-            Ok(QueryResult::Update(records_number)) => {
-                self.connection
-                    .send_command_complete(Message::CommandComplete(format!(
-                        "UPDATE {}",
-                        records_number
-                    )))
-                    .await?;
-            }
-            Ok(QueryResult::Delete(records_number)) => {
-                self.connection
-                    .send_command_complete(Message::CommandComplete(format!(
-                        "DELETE {}",
-                        records_number
-                    )))
-                    .await?;
-            }
-            Err(storage::Error::SchemaAlreadyExists(schema_name)) => {
-                self.connection
-                    .send_command_complete(Message::ErrorResponse(
-                        Some("ERROR".to_owned()),
-                        Some("42P06".to_owned()),
-                        Some(format!("schema \"{}\" already exists", schema_name)),
-                    ))
-                    .await?
-            }
-            Err(storage::Error::TableAlreadyExists(table_name)) => {
-                self.connection
-                    .send_command_complete(Message::ErrorResponse(
-                        Some("ERROR".to_owned()),
-                        Some("42P07".to_owned()),
-                        Some(format!("table \"{}\" already exists", table_name)),
-                    ))
-                    .await?
-            }
+        match self.connection.read_query().await? {
             Err(e) => unimplemented!(),
+            Ok(Command::Terminate) => return Ok(false),
+            Ok(Command::Query(query)) => {
+                match self.execute(query) {
+                    Ok(QueryResult::SchemaCreated) => {
+                        self.connection
+                            .send_command_complete(Message::CommandComplete(
+                                "CREATE SCHEMA".to_owned(),
+                            ))
+                            .await?;
+                    }
+                    Ok(QueryResult::SchemaDropped) => {
+                        self.connection
+                            .send_command_complete(Message::CommandComplete(
+                                "DROP SCHEMA".to_owned(),
+                            ))
+                            .await?;
+                    }
+                    Ok(QueryResult::TableCreated) => {
+                        self.connection
+                            .send_command_complete(Message::CommandComplete(
+                                "CREATE TABLE".to_owned(),
+                            ))
+                            .await?;
+                    }
+                    Ok(QueryResult::TableDropped) => {
+                        self.connection
+                            .send_command_complete(Message::CommandComplete(
+                                "DROP TABLE".to_owned(),
+                            ))
+                            .await?;
+                    }
+                    Ok(QueryResult::RecordInserted) => {
+                        self.connection
+                            .send_command_complete(Message::CommandComplete(
+                                "INSERT 0 1".to_owned(),
+                            ))
+                            .await?;
+                    }
+                    Ok(QueryResult::Select(records)) => {
+                        let len = records.len();
+                        self.connection
+                            .send_row_description(vec![Field::new(
+                                "column_test".to_owned(),
+                                21, // int2 type code
+                                2,
+                            )])
+                            .await?;
+                        for record in records {
+                            self.connection.send_row_data(vec![vec![record]]).await?;
+                        }
+                        self.connection
+                            .send_command_complete(Message::CommandComplete(format!(
+                                "SELECT {}",
+                                len
+                            )))
+                            .await?;
+                    }
+                    Ok(QueryResult::Update(records_number)) => {
+                        self.connection
+                            .send_command_complete(Message::CommandComplete(format!(
+                                "UPDATE {}",
+                                records_number
+                            )))
+                            .await?;
+                    }
+                    Ok(QueryResult::Delete(records_number)) => {
+                        self.connection
+                            .send_command_complete(Message::CommandComplete(format!(
+                                "DELETE {}",
+                                records_number
+                            )))
+                            .await?;
+                    }
+                    Err(storage::Error::SchemaAlreadyExists(schema_name)) => {
+                        self.connection
+                            .send_command_complete(Message::ErrorResponse(
+                                Some("ERROR".to_owned()),
+                                Some("42P06".to_owned()),
+                                Some(format!("schema \"{}\" already exists", schema_name)),
+                            ))
+                            .await?
+                    }
+                    Err(storage::Error::TableAlreadyExists(table_name)) => {
+                        self.connection
+                            .send_command_complete(Message::ErrorResponse(
+                                Some("ERROR".to_owned()),
+                                Some("42P07".to_owned()),
+                                Some(format!("table \"{}\" already exists", table_name)),
+                            ))
+                            .await?
+                    }
+                    Err(e) => unimplemented!(),
+                }
+            }
         }
-        Ok(())
+        Ok(true)
     }
 
     fn execute(&mut self, query: String) -> Result<QueryResult, storage::Error> {

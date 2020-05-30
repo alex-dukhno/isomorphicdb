@@ -3,6 +3,7 @@ use bytes::{Buf, BufMut, BytesMut};
 use futures::io::{self, AsyncReadExt, AsyncWriteExt};
 use std::io::{Read, Write};
 
+use crate::protocol::Command;
 use crate::{
     protocol::messages::Message,
     protocol::{Error, Result, Stream},
@@ -32,7 +33,7 @@ impl<R: Read + Send + Sync + Unpin + 'static, W: Write + Send + Sync + Unpin + '
         Ok(())
     }
 
-    pub async fn read_query(&mut self) -> io::Result<Result<String>> {
+    pub async fn read_query(&mut self) -> io::Result<Result<Command>> {
         let mut type_code_buff = [0u8; 1];
         match self.reader.read_exact(&mut type_code_buff).await {
             Ok(_) => {
@@ -41,39 +42,43 @@ impl<R: Read + Send + Sync + Unpin + 'static, W: Write + Send + Sync + Unpin + '
                     "type code = {:?}",
                     String::from_utf8(type_code_buff.to_vec())
                 );
-                let mut len_buff = [0u8; 4];
-                match self.reader.read_exact(&mut len_buff).await {
-                    Ok(_) => {
-                        debug!("FOR TEST len = {:?}", len_buff);
-                        let len = NetworkEndian::read_i32(&len_buff);
-                        let mut sql_buff = BytesMut::with_capacity(len as usize);
-                        sql_buff.extend(0..((len as u8) - 4));
-                        match self.reader.read_exact(&mut sql_buff).await {
-                            Ok(_) => {
-                                debug!("FOR TEST sql = {:?}", sql_buff);
-                                let sql =
-                                    String::from_utf8(sql_buff[..sql_buff.len() - 1].to_vec())
-                                        .unwrap();
-                                trace!("SQL = {}", sql);
-                                Ok(Ok(sql))
-                            }
-                            Err(e) if e.kind() == io::ErrorKind::UnexpectedEof => {
-                                trace!("Unexpected EOF {:?}", e);
-                                Ok(Err(Error))
-                            }
-                            Err(e) => {
-                                error!("{:?}", e);
-                                Err(e)
+                if &type_code_buff == b"X" {
+                    Ok(Ok(Command::Terminate))
+                } else {
+                    let mut len_buff = [0u8; 4];
+                    match self.reader.read_exact(&mut len_buff).await {
+                        Ok(_) => {
+                            debug!("FOR TEST len = {:?}", len_buff);
+                            let len = NetworkEndian::read_i32(&len_buff);
+                            let mut sql_buff = BytesMut::with_capacity(len as usize);
+                            sql_buff.extend(0..((len as u8) - 4));
+                            match self.reader.read_exact(&mut sql_buff).await {
+                                Ok(_) => {
+                                    debug!("FOR TEST sql = {:?}", sql_buff);
+                                    let sql =
+                                        String::from_utf8(sql_buff[..sql_buff.len() - 1].to_vec())
+                                            .unwrap();
+                                    trace!("SQL = {}", sql);
+                                    Ok(Ok(Command::Query(sql)))
+                                }
+                                Err(e) if e.kind() == io::ErrorKind::UnexpectedEof => {
+                                    trace!("Unexpected EOF {:?}", e);
+                                    Ok(Err(Error))
+                                }
+                                Err(e) => {
+                                    error!("{:?}", e);
+                                    Err(e)
+                                }
                             }
                         }
-                    }
-                    Err(e) if e.kind() == io::ErrorKind::UnexpectedEof => {
-                        trace!("Unexpected EOF {:?}", e);
-                        Ok(Err(Error))
-                    }
-                    Err(e) => {
-                        error!("{:?}", e);
-                        Err(e)
+                        Err(e) if e.kind() == io::ErrorKind::UnexpectedEof => {
+                            trace!("Unexpected EOF {:?}", e);
+                            Ok(Err(Error))
+                        }
+                        Err(e) => {
+                            error!("{:?}", e);
+                            Err(e)
+                        }
                     }
                 }
             }
@@ -190,13 +195,24 @@ mod tests {
         use super::*;
 
         #[async_std::test]
+        async fn read_termination_command() -> io::Result<()> {
+            let mut connection = Connection::new(
+                stream(file_with(vec![&[88], &[0, 0, 0, 4]])),
+                stream(empty_file().into_file()),
+            );
+            let query = connection.read_query().await?;
+            assert_eq!(query, Ok(Command::Terminate));
+            Ok(())
+        }
+
+        #[async_std::test]
         async fn read_query_successfully() -> io::Result<()> {
             let mut connection = Connection::new(
                 stream(file_with(vec![&[81], &[0, 0, 0, 14], b"select 1;\0"])),
                 stream(empty_file().into_file()),
             );
             let query = connection.read_query().await?;
-            assert_eq!(query, Ok("select 1;".to_owned()));
+            assert_eq!(query, Ok(Command::Query("select 1;".to_owned())));
             Ok(())
         }
 

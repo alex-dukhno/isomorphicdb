@@ -40,9 +40,7 @@ fn main() -> io::Result<()> {
                 {
                     Ok(connection) => {
                         let mut handler = sql_handler::Handler::new(client_storage, connection);
-                        loop {
-                            handler.handle_query().await;
-                        }
+                        while let Ok(true) = handler.handle_query().await {}
                     }
                     Err(e) => error!("Error establishing protocol connection {:?}", e),
                 }
