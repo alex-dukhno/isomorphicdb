@@ -6,17 +6,69 @@ on:
   pull_request:
     branches: [ master ]
 
+env:
+  RUSTFLAGS: -Dwarnings
+  RUST_BACKTRACE: 1
+
+defaults:
+  run:
+    shell: bash
+
 jobs:
-  build:
-
-    runs-on: macos-latest
-
+  test:
+    strategy:
+      matrix:
+        os:
+          - ubuntu
+          - windows
+          - macos
+    runs-on: ${{ matrix.os }}-latest
     steps:
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
       - uses: actions-rs/cargo@v1
         with:
           command: test
           args: --all
+
+  rustfmt:
+    name: rustfmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@master
+      - uses: actions-rs/toolchain@v1
+      - name: rustfmt
+        run: ./ci/rustfmt.sh
+
+  clippy:
+    name: clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@master
+      - uses: actions-rs/toolchain@v1
+      - name: clippy
+        run: ./ci/clippy.sh
+
+  ci-success:
+    name: ci
+    if: github.event_name == 'push' && success()
+    needs:
+      - test
+      - rustfmt
+      - clippy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mark the job as a success
+        run: exit 0
+
+  ci-failure:
+    name: ci
+    if: github.event_name == 'push' && !success()
+    needs:
+      - test
+      - rustfmt
+      - clippy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mark the job as a failure
+        run: exit 1

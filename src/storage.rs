@@ -1,4 +1,3 @@
-use sled;
 use std::collections::HashMap;
 use thiserror::Error;
 
@@ -28,28 +27,21 @@ pub trait Storage {
     fn delete_all_from(&mut self, schema_name: String, table_name: String) -> Result<usize>;
 }
 
+#[derive(Default)]
 pub struct SledStorage {
     key_id_generator: usize,
     schemas: HashMap<String, sled::Db>,
 }
 
-impl SledStorage {
-    pub fn new() -> Self {
-        Self {
-            key_id_generator: 0,
-            schemas: HashMap::new(),
-        }
-    }
-}
-
 impl Storage for SledStorage {
+    #[allow(clippy::match_wild_err_arm, clippy::map_entry)]
     fn create_schema(&mut self, schema_name: String) -> Result<()> {
         if self.schemas.contains_key(&schema_name) {
             Err(Error::SchemaAlreadyExists(schema_name))
         } else {
             match sled::Config::default().temporary(true).open() {
                 Ok(db) => {
-                    self.schemas.insert(schema_name.clone(), db);
+                    self.schemas.insert(schema_name, db);
                     Ok(())
                 }
                 Err(_) => unimplemented!(),
@@ -169,13 +161,15 @@ impl Storage for SledStorage {
             .map(|schema| schema.tree_names().contains(&(table_name.as_str().into())))
         {
             let mut records_updated = 0;
-            self.schemas.get_mut(&schema_name).map(|schema| {
+            if let Some(schema) = self.schemas.get_mut(&schema_name) {
                 let table = schema.open_tree(table_name).unwrap();
                 for key in table.iter().keys() {
-                    table.fetch_and_update(key.unwrap(), |old| Some(value.clone().into_bytes()));
+                    table
+                        .fetch_and_update(key.unwrap(), |_old| Some(value.clone().into_bytes()))
+                        .unwrap();
                     records_updated += 1;
                 }
-            });
+            }
             Ok(records_updated)
         } else {
             Err(Error::TableDoesNotExist(
@@ -191,13 +185,13 @@ impl Storage for SledStorage {
             .map(|schema| schema.tree_names().contains(&(table_name.as_str().into())))
         {
             let mut deleted_records = 0;
-            self.schemas.get_mut(&schema_name).map(|schema| {
-                let mut table = schema.open_tree(table_name).unwrap();
+            if let Some(schema) = self.schemas.get_mut(&schema_name) {
+                let table = schema.open_tree(table_name).unwrap();
                 for key in table.iter().keys() {
-                    table.remove(key.unwrap());
+                    table.remove(key.unwrap()).unwrap();
                     deleted_records += 1;
                 }
-            });
+            };
             Ok(deleted_records)
         } else {
             Err(Error::TableDoesNotExist(
@@ -225,7 +219,7 @@ mod tests {
 
     #[test]
     fn create_schemas_with_different_names() {
-        let mut storage = SledStorage::new();
+        let mut storage = SledStorage::default();
 
         assert_eq!(storage.create_schema("schema_1".to_owned()), Ok(()));
         assert_eq!(storage.create_schema("schema_2".to_owned()), Ok(()));
@@ -233,7 +227,7 @@ mod tests {
 
     #[test]
     fn create_schema_with_existing_name() -> Result<()> {
-        let mut storage = SledStorage::new();
+        let mut storage = SledStorage::default();
 
         storage.create_schema("schema_name".to_owned())?;
 
@@ -247,7 +241,7 @@ mod tests {
 
     #[test]
     fn drop_schema() -> Result<()> {
-        let mut storage = SledStorage::new();
+        let mut storage = SledStorage::default();
 
         storage.create_schema("schema_name".to_owned())?;
 
@@ -259,7 +253,7 @@ mod tests {
 
     #[test]
     fn drop_schema_that_was_not_created() {
-        let mut storage = SledStorage::new();
+        let mut storage = SledStorage::default();
 
         assert_eq!(
             storage.drop_schema("does_not_exists".to_owned()),
@@ -269,7 +263,7 @@ mod tests {
 
     #[test]
     fn drop_schema_drops_tables_in_it() -> Result<()> {
-        let mut storage = SledStorage::new();
+        let mut storage = SledStorage::default();
 
         storage.create_schema("schema_name".to_owned())?;
         storage.create_table("schema_name".to_owned(), "table_name_1".to_owned())?;
@@ -291,7 +285,7 @@ mod tests {
 
     #[test]
     fn create_tables_with_different_names() -> Result<()> {
-        let mut storage = SledStorage::new();
+        let mut storage = SledStorage::default();
 
         storage.create_schema("schema_name".to_owned())?;
 
@@ -309,7 +303,7 @@ mod tests {
 
     #[test]
     fn create_table_with_the_same_name() -> Result<()> {
-        let mut storage = SledStorage::new();
+        let mut storage = SledStorage::default();
 
         storage.create_schema("schema_name".to_owned())?;
         storage.create_table("schema_name".to_owned(), "table_name".to_owned())?;
@@ -325,7 +319,7 @@ mod tests {
 
     #[test]
     fn create_table_with_the_same_name_in_different_schemas() -> Result<()> {
-        let mut storage = SledStorage::new();
+        let mut storage = SledStorage::default();
 
         storage.create_schema("schema_name_1".to_owned())?;
         storage.create_schema("schema_name_2".to_owned())?;
@@ -342,7 +336,7 @@ mod tests {
 
     #[test]
     fn drop_table() -> Result<()> {
-        let mut storage = SledStorage::new();
+        let mut storage = SledStorage::default();
 
         storage.create_schema("schema_name".to_owned())?;
         storage.create_table("schema_name".to_owned(), "table_name".to_owned())?;
@@ -359,7 +353,7 @@ mod tests {
 
     #[test]
     fn drop_not_created_table() -> Result<()> {
-        let mut storage = SledStorage::new();
+        let mut storage = SledStorage::default();
 
         storage.create_schema("schema_name".to_owned())?;
         assert_eq!(
@@ -374,7 +368,7 @@ mod tests {
 
     #[test]
     fn insert_row_into_table() -> Result<()> {
-        let mut storage = SledStorage::new();
+        let mut storage = SledStorage::default();
 
         storage.create_schema("schema_name".to_owned())?;
         storage.create_table("schema_name".to_owned(), "table_name".to_owned())?;
@@ -396,7 +390,7 @@ mod tests {
 
     #[test]
     fn insert_many_rows_into_table() -> Result<()> {
-        let mut storage = SledStorage::new();
+        let mut storage = SledStorage::default();
 
         storage.create_schema("schema_name".to_owned())?;
         storage.create_table("schema_name".to_owned(), "table_name".to_owned())?;
@@ -421,7 +415,7 @@ mod tests {
 
     #[test]
     fn insert_into_non_existent_table() -> Result<()> {
-        let mut storage = SledStorage::new();
+        let mut storage = SledStorage::default();
 
         storage.create_schema("schema_name".to_owned())?;
         assert_eq!(
@@ -440,7 +434,7 @@ mod tests {
 
     #[test]
     fn select_from_table_that_does_not_exist() -> Result<()> {
-        let mut storage = SledStorage::new();
+        let mut storage = SledStorage::default();
 
         storage.create_schema("schema_name".to_owned())?;
         assert_eq!(
@@ -455,7 +449,7 @@ mod tests {
 
     #[test]
     fn update_all_records() -> Result<()> {
-        let mut storage = SledStorage::new();
+        let mut storage = SledStorage::default();
 
         storage.create_schema("schema_name".to_owned())?;
         storage.create_table("schema_name".to_owned(), "table_name".to_owned())?;
@@ -493,9 +487,9 @@ mod tests {
 
     #[test]
     fn update_not_existed_table() -> Result<()> {
-        let mut storage = SledStorage::new();
+        let mut storage = SledStorage::default();
 
-        storage.create_schema("schema_name".to_owned());
+        storage.create_schema("schema_name".to_owned())?;
         assert_eq!(
             storage.update_all(
                 "schema_name".to_owned(),
@@ -512,7 +506,7 @@ mod tests {
 
     #[test]
     fn delete_all_from_table() -> Result<()> {
-        let mut storage = SledStorage::new();
+        let mut storage = SledStorage::default();
 
         storage.create_schema("schema_name".to_owned())?;
         storage.create_table("schema_name".to_owned(), "table_name".to_owned())?;
@@ -547,7 +541,7 @@ mod tests {
 
     #[test]
     fn delete_all_from_not_existed_table() -> Result<()> {
-        let mut storage = SledStorage::new();
+        let mut storage = SledStorage::default();
 
         storage.create_schema("schema_name".to_owned())?;
 

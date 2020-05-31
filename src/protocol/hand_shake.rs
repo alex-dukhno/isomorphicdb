@@ -1,30 +1,30 @@
 use crate::protocol::messages::Message;
-use crate::protocol::{connection::Connection, Error, Result, Stream};
+use crate::protocol::{connection::Connection, Error, Result};
+use async_std::io::{self, Read, Write};
 use byteorder::{ByteOrder, NetworkEndian};
 use bytes::BytesMut;
-use futures::io::{self, AsyncReadExt, AsyncWriteExt, ErrorKind};
+use futures::io::{AsyncReadExt, AsyncWriteExt};
 use std::fmt::{self, Display, Formatter};
-use std::io::{Read, Write};
 
 pub struct HandShake<
     R: Read + Send + Sync + Unpin + 'static,
     W: Write + Send + Sync + Unpin + 'static,
 > {
-    reader: Stream<R>,
-    writer: Stream<W>,
+    reader: R,
+    writer: W,
 }
 
 impl<R: Read + Send + Sync + Unpin + 'static, W: Write + Send + Sync + Unpin + 'static>
     HandShake<R, W>
 {
-    pub fn new(reader: Stream<R>, writer: Stream<W>) -> Self {
+    pub fn new(reader: R, writer: W) -> Self {
         Self { reader, writer }
     }
 
     pub async fn perform(mut self) -> io::Result<Result<Connection<R, W>>> {
-        self.hand_ssl().await?;
+        let _ssl_mode = self.hand_ssl().await?.unwrap();
         self.send_notice().await?;
-        self.read_startup_message().await?;
+        let _setup = self.read_startup_message().await?.unwrap();
         self.send_authentication_request().await?;
         self.handle_authentication_response().await
     }
@@ -33,11 +33,11 @@ impl<R: Read + Send + Sync + Unpin + 'static, W: Write + Send + Sync + Unpin + '
         let mut len_buff = [0u8; 4];
         match self.reader.read_exact(&mut len_buff).await {
             Ok(_) => {
-                let len = NetworkEndian::read_i32(&mut len_buff);
+                let len = NetworkEndian::read_i32(&len_buff);
                 trace!("message length {}", len);
                 Ok(Ok(len))
             }
-            Err(e) if e.kind() == ErrorKind::UnexpectedEof => {
+            Err(e) if e.kind() == io::ErrorKind::UnexpectedEof => {
                 trace!("Unexpected EOF {:?}", e);
                 Ok(Err(Error))
             }
@@ -52,15 +52,15 @@ impl<R: Read + Send + Sync + Unpin + 'static, W: Write + Send + Sync + Unpin + '
         let len_read = self.read_len().await?;
         match len_read {
             Err(e) => Ok(Err(e)),
-            Ok(len) => {
+            Ok(_len) => {
                 let mut ssl_buff = [0u8; 4];
                 match self.reader.read_exact(&mut ssl_buff).await {
                     Ok(_) => {
-                        let ssl = NetworkEndian::read_u32(&mut ssl_buff);
+                        let ssl = NetworkEndian::read_u32(&ssl_buff);
                         trace!("ssl = {}", ssl);
                         Ok(Ok(SslMode::Require))
                     }
-                    Err(e) if e.kind() == ErrorKind::UnexpectedEof => {
+                    Err(e) if e.kind() == io::ErrorKind::UnexpectedEof => {
                         trace!("Unexpected EOF {:?}", e);
                         Ok(Err(Error))
                     }
@@ -73,9 +73,12 @@ impl<R: Read + Send + Sync + Unpin + 'static, W: Write + Send + Sync + Unpin + '
         }
     }
 
-    async fn send_notice(&mut self) -> io::Result<usize> {
+    async fn send_notice(&mut self) -> io::Result<()> {
         trace!("send notice tag");
-        self.writer.write(Message::Notice.as_vec().as_slice()).await
+        self.writer
+            .write_all(Message::Notice.as_vec().as_slice())
+            .await?;
+        Ok(())
     }
 
     async fn read_startup_message(&mut self) -> io::Result<Result<Setup>> {
@@ -87,8 +90,7 @@ impl<R: Read + Send + Sync + Unpin + 'static, W: Write + Send + Sync + Unpin + '
                 setup_message_buff.extend(0..((len as u8) - 4));
                 match self.reader.read_exact(&mut setup_message_buff).await {
                     Ok(_) => {
-                        let version =
-                            Version::from(NetworkEndian::read_u32(&mut setup_message_buff));
+                        let version = Version::from(NetworkEndian::read_u32(&setup_message_buff));
                         let parsed = setup_message_buff[4..setup_message_buff.len()]
                             .to_vec()
                             .split(|b| *b == 0)
@@ -103,7 +105,7 @@ impl<R: Read + Send + Sync + Unpin + 'static, W: Write + Send + Sync + Unpin + '
                         }
                         Ok(Ok(Setup(version, Params(params))))
                     }
-                    Err(e) if e.kind() == ErrorKind::UnexpectedEof => {
+                    Err(e) if e.kind() == io::ErrorKind::UnexpectedEof => {
                         trace!("Unexpected EOF {:?}", e);
                         Ok(Err(Error))
                     }
@@ -116,55 +118,56 @@ impl<R: Read + Send + Sync + Unpin + 'static, W: Write + Send + Sync + Unpin + '
         }
     }
 
-    async fn send_authentication_request(&mut self) -> io::Result<usize> {
+    async fn send_authentication_request(&mut self) -> io::Result<()> {
         trace!("send authentication request tag");
         self.writer
-            .write(Message::AuthenticationCleartextPassword.as_vec().as_slice())
-            .await
+            .write_all(Message::AuthenticationCleartextPassword.as_vec().as_slice())
+            .await?;
+        Ok(())
     }
 
-    async fn handle_authentication_response(&mut self) -> io::Result<Result<Connection<R, W>>> {
+    async fn handle_authentication_response(mut self) -> io::Result<Result<Connection<R, W>>> {
         trace!("waiting for authentication response");
         let mut p_tag_buff = [0u8; 1];
-        match self.reader.read_exact(&mut p_tag_buff).await {
-            Ok(_) => {
-                let p = p_tag_buff[0];
-                trace!("authentication response tag {}", p);
-                let len_read = self.read_len().await?;
-                match len_read {
-                    Err(e) => Ok(Err(e)),
-                    Ok(len) => {
-                        let mut password_buff = BytesMut::with_capacity(len as usize);
-                        password_buff.extend(0..((len as u8) - 4));
-                        match self.reader.read_exact(&mut password_buff).await {
-                            Ok(_) => {
-                                self.writer
-                                    .write(Message::AuthenticationOk.as_vec().as_slice())
-                                    .await;
-                                Ok(Ok(Connection::new(
-                                    self.reader.clone(),
-                                    self.writer.clone(),
-                                )))
-                            }
-                            Err(e) if e.kind() == io::ErrorKind::UnexpectedEof => {
-                                trace!("Unexpected EOF {:?}", e);
-                                Ok(Err(Error))
-                            }
-                            Err(e) => {
-                                error!("{:?}", e);
-                                Err(e)
-                            }
-                        }
+        {
+            match self.reader.read_exact(&mut p_tag_buff).await {
+                Ok(_) => {
+                    let p = p_tag_buff[0];
+                    trace!("authentication response tag {}", p);
+                }
+                Err(e) if e.kind() == io::ErrorKind::UnexpectedEof => {
+                    trace!("Unexpected EOF {:?}", e);
+                    return Ok(Err(Error));
+                }
+                Err(e) => {
+                    error!("{:?}", e);
+                    return Err(e);
+                }
+            };
+        }
+        let len_read = self.read_len().await?;
+        match len_read {
+            Err(e) => Ok(Err(e)),
+            Ok(len) => {
+                let mut password_buff = BytesMut::with_capacity(len as usize);
+                password_buff.extend(0..((len as u8) - 4));
+                match self.reader.read_exact(&mut password_buff).await {
+                    Ok(_) => {
+                        self.writer
+                            .write_all(Message::AuthenticationOk.as_vec().as_slice())
+                            .await?;
+                        trace!("WE ARE HERE!!!!");
+                        Ok(Ok(Connection::new(self.reader, self.writer)))
+                    }
+                    Err(e) if e.kind() == io::ErrorKind::UnexpectedEof => {
+                        trace!("Unexpected EOF {:?}", e);
+                        Ok(Err(Error))
+                    }
+                    Err(e) => {
+                        error!("{:?}", e);
+                        Err(e)
                     }
                 }
-            }
-            Err(e) if e.kind() == io::ErrorKind::UnexpectedEof => {
-                trace!("Unexpected EOF {:?}", e);
-                Ok(Err(Error))
-            }
-            Err(e) => {
-                error!("{:?}", e);
-                Err(e)
             }
         }
     }
@@ -208,31 +211,6 @@ pub enum SslMode {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use piper::{Arc, Mutex};
-    use smol::Async;
-    use std::fs::File;
-    use std::io::{Seek, SeekFrom, Write};
-    use tempfile::NamedTempFile;
-
-    fn empty_file() -> NamedTempFile {
-        NamedTempFile::new().expect("Failed to create tempfile")
-    }
-
-    fn file_with(content: Vec<&[u8]>) -> File {
-        let mut file = empty_file();
-        for bytes in content {
-            file.write(bytes);
-        }
-        file.seek(SeekFrom::Start(0))
-            .expect("set position at the beginning of a file");
-        file.into_file()
-    }
-
-    fn stream(file: File) -> Stream<File> {
-        Arc::new(Mutex::new(
-            Async::new(file).expect("Failed to create asynchronous stream"),
-        ))
-    }
 
     #[cfg(test)]
     mod length {
@@ -240,41 +218,42 @@ mod tests {
 
         #[async_std::test]
         async fn read_length_from_closed_stream() -> io::Result<()> {
-            let mut hand_shake = HandShake::new(
-                stream(empty_file().into_file()),
-                stream(empty_file().into_file()),
-            );
+            let test_case = test_helpers::TestCase::empty().await;
+            let mut hand_shake = HandShake::new(test_case.clone(), test_case.clone());
+
             let len = hand_shake.read_len().await?;
+
             assert_eq!(len, Err(Error));
+
             Ok(())
         }
 
         #[async_std::test]
         async fn read_length_from_open_stream() -> io::Result<()> {
-            let mut hand_shake = HandShake::new(
-                stream(file_with(vec![&[1u8; 4]])),
-                stream(empty_file().into_file()),
-            );
+            let test_case = test_helpers::TestCase::with_content(vec![&[1u8; 4]]).await;
+            let mut hand_shake = HandShake::new(test_case.clone(), test_case.clone());
+
             let len = hand_shake.read_len().await?;
+
             assert_eq!(len, Ok(NetworkEndian::read_i32(&[1u8; 4])));
+
             Ok(())
         }
     }
 
     #[async_std::test]
     async fn send_notice() -> io::Result<()> {
-        let write_content = empty_file();
-        let mut path = write_content.reopen().expect("reopen file");
-        let mut hand_shake = HandShake::new(
-            stream(empty_file().into_file()),
-            stream(write_content.into_file()),
-        );
+        let test_case = test_helpers::TestCase::empty().await;
+
+        let mut hand_shake = HandShake::new(test_case.clone(), test_case.clone());
+
         hand_shake.send_notice().await?;
-        let mut content = Vec::new();
-        path.read_to_end(&mut content)?;
+
+        let actual_content = test_case.read_result().await;
         let mut expected_content = BytesMut::new();
         expected_content.extend_from_slice(Message::Notice.as_vec().as_slice());
-        assert_eq!(expected_content, content);
+        assert_eq!(expected_content, actual_content);
+
         Ok(())
     }
 
@@ -284,34 +263,38 @@ mod tests {
 
         #[async_std::test]
         async fn successful_read_ssl_request() -> io::Result<()> {
-            let mut hand_shake = HandShake::new(
-                stream(file_with(vec![&[0, 0, 0, 8], &[4, 210, 22, 47]])),
-                stream(empty_file().into_file()),
-            );
+            let test_case =
+                test_helpers::TestCase::with_content(vec![&[0, 0, 0, 8], &[4, 210, 22, 47]]).await;
+            let mut hand_shake = HandShake::new(test_case.clone(), test_case.clone());
+
             let ssl_mode = hand_shake.hand_ssl().await?;
+
             assert_eq!(ssl_mode, Ok(SslMode::Require));
+
             Ok(())
         }
 
         #[async_std::test]
         async fn unexpected_eof_when_read_length_of_ssl_request() -> io::Result<()> {
-            let mut hand_shake = HandShake::new(
-                stream(file_with(vec![&[]])),
-                stream(empty_file().into_file()),
-            );
+            let test_case = test_helpers::TestCase::with_content(vec![]).await;
+            let mut hand_shake = HandShake::new(test_case.clone(), test_case.clone());
+
             let ssl_mode = hand_shake.hand_ssl().await?;
+
             assert_eq!(ssl_mode, Err(Error));
+
             Ok(())
         }
 
         #[async_std::test]
         async fn unexpected_eof_when_read_ssl_request() -> io::Result<()> {
-            let mut hand_shake = HandShake::new(
-                stream(file_with(vec![&[0, 0, 0, 8]])),
-                stream(empty_file().into_file()),
-            );
+            let test_case = test_helpers::TestCase::with_content(vec![&[0, 0, 0, 8]]).await;
+            let mut hand_shake = HandShake::new(test_case.clone(), test_case.clone());
+
             let ssl_mode = hand_shake.hand_ssl().await?;
+
             assert_eq!(ssl_mode, Err(Error));
+
             Ok(())
         }
     }
@@ -322,24 +305,25 @@ mod tests {
 
         #[async_std::test]
         async fn unexpected_eof_when_read_length_of_setup_message() -> io::Result<()> {
-            let mut hand_shake = HandShake::new(
-                stream(file_with(vec![&[]])),
-                stream(empty_file().into_file()),
-            );
+            let test_case = test_helpers::TestCase::with_content(vec![]).await;
+            let mut hand_shake = HandShake::new(test_case.clone(), test_case.clone());
+
             let setup_message = hand_shake.read_startup_message().await?;
+
             assert_eq!(setup_message, Err(Error));
+
             Ok(())
         }
 
         #[async_std::test]
         async fn read_setup_message() -> io::Result<()> {
-            let mut hand_shake = HandShake::new(
-                stream(file_with(vec![&[0, 0, 0, 89],
-                                      &[0, 3, 0, 0],
-                                      b"user\0username\0database\0database_name\0application_name\0psql\0client_encoding\0UTF8\0\0"])),
-                stream(empty_file().into_file()),
-            );
+            let test_case = test_helpers::TestCase::with_content(vec![&[0, 0, 0, 89],
+                                                                      &[0, 3, 0, 0],
+                                                                      b"user\0username\0database\0database_name\0application_name\0psql\0client_encoding\0UTF8\0\0"]).await;
+            let mut hand_shake = HandShake::new(test_case.clone(), test_case.clone());
+
             let setup_message = hand_shake.read_startup_message().await?;
+
             assert_eq!(
                 setup_message,
                 Ok(Setup(
@@ -352,17 +336,20 @@ mod tests {
                     ])
                 ))
             );
+
             Ok(())
         }
 
         #[async_std::test]
         async fn unexpected_eof_when_read_setup_message() -> io::Result<()> {
-            let mut hand_shake = HandShake::new(
-                stream(file_with(vec![&[0, 0, 0, 89], &[0, 3, 0, 0]])),
-                stream(empty_file().into_file()),
-            );
+            let test_case =
+                test_helpers::TestCase::with_content(vec![&[0, 0, 0, 89], &[0, 3, 0, 0]]).await;
+            let mut hand_shake = HandShake::new(test_case.clone(), test_case.clone());
+
             let setup_message = hand_shake.read_startup_message().await?;
+
             assert_eq!(setup_message, Err(Error));
+
             Ok(())
         }
     }
@@ -373,56 +360,63 @@ mod tests {
 
         #[async_std::test]
         async fn successful_authentication() -> io::Result<()> {
-            let write_content = empty_file();
-            let mut path = write_content.reopen()?;
-            let mut hand_shake = HandShake::new(
-                stream(file_with(vec![&[112], &[0, 0, 0, 8], b"123\0"])),
-                stream(write_content.into_file()),
-            );
+            let test_case =
+                test_helpers::TestCase::with_content(vec![&[112], &[0, 0, 0, 8], b"123\0"]).await;
+            let mut hand_shake = HandShake::new(test_case.clone(), test_case.clone());
+
             hand_shake.send_authentication_request().await?;
             let authentication = hand_shake.handle_authentication_response().await?;
+
             assert!(authentication.is_ok());
 
-            let mut content = Vec::new();
-            path.read_to_end(&mut content);
+            let actual_content = test_case.read_result().await;
             let mut expected_content = BytesMut::new();
             expected_content
                 .extend_from_slice(Message::AuthenticationCleartextPassword.as_vec().as_slice());
             expected_content.extend_from_slice(Message::AuthenticationOk.as_vec().as_slice());
+
+            assert_eq!(actual_content, expected_content);
+
             Ok(())
         }
 
         #[async_std::test]
         async fn unexpected_eof_when_read_authentication_tag() -> io::Result<()> {
-            let mut hand_shake =
-                HandShake::new(stream(file_with(vec![])), stream(empty_file().into_file()));
+            let test_case = test_helpers::TestCase::with_content(vec![]).await;
+            let mut hand_shake = HandShake::new(test_case.clone(), test_case.clone());
+
             hand_shake.send_authentication_request().await?;
             let authentication = hand_shake.handle_authentication_response().await?;
+
             assert!(authentication.is_err());
+
             Ok(())
         }
 
         #[async_std::test]
         async fn unexpected_eof_when_read_authentication_message_length() -> io::Result<()> {
-            let mut hand_shake = HandShake::new(
-                stream(file_with(vec![&[112]])),
-                stream(empty_file().into_file()),
-            );
+            let test_case = test_helpers::TestCase::with_content(vec![&[112]]).await;
+            let mut hand_shake = HandShake::new(test_case.clone(), test_case.clone());
+
             hand_shake.send_authentication_request().await?;
             let authentication = hand_shake.handle_authentication_response().await?;
+
             assert!(authentication.is_err());
+
             Ok(())
         }
 
         #[async_std::test]
         async fn unexpected_eof_when_read_authentication_message_password() -> io::Result<()> {
-            let mut hand_shake = HandShake::new(
-                stream(file_with(vec![&[112], &[0, 0, 0, 8], b"1\0"])),
-                stream(empty_file().into_file()),
-            );
+            let test_case =
+                test_helpers::TestCase::with_content(vec![&[112], &[0, 0, 0, 8], b"1\0"]).await;
+            let mut hand_shake = HandShake::new(test_case.clone(), test_case.clone());
+
             hand_shake.send_authentication_request().await?;
             let authentication = hand_shake.handle_authentication_response().await?;
+
             assert!(authentication.is_err());
+
             Ok(())
         }
     }
