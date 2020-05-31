@@ -21,10 +21,11 @@ mod compatibility {
         use crate::protocol::messages::*;
         use async_std::io;
         use bytes::BytesMut;
+        use test_helpers::async_io;
 
         #[async_std::test]
         async fn successful_connection_handshake() -> io::Result<()> {
-            let test_case = test_helpers::TestCase::with_content(vec![
+            let test_case = async_io::TestCase::with_content(vec![
                 &[0, 0, 0, 8],
                 &[4, 210, 22, 47],
                 &[0, 0, 0, 89],

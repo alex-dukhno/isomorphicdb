@@ -211,6 +211,7 @@ pub enum SslMode {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use test_helpers::async_io;
 
     #[cfg(test)]
     mod length {
@@ -218,7 +219,7 @@ mod tests {
 
         #[async_std::test]
         async fn read_length_from_closed_stream() -> io::Result<()> {
-            let test_case = test_helpers::TestCase::empty().await;
+            let test_case = async_io::TestCase::empty().await;
             let mut hand_shake = HandShake::new(test_case.clone(), test_case.clone());
 
             let len = hand_shake.read_len().await?;
@@ -230,7 +231,7 @@ mod tests {
 
         #[async_std::test]
         async fn read_length_from_open_stream() -> io::Result<()> {
-            let test_case = test_helpers::TestCase::with_content(vec![&[1u8; 4]]).await;
+            let test_case = async_io::TestCase::with_content(vec![&[1u8; 4]]).await;
             let mut hand_shake = HandShake::new(test_case.clone(), test_case.clone());
 
             let len = hand_shake.read_len().await?;
@@ -243,7 +244,7 @@ mod tests {
 
     #[async_std::test]
     async fn send_notice() -> io::Result<()> {
-        let test_case = test_helpers::TestCase::empty().await;
+        let test_case = async_io::TestCase::empty().await;
 
         let mut hand_shake = HandShake::new(test_case.clone(), test_case.clone());
 
@@ -252,7 +253,7 @@ mod tests {
         let actual_content = test_case.read_result().await;
         let mut expected_content = BytesMut::new();
         expected_content.extend_from_slice(Message::Notice.as_vec().as_slice());
-        assert_eq!(expected_content, actual_content);
+        assert_eq!(actual_content, expected_content);
 
         Ok(())
     }
@@ -264,7 +265,7 @@ mod tests {
         #[async_std::test]
         async fn successful_read_ssl_request() -> io::Result<()> {
             let test_case =
-                test_helpers::TestCase::with_content(vec![&[0, 0, 0, 8], &[4, 210, 22, 47]]).await;
+                async_io::TestCase::with_content(vec![&[0, 0, 0, 8], &[4, 210, 22, 47]]).await;
             let mut hand_shake = HandShake::new(test_case.clone(), test_case.clone());
 
             let ssl_mode = hand_shake.hand_ssl().await?;
@@ -276,7 +277,7 @@ mod tests {
 
         #[async_std::test]
         async fn unexpected_eof_when_read_length_of_ssl_request() -> io::Result<()> {
-            let test_case = test_helpers::TestCase::with_content(vec![]).await;
+            let test_case = async_io::TestCase::with_content(vec![]).await;
             let mut hand_shake = HandShake::new(test_case.clone(), test_case.clone());
 
             let ssl_mode = hand_shake.hand_ssl().await?;
@@ -288,7 +289,7 @@ mod tests {
 
         #[async_std::test]
         async fn unexpected_eof_when_read_ssl_request() -> io::Result<()> {
-            let test_case = test_helpers::TestCase::with_content(vec![&[0, 0, 0, 8]]).await;
+            let test_case = async_io::TestCase::with_content(vec![&[0, 0, 0, 8]]).await;
             let mut hand_shake = HandShake::new(test_case.clone(), test_case.clone());
 
             let ssl_mode = hand_shake.hand_ssl().await?;
@@ -305,7 +306,7 @@ mod tests {
 
         #[async_std::test]
         async fn unexpected_eof_when_read_length_of_setup_message() -> io::Result<()> {
-            let test_case = test_helpers::TestCase::with_content(vec![]).await;
+            let test_case = async_io::TestCase::with_content(vec![]).await;
             let mut hand_shake = HandShake::new(test_case.clone(), test_case.clone());
 
             let setup_message = hand_shake.read_startup_message().await?;
@@ -317,7 +318,7 @@ mod tests {
 
         #[async_std::test]
         async fn read_setup_message() -> io::Result<()> {
-            let test_case = test_helpers::TestCase::with_content(vec![&[0, 0, 0, 89],
+            let test_case = async_io::TestCase::with_content(vec![&[0, 0, 0, 89],
                                                                       &[0, 3, 0, 0],
                                                                       b"user\0username\0database\0database_name\0application_name\0psql\0client_encoding\0UTF8\0\0"]).await;
             let mut hand_shake = HandShake::new(test_case.clone(), test_case.clone());
@@ -343,7 +344,7 @@ mod tests {
         #[async_std::test]
         async fn unexpected_eof_when_read_setup_message() -> io::Result<()> {
             let test_case =
-                test_helpers::TestCase::with_content(vec![&[0, 0, 0, 89], &[0, 3, 0, 0]]).await;
+                async_io::TestCase::with_content(vec![&[0, 0, 0, 89], &[0, 3, 0, 0]]).await;
             let mut hand_shake = HandShake::new(test_case.clone(), test_case.clone());
 
             let setup_message = hand_shake.read_startup_message().await?;
@@ -361,7 +362,7 @@ mod tests {
         #[async_std::test]
         async fn successful_authentication() -> io::Result<()> {
             let test_case =
-                test_helpers::TestCase::with_content(vec![&[112], &[0, 0, 0, 8], b"123\0"]).await;
+                async_io::TestCase::with_content(vec![&[112], &[0, 0, 0, 8], b"123\0"]).await;
             let mut hand_shake = HandShake::new(test_case.clone(), test_case.clone());
 
             hand_shake.send_authentication_request().await?;
@@ -382,7 +383,7 @@ mod tests {
 
         #[async_std::test]
         async fn unexpected_eof_when_read_authentication_tag() -> io::Result<()> {
-            let test_case = test_helpers::TestCase::with_content(vec![]).await;
+            let test_case = async_io::TestCase::with_content(vec![]).await;
             let mut hand_shake = HandShake::new(test_case.clone(), test_case.clone());
 
             hand_shake.send_authentication_request().await?;
@@ -395,7 +396,7 @@ mod tests {
 
         #[async_std::test]
         async fn unexpected_eof_when_read_authentication_message_length() -> io::Result<()> {
-            let test_case = test_helpers::TestCase::with_content(vec![&[112]]).await;
+            let test_case = async_io::TestCase::with_content(vec![&[112]]).await;
             let mut hand_shake = HandShake::new(test_case.clone(), test_case.clone());
 
             hand_shake.send_authentication_request().await?;
@@ -409,7 +410,7 @@ mod tests {
         #[async_std::test]
         async fn unexpected_eof_when_read_authentication_message_password() -> io::Result<()> {
             let test_case =
-                test_helpers::TestCase::with_content(vec![&[112], &[0, 0, 0, 8], b"1\0"]).await;
+                async_io::TestCase::with_content(vec![&[112], &[0, 0, 0, 8], b"1\0"]).await;
             let mut hand_shake = HandShake::new(test_case.clone(), test_case.clone());
 
             hand_shake.send_authentication_request().await?;
