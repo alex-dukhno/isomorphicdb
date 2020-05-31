@@ -15,11 +15,9 @@ path = "src/bin.rs"
 
 [dependencies]
 async-std = { version = "1.6.0", features = ["attributes"] }
-smol = "0.1.8"
 sled = "0.31.0"
 thiserror = "1.0.19"
 futures = { version = "0.3.5", features = ["std"] }
-piper = "0.1.1"
 pretty_env_logger = "0.4.0"
 sqlparser = { git = "https://github.com/andygrove/sqlparser-rs.git" }
 log = "0.4.8"
@@ -28,6 +26,5 @@ bytes = "0.5"
 
 [dev-dependencies]
 test_helpers = { path = "test_helpers", version = "0.1.0" }
-pretty_assertions = "0.6.1"
 tempfile = "3.1.0"
 postgres = "0.17.3"
