@@ -146,10 +146,11 @@ impl Field {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use test_helpers::async_io;
 
     #[async_std::test]
     async fn send_ready_for_query() -> io::Result<()> {
-        let test_case = test_helpers::TestCase::empty().await;
+        let test_case = async_io::TestCase::empty().await;
         let mut connection = Connection::new(test_case.clone(), test_case.clone());
 
         let ready_for_query = connection.send_ready_for_query().await?;
@@ -160,7 +161,7 @@ mod tests {
         let mut expected_content = BytesMut::new();
         expected_content.extend_from_slice(Message::ReadyForQuery.as_vec().as_slice());
 
-        assert_eq!(expected_content, actual_content);
+        assert_eq!(actual_content, expected_content);
 
         Ok(())
     }
@@ -171,7 +172,7 @@ mod tests {
 
         #[async_std::test]
         async fn read_termination_command() -> io::Result<()> {
-            let test_case = test_helpers::TestCase::with_content(vec![&[88], &[0, 0, 0, 4]]).await;
+            let test_case = async_io::TestCase::with_content(vec![&[88], &[0, 0, 0, 4]]).await;
             let mut connection = Connection::new(test_case.clone(), test_case.clone());
 
             let query = connection.read_query().await?;
@@ -184,8 +185,7 @@ mod tests {
         #[async_std::test]
         async fn read_query_successfully() -> io::Result<()> {
             let test_case =
-                test_helpers::TestCase::with_content(vec![&[81], &[0, 0, 0, 14], b"select 1;\0"])
-                    .await;
+                async_io::TestCase::with_content(vec![&[81], &[0, 0, 0, 14], b"select 1;\0"]).await;
             let mut connection = Connection::new(test_case.clone(), test_case.clone());
 
             let query = connection.read_query().await?;
@@ -197,7 +197,7 @@ mod tests {
 
         #[async_std::test]
         async fn unexpected_eof_when_read_type_code_of_query_request() -> io::Result<()> {
-            let test_case = test_helpers::TestCase::with_content(vec![]).await;
+            let test_case = async_io::TestCase::with_content(vec![]).await;
             let mut connection = Connection::new(test_case.clone(), test_case.clone());
 
             let query = connection.read_query().await?;
@@ -209,7 +209,7 @@ mod tests {
 
         #[async_std::test]
         async fn unexpected_eof_when_read_length_of_query() -> io::Result<()> {
-            let test_case = test_helpers::TestCase::with_content(vec![&[81]]).await;
+            let test_case = async_io::TestCase::with_content(vec![&[81]]).await;
             let mut connection = Connection::new(test_case.clone(), test_case.clone());
 
             let query = connection.read_query().await?;
@@ -222,7 +222,7 @@ mod tests {
         #[async_std::test]
         async fn unexpected_eof_when_query_string() -> io::Result<()> {
             let test_case =
-                test_helpers::TestCase::with_content(vec![&[81], &[0, 0, 0, 14], b"sel;\0"]).await;
+                async_io::TestCase::with_content(vec![&[81], &[0, 0, 0, 14], b"sel;\0"]).await;
             let mut connection = Connection::new(test_case.clone(), test_case.clone());
 
             let query = connection.read_query().await?;
@@ -235,7 +235,7 @@ mod tests {
 
     #[async_std::test]
     async fn send_field_description_query() -> io::Result<()> {
-        let test_case = test_helpers::TestCase::empty().await;
+        let test_case = async_io::TestCase::empty().await;
         let mut connection = Connection::new(test_case.clone(), test_case.clone());
         let fields = vec![
             Field::new(
@@ -261,14 +261,14 @@ mod tests {
             .as_slice(),
         );
 
-        assert_eq!(expected_content, actual_content);
+        assert_eq!(actual_content, expected_content);
 
         Ok(())
     }
 
     #[async_std::test]
     async fn send_rows_data() -> io::Result<()> {
-        let test_case = test_helpers::TestCase::empty().await;
+        let test_case = async_io::TestCase::empty().await;
         let mut connection = Connection::new(test_case.clone(), test_case.clone());
 
         let rows = vec![
@@ -284,14 +284,14 @@ mod tests {
             expected_content.extend_from_slice(Message::DataRow(row).as_vec().as_slice());
         }
 
-        assert_eq!(expected_content, actual_content);
+        assert_eq!(actual_content, expected_content);
 
         Ok(())
     }
 
     #[async_std::test]
     async fn send_command_complete() -> io::Result<()> {
-        let test_case = test_helpers::TestCase::empty().await;
+        let test_case = async_io::TestCase::empty().await;
         let mut connection = Connection::new(test_case.clone(), test_case.clone());
         connection
             .send_command_complete(Message::CommandComplete("SELECT".to_owned()))

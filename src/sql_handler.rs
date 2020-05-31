@@ -283,6 +283,7 @@ mod tests {
     use super::*;
     use crate::protocol::messages::Message;
     use bytes::BytesMut;
+    use test_helpers::{async_io, frontend};
 
     fn storage(
         create_schemas_responses: Vec<storage::Result<()>>,
@@ -298,12 +299,11 @@ mod tests {
 
     #[async_std::test]
     async fn create_schema_query() -> io::Result<()> {
-        let test_case = test_helpers::TestCase::with_content(vec![
-            &[81],
-            &[0, 0, 0, 31],
-            b"create schema schema_name;\0",
-        ])
-        .await;
+        let test_case =
+            async_io::TestCase::with_content(vec![frontend::query("create schema schema_name;")
+                .as_vec()
+                .as_slice()])
+            .await;
         let mut handler = Handler::new(
             storage(vec![Ok(())], vec![], vec![]),
             Connection::new(test_case.clone(), test_case.clone()),
@@ -327,13 +327,13 @@ mod tests {
 
     #[async_std::test]
     async fn create_schema_with_the_same_name() -> io::Result<()> {
-        let test_case = test_helpers::TestCase::with_content(vec![
-            &[81],
-            &[0, 0, 0, 31],
-            b"create schema schema_name;\0",
-            &[81],
-            &[0, 0, 0, 31],
-            b"create schema schema_name;\0",
+        let test_case = async_io::TestCase::with_content(vec![
+            frontend::query("create schema schema_name;")
+                .as_vec()
+                .as_slice(),
+            frontend::query("create schema schema_name;")
+                .as_vec()
+                .as_slice(),
         ])
         .await;
         let mut handler = Handler::new(
@@ -379,16 +379,16 @@ mod tests {
 
     #[async_std::test]
     async fn drop_schema() -> io::Result<()> {
-        let test_case = test_helpers::TestCase::with_content(vec![
-            &[81],
-            &[0, 0, 0, 31],
-            b"create schema schema_name;\0",
-            &[81],
-            &[0, 0, 0, 29],
-            b"drop schema schema_name;\0",
-            &[81],
-            &[0, 0, 0, 31],
-            b"create schema schema_name;\0",
+        let test_case = async_io::TestCase::with_content(vec![
+            frontend::query("create schema schema_name;")
+                .as_vec()
+                .as_slice(),
+            frontend::query("drop schema schema_name;")
+                .as_vec()
+                .as_slice(),
+            frontend::query("create schema schema_name;")
+                .as_vec()
+                .as_slice(),
         ])
         .await;
         let mut handler = Handler::new(
@@ -428,13 +428,13 @@ mod tests {
 
     #[async_std::test]
     async fn create_table() -> io::Result<()> {
-        let test_case = test_helpers::TestCase::with_content(vec![
-            &[81],
-            &[0, 0, 0, 31],
-            b"create schema schema_name;\0",
-            &[81],
-            &[0, 0, 0, 64],
-            b"create table schema_name.table_name (column_name smallint);\0",
+        let test_case = async_io::TestCase::with_content(vec![
+            frontend::query("create schema schema_name;")
+                .as_vec()
+                .as_slice(),
+            frontend::query("create table schema_name.table_name (column_name smallint);")
+                .as_vec()
+                .as_slice(),
         ])
         .await;
         let mut handler = Handler::new(
@@ -467,19 +467,19 @@ mod tests {
 
     #[async_std::test]
     async fn drop_table() -> io::Result<()> {
-        let test_case = test_helpers::TestCase::with_content(vec![
-            &[81],
-            &[0, 0, 0, 31],
-            b"create schema schema_name;\0",
-            &[81],
-            &[0, 0, 0, 64],
-            b"create table schema_name.table_name (column_name smallint);\0",
-            &[81],
-            &[0, 0, 0, 39],
-            b"drop table schema_name.table_name;\0",
-            &[81],
-            &[0, 0, 0, 64],
-            b"create table schema_name.table_name (column_name smallint);\0",
+        let test_case = async_io::TestCase::with_content(vec![
+            frontend::query("create schema schema_name;")
+                .as_vec()
+                .as_slice(),
+            frontend::query("create table schema_name.table_name (column_name smallint);")
+                .as_vec()
+                .as_slice(),
+            frontend::query("drop table schema_name.table_name;")
+                .as_vec()
+                .as_slice(),
+            frontend::query("create table schema_name.table_name (column_name smallint);")
+                .as_vec()
+                .as_slice(),
         ])
         .await;
         let mut handler = Handler::new(
@@ -526,19 +526,19 @@ mod tests {
 
     #[async_std::test]
     async fn insert_and_select_single_row() -> io::Result<()> {
-        let test_case = test_helpers::TestCase::with_content(vec![
-            &[81],
-            &[0, 0, 0, 31],
-            b"create schema schema_name;\0",
-            &[81],
-            &[0, 0, 0, 64],
-            b"create table schema_name.table_name (column_name smallint);\0",
-            &[81],
-            &[0, 0, 0, 53],
-            b"insert into schema_name.table_name values (123);\0",
-            &[81],
-            &[0, 0, 0, 42],
-            b"select * from schema_name.table_name;\0",
+        let test_case = async_io::TestCase::with_content(vec![
+            frontend::query("create schema schema_name;")
+                .as_vec()
+                .as_slice(),
+            frontend::query("create table schema_name.table_name (column_name smallint);")
+                .as_vec()
+                .as_slice(),
+            frontend::query("insert into schema_name.table_name values (123);")
+                .as_vec()
+                .as_slice(),
+            frontend::query("select * from schema_name.table_name;")
+                .as_vec()
+                .as_slice(),
         ])
         .await;
         let mut handler = Handler::new(
@@ -592,25 +592,25 @@ mod tests {
 
     #[async_std::test]
     async fn insert_and_select_multiple_rows() -> io::Result<()> {
-        let test_case = test_helpers::TestCase::with_content(vec![
-            &[81],
-            &[0, 0, 0, 31],
-            b"create schema schema_name;\0",
-            &[81],
-            &[0, 0, 0, 64],
-            b"create table schema_name.table_name (column_name smallint);\0",
-            &[81],
-            &[0, 0, 0, 53],
-            b"insert into schema_name.table_name values (123);\0",
-            &[81],
-            &[0, 0, 0, 42],
-            b"select * from schema_name.table_name;\0",
-            &[81],
-            &[0, 0, 0, 53],
-            b"insert into schema_name.table_name values (456);\0",
-            &[81],
-            &[0, 0, 0, 42],
-            b"select * from schema_name.table_name;\0",
+        let test_case = async_io::TestCase::with_content(vec![
+            frontend::query("create schema schema_name;")
+                .as_vec()
+                .as_slice(),
+            frontend::query("create table schema_name.table_name (column_name smallint);")
+                .as_vec()
+                .as_slice(),
+            frontend::query("insert into schema_name.table_name values (123);")
+                .as_vec()
+                .as_slice(),
+            frontend::query("select * from schema_name.table_name;")
+                .as_vec()
+                .as_slice(),
+            frontend::query("insert into schema_name.table_name values (456);")
+                .as_vec()
+                .as_slice(),
+            frontend::query("select * from schema_name.table_name;")
+                .as_vec()
+                .as_slice(),
         ])
         .await;
         let mut handler = Handler::new(
@@ -693,28 +693,28 @@ mod tests {
 
     #[async_std::test]
     async fn update_all_records() -> io::Result<()> {
-        let test_case = test_helpers::TestCase::with_content(vec![
-            &[81],
-            &[0, 0, 0, 31],
-            b"create schema schema_name;\0",
-            &[81],
-            &[0, 0, 0, 64],
-            b"create table schema_name.table_name (column_name smallint);\0",
-            &[81],
-            &[0, 0, 0, 53],
-            b"insert into schema_name.table_name values (123);\0",
-            &[81],
-            &[0, 0, 0, 53],
-            b"insert into schema_name.table_name values (456);\0",
-            &[81],
-            &[0, 0, 0, 42],
-            b"select * from schema_name.table_name;\0",
-            &[81],
-            &[0, 0, 0, 55],
-            b"update schema_name.table_name set column_test=789;\0",
-            &[81],
-            &[0, 0, 0, 42],
-            b"select * from schema_name.table_name;\0",
+        let test_case = async_io::TestCase::with_content(vec![
+            frontend::query("create schema schema_name;")
+                .as_vec()
+                .as_slice(),
+            frontend::query("create table schema_name.table_name (column_name smallint);")
+                .as_vec()
+                .as_slice(),
+            frontend::query("insert into schema_name.table_name values (123);")
+                .as_vec()
+                .as_slice(),
+            frontend::query("insert into schema_name.table_name values (456);")
+                .as_vec()
+                .as_slice(),
+            frontend::query("select * from schema_name.table_name;")
+                .as_vec()
+                .as_slice(),
+            frontend::query("update schema_name.table_name set column_test=789;")
+                .as_vec()
+                .as_slice(),
+            frontend::query("select * from schema_name.table_name;")
+                .as_vec()
+                .as_slice(),
         ])
         .await;
         let mut handler = Handler::new(
@@ -807,28 +807,28 @@ mod tests {
 
     #[async_std::test]
     async fn delete_all_records() -> io::Result<()> {
-        let test_case = test_helpers::TestCase::with_content(vec![
-            &[81],
-            &[0, 0, 0, 31],
-            b"create schema schema_name;\0",
-            &[81],
-            &[0, 0, 0, 64],
-            b"create table schema_name.table_name (column_name smallint);\0",
-            &[81],
-            &[0, 0, 0, 53],
-            b"insert into schema_name.table_name values (123);\0",
-            &[81],
-            &[0, 0, 0, 53],
-            b"insert into schema_name.table_name values (456);\0",
-            &[81],
-            &[0, 0, 0, 42],
-            b"select * from schema_name.table_name;\0",
-            &[81],
-            &[0, 0, 0, 40],
-            b"delete from schema_name.table_name;\0",
-            &[81],
-            &[0, 0, 0, 42],
-            b"select * from schema_name.table_name;\0",
+        let test_case = async_io::TestCase::with_content(vec![
+            frontend::query("create schema schema_name;")
+                .as_vec()
+                .as_slice(),
+            frontend::query("create table schema_name.table_name (column_name smallint);")
+                .as_vec()
+                .as_slice(),
+            frontend::query("insert into schema_name.table_name values (123);")
+                .as_vec()
+                .as_slice(),
+            frontend::query("insert into schema_name.table_name values (456);")
+                .as_vec()
+                .as_slice(),
+            frontend::query("select * from schema_name.table_name;")
+                .as_vec()
+                .as_slice(),
+            frontend::query("delete from schema_name.table_name;")
+                .as_vec()
+                .as_slice(),
+            frontend::query("select * from schema_name.table_name;")
+                .as_vec()
+                .as_slice(),
         ])
         .await;
         let mut handler = Handler::new(
