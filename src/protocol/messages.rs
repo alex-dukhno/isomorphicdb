@@ -92,21 +92,21 @@ impl Message {
                 let mut error_response_buff = BytesMut::with_capacity(256);
                 error_response_buff.put_u8(ERROR_RESPONSE);
                 let mut message_buff = BytesMut::with_capacity(256);
-                severity.as_ref().map(|severity| {
+                if let Some(severity) = severity.as_ref() {
                     message_buff.put_u8(SEVERITY);
                     message_buff.extend_from_slice(severity.as_bytes());
                     message_buff.put_u8(0);
-                });
-                code.as_ref().map(|code| {
+                }
+                if let Some(code) = code.as_ref() {
                     message_buff.put_u8(CODE);
                     message_buff.extend_from_slice(code.as_bytes());
                     message_buff.put_u8(0);
-                });
-                message.as_ref().map(|message| {
+                }
+                if let Some(message) = message.as_ref() {
                     message_buff.put_u8(MESSAGE);
                     message_buff.extend_from_slice(message.as_bytes());
                     message_buff.put_u8(0);
-                });
+                }
                 error_response_buff.put_i32(message_buff.len() as i32 + 4 + 1);
                 error_response_buff.extend_from_slice(message_buff.as_ref());
                 error_response_buff.put_u8(0);

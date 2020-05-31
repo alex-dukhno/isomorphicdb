@@ -1,12 +1,12 @@
+use async_std::io::prelude::*;
+use async_std::io::{self};
 use byteorder::{ByteOrder, NetworkEndian};
-use bytes::{Buf, BufMut, BytesMut};
-use futures::io::{self, AsyncReadExt, AsyncWriteExt};
-use std::io::{Read, Write};
+use bytes::BytesMut;
 
 use crate::protocol::Command;
 use crate::{
     protocol::messages::Message,
-    protocol::{Error, Result, Stream},
+    protocol::{Error, Result},
 };
 
 #[derive(Debug)]
@@ -14,21 +14,21 @@ pub struct Connection<
     R: Read + Send + Sync + Unpin + 'static,
     W: Write + Send + Sync + Unpin + 'static,
 > {
-    reader: Stream<R>,
-    writer: Stream<W>,
+    reader: R,
+    writer: W,
 }
 
 impl<R: Read + Send + Sync + Unpin + 'static, W: Write + Send + Sync + Unpin + 'static>
     Connection<R, W>
 {
-    pub fn new(reader: Stream<R>, writer: Stream<W>) -> Self {
+    pub fn new(reader: R, writer: W) -> Self {
         Self { reader, writer }
     }
 
     pub async fn send_ready_for_query(&mut self) -> io::Result<()> {
         trace!("send ready for query message");
         self.writer
-            .write(Message::ReadyForQuery.as_vec().as_slice())
+            .write_all(Message::ReadyForQuery.as_vec().as_slice())
             .await?;
         Ok(())
     }
@@ -95,7 +95,7 @@ impl<R: Read + Send + Sync + Unpin + 'static, W: Write + Send + Sync + Unpin + '
 
     pub async fn send_row_description(&mut self, fields: Vec<Field>) -> io::Result<()> {
         self.writer
-            .write(
+            .write_all(
                 Message::RowDescription(
                     fields
                         .into_iter()
@@ -105,7 +105,7 @@ impl<R: Read + Send + Sync + Unpin + 'static, W: Write + Send + Sync + Unpin + '
                 .as_vec()
                 .as_slice(),
             )
-            .await;
+            .await?;
         trace!("row description is sent");
         Ok(())
     }
@@ -113,14 +113,14 @@ impl<R: Read + Send + Sync + Unpin + 'static, W: Write + Send + Sync + Unpin + '
     pub async fn send_row_data(&mut self, rows: Vec<Vec<String>>) -> io::Result<()> {
         for row in rows {
             self.writer
-                .write(Message::DataRow(row).as_vec().as_slice())
+                .write_all(Message::DataRow(row).as_vec().as_slice())
                 .await?;
         }
         Ok(())
     }
 
     pub async fn send_command_complete(&mut self, message: Message) -> io::Result<()> {
-        self.writer.write(message.as_vec().as_slice()).await?;
+        self.writer.write_all(message.as_vec().as_slice()).await?;
         trace!("end of the command is sent");
         Ok(())
     }
@@ -146,47 +146,22 @@ impl Field {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use piper::{Arc, Mutex};
-    use smol::Async;
-    use std::fs::File;
-    use std::io::{Seek, SeekFrom, Write};
-    use tempfile::NamedTempFile;
-
-    fn empty_file() -> NamedTempFile {
-        NamedTempFile::new().expect("Failed to create tempfile")
-    }
-
-    fn file_with(content: Vec<&[u8]>) -> File {
-        let mut file = empty_file();
-        for bytes in content {
-            file.write(bytes);
-        }
-        file.seek(SeekFrom::Start(0))
-            .expect("set position at the beginning of a file");
-        file.into_file()
-    }
-
-    fn stream(file: File) -> Stream<File> {
-        Arc::new(Mutex::new(
-            Async::new(file).expect("Failed to create asynchronous stream"),
-        ))
-    }
 
     #[async_std::test]
     async fn send_ready_for_query() -> io::Result<()> {
-        let write_content = empty_file();
-        let mut path = write_content.reopen().expect("reopen file");
-        let mut connection = Connection::new(
-            stream(empty_file().into_file()),
-            stream(write_content.into_file()),
-        );
+        let mut test_case = test_helpers::TestCase::empty().await;
+        let mut connection = Connection::new(test_case.clone(), test_case.clone());
+
         let ready_for_query = connection.send_ready_for_query().await?;
+
         assert_eq!(ready_for_query, ());
-        let mut content = Vec::new();
-        path.read_to_end(&mut content)?;
+
+        let actual_content = test_case.read_result().await;
         let mut expected_content = BytesMut::new();
         expected_content.extend_from_slice(Message::ReadyForQuery.as_vec().as_slice());
-        assert_eq!(expected_content, content);
+
+        assert_eq!(expected_content, actual_content);
+
         Ok(())
     }
 
@@ -196,66 +171,73 @@ mod tests {
 
         #[async_std::test]
         async fn read_termination_command() -> io::Result<()> {
-            let mut connection = Connection::new(
-                stream(file_with(vec![&[88], &[0, 0, 0, 4]])),
-                stream(empty_file().into_file()),
-            );
+            let mut test_case =
+                test_helpers::TestCase::with_content(vec![&[88], &[0, 0, 0, 4]]).await;
+            let mut connection = Connection::new(test_case.clone(), test_case.clone());
+
             let query = connection.read_query().await?;
+
             assert_eq!(query, Ok(Command::Terminate));
+
             Ok(())
         }
 
         #[async_std::test]
         async fn read_query_successfully() -> io::Result<()> {
-            let mut connection = Connection::new(
-                stream(file_with(vec![&[81], &[0, 0, 0, 14], b"select 1;\0"])),
-                stream(empty_file().into_file()),
-            );
+            let mut test_case =
+                test_helpers::TestCase::with_content(vec![&[81], &[0, 0, 0, 14], b"select 1;\0"])
+                    .await;
+            let mut connection = Connection::new(test_case.clone(), test_case.clone());
+
             let query = connection.read_query().await?;
+
             assert_eq!(query, Ok(Command::Query("select 1;".to_owned())));
+
             Ok(())
         }
 
         #[async_std::test]
         async fn unexpected_eof_when_read_type_code_of_query_request() -> io::Result<()> {
-            let mut connection =
-                Connection::new(stream(file_with(vec![])), stream(empty_file().into_file()));
+            let mut test_case = test_helpers::TestCase::with_content(vec![]).await;
+            let mut connection = Connection::new(test_case.clone(), test_case.clone());
+
             let query = connection.read_query().await?;
+
             assert_eq!(query, Err(Error));
+
             Ok(())
         }
 
         #[async_std::test]
         async fn unexpected_eof_when_read_length_of_query() -> io::Result<()> {
-            let mut connection = Connection::new(
-                stream(file_with(vec![&[81]])),
-                stream(empty_file().into_file()),
-            );
+            let mut test_case = test_helpers::TestCase::with_content(vec![&[81]]).await;
+            let mut connection = Connection::new(test_case.clone(), test_case.clone());
+
             let query = connection.read_query().await?;
+
             assert_eq!(query, Err(Error));
+
             Ok(())
         }
 
         #[async_std::test]
         async fn unexpected_eof_when_query_string() -> io::Result<()> {
-            let mut connection = Connection::new(
-                stream(file_with(vec![&[81], &[0, 0, 0, 14], b"sel;\0"])),
-                stream(empty_file().into_file()),
-            );
+            let mut test_case =
+                test_helpers::TestCase::with_content(vec![&[81], &[0, 0, 0, 14], b"sel;\0"]).await;
+            let mut connection = Connection::new(test_case.clone(), test_case.clone());
+
             let query = connection.read_query().await?;
+
             assert_eq!(query, Err(Error));
+
             Ok(())
         }
     }
 
     #[async_std::test]
     async fn send_field_description_query() -> io::Result<()> {
-        let write_content = empty_file();
-        let mut path = write_content.reopen().expect("reopen file");
-        let mut connection = Connection::new(
-            stream(empty_file().into_file()),
-            stream(write_content.into_file()),
-        );
+        let mut test_case = test_helpers::TestCase::empty().await;
+        let mut connection = Connection::new(test_case.clone(), test_case.clone());
         let fields = vec![
             Field::new(
                 "c1".to_owned(),
@@ -264,9 +246,10 @@ mod tests {
             ),
             Field::new("c2".to_owned(), 23, 4),
         ];
+
         connection.send_row_description(fields.clone()).await?;
-        let mut content = Vec::new();
-        path.read_to_end(&mut content)?;
+
+        let actual_content = test_case.read_result().await;
         let mut expected_content = BytesMut::new();
         expected_content.extend_from_slice(
             Message::RowDescription(
@@ -278,54 +261,52 @@ mod tests {
             .as_vec()
             .as_slice(),
         );
-        assert_eq!(expected_content, content);
+
+        assert_eq!(expected_content, actual_content);
+
         Ok(())
     }
 
     #[async_std::test]
     async fn send_rows_data() -> io::Result<()> {
-        let write_content = empty_file();
-        let mut path = write_content.reopen().expect("reopen file");
-        let mut connection = Connection::new(
-            stream(empty_file().into_file()),
-            stream(write_content.into_file()),
-        );
+        let mut test_case = test_helpers::TestCase::empty().await;
+        let mut connection = Connection::new(test_case.clone(), test_case.clone());
+
         let rows = vec![
             vec!["1".to_owned(), "2".to_owned()],
             vec!["3".to_owned(), "4".to_owned()],
             vec!["5".to_owned(), "6".to_owned()],
         ];
         connection.send_row_data(rows.clone()).await?;
-        let mut content = Vec::new();
-        path.read_to_end(&mut content)?;
+
+        let actual_content = test_case.read_result().await;
         let mut expected_content = BytesMut::new();
         for row in rows {
             expected_content.extend_from_slice(Message::DataRow(row).as_vec().as_slice());
         }
-        assert_eq!(expected_content, content);
+
+        assert_eq!(expected_content, actual_content);
+
         Ok(())
     }
 
     #[async_std::test]
     async fn send_command_complete() -> io::Result<()> {
-        let write_content = empty_file();
-        let mut path = write_content.reopen().expect("reopen file");
-        let mut connection = Connection::new(
-            stream(empty_file().into_file()),
-            stream(write_content.into_file()),
-        );
+        let mut test_case = test_helpers::TestCase::empty().await;
+        let mut connection = Connection::new(test_case.clone(), test_case.clone());
         connection
             .send_command_complete(Message::CommandComplete("SELECT".to_owned()))
             .await?;
-        let mut content = Vec::new();
-        path.read_to_end(&mut content)?;
+
+        let actual_content = test_case.read_result().await;
         let mut expected_content = BytesMut::new();
         expected_content.extend_from_slice(
             Message::CommandComplete("SELECT".to_owned())
                 .as_vec()
                 .as_slice(),
         );
-        assert_eq!(expected_content, content);
+        assert_eq!(actual_content, expected_content);
+
         Ok(())
     }
 }
