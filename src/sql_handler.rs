@@ -39,7 +39,7 @@ impl<
             Err(_e) => unimplemented!(),
             Ok(Command::Terminate) => return Ok(false),
             Ok(Command::Query(query)) => {
-                match self.execute(query).await? {
+                match self.execute(query.clone()).await? {
                     Ok(QueryResult::SchemaCreated) => {
                         self.connection
                             .send_command_complete(Message::CommandComplete(
@@ -128,7 +128,30 @@ impl<
                             ))
                             .await?
                     }
-                    Err(_e) => unimplemented!(),
+                    Err(storage::Error::NotSupportedOperation(raw_sql_query)) => {
+                        self.connection
+                            .send_command_complete(Message::ErrorResponse(
+                                Some("ERROR".to_owned()),
+                                Some("42601".to_owned()),
+                                Some(format!(
+                                    "Currently, Query '{}' can't be executed",
+                                    raw_sql_query
+                                )),
+                            ))
+                            .await?;
+                    }
+                    Err(e) => {
+                        self.connection
+                            .send_command_complete(Message::ErrorResponse(
+                                Some("ERROR".to_owned()),
+                                Some("58000".to_owned()),
+                                Some(format!(
+                                "Unhandled error during executing query: '{}'\nThe error is: {:#?}",
+                                query, e
+                            )),
+                            ))
+                            .await?
+                    }
                 }
             }
         }
@@ -136,8 +159,11 @@ impl<
     }
 
     #[allow(clippy::match_wild_err_arm)]
-    async fn execute(&mut self, query: String) -> io::Result<Result<QueryResult, storage::Error>> {
-        let statement = Parser::parse_sql(&PostgreSqlDialect {}, query)
+    async fn execute(
+        &mut self,
+        raw_sql_query: String,
+    ) -> io::Result<Result<QueryResult, storage::Error>> {
+        let statement = Parser::parse_sql(&PostgreSqlDialect {}, raw_sql_query.clone())
             .unwrap()
             .pop()
             .unwrap();
@@ -165,17 +191,17 @@ impl<
                     let schema_name = names[0].0[0].to_string();
                     match (*self.storage.lock().await).drop_table(schema_name, table_name) {
                         Ok(_) => Ok(Ok(QueryResult::TableDropped)),
-                        Err(_e) => unimplemented!(),
+                        Err(_e) => Ok(Err(storage::Error::NotSupportedOperation(raw_sql_query))),
                     }
                 }
                 sqlparser::ast::ObjectType::Schema => {
                     let schema_name = names[0].0[0].to_string();
                     match (*self.storage.lock().await).drop_schema(schema_name) {
                         Ok(_) => Ok(Ok(QueryResult::SchemaDropped)),
-                        Err(_e) => unimplemented!(),
+                        Err(_e) => Ok(Err(storage::Error::NotSupportedOperation(raw_sql_query))),
                     }
                 }
-                _ => unimplemented!(),
+                _ => Ok(Err(storage::Error::NotSupportedOperation(raw_sql_query))),
             },
             sqlparser::ast::Statement::Insert {
                 mut table_name,
@@ -195,16 +221,18 @@ impl<
                                 value.to_string(),
                             ) {
                                 Ok(_) => Ok(Ok(QueryResult::RecordInserted)),
-                                Err(_) => unimplemented!(),
+                                Err(_) => {
+                                    Ok(Err(storage::Error::NotSupportedOperation(raw_sql_query)))
+                                }
                             }
                         } else {
-                            unimplemented!()
+                            Ok(Err(storage::Error::NotSupportedOperation(raw_sql_query)))
                         }
                     } else {
-                        unimplemented!()
+                        Ok(Err(storage::Error::NotSupportedOperation(raw_sql_query)))
                     }
                 } else {
-                    unimplemented!()
+                    Ok(Err(storage::Error::NotSupportedOperation(raw_sql_query)))
                 }
             }
             sqlparser::ast::Statement::Query(query) => {
@@ -219,14 +247,14 @@ impl<
                             let schema_name = name.0[0].to_string();
                             (schema_name, table_name)
                         }
-                        _ => unimplemented!(),
+                        _ => return Ok(Err(storage::Error::NotSupportedOperation(raw_sql_query))),
                     };
                     match (*self.storage.lock().await).select_all_from(schema_name, table_name) {
                         Ok(records) => Ok(Ok(QueryResult::Select(records))),
-                        _ => unreachable!(),
+                        _ => Ok(Err(storage::Error::NotSupportedOperation(raw_sql_query))),
                     }
                 } else {
-                    unimplemented!()
+                    Ok(Err(storage::Error::NotSupportedOperation(raw_sql_query)))
                 }
             }
             sqlparser::ast::Statement::Update {
@@ -245,13 +273,13 @@ impl<
                             value.to_string(),
                         ) {
                             Ok(records_number) => Ok(Ok(QueryResult::Update(records_number))),
-                            Err(_) => unimplemented!(),
+                            Err(_) => Ok(Err(storage::Error::NotSupportedOperation(raw_sql_query))),
                         }
                     } else {
-                        unimplemented!()
+                        Ok(Err(storage::Error::NotSupportedOperation(raw_sql_query)))
                     }
                 } else {
-                    unimplemented!()
+                    Ok(Err(storage::Error::NotSupportedOperation(raw_sql_query)))
                 }
             }
             sqlparser::ast::Statement::Delete { table_name, .. } => {
@@ -259,10 +287,10 @@ impl<
                 let table_name = table_name.0[1].to_string();
                 match (*self.storage.lock().await).delete_all_from(schema_name, table_name) {
                     Ok(records_number) => Ok(Ok(QueryResult::Delete(records_number))),
-                    Err(_) => unimplemented!(),
+                    Err(_) => Ok(Err(storage::Error::NotSupportedOperation(raw_sql_query))),
                 }
             }
-            _ => unimplemented!(),
+            _ => Ok(Err(storage::Error::NotSupportedOperation(raw_sql_query))),
         }
     }
 }

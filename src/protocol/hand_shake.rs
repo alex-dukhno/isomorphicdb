@@ -156,7 +156,6 @@ impl<R: Read + Send + Sync + Unpin + 'static, W: Write + Send + Sync + Unpin + '
                         self.writer
                             .write_all(Message::AuthenticationOk.as_vec().as_slice())
                             .await?;
-                        trace!("WE ARE HERE!!!!");
                         Ok(Ok(Connection::new(self.reader, self.writer)))
                     }
                     Err(e) if e.kind() == io::ErrorKind::UnexpectedEof => {

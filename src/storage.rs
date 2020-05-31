@@ -211,6 +211,8 @@ pub enum Error {
     SchemaDoesNotExist(String),
     #[error("table {0} does not exist")]
     TableDoesNotExist(String),
+    #[error("not supported operation")]
+    NotSupportedOperation(String),
 }
 
 #[cfg(test)]
