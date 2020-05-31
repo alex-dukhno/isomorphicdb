@@ -149,7 +149,7 @@ mod tests {
 
     #[async_std::test]
     async fn send_ready_for_query() -> io::Result<()> {
-        let mut test_case = test_helpers::TestCase::empty().await;
+        let test_case = test_helpers::TestCase::empty().await;
         let mut connection = Connection::new(test_case.clone(), test_case.clone());
 
         let ready_for_query = connection.send_ready_for_query().await?;
@@ -171,8 +171,7 @@ mod tests {
 
         #[async_std::test]
         async fn read_termination_command() -> io::Result<()> {
-            let mut test_case =
-                test_helpers::TestCase::with_content(vec![&[88], &[0, 0, 0, 4]]).await;
+            let test_case = test_helpers::TestCase::with_content(vec![&[88], &[0, 0, 0, 4]]).await;
             let mut connection = Connection::new(test_case.clone(), test_case.clone());
 
             let query = connection.read_query().await?;
@@ -184,7 +183,7 @@ mod tests {
 
         #[async_std::test]
         async fn read_query_successfully() -> io::Result<()> {
-            let mut test_case =
+            let test_case =
                 test_helpers::TestCase::with_content(vec![&[81], &[0, 0, 0, 14], b"select 1;\0"])
                     .await;
             let mut connection = Connection::new(test_case.clone(), test_case.clone());
@@ -198,7 +197,7 @@ mod tests {
 
         #[async_std::test]
         async fn unexpected_eof_when_read_type_code_of_query_request() -> io::Result<()> {
-            let mut test_case = test_helpers::TestCase::with_content(vec![]).await;
+            let test_case = test_helpers::TestCase::with_content(vec![]).await;
             let mut connection = Connection::new(test_case.clone(), test_case.clone());
 
             let query = connection.read_query().await?;
@@ -210,7 +209,7 @@ mod tests {
 
         #[async_std::test]
         async fn unexpected_eof_when_read_length_of_query() -> io::Result<()> {
-            let mut test_case = test_helpers::TestCase::with_content(vec![&[81]]).await;
+            let test_case = test_helpers::TestCase::with_content(vec![&[81]]).await;
             let mut connection = Connection::new(test_case.clone(), test_case.clone());
 
             let query = connection.read_query().await?;
@@ -222,7 +221,7 @@ mod tests {
 
         #[async_std::test]
         async fn unexpected_eof_when_query_string() -> io::Result<()> {
-            let mut test_case =
+            let test_case =
                 test_helpers::TestCase::with_content(vec![&[81], &[0, 0, 0, 14], b"sel;\0"]).await;
             let mut connection = Connection::new(test_case.clone(), test_case.clone());
 
@@ -236,7 +235,7 @@ mod tests {
 
     #[async_std::test]
     async fn send_field_description_query() -> io::Result<()> {
-        let mut test_case = test_helpers::TestCase::empty().await;
+        let test_case = test_helpers::TestCase::empty().await;
         let mut connection = Connection::new(test_case.clone(), test_case.clone());
         let fields = vec![
             Field::new(
@@ -269,7 +268,7 @@ mod tests {
 
     #[async_std::test]
     async fn send_rows_data() -> io::Result<()> {
-        let mut test_case = test_helpers::TestCase::empty().await;
+        let test_case = test_helpers::TestCase::empty().await;
         let mut connection = Connection::new(test_case.clone(), test_case.clone());
 
         let rows = vec![
@@ -292,7 +291,7 @@ mod tests {
 
     #[async_std::test]
     async fn send_command_complete() -> io::Result<()> {
-        let mut test_case = test_helpers::TestCase::empty().await;
+        let test_case = test_helpers::TestCase::empty().await;
         let mut connection = Connection::new(test_case.clone(), test_case.clone());
         connection
             .send_command_complete(Message::CommandComplete("SELECT".to_owned()))

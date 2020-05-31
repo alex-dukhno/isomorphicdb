@@ -282,32 +282,7 @@ enum QueryResult {
 mod tests {
     use super::*;
     use crate::protocol::messages::Message;
-    use crate::protocol::Stream;
-    use async_std::fs::File;
     use bytes::BytesMut;
-    use futures::io::AsyncReadExt;
-    use tempfile::NamedTempFile;
-
-    fn empty_file() -> NamedTempFile {
-        NamedTempFile::new().expect("Failed to create tempfile")
-    }
-
-    fn file_with(content: Vec<&[u8]>) -> NamedTempFile {
-        use std::io::{Seek, SeekFrom, Write};
-
-        let named_temp_file = empty_file();
-        let mut file = named_temp_file.reopen().expect("file with content");
-        for bytes in content {
-            file.write(bytes);
-        }
-        file.seek(SeekFrom::Start(0))
-            .expect("set position at the beginning of a file");
-        named_temp_file
-    }
-
-    fn file(named_file: NamedTempFile, message: &'static str) -> File {
-        named_file.reopen().expect(message).into()
-    }
 
     fn storage(
         create_schemas_responses: Vec<storage::Result<()>>,
@@ -944,52 +919,56 @@ mod tests {
     }
 
     impl storage::Storage for MockStorage {
-        fn create_schema(&mut self, schema_name: String) -> storage::Result<()> {
+        fn create_schema(&mut self, _schema_name: String) -> storage::Result<()> {
             self.create_schemas_responses.pop().unwrap()
         }
 
-        fn drop_schema(&mut self, schema_name: String) -> storage::Result<()> {
+        fn drop_schema(&mut self, _schema_name: String) -> storage::Result<()> {
             Ok(())
         }
 
-        fn create_table(&mut self, schema_name: String, table_name: String) -> storage::Result<()> {
+        fn create_table(
+            &mut self,
+            _schema_name: String,
+            _table_name: String,
+        ) -> storage::Result<()> {
             self.create_table_responses.pop().unwrap()
         }
 
-        fn drop_table(&mut self, schema_name: String, table_name: String) -> storage::Result<()> {
+        fn drop_table(&mut self, _schema_name: String, _table_name: String) -> storage::Result<()> {
             Ok(())
         }
 
         fn insert_into(
             &mut self,
-            schema_name: String,
-            table_name: String,
-            value: String,
+            _schema_name: String,
+            _table_name: String,
+            _value: String,
         ) -> storage::Result<()> {
             Ok(())
         }
 
         fn select_all_from(
             &mut self,
-            schema_name: String,
-            table_name: String,
+            _schema_name: String,
+            _table_name: String,
         ) -> storage::Result<Vec<String>> {
             self.select_results.pop().unwrap()
         }
 
         fn update_all(
             &mut self,
-            schema_name: String,
-            table_name: String,
-            value: String,
+            _schema_name: String,
+            _table_name: String,
+            _value: String,
         ) -> storage::Result<usize> {
             Ok(2)
         }
 
         fn delete_all_from(
             &mut self,
-            schema_name: String,
-            table_name: String,
+            _schema_name: String,
+            _table_name: String,
         ) -> storage::Result<usize> {
             Ok(2)
         }

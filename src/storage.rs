@@ -489,7 +489,7 @@ mod tests {
     fn update_not_existed_table() -> Result<()> {
         let mut storage = SledStorage::default();
 
-        storage.create_schema("schema_name".to_owned());
+        storage.create_schema("schema_name".to_owned())?;
         assert_eq!(
             storage.update_all(
                 "schema_name".to_owned(),

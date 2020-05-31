@@ -4,11 +4,9 @@ extern crate tempfile;
 
 use async_std::fs::File;
 use async_std::io::{self, Read, SeekFrom, Write};
-use async_std::path::PathBuf;
 use async_std::sync::Arc;
 use async_std::task::{Context, Poll};
 use bytes::BytesMut;
-use std::io::Bytes;
 use std::pin::Pin;
 use std::sync::Mutex;
 use tempfile::NamedTempFile;
@@ -22,12 +20,12 @@ fn empty_file() -> File {
 }
 
 fn file_with(content: Vec<&[u8]>) -> File {
-    use std::io::{Seek, SeekFrom, Write};
+    use std::io::{Seek, Write};
 
     let named_temp_file = empty_file_named();
     let mut file = named_temp_file.reopen().expect("file with content");
     for bytes in content {
-        file.write(bytes);
+        file.write(bytes).unwrap();
     }
     file.seek(SeekFrom::Start(0))
         .expect("set position at the beginning of a file");

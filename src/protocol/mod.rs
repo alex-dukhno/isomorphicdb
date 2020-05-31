@@ -15,37 +15,10 @@ pub enum Command {
 
 #[cfg(test)]
 mod compatibility {
-    use super::*;
-    use crate::protocol::messages::*;
-    use async_std::fs::File;
-    use tempfile::NamedTempFile;
-
-    fn empty_file() -> NamedTempFile {
-        NamedTempFile::new().expect("Failed to create tempfile")
-    }
-
-    fn file_with(content: Vec<&[u8]>) -> NamedTempFile {
-        use std::io::{Seek, SeekFrom, Write};
-
-        let named_temp_file = empty_file();
-        let mut file = named_temp_file.reopen().expect("file with content");
-        for bytes in content {
-            file.write(bytes);
-        }
-        file.seek(SeekFrom::Start(0))
-            .expect("set position at the beginning of a file");
-        named_temp_file
-    }
-
-    fn file(named_file: NamedTempFile, message: &'static str) -> File {
-        named_file.reopen().expect(message).into()
-    }
-
     #[cfg(test)]
     mod psql_client {
-        use super::*;
-        use crate::futures::AsyncReadExt;
         use crate::protocol::hand_shake::HandShake;
+        use crate::protocol::messages::*;
         use async_std::io;
         use bytes::BytesMut;
 
@@ -62,7 +35,7 @@ mod compatibility {
                 b"123\0"
             ]).await;
 
-            let mut hand_shake = HandShake::new(test_case.clone(), test_case.clone());
+            let hand_shake = HandShake::new(test_case.clone(), test_case.clone());
             let connection = hand_shake.perform().await?;
 
             assert!(connection.is_ok());
