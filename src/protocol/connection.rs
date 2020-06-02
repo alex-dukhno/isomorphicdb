@@ -1,12 +1,10 @@
-use async_std::io::prelude::*;
-use async_std::io::{self};
+use async_std::io::{self, prelude::*};
 use byteorder::{ByteOrder, NetworkEndian};
 use bytes::BytesMut;
 
-use crate::protocol::Command;
-use crate::{
-    protocol::messages::Message,
-    protocol::{Error, Result},
+use crate::protocol::{
+    messages::Message,
+    Command, Params, SslMode, Version, {Error, Result},
 };
 
 #[derive(Debug)]
@@ -16,13 +14,22 @@ pub struct Connection<
 > {
     reader: R,
     writer: W,
+    properties: (Version, Params, SslMode),
 }
 
 impl<R: Read + Send + Sync + Unpin + 'static, W: Write + Send + Sync + Unpin + 'static>
     Connection<R, W>
 {
-    pub fn new(reader: R, writer: W) -> Self {
-        Self { reader, writer }
+    pub fn new(reader: R, writer: W, properties: (Version, Params, SslMode)) -> Self {
+        Self {
+            reader,
+            writer,
+            properties,
+        }
+    }
+
+    pub fn properties(&self) -> &(Version, Params, SslMode) {
+        &(self.properties)
     }
 
     pub async fn send_ready_for_query(&mut self) -> io::Result<()> {
@@ -126,6 +133,14 @@ impl<R: Read + Send + Sync + Unpin + 'static, W: Write + Send + Sync + Unpin + '
     }
 }
 
+impl<R: Read + Send + Sync + Unpin + 'static, W: Write + Send + Sync + Unpin + 'static> PartialEq
+    for Connection<R, W>
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.properties().eq(other.properties())
+    }
+}
+
 #[derive(Clone)]
 pub struct Field {
     pub name: String,
@@ -146,12 +161,17 @@ impl Field {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::protocol::supported_version;
     use test_helpers::async_io;
 
     #[async_std::test]
     async fn send_ready_for_query() -> io::Result<()> {
         let test_case = async_io::TestCase::empty().await;
-        let mut connection = Connection::new(test_case.clone(), test_case.clone());
+        let mut connection = Connection::new(
+            test_case.clone(),
+            test_case.clone(),
+            (supported_version(), Params(vec![]), SslMode::Disable),
+        );
 
         let ready_for_query = connection.send_ready_for_query().await?;
 
@@ -173,7 +193,11 @@ mod tests {
         #[async_std::test]
         async fn read_termination_command() -> io::Result<()> {
             let test_case = async_io::TestCase::with_content(vec![&[88], &[0, 0, 0, 4]]).await;
-            let mut connection = Connection::new(test_case.clone(), test_case.clone());
+            let mut connection = Connection::new(
+                test_case.clone(),
+                test_case.clone(),
+                (supported_version(), Params(vec![]), SslMode::Disable),
+            );
 
             let query = connection.read_query().await?;
 
@@ -186,7 +210,11 @@ mod tests {
         async fn read_query_successfully() -> io::Result<()> {
             let test_case =
                 async_io::TestCase::with_content(vec![&[81], &[0, 0, 0, 14], b"select 1;\0"]).await;
-            let mut connection = Connection::new(test_case.clone(), test_case.clone());
+            let mut connection = Connection::new(
+                test_case.clone(),
+                test_case.clone(),
+                (supported_version(), Params(vec![]), SslMode::Disable),
+            );
 
             let query = connection.read_query().await?;
 
@@ -198,7 +226,11 @@ mod tests {
         #[async_std::test]
         async fn unexpected_eof_when_read_type_code_of_query_request() -> io::Result<()> {
             let test_case = async_io::TestCase::with_content(vec![]).await;
-            let mut connection = Connection::new(test_case.clone(), test_case.clone());
+            let mut connection = Connection::new(
+                test_case.clone(),
+                test_case.clone(),
+                (supported_version(), Params(vec![]), SslMode::Disable),
+            );
 
             let query = connection.read_query().await?;
 
@@ -210,7 +242,11 @@ mod tests {
         #[async_std::test]
         async fn unexpected_eof_when_read_length_of_query() -> io::Result<()> {
             let test_case = async_io::TestCase::with_content(vec![&[81]]).await;
-            let mut connection = Connection::new(test_case.clone(), test_case.clone());
+            let mut connection = Connection::new(
+                test_case.clone(),
+                test_case.clone(),
+                (supported_version(), Params(vec![]), SslMode::Disable),
+            );
 
             let query = connection.read_query().await?;
 
@@ -223,7 +259,11 @@ mod tests {
         async fn unexpected_eof_when_query_string() -> io::Result<()> {
             let test_case =
                 async_io::TestCase::with_content(vec![&[81], &[0, 0, 0, 14], b"sel;\0"]).await;
-            let mut connection = Connection::new(test_case.clone(), test_case.clone());
+            let mut connection = Connection::new(
+                test_case.clone(),
+                test_case.clone(),
+                (supported_version(), Params(vec![]), SslMode::Disable),
+            );
 
             let query = connection.read_query().await?;
 
@@ -236,7 +276,11 @@ mod tests {
     #[async_std::test]
     async fn send_field_description_query() -> io::Result<()> {
         let test_case = async_io::TestCase::empty().await;
-        let mut connection = Connection::new(test_case.clone(), test_case.clone());
+        let mut connection = Connection::new(
+            test_case.clone(),
+            test_case.clone(),
+            (supported_version(), Params(vec![]), SslMode::Disable),
+        );
         let fields = vec![
             Field::new(
                 "c1".to_owned(),
@@ -269,7 +313,11 @@ mod tests {
     #[async_std::test]
     async fn send_rows_data() -> io::Result<()> {
         let test_case = async_io::TestCase::empty().await;
-        let mut connection = Connection::new(test_case.clone(), test_case.clone());
+        let mut connection = Connection::new(
+            test_case.clone(),
+            test_case.clone(),
+            (supported_version(), Params(vec![]), SslMode::Disable),
+        );
 
         let rows = vec![
             vec!["1".to_owned(), "2".to_owned()],
@@ -292,7 +340,11 @@ mod tests {
     #[async_std::test]
     async fn send_command_complete() -> io::Result<()> {
         let test_case = async_io::TestCase::empty().await;
-        let mut connection = Connection::new(test_case.clone(), test_case.clone());
+        let mut connection = Connection::new(
+            test_case.clone(),
+            test_case.clone(),
+            (supported_version(), Params(vec![]), SslMode::Disable),
+        );
         connection
             .send_command_complete(Message::CommandComplete("SELECT".to_owned()))
             .await?;

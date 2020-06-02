@@ -36,7 +36,10 @@ impl<
     pub async fn handle_query(&mut self) -> io::Result<bool> {
         self.connection.send_ready_for_query().await?;
         match self.connection.read_query().await? {
-            Err(_e) => unimplemented!(),
+            Err(e) => {
+                error!("{:?}", e);
+                return Ok(false);
+            }
             Ok(Command::Terminate) => return Ok(false),
             Ok(Command::Query(query)) => {
                 match self.execute(query.clone()).await? {
@@ -309,7 +312,7 @@ enum QueryResult {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::protocol::messages::Message;
+    use crate::protocol::{messages::Message, supported_version, Params, SslMode};
     use bytes::BytesMut;
     use test_helpers::{async_io, frontend};
 
@@ -327,14 +330,19 @@ mod tests {
 
     #[async_std::test]
     async fn create_schema_query() -> io::Result<()> {
-        let test_case =
-            async_io::TestCase::with_content(vec![frontend::query("create schema schema_name;")
-                .as_vec()
-                .as_slice()])
-            .await;
+        let test_case = async_io::TestCase::with_content(vec![frontend::Message::Query(
+            "create schema schema_name;",
+        )
+        .as_vec()
+        .as_slice()])
+        .await;
         let mut handler = Handler::new(
             storage(vec![Ok(())], vec![], vec![]),
-            Connection::new(test_case.clone(), test_case.clone()),
+            Connection::new(
+                test_case.clone(),
+                test_case.clone(),
+                (supported_version(), Params(vec![]), SslMode::Disable),
+            ),
         );
 
         handler.handle_query().await?;
@@ -356,10 +364,10 @@ mod tests {
     #[async_std::test]
     async fn create_schema_with_the_same_name() -> io::Result<()> {
         let test_case = async_io::TestCase::with_content(vec![
-            frontend::query("create schema schema_name;")
+            frontend::Message::Query("create schema schema_name;")
                 .as_vec()
                 .as_slice(),
-            frontend::query("create schema schema_name;")
+            frontend::Message::Query("create schema schema_name;")
                 .as_vec()
                 .as_slice(),
         ])
@@ -375,7 +383,11 @@ mod tests {
                 vec![],
                 vec![],
             ),
-            Connection::new(test_case.clone(), test_case.clone()),
+            Connection::new(
+                test_case.clone(),
+                test_case.clone(),
+                (supported_version(), Params(vec![]), SslMode::Disable),
+            ),
         );
 
         handler.handle_query().await?;
@@ -408,20 +420,24 @@ mod tests {
     #[async_std::test]
     async fn drop_schema() -> io::Result<()> {
         let test_case = async_io::TestCase::with_content(vec![
-            frontend::query("create schema schema_name;")
+            frontend::Message::Query("create schema schema_name;")
                 .as_vec()
                 .as_slice(),
-            frontend::query("drop schema schema_name;")
+            frontend::Message::Query("drop schema schema_name;")
                 .as_vec()
                 .as_slice(),
-            frontend::query("create schema schema_name;")
+            frontend::Message::Query("create schema schema_name;")
                 .as_vec()
                 .as_slice(),
         ])
         .await;
         let mut handler = Handler::new(
             storage(vec![Ok(()), Ok(())], vec![], vec![]),
-            Connection::new(test_case.clone(), test_case.clone()),
+            Connection::new(
+                test_case.clone(),
+                test_case.clone(),
+                (supported_version(), Params(vec![]), SslMode::Disable),
+            ),
         );
 
         handler.handle_query().await?;
@@ -457,17 +473,21 @@ mod tests {
     #[async_std::test]
     async fn create_table() -> io::Result<()> {
         let test_case = async_io::TestCase::with_content(vec![
-            frontend::query("create schema schema_name;")
+            frontend::Message::Query("create schema schema_name;")
                 .as_vec()
                 .as_slice(),
-            frontend::query("create table schema_name.table_name (column_name smallint);")
+            frontend::Message::Query("create table schema_name.table_name (column_name smallint);")
                 .as_vec()
                 .as_slice(),
         ])
         .await;
         let mut handler = Handler::new(
             storage(vec![Ok(())], vec![Ok(())], vec![]),
-            Connection::new(test_case.clone(), test_case.clone()),
+            Connection::new(
+                test_case.clone(),
+                test_case.clone(),
+                (supported_version(), Params(vec![]), SslMode::Disable),
+            ),
         );
 
         handler.handle_query().await?;
@@ -496,23 +516,27 @@ mod tests {
     #[async_std::test]
     async fn drop_table() -> io::Result<()> {
         let test_case = async_io::TestCase::with_content(vec![
-            frontend::query("create schema schema_name;")
+            frontend::Message::Query("create schema schema_name;")
                 .as_vec()
                 .as_slice(),
-            frontend::query("create table schema_name.table_name (column_name smallint);")
+            frontend::Message::Query("create table schema_name.table_name (column_name smallint);")
                 .as_vec()
                 .as_slice(),
-            frontend::query("drop table schema_name.table_name;")
+            frontend::Message::Query("drop table schema_name.table_name;")
                 .as_vec()
                 .as_slice(),
-            frontend::query("create table schema_name.table_name (column_name smallint);")
+            frontend::Message::Query("create table schema_name.table_name (column_name smallint);")
                 .as_vec()
                 .as_slice(),
         ])
         .await;
         let mut handler = Handler::new(
             storage(vec![Ok(())], vec![Ok(()), Ok(())], vec![]),
-            Connection::new(test_case.clone(), test_case.clone()),
+            Connection::new(
+                test_case.clone(),
+                test_case.clone(),
+                (supported_version(), Params(vec![]), SslMode::Disable),
+            ),
         );
 
         handler.handle_query().await?;
@@ -555,23 +579,27 @@ mod tests {
     #[async_std::test]
     async fn insert_and_select_single_row() -> io::Result<()> {
         let test_case = async_io::TestCase::with_content(vec![
-            frontend::query("create schema schema_name;")
+            frontend::Message::Query("create schema schema_name;")
                 .as_vec()
                 .as_slice(),
-            frontend::query("create table schema_name.table_name (column_name smallint);")
+            frontend::Message::Query("create table schema_name.table_name (column_name smallint);")
                 .as_vec()
                 .as_slice(),
-            frontend::query("insert into schema_name.table_name values (123);")
+            frontend::Message::Query("insert into schema_name.table_name values (123);")
                 .as_vec()
                 .as_slice(),
-            frontend::query("select * from schema_name.table_name;")
+            frontend::Message::Query("select * from schema_name.table_name;")
                 .as_vec()
                 .as_slice(),
         ])
         .await;
         let mut handler = Handler::new(
             storage(vec![Ok(())], vec![Ok(())], vec![Ok(vec!["123".to_owned()])]),
-            Connection::new(test_case.clone(), test_case.clone()),
+            Connection::new(
+                test_case.clone(),
+                test_case.clone(),
+                (supported_version(), Params(vec![]), SslMode::Disable),
+            ),
         );
 
         handler.handle_query().await?;
@@ -621,22 +649,22 @@ mod tests {
     #[async_std::test]
     async fn insert_and_select_multiple_rows() -> io::Result<()> {
         let test_case = async_io::TestCase::with_content(vec![
-            frontend::query("create schema schema_name;")
+            frontend::Message::Query("create schema schema_name;")
                 .as_vec()
                 .as_slice(),
-            frontend::query("create table schema_name.table_name (column_name smallint);")
+            frontend::Message::Query("create table schema_name.table_name (column_name smallint);")
                 .as_vec()
                 .as_slice(),
-            frontend::query("insert into schema_name.table_name values (123);")
+            frontend::Message::Query("insert into schema_name.table_name values (123);")
                 .as_vec()
                 .as_slice(),
-            frontend::query("select * from schema_name.table_name;")
+            frontend::Message::Query("select * from schema_name.table_name;")
                 .as_vec()
                 .as_slice(),
-            frontend::query("insert into schema_name.table_name values (456);")
+            frontend::Message::Query("insert into schema_name.table_name values (456);")
                 .as_vec()
                 .as_slice(),
-            frontend::query("select * from schema_name.table_name;")
+            frontend::Message::Query("select * from schema_name.table_name;")
                 .as_vec()
                 .as_slice(),
         ])
@@ -650,7 +678,11 @@ mod tests {
                     Ok(vec!["123".to_owned()]),
                 ],
             ),
-            Connection::new(test_case.clone(), test_case.clone()),
+            Connection::new(
+                test_case.clone(),
+                test_case.clone(),
+                (supported_version(), Params(vec![]), SslMode::Disable),
+            ),
         );
 
         handler.handle_query().await?;
@@ -722,25 +754,25 @@ mod tests {
     #[async_std::test]
     async fn update_all_records() -> io::Result<()> {
         let test_case = async_io::TestCase::with_content(vec![
-            frontend::query("create schema schema_name;")
+            frontend::Message::Query("create schema schema_name;")
                 .as_vec()
                 .as_slice(),
-            frontend::query("create table schema_name.table_name (column_name smallint);")
+            frontend::Message::Query("create table schema_name.table_name (column_name smallint);")
                 .as_vec()
                 .as_slice(),
-            frontend::query("insert into schema_name.table_name values (123);")
+            frontend::Message::Query("insert into schema_name.table_name values (123);")
                 .as_vec()
                 .as_slice(),
-            frontend::query("insert into schema_name.table_name values (456);")
+            frontend::Message::Query("insert into schema_name.table_name values (456);")
                 .as_vec()
                 .as_slice(),
-            frontend::query("select * from schema_name.table_name;")
+            frontend::Message::Query("select * from schema_name.table_name;")
                 .as_vec()
                 .as_slice(),
-            frontend::query("update schema_name.table_name set column_test=789;")
+            frontend::Message::Query("update schema_name.table_name set column_test=789;")
                 .as_vec()
                 .as_slice(),
-            frontend::query("select * from schema_name.table_name;")
+            frontend::Message::Query("select * from schema_name.table_name;")
                 .as_vec()
                 .as_slice(),
         ])
@@ -754,7 +786,11 @@ mod tests {
                     Ok(vec!["123".to_owned(), "456".to_owned()]),
                 ],
             ),
-            Connection::new(test_case.clone(), test_case.clone()),
+            Connection::new(
+                test_case.clone(),
+                test_case.clone(),
+                (supported_version(), Params(vec![]), SslMode::Disable),
+            ),
         );
 
         handler.handle_query().await?;
@@ -836,25 +872,25 @@ mod tests {
     #[async_std::test]
     async fn delete_all_records() -> io::Result<()> {
         let test_case = async_io::TestCase::with_content(vec![
-            frontend::query("create schema schema_name;")
+            frontend::Message::Query("create schema schema_name;")
                 .as_vec()
                 .as_slice(),
-            frontend::query("create table schema_name.table_name (column_name smallint);")
+            frontend::Message::Query("create table schema_name.table_name (column_name smallint);")
                 .as_vec()
                 .as_slice(),
-            frontend::query("insert into schema_name.table_name values (123);")
+            frontend::Message::Query("insert into schema_name.table_name values (123);")
                 .as_vec()
                 .as_slice(),
-            frontend::query("insert into schema_name.table_name values (456);")
+            frontend::Message::Query("insert into schema_name.table_name values (456);")
                 .as_vec()
                 .as_slice(),
-            frontend::query("select * from schema_name.table_name;")
+            frontend::Message::Query("select * from schema_name.table_name;")
                 .as_vec()
                 .as_slice(),
-            frontend::query("delete from schema_name.table_name;")
+            frontend::Message::Query("delete from schema_name.table_name;")
                 .as_vec()
                 .as_slice(),
-            frontend::query("select * from schema_name.table_name;")
+            frontend::Message::Query("select * from schema_name.table_name;")
                 .as_vec()
                 .as_slice(),
         ])
@@ -865,7 +901,11 @@ mod tests {
                 vec![Ok(())],
                 vec![Ok(vec![]), Ok(vec!["123".to_owned(), "456".to_owned()])],
             ),
-            Connection::new(test_case.clone(), test_case.clone()),
+            Connection::new(
+                test_case.clone(),
+                test_case.clone(),
+                (supported_version(), Params(vec![]), SslMode::Disable),
+            ),
         );
 
         handler.handle_query().await?;

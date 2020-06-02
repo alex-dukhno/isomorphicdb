@@ -25,10 +25,8 @@ fn main() {
         let listener = TcpListener::bind(local_address.as_str()).await.unwrap();
         info!("Listening on {}", local_address);
 
-        // loop {
         let mut incoming = listener.incoming();
         while let Some(Ok(stream)) = incoming.next().await {
-            // let stream = Arc::new(Mutex::new(stream.unwrap()));
             let client_storage = storage.clone();
             task::spawn(async move {
                 trace!("Accepted connection {:?}", stream.peer_addr());
@@ -45,22 +43,5 @@ fn main() {
                 }
             });
         }
-        // let client = Arc::new(Mutex::new(incoming));
-
-        // Task::spawn(async move {
-        // match protocol::hand_shake::HandShake::new(client.clone(), client.clone())
-        //     .perform()
-        //     .await
-        //     .expect("perform hand shake with client")
-        // {
-        //     Ok(connection) => {
-        //         let mut handler = sql_handler::Handler::new(client_storage, connection);
-        //         while let Ok(true) = handler.handle_query().await {}
-        //     }
-        //     Err(e) => error!("Error establishing protocol connection {:?}", e),
-        // }
-        // })
-        // .detach()
-        // }
     })
 }
