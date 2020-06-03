@@ -1,9 +1,23 @@
+use database::node::{Node, CREATED};
 use postgres::error::Error;
 use postgres::{Client, NoTls};
+use std::sync::Arc;
+use std::thread;
+
+fn start_server(node: Arc<Node>) {
+    thread::spawn(move || {
+        node.start();
+    });
+}
 
 #[test]
-#[ignore] // server can't be run in process
 fn create_simple_database() -> Result<(), Error> {
+    let node = Arc::new(Node::default());
+
+    start_server(node.clone());
+
+    while node.state() == CREATED {}
+
     let mut client = Client::connect("host=localhost user=postgres password=pass", NoTls).unwrap();
 
     client.simple_query("create schema SMOKE_QUERIES;")?;
@@ -22,5 +36,8 @@ fn create_simple_database() -> Result<(), Error> {
     client.simple_query("drop schema SMOKE_QUERIES;")?;
 
     drop(client);
+
+    node.stop();
+
     Ok(())
 }
