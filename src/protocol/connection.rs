@@ -1,12 +1,7 @@
-use async_std::io::prelude::*;
-use async_std::io::{self};
-use byteorder::{ByteOrder, NetworkEndian};
-use bytes::BytesMut;
+use async_std::io::{self, prelude::*};
 
-use crate::protocol::Command;
-use crate::{
-    protocol::messages::Message,
-    protocol::{Error, Result},
+use crate::protocol::{
+    channel::Channel, messages::Message, Command, Params, Result, SslMode, Version,
 };
 
 #[derive(Debug)]
@@ -14,97 +9,59 @@ pub struct Connection<
     R: Read + Send + Sync + Unpin + 'static,
     W: Write + Send + Sync + Unpin + 'static,
 > {
-    reader: R,
-    writer: W,
+    properties: (Version, Params, SslMode),
+    channel: Channel<R, W>,
 }
 
 impl<R: Read + Send + Sync + Unpin + 'static, W: Write + Send + Sync + Unpin + 'static>
     Connection<R, W>
 {
-    pub fn new(reader: R, writer: W) -> Self {
-        Self { reader, writer }
+    pub fn new(properties: (Version, Params, SslMode), channel: Channel<R, W>) -> Self {
+        Self {
+            properties,
+            channel,
+        }
+    }
+
+    pub fn properties(&self) -> &(Version, Params, SslMode) {
+        &(self.properties)
     }
 
     pub async fn send_ready_for_query(&mut self) -> io::Result<()> {
         trace!("send ready for query message");
-        self.writer
-            .write_all(Message::ReadyForQuery.as_vec().as_slice())
-            .await?;
+        self.channel.send_message(Message::ReadyForQuery).await?;
         Ok(())
     }
 
     pub async fn read_query(&mut self) -> io::Result<Result<Command>> {
-        let mut type_code_buff = [0u8; 1];
-        match self.reader.read_exact(&mut type_code_buff).await {
-            Ok(_) => {
-                debug!("FOR TEST type code = {:?}", type_code_buff);
-                trace!(
-                    "type code = {:?}",
-                    String::from_utf8(type_code_buff.to_vec())
-                );
-                if &type_code_buff == b"X" {
-                    Ok(Ok(Command::Terminate))
-                } else {
-                    let mut len_buff = [0u8; 4];
-                    match self.reader.read_exact(&mut len_buff).await {
-                        Ok(_) => {
-                            debug!("FOR TEST len = {:?}", len_buff);
-                            let len = NetworkEndian::read_i32(&len_buff);
-                            let mut sql_buff = BytesMut::with_capacity(len as usize);
-                            sql_buff.extend(0..((len as u8) - 4));
-                            match self.reader.read_exact(&mut sql_buff).await {
-                                Ok(_) => {
-                                    debug!("FOR TEST sql = {:?}", sql_buff);
-                                    let sql =
-                                        String::from_utf8(sql_buff[..sql_buff.len() - 1].to_vec())
-                                            .unwrap();
-                                    trace!("SQL = {}", sql);
-                                    Ok(Ok(Command::Query(sql)))
-                                }
-                                Err(e) if e.kind() == io::ErrorKind::UnexpectedEof => {
-                                    trace!("Unexpected EOF {:?}", e);
-                                    Ok(Err(Error))
-                                }
-                                Err(e) => {
-                                    error!("{:?}", e);
-                                    Err(e)
-                                }
-                            }
-                        }
-                        Err(e) if e.kind() == io::ErrorKind::UnexpectedEof => {
-                            trace!("Unexpected EOF {:?}", e);
-                            Ok(Err(Error))
-                        }
-                        Err(e) => {
-                            error!("{:?}", e);
-                            Err(e)
-                        }
+        let tag = self.channel.read_tag().await?;
+        if let Ok(b'X') = tag {
+            Ok(Ok(Command::Terminate))
+        } else {
+            match self.channel.read_message_len().await? {
+                Err(e) => Ok(Err(e)),
+                Ok(len) => match self.channel.receive_message(len).await? {
+                    Err(e) => Ok(Err(e)),
+                    Ok(sql_buff) => {
+                        debug!("FOR TEST sql = {:?}", sql_buff);
+                        let sql =
+                            String::from_utf8(sql_buff[..sql_buff.len() - 1].to_vec()).unwrap();
+                        trace!("SQL = {}", sql);
+                        Ok(Ok(Command::Query(sql)))
                     }
-                }
-            }
-            Err(e) if e.kind() == io::ErrorKind::UnexpectedEof => {
-                trace!("Unexpected EOF {:?}", e);
-                Ok(Err(Error))
-            }
-            Err(e) => {
-                error!("{:?}", e);
-                Err(e)
+                },
             }
         }
     }
 
     pub async fn send_row_description(&mut self, fields: Vec<Field>) -> io::Result<()> {
-        self.writer
-            .write_all(
-                Message::RowDescription(
-                    fields
-                        .into_iter()
-                        .map(|f| (f.name, f.type_id, f.type_size))
-                        .collect(),
-                )
-                .as_vec()
-                .as_slice(),
-            )
+        self.channel
+            .send_message(Message::RowDescription(
+                fields
+                    .into_iter()
+                    .map(|f| (f.name, f.type_id, f.type_size))
+                    .collect(),
+            ))
             .await?;
         trace!("row description is sent");
         Ok(())
@@ -112,17 +69,23 @@ impl<R: Read + Send + Sync + Unpin + 'static, W: Write + Send + Sync + Unpin + '
 
     pub async fn send_row_data(&mut self, rows: Vec<Vec<String>>) -> io::Result<()> {
         for row in rows {
-            self.writer
-                .write_all(Message::DataRow(row).as_vec().as_slice())
-                .await?;
+            self.channel.send_message(Message::DataRow(row)).await?;
         }
         Ok(())
     }
 
     pub async fn send_command_complete(&mut self, message: Message) -> io::Result<()> {
-        self.writer.write_all(message.as_vec().as_slice()).await?;
+        self.channel.send_message(message).await?;
         trace!("end of the command is sent");
         Ok(())
+    }
+}
+
+impl<R: Read + Send + Sync + Unpin + 'static, W: Write + Send + Sync + Unpin + 'static> PartialEq
+    for Connection<R, W>
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.properties().eq(other.properties())
     }
 }
 
@@ -146,12 +109,17 @@ impl Field {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::protocol::{channel::Channel, supported_version};
+    use bytes::BytesMut;
     use test_helpers::async_io;
 
     #[async_std::test]
     async fn send_ready_for_query() -> io::Result<()> {
         let test_case = async_io::TestCase::empty().await;
-        let mut connection = Connection::new(test_case.clone(), test_case.clone());
+        let mut connection = Connection::new(
+            (supported_version(), Params(vec![]), SslMode::Disable),
+            Channel::new(test_case.clone(), test_case.clone()),
+        );
 
         let ready_for_query = connection.send_ready_for_query().await?;
 
@@ -173,7 +141,10 @@ mod tests {
         #[async_std::test]
         async fn read_termination_command() -> io::Result<()> {
             let test_case = async_io::TestCase::with_content(vec![&[88], &[0, 0, 0, 4]]).await;
-            let mut connection = Connection::new(test_case.clone(), test_case.clone());
+            let mut connection = Connection::new(
+                (supported_version(), Params(vec![]), SslMode::Disable),
+                Channel::new(test_case.clone(), test_case.clone()),
+            );
 
             let query = connection.read_query().await?;
 
@@ -186,7 +157,10 @@ mod tests {
         async fn read_query_successfully() -> io::Result<()> {
             let test_case =
                 async_io::TestCase::with_content(vec![&[81], &[0, 0, 0, 14], b"select 1;\0"]).await;
-            let mut connection = Connection::new(test_case.clone(), test_case.clone());
+            let mut connection = Connection::new(
+                (supported_version(), Params(vec![]), SslMode::Disable),
+                Channel::new(test_case.clone(), test_case.clone()),
+            );
 
             let query = connection.read_query().await?;
 
@@ -198,11 +172,14 @@ mod tests {
         #[async_std::test]
         async fn unexpected_eof_when_read_type_code_of_query_request() -> io::Result<()> {
             let test_case = async_io::TestCase::with_content(vec![]).await;
-            let mut connection = Connection::new(test_case.clone(), test_case.clone());
+            let mut connection = Connection::new(
+                (supported_version(), Params(vec![]), SslMode::Disable),
+                Channel::new(test_case.clone(), test_case.clone()),
+            );
 
-            let query = connection.read_query().await?;
+            let query = connection.read_query().await;
 
-            assert_eq!(query, Err(Error));
+            assert!(query.is_err());
 
             Ok(())
         }
@@ -210,11 +187,14 @@ mod tests {
         #[async_std::test]
         async fn unexpected_eof_when_read_length_of_query() -> io::Result<()> {
             let test_case = async_io::TestCase::with_content(vec![&[81]]).await;
-            let mut connection = Connection::new(test_case.clone(), test_case.clone());
+            let mut connection = Connection::new(
+                (supported_version(), Params(vec![]), SslMode::Disable),
+                Channel::new(test_case.clone(), test_case.clone()),
+            );
 
-            let query = connection.read_query().await?;
+            let query = connection.read_query().await;
 
-            assert_eq!(query, Err(Error));
+            assert!(query.is_err());
 
             Ok(())
         }
@@ -223,11 +203,14 @@ mod tests {
         async fn unexpected_eof_when_query_string() -> io::Result<()> {
             let test_case =
                 async_io::TestCase::with_content(vec![&[81], &[0, 0, 0, 14], b"sel;\0"]).await;
-            let mut connection = Connection::new(test_case.clone(), test_case.clone());
+            let mut connection = Connection::new(
+                (supported_version(), Params(vec![]), SslMode::Disable),
+                Channel::new(test_case.clone(), test_case.clone()),
+            );
 
-            let query = connection.read_query().await?;
+            let query = connection.read_query().await;
 
-            assert_eq!(query, Err(Error));
+            assert!(query.is_err());
 
             Ok(())
         }
@@ -236,7 +219,10 @@ mod tests {
     #[async_std::test]
     async fn send_field_description_query() -> io::Result<()> {
         let test_case = async_io::TestCase::empty().await;
-        let mut connection = Connection::new(test_case.clone(), test_case.clone());
+        let mut connection = Connection::new(
+            (supported_version(), Params(vec![]), SslMode::Disable),
+            Channel::new(test_case.clone(), test_case.clone()),
+        );
         let fields = vec![
             Field::new(
                 "c1".to_owned(),
@@ -269,7 +255,10 @@ mod tests {
     #[async_std::test]
     async fn send_rows_data() -> io::Result<()> {
         let test_case = async_io::TestCase::empty().await;
-        let mut connection = Connection::new(test_case.clone(), test_case.clone());
+        let mut connection = Connection::new(
+            (supported_version(), Params(vec![]), SslMode::Disable),
+            Channel::new(test_case.clone(), test_case.clone()),
+        );
 
         let rows = vec![
             vec!["1".to_owned(), "2".to_owned()],
@@ -292,7 +281,10 @@ mod tests {
     #[async_std::test]
     async fn send_command_complete() -> io::Result<()> {
         let test_case = async_io::TestCase::empty().await;
-        let mut connection = Connection::new(test_case.clone(), test_case.clone());
+        let mut connection = Connection::new(
+            (supported_version(), Params(vec![]), SslMode::Disable),
+            Channel::new(test_case.clone(), test_case.clone()),
+        );
         connection
             .send_command_complete(Message::CommandComplete("SELECT".to_owned()))
             .await?;

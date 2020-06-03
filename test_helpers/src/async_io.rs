@@ -28,7 +28,7 @@ fn file_with(content: Vec<&[u8]>) -> File {
     named_temp_file.reopen().expect("reopen file").into()
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct TestCase {
     request: Arc<File>,
     response: Arc<Mutex<File>>,
