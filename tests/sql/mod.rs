@@ -1,6 +1,6 @@
+use database::node::{Node, CREATED};
 use postgres::error::Error;
 use postgres::{Client, NoTls};
-use database::node::{Node, CREATED};
 use std::sync::Arc;
 use std::thread;
 
@@ -12,7 +12,6 @@ fn start_server(node: Arc<Node>) {
 
 #[test]
 fn create_simple_database() -> Result<(), Error> {
-
     let node = Arc::new(Node::default());
 
     start_server(node.clone());

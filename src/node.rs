@@ -16,12 +16,14 @@ const RUNNING: u8 = 1;
 const STOPPED: u8 = 2;
 
 pub struct Node {
-    state: Arc<AtomicU8>
+    state: Arc<AtomicU8>,
 }
 
 impl Default for Node {
     fn default() -> Self {
-        Self { state: Arc::new(AtomicU8::new(CREATED)) }
+        Self {
+            state: Arc::new(AtomicU8::new(CREATED)),
+        }
     }
 }
 
