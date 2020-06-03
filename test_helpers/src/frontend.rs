@@ -42,15 +42,13 @@ impl Message {
                 with_len.extend_from_slice(&buff);
                 with_len.to_vec()
             }
-            Message::SslDisabled => {
-                vec![]
-            }
+            Message::SslDisabled => vec![],
             Message::SslRequired => {
                 let mut buff = BytesMut::with_capacity(256);
                 buff.put_u32(8);
                 buff.put_u32(80877103);
                 buff.to_vec()
-            },
+            }
             Message::Password(password) => {
                 let mut buff = BytesMut::with_capacity(256);
                 buff.extend_from_slice(password.as_bytes());
@@ -100,11 +98,17 @@ mod tests {
 
     #[test]
     fn ssl_required() {
-        assert_eq!(Message::SslRequired.as_vec(), vec![0, 0, 0, 8, 4, 210, 22, 47])
+        assert_eq!(
+            Message::SslRequired.as_vec(),
+            vec![0, 0, 0, 8, 4, 210, 22, 47]
+        )
     }
 
     #[test]
     fn password() {
-        assert_eq!(Message::Password("123").as_vec(), vec![112, 0, 0, 0, 8, 49, 50, 51, 0])
+        assert_eq!(
+            Message::Password("123").as_vec(),
+            vec![112, 0, 0, 0, 8, 49, 50, 51, 0]
+        )
     }
 }
