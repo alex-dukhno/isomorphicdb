@@ -38,19 +38,22 @@ impl Node {
 
     pub fn start(&self) {
         let local_address = format!("{}:{}", HOST, PORT);
-        trace!("Starting server on {}", local_address);
+        eprintln!("Starting server on {}", local_address);
         self.state.store(RUNNING, Ordering::SeqCst);
 
         task::block_on(async {
             let storage = Arc::new(Mutex::new(storage::SledStorage::default()));
-            let listener = TcpListener::bind(local_address.as_str()).await.unwrap();
-            trace!("Listening on {}", local_address);
+            let listener = TcpListener::bind(local_address.as_str()).await;
+            eprintln!("Listening on {}", local_address);
+
+            let listener = listener.expect("port should be open");
 
             let mut incoming = listener.incoming();
+            println!("Waiting for connections");
             while let Some(Ok(stream)) = incoming.next().await {
                 let client_storage = storage.clone();
                 task::spawn(async move {
-                    trace!("Accepted connection {:?}", stream.peer_addr());
+                    println!("Accepted connection {:?}", stream.peer_addr());
                     match protocol::hand_shake::HandShake::new(protocol::channel::Channel::new(
                         stream.clone(),
                         stream.clone(),
