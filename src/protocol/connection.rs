@@ -9,8 +9,6 @@ pub struct Connection<
     R: Read + Send + Sync + Unpin + 'static,
     W: Write + Send + Sync + Unpin + 'static,
 > {
-    reader: R,
-    writer: W,
     properties: (Version, Params, SslMode),
     channel: Channel<R, W>,
 }
@@ -18,15 +16,8 @@ pub struct Connection<
 impl<R: Read + Send + Sync + Unpin + 'static, W: Write + Send + Sync + Unpin + 'static>
     Connection<R, W>
 {
-    pub fn new(
-        reader: R,
-        writer: W,
-        properties: (Version, Params, SslMode),
-        channel: Channel<R, W>,
-    ) -> Self {
+    pub fn new(properties: (Version, Params, SslMode), channel: Channel<R, W>) -> Self {
         Self {
-            reader,
-            writer,
             properties,
             channel,
         }
@@ -64,17 +55,13 @@ impl<R: Read + Send + Sync + Unpin + 'static, W: Write + Send + Sync + Unpin + '
     }
 
     pub async fn send_row_description(&mut self, fields: Vec<Field>) -> io::Result<()> {
-        self.writer
-            .write_all(
-                Message::RowDescription(
-                    fields
-                        .into_iter()
-                        .map(|f| (f.name, f.type_id, f.type_size))
-                        .collect(),
-                )
-                .as_vec()
-                .as_slice(),
-            )
+        self.channel
+            .send_message(Message::RowDescription(
+                fields
+                    .into_iter()
+                    .map(|f| (f.name, f.type_id, f.type_size))
+                    .collect(),
+            ))
             .await?;
         trace!("row description is sent");
         Ok(())
@@ -82,15 +69,13 @@ impl<R: Read + Send + Sync + Unpin + 'static, W: Write + Send + Sync + Unpin + '
 
     pub async fn send_row_data(&mut self, rows: Vec<Vec<String>>) -> io::Result<()> {
         for row in rows {
-            self.writer
-                .write_all(Message::DataRow(row).as_vec().as_slice())
-                .await?;
+            self.channel.send_message(Message::DataRow(row)).await?;
         }
         Ok(())
     }
 
     pub async fn send_command_complete(&mut self, message: Message) -> io::Result<()> {
-        self.writer.write_all(message.as_vec().as_slice()).await?;
+        self.channel.send_message(message).await?;
         trace!("end of the command is sent");
         Ok(())
     }
@@ -132,8 +117,6 @@ mod tests {
     async fn send_ready_for_query() -> io::Result<()> {
         let test_case = async_io::TestCase::empty().await;
         let mut connection = Connection::new(
-            test_case.clone(),
-            test_case.clone(),
             (supported_version(), Params(vec![]), SslMode::Disable),
             Channel::new(test_case.clone(), test_case.clone()),
         );
@@ -159,8 +142,6 @@ mod tests {
         async fn read_termination_command() -> io::Result<()> {
             let test_case = async_io::TestCase::with_content(vec![&[88], &[0, 0, 0, 4]]).await;
             let mut connection = Connection::new(
-                test_case.clone(),
-                test_case.clone(),
                 (supported_version(), Params(vec![]), SslMode::Disable),
                 Channel::new(test_case.clone(), test_case.clone()),
             );
@@ -177,8 +158,6 @@ mod tests {
             let test_case =
                 async_io::TestCase::with_content(vec![&[81], &[0, 0, 0, 14], b"select 1;\0"]).await;
             let mut connection = Connection::new(
-                test_case.clone(),
-                test_case.clone(),
                 (supported_version(), Params(vec![]), SslMode::Disable),
                 Channel::new(test_case.clone(), test_case.clone()),
             );
@@ -194,8 +173,6 @@ mod tests {
         async fn unexpected_eof_when_read_type_code_of_query_request() -> io::Result<()> {
             let test_case = async_io::TestCase::with_content(vec![]).await;
             let mut connection = Connection::new(
-                test_case.clone(),
-                test_case.clone(),
                 (supported_version(), Params(vec![]), SslMode::Disable),
                 Channel::new(test_case.clone(), test_case.clone()),
             );
@@ -211,8 +188,6 @@ mod tests {
         async fn unexpected_eof_when_read_length_of_query() -> io::Result<()> {
             let test_case = async_io::TestCase::with_content(vec![&[81]]).await;
             let mut connection = Connection::new(
-                test_case.clone(),
-                test_case.clone(),
                 (supported_version(), Params(vec![]), SslMode::Disable),
                 Channel::new(test_case.clone(), test_case.clone()),
             );
@@ -229,8 +204,6 @@ mod tests {
             let test_case =
                 async_io::TestCase::with_content(vec![&[81], &[0, 0, 0, 14], b"sel;\0"]).await;
             let mut connection = Connection::new(
-                test_case.clone(),
-                test_case.clone(),
                 (supported_version(), Params(vec![]), SslMode::Disable),
                 Channel::new(test_case.clone(), test_case.clone()),
             );
@@ -247,8 +220,6 @@ mod tests {
     async fn send_field_description_query() -> io::Result<()> {
         let test_case = async_io::TestCase::empty().await;
         let mut connection = Connection::new(
-            test_case.clone(),
-            test_case.clone(),
             (supported_version(), Params(vec![]), SslMode::Disable),
             Channel::new(test_case.clone(), test_case.clone()),
         );
@@ -285,8 +256,6 @@ mod tests {
     async fn send_rows_data() -> io::Result<()> {
         let test_case = async_io::TestCase::empty().await;
         let mut connection = Connection::new(
-            test_case.clone(),
-            test_case.clone(),
             (supported_version(), Params(vec![]), SslMode::Disable),
             Channel::new(test_case.clone(), test_case.clone()),
         );
@@ -313,8 +282,6 @@ mod tests {
     async fn send_command_complete() -> io::Result<()> {
         let test_case = async_io::TestCase::empty().await;
         let mut connection = Connection::new(
-            test_case.clone(),
-            test_case.clone(),
             (supported_version(), Params(vec![]), SslMode::Disable),
             Channel::new(test_case.clone(), test_case.clone()),
         );

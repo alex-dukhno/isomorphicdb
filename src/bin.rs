@@ -30,11 +30,10 @@ fn main() {
             let client_storage = storage.clone();
             task::spawn(async move {
                 trace!("Accepted connection {:?}", stream.peer_addr());
-                match protocol::hand_shake::HandShake::new(
+                match protocol::hand_shake::HandShake::new(protocol::channel::Channel::new(
                     stream.clone(),
                     stream.clone(),
-                    protocol::channel::Channel::new(stream.clone(), stream.clone()),
-                )
+                ))
                 .perform()
                 .await
                 .expect("perform hand shake with client")

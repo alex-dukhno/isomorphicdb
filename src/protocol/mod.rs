@@ -90,11 +90,7 @@ mod compatibility {
     async fn trying_read_from_empty_stream() -> io::Result<()> {
         let test_case = async_io::TestCase::with_content(vec![]).await;
 
-        let hand_shake = HandShake::new(
-            test_case.clone(),
-            test_case.clone(),
-            Channel::new(test_case.clone(), test_case.clone()),
-        );
+        let hand_shake = HandShake::new(Channel::new(test_case.clone(), test_case.clone()));
 
         let error = hand_shake.perform().await;
 
@@ -111,11 +107,7 @@ mod compatibility {
         async fn trying_read_setup_message() -> io::Result<()> {
             let test_case = async_io::TestCase::with_content(vec![&[0, 0, 0, 57]]).await;
 
-            let hand_shake = HandShake::new(
-                test_case.clone(),
-                test_case.clone(),
-                Channel::new(test_case.clone(), test_case.clone()),
-            );
+            let hand_shake = HandShake::new(Channel::new(test_case.clone(), test_case.clone()));
 
             let error = hand_shake.perform().await;
 
@@ -138,11 +130,7 @@ mod compatibility {
             ])
             .await;
 
-            let hand_shake = HandShake::new(
-                test_case.clone(),
-                test_case.clone(),
-                Channel::new(test_case.clone(), test_case.clone()),
-            );
+            let hand_shake = HandShake::new(Channel::new(test_case.clone(), test_case.clone()));
 
             let connection = hand_shake.perform().await?.expect("connection is open");
 
@@ -177,11 +165,7 @@ mod compatibility {
         async fn trying_read_only_length_of_ssl_message() -> io::Result<()> {
             let test_case = async_io::TestCase::with_content(vec![&[0, 0, 0, 8]]).await;
 
-            let hand_shake = HandShake::new(
-                test_case.clone(),
-                test_case.clone(),
-                Channel::new(test_case.clone(), test_case.clone()),
-            );
+            let hand_shake = HandShake::new(Channel::new(test_case.clone(), test_case.clone()));
 
             let error = hand_shake.perform().await;
 
@@ -197,11 +181,7 @@ mod compatibility {
                 .as_slice()])
             .await;
 
-            let hand_shake = HandShake::new(
-                test_case.clone(),
-                test_case.clone(),
-                Channel::new(test_case.clone(), test_case.clone()),
-            );
+            let hand_shake = HandShake::new(Channel::new(test_case.clone(), test_case.clone()));
 
             let error = hand_shake.perform().await;
 
@@ -232,11 +212,7 @@ mod compatibility {
             ])
             .await;
 
-            let hand_shake = HandShake::new(
-                test_case.clone(),
-                test_case.clone(),
-                Channel::new(test_case.clone(), test_case.clone()),
-            );
+            let hand_shake = HandShake::new(Channel::new(test_case.clone(), test_case.clone()));
             let connection = hand_shake.perform().await?;
 
             assert!(connection.is_ok());

@@ -341,8 +341,6 @@ mod tests {
         let mut handler = Handler::new(
             storage(vec![Ok(())], vec![], vec![]),
             Connection::new(
-                test_case.clone(),
-                test_case.clone(),
                 (supported_version(), Params(vec![]), SslMode::Disable),
                 Channel::new(test_case.clone(), test_case.clone()),
             ),
@@ -387,8 +385,6 @@ mod tests {
                 vec![],
             ),
             Connection::new(
-                test_case.clone(),
-                test_case.clone(),
                 (supported_version(), Params(vec![]), SslMode::Disable),
                 Channel::new(test_case.clone(), test_case.clone()),
             ),
@@ -438,8 +434,6 @@ mod tests {
         let mut handler = Handler::new(
             storage(vec![Ok(()), Ok(())], vec![], vec![]),
             Connection::new(
-                test_case.clone(),
-                test_case.clone(),
                 (supported_version(), Params(vec![]), SslMode::Disable),
                 Channel::new(test_case.clone(), test_case.clone()),
             ),
@@ -489,8 +483,6 @@ mod tests {
         let mut handler = Handler::new(
             storage(vec![Ok(())], vec![Ok(())], vec![]),
             Connection::new(
-                test_case.clone(),
-                test_case.clone(),
                 (supported_version(), Params(vec![]), SslMode::Disable),
                 Channel::new(test_case.clone(), test_case.clone()),
             ),
@@ -539,8 +531,6 @@ mod tests {
         let mut handler = Handler::new(
             storage(vec![Ok(())], vec![Ok(()), Ok(())], vec![]),
             Connection::new(
-                test_case.clone(),
-                test_case.clone(),
                 (supported_version(), Params(vec![]), SslMode::Disable),
                 Channel::new(test_case.clone(), test_case.clone()),
             ),
@@ -603,8 +593,6 @@ mod tests {
         let mut handler = Handler::new(
             storage(vec![Ok(())], vec![Ok(())], vec![Ok(vec!["123".to_owned()])]),
             Connection::new(
-                test_case.clone(),
-                test_case.clone(),
                 (supported_version(), Params(vec![]), SslMode::Disable),
                 Channel::new(test_case.clone(), test_case.clone()),
             ),
@@ -687,8 +675,6 @@ mod tests {
                 ],
             ),
             Connection::new(
-                test_case.clone(),
-                test_case.clone(),
                 (supported_version(), Params(vec![]), SslMode::Disable),
                 Channel::new(test_case.clone(), test_case.clone()),
             ),
@@ -796,8 +782,6 @@ mod tests {
                 ],
             ),
             Connection::new(
-                test_case.clone(),
-                test_case.clone(),
                 (supported_version(), Params(vec![]), SslMode::Disable),
                 Channel::new(test_case.clone(), test_case.clone()),
             ),
@@ -912,8 +896,6 @@ mod tests {
                 vec![Ok(vec![]), Ok(vec!["123".to_owned(), "456".to_owned()])],
             ),
             Connection::new(
-                test_case.clone(),
-                test_case.clone(),
                 (supported_version(), Params(vec![]), SslMode::Disable),
                 Channel::new(test_case.clone(), test_case.clone()),
             ),

@@ -13,20 +13,14 @@ pub struct HandShake<
     R: Read + Send + Sync + Unpin + 'static,
     W: Write + Send + Sync + Unpin + 'static,
 > {
-    reader: R,
-    writer: W,
     channel: Channel<R, W>,
 }
 
 impl<R: Read + Send + Sync + Unpin + 'static, W: Write + Send + Sync + Unpin + 'static>
     HandShake<R, W>
 {
-    pub fn new(reader: R, writer: W, channel: Channel<R, W>) -> Self {
-        Self {
-            reader,
-            writer,
-            channel,
-        }
+    pub fn new(channel: Channel<R, W>) -> Self {
+        Self { channel }
     }
 
     pub async fn perform(mut self) -> io::Result<Result<Connection<R, W>>> {
@@ -76,8 +70,6 @@ impl<R: Read + Send + Sync + Unpin + 'static, W: Write + Send + Sync + Unpin + '
                         Ok(_message) => {
                             self.channel.send_message(Message::AuthenticationOk).await?;
                             Ok(Ok(Connection::new(
-                                self.reader,
-                                self.writer,
                                 (version, params, ssl_mode),
                                 self.channel,
                             )))
@@ -88,8 +80,6 @@ impl<R: Read + Send + Sync + Unpin + 'static, W: Write + Send + Sync + Unpin + '
             State::Completed(version, params, ssl_mode) => {
                 self.channel.send_message(Message::AuthenticationOk).await?;
                 Ok(Ok(Connection::new(
-                    self.reader,
-                    self.writer,
                     (version, params, ssl_mode),
                     self.channel,
                 )))
