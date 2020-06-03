@@ -312,7 +312,9 @@ enum QueryResult {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::protocol::{messages::Message, supported_version, Params, SslMode};
+    use crate::protocol::{
+        channel::Channel, messages::Message, supported_version, Params, SslMode,
+    };
     use bytes::BytesMut;
     use test_helpers::{async_io, frontend};
 
@@ -342,6 +344,7 @@ mod tests {
                 test_case.clone(),
                 test_case.clone(),
                 (supported_version(), Params(vec![]), SslMode::Disable),
+                Channel::new(test_case.clone(), test_case.clone()),
             ),
         );
 
@@ -387,6 +390,7 @@ mod tests {
                 test_case.clone(),
                 test_case.clone(),
                 (supported_version(), Params(vec![]), SslMode::Disable),
+                Channel::new(test_case.clone(), test_case.clone()),
             ),
         );
 
@@ -437,6 +441,7 @@ mod tests {
                 test_case.clone(),
                 test_case.clone(),
                 (supported_version(), Params(vec![]), SslMode::Disable),
+                Channel::new(test_case.clone(), test_case.clone()),
             ),
         );
 
@@ -487,6 +492,7 @@ mod tests {
                 test_case.clone(),
                 test_case.clone(),
                 (supported_version(), Params(vec![]), SslMode::Disable),
+                Channel::new(test_case.clone(), test_case.clone()),
             ),
         );
 
@@ -536,6 +542,7 @@ mod tests {
                 test_case.clone(),
                 test_case.clone(),
                 (supported_version(), Params(vec![]), SslMode::Disable),
+                Channel::new(test_case.clone(), test_case.clone()),
             ),
         );
 
@@ -599,6 +606,7 @@ mod tests {
                 test_case.clone(),
                 test_case.clone(),
                 (supported_version(), Params(vec![]), SslMode::Disable),
+                Channel::new(test_case.clone(), test_case.clone()),
             ),
         );
 
@@ -682,6 +690,7 @@ mod tests {
                 test_case.clone(),
                 test_case.clone(),
                 (supported_version(), Params(vec![]), SslMode::Disable),
+                Channel::new(test_case.clone(), test_case.clone()),
             ),
         );
 
@@ -790,6 +799,7 @@ mod tests {
                 test_case.clone(),
                 test_case.clone(),
                 (supported_version(), Params(vec![]), SslMode::Disable),
+                Channel::new(test_case.clone(), test_case.clone()),
             ),
         );
 
@@ -905,6 +915,7 @@ mod tests {
                 test_case.clone(),
                 test_case.clone(),
                 (supported_version(), Params(vec![]), SslMode::Disable),
+                Channel::new(test_case.clone(), test_case.clone()),
             ),
         );
 

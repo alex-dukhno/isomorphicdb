@@ -30,10 +30,14 @@ fn main() {
             let client_storage = storage.clone();
             task::spawn(async move {
                 trace!("Accepted connection {:?}", stream.peer_addr());
-                match protocol::hand_shake::HandShake::new(stream.clone(), stream.clone())
-                    .perform()
-                    .await
-                    .expect("perform hand shake with client")
+                match protocol::hand_shake::HandShake::new(
+                    stream.clone(),
+                    stream.clone(),
+                    protocol::channel::Channel::new(stream.clone(), stream.clone()),
+                )
+                .perform()
+                .await
+                .expect("perform hand shake with client")
                 {
                     Ok(connection) => {
                         let mut handler = sql_handler::Handler::new(client_storage, connection);

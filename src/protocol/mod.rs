@@ -1,3 +1,4 @@
+pub mod channel;
 pub mod connection;
 pub mod hand_shake;
 pub mod messages;
@@ -80,7 +81,7 @@ pub enum SslMode {
 #[cfg(test)]
 mod compatibility {
     use super::*;
-    use crate::protocol::{hand_shake::HandShake, messages::*};
+    use crate::protocol::{channel::Channel, hand_shake::HandShake, messages::*};
     use async_std::io;
     use bytes::BytesMut;
     use test_helpers::{async_io, frontend};
@@ -89,11 +90,15 @@ mod compatibility {
     async fn trying_read_from_empty_stream() -> io::Result<()> {
         let test_case = async_io::TestCase::with_content(vec![]).await;
 
-        let hand_shake = HandShake::new(test_case.clone(), test_case.clone());
+        let hand_shake = HandShake::new(
+            test_case.clone(),
+            test_case.clone(),
+            Channel::new(test_case.clone(), test_case.clone()),
+        );
 
-        let error = hand_shake.perform().await?;
+        let error = hand_shake.perform().await;
 
-        assert_eq!(error, Err(Error));
+        assert!(error.is_err());
 
         Ok(())
     }
@@ -106,11 +111,15 @@ mod compatibility {
         async fn trying_read_setup_message() -> io::Result<()> {
             let test_case = async_io::TestCase::with_content(vec![&[0, 0, 0, 57]]).await;
 
-            let hand_shake = HandShake::new(test_case.clone(), test_case.clone());
+            let hand_shake = HandShake::new(
+                test_case.clone(),
+                test_case.clone(),
+                Channel::new(test_case.clone(), test_case.clone()),
+            );
 
-            let error = hand_shake.perform().await?;
+            let error = hand_shake.perform().await;
 
-            assert_eq!(error, Err(Error));
+            assert!(error.is_err());
 
             Ok(())
         }
@@ -129,7 +138,11 @@ mod compatibility {
             ])
             .await;
 
-            let hand_shake = HandShake::new(test_case.clone(), test_case.clone());
+            let hand_shake = HandShake::new(
+                test_case.clone(),
+                test_case.clone(),
+                Channel::new(test_case.clone(), test_case.clone()),
+            );
 
             let connection = hand_shake.perform().await?.expect("connection is open");
 
@@ -164,11 +177,15 @@ mod compatibility {
         async fn trying_read_only_length_of_ssl_message() -> io::Result<()> {
             let test_case = async_io::TestCase::with_content(vec![&[0, 0, 0, 8]]).await;
 
-            let hand_shake = HandShake::new(test_case.clone(), test_case.clone());
+            let hand_shake = HandShake::new(
+                test_case.clone(),
+                test_case.clone(),
+                Channel::new(test_case.clone(), test_case.clone()),
+            );
 
-            let error = hand_shake.perform().await?;
+            let error = hand_shake.perform().await;
 
-            assert_eq!(error, Err(Error));
+            assert!(error.is_err());
 
             Ok(())
         }
@@ -180,11 +197,15 @@ mod compatibility {
                 .as_slice()])
             .await;
 
-            let hand_shake = HandShake::new(test_case.clone(), test_case.clone());
+            let hand_shake = HandShake::new(
+                test_case.clone(),
+                test_case.clone(),
+                Channel::new(test_case.clone(), test_case.clone()),
+            );
 
-            let error = hand_shake.perform().await?;
+            let error = hand_shake.perform().await;
 
-            assert_eq!(error, Err(Error));
+            assert!(error.is_err());
 
             let actual_content = test_case.read_result().await;
             let mut expected_content = BytesMut::new();
@@ -211,7 +232,11 @@ mod compatibility {
             ])
             .await;
 
-            let hand_shake = HandShake::new(test_case.clone(), test_case.clone());
+            let hand_shake = HandShake::new(
+                test_case.clone(),
+                test_case.clone(),
+                Channel::new(test_case.clone(), test_case.clone()),
+            );
             let connection = hand_shake.perform().await?;
 
             assert!(connection.is_ok());

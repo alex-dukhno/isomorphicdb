@@ -1,10 +1,7 @@
 use async_std::io::{self, prelude::*};
-use byteorder::{ByteOrder, NetworkEndian};
-use bytes::BytesMut;
 
 use crate::protocol::{
-    messages::Message,
-    Command, Params, SslMode, Version, {Error, Result},
+    channel::Channel, messages::Message, Command, Params, Result, SslMode, Version,
 };
 
 #[derive(Debug)]
@@ -15,16 +12,23 @@ pub struct Connection<
     reader: R,
     writer: W,
     properties: (Version, Params, SslMode),
+    channel: Channel<R, W>,
 }
 
 impl<R: Read + Send + Sync + Unpin + 'static, W: Write + Send + Sync + Unpin + 'static>
     Connection<R, W>
 {
-    pub fn new(reader: R, writer: W, properties: (Version, Params, SslMode)) -> Self {
+    pub fn new(
+        reader: R,
+        writer: W,
+        properties: (Version, Params, SslMode),
+        channel: Channel<R, W>,
+    ) -> Self {
         Self {
             reader,
             writer,
             properties,
+            channel,
         }
     }
 
@@ -34,68 +38,27 @@ impl<R: Read + Send + Sync + Unpin + 'static, W: Write + Send + Sync + Unpin + '
 
     pub async fn send_ready_for_query(&mut self) -> io::Result<()> {
         trace!("send ready for query message");
-        self.writer
-            .write_all(Message::ReadyForQuery.as_vec().as_slice())
-            .await?;
+        self.channel.send_message(Message::ReadyForQuery).await?;
         Ok(())
     }
 
     pub async fn read_query(&mut self) -> io::Result<Result<Command>> {
-        let mut type_code_buff = [0u8; 1];
-        match self.reader.read_exact(&mut type_code_buff).await {
-            Ok(_) => {
-                debug!("FOR TEST type code = {:?}", type_code_buff);
-                trace!(
-                    "type code = {:?}",
-                    String::from_utf8(type_code_buff.to_vec())
-                );
-                if &type_code_buff == b"X" {
-                    Ok(Ok(Command::Terminate))
-                } else {
-                    let mut len_buff = [0u8; 4];
-                    match self.reader.read_exact(&mut len_buff).await {
-                        Ok(_) => {
-                            debug!("FOR TEST len = {:?}", len_buff);
-                            let len = NetworkEndian::read_i32(&len_buff);
-                            let mut sql_buff = BytesMut::with_capacity(len as usize);
-                            sql_buff.extend(0..((len as u8) - 4));
-                            match self.reader.read_exact(&mut sql_buff).await {
-                                Ok(_) => {
-                                    debug!("FOR TEST sql = {:?}", sql_buff);
-                                    let sql =
-                                        String::from_utf8(sql_buff[..sql_buff.len() - 1].to_vec())
-                                            .unwrap();
-                                    trace!("SQL = {}", sql);
-                                    Ok(Ok(Command::Query(sql)))
-                                }
-                                Err(e) if e.kind() == io::ErrorKind::UnexpectedEof => {
-                                    trace!("Unexpected EOF {:?}", e);
-                                    Ok(Err(Error))
-                                }
-                                Err(e) => {
-                                    error!("{:?}", e);
-                                    Err(e)
-                                }
-                            }
-                        }
-                        Err(e) if e.kind() == io::ErrorKind::UnexpectedEof => {
-                            trace!("Unexpected EOF {:?}", e);
-                            Ok(Err(Error))
-                        }
-                        Err(e) => {
-                            error!("{:?}", e);
-                            Err(e)
-                        }
+        let tag = self.channel.read_tag().await?;
+        if let Ok(b'X') = tag {
+            Ok(Ok(Command::Terminate))
+        } else {
+            match self.channel.read_message_len().await? {
+                Err(e) => Ok(Err(e)),
+                Ok(len) => match self.channel.receive_message(len).await? {
+                    Err(e) => Ok(Err(e)),
+                    Ok(sql_buff) => {
+                        debug!("FOR TEST sql = {:?}", sql_buff);
+                        let sql =
+                            String::from_utf8(sql_buff[..sql_buff.len() - 1].to_vec()).unwrap();
+                        trace!("SQL = {}", sql);
+                        Ok(Ok(Command::Query(sql)))
                     }
-                }
-            }
-            Err(e) if e.kind() == io::ErrorKind::UnexpectedEof => {
-                trace!("Unexpected EOF {:?}", e);
-                Ok(Err(Error))
-            }
-            Err(e) => {
-                error!("{:?}", e);
-                Err(e)
+                },
             }
         }
     }
@@ -161,7 +124,8 @@ impl Field {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::protocol::supported_version;
+    use crate::protocol::{channel::Channel, supported_version};
+    use bytes::BytesMut;
     use test_helpers::async_io;
 
     #[async_std::test]
@@ -171,6 +135,7 @@ mod tests {
             test_case.clone(),
             test_case.clone(),
             (supported_version(), Params(vec![]), SslMode::Disable),
+            Channel::new(test_case.clone(), test_case.clone()),
         );
 
         let ready_for_query = connection.send_ready_for_query().await?;
@@ -197,6 +162,7 @@ mod tests {
                 test_case.clone(),
                 test_case.clone(),
                 (supported_version(), Params(vec![]), SslMode::Disable),
+                Channel::new(test_case.clone(), test_case.clone()),
             );
 
             let query = connection.read_query().await?;
@@ -214,6 +180,7 @@ mod tests {
                 test_case.clone(),
                 test_case.clone(),
                 (supported_version(), Params(vec![]), SslMode::Disable),
+                Channel::new(test_case.clone(), test_case.clone()),
             );
 
             let query = connection.read_query().await?;
@@ -230,11 +197,12 @@ mod tests {
                 test_case.clone(),
                 test_case.clone(),
                 (supported_version(), Params(vec![]), SslMode::Disable),
+                Channel::new(test_case.clone(), test_case.clone()),
             );
 
-            let query = connection.read_query().await?;
+            let query = connection.read_query().await;
 
-            assert_eq!(query, Err(Error));
+            assert!(query.is_err());
 
             Ok(())
         }
@@ -246,11 +214,12 @@ mod tests {
                 test_case.clone(),
                 test_case.clone(),
                 (supported_version(), Params(vec![]), SslMode::Disable),
+                Channel::new(test_case.clone(), test_case.clone()),
             );
 
-            let query = connection.read_query().await?;
+            let query = connection.read_query().await;
 
-            assert_eq!(query, Err(Error));
+            assert!(query.is_err());
 
             Ok(())
         }
@@ -263,11 +232,12 @@ mod tests {
                 test_case.clone(),
                 test_case.clone(),
                 (supported_version(), Params(vec![]), SslMode::Disable),
+                Channel::new(test_case.clone(), test_case.clone()),
             );
 
-            let query = connection.read_query().await?;
+            let query = connection.read_query().await;
 
-            assert_eq!(query, Err(Error));
+            assert!(query.is_err());
 
             Ok(())
         }
@@ -280,6 +250,7 @@ mod tests {
             test_case.clone(),
             test_case.clone(),
             (supported_version(), Params(vec![]), SslMode::Disable),
+            Channel::new(test_case.clone(), test_case.clone()),
         );
         let fields = vec![
             Field::new(
@@ -317,6 +288,7 @@ mod tests {
             test_case.clone(),
             test_case.clone(),
             (supported_version(), Params(vec![]), SslMode::Disable),
+            Channel::new(test_case.clone(), test_case.clone()),
         );
 
         let rows = vec![
@@ -344,6 +316,7 @@ mod tests {
             test_case.clone(),
             test_case.clone(),
             (supported_version(), Params(vec![]), SslMode::Disable),
+            Channel::new(test_case.clone(), test_case.clone()),
         );
         connection
             .send_command_complete(Message::CommandComplete("SELECT".to_owned()))
