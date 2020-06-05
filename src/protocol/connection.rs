@@ -67,10 +67,8 @@ impl<R: Read + Send + Sync + Unpin + 'static, W: Write + Send + Sync + Unpin + '
         Ok(())
     }
 
-    pub async fn send_row_data(&mut self, rows: Vec<Vec<String>>) -> io::Result<()> {
-        for row in rows {
-            self.channel.send_message(Message::DataRow(row)).await?;
-        }
+    pub async fn send_row_data(&mut self, row: Vec<String>) -> io::Result<()> {
+        self.channel.send_message(Message::DataRow(row)).await?;
         Ok(())
     }
 
@@ -265,7 +263,9 @@ mod tests {
             vec!["3".to_owned(), "4".to_owned()],
             vec!["5".to_owned(), "6".to_owned()],
         ];
-        connection.send_row_data(rows.clone()).await?;
+        for row in rows.iter() {
+            connection.send_row_data(row.clone()).await?;
+        }
 
         let actual_content = test_case.read_result().await;
         let mut expected_content = BytesMut::new();

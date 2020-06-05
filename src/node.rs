@@ -39,7 +39,6 @@ impl Node {
     pub fn start(&self) {
         let local_address = format!("{}:{}", HOST, PORT);
         eprintln!("Starting server on {}", local_address);
-        self.state.store(RUNNING, Ordering::SeqCst);
 
         task::block_on(async {
             let storage = Arc::new(Mutex::new(storage::SledStorage::default()));
@@ -47,6 +46,7 @@ impl Node {
             eprintln!("Listening on {}", local_address);
 
             let listener = listener.expect("port should be open");
+            self.state.store(RUNNING, Ordering::SeqCst);
 
             let mut incoming = listener.incoming();
             println!("Waiting for connections");

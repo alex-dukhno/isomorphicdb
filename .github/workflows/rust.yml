@@ -15,7 +15,7 @@ defaults:
     shell: bash
 
 jobs:
-  test:
+  unit-tests:
     strategy:
       matrix:
         os:
@@ -29,7 +29,7 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --all
+          args: --lib --all
 
   rustfmt:
     name: rustfmt
@@ -65,7 +65,7 @@ jobs:
     name: ci
     if: github.event_name == 'push' && !success()
     needs:
-      - test
+      - unit-tests
       - rustfmt
       - clippy
     runs-on: ubuntu-latest
