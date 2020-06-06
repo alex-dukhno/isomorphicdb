@@ -1,5 +1,6 @@
+use futures::StreamExt;
 use std::borrow::ToOwned;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use thiserror::Error;
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -20,6 +21,8 @@ pub trait Storage {
 
     fn drop_table(&mut self, schema_name: String, table_name: String) -> Result<()>;
 
+    fn table_columns(&mut self, schema_name: String, table_name: String) -> Result<Vec<String>>;
+
     fn insert_into(
         &mut self,
         schema_name: String,
@@ -27,7 +30,12 @@ pub trait Storage {
         values: Vec<Vec<String>>,
     ) -> Result<()>;
 
-    fn select_all_from(&mut self, schema_name: String, table_name: String) -> Result<Projection>;
+    fn select_all_from(
+        &mut self,
+        schema_name: String,
+        table_name: String,
+        columns: Vec<String>,
+    ) -> Result<Projection>;
 
     fn update_all(
         &mut self,
@@ -97,6 +105,34 @@ impl Storage for SledStorage {
         }
     }
 
+    fn table_columns(&mut self, schema_name: String, table_name: String) -> Result<Vec<String>> {
+        if let Some(true) = self
+            .schemas
+            .get(&schema_name)
+            .map(|schema| schema.tree_names().contains(&(table_name.as_str().into())))
+        {
+            Ok(self
+                .schemas
+                .get(&schema_name)
+                .map(|schema| {
+                    schema
+                        .iter()
+                        .values()
+                        .map(sled::Result::unwrap)
+                        .map(|bytes| String::from_utf8(bytes.to_vec()).unwrap())
+                        .collect::<String>()
+                        .split('|')
+                        .map(ToOwned::to_owned)
+                        .collect()
+                })
+                .unwrap())
+        } else {
+            Err(Error::TableDoesNotExist(
+                schema_name + "." + table_name.as_str(),
+            ))
+        }
+    }
+
     fn drop_table(&mut self, schema_name: String, table_name: String) -> Result<()> {
         if let Some(true) = self
             .schemas
@@ -146,27 +182,26 @@ impl Storage for SledStorage {
         }
     }
 
-    fn select_all_from(&mut self, schema_name: String, table_name: String) -> Result<Projection> {
+    fn select_all_from(
+        &mut self,
+        schema_name: String,
+        table_name: String,
+        columns: Vec<String>,
+    ) -> Result<Projection> {
         if let Some(true) = self
             .schemas
             .get(&schema_name)
             .map(|schema| schema.tree_names().contains(&(table_name.as_str().into())))
         {
-            let columns = self
-                .schemas
-                .get(&schema_name)
-                .map(|schema| {
-                    schema
-                        .iter()
-                        .values()
-                        .map(sled::Result::unwrap)
-                        .map(|bytes| String::from_utf8(bytes.to_vec()).unwrap())
-                        .collect::<String>()
-                        .split('|')
-                        .map(ToOwned::to_owned)
-                        .collect()
-                })
-                .unwrap();
+            let all_columns = self.table_columns(schema_name.clone(), table_name.clone())?;
+            let mut column_indexes = vec![];
+            for (i, column) in columns.iter().enumerate() {
+                for (index, name) in all_columns.iter().enumerate() {
+                    if name == column {
+                        column_indexes.push((index, i));
+                    }
+                }
+            }
             Ok((
                 columns,
                 self.schemas
@@ -177,10 +212,21 @@ impl Storage for SledStorage {
                                 .iter()
                                 .values()
                                 .map(sled::Result::unwrap)
-                                .map(|bytes| { String::from_utf8(bytes.to_vec()).unwrap()
+                                .map(|bytes| {
+                                    let all_values = String::from_utf8(bytes.to_vec())
+                                        .unwrap()
                                         .split('|')
                                         .map(ToOwned::to_owned)
-                                        .collect::<Vec<String>>()
+                                        .collect::<Vec<String>>();
+                                    let mut values = vec![];
+                                    for (origin, ord) in &column_indexes {
+                                        for (index, value) in all_values.iter().enumerate() {
+                                            if index == *origin {
+                                                values.push((ord, value.clone()))
+                                            }
+                                        }
+                                    }
+                                    values.iter().map(|(_, value)| value.clone()).collect()
                                 })
                                 .collect()
                         })
@@ -376,11 +422,11 @@ mod tests {
     fn create_table_with_the_same_name() -> Result<()> {
         let mut storage = SledStorage::default();
 
-        storage.create_schema("schema_name".to_owned())?;
-        storage.create_table(
-            "schema_name".to_owned(),
-            "table_name".to_owned(),
-            vec!["column_test".to_owned()],
+        create_table(
+            &mut storage,
+            "schema_name",
+            "table_name",
+            vec!["column_test"],
         )?;
 
         assert_eq!(
@@ -425,11 +471,11 @@ mod tests {
     fn drop_table() -> Result<()> {
         let mut storage = SledStorage::default();
 
-        storage.create_schema("schema_name".to_owned())?;
-        storage.create_table(
-            "schema_name".to_owned(),
-            "table_name".to_owned(),
-            vec!["column_test".to_owned()],
+        create_table(
+            &mut storage,
+            "schema_name",
+            "table_name",
+            vec!["column_test"],
         )?;
         assert_eq!(
             storage.drop_table("schema_name".to_owned(), "table_name".to_owned()),
@@ -465,11 +511,11 @@ mod tests {
     fn insert_row_into_table() -> Result<()> {
         let mut storage = SledStorage::default();
 
-        storage.create_schema("schema_name".to_owned())?;
-        storage.create_table(
-            "schema_name".to_owned(),
-            "table_name".to_owned(),
-            vec!["column_test".to_owned()],
+        create_table(
+            &mut storage,
+            "schema_name",
+            "table_name",
+            vec!["column_test"],
         )?;
         assert_eq!(
             storage.insert_into(
@@ -479,8 +525,16 @@ mod tests {
             ),
             Ok(())
         );
+
+        let table_columns =
+            storage.table_columns("schema_name".to_owned(), "table_name".to_owned())?;
+
         assert_eq!(
-            storage.select_all_from("schema_name".to_owned(), "table_name".to_owned()),
+            storage.select_all_from(
+                "schema_name".to_owned(),
+                "table_name".to_owned(),
+                table_columns
+            ),
             Ok((vec!["column_test".to_owned()], vec![vec!["123".to_owned()]]))
         );
 
@@ -491,11 +545,11 @@ mod tests {
     fn insert_many_rows_into_table() -> Result<()> {
         let mut storage = SledStorage::default();
 
-        storage.create_schema("schema_name".to_owned())?;
-        storage.create_table(
-            "schema_name".to_owned(),
-            "table_name".to_owned(),
-            vec!["column_test".to_owned()],
+        create_table(
+            &mut storage,
+            "schema_name",
+            "table_name",
+            vec!["column_test"],
         )?;
         storage.insert_into(
             "schema_name".to_owned(),
@@ -508,8 +562,15 @@ mod tests {
             vec![vec!["456".to_owned()]],
         )?;
 
+        let table_columns =
+            storage.table_columns("schema_name".to_owned(), "table_name".to_owned())?;
+
         assert_eq!(
-            storage.select_all_from("schema_name".to_owned(), "table_name".to_owned()),
+            storage.select_all_from(
+                "schema_name".to_owned(),
+                "table_name".to_owned(),
+                table_columns
+            ),
             Ok((
                 vec!["column_test".to_owned()],
                 vec![vec!["123".to_owned()], vec!["456".to_owned()]]
@@ -544,7 +605,7 @@ mod tests {
 
         storage.create_schema("schema_name".to_owned())?;
         assert_eq!(
-            storage.select_all_from("schema_name".to_owned(), "not_existed".to_owned()),
+            storage.table_columns("schema_name".to_owned(), "not_existed".to_owned()),
             Err(Error::TableDoesNotExist(
                 "schema_name.not_existed".to_owned()
             ))
@@ -557,11 +618,11 @@ mod tests {
     fn update_all_records() -> Result<()> {
         let mut storage = SledStorage::default();
 
-        storage.create_schema("schema_name".to_owned())?;
-        storage.create_table(
-            "schema_name".to_owned(),
-            "table_name".to_owned(),
-            vec!["column_test".to_owned()],
+        create_table(
+            &mut storage,
+            "schema_name",
+            "table_name",
+            vec!["column_test"],
         )?;
         storage.insert_into(
             "schema_name".to_owned(),
@@ -587,8 +648,16 @@ mod tests {
             ),
             Ok(3)
         );
+
+        let table_columns =
+            storage.table_columns("schema_name".to_owned(), "table_name".to_owned())?;
+
         assert_eq!(
-            storage.select_all_from("schema_name".to_owned(), "table_name".to_owned()),
+            storage.select_all_from(
+                "schema_name".to_owned(),
+                "table_name".to_owned(),
+                table_columns
+            ),
             Ok((
                 vec!["column_test".to_owned()],
                 vec![
@@ -625,11 +694,11 @@ mod tests {
     fn delete_all_from_table() -> Result<()> {
         let mut storage = SledStorage::default();
 
-        storage.create_schema("schema_name".to_owned())?;
-        storage.create_table(
-            "schema_name".to_owned(),
-            "table_name".to_owned(),
-            vec!["column_test".to_owned()],
+        create_table(
+            &mut storage,
+            "schema_name",
+            "table_name",
+            vec!["column_test"],
         )?;
         storage.insert_into(
             "schema_name".to_owned(),
@@ -652,8 +721,15 @@ mod tests {
             Ok(3)
         );
 
+        let table_columns =
+            storage.table_columns("schema_name".to_owned(), "table_name".to_owned())?;
+
         assert_eq!(
-            storage.select_all_from("schema_name".to_owned(), "table_name".to_owned()),
+            storage.select_all_from(
+                "schema_name".to_owned(),
+                "table_name".to_owned(),
+                table_columns
+            ),
             Ok((vec!["column_test".to_owned()], vec![]))
         );
 
@@ -680,15 +756,11 @@ mod tests {
     fn select_all_from_table_with_many_columns() -> Result<()> {
         let mut storage = SledStorage::default();
 
-        storage.create_schema("schema_name".to_owned())?;
-        storage.create_table(
-            "schema_name".to_owned(),
-            "table_name".to_owned(),
-            vec![
-                "column_1".to_owned(),
-                "column_2".to_owned(),
-                "column_3".to_owned(),
-            ],
+        create_table(
+            &mut storage,
+            "schema_name",
+            "table_name",
+            vec!["column_1", "column_2", "column_3"],
         )?;
         storage.insert_into(
             "schema_name".to_owned(),
@@ -696,8 +768,15 @@ mod tests {
             vec![vec!["1".to_owned(), "2".to_owned(), "3".to_owned()]],
         )?;
 
+        let table_columns =
+            storage.table_columns("schema_name".to_owned(), "table_name".to_owned())?;
+
         assert_eq!(
-            storage.select_all_from("schema_name".to_owned(), "table_name".to_owned()),
+            storage.select_all_from(
+                "schema_name".to_owned(),
+                "table_name".to_owned(),
+                table_columns
+            ),
             Ok((
                 vec![
                     "column_1".to_owned(),
@@ -715,15 +794,11 @@ mod tests {
     fn insert_multiple_rows() -> Result<()> {
         let mut storage = SledStorage::default();
 
-        storage.create_schema("schema_name".to_owned())?;
-        storage.create_table(
-            "schema_name".to_owned(),
-            "table_name".to_owned(),
-            vec![
-                "column_1".to_owned(),
-                "column_2".to_owned(),
-                "column_3".to_owned(),
-            ],
+        create_table(
+            &mut storage,
+            "schema_name",
+            "table_name",
+            vec!["column_1", "column_2", "column_3"],
         )?;
         storage.insert_into(
             "schema_name".to_owned(),
@@ -735,8 +810,15 @@ mod tests {
             ],
         )?;
 
+        let table_columns =
+            storage.table_columns("schema_name".to_owned(), "table_name".to_owned())?;
+
         assert_eq!(
-            storage.select_all_from("schema_name".to_owned(), "table_name".to_owned()),
+            storage.select_all_from(
+                "schema_name".to_owned(),
+                "table_name".to_owned(),
+                table_columns
+            ),
             Ok((
                 vec![
                     "column_1".to_owned(),
@@ -752,5 +834,169 @@ mod tests {
         );
 
         Ok(())
+    }
+
+    #[test]
+    fn select_first_and_last_columns_from_table_with_multiple_columns() -> Result<()> {
+        let mut storage = SledStorage::default();
+
+        create_table(
+            &mut storage,
+            "schema_name",
+            "table_name",
+            vec!["first", "middle", "last"],
+        )?;
+        storage.insert_into(
+            "schema_name".to_owned(),
+            "table_name".to_owned(),
+            vec![
+                vec!["1".to_owned(), "2".to_owned(), "3".to_owned()],
+                vec!["4".to_owned(), "5".to_owned(), "6".to_owned()],
+                vec!["7".to_owned(), "8".to_owned(), "9".to_owned()],
+            ],
+        )?;
+
+        assert_eq!(
+            storage.select_all_from(
+                "schema_name".to_owned(),
+                "table_name".to_owned(),
+                vec!["first".to_owned(), "last".to_owned()]
+            ),
+            Ok((
+                vec!["first".to_owned(), "last".to_owned(),],
+                vec![
+                    vec!["1".to_owned(), "3".to_owned()],
+                    vec!["4".to_owned(), "6".to_owned()],
+                    vec!["7".to_owned(), "9".to_owned()],
+                ],
+            ))
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn select_all_columns_reordered_from_table_with_multiple_columns() -> Result<()> {
+        let mut storage = SledStorage::default();
+
+        create_table(
+            &mut storage,
+            "schema_name",
+            "table_name",
+            vec!["first", "middle", "last"],
+        )?;
+        storage.insert_into(
+            "schema_name".to_owned(),
+            "table_name".to_owned(),
+            vec![
+                vec!["1".to_owned(), "2".to_owned(), "3".to_owned()],
+                vec!["4".to_owned(), "5".to_owned(), "6".to_owned()],
+                vec!["7".to_owned(), "8".to_owned(), "9".to_owned()],
+            ],
+        )?;
+
+        assert_eq!(
+            storage.select_all_from(
+                "schema_name".to_owned(),
+                "table_name".to_owned(),
+                vec!["last".to_owned(), "first".to_owned(), "middle".to_owned()]
+            ),
+            Ok((
+                vec!["last".to_owned(), "first".to_owned(), "middle".to_owned()],
+                vec![
+                    vec!["3".to_owned(), "1".to_owned(), "2".to_owned()],
+                    vec!["6".to_owned(), "4".to_owned(), "5".to_owned()],
+                    vec!["9".to_owned(), "7".to_owned(), "8".to_owned()],
+                ],
+            ))
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn select_with_column_name_duplication() -> Result<()> {
+        let mut storage = SledStorage::default();
+
+        create_table(
+            &mut storage,
+            "schema_name",
+            "table_name",
+            vec!["first", "middle", "last"],
+        )?;
+        storage.insert_into(
+            "schema_name".to_owned(),
+            "table_name".to_owned(),
+            vec![
+                vec!["1".to_owned(), "2".to_owned(), "3".to_owned()],
+                vec!["4".to_owned(), "5".to_owned(), "6".to_owned()],
+                vec!["7".to_owned(), "8".to_owned(), "9".to_owned()],
+            ],
+        )?;
+
+        assert_eq!(
+            storage.select_all_from(
+                "schema_name".to_owned(),
+                "table_name".to_owned(),
+                vec![
+                    "last".to_owned(),
+                    "middle".to_owned(),
+                    "first".to_owned(),
+                    "last".to_owned(),
+                    "middle".to_owned()
+                ]
+            ),
+            Ok((
+                vec![
+                    "last".to_owned(),
+                    "middle".to_owned(),
+                    "first".to_owned(),
+                    "last".to_owned(),
+                    "middle".to_owned()
+                ],
+                vec![
+                    vec![
+                        "3".to_owned(),
+                        "2".to_owned(),
+                        "1".to_owned(),
+                        "3".to_owned(),
+                        "2".to_owned()
+                    ],
+                    vec![
+                        "6".to_owned(),
+                        "5".to_owned(),
+                        "4".to_owned(),
+                        "6".to_owned(),
+                        "5".to_owned()
+                    ],
+                    vec![
+                        "9".to_owned(),
+                        "8".to_owned(),
+                        "7".to_owned(),
+                        "9".to_owned(),
+                        "8".to_owned()
+                    ],
+                ],
+            ))
+        );
+
+        Ok(())
+    }
+
+    fn create_table(
+        storage: &mut SledStorage,
+        schema_name: &str,
+        table_name: &str,
+        column_names: Vec<&str>,
+    ) -> Result<()> {
+        storage.create_schema(schema_name.to_owned())?;
+        storage.create_table(
+            schema_name.to_owned(),
+            table_name.to_owned(),
+            column_names
+                .iter()
+                .map(ToString::to_string)
+                .collect::<Vec<String>>(),
+        )
     }
 }

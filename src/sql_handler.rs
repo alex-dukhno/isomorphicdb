@@ -63,9 +63,12 @@ impl<
                         .send_command_complete(Message::CommandComplete("DROP TABLE".to_owned()))
                         .await?;
                 }
-                Ok(QueryResult::RecordInserted) => {
+                Ok(QueryResult::RecordInserted(len)) => {
                     self.connection
-                        .send_command_complete(Message::CommandComplete("INSERT 0 1".to_owned()))
+                        .send_command_complete(Message::CommandComplete(format!(
+                            "INSERT 0 {}",
+                            len
+                        )))
                         .await?;
                 }
                 Ok(QueryResult::Select(projection)) => {
@@ -208,13 +211,13 @@ impl<
                 let sqlparser::ast::Query { body, .. } = &*source;
                 if let sqlparser::ast::SetExpr::Values(values) = &body {
                     let values = &values.0;
-                    let to_insert = values.iter().map(|v| v.iter().map(|v| v.to_string()).collect()).collect();
-                    match (*self.storage.lock().await).insert_into(
-                        schema_name,
-                        name,
-                        to_insert,
-                    ) {
-                        Ok(_) => Ok(Ok(QueryResult::RecordInserted)),
+                    let to_insert: Vec<Vec<String>> = values
+                        .iter()
+                        .map(|v| v.iter().map(|v| v.to_string()).collect())
+                        .collect();
+                    let len = to_insert.len();
+                    match (*self.storage.lock().await).insert_into(schema_name, name, to_insert) {
+                        Ok(_) => Ok(Ok(QueryResult::RecordInserted(len))),
                         Err(_) => Ok(Err(storage::Error::NotSupportedOperation(raw_sql_query))),
                     }
                 } else {
@@ -222,10 +225,11 @@ impl<
                 }
             }
             sqlparser::ast::Statement::Query(query) => {
-                let sqlparser::ast::Query { body, .. } = &*query;
-                if let sqlparser::ast::SetExpr::Select(select) = &body {
-                    let sqlparser::ast::Select { from, .. } = select.deref();
-
+                let sqlparser::ast::Query { body, .. } = *query;
+                if let sqlparser::ast::SetExpr::Select(select) = body {
+                    let sqlparser::ast::Select {
+                        projection, from, ..
+                    } = select.deref();
                     let sqlparser::ast::TableWithJoins { relation, .. } = &from[0];
                     let (schema_name, table_name) = match relation {
                         sqlparser::ast::TableFactor::Table { name, .. } => {
@@ -235,7 +239,37 @@ impl<
                         }
                         _ => return Ok(Err(storage::Error::NotSupportedOperation(raw_sql_query))),
                     };
-                    match (*self.storage.lock().await).select_all_from(schema_name, table_name) {
+                    let table_columns = {
+                        let mut projection = projection.clone();
+                        let mut columns = vec![];
+                        for item in projection {
+                            match item {
+                                sqlparser::ast::SelectItem::Wildcard => {
+                                    let all_columns = (*self.storage.lock().await)
+                                        .table_columns(schema_name.clone(), table_name.clone())
+                                        .unwrap();
+                                    columns.extend(all_columns);
+                                }
+                                sqlparser::ast::SelectItem::UnnamedExpr(
+                                    sqlparser::ast::Expr::Identifier(sqlparser::ast::Ident {
+                                        value,
+                                        ..
+                                    }),
+                                ) => columns.push(value.to_string()),
+                                _ => {
+                                    return Ok(Err(storage::Error::NotSupportedOperation(
+                                        raw_sql_query,
+                                    )))
+                                }
+                            }
+                        }
+                        columns
+                    };
+                    match (*self.storage.lock().await).select_all_from(
+                        schema_name,
+                        table_name,
+                        table_columns,
+                    ) {
                         Ok(records) => Ok(Ok(QueryResult::Select(records))),
                         _ => Ok(Err(storage::Error::NotSupportedOperation(raw_sql_query))),
                     }
@@ -286,7 +320,7 @@ enum QueryResult {
     SchemaDropped,
     TableCreated,
     TableDropped,
-    RecordInserted,
+    RecordInserted(usize),
     Select(Projection),
     Update(usize),
     Delete(usize),
@@ -306,11 +340,13 @@ mod tests {
         create_schemas_responses: Vec<storage::Result<()>>,
         create_table_responses: Vec<storage::Result<()>>,
         select_results: Vec<storage::Result<Projection>>,
+        table_columns: Vec<String>,
     ) -> Arc<Mutex<MockStorage>> {
         Arc::new(Mutex::new(MockStorage {
             create_schemas_responses,
             create_table_responses,
             select_results,
+            table_columns,
         }))
     }
 
@@ -323,7 +359,7 @@ mod tests {
         .as_slice()])
         .await;
         let mut handler = Handler::new(
-            storage(vec![Ok(())], vec![], vec![]),
+            storage(vec![Ok(())], vec![], vec![], vec![]),
             Connection::new(
                 (supported_version(), Params(vec![]), SslMode::Disable),
                 Channel::new(test_case.clone(), test_case.clone()),
@@ -365,6 +401,7 @@ mod tests {
                     )),
                     Ok(()),
                 ],
+                vec![],
                 vec![],
                 vec![],
             ),
@@ -416,7 +453,7 @@ mod tests {
         ])
         .await;
         let mut handler = Handler::new(
-            storage(vec![Ok(()), Ok(())], vec![], vec![]),
+            storage(vec![Ok(()), Ok(())], vec![], vec![], vec![]),
             Connection::new(
                 (supported_version(), Params(vec![]), SslMode::Disable),
                 Channel::new(test_case.clone(), test_case.clone()),
@@ -465,7 +502,7 @@ mod tests {
         ])
         .await;
         let mut handler = Handler::new(
-            storage(vec![Ok(())], vec![Ok(())], vec![]),
+            storage(vec![Ok(())], vec![Ok(())], vec![], vec![]),
             Connection::new(
                 (supported_version(), Params(vec![]), SslMode::Disable),
                 Channel::new(test_case.clone(), test_case.clone()),
@@ -513,7 +550,7 @@ mod tests {
         ])
         .await;
         let mut handler = Handler::new(
-            storage(vec![Ok(())], vec![Ok(()), Ok(())], vec![]),
+            storage(vec![Ok(())], vec![Ok(()), Ok(())], vec![], vec![]),
             Connection::new(
                 (supported_version(), Params(vec![]), SslMode::Disable),
                 Channel::new(test_case.clone(), test_case.clone()),
@@ -576,6 +613,7 @@ mod tests {
                     vec!["column_test".to_owned()],
                     vec![vec!["123".to_owned()]],
                 ))],
+                vec!["column_test".to_owned()],
             ),
             Connection::new(
                 (supported_version(), Params(vec![]), SslMode::Disable),
@@ -641,6 +679,7 @@ mod tests {
                     )),
                     Ok((vec!["column_test".to_owned()], vec![vec!["123".to_owned()]])),
                 ],
+                vec!["column_test".to_owned()],
             ),
             Connection::new(
                 (supported_version(), Params(vec![]), SslMode::Disable),
@@ -734,6 +773,7 @@ mod tests {
                         vec![vec!["123".to_owned()], vec!["456".to_owned()]],
                     )),
                 ],
+                vec!["column_test".to_owned()],
             ),
             Connection::new(
                 (supported_version(), Params(vec![]), SslMode::Disable),
@@ -834,6 +874,7 @@ mod tests {
                         vec![vec!["123".to_owned()], vec!["456".to_owned()]],
                     )),
                 ],
+                vec!["column_test".to_owned()],
             ),
             Connection::new(
                 (supported_version(), Params(vec![]), SslMode::Disable),
@@ -908,7 +949,8 @@ mod tests {
             frontend::Message::Query("select * from schema_name.table_name;")
                 .as_vec()
                 .as_slice(),
-        ]).await;
+        ])
+        .await;
 
         let mut handler = Handler::new(
             storage(
@@ -922,6 +964,11 @@ mod tests {
                     ],
                     vec![vec!["123".to_owned(), "456".to_owned(), "789".to_owned()]],
                 ))],
+                vec![
+                    "column_1".to_owned(),
+                    "column_2".to_owned(),
+                    "column_3".to_owned(),
+                ],
             ),
             Connection::new(
                 (supported_version(), Params(vec![]), SslMode::Disable),
@@ -969,13 +1016,16 @@ mod tests {
     #[async_std::test]
     async fn insert_multiple_rows() -> io::Result<()> {
         let test_case = async_io::TestCase::with_content(vec![
-            frontend::Message::Query("insert into schema_name.table_name values (1, 4, 7), (2, 5, 8), (3, 6, 9);")
-                .as_vec()
-                .as_slice(),
+            frontend::Message::Query(
+                "insert into schema_name.table_name values (1, 4, 7), (2, 5, 8), (3, 6, 9);",
+            )
+            .as_vec()
+            .as_slice(),
             frontend::Message::Query("select * from schema_name.table_name;")
                 .as_vec()
                 .as_slice(),
-        ]).await;
+        ])
+        .await;
 
         let mut handler = Handler::new(
             storage(
@@ -993,6 +1043,11 @@ mod tests {
                         vec!["3".to_owned(), "6".to_owned(), "9".to_owned()],
                     ],
                 ))],
+                vec![
+                    "column_1".to_owned(),
+                    "column_2".to_owned(),
+                    "column_3".to_owned(),
+                ],
             ),
             Connection::new(
                 (supported_version(), Params(vec![]), SslMode::Disable),
@@ -1008,7 +1063,7 @@ mod tests {
 
         expected_content.extend_from_slice(Message::ReadyForQuery.as_vec().as_slice());
         expected_content.extend_from_slice(
-            Message::CommandComplete("INSERT 0 1".to_owned())
+            Message::CommandComplete("INSERT 0 3".to_owned())
                 .as_vec()
                 .as_slice(),
         );
@@ -1048,10 +1103,96 @@ mod tests {
         Ok(())
     }
 
+    #[async_std::test]
+    async fn select_not_all_columns() -> io::Result<()> {
+        let test_case = async_io::TestCase::with_content(vec![
+            frontend::Message::Query(
+                "insert into schema_name.table_name values (1, 4, 7), (2, 5, 8), (3, 6, 9);",
+            )
+            .as_vec()
+            .as_slice(),
+            frontend::Message::Query("select column_3, column_2 from schema_name.table_name;")
+                .as_vec()
+                .as_slice(),
+        ])
+        .await;
+
+        let mut handler = Handler::new(
+            storage(
+                vec![],
+                vec![],
+                vec![Ok((
+                    vec!["column_3".to_owned(), "column_2".to_owned()],
+                    vec![
+                        vec!["7".to_owned(), "4".to_owned()],
+                        vec!["9".to_owned(), "6".to_owned()],
+                        vec!["8".to_owned(), "5".to_owned()],
+                    ],
+                ))],
+                vec![
+                    "column_1".to_owned(),
+                    "column_2".to_owned(),
+                    "column_3".to_owned(),
+                ],
+            ),
+            Connection::new(
+                (supported_version(), Params(vec![]), SslMode::Disable),
+                Channel::new(test_case.clone(), test_case.clone()),
+            ),
+        );
+
+        handler.handle_query().await?;
+        handler.handle_query().await?;
+
+        let actual_content = test_case.read_result().await;
+        let mut expected_content = BytesMut::new();
+
+        expected_content.extend_from_slice(Message::ReadyForQuery.as_vec().as_slice());
+        expected_content.extend_from_slice(
+            Message::CommandComplete("INSERT 0 3".to_owned())
+                .as_vec()
+                .as_slice(),
+        );
+        expected_content.extend_from_slice(Message::ReadyForQuery.as_vec().as_slice());
+        expected_content.extend_from_slice(
+            Message::RowDescription(vec![
+                ("column_3".to_owned(), 21, 2),
+                ("column_2".to_owned(), 21, 2),
+            ])
+            .as_vec()
+            .as_slice(),
+        );
+        expected_content.extend_from_slice(
+            Message::DataRow(vec!["7".to_owned(), "4".to_owned()])
+                .as_vec()
+                .as_slice(),
+        );
+        expected_content.extend_from_slice(
+            Message::DataRow(vec!["9".to_owned(), "6".to_owned()])
+                .as_vec()
+                .as_slice(),
+        );
+        expected_content.extend_from_slice(
+            Message::DataRow(vec!["8".to_owned(), "5".to_owned()])
+                .as_vec()
+                .as_slice(),
+        );
+        expected_content.extend_from_slice(
+            Message::CommandComplete("SELECT 3".to_owned())
+                .as_vec()
+                .as_slice(),
+        );
+
+        assert_eq!(actual_content, expected_content);
+
+        Ok(())
+    }
+
     struct MockStorage {
         create_schemas_responses: Vec<storage::Result<()>>,
         create_table_responses: Vec<storage::Result<()>>,
         select_results: Vec<storage::Result<Projection>>,
+        table_columns: Vec<String>,
     }
 
     impl storage::Storage for MockStorage {
@@ -1072,6 +1213,14 @@ mod tests {
             self.create_table_responses.pop().unwrap()
         }
 
+        fn table_columns(
+            &mut self,
+            schema_name: String,
+            table_name: String,
+        ) -> storage::Result<Vec<String>> {
+            Ok(self.table_columns.clone())
+        }
+
         fn drop_table(&mut self, _schema_name: String, _table_name: String) -> storage::Result<()> {
             Ok(())
         }
@@ -1089,6 +1238,7 @@ mod tests {
             &mut self,
             _schema_name: String,
             _table_name: String,
+            _columns: Vec<String>,
         ) -> storage::Result<Projection> {
             self.select_results.pop().unwrap()
         }

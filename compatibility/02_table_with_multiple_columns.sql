@@ -22,6 +22,8 @@ select column_3, column_1, column_2 from SMOKE_QUERIES.VALIDATION_TABLE;
 
 select column_3, column_2, column_1 from SMOKE_QUERIES.VALIDATION_TABLE;
 
+select column_3, column_2, column_3, column_1, column_2 from SMOKE_QUERIES.VALIDATION_TABLE;
+
 drop table SMOKE_QUERIES.VALIDATION_TABLE;
 
 drop schema SMOKE_QUERIES;

@@ -12,8 +12,8 @@ const PORT: usize = 5432;
 const HOST: &str = "127.0.0.1";
 
 pub const CREATED: u8 = 0;
-const RUNNING: u8 = 1;
-const STOPPED: u8 = 2;
+pub const RUNNING: u8 = 1;
+pub const STOPPED: u8 = 2;
 
 pub struct Node {
     state: Arc<AtomicU8>,
@@ -38,41 +38,56 @@ impl Node {
 
     pub fn start(&self) {
         let local_address = format!("{}:{}", HOST, PORT);
-        eprintln!("Starting server on {}", local_address);
+        trace!("Starting server on {}", local_address);
 
         task::block_on(async {
             let storage = Arc::new(Mutex::new(storage::SledStorage::default()));
             let listener = TcpListener::bind(local_address.as_str()).await;
-            eprintln!("Listening on {}", local_address);
+            trace!("Listening on {}", local_address);
 
             let listener = listener.expect("port should be open");
             self.state.store(RUNNING, Ordering::SeqCst);
 
             let mut incoming = listener.incoming();
-            println!("Waiting for connections");
-            while let Some(Ok(stream)) = incoming.next().await {
-                let client_storage = storage.clone();
-                task::spawn(async move {
-                    println!("Accepted connection {:?}", stream.peer_addr());
-                    match protocol::hand_shake::HandShake::new(protocol::channel::Channel::new(
-                        stream.clone(),
-                        stream.clone(),
-                    ))
-                    .perform()
-                    .await
-                    .expect("perform hand shake with client")
-                    {
-                        Ok(connection) => {
-                            let mut handler = sql_handler::Handler::new(client_storage, connection);
-                            while let Ok(true) = handler.handle_query().await {}
-                        }
-                        Err(e) => error!("Error establishing protocol connection {:?}", e),
-                    }
-                });
-                if self.state() == STOPPED {
+            trace!("Waiting for connections");
+            loop {
+                let income = incoming.next();
+                if self.state.load(Ordering::SeqCst) == STOPPED {
+                    trace!("SHOULD BE STOPPED!");
                     break;
                 }
+                match income.await {
+                    Some(Ok(stream)) => {
+                        let state = self.state.clone();
+                        let client_storage = storage.clone();
+                        let client = task::spawn(async move {
+                            trace!("Accepted connection {:?}", stream.peer_addr());
+                            match protocol::hand_shake::HandShake::new(
+                                protocol::channel::Channel::new(stream.clone(), stream.clone()),
+                            )
+                            .perform()
+                            .await
+                            .expect("perform hand shake with client")
+                            {
+                                Ok(connection) => {
+                                    let mut handler =
+                                        sql_handler::Handler::new(client_storage, connection);
+                                    while let Ok(true) = handler.handle_query().await {
+                                        trace!("QUERY HANDLED!");
+                                        if state.load(Ordering::SeqCst) == STOPPED {
+                                            trace!("SHOULD BE STOPPED!");
+                                            break;
+                                        }
+                                    }
+                                }
+                                Err(e) => error!("Error establishing protocol connection {:?}", e),
+                            }
+                        });
+                    }
+                    _ => break,
+                }
             }
+            trace!("WE ARE HERE!!!");
         })
     }
 }
