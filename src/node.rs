@@ -60,7 +60,7 @@ impl Node {
                     Some(Ok(stream)) => {
                         let state = self.state.clone();
                         let client_storage = storage.clone();
-                        let client = task::spawn(async move {
+                        task::spawn(async move {
                             trace!("Accepted connection {:?}", stream.peer_addr());
                             match protocol::hand_shake::HandShake::new(
                                 protocol::channel::Channel::new(stream.clone(), stream.clone()),

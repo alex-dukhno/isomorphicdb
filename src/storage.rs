@@ -1,6 +1,5 @@
-use futures::StreamExt;
 use std::borrow::ToOwned;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::HashMap;
 use thiserror::Error;
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -94,13 +93,15 @@ impl Storage for SledStorage {
                 schema_name + "." + table_name.as_str(),
             ))
         } else {
-            self.schemas.get_mut(&schema_name).map(|schema| {
-                schema.insert::<sled::IVec, sled::IVec>(
-                    table_name.as_str().into(),
-                    column_names.join("|").as_str().into(),
-                );
-                schema.open_tree(table_name);
-            });
+            if let Some(schema) = self.schemas.get_mut(&schema_name) {
+                schema
+                    .insert::<sled::IVec, sled::IVec>(
+                        table_name.as_str().into(),
+                        column_names.join("|").as_str().into(),
+                    )
+                    .unwrap();
+                schema.open_tree(table_name).unwrap();
+            }
             Ok(())
         }
     }
@@ -165,10 +166,12 @@ impl Storage for SledStorage {
             self.schemas.get_mut(&schema_name).map(|schema| {
                 schema.open_tree(&table_name).ok().map(|table| {
                     for record in values {
-                        table.insert::<[u8; 8], sled::IVec>(
-                            next_key_id.to_be_bytes(),
-                            record.join("|").as_str().into(),
-                        );
+                        table
+                            .insert::<[u8; 8], sled::IVec>(
+                                next_key_id.to_be_bytes(),
+                                record.join("|").as_str().into(),
+                            )
+                            .unwrap();
                         next_key_id += 1;
                     }
                 })

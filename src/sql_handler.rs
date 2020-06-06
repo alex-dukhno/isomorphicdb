@@ -240,7 +240,7 @@ impl<
                         _ => return Ok(Err(storage::Error::NotSupportedOperation(raw_sql_query))),
                     };
                     let table_columns = {
-                        let mut projection = projection.clone();
+                        let projection = projection.clone();
                         let mut columns = vec![];
                         for item in projection {
                             match item {
