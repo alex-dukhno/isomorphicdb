@@ -1,2 +1,2 @@
 #[cfg(test)]
-mod sql;
+mod integration_sql;

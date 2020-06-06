@@ -45,7 +45,7 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: test
-          args: '--tests sql::'
+          args: --tests integration_sql -- --nocapture --test-threads=1
 
   rustfmt:
     name: rustfmt

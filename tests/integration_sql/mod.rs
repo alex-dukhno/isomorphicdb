@@ -17,7 +17,7 @@ fn start_server(node: Arc<Node>) -> thread::JoinHandle<()> {
 }
 
 fn stop_server_workaround(client: &mut Client) -> Result<(), Error> {
-    client.simple_query("create schema TERMINATE");
+    let _result = client.simple_query("create schema TERMINATE");
     Client::connect("host=localhost user=postgres password=pass", NoTls)?;
 
     Ok(())

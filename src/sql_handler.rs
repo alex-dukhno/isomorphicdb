@@ -1215,8 +1215,8 @@ mod tests {
 
         fn table_columns(
             &mut self,
-            schema_name: String,
-            table_name: String,
+            _schema_name: String,
+            _table_name: String,
         ) -> storage::Result<Vec<String>> {
             Ok(self.table_columns.clone())
         }
