@@ -15,7 +15,7 @@ defaults:
     shell: bash
 
 jobs:
-  test:
+  unit-tests:
     strategy:
       matrix:
         os:
@@ -29,7 +29,23 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --all
+          args: --lib --all
+
+  integration-tests:
+    strategy:
+      matrix:
+        os:
+          - ubuntu
+          - windows
+          - macos
+    runs-on: ${{ matrix.os }}-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+      - uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --tests integration_sql -- --nocapture --test-threads=1
 
   rustfmt:
     name: rustfmt
@@ -53,7 +69,8 @@ jobs:
     name: ci
     if: github.event_name == 'push' && success()
     needs:
-      - test
+      - unit-tests
+      - integration-tests
       - rustfmt
       - clippy
     runs-on: ubuntu-latest
@@ -65,7 +82,8 @@ jobs:
     name: ci
     if: github.event_name == 'push' && !success()
     needs:
-      - test
+      - unit-tests
+      - integration-tests
       - rustfmt
       - clippy
     runs-on: ubuntu-latest
