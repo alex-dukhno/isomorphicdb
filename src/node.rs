@@ -41,7 +41,7 @@ impl Node {
         trace!("Starting server on {}", local_address);
 
         task::block_on(async {
-            let storage = Arc::new(Mutex::new(storage::SledStorage::default()));
+            let storage = Arc::new(Mutex::new(storage::relational::SledStorage::default()));
             let listener = TcpListener::bind(local_address.as_str()).await;
             trace!("Listening on {}", local_address);
 

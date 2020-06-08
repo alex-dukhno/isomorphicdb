@@ -6,7 +6,7 @@ use futures::io;
 
 use crate::protocol::messages::Message;
 use crate::protocol::Command;
-use crate::storage::Projection;
+use crate::storage::relational::Projection;
 use sqlparser::dialect::PostgreSqlDialect;
 use sqlparser::parser::Parser;
 use std::ops::Deref;
@@ -14,7 +14,7 @@ use std::ops::Deref;
 pub struct Handler<
     R: Read + Send + Sync + Unpin + 'static,
     W: Write + Send + Sync + Unpin + 'static,
-    S: storage::Storage,
+    S: storage::relational::RelationalStorage,
 > {
     storage: Arc<Mutex<S>>,
     connection: Connection<R, W>,
@@ -23,7 +23,7 @@ pub struct Handler<
 impl<
         R: Read + Send + Sync + Unpin + 'static,
         W: Write + Send + Sync + Unpin + 'static,
-        S: storage::Storage,
+        S: storage::relational::RelationalStorage,
     > Handler<R, W, S>
 {
     pub fn new(storage: Arc<Mutex<S>>, connection: Connection<R, W>) -> Self {
@@ -103,7 +103,7 @@ impl<
                         )))
                         .await?;
                 }
-                Err(storage::Error::SchemaAlreadyExists(schema_name)) => {
+                Err(storage::relational::Error::SchemaAlreadyExists(schema_name)) => {
                     self.connection
                         .send_command_complete(Message::ErrorResponse(
                             Some("ERROR".to_owned()),
@@ -112,7 +112,7 @@ impl<
                         ))
                         .await?
                 }
-                Err(storage::Error::TableAlreadyExists(table_name)) => {
+                Err(storage::relational::Error::TableAlreadyExists(table_name)) => {
                     self.connection
                         .send_command_complete(Message::ErrorResponse(
                             Some("ERROR".to_owned()),
@@ -121,7 +121,7 @@ impl<
                         ))
                         .await?
                 }
-                Err(storage::Error::NotSupportedOperation(raw_sql_query)) => {
+                Err(storage::relational::Error::NotSupportedOperation(raw_sql_query)) => {
                     self.connection
                         .send_command_complete(Message::ErrorResponse(
                             Some("ERROR".to_owned()),
@@ -154,7 +154,7 @@ impl<
     async fn execute(
         &mut self,
         raw_sql_query: String,
-    ) -> io::Result<Result<QueryResult, storage::Error>> {
+    ) -> io::Result<Result<QueryResult, storage::relational::Error>> {
         let statement = Parser::parse_sql(&PostgreSqlDialect {}, raw_sql_query.clone())
             .unwrap()
             .pop()
@@ -189,17 +189,23 @@ impl<
                     let schema_name = names[0].0[0].to_string();
                     match (*self.storage.lock().await).drop_table(schema_name, table_name) {
                         Ok(_) => Ok(Ok(QueryResult::TableDropped)),
-                        Err(_e) => Ok(Err(storage::Error::NotSupportedOperation(raw_sql_query))),
+                        Err(_e) => Ok(Err(storage::relational::Error::NotSupportedOperation(
+                            raw_sql_query,
+                        ))),
                     }
                 }
                 sqlparser::ast::ObjectType::Schema => {
                     let schema_name = names[0].0[0].to_string();
                     match (*self.storage.lock().await).drop_schema(schema_name) {
                         Ok(_) => Ok(Ok(QueryResult::SchemaDropped)),
-                        Err(_e) => Ok(Err(storage::Error::NotSupportedOperation(raw_sql_query))),
+                        Err(_e) => Ok(Err(storage::relational::Error::NotSupportedOperation(
+                            raw_sql_query,
+                        ))),
                     }
                 }
-                _ => Ok(Err(storage::Error::NotSupportedOperation(raw_sql_query))),
+                _ => Ok(Err(storage::relational::Error::NotSupportedOperation(
+                    raw_sql_query,
+                ))),
             },
             sqlparser::ast::Statement::Insert {
                 mut table_name,
@@ -218,10 +224,14 @@ impl<
                     let len = to_insert.len();
                     match (*self.storage.lock().await).insert_into(schema_name, name, to_insert) {
                         Ok(_) => Ok(Ok(QueryResult::RecordInserted(len))),
-                        Err(_) => Ok(Err(storage::Error::NotSupportedOperation(raw_sql_query))),
+                        Err(_) => Ok(Err(storage::relational::Error::NotSupportedOperation(
+                            raw_sql_query,
+                        ))),
                     }
                 } else {
-                    Ok(Err(storage::Error::NotSupportedOperation(raw_sql_query)))
+                    Ok(Err(storage::relational::Error::NotSupportedOperation(
+                        raw_sql_query,
+                    )))
                 }
             }
             sqlparser::ast::Statement::Query(query) => {
@@ -237,7 +247,11 @@ impl<
                             let schema_name = name.0[0].to_string();
                             (schema_name, table_name)
                         }
-                        _ => return Ok(Err(storage::Error::NotSupportedOperation(raw_sql_query))),
+                        _ => {
+                            return Ok(Err(storage::relational::Error::NotSupportedOperation(
+                                raw_sql_query,
+                            )))
+                        }
                     };
                     let table_columns = {
                         let projection = projection.clone();
@@ -257,9 +271,11 @@ impl<
                                     }),
                                 ) => columns.push(value.to_string()),
                                 _ => {
-                                    return Ok(Err(storage::Error::NotSupportedOperation(
-                                        raw_sql_query,
-                                    )))
+                                    return Ok(Err(
+                                        storage::relational::Error::NotSupportedOperation(
+                                            raw_sql_query,
+                                        ),
+                                    ))
                                 }
                             }
                         }
@@ -271,10 +287,14 @@ impl<
                         table_columns,
                     ) {
                         Ok(records) => Ok(Ok(QueryResult::Select(records))),
-                        _ => Ok(Err(storage::Error::NotSupportedOperation(raw_sql_query))),
+                        _ => Ok(Err(storage::relational::Error::NotSupportedOperation(
+                            raw_sql_query,
+                        ))),
                     }
                 } else {
-                    Ok(Err(storage::Error::NotSupportedOperation(raw_sql_query)))
+                    Ok(Err(storage::relational::Error::NotSupportedOperation(
+                        raw_sql_query,
+                    )))
                 }
             }
             sqlparser::ast::Statement::Update {
@@ -293,13 +313,19 @@ impl<
                             value.to_string(),
                         ) {
                             Ok(records_number) => Ok(Ok(QueryResult::Update(records_number))),
-                            Err(_) => Ok(Err(storage::Error::NotSupportedOperation(raw_sql_query))),
+                            Err(_) => Ok(Err(storage::relational::Error::NotSupportedOperation(
+                                raw_sql_query,
+                            ))),
                         }
                     } else {
-                        Ok(Err(storage::Error::NotSupportedOperation(raw_sql_query)))
+                        Ok(Err(storage::relational::Error::NotSupportedOperation(
+                            raw_sql_query,
+                        )))
                     }
                 } else {
-                    Ok(Err(storage::Error::NotSupportedOperation(raw_sql_query)))
+                    Ok(Err(storage::relational::Error::NotSupportedOperation(
+                        raw_sql_query,
+                    )))
                 }
             }
             sqlparser::ast::Statement::Delete { table_name, .. } => {
@@ -307,10 +333,14 @@ impl<
                 let table_name = table_name.0[1].to_string();
                 match (*self.storage.lock().await).delete_all_from(schema_name, table_name) {
                     Ok(records_number) => Ok(Ok(QueryResult::Delete(records_number))),
-                    Err(_) => Ok(Err(storage::Error::NotSupportedOperation(raw_sql_query))),
+                    Err(_) => Ok(Err(storage::relational::Error::NotSupportedOperation(
+                        raw_sql_query,
+                    ))),
                 }
             }
-            _ => Ok(Err(storage::Error::NotSupportedOperation(raw_sql_query))),
+            _ => Ok(Err(storage::relational::Error::NotSupportedOperation(
+                raw_sql_query,
+            ))),
         }
     }
 }
@@ -331,15 +361,15 @@ mod tests {
     use super::*;
     use crate::{
         protocol::{channel::Channel, messages::Message, supported_version, Params, SslMode},
-        storage::Projection,
+        storage::relational::Projection,
     };
     use bytes::BytesMut;
     use test_helpers::{async_io, frontend};
 
     fn storage(
-        create_schemas_responses: Vec<storage::Result<()>>,
-        create_table_responses: Vec<storage::Result<()>>,
-        select_results: Vec<storage::Result<Projection>>,
+        create_schemas_responses: Vec<storage::relational::Result<()>>,
+        create_table_responses: Vec<storage::relational::Result<()>>,
+        select_results: Vec<storage::relational::Result<Projection>>,
         table_columns: Vec<String>,
     ) -> Arc<Mutex<MockStorage>> {
         Arc::new(Mutex::new(MockStorage {
@@ -396,7 +426,7 @@ mod tests {
         let mut handler = Handler::new(
             storage(
                 vec![
-                    Err(storage::Error::SchemaAlreadyExists(
+                    Err(storage::relational::Error::SchemaAlreadyExists(
                         "schema_name".to_owned(),
                     )),
                     Ok(()),
@@ -1189,18 +1219,18 @@ mod tests {
     }
 
     struct MockStorage {
-        create_schemas_responses: Vec<storage::Result<()>>,
-        create_table_responses: Vec<storage::Result<()>>,
-        select_results: Vec<storage::Result<Projection>>,
+        create_schemas_responses: Vec<storage::relational::Result<()>>,
+        create_table_responses: Vec<storage::relational::Result<()>>,
+        select_results: Vec<storage::relational::Result<storage::relational::Projection>>,
         table_columns: Vec<String>,
     }
 
-    impl storage::Storage for MockStorage {
-        fn create_schema(&mut self, _schema_name: String) -> storage::Result<()> {
+    impl storage::relational::RelationalStorage for MockStorage {
+        fn create_schema(&mut self, _schema_name: String) -> storage::relational::Result<()> {
             self.create_schemas_responses.pop().unwrap()
         }
 
-        fn drop_schema(&mut self, _schema_name: String) -> storage::Result<()> {
+        fn drop_schema(&mut self, _schema_name: String) -> storage::relational::Result<()> {
             Ok(())
         }
 
@@ -1209,7 +1239,7 @@ mod tests {
             _schema_name: String,
             _table_name: String,
             _column_names: Vec<String>,
-        ) -> storage::Result<()> {
+        ) -> storage::relational::Result<()> {
             self.create_table_responses.pop().unwrap()
         }
 
@@ -1217,11 +1247,15 @@ mod tests {
             &mut self,
             _schema_name: String,
             _table_name: String,
-        ) -> storage::Result<Vec<String>> {
+        ) -> storage::relational::Result<Vec<String>> {
             Ok(self.table_columns.clone())
         }
 
-        fn drop_table(&mut self, _schema_name: String, _table_name: String) -> storage::Result<()> {
+        fn drop_table(
+            &mut self,
+            _schema_name: String,
+            _table_name: String,
+        ) -> storage::relational::Result<()> {
             Ok(())
         }
 
@@ -1230,7 +1264,7 @@ mod tests {
             _schema_name: String,
             _table_name: String,
             _values: Vec<Vec<String>>,
-        ) -> storage::Result<()> {
+        ) -> storage::relational::Result<()> {
             Ok(())
         }
 
@@ -1239,7 +1273,7 @@ mod tests {
             _schema_name: String,
             _table_name: String,
             _columns: Vec<String>,
-        ) -> storage::Result<Projection> {
+        ) -> storage::relational::Result<storage::relational::Projection> {
             self.select_results.pop().unwrap()
         }
 
@@ -1248,7 +1282,7 @@ mod tests {
             _schema_name: String,
             _table_name: String,
             _value: String,
-        ) -> storage::Result<usize> {
+        ) -> storage::relational::Result<usize> {
             Ok(2)
         }
 
@@ -1256,7 +1290,7 @@ mod tests {
             &mut self,
             _schema_name: String,
             _table_name: String,
-        ) -> storage::Result<usize> {
+        ) -> storage::relational::Result<usize> {
             Ok(2)
         }
     }

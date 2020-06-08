@@ -1,12 +1,11 @@
-use std::borrow::ToOwned;
-use std::collections::HashMap;
+use crate::storage::persistent;
 use thiserror::Error;
 
 pub type Result<T> = std::result::Result<T, Error>;
 
 pub type Projection = (Vec<String>, Vec<Vec<String>>);
 
-pub trait Storage {
+pub trait RelationalStorage {
     fn create_schema(&mut self, schema_name: String) -> Result<()>;
 
     fn drop_schema(&mut self, schema_name: String) -> Result<()>;
@@ -46,35 +45,46 @@ pub trait Storage {
     fn delete_all_from(&mut self, schema_name: String, table_name: String) -> Result<usize>;
 }
 
-#[derive(Default)]
-pub struct SledStorage {
+pub struct SledStorage<P: persistent::PersistentStore> {
     key_id_generator: usize,
-    schemas: HashMap<String, sled::Db>,
+    persistent: P,
 }
 
-impl Storage for SledStorage {
+impl Default for SledStorage<persistent::SledPersistentStorage> {
+    fn default() -> Self {
+        Self::new(persistent::SledPersistentStorage::default())
+    }
+}
+
+impl<P: persistent::PersistentStore> SledStorage<P> {
+    pub fn new(mut persistent: P) -> Self {
+        persistent.create_namespace("system").unwrap();
+        Self {
+            key_id_generator: 0,
+            persistent,
+        }
+    }
+}
+
+impl<P: persistent::PersistentStore> RelationalStorage for SledStorage<P> {
     #[allow(clippy::match_wild_err_arm, clippy::map_entry)]
     fn create_schema(&mut self, schema_name: String) -> Result<()> {
-        if self.schemas.contains_key(&schema_name) {
-            Err(Error::SchemaAlreadyExists(schema_name))
-        } else {
-            match sled::Config::default().temporary(true).open() {
-                Ok(schema) => {
-                    self.schemas.insert(schema_name, schema);
-                    Ok(())
-                }
-                Err(_) => unimplemented!(),
+        match self.persistent.create_namespace(schema_name.as_str()) {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(persistent::NamespaceAlreadyExists)) => {
+                Err(Error::SchemaAlreadyExists(schema_name))
             }
+            _ => unimplemented!(),
         }
     }
 
     fn drop_schema(&mut self, schema_name: String) -> Result<()> {
-        match self.schemas.remove(&schema_name) {
-            Some(schema) => {
-                drop(schema);
-                Ok(())
+        match self.persistent.drop_namespace(schema_name.as_str()) {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(persistent::NamespaceDoesNotExist)) => {
+                Err(Error::SchemaDoesNotExist(schema_name))
             }
-            None => Err(Error::SchemaDoesNotExist(schema_name)),
+            _ => unimplemented!(),
         }
     }
 
@@ -84,70 +94,69 @@ impl Storage for SledStorage {
         table_name: String,
         column_names: Vec<String>,
     ) -> Result<()> {
-        if let Some(true) = self
-            .schemas
-            .get(&schema_name)
-            .map(|schema| schema.tree_names().contains(&(table_name.as_str().into())))
+        match self
+            .persistent
+            .create_object(schema_name.as_str(), table_name.as_str())
         {
-            Err(Error::TableAlreadyExists(
-                schema_name + "." + table_name.as_str(),
-            ))
-        } else {
-            if let Some(schema) = self.schemas.get_mut(&schema_name) {
-                schema
-                    .insert::<sled::IVec, sled::IVec>(
-                        table_name.as_str().into(),
-                        column_names.join("|").as_str().into(),
-                    )
-                    .unwrap();
-                schema.open_tree(table_name).unwrap();
+            Ok(Ok(())) => {
+                self.persistent.create_object(
+                    "system",
+                    (schema_name.clone() + "." + table_name.as_str()).as_str(),
+                );
+                self.persistent.write(
+                    "system",
+                    (schema_name + "." + table_name.as_str()).as_str(),
+                    vec![(
+                        self.key_id_generator.to_be_bytes().to_vec(),
+                        column_names
+                            .iter()
+                            .map(|s| s.clone().into_bytes())
+                            .collect(),
+                    )],
+                );
+                self.key_id_generator += 1;
+                Ok(())
             }
-            Ok(())
+            Ok(Err(persistent::CreateObjectError::ObjectAlreadyExists)) => Err(
+                Error::TableAlreadyExists(schema_name + "." + table_name.as_str()),
+            ),
+            _ => unimplemented!(),
         }
     }
 
     fn table_columns(&mut self, schema_name: String, table_name: String) -> Result<Vec<String>> {
-        if let Some(true) = self
-            .schemas
-            .get(&schema_name)
-            .map(|schema| schema.tree_names().contains(&(table_name.as_str().into())))
-        {
-            Ok(self
-                .schemas
-                .get(&schema_name)
-                .map(|schema| {
-                    schema
+        let reads = self.persistent.read(
+            "system",
+            (schema_name.clone() + "." + table_name.as_str()).as_str(),
+        );
+        match reads {
+            Ok(Ok(reads)) => Ok(reads
+                .map(persistent::Result::unwrap)
+                .map(|(_id, columns)| {
+                    columns
                         .iter()
-                        .values()
-                        .map(sled::Result::unwrap)
-                        .map(|bytes| String::from_utf8(bytes.to_vec()).unwrap())
-                        .collect::<String>()
-                        .split('|')
-                        .map(ToOwned::to_owned)
+                        .map(|c| String::from_utf8(c.to_vec()).unwrap())
                         .collect()
                 })
-                .unwrap())
-        } else {
-            Err(Error::TableDoesNotExist(
-                schema_name + "." + table_name.as_str(),
-            ))
+                .next()
+                .unwrap()),
+            Ok(Err(persistent::OperationOnObjectError::ObjectDoesNotExist)) => Err(
+                Error::TableDoesNotExist(schema_name + "." + table_name.as_str()),
+            ),
+            _ => unimplemented!(),
         }
     }
 
     fn drop_table(&mut self, schema_name: String, table_name: String) -> Result<()> {
-        if let Some(true) = self
-            .schemas
-            .get(&schema_name)
-            .map(|schema| schema.tree_names().contains(&(table_name.as_str().into())))
+        match self
+            .persistent
+            .drop_object(schema_name.as_str(), table_name.as_str())
         {
-            self.schemas
-                .get(&schema_name)
-                .map(|schema| schema.drop_tree(table_name.as_bytes()));
-            Ok(())
-        } else {
-            Err(Error::TableDoesNotExist(
-                schema_name + "." + table_name.as_str(),
-            ))
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(persistent::DropObjectError::ObjectDoesNotExist)) => Err(
+                Error::TableDoesNotExist(schema_name + "." + table_name.as_str()),
+            ),
+            _ => unimplemented!(),
         }
     }
 
@@ -157,31 +166,21 @@ impl Storage for SledStorage {
         table_name: String,
         values: Vec<Vec<String>>,
     ) -> Result<()> {
-        if let Some(true) = self
-            .schemas
-            .get(&schema_name)
-            .map(|schema| schema.tree_names().contains(&(table_name.as_str().into())))
+        let mut to_write = vec![];
+        for value in values {
+            let key = self.key_id_generator.to_be_bytes().to_vec();
+            to_write.push((key, value.iter().map(|s| s.clone().into_bytes()).collect()));
+            self.key_id_generator += 1;
+        }
+        match self
+            .persistent
+            .write(schema_name.as_str(), table_name.as_str(), to_write)
         {
-            let mut next_key_id = self.key_id_generator;
-            self.schemas.get_mut(&schema_name).map(|schema| {
-                schema.open_tree(&table_name).ok().map(|table| {
-                    for record in values {
-                        table
-                            .insert::<[u8; 8], sled::IVec>(
-                                next_key_id.to_be_bytes(),
-                                record.join("|").as_str().into(),
-                            )
-                            .unwrap();
-                        next_key_id += 1;
-                    }
-                })
-            });
-            self.key_id_generator = next_key_id;
-            Ok(())
-        } else {
-            Err(Error::TableDoesNotExist(
-                schema_name + "." + table_name.as_str(),
-            ))
+            Ok(Ok(_size)) => Ok(()),
+            Ok(Err(persistent::OperationOnObjectError::ObjectDoesNotExist)) => Err(
+                Error::TableDoesNotExist(schema_name + "." + table_name.as_str()),
+            ),
+            _ => unimplemented!(),
         }
     }
 
@@ -191,56 +190,40 @@ impl Storage for SledStorage {
         table_name: String,
         columns: Vec<String>,
     ) -> Result<Projection> {
-        if let Some(true) = self
-            .schemas
-            .get(&schema_name)
-            .map(|schema| schema.tree_names().contains(&(table_name.as_str().into())))
-        {
-            let all_columns = self.table_columns(schema_name.clone(), table_name.clone())?;
-            let mut column_indexes = vec![];
-            for (i, column) in columns.iter().enumerate() {
-                for (index, name) in all_columns.iter().enumerate() {
-                    if name == column {
-                        column_indexes.push((index, i));
-                    }
+        let all_columns = self.table_columns(schema_name.clone(), table_name.clone())?;
+        let mut column_indexes = vec![];
+        for (i, column) in columns.iter().enumerate() {
+            for (index, name) in all_columns.iter().enumerate() {
+                if name == column {
+                    column_indexes.push((index, i));
                 }
             }
-            Ok((
-                columns,
-                self.schemas
-                    .get(&schema_name)
-                    .and_then(|schema| {
-                        schema.open_tree(&table_name).ok().map(|table| {
-                            table
-                                .iter()
-                                .values()
-                                .map(sled::Result::unwrap)
-                                .map(|bytes| {
-                                    let all_values = String::from_utf8(bytes.to_vec())
-                                        .unwrap()
-                                        .split('|')
-                                        .map(ToOwned::to_owned)
-                                        .collect::<Vec<String>>();
-                                    let mut values = vec![];
-                                    for (origin, ord) in &column_indexes {
-                                        for (index, value) in all_values.iter().enumerate() {
-                                            if index == *origin {
-                                                values.push((ord, value.clone()))
-                                            }
-                                        }
-                                    }
-                                    values.iter().map(|(_, value)| value.clone()).collect()
-                                })
-                                .collect()
-                        })
-                    })
-                    .unwrap(),
-            ))
-        } else {
-            Err(Error::TableDoesNotExist(
-                schema_name + "." + table_name.as_str(),
-            ))
         }
+        Ok((
+            columns,
+            self.persistent
+                .read(schema_name.as_str(), table_name.as_str())
+                .unwrap()
+                .unwrap()
+                .map(persistent::Result::unwrap)
+                .map(|(_key, values)| values)
+                .map(|bytes| {
+                    let all_values = bytes
+                        .iter()
+                        .map(|b| String::from_utf8(b.to_vec()).unwrap())
+                        .collect::<Vec<String>>();
+                    let mut values = vec![];
+                    for (origin, ord) in &column_indexes {
+                        for (index, value) in all_values.iter().enumerate() {
+                            if index == *origin {
+                                values.push((ord, value.clone()))
+                            }
+                        }
+                    }
+                    values.iter().map(|(_, value)| value.clone()).collect()
+                })
+                .collect(),
+        ))
     }
 
     fn update_all(
@@ -249,49 +232,52 @@ impl Storage for SledStorage {
         table_name: String,
         value: String,
     ) -> Result<usize> {
-        if let Some(true) = self
-            .schemas
-            .get(&schema_name)
-            .map(|schema| schema.tree_names().contains(&(table_name.as_str().into())))
-        {
-            let mut records_updated = 0;
-            if let Some(schema) = self.schemas.get_mut(&schema_name) {
-                let table = schema.open_tree(table_name).unwrap();
-                for key in table.iter().keys() {
-                    table
-                        .fetch_and_update(key.unwrap(), |_old| Some(value.clone().into_bytes()))
-                        .unwrap();
-                    records_updated += 1;
-                }
+        let reads = self
+            .persistent
+            .read(schema_name.as_str(), table_name.as_str());
+        match reads {
+            Ok(Ok(reads)) => {
+                let to_update: Vec<(Vec<u8>, Vec<Vec<u8>>)> = reads
+                    .map(persistent::Result::unwrap)
+                    .map(|(key, _)| (key, vec![value.clone().into_bytes()]))
+                    .collect();
+
+                let len = to_update.len();
+                self.persistent
+                    .write(schema_name.as_str(), table_name.as_str(), to_update)
+                    .unwrap();
+                Ok(len)
             }
-            Ok(records_updated)
-        } else {
-            Err(Error::TableDoesNotExist(
-                schema_name + "." + table_name.as_str(),
-            ))
+            Ok(Err(persistent::OperationOnObjectError::ObjectDoesNotExist)) => Err(
+                Error::TableDoesNotExist(schema_name + "." + table_name.as_str()),
+            ),
+            _ => unimplemented!(),
         }
     }
 
     fn delete_all_from(&mut self, schema_name: String, table_name: String) -> Result<usize> {
-        if let Some(true) = self
-            .schemas
-            .get(&schema_name)
-            .map(|schema| schema.tree_names().contains(&(table_name.as_str().into())))
-        {
-            let mut deleted_records = 0;
-            if let Some(schema) = self.schemas.get_mut(&schema_name) {
-                let table = schema.open_tree(table_name).unwrap();
-                for key in table.iter().keys() {
-                    table.remove(key.unwrap()).unwrap();
-                    deleted_records += 1;
-                }
-            };
-            Ok(deleted_records)
-        } else {
-            Err(Error::TableDoesNotExist(
-                schema_name + "." + table_name.as_str(),
-            ))
-        }
+        let reads = self
+            .persistent
+            .read(schema_name.as_str(), table_name.as_str());
+
+        let to_delete: Vec<Vec<u8>> = match reads {
+            Ok(Ok(reads)) => reads
+                .map(persistent::Result::unwrap)
+                .map(|(key, _)| key)
+                .collect(),
+            Ok(Err(persistent::OperationOnObjectError::ObjectDoesNotExist)) => {
+                return Err(Error::TableDoesNotExist(
+                    schema_name + "." + table_name.as_str(),
+                ))
+            }
+            _ => unimplemented!(),
+        };
+
+        let len = to_delete.len();
+        self.persistent
+            .delete(schema_name.as_str(), table_name.as_str(), to_delete);
+
+        Ok(len)
     }
 }
 
@@ -986,8 +972,8 @@ mod tests {
         Ok(())
     }
 
-    fn create_table(
-        storage: &mut SledStorage,
+    fn create_table<P: persistent::PersistentStore>(
+        storage: &mut SledStorage<P>,
         schema_name: &str,
         table_name: &str,
         column_names: Vec<&str>,
