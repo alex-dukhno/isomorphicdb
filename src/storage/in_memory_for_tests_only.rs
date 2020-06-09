@@ -1,6 +1,6 @@
 use crate::storage::persistent::{
     CreateObjectError, DropObjectError, Key, NamespaceAlreadyExists, NamespaceDoesNotExist,
-    OperationOnObjectError, PersistentStore, ReadCursor, Row, Values,
+    OperationOnObjectError, PersistentStorage, ReadCursor, Row, Values,
 };
 use crate::SystemResult;
 use std::collections::HashMap;
@@ -20,7 +20,7 @@ pub struct InMemoryStorage {
     namespaces: HashMap<String, Namespace>,
 }
 
-impl PersistentStore for InMemoryStorage {
+impl PersistentStorage for InMemoryStorage {
     type ErrorMapper = crate::storage::persistent::SledErrorMapper;
 
     fn create_namespace(
@@ -92,7 +92,7 @@ impl PersistentStore for InMemoryStorage {
                     object.records = object
                         .records
                         .iter()
-                        .filter(|row| !values.contains(row))
+                        .filter(|(key, _value)| values.iter().find(|(k, _v)| k == key).is_none())
                         .cloned()
                         .collect();
                     let len = values.len();
@@ -106,12 +106,12 @@ impl PersistentStore for InMemoryStorage {
     }
 
     fn read(
-        &mut self,
+        &self,
         namespace: &str,
         object_name: &str,
     ) -> SystemResult<Result<ReadCursor, OperationOnObjectError>> {
-        match self.namespaces.get_mut(namespace) {
-            Some(namespace) => match namespace.objects.get_mut(object_name) {
+        match self.namespaces.get(namespace) {
+            Some(namespace) => match namespace.objects.get(object_name) {
                 Some(object) => Ok(Ok(Box::new(
                     object
                         .records

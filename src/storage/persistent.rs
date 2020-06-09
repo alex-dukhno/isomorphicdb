@@ -30,7 +30,7 @@ pub enum OperationOnObjectError {
     ObjectDoesNotExist,
 }
 
-pub trait PersistentStore {
+pub trait PersistentStorage {
     type ErrorMapper: StorageErrorMapper;
 
     fn create_namespace(
@@ -63,7 +63,7 @@ pub trait PersistentStore {
     ) -> crate::SystemResult<Result<usize, OperationOnObjectError>>;
 
     fn read(
-        &mut self,
+        &self,
         namespace: &str,
         object_name: &str,
     ) -> crate::SystemResult<Result<ReadCursor, OperationOnObjectError>>;
@@ -125,7 +125,7 @@ pub struct SledPersistentStorage {
     namespaces: HashMap<String, sled::Db>,
 }
 
-impl PersistentStore for SledPersistentStorage {
+impl PersistentStorage for SledPersistentStorage {
     type ErrorMapper = SledErrorMapper;
 
     fn create_namespace(
@@ -232,7 +232,7 @@ impl PersistentStore for SledPersistentStorage {
     }
 
     fn read(
-        &mut self,
+        &self,
         namespace: &str,
         object_name: &str,
     ) -> crate::SystemResult<Result<ReadCursor, OperationOnObjectError>> {

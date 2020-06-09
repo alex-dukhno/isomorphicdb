@@ -5,58 +5,18 @@ pub type Result<T> = std::result::Result<T, Error>;
 
 pub type Projection = (Vec<String>, Vec<Vec<String>>);
 
-pub trait RelationalStorage {
-    fn create_schema(&mut self, schema_name: String) -> Result<()>;
-
-    fn drop_schema(&mut self, schema_name: String) -> Result<()>;
-
-    fn create_table(
-        &mut self,
-        schema_name: String,
-        table_name: String,
-        column_names: Vec<String>,
-    ) -> Result<()>;
-
-    fn drop_table(&mut self, schema_name: String, table_name: String) -> Result<()>;
-
-    fn table_columns(&mut self, schema_name: String, table_name: String) -> Result<Vec<String>>;
-
-    fn insert_into(
-        &mut self,
-        schema_name: String,
-        table_name: String,
-        values: Vec<Vec<String>>,
-    ) -> Result<()>;
-
-    fn select_all_from(
-        &mut self,
-        schema_name: String,
-        table_name: String,
-        columns: Vec<String>,
-    ) -> Result<Projection>;
-
-    fn update_all(
-        &mut self,
-        schema_name: String,
-        table_name: String,
-        value: String,
-    ) -> Result<usize>;
-
-    fn delete_all_from(&mut self, schema_name: String, table_name: String) -> Result<usize>;
-}
-
-pub struct SledStorage<P: persistent::PersistentStore> {
+pub struct RelationalStorage<P: persistent::PersistentStorage> {
     key_id_generator: usize,
     persistent: P,
 }
 
-impl Default for SledStorage<persistent::SledPersistentStorage> {
+impl Default for RelationalStorage<persistent::SledPersistentStorage> {
     fn default() -> Self {
         Self::new(persistent::SledPersistentStorage::default())
     }
 }
 
-impl<P: persistent::PersistentStore> SledStorage<P> {
+impl<P: persistent::PersistentStorage> RelationalStorage<P> {
     pub fn new(mut persistent: P) -> Self {
         persistent.create_namespace("system").unwrap();
         Self {
@@ -64,11 +24,9 @@ impl<P: persistent::PersistentStore> SledStorage<P> {
             persistent,
         }
     }
-}
 
-impl<P: persistent::PersistentStore> RelationalStorage for SledStorage<P> {
     #[allow(clippy::match_wild_err_arm, clippy::map_entry)]
-    fn create_schema(&mut self, schema_name: String) -> Result<()> {
+    pub fn create_schema(&mut self, schema_name: String) -> Result<()> {
         match self.persistent.create_namespace(schema_name.as_str()) {
             Ok(Ok(())) => Ok(()),
             Ok(Err(persistent::NamespaceAlreadyExists)) => {
@@ -78,7 +36,7 @@ impl<P: persistent::PersistentStore> RelationalStorage for SledStorage<P> {
         }
     }
 
-    fn drop_schema(&mut self, schema_name: String) -> Result<()> {
+    pub fn drop_schema(&mut self, schema_name: String) -> Result<()> {
         match self.persistent.drop_namespace(schema_name.as_str()) {
             Ok(Ok(())) => Ok(()),
             Ok(Err(persistent::NamespaceDoesNotExist)) => {
@@ -88,7 +46,7 @@ impl<P: persistent::PersistentStore> RelationalStorage for SledStorage<P> {
         }
     }
 
-    fn create_table(
+    pub fn create_table(
         &mut self,
         schema_name: String,
         table_name: String,
@@ -124,7 +82,11 @@ impl<P: persistent::PersistentStore> RelationalStorage for SledStorage<P> {
         }
     }
 
-    fn table_columns(&mut self, schema_name: String, table_name: String) -> Result<Vec<String>> {
+    pub fn table_columns(
+        &mut self,
+        schema_name: String,
+        table_name: String,
+    ) -> Result<Vec<String>> {
         let reads = self.persistent.read(
             "system",
             (schema_name.clone() + "." + table_name.as_str()).as_str(),
@@ -147,7 +109,7 @@ impl<P: persistent::PersistentStore> RelationalStorage for SledStorage<P> {
         }
     }
 
-    fn drop_table(&mut self, schema_name: String, table_name: String) -> Result<()> {
+    pub fn drop_table(&mut self, schema_name: String, table_name: String) -> Result<()> {
         match self
             .persistent
             .drop_object(schema_name.as_str(), table_name.as_str())
@@ -160,7 +122,7 @@ impl<P: persistent::PersistentStore> RelationalStorage for SledStorage<P> {
         }
     }
 
-    fn insert_into(
+    pub fn insert_into(
         &mut self,
         schema_name: String,
         table_name: String,
@@ -184,7 +146,7 @@ impl<P: persistent::PersistentStore> RelationalStorage for SledStorage<P> {
         }
     }
 
-    fn select_all_from(
+    pub fn select_all_from(
         &mut self,
         schema_name: String,
         table_name: String,
@@ -226,7 +188,7 @@ impl<P: persistent::PersistentStore> RelationalStorage for SledStorage<P> {
         ))
     }
 
-    fn update_all(
+    pub fn update_all(
         &mut self,
         schema_name: String,
         table_name: String,
@@ -255,7 +217,7 @@ impl<P: persistent::PersistentStore> RelationalStorage for SledStorage<P> {
         }
     }
 
-    fn delete_all_from(&mut self, schema_name: String, table_name: String) -> Result<usize> {
+    pub fn delete_all_from(&mut self, schema_name: String, table_name: String) -> Result<usize> {
         let reads = self
             .persistent
             .read(schema_name.as_str(), table_name.as_str());
@@ -301,7 +263,7 @@ mod tests {
 
     #[test]
     fn create_schemas_with_different_names() {
-        let mut storage = SledStorage::default();
+        let mut storage = RelationalStorage::default();
 
         assert_eq!(storage.create_schema("schema_1".to_owned()), Ok(()));
         assert_eq!(storage.create_schema("schema_2".to_owned()), Ok(()));
@@ -309,7 +271,7 @@ mod tests {
 
     #[test]
     fn create_schema_with_existing_name() -> Result<()> {
-        let mut storage = SledStorage::default();
+        let mut storage = RelationalStorage::default();
 
         storage.create_schema("schema_name".to_owned())?;
 
@@ -323,7 +285,7 @@ mod tests {
 
     #[test]
     fn drop_schema() -> Result<()> {
-        let mut storage = SledStorage::default();
+        let mut storage = RelationalStorage::default();
 
         storage.create_schema("schema_name".to_owned())?;
 
@@ -335,7 +297,7 @@ mod tests {
 
     #[test]
     fn drop_schema_that_was_not_created() {
-        let mut storage = SledStorage::default();
+        let mut storage = RelationalStorage::default();
 
         assert_eq!(
             storage.drop_schema("does_not_exists".to_owned()),
@@ -345,7 +307,7 @@ mod tests {
 
     #[test]
     fn drop_schema_drops_tables_in_it() -> Result<()> {
-        let mut storage = SledStorage::default();
+        let mut storage = RelationalStorage::default();
 
         storage.create_schema("schema_name".to_owned())?;
         storage.create_table(
@@ -383,7 +345,7 @@ mod tests {
 
     #[test]
     fn create_tables_with_different_names() -> Result<()> {
-        let mut storage = SledStorage::default();
+        let mut storage = RelationalStorage::default();
 
         storage.create_schema("schema_name".to_owned())?;
 
@@ -409,7 +371,7 @@ mod tests {
 
     #[test]
     fn create_table_with_the_same_name() -> Result<()> {
-        let mut storage = SledStorage::default();
+        let mut storage = RelationalStorage::default();
 
         create_table(
             &mut storage,
@@ -433,7 +395,7 @@ mod tests {
 
     #[test]
     fn create_table_with_the_same_name_in_different_schemas() -> Result<()> {
-        let mut storage = SledStorage::default();
+        let mut storage = RelationalStorage::default();
 
         storage.create_schema("schema_name_1".to_owned())?;
         storage.create_schema("schema_name_2".to_owned())?;
@@ -458,7 +420,7 @@ mod tests {
 
     #[test]
     fn drop_table() -> Result<()> {
-        let mut storage = SledStorage::default();
+        let mut storage = RelationalStorage::default();
 
         create_table(
             &mut storage,
@@ -483,7 +445,7 @@ mod tests {
 
     #[test]
     fn drop_not_created_table() -> Result<()> {
-        let mut storage = SledStorage::default();
+        let mut storage = RelationalStorage::default();
 
         storage.create_schema("schema_name".to_owned())?;
         assert_eq!(
@@ -498,7 +460,7 @@ mod tests {
 
     #[test]
     fn insert_row_into_table() -> Result<()> {
-        let mut storage = SledStorage::default();
+        let mut storage = RelationalStorage::default();
 
         create_table(
             &mut storage,
@@ -532,7 +494,7 @@ mod tests {
 
     #[test]
     fn insert_many_rows_into_table() -> Result<()> {
-        let mut storage = SledStorage::default();
+        let mut storage = RelationalStorage::default();
 
         create_table(
             &mut storage,
@@ -571,7 +533,7 @@ mod tests {
 
     #[test]
     fn insert_into_non_existent_table() -> Result<()> {
-        let mut storage = SledStorage::default();
+        let mut storage = RelationalStorage::default();
 
         storage.create_schema("schema_name".to_owned())?;
         assert_eq!(
@@ -590,7 +552,7 @@ mod tests {
 
     #[test]
     fn select_from_table_that_does_not_exist() -> Result<()> {
-        let mut storage = SledStorage::default();
+        let mut storage = RelationalStorage::default();
 
         storage.create_schema("schema_name".to_owned())?;
         assert_eq!(
@@ -605,7 +567,7 @@ mod tests {
 
     #[test]
     fn update_all_records() -> Result<()> {
-        let mut storage = SledStorage::default();
+        let mut storage = RelationalStorage::default();
 
         create_table(
             &mut storage,
@@ -662,7 +624,7 @@ mod tests {
 
     #[test]
     fn update_not_existed_table() -> Result<()> {
-        let mut storage = SledStorage::default();
+        let mut storage = RelationalStorage::default();
 
         storage.create_schema("schema_name".to_owned())?;
         assert_eq!(
@@ -681,7 +643,7 @@ mod tests {
 
     #[test]
     fn delete_all_from_table() -> Result<()> {
-        let mut storage = SledStorage::default();
+        let mut storage = RelationalStorage::default();
 
         create_table(
             &mut storage,
@@ -727,7 +689,7 @@ mod tests {
 
     #[test]
     fn delete_all_from_not_existed_table() -> Result<()> {
-        let mut storage = SledStorage::default();
+        let mut storage = RelationalStorage::default();
 
         storage.create_schema("schema_name".to_owned())?;
 
@@ -743,7 +705,7 @@ mod tests {
 
     #[test]
     fn select_all_from_table_with_many_columns() -> Result<()> {
-        let mut storage = SledStorage::default();
+        let mut storage = RelationalStorage::default();
 
         create_table(
             &mut storage,
@@ -781,7 +743,7 @@ mod tests {
 
     #[test]
     fn insert_multiple_rows() -> Result<()> {
-        let mut storage = SledStorage::default();
+        let mut storage = RelationalStorage::default();
 
         create_table(
             &mut storage,
@@ -827,7 +789,7 @@ mod tests {
 
     #[test]
     fn select_first_and_last_columns_from_table_with_multiple_columns() -> Result<()> {
-        let mut storage = SledStorage::default();
+        let mut storage = RelationalStorage::default();
 
         create_table(
             &mut storage,
@@ -866,7 +828,7 @@ mod tests {
 
     #[test]
     fn select_all_columns_reordered_from_table_with_multiple_columns() -> Result<()> {
-        let mut storage = SledStorage::default();
+        let mut storage = RelationalStorage::default();
 
         create_table(
             &mut storage,
@@ -905,7 +867,7 @@ mod tests {
 
     #[test]
     fn select_with_column_name_duplication() -> Result<()> {
-        let mut storage = SledStorage::default();
+        let mut storage = RelationalStorage::default();
 
         create_table(
             &mut storage,
@@ -972,8 +934,8 @@ mod tests {
         Ok(())
     }
 
-    fn create_table<P: persistent::PersistentStore>(
-        storage: &mut SledStorage<P>,
+    fn create_table<P: persistent::PersistentStorage>(
+        storage: &mut RelationalStorage<P>,
         schema_name: &str,
         table_name: &str,
         column_names: Vec<&str>,
