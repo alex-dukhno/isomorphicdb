@@ -82,12 +82,12 @@ pub enum SslMode {
 mod compatibility {
     use super::*;
     use crate::protocol::{channel::Channel, hand_shake::HandShake, messages::*};
-    use async_std::io;
     use bytes::BytesMut;
+    use std::io;
     use test_helpers::{async_io, frontend};
 
     #[async_std::test]
-    async fn trying_read_from_empty_stream() -> io::Result<()> {
+    async fn trying_read_from_empty_stream() {
         let test_case = async_io::TestCase::with_content(vec![]).await;
 
         let hand_shake = HandShake::new(Channel::new(test_case.clone(), test_case.clone()));
@@ -95,8 +95,6 @@ mod compatibility {
         let error = hand_shake.perform().await;
 
         assert!(error.is_err());
-
-        Ok(())
     }
 
     #[cfg(test)]
@@ -104,7 +102,7 @@ mod compatibility {
         use super::*;
 
         #[async_std::test]
-        async fn trying_read_setup_message() -> io::Result<()> {
+        async fn trying_read_setup_message() {
             let test_case = async_io::TestCase::with_content(vec![&[0, 0, 0, 57]]).await;
 
             let hand_shake = HandShake::new(Channel::new(test_case.clone(), test_case.clone()));
@@ -112,8 +110,6 @@ mod compatibility {
             let error = hand_shake.perform().await;
 
             assert!(error.is_err());
-
-            Ok(())
         }
 
         #[async_std::test]
@@ -162,7 +158,7 @@ mod compatibility {
         use super::*;
 
         #[async_std::test]
-        async fn trying_read_only_length_of_ssl_message() -> io::Result<()> {
+        async fn trying_read_only_length_of_ssl_message() {
             let test_case = async_io::TestCase::with_content(vec![&[0, 0, 0, 8]]).await;
 
             let hand_shake = HandShake::new(Channel::new(test_case.clone(), test_case.clone()));
@@ -170,12 +166,10 @@ mod compatibility {
             let error = hand_shake.perform().await;
 
             assert!(error.is_err());
-
-            Ok(())
         }
 
         #[async_std::test]
-        async fn sending_notice_after_reading_ssl_message() -> io::Result<()> {
+        async fn sending_notice_after_reading_ssl_message() {
             let test_case = async_io::TestCase::with_content(vec![frontend::Message::SslRequired
                 .as_vec()
                 .as_slice()])
@@ -192,8 +186,6 @@ mod compatibility {
             expected_content.extend_from_slice(Message::Notice.as_vec().as_slice());
 
             assert_eq!(actual_content, expected_content);
-
-            Ok(())
         }
 
         #[async_std::test]

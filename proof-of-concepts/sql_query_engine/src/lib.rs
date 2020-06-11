@@ -50,7 +50,7 @@ pub struct Engine {
 }
 
 impl Engine {
-    #[allow(clippy::cognitive_complexity)] // TODO simplify SQL execution
+    #[allow(clippy::cognitive_complexity)]
     pub fn execute(&mut self, sql: String) -> ExecutionResult {
         let mut statements = match Parser::parse_sql(&self.dialect, sql) {
             Ok(ok) => ok,
@@ -449,7 +449,6 @@ mod tests {
             );
         }
 
-        #[ignore] // TODO "CREATE TABLE IF NOT EXISTS" is not supported by sqlparser
         #[test]
         fn create_table_if_not_exists() {
             let mut engine = Engine::default();

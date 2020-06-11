@@ -16,8 +16,7 @@ fn main() -> io::Result<()> {
     info!("Starting client");
 
     let mut stream = TcpStream::connect("127.0.0.1:7000")
-        .expect("Server is not running. Please start server first") // TODO error handling
-        ;
+        .expect("Server is not running. Please start server first");
     let mut buffer = Buffer::new(stream);
 
     let mut command = String::new();
@@ -26,14 +25,14 @@ fn main() -> io::Result<()> {
     let mut handle = stdin.lock();
 
     loop {
-        handle.read_line(&mut command)?; // TODO error handling
+        handle.read_line(&mut command)?;
         debug!("typed command {:?}", command);
 
         if command.trim() == "exit" {
             break;
         }
 
-        buffer.send(command.trim().as_bytes())?; // TODO error handling
+        buffer.send(command.trim().as_bytes())?;
 
         debug!("command send to server");
 

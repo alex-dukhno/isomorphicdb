@@ -1,32 +1,36 @@
 use crate::protocol::connection::{Connection, Field};
-use crate::storage;
+use crate::{storage, SystemError, SystemResult};
 use async_std::io::{Read, Write};
 use async_std::sync::{Arc, Mutex};
-use futures::io;
 
 use crate::protocol::messages::Message;
 use crate::protocol::Command;
-use crate::storage::Projection;
+use crate::storage::relational::Projection;
 use sqlparser::dialect::PostgreSqlDialect;
 use sqlparser::parser::Parser;
 use std::ops::Deref;
 
+type QueryResult = std::result::Result<QueryEvent, storage::relational::Error>;
+
 pub struct Handler<
     R: Read + Send + Sync + Unpin + 'static,
     W: Write + Send + Sync + Unpin + 'static,
-    S: storage::Storage,
+    P: storage::persistent::PersistentStorage,
 > {
-    storage: Arc<Mutex<S>>,
+    storage: Arc<Mutex<storage::relational::RelationalStorage<P>>>,
     connection: Connection<R, W>,
 }
 
 impl<
         R: Read + Send + Sync + Unpin + 'static,
         W: Write + Send + Sync + Unpin + 'static,
-        S: storage::Storage,
-    > Handler<R, W, S>
+        P: storage::persistent::PersistentStorage,
+    > Handler<R, W, P>
 {
-    pub fn new(storage: Arc<Mutex<S>>, connection: Connection<R, W>) -> Self {
+    pub fn new(
+        storage: Arc<Mutex<storage::relational::RelationalStorage<P>>>,
+        connection: Connection<R, W>,
+    ) -> Self {
         Self {
             storage,
             connection,
@@ -34,44 +38,74 @@ impl<
     }
 
     #[allow(clippy::match_wild_err_arm)]
-    pub async fn handle_query(&mut self) -> io::Result<bool> {
-        self.connection.send_ready_for_query().await?;
-        match self.connection.read_query().await? {
-            Err(e) => {
+    pub async fn handle_query(&mut self) -> SystemResult<bool> {
+        match self.connection.send_ready_for_query().await {
+            Ok(Ok(())) => {}
+            Ok(Err(_)) => unimplemented!(),
+            Err(error) => return Err(SystemError::io(error)),
+        }
+        match self.connection.read_query().await {
+            Err(error) => return Err(SystemError::io(error)),
+            Ok(Err(e)) => {
                 error!("{:?}", e);
                 return Ok(false);
             }
-            Ok(Command::Terminate) => return Ok(false),
-            Ok(Command::Query(query)) => match self.execute(query.clone()).await? {
-                Ok(QueryResult::SchemaCreated) => {
-                    self.connection
+            Ok(Ok(Command::Terminate)) => return Ok(false),
+            Ok(Ok(Command::Query(query))) => match self.execute(query.clone()).await? {
+                Ok(QueryEvent::SchemaCreated) => {
+                    match self
+                        .connection
                         .send_command_complete(Message::CommandComplete("CREATE SCHEMA".to_owned()))
-                        .await?;
+                        .await
+                    {
+                        Ok(()) => {}
+                        Err(error) => return Err(SystemError::io(error)),
+                    }
                 }
-                Ok(QueryResult::SchemaDropped) => {
-                    self.connection
+                Ok(QueryEvent::SchemaDropped) => {
+                    match self
+                        .connection
                         .send_command_complete(Message::CommandComplete("DROP SCHEMA".to_owned()))
-                        .await?;
+                        .await
+                    {
+                        Ok(()) => {}
+                        Err(error) => return Err(SystemError::io(error)),
+                    }
                 }
-                Ok(QueryResult::TableCreated) => {
-                    self.connection
+                Ok(QueryEvent::TableCreated) => {
+                    match self
+                        .connection
                         .send_command_complete(Message::CommandComplete("CREATE TABLE".to_owned()))
-                        .await?;
+                        .await
+                    {
+                        Ok(()) => {}
+                        Err(error) => return Err(SystemError::io(error)),
+                    }
                 }
-                Ok(QueryResult::TableDropped) => {
-                    self.connection
+                Ok(QueryEvent::TableDropped) => {
+                    match self
+                        .connection
                         .send_command_complete(Message::CommandComplete("DROP TABLE".to_owned()))
-                        .await?;
+                        .await
+                    {
+                        Ok(()) => {}
+                        Err(error) => return Err(SystemError::io(error)),
+                    }
                 }
-                Ok(QueryResult::RecordInserted(len)) => {
-                    self.connection
+                Ok(QueryEvent::RecordsInserted(len)) => {
+                    match self
+                        .connection
                         .send_command_complete(Message::CommandComplete(format!(
                             "INSERT 0 {}",
                             len
                         )))
-                        .await?;
+                        .await
+                    {
+                        Ok(()) => {}
+                        Err(error) => return Err(SystemError::io(error)),
+                    }
                 }
-                Ok(QueryResult::Select(projection)) => {
+                Ok(QueryEvent::RecordSelected(projection)) => {
                     let definition = projection.0;
                     let description = definition
                         .iter()
@@ -79,62 +113,97 @@ impl<
                         .collect();
                     let records = projection.1;
                     let len = records.len();
-                    self.connection.send_row_description(description).await?;
-                    for record in records {
-                        self.connection.send_row_data(record).await?;
+                    match self.connection.send_row_description(description).await {
+                        Ok(()) => {}
+                        Err(error) => return Err(SystemError::io(error)),
                     }
-                    self.connection
+                    for record in records {
+                        match self.connection.send_row_data(record).await {
+                            Ok(()) => {}
+                            Err(error) => return Err(SystemError::io(error)),
+                        }
+                    }
+                    match self
+                        .connection
                         .send_command_complete(Message::CommandComplete(format!("SELECT {}", len)))
-                        .await?;
+                        .await
+                    {
+                        Ok(()) => {}
+                        Err(error) => return Err(SystemError::io(error)),
+                    }
                 }
-                Ok(QueryResult::Update(records_number)) => {
-                    self.connection
+                Ok(QueryEvent::RecordsUpdated(records_number)) => {
+                    match self
+                        .connection
                         .send_command_complete(Message::CommandComplete(format!(
                             "UPDATE {}",
                             records_number
                         )))
-                        .await?;
+                        .await
+                    {
+                        Ok(()) => {}
+                        Err(error) => return Err(SystemError::io(error)),
+                    }
                 }
-                Ok(QueryResult::Delete(records_number)) => {
-                    self.connection
+                Ok(QueryEvent::RecordsDeleted(records_number)) => {
+                    match self
+                        .connection
                         .send_command_complete(Message::CommandComplete(format!(
                             "DELETE {}",
                             records_number
                         )))
-                        .await?;
+                        .await
+                    {
+                        Ok(()) => {}
+                        Err(error) => return Err(SystemError::io(error)),
+                    }
                 }
-                Err(storage::Error::SchemaAlreadyExists(schema_name)) => {
-                    self.connection
+                Err(storage::relational::Error::SchemaAlreadyExists(schema_name)) => {
+                    match self
+                        .connection
                         .send_command_complete(Message::ErrorResponse(
                             Some("ERROR".to_owned()),
                             Some("42P06".to_owned()),
                             Some(format!("schema \"{}\" already exists", schema_name)),
                         ))
-                        .await?
+                        .await
+                    {
+                        Ok(()) => {}
+                        Err(error) => return Err(SystemError::io(error)),
+                    }
                 }
-                Err(storage::Error::TableAlreadyExists(table_name)) => {
-                    self.connection
+                Err(storage::relational::Error::TableAlreadyExists(table_name)) => {
+                    match self
+                        .connection
                         .send_command_complete(Message::ErrorResponse(
                             Some("ERROR".to_owned()),
                             Some("42P07".to_owned()),
                             Some(format!("table \"{}\" already exists", table_name)),
                         ))
-                        .await?
+                        .await
+                    {
+                        Ok(()) => {}
+                        Err(error) => return Err(SystemError::io(error)),
+                    }
                 }
-                Err(storage::Error::NotSupportedOperation(raw_sql_query)) => {
-                    self.connection
-                        .send_command_complete(Message::ErrorResponse(
-                            Some("ERROR".to_owned()),
-                            Some("42601".to_owned()),
-                            Some(format!(
-                                "Currently, Query '{}' can't be executed",
-                                raw_sql_query
-                            )),
-                        ))
-                        .await?;
-                }
+                Err(storage::relational::Error::NotSupportedOperation(raw_sql_query)) => match self
+                    .connection
+                    .send_command_complete(Message::ErrorResponse(
+                        Some("ERROR".to_owned()),
+                        Some("42601".to_owned()),
+                        Some(format!(
+                            "Currently, Query '{}' can't be executed",
+                            raw_sql_query
+                        )),
+                    ))
+                    .await
+                {
+                    Ok(()) => {}
+                    Err(error) => return Err(SystemError::io(error)),
+                },
                 Err(e) => {
-                    self.connection
+                    match self
+                        .connection
                         .send_command_complete(Message::ErrorResponse(
                             Some("ERROR".to_owned()),
                             Some("58000".to_owned()),
@@ -143,7 +212,11 @@ impl<
                                 query, e
                             )),
                         ))
-                        .await?
+                        .await
+                    {
+                        Ok(()) => {}
+                        Err(error) => return Err(SystemError::io(error)),
+                    }
                 }
             },
         }
@@ -151,15 +224,12 @@ impl<
     }
 
     #[allow(clippy::match_wild_err_arm)]
-    async fn execute(
-        &mut self,
-        raw_sql_query: String,
-    ) -> io::Result<Result<QueryResult, storage::Error>> {
+    async fn execute(&mut self, raw_sql_query: String) -> SystemResult<QueryResult> {
         let statement = Parser::parse_sql(&PostgreSqlDialect {}, raw_sql_query.clone())
             .unwrap()
             .pop()
             .unwrap();
-        debug!("STATEMENT = {:?}", statement);
+        eprintln!("STATEMENT = {:?}", statement);
         match statement {
             sqlparser::ast::Statement::CreateTable {
                 mut name, columns, ..
@@ -170,14 +240,14 @@ impl<
                     schema_name,
                     table_name,
                     columns.iter().map(|c| c.name.to_string()).collect(),
-                ) {
-                    Ok(_) => Ok(Ok(QueryResult::TableCreated)),
+                )? {
+                    Ok(_) => Ok(Ok(QueryEvent::TableCreated)),
                     Err(e) => Ok(Err(e)),
                 }
             }
             sqlparser::ast::Statement::CreateSchema { schema_name, .. } => {
-                match (*self.storage.lock().await).create_schema(schema_name.to_string()) {
-                    Ok(_) => Ok(Ok(QueryResult::SchemaCreated)),
+                match (*self.storage.lock().await).create_schema(schema_name.to_string())? {
+                    Ok(_) => Ok(Ok(QueryEvent::SchemaCreated)),
                     Err(e) => Ok(Err(e)),
                 }
             }
@@ -187,19 +257,25 @@ impl<
                 sqlparser::ast::ObjectType::Table => {
                     let table_name = names[0].0[1].to_string();
                     let schema_name = names[0].0[0].to_string();
-                    match (*self.storage.lock().await).drop_table(schema_name, table_name) {
-                        Ok(_) => Ok(Ok(QueryResult::TableDropped)),
-                        Err(_e) => Ok(Err(storage::Error::NotSupportedOperation(raw_sql_query))),
+                    match (*self.storage.lock().await).drop_table(schema_name, table_name)? {
+                        Ok(_) => Ok(Ok(QueryEvent::TableDropped)),
+                        Err(_e) => Ok(Err(storage::relational::Error::NotSupportedOperation(
+                            raw_sql_query,
+                        ))),
                     }
                 }
                 sqlparser::ast::ObjectType::Schema => {
                     let schema_name = names[0].0[0].to_string();
-                    match (*self.storage.lock().await).drop_schema(schema_name) {
-                        Ok(_) => Ok(Ok(QueryResult::SchemaDropped)),
-                        Err(_e) => Ok(Err(storage::Error::NotSupportedOperation(raw_sql_query))),
+                    match (*self.storage.lock().await).drop_schema(schema_name)? {
+                        Ok(_) => Ok(Ok(QueryEvent::SchemaDropped)),
+                        Err(_e) => Ok(Err(storage::relational::Error::NotSupportedOperation(
+                            raw_sql_query,
+                        ))),
                     }
                 }
-                _ => Ok(Err(storage::Error::NotSupportedOperation(raw_sql_query))),
+                _ => Ok(Err(storage::relational::Error::NotSupportedOperation(
+                    raw_sql_query,
+                ))),
             },
             sqlparser::ast::Statement::Insert {
                 mut table_name,
@@ -216,12 +292,16 @@ impl<
                         .map(|v| v.iter().map(|v| v.to_string()).collect())
                         .collect();
                     let len = to_insert.len();
-                    match (*self.storage.lock().await).insert_into(schema_name, name, to_insert) {
-                        Ok(_) => Ok(Ok(QueryResult::RecordInserted(len))),
-                        Err(_) => Ok(Err(storage::Error::NotSupportedOperation(raw_sql_query))),
+                    match (*self.storage.lock().await).insert_into(schema_name, name, to_insert)? {
+                        Ok(_) => Ok(Ok(QueryEvent::RecordsInserted(len))),
+                        Err(_) => Ok(Err(storage::relational::Error::NotSupportedOperation(
+                            raw_sql_query,
+                        ))),
                     }
                 } else {
-                    Ok(Err(storage::Error::NotSupportedOperation(raw_sql_query)))
+                    Ok(Err(storage::relational::Error::NotSupportedOperation(
+                        raw_sql_query,
+                    )))
                 }
             }
             sqlparser::ast::Statement::Query(query) => {
@@ -237,7 +317,11 @@ impl<
                             let schema_name = name.0[0].to_string();
                             (schema_name, table_name)
                         }
-                        _ => return Ok(Err(storage::Error::NotSupportedOperation(raw_sql_query))),
+                        _ => {
+                            return Ok(Err(storage::relational::Error::NotSupportedOperation(
+                                raw_sql_query,
+                            )))
+                        }
                     };
                     let table_columns = {
                         let projection = projection.clone();
@@ -245,21 +329,31 @@ impl<
                         for item in projection {
                             match item {
                                 sqlparser::ast::SelectItem::Wildcard => {
-                                    let all_columns = (*self.storage.lock().await)
-                                        .table_columns(schema_name.clone(), table_name.clone())
-                                        .unwrap();
-                                    columns.extend(all_columns);
+                                    match (*self.storage.lock().await)
+                                        .table_columns(schema_name.clone(), table_name.clone())?
+                                    {
+                                        Ok(all_columns) => columns.extend(all_columns),
+                                        Err(_e) => {
+                                            return Ok(Err(
+                                                storage::relational::Error::NotSupportedOperation(
+                                                    raw_sql_query,
+                                                ),
+                                            ))
+                                        }
+                                    }
                                 }
                                 sqlparser::ast::SelectItem::UnnamedExpr(
                                     sqlparser::ast::Expr::Identifier(sqlparser::ast::Ident {
                                         value,
                                         ..
                                     }),
-                                ) => columns.push(value.to_string()),
+                                ) => columns.push(value.clone()),
                                 _ => {
-                                    return Ok(Err(storage::Error::NotSupportedOperation(
-                                        raw_sql_query,
-                                    )))
+                                    return Ok(Err(
+                                        storage::relational::Error::NotSupportedOperation(
+                                            raw_sql_query,
+                                        ),
+                                    ))
                                 }
                             }
                         }
@@ -269,12 +363,16 @@ impl<
                         schema_name,
                         table_name,
                         table_columns,
-                    ) {
-                        Ok(records) => Ok(Ok(QueryResult::Select(records))),
-                        _ => Ok(Err(storage::Error::NotSupportedOperation(raw_sql_query))),
+                    )? {
+                        Ok(records) => Ok(Ok(QueryEvent::RecordSelected(records))),
+                        _ => Ok(Err(storage::relational::Error::NotSupportedOperation(
+                            raw_sql_query,
+                        ))),
                     }
                 } else {
-                    Ok(Err(storage::Error::NotSupportedOperation(raw_sql_query)))
+                    Ok(Err(storage::relational::Error::NotSupportedOperation(
+                        raw_sql_query,
+                    )))
                 }
             }
             sqlparser::ast::Statement::Update {
@@ -291,39 +389,51 @@ impl<
                             schema_name,
                             table_name,
                             value.to_string(),
-                        ) {
-                            Ok(records_number) => Ok(Ok(QueryResult::Update(records_number))),
-                            Err(_) => Ok(Err(storage::Error::NotSupportedOperation(raw_sql_query))),
+                        )? {
+                            Ok(records_number) => {
+                                Ok(Ok(QueryEvent::RecordsUpdated(records_number)))
+                            }
+                            Err(_) => Ok(Err(storage::relational::Error::NotSupportedOperation(
+                                raw_sql_query,
+                            ))),
                         }
                     } else {
-                        Ok(Err(storage::Error::NotSupportedOperation(raw_sql_query)))
+                        Ok(Err(storage::relational::Error::NotSupportedOperation(
+                            raw_sql_query,
+                        )))
                     }
                 } else {
-                    Ok(Err(storage::Error::NotSupportedOperation(raw_sql_query)))
+                    Ok(Err(storage::relational::Error::NotSupportedOperation(
+                        raw_sql_query,
+                    )))
                 }
             }
             sqlparser::ast::Statement::Delete { table_name, .. } => {
                 let schema_name = table_name.0[0].to_string();
                 let table_name = table_name.0[1].to_string();
-                match (*self.storage.lock().await).delete_all_from(schema_name, table_name) {
-                    Ok(records_number) => Ok(Ok(QueryResult::Delete(records_number))),
-                    Err(_) => Ok(Err(storage::Error::NotSupportedOperation(raw_sql_query))),
+                match (*self.storage.lock().await).delete_all_from(schema_name, table_name)? {
+                    Ok(records_number) => Ok(Ok(QueryEvent::RecordsDeleted(records_number))),
+                    Err(_) => Ok(Err(storage::relational::Error::NotSupportedOperation(
+                        raw_sql_query,
+                    ))),
                 }
             }
-            _ => Ok(Err(storage::Error::NotSupportedOperation(raw_sql_query))),
+            _ => Ok(Err(storage::relational::Error::NotSupportedOperation(
+                raw_sql_query,
+            ))),
         }
     }
 }
 
-enum QueryResult {
+enum QueryEvent {
     SchemaCreated,
     SchemaDropped,
     TableCreated,
     TableDropped,
-    RecordInserted(usize),
-    Select(Projection),
-    Update(usize),
-    Delete(usize),
+    RecordsInserted(usize),
+    RecordSelected(Projection),
+    RecordsUpdated(usize),
+    RecordsDeleted(usize),
 }
 
 #[cfg(test)]
@@ -331,27 +441,13 @@ mod tests {
     use super::*;
     use crate::{
         protocol::{channel::Channel, messages::Message, supported_version, Params, SslMode},
-        storage::Projection,
+        storage::relational::RelationalStorage,
     };
     use bytes::BytesMut;
     use test_helpers::{async_io, frontend};
 
-    fn storage(
-        create_schemas_responses: Vec<storage::Result<()>>,
-        create_table_responses: Vec<storage::Result<()>>,
-        select_results: Vec<storage::Result<Projection>>,
-        table_columns: Vec<String>,
-    ) -> Arc<Mutex<MockStorage>> {
-        Arc::new(Mutex::new(MockStorage {
-            create_schemas_responses,
-            create_table_responses,
-            select_results,
-            table_columns,
-        }))
-    }
-
     #[async_std::test]
-    async fn create_schema_query() -> io::Result<()> {
+    async fn create_schema_query() -> SystemResult<()> {
         let test_case = async_io::TestCase::with_content(vec![frontend::Message::Query(
             "create schema schema_name;",
         )
@@ -359,7 +455,7 @@ mod tests {
         .as_slice()])
         .await;
         let mut handler = Handler::new(
-            storage(vec![Ok(())], vec![], vec![], vec![]),
+            in_memory_storage(),
             Connection::new(
                 (supported_version(), Params(vec![]), SslMode::Disable),
                 Channel::new(test_case.clone(), test_case.clone()),
@@ -383,7 +479,7 @@ mod tests {
     }
 
     #[async_std::test]
-    async fn create_schema_with_the_same_name() -> io::Result<()> {
+    async fn create_schema_with_the_same_name() -> SystemResult<()> {
         let test_case = async_io::TestCase::with_content(vec![
             frontend::Message::Query("create schema schema_name;")
                 .as_vec()
@@ -394,17 +490,7 @@ mod tests {
         ])
         .await;
         let mut handler = Handler::new(
-            storage(
-                vec![
-                    Err(storage::Error::SchemaAlreadyExists(
-                        "schema_name".to_owned(),
-                    )),
-                    Ok(()),
-                ],
-                vec![],
-                vec![],
-                vec![],
-            ),
+            in_memory_storage(),
             Connection::new(
                 (supported_version(), Params(vec![]), SslMode::Disable),
                 Channel::new(test_case.clone(), test_case.clone()),
@@ -439,7 +525,7 @@ mod tests {
     }
 
     #[async_std::test]
-    async fn drop_schema() -> io::Result<()> {
+    async fn drop_schema() -> SystemResult<()> {
         let test_case = async_io::TestCase::with_content(vec![
             frontend::Message::Query("create schema schema_name;")
                 .as_vec()
@@ -453,7 +539,7 @@ mod tests {
         ])
         .await;
         let mut handler = Handler::new(
-            storage(vec![Ok(()), Ok(())], vec![], vec![], vec![]),
+            in_memory_storage(),
             Connection::new(
                 (supported_version(), Params(vec![]), SslMode::Disable),
                 Channel::new(test_case.clone(), test_case.clone()),
@@ -491,7 +577,7 @@ mod tests {
     }
 
     #[async_std::test]
-    async fn create_table() -> io::Result<()> {
+    async fn create_table() -> SystemResult<()> {
         let test_case = async_io::TestCase::with_content(vec![
             frontend::Message::Query("create schema schema_name;")
                 .as_vec()
@@ -502,7 +588,7 @@ mod tests {
         ])
         .await;
         let mut handler = Handler::new(
-            storage(vec![Ok(())], vec![Ok(())], vec![], vec![]),
+            in_memory_storage(),
             Connection::new(
                 (supported_version(), Params(vec![]), SslMode::Disable),
                 Channel::new(test_case.clone(), test_case.clone()),
@@ -533,7 +619,7 @@ mod tests {
     }
 
     #[async_std::test]
-    async fn drop_table() -> io::Result<()> {
+    async fn drop_table() -> SystemResult<()> {
         let test_case = async_io::TestCase::with_content(vec![
             frontend::Message::Query("create schema schema_name;")
                 .as_vec()
@@ -550,7 +636,7 @@ mod tests {
         ])
         .await;
         let mut handler = Handler::new(
-            storage(vec![Ok(())], vec![Ok(()), Ok(())], vec![], vec![]),
+            in_memory_storage(),
             Connection::new(
                 (supported_version(), Params(vec![]), SslMode::Disable),
                 Channel::new(test_case.clone(), test_case.clone()),
@@ -595,8 +681,14 @@ mod tests {
     }
 
     #[async_std::test]
-    async fn insert_and_select_single_row() -> io::Result<()> {
+    async fn insert_and_select_single_row() -> SystemResult<()> {
         let test_case = async_io::TestCase::with_content(vec![
+            frontend::Message::Query("create schema schema_name;")
+                .as_vec()
+                .as_slice(),
+            frontend::Message::Query("create table schema_name.table_name (column_test smallint);")
+                .as_vec()
+                .as_slice(),
             frontend::Message::Query("insert into schema_name.table_name values (123);")
                 .as_vec()
                 .as_slice(),
@@ -606,15 +698,7 @@ mod tests {
         ])
         .await;
         let mut handler = Handler::new(
-            storage(
-                vec![],
-                vec![],
-                vec![Ok((
-                    vec!["column_test".to_owned()],
-                    vec![vec!["123".to_owned()]],
-                ))],
-                vec!["column_test".to_owned()],
-            ),
+            in_memory_storage(),
             Connection::new(
                 (supported_version(), Params(vec![]), SslMode::Disable),
                 Channel::new(test_case.clone(), test_case.clone()),
@@ -623,9 +707,23 @@ mod tests {
 
         handler.handle_query().await?;
         handler.handle_query().await?;
+        handler.handle_query().await?;
+        handler.handle_query().await?;
 
         let actual_content = test_case.read_result().await;
         let mut expected_content = BytesMut::new();
+        expected_content.extend_from_slice(Message::ReadyForQuery.as_vec().as_slice());
+        expected_content.extend_from_slice(
+            Message::CommandComplete("CREATE SCHEMA".to_owned())
+                .as_vec()
+                .as_slice(),
+        );
+        expected_content.extend_from_slice(Message::ReadyForQuery.as_vec().as_slice());
+        expected_content.extend_from_slice(
+            Message::CommandComplete("CREATE TABLE".to_owned())
+                .as_vec()
+                .as_slice(),
+        );
         expected_content.extend_from_slice(Message::ReadyForQuery.as_vec().as_slice());
         expected_content.extend_from_slice(
             Message::CommandComplete("INSERT 0 1".to_owned())
@@ -652,8 +750,14 @@ mod tests {
     }
 
     #[async_std::test]
-    async fn insert_and_select_multiple_rows() -> io::Result<()> {
+    async fn insert_and_select_multiple_rows() -> SystemResult<()> {
         let test_case = async_io::TestCase::with_content(vec![
+            frontend::Message::Query("create schema schema_name;")
+                .as_vec()
+                .as_slice(),
+            frontend::Message::Query("create table schema_name.table_name (column_test smallint);")
+                .as_vec()
+                .as_slice(),
             frontend::Message::Query("insert into schema_name.table_name values (123);")
                 .as_vec()
                 .as_slice(),
@@ -669,18 +773,7 @@ mod tests {
         ])
         .await;
         let mut handler = Handler::new(
-            storage(
-                vec![],
-                vec![],
-                vec![
-                    Ok((
-                        vec!["column_test".to_owned()],
-                        vec![vec!["123".to_owned()], vec!["456".to_owned()]],
-                    )),
-                    Ok((vec!["column_test".to_owned()], vec![vec!["123".to_owned()]])),
-                ],
-                vec!["column_test".to_owned()],
-            ),
+            in_memory_storage(),
             Connection::new(
                 (supported_version(), Params(vec![]), SslMode::Disable),
                 Channel::new(test_case.clone(), test_case.clone()),
@@ -691,9 +784,23 @@ mod tests {
         handler.handle_query().await?;
         handler.handle_query().await?;
         handler.handle_query().await?;
+        handler.handle_query().await?;
+        handler.handle_query().await?;
 
         let actual_content = test_case.read_result().await;
         let mut expected_content = BytesMut::new();
+        expected_content.extend_from_slice(Message::ReadyForQuery.as_vec().as_slice());
+        expected_content.extend_from_slice(
+            Message::CommandComplete("CREATE SCHEMA".to_owned())
+                .as_vec()
+                .as_slice(),
+        );
+        expected_content.extend_from_slice(Message::ReadyForQuery.as_vec().as_slice());
+        expected_content.extend_from_slice(
+            Message::CommandComplete("CREATE TABLE".to_owned())
+                .as_vec()
+                .as_slice(),
+        );
         expected_content.extend_from_slice(Message::ReadyForQuery.as_vec().as_slice());
         expected_content.extend_from_slice(
             Message::CommandComplete("INSERT 0 1".to_owned())
@@ -740,8 +847,14 @@ mod tests {
     }
 
     #[async_std::test]
-    async fn update_all_records() -> io::Result<()> {
+    async fn update_all_records() -> SystemResult<()> {
         let test_case = async_io::TestCase::with_content(vec![
+            frontend::Message::Query("create schema schema_name;")
+                .as_vec()
+                .as_slice(),
+            frontend::Message::Query("create table schema_name.table_name (column_test smallint);")
+                .as_vec()
+                .as_slice(),
             frontend::Message::Query("insert into schema_name.table_name values (123);")
                 .as_vec()
                 .as_slice(),
@@ -760,21 +873,7 @@ mod tests {
         ])
         .await;
         let mut handler = Handler::new(
-            storage(
-                vec![],
-                vec![],
-                vec![
-                    Ok((
-                        vec!["column_test".to_owned()],
-                        vec![vec!["789".to_owned()], vec!["789".to_owned()]],
-                    )),
-                    Ok((
-                        vec!["column_test".to_owned()],
-                        vec![vec!["123".to_owned()], vec!["456".to_owned()]],
-                    )),
-                ],
-                vec!["column_test".to_owned()],
-            ),
+            in_memory_storage(),
             Connection::new(
                 (supported_version(), Params(vec![]), SslMode::Disable),
                 Channel::new(test_case.clone(), test_case.clone()),
@@ -786,9 +885,23 @@ mod tests {
         handler.handle_query().await?;
         handler.handle_query().await?;
         handler.handle_query().await?;
+        handler.handle_query().await?;
+        handler.handle_query().await?;
 
         let actual_content = test_case.read_result().await;
         let mut expected_content = BytesMut::new();
+        expected_content.extend_from_slice(Message::ReadyForQuery.as_vec().as_slice());
+        expected_content.extend_from_slice(
+            Message::CommandComplete("CREATE SCHEMA".to_owned())
+                .as_vec()
+                .as_slice(),
+        );
+        expected_content.extend_from_slice(Message::ReadyForQuery.as_vec().as_slice());
+        expected_content.extend_from_slice(
+            Message::CommandComplete("CREATE TABLE".to_owned())
+                .as_vec()
+                .as_slice(),
+        );
         expected_content.extend_from_slice(Message::ReadyForQuery.as_vec().as_slice());
         expected_content.extend_from_slice(
             Message::CommandComplete("INSERT 0 1".to_owned())
@@ -844,8 +957,14 @@ mod tests {
     }
 
     #[async_std::test]
-    async fn delete_all_records() -> io::Result<()> {
+    async fn delete_all_records() -> SystemResult<()> {
         let test_case = async_io::TestCase::with_content(vec![
+            frontend::Message::Query("create schema schema_name;")
+                .as_vec()
+                .as_slice(),
+            frontend::Message::Query("create table schema_name.table_name (column_test smallint);")
+                .as_vec()
+                .as_slice(),
             frontend::Message::Query("insert into schema_name.table_name values (123);")
                 .as_vec()
                 .as_slice(),
@@ -864,18 +983,7 @@ mod tests {
         ])
         .await;
         let mut handler = Handler::new(
-            storage(
-                vec![],
-                vec![],
-                vec![
-                    Ok((vec!["column_test".to_owned()], vec![])),
-                    Ok((
-                        vec!["column_test".to_owned()],
-                        vec![vec!["123".to_owned()], vec!["456".to_owned()]],
-                    )),
-                ],
-                vec!["column_test".to_owned()],
-            ),
+            in_memory_storage(),
             Connection::new(
                 (supported_version(), Params(vec![]), SslMode::Disable),
                 Channel::new(test_case.clone(), test_case.clone()),
@@ -887,9 +995,23 @@ mod tests {
         handler.handle_query().await?;
         handler.handle_query().await?;
         handler.handle_query().await?;
+        handler.handle_query().await?;
+        handler.handle_query().await?;
 
         let actual_content = test_case.read_result().await;
         let mut expected_content = BytesMut::new();
+        expected_content.extend_from_slice(Message::ReadyForQuery.as_vec().as_slice());
+        expected_content.extend_from_slice(
+            Message::CommandComplete("CREATE SCHEMA".to_owned())
+                .as_vec()
+                .as_slice(),
+        );
+        expected_content.extend_from_slice(Message::ReadyForQuery.as_vec().as_slice());
+        expected_content.extend_from_slice(
+            Message::CommandComplete("CREATE TABLE".to_owned())
+                .as_vec()
+                .as_slice(),
+        );
         expected_content.extend_from_slice(Message::ReadyForQuery.as_vec().as_slice());
         expected_content.extend_from_slice(
             Message::CommandComplete("INSERT 0 1".to_owned())
@@ -941,8 +1063,14 @@ mod tests {
     }
 
     #[async_std::test]
-    async fn select_all_from_table_with_multiple_columns() -> io::Result<()> {
+    async fn select_all_from_table_with_multiple_columns() -> SystemResult<()> {
         let test_case = async_io::TestCase::with_content(vec![
+            frontend::Message::Query("create schema schema_name;")
+                .as_vec()
+                .as_slice(),
+            frontend::Message::Query("create table schema_name.table_name (column_1 smallint, column_2 smallint, column_3 smallint);")
+                .as_vec()
+                .as_slice(),
             frontend::Message::Query("insert into schema_name.table_name values (123, 456, 789);")
                 .as_vec()
                 .as_slice(),
@@ -953,23 +1081,7 @@ mod tests {
         .await;
 
         let mut handler = Handler::new(
-            storage(
-                vec![],
-                vec![],
-                vec![Ok((
-                    vec![
-                        "column_1".to_owned(),
-                        "column_2".to_owned(),
-                        "column_3".to_owned(),
-                    ],
-                    vec![vec!["123".to_owned(), "456".to_owned(), "789".to_owned()]],
-                ))],
-                vec![
-                    "column_1".to_owned(),
-                    "column_2".to_owned(),
-                    "column_3".to_owned(),
-                ],
-            ),
+            in_memory_storage(),
             Connection::new(
                 (supported_version(), Params(vec![]), SslMode::Disable),
                 Channel::new(test_case.clone(), test_case.clone()),
@@ -978,9 +1090,23 @@ mod tests {
 
         handler.handle_query().await?;
         handler.handle_query().await?;
+        handler.handle_query().await?;
+        handler.handle_query().await?;
 
         let actual_content = test_case.read_result().await;
         let mut expected_content = BytesMut::new();
+        expected_content.extend_from_slice(Message::ReadyForQuery.as_vec().as_slice());
+        expected_content.extend_from_slice(
+            Message::CommandComplete("CREATE SCHEMA".to_owned())
+                .as_vec()
+                .as_slice(),
+        );
+        expected_content.extend_from_slice(Message::ReadyForQuery.as_vec().as_slice());
+        expected_content.extend_from_slice(
+            Message::CommandComplete("CREATE TABLE".to_owned())
+                .as_vec()
+                .as_slice(),
+        );
         expected_content.extend_from_slice(Message::ReadyForQuery.as_vec().as_slice());
         expected_content.extend_from_slice(
             Message::CommandComplete("INSERT 0 1".to_owned())
@@ -1014,8 +1140,14 @@ mod tests {
     }
 
     #[async_std::test]
-    async fn insert_multiple_rows() -> io::Result<()> {
+    async fn insert_multiple_rows() -> SystemResult<()> {
         let test_case = async_io::TestCase::with_content(vec![
+            frontend::Message::Query("create schema schema_name;")
+                .as_vec()
+                .as_slice(),
+            frontend::Message::Query("create table schema_name.table_name (column_1 smallint, column_2 smallint, column_3 smallint);")
+                .as_vec()
+                .as_slice(),
             frontend::Message::Query(
                 "insert into schema_name.table_name values (1, 4, 7), (2, 5, 8), (3, 6, 9);",
             )
@@ -1028,27 +1160,7 @@ mod tests {
         .await;
 
         let mut handler = Handler::new(
-            storage(
-                vec![],
-                vec![],
-                vec![Ok((
-                    vec![
-                        "column_1".to_owned(),
-                        "column_2".to_owned(),
-                        "column_3".to_owned(),
-                    ],
-                    vec![
-                        vec!["1".to_owned(), "4".to_owned(), "7".to_owned()],
-                        vec!["2".to_owned(), "5".to_owned(), "8".to_owned()],
-                        vec!["3".to_owned(), "6".to_owned(), "9".to_owned()],
-                    ],
-                ))],
-                vec![
-                    "column_1".to_owned(),
-                    "column_2".to_owned(),
-                    "column_3".to_owned(),
-                ],
-            ),
+            in_memory_storage(),
             Connection::new(
                 (supported_version(), Params(vec![]), SslMode::Disable),
                 Channel::new(test_case.clone(), test_case.clone()),
@@ -1057,10 +1169,23 @@ mod tests {
 
         handler.handle_query().await?;
         handler.handle_query().await?;
+        handler.handle_query().await?;
+        handler.handle_query().await?;
 
         let actual_content = test_case.read_result().await;
         let mut expected_content = BytesMut::new();
-
+        expected_content.extend_from_slice(Message::ReadyForQuery.as_vec().as_slice());
+        expected_content.extend_from_slice(
+            Message::CommandComplete("CREATE SCHEMA".to_owned())
+                .as_vec()
+                .as_slice(),
+        );
+        expected_content.extend_from_slice(Message::ReadyForQuery.as_vec().as_slice());
+        expected_content.extend_from_slice(
+            Message::CommandComplete("CREATE TABLE".to_owned())
+                .as_vec()
+                .as_slice(),
+        );
         expected_content.extend_from_slice(Message::ReadyForQuery.as_vec().as_slice());
         expected_content.extend_from_slice(
             Message::CommandComplete("INSERT 0 3".to_owned())
@@ -1104,8 +1229,14 @@ mod tests {
     }
 
     #[async_std::test]
-    async fn select_not_all_columns() -> io::Result<()> {
+    async fn select_not_all_columns() -> SystemResult<()> {
         let test_case = async_io::TestCase::with_content(vec![
+            frontend::Message::Query("create schema schema_name;")
+                .as_vec()
+                .as_slice(),
+            frontend::Message::Query("create table schema_name.table_name (column_1 smallint, column_2 smallint, column_3 smallint);")
+                .as_vec()
+                .as_slice(),
             frontend::Message::Query(
                 "insert into schema_name.table_name values (1, 4, 7), (2, 5, 8), (3, 6, 9);",
             )
@@ -1118,23 +1249,7 @@ mod tests {
         .await;
 
         let mut handler = Handler::new(
-            storage(
-                vec![],
-                vec![],
-                vec![Ok((
-                    vec!["column_3".to_owned(), "column_2".to_owned()],
-                    vec![
-                        vec!["7".to_owned(), "4".to_owned()],
-                        vec!["9".to_owned(), "6".to_owned()],
-                        vec!["8".to_owned(), "5".to_owned()],
-                    ],
-                ))],
-                vec![
-                    "column_1".to_owned(),
-                    "column_2".to_owned(),
-                    "column_3".to_owned(),
-                ],
-            ),
+            in_memory_storage(),
             Connection::new(
                 (supported_version(), Params(vec![]), SslMode::Disable),
                 Channel::new(test_case.clone(), test_case.clone()),
@@ -1143,10 +1258,23 @@ mod tests {
 
         handler.handle_query().await?;
         handler.handle_query().await?;
+        handler.handle_query().await?;
+        handler.handle_query().await?;
 
         let actual_content = test_case.read_result().await;
         let mut expected_content = BytesMut::new();
-
+        expected_content.extend_from_slice(Message::ReadyForQuery.as_vec().as_slice());
+        expected_content.extend_from_slice(
+            Message::CommandComplete("CREATE SCHEMA".to_owned())
+                .as_vec()
+                .as_slice(),
+        );
+        expected_content.extend_from_slice(Message::ReadyForQuery.as_vec().as_slice());
+        expected_content.extend_from_slice(
+            Message::CommandComplete("CREATE TABLE".to_owned())
+                .as_vec()
+                .as_slice(),
+        );
         expected_content.extend_from_slice(Message::ReadyForQuery.as_vec().as_slice());
         expected_content.extend_from_slice(
             Message::CommandComplete("INSERT 0 3".to_owned())
@@ -1168,12 +1296,12 @@ mod tests {
                 .as_slice(),
         );
         expected_content.extend_from_slice(
-            Message::DataRow(vec!["9".to_owned(), "6".to_owned()])
+            Message::DataRow(vec!["8".to_owned(), "5".to_owned()])
                 .as_vec()
                 .as_slice(),
         );
         expected_content.extend_from_slice(
-            Message::DataRow(vec!["8".to_owned(), "5".to_owned()])
+            Message::DataRow(vec!["9".to_owned(), "6".to_owned()])
                 .as_vec()
                 .as_slice(),
         );
@@ -1188,76 +1316,11 @@ mod tests {
         Ok(())
     }
 
-    struct MockStorage {
-        create_schemas_responses: Vec<storage::Result<()>>,
-        create_table_responses: Vec<storage::Result<()>>,
-        select_results: Vec<storage::Result<Projection>>,
-        table_columns: Vec<String>,
-    }
+    use crate::storage::in_memory_for_tests_only::InMemoryStorage;
 
-    impl storage::Storage for MockStorage {
-        fn create_schema(&mut self, _schema_name: String) -> storage::Result<()> {
-            self.create_schemas_responses.pop().unwrap()
-        }
-
-        fn drop_schema(&mut self, _schema_name: String) -> storage::Result<()> {
-            Ok(())
-        }
-
-        fn create_table(
-            &mut self,
-            _schema_name: String,
-            _table_name: String,
-            _column_names: Vec<String>,
-        ) -> storage::Result<()> {
-            self.create_table_responses.pop().unwrap()
-        }
-
-        fn table_columns(
-            &mut self,
-            _schema_name: String,
-            _table_name: String,
-        ) -> storage::Result<Vec<String>> {
-            Ok(self.table_columns.clone())
-        }
-
-        fn drop_table(&mut self, _schema_name: String, _table_name: String) -> storage::Result<()> {
-            Ok(())
-        }
-
-        fn insert_into(
-            &mut self,
-            _schema_name: String,
-            _table_name: String,
-            _values: Vec<Vec<String>>,
-        ) -> storage::Result<()> {
-            Ok(())
-        }
-
-        fn select_all_from(
-            &mut self,
-            _schema_name: String,
-            _table_name: String,
-            _columns: Vec<String>,
-        ) -> storage::Result<Projection> {
-            self.select_results.pop().unwrap()
-        }
-
-        fn update_all(
-            &mut self,
-            _schema_name: String,
-            _table_name: String,
-            _value: String,
-        ) -> storage::Result<usize> {
-            Ok(2)
-        }
-
-        fn delete_all_from(
-            &mut self,
-            _schema_name: String,
-            _table_name: String,
-        ) -> storage::Result<usize> {
-            Ok(2)
-        }
+    fn in_memory_storage() -> Arc<Mutex<RelationalStorage<InMemoryStorage>>> {
+        Arc::new(Mutex::new(
+            RelationalStorage::new(InMemoryStorage::default()).unwrap(),
+        ))
     }
 }
