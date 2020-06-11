@@ -1,30 +1,33 @@
-use crate::storage::persistent;
-use crate::SystemResult;
+use crate::backend::{
+    self, BackendStorage, CreateObjectError, DropObjectError, NamespaceAlreadyExists,
+    NamespaceDoesNotExist, OperationOnObjectError, SledBackendStorage,
+};
+use core::{SystemError, SystemResult};
 use thiserror::Error;
 
 pub type Result<T> = std::result::Result<T, Error>;
 
 pub type Projection = (Vec<String>, Vec<Vec<String>>);
 
-pub struct RelationalStorage<P: persistent::PersistentStorage> {
+pub struct FrontendStorage<P: BackendStorage> {
     key_id_generator: usize,
     persistent: P,
 }
 
-impl RelationalStorage<persistent::SledPersistentStorage> {
+impl FrontendStorage<SledBackendStorage> {
     pub fn default() -> SystemResult<Self> {
-        Self::new(persistent::SledPersistentStorage::default())
+        Self::new(SledBackendStorage::default())
     }
 }
 
-impl<P: persistent::PersistentStorage> RelationalStorage<P> {
+impl<P: BackendStorage> FrontendStorage<P> {
     pub fn new(mut persistent: P) -> SystemResult<Self> {
         match persistent.create_namespace("system")? {
             Ok(()) => Ok(Self {
                 key_id_generator: 0,
                 persistent,
             }),
-            Err(persistent::NamespaceAlreadyExists) => Err(crate::SystemError::unrecoverable(
+            Err(NamespaceAlreadyExists) => Err(SystemError::unrecoverable(
                 "system namespace already exists".to_owned(),
             )),
         }
@@ -34,18 +37,14 @@ impl<P: persistent::PersistentStorage> RelationalStorage<P> {
     pub fn create_schema(&mut self, schema_name: String) -> SystemResult<Result<()>> {
         match self.persistent.create_namespace(schema_name.as_str())? {
             Ok(()) => Ok(Ok(())),
-            Err(persistent::NamespaceAlreadyExists) => {
-                Ok(Err(Error::SchemaAlreadyExists(schema_name)))
-            }
+            Err(NamespaceAlreadyExists) => Ok(Err(Error::SchemaAlreadyExists(schema_name))),
         }
     }
 
     pub fn drop_schema(&mut self, schema_name: String) -> SystemResult<Result<()>> {
         match self.persistent.drop_namespace(schema_name.as_str())? {
             Ok(()) => Ok(Ok(())),
-            Err(persistent::NamespaceDoesNotExist) => {
-                Ok(Err(Error::SchemaDoesNotExist(schema_name)))
-            }
+            Err(NamespaceDoesNotExist) => Ok(Err(Error::SchemaDoesNotExist(schema_name))),
         }
     }
 
@@ -75,10 +74,7 @@ impl<P: persistent::PersistentStorage> RelationalStorage<P> {
                     (schema_name + "." + table_name.as_str()).as_str(),
                     vec![(
                         self.key_id_generator.to_be_bytes().to_vec(),
-                        column_names
-                            .iter()
-                            .map(|s| s.clone().into_bytes())
-                            .collect(),
+                        column_names.into_iter().map(|s| s.into_bytes()).collect(),
                     )],
                 )? {
                     Ok(_written) => {}
@@ -87,9 +83,9 @@ impl<P: persistent::PersistentStorage> RelationalStorage<P> {
                 self.key_id_generator += 1;
                 Ok(Ok(()))
             }
-            Err(persistent::CreateObjectError::ObjectAlreadyExists) => Ok(Err(
-                Error::TableAlreadyExists(schema_name + "." + table_name.as_str()),
-            )),
+            Err(CreateObjectError::ObjectAlreadyExists) => Ok(Err(Error::TableAlreadyExists(
+                schema_name + "." + table_name.as_str(),
+            ))),
             _ => unimplemented!(),
         }
     }
@@ -105,7 +101,7 @@ impl<P: persistent::PersistentStorage> RelationalStorage<P> {
         )?;
         match reads {
             Ok(reads) => Ok(Ok(reads
-                .map(persistent::Result::unwrap)
+                .map(backend::Result::unwrap)
                 .map(|(_id, columns)| {
                     columns
                         .iter()
@@ -114,9 +110,9 @@ impl<P: persistent::PersistentStorage> RelationalStorage<P> {
                 })
                 .next()
                 .unwrap())),
-            Err(persistent::OperationOnObjectError::ObjectDoesNotExist) => Ok(Err(
-                Error::TableDoesNotExist(schema_name + "." + table_name.as_str()),
-            )),
+            Err(OperationOnObjectError::ObjectDoesNotExist) => Ok(Err(Error::TableDoesNotExist(
+                schema_name + "." + table_name.as_str(),
+            ))),
             _ => unimplemented!(),
         }
     }
@@ -139,9 +135,9 @@ impl<P: persistent::PersistentStorage> RelationalStorage<P> {
                     _ => unimplemented!(),
                 }
             }
-            Err(persistent::DropObjectError::ObjectDoesNotExist) => Ok(Err(
-                Error::TableDoesNotExist(schema_name + "." + table_name.as_str()),
-            )),
+            Err(DropObjectError::ObjectDoesNotExist) => Ok(Err(Error::TableDoesNotExist(
+                schema_name + "." + table_name.as_str(),
+            ))),
             _ => unimplemented!(),
         }
     }
@@ -163,9 +159,9 @@ impl<P: persistent::PersistentStorage> RelationalStorage<P> {
             .write(schema_name.as_str(), table_name.as_str(), to_write)?
         {
             Ok(_size) => Ok(Ok(())),
-            Err(persistent::OperationOnObjectError::ObjectDoesNotExist) => Ok(Err(
-                Error::TableDoesNotExist(schema_name + "." + table_name.as_str()),
-            )),
+            Err(OperationOnObjectError::ObjectDoesNotExist) => Ok(Err(Error::TableDoesNotExist(
+                schema_name + "." + table_name.as_str(),
+            ))),
             _ => unimplemented!(),
         }
     }
@@ -191,7 +187,7 @@ impl<P: persistent::PersistentStorage> RelationalStorage<P> {
                     self.persistent
                         .read(schema_name.as_str(), table_name.as_str())?
                         .unwrap()
-                        .map(persistent::Result::unwrap)
+                        .map(backend::Result::unwrap)
                         .map(|(_key, values)| values)
                         .map(|bytes| {
                             let all_values = bytes
@@ -206,7 +202,7 @@ impl<P: persistent::PersistentStorage> RelationalStorage<P> {
                                     }
                                 }
                             }
-                            values.iter().map(|(_, value)| value.clone()).collect()
+                            values.into_iter().map(|(_, value)| value).collect()
                         })
                         .collect(),
                 )))
@@ -227,7 +223,7 @@ impl<P: persistent::PersistentStorage> RelationalStorage<P> {
         match reads {
             Ok(reads) => {
                 let to_update: Vec<(Vec<u8>, Vec<Vec<u8>>)> = reads
-                    .map(persistent::Result::unwrap)
+                    .map(backend::Result::unwrap)
                     .map(|(key, _)| (key, vec![value.clone().into_bytes()]))
                     .collect();
 
@@ -237,9 +233,9 @@ impl<P: persistent::PersistentStorage> RelationalStorage<P> {
                     .unwrap();
                 Ok(Ok(len))
             }
-            Err(persistent::OperationOnObjectError::ObjectDoesNotExist) => Ok(Err(
-                Error::TableDoesNotExist(schema_name + "." + table_name.as_str()),
-            )),
+            Err(OperationOnObjectError::ObjectDoesNotExist) => Ok(Err(Error::TableDoesNotExist(
+                schema_name + "." + table_name.as_str(),
+            ))),
             _ => unimplemented!(),
         }
     }
@@ -255,10 +251,10 @@ impl<P: persistent::PersistentStorage> RelationalStorage<P> {
 
         let to_delete: Vec<Vec<u8>> = match reads {
             Ok(reads) => reads
-                .map(persistent::Result::unwrap)
+                .map(backend::Result::unwrap)
                 .map(|(key, _)| key)
                 .collect(),
-            Err(persistent::OperationOnObjectError::ObjectDoesNotExist) => {
+            Err(OperationOnObjectError::ObjectDoesNotExist) => {
                 return Ok(Err(Error::TableDoesNotExist(
                     schema_name + "." + table_name.as_str(),
                 )))
@@ -296,7 +292,7 @@ mod tests {
 
     #[test]
     fn create_schemas_with_different_names() {
-        let mut storage = RelationalStorage::default().expect("no system errors");
+        let mut storage = FrontendStorage::default().expect("no system errors");
 
         assert_eq!(
             storage
@@ -314,7 +310,7 @@ mod tests {
 
     #[test]
     fn create_schema_with_existing_name() {
-        let mut storage = RelationalStorage::default().expect("no system errors");
+        let mut storage = FrontendStorage::default().expect("no system errors");
 
         storage
             .create_schema("schema_name".to_owned())
@@ -331,7 +327,7 @@ mod tests {
 
     #[test]
     fn drop_schema() {
-        let mut storage = RelationalStorage::default().expect("no system errors");
+        let mut storage = FrontendStorage::default().expect("no system errors");
 
         storage
             .create_schema("schema_name".to_owned())
@@ -354,7 +350,7 @@ mod tests {
 
     #[test]
     fn drop_schema_that_was_not_created() {
-        let mut storage = RelationalStorage::default().expect("no system errors");
+        let mut storage = FrontendStorage::default().expect("no system errors");
 
         assert_eq!(
             storage
@@ -369,7 +365,7 @@ mod tests {
     // TODO store tables and columns into "system" schema
     //      but simple select by predicate has to implemented
     fn drop_schema_drops_tables_in_it() {
-        let mut storage = RelationalStorage::default().expect("no system errors");
+        let mut storage = FrontendStorage::default().expect("no system errors");
 
         storage
             .create_schema("schema_name".to_owned())
@@ -428,7 +424,7 @@ mod tests {
 
     #[test]
     fn create_tables_with_different_names() {
-        let mut storage = RelationalStorage::default().expect("no system errors");
+        let mut storage = FrontendStorage::default().expect("no system errors");
 
         storage
             .create_schema("schema_name".to_owned())
@@ -459,7 +455,7 @@ mod tests {
 
     #[test]
     fn create_table_with_the_same_name() {
-        let mut storage = RelationalStorage::default().expect("no system errors");
+        let mut storage = FrontendStorage::default().expect("no system errors");
 
         create_table(
             &mut storage,
@@ -484,7 +480,7 @@ mod tests {
 
     #[test]
     fn create_table_with_the_same_name_in_different_schemas() {
-        let mut storage = RelationalStorage::default().expect("no system errors");
+        let mut storage = FrontendStorage::default().expect("no system errors");
 
         storage
             .create_schema("schema_name_1".to_owned())
@@ -518,7 +514,7 @@ mod tests {
 
     #[test]
     fn drop_table() {
-        let mut storage = RelationalStorage::default().expect("no system errors");
+        let mut storage = FrontendStorage::default().expect("no system errors");
 
         create_table(
             &mut storage,
@@ -546,7 +542,7 @@ mod tests {
 
     #[test]
     fn drop_not_created_table() {
-        let mut storage = RelationalStorage::default().expect("no system errors");
+        let mut storage = FrontendStorage::default().expect("no system errors");
 
         storage
             .create_schema("schema_name".to_owned())
@@ -564,7 +560,7 @@ mod tests {
 
     #[test]
     fn insert_row_into_table() {
-        let mut storage = RelationalStorage::default().expect("no system errors");
+        let mut storage = FrontendStorage::default().expect("no system errors");
 
         create_table(
             &mut storage,
@@ -602,7 +598,7 @@ mod tests {
 
     #[test]
     fn insert_many_rows_into_table() {
-        let mut storage = RelationalStorage::default().expect("no system errors");
+        let mut storage = FrontendStorage::default().expect("no system errors");
 
         create_table(
             &mut storage,
@@ -649,7 +645,7 @@ mod tests {
 
     #[test]
     fn insert_into_non_existent_table() {
-        let mut storage = RelationalStorage::default().expect("no system errors");
+        let mut storage = FrontendStorage::default().expect("no system errors");
 
         storage
             .create_schema("schema_name".to_owned())
@@ -671,7 +667,7 @@ mod tests {
 
     #[test]
     fn select_from_table_that_does_not_exist() {
-        let mut storage = RelationalStorage::default().expect("no system errors");
+        let mut storage = FrontendStorage::default().expect("no system errors");
 
         storage
             .create_schema("schema_name".to_owned())
@@ -689,7 +685,7 @@ mod tests {
 
     #[test]
     fn update_all_records() {
-        let mut storage = RelationalStorage::default().expect("no system errors");
+        let mut storage = FrontendStorage::default().expect("no system errors");
 
         create_table(
             &mut storage,
@@ -759,7 +755,7 @@ mod tests {
 
     #[test]
     fn update_not_existed_table() {
-        let mut storage = RelationalStorage::default().expect("no system errors");
+        let mut storage = FrontendStorage::default().expect("no system errors");
 
         storage
             .create_schema("schema_name".to_owned())
@@ -781,7 +777,7 @@ mod tests {
 
     #[test]
     fn delete_all_from_table() {
-        let mut storage = RelationalStorage::default().expect("no system errors");
+        let mut storage = FrontendStorage::default().expect("no system errors");
 
         create_table(
             &mut storage,
@@ -840,7 +836,7 @@ mod tests {
 
     #[test]
     fn delete_all_from_not_existed_table() {
-        let mut storage = RelationalStorage::default().expect("no system errors");
+        let mut storage = FrontendStorage::default().expect("no system errors");
 
         storage
             .create_schema("schema_name".to_owned())
@@ -859,7 +855,7 @@ mod tests {
 
     #[test]
     fn select_all_from_table_with_many_columns() {
-        let mut storage = RelationalStorage::default().expect("no system errors");
+        let mut storage = FrontendStorage::default().expect("no system errors");
 
         create_table(
             &mut storage,
@@ -902,7 +898,7 @@ mod tests {
 
     #[test]
     fn insert_multiple_rows() {
-        let mut storage = RelationalStorage::default().expect("no system errors");
+        let mut storage = FrontendStorage::default().expect("no system errors");
 
         create_table(
             &mut storage,
@@ -953,7 +949,7 @@ mod tests {
 
     #[test]
     fn select_first_and_last_columns_from_table_with_multiple_columns() {
-        let mut storage = RelationalStorage::default().expect("no system errors");
+        let mut storage = FrontendStorage::default().expect("no system errors");
 
         create_table(
             &mut storage,
@@ -995,7 +991,7 @@ mod tests {
 
     #[test]
     fn select_all_columns_reordered_from_table_with_multiple_columns() {
-        let mut storage = RelationalStorage::default().expect("no system errors");
+        let mut storage = FrontendStorage::default().expect("no system errors");
 
         create_table(
             &mut storage,
@@ -1037,7 +1033,7 @@ mod tests {
 
     #[test]
     fn select_with_column_name_duplication() {
-        let mut storage = RelationalStorage::default().expect("no system errors");
+        let mut storage = FrontendStorage::default().expect("no system errors");
 
         create_table(
             &mut storage,
@@ -1107,8 +1103,8 @@ mod tests {
         );
     }
 
-    fn create_table<P: persistent::PersistentStorage>(
-        storage: &mut RelationalStorage<P>,
+    fn create_table<P: backend::BackendStorage>(
+        storage: &mut FrontendStorage<P>,
         schema_name: &str,
         table_name: &str,
         column_names: Vec<&str>,

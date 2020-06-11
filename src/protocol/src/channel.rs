@@ -1,4 +1,4 @@
-use crate::protocol::messages::Message;
+use crate::messages::Message;
 use byteorder::{ByteOrder, NetworkEndian};
 use bytes::BytesMut;
 use futures::io::{self, AsyncReadExt, AsyncWriteExt};
@@ -48,8 +48,8 @@ impl<
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::protocol::messages::Message;
-    use test_helpers::{async_io, frontend};
+    use crate::messages::Message;
+    use test_helpers::{async_io, pg_frontend};
 
     #[async_std::test]
     async fn read_tag_from_empty_stream() {
@@ -97,7 +97,7 @@ mod tests {
 
     #[async_std::test]
     async fn read_message() -> io::Result<()> {
-        let full_message = frontend::Message::SslRequired.as_vec();
+        let full_message = pg_frontend::Message::SslRequired.as_vec();
         let test_case = async_io::TestCase::with_content(vec![full_message.as_slice()]).await;
         let mut channel = Channel::new(test_case.clone(), test_case.clone());
 

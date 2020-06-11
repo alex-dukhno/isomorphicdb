@@ -21,7 +21,7 @@ fn file_with(content: Vec<&[u8]>) -> File {
     let named_temp_file = empty_file_named();
     let mut file = named_temp_file.reopen().expect("file with content");
     for bytes in content {
-        file.write(bytes).unwrap();
+        file.write_all(bytes).unwrap();
     }
     file.seek(SeekFrom::Start(0))
         .expect("set position at the beginning of a file");

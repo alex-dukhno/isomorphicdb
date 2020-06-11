@@ -1,3 +1,6 @@
+#[macro_use]
+extern crate log;
+
 pub mod channel;
 pub mod connection;
 pub mod hand_shake;
@@ -81,10 +84,10 @@ pub enum SslMode {
 #[cfg(test)]
 mod compatibility {
     use super::*;
-    use crate::protocol::{channel::Channel, hand_shake::HandShake, messages::*};
+    use crate::{channel::Channel, hand_shake::HandShake, messages::*};
     use bytes::BytesMut;
     use std::io;
-    use test_helpers::{async_io, frontend};
+    use test_helpers::{async_io, pg_frontend};
 
     #[async_std::test]
     async fn trying_read_from_empty_stream() {
@@ -115,8 +118,8 @@ mod compatibility {
         #[async_std::test]
         async fn successful_connection_handshake() -> io::Result<()> {
             let test_case = async_io::TestCase::with_content(vec![
-                frontend::Message::SslDisabled.as_vec().as_slice(),
-                frontend::Message::Setup(vec![
+                pg_frontend::Message::SslDisabled.as_vec().as_slice(),
+                pg_frontend::Message::Setup(vec![
                     ("client_encoding", "UTF8"),
                     ("timezone", "UTC"),
                     ("user", "postgres"),
@@ -170,10 +173,11 @@ mod compatibility {
 
         #[async_std::test]
         async fn sending_notice_after_reading_ssl_message() {
-            let test_case = async_io::TestCase::with_content(vec![frontend::Message::SslRequired
-                .as_vec()
-                .as_slice()])
-            .await;
+            let test_case =
+                async_io::TestCase::with_content(vec![pg_frontend::Message::SslRequired
+                    .as_vec()
+                    .as_slice()])
+                .await;
 
             let hand_shake = HandShake::new(Channel::new(test_case.clone(), test_case.clone()));
 
@@ -191,8 +195,8 @@ mod compatibility {
         #[async_std::test]
         async fn successful_connection_handshake() -> io::Result<()> {
             let test_case = async_io::TestCase::with_content(vec![
-                frontend::Message::SslRequired.as_vec().as_slice(),
-                frontend::Message::Setup(vec![
+                pg_frontend::Message::SslRequired.as_vec().as_slice(),
+                pg_frontend::Message::Setup(vec![
                     ("user", "username"),
                     ("database", "database_name"),
                     ("application_name", "psql"),
@@ -200,7 +204,7 @@ mod compatibility {
                 ])
                 .as_vec()
                 .as_slice(),
-                frontend::Message::Password("123").as_vec().as_slice(),
+                pg_frontend::Message::Password("123").as_vec().as_slice(),
             ])
             .await;
 

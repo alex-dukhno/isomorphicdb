@@ -46,7 +46,7 @@ impl Message {
             Message::SslRequired => {
                 let mut buff = BytesMut::with_capacity(256);
                 buff.put_u32(8);
-                buff.put_u32(80877103);
+                buff.put_u32(80_877_103);
                 buff.to_vec()
             }
             Message::Password(password) => {

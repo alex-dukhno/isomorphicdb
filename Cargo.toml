@@ -1,31 +1,8 @@
-[package]
-name = "database"
-version = "0.1.0"
-authors = ["Alex Dukhno <alex.dukhno@icloud.com>"]
-edition = "2018"
-license = "Apache-2.0"
-exclude = ["compatibility", "proof-of-concepts"]
-
-[lib]
-name = "database"
-
-[[bin]]
-name = "database"
-path = "src/bin.rs"
-
-[dependencies]
-async-std = { version = "1.6.0", features = ["attributes"] }
-backtrace = "0.3.48"
-byteorder = "1.0"
-bytes = "0.5"
-futures = { version = "0.3.5", features = ["std"] }
-log = "0.4.8"
-pretty_env_logger = "0.4.0"
-sled = { version = "0.32.0-rc1", features = ["default"] }
-thiserror = "1.0.19"
-sqlparser = { git = "https://github.com/andygrove/sqlparser-rs.git" }
-
-[dev-dependencies]
-postgres = "0.17.3"
-test_helpers = { path = "test_helpers", version = "0.1.0" }
-tempfile = "3.1.0"
+[workspace]
+members = [
+    "src/core",
+    "src/node",
+    "src/protocol",
+    "src/storage",
+    "src/test_helpers"
+]

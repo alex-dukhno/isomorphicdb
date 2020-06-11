@@ -1,9 +1,9 @@
-use crate::storage::persistent::{
-    CreateObjectError, DropObjectError, Key, NamespaceAlreadyExists, NamespaceDoesNotExist,
-    OperationOnObjectError, PersistentStorage, ReadCursor, Row, Values,
-};
-use crate::SystemResult;
+use core::{SystemError, SystemResult};
 use std::collections::HashMap;
+use storage::backend::{
+    BackendStorage, CreateObjectError, DropObjectError, Key, NamespaceAlreadyExists,
+    NamespaceDoesNotExist, OperationOnObjectError, ReadCursor, Result, Row, Values,
+};
 
 #[derive(Default, Debug)]
 struct StorageObject {
@@ -20,8 +20,8 @@ pub struct InMemoryStorage {
     namespaces: HashMap<String, Namespace>,
 }
 
-impl PersistentStorage for InMemoryStorage {
-    type ErrorMapper = crate::storage::persistent::SledErrorMapper;
+impl BackendStorage for InMemoryStorage {
+    type ErrorMapper = storage::backend::SledErrorMapper;
 
     fn create_namespace(
         &mut self,
@@ -118,7 +118,7 @@ impl PersistentStorage for InMemoryStorage {
                         .iter()
                         .cloned()
                         .map(Ok)
-                        .collect::<Vec<Result<Row, crate::SystemError>>>()
+                        .collect::<Vec<Result<Row, SystemError>>>()
                         .into_iter(),
                 ))),
                 None => Ok(Err(OperationOnObjectError::ObjectDoesNotExist)),
@@ -429,7 +429,7 @@ mod tests {
                 storage
                     .read("namespace", "object_name")
                     .expect("no system errors")
-                    .map(|iter| iter.collect::<Vec<Result<Row, crate::SystemError>>>()),
+                    .map(|iter| iter.collect::<Vec<Result<Row, SystemError>>>()),
                 Ok(as_read_cursor(vec![(1u8, vec!["123"])]).collect())
             );
         }
@@ -460,7 +460,7 @@ mod tests {
                 storage
                     .read("namespace", "object_name")
                     .expect("no system errors")
-                    .map(|iter| iter.collect::<Vec<Result<Row, crate::SystemError>>>()),
+                    .map(|iter| iter.collect::<Vec<Result<Row, SystemError>>>()),
                 Ok(as_read_cursor(vec![(1u8, vec!["123"]), (2u8, vec!["456"])]).collect())
             );
         }
@@ -509,7 +509,7 @@ mod tests {
                 storage
                     .read("namespace", "not_existed")
                     .expect("no system errors")
-                    .map(|iter| iter.collect::<Vec<Result<Row, crate::SystemError>>>()),
+                    .map(|iter| iter.collect::<Vec<Result<Row, SystemError>>>()),
                 Err(OperationOnObjectError::ObjectDoesNotExist)
             );
         }
@@ -522,7 +522,7 @@ mod tests {
                 storage
                     .read("not_existed", "object")
                     .expect("no system errors")
-                    .map(|iter| iter.collect::<Vec<Result<Row, crate::SystemError>>>()),
+                    .map(|iter| iter.collect::<Vec<Result<Row, SystemError>>>()),
                 Err(OperationOnObjectError::NamespaceDoesNotExist)
             );
         }
@@ -556,7 +556,7 @@ mod tests {
                 storage
                     .read("namespace", "object_name")
                     .expect("no system errors")
-                    .map(|iter| iter.collect::<Vec<Result<Row, crate::SystemError>>>()),
+                    .map(|iter| iter.collect::<Vec<Result<Row, SystemError>>>()),
                 Ok(as_read_cursor(vec![(1u8, vec!["123"]), (3u8, vec!["789"])]).collect())
             );
         }
@@ -608,7 +608,7 @@ mod tests {
                 storage
                     .read("namespace", "object_name")
                     .expect("no system errors")
-                    .map(|iter| iter.collect::<Vec<Result<Row, crate::SystemError>>>()),
+                    .map(|iter| iter.collect::<Vec<Result<Row, SystemError>>>()),
                 Ok(as_read_cursor(vec![(1u8, vec!["1", "2", "3"])]).collect())
             );
         }
@@ -635,7 +635,7 @@ mod tests {
                 storage
                     .read("namespace", "object_name")
                     .expect("no system errors")
-                    .map(|iter| iter.collect::<Vec<Result<Row, crate::SystemError>>>()),
+                    .map(|iter| iter.collect::<Vec<Result<Row, SystemError>>>()),
                 Ok(as_read_cursor(vec![
                     (1u8, vec!["1", "2", "3"]),
                     (2u8, vec!["4", "5", "6"]),
@@ -659,7 +659,7 @@ mod tests {
 
     fn as_rows(items: Vec<(u8, Vec<&'static str>)>) -> Vec<Row> {
         items
-            .iter()
+            .into_iter()
             .map(|(key, values)| {
                 let k = key.to_be_bytes().to_vec();
                 let v = values.into_iter().map(|s| s.as_bytes().to_vec()).collect();
@@ -669,7 +669,10 @@ mod tests {
     }
 
     fn as_keys(items: Vec<u8>) -> Vec<Key> {
-        items.iter().map(|key| key.to_be_bytes().to_vec()).collect()
+        items
+            .into_iter()
+            .map(|key| key.to_be_bytes().to_vec())
+            .collect()
     }
 
     fn as_read_cursor(items: Vec<(u8, Vec<&'static str>)>) -> ReadCursor {

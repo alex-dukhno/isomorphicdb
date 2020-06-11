@@ -1,3 +1,4 @@
+use core::{SystemError, SystemResult};
 use std::collections::HashMap;
 use std::fmt::Debug;
 
@@ -10,7 +11,7 @@ pub type Result<T, E> = std::result::Result<T, E>;
 pub type Row = (Key, Values);
 pub type Key = Vec<u8>;
 pub type Values = Vec<Vec<u8>>;
-pub type ReadCursor = Box<dyn Iterator<Item = Result<Row, crate::SystemError>>>;
+pub type ReadCursor = Box<dyn Iterator<Item = Result<Row, SystemError>>>;
 
 #[derive(Debug, PartialEq)]
 pub enum CreateObjectError {
@@ -30,55 +31,55 @@ pub enum OperationOnObjectError {
     ObjectDoesNotExist,
 }
 
-pub trait PersistentStorage {
+pub trait BackendStorage {
     type ErrorMapper: StorageErrorMapper;
 
     fn create_namespace(
         &mut self,
         namespace: &str,
-    ) -> crate::SystemResult<Result<(), NamespaceAlreadyExists>>;
+    ) -> SystemResult<Result<(), NamespaceAlreadyExists>>;
 
     fn drop_namespace(
         &mut self,
         namespace: &str,
-    ) -> crate::SystemResult<Result<(), NamespaceDoesNotExist>>;
+    ) -> SystemResult<Result<(), NamespaceDoesNotExist>>;
 
     fn create_object(
         &mut self,
         namespace: &str,
         object_name: &str,
-    ) -> crate::SystemResult<Result<(), CreateObjectError>>;
+    ) -> SystemResult<Result<(), CreateObjectError>>;
 
     fn drop_object(
         &mut self,
         namespace: &str,
         object_name: &str,
-    ) -> crate::SystemResult<Result<(), DropObjectError>>;
+    ) -> SystemResult<Result<(), DropObjectError>>;
 
     fn write(
         &mut self,
         namespace: &str,
         object_name: &str,
         values: Vec<Row>,
-    ) -> crate::SystemResult<Result<usize, OperationOnObjectError>>;
+    ) -> SystemResult<Result<usize, OperationOnObjectError>>;
 
     fn read(
         &self,
         namespace: &str,
         object_name: &str,
-    ) -> crate::SystemResult<Result<ReadCursor, OperationOnObjectError>>;
+    ) -> SystemResult<Result<ReadCursor, OperationOnObjectError>>;
 
     fn delete(
         &mut self,
         namespace: &str,
         object_name: &str,
         keys: Vec<Key>,
-    ) -> crate::SystemResult<Result<usize, OperationOnObjectError>>;
+    ) -> SystemResult<Result<usize, OperationOnObjectError>>;
 }
 
 pub trait StorageErrorMapper {
     type Error;
-    fn map(error: Self::Error) -> crate::SystemError;
+    fn map(error: Self::Error) -> core::SystemError;
 }
 
 pub struct SledErrorMapper;
@@ -86,52 +87,50 @@ pub struct SledErrorMapper;
 impl StorageErrorMapper for SledErrorMapper {
     type Error = sled::Error;
 
-    fn map(error: Self::Error) -> crate::SystemError {
+    fn map(error: Self::Error) -> SystemError {
         match error {
-            sled::Error::CollectionNotFound(system_file) => {
-                crate::SystemError::unrecoverable(format!(
-                    "System file [{}] can't be found",
-                    String::from_utf8(system_file.to_vec()).expect("name of system file")
-                ))
-            }
-            sled::Error::Unsupported(operation) => crate::SystemError::unrecoverable(format!(
+            sled::Error::CollectionNotFound(system_file) => SystemError::unrecoverable(format!(
+                "System file [{}] can't be found",
+                String::from_utf8(system_file.to_vec()).expect("name of system file")
+            )),
+            sled::Error::Unsupported(operation) => SystemError::unrecoverable(format!(
                 "Unsupported operation [{}] was used on Sled",
                 operation
             )),
             sled::Error::Corruption { at, bt: cause } => {
                 if let Some(at) = at {
-                    crate::SystemError::unrecoverable_with_cause(
+                    SystemError::unrecoverable_with_cause(
                         format!("Sled encountered corruption at {}", at),
                         cause,
                     )
                 } else {
-                    crate::SystemError::unrecoverable_with_cause(
+                    SystemError::unrecoverable_with_cause(
                         "Sled encountered corruption".to_owned(),
                         cause,
                     )
                 }
             }
-            sled::Error::ReportableBug(description) => crate::SystemError::unrecoverable(format!(
+            sled::Error::ReportableBug(description) => SystemError::unrecoverable(format!(
                 "Sled encountered reportable BUG: {}",
                 description
             )),
-            sled::Error::Io(error) => crate::SystemError::io(error),
+            sled::Error::Io(error) => SystemError::io(error),
         }
     }
 }
 
 #[derive(Default)]
-pub struct SledPersistentStorage {
+pub struct SledBackendStorage {
     namespaces: HashMap<String, sled::Db>,
 }
 
-impl PersistentStorage for SledPersistentStorage {
+impl BackendStorage for SledBackendStorage {
     type ErrorMapper = SledErrorMapper;
 
     fn create_namespace(
         &mut self,
         namespace: &str,
-    ) -> crate::SystemResult<Result<(), NamespaceAlreadyExists>> {
+    ) -> SystemResult<Result<(), NamespaceAlreadyExists>> {
         if self.namespaces.contains_key(namespace) {
             Ok(Err(NamespaceAlreadyExists))
         } else {
@@ -148,7 +147,7 @@ impl PersistentStorage for SledPersistentStorage {
     fn drop_namespace(
         &mut self,
         namespace: &str,
-    ) -> crate::SystemResult<Result<(), NamespaceDoesNotExist>> {
+    ) -> SystemResult<Result<(), NamespaceDoesNotExist>> {
         match self.namespaces.remove(namespace) {
             Some(namespace) => {
                 drop(namespace);
@@ -162,7 +161,7 @@ impl PersistentStorage for SledPersistentStorage {
         &mut self,
         namespace: &str,
         object_name: &str,
-    ) -> crate::SystemResult<Result<(), CreateObjectError>> {
+    ) -> SystemResult<Result<(), CreateObjectError>> {
         match self.namespaces.get(namespace) {
             Some(namespace) => {
                 if namespace.tree_names().contains(&(object_name.into())) {
@@ -182,7 +181,7 @@ impl PersistentStorage for SledPersistentStorage {
         &mut self,
         namespace: &str,
         object_name: &str,
-    ) -> crate::SystemResult<Result<(), DropObjectError>> {
+    ) -> SystemResult<Result<(), DropObjectError>> {
         match self.namespaces.get(namespace) {
             Some(namespace) => match namespace.drop_tree(object_name.as_bytes()) {
                 Ok(true) => Ok(Ok(())),
@@ -198,7 +197,7 @@ impl PersistentStorage for SledPersistentStorage {
         namespace: &str,
         object_name: &str,
         rows: Vec<Row>,
-    ) -> crate::SystemResult<Result<usize, OperationOnObjectError>> {
+    ) -> SystemResult<Result<usize, OperationOnObjectError>> {
         match self.namespaces.get(namespace) {
             Some(namespace) => {
                 if namespace.tree_names().contains(&(object_name.into())) {
@@ -235,7 +234,7 @@ impl PersistentStorage for SledPersistentStorage {
         &self,
         namespace: &str,
         object_name: &str,
-    ) -> crate::SystemResult<Result<ReadCursor, OperationOnObjectError>> {
+    ) -> SystemResult<Result<ReadCursor, OperationOnObjectError>> {
         match self.namespaces.get(namespace) {
             Some(namespace) => {
                 if namespace.tree_names().contains(&(object_name.into())) {
@@ -267,7 +266,7 @@ impl PersistentStorage for SledPersistentStorage {
         namespace: &str,
         object_name: &str,
         keys: Vec<Key>,
-    ) -> crate::SystemResult<Result<usize, OperationOnObjectError>> {
+    ) -> SystemResult<Result<usize, OperationOnObjectError>> {
         match self.namespaces.get(namespace) {
             Some(namespace) => {
                 if namespace.tree_names().contains(&(object_name.into())) {
@@ -296,6 +295,7 @@ impl PersistentStorage for SledPersistentStorage {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use backtrace::Backtrace;
 
     #[cfg(test)]
     mod sled_error_mapper {
@@ -307,7 +307,7 @@ mod tests {
         fn collection_not_found() {
             assert_eq!(
                 SledErrorMapper::map(sled::Error::CollectionNotFound(sled::IVec::from("test"))),
-                crate::SystemError::unrecoverable("System file [test] can't be found".to_owned())
+                SystemError::unrecoverable("System file [test] can't be found".to_owned())
             )
         }
 
@@ -315,7 +315,7 @@ mod tests {
         fn unsupported() {
             assert_eq!(
                 SledErrorMapper::map(sled::Error::Unsupported("NOT_SUPPORTED".to_owned())),
-                crate::SystemError::unrecoverable(
+                SystemError::unrecoverable(
                     "Unsupported operation [NOT_SUPPORTED] was used on Sled".to_owned()
                 )
             )
@@ -323,14 +323,14 @@ mod tests {
 
         #[test]
         fn corruption_with_position() {
-            let cause = backtrace::Backtrace::new();
+            let cause = Backtrace::new();
             let at = DiskPtr::Inline(900);
             assert_eq!(
                 SledErrorMapper::map(sled::Error::Corruption {
                     at: Some(at),
                     bt: cause.clone()
                 }),
-                crate::SystemError::unrecoverable_with_cause(
+                SystemError::unrecoverable_with_cause(
                     format!("Sled encountered corruption at {}", at),
                     cause,
                 )
@@ -339,13 +339,13 @@ mod tests {
 
         #[test]
         fn corruption_without_position() {
-            let cause = backtrace::Backtrace::new();
+            let cause = Backtrace::new();
             assert_eq!(
                 SledErrorMapper::map(sled::Error::Corruption {
                     at: None,
                     bt: cause.clone()
                 }),
-                crate::SystemError::unrecoverable_with_cause(
+                SystemError::unrecoverable_with_cause(
                     format!("Sled encountered corruption"),
                     cause,
                 )
@@ -357,7 +357,7 @@ mod tests {
             let description = "SOME_BUG_HERE";
             assert_eq!(
                 SledErrorMapper::map(sled::Error::ReportableBug(description.to_owned())),
-                crate::SystemError::unrecoverable(format!(
+                SystemError::unrecoverable(format!(
                     "Sled encountered reportable BUG: {}",
                     description
                 ))
@@ -368,7 +368,7 @@ mod tests {
         fn io() {
             assert_eq!(
                 SledErrorMapper::map(sled::Error::Io(Error::new(ErrorKind::Other, "oh no!"))),
-                crate::SystemError::io(Error::new(ErrorKind::Other, "oh no!"))
+                SystemError::io(Error::new(ErrorKind::Other, "oh no!"))
             )
         }
     }
@@ -379,7 +379,7 @@ mod tests {
 
         #[test]
         fn create_namespaces_with_different_names() {
-            let mut storage = SledPersistentStorage::default();
+            let mut storage = SledBackendStorage::default();
 
             assert_eq!(
                 storage
@@ -397,7 +397,7 @@ mod tests {
 
         #[test]
         fn create_namespace_with_existing_name() {
-            let mut storage = SledPersistentStorage::default();
+            let mut storage = SledBackendStorage::default();
 
             storage
                 .create_namespace("namespace")
@@ -414,7 +414,7 @@ mod tests {
 
         #[test]
         fn drop_namespace() {
-            let mut storage = SledPersistentStorage::default();
+            let mut storage = SledBackendStorage::default();
 
             storage
                 .create_namespace("namespace")
@@ -437,7 +437,7 @@ mod tests {
 
         #[test]
         fn drop_namespace_that_was_not_created() {
-            let mut storage = SledPersistentStorage::default();
+            let mut storage = SledBackendStorage::default();
 
             assert_eq!(
                 storage
@@ -449,7 +449,7 @@ mod tests {
 
         #[test]
         fn dropping_namespace_drops_objects_in_it() {
-            let mut storage = SledPersistentStorage::default();
+            let mut storage = SledBackendStorage::default();
 
             storage
                 .create_namespace("namespace")
@@ -497,7 +497,7 @@ mod tests {
 
         #[test]
         fn create_objects_with_different_names() {
-            let mut storage = SledPersistentStorage::default();
+            let mut storage = SledBackendStorage::default();
 
             storage
                 .create_namespace("namespace")
@@ -520,7 +520,7 @@ mod tests {
 
         #[test]
         fn create_object_with_the_same_name() {
-            let mut storage = SledPersistentStorage::default();
+            let mut storage = SledBackendStorage::default();
 
             create_object(&mut storage, "namespace", "object_name");
 
@@ -534,7 +534,7 @@ mod tests {
 
         #[test]
         fn create_object_with_the_same_name_in_different_namespaces() {
-            let mut storage = SledPersistentStorage::default();
+            let mut storage = SledBackendStorage::default();
 
             storage
                 .create_namespace("namespace_1")
@@ -560,7 +560,7 @@ mod tests {
 
         #[test]
         fn create_object_in_not_existent_namespace() {
-            let mut storage = SledPersistentStorage::default();
+            let mut storage = SledBackendStorage::default();
 
             assert_eq!(
                 storage
@@ -577,7 +577,7 @@ mod tests {
 
         #[test]
         fn drop_object() {
-            let mut storage = SledPersistentStorage::default();
+            let mut storage = SledBackendStorage::default();
 
             create_object(&mut storage, "namespace", "object_name");
             assert_eq!(
@@ -596,7 +596,7 @@ mod tests {
 
         #[test]
         fn drop_not_created_object() {
-            let mut storage = SledPersistentStorage::default();
+            let mut storage = SledBackendStorage::default();
 
             storage
                 .create_namespace("namespace")
@@ -612,7 +612,7 @@ mod tests {
 
         #[test]
         fn drop_object_in_not_existent_namespace() {
-            let mut storage = SledPersistentStorage::default();
+            let mut storage = SledBackendStorage::default();
 
             assert_eq!(
                 storage
@@ -629,7 +629,7 @@ mod tests {
 
         #[test]
         fn insert_row_into_object() {
-            let mut storage = SledPersistentStorage::default();
+            let mut storage = SledBackendStorage::default();
 
             create_object(&mut storage, "namespace", "object_name");
             assert_eq!(
@@ -647,14 +647,14 @@ mod tests {
                 storage
                     .read("namespace", "object_name")
                     .expect("no system errors")
-                    .map(|iter| iter.collect::<Vec<Result<Row, crate::SystemError>>>()),
+                    .map(|iter| iter.collect::<Vec<Result<Row, SystemError>>>()),
                 Ok(as_read_cursor(vec![(1u8, vec!["123"])]).collect())
             );
         }
 
         #[test]
         fn insert_many_rows_into_object() {
-            let mut storage = SledPersistentStorage::default();
+            let mut storage = SledBackendStorage::default();
 
             create_object(&mut storage, "namespace", "object_name");
             storage
@@ -678,14 +678,14 @@ mod tests {
                 storage
                     .read("namespace", "object_name")
                     .expect("no system errors")
-                    .map(|iter| iter.collect::<Vec<Result<Row, crate::SystemError>>>()),
+                    .map(|iter| iter.collect::<Vec<Result<Row, SystemError>>>()),
                 Ok(as_read_cursor(vec![(1u8, vec!["123"]), (2u8, vec!["456"])]).collect())
             );
         }
 
         #[test]
         fn insert_into_non_existent_object() {
-            let mut storage = SledPersistentStorage::default();
+            let mut storage = SledBackendStorage::default();
 
             storage
                 .create_namespace("namespace")
@@ -705,7 +705,7 @@ mod tests {
 
         #[test]
         fn insert_into_object_in_non_existent_namespace() {
-            let mut storage = SledPersistentStorage::default();
+            let mut storage = SledBackendStorage::default();
 
             assert_eq!(
                 storage
@@ -717,7 +717,7 @@ mod tests {
 
         #[test]
         fn select_from_object_that_does_not_exist() {
-            let mut storage = SledPersistentStorage::default();
+            let mut storage = SledBackendStorage::default();
 
             storage
                 .create_namespace("namespace")
@@ -727,27 +727,27 @@ mod tests {
                 storage
                     .read("namespace", "not_existed")
                     .expect("no system errors")
-                    .map(|iter| iter.collect::<Vec<Result<Row, crate::SystemError>>>()),
+                    .map(|iter| iter.collect::<Vec<Result<Row, SystemError>>>()),
                 Err(OperationOnObjectError::ObjectDoesNotExist)
             );
         }
 
         #[test]
         fn select_from_object_in_not_existent_namespace() {
-            let storage = SledPersistentStorage::default();
+            let storage = SledBackendStorage::default();
 
             assert_eq!(
                 storage
                     .read("not_existed", "object")
                     .expect("no system errors")
-                    .map(|iter| iter.collect::<Vec<Result<Row, crate::SystemError>>>()),
+                    .map(|iter| iter.collect::<Vec<Result<Row, SystemError>>>()),
                 Err(OperationOnObjectError::NamespaceDoesNotExist)
             );
         }
 
         #[test]
         fn delete_some_records_from_object() {
-            let mut storage = SledPersistentStorage::default();
+            let mut storage = SledBackendStorage::default();
 
             create_object(&mut storage, "namespace", "object_name");
             storage
@@ -774,14 +774,14 @@ mod tests {
                 storage
                     .read("namespace", "object_name")
                     .expect("no system errors")
-                    .map(|iter| iter.collect::<Vec<Result<Row, crate::SystemError>>>()),
+                    .map(|iter| iter.collect::<Vec<Result<Row, SystemError>>>()),
                 Ok(as_read_cursor(vec![(1u8, vec!["123"]), (3u8, vec!["789"])]).collect())
             );
         }
 
         #[test]
         fn delete_from_not_existed_object() {
-            let mut storage = SledPersistentStorage::default();
+            let mut storage = SledBackendStorage::default();
 
             storage
                 .create_namespace("namespace")
@@ -798,7 +798,7 @@ mod tests {
 
         #[test]
         fn delete_from_not_existent_namespace() {
-            let mut storage = SledPersistentStorage::default();
+            let mut storage = SledBackendStorage::default();
 
             assert_eq!(
                 storage
@@ -810,7 +810,7 @@ mod tests {
 
         #[test]
         fn select_all_from_object_with_many_columns() {
-            let mut storage = SledPersistentStorage::default();
+            let mut storage = SledBackendStorage::default();
 
             create_object(&mut storage, "namespace", "object_name");
             storage
@@ -826,14 +826,14 @@ mod tests {
                 storage
                     .read("namespace", "object_name")
                     .expect("no system errors")
-                    .map(|iter| iter.collect::<Vec<Result<Row, crate::SystemError>>>()),
+                    .map(|iter| iter.collect::<Vec<Result<Row, SystemError>>>()),
                 Ok(as_read_cursor(vec![(1u8, vec!["1", "2", "3"])]).collect())
             );
         }
 
         #[test]
         fn insert_multiple_rows() {
-            let mut storage = SledPersistentStorage::default();
+            let mut storage = SledBackendStorage::default();
 
             create_object(&mut storage, "namespace", "object_name");
             storage
@@ -853,7 +853,7 @@ mod tests {
                 storage
                     .read("namespace", "object_name")
                     .expect("no system errors")
-                    .map(|iter| iter.collect::<Vec<Result<Row, crate::SystemError>>>()),
+                    .map(|iter| iter.collect::<Vec<Result<Row, SystemError>>>()),
                 Ok(as_read_cursor(vec![
                     (1u8, vec!["1", "2", "3"]),
                     (2u8, vec!["4", "5", "6"]),
@@ -864,7 +864,7 @@ mod tests {
         }
     }
 
-    fn create_object(storage: &mut SledPersistentStorage, namespace: &str, object_name: &str) {
+    fn create_object(storage: &mut SledBackendStorage, namespace: &str, object_name: &str) {
         storage
             .create_namespace(namespace)
             .expect("no system errors")
@@ -877,7 +877,7 @@ mod tests {
 
     fn as_rows(items: Vec<(u8, Vec<&'static str>)>) -> Vec<Row> {
         items
-            .iter()
+            .into_iter()
             .map(|(key, values)| {
                 let k = key.to_be_bytes().to_vec();
                 let v = values.into_iter().map(|s| s.as_bytes().to_vec()).collect();
@@ -887,7 +887,10 @@ mod tests {
     }
 
     fn as_keys(items: Vec<u8>) -> Vec<Key> {
-        items.iter().map(|key| key.to_be_bytes().to_vec()).collect()
+        items
+            .into_iter()
+            .map(|key| key.to_be_bytes().to_vec())
+            .collect()
     }
 
     fn as_read_cursor(items: Vec<(u8, Vec<&'static str>)>) -> ReadCursor {
