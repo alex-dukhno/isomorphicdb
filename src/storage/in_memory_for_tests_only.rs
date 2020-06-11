@@ -117,7 +117,7 @@ impl PersistentStorage for InMemoryStorage {
                         .records
                         .iter()
                         .cloned()
-                        .map(|row| Ok(row))
+                        .map(Ok)
                         .collect::<Vec<Result<Row, crate::SystemError>>>()
                         .into_iter(),
                 ))),
