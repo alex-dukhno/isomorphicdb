@@ -1,3 +1,6 @@
+#[macro_use]
+extern crate log;
+
 pub mod channel;
 pub mod connection;
 pub mod hand_shake;
@@ -81,7 +84,7 @@ pub enum SslMode {
 #[cfg(test)]
 mod compatibility {
     use super::*;
-    use crate::protocol::{channel::Channel, hand_shake::HandShake, messages::*};
+    use crate::{channel::Channel, hand_shake::HandShake, messages::*};
     use bytes::BytesMut;
     use std::io;
     use test_helpers::{async_io, frontend};

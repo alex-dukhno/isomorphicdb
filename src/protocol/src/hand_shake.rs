@@ -1,4 +1,4 @@
-use crate::protocol::{
+use crate::{
     channel::Channel, connection::Connection, messages::Message, supported_version, Params, Result,
     SslMode, Version,
 };

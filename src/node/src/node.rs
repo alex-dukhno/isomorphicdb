@@ -1,6 +1,5 @@
-use crate::protocol;
-use crate::sql_handler;
-use crate::storage;
+use protocol;
+use storage;
 
 use async_std::net::TcpListener;
 use async_std::prelude::*;
@@ -72,8 +71,10 @@ impl Node {
                             .expect("perform hand shake with client")
                             {
                                 Ok(connection) => {
-                                    let mut handler =
-                                        sql_handler::Handler::new(client_storage, connection);
+                                    let mut handler = crate::sql_handler::Handler::new(
+                                        client_storage,
+                                        connection,
+                                    );
                                     while let Ok(true) = handler.handle_query().await {
                                         trace!("QUERY HANDLED!");
                                         if state.load(Ordering::SeqCst) == STOPPED {

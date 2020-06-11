@@ -1,4 +1,4 @@
-use crate::protocol::messages::Message;
+use crate::messages::Message;
 use byteorder::{ByteOrder, NetworkEndian};
 use bytes::BytesMut;
 use futures::io::{self, AsyncReadExt, AsyncWriteExt};
@@ -48,7 +48,7 @@ impl<
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::protocol::messages::Message;
+    use crate::messages::Message;
     use test_helpers::{async_io, frontend};
 
     #[async_std::test]

@@ -1,4 +1,4 @@
-use crate::protocol::{
+use crate::{
     channel::Channel, messages::Message, Command, Error, Params, Result, SslMode, Version,
 };
 use futures::io::{self, AsyncRead, AsyncWrite};
@@ -106,7 +106,7 @@ impl Field {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::protocol::{channel::Channel, supported_version};
+    use crate::{channel::Channel, supported_version};
     use bytes::BytesMut;
     use test_helpers::async_io;
 

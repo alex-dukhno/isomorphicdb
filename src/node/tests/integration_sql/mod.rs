@@ -1,4 +1,4 @@
-use database::node::{Node, CREATED, RUNNING};
+use node::node::{Node, CREATED, RUNNING};
 use postgres::error::Error;
 use postgres::{Client, NoTls};
 use std::sync::Arc;

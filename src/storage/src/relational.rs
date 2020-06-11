@@ -1,30 +1,33 @@
-use crate::storage::persistent;
-use crate::SystemResult;
+use crate::persistent::{
+    self, CreateObjectError, DropObjectError, NamespaceAlreadyExists, NamespaceDoesNotExist,
+    OperationOnObjectError, PersistentStorage, SledPersistentStorage,
+};
+use core::{SystemError, SystemResult};
 use thiserror::Error;
 
 pub type Result<T> = std::result::Result<T, Error>;
 
 pub type Projection = (Vec<String>, Vec<Vec<String>>);
 
-pub struct RelationalStorage<P: persistent::PersistentStorage> {
+pub struct RelationalStorage<P: PersistentStorage> {
     key_id_generator: usize,
     persistent: P,
 }
 
-impl RelationalStorage<persistent::SledPersistentStorage> {
+impl RelationalStorage<SledPersistentStorage> {
     pub fn default() -> SystemResult<Self> {
-        Self::new(persistent::SledPersistentStorage::default())
+        Self::new(SledPersistentStorage::default())
     }
 }
 
-impl<P: persistent::PersistentStorage> RelationalStorage<P> {
+impl<P: PersistentStorage> RelationalStorage<P> {
     pub fn new(mut persistent: P) -> SystemResult<Self> {
         match persistent.create_namespace("system")? {
             Ok(()) => Ok(Self {
                 key_id_generator: 0,
                 persistent,
             }),
-            Err(persistent::NamespaceAlreadyExists) => Err(crate::SystemError::unrecoverable(
+            Err(NamespaceAlreadyExists) => Err(SystemError::unrecoverable(
                 "system namespace already exists".to_owned(),
             )),
         }
@@ -34,18 +37,14 @@ impl<P: persistent::PersistentStorage> RelationalStorage<P> {
     pub fn create_schema(&mut self, schema_name: String) -> SystemResult<Result<()>> {
         match self.persistent.create_namespace(schema_name.as_str())? {
             Ok(()) => Ok(Ok(())),
-            Err(persistent::NamespaceAlreadyExists) => {
-                Ok(Err(Error::SchemaAlreadyExists(schema_name)))
-            }
+            Err(NamespaceAlreadyExists) => Ok(Err(Error::SchemaAlreadyExists(schema_name))),
         }
     }
 
     pub fn drop_schema(&mut self, schema_name: String) -> SystemResult<Result<()>> {
         match self.persistent.drop_namespace(schema_name.as_str())? {
             Ok(()) => Ok(Ok(())),
-            Err(persistent::NamespaceDoesNotExist) => {
-                Ok(Err(Error::SchemaDoesNotExist(schema_name)))
-            }
+            Err(NamespaceDoesNotExist) => Ok(Err(Error::SchemaDoesNotExist(schema_name))),
         }
     }
 
@@ -76,7 +75,7 @@ impl<P: persistent::PersistentStorage> RelationalStorage<P> {
                     vec![(
                         self.key_id_generator.to_be_bytes().to_vec(),
                         column_names
-                            .iter()
+                            .into_iter()
                             .map(|s| s.clone().into_bytes())
                             .collect(),
                     )],
@@ -87,9 +86,9 @@ impl<P: persistent::PersistentStorage> RelationalStorage<P> {
                 self.key_id_generator += 1;
                 Ok(Ok(()))
             }
-            Err(persistent::CreateObjectError::ObjectAlreadyExists) => Ok(Err(
-                Error::TableAlreadyExists(schema_name + "." + table_name.as_str()),
-            )),
+            Err(CreateObjectError::ObjectAlreadyExists) => Ok(Err(Error::TableAlreadyExists(
+                schema_name + "." + table_name.as_str(),
+            ))),
             _ => unimplemented!(),
         }
     }
@@ -114,9 +113,9 @@ impl<P: persistent::PersistentStorage> RelationalStorage<P> {
                 })
                 .next()
                 .unwrap())),
-            Err(persistent::OperationOnObjectError::ObjectDoesNotExist) => Ok(Err(
-                Error::TableDoesNotExist(schema_name + "." + table_name.as_str()),
-            )),
+            Err(OperationOnObjectError::ObjectDoesNotExist) => Ok(Err(Error::TableDoesNotExist(
+                schema_name + "." + table_name.as_str(),
+            ))),
             _ => unimplemented!(),
         }
     }
@@ -139,9 +138,9 @@ impl<P: persistent::PersistentStorage> RelationalStorage<P> {
                     _ => unimplemented!(),
                 }
             }
-            Err(persistent::DropObjectError::ObjectDoesNotExist) => Ok(Err(
-                Error::TableDoesNotExist(schema_name + "." + table_name.as_str()),
-            )),
+            Err(DropObjectError::ObjectDoesNotExist) => Ok(Err(Error::TableDoesNotExist(
+                schema_name + "." + table_name.as_str(),
+            ))),
             _ => unimplemented!(),
         }
     }
@@ -163,9 +162,9 @@ impl<P: persistent::PersistentStorage> RelationalStorage<P> {
             .write(schema_name.as_str(), table_name.as_str(), to_write)?
         {
             Ok(_size) => Ok(Ok(())),
-            Err(persistent::OperationOnObjectError::ObjectDoesNotExist) => Ok(Err(
-                Error::TableDoesNotExist(schema_name + "." + table_name.as_str()),
-            )),
+            Err(OperationOnObjectError::ObjectDoesNotExist) => Ok(Err(Error::TableDoesNotExist(
+                schema_name + "." + table_name.as_str(),
+            ))),
             _ => unimplemented!(),
         }
     }
@@ -206,7 +205,7 @@ impl<P: persistent::PersistentStorage> RelationalStorage<P> {
                                     }
                                 }
                             }
-                            values.iter().map(|(_, value)| value.clone()).collect()
+                            values.into_iter().map(|(_, value)| value.clone()).collect()
                         })
                         .collect(),
                 )))
@@ -237,9 +236,9 @@ impl<P: persistent::PersistentStorage> RelationalStorage<P> {
                     .unwrap();
                 Ok(Ok(len))
             }
-            Err(persistent::OperationOnObjectError::ObjectDoesNotExist) => Ok(Err(
-                Error::TableDoesNotExist(schema_name + "." + table_name.as_str()),
-            )),
+            Err(OperationOnObjectError::ObjectDoesNotExist) => Ok(Err(Error::TableDoesNotExist(
+                schema_name + "." + table_name.as_str(),
+            ))),
             _ => unimplemented!(),
         }
     }
@@ -258,7 +257,7 @@ impl<P: persistent::PersistentStorage> RelationalStorage<P> {
                 .map(persistent::Result::unwrap)
                 .map(|(key, _)| key)
                 .collect(),
-            Err(persistent::OperationOnObjectError::ObjectDoesNotExist) => {
+            Err(OperationOnObjectError::ObjectDoesNotExist) => {
                 return Ok(Err(Error::TableDoesNotExist(
                     schema_name + "." + table_name.as_str(),
                 )))

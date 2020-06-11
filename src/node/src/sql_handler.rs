@@ -1,36 +1,39 @@
-use crate::protocol::connection::{Connection, Field};
-use crate::{storage, SystemError, SystemResult};
-use async_std::io::{Read, Write};
-use async_std::sync::{Arc, Mutex};
+use async_std::{
+    io::{Read, Write},
+    sync::{Arc, Mutex},
+};
+use core::{SystemError, SystemResult};
+use protocol::{
+    connection::{Connection, Field},
+    messages::Message,
+    Command,
+};
 
-use crate::protocol::messages::Message;
-use crate::protocol::Command;
-use crate::storage::relational::Projection;
-use sqlparser::dialect::PostgreSqlDialect;
-use sqlparser::parser::Parser;
+use sqlparser::{dialect::PostgreSqlDialect, parser::Parser};
 use std::ops::Deref;
+use storage::{
+    persistent::PersistentStorage,
+    relational::{Error, Projection, RelationalStorage},
+};
 
-type QueryResult = std::result::Result<QueryEvent, storage::relational::Error>;
+type QueryResult = std::result::Result<QueryEvent, Error>;
 
 pub struct Handler<
     R: Read + Send + Sync + Unpin + 'static,
     W: Write + Send + Sync + Unpin + 'static,
-    P: storage::persistent::PersistentStorage,
+    P: PersistentStorage,
 > {
-    storage: Arc<Mutex<storage::relational::RelationalStorage<P>>>,
+    storage: Arc<Mutex<RelationalStorage<P>>>,
     connection: Connection<R, W>,
 }
 
 impl<
         R: Read + Send + Sync + Unpin + 'static,
         W: Write + Send + Sync + Unpin + 'static,
-        P: storage::persistent::PersistentStorage,
+        P: PersistentStorage,
     > Handler<R, W, P>
 {
-    pub fn new(
-        storage: Arc<Mutex<storage::relational::RelationalStorage<P>>>,
-        connection: Connection<R, W>,
-    ) -> Self {
+    pub fn new(storage: Arc<Mutex<RelationalStorage<P>>>, connection: Connection<R, W>) -> Self {
         Self {
             storage,
             connection,
@@ -225,7 +228,7 @@ impl<
 
     #[allow(clippy::match_wild_err_arm)]
     async fn execute(&mut self, raw_sql_query: String) -> SystemResult<QueryResult> {
-        let statement = Parser::parse_sql(&PostgreSqlDialect {}, raw_sql_query.clone())
+        let statement = Parser::parse_sql(&PostgreSqlDialect {}, raw_sql_query.as_str())
             .unwrap()
             .pop()
             .unwrap();
@@ -239,7 +242,7 @@ impl<
                 match (*self.storage.lock().await).create_table(
                     schema_name,
                     table_name,
-                    columns.iter().map(|c| c.name.to_string()).collect(),
+                    columns.into_iter().map(|c| c.name.to_string()).collect(),
                 )? {
                     Ok(_) => Ok(Ok(QueryEvent::TableCreated)),
                     Err(e) => Ok(Err(e)),
@@ -288,7 +291,7 @@ impl<
                 if let sqlparser::ast::SetExpr::Values(values) = &body {
                     let values = &values.0;
                     let to_insert: Vec<Vec<String>> = values
-                        .iter()
+                        .into_iter()
                         .map(|v| v.iter().map(|v| v.to_string()).collect())
                         .collect();
                     let len = to_insert.len();

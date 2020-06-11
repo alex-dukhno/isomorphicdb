@@ -1,0 +1,13 @@
+[package]
+name = "storage"
+version = "0.1.0"
+authors = ["Alex Dukhno <alex.dukhno@icloud.com>"]
+edition = "2018"
+
+[dependencies]
+core = { path = "../core" }
+thiserror = "1.0.19"
+sled = { version = "0.32.0-rc1", features = ["default"] }
+
+[dev-dependencies]
+backtrace = "0.3.48"
