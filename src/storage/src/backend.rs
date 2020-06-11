@@ -31,7 +31,7 @@ pub enum OperationOnObjectError {
     ObjectDoesNotExist,
 }
 
-pub trait PersistentStorage {
+pub trait BackendStorage {
     type ErrorMapper: StorageErrorMapper;
 
     fn create_namespace(
@@ -120,11 +120,11 @@ impl StorageErrorMapper for SledErrorMapper {
 }
 
 #[derive(Default)]
-pub struct SledPersistentStorage {
+pub struct SledBackendStorage {
     namespaces: HashMap<String, sled::Db>,
 }
 
-impl PersistentStorage for SledPersistentStorage {
+impl BackendStorage for SledBackendStorage {
     type ErrorMapper = SledErrorMapper;
 
     fn create_namespace(
@@ -379,7 +379,7 @@ mod tests {
 
         #[test]
         fn create_namespaces_with_different_names() {
-            let mut storage = SledPersistentStorage::default();
+            let mut storage = SledBackendStorage::default();
 
             assert_eq!(
                 storage
@@ -397,7 +397,7 @@ mod tests {
 
         #[test]
         fn create_namespace_with_existing_name() {
-            let mut storage = SledPersistentStorage::default();
+            let mut storage = SledBackendStorage::default();
 
             storage
                 .create_namespace("namespace")
@@ -414,7 +414,7 @@ mod tests {
 
         #[test]
         fn drop_namespace() {
-            let mut storage = SledPersistentStorage::default();
+            let mut storage = SledBackendStorage::default();
 
             storage
                 .create_namespace("namespace")
@@ -437,7 +437,7 @@ mod tests {
 
         #[test]
         fn drop_namespace_that_was_not_created() {
-            let mut storage = SledPersistentStorage::default();
+            let mut storage = SledBackendStorage::default();
 
             assert_eq!(
                 storage
@@ -449,7 +449,7 @@ mod tests {
 
         #[test]
         fn dropping_namespace_drops_objects_in_it() {
-            let mut storage = SledPersistentStorage::default();
+            let mut storage = SledBackendStorage::default();
 
             storage
                 .create_namespace("namespace")
@@ -497,7 +497,7 @@ mod tests {
 
         #[test]
         fn create_objects_with_different_names() {
-            let mut storage = SledPersistentStorage::default();
+            let mut storage = SledBackendStorage::default();
 
             storage
                 .create_namespace("namespace")
@@ -520,7 +520,7 @@ mod tests {
 
         #[test]
         fn create_object_with_the_same_name() {
-            let mut storage = SledPersistentStorage::default();
+            let mut storage = SledBackendStorage::default();
 
             create_object(&mut storage, "namespace", "object_name");
 
@@ -534,7 +534,7 @@ mod tests {
 
         #[test]
         fn create_object_with_the_same_name_in_different_namespaces() {
-            let mut storage = SledPersistentStorage::default();
+            let mut storage = SledBackendStorage::default();
 
             storage
                 .create_namespace("namespace_1")
@@ -560,7 +560,7 @@ mod tests {
 
         #[test]
         fn create_object_in_not_existent_namespace() {
-            let mut storage = SledPersistentStorage::default();
+            let mut storage = SledBackendStorage::default();
 
             assert_eq!(
                 storage
@@ -577,7 +577,7 @@ mod tests {
 
         #[test]
         fn drop_object() {
-            let mut storage = SledPersistentStorage::default();
+            let mut storage = SledBackendStorage::default();
 
             create_object(&mut storage, "namespace", "object_name");
             assert_eq!(
@@ -596,7 +596,7 @@ mod tests {
 
         #[test]
         fn drop_not_created_object() {
-            let mut storage = SledPersistentStorage::default();
+            let mut storage = SledBackendStorage::default();
 
             storage
                 .create_namespace("namespace")
@@ -612,7 +612,7 @@ mod tests {
 
         #[test]
         fn drop_object_in_not_existent_namespace() {
-            let mut storage = SledPersistentStorage::default();
+            let mut storage = SledBackendStorage::default();
 
             assert_eq!(
                 storage
@@ -629,7 +629,7 @@ mod tests {
 
         #[test]
         fn insert_row_into_object() {
-            let mut storage = SledPersistentStorage::default();
+            let mut storage = SledBackendStorage::default();
 
             create_object(&mut storage, "namespace", "object_name");
             assert_eq!(
@@ -654,7 +654,7 @@ mod tests {
 
         #[test]
         fn insert_many_rows_into_object() {
-            let mut storage = SledPersistentStorage::default();
+            let mut storage = SledBackendStorage::default();
 
             create_object(&mut storage, "namespace", "object_name");
             storage
@@ -685,7 +685,7 @@ mod tests {
 
         #[test]
         fn insert_into_non_existent_object() {
-            let mut storage = SledPersistentStorage::default();
+            let mut storage = SledBackendStorage::default();
 
             storage
                 .create_namespace("namespace")
@@ -705,7 +705,7 @@ mod tests {
 
         #[test]
         fn insert_into_object_in_non_existent_namespace() {
-            let mut storage = SledPersistentStorage::default();
+            let mut storage = SledBackendStorage::default();
 
             assert_eq!(
                 storage
@@ -717,7 +717,7 @@ mod tests {
 
         #[test]
         fn select_from_object_that_does_not_exist() {
-            let mut storage = SledPersistentStorage::default();
+            let mut storage = SledBackendStorage::default();
 
             storage
                 .create_namespace("namespace")
@@ -734,7 +734,7 @@ mod tests {
 
         #[test]
         fn select_from_object_in_not_existent_namespace() {
-            let storage = SledPersistentStorage::default();
+            let storage = SledBackendStorage::default();
 
             assert_eq!(
                 storage
@@ -747,7 +747,7 @@ mod tests {
 
         #[test]
         fn delete_some_records_from_object() {
-            let mut storage = SledPersistentStorage::default();
+            let mut storage = SledBackendStorage::default();
 
             create_object(&mut storage, "namespace", "object_name");
             storage
@@ -781,7 +781,7 @@ mod tests {
 
         #[test]
         fn delete_from_not_existed_object() {
-            let mut storage = SledPersistentStorage::default();
+            let mut storage = SledBackendStorage::default();
 
             storage
                 .create_namespace("namespace")
@@ -798,7 +798,7 @@ mod tests {
 
         #[test]
         fn delete_from_not_existent_namespace() {
-            let mut storage = SledPersistentStorage::default();
+            let mut storage = SledBackendStorage::default();
 
             assert_eq!(
                 storage
@@ -810,7 +810,7 @@ mod tests {
 
         #[test]
         fn select_all_from_object_with_many_columns() {
-            let mut storage = SledPersistentStorage::default();
+            let mut storage = SledBackendStorage::default();
 
             create_object(&mut storage, "namespace", "object_name");
             storage
@@ -833,7 +833,7 @@ mod tests {
 
         #[test]
         fn insert_multiple_rows() {
-            let mut storage = SledPersistentStorage::default();
+            let mut storage = SledBackendStorage::default();
 
             create_object(&mut storage, "namespace", "object_name");
             storage
@@ -864,7 +864,7 @@ mod tests {
         }
     }
 
-    fn create_object(storage: &mut SledPersistentStorage, namespace: &str, object_name: &str) {
+    fn create_object(storage: &mut SledBackendStorage, namespace: &str, object_name: &str) {
         storage
             .create_namespace(namespace)
             .expect("no system errors")

@@ -1175,6 +1175,8 @@ version = "0.1.0"
 dependencies = [
  "async-std",
  "bytes",
+ "core",
+ "storage",
  "tempfile",
 ]
 

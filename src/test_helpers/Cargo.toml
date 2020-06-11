@@ -8,3 +8,5 @@ edition = "2018"
 async-std = { version = "1.6.0", features = ["attributes"] }
 tempfile = "3.1.0"
 bytes = "0.5"
+storage = { path = "../storage" }
+core = { path = "../core" }

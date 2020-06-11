@@ -12,8 +12,8 @@ use protocol::{
 use sqlparser::{dialect::PostgreSqlDialect, parser::Parser};
 use std::ops::Deref;
 use storage::{
-    persistent::PersistentStorage,
-    relational::{Error, Projection, RelationalStorage},
+    backend::BackendStorage,
+    frontend::{Error, FrontendStorage, Projection},
 };
 
 type QueryResult = std::result::Result<QueryEvent, Error>;
@@ -21,19 +21,19 @@ type QueryResult = std::result::Result<QueryEvent, Error>;
 pub struct Handler<
     R: Read + Send + Sync + Unpin + 'static,
     W: Write + Send + Sync + Unpin + 'static,
-    P: PersistentStorage,
+    P: BackendStorage,
 > {
-    storage: Arc<Mutex<RelationalStorage<P>>>,
+    storage: Arc<Mutex<FrontendStorage<P>>>,
     connection: Connection<R, W>,
 }
 
 impl<
         R: Read + Send + Sync + Unpin + 'static,
         W: Write + Send + Sync + Unpin + 'static,
-        P: PersistentStorage,
+        P: BackendStorage,
     > Handler<R, W, P>
 {
-    pub fn new(storage: Arc<Mutex<RelationalStorage<P>>>, connection: Connection<R, W>) -> Self {
+    pub fn new(storage: Arc<Mutex<FrontendStorage<P>>>, connection: Connection<R, W>) -> Self {
         Self {
             storage,
             connection,
@@ -161,7 +161,7 @@ impl<
                         Err(error) => return Err(SystemError::io(error)),
                     }
                 }
-                Err(storage::relational::Error::SchemaAlreadyExists(schema_name)) => {
+                Err(storage::frontend::Error::SchemaAlreadyExists(schema_name)) => {
                     match self
                         .connection
                         .send_command_complete(Message::ErrorResponse(
@@ -175,7 +175,7 @@ impl<
                         Err(error) => return Err(SystemError::io(error)),
                     }
                 }
-                Err(storage::relational::Error::TableAlreadyExists(table_name)) => {
+                Err(storage::frontend::Error::TableAlreadyExists(table_name)) => {
                     match self
                         .connection
                         .send_command_complete(Message::ErrorResponse(
@@ -189,7 +189,7 @@ impl<
                         Err(error) => return Err(SystemError::io(error)),
                     }
                 }
-                Err(storage::relational::Error::NotSupportedOperation(raw_sql_query)) => match self
+                Err(storage::frontend::Error::NotSupportedOperation(raw_sql_query)) => match self
                     .connection
                     .send_command_complete(Message::ErrorResponse(
                         Some("ERROR".to_owned()),
@@ -262,7 +262,7 @@ impl<
                     let schema_name = names[0].0[0].to_string();
                     match (*self.storage.lock().await).drop_table(schema_name, table_name)? {
                         Ok(_) => Ok(Ok(QueryEvent::TableDropped)),
-                        Err(_e) => Ok(Err(storage::relational::Error::NotSupportedOperation(
+                        Err(_e) => Ok(Err(storage::frontend::Error::NotSupportedOperation(
                             raw_sql_query,
                         ))),
                     }
@@ -271,12 +271,12 @@ impl<
                     let schema_name = names[0].0[0].to_string();
                     match (*self.storage.lock().await).drop_schema(schema_name)? {
                         Ok(_) => Ok(Ok(QueryEvent::SchemaDropped)),
-                        Err(_e) => Ok(Err(storage::relational::Error::NotSupportedOperation(
+                        Err(_e) => Ok(Err(storage::frontend::Error::NotSupportedOperation(
                             raw_sql_query,
                         ))),
                     }
                 }
-                _ => Ok(Err(storage::relational::Error::NotSupportedOperation(
+                _ => Ok(Err(storage::frontend::Error::NotSupportedOperation(
                     raw_sql_query,
                 ))),
             },
@@ -297,12 +297,12 @@ impl<
                     let len = to_insert.len();
                     match (*self.storage.lock().await).insert_into(schema_name, name, to_insert)? {
                         Ok(_) => Ok(Ok(QueryEvent::RecordsInserted(len))),
-                        Err(_) => Ok(Err(storage::relational::Error::NotSupportedOperation(
+                        Err(_) => Ok(Err(storage::frontend::Error::NotSupportedOperation(
                             raw_sql_query,
                         ))),
                     }
                 } else {
-                    Ok(Err(storage::relational::Error::NotSupportedOperation(
+                    Ok(Err(storage::frontend::Error::NotSupportedOperation(
                         raw_sql_query,
                     )))
                 }
@@ -321,7 +321,7 @@ impl<
                             (schema_name, table_name)
                         }
                         _ => {
-                            return Ok(Err(storage::relational::Error::NotSupportedOperation(
+                            return Ok(Err(storage::frontend::Error::NotSupportedOperation(
                                 raw_sql_query,
                             )))
                         }
@@ -338,7 +338,7 @@ impl<
                                         Ok(all_columns) => columns.extend(all_columns),
                                         Err(_e) => {
                                             return Ok(Err(
-                                                storage::relational::Error::NotSupportedOperation(
+                                                storage::frontend::Error::NotSupportedOperation(
                                                     raw_sql_query,
                                                 ),
                                             ))
@@ -353,7 +353,7 @@ impl<
                                 ) => columns.push(value.clone()),
                                 _ => {
                                     return Ok(Err(
-                                        storage::relational::Error::NotSupportedOperation(
+                                        storage::frontend::Error::NotSupportedOperation(
                                             raw_sql_query,
                                         ),
                                     ))
@@ -368,12 +368,12 @@ impl<
                         table_columns,
                     )? {
                         Ok(records) => Ok(Ok(QueryEvent::RecordSelected(records))),
-                        _ => Ok(Err(storage::relational::Error::NotSupportedOperation(
+                        _ => Ok(Err(storage::frontend::Error::NotSupportedOperation(
                             raw_sql_query,
                         ))),
                     }
                 } else {
-                    Ok(Err(storage::relational::Error::NotSupportedOperation(
+                    Ok(Err(storage::frontend::Error::NotSupportedOperation(
                         raw_sql_query,
                     )))
                 }
@@ -396,17 +396,17 @@ impl<
                             Ok(records_number) => {
                                 Ok(Ok(QueryEvent::RecordsUpdated(records_number)))
                             }
-                            Err(_) => Ok(Err(storage::relational::Error::NotSupportedOperation(
+                            Err(_) => Ok(Err(storage::frontend::Error::NotSupportedOperation(
                                 raw_sql_query,
                             ))),
                         }
                     } else {
-                        Ok(Err(storage::relational::Error::NotSupportedOperation(
+                        Ok(Err(storage::frontend::Error::NotSupportedOperation(
                             raw_sql_query,
                         )))
                     }
                 } else {
-                    Ok(Err(storage::relational::Error::NotSupportedOperation(
+                    Ok(Err(storage::frontend::Error::NotSupportedOperation(
                         raw_sql_query,
                     )))
                 }
@@ -416,12 +416,12 @@ impl<
                 let table_name = table_name.0[1].to_string();
                 match (*self.storage.lock().await).delete_all_from(schema_name, table_name)? {
                     Ok(records_number) => Ok(Ok(QueryEvent::RecordsDeleted(records_number))),
-                    Err(_) => Ok(Err(storage::relational::Error::NotSupportedOperation(
+                    Err(_) => Ok(Err(storage::frontend::Error::NotSupportedOperation(
                         raw_sql_query,
                     ))),
                 }
             }
-            _ => Ok(Err(storage::relational::Error::NotSupportedOperation(
+            _ => Ok(Err(storage::frontend::Error::NotSupportedOperation(
                 raw_sql_query,
             ))),
         }
@@ -444,14 +444,14 @@ mod tests {
     use super::*;
     use crate::{
         protocol::{channel::Channel, messages::Message, supported_version, Params, SslMode},
-        storage::relational::RelationalStorage,
+        storage::frontend::FrontendStorage,
     };
     use bytes::BytesMut;
-    use test_helpers::{async_io, frontend};
+    use test_helpers::{async_io, pg_frontend};
 
     #[async_std::test]
     async fn create_schema_query() -> SystemResult<()> {
-        let test_case = async_io::TestCase::with_content(vec![frontend::Message::Query(
+        let test_case = async_io::TestCase::with_content(vec![pg_frontend::Message::Query(
             "create schema schema_name;",
         )
         .as_vec()
@@ -484,10 +484,10 @@ mod tests {
     #[async_std::test]
     async fn create_schema_with_the_same_name() -> SystemResult<()> {
         let test_case = async_io::TestCase::with_content(vec![
-            frontend::Message::Query("create schema schema_name;")
+            pg_frontend::Message::Query("create schema schema_name;")
                 .as_vec()
                 .as_slice(),
-            frontend::Message::Query("create schema schema_name;")
+            pg_frontend::Message::Query("create schema schema_name;")
                 .as_vec()
                 .as_slice(),
         ])
@@ -530,13 +530,13 @@ mod tests {
     #[async_std::test]
     async fn drop_schema() -> SystemResult<()> {
         let test_case = async_io::TestCase::with_content(vec![
-            frontend::Message::Query("create schema schema_name;")
+            pg_frontend::Message::Query("create schema schema_name;")
                 .as_vec()
                 .as_slice(),
-            frontend::Message::Query("drop schema schema_name;")
+            pg_frontend::Message::Query("drop schema schema_name;")
                 .as_vec()
                 .as_slice(),
-            frontend::Message::Query("create schema schema_name;")
+            pg_frontend::Message::Query("create schema schema_name;")
                 .as_vec()
                 .as_slice(),
         ])
@@ -582,12 +582,14 @@ mod tests {
     #[async_std::test]
     async fn create_table() -> SystemResult<()> {
         let test_case = async_io::TestCase::with_content(vec![
-            frontend::Message::Query("create schema schema_name;")
+            pg_frontend::Message::Query("create schema schema_name;")
                 .as_vec()
                 .as_slice(),
-            frontend::Message::Query("create table schema_name.table_name (column_name smallint);")
-                .as_vec()
-                .as_slice(),
+            pg_frontend::Message::Query(
+                "create table schema_name.table_name (column_name smallint);",
+            )
+            .as_vec()
+            .as_slice(),
         ])
         .await;
         let mut handler = Handler::new(
@@ -624,18 +626,22 @@ mod tests {
     #[async_std::test]
     async fn drop_table() -> SystemResult<()> {
         let test_case = async_io::TestCase::with_content(vec![
-            frontend::Message::Query("create schema schema_name;")
+            pg_frontend::Message::Query("create schema schema_name;")
                 .as_vec()
                 .as_slice(),
-            frontend::Message::Query("create table schema_name.table_name (column_name smallint);")
+            pg_frontend::Message::Query(
+                "create table schema_name.table_name (column_name smallint);",
+            )
+            .as_vec()
+            .as_slice(),
+            pg_frontend::Message::Query("drop table schema_name.table_name;")
                 .as_vec()
                 .as_slice(),
-            frontend::Message::Query("drop table schema_name.table_name;")
-                .as_vec()
-                .as_slice(),
-            frontend::Message::Query("create table schema_name.table_name (column_name smallint);")
-                .as_vec()
-                .as_slice(),
+            pg_frontend::Message::Query(
+                "create table schema_name.table_name (column_name smallint);",
+            )
+            .as_vec()
+            .as_slice(),
         ])
         .await;
         let mut handler = Handler::new(
@@ -686,16 +692,18 @@ mod tests {
     #[async_std::test]
     async fn insert_and_select_single_row() -> SystemResult<()> {
         let test_case = async_io::TestCase::with_content(vec![
-            frontend::Message::Query("create schema schema_name;")
+            pg_frontend::Message::Query("create schema schema_name;")
                 .as_vec()
                 .as_slice(),
-            frontend::Message::Query("create table schema_name.table_name (column_test smallint);")
+            pg_frontend::Message::Query(
+                "create table schema_name.table_name (column_test smallint);",
+            )
+            .as_vec()
+            .as_slice(),
+            pg_frontend::Message::Query("insert into schema_name.table_name values (123);")
                 .as_vec()
                 .as_slice(),
-            frontend::Message::Query("insert into schema_name.table_name values (123);")
-                .as_vec()
-                .as_slice(),
-            frontend::Message::Query("select * from schema_name.table_name;")
+            pg_frontend::Message::Query("select * from schema_name.table_name;")
                 .as_vec()
                 .as_slice(),
         ])
@@ -755,22 +763,24 @@ mod tests {
     #[async_std::test]
     async fn insert_and_select_multiple_rows() -> SystemResult<()> {
         let test_case = async_io::TestCase::with_content(vec![
-            frontend::Message::Query("create schema schema_name;")
+            pg_frontend::Message::Query("create schema schema_name;")
                 .as_vec()
                 .as_slice(),
-            frontend::Message::Query("create table schema_name.table_name (column_test smallint);")
+            pg_frontend::Message::Query(
+                "create table schema_name.table_name (column_test smallint);",
+            )
+            .as_vec()
+            .as_slice(),
+            pg_frontend::Message::Query("insert into schema_name.table_name values (123);")
                 .as_vec()
                 .as_slice(),
-            frontend::Message::Query("insert into schema_name.table_name values (123);")
+            pg_frontend::Message::Query("select * from schema_name.table_name;")
                 .as_vec()
                 .as_slice(),
-            frontend::Message::Query("select * from schema_name.table_name;")
+            pg_frontend::Message::Query("insert into schema_name.table_name values (456);")
                 .as_vec()
                 .as_slice(),
-            frontend::Message::Query("insert into schema_name.table_name values (456);")
-                .as_vec()
-                .as_slice(),
-            frontend::Message::Query("select * from schema_name.table_name;")
+            pg_frontend::Message::Query("select * from schema_name.table_name;")
                 .as_vec()
                 .as_slice(),
         ])
@@ -852,25 +862,27 @@ mod tests {
     #[async_std::test]
     async fn update_all_records() -> SystemResult<()> {
         let test_case = async_io::TestCase::with_content(vec![
-            frontend::Message::Query("create schema schema_name;")
+            pg_frontend::Message::Query("create schema schema_name;")
                 .as_vec()
                 .as_slice(),
-            frontend::Message::Query("create table schema_name.table_name (column_test smallint);")
+            pg_frontend::Message::Query(
+                "create table schema_name.table_name (column_test smallint);",
+            )
+            .as_vec()
+            .as_slice(),
+            pg_frontend::Message::Query("insert into schema_name.table_name values (123);")
                 .as_vec()
                 .as_slice(),
-            frontend::Message::Query("insert into schema_name.table_name values (123);")
+            pg_frontend::Message::Query("insert into schema_name.table_name values (456);")
                 .as_vec()
                 .as_slice(),
-            frontend::Message::Query("insert into schema_name.table_name values (456);")
+            pg_frontend::Message::Query("select * from schema_name.table_name;")
                 .as_vec()
                 .as_slice(),
-            frontend::Message::Query("select * from schema_name.table_name;")
+            pg_frontend::Message::Query("update schema_name.table_name set column_test=789;")
                 .as_vec()
                 .as_slice(),
-            frontend::Message::Query("update schema_name.table_name set column_test=789;")
-                .as_vec()
-                .as_slice(),
-            frontend::Message::Query("select * from schema_name.table_name;")
+            pg_frontend::Message::Query("select * from schema_name.table_name;")
                 .as_vec()
                 .as_slice(),
         ])
@@ -962,25 +974,27 @@ mod tests {
     #[async_std::test]
     async fn delete_all_records() -> SystemResult<()> {
         let test_case = async_io::TestCase::with_content(vec![
-            frontend::Message::Query("create schema schema_name;")
+            pg_frontend::Message::Query("create schema schema_name;")
                 .as_vec()
                 .as_slice(),
-            frontend::Message::Query("create table schema_name.table_name (column_test smallint);")
+            pg_frontend::Message::Query(
+                "create table schema_name.table_name (column_test smallint);",
+            )
+            .as_vec()
+            .as_slice(),
+            pg_frontend::Message::Query("insert into schema_name.table_name values (123);")
                 .as_vec()
                 .as_slice(),
-            frontend::Message::Query("insert into schema_name.table_name values (123);")
+            pg_frontend::Message::Query("insert into schema_name.table_name values (456);")
                 .as_vec()
                 .as_slice(),
-            frontend::Message::Query("insert into schema_name.table_name values (456);")
+            pg_frontend::Message::Query("select * from schema_name.table_name;")
                 .as_vec()
                 .as_slice(),
-            frontend::Message::Query("select * from schema_name.table_name;")
+            pg_frontend::Message::Query("delete from schema_name.table_name;")
                 .as_vec()
                 .as_slice(),
-            frontend::Message::Query("delete from schema_name.table_name;")
-                .as_vec()
-                .as_slice(),
-            frontend::Message::Query("select * from schema_name.table_name;")
+            pg_frontend::Message::Query("select * from schema_name.table_name;")
                 .as_vec()
                 .as_slice(),
         ])
@@ -1068,16 +1082,16 @@ mod tests {
     #[async_std::test]
     async fn select_all_from_table_with_multiple_columns() -> SystemResult<()> {
         let test_case = async_io::TestCase::with_content(vec![
-            frontend::Message::Query("create schema schema_name;")
+            pg_frontend::Message::Query("create schema schema_name;")
                 .as_vec()
                 .as_slice(),
-            frontend::Message::Query("create table schema_name.table_name (column_1 smallint, column_2 smallint, column_3 smallint);")
+            pg_frontend::Message::Query("create table schema_name.table_name (column_1 smallint, column_2 smallint, column_3 smallint);")
                 .as_vec()
                 .as_slice(),
-            frontend::Message::Query("insert into schema_name.table_name values (123, 456, 789);")
+            pg_frontend::Message::Query("insert into schema_name.table_name values (123, 456, 789);")
                 .as_vec()
                 .as_slice(),
-            frontend::Message::Query("select * from schema_name.table_name;")
+            pg_frontend::Message::Query("select * from schema_name.table_name;")
                 .as_vec()
                 .as_slice(),
         ])
@@ -1145,18 +1159,18 @@ mod tests {
     #[async_std::test]
     async fn insert_multiple_rows() -> SystemResult<()> {
         let test_case = async_io::TestCase::with_content(vec![
-            frontend::Message::Query("create schema schema_name;")
+            pg_frontend::Message::Query("create schema schema_name;")
                 .as_vec()
                 .as_slice(),
-            frontend::Message::Query("create table schema_name.table_name (column_1 smallint, column_2 smallint, column_3 smallint);")
+            pg_frontend::Message::Query("create table schema_name.table_name (column_1 smallint, column_2 smallint, column_3 smallint);")
                 .as_vec()
                 .as_slice(),
-            frontend::Message::Query(
+            pg_frontend::Message::Query(
                 "insert into schema_name.table_name values (1, 4, 7), (2, 5, 8), (3, 6, 9);",
             )
             .as_vec()
             .as_slice(),
-            frontend::Message::Query("select * from schema_name.table_name;")
+            pg_frontend::Message::Query("select * from schema_name.table_name;")
                 .as_vec()
                 .as_slice(),
         ])
@@ -1234,18 +1248,18 @@ mod tests {
     #[async_std::test]
     async fn select_not_all_columns() -> SystemResult<()> {
         let test_case = async_io::TestCase::with_content(vec![
-            frontend::Message::Query("create schema schema_name;")
+            pg_frontend::Message::Query("create schema schema_name;")
                 .as_vec()
                 .as_slice(),
-            frontend::Message::Query("create table schema_name.table_name (column_1 smallint, column_2 smallint, column_3 smallint);")
+            pg_frontend::Message::Query("create table schema_name.table_name (column_1 smallint, column_2 smallint, column_3 smallint);")
                 .as_vec()
                 .as_slice(),
-            frontend::Message::Query(
+            pg_frontend::Message::Query(
                 "insert into schema_name.table_name values (1, 4, 7), (2, 5, 8), (3, 6, 9);",
             )
             .as_vec()
             .as_slice(),
-            frontend::Message::Query("select column_3, column_2 from schema_name.table_name;")
+            pg_frontend::Message::Query("select column_3, column_2 from schema_name.table_name;")
                 .as_vec()
                 .as_slice(),
         ])
@@ -1319,11 +1333,11 @@ mod tests {
         Ok(())
     }
 
-    use crate::storage::in_memory_for_tests_only::InMemoryStorage;
+    use test_helpers::in_memory_backend_storage::InMemoryStorage;
 
-    fn in_memory_storage() -> Arc<Mutex<RelationalStorage<InMemoryStorage>>> {
+    fn in_memory_storage() -> Arc<Mutex<FrontendStorage<InMemoryStorage>>> {
         Arc::new(Mutex::new(
-            RelationalStorage::new(InMemoryStorage::default()).unwrap(),
+            FrontendStorage::new(InMemoryStorage::default()).unwrap(),
         ))
     }
 }

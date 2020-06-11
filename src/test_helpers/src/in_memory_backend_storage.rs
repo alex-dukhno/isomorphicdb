@@ -1,9 +1,9 @@
-use crate::persistent::{
-    CreateObjectError, DropObjectError, Key, NamespaceAlreadyExists, NamespaceDoesNotExist,
-    OperationOnObjectError, PersistentStorage, ReadCursor, Result, Row, Values,
-};
 use core::{SystemError, SystemResult};
 use std::collections::HashMap;
+use storage::backend::{
+    BackendStorage, CreateObjectError, DropObjectError, Key, NamespaceAlreadyExists,
+    NamespaceDoesNotExist, OperationOnObjectError, ReadCursor, Result, Row, Values,
+};
 
 #[derive(Default, Debug)]
 struct StorageObject {
@@ -20,8 +20,8 @@ pub struct InMemoryStorage {
     namespaces: HashMap<String, Namespace>,
 }
 
-impl PersistentStorage for InMemoryStorage {
-    type ErrorMapper = crate::persistent::SledErrorMapper;
+impl BackendStorage for InMemoryStorage {
+    type ErrorMapper = storage::backend::SledErrorMapper;
 
     fn create_namespace(
         &mut self,
