@@ -90,12 +90,12 @@ impl StorageErrorMapper for SledErrorMapper {
         match error {
             sled::Error::CollectionNotFound(system_file) => {
                 crate::SystemError::unrecoverable(format!(
-                    "System file {} can't be found",
+                    "System file [{}] can't be found",
                     String::from_utf8(system_file.to_vec()).expect("name of system file")
                 ))
             }
             sled::Error::Unsupported(operation) => crate::SystemError::unrecoverable(format!(
-                "Unsupported operation {} was used on Sled",
+                "Unsupported operation [{}] was used on Sled",
                 operation
             )),
             sled::Error::Corruption { at, bt: cause } => {
@@ -307,7 +307,7 @@ mod tests {
         fn collection_not_found() {
             assert_eq!(
                 SledErrorMapper::map(sled::Error::CollectionNotFound(sled::IVec::from("test"))),
-                crate::SystemError::unrecoverable("System file test can't be found".to_owned())
+                crate::SystemError::unrecoverable("System file [test] can't be found".to_owned())
             )
         }
 
@@ -316,7 +316,7 @@ mod tests {
             assert_eq!(
                 SledErrorMapper::map(sled::Error::Unsupported("NOT_SUPPORTED".to_owned())),
                 crate::SystemError::unrecoverable(
-                    "Unsupported operation NOT_SUPPORTED was used on Sled".to_owned()
+                    "Unsupported operation [NOT_SUPPORTED] was used on Sled".to_owned()
                 )
             )
         }
@@ -401,6 +401,7 @@ mod tests {
 
             storage
                 .create_namespace("namespace")
+                .expect("no system errors")
                 .expect("namespace created");
 
             assert_eq!(
@@ -417,18 +418,19 @@ mod tests {
 
             storage
                 .create_namespace("namespace")
+                .expect("no system errors")
                 .expect("namespace created");
 
             assert_eq!(
                 storage
                     .drop_namespace("namespace")
-                    .expect("namespace dropped"),
+                    .expect("no system errors"),
                 Ok(())
             );
             assert_eq!(
                 storage
                     .create_namespace("namespace")
-                    .expect("namespace created"),
+                    .expect("no system errors"),
                 Ok(())
             );
         }
@@ -661,14 +663,16 @@ mod tests {
                     "object_name",
                     as_rows(vec![(1u8, vec!["123"])]),
                 )
-                .expect("no system errors");
+                .expect("no system errors")
+                .expect("values are written");
             storage
                 .write(
                     "namespace",
                     "object_name",
                     as_rows(vec![(2u8, vec!["456"])]),
                 )
-                .expect("no system errors");
+                .expect("no system errors")
+                .expect("values are written");
 
             assert_eq!(
                 storage
@@ -730,7 +734,7 @@ mod tests {
 
         #[test]
         fn select_from_object_in_not_existent_namespace() {
-            let mut storage = SledPersistentStorage::default();
+            let storage = SledPersistentStorage::default();
 
             assert_eq!(
                 storage

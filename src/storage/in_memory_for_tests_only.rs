@@ -5,12 +5,12 @@ use crate::storage::persistent::{
 use crate::SystemResult;
 use std::collections::HashMap;
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 struct StorageObject {
     records: Vec<(Key, Values)>,
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 struct Namespace {
     pub objects: HashMap<String, StorageObject>,
 }
@@ -183,6 +183,7 @@ mod tests {
 
             storage
                 .create_namespace("namespace")
+                .expect("no system errors")
                 .expect("namespace created");
 
             assert_eq!(
@@ -199,6 +200,7 @@ mod tests {
 
             storage
                 .create_namespace("namespace")
+                .expect("no system errors")
                 .expect("namespace created");
 
             assert_eq!(
@@ -443,14 +445,16 @@ mod tests {
                     "object_name",
                     as_rows(vec![(1u8, vec!["123"])]),
                 )
-                .expect("no system errors");
+                .expect("no system errors")
+                .expect("values are written");
             storage
                 .write(
                     "namespace",
                     "object_name",
                     as_rows(vec![(2u8, vec!["456"])]),
                 )
-                .expect("no system errors");
+                .expect("no system errors")
+                .expect("values are written");
 
             assert_eq!(
                 storage
@@ -512,7 +516,7 @@ mod tests {
 
         #[test]
         fn select_from_object_in_not_existent_namespace() {
-            let mut storage = InMemoryStorage::default();
+            let storage = InMemoryStorage::default();
 
             assert_eq!(
                 storage

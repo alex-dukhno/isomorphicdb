@@ -1,47 +1,43 @@
-use crate::protocol::{messages::Message, Result};
-use async_std::io::{self, prelude::*};
+use crate::protocol::messages::Message;
 use byteorder::{ByteOrder, NetworkEndian};
 use bytes::BytesMut;
+use futures::io::{self, AsyncReadExt, AsyncWriteExt};
 
 #[derive(Debug)]
 pub struct Channel<
-    R: Read + Send + Sync + Unpin + 'static,
-    W: Write + Send + Sync + Unpin + 'static,
+    R: AsyncReadExt + Send + Sync + Unpin + 'static,
+    W: AsyncWriteExt + Send + Sync + Unpin + 'static,
 > {
     reader: R,
     writer: W,
 }
 
-impl<R: Read + Send + Sync + Unpin + 'static, W: Write + Send + Sync + Unpin + 'static>
-    Channel<R, W>
+impl<
+        R: AsyncReadExt + Send + Sync + Unpin + 'static,
+        W: AsyncWriteExt + Send + Sync + Unpin + 'static,
+    > Channel<R, W>
 {
     pub fn new(reader: R, writer: W) -> Self {
         Self { reader, writer }
     }
 
-    pub async fn read_tag(&mut self) -> io::Result<Result<u8>> {
+    pub async fn read_tag(&mut self) -> io::Result<u8> {
         let mut buffer = [0u8; 1];
-        self.reader
-            .read_exact(&mut buffer)
-            .await
-            .map(|_| Ok(buffer[0]))
+        self.reader.read_exact(&mut buffer).await.map(|_| buffer[0])
     }
 
-    pub async fn read_message_len(&mut self) -> io::Result<Result<u32>> {
+    pub async fn read_message_len(&mut self) -> io::Result<u32> {
         let mut buffer = [0u8; 4];
         self.reader
             .read_exact(&mut buffer)
             .await
-            .map(|_| Ok(NetworkEndian::read_u32(&buffer)))
+            .map(|_| NetworkEndian::read_u32(&buffer))
     }
 
-    pub async fn receive_message(&mut self, len: u32) -> io::Result<Result<BytesMut>> {
+    pub async fn receive_message(&mut self, len: u32) -> io::Result<BytesMut> {
         let mut buffer = BytesMut::with_capacity(len as usize - 4);
-        buffer.extend((0..(len as usize - 4)).map(|b| b as u8));
-        self.reader
-            .read_exact(&mut buffer)
-            .await
-            .map(|_| Ok(buffer))
+        buffer.resize(len as usize - 4, b'0');
+        self.reader.read_exact(&mut buffer).await.map(|_| buffer)
     }
 
     pub async fn send_message(&mut self, message: Message) -> io::Result<()> {
@@ -72,21 +68,19 @@ mod tests {
 
         let tag = channel.read_tag().await?;
 
-        assert_eq!(tag, Ok(8));
+        assert_eq!(tag, 8);
 
         Ok(())
     }
 
     #[async_std::test]
-    async fn read_length_from_emty_stream() -> io::Result<()> {
+    async fn read_length_from_empty_stream() {
         let test_case = async_io::TestCase::empty().await;
         let mut channel = Channel::new(test_case.clone(), test_case.clone());
 
         let len = channel.read_message_len().await;
 
         assert!(len.is_err());
-
-        Ok(())
     }
 
     #[async_std::test]
@@ -96,7 +90,7 @@ mod tests {
 
         let len = channel.read_message_len().await?;
 
-        assert_eq!(len, Ok(8 * 256));
+        assert_eq!(len, 8 * 256);
 
         Ok(())
     }
@@ -107,28 +101,20 @@ mod tests {
         let test_case = async_io::TestCase::with_content(vec![full_message.as_slice()]).await;
         let mut channel = Channel::new(test_case.clone(), test_case.clone());
 
-        let len = channel
-            .read_message_len()
-            .await?
-            .expect("to read message length");
-
+        let len = channel.read_message_len().await?;
         let message = channel.receive_message(len).await?;
 
-        assert_eq!(message, Ok(BytesMut::from(&full_message[4..])));
+        assert_eq!(message, BytesMut::from(&full_message[4..]));
 
         Ok(())
     }
 
     #[async_std::test]
-    async fn read_message_from_emty_stream() -> io::Result<()> {
+    async fn read_message_from_empty_stream() -> io::Result<()> {
         let test_case = async_io::TestCase::with_content(vec![&[0, 0, 8, 0]]).await;
         let mut channel = Channel::new(test_case.clone(), test_case.clone());
 
-        let len = channel
-            .read_message_len()
-            .await?
-            .expect("to read message length");
-
+        let len = channel.read_message_len().await?;
         let message = channel.receive_message(len).await;
 
         assert!(message.is_err());

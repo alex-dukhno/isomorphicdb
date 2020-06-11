@@ -1,20 +1,21 @@
-use async_std::io::{self, prelude::*};
-
 use crate::protocol::{
-    channel::Channel, messages::Message, Command, Params, Result, SslMode, Version,
+    channel::Channel, messages::Message, Command, Error, Params, Result, SslMode, Version,
 };
+use futures::io::{self, AsyncRead, AsyncWrite};
 
 #[derive(Debug)]
 pub struct Connection<
-    R: Read + Send + Sync + Unpin + 'static,
-    W: Write + Send + Sync + Unpin + 'static,
+    R: AsyncRead + Send + Sync + Unpin + 'static,
+    W: AsyncWrite + Send + Sync + Unpin + 'static,
 > {
     properties: (Version, Params, SslMode),
     channel: Channel<R, W>,
 }
 
-impl<R: Read + Send + Sync + Unpin + 'static, W: Write + Send + Sync + Unpin + 'static>
-    Connection<R, W>
+impl<
+        R: AsyncRead + Send + Sync + Unpin + 'static,
+        W: AsyncWrite + Send + Sync + Unpin + 'static,
+    > Connection<R, W>
 {
     pub fn new(properties: (Version, Params, SslMode), channel: Channel<R, W>) -> Self {
         Self {
@@ -27,30 +28,26 @@ impl<R: Read + Send + Sync + Unpin + 'static, W: Write + Send + Sync + Unpin + '
         &(self.properties)
     }
 
-    pub async fn send_ready_for_query(&mut self) -> io::Result<()> {
+    pub async fn send_ready_for_query(&mut self) -> io::Result<Result<()>> {
         trace!("send ready for query message");
         self.channel.send_message(Message::ReadyForQuery).await?;
-        Ok(())
+        Ok(Ok(()))
     }
 
     pub async fn read_query(&mut self) -> io::Result<Result<Command>> {
         let tag = self.channel.read_tag().await?;
-        if let Ok(b'X') = tag {
+        if b'X' == tag {
             Ok(Ok(Command::Terminate))
         } else {
-            match self.channel.read_message_len().await? {
-                Err(e) => Ok(Err(e)),
-                Ok(len) => match self.channel.receive_message(len).await? {
-                    Err(e) => Ok(Err(e)),
-                    Ok(sql_buff) => {
-                        debug!("FOR TEST sql = {:?}", sql_buff);
-                        let sql =
-                            String::from_utf8(sql_buff[..sql_buff.len() - 1].to_vec()).unwrap();
-                        trace!("SQL = {}", sql);
-                        Ok(Ok(Command::Query(sql)))
-                    }
-                },
-            }
+            let len = self.channel.read_message_len().await?;
+            let sql_buff = self.channel.receive_message(len).await?;
+            debug!("FOR TEST sql = {:?}", sql_buff);
+            let sql = match String::from_utf8(sql_buff[..sql_buff.len() - 1].to_vec()) {
+                Ok(sql) => sql,
+                Err(_e) => return Ok(Err(Error)),
+            };
+            trace!("SQL = {}", sql);
+            Ok(Ok(Command::Query(sql)))
         }
     }
 
@@ -79,8 +76,10 @@ impl<R: Read + Send + Sync + Unpin + 'static, W: Write + Send + Sync + Unpin + '
     }
 }
 
-impl<R: Read + Send + Sync + Unpin + 'static, W: Write + Send + Sync + Unpin + 'static> PartialEq
-    for Connection<R, W>
+impl<
+        R: AsyncRead + Send + Sync + Unpin + 'static,
+        W: AsyncWrite + Send + Sync + Unpin + 'static,
+    > PartialEq for Connection<R, W>
 {
     fn eq(&self, other: &Self) -> bool {
         self.properties().eq(other.properties())
@@ -121,7 +120,7 @@ mod tests {
 
         let ready_for_query = connection.send_ready_for_query().await?;
 
-        assert_eq!(ready_for_query, ());
+        assert_eq!(ready_for_query, Ok(()));
 
         let actual_content = test_case.read_result().await;
         let mut expected_content = BytesMut::new();
@@ -168,7 +167,7 @@ mod tests {
         }
 
         #[async_std::test]
-        async fn unexpected_eof_when_read_type_code_of_query_request() -> io::Result<()> {
+        async fn unexpected_eof_when_read_type_code_of_query_request() {
             let test_case = async_io::TestCase::with_content(vec![]).await;
             let mut connection = Connection::new(
                 (supported_version(), Params(vec![]), SslMode::Disable),
@@ -178,12 +177,10 @@ mod tests {
             let query = connection.read_query().await;
 
             assert!(query.is_err());
-
-            Ok(())
         }
 
         #[async_std::test]
-        async fn unexpected_eof_when_read_length_of_query() -> io::Result<()> {
+        async fn unexpected_eof_when_read_length_of_query() {
             let test_case = async_io::TestCase::with_content(vec![&[81]]).await;
             let mut connection = Connection::new(
                 (supported_version(), Params(vec![]), SslMode::Disable),
@@ -193,12 +190,10 @@ mod tests {
             let query = connection.read_query().await;
 
             assert!(query.is_err());
-
-            Ok(())
         }
 
         #[async_std::test]
-        async fn unexpected_eof_when_query_string() -> io::Result<()> {
+        async fn unexpected_eof_when_query_string() {
             let test_case =
                 async_io::TestCase::with_content(vec![&[81], &[0, 0, 0, 14], b"sel;\0"]).await;
             let mut connection = Connection::new(
@@ -209,8 +204,6 @@ mod tests {
             let query = connection.read_query().await;
 
             assert!(query.is_err());
-
-            Ok(())
         }
     }
 
