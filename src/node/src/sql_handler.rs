@@ -291,7 +291,7 @@ impl<
                 if let sqlparser::ast::SetExpr::Values(values) = &body {
                     let values = &values.0;
                     let to_insert: Vec<Vec<String>> = values
-                        .into_iter()
+                        .iter()
                         .map(|v| v.iter().map(|v| v.to_string()).collect())
                         .collect();
                     let len = to_insert.len();

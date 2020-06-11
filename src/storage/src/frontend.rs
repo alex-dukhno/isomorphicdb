@@ -74,10 +74,7 @@ impl<P: BackendStorage> FrontendStorage<P> {
                     (schema_name + "." + table_name.as_str()).as_str(),
                     vec![(
                         self.key_id_generator.to_be_bytes().to_vec(),
-                        column_names
-                            .into_iter()
-                            .map(|s| s.clone().into_bytes())
-                            .collect(),
+                        column_names.into_iter().map(|s| s.into_bytes()).collect(),
                     )],
                 )? {
                     Ok(_written) => {}
@@ -205,7 +202,7 @@ impl<P: BackendStorage> FrontendStorage<P> {
                                     }
                                 }
                             }
-                            values.into_iter().map(|(_, value)| value.clone()).collect()
+                            values.into_iter().map(|(_, value)| value).collect()
                         })
                         .collect(),
                 )))
