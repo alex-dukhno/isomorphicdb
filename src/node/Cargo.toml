@@ -14,11 +14,11 @@ path = "src/bin.rs"
 [dependencies]
 async-std = { version = "1.6.0", features = ["attributes"] }
 core = { path = "../core" }
+sql_engine = { path = "../sql_engine" }
 storage = { path = "../storage" }
 protocol = { path = "../protocol" }
 log = "0.4.8"
 pretty_env_logger = "0.4.0"
-sqlparser = { git = "https://github.com/andygrove/sqlparser-rs.git" }
 
 [dev-dependencies]
 bytes = "0.5"

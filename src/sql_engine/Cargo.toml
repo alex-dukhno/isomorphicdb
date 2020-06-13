@@ -1,13 +1,13 @@
 [package]
-name = "protocol"
+name = "sql_engine"
 version = "0.1.0"
 authors = ["Alex Dukhno <alex.dukhno@icloud.com>"]
 edition = "2018"
 
 [dependencies]
 log = "0.4.8"
-byteorder = "1.0"
+core = { path = "../core" }
+storage = { path = "../storage" }
+sqlparser = { git = "https://github.com/andygrove/sqlparser-rs.git" }
 bytes = "0.5"
-
-[dev-dependencies]
 test_helpers = { path = "../test_helpers" }

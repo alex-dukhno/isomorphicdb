@@ -3,6 +3,7 @@ members = [
     "src/core",
     "src/node",
     "src/protocol",
+    "src/sql_engine",
     "src/storage",
     "src/test_helpers"
 ]
