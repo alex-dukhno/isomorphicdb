@@ -6,6 +6,7 @@ edition = "2018"
 
 [dependencies]
 async-std = { version = "1.6.0", features = ["attributes"] }
+#futures = "0.3.5"
 tempfile = "3.1.0"
 bytes = "0.5"
 storage = { path = "../storage" }

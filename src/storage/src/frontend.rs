@@ -65,7 +65,7 @@ impl<P: BackendStorage> FrontendStorage<P> {
                 )? {
                     Ok(()) => {}
                     e => {
-                        eprintln!("{:?}", e);
+                        debug!("{:?}", e);
                         unimplemented!();
                     }
                 }

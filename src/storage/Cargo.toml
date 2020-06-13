@@ -7,6 +7,7 @@ edition = "2018"
 [dependencies]
 core = { path = "../core" }
 thiserror = "1.0.19"
+log = "0.4.8"
 sled = { version = "0.32.0-rc1", features = ["default"] }
 
 [dev-dependencies]
