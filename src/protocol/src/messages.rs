@@ -25,6 +25,7 @@ const AUTHENTICATION: u8 = b'R';
 const ROW_DESCRIPTION: u8 = b'T';
 const READY_FOR_QUERY: u8 = b'Z';
 
+#[derive(Debug)]
 pub enum Message {
     Notice,
     AuthenticationCleartextPassword,

@@ -1,40 +1,42 @@
 use crate::{messages::Message, supported_version, Command, Error, Params, Result, Version};
 use byteorder::{ByteOrder, NetworkEndian};
 use bytes::{Buf, BytesMut};
-use std::{
-    io::{self, Read, Write},
-    net::{TcpListener, TcpStream, ToSocketAddrs},
-};
+use futures::io::{self, AsyncReadExt, AsyncWriteExt};
+use smol::Async;
+use std::net::{TcpListener, TcpStream};
 
 pub struct QueryListener {
-    listener: TcpListener,
+    listener: Async<TcpListener>,
 }
 
 impl QueryListener {
-    pub fn bind<A: ToSocketAddrs>(addr: A) -> io::Result<QueryListener> {
-        let listener = TcpListener::bind(addr)?;
+    pub async fn bind<A: ToString>(addr: A) -> io::Result<QueryListener> {
+        let listener = Async::<TcpListener>::bind(addr)?;
         Ok(QueryListener::new(listener))
     }
 
-    fn new(listener: TcpListener) -> QueryListener {
+    fn new(listener: Async<TcpListener>) -> QueryListener {
         QueryListener { listener }
     }
 
-    pub fn accept(&self) -> io::Result<Result<Connection<TcpStream>>> {
-        let (socket, address) = self.listener.accept()?;
-        debug!("ADDRESS {:?}", address);
-        hand_shake(socket)
+    pub async fn accept(&self) -> io::Result<Result<Connection<Async<TcpStream>>>> {
+        let (socket, address) = self.listener.accept().await?;
+        log::debug!("ADDRESS {:?}", address);
+        hand_shake(socket).await
     }
 }
 
-fn hand_shake<RW: Read + Write>(mut socket: RW) -> io::Result<Result<Connection<RW>>> {
+async fn hand_shake<RW: AsyncReadExt + AsyncWriteExt + Unpin>(
+    mut socket: RW,
+) -> io::Result<Result<Connection<RW>>> {
     let mut buffer = [0u8; 4];
     let len = socket
         .read_exact(&mut buffer)
+        .await
         .map(|_| NetworkEndian::read_u32(&buffer))?;
     let mut buffer = BytesMut::with_capacity(len as usize - 4);
     buffer.resize(len as usize - 4, b'0');
-    let mut message = socket.read_exact(&mut buffer).map(|_| buffer)?;
+    let mut message = socket.read_exact(&mut buffer).await.map(|_| buffer)?;
     let version = NetworkEndian::read_i32(message.bytes());
     message.advance(4);
     let state: State = if version == supported_version() {
@@ -51,7 +53,7 @@ fn hand_shake<RW: Read + Write>(mut socket: RW) -> io::Result<Result<Connection<
             i += 2;
         }
         message.advance(message.remaining());
-        debug!("Version {}\nparams = {:?}", version, params);
+        log::debug!("Version {}\nparams = {:?}", version, params);
         State::Completed(version, params, SslMode::Disable)
     } else {
         State::InProgress(SslMode::Require)
@@ -59,14 +61,17 @@ fn hand_shake<RW: Read + Write>(mut socket: RW) -> io::Result<Result<Connection<
 
     match state {
         State::InProgress(ssl_mode) => {
-            socket.write_all(Message::Notice.as_vec().as_slice())?;
+            socket
+                .write_all(Message::Notice.as_vec().as_slice())
+                .await?;
             let mut buffer = [0u8; 4];
             let len = socket
                 .read_exact(&mut buffer)
+                .await
                 .map(|_| NetworkEndian::read_u32(&buffer))?;
             let mut buffer = BytesMut::with_capacity(len as usize - 4);
             buffer.resize(len as usize - 4, b'0');
-            let mut message = socket.read_exact(&mut buffer).map(|_| buffer)?;
+            let mut message = socket.read_exact(&mut buffer).await.map(|_| buffer)?;
             let version = NetworkEndian::read_i32(message.bytes());
             message.advance(4);
             let parsed = message
@@ -82,35 +87,41 @@ fn hand_shake<RW: Read + Write>(mut socket: RW) -> io::Result<Result<Connection<
                 i += 2;
             }
             message.advance(message.remaining());
-            socket.write_all(Message::AuthenticationCleartextPassword.as_vec().as_slice())?;
+            socket
+                .write_all(Message::AuthenticationCleartextPassword.as_vec().as_slice())
+                .await?;
             let mut buffer = [0u8; 1];
-            let tag = socket.read_exact(&mut buffer).map(|_| buffer[0]);
-            debug!("client message response tag {:?}", tag);
-            debug!("waiting for authentication response");
+            let tag = socket.read_exact(&mut buffer).await.map(|_| buffer[0]);
+            log::debug!("client message response tag {:?}", tag);
+            log::debug!("waiting for authentication response");
             let mut buffer = [0u8; 4];
             let len = socket
                 .read_exact(&mut buffer)
+                .await
                 .map(|_| NetworkEndian::read_u32(&buffer))?;
-            debug!("len = {:?}", len);
             let mut buffer = BytesMut::with_capacity(len as usize - 4);
             buffer.resize(len as usize - 4, b'0');
-            let _message = socket.read_exact(&mut buffer).map(|_| buffer)?;
-            socket.write_all(Message::AuthenticationOk.as_vec().as_slice())?;
+            let _message = socket.read_exact(&mut buffer).await.map(|_| buffer)?;
+            socket
+                .write_all(Message::AuthenticationOk.as_vec().as_slice())
+                .await?;
             Ok(Ok(Connection::new((version, params, ssl_mode), socket)))
         }
         State::Completed(version, params, ssl_mode) => {
-            socket.write_all(Message::AuthenticationOk.as_vec().as_slice())?;
+            socket
+                .write_all(Message::AuthenticationOk.as_vec().as_slice())
+                .await?;
             Ok(Ok(Connection::new((version, params, ssl_mode), socket)))
         }
     }
 }
 
-pub struct Connection<RW: Read + Write> {
+pub struct Connection<RW: AsyncReadExt + AsyncWriteExt + Unpin> {
     properties: (Version, Params, SslMode),
     socket: RW,
 }
 
-impl<RW: Read + Write> Connection<RW> {
+impl<RW: AsyncReadExt + AsyncWriteExt + Unpin> Connection<RW> {
     pub fn new(properties: (Version, Params, SslMode), socket: RW) -> Connection<RW> {
         Connection { properties, socket }
     }
@@ -119,20 +130,24 @@ impl<RW: Read + Write> Connection<RW> {
         &(self.properties)
     }
 
-    pub fn send_ready_for_query(&mut self) -> io::Result<Result<()>> {
-        debug!("send ready for query message");
+    pub async fn send_ready_for_query(&mut self) -> io::Result<Result<()>> {
+        log::debug!("send ready for query message");
         self.socket
-            .write_all(Message::ReadyForQuery.as_vec().as_slice())?;
+            .write_all(Message::ReadyForQuery.as_vec().as_slice())
+            .await?;
         Ok(Ok(()))
     }
 
-    pub fn read_query(&mut self) -> io::Result<Result<Command>> {
-        match self.send_ready_for_query()? {
-            Ok(()) => {}
-            Err(_) => return Ok(Ok(Command::Terminate)),
-        }
+    pub async fn read_query(&mut self) -> io::Result<Result<Command>> {
+        self.send_ready_for_query()
+            .await?
+            .expect("to send ready for query");
         let mut buffer = [0u8; 1];
-        let tag = self.socket.read_exact(&mut buffer).map(|_| buffer[0])?;
+        let tag = self
+            .socket
+            .read_exact(&mut buffer)
+            .await
+            .map(|_| buffer[0])?;
         if b'X' == tag {
             Ok(Ok(Command::Terminate))
         } else {
@@ -140,49 +155,54 @@ impl<RW: Read + Write> Connection<RW> {
             let len = self
                 .socket
                 .read_exact(&mut buffer)
+                .await
                 .map(|_| NetworkEndian::read_u32(&buffer))?;
             let mut buffer = BytesMut::with_capacity(len as usize - 4);
             buffer.resize(len as usize - 4, b'0');
-            let sql_buff = self.socket.read_exact(&mut buffer).map(|_| buffer)?;
-            debug!("FOR TEST sql = {:?}", sql_buff);
+            let sql_buff = self.socket.read_exact(&mut buffer).await.map(|_| buffer)?;
+            log::debug!("FOR TEST sql = {:?}", sql_buff);
             let sql = match String::from_utf8(sql_buff[..sql_buff.len() - 1].to_vec()) {
                 Ok(sql) => sql,
                 Err(_e) => return Ok(Err(Error)),
             };
-            debug!("SQL = {}", sql);
+            log::debug!("SQL = {}", sql);
             Ok(Ok(Command::Query(sql)))
         }
     }
 
-    pub fn send_row_description(&mut self, fields: Vec<Field>) -> io::Result<()> {
-        self.socket.write_all(
-            Message::RowDescription(
-                fields
-                    .into_iter()
-                    .map(|f| (f.name, f.type_id, f.type_size))
-                    .collect(),
-            )
-            .as_vec()
-            .as_slice(),
-        )?;
-        debug!("row description is sent");
-        Ok(())
-    }
-
-    pub fn send_row_data(&mut self, row: Vec<String>) -> io::Result<()> {
+    pub async fn send_row_description(&mut self, fields: Vec<Field>) -> io::Result<()> {
         self.socket
-            .write_all(Message::DataRow(row).as_vec().as_slice())?;
+            .write_all(
+                Message::RowDescription(
+                    fields
+                        .into_iter()
+                        .map(|f| (f.name, f.type_id, f.type_size))
+                        .collect(),
+                )
+                .as_vec()
+                .as_slice(),
+            )
+            .await?;
+        log::debug!("row description is sent");
         Ok(())
     }
 
-    pub fn send_command_complete(&mut self, message: Message) -> io::Result<()> {
-        self.socket.write_all(message.as_vec().as_slice())?;
-        debug!("end of the command is sent");
+    pub async fn send_row_data(&mut self, row: Vec<String>) -> io::Result<()> {
+        self.socket
+            .write_all(Message::DataRow(row).as_vec().as_slice())
+            .await?;
+        Ok(())
+    }
+
+    pub async fn send_command_complete(&mut self, message: Message) -> io::Result<()> {
+        log::debug!("{:?}", message);
+        self.socket.write_all(message.as_vec().as_slice()).await?;
+        log::debug!("end of the command is sent");
         Ok(())
     }
 }
 
-impl<RW: Read + Write> PartialEq for Connection<RW> {
+impl<RW: AsyncReadExt + AsyncWriteExt + Unpin> PartialEq for Connection<RW> {
     fn eq(&self, other: &Self) -> bool {
         self.properties().eq(other.properties())
     }
@@ -220,17 +240,17 @@ enum State {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use test_helpers::{pg_frontend, sync_io};
+    use test_helpers::{async_io, pg_frontend};
 
     #[cfg(test)]
     mod hand_shake {
         use super::*;
 
-        #[test]
-        fn trying_read_from_empty_stream() {
-            let (test_case, _) = sync_io::TestCase::with_content(vec![]);
+        #[async_std::test]
+        async fn trying_read_from_empty_stream() {
+            let test_case = async_io::TestCase::with_content(vec![]).await;
 
-            let error = hand_shake(test_case);
+            let error = hand_shake(test_case).await;
 
             assert!(error.is_err());
         }
@@ -240,18 +260,18 @@ mod tests {
             use super::*;
             use crate::VERSION_3;
 
-            #[test]
-            fn trying_read_setup_message() {
-                let (test_case, _) = sync_io::TestCase::with_content(vec![&[0, 0, 0, 57]]);
+            #[async_std::test]
+            async fn trying_read_setup_message() {
+                let test_case = async_io::TestCase::with_content(vec![&[0, 0, 0, 57]]).await;
 
-                let error = hand_shake(test_case);
+                let error = hand_shake(test_case).await;
 
                 assert!(error.is_err());
             }
 
-            #[test]
-            fn successful_connection_handshake() -> io::Result<()> {
-                let (test_case, mut test_result) = sync_io::TestCase::with_content(vec![
+            #[async_std::test]
+            async fn successful_connection_handshake() -> io::Result<()> {
+                let test_case = async_io::TestCase::with_content(vec![
                     pg_frontend::Message::SslDisabled.as_vec().as_slice(),
                     pg_frontend::Message::Setup(vec![
                         ("client_encoding", "UTF8"),
@@ -260,9 +280,12 @@ mod tests {
                     ])
                     .as_vec()
                     .as_slice(),
-                ]);
+                ])
+                .await;
 
-                let connection = hand_shake(test_case)?.expect("connection is open");
+                let connection = hand_shake(test_case.clone())
+                    .await?
+                    .expect("connection is open");
 
                 assert_eq!(
                     connection.properties(),
@@ -277,7 +300,7 @@ mod tests {
                     )
                 );
 
-                let actual_content = test_result.read_result();
+                let actual_content = test_case.read_result().await;
                 let mut expected_content = BytesMut::new();
                 expected_content.extend_from_slice(Message::AuthenticationOk.as_vec().as_slice());
 
@@ -291,36 +314,37 @@ mod tests {
         mod psql_client {
             use super::*;
 
-            #[test]
-            fn trying_read_only_length_of_ssl_message() {
-                let (test_case, _) = sync_io::TestCase::with_content(vec![&[0, 0, 0, 8]]);
+            #[async_std::test]
+            async fn trying_read_only_length_of_ssl_message() {
+                let test_case = async_io::TestCase::with_content(vec![&[0, 0, 0, 8]]).await;
 
-                let error = hand_shake(test_case);
+                let error = hand_shake(test_case).await;
 
                 assert!(error.is_err());
             }
 
-            #[test]
-            fn sending_notice_after_reading_ssl_message() {
-                let (test_case, mut test_result) =
-                    sync_io::TestCase::with_content(vec![pg_frontend::Message::SslRequired
+            #[async_std::test]
+            async fn sending_notice_after_reading_ssl_message() {
+                let test_case =
+                    async_io::TestCase::with_content(vec![pg_frontend::Message::SslRequired
                         .as_vec()
-                        .as_slice()]);
+                        .as_slice()])
+                    .await;
 
-                let error = hand_shake(test_case);
+                let error = hand_shake(test_case.clone()).await;
 
                 assert!(error.is_err());
 
-                let actual_content = test_result.read_result();
+                let actual_content = test_case.read_result().await;
                 let mut expected_content = BytesMut::new();
                 expected_content.extend_from_slice(Message::Notice.as_vec().as_slice());
 
                 assert_eq!(actual_content, expected_content);
             }
 
-            #[test]
-            fn successful_connection_handshake() -> io::Result<()> {
-                let (test_case, mut test_result) = sync_io::TestCase::with_content(vec![
+            #[async_std::test]
+            async fn successful_connection_handshake() -> io::Result<()> {
+                let test_case = async_io::TestCase::with_content(vec![
                     pg_frontend::Message::SslRequired.as_vec().as_slice(),
                     pg_frontend::Message::Setup(vec![
                         ("user", "username"),
@@ -331,13 +355,14 @@ mod tests {
                     .as_vec()
                     .as_slice(),
                     pg_frontend::Message::Password("123").as_vec().as_slice(),
-                ]);
+                ])
+                .await;
 
-                let connection = hand_shake(test_case)?;
+                let connection = hand_shake(test_case.clone()).await?;
 
                 assert!(connection.is_ok());
 
-                let actual_content = test_result.read_result();
+                let actual_content = test_case.read_result().await;
                 let mut expected_content = BytesMut::new();
                 expected_content.extend_from_slice(Message::Notice.as_vec().as_slice());
                 expected_content.extend_from_slice(
@@ -356,17 +381,19 @@ mod tests {
     mod connection {
         use super::*;
 
-        #[test]
-        fn send_ready_for_query() -> io::Result<()> {
-            let (test_case, mut test_result) = sync_io::TestCase::empty();
-            let mut connection =
-                Connection::new((supported_version(), vec![], SslMode::Disable), test_case);
+        #[async_std::test]
+        async fn send_ready_for_query() -> io::Result<()> {
+            let test_case = async_io::TestCase::empty().await;
+            let mut connection = Connection::new(
+                (supported_version(), vec![], SslMode::Disable),
+                test_case.clone(),
+            );
 
-            let ready_for_query = connection.send_ready_for_query()?;
+            let ready_for_query = connection.send_ready_for_query().await?;
 
             assert_eq!(ready_for_query, Ok(()));
 
-            let actual_content = test_result.read_result();
+            let actual_content = test_case.read_result().await;
             let mut expected_content = BytesMut::new();
             expected_content.extend_from_slice(Message::ReadyForQuery.as_vec().as_slice());
 
@@ -379,73 +406,76 @@ mod tests {
         mod read_query {
             use super::*;
 
-            #[test]
-            fn read_termination_command() -> io::Result<()> {
-                let (test_case, _) = sync_io::TestCase::with_content(vec![&[88], &[0, 0, 0, 4]]);
+            #[async_std::test]
+            async fn read_termination_command() -> io::Result<()> {
+                let test_case = async_io::TestCase::with_content(vec![&[88], &[0, 0, 0, 4]]).await;
                 let mut connection =
                     Connection::new((supported_version(), vec![], SslMode::Disable), test_case);
 
-                let query = connection.read_query()?;
+                let query = connection.read_query().await?;
 
                 assert_eq!(query, Ok(Command::Terminate));
 
                 Ok(())
             }
 
-            #[test]
-            fn read_query_successfully() -> io::Result<()> {
-                let (test_case, _) =
-                    sync_io::TestCase::with_content(vec![&[81], &[0, 0, 0, 14], b"select 1;\0"]);
+            #[async_std::test]
+            async fn read_query_successfully() -> io::Result<()> {
+                let test_case =
+                    async_io::TestCase::with_content(vec![&[81], &[0, 0, 0, 14], b"select 1;\0"])
+                        .await;
                 let mut connection =
                     Connection::new((supported_version(), vec![], SslMode::Disable), test_case);
 
-                let query = connection.read_query()?;
+                let query = connection.read_query().await?;
 
                 assert_eq!(query, Ok(Command::Query("select 1;".to_owned())));
 
                 Ok(())
             }
 
-            #[test]
-            fn unexpected_eof_when_read_type_code_of_query_request() {
-                let (test_case, _) = sync_io::TestCase::with_content(vec![]);
+            #[async_std::test]
+            async fn unexpected_eof_when_read_type_code_of_query_request() {
+                let test_case = async_io::TestCase::with_content(vec![]).await;
                 let mut connection =
                     Connection::new((supported_version(), vec![], SslMode::Disable), test_case);
 
-                let query = connection.read_query();
+                let query = connection.read_query().await;
 
                 assert!(query.is_err());
             }
 
-            #[test]
-            fn unexpected_eof_when_read_length_of_query() {
-                let (test_case, _) = sync_io::TestCase::with_content(vec![&[81]]);
+            #[async_std::test]
+            async fn unexpected_eof_when_read_length_of_query() {
+                let test_case = async_io::TestCase::with_content(vec![&[81]]).await;
                 let mut connection =
                     Connection::new((supported_version(), vec![], SslMode::Disable), test_case);
 
-                let query = connection.read_query();
+                let query = connection.read_query().await;
 
                 assert!(query.is_err());
             }
 
-            #[test]
-            fn unexpected_eof_when_query_string() {
-                let (test_case, _) =
-                    sync_io::TestCase::with_content(vec![&[81], &[0, 0, 0, 14], b"sel;\0"]);
+            #[async_std::test]
+            async fn unexpected_eof_when_query_string() {
+                let test_case =
+                    async_io::TestCase::with_content(vec![&[81], &[0, 0, 0, 14], b"sel;\0"]).await;
                 let mut connection =
                     Connection::new((supported_version(), vec![], SslMode::Disable), test_case);
 
-                let query = connection.read_query();
+                let query = connection.read_query().await;
 
                 assert!(query.is_err());
             }
         }
 
-        #[test]
-        fn send_field_description_query() -> io::Result<()> {
-            let (test_case, mut test_result) = sync_io::TestCase::empty();
-            let mut connection =
-                Connection::new((supported_version(), vec![], SslMode::Disable), test_case);
+        #[async_std::test]
+        async fn send_field_description_query() -> io::Result<()> {
+            let test_case = async_io::TestCase::empty().await;
+            let mut connection = Connection::new(
+                (supported_version(), vec![], SslMode::Disable),
+                test_case.clone(),
+            );
             let fields = vec![
                 Field::new(
                     "c1".to_owned(),
@@ -455,9 +485,9 @@ mod tests {
                 Field::new("c2".to_owned(), 23, 4),
             ];
 
-            connection.send_row_description(fields.clone())?;
+            connection.send_row_description(fields.clone()).await?;
 
-            let actual_content = test_result.read_result();
+            let actual_content = test_case.read_result().await;
             let mut expected_content = BytesMut::new();
             expected_content.extend_from_slice(
                 Message::RowDescription(
@@ -475,11 +505,13 @@ mod tests {
             Ok(())
         }
 
-        #[test]
-        fn send_rows_data() -> io::Result<()> {
-            let (test_case, mut test_result) = sync_io::TestCase::empty();
-            let mut connection =
-                Connection::new((supported_version(), vec![], SslMode::Disable), test_case);
+        #[async_std::test]
+        async fn send_rows_data() -> io::Result<()> {
+            let test_case = async_io::TestCase::empty().await;
+            let mut connection = Connection::new(
+                (supported_version(), vec![], SslMode::Disable),
+                test_case.clone(),
+            );
 
             let rows = vec![
                 vec!["1".to_owned(), "2".to_owned()],
@@ -487,10 +519,10 @@ mod tests {
                 vec!["5".to_owned(), "6".to_owned()],
             ];
             for row in rows.iter() {
-                connection.send_row_data(row.clone())?;
+                connection.send_row_data(row.clone()).await?;
             }
 
-            let actual_content = test_result.read_result();
+            let actual_content = test_case.read_result().await;
             let mut expected_content = BytesMut::new();
             for row in rows {
                 expected_content.extend_from_slice(Message::DataRow(row).as_vec().as_slice());
@@ -501,14 +533,18 @@ mod tests {
             Ok(())
         }
 
-        #[test]
-        fn send_command_complete() -> io::Result<()> {
-            let (test_case, mut test_result) = sync_io::TestCase::empty();
-            let mut connection =
-                Connection::new((supported_version(), vec![], SslMode::Disable), test_case);
-            connection.send_command_complete(Message::CommandComplete("SELECT".to_owned()))?;
+        #[async_std::test]
+        async fn send_command_complete() -> io::Result<()> {
+            let test_case = async_io::TestCase::empty().await;
+            let mut connection = Connection::new(
+                (supported_version(), vec![], SslMode::Disable),
+                test_case.clone(),
+            );
+            connection
+                .send_command_complete(Message::CommandComplete("SELECT".to_owned()))
+                .await?;
 
-            let actual_content = test_result.read_result();
+            let actual_content = test_case.read_result().await;
             let mut expected_content = BytesMut::new();
             expected_content.extend_from_slice(
                 Message::CommandComplete("SELECT".to_owned())

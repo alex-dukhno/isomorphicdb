@@ -1,5 +1,4 @@
 use node::node::{Node, CREATED, RUNNING};
-use postgres::error::Error;
 use postgres::{Client, NoTls};
 use std::sync::Arc;
 use std::thread;
@@ -16,27 +15,36 @@ fn start_server(node: Arc<Node>) -> thread::JoinHandle<()> {
     handler
 }
 
-fn stop_server_workaround(client: &mut Client) -> Result<(), Error> {
+fn stop_server_workaround(client: &mut Client) {
     let _result = client.simple_query("TERMINATE");
-    Client::connect("host=localhost user=postgres password=pass", NoTls)?;
-
-    Ok(())
+    match Client::connect("host=localhost user=postgres password=pass", NoTls) {
+        Ok(_) => {}
+        Err(_) => {}
+    }
 }
 
 #[test]
-fn create_simple_database() -> Result<(), Error> {
+fn create_simple_database() {
     let node = Arc::new(Node::default());
 
     let handler = start_server(node.clone());
 
-    let mut client = Client::connect("host=localhost user=postgres password=pass", NoTls)?;
+    let mut client = Client::connect("host=localhost user=postgres password=pass", NoTls)
+        .expect("to connect to server");
 
-    client.simple_query("create schema SMOKE_QUERIES;")?;
-    client.simple_query("create table SMOKE_QUERIES.VALIDATION_TABLE (column_test smallint);")?;
+    client
+        .simple_query("create schema SMOKE_QUERIES;")
+        .expect("to create schema");
+    client
+        .simple_query("create table SMOKE_QUERIES.VALIDATION_TABLE (column_test smallint);")
+        .expect("to create table");
 
-    client.simple_query("insert into SMOKE_QUERIES.VALIDATION_TABLE values (1);")?;
-    let selected =
-        client.simple_query("select column_test from SMOKE_QUERIES.VALIDATION_TABLE;")?;
+    client
+        .simple_query("insert into SMOKE_QUERIES.VALIDATION_TABLE values (1);")
+        .expect("to insert value");
+    let selected = client
+        .simple_query("select column_test from SMOKE_QUERIES.VALIDATION_TABLE;")
+        .expect("to select value");
     assert_eq!(selected.len(), 1 + 1);
     if let Some(postgres::SimpleQueryMessage::Row(row)) = selected.iter().next() {
         assert_eq!(row.get("column_test"), Some("1"));
@@ -46,9 +54,12 @@ fn create_simple_database() -> Result<(), Error> {
         );
     }
 
-    client.simple_query("update SMOKE_QUERIES.VALIDATION_TABLE set column_test = 2;")?;
-    let selected =
-        client.simple_query("select column_test from SMOKE_QUERIES.VALIDATION_TABLE;")?;
+    client
+        .simple_query("update SMOKE_QUERIES.VALIDATION_TABLE set column_test = 2;")
+        .expect("to update value");
+    let selected = client
+        .simple_query("select column_test from SMOKE_QUERIES.VALIDATION_TABLE;")
+        .expect("to select value");
     assert_eq!(selected.len(), 1 + 1);
     if let Some(postgres::SimpleQueryMessage::Row(row)) = selected.iter().next() {
         assert_eq!(row.get("column_test"), Some("2"));
@@ -58,48 +69,60 @@ fn create_simple_database() -> Result<(), Error> {
         );
     }
 
-    client.simple_query("delete from SMOKE_QUERIES.VALIDATION_TABLE;")?;
-    let selected =
-        client.simple_query("select column_test from SMOKE_QUERIES.VALIDATION_TABLE;")?;
+    client
+        .simple_query("delete from SMOKE_QUERIES.VALIDATION_TABLE;")
+        .expect("to delete value");
+    let selected = client
+        .simple_query("select column_test from SMOKE_QUERIES.VALIDATION_TABLE;")
+        .expect("to select value");
     assert_eq!(selected.len(), 0 + 1);
     if let Some(postgres::SimpleQueryMessage::Row(_row)) = selected.iter().next() {
         panic!("no records has to be retrieved by 'select column_test from SMOKE_QUERIES.VALIDATION_TABLE;'");
     }
 
-    client.simple_query("drop table SMOKE_QUERIES.VALIDATION_TABLE;")?;
-    client.simple_query("drop schema SMOKE_QUERIES;")?;
+    client
+        .simple_query("drop table SMOKE_QUERIES.VALIDATION_TABLE;")
+        .expect("to drop table");
+    client
+        .simple_query("drop schema SMOKE_QUERIES;")
+        .expect("to drop schema");
 
     node.stop();
     while node.state() == RUNNING {
         println!("STOPPING!!!!");
     }
 
-    stop_server_workaround(&mut client)?;
+    stop_server_workaround(&mut client);
 
     drop(client);
 
     drop(node);
 
     handler.join().unwrap();
-
-    Ok(())
 }
 
 #[test]
-fn create_table_with_three_columns() -> Result<(), Error> {
+fn create_table_with_three_columns() {
     let node = Arc::new(Node::default());
 
     let handler = start_server(node.clone());
 
-    let mut client = Client::connect("host=localhost user=postgres password=pass", NoTls)?;
+    let mut client = Client::connect("host=localhost user=postgres password=pass", NoTls)
+        .expect("to connect to server");
 
-    client.simple_query("create schema SMOKE_QUERIES;")?;
-    client.simple_query("create table SMOKE_QUERIES.VALIDATION_TABLE (column_1 smallint, column_2 smallint, column_3 smallint);")?;
+    client
+        .simple_query("create schema SMOKE_QUERIES;")
+        .expect("to create schema");
+    client.simple_query("create table SMOKE_QUERIES.VALIDATION_TABLE (column_1 smallint, column_2 smallint, column_3 smallint);")
+        .expect("to create table");
 
-    client.simple_query("insert into SMOKE_QUERIES.VALIDATION_TABLE values (1, 2, 3);")?;
+    client
+        .simple_query("insert into SMOKE_QUERIES.VALIDATION_TABLE values (1, 2, 3);")
+        .expect("to insert values");
 
     let selected = client
-        .simple_query("select column_1, column_2, column_3 from SMOKE_QUERIES.VALIDATION_TABLE;")?;
+        .simple_query("select column_1, column_2, column_3 from SMOKE_QUERIES.VALIDATION_TABLE;")
+        .expect("to select values");
 
     assert_eq!(selected.len(), 1 + 1);
     if let Some(postgres::SimpleQueryMessage::Row(row)) = selected.iter().next() {
@@ -111,10 +134,12 @@ fn create_table_with_three_columns() -> Result<(), Error> {
     }
 
     client
-        .simple_query("insert into SMOKE_QUERIES.VALIDATION_TABLE values (4, 5, 6), (7, 8, 9);")?;
+        .simple_query("insert into SMOKE_QUERIES.VALIDATION_TABLE values (4, 5, 6), (7, 8, 9);")
+        .expect("to insert values");
 
     let selected = client
-        .simple_query("select column_1, column_2, column_3 from SMOKE_QUERIES.VALIDATION_TABLE;")?;
+        .simple_query("select column_1, column_2, column_3 from SMOKE_QUERIES.VALIDATION_TABLE;")
+        .expect("to select values");
 
     assert_eq!(selected.len(), 3 + 1);
 
@@ -144,8 +169,9 @@ fn create_table_with_three_columns() -> Result<(), Error> {
         panic!("expected more records were retrieved by 'select column_1, column_2, column_3 from SMOKE_QUERIES.VALIDATION_TABLE;'");
     }
 
-    let selected =
-        client.simple_query("select column_1, column_3 from SMOKE_QUERIES.VALIDATION_TABLE;")?;
+    let selected = client
+        .simple_query("select column_1, column_3 from SMOKE_QUERIES.VALIDATION_TABLE;")
+        .expect("to select values");
 
     assert_eq!(selected.len(), 3 + 1);
 
@@ -172,8 +198,9 @@ fn create_table_with_three_columns() -> Result<(), Error> {
         panic!("expected more records were retrieved by 'select column_1, column_3 from SMOKE_QUERIES.VALIDATION_TABLE;'");
     }
 
-    let selected =
-        client.simple_query("select column_1, column_2 from SMOKE_QUERIES.VALIDATION_TABLE;")?;
+    let selected = client
+        .simple_query("select column_1, column_2 from SMOKE_QUERIES.VALIDATION_TABLE;")
+        .expect("to select values");
 
     assert_eq!(selected.len(), 3 + 1);
 
@@ -200,8 +227,9 @@ fn create_table_with_three_columns() -> Result<(), Error> {
         panic!("expected more records were retrieved by 'select column_1, column_2, column_3 from SMOKE_QUERIES.VALIDATION_TABLE;'");
     }
 
-    let selected =
-        client.simple_query("select column_2, column_3 from SMOKE_QUERIES.VALIDATION_TABLE;")?;
+    let selected = client
+        .simple_query("select column_2, column_3 from SMOKE_QUERIES.VALIDATION_TABLE;")
+        .expect("to select values");
 
     assert_eq!(selected.len(), 3 + 1);
 
@@ -228,7 +256,9 @@ fn create_table_with_three_columns() -> Result<(), Error> {
         panic!("expected more records were retrieved by 'select column_2, column_3 from SMOKE_QUERIES.VALIDATION_TABLE;'");
     }
 
-    let selected = client.simple_query("select * from SMOKE_QUERIES.VALIDATION_TABLE;")?;
+    let selected = client
+        .simple_query("select * from SMOKE_QUERIES.VALIDATION_TABLE;")
+        .expect("to select values");
 
     assert_eq!(selected.len(), 3 + 1);
 
@@ -259,7 +289,8 @@ fn create_table_with_three_columns() -> Result<(), Error> {
     }
 
     let selected = client
-        .simple_query("select column_3, column_1, column_2 from SMOKE_QUERIES.VALIDATION_TABLE;")?;
+        .simple_query("select column_3, column_1, column_2 from SMOKE_QUERIES.VALIDATION_TABLE;")
+        .expect("to select values");
 
     assert_eq!(selected.len(), 3 + 1);
 
@@ -290,7 +321,8 @@ fn create_table_with_three_columns() -> Result<(), Error> {
     }
 
     let selected = client
-        .simple_query("select column_3, column_2, column_1 from SMOKE_QUERIES.VALIDATION_TABLE;")?;
+        .simple_query("select column_3, column_2, column_1 from SMOKE_QUERIES.VALIDATION_TABLE;")
+        .expect("to select values");
 
     assert_eq!(selected.len(), 3 + 1);
 
@@ -321,7 +353,8 @@ fn create_table_with_three_columns() -> Result<(), Error> {
     }
 
     let selected = client
-        .simple_query("select column_3, column_2, column_3, column_1, column_2 from SMOKE_QUERIES.VALIDATION_TABLE;")?;
+        .simple_query("select column_3, column_2, column_3, column_1, column_2 from SMOKE_QUERIES.VALIDATION_TABLE;")
+        .expect("to select values");
 
     assert_eq!(selected.len(), 3 + 1);
 
@@ -362,13 +395,11 @@ fn create_table_with_three_columns() -> Result<(), Error> {
         println!("STOPPING!!!!");
     }
 
-    stop_server_workaround(&mut client)?;
+    stop_server_workaround(&mut client);
 
     drop(client);
 
     drop(node);
 
     handler.join().unwrap();
-
-    Ok(())
 }

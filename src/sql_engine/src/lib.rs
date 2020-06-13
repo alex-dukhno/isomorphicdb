@@ -1,4 +1,3 @@
-#[macro_use]
 extern crate log;
 
 use core::SystemResult;
@@ -27,11 +26,11 @@ impl<P: BackendStorage> Handler<P> {
         let statement = match Parser::parse_sql(&PostgreSqlDialect {}, raw_sql_query) {
             Ok(mut statements) => statements.pop().unwrap(),
             Err(_) => {
-                eprintln!("TERMINATION");
+                log::debug!("TERMINATION");
                 return Ok(Ok(QueryEvent::Terminate));
             }
         };
-        debug!("STATEMENT = {:?}", statement);
+        log::debug!("STATEMENT = {:?}", statement);
         match statement {
             sqlparser::ast::Statement::CreateTable {
                 mut name, columns, ..

@@ -656,6 +656,7 @@ dependencies = [
  "postgres",
  "pretty_env_logger",
  "protocol",
+ "smol",
  "sql_engine",
  "storage",
  "test_helpers",
@@ -865,9 +866,12 @@ dependencies = [
 name = "protocol"
 version = "0.1.0"
 dependencies = [
+ "async-std",
  "byteorder",
  "bytes",
+ "futures",
  "log",
+ "smol",
  "test_helpers",
 ]
 
