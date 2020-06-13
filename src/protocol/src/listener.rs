@@ -228,7 +228,7 @@ mod tests {
 
         #[test]
         fn trying_read_from_empty_stream() {
-            let (mut test_case, mut test_result) = sync_io::TestCase::with_content(vec![]);
+            let (test_case, _) = sync_io::TestCase::with_content(vec![]);
 
             let error = hand_shake(test_case);
 
@@ -242,8 +242,7 @@ mod tests {
 
             #[test]
             fn trying_read_setup_message() {
-                let (mut test_case, mut test_result) =
-                    sync_io::TestCase::with_content(vec![&[0, 0, 0, 57]]);
+                let (test_case, _) = sync_io::TestCase::with_content(vec![&[0, 0, 0, 57]]);
 
                 let error = hand_shake(test_case);
 
@@ -252,7 +251,7 @@ mod tests {
 
             #[test]
             fn successful_connection_handshake() -> io::Result<()> {
-                let (mut test_case, mut test_result) = sync_io::TestCase::with_content(vec![
+                let (test_case, mut test_result) = sync_io::TestCase::with_content(vec![
                     pg_frontend::Message::SslDisabled.as_vec().as_slice(),
                     pg_frontend::Message::Setup(vec![
                         ("client_encoding", "UTF8"),
@@ -294,8 +293,7 @@ mod tests {
 
             #[test]
             fn trying_read_only_length_of_ssl_message() {
-                let (mut test_case, mut test_result) =
-                    sync_io::TestCase::with_content(vec![&[0, 0, 0, 8]]);
+                let (test_case, _) = sync_io::TestCase::with_content(vec![&[0, 0, 0, 8]]);
 
                 let error = hand_shake(test_case);
 
@@ -304,7 +302,7 @@ mod tests {
 
             #[test]
             fn sending_notice_after_reading_ssl_message() {
-                let (mut test_case, mut test_result) =
+                let (test_case, mut test_result) =
                     sync_io::TestCase::with_content(vec![pg_frontend::Message::SslRequired
                         .as_vec()
                         .as_slice()]);
@@ -322,7 +320,7 @@ mod tests {
 
             #[test]
             fn successful_connection_handshake() -> io::Result<()> {
-                let (mut test_case, mut test_result) = sync_io::TestCase::with_content(vec![
+                let (test_case, mut test_result) = sync_io::TestCase::with_content(vec![
                     pg_frontend::Message::SslRequired.as_vec().as_slice(),
                     pg_frontend::Message::Setup(vec![
                         ("user", "username"),
@@ -360,7 +358,7 @@ mod tests {
 
         #[test]
         fn send_ready_for_query() -> io::Result<()> {
-            let (mut test_case, mut test_result) = sync_io::TestCase::empty();
+            let (test_case, mut test_result) = sync_io::TestCase::empty();
             let mut connection =
                 Connection::new((supported_version(), vec![], SslMode::Disable), test_case);
 
@@ -383,8 +381,7 @@ mod tests {
 
             #[test]
             fn read_termination_command() -> io::Result<()> {
-                let (mut test_case, mut test_result) =
-                    sync_io::TestCase::with_content(vec![&[88], &[0, 0, 0, 4]]);
+                let (test_case, _) = sync_io::TestCase::with_content(vec![&[88], &[0, 0, 0, 4]]);
                 let mut connection =
                     Connection::new((supported_version(), vec![], SslMode::Disable), test_case);
 
@@ -397,7 +394,7 @@ mod tests {
 
             #[test]
             fn read_query_successfully() -> io::Result<()> {
-                let (mut test_case, mut test_result) =
+                let (test_case, _) =
                     sync_io::TestCase::with_content(vec![&[81], &[0, 0, 0, 14], b"select 1;\0"]);
                 let mut connection =
                     Connection::new((supported_version(), vec![], SslMode::Disable), test_case);
@@ -411,7 +408,7 @@ mod tests {
 
             #[test]
             fn unexpected_eof_when_read_type_code_of_query_request() {
-                let (mut test_case, mut test_result) = sync_io::TestCase::with_content(vec![]);
+                let (test_case, _) = sync_io::TestCase::with_content(vec![]);
                 let mut connection =
                     Connection::new((supported_version(), vec![], SslMode::Disable), test_case);
 
@@ -422,7 +419,7 @@ mod tests {
 
             #[test]
             fn unexpected_eof_when_read_length_of_query() {
-                let (mut test_case, mut test_result) = sync_io::TestCase::with_content(vec![&[81]]);
+                let (test_case, _) = sync_io::TestCase::with_content(vec![&[81]]);
                 let mut connection =
                     Connection::new((supported_version(), vec![], SslMode::Disable), test_case);
 
@@ -433,7 +430,7 @@ mod tests {
 
             #[test]
             fn unexpected_eof_when_query_string() {
-                let (mut test_case, mut test_result) =
+                let (test_case, _) =
                     sync_io::TestCase::with_content(vec![&[81], &[0, 0, 0, 14], b"sel;\0"]);
                 let mut connection =
                     Connection::new((supported_version(), vec![], SslMode::Disable), test_case);
@@ -446,7 +443,7 @@ mod tests {
 
         #[test]
         fn send_field_description_query() -> io::Result<()> {
-            let (mut test_case, mut test_result) = sync_io::TestCase::empty();
+            let (test_case, mut test_result) = sync_io::TestCase::empty();
             let mut connection =
                 Connection::new((supported_version(), vec![], SslMode::Disable), test_case);
             let fields = vec![
@@ -480,7 +477,7 @@ mod tests {
 
         #[test]
         fn send_rows_data() -> io::Result<()> {
-            let (mut test_case, mut test_result) = sync_io::TestCase::empty();
+            let (test_case, mut test_result) = sync_io::TestCase::empty();
             let mut connection =
                 Connection::new((supported_version(), vec![], SslMode::Disable), test_case);
 
@@ -506,7 +503,7 @@ mod tests {
 
         #[test]
         fn send_command_complete() -> io::Result<()> {
-            let (mut test_case, mut test_result) = sync_io::TestCase::empty();
+            let (test_case, mut test_result) = sync_io::TestCase::empty();
             let mut connection =
                 Connection::new((supported_version(), vec![], SslMode::Disable), test_case);
             connection.send_command_complete(Message::CommandComplete("SELECT".to_owned()))?;

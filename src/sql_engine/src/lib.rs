@@ -247,9 +247,7 @@ pub enum QueryEvent {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bytes::BytesMut;
     use storage::frontend::FrontendStorage;
-    use test_helpers::{async_io, pg_frontend};
 
     #[test]
     fn create_schema_query() {
@@ -370,9 +368,10 @@ mod tests {
             handler
                 .execute("select * from schema_name.table_name;")
                 .expect("no system errors"),
-            Ok(QueryEvent::RecordsSelected(
-                ((vec!["column_test".to_owned()], vec![vec!["123".to_owned()]]))
-            ))
+            Ok(QueryEvent::RecordsSelected((
+                vec!["column_test".to_owned()],
+                vec![vec!["123".to_owned()]]
+            )))
         );
     }
 
@@ -397,9 +396,10 @@ mod tests {
             handler
                 .execute("select * from schema_name.table_name;")
                 .expect("no system errors"),
-            Ok(QueryEvent::RecordsSelected(
-                ((vec!["column_test".to_owned()], vec![vec!["123".to_owned()]]))
-            ))
+            Ok(QueryEvent::RecordsSelected((
+                vec!["column_test".to_owned()],
+                vec![vec!["123".to_owned()]]
+            )))
         );
 
         handler
