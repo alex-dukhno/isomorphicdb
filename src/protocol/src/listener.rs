@@ -130,7 +130,7 @@ impl<RW: AsyncReadExt + AsyncWriteExt + Unpin> Connection<RW> {
         &(self.properties)
     }
 
-    pub async fn send_ready_for_query(&mut self) -> io::Result<Result<()>> {
+    async fn send_ready_for_query(&mut self) -> io::Result<Result<()>> {
         log::debug!("send ready for query message");
         self.socket
             .write_all(Message::ReadyForQuery.as_vec().as_slice())
@@ -170,33 +170,11 @@ impl<RW: AsyncReadExt + AsyncWriteExt + Unpin> Connection<RW> {
         }
     }
 
-    pub async fn send_row_description(&mut self, fields: Vec<Field>) -> io::Result<()> {
-        self.socket
-            .write_all(
-                Message::RowDescription(
-                    fields
-                        .into_iter()
-                        .map(|f| (f.name, f.type_id, f.type_size))
-                        .collect(),
-                )
-                .as_vec()
-                .as_slice(),
-            )
-            .await?;
-        log::debug!("row description is sent");
-        Ok(())
-    }
-
-    pub async fn send_row_data(&mut self, row: Vec<String>) -> io::Result<()> {
-        self.socket
-            .write_all(Message::DataRow(row).as_vec().as_slice())
-            .await?;
-        Ok(())
-    }
-
-    pub async fn send_command_complete(&mut self, message: Message) -> io::Result<()> {
-        log::debug!("{:?}", message);
-        self.socket.write_all(message.as_vec().as_slice()).await?;
+    pub async fn send_response(&mut self, messages: Vec<Message>) -> io::Result<()> {
+        for message in messages {
+            log::debug!("{:?}", message);
+            self.socket.write_all(message.as_vec().as_slice()).await?;
+        }
         log::debug!("end of the command is sent");
         Ok(())
     }
@@ -208,7 +186,7 @@ impl<RW: AsyncReadExt + AsyncWriteExt + Unpin> PartialEq for Connection<RW> {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Field {
     pub name: String,
     pub type_id: i32,
@@ -381,27 +359,6 @@ mod tests {
     mod connection {
         use super::*;
 
-        #[async_std::test]
-        async fn send_ready_for_query() -> io::Result<()> {
-            let test_case = async_io::TestCase::empty().await;
-            let mut connection = Connection::new(
-                (supported_version(), vec![], SslMode::Disable),
-                test_case.clone(),
-            );
-
-            let ready_for_query = connection.send_ready_for_query().await?;
-
-            assert_eq!(ready_for_query, Ok(()));
-
-            let actual_content = test_case.read_result().await;
-            let mut expected_content = BytesMut::new();
-            expected_content.extend_from_slice(Message::ReadyForQuery.as_vec().as_slice());
-
-            assert_eq!(actual_content, expected_content);
-
-            Ok(())
-        }
-
         #[cfg(test)]
         mod read_query {
             use super::*;
@@ -424,12 +381,19 @@ mod tests {
                 let test_case =
                     async_io::TestCase::with_content(vec![&[81], &[0, 0, 0, 14], b"select 1;\0"])
                         .await;
-                let mut connection =
-                    Connection::new((supported_version(), vec![], SslMode::Disable), test_case);
+                let mut connection = Connection::new(
+                    (supported_version(), vec![], SslMode::Disable),
+                    test_case.clone(),
+                );
 
                 let query = connection.read_query().await?;
 
                 assert_eq!(query, Ok(Command::Query("select 1;".to_owned())));
+
+                let actual_content = test_case.read_result().await;
+                let mut expected_content = BytesMut::new();
+                expected_content.extend_from_slice(Message::ReadyForQuery.as_vec().as_slice());
+                assert_eq!(actual_content, expected_content);
 
                 Ok(())
             }
@@ -467,93 +431,6 @@ mod tests {
 
                 assert!(query.is_err());
             }
-        }
-
-        #[async_std::test]
-        async fn send_field_description_query() -> io::Result<()> {
-            let test_case = async_io::TestCase::empty().await;
-            let mut connection = Connection::new(
-                (supported_version(), vec![], SslMode::Disable),
-                test_case.clone(),
-            );
-            let fields = vec![
-                Field::new(
-                    "c1".to_owned(),
-                    23, // int4 type code
-                    4,
-                ),
-                Field::new("c2".to_owned(), 23, 4),
-            ];
-
-            connection.send_row_description(fields.clone()).await?;
-
-            let actual_content = test_case.read_result().await;
-            let mut expected_content = BytesMut::new();
-            expected_content.extend_from_slice(
-                Message::RowDescription(
-                    fields
-                        .into_iter()
-                        .map(|f| (f.name, f.type_id, f.type_size))
-                        .collect(),
-                )
-                .as_vec()
-                .as_slice(),
-            );
-
-            assert_eq!(actual_content, expected_content);
-
-            Ok(())
-        }
-
-        #[async_std::test]
-        async fn send_rows_data() -> io::Result<()> {
-            let test_case = async_io::TestCase::empty().await;
-            let mut connection = Connection::new(
-                (supported_version(), vec![], SslMode::Disable),
-                test_case.clone(),
-            );
-
-            let rows = vec![
-                vec!["1".to_owned(), "2".to_owned()],
-                vec!["3".to_owned(), "4".to_owned()],
-                vec!["5".to_owned(), "6".to_owned()],
-            ];
-            for row in rows.iter() {
-                connection.send_row_data(row.clone()).await?;
-            }
-
-            let actual_content = test_case.read_result().await;
-            let mut expected_content = BytesMut::new();
-            for row in rows {
-                expected_content.extend_from_slice(Message::DataRow(row).as_vec().as_slice());
-            }
-
-            assert_eq!(actual_content, expected_content);
-
-            Ok(())
-        }
-
-        #[async_std::test]
-        async fn send_command_complete() -> io::Result<()> {
-            let test_case = async_io::TestCase::empty().await;
-            let mut connection = Connection::new(
-                (supported_version(), vec![], SslMode::Disable),
-                test_case.clone(),
-            );
-            connection
-                .send_command_complete(Message::CommandComplete("SELECT".to_owned()))
-                .await?;
-
-            let actual_content = test_case.read_result().await;
-            let mut expected_content = BytesMut::new();
-            expected_content.extend_from_slice(
-                Message::CommandComplete("SELECT".to_owned())
-                    .as_vec()
-                    .as_slice(),
-            );
-            assert_eq!(actual_content, expected_content);
-
-            Ok(())
         }
     }
 }
