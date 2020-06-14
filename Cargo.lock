@@ -1078,6 +1078,7 @@ dependencies = [
  "sqlparser",
  "storage",
  "test_helpers",
+ "thiserror",
 ]
 
 [[package]]
@@ -1096,7 +1097,6 @@ dependencies = [
  "core",
  "log",
  "sled",
- "thiserror",
 ]
 
 [[package]]

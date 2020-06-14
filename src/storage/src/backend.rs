@@ -1,17 +1,31 @@
+// Copyright 2020 Alex Dukhno
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 use core::{SystemError, SystemResult};
 use std::collections::HashMap;
 use std::fmt::Debug;
-
-#[derive(Debug, PartialEq)]
-pub struct NamespaceAlreadyExists;
-#[derive(Debug, PartialEq)]
-pub struct NamespaceDoesNotExist;
 
 pub type Result<T, E> = std::result::Result<T, E>;
 pub type Row = (Key, Values);
 pub type Key = Vec<u8>;
 pub type Values = Vec<Vec<u8>>;
 pub type ReadCursor = Box<dyn Iterator<Item = Result<Row, SystemError>>>;
+
+#[derive(Debug, PartialEq)]
+pub struct NamespaceAlreadyExists;
+#[derive(Debug, PartialEq)]
+pub struct NamespaceDoesNotExist;
 
 #[derive(Debug, PartialEq)]
 pub enum CreateObjectError {
@@ -34,27 +48,13 @@ pub enum OperationOnObjectError {
 pub trait BackendStorage {
     type ErrorMapper: StorageErrorMapper;
 
-    fn create_namespace(
-        &mut self,
-        namespace: &str,
-    ) -> SystemResult<Result<(), NamespaceAlreadyExists>>;
+    fn create_namespace(&mut self, namespace: &str) -> SystemResult<Result<(), NamespaceAlreadyExists>>;
 
-    fn drop_namespace(
-        &mut self,
-        namespace: &str,
-    ) -> SystemResult<Result<(), NamespaceDoesNotExist>>;
+    fn drop_namespace(&mut self, namespace: &str) -> SystemResult<Result<(), NamespaceDoesNotExist>>;
 
-    fn create_object(
-        &mut self,
-        namespace: &str,
-        object_name: &str,
-    ) -> SystemResult<Result<(), CreateObjectError>>;
+    fn create_object(&mut self, namespace: &str, object_name: &str) -> SystemResult<Result<(), CreateObjectError>>;
 
-    fn drop_object(
-        &mut self,
-        namespace: &str,
-        object_name: &str,
-    ) -> SystemResult<Result<(), DropObjectError>>;
+    fn drop_object(&mut self, namespace: &str, object_name: &str) -> SystemResult<Result<(), DropObjectError>>;
 
     fn write(
         &mut self,
@@ -63,11 +63,7 @@ pub trait BackendStorage {
         values: Vec<Row>,
     ) -> SystemResult<Result<usize, OperationOnObjectError>>;
 
-    fn read(
-        &self,
-        namespace: &str,
-        object_name: &str,
-    ) -> SystemResult<Result<ReadCursor, OperationOnObjectError>>;
+    fn read(&self, namespace: &str, object_name: &str) -> SystemResult<Result<ReadCursor, OperationOnObjectError>>;
 
     fn delete(
         &mut self,
@@ -79,6 +75,7 @@ pub trait BackendStorage {
 
 pub trait StorageErrorMapper {
     type Error;
+
     fn map(error: Self::Error) -> core::SystemError;
 }
 
@@ -93,27 +90,19 @@ impl StorageErrorMapper for SledErrorMapper {
                 "System file [{}] can't be found",
                 String::from_utf8(system_file.to_vec()).expect("name of system file")
             )),
-            sled::Error::Unsupported(operation) => SystemError::unrecoverable(format!(
-                "Unsupported operation [{}] was used on Sled",
-                operation
-            )),
+            sled::Error::Unsupported(operation) => {
+                SystemError::unrecoverable(format!("Unsupported operation [{}] was used on Sled", operation))
+            }
             sled::Error::Corruption { at, bt: cause } => {
                 if let Some(at) = at {
-                    SystemError::unrecoverable_with_cause(
-                        format!("Sled encountered corruption at {}", at),
-                        cause,
-                    )
+                    SystemError::unrecoverable_with_cause(format!("Sled encountered corruption at {}", at), cause)
                 } else {
-                    SystemError::unrecoverable_with_cause(
-                        "Sled encountered corruption".to_owned(),
-                        cause,
-                    )
+                    SystemError::unrecoverable_with_cause("Sled encountered corruption".to_owned(), cause)
                 }
             }
-            sled::Error::ReportableBug(description) => SystemError::unrecoverable(format!(
-                "Sled encountered reportable BUG: {}",
-                description
-            )),
+            sled::Error::ReportableBug(description) => {
+                SystemError::unrecoverable(format!("Sled encountered reportable BUG: {}", description))
+            }
             sled::Error::Io(error) => SystemError::io(error),
         }
     }
@@ -127,10 +116,7 @@ pub struct SledBackendStorage {
 impl BackendStorage for SledBackendStorage {
     type ErrorMapper = SledErrorMapper;
 
-    fn create_namespace(
-        &mut self,
-        namespace: &str,
-    ) -> SystemResult<Result<(), NamespaceAlreadyExists>> {
+    fn create_namespace(&mut self, namespace: &str) -> SystemResult<Result<(), NamespaceAlreadyExists>> {
         if self.namespaces.contains_key(namespace) {
             Ok(Err(NamespaceAlreadyExists))
         } else {
@@ -144,10 +130,7 @@ impl BackendStorage for SledBackendStorage {
         }
     }
 
-    fn drop_namespace(
-        &mut self,
-        namespace: &str,
-    ) -> SystemResult<Result<(), NamespaceDoesNotExist>> {
+    fn drop_namespace(&mut self, namespace: &str) -> SystemResult<Result<(), NamespaceDoesNotExist>> {
         match self.namespaces.remove(namespace) {
             Some(namespace) => {
                 drop(namespace);
@@ -157,11 +140,7 @@ impl BackendStorage for SledBackendStorage {
         }
     }
 
-    fn create_object(
-        &mut self,
-        namespace: &str,
-        object_name: &str,
-    ) -> SystemResult<Result<(), CreateObjectError>> {
+    fn create_object(&mut self, namespace: &str, object_name: &str) -> SystemResult<Result<(), CreateObjectError>> {
         match self.namespaces.get(namespace) {
             Some(namespace) => {
                 if namespace.tree_names().contains(&(object_name.into())) {
@@ -177,11 +156,7 @@ impl BackendStorage for SledBackendStorage {
         }
     }
 
-    fn drop_object(
-        &mut self,
-        namespace: &str,
-        object_name: &str,
-    ) -> SystemResult<Result<(), DropObjectError>> {
+    fn drop_object(&mut self, namespace: &str, object_name: &str) -> SystemResult<Result<(), DropObjectError>> {
         match self.namespaces.get(namespace) {
             Some(namespace) => match namespace.drop_tree(object_name.as_bytes()) {
                 Ok(true) => Ok(Ok(())),
@@ -211,9 +186,7 @@ impl BackendStorage for SledBackendStorage {
                                     .collect::<Vec<&[u8]>>()
                                     .join(&b'|')
                                     .to_vec();
-                                match object
-                                    .insert::<sled::IVec, sled::IVec>(key.into(), to_insert.into())
-                                {
+                                match object.insert::<sled::IVec, sled::IVec>(key.into(), to_insert.into()) {
                                     Ok(_) => written_rows += 1,
                                     Err(error) => return Err(Self::ErrorMapper::map(error)),
                                 }
@@ -230,11 +203,7 @@ impl BackendStorage for SledBackendStorage {
         }
     }
 
-    fn read(
-        &self,
-        namespace: &str,
-        object_name: &str,
-    ) -> SystemResult<Result<ReadCursor, OperationOnObjectError>> {
+    fn read(&self, namespace: &str, object_name: &str) -> SystemResult<Result<ReadCursor, OperationOnObjectError>> {
         match self.namespaces.get(namespace) {
             Some(namespace) => {
                 if namespace.tree_names().contains(&(object_name.into())) {
@@ -315,9 +284,7 @@ mod tests {
         fn unsupported() {
             assert_eq!(
                 SledErrorMapper::map(sled::Error::Unsupported("NOT_SUPPORTED".to_owned())),
-                SystemError::unrecoverable(
-                    "Unsupported operation [NOT_SUPPORTED] was used on Sled".to_owned()
-                )
+                SystemError::unrecoverable("Unsupported operation [NOT_SUPPORTED] was used on Sled".to_owned())
             )
         }
 
@@ -330,10 +297,7 @@ mod tests {
                     at: Some(at),
                     bt: cause.clone()
                 }),
-                SystemError::unrecoverable_with_cause(
-                    format!("Sled encountered corruption at {}", at),
-                    cause,
-                )
+                SystemError::unrecoverable_with_cause(format!("Sled encountered corruption at {}", at), cause,)
             )
         }
 
@@ -345,10 +309,7 @@ mod tests {
                     at: None,
                     bt: cause.clone()
                 }),
-                SystemError::unrecoverable_with_cause(
-                    format!("Sled encountered corruption"),
-                    cause,
-                )
+                SystemError::unrecoverable_with_cause(format!("Sled encountered corruption"), cause,)
             )
         }
 
@@ -357,10 +318,7 @@ mod tests {
             let description = "SOME_BUG_HERE";
             assert_eq!(
                 SledErrorMapper::map(sled::Error::ReportableBug(description.to_owned())),
-                SystemError::unrecoverable(format!(
-                    "Sled encountered reportable BUG: {}",
-                    description
-                ))
+                SystemError::unrecoverable(format!("Sled encountered reportable BUG: {}", description))
             );
         }
 
@@ -382,15 +340,11 @@ mod tests {
             let mut storage = SledBackendStorage::default();
 
             assert_eq!(
-                storage
-                    .create_namespace("namespace_1")
-                    .expect("namespace created"),
+                storage.create_namespace("namespace_1").expect("namespace created"),
                 Ok(())
             );
             assert_eq!(
-                storage
-                    .create_namespace("namespace_2")
-                    .expect("namespace created"),
+                storage.create_namespace("namespace_2").expect("namespace created"),
                 Ok(())
             );
         }
@@ -405,9 +359,7 @@ mod tests {
                 .expect("namespace created");
 
             assert_eq!(
-                storage
-                    .create_namespace("namespace")
-                    .expect("no system errors"),
+                storage.create_namespace("namespace").expect("no system errors"),
                 Err(NamespaceAlreadyExists)
             );
         }
@@ -421,18 +373,8 @@ mod tests {
                 .expect("no system errors")
                 .expect("namespace created");
 
-            assert_eq!(
-                storage
-                    .drop_namespace("namespace")
-                    .expect("no system errors"),
-                Ok(())
-            );
-            assert_eq!(
-                storage
-                    .create_namespace("namespace")
-                    .expect("no system errors"),
-                Ok(())
-            );
+            assert_eq!(storage.drop_namespace("namespace").expect("no system errors"), Ok(()));
+            assert_eq!(storage.create_namespace("namespace").expect("no system errors"), Ok(()));
         }
 
         #[test]
@@ -440,9 +382,7 @@ mod tests {
             let mut storage = SledBackendStorage::default();
 
             assert_eq!(
-                storage
-                    .drop_namespace("does_not_exists")
-                    .expect("no system errors"),
+                storage.drop_namespace("does_not_exists").expect("no system errors"),
                 Err(NamespaceDoesNotExist)
             );
         }
@@ -464,16 +404,9 @@ mod tests {
                 .expect("no system errors")
                 .expect("object created");
 
+            assert_eq!(storage.drop_namespace("namespace").expect("no system errors"), Ok(()));
             assert_eq!(
-                storage
-                    .drop_namespace("namespace")
-                    .expect("no system errors"),
-                Ok(())
-            );
-            assert_eq!(
-                storage
-                    .create_namespace("namespace")
-                    .expect("namespace created"),
+                storage.create_namespace("namespace").expect("namespace created"),
                 Ok(())
             );
             assert_eq!(
@@ -615,9 +548,7 @@ mod tests {
             let mut storage = SledBackendStorage::default();
 
             assert_eq!(
-                storage
-                    .drop_object("not_existent", "object")
-                    .expect("no system errors"),
+                storage.drop_object("not_existent", "object").expect("no system errors"),
                 Err(DropObjectError::NamespaceDoesNotExist)
             );
         }
@@ -634,11 +565,7 @@ mod tests {
             create_object(&mut storage, "namespace", "object_name");
             assert_eq!(
                 storage
-                    .write(
-                        "namespace",
-                        "object_name",
-                        as_rows(vec![(1u8, vec!["123"])],)
-                    )
+                    .write("namespace", "object_name", as_rows(vec![(1u8, vec!["123"])],))
                     .expect("no system errors"),
                 Ok(1)
             );
@@ -658,19 +585,11 @@ mod tests {
 
             create_object(&mut storage, "namespace", "object_name");
             storage
-                .write(
-                    "namespace",
-                    "object_name",
-                    as_rows(vec![(1u8, vec!["123"])]),
-                )
+                .write("namespace", "object_name", as_rows(vec![(1u8, vec!["123"])]))
                 .expect("no system errors")
                 .expect("values are written");
             storage
-                .write(
-                    "namespace",
-                    "object_name",
-                    as_rows(vec![(2u8, vec!["456"])]),
-                )
+                .write("namespace", "object_name", as_rows(vec![(2u8, vec!["456"])]))
                 .expect("no system errors")
                 .expect("values are written");
 
@@ -693,11 +612,7 @@ mod tests {
                 .expect("namespace created");
             assert_eq!(
                 storage
-                    .write(
-                        "namespace",
-                        "not_existed",
-                        as_rows(vec![(1u8, vec!["123"])],)
-                    )
+                    .write("namespace", "not_existed", as_rows(vec![(1u8, vec!["123"])],))
                     .expect("no system errors"),
                 Err(OperationOnObjectError::ObjectDoesNotExist)
             );
@@ -754,11 +669,7 @@ mod tests {
                 .write(
                     "namespace",
                     "object_name",
-                    as_rows(vec![
-                        (1u8, vec!["123"]),
-                        (2u8, vec!["456"]),
-                        (3u8, vec!["789"]),
-                    ]),
+                    as_rows(vec![(1u8, vec!["123"]), (2u8, vec!["456"]), (3u8, vec!["789"])]),
                 )
                 .expect("no system errors")
                 .expect("write occurred");
@@ -814,11 +725,7 @@ mod tests {
 
             create_object(&mut storage, "namespace", "object_name");
             storage
-                .write(
-                    "namespace",
-                    "object_name",
-                    as_rows(vec![(1u8, vec!["1", "2", "3"])]),
-                )
+                .write("namespace", "object_name", as_rows(vec![(1u8, vec!["1", "2", "3"])]))
                 .expect("no system errors")
                 .expect("write occurred");
 
@@ -887,10 +794,7 @@ mod tests {
     }
 
     fn as_keys(items: Vec<u8>) -> Vec<Key> {
-        items
-            .into_iter()
-            .map(|key| key.to_be_bytes().to_vec())
-            .collect()
+        items.into_iter().map(|key| key.to_be_bytes().to_vec()).collect()
     }
 
     fn as_read_cursor(items: Vec<(u8, Vec<&'static str>)>) -> ReadCursor {

@@ -1,3 +1,17 @@
+// Copyright 2020 Alex Dukhno
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 extern crate types;
 
 mod in_memory;
@@ -13,17 +27,9 @@ pub trait Storage {
         columns: Vec<(String, StorageType, HashSet<Constraint>)>,
     ) -> Result<SqlResult, SqlError>;
 
-    fn insert_into(
-        &mut self,
-        table_name: &String,
-        values: Vec<(String, Type)>,
-    ) -> Result<SqlResult, SqlError>;
+    fn insert_into(&mut self, table_name: &String, values: Vec<(String, Type)>) -> Result<SqlResult, SqlError>;
 
-    fn select(
-        &mut self,
-        table_name: &String,
-        predicate: Option<Predicate>,
-    ) -> Result<Vec<Vec<Type>>, ()>;
+    fn select(&mut self, table_name: &String, predicate: Option<Predicate>) -> Result<Vec<Vec<Type>>, ()>;
 }
 
 pub enum StorageType {

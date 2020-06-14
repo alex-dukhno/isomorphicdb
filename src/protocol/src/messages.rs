@@ -1,3 +1,18 @@
+// Copyright 2020 Alex Dukhno
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+use crate::Field;
 use bytes::{Buf, BufMut, BytesMut};
 
 // const PARSE_COMPLETE: u8 = b'1';
@@ -25,14 +40,14 @@ const AUTHENTICATION: u8 = b'R';
 const ROW_DESCRIPTION: u8 = b'T';
 const READY_FOR_QUERY: u8 = b'Z';
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Message {
     Notice,
     AuthenticationCleartextPassword,
     AuthenticationOk,
     ReadyForQuery,
     DataRow(Vec<String>),
-    RowDescription(Vec<(String, i32, i16)>),
+    RowDescription(Vec<Field>),
     CommandComplete(String),
     EmptyResponse,
     ErrorResponse(Option<String>, Option<String>, Option<String>),
@@ -42,9 +57,7 @@ impl Message {
     pub fn as_vec(&self) -> Vec<u8> {
         match self {
             Message::Notice => vec![NOTICE_RESPONSE],
-            Message::AuthenticationCleartextPassword => {
-                vec![AUTHENTICATION, 0, 0, 0, 8, 0, 0, 0, 3]
-            }
+            Message::AuthenticationCleartextPassword => vec![AUTHENTICATION, 0, 0, 0, 8, 0, 0, 0, 3],
             Message::AuthenticationOk => vec![AUTHENTICATION, 0, 0, 0, 8, 0, 0, 0, 0],
             Message::ReadyForQuery => vec![READY_FOR_QUERY, 0, 0, 0, 5, EMPTY_QUERY_RESPONSE],
             Message::DataRow(row) => {
@@ -64,12 +77,12 @@ impl Message {
             Message::RowDescription(description) => {
                 let mut buff = BytesMut::with_capacity(256);
                 for field in description.iter() {
-                    buff.put_slice(field.0.as_str().as_bytes());
+                    buff.put_slice(field.name.as_str().as_bytes());
                     buff.put_u8(0); // end of c string
                     buff.put_i32(0); // table id
                     buff.put_i16(0); // column id
-                    buff.put_i32(field.1);
-                    buff.put_i16(field.2);
+                    buff.put_i32(field.type_id);
+                    buff.put_i16(field.type_size);
                     buff.put_i32(-1); // type modifier
                     buff.put_i16(0);
                 }
@@ -161,7 +174,7 @@ mod serialized_messages {
     #[test]
     fn row_description() {
         assert_eq!(
-            Message::RowDescription(vec![("c1".to_owned(), 23, 4)]).as_vec(),
+            Message::RowDescription(vec![Field::new("c1".to_owned(), 23, 4)]).as_vec(),
             vec![
                 ROW_DESCRIPTION,
                 0,
@@ -205,10 +218,7 @@ mod serialized_messages {
 
     #[test]
     fn empty_response() {
-        assert_eq!(
-            Message::EmptyResponse.as_vec(),
-            vec![EMPTY_QUERY_RESPONSE, 0, 0, 0, 4]
-        )
+        assert_eq!(Message::EmptyResponse.as_vec(), vec![EMPTY_QUERY_RESPONSE, 0, 0, 0, 4])
     }
 
     #[test]
