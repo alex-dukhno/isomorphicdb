@@ -1,3 +1,17 @@
+// Copyright 2020 Alex Dukhno
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 extern crate types;
 
 use std::collections::{BTreeMap, HashMap};
@@ -6,8 +20,7 @@ use std::fmt::{self, Debug, Display};
 use std::ops::Deref;
 
 use sqlparser::ast::{
-    Assignment, BinaryOperator, Expr, Query, Select, SetExpr, Statement, TableFactor,
-    TableWithJoins,
+    Assignment, BinaryOperator, Expr, Query, Select, SetExpr, Statement, TableFactor, TableWithJoins,
 };
 use sqlparser::dialect::GenericDialect;
 use sqlparser::parser::Parser;
@@ -66,9 +79,7 @@ impl Engine {
                     Ok(EngineEvent::TableCreated(table_name))
                 }
             }
-            Some(Statement::Insert {
-                table_name, source, ..
-            }) => {
+            Some(Statement::Insert { table_name, source, .. }) => {
                 let table_name = table_name.to_string();
                 match self.tables.get_mut(&table_name) {
                     None => Err(ErrorEvent::TableDoesNotExist(table_name)),
@@ -92,14 +103,10 @@ impl Engine {
                                     )
                                 }
                             } else {
-                                Err(
-                                    ErrorEvent::UnimplementedBranch(
-                                        format!(
-                                            "UNIMPLEMENTED HANDLING OF PARSING \n{:?}\n IN \"INSERT INTO <table> VALUES (v)\"",
-                                            values
-                                        )
-                                    )
-                                )
+                                Err(ErrorEvent::UnimplementedBranch(format!(
+                                    "UNIMPLEMENTED HANDLING OF PARSING \n{:?}\n IN \"INSERT INTO <table> VALUES (v)\"",
+                                    values
+                                )))
                             }
                         } else {
                             Err(ErrorEvent::UnimplementedBranch(format!(
@@ -178,10 +185,7 @@ impl Engine {
                     }
                 }
             }
-            Some(Statement::Delete {
-                table_name,
-                selection,
-            }) => {
+            Some(Statement::Delete { table_name, selection }) => {
                 let table_name = table_name.to_string();
                 match self.tables.get_mut(&table_name) {
                     None => Err(ErrorEvent::TableDoesNotExist(table_name.to_string())),
@@ -226,9 +230,7 @@ impl Engine {
             Some(Statement::Query(query)) => {
                 let Query { body, .. } = &*query;
                 if let SetExpr::Select(select) = &body {
-                    let Select {
-                        selection, from, ..
-                    } = select.deref();
+                    let Select { selection, from, .. } = select.deref();
                     let TableWithJoins { relation, .. } = &from[0];
                     let table_name = match relation {
                         TableFactor::Table { name, .. } => name.to_string(),
@@ -245,42 +247,37 @@ impl Engine {
                             Some(Expr::BinaryOp { left: _, op, right }) => match op {
                                 BinaryOperator::Eq => {
                                     if let Expr::Value(value) = right.deref() {
-                                        if let Ok(Type::Int(value)) = Type::try_from(value.clone())
-                                        {
-                                            table.get(&value)
-                                                        .ok_or_else(|| ErrorEvent::UnimplementedBranch("UNIMPLEMENTED HANDLING OF NO INSERTED VALUE".to_owned()))
-                                                        .map(|record| EngineEvent::RecordsSelected(vec![record.clone()]))
+                                        if let Ok(Type::Int(value)) = Type::try_from(value.clone()) {
+                                            table
+                                                .get(&value)
+                                                .ok_or_else(|| {
+                                                    ErrorEvent::UnimplementedBranch(
+                                                        "UNIMPLEMENTED HANDLING OF NO INSERTED VALUE".to_owned(),
+                                                    )
+                                                })
+                                                .map(|record| EngineEvent::RecordsSelected(vec![record.clone()]))
                                         } else {
-                                            return Err(
-                                                        ErrorEvent::UnimplementedBranch(
-                                                            format!(
-                                                                "UNIMPLEMENTED HANDLING OF STRING PARSING \n{:?}\n IN WHERE X = RIGHT!",
-                                                                right
-                                                            )
-                                                        )
-                                                    );
+                                            return Err(ErrorEvent::UnimplementedBranch(format!(
+                                                "UNIMPLEMENTED HANDLING OF STRING PARSING \n{:?}\n IN WHERE X = RIGHT!",
+                                                right
+                                            )));
                                         }
                                     } else {
-                                        return Err(
-                                                    ErrorEvent::UnimplementedBranch(
-                                                        format!("UNIMPLEMENTED HANDLING OF \n{:?}\n IN WHERE X = RIGHT!", right)
-                                                    )
-                                                );
+                                        return Err(ErrorEvent::UnimplementedBranch(format!(
+                                            "UNIMPLEMENTED HANDLING OF \n{:?}\n IN WHERE X = RIGHT!",
+                                            right
+                                        )));
                                     }
                                 }
                                 operator => {
                                     return Err(ErrorEvent::UnimplementedBranch(format!(
-                                    "UNIMPLEMENTED HANDLING OF OPERATOR \n{:?}\n IN WHERE CLAUSE",
-                                    operator
-                                )))
+                                        "UNIMPLEMENTED HANDLING OF OPERATOR \n{:?}\n IN WHERE CLAUSE",
+                                        operator
+                                    )))
                                 }
                             },
-                            Some(Expr::Between {
-                                negated, low, high, ..
-                            }) => {
-                                if let (Expr::Value(low), Expr::Value(high)) =
-                                    (low.deref(), high.deref())
-                                {
+                            Some(Expr::Between { negated, low, high, .. }) => {
+                                if let (Expr::Value(low), Expr::Value(high)) = (low.deref(), high.deref()) {
                                     if let (Ok(Type::Int(low)), Ok(Type::Int(high))) =
                                         (Type::try_from(low.clone()), Type::try_from(high.clone()))
                                     {
@@ -295,11 +292,7 @@ impl Engine {
                                             ))
                                         } else {
                                             Ok(EngineEvent::RecordsSelected(
-                                                table
-                                                    .range(low..=high)
-                                                    .map(|(_key, value)| value)
-                                                    .cloned()
-                                                    .collect(),
+                                                table.range(low..=high).map(|(_key, value)| value).cloned().collect(),
                                             ))
                                         }
                                     } else {
@@ -313,11 +306,10 @@ impl Engine {
                                             );
                                     }
                                 } else {
-                                    return Err(
-                                            ErrorEvent::UnimplementedBranch(
-                                                format!("UNIMPLEMENTED HANDLING OF \n IN WHERE BETWEEN {:?} AND {:?}", low, high)
-                                            )
-                                        );
+                                    return Err(ErrorEvent::UnimplementedBranch(format!(
+                                        "UNIMPLEMENTED HANDLING OF \n IN WHERE BETWEEN {:?} AND {:?}",
+                                        low, high
+                                    )));
                                 }
                             }
                             Some(Expr::InList { list, negated, .. }) => {
@@ -325,8 +317,7 @@ impl Engine {
                                 let mut set = Vec::new();
                                 for item in list {
                                     if let Expr::Value(value) = item {
-                                        if let Ok(Type::Int(value)) = Type::try_from(value.clone())
-                                        {
+                                        if let Ok(Type::Int(value)) = Type::try_from(value.clone()) {
                                             set.push(value)
                                         } else {
                                             return Err(
@@ -336,11 +327,10 @@ impl Engine {
                                                 );
                                         }
                                     } else {
-                                        return Err(
-                                                ErrorEvent::UnimplementedBranch(
-                                                    format!("UNIMPLEMENTED HANDLING OF VALUES PARSING IN WHERE 'IN (x, y, z)' for {:?}", item)
-                                                )
-                                            );
+                                        return Err(ErrorEvent::UnimplementedBranch(format!(
+                                            "UNIMPLEMENTED HANDLING OF VALUES PARSING IN WHERE 'IN (x, y, z)' for {:?}",
+                                            item
+                                        )));
                                     }
                                 }
                                 for (key, record) in table.iter() {
@@ -478,10 +468,7 @@ mod tests {
 
         #[allow(unused_must_use)]
         fn create_table(engine: &mut Engine) {
-            engine.execute(format!(
-                "CREATE TABLE {} ({} INT);",
-                TABLE_NAME, COLUMN_NAME
-            ));
+            engine.execute(format!("CREATE TABLE {} ({} INT);", TABLE_NAME, COLUMN_NAME));
         }
 
         fn insert_value<V: Display>(engine: &mut Engine, value: V) -> ExecutionResult {
@@ -520,12 +507,7 @@ mod tests {
             ))
         }
 
-        fn select_not_in<V: Display>(
-            engine: &mut Engine,
-            one: V,
-            two: V,
-            three: V,
-        ) -> ExecutionResult {
+        fn select_not_in<V: Display>(engine: &mut Engine, one: V, two: V, three: V) -> ExecutionResult {
             engine.execute(format!(
                 "SELECT {0} FROM {1} WHERE {0} NOT IN ({2}, {3}, {4});",
                 COLUMN_NAME, TABLE_NAME, one, two, three
@@ -558,10 +540,7 @@ mod tests {
         }
 
         fn delete_value<V: Display>(engine: &mut Engine, value: V) -> ExecutionResult {
-            engine.execute(format!(
-                "DELETE FROM {} WHERE {} = {}",
-                TABLE_NAME, COLUMN_NAME, value
-            ))
+            engine.execute(format!("DELETE FROM {} WHERE {} = {}", TABLE_NAME, COLUMN_NAME, value))
         }
 
         fn delete_all(engine: &mut Engine) -> ExecutionResult {
@@ -617,10 +596,7 @@ mod tests {
             let mut engine = Engine::default();
             create_table(&mut engine);
 
-            assert_eq!(
-                insert_value(&mut engine, 1),
-                Ok(EngineEvent::RecordInserted)
-            );
+            assert_eq!(insert_value(&mut engine, 1), Ok(EngineEvent::RecordInserted));
 
             assert_eq!(
                 select_value(&mut engine, 1),
@@ -633,18 +609,9 @@ mod tests {
             let mut engine = Engine::default();
             create_table(&mut engine);
 
-            assert_eq!(
-                insert_value(&mut engine, 1),
-                Ok(EngineEvent::RecordInserted)
-            );
-            assert_eq!(
-                insert_value(&mut engine, 2),
-                Ok(EngineEvent::RecordInserted)
-            );
-            assert_eq!(
-                insert_value(&mut engine, 3),
-                Ok(EngineEvent::RecordInserted)
-            );
+            assert_eq!(insert_value(&mut engine, 1), Ok(EngineEvent::RecordInserted));
+            assert_eq!(insert_value(&mut engine, 2), Ok(EngineEvent::RecordInserted));
+            assert_eq!(insert_value(&mut engine, 3), Ok(EngineEvent::RecordInserted));
 
             assert_eq!(
                 select_value(&mut engine, 2),
@@ -657,18 +624,9 @@ mod tests {
             let mut engine = Engine::default();
             create_table(&mut engine);
 
-            assert_eq!(
-                insert_value(&mut engine, 1),
-                Ok(EngineEvent::RecordInserted)
-            );
-            assert_eq!(
-                insert_value(&mut engine, 2),
-                Ok(EngineEvent::RecordInserted)
-            );
-            assert_eq!(
-                insert_value(&mut engine, 3),
-                Ok(EngineEvent::RecordInserted)
-            );
+            assert_eq!(insert_value(&mut engine, 1), Ok(EngineEvent::RecordInserted));
+            assert_eq!(insert_value(&mut engine, 2), Ok(EngineEvent::RecordInserted));
+            assert_eq!(insert_value(&mut engine, 3), Ok(EngineEvent::RecordInserted));
 
             assert_eq!(
                 select_all(&mut engine),
@@ -681,23 +639,11 @@ mod tests {
             let mut engine = Engine::default();
             create_table(&mut engine);
 
-            assert_eq!(
-                insert_value(&mut engine, 1),
-                Ok(EngineEvent::RecordInserted)
-            );
-            assert_eq!(
-                insert_value(&mut engine, 2),
-                Ok(EngineEvent::RecordInserted)
-            );
-            assert_eq!(
-                insert_value(&mut engine, 3),
-                Ok(EngineEvent::RecordInserted)
-            );
+            assert_eq!(insert_value(&mut engine, 1), Ok(EngineEvent::RecordInserted));
+            assert_eq!(insert_value(&mut engine, 2), Ok(EngineEvent::RecordInserted));
+            assert_eq!(insert_value(&mut engine, 3), Ok(EngineEvent::RecordInserted));
 
-            assert_eq!(
-                update_value(&mut engine, 4, 2),
-                Ok(EngineEvent::RecordsUpdated)
-            );
+            assert_eq!(update_value(&mut engine, 4, 2), Ok(EngineEvent::RecordsUpdated));
             assert_eq!(
                 select_all(&mut engine),
                 Ok(EngineEvent::RecordsSelected(vec![int(1), int(4), int(3)]))
@@ -709,27 +655,14 @@ mod tests {
             let mut engine = Engine::default();
             create_table(&mut engine);
 
-            assert_eq!(
-                insert_value(&mut engine, 1),
-                Ok(EngineEvent::RecordInserted)
-            );
-            assert_eq!(
-                insert_value(&mut engine, 2),
-                Ok(EngineEvent::RecordInserted)
-            );
-            assert_eq!(
-                insert_value(&mut engine, 3),
-                Ok(EngineEvent::RecordInserted)
-            );
+            assert_eq!(insert_value(&mut engine, 1), Ok(EngineEvent::RecordInserted));
+            assert_eq!(insert_value(&mut engine, 2), Ok(EngineEvent::RecordInserted));
+            assert_eq!(insert_value(&mut engine, 3), Ok(EngineEvent::RecordInserted));
 
             assert_eq!(update_all(&mut engine), Ok(EngineEvent::RecordsUpdated));
             assert_eq!(
                 select_all(&mut engine),
-                Ok(EngineEvent::RecordsSelected(vec![
-                    int(100),
-                    int(100),
-                    int(100)
-                ]))
+                Ok(EngineEvent::RecordsSelected(vec![int(100), int(100), int(100)]))
             );
         }
 
@@ -738,23 +671,11 @@ mod tests {
             let mut engine = Engine::default();
             create_table(&mut engine);
 
-            assert_eq!(
-                insert_value(&mut engine, 1),
-                Ok(EngineEvent::RecordInserted)
-            );
-            assert_eq!(
-                insert_value(&mut engine, 2),
-                Ok(EngineEvent::RecordInserted)
-            );
-            assert_eq!(
-                insert_value(&mut engine, 3),
-                Ok(EngineEvent::RecordInserted)
-            );
+            assert_eq!(insert_value(&mut engine, 1), Ok(EngineEvent::RecordInserted));
+            assert_eq!(insert_value(&mut engine, 2), Ok(EngineEvent::RecordInserted));
+            assert_eq!(insert_value(&mut engine, 3), Ok(EngineEvent::RecordInserted));
 
-            assert_eq!(
-                delete_value(&mut engine, 2),
-                Ok(EngineEvent::RecordsDeleted)
-            );
+            assert_eq!(delete_value(&mut engine, 2), Ok(EngineEvent::RecordsDeleted));
             assert_eq!(
                 select_all(&mut engine),
                 Ok(EngineEvent::RecordsSelected(vec![int(1), int(3)]))
@@ -766,24 +687,12 @@ mod tests {
             let mut engine = Engine::default();
             create_table(&mut engine);
 
-            assert_eq!(
-                insert_value(&mut engine, 1),
-                Ok(EngineEvent::RecordInserted)
-            );
-            assert_eq!(
-                insert_value(&mut engine, 2),
-                Ok(EngineEvent::RecordInserted)
-            );
-            assert_eq!(
-                insert_value(&mut engine, 3),
-                Ok(EngineEvent::RecordInserted)
-            );
+            assert_eq!(insert_value(&mut engine, 1), Ok(EngineEvent::RecordInserted));
+            assert_eq!(insert_value(&mut engine, 2), Ok(EngineEvent::RecordInserted));
+            assert_eq!(insert_value(&mut engine, 3), Ok(EngineEvent::RecordInserted));
 
             assert_eq!(delete_all(&mut engine), Ok(EngineEvent::RecordsDeleted));
-            assert_eq!(
-                select_all(&mut engine),
-                Ok(EngineEvent::RecordsSelected(vec![]))
-            );
+            assert_eq!(select_all(&mut engine), Ok(EngineEvent::RecordsSelected(vec![])));
         }
 
         #[test]
@@ -791,26 +700,11 @@ mod tests {
             let mut engine = Engine::default();
             create_table(&mut engine);
 
-            assert_eq!(
-                insert_value(&mut engine, 1),
-                Ok(EngineEvent::RecordInserted)
-            );
-            assert_eq!(
-                insert_value(&mut engine, 2),
-                Ok(EngineEvent::RecordInserted)
-            );
-            assert_eq!(
-                insert_value(&mut engine, 3),
-                Ok(EngineEvent::RecordInserted)
-            );
-            assert_eq!(
-                insert_value(&mut engine, 4),
-                Ok(EngineEvent::RecordInserted)
-            );
-            assert_eq!(
-                insert_value(&mut engine, 5),
-                Ok(EngineEvent::RecordInserted)
-            );
+            assert_eq!(insert_value(&mut engine, 1), Ok(EngineEvent::RecordInserted));
+            assert_eq!(insert_value(&mut engine, 2), Ok(EngineEvent::RecordInserted));
+            assert_eq!(insert_value(&mut engine, 3), Ok(EngineEvent::RecordInserted));
+            assert_eq!(insert_value(&mut engine, 4), Ok(EngineEvent::RecordInserted));
+            assert_eq!(insert_value(&mut engine, 5), Ok(EngineEvent::RecordInserted));
 
             assert_eq!(
                 select_between(&mut engine, 2, 4),
@@ -823,26 +717,11 @@ mod tests {
             let mut engine = Engine::default();
             create_table(&mut engine);
 
-            assert_eq!(
-                insert_value(&mut engine, 1),
-                Ok(EngineEvent::RecordInserted)
-            );
-            assert_eq!(
-                insert_value(&mut engine, 2),
-                Ok(EngineEvent::RecordInserted)
-            );
-            assert_eq!(
-                insert_value(&mut engine, 3),
-                Ok(EngineEvent::RecordInserted)
-            );
-            assert_eq!(
-                insert_value(&mut engine, 4),
-                Ok(EngineEvent::RecordInserted)
-            );
-            assert_eq!(
-                insert_value(&mut engine, 5),
-                Ok(EngineEvent::RecordInserted)
-            );
+            assert_eq!(insert_value(&mut engine, 1), Ok(EngineEvent::RecordInserted));
+            assert_eq!(insert_value(&mut engine, 2), Ok(EngineEvent::RecordInserted));
+            assert_eq!(insert_value(&mut engine, 3), Ok(EngineEvent::RecordInserted));
+            assert_eq!(insert_value(&mut engine, 4), Ok(EngineEvent::RecordInserted));
+            assert_eq!(insert_value(&mut engine, 5), Ok(EngineEvent::RecordInserted));
 
             assert_eq!(
                 select_not_between(&mut engine, 2, 4),
@@ -855,26 +734,11 @@ mod tests {
             let mut engine = Engine::default();
             create_table(&mut engine);
 
-            assert_eq!(
-                insert_value(&mut engine, 1),
-                Ok(EngineEvent::RecordInserted)
-            );
-            assert_eq!(
-                insert_value(&mut engine, 2),
-                Ok(EngineEvent::RecordInserted)
-            );
-            assert_eq!(
-                insert_value(&mut engine, 3),
-                Ok(EngineEvent::RecordInserted)
-            );
-            assert_eq!(
-                insert_value(&mut engine, 4),
-                Ok(EngineEvent::RecordInserted)
-            );
-            assert_eq!(
-                insert_value(&mut engine, 5),
-                Ok(EngineEvent::RecordInserted)
-            );
+            assert_eq!(insert_value(&mut engine, 1), Ok(EngineEvent::RecordInserted));
+            assert_eq!(insert_value(&mut engine, 2), Ok(EngineEvent::RecordInserted));
+            assert_eq!(insert_value(&mut engine, 3), Ok(EngineEvent::RecordInserted));
+            assert_eq!(insert_value(&mut engine, 4), Ok(EngineEvent::RecordInserted));
+            assert_eq!(insert_value(&mut engine, 5), Ok(EngineEvent::RecordInserted));
 
             assert_eq!(
                 select_in(&mut engine, 1, 3, 5),
@@ -887,26 +751,11 @@ mod tests {
             let mut engine = Engine::default();
             create_table(&mut engine);
 
-            assert_eq!(
-                insert_value(&mut engine, 1),
-                Ok(EngineEvent::RecordInserted)
-            );
-            assert_eq!(
-                insert_value(&mut engine, 2),
-                Ok(EngineEvent::RecordInserted)
-            );
-            assert_eq!(
-                insert_value(&mut engine, 3),
-                Ok(EngineEvent::RecordInserted)
-            );
-            assert_eq!(
-                insert_value(&mut engine, 4),
-                Ok(EngineEvent::RecordInserted)
-            );
-            assert_eq!(
-                insert_value(&mut engine, 5),
-                Ok(EngineEvent::RecordInserted)
-            );
+            assert_eq!(insert_value(&mut engine, 1), Ok(EngineEvent::RecordInserted));
+            assert_eq!(insert_value(&mut engine, 2), Ok(EngineEvent::RecordInserted));
+            assert_eq!(insert_value(&mut engine, 3), Ok(EngineEvent::RecordInserted));
+            assert_eq!(insert_value(&mut engine, 4), Ok(EngineEvent::RecordInserted));
+            assert_eq!(insert_value(&mut engine, 5), Ok(EngineEvent::RecordInserted));
 
             assert_eq!(
                 select_not_in(&mut engine, 1, 3, 5),
@@ -920,26 +769,11 @@ mod tests {
             let mut engine = Engine::default();
             create_table(&mut engine);
 
-            assert_eq!(
-                insert_value(&mut engine, 1),
-                Ok(EngineEvent::RecordInserted)
-            );
-            assert_eq!(
-                insert_value(&mut engine, 2),
-                Ok(EngineEvent::RecordInserted)
-            );
-            assert_eq!(
-                insert_value(&mut engine, 3),
-                Ok(EngineEvent::RecordInserted)
-            );
-            assert_eq!(
-                insert_value(&mut engine, 4),
-                Ok(EngineEvent::RecordInserted)
-            );
-            assert_eq!(
-                insert_value(&mut engine, 5),
-                Ok(EngineEvent::RecordInserted)
-            );
+            assert_eq!(insert_value(&mut engine, 1), Ok(EngineEvent::RecordInserted));
+            assert_eq!(insert_value(&mut engine, 2), Ok(EngineEvent::RecordInserted));
+            assert_eq!(insert_value(&mut engine, 3), Ok(EngineEvent::RecordInserted));
+            assert_eq!(insert_value(&mut engine, 4), Ok(EngineEvent::RecordInserted));
+            assert_eq!(insert_value(&mut engine, 5), Ok(EngineEvent::RecordInserted));
 
             assert_eq!(
                 select_with_and(&mut engine, 1, 3),
@@ -953,26 +787,11 @@ mod tests {
             let mut engine = Engine::default();
             create_table(&mut engine);
 
-            assert_eq!(
-                insert_value(&mut engine, 1),
-                Ok(EngineEvent::RecordInserted)
-            );
-            assert_eq!(
-                insert_value(&mut engine, 2),
-                Ok(EngineEvent::RecordInserted)
-            );
-            assert_eq!(
-                insert_value(&mut engine, 3),
-                Ok(EngineEvent::RecordInserted)
-            );
-            assert_eq!(
-                insert_value(&mut engine, 4),
-                Ok(EngineEvent::RecordInserted)
-            );
-            assert_eq!(
-                insert_value(&mut engine, 5),
-                Ok(EngineEvent::RecordInserted)
-            );
+            assert_eq!(insert_value(&mut engine, 1), Ok(EngineEvent::RecordInserted));
+            assert_eq!(insert_value(&mut engine, 2), Ok(EngineEvent::RecordInserted));
+            assert_eq!(insert_value(&mut engine, 3), Ok(EngineEvent::RecordInserted));
+            assert_eq!(insert_value(&mut engine, 4), Ok(EngineEvent::RecordInserted));
+            assert_eq!(insert_value(&mut engine, 5), Ok(EngineEvent::RecordInserted));
 
             assert_eq!(
                 select_with_or(&mut engine, 1, 3),

@@ -1,3 +1,17 @@
+// Copyright 2020 Alex Dukhno
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 use super::{Constraint, Predicate, SqlError, SqlResult, Storage, StorageType};
 use crate::types::Type;
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -61,11 +75,7 @@ impl Storage for InMemoryStorage {
         }
     }
 
-    fn insert_into(
-        &mut self,
-        table_name: &String,
-        values: Vec<(String, Type)>,
-    ) -> Result<SqlResult, SqlError> {
+    fn insert_into(&mut self, table_name: &String, values: Vec<(String, Type)>) -> Result<SqlResult, SqlError> {
         if !self.tables.contains_key(table_name) {
             Err(SqlError::TableDoesNotExists)
         } else {
@@ -78,21 +88,13 @@ impl Storage for InMemoryStorage {
         }
     }
 
-    fn select(
-        &mut self,
-        table_name: &String,
-        predicate: Option<Predicate>,
-    ) -> Result<Vec<Vec<Type>>, ()> {
+    fn select(&mut self, table_name: &String, predicate: Option<Predicate>) -> Result<Vec<Vec<Type>>, ()> {
         self.read_only(table_name)
             .map(|data| match predicate {
-                Some(Predicate::Equal(value)) => {
-                    data.get(&value).cloned().map(|v| vec![v]).unwrap_or(vec![])
+                Some(Predicate::Equal(value)) => data.get(&value).cloned().map(|v| vec![v]).unwrap_or(vec![]),
+                Some(Predicate::Between(low, high)) => {
+                    data.range(low..=high).map(|(_key, value)| value).cloned().collect()
                 }
-                Some(Predicate::Between(low, high)) => data
-                    .range(low..=high)
-                    .map(|(_key, value)| value)
-                    .cloned()
-                    .collect(),
                 Some(Predicate::In(values)) => data
                     .values()
                     .filter(|value| values.contains(&value[0]))
@@ -182,18 +184,12 @@ mod table_creation {
             let mut storage = InMemoryStorage::default();
 
             assert_eq!(
-                storage.create_table(
-                    &table_one(),
-                    vec![(column_one(), StorageType::Integer, set(vec![]))],
-                ),
+                storage.create_table(&table_one(), vec![(column_one(), StorageType::Integer, set(vec![]))],),
                 Ok(SqlResult::TableCreated)
             );
 
             assert_eq!(
-                storage.create_table(
-                    &table_one(),
-                    vec![(column_one(), StorageType::Integer, set(vec![]))],
-                ),
+                storage.create_table(&table_one(), vec![(column_one(), StorageType::Integer, set(vec![]))],),
                 Err(SqlError::TableAlreadyExists)
             );
         }
@@ -243,11 +239,7 @@ mod table_creation {
             assert_eq!(
                 storage.create_table(
                     &table_one(),
-                    vec![(
-                        column_one(),
-                        StorageType::Integer,
-                        set(vec![Constraint::NotNull])
-                    )],
+                    vec![(column_one(), StorageType::Integer, set(vec![Constraint::NotNull]))],
                 ),
                 Ok(SqlResult::TableCreated)
             )
@@ -324,11 +316,7 @@ mod table_creation {
         assert_eq!(
             storage.create_table(
                 &table_one(),
-                vec![(
-                    column_one(),
-                    StorageType::Integer,
-                    set(vec![Constraint::PrimaryKey])
-                )],
+                vec![(column_one(), StorageType::Integer, set(vec![Constraint::PrimaryKey]))],
             ),
             Ok(SqlResult::TableCreated)
         )
@@ -341,11 +329,7 @@ mod table_creation {
         assert_eq!(
             storage.create_table(
                 &table_one(),
-                vec![(
-                    column_one(),
-                    StorageType::Integer,
-                    set(vec![Constraint::Unique])
-                )],
+                vec![(column_one(), StorageType::Integer, set(vec![Constraint::Unique]))],
             ),
             Ok(SqlResult::TableCreated)
         )
@@ -358,11 +342,7 @@ mod table_creation {
         assert_eq!(
             storage.create_table(
                 &table_one(),
-                vec![(
-                    column_one(),
-                    StorageType::Integer,
-                    set(vec![Constraint::PrimaryKey])
-                )]
+                vec![(column_one(), StorageType::Integer, set(vec![Constraint::PrimaryKey]))]
             ),
             Ok(SqlResult::TableCreated)
         );
@@ -468,10 +448,7 @@ mod insertions {
         let mut storage = InMemoryStorage::default();
 
         assert_eq!(
-            storage.insert_into(
-                &"table_name".to_owned(),
-                vec![("column_name".to_owned(), zero())],
-            ),
+            storage.insert_into(&"table_name".to_owned(), vec![("column_name".to_owned(), zero())],),
             Err(SqlError::TableDoesNotExists)
         )
     }
@@ -483,20 +460,13 @@ mod insertions {
         assert_eq!(
             storage.create_table(
                 &"table_name".to_owned(),
-                vec![(
-                    "column_name".to_owned(),
-                    StorageType::Integer,
-                    HashSet::new()
-                )],
+                vec![("column_name".to_owned(), StorageType::Integer, HashSet::new())],
             ),
             Ok(SqlResult::TableCreated)
         );
 
         assert_eq!(
-            storage.insert_into(
-                &"table_name".to_owned(),
-                vec![("column_name".to_owned(), zero())],
-            ),
+            storage.insert_into(&"table_name".to_owned(), vec![("column_name".to_owned(), zero())],),
             Ok(SqlResult::RecordInserted)
         )
     }
