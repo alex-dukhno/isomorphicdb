@@ -66,11 +66,7 @@ impl TestCase {
 }
 
 impl Read for TestCase {
-    fn poll_read(
-        self: Pin<&mut Self>,
-        cx: &mut Context,
-        buf: &mut [u8],
-    ) -> Poll<io::Result<usize>> {
+    fn poll_read(self: Pin<&mut Self>, cx: &mut Context, buf: &mut [u8]) -> Poll<io::Result<usize>> {
         Pin::new(&mut &*self.request).poll_read(cx, buf)
     }
 }

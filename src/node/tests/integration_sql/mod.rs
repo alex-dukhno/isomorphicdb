@@ -29,8 +29,8 @@ fn create_simple_database() {
 
     let handler = start_server(node.clone());
 
-    let mut client = Client::connect("host=localhost user=postgres password=pass", NoTls)
-        .expect("to connect to server");
+    let mut client =
+        Client::connect("host=localhost user=postgres password=pass", NoTls).expect("to connect to server");
 
     client
         .simple_query("create schema SMOKE_QUERIES;")
@@ -49,9 +49,7 @@ fn create_simple_database() {
     if let Some(postgres::SimpleQueryMessage::Row(row)) = selected.iter().next() {
         assert_eq!(row.get("column_test"), Some("1"));
     } else {
-        panic!(
-            "no records were retrieved by 'select column_test from SMOKE_QUERIES.VALIDATION_TABLE;'"
-        );
+        panic!("no records were retrieved by 'select column_test from SMOKE_QUERIES.VALIDATION_TABLE;'");
     }
 
     client
@@ -64,9 +62,7 @@ fn create_simple_database() {
     if let Some(postgres::SimpleQueryMessage::Row(row)) = selected.iter().next() {
         assert_eq!(row.get("column_test"), Some("2"));
     } else {
-        panic!(
-            "no records were retrived by 'select column_test from SMOKE_QUERIES.VALIDATION_TABLE;'"
-        );
+        panic!("no records were retrived by 'select column_test from SMOKE_QUERIES.VALIDATION_TABLE;'");
     }
 
     client
@@ -107,13 +103,16 @@ fn create_table_with_three_columns() {
 
     let handler = start_server(node.clone());
 
-    let mut client = Client::connect("host=localhost user=postgres password=pass", NoTls)
-        .expect("to connect to server");
+    let mut client =
+        Client::connect("host=localhost user=postgres password=pass", NoTls).expect("to connect to server");
 
     client
         .simple_query("create schema SMOKE_QUERIES;")
         .expect("to create schema");
-    client.simple_query("create table SMOKE_QUERIES.VALIDATION_TABLE (column_1 smallint, column_2 smallint, column_3 smallint);")
+    client
+        .simple_query(
+            "create table SMOKE_QUERIES.VALIDATION_TABLE (column_1 smallint, column_2 smallint, column_3 smallint);",
+        )
         .expect("to create table");
 
     client
@@ -130,7 +129,9 @@ fn create_table_with_three_columns() {
         assert_eq!(row.get("column_2"), Some("2"));
         assert_eq!(row.get("column_3"), Some("3"));
     } else {
-        panic!("no records were retrieved by 'select column_1, column_2, column_3 from SMOKE_QUERIES.VALIDATION_TABLE;'");
+        panic!(
+            "no records were retrieved by 'select column_1, column_2, column_3 from SMOKE_QUERIES.VALIDATION_TABLE;'"
+        );
     }
 
     client
@@ -181,21 +182,27 @@ fn create_table_with_three_columns() {
         assert_eq!(row.get("column_1"), Some("1"));
         assert_eq!(row.get("column_3"), Some("3"));
     } else {
-        panic!("expected more records were retrieved by 'select column_1, column_3 from SMOKE_QUERIES.VALIDATION_TABLE;'");
+        panic!(
+            "expected more records were retrieved by 'select column_1, column_3 from SMOKE_QUERIES.VALIDATION_TABLE;'"
+        );
     }
 
     if let Some(postgres::SimpleQueryMessage::Row(row)) = iter.next() {
         assert_eq!(row.get("column_1"), Some("4"));
         assert_eq!(row.get("column_3"), Some("6"));
     } else {
-        panic!("expected more records were retrieved by 'select column_1, column_3 from SMOKE_QUERIES.VALIDATION_TABLE;'");
+        panic!(
+            "expected more records were retrieved by 'select column_1, column_3 from SMOKE_QUERIES.VALIDATION_TABLE;'"
+        );
     }
 
     if let Some(postgres::SimpleQueryMessage::Row(row)) = iter.next() {
         assert_eq!(row.get("column_1"), Some("7"));
         assert_eq!(row.get("column_3"), Some("9"));
     } else {
-        panic!("expected more records were retrieved by 'select column_1, column_3 from SMOKE_QUERIES.VALIDATION_TABLE;'");
+        panic!(
+            "expected more records were retrieved by 'select column_1, column_3 from SMOKE_QUERIES.VALIDATION_TABLE;'"
+        );
     }
 
     let selected = client
@@ -210,14 +217,18 @@ fn create_table_with_three_columns() {
         assert_eq!(row.get("column_1"), Some("1"));
         assert_eq!(row.get("column_2"), Some("2"));
     } else {
-        panic!("expected more records were retrieved by 'select column_1, column_2 from SMOKE_QUERIES.VALIDATION_TABLE;'");
+        panic!(
+            "expected more records were retrieved by 'select column_1, column_2 from SMOKE_QUERIES.VALIDATION_TABLE;'"
+        );
     }
 
     if let Some(postgres::SimpleQueryMessage::Row(row)) = iter.next() {
         assert_eq!(row.get("column_1"), Some("4"));
         assert_eq!(row.get("column_2"), Some("5"));
     } else {
-        panic!("expected more records were retrieved by 'select column_1, column_2 from SMOKE_QUERIES.VALIDATION_TABLE;'");
+        panic!(
+            "expected more records were retrieved by 'select column_1, column_2 from SMOKE_QUERIES.VALIDATION_TABLE;'"
+        );
     }
 
     if let Some(postgres::SimpleQueryMessage::Row(row)) = iter.next() {
@@ -239,21 +250,27 @@ fn create_table_with_three_columns() {
         assert_eq!(row.get("column_2"), Some("2"));
         assert_eq!(row.get("column_3"), Some("3"));
     } else {
-        panic!("expected more records were retrieved by 'select column_2, column_3 from SMOKE_QUERIES.VALIDATION_TABLE;'");
+        panic!(
+            "expected more records were retrieved by 'select column_2, column_3 from SMOKE_QUERIES.VALIDATION_TABLE;'"
+        );
     }
 
     if let Some(postgres::SimpleQueryMessage::Row(row)) = iter.next() {
         assert_eq!(row.get("column_2"), Some("5"));
         assert_eq!(row.get("column_3"), Some("6"));
     } else {
-        panic!("expected more records were retrieved by 'select column_2, column_3 from SMOKE_QUERIES.VALIDATION_TABLE;'");
+        panic!(
+            "expected more records were retrieved by 'select column_2, column_3 from SMOKE_QUERIES.VALIDATION_TABLE;'"
+        );
     }
 
     if let Some(postgres::SimpleQueryMessage::Row(row)) = iter.next() {
         assert_eq!(row.get("column_2"), Some("8"));
         assert_eq!(row.get("column_3"), Some("9"));
     } else {
-        panic!("expected more records were retrieved by 'select column_2, column_3 from SMOKE_QUERIES.VALIDATION_TABLE;'");
+        panic!(
+            "expected more records were retrieved by 'select column_2, column_3 from SMOKE_QUERIES.VALIDATION_TABLE;'"
+        );
     }
 
     let selected = client

@@ -1,4 +1,4 @@
-use crate::listener::Field;
+use crate::Field;
 use bytes::{Buf, BufMut, BytesMut};
 
 // const PARSE_COMPLETE: u8 = b'1';
@@ -43,9 +43,7 @@ impl Message {
     pub fn as_vec(&self) -> Vec<u8> {
         match self {
             Message::Notice => vec![NOTICE_RESPONSE],
-            Message::AuthenticationCleartextPassword => {
-                vec![AUTHENTICATION, 0, 0, 0, 8, 0, 0, 0, 3]
-            }
+            Message::AuthenticationCleartextPassword => vec![AUTHENTICATION, 0, 0, 0, 8, 0, 0, 0, 3],
             Message::AuthenticationOk => vec![AUTHENTICATION, 0, 0, 0, 8, 0, 0, 0, 0],
             Message::ReadyForQuery => vec![READY_FOR_QUERY, 0, 0, 0, 5, EMPTY_QUERY_RESPONSE],
             Message::DataRow(row) => {
@@ -206,10 +204,7 @@ mod serialized_messages {
 
     #[test]
     fn empty_response() {
-        assert_eq!(
-            Message::EmptyResponse.as_vec(),
-            vec![EMPTY_QUERY_RESPONSE, 0, 0, 0, 4]
-        )
+        assert_eq!(Message::EmptyResponse.as_vec(), vec![EMPTY_QUERY_RESPONSE, 0, 0, 0, 4])
     }
 
     #[test]

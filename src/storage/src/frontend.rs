@@ -1,13 +1,11 @@
 use crate::backend::{
-    self, BackendStorage, CreateObjectError, DropObjectError, NamespaceAlreadyExists,
-    NamespaceDoesNotExist, OperationOnObjectError, SledBackendStorage,
+    self, BackendStorage, CreateObjectError, DropObjectError, NamespaceAlreadyExists, NamespaceDoesNotExist,
+    OperationOnObjectError, SledBackendStorage,
+};
+use crate::{
+    CreateTableError, DropTableError, OperationOnTableError, Projection, SchemaAlreadyExists, SchemaDoesNotExist,
 };
 use core::{SystemError, SystemResult};
-use thiserror::Error;
-
-pub type Result<T> = std::result::Result<T, Error>;
-
-pub type Projection = (Vec<String>, Vec<Vec<String>>);
 
 pub struct FrontendStorage<P: BackendStorage> {
     key_id_generator: usize,
@@ -27,24 +25,24 @@ impl<P: BackendStorage> FrontendStorage<P> {
                 key_id_generator: 0,
                 persistent,
             }),
-            Err(NamespaceAlreadyExists) => Err(SystemError::unrecoverable(
-                "system namespace already exists".to_owned(),
-            )),
+            Err(NamespaceAlreadyExists) => {
+                Err(SystemError::unrecoverable("system namespace already exists".to_owned()))
+            }
         }
     }
 
     #[allow(clippy::match_wild_err_arm, clippy::map_entry)]
-    pub fn create_schema(&mut self, schema_name: String) -> SystemResult<Result<()>> {
+    pub fn create_schema(&mut self, schema_name: String) -> SystemResult<Result<(), SchemaAlreadyExists>> {
         match self.persistent.create_namespace(schema_name.as_str())? {
             Ok(()) => Ok(Ok(())),
-            Err(NamespaceAlreadyExists) => Ok(Err(Error::SchemaAlreadyExists(schema_name))),
+            Err(NamespaceAlreadyExists) => Ok(Err(SchemaAlreadyExists)),
         }
     }
 
-    pub fn drop_schema(&mut self, schema_name: String) -> SystemResult<Result<()>> {
+    pub fn drop_schema(&mut self, schema_name: String) -> SystemResult<Result<(), SchemaDoesNotExist>> {
         match self.persistent.drop_namespace(schema_name.as_str())? {
             Ok(()) => Ok(Ok(())),
-            Err(NamespaceDoesNotExist) => Ok(Err(Error::SchemaDoesNotExist(schema_name))),
+            Err(NamespaceDoesNotExist) => Ok(Err(SchemaDoesNotExist)),
         }
     }
 
@@ -53,16 +51,16 @@ impl<P: BackendStorage> FrontendStorage<P> {
         schema_name: String,
         table_name: String,
         column_names: Vec<String>,
-    ) -> SystemResult<Result<()>> {
+    ) -> SystemResult<Result<(), CreateTableError>> {
         match self
             .persistent
             .create_object(schema_name.as_str(), table_name.as_str())?
         {
             Ok(()) => {
-                match self.persistent.create_object(
-                    "system",
-                    (schema_name.clone() + "." + table_name.as_str()).as_str(),
-                )? {
+                match self
+                    .persistent
+                    .create_object("system", (schema_name.clone() + "." + table_name.as_str()).as_str())?
+                {
                     Ok(()) => {}
                     e => {
                         log::debug!("{:?}", e);
@@ -83,9 +81,7 @@ impl<P: BackendStorage> FrontendStorage<P> {
                 self.key_id_generator += 1;
                 Ok(Ok(()))
             }
-            Err(CreateObjectError::ObjectAlreadyExists) => Ok(Err(Error::TableAlreadyExists(
-                schema_name + "." + table_name.as_str(),
-            ))),
+            Err(CreateObjectError::ObjectAlreadyExists) => Ok(Err(CreateTableError::TableAlreadyExists)),
             _ => unimplemented!(),
         }
     }
@@ -94,38 +90,23 @@ impl<P: BackendStorage> FrontendStorage<P> {
         &mut self,
         schema_name: String,
         table_name: String,
-    ) -> SystemResult<Result<Vec<String>>> {
-        let reads = self.persistent.read(
-            "system",
-            (schema_name.clone() + "." + table_name.as_str()).as_str(),
-        )?;
+    ) -> SystemResult<Result<Vec<String>, OperationOnTableError>> {
+        let reads = self
+            .persistent
+            .read("system", (schema_name + "." + table_name.as_str()).as_str())?;
         match reads {
             Ok(reads) => Ok(Ok(reads
                 .map(backend::Result::unwrap)
-                .map(|(_id, columns)| {
-                    columns
-                        .iter()
-                        .map(|c| String::from_utf8(c.to_vec()).unwrap())
-                        .collect()
-                })
+                .map(|(_id, columns)| columns.iter().map(|c| String::from_utf8(c.to_vec()).unwrap()).collect())
                 .next()
                 .unwrap())),
-            Err(OperationOnObjectError::ObjectDoesNotExist) => Ok(Err(Error::TableDoesNotExist(
-                schema_name + "." + table_name.as_str(),
-            ))),
+            Err(OperationOnObjectError::ObjectDoesNotExist) => Ok(Err(OperationOnTableError::TableDoesNotExist)),
             _ => unimplemented!(),
         }
     }
 
-    pub fn drop_table(
-        &mut self,
-        schema_name: String,
-        table_name: String,
-    ) -> SystemResult<Result<()>> {
-        match self
-            .persistent
-            .drop_object(schema_name.as_str(), table_name.as_str())?
-        {
+    pub fn drop_table(&mut self, schema_name: String, table_name: String) -> SystemResult<Result<(), DropTableError>> {
+        match self.persistent.drop_object(schema_name.as_str(), table_name.as_str())? {
             Ok(()) => {
                 match self
                     .persistent
@@ -135,9 +116,7 @@ impl<P: BackendStorage> FrontendStorage<P> {
                     _ => unimplemented!(),
                 }
             }
-            Err(DropObjectError::ObjectDoesNotExist) => Ok(Err(Error::TableDoesNotExist(
-                schema_name + "." + table_name.as_str(),
-            ))),
+            Err(DropObjectError::ObjectDoesNotExist) => Ok(Err(DropTableError::TableDoesNotExist)),
             _ => unimplemented!(),
         }
     }
@@ -147,7 +126,7 @@ impl<P: BackendStorage> FrontendStorage<P> {
         schema_name: String,
         table_name: String,
         values: Vec<Vec<String>>,
-    ) -> SystemResult<Result<()>> {
+    ) -> SystemResult<Result<(), OperationOnTableError>> {
         let mut to_write = vec![];
         for value in values {
             let key = self.key_id_generator.to_be_bytes().to_vec();
@@ -159,9 +138,7 @@ impl<P: BackendStorage> FrontendStorage<P> {
             .write(schema_name.as_str(), table_name.as_str(), to_write)?
         {
             Ok(_size) => Ok(Ok(())),
-            Err(OperationOnObjectError::ObjectDoesNotExist) => Ok(Err(Error::TableDoesNotExist(
-                schema_name + "." + table_name.as_str(),
-            ))),
+            Err(OperationOnObjectError::ObjectDoesNotExist) => Ok(Err(OperationOnTableError::TableDoesNotExist)),
             _ => unimplemented!(),
         }
     }
@@ -171,7 +148,7 @@ impl<P: BackendStorage> FrontendStorage<P> {
         schema_name: String,
         table_name: String,
         columns: Vec<String>,
-    ) -> SystemResult<Result<Projection>> {
+    ) -> SystemResult<Result<Projection, OperationOnTableError>> {
         match self.table_columns(schema_name.clone(), table_name.clone())? {
             Ok(all_columns) => {
                 let mut column_indexes = vec![];
@@ -216,10 +193,8 @@ impl<P: BackendStorage> FrontendStorage<P> {
         schema_name: String,
         table_name: String,
         value: String,
-    ) -> SystemResult<Result<usize>> {
-        let reads = self
-            .persistent
-            .read(schema_name.as_str(), table_name.as_str())?;
+    ) -> SystemResult<Result<usize, OperationOnTableError>> {
+        let reads = self.persistent.read(schema_name.as_str(), table_name.as_str())?;
         match reads {
             Ok(reads) => {
                 let to_update: Vec<(Vec<u8>, Vec<Vec<u8>>)> = reads
@@ -233,9 +208,7 @@ impl<P: BackendStorage> FrontendStorage<P> {
                     .unwrap();
                 Ok(Ok(len))
             }
-            Err(OperationOnObjectError::ObjectDoesNotExist) => Ok(Err(Error::TableDoesNotExist(
-                schema_name + "." + table_name.as_str(),
-            ))),
+            Err(OperationOnObjectError::ObjectDoesNotExist) => Ok(Err(OperationOnTableError::TableDoesNotExist)),
             _ => unimplemented!(),
         }
     }
@@ -244,20 +217,13 @@ impl<P: BackendStorage> FrontendStorage<P> {
         &mut self,
         schema_name: String,
         table_name: String,
-    ) -> SystemResult<Result<usize>> {
-        let reads = self
-            .persistent
-            .read(schema_name.as_str(), table_name.as_str())?;
+    ) -> SystemResult<Result<usize, OperationOnTableError>> {
+        let reads = self.persistent.read(schema_name.as_str(), table_name.as_str())?;
 
         let to_delete: Vec<Vec<u8>> = match reads {
-            Ok(reads) => reads
-                .map(backend::Result::unwrap)
-                .map(|(key, _)| key)
-                .collect(),
+            Ok(reads) => reads.map(backend::Result::unwrap).map(|(key, _)| key).collect(),
             Err(OperationOnObjectError::ObjectDoesNotExist) => {
-                return Ok(Err(Error::TableDoesNotExist(
-                    schema_name + "." + table_name.as_str(),
-                )))
+                return Ok(Err(OperationOnTableError::TableDoesNotExist))
             }
             _ => unimplemented!(),
         };
@@ -272,20 +238,6 @@ impl<P: BackendStorage> FrontendStorage<P> {
     }
 }
 
-#[derive(Debug, PartialEq, Error)]
-pub enum Error {
-    #[error("schema {0} already exists")]
-    SchemaAlreadyExists(String),
-    #[error("table {0} already exists")]
-    TableAlreadyExists(String),
-    #[error("schema {0} does not exist")]
-    SchemaDoesNotExist(String),
-    #[error("table {0} does not exist")]
-    TableDoesNotExist(String),
-    #[error("not supported operation")]
-    NotSupportedOperation(String),
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -295,15 +247,11 @@ mod tests {
         let mut storage = FrontendStorage::default().expect("no system errors");
 
         assert_eq!(
-            storage
-                .create_schema("schema_1".to_owned())
-                .expect("no system errors"),
+            storage.create_schema("schema_1".to_owned()).expect("no system errors"),
             Ok(())
         );
         assert_eq!(
-            storage
-                .create_schema("schema_2".to_owned())
-                .expect("no system errors"),
+            storage.create_schema("schema_2".to_owned()).expect("no system errors"),
             Ok(())
         );
     }
@@ -321,7 +269,7 @@ mod tests {
             storage
                 .create_schema("schema_name".to_owned())
                 .expect("no system errors"),
-            Err(Error::SchemaAlreadyExists("schema_name".to_owned()))
+            Err(SchemaAlreadyExists)
         );
     }
 
@@ -335,9 +283,7 @@ mod tests {
             .expect("schema is created");
 
         assert_eq!(
-            storage
-                .drop_schema("schema_name".to_owned())
-                .expect("no system errors"),
+            storage.drop_schema("schema_name".to_owned()).expect("no system errors"),
             Ok(())
         );
         assert_eq!(
@@ -356,7 +302,7 @@ mod tests {
             storage
                 .drop_schema("does_not_exists".to_owned())
                 .expect("no system errors"),
-            Err(Error::SchemaDoesNotExist("does_not_exists".to_owned()))
+            Err(SchemaDoesNotExist)
         );
     }
 
@@ -389,9 +335,7 @@ mod tests {
             .expect("values are inserted");
 
         assert_eq!(
-            storage
-                .drop_schema("schema_name".to_owned())
-                .expect("no system errors"),
+            storage.drop_schema("schema_name".to_owned()).expect("no system errors"),
             Ok(())
         );
         assert_eq!(
@@ -457,12 +401,7 @@ mod tests {
     fn create_table_with_the_same_name() {
         let mut storage = FrontendStorage::default().expect("no system errors");
 
-        create_table(
-            &mut storage,
-            "schema_name",
-            "table_name",
-            vec!["column_test"],
-        );
+        create_table(&mut storage, "schema_name", "table_name", vec!["column_test"]);
 
         assert_eq!(
             storage
@@ -472,9 +411,7 @@ mod tests {
                     vec!["column_test".to_owned()]
                 )
                 .expect("no system errors"),
-            Err(Error::TableAlreadyExists(
-                "schema_name.table_name".to_owned()
-            ))
+            Err(CreateTableError::TableAlreadyExists)
         );
     }
 
@@ -516,12 +453,7 @@ mod tests {
     fn drop_table() {
         let mut storage = FrontendStorage::default().expect("no system errors");
 
-        create_table(
-            &mut storage,
-            "schema_name",
-            "table_name",
-            vec!["column_test"],
-        );
+        create_table(&mut storage, "schema_name", "table_name", vec!["column_test"]);
         assert_eq!(
             storage
                 .drop_table("schema_name".to_owned(), "table_name".to_owned())
@@ -547,14 +479,12 @@ mod tests {
         storage
             .create_schema("schema_name".to_owned())
             .expect("no system errors")
-            .expect("schma is created");
+            .expect("schema is created");
         assert_eq!(
             storage
                 .drop_table("schema_name".to_owned(), "not_existed_table".to_owned())
                 .expect("no system errors"),
-            Err(Error::TableDoesNotExist(
-                "schema_name.not_existed_table".to_owned()
-            ))
+            Err(DropTableError::TableDoesNotExist)
         );
     }
 
@@ -562,12 +492,7 @@ mod tests {
     fn insert_row_into_table() {
         let mut storage = FrontendStorage::default().expect("no system errors");
 
-        create_table(
-            &mut storage,
-            "schema_name",
-            "table_name",
-            vec!["column_test"],
-        );
+        create_table(&mut storage, "schema_name", "table_name", vec!["column_test"]);
         assert_eq!(
             storage
                 .insert_into(
@@ -586,11 +511,7 @@ mod tests {
 
         assert_eq!(
             storage
-                .select_all_from(
-                    "schema_name".to_owned(),
-                    "table_name".to_owned(),
-                    table_columns
-                )
+                .select_all_from("schema_name".to_owned(), "table_name".to_owned(), table_columns)
                 .expect("no system errors"),
             Ok((vec!["column_test".to_owned()], vec![vec!["123".to_owned()]]))
         );
@@ -600,12 +521,7 @@ mod tests {
     fn insert_many_rows_into_table() {
         let mut storage = FrontendStorage::default().expect("no system errors");
 
-        create_table(
-            &mut storage,
-            "schema_name",
-            "table_name",
-            vec!["column_test"],
-        );
+        create_table(&mut storage, "schema_name", "table_name", vec!["column_test"]);
         storage
             .insert_into(
                 "schema_name".to_owned(),
@@ -630,11 +546,7 @@ mod tests {
 
         assert_eq!(
             storage
-                .select_all_from(
-                    "schema_name".to_owned(),
-                    "table_name".to_owned(),
-                    table_columns
-                )
+                .select_all_from("schema_name".to_owned(), "table_name".to_owned(), table_columns)
                 .expect("no system errors"),
             Ok((
                 vec!["column_test".to_owned()],
@@ -659,9 +571,7 @@ mod tests {
                     vec![vec!["123".to_owned()]],
                 )
                 .expect("no system errors"),
-            Err(Error::TableDoesNotExist(
-                "schema_name.not_existed".to_owned()
-            ))
+            Err(OperationOnTableError::TableDoesNotExist)
         );
     }
 
@@ -677,9 +587,7 @@ mod tests {
             storage
                 .table_columns("schema_name".to_owned(), "not_existed".to_owned())
                 .expect("no system errors"),
-            Err(Error::TableDoesNotExist(
-                "schema_name.not_existed".to_owned()
-            ))
+            Err(OperationOnTableError::TableDoesNotExist)
         );
     }
 
@@ -687,12 +595,7 @@ mod tests {
     fn update_all_records() {
         let mut storage = FrontendStorage::default().expect("no system errors");
 
-        create_table(
-            &mut storage,
-            "schema_name",
-            "table_name",
-            vec!["column_test"],
-        );
+        create_table(&mut storage, "schema_name", "table_name", vec!["column_test"]);
         storage
             .insert_into(
                 "schema_name".to_owned(),
@@ -720,11 +623,7 @@ mod tests {
 
         assert_eq!(
             storage
-                .update_all(
-                    "schema_name".to_owned(),
-                    "table_name".to_owned(),
-                    "567".to_owned()
-                )
+                .update_all("schema_name".to_owned(), "table_name".to_owned(), "567".to_owned())
                 .expect("no system errors"),
             Ok(3)
         );
@@ -736,19 +635,11 @@ mod tests {
 
         assert_eq!(
             storage
-                .select_all_from(
-                    "schema_name".to_owned(),
-                    "table_name".to_owned(),
-                    table_columns
-                )
+                .select_all_from("schema_name".to_owned(), "table_name".to_owned(), table_columns)
                 .expect("no system errors"),
             Ok((
                 vec!["column_test".to_owned()],
-                vec![
-                    vec!["567".to_owned()],
-                    vec!["567".to_owned()],
-                    vec!["567".to_owned()]
-                ]
+                vec![vec!["567".to_owned()], vec!["567".to_owned()], vec!["567".to_owned()]]
             ))
         );
     }
@@ -763,15 +654,9 @@ mod tests {
             .expect("schema is created");
         assert_eq!(
             storage
-                .update_all(
-                    "schema_name".to_owned(),
-                    "not_existed".to_owned(),
-                    "123".to_owned()
-                )
+                .update_all("schema_name".to_owned(), "not_existed".to_owned(), "123".to_owned())
                 .expect("no system errors"),
-            Err(Error::TableDoesNotExist(
-                "schema_name.not_existed".to_owned()
-            ))
+            Err(OperationOnTableError::TableDoesNotExist)
         );
     }
 
@@ -779,12 +664,7 @@ mod tests {
     fn delete_all_from_table() {
         let mut storage = FrontendStorage::default().expect("no system errors");
 
-        create_table(
-            &mut storage,
-            "schema_name",
-            "table_name",
-            vec!["column_test"],
-        );
+        create_table(&mut storage, "schema_name", "table_name", vec!["column_test"]);
         storage
             .insert_into(
                 "schema_name".to_owned(),
@@ -824,11 +704,7 @@ mod tests {
 
         assert_eq!(
             storage
-                .select_all_from(
-                    "schema_name".to_owned(),
-                    "table_name".to_owned(),
-                    table_columns
-                )
+                .select_all_from("schema_name".to_owned(), "table_name".to_owned(), table_columns)
                 .expect("no system errors"),
             Ok((vec!["column_test".to_owned()], vec![]))
         );
@@ -847,9 +723,7 @@ mod tests {
             storage
                 .delete_all_from("schema_name".to_owned(), "table_name".to_owned())
                 .expect("no system errors"),
-            Err(Error::TableDoesNotExist(
-                "schema_name.table_name".to_owned()
-            ))
+            Err(OperationOnTableError::TableDoesNotExist)
         );
     }
 
@@ -879,18 +753,10 @@ mod tests {
 
         assert_eq!(
             storage
-                .select_all_from(
-                    "schema_name".to_owned(),
-                    "table_name".to_owned(),
-                    table_columns
-                )
+                .select_all_from("schema_name".to_owned(), "table_name".to_owned(), table_columns)
                 .expect("no system errors"),
             Ok((
-                vec![
-                    "column_1".to_owned(),
-                    "column_2".to_owned(),
-                    "column_3".to_owned()
-                ],
+                vec!["column_1".to_owned(), "column_2".to_owned(), "column_3".to_owned()],
                 vec![vec!["1".to_owned(), "2".to_owned(), "3".to_owned()]]
             ))
         );
@@ -926,18 +792,10 @@ mod tests {
 
         assert_eq!(
             storage
-                .select_all_from(
-                    "schema_name".to_owned(),
-                    "table_name".to_owned(),
-                    table_columns
-                )
+                .select_all_from("schema_name".to_owned(), "table_name".to_owned(), table_columns)
                 .expect("no system errors"),
             Ok((
-                vec![
-                    "column_1".to_owned(),
-                    "column_2".to_owned(),
-                    "column_3".to_owned()
-                ],
+                vec!["column_1".to_owned(), "column_2".to_owned(), "column_3".to_owned()],
                 vec![
                     vec!["1".to_owned(), "2".to_owned(), "3".to_owned()],
                     vec!["4".to_owned(), "5".to_owned(), "6".to_owned()],
@@ -1117,10 +975,7 @@ mod tests {
             .create_table(
                 schema_name.to_owned(),
                 table_name.to_owned(),
-                column_names
-                    .into_iter()
-                    .map(ToOwned::to_owned)
-                    .collect::<Vec<String>>(),
+                column_names.into_iter().map(ToOwned::to_owned).collect::<Vec<String>>(),
             )
             .expect("no system errors")
             .expect("table is created");

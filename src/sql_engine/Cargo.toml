@@ -5,6 +5,7 @@ authors = ["Alex Dukhno <alex.dukhno@icloud.com>"]
 edition = "2018"
 
 [dependencies]
+thiserror = "1.0.19"
 log = "0.4.8"
 core = { path = "../core" }
 storage = { path = "../storage" }

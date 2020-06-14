@@ -1,10 +1,6 @@
-use protocol::{
-    listener::{Field, QueryListener},
-    messages::Message,
-    Command,
-};
+use protocol::{listener::QueryListener, messages::Message, Command, Field};
 use smol::Task;
-use sql_engine::{Handler, QueryEvent, QueryResult};
+use sql_engine::{Handler, QueryError, QueryEvent, QueryResult};
 use std::{
     sync::atomic::{AtomicU8, Ordering},
     sync::{Arc, Mutex},
@@ -48,9 +44,7 @@ impl Node {
                 .expect("open server connection");
             self.state.store(RUNNING, Ordering::SeqCst);
 
-            let storage = Arc::new(Mutex::new(
-                storage::frontend::FrontendStorage::default().unwrap(),
-            ));
+            let storage = Arc::new(Mutex::new(storage::frontend::FrontendStorage::default().unwrap()));
 
             log::debug!("waiting for connections");
             while let Ok(mut connection) = listener.accept().await.expect("no io errors") {
@@ -82,25 +76,21 @@ impl Node {
                                 state.store(STOPPED, Ordering::SeqCst);
                                 return;
                             }
-                            Ok(Ok(Command::Query(sql_query))) => match sql_handler
-                                .execute(sql_query.as_str())
-                                .expect("no system error")
-                            {
-                                Ok(QueryEvent::Terminate) => {
-                                    log::debug!("SHOULD STOP");
-                                    state.store(STOPPED, Ordering::SeqCst);
-                                    return;
-                                }
-                                response => {
-                                    match connection
-                                        .send_response(QueryResultMapper::map(response))
-                                        .await
-                                    {
-                                        Ok(()) => {}
-                                        Err(error) => eprintln!("{:?}", error), // break Err(SystemError::io(error)),
+                            Ok(Ok(Command::Query(sql_query))) => {
+                                match sql_handler.execute(sql_query.as_str()).expect("no system error") {
+                                    Ok(QueryEvent::Terminate) => {
+                                        log::debug!("SHOULD STOP");
+                                        state.store(STOPPED, Ordering::SeqCst);
+                                        return;
+                                    }
+                                    response => {
+                                        match connection.send_response(QueryResultMapper::map(response)).await {
+                                            Ok(()) => {}
+                                            Err(error) => eprintln!("{:?}", error), // break Err(SystemError::io(error)),
+                                        }
                                     }
                                 }
-                            },
+                            }
                         }
                     }
                 })
@@ -115,25 +105,14 @@ struct QueryResultMapper;
 impl QueryResultMapper {
     fn map(resp: QueryResult) -> Vec<Message> {
         match resp {
-            Ok(QueryEvent::SchemaCreated) => {
-                vec![Message::CommandComplete("CREATE SCHEMA".to_owned())]
-            }
-            Ok(QueryEvent::SchemaDropped) => {
-                vec![Message::CommandComplete("DROP SCHEMA".to_owned())]
-            }
-            Ok(QueryEvent::TableCreated) => {
-                vec![Message::CommandComplete("CREATE TABLE".to_owned())]
-            }
+            Ok(QueryEvent::SchemaCreated) => vec![Message::CommandComplete("CREATE SCHEMA".to_owned())],
+            Ok(QueryEvent::SchemaDropped) => vec![Message::CommandComplete("DROP SCHEMA".to_owned())],
+            Ok(QueryEvent::TableCreated) => vec![Message::CommandComplete("CREATE TABLE".to_owned())],
             Ok(QueryEvent::TableDropped) => vec![Message::CommandComplete("DROP TABLE".to_owned())],
-            Ok(QueryEvent::RecordsInserted(records)) => {
-                vec![Message::CommandComplete(format!("INSERT 0 {}", records))]
-            }
+            Ok(QueryEvent::RecordsInserted(records)) => vec![Message::CommandComplete(format!("INSERT 0 {}", records))],
             Ok(QueryEvent::RecordsSelected(projection)) => {
                 let definition = projection.0;
-                let description: Vec<Field> = definition
-                    .into_iter()
-                    .map(|name| Field::new(name, 21, 2))
-                    .collect();
+                let description: Vec<Field> = definition.into_iter().map(|name| Field::new(name, 21, 2)).collect();
                 let records = projection.1;
                 let len = records.len();
                 let mut messages = vec![Message::RowDescription(description)];
@@ -143,50 +122,33 @@ impl QueryResultMapper {
                 messages.push(Message::CommandComplete(format!("SELECT {}", len)));
                 messages
             }
-            Ok(QueryEvent::RecordsUpdated(records)) => {
-                vec![Message::CommandComplete(format!("UPDATE {}", records))]
-            }
-            Ok(QueryEvent::RecordsDeleted(records)) => {
-                vec![Message::CommandComplete(format!("DELETE {}", records))]
-            }
-            Err(storage::frontend::Error::SchemaAlreadyExists(schema_name)) => {
-                vec![Message::ErrorResponse(
-                    Some("ERROR".to_owned()),
-                    Some("42P06".to_owned()),
-                    Some(format!("schema \"{}\" already exists", schema_name)),
-                )]
-            }
-            Err(storage::frontend::Error::SchemaDoesNotExist(schema_name)) => {
-                vec![Message::ErrorResponse(
-                    Some("ERROR".to_owned()),
-                    Some("3F000".to_owned()),
-                    Some(format!("schema \"{}\" does not exist", schema_name)),
-                )]
-            }
-            Err(storage::frontend::Error::TableAlreadyExists(table_name)) => {
-                vec![Message::ErrorResponse(
-                    Some("ERROR".to_owned()),
-                    Some("42P07".to_owned()),
-                    Some(format!("table \"{}\" already exists", table_name)),
-                )]
-            }
-            Err(storage::frontend::Error::TableDoesNotExist(table_name)) => {
-                vec![Message::ErrorResponse(
-                    Some("ERROR".to_owned()),
-                    Some("42P01".to_owned()),
-                    Some(format!("table \"{}\" does not exist", table_name)),
-                )]
-            }
-            Err(storage::frontend::Error::NotSupportedOperation(raw_sql_query)) => {
-                vec![Message::ErrorResponse(
-                    Some("ERROR".to_owned()),
-                    Some("42601".to_owned()),
-                    Some(format!(
-                        "Currently, Query '{}' can't be executed",
-                        raw_sql_query
-                    )),
-                )]
-            }
+            Ok(QueryEvent::RecordsUpdated(records)) => vec![Message::CommandComplete(format!("UPDATE {}", records))],
+            Ok(QueryEvent::RecordsDeleted(records)) => vec![Message::CommandComplete(format!("DELETE {}", records))],
+            Err(QueryError::SchemaAlreadyExists(schema_name)) => vec![Message::ErrorResponse(
+                Some("ERROR".to_owned()),
+                Some("42P06".to_owned()),
+                Some(format!("schema \"{}\" already exists", schema_name)),
+            )],
+            Err(QueryError::SchemaDoesNotExist(schema_name)) => vec![Message::ErrorResponse(
+                Some("ERROR".to_owned()),
+                Some("3F000".to_owned()),
+                Some(format!("schema \"{}\" does not exist", schema_name)),
+            )],
+            Err(QueryError::TableAlreadyExists(table_name)) => vec![Message::ErrorResponse(
+                Some("ERROR".to_owned()),
+                Some("42P07".to_owned()),
+                Some(format!("table \"{}\" already exists", table_name)),
+            )],
+            Err(QueryError::TableDoesNotExist(table_name)) => vec![Message::ErrorResponse(
+                Some("ERROR".to_owned()),
+                Some("42P01".to_owned()),
+                Some(format!("table \"{}\" does not exist", table_name)),
+            )],
+            Err(QueryError::NotSupportedOperation(raw_sql_query)) => vec![Message::ErrorResponse(
+                Some("ERROR".to_owned()),
+                Some("42601".to_owned()),
+                Some(format!("Currently, Query '{}' can't be executed", raw_sql_query)),
+            )],
             _ => unimplemented!(),
         }
     }
@@ -233,10 +195,7 @@ mod mapper {
         let records_number = 3;
         assert_eq!(
             QueryResultMapper::map(Ok(QueryEvent::RecordsInserted(records_number))),
-            vec![Message::CommandComplete(format!(
-                "INSERT 0 {}",
-                records_number
-            ))]
+            vec![Message::CommandComplete(format!("INSERT 0 {}", records_number))]
         )
     }
 
@@ -268,10 +227,7 @@ mod mapper {
         let records_number = 3;
         assert_eq!(
             QueryResultMapper::map(Ok(QueryEvent::RecordsUpdated(records_number))),
-            vec![Message::CommandComplete(format!(
-                "UPDATE {}",
-                records_number
-            ))]
+            vec![Message::CommandComplete(format!("UPDATE {}", records_number))]
         );
     }
 
@@ -280,10 +236,7 @@ mod mapper {
         let records_number = 3;
         assert_eq!(
             QueryResultMapper::map(Ok(QueryEvent::RecordsDeleted(records_number))),
-            vec![Message::CommandComplete(format!(
-                "DELETE {}",
-                records_number
-            ))]
+            vec![Message::CommandComplete(format!("DELETE {}", records_number))]
         )
     }
 
@@ -291,9 +244,7 @@ mod mapper {
     fn schema_already_exists() {
         let schema_name = "some_table_name".to_owned();
         assert_eq!(
-            QueryResultMapper::map(Err(storage::frontend::Error::SchemaAlreadyExists(
-                schema_name.clone()
-            ))),
+            QueryResultMapper::map(Err(QueryError::SchemaAlreadyExists(schema_name.clone()))),
             vec![Message::ErrorResponse(
                 Some("ERROR".to_owned()),
                 Some("42P06".to_owned()),
@@ -306,9 +257,7 @@ mod mapper {
     fn schema_does_not_exists() {
         let schema_name = "some_table_name".to_owned();
         assert_eq!(
-            QueryResultMapper::map(Err(storage::frontend::Error::SchemaDoesNotExist(
-                schema_name.clone()
-            ))),
+            QueryResultMapper::map(Err(QueryError::SchemaDoesNotExist(schema_name.clone()))),
             vec![Message::ErrorResponse(
                 Some("ERROR".to_owned()),
                 Some("3F000".to_owned()),
@@ -321,9 +270,7 @@ mod mapper {
     fn table_already_exists() {
         let table_name = "some_table_name".to_owned();
         assert_eq!(
-            QueryResultMapper::map(Err(storage::frontend::Error::TableAlreadyExists(
-                table_name.clone()
-            ))),
+            QueryResultMapper::map(Err(QueryError::TableAlreadyExists(table_name.clone()))),
             vec![Message::ErrorResponse(
                 Some("ERROR".to_owned()),
                 Some("42P07".to_owned()),
@@ -336,9 +283,7 @@ mod mapper {
     fn table_does_not_exists() {
         let table_name = "some_table_name".to_owned();
         assert_eq!(
-            QueryResultMapper::map(Err(storage::frontend::Error::TableDoesNotExist(
-                table_name.clone()
-            ))),
+            QueryResultMapper::map(Err(QueryError::TableDoesNotExist(table_name.clone()))),
             vec![Message::ErrorResponse(
                 Some("ERROR".to_owned()),
                 Some("42P01".to_owned()),
@@ -351,16 +296,11 @@ mod mapper {
     fn operation_is_not_supported() {
         let raw_sql_query = "some SQL query".to_owned();
         assert_eq!(
-            QueryResultMapper::map(Err(storage::frontend::Error::NotSupportedOperation(
-                raw_sql_query.clone()
-            ))),
+            QueryResultMapper::map(Err(QueryError::NotSupportedOperation(raw_sql_query.clone()))),
             vec![Message::ErrorResponse(
                 Some("ERROR".to_owned()),
                 Some("42601".to_owned()),
-                Some(format!(
-                    "Currently, Query '{}' can't be executed",
-                    raw_sql_query
-                )),
+                Some(format!("Currently, Query '{}' can't be executed", raw_sql_query)),
             )]
         )
     }

@@ -1,8 +1,8 @@
 use core::{SystemError, SystemResult};
 use std::collections::HashMap;
 use storage::backend::{
-    BackendStorage, CreateObjectError, DropObjectError, Key, NamespaceAlreadyExists,
-    NamespaceDoesNotExist, OperationOnObjectError, ReadCursor, Result, Row, Values,
+    BackendStorage, CreateObjectError, DropObjectError, Key, NamespaceAlreadyExists, NamespaceDoesNotExist,
+    OperationOnObjectError, ReadCursor, Result, Row, Values,
 };
 
 #[derive(Default, Debug)]
@@ -23,34 +23,23 @@ pub struct InMemoryStorage {
 impl BackendStorage for InMemoryStorage {
     type ErrorMapper = storage::backend::SledErrorMapper;
 
-    fn create_namespace(
-        &mut self,
-        namespace: &str,
-    ) -> SystemResult<Result<(), NamespaceAlreadyExists>> {
+    fn create_namespace(&mut self, namespace: &str) -> SystemResult<Result<(), NamespaceAlreadyExists>> {
         if self.namespaces.contains_key(namespace) {
             Ok(Err(NamespaceAlreadyExists))
         } else {
-            self.namespaces
-                .insert(namespace.to_owned(), Namespace::default());
+            self.namespaces.insert(namespace.to_owned(), Namespace::default());
             Ok(Ok(()))
         }
     }
 
-    fn drop_namespace(
-        &mut self,
-        namespace: &str,
-    ) -> SystemResult<Result<(), NamespaceDoesNotExist>> {
+    fn drop_namespace(&mut self, namespace: &str) -> SystemResult<Result<(), NamespaceDoesNotExist>> {
         match self.namespaces.remove(namespace) {
             Some(_namespace) => Ok(Ok(())),
             None => Ok(Err(NamespaceDoesNotExist)),
         }
     }
 
-    fn create_object(
-        &mut self,
-        namespace: &str,
-        object_name: &str,
-    ) -> SystemResult<Result<(), CreateObjectError>> {
+    fn create_object(&mut self, namespace: &str, object_name: &str) -> SystemResult<Result<(), CreateObjectError>> {
         match self.namespaces.get_mut(namespace) {
             Some(namespace) => {
                 if namespace.objects.contains_key(object_name) {
@@ -66,11 +55,7 @@ impl BackendStorage for InMemoryStorage {
         }
     }
 
-    fn drop_object(
-        &mut self,
-        namespace: &str,
-        object_name: &str,
-    ) -> SystemResult<Result<(), DropObjectError>> {
+    fn drop_object(&mut self, namespace: &str, object_name: &str) -> SystemResult<Result<(), DropObjectError>> {
         match self.namespaces.get_mut(namespace) {
             Some(namespace) => match namespace.objects.remove(object_name) {
                 Some(_) => Ok(Ok(())),
@@ -105,11 +90,7 @@ impl BackendStorage for InMemoryStorage {
         }
     }
 
-    fn read(
-        &self,
-        namespace: &str,
-        object_name: &str,
-    ) -> SystemResult<Result<ReadCursor, OperationOnObjectError>> {
+    fn read(&self, namespace: &str, object_name: &str) -> SystemResult<Result<ReadCursor, OperationOnObjectError>> {
         match self.namespaces.get(namespace) {
             Some(namespace) => match namespace.objects.get(object_name) {
                 Some(object) => Ok(Ok(Box::new(
@@ -164,15 +145,11 @@ mod tests {
             let mut storage = InMemoryStorage::default();
 
             assert_eq!(
-                storage
-                    .create_namespace("namespace_1")
-                    .expect("namespace created"),
+                storage.create_namespace("namespace_1").expect("namespace created"),
                 Ok(())
             );
             assert_eq!(
-                storage
-                    .create_namespace("namespace_2")
-                    .expect("namespace created"),
+                storage.create_namespace("namespace_2").expect("namespace created"),
                 Ok(())
             );
         }
@@ -187,9 +164,7 @@ mod tests {
                 .expect("namespace created");
 
             assert_eq!(
-                storage
-                    .create_namespace("namespace")
-                    .expect("no system errors"),
+                storage.create_namespace("namespace").expect("no system errors"),
                 Err(NamespaceAlreadyExists)
             );
         }
@@ -203,16 +178,9 @@ mod tests {
                 .expect("no system errors")
                 .expect("namespace created");
 
+            assert_eq!(storage.drop_namespace("namespace").expect("namespace dropped"), Ok(()));
             assert_eq!(
-                storage
-                    .drop_namespace("namespace")
-                    .expect("namespace dropped"),
-                Ok(())
-            );
-            assert_eq!(
-                storage
-                    .create_namespace("namespace")
-                    .expect("namespace created"),
+                storage.create_namespace("namespace").expect("namespace created"),
                 Ok(())
             );
         }
@@ -222,9 +190,7 @@ mod tests {
             let mut storage = InMemoryStorage::default();
 
             assert_eq!(
-                storage
-                    .drop_namespace("does_not_exists")
-                    .expect("no system errors"),
+                storage.drop_namespace("does_not_exists").expect("no system errors"),
                 Err(NamespaceDoesNotExist)
             );
         }
@@ -246,16 +212,9 @@ mod tests {
                 .expect("no system errors")
                 .expect("object created");
 
+            assert_eq!(storage.drop_namespace("namespace").expect("no system errors"), Ok(()));
             assert_eq!(
-                storage
-                    .drop_namespace("namespace")
-                    .expect("no system errors"),
-                Ok(())
-            );
-            assert_eq!(
-                storage
-                    .create_namespace("namespace")
-                    .expect("namespace created"),
+                storage.create_namespace("namespace").expect("namespace created"),
                 Ok(())
             );
             assert_eq!(
@@ -397,9 +356,7 @@ mod tests {
             let mut storage = InMemoryStorage::default();
 
             assert_eq!(
-                storage
-                    .drop_object("not_existent", "object")
-                    .expect("no system errors"),
+                storage.drop_object("not_existent", "object").expect("no system errors"),
                 Err(DropObjectError::NamespaceDoesNotExist)
             );
         }
@@ -416,11 +373,7 @@ mod tests {
             create_object(&mut storage, "namespace", "object_name");
             assert_eq!(
                 storage
-                    .write(
-                        "namespace",
-                        "object_name",
-                        as_rows(vec![(1u8, vec!["123"])],)
-                    )
+                    .write("namespace", "object_name", as_rows(vec![(1u8, vec!["123"])],))
                     .expect("no system errors"),
                 Ok(1)
             );
@@ -440,19 +393,11 @@ mod tests {
 
             create_object(&mut storage, "namespace", "object_name");
             storage
-                .write(
-                    "namespace",
-                    "object_name",
-                    as_rows(vec![(1u8, vec!["123"])]),
-                )
+                .write("namespace", "object_name", as_rows(vec![(1u8, vec!["123"])]))
                 .expect("no system errors")
                 .expect("values are written");
             storage
-                .write(
-                    "namespace",
-                    "object_name",
-                    as_rows(vec![(2u8, vec!["456"])]),
-                )
+                .write("namespace", "object_name", as_rows(vec![(2u8, vec!["456"])]))
                 .expect("no system errors")
                 .expect("values are written");
 
@@ -475,11 +420,7 @@ mod tests {
                 .expect("namespace created");
             assert_eq!(
                 storage
-                    .write(
-                        "namespace",
-                        "not_existed",
-                        as_rows(vec![(1u8, vec!["123"])],)
-                    )
+                    .write("namespace", "not_existed", as_rows(vec![(1u8, vec!["123"])],))
                     .expect("no system errors"),
                 Err(OperationOnObjectError::ObjectDoesNotExist)
             );
@@ -536,11 +477,7 @@ mod tests {
                 .write(
                     "namespace",
                     "object_name",
-                    as_rows(vec![
-                        (1u8, vec!["123"]),
-                        (2u8, vec!["456"]),
-                        (3u8, vec!["789"]),
-                    ]),
+                    as_rows(vec![(1u8, vec!["123"]), (2u8, vec!["456"]), (3u8, vec!["789"])]),
                 )
                 .expect("no system errors")
                 .expect("write occurred");
@@ -596,11 +533,7 @@ mod tests {
 
             create_object(&mut storage, "namespace", "object_name");
             storage
-                .write(
-                    "namespace",
-                    "object_name",
-                    as_rows(vec![(1u8, vec!["1", "2", "3"])]),
-                )
+                .write("namespace", "object_name", as_rows(vec![(1u8, vec!["1", "2", "3"])]))
                 .expect("no system errors")
                 .expect("write occurred");
 
@@ -669,10 +602,7 @@ mod tests {
     }
 
     fn as_keys(items: Vec<u8>) -> Vec<Key> {
-        items
-            .into_iter()
-            .map(|key| key.to_be_bytes().to_vec())
-            .collect()
+        items.into_iter().map(|key| key.to_be_bytes().to_vec()).collect()
     }
 
     fn as_read_cursor(items: Vec<(u8, Vec<&'static str>)>) -> ReadCursor {
