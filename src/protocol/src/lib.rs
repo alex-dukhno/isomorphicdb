@@ -20,6 +20,8 @@ use bytes::BytesMut;
 use futures::{AsyncReadExt, AsyncWriteExt};
 use std::io;
 
+pub use listener::QueryListener;
+
 pub mod listener;
 pub mod messages;
 
@@ -34,12 +36,13 @@ pub const VERSION_CANCEL: Version = (1234 << 16) + 5678;
 pub const VERSION_SSL: Version = (1234 << 16) + 5679;
 pub const VERSION_GSSENC: Version = (1234 << 16) + 5680;
 
-pub fn supported_version() -> Version {
-    VERSION_3
-}
-
 #[derive(Debug, PartialEq)]
-pub struct Error;
+pub enum Error {
+    QueryIsNotValidUtfString,
+    UnsupportedVersion,
+    UnsupportedRequest,
+    UnrecognizedVersion,
+}
 
 #[derive(Debug, PartialEq)]
 pub enum Command {
@@ -88,7 +91,7 @@ impl<RW: AsyncReadExt + AsyncWriteExt + Unpin> Connection<RW> {
             log::debug!("FOR TEST sql = {:?}", sql_buff);
             let sql = match String::from_utf8(sql_buff[..sql_buff.len() - 1].to_vec()) {
                 Ok(sql) => sql,
-                Err(_e) => return Ok(Err(Error)),
+                Err(_e) => return Ok(Err(Error::QueryIsNotValidUtfString)),
             };
             log::debug!("SQL = {}", sql);
             Ok(Ok(Command::Query(sql)))
@@ -150,7 +153,7 @@ mod tests {
             #[async_std::test]
             async fn read_termination_command() -> io::Result<()> {
                 let test_case = async_io::TestCase::with_content(vec![&[88], &[0, 0, 0, 4]]).await;
-                let mut connection = Connection::new((supported_version(), vec![], SslMode::Disable), test_case);
+                let mut connection = Connection::new((VERSION_3, vec![], SslMode::Disable), test_case);
 
                 let query = connection.read_query().await?;
 
@@ -162,8 +165,7 @@ mod tests {
             #[async_std::test]
             async fn read_query_successfully() -> io::Result<()> {
                 let test_case = async_io::TestCase::with_content(vec![&[81], &[0, 0, 0, 14], b"select 1;\0"]).await;
-                let mut connection =
-                    Connection::new((supported_version(), vec![], SslMode::Disable), test_case.clone());
+                let mut connection = Connection::new((VERSION_3, vec![], SslMode::Disable), test_case.clone());
 
                 let query = connection.read_query().await?;
 
@@ -180,7 +182,7 @@ mod tests {
             #[async_std::test]
             async fn unexpected_eof_when_read_type_code_of_query_request() {
                 let test_case = async_io::TestCase::with_content(vec![]).await;
-                let mut connection = Connection::new((supported_version(), vec![], SslMode::Disable), test_case);
+                let mut connection = Connection::new((VERSION_3, vec![], SslMode::Disable), test_case);
 
                 let query = connection.read_query().await;
 
@@ -190,7 +192,7 @@ mod tests {
             #[async_std::test]
             async fn unexpected_eof_when_read_length_of_query() {
                 let test_case = async_io::TestCase::with_content(vec![&[81]]).await;
-                let mut connection = Connection::new((supported_version(), vec![], SslMode::Disable), test_case);
+                let mut connection = Connection::new((VERSION_3, vec![], SslMode::Disable), test_case);
 
                 let query = connection.read_query().await;
 
@@ -200,7 +202,7 @@ mod tests {
             #[async_std::test]
             async fn unexpected_eof_when_query_string() {
                 let test_case = async_io::TestCase::with_content(vec![&[81], &[0, 0, 0, 14], b"sel;\0"]).await;
-                let mut connection = Connection::new((supported_version(), vec![], SslMode::Disable), test_case);
+                let mut connection = Connection::new((VERSION_3, vec![], SslMode::Disable), test_case);
 
                 let query = connection.read_query().await;
 

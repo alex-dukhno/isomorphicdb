@@ -12,6 +12,8 @@ name = "database"
 path = "src/bin.rs"
 
 [dependencies]
+async-trait = "0.1.35"
+futures = "0.3.5"
 core = { path = "../core" }
 sql_engine = { path = "../sql_engine" }
 storage = { path = "../storage" }

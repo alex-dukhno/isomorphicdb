@@ -5,4 +5,4 @@ authors = ["Alex Dukhno <alex.dukhno@icloud.com>"]
 edition = "2018"
 
 [dependencies]
-backtrace = "0.3.48"
+backtrace = "0.3.49"
