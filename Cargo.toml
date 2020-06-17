@@ -1,6 +1,6 @@
 [workspace]
 members = [
-    "src/core",
+    "src/kernel",
     "src/node",
     "src/protocol",
     "src/sql_engine",

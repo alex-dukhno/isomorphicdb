@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use core::{SystemError, SystemResult};
+use kernel::{SystemError, SystemResult};
 use std::collections::HashMap;
 use std::fmt::Debug;
 
@@ -76,7 +76,7 @@ pub trait BackendStorage {
 pub trait StorageErrorMapper {
     type Error;
 
-    fn map(error: Self::Error) -> core::SystemError;
+    fn map(error: Self::Error) -> kernel::SystemError;
 }
 
 pub struct SledErrorMapper;

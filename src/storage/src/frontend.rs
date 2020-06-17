@@ -19,7 +19,7 @@ use crate::backend::{
 use crate::{
     CreateTableError, DropTableError, OperationOnTableError, Projection, SchemaAlreadyExists, SchemaDoesNotExist,
 };
-use core::{SystemError, SystemResult};
+use kernel::{SystemError, SystemResult};
 
 pub struct FrontendStorage<P: BackendStorage> {
     key_id_generator: usize,

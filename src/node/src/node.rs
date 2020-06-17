@@ -12,7 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use protocol::{listener::QueryListener, messages::Message, Command, Field};
+use crate::query_listener::SmolQueryListener;
+use protocol::{listener::Secure, messages::Message, Command, Field, QueryListener};
 use smol::Task;
 use sql_engine::{Handler, QueryError, QueryEvent, QueryResult};
 use std::{
@@ -53,7 +54,7 @@ impl Node {
         log::debug!("Starting server on {}", local_address);
 
         smol::run(async {
-            let listener = QueryListener::bind(local_address)
+            let listener = SmolQueryListener::bind(local_address, Secure::none())
                 .await
                 .expect("open server connection");
             self.state.store(RUNNING, Ordering::SeqCst);
