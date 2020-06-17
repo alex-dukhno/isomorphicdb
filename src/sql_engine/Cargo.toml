@@ -7,7 +7,7 @@ edition = "2018"
 [dependencies]
 thiserror = "1.0.19"
 log = "0.4.8"
-core = { path = "../core" }
+kernel = { path = "../kernel" }
 storage = { path = "../storage" }
 sqlparser = { git = "https://github.com/andygrove/sqlparser-rs.git" }
 bytes = "0.5"

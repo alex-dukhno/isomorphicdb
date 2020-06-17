@@ -5,7 +5,7 @@ authors = ["Alex Dukhno <alex.dukhno@icloud.com>"]
 edition = "2018"
 
 [dependencies]
-core = { path = "../core" }
+kernel = { path = "../kernel" }
 log = "0.4.8"
 sled = { version = "0.32.0-rc1", features = ["default"] }
 

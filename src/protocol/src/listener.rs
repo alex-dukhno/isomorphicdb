@@ -23,13 +23,12 @@ use futures::io::{self, AsyncReadExt, AsyncWriteExt};
 use itertools::Itertools;
 use std::net::SocketAddr;
 
-pub mod smol;
-
 #[async_trait]
 pub trait QueryListener {
     type Socket: AsyncReadExt + AsyncWriteExt + Unpin + Send + Sync;
     type ServerSocket: ServerListener<Socket = Self::Socket> + Unpin + Send + Sync;
 
+    #[allow(clippy::if_same_then_else)]
     async fn accept(&self) -> io::Result<Result<Connection<Self::Socket>>> {
         let (mut socket, address) = self.server_socket().tcp_connection().await?;
         log::debug!("ADDRESS {:?}", address);

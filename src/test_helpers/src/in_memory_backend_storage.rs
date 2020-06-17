@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use core::{SystemError, SystemResult};
+use kernel::{SystemError, SystemResult};
 use std::collections::HashMap;
 use storage::backend::{
     BackendStorage, CreateObjectError, DropObjectError, Key, NamespaceAlreadyExists, NamespaceDoesNotExist,

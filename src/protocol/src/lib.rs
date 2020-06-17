@@ -21,6 +21,7 @@ use futures::{AsyncReadExt, AsyncWriteExt};
 use std::io;
 
 pub use listener::QueryListener;
+pub use listener::ServerListener;
 
 pub mod listener;
 pub mod messages;

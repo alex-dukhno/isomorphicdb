@@ -14,7 +14,7 @@
 
 extern crate log;
 
-use core::SystemResult;
+use kernel::SystemResult;
 use std::sync::{Arc, Mutex};
 
 use sqlparser::{dialect::PostgreSqlDialect, parser::Parser};

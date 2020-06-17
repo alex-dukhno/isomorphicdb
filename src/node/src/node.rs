@@ -12,11 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use protocol::{
-    listener::{smol::SmolQueryListener, Secure},
-    messages::Message,
-    Command, Field, QueryListener,
-};
+use crate::query_listener::SmolQueryListener;
+use protocol::{listener::Secure, messages::Message, Command, Field, QueryListener};
 use smol::Task;
 use sql_engine::{Handler, QueryError, QueryEvent, QueryResult};
 use std::{
