@@ -104,7 +104,7 @@ impl<P: BackendStorage> FrontendStorage<P> {
 
     pub fn table_columns(
         &mut self,
-        schema_name: &str,
+        _schema_name: &str,
         table_name: &str,
     ) -> SystemResult<Result<Vec<String>, OperationOnTableError>> {
         let reads = self.persistent.read("system", "columns")?;
