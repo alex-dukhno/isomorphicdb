@@ -162,7 +162,7 @@ impl QueryResultMapper {
             Err(QueryError::ColumnDoesNotExist(non_existing_columns)) => vec![Message::ErrorResponse(
                 Some("ERROR".to_owned()),
                 Some("42703".to_owned()),
-                Some(format!("column \"{}\" does not exist", non_existing_columns)),
+                Some(format!("column \"{:?}\" does not exist", non_existing_columns)),
             )],
             Err(QueryError::NotSupportedOperation(raw_sql_query)) => vec![Message::ErrorResponse(
                 Some("ERROR".to_owned()),
@@ -314,13 +314,13 @@ mod mapper {
 
     #[test]
     fn column_does_not_exists() {
-        let non_existing_columns = "column_not_in_table1, column_not_in_table2".to_owned();
+        let non_existing_columns = vec!["column_not_in_table1".to_owned(), "column_not_in_table2".to_owned()];
         assert_eq!(
             QueryResultMapper::map(Err(QueryError::ColumnDoesNotExist(non_existing_columns.clone()))),
             vec![Message::ErrorResponse(
                 Some("ERROR".to_owned()),
                 Some("42703".to_owned()),
-                Some(format!("column \"{}\" does not exist", non_existing_columns)),
+                Some(format!("column \"{:?}\" does not exist", non_existing_columns)),
             )]
         )
     }

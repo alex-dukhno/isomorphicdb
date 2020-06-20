@@ -38,8 +38,8 @@ pub enum QueryError {
     SchemaDoesNotExist(String),
     #[error("table {0} does not exist")]
     TableDoesNotExist(String),
-    #[error("column {0} does not exist")]
-    ColumnDoesNotExist(String),
+    #[error("column {0:?} does not exist")]
+    ColumnDoesNotExist(Vec<String>),
     #[error("not supported operation")]
     NotSupportedOperation(String),
 }
@@ -127,7 +127,7 @@ impl<P: BackendStorage> Handler<P> {
                             Ok(Err(QueryError::TableDoesNotExist(schema_name + "." + name.as_str())))
                         }
                         Err(OperationOnTableError::ColumnDoesNotExist(non_existing_columns)) => {
-                            Ok(Err(QueryError::ColumnDoesNotExist(non_existing_columns.join(", "))))
+                            Ok(Err(QueryError::ColumnDoesNotExist(non_existing_columns)))
                         }
                     }
                 } else {
@@ -171,7 +171,7 @@ impl<P: BackendStorage> Handler<P> {
                     match (self.storage.lock().unwrap()).select_all_from(&schema_name, &table_name, table_columns)? {
                         Ok(records) => Ok(Ok(QueryEvent::RecordsSelected(records))),
                         Err(OperationOnTableError::ColumnDoesNotExist(non_existing_columns)) => {
-                            Ok(Err(QueryError::ColumnDoesNotExist(non_existing_columns.join(", "))))
+                            Ok(Err(QueryError::ColumnDoesNotExist(non_existing_columns)))
                         }
                         _ => Ok(Err(QueryError::NotSupportedOperation(raw_sql_query.to_owned()))),
                     }
@@ -198,7 +198,7 @@ impl<P: BackendStorage> Handler<P> {
                                 schema_name + "." + table_name.as_str(),
                             ))),
                             Err(OperationOnTableError::ColumnDoesNotExist(non_existing_columns)) => {
-                                Ok(Err(QueryError::ColumnDoesNotExist(non_existing_columns.join(", "))))
+                                Ok(Err(QueryError::ColumnDoesNotExist(non_existing_columns)))
                             }
                         }
                     } else {
@@ -220,7 +220,7 @@ impl<P: BackendStorage> Handler<P> {
                         schema_name + "." + table_name.as_str(),
                     ))),
                     Err(OperationOnTableError::ColumnDoesNotExist(non_existing_columns)) => {
-                        Ok(Err(QueryError::ColumnDoesNotExist(non_existing_columns.join(", "))))
+                        Ok(Err(QueryError::ColumnDoesNotExist(non_existing_columns)))
                     }
                 }
             }
@@ -788,9 +788,10 @@ mod tests {
             handler
                 .execute("select column_not_in_table1, column_not_in_table2 from schema_name.table_name;")
                 .expect("no system errors"),
-            Err(QueryError::ColumnDoesNotExist(
-                "column_not_in_table1, column_not_in_table2".to_owned()
-            ))
+            Err(QueryError::ColumnDoesNotExist(vec![
+                "column_not_in_table1".to_owned(),
+                "column_not_in_table2".to_owned()
+            ]))
         );
     }
 
