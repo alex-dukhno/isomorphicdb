@@ -41,4 +41,6 @@ pub enum DropTableError {
 pub enum OperationOnTableError {
     SchemaDoesNotExist,
     TableDoesNotExist,
+    // Returns non existing columns.
+    ColumnDoesNotExist(Vec<String>),
 }
