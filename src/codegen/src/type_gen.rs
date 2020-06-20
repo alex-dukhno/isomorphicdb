@@ -259,8 +259,7 @@ pub enum SqlType {{"
 fn make_impl(w: &mut BufWriter<File>, types: &BTreeMap<i32, Type>) -> io::Result<()> {
     write!(
         w,
-        "
-#[allow(clippy::len_without_is_empty)]
+        "#[allow(clippy::len_without_is_empty)]
 impl SqlType {{
     pub fn from_oid(oid: i32) -> Option<SqlType> {{
         match oid {{
@@ -268,7 +267,7 @@ impl SqlType {{
     )?;
 
     for (oid, type_) in types {
-        write!(w, "            {} => Some(SqlType::{}),\n", oid, type_.variant)?;
+        writeln!(w, "            {} => Some(SqlType::{}),", oid, type_.variant)?;
     }
 
     write!(
@@ -283,7 +282,7 @@ impl SqlType {{
     )?;
 
     for (oid, type_) in types {
-        write!(w, "            SqlType::{} => {},\n", type_.variant, oid)?;
+        writeln!(w, "            SqlType::{} => {},", type_.variant, oid)?;
     }
 
     write!(
@@ -298,10 +297,9 @@ impl SqlType {{
     )?;
 
     for type_ in types.values() {
-        write!(
+        writeln!(
             w,
-            r#"            "{}" => Some(SqlType::{}),
-"#,
+            r#"            "{}" => Some(SqlType::{}),"#,
             type_.name, type_.variant
         )?;
     }
@@ -318,12 +316,7 @@ impl SqlType {{
     )?;
 
     for type_ in types.values() {
-        write!(
-            w,
-            r#"            SqlType::{} => "{}",
-"#,
-            type_.variant, type_.name
-        )?;
+        writeln!(w, r#"            SqlType::{} => "{}","#, type_.variant, type_.name)?;
     }
 
     write!(
@@ -337,12 +330,7 @@ impl SqlType {{
     )?;
 
     for type_ in types.values() {
-        write!(
-            w,
-            r#"            SqlType::{} => {},
-"#,
-            type_.variant, type_.len
-        )?;
+        writeln!(w, "            SqlType::{} => {},", type_.variant, type_.len)?;
     }
 
     write!(

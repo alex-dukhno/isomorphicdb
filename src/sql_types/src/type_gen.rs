@@ -196,7 +196,6 @@ pub enum SqlType {
     PgMcvList,
 }
 
-
 #[allow(clippy::len_without_is_empty)]
 impl SqlType {
     pub fn from_oid(oid: i32) -> Option<SqlType> {
