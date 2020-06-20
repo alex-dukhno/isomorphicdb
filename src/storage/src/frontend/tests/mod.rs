@@ -25,7 +25,7 @@ fn create_table<P: backend::BackendStorage>(
     storage: &mut FrontendStorage<P>,
     schema_name: &str,
     table_name: &str,
-    column_names: Vec<&str>,
+    column_names: Vec<(&str, SqlType)>,
 ) {
     storage
         .create_schema(schema_name)
@@ -35,7 +35,10 @@ fn create_table<P: backend::BackendStorage>(
         .create_table(
             schema_name,
             table_name,
-            column_names.into_iter().map(ToOwned::to_owned).collect::<Vec<String>>(),
+            column_names
+                .into_iter()
+                .map(|(name, sql_type)| (name.to_owned(), sql_type))
+                .collect::<Vec<(String, SqlType)>>(),
         )
         .expect("no system errors")
         .expect("table is created");

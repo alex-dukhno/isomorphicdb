@@ -127,7 +127,10 @@ impl QueryResultMapper {
             Ok(QueryEvent::RecordsInserted(records)) => vec![Message::CommandComplete(format!("INSERT 0 {}", records))],
             Ok(QueryEvent::RecordsSelected(projection)) => {
                 let definition = projection.0;
-                let description: Vec<Field> = definition.into_iter().map(|name| Field::new(name, 21, 2)).collect();
+                let description: Vec<Field> = definition
+                    .into_iter()
+                    .map(|(name, sql_type)| Field::new(name, sql_type.oid(), sql_type.len()))
+                    .collect();
                 let records = projection.1;
                 let len = records.len();
                 let mut messages = vec![Message::RowDescription(description)];
@@ -185,6 +188,7 @@ impl QueryResultMapper {
 #[cfg(test)]
 mod mapper {
     use super::*;
+    use sql_types::SqlType;
 
     #[test]
     fn create_schema() {
@@ -230,7 +234,10 @@ mod mapper {
     #[test]
     fn select_records() {
         let projection = (
-            vec!["column_name_1".to_owned(), "column_name_2".to_owned()],
+            vec![
+                ("column_name_1".to_owned(), SqlType::Int2),
+                ("column_name_2".to_owned(), SqlType::Int2),
+            ],
             vec![
                 vec!["1".to_owned(), "2".to_owned()],
                 vec!["3".to_owned(), "4".to_owned()],

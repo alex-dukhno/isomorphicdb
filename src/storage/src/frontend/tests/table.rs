@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use super::*;
+use sql_types::SqlType;
 
 #[test]
 fn create_tables_with_different_names() {
@@ -25,13 +26,21 @@ fn create_tables_with_different_names() {
 
     assert_eq!(
         storage
-            .create_table("schema_name", "table_name_1", vec!["column_test".to_owned()])
+            .create_table(
+                "schema_name",
+                "table_name_1",
+                vec![("column_test".to_owned(), SqlType::Int2)]
+            )
             .expect("no system errors"),
         Ok(())
     );
     assert_eq!(
         storage
-            .create_table("schema_name", "table_name_2", vec!["column_test".to_owned()])
+            .create_table(
+                "schema_name",
+                "table_name_2",
+                vec![("column_test".to_owned(), SqlType::Int2)]
+            )
             .expect("no system errors"),
         Ok(())
     );
@@ -41,11 +50,20 @@ fn create_tables_with_different_names() {
 fn create_table_with_the_same_name() {
     let mut storage = FrontendStorage::default().expect("no system errors");
 
-    create_table(&mut storage, "schema_name", "table_name", vec!["column_test"]);
+    create_table(
+        &mut storage,
+        "schema_name",
+        "table_name",
+        vec![("column_test", SqlType::Int2)],
+    );
 
     assert_eq!(
         storage
-            .create_table("schema_name", "table_name", vec!["column_test".to_owned()])
+            .create_table(
+                "schema_name",
+                "table_name",
+                vec![("column_test".to_owned(), SqlType::Int2)]
+            )
             .expect("no system errors"),
         Err(CreateTableError::TableAlreadyExists)
     );
@@ -65,13 +83,21 @@ fn create_table_with_the_same_name_in_different_schemas() {
         .expect("schema is created");
     assert_eq!(
         storage
-            .create_table("schema_name_1", "table_name", vec!["column_test".to_owned()])
+            .create_table(
+                "schema_name_1",
+                "table_name",
+                vec![("column_test".to_owned(), SqlType::Int2)]
+            )
             .expect("no system errors"),
         Ok(())
     );
     assert_eq!(
         storage
-            .create_table("schema_name_2", "table_name", vec!["column_test".to_owned()])
+            .create_table(
+                "schema_name_2",
+                "table_name",
+                vec![("column_test".to_owned(), SqlType::Int2)]
+            )
             .expect("no system errors"),
         Ok(())
     );
@@ -81,7 +107,12 @@ fn create_table_with_the_same_name_in_different_schemas() {
 fn drop_table() {
     let mut storage = FrontendStorage::default().expect("no system errors");
 
-    create_table(&mut storage, "schema_name", "table_name", vec!["column_test"]);
+    create_table(
+        &mut storage,
+        "schema_name",
+        "table_name",
+        vec![("column_test", SqlType::Int2)],
+    );
     assert_eq!(
         storage
             .drop_table("schema_name", "table_name")
@@ -90,7 +121,11 @@ fn drop_table() {
     );
     assert_eq!(
         storage
-            .create_table("schema_name", "table_name", vec!["column_test".to_owned()])
+            .create_table(
+                "schema_name",
+                "table_name",
+                vec![("column_test".to_owned(), SqlType::Int2)]
+            )
             .expect("no system errors"),
         Ok(())
     );

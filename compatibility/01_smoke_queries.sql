@@ -16,7 +16,7 @@ create schema SMOKE_QUERIES;
 
 create table SMOKE_QUERIES.VALIDATION_TABLE
 (
-    column_test smallint
+    column_test int2
 );
 
 insert into SMOKE_QUERIES.VALIDATION_TABLE

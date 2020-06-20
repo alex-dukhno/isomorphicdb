@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use super::*;
+use sql_types::SqlType;
 
 #[test]
 fn delete_all_from_not_existed_table() {
@@ -35,7 +36,12 @@ fn delete_all_from_not_existed_table() {
 fn delete_all_from_table() {
     let mut storage = FrontendStorage::default().expect("no system errors");
 
-    create_table(&mut storage, "schema_name", "table_name", vec!["column_test"]);
+    create_table(
+        &mut storage,
+        "schema_name",
+        "table_name",
+        vec![("column_test", SqlType::Int2)],
+    );
     storage
         .insert_into("schema_name", "table_name", vec![vec!["123".to_owned()]])
         .expect("no system errors")
@@ -59,12 +65,15 @@ fn delete_all_from_table() {
     let table_columns = storage
         .table_columns("schema_name", "table_name")
         .expect("no system errors")
-        .expect("table has columns");
+        .expect("table has columns")
+        .into_iter()
+        .map(|(name, _sql_type)| name)
+        .collect();
 
     assert_eq!(
         storage
             .select_all_from("schema_name", "table_name", table_columns)
             .expect("no system errors"),
-        Ok((vec!["column_test".to_owned()], vec![]))
+        Ok((vec![("column_test".to_owned(), SqlType::Int2)], vec![]))
     );
 }

@@ -1,9 +1,11 @@
 [workspace]
 members = [
+    "src/codegen",
     "src/kernel",
     "src/node",
     "src/protocol",
     "src/sql_engine",
+    "src/sql_types",
     "src/storage",
     "src/test_helpers"
 ]

@@ -50,7 +50,7 @@ fn create_simple_database() {
         .simple_query("create schema SMOKE_QUERIES;")
         .expect("to create schema");
     client
-        .simple_query("create table SMOKE_QUERIES.VALIDATION_TABLE (column_test smallint);")
+        .simple_query("create table SMOKE_QUERIES.VALIDATION_TABLE (column_test int2);")
         .expect("to create table");
 
     client
@@ -124,9 +124,7 @@ fn create_table_with_three_columns() {
         .simple_query("create schema SMOKE_QUERIES;")
         .expect("to create schema");
     client
-        .simple_query(
-            "create table SMOKE_QUERIES.VALIDATION_TABLE (column_1 smallint, column_2 smallint, column_3 smallint);",
-        )
+        .simple_query("create table SMOKE_QUERIES.VALIDATION_TABLE (column_1 int2, column_2 int2, column_3 int2);")
         .expect("to create table");
 
     client
