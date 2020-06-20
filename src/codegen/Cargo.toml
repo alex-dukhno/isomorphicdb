@@ -1,7 +1,10 @@
 [package]
 name = "codegen"
 version = "0.1.0"
-authors = ["Steven Fackler <sfackler@gmail.com>"]
+authors = [
+    "Steven Fackler <sfackler@gmail.com>",
+    "Alex Dukhno <alex.dukhno@icloud.com>"
+]
 
 [dependencies]
 phf_codegen = "0.8"
