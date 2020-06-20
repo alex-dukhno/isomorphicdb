@@ -259,7 +259,9 @@ pub enum SqlType {{"
 fn make_impl(w: &mut BufWriter<File>, types: &BTreeMap<i32, Type>) -> io::Result<()> {
     write!(
         w,
-        "impl SqlType {{
+        "
+#[allow(clippy::len_without_is_empty)]
+impl SqlType {{
     pub fn from_oid(oid: i32) -> Option<SqlType> {{
         match oid {{
 ",
@@ -289,6 +291,7 @@ fn make_impl(w: &mut BufWriter<File>, types: &BTreeMap<i32, Type>) -> io::Result
         r#"        }}
     }}
 
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(s: &str) -> Option<SqlType> {{
         match s {{
 "#,

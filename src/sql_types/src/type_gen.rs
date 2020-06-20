@@ -196,6 +196,8 @@ pub enum SqlType {
     PgMcvList,
 }
 
+
+#[allow(clippy::len_without_is_empty)]
 impl SqlType {
     pub fn from_oid(oid: i32) -> Option<SqlType> {
         match oid {
@@ -400,6 +402,7 @@ impl SqlType {
         }
     }
 
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(s: &str) -> Option<SqlType> {
         match s {
             "bool" => Some(SqlType::Bool),
