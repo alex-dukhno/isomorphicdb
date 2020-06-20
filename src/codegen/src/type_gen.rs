@@ -1,3 +1,6 @@
+// Most of the code is taken from
+// https://github.com/sfackler/rust-postgres/tree/master/codegen/src
+
 use marksman_escape::Escape;
 use regex::Regex;
 use std::collections::{BTreeMap, HashMap};
