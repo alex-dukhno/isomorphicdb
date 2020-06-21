@@ -24,6 +24,7 @@ use storage::{
     {backend::BackendStorage, frontend::FrontendStorage},
 };
 
+use sql_types::SqlType;
 use thiserror::Error;
 
 pub type QueryResult = std::result::Result<QueryEvent, QueryError>;
@@ -70,7 +71,17 @@ impl<P: BackendStorage> Handler<P> {
                 match (self.storage.lock().unwrap()).create_table(
                     &schema_name,
                     &table_name,
-                    columns.into_iter().map(|c| c.name.to_string()).collect(),
+                    columns
+                        .into_iter()
+                        .map(|c| {
+                            let name = c.name.to_string();
+                            let sql_type = match c.data_type {
+                                sqlparser::ast::DataType::SmallInt => SqlType::SmallInt,
+                                _ => unimplemented!(),
+                            };
+                            (name, sql_type)
+                        })
+                        .collect(),
                 )? {
                     Ok(()) => Ok(Ok(QueryEvent::TableCreated)),
                     Err(CreateTableError::SchemaDoesNotExist) => Ok(Err(QueryError::SchemaDoesNotExist(schema_name))),
@@ -149,12 +160,17 @@ impl<P: BackendStorage> Handler<P> {
                     };
                     let table_columns = {
                         let projection = projection.clone();
-                        let mut columns = vec![];
+                        let mut columns: Vec<String> = vec![];
                         for item in projection {
                             match item {
                                 sqlparser::ast::SelectItem::Wildcard => {
                                     match (self.storage.lock().unwrap()).table_columns(&schema_name, &table_name)? {
-                                        Ok(all_columns) => columns.extend(all_columns),
+                                        Ok(all_columns) => columns.extend(
+                                            all_columns
+                                                .into_iter()
+                                                .map(|(name, _sql_type)| name)
+                                                .collect::<Vec<String>>(),
+                                        ),
                                         Err(_e) => {
                                             return Ok(Err(QueryError::NotSupportedOperation(raw_sql_query.to_owned())))
                                         }
@@ -245,6 +261,7 @@ pub enum QueryEvent {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use sql_types::SqlType;
     use storage::frontend::FrontendStorage;
     use test_helpers::in_memory_backend_storage::InMemoryStorage;
 
@@ -421,7 +438,7 @@ mod tests {
                 .execute("select * from schema_name.table_name;")
                 .expect("no system errors"),
             Ok(QueryEvent::RecordsSelected((
-                vec!["column_test".to_owned()],
+                vec![("column_test".to_owned(), SqlType::SmallInt)],
                 vec![vec!["123".to_owned()]]
             )))
         );
@@ -478,7 +495,7 @@ mod tests {
                 .execute("select * from schema_name.table_name;")
                 .expect("no system errors"),
             Ok(QueryEvent::RecordsSelected((
-                vec!["column_test".to_owned()],
+                vec![("column_test".to_owned(), SqlType::SmallInt)],
                 vec![vec!["123".to_owned()]]
             )))
         );
@@ -493,7 +510,7 @@ mod tests {
                 .execute("select * from schema_name.table_name;")
                 .expect("no system errors"),
             Ok(QueryEvent::RecordsSelected((
-                vec!["column_test".to_owned()],
+                vec![("column_test".to_owned(), SqlType::SmallInt)],
                 vec![vec!["123".to_owned()], vec!["456".to_owned()]]
             )))
         );
@@ -555,7 +572,7 @@ mod tests {
                 .execute("select * from schema_name.table_name;")
                 .expect("no system errors"),
             Ok(QueryEvent::RecordsSelected((
-                vec!["column_test".to_owned()],
+                vec![("column_test".to_owned(), SqlType::SmallInt)],
                 vec![vec!["123".to_owned()], vec!["456".to_owned()]]
             )))
         );
@@ -570,7 +587,7 @@ mod tests {
                 .execute("select * from schema_name.table_name;")
                 .expect("no system errors"),
             Ok(QueryEvent::RecordsSelected((
-                vec!["column_test".to_owned()],
+                vec![("column_test".to_owned(), SqlType::SmallInt)],
                 vec![vec!["789".to_owned()], vec!["789".to_owned()]]
             )))
         );
@@ -630,7 +647,7 @@ mod tests {
                 .execute("select * from schema_name.table_name;")
                 .expect("no system errors"),
             Ok(QueryEvent::RecordsSelected((
-                vec!["column_test".to_owned()],
+                vec![("column_test".to_owned(), SqlType::SmallInt)],
                 vec![vec!["123".to_owned()], vec!["456".to_owned()]]
             )))
         );
@@ -644,7 +661,10 @@ mod tests {
             handler
                 .execute("select * from schema_name.table_name;")
                 .expect("no system errors"),
-            Ok(QueryEvent::RecordsSelected((vec!["column_test".to_owned()], vec![])))
+            Ok(QueryEvent::RecordsSelected((
+                vec![("column_test".to_owned(), SqlType::SmallInt)],
+                vec![]
+            )))
         );
     }
 
@@ -699,7 +719,11 @@ mod tests {
                 .execute("select * from schema_name.table_name;")
                 .expect("no system errors"),
             Ok(QueryEvent::RecordsSelected((
-                vec!["column_1".to_owned(), "column_2".to_owned(), "column_3".to_owned()],
+                vec![
+                    ("column_1".to_owned(), SqlType::SmallInt),
+                    ("column_2".to_owned(), SqlType::SmallInt),
+                    ("column_3".to_owned(), SqlType::SmallInt)
+                ],
                 vec![vec!["123".to_owned(), "456".to_owned(), "789".to_owned()]]
             )))
         );
@@ -729,7 +753,11 @@ mod tests {
                 .execute("select * from schema_name.table_name;")
                 .expect("no system errors"),
             Ok(QueryEvent::RecordsSelected((
-                vec!["column_1".to_owned(), "column_2".to_owned(), "column_3".to_owned()],
+                vec![
+                    ("column_1".to_owned(), SqlType::SmallInt),
+                    ("column_2".to_owned(), SqlType::SmallInt),
+                    ("column_3".to_owned(), SqlType::SmallInt)
+                ],
                 vec![
                     vec!["1".to_owned(), "4".to_owned(), "7".to_owned()],
                     vec!["2".to_owned(), "5".to_owned(), "8".to_owned()],
@@ -761,7 +789,10 @@ mod tests {
                 .execute("select column_3, column_2 from schema_name.table_name;")
                 .expect("no system errors"),
             Ok(QueryEvent::RecordsSelected((
-                vec!["column_3".to_owned(), "column_2".to_owned(),],
+                vec![
+                    ("column_3".to_owned(), SqlType::SmallInt),
+                    ("column_2".to_owned(), SqlType::SmallInt),
+                ],
                 vec![
                     vec!["7".to_owned(), "4".to_owned()],
                     vec!["8".to_owned(), "5".to_owned()],

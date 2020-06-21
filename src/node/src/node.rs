@@ -16,6 +16,7 @@ use crate::query_listener::SmolQueryListener;
 use protocol::{listener::Secure, messages::Message, Command, Field, QueryListener};
 use smol::Task;
 use sql_engine::{Handler, QueryError, QueryEvent, QueryResult};
+use sql_types::SqlType;
 use std::{
     sync::atomic::{AtomicU8, Ordering},
     sync::{Arc, Mutex},
@@ -115,6 +116,50 @@ impl Node {
     }
 }
 
+struct TypeConverter;
+
+impl TypeConverter {
+    fn pg_oid(sql_type: &SqlType) -> i32 {
+        match sql_type {
+            SqlType::Bool => 16,
+            SqlType::Char => 18,
+            SqlType::BigInt => 20,           // PG int8
+            SqlType::SmallInt => 21,         // PG int2
+            SqlType::Integer => 23,          // PG int4
+            SqlType::Real => 700,            // PG float4
+            SqlType::DoublePrecision => 701, // PG float8
+            SqlType::VarChar => 1043,
+            SqlType::Date => 1082,
+            SqlType::Time => 1083,
+            SqlType::Timestamp => 1114,
+            SqlType::TimestampWithTimeZone => 1184, // PG Timestamptz
+            SqlType::Interval => 1186,
+            SqlType::TimeWithTimeZone => 1266, // PG Timetz
+            SqlType::Decimal => 1700,          // PG Numeric & Decimal
+        }
+    }
+
+    fn pg_len(sql_type: &SqlType) -> i16 {
+        match sql_type {
+            SqlType::Bool => 1,
+            SqlType::Char => 1,
+            SqlType::BigInt => 8,
+            SqlType::SmallInt => 2,
+            SqlType::Integer => 4,
+            SqlType::Real => 4,
+            SqlType::DoublePrecision => 8,
+            SqlType::VarChar => -1,
+            SqlType::Date => 4,
+            SqlType::Time => 8,
+            SqlType::Timestamp => 8,
+            SqlType::TimestampWithTimeZone => 8,
+            SqlType::Interval => 16,
+            SqlType::TimeWithTimeZone => 12,
+            SqlType::Decimal => -1,
+        }
+    }
+}
+
 struct QueryResultMapper;
 
 impl QueryResultMapper {
@@ -127,7 +172,12 @@ impl QueryResultMapper {
             Ok(QueryEvent::RecordsInserted(records)) => vec![Message::CommandComplete(format!("INSERT 0 {}", records))],
             Ok(QueryEvent::RecordsSelected(projection)) => {
                 let definition = projection.0;
-                let description: Vec<Field> = definition.into_iter().map(|name| Field::new(name, 21, 2)).collect();
+                let description: Vec<Field> = definition
+                    .into_iter()
+                    .map(|(name, sql_type)| {
+                        Field::new(name, TypeConverter::pg_oid(&sql_type), TypeConverter::pg_len(&sql_type))
+                    })
+                    .collect();
                 let records = projection.1;
                 let len = records.len();
                 let mut messages = vec![Message::RowDescription(description)];
@@ -185,6 +235,7 @@ impl QueryResultMapper {
 #[cfg(test)]
 mod mapper {
     use super::*;
+    use sql_types::SqlType;
 
     #[test]
     fn create_schema() {
@@ -230,7 +281,10 @@ mod mapper {
     #[test]
     fn select_records() {
         let projection = (
-            vec!["column_name_1".to_owned(), "column_name_2".to_owned()],
+            vec![
+                ("column_name_1".to_owned(), SqlType::SmallInt),
+                ("column_name_2".to_owned(), SqlType::SmallInt),
+            ],
             vec![
                 vec!["1".to_owned(), "2".to_owned()],
                 vec!["3".to_owned(), "4".to_owned()],

@@ -691,6 +691,7 @@ dependencies = [
  "protocol",
  "smol",
  "sql_engine",
+ "sql_types",
  "storage",
  "test_helpers",
 ]
@@ -1109,10 +1110,18 @@ dependencies = [
  "bytes",
  "kernel",
  "log",
+ "sql_types",
  "sqlparser",
  "storage",
  "test_helpers",
  "thiserror",
+]
+
+[[package]]
+name = "sql_types"
+version = "0.1.0"
+dependencies = [
+ "kernel",
 ]
 
 [[package]]
@@ -1131,6 +1140,7 @@ dependencies = [
  "kernel",
  "log",
  "sled",
+ "sql_types",
 ]
 
 [[package]]

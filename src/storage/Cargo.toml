@@ -8,6 +8,7 @@ edition = "2018"
 kernel = { path = "../kernel" }
 log = "0.4.8"
 sled = { version = "0.32.0-rc1", features = ["default"] }
+sql_types = { path = "../sql_types" }
 
 [dev-dependencies]
 backtrace = "0.3.49"

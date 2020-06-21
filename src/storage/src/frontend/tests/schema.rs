@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use super::*;
+use sql_types::SqlType;
 
 #[test]
 fn create_schemas_with_different_names() {
@@ -72,11 +73,19 @@ fn drop_schema_drops_tables_in_it() {
         .expect("no system errors")
         .expect("schema is created");
     storage
-        .create_table("schema_name", "table_name_1", vec!["column_test".to_owned()])
+        .create_table(
+            "schema_name",
+            "table_name_1",
+            vec![("column_test".to_owned(), SqlType::SmallInt)],
+        )
         .expect("no system errors")
         .expect("values are inserted");
     storage
-        .create_table("schema_name", "table_name_2", vec!["column_test".to_owned()])
+        .create_table(
+            "schema_name",
+            "table_name_2",
+            vec![("column_test".to_owned(), SqlType::SmallInt)],
+        )
         .expect("no system errors")
         .expect("values are inserted");
 
@@ -84,13 +93,21 @@ fn drop_schema_drops_tables_in_it() {
     assert_eq!(storage.create_schema("schema_name").expect("no system errors"), Ok(()));
     assert_eq!(
         storage
-            .create_table("schema_name", "table_name_1", vec!["column_test".to_owned()])
+            .create_table(
+                "schema_name",
+                "table_name_1",
+                vec![("column_test".to_owned(), SqlType::SmallInt)]
+            )
             .expect("no system errors"),
         Ok(())
     );
     assert_eq!(
         storage
-            .create_table("schema_name", "table_name_2", vec!["column_test".to_owned()])
+            .create_table(
+                "schema_name",
+                "table_name_2",
+                vec![("column_test".to_owned(), SqlType::SmallInt)]
+            )
             .expect("no system errors"),
         Ok(())
     );

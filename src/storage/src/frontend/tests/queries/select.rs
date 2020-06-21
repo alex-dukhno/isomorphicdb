@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use super::*;
+use sql_types::SqlType;
 
 #[test]
 fn select_from_table_that_does_not_exist() {
@@ -25,7 +26,10 @@ fn select_from_table_that_does_not_exist() {
     let table_columns = storage
         .table_columns("schema_name", "not_existed")
         .expect("no system errors")
-        .expect("columns");
+        .expect("columns")
+        .into_iter()
+        .map(|(name, _sql_type)| name)
+        .collect();
     assert_eq!(
         storage
             .select_all_from("schema_name", "not_existed", table_columns)
@@ -42,7 +46,11 @@ fn select_all_from_table_with_many_columns() {
         &mut storage,
         "schema_name",
         "table_name",
-        vec!["column_1", "column_2", "column_3"],
+        vec![
+            ("column_1", SqlType::SmallInt),
+            ("column_2", SqlType::SmallInt),
+            ("column_3", SqlType::SmallInt),
+        ],
     );
     storage
         .insert_into(
@@ -56,14 +64,21 @@ fn select_all_from_table_with_many_columns() {
     let table_columns = storage
         .table_columns("schema_name", "table_name")
         .expect("no system errors")
-        .expect("table has columns");
+        .expect("table has columns")
+        .into_iter()
+        .map(|(name, _sql_type)| name)
+        .collect();
 
     assert_eq!(
         storage
             .select_all_from("schema_name", "table_name", table_columns)
             .expect("no system errors"),
         Ok((
-            vec!["column_1".to_owned(), "column_2".to_owned(), "column_3".to_owned()],
+            vec![
+                ("column_1".to_owned(), SqlType::SmallInt),
+                ("column_2".to_owned(), SqlType::SmallInt),
+                ("column_3".to_owned(), SqlType::SmallInt)
+            ],
             vec![vec!["1".to_owned(), "2".to_owned(), "3".to_owned()]]
         ))
     );
@@ -77,7 +92,11 @@ fn select_first_and_last_columns_from_table_with_multiple_columns() {
         &mut storage,
         "schema_name",
         "table_name",
-        vec!["first", "middle", "last"],
+        vec![
+            ("first", SqlType::SmallInt),
+            ("middle", SqlType::SmallInt),
+            ("last", SqlType::SmallInt),
+        ],
     );
     storage
         .insert_into(
@@ -97,7 +116,10 @@ fn select_first_and_last_columns_from_table_with_multiple_columns() {
             .select_all_from("schema_name", "table_name", vec!["first".to_owned(), "last".to_owned()])
             .expect("no system errors"),
         Ok((
-            vec!["first".to_owned(), "last".to_owned(),],
+            vec![
+                ("first".to_owned(), SqlType::SmallInt),
+                ("last".to_owned(), SqlType::SmallInt)
+            ],
             vec![
                 vec!["1".to_owned(), "3".to_owned()],
                 vec!["4".to_owned(), "6".to_owned()],
@@ -115,7 +137,11 @@ fn select_all_columns_reordered_from_table_with_multiple_columns() {
         &mut storage,
         "schema_name",
         "table_name",
-        vec!["first", "middle", "last"],
+        vec![
+            ("first", SqlType::SmallInt),
+            ("middle", SqlType::SmallInt),
+            ("last", SqlType::SmallInt),
+        ],
     );
     storage
         .insert_into(
@@ -139,7 +165,11 @@ fn select_all_columns_reordered_from_table_with_multiple_columns() {
             )
             .expect("no system errors"),
         Ok((
-            vec!["last".to_owned(), "first".to_owned(), "middle".to_owned()],
+            vec![
+                ("last".to_owned(), SqlType::SmallInt),
+                ("first".to_owned(), SqlType::SmallInt),
+                ("middle".to_owned(), SqlType::SmallInt)
+            ],
             vec![
                 vec!["3".to_owned(), "1".to_owned(), "2".to_owned()],
                 vec!["6".to_owned(), "4".to_owned(), "5".to_owned()],
@@ -157,7 +187,11 @@ fn select_with_column_name_duplication() {
         &mut storage,
         "schema_name",
         "table_name",
-        vec!["first", "middle", "last"],
+        vec![
+            ("first", SqlType::SmallInt),
+            ("middle", SqlType::SmallInt),
+            ("last", SqlType::SmallInt),
+        ],
     );
     storage
         .insert_into(
@@ -188,11 +222,11 @@ fn select_with_column_name_duplication() {
             .expect("no system errors"),
         Ok((
             vec![
-                "last".to_owned(),
-                "middle".to_owned(),
-                "first".to_owned(),
-                "last".to_owned(),
-                "middle".to_owned()
+                ("last".to_owned(), SqlType::SmallInt),
+                ("middle".to_owned(), SqlType::SmallInt),
+                ("first".to_owned(), SqlType::SmallInt),
+                ("last".to_owned(), SqlType::SmallInt),
+                ("middle".to_owned(), SqlType::SmallInt)
             ],
             vec![
                 vec![

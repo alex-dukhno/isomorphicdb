@@ -12,13 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-extern crate core;
+extern crate kernel;
 extern crate log;
+extern crate sql_types;
 
 pub mod backend;
 pub mod frontend;
 
-pub type Projection = (Vec<String>, Vec<Vec<String>>);
+pub type Projection = (Vec<(String, sql_types::SqlType)>, Vec<Vec<String>>);
 
 #[derive(Debug, PartialEq)]
 pub struct SchemaAlreadyExists;

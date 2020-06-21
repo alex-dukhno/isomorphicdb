@@ -20,6 +20,8 @@ use crate::{
     CreateTableError, DropTableError, OperationOnTableError, Projection, SchemaAlreadyExists, SchemaDoesNotExist,
 };
 use kernel::{SystemError, SystemResult};
+use sql_types::SqlType;
+use std::convert::{TryFrom, TryInto};
 
 pub struct FrontendStorage<P: BackendStorage> {
     key_id_generator: usize,
@@ -74,7 +76,7 @@ impl<P: BackendStorage> FrontendStorage<P> {
         &mut self,
         schema_name: &str,
         table_name: &str,
-        column_names: Vec<String>,
+        column_names: Vec<(String, SqlType)>,
     ) -> SystemResult<Result<(), CreateTableError>> {
         match self.persistent.create_object(schema_name, table_name)? {
             Ok(()) => {
@@ -83,7 +85,15 @@ impl<P: BackendStorage> FrontendStorage<P> {
                     "columns",
                     vec![(
                         table_name.as_bytes().to_vec(),
-                        column_names.into_iter().map(|s| s.as_bytes().to_vec()).collect(),
+                        column_names
+                            .into_iter()
+                            .map(|(name, sql_type)| {
+                                let mut v = vec![];
+                                v.extend_from_slice(&sql_type.id().to_be_bytes());
+                                v.extend_from_slice(name.as_bytes());
+                                v
+                            })
+                            .collect(),
                     )],
                 )? {
                     Ok(_) => {
@@ -106,13 +116,22 @@ impl<P: BackendStorage> FrontendStorage<P> {
         &mut self,
         _schema_name: &str,
         table_name: &str,
-    ) -> SystemResult<Result<Vec<String>, OperationOnTableError>> {
+    ) -> SystemResult<Result<Vec<(String, SqlType)>, OperationOnTableError>> {
         let reads = self.persistent.read("system", "columns")?;
         match reads {
             Ok(reads) => Ok(Ok(reads
                 .map(backend::Result::unwrap)
                 .filter(|(table, _columns)| *table == table_name.as_bytes().to_vec())
-                .map(|(_id, columns)| columns.iter().map(|c| String::from_utf8(c.to_vec()).unwrap()).collect())
+                .map(|(_id, columns)| {
+                    columns
+                        .iter()
+                        .map(|c| {
+                            let sql_type = SqlType::try_from(u32::from_be_bytes(c[0..4].try_into().unwrap())).unwrap();
+                            let name = String::from_utf8(c[4..].to_vec()).unwrap();
+                            (name, sql_type)
+                        })
+                        .collect::<Vec<(String, SqlType)>>()
+                })
                 .next()
                 .unwrap_or_default())),
             Err(OperationOnObjectError::ObjectDoesNotExist) => Ok(Err(OperationOnTableError::TableDoesNotExist)),
@@ -155,19 +174,21 @@ impl<P: BackendStorage> FrontendStorage<P> {
     ) -> SystemResult<Result<Projection, OperationOnTableError>> {
         match self.table_columns(schema_name, table_name)? {
             Ok(all_columns) => {
+                let mut description = vec![];
                 let mut column_indexes = vec![];
                 let mut non_existing_columns = vec![];
                 for (i, column) in columns.iter().enumerate() {
                     let mut found = None;
-                    for (index, name) in all_columns.iter().enumerate() {
+                    for (index, (name, sql_type)) in all_columns.iter().enumerate() {
                         if name == column {
-                            found = Some((index, i));
+                            found = Some(((index, i), (name.clone(), *sql_type)));
                             break;
                         }
                     }
 
-                    if let Some(index_pair) = found {
+                    if let Some((index_pair, name_type_pair)) = found {
                         column_indexes.push(index_pair);
+                        description.push(name_type_pair);
                     } else {
                         non_existing_columns.push(column.clone());
                     }
@@ -205,7 +226,7 @@ impl<P: BackendStorage> FrontendStorage<P> {
                         // return Ok(Err(OperationOnTableError::SchemaDoesNotExist))
                     }
                 };
-                Ok(Ok((columns, data)))
+                Ok(Ok((description, data)))
             }
             Err(e) => Ok(Err(e)),
         }
