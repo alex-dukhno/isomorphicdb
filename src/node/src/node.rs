@@ -159,11 +159,19 @@ impl QueryResultMapper {
                 Some("42P01".to_owned()),
                 Some(format!("table \"{}\" does not exist", table_name)),
             )],
-            Err(QueryError::ColumnDoesNotExist(non_existing_columns)) => vec![Message::ErrorResponse(
-                Some("ERROR".to_owned()),
-                Some("42703".to_owned()),
-                Some(format!("column \"{:?}\" does not exist", non_existing_columns)),
-            )],
+            Err(QueryError::ColumnDoesNotExist(non_existing_columns)) => {
+                let error_message = if non_existing_columns.len() > 1 {
+                    format!("columns {} does not exist", non_existing_columns.join(", "))
+                } else {
+                    format!("column {} does not exist", non_existing_columns[0])
+                };
+
+                vec![Message::ErrorResponse(
+                    Some("ERROR".to_owned()),
+                    Some("42703".to_owned()),
+                    Some(error_message),
+                )]
+            }
             Err(QueryError::NotSupportedOperation(raw_sql_query)) => vec![Message::ErrorResponse(
                 Some("ERROR".to_owned()),
                 Some("42601".to_owned()),
@@ -313,14 +321,30 @@ mod mapper {
     }
 
     #[test]
-    fn column_does_not_exists() {
-        let non_existing_columns = vec!["column_not_in_table1".to_owned(), "column_not_in_table2".to_owned()];
+    fn one_column_does_not_exists() {
         assert_eq!(
-            QueryResultMapper::map(Err(QueryError::ColumnDoesNotExist(non_existing_columns.clone()))),
+            QueryResultMapper::map(Err(QueryError::ColumnDoesNotExist(vec![
+                "column_not_in_table".to_owned()
+            ]))),
             vec![Message::ErrorResponse(
                 Some("ERROR".to_owned()),
                 Some("42703".to_owned()),
-                Some(format!("column \"{:?}\" does not exist", non_existing_columns)),
+                Some("column column_not_in_table does not exist".to_owned()),
+            )]
+        )
+    }
+
+    #[test]
+    fn multiple_columns_does_not_exists() {
+        assert_eq!(
+            QueryResultMapper::map(Err(QueryError::ColumnDoesNotExist(vec![
+                "column_not_in_table1".to_owned(),
+                "column_not_in_table2".to_owned()
+            ]))),
+            vec![Message::ErrorResponse(
+                Some("ERROR".to_owned()),
+                Some("42703".to_owned()),
+                Some("columns column_not_in_table1, column_not_in_table2 does not exist".to_owned()),
             )]
         )
     }
