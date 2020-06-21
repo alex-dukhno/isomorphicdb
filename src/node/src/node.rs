@@ -161,7 +161,7 @@ impl QueryResultMapper {
             )],
             Err(QueryError::ColumnDoesNotExist(non_existing_columns)) => {
                 let error_message = if non_existing_columns.len() > 1 {
-                    format!("columns {} does not exist", non_existing_columns.join(", "))
+                    format!("columns {} do not exist", non_existing_columns.join(", "))
                 } else {
                     format!("column {} does not exist", non_existing_columns[0])
                 };
