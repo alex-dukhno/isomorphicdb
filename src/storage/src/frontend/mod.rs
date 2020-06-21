@@ -21,7 +21,7 @@ use crate::{
 };
 use kernel::{SystemError, SystemResult};
 use sql_types::SqlType;
-use std::convert::TryInto;
+use std::convert::{TryFrom, TryInto};
 
 pub struct FrontendStorage<P: BackendStorage> {
     key_id_generator: usize,
@@ -89,7 +89,7 @@ impl<P: BackendStorage> FrontendStorage<P> {
                             .into_iter()
                             .map(|(name, sql_type)| {
                                 let mut v = vec![];
-                                v.extend_from_slice(&sql_type.oid().to_be_bytes());
+                                v.extend_from_slice(&sql_type.id().to_be_bytes());
                                 v.extend_from_slice(name.as_bytes());
                                 v
                             })
@@ -126,7 +126,7 @@ impl<P: BackendStorage> FrontendStorage<P> {
                     columns
                         .iter()
                         .map(|c| {
-                            let sql_type = SqlType::from_oid(i32::from_be_bytes(c[0..4].try_into().unwrap())).unwrap();
+                            let sql_type = SqlType::try_from(u32::from_be_bytes(c[0..4].try_into().unwrap())).unwrap();
                             let name = String::from_utf8(c[4..].to_vec()).unwrap();
                             (name, sql_type)
                         })

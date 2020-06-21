@@ -23,7 +23,7 @@ fn update_all_records() {
         &mut storage,
         "schema_name",
         "table_name",
-        vec![("column_test", SqlType::Int2)],
+        vec![("column_test", SqlType::SmallInt)],
     );
     storage
         .insert_into("schema_name", "table_name", vec![vec!["123".to_owned()]])
@@ -58,7 +58,7 @@ fn update_all_records() {
             .select_all_from("schema_name", "table_name", table_columns)
             .expect("no system errors"),
         Ok((
-            vec![("column_test".to_owned(), SqlType::Int2)],
+            vec![("column_test".to_owned(), SqlType::SmallInt)],
             vec![vec!["567".to_owned()], vec!["567".to_owned()], vec!["567".to_owned()]]
         ))
     );

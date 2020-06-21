@@ -76,7 +76,7 @@ fn drop_schema_drops_tables_in_it() {
         .create_table(
             "schema_name",
             "table_name_1",
-            vec![("column_test".to_owned(), SqlType::Int2)],
+            vec![("column_test".to_owned(), SqlType::SmallInt)],
         )
         .expect("no system errors")
         .expect("values are inserted");
@@ -84,7 +84,7 @@ fn drop_schema_drops_tables_in_it() {
         .create_table(
             "schema_name",
             "table_name_2",
-            vec![("column_test".to_owned(), SqlType::Int2)],
+            vec![("column_test".to_owned(), SqlType::SmallInt)],
         )
         .expect("no system errors")
         .expect("values are inserted");
@@ -96,7 +96,7 @@ fn drop_schema_drops_tables_in_it() {
             .create_table(
                 "schema_name",
                 "table_name_1",
-                vec![("column_test".to_owned(), SqlType::Int2)]
+                vec![("column_test".to_owned(), SqlType::SmallInt)]
             )
             .expect("no system errors"),
         Ok(())
@@ -106,7 +106,7 @@ fn drop_schema_drops_tables_in_it() {
             .create_table(
                 "schema_name",
                 "table_name_2",
-                vec![("column_test".to_owned(), SqlType::Int2)]
+                vec![("column_test".to_owned(), SqlType::SmallInt)]
             )
             .expect("no system errors"),
         Ok(())

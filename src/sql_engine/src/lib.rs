@@ -76,9 +76,7 @@ impl<P: BackendStorage> Handler<P> {
                         .map(|c| {
                             let name = c.name.to_string();
                             let sql_type = match c.data_type {
-                                sqlparser::ast::DataType::Custom(s) => {
-                                    SqlType::from_str(s.to_string().as_str()).unwrap()
-                                }
+                                sqlparser::ast::DataType::SmallInt => SqlType::SmallInt,
                                 _ => unimplemented!(),
                             };
                             (name, sql_type)
@@ -341,7 +339,7 @@ mod tests {
 
             assert_eq!(
                 handler
-                    .execute("create table schema_name.table_name (column_name int2);")
+                    .execute("create table schema_name.table_name (column_name smallint);")
                     .expect("no system errors"),
                 Ok(QueryEvent::TableCreated)
             );
@@ -353,7 +351,7 @@ mod tests {
 
             assert_eq!(
                 handler
-                    .execute("create table schema_name.table_name (column_name int2);")
+                    .execute("create table schema_name.table_name (column_name smallint);")
                     .expect("no system errors"),
                 Err(QueryError::SchemaDoesNotExist("schema_name".to_owned()))
             );
@@ -368,7 +366,7 @@ mod tests {
                 .expect("no system errors")
                 .expect("schema created");
             handler
-                .execute("create table schema_name.table_name (column_name int2);")
+                .execute("create table schema_name.table_name (column_name smallint);")
                 .expect("no system errors")
                 .expect("table created");
 
@@ -380,7 +378,7 @@ mod tests {
             );
             assert_eq!(
                 handler
-                    .execute("create table schema_name.table_name (column_name int2);")
+                    .execute("create table schema_name.table_name (column_name smallint);")
                     .expect("no system errors"),
                 Ok(QueryEvent::TableCreated)
             );
@@ -425,7 +423,7 @@ mod tests {
             .expect("no system errors")
             .expect("schema created");
         handler
-            .execute("create table schema_name.table_name (column_test int2);")
+            .execute("create table schema_name.table_name (column_test smallint);")
             .expect("no system errors")
             .expect("table created");
 
@@ -440,7 +438,7 @@ mod tests {
                 .execute("select * from schema_name.table_name;")
                 .expect("no system errors"),
             Ok(QueryEvent::RecordsSelected((
-                vec![("column_test".to_owned(), SqlType::Int2)],
+                vec![("column_test".to_owned(), SqlType::SmallInt)],
                 vec![vec!["123".to_owned()]]
             )))
         );
@@ -484,7 +482,7 @@ mod tests {
             .expect("no system errors")
             .expect("schema created");
         handler
-            .execute("create table schema_name.table_name (column_test int2);")
+            .execute("create table schema_name.table_name (column_test smallint);")
             .expect("no system errors")
             .expect("table created");
         handler
@@ -497,7 +495,7 @@ mod tests {
                 .execute("select * from schema_name.table_name;")
                 .expect("no system errors"),
             Ok(QueryEvent::RecordsSelected((
-                vec![("column_test".to_owned(), SqlType::Int2)],
+                vec![("column_test".to_owned(), SqlType::SmallInt)],
                 vec![vec!["123".to_owned()]]
             )))
         );
@@ -512,7 +510,7 @@ mod tests {
                 .execute("select * from schema_name.table_name;")
                 .expect("no system errors"),
             Ok(QueryEvent::RecordsSelected((
-                vec![("column_test".to_owned(), SqlType::Int2)],
+                vec![("column_test".to_owned(), SqlType::SmallInt)],
                 vec![vec!["123".to_owned()], vec!["456".to_owned()]]
             )))
         );
@@ -557,7 +555,7 @@ mod tests {
             .expect("no system errors")
             .expect("schema created");
         handler
-            .execute("create table schema_name.table_name (column_test int2);")
+            .execute("create table schema_name.table_name (column_test smallint);")
             .expect("no system errors")
             .expect("table created");
         handler
@@ -574,7 +572,7 @@ mod tests {
                 .execute("select * from schema_name.table_name;")
                 .expect("no system errors"),
             Ok(QueryEvent::RecordsSelected((
-                vec![("column_test".to_owned(), SqlType::Int2)],
+                vec![("column_test".to_owned(), SqlType::SmallInt)],
                 vec![vec!["123".to_owned()], vec!["456".to_owned()]]
             )))
         );
@@ -589,7 +587,7 @@ mod tests {
                 .execute("select * from schema_name.table_name;")
                 .expect("no system errors"),
             Ok(QueryEvent::RecordsSelected((
-                vec![("column_test".to_owned(), SqlType::Int2)],
+                vec![("column_test".to_owned(), SqlType::SmallInt)],
                 vec![vec!["789".to_owned()], vec!["789".to_owned()]]
             )))
         );
@@ -633,7 +631,7 @@ mod tests {
             .expect("no system errors")
             .expect("schema created");
         handler
-            .execute("create table schema_name.table_name (column_test int2);")
+            .execute("create table schema_name.table_name (column_test smallint);")
             .expect("no system errors")
             .expect("table created");
         handler
@@ -649,7 +647,7 @@ mod tests {
                 .execute("select * from schema_name.table_name;")
                 .expect("no system errors"),
             Ok(QueryEvent::RecordsSelected((
-                vec![("column_test".to_owned(), SqlType::Int2)],
+                vec![("column_test".to_owned(), SqlType::SmallInt)],
                 vec![vec!["123".to_owned()], vec!["456".to_owned()]]
             )))
         );
@@ -664,7 +662,7 @@ mod tests {
                 .execute("select * from schema_name.table_name;")
                 .expect("no system errors"),
             Ok(QueryEvent::RecordsSelected((
-                vec![("column_test".to_owned(), SqlType::Int2)],
+                vec![("column_test".to_owned(), SqlType::SmallInt)],
                 vec![]
             )))
         );
@@ -708,7 +706,7 @@ mod tests {
             .expect("no system errors")
             .expect("schema created");
         handler
-            .execute("create table schema_name.table_name (column_1 int2, column_2 int2, column_3 int2);")
+            .execute("create table schema_name.table_name (column_1 smallint, column_2 smallint, column_3 smallint);")
             .expect("no system errors")
             .expect("table created");
         handler
@@ -722,9 +720,9 @@ mod tests {
                 .expect("no system errors"),
             Ok(QueryEvent::RecordsSelected((
                 vec![
-                    ("column_1".to_owned(), SqlType::Int2),
-                    ("column_2".to_owned(), SqlType::Int2),
-                    ("column_3".to_owned(), SqlType::Int2)
+                    ("column_1".to_owned(), SqlType::SmallInt),
+                    ("column_2".to_owned(), SqlType::SmallInt),
+                    ("column_3".to_owned(), SqlType::SmallInt)
                 ],
                 vec![vec!["123".to_owned(), "456".to_owned(), "789".to_owned()]]
             )))
@@ -740,7 +738,7 @@ mod tests {
             .expect("no system errors")
             .expect("schema created");
         handler
-            .execute("create table schema_name.table_name (column_1 int2, column_2 int2, column_3 int2);")
+            .execute("create table schema_name.table_name (column_1 smallint, column_2 smallint, column_3 smallint);")
             .expect("no system errors")
             .expect("table created");
 
@@ -756,9 +754,9 @@ mod tests {
                 .expect("no system errors"),
             Ok(QueryEvent::RecordsSelected((
                 vec![
-                    ("column_1".to_owned(), SqlType::Int2),
-                    ("column_2".to_owned(), SqlType::Int2),
-                    ("column_3".to_owned(), SqlType::Int2)
+                    ("column_1".to_owned(), SqlType::SmallInt),
+                    ("column_2".to_owned(), SqlType::SmallInt),
+                    ("column_3".to_owned(), SqlType::SmallInt)
                 ],
                 vec![
                     vec!["1".to_owned(), "4".to_owned(), "7".to_owned()],
@@ -778,7 +776,7 @@ mod tests {
             .expect("no system errors")
             .expect("schema created");
         handler
-            .execute("create table schema_name.table_name (column_1 int2, column_2 int2, column_3 int2);")
+            .execute("create table schema_name.table_name (column_1 smallint, column_2 smallint, column_3 smallint);")
             .expect("no system errors")
             .expect("table created");
         handler
@@ -792,8 +790,8 @@ mod tests {
                 .expect("no system errors"),
             Ok(QueryEvent::RecordsSelected((
                 vec![
-                    ("column_3".to_owned(), SqlType::Int2),
-                    ("column_2".to_owned(), SqlType::Int2),
+                    ("column_3".to_owned(), SqlType::SmallInt),
+                    ("column_2".to_owned(), SqlType::SmallInt),
                 ],
                 vec![
                     vec!["7".to_owned(), "4".to_owned()],

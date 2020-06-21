@@ -29,7 +29,7 @@ fn create_tables_with_different_names() {
             .create_table(
                 "schema_name",
                 "table_name_1",
-                vec![("column_test".to_owned(), SqlType::Int2)]
+                vec![("column_test".to_owned(), SqlType::SmallInt)]
             )
             .expect("no system errors"),
         Ok(())
@@ -39,7 +39,7 @@ fn create_tables_with_different_names() {
             .create_table(
                 "schema_name",
                 "table_name_2",
-                vec![("column_test".to_owned(), SqlType::Int2)]
+                vec![("column_test".to_owned(), SqlType::SmallInt)]
             )
             .expect("no system errors"),
         Ok(())
@@ -54,7 +54,7 @@ fn create_table_with_the_same_name() {
         &mut storage,
         "schema_name",
         "table_name",
-        vec![("column_test", SqlType::Int2)],
+        vec![("column_test", SqlType::SmallInt)],
     );
 
     assert_eq!(
@@ -62,7 +62,7 @@ fn create_table_with_the_same_name() {
             .create_table(
                 "schema_name",
                 "table_name",
-                vec![("column_test".to_owned(), SqlType::Int2)]
+                vec![("column_test".to_owned(), SqlType::SmallInt)]
             )
             .expect("no system errors"),
         Err(CreateTableError::TableAlreadyExists)
@@ -86,7 +86,7 @@ fn create_table_with_the_same_name_in_different_schemas() {
             .create_table(
                 "schema_name_1",
                 "table_name",
-                vec![("column_test".to_owned(), SqlType::Int2)]
+                vec![("column_test".to_owned(), SqlType::SmallInt)]
             )
             .expect("no system errors"),
         Ok(())
@@ -96,7 +96,7 @@ fn create_table_with_the_same_name_in_different_schemas() {
             .create_table(
                 "schema_name_2",
                 "table_name",
-                vec![("column_test".to_owned(), SqlType::Int2)]
+                vec![("column_test".to_owned(), SqlType::SmallInt)]
             )
             .expect("no system errors"),
         Ok(())
@@ -111,7 +111,7 @@ fn drop_table() {
         &mut storage,
         "schema_name",
         "table_name",
-        vec![("column_test", SqlType::Int2)],
+        vec![("column_test", SqlType::SmallInt)],
     );
     assert_eq!(
         storage
@@ -124,7 +124,7 @@ fn drop_table() {
             .create_table(
                 "schema_name",
                 "table_name",
-                vec![("column_test".to_owned(), SqlType::Int2)]
+                vec![("column_test".to_owned(), SqlType::SmallInt)]
             )
             .expect("no system errors"),
         Ok(())

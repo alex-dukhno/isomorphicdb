@@ -1,6 +1,5 @@
 [workspace]
 members = [
-    "src/codegen",
     "src/kernel",
     "src/node",
     "src/protocol",

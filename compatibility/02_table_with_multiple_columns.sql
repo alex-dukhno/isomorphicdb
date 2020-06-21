@@ -14,7 +14,7 @@
 
 create schema SMOKE_QUERIES;
 
-create table SMOKE_QUERIES.VALIDATION_TABLE (column_1 int2, column_2 int2, column_3 int2);
+create table SMOKE_QUERIES.VALIDATION_TABLE (column_1 smallint, column_2 smallint, column_3 smallint);
 
 insert into SMOKE_QUERIES.VALIDATION_TABLE values (1, 2, 3);
 

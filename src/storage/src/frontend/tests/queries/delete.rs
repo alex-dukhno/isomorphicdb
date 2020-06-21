@@ -40,7 +40,7 @@ fn delete_all_from_table() {
         &mut storage,
         "schema_name",
         "table_name",
-        vec![("column_test", SqlType::Int2)],
+        vec![("column_test", SqlType::SmallInt)],
     );
     storage
         .insert_into("schema_name", "table_name", vec![vec!["123".to_owned()]])
@@ -74,6 +74,6 @@ fn delete_all_from_table() {
         storage
             .select_all_from("schema_name", "table_name", table_columns)
             .expect("no system errors"),
-        Ok((vec![("column_test".to_owned(), SqlType::Int2)], vec![]))
+        Ok((vec![("column_test".to_owned(), SqlType::SmallInt)], vec![]))
     );
 }

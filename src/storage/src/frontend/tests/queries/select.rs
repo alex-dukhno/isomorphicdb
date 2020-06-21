@@ -47,9 +47,9 @@ fn select_all_from_table_with_many_columns() {
         "schema_name",
         "table_name",
         vec![
-            ("column_1", SqlType::Int2),
-            ("column_2", SqlType::Int2),
-            ("column_3", SqlType::Int2),
+            ("column_1", SqlType::SmallInt),
+            ("column_2", SqlType::SmallInt),
+            ("column_3", SqlType::SmallInt),
         ],
     );
     storage
@@ -75,9 +75,9 @@ fn select_all_from_table_with_many_columns() {
             .expect("no system errors"),
         Ok((
             vec![
-                ("column_1".to_owned(), SqlType::Int2),
-                ("column_2".to_owned(), SqlType::Int2),
-                ("column_3".to_owned(), SqlType::Int2)
+                ("column_1".to_owned(), SqlType::SmallInt),
+                ("column_2".to_owned(), SqlType::SmallInt),
+                ("column_3".to_owned(), SqlType::SmallInt)
             ],
             vec![vec!["1".to_owned(), "2".to_owned(), "3".to_owned()]]
         ))
@@ -93,9 +93,9 @@ fn select_first_and_last_columns_from_table_with_multiple_columns() {
         "schema_name",
         "table_name",
         vec![
-            ("first", SqlType::Int2),
-            ("middle", SqlType::Int2),
-            ("last", SqlType::Int2),
+            ("first", SqlType::SmallInt),
+            ("middle", SqlType::SmallInt),
+            ("last", SqlType::SmallInt),
         ],
     );
     storage
@@ -116,7 +116,10 @@ fn select_first_and_last_columns_from_table_with_multiple_columns() {
             .select_all_from("schema_name", "table_name", vec!["first".to_owned(), "last".to_owned()])
             .expect("no system errors"),
         Ok((
-            vec![("first".to_owned(), SqlType::Int2), ("last".to_owned(), SqlType::Int2)],
+            vec![
+                ("first".to_owned(), SqlType::SmallInt),
+                ("last".to_owned(), SqlType::SmallInt)
+            ],
             vec![
                 vec!["1".to_owned(), "3".to_owned()],
                 vec!["4".to_owned(), "6".to_owned()],
@@ -135,9 +138,9 @@ fn select_all_columns_reordered_from_table_with_multiple_columns() {
         "schema_name",
         "table_name",
         vec![
-            ("first", SqlType::Int2),
-            ("middle", SqlType::Int2),
-            ("last", SqlType::Int2),
+            ("first", SqlType::SmallInt),
+            ("middle", SqlType::SmallInt),
+            ("last", SqlType::SmallInt),
         ],
     );
     storage
@@ -163,9 +166,9 @@ fn select_all_columns_reordered_from_table_with_multiple_columns() {
             .expect("no system errors"),
         Ok((
             vec![
-                ("last".to_owned(), SqlType::Int2),
-                ("first".to_owned(), SqlType::Int2),
-                ("middle".to_owned(), SqlType::Int2)
+                ("last".to_owned(), SqlType::SmallInt),
+                ("first".to_owned(), SqlType::SmallInt),
+                ("middle".to_owned(), SqlType::SmallInt)
             ],
             vec![
                 vec!["3".to_owned(), "1".to_owned(), "2".to_owned()],
@@ -185,9 +188,9 @@ fn select_with_column_name_duplication() {
         "schema_name",
         "table_name",
         vec![
-            ("first", SqlType::Int2),
-            ("middle", SqlType::Int2),
-            ("last", SqlType::Int2),
+            ("first", SqlType::SmallInt),
+            ("middle", SqlType::SmallInt),
+            ("last", SqlType::SmallInt),
         ],
     );
     storage
@@ -219,11 +222,11 @@ fn select_with_column_name_duplication() {
             .expect("no system errors"),
         Ok((
             vec![
-                ("last".to_owned(), SqlType::Int2),
-                ("middle".to_owned(), SqlType::Int2),
-                ("first".to_owned(), SqlType::Int2),
-                ("last".to_owned(), SqlType::Int2),
-                ("middle".to_owned(), SqlType::Int2)
+                ("last".to_owned(), SqlType::SmallInt),
+                ("middle".to_owned(), SqlType::SmallInt),
+                ("first".to_owned(), SqlType::SmallInt),
+                ("last".to_owned(), SqlType::SmallInt),
+                ("middle".to_owned(), SqlType::SmallInt)
             ],
             vec![
                 vec![
