@@ -156,13 +156,27 @@ impl<P: BackendStorage> FrontendStorage<P> {
         match self.table_columns(schema_name, table_name)? {
             Ok(all_columns) => {
                 let mut column_indexes = vec![];
+                let mut non_existing_columns = vec![];
                 for (i, column) in columns.iter().enumerate() {
+                    let mut found = None;
                     for (index, name) in all_columns.iter().enumerate() {
                         if name == column {
-                            column_indexes.push((index, i));
+                            found = Some((index, i));
+                            break;
                         }
                     }
+
+                    if let Some(index_pair) = found {
+                        column_indexes.push(index_pair);
+                    } else {
+                        non_existing_columns.push(column.clone());
+                    }
                 }
+
+                if !non_existing_columns.is_empty() {
+                    return Ok(Err(OperationOnTableError::ColumnDoesNotExist(non_existing_columns)));
+                }
+
                 let data = match self.persistent.read(schema_name, table_name)? {
                     Ok(read) => read
                         .map(backend::Result::unwrap)
