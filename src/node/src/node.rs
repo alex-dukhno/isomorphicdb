@@ -344,7 +344,7 @@ mod mapper {
             vec![Message::ErrorResponse(
                 Some("ERROR".to_owned()),
                 Some("42703".to_owned()),
-                Some("columns column_not_in_table1, column_not_in_table2 does not exist".to_owned()),
+                Some("columns column_not_in_table1, column_not_in_table2 do not exist".to_owned()),
             )]
         )
     }
