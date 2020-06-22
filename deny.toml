@@ -1,0 +1,29 @@
+[bans]
+multiple-versions = "deny"
+skip-tree = [
+    { name = "winapi", version = "<= 0.3" },
+]
+
+[licenses]
+private = { ignore = true }
+unlicensed = "deny"
+confidence-threshold = 0.93
+allow = [
+    "Apache-2.0",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "MIT",
+    "Zlib",
+]
+exceptions = [
+    # smol use wepoll and wepoll-binding
+    { allow = ["MPL-2.0"], name = "wepoll-binding" },
+    { allow = ["MPL-2.0"], name = "wepoll-sys" },
+]
+
+[sources]
+unknown-git = "deny"
+unknown-registry = "deny"
+allow-git = [
+    "https://github.com/andygrove/sqlparser-rs.git"
+]
