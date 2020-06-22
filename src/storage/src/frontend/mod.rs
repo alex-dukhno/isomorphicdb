@@ -151,18 +151,32 @@ impl<P: BackendStorage> FrontendStorage<P> {
         &mut self,
         schema_name: &str,
         table_name: &str,
-        values: Vec<Vec<String>>,
+        rows: Vec<Vec<String>>,
     ) -> SystemResult<Result<(), OperationOnTableError>> {
-        let mut to_write = vec![];
-        for value in values {
-            let key = self.key_id_generator.to_be_bytes().to_vec();
-            to_write.push((key, value.iter().map(|s| s.clone().into_bytes()).collect()));
-            self.key_id_generator += 1;
-        }
-        match self.persistent.write(schema_name, table_name, to_write)? {
-            Ok(_size) => Ok(Ok(())),
-            Err(OperationOnObjectError::ObjectDoesNotExist) => Ok(Err(OperationOnTableError::TableDoesNotExist)),
-            Err(OperationOnObjectError::NamespaceDoesNotExist) => Ok(Err(OperationOnTableError::SchemaDoesNotExist)),
+        match self.table_columns(schema_name, table_name)? {
+            Ok(all_columns) => {
+                let mut to_write = vec![];
+                for row in rows {
+                    let key = self.key_id_generator.to_be_bytes().to_vec();
+                    let mut record = vec![];
+                    for item in row {
+                        // validate(item)
+                        // record.extend_from_slice(to_bytes(item))
+                    }
+                    to_write.push((key, row.iter().map(|s| s.clone().into_bytes()).collect()));
+                    self.key_id_generator += 1;
+                }
+                match self.persistent.write(schema_name, table_name, to_write)? {
+                    Ok(_size) => Ok(Ok(())),
+                    Err(OperationOnObjectError::ObjectDoesNotExist) => {
+                        Ok(Err(OperationOnTableError::TableDoesNotExist))
+                    }
+                    Err(OperationOnObjectError::NamespaceDoesNotExist) => {
+                        Ok(Err(OperationOnTableError::SchemaDoesNotExist))
+                    }
+                }
+            }
+            Err(e) => Ok(Err(e)),
         }
     }
 

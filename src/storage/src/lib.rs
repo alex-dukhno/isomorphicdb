@@ -16,6 +16,8 @@ extern crate kernel;
 extern crate log;
 extern crate sql_types;
 
+use sql_types::SqlType;
+
 pub mod backend;
 pub mod frontend;
 
@@ -44,4 +46,5 @@ pub enum OperationOnTableError {
     TableDoesNotExist,
     // Returns non existing columns.
     ColumnDoesNotExist(Vec<String>),
+    ColumnOutOfRange(Vec<(String, SqlType)>),
 }

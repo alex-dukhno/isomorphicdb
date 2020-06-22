@@ -17,6 +17,8 @@ use std::convert::TryFrom;
 
 pub type TypeId = u32;
 
+pub struct Constraint;
+
 #[derive(PartialEq, Debug, Copy, Clone)]
 pub enum SqlType {
     Bool,
@@ -34,6 +36,9 @@ pub enum SqlType {
     TimestampWithTimeZone,
     Date,
     Interval,
+    SmallSerial,
+    Serial,
+    BigSerial,
 }
 
 impl SqlType {
@@ -54,6 +59,9 @@ impl SqlType {
             SqlType::TimestampWithTimeZone => 12,
             SqlType::Date => 13,
             SqlType::Interval => 14,
+            SqlType::SmallSerial => 15,
+            SqlType::Serial => 16,
+            SqlType::BigSerial => 17,
         }
     }
 }
@@ -78,6 +86,9 @@ impl TryFrom<TypeId> for SqlType {
             12 => Ok(SqlType::TimestampWithTimeZone),
             13 => Ok(SqlType::Date),
             14 => Ok(SqlType::Interval),
+            15 => Ok(SqlType::SmallSerial),
+            16 => Ok(SqlType::Serial),
+            17 => Ok(SqlType::BigSerial),
             id => Err(SystemError::unrecoverable(format!(
                 "trying to use unsupported type id {}",
                 id

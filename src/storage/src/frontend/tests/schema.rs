@@ -27,10 +27,7 @@ fn create_schemas_with_different_names() {
 fn create_schema_with_existing_name() {
     let mut storage = FrontendStorage::default().expect("no system errors");
 
-    storage
-        .create_schema("schema_name")
-        .expect("no system errors")
-        .expect("schema is created");
+    create_schema(&mut storage, "schema_name");
 
     assert_eq!(
         storage.create_schema("schema_name").expect("no system errors"),
@@ -42,10 +39,7 @@ fn create_schema_with_existing_name() {
 fn drop_schema() {
     let mut storage = FrontendStorage::default().expect("no system errors");
 
-    storage
-        .create_schema("schema_name")
-        .expect("no system errors")
-        .expect("schema is created");
+    create_schema(&mut storage, "schema_name");
 
     assert_eq!(storage.drop_schema("schema_name").expect("no system errors"), Ok(()));
     assert_eq!(storage.create_schema("schema_name").expect("no system errors"), Ok(()));
@@ -68,26 +62,19 @@ fn drop_schema_that_was_not_created() {
 fn drop_schema_drops_tables_in_it() {
     let mut storage = FrontendStorage::default().expect("no system errors");
 
-    storage
-        .create_schema("schema_name")
-        .expect("no system errors")
-        .expect("schema is created");
-    storage
-        .create_table(
-            "schema_name",
-            "table_name_1",
-            vec![("column_test".to_owned(), SqlType::SmallInt)],
-        )
-        .expect("no system errors")
-        .expect("values are inserted");
-    storage
-        .create_table(
-            "schema_name",
-            "table_name_2",
-            vec![("column_test".to_owned(), SqlType::SmallInt)],
-        )
-        .expect("no system errors")
-        .expect("values are inserted");
+    create_schema(&mut storage, "schema_name");
+    create_table(
+        &mut storage,
+        "schema_name",
+        "table_name_1",
+        vec![("column_test", SqlType::SmallInt)],
+    );
+    create_table(
+        &mut storage,
+        "schema_name",
+        "table_name_2",
+        vec![("column_test", SqlType::SmallInt)],
+    );
 
     assert_eq!(storage.drop_schema("schema_name").expect("no system errors"), Ok(()));
     assert_eq!(storage.create_schema("schema_name").expect("no system errors"), Ok(()));

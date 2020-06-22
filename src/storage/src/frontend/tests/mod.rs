@@ -21,16 +21,19 @@ mod schema;
 #[cfg(test)]
 mod table;
 
+fn create_schema<P: backend::BackendStorage>(storage: &mut FrontendStorage<P>, schema_name: &str) {
+    storage
+        .create_schema(schema_name)
+        .expect("no system errors")
+        .expect("schema is created");
+}
+
 fn create_table<P: backend::BackendStorage>(
     storage: &mut FrontendStorage<P>,
     schema_name: &str,
     table_name: &str,
     column_names: Vec<(&str, SqlType)>,
 ) {
-    storage
-        .create_schema(schema_name)
-        .expect("no system errors")
-        .expect("schema is created");
     storage
         .create_table(
             schema_name,
@@ -42,4 +45,30 @@ fn create_table<P: backend::BackendStorage>(
         )
         .expect("no system errors")
         .expect("table is created");
+}
+
+fn create_schema_with_table<P: backend::BackendStorage>(
+    storage: &mut FrontendStorage<P>,
+    schema_name: &str,
+    table_name: &str,
+    columns: Vec<(&str, SqlType)>,
+) {
+    create_schema(storage, schema_name);
+    create_table(storage, schema_name, table_name, columns)
+}
+
+fn insert_into<P: backend::BackendStorage>(
+    storage: &mut FrontendStorage<P>,
+    schema_name: &str,
+    table_name: &str,
+    values: Vec<&str>,
+) {
+    storage
+        .insert_into(
+            schema_name,
+            table_name,
+            vec![values.into_iter().map(ToOwned::to_owned).collect()],
+        )
+        .expect("no system errors")
+        .expect("values are inserted");
 }

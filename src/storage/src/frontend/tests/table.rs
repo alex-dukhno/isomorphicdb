@@ -19,10 +19,7 @@ use sql_types::SqlType;
 fn create_tables_with_different_names() {
     let mut storage = FrontendStorage::default().expect("no system errors");
 
-    storage
-        .create_schema("schema_name")
-        .expect("no system errors")
-        .expect("schema is created");
+    create_schema(&mut storage, "schema_name");
 
     assert_eq!(
         storage
@@ -50,7 +47,7 @@ fn create_tables_with_different_names() {
 fn create_table_with_the_same_name() {
     let mut storage = FrontendStorage::default().expect("no system errors");
 
-    create_table(
+    create_schema_with_table(
         &mut storage,
         "schema_name",
         "table_name",
@@ -73,14 +70,8 @@ fn create_table_with_the_same_name() {
 fn create_table_with_the_same_name_in_different_schemas() {
     let mut storage = FrontendStorage::default().expect("no system errors");
 
-    storage
-        .create_schema("schema_name_1")
-        .expect("no system errors")
-        .expect("schema is created");
-    storage
-        .create_schema("schema_name_2")
-        .expect("no system errors")
-        .expect("schema is created");
+    create_schema(&mut storage, "schema_name_1");
+    create_schema(&mut storage, "schema_name_2");
     assert_eq!(
         storage
             .create_table(
@@ -107,7 +98,7 @@ fn create_table_with_the_same_name_in_different_schemas() {
 fn drop_table() {
     let mut storage = FrontendStorage::default().expect("no system errors");
 
-    create_table(
+    create_schema_with_table(
         &mut storage,
         "schema_name",
         "table_name",
@@ -135,10 +126,7 @@ fn drop_table() {
 fn drop_not_created_table() {
     let mut storage = FrontendStorage::default().expect("no system errors");
 
-    storage
-        .create_schema("schema_name")
-        .expect("no system errors")
-        .expect("schema is created");
+    create_schema(&mut storage, "schema_name");
     assert_eq!(
         storage
             .drop_table("schema_name", "not_existed_table")
