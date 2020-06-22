@@ -1,8 +1,8 @@
 [bans]
 multiple-versions = "deny"
 skip-tree = [
-    # tokio-postgres use tokio -> mio -> miow -> winapi 0.2.8
-    # pretty_env_logger, sled, tempfile, smol
+    # tokio-postgres uses tokio -> mio -> miow -> winapi 0.2.8
+    # pretty_env_logger, sled, tempfile, smol use 0.3.8
     { name = "winapi", version = "<= 0.3" },
 ]
 
