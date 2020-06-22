@@ -15,6 +15,12 @@ defaults:
     shell: bash
 
 jobs:
+  cargo-deny:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
+      - uses: EmbarkStudios/cargo-deny-action@v1
+
   unit-tests:
     strategy:
       matrix:
