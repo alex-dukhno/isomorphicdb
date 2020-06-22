@@ -1049,9 +1049,9 @@ checksum = "c111b5bd5695e56cffe5129854aa230b39c93a305372fdbb2668ca2394eea9f8"
 
 [[package]]
 name = "sled"
-version = "0.32.0-rc1"
+version = "0.32.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "49d0ada816c19135ab4644d908b896a76e43d9d7e45bed6b25c486ac692afd7e"
+checksum = "cdad3dc85d888056d3bd9954ffdf22d8a22701b6cd3aca4f6df4c436111898c4"
 dependencies = [
  "backtrace",
  "crc32fast",

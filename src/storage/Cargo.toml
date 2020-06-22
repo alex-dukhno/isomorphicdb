@@ -8,7 +8,7 @@ publish = false
 [dependencies]
 kernel = { path = "../kernel" }
 log = "0.4.8"
-sled = { version = "0.32.0-rc1", features = ["default"] }
+sled = { version = "0.32.0", features = ["default"] }
 sql_types = { path = "../sql_types" }
 
 [dev-dependencies]
