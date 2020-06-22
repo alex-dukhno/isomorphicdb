@@ -19,7 +19,7 @@ kernel = { path = "../kernel" }
 sql_engine = { path = "../sql_engine" }
 sql_types = { path = "../sql_types" }
 storage = { path = "../storage" }
-smol = "0.1.11"
+smol = "0.1.18"
 protocol = { path = "../protocol" }
 log = "0.4.8"
 pretty_env_logger = "0.4.0"
