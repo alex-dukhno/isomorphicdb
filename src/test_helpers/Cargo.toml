@@ -6,7 +6,7 @@ edition = "2018"
 publish = false
 
 [dependencies]
-async-std = { version = "1.6.0", features = ["attributes"] }
+async-std = { version = "1.6.2", features = ["attributes"] }
 tempfile = "3.1.0"
 bytes = "0.5"
 storage = { path = "../storage" }
