@@ -14,5 +14,5 @@ byteorder = "1.0"
 bytes = "0.5"
 
 [dev-dependencies]
-async-std = { version = "1.6.0", features = ["attributes"] }
+async-std = { version = "1.6.2", features = ["attributes"] }
 test_helpers = { path = "../test_helpers" }
