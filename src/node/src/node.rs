@@ -136,9 +136,6 @@ impl TypeConverter {
             SqlType::Interval => 1186,
             SqlType::TimeWithTimeZone => 1266, // PG Timetz
             SqlType::Decimal => 1700,          // PG Numeric & Decimal
-            SqlType::SmallSerial => 20,
-            SqlType::Serial => 21,
-            SqlType::BigSerial => 23,
         }
     }
 
@@ -159,9 +156,6 @@ impl TypeConverter {
             SqlType::Interval => 16,
             SqlType::TimeWithTimeZone => 12,
             SqlType::Decimal => -1,
-            SqlType::SmallSerial => 2,
-            SqlType::Serial => 4,
-            SqlType::BigSerial => 8,
         }
     }
 }

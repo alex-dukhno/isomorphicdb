@@ -12,6 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+mod types;
+
+use crate::types::SQLType;
 use kernel::SystemError;
 use std::convert::TryFrom;
 
@@ -36,9 +39,6 @@ pub enum SqlType {
     TimestampWithTimeZone,
     Date,
     Interval,
-    SmallSerial,
-    Serial,
-    BigSerial,
 }
 
 impl SqlType {
@@ -59,9 +59,15 @@ impl SqlType {
             SqlType::TimestampWithTimeZone => 12,
             SqlType::Date => 13,
             SqlType::Interval => 14,
-            SqlType::SmallSerial => 15,
-            SqlType::Serial => 16,
-            SqlType::BigSerial => 17,
+        }
+    }
+
+    pub fn sql_type(&self) -> Box<dyn SQLType> {
+        match *self {
+            SqlType::SmallInt => Box::new(crate::types::SmallIntSqlType),
+            SqlType::Integer => Box::new(crate::types::IntegerSqlType),
+            SqlType::BigInt => Box::new(crate::types::BigIntSqlType),
+            _ => unimplemented!(),
         }
     }
 }
@@ -86,9 +92,6 @@ impl TryFrom<TypeId> for SqlType {
             12 => Ok(SqlType::TimestampWithTimeZone),
             13 => Ok(SqlType::Date),
             14 => Ok(SqlType::Interval),
-            15 => Ok(SqlType::SmallSerial),
-            16 => Ok(SqlType::Serial),
-            17 => Ok(SqlType::BigSerial),
             id => Err(SystemError::unrecoverable(format!(
                 "trying to use unsupported type id {}",
                 id

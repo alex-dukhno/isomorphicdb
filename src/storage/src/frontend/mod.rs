@@ -14,7 +14,7 @@
 
 use crate::backend::{
     self, BackendStorage, CreateObjectError, DropObjectError, NamespaceAlreadyExists, NamespaceDoesNotExist,
-    OperationOnObjectError, SledBackendStorage,
+    OperationOnObjectError, Row, SledBackendStorage,
 };
 use crate::{
     CreateTableError, DropTableError, OperationOnTableError, Projection, SchemaAlreadyExists, SchemaDoesNotExist,
@@ -155,15 +155,24 @@ impl<P: BackendStorage> FrontendStorage<P> {
     ) -> SystemResult<Result<(), OperationOnTableError>> {
         match self.table_columns(schema_name, table_name)? {
             Ok(all_columns) => {
-                let mut to_write = vec![];
+                let mut to_write: Vec<Row> = vec![];
                 for row in rows {
                     let key = self.key_id_generator.to_be_bytes().to_vec();
                     let mut record = vec![];
-                    for item in row {
-                        // validate(item)
-                        // record.extend_from_slice(to_bytes(item))
+                    for (item, (name, sql_type)) in row.iter().zip(all_columns.iter()) {
+                        match sql_type.sql_type().constraint().validate(item.as_str()) {
+                            Ok(()) => {
+                                record.push(sql_type.sql_type().serializer().ser(item.as_str()));
+                            }
+                            Err(_e) => {
+                                return Ok(Err(OperationOnTableError::ColumnOutOfRange(vec![(
+                                    name.clone(),
+                                    sql_type.clone(),
+                                )])))
+                            }
+                        }
                     }
-                    to_write.push((key, row.iter().map(|s| s.clone().into_bytes()).collect()));
+                    to_write.push((key, record));
                     self.key_id_generator += 1;
                 }
                 match self.persistent.write(schema_name, table_name, to_write)? {
@@ -217,15 +226,11 @@ impl<P: BackendStorage> FrontendStorage<P> {
                         .map(backend::Result::unwrap)
                         .map(|(_key, values)| values)
                         .map(|bytes| {
-                            let all_values = bytes
-                                .iter()
-                                .map(|b| String::from_utf8(b.to_vec()).unwrap())
-                                .collect::<Vec<String>>();
                             let mut values = vec![];
-                            for (origin, ord) in &column_indexes {
-                                for (index, value) in all_values.iter().enumerate() {
+                            for (i, (origin, ord)) in column_indexes.iter().enumerate() {
+                                for (index, value) in bytes.iter().enumerate() {
                                     if index == *origin {
-                                        values.push((ord, value.clone()))
+                                        values.push((ord, description[i].1.sql_type().serializer().des(value)))
                                     }
                                 }
                             }
@@ -252,20 +257,33 @@ impl<P: BackendStorage> FrontendStorage<P> {
         table_name: &str,
         value: String,
     ) -> SystemResult<Result<usize, OperationOnTableError>> {
-        let reads = self.persistent.read(schema_name, table_name)?;
-        match reads {
-            Ok(reads) => {
-                let to_update: Vec<(Vec<u8>, Vec<Vec<u8>>)> = reads
-                    .map(backend::Result::unwrap)
-                    .map(|(key, _)| (key, vec![value.clone().into_bytes()]))
-                    .collect();
+        match self.table_columns(schema_name, table_name)? {
+            Ok(mut all_columns) => {
+                let sql_type = match all_columns.pop() {
+                    Some((_name, sql_type)) => sql_type,
+                    None => return Ok(Err(OperationOnTableError::TableDoesNotExist)),
+                };
+                let reads = self.persistent.read(schema_name, table_name)?;
+                match reads {
+                    Ok(reads) => {
+                        let to_update: Vec<(Vec<u8>, Vec<Vec<u8>>)> = reads
+                            .map(backend::Result::unwrap)
+                            .map(|(key, _)| (key, vec![sql_type.sql_type().serializer().ser(value.as_str())]))
+                            .collect();
 
-                let len = to_update.len();
-                self.persistent.write(schema_name, table_name, to_update)?.unwrap();
-                Ok(Ok(len))
+                        let len = to_update.len();
+                        self.persistent.write(schema_name, table_name, to_update)?.unwrap();
+                        Ok(Ok(len))
+                    }
+                    Err(OperationOnObjectError::ObjectDoesNotExist) => {
+                        Ok(Err(OperationOnTableError::TableDoesNotExist))
+                    }
+                    Err(OperationOnObjectError::NamespaceDoesNotExist) => {
+                        Ok(Err(OperationOnTableError::SchemaDoesNotExist))
+                    }
+                }
             }
-            Err(OperationOnObjectError::ObjectDoesNotExist) => Ok(Err(OperationOnTableError::TableDoesNotExist)),
-            Err(OperationOnObjectError::NamespaceDoesNotExist) => Ok(Err(OperationOnTableError::SchemaDoesNotExist)),
+            Err(e) => Ok(Err(e)),
         }
     }
 

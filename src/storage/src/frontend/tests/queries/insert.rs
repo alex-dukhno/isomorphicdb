@@ -167,6 +167,7 @@ fn insert_values_in_limit() {
     )
 }
 
+// #[ignore]
 #[test]
 fn insert_values_less_then_minimal_limit() {
     let mut storage = FrontendStorage::default().expect("no system errors");

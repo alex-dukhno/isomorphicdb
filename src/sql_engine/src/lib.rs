@@ -140,6 +140,7 @@ impl<P: BackendStorage> Handler<P> {
                         Err(OperationOnTableError::ColumnDoesNotExist(non_existing_columns)) => {
                             Ok(Err(QueryError::ColumnDoesNotExist(non_existing_columns)))
                         }
+                        _ => unimplemented!(),
                     }
                 } else {
                     Ok(Err(QueryError::NotSupportedOperation(raw_sql_query.to_owned())))
@@ -216,6 +217,7 @@ impl<P: BackendStorage> Handler<P> {
                             Err(OperationOnTableError::ColumnDoesNotExist(non_existing_columns)) => {
                                 Ok(Err(QueryError::ColumnDoesNotExist(non_existing_columns)))
                             }
+                            _ => unimplemented!(),
                         }
                     } else {
                         Ok(Err(QueryError::NotSupportedOperation(raw_sql_query.to_owned())))
@@ -238,6 +240,7 @@ impl<P: BackendStorage> Handler<P> {
                     Err(OperationOnTableError::ColumnDoesNotExist(non_existing_columns)) => {
                         Ok(Err(QueryError::ColumnDoesNotExist(non_existing_columns)))
                     }
+                    _ => unimplemented!(),
                 }
             }
             _ => Ok(Err(QueryError::NotSupportedOperation(raw_sql_query.to_owned()))),
@@ -593,6 +596,7 @@ mod tests {
         );
     }
 
+    #[ignore] // TODO probably such tests should complain about non existent table
     #[test]
     fn update_records_in_table_from_non_existent_schema() {
         let mut handler = Handler::new(in_memory_storage());
