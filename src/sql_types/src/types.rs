@@ -19,7 +19,7 @@ pub trait Constraint {
 pub trait Serializer {
     fn ser(&self, in_value: &str) -> Vec<u8>;
 
-    fn des(&self, out_value: &Vec<u8>) -> String;
+    fn des(&self, out_value: &[u8]) -> String;
 }
 
 pub(crate) struct SmallIntSqlType;
@@ -49,14 +49,15 @@ impl Constraint for SmallIntTypeConstraint {
 struct SmallIntTypeSerializer;
 
 impl Serializer for SmallIntTypeSerializer {
+    #[allow(clippy::match_wild_err_arm)]
     fn ser(&self, in_value: &str) -> Vec<u8> {
         match lexical::parse::<i16, _>(in_value) {
             Ok(parsed) => parsed.to_be_bytes().to_vec(),
-            Err(_e) => unimplemented!(),
+            Err(_) => unimplemented!(),
         }
     }
 
-    fn des(&self, out_value: &Vec<u8>) -> String {
+    fn des(&self, out_value: &[u8]) -> String {
         i16::from_be_bytes(out_value[0..2].try_into().unwrap()).to_string()
     }
 }
@@ -88,14 +89,15 @@ impl Constraint for IntegerSqlTypeConstraint {
 struct IntegerSqlTypeSerializer;
 
 impl Serializer for IntegerSqlTypeSerializer {
+    #[allow(clippy::match_wild_err_arm)]
     fn ser(&self, in_value: &str) -> Vec<u8> {
         match lexical::parse::<i32, _>(in_value) {
             Ok(parsed) => parsed.to_be_bytes().to_vec(),
-            Err(_e) => unimplemented!(),
+            Err(_) => unimplemented!(),
         }
     }
 
-    fn des(&self, out_value: &Vec<u8>) -> String {
+    fn des(&self, out_value: &[u8]) -> String {
         i32::from_be_bytes(out_value[0..4].try_into().unwrap()).to_string()
     }
 }
@@ -127,14 +129,15 @@ impl Constraint for BigIntTypeConstraint {
 struct BigIntTypeSerializer;
 
 impl Serializer for BigIntTypeSerializer {
+    #[allow(clippy::match_wild_err_arm)]
     fn ser(&self, in_value: &str) -> Vec<u8> {
         match lexical::parse::<i64, _>(in_value) {
             Ok(parsed) => parsed.to_be_bytes().to_vec(),
-            Err(_e) => unimplemented!(),
+            Err(_) => unimplemented!(),
         }
     }
 
-    fn des(&self, out_value: &Vec<u8>) -> String {
+    fn des(&self, out_value: &[u8]) -> String {
         i64::from_be_bytes(out_value[0..8].try_into().unwrap()).to_string()
     }
 }

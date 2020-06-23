@@ -167,7 +167,7 @@ impl<P: BackendStorage> FrontendStorage<P> {
                             Err(_e) => {
                                 return Ok(Err(OperationOnTableError::ColumnOutOfRange(vec![(
                                     name.clone(),
-                                    sql_type.clone(),
+                                    *sql_type,
                                 )])))
                             }
                         }
