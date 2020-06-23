@@ -7,3 +7,5 @@ publish = false
 
 [dependencies]
 kernel = { path = "../kernel" }
+lexical = "5.2.0"
+rstest = "0.6.4"

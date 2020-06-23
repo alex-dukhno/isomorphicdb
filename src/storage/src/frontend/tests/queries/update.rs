@@ -19,24 +19,16 @@ use sql_types::SqlType;
 fn update_all_records() {
     let mut storage = FrontendStorage::default().expect("no system errors");
 
-    create_table(
+    create_schema_with_table(
         &mut storage,
         "schema_name",
         "table_name",
         vec![("column_test", SqlType::SmallInt)],
     );
-    storage
-        .insert_into("schema_name", "table_name", vec![vec!["123".to_owned()]])
-        .expect("no system errors")
-        .expect("values are inserted");
-    storage
-        .insert_into("schema_name", "table_name", vec![vec!["456".to_owned()]])
-        .expect("no system errors")
-        .expect("values are inserted");
-    storage
-        .insert_into("schema_name", "table_name", vec![vec!["789".to_owned()]])
-        .expect("no system errors")
-        .expect("values are inserted");
+
+    insert_into(&mut storage, "schema_name", "table_name", vec!["123"]);
+    insert_into(&mut storage, "schema_name", "table_name", vec!["456"]);
+    insert_into(&mut storage, "schema_name", "table_name", vec!["789"]);
 
     assert_eq!(
         storage
@@ -68,10 +60,8 @@ fn update_all_records() {
 fn update_not_existed_table() {
     let mut storage = FrontendStorage::default().expect("no system errors");
 
-    storage
-        .create_schema("schema_name")
-        .expect("no system errors")
-        .expect("schema is created");
+    create_schema(&mut storage, "schema_name");
+
     assert_eq!(
         storage
             .update_all("schema_name", "not_existed", "123".to_owned())

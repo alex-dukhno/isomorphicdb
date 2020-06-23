@@ -19,10 +19,7 @@ use sql_types::SqlType;
 fn select_from_table_that_does_not_exist() {
     let mut storage = FrontendStorage::default().expect("no system errors");
 
-    storage
-        .create_schema("schema_name")
-        .expect("no system errors")
-        .expect("schema is created");
+    create_schema(&mut storage, "schema_name");
     let table_columns = storage
         .table_columns("schema_name", "not_existed")
         .expect("no system errors")
@@ -30,6 +27,7 @@ fn select_from_table_that_does_not_exist() {
         .into_iter()
         .map(|(name, _sql_type)| name)
         .collect();
+
     assert_eq!(
         storage
             .select_all_from("schema_name", "not_existed", table_columns)
@@ -42,7 +40,7 @@ fn select_from_table_that_does_not_exist() {
 fn select_all_from_table_with_many_columns() {
     let mut storage = FrontendStorage::default().expect("no system errors");
 
-    create_table(
+    create_schema_with_table(
         &mut storage,
         "schema_name",
         "table_name",
@@ -52,14 +50,8 @@ fn select_all_from_table_with_many_columns() {
             ("column_3", SqlType::SmallInt),
         ],
     );
-    storage
-        .insert_into(
-            "schema_name",
-            "table_name",
-            vec![vec!["1".to_owned(), "2".to_owned(), "3".to_owned()]],
-        )
-        .expect("no system errors")
-        .expect("values are inserted");
+
+    insert_into(&mut storage, "schema_name", "table_name", vec!["1", "2", "3"]);
 
     let table_columns = storage
         .table_columns("schema_name", "table_name")
@@ -88,7 +80,7 @@ fn select_all_from_table_with_many_columns() {
 fn select_first_and_last_columns_from_table_with_multiple_columns() {
     let mut storage = FrontendStorage::default().expect("no system errors");
 
-    create_table(
+    create_schema_with_table(
         &mut storage,
         "schema_name",
         "table_name",
@@ -98,18 +90,10 @@ fn select_first_and_last_columns_from_table_with_multiple_columns() {
             ("last", SqlType::SmallInt),
         ],
     );
-    storage
-        .insert_into(
-            "schema_name",
-            "table_name",
-            vec![
-                vec!["1".to_owned(), "2".to_owned(), "3".to_owned()],
-                vec!["4".to_owned(), "5".to_owned(), "6".to_owned()],
-                vec!["7".to_owned(), "8".to_owned(), "9".to_owned()],
-            ],
-        )
-        .expect("no system errors")
-        .expect("values are inserted");
+
+    insert_into(&mut storage, "schema_name", "table_name", vec!["1", "2", "3"]);
+    insert_into(&mut storage, "schema_name", "table_name", vec!["4", "5", "6"]);
+    insert_into(&mut storage, "schema_name", "table_name", vec!["7", "8", "9"]);
 
     assert_eq!(
         storage
@@ -133,7 +117,7 @@ fn select_first_and_last_columns_from_table_with_multiple_columns() {
 fn select_all_columns_reordered_from_table_with_multiple_columns() {
     let mut storage = FrontendStorage::default().expect("no system errors");
 
-    create_table(
+    create_schema_with_table(
         &mut storage,
         "schema_name",
         "table_name",
@@ -143,18 +127,10 @@ fn select_all_columns_reordered_from_table_with_multiple_columns() {
             ("last", SqlType::SmallInt),
         ],
     );
-    storage
-        .insert_into(
-            "schema_name",
-            "table_name",
-            vec![
-                vec!["1".to_owned(), "2".to_owned(), "3".to_owned()],
-                vec!["4".to_owned(), "5".to_owned(), "6".to_owned()],
-                vec!["7".to_owned(), "8".to_owned(), "9".to_owned()],
-            ],
-        )
-        .expect("no system errors")
-        .expect("values are inserted");
+
+    insert_into(&mut storage, "schema_name", "table_name", vec!["1", "2", "3"]);
+    insert_into(&mut storage, "schema_name", "table_name", vec!["4", "5", "6"]);
+    insert_into(&mut storage, "schema_name", "table_name", vec!["7", "8", "9"]);
 
     assert_eq!(
         storage
@@ -183,7 +159,7 @@ fn select_all_columns_reordered_from_table_with_multiple_columns() {
 fn select_with_column_name_duplication() {
     let mut storage = FrontendStorage::default().expect("no system errors");
 
-    create_table(
+    create_schema_with_table(
         &mut storage,
         "schema_name",
         "table_name",
@@ -193,18 +169,10 @@ fn select_with_column_name_duplication() {
             ("last", SqlType::SmallInt),
         ],
     );
-    storage
-        .insert_into(
-            "schema_name",
-            "table_name",
-            vec![
-                vec!["1".to_owned(), "2".to_owned(), "3".to_owned()],
-                vec!["4".to_owned(), "5".to_owned(), "6".to_owned()],
-                vec!["7".to_owned(), "8".to_owned(), "9".to_owned()],
-            ],
-        )
-        .expect("no system errors")
-        .expect("values are inserted");
+
+    insert_into(&mut storage, "schema_name", "table_name", vec!["1", "2", "3"]);
+    insert_into(&mut storage, "schema_name", "table_name", vec!["4", "5", "6"]);
+    insert_into(&mut storage, "schema_name", "table_name", vec!["7", "8", "9"]);
 
     assert_eq!(
         storage

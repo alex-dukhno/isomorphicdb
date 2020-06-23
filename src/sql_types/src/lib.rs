@@ -12,10 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+mod types;
+
+use crate::types::SQLType;
 use kernel::SystemError;
 use std::convert::TryFrom;
 
 pub type TypeId = u32;
+
+pub struct Constraint;
 
 #[derive(PartialEq, Debug, Copy, Clone)]
 pub enum SqlType {
@@ -54,6 +59,15 @@ impl SqlType {
             SqlType::TimestampWithTimeZone => 12,
             SqlType::Date => 13,
             SqlType::Interval => 14,
+        }
+    }
+
+    pub fn sql_type(&self) -> Box<dyn SQLType> {
+        match *self {
+            SqlType::SmallInt => Box::new(crate::types::SmallIntSqlType),
+            SqlType::Integer => Box::new(crate::types::IntegerSqlType),
+            SqlType::BigInt => Box::new(crate::types::BigIntSqlType),
+            _ => unimplemented!(),
         }
     }
 }

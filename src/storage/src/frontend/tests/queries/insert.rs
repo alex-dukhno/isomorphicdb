@@ -19,10 +19,8 @@ use sql_types::SqlType;
 fn insert_into_non_existent_table() {
     let mut storage = FrontendStorage::default().expect("no system errors");
 
-    storage
-        .create_schema("schema_name")
-        .expect("no system errors")
-        .expect("schema is created");
+    create_schema(&mut storage, "schema_name");
+
     assert_eq!(
         storage
             .insert_into("schema_name", "not_existed", vec![vec!["123".to_owned()]],)
@@ -35,20 +33,15 @@ fn insert_into_non_existent_table() {
 fn insert_many_rows_into_table() {
     let mut storage = FrontendStorage::default().expect("no system errors");
 
-    create_table(
+    create_schema_with_table(
         &mut storage,
         "schema_name",
         "table_name",
         vec![("column_test", SqlType::SmallInt)],
     );
-    storage
-        .insert_into("schema_name", "table_name", vec![vec!["123".to_owned()]])
-        .expect("no system errors")
-        .expect("values are inserted");
-    storage
-        .insert_into("schema_name", "table_name", vec![vec!["456".to_owned()]])
-        .expect("no system errors")
-        .expect("values are inserted");
+
+    insert_into(&mut storage, "schema_name", "table_name", vec!["123"]);
+    insert_into(&mut storage, "schema_name", "table_name", vec!["456"]);
 
     let table_columns = storage
         .table_columns("schema_name", "table_name")
@@ -70,10 +63,10 @@ fn insert_many_rows_into_table() {
 }
 
 #[test]
-fn insert_multiple_rows() {
+fn insert_multiple_values_rows() {
     let mut storage = FrontendStorage::default().expect("no system errors");
 
-    create_table(
+    create_schema_with_table(
         &mut storage,
         "schema_name",
         "table_name",
@@ -83,18 +76,10 @@ fn insert_multiple_rows() {
             ("column_3", SqlType::SmallInt),
         ],
     );
-    storage
-        .insert_into(
-            "schema_name",
-            "table_name",
-            vec![
-                vec!["1".to_owned(), "2".to_owned(), "3".to_owned()],
-                vec!["4".to_owned(), "5".to_owned(), "6".to_owned()],
-                vec!["7".to_owned(), "8".to_owned(), "9".to_owned()],
-            ],
-        )
-        .expect("no system errors")
-        .expect("values are inserted");
+
+    insert_into(&mut storage, "schema_name", "table_name", vec!["1", "2", "3"]);
+    insert_into(&mut storage, "schema_name", "table_name", vec!["4", "5", "6"]);
+    insert_into(&mut storage, "schema_name", "table_name", vec!["7", "8", "9"]);
 
     let table_columns = storage
         .table_columns("schema_name", "table_name")
@@ -127,7 +112,7 @@ fn insert_multiple_rows() {
 fn insert_row_into_table() {
     let mut storage = FrontendStorage::default().expect("no system errors");
 
-    create_table(
+    create_schema_with_table(
         &mut storage,
         "schema_name",
         "table_name",
@@ -135,7 +120,7 @@ fn insert_row_into_table() {
     );
     assert_eq!(
         storage
-            .insert_into("schema_name", "table_name", vec![vec!["123".to_owned()]],)
+            .insert_into("schema_name", "table_name", vec![vec!["123".to_owned()]])
             .expect("no system errors"),
         Ok(())
     );
@@ -157,4 +142,53 @@ fn insert_row_into_table() {
             vec![vec!["123".to_owned()]]
         ))
     );
+}
+
+#[test]
+fn insert_values_in_limit() {
+    let mut storage = FrontendStorage::default().expect("no system errors");
+
+    create_schema_with_table(
+        &mut storage,
+        "schema_name",
+        "table_name",
+        vec![("column_1", SqlType::SmallInt), ("column_2", SqlType::Integer)],
+    );
+
+    assert_eq!(
+        storage
+            .insert_into(
+                "schema_name",
+                "table_name",
+                vec![vec!["100".to_owned(), "100".to_owned()]]
+            )
+            .expect("no system errors"),
+        Ok(())
+    )
+}
+
+#[test]
+fn insert_values_less_then_minimal_limit() {
+    let mut storage = FrontendStorage::default().expect("no system errors");
+
+    create_schema_with_table(
+        &mut storage,
+        "schema_name",
+        "table_name",
+        vec![("column_1", SqlType::SmallInt), ("column_2", SqlType::Integer)],
+    );
+
+    assert_eq!(
+        storage
+            .insert_into(
+                "schema_name",
+                "table_name",
+                vec![vec!["-32769".to_owned(), "100".to_owned()]]
+            )
+            .expect("no system errors"),
+        Err(OperationOnTableError::ColumnOutOfRange(vec![(
+            "column_1".to_owned(),
+            SqlType::SmallInt
+        )]))
+    )
 }
