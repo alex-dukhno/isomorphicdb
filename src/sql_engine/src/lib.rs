@@ -77,6 +77,10 @@ impl<P: BackendStorage> Handler<P> {
                             let name = c.name.to_string();
                             let sql_type = match c.data_type {
                                 sqlparser::ast::DataType::SmallInt => SqlType::SmallInt,
+                                sqlparser::ast::DataType::Int => SqlType::Integer,
+                                sqlparser::ast::DataType::BigInt => SqlType::BigInt,
+                                sqlparser::ast::DataType::Char(len) => SqlType::Char(len.unwrap_or(255)),
+                                sqlparser::ast::DataType::Varchar(len) => SqlType::VarChar(len.unwrap_or(255)),
                                 _ => unimplemented!(),
                             };
                             (name, sql_type)
@@ -126,7 +130,24 @@ impl<P: BackendStorage> Handler<P> {
                     let values = &values.0;
                     let to_insert: Vec<Vec<String>> = values
                         .iter()
-                        .map(|v| v.iter().map(|v| v.to_string()).collect())
+                        .map(|v| {
+                            v.iter()
+                                .map(|v| match v {
+                                    sqlparser::ast::Expr::Value(sqlparser::ast::Value::Number(v)) => v.to_string(),
+                                    sqlparser::ast::Expr::Value(sqlparser::ast::Value::SingleQuotedString(v)) => {
+                                        v.to_string()
+                                    }
+                                    sqlparser::ast::Expr::UnaryOp { op, expr } => match (op, &**expr) {
+                                        (
+                                            sqlparser::ast::UnaryOperator::Minus,
+                                            sqlparser::ast::Expr::Value(sqlparser::ast::Value::Number(v)),
+                                        ) => "-".to_owned() + v.as_str(),
+                                        (op, expr) => unimplemented!("{:?} {:?} is not currently supported", op, expr),
+                                    },
+                                    expr => unimplemented!("{:?} is not currently supported", expr),
+                                })
+                                .collect()
+                        })
                         .collect();
                     let len = to_insert.len();
                     match (self.storage.lock().unwrap()).insert_into(&schema_name, &name, to_insert)? {
@@ -140,7 +161,10 @@ impl<P: BackendStorage> Handler<P> {
                         Err(OperationOnTableError::ColumnDoesNotExist(non_existing_columns)) => {
                             Ok(Err(QueryError::ColumnDoesNotExist(non_existing_columns)))
                         }
-                        _ => unimplemented!(),
+                        Err(e) => {
+                            eprintln!("{:?}", e);
+                            unimplemented!()
+                        }
                     }
                 } else {
                     Ok(Err(QueryError::NotSupportedOperation(raw_sql_query.to_owned())))
@@ -828,6 +852,122 @@ mod tests {
                 "column_not_in_table2".to_owned()
             ]))
         );
+    }
+
+    #[test]
+    fn create_table_with_different_types() {
+        let mut handler = Handler::new(in_memory_storage());
+
+        handler
+            .execute("create schema schema_name;")
+            .expect("no system errors")
+            .expect("schema created");
+
+        assert_eq!(
+            handler
+                .execute("create table schema_name.table_name (column_si smallint, column_i integer, column_bi bigint, column_c char(10), column_vc varchar(10));")
+                .expect("no system errors"),
+            Ok(QueryEvent::TableCreated)
+        )
+    }
+
+    #[test]
+    fn insert_and_select_different_integer_types() {
+        let mut handler = Handler::new(in_memory_storage());
+
+        handler
+            .execute("create schema schema_name;")
+            .expect("no system errors")
+            .expect("schema created");
+
+        handler
+            .execute("create table schema_name.table_name (column_si smallint, column_i integer, column_bi bigint);")
+            .expect("no system errors")
+            .expect("table created");
+
+        assert_eq!(
+            handler
+                .execute("insert into schema_name.table_name values(-32768, -2147483648, -9223372036854775808);")
+                .expect("no system errors"),
+            Ok(QueryEvent::RecordsInserted(1))
+        );
+
+        assert_eq!(
+            handler
+                .execute("insert into schema_name.table_name values(32767, 2147483647, 9223372036854775807);")
+                .expect("no system errors"),
+            Ok(QueryEvent::RecordsInserted(1))
+        );
+
+        assert_eq!(
+            handler
+                .execute("select * from schema_name.table_name;")
+                .expect("no system errors"),
+            Ok(QueryEvent::RecordsSelected((
+                vec![
+                    ("column_si".to_owned(), SqlType::SmallInt),
+                    ("column_i".to_owned(), SqlType::Integer),
+                    ("column_bi".to_owned(), SqlType::BigInt),
+                ],
+                vec![
+                    vec![
+                        "-32768".to_owned(),
+                        "-2147483648".to_owned(),
+                        "-9223372036854775808".to_owned()
+                    ],
+                    vec![
+                        "32767".to_owned(),
+                        "2147483647".to_owned(),
+                        "9223372036854775807".to_owned()
+                    ],
+                ]
+            )))
+        )
+    }
+
+    #[test]
+    fn insert_and_select_different_character_types() {
+        let mut handler = Handler::new(in_memory_storage());
+
+        handler
+            .execute("create schema schema_name;")
+            .expect("no system errors")
+            .expect("schema created");
+
+        handler
+            .execute("create table schema_name.table_name (column_c char(10), column_vc varchar(10));")
+            .expect("no system errors")
+            .expect("table created");
+
+        assert_eq!(
+            handler
+                .execute("insert into schema_name.table_name values('12345abcde', '12345abcde');")
+                .expect("no system errors"),
+            Ok(QueryEvent::RecordsInserted(1))
+        );
+
+        assert_eq!(
+            handler
+                .execute("insert into schema_name.table_name values('12345abcde', 'abcde');")
+                .expect("no system errors"),
+            Ok(QueryEvent::RecordsInserted(1))
+        );
+
+        assert_eq!(
+            handler
+                .execute("select * from schema_name.table_name;")
+                .expect("no system errors"),
+            Ok(QueryEvent::RecordsSelected((
+                vec![
+                    ("column_c".to_owned(), SqlType::Char(10)),
+                    ("column_vc".to_owned(), SqlType::VarChar(20))
+                ],
+                vec![
+                    vec!["12345abcde".to_owned(), "12345abcde".to_owned()],
+                    vec!["12345abcde".to_owned(), "abcde".to_owned()],
+                ]
+            )))
+        )
     }
 
     fn in_memory_storage() -> Arc<Mutex<FrontendStorage<InMemoryStorage>>> {

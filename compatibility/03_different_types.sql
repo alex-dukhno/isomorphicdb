@@ -18,7 +18,7 @@ create table SMOKE_TYPES.NUMERIC_TYPES
 (
     column_small_int        smallint,
     column_integer          integer,
-    column_big_int          bigint,
+    column_big_int          bigint/*,
     column_longest_decimal  decimal(131072, 16383),
     column_shortest_decimal decimal(2, 1),
     column_no_scale_decimal decimal(2),
@@ -26,14 +26,14 @@ create table SMOKE_TYPES.NUMERIC_TYPES
     column_double_precision double precision,
     column_small_serial     smallserial,
     column_serial           serial,
-    column_big_serial       bigserial
+    column_big_serial       bigserial*/
 );
 
 insert into SMOKE_TYPES.NUMERIC_TYPES
-values (-32768, -2147483648, -9223372036854775808, -100500.100500, -10.1, -20, -123456.0, -123456789012345.0, 1, 1, 1);
+values (-32768, -2147483648, -9223372036854775808/*, -100500.100500, -10.1, -20, -123456.0, -123456789012345.0, 1, 1, 1*/);
 insert into SMOKE_TYPES.NUMERIC_TYPES
-values (32767, 2147483647, 9223372036854775807, 100500.100500, 10.9, 30, 123456.0, 123456789012345.0, 32767, 2147483647,
-        9223372036854775807);
+values (32767, 2147483647, 9223372036854775807/*, 100500.100500, 10.9, 30, 123456.0, 123456789012345.0, 32767, 2147483647,
+        9223372036854775807*/);
 
 select *
 from SMOKE_TYPES.NUMERIC_TYPES;
@@ -59,38 +59,40 @@ from SMOKE_TYPES.CHARACTER_TYPES;
 
 drop table SMOKE_TYPES.CHARACTER_TYPES;
 
-create table SMOKE_TYPES.BOOL_TYPE
-(
-    column_boolean boolean
-);
+-- create table SMOKE_TYPES.BOOL_TYPE
+-- (
+--     column_boolean boolean
+-- );
+--
+-- insert into SMOKE_TYPES.BOOL_TYPE
+-- values (1);
+-- insert into SMOKE_TYPES.BOOL_TYPE
+-- values (0);
+-- insert into SMOKE_TYPES.BOOL_TYPE
+-- values ('y');
+-- insert into SMOKE_TYPES.BOOL_TYPE
+-- values ('n');
+-- insert into SMOKE_TYPES.BOOL_TYPE
+-- values (true);
+-- insert into SMOKE_TYPES.BOOL_TYPE
+-- values (false);
+--
+-- select *
+-- from SMOKE_TYPES.BOOL_TYPE;
+--
+-- drop table SMOKE_TYPES.BOOL_TYPE;
+--
+-- create table SMOKE_TYPES.DATE_TIME_TYPES
+-- (
+--     column_date              date,
+--     column_time              time,
+--     column_time_with_tz      time with time zone,
+--     column_timestamp         timestamp,
+--     column_timestamp_with_tz timestamp with time zone /*,
+--     column_interval          interval */
+-- );
+--
+-- insert into SMOKE_TYPES.DATE_TIME_TYPES
+-- values ('2020-02-13', '12:01:23', '12:01:23 PST', '1999-01-08 04:05:06', '1999-01-08 04:05:06 PST'/*, '2 year'*/)
 
-insert into SMOKE_TYPES.BOOL_TYPE
-values (1);
-insert into SMOKE_TYPES.BOOL_TYPE
-values (0);
-insert into SMOKE_TYPES.BOOL_TYPE
-values ('y');
-insert into SMOKE_TYPES.BOOL_TYPE
-values ('n');
-insert into SMOKE_TYPES.BOOL_TYPE
-values (true);
-insert into SMOKE_TYPES.BOOL_TYPE
-values (false);
-
-select *
-from SMOKE_TYPES.BOOL_TYPE;
-
-drop table SMOKE_TYPES.BOOL_TYPE;
-
-create table SMOKE_TYPES.DATE_TIME_TYPES
-(
-    column_date              date,
-    column_time              time,
-    column_time_with_tz      time with time zone,
-    column_timestamp         timestamp,
-    column_timestamp_with_tz timestamp with time zone /*,
-    column_interval          interval */
-);
-
-insert into SMOKE_TYPES.DATE_TIME_TYPES
-values ('2020-02-13', '12:01:23', '12:01:23 PST', '1999-01-08 04:05:06', '1999-01-08 04:05:06 PST'/*, '2 year'*/)
+drop schema SMOKE_TYPES;

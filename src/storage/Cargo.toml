@@ -13,3 +13,4 @@ sql_types = { path = "../sql_types" }
 
 [dev-dependencies]
 backtrace = "0.3.49"
+rstest = "0.6.4"

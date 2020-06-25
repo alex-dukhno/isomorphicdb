@@ -164,11 +164,12 @@ impl<P: BackendStorage> FrontendStorage<P> {
                             Ok(()) => {
                                 record.push(sql_type.sql_type().serializer().ser(item.as_str()));
                             }
-                            Err(_e) => {
+                            Err(e) => {
+                                eprintln!("{:?}", e);
                                 return Ok(Err(OperationOnTableError::ColumnOutOfRange(vec![(
                                     name.clone(),
                                     *sql_type,
-                                )])))
+                                )])));
                             }
                         }
                     }

@@ -4,6 +4,7 @@ use std::convert::TryInto;
 pub enum ConstraintError {
     OutOfRange,
     NotAnInt,
+    ValueTooLong,
 }
 
 pub trait SQLType {
@@ -142,6 +143,100 @@ impl Serializer for BigIntTypeSerializer {
     }
 }
 
+pub(crate) struct CharSqlType {
+    length: u64,
+}
+
+impl CharSqlType {
+    pub(crate) fn new(length: u64) -> CharSqlType {
+        CharSqlType { length }
+    }
+}
+
+impl SQLType for CharSqlType {
+    fn constraint(&self) -> Box<dyn Constraint> {
+        Box::new(CharSqlTypeConstraint { length: self.length })
+    }
+
+    fn serializer(&self) -> Box<dyn Serializer> {
+        Box::new(CharSqlTypeSerializer)
+    }
+}
+
+struct CharSqlTypeConstraint {
+    length: u64,
+}
+
+impl Constraint for CharSqlTypeConstraint {
+    fn validate(&self, in_value: &str) -> Result<(), ConstraintError> {
+        let trimmed = in_value.trim_end();
+        if trimmed.len() > self.length as usize {
+            Err(ConstraintError::ValueTooLong)
+        } else {
+            Ok(())
+        }
+    }
+}
+
+struct CharSqlTypeSerializer;
+
+impl Serializer for CharSqlTypeSerializer {
+    fn ser(&self, in_value: &str) -> Vec<u8> {
+        in_value.trim_end().as_bytes().to_vec()
+    }
+
+    fn des(&self, out_value: &[u8]) -> String {
+        String::from_utf8(out_value.to_vec()).unwrap()
+    }
+}
+
+pub(crate) struct VarCharSqlType {
+    length: u64,
+}
+
+impl VarCharSqlType {
+    pub(crate) fn new(length: u64) -> VarCharSqlType {
+        VarCharSqlType { length }
+    }
+}
+
+impl SQLType for VarCharSqlType {
+    fn constraint(&self) -> Box<dyn Constraint> {
+        Box::new(VarCharSqlTypeConstraint { length: self.length })
+    }
+
+    fn serializer(&self) -> Box<dyn Serializer> {
+        Box::new(VarCharSqlTypeSerializer)
+    }
+}
+
+struct VarCharSqlTypeConstraint {
+    length: u64,
+}
+
+impl Constraint for VarCharSqlTypeConstraint {
+    fn validate(&self, in_value: &str) -> Result<(), ConstraintError> {
+        let trimmed = in_value.trim_end();
+        if trimmed.len() > self.length as usize {
+            Err(ConstraintError::ValueTooLong)
+        } else {
+            Ok(())
+        }
+    }
+}
+
+struct VarCharSqlTypeSerializer;
+
+impl Serializer for VarCharSqlTypeSerializer {
+    fn ser(&self, in_value: &str) -> Vec<u8> {
+        in_value.trim_end().as_bytes().to_vec()
+    }
+
+    fn des(&self, out_value: &[u8]) -> String {
+        String::from_utf8(out_value.to_vec()).unwrap()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -185,7 +280,9 @@ mod tests {
 
                 #[rstest::rstest]
                 fn in_range(constraint: Box<dyn Constraint>) {
-                    assert_eq!(constraint.validate("1"), Ok(()))
+                    assert_eq!(constraint.validate("1"), Ok(()));
+                    assert_eq!(constraint.validate("32767"), Ok(()));
+                    assert_eq!(constraint.validate("-32768"), Ok(()));
                 }
 
                 #[rstest::rstest]
@@ -245,7 +342,9 @@ mod tests {
 
                 #[rstest::rstest]
                 fn in_range(constraint: Box<dyn Constraint>) {
-                    assert_eq!(constraint.validate("1"), Ok(()))
+                    assert_eq!(constraint.validate("1"), Ok(()));
+                    assert_eq!(constraint.validate("-2147483648"), Ok(()));
+                    assert_eq!(constraint.validate("2147483647"), Ok(()));
                 }
 
                 #[rstest::rstest]
@@ -260,7 +359,7 @@ mod tests {
 
                 #[rstest::rstest]
                 fn a_float_number(constraint: Box<dyn Constraint>) {
-                    assert_eq!(constraint.validate("-3276.9"), Err(ConstraintError::NotAnInt))
+                    assert_eq!(constraint.validate("-214748.3649"), Err(ConstraintError::NotAnInt))
                 }
 
                 #[rstest::rstest]
@@ -305,7 +404,9 @@ mod tests {
 
                 #[rstest::rstest]
                 fn in_range(constraint: Box<dyn Constraint>) {
-                    assert_eq!(constraint.validate("1"), Ok(()))
+                    assert_eq!(constraint.validate("1"), Ok(()));
+                    assert_eq!(constraint.validate("-9223372036854775808"), Ok(()));
+                    assert_eq!(constraint.validate("9223372036854775807"), Ok(()));
                 }
 
                 #[rstest::rstest]
@@ -332,6 +433,107 @@ mod tests {
                 #[rstest::rstest]
                 fn a_string(constraint: Box<dyn Constraint>) {
                     assert_eq!(constraint.validate("str"), Err(ConstraintError::NotAnInt))
+                }
+            }
+        }
+    }
+
+    #[cfg(test)]
+    mod strings {
+        use super::*;
+
+        #[cfg(test)]
+        mod chars {
+            use super::*;
+
+            #[cfg(test)]
+            mod serialization {
+                use super::*;
+
+                #[rstest::fixture]
+                fn serializer() -> Box<dyn Serializer> {
+                    CharSqlType::new(10).serializer()
+                }
+
+                #[rstest::rstest]
+                fn serialize(serializer: Box<dyn Serializer>) {
+                    assert_eq!(serializer.ser("str"), vec![115, 116, 114])
+                }
+
+                #[rstest::rstest]
+                fn deserialize(serializer: Box<dyn Serializer>) {
+                    assert_eq!(serializer.des(&vec![115, 116, 114]), "str".to_owned())
+                }
+            }
+
+            #[cfg(test)]
+            mod validation {
+                use super::*;
+
+                #[rstest::fixture]
+                fn constraint() -> Box<dyn Constraint> {
+                    CharSqlType::new(10).constraint()
+                }
+
+                #[rstest::rstest]
+                fn in_length(constraint: Box<dyn Constraint>) {
+                    assert_eq!(constraint.validate("1"), Ok(()))
+                }
+
+                #[rstest::rstest]
+                fn too_long(constraint: Box<dyn Constraint>) {
+                    assert_eq!(
+                        constraint.validate("1".repeat(20).as_str()),
+                        Err(ConstraintError::ValueTooLong)
+                    )
+                }
+            }
+        }
+
+        #[cfg(test)]
+        mod var_chars {
+            use super::*;
+
+            #[cfg(test)]
+            mod serialization {
+                use super::*;
+
+                #[rstest::fixture]
+                fn serializer() -> Box<dyn Serializer> {
+                    VarCharSqlType::new(10).serializer()
+                }
+
+                #[rstest::rstest]
+                fn serialize(serializer: Box<dyn Serializer>) {
+                    assert_eq!(serializer.ser("str"), vec![115, 116, 114])
+                }
+
+                #[rstest::rstest]
+                fn deserialize(serializer: Box<dyn Serializer>) {
+                    assert_eq!(serializer.des(&vec![115, 116, 114]), "str".to_owned())
+                }
+            }
+
+            #[cfg(test)]
+            mod validation {
+                use super::*;
+
+                #[rstest::fixture]
+                fn constraint() -> Box<dyn Constraint> {
+                    VarCharSqlType::new(10).constraint()
+                }
+
+                #[rstest::rstest]
+                fn in_length(constraint: Box<dyn Constraint>) {
+                    assert_eq!(constraint.validate("1"), Ok(()))
+                }
+
+                #[rstest::rstest]
+                fn too_long(constraint: Box<dyn Constraint>) {
+                    assert_eq!(
+                        constraint.validate("1".repeat(20).as_str()),
+                        Err(ConstraintError::ValueTooLong)
+                    )
                 }
             }
         }

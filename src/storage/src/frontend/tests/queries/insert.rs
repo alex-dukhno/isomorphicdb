@@ -152,7 +152,11 @@ fn insert_values_in_limit() {
         &mut storage,
         "schema_name",
         "table_name",
-        vec![("column_1", SqlType::SmallInt), ("column_2", SqlType::Integer)],
+        vec![
+            ("column_si", SqlType::SmallInt),
+            ("column_i", SqlType::Integer),
+            ("column_bi", SqlType::BigInt),
+        ],
     );
 
     assert_eq!(
@@ -160,7 +164,25 @@ fn insert_values_in_limit() {
             .insert_into(
                 "schema_name",
                 "table_name",
-                vec![vec!["100".to_owned(), "100".to_owned()]]
+                vec![vec![
+                    "-32768".to_owned(),
+                    "-2147483648".to_owned(),
+                    "-9223372036854775808".to_owned()
+                ]]
+            )
+            .expect("no system errors"),
+        Ok(())
+    );
+    assert_eq!(
+        storage
+            .insert_into(
+                "schema_name",
+                "table_name",
+                vec![vec![
+                    "32767".to_owned(),
+                    "2147483647".to_owned(),
+                    "9223372036854775807".to_owned()
+                ]]
             )
             .expect("no system errors"),
         Ok(())

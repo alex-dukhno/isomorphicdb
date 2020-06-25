@@ -1196,6 +1196,7 @@ dependencies = [
  "backtrace",
  "kernel",
  "log",
+ "rstest",
  "sled",
  "sql_types",
 ]
