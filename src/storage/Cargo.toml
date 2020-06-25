@@ -10,6 +10,8 @@ kernel = { path = "../kernel" }
 log = "0.4.8"
 sled = { version = "0.32.0", features = ["default"] }
 sql_types = { path = "../sql_types" }
+serde = { version = "1.0.114", features = ["derive"] }
+bincode = "1.3.1"
 
 [dev-dependencies]
 backtrace = "0.3.49"

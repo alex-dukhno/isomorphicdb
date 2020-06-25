@@ -609,7 +609,11 @@ mod tests {
             .into_iter()
             .map(|(key, values)| {
                 let k = key.to_be_bytes().to_vec();
-                let v = values.into_iter().map(|s| s.as_bytes().to_vec()).collect();
+                let v = values
+                    .into_iter()
+                    .map(|s| s.as_bytes().to_vec())
+                    .collect::<Vec<_>>()
+                    .join(&b'|');
                 (k, v)
             })
             .collect()
@@ -622,7 +626,11 @@ mod tests {
     fn as_read_cursor(items: Vec<(u8, Vec<&'static str>)>) -> ReadCursor {
         Box::new(items.into_iter().map(|(key, values)| {
             let k = key.to_be_bytes().to_vec();
-            let v = values.into_iter().map(|s| s.as_bytes().to_vec()).collect();
+            let v = values
+                .into_iter()
+                .map(|s| s.as_bytes().to_vec())
+                .collect::<Vec<_>>()
+                .join(&b'|');
             Ok((k, v))
         }))
     }

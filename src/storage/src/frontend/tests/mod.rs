@@ -1,9 +1,3 @@
-use super::*;
-
-#[cfg(test)]
-mod queries;
-#[cfg(test)]
-mod schema;
 // Copyright 2020 Alex Dukhno
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,6 +12,12 @@ mod schema;
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use super::*;
+
+#[cfg(test)]
+mod queries;
+#[cfg(test)]
+mod schema;
 #[cfg(test)]
 mod table;
 

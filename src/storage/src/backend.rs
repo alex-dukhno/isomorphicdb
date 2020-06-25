@@ -19,7 +19,7 @@ use std::fmt::Debug;
 pub type Result<T, E> = std::result::Result<T, E>;
 pub type Row = (Key, Values);
 pub type Key = Vec<u8>;
-pub type Values = Vec<Vec<u8>>;
+pub type Values = Vec<u8>;
 pub type ReadCursor = Box<dyn Iterator<Item = Result<Row, SystemError>>>;
 
 #[derive(Debug, PartialEq)]
@@ -180,13 +180,13 @@ impl BackendStorage for SledBackendStorage {
                         Ok(object) => {
                             let mut written_rows = 0;
                             for (key, values) in rows {
-                                let to_insert = values
-                                    .iter()
-                                    .map(|v| v.as_slice())
-                                    .collect::<Vec<&[u8]>>()
-                                    .join(&b'|')
-                                    .to_vec();
-                                match object.insert::<sled::IVec, sled::IVec>(key.into(), to_insert.into()) {
+                                // let to_insert = values
+                                //     .iter()
+                                //     .map(|v| v.as_slice())
+                                //     .collect::<Vec<&[u8]>>()
+                                //     .join(&b'|')
+                                //     .to_vec();
+                                match object.insert::<sled::IVec, sled::IVec>(key.into(), values.into()) {
                                     Ok(_) => written_rows += 1,
                                     Err(error) => return Err(Self::ErrorMapper::map(error)),
                                 }
@@ -212,10 +212,10 @@ impl BackendStorage for SledBackendStorage {
                             match item {
                                 Ok((key, values)) => Ok((
                                     key.to_vec(),
-                                    values
-                                        .split(|b| *b == b'|')
-                                        .map(|v| v.to_vec())
-                                        .collect::<Vec<Vec<u8>>>(),
+                                    values.to_vec(),
+                                    // .split(|b| *b == b'|')
+                                    // .map(|v| v.to_vec())
+                                    // .collect::<Vec<Vec<u8>>>(),
                                 )),
                                 Err(error) => Err(Self::ErrorMapper::map(error)),
                             }
@@ -565,7 +565,7 @@ mod tests {
             create_object(&mut storage, "namespace", "object_name");
             assert_eq!(
                 storage
-                    .write("namespace", "object_name", as_rows(vec![(1u8, vec!["123"])],))
+                    .write("namespace", "object_name", as_rows(vec![(1u8, vec!["123"])]))
                     .expect("no system errors"),
                 Ok(1)
             );
@@ -787,7 +787,11 @@ mod tests {
             .into_iter()
             .map(|(key, values)| {
                 let k = key.to_be_bytes().to_vec();
-                let v = values.into_iter().map(|s| s.as_bytes().to_vec()).collect();
+                let v = values
+                    .into_iter()
+                    .map(|s| s.as_bytes())
+                    .collect::<Vec<&[u8]>>()
+                    .join(&b'|');
                 (k, v)
             })
             .collect()
@@ -800,7 +804,11 @@ mod tests {
     fn as_read_cursor(items: Vec<(u8, Vec<&'static str>)>) -> ReadCursor {
         Box::new(items.into_iter().map(|(key, values)| {
             let k = key.to_be_bytes().to_vec();
-            let v = values.into_iter().map(|s| s.as_bytes().to_vec()).collect();
+            let v = values
+                .into_iter()
+                .map(|s| s.as_bytes())
+                .collect::<Vec<&[u8]>>()
+                .join(&b'|');
             Ok((k, v))
         }))
     }
