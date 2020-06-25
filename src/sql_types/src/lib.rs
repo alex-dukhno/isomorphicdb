@@ -25,8 +25,8 @@ pub struct Constraint;
 #[derive(PartialEq, Debug, Copy, Clone)]
 pub enum SqlType {
     Bool,
-    Char,
-    VarChar,
+    Char(u64),
+    VarChar(u64),
     Decimal,
     SmallInt,
     Integer,
@@ -45,8 +45,8 @@ impl SqlType {
     pub fn id(&self) -> TypeId {
         match *self {
             SqlType::Bool => 0,
-            SqlType::Char => 1,
-            SqlType::VarChar => 2,
+            SqlType::Char(_) => 1,
+            SqlType::VarChar(_) => 2,
             SqlType::Decimal => 3,
             SqlType::SmallInt => 4,
             SqlType::Integer => 5,
@@ -67,6 +67,8 @@ impl SqlType {
             SqlType::SmallInt => Box::new(crate::types::SmallIntSqlType),
             SqlType::Integer => Box::new(crate::types::IntegerSqlType),
             SqlType::BigInt => Box::new(crate::types::BigIntSqlType),
+            SqlType::Char(length) => Box::new(crate::types::CharSqlType::new(length)),
+            SqlType::VarChar(length) => Box::new(crate::types::VarCharSqlType::new(length)),
             _ => unimplemented!(),
         }
     }
@@ -78,8 +80,8 @@ impl TryFrom<TypeId> for SqlType {
     fn try_from(id: TypeId) -> Result<Self, Self::Error> {
         match id {
             0 => Ok(SqlType::Bool),
-            1 => Ok(SqlType::Char),
-            2 => Ok(SqlType::VarChar),
+            1 => Ok(SqlType::Char(10)),
+            2 => Ok(SqlType::VarChar(20)),
             3 => Ok(SqlType::Decimal),
             4 => Ok(SqlType::SmallInt),
             5 => Ok(SqlType::Integer),

@@ -15,10 +15,13 @@
 use super::*;
 use sql_types::SqlType;
 
-#[test]
-fn select_from_table_that_does_not_exist() {
-    let mut storage = FrontendStorage::default().expect("no system errors");
+#[rstest::fixture]
+fn storage() -> FrontendStorage<SledBackendStorage> {
+    FrontendStorage::default().expect("no system errors")
+}
 
+#[rstest::rstest]
+fn select_from_table_that_does_not_exist(mut storage: FrontendStorage<SledBackendStorage>) {
     create_schema(&mut storage, "schema_name");
     let table_columns = storage
         .table_columns("schema_name", "not_existed")
@@ -36,10 +39,8 @@ fn select_from_table_that_does_not_exist() {
     );
 }
 
-#[test]
-fn select_all_from_table_with_many_columns() {
-    let mut storage = FrontendStorage::default().expect("no system errors");
-
+#[rstest::rstest]
+fn select_all_from_table_with_many_columns(mut storage: FrontendStorage<SledBackendStorage>) {
     create_schema_with_table(
         &mut storage,
         "schema_name",
@@ -76,10 +77,8 @@ fn select_all_from_table_with_many_columns() {
     );
 }
 
-#[test]
-fn select_first_and_last_columns_from_table_with_multiple_columns() {
-    let mut storage = FrontendStorage::default().expect("no system errors");
-
+#[rstest::rstest]
+fn select_first_and_last_columns_from_table_with_multiple_columns(mut storage: FrontendStorage<SledBackendStorage>) {
     create_schema_with_table(
         &mut storage,
         "schema_name",
@@ -113,10 +112,8 @@ fn select_first_and_last_columns_from_table_with_multiple_columns() {
     );
 }
 
-#[test]
-fn select_all_columns_reordered_from_table_with_multiple_columns() {
-    let mut storage = FrontendStorage::default().expect("no system errors");
-
+#[rstest::rstest]
+fn select_all_columns_reordered_from_table_with_multiple_columns(mut storage: FrontendStorage<SledBackendStorage>) {
     create_schema_with_table(
         &mut storage,
         "schema_name",
@@ -155,10 +152,8 @@ fn select_all_columns_reordered_from_table_with_multiple_columns() {
     );
 }
 
-#[test]
-fn select_with_column_name_duplication() {
-    let mut storage = FrontendStorage::default().expect("no system errors");
-
+#[rstest::rstest]
+fn select_with_column_name_duplication(mut storage: FrontendStorage<SledBackendStorage>) {
     create_schema_with_table(
         &mut storage,
         "schema_name",
@@ -218,6 +213,106 @@ fn select_with_column_name_duplication() {
                     "9".to_owned(),
                     "8".to_owned()
                 ],
+            ],
+        ))
+    );
+}
+
+#[rstest::rstest]
+fn select_different_integer_types(mut storage: FrontendStorage<SledBackendStorage>) {
+    create_schema_with_table(
+        &mut storage,
+        "schema_name",
+        "table_name",
+        vec![
+            ("small_int", SqlType::SmallInt),
+            ("integer", SqlType::Integer),
+            ("big_int", SqlType::BigInt),
+        ],
+    );
+
+    insert_into(
+        &mut storage,
+        "schema_name",
+        "table_name",
+        vec!["1000", "2000000", "3000000000"],
+    );
+    insert_into(
+        &mut storage,
+        "schema_name",
+        "table_name",
+        vec!["4000", "5000000", "6000000000"],
+    );
+    insert_into(
+        &mut storage,
+        "schema_name",
+        "table_name",
+        vec!["7000", "8000000", "9000000000"],
+    );
+
+    assert_eq!(
+        storage
+            .select_all_from(
+                "schema_name",
+                "table_name",
+                vec!["small_int".to_owned(), "integer".to_owned(), "big_int".to_owned()]
+            )
+            .expect("no system errors"),
+        Ok((
+            vec![
+                ("small_int".to_owned(), SqlType::SmallInt),
+                ("integer".to_owned(), SqlType::Integer),
+                ("big_int".to_owned(), SqlType::BigInt),
+            ],
+            vec![
+                vec!["1000".to_owned(), "2000000".to_owned(), "3000000000".to_owned()],
+                vec!["4000".to_owned(), "5000000".to_owned(), "6000000000".to_owned()],
+                vec!["7000".to_owned(), "8000000".to_owned(), "9000000000".to_owned()],
+            ],
+        ))
+    );
+}
+
+#[rstest::rstest]
+fn select_different_character_strings_types(mut storage: FrontendStorage<SledBackendStorage>) {
+    create_schema_with_table(
+        &mut storage,
+        "schema_name",
+        "table_name",
+        vec![("char_10", SqlType::Char(10)), ("var_char_20", SqlType::VarChar(20))],
+    );
+
+    insert_into(
+        &mut storage,
+        "schema_name",
+        "table_name",
+        vec!["1234567890", "12345678901234567890"],
+    );
+    insert_into(&mut storage, "schema_name", "table_name", vec!["12345", "1234567890"]);
+    insert_into(
+        &mut storage,
+        "schema_name",
+        "table_name",
+        vec!["12345", "1234567890     "],
+    );
+
+    assert_eq!(
+        storage
+            .select_all_from(
+                "schema_name",
+                "table_name",
+                vec!["char_10".to_owned(), "var_char_20".to_owned()]
+            )
+            .expect("no system errors"),
+        Ok((
+            vec![
+                ("char_10".to_owned(), SqlType::Char(10)),
+                ("var_char_20".to_owned(), SqlType::VarChar(20)),
+            ],
+            vec![
+                vec!["1234567890".to_owned(), "12345678901234567890".to_owned()],
+                vec!["12345".to_owned(), "1234567890".to_owned()],
+                vec!["12345".to_owned(), "1234567890".to_owned()],
             ],
         ))
     );

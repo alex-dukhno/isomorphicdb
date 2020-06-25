@@ -122,13 +122,13 @@ impl TypeConverter {
     fn pg_oid(sql_type: &SqlType) -> i32 {
         match sql_type {
             SqlType::Bool => 16,
-            SqlType::Char => 18,
+            SqlType::Char(_) => 18,
             SqlType::BigInt => 20,           // PG int8
             SqlType::SmallInt => 21,         // PG int2
             SqlType::Integer => 23,          // PG int4
             SqlType::Real => 700,            // PG float4
             SqlType::DoublePrecision => 701, // PG float8
-            SqlType::VarChar => 1043,
+            SqlType::VarChar(_) => 1043,
             SqlType::Date => 1082,
             SqlType::Time => 1083,
             SqlType::Timestamp => 1114,
@@ -142,13 +142,13 @@ impl TypeConverter {
     fn pg_len(sql_type: &SqlType) -> i16 {
         match sql_type {
             SqlType::Bool => 1,
-            SqlType::Char => 1,
+            SqlType::Char(_) => 1,
             SqlType::BigInt => 8,
             SqlType::SmallInt => 2,
             SqlType::Integer => 4,
             SqlType::Real => 4,
             SqlType::DoublePrecision => 8,
-            SqlType::VarChar => -1,
+            SqlType::VarChar(_) => -1,
             SqlType::Date => 4,
             SqlType::Time => 8,
             SqlType::Timestamp => 8,
