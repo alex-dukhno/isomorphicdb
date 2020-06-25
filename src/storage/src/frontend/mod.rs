@@ -20,8 +20,8 @@ use crate::{
     CreateTableError, DropTableError, OperationOnTableError, Projection, SchemaAlreadyExists, SchemaDoesNotExist,
 };
 use kernel::{SystemError, SystemResult};
+use serde::{Deserialize, Serialize};
 use sql_types::SqlType;
-use std::convert::{TryFrom, TryInto};
 
 pub struct FrontendStorage<P: BackendStorage> {
     key_id_generator: usize,
@@ -87,13 +87,10 @@ impl<P: BackendStorage> FrontendStorage<P> {
                         table_name.as_bytes().to_vec(),
                         column_names
                             .into_iter()
-                            .map(|(name, sql_type)| {
-                                let mut v = vec![];
-                                v.extend_from_slice(&sql_type.id().to_be_bytes());
-                                v.extend_from_slice(name.as_bytes());
-                                v
-                            })
-                            .collect(),
+                            .map(|(name, sql_type)| bincode::serialize(&ColumnMetadata { name, sql_type }).unwrap())
+                            .collect::<Vec<Vec<u8>>>()
+                            .join(&b'|')
+                            .to_vec(),
                     )],
                 )? {
                     Ok(_) => {
@@ -124,10 +121,9 @@ impl<P: BackendStorage> FrontendStorage<P> {
                 .filter(|(table, _columns)| *table == table_name.as_bytes().to_vec())
                 .map(|(_id, columns)| {
                     columns
-                        .iter()
+                        .split(|b| *b == b'|')
                         .map(|c| {
-                            let sql_type = SqlType::try_from(u32::from_be_bytes(c[0..4].try_into().unwrap())).unwrap();
-                            let name = String::from_utf8(c[4..].to_vec()).unwrap();
+                            let ColumnMetadata { name, sql_type } = bincode::deserialize(c).unwrap();
                             (name, sql_type)
                         })
                         .collect::<Vec<(String, SqlType)>>()
@@ -160,9 +156,9 @@ impl<P: BackendStorage> FrontendStorage<P> {
                     let key = self.key_id_generator.to_be_bytes().to_vec();
                     let mut record = vec![];
                     for (item, (name, sql_type)) in row.iter().zip(all_columns.iter()) {
-                        match sql_type.sql_type().constraint().validate(item.as_str()) {
+                        match sql_type.constraint().validate(item.as_str()) {
                             Ok(()) => {
-                                record.push(sql_type.sql_type().serializer().ser(item.as_str()));
+                                record.push(sql_type.serializer().ser(item.as_str()));
                             }
                             Err(e) => {
                                 eprintln!("{:?}", e);
@@ -173,7 +169,7 @@ impl<P: BackendStorage> FrontendStorage<P> {
                             }
                         }
                     }
-                    to_write.push((key, record));
+                    to_write.push((key, record.join(&b'|')));
                     self.key_id_generator += 1;
                 }
                 match self.persistent.write(schema_name, table_name, to_write)? {
@@ -229,9 +225,9 @@ impl<P: BackendStorage> FrontendStorage<P> {
                         .map(|bytes| {
                             let mut values = vec![];
                             for (i, (origin, ord)) in column_indexes.iter().enumerate() {
-                                for (index, value) in bytes.iter().enumerate() {
+                                for (index, value) in bytes.split(|b| *b == b'|').enumerate() {
                                     if index == *origin {
-                                        values.push((ord, description[i].1.sql_type().serializer().des(value)))
+                                        values.push((ord, description[i].1.serializer().des(value)))
                                     }
                                 }
                             }
@@ -267,9 +263,9 @@ impl<P: BackendStorage> FrontendStorage<P> {
                 let reads = self.persistent.read(schema_name, table_name)?;
                 match reads {
                     Ok(reads) => {
-                        let to_update: Vec<(Vec<u8>, Vec<Vec<u8>>)> = reads
+                        let to_update: Vec<(Vec<u8>, Vec<u8>)> = reads
                             .map(backend::Result::unwrap)
-                            .map(|(key, _)| (key, vec![sql_type.sql_type().serializer().ser(value.as_str())]))
+                            .map(|(key, _)| (key, sql_type.serializer().ser(value.as_str())))
                             .collect();
 
                         let len = to_update.len();
@@ -310,6 +306,12 @@ impl<P: BackendStorage> FrontendStorage<P> {
             _ => unimplemented!(),
         }
     }
+}
+
+#[derive(Serialize, Deserialize)]
+struct ColumnMetadata {
+    name: String,
+    sql_type: SqlType,
 }
 
 #[cfg(test)]

@@ -960,7 +960,7 @@ mod tests {
             Ok(QueryEvent::RecordsSelected((
                 vec![
                     ("column_c".to_owned(), SqlType::Char(10)),
-                    ("column_vc".to_owned(), SqlType::VarChar(20))
+                    ("column_vc".to_owned(), SqlType::VarChar(10))
                 ],
                 vec![
                     vec!["12345abcde".to_owned(), "12345abcde".to_owned()],
