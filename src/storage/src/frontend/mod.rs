@@ -252,25 +252,72 @@ impl<P: BackendStorage> FrontendStorage<P> {
         &mut self,
         schema_name: &str,
         table_name: &str,
-        value: String,
+        rows: Vec<(String, String)>,
     ) -> SystemResult<Result<usize, OperationOnTableError>> {
         match self.table_columns(schema_name, table_name)? {
-            Ok(mut all_columns) => {
-                let sql_type = match all_columns.pop() {
-                    Some((_name, sql_type)) => sql_type,
-                    None => return Ok(Err(OperationOnTableError::TableDoesNotExist)),
-                };
-                let reads = self.persistent.read(schema_name, table_name)?;
-                match reads {
+            Ok(all_columns) => {
+                if all_columns.is_empty() {
+                    return Ok(Err(OperationOnTableError::TableDoesNotExist));
+                }
+
+                let mut index_value_pairs = vec![];
+                let mut non_existing_columns = vec![];
+                for (column, value) in rows {
+                    let mut found = None;
+                    for (index, (name, sql_type)) in all_columns.iter().enumerate() {
+                        if *name == column {
+                            match sql_type.constraint().validate(value.as_str()) {
+                                Ok(()) => {
+                                    found = Some((index, sql_type.serializer().ser(value.as_str())));
+                                }
+                                Err(e) => {
+                                    eprintln!("{:?}", e);
+                                    return Ok(Err(OperationOnTableError::ColumnOutOfRange(vec![(
+                                        name.clone(),
+                                        *sql_type,
+                                    )])));
+                                }
+                            }
+
+                            break;
+                        }
+                    }
+
+                    if let Some(pair) = found {
+                        index_value_pairs.push(pair);
+                    } else {
+                        non_existing_columns.push(column.clone());
+                    }
+                }
+
+                if !non_existing_columns.is_empty() {
+                    return Ok(Err(OperationOnTableError::ColumnDoesNotExist(non_existing_columns)));
+                }
+
+                match self.persistent.read(schema_name, table_name)? {
                     Ok(reads) => {
-                        let to_update: Vec<(Vec<u8>, Vec<u8>)> = reads
+                        let to_update: Vec<Row> = reads
                             .map(backend::Result::unwrap)
-                            .map(|(key, _)| (key, sql_type.serializer().ser(value.as_str())))
+                            .map(|(key, values)| {
+                                let mut values: Vec<&[u8]> = values.split(|b| *b == b'|').collect();
+                                for (index, updated_value) in &index_value_pairs {
+                                    values[*index] = updated_value;
+                                }
+
+                                (key, values.join(&b'|'))
+                            })
                             .collect();
 
                         let len = to_update.len();
-                        self.persistent.write(schema_name, table_name, to_update)?.unwrap();
-                        Ok(Ok(len))
+                        match self.persistent.write(schema_name, table_name, to_update)? {
+                            Ok(_size) => Ok(Ok(len)),
+                            Err(OperationOnObjectError::ObjectDoesNotExist) => {
+                                Ok(Err(OperationOnTableError::TableDoesNotExist))
+                            }
+                            Err(OperationOnObjectError::NamespaceDoesNotExist) => {
+                                Ok(Err(OperationOnTableError::SchemaDoesNotExist))
+                            }
+                        }
                     }
                     Err(OperationOnObjectError::ObjectDoesNotExist) => {
                         Ok(Err(OperationOnTableError::TableDoesNotExist))

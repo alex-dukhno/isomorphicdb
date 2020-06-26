@@ -32,7 +32,11 @@ fn update_all_records() {
 
     assert_eq!(
         storage
-            .update_all("schema_name", "table_name", "567".to_owned())
+            .update_all(
+                "schema_name",
+                "table_name",
+                vec![("column_test".to_owned(), "567".to_owned())]
+            )
             .expect("no system errors"),
         Ok(3)
     );
@@ -64,7 +68,7 @@ fn update_not_existed_table() {
 
     assert_eq!(
         storage
-            .update_all("schema_name", "not_existed", "123".to_owned())
+            .update_all("schema_name", "not_existed", vec![])
             .expect("no system errors"),
         Err(OperationOnTableError::TableDoesNotExist)
     );
