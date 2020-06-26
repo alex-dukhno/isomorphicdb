@@ -227,27 +227,34 @@ impl<P: BackendStorage> Handler<P> {
             } => {
                 let schema_name = table_name.0[0].to_string();
                 let table_name = table_name.0[1].to_string();
-                let sqlparser::ast::Assignment { value, .. } = &assignments[0];
-                if let sqlparser::ast::Expr::Value(value) = value {
-                    if let sqlparser::ast::Value::Number(value) = value {
-                        match (self.storage.lock().unwrap()).update_all(&schema_name, &table_name, value.to_string())? {
-                            Ok(records_number) => Ok(Ok(QueryEvent::RecordsUpdated(records_number))),
-                            Err(OperationOnTableError::SchemaDoesNotExist) => {
-                                Ok(Err(QueryError::SchemaDoesNotExist(schema_name)))
-                            }
-                            Err(OperationOnTableError::TableDoesNotExist) => Ok(Err(QueryError::TableDoesNotExist(
-                                schema_name + "." + table_name.as_str(),
-                            ))),
-                            Err(OperationOnTableError::ColumnDoesNotExist(non_existing_columns)) => {
-                                Ok(Err(QueryError::ColumnDoesNotExist(non_existing_columns)))
-                            }
-                            _ => unimplemented!(),
-                        }
-                    } else {
-                        Ok(Err(QueryError::NotSupportedOperation(raw_sql_query.to_owned())))
+
+                let to_update: Vec<(String, String)> = assignments
+                    .iter()
+                    .map(|item| {
+                        let sqlparser::ast::Assignment { id, value } = &item;
+                        let sqlparser::ast::Ident { value: column, .. } = id;
+
+                        let value = match value {
+                            sqlparser::ast::Expr::Value(sqlparser::ast::Value::Number(val)) => val,
+                            expr => unimplemented!("{:?} is not currently supported", expr),
+                        };
+
+                        (column.to_owned(), value.to_owned())
+                    })
+                    .collect();
+
+                match (self.storage.lock().unwrap()).update_all(&schema_name, &table_name, to_update)? {
+                    Ok(records_number) => Ok(Ok(QueryEvent::RecordsUpdated(records_number))),
+                    Err(OperationOnTableError::SchemaDoesNotExist) => {
+                        Ok(Err(QueryError::SchemaDoesNotExist(schema_name)))
                     }
-                } else {
-                    Ok(Err(QueryError::NotSupportedOperation(raw_sql_query.to_owned())))
+                    Err(OperationOnTableError::TableDoesNotExist) => Ok(Err(QueryError::TableDoesNotExist(
+                        schema_name + "." + table_name.as_str(),
+                    ))),
+                    Err(OperationOnTableError::ColumnDoesNotExist(non_existing_columns)) => {
+                        Ok(Err(QueryError::ColumnDoesNotExist(non_existing_columns)))
+                    }
+                    _ => unimplemented!(),
                 }
             }
             sqlparser::ast::Statement::Delete { table_name, .. } => {
@@ -620,6 +627,126 @@ mod tests {
         );
     }
 
+    #[test]
+    fn update_single_column_of_all_records() {
+        let mut handler = Handler::new(in_memory_storage());
+
+        handler
+            .execute("create schema schema_name;")
+            .expect("no system errors")
+            .expect("schema created");
+        handler
+            .execute("create table schema_name.table_name (col1 smallint, col2 smallint);")
+            .expect("no system errors")
+            .expect("table created");
+        handler
+            .execute("insert into schema_name.table_name values (123, 789);")
+            .expect("no system errors")
+            .expect("row inserted");
+        handler
+            .execute("insert into schema_name.table_name values (456, 789);")
+            .expect("no system errors")
+            .expect("row inserted");
+
+        assert_eq!(
+            handler
+                .execute("select * from schema_name.table_name;")
+                .expect("no system errors"),
+            Ok(QueryEvent::RecordsSelected((
+                vec![
+                    ("col1".to_owned(), SqlType::SmallInt),
+                    ("col2".to_owned(), SqlType::SmallInt),
+                ],
+                vec![
+                    vec!["123".to_owned(), "789".to_owned()],
+                    vec!["456".to_owned(), "789".to_owned()],
+                ]
+            )))
+        );
+        assert_eq!(
+            handler
+                .execute("update schema_name.table_name set col2=357;")
+                .expect("no system errors"),
+            Ok(QueryEvent::RecordsUpdated(2))
+        );
+        assert_eq!(
+            handler
+                .execute("select * from schema_name.table_name;")
+                .expect("no system errors"),
+            Ok(QueryEvent::RecordsSelected((
+                vec![
+                    ("col1".to_owned(), SqlType::SmallInt),
+                    ("col2".to_owned(), SqlType::SmallInt),
+                ],
+                vec![
+                    vec!["123".to_owned(), "357".to_owned()],
+                    vec!["456".to_owned(), "357".to_owned()],
+                ]
+            )))
+        );
+    }
+
+    #[test]
+    fn update_multiple_columns_of_all_records() {
+        let mut handler = Handler::new(in_memory_storage());
+
+        handler
+            .execute("create schema schema_name;")
+            .expect("no system errors")
+            .expect("schema created");
+        handler
+            .execute("create table schema_name.table_name (col1 smallint, col2 smallint, col3 smallint);")
+            .expect("no system errors")
+            .expect("table created");
+        handler
+            .execute("insert into schema_name.table_name values (111, 222, 333);")
+            .expect("no system errors")
+            .expect("row inserted");
+        handler
+            .execute("insert into schema_name.table_name values (444, 555, 666);")
+            .expect("no system errors")
+            .expect("row inserted");
+
+        assert_eq!(
+            handler
+                .execute("select * from schema_name.table_name;")
+                .expect("no system errors"),
+            Ok(QueryEvent::RecordsSelected((
+                vec![
+                    ("col1".to_owned(), SqlType::SmallInt),
+                    ("col2".to_owned(), SqlType::SmallInt),
+                    ("col3".to_owned(), SqlType::SmallInt),
+                ],
+                vec![
+                    vec!["111".to_owned(), "222".to_owned(), "333".to_owned()],
+                    vec!["444".to_owned(), "555".to_owned(), "666".to_owned()],
+                ]
+            )))
+        );
+        assert_eq!(
+            handler
+                .execute("update schema_name.table_name set col3=777, col1=999;")
+                .expect("no system errors"),
+            Ok(QueryEvent::RecordsUpdated(2))
+        );
+        assert_eq!(
+            handler
+                .execute("select * from schema_name.table_name;")
+                .expect("no system errors"),
+            Ok(QueryEvent::RecordsSelected((
+                vec![
+                    ("col1".to_owned(), SqlType::SmallInt),
+                    ("col2".to_owned(), SqlType::SmallInt),
+                    ("col3".to_owned(), SqlType::SmallInt),
+                ],
+                vec![
+                    vec!["999".to_owned(), "222".to_owned(), "777".to_owned()],
+                    vec!["999".to_owned(), "555".to_owned(), "777".to_owned()],
+                ]
+            )))
+        );
+    }
+
     #[ignore] // TODO probably such tests should complain about non existent table
     #[test]
     fn update_records_in_table_from_non_existent_schema() {
@@ -647,6 +774,43 @@ mod tests {
                 .execute("update schema_name.table_name set column_test=789;")
                 .expect("no system errors"),
             Err(QueryError::TableDoesNotExist("schema_name.table_name".to_owned()))
+        );
+    }
+
+    #[test]
+    fn update_non_existent_columns_of_records() {
+        let mut handler = Handler::new(in_memory_storage());
+
+        handler
+            .execute("create schema schema_name;")
+            .expect("no system errors")
+            .expect("schema created");
+        handler
+            .execute("create table schema_name.table_name (column_test smallint);")
+            .expect("no system errors")
+            .expect("table created");
+        handler
+            .execute("insert into schema_name.table_name values (123);")
+            .expect("no system errors")
+            .expect("row inserted");
+
+        assert_eq!(
+            handler
+                .execute("select * from schema_name.table_name;")
+                .expect("no system errors"),
+            Ok(QueryEvent::RecordsSelected((
+                vec![("column_test".to_owned(), SqlType::SmallInt)],
+                vec![vec!["123".to_owned()]],
+            )))
+        );
+        assert_eq!(
+            handler
+                .execute("update schema_name.table_name set col1=456, col2=789;")
+                .expect("no system errors"),
+            Err(QueryError::ColumnDoesNotExist(vec![
+                "col1".to_owned(),
+                "col2".to_owned()
+            ]))
         );
     }
 
