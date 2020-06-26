@@ -38,6 +38,10 @@ select column_3, column_2, column_1 from SMOKE_QUERIES.VALIDATION_TABLE;
 
 select column_3, column_2, column_3, column_1, column_2 from SMOKE_QUERIES.VALIDATION_TABLE;
 
+update SMOKE_QUERIES.VALIDATION_TABLE set column_1 = 10, column_2 = -20, column_3 = 30;
+
+select column_3, column_2, column_1 from SMOKE_QUERIES.VALIDATION_TABLE;
+
 drop table SMOKE_QUERIES.VALIDATION_TABLE;
 
 drop schema SMOKE_QUERIES;

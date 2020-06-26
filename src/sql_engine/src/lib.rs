@@ -235,11 +235,19 @@ impl<P: BackendStorage> Handler<P> {
                         let sqlparser::ast::Ident { value: column, .. } = id;
 
                         let value = match value {
-                            sqlparser::ast::Expr::Value(sqlparser::ast::Value::Number(val)) => val,
+                            sqlparser::ast::Expr::Value(sqlparser::ast::Value::Number(val)) => val.to_owned(),
+                            sqlparser::ast::Expr::Value(sqlparser::ast::Value::SingleQuotedString(v)) => v.to_string(),
+                            sqlparser::ast::Expr::UnaryOp { op, expr } => match (op, &**expr) {
+                                (
+                                    sqlparser::ast::UnaryOperator::Minus,
+                                    sqlparser::ast::Expr::Value(sqlparser::ast::Value::Number(v)),
+                                ) => "-".to_owned() + v.as_str(),
+                                (op, expr) => unimplemented!("{:?} {:?} is not currently supported", op, expr),
+                            },
                             expr => unimplemented!("{:?} is not currently supported", expr),
                         };
 
-                        (column.to_owned(), value.to_owned())
+                        (column.to_owned(), value)
                     })
                     .collect();
 
@@ -742,6 +750,65 @@ mod tests {
                 vec![
                     vec!["999".to_owned(), "222".to_owned(), "777".to_owned()],
                     vec!["999".to_owned(), "555".to_owned(), "777".to_owned()],
+                ]
+            )))
+        );
+    }
+
+    #[test]
+    fn update_all_records_in_multiple_columns() {
+        let mut handler = Handler::new(in_memory_storage());
+
+        handler
+            .execute("create schema schema_name;")
+            .expect("no system errors")
+            .expect("schema created");
+        handler
+            .execute("create table schema_name.table_name (column_1 smallint, column_2 smallint, column_3 smallint);")
+            .expect("no system errors")
+            .expect("table created");
+        handler
+            .execute("insert into schema_name.table_name values (1, 2, 3), (4, 5, 6), (7, 8, 9);")
+            .expect("no system errors")
+            .expect("rows inserted");
+
+        assert_eq!(
+            handler
+                .execute("select * from schema_name.table_name;")
+                .expect("no system errors"),
+            Ok(QueryEvent::RecordsSelected((
+                vec![
+                    ("column_1".to_owned(), SqlType::SmallInt),
+                    ("column_2".to_owned(), SqlType::SmallInt),
+                    ("column_3".to_owned(), SqlType::SmallInt)
+                ],
+                vec![
+                    vec!["1".to_owned(), "2".to_owned(), "3".to_owned()],
+                    vec!["4".to_owned(), "5".to_owned(), "6".to_owned()],
+                    vec!["7".to_owned(), "8".to_owned(), "9".to_owned()]
+                ]
+            )))
+        );
+        assert_eq!(
+            handler
+                .execute("update schema_name.table_name set column_1=10, column_2=-20, column_3=30;")
+                .expect("no system errors"),
+            Ok(QueryEvent::RecordsUpdated(3))
+        );
+        assert_eq!(
+            handler
+                .execute("select * from schema_name.table_name;")
+                .expect("no system errors"),
+            Ok(QueryEvent::RecordsSelected((
+                vec![
+                    ("column_1".to_owned(), SqlType::SmallInt),
+                    ("column_2".to_owned(), SqlType::SmallInt),
+                    ("column_3".to_owned(), SqlType::SmallInt)
+                ],
+                vec![
+                    vec!["10".to_owned(), "-20".to_owned(), "30".to_owned()],
+                    vec!["10".to_owned(), "-20".to_owned(), "30".to_owned()],
+                    vec!["10".to_owned(), "-20".to_owned(), "30".to_owned()]
                 ]
             )))
         );

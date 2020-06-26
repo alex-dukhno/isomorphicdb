@@ -15,10 +15,8 @@
 use super::*;
 use sql_types::SqlType;
 
-#[test]
-fn insert_into_non_existent_table() {
-    let mut storage = FrontendStorage::default().expect("no system errors");
-
+#[rstest::rstest]
+fn insert_into_non_existent_table(mut storage: FrontendStorage<SledBackendStorage>) {
     create_schema(&mut storage, "schema_name");
 
     assert_eq!(
@@ -29,10 +27,8 @@ fn insert_into_non_existent_table() {
     );
 }
 
-#[test]
-fn insert_many_rows_into_table() {
-    let mut storage = FrontendStorage::default().expect("no system errors");
-
+#[rstest::rstest]
+fn insert_many_rows_into_table(mut storage: FrontendStorage<SledBackendStorage>) {
     create_schema_with_table(
         &mut storage,
         "schema_name",
@@ -62,10 +58,8 @@ fn insert_many_rows_into_table() {
     );
 }
 
-#[test]
-fn insert_multiple_values_rows() {
-    let mut storage = FrontendStorage::default().expect("no system errors");
-
+#[rstest::rstest]
+fn insert_multiple_values_rows(mut storage: FrontendStorage<SledBackendStorage>) {
     create_schema_with_table(
         &mut storage,
         "schema_name",
@@ -108,10 +102,8 @@ fn insert_multiple_values_rows() {
     );
 }
 
-#[test]
-fn insert_row_into_table() {
-    let mut storage = FrontendStorage::default().expect("no system errors");
-
+#[rstest::rstest]
+fn insert_row_into_table(mut storage: FrontendStorage<SledBackendStorage>) {
     create_schema_with_table(
         &mut storage,
         "schema_name",
@@ -144,73 +136,143 @@ fn insert_row_into_table() {
     );
 }
 
-#[test]
-fn insert_values_in_limit() {
-    let mut storage = FrontendStorage::default().expect("no system errors");
+#[cfg(test)]
+mod constraints {
+    use super::*;
 
-    create_schema_with_table(
-        &mut storage,
-        "schema_name",
-        "table_name",
-        vec![
-            ("column_si", SqlType::SmallInt),
-            ("column_i", SqlType::Integer),
-            ("column_bi", SqlType::BigInt),
-        ],
-    );
-
-    assert_eq!(
+    #[rstest::fixture]
+    fn storage_with_ints_table(mut storage: PersistentStorage) -> PersistentStorage {
+        create_schema_with_table(
+            &mut storage,
+            "schema_name",
+            "table_name",
+            vec![
+                ("column_si", SqlType::SmallInt),
+                ("column_i", SqlType::Integer),
+                ("column_bi", SqlType::BigInt),
+            ],
+        );
         storage
-            .insert_into(
-                "schema_name",
-                "table_name",
+    }
+
+    #[rstest::fixture]
+    fn storage_with_chars_table(mut storage: PersistentStorage) -> PersistentStorage {
+        create_schema_with_table(
+            &mut storage,
+            "schema_name",
+            "table_name",
+            vec![("column_c", SqlType::Char(10)), ("column_vc", SqlType::VarChar(10))],
+        );
+        storage
+    }
+
+    #[rstest::rstest]
+    fn out_of_range_violation(mut storage_with_ints_table: PersistentStorage) {
+        assert_eq!(
+            storage_with_ints_table
+                .insert_into(
+                    "schema_name",
+                    "table_name",
+                    vec![vec!["-32769".to_owned(), "100".to_owned(), "100".to_owned()]]
+                )
+                .expect("no system errors"),
+            Err(constraint_violations(
+                ConstraintError::OutOfRange,
+                vec![vec![("column_si".to_owned(), SqlType::SmallInt)]]
+            ))
+        );
+    }
+
+    #[rstest::rstest]
+    fn not_an_int_violation(mut storage_with_ints_table: PersistentStorage) {
+        assert_eq!(
+            storage_with_ints_table
+                .insert_into(
+                    "schema_name",
+                    "table_name",
+                    vec![vec!["abc".to_owned(), "100".to_owned(), "100".to_owned()]]
+                )
+                .expect("no system errors"),
+            Err(constraint_violations(
+                ConstraintError::NotAnInt,
+                vec![vec![("column_si".to_owned(), SqlType::SmallInt)]]
+            ))
+        );
+    }
+
+    #[rstest::rstest]
+    fn value_too_long_violation(mut storage_with_chars_table: PersistentStorage) {
+        assert_eq!(
+            storage_with_chars_table
+                .insert_into(
+                    "schema_name",
+                    "table_name",
+                    vec![vec!["12345678901".to_owned(), "100".to_owned()]]
+                )
+                .expect("no system errors"),
+            Err(constraint_violations(
+                ConstraintError::ValueTooLong,
+                vec![vec![("column_c".to_owned(), SqlType::Char(10))]]
+            ))
+        );
+    }
+
+    #[rstest::rstest]
+    fn multiple_columns_single_row_violation(mut storage_with_ints_table: PersistentStorage) {
+        assert_eq!(
+            storage_with_ints_table
+                .insert_into(
+                    "schema_name",
+                    "table_name",
+                    vec![vec!["-32769".to_owned(), "-2147483649".to_owned(), "100".to_owned()]]
+                )
+                .expect("no system errors"),
+            Err(constraint_violations(
+                ConstraintError::OutOfRange,
                 vec![vec![
-                    "-32768".to_owned(),
-                    "-2147483648".to_owned(),
-                    "-9223372036854775808".to_owned()
+                    ("column_si".to_owned(), SqlType::SmallInt),
+                    ("column_i".to_owned(), SqlType::Integer)
                 ]]
-            )
-            .expect("no system errors"),
-        Ok(())
-    );
-    assert_eq!(
-        storage
-            .insert_into(
-                "schema_name",
-                "table_name",
-                vec![vec![
-                    "32767".to_owned(),
-                    "2147483647".to_owned(),
-                    "9223372036854775807".to_owned()
-                ]]
-            )
-            .expect("no system errors"),
-        Ok(())
-    )
-}
+            ))
+        )
+    }
 
-#[test]
-fn insert_values_less_then_minimal_limit() {
-    let mut storage = FrontendStorage::default().expect("no system errors");
+    #[rstest::rstest]
+    fn multiple_columns_multiple_row_violation(mut storage_with_ints_table: PersistentStorage) {
+        assert_eq!(
+            storage_with_ints_table
+                .insert_into(
+                    "schema_name",
+                    "table_name",
+                    vec![
+                        vec!["-32769".to_owned(), "-2147483649".to_owned(), "100".to_owned()],
+                        vec![
+                            "100".to_owned(),
+                            "-2147483649".to_owned(),
+                            "-9223372036854775809".to_owned()
+                        ],
+                    ]
+                )
+                .expect("no system errors"),
+            Err(constraint_violations(
+                ConstraintError::OutOfRange,
+                vec![
+                    vec![
+                        ("column_si".to_owned(), SqlType::SmallInt),
+                        ("column_i".to_owned(), SqlType::Integer)
+                    ],
+                    vec![
+                        ("column_i".to_owned(), SqlType::Integer),
+                        ("column_bi".to_owned(), SqlType::BigInt)
+                    ]
+                ]
+            ))
+        )
+    }
 
-    create_schema_with_table(
-        &mut storage,
-        "schema_name",
-        "table_name",
-        vec![("column_1", SqlType::SmallInt), ("column_2", SqlType::Integer)],
-    );
-
-    assert_eq!(
-        storage
-            .insert_into(
-                "schema_name",
-                "table_name",
-                vec![vec!["-32769".to_owned(), "100".to_owned()]]
-            )
-            .expect("no system errors"),
-        Err(OperationOnTableError::ColumnOutOfRange(vec![(
-            "column_1".to_owned(),
-            SqlType::SmallInt
-        )]))
-    )
+    fn constraint_violations(error: ConstraintError, columns: Vec<Vec<(String, SqlType)>>) -> OperationOnTableError {
+        let mut map = HashMap::new();
+        map.insert(error, columns);
+        OperationOnTableError::ConstraintViolation(map)
+    }
 }
