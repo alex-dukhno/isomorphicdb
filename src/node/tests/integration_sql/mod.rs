@@ -421,6 +421,41 @@ fn create_table_with_three_columns() {
         panic!("expected more records were retrieved by 'select column_3, column_2, column_3, column_1, column_2 from SMOKE_QUERIES.VALIDATION_TABLE;'");
     }
 
+    client
+        .simple_query("update SMOKE_QUERIES.VALIDATION_TABLE set column_1 = 10, column_2 = -20, column_3 = 30;")
+        .expect("to update value");
+    let selected = client
+        .simple_query("select column_3, column_2, column_1 from SMOKE_QUERIES.VALIDATION_TABLE;")
+        .expect("to select value");
+
+    assert_eq!(selected.len(), 3 + 1);
+
+    let mut iter = selected.iter();
+
+    if let Some(postgres::SimpleQueryMessage::Row(row)) = iter.next() {
+        assert_eq!(row.get(0), Some("30"));
+        assert_eq!(row.get(1), Some("-20"));
+        assert_eq!(row.get(2), Some("10"));
+    } else {
+        panic!("expected more records were retrieved by 'select column_3, column_2, column_1 from SMOKE_QUERIES.VALIDATION_TABLE;'");
+    }
+
+    if let Some(postgres::SimpleQueryMessage::Row(row)) = iter.next() {
+        assert_eq!(row.get(0), Some("30"));
+        assert_eq!(row.get(1), Some("-20"));
+        assert_eq!(row.get(2), Some("10"));
+    } else {
+        panic!("expected more records were retrieved by 'select column_3, column_2, column_1 from SMOKE_QUERIES.VALIDATION_TABLE;'");
+    }
+
+    if let Some(postgres::SimpleQueryMessage::Row(row)) = iter.next() {
+        assert_eq!(row.get(0), Some("30"));
+        assert_eq!(row.get(1), Some("-20"));
+        assert_eq!(row.get(2), Some("10"));
+    } else {
+        panic!("expected more records were retrieved by 'select column_3, column_2, column_1 from SMOKE_QUERIES.VALIDATION_TABLE;'");
+    }
+
     node.stop();
     while node.state() == RUNNING {
         println!("STOPPING!!!!");

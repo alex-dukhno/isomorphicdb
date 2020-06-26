@@ -16,12 +16,22 @@ use super::*;
 use sql_types::SqlType;
 
 #[rstest::fixture]
-fn storage() -> FrontendStorage<SledBackendStorage> {
-    FrontendStorage::default().expect("no system errors")
+fn with_small_ints_table(mut storage: PersistentStorage) -> PersistentStorage {
+    create_schema_with_table(
+        &mut storage,
+        "schema_name",
+        "table_name",
+        vec![
+            ("column_1", SqlType::SmallInt),
+            ("column_2", SqlType::SmallInt),
+            ("column_3", SqlType::SmallInt),
+        ],
+    );
+    storage
 }
 
 #[rstest::rstest]
-fn select_from_table_that_does_not_exist(mut storage: FrontendStorage<SledBackendStorage>) {
+fn select_from_table_that_does_not_exist(mut storage: PersistentStorage) {
     create_schema(&mut storage, "schema_name");
     let table_columns = storage
         .table_columns("schema_name", "not_existed")
@@ -40,21 +50,15 @@ fn select_from_table_that_does_not_exist(mut storage: FrontendStorage<SledBacken
 }
 
 #[rstest::rstest]
-fn select_all_from_table_with_many_columns(mut storage: FrontendStorage<SledBackendStorage>) {
-    create_schema_with_table(
-        &mut storage,
+fn select_all_from_table_with_many_columns(mut with_small_ints_table: PersistentStorage) {
+    insert_into(
+        &mut with_small_ints_table,
         "schema_name",
         "table_name",
-        vec![
-            ("column_1", SqlType::SmallInt),
-            ("column_2", SqlType::SmallInt),
-            ("column_3", SqlType::SmallInt),
-        ],
+        vec!["1", "2", "3"],
     );
 
-    insert_into(&mut storage, "schema_name", "table_name", vec!["1", "2", "3"]);
-
-    let table_columns = storage
+    let table_columns = with_small_ints_table
         .table_columns("schema_name", "table_name")
         .expect("no system errors")
         .expect("table has columns")
@@ -63,7 +67,7 @@ fn select_all_from_table_with_many_columns(mut storage: FrontendStorage<SledBack
         .collect();
 
     assert_eq!(
-        storage
+        with_small_ints_table
             .select_all_from("schema_name", "table_name", table_columns)
             .expect("no system errors"),
         Ok((
@@ -78,30 +82,38 @@ fn select_all_from_table_with_many_columns(mut storage: FrontendStorage<SledBack
 }
 
 #[rstest::rstest]
-fn select_first_and_last_columns_from_table_with_multiple_columns(mut storage: FrontendStorage<SledBackendStorage>) {
-    create_schema_with_table(
-        &mut storage,
+fn select_first_and_last_columns_from_table_with_multiple_columns(mut with_small_ints_table: PersistentStorage) {
+    insert_into(
+        &mut with_small_ints_table,
         "schema_name",
         "table_name",
-        vec![
-            ("first", SqlType::SmallInt),
-            ("middle", SqlType::SmallInt),
-            ("last", SqlType::SmallInt),
-        ],
+        vec!["1", "2", "3"],
+    );
+    insert_into(
+        &mut with_small_ints_table,
+        "schema_name",
+        "table_name",
+        vec!["4", "5", "6"],
+    );
+    insert_into(
+        &mut with_small_ints_table,
+        "schema_name",
+        "table_name",
+        vec!["7", "8", "9"],
     );
 
-    insert_into(&mut storage, "schema_name", "table_name", vec!["1", "2", "3"]);
-    insert_into(&mut storage, "schema_name", "table_name", vec!["4", "5", "6"]);
-    insert_into(&mut storage, "schema_name", "table_name", vec!["7", "8", "9"]);
-
     assert_eq!(
-        storage
-            .select_all_from("schema_name", "table_name", vec!["first".to_owned(), "last".to_owned()])
+        with_small_ints_table
+            .select_all_from(
+                "schema_name",
+                "table_name",
+                vec!["column_1".to_owned(), "column_3".to_owned()]
+            )
             .expect("no system errors"),
         Ok((
             vec![
-                ("first".to_owned(), SqlType::SmallInt),
-                ("last".to_owned(), SqlType::SmallInt)
+                ("column_1".to_owned(), SqlType::SmallInt),
+                ("column_3".to_owned(), SqlType::SmallInt)
             ],
             vec![
                 vec!["1".to_owned(), "3".to_owned()],
@@ -113,35 +125,39 @@ fn select_first_and_last_columns_from_table_with_multiple_columns(mut storage: F
 }
 
 #[rstest::rstest]
-fn select_all_columns_reordered_from_table_with_multiple_columns(mut storage: FrontendStorage<SledBackendStorage>) {
-    create_schema_with_table(
-        &mut storage,
+fn select_all_columns_reordered_from_table_with_multiple_columns(mut with_small_ints_table: PersistentStorage) {
+    insert_into(
+        &mut with_small_ints_table,
         "schema_name",
         "table_name",
-        vec![
-            ("first", SqlType::SmallInt),
-            ("middle", SqlType::SmallInt),
-            ("last", SqlType::SmallInt),
-        ],
+        vec!["1", "2", "3"],
+    );
+    insert_into(
+        &mut with_small_ints_table,
+        "schema_name",
+        "table_name",
+        vec!["4", "5", "6"],
+    );
+    insert_into(
+        &mut with_small_ints_table,
+        "schema_name",
+        "table_name",
+        vec!["7", "8", "9"],
     );
 
-    insert_into(&mut storage, "schema_name", "table_name", vec!["1", "2", "3"]);
-    insert_into(&mut storage, "schema_name", "table_name", vec!["4", "5", "6"]);
-    insert_into(&mut storage, "schema_name", "table_name", vec!["7", "8", "9"]);
-
     assert_eq!(
-        storage
+        with_small_ints_table
             .select_all_from(
                 "schema_name",
                 "table_name",
-                vec!["last".to_owned(), "first".to_owned(), "middle".to_owned()]
+                vec!["column_3".to_owned(), "column_1".to_owned(), "column_2".to_owned()]
             )
             .expect("no system errors"),
         Ok((
             vec![
-                ("last".to_owned(), SqlType::SmallInt),
-                ("first".to_owned(), SqlType::SmallInt),
-                ("middle".to_owned(), SqlType::SmallInt)
+                ("column_3".to_owned(), SqlType::SmallInt),
+                ("column_1".to_owned(), SqlType::SmallInt),
+                ("column_2".to_owned(), SqlType::SmallInt)
             ],
             vec![
                 vec!["3".to_owned(), "1".to_owned(), "2".to_owned()],
@@ -153,43 +169,47 @@ fn select_all_columns_reordered_from_table_with_multiple_columns(mut storage: Fr
 }
 
 #[rstest::rstest]
-fn select_with_column_name_duplication(mut storage: FrontendStorage<SledBackendStorage>) {
-    create_schema_with_table(
-        &mut storage,
+fn select_with_column_name_duplication(mut with_small_ints_table: PersistentStorage) {
+    insert_into(
+        &mut with_small_ints_table,
         "schema_name",
         "table_name",
-        vec![
-            ("first", SqlType::SmallInt),
-            ("middle", SqlType::SmallInt),
-            ("last", SqlType::SmallInt),
-        ],
+        vec!["1", "2", "3"],
+    );
+    insert_into(
+        &mut with_small_ints_table,
+        "schema_name",
+        "table_name",
+        vec!["4", "5", "6"],
+    );
+    insert_into(
+        &mut with_small_ints_table,
+        "schema_name",
+        "table_name",
+        vec!["7", "8", "9"],
     );
 
-    insert_into(&mut storage, "schema_name", "table_name", vec!["1", "2", "3"]);
-    insert_into(&mut storage, "schema_name", "table_name", vec!["4", "5", "6"]);
-    insert_into(&mut storage, "schema_name", "table_name", vec!["7", "8", "9"]);
-
     assert_eq!(
-        storage
+        with_small_ints_table
             .select_all_from(
                 "schema_name",
                 "table_name",
                 vec![
-                    "last".to_owned(),
-                    "middle".to_owned(),
-                    "first".to_owned(),
-                    "last".to_owned(),
-                    "middle".to_owned()
+                    "column_3".to_owned(),
+                    "column_2".to_owned(),
+                    "column_1".to_owned(),
+                    "column_3".to_owned(),
+                    "column_2".to_owned()
                 ]
             )
             .expect("no system errors"),
         Ok((
             vec![
-                ("last".to_owned(), SqlType::SmallInt),
-                ("middle".to_owned(), SqlType::SmallInt),
-                ("first".to_owned(), SqlType::SmallInt),
-                ("last".to_owned(), SqlType::SmallInt),
-                ("middle".to_owned(), SqlType::SmallInt)
+                ("column_3".to_owned(), SqlType::SmallInt),
+                ("column_2".to_owned(), SqlType::SmallInt),
+                ("column_1".to_owned(), SqlType::SmallInt),
+                ("column_3".to_owned(), SqlType::SmallInt),
+                ("column_2".to_owned(), SqlType::SmallInt)
             ],
             vec![
                 vec![
@@ -219,7 +239,7 @@ fn select_with_column_name_duplication(mut storage: FrontendStorage<SledBackendS
 }
 
 #[rstest::rstest]
-fn select_different_integer_types(mut storage: FrontendStorage<SledBackendStorage>) {
+fn select_different_integer_types(mut storage: PersistentStorage) {
     create_schema_with_table(
         &mut storage,
         "schema_name",
@@ -274,7 +294,7 @@ fn select_different_integer_types(mut storage: FrontendStorage<SledBackendStorag
 }
 
 #[rstest::rstest]
-fn select_different_character_strings_types(mut storage: FrontendStorage<SledBackendStorage>) {
+fn select_different_character_strings_types(mut storage: PersistentStorage) {
     create_schema_with_table(
         &mut storage,
         "schema_name",

@@ -21,7 +21,8 @@ use crate::{
 };
 use kernel::{SystemError, SystemResult};
 use serde::{Deserialize, Serialize};
-use sql_types::SqlType;
+use sql_types::{ConstraintError, SqlType};
+use std::collections::HashMap;
 
 pub struct FrontendStorage<P: BackendStorage> {
     key_id_generator: usize,
@@ -152,25 +153,52 @@ impl<P: BackendStorage> FrontendStorage<P> {
         match self.table_columns(schema_name, table_name)? {
             Ok(all_columns) => {
                 let mut to_write: Vec<Row> = vec![];
+                let mut errors = HashMap::new();
                 for row in rows {
                     let key = self.key_id_generator.to_be_bytes().to_vec();
                     let mut record = vec![];
+                    let mut out_of_range = vec![];
+                    let mut not_an_int = vec![];
+                    let mut value_too_long = vec![];
                     for (item, (name, sql_type)) in row.iter().zip(all_columns.iter()) {
                         match sql_type.constraint().validate(item.as_str()) {
                             Ok(()) => {
                                 record.push(sql_type.serializer().ser(item.as_str()));
                             }
-                            Err(e) => {
-                                eprintln!("{:?}", e);
-                                return Ok(Err(OperationOnTableError::ColumnOutOfRange(vec![(
-                                    name.clone(),
-                                    *sql_type,
-                                )])));
+                            Err(ConstraintError::OutOfRange) => {
+                                out_of_range.push((name.clone(), *sql_type));
+                            }
+                            Err(ConstraintError::NotAnInt) => {
+                                not_an_int.push((name.clone(), *sql_type));
+                            }
+                            Err(ConstraintError::ValueTooLong) => {
+                                value_too_long.push((name.clone(), *sql_type));
                             }
                         }
                     }
+                    if !out_of_range.is_empty() {
+                        errors
+                            .entry(ConstraintError::OutOfRange)
+                            .or_insert_with(Vec::new)
+                            .push(out_of_range);
+                    }
+                    if !not_an_int.is_empty() {
+                        errors
+                            .entry(ConstraintError::NotAnInt)
+                            .or_insert_with(Vec::new)
+                            .push(not_an_int);
+                    }
+                    if !value_too_long.is_empty() {
+                        errors
+                            .entry(ConstraintError::ValueTooLong)
+                            .or_insert_with(Vec::new)
+                            .push(value_too_long);
+                    }
                     to_write.push((key, record.join(&b'|')));
                     self.key_id_generator += 1;
+                }
+                if !errors.is_empty() {
+                    return Ok(Err(OperationOnTableError::ConstraintViolation(errors)));
                 }
                 match self.persistent.write(schema_name, table_name, to_write)? {
                     Ok(_size) => Ok(Ok(())),
@@ -260,38 +288,63 @@ impl<P: BackendStorage> FrontendStorage<P> {
                     return Ok(Err(OperationOnTableError::TableDoesNotExist));
                 }
 
+                let mut errors = HashMap::new();
+                let mut out_of_range = vec![];
+                let mut not_an_int = vec![];
+                let mut value_too_long = vec![];
                 let mut index_value_pairs = vec![];
                 let mut non_existing_columns = vec![];
-                for (column, value) in rows {
+                for (column_name, value) in rows {
                     let mut found = None;
                     for (index, (name, sql_type)) in all_columns.iter().enumerate() {
-                        if *name == column {
+                        if *name == column_name {
                             match sql_type.constraint().validate(value.as_str()) {
                                 Ok(()) => {
                                     found = Some((index, sql_type.serializer().ser(value.as_str())));
                                 }
-                                Err(e) => {
-                                    eprintln!("{:?}", e);
-                                    return Ok(Err(OperationOnTableError::ColumnOutOfRange(vec![(
-                                        name.clone(),
-                                        *sql_type,
-                                    )])));
+                                Err(ConstraintError::OutOfRange) => {
+                                    out_of_range.push((name.clone(), *sql_type));
+                                }
+                                Err(ConstraintError::NotAnInt) => {
+                                    not_an_int.push((name.clone(), *sql_type));
+                                }
+                                Err(ConstraintError::ValueTooLong) => {
+                                    value_too_long.push((name.clone(), *sql_type));
                                 }
                             }
-
                             break;
                         }
                     }
-
                     if let Some(pair) = found {
                         index_value_pairs.push(pair);
-                    } else {
-                        non_existing_columns.push(column.clone());
+                    } else if out_of_range.is_empty() && not_an_int.is_empty() && value_too_long.is_empty() {
+                        non_existing_columns.push(column_name.clone());
                     }
                 }
 
                 if !non_existing_columns.is_empty() {
                     return Ok(Err(OperationOnTableError::ColumnDoesNotExist(non_existing_columns)));
+                }
+                if !out_of_range.is_empty() {
+                    errors
+                        .entry(ConstraintError::OutOfRange)
+                        .or_insert_with(Vec::new)
+                        .push(out_of_range);
+                }
+                if !not_an_int.is_empty() {
+                    errors
+                        .entry(ConstraintError::NotAnInt)
+                        .or_insert_with(Vec::new)
+                        .push(not_an_int);
+                }
+                if !value_too_long.is_empty() {
+                    errors
+                        .entry(ConstraintError::ValueTooLong)
+                        .or_insert_with(Vec::new)
+                        .push(value_too_long);
+                }
+                if !errors.is_empty() {
+                    return Ok(Err(OperationOnTableError::ConstraintViolation(errors)));
                 }
 
                 match self.persistent.read(schema_name, table_name)? {

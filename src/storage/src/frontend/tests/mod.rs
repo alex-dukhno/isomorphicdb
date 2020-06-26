@@ -21,6 +21,13 @@ mod schema;
 #[cfg(test)]
 mod table;
 
+type PersistentStorage = FrontendStorage<SledBackendStorage>;
+
+#[rstest::fixture]
+fn storage() -> PersistentStorage {
+    FrontendStorage::default().expect("no system errors")
+}
+
 fn create_schema<P: backend::BackendStorage>(storage: &mut FrontendStorage<P>, schema_name: &str) {
     storage
         .create_schema(schema_name)

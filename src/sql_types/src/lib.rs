@@ -62,7 +62,7 @@ pub trait Constraint {
     fn validate(&self, in_value: &str) -> Result<(), ConstraintError>;
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq, Hash)]
 pub enum ConstraintError {
     OutOfRange,
     NotAnInt,
