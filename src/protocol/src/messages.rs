@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::Field;
+use crate::ColumnMetadata;
 use bytes::{Buf, BufMut, BytesMut};
 
 // const PARSE_COMPLETE: u8 = b'1';
@@ -40,23 +40,42 @@ const AUTHENTICATION: u8 = b'R';
 const ROW_DESCRIPTION: u8 = b'T';
 const READY_FOR_QUERY: u8 = b'Z';
 
+/// Backend PostgreSQL Wire Protocol messages
+/// see https://www.postgresql.org/docs/12/protocol-flow.html
 #[derive(Debug, PartialEq)]
 pub enum Message {
-    Notice,
+    /// A warning message has been issued. The frontend should display the message
+    /// but continue listening for ReadyForQuery or ErrorResponse.
+    NoticeResponse,
+    /// The frontend must now send a PasswordMessage containing the password in
+    /// clear-text form. If this is the correct password, the server responds
+    /// with an AuthenticationOk, otherwise it responds with an ErrorResponse.
     AuthenticationCleartextPassword,
+    /// The authentication exchange is successfully completed.
     AuthenticationOk,
+    /// Start-up is completed. The frontend can now issue commands.
     ReadyForQuery,
+    /// One of the set of rows returned by a SELECT, FETCH, etc query.
     DataRow(Vec<String>),
-    RowDescription(Vec<Field>),
+    /// Indicates that rows are about to be returned in response to a SELECT, FETCH,
+    /// etc query. The contents of this message describe the column layout of
+    /// the rows. This will be followed by a DataRow message for each row being
+    /// returned to the frontend.
+    RowDescription(Vec<ColumnMetadata>),
+    /// An SQL command completed normally.
     CommandComplete(String),
-    EmptyResponse,
+    /// An empty query string was recognized.
+    EmptyQueryResponse,
+    /// An error has occurred. Contains (`Severity`, `Error Code`, `Error Message`)
+    /// all of them are optional
     ErrorResponse(Option<String>, Option<String>, Option<String>),
 }
 
 impl Message {
+    /// returns binary representation of a backend message
     pub fn as_vec(&self) -> Vec<u8> {
         match self {
-            Message::Notice => vec![NOTICE_RESPONSE],
+            Message::NoticeResponse => vec![NOTICE_RESPONSE],
             Message::AuthenticationCleartextPassword => vec![AUTHENTICATION, 0, 0, 0, 8, 0, 0, 0, 3],
             Message::AuthenticationOk => vec![AUTHENTICATION, 0, 0, 0, 8, 0, 0, 0, 0],
             Message::ReadyForQuery => vec![READY_FOR_QUERY, 0, 0, 0, 5, EMPTY_QUERY_RESPONSE],
@@ -101,7 +120,7 @@ impl Message {
                 command_buff.put_u8(0);
                 command_buff.to_vec()
             }
-            Message::EmptyResponse => vec![EMPTY_QUERY_RESPONSE, 0, 0, 0, 4],
+            Message::EmptyQueryResponse => vec![EMPTY_QUERY_RESPONSE, 0, 0, 0, 4],
             Message::ErrorResponse(severity, code, message) => {
                 let mut error_response_buff = BytesMut::with_capacity(256);
                 error_response_buff.put_u8(ERROR_RESPONSE);
@@ -136,7 +155,7 @@ mod serialized_messages {
 
     #[test]
     fn notice() {
-        assert_eq!(Message::Notice.as_vec(), vec![NOTICE_RESPONSE]);
+        assert_eq!(Message::NoticeResponse.as_vec(), vec![NOTICE_RESPONSE]);
     }
 
     #[test]
@@ -174,7 +193,7 @@ mod serialized_messages {
     #[test]
     fn row_description() {
         assert_eq!(
-            Message::RowDescription(vec![Field::new("c1".to_owned(), 23, 4)]).as_vec(),
+            Message::RowDescription(vec![ColumnMetadata::new("c1".to_owned(), 23, 4)]).as_vec(),
             vec![
                 ROW_DESCRIPTION,
                 0,
@@ -218,7 +237,10 @@ mod serialized_messages {
 
     #[test]
     fn empty_response() {
-        assert_eq!(Message::EmptyResponse.as_vec(), vec![EMPTY_QUERY_RESPONSE, 0, 0, 0, 4])
+        assert_eq!(
+            Message::EmptyQueryResponse.as_vec(),
+            vec![EMPTY_QUERY_RESPONSE, 0, 0, 0, 4]
+        )
     }
 
     #[test]

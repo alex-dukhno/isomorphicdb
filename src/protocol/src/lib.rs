@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#![deny(missing_docs)]
+//! API for backend implementation of PostgreSQL Wire Protocol
 extern crate log;
 
 use crate::messages::Message;
@@ -23,44 +25,68 @@ use std::io;
 pub use listener::QueryListener;
 pub use listener::ServerListener;
 
+/// Module contains functionality to listen to incoming client connections and
+/// queries
 pub mod listener;
+/// Module contains backend messages that could be send by server implementation
+/// to a client
 pub mod messages;
 
+/// Protocol version
 pub type Version = i32;
+/// Connection key-value params
 pub type Params = Vec<(String, String)>;
+/// Protocol operation result
 pub type Result<T> = std::result::Result<T, Error>;
 
+/// Version 1 of the protocol
 pub const VERSION_1: Version = 0x10000;
+/// Version 2 of the protocol
 pub const VERSION_2: Version = 0x20000;
+/// Version 3 of the protocol
 pub const VERSION_3: Version = 0x30000;
+/// Client initiate cancel of a command
 pub const VERSION_CANCEL: Version = (1234 << 16) + 5678;
+/// Client initiate `ssl` connection
 pub const VERSION_SSL: Version = (1234 << 16) + 5679;
+/// Client initiate `gss` encrypted connection
 pub const VERSION_GSSENC: Version = (1234 << 16) + 5680;
 
+/// `Error` type in protocol `Result`. Indicates that something went not well
 #[derive(Debug, PartialEq)]
 pub enum Error {
+    /// Indicates that incoming query can't be parsed as UTF-8 string
     QueryIsNotValidUtfString,
+    /// Indicates that protocol version is not supported
     UnsupportedVersion,
+    /// Indicates that client request is not supported
     UnsupportedRequest,
+    /// Indicates that during handshake client sent unrecognized protocol version
     UnrecognizedVersion,
 }
 
+/// Result of handling incoming bytes from a client
 #[derive(Debug, PartialEq)]
 pub enum Command {
+    /// Client commands to execute a `Query`
     Query(String),
+    /// Client commands to terminate current connection
     Terminate,
 }
 
+/// Structure to handle client-server PostgreSQL Wire Protocol connection
 pub struct Connection<RW: AsyncReadExt + AsyncWriteExt + Unpin> {
     properties: (Version, Params, SslMode),
     socket: RW,
 }
 
 impl<RW: AsyncReadExt + AsyncWriteExt + Unpin> Connection<RW> {
+    /// Creates new Connection with properties and read-write socket
     pub fn new(properties: (Version, Params, SslMode), socket: RW) -> Connection<RW> {
         Connection { properties, socket }
     }
 
+    /// connection properties tuple
     pub fn properties(&self) -> &(Version, Params, SslMode) {
         &(self.properties)
     }
@@ -73,7 +99,8 @@ impl<RW: AsyncReadExt + AsyncWriteExt + Unpin> Connection<RW> {
         Ok(Ok(()))
     }
 
-    pub async fn read_query(&mut self) -> io::Result<Result<Command>> {
+    /// receives and decodes a command from remote client
+    pub async fn receive(&mut self) -> io::Result<Result<Command>> {
         self.send_ready_for_query().await?.expect("to send ready for query");
         let mut buffer = [0u8; 1];
         let tag = self.socket.read_exact(&mut buffer).await.map(|_| buffer[0])?;
@@ -99,7 +126,9 @@ impl<RW: AsyncReadExt + AsyncWriteExt + Unpin> Connection<RW> {
         }
     }
 
-    pub async fn send_response(&mut self, messages: Vec<Message>) -> io::Result<()> {
+    /// Sends response messages to client. Most of the time it is a single
+    /// message, select result one of the exceptional situation
+    pub async fn send(&mut self, messages: Vec<Message>) -> io::Result<()> {
         for message in messages {
             log::debug!("{:?}", message);
             self.socket.write_all(message.as_vec().as_slice()).await?;
@@ -115,14 +144,20 @@ impl<RW: AsyncReadExt + AsyncWriteExt + Unpin> PartialEq for Connection<RW> {
     }
 }
 
+/// Struct description of metadata that describes how client should interpret
+/// outgoing selected data
 #[derive(Clone, Debug, PartialEq)]
-pub struct Field {
+pub struct ColumnMetadata {
+    /// name of the column that was specified in query
     pub name: String,
+    /// PostgreSQL data type id
     pub type_id: i32,
+    /// PostgreSQL data type size
     pub type_size: i16,
 }
 
-impl Field {
+impl ColumnMetadata {
+    /// Creates new column metadata
     pub fn new(name: String, type_id: i32, type_size: i16) -> Self {
         Self {
             name,
@@ -132,9 +167,13 @@ impl Field {
     }
 }
 
+/// Enum that describes possible `ssl` mode
+/// possible values `Require`, `Preferred` and `Disable`
 #[derive(Debug, PartialEq)]
 pub enum SslMode {
+    /// Client initiate connection that require `ssl` tunnel
     Require,
+    /// Client initiate connection without `ssl` tunnel
     Disable,
 }
 
@@ -156,7 +195,7 @@ mod tests {
                 let test_case = async_io::TestCase::with_content(vec![&[88], &[0, 0, 0, 4]]).await;
                 let mut connection = Connection::new((VERSION_3, vec![], SslMode::Disable), test_case);
 
-                let query = connection.read_query().await?;
+                let query = connection.receive().await?;
 
                 assert_eq!(query, Ok(Command::Terminate));
 
@@ -168,7 +207,7 @@ mod tests {
                 let test_case = async_io::TestCase::with_content(vec![&[81], &[0, 0, 0, 14], b"select 1;\0"]).await;
                 let mut connection = Connection::new((VERSION_3, vec![], SslMode::Disable), test_case.clone());
 
-                let query = connection.read_query().await?;
+                let query = connection.receive().await?;
 
                 assert_eq!(query, Ok(Command::Query("select 1;".to_owned())));
 
@@ -185,7 +224,7 @@ mod tests {
                 let test_case = async_io::TestCase::with_content(vec![]).await;
                 let mut connection = Connection::new((VERSION_3, vec![], SslMode::Disable), test_case);
 
-                let query = connection.read_query().await;
+                let query = connection.receive().await;
 
                 assert!(query.is_err());
             }
@@ -195,7 +234,7 @@ mod tests {
                 let test_case = async_io::TestCase::with_content(vec![&[81]]).await;
                 let mut connection = Connection::new((VERSION_3, vec![], SslMode::Disable), test_case);
 
-                let query = connection.read_query().await;
+                let query = connection.receive().await;
 
                 assert!(query.is_err());
             }
@@ -205,7 +244,7 @@ mod tests {
                 let test_case = async_io::TestCase::with_content(vec![&[81], &[0, 0, 0, 14], b"sel;\0"]).await;
                 let mut connection = Connection::new((VERSION_3, vec![], SslMode::Disable), test_case);
 
-                let query = connection.read_query().await;
+                let query = connection.receive().await;
 
                 assert!(query.is_err());
             }

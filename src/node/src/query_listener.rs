@@ -30,9 +30,9 @@ impl SmolServerListener {
 
 #[async_trait]
 impl ServerListener for SmolServerListener {
-    type Socket = Async<TcpStream>;
+    type Channel = Async<TcpStream>;
 
-    async fn tcp_connection(&self) -> io::Result<(Self::Socket, SocketAddr)> {
+    async fn channel(&self) -> io::Result<(Self::Channel, SocketAddr)> {
         self.inner.accept().await
     }
 }
@@ -55,10 +55,10 @@ impl SmolQueryListener {
 
 #[async_trait]
 impl QueryListener for SmolQueryListener {
-    type Socket = Async<TcpStream>;
-    type ServerSocket = SmolServerListener;
+    type Channel = Async<TcpStream>;
+    type ServerChannel = SmolServerListener;
 
-    fn server_socket(&self) -> &Self::ServerSocket {
+    fn server_channel(&self) -> &Self::ServerChannel {
         &self.listener
     }
 

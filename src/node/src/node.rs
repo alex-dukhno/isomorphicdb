@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use crate::query_listener::SmolQueryListener;
-use protocol::{listener::Secure, messages::Message, Command, Field, QueryListener};
+use protocol::{listener::Secure, messages::Message, ColumnMetadata, Command, QueryListener};
 use smol::Task;
 use sql_engine::{Handler, QueryError, QueryEvent, QueryResult};
 use sql_types::SqlType;
@@ -74,7 +74,7 @@ impl Node {
 
                     log::debug!("ready to handle query");
                     loop {
-                        match connection.read_query().await {
+                        match connection.receive().await {
                             Err(e) => {
                                 log::debug!("SHOULD STOP");
                                 log::error!("UNEXPECTED ERROR: {:?}", e);
@@ -100,7 +100,7 @@ impl Node {
                                         return;
                                     }
                                     response => {
-                                        match connection.send_response(QueryResultMapper::map(response)).await {
+                                        match connection.send(QueryResultMapper::map(response)).await {
                                             Ok(()) => {}
                                             Err(error) => eprintln!("{:?}", error), // break Err(SystemError::io(error)),
                                         }
@@ -172,10 +172,10 @@ impl QueryResultMapper {
             Ok(QueryEvent::RecordsInserted(records)) => vec![Message::CommandComplete(format!("INSERT 0 {}", records))],
             Ok(QueryEvent::RecordsSelected(projection)) => {
                 let definition = projection.0;
-                let description: Vec<Field> = definition
+                let description: Vec<ColumnMetadata> = definition
                     .into_iter()
                     .map(|(name, sql_type)| {
-                        Field::new(name, TypeConverter::pg_oid(&sql_type), TypeConverter::pg_len(&sql_type))
+                        ColumnMetadata::new(name, TypeConverter::pg_oid(&sql_type), TypeConverter::pg_len(&sql_type))
                     })
                     .collect();
                 let records = projection.1;
@@ -294,8 +294,8 @@ mod mapper {
             QueryResultMapper::map(Ok(QueryEvent::RecordsSelected(projection))),
             vec![
                 Message::RowDescription(vec![
-                    Field::new("column_name_1".to_owned(), 21, 2),
-                    Field::new("column_name_2".to_owned(), 21, 2)
+                    ColumnMetadata::new("column_name_1".to_owned(), 21, 2),
+                    ColumnMetadata::new("column_name_2".to_owned(), 21, 2)
                 ]),
                 Message::DataRow(vec!["1".to_owned(), "2".to_owned()]),
                 Message::DataRow(vec!["3".to_owned(), "4".to_owned()]),
