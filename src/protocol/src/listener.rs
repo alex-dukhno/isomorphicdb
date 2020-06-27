@@ -23,14 +23,18 @@ use futures::io::{self, AsyncReadExt, AsyncWriteExt};
 use itertools::Itertools;
 use std::net::SocketAddr;
 
+/// Listener trait that use underline network to `accept` queries from clients
 #[async_trait]
 pub trait QueryListener {
-    type Socket: AsyncReadExt + AsyncWriteExt + Unpin + Send + Sync;
-    type ServerSocket: ServerListener<Socket = Self::Socket> + Unpin + Send + Sync;
+    /// Bidirectional read-write channel between client and server
+    type Channel: AsyncReadExt + AsyncWriteExt + Unpin + Send + Sync;
+    /// ServerChannel that listens to client connections and creates bidirectional `Channels`
+    type ServerChannel: ServerListener<Channel = Self::Channel> + Unpin + Send + Sync;
 
+    /// accepts incoming client connections
     #[allow(clippy::if_same_then_else)]
-    async fn accept(&self) -> io::Result<Result<Connection<Self::Socket>>> {
-        let (mut socket, address) = self.server_socket().tcp_connection().await?;
+    async fn accept(&self) -> io::Result<Result<Connection<Self::Channel>>> {
+        let (mut socket, address) = self.server_channel().channel().await?;
         log::debug!("ADDRESS {:?}", address);
 
         let len = read_len(&mut socket).await?;
@@ -56,7 +60,7 @@ pub trait QueryListener {
             if self.secure().ssl_support() {
                 unimplemented!()
             } else {
-                socket.write_all(Message::Notice.as_vec().as_slice()).await?;
+                socket.write_all(Message::NoticeResponse.as_vec().as_slice()).await?;
                 let len = read_len(&mut socket).await?;
                 let mut message = read_message(len, &mut socket).await?;
                 log::debug!("MESSAGE FOR TEST = {:#?}", message);
@@ -102,24 +106,34 @@ pub trait QueryListener {
         }
     }
 
-    fn server_socket(&self) -> &Self::ServerSocket;
+    /// returns implementation of `ServerChannel`
+    fn server_channel(&self) -> &Self::ServerChannel;
 
+    /// returns configuration of accepting or rejecting secure connections from
+    /// clients
     fn secure(&self) -> &Secure;
 }
 
+/// Trait that uses underline network protocol to establish bidirectional
+/// protocol channels
 #[async_trait]
 pub trait ServerListener {
-    type Socket: AsyncReadExt + AsyncWriteExt + Unpin + Send + Sync;
+    /// Bidirectional read-write client-server channel
+    type Channel: AsyncReadExt + AsyncWriteExt + Unpin + Send + Sync;
 
-    async fn tcp_connection(&self) -> io::Result<(Self::Socket, SocketAddr)>;
+    /// returns bidirectional channel with client and socket address
+    async fn channel(&self) -> io::Result<(Self::Channel, SocketAddr)>;
 }
 
+/// Struct to configure possible secure providers for client-server communication
+/// PostgreSQL Wire Protocol supports `ssl`/`tls` and `gss` encryption
 pub struct Secure {
     ssl: bool,
     gssenc: bool,
 }
 
 impl Secure {
+    /// Creates configuration that support neither `ssl` nor `gss` encryption
     pub fn none() -> Secure {
         Secure {
             ssl: false,
@@ -127,6 +141,7 @@ impl Secure {
         }
     }
 
+    /// Creates configuration that support only `ssl`
     pub fn ssl_only() -> Secure {
         Secure {
             ssl: true,
@@ -134,6 +149,7 @@ impl Secure {
         }
     }
 
+    /// Creates configuration that support only `gss` encryption
     pub fn gssenc_only() -> Secure {
         Secure {
             ssl: false,
@@ -141,6 +157,7 @@ impl Secure {
         }
     }
 
+    /// Creates configuration that support both `ssl` and `gss` encryption
     pub fn both() -> Secure {
         Secure {
             ssl: true,
@@ -148,10 +165,12 @@ impl Secure {
         }
     }
 
+    /// returns `true` if support `ssl` connection
     fn ssl_support(&self) -> bool {
         self.ssl
     }
 
+    /// returns `true` if support `gss` encrypted connection
     fn gssenc_support(&self) -> bool {
         self.gssenc
     }
@@ -200,10 +219,10 @@ mod tests {
 
     #[async_trait]
     impl QueryListener for MockQueryListener {
-        type Socket = async_io::TestCase;
-        type ServerSocket = MockServerListener;
+        type Channel = async_io::TestCase;
+        type ServerChannel = MockServerListener;
 
-        fn server_socket(&self) -> &Self::ServerSocket {
+        fn server_channel(&self) -> &Self::ServerChannel {
             &self.server_listener
         }
 
@@ -224,9 +243,9 @@ mod tests {
 
     #[async_trait]
     impl ServerListener for MockServerListener {
-        type Socket = async_io::TestCase;
+        type Channel = async_io::TestCase;
 
-        async fn tcp_connection(&self) -> io::Result<(Self::Socket, SocketAddr)> {
+        async fn channel(&self) -> io::Result<(Self::Channel, SocketAddr)> {
             Ok((
                 self.test_case.clone(),
                 SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 5432),
@@ -327,7 +346,7 @@ mod tests {
 
                 let actual_content = test_case.read_result().await;
                 let mut expected_content = BytesMut::new();
-                expected_content.extend_from_slice(Message::Notice.as_vec().as_slice());
+                expected_content.extend_from_slice(Message::NoticeResponse.as_vec().as_slice());
 
                 assert_eq!(actual_content, expected_content);
             }
@@ -356,7 +375,7 @@ mod tests {
 
                 let actual_content = test_case.read_result().await;
                 let mut expected_content = BytesMut::new();
-                expected_content.extend_from_slice(Message::Notice.as_vec().as_slice());
+                expected_content.extend_from_slice(Message::NoticeResponse.as_vec().as_slice());
                 expected_content.extend_from_slice(Message::AuthenticationCleartextPassword.as_vec().as_slice());
                 expected_content.extend_from_slice(Message::AuthenticationOk.as_vec().as_slice());
 
