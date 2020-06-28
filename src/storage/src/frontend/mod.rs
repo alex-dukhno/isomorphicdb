@@ -12,11 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::backend::{
-    self, BackendStorage, CreateObjectError, DropObjectError, NamespaceAlreadyExists, NamespaceDoesNotExist,
-    OperationOnObjectError, Row, SledBackendStorage,
-};
 use crate::{
+    backend::{
+        self, BackendStorage, CreateObjectError, DropObjectError, NamespaceAlreadyExists, NamespaceDoesNotExist,
+        OperationOnObjectError, Row, SledBackendStorage,
+    },
     CreateTableError, DropTableError, OperationOnTableError, Projection, SchemaAlreadyExists, SchemaDoesNotExist,
 };
 use kernel::{SystemError, SystemResult};

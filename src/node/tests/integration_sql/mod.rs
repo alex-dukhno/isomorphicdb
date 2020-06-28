@@ -14,8 +14,7 @@
 
 use node::node::{Node, CREATED, RUNNING};
 use postgres::{Client, NoTls};
-use std::sync::Arc;
-use std::thread;
+use std::{sync::Arc, thread};
 
 fn start_server(node: Arc<Node>) -> thread::JoinHandle<()> {
     let cloned = node.clone();

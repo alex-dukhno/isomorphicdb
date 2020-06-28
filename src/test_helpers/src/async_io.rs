@@ -12,13 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use async_std::fs::File;
-use async_std::io::{self, Read, SeekFrom, Write};
-use async_std::sync::Arc;
-use async_std::task::{Context, Poll};
+use async_std::{
+    fs::File,
+    io::{self, Read, SeekFrom, Write},
+    sync::Arc,
+    task::{Context, Poll},
+};
 use bytes::BytesMut;
-use std::pin::Pin;
-use std::sync::Mutex;
+use std::{pin::Pin, sync::Mutex};
 use tempfile::NamedTempFile;
 
 fn empty_file_named() -> NamedTempFile {

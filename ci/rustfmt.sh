@@ -3,6 +3,6 @@
 cd "$(dirname "$0")"/..
 set -ex
 
-rustup component add rustfmt
+rustup toolchain install nightly --allow-downgrade --profile minimal --component rustfmt
 
-cargo fmt --all -- --check
+cargo +nightly fmt --all -- --check

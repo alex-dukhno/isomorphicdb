@@ -17,9 +17,9 @@ use protocol::{listener::Secure, messages::Message, ColumnMetadata, Command, Que
 use smol::Task;
 use sql_engine::{Handler, QueryError, QueryEvent, QueryResult};
 use sql_types::SqlType;
-use std::{
-    sync::atomic::{AtomicU8, Ordering},
-    sync::{Arc, Mutex},
+use std::sync::{
+    atomic::{AtomicU8, Ordering},
+    Arc, Mutex,
 };
 
 const PORT: usize = 5432;
