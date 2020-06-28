@@ -50,10 +50,10 @@ jobs:
       uses: actions-rs/cargo@v1
       with:
         command: test
-        args: --tests integration_sql -- --nocapture --test-threads=1
+        args: --tests integration_sql -- --nocapture
     - name: code-coverage
       if: matrix.os == 'ubuntu'
-      run: cargo tarpaulin -o Lcov --output-dir ./coverage -- --test-threads 1
+      run: cargo tarpaulin -o Lcov --output-dir ./coverage
     - name: coveralls
       if: matrix.rust == 'ubuntu'
       uses: coverallsapp/github-action@master

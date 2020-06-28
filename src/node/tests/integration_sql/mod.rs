@@ -37,6 +37,7 @@ fn stop_server_workaround(client: &mut Client) {
 }
 
 #[test]
+#[serial_test::serial]
 fn create_simple_database() {
     let node = Arc::new(Node::default());
 
@@ -111,6 +112,7 @@ fn create_simple_database() {
 }
 
 #[test]
+#[serial_test::serial]
 fn create_table_with_three_columns() {
     let node = Arc::new(Node::default());
 
