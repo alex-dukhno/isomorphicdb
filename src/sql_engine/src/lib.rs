@@ -15,16 +15,16 @@
 extern crate log;
 
 use kernel::SystemResult;
-use std::sync::{Arc, Mutex};
-
-use sqlparser::{dialect::PostgreSqlDialect, parser::Parser};
-use std::ops::Deref;
-use storage::{
-    CreateTableError, DropTableError, OperationOnTableError, Projection, SchemaAlreadyExists, SchemaDoesNotExist,
-    {backend::BackendStorage, frontend::FrontendStorage},
-};
-
 use sql_types::SqlType;
+use sqlparser::{dialect::PostgreSqlDialect, parser::Parser};
+use std::{
+    ops::Deref,
+    sync::{Arc, Mutex},
+};
+use storage::{
+    backend::BackendStorage, frontend::FrontendStorage, CreateTableError, DropTableError, OperationOnTableError,
+    Projection, SchemaAlreadyExists, SchemaDoesNotExist,
+};
 use thiserror::Error;
 
 pub type QueryResult = std::result::Result<QueryEvent, QueryError>;

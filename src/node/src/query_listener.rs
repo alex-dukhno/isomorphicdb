@@ -15,8 +15,10 @@
 use async_trait::async_trait;
 use protocol::{listener::Secure, QueryListener, ServerListener};
 use smol::Async;
-use std::io;
-use std::net::{SocketAddr, TcpListener, TcpStream};
+use std::{
+    io,
+    net::{SocketAddr, TcpListener, TcpStream},
+};
 
 pub struct SmolServerListener {
     inner: Async<TcpListener>,

@@ -28,4 +28,5 @@ pretty_env_logger = "0.4.0"
 async-std = { version = "1.6.2", features = ["attributes"] }
 bytes = "0.5"
 postgres = "0.17.3"
+serial_test = "0.4.0"
 test_helpers = { path = "../test_helpers" }

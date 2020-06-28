@@ -14,8 +14,7 @@
 
 use node::node::{Node, CREATED, RUNNING};
 use postgres::{Client, NoTls};
-use std::sync::Arc;
-use std::thread;
+use std::{sync::Arc, thread};
 
 fn start_server(node: Arc<Node>) -> thread::JoinHandle<()> {
     let cloned = node.clone();
@@ -38,6 +37,7 @@ fn stop_server_workaround(client: &mut Client) {
 }
 
 #[test]
+#[serial_test::serial]
 fn create_simple_database() {
     let node = Arc::new(Node::default());
 
@@ -112,6 +112,7 @@ fn create_simple_database() {
 }
 
 #[test]
+#[serial_test::serial]
 fn create_table_with_three_columns() {
     let node = Arc::new(Node::default());
 

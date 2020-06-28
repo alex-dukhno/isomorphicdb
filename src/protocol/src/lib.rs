@@ -22,8 +22,7 @@ use bytes::BytesMut;
 use futures::{AsyncReadExt, AsyncWriteExt};
 use std::io;
 
-pub use listener::QueryListener;
-pub use listener::ServerListener;
+pub use listener::{QueryListener, ServerListener};
 
 /// Module contains functionality to listen to incoming client connections and
 /// queries

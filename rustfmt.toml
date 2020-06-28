@@ -1,1 +1,3 @@
 max_width=120
+license_template_path = "HEADER"
+merge_imports = true

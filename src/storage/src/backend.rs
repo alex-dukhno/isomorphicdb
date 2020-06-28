@@ -13,8 +13,7 @@
 // limitations under the License.
 
 use kernel::{SystemError, SystemResult};
-use std::collections::HashMap;
-use std::fmt::Debug;
+use std::{collections::HashMap, fmt::Debug};
 
 pub type Result<T, E> = std::result::Result<T, E>;
 pub type Row = (Key, Values);

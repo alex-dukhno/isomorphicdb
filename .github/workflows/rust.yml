@@ -21,7 +21,7 @@ jobs:
       - uses: actions/checkout@v1
       - uses: EmbarkStudios/cargo-deny-action@v1
 
-  unit-tests:
+  all-tests:
     strategy:
       matrix:
         os:
@@ -30,28 +30,35 @@ jobs:
           - macos
     runs-on: ${{ matrix.os }}-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-      - uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --lib --all
-
-  integration-tests:
-    strategy:
-      matrix:
-        os:
-          - ubuntu
-          - windows
-          - macos
-    runs-on: ${{ matrix.os }}-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-      - uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --tests integration_sql -- --nocapture --test-threads=1
+    - name: checkout
+      uses: actions/checkout@v2
+    - name: toolchain
+      uses: actions-rs/toolchain@v1
+    - name: install tarpaulin
+      if: matrix.os == 'ubuntu'
+      uses: actions-rs/install@v0.1
+      with:
+        crate: cargo-tarpaulin
+        version: 0.14.0
+        use-tool-cache: true
+    - name: unit-tests
+      uses: actions-rs/cargo@v1
+      with:
+        command: test
+        args: --lib --all
+    - name: integration-tests
+      uses: actions-rs/cargo@v1
+      with:
+        command: test
+        args: --tests integration_sql -- --nocapture
+    - name: code-coverage
+      if: matrix.os == 'ubuntu'
+      run: cargo tarpaulin -o Lcov --output-dir ./coverage
+    - name: coveralls
+      if: matrix.rust == 'ubuntu'
+      uses: coverallsapp/github-action@master
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
 
   rustfmt:
     name: rustfmt
@@ -75,8 +82,7 @@ jobs:
     name: ci
     if: github.event_name == 'push' && success()
     needs:
-      - unit-tests
-      - integration-tests
+      - all-tests
       - rustfmt
       - clippy
     runs-on: ubuntu-latest
@@ -88,8 +94,7 @@ jobs:
     name: ci
     if: github.event_name == 'push' && !success()
     needs:
-      - unit-tests
-      - integration-tests
+      - all-tests
       - rustfmt
       - clippy
     runs-on: ubuntu-latest
