@@ -36,14 +36,14 @@ jobs:
         uses: actions-rs/toolchain@v1
       - name: unit-tests
         uses: actions-rs/cargo@v1
-          with:
-            command: test
-            args: --lib --all
+        with:
+          command: test
+          args: --lib --all
       - name: integration-tests
         uses: actions-rs/cargo@v1
-          with:
-            command: test
-            args: --tests integration_sql -- --nocapture --test-threads=1
+        with:
+          command: test
+          args: --tests integration_sql -- --nocapture --test-threads=1
       - name: code-coverage
         if: matrix.rust == 'stable'
         run: cargo tarpaulin -o Lcov --output-dir ./coverage
