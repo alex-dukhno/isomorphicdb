@@ -35,6 +35,7 @@ jobs:
     - name: toolchain
       uses: actions-rs/toolchain@v1
     - name: install tarpaulin
+      if: matrix.os == 'ubuntu'
       uses: actions-rs/install@v0.1
       with:
         crate: cargo-tarpaulin
@@ -51,10 +52,10 @@ jobs:
         command: test
         args: --tests integration_sql -- --nocapture --test-threads=1
     - name: code-coverage
-      if: matrix.rust == 'stable'
+      if: matrix.os == 'ubuntu'
       run: cargo tarpaulin -o Lcov --output-dir ./coverage
     - name: coveralls
-      if: matrix.rust == 'stable'
+      if: matrix.rust == 'ubuntu'
       uses: coverallsapp/github-action@master
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
