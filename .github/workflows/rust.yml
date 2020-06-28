@@ -53,7 +53,7 @@ jobs:
         args: --tests integration_sql -- --nocapture --test-threads=1
     - name: code-coverage
       if: matrix.os == 'ubuntu'
-      run: cargo tarpaulin -o Lcov --output-dir ./coverage
+      run: cargo tarpaulin -o Lcov --output-dir ./coverage -- --test-threads 1
     - name: coveralls
       if: matrix.rust == 'ubuntu'
       uses: coverallsapp/github-action@master
