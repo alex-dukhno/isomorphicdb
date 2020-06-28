@@ -28,30 +28,30 @@ jobs:
           - ubuntu
           - windows
           - macos
-      runs-on: ${{ matrix.os }}-latest
-      steps:
-      - name: checkout
-        uses: actions/checkout@v2
-      - name: toolchain
-        uses: actions-rs/toolchain@v1
-      - name: unit-tests
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --lib --all
-      - name: integration-tests
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --tests integration_sql -- --nocapture --test-threads=1
-      - name: code-coverage
-        if: matrix.rust == 'stable'
-        run: cargo tarpaulin -o Lcov --output-dir ./coverage
-      - name: coveralls
-        if: matrix.rust == 'stable'
-        uses: coverallsapp/github-action@master
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+    runs-on: ${{ matrix.os }}-latest
+    steps:
+    - name: checkout
+      uses: actions/checkout@v2
+    - name: toolchain
+      uses: actions-rs/toolchain@v1
+    - name: unit-tests
+      uses: actions-rs/cargo@v1
+      with:
+        command: test
+        args: --lib --all
+    - name: integration-tests
+      uses: actions-rs/cargo@v1
+      with:
+        command: test
+        args: --tests integration_sql -- --nocapture --test-threads=1
+    - name: code-coverage
+      if: matrix.rust == 'stable'
+      run: cargo tarpaulin -o Lcov --output-dir ./coverage
+    - name: coveralls
+      if: matrix.rust == 'stable'
+      uses: coverallsapp/github-action@master
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
 
   rustfmt:
     name: rustfmt
