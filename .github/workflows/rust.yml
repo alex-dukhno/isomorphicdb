@@ -55,7 +55,7 @@ jobs:
       if: matrix.os == 'ubuntu'
       run: cargo tarpaulin -o Lcov --output-dir ./coverage
     - name: coveralls
-      if: matrix.rust == 'ubuntu'
+      if: matrix.os == 'ubuntu'
       uses: coverallsapp/github-action@master
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
