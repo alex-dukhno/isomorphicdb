@@ -31,6 +31,16 @@ fn with_small_ints_table(mut storage: PersistentStorage) -> PersistentStorage {
 }
 
 #[rstest::rstest]
+fn select_from_table_from_non_existent_schema(mut storage: PersistentStorage) {
+    assert_eq!(
+        storage
+            .select_all_from("non_existent", "table_name", vec![])
+            .expect("no system errors"),
+        Err(OperationOnTableError::SchemaDoesNotExist)
+    );
+}
+
+#[rstest::rstest]
 fn select_from_table_that_does_not_exist(mut storage: PersistentStorage) {
     create_schema(&mut storage, "schema_name");
     let table_columns = storage

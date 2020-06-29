@@ -15,10 +15,8 @@
 use super::*;
 use sql_types::SqlType;
 
-#[test]
-fn update_all_records() {
-    let mut storage = FrontendStorage::default().expect("no system errors");
-
+#[rstest::rstest]
+fn update_all_records(mut storage: PersistentStorage) {
     create_schema_with_table(
         &mut storage,
         "schema_name",
@@ -60,10 +58,8 @@ fn update_all_records() {
     );
 }
 
-#[test]
-fn update_not_existed_table() {
-    let mut storage = FrontendStorage::default().expect("no system errors");
-
+#[rstest::rstest]
+fn update_not_existed_table(mut storage: PersistentStorage) {
     create_schema(&mut storage, "schema_name");
 
     assert_eq!(
@@ -71,6 +67,16 @@ fn update_not_existed_table() {
             .update_all("schema_name", "not_existed", vec![])
             .expect("no system errors"),
         Err(OperationOnTableError::TableDoesNotExist)
+    );
+}
+
+#[rstest::rstest]
+fn update_non_existent_schema(mut storage: PersistentStorage) {
+    assert_eq!(
+        storage
+            .update_all("non_existent", "not_existed", vec![])
+            .expect("no system errors"),
+        Err(OperationOnTableError::SchemaDoesNotExist)
     );
 }
 
