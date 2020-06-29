@@ -65,8 +65,7 @@ impl<P: BackendStorage> Handler<P> {
         };
         log::debug!("STATEMENT = {:?}", statement);
         match statement {
-            // TODO workaround to enable set data style from psycopg2
-            sqlparser::ast::Statement::SetVariable { .. } => Ok(Ok(QueryEvent::RecordsInserted(1))),
+            sqlparser::ast::Statement::SetVariable { .. } => Ok(Ok(QueryEvent::VariableSet)),
             sqlparser::ast::Statement::CreateTable { mut name, columns, .. } => {
                 let table_name = name.0.pop().unwrap().to_string();
                 let schema_name = name.0.pop().unwrap().to_string();
@@ -301,6 +300,7 @@ pub enum QueryEvent {
     SchemaDropped,
     TableCreated,
     TableDropped,
+    VariableSet,
     RecordsInserted(usize),
     RecordsSelected(Projection),
     RecordsUpdated(usize),

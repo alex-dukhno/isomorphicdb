@@ -169,6 +169,7 @@ impl QueryResultMapper {
             Ok(QueryEvent::SchemaDropped) => vec![Message::CommandComplete("DROP SCHEMA".to_owned())],
             Ok(QueryEvent::TableCreated) => vec![Message::CommandComplete("CREATE TABLE".to_owned())],
             Ok(QueryEvent::TableDropped) => vec![Message::CommandComplete("DROP TABLE".to_owned())],
+            Ok(QueryEvent::VariableSet) => vec![Message::CommandComplete("SET".to_owned())],
             Ok(QueryEvent::RecordsInserted(records)) => vec![Message::CommandComplete(format!("INSERT 0 {}", records))],
             Ok(QueryEvent::RecordsSelected(projection)) => {
                 let definition = projection.0;
