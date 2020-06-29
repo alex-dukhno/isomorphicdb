@@ -214,6 +214,12 @@ impl<P: BackendStorage> Handler<P> {
                         Err(OperationOnTableError::ColumnDoesNotExist(non_existing_columns)) => {
                             Ok(Err(QueryError::ColumnDoesNotExist(non_existing_columns)))
                         }
+                        Err(OperationOnTableError::SchemaDoesNotExist) => {
+                            Ok(Err(QueryError::SchemaDoesNotExist(schema_name.to_owned())))
+                        }
+                        Err(OperationOnTableError::TableDoesNotExist) => Ok(Err(QueryError::TableDoesNotExist(
+                            schema_name.to_owned() + "." + table_name.as_str(),
+                        ))),
                         _ => Ok(Err(QueryError::NotSupportedOperation(raw_sql_query.to_owned()))),
                     }
                 } else {
@@ -307,61 +313,120 @@ mod tests {
     use storage::frontend::FrontendStorage;
     use test_helpers::in_memory_backend_storage::InMemoryStorage;
 
+    type InMemorySqlEngine = Handler<InMemoryStorage>;
+
+    #[rstest::fixture]
+    fn sql_engine() -> InMemorySqlEngine {
+        Handler::new(in_memory_storage())
+    }
+
     #[cfg(test)]
     mod schema {
         use super::*;
 
-        #[test]
-        fn create_schema_query() {
-            let mut handler = Handler::new(in_memory_storage());
-
+        #[rstest::rstest]
+        fn create_schema_query(mut sql_engine: InMemorySqlEngine) {
             assert_eq!(
-                handler.execute("create schema schema_name;").expect("no system errors"),
+                sql_engine
+                    .execute("create schema schema_name;")
+                    .expect("no system errors"),
                 Ok(QueryEvent::SchemaCreated)
             );
         }
 
-        #[test]
-        fn create_schema_with_the_same_name() {
-            let mut handler = Handler::new(in_memory_storage());
-
-            handler
+        #[rstest::rstest]
+        fn create_schema_with_the_same_name(mut sql_engine: InMemorySqlEngine) {
+            sql_engine
                 .execute("create schema schema_name;")
                 .expect("no system errors")
                 .expect("schema created");
 
             assert_eq!(
-                handler.execute("create schema schema_name;").expect("no system errors"),
+                sql_engine
+                    .execute("create schema schema_name;")
+                    .expect("no system errors"),
                 Err(QueryError::SchemaAlreadyExists("schema_name".to_owned()))
             );
         }
 
-        #[test]
-        fn drop_schema() {
-            let mut handler = Handler::new(in_memory_storage());
-
-            handler
+        #[rstest::rstest]
+        fn drop_schema(mut sql_engine: InMemorySqlEngine) {
+            sql_engine
                 .execute("create schema schema_name;")
                 .expect("no system errors")
                 .expect("schema created");
 
             assert_eq!(
-                handler.execute("drop schema schema_name;").expect("no system errors"),
+                sql_engine
+                    .execute("drop schema schema_name;")
+                    .expect("no system errors"),
                 Ok(QueryEvent::SchemaDropped)
             );
             assert_eq!(
-                handler.execute("create schema schema_name;").expect("no system errors"),
+                sql_engine
+                    .execute("create schema schema_name;")
+                    .expect("no system errors"),
                 Ok(QueryEvent::SchemaCreated)
             );
         }
 
-        #[test]
-        fn drop_non_existent_schema() {
-            let mut handler = Handler::new(in_memory_storage());
-
+        #[rstest::rstest]
+        fn drop_non_existent_schema(mut sql_engine: InMemorySqlEngine) {
             assert_eq!(
-                handler.execute("drop schema non_existent").expect("no system errors"),
+                sql_engine
+                    .execute("drop schema non_existent")
+                    .expect("no system errors"),
                 Err(QueryError::SchemaDoesNotExist("non_existent".to_owned()))
+            );
+        }
+
+        #[rstest::rstest]
+        fn select_from_nonexistent_schema(mut sql_engine: InMemorySqlEngine) {
+            assert_eq!(
+                sql_engine
+                    .execute("select * from non_existent.some_table;")
+                    .expect("no system errors"),
+                Err(QueryError::SchemaDoesNotExist("non_existent".to_owned()))
+            );
+        }
+
+        #[rstest::rstest]
+        fn select_named_columns_from_nonexistent_schema(mut sql_engine: InMemorySqlEngine) {
+            assert_eq!(
+                sql_engine
+                    .execute("select column_1 from schema_name.table_name;")
+                    .expect("no system errors"),
+                Err(QueryError::SchemaDoesNotExist("schema_name".to_owned()))
+            );
+        }
+
+        #[rstest::rstest]
+        fn insert_into_table_in_nonexistent_schema(mut sql_engine: InMemorySqlEngine) {
+            assert_eq!(
+                sql_engine
+                    .execute("insert into schema_name.table_name values (123);")
+                    .expect("no system errors"),
+                Err(QueryError::SchemaDoesNotExist("schema_name".to_owned()))
+            );
+        }
+
+        #[rstest::rstest]
+        fn update_records_in_table_from_non_existent_schema(mut sql_engine: InMemorySqlEngine) {
+            assert_eq!(
+                sql_engine
+                    .execute("update schema_name.table_name set column_test=789;")
+                    .expect("no system errors"),
+                Err(QueryError::SchemaDoesNotExist("schema_name".to_owned()))
+            );
+        }
+
+        #[rstest::rstest]
+        fn delete_from_table_in_nonexistent_schema(mut sql_engine: InMemorySqlEngine) {
+            assert_eq!(
+                sql_engine
+                    .execute("delete from schema_name.table_name;")
+                    .expect("no system errors"),
+                Err(QueryError::SchemaDoesNotExist("schema_name".to_owned()))
             );
         }
     }
@@ -370,113 +435,152 @@ mod tests {
     mod table {
         use super::*;
 
-        #[test]
-        fn create_table() {
-            let mut handler = Handler::new(in_memory_storage());
+        #[cfg(test)]
+        mod schemaless {
+            use super::*;
 
-            handler
+            #[rstest::rstest]
+            fn create_table_in_non_existent_schema(mut sql_engine: InMemorySqlEngine) {
+                assert_eq!(
+                    sql_engine
+                        .execute("create table schema_name.table_name (column_name smallint);")
+                        .expect("no system errors"),
+                    Err(QueryError::SchemaDoesNotExist("schema_name".to_owned()))
+                );
+            }
+
+            #[rstest::rstest]
+            fn drop_table_from_non_existent_schema(mut sql_engine: InMemorySqlEngine) {
+                assert_eq!(
+                    sql_engine
+                        .execute("drop table schema_name.table_name;")
+                        .expect("no system errors"),
+                    Err(QueryError::SchemaDoesNotExist("schema_name".to_owned()))
+                );
+            }
+        }
+
+        #[rstest::fixture]
+        fn sql_engine_with_schema(mut sql_engine: InMemorySqlEngine) -> InMemorySqlEngine {
+            sql_engine
                 .execute("create schema schema_name;")
                 .expect("no system errors")
                 .expect("schema created");
 
+            sql_engine
+        }
+
+        #[rstest::rstest]
+        fn create_table(mut sql_engine_with_schema: InMemorySqlEngine) {
             assert_eq!(
-                handler
+                sql_engine_with_schema
                     .execute("create table schema_name.table_name (column_name smallint);")
                     .expect("no system errors"),
                 Ok(QueryEvent::TableCreated)
             );
         }
 
-        #[test]
-        fn create_table_in_non_existent_schema() {
-            let mut handler = Handler::new(in_memory_storage());
-
-            assert_eq!(
-                handler
-                    .execute("create table schema_name.table_name (column_name smallint);")
-                    .expect("no system errors"),
-                Err(QueryError::SchemaDoesNotExist("schema_name".to_owned()))
-            );
-        }
-
-        #[test]
-        fn drop_table() {
-            let mut handler = Handler::new(in_memory_storage());
-
-            handler
-                .execute("create schema schema_name;")
-                .expect("no system errors")
-                .expect("schema created");
-            handler
+        #[rstest::rstest]
+        fn drop_table(mut sql_engine_with_schema: InMemorySqlEngine) {
+            sql_engine_with_schema
                 .execute("create table schema_name.table_name (column_name smallint);")
                 .expect("no system errors")
                 .expect("table created");
 
             assert_eq!(
-                handler
+                sql_engine_with_schema
                     .execute("drop table schema_name.table_name;")
                     .expect("no system errors"),
                 Ok(QueryEvent::TableDropped)
             );
             assert_eq!(
-                handler
+                sql_engine_with_schema
                     .execute("create table schema_name.table_name (column_name smallint);")
                     .expect("no system errors"),
                 Ok(QueryEvent::TableCreated)
             );
         }
 
-        #[test]
-        fn drop_non_existent_table() {
-            let mut handler = Handler::new(in_memory_storage());
-
-            handler
-                .execute("create schema schema_name;")
-                .expect("no system errors")
-                .expect("schema created");
-
+        #[rstest::rstest]
+        fn drop_non_existent_table(mut sql_engine_with_schema: InMemorySqlEngine) {
             assert_eq!(
-                handler
+                sql_engine_with_schema
                     .execute("drop table schema_name.table_name;")
                     .expect("no system errors"),
                 Err(QueryError::TableDoesNotExist("schema_name.table_name".to_owned()))
             );
         }
 
-        #[test]
-        fn drop_table_from_non_existent_schema() {
-            let mut handler = Handler::new(in_memory_storage());
-
+        #[rstest::rstest]
+        fn select_from_not_existed_table(mut sql_engine_with_schema: InMemorySqlEngine) {
             assert_eq!(
-                handler
-                    .execute("drop table schema_name.table_name;")
+                sql_engine_with_schema
+                    .execute("select * from schema_name.non_existent;")
                     .expect("no system errors"),
-                Err(QueryError::SchemaDoesNotExist("schema_name".to_owned()))
+                Err(QueryError::TableDoesNotExist("schema_name.non_existent".to_owned()))
+            );
+        }
+
+        #[rstest::rstest]
+        fn select_named_columns_from_non_existent_table(mut sql_engine_with_schema: InMemorySqlEngine) {
+            assert_eq!(
+                sql_engine_with_schema
+                    .execute("select column_1 from schema_name.non_existent;")
+                    .expect("no system errors"),
+                Err(QueryError::TableDoesNotExist("schema_name.non_existent".to_owned()))
+            );
+        }
+
+        #[rstest::rstest]
+        fn insert_into_nonexistent_table(mut sql_engine_with_schema: InMemorySqlEngine) {
+            assert_eq!(
+                sql_engine_with_schema
+                    .execute("insert into schema_name.table_name values (123);")
+                    .expect("no system errors"),
+                Err(QueryError::TableDoesNotExist("schema_name.table_name".to_owned()))
+            );
+        }
+
+        #[rstest::rstest]
+        fn update_records_in_non_existent_table(mut sql_engine_with_schema: InMemorySqlEngine) {
+            assert_eq!(
+                sql_engine_with_schema
+                    .execute("update schema_name.table_name set column_test=789;")
+                    .expect("no system errors"),
+                Err(QueryError::TableDoesNotExist("schema_name.table_name".to_owned()))
+            );
+        }
+
+        #[rstest::rstest]
+        fn delete_from_nonexistent_table(mut sql_engine_with_schema: InMemorySqlEngine) {
+            assert_eq!(
+                sql_engine_with_schema
+                    .execute("delete from schema_name.table_name;")
+                    .expect("no system errors"),
+                Err(QueryError::TableDoesNotExist("schema_name.table_name".to_owned()))
             );
         }
     }
 
-    #[test]
-    fn insert_and_select_single_row() {
-        let mut handler = Handler::new(in_memory_storage());
-
-        handler
+    #[rstest::rstest]
+    fn insert_and_select_single_row(mut sql_engine: InMemorySqlEngine) {
+        sql_engine
             .execute("create schema schema_name;")
             .expect("no system errors")
             .expect("schema created");
-        handler
+        sql_engine
             .execute("create table schema_name.table_name (column_test smallint);")
             .expect("no system errors")
             .expect("table created");
 
         assert_eq!(
-            handler
+            sql_engine
                 .execute("insert into schema_name.table_name values (123);")
                 .expect("no system errors"),
             Ok(QueryEvent::RecordsInserted(1))
         );
         assert_eq!(
-            handler
+            sql_engine
                 .execute("select * from schema_name.table_name;")
                 .expect("no system errors"),
             Ok(QueryEvent::RecordsSelected((
@@ -486,54 +590,23 @@ mod tests {
         );
     }
 
-    #[test]
-    fn insert_into_table_in_nonexistent_schema() {
-        let mut handler = Handler::new(in_memory_storage());
-
-        assert_eq!(
-            handler
-                .execute("insert into schema_name.table_name values (123);")
-                .expect("no system errors"),
-            Err(QueryError::SchemaDoesNotExist("schema_name".to_owned()))
-        );
-    }
-
-    #[test]
-    fn insert_into_nonexistent_table() {
-        let mut handler = Handler::new(in_memory_storage());
-
-        handler
+    #[rstest::rstest]
+    fn insert_and_select_multiple_rows(mut sql_engine: InMemorySqlEngine) {
+        sql_engine
             .execute("create schema schema_name;")
             .expect("no system errors")
             .expect("schema created");
-
-        assert_eq!(
-            handler
-                .execute("insert into schema_name.table_name values (123);")
-                .expect("no system errors"),
-            Err(QueryError::TableDoesNotExist("schema_name.table_name".to_owned()))
-        );
-    }
-
-    #[test]
-    fn insert_and_select_multiple_rows() {
-        let mut handler = Handler::new(in_memory_storage());
-
-        handler
-            .execute("create schema schema_name;")
-            .expect("no system errors")
-            .expect("schema created");
-        handler
+        sql_engine
             .execute("create table schema_name.table_name (column_test smallint);")
             .expect("no system errors")
             .expect("table created");
-        handler
+        sql_engine
             .execute("insert into schema_name.table_name values (123);")
             .expect("no system errors")
             .expect("row inserted");
 
         assert_eq!(
-            handler
+            sql_engine
                 .execute("select * from schema_name.table_name;")
                 .expect("no system errors"),
             Ok(QueryEvent::RecordsSelected((
@@ -542,13 +615,13 @@ mod tests {
             )))
         );
 
-        handler
+        sql_engine
             .execute("insert into schema_name.table_name values (456);")
             .expect("no system errors")
             .expect("row inserted");
 
         assert_eq!(
-            handler
+            sql_engine
                 .execute("select * from schema_name.table_name;")
                 .expect("no system errors"),
             Ok(QueryEvent::RecordsSelected((
@@ -558,59 +631,27 @@ mod tests {
         );
     }
 
-    #[test]
-    #[ignore]
-    // TODO return proper error when reading columns from "system" schema
-    //      but simple select by predicate has to be implemented
-    fn select_all_from_table_in_nonexistent_schema() {
-        let mut handler = Handler::new(in_memory_storage());
-
-        assert_eq!(
-            handler
-                .execute("select * from schema_name.table_name;")
-                .expect("no system errors"),
-            Err(QueryError::SchemaDoesNotExist("schema_name".to_owned()))
-        );
-    }
-
-    #[test]
-    #[ignore]
-    // TODO return proper error when reading columns from "system" schema
-    //      but simple select by predicate has to be implemented
-    fn select_named_columns_from_table_in_nonexistent_schema() {
-        let mut handler = Handler::new(in_memory_storage());
-
-        assert_eq!(
-            handler
-                .execute("select column_1 from schema_name.table_name;")
-                .expect("no system errors"),
-            Err(QueryError::SchemaDoesNotExist("schema_name".to_owned()))
-        );
-    }
-
-    #[test]
-    fn update_all_records() {
-        let mut handler = Handler::new(in_memory_storage());
-
-        handler
+    #[rstest::rstest]
+    fn update_all_records(mut sql_engine: InMemorySqlEngine) {
+        sql_engine
             .execute("create schema schema_name;")
             .expect("no system errors")
             .expect("schema created");
-        handler
+        sql_engine
             .execute("create table schema_name.table_name (column_test smallint);")
             .expect("no system errors")
             .expect("table created");
-        handler
+        sql_engine
             .execute("insert into schema_name.table_name values (123);")
             .expect("no system errors")
             .expect("row inserted");
-        handler
+        sql_engine
             .execute("insert into schema_name.table_name values (456);")
             .expect("no system errors")
             .expect("row inserted");
 
         assert_eq!(
-            handler
+            sql_engine
                 .execute("select * from schema_name.table_name;")
                 .expect("no system errors"),
             Ok(QueryEvent::RecordsSelected((
@@ -619,13 +660,13 @@ mod tests {
             )))
         );
         assert_eq!(
-            handler
+            sql_engine
                 .execute("update schema_name.table_name set column_test=789;")
                 .expect("no system errors"),
             Ok(QueryEvent::RecordsUpdated(2))
         );
         assert_eq!(
-            handler
+            sql_engine
                 .execute("select * from schema_name.table_name;")
                 .expect("no system errors"),
             Ok(QueryEvent::RecordsSelected((
@@ -635,29 +676,27 @@ mod tests {
         );
     }
 
-    #[test]
-    fn update_single_column_of_all_records() {
-        let mut handler = Handler::new(in_memory_storage());
-
-        handler
+    #[rstest::rstest]
+    fn update_single_column_of_all_records(mut sql_engine: InMemorySqlEngine) {
+        sql_engine
             .execute("create schema schema_name;")
             .expect("no system errors")
             .expect("schema created");
-        handler
+        sql_engine
             .execute("create table schema_name.table_name (col1 smallint, col2 smallint);")
             .expect("no system errors")
             .expect("table created");
-        handler
+        sql_engine
             .execute("insert into schema_name.table_name values (123, 789);")
             .expect("no system errors")
             .expect("row inserted");
-        handler
+        sql_engine
             .execute("insert into schema_name.table_name values (456, 789);")
             .expect("no system errors")
             .expect("row inserted");
 
         assert_eq!(
-            handler
+            sql_engine
                 .execute("select * from schema_name.table_name;")
                 .expect("no system errors"),
             Ok(QueryEvent::RecordsSelected((
@@ -672,13 +711,13 @@ mod tests {
             )))
         );
         assert_eq!(
-            handler
+            sql_engine
                 .execute("update schema_name.table_name set col2=357;")
                 .expect("no system errors"),
             Ok(QueryEvent::RecordsUpdated(2))
         );
         assert_eq!(
-            handler
+            sql_engine
                 .execute("select * from schema_name.table_name;")
                 .expect("no system errors"),
             Ok(QueryEvent::RecordsSelected((
@@ -694,29 +733,27 @@ mod tests {
         );
     }
 
-    #[test]
-    fn update_multiple_columns_of_all_records() {
-        let mut handler = Handler::new(in_memory_storage());
-
-        handler
+    #[rstest::rstest]
+    fn update_multiple_columns_of_all_records(mut sql_engine: InMemorySqlEngine) {
+        sql_engine
             .execute("create schema schema_name;")
             .expect("no system errors")
             .expect("schema created");
-        handler
+        sql_engine
             .execute("create table schema_name.table_name (col1 smallint, col2 smallint, col3 smallint);")
             .expect("no system errors")
             .expect("table created");
-        handler
+        sql_engine
             .execute("insert into schema_name.table_name values (111, 222, 333);")
             .expect("no system errors")
             .expect("row inserted");
-        handler
+        sql_engine
             .execute("insert into schema_name.table_name values (444, 555, 666);")
             .expect("no system errors")
             .expect("row inserted");
 
         assert_eq!(
-            handler
+            sql_engine
                 .execute("select * from schema_name.table_name;")
                 .expect("no system errors"),
             Ok(QueryEvent::RecordsSelected((
@@ -732,13 +769,13 @@ mod tests {
             )))
         );
         assert_eq!(
-            handler
+            sql_engine
                 .execute("update schema_name.table_name set col3=777, col1=999;")
                 .expect("no system errors"),
             Ok(QueryEvent::RecordsUpdated(2))
         );
         assert_eq!(
-            handler
+            sql_engine
                 .execute("select * from schema_name.table_name;")
                 .expect("no system errors"),
             Ok(QueryEvent::RecordsSelected((
@@ -755,25 +792,23 @@ mod tests {
         );
     }
 
-    #[test]
-    fn update_all_records_in_multiple_columns() {
-        let mut handler = Handler::new(in_memory_storage());
-
-        handler
+    #[rstest::rstest]
+    fn update_all_records_in_multiple_columns(mut sql_engine: InMemorySqlEngine) {
+        sql_engine
             .execute("create schema schema_name;")
             .expect("no system errors")
             .expect("schema created");
-        handler
+        sql_engine
             .execute("create table schema_name.table_name (column_1 smallint, column_2 smallint, column_3 smallint);")
             .expect("no system errors")
             .expect("table created");
-        handler
+        sql_engine
             .execute("insert into schema_name.table_name values (1, 2, 3), (4, 5, 6), (7, 8, 9);")
             .expect("no system errors")
             .expect("rows inserted");
 
         assert_eq!(
-            handler
+            sql_engine
                 .execute("select * from schema_name.table_name;")
                 .expect("no system errors"),
             Ok(QueryEvent::RecordsSelected((
@@ -790,13 +825,13 @@ mod tests {
             )))
         );
         assert_eq!(
-            handler
+            sql_engine
                 .execute("update schema_name.table_name set column_1=10, column_2=-20, column_3=30;")
                 .expect("no system errors"),
             Ok(QueryEvent::RecordsUpdated(3))
         );
         assert_eq!(
-            handler
+            sql_engine
                 .execute("select * from schema_name.table_name;")
                 .expect("no system errors"),
             Ok(QueryEvent::RecordsSelected((
@@ -814,55 +849,38 @@ mod tests {
         );
     }
 
-    #[ignore] // TODO probably such tests should complain about non existent table
-    #[test]
-    fn update_records_in_table_from_non_existent_schema() {
-        let mut handler = Handler::new(in_memory_storage());
-
-        assert_eq!(
-            handler
-                .execute("update schema_name.table_name set column_test=789;")
-                .expect("no system errors"),
-            Err(QueryError::SchemaDoesNotExist("schema_name".to_owned()))
-        );
-    }
-
-    #[test]
-    fn update_records_in_nonexistent_table() {
-        let mut handler = Handler::new(in_memory_storage());
-
-        handler
+    #[rstest::rstest]
+    fn update_records_in_nonexistent_table(mut sql_engine: InMemorySqlEngine) {
+        sql_engine
             .execute("create schema schema_name;")
             .expect("no system errors")
             .expect("schema created");
 
         assert_eq!(
-            handler
+            sql_engine
                 .execute("update schema_name.table_name set column_test=789;")
                 .expect("no system errors"),
             Err(QueryError::TableDoesNotExist("schema_name.table_name".to_owned()))
         );
     }
 
-    #[test]
-    fn update_non_existent_columns_of_records() {
-        let mut handler = Handler::new(in_memory_storage());
-
-        handler
+    #[rstest::rstest]
+    fn update_non_existent_columns_of_records(mut sql_engine: InMemorySqlEngine) {
+        sql_engine
             .execute("create schema schema_name;")
             .expect("no system errors")
             .expect("schema created");
-        handler
+        sql_engine
             .execute("create table schema_name.table_name (column_test smallint);")
             .expect("no system errors")
             .expect("table created");
-        handler
+        sql_engine
             .execute("insert into schema_name.table_name values (123);")
             .expect("no system errors")
             .expect("row inserted");
 
         assert_eq!(
-            handler
+            sql_engine
                 .execute("select * from schema_name.table_name;")
                 .expect("no system errors"),
             Ok(QueryEvent::RecordsSelected((
@@ -871,7 +889,7 @@ mod tests {
             )))
         );
         assert_eq!(
-            handler
+            sql_engine
                 .execute("update schema_name.table_name set col1=456, col2=789;")
                 .expect("no system errors"),
             Err(QueryError::ColumnDoesNotExist(vec![
@@ -881,28 +899,26 @@ mod tests {
         );
     }
 
-    #[test]
-    fn delete_all_records() {
-        let mut handler = Handler::new(in_memory_storage());
-
-        handler
+    #[rstest::rstest]
+    fn delete_all_records(mut sql_engine: InMemorySqlEngine) {
+        sql_engine
             .execute("create schema schema_name;")
             .expect("no system errors")
             .expect("schema created");
-        handler
+        sql_engine
             .execute("create table schema_name.table_name (column_test smallint);")
             .expect("no system errors")
             .expect("table created");
-        handler
+        sql_engine
             .execute("insert into schema_name.table_name values (123);")
             .expect("no system errors")
             .expect("row inserted");
-        handler
+        sql_engine
             .execute("insert into schema_name.table_name values (456);")
             .expect("no system errors")
             .expect("row inserted");
         assert_eq!(
-            handler
+            sql_engine
                 .execute("select * from schema_name.table_name;")
                 .expect("no system errors"),
             Ok(QueryEvent::RecordsSelected((
@@ -911,13 +927,13 @@ mod tests {
             )))
         );
         assert_eq!(
-            handler
+            sql_engine
                 .execute("delete from schema_name.table_name;")
                 .expect("no system errors"),
             Ok(QueryEvent::RecordsDeleted(2))
         );
         assert_eq!(
-            handler
+            sql_engine
                 .execute("select * from schema_name.table_name;")
                 .expect("no system errors"),
             Ok(QueryEvent::RecordsSelected((
@@ -927,54 +943,23 @@ mod tests {
         );
     }
 
-    #[test]
-    fn delete_from_table_in_nonexistent_schema() {
-        let mut handler = Handler::new(in_memory_storage());
-
-        assert_eq!(
-            handler
-                .execute("delete from schema_name.table_name;")
-                .expect("no system errors"),
-            Err(QueryError::SchemaDoesNotExist("schema_name".to_owned()))
-        );
-    }
-
-    #[test]
-    fn delete_from_nonexistent_table() {
-        let mut handler = Handler::new(in_memory_storage());
-
-        handler
+    #[rstest::rstest]
+    fn select_all_from_table_with_multiple_columns(mut sql_engine: InMemorySqlEngine) {
+        sql_engine
             .execute("create schema schema_name;")
             .expect("no system errors")
             .expect("schema created");
-
-        assert_eq!(
-            handler
-                .execute("delete from schema_name.table_name;")
-                .expect("no system errors"),
-            Err(QueryError::TableDoesNotExist("schema_name.table_name".to_owned()))
-        );
-    }
-
-    #[test]
-    fn select_all_from_table_with_multiple_columns() {
-        let mut handler = Handler::new(in_memory_storage());
-
-        handler
-            .execute("create schema schema_name;")
-            .expect("no system errors")
-            .expect("schema created");
-        handler
+        sql_engine
             .execute("create table schema_name.table_name (column_1 smallint, column_2 smallint, column_3 smallint);")
             .expect("no system errors")
             .expect("table created");
-        handler
+        sql_engine
             .execute("insert into schema_name.table_name values (123, 456, 789);")
             .expect("no system errors")
             .expect("row inserted");
 
         assert_eq!(
-            handler
+            sql_engine
                 .execute("select * from schema_name.table_name;")
                 .expect("no system errors"),
             Ok(QueryEvent::RecordsSelected((
@@ -988,27 +973,25 @@ mod tests {
         );
     }
 
-    #[test]
-    fn insert_multiple_rows() {
-        let mut handler = Handler::new(in_memory_storage());
-
-        handler
+    #[rstest::rstest]
+    fn insert_multiple_rows(mut sql_engine: InMemorySqlEngine) {
+        sql_engine
             .execute("create schema schema_name;")
             .expect("no system errors")
             .expect("schema created");
-        handler
+        sql_engine
             .execute("create table schema_name.table_name (column_1 smallint, column_2 smallint, column_3 smallint);")
             .expect("no system errors")
             .expect("table created");
 
         assert_eq!(
-            handler
+            sql_engine
                 .execute("insert into schema_name.table_name values (1, 4, 7), (2, 5, 8), (3, 6, 9);")
                 .expect("no system errors"),
             Ok(QueryEvent::RecordsInserted(3))
         );
         assert_eq!(
-            handler
+            sql_engine
                 .execute("select * from schema_name.table_name;")
                 .expect("no system errors"),
             Ok(QueryEvent::RecordsSelected((
@@ -1026,25 +1009,23 @@ mod tests {
         );
     }
 
-    #[test]
-    fn select_not_all_columns() {
-        let mut handler = Handler::new(in_memory_storage());
-
-        handler
+    #[rstest::rstest]
+    fn select_not_all_columns(mut sql_engine: InMemorySqlEngine) {
+        sql_engine
             .execute("create schema schema_name;")
             .expect("no system errors")
             .expect("schema created");
-        handler
+        sql_engine
             .execute("create table schema_name.table_name (column_1 smallint, column_2 smallint, column_3 smallint);")
             .expect("no system errors")
             .expect("table created");
-        handler
+        sql_engine
             .execute("insert into schema_name.table_name values (1, 4, 7), (2, 5, 8), (3, 6, 9);")
             .expect("no system errors")
             .expect("rows inserted");
 
         assert_eq!(
-            handler
+            sql_engine
                 .execute("select column_3, column_2 from schema_name.table_name;")
                 .expect("no system errors"),
             Ok(QueryEvent::RecordsSelected((
@@ -1061,21 +1042,19 @@ mod tests {
         );
     }
 
-    #[test]
-    fn select_non_existing_columns_from_table() {
-        let mut handler = Handler::new(in_memory_storage());
-
-        handler
+    #[rstest::rstest]
+    fn select_non_existing_columns_from_table(mut sql_engine: InMemorySqlEngine) {
+        sql_engine
             .execute("create schema schema_name;")
             .expect("no system errors")
             .expect("schema created");
-        handler
+        sql_engine
             .execute("create table schema_name.table_name (column_in_table smallint);")
             .expect("no system errors")
             .expect("table created");
 
         assert_eq!(
-            handler
+            sql_engine
                 .execute("select column_not_in_table1, column_not_in_table2 from schema_name.table_name;")
                 .expect("no system errors"),
             Err(QueryError::ColumnDoesNotExist(vec![
@@ -1085,53 +1064,49 @@ mod tests {
         );
     }
 
-    #[test]
-    fn create_table_with_different_types() {
-        let mut handler = Handler::new(in_memory_storage());
-
-        handler
+    #[rstest::rstest]
+    fn create_table_with_different_types(mut sql_engine: InMemorySqlEngine) {
+        sql_engine
             .execute("create schema schema_name;")
             .expect("no system errors")
             .expect("schema created");
 
         assert_eq!(
-            handler
+            sql_engine
                 .execute("create table schema_name.table_name (column_si smallint, column_i integer, column_bi bigint, column_c char(10), column_vc varchar(10));")
                 .expect("no system errors"),
             Ok(QueryEvent::TableCreated)
         )
     }
 
-    #[test]
-    fn insert_and_select_different_integer_types() {
-        let mut handler = Handler::new(in_memory_storage());
-
-        handler
+    #[rstest::rstest]
+    fn insert_and_select_different_integer_types(mut sql_engine: InMemorySqlEngine) {
+        sql_engine
             .execute("create schema schema_name;")
             .expect("no system errors")
             .expect("schema created");
 
-        handler
+        sql_engine
             .execute("create table schema_name.table_name (column_si smallint, column_i integer, column_bi bigint);")
             .expect("no system errors")
             .expect("table created");
 
         assert_eq!(
-            handler
+            sql_engine
                 .execute("insert into schema_name.table_name values(-32768, -2147483648, -9223372036854775808);")
                 .expect("no system errors"),
             Ok(QueryEvent::RecordsInserted(1))
         );
 
         assert_eq!(
-            handler
+            sql_engine
                 .execute("insert into schema_name.table_name values(32767, 2147483647, 9223372036854775807);")
                 .expect("no system errors"),
             Ok(QueryEvent::RecordsInserted(1))
         );
 
         assert_eq!(
-            handler
+            sql_engine
                 .execute("select * from schema_name.table_name;")
                 .expect("no system errors"),
             Ok(QueryEvent::RecordsSelected((
@@ -1156,36 +1131,34 @@ mod tests {
         )
     }
 
-    #[test]
-    fn insert_and_select_different_character_types() {
-        let mut handler = Handler::new(in_memory_storage());
-
-        handler
+    #[rstest::rstest]
+    fn insert_and_select_different_character_types(mut sql_engine: InMemorySqlEngine) {
+        sql_engine
             .execute("create schema schema_name;")
             .expect("no system errors")
             .expect("schema created");
 
-        handler
+        sql_engine
             .execute("create table schema_name.table_name (column_c char(10), column_vc varchar(10));")
             .expect("no system errors")
             .expect("table created");
 
         assert_eq!(
-            handler
+            sql_engine
                 .execute("insert into schema_name.table_name values('12345abcde', '12345abcde');")
                 .expect("no system errors"),
             Ok(QueryEvent::RecordsInserted(1))
         );
 
         assert_eq!(
-            handler
+            sql_engine
                 .execute("insert into schema_name.table_name values('12345abcde', 'abcde');")
                 .expect("no system errors"),
             Ok(QueryEvent::RecordsInserted(1))
         );
 
         assert_eq!(
-            handler
+            sql_engine
                 .execute("select * from schema_name.table_name;")
                 .expect("no system errors"),
             Ok(QueryEvent::RecordsSelected((

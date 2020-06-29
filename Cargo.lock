@@ -1212,6 +1212,7 @@ dependencies = [
  "bytes",
  "kernel",
  "log",
+ "rstest",
  "sql_types",
  "sqlparser",
  "storage",

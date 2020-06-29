@@ -15,10 +15,18 @@
 use super::*;
 use sql_types::SqlType;
 
-#[test]
-fn delete_all_from_not_existed_table() {
-    let mut storage = FrontendStorage::default().expect("no system errors");
+#[rstest::rstest]
+fn delete_all_from_non_existent_schema(mut storage: PersistentStorage) {
+    assert_eq!(
+        storage
+            .delete_all_from("non_existent", "table_name")
+            .expect("no system errors"),
+        Err(OperationOnTableError::SchemaDoesNotExist)
+    );
+}
 
+#[rstest::rstest]
+fn delete_all_from_not_existed_table(mut storage: PersistentStorage) {
     create_schema(&mut storage, "schema_name");
 
     assert_eq!(
@@ -29,10 +37,8 @@ fn delete_all_from_not_existed_table() {
     );
 }
 
-#[test]
-fn delete_all_from_table() {
-    let mut storage = FrontendStorage::default().expect("no system errors");
-
+#[rstest::rstest]
+fn delete_all_from_table(mut storage: PersistentStorage) {
     create_schema_with_table(
         &mut storage,
         "schema_name",

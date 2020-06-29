@@ -58,7 +58,6 @@ impl<P: BackendStorage> FrontendStorage<P> {
         }
     }
 
-    #[allow(clippy::match_wild_err_arm, clippy::map_entry)]
     pub fn create_schema(&mut self, schema_name: &str) -> SystemResult<Result<(), SchemaAlreadyExists>> {
         match self.persistent.create_namespace(schema_name)? {
             Ok(()) => Ok(Ok(())),
@@ -85,7 +84,7 @@ impl<P: BackendStorage> FrontendStorage<P> {
                     "system",
                     "columns",
                     vec![(
-                        table_name.as_bytes().to_vec(),
+                        (schema_name.to_owned() + table_name).as_bytes().to_vec(),
                         column_names
                             .into_iter()
                             .map(|(name, sql_type)| bincode::serialize(&ColumnMetadata { name, sql_type }).unwrap())
@@ -112,28 +111,35 @@ impl<P: BackendStorage> FrontendStorage<P> {
 
     pub fn table_columns(
         &mut self,
-        _schema_name: &str,
+        schema_name: &str,
         table_name: &str,
     ) -> SystemResult<Result<Vec<(String, SqlType)>, OperationOnTableError>> {
-        let reads = self.persistent.read("system", "columns")?;
-        match reads {
-            Ok(reads) => Ok(Ok(reads
-                .map(backend::Result::unwrap)
-                .filter(|(table, _columns)| *table == table_name.as_bytes().to_vec())
-                .map(|(_id, columns)| {
-                    columns
-                        .split(|b| *b == b'|')
-                        .map(|c| {
-                            let ColumnMetadata { name, sql_type } = bincode::deserialize(c).unwrap();
-                            (name, sql_type)
-                        })
-                        .collect::<Vec<(String, SqlType)>>()
-                })
-                .next()
-                .unwrap_or_default())),
-            Err(OperationOnObjectError::ObjectDoesNotExist) => Ok(Err(OperationOnTableError::TableDoesNotExist)),
-            Err(OperationOnObjectError::NamespaceDoesNotExist) => Ok(Err(OperationOnTableError::SchemaDoesNotExist)),
-        }
+        self.persistent
+            .read("system", "columns")?
+            .map(|reads| {
+                Ok(reads
+                    .map(backend::Result::unwrap)
+                    .filter(|(table, _columns)| *table == (schema_name.to_owned() + table_name).as_bytes().to_vec())
+                    .map(|(_id, columns)| {
+                        columns
+                            .split(|b| *b == b'|')
+                            .filter(|v| !v.is_empty())
+                            .map(|c| {
+                                let ColumnMetadata { name, sql_type } = bincode::deserialize(c).unwrap();
+                                (name, sql_type)
+                            })
+                            .collect::<Vec<(String, SqlType)>>()
+                    })
+                    .next()
+                    .unwrap_or_default())
+            })
+            // is not covered yet
+            .map_err(|err| {
+                SystemError::unrecoverable(format!(
+                    "failed to read table's columns from system.columns due to {:?}",
+                    err
+                ))
+            })
     }
 
     pub fn drop_table(&mut self, schema_name: &str, table_name: &str) -> SystemResult<Result<(), DropTableError>> {
@@ -242,32 +248,31 @@ impl<P: BackendStorage> FrontendStorage<P> {
                     }
                 }
 
-                if !non_existing_columns.is_empty() {
-                    return Ok(Err(OperationOnTableError::ColumnDoesNotExist(non_existing_columns)));
-                }
-
                 let data = match self.persistent.read(schema_name, table_name)? {
-                    Ok(read) => read
-                        .map(backend::Result::unwrap)
-                        .map(|(_key, values)| values)
-                        .map(|bytes| {
-                            let mut values = vec![];
-                            for (i, (origin, ord)) in column_indexes.iter().enumerate() {
-                                for (index, value) in bytes.split(|b| *b == b'|').enumerate() {
-                                    if index == *origin {
-                                        values.push((ord, description[i].1.serializer().des(value)))
+                    Ok(read) => {
+                        if !non_existing_columns.is_empty() {
+                            return Ok(Err(OperationOnTableError::ColumnDoesNotExist(non_existing_columns)));
+                        }
+                        read.map(backend::Result::unwrap)
+                            .map(|(_key, values)| values)
+                            .map(|bytes| {
+                                let mut values = vec![];
+                                for (i, (origin, ord)) in column_indexes.iter().enumerate() {
+                                    for (index, value) in bytes.split(|b| *b == b'|').enumerate() {
+                                        if index == *origin {
+                                            values.push((ord, description[i].1.serializer().des(value)))
+                                        }
                                     }
                                 }
-                            }
-                            values.into_iter().map(|(_, value)| value).collect()
-                        })
-                        .collect(),
+                                values.into_iter().map(|(_, value)| value).collect()
+                            })
+                            .collect()
+                    }
                     Err(OperationOnObjectError::ObjectDoesNotExist) => {
                         return Ok(Err(OperationOnTableError::TableDoesNotExist))
                     }
                     Err(OperationOnObjectError::NamespaceDoesNotExist) => {
-                        unimplemented!()
-                        // return Ok(Err(OperationOnTableError::SchemaDoesNotExist))
+                        return Ok(Err(OperationOnTableError::SchemaDoesNotExist))
                     }
                 };
                 Ok(Ok((description, data)))
@@ -284,10 +289,6 @@ impl<P: BackendStorage> FrontendStorage<P> {
     ) -> SystemResult<Result<usize, OperationOnTableError>> {
         match self.table_columns(schema_name, table_name)? {
             Ok(all_columns) => {
-                if all_columns.is_empty() {
-                    return Ok(Err(OperationOnTableError::TableDoesNotExist));
-                }
-
                 let mut errors = HashMap::new();
                 let mut out_of_range = vec![];
                 let mut not_an_int = vec![];
@@ -322,9 +323,6 @@ impl<P: BackendStorage> FrontendStorage<P> {
                     }
                 }
 
-                if !non_existing_columns.is_empty() {
-                    return Ok(Err(OperationOnTableError::ColumnDoesNotExist(non_existing_columns)));
-                }
                 if !out_of_range.is_empty() {
                     errors
                         .entry(ConstraintError::OutOfRange)
@@ -343,12 +341,15 @@ impl<P: BackendStorage> FrontendStorage<P> {
                         .or_insert_with(Vec::new)
                         .push(value_too_long);
                 }
-                if !errors.is_empty() {
-                    return Ok(Err(OperationOnTableError::ConstraintViolation(errors)));
-                }
 
                 match self.persistent.read(schema_name, table_name)? {
                     Ok(reads) => {
+                        if !non_existing_columns.is_empty() {
+                            return Ok(Err(OperationOnTableError::ColumnDoesNotExist(non_existing_columns)));
+                        }
+                        if !errors.is_empty() {
+                            return Ok(Err(OperationOnTableError::ConstraintViolation(errors)));
+                        }
                         let to_update: Vec<Row> = reads
                             .map(backend::Result::unwrap)
                             .map(|(key, values)| {

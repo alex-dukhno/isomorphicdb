@@ -16,7 +16,17 @@ use super::*;
 use sql_types::SqlType;
 
 #[rstest::rstest]
-fn insert_into_non_existent_table(mut storage: FrontendStorage<SledBackendStorage>) {
+fn insert_into_non_existent_schema(mut storage: PersistentStorage) {
+    assert_eq!(
+        storage
+            .insert_into("non_existent", "not_existed", vec![vec!["123".to_owned()]],)
+            .expect("no system errors"),
+        Err(OperationOnTableError::SchemaDoesNotExist)
+    );
+}
+
+#[rstest::rstest]
+fn insert_into_non_existent_table(mut storage: PersistentStorage) {
     create_schema(&mut storage, "schema_name");
 
     assert_eq!(
@@ -28,7 +38,7 @@ fn insert_into_non_existent_table(mut storage: FrontendStorage<SledBackendStorag
 }
 
 #[rstest::rstest]
-fn insert_many_rows_into_table(mut storage: FrontendStorage<SledBackendStorage>) {
+fn insert_many_rows_into_table(mut storage: PersistentStorage) {
     create_schema_with_table(
         &mut storage,
         "schema_name",
@@ -59,7 +69,7 @@ fn insert_many_rows_into_table(mut storage: FrontendStorage<SledBackendStorage>)
 }
 
 #[rstest::rstest]
-fn insert_multiple_values_rows(mut storage: FrontendStorage<SledBackendStorage>) {
+fn insert_multiple_values_rows(mut storage: PersistentStorage) {
     create_schema_with_table(
         &mut storage,
         "schema_name",
@@ -103,7 +113,7 @@ fn insert_multiple_values_rows(mut storage: FrontendStorage<SledBackendStorage>)
 }
 
 #[rstest::rstest]
-fn insert_row_into_table(mut storage: FrontendStorage<SledBackendStorage>) {
+fn insert_row_into_table(mut storage: PersistentStorage) {
     create_schema_with_table(
         &mut storage,
         "schema_name",

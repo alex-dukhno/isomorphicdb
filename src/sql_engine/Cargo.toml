@@ -13,4 +13,7 @@ storage = { path = "../storage" }
 sqlparser = { git = "https://github.com/andygrove/sqlparser-rs.git" }
 sql_types = { path = "../sql_types" }
 bytes = "0.5"
+
+[dev-dependencies]
+rstest = "0.6.4"
 test_helpers = { path = "../test_helpers" }

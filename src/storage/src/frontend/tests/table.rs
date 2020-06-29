@@ -15,10 +15,8 @@
 use super::*;
 use sql_types::SqlType;
 
-#[test]
-fn create_tables_with_different_names() {
-    let mut storage = FrontendStorage::default().expect("no system errors");
-
+#[rstest::rstest]
+fn create_tables_with_different_names(mut storage: PersistentStorage) {
     create_schema(&mut storage, "schema_name");
 
     assert_eq!(
@@ -26,7 +24,7 @@ fn create_tables_with_different_names() {
             .create_table(
                 "schema_name",
                 "table_name_1",
-                vec![("column_test".to_owned(), SqlType::SmallInt)]
+                vec![("column_rstest::rstest".to_owned(), SqlType::SmallInt)]
             )
             .expect("no system errors"),
         Ok(())
@@ -36,22 +34,20 @@ fn create_tables_with_different_names() {
             .create_table(
                 "schema_name",
                 "table_name_2",
-                vec![("column_test".to_owned(), SqlType::SmallInt)]
+                vec![("column_rstest::rstest".to_owned(), SqlType::SmallInt)]
             )
             .expect("no system errors"),
         Ok(())
     );
 }
 
-#[test]
-fn create_table_with_the_same_name() {
-    let mut storage = FrontendStorage::default().expect("no system errors");
-
+#[rstest::rstest]
+fn create_table_with_the_same_name(mut storage: PersistentStorage) {
     create_schema_with_table(
         &mut storage,
         "schema_name",
         "table_name",
-        vec![("column_test", SqlType::SmallInt)],
+        vec![("column_rstest::rstest", SqlType::SmallInt)],
     );
 
     assert_eq!(
@@ -59,17 +55,15 @@ fn create_table_with_the_same_name() {
             .create_table(
                 "schema_name",
                 "table_name",
-                vec![("column_test".to_owned(), SqlType::SmallInt)]
+                vec![("column_rstest::rstest".to_owned(), SqlType::SmallInt)]
             )
             .expect("no system errors"),
         Err(CreateTableError::TableAlreadyExists)
     );
 }
 
-#[test]
-fn create_table_with_the_same_name_in_different_schemas() {
-    let mut storage = FrontendStorage::default().expect("no system errors");
-
+#[rstest::rstest]
+fn create_table_with_the_same_name_in_different_schemas(mut storage: PersistentStorage) {
     create_schema(&mut storage, "schema_name_1");
     create_schema(&mut storage, "schema_name_2");
     assert_eq!(
@@ -77,7 +71,7 @@ fn create_table_with_the_same_name_in_different_schemas() {
             .create_table(
                 "schema_name_1",
                 "table_name",
-                vec![("column_test".to_owned(), SqlType::SmallInt)]
+                vec![("column_rstest::rstest".to_owned(), SqlType::SmallInt)]
             )
             .expect("no system errors"),
         Ok(())
@@ -87,22 +81,20 @@ fn create_table_with_the_same_name_in_different_schemas() {
             .create_table(
                 "schema_name_2",
                 "table_name",
-                vec![("column_test".to_owned(), SqlType::SmallInt)]
+                vec![("column_rstest::rstest".to_owned(), SqlType::SmallInt)]
             )
             .expect("no system errors"),
         Ok(())
     );
 }
 
-#[test]
-fn drop_table() {
-    let mut storage = FrontendStorage::default().expect("no system errors");
-
+#[rstest::rstest]
+fn drop_table(mut storage: PersistentStorage) {
     create_schema_with_table(
         &mut storage,
         "schema_name",
         "table_name",
-        vec![("column_test", SqlType::SmallInt)],
+        vec![("column_rstest::rstest", SqlType::SmallInt)],
     );
     assert_eq!(
         storage
@@ -115,17 +107,27 @@ fn drop_table() {
             .create_table(
                 "schema_name",
                 "table_name",
-                vec![("column_test".to_owned(), SqlType::SmallInt)]
+                vec![("column_rstest::rstest".to_owned(), SqlType::SmallInt)]
             )
             .expect("no system errors"),
         Ok(())
     );
 }
 
-#[test]
-fn drop_not_created_table() {
-    let mut storage = FrontendStorage::default().expect("no system errors");
+#[rstest::rstest]
+fn table_columns_on_empty_table(mut storage: PersistentStorage) {
+    create_schema_with_table(&mut storage, "schema_name", "table_name", vec![]);
 
+    assert_eq!(
+        storage
+            .table_columns("schema_name", "table_name")
+            .expect("no system errors"),
+        Ok(vec![])
+    )
+}
+
+#[rstest::rstest]
+fn drop_not_created_table(mut storage: PersistentStorage) {
     create_schema(&mut storage, "schema_name");
     assert_eq!(
         storage
