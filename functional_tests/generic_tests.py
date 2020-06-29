@@ -1,7 +1,6 @@
 import psycopg2 as pg
 import pytest
 
-
 @pytest.fixture
 def create_conn():
     # conn = pg.connect(host="localhost", password="check_this_out")  # connects to default database

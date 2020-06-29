@@ -51,6 +51,15 @@ pub enum Message {
     /// clear-text form. If this is the correct password, the server responds
     /// with an AuthenticationOk, otherwise it responds with an ErrorResponse.
     AuthenticationCleartextPassword,
+    /// The frontend must now send a PasswordMessage containing the password
+    /// (with user name) encrypted via MD5, then encrypted again using the 4-byte
+    /// random salt specified in the AuthenticationMD5Password message. If this
+    /// is the correct password, the server responds with an AuthenticationOk,
+    /// otherwise it responds with an ErrorResponse. The actual PasswordMessage
+    /// can be computed in SQL as concat('md5', md5(concat(md5(concat(password,
+    /// username)), random-salt))). (Keep in mind the md5() function returns its
+    /// result as a hex string.)
+    AuthenticationMD5Password,
     /// The authentication exchange is successfully completed.
     AuthenticationOk,
     /// Start-up is completed. The frontend can now issue commands.
@@ -77,6 +86,7 @@ impl Message {
         match self {
             Message::NoticeResponse => vec![NOTICE_RESPONSE],
             Message::AuthenticationCleartextPassword => vec![AUTHENTICATION, 0, 0, 0, 8, 0, 0, 0, 3],
+            Message::AuthenticationMD5Password => vec![AUTHENTICATION, 0, 0, 0, 12, 0, 0, 0, 5, 1, 1, 1, 1],
             Message::AuthenticationOk => vec![AUTHENTICATION, 0, 0, 0, 8, 0, 0, 0, 0],
             Message::ReadyForQuery => vec![READY_FOR_QUERY, 0, 0, 0, 5, EMPTY_QUERY_RESPONSE],
             Message::DataRow(row) => {

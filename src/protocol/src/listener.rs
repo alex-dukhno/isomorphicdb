@@ -18,7 +18,7 @@ use crate::{
 };
 use async_trait::async_trait;
 use byteorder::{ByteOrder, NetworkEndian};
-use bytes::{Buf, BytesMut};
+use bytes::{Buf, BufMut, BytesMut};
 use futures::io::{self, AsyncReadExt, AsyncWriteExt};
 use itertools::Itertools;
 use std::net::SocketAddr;
@@ -62,6 +62,7 @@ pub trait QueryListener {
             } else {
                 socket.write_all(Message::NoticeResponse.as_vec().as_slice()).await?;
                 let len = read_len(&mut socket).await?;
+                log::debug!("LEN = {:?}", len);
                 let mut message = read_message(len, &mut socket).await?;
                 log::debug!("MESSAGE FOR TEST = {:#?}", message);
                 let version = NetworkEndian::read_i32(message.bytes());
@@ -87,6 +88,38 @@ pub trait QueryListener {
                 let len = read_len(&mut socket).await?;
                 let _message = read_message(len, &mut socket).await?;
                 socket.write_all(Message::AuthenticationOk.as_vec().as_slice()).await?;
+
+                let mut parameter_status = BytesMut::with_capacity(256);
+                parameter_status.put_u8(b'S');
+                let mut parameters = BytesMut::with_capacity(256);
+                parameters.extend_from_slice(b"client_encoding");
+                parameters.put_u8(0);
+                parameters.extend_from_slice(b"UTF8");
+                parameters.put_u8(0);
+                eprintln!("LEN = {:?}", parameters.len());
+                eprintln!("PARAMS = {:?}", parameters);
+                parameter_status.put_u32(4 + parameters.bytes().len() as u32);
+                parameter_status.extend_from_slice(parameters.as_ref());
+                eprintln!("LEN = {:?}", parameter_status.len());
+                eprintln!("PARAMS = {:?}", parameter_status);
+                socket.write_all(parameter_status.to_vec().as_slice()).await?;
+
+                // TODO it does not required by psycopg2 but good example of ParameterStatus message from backend
+                let mut parameter_status = BytesMut::with_capacity(256);
+                parameter_status.put_u8(b'S');
+                let mut parameters = BytesMut::with_capacity(256);
+                parameters.extend_from_slice(b"DateStyle");
+                parameters.put_u8(0);
+                parameters.extend_from_slice(b"DMY");
+                parameters.put_u8(0);
+                eprintln!("LEN = {:?}", parameters.len());
+                eprintln!("PARAMS = {:?}", parameters);
+                parameter_status.put_u32(4 + parameters.bytes().len() as u32);
+                parameter_status.extend_from_slice(parameters.as_ref());
+                eprintln!("LEN = {:?}", parameter_status.len());
+                eprintln!("PARAMS = {:?}", parameter_status);
+                socket.write_all(parameter_status.to_vec().as_slice()).await?;
+
                 Ok(Ok(Connection::new((version, parsed, SslMode::Require), socket)))
             }
         } else if version == VERSION_GSSENC {
