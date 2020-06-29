@@ -63,3 +63,25 @@ on a local machine and queries result has to be checked visually.
     ```
     1. enter any password
 1. Run `sql` scripts from `compatibility` folder
+
+### Running Python tests
+
+1. For now Python tests don't use PyTest, but the will soon.
+1. To run Python tests open functional_test directory and install requirements with:
+    ```shell script
+    pip install -r requirements.txt
+    ```
+1. or:
+    ```shell script
+    pip3 install -r requirements.txt
+    ```
+1. then:
+    ```shell script
+    python generic_test.py
+    ```
+1. or:
+    ```shell script
+    python3 generic_test.py
+    ```
+pip3 and python3 OR pip and python - depends on your system. <br>
+For system with both Python 2 and 3 - use python3 and pip3 to run tests with 3rd version of Python.
