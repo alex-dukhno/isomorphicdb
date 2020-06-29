@@ -1,5 +1,14 @@
 import psycopg2 as pg
+import pytest
 
-# mute a row with # symbol to test these cases individually
-conn = pg.connect(host="localhost", password="check_this_out")  # connects to default database
-conn = pg.connect(host="localhost", password="check_this_out", database="postgres")  # connects to postgres DB
+
+@pytest.fixture
+def create_conn():
+    # conn = pg.connect(host="localhost", password="check_this_out")  # connects to default database
+    conn = pg.connect(host="localhost", password="check_this_out", database="postgres")  # connects to postgres DB
+    return conn
+
+
+def test_conn(create_conn):
+    conn = create_conn
+    assert conn is not None

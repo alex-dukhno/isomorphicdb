@@ -66,22 +66,19 @@ on a local machine and queries result has to be checked visually.
 
 ### Running Python tests
 
-1. For now Python tests don't use PyTest, but the will soon.
-1. To run Python tests open functional_test directory and install requirements with:
+1. We use PyTest for Python tests.
+1. To run Python tests you need to install requirements with:
     ```shell script
-    pip install -r requirements.txt
+    pip install -r functional_tests/requirements.txt
     ```
 1. or:
     ```shell script
-    pip3 install -r requirements.txt
+    pip3 install -r functional_tests/requirements.txt
     ```
 1. then:
     ```shell script
-    python generic_test.py
+    pytest -v functional_tests/generic_tests.py
     ```
-1. or:
-    ```shell script
-    python3 generic_test.py
-    ```
+
 pip3 and python3 OR pip and python - depends on your system. <br>
 For system with both Python 2 and 3 - use python3 and pip3 to run tests with 3rd version of Python.
