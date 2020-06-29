@@ -1,5 +1,8 @@
 # Database
 
+![Rust](https://github.com/alex-dukhno/database/workflows/Rust/badge.svg)
+[![Coverage Status](https://coveralls.io/repos/github/alex-dukhno/database/badge.svg)](https://coveralls.io/github/alex-dukhno/database)
+
 The project doesn't have any name so let it be `database` for now.
 
 ## Project structure
