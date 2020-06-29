@@ -26,10 +26,6 @@ fn empty_file_named() -> NamedTempFile {
     NamedTempFile::new().expect("Failed to create tempfile")
 }
 
-fn empty_file() -> File {
-    empty_file_named().reopen().expect("empty file").into()
-}
-
 fn file_with(content: Vec<&[u8]>) -> File {
     use std::io::{Seek, Write};
 
@@ -50,10 +46,6 @@ pub struct TestCase {
 }
 
 impl TestCase {
-    pub async fn empty() -> Self {
-        Self::new(empty_file()).await
-    }
-
     pub async fn with_content(content: Vec<&[u8]>) -> Self {
         Self::new(file_with(content)).await
     }
