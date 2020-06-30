@@ -58,9 +58,9 @@ impl<P: BackendStorage> Handler<P> {
     pub fn execute(&mut self, raw_sql_query: &str) -> SystemResult<QueryResult> {
         let statement = match Parser::parse_sql(&PostgreSqlDialect {}, raw_sql_query) {
             Ok(mut statements) => statements.pop().unwrap(),
-            Err(_) => {
-                log::debug!("TERMINATION");
-                return Ok(Ok(QueryEvent::Terminate));
+            Err(e) => {
+                log::error!("{:?} can't be parsed. Error: {:?}", raw_sql_query, e);
+                unimplemented!("PANIC!!! Ah-a-a-a")
             }
         };
         log::debug!("STATEMENT = {:?}", statement);
@@ -305,7 +305,6 @@ pub enum QueryEvent {
     RecordsSelected(Projection),
     RecordsUpdated(usize),
     RecordsDeleted(usize),
-    Terminate, // TODO workaround for integration tests
 }
 
 #[cfg(test)]

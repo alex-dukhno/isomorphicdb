@@ -88,17 +88,11 @@ impl Node {
                                 return;
                             }
                             Ok(Ok(Command::Terminate)) => {
-                                log::debug!("SHOULD STOP");
-                                state.store(STOPPED, Ordering::SeqCst);
-                                return;
+                                log::debug!("Closing connection with client");
+                                break;
                             }
                             Ok(Ok(Command::Query(sql_query))) => {
                                 match sql_handler.execute(sql_query.as_str()).expect("no system error") {
-                                    Ok(QueryEvent::Terminate) => {
-                                        log::debug!("SHOULD STOP");
-                                        state.store(STOPPED, Ordering::SeqCst);
-                                        return;
-                                    }
                                     response => {
                                         match connection.send(QueryResultMapper::map(response)).await {
                                             Ok(()) => {}
@@ -228,7 +222,6 @@ impl QueryResultMapper {
                 Some("42601".to_owned()),
                 Some(format!("Currently, Query '{}' can't be executed", raw_sql_query)),
             )],
-            _ => unimplemented!(),
         }
     }
 }

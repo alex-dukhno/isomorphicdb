@@ -46,11 +46,6 @@ jobs:
       with:
         command: test
         args: --lib --all
-    - name: integration-tests
-      uses: actions-rs/cargo@v1
-      with:
-        command: test
-        args: --tests integration_sql -- --nocapture
     - name: code-coverage
       if: matrix.os == 'ubuntu'
       run: cargo tarpaulin --exclude-files proof-of-concepts/ -o Lcov --output-dir ./coverage
