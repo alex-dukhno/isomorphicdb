@@ -24,6 +24,8 @@ jobs:
   all-tests:
     strategy:
       matrix:
+        version:
+          - stable
         os:
           - ubuntu
           - windows
@@ -32,8 +34,6 @@ jobs:
     steps:
     - name: checkout
       uses: actions/checkout@v2
-    - name: toolchain
-      uses: actions-rs/toolchain@v1
     - name: install tarpaulin
       if: matrix.os == 'ubuntu'
       uses: actions-rs/install@v0.1
@@ -59,19 +59,24 @@ jobs:
     name: rustfmt
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@master
-      - uses: actions-rs/toolchain@v1
-      - name: rustfmt
-        run: ./ci/rustfmt.sh
+      - name: Set up Rust
+        uses: hecrj/setup-rust-action@v1
+        with:
+          components: rustfmt
+          rust-version: nightly
+      - uses: actions/checkout@v2
+      - run: ./ci/rustfmt.sh
 
   clippy:
     name: clippy
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@master
-      - uses: actions-rs/toolchain@v1
-      - name: clippy
-        run: ./ci/clippy.sh
+      - name: Set up Rust
+        uses: hecrj/setup-rust-action@v1
+        with:
+          components: clippy
+    - uses: actions/checkout@v2
+    - run: ./ci/clippy.sh
 
   ci-success:
     name: ci
