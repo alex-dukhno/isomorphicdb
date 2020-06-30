@@ -63,3 +63,28 @@ on a local machine and queries result has to be checked visually.
     ```
     1. enter any password
 1. Run `sql` scripts from `compatibility` folder
+
+### Running Functional tests
+
+We use PyTest for functional tests. To run tests locally you need to set up
+`python` environment with the following commands:
+1. If you use linux or macos it is most probably you have `python` installed.
+For windows, you can easily install `python` from [official site](https://www.python.org).
+1. Install `python` dependencies with `pip` requirements executing the following command:
+    ```shell script
+    pip install -r tests/functional/requirements.txt
+    ```
+1. or with `pip3`:
+    ```shell script
+    pip3 install -r tests/functional/requirements.txt
+    ```
+1. After that you can run tests with:
+    ```shell script
+    pytest -v tests/functional/generic_tests.py
+    ```
+
+`pip3` and `python3` OR `pip` and `python` - depends on your system and your 
+preferences.
+
+For system with both `python` 2 and 3 - use `python3` and `pip3` to run tests 
+with the 3rd version of `python`.
