@@ -65,6 +65,7 @@ impl<P: BackendStorage> Handler<P> {
         };
         log::debug!("STATEMENT = {:?}", statement);
         match statement {
+            sqlparser::ast::Statement::StartTransaction { .. } => Ok(Ok(QueryEvent::TransactionStarted)),
             sqlparser::ast::Statement::SetVariable { .. } => Ok(Ok(QueryEvent::VariableSet)),
             sqlparser::ast::Statement::CreateTable { mut name, columns, .. } => {
                 let table_name = name.0.pop().unwrap().to_string();
@@ -301,6 +302,7 @@ pub enum QueryEvent {
     TableCreated,
     TableDropped,
     VariableSet,
+    TransactionStarted,
     RecordsInserted(usize),
     RecordsSelected(Projection),
     RecordsUpdated(usize),
