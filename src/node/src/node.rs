@@ -92,13 +92,10 @@ impl Node {
                                 break;
                             }
                             Ok(Ok(Command::Query(sql_query))) => {
-                                match sql_handler.execute(sql_query.as_str()).expect("no system error") {
-                                    response => {
-                                        match connection.send(QueryResultMapper::map(response)).await {
-                                            Ok(()) => {}
-                                            Err(error) => eprintln!("{:?}", error), // break Err(SystemError::io(error)),
-                                        }
-                                    }
+                                let response = sql_handler.execute(sql_query.as_str()).expect("no system error");
+                                match connection.send(QueryResultMapper::map(response)).await {
+                                    Ok(()) => {}
+                                    Err(error) => eprintln!("{:?}", error), // break Err(SystemError::io(error)),
                                 }
                             }
                         }
