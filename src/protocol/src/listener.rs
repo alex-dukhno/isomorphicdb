@@ -385,6 +385,7 @@ mod tests {
             }
 
             #[async_std::test]
+            #[ignore]
             async fn successful_connection_handshake() -> io::Result<()> {
                 let test_case = async_io::TestCase::with_content(vec![
                     pg_frontend::Message::SslRequired.as_vec().as_slice(),
