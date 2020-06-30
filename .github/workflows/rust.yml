@@ -24,8 +24,6 @@ jobs:
   all-tests:
     strategy:
       matrix:
-        version:
-          - stable
         os:
           - ubuntu
           - windows
@@ -59,7 +57,7 @@ jobs:
     name: rustfmt
     runs-on: ubuntu-latest
     steps:
-      - name: Set up Rust
+      - name: set-up-rust
         uses: hecrj/setup-rust-action@v1
         with:
           components: rustfmt
@@ -71,7 +69,7 @@ jobs:
     name: clippy
     runs-on: ubuntu-latest
     steps:
-      - name: Set up Rust
+      - name: set-up-rust
         uses: hecrj/setup-rust-action@v1
         with:
           components: clippy
