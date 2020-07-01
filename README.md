@@ -78,9 +78,13 @@ For windows, you can easily install `python` from [official site](https://www.py
     ```shell script
     pip3 install -r tests/functional/requirements.txt
     ```
-1. After that you can run tests with:
+1. After that you can run all tests with:
+   ```shell script
+   pytest -v tests/functional/*
+   ```
+1. or tests in specified file with:
     ```shell script
-    pytest -v tests/functional/generic_tests.py
+    pytest -v tests/functional/<test_file>.py
     ```
 
 `pip3` and `python3` OR `pip` and `python` - depends on your system and your 
