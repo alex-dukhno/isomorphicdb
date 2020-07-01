@@ -69,12 +69,19 @@ fn insert_into<P: backend::BackendStorage>(
     schema_name: &str,
     table_name: &str,
     values: Vec<&str>,
+    columns: Option<Vec<&str>>,
 ) {
+    let columns = match columns {
+        Some(cols) => Some(cols.into_iter().map(ToOwned::to_owned).collect()),
+        None => None,
+    };
+
     storage
         .insert_into(
             schema_name,
             table_name,
             vec![values.into_iter().map(ToOwned::to_owned).collect()],
+            columns,
         )
         .expect("no system errors")
         .expect("values are inserted");

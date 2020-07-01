@@ -24,9 +24,9 @@ fn update_all_records(mut storage: PersistentStorage) {
         vec![("column_test", SqlType::SmallInt)],
     );
 
-    insert_into(&mut storage, "schema_name", "table_name", vec!["123"]);
-    insert_into(&mut storage, "schema_name", "table_name", vec!["456"]);
-    insert_into(&mut storage, "schema_name", "table_name", vec!["789"]);
+    insert_into(&mut storage, "schema_name", "table_name", vec!["123"], None);
+    insert_into(&mut storage, "schema_name", "table_name", vec!["456"], None);
+    insert_into(&mut storage, "schema_name", "table_name", vec!["789"], None);
 
     assert_eq!(
         storage
@@ -117,6 +117,7 @@ mod constraints {
                 "schema_name",
                 "table_name",
                 vec![vec!["100".to_owned(), "100".to_owned(), "100".to_owned()]],
+                None,
             )
             .expect("no system errors")
             .expect("record inserted");
@@ -146,6 +147,7 @@ mod constraints {
                 "schema_name",
                 "table_name",
                 vec![vec!["100".to_owned(), "100".to_owned(), "100".to_owned()]],
+                None,
             )
             .expect("no system errors")
             .expect("record inserted");
@@ -175,6 +177,7 @@ mod constraints {
                 "schema_name",
                 "table_name",
                 vec![vec!["100".to_owned(), "100".to_owned()]],
+                None,
             )
             .expect("no system errors")
             .expect("record inserted");
@@ -203,6 +206,7 @@ mod constraints {
                 "schema_name",
                 "table_name",
                 vec![vec!["100".to_owned(), "100".to_owned(), "100".to_owned()]],
+                None,
             )
             .expect("no system errors")
             .expect("records inserted");

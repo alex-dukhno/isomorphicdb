@@ -155,21 +155,61 @@ impl<P: BackendStorage> FrontendStorage<P> {
         schema_name: &str,
         table_name: &str,
         rows: Vec<Vec<String>>,
+        columns: Option<Vec<String>>,
     ) -> SystemResult<Result<(), OperationOnTableError>> {
         match self.table_columns(schema_name, table_name)? {
             Ok(all_columns) => {
+                let index_columns = match columns {
+                    Some(cols) => {
+                        let mut index_cols = vec![];
+                        let mut non_existing_cols = vec![];
+                        for col in cols {
+                            let mut found = None;
+                            for (index, (name, sql_type)) in all_columns.iter().enumerate() {
+                                if *name == col {
+                                    found = Some((index, name.clone(), *sql_type));
+                                    break;
+                                }
+                            }
+
+                            match found {
+                                Some(index_col) => {
+                                    index_cols.push(index_col);
+                                }
+                                None => non_existing_cols.push(col),
+                            }
+                        }
+
+                        if !non_existing_cols.is_empty() {
+                            return Ok(Err(OperationOnTableError::ColumnDoesNotExist(non_existing_cols)));
+                        }
+
+                        index_cols
+                    }
+                    None => {
+                        let mut index_cols = vec![];
+                        for (index, (name, sql_type)) in all_columns.iter().enumerate() {
+                            index_cols.push((index, name.clone(), *sql_type));
+                        }
+
+                        index_cols
+                    }
+                };
+
                 let mut to_write: Vec<Row> = vec![];
                 let mut errors = HashMap::new();
                 for row in rows {
                     let key = self.key_id_generator.to_be_bytes().to_vec();
-                    let mut record = vec![];
+
+                    // TODO: The default value or NULL should be initialized for SQL types of all columns.
+                    let mut record = vec![vec![0, 0]; all_columns.len()];
                     let mut out_of_range = vec![];
                     let mut not_an_int = vec![];
                     let mut value_too_long = vec![];
-                    for (item, (name, sql_type)) in row.iter().zip(all_columns.iter()) {
+                    for (item, (index, name, sql_type)) in row.iter().zip(index_columns.iter()) {
                         match sql_type.constraint().validate(item.as_str()) {
                             Ok(()) => {
-                                record.push(sql_type.serializer().ser(item.as_str()));
+                                record[*index] = sql_type.serializer().ser(item.as_str());
                             }
                             Err(ConstraintError::OutOfRange) => {
                                 out_of_range.push((name.clone(), *sql_type));

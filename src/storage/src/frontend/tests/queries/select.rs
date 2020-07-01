@@ -66,6 +66,7 @@ fn select_all_from_table_with_many_columns(mut with_small_ints_table: Persistent
         "schema_name",
         "table_name",
         vec!["1", "2", "3"],
+        None,
     );
 
     let table_columns = with_small_ints_table
@@ -98,18 +99,21 @@ fn select_first_and_last_columns_from_table_with_multiple_columns(mut with_small
         "schema_name",
         "table_name",
         vec!["1", "2", "3"],
+        None,
     );
     insert_into(
         &mut with_small_ints_table,
         "schema_name",
         "table_name",
         vec!["4", "5", "6"],
+        None,
     );
     insert_into(
         &mut with_small_ints_table,
         "schema_name",
         "table_name",
         vec!["7", "8", "9"],
+        None,
     );
 
     assert_eq!(
@@ -141,18 +145,21 @@ fn select_all_columns_reordered_from_table_with_multiple_columns(mut with_small_
         "schema_name",
         "table_name",
         vec!["1", "2", "3"],
+        None,
     );
     insert_into(
         &mut with_small_ints_table,
         "schema_name",
         "table_name",
         vec!["4", "5", "6"],
+        None,
     );
     insert_into(
         &mut with_small_ints_table,
         "schema_name",
         "table_name",
         vec!["7", "8", "9"],
+        None,
     );
 
     assert_eq!(
@@ -185,18 +192,21 @@ fn select_with_column_name_duplication(mut with_small_ints_table: PersistentStor
         "schema_name",
         "table_name",
         vec!["1", "2", "3"],
+        None,
     );
     insert_into(
         &mut with_small_ints_table,
         "schema_name",
         "table_name",
         vec!["4", "5", "6"],
+        None,
     );
     insert_into(
         &mut with_small_ints_table,
         "schema_name",
         "table_name",
         vec!["7", "8", "9"],
+        None,
     );
 
     assert_eq!(
@@ -266,18 +276,21 @@ fn select_different_integer_types(mut storage: PersistentStorage) {
         "schema_name",
         "table_name",
         vec!["1000", "2000000", "3000000000"],
+        None,
     );
     insert_into(
         &mut storage,
         "schema_name",
         "table_name",
         vec!["4000", "5000000", "6000000000"],
+        None,
     );
     insert_into(
         &mut storage,
         "schema_name",
         "table_name",
         vec!["7000", "8000000", "9000000000"],
+        None,
     );
 
     assert_eq!(
@@ -317,13 +330,21 @@ fn select_different_character_strings_types(mut storage: PersistentStorage) {
         "schema_name",
         "table_name",
         vec!["1234567890", "12345678901234567890"],
+        None,
     );
-    insert_into(&mut storage, "schema_name", "table_name", vec!["12345", "1234567890"]);
+    insert_into(
+        &mut storage,
+        "schema_name",
+        "table_name",
+        vec!["12345", "1234567890"],
+        None,
+    );
     insert_into(
         &mut storage,
         "schema_name",
         "table_name",
         vec!["12345", "1234567890     "],
+        None,
     );
 
     assert_eq!(

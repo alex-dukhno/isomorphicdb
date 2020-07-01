@@ -123,14 +123,17 @@ impl<P: BackendStorage> Handler<P> {
                 _ => Ok(Err(QueryError::NotSupportedOperation(raw_sql_query.to_owned()))),
             },
             sqlparser::ast::Statement::Insert {
-                mut table_name, source, ..
+                mut table_name,
+                columns,
+                source,
+                ..
             } => {
                 let name = table_name.0.pop().unwrap().to_string();
                 let schema_name = table_name.0.pop().unwrap().to_string();
                 let sqlparser::ast::Query { body, .. } = &*source;
                 if let sqlparser::ast::SetExpr::Values(values) = &body {
                     let values = &values.0;
-                    let to_insert: Vec<Vec<String>> = values
+                    let rows: Vec<Vec<String>> = values
                         .iter()
                         .map(|v| {
                             v.iter()
@@ -151,8 +154,23 @@ impl<P: BackendStorage> Handler<P> {
                                 .collect()
                         })
                         .collect();
-                    let len = to_insert.len();
-                    match (self.storage.lock().unwrap()).insert_into(&schema_name, &name, to_insert)? {
+
+                    let specified_columns = if columns.is_empty() {
+                        None
+                    } else {
+                        Some(
+                            columns
+                                .iter()
+                                .map(|id| {
+                                    let sqlparser::ast::Ident { value, .. } = id;
+                                    value.to_owned()
+                                })
+                                .collect(),
+                        )
+                    };
+
+                    let len = rows.len();
+                    match (self.storage.lock().unwrap()).insert_into(&schema_name, &name, rows, specified_columns)? {
                         Ok(_) => Ok(Ok(QueryEvent::RecordsInserted(len))),
                         Err(OperationOnTableError::SchemaDoesNotExist) => {
                             Ok(Err(QueryError::SchemaDoesNotExist(schema_name)))
@@ -630,6 +648,39 @@ mod tests {
             Ok(QueryEvent::RecordsSelected((
                 vec![("column_test".to_owned(), SqlType::SmallInt)],
                 vec![vec!["123".to_owned()], vec!["456".to_owned()]]
+            )))
+        );
+    }
+
+    #[rstest::rstest]
+    fn insert_and_select_named_columns(mut sql_engine: InMemorySqlEngine) {
+        sql_engine
+            .execute("create schema schema_name;")
+            .expect("no system errors")
+            .expect("schema created");
+        sql_engine
+            .execute("create table schema_name.table_name (col1 smallint, col2 smallint, col3 smallint);")
+            .expect("no system errors")
+            .expect("table created");
+        sql_engine
+            .execute("insert into schema_name.table_name (col2, col3, col1) values (1, 2, 3), (4, 5, 6);")
+            .expect("no system errors")
+            .expect("row inserted");
+
+        assert_eq!(
+            sql_engine
+                .execute("select * from schema_name.table_name;")
+                .expect("no system errors"),
+            Ok(QueryEvent::RecordsSelected((
+                vec![
+                    ("col1".to_owned(), SqlType::SmallInt),
+                    ("col2".to_owned(), SqlType::SmallInt),
+                    ("col3".to_owned(), SqlType::SmallInt),
+                ],
+                vec![
+                    vec!["3".to_owned(), "1".to_owned(), "2".to_owned()],
+                    vec!["6".to_owned(), "4".to_owned(), "5".to_owned()],
+                ]
             )))
         );
     }
