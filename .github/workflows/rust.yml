@@ -106,8 +106,8 @@ jobs:
     steps:
       - name: docker-login
         run: docker login docker.pkg.github.com -u $GITHUB_ACTOR -p $GITHUB_TOKEN
-          env:
-            GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
       - name: pull-docker-image
         run: docker pull "docker.pkg.github.com/alex-dukhno/database/database:latest"
       - name:
