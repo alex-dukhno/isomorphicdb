@@ -111,7 +111,7 @@ jobs:
       - name: pull-docker-image
         run: docker pull "docker.pkg.github.com/alex-dukhno/database/database:latest"
       - name:
-        run: docker run -it -d -p 5432:5432 database:latest
+        run: docker run -it -d -p 5432:5432 docker.pkg.github.com/alex-dukhno/database/database:latest
       - name: checkout
         uses: actions/checkout@v2
       - name: set-up-python
