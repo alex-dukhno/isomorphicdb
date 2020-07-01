@@ -308,7 +308,7 @@ mod tests {
                     at: None,
                     bt: cause.clone()
                 }),
-                SystemError::unrecoverable_with_cause(format!("Sled encountered corruption"), cause,)
+                SystemError::unrecoverable_with_cause("Sled encountered corruption".to_owned(), cause,)
             )
         }
 

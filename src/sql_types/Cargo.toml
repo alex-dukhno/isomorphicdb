@@ -8,5 +8,7 @@ publish = false
 [dependencies]
 kernel = { path = "../kernel" }
 lexical = "5.2.0"
-rstest = "0.6.4"
 serde = { version = "1.0.114", features = ["derive"] }
+
+[dev-dependencies]
+rstest = "0.6.4"
