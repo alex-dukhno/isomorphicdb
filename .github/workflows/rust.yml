@@ -86,15 +86,17 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
   publish-docker:
-    runs-on: ubuntu-latest
     steps:
-      - name: build-and-publish
-        uses: docker/build-push-action@v1
+      - name: checkout
+        uses: actions/checkout@v1.0
+
+      - name: build-&-push-docker-image
+        uses: mr-smithers-excellent/docker-build-push@v3
         with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-          repository: alexdukhno/database
-          tags: latest
+          image: alex-dukhno/database
+          registry: docker.pkg.github.com
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
   functional-tests:
     needs:
