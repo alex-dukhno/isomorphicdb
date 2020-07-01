@@ -104,7 +104,7 @@ jobs:
       - publish-docker
     runs-on: ubuntu-latest
     container:
-      image: alex-dukhno/database:latest
+      image: alex-dukhno/database/database:latest
       ports:
         - 5432
     steps:
