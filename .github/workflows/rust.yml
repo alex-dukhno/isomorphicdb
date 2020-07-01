@@ -86,6 +86,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
   publish-docker:
+    runs-on: ubuntu-latest
     steps:
       - name: checkout
         uses: actions/checkout@v1.0
