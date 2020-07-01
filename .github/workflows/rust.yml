@@ -23,7 +23,7 @@ jobs:
 
   functional-tests:
     runs-on: ubuntu-latest
-    service:
+    services:
       database:
         image: 'Dockerfile'
         ports:
