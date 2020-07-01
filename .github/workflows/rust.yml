@@ -103,7 +103,7 @@ jobs:
     name: ci
     if: github.event_name == 'push' && success()
     needs:
-      - all-tests
+      - tests
       - rustfmt
       - clippy
     runs-on: ubuntu-latest
@@ -115,7 +115,7 @@ jobs:
     name: ci
     if: github.event_name == 'push' && !success()
     needs:
-      - all-tests
+      - tests
       - rustfmt
       - clippy
     runs-on: ubuntu-latest
