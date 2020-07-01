@@ -91,13 +91,13 @@ jobs:
       - name: checkout
         uses: actions/checkout@v2
       - name: build-&-push-docker-image
-        uses: mr-smithers-excellent/docker-build-push@v3
+        uses: docker/build-push-action@v1
         with:
-          image: alex-dukhno/database/database
-          tag: latest
-          registry: docker.pkg.github.com
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+          registry: docker.pkg.github.com
+          repository: alex-dukhno/database
+          tags: latest
 
   functional-tests:
     needs:
