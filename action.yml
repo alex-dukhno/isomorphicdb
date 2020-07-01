@@ -1,0 +1,6 @@
+name: 'docker image'
+description: 'build docker image to run functional tests on CI'
+inputs:
+runs:
+  using: 'docker'
+  image: 'Dockerfile'
