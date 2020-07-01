@@ -86,6 +86,8 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
   publish-docker:
+    needs:
+      - tests
     runs-on: ubuntu-latest
     steps:
       - name: checkout
@@ -102,6 +104,7 @@ jobs:
   functional-tests:
     needs:
       - publish-docker
+      - tests
     runs-on: ubuntu-latest
     steps:
       - name: docker-login
@@ -133,6 +136,7 @@ jobs:
       - tests
       - rustfmt
       - clippy
+      - functional-tests
     runs-on: ubuntu-latest
     steps:
       - name: Mark the job as a success
@@ -145,6 +149,7 @@ jobs:
       - tests
       - rustfmt
       - clippy
+      - functional-tests
     runs-on: ubuntu-latest
     steps:
       - name: Mark the job as a failure
