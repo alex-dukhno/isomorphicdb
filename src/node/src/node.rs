@@ -15,7 +15,7 @@
 use crate::query_listener::SmolQueryListener;
 use protocol::{listener::Secure, messages::Message, ColumnMetadata, Command, QueryListener};
 use smol::Task;
-use sql_engine::{Handler, QueryError, QueryEvent, QueryResult};
+use sql_engine::{Handler, QueryError, QueryErrorKind, QueryEvent, QueryResult};
 use sql_types::SqlType;
 use std::sync::{
     atomic::{AtomicU8, Ordering},
@@ -182,44 +182,28 @@ impl QueryResultMapper {
             }
             Ok(QueryEvent::RecordsUpdated(records)) => vec![Message::CommandComplete(format!("UPDATE {}", records))],
             Ok(QueryEvent::RecordsDeleted(records)) => vec![Message::CommandComplete(format!("DELETE {}", records))],
-            Err(QueryError::SchemaAlreadyExists(schema_name)) => vec![Message::ErrorResponse(
-                Some("ERROR".to_owned()),
-                Some("42P06".to_owned()),
-                Some(format!("schema \"{}\" already exists", schema_name)),
-            )],
-            Err(QueryError::SchemaDoesNotExist(schema_name)) => vec![Message::ErrorResponse(
-                Some("ERROR".to_owned()),
-                Some("3F000".to_owned()),
-                Some(format!("schema \"{}\" does not exist", schema_name)),
-            )],
-            Err(QueryError::TableAlreadyExists(table_name)) => vec![Message::ErrorResponse(
-                Some("ERROR".to_owned()),
-                Some("42P07".to_owned()),
-                Some(format!("table \"{}\" already exists", table_name)),
-            )],
-            Err(QueryError::TableDoesNotExist(table_name)) => vec![Message::ErrorResponse(
-                Some("ERROR".to_owned()),
-                Some("42P01".to_owned()),
-                Some(format!("table \"{}\" does not exist", table_name)),
-            )],
-            Err(QueryError::ColumnDoesNotExist(non_existing_columns)) => {
-                let error_message = if non_existing_columns.len() > 1 {
-                    format!("columns {} do not exist", non_existing_columns.join(", "))
-                } else {
-                    format!("column {} does not exist", non_existing_columns[0])
+            Err(QueryError {
+                    severity,
+                    code,
+                    kind
+                }) => {
+
+                let message = match kind {
+                    QueryErrorKind::ColumnDoesNotExist(columns) => {
+                        if columns.len() > 1 {
+                            format!("columns {} do not exist", columns.join(", "))
+                        } else {
+                            format!("column {} does not exist", columns[0])
+                        }
+                    }
+                    QueryErrorKind::NotSupportedOperation(raw_sql_query) => {
+                        format!("Currently, Query '{}' can't be executed", raw_sql_query)
+                    }
+                    k => format!("{}", k),
                 };
 
-                vec![Message::ErrorResponse(
-                    Some("ERROR".to_owned()),
-                    Some("42703".to_owned()),
-                    Some(error_message),
-                )]
+                vec![Message::ErrorResponse(Some(severity.into()), Some(code), Some(message))]
             }
-            Err(QueryError::NotSupportedOperation(raw_sql_query)) => vec![Message::ErrorResponse(
-                Some("ERROR".to_owned()),
-                Some("42601".to_owned()),
-                Some(format!("Currently, Query '{}' can't be executed", raw_sql_query)),
-            )],
         }
     }
 }
@@ -318,7 +302,7 @@ mod mapper {
     fn schema_already_exists() {
         let schema_name = "some_table_name".to_owned();
         assert_eq!(
-            QueryResultMapper::map(Err(QueryError::SchemaAlreadyExists(schema_name.clone()))),
+            QueryResultMapper::map(Err(QueryError::schema_already_exists(schema_name.clone()))),
             vec![Message::ErrorResponse(
                 Some("ERROR".to_owned()),
                 Some("42P06".to_owned()),
@@ -331,7 +315,7 @@ mod mapper {
     fn schema_does_not_exists() {
         let schema_name = "some_table_name".to_owned();
         assert_eq!(
-            QueryResultMapper::map(Err(QueryError::SchemaDoesNotExist(schema_name.clone()))),
+            QueryResultMapper::map(Err(QueryError::schema_does_not_exist(schema_name.clone()))),
             vec![Message::ErrorResponse(
                 Some("ERROR".to_owned()),
                 Some("3F000".to_owned()),
@@ -344,7 +328,7 @@ mod mapper {
     fn table_already_exists() {
         let table_name = "some_table_name".to_owned();
         assert_eq!(
-            QueryResultMapper::map(Err(QueryError::TableAlreadyExists(table_name.clone()))),
+            QueryResultMapper::map(Err(QueryError::table_already_exists(table_name.clone()))),
             vec![Message::ErrorResponse(
                 Some("ERROR".to_owned()),
                 Some("42P07".to_owned()),
@@ -357,7 +341,7 @@ mod mapper {
     fn table_does_not_exists() {
         let table_name = "some_table_name".to_owned();
         assert_eq!(
-            QueryResultMapper::map(Err(QueryError::TableDoesNotExist(table_name.clone()))),
+            QueryResultMapper::map(Err(QueryError::table_does_not_exist(table_name.clone()))),
             vec![Message::ErrorResponse(
                 Some("ERROR".to_owned()),
                 Some("42P01".to_owned()),
@@ -369,7 +353,7 @@ mod mapper {
     #[test]
     fn one_column_does_not_exists() {
         assert_eq!(
-            QueryResultMapper::map(Err(QueryError::ColumnDoesNotExist(vec![
+            QueryResultMapper::map(Err(QueryError::column_does_not_exist(vec![
                 "column_not_in_table".to_owned()
             ]))),
             vec![Message::ErrorResponse(
@@ -383,7 +367,7 @@ mod mapper {
     #[test]
     fn multiple_columns_does_not_exists() {
         assert_eq!(
-            QueryResultMapper::map(Err(QueryError::ColumnDoesNotExist(vec![
+            QueryResultMapper::map(Err(QueryError::column_does_not_exist(vec![
                 "column_not_in_table1".to_owned(),
                 "column_not_in_table2".to_owned()
             ]))),
@@ -399,7 +383,7 @@ mod mapper {
     fn operation_is_not_supported() {
         let raw_sql_query = "some SQL query".to_owned();
         assert_eq!(
-            QueryResultMapper::map(Err(QueryError::NotSupportedOperation(raw_sql_query.clone()))),
+            QueryResultMapper::map(Err(QueryError::not_supported_operation(raw_sql_query.clone()))),
             vec![Message::ErrorResponse(
                 Some("ERROR".to_owned()),
                 Some("42601".to_owned()),

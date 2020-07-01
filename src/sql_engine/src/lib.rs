@@ -26,23 +26,112 @@ use storage::{
     Projection, SchemaAlreadyExists, SchemaDoesNotExist,
 };
 use thiserror::Error;
+// use test_helpers::pg_frontend::Message::Query;
 
 pub type QueryResult = std::result::Result<QueryEvent, QueryError>;
 
+/// Message severities
+/// Reference: defined in https://www.postgresql.org/docs/12/protocol-error-fields.html
+#[derive(Debug, Eq, PartialEq)]
+pub enum Severity {
+    Error,
+    Fatal,
+    Panic,
+    Warning,
+    Notice,
+    Debug,
+    Info,
+    Log,
+}
+
+// easy conversion into a string.
+impl Into<String> for Severity {
+    fn into(self) -> String {
+        match self {
+            Self::Error => "ERROR".to_string(),
+            Self::Fatal => "FATAL".to_string(),
+            Self::Panic => "PANIC".to_string(),
+            Self::Warning => "WARNING".to_string(),
+            Self::Notice => "NOTIC".to_string(),
+            Self::Debug => "DEBUG".to_string(),
+            Self::Info => "INFO".to_string(),
+            Self::Log => "LOG".to_string(),
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Error)]
-pub enum QueryError {
-    #[error("schema {0} already exists")]
+pub enum QueryErrorKind {
+    #[error("schema \"{0}\" already exists")]
     SchemaAlreadyExists(String),
-    #[error("table {0} already exists")]
+    #[error("table \"{0}\" already exists")]
     TableAlreadyExists(String),
-    #[error("schema {0} does not exist")]
+    #[error("schema \"{0}\" does not exist")]
     SchemaDoesNotExist(String),
-    #[error("table {0} does not exist")]
+    #[error("table \"{0}\" does not exist")]
     TableDoesNotExist(String),
-    #[error("column {0:?} does not exist")]
+    #[error("column {} does not exist", .0.join(", "))]
     ColumnDoesNotExist(Vec<String>),
     #[error("not supported operation")]
     NotSupportedOperation(String),
+}
+
+#[derive(Debug, PartialEq)]
+pub struct QueryError {
+    pub severity: Severity,
+    pub code: String,
+    pub kind: QueryErrorKind,
+}
+
+impl QueryError {
+
+    pub fn schema_already_exists(schema_name: String) -> Self {
+        Self {
+            severity: Severity::Error,
+            code: "42P06".to_owned(),
+            kind: QueryErrorKind::SchemaAlreadyExists(schema_name)
+        }
+    }
+
+    pub fn schema_does_not_exist(schema_name: String) -> Self {
+        Self {
+            severity: Severity::Error,
+            code:  "3F000".to_owned(),
+            kind: QueryErrorKind::SchemaDoesNotExist(schema_name),
+        }
+    }
+
+    pub fn table_already_exists(table_name: String) -> Self {
+        Self  {
+            severity: Severity::Error,
+            code:  "42P07".to_owned(),
+            kind: QueryErrorKind::TableAlreadyExists(table_name),
+        }
+    }
+
+    pub fn table_does_not_exist(table_name: String) -> Self {
+        Self {
+            severity: Severity::Error,
+            code: "42P01".to_owned(),
+            kind: QueryErrorKind::TableDoesNotExist(table_name),
+        }
+    }
+
+    pub fn column_does_not_exist(non_existing_columns: Vec<String>) -> Self {
+        Self {
+            severity: Severity::Error,
+            code: "42703".to_owned(),
+            kind: QueryErrorKind::ColumnDoesNotExist(non_existing_columns),
+        }
+    }
+
+    pub fn not_supported_operation(raw_sql_query: String) -> Self {
+        Self {
+            severity: Severity::Error,
+            code: "42601".to_owned(),
+            kind: QueryErrorKind::NotSupportedOperation(raw_sql_query)
+        }
+    }
 }
 
 pub struct Handler<P: BackendStorage> {
@@ -90,15 +179,15 @@ impl<P: BackendStorage> Handler<P> {
                         .collect(),
                 )? {
                     Ok(()) => Ok(Ok(QueryEvent::TableCreated)),
-                    Err(CreateTableError::SchemaDoesNotExist) => Ok(Err(QueryError::SchemaDoesNotExist(schema_name))),
-                    Err(CreateTableError::TableAlreadyExists) => Ok(Err(QueryError::TableAlreadyExists(table_name))),
+                    Err(CreateTableError::SchemaDoesNotExist) => Ok(Err(QueryError::schema_does_not_exist(schema_name))),
+                    Err(CreateTableError::TableAlreadyExists) => Ok(Err(QueryError::table_already_exists(table_name))),
                 }
             }
             sqlparser::ast::Statement::CreateSchema { schema_name, .. } => {
                 let schema_name = schema_name.to_string();
                 match (self.storage.lock().unwrap()).create_schema(&schema_name)? {
                     Ok(()) => Ok(Ok(QueryEvent::SchemaCreated)),
-                    Err(SchemaAlreadyExists) => Ok(Err(QueryError::SchemaAlreadyExists(schema_name))),
+                    Err(SchemaAlreadyExists) => Ok(Err(QueryError::schema_already_exists(schema_name))),
                 }
             }
             sqlparser::ast::Statement::Drop { object_type, names, .. } => match object_type {
@@ -107,20 +196,20 @@ impl<P: BackendStorage> Handler<P> {
                     let schema_name = names[0].0[0].to_string();
                     match (self.storage.lock().unwrap()).drop_table(&schema_name, &table_name)? {
                         Ok(()) => Ok(Ok(QueryEvent::TableDropped)),
-                        Err(DropTableError::TableDoesNotExist) => Ok(Err(QueryError::TableDoesNotExist(
+                        Err(DropTableError::TableDoesNotExist) => Ok(Err(QueryError::table_does_not_exist(
                             schema_name + "." + table_name.as_str(),
                         ))),
-                        Err(DropTableError::SchemaDoesNotExist) => Ok(Err(QueryError::SchemaDoesNotExist(schema_name))),
+                        Err(DropTableError::SchemaDoesNotExist) => Ok(Err(QueryError::schema_does_not_exist(schema_name))),
                     }
                 }
                 sqlparser::ast::ObjectType::Schema => {
                     let schema_name = names[0].0[0].to_string();
                     match (self.storage.lock().unwrap()).drop_schema(&schema_name)? {
                         Ok(()) => Ok(Ok(QueryEvent::SchemaDropped)),
-                        Err(SchemaDoesNotExist) => Ok(Err(QueryError::SchemaDoesNotExist(schema_name))),
+                        Err(SchemaDoesNotExist) => Ok(Err(QueryError::schema_does_not_exist(schema_name))),
                     }
                 }
-                _ => Ok(Err(QueryError::NotSupportedOperation(raw_sql_query.to_owned()))),
+                _ => Ok(Err(QueryError::not_supported_operation(raw_sql_query.to_owned()))),
             },
             sqlparser::ast::Statement::Insert {
                 mut table_name, source, ..
@@ -155,13 +244,13 @@ impl<P: BackendStorage> Handler<P> {
                     match (self.storage.lock().unwrap()).insert_into(&schema_name, &name, to_insert)? {
                         Ok(_) => Ok(Ok(QueryEvent::RecordsInserted(len))),
                         Err(OperationOnTableError::SchemaDoesNotExist) => {
-                            Ok(Err(QueryError::SchemaDoesNotExist(schema_name)))
+                            Ok(Err(QueryError::schema_does_not_exist(schema_name)))
                         }
                         Err(OperationOnTableError::TableDoesNotExist) => {
-                            Ok(Err(QueryError::TableDoesNotExist(schema_name + "." + name.as_str())))
+                            Ok(Err(QueryError::table_does_not_exist(schema_name + "." + name.as_str())))
                         }
                         Err(OperationOnTableError::ColumnDoesNotExist(non_existing_columns)) => {
-                            Ok(Err(QueryError::ColumnDoesNotExist(non_existing_columns)))
+                            Ok(Err(QueryError::column_does_not_exist(non_existing_columns)))
                         }
                         Err(e) => {
                             eprintln!("{:?}", e);
@@ -169,7 +258,7 @@ impl<P: BackendStorage> Handler<P> {
                         }
                     }
                 } else {
-                    Ok(Err(QueryError::NotSupportedOperation(raw_sql_query.to_owned())))
+                    Ok(Err(QueryError::not_supported_operation(raw_sql_query.to_owned())))
                 }
             }
             sqlparser::ast::Statement::Query(query) => {
@@ -183,7 +272,7 @@ impl<P: BackendStorage> Handler<P> {
                             let schema_name = name.0[0].to_string();
                             (schema_name, table_name)
                         }
-                        _ => return Ok(Err(QueryError::NotSupportedOperation(raw_sql_query.to_owned()))),
+                        _ => return Ok(Err(QueryError::not_supported_operation(raw_sql_query.to_owned()))),
                     };
                     let table_columns = {
                         let projection = projection.clone();
@@ -199,14 +288,14 @@ impl<P: BackendStorage> Handler<P> {
                                                 .collect::<Vec<String>>(),
                                         ),
                                         Err(_e) => {
-                                            return Ok(Err(QueryError::NotSupportedOperation(raw_sql_query.to_owned())))
+                                            return Ok(Err(QueryError::not_supported_operation(raw_sql_query.to_owned())))
                                         }
                                     }
                                 }
                                 sqlparser::ast::SelectItem::UnnamedExpr(sqlparser::ast::Expr::Identifier(
                                     sqlparser::ast::Ident { value, .. },
                                 )) => columns.push(value.clone()),
-                                _ => return Ok(Err(QueryError::NotSupportedOperation(raw_sql_query.to_owned()))),
+                                _ => return Ok(Err(QueryError::not_supported_operation(raw_sql_query.to_owned()))),
                             }
                         }
                         columns
@@ -214,18 +303,18 @@ impl<P: BackendStorage> Handler<P> {
                     match (self.storage.lock().unwrap()).select_all_from(&schema_name, &table_name, table_columns)? {
                         Ok(records) => Ok(Ok(QueryEvent::RecordsSelected(records))),
                         Err(OperationOnTableError::ColumnDoesNotExist(non_existing_columns)) => {
-                            Ok(Err(QueryError::ColumnDoesNotExist(non_existing_columns)))
+                            Ok(Err(QueryError::column_does_not_exist(non_existing_columns)))
                         }
                         Err(OperationOnTableError::SchemaDoesNotExist) => {
-                            Ok(Err(QueryError::SchemaDoesNotExist(schema_name.to_owned())))
+                            Ok(Err(QueryError::schema_does_not_exist(schema_name.to_owned())))
                         }
-                        Err(OperationOnTableError::TableDoesNotExist) => Ok(Err(QueryError::TableDoesNotExist(
+                        Err(OperationOnTableError::TableDoesNotExist) => Ok(Err(QueryError::table_does_not_exist(
                             schema_name.to_owned() + "." + table_name.as_str(),
                         ))),
-                        _ => Ok(Err(QueryError::NotSupportedOperation(raw_sql_query.to_owned()))),
+                        _ => Ok(Err(QueryError::not_supported_operation(raw_sql_query.to_owned()))),
                     }
                 } else {
-                    Ok(Err(QueryError::NotSupportedOperation(raw_sql_query.to_owned())))
+                    Ok(Err(QueryError::not_supported_operation(raw_sql_query.to_owned())))
                 }
             }
             sqlparser::ast::Statement::Update {
@@ -262,13 +351,13 @@ impl<P: BackendStorage> Handler<P> {
                 match (self.storage.lock().unwrap()).update_all(&schema_name, &table_name, to_update)? {
                     Ok(records_number) => Ok(Ok(QueryEvent::RecordsUpdated(records_number))),
                     Err(OperationOnTableError::SchemaDoesNotExist) => {
-                        Ok(Err(QueryError::SchemaDoesNotExist(schema_name)))
+                        Ok(Err(QueryError::schema_does_not_exist(schema_name)))
                     }
-                    Err(OperationOnTableError::TableDoesNotExist) => Ok(Err(QueryError::TableDoesNotExist(
+                    Err(OperationOnTableError::TableDoesNotExist) => Ok(Err(QueryError::table_does_not_exist(
                         schema_name + "." + table_name.as_str(),
                     ))),
                     Err(OperationOnTableError::ColumnDoesNotExist(non_existing_columns)) => {
-                        Ok(Err(QueryError::ColumnDoesNotExist(non_existing_columns)))
+                        Ok(Err(QueryError::column_does_not_exist(non_existing_columns)))
                     }
                     _ => unimplemented!(),
                 }
@@ -279,18 +368,18 @@ impl<P: BackendStorage> Handler<P> {
                 match (self.storage.lock().unwrap()).delete_all_from(&schema_name, &table_name)? {
                     Ok(records_number) => Ok(Ok(QueryEvent::RecordsDeleted(records_number))),
                     Err(OperationOnTableError::SchemaDoesNotExist) => {
-                        Ok(Err(QueryError::SchemaDoesNotExist(schema_name)))
+                        Ok(Err(QueryError::schema_does_not_exist(schema_name)))
                     }
-                    Err(OperationOnTableError::TableDoesNotExist) => Ok(Err(QueryError::TableDoesNotExist(
+                    Err(OperationOnTableError::TableDoesNotExist) => Ok(Err(QueryError::table_does_not_exist(
                         schema_name + "." + table_name.as_str(),
                     ))),
                     Err(OperationOnTableError::ColumnDoesNotExist(non_existing_columns)) => {
-                        Ok(Err(QueryError::ColumnDoesNotExist(non_existing_columns)))
+                        Ok(Err(QueryError::column_does_not_exist(non_existing_columns)))
                     }
                     _ => unimplemented!(),
                 }
             }
-            _ => Ok(Err(QueryError::NotSupportedOperation(raw_sql_query.to_owned()))),
+            _ => Ok(Err(QueryError::not_supported_operation(raw_sql_query.to_owned()))),
         }
     }
 }
@@ -348,7 +437,7 @@ mod tests {
                 sql_engine
                     .execute("create schema schema_name;")
                     .expect("no system errors"),
-                Err(QueryError::SchemaAlreadyExists("schema_name".to_owned()))
+                Err(QueryError::schema_already_exists("schema_name".to_owned()))
             );
         }
 
@@ -379,7 +468,7 @@ mod tests {
                 sql_engine
                     .execute("drop schema non_existent")
                     .expect("no system errors"),
-                Err(QueryError::SchemaDoesNotExist("non_existent".to_owned()))
+                Err(QueryError::schema_does_not_exist("non_existent".to_owned()))
             );
         }
 
@@ -389,7 +478,7 @@ mod tests {
                 sql_engine
                     .execute("select * from non_existent.some_table;")
                     .expect("no system errors"),
-                Err(QueryError::SchemaDoesNotExist("non_existent".to_owned()))
+                Err(QueryError::schema_does_not_exist("non_existent".to_owned()))
             );
         }
 
@@ -399,7 +488,7 @@ mod tests {
                 sql_engine
                     .execute("select column_1 from schema_name.table_name;")
                     .expect("no system errors"),
-                Err(QueryError::SchemaDoesNotExist("schema_name".to_owned()))
+                Err(QueryError::schema_does_not_exist("schema_name".to_owned()))
             );
         }
 
@@ -409,7 +498,7 @@ mod tests {
                 sql_engine
                     .execute("insert into schema_name.table_name values (123);")
                     .expect("no system errors"),
-                Err(QueryError::SchemaDoesNotExist("schema_name".to_owned()))
+                Err(QueryError::schema_does_not_exist("schema_name".to_owned()))
             );
         }
 
@@ -419,7 +508,7 @@ mod tests {
                 sql_engine
                     .execute("update schema_name.table_name set column_test=789;")
                     .expect("no system errors"),
-                Err(QueryError::SchemaDoesNotExist("schema_name".to_owned()))
+                Err(QueryError::schema_does_not_exist("schema_name".to_owned()))
             );
         }
 
@@ -429,7 +518,7 @@ mod tests {
                 sql_engine
                     .execute("delete from schema_name.table_name;")
                     .expect("no system errors"),
-                Err(QueryError::SchemaDoesNotExist("schema_name".to_owned()))
+                Err(QueryError::schema_does_not_exist("schema_name".to_owned()))
             );
         }
     }
@@ -448,7 +537,7 @@ mod tests {
                     sql_engine
                         .execute("create table schema_name.table_name (column_name smallint);")
                         .expect("no system errors"),
-                    Err(QueryError::SchemaDoesNotExist("schema_name".to_owned()))
+                    Err(QueryError::schema_does_not_exist("schema_name".to_owned()))
                 );
             }
 
@@ -458,7 +547,7 @@ mod tests {
                     sql_engine
                         .execute("drop table schema_name.table_name;")
                         .expect("no system errors"),
-                    Err(QueryError::SchemaDoesNotExist("schema_name".to_owned()))
+                    Err(QueryError::schema_does_not_exist("schema_name".to_owned()))
                 );
             }
         }
@@ -510,7 +599,7 @@ mod tests {
                 sql_engine_with_schema
                     .execute("drop table schema_name.table_name;")
                     .expect("no system errors"),
-                Err(QueryError::TableDoesNotExist("schema_name.table_name".to_owned()))
+                Err(QueryError::table_does_not_exist("schema_name.table_name".to_owned()))
             );
         }
 
@@ -520,7 +609,7 @@ mod tests {
                 sql_engine_with_schema
                     .execute("select * from schema_name.non_existent;")
                     .expect("no system errors"),
-                Err(QueryError::TableDoesNotExist("schema_name.non_existent".to_owned()))
+                Err(QueryError::table_does_not_exist("schema_name.non_existent".to_owned()))
             );
         }
 
@@ -530,7 +619,7 @@ mod tests {
                 sql_engine_with_schema
                     .execute("select column_1 from schema_name.non_existent;")
                     .expect("no system errors"),
-                Err(QueryError::TableDoesNotExist("schema_name.non_existent".to_owned()))
+                Err(QueryError::table_does_not_exist("schema_name.non_existent".to_owned()))
             );
         }
 
@@ -540,7 +629,7 @@ mod tests {
                 sql_engine_with_schema
                     .execute("insert into schema_name.table_name values (123);")
                     .expect("no system errors"),
-                Err(QueryError::TableDoesNotExist("schema_name.table_name".to_owned()))
+                Err(QueryError::table_does_not_exist("schema_name.table_name".to_owned()))
             );
         }
 
@@ -550,7 +639,7 @@ mod tests {
                 sql_engine_with_schema
                     .execute("update schema_name.table_name set column_test=789;")
                     .expect("no system errors"),
-                Err(QueryError::TableDoesNotExist("schema_name.table_name".to_owned()))
+                Err(QueryError::table_does_not_exist("schema_name.table_name".to_owned()))
             );
         }
 
@@ -560,7 +649,7 @@ mod tests {
                 sql_engine_with_schema
                     .execute("delete from schema_name.table_name;")
                     .expect("no system errors"),
-                Err(QueryError::TableDoesNotExist("schema_name.table_name".to_owned()))
+                Err(QueryError::table_does_not_exist("schema_name.table_name".to_owned()))
             );
         }
     }
@@ -863,7 +952,7 @@ mod tests {
             sql_engine
                 .execute("update schema_name.table_name set column_test=789;")
                 .expect("no system errors"),
-            Err(QueryError::TableDoesNotExist("schema_name.table_name".to_owned()))
+            Err(QueryError::table_does_not_exist("schema_name.table_name".to_owned()))
         );
     }
 
@@ -895,7 +984,7 @@ mod tests {
             sql_engine
                 .execute("update schema_name.table_name set col1=456, col2=789;")
                 .expect("no system errors"),
-            Err(QueryError::ColumnDoesNotExist(vec![
+            Err(QueryError::column_does_not_exist(vec![
                 "col1".to_owned(),
                 "col2".to_owned()
             ]))
@@ -1060,7 +1149,7 @@ mod tests {
             sql_engine
                 .execute("select column_not_in_table1, column_not_in_table2 from schema_name.table_name;")
                 .expect("no system errors"),
-            Err(QueryError::ColumnDoesNotExist(vec![
+            Err(QueryError::column_does_not_exist(vec![
                 "column_not_in_table1".to_owned(),
                 "column_not_in_table2".to_owned()
             ]))
