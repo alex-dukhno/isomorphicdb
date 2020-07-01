@@ -93,7 +93,7 @@ jobs:
       - name: build-&-push-docker-image
         uses: mr-smithers-excellent/docker-build-push@v3
         with:
-          image: alex-dukhno/database
+          image: alex-dukhno/database:latest
           registry: docker.pkg.github.com
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
@@ -103,7 +103,7 @@ jobs:
       - publish-docker
     runs-on: ubuntu-latest
     container:
-      image: alexdukhno/database:latest
+      image: alex-dukhno/database:latest
       ports:
         - 5432
     steps:
