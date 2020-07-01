@@ -21,7 +21,39 @@ jobs:
       - uses: actions/checkout@v1
       - uses: EmbarkStudios/cargo-deny-action@v1
 
-  all-tests:
+  rustfmt:
+    needs: cargo-deny
+    name: rustfmt
+    runs-on: ubuntu-latest
+    steps:
+      - name: set-up-rust
+        uses: hecrj/setup-rust-action@v1
+        with:
+          components: rustfmt
+          rust-version: nightly
+      - uses: actions/checkout@v2
+      - run: ./ci/rustfmt.sh
+
+  clippy:
+    needs:
+      - cargo-deny
+      - rustfmt
+    name: clippy
+    runs-on: ubuntu-latest
+    steps:
+      - name: set-up-rust
+        uses: hecrj/setup-rust-action@v1
+        with:
+          components: clippy
+          rust-version: stable
+      - uses: actions/checkout@v2
+      - run: ./ci/clippy.sh
+
+  tests:
+    needs:
+      - cargo-deny
+      - rustfmt
+      - clippy
     strategy:
       matrix:
         os:
@@ -30,56 +62,81 @@ jobs:
           - macos
     runs-on: ${{ matrix.os }}-latest
     steps:
-    - name: checkout
-      uses: actions/checkout@v2
-    - name: toolchain
-      uses: actions-rs/toolchain@v1
-    - name: install tarpaulin
-      if: matrix.os == 'ubuntu'
-      uses: actions-rs/install@v0.1
-      with:
-        crate: cargo-tarpaulin
-        version: 0.14.0
-        use-tool-cache: true
-    - name: unit-tests
-      uses: actions-rs/cargo@v1
-      with:
-        command: test
-        args: --lib --all
-    - name: code-coverage
-      if: matrix.os == 'ubuntu'
-      run: cargo tarpaulin --exclude-files proof-of-concepts/ -o Lcov --output-dir ./coverage
-    - name: coveralls
-      if: matrix.os == 'ubuntu'
-      uses: coverallsapp/github-action@master
-      with:
-        github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: checkout
+        uses: actions/checkout@v2
+      - name: install tarpaulin
+        if: matrix.os == 'ubuntu'
+        uses: actions-rs/install@v0.1
+        with:
+          crate: cargo-tarpaulin
+          version: 0.14.0
+          use-tool-cache: true
+      - name: unit-tests
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --lib --all
+      - name: code-coverage
+        if: matrix.os == 'ubuntu'
+        run: cargo tarpaulin --exclude-files proof-of-concepts/ -o Lcov --output-dir ./coverage
+      - name: coveralls
+        if: matrix.os == 'ubuntu'
+        uses: coverallsapp/github-action@master
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
-  rustfmt:
-    name: rustfmt
+  publish-docker:
+    needs:
+      - tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@master
-      - uses: actions-rs/toolchain@v1
-      - name: rustfmt
-        run: ./ci/rustfmt.sh
+      - name: checkout
+        uses: actions/checkout@v2
+      - name: build-&-push-docker-image
+        uses: docker/build-push-action@v1
+        with:
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          registry: docker.pkg.github.com
+          repository: alex-dukhno/database/database
+          tags: latest
 
-  clippy:
-    name: clippy
+  functional-tests:
+    needs:
+      - publish-docker
+      - tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@master
-      - uses: actions-rs/toolchain@v1
-      - name: clippy
-        run: ./ci/clippy.sh
+      - name: docker-login
+        run: docker login docker.pkg.github.com -u $GITHUB_ACTOR -p $GITHUB_TOKEN
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+      - name: pull-docker-image
+        run: docker pull "docker.pkg.github.com/alex-dukhno/database/database:latest"
+      - name:
+        run: docker run -it -d -p 5432:5432 docker.pkg.github.com/alex-dukhno/database/database:latest
+      - name: checkout
+        uses: actions/checkout@v2
+      - name: set-up-python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.7
+      - name: install-dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r tests/functional/requirements.txt
+      - name: run-tests
+        run: |
+          pytest -v tests/functional/*
 
   ci-success:
     name: ci
     if: github.event_name == 'push' && success()
     needs:
-      - all-tests
+      - tests
       - rustfmt
       - clippy
+      - functional-tests
     runs-on: ubuntu-latest
     steps:
       - name: Mark the job as a success
@@ -89,9 +146,10 @@ jobs:
     name: ci
     if: github.event_name == 'push' && !success()
     needs:
-      - all-tests
+      - tests
       - rustfmt
       - clippy
+      - functional-tests
     runs-on: ubuntu-latest
     steps:
       - name: Mark the job as a failure

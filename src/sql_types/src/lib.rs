@@ -241,7 +241,7 @@ mod tests {
 
                 #[rstest::rstest]
                 fn deserialize(serializer: Box<dyn Serializer>) {
-                    assert_eq!(serializer.des(&vec![0, 1]), "1".to_owned())
+                    assert_eq!(serializer.des(&[0, 1]), "1".to_owned())
                 }
             }
 
@@ -303,7 +303,7 @@ mod tests {
 
                 #[rstest::rstest]
                 fn deserialize(serializer: Box<dyn Serializer>) {
-                    assert_eq!(serializer.des(&vec![0, 0, 0, 1]), "1".to_owned())
+                    assert_eq!(serializer.des(&[0, 0, 0, 1]), "1".to_owned())
                 }
             }
 
@@ -365,7 +365,7 @@ mod tests {
 
                 #[rstest::rstest]
                 fn deserialize(serializer: Box<dyn Serializer>) {
-                    assert_eq!(serializer.des(&vec![0, 0, 0, 0, 0, 0, 0, 1]), "1".to_owned())
+                    assert_eq!(serializer.des(&[0, 0, 0, 0, 0, 0, 0, 1]), "1".to_owned())
                 }
             }
 
@@ -438,7 +438,7 @@ mod tests {
 
                 #[rstest::rstest]
                 fn deserialize(serializer: Box<dyn Serializer>) {
-                    assert_eq!(serializer.des(&vec![115, 116, 114]), "str".to_owned())
+                    assert_eq!(serializer.des(&[115, 116, 114]), "str".to_owned())
                 }
             }
 
@@ -486,7 +486,7 @@ mod tests {
 
                 #[rstest::rstest]
                 fn deserialize(serializer: Box<dyn Serializer>) {
-                    assert_eq!(serializer.des(&vec![115, 116, 114]), "str".to_owned())
+                    assert_eq!(serializer.des(&[115, 116, 114]), "str".to_owned())
                 }
             }
 

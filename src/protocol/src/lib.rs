@@ -19,7 +19,7 @@ extern crate log;
 use crate::messages::Message;
 use byteorder::{ByteOrder, NetworkEndian};
 use bytes::BytesMut;
-use futures::{AsyncReadExt, AsyncWriteExt};
+use futures_util::io::{AsyncReadExt, AsyncWriteExt};
 use std::io;
 
 pub use listener::{QueryListener, ServerListener};
