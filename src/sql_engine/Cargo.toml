@@ -6,7 +6,7 @@ edition = "2018"
 publish = false
 
 [dependencies]
-thiserror = "1.0.19"
+thiserror = "1.0.20"
 log = "0.4.8"
 kernel = { path = "../kernel" }
 storage = { path = "../storage" }
