@@ -93,7 +93,7 @@ jobs:
       - name: build-&-push-docker-image
         uses: mr-smithers-excellent/docker-build-push@v3
         with:
-          image: database
+          image: alex-dukhno/database/database
           tag: latest
           registry: docker.pkg.github.com
           username: ${{ github.actor }}
