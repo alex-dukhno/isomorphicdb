@@ -29,7 +29,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: docker-login
-        run: docker login docker.pkg.github.com -u $GITHUB_ACTOR -p $GITHUB_TOKEN
+        run: echo ${{sects.GITHUB_TOKEN}} | docker login docker.pkg.github.com -u $GITHUB_ACTOR --password-stdin
         env:
           GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
       - name: pull-docker-image
