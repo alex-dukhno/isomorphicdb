@@ -25,8 +25,6 @@ use storage::{
     backend::BackendStorage, frontend::FrontendStorage, CreateTableError, DropTableError, OperationOnTableError,
     Projection, SchemaAlreadyExists, SchemaDoesNotExist,
 };
-use thiserror::Error;
-// use test_helpers::pg_frontend::Message::Query;
 
 pub type QueryResult = std::result::Result<QueryEvent, QueryError>;
 
@@ -60,19 +58,13 @@ impl Into<String> for Severity {
     }
 }
 
-#[derive(Debug, PartialEq, Error)]
+#[derive(Debug, PartialEq)]
 pub enum QueryErrorKind {
-    #[error("schema \"{0}\" already exists")]
     SchemaAlreadyExists(String),
-    #[error("table \"{0}\" already exists")]
     TableAlreadyExists(String),
-    #[error("schema \"{0}\" does not exist")]
     SchemaDoesNotExist(String),
-    #[error("table \"{0}\" does not exist")]
     TableDoesNotExist(String),
-    #[error("column {} does not exist", .0.join(", "))]
     ColumnDoesNotExist(Vec<String>),
-    #[error("not supported operation")]
     NotSupportedOperation(String),
 }
 

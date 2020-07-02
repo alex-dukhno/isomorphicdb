@@ -189,6 +189,10 @@ impl QueryResultMapper {
                 }) => {
 
                 let message = match kind {
+                    QueryErrorKind::SchemaAlreadyExists(schema_name) => format!("schema \"{}\" already exists", schema_name),
+                    QueryErrorKind::TableAlreadyExists(table_name) => format!("table \"{}\" already exists", table_name),
+                    QueryErrorKind::SchemaDoesNotExist(schema_name) => format!("schema \"{}\" does not exist", schema_name),
+                    QueryErrorKind::TableDoesNotExist(table_name) => format!("table \"{}\" does not exist", table_name),
                     QueryErrorKind::ColumnDoesNotExist(columns) => {
                         if columns.len() > 1 {
                             format!("columns {} do not exist", columns.join(", "))
@@ -199,7 +203,6 @@ impl QueryResultMapper {
                     QueryErrorKind::NotSupportedOperation(raw_sql_query) => {
                         format!("Currently, Query '{}' can't be executed", raw_sql_query)
                     }
-                    k => format!("{}", k),
                 };
 
                 vec![Message::ErrorResponse(Some(severity.into()), Some(code), Some(message))]
