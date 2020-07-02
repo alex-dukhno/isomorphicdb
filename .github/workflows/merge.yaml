@@ -1,0 +1,51 @@
+name: Merge
+
+on:
+  push:
+    branches: [ master ]
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  publish-docker:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v2
+      - name: build-&-push-docker-image
+        uses: docker/build-push-action@v1
+        with:
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          registry: docker.pkg.github.com
+          repository: alex-dukhno/database/database
+          tags: latest
+
+  functional-tests:
+    needs:
+      - publish-docker
+    runs-on: ubuntu-latest
+    steps:
+      - name: docker-login
+        run: docker login docker.pkg.github.com -u $GITHUB_ACTOR -p $GITHUB_TOKEN
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+      - name: pull-docker-image
+        run: docker pull "docker.pkg.github.com/alex-dukhno/database/database:latest"
+      - name:
+        run: docker run -it -d -p 5432:5432 docker.pkg.github.com/alex-dukhno/database/database:latest
+      - name: checkout
+        uses: actions/checkout@v2
+      - name: set-up-python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.7
+      - name: install-dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r tests/functional/requirements.txt
+      - name: run-tests
+        run: |
+          pytest -v tests/functional/*
