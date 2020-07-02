@@ -23,7 +23,7 @@ use std::sync::{
 };
 
 const PORT: usize = 5432;
-const HOST: &str = "127.0.0.1";
+const HOST: &str = "0.0.0.0";
 
 pub const CREATED: u8 = 0;
 pub const RUNNING: u8 = 1;

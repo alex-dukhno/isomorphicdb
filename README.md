@@ -1,21 +1,18 @@
 # Database
 
-![Rust](https://github.com/alex-dukhno/database/workflows/Rust/badge.svg)
+![Merge](https://github.com/alex-dukhno/database/workflows/Merge/badge.svg)
 [![Coverage Status](https://coveralls.io/repos/github/alex-dukhno/database/badge.svg)](https://coveralls.io/github/alex-dukhno/database)
+<a href="https://discord.gg/PUcTcfU"><img src="https://img.shields.io/discord/509773073294295082.svg?logo=discord"></a>
 
 The project doesn't have any name so let it be `database` for now.
 
+## Play around with project
+
+See [docs](./docs/)
+
 ## Project structure
 
- * `compatibility/` - folder contains `SQL` scripts to run functional tests through
-                    the running system. It has name `compatibility` because it was intended
-                    to emphasize compatibility testing with `PostgreSQL`, but now it is
-                    more suite of `SQL` queries that database **should** support.
-                    Strict testing must be automated and probably test suite will 
-                    be written in another programming language (#65)
- * `proof-of-concept/` - there are a couple of sub projects/modules to play with concepts
-                         before starting development of database. It could become
-                         a play ground of different PoC.
+ * `docs/` - project documentation 
  * `src/kernel/` - core concept of the system. All modules (except `protocol`) depends on it.
                    It should provide conceptual abstraction for other modules. Good examples
                    are `SystemResult` and `SystemError`. Other part of system uses them to
@@ -78,9 +75,13 @@ For windows, you can easily install `python` from [official site](https://www.py
     ```shell script
     pip3 install -r tests/functional/requirements.txt
     ```
-1. After that you can run tests with:
+1. After that you can run all tests with:
+   ```shell script
+   pytest -v tests/functional/*
+   ```
+1. or tests in specified file with:
     ```shell script
-    pytest -v tests/functional/generic_tests.py
+    pytest -v tests/functional/<test_file>.py
     ```
 
 `pip3` and `python3` OR `pip` and `python` - depends on your system and your 

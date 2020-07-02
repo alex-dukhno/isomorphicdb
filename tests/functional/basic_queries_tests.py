@@ -197,3 +197,20 @@ def test_insert_select_same_column_many_times(create_cursor):
     finally:
         cur.execute('drop table schema_name.table_name;')
         cur.execute('drop schema schema_name;')
+
+
+def test_insert_with_named_columns(create_cursor):
+    cur = create_cursor
+    try:
+        cur.execute('create schema schema_name;')
+        cur.execute('create table schema_name.table_name(si_column_1 smallint, si_column_2 smallint, si_column_3 smallint);')
+
+        for t in [(1, 2, 3), (4, 5, 6), (7, 8, 9)]:
+            cur.execute('insert into schema_name.table_name (si_column_2, si_column_3, si_column_1) values (%s, %s, %s);' % t)
+
+        cur.execute('select * from schema_name.table_name;')
+        r = cur.fetchmany(3)
+        assert r == [(3, 1, 2,), (6, 4, 5,), (9, 7, 8,)]
+    finally:
+        cur.execute('drop table schema_name.table_name;')
+        cur.execute('drop schema schema_name;')

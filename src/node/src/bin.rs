@@ -13,9 +13,9 @@
 // limitations under the License.
 
 extern crate node;
-extern crate pretty_env_logger;
+extern crate simple_logger;
 
 fn main() {
-    pretty_env_logger::init();
+    simple_logger::init_by_env();
     node::node::Node::default().start();
 }

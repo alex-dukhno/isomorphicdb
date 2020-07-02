@@ -10,9 +10,8 @@ thiserror = "1.0.19"
 log = "0.4.8"
 kernel = { path = "../kernel" }
 storage = { path = "../storage" }
-sqlparser = { git = "https://github.com/andygrove/sqlparser-rs.git" }
+sqlparser = "0.5.1"
 sql_types = { path = "../sql_types" }
-bytes = "0.5"
 
 [dev-dependencies]
 rstest = "0.6.4"

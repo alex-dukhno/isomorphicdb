@@ -14,7 +14,6 @@ path = "src/bin.rs"
 
 [dependencies]
 async-trait = "0.1.36"
-futures = "0.3.5"
 kernel = { path = "../kernel" }
 sql_engine = { path = "../sql_engine" }
 sql_types = { path = "../sql_types" }
@@ -22,11 +21,8 @@ storage = { path = "../storage" }
 smol = "0.1.18"
 protocol = { path = "../protocol" }
 log = "0.4.8"
-pretty_env_logger = "0.4.0"
+simple_logger = "1.6.0"
 
 [dev-dependencies]
-async-std = { version = "1.6.2", features = ["attributes"] }
 bytes = "0.5"
-postgres = "0.17.3"
-serial_test = "0.4.0"
 test_helpers = { path = "../test_helpers" }
