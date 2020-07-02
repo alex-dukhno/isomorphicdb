@@ -19,7 +19,7 @@ use sql_types::SqlType;
 fn insert_into_non_existent_schema(mut storage: PersistentStorage) {
     assert_eq!(
         storage
-            .insert_into("non_existent", "not_existed", vec![vec!["123".to_owned()]],)
+            .insert_into("non_existent", "not_existed", vec![], vec![vec!["123".to_owned()]])
             .expect("no system errors"),
         Err(OperationOnTableError::SchemaDoesNotExist)
     );
@@ -31,7 +31,7 @@ fn insert_into_non_existent_table(mut storage: PersistentStorage) {
 
     assert_eq!(
         storage
-            .insert_into("schema_name", "not_existed", vec![vec!["123".to_owned()]],)
+            .insert_into("schema_name", "not_existed", vec![], vec![vec!["123".to_owned()]])
             .expect("no system errors"),
         Err(OperationOnTableError::TableDoesNotExist)
     );
@@ -46,8 +46,8 @@ fn insert_many_rows_into_table(mut storage: PersistentStorage) {
         vec![("column_test", SqlType::SmallInt)],
     );
 
-    insert_into(&mut storage, "schema_name", "table_name", vec!["123"]);
-    insert_into(&mut storage, "schema_name", "table_name", vec!["456"]);
+    insert_into(&mut storage, "schema_name", "table_name", vec![], vec!["123"]);
+    insert_into(&mut storage, "schema_name", "table_name", vec![], vec!["456"]);
 
     let table_columns = storage
         .table_columns("schema_name", "table_name")
@@ -81,9 +81,9 @@ fn insert_multiple_values_rows(mut storage: PersistentStorage) {
         ],
     );
 
-    insert_into(&mut storage, "schema_name", "table_name", vec!["1", "2", "3"]);
-    insert_into(&mut storage, "schema_name", "table_name", vec!["4", "5", "6"]);
-    insert_into(&mut storage, "schema_name", "table_name", vec!["7", "8", "9"]);
+    insert_into(&mut storage, "schema_name", "table_name", vec![], vec!["1", "2", "3"]);
+    insert_into(&mut storage, "schema_name", "table_name", vec![], vec!["4", "5", "6"]);
+    insert_into(&mut storage, "schema_name", "table_name", vec![], vec!["7", "8", "9"]);
 
     let table_columns = storage
         .table_columns("schema_name", "table_name")
@@ -113,6 +113,69 @@ fn insert_multiple_values_rows(mut storage: PersistentStorage) {
 }
 
 #[rstest::rstest]
+fn insert_named_columns(mut storage: PersistentStorage) {
+    create_schema_with_table(
+        &mut storage,
+        "schema_name",
+        "table_name",
+        vec![
+            ("column_1", SqlType::SmallInt),
+            ("column_2", SqlType::SmallInt),
+            ("column_3", SqlType::SmallInt),
+        ],
+    );
+
+    let columns = vec!["column_3", "column_2", "column_1"];
+
+    insert_into(
+        &mut storage,
+        "schema_name",
+        "table_name",
+        columns.clone(),
+        vec!["1", "2", "3"],
+    );
+    insert_into(
+        &mut storage,
+        "schema_name",
+        "table_name",
+        columns.clone(),
+        vec!["4", "5", "6"],
+    );
+    insert_into(
+        &mut storage,
+        "schema_name",
+        "table_name",
+        columns.clone(),
+        vec!["7", "8", "9"],
+    );
+
+    let table_columns = storage
+        .table_columns("schema_name", "table_name")
+        .expect("no system errors")
+        .expect("table has columns")
+        .into_iter()
+        .map(|(name, _sql_type)| name)
+        .collect();
+
+    assert_eq!(
+        storage
+            .select_all_from("schema_name", "table_name", table_columns)
+            .expect("no system errors"),
+        Ok((
+            vec![
+                ("column_1".to_owned(), SqlType::SmallInt),
+                ("column_2".to_owned(), SqlType::SmallInt),
+                ("column_3".to_owned(), SqlType::SmallInt)
+            ],
+            vec![
+                vec!["3".to_owned(), "2".to_owned(), "1".to_owned()],
+                vec!["6".to_owned(), "5".to_owned(), "4".to_owned()],
+                vec!["9".to_owned(), "8".to_owned(), "7".to_owned()],
+            ],
+        ))
+    );
+}
+#[rstest::rstest]
 fn insert_row_into_table(mut storage: PersistentStorage) {
     create_schema_with_table(
         &mut storage,
@@ -122,7 +185,7 @@ fn insert_row_into_table(mut storage: PersistentStorage) {
     );
     assert_eq!(
         storage
-            .insert_into("schema_name", "table_name", vec![vec!["123".to_owned()]])
+            .insert_into("schema_name", "table_name", vec![], vec![vec!["123".to_owned()]])
             .expect("no system errors"),
         Ok(())
     );
@@ -183,7 +246,8 @@ mod constraints {
                 .insert_into(
                     "schema_name",
                     "table_name",
-                    vec![vec!["-32769".to_owned(), "100".to_owned(), "100".to_owned()]]
+                    vec![],
+                    vec![vec!["-32769".to_owned(), "100".to_owned(), "100".to_owned()]],
                 )
                 .expect("no system errors"),
             Err(constraint_violations(
@@ -200,7 +264,8 @@ mod constraints {
                 .insert_into(
                     "schema_name",
                     "table_name",
-                    vec![vec!["abc".to_owned(), "100".to_owned(), "100".to_owned()]]
+                    vec![],
+                    vec![vec!["abc".to_owned(), "100".to_owned(), "100".to_owned()]],
                 )
                 .expect("no system errors"),
             Err(constraint_violations(
@@ -217,7 +282,8 @@ mod constraints {
                 .insert_into(
                     "schema_name",
                     "table_name",
-                    vec![vec!["12345678901".to_owned(), "100".to_owned()]]
+                    vec![],
+                    vec![vec!["12345678901".to_owned(), "100".to_owned()]],
                 )
                 .expect("no system errors"),
             Err(constraint_violations(
@@ -234,7 +300,8 @@ mod constraints {
                 .insert_into(
                     "schema_name",
                     "table_name",
-                    vec![vec!["-32769".to_owned(), "-2147483649".to_owned(), "100".to_owned()]]
+                    vec![],
+                    vec![vec!["-32769".to_owned(), "-2147483649".to_owned(), "100".to_owned()]],
                 )
                 .expect("no system errors"),
             Err(constraint_violations(
@@ -254,6 +321,7 @@ mod constraints {
                 .insert_into(
                     "schema_name",
                     "table_name",
+                    vec![],
                     vec![
                         vec!["-32769".to_owned(), "-2147483649".to_owned(), "100".to_owned()],
                         vec![
@@ -261,7 +329,7 @@ mod constraints {
                             "-2147483649".to_owned(),
                             "-9223372036854775809".to_owned()
                         ],
-                    ]
+                    ],
                 )
                 .expect("no system errors"),
             Err(constraint_violations(

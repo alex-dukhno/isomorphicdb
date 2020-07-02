@@ -68,12 +68,14 @@ fn insert_into<P: backend::BackendStorage>(
     storage: &mut FrontendStorage<P>,
     schema_name: &str,
     table_name: &str,
+    columns: Vec<&str>,
     values: Vec<&str>,
 ) {
     storage
         .insert_into(
             schema_name,
             table_name,
+            columns.into_iter().map(ToOwned::to_owned).collect(),
             vec![values.into_iter().map(ToOwned::to_owned).collect()],
         )
         .expect("no system errors")
