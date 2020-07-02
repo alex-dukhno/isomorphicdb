@@ -154,46 +154,43 @@ impl<P: BackendStorage> FrontendStorage<P> {
         &mut self,
         schema_name: &str,
         table_name: &str,
+        columns: Vec<String>,
         rows: Vec<Vec<String>>,
-        columns: Option<Vec<String>>,
     ) -> SystemResult<Result<(), OperationOnTableError>> {
         match self.table_columns(schema_name, table_name)? {
             Ok(all_columns) => {
-                let index_columns = match columns {
-                    Some(cols) => {
-                        let mut index_cols = vec![];
-                        let mut non_existing_cols = vec![];
-                        for col in cols {
-                            let mut found = None;
-                            for (index, (name, sql_type)) in all_columns.iter().enumerate() {
-                                if *name == col {
-                                    found = Some((index, name.clone(), *sql_type));
-                                    break;
-                                }
-                            }
-
-                            match found {
-                                Some(index_col) => {
-                                    index_cols.push(index_col);
-                                }
-                                None => non_existing_cols.push(col),
-                            }
-                        }
-
-                        if !non_existing_cols.is_empty() {
-                            return Ok(Err(OperationOnTableError::ColumnDoesNotExist(non_existing_cols)));
-                        }
-
-                        index_cols
+                let index_columns = if columns.is_empty() {
+                    let mut index_cols = vec![];
+                    for (index, (name, sql_type)) in all_columns.iter().enumerate() {
+                        index_cols.push((index, name.clone(), *sql_type));
                     }
-                    None => {
-                        let mut index_cols = vec![];
+
+                    index_cols
+                } else {
+                    let mut index_cols = vec![];
+                    let mut non_existing_cols = vec![];
+                    for col in columns {
+                        let mut found = None;
                         for (index, (name, sql_type)) in all_columns.iter().enumerate() {
-                            index_cols.push((index, name.clone(), *sql_type));
+                            if *name == col {
+                                found = Some((index, name.clone(), *sql_type));
+                                break;
+                            }
                         }
 
-                        index_cols
+                        match found {
+                            Some(index_col) => {
+                                index_cols.push(index_col);
+                            }
+                            None => non_existing_cols.push(col),
+                        }
                     }
+
+                    if !non_existing_cols.is_empty() {
+                        return Ok(Err(OperationOnTableError::ColumnDoesNotExist(non_existing_cols)));
+                    }
+
+                    index_cols
                 };
 
                 let mut to_write: Vec<Row> = vec![];

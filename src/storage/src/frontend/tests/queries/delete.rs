@@ -45,9 +45,9 @@ fn delete_all_from_table(mut storage: PersistentStorage) {
         "table_name",
         vec![("column_test", SqlType::SmallInt)],
     );
-    insert_into(&mut storage, "schema_name", "table_name", vec!["123"], None);
-    insert_into(&mut storage, "schema_name", "table_name", vec!["456"], None);
-    insert_into(&mut storage, "schema_name", "table_name", vec!["789"], None);
+    insert_into(&mut storage, "schema_name", "table_name", vec![], vec!["123"]);
+    insert_into(&mut storage, "schema_name", "table_name", vec![], vec!["456"]);
+    insert_into(&mut storage, "schema_name", "table_name", vec![], vec!["789"]);
 
     assert_eq!(
         storage

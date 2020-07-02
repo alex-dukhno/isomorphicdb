@@ -133,6 +133,19 @@ impl<P: BackendStorage> Handler<P> {
                 let sqlparser::ast::Query { body, .. } = &*source;
                 if let sqlparser::ast::SetExpr::Values(values) = &body {
                     let values = &values.0;
+
+                    let columns = if columns.is_empty() {
+                        vec![]
+                    } else {
+                        columns
+                            .into_iter()
+                            .map(|id| {
+                                let sqlparser::ast::Ident { value, .. } = id;
+                                value
+                            })
+                            .collect()
+                    };
+
                     let rows: Vec<Vec<String>> = values
                         .iter()
                         .map(|v| {
@@ -155,22 +168,8 @@ impl<P: BackendStorage> Handler<P> {
                         })
                         .collect();
 
-                    let specified_columns = if columns.is_empty() {
-                        None
-                    } else {
-                        Some(
-                            columns
-                                .iter()
-                                .map(|id| {
-                                    let sqlparser::ast::Ident { value, .. } = id;
-                                    value.to_owned()
-                                })
-                                .collect(),
-                        )
-                    };
-
                     let len = rows.len();
-                    match (self.storage.lock().unwrap()).insert_into(&schema_name, &name, rows, specified_columns)? {
+                    match (self.storage.lock().unwrap()).insert_into(&schema_name, &name, columns, rows)? {
                         Ok(_) => Ok(Ok(QueryEvent::RecordsInserted(len))),
                         Err(OperationOnTableError::SchemaDoesNotExist) => {
                             Ok(Err(QueryError::SchemaDoesNotExist(schema_name)))
