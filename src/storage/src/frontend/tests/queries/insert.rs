@@ -120,8 +120,8 @@ fn insert_named_columns(mut storage: PersistentStorage) {
         "table_name",
         vec![
             ("column_1", SqlType::SmallInt),
-            ("column_2", SqlType::SmallInt),
-            ("column_3", SqlType::SmallInt),
+            ("column_2", SqlType::Char(10)),
+            ("column_3", SqlType::BigInt),
         ],
     );
 
@@ -164,8 +164,8 @@ fn insert_named_columns(mut storage: PersistentStorage) {
         Ok((
             vec![
                 ("column_1".to_owned(), SqlType::SmallInt),
-                ("column_2".to_owned(), SqlType::SmallInt),
-                ("column_3".to_owned(), SqlType::SmallInt)
+                ("column_2".to_owned(), SqlType::Char(10)),
+                ("column_3".to_owned(), SqlType::BigInt)
             ],
             vec![
                 vec!["3".to_owned(), "2".to_owned(), "1".to_owned()],
