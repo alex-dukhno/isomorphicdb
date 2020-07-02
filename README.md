@@ -6,8 +6,13 @@
 
 The project doesn't have any name so let it be `database` for now.
 
+## Play around with project
+
+See [docs](./docs/README.md)
+
 ## Project structure
 
+ * `docs/` - project documentation 
  * `src/kernel/` - core concept of the system. All modules (except `protocol`) depends on it.
                    It should provide conceptual abstraction for other modules. Good examples
                    are `SystemResult` and `SystemError`. Other part of system uses them to
