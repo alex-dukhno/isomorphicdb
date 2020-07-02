@@ -8,7 +8,7 @@ The project doesn't have any name so let it be `database` for now.
 
 ## Play around with project
 
-See [docs](./docs/README.md)
+See [docs](./docs/)
 
 ## Project structure
 
