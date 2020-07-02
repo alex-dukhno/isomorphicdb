@@ -1,6 +1,6 @@
 # Database
 
-![Rust](https://github.com/alex-dukhno/database/workflows/Rust/badge.svg)
+![Merge](https://github.com/alex-dukhno/database/workflows/Merge/badge.svg)
 [![Coverage Status](https://coveralls.io/repos/github/alex-dukhno/database/badge.svg)](https://coveralls.io/github/alex-dukhno/database)
 <a href="https://discord.gg/PUcTcfU"><img src="https://img.shields.io/discord/509773073294295082.svg?logo=discord"></a>
 
