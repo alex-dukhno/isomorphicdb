@@ -182,17 +182,20 @@ impl QueryResultMapper {
             }
             Ok(QueryEvent::RecordsUpdated(records)) => vec![Message::CommandComplete(format!("UPDATE {}", records))],
             Ok(QueryEvent::RecordsDeleted(records)) => vec![Message::CommandComplete(format!("DELETE {}", records))],
-            Err(QueryError {
-                    severity,
-                    code,
-                    kind
-                }) => {
-
+            Err(QueryError { severity, code, kind }) => {
                 let message = match kind {
-                    QueryErrorKind::SchemaAlreadyExists(schema_name) => format!("schema \"{}\" already exists", schema_name),
-                    QueryErrorKind::TableAlreadyExists(table_name) => format!("table \"{}\" already exists", table_name),
-                    QueryErrorKind::SchemaDoesNotExist(schema_name) => format!("schema \"{}\" does not exist", schema_name),
-                    QueryErrorKind::TableDoesNotExist(table_name) => format!("table \"{}\" does not exist", table_name),
+                    QueryErrorKind::SchemaAlreadyExists(schema_name) => {
+                        format!("schema \"{}\" already exists", schema_name)
+                    }
+                    QueryErrorKind::TableAlreadyExists(table_name) => {
+                        format!("table \"{}\" already exists", table_name)
+                    }
+                    QueryErrorKind::SchemaDoesNotExist(schema_name) => {
+                        format!("schema \"{}\" does not exist", schema_name)
+                    }
+                    QueryErrorKind::TableDoesNotExist(table_name) => {
+                        format!("table \"{}\" does not exist", table_name)
+                    },
                     QueryErrorKind::ColumnDoesNotExist(columns) => {
                         if columns.len() > 1 {
                             format!("columns {} do not exist", columns.join(", "))

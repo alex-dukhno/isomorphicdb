@@ -76,27 +76,26 @@ pub struct QueryError {
 }
 
 impl QueryError {
-
     pub fn schema_already_exists(schema_name: String) -> Self {
         Self {
             severity: Severity::Error,
             code: "42P06".to_owned(),
-            kind: QueryErrorKind::SchemaAlreadyExists(schema_name)
+            kind: QueryErrorKind::SchemaAlreadyExists(schema_name),
         }
     }
 
     pub fn schema_does_not_exist(schema_name: String) -> Self {
         Self {
             severity: Severity::Error,
-            code:  "3F000".to_owned(),
+            code: "3F000".to_owned(),
             kind: QueryErrorKind::SchemaDoesNotExist(schema_name),
         }
     }
 
     pub fn table_already_exists(table_name: String) -> Self {
-        Self  {
+        Self {
             severity: Severity::Error,
-            code:  "42P07".to_owned(),
+            code: "42P07".to_owned(),
             kind: QueryErrorKind::TableAlreadyExists(table_name),
         }
     }
@@ -121,7 +120,7 @@ impl QueryError {
         Self {
             severity: Severity::Error,
             code: "42601".to_owned(),
-            kind: QueryErrorKind::NotSupportedOperation(raw_sql_query)
+            kind: QueryErrorKind::NotSupportedOperation(raw_sql_query),
         }
     }
 }
@@ -171,7 +170,9 @@ impl<P: BackendStorage> Handler<P> {
                         .collect(),
                 )? {
                     Ok(()) => Ok(Ok(QueryEvent::TableCreated)),
-                    Err(CreateTableError::SchemaDoesNotExist) => Ok(Err(QueryError::schema_does_not_exist(schema_name))),
+                    Err(CreateTableError::SchemaDoesNotExist) => {
+                        Ok(Err(QueryError::schema_does_not_exist(schema_name)))
+                    }
                     Err(CreateTableError::TableAlreadyExists) => Ok(Err(QueryError::table_already_exists(table_name))),
                 }
             }
@@ -191,7 +192,9 @@ impl<P: BackendStorage> Handler<P> {
                         Err(DropTableError::TableDoesNotExist) => Ok(Err(QueryError::table_does_not_exist(
                             schema_name + "." + table_name.as_str(),
                         ))),
-                        Err(DropTableError::SchemaDoesNotExist) => Ok(Err(QueryError::schema_does_not_exist(schema_name))),
+                        Err(DropTableError::SchemaDoesNotExist) => {
+                            Ok(Err(QueryError::schema_does_not_exist(schema_name)))
+                        }
                     }
                 }
                 sqlparser::ast::ObjectType::Schema => {
@@ -297,7 +300,9 @@ impl<P: BackendStorage> Handler<P> {
                                                 .collect::<Vec<String>>(),
                                         ),
                                         Err(_e) => {
-                                            return Ok(Err(QueryError::not_supported_operation(raw_sql_query.to_owned())))
+                                            return Ok(Err(QueryError::not_supported_operation(
+                                                raw_sql_query.to_owned(),
+                                            )))
                                         }
                                     }
                                 }
