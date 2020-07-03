@@ -24,5 +24,4 @@ log = "0.4.8"
 simple_logger = { version = "1.6.0", default-features = false }
 
 [dev-dependencies]
-bytes = "0.5"
 test_helpers = { path = "../test_helpers" }
