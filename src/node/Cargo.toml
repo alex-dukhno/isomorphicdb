@@ -21,7 +21,7 @@ storage = { path = "../storage" }
 smol = "0.1.18"
 protocol = { path = "../protocol" }
 log = "0.4.8"
-simple_logger = "1.6.0"
+simple_logger = { version = "1.6.0", default-features = false }
 
 [dev-dependencies]
 bytes = "0.5"

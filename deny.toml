@@ -1,9 +1,9 @@
 [bans]
 multiple-versions = "deny"
 skip-tree = [
-    # tokio-postgres uses tokio -> mio -> miow -> winapi 0.2.8
-    # pretty_env_logger, sled, tempfile, smol use 0.3.8
-    { name = "winapi", version = "<= 0.3" },
+    # bytes -> loom -> scoped-tls
+    # node -> smol -> scoped-tls
+    { name = "scoped-tls" }
 ]
 
 [licenses]
@@ -13,19 +13,14 @@ confidence-threshold = 0.93
 allow = [
     "Apache-2.0",
     "BSD-2-Clause",
-    "BSD-3-Clause",
     "MIT",
     "Zlib",
 ]
 exceptions = [
-    # smol use wepoll and wepoll-binding
-    { allow = ["MPL-2.0"], name = "wepoll-binding" },
-    { allow = ["MPL-2.0"], name = "wepoll-sys" },
+    # smol use wepoll
+    { allow = ["MPL-2.0"], name = "wepoll-sys-stjepang" },
 ]
 
 [sources]
 unknown-git = "deny"
 unknown-registry = "deny"
-allow-git = [
-    "https://github.com/andygrove/sqlparser-rs.git"
-]
