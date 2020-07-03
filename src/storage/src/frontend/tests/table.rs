@@ -122,7 +122,7 @@ fn table_columns_on_empty_table(mut storage: PersistentStorage) {
         storage
             .table_columns("schema_name", "table_name")
             .expect("no system errors"),
-        Ok(vec![])
+        vec![]
     )
 }
 

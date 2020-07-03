@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use kernel::{SystemError, SystemResult};
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use storage::backend::{
     BackendStorage, CreateObjectError, DropObjectError, Key, NamespaceAlreadyExists, NamespaceDoesNotExist,
     OperationOnObjectError, ReadCursor, Result, Row, Values,
@@ -21,7 +21,7 @@ use storage::backend::{
 
 #[derive(Default, Debug)]
 struct StorageObject {
-    records: Vec<(Key, Values)>,
+    records: BTreeMap<Key, Values>,
 }
 
 #[derive(Default, Debug)]
@@ -36,6 +36,28 @@ pub struct InMemoryStorage {
 
 impl BackendStorage for InMemoryStorage {
     type ErrorMapper = storage::backend::SledErrorMapper;
+
+    fn create_namespace_with_objects(
+        &mut self,
+        namespace: &str,
+        object_names: Vec<&str>,
+    ) -> SystemResult<Result<(), NamespaceAlreadyExists>> {
+        if self.namespaces.contains_key(namespace) {
+            Ok(Err(NamespaceAlreadyExists))
+        } else {
+            let namespace = self
+                .namespaces
+                .entry(namespace.to_owned())
+                .or_insert_with(Namespace::default);
+
+            for object_name in object_names {
+                namespace
+                    .objects
+                    .insert(object_name.to_owned(), StorageObject::default());
+            }
+            Ok(Ok(()))
+        }
+    }
 
     fn create_namespace(&mut self, namespace: &str) -> SystemResult<Result<(), NamespaceAlreadyExists>> {
         if self.namespaces.contains_key(namespace) {
@@ -83,19 +105,15 @@ impl BackendStorage for InMemoryStorage {
         &mut self,
         namespace: &str,
         object_name: &str,
-        values: Vec<(Key, Values)>,
+        rows: Vec<(Key, Values)>,
     ) -> SystemResult<Result<usize, OperationOnObjectError>> {
         match self.namespaces.get_mut(namespace) {
             Some(namespace) => match namespace.objects.get_mut(object_name) {
                 Some(object) => {
-                    object.records = object
-                        .records
-                        .iter()
-                        .filter(|(key, _value)| values.iter().find(|(k, _v)| k == key).is_none())
-                        .cloned()
-                        .collect();
-                    let len = values.len();
-                    object.records.extend_from_slice(values.as_slice());
+                    let len = rows.len();
+                    for (key, value) in rows {
+                        object.records.insert(key, value);
+                    }
                     Ok(Ok(len))
                 }
                 None => Ok(Err(OperationOnObjectError::ObjectDoesNotExist)),
@@ -110,8 +128,8 @@ impl BackendStorage for InMemoryStorage {
                 Some(object) => Ok(Ok(Box::new(
                     object
                         .records
-                        .iter()
-                        .cloned()
+                        .clone()
+                        .into_iter()
                         .map(Ok)
                         .collect::<Vec<Result<Row, SystemError>>>()
                         .into_iter(),
@@ -133,9 +151,9 @@ impl BackendStorage for InMemoryStorage {
                 Some(object) => {
                     object.records = object
                         .records
-                        .iter()
+                        .clone()
+                        .into_iter()
                         .filter(|(key, _values)| !keys.contains(key))
-                        .cloned()
                         .collect();
                     Ok(Ok(keys.len()))
                 }
@@ -153,6 +171,48 @@ mod tests {
     #[cfg(test)]
     mod namespace {
         use super::*;
+
+        #[test]
+        fn create_namespace_with_objects() {
+            let mut storage = InMemoryStorage::default();
+
+            assert_eq!(
+                storage
+                    .create_namespace_with_objects("namespace", vec!["object_1", "object_2"])
+                    .expect("no system errors"),
+                Ok(())
+            );
+
+            assert_eq!(
+                storage
+                    .create_object("namespace", "object_1")
+                    .expect("no system errors"),
+                Err(CreateObjectError::ObjectAlreadyExists)
+            );
+            assert_eq!(
+                storage
+                    .create_object("namespace", "object_2")
+                    .expect("no system errors"),
+                Err(CreateObjectError::ObjectAlreadyExists)
+            );
+        }
+
+        #[test]
+        fn create_namespace_with_objects_that_already_exists() {
+            let mut storage = InMemoryStorage::default();
+
+            storage
+                .create_namespace("namespace")
+                .expect("no system errors")
+                .expect("namespace created");
+
+            assert_eq!(
+                storage
+                    .create_namespace_with_objects("namespace", vec!["object_1", "object_2"])
+                    .expect("no system errors"),
+                Err(NamespaceAlreadyExists)
+            );
+        }
 
         #[test]
         fn create_namespaces_with_different_names() {

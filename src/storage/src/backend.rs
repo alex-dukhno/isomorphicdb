@@ -47,6 +47,12 @@ pub enum OperationOnObjectError {
 pub trait BackendStorage {
     type ErrorMapper: StorageErrorMapper;
 
+    fn create_namespace_with_objects(
+        &mut self,
+        namespace: &str,
+        object_names: Vec<&str>,
+    ) -> SystemResult<Result<(), NamespaceAlreadyExists>>;
+
     fn create_namespace(&mut self, namespace: &str) -> SystemResult<Result<(), NamespaceAlreadyExists>>;
 
     fn drop_namespace(&mut self, namespace: &str) -> SystemResult<Result<(), NamespaceDoesNotExist>>;
@@ -112,20 +118,45 @@ pub struct SledBackendStorage {
     namespaces: HashMap<String, sled::Db>,
 }
 
+impl SledBackendStorage {
+    fn new_namespace(&mut self, namespace: &str) -> SystemResult<&mut sled::Db> {
+        match sled::Config::default().temporary(true).open() {
+            Ok(database) => {
+                let database = self.namespaces.entry(namespace.to_owned()).or_insert(database);
+                Ok(database)
+            }
+            Err(error) => Err(SledErrorMapper::map(error)),
+        }
+    }
+}
+
 impl BackendStorage for SledBackendStorage {
     type ErrorMapper = SledErrorMapper;
+
+    fn create_namespace_with_objects(
+        &mut self,
+        namespace: &str,
+        object_names: Vec<&str>,
+    ) -> SystemResult<Result<(), NamespaceAlreadyExists>> {
+        if self.namespaces.contains_key(namespace) {
+            Ok(Err(NamespaceAlreadyExists))
+        } else {
+            let namespace = self.new_namespace(namespace)?;
+            for object_name in object_names {
+                match namespace.open_tree(object_name) {
+                    Ok(_object) => (),
+                    Err(error) => return Err(Self::ErrorMapper::map(error)),
+                }
+            }
+            Ok(Ok(()))
+        }
+    }
 
     fn create_namespace(&mut self, namespace: &str) -> SystemResult<Result<(), NamespaceAlreadyExists>> {
         if self.namespaces.contains_key(namespace) {
             Ok(Err(NamespaceAlreadyExists))
         } else {
-            match sled::Config::default().temporary(true).open() {
-                Ok(database) => {
-                    self.namespaces.insert(namespace.to_owned(), database);
-                    Ok(Ok(()))
-                }
-                Err(error) => Err(Self::ErrorMapper::map(error)),
-            }
+            self.new_namespace(namespace).map(|_| Ok(()))
         }
     }
 
@@ -179,12 +210,6 @@ impl BackendStorage for SledBackendStorage {
                         Ok(object) => {
                             let mut written_rows = 0;
                             for (key, values) in rows {
-                                // let to_insert = values
-                                //     .iter()
-                                //     .map(|v| v.as_slice())
-                                //     .collect::<Vec<&[u8]>>()
-                                //     .join(&b'|')
-                                //     .to_vec();
                                 match object.insert::<sled::IVec, sled::IVec>(key.into(), values.into()) {
                                     Ok(_) => written_rows += 1,
                                     Err(error) => return Err(Self::ErrorMapper::map(error)),
@@ -207,17 +232,9 @@ impl BackendStorage for SledBackendStorage {
             Some(namespace) => {
                 if namespace.tree_names().contains(&(object_name.into())) {
                     match namespace.open_tree(object_name) {
-                        Ok(object) => Ok(Ok(Box::new(object.iter().map(|item| {
-                            match item {
-                                Ok((key, values)) => Ok((
-                                    key.to_vec(),
-                                    values.to_vec(),
-                                    // .split(|b| *b == b'|')
-                                    // .map(|v| v.to_vec())
-                                    // .collect::<Vec<Vec<u8>>>(),
-                                )),
-                                Err(error) => Err(Self::ErrorMapper::map(error)),
-                            }
+                        Ok(object) => Ok(Ok(Box::new(object.iter().map(|item| match item {
+                            Ok((key, values)) => Ok((key.to_vec(), values.to_vec())),
+                            Err(error) => Err(Self::ErrorMapper::map(error)),
                         })))),
                         Err(error) => Err(Self::ErrorMapper::map(error)),
                     }
@@ -333,6 +350,48 @@ mod tests {
     #[cfg(test)]
     mod namespace {
         use super::*;
+
+        #[test]
+        fn create_namespace_with_objects() {
+            let mut storage = SledBackendStorage::default();
+
+            assert_eq!(
+                storage
+                    .create_namespace_with_objects("namespace", vec!["object_1", "object_2"])
+                    .expect("no system errors"),
+                Ok(())
+            );
+
+            assert_eq!(
+                storage
+                    .create_object("namespace", "object_1")
+                    .expect("no system errors"),
+                Err(CreateObjectError::ObjectAlreadyExists)
+            );
+            assert_eq!(
+                storage
+                    .create_object("namespace", "object_2")
+                    .expect("no system errors"),
+                Err(CreateObjectError::ObjectAlreadyExists)
+            );
+        }
+
+        #[test]
+        fn create_namespace_with_objects_that_already_exists() {
+            let mut storage = SledBackendStorage::default();
+
+            storage
+                .create_namespace("namespace")
+                .expect("no system errors")
+                .expect("namespace created");
+
+            assert_eq!(
+                storage
+                    .create_namespace_with_objects("namespace", vec!["object_1", "object_2"])
+                    .expect("no system errors"),
+                Err(NamespaceAlreadyExists)
+            );
+        }
 
         #[test]
         fn create_namespaces_with_different_names() {
