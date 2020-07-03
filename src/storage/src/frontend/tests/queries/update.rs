@@ -42,7 +42,6 @@ fn update_all_records(mut storage: PersistentStorage) {
     let table_columns = storage
         .table_columns("schema_name", "table_name")
         .expect("no system errors")
-        .expect("table has columns")
         .into_iter()
         .map(|(name, _sql_type)| name)
         .collect();

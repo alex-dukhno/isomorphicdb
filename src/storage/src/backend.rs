@@ -47,6 +47,12 @@ pub enum OperationOnObjectError {
 pub trait BackendStorage {
     type ErrorMapper: StorageErrorMapper;
 
+    fn create_namespace_with_objects(
+        &mut self,
+        namespace: &str,
+        object_names: Vec<&str>,
+    ) -> SystemResult<Result<(), NamespaceAlreadyExists>>;
+
     fn create_namespace(&mut self, namespace: &str) -> SystemResult<Result<(), NamespaceAlreadyExists>>;
 
     fn drop_namespace(&mut self, namespace: &str) -> SystemResult<Result<(), NamespaceDoesNotExist>>;
@@ -112,20 +118,45 @@ pub struct SledBackendStorage {
     namespaces: HashMap<String, sled::Db>,
 }
 
+impl SledBackendStorage {
+    fn new_namespace(&mut self, namespace: &str) -> SystemResult<&mut sled::Db> {
+        match sled::Config::default().temporary(true).open() {
+            Ok(database) => {
+                let database = self.namespaces.entry(namespace.to_owned()).or_insert(database);
+                Ok(database)
+            }
+            Err(error) => Err(SledErrorMapper::map(error)),
+        }
+    }
+}
+
 impl BackendStorage for SledBackendStorage {
     type ErrorMapper = SledErrorMapper;
+
+    fn create_namespace_with_objects(
+        &mut self,
+        namespace: &str,
+        object_names: Vec<&str>,
+    ) -> SystemResult<Result<(), NamespaceAlreadyExists>> {
+        if self.namespaces.contains_key(namespace) {
+            Ok(Err(NamespaceAlreadyExists))
+        } else {
+            let namespace = self.new_namespace(namespace)?;
+            for object_name in object_names {
+                match namespace.open_tree(object_name) {
+                    Ok(_object) => (),
+                    Err(error) => return Err(Self::ErrorMapper::map(error)),
+                }
+            }
+            Ok(Ok(()))
+        }
+    }
 
     fn create_namespace(&mut self, namespace: &str) -> SystemResult<Result<(), NamespaceAlreadyExists>> {
         if self.namespaces.contains_key(namespace) {
             Ok(Err(NamespaceAlreadyExists))
         } else {
-            match sled::Config::default().temporary(true).open() {
-                Ok(database) => {
-                    self.namespaces.insert(namespace.to_owned(), database);
-                    Ok(Ok(()))
-                }
-                Err(error) => Err(Self::ErrorMapper::map(error)),
-            }
+            self.new_namespace(namespace).map(|_| Ok(()))
         }
     }
 
@@ -179,12 +210,6 @@ impl BackendStorage for SledBackendStorage {
                         Ok(object) => {
                             let mut written_rows = 0;
                             for (key, values) in rows {
-                                // let to_insert = values
-                                //     .iter()
-                                //     .map(|v| v.as_slice())
-                                //     .collect::<Vec<&[u8]>>()
-                                //     .join(&b'|')
-                                //     .to_vec();
                                 match object.insert::<sled::IVec, sled::IVec>(key.into(), values.into()) {
                                     Ok(_) => written_rows += 1,
                                     Err(error) => return Err(Self::ErrorMapper::map(error)),
@@ -207,17 +232,9 @@ impl BackendStorage for SledBackendStorage {
             Some(namespace) => {
                 if namespace.tree_names().contains(&(object_name.into())) {
                     match namespace.open_tree(object_name) {
-                        Ok(object) => Ok(Ok(Box::new(object.iter().map(|item| {
-                            match item {
-                                Ok((key, values)) => Ok((
-                                    key.to_vec(),
-                                    values.to_vec(),
-                                    // .split(|b| *b == b'|')
-                                    // .map(|v| v.to_vec())
-                                    // .collect::<Vec<Vec<u8>>>(),
-                                )),
-                                Err(error) => Err(Self::ErrorMapper::map(error)),
-                            }
+                        Ok(object) => Ok(Ok(Box::new(object.iter().map(|item| match item {
+                            Ok((key, values)) => Ok((key.to_vec(), values.to_vec())),
+                            Err(error) => Err(Self::ErrorMapper::map(error)),
                         })))),
                         Err(error) => Err(Self::ErrorMapper::map(error)),
                     }
@@ -264,6 +281,31 @@ impl BackendStorage for SledBackendStorage {
 mod tests {
     use super::*;
     use backtrace::Backtrace;
+
+    type Storage = SledBackendStorage;
+
+    #[rstest::fixture]
+    fn storage() -> Storage {
+        Storage::default()
+    }
+
+    #[rstest::fixture]
+    fn with_namespace(mut storage: Storage) -> Storage {
+        storage
+            .create_namespace("namespace")
+            .expect("no system errors")
+            .expect("namespace created");
+        storage
+    }
+
+    #[rstest::fixture]
+    fn with_object(mut with_namespace: Storage) -> Storage {
+        with_namespace
+            .create_object("namespace", "object_name")
+            .expect("no system errors")
+            .expect("object created");
+        with_namespace
+    }
 
     #[cfg(test)]
     mod sled_error_mapper {
@@ -334,10 +376,41 @@ mod tests {
     mod namespace {
         use super::*;
 
-        #[test]
-        fn create_namespaces_with_different_names() {
-            let mut storage = SledBackendStorage::default();
+        #[rstest::rstest]
+        fn create_namespace_with_objects(mut storage: Storage) {
+            assert_eq!(
+                storage
+                    .create_namespace_with_objects("namespace", vec!["object_1", "object_2"])
+                    .expect("no system errors"),
+                Ok(())
+            );
 
+            assert_eq!(
+                storage
+                    .create_object("namespace", "object_1")
+                    .expect("no system errors"),
+                Err(CreateObjectError::ObjectAlreadyExists)
+            );
+            assert_eq!(
+                storage
+                    .create_object("namespace", "object_2")
+                    .expect("no system errors"),
+                Err(CreateObjectError::ObjectAlreadyExists)
+            );
+        }
+
+        #[rstest::rstest]
+        fn create_namespace_with_objects_that_already_exists(mut with_namespace: Storage) {
+            assert_eq!(
+                with_namespace
+                    .create_namespace_with_objects("namespace", vec!["object_1", "object_2"])
+                    .expect("no system errors"),
+                Err(NamespaceAlreadyExists)
+            );
+        }
+
+        #[rstest::rstest]
+        fn create_namespaces_with_different_names(mut storage: Storage) {
             assert_eq!(
                 storage.create_namespace("namespace_1").expect("namespace created"),
                 Ok(())
@@ -348,74 +421,61 @@ mod tests {
             );
         }
 
-        #[test]
-        fn create_namespace_with_existing_name() {
-            let mut storage = SledBackendStorage::default();
-
-            storage
-                .create_namespace("namespace")
-                .expect("no system errors")
-                .expect("namespace created");
-
+        #[rstest::rstest]
+        fn create_namespace_with_existing_name(mut with_namespace: Storage) {
             assert_eq!(
-                storage.create_namespace("namespace").expect("no system errors"),
+                with_namespace.create_namespace("namespace").expect("no system errors"),
                 Err(NamespaceAlreadyExists)
             );
         }
 
-        #[test]
-        fn drop_namespace() {
-            let mut storage = SledBackendStorage::default();
-
-            storage
-                .create_namespace("namespace")
-                .expect("no system errors")
-                .expect("namespace created");
-
-            assert_eq!(storage.drop_namespace("namespace").expect("no system errors"), Ok(()));
-            assert_eq!(storage.create_namespace("namespace").expect("no system errors"), Ok(()));
+        #[rstest::rstest]
+        fn drop_namespace(mut with_namespace: Storage) {
+            assert_eq!(
+                with_namespace.drop_namespace("namespace").expect("namespace dropped"),
+                Ok(())
+            );
+            assert_eq!(
+                with_namespace.create_namespace("namespace").expect("namespace created"),
+                Ok(())
+            );
         }
 
-        #[test]
-        fn drop_namespace_that_was_not_created() {
-            let mut storage = SledBackendStorage::default();
-
+        #[rstest::rstest]
+        fn drop_namespace_that_was_not_created(mut storage: Storage) {
             assert_eq!(
                 storage.drop_namespace("does_not_exists").expect("no system errors"),
                 Err(NamespaceDoesNotExist)
             );
         }
 
-        #[test]
-        fn dropping_namespace_drops_objects_in_it() {
-            let mut storage = SledBackendStorage::default();
-
-            storage
-                .create_namespace("namespace")
-                .expect("no system errors")
-                .expect("namespace created");
-            storage
+        #[rstest::rstest]
+        fn dropping_namespace_drops_objects_in_it(mut with_namespace: Storage) {
+            with_namespace
                 .create_object("namespace", "object_name_1")
                 .expect("no system errors")
                 .expect("object created");
-            storage
+            with_namespace
                 .create_object("namespace", "object_name_2")
                 .expect("no system errors")
                 .expect("object created");
 
-            assert_eq!(storage.drop_namespace("namespace").expect("no system errors"), Ok(()));
             assert_eq!(
-                storage.create_namespace("namespace").expect("namespace created"),
+                with_namespace.drop_namespace("namespace").expect("no system errors"),
                 Ok(())
             );
             assert_eq!(
-                storage
+                with_namespace.create_namespace("namespace").expect("namespace created"),
+                Ok(())
+            );
+            assert_eq!(
+                with_namespace
                     .create_object("namespace", "object_name_1")
                     .expect("no system errors"),
                 Ok(())
             );
             assert_eq!(
-                storage
+                with_namespace
                     .create_object("namespace", "object_name_2")
                     .expect("no system errors"),
                 Ok(())
@@ -427,47 +487,39 @@ mod tests {
     mod create_object {
         use super::*;
 
-        #[test]
-        fn create_objects_with_different_names() {
-            let mut storage = SledBackendStorage::default();
-
-            storage
-                .create_namespace("namespace")
-                .expect("no system errors")
-                .expect("namespace created");
-
+        #[rstest::rstest]
+        fn create_objects_with_different_names(mut with_namespace: Storage) {
             assert_eq!(
-                storage
+                with_namespace
                     .create_object("namespace", "object_name_1")
                     .expect("no system errors"),
                 Ok(())
             );
             assert_eq!(
-                storage
+                with_namespace
                     .create_object("namespace", "object_name_2")
                     .expect("no system errors"),
                 Ok(())
             );
         }
 
-        #[test]
-        fn create_object_with_the_same_name() {
-            let mut storage = SledBackendStorage::default();
-
-            create_object(&mut storage, "namespace", "object_name");
+        #[rstest::rstest]
+        fn create_object_with_the_same_name(mut with_namespace: Storage) {
+            with_namespace
+                .create_object("namespace", "object_name")
+                .expect("no system errors")
+                .expect("object created");
 
             assert_eq!(
-                storage
+                with_namespace
                     .create_object("namespace", "object_name")
                     .expect("no system errors"),
                 Err(CreateObjectError::ObjectAlreadyExists)
             );
         }
 
-        #[test]
-        fn create_object_with_the_same_name_in_different_namespaces() {
-            let mut storage = SledBackendStorage::default();
-
+        #[rstest::rstest]
+        fn create_object_with_the_same_name_in_different_namespaces(mut storage: Storage) {
             storage
                 .create_namespace("namespace_1")
                 .expect("no system errors")
@@ -490,10 +542,8 @@ mod tests {
             );
         }
 
-        #[test]
-        fn create_object_in_not_existent_namespace() {
-            let mut storage = SledBackendStorage::default();
-
+        #[rstest::rstest]
+        fn create_object_in_not_existent_namespace(mut storage: Storage) {
             assert_eq!(
                 storage
                     .create_object("not_existent", "object_name")
@@ -507,45 +557,34 @@ mod tests {
     mod drop_object {
         use super::*;
 
-        #[test]
-        fn drop_object() {
-            let mut storage = SledBackendStorage::default();
-
-            create_object(&mut storage, "namespace", "object_name");
+        #[rstest::rstest]
+        fn drop_object(mut with_object: Storage) {
             assert_eq!(
-                storage
+                with_object
                     .drop_object("namespace", "object_name")
                     .expect("no system errors"),
                 Ok(())
             );
             assert_eq!(
-                storage
+                with_object
                     .create_object("namespace", "object_name")
                     .expect("no system errors"),
                 Ok(())
             );
         }
 
-        #[test]
-        fn drop_not_created_object() {
-            let mut storage = SledBackendStorage::default();
-
-            storage
-                .create_namespace("namespace")
-                .expect("no system errors")
-                .expect("namespace created");
+        #[rstest::rstest]
+        fn drop_not_created_object(mut with_namespace: Storage) {
             assert_eq!(
-                storage
+                with_namespace
                     .drop_object("namespace", "not_existed_object")
                     .expect("no system errors"),
                 Err(DropObjectError::ObjectDoesNotExist)
             );
         }
 
-        #[test]
-        fn drop_object_in_not_existent_namespace() {
-            let mut storage = SledBackendStorage::default();
-
+        #[rstest::rstest]
+        fn drop_object_in_not_existent_namespace(mut storage: Storage) {
             assert_eq!(
                 storage.drop_object("not_existent", "object").expect("no system errors"),
                 Err(DropObjectError::NamespaceDoesNotExist)
@@ -557,20 +596,17 @@ mod tests {
     mod operations_on_object {
         use super::*;
 
-        #[test]
-        fn insert_row_into_object() {
-            let mut storage = SledBackendStorage::default();
-
-            create_object(&mut storage, "namespace", "object_name");
+        #[rstest::rstest]
+        fn insert_row_into_object(mut with_object: Storage) {
             assert_eq!(
-                storage
-                    .write("namespace", "object_name", as_rows(vec![(1u8, vec!["123"])]))
+                with_object
+                    .write("namespace", "object_name", as_rows(vec![(1u8, vec!["123"])],))
                     .expect("no system errors"),
                 Ok(1)
             );
 
             assert_eq!(
-                storage
+                with_object
                     .read("namespace", "object_name")
                     .expect("no system errors")
                     .map(|iter| iter.collect::<Vec<Result<Row, SystemError>>>()),
@@ -578,22 +614,19 @@ mod tests {
             );
         }
 
-        #[test]
-        fn insert_many_rows_into_object() {
-            let mut storage = SledBackendStorage::default();
-
-            create_object(&mut storage, "namespace", "object_name");
-            storage
+        #[rstest::rstest]
+        fn insert_many_rows_into_object(mut with_object: Storage) {
+            with_object
                 .write("namespace", "object_name", as_rows(vec![(1u8, vec!["123"])]))
                 .expect("no system errors")
                 .expect("values are written");
-            storage
+            with_object
                 .write("namespace", "object_name", as_rows(vec![(2u8, vec!["456"])]))
                 .expect("no system errors")
                 .expect("values are written");
 
             assert_eq!(
-                storage
+                with_object
                     .read("namespace", "object_name")
                     .expect("no system errors")
                     .map(|iter| iter.collect::<Vec<Result<Row, SystemError>>>()),
@@ -601,26 +634,18 @@ mod tests {
             );
         }
 
-        #[test]
-        fn insert_into_non_existent_object() {
-            let mut storage = SledBackendStorage::default();
-
-            storage
-                .create_namespace("namespace")
-                .expect("no system errors")
-                .expect("namespace created");
+        #[rstest::rstest]
+        fn insert_into_non_existent_object(mut with_namespace: Storage) {
             assert_eq!(
-                storage
+                with_namespace
                     .write("namespace", "not_existed", as_rows(vec![(1u8, vec!["123"])],))
                     .expect("no system errors"),
                 Err(OperationOnObjectError::ObjectDoesNotExist)
             );
         }
 
-        #[test]
-        fn insert_into_object_in_non_existent_namespace() {
-            let mut storage = SledBackendStorage::default();
-
+        #[rstest::rstest]
+        fn insert_into_object_in_non_existent_namespace(mut storage: Storage) {
             assert_eq!(
                 storage
                     .write("not_existed", "object", as_rows(vec![(1u8, vec!["123"])],))
@@ -629,16 +654,10 @@ mod tests {
             );
         }
 
-        #[test]
-        fn select_from_object_that_does_not_exist() {
-            let mut storage = SledBackendStorage::default();
-
-            storage
-                .create_namespace("namespace")
-                .expect("no system errors")
-                .expect("namespace created");
+        #[rstest::rstest]
+        fn select_from_object_that_does_not_exist(with_namespace: Storage) {
             assert_eq!(
-                storage
+                with_namespace
                     .read("namespace", "not_existed")
                     .expect("no system errors")
                     .map(|iter| iter.collect::<Vec<Result<Row, SystemError>>>()),
@@ -646,10 +665,8 @@ mod tests {
             );
         }
 
-        #[test]
-        fn select_from_object_in_not_existent_namespace() {
-            let storage = SledBackendStorage::default();
-
+        #[rstest::rstest]
+        fn select_from_object_in_not_existent_namespace(storage: Storage) {
             assert_eq!(
                 storage
                     .read("not_existed", "object")
@@ -659,12 +676,9 @@ mod tests {
             );
         }
 
-        #[test]
-        fn delete_some_records_from_object() {
-            let mut storage = SledBackendStorage::default();
-
-            create_object(&mut storage, "namespace", "object_name");
-            storage
+        #[rstest::rstest]
+        fn delete_some_records_from_object(mut with_object: Storage) {
+            with_object
                 .write(
                     "namespace",
                     "object_name",
@@ -674,14 +688,14 @@ mod tests {
                 .expect("write occurred");
 
             assert_eq!(
-                storage
+                with_object
                     .delete("namespace", "object_name", as_keys(vec![2u8]))
                     .expect("no system errors"),
                 Ok(1)
             );
 
             assert_eq!(
-                storage
+                with_object
                     .read("namespace", "object_name")
                     .expect("no system errors")
                     .map(|iter| iter.collect::<Vec<Result<Row, SystemError>>>()),
@@ -689,27 +703,18 @@ mod tests {
             );
         }
 
-        #[test]
-        fn delete_from_not_existed_object() {
-            let mut storage = SledBackendStorage::default();
-
-            storage
-                .create_namespace("namespace")
-                .expect("no system errors")
-                .expect("namespace created");
-
+        #[rstest::rstest]
+        fn delete_from_not_existed_object(mut with_namespace: Storage) {
             assert_eq!(
-                storage
+                with_namespace
                     .delete("namespace", "not_existent", vec![])
                     .expect("no system errors"),
                 Err(OperationOnObjectError::ObjectDoesNotExist)
             );
         }
 
-        #[test]
-        fn delete_from_not_existent_namespace() {
-            let mut storage = SledBackendStorage::default();
-
+        #[rstest::rstest]
+        fn delete_from_not_existent_namespace(mut storage: Storage) {
             assert_eq!(
                 storage
                     .delete("not existent", "object", vec![])
@@ -718,18 +723,15 @@ mod tests {
             );
         }
 
-        #[test]
-        fn select_all_from_object_with_many_columns() {
-            let mut storage = SledBackendStorage::default();
-
-            create_object(&mut storage, "namespace", "object_name");
-            storage
+        #[rstest::rstest]
+        fn select_all_from_object_with_many_columns(mut with_object: Storage) {
+            with_object
                 .write("namespace", "object_name", as_rows(vec![(1u8, vec!["1", "2", "3"])]))
                 .expect("no system errors")
                 .expect("write occurred");
 
             assert_eq!(
-                storage
+                with_object
                     .read("namespace", "object_name")
                     .expect("no system errors")
                     .map(|iter| iter.collect::<Vec<Result<Row, SystemError>>>()),
@@ -737,12 +739,9 @@ mod tests {
             );
         }
 
-        #[test]
-        fn insert_multiple_rows() {
-            let mut storage = SledBackendStorage::default();
-
-            create_object(&mut storage, "namespace", "object_name");
-            storage
+        #[rstest::rstest]
+        fn insert_multiple_rows(mut with_object: Storage) {
+            with_object
                 .write(
                     "namespace",
                     "object_name",
@@ -756,7 +755,7 @@ mod tests {
                 .expect("write occurred");
 
             assert_eq!(
-                storage
+                with_object
                     .read("namespace", "object_name")
                     .expect("no system errors")
                     .map(|iter| iter.collect::<Vec<Result<Row, SystemError>>>()),
@@ -768,17 +767,6 @@ mod tests {
                 .collect()),
             );
         }
-    }
-
-    fn create_object(storage: &mut SledBackendStorage, namespace: &str, object_name: &str) {
-        storage
-            .create_namespace(namespace)
-            .expect("no system errors")
-            .expect("namespace created");
-        storage
-            .create_object(namespace, object_name)
-            .expect("no system errors")
-            .expect("object created");
     }
 
     fn as_rows(items: Vec<(u8, Vec<&'static str>)>) -> Vec<Row> {

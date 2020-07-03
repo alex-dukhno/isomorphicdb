@@ -17,9 +17,8 @@ extern crate log;
 use kernel::SystemResult;
 use sql_types::SqlType;
 use sqlparser::{dialect::PostgreSqlDialect, parser::Parser};
-use std::fmt::Formatter;
 use std::{
-    fmt::{Display, Result},
+    fmt::{Display, Formatter, Result},
     ops::Deref,
     sync::{Arc, Mutex},
 };
@@ -323,19 +322,14 @@ impl<P: BackendStorage> Handler<P> {
                         for item in projection {
                             match item {
                                 sqlparser::ast::SelectItem::Wildcard => {
-                                    match (self.storage.lock().unwrap()).table_columns(&schema_name, &table_name)? {
-                                        Ok(all_columns) => columns.extend(
-                                            all_columns
-                                                .into_iter()
-                                                .map(|(name, _sql_type)| name)
-                                                .collect::<Vec<String>>(),
-                                        ),
-                                        Err(_e) => {
-                                            return Ok(Err(QueryError::not_supported_operation(
-                                                raw_sql_query.to_owned(),
-                                            )))
-                                        }
-                                    }
+                                    let all_columns =
+                                        (self.storage.lock().unwrap()).table_columns(&schema_name, &table_name)?;
+                                    columns.extend(
+                                        all_columns
+                                            .into_iter()
+                                            .map(|(name, _sql_type)| name)
+                                            .collect::<Vec<String>>(),
+                                    )
                                 }
                                 sqlparser::ast::SelectItem::UnnamedExpr(sqlparser::ast::Expr::Identifier(
                                     sqlparser::ast::Ident { value, .. },

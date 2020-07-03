@@ -46,7 +46,6 @@ fn select_from_table_that_does_not_exist(mut storage: PersistentStorage) {
     let table_columns = storage
         .table_columns("schema_name", "not_existed")
         .expect("no system errors")
-        .expect("columns")
         .into_iter()
         .map(|(name, _sql_type)| name)
         .collect();
@@ -72,7 +71,6 @@ fn select_all_from_table_with_many_columns(mut with_small_ints_table: Persistent
     let table_columns = with_small_ints_table
         .table_columns("schema_name", "table_name")
         .expect("no system errors")
-        .expect("table has columns")
         .into_iter()
         .map(|(name, _sql_type)| name)
         .collect();
