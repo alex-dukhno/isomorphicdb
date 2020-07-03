@@ -951,6 +951,7 @@ dependencies = [
  "async-std",
  "bytes",
  "kernel",
+ "rstest",
  "storage",
  "tempfile",
 ]

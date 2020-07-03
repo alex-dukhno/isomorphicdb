@@ -11,3 +11,6 @@ tempfile = "3.1.0"
 bytes = "0.5"
 storage = { path = "../storage" }
 kernel = { path = "../kernel" }
+
+[dev-dependencies]
+rstest = "0.6.4"
