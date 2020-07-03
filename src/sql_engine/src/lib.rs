@@ -17,7 +17,9 @@ extern crate log;
 use kernel::SystemResult;
 use sql_types::SqlType;
 use sqlparser::{dialect::PostgreSqlDialect, parser::Parser};
+use std::fmt::Formatter;
 use std::{
+    fmt::{Display, Result},
     ops::Deref,
     sync::{Arc, Mutex},
 };
@@ -30,8 +32,8 @@ pub type QueryResult = std::result::Result<QueryEvent, QueryError>;
 
 /// Message severities
 /// Reference: defined in https://www.postgresql.org/docs/12/protocol-error-fields.html
-#[derive(Debug, Eq, PartialEq)]
-pub enum Severity {
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub(crate) enum Severity {
     Error,
     Fatal,
     Panic,
@@ -59,7 +61,7 @@ impl Into<String> for Severity {
 }
 
 #[derive(Debug, PartialEq)]
-pub enum QueryErrorKind {
+pub(crate) enum QueryErrorKind {
     SchemaAlreadyExists(String),
     TableAlreadyExists(String),
     SchemaDoesNotExist(String),
@@ -70,12 +72,20 @@ pub enum QueryErrorKind {
 
 #[derive(Debug, PartialEq)]
 pub struct QueryError {
-    pub severity: Severity,
-    pub code: String,
-    pub kind: QueryErrorKind,
+    severity: Severity,
+    code: String,
+    kind: QueryErrorKind,
 }
 
 impl QueryError {
+    pub fn code(&self) -> Option<String> {
+        Some(self.code.clone())
+    }
+
+    pub fn severity(&self) -> Option<String> {
+        Some(self.severity.into())
+    }
+
     pub fn schema_already_exists(schema_name: String) -> Self {
         Self {
             severity: Severity::Error,
@@ -121,6 +131,27 @@ impl QueryError {
             severity: Severity::Error,
             code: "42601".to_owned(),
             kind: QueryErrorKind::NotSupportedOperation(raw_sql_query),
+        }
+    }
+}
+
+impl Display for QueryError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        match &self.kind {
+            QueryErrorKind::SchemaAlreadyExists(schema_name) => write!(f, "schema \"{}\" already exists", schema_name),
+            QueryErrorKind::TableAlreadyExists(table_name) => write!(f, "table \"{}\" already exists", table_name),
+            QueryErrorKind::SchemaDoesNotExist(schema_name) => write!(f, "schema \"{}\" does not exist", schema_name),
+            QueryErrorKind::TableDoesNotExist(table_name) => write!(f, "table \"{}\" does not exist", table_name),
+            QueryErrorKind::ColumnDoesNotExist(columns) => {
+                if columns.len() > 1 {
+                    write!(f, "columns {} do not exist", columns.join(", "))
+                } else {
+                    write!(f, "column {} does not exist", columns[0])
+                }
+            }
+            QueryErrorKind::NotSupportedOperation(raw_sql_query) => {
+                write!(f, "Currently, Query '{}' can't be executed", raw_sql_query)
+            }
         }
     }
 }

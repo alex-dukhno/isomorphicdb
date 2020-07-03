@@ -15,7 +15,7 @@
 use crate::query_listener::SmolQueryListener;
 use protocol::{listener::Secure, messages::Message, ColumnMetadata, Command, QueryListener};
 use smol::Task;
-use sql_engine::{Handler, QueryError, QueryErrorKind, QueryEvent, QueryResult};
+use sql_engine::{Handler, QueryEvent, QueryResult};
 use sql_types::SqlType;
 use std::sync::{
     atomic::{AtomicU8, Ordering},
@@ -182,32 +182,11 @@ impl QueryResultMapper {
             }
             Ok(QueryEvent::RecordsUpdated(records)) => vec![Message::CommandComplete(format!("UPDATE {}", records))],
             Ok(QueryEvent::RecordsDeleted(records)) => vec![Message::CommandComplete(format!("DELETE {}", records))],
-            Err(QueryError { severity, code, kind }) => {
-                let message = match kind {
-                    QueryErrorKind::SchemaAlreadyExists(schema_name) => {
-                        format!("schema \"{}\" already exists", schema_name)
-                    }
-                    QueryErrorKind::TableAlreadyExists(table_name) => {
-                        format!("table \"{}\" already exists", table_name)
-                    }
-                    QueryErrorKind::SchemaDoesNotExist(schema_name) => {
-                        format!("schema \"{}\" does not exist", schema_name)
-                    }
-                    QueryErrorKind::TableDoesNotExist(table_name) => format!("table \"{}\" does not exist", table_name),
-                    QueryErrorKind::ColumnDoesNotExist(columns) => {
-                        if columns.len() > 1 {
-                            format!("columns {} do not exist", columns.join(", "))
-                        } else {
-                            format!("column {} does not exist", columns[0])
-                        }
-                    }
-                    QueryErrorKind::NotSupportedOperation(raw_sql_query) => {
-                        format!("Currently, Query '{}' can't be executed", raw_sql_query)
-                    }
-                };
-
-                vec![Message::ErrorResponse(Some(severity.into()), Some(code), Some(message))]
-            }
+            Err(query_error) => vec![Message::ErrorResponse(
+                query_error.severity(),
+                query_error.code(),
+                Some(format!("{}", query_error)),
+            )],
         }
     }
 }
@@ -215,6 +194,7 @@ impl QueryResultMapper {
 #[cfg(test)]
 mod mapper {
     use super::*;
+    use sql_engine::QueryError;
     use sql_types::SqlType;
 
     #[test]
