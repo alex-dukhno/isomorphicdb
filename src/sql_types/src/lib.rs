@@ -18,6 +18,9 @@ use std::convert::TryInto;
 
 #[derive(PartialEq, Debug, Copy, Clone, Serialize, Deserialize)]
 pub enum SqlType {
+    SmallSerial(u16),
+    Serial(u32),
+    BigSerial(u64),
     Bool,
     Char(u64),
     VarChar(u64),
