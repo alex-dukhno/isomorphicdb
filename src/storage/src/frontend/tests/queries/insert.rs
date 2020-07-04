@@ -282,18 +282,14 @@ fn insert_too_many_expressions_labeled(mut storage: PersistentStorage) {
         ],
     );
 
-    let columns = vec![
-        "column_3".to_owned(),
-        "column_2".to_owned(),
-        "column_1".to_owned(),
-    ];
+    let columns = vec!["column_3".to_owned(), "column_2".to_owned(), "column_1".to_owned()];
 
     assert_eq!(
         storage
             .insert_into(
                 "schema_name",
                 "table_name",
-        columns,
+                columns,
                 vec![vec!["1".to_owned(), "2".to_owned(), "3".to_owned(), "4".to_owned()]],
             )
             .expect("no system errors"),
