@@ -183,68 +183,66 @@ impl<P: BackendStorage> FrontendStorage<P> {
 
         let mut to_write: Vec<Row> = vec![];
         let mut errors = HashMap::new();
-        let mut operation_error = None;
-        for row in rows {
-            if row.len() > all_columns.len() {
-                operation_error = Some(OperationOnTableError::InsertTooManyExpressions);
-                break;
-            }
+        if self.persistent.is_table_exists(schema_name, table_name) {
+            for row in rows {
+                if row.len() > all_columns.len() {
+                    // clear anything that could have been processed already.
+                    to_write.clear();
+                    return Ok(Err(OperationOnTableError::InsertTooManyExpressions));
+                }
 
-            let key = self.key_id_generator.to_be_bytes().to_vec();
+                let key = self.key_id_generator.to_be_bytes().to_vec();
 
-            // TODO: The default value or NULL should be initialized for SQL types of all columns.
-            let mut record = vec![vec![0, 0]; all_columns.len()];
-            let mut out_of_range = vec![];
-            let mut not_an_int = vec![];
-            let mut value_too_long = vec![];
-            for (item, (index, name, sql_type)) in row.iter().zip(index_columns.iter()) {
-                match sql_type.constraint().validate(item.as_str()) {
-                    Ok(()) => {
-                        record[*index] = sql_type.serializer().ser(item.as_str());
-                    }
-                    Err(ConstraintError::OutOfRange) => {
-                        out_of_range.push((name.clone(), *sql_type));
-                    }
-                    Err(ConstraintError::NotAnInt) => {
-                        not_an_int.push((name.clone(), *sql_type));
-                    }
-                    Err(ConstraintError::ValueTooLong) => {
-                        value_too_long.push((name.clone(), *sql_type));
+                // TODO: The default value or NULL should be initialized for SQL types of all columns.
+                let mut record = vec![vec![0, 0]; all_columns.len()];
+                let mut out_of_range = vec![];
+                let mut not_an_int = vec![];
+                let mut value_too_long = vec![];
+                for (item, (index, name, sql_type)) in row.iter().zip(index_columns.iter()) {
+                    match sql_type.constraint().validate(item.as_str()) {
+                        Ok(()) => {
+                            record[*index] = sql_type.serializer().ser(item.as_str());
+                        }
+                        Err(ConstraintError::OutOfRange) => {
+                            out_of_range.push((name.clone(), *sql_type));
+                        }
+                        Err(ConstraintError::NotAnInt) => {
+                            not_an_int.push((name.clone(), *sql_type));
+                        }
+                        Err(ConstraintError::ValueTooLong) => {
+                            value_too_long.push((name.clone(), *sql_type));
+                        }
                     }
                 }
+                if !out_of_range.is_empty() {
+                    errors
+                        .entry(ConstraintError::OutOfRange)
+                        .or_insert_with(Vec::new)
+                        .push(out_of_range);
+                }
+                if !not_an_int.is_empty() {
+                    errors
+                        .entry(ConstraintError::NotAnInt)
+                        .or_insert_with(Vec::new)
+                        .push(not_an_int);
+                }
+                if !value_too_long.is_empty() {
+                    errors
+                        .entry(ConstraintError::ValueTooLong)
+                        .or_insert_with(Vec::new)
+                        .push(value_too_long);
+                }
+                to_write.push((key, record.join(&b'|')));
+                self.key_id_generator += 1;
             }
-            if !out_of_range.is_empty() {
-                errors
-                    .entry(ConstraintError::OutOfRange)
-                    .or_insert_with(Vec::new)
-                    .push(out_of_range);
+
+            if !errors.is_empty() {
+                return Ok(Err(OperationOnTableError::ConstraintViolation(errors)));
             }
-            if !not_an_int.is_empty() {
-                errors
-                    .entry(ConstraintError::NotAnInt)
-                    .or_insert_with(Vec::new)
-                    .push(not_an_int);
-            }
-            if !value_too_long.is_empty() {
-                errors
-                    .entry(ConstraintError::ValueTooLong)
-                    .or_insert_with(Vec::new)
-                    .push(value_too_long);
-            }
-            to_write.push((key, record.join(&b'|')));
-            self.key_id_generator += 1;
         }
-        if !errors.is_empty() {
-            return Ok(Err(OperationOnTableError::ConstraintViolation(errors)));
-        }
+
         match self.persistent.write(schema_name, table_name, to_write)? {
-            Ok(_size) => {
-                if let Some(err) = operation_error {
-                    Ok(Err(err))
-                } else {
-                    Ok(Ok(()))
-                }
-            }
+            Ok(_size) => Ok(Ok(())),
             Err(OperationOnObjectError::ObjectDoesNotExist) => Ok(Err(OperationOnTableError::TableDoesNotExist)),
             Err(OperationOnObjectError::NamespaceDoesNotExist) => Ok(Err(OperationOnTableError::SchemaDoesNotExist)),
         }

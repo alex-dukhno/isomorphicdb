@@ -266,7 +266,28 @@ fn insert_too_many_expressions(mut storage: PersistentStorage) {
             )
             .expect("no system errors"),
         Err(OperationOnTableError::InsertTooManyExpressions)
-    )
+    );
+
+    let table_columns = storage
+        .table_columns("schema_name", "table_name")
+        .expect("no system errors")
+        .into_iter()
+        .map(|(name, _sql_type)| name)
+        .collect();
+
+    assert_eq!(
+        storage
+            .select_all_from("schema_name", "table_name", table_columns)
+            .expect("no system errors"),
+        Ok((
+            vec![
+                ("column_1".to_owned(), SqlType::SmallInt),
+                ("column_2".to_owned(), SqlType::Char(10)),
+                ("column_3".to_owned(), SqlType::BigInt),
+            ],
+            vec![]
+        ))
+    );
 }
 
 #[rstest::rstest]
@@ -294,7 +315,28 @@ fn insert_too_many_expressions_labeled(mut storage: PersistentStorage) {
             )
             .expect("no system errors"),
         Err(OperationOnTableError::InsertTooManyExpressions)
-    )
+    );
+
+    let table_columns = storage
+        .table_columns("schema_name", "table_name")
+        .expect("no system errors")
+        .into_iter()
+        .map(|(name, _sql_type)| name)
+        .collect();
+
+    assert_eq!(
+        storage
+            .select_all_from("schema_name", "table_name", table_columns)
+            .expect("no system errors"),
+        Ok((
+            vec![
+                ("column_1".to_owned(), SqlType::SmallInt),
+                ("column_2".to_owned(), SqlType::Char(10)),
+                ("column_3".to_owned(), SqlType::BigInt),
+            ],
+            vec![]
+        ))
+    );
 }
 
 #[cfg(test)]
