@@ -76,6 +76,8 @@ pub trait BackendStorage {
         object_name: &str,
         keys: Vec<Key>,
     ) -> SystemResult<Result<usize, OperationOnObjectError>>;
+
+    fn is_table_exists(&self, namespace: &str, object_name: &str) -> bool;
 }
 
 pub trait StorageErrorMapper {
@@ -273,6 +275,13 @@ impl BackendStorage for SledBackendStorage {
                 }
             }
             None => Ok(Err(OperationOnObjectError::NamespaceDoesNotExist)),
+        }
+    }
+
+    fn is_table_exists(&self, namespace: &str, object_name: &str) -> bool {
+        match self.namespaces.get(namespace) {
+            Some(namespace) => namespace.tree_names().contains(&(object_name.into())),
+            None => false,
         }
     }
 }
