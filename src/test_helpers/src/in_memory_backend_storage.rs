@@ -162,6 +162,13 @@ impl BackendStorage for InMemoryStorage {
             None => Ok(Err(OperationOnObjectError::NamespaceDoesNotExist)),
         }
     }
+
+    fn is_table_exists(&self, namespace: &str, object_name: &str) -> bool {
+        match self.namespaces.get(namespace) {
+            Some(namespace) => namespace.objects.contains_key(object_name),
+            None => false,
+        }
+    }
 }
 
 #[cfg(test)]

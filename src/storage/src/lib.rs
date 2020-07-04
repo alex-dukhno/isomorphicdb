@@ -45,6 +45,7 @@ pub enum DropTableError {
 pub enum OperationOnTableError {
     SchemaDoesNotExist,
     TableDoesNotExist,
+    InsertTooManyExpressions,
     // Returns non existing columns.
     ColumnDoesNotExist(Vec<String>),
     ConstraintViolation(HashMap<ConstraintError, Vec<Vec<(String, SqlType)>>>),
