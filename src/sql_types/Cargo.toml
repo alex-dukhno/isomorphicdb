@@ -6,9 +6,9 @@ edition = "2018"
 publish = false
 
 [dependencies]
-kernel = { path = "../kernel" }
 lexical = "5.2.0"
 serde = { version = "1.0.114", features = ["derive"] }
+protocol = { path = "../protocol" }
 
 [dev-dependencies]
 rstest = "0.6.4"

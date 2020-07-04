@@ -22,6 +22,7 @@ use bytes::BytesMut;
 use futures_util::io::{AsyncReadExt, AsyncWriteExt};
 use std::io;
 
+use crate::results::{QueryEvent, QueryResult};
 pub use listener::{QueryListener, ServerListener};
 
 /// Module contains functionality to listen to incoming client connections and
@@ -30,6 +31,10 @@ pub mod listener;
 /// Module contains backend messages that could be send by server implementation
 /// to a client
 pub mod messages;
+/// Module contains functionality to represent query result
+pub mod results;
+/// Module contains functionality to represent SQL type system
+pub mod sql_types;
 
 /// Protocol version
 pub type Version = i32;
@@ -127,8 +132,8 @@ impl<RW: AsyncReadExt + AsyncWriteExt + Unpin> Connection<RW> {
 
     /// Sends response messages to client. Most of the time it is a single
     /// message, select result one of the exceptional situation
-    pub async fn send(&mut self, messages: Vec<Message>) -> io::Result<()> {
-        for message in messages {
+    pub async fn send(&mut self, query_result: QueryResult) -> io::Result<()> {
+        for message in QueryResultMapper::map(query_result) {
             log::debug!("{:?}", message);
             self.socket.write_all(message.as_vec().as_slice()).await?;
         }
@@ -146,7 +151,7 @@ impl<RW: AsyncReadExt + AsyncWriteExt + Unpin> PartialEq for Connection<RW> {
 /// Struct description of metadata that describes how client should interpret
 /// outgoing selected data
 #[derive(Clone, Debug, PartialEq)]
-pub struct ColumnMetadata {
+pub(crate) struct ColumnMetadata {
     /// name of the column that was specified in query
     pub name: String,
     /// PostgreSQL data type id
@@ -176,9 +181,232 @@ pub enum SslMode {
     Disable,
 }
 
+struct QueryResultMapper;
+
+impl QueryResultMapper {
+    fn map(resp: QueryResult) -> Vec<Message> {
+        match resp {
+            Ok(QueryEvent::SchemaCreated) => vec![Message::CommandComplete("CREATE SCHEMA".to_owned())],
+            Ok(QueryEvent::SchemaDropped) => vec![Message::CommandComplete("DROP SCHEMA".to_owned())],
+            Ok(QueryEvent::TableCreated) => vec![Message::CommandComplete("CREATE TABLE".to_owned())],
+            Ok(QueryEvent::TableDropped) => vec![Message::CommandComplete("DROP TABLE".to_owned())],
+            Ok(QueryEvent::VariableSet) => vec![Message::CommandComplete("SET".to_owned())],
+            Ok(QueryEvent::TransactionStarted) => vec![Message::CommandComplete("BEGIN".to_owned())],
+            Ok(QueryEvent::RecordsInserted(records)) => vec![Message::CommandComplete(format!("INSERT 0 {}", records))],
+            Ok(QueryEvent::RecordsSelected(projection)) => {
+                let definition = projection.0;
+                let description: Vec<ColumnMetadata> = definition
+                    .into_iter()
+                    .map(|(name, sql_type)| ColumnMetadata::new(name, sql_type.pg_oid(), sql_type.pg_len()))
+                    .collect();
+                let records = projection.1;
+                let len = records.len();
+                let mut messages = vec![Message::RowDescription(description)];
+                for record in records {
+                    messages.push(Message::DataRow(record));
+                }
+                messages.push(Message::CommandComplete(format!("SELECT {}", len)));
+                messages
+            }
+            Ok(QueryEvent::RecordsUpdated(records)) => vec![Message::CommandComplete(format!("UPDATE {}", records))],
+            Ok(QueryEvent::RecordsDeleted(records)) => vec![Message::CommandComplete(format!("DELETE {}", records))],
+            Err(query_error) => vec![Message::ErrorResponse(
+                query_error.severity(),
+                query_error.code(),
+                query_error.message(),
+            )],
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(test)]
+    mod mapper {
+        use super::*;
+        use crate::{results::QueryError, sql_types::PostgreSqlType};
+
+        #[test]
+        fn create_schema() {
+            assert_eq!(
+                QueryResultMapper::map(Ok(QueryEvent::SchemaCreated)),
+                vec![Message::CommandComplete("CREATE SCHEMA".to_owned())]
+            )
+        }
+
+        #[test]
+        fn drop_schema() {
+            assert_eq!(
+                QueryResultMapper::map(Ok(QueryEvent::SchemaDropped)),
+                vec![Message::CommandComplete("DROP SCHEMA".to_owned())]
+            )
+        }
+
+        #[test]
+        fn create_table() {
+            assert_eq!(
+                QueryResultMapper::map(Ok(QueryEvent::TableCreated)),
+                vec![Message::CommandComplete("CREATE TABLE".to_owned())]
+            );
+        }
+
+        #[test]
+        fn drop_table() {
+            assert_eq!(
+                QueryResultMapper::map(Ok(QueryEvent::TableDropped)),
+                vec![Message::CommandComplete("DROP TABLE".to_owned())]
+            );
+        }
+
+        #[test]
+        fn insert_record() {
+            let records_number = 3;
+            assert_eq!(
+                QueryResultMapper::map(Ok(QueryEvent::RecordsInserted(records_number))),
+                vec![Message::CommandComplete(format!("INSERT 0 {}", records_number))]
+            )
+        }
+
+        #[test]
+        fn select_records() {
+            let projection = (
+                vec![
+                    ("column_name_1".to_owned(), PostgreSqlType::SmallInt),
+                    ("column_name_2".to_owned(), PostgreSqlType::SmallInt),
+                ],
+                vec![
+                    vec!["1".to_owned(), "2".to_owned()],
+                    vec!["3".to_owned(), "4".to_owned()],
+                ],
+            );
+            assert_eq!(
+                QueryResultMapper::map(Ok(QueryEvent::RecordsSelected(projection))),
+                vec![
+                    Message::RowDescription(vec![
+                        ColumnMetadata::new("column_name_1".to_owned(), 21, 2),
+                        ColumnMetadata::new("column_name_2".to_owned(), 21, 2)
+                    ]),
+                    Message::DataRow(vec!["1".to_owned(), "2".to_owned()]),
+                    Message::DataRow(vec!["3".to_owned(), "4".to_owned()]),
+                    Message::CommandComplete("SELECT 2".to_owned())
+                ]
+            );
+        }
+
+        #[test]
+        fn update_records() {
+            let records_number = 3;
+            assert_eq!(
+                QueryResultMapper::map(Ok(QueryEvent::RecordsUpdated(records_number))),
+                vec![Message::CommandComplete(format!("UPDATE {}", records_number))]
+            );
+        }
+
+        #[test]
+        fn delete_records() {
+            let records_number = 3;
+            assert_eq!(
+                QueryResultMapper::map(Ok(QueryEvent::RecordsDeleted(records_number))),
+                vec![Message::CommandComplete(format!("DELETE {}", records_number))]
+            )
+        }
+
+        #[test]
+        fn schema_already_exists() {
+            let schema_name = "some_table_name".to_owned();
+            assert_eq!(
+                QueryResultMapper::map(Err(QueryError::schema_already_exists(schema_name.clone()))),
+                vec![Message::ErrorResponse(
+                    Some("ERROR".to_owned()),
+                    Some("42P06".to_owned()),
+                    Some(format!("schema \"{}\" already exists", schema_name)),
+                )]
+            )
+        }
+
+        #[test]
+        fn schema_does_not_exists() {
+            let schema_name = "some_table_name".to_owned();
+            assert_eq!(
+                QueryResultMapper::map(Err(QueryError::schema_does_not_exist(schema_name.clone()))),
+                vec![Message::ErrorResponse(
+                    Some("ERROR".to_owned()),
+                    Some("3F000".to_owned()),
+                    Some(format!("schema \"{}\" does not exist", schema_name)),
+                )]
+            )
+        }
+
+        #[test]
+        fn table_already_exists() {
+            let table_name = "some_table_name".to_owned();
+            assert_eq!(
+                QueryResultMapper::map(Err(QueryError::table_already_exists(table_name.clone()))),
+                vec![Message::ErrorResponse(
+                    Some("ERROR".to_owned()),
+                    Some("42P07".to_owned()),
+                    Some(format!("table \"{}\" already exists", table_name)),
+                )]
+            )
+        }
+
+        #[test]
+        fn table_does_not_exists() {
+            let table_name = "some_table_name".to_owned();
+            assert_eq!(
+                QueryResultMapper::map(Err(QueryError::table_does_not_exist(table_name.clone()))),
+                vec![Message::ErrorResponse(
+                    Some("ERROR".to_owned()),
+                    Some("42P01".to_owned()),
+                    Some(format!("table \"{}\" does not exist", table_name)),
+                )]
+            )
+        }
+
+        #[test]
+        fn one_column_does_not_exists() {
+            assert_eq!(
+                QueryResultMapper::map(Err(QueryError::column_does_not_exist(vec![
+                    "column_not_in_table".to_owned()
+                ]))),
+                vec![Message::ErrorResponse(
+                    Some("ERROR".to_owned()),
+                    Some("42703".to_owned()),
+                    Some("column column_not_in_table does not exist".to_owned()),
+                )]
+            )
+        }
+
+        #[test]
+        fn multiple_columns_does_not_exists() {
+            assert_eq!(
+                QueryResultMapper::map(Err(QueryError::column_does_not_exist(vec![
+                    "column_not_in_table1".to_owned(),
+                    "column_not_in_table2".to_owned()
+                ]))),
+                vec![Message::ErrorResponse(
+                    Some("ERROR".to_owned()),
+                    Some("42703".to_owned()),
+                    Some("columns column_not_in_table1, column_not_in_table2 do not exist".to_owned()),
+                )]
+            )
+        }
+
+        #[test]
+        fn operation_is_not_supported() {
+            let raw_sql_query = "some SQL query".to_owned();
+            assert_eq!(
+                QueryResultMapper::map(Err(QueryError::not_supported_operation(raw_sql_query.clone()))),
+                vec![Message::ErrorResponse(
+                    Some("ERROR".to_owned()),
+                    Some("42601".to_owned()),
+                    Some(format!("Currently, Query '{}' can't be executed", raw_sql_query)),
+                )]
+            )
+        }
+    }
 
     #[cfg(test)]
     mod connection {

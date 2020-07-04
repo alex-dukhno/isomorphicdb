@@ -18,7 +18,7 @@ use crate::{
 };
 use async_trait::async_trait;
 use byteorder::{ByteOrder, NetworkEndian};
-use bytes::{Buf, BufMut, BytesMut};
+use bytes::{Buf, BytesMut};
 use futures_util::io::{self, AsyncReadExt, AsyncWriteExt};
 use itertools::Itertools;
 use std::net::SocketAddr;

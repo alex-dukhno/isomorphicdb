@@ -43,7 +43,7 @@ const READY_FOR_QUERY: u8 = b'Z';
 /// Backend PostgreSQL Wire Protocol messages
 /// see https://www.postgresql.org/docs/12/protocol-flow.html
 #[derive(Debug, PartialEq)]
-pub enum Message {
+pub(crate) enum Message {
     /// A warning message has been issued. The frontend should display the message
     /// but continue listening for ReadyForQuery or ErrorResponse.
     NoticeResponse,
@@ -59,6 +59,7 @@ pub enum Message {
     /// can be computed in SQL as concat('md5', md5(concat(md5(concat(password,
     /// username)), random-salt))). (Keep in mind the md5() function returns its
     /// result as a hex string.)
+    #[allow(dead_code)]
     AuthenticationMD5Password,
     /// The authentication exchange is successfully completed.
     AuthenticationOk,
@@ -74,6 +75,7 @@ pub enum Message {
     /// An SQL command completed normally.
     CommandComplete(String),
     /// An empty query string was recognized.
+    #[allow(dead_code)]
     EmptyQueryResponse,
     /// An error has occurred. Contains (`Severity`, `Error Code`, `Error Message`)
     /// all of them are optional
