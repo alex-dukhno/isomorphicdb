@@ -15,145 +15,17 @@
 extern crate log;
 
 use kernel::SystemResult;
+use protocol::results::{QueryError, QueryEvent, QueryResult};
 use sql_types::SqlType;
 use sqlparser::{dialect::PostgreSqlDialect, parser::Parser};
 use std::{
-    fmt::{Display, Formatter, Result},
     ops::Deref,
     sync::{Arc, Mutex},
 };
 use storage::{
     backend::BackendStorage, frontend::FrontendStorage, CreateTableError, DropTableError, OperationOnTableError,
-    Projection, SchemaAlreadyExists, SchemaDoesNotExist,
+    SchemaAlreadyExists, SchemaDoesNotExist,
 };
-
-pub type QueryResult = std::result::Result<QueryEvent, QueryError>;
-
-/// Message severities
-/// Reference: defined in https://www.postgresql.org/docs/12/protocol-error-fields.html
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub(crate) enum Severity {
-    Error,
-    Fatal,
-    Panic,
-    Warning,
-    Notice,
-    Debug,
-    Info,
-    Log,
-}
-
-// easy conversion into a string.
-impl Into<String> for Severity {
-    fn into(self) -> String {
-        match self {
-            Self::Error => "ERROR".to_string(),
-            Self::Fatal => "FATAL".to_string(),
-            Self::Panic => "PANIC".to_string(),
-            Self::Warning => "WARNING".to_string(),
-            Self::Notice => "NOTIC".to_string(),
-            Self::Debug => "DEBUG".to_string(),
-            Self::Info => "INFO".to_string(),
-            Self::Log => "LOG".to_string(),
-        }
-    }
-}
-
-#[derive(Debug, PartialEq)]
-pub(crate) enum QueryErrorKind {
-    SchemaAlreadyExists(String),
-    TableAlreadyExists(String),
-    SchemaDoesNotExist(String),
-    TableDoesNotExist(String),
-    ColumnDoesNotExist(Vec<String>),
-    NotSupportedOperation(String),
-}
-
-#[derive(Debug, PartialEq)]
-pub struct QueryError {
-    severity: Severity,
-    code: String,
-    kind: QueryErrorKind,
-}
-
-impl QueryError {
-    pub fn code(&self) -> Option<String> {
-        Some(self.code.clone())
-    }
-
-    pub fn severity(&self) -> Option<String> {
-        Some(self.severity.into())
-    }
-
-    pub fn schema_already_exists(schema_name: String) -> Self {
-        Self {
-            severity: Severity::Error,
-            code: "42P06".to_owned(),
-            kind: QueryErrorKind::SchemaAlreadyExists(schema_name),
-        }
-    }
-
-    pub fn schema_does_not_exist(schema_name: String) -> Self {
-        Self {
-            severity: Severity::Error,
-            code: "3F000".to_owned(),
-            kind: QueryErrorKind::SchemaDoesNotExist(schema_name),
-        }
-    }
-
-    pub fn table_already_exists(table_name: String) -> Self {
-        Self {
-            severity: Severity::Error,
-            code: "42P07".to_owned(),
-            kind: QueryErrorKind::TableAlreadyExists(table_name),
-        }
-    }
-
-    pub fn table_does_not_exist(table_name: String) -> Self {
-        Self {
-            severity: Severity::Error,
-            code: "42P01".to_owned(),
-            kind: QueryErrorKind::TableDoesNotExist(table_name),
-        }
-    }
-
-    pub fn column_does_not_exist(non_existing_columns: Vec<String>) -> Self {
-        Self {
-            severity: Severity::Error,
-            code: "42703".to_owned(),
-            kind: QueryErrorKind::ColumnDoesNotExist(non_existing_columns),
-        }
-    }
-
-    pub fn not_supported_operation(raw_sql_query: String) -> Self {
-        Self {
-            severity: Severity::Error,
-            code: "42601".to_owned(),
-            kind: QueryErrorKind::NotSupportedOperation(raw_sql_query),
-        }
-    }
-}
-
-impl Display for QueryError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        match &self.kind {
-            QueryErrorKind::SchemaAlreadyExists(schema_name) => write!(f, "schema \"{}\" already exists", schema_name),
-            QueryErrorKind::TableAlreadyExists(table_name) => write!(f, "table \"{}\" already exists", table_name),
-            QueryErrorKind::SchemaDoesNotExist(schema_name) => write!(f, "schema \"{}\" does not exist", schema_name),
-            QueryErrorKind::TableDoesNotExist(table_name) => write!(f, "table \"{}\" does not exist", table_name),
-            QueryErrorKind::ColumnDoesNotExist(columns) => {
-                if columns.len() > 1 {
-                    write!(f, "columns {} do not exist", columns.join(", "))
-                } else {
-                    write!(f, "column {} does not exist", columns[0])
-                }
-            }
-            QueryErrorKind::NotSupportedOperation(raw_sql_query) => {
-                write!(f, "Currently, Query '{}' can't be executed", raw_sql_query)
-            }
-        }
-    }
-}
 
 pub struct Handler<P: BackendStorage> {
     storage: Arc<Mutex<FrontendStorage<P>>>,
@@ -340,7 +212,14 @@ impl<P: BackendStorage> Handler<P> {
                         columns
                     };
                     match (self.storage.lock().unwrap()).select_all_from(&schema_name, &table_name, table_columns)? {
-                        Ok(records) => Ok(Ok(QueryEvent::RecordsSelected(records))),
+                        Ok(records) => Ok(Ok(QueryEvent::RecordsSelected((
+                            records
+                                .0
+                                .into_iter()
+                                .map(|(name, sql_type)| (name, sql_type.to_pg_types()))
+                                .collect(),
+                            records.1,
+                        )))),
                         Err(OperationOnTableError::ColumnDoesNotExist(non_existing_columns)) => {
                             Ok(Err(QueryError::column_does_not_exist(non_existing_columns)))
                         }
@@ -423,24 +302,10 @@ impl<P: BackendStorage> Handler<P> {
     }
 }
 
-#[derive(Debug, PartialEq)]
-pub enum QueryEvent {
-    SchemaCreated,
-    SchemaDropped,
-    TableCreated,
-    TableDropped,
-    VariableSet,
-    TransactionStarted,
-    RecordsInserted(usize),
-    RecordsSelected(Projection),
-    RecordsUpdated(usize),
-    RecordsDeleted(usize),
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sql_types::SqlType;
+    use protocol::sql_types::PostgreSqlType;
     use storage::frontend::FrontendStorage;
     use test_helpers::in_memory_backend_storage::InMemoryStorage;
 
@@ -715,7 +580,7 @@ mod tests {
                 .execute("select * from schema_name.table_name;")
                 .expect("no system errors"),
             Ok(QueryEvent::RecordsSelected((
-                vec![("column_test".to_owned(), SqlType::SmallInt)],
+                vec![("column_test".to_owned(), PostgreSqlType::SmallInt)],
                 vec![vec!["123".to_owned()]]
             )))
         );
@@ -741,7 +606,7 @@ mod tests {
                 .execute("select * from schema_name.table_name;")
                 .expect("no system errors"),
             Ok(QueryEvent::RecordsSelected((
-                vec![("column_test".to_owned(), SqlType::SmallInt)],
+                vec![("column_test".to_owned(), PostgreSqlType::SmallInt)],
                 vec![vec!["123".to_owned()]]
             )))
         );
@@ -756,7 +621,7 @@ mod tests {
                 .execute("select * from schema_name.table_name;")
                 .expect("no system errors"),
             Ok(QueryEvent::RecordsSelected((
-                vec![("column_test".to_owned(), SqlType::SmallInt)],
+                vec![("column_test".to_owned(), PostgreSqlType::SmallInt)],
                 vec![vec!["123".to_owned()], vec!["456".to_owned()]]
             )))
         );
@@ -783,9 +648,9 @@ mod tests {
                 .expect("no system errors"),
             Ok(QueryEvent::RecordsSelected((
                 vec![
-                    ("col1".to_owned(), SqlType::SmallInt),
-                    ("col2".to_owned(), SqlType::SmallInt),
-                    ("col3".to_owned(), SqlType::SmallInt),
+                    ("col1".to_owned(), PostgreSqlType::SmallInt),
+                    ("col2".to_owned(), PostgreSqlType::SmallInt),
+                    ("col3".to_owned(), PostgreSqlType::SmallInt),
                 ],
                 vec![
                     vec!["3".to_owned(), "1".to_owned(), "2".to_owned()],
@@ -819,7 +684,7 @@ mod tests {
                 .execute("select * from schema_name.table_name;")
                 .expect("no system errors"),
             Ok(QueryEvent::RecordsSelected((
-                vec![("column_test".to_owned(), SqlType::SmallInt)],
+                vec![("column_test".to_owned(), PostgreSqlType::SmallInt)],
                 vec![vec!["123".to_owned()], vec!["456".to_owned()]]
             )))
         );
@@ -834,7 +699,7 @@ mod tests {
                 .execute("select * from schema_name.table_name;")
                 .expect("no system errors"),
             Ok(QueryEvent::RecordsSelected((
-                vec![("column_test".to_owned(), SqlType::SmallInt)],
+                vec![("column_test".to_owned(), PostgreSqlType::SmallInt)],
                 vec![vec!["789".to_owned()], vec!["789".to_owned()]]
             )))
         );
@@ -865,8 +730,8 @@ mod tests {
                 .expect("no system errors"),
             Ok(QueryEvent::RecordsSelected((
                 vec![
-                    ("col1".to_owned(), SqlType::SmallInt),
-                    ("col2".to_owned(), SqlType::SmallInt),
+                    ("col1".to_owned(), PostgreSqlType::SmallInt),
+                    ("col2".to_owned(), PostgreSqlType::SmallInt),
                 ],
                 vec![
                     vec!["123".to_owned(), "789".to_owned()],
@@ -886,8 +751,8 @@ mod tests {
                 .expect("no system errors"),
             Ok(QueryEvent::RecordsSelected((
                 vec![
-                    ("col1".to_owned(), SqlType::SmallInt),
-                    ("col2".to_owned(), SqlType::SmallInt),
+                    ("col1".to_owned(), PostgreSqlType::SmallInt),
+                    ("col2".to_owned(), PostgreSqlType::SmallInt),
                 ],
                 vec![
                     vec!["123".to_owned(), "357".to_owned()],
@@ -922,9 +787,9 @@ mod tests {
                 .expect("no system errors"),
             Ok(QueryEvent::RecordsSelected((
                 vec![
-                    ("col1".to_owned(), SqlType::SmallInt),
-                    ("col2".to_owned(), SqlType::SmallInt),
-                    ("col3".to_owned(), SqlType::SmallInt),
+                    ("col1".to_owned(), PostgreSqlType::SmallInt),
+                    ("col2".to_owned(), PostgreSqlType::SmallInt),
+                    ("col3".to_owned(), PostgreSqlType::SmallInt),
                 ],
                 vec![
                     vec!["111".to_owned(), "222".to_owned(), "333".to_owned()],
@@ -944,9 +809,9 @@ mod tests {
                 .expect("no system errors"),
             Ok(QueryEvent::RecordsSelected((
                 vec![
-                    ("col1".to_owned(), SqlType::SmallInt),
-                    ("col2".to_owned(), SqlType::SmallInt),
-                    ("col3".to_owned(), SqlType::SmallInt),
+                    ("col1".to_owned(), PostgreSqlType::SmallInt),
+                    ("col2".to_owned(), PostgreSqlType::SmallInt),
+                    ("col3".to_owned(), PostgreSqlType::SmallInt),
                 ],
                 vec![
                     vec!["999".to_owned(), "222".to_owned(), "777".to_owned()],
@@ -977,9 +842,9 @@ mod tests {
                 .expect("no system errors"),
             Ok(QueryEvent::RecordsSelected((
                 vec![
-                    ("column_1".to_owned(), SqlType::SmallInt),
-                    ("column_2".to_owned(), SqlType::SmallInt),
-                    ("column_3".to_owned(), SqlType::SmallInt)
+                    ("column_1".to_owned(), PostgreSqlType::SmallInt),
+                    ("column_2".to_owned(), PostgreSqlType::SmallInt),
+                    ("column_3".to_owned(), PostgreSqlType::SmallInt)
                 ],
                 vec![
                     vec!["1".to_owned(), "2".to_owned(), "3".to_owned()],
@@ -1000,9 +865,9 @@ mod tests {
                 .expect("no system errors"),
             Ok(QueryEvent::RecordsSelected((
                 vec![
-                    ("column_1".to_owned(), SqlType::SmallInt),
-                    ("column_2".to_owned(), SqlType::SmallInt),
-                    ("column_3".to_owned(), SqlType::SmallInt)
+                    ("column_1".to_owned(), PostgreSqlType::SmallInt),
+                    ("column_2".to_owned(), PostgreSqlType::SmallInt),
+                    ("column_3".to_owned(), PostgreSqlType::SmallInt)
                 ],
                 vec![
                     vec!["10".to_owned(), "-20".to_owned(), "30".to_owned()],
@@ -1048,7 +913,7 @@ mod tests {
                 .execute("select * from schema_name.table_name;")
                 .expect("no system errors"),
             Ok(QueryEvent::RecordsSelected((
-                vec![("column_test".to_owned(), SqlType::SmallInt)],
+                vec![("column_test".to_owned(), PostgreSqlType::SmallInt)],
                 vec![vec!["123".to_owned()]],
             )))
         );
@@ -1086,7 +951,7 @@ mod tests {
                 .execute("select * from schema_name.table_name;")
                 .expect("no system errors"),
             Ok(QueryEvent::RecordsSelected((
-                vec![("column_test".to_owned(), SqlType::SmallInt)],
+                vec![("column_test".to_owned(), PostgreSqlType::SmallInt)],
                 vec![vec!["123".to_owned()], vec!["456".to_owned()]]
             )))
         );
@@ -1101,7 +966,7 @@ mod tests {
                 .execute("select * from schema_name.table_name;")
                 .expect("no system errors"),
             Ok(QueryEvent::RecordsSelected((
-                vec![("column_test".to_owned(), SqlType::SmallInt)],
+                vec![("column_test".to_owned(), PostgreSqlType::SmallInt)],
                 vec![]
             )))
         );
@@ -1128,9 +993,9 @@ mod tests {
                 .expect("no system errors"),
             Ok(QueryEvent::RecordsSelected((
                 vec![
-                    ("column_1".to_owned(), SqlType::SmallInt),
-                    ("column_2".to_owned(), SqlType::SmallInt),
-                    ("column_3".to_owned(), SqlType::SmallInt)
+                    ("column_1".to_owned(), PostgreSqlType::SmallInt),
+                    ("column_2".to_owned(), PostgreSqlType::SmallInt),
+                    ("column_3".to_owned(), PostgreSqlType::SmallInt)
                 ],
                 vec![vec!["123".to_owned(), "456".to_owned(), "789".to_owned()]]
             )))
@@ -1160,9 +1025,9 @@ mod tests {
                 .expect("no system errors"),
             Ok(QueryEvent::RecordsSelected((
                 vec![
-                    ("column_1".to_owned(), SqlType::SmallInt),
-                    ("column_2".to_owned(), SqlType::SmallInt),
-                    ("column_3".to_owned(), SqlType::SmallInt)
+                    ("column_1".to_owned(), PostgreSqlType::SmallInt),
+                    ("column_2".to_owned(), PostgreSqlType::SmallInt),
+                    ("column_3".to_owned(), PostgreSqlType::SmallInt)
                 ],
                 vec![
                     vec!["1".to_owned(), "4".to_owned(), "7".to_owned()],
@@ -1194,8 +1059,8 @@ mod tests {
                 .expect("no system errors"),
             Ok(QueryEvent::RecordsSelected((
                 vec![
-                    ("column_3".to_owned(), SqlType::SmallInt),
-                    ("column_2".to_owned(), SqlType::SmallInt),
+                    ("column_3".to_owned(), PostgreSqlType::SmallInt),
+                    ("column_2".to_owned(), PostgreSqlType::SmallInt),
                 ],
                 vec![
                     vec!["7".to_owned(), "4".to_owned()],
@@ -1275,9 +1140,9 @@ mod tests {
                 .expect("no system errors"),
             Ok(QueryEvent::RecordsSelected((
                 vec![
-                    ("column_si".to_owned(), SqlType::SmallInt),
-                    ("column_i".to_owned(), SqlType::Integer),
-                    ("column_bi".to_owned(), SqlType::BigInt),
+                    ("column_si".to_owned(), PostgreSqlType::SmallInt),
+                    ("column_i".to_owned(), PostgreSqlType::Integer),
+                    ("column_bi".to_owned(), PostgreSqlType::BigInt),
                 ],
                 vec![
                     vec![
@@ -1327,8 +1192,8 @@ mod tests {
                 .expect("no system errors"),
             Ok(QueryEvent::RecordsSelected((
                 vec![
-                    ("column_c".to_owned(), SqlType::Char(10)),
-                    ("column_vc".to_owned(), SqlType::VarChar(10))
+                    ("column_c".to_owned(), PostgreSqlType::Char),
+                    ("column_vc".to_owned(), PostgreSqlType::VarChar)
                 ],
                 vec![
                     vec!["12345abcde".to_owned(), "12345abcde".to_owned()],

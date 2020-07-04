@@ -18,7 +18,7 @@ use crate::{
 };
 use async_trait::async_trait;
 use byteorder::{ByteOrder, NetworkEndian};
-use bytes::{Buf, BufMut, BytesMut};
+use bytes::{Buf, BytesMut};
 use futures_util::io::{self, AsyncReadExt, AsyncWriteExt};
 use itertools::Itertools;
 use std::net::SocketAddr;
@@ -89,36 +89,21 @@ pub trait QueryListener {
                 let _message = read_message(len, &mut socket).await?;
                 socket.write_all(Message::AuthenticationOk.as_vec().as_slice()).await?;
 
-                let mut parameter_status = BytesMut::with_capacity(256);
-                parameter_status.put_u8(b'S');
-                let mut parameters = BytesMut::with_capacity(256);
-                parameters.extend_from_slice(b"client_encoding");
-                parameters.put_u8(0);
-                parameters.extend_from_slice(b"UTF8");
-                parameters.put_u8(0);
-                eprintln!("LEN = {:?}", parameters.len());
-                eprintln!("PARAMS = {:?}", parameters);
-                parameter_status.put_u32(4 + parameters.bytes().len() as u32);
-                parameter_status.extend_from_slice(parameters.as_ref());
-                eprintln!("LEN = {:?}", parameter_status.len());
-                eprintln!("PARAMS = {:?}", parameter_status);
-                socket.write_all(parameter_status.to_vec().as_slice()).await?;
+                socket
+                    .write_all(
+                        Message::ParameterStatus("client_encoding".to_owned(), "UTF8".to_owned())
+                            .as_vec()
+                            .as_slice(),
+                    )
+                    .await?;
 
-                // TODO it does not required by psycopg2 but good example of ParameterStatus message from backend
-                let mut parameter_status = BytesMut::with_capacity(256);
-                parameter_status.put_u8(b'S');
-                let mut parameters = BytesMut::with_capacity(256);
-                parameters.extend_from_slice(b"DateStyle");
-                parameters.put_u8(0);
-                parameters.extend_from_slice(b"DMY");
-                parameters.put_u8(0);
-                eprintln!("LEN = {:?}", parameters.len());
-                eprintln!("PARAMS = {:?}", parameters);
-                parameter_status.put_u32(4 + parameters.bytes().len() as u32);
-                parameter_status.extend_from_slice(parameters.as_ref());
-                eprintln!("LEN = {:?}", parameter_status.len());
-                eprintln!("PARAMS = {:?}", parameter_status);
-                socket.write_all(parameter_status.to_vec().as_slice()).await?;
+                socket
+                    .write_all(
+                        Message::ParameterStatus("DateStyle".to_owned(), "DMY".to_owned())
+                            .as_vec()
+                            .as_slice(),
+                    )
+                    .await?;
 
                 Ok(Ok(Connection::new((version, parsed, SslMode::Require), socket)))
             }
@@ -385,7 +370,7 @@ mod tests {
             }
 
             #[async_std::test]
-            #[ignore]
+            // #[ignore]
             async fn successful_connection_handshake() -> io::Result<()> {
                 let test_case = async_io::TestCase::with_content(vec![
                     pg_frontend::Message::SslRequired.as_vec().as_slice(),
@@ -412,6 +397,16 @@ mod tests {
                 expected_content.extend_from_slice(Message::NoticeResponse.as_vec().as_slice());
                 expected_content.extend_from_slice(Message::AuthenticationCleartextPassword.as_vec().as_slice());
                 expected_content.extend_from_slice(Message::AuthenticationOk.as_vec().as_slice());
+                expected_content.extend_from_slice(
+                    Message::ParameterStatus("client_encoding".to_owned(), "UTF8".to_owned())
+                        .as_vec()
+                        .as_slice(),
+                );
+                expected_content.extend_from_slice(
+                    Message::ParameterStatus("DateStyle".to_owned(), "DMY".to_owned())
+                        .as_vec()
+                        .as_slice(),
+                );
 
                 assert_eq!(actual_content, expected_content);
 

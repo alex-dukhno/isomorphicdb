@@ -11,6 +11,7 @@ kernel = { path = "../kernel" }
 storage = { path = "../storage" }
 sqlparser = "0.5.1"
 sql_types = { path = "../sql_types" }
+protocol = { path = "../protocol" }
 
 [dev-dependencies]
 rstest = "0.6.4"
