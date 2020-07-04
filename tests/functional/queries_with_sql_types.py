@@ -80,6 +80,7 @@ def test_character_types(create_drop_test_schema_fixture):
     assert r == [('c', '1234567890', 'c', '12345678901234567890',), ('1', '1234567', 'c', '1234567890',)]
 
 def test_boolean_types(create_cursor):
+    import random
     cur = create_cursor
     try:
         cur.execute('create schema schema_name;');
@@ -89,12 +90,33 @@ def test_boolean_types(create_cursor):
             ');'
         )
 
-        cur.execute('INSERT INTO schema_name.table_name VALUES(TRUE);')
-        cur.execute('INSERT INTO schema_name.table_name VALUES(FALSE);')
+        word_to_value = {
+            "TRUE": True,
+            "FALSE": False,
+            "'true'": True,
+            "'false'": False,
+            "'t'": True,
+            "'f'": False,
+            "'yes'": True,
+            "'no'": False,
+            "'y'": True,
+            "'n'": False,
+            "'on'": True,
+            "'off'": False,
+            "'1'": True,
+            "'0'": False,
+        }
 
-        cur.execute('SELECT * FROM schema_name.table_name;')
-        r = cur.fetchmany(2)
-        assert r == [(True,), (False,),]
+        for (w, outcome) in word_to_value.items():
+            # it should work regardless of case so we randomly generate
+            # a string, which have both upper and lower case letters
+            random_case_w = "".join(random.choice([k.upper(), k]) for k in w)
+            cur.execute('INSERT INTO schema_name.table_name VALUES(%s);' % random_case_w)
+            cur.execute('SELECT * FROM schema_name.table_name;')
+            r = cur.fetchmany(1)
+            assert r == [(outcome, )], "Failed for value: %s" % random_case_w
+            cur.execute('DELETE FROM schema_name.table_name;')
+
     finally:
         cur.execute('drop table schema_name.table_name;')
         cur.execute('drop schema schema_name;')
