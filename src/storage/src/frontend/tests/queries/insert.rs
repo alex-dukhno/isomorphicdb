@@ -241,6 +241,66 @@ fn insert_row_into_table(mut storage: PersistentStorage) {
     );
 }
 
+#[rstest::rstest]
+fn insert_too_many_expressions(mut storage: PersistentStorage) {
+    create_schema_with_table(
+        &mut storage,
+        "schema_name",
+        "table_name",
+        vec![
+            ("column_1", SqlType::SmallInt),
+            ("column_2", SqlType::Char(10)),
+            ("column_3", SqlType::BigInt),
+        ],
+    );
+
+    let columns = vec![];
+
+    assert_eq!(
+        storage
+            .insert_into(
+                "schema_name",
+                "table_name",
+                columns,
+                vec![vec!["1".to_owned(), "2".to_owned(), "3".to_owned(), "4".to_owned()]],
+            )
+            .expect("no system errors"),
+        Err(OperationOnTableError::InsertTooManyExpressions)
+    )
+}
+
+#[rstest::rstest]
+fn insert_too_many_expressions_labeled(mut storage: PersistentStorage) {
+    create_schema_with_table(
+        &mut storage,
+        "schema_name",
+        "table_name",
+        vec![
+            ("column_1", SqlType::SmallInt),
+            ("column_2", SqlType::Char(10)),
+            ("column_3", SqlType::BigInt),
+        ],
+    );
+
+    let columns = vec![
+        "column_3".to_owned(),
+        "column_2".to_owned(),
+        "column_1".to_owned(),
+    ];
+
+    assert_eq!(
+        storage
+            .insert_into(
+                "schema_name",
+                "table_name",
+        columns,
+                vec![vec!["1".to_owned(), "2".to_owned(), "3".to_owned(), "4".to_owned()]],
+            )
+            .expect("no system errors"),
+        Err(OperationOnTableError::InsertTooManyExpressions)
+    )
+}
+
 #[cfg(test)]
 mod constraints {
     use super::*;
