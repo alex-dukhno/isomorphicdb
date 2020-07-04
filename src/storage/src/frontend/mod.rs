@@ -183,7 +183,13 @@ impl<P: BackendStorage> FrontendStorage<P> {
 
         let mut to_write: Vec<Row> = vec![];
         let mut errors = HashMap::new();
+        let mut operation_error = None;
         for row in rows {
+            if row.len() > all_columns.len() {
+                operation_error = Some(OperationOnTableError::InsertTooManyExpressions);
+                break;
+            }
+
             let key = self.key_id_generator.to_be_bytes().to_vec();
 
             // TODO: The default value or NULL should be initialized for SQL types of all columns.
@@ -232,7 +238,13 @@ impl<P: BackendStorage> FrontendStorage<P> {
             return Ok(Err(OperationOnTableError::ConstraintViolation(errors)));
         }
         match self.persistent.write(schema_name, table_name, to_write)? {
-            Ok(_size) => Ok(Ok(())),
+            Ok(_size) => {
+                if let Some(err) = operation_error {
+                    Ok(Err(err))
+                } else {
+                    Ok(Ok(()))
+                }
+            }
             Err(OperationOnObjectError::ObjectDoesNotExist) => Ok(Err(OperationOnTableError::TableDoesNotExist)),
             Err(OperationOnObjectError::NamespaceDoesNotExist) => Ok(Err(OperationOnTableError::SchemaDoesNotExist)),
         }

@@ -67,6 +67,7 @@ pub(crate) enum QueryErrorKind {
     TableDoesNotExist(String),
     ColumnDoesNotExist(Vec<String>),
     NotSupportedOperation(String),
+    InsertTooManyExpression,
 }
 
 #[derive(Debug, PartialEq)]
@@ -132,6 +133,14 @@ impl QueryError {
             kind: QueryErrorKind::NotSupportedOperation(raw_sql_query),
         }
     }
+
+    pub fn insert_too_many_expressions() -> Self {
+        Self {
+            severity: Severity::Error,
+            code: "42601".to_owned(),
+            kind: QueryErrorKind::InsertTooManyExpression,
+        }
+    }
 }
 
 impl Display for QueryError {
@@ -151,6 +160,7 @@ impl Display for QueryError {
             QueryErrorKind::NotSupportedOperation(raw_sql_query) => {
                 write!(f, "Currently, Query '{}' can't be executed", raw_sql_query)
             }
+            QueryErrorKind::InsertTooManyExpression => write!(f, "INSERT has more expression then target columns"),
         }
     }
 }
@@ -293,6 +303,9 @@ impl<P: BackendStorage> Handler<P> {
                         }
                         Err(OperationOnTableError::ColumnDoesNotExist(non_existing_columns)) => {
                             Ok(Err(QueryError::column_does_not_exist(non_existing_columns)))
+                        }
+                        Err(OperationOnTableError::InsertTooManyExpressions) => {
+                            Ok(Err(QueryError::insert_too_many_expressions()))
                         }
                         Err(e) => {
                             eprintln!("{:?}", e);
