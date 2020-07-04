@@ -70,6 +70,7 @@ impl<P: BackendStorage> InsertCommand<'_, P> {
                         .map(|v| match v {
                             sqlparser::ast::Expr::Value(sqlparser::ast::Value::Number(v)) => v.to_string(),
                             sqlparser::ast::Expr::Value(sqlparser::ast::Value::SingleQuotedString(v)) => v.to_string(),
+                            sqlparser::ast::Expr::Value(sqlparser::ast::Value::Boolean(v)) => v.to_string(),
                             sqlparser::ast::Expr::UnaryOp { op, expr } => match (op, &**expr) {
                                 (
                                     sqlparser::ast::UnaryOperator::Minus,

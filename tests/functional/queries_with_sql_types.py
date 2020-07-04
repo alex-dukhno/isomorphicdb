@@ -78,3 +78,23 @@ def test_character_types(create_drop_test_schema_fixture):
     cur.execute('select * from schema_name.table_name;')
     r = cur.fetchmany(2)
     assert r == [('c', '1234567890', 'c', '12345678901234567890',), ('1', '1234567', 'c', '1234567890',)]
+
+def test_boolean_types(create_cursor):
+    cur = create_cursor
+    try:
+        cur.execute('create schema schema_name;');
+        cur.execute(
+            'CREATE TABLE schema_name.table_name('
+            '   col boolean'
+            ');'
+        )
+
+        cur.execute('INSERT INTO schema_name.table_name VALUES(TRUE);')
+        cur.execute('INSERT INTO schema_name.table_name VALUES(FALSE);')
+
+        cur.execute('SELECT * FROM schema_name.table_name;')
+        r = cur.fetchmany(2)
+        assert r == [(True,), (False,),]
+    finally:
+        cur.execute('drop table schema_name.table_name;')
+        cur.execute('drop schema schema_name;')
