@@ -35,7 +35,7 @@ const EMPTY_QUERY_RESPONSE: u8 = b'I';
 const NOTICE_RESPONSE: u8 = b'N';
 const AUTHENTICATION: u8 = b'R';
 // const PORTAL_SUSPENDED: u8 = b's';
-// const PARAMETER_STATUS: u8 = b'S';
+const PARAMETER_STATUS: u8 = b'S';
 // const PARAMETER_DESCRIPTION: u8 = b't';
 const ROW_DESCRIPTION: u8 = b'T';
 const READY_FOR_QUERY: u8 = b'Z';
@@ -78,6 +78,12 @@ pub enum Message {
     /// An error has occurred. Contains (`Severity`, `Error Code`, `Error Message`)
     /// all of them are optional
     ErrorResponse(Option<String>, Option<String>, Option<String>),
+    /// This message informs the frontend about the current (initial) setting of
+    /// backend parameters, such as client_encoding or DateStyle
+    ///
+    /// see https://www.postgresql.org/docs/12/protocol-flow.html#PROTOCOL-ASYNC
+    /// 3rd and 4th paragraph
+    ParameterStatus(String, String),
 }
 
 impl Message {
@@ -155,6 +161,18 @@ impl Message {
                 error_response_buff.put_u8(0);
                 error_response_buff.to_vec()
             }
+            Message::ParameterStatus(name, value) => {
+                let mut parameter_status_buff = BytesMut::with_capacity(256);
+                parameter_status_buff.put_u8(PARAMETER_STATUS);
+                let mut parameters = BytesMut::with_capacity(256);
+                parameters.extend_from_slice(name.as_bytes());
+                parameters.put_u8(0);
+                parameters.extend_from_slice(value.as_bytes());
+                parameters.put_u8(0);
+                parameter_status_buff.put_u32(4 + parameters.bytes().len() as u32);
+                parameter_status_buff.extend_from_slice(parameters.as_ref());
+                parameter_status_buff.to_vec()
+            }
         }
     }
 }
@@ -177,10 +195,53 @@ mod serialized_messages {
     }
 
     #[test]
+    fn authentication_md5_password() {
+        assert_eq!(
+            Message::AuthenticationMD5Password.as_vec(),
+            vec![AUTHENTICATION, 0, 0, 0, 12, 0, 0, 0, 5, 1, 1, 1, 1]
+        )
+    }
+
+    #[test]
     fn authentication_ok() {
         assert_eq!(
             Message::AuthenticationOk.as_vec(),
             vec![AUTHENTICATION, 0, 0, 0, 8, 0, 0, 0, 0]
+        )
+    }
+
+    #[test]
+    fn parameter_status() {
+        assert_eq!(
+            Message::ParameterStatus("client_encoding".to_owned(), "UTF8".to_owned()).as_vec(),
+            vec![
+                PARAMETER_STATUS,
+                0,
+                0,
+                0,
+                25,
+                99,
+                108,
+                105,
+                101,
+                110,
+                116,
+                95,
+                101,
+                110,
+                99,
+                111,
+                100,
+                105,
+                110,
+                103,
+                0,
+                85,
+                84,
+                70,
+                56,
+                0
+            ]
         )
     }
 
