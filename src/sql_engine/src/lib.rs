@@ -14,18 +14,22 @@
 
 extern crate log;
 
+use crate::{
+    ddl::{
+        create_schema::CreateSchemaCommand, create_table::CreateTableCommand, drop_schema::DropSchemaCommand,
+        drop_table::DropTableCommand,
+    },
+    dml::{delete::DeleteCommand, insert::InsertCommand, select::SelectCommand, update::UpdateCommand},
+};
 use kernel::SystemResult;
 use protocol::results::{QueryError, QueryEvent, QueryResult};
-use sql_types::SqlType;
+
 use sqlparser::{dialect::PostgreSqlDialect, parser::Parser};
-use std::{
-    ops::Deref,
-    sync::{Arc, Mutex},
-};
-use storage::{
-    backend::BackendStorage, frontend::FrontendStorage, CreateTableError, DropTableError, OperationOnTableError,
-    SchemaAlreadyExists, SchemaDoesNotExist,
-};
+use std::sync::{Arc, Mutex};
+use storage::{backend::BackendStorage, frontend::FrontendStorage};
+
+mod ddl;
+mod dml;
 
 pub struct Handler<P: BackendStorage> {
     storage: Arc<Mutex<FrontendStorage<P>>>,
@@ -49,253 +53,37 @@ impl<P: BackendStorage> Handler<P> {
         match statement {
             sqlparser::ast::Statement::StartTransaction { .. } => Ok(Ok(QueryEvent::TransactionStarted)),
             sqlparser::ast::Statement::SetVariable { .. } => Ok(Ok(QueryEvent::VariableSet)),
-            sqlparser::ast::Statement::CreateTable { mut name, columns, .. } => {
-                let table_name = name.0.pop().unwrap().to_string();
-                let schema_name = name.0.pop().unwrap().to_string();
-                match (self.storage.lock().unwrap()).create_table(
-                    &schema_name,
-                    &table_name,
-                    columns
-                        .into_iter()
-                        .map(|c| {
-                            let name = c.name.to_string();
-                            let sql_type = match c.data_type {
-                                sqlparser::ast::DataType::SmallInt => SqlType::SmallInt,
-                                sqlparser::ast::DataType::Int => SqlType::Integer,
-                                sqlparser::ast::DataType::BigInt => SqlType::BigInt,
-                                sqlparser::ast::DataType::Char(len) => SqlType::Char(len.unwrap_or(255)),
-                                sqlparser::ast::DataType::Varchar(len) => SqlType::VarChar(len.unwrap_or(255)),
-                                _ => unimplemented!(),
-                            };
-                            (name, sql_type)
-                        })
-                        .collect(),
-                )? {
-                    Ok(()) => Ok(Ok(QueryEvent::TableCreated)),
-                    Err(CreateTableError::SchemaDoesNotExist) => {
-                        Ok(Err(QueryError::schema_does_not_exist(schema_name)))
-                    }
-                    Err(CreateTableError::TableAlreadyExists) => Ok(Err(QueryError::table_already_exists(table_name))),
-                }
+            sqlparser::ast::Statement::CreateTable { name, columns, .. } => {
+                CreateTableCommand::new(name, columns, self.storage.clone()).execute()
             }
             sqlparser::ast::Statement::CreateSchema { schema_name, .. } => {
-                let schema_name = schema_name.to_string();
-                match (self.storage.lock().unwrap()).create_schema(&schema_name)? {
-                    Ok(()) => Ok(Ok(QueryEvent::SchemaCreated)),
-                    Err(SchemaAlreadyExists) => Ok(Err(QueryError::schema_already_exists(schema_name))),
-                }
+                CreateSchemaCommand::new(schema_name, self.storage.clone()).execute()
             }
             sqlparser::ast::Statement::Drop { object_type, names, .. } => match object_type {
                 sqlparser::ast::ObjectType::Table => {
-                    let table_name = names[0].0[1].to_string();
-                    let schema_name = names[0].0[0].to_string();
-                    match (self.storage.lock().unwrap()).drop_table(&schema_name, &table_name)? {
-                        Ok(()) => Ok(Ok(QueryEvent::TableDropped)),
-                        Err(DropTableError::TableDoesNotExist) => Ok(Err(QueryError::table_does_not_exist(
-                            schema_name + "." + table_name.as_str(),
-                        ))),
-                        Err(DropTableError::SchemaDoesNotExist) => {
-                            Ok(Err(QueryError::schema_does_not_exist(schema_name)))
-                        }
-                    }
+                    DropTableCommand::new(names[0].clone(), self.storage.clone()).execute()
                 }
                 sqlparser::ast::ObjectType::Schema => {
-                    let schema_name = names[0].0[0].to_string();
-                    match (self.storage.lock().unwrap()).drop_schema(&schema_name)? {
-                        Ok(()) => Ok(Ok(QueryEvent::SchemaDropped)),
-                        Err(SchemaDoesNotExist) => Ok(Err(QueryError::schema_does_not_exist(schema_name))),
-                    }
+                    DropSchemaCommand::new(names[0].clone(), self.storage.clone()).execute()
                 }
                 _ => Ok(Err(QueryError::not_supported_operation(raw_sql_query.to_owned()))),
             },
             sqlparser::ast::Statement::Insert {
-                mut table_name,
+                table_name,
                 columns,
                 source,
                 ..
-            } => {
-                let name = table_name.0.pop().unwrap().to_string();
-                let schema_name = table_name.0.pop().unwrap().to_string();
-                let sqlparser::ast::Query { body, .. } = &*source;
-                if let sqlparser::ast::SetExpr::Values(values) = &body {
-                    let values = &values.0;
-
-                    let columns = if columns.is_empty() {
-                        vec![]
-                    } else {
-                        columns
-                            .into_iter()
-                            .map(|id| {
-                                let sqlparser::ast::Ident { value, .. } = id;
-                                value
-                            })
-                            .collect()
-                    };
-
-                    let rows: Vec<Vec<String>> = values
-                        .iter()
-                        .map(|v| {
-                            v.iter()
-                                .map(|v| match v {
-                                    sqlparser::ast::Expr::Value(sqlparser::ast::Value::Number(v)) => v.to_string(),
-                                    sqlparser::ast::Expr::Value(sqlparser::ast::Value::SingleQuotedString(v)) => {
-                                        v.to_string()
-                                    }
-                                    sqlparser::ast::Expr::UnaryOp { op, expr } => match (op, &**expr) {
-                                        (
-                                            sqlparser::ast::UnaryOperator::Minus,
-                                            sqlparser::ast::Expr::Value(sqlparser::ast::Value::Number(v)),
-                                        ) => "-".to_owned() + v.as_str(),
-                                        (op, expr) => unimplemented!("{:?} {:?} is not currently supported", op, expr),
-                                    },
-                                    expr => unimplemented!("{:?} is not currently supported", expr),
-                                })
-                                .collect()
-                        })
-                        .collect();
-
-                    let len = rows.len();
-                    match (self.storage.lock().unwrap()).insert_into(&schema_name, &name, columns, rows)? {
-                        Ok(_) => Ok(Ok(QueryEvent::RecordsInserted(len))),
-                        Err(OperationOnTableError::SchemaDoesNotExist) => {
-                            Ok(Err(QueryError::schema_does_not_exist(schema_name)))
-                        }
-                        Err(OperationOnTableError::TableDoesNotExist) => {
-                            Ok(Err(QueryError::table_does_not_exist(schema_name + "." + name.as_str())))
-                        }
-                        Err(OperationOnTableError::ColumnDoesNotExist(non_existing_columns)) => {
-                            Ok(Err(QueryError::column_does_not_exist(non_existing_columns)))
-                        }
-                        Err(e) => {
-                            eprintln!("{:?}", e);
-                            unimplemented!()
-                        }
-                    }
-                } else {
-                    Ok(Err(QueryError::not_supported_operation(raw_sql_query.to_owned())))
-                }
-            }
+            } => InsertCommand::new(raw_sql_query, table_name, columns, source, self.storage.clone()).execute(),
             sqlparser::ast::Statement::Query(query) => {
-                let sqlparser::ast::Query { body, .. } = *query;
-                if let sqlparser::ast::SetExpr::Select(select) = body {
-                    let sqlparser::ast::Select { projection, from, .. } = select.deref();
-                    let sqlparser::ast::TableWithJoins { relation, .. } = &from[0];
-                    let (schema_name, table_name) = match relation {
-                        sqlparser::ast::TableFactor::Table { name, .. } => {
-                            let table_name = name.0[1].to_string();
-                            let schema_name = name.0[0].to_string();
-                            (schema_name, table_name)
-                        }
-                        _ => return Ok(Err(QueryError::not_supported_operation(raw_sql_query.to_owned()))),
-                    };
-                    let table_columns = {
-                        let projection = projection.clone();
-                        let mut columns: Vec<String> = vec![];
-                        for item in projection {
-                            match item {
-                                sqlparser::ast::SelectItem::Wildcard => {
-                                    let all_columns =
-                                        (self.storage.lock().unwrap()).table_columns(&schema_name, &table_name)?;
-                                    columns.extend(
-                                        all_columns
-                                            .into_iter()
-                                            .map(|(name, _sql_type)| name)
-                                            .collect::<Vec<String>>(),
-                                    )
-                                }
-                                sqlparser::ast::SelectItem::UnnamedExpr(sqlparser::ast::Expr::Identifier(
-                                    sqlparser::ast::Ident { value, .. },
-                                )) => columns.push(value.clone()),
-                                _ => return Ok(Err(QueryError::not_supported_operation(raw_sql_query.to_owned()))),
-                            }
-                        }
-                        columns
-                    };
-                    match (self.storage.lock().unwrap()).select_all_from(&schema_name, &table_name, table_columns)? {
-                        Ok(records) => Ok(Ok(QueryEvent::RecordsSelected((
-                            records
-                                .0
-                                .into_iter()
-                                .map(|(name, sql_type)| (name, sql_type.to_pg_types()))
-                                .collect(),
-                            records.1,
-                        )))),
-                        Err(OperationOnTableError::ColumnDoesNotExist(non_existing_columns)) => {
-                            Ok(Err(QueryError::column_does_not_exist(non_existing_columns)))
-                        }
-                        Err(OperationOnTableError::SchemaDoesNotExist) => {
-                            Ok(Err(QueryError::schema_does_not_exist(schema_name.to_owned())))
-                        }
-                        Err(OperationOnTableError::TableDoesNotExist) => Ok(Err(QueryError::table_does_not_exist(
-                            schema_name.to_owned() + "." + table_name.as_str(),
-                        ))),
-                        _ => Ok(Err(QueryError::not_supported_operation(raw_sql_query.to_owned()))),
-                    }
-                } else {
-                    Ok(Err(QueryError::not_supported_operation(raw_sql_query.to_owned())))
-                }
+                SelectCommand::new(raw_sql_query, query, self.storage.clone()).execute()
             }
             sqlparser::ast::Statement::Update {
                 table_name,
                 assignments,
                 ..
-            } => {
-                let schema_name = table_name.0[0].to_string();
-                let table_name = table_name.0[1].to_string();
-
-                let to_update: Vec<(String, String)> = assignments
-                    .iter()
-                    .map(|item| {
-                        let sqlparser::ast::Assignment { id, value } = &item;
-                        let sqlparser::ast::Ident { value: column, .. } = id;
-
-                        let value = match value {
-                            sqlparser::ast::Expr::Value(sqlparser::ast::Value::Number(val)) => val.to_owned(),
-                            sqlparser::ast::Expr::Value(sqlparser::ast::Value::SingleQuotedString(v)) => v.to_string(),
-                            sqlparser::ast::Expr::UnaryOp { op, expr } => match (op, &**expr) {
-                                (
-                                    sqlparser::ast::UnaryOperator::Minus,
-                                    sqlparser::ast::Expr::Value(sqlparser::ast::Value::Number(v)),
-                                ) => "-".to_owned() + v.as_str(),
-                                (op, expr) => unimplemented!("{:?} {:?} is not currently supported", op, expr),
-                            },
-                            expr => unimplemented!("{:?} is not currently supported", expr),
-                        };
-
-                        (column.to_owned(), value)
-                    })
-                    .collect();
-
-                match (self.storage.lock().unwrap()).update_all(&schema_name, &table_name, to_update)? {
-                    Ok(records_number) => Ok(Ok(QueryEvent::RecordsUpdated(records_number))),
-                    Err(OperationOnTableError::SchemaDoesNotExist) => {
-                        Ok(Err(QueryError::schema_does_not_exist(schema_name)))
-                    }
-                    Err(OperationOnTableError::TableDoesNotExist) => Ok(Err(QueryError::table_does_not_exist(
-                        schema_name + "." + table_name.as_str(),
-                    ))),
-                    Err(OperationOnTableError::ColumnDoesNotExist(non_existing_columns)) => {
-                        Ok(Err(QueryError::column_does_not_exist(non_existing_columns)))
-                    }
-                    _ => unimplemented!(),
-                }
-            }
+            } => UpdateCommand::new(raw_sql_query, table_name, assignments, self.storage.clone()).execute(),
             sqlparser::ast::Statement::Delete { table_name, .. } => {
-                let schema_name = table_name.0[0].to_string();
-                let table_name = table_name.0[1].to_string();
-                match (self.storage.lock().unwrap()).delete_all_from(&schema_name, &table_name)? {
-                    Ok(records_number) => Ok(Ok(QueryEvent::RecordsDeleted(records_number))),
-                    Err(OperationOnTableError::SchemaDoesNotExist) => {
-                        Ok(Err(QueryError::schema_does_not_exist(schema_name)))
-                    }
-                    Err(OperationOnTableError::TableDoesNotExist) => Ok(Err(QueryError::table_does_not_exist(
-                        schema_name + "." + table_name.as_str(),
-                    ))),
-                    Err(OperationOnTableError::ColumnDoesNotExist(non_existing_columns)) => {
-                        Ok(Err(QueryError::column_does_not_exist(non_existing_columns)))
-                    }
-                    _ => unimplemented!(),
-                }
+                DeleteCommand::new(raw_sql_query, table_name, self.storage.clone()).execute()
             }
             _ => Ok(Err(QueryError::not_supported_operation(raw_sql_query.to_owned()))),
         }
