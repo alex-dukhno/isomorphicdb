@@ -99,7 +99,7 @@ pub trait QueryListener {
 
                 socket
                     .write_all(
-                        Message::ParameterStatus("DateStyle".to_owned(), "DMY".to_owned())
+                        Message::ParameterStatus("DateStyle".to_owned(), "ISO".to_owned())
                             .as_vec()
                             .as_slice(),
                     )
@@ -403,7 +403,7 @@ mod tests {
                         .as_slice(),
                 );
                 expected_content.extend_from_slice(
-                    Message::ParameterStatus("DateStyle".to_owned(), "DMY".to_owned())
+                    Message::ParameterStatus("DateStyle".to_owned(), "ISO".to_owned())
                         .as_vec()
                         .as_slice(),
                 );
