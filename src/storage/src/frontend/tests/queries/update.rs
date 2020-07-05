@@ -21,7 +21,7 @@ fn update_all_records(mut storage: PersistentStorage) {
         &mut storage,
         "schema_name",
         "table_name",
-        vec![("column_test", SqlType::SmallInt)],
+        vec![("column_test", SqlType::SmallInt(u16::min_value()))],
     );
 
     insert_into(&mut storage, "schema_name", "table_name", vec![], vec!["123"]);
@@ -51,7 +51,7 @@ fn update_all_records(mut storage: PersistentStorage) {
             .select_all_from("schema_name", "table_name", table_columns)
             .expect("no system errors"),
         Ok((
-            vec![("column_test".to_owned(), SqlType::SmallInt)],
+            vec![("column_test".to_owned(), SqlType::SmallInt(u16::min_value()))],
             vec![vec!["567".to_owned()], vec!["567".to_owned()], vec!["567".to_owned()]]
         ))
     );
@@ -91,9 +91,9 @@ mod constraints {
             "schema_name",
             "table_name",
             vec![
-                ("column_si", SqlType::SmallInt),
-                ("column_i", SqlType::Integer),
-                ("column_bi", SqlType::BigInt),
+                ("column_si", SqlType::SmallInt(u16::min_value())),
+                ("column_i", SqlType::Integer(u32::min_value())),
+                ("column_bi", SqlType::BigInt(u64::min_value())),
             ],
         );
         storage
@@ -136,7 +136,7 @@ mod constraints {
             Err(OperationOnTableError::ConstraintViolations(vec![(
                 ConstraintError::OutOfRange,
                 "column_si".to_owned(),
-                SqlType::SmallInt
+                SqlType::SmallInt(u16::min_value())
             )]))
         );
     }
@@ -167,7 +167,7 @@ mod constraints {
             Err(OperationOnTableError::ConstraintViolations(vec![(
                 ConstraintError::NotAnInt,
                 "column_si".to_owned(),
-                SqlType::SmallInt
+                SqlType::SmallInt(u16::min_value())
             )]))
         );
     }
@@ -227,8 +227,8 @@ mod constraints {
                 )
                 .expect("no system errors"),
             Err(OperationOnTableError::ConstraintViolations(vec![
-                (ConstraintError::OutOfRange, "column_si".to_owned(), SqlType::SmallInt),
-                (ConstraintError::OutOfRange, "column_i".to_owned(), SqlType::Integer)
+                (ConstraintError::OutOfRange, "column_si".to_owned(), SqlType::SmallInt(u16::min_value())),
+                (ConstraintError::OutOfRange, "column_i".to_owned(), SqlType::Integer(u32::min_value()))
             ]))
         )
     }

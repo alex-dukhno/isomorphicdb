@@ -18,16 +18,13 @@ use std::convert::TryInto;
 
 #[derive(PartialEq, Debug, Copy, Clone, Serialize, Deserialize)]
 pub enum SqlType {
-    SmallSerial(u16),
-    Serial(u32),
-    BigSerial(u64),
     Bool,
     Char(u64),
     VarChar(u64),
     Decimal,
-    SmallInt,
-    Integer,
-    BigInt,
+    SmallInt(u16),
+    Integer(u32),
+    BigInt(u64),
     Real,
     DoublePrecision,
     Time,
@@ -41,11 +38,11 @@ pub enum SqlType {
 impl SqlType {
     pub fn constraint(&self) -> Box<dyn Constraint> {
         match *self {
-            Self::Char(length) => Box::new(CharSqlTypeConstraint { length }),
-            Self::VarChar(length) => Box::new(VarCharSqlTypeConstraint { length }),
-            Self::SmallInt => Box::new(SmallIntTypeConstraint),
-            Self::Integer => Box::new(IntegerSqlTypeConstraint),
-            Self::BigInt => Box::new(BigIntTypeConstraint),
+            SqlType::Char(length) => Box::new(CharSqlTypeConstraint { length }),
+            SqlType::VarChar(length) => Box::new(VarCharSqlTypeConstraint { length }),
+            SqlType::SmallInt(min) => Box::new(SmallIntTypeConstraint{ min }),
+            SqlType::Integer(min) => Box::new(IntegerSqlTypeConstraint{ min }),
+            SqlType::BigInt(min) => Box::new(BigIntTypeConstraint{ min }),
             Self::Bool => Box::new(BoolSqlTypeConstraint),
             sql_type => unimplemented!("Type constraint for {:?} is not currently implemented", sql_type),
         }
@@ -53,11 +50,11 @@ impl SqlType {
 
     pub fn serializer(&self) -> Box<dyn Serializer> {
         match *self {
-            Self::Char(_length) => Box::new(CharSqlTypeSerializer),
-            Self::VarChar(_length) => Box::new(VarCharSqlTypeSerializer),
-            Self::SmallInt => Box::new(SmallIntTypeSerializer),
-            Self::Integer => Box::new(IntegerSqlTypeSerializer),
-            Self::BigInt => Box::new(BigIntTypeSerializer),
+            SqlType::Char(_length) => Box::new(CharSqlTypeSerializer),
+            SqlType::VarChar(_length) => Box::new(VarCharSqlTypeSerializer),
+            SqlType::SmallInt(_min) => Box::new(SmallIntTypeSerializer),
+            SqlType::Integer(_min) => Box::new(IntegerSqlTypeSerializer),
+            SqlType::BigInt(_min) => Box::new(BigIntTypeSerializer),
             Self::Bool => Box::new(BoolSqlTypeSerializer),
             sql_type => unimplemented!("Type Serializer for {:?} is not currently implemented", sql_type),
         }
@@ -109,14 +106,20 @@ pub trait Serializer {
     fn des(&self, out_value: &[u8]) -> String;
 }
 
-struct SmallIntTypeConstraint;
+struct SmallIntTypeConstraint {
+    min: u16,
+}
 
 impl Constraint for SmallIntTypeConstraint {
     fn validate(&self, in_value: &str) -> Result<(), ConstraintError> {
-        match lexical::parse::<i16, _>(in_value) {
-            Ok(_) => Ok(()),
-            Err(e) if e.code == lexical::ErrorCode::InvalidDigit => Err(ConstraintError::NotAnInt),
-            Err(_) => Err(ConstraintError::OutOfRange),
+        if self.min < lexical::parse::<u16, _>(in_value).unwrap() {
+            match lexical::parse::<u16, _>(in_value) {
+                Ok(_) => Ok(()),
+                Err(e) if e.code == lexical::ErrorCode::InvalidDigit => Err(ConstraintError::NotAnInt),
+                Err(_) => Err(ConstraintError::OutOfRange),
+            }
+        } else {
+            Err(ConstraintError::OutOfRange)
         }
     }
 }
@@ -137,14 +140,20 @@ impl Serializer for SmallIntTypeSerializer {
     }
 }
 
-struct IntegerSqlTypeConstraint;
+struct IntegerSqlTypeConstraint {
+    min: u32,
+}
 
 impl Constraint for IntegerSqlTypeConstraint {
     fn validate(&self, in_value: &str) -> Result<(), ConstraintError> {
-        match lexical::parse::<i32, _>(in_value) {
-            Ok(_) => Ok(()),
-            Err(e) if e.code == lexical::ErrorCode::InvalidDigit => Err(ConstraintError::NotAnInt),
-            Err(_) => Err(ConstraintError::OutOfRange),
+        if self.min < lexical::parse::<u32, _>(in_value).unwrap() {
+            match lexical::parse::<u32, _>(in_value) {
+                Ok(_) => Ok(()),
+                Err(e) if e.code == lexical::ErrorCode::InvalidDigit => Err(ConstraintError::NotAnInt),
+                Err(_) => Err(ConstraintError::OutOfRange),
+            }
+        } else {
+            Err(ConstraintError::OutOfRange)
         }
     }
 }
@@ -165,14 +174,20 @@ impl Serializer for IntegerSqlTypeSerializer {
     }
 }
 
-struct BigIntTypeConstraint;
+struct BigIntTypeConstraint {
+    min: u64,
+}
 
 impl Constraint for BigIntTypeConstraint {
     fn validate(&self, in_value: &str) -> Result<(), ConstraintError> {
-        match lexical::parse::<i64, _>(in_value) {
-            Ok(_) => Ok(()),
-            Err(e) if e.code == lexical::ErrorCode::InvalidDigit => Err(ConstraintError::NotAnInt),
-            Err(_) => Err(ConstraintError::OutOfRange),
+        if self.min < lexical::parse::<u64, _>(in_value).unwrap() {
+            match lexical::parse::<u64, _>(in_value) {
+                Ok(_) => Ok(()),
+                Err(e) if e.code == lexical::ErrorCode::InvalidDigit => Err(ConstraintError::NotAnInt),
+                Err(_) => Err(ConstraintError::OutOfRange),
+            }
+        } else {
+            Err(ConstraintError::OutOfRange)
         }
     }
 }
@@ -394,7 +409,7 @@ mod tests {
 
                 #[rstest::fixture]
                 fn serializer() -> Box<dyn Serializer> {
-                    SqlType::SmallInt.serializer()
+                    SqlType::SmallInt(12).serializer()
                 }
 
                 #[rstest::rstest]
@@ -414,7 +429,7 @@ mod tests {
 
                 #[rstest::fixture]
                 fn constraint() -> Box<dyn Constraint> {
-                    SqlType::SmallInt.constraint()
+                    SqlType::SmallInt(12).constraint()
                 }
 
                 #[rstest::rstest]
@@ -456,7 +471,7 @@ mod tests {
 
                 #[rstest::fixture]
                 fn serializer() -> Box<dyn Serializer> {
-                    SqlType::Integer.serializer()
+                    SqlType::Integer(u32::min_value()).serializer()
                 }
 
                 #[rstest::rstest]
@@ -476,7 +491,7 @@ mod tests {
 
                 #[rstest::fixture]
                 fn constraint() -> Box<dyn Constraint> {
-                    SqlType::Integer.constraint()
+                    SqlType::Integer(u32::min_value()).constraint()
                 }
 
                 #[rstest::rstest]
@@ -518,7 +533,7 @@ mod tests {
 
                 #[rstest::fixture]
                 fn serializer() -> Box<dyn Serializer> {
-                    SqlType::BigInt.serializer()
+                    SqlType::BigInt(10).serializer()
                 }
 
                 #[rstest::rstest]
@@ -538,7 +553,7 @@ mod tests {
 
                 #[rstest::fixture]
                 fn constraint() -> Box<dyn Constraint> {
-                    SqlType::BigInt.constraint()
+                    SqlType::BigInt(10).constraint()
                 }
 
                 #[rstest::rstest]

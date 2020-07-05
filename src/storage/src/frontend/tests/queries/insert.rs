@@ -43,7 +43,7 @@ fn insert_many_rows_into_table(mut storage: PersistentStorage) {
         &mut storage,
         "schema_name",
         "table_name",
-        vec![("column_test", SqlType::SmallInt)],
+        vec![("column_test", SqlType::SmallInt(u16::min_value()))],
     );
 
     insert_into(&mut storage, "schema_name", "table_name", vec![], vec!["123"]);
@@ -61,7 +61,7 @@ fn insert_many_rows_into_table(mut storage: PersistentStorage) {
             .select_all_from("schema_name", "table_name", table_columns)
             .expect("no system errors"),
         Ok((
-            vec![("column_test".to_owned(), SqlType::SmallInt)],
+            vec![("column_test".to_owned(), SqlType::SmallInt(u16::min_value()))],
             vec![vec!["123".to_owned()], vec!["456".to_owned()]]
         ))
     );
@@ -74,9 +74,9 @@ fn insert_multiple_values_rows(mut storage: PersistentStorage) {
         "schema_name",
         "table_name",
         vec![
-            ("column_1", SqlType::SmallInt),
-            ("column_2", SqlType::SmallInt),
-            ("column_3", SqlType::SmallInt),
+            ("column_1", SqlType::SmallInt(u16::min_value())),
+            ("column_2", SqlType::SmallInt(u16::min_value())),
+            ("column_3", SqlType::SmallInt(u16::min_value())),
         ],
     );
 
@@ -97,9 +97,9 @@ fn insert_multiple_values_rows(mut storage: PersistentStorage) {
             .expect("no system errors"),
         Ok((
             vec![
-                ("column_1".to_owned(), SqlType::SmallInt),
-                ("column_2".to_owned(), SqlType::SmallInt),
-                ("column_3".to_owned(), SqlType::SmallInt)
+                ("column_1".to_owned(), SqlType::SmallInt(u16::min_value())),
+                ("column_2".to_owned(), SqlType::SmallInt(u16::min_value())),
+                ("column_3".to_owned(), SqlType::SmallInt(u16::min_value()))
             ],
             vec![
                 vec!["1".to_owned(), "2".to_owned(), "3".to_owned()],
@@ -117,9 +117,9 @@ fn insert_named_columns(mut storage: PersistentStorage) {
         "schema_name",
         "table_name",
         vec![
-            ("column_1", SqlType::SmallInt),
+            ("column_1", SqlType::SmallInt(u16::min_value())),
             ("column_2", SqlType::Char(10)),
-            ("column_3", SqlType::BigInt),
+            ("column_3", SqlType::BigInt(u64::min_value())),
         ],
     );
 
@@ -160,9 +160,9 @@ fn insert_named_columns(mut storage: PersistentStorage) {
             .expect("no system errors"),
         Ok((
             vec![
-                ("column_1".to_owned(), SqlType::SmallInt),
+                ("column_1".to_owned(), SqlType::SmallInt(u16::min_value())),
                 ("column_2".to_owned(), SqlType::Char(10)),
-                ("column_3".to_owned(), SqlType::BigInt)
+                ("column_3".to_owned(), SqlType::BigInt(u64::min_value()))
             ],
             vec![
                 vec!["3".to_owned(), "2".to_owned(), "1".to_owned()],
@@ -180,9 +180,9 @@ fn insert_named_not_existed_column(mut storage: PersistentStorage) {
         "schema_name",
         "table_name",
         vec![
-            ("column_1", SqlType::SmallInt),
+            ("column_1", SqlType::SmallInt(u16::min_value())),
             ("column_2", SqlType::Char(10)),
-            ("column_3", SqlType::BigInt),
+            ("column_3", SqlType::BigInt(u64::min_value())),
         ],
     );
 
@@ -214,7 +214,7 @@ fn insert_row_into_table(mut storage: PersistentStorage) {
         &mut storage,
         "schema_name",
         "table_name",
-        vec![("column_test", SqlType::SmallInt)],
+        vec![("column_test", SqlType::SmallInt(u16::min_value()))],
     );
     assert_eq!(
         storage
@@ -235,7 +235,7 @@ fn insert_row_into_table(mut storage: PersistentStorage) {
             .select_all_from("schema_name", "table_name", table_columns)
             .expect("no system errors"),
         Ok((
-            vec![("column_test".to_owned(), SqlType::SmallInt)],
+            vec![("column_test".to_owned(), SqlType::SmallInt(u16::min_value()))],
             vec![vec!["123".to_owned()]]
         ))
     );
@@ -351,9 +351,9 @@ mod constraints {
             "schema_name",
             "table_name",
             vec![
-                ("column_si", SqlType::SmallInt),
-                ("column_i", SqlType::Integer),
-                ("column_bi", SqlType::BigInt),
+                ("column_si", SqlType::SmallInt(u16::min_value())),
+                ("column_i", SqlType::Integer(u32::min_value())),
+                ("column_bi", SqlType::BigInt(u64::min_value())),
             ],
         );
         storage
@@ -384,9 +384,9 @@ mod constraints {
             Err(OperationOnTableError::ConstraintViolations(vec![(
                 ConstraintError::OutOfRange,
                 "column_si".to_owned(),
-                SqlType::SmallInt
+                SqlType::SmallInt(u16::min_value())
             )]))
-        )
+        );
     }
 
     #[rstest::rstest]
@@ -403,7 +403,7 @@ mod constraints {
             Err(OperationOnTableError::ConstraintViolations(vec![(
                 ConstraintError::NotAnInt,
                 "column_si".to_owned(),
-                SqlType::SmallInt
+                SqlType::SmallInt(u16::min_value())
             )]))
         )
     }
@@ -439,8 +439,8 @@ mod constraints {
                 )
                 .expect("no system errors"),
             Err(OperationOnTableError::ConstraintViolations(vec![
-                (ConstraintError::OutOfRange, "column_si".to_owned(), SqlType::SmallInt),
-                (ConstraintError::OutOfRange, "column_i".to_owned(), SqlType::Integer)
+                (ConstraintError::OutOfRange, "column_si".to_owned(), SqlType::SmallInt(u16::min_value())),
+                (ConstraintError::OutOfRange, "column_i".to_owned(), SqlType::Integer(u32::min_value()))
             ]))
         )
     }
@@ -464,10 +464,10 @@ mod constraints {
                 )
                 .expect("no system errors"),
             Err(OperationOnTableError::ConstraintViolations(vec![
-                (ConstraintError::OutOfRange, "column_si".to_owned(), SqlType::SmallInt),
-                (ConstraintError::OutOfRange, "column_i".to_owned(), SqlType::Integer),
-                (ConstraintError::OutOfRange, "column_i".to_owned(), SqlType::Integer),
-                (ConstraintError::OutOfRange, "column_bi".to_owned(), SqlType::BigInt),
+                (ConstraintError::OutOfRange, "column_si".to_owned(), SqlType::SmallInt(u16::min_value())),
+                (ConstraintError::OutOfRange, "column_i".to_owned(), SqlType::SmallInt(u32::min_value())),
+                (ConstraintError::OutOfRange, "column_i".to_owned(), SqlType::SmallInt(u32::min_value())),
+                (ConstraintError::OutOfRange, "column_bi".to_owned(), SqlType::BigInt(u64::min_value())),
             ]))
         )
     }
