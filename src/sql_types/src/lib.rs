@@ -38,11 +38,11 @@ pub enum SqlType {
 impl SqlType {
     pub fn constraint(&self) -> Box<dyn Constraint> {
         match *self {
-            SqlType::Char(length) => Box::new(CharSqlTypeConstraint { length }),
-            SqlType::VarChar(length) => Box::new(VarCharSqlTypeConstraint { length }),
-            SqlType::SmallInt(min) => Box::new(SmallIntTypeConstraint{ min }),
-            SqlType::Integer(min) => Box::new(IntegerSqlTypeConstraint{ min }),
-            SqlType::BigInt(min) => Box::new(BigIntTypeConstraint{ min }),
+            Self::Char(length) => Box::new(CharSqlTypeConstraint { length }),
+            Self::VarChar(length) => Box::new(VarCharSqlTypeConstraint { length }),
+            Self::SmallInt(min) => Box::new(SmallIntTypeConstraint{ min }),
+            Self::Integer(min) => Box::new(IntegerSqlTypeConstraint{ min }),
+            Self::BigInt(min) => Box::new(BigIntTypeConstraint{ min }),
             Self::Bool => Box::new(BoolSqlTypeConstraint),
             sql_type => unimplemented!("Type constraint for {:?} is not currently implemented", sql_type),
         }
@@ -50,11 +50,11 @@ impl SqlType {
 
     pub fn serializer(&self) -> Box<dyn Serializer> {
         match *self {
-            SqlType::Char(_length) => Box::new(CharSqlTypeSerializer),
-            SqlType::VarChar(_length) => Box::new(VarCharSqlTypeSerializer),
-            SqlType::SmallInt(_min) => Box::new(SmallIntTypeSerializer),
-            SqlType::Integer(_min) => Box::new(IntegerSqlTypeSerializer),
-            SqlType::BigInt(_min) => Box::new(BigIntTypeSerializer),
+            Self::Char(_length) => Box::new(CharSqlTypeSerializer),
+            Self::VarChar(_length) => Box::new(VarCharSqlTypeSerializer),
+            Self::SmallInt(_min) => Box::new(SmallIntTypeSerializer),
+            Self::Integer(_min) => Box::new(IntegerSqlTypeSerializer),
+            Self::BigInt(_min) => Box::new(BigIntTypeSerializer),
             Self::Bool => Box::new(BoolSqlTypeSerializer),
             sql_type => unimplemented!("Type Serializer for {:?} is not currently implemented", sql_type),
         }
@@ -66,9 +66,9 @@ impl SqlType {
             Self::Char(_) => PostgreSqlType::Char,
             Self::VarChar(_) => PostgreSqlType::VarChar,
             Self::Decimal => PostgreSqlType::Decimal,
-            Self::SmallInt => PostgreSqlType::SmallInt,
-            Self::Integer => PostgreSqlType::Integer,
-            Self::BigInt => PostgreSqlType::BigInt,
+            Self::SmallInt(_) => PostgreSqlType::SmallInt,
+            Self::Integer(_) => PostgreSqlType::Integer,
+            Self::BigInt(_) => PostgreSqlType::BigInt,
             Self::Real => PostgreSqlType::Real,
             Self::DoublePrecision => PostgreSqlType::DoublePrecision,
             Self::Time => PostgreSqlType::Time,
@@ -316,17 +316,17 @@ mod tests {
 
         #[test]
         fn small_int() {
-            assert_eq!(SqlType::SmallInt.to_pg_types(), PostgreSqlType::SmallInt);
+            assert_eq!(SqlType::SmallInt(u16::min_value()).to_pg_types(), PostgreSqlType::SmallInt);
         }
 
         #[test]
         fn integer() {
-            assert_eq!(SqlType::Integer.to_pg_types(), PostgreSqlType::Integer);
+            assert_eq!(SqlType::Integer(u32::min_value()).to_pg_types(), PostgreSqlType::Integer);
         }
 
         #[test]
         fn big_int() {
-            assert_eq!(SqlType::BigInt.to_pg_types(), PostgreSqlType::BigInt);
+            assert_eq!(SqlType::BigInt(u64::min_value()).to_pg_types(), PostgreSqlType::BigInt);
         }
 
         #[test]

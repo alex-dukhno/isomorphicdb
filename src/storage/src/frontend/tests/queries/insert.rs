@@ -248,9 +248,9 @@ fn insert_too_many_expressions(mut storage: PersistentStorage) {
         "schema_name",
         "table_name",
         vec![
-            ("column_1", SqlType::SmallInt),
+            ("column_1", SqlType::SmallInt(u16::min_value())),
             ("column_2", SqlType::Char(10)),
-            ("column_3", SqlType::BigInt),
+            ("column_3", SqlType::BigInt(u64::min_value())),
         ],
     );
 
@@ -281,9 +281,9 @@ fn insert_too_many_expressions(mut storage: PersistentStorage) {
             .expect("no system errors"),
         Ok((
             vec![
-                ("column_1".to_owned(), SqlType::SmallInt),
+                ("column_1".to_owned(), SqlType::SmallInt(u16::min_value())),
                 ("column_2".to_owned(), SqlType::Char(10)),
-                ("column_3".to_owned(), SqlType::BigInt),
+                ("column_3".to_owned(), SqlType::BigInt(u64::min_value())),
             ],
             vec![]
         ))
@@ -297,9 +297,9 @@ fn insert_too_many_expressions_labeled(mut storage: PersistentStorage) {
         "schema_name",
         "table_name",
         vec![
-            ("column_1", SqlType::SmallInt),
+            ("column_1", SqlType::SmallInt(u16::min_value())),
             ("column_2", SqlType::Char(10)),
-            ("column_3", SqlType::BigInt),
+            ("column_3", SqlType::BigInt(u64::min_value())),
         ],
     );
 
@@ -330,9 +330,9 @@ fn insert_too_many_expressions_labeled(mut storage: PersistentStorage) {
             .expect("no system errors"),
         Ok((
             vec![
-                ("column_1".to_owned(), SqlType::SmallInt),
+                ("column_1".to_owned(), SqlType::SmallInt(u16::min_value())),
                 ("column_2".to_owned(), SqlType::Char(10)),
-                ("column_3".to_owned(), SqlType::BigInt),
+                ("column_3".to_owned(), SqlType::BigInt(u64::min_value())),
             ],
             vec![]
         ))
