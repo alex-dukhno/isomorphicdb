@@ -67,6 +67,9 @@ fn delete_all_from_table(mut storage: PersistentStorage) {
         storage
             .select_all_from("schema_name", "table_name", table_columns)
             .expect("no system errors"),
-        Ok((vec![("column_test".to_owned(), SqlType::SmallInt(u16::min_value()))], vec![]))
+        Ok((
+            vec![("column_test".to_owned(), SqlType::SmallInt(u16::min_value()))],
+            vec![]
+        ))
     );
 }

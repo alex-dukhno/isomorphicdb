@@ -40,9 +40,9 @@ impl SqlType {
         match *self {
             Self::Char(length) => Box::new(CharSqlTypeConstraint { length }),
             Self::VarChar(length) => Box::new(VarCharSqlTypeConstraint { length }),
-            Self::SmallInt(min) => Box::new(SmallIntTypeConstraint{ min }),
-            Self::Integer(min) => Box::new(IntegerSqlTypeConstraint{ min }),
-            Self::BigInt(min) => Box::new(BigIntTypeConstraint{ min }),
+            Self::SmallInt(min) => Box::new(SmallIntTypeConstraint { min }),
+            Self::Integer(min) => Box::new(IntegerSqlTypeConstraint { min }),
+            Self::BigInt(min) => Box::new(BigIntTypeConstraint { min }),
             Self::Bool => Box::new(BoolSqlTypeConstraint),
             sql_type => unimplemented!("Type constraint for {:?} is not currently implemented", sql_type),
         }
@@ -316,12 +316,18 @@ mod tests {
 
         #[test]
         fn small_int() {
-            assert_eq!(SqlType::SmallInt(u16::min_value()).to_pg_types(), PostgreSqlType::SmallInt);
+            assert_eq!(
+                SqlType::SmallInt(u16::min_value()).to_pg_types(),
+                PostgreSqlType::SmallInt
+            );
         }
 
         #[test]
         fn integer() {
-            assert_eq!(SqlType::Integer(u32::min_value()).to_pg_types(), PostgreSqlType::Integer);
+            assert_eq!(
+                SqlType::Integer(u32::min_value()).to_pg_types(),
+                PostgreSqlType::Integer
+            );
         }
 
         #[test]
