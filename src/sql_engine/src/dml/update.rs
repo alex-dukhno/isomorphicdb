@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use kernel::SystemResult;
-use protocol::results::{QueryError, QueryEvent, QueryResult};
+use protocol::results::{ConstraintViolation, QueryError, QueryEvent, QueryResult};
 use sql_types::ConstraintError;
 use sqlparser::ast::{Assignment, ObjectName};
 use std::sync::{Arc, Mutex};
@@ -78,7 +78,7 @@ impl<P: BackendStorage> UpdateCommand<'_, P> {
             Err(OperationOnTableError::ColumnDoesNotExist(non_existing_columns)) => {
                 Ok(Err(QueryError::column_does_not_exist(non_existing_columns)))
             }
-            Err(OperationOnTableError::ConstraintViolation(conststraint_errors)) => {
+            Err(OperationOnTableError::ConstraintViolation(constraint_errors)) => {
                 let mut violations = Vec::new();
                 for (err, infos) in constraint_errors.into_iter() {
                     for info in infos {
