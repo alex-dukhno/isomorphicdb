@@ -78,3 +78,40 @@ def test_character_types(create_drop_test_schema_fixture):
     cur.execute('select * from schema_name.table_name;')
     r = cur.fetchmany(2)
     assert r == [('c', '1234567890', 'c', '12345678901234567890',), ('1', '1234567', 'c', '1234567890',)]
+
+def test_numeric_constraint_violations(create_drop_test_schema_fixture):
+    cur = create_drop_test_schema_fixture
+    cur.execute('create table schema_name.table_name(si_col smallint, i_col integer, bi_col bigint);')
+    cur.execute('insert into schema_name.table_name values (%d, %d, %d);' % (-32768, -2147483648, -9223372036854775808))
+    cur.execute('insert into schema_name.table_name values (%d, %d, %d);' % (32767, 2147483647, 9223372036854775807))
+
+    try:
+        cur.execute('insert into schema_name.table_name values (%d, %d, %d);' % (32767, 2147483647, 9223372036854775809))
+    except pg.errors.NumericValueOutOfRange as e:
+        assert e.pgcode == '22003'
+        # assert e.pgerror == "ERROR: bigint out of range"
+    except pg.Error:
+        assert False
+
+
+    cur.execute('select * from schema_name.table_name;')
+    r = cur.fetchall()
+    assert r == [(-32768, -2147483648, -9223372036854775808,), (32767, 2147483647, 9223372036854775807,)]
+
+def test_many_numeric_constraint_violations(create_drop_test_schema_fixture):
+    cur = create_drop_test_schema_fixture
+    cur.execute('create table schema_name.table_name(si_col smallint, i_col integer, bi_col bigint);')
+    cur.execute('insert into schema_name.table_name values (%d, %d, %d);' % (-32768, -2147483648, -9223372036854775808))
+    cur.execute('insert into schema_name.table_name values (%d, %d, %d);' % (32767, 2147483647, 9223372036854775807))
+
+    try:
+        cur.execute('insert into schema_name.table_name values (%d, %d, %d);' % (33767, 2147483647, 9223372036854775809))
+    except pg.errors.NumericValueOutOfRange as e:
+        #  This is generating two error messages but it seems it this script only sees the first one.
+        assert e.pgcode == '22003'
+    except pg.Error:
+        assert False
+
+    cur.execute('select * from schema_name.table_name;')
+    r = cur.fetchall()
+    assert r == [(-32768, -2147483648, -9223372036854775808,), (32767, 2147483647, 9223372036854775807,)]
