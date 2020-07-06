@@ -82,9 +82,8 @@ impl SqlType {
 
     pub fn string_type_length(&self) -> Option<u64> {
         match self {
-            Self::Char(n) |
-            Self::VarChar(n) => Some(*n),
-            _ => None
+            Self::Char(n) | Self::VarChar(n) => Some(*n),
+            _ => None,
         }
     }
 }

@@ -13,11 +13,11 @@
 // limitations under the License.
 
 use kernel::SystemResult;
-use protocol::results::{QueryError, QueryEvent, QueryResult, ConstraintViolation};
+use protocol::results::{ConstraintViolation, QueryError, QueryEvent, QueryResult};
+use sql_types::ConstraintError;
 use sqlparser::ast::{Ident, ObjectName, Query};
 use std::sync::{Arc, Mutex};
 use storage::{backend::BackendStorage, frontend::FrontendStorage, OperationOnTableError};
-use sql_types::ConstraintError;
 
 pub(crate) struct InsertCommand<'q, P: BackendStorage> {
     raw_sql_query: &'q str,
@@ -117,7 +117,7 @@ impl<P: BackendStorage> InsertCommand<'_, P> {
                             for (_, sql_type) in info {
                                 let violation = match err {
                                     ConstraintError::OutOfRange => {
-                                       ConstraintViolation::out_of_range(sql_type.to_pg_types())
+                                        ConstraintViolation::out_of_range(sql_type.to_pg_types())
                                     }
                                     ConstraintError::NotAnInt => {
                                         ConstraintViolation::type_mismatch(sql_type.to_pg_types())
@@ -125,8 +125,7 @@ impl<P: BackendStorage> InsertCommand<'_, P> {
                                     ConstraintError::ValueTooLong => {
                                         if let Some(len) = sql_type.string_type_length() {
                                             ConstraintViolation::string_length_mismatch(sql_type.to_pg_types(), len)
-                                        }
-                                        else {
+                                        } else {
                                             // there error should only occur with string types
                                             unreachable!()
                                         }

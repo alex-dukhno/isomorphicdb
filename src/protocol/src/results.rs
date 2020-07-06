@@ -13,9 +13,9 @@
 // limitations under the License.
 
 use crate::sql_types;
-use std::fmt::{self, Display, Formatter};
 use crate::sql_types::PostgreSqlType;
 use crate::Message;
+use std::fmt::{self, Display, Formatter};
 
 /// Represents result of SQL query execution
 pub type QueryResult = std::result::Result<QueryEvent, QueryError>;
@@ -77,7 +77,6 @@ impl Into<String> for Severity {
     }
 }
 
-
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) enum ConstraintViolationKind {
     NumericTypeOutOfRange(PostgreSqlType),
@@ -92,7 +91,7 @@ pub(crate) enum ConstraintViolationKind {
 pub struct ConstraintViolation {
     severity: Severity,
     code: String,
-    kind: ConstraintViolationKind
+    kind: ConstraintViolationKind,
 }
 
 impl ConstraintViolation {
@@ -108,7 +107,7 @@ impl ConstraintViolation {
 
     /// error message
     pub fn message(&self) -> Option<String> {
-       Some(format!("{}", self))
+        Some(format!("{}", self))
     }
 
     /// numeric out of range constructor
@@ -116,7 +115,7 @@ impl ConstraintViolation {
         Self {
             severity: Severity::Error,
             code: "22003".to_owned(),
-            kind: ConstraintViolationKind::NumericTypeOutOfRange(ty)
+            kind: ConstraintViolationKind::NumericTypeOutOfRange(ty),
         }
     }
 
@@ -125,7 +124,7 @@ impl ConstraintViolation {
         Self {
             severity: Severity::Error,
             code: "2200G".to_owned(),
-            kind: ConstraintViolationKind::DataTypeMismatch(expected)
+            kind: ConstraintViolationKind::DataTypeMismatch(expected),
         }
     }
 
@@ -135,7 +134,7 @@ impl ConstraintViolation {
         Self {
             severity: Severity::Error,
             code: "22026".to_owned(),
-            kind: ConstraintViolationKind::StringTypeLengthMismatch(str_type, len)
+            kind: ConstraintViolationKind::StringTypeLengthMismatch(str_type, len),
         }
     }
 }
@@ -143,9 +142,7 @@ impl ConstraintViolation {
 impl Display for ConstraintViolation {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self.kind {
-            ConstraintViolationKind::NumericTypeOutOfRange(ty) => {
-                write!(f, "{} out of range", ty.to_string())
-            }
+            ConstraintViolationKind::NumericTypeOutOfRange(ty) => write!(f, "{} out of range", ty.to_string()),
             ConstraintViolationKind::DataTypeMismatch(expected) => {
                 write!(f, "{} data type mismatch", expected.to_string())
             }
@@ -167,7 +164,7 @@ pub(crate) enum QueryErrorKind {
     TooManyInsertExpressions,
 
     // type constraint errors.
-    ConstraintViolations(Vec<ConstraintViolation>)
+    ConstraintViolations(Vec<ConstraintViolation>),
 }
 
 /// Represents error during query execution
@@ -202,23 +199,14 @@ impl QueryError {
                     messages.push(Message::ErrorResponse(
                         violation.severity(),
                         violation.code(),
-                        violation.message()
+                        violation.message(),
                     ))
                 }
                 messages
             }
-            _ => {
-                vec![
-                    Message::ErrorResponse(
-                        self.severity(),
-                        self.code(),
-                        self.message()
-                    )
-                ]
-            }
+            _ => vec![Message::ErrorResponse(self.severity(), self.code(), self.message())],
         }
     }
-
 
     /// schema already exists error constructor
     pub fn schema_already_exists(schema_name: String) -> Self {
@@ -289,7 +277,7 @@ impl QueryError {
             severity: Severity::Error,
             // there isn't a single code fo this so I am leaving it empty.
             code: String::new(),
-            kind: QueryErrorKind::ConstraintViolations(violations)
+            kind: QueryErrorKind::ConstraintViolations(violations),
         }
     }
 }
