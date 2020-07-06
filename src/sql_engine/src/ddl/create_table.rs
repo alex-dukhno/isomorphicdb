@@ -51,6 +51,7 @@ impl<P: BackendStorage> CreateTableCommand<P> {
                         sqlparser::ast::DataType::BigInt => SqlType::BigInt,
                         sqlparser::ast::DataType::Char(len) => SqlType::Char(len.unwrap_or(255)),
                         sqlparser::ast::DataType::Varchar(len) => SqlType::VarChar(len.unwrap_or(255)),
+                        sqlparser::ast::DataType::Boolean => SqlType::Bool,
                         _ => unimplemented!(),
                     };
                     (name, sql_type)

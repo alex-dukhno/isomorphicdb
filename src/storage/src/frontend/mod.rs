@@ -197,6 +197,7 @@ impl<P: BackendStorage> FrontendStorage<P> {
                 let mut record = vec![vec![0, 0]; all_columns.len()];
                 let mut out_of_range = vec![];
                 let mut not_an_int = vec![];
+                let mut not_a_bool = vec![];
                 let mut value_too_long = vec![];
                 for (item, (index, name, sql_type)) in row.iter().zip(index_columns.iter()) {
                     match sql_type.constraint().validate(item.as_str()) {
@@ -208,6 +209,9 @@ impl<P: BackendStorage> FrontendStorage<P> {
                         }
                         Err(ConstraintError::NotAnInt) => {
                             not_an_int.push((name.clone(), *sql_type));
+                        }
+                        Err(ConstraintError::NotABool) => {
+                            not_a_bool.push((name.clone(), *sql_type));
                         }
                         Err(ConstraintError::ValueTooLong) => {
                             value_too_long.push((name.clone(), *sql_type));
@@ -225,6 +229,12 @@ impl<P: BackendStorage> FrontendStorage<P> {
                         .entry(ConstraintError::NotAnInt)
                         .or_insert_with(Vec::new)
                         .push(not_an_int);
+                }
+                if !not_a_bool.is_empty() {
+                    errors
+                        .entry(ConstraintError::NotABool)
+                        .or_insert_with(Vec::new)
+                        .push(not_a_bool);
                 }
                 if !value_too_long.is_empty() {
                     errors
@@ -315,6 +325,7 @@ impl<P: BackendStorage> FrontendStorage<P> {
         let mut errors = HashMap::new();
         let mut out_of_range = vec![];
         let mut not_an_int = vec![];
+        let mut not_a_bool = vec![];
         let mut value_too_long = vec![];
         let mut index_value_pairs = vec![];
         let mut non_existing_columns = vec![];
@@ -331,6 +342,9 @@ impl<P: BackendStorage> FrontendStorage<P> {
                         }
                         Err(ConstraintError::NotAnInt) => {
                             not_an_int.push((name.clone(), *sql_type));
+                        }
+                        Err(ConstraintError::NotABool) => {
+                            not_a_bool.push((name.clone(), *sql_type));
                         }
                         Err(ConstraintError::ValueTooLong) => {
                             value_too_long.push((name.clone(), *sql_type));
@@ -357,6 +371,12 @@ impl<P: BackendStorage> FrontendStorage<P> {
                 .entry(ConstraintError::NotAnInt)
                 .or_insert_with(Vec::new)
                 .push(not_an_int);
+        }
+        if !not_a_bool.is_empty() {
+            errors
+                .entry(ConstraintError::NotABool)
+                .or_insert_with(Vec::new)
+                .push(not_a_bool);
         }
         if !value_too_long.is_empty() {
             errors

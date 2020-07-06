@@ -70,6 +70,20 @@ impl<P: BackendStorage> InsertCommand<'_, P> {
                         .map(|v| match v {
                             sqlparser::ast::Expr::Value(sqlparser::ast::Value::Number(v)) => v.to_string(),
                             sqlparser::ast::Expr::Value(sqlparser::ast::Value::SingleQuotedString(v)) => v.to_string(),
+                            sqlparser::ast::Expr::Value(sqlparser::ast::Value::Boolean(v)) => v.to_string(),
+                            sqlparser::ast::Expr::Cast { expr, data_type } => match (&**expr, data_type) {
+                                (
+                                    sqlparser::ast::Expr::Value(sqlparser::ast::Value::Boolean(v)),
+                                    sqlparser::ast::DataType::Boolean,
+                                ) => v.to_string(),
+                                (
+                                    sqlparser::ast::Expr::Value(sqlparser::ast::Value::SingleQuotedString(v)),
+                                    sqlparser::ast::DataType::Boolean,
+                                ) => v.to_string(),
+                                _ => {
+                                    unimplemented!("Cast from {:?} to {:?} is not currently supported", expr, data_type)
+                                }
+                            },
                             sqlparser::ast::Expr::UnaryOp { op, expr } => match (op, &**expr) {
                                 (
                                     sqlparser::ast::UnaryOperator::Minus,

@@ -43,6 +43,7 @@ impl SqlType {
             Self::SmallInt => Box::new(SmallIntTypeConstraint),
             Self::Integer => Box::new(IntegerSqlTypeConstraint),
             Self::BigInt => Box::new(BigIntTypeConstraint),
+            Self::Bool => Box::new(BoolSqlTypeConstraint),
             sql_type => unimplemented!("Type constraint for {:?} is not currently implemented", sql_type),
         }
     }
@@ -54,6 +55,7 @@ impl SqlType {
             Self::SmallInt => Box::new(SmallIntTypeSerializer),
             Self::Integer => Box::new(IntegerSqlTypeSerializer),
             Self::BigInt => Box::new(BigIntTypeSerializer),
+            Self::Bool => Box::new(BoolSqlTypeSerializer),
             sql_type => unimplemented!("Type Serializer for {:?} is not currently implemented", sql_type),
         }
     }
@@ -87,6 +89,7 @@ pub trait Constraint {
 pub enum ConstraintError {
     OutOfRange,
     NotAnInt,
+    NotABool,
     ValueTooLong,
 }
 
@@ -231,6 +234,44 @@ impl Serializer for VarCharSqlTypeSerializer {
 
     fn des(&self, out_value: &[u8]) -> String {
         String::from_utf8(out_value.to_vec()).unwrap()
+    }
+}
+
+struct BoolSqlTypeConstraint;
+
+impl Constraint for BoolSqlTypeConstraint {
+    fn validate(&self, in_value: &str) -> Result<(), ConstraintError> {
+        let normalized_value = in_value.to_lowercase();
+        match normalized_value.as_str() {
+            "true" | "false" | "t" | "f" => Ok(()),
+            "yes" | "no" | "y" | "n" => Ok(()),
+            "on" | "off" => Ok(()),
+            "1" | "0" => Ok(()),
+            _ => Err(ConstraintError::NotABool),
+        }
+    }
+}
+
+struct BoolSqlTypeSerializer;
+
+impl Serializer for BoolSqlTypeSerializer {
+    fn ser(&self, in_value: &str) -> Vec<u8> {
+        let normalized_value = in_value.to_lowercase();
+        match normalized_value.as_str() {
+            "true" | "t" | "yes" | "y" | "on" | "1" => vec![1u8],
+            _ => vec![0u8],
+        }
+    }
+
+    fn des(&self, out_value: &[u8]) -> String {
+        // The datatype output function for type boolean always emits either
+        // t or f, as shown in Example 8.2.
+        // See https://www.postgresql.org/docs/12/datatype-boolean.html#DATATYPE-BOOLEAN-EXAMPLE
+        match out_value {
+            [0u8] => "f".to_string(),
+            [1u8] => "t".to_string(),
+            other => panic!("Expected byte 0 or 1, but got {:?}", other),
+        }
     }
 }
 
@@ -623,6 +664,85 @@ mod tests {
                         Err(ConstraintError::ValueTooLong)
                     )
                 }
+            }
+        }
+    }
+
+    mod bool {
+        use super::*;
+        #[cfg(test)]
+        mod serialization {
+            use super::*;
+
+            #[rstest::fixture]
+            fn serializer() -> Box<dyn Serializer> {
+                SqlType::Bool.serializer()
+            }
+
+            #[rstest::rstest]
+            fn serialize(serializer: Box<dyn Serializer>) {
+                assert_eq!(serializer.ser("TRUE"), vec![1]);
+                assert_eq!(serializer.ser("true"), vec![1]);
+                assert_eq!(serializer.ser("t"), vec![1]);
+                assert_eq!(serializer.ser("yes"), vec![1]);
+                assert_eq!(serializer.ser("y"), vec![1]);
+                assert_eq!(serializer.ser("on"), vec![1]);
+                assert_eq!(serializer.ser("1"), vec![1]);
+                assert_eq!(serializer.ser("YES"), vec![1]);
+
+                assert_eq!(serializer.ser("FALSE"), vec![0]);
+                assert_eq!(serializer.ser("false"), vec![0]);
+                assert_eq!(serializer.ser("f"), vec![0]);
+                assert_eq!(serializer.ser("no"), vec![0]);
+                assert_eq!(serializer.ser("n"), vec![0]);
+                assert_eq!(serializer.ser("off"), vec![0]);
+                assert_eq!(serializer.ser("0"), vec![0]);
+                assert_eq!(serializer.ser("NO"), vec![0]);
+            }
+
+            #[rstest::rstest]
+            fn deserialize(serializer: Box<dyn Serializer>) {
+                assert_eq!(serializer.des(&[0]), "f".to_owned());
+                assert_eq!(serializer.des(&[1]), "t".to_owned());
+            }
+        }
+
+        #[cfg(test)]
+        mod validation {
+            use super::*;
+
+            #[rstest::fixture]
+            fn constraint() -> Box<dyn Constraint> {
+                SqlType::Bool.constraint()
+            }
+
+            #[rstest::rstest]
+            fn is_ok_true(constraint: Box<dyn Constraint>) {
+                assert_eq!(constraint.validate("TRUE"), Ok(()));
+                assert_eq!(constraint.validate("true"), Ok(()));
+                assert_eq!(constraint.validate("t"), Ok(()));
+                assert_eq!(constraint.validate("yes"), Ok(()));
+                assert_eq!(constraint.validate("y"), Ok(()));
+                assert_eq!(constraint.validate("on"), Ok(()));
+                assert_eq!(constraint.validate("1"), Ok(()));
+                assert_eq!(constraint.validate("YES"), Ok(()));
+            }
+
+            #[rstest::rstest]
+            fn is_ok_false(constraint: Box<dyn Constraint>) {
+                assert_eq!(constraint.validate("FALSE"), Ok(()));
+                assert_eq!(constraint.validate("false"), Ok(()));
+                assert_eq!(constraint.validate("f"), Ok(()));
+                assert_eq!(constraint.validate("no"), Ok(()));
+                assert_eq!(constraint.validate("n"), Ok(()));
+                assert_eq!(constraint.validate("off"), Ok(()));
+                assert_eq!(constraint.validate("0"), Ok(()));
+                assert_eq!(constraint.validate("NO"), Ok(()));
+            }
+
+            #[rstest::rstest]
+            fn is_non_bool(constraint: Box<dyn Constraint>) {
+                assert_eq!(constraint.validate("oops"), Err(ConstraintError::NotABool))
             }
         }
     }
