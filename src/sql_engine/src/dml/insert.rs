@@ -122,6 +122,9 @@ impl<P: BackendStorage> InsertCommand<'_, P> {
                                     ConstraintError::NotAnInt => {
                                         ConstraintViolation::type_mismatch(sql_type.to_pg_types())
                                     }
+                                    ConstraintError::NotABool => {
+                                        ConstraintViolation::type_mismatch(sql_type.to_pg_types())
+                                    }
                                     ConstraintError::ValueTooLong => {
                                         if let Some(len) = sql_type.string_type_length() {
                                             ConstraintViolation::string_length_mismatch(sql_type.to_pg_types(), len)
