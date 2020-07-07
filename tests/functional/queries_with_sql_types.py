@@ -79,6 +79,7 @@ def test_character_types(create_drop_test_schema_fixture):
     r = cur.fetchmany(2)
     assert r == [('c', '1234567890', 'c', '12345678901234567890',), ('1', '1234567', 'c', '1234567890',)]
 
+
 def test_boolean_types(create_cursor):
     import random
     cur = create_cursor
@@ -125,6 +126,7 @@ def test_boolean_types(create_cursor):
         cur.execute('drop table schema_name.table_name;')
         cur.execute('drop schema schema_name;')
 
+
 def test_numeric_constraint_violations(create_drop_test_schema_fixture):
     cur = create_drop_test_schema_fixture
     cur.execute('create table schema_name.table_name(si_col smallint, i_col integer, bi_col bigint);')
@@ -139,10 +141,10 @@ def test_numeric_constraint_violations(create_drop_test_schema_fixture):
     except pg.Error:
         assert False
 
-
     cur.execute('select * from schema_name.table_name;')
     r = cur.fetchall()
     assert r == [(-32768, -2147483648, -9223372036854775808,), (32767, 2147483647, 9223372036854775807,)]
+
 
 def test_many_numeric_constraint_violations(create_drop_test_schema_fixture):
     cur = create_drop_test_schema_fixture
@@ -161,3 +163,17 @@ def test_many_numeric_constraint_violations(create_drop_test_schema_fixture):
     cur.execute('select * from schema_name.table_name;')
     r = cur.fetchall()
     assert r == [(-32768, -2147483648, -9223372036854775808,), (32767, 2147483647, 9223372036854775807,)]
+
+
+def test_math_operations_in_insert(create_drop_test_schema_fixture):
+    cur = create_drop_test_schema_fixture
+    cur.execute('create table schema_name.table_name(si_col smallint);')
+    cur.execute('insert into schema_name.table_name values (%d + %d);' % (3, 5))
+    cur.execute('insert into schema_name.table_name values (%d - %d);' % (3, 5))
+    cur.execute('insert into schema_name.table_name values (%d * %d);' % (3, 5))
+    cur.execute('insert into schema_name.table_name values (%d / %d);' % (15, 5))
+
+    cur.execute('select * from schema_name.table_name;')
+    r = cur.fetchall()
+
+    assert r == [(8,), (-2,), (15, ), (3,)]
