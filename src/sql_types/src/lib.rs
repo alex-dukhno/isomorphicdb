@@ -113,11 +113,11 @@ struct SmallIntTypeConstraint {
 impl Constraint for SmallIntTypeConstraint {
     fn validate(&self, in_value: &str) -> Result<(), ConstraintError> {
         match lexical::parse::<i16, _>(in_value) {
-            Ok(_) => {
-                if self.min <= lexical::parse::<i16, _>(in_value).unwrap() {
+            Ok(value) => {
+                if self.min <= value {
                     Ok(())
                 } else {
-                    Err(ConstraintError::OutOfRange)
+                    Err(ConstraintError::NotAnInt)
                 }
             }
             Err(e) if e.code == lexical::ErrorCode::InvalidDigit => Err(ConstraintError::NotAnInt),
@@ -149,8 +149,8 @@ struct IntegerSqlTypeConstraint {
 impl Constraint for IntegerSqlTypeConstraint {
     fn validate(&self, in_value: &str) -> Result<(), ConstraintError> {
         match lexical::parse::<i32, _>(in_value) {
-            Ok(_) => {
-                if self.min <= lexical::parse::<i32, _>(in_value).unwrap() {
+            Ok(value) => {
+                if self.min <= value {
                     Ok(())
                 } else {
                     Err(ConstraintError::OutOfRange)
@@ -185,8 +185,8 @@ struct BigIntTypeConstraint {
 impl Constraint for BigIntTypeConstraint {
     fn validate(&self, in_value: &str) -> Result<(), ConstraintError> {
         match lexical::parse::<i64, _>(in_value) {
-            Ok(_) => {
-                if self.min <= lexical::parse::<i64, _>(in_value).unwrap() {
+            Ok(value) => {
+                if self.min <= value {
                     Ok(())
                 } else {
                     Err(ConstraintError::OutOfRange)
@@ -421,7 +421,7 @@ mod tests {
 
                 #[rstest::fixture]
                 fn serializer() -> Box<dyn Serializer> {
-                    SqlType::SmallInt(12).serializer()
+                    SqlType::SmallInt(i16::min_value()).serializer()
                 }
 
                 #[rstest::rstest]
@@ -441,7 +441,7 @@ mod tests {
 
                 #[rstest::fixture]
                 fn constraint() -> Box<dyn Constraint> {
-                    SqlType::SmallInt(12).constraint()
+                    SqlType::SmallInt(i16::min_value()).constraint()
                 }
 
                 #[rstest::rstest]
@@ -545,7 +545,7 @@ mod tests {
 
                 #[rstest::fixture]
                 fn serializer() -> Box<dyn Serializer> {
-                    SqlType::BigInt(10).serializer()
+                    SqlType::BigInt(i64::min_value()).serializer()
                 }
 
                 #[rstest::rstest]
@@ -565,7 +565,7 @@ mod tests {
 
                 #[rstest::fixture]
                 fn constraint() -> Box<dyn Constraint> {
-                    SqlType::BigInt(10).constraint()
+                    SqlType::BigInt(i64::min_value()).constraint()
                 }
 
                 #[rstest::rstest]
