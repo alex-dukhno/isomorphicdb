@@ -15,8 +15,11 @@
 use kernel::SystemResult;
 use protocol::results::{ConstraintViolation, QueryError, QueryEvent, QueryResult};
 use sql_types::ConstraintError;
-use sqlparser::ast::{Ident, ObjectName, Query};
-use std::sync::{Arc, Mutex};
+use sqlparser::ast::{BinaryOperator, Expr, Ident, ObjectName, Query, SetExpr, UnaryOperator, Value};
+use std::{
+    ops::Deref,
+    sync::{Arc, Mutex},
+};
 use storage::{backend::BackendStorage, frontend::FrontendStorage, OperationOnTableError};
 
 pub(crate) struct InsertCommand<'q, P: BackendStorage> {
@@ -47,8 +50,8 @@ impl<P: BackendStorage> InsertCommand<'_, P> {
     pub(crate) fn execute(&mut self) -> SystemResult<QueryResult> {
         let table_name = self.name.0.pop().unwrap().to_string();
         let schema_name = self.name.0.pop().unwrap().to_string();
-        let sqlparser::ast::Query { body, .. } = &*self.source;
-        if let sqlparser::ast::SetExpr::Values(values) = &body {
+        let Query { body, .. } = &*self.source;
+        if let SetExpr::Values(values) = &body {
             let values = &values.0;
 
             let columns = if self.columns.is_empty() {
@@ -92,6 +95,7 @@ impl<P: BackendStorage> InsertCommand<'_, P> {
                                 ) => "-".to_owned() + v.as_str(),
                                 (op, expr) => unimplemented!("{:?} {:?} is not currently supported", op, expr),
                             },
+                            expr @ Expr::BinaryOp { .. } => Self::eval(expr).value(),
                             expr => unimplemented!("{:?} is not currently supported", expr),
                         })
                         .collect()
@@ -148,6 +152,48 @@ impl<P: BackendStorage> InsertCommand<'_, P> {
             }
         } else {
             Ok(Err(QueryError::not_supported_operation(self.raw_sql_query.to_owned())))
+        }
+    }
+
+    fn eval(expr: &Expr) -> ExprResult {
+        if let Expr::BinaryOp { op, left, right } = expr {
+            let left: &Expr = left.deref();
+            let right: &Expr = right.deref();
+            match (left, right) {
+                (Expr::Value(Value::Number(left)), Expr::Value(Value::Number(right))) => match op {
+                    BinaryOperator::Plus => ExprResult::Number((left + right).to_string()),
+                    BinaryOperator::Minus => ExprResult::Number((left - right).to_string()),
+                    BinaryOperator::Multiply => ExprResult::Number((left * right).to_string()),
+                    BinaryOperator::Divide => ExprResult::Number((left / right).to_string()),
+                    BinaryOperator::Modulus => ExprResult::Number((left % right).to_string()),
+                    BinaryOperator::BitwiseAnd => {
+                        let (left, _) = left.as_bigint_and_exponent();
+                        let (right, _) = right.as_bigint_and_exponent();
+                        ExprResult::Number((left & right).to_string())
+                    }
+                    BinaryOperator::BitwiseOr => {
+                        let (left, _) = left.as_bigint_and_exponent();
+                        let (right, _) = right.as_bigint_and_exponent();
+                        ExprResult::Number((left | right).to_string())
+                    }
+                    _ => unimplemented!(),
+                },
+                e => unimplemented!("{:?} not supported", e),
+            }
+        } else {
+            unimplemented!("{:?} not supported", expr)
+        }
+    }
+}
+
+enum ExprResult {
+    Number(String),
+}
+
+impl ExprResult {
+    fn value(self) -> String {
+        match self {
+            Self::Number(v) => v,
         }
     }
 }
