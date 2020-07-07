@@ -9,7 +9,7 @@ publish = false
 log = "0.4.8"
 kernel = { path = "../kernel" }
 storage = { path = "../storage" }
-sqlparser = "0.5.1"
+sqlparser = { version = "0.5.1", features = ["bigdecimal"] }
 sql_types = { path = "../sql_types" }
 protocol = { path = "../protocol" }
 

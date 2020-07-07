@@ -15,7 +15,7 @@
 use kernel::SystemResult;
 use protocol::results::{ConstraintViolation, QueryError, QueryEvent, QueryResult};
 use sql_types::ConstraintError;
-use sqlparser::ast::{Assignment, ObjectName};
+use sqlparser::ast::{Assignment, Expr, Ident, ObjectName, UnaryOperator, Value};
 use std::sync::{Arc, Mutex};
 use storage::{backend::BackendStorage, frontend::FrontendStorage, OperationOnTableError};
 
@@ -49,17 +49,16 @@ impl<P: BackendStorage> UpdateCommand<'_, P> {
             .assignments
             .iter()
             .map(|item| {
-                let sqlparser::ast::Assignment { id, value } = &item;
-                let sqlparser::ast::Ident { value: column, .. } = id;
+                let Assignment { id, value } = &item;
+                let Ident { value: column, .. } = id;
 
                 let value = match value {
-                    sqlparser::ast::Expr::Value(sqlparser::ast::Value::Number(val)) => val.to_owned(),
-                    sqlparser::ast::Expr::Value(sqlparser::ast::Value::SingleQuotedString(v)) => v.to_string(),
-                    sqlparser::ast::Expr::UnaryOp { op, expr } => match (op, &**expr) {
-                        (
-                            sqlparser::ast::UnaryOperator::Minus,
-                            sqlparser::ast::Expr::Value(sqlparser::ast::Value::Number(v)),
-                        ) => "-".to_owned() + v.as_str(),
+                    Expr::Value(Value::Number(val)) => val.to_string(),
+                    Expr::Value(Value::SingleQuotedString(v)) => v.to_string(),
+                    Expr::UnaryOp { op, expr } => match (op, &**expr) {
+                        (UnaryOperator::Minus, Expr::Value(Value::Number(v))) => {
+                            "-".to_owned() + v.to_string().as_str()
+                        }
                         (op, expr) => unimplemented!("{:?} {:?} is not currently supported", op, expr),
                     },
                     expr => unimplemented!("{:?} is not currently supported", expr),
