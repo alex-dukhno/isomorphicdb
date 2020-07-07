@@ -12,9 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::sql_types;
-use crate::sql_types::PostgreSqlType;
-use crate::Message;
+use crate::{sql_types, sql_types::PostgreSqlType, Message};
 use std::fmt::{self, Display, Formatter};
 
 /// Represents result of SQL query execution

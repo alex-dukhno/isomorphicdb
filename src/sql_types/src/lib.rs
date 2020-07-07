@@ -113,7 +113,13 @@ struct SmallIntTypeConstraint {
 impl Constraint for SmallIntTypeConstraint {
     fn validate(&self, in_value: &str) -> Result<(), ConstraintError> {
         match lexical::parse::<i16, _>(in_value) {
-            Ok(_) => { if self.min <= lexical::parse::<i16, _>(in_value).unwrap() { Ok(()) } else { Err(ConstraintError::OutOfRange) } },
+            Ok(_) => {
+                if self.min <= lexical::parse::<i16, _>(in_value).unwrap() {
+                    Ok(())
+                } else {
+                    Err(ConstraintError::OutOfRange)
+                }
+            }
             Err(e) if e.code == lexical::ErrorCode::InvalidDigit => Err(ConstraintError::NotAnInt),
             Err(_) => Err(ConstraintError::OutOfRange),
         }
@@ -143,7 +149,13 @@ struct IntegerSqlTypeConstraint {
 impl Constraint for IntegerSqlTypeConstraint {
     fn validate(&self, in_value: &str) -> Result<(), ConstraintError> {
         match lexical::parse::<i32, _>(in_value) {
-            Ok(_) => { if self.min <= lexical::parse::<i32, _>(in_value).unwrap() { Ok(()) } else { Err(ConstraintError::OutOfRange) } },
+            Ok(_) => {
+                if self.min <= lexical::parse::<i32, _>(in_value).unwrap() {
+                    Ok(())
+                } else {
+                    Err(ConstraintError::OutOfRange)
+                }
+            }
             Err(e) if e.code == lexical::ErrorCode::InvalidDigit => Err(ConstraintError::NotAnInt),
             Err(_) => Err(ConstraintError::OutOfRange),
         }
@@ -173,7 +185,13 @@ struct BigIntTypeConstraint {
 impl Constraint for BigIntTypeConstraint {
     fn validate(&self, in_value: &str) -> Result<(), ConstraintError> {
         match lexical::parse::<i64, _>(in_value) {
-            Ok(_) => { if self.min <= lexical::parse::<i64, _>(in_value).unwrap() { Ok(()) } else { Err(ConstraintError::OutOfRange) } },
+            Ok(_) => {
+                if self.min <= lexical::parse::<i64, _>(in_value).unwrap() {
+                    Ok(())
+                } else {
+                    Err(ConstraintError::OutOfRange)
+                }
+            }
             Err(e) if e.code == lexical::ErrorCode::InvalidDigit => Err(ConstraintError::NotAnInt),
             Err(_) => Err(ConstraintError::OutOfRange),
         }
