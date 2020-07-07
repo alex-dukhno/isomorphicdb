@@ -15,7 +15,7 @@
 use kernel::SystemResult;
 use protocol::results::{ConstraintViolation, QueryError, QueryEvent, QueryResult};
 use sql_types::ConstraintError;
-use sqlparser::ast::{BinaryOperator, Expr, Ident, ObjectName, Query, SetExpr, UnaryOperator, Value};
+use sqlparser::ast::{BinaryOperator, DataType, Expr, Ident, ObjectName, Query, SetExpr, UnaryOperator, Value};
 use std::{
     ops::Deref,
     sync::{Arc, Mutex},
@@ -72,27 +72,20 @@ impl<P: BackendStorage> InsertCommand<'_, P> {
                 .map(|v| {
                     v.iter()
                         .map(|v| match v {
-                            sqlparser::ast::Expr::Value(sqlparser::ast::Value::Number(v)) => v.to_string(),
-                            sqlparser::ast::Expr::Value(sqlparser::ast::Value::SingleQuotedString(v)) => v.to_string(),
-                            sqlparser::ast::Expr::Value(sqlparser::ast::Value::Boolean(v)) => v.to_string(),
-                            sqlparser::ast::Expr::Cast { expr, data_type } => match (&**expr, data_type) {
-                                (
-                                    sqlparser::ast::Expr::Value(sqlparser::ast::Value::Boolean(v)),
-                                    sqlparser::ast::DataType::Boolean,
-                                ) => v.to_string(),
-                                (
-                                    sqlparser::ast::Expr::Value(sqlparser::ast::Value::SingleQuotedString(v)),
-                                    sqlparser::ast::DataType::Boolean,
-                                ) => v.to_string(),
+                            Expr::Value(Value::Number(v)) => v.to_string(),
+                            Expr::Value(Value::SingleQuotedString(v)) => v.to_string(),
+                            Expr::Value(Value::Boolean(v)) => v.to_string(),
+                            Expr::Cast { expr, data_type } => match (&**expr, data_type) {
+                                (Expr::Value(Value::Boolean(v)), DataType::Boolean) => v.to_string(),
+                                (Expr::Value(Value::SingleQuotedString(v)), DataType::Boolean) => v.to_string(),
                                 _ => {
                                     unimplemented!("Cast from {:?} to {:?} is not currently supported", expr, data_type)
                                 }
                             },
-                            sqlparser::ast::Expr::UnaryOp { op, expr } => match (op, &**expr) {
-                                (
-                                    sqlparser::ast::UnaryOperator::Minus,
-                                    sqlparser::ast::Expr::Value(sqlparser::ast::Value::Number(v)),
-                                ) => "-".to_owned() + v.as_str(),
+                            Expr::UnaryOp { op, expr } => match (op, &**expr) {
+                                (UnaryOperator::Minus, Expr::Value(Value::Number(v))) => {
+                                    "-".to_owned() + v.to_string().as_str()
+                                }
                                 (op, expr) => unimplemented!("{:?} {:?} is not currently supported", op, expr),
                             },
                             expr @ Expr::BinaryOp { .. } => Self::eval(expr).value(),
