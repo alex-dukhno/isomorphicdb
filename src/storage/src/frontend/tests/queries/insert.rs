@@ -342,6 +342,7 @@ fn insert_too_many_expressions_labeled(mut storage: PersistentStorage) {
 #[cfg(test)]
 mod constraints {
     use super::*;
+    use sql_types::ConstraintError;
 
     #[rstest::fixture]
     fn storage_with_ints_table(mut storage: PersistentStorage) -> PersistentStorage {
@@ -380,11 +381,12 @@ mod constraints {
                     vec![vec!["-32769".to_owned(), "100".to_owned(), "100".to_owned()]],
                 )
                 .expect("no system errors"),
-            Err(constraint_violations(
+            Err(OperationOnTableError::ConstraintViolations(vec![(
                 ConstraintError::OutOfRange,
-                vec![vec![("column_si".to_owned(), SqlType::SmallInt)]]
-            ))
-        );
+                "column_si".to_owned(),
+                SqlType::SmallInt
+            )]))
+        )
     }
 
     #[rstest::rstest]
@@ -398,11 +400,12 @@ mod constraints {
                     vec![vec!["abc".to_owned(), "100".to_owned(), "100".to_owned()]],
                 )
                 .expect("no system errors"),
-            Err(constraint_violations(
+            Err(OperationOnTableError::ConstraintViolations(vec![(
                 ConstraintError::NotAnInt,
-                vec![vec![("column_si".to_owned(), SqlType::SmallInt)]]
-            ))
-        );
+                "column_si".to_owned(),
+                SqlType::SmallInt
+            )]))
+        )
     }
 
     #[rstest::rstest]
@@ -416,11 +419,12 @@ mod constraints {
                     vec![vec!["12345678901".to_owned(), "100".to_owned()]],
                 )
                 .expect("no system errors"),
-            Err(constraint_violations(
+            Err(OperationOnTableError::ConstraintViolations(vec![(
                 ConstraintError::ValueTooLong,
-                vec![vec![("column_c".to_owned(), SqlType::Char(10))]]
-            ))
-        );
+                "column_c".to_owned(),
+                SqlType::Char(10)
+            )]))
+        )
     }
 
     #[rstest::rstest]
@@ -434,13 +438,10 @@ mod constraints {
                     vec![vec!["-32769".to_owned(), "-2147483649".to_owned(), "100".to_owned()]],
                 )
                 .expect("no system errors"),
-            Err(constraint_violations(
-                ConstraintError::OutOfRange,
-                vec![vec![
-                    ("column_si".to_owned(), SqlType::SmallInt),
-                    ("column_i".to_owned(), SqlType::Integer)
-                ]]
-            ))
+            Err(OperationOnTableError::ConstraintViolations(vec![
+                (ConstraintError::OutOfRange, "column_si".to_owned(), SqlType::SmallInt),
+                (ConstraintError::OutOfRange, "column_i".to_owned(), SqlType::Integer)
+            ]))
         )
     }
 
@@ -462,25 +463,12 @@ mod constraints {
                     ],
                 )
                 .expect("no system errors"),
-            Err(constraint_violations(
-                ConstraintError::OutOfRange,
-                vec![
-                    vec![
-                        ("column_si".to_owned(), SqlType::SmallInt),
-                        ("column_i".to_owned(), SqlType::Integer)
-                    ],
-                    vec![
-                        ("column_i".to_owned(), SqlType::Integer),
-                        ("column_bi".to_owned(), SqlType::BigInt)
-                    ]
-                ]
-            ))
+            Err(OperationOnTableError::ConstraintViolations(vec![
+                (ConstraintError::OutOfRange, "column_si".to_owned(), SqlType::SmallInt),
+                (ConstraintError::OutOfRange, "column_i".to_owned(), SqlType::Integer),
+                (ConstraintError::OutOfRange, "column_i".to_owned(), SqlType::Integer),
+                (ConstraintError::OutOfRange, "column_bi".to_owned(), SqlType::BigInt),
+            ]))
         )
-    }
-
-    fn constraint_violations(error: ConstraintError, columns: Vec<Vec<(String, SqlType)>>) -> OperationOnTableError {
-        let mut map = HashMap::new();
-        map.insert(error, columns);
-        OperationOnTableError::ConstraintViolation(map)
     }
 }
