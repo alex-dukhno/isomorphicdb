@@ -46,12 +46,13 @@ impl<P: BackendStorage> CreateTableCommand<P> {
                 .map(|c| {
                     let name = c.name.to_string();
                     let sql_type = match c.data_type {
-                        sqlparser::ast::DataType::SmallInt => SqlType::SmallInt(u16::min_value()),
-                        sqlparser::ast::DataType::Int => SqlType::Integer(u32::min_value()),
-                        sqlparser::ast::DataType::BigInt => SqlType::BigInt(u64::min_value()),
+                        sqlparser::ast::DataType::SmallInt => SqlType::SmallInt(i16::min_value()),
+                        sqlparser::ast::DataType::Int => SqlType::Integer(i32::min_value()),
+                        sqlparser::ast::DataType::BigInt => SqlType::BigInt(i64::min_value()),
                         sqlparser::ast::DataType::Char(len) => SqlType::Char(len.unwrap_or(255)),
                         sqlparser::ast::DataType::Varchar(len) => SqlType::VarChar(len.unwrap_or(255)),
                         sqlparser::ast::DataType::Boolean => SqlType::Bool,
+                        // sqlparser::ast::DataType::Custom(ObjectName{ value: "Serial" }) => SqlType::Integer(1),
                         _ => unimplemented!(),
                     };
                     (name, sql_type)

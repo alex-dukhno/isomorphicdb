@@ -43,7 +43,7 @@ fn delete_all_from_table(mut storage: PersistentStorage) {
         &mut storage,
         "schema_name",
         "table_name",
-        vec![("column_test", SqlType::SmallInt(u16::min_value()))],
+        vec![("column_test", SqlType::SmallInt(i16::min_value()))],
     );
     insert_into(&mut storage, "schema_name", "table_name", vec![], vec!["123"]);
     insert_into(&mut storage, "schema_name", "table_name", vec![], vec!["456"]);
@@ -68,7 +68,7 @@ fn delete_all_from_table(mut storage: PersistentStorage) {
             .select_all_from("schema_name", "table_name", table_columns)
             .expect("no system errors"),
         Ok((
-            vec![("column_test".to_owned(), SqlType::SmallInt(u16::min_value()))],
+            vec![("column_test".to_owned(), SqlType::SmallInt(i16::min_value()))],
             vec![]
         ))
     );

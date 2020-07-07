@@ -21,7 +21,7 @@ fn update_all_records(mut storage: PersistentStorage) {
         &mut storage,
         "schema_name",
         "table_name",
-        vec![("column_test", SqlType::SmallInt(u16::min_value()))],
+        vec![("column_test", SqlType::SmallInt(i16::min_value()))],
     );
 
     insert_into(&mut storage, "schema_name", "table_name", vec![], vec!["123"]);
@@ -51,7 +51,7 @@ fn update_all_records(mut storage: PersistentStorage) {
             .select_all_from("schema_name", "table_name", table_columns)
             .expect("no system errors"),
         Ok((
-            vec![("column_test".to_owned(), SqlType::SmallInt(u16::min_value()))],
+            vec![("column_test".to_owned(), SqlType::SmallInt(i16::min_value()))],
             vec![vec!["567".to_owned()], vec!["567".to_owned()], vec!["567".to_owned()]]
         ))
     );
@@ -91,9 +91,9 @@ mod constraints {
             "schema_name",
             "table_name",
             vec![
-                ("column_si", SqlType::SmallInt(u16::min_value())),
-                ("column_i", SqlType::Integer(u32::min_value())),
-                ("column_bi", SqlType::BigInt(u64::min_value())),
+                ("column_si", SqlType::SmallInt(i16::min_value())),
+                ("column_i", SqlType::Integer(i32::min_value())),
+                ("column_bi", SqlType::BigInt(i64::min_value())),
             ],
         );
         storage
