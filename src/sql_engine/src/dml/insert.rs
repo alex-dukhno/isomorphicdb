@@ -14,7 +14,7 @@
 
 use kernel::SystemResult;
 use protocol::results::{ConstraintViolation, QueryError, QueryEvent, QueryResult};
-use sql_types::ConstraintError;
+use sql_types::{ConstraintError, SqlType};
 use sqlparser::ast::{BinaryOperator, DataType, Expr, Ident, ObjectName, Query, SetExpr, UnaryOperator, Value};
 use std::{
     ops::Deref,
@@ -107,35 +107,28 @@ impl<P: BackendStorage> InsertCommand<'_, P> {
                 Err(OperationOnTableError::ColumnDoesNotExist(non_existing_columns)) => {
                     Ok(Err(QueryError::column_does_not_exist(non_existing_columns)))
                 }
-                Err(OperationOnTableError::ConstraintViolation(constraint_errors)) => {
-                    let mut violations = Vec::new();
-                    for (err, infos) in constraint_errors.into_iter() {
-                        for info in infos {
-                            for (_, sql_type) in info {
-                                let violation = match err {
-                                    ConstraintError::OutOfRange => {
-                                        ConstraintViolation::out_of_range(sql_type.to_pg_types())
+                Err(OperationOnTableError::ConstraintViolations(constraint_errors)) => {
+                    let constraint_error_mapper =
+                        |(err, _, sql_type): &(ConstraintError, String, SqlType)| -> ConstraintViolation {
+                            match err {
+                                ConstraintError::OutOfRange => {
+                                    ConstraintViolation::out_of_range(sql_type.to_pg_types())
+                                }
+                                ConstraintError::NotAnInt => ConstraintViolation::type_mismatch(sql_type.to_pg_types()),
+                                ConstraintError::NotABool => ConstraintViolation::type_mismatch(sql_type.to_pg_types()),
+                                ConstraintError::ValueTooLong => {
+                                    if let Some(len) = sql_type.string_type_length() {
+                                        ConstraintViolation::string_length_mismatch(sql_type.to_pg_types(), len)
+                                    } else {
+                                        // there error should only occur with string types
+                                        unreachable!()
                                     }
-                                    ConstraintError::NotAnInt => {
-                                        ConstraintViolation::type_mismatch(sql_type.to_pg_types())
-                                    }
-                                    ConstraintError::NotABool => {
-                                        ConstraintViolation::type_mismatch(sql_type.to_pg_types())
-                                    }
-                                    ConstraintError::ValueTooLong => {
-                                        if let Some(len) = sql_type.string_type_length() {
-                                            ConstraintViolation::string_length_mismatch(sql_type.to_pg_types(), len)
-                                        } else {
-                                            // there error should only occur with string types
-                                            unreachable!()
-                                        }
-                                    }
-                                };
-
-                                violations.push(violation);
+                                }
                             }
-                        }
-                    }
+                        };
+
+                    let violations = constraint_errors.iter().map(constraint_error_mapper).collect();
+
                     Ok(Err(QueryError::constraint_violations(violations)))
                 }
                 Err(e) => {

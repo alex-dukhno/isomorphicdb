@@ -17,7 +17,6 @@ extern crate log;
 extern crate sql_types;
 
 use sql_types::{ConstraintError, SqlType};
-use std::collections::HashMap;
 
 pub mod backend;
 pub mod frontend;
@@ -48,5 +47,5 @@ pub enum OperationOnTableError {
     InsertTooManyExpressions,
     // Returns non existing columns.
     ColumnDoesNotExist(Vec<String>),
-    ConstraintViolation(HashMap<ConstraintError, Vec<Vec<(String, SqlType)>>>),
+    ConstraintViolations(Vec<(ConstraintError, String, SqlType)>),
 }
