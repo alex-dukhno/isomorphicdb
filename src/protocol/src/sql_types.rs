@@ -14,7 +14,7 @@
 
 /// Represents PostgreSQL data type and methods to send over wire
 #[allow(missing_docs)]
-#[derive(PartialEq, Debug, Copy, Clone)]
+#[derive(PartialEq, Debug, Copy, Clone, PartialOrd, Eq)]
 pub enum PostgreSqlType {
     Bool,
     Char,
@@ -73,6 +73,28 @@ impl PostgreSqlType {
             Self::Interval => 16,
             Self::TimeWithTimeZone => 12,
             Self::Decimal => -1,
+        }
+    }
+}
+
+impl std::string::ToString for PostgreSqlType {
+    fn to_string(&self) -> String {
+        match self {
+            Self::Bool => "bool".to_string(),
+            Self::Char => "char".to_string(),
+            Self::BigInt => "bigint".to_string(),
+            Self::SmallInt => "smallint".to_string(),
+            Self::Integer => "integer".to_string(),
+            Self::Real => "real".to_string(),
+            Self::DoublePrecision => "double".to_string(),
+            Self::VarChar => "varchar".to_string(),
+            Self::Date => "date".to_string(),
+            Self::Time => "time".to_string(),
+            Self::Timestamp => "timestamp".to_string(),
+            Self::TimestampWithTimeZone => "timestampwithtimezone".to_string(),
+            Self::Interval => "interval".to_string(),
+            Self::TimeWithTimeZone => "datewithtimezone".to_string(),
+            Self::Decimal => "decimal".to_string(),
         }
     }
 }

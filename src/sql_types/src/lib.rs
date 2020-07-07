@@ -79,6 +79,13 @@ impl SqlType {
             Self::Interval => PostgreSqlType::Interval,
         }
     }
+
+    pub fn string_type_length(&self) -> Option<u64> {
+        match self {
+            Self::Char(n) | Self::VarChar(n) => Some(*n),
+            _ => None,
+        }
+    }
 }
 
 pub trait Constraint {

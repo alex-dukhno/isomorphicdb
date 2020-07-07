@@ -210,11 +210,7 @@ impl QueryResultMapper {
             }
             Ok(QueryEvent::RecordsUpdated(records)) => vec![Message::CommandComplete(format!("UPDATE {}", records))],
             Ok(QueryEvent::RecordsDeleted(records)) => vec![Message::CommandComplete(format!("DELETE {}", records))],
-            Err(query_error) => vec![Message::ErrorResponse(
-                query_error.severity(),
-                query_error.code(),
-                query_error.message(),
-            )],
+            Err(query_error) => query_error.into_messages(),
         }
     }
 }
