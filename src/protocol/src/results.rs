@@ -77,9 +77,6 @@ impl Into<String> for Severity {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) enum ConstraintViolationKind {
-    NumericTypeOutOfRange(PostgreSqlType),
-    DataTypeMismatch(PostgreSqlType),
-    StringTypeLengthMismatch(PostgreSqlType, u64),
 }
 
 /// Represents a constraint violation during query execution
@@ -103,52 +100,7 @@ impl ConstraintViolation {
         Some(self.severity.into())
     }
 
-    /// error message
-    pub fn message(&self) -> Option<String> {
-        Some(format!("{}", self))
-    }
 
-    /// numeric out of range constructor
-    pub fn out_of_range(ty: PostgreSqlType) -> Self {
-        Self {
-            severity: Severity::Error,
-            code: "22003".to_owned(),
-            kind: ConstraintViolationKind::NumericTypeOutOfRange(ty),
-        }
-    }
-
-    /// type mismatch constructor
-    pub fn type_mismatch(expected: PostgreSqlType) -> Self {
-        Self {
-            severity: Severity::Error,
-            code: "2200G".to_owned(),
-            kind: ConstraintViolationKind::DataTypeMismatch(expected),
-        }
-    }
-
-    /// length of string types do not match constructor
-    pub fn string_length_mismatch(str_type: PostgreSqlType, len: u64) -> Self {
-        assert!(str_type == PostgreSqlType::Char || str_type == PostgreSqlType::VarChar);
-        Self {
-            severity: Severity::Error,
-            code: "22026".to_owned(),
-            kind: ConstraintViolationKind::StringTypeLengthMismatch(str_type, len),
-        }
-    }
-}
-
-impl Display for ConstraintViolation {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self.kind {
-            ConstraintViolationKind::NumericTypeOutOfRange(ty) => write!(f, "{} out of range", ty.to_string()),
-            ConstraintViolationKind::DataTypeMismatch(expected) => {
-                write!(f, "{} data type mismatch", expected.to_string())
-            }
-            ConstraintViolationKind::StringTypeLengthMismatch(str_type, len) => {
-                write!(f, "{} string length mismatch of length {}", str_type.to_string(), len)
-            }
-        }
-    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -161,121 +113,198 @@ pub(crate) enum QueryErrorKind {
     NotSupportedOperation(String),
     TooManyInsertExpressions,
 
-    // type constraint errors.
-    ConstraintViolations(Vec<ConstraintViolation>),
+    NumericTypeOutOfRange(PostgreSqlType),
+    DataTypeMismatch(PostgreSqlType),
+    StringTypeLengthMismatch(PostgreSqlType, u64),
 }
 
 /// Represents error during query execution
 #[derive(Debug, PartialEq)]
-pub struct QueryError {
+pub(crate) struct QueryErrorInner {
     severity: Severity,
     code: String,
     kind: QueryErrorKind,
 }
 
+impl QueryErrorInner {
+    fn code(&self) -> Option<String> {
+        Some(self.code.clone())
+    }
+
+    fn severity(&self) -> Option<String> {
+        Some(self.severity.into())
+    }
+
+    fn message(&self) -> Option<String> {
+        Some(format!("{}", self.kind))
+    }
+}
+
+pub enum QueryError {
+    Single(QueryErrorInner),
+    Multiple(Vec<QueryErrorInner>)
+}
+
 impl QueryError {
     /// error code
     pub fn code(&self) -> Option<String> {
-        Some(self.code.clone())
+        match self {
+            Self::Single(inner) => inner.code(),
+            _ => None,
+        }
     }
 
     /// error severity
     pub fn severity(&self) -> Option<String> {
-        Some(self.severity.into())
+        match self {
+            Self::Single(inner) => inner.severity(),
+            _ => None
+        }
     }
 
     /// error message
     pub fn message(&self) -> Option<String> {
-        Some(format!("{}", self.kind))
+        match self {
+            Self::Single(inner) => inner.message(),
+            _ => None,
+        }
+    }
+
+    /// constructor for building single errors
+    fn new_single(inner: QueryErrorInner) -> Self {
+        Self::Single(inner)
+    }
+
+    /// constructor for building an emtpy multi-error variants.
+    pub fn new_multiple_errors() -> Self {
+        Self::Multiple(Vec::new())
     }
 
     pub(crate) fn into_messages(self) -> Vec<Message> {
-        match self.kind {
-            QueryErrorKind::ConstraintViolations(violations) => {
-                let mut messages = Vec::with_capacity(violations.len());
-                for violation in violations {
+        match self {
+            Self::Single(inner) => {
+                vec![Message::ErrorResponse(inner.severity(), inner.code(), inner.message())]
+            }
+            Self::Multiple(inners) => {
+                let mut messages = Vec::with_capacity(inners.len());
+                for inner in inners {
                     messages.push(Message::ErrorResponse(
-                        violation.severity(),
-                        violation.code(),
-                        violation.message(),
+                        inner.severity(),
+                        inner.code(),
+                        inner.message(),
                     ))
                 }
                 messages
             }
-            _ => vec![Message::ErrorResponse(self.severity(), self.code(), self.message())],
         }
     }
 
     /// schema already exists error constructor
     pub fn schema_already_exists(schema_name: String) -> Self {
-        Self {
+        Self::new_single(QueryErrorInner {
             severity: Severity::Error,
             code: "42P06".to_owned(),
             kind: QueryErrorKind::SchemaAlreadyExists(schema_name),
-        }
+        })
     }
 
     /// schema does not exist error constructor
     pub fn schema_does_not_exist(schema_name: String) -> Self {
-        Self {
+        Self::new_single(QueryErrorInner {
             severity: Severity::Error,
             code: "3F000".to_owned(),
             kind: QueryErrorKind::SchemaDoesNotExist(schema_name),
-        }
+        })
     }
 
     /// table already exists error constructor
     pub fn table_already_exists(table_name: String) -> Self {
-        Self {
+        Self::new_single(QueryErrorInner {
             severity: Severity::Error,
             code: "42P07".to_owned(),
             kind: QueryErrorKind::TableAlreadyExists(table_name),
-        }
+        })
     }
 
     /// table does not exist error constructor
     pub fn table_does_not_exist(table_name: String) -> Self {
-        Self {
+        Self::new_single(QueryErrorInner {
             severity: Severity::Error,
             code: "42P01".to_owned(),
             kind: QueryErrorKind::TableDoesNotExist(table_name),
-        }
+        })
     }
 
     /// column does not exists error constructor
     pub fn column_does_not_exist(non_existing_columns: Vec<String>) -> Self {
-        Self {
+        Self::new_single(QueryErrorInner {
             severity: Severity::Error,
             code: "42703".to_owned(),
             kind: QueryErrorKind::ColumnDoesNotExist(non_existing_columns),
-        }
+        })
     }
 
     /// not supported operation error constructor
     pub fn not_supported_operation(raw_sql_query: String) -> Self {
-        Self {
+        Self::new_single(QueryErrorInner {
             severity: Severity::Error,
             code: "42601".to_owned(),
             kind: QueryErrorKind::NotSupportedOperation(raw_sql_query),
-        }
+        })
     }
 
     /// too many insert expressions errors constructor
     pub fn too_many_insert_expressions() -> Self {
-        Self {
+        Self::new_single(QueryErrorInner {
             severity: Severity::Error,
             code: "42601".to_owned(),
             kind: QueryErrorKind::TooManyInsertExpressions,
+        })
+    }
+
+    /// numeric out of range constructor
+    pub fn push_out_of_range(&mut self, ty: PostgreSqlType) {
+        match self {
+            Self::Single(_) => { log::debug!("pushing a constraint error to a single error variant, invalid use of error") },
+            Self::Multiple(ref mut errors) => {
+                let err = QueryErrorInner {
+                        severity: Severity::Error,
+                        code: "22003".to_owned(),
+                        kind: QueryErrorKind::NumericTypeOutOfRange(ty),
+                    };
+                errors.push(err);
+            }
         }
     }
 
-    /// constraint violation errors constructor
-    pub fn constraint_violations(violations: Vec<ConstraintViolation>) -> Self {
-        Self {
-            severity: Severity::Error,
-            // there isn't a single code fo this so I am leaving it empty.
-            code: String::new(),
-            kind: QueryErrorKind::ConstraintViolations(violations),
+    /// type mismatch constructor
+    pub fn push_type_mismatch(&mut self, expected: PostgreSqlType) {
+        match self {
+            Self::Single(_) => { log::debug!("pushing a constraint error to a single error variant, invalid use of error") },
+            Self::Multiple(ref mut errors) => {
+                let err = QueryErrorInner {
+                        severity: Severity::Error,
+                        code: "2200G".to_owned(),
+                        kind: QueryErrorKind::DataTypeMismatch(expected),
+                    };
+                errors.push(err);
+            }
+        }
+    }
+
+    /// length of string types do not match constructor
+    pub fn push_string_length_mismatch(&mut self, str_type: PostgreSqlType, len: u64)  {
+        assert!(str_type == PostgreSqlType::Char || str_type == PostgreSqlType::VarChar);
+        match self {
+            Self::Single(_) => { log::debug!("pushing a constraint error to a single error variant, invalid use of error") },
+            Self::Multiple(ref mut errors) => {
+                let err = QueryErrorInner {
+                        severity: Severity::Error,
+                        code: "22026".to_owned(),
+                        kind: QueryErrorKind::StringTypeLengthMismatch(str_type, len),
+                    };
+                errors.push(err);
+            }
         }
     }
 }
@@ -298,9 +327,12 @@ impl Display for QueryErrorKind {
                 write!(f, "Currently, Query '{}' can't be executed", raw_sql_query)
             }
             Self::TooManyInsertExpressions => write!(f, "INSERT has more epxressions then target columns"),
-            Self::ConstraintViolations(_) => {
-                log::error!("should not use Display to generate the message for Constraint Violations");
-                write!(f, "do not use display with ConstraintViolation errors")
+            Self::NumericTypeOutOfRange(ty) => write!(f, "{} out of range", ty.to_string()),
+            Self::DataTypeMismatch(expected) => {
+                write!(f, "{} data type mismatch", expected.to_string())
+            }
+            Self::StringTypeLengthMismatch(str_type, len) => {
+                write!(f, "{} string length mismatch of length {}", str_type.to_string(), len)
             }
         }
     }
