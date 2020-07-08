@@ -15,7 +15,7 @@
 use kernel::SystemResult;
 use protocol::results::{QueryError, QueryEvent, QueryResult};
 use sql_types::SqlType;
-use sqlparser::ast::{ColumnDef, ObjectName};
+use sqlparser::ast::{ColumnDef, Ident, ObjectName};
 use std::sync::{Arc, Mutex};
 use storage::{backend::BackendStorage, frontend::FrontendStorage, CreateTableError};
 
@@ -46,12 +46,38 @@ impl<P: BackendStorage> CreateTableCommand<P> {
                 .map(|c| {
                     let name = c.name.to_string();
                     let sql_type = match c.data_type {
-                        sqlparser::ast::DataType::SmallInt => SqlType::SmallInt,
-                        sqlparser::ast::DataType::Int => SqlType::Integer,
-                        sqlparser::ast::DataType::BigInt => SqlType::BigInt,
+                        sqlparser::ast::DataType::SmallInt => SqlType::SmallInt(i16::min_value()),
+                        sqlparser::ast::DataType::Int => SqlType::Integer(i32::min_value()),
+                        sqlparser::ast::DataType::BigInt => SqlType::BigInt(i64::min_value()),
                         sqlparser::ast::DataType::Char(len) => SqlType::Char(len.unwrap_or(255)),
                         sqlparser::ast::DataType::Varchar(len) => SqlType::VarChar(len.unwrap_or(255)),
                         sqlparser::ast::DataType::Boolean => SqlType::Bool,
+                        sqlparser::ast::DataType::Custom(ObjectName(_serial)) => {
+                            if _serial
+                                == vec![Ident {
+                                    value: "serial".to_string(),
+                                    quote_style: None,
+                                }]
+                            {
+                                SqlType::Integer(1)
+                            } else if _serial
+                                == vec![Ident {
+                                    value: "bigserial".to_string(),
+                                    quote_style: None,
+                                }]
+                            {
+                                SqlType::BigInt(1)
+                            } else if _serial
+                                == vec![Ident {
+                                    value: "smallserial".to_string(),
+                                    quote_style: None,
+                                }]
+                            {
+                                SqlType::SmallInt(1)
+                            } else {
+                                unimplemented!()
+                            }
+                        }
                         _ => unimplemented!(),
                     };
                     (name, sql_type)

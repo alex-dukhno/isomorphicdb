@@ -150,20 +150,20 @@ fn insert_multiple_rows(mut sql_engine_with_schema: InMemorySqlEngine) {
 #[rstest::rstest]
 fn insert_and_select_different_integer_types(mut sql_engine_with_schema: InMemorySqlEngine) {
     sql_engine_with_schema
-        .execute("create table schema_name.table_name (column_si smallint, column_i integer, column_bi bigint);")
+        .execute("create table schema_name.table_name (column_si smallint, column_i integer, column_bi bigint, column_serial serial);")
         .expect("no system errors")
         .expect("table created");
 
     assert_eq!(
         sql_engine_with_schema
-            .execute("insert into schema_name.table_name values(-32768, -2147483648, -9223372036854775808);")
+            .execute("insert into schema_name.table_name values(-32768, -2147483648, -9223372036854775808, 1);")
             .expect("no system errors"),
         Ok(QueryEvent::RecordsInserted(1))
     );
 
     assert_eq!(
         sql_engine_with_schema
-            .execute("insert into schema_name.table_name values(32767, 2147483647, 9223372036854775807);")
+            .execute("insert into schema_name.table_name values(32767, 2147483647, 9223372036854775807, 1);")
             .expect("no system errors"),
         Ok(QueryEvent::RecordsInserted(1))
     );
@@ -177,17 +177,20 @@ fn insert_and_select_different_integer_types(mut sql_engine_with_schema: InMemor
                 ("column_si".to_owned(), PostgreSqlType::SmallInt),
                 ("column_i".to_owned(), PostgreSqlType::Integer),
                 ("column_bi".to_owned(), PostgreSqlType::BigInt),
+                ("column_serial".to_owned(), PostgreSqlType::Integer),
             ],
             vec![
                 vec![
                     "-32768".to_owned(),
                     "-2147483648".to_owned(),
-                    "-9223372036854775808".to_owned()
+                    "-9223372036854775808".to_owned(),
+                    "1".to_owned()
                 ],
                 vec![
                     "32767".to_owned(),
                     "2147483647".to_owned(),
-                    "9223372036854775807".to_owned()
+                    "9223372036854775807".to_owned(),
+                    "1".to_owned()
                 ],
             ]
         )))

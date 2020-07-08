@@ -22,9 +22,9 @@ pub enum SqlType {
     Char(u64),
     VarChar(u64),
     Decimal,
-    SmallInt,
-    Integer,
-    BigInt,
+    SmallInt(i16),
+    Integer(i32),
+    BigInt(i64),
     Real,
     DoublePrecision,
     Time,
@@ -40,9 +40,9 @@ impl SqlType {
         match *self {
             Self::Char(length) => Box::new(CharSqlTypeConstraint { length }),
             Self::VarChar(length) => Box::new(VarCharSqlTypeConstraint { length }),
-            Self::SmallInt => Box::new(SmallIntTypeConstraint),
-            Self::Integer => Box::new(IntegerSqlTypeConstraint),
-            Self::BigInt => Box::new(BigIntTypeConstraint),
+            Self::SmallInt(min) => Box::new(SmallIntTypeConstraint { min }),
+            Self::Integer(min) => Box::new(IntegerSqlTypeConstraint { min }),
+            Self::BigInt(min) => Box::new(BigIntTypeConstraint { min }),
             Self::Bool => Box::new(BoolSqlTypeConstraint),
             sql_type => unimplemented!("Type constraint for {:?} is not currently implemented", sql_type),
         }
@@ -52,9 +52,9 @@ impl SqlType {
         match *self {
             Self::Char(_length) => Box::new(CharSqlTypeSerializer),
             Self::VarChar(_length) => Box::new(VarCharSqlTypeSerializer),
-            Self::SmallInt => Box::new(SmallIntTypeSerializer),
-            Self::Integer => Box::new(IntegerSqlTypeSerializer),
-            Self::BigInt => Box::new(BigIntTypeSerializer),
+            Self::SmallInt(_min) => Box::new(SmallIntTypeSerializer),
+            Self::Integer(_min) => Box::new(IntegerSqlTypeSerializer),
+            Self::BigInt(_min) => Box::new(BigIntTypeSerializer),
             Self::Bool => Box::new(BoolSqlTypeSerializer),
             sql_type => unimplemented!("Type Serializer for {:?} is not currently implemented", sql_type),
         }
@@ -66,9 +66,9 @@ impl SqlType {
             Self::Char(_) => PostgreSqlType::Char,
             Self::VarChar(_) => PostgreSqlType::VarChar,
             Self::Decimal => PostgreSqlType::Decimal,
-            Self::SmallInt => PostgreSqlType::SmallInt,
-            Self::Integer => PostgreSqlType::Integer,
-            Self::BigInt => PostgreSqlType::BigInt,
+            Self::SmallInt(_) => PostgreSqlType::SmallInt,
+            Self::Integer(_) => PostgreSqlType::Integer,
+            Self::BigInt(_) => PostgreSqlType::BigInt,
             Self::Real => PostgreSqlType::Real,
             Self::DoublePrecision => PostgreSqlType::DoublePrecision,
             Self::Time => PostgreSqlType::Time,
@@ -106,12 +106,20 @@ pub trait Serializer {
     fn des(&self, out_value: &[u8]) -> String;
 }
 
-struct SmallIntTypeConstraint;
+struct SmallIntTypeConstraint {
+    min: i16,
+}
 
 impl Constraint for SmallIntTypeConstraint {
     fn validate(&self, in_value: &str) -> Result<(), ConstraintError> {
         match lexical::parse::<i16, _>(in_value) {
-            Ok(_) => Ok(()),
+            Ok(value) => {
+                if self.min <= value {
+                    Ok(())
+                } else {
+                    Err(ConstraintError::NotAnInt)
+                }
+            }
             Err(e) if e.code == lexical::ErrorCode::InvalidDigit => Err(ConstraintError::NotAnInt),
             Err(_) => Err(ConstraintError::OutOfRange),
         }
@@ -134,12 +142,20 @@ impl Serializer for SmallIntTypeSerializer {
     }
 }
 
-struct IntegerSqlTypeConstraint;
+struct IntegerSqlTypeConstraint {
+    min: i32,
+}
 
 impl Constraint for IntegerSqlTypeConstraint {
     fn validate(&self, in_value: &str) -> Result<(), ConstraintError> {
         match lexical::parse::<i32, _>(in_value) {
-            Ok(_) => Ok(()),
+            Ok(value) => {
+                if self.min <= value {
+                    Ok(())
+                } else {
+                    Err(ConstraintError::OutOfRange)
+                }
+            }
             Err(e) if e.code == lexical::ErrorCode::InvalidDigit => Err(ConstraintError::NotAnInt),
             Err(_) => Err(ConstraintError::OutOfRange),
         }
@@ -162,12 +178,20 @@ impl Serializer for IntegerSqlTypeSerializer {
     }
 }
 
-struct BigIntTypeConstraint;
+struct BigIntTypeConstraint {
+    min: i64,
+}
 
 impl Constraint for BigIntTypeConstraint {
     fn validate(&self, in_value: &str) -> Result<(), ConstraintError> {
         match lexical::parse::<i64, _>(in_value) {
-            Ok(_) => Ok(()),
+            Ok(value) => {
+                if self.min <= value {
+                    Ok(())
+                } else {
+                    Err(ConstraintError::OutOfRange)
+                }
+            }
             Err(e) if e.code == lexical::ErrorCode::InvalidDigit => Err(ConstraintError::NotAnInt),
             Err(_) => Err(ConstraintError::OutOfRange),
         }
@@ -298,17 +322,23 @@ mod tests {
 
         #[test]
         fn small_int() {
-            assert_eq!(SqlType::SmallInt.to_pg_types(), PostgreSqlType::SmallInt);
+            assert_eq!(
+                SqlType::SmallInt(i16::min_value()).to_pg_types(),
+                PostgreSqlType::SmallInt
+            );
         }
 
         #[test]
         fn integer() {
-            assert_eq!(SqlType::Integer.to_pg_types(), PostgreSqlType::Integer);
+            assert_eq!(
+                SqlType::Integer(i32::min_value()).to_pg_types(),
+                PostgreSqlType::Integer
+            );
         }
 
         #[test]
         fn big_int() {
-            assert_eq!(SqlType::BigInt.to_pg_types(), PostgreSqlType::BigInt);
+            assert_eq!(SqlType::BigInt(i64::min_value()).to_pg_types(), PostgreSqlType::BigInt);
         }
 
         #[test]
@@ -391,7 +421,7 @@ mod tests {
 
                 #[rstest::fixture]
                 fn serializer() -> Box<dyn Serializer> {
-                    SqlType::SmallInt.serializer()
+                    SqlType::SmallInt(i16::min_value()).serializer()
                 }
 
                 #[rstest::rstest]
@@ -411,7 +441,7 @@ mod tests {
 
                 #[rstest::fixture]
                 fn constraint() -> Box<dyn Constraint> {
-                    SqlType::SmallInt.constraint()
+                    SqlType::SmallInt(i16::min_value()).constraint()
                 }
 
                 #[rstest::rstest]
@@ -453,7 +483,7 @@ mod tests {
 
                 #[rstest::fixture]
                 fn serializer() -> Box<dyn Serializer> {
-                    SqlType::Integer.serializer()
+                    SqlType::Integer(i32::min_value()).serializer()
                 }
 
                 #[rstest::rstest]
@@ -473,7 +503,7 @@ mod tests {
 
                 #[rstest::fixture]
                 fn constraint() -> Box<dyn Constraint> {
-                    SqlType::Integer.constraint()
+                    SqlType::Integer(i32::min_value()).constraint()
                 }
 
                 #[rstest::rstest]
@@ -515,7 +545,7 @@ mod tests {
 
                 #[rstest::fixture]
                 fn serializer() -> Box<dyn Serializer> {
-                    SqlType::BigInt.serializer()
+                    SqlType::BigInt(i64::min_value()).serializer()
                 }
 
                 #[rstest::rstest]
@@ -535,7 +565,7 @@ mod tests {
 
                 #[rstest::fixture]
                 fn constraint() -> Box<dyn Constraint> {
-                    SqlType::BigInt.constraint()
+                    SqlType::BigInt(i64::min_value()).constraint()
                 }
 
                 #[rstest::rstest]
