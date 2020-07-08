@@ -136,7 +136,7 @@ mod constraints {
             Err(OperationOnTableError::ConstraintViolations(vec![(
                 ConstraintError::OutOfRange,
                 "column_si".to_owned(),
-                SqlType::SmallInt(u16::min_value())
+                SqlType::SmallInt(i16::min_value())
             )]))
         );
     }
@@ -167,7 +167,7 @@ mod constraints {
             Err(OperationOnTableError::ConstraintViolations(vec![(
                 ConstraintError::NotAnInt,
                 "column_si".to_owned(),
-                SqlType::SmallInt(u16::min_value())
+                SqlType::SmallInt(i16::min_value())
             )]))
         );
     }
@@ -227,8 +227,16 @@ mod constraints {
                 )
                 .expect("no system errors"),
             Err(OperationOnTableError::ConstraintViolations(vec![
-                (ConstraintError::OutOfRange, "column_si".to_owned(), SqlType::SmallInt(u16::min_value())),
-                (ConstraintError::OutOfRange, "column_i".to_owned(), SqlType::Integer(u32::min_value()))
+                (
+                    ConstraintError::OutOfRange,
+                    "column_si".to_owned(),
+                    SqlType::SmallInt(i16::min_value())
+                ),
+                (
+                    ConstraintError::OutOfRange,
+                    "column_i".to_owned(),
+                    SqlType::Integer(i32::min_value())
+                )
             ]))
         )
     }

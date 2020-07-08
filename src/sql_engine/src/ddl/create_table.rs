@@ -52,7 +52,9 @@ impl<P: BackendStorage> CreateTableCommand<P> {
                         sqlparser::ast::DataType::Char(len) => SqlType::Char(len.unwrap_or(255)),
                         sqlparser::ast::DataType::Varchar(len) => SqlType::VarChar(len.unwrap_or(255)),
                         sqlparser::ast::DataType::Boolean => SqlType::Bool,
-                        // sqlparser::ast::DataType::Custom(ObjectName{ value: "Serial" }) => SqlType::Integer(1),
+                        sqlparser::ast::DataType::Custom(ObjectName(_serial)) => SqlType::Integer(1),
+                        sqlparser::ast::DataType::Custom(ObjectName(_smallserial)) => SqlType::SmallInt(1),
+                        sqlparser::ast::DataType::Custom(ObjectName(_bigserial)) => SqlType::BigInt(1),
                         _ => unimplemented!(),
                     };
                     (name, sql_type)
