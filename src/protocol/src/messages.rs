@@ -42,6 +42,7 @@ const READY_FOR_QUERY: u8 = b'Z';
 
 /// Backend PostgreSQL Wire Protocol messages
 /// see https://www.postgresql.org/docs/12/protocol-flow.html
+#[allow(dead_code)]
 #[derive(Debug, PartialEq)]
 pub(crate) enum Message {
     /// A warning message has been issued. The frontend should display the message
