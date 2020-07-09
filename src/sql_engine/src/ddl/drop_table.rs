@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use kernel::SystemResult;
-use protocol::results::{QueryError, QueryEvent, QueryResult};
+use protocol::results::{QueryErrorBuilder, QueryEvent, QueryResult};
 use sqlparser::ast::ObjectName;
 use std::sync::{Arc, Mutex};
 use storage::{backend::BackendStorage, frontend::FrontendStorage, DropTableError};
@@ -29,14 +29,21 @@ impl<P: BackendStorage> DropTableCommand<P> {
     }
 
     pub(crate) fn execute(&mut self) -> SystemResult<QueryResult> {
+        let mut builder = QueryErrorBuilder::new();
         let table_name = self.name.0[1].to_string();
         let schema_name = self.name.0[0].to_string();
         match (self.storage.lock().unwrap()).drop_table(&schema_name, &table_name)? {
             Ok(()) => Ok(Ok(QueryEvent::TableDropped)),
-            Err(DropTableError::TableDoesNotExist) => Ok(Err(QueryError::table_does_not_exist(
-                schema_name + "." + table_name.as_str(),
-            ))),
-            Err(DropTableError::SchemaDoesNotExist) => Ok(Err(QueryError::schema_does_not_exist(schema_name))),
+            Err(DropTableError::TableDoesNotExist) => {
+                builder.table_does_not_exist(
+                    schema_name + "." + table_name.as_str(),
+                );
+                Ok(Err(builder.build()))
+            },
+            Err(DropTableError::SchemaDoesNotExist) => {
+                builder.schema_does_not_exist(schema_name);
+                Ok(Err(builder.build()))
+            },
         }
     }
 }

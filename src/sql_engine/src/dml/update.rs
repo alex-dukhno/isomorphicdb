@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use kernel::SystemResult;
-use protocol::results::{ConstraintViolation, QueryError, QueryEvent, QueryResult};
+use protocol::results::{ConstraintViolation, QueryError, QueryEvent, QueryResult, QueryErrorBuilder};
 use sql_types::{ConstraintError, SqlType};
 use sqlparser::ast::{Assignment, Expr, Ident, ObjectName, UnaryOperator, Value};
 use std::sync::{Arc, Mutex};
@@ -42,6 +42,7 @@ impl<P: BackendStorage> UpdateCommand<'_, P> {
     }
 
     pub(crate) fn execute(&mut self) -> SystemResult<QueryResult> {
+        let mut builder = QueryErrorBuilder
         let schema_name = self.name.0[0].to_string();
         let table_name = self.name.0[1].to_string();
 

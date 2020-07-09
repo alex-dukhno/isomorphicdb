@@ -17,11 +17,13 @@ use protocol::sql_types::PostgreSqlType;
 
 #[rstest::rstest]
 fn delete_from_nonexistent_table(mut sql_engine_with_schema: InMemorySqlEngine) {
+    let mut builder = QueryErrorBuilder::new();
+    builder.table_does_not_exist("schema_name.table_name".to_owned());
     assert_eq!(
         sql_engine_with_schema
             .execute("delete from schema_name.table_name;")
             .expect("no system errors"),
-        Err(QueryError::table_does_not_exist("schema_name.table_name".to_owned()))
+        Err(builder.build())
     );
 }
 

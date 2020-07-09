@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use kernel::SystemResult;
-use protocol::results::{QueryError, QueryEvent, QueryResult};
+use protocol::results::{QueryEvent, QueryResult, QueryErrorBuilder};
 use sqlparser::ast::ObjectName;
 use std::sync::{Arc, Mutex};
 use storage::{backend::BackendStorage, frontend::FrontendStorage, SchemaDoesNotExist};
@@ -32,7 +32,11 @@ impl<P: BackendStorage> DropSchemaCommand<P> {
         let schema_name = self.name.0[0].to_string();
         match (self.storage.lock().unwrap()).drop_schema(&schema_name)? {
             Ok(()) => Ok(Ok(QueryEvent::SchemaDropped)),
-            Err(SchemaDoesNotExist) => Ok(Err(QueryError::schema_does_not_exist(schema_name))),
+            Err(SchemaDoesNotExist) => {
+                let mut builder = QueryErrorBuilder::new();
+                builder.schema_does_not_exist(schema_name);
+                Ok(Err(builder.build()))
+            },
         }
     }
 }

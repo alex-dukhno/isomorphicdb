@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use kernel::SystemResult;
-use protocol::results::{QueryError, QueryEvent, QueryResult};
+use protocol::results::{QueryEvent, QueryResult, QueryErrorBuilder};
 use sql_types::SqlType;
 use sqlparser::ast::{ColumnDef, Ident, ObjectName};
 use std::sync::{Arc, Mutex};
@@ -35,6 +35,7 @@ impl<P: BackendStorage> CreateTableCommand<P> {
     }
 
     pub(crate) fn execute(&mut self) -> SystemResult<QueryResult> {
+        let mut builder = QueryErrorBuilder::new();
         let table_name = self.name.0.pop().unwrap().to_string();
         let schema_name = self.name.0.pop().unwrap().to_string();
         match (self.storage.lock().unwrap()).create_table(
@@ -85,8 +86,14 @@ impl<P: BackendStorage> CreateTableCommand<P> {
                 .collect(),
         )? {
             Ok(()) => Ok(Ok(QueryEvent::TableCreated)),
-            Err(CreateTableError::SchemaDoesNotExist) => Ok(Err(QueryError::schema_does_not_exist(schema_name))),
-            Err(CreateTableError::TableAlreadyExists) => Ok(Err(QueryError::table_already_exists(table_name))),
+            Err(CreateTableError::SchemaDoesNotExist) => {
+                builder.schema_does_not_exist(schema_name);
+                Ok(Err(builder.build()))
+            },
+            Err(CreateTableError::TableAlreadyExists) => {
+                builder.table_already_exists(table_name);
+                Ok(Err(builder.build()))
+            },
         }
     }
 }

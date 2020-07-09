@@ -22,7 +22,7 @@ use crate::{
     dml::{delete::DeleteCommand, insert::InsertCommand, select::SelectCommand, update::UpdateCommand},
 };
 use kernel::SystemResult;
-use protocol::results::{QueryError, QueryEvent, QueryResult};
+use protocol::results::{QueryErrorBuilder, QueryEvent, QueryResult};
 
 use sqlparser::{
     ast::{ObjectType, Statement},
@@ -46,6 +46,7 @@ impl<P: BackendStorage> Handler<P> {
 
     #[allow(clippy::match_wild_err_arm)]
     pub fn execute(&mut self, raw_sql_query: &str) -> SystemResult<QueryResult> {
+        let mut builder = QueryErrorBuilder::new();
         let statement = match Parser::parse_sql(&PostgreSqlDialect {}, raw_sql_query) {
             Ok(mut statements) => statements.pop().unwrap(),
             Err(e) => {
@@ -66,7 +67,10 @@ impl<P: BackendStorage> Handler<P> {
             Statement::Drop { object_type, names, .. } => match object_type {
                 ObjectType::Table => DropTableCommand::new(names[0].clone(), self.storage.clone()).execute(),
                 ObjectType::Schema => DropSchemaCommand::new(names[0].clone(), self.storage.clone()).execute(),
-                _ => Ok(Err(QueryError::not_supported_operation(raw_sql_query.to_owned()))),
+                _ => {
+                    builder.not_supported_operation(raw_sql_query.to_owned());
+                    Ok(Err(builder.build()))
+                },
             },
             Statement::Insert {
                 table_name,
@@ -83,7 +87,10 @@ impl<P: BackendStorage> Handler<P> {
             Statement::Delete { table_name, .. } => {
                 DeleteCommand::new(raw_sql_query, table_name, self.storage.clone()).execute()
             }
-            _ => Ok(Err(QueryError::not_supported_operation(raw_sql_query.to_owned()))),
+            _ => {
+                builder.not_supported_operation(raw_sql_query.to_owned());
+                Ok(Err(builder.build()))
+            },
         }
     }
 }

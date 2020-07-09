@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use kernel::SystemResult;
-use protocol::results::{QueryError, QueryEvent, QueryResult};
+use protocol::results::{QueryEvent, QueryResult, QueryErrorBuilder};
 use sqlparser::ast::ObjectName;
 use std::sync::{Arc, Mutex};
 use storage::{backend::BackendStorage, frontend::FrontendStorage, OperationOnTableError};
@@ -38,18 +38,27 @@ impl<P: BackendStorage> DeleteCommand<'_, P> {
     }
 
     pub(crate) fn execute(&mut self) -> SystemResult<QueryResult> {
+        let mut builder = QueryErrorBuilder::new();
         let schema_name = self.name.0[0].to_string();
         let table_name = self.name.0[1].to_string();
         match (self.storage.lock().unwrap()).delete_all_from(&schema_name, &table_name)? {
             Ok(records_number) => Ok(Ok(QueryEvent::RecordsDeleted(records_number))),
-            Err(OperationOnTableError::SchemaDoesNotExist) => Ok(Err(QueryError::schema_does_not_exist(schema_name))),
-            Err(OperationOnTableError::TableDoesNotExist) => Ok(Err(QueryError::table_does_not_exist(
-                schema_name + "." + table_name.as_str(),
-            ))),
+            Err(OperationOnTableError::SchemaDoesNotExist) => {
+                builder.schema_does_not_exist(schema_name);
+                Ok(Err(builder.build()))
+            },
+            Err(OperationOnTableError::TableDoesNotExist) => {
+                builder.table_does_not_exist(schema_name + "." + table_name.as_str());
+                Ok(Err(builder.build()))
+            },
             Err(OperationOnTableError::ColumnDoesNotExist(non_existing_columns)) => {
-                Ok(Err(QueryError::column_does_not_exist(non_existing_columns)))
+                builder.column_does_not_exist(non_existing_columns);
+                Ok(Err(builder.build()))
             }
-            _ => Ok(Err(QueryError::not_supported_operation(self.raw_sql_query.to_owned()))),
+            _ => {
+                builder.not_supported_operation(self.raw_sql_query.to_owned());
+                Ok(Err(builder.build()))
+            },
         }
     }
 }
