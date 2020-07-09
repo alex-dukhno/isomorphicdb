@@ -1,9 +1,9 @@
 Closes #(issue number)
 
-####Description
+#### Description
 short description what was changed
 
-####Client output
+#### Client output
 
 e.g. for `psql`
 
