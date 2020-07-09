@@ -197,14 +197,26 @@ impl<P: BackendStorage> FrontendStorage<P> {
 
                 // TODO: The default value or NULL should be initialized for SQL types of all columns.
                 let mut record = vec![vec![0, 0]; all_columns.len()];
+                let mut constraint_error = false;
                 for (item, (index, name, sql_type)) in row.iter().zip(index_columns.iter()) {
                     match sql_type.constraint().validate(item.as_str()) {
                         Ok(()) => {
                             record[*index] = sql_type.serializer().ser(item.as_str());
                         }
-                        Err(e) => errors.push((e, name.clone(), *sql_type)),
+                        Err(e) => {
+                            errors.push((e, name.clone(), *sql_type));
+                            // we do not break from the outer loop here because we want to
+                            // collect all errors from the current row.
+                            constraint_error = true;
+                        },
                     }
                 }
+
+                // if there was an error then exit the loop.
+                if constraint_error {
+                    break;
+                }
+
                 to_write.push((key, record.join(&b'|')));
                 self.key_id_generator += 1;
             }
@@ -289,26 +301,32 @@ impl<P: BackendStorage> FrontendStorage<P> {
         let mut index_value_pairs = Vec::new();
         let mut non_existing_columns = BTreeSet::new();
         let mut constraint_error = false;
-        for (column_name, value) in rows {
-            let mut found = None;
-            for (index, (name, sql_type)) in all_columns.iter().enumerate() {
-                if *name == column_name {
-                    match sql_type.constraint().validate(value.as_str()) {
-                        Ok(()) => {
-                            found = Some((index, sql_type.serializer().ser(value.as_str())));
+
+        // only process the rows if the table and schema exist.
+        if self.persistent.is_table_exists(schema_name, table_name) {
+            for (column_name, value) in rows {
+                let mut found = None;
+                for (index, (name, sql_type)) in all_columns.iter().enumerate() {
+                    if *name == column_name {
+                        match sql_type.constraint().validate(value.as_str()) {
+                            Ok(()) => {
+                                found = Some((index, sql_type.serializer().ser(value.as_str())));
+                            }
+                            Err(e) => {
+                                errors.push((e, column_name.clone(), *sql_type));
+                                constraint_error = true;
+                            }
                         }
-                        Err(e) => {
-                            errors.push((e, column_name.clone(), *sql_type));
-                            constraint_error = true;
-                        }
+                        break;
                     }
-                    break;
                 }
-            }
-            if let Some(pair) = found {
-                index_value_pairs.push(pair);
-            } else if !constraint_error {
-                non_existing_columns.insert(column_name.clone());
+                if let Some(pair) = found {
+                    index_value_pairs.push(pair);
+                } else if !constraint_error {
+                    // this is fine because if there is a constraint error then this
+                    // will never be executed.
+                    non_existing_columns.insert(column_name.clone());
+                }
             }
         }
 
