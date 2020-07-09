@@ -208,7 +208,7 @@ impl<P: BackendStorage> FrontendStorage<P> {
                             // we do not break from the outer loop here because we want to
                             // collect all errors from the current row.
                             constraint_error = true;
-                        },
+                        }
                     }
                 }
 
