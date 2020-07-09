@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::fmt::{self, Display, Formatter};
+
 /// Represents PostgreSQL data type and methods to send over wire
 #[allow(missing_docs)]
 #[derive(PartialEq, Debug, Copy, Clone, PartialOrd, Eq)]
@@ -77,24 +79,24 @@ impl PostgreSqlType {
     }
 }
 
-impl std::string::ToString for PostgreSqlType {
-    fn to_string(&self) -> String {
+impl Display for PostgreSqlType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Bool => "bool".to_string(),
-            Self::Char => "char".to_string(),
-            Self::BigInt => "bigint".to_string(),
-            Self::SmallInt => "smallint".to_string(),
-            Self::Integer => "integer".to_string(),
-            Self::Real => "real".to_string(),
-            Self::DoublePrecision => "double".to_string(),
-            Self::VarChar => "varchar".to_string(),
-            Self::Date => "date".to_string(),
-            Self::Time => "time".to_string(),
-            Self::Timestamp => "timestamp".to_string(),
-            Self::TimestampWithTimeZone => "timestampwithtimezone".to_string(),
-            Self::Interval => "interval".to_string(),
-            Self::TimeWithTimeZone => "datewithtimezone".to_string(),
-            Self::Decimal => "decimal".to_string(),
+            Self::Bool => write!(f, "bool"),
+            Self::Char => write!(f, "character"),
+            Self::BigInt => write!(f, "bigint"),
+            Self::SmallInt => write!(f, "smallint"),
+            Self::Integer => write!(f, "integer"),
+            Self::Real => write!(f, "real"),
+            Self::DoublePrecision => write!(f, "double"),
+            Self::VarChar => write!(f, "variable character"),
+            Self::Date => write!(f, "date"),
+            Self::Time => write!(f, "time"),
+            Self::TimeWithTimeZone => write!(f, "time with timezone"),
+            Self::Timestamp => write!(f, "timestamp"),
+            Self::TimestampWithTimeZone => write!(f, "timestamp with timezone"),
+            Self::Interval => write!(f, "interval"),
+            Self::Decimal => write!(f, "decimal"),
         }
     }
 }

@@ -49,3 +49,28 @@ jobs:
       - name: run-tests
         run: |
           pytest -v tests/functional/*
+
+  coverage:
+    needs:
+      - functional-tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v2
+      - name: install tarpaulin
+        uses: actions-rs/install@v0.1
+        with:
+          crate: cargo-tarpaulin
+          version: 0.14.0
+          use-tool-cache: true
+      - name: unit-tests
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --lib --all
+      - name: code-coverage
+        run: cargo tarpaulin --exclude-files proof-of-concepts/ -o Lcov --output-dir ./coverage
+      - name: coveralls
+        uses: coverallsapp/github-action@master
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
