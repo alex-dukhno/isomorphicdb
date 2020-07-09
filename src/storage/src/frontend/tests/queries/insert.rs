@@ -401,7 +401,7 @@ mod constraints {
                 )
                 .expect("no system errors"),
             Err(OperationOnTableError::ConstraintViolations(vec![(
-                ConstraintError::NotAnInt,
+                ConstraintError::TypeMismatch("abc".to_owned()),
                 "column_si".to_owned(),
                 SqlType::SmallInt(i16::min_value())
             )]))
@@ -420,7 +420,7 @@ mod constraints {
                 )
                 .expect("no system errors"),
             Err(OperationOnTableError::ConstraintViolations(vec![(
-                ConstraintError::ValueTooLong,
+                ConstraintError::ValueTooLong(10),
                 "column_c".to_owned(),
                 SqlType::Char(10)
             )]))
@@ -471,6 +471,7 @@ mod constraints {
                     ],
                 )
                 .expect("no system errors"),
+            // we should only get the errors from the first row.
             Err(OperationOnTableError::ConstraintViolations(vec![
                 (
                     ConstraintError::OutOfRange,
@@ -481,16 +482,6 @@ mod constraints {
                     ConstraintError::OutOfRange,
                     "column_i".to_owned(),
                     SqlType::Integer(i32::min_value())
-                ),
-                (
-                    ConstraintError::OutOfRange,
-                    "column_i".to_owned(),
-                    SqlType::Integer(i32::min_value())
-                ),
-                (
-                    ConstraintError::OutOfRange,
-                    "column_bi".to_owned(),
-                    SqlType::BigInt(i64::min_value())
                 ),
             ]))
         )

@@ -77,6 +77,9 @@ impl Into<String> for Severity {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) enum ConstraintViolationKind {
+    NumericTypeOutOfRange(PostgreSqlType),
+    DataTypeMismatch(PostgreSqlType, String),
+    StringTypeLengthMismatch(PostgreSqlType, u64),
 }
 
 /// Represents a constraint violation during query execution
@@ -100,7 +103,51 @@ impl ConstraintViolation {
         Some(self.severity.into())
     }
 
+    /// error message
+    pub fn message(&self) -> Option<String> {
+        Some(format!("{}", self))
+    }
 
+    /// numeric out of range constructor
+    pub fn out_of_range(pg_type: PostgreSqlType) -> Self {
+        Self {
+            severity: Severity::Error,
+            code: "22003".to_owned(),
+            kind: ConstraintViolationKind::NumericTypeOutOfRange(pg_type),
+        }
+    }
+
+    /// type mismatch constructor
+    pub fn type_mismatch(value: &str, pg_type: PostgreSqlType) -> Self {
+        Self {
+            severity: Severity::Error,
+            code: "2200G".to_owned(),
+            kind: ConstraintViolationKind::DataTypeMismatch(pg_type, value.to_owned()),
+        }
+    }
+
+    /// length of string types do not match constructor
+    pub fn string_length_mismatch(pg_type: PostgreSqlType, len: u64) -> Self {
+        Self {
+            severity: Severity::Error,
+            code: "22026".to_owned(),
+            kind: ConstraintViolationKind::StringTypeLengthMismatch(pg_type, len),
+        }
+    }
+}
+
+impl Display for ConstraintViolation {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match &self.kind {
+            ConstraintViolationKind::NumericTypeOutOfRange(pg_type) => write!(f, "{} out of range", pg_type),
+            ConstraintViolationKind::DataTypeMismatch(pg_type, value) => {
+                write!(f, "invalid input syntax for type {}: \"{}\"", pg_type, value)
+            }
+            ConstraintViolationKind::StringTypeLengthMismatch(pg_type, len) => {
+                write!(f, "value too long for type {}({})", pg_type, len)
+            }
+        }
+    }
 }
 
 #[derive(Debug, PartialEq)]

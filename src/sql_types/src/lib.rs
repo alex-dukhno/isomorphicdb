@@ -79,13 +79,6 @@ impl SqlType {
             Self::Interval => PostgreSqlType::Interval,
         }
     }
-
-    pub fn string_type_length(&self) -> Option<u64> {
-        match self {
-            Self::Char(n) | Self::VarChar(n) => Some(*n),
-            _ => None,
-        }
-    }
 }
 
 pub trait Constraint {
@@ -95,9 +88,8 @@ pub trait Constraint {
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub enum ConstraintError {
     OutOfRange,
-    NotAnInt,
-    NotABool,
-    ValueTooLong,
+    TypeMismatch(String),
+    ValueTooLong(u64),
 }
 
 pub trait Serializer {
@@ -117,10 +109,12 @@ impl Constraint for SmallIntTypeConstraint {
                 if self.min <= value {
                     Ok(())
                 } else {
-                    Err(ConstraintError::NotAnInt)
+                    Err(ConstraintError::OutOfRange)
                 }
             }
-            Err(e) if e.code == lexical::ErrorCode::InvalidDigit => Err(ConstraintError::NotAnInt),
+            Err(e) if e.code == lexical::ErrorCode::InvalidDigit => {
+                Err(ConstraintError::TypeMismatch(in_value.to_owned()))
+            }
             Err(_) => Err(ConstraintError::OutOfRange),
         }
     }
@@ -156,7 +150,9 @@ impl Constraint for IntegerSqlTypeConstraint {
                     Err(ConstraintError::OutOfRange)
                 }
             }
-            Err(e) if e.code == lexical::ErrorCode::InvalidDigit => Err(ConstraintError::NotAnInt),
+            Err(e) if e.code == lexical::ErrorCode::InvalidDigit => {
+                Err(ConstraintError::TypeMismatch(in_value.to_owned()))
+            }
             Err(_) => Err(ConstraintError::OutOfRange),
         }
     }
@@ -192,7 +188,9 @@ impl Constraint for BigIntTypeConstraint {
                     Err(ConstraintError::OutOfRange)
                 }
             }
-            Err(e) if e.code == lexical::ErrorCode::InvalidDigit => Err(ConstraintError::NotAnInt),
+            Err(e) if e.code == lexical::ErrorCode::InvalidDigit => {
+                Err(ConstraintError::TypeMismatch(in_value.to_owned()))
+            }
             Err(_) => Err(ConstraintError::OutOfRange),
         }
     }
@@ -222,7 +220,7 @@ impl Constraint for CharSqlTypeConstraint {
     fn validate(&self, in_value: &str) -> Result<(), ConstraintError> {
         let trimmed = in_value.trim_end();
         if trimmed.len() > self.length as usize {
-            Err(ConstraintError::ValueTooLong)
+            Err(ConstraintError::ValueTooLong(self.length))
         } else {
             Ok(())
         }
@@ -249,7 +247,7 @@ impl Constraint for VarCharSqlTypeConstraint {
     fn validate(&self, in_value: &str) -> Result<(), ConstraintError> {
         let trimmed = in_value.trim_end();
         if trimmed.len() > self.length as usize {
-            Err(ConstraintError::ValueTooLong)
+            Err(ConstraintError::ValueTooLong(self.length))
         } else {
             Ok(())
         }
@@ -278,7 +276,7 @@ impl Constraint for BoolSqlTypeConstraint {
             "yes" | "no" | "y" | "n" => Ok(()),
             "on" | "off" => Ok(()),
             "1" | "0" => Ok(()),
-            _ => Err(ConstraintError::NotABool),
+            _ => Err(ConstraintError::TypeMismatch(in_value.to_owned())),
         }
     }
 }
@@ -463,12 +461,18 @@ mod tests {
 
                 #[rstest::rstest]
                 fn a_float_number(constraint: Box<dyn Constraint>) {
-                    assert_eq!(constraint.validate("-3276.9"), Err(ConstraintError::NotAnInt))
+                    assert_eq!(
+                        constraint.validate("-3276.9"),
+                        Err(ConstraintError::TypeMismatch("-3276.9".to_owned()))
+                    )
                 }
 
                 #[rstest::rstest]
                 fn a_string(constraint: Box<dyn Constraint>) {
-                    assert_eq!(constraint.validate("str"), Err(ConstraintError::NotAnInt))
+                    assert_eq!(
+                        constraint.validate("str"),
+                        Err(ConstraintError::TypeMismatch("str".to_owned()))
+                    )
                 }
             }
         }
@@ -525,12 +529,18 @@ mod tests {
 
                 #[rstest::rstest]
                 fn a_float_number(constraint: Box<dyn Constraint>) {
-                    assert_eq!(constraint.validate("-214748.3649"), Err(ConstraintError::NotAnInt))
+                    assert_eq!(
+                        constraint.validate("-214748.3649"),
+                        Err(ConstraintError::TypeMismatch("-214748.3649".to_owned()))
+                    )
                 }
 
                 #[rstest::rstest]
                 fn a_string(constraint: Box<dyn Constraint>) {
-                    assert_eq!(constraint.validate("str"), Err(ConstraintError::NotAnInt))
+                    assert_eq!(
+                        constraint.validate("str"),
+                        Err(ConstraintError::TypeMismatch("str".to_owned()))
+                    )
                 }
             }
         }
@@ -593,12 +603,18 @@ mod tests {
 
                 #[rstest::rstest]
                 fn a_float_number(constraint: Box<dyn Constraint>) {
-                    assert_eq!(constraint.validate("-3276.9"), Err(ConstraintError::NotAnInt))
+                    assert_eq!(
+                        constraint.validate("-3276.9"),
+                        Err(ConstraintError::TypeMismatch("-3276.9".to_owned()))
+                    )
                 }
 
                 #[rstest::rstest]
                 fn a_string(constraint: Box<dyn Constraint>) {
-                    assert_eq!(constraint.validate("str"), Err(ConstraintError::NotAnInt))
+                    assert_eq!(
+                        constraint.validate("str"),
+                        Err(ConstraintError::TypeMismatch("str".to_owned()))
+                    )
                 }
             }
         }
@@ -650,7 +666,7 @@ mod tests {
                 fn too_long(constraint: Box<dyn Constraint>) {
                     assert_eq!(
                         constraint.validate("1".repeat(20).as_str()),
-                        Err(ConstraintError::ValueTooLong)
+                        Err(ConstraintError::ValueTooLong(10))
                     )
                 }
             }
@@ -698,7 +714,7 @@ mod tests {
                 fn too_long(constraint: Box<dyn Constraint>) {
                     assert_eq!(
                         constraint.validate("1".repeat(20).as_str()),
-                        Err(ConstraintError::ValueTooLong)
+                        Err(ConstraintError::ValueTooLong(10))
                     )
                 }
             }
@@ -779,7 +795,10 @@ mod tests {
 
             #[rstest::rstest]
             fn is_non_bool(constraint: Box<dyn Constraint>) {
-                assert_eq!(constraint.validate("oops"), Err(ConstraintError::NotABool))
+                assert_eq!(
+                    constraint.validate("oops"),
+                    Err(ConstraintError::TypeMismatch("oops".to_owned()))
+                )
             }
         }
     }
