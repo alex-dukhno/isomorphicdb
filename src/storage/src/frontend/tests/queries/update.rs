@@ -165,7 +165,7 @@ mod constraints {
                 )
                 .expect("no system errors"),
             Err(OperationOnTableError::ConstraintViolations(vec![(
-                ConstraintError::NotAnInt,
+                ConstraintError::TypeMismatch("abc".to_owned()),
                 "column_si".to_owned(),
                 SqlType::SmallInt(i16::min_value())
             )]))
@@ -195,7 +195,7 @@ mod constraints {
                 )
                 .expect("no system errors"),
             Err(OperationOnTableError::ConstraintViolations(vec![(
-                ConstraintError::ValueTooLong,
+                ConstraintError::ValueTooLong(10),
                 "column_c".to_owned(),
                 SqlType::Char(10)
             )]))

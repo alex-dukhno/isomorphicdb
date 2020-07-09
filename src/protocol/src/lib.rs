@@ -222,7 +222,10 @@ mod tests {
     #[cfg(test)]
     mod mapper {
         use super::*;
-        use crate::{results::QueryError, sql_types::PostgreSqlType};
+        use crate::{
+            results::{ConstraintViolation, QueryError},
+            sql_types::PostgreSqlType,
+        };
 
         #[test]
         fn create_schema() {
@@ -399,6 +402,48 @@ mod tests {
                     Some("ERROR".to_owned()),
                     Some("42601".to_owned()),
                     Some(format!("Currently, Query '{}' can't be executed", raw_sql_query)),
+                )]
+            )
+        }
+
+        #[test]
+        fn out_of_range_constraint_violation() {
+            assert_eq!(
+                QueryResultMapper::map(Err(QueryError::constraint_violations(vec![
+                    ConstraintViolation::out_of_range(PostgreSqlType::SmallInt)
+                ]))),
+                vec![Message::ErrorResponse(
+                    Some("ERROR".to_owned()),
+                    Some("22003".to_owned()),
+                    Some("smallint out of range".to_owned())
+                )]
+            )
+        }
+
+        #[test]
+        fn type_mismatch_constraint_violation() {
+            assert_eq!(
+                QueryResultMapper::map(Err(QueryError::constraint_violations(vec![
+                    ConstraintViolation::type_mismatch("abc", PostgreSqlType::SmallInt)
+                ]))),
+                vec![Message::ErrorResponse(
+                    Some("ERROR".to_owned()),
+                    Some("2200G".to_owned()),
+                    Some("invalid input syntax for type smallint: \"abc\"".to_owned())
+                )]
+            )
+        }
+
+        #[test]
+        fn string_length_mismatch_constraint_violation() {
+            assert_eq!(
+                QueryResultMapper::map(Err(QueryError::constraint_violations(vec![
+                    ConstraintViolation::string_length_mismatch(PostgreSqlType::Char, 5)
+                ]))),
+                vec![Message::ErrorResponse(
+                    Some("ERROR".to_owned()),
+                    Some("22026".to_owned()),
+                    Some("value too long for type character(5)".to_owned())
                 )]
             )
         }

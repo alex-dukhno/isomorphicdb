@@ -75,10 +75,10 @@ impl Into<String> for Severity {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub(crate) enum ConstraintViolationKind {
     NumericTypeOutOfRange(PostgreSqlType),
-    DataTypeMismatch(PostgreSqlType),
+    DataTypeMismatch(PostgreSqlType, String),
     StringTypeLengthMismatch(PostgreSqlType, u64),
 }
 
@@ -109,43 +109,42 @@ impl ConstraintViolation {
     }
 
     /// numeric out of range constructor
-    pub fn out_of_range(ty: PostgreSqlType) -> Self {
+    pub fn out_of_range(pg_type: PostgreSqlType) -> Self {
         Self {
             severity: Severity::Error,
             code: "22003".to_owned(),
-            kind: ConstraintViolationKind::NumericTypeOutOfRange(ty),
+            kind: ConstraintViolationKind::NumericTypeOutOfRange(pg_type),
         }
     }
 
     /// type mismatch constructor
-    pub fn type_mismatch(expected: PostgreSqlType) -> Self {
+    pub fn type_mismatch(value: &str, pg_type: PostgreSqlType) -> Self {
         Self {
             severity: Severity::Error,
             code: "2200G".to_owned(),
-            kind: ConstraintViolationKind::DataTypeMismatch(expected),
+            kind: ConstraintViolationKind::DataTypeMismatch(pg_type, value.to_owned()),
         }
     }
 
     /// length of string types do not match constructor
-    pub fn string_length_mismatch(str_type: PostgreSqlType, len: u64) -> Self {
-        assert!(str_type == PostgreSqlType::Char || str_type == PostgreSqlType::VarChar);
+    pub fn string_length_mismatch(pg_type: PostgreSqlType, len: u64) -> Self {
         Self {
             severity: Severity::Error,
             code: "22026".to_owned(),
-            kind: ConstraintViolationKind::StringTypeLengthMismatch(str_type, len),
+            kind: ConstraintViolationKind::StringTypeLengthMismatch(pg_type, len),
         }
     }
 }
 
 impl Display for ConstraintViolation {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self.kind {
-            ConstraintViolationKind::NumericTypeOutOfRange(ty) => write!(f, "{} out of range", ty.to_string()),
-            ConstraintViolationKind::DataTypeMismatch(expected) => {
-                write!(f, "{} data type mismatch", expected.to_string())
+        match &self.kind {
+            ConstraintViolationKind::NumericTypeOutOfRange(pg_type) => write!(f, "{} out of range", pg_type),
+            ConstraintViolationKind::DataTypeMismatch(pg_type, value) => {
+                write!(f, "invalid input syntax for type {}: \"{}\"", pg_type, value)
             }
-            ConstraintViolationKind::StringTypeLengthMismatch(str_type, len) => {
-                write!(f, "{} string length mismatch of length {}", str_type.to_string(), len)
+            ConstraintViolationKind::StringTypeLengthMismatch(pg_type, len) => {
+                write!(f, "value too long for type {}({})", pg_type, len)
             }
         }
     }
