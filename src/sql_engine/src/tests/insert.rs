@@ -21,7 +21,9 @@ fn insert_into_nonexistent_table(mut sql_engine_with_schema: InMemorySqlEngine) 
         sql_engine_with_schema
             .execute("insert into schema_name.table_name values (123);")
             .expect("no system errors"),
-        Err(QueryError::table_does_not_exist("schema_name.table_name".to_owned()))
+        Err(QueryErrorBuilder::build_with(
+            |b| b.table_does_not_exist("schema_name.table_name".to_owned())
+        ))
     );
 }
 

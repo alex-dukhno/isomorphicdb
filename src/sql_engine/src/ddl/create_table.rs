@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use kernel::SystemResult;
-use protocol::results::{QueryEvent, QueryResult, QueryErrorBuilder};
+use protocol::results::{QueryErrorBuilder, QueryEvent, QueryResult};
 use sql_types::SqlType;
 use sqlparser::ast::{ColumnDef, Ident, ObjectName};
 use std::sync::{Arc, Mutex};
@@ -89,11 +89,11 @@ impl<P: BackendStorage> CreateTableCommand<P> {
             Err(CreateTableError::SchemaDoesNotExist) => {
                 builder.schema_does_not_exist(schema_name);
                 Ok(Err(builder.build()))
-            },
+            }
             Err(CreateTableError::TableAlreadyExists) => {
                 builder.table_already_exists(table_name);
                 Ok(Err(builder.build()))
-            },
+            }
         }
     }
 }

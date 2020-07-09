@@ -75,81 +75,6 @@ impl Into<String> for Severity {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub(crate) enum ConstraintViolationKind {
-    NumericTypeOutOfRange(PostgreSqlType),
-    DataTypeMismatch(PostgreSqlType, String),
-    StringTypeLengthMismatch(PostgreSqlType, u64),
-}
-
-/// Represents a constraint violation during query execution
-/// It is separate from QueryError because there can be multiple
-/// of these errors for one QueryError.
-#[derive(Debug, Clone, PartialEq)]
-pub struct ConstraintViolation {
-    severity: Severity,
-    code: String,
-    kind: ConstraintViolationKind,
-}
-
-impl ConstraintViolation {
-    /// sql error code
-    pub fn code(&self) -> Option<String> {
-        Some(self.code.clone())
-    }
-
-    /// error severity
-    pub fn severity(&self) -> Option<String> {
-        Some(self.severity.into())
-    }
-
-    /// error message
-    pub fn message(&self) -> Option<String> {
-        Some(format!("{}", self))
-    }
-
-    /// numeric out of range constructor
-    pub fn out_of_range(pg_type: PostgreSqlType) -> Self {
-        Self {
-            severity: Severity::Error,
-            code: "22003".to_owned(),
-            kind: ConstraintViolationKind::NumericTypeOutOfRange(pg_type),
-        }
-    }
-
-    /// type mismatch constructor
-    pub fn type_mismatch(value: &str, pg_type: PostgreSqlType) -> Self {
-        Self {
-            severity: Severity::Error,
-            code: "2200G".to_owned(),
-            kind: ConstraintViolationKind::DataTypeMismatch(pg_type, value.to_owned()),
-        }
-    }
-
-    /// length of string types do not match constructor
-    pub fn string_length_mismatch(pg_type: PostgreSqlType, len: u64) -> Self {
-        Self {
-            severity: Severity::Error,
-            code: "22026".to_owned(),
-            kind: ConstraintViolationKind::StringTypeLengthMismatch(pg_type, len),
-        }
-    }
-}
-
-impl Display for ConstraintViolation {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match &self.kind {
-            ConstraintViolationKind::NumericTypeOutOfRange(pg_type) => write!(f, "{} out of range", pg_type),
-            ConstraintViolationKind::DataTypeMismatch(pg_type, value) => {
-                write!(f, "invalid input syntax for type {}: \"{}\"", pg_type, value)
-            }
-            ConstraintViolationKind::StringTypeLengthMismatch(pg_type, len) => {
-                write!(f, "value too long for type {}({})", pg_type, len)
-            }
-        }
-    }
-}
-
 #[derive(Debug, PartialEq)]
 pub(crate) enum QueryErrorKind {
     SchemaAlreadyExists(String),
@@ -161,7 +86,7 @@ pub(crate) enum QueryErrorKind {
     TooManyInsertExpressions,
 
     NumericTypeOutOfRange(PostgreSqlType),
-    DataTypeMismatch(PostgreSqlType),
+    DataTypeMismatch(PostgreSqlType, String),
     StringTypeLengthMismatch(PostgreSqlType, u64),
 }
 
@@ -190,24 +115,18 @@ impl QueryErrorInner {
 /// a container of errors that occured during query execution
 #[derive(Debug, PartialEq)]
 pub struct QueryError {
-    errors: Vec<QueryErrorInner>
+    errors: Vec<QueryErrorInner>,
 }
 
 impl QueryError {
-    fn new(errors: Vec<QueryErrorInner>) -> Self {
-        Self {
-            errors
-        }
+    pub(crate) fn new(errors: Vec<QueryErrorInner>) -> Self {
+        Self { errors }
     }
 
     pub(crate) fn into_messages(self) -> Vec<Message> {
         let mut messages = Vec::with_capacity(self.errors.len());
         for inner in self.errors.into_iter() {
-            messages.push(Message::ErrorResponse(
-                inner.severity(),
-                inner.code(),
-                inner.message(),
-            ))
+            messages.push(Message::ErrorResponse(inner.severity(), inner.code(), inner.message()))
         }
         messages
     }
@@ -231,28 +150,33 @@ impl Display for QueryErrorKind {
                 write!(f, "Currently, Query '{}' can't be executed", raw_sql_query)
             }
             Self::TooManyInsertExpressions => write!(f, "INSERT has more epxressions then target columns"),
-            Self::NumericTypeOutOfRange(ty) => write!(f, "{} out of range", ty.to_string()),
-            Self::DataTypeMismatch(expected) => {
-                write!(f, "{} data type mismatch", expected.to_string())
+            Self::NumericTypeOutOfRange(pg_type) => write!(f, "{} out of range", pg_type),
+            Self::DataTypeMismatch(pg_type, value) => {
+                write!(f, "invalid input syntax for type {}: \"{}\"", pg_type, value)
             }
-            Self::StringTypeLengthMismatch(str_type, len) => {
-                write!(f, "{} string length mismatch of length {}", str_type.to_string(), len)
-            }
+            Self::StringTypeLengthMismatch(pg_type, len) => write!(f, "value too long for type {}({})", pg_type, len),
         }
     }
 }
 
 /// a structure for building a QueryError
+#[derive(Default, Debug)]
 pub struct QueryErrorBuilder {
-    errors: Vec<QueryErrorInner>
+    errors: Vec<QueryErrorInner>,
 }
 
 impl QueryErrorBuilder {
     /// constructs a new builder.
     pub fn new() -> Self {
-        Self {
-            errors: Vec::new(),
-        }
+        Self::default()
+    }
+
+    // I am not sure this is a good idea.
+    /// helper for building errors in one line.
+    pub fn build_with<Errs: FnMut(&mut Self)>(mut errs: Errs) -> QueryError {
+        let mut builder = Self::new();
+        errs(&mut builder);
+        builder.build()
     }
 
     /// builds a QueryError containing all of the error generated
@@ -331,32 +255,31 @@ impl QueryErrorBuilder {
     }
 
     /// numeric out of range constructor
-    pub fn push_out_of_range(&mut self, ty: PostgreSqlType) {
+    pub fn out_of_range(&mut self, pg_type: PostgreSqlType) {
         let err = QueryErrorInner {
             severity: Severity::Error,
             code: "22003".to_owned(),
-            kind: QueryErrorKind::NumericTypeOutOfRange(ty),
+            kind: QueryErrorKind::NumericTypeOutOfRange(pg_type),
         };
         self.errors.push(err);
     }
 
     /// type mismatch constructor
-    pub fn push_type_mismatch(&mut self, expected: PostgreSqlType) {
+    pub fn type_mismatch(&mut self, value: &str, pg_type: PostgreSqlType) {
         let err = QueryErrorInner {
             severity: Severity::Error,
             code: "2200G".to_owned(),
-            kind: QueryErrorKind::DataTypeMismatch(expected),
+            kind: QueryErrorKind::DataTypeMismatch(pg_type, value.to_owned()),
         };
         self.errors.push(err);
     }
 
     /// length of string types do not match constructor
-    pub fn push_string_length_mismatch(&mut self, str_type: PostgreSqlType, len: u64) {
-        assert!(str_type == PostgreSqlType::Char || str_type == PostgreSqlType::VarChar);
+    pub fn string_length_mismatch(&mut self, pg_type: PostgreSqlType, len: u64) {
         let err = QueryErrorInner {
             severity: Severity::Error,
             code: "22026".to_owned(),
-            kind: QueryErrorKind::StringTypeLengthMismatch(str_type, len),
+            kind: QueryErrorKind::StringTypeLengthMismatch(pg_type, len),
         };
         self.errors.push(err);
     }

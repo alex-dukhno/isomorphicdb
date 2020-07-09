@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use kernel::SystemResult;
-use protocol::results::{QueryEvent, QueryResult, QueryErrorBuilder};
+use protocol::results::{QueryErrorBuilder, QueryEvent, QueryResult};
 use sqlparser::ast::ObjectName;
 use std::sync::{Arc, Mutex};
 use storage::{backend::BackendStorage, frontend::FrontendStorage, OperationOnTableError};
@@ -46,11 +46,11 @@ impl<P: BackendStorage> DeleteCommand<'_, P> {
             Err(OperationOnTableError::SchemaDoesNotExist) => {
                 builder.schema_does_not_exist(schema_name);
                 Ok(Err(builder.build()))
-            },
+            }
             Err(OperationOnTableError::TableDoesNotExist) => {
                 builder.table_does_not_exist(schema_name + "." + table_name.as_str());
                 Ok(Err(builder.build()))
-            },
+            }
             Err(OperationOnTableError::ColumnDoesNotExist(non_existing_columns)) => {
                 builder.column_does_not_exist(non_existing_columns);
                 Ok(Err(builder.build()))
@@ -58,7 +58,7 @@ impl<P: BackendStorage> DeleteCommand<'_, P> {
             _ => {
                 builder.not_supported_operation(self.raw_sql_query.to_owned());
                 Ok(Err(builder.build()))
-            },
+            }
         }
     }
 }

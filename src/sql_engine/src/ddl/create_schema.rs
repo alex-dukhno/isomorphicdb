@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use kernel::SystemResult;
-use protocol::results::{QueryEvent, QueryResult, QueryErrorBuilder};
+use protocol::results::{QueryErrorBuilder, QueryEvent, QueryResult};
 use sqlparser::ast::ObjectName;
 use std::sync::{Arc, Mutex};
 use storage::{backend::BackendStorage, frontend::FrontendStorage, SchemaAlreadyExists};
@@ -36,7 +36,7 @@ impl<P: BackendStorage> CreateSchemaCommand<P> {
                 let mut builder = QueryErrorBuilder::new();
                 builder.schema_already_exists(schema_name);
                 Ok(Err(builder.build()))
-            },
+            }
         }
     }
 }

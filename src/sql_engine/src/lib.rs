@@ -70,7 +70,7 @@ impl<P: BackendStorage> Handler<P> {
                 _ => {
                     builder.not_supported_operation(raw_sql_query.to_owned());
                     Ok(Err(builder.build()))
-                },
+                }
             },
             Statement::Insert {
                 table_name,
@@ -90,7 +90,7 @@ impl<P: BackendStorage> Handler<P> {
             _ => {
                 builder.not_supported_operation(raw_sql_query.to_owned());
                 Ok(Err(builder.build()))
-            },
+            }
         }
     }
 }

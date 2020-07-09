@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use kernel::SystemResult;
-use protocol::results::{QueryError, QueryEvent, QueryResult};
+use protocol::results::{QueryErrorBuilder, QueryEvent, QueryResult};
 use sqlparser::ast::Query;
 use std::{
     ops::Deref,
@@ -41,6 +41,7 @@ impl<P: BackendStorage> SelectCommand<'_, P> {
     }
 
     pub(crate) fn execute(&mut self) -> SystemResult<QueryResult> {
+        let mut builder = QueryErrorBuilder::new();
         let sqlparser::ast::Query { body, .. } = &*self.query;
         if let sqlparser::ast::SetExpr::Select(select) = body {
             let sqlparser::ast::Select { projection, from, .. } = select.deref();
@@ -51,7 +52,10 @@ impl<P: BackendStorage> SelectCommand<'_, P> {
                     let schema_name = name.0[0].to_string();
                     (schema_name, table_name)
                 }
-                _ => return Ok(Err(QueryError::not_supported_operation(self.raw_sql_query.to_owned()))),
+                _ => {
+                    builder.not_supported_operation(self.raw_sql_query.to_owned());
+                    return Ok(Err(builder.build()));
+                }
             };
             let table_columns = {
                 let projection = projection.clone();
@@ -71,7 +75,10 @@ impl<P: BackendStorage> SelectCommand<'_, P> {
                         sqlparser::ast::SelectItem::UnnamedExpr(sqlparser::ast::Expr::Identifier(
                             sqlparser::ast::Ident { value, .. },
                         )) => columns.push(value.clone()),
-                        _ => return Ok(Err(QueryError::not_supported_operation(self.raw_sql_query.to_owned()))),
+                        _ => {
+                            builder.not_supported_operation(self.raw_sql_query.to_owned());
+                            return Ok(Err(builder.build()));
+                        }
                     }
                 }
                 columns
@@ -86,18 +93,25 @@ impl<P: BackendStorage> SelectCommand<'_, P> {
                     records.1,
                 )))),
                 Err(OperationOnTableError::ColumnDoesNotExist(non_existing_columns)) => {
-                    Ok(Err(QueryError::column_does_not_exist(non_existing_columns)))
+                    builder.column_does_not_exist(non_existing_columns);
+                    Ok(Err(builder.build()))
                 }
                 Err(OperationOnTableError::SchemaDoesNotExist) => {
-                    Ok(Err(QueryError::schema_does_not_exist(schema_name.to_owned())))
+                    builder.schema_does_not_exist(schema_name.to_owned());
+                    Ok(Err(builder.build()))
                 }
-                Err(OperationOnTableError::TableDoesNotExist) => Ok(Err(QueryError::table_does_not_exist(
-                    schema_name.to_owned() + "." + table_name.as_str(),
-                ))),
-                _ => Ok(Err(QueryError::not_supported_operation(self.raw_sql_query.to_owned()))),
+                Err(OperationOnTableError::TableDoesNotExist) => {
+                    builder.table_does_not_exist(schema_name.to_owned() + "." + table_name.as_str());
+                    Ok(Err(builder.build()))
+                }
+                _ => {
+                    builder.not_supported_operation(self.raw_sql_query.to_owned());
+                    Ok(Err(builder.build()))
+                }
             }
         } else {
-            Ok(Err(QueryError::not_supported_operation(self.raw_sql_query.to_owned())))
+            builder.not_supported_operation(self.raw_sql_query.to_owned());
+            Ok(Err(builder.build()))
         }
     }
 }

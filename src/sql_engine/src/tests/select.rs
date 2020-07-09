@@ -21,7 +21,9 @@ fn select_from_not_existed_table(mut sql_engine_with_schema: InMemorySqlEngine) 
         sql_engine_with_schema
             .execute("select * from schema_name.non_existent;")
             .expect("no system errors"),
-        Err(QueryError::table_does_not_exist("schema_name.non_existent".to_owned()))
+        Err(QueryErrorBuilder::build_with(
+            |b| b.table_does_not_exist("schema_name.non_existent".to_owned())
+        ))
     );
 }
 
@@ -31,7 +33,9 @@ fn select_named_columns_from_non_existent_table(mut sql_engine_with_schema: InMe
         sql_engine_with_schema
             .execute("select column_1 from schema_name.non_existent;")
             .expect("no system errors"),
-        Err(QueryError::table_does_not_exist("schema_name.non_existent".to_owned()))
+        Err(QueryErrorBuilder::build_with(
+            |b| b.table_does_not_exist("schema_name.non_existent".to_owned())
+        ))
     );
 }
 
@@ -101,9 +105,9 @@ fn select_non_existing_columns_from_table(mut sql_engine_with_schema: InMemorySq
         sql_engine_with_schema
             .execute("select column_not_in_table1, column_not_in_table2 from schema_name.table_name;")
             .expect("no system errors"),
-        Err(QueryError::column_does_not_exist(vec![
+        Err(QueryErrorBuilder::build_with(|b| b.column_does_not_exist(vec![
             "column_not_in_table1".to_owned(),
             "column_not_in_table2".to_owned()
-        ]))
+        ])))
     );
 }

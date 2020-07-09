@@ -35,15 +35,13 @@ impl<P: BackendStorage> DropTableCommand<P> {
         match (self.storage.lock().unwrap()).drop_table(&schema_name, &table_name)? {
             Ok(()) => Ok(Ok(QueryEvent::TableDropped)),
             Err(DropTableError::TableDoesNotExist) => {
-                builder.table_does_not_exist(
-                    schema_name + "." + table_name.as_str(),
-                );
+                builder.table_does_not_exist(schema_name + "." + table_name.as_str());
                 Ok(Err(builder.build()))
-            },
+            }
             Err(DropTableError::SchemaDoesNotExist) => {
                 builder.schema_does_not_exist(schema_name);
                 Ok(Err(builder.build()))
-            },
+            }
         }
     }
 }

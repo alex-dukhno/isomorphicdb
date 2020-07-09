@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use kernel::SystemResult;
-use protocol::results::{ConstraintViolation, QueryError, QueryEvent, QueryResult, QueryErrorBuilder};
+use protocol::results::{QueryErrorBuilder, QueryEvent, QueryResult};
 use sql_types::{ConstraintError, SqlType};
 use sqlparser::ast::{Assignment, Expr, Ident, ObjectName, UnaryOperator, Value};
 use std::sync::{Arc, Mutex};
@@ -42,7 +42,7 @@ impl<P: BackendStorage> UpdateCommand<'_, P> {
     }
 
     pub(crate) fn execute(&mut self) -> SystemResult<QueryResult> {
-        let mut builder = QueryErrorBuilder
+        let mut builder = QueryErrorBuilder::new();
         let schema_name = self.name.0[0].to_string();
         let table_name = self.name.0[1].to_string();
 
@@ -71,31 +71,32 @@ impl<P: BackendStorage> UpdateCommand<'_, P> {
 
         match (self.storage.lock().unwrap()).update_all(&schema_name, &table_name, to_update)? {
             Ok(records_number) => Ok(Ok(QueryEvent::RecordsUpdated(records_number))),
-            Err(OperationOnTableError::SchemaDoesNotExist) => Ok(Err(QueryError::schema_does_not_exist(schema_name))),
-            Err(OperationOnTableError::TableDoesNotExist) => Ok(Err(QueryError::table_does_not_exist(
-                schema_name + "." + table_name.as_str(),
-            ))),
+            Err(OperationOnTableError::SchemaDoesNotExist) => {
+                builder.schema_does_not_exist(schema_name);
+                Ok(Err(builder.build()))
+            }
+            Err(OperationOnTableError::TableDoesNotExist) => {
+                builder.table_does_not_exist(schema_name + "." + table_name.as_str());
+                Ok(Err(builder.build()))
+            }
             Err(OperationOnTableError::ColumnDoesNotExist(non_existing_columns)) => {
-                Ok(Err(QueryError::column_does_not_exist(non_existing_columns)))
+                builder.column_does_not_exist(non_existing_columns);
+                Ok(Err(builder.build()))
             }
             Err(OperationOnTableError::ConstraintViolations(constraint_errors)) => {
-                let constraint_error_mapper =
-                    |(err, _, sql_type): &(ConstraintError, String, SqlType)| -> ConstraintViolation {
-                        match err {
-                            ConstraintError::OutOfRange => ConstraintViolation::out_of_range(sql_type.to_pg_types()),
-                            ConstraintError::TypeMismatch(value) => {
-                                ConstraintViolation::type_mismatch(value, sql_type.to_pg_types())
-                            }
-                            ConstraintError::ValueTooLong(len) => {
-                                ConstraintViolation::string_length_mismatch(sql_type.to_pg_types(), *len)
-                            }
-                        }
-                    };
+                let constraint_error_mapper = |(err, _, sql_type): &(ConstraintError, String, SqlType)| match err {
+                    ConstraintError::OutOfRange => builder.out_of_range(sql_type.to_pg_types()),
+                    ConstraintError::TypeMismatch(value) => builder.type_mismatch(value, sql_type.to_pg_types()),
+                    ConstraintError::ValueTooLong(len) => builder.string_length_mismatch(sql_type.to_pg_types(), *len),
+                };
 
-                let violations = constraint_errors.iter().map(constraint_error_mapper).collect();
-                Ok(Err(QueryError::constraint_violations(violations)))
+                constraint_errors.iter().for_each(constraint_error_mapper);
+                Ok(Err(builder.build()))
             }
-            _ => Ok(Err(QueryError::not_supported_operation(self.raw_sql_query.to_owned()))),
+            _ => {
+                builder.not_supported_operation(self.raw_sql_query.to_owned());
+                Ok(Err(builder.build()))
+            }
         }
     }
 }
