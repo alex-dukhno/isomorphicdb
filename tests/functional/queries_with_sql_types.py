@@ -15,9 +15,10 @@
 import pytest
 
 from psycopg2._psycopg import connection, cursor
-from psycopg2 import connect, Error
+from psycopg2 import connect
 
 # all imports from errors are OK if you can find such exception class in docs
+# >>> https://www.psycopg.org/docs/errors.html
 from psycopg2.errors import NumericValueOutOfRange
 
 
@@ -69,12 +70,12 @@ def test_integer_types(create_drop_test_schema_fixture: cursor):
 def test_character_types(create_drop_test_schema_fixture: cursor):
     cur = create_drop_test_schema_fixture
     cur.execute(
-        'create table schema_name.table_name(\
-            col_no_len_chars char,\
-            col_with_len_chars char(10),\
-            col_var_char_smallest varchar(1),\
-            col_var_char_large    varchar(20)\
-            );')
+        '''create table schema_name.table_name(
+            col_no_len_chars char,
+            col_with_len_chars char(10),
+            col_var_char_smallest varchar(1),
+            col_var_char_large    varchar(20)
+            );''')
     args = [('c', '1234567890', 'c', '12345678901234567890'),
             ('1', '1234567   ', 'c', '1234567890')]
     query = 'insert into schema_name.table_name values (%s, %s, %s, %s);'
@@ -135,9 +136,10 @@ def test_numeric_constraint_violations(create_drop_test_schema_fixture: cursor):
     cur.executemany('insert into schema_name.table_name values (%s, %s, %s)', args)
 
     # await for NumericValueOutOfRange, will throw an error on different exception
-    with pytest.raises(NumericValueOutOfRange):
+    with pytest.raises(NumericValueOutOfRange) as e:
         cur.execute('insert into schema_name.table_name values (%d, %d, %d);' %
                     (32767, 2147483647, 9223372036854775809))
+    assert e.value.pgcode == '22003'  # check for specific exception code
 
     cur.execute('select * from schema_name.table_name;')
     r = cur.fetchall()
@@ -152,9 +154,10 @@ def test_many_numeric_constraint_violations(create_drop_test_schema_fixture: cur
     cur.executemany('insert into schema_name.table_name values (%s, %s, %s)', args)
 
     # await for NumericValueOutOfRange, will throw an error on different exception
-    with pytest.raises(NumericValueOutOfRange):
+    with pytest.raises(NumericValueOutOfRange) as e:
         cur.execute('insert into schema_name.table_name values (%d, %d, %d);' %
                     (33767, 2147483647, 9223372036854775809))
+    assert e.value.pgcode == '22003'  # check for specific exception code
 
     cur.execute('select * from schema_name.table_name;')
     r = cur.fetchall()
