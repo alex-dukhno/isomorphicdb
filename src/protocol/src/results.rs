@@ -159,9 +159,9 @@ pub(crate) enum QueryErrorKind {
     ColumnDoesNotExist(Vec<String>),
     NotSupportedOperation(String),
     TooManyInsertExpressions,
-
-    // type constraint errors.
     ConstraintViolations(Vec<ConstraintViolation>),
+    UndefinedFunction(String, String, String),
+    SyntaxError(String),
 }
 
 /// Represents error during query execution
@@ -202,6 +202,24 @@ impl QueryError {
                 messages
             }
             _ => vec![Message::ErrorResponse(self.severity(), self.code(), self.message())],
+        }
+    }
+
+    /// operator or function is not found for operands
+    pub fn undefined_function(operator: String, left_type: String, right_type: String) -> Self {
+        Self {
+            severity: Severity::Error,
+            code: "42883".to_owned(),
+            kind: QueryErrorKind::UndefinedFunction(operator, left_type, right_type),
+        }
+    }
+
+    /// syntax error in the expression as part of query
+    pub fn syntax_error(expression: String) -> Self {
+        Self {
+            severity: Severity::Error,
+            code: "42601".to_owned(),
+            kind: QueryErrorKind::SyntaxError(expression),
         }
     }
 
@@ -296,11 +314,17 @@ impl Display for QueryErrorKind {
             Self::NotSupportedOperation(raw_sql_query) => {
                 write!(f, "Currently, Query '{}' can't be executed", raw_sql_query)
             }
-            Self::TooManyInsertExpressions => write!(f, "INSERT has more epxressions then target columns"),
+            Self::TooManyInsertExpressions => write!(f, "INSERT has more expressions then target columns"),
             Self::ConstraintViolations(_) => {
                 log::error!("should not use Display to generate the message for Constraint Violations");
                 write!(f, "do not use display with ConstraintViolation errors")
             }
+            Self::UndefinedFunction(operator, left_type, right_type) => write!(
+                f,
+                "operator does not exist: ({} {} {})",
+                left_type, operator, right_type
+            ),
+            Self::SyntaxError(expression) => write!(f, "syntax error in {}", expression),
         }
     }
 }

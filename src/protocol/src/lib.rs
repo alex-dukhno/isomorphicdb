@@ -447,6 +447,34 @@ mod tests {
                 )]
             )
         }
+
+        #[test]
+        fn undefined_function() {
+            assert_eq!(
+                QueryResultMapper::map(Err(QueryError::undefined_function(
+                    "||".to_owned(),
+                    "NUMBER".to_owned(),
+                    "NUMBER".to_owned()
+                ))),
+                vec![Message::ErrorResponse(
+                    Some("ERROR".to_owned()),
+                    Some("42883".to_owned()),
+                    Some("operator does not exist: (NUMBER || NUMBER)".to_owned())
+                )]
+            )
+        }
+
+        #[test]
+        fn syntax_error() {
+            assert_eq!(
+                QueryResultMapper::map(Err(QueryError::syntax_error("expression".to_owned()))),
+                vec![Message::ErrorResponse(
+                    Some("ERROR".to_owned()),
+                    Some("42601".to_owned()),
+                    Some("syntax error in expression".to_owned())
+                )]
+            )
+        }
     }
 
     #[cfg(test)]
