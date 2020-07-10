@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use bigdecimal::BigDecimal;
 use kernel::SystemResult;
 use protocol::results::{ConstraintViolation, QueryError, QueryEvent, QueryResult};
 use sql_types::ConstraintError;
@@ -67,33 +68,39 @@ impl<P: BackendStorage> InsertCommand<'_, P> {
                     .collect()
             };
 
-            let rows: Vec<Vec<String>> = values
-                .iter()
-                .map(|v| {
-                    v.iter()
-                        .map(|v| match v {
-                            Expr::Value(Value::Number(v)) => v.to_string(),
-                            Expr::Value(Value::SingleQuotedString(v)) => v.to_string(),
-                            Expr::Value(Value::Boolean(v)) => v.to_string(),
-                            Expr::Cast { expr, data_type } => match (&**expr, data_type) {
-                                (Expr::Value(Value::Boolean(v)), DataType::Boolean) => v.to_string(),
-                                (Expr::Value(Value::SingleQuotedString(v)), DataType::Boolean) => v.to_string(),
-                                _ => {
-                                    unimplemented!("Cast from {:?} to {:?} is not currently supported", expr, data_type)
-                                }
-                            },
-                            Expr::UnaryOp { op, expr } => match (op, &**expr) {
-                                (UnaryOperator::Minus, Expr::Value(Value::Number(v))) => {
-                                    "-".to_owned() + v.to_string().as_str()
-                                }
-                                (op, expr) => unimplemented!("{:?} {:?} is not currently supported", op, expr),
-                            },
-                            expr @ Expr::BinaryOp { .. } => Self::eval(expr).value(),
-                            expr => unimplemented!("{:?} is not currently supported", expr),
-                        })
-                        .collect()
-                })
-                .collect();
+            let mut rows = vec![];
+            for line in values {
+                let mut row = vec![];
+                for col in line {
+                    let v = match col {
+                        Expr::Value(Value::Number(v)) => v.to_string(),
+                        Expr::Value(Value::SingleQuotedString(v)) => v.to_string(),
+                        Expr::Value(Value::Boolean(v)) => v.to_string(),
+                        Expr::Cast { expr, data_type } => match (&**expr, data_type) {
+                            (Expr::Value(Value::Boolean(v)), DataType::Boolean) => v.to_string(),
+                            (Expr::Value(Value::SingleQuotedString(v)), DataType::Boolean) => v.to_string(),
+                            _ => unimplemented!("Cast from {:?} to {:?} is not currently supported", expr, data_type),
+                        },
+                        Expr::UnaryOp { op, expr } => match (op, &**expr) {
+                            (UnaryOperator::Minus, Expr::Value(Value::Number(v))) => {
+                                "-".to_owned() + v.to_string().as_str()
+                            }
+                            (op, expr) => {
+                                return Ok(Err(QueryError::syntax_error(
+                                    op.to_string() + expr.to_string().as_str(),
+                                )))
+                            }
+                        },
+                        expr @ Expr::BinaryOp { .. } => match Self::eval(expr) {
+                            Ok(expr_result) => expr_result.value(),
+                            Err(e) => return Ok(Err(e)),
+                        },
+                        expr => return Ok(Err(QueryError::syntax_error(expr.to_string()))),
+                    };
+                    row.push(v);
+                }
+                rows.push(row);
+            }
 
             let len = rows.len();
             match (self.storage.lock().unwrap()).insert_into(&schema_name, &table_name, columns, rows)? {
@@ -138,45 +145,87 @@ impl<P: BackendStorage> InsertCommand<'_, P> {
         }
     }
 
-    fn eval(expr: &Expr) -> ExprResult {
+    fn eval(expr: &Expr) -> Result<ExprResult, QueryError> {
         if let Expr::BinaryOp { op, left, right } = expr {
-            let left: &Expr = left.deref();
-            let right: &Expr = right.deref();
+            let left = Self::eval(left.deref())?;
+            let right = Self::eval(right.deref())?;
             match (left, right) {
-                (Expr::Value(Value::Number(left)), Expr::Value(Value::Number(right))) => match op {
-                    BinaryOperator::Plus => ExprResult::Number((left + right).to_string()),
-                    BinaryOperator::Minus => ExprResult::Number((left - right).to_string()),
-                    BinaryOperator::Multiply => ExprResult::Number((left * right).to_string()),
-                    BinaryOperator::Divide => ExprResult::Number((left / right).to_string()),
-                    BinaryOperator::Modulus => ExprResult::Number((left % right).to_string()),
+                (ExprResult::Number(left), ExprResult::Number(right)) => match op {
+                    BinaryOperator::Plus => Ok(ExprResult::Number(left + right)),
+                    BinaryOperator::Minus => Ok(ExprResult::Number(left - right)),
+                    BinaryOperator::Multiply => Ok(ExprResult::Number(left * right)),
+                    BinaryOperator::Divide => Ok(ExprResult::Number(left / right)),
+                    BinaryOperator::Modulus => Ok(ExprResult::Number(left % right)),
                     BinaryOperator::BitwiseAnd => {
                         let (left, _) = left.as_bigint_and_exponent();
                         let (right, _) = right.as_bigint_and_exponent();
-                        ExprResult::Number((left & right).to_string())
+                        Ok(ExprResult::Number(BigDecimal::from(left & &right)))
                     }
                     BinaryOperator::BitwiseOr => {
                         let (left, _) = left.as_bigint_and_exponent();
                         let (right, _) = right.as_bigint_and_exponent();
-                        ExprResult::Number((left | right).to_string())
+                        Ok(ExprResult::Number(BigDecimal::from(left | &right)))
                     }
-                    _ => unimplemented!(),
+                    operator => {
+                        return Err(QueryError::undefined_function(
+                            operator.to_string(),
+                            "NUMBER".to_owned(),
+                            "NUMBER".to_owned(),
+                        ))
+                    }
                 },
-                e => unimplemented!("{:?} not supported", e),
+                (ExprResult::String(left), ExprResult::String(right)) => match op {
+                    BinaryOperator::StringConcat => Ok(ExprResult::String(left + right.as_str())),
+                    operator => {
+                        return Err(QueryError::undefined_function(
+                            operator.to_string(),
+                            "STRING".to_owned(),
+                            "STRING".to_owned(),
+                        ))
+                    }
+                },
+                (ExprResult::Number(left), ExprResult::String(right)) => match op {
+                    BinaryOperator::StringConcat => Ok(ExprResult::String(left.to_string() + right.as_str())),
+                    operator => {
+                        return Err(QueryError::undefined_function(
+                            operator.to_string(),
+                            "NUMBER".to_owned(),
+                            "STRING".to_owned(),
+                        ))
+                    }
+                },
+                (ExprResult::String(left), ExprResult::Number(right)) => match op {
+                    BinaryOperator::StringConcat => Ok(ExprResult::String(left + right.to_string().as_str())),
+                    operator => {
+                        return Err(QueryError::undefined_function(
+                            operator.to_string(),
+                            "STRING".to_owned(),
+                            "NUMBER".to_owned(),
+                        ))
+                    }
+                },
             }
         } else {
-            unimplemented!("{:?} not supported", expr)
+            match expr {
+                Expr::Value(Value::Number(v)) => Ok(ExprResult::Number(v.clone())),
+                Expr::Value(Value::SingleQuotedString(v)) => Ok(ExprResult::String(v.clone())),
+                e => return Err(QueryError::syntax_error(e.to_string())),
+            }
         }
     }
 }
 
+#[derive(Debug)]
 enum ExprResult {
-    Number(String),
+    Number(BigDecimal),
+    String(String),
 }
 
 impl ExprResult {
     fn value(self) -> String {
         match self {
-            Self::Number(v) => v,
+            Self::Number(v) => v.to_string(),
+            Self::String(v) => v,
         }
     }
 }
