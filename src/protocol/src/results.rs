@@ -319,8 +319,12 @@ impl Display for QueryErrorKind {
                 log::error!("should not use Display to generate the message for Constraint Violations");
                 write!(f, "do not use display with ConstraintViolation errors")
             }
-            Self::UndefinedFunction(_, _, _) => panic!(),
-            Self::SyntaxError(_) => panic!(),
+            Self::UndefinedFunction(operator, left_type, right_type) => write!(
+                f,
+                "operator does not exist: ({} {} {})",
+                left_type, operator, right_type
+            ),
+            Self::SyntaxError(expression) => write!(f, "syntax error in {}", expression),
         }
     }
 }
