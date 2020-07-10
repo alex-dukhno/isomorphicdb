@@ -16,18 +16,19 @@ import psycopg2 as pg
 import pytest
 
 from psycopg2.errors import DuplicateSchema, DuplicateTable
+from psycopg2._psycopg import connection, cursor
 
 
 @pytest.fixture(scope="session", autouse=True)
 def create_cursor(request):
-    cur = None
-    conn = None
 
+    # ToDo - connection process test is not ideal yet.
     conn = pg.connect(host="localhost", password="check_this_out", database="postgres")
-    assert conn is not None
+    assert isinstance(conn, connection), "Failed to connect to DB"
 
+    # ToDo - connection process test is not ideal yet.
     cur = conn.cursor()
-    assert cur is not None
+    assert isinstance(cur, cursor)
 
     def close_all():
         cur.close()
@@ -133,8 +134,8 @@ def test_insert_select_many_columns(create_drop_test_schema_fixture):
     cur = create_drop_test_schema_fixture
     cur.execute('create table schema_name.table_name(si_column_1 smallint, si_column_2 smallint, si_column_3 smallint);')
 
-    for t in [(1, 2, 3), (4, 5, 6), (7, 8, 9)]:
-        cur.execute('insert into schema_name.table_name values (%s, %s, %s);' % t)
+    cur.executemany('insert into schema_name.table_name values (%s, %s, %s);',
+                    [(1, 2, 3), (4, 5, 6), (7, 8, 9)])
 
     cur.execute('select * from schema_name.table_name;')
     r = cur.fetchmany(3)
@@ -145,8 +146,8 @@ def test_insert_update_specified_column(create_drop_test_schema_fixture):
     cur = create_drop_test_schema_fixture
     cur.execute('create table schema_name.table_name(si_column_1 smallint, si_column_2 smallint, si_column_3 smallint);')
 
-    for t in [(1, 2, 3), (4, 5, 6), (7, 8, 9)]:
-        cur.execute('insert into schema_name.table_name values (%s, %s, %s);' % t)
+    cur.executemany('insert into schema_name.table_name values (%s, %s, %s);',
+                    [(1, 2, 3), (4, 5, 6), (7, 8, 9)])
 
     cur.execute('select * from schema_name.table_name;')
     r = cur.fetchmany(3)
@@ -162,8 +163,8 @@ def test_insert_select_reordered(create_drop_test_schema_fixture):
     cur = create_drop_test_schema_fixture
     cur.execute('create table schema_name.table_name(si_column_1 smallint, si_column_2 smallint, si_column_3 smallint);')
 
-    for t in [(1, 2, 3), (4, 5, 6), (7, 8, 9)]:
-        cur.execute('insert into schema_name.table_name values (%s, %s, %s);' % t)
+    cur.executemany('insert into schema_name.table_name values (%s, %s, %s);',
+                [(1, 2, 3), (4, 5, 6), (7, 8, 9)])
 
     cur.execute('select si_column_3, si_column_1, si_column_2 from schema_name.table_name;')
     r = cur.fetchmany(3)
@@ -174,8 +175,8 @@ def test_insert_select_same_column_many_times(create_drop_test_schema_fixture):
     cur = create_drop_test_schema_fixture
     cur.execute('create table schema_name.table_name(si_column_1 smallint, si_column_2 smallint, si_column_3 smallint);')
 
-    for t in [(1, 2, 3), (4, 5, 6), (7, 8, 9)]:
-        cur.execute('insert into schema_name.table_name values (%s, %s, %s);' % t)
+    cur.executemany('insert into schema_name.table_name values (%s, %s, %s);',
+                [(1, 2, 3), (4, 5, 6), (7, 8, 9)])
 
     cur.execute('select si_column_3, si_column_1, si_column_2, si_column_1, si_column_3 from schema_name.table_name;')
     r = cur.fetchmany(3)
@@ -186,8 +187,8 @@ def test_insert_with_named_columns(create_drop_test_schema_fixture):
     cur = create_drop_test_schema_fixture
     cur.execute('create table schema_name.table_name(si_column_1 smallint, si_column_2 smallint, si_column_3 smallint);')
 
-    for t in [(1, 2, 3), (4, 5, 6), (7, 8, 9)]:
-        cur.execute('insert into schema_name.table_name (si_column_2, si_column_3, si_column_1) values (%s, %s, %s);' % t)
+    cur.executemany('insert into schema_name.table_name (si_column_2, si_column_3, si_column_1) values (%s, %s, %s);',
+                [(1, 2, 3), (4, 5, 6), (7, 8, 9)])
 
     cur.execute('select * from schema_name.table_name;')
     r = cur.fetchmany(3)
