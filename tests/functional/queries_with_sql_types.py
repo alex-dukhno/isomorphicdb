@@ -25,11 +25,9 @@ from psycopg2.errors import NumericValueOutOfRange
 @pytest.fixture(scope="session", autouse=True)
 def create_cursor(request) -> cursor:
 
-    # ToDo - connection process test is not ideal yet.
     conn = connect(host="localhost", password="check_this_out", database="postgres")
     assert isinstance(conn, connection), "Failed to connect to DB"
 
-    # ToDo - connection process test is not ideal yet.
     cur = conn.cursor()
     assert isinstance(cur, cursor)
 
