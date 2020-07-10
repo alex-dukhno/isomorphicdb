@@ -50,6 +50,20 @@ fn create_table(mut sql_engine_with_schema: InMemorySqlEngine) {
 }
 
 #[rstest::rstest]
+fn create_same_table(mut sql_engine_with_schema: InMemorySqlEngine) {
+    sql_engine_with_schema
+        .execute("create table schema_name.table_name (column_name smallint);")
+        .expect("no system errors")
+        .expect("table created");
+    assert_eq!(
+        sql_engine_with_schema
+            .execute("create table schema_name.table_name (column_name smallint);")
+            .expect("no system errors"),
+        Err(QueryError::table_already_exists("schema_name.table_name".to_owned()))
+    );
+}
+
+#[rstest::rstest]
 fn drop_table(mut sql_engine_with_schema: InMemorySqlEngine) {
     sql_engine_with_schema
         .execute("create table schema_name.table_name (column_name smallint);")
@@ -89,7 +103,19 @@ fn create_table_with_different_types(mut sql_engine: InMemorySqlEngine) {
 
     assert_eq!(
         sql_engine
-            .execute("create table schema_name.table_name (column_si smallint, column_i integer, column_bi bigint, column_c char(10), column_vc varchar(10));")
+            .execute(
+                "create table schema_name.table_name (\
+            column_si smallint,\
+            column_i integer,\
+            column_bi bigint,\
+            column_c char(10),\
+            column_vc varchar(10),\
+            column_b boolean,\
+            column_smalls smallserial,\
+            column_s serial,\
+            column_bigs bigserial\
+            );"
+            )
             .expect("no system errors"),
         Ok(QueryEvent::TableCreated)
     )

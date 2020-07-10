@@ -14,13 +14,13 @@
 
 use kernel::SystemResult;
 use protocol::results::{ConstraintViolation, QueryError, QueryEvent, QueryResult};
-use sql_types::{ConstraintError, SqlType};
+use sql_types::ConstraintError;
 use sqlparser::ast::{BinaryOperator, DataType, Expr, Ident, ObjectName, Query, SetExpr, UnaryOperator, Value};
 use std::{
     ops::Deref,
     sync::{Arc, Mutex},
 };
-use storage::{backend::BackendStorage, frontend::FrontendStorage, OperationOnTableError};
+use storage::{backend::BackendStorage, frontend::FrontendStorage, ColumnDefinition, OperationOnTableError};
 
 pub(crate) struct InsertCommand<'q, P: BackendStorage> {
     raw_sql_query: &'q str,
@@ -109,7 +109,8 @@ impl<P: BackendStorage> InsertCommand<'_, P> {
                 }
                 Err(OperationOnTableError::ConstraintViolations(constraint_errors)) => {
                     let constraint_error_mapper =
-                        |(err, _, sql_type): &(ConstraintError, String, SqlType)| -> ConstraintViolation {
+                        |(err, column_definition): &(ConstraintError, ColumnDefinition)| -> ConstraintViolation {
+                            let sql_type = column_definition.sql_type();
                             match err {
                                 ConstraintError::OutOfRange => {
                                     ConstraintViolation::out_of_range(sql_type.to_pg_types())

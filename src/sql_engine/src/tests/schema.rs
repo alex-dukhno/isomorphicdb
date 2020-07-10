@@ -15,6 +15,46 @@
 use super::*;
 
 #[rstest::rstest]
+fn create_same_schema(mut sql_engine: InMemorySqlEngine) {
+    sql_engine
+        .execute("create schema schema_name;")
+        .expect("no system errors")
+        .expect("schema created");
+
+    assert_eq!(
+        sql_engine
+            .execute("create schema schema_name;")
+            .expect("no system errors"),
+        Err(QueryError::schema_already_exists("schema_name".to_owned()))
+    )
+}
+
+#[rstest::rstest]
+fn drop_schema(mut sql_engine: InMemorySqlEngine) {
+    sql_engine
+        .execute("create schema schema_name;")
+        .expect("no system errors")
+        .expect("schema created");
+
+    assert_eq!(
+        sql_engine
+            .execute("drop schema schema_name;")
+            .expect("no system errors"),
+        Ok(QueryEvent::SchemaDropped)
+    )
+}
+
+#[rstest::rstest]
+fn drop_non_existent_schema(mut sql_engine: InMemorySqlEngine) {
+    assert_eq!(
+        sql_engine
+            .execute("drop schema non_existent;")
+            .expect("no system errors"),
+        Err(QueryError::schema_does_not_exist("non_existent".to_owned()))
+    )
+}
+
+#[rstest::rstest]
 fn select_from_nonexistent_schema(mut sql_engine: InMemorySqlEngine) {
     assert_eq!(
         sql_engine

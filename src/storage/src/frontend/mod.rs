@@ -19,7 +19,8 @@ use crate::{
         self, BackendStorage, CreateObjectError, DropObjectError, NamespaceAlreadyExists, NamespaceDoesNotExist,
         OperationOnObjectError, Row, SledBackendStorage,
     },
-    CreateTableError, DropTableError, OperationOnTableError, Projection, SchemaAlreadyExists, SchemaDoesNotExist,
+    ColumnDefinition, CreateTableError, DropTableError, OperationOnTableError, Projection, SchemaAlreadyExists,
+    SchemaDoesNotExist,
 };
 use kernel::{SystemError, SystemResult};
 use serde::{Deserialize, Serialize};
@@ -102,7 +103,7 @@ impl<P: BackendStorage> FrontendStorage<P> {
         }
     }
 
-    pub fn table_columns(&mut self, schema_name: &str, table_name: &str) -> SystemResult<Vec<(String, SqlType)>> {
+    pub fn table_columns(&mut self, schema_name: &str, table_name: &str) -> SystemResult<Vec<ColumnDefinition>> {
         self.persistent
             .read("system", "columns")?
             .map(|reads| {
@@ -113,11 +114,8 @@ impl<P: BackendStorage> FrontendStorage<P> {
                         columns
                             .split(|b| *b == b'|')
                             .filter(|v| !v.is_empty())
-                            .map(|c| {
-                                let ColumnMetadata { name, sql_type } = bincode::deserialize(c).unwrap();
-                                (name, sql_type)
-                            })
-                            .collect::<Vec<(String, SqlType)>>()
+                            .map(|c| bincode::deserialize(c).unwrap())
+                            .collect::<Vec<_>>()
                     })
                     .next()
                     .unwrap_or_default()
@@ -144,25 +142,25 @@ impl<P: BackendStorage> FrontendStorage<P> {
         &mut self,
         schema_name: &str,
         table_name: &str,
-        columns: Vec<String>,
+        column_names: Vec<String>,
         rows: Vec<Vec<String>>,
     ) -> SystemResult<Result<(), OperationOnTableError>> {
         let all_columns = self.table_columns(schema_name, table_name)?;
-        let index_columns = if columns.is_empty() {
+        let index_columns = if column_names.is_empty() {
             let mut index_cols = vec![];
-            for (index, (name, sql_type)) in all_columns.iter().enumerate() {
-                index_cols.push((index, name.clone(), *sql_type));
+            for (index, column_definition) in all_columns.iter().cloned().enumerate() {
+                index_cols.push((index, column_definition));
             }
 
             index_cols
         } else {
             let mut index_cols = vec![];
             let mut non_existing_cols = vec![];
-            for col in columns {
+            for column_name in column_names {
                 let mut found = None;
-                for (index, (name, sql_type)) in all_columns.iter().enumerate() {
-                    if *name == col {
-                        found = Some((index, name.clone(), *sql_type));
+                for (index, column_definition) in all_columns.iter().enumerate() {
+                    if column_definition.has_name(&column_name) {
+                        found = Some((index, column_definition.clone()));
                         break;
                     }
                 }
@@ -171,7 +169,7 @@ impl<P: BackendStorage> FrontendStorage<P> {
                     Some(index_col) => {
                         index_cols.push(index_col);
                     }
-                    None => non_existing_cols.push(col),
+                    None => non_existing_cols.push(column_name),
                 }
             }
 
@@ -198,13 +196,14 @@ impl<P: BackendStorage> FrontendStorage<P> {
                 // TODO: The default value or NULL should be initialized for SQL types of all columns.
                 let mut record = vec![vec![0, 0]; all_columns.len()];
                 let mut constraint_error = false;
-                for (item, (index, name, sql_type)) in row.iter().zip(index_columns.iter()) {
+                for (item, (index, column_definition)) in row.iter().zip(index_columns.iter()) {
+                    let sql_type = column_definition.sql_type();
                     match sql_type.constraint().validate(item.as_str()) {
                         Ok(()) => {
                             record[*index] = sql_type.serializer().ser(item.as_str());
                         }
                         Err(e) => {
-                            errors.push((e, name.clone(), *sql_type));
+                            errors.push((e, column_definition.clone()));
                             // we do not break from the outer loop here because we want to
                             // collect all errors from the current row.
                             constraint_error = true;
@@ -237,26 +236,26 @@ impl<P: BackendStorage> FrontendStorage<P> {
         &mut self,
         schema_name: &str,
         table_name: &str,
-        columns: Vec<String>,
+        column_names: Vec<String>,
     ) -> SystemResult<Result<Projection, OperationOnTableError>> {
         let all_columns = self.table_columns(schema_name, table_name)?;
         let mut description = vec![];
         let mut column_indexes = vec![];
         let mut non_existing_columns = vec![];
-        for (i, column) in columns.iter().enumerate() {
+        for (i, column_name) in column_names.iter().enumerate() {
             let mut found = None;
-            for (index, (name, sql_type)) in all_columns.iter().enumerate() {
-                if name == column {
-                    found = Some(((index, i), (name.clone(), *sql_type)));
+            for (index, column_definition) in all_columns.iter().enumerate() {
+                if column_definition.has_name(column_name) {
+                    found = Some(((index, i), column_definition.clone()));
                     break;
                 }
             }
 
-            if let Some((index_pair, name_type_pair)) = found {
+            if let Some((index_pair, column_definition)) = found {
                 column_indexes.push(index_pair);
-                description.push(name_type_pair);
+                description.push(column_definition);
             } else {
-                non_existing_columns.push(column.clone());
+                non_existing_columns.push(column_name.clone());
             }
         }
 
@@ -272,7 +271,7 @@ impl<P: BackendStorage> FrontendStorage<P> {
                         for (i, (origin, ord)) in column_indexes.iter().enumerate() {
                             for (index, value) in bytes.split(|b| *b == b'|').enumerate() {
                                 if index == *origin {
-                                    values.push((ord, description[i].1.serializer().des(value)))
+                                    values.push((ord, description[i].sql_type().serializer().des(value)))
                                 }
                             }
                         }
@@ -306,14 +305,15 @@ impl<P: BackendStorage> FrontendStorage<P> {
         if self.persistent.is_table_exists(schema_name, table_name) {
             for (column_name, value) in rows {
                 let mut found = None;
-                for (index, (name, sql_type)) in all_columns.iter().enumerate() {
-                    if *name == column_name {
+                for (index, column_definition) in all_columns.iter().enumerate() {
+                    if column_definition.has_name(&column_name) {
+                        let sql_type = column_definition.sql_type();
                         match sql_type.constraint().validate(value.as_str()) {
                             Ok(()) => {
                                 found = Some((index, sql_type.serializer().ser(value.as_str())));
                             }
                             Err(e) => {
-                                errors.push((e, column_name.clone(), *sql_type));
+                                errors.push((e, column_definition.clone()));
                                 constraint_error = true;
                             }
                         }

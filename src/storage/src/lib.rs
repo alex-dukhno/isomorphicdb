@@ -16,12 +16,13 @@ extern crate kernel;
 extern crate log;
 extern crate sql_types;
 
+use serde::{Deserialize, Serialize};
 use sql_types::{ConstraintError, SqlType};
 
 pub mod backend;
 pub mod frontend;
 
-pub type Projection = (Vec<(String, sql_types::SqlType)>, Vec<Vec<String>>);
+pub type Projection = (Vec<ColumnDefinition>, Vec<Vec<String>>);
 
 #[derive(Debug, PartialEq)]
 pub struct SchemaAlreadyExists;
@@ -47,5 +48,25 @@ pub enum OperationOnTableError {
     InsertTooManyExpressions,
     // Returns non existing columns.
     ColumnDoesNotExist(Vec<String>),
-    ConstraintViolations(Vec<(ConstraintError, String, SqlType)>),
+    ConstraintViolations(Vec<(ConstraintError, ColumnDefinition)>),
+}
+
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+pub struct ColumnDefinition {
+    name: String,
+    sql_type: SqlType,
+}
+
+impl ColumnDefinition {
+    pub fn sql_type(&self) -> SqlType {
+        self.sql_type
+    }
+
+    fn has_name(&self, other_name: &str) -> bool {
+        self.name == other_name
+    }
+
+    pub fn name(&self) -> String {
+        self.name.clone()
+    }
 }
