@@ -20,7 +20,7 @@ from psycopg2._psycopg import connection, cursor
 
 
 @pytest.fixture(scope="session", autouse=True)
-def create_cursor(request):
+def create_cursor(request) -> cursor:
 
     # ToDo - connection process test is not ideal yet.
     conn = pg.connect(host="localhost", password="check_this_out", database="postgres")
@@ -40,7 +40,7 @@ def create_cursor(request):
 
 
 @pytest.fixture(scope='function')
-def create_drop_test_schema_fixture(request, create_cursor):
+def create_drop_test_schema_fixture(request, create_cursor) -> cursor:
     cur = create_cursor
     cur.execute('create schema schema_name;')
 
@@ -51,32 +51,32 @@ def create_drop_test_schema_fixture(request, create_cursor):
     return cur
 
 
-def test_create_duplicate_schema(create_drop_test_schema_fixture):
+def test_create_duplicate_schema(create_drop_test_schema_fixture: cursor):
     cur = create_drop_test_schema_fixture
     with pytest.raises(DuplicateSchema):  # Expects for DuplicateSchema exception
         cur.execute('create schema schema_name;')
 
 
-def test_create_drop_schema(create_drop_test_schema_fixture):
+def test_create_drop_schema(create_drop_test_schema_fixture: cursor):
     cur = create_drop_test_schema_fixture
     cur.execute('create schema schema_name_new;')
     cur.execute('drop schema schema_name_new;')
 
 
-def test_create_drop_empty_table(create_drop_test_schema_fixture):
+def test_create_drop_empty_table(create_drop_test_schema_fixture: cursor):
     cur = create_drop_test_schema_fixture
     cur.execute('create table schema_name.empty_table();')
     cur.execute('drop table schema_name.empty_table;')
 
 
-def test_create_duplicated_table(create_drop_test_schema_fixture):
+def test_create_duplicated_table(create_drop_test_schema_fixture: cursor):
     cur = create_drop_test_schema_fixture
     with pytest.raises(DuplicateTable):  # Expects for DuplicateTable exception
         cur.execute('create table schema_name.empty_table();')
         cur.execute('create table schema_name.empty_table();')
 
 
-def test_insert_select(create_cursor, create_drop_test_schema_fixture):
+def test_insert_select(create_drop_test_schema_fixture: cursor):
     cur = create_drop_test_schema_fixture
     cur.execute('create table schema_name.table_name(si_column smallint);')
 
@@ -87,7 +87,7 @@ def test_insert_select(create_cursor, create_drop_test_schema_fixture):
     assert r == (1,), "fetched unexpected value"
 
 
-def test_insert_select_many(create_drop_test_schema_fixture):
+def test_insert_select_many(create_drop_test_schema_fixture: cursor):
     cur = create_drop_test_schema_fixture
     cur.execute('create table schema_name.table_name(si_column smallint);')
 
@@ -98,7 +98,7 @@ def test_insert_select_many(create_drop_test_schema_fixture):
     assert r == [(1,), (2,), (3,)]
 
 
-def test_insert_select_update_all_select(create_drop_test_schema_fixture):
+def test_insert_select_update_all_select(create_drop_test_schema_fixture: cursor):
     cur = create_drop_test_schema_fixture
     cur.execute('create table schema_name.table_name(si_column smallint);')
 
@@ -114,7 +114,7 @@ def test_insert_select_update_all_select(create_drop_test_schema_fixture):
     assert r == [(4,), (4,), (4,)]
 
 
-def test_insert_select_delete_all_select(create_drop_test_schema_fixture):
+def test_insert_select_delete_all_select(create_drop_test_schema_fixture: cursor):
     cur = create_drop_test_schema_fixture
     cur.execute('create table schema_name.table_name(si_column smallint);')
 
@@ -130,7 +130,7 @@ def test_insert_select_delete_all_select(create_drop_test_schema_fixture):
     assert r == []
 
 
-def test_insert_select_many_columns(create_drop_test_schema_fixture):
+def test_insert_select_many_columns(create_drop_test_schema_fixture: cursor):
     cur = create_drop_test_schema_fixture
     cur.execute('create table schema_name.table_name(si_column_1 smallint, si_column_2 smallint, si_column_3 smallint);')
 
@@ -142,7 +142,7 @@ def test_insert_select_many_columns(create_drop_test_schema_fixture):
     assert r == [(1, 2, 3,), (4, 5, 6,), (7, 8, 9,)]
 
 
-def test_insert_update_specified_column(create_drop_test_schema_fixture):
+def test_insert_update_specified_column(create_drop_test_schema_fixture: cursor):
     cur = create_drop_test_schema_fixture
     cur.execute('create table schema_name.table_name(si_column_1 smallint, si_column_2 smallint, si_column_3 smallint);')
 
@@ -159,7 +159,7 @@ def test_insert_update_specified_column(create_drop_test_schema_fixture):
     assert r == [(1, 10, 3,), (4, 10, 6,), (7, 10, 9,)]
 
 
-def test_insert_select_reordered(create_drop_test_schema_fixture):
+def test_insert_select_reordered(create_drop_test_schema_fixture: cursor):
     cur = create_drop_test_schema_fixture
     cur.execute('create table schema_name.table_name(si_column_1 smallint, si_column_2 smallint, si_column_3 smallint);')
 
@@ -171,7 +171,7 @@ def test_insert_select_reordered(create_drop_test_schema_fixture):
     assert r == [(3, 1, 2,), (6, 4, 5,), (9, 7, 8,)]
 
 
-def test_insert_select_same_column_many_times(create_drop_test_schema_fixture):
+def test_insert_select_same_column_many_times(create_drop_test_schema_fixture: cursor):
     cur = create_drop_test_schema_fixture
     cur.execute('create table schema_name.table_name(si_column_1 smallint, si_column_2 smallint, si_column_3 smallint);')
 
@@ -183,7 +183,7 @@ def test_insert_select_same_column_many_times(create_drop_test_schema_fixture):
     assert r == [(3, 1, 2, 1, 3), (6, 4, 5, 4, 6,), (9, 7, 8, 7, 9,)]
 
 
-def test_insert_with_named_columns(create_drop_test_schema_fixture):
+def test_insert_with_named_columns(create_drop_test_schema_fixture: cursor):
     cur = create_drop_test_schema_fixture
     cur.execute('create table schema_name.table_name(si_column_1 smallint, si_column_2 smallint, si_column_3 smallint);')
 

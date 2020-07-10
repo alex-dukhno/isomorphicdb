@@ -12,17 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import psycopg2 as pg
 import pytest
 
 from psycopg2._psycopg import connection, cursor
+from psycopg2 import connect, Error
+
+# all imports from errors are OK if you can find such exception class in docs
+from psycopg2.errors import NumericValueOutOfRange
 
 
 @pytest.fixture(scope="session", autouse=True)
-def create_cursor(request):
+def create_cursor(request) -> cursor:
 
     # ToDo - connection process test is not ideal yet.
-    conn = pg.connect(host="localhost", password="check_this_out", database="postgres")
+    conn = connect(host="localhost", password="check_this_out", database="postgres")
     assert isinstance(conn, connection), "Failed to connect to DB"
 
     # ToDo - connection process test is not ideal yet.
@@ -39,7 +42,7 @@ def create_cursor(request):
 
 
 @pytest.fixture(scope='function')
-def create_drop_test_schema_fixture(request, create_cursor):
+def create_drop_test_schema_fixture(request, create_cursor) -> cursor:
     cur = create_cursor
     cur.execute('create schema schema_name;')
 
@@ -50,7 +53,7 @@ def create_drop_test_schema_fixture(request, create_cursor):
     return cur
 
 
-def test_integer_types(create_drop_test_schema_fixture):
+def test_integer_types(create_drop_test_schema_fixture: cursor):
     cur = create_drop_test_schema_fixture
     cur.execute('create table schema_name.table_name(si_col smallint, i_col integer, bi_col bigint);')
 
@@ -63,7 +66,7 @@ def test_integer_types(create_drop_test_schema_fixture):
     assert r == [(-32768, -2147483648, -9223372036854775808,), (32767, 2147483647, 9223372036854775807,)]
 
 
-def test_character_types(create_drop_test_schema_fixture):
+def test_character_types(create_drop_test_schema_fixture: cursor):
     cur = create_drop_test_schema_fixture
     cur.execute(
         'create table schema_name.table_name(\
@@ -124,47 +127,41 @@ def test_boolean_types(create_drop_test_schema_fixture):
         cur.execute('DELETE FROM schema_name.table_name;')
 
 
-def test_numeric_constraint_violations(create_drop_test_schema_fixture):
+def test_numeric_constraint_violations(create_drop_test_schema_fixture: cursor):
     cur = create_drop_test_schema_fixture
     cur.execute('create table schema_name.table_name(si_col smallint, i_col integer, bi_col bigint);')
     args = [(-32768, -2147483648, -9223372036854775808),
             (32767, 2147483647, 9223372036854775807)]
     cur.executemany('insert into schema_name.table_name values (%s, %s, %s)', args)
 
-    try:
-        cur.execute('insert into schema_name.table_name values (%d, %d, %d);' % (32767, 2147483647, 9223372036854775809))
-    except pg.errors.NumericValueOutOfRange as e:
-        assert e.pgcode == '22003'
-        # assert e.pgerror == "ERROR: bigint out of range"
-    except pg.Error:
-        assert False
+    # await for NumericValueOutOfRange, will throw an error on different exception
+    with pytest.raises(NumericValueOutOfRange):
+        cur.execute('insert into schema_name.table_name values (%d, %d, %d);' %
+                    (32767, 2147483647, 9223372036854775809))
 
     cur.execute('select * from schema_name.table_name;')
     r = cur.fetchall()
     assert r == [(-32768, -2147483648, -9223372036854775808,), (32767, 2147483647, 9223372036854775807,)]
 
 
-def test_many_numeric_constraint_violations(create_drop_test_schema_fixture):
+def test_many_numeric_constraint_violations(create_drop_test_schema_fixture: cursor):
     cur = create_drop_test_schema_fixture
     cur.execute('create table schema_name.table_name(si_col smallint, i_col integer, bi_col bigint);')
     args = [(-32768, -2147483648, -9223372036854775808),
             (32767, 2147483647, 9223372036854775807)]
     cur.executemany('insert into schema_name.table_name values (%s, %s, %s)', args)
 
-    try:
-        cur.execute('insert into schema_name.table_name values (%d, %d, %d);' % (33767, 2147483647, 9223372036854775809))
-    except pg.errors.NumericValueOutOfRange as e:
-        #  This is generating two error messages but it seems it this script only sees the first one.
-        assert e.pgcode == '22003'
-    except pg.Error:
-        assert False
+    # await for NumericValueOutOfRange, will throw an error on different exception
+    with pytest.raises(NumericValueOutOfRange):
+        cur.execute('insert into schema_name.table_name values (%d, %d, %d);' %
+                    (33767, 2147483647, 9223372036854775809))
 
     cur.execute('select * from schema_name.table_name;')
     r = cur.fetchall()
     assert r == [(-32768, -2147483648, -9223372036854775808,), (32767, 2147483647, 9223372036854775807,)]
 
 
-def test_math_operations_in_insert(create_drop_test_schema_fixture):
+def test_math_operations_in_insert(create_drop_test_schema_fixture: cursor):
     cur = create_drop_test_schema_fixture
     cur.execute('create table schema_name.table_name(si_col smallint);')
     query = 'insert into schema_name.table_name values (%d %s %d)'
