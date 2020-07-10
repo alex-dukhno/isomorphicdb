@@ -166,50 +166,42 @@ impl<P: BackendStorage> InsertCommand<'_, P> {
                         let (right, _) = right.as_bigint_and_exponent();
                         Ok(ExprResult::Number(BigDecimal::from(left | &right)))
                     }
-                    operator => {
-                        return Err(QueryError::undefined_function(
-                            operator.to_string(),
-                            "NUMBER".to_owned(),
-                            "NUMBER".to_owned(),
-                        ))
-                    }
+                    operator => Err(QueryError::undefined_function(
+                        operator.to_string(),
+                        "NUMBER".to_owned(),
+                        "NUMBER".to_owned(),
+                    )),
                 },
                 (ExprResult::String(left), ExprResult::String(right)) => match op {
                     BinaryOperator::StringConcat => Ok(ExprResult::String(left + right.as_str())),
-                    operator => {
-                        return Err(QueryError::undefined_function(
-                            operator.to_string(),
-                            "STRING".to_owned(),
-                            "STRING".to_owned(),
-                        ))
-                    }
+                    operator => Err(QueryError::undefined_function(
+                        operator.to_string(),
+                        "STRING".to_owned(),
+                        "STRING".to_owned(),
+                    )),
                 },
                 (ExprResult::Number(left), ExprResult::String(right)) => match op {
                     BinaryOperator::StringConcat => Ok(ExprResult::String(left.to_string() + right.as_str())),
-                    operator => {
-                        return Err(QueryError::undefined_function(
-                            operator.to_string(),
-                            "NUMBER".to_owned(),
-                            "STRING".to_owned(),
-                        ))
-                    }
+                    operator => Err(QueryError::undefined_function(
+                        operator.to_string(),
+                        "NUMBER".to_owned(),
+                        "STRING".to_owned(),
+                    )),
                 },
                 (ExprResult::String(left), ExprResult::Number(right)) => match op {
                     BinaryOperator::StringConcat => Ok(ExprResult::String(left + right.to_string().as_str())),
-                    operator => {
-                        return Err(QueryError::undefined_function(
-                            operator.to_string(),
-                            "STRING".to_owned(),
-                            "NUMBER".to_owned(),
-                        ))
-                    }
+                    operator => Err(QueryError::undefined_function(
+                        operator.to_string(),
+                        "STRING".to_owned(),
+                        "NUMBER".to_owned(),
+                    )),
                 },
             }
         } else {
             match expr {
                 Expr::Value(Value::Number(v)) => Ok(ExprResult::Number(v.clone())),
                 Expr::Value(Value::SingleQuotedString(v)) => Ok(ExprResult::String(v.clone())),
-                e => return Err(QueryError::syntax_error(e.to_string())),
+                e => Err(QueryError::syntax_error(e.to_string())),
             }
         }
     }
