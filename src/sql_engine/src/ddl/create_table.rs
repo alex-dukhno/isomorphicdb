@@ -35,7 +35,6 @@ impl<P: BackendStorage> CreateTableCommand<P> {
     }
 
     pub(crate) fn execute(&mut self) -> SystemResult<QueryResult> {
-        let mut builder = QueryErrorBuilder::new();
         let table_name = self.name.0.pop().unwrap().to_string();
         let schema_name = self.name.0.pop().unwrap().to_string();
         match (self.storage.lock().unwrap()).create_table(
@@ -87,12 +86,10 @@ impl<P: BackendStorage> CreateTableCommand<P> {
         )? {
             Ok(()) => Ok(Ok(QueryEvent::TableCreated)),
             Err(CreateTableError::SchemaDoesNotExist) => {
-                builder.schema_does_not_exist(schema_name);
-                Ok(Err(builder.build()))
+                Ok(Err(QueryErrorBuilder::new().schema_does_not_exist(schema_name).build()))
             }
             Err(CreateTableError::TableAlreadyExists) => {
-                builder.table_already_exists(table_name);
-                Ok(Err(builder.build()))
+                Ok(Err(QueryErrorBuilder::new().table_already_exists(table_name).build()))
             }
         }
     }

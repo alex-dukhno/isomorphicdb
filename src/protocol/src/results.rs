@@ -151,11 +151,10 @@ impl QueryError {
     }
 
     pub(crate) fn into_messages(self) -> Vec<Message> {
-        let mut messages = Vec::with_capacity(self.errors.len());
-        for inner in self.errors.into_iter() {
-            messages.push(Message::ErrorResponse(inner.severity(), inner.code(), inner.message()))
-        }
-        messages
+        self.errors
+            .into_iter()
+            .map(|inner| Message::ErrorResponse(inner.severity(), inner.code(), inner.message()))
+            .collect::<Vec<_>>()
     }
 }
 
@@ -184,103 +183,106 @@ impl QueryErrorBuilder {
         QueryError::new(self.errors)
     }
 
+    // these error will stop the execution of the query; therefore there will only
+    // ever be one.
+
     /// schema already exists error constructor
-    pub fn schema_already_exists(&mut self, schema_name: String) {
-        let err = QueryErrorInner {
+    pub fn schema_already_exists(mut self, schema_name: String) -> Self {
+        self.errors.push(QueryErrorInner {
             severity: Severity::Error,
             code: "42P06".to_owned(),
             kind: QueryErrorKind::SchemaAlreadyExists(schema_name),
-        };
-        self.errors.push(err);
+        });
+        self
     }
 
     /// schema does not exist error constructor
-    pub fn schema_does_not_exist(&mut self, schema_name: String) {
-        let err = QueryErrorInner {
+    pub fn schema_does_not_exist(mut self, schema_name: String) -> Self {
+        self.errors.push(QueryErrorInner {
             severity: Severity::Error,
             code: "3F000".to_owned(),
             kind: QueryErrorKind::SchemaDoesNotExist(schema_name),
-        };
-        self.errors.push(err);
+        });
+        self
     }
 
     /// table already exists error constructor
-    pub fn table_already_exists(&mut self, table_name: String) {
-        let err = QueryErrorInner {
+    pub fn table_already_exists(mut self, table_name: String) -> Self {
+        self.errors.push(QueryErrorInner {
             severity: Severity::Error,
             code: "42P07".to_owned(),
             kind: QueryErrorKind::TableAlreadyExists(table_name),
-        };
-        self.errors.push(err);
+        });
+        self
     }
 
     /// table does not exist error constructor
-    pub fn table_does_not_exist(&mut self, table_name: String) {
-        let err = QueryErrorInner {
+    pub fn table_does_not_exist(mut self, table_name: String) -> Self {
+        self.errors.push(QueryErrorInner {
             severity: Severity::Error,
             code: "42P01".to_owned(),
             kind: QueryErrorKind::TableDoesNotExist(table_name),
-        };
-        self.errors.push(err);
+        });
+        self
     }
 
     /// column does not exists error constructor
-    pub fn column_does_not_exist(&mut self, non_existing_columns: Vec<String>) {
-        let err = QueryErrorInner {
+    pub fn column_does_not_exist(mut self, non_existing_columns: Vec<String>) -> Self {
+        self.errors.push(QueryErrorInner {
             severity: Severity::Error,
             code: "42703".to_owned(),
             kind: QueryErrorKind::ColumnDoesNotExist(non_existing_columns),
-        };
-        self.errors.push(err);
+        });
+        self
     }
 
     /// not supported operation error constructor
-    pub fn not_supported_operation(&mut self, raw_sql_query: String) {
-        let err = QueryErrorInner {
+    pub fn not_supported_operation(mut self, raw_sql_query: String) -> Self {
+        self.errors.push(QueryErrorInner {
             severity: Severity::Error,
             code: "42601".to_owned(),
             kind: QueryErrorKind::NotSupportedOperation(raw_sql_query),
-        };
-        self.errors.push(err);
+        });
+        self
     }
 
-    /// too many insert expressions errors constructor
-    pub fn too_many_insert_expressions(&mut self) {
-        let err = QueryErrorInner {
+    /// too many insert expressions errors constructors
+    pub fn too_many_insert_expressions(mut self) -> Self {
+        self.errors.push(QueryErrorInner {
             severity: Severity::Error,
             code: "42601".to_owned(),
             kind: QueryErrorKind::TooManyInsertExpressions,
-        };
-        self.errors.push(err);
+        });
+        self
     }
+
+    // These errors can be generated multiple at a time which is why they are &mut self
+    // and the rest are mut self.
 
     /// numeric out of range constructor
     pub fn out_of_range(&mut self, pg_type: PostgreSqlType) {
-        let err = QueryErrorInner {
+        self.errors.push(QueryErrorInner {
             severity: Severity::Error,
             code: "22003".to_owned(),
             kind: QueryErrorKind::NumericTypeOutOfRange(pg_type),
-        };
-        self.errors.push(err);
+        });
     }
 
     /// type mismatch constructor
     pub fn type_mismatch(&mut self, value: &str, pg_type: PostgreSqlType) {
-        let err = QueryErrorInner {
+        self.errors.push(QueryErrorInner {
             severity: Severity::Error,
             code: "2200G".to_owned(),
             kind: QueryErrorKind::DataTypeMismatch(pg_type, value.to_owned()),
-        };
-        self.errors.push(err);
+        });
     }
 
     /// length of string types do not match constructor
     pub fn string_length_mismatch(&mut self, pg_type: PostgreSqlType, len: u64) {
-        let err = QueryErrorInner {
+        self.errors.push(QueryErrorInner {
             severity: Severity::Error,
             code: "22026".to_owned(),
             kind: QueryErrorKind::StringTypeLengthMismatch(pg_type, len),
-        };
-        self.errors.push(err);
+        });
     }
 }

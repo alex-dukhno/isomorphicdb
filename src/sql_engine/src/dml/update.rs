@@ -42,7 +42,6 @@ impl<P: BackendStorage> UpdateCommand<'_, P> {
     }
 
     pub(crate) fn execute(&mut self) -> SystemResult<QueryResult> {
-        let mut builder = QueryErrorBuilder::new();
         let schema_name = self.name.0[0].to_string();
         let table_name = self.name.0[1].to_string();
 
@@ -72,31 +71,34 @@ impl<P: BackendStorage> UpdateCommand<'_, P> {
         match (self.storage.lock().unwrap()).update_all(&schema_name, &table_name, to_update)? {
             Ok(records_number) => Ok(Ok(QueryEvent::RecordsUpdated(records_number))),
             Err(OperationOnTableError::SchemaDoesNotExist) => {
-                builder.schema_does_not_exist(schema_name);
-                Ok(Err(builder.build()))
+                Ok(Err(QueryErrorBuilder::new().schema_does_not_exist(schema_name).build()))
             }
-            Err(OperationOnTableError::TableDoesNotExist) => {
-                builder.table_does_not_exist(schema_name + "." + table_name.as_str());
-                Ok(Err(builder.build()))
-            }
-            Err(OperationOnTableError::ColumnDoesNotExist(non_existing_columns)) => {
-                builder.column_does_not_exist(non_existing_columns);
-                Ok(Err(builder.build()))
-            }
+            Err(OperationOnTableError::TableDoesNotExist) => Ok(Err(QueryErrorBuilder::new()
+                .table_does_not_exist(schema_name + "." + table_name.as_str())
+                .build())),
+            Err(OperationOnTableError::ColumnDoesNotExist(non_existing_columns)) => Ok(Err(QueryErrorBuilder::new()
+                .column_does_not_exist(non_existing_columns)
+                .build())),
             Err(OperationOnTableError::ConstraintViolations(constraint_errors)) => {
+                let mut builder = QueryErrorBuilder::new();
                 let constraint_error_mapper = |(err, _, sql_type): &(ConstraintError, String, SqlType)| match err {
-                    ConstraintError::OutOfRange => builder.out_of_range(sql_type.to_pg_types()),
-                    ConstraintError::TypeMismatch(value) => builder.type_mismatch(value, sql_type.to_pg_types()),
-                    ConstraintError::ValueTooLong(len) => builder.string_length_mismatch(sql_type.to_pg_types(), *len),
+                    ConstraintError::OutOfRange => {
+                        builder.out_of_range(sql_type.to_pg_types());
+                    }
+                    ConstraintError::TypeMismatch(value) => {
+                        builder.type_mismatch(value, sql_type.to_pg_types());
+                    }
+                    ConstraintError::ValueTooLong(len) => {
+                        builder.string_length_mismatch(sql_type.to_pg_types(), *len);
+                    }
                 };
 
                 constraint_errors.iter().for_each(constraint_error_mapper);
                 Ok(Err(builder.build()))
             }
-            _ => {
-                builder.not_supported_operation(self.raw_sql_query.to_owned());
-                Ok(Err(builder.build()))
-            }
+            _ => Ok(Err(QueryErrorBuilder::new()
+                .not_supported_operation(self.raw_sql_query.to_owned())
+                .build())),
         }
     }
 }

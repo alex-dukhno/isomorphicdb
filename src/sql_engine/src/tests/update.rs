@@ -21,9 +21,9 @@ fn update_records_in_non_existent_table(mut sql_engine_with_schema: InMemorySqlE
         sql_engine_with_schema
             .execute("update schema_name.table_name set column_test=789;")
             .expect("no system errors"),
-        Err(QueryErrorBuilder::build_with(
-            |b| b.table_does_not_exist("schema_name.table_name".to_owned())
-        ))
+        Err(QueryErrorBuilder::new()
+            .table_does_not_exist("schema_name.table_name".to_owned())
+            .build())
     );
 }
 
@@ -235,9 +235,9 @@ fn update_records_in_nonexistent_table(mut sql_engine_with_schema: InMemorySqlEn
         sql_engine_with_schema
             .execute("update schema_name.table_name set column_test=789;")
             .expect("no system errors"),
-        Err(QueryErrorBuilder::build_with(
-            |b| b.table_does_not_exist("schema_name.table_name".to_owned())
-        ))
+        Err(QueryErrorBuilder::new()
+            .table_does_not_exist("schema_name.table_name".to_owned())
+            .build())
     );
 }
 
@@ -265,8 +265,8 @@ fn update_non_existent_columns_of_records(mut sql_engine_with_schema: InMemorySq
         sql_engine_with_schema
             .execute("update schema_name.table_name set col1=456, col2=789;")
             .expect("no system errors"),
-        Err(QueryErrorBuilder::build_with(
-            |b| b.column_does_not_exist(vec!["col1".to_owned(), "col2".to_owned()])
-        ))
+        Err(QueryErrorBuilder::new()
+            .column_does_not_exist(vec!["col1".to_owned(), "col2".to_owned()])
+            .build())
     );
 }

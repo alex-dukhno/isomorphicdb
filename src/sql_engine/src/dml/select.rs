@@ -41,7 +41,6 @@ impl<P: BackendStorage> SelectCommand<'_, P> {
     }
 
     pub(crate) fn execute(&mut self) -> SystemResult<QueryResult> {
-        let mut builder = QueryErrorBuilder::new();
         let sqlparser::ast::Query { body, .. } = &*self.query;
         if let sqlparser::ast::SetExpr::Select(select) = body {
             let sqlparser::ast::Select { projection, from, .. } = select.deref();
@@ -53,8 +52,9 @@ impl<P: BackendStorage> SelectCommand<'_, P> {
                     (schema_name, table_name)
                 }
                 _ => {
-                    builder.not_supported_operation(self.raw_sql_query.to_owned());
-                    return Ok(Err(builder.build()));
+                    return Ok(Err(QueryErrorBuilder::new()
+                        .not_supported_operation(self.raw_sql_query.to_owned())
+                        .build()))
                 }
             };
             let table_columns = {
@@ -76,8 +76,9 @@ impl<P: BackendStorage> SelectCommand<'_, P> {
                             sqlparser::ast::Ident { value, .. },
                         )) => columns.push(value.clone()),
                         _ => {
-                            builder.not_supported_operation(self.raw_sql_query.to_owned());
-                            return Ok(Err(builder.build()));
+                            return Ok(Err(QueryErrorBuilder::new()
+                                .not_supported_operation(self.raw_sql_query.to_owned())
+                                .build()));
                         }
                     }
                 }
@@ -93,25 +94,24 @@ impl<P: BackendStorage> SelectCommand<'_, P> {
                     records.1,
                 )))),
                 Err(OperationOnTableError::ColumnDoesNotExist(non_existing_columns)) => {
-                    builder.column_does_not_exist(non_existing_columns);
-                    Ok(Err(builder.build()))
+                    Ok(Err(QueryErrorBuilder::new()
+                        .column_does_not_exist(non_existing_columns)
+                        .build()))
                 }
-                Err(OperationOnTableError::SchemaDoesNotExist) => {
-                    builder.schema_does_not_exist(schema_name.to_owned());
-                    Ok(Err(builder.build()))
-                }
-                Err(OperationOnTableError::TableDoesNotExist) => {
-                    builder.table_does_not_exist(schema_name.to_owned() + "." + table_name.as_str());
-                    Ok(Err(builder.build()))
-                }
-                _ => {
-                    builder.not_supported_operation(self.raw_sql_query.to_owned());
-                    Ok(Err(builder.build()))
-                }
+                Err(OperationOnTableError::SchemaDoesNotExist) => Ok(Err(QueryErrorBuilder::new()
+                    .schema_does_not_exist(schema_name.to_owned())
+                    .build())),
+                Err(OperationOnTableError::TableDoesNotExist) => Ok(Err(QueryErrorBuilder::new()
+                    .table_does_not_exist(schema_name.to_owned() + "." + table_name.as_str())
+                    .build())),
+                _ => Ok(Err(QueryErrorBuilder::new()
+                    .not_supported_operation(self.raw_sql_query.to_owned())
+                    .build())),
             }
         } else {
-            builder.not_supported_operation(self.raw_sql_query.to_owned());
-            Ok(Err(builder.build()))
+            Ok(Err(QueryErrorBuilder::new()
+                .not_supported_operation(self.raw_sql_query.to_owned())
+                .build()))
         }
     }
 }

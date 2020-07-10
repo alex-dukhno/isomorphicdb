@@ -32,11 +32,7 @@ impl<P: BackendStorage> CreateSchemaCommand<P> {
         let schema_name = self.schema_name.to_string();
         match (self.storage.lock().unwrap()).create_schema(&schema_name)? {
             Ok(()) => Ok(Ok(QueryEvent::SchemaCreated)),
-            Err(SchemaAlreadyExists) => {
-                let mut builder = QueryErrorBuilder::new();
-                builder.schema_already_exists(schema_name);
-                Ok(Err(builder.build()))
-            }
+            Err(SchemaAlreadyExists) => Ok(Err(QueryErrorBuilder::new().schema_already_exists(schema_name).build())),
         }
     }
 }

@@ -32,11 +32,7 @@ impl<P: BackendStorage> DropSchemaCommand<P> {
         let schema_name = self.name.0[0].to_string();
         match (self.storage.lock().unwrap()).drop_schema(&schema_name)? {
             Ok(()) => Ok(Ok(QueryEvent::SchemaDropped)),
-            Err(SchemaDoesNotExist) => {
-                let mut builder = QueryErrorBuilder::new();
-                builder.schema_does_not_exist(schema_name);
-                Ok(Err(builder.build()))
-            }
+            Err(SchemaDoesNotExist) => Ok(Err(QueryErrorBuilder::new().schema_does_not_exist(schema_name).build())),
         }
     }
 }

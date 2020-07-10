@@ -38,27 +38,22 @@ impl<P: BackendStorage> DeleteCommand<'_, P> {
     }
 
     pub(crate) fn execute(&mut self) -> SystemResult<QueryResult> {
-        let mut builder = QueryErrorBuilder::new();
         let schema_name = self.name.0[0].to_string();
         let table_name = self.name.0[1].to_string();
         match (self.storage.lock().unwrap()).delete_all_from(&schema_name, &table_name)? {
             Ok(records_number) => Ok(Ok(QueryEvent::RecordsDeleted(records_number))),
             Err(OperationOnTableError::SchemaDoesNotExist) => {
-                builder.schema_does_not_exist(schema_name);
-                Ok(Err(builder.build()))
+                Ok(Err(QueryErrorBuilder::new().schema_does_not_exist(schema_name).build()))
             }
-            Err(OperationOnTableError::TableDoesNotExist) => {
-                builder.table_does_not_exist(schema_name + "." + table_name.as_str());
-                Ok(Err(builder.build()))
-            }
-            Err(OperationOnTableError::ColumnDoesNotExist(non_existing_columns)) => {
-                builder.column_does_not_exist(non_existing_columns);
-                Ok(Err(builder.build()))
-            }
-            _ => {
-                builder.not_supported_operation(self.raw_sql_query.to_owned());
-                Ok(Err(builder.build()))
-            }
+            Err(OperationOnTableError::TableDoesNotExist) => Ok(Err(QueryErrorBuilder::new()
+                .table_does_not_exist(schema_name + "." + table_name.as_str())
+                .build())),
+            Err(OperationOnTableError::ColumnDoesNotExist(non_existing_columns)) => Ok(Err(QueryErrorBuilder::new()
+                .column_does_not_exist(non_existing_columns)
+                .build())),
+            _ => Ok(Err(QueryErrorBuilder::new()
+                .not_supported_operation(self.raw_sql_query.to_owned())
+                .build())),
         }
     }
 }

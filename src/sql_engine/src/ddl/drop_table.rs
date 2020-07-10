@@ -29,18 +29,15 @@ impl<P: BackendStorage> DropTableCommand<P> {
     }
 
     pub(crate) fn execute(&mut self) -> SystemResult<QueryResult> {
-        let mut builder = QueryErrorBuilder::new();
         let table_name = self.name.0[1].to_string();
         let schema_name = self.name.0[0].to_string();
         match (self.storage.lock().unwrap()).drop_table(&schema_name, &table_name)? {
             Ok(()) => Ok(Ok(QueryEvent::TableDropped)),
-            Err(DropTableError::TableDoesNotExist) => {
-                builder.table_does_not_exist(schema_name + "." + table_name.as_str());
-                Ok(Err(builder.build()))
-            }
+            Err(DropTableError::TableDoesNotExist) => Ok(Err(QueryErrorBuilder::new()
+                .table_does_not_exist(schema_name + "." + table_name.as_str())
+                .build())),
             Err(DropTableError::SchemaDoesNotExist) => {
-                builder.schema_does_not_exist(schema_name);
-                Ok(Err(builder.build()))
+                Ok(Err(QueryErrorBuilder::new().schema_does_not_exist(schema_name).build()))
             }
         }
     }
