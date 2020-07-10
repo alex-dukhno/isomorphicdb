@@ -90,6 +90,33 @@ pub(crate) enum QueryErrorKind {
     StringTypeLengthMismatch(PostgreSqlType, u64),
 }
 
+impl Display for QueryErrorKind {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::SchemaAlreadyExists(schema_name) => write!(f, "schema \"{}\" already exists", schema_name),
+            Self::TableAlreadyExists(table_name) => write!(f, "table \"{}\" already exists", table_name),
+            Self::SchemaDoesNotExist(schema_name) => write!(f, "schema \"{}\" does not exist", schema_name),
+            Self::TableDoesNotExist(table_name) => write!(f, "table \"{}\" does not exist", table_name),
+            Self::ColumnDoesNotExist(columns) => {
+                if columns.len() > 1 {
+                    write!(f, "columns {} do not exist", columns.join(", "))
+                } else {
+                    write!(f, "column {} does not exist", columns[0])
+                }
+            }
+            Self::NotSupportedOperation(raw_sql_query) => {
+                write!(f, "Currently, Query '{}' can't be executed", raw_sql_query)
+            }
+            Self::TooManyInsertExpressions => write!(f, "INSERT has more epxressions then target columns"),
+            Self::NumericTypeOutOfRange(pg_type) => write!(f, "{} out of range", pg_type),
+            Self::DataTypeMismatch(pg_type, value) => {
+                write!(f, "invalid input syntax for type {}: \"{}\"", pg_type, value)
+            }
+            Self::StringTypeLengthMismatch(pg_type, len) => write!(f, "value too long for type {}({})", pg_type, len),
+        }
+    }
+}
+
 /// Represents error during query execution
 #[derive(Debug, PartialEq)]
 pub(crate) struct QueryErrorInner {
@@ -129,33 +156,6 @@ impl QueryError {
             messages.push(Message::ErrorResponse(inner.severity(), inner.code(), inner.message()))
         }
         messages
-    }
-}
-
-impl Display for QueryErrorKind {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::SchemaAlreadyExists(schema_name) => write!(f, "schema \"{}\" already exists", schema_name),
-            Self::TableAlreadyExists(table_name) => write!(f, "table \"{}\" already exists", table_name),
-            Self::SchemaDoesNotExist(schema_name) => write!(f, "schema \"{}\" does not exist", schema_name),
-            Self::TableDoesNotExist(table_name) => write!(f, "table \"{}\" does not exist", table_name),
-            Self::ColumnDoesNotExist(columns) => {
-                if columns.len() > 1 {
-                    write!(f, "columns {} do not exist", columns.join(", "))
-                } else {
-                    write!(f, "column {} does not exist", columns[0])
-                }
-            }
-            Self::NotSupportedOperation(raw_sql_query) => {
-                write!(f, "Currently, Query '{}' can't be executed", raw_sql_query)
-            }
-            Self::TooManyInsertExpressions => write!(f, "INSERT has more epxressions then target columns"),
-            Self::NumericTypeOutOfRange(pg_type) => write!(f, "{} out of range", pg_type),
-            Self::DataTypeMismatch(pg_type, value) => {
-                write!(f, "invalid input syntax for type {}: \"{}\"", pg_type, value)
-            }
-            Self::StringTypeLengthMismatch(pg_type, len) => write!(f, "value too long for type {}({})", pg_type, len),
-        }
     }
 }
 
