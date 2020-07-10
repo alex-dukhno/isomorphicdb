@@ -23,6 +23,13 @@ mod table;
 
 type PersistentStorage = FrontendStorage<SledBackendStorage>;
 
+fn column_definition(name: &'static str, sql_type: SqlType) -> ColumnDefinition {
+    ColumnDefinition {
+        name: name.to_owned(),
+        sql_type,
+    }
+}
+
 #[rstest::fixture]
 fn storage() -> PersistentStorage {
     FrontendStorage::default().expect("no system errors")

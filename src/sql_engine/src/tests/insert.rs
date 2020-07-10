@@ -26,6 +26,21 @@ fn insert_into_nonexistent_table(mut sql_engine_with_schema: InMemorySqlEngine) 
 }
 
 #[rstest::rstest]
+fn insert_value_in_non_existent_column(mut sql_engine_with_schema: InMemorySqlEngine) {
+    sql_engine_with_schema
+        .execute("create table schema_name.table_name (column_test smallint);")
+        .expect("no system errors")
+        .expect("table created");
+
+    assert_eq!(
+        sql_engine_with_schema
+            .execute("insert into schema_name.table_name (non_existent) values (123);")
+            .expect("no system errors"),
+        Err(QueryError::column_does_not_exist(vec!["non_existent".to_owned()]))
+    );
+}
+
+#[rstest::rstest]
 fn insert_and_select_single_row(mut sql_engine_with_schema: InMemorySqlEngine) {
     sql_engine_with_schema
         .execute("create table schema_name.table_name (column_test smallint);")

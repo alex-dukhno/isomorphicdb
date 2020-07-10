@@ -53,13 +53,13 @@ fn same_table_names_with_different_columns_in_different_schemas(mut storage: Per
         storage
             .table_columns("schema_name_1", "table_name")
             .expect("no system errors"),
-        vec![("sn_1_column".to_owned(), SqlType::SmallInt(i16::min_value()))]
+        vec![column_definition("sn_1_column", SqlType::SmallInt(i16::min_value()))]
     );
     assert_eq!(
         storage
             .table_columns("schema_name_2", "table_name")
             .expect("no system errors"),
-        vec![("sn_2_column".to_owned(), SqlType::BigInt(i64::min_value()))]
+        vec![column_definition("sn_2_column", SqlType::BigInt(i64::min_value()))]
     );
 }
 

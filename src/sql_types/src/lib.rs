@@ -474,6 +474,13 @@ mod tests {
                         Err(ConstraintError::TypeMismatch("str".to_owned()))
                     )
                 }
+
+                #[test]
+                fn min_bound() {
+                    let constraint = SqlType::SmallInt(0).constraint();
+
+                    assert_eq!(constraint.validate("-1"), Err(ConstraintError::OutOfRange))
+                }
             }
         }
 
@@ -541,6 +548,13 @@ mod tests {
                         constraint.validate("str"),
                         Err(ConstraintError::TypeMismatch("str".to_owned()))
                     )
+                }
+
+                #[test]
+                fn min_bound() {
+                    let constraint = SqlType::Integer(0).constraint();
+
+                    assert_eq!(constraint.validate("-1"), Err(ConstraintError::OutOfRange))
                 }
             }
         }
@@ -615,6 +629,13 @@ mod tests {
                         constraint.validate("str"),
                         Err(ConstraintError::TypeMismatch("str".to_owned()))
                     )
+                }
+
+                #[test]
+                fn min_bound() {
+                    let constraint = SqlType::BigInt(0).constraint();
+
+                    assert_eq!(constraint.validate("-1"), Err(ConstraintError::OutOfRange))
                 }
             }
         }

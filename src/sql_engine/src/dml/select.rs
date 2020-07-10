@@ -14,7 +14,7 @@
 
 use kernel::SystemResult;
 use protocol::results::{QueryError, QueryEvent, QueryResult};
-use sqlparser::ast::Query;
+use sqlparser::ast::{Expr, Ident, Query, SelectItem};
 use std::{
     ops::Deref,
     sync::{Arc, Mutex},
@@ -58,19 +58,17 @@ impl<P: BackendStorage> SelectCommand<'_, P> {
                 let mut columns: Vec<String> = vec![];
                 for item in projection {
                     match item {
-                        sqlparser::ast::SelectItem::Wildcard => {
+                        SelectItem::Wildcard => {
                             let all_columns =
                                 (self.storage.lock().unwrap()).table_columns(&schema_name, &table_name)?;
                             columns.extend(
                                 all_columns
                                     .into_iter()
-                                    .map(|(name, _sql_type)| name)
-                                    .collect::<Vec<String>>(),
+                                    .map(|column_definition| column_definition.name())
+                                    .collect::<Vec<_>>(),
                             )
                         }
-                        sqlparser::ast::SelectItem::UnnamedExpr(sqlparser::ast::Expr::Identifier(
-                            sqlparser::ast::Ident { value, .. },
-                        )) => columns.push(value.clone()),
+                        SelectItem::UnnamedExpr(Expr::Identifier(Ident { value, .. })) => columns.push(value.clone()),
                         _ => return Ok(Err(QueryError::not_supported_operation(self.raw_sql_query.to_owned()))),
                     }
                 }
@@ -81,7 +79,7 @@ impl<P: BackendStorage> SelectCommand<'_, P> {
                     records
                         .0
                         .into_iter()
-                        .map(|(name, sql_type)| (name, sql_type.to_pg_types()))
+                        .map(|column_definition| (column_definition.name(), column_definition.sql_type().to_pg_types()))
                         .collect(),
                     records.1,
                 )))),

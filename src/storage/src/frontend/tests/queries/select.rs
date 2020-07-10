@@ -47,7 +47,7 @@ fn select_from_table_that_does_not_exist(mut storage: PersistentStorage) {
         .table_columns("schema_name", "not_existed")
         .expect("no system errors")
         .into_iter()
-        .map(|(name, _sql_type)| name)
+        .map(|column_definition| column_definition.name())
         .collect();
 
     assert_eq!(
@@ -72,7 +72,7 @@ fn select_all_from_table_with_many_columns(mut with_small_ints_table: Persistent
         .table_columns("schema_name", "table_name")
         .expect("no system errors")
         .into_iter()
-        .map(|(name, _sql_type)| name)
+        .map(|column_definition| column_definition.name())
         .collect();
 
     assert_eq!(
@@ -81,9 +81,9 @@ fn select_all_from_table_with_many_columns(mut with_small_ints_table: Persistent
             .expect("no system errors"),
         Ok((
             vec![
-                ("column_1".to_owned(), SqlType::SmallInt(i16::min_value())),
-                ("column_2".to_owned(), SqlType::SmallInt(i16::min_value())),
-                ("column_3".to_owned(), SqlType::SmallInt(i16::min_value()))
+                column_definition("column_1", SqlType::SmallInt(i16::min_value())),
+                column_definition("column_2", SqlType::SmallInt(i16::min_value())),
+                column_definition("column_3", SqlType::SmallInt(i16::min_value()))
             ],
             vec![vec!["1".to_owned(), "2".to_owned(), "3".to_owned()]]
         ))
@@ -124,8 +124,8 @@ fn select_first_and_last_columns_from_table_with_multiple_columns(mut with_small
             .expect("no system errors"),
         Ok((
             vec![
-                ("column_1".to_owned(), SqlType::SmallInt(i16::min_value())),
-                ("column_3".to_owned(), SqlType::SmallInt(i16::min_value()))
+                column_definition("column_1", SqlType::SmallInt(i16::min_value())),
+                column_definition("column_3", SqlType::SmallInt(i16::min_value()))
             ],
             vec![
                 vec!["1".to_owned(), "3".to_owned()],
@@ -170,9 +170,9 @@ fn select_all_columns_reordered_from_table_with_multiple_columns(mut with_small_
             .expect("no system errors"),
         Ok((
             vec![
-                ("column_3".to_owned(), SqlType::SmallInt(i16::min_value())),
-                ("column_1".to_owned(), SqlType::SmallInt(i16::min_value())),
-                ("column_2".to_owned(), SqlType::SmallInt(i16::min_value()))
+                column_definition("column_3", SqlType::SmallInt(i16::min_value())),
+                column_definition("column_1", SqlType::SmallInt(i16::min_value())),
+                column_definition("column_2", SqlType::SmallInt(i16::min_value()))
             ],
             vec![
                 vec!["3".to_owned(), "1".to_owned(), "2".to_owned()],
@@ -223,11 +223,11 @@ fn select_with_column_name_duplication(mut with_small_ints_table: PersistentStor
             .expect("no system errors"),
         Ok((
             vec![
-                ("column_3".to_owned(), SqlType::SmallInt(i16::min_value())),
-                ("column_2".to_owned(), SqlType::SmallInt(i16::min_value())),
-                ("column_1".to_owned(), SqlType::SmallInt(i16::min_value())),
-                ("column_3".to_owned(), SqlType::SmallInt(i16::min_value())),
-                ("column_2".to_owned(), SqlType::SmallInt(i16::min_value()))
+                column_definition("column_3", SqlType::SmallInt(i16::min_value())),
+                column_definition("column_2", SqlType::SmallInt(i16::min_value())),
+                column_definition("column_1", SqlType::SmallInt(i16::min_value())),
+                column_definition("column_3", SqlType::SmallInt(i16::min_value())),
+                column_definition("column_2", SqlType::SmallInt(i16::min_value()))
             ],
             vec![
                 vec![
@@ -301,9 +301,9 @@ fn select_different_integer_types(mut storage: PersistentStorage) {
             .expect("no system errors"),
         Ok((
             vec![
-                ("small_int".to_owned(), SqlType::SmallInt(i16::min_value())),
-                ("integer".to_owned(), SqlType::Integer(i32::min_value())),
-                ("big_int".to_owned(), SqlType::BigInt(i64::min_value())),
+                column_definition("small_int", SqlType::SmallInt(i16::min_value())),
+                column_definition("integer", SqlType::Integer(i32::min_value())),
+                column_definition("big_int", SqlType::BigInt(i64::min_value())),
             ],
             vec![
                 vec!["1000".to_owned(), "2000000".to_owned(), "3000000000".to_owned()],
@@ -355,8 +355,8 @@ fn select_different_character_strings_types(mut storage: PersistentStorage) {
             .expect("no system errors"),
         Ok((
             vec![
-                ("char_10".to_owned(), SqlType::Char(10)),
-                ("var_char_20".to_owned(), SqlType::VarChar(20)),
+                column_definition("char_10", SqlType::Char(10)),
+                column_definition("var_char_20", SqlType::VarChar(20)),
             ],
             vec![
                 vec!["1234567890".to_owned(), "12345678901234567890".to_owned()],
