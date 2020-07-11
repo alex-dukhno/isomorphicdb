@@ -195,7 +195,6 @@ impl QueryErrorBuilder {
     // these error will stop the execution of the query; therefore there will only
     // ever be one.
 
-
     /// schema already exists error constructor
     pub fn schema_already_exists(mut self, schema_name: String) -> Self {
         self.errors.push(QueryErrorInner {
@@ -278,7 +277,7 @@ impl QueryErrorBuilder {
 
     /// operator or function is not found for operands
     pub fn undefined_function(mut self, operator: String, left_type: String, right_type: String) -> Self {
-        self.errors.push(QueryErrorInner{
+        self.errors.push(QueryErrorInner {
             severity: Severity::Error,
             code: "42883".to_owned(),
             kind: QueryErrorKind::UndefinedFunction(operator, left_type, right_type),

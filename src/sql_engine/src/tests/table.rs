@@ -63,7 +63,9 @@ fn create_same_table(mut sql_engine_with_schema: InMemorySqlEngine) {
         sql_engine_with_schema
             .execute("create table schema_name.table_name (column_name smallint);")
             .expect("no system errors"),
-        Err(QueryErrorBuilder::new().table_already_exists("schema_name.table_name".to_owned()).build())
+        Err(QueryErrorBuilder::new()
+            .table_already_exists("schema_name.table_name".to_owned())
+            .build())
     );
 }
 

@@ -25,7 +25,9 @@ fn create_same_schema(mut sql_engine: InMemorySqlEngine) {
         sql_engine
             .execute("create schema schema_name;")
             .expect("no system errors"),
-        Err(QueryErrorBuilder::new().schema_already_exists("schema_name".to_owned()).build())
+        Err(QueryErrorBuilder::new()
+            .schema_already_exists("schema_name".to_owned())
+            .build())
     )
 }
 
@@ -50,7 +52,9 @@ fn drop_non_existent_schema(mut sql_engine: InMemorySqlEngine) {
         sql_engine
             .execute("drop schema non_existent;")
             .expect("no system errors"),
-        Err(QueryErrorBuilder::new().schema_does_not_exist("non_existent".to_owned()).build())
+        Err(QueryErrorBuilder::new()
+            .schema_does_not_exist("non_existent".to_owned())
+            .build())
     )
 }
 

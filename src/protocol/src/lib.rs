@@ -461,11 +461,9 @@ mod tests {
         #[test]
         fn undefined_function() {
             assert_eq!(
-                QueryResultMapper::map(Err(QueryErrorBuilder::new().undefined_function(
-                    "||".to_owned(),
-                    "NUMBER".to_owned(),
-                    "NUMBER".to_owned()
-                ).build())),
+                QueryResultMapper::map(Err(QueryErrorBuilder::new()
+                    .undefined_function("||".to_owned(), "NUMBER".to_owned(), "NUMBER".to_owned())
+                    .build())),
                 vec![Message::ErrorResponse(
                     Some("ERROR".to_owned()),
                     Some("42883".to_owned()),
@@ -477,7 +475,9 @@ mod tests {
         #[test]
         fn syntax_error() {
             assert_eq!(
-                QueryResultMapper::map(Err(QueryErrorBuilder::new().syntax_error("expression".to_owned()).build())),
+                QueryResultMapper::map(Err(QueryErrorBuilder::new()
+                    .syntax_error("expression".to_owned())
+                    .build())),
                 vec![Message::ErrorResponse(
                     Some("ERROR".to_owned()),
                     Some("42601".to_owned()),

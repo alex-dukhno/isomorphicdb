@@ -14,7 +14,7 @@
 
 use kernel::SystemResult;
 use protocol::results::{QueryErrorBuilder, QueryEvent, QueryResult};
-use sqlparser::ast::{Query};
+use sqlparser::ast::Query;
 use std::{
     ops::Deref,
     sync::{Arc, Mutex},

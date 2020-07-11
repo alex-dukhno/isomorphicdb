@@ -14,10 +14,10 @@
 
 use kernel::SystemResult;
 use protocol::results::{QueryErrorBuilder, QueryEvent, QueryResult};
-use sql_types::{ConstraintError};
+use sql_types::ConstraintError;
 use sqlparser::ast::{Assignment, Expr, Ident, ObjectName, UnaryOperator, Value};
 use std::sync::{Arc, Mutex};
-use storage::{backend::BackendStorage, frontend::FrontendStorage, OperationOnTableError, ColumnDefinition};
+use storage::{backend::BackendStorage, frontend::FrontendStorage, ColumnDefinition, OperationOnTableError};
 
 pub(crate) struct UpdateCommand<'q, P: BackendStorage> {
     raw_sql_query: &'q str,
@@ -81,7 +81,8 @@ impl<P: BackendStorage> UpdateCommand<'_, P> {
                 .build())),
             Err(OperationOnTableError::ConstraintViolations(constraint_errors)) => {
                 let mut builder = QueryErrorBuilder::new();
-                let constraint_error_mapper = |(err, column_definition): &(ConstraintError, ColumnDefinition)| match err {
+                let constraint_error_mapper = |(err, column_definition): &(ConstraintError, ColumnDefinition)| match err
+                {
                     ConstraintError::OutOfRange => {
                         builder.out_of_range(column_definition.sql_type().to_pg_types());
                     }

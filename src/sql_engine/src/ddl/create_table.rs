@@ -73,7 +73,9 @@ impl<P: BackendStorage> CreateTableCommand<P> {
             }
             Err(CreateTableError::TableAlreadyExists) => {
                 // this is what the test expected. Also, there should maybe this name should already be generated somewhere.
-                Ok(Err(QueryErrorBuilder::new().table_already_exists(format!("{}.{}", schema_name, table_name)).build()))
+                Ok(Err(QueryErrorBuilder::new()
+                    .table_already_exists(format!("{}.{}", schema_name, table_name))
+                    .build()))
             }
         }
     }

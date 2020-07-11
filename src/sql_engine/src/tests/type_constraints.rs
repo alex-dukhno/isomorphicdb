@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use super::*;
-use protocol::{sql_types::PostgreSqlType, results::QueryErrorBuilder};
+use protocol::{results::QueryErrorBuilder, sql_types::PostgreSqlType};
 
 #[rstest::fixture]
 fn int_table(mut sql_engine_with_schema: InMemorySqlEngine) -> InMemorySqlEngine {

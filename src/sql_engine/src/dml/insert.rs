@@ -14,14 +14,14 @@
 
 use bigdecimal::BigDecimal;
 use kernel::SystemResult;
-use protocol::results::{QueryErrorBuilder, QueryError, QueryEvent, QueryResult};
-use sql_types::{ConstraintError};
+use protocol::results::{QueryError, QueryErrorBuilder, QueryEvent, QueryResult};
+use sql_types::ConstraintError;
 use sqlparser::ast::{BinaryOperator, DataType, Expr, Ident, ObjectName, Query, SetExpr, UnaryOperator, Value};
 use std::{
     ops::Deref,
     sync::{Arc, Mutex},
 };
-use storage::{backend::BackendStorage, frontend::FrontendStorage, OperationOnTableError, ColumnDefinition};
+use storage::{backend::BackendStorage, frontend::FrontendStorage, ColumnDefinition, OperationOnTableError};
 
 pub(crate) struct InsertCommand<'q, P: BackendStorage> {
     raw_sql_query: &'q str,
@@ -86,9 +86,9 @@ impl<P: BackendStorage> InsertCommand<'_, P> {
                                 "-".to_owned() + v.to_string().as_str()
                             }
                             (op, expr) => {
-                                return Ok(Err(QueryErrorBuilder::new().syntax_error(
-                                    op.to_string() + expr.to_string().as_str(),
-                                ).build()))
+                                return Ok(Err(QueryErrorBuilder::new()
+                                    .syntax_error(op.to_string() + expr.to_string().as_str())
+                                    .build()))
                             }
                         },
                         expr @ Expr::BinaryOp { .. } => match Self::eval(expr) {
@@ -118,17 +118,18 @@ impl<P: BackendStorage> InsertCommand<'_, P> {
                 }
                 Err(OperationOnTableError::ConstraintViolations(constraint_errors)) => {
                     let mut builder = QueryErrorBuilder::new();
-                    let constraint_error_mapper = |(err, column_definition): &(ConstraintError, ColumnDefinition)| match err {
-                        ConstraintError::OutOfRange => {
-                            builder.out_of_range(column_definition.sql_type().to_pg_types());
-                        }
-                        ConstraintError::TypeMismatch(value) => {
-                            builder.type_mismatch(value, column_definition.sql_type().to_pg_types());
-                        }
-                        ConstraintError::ValueTooLong(len) => {
-                            builder.string_length_mismatch(column_definition.sql_type().to_pg_types(), *len);
-                        }
-                    };
+                    let constraint_error_mapper =
+                        |(err, column_definition): &(ConstraintError, ColumnDefinition)| match err {
+                            ConstraintError::OutOfRange => {
+                                builder.out_of_range(column_definition.sql_type().to_pg_types());
+                            }
+                            ConstraintError::TypeMismatch(value) => {
+                                builder.type_mismatch(value, column_definition.sql_type().to_pg_types());
+                            }
+                            ConstraintError::ValueTooLong(len) => {
+                                builder.string_length_mismatch(column_definition.sql_type().to_pg_types(), *len);
+                            }
+                        };
 
                     constraint_errors.iter().for_each(constraint_error_mapper);
                     Ok(Err(builder.build()))
@@ -166,35 +167,27 @@ impl<P: BackendStorage> InsertCommand<'_, P> {
                         let (right, _) = right.as_bigint_and_exponent();
                         Ok(ExprResult::Number(BigDecimal::from(left | &right)))
                     }
-                    operator => Err(QueryErrorBuilder::new().undefined_function(
-                        operator.to_string(),
-                        "NUMBER".to_owned(),
-                        "NUMBER".to_owned(),
-                    ).build()),
+                    operator => Err(QueryErrorBuilder::new()
+                        .undefined_function(operator.to_string(), "NUMBER".to_owned(), "NUMBER".to_owned())
+                        .build()),
                 },
                 (ExprResult::String(left), ExprResult::String(right)) => match op {
                     BinaryOperator::StringConcat => Ok(ExprResult::String(left + right.as_str())),
-                    operator => Err(QueryErrorBuilder::new().undefined_function(
-                        operator.to_string(),
-                        "STRING".to_owned(),
-                        "STRING".to_owned(),
-                    ).build()),
+                    operator => Err(QueryErrorBuilder::new()
+                        .undefined_function(operator.to_string(), "STRING".to_owned(), "STRING".to_owned())
+                        .build()),
                 },
                 (ExprResult::Number(left), ExprResult::String(right)) => match op {
                     BinaryOperator::StringConcat => Ok(ExprResult::String(left.to_string() + right.as_str())),
-                    operator => Err(QueryErrorBuilder::new().undefined_function(
-                        operator.to_string(),
-                        "NUMBER".to_owned(),
-                        "STRING".to_owned(),
-                    ).build()),
+                    operator => Err(QueryErrorBuilder::new()
+                        .undefined_function(operator.to_string(), "NUMBER".to_owned(), "STRING".to_owned())
+                        .build()),
                 },
                 (ExprResult::String(left), ExprResult::Number(right)) => match op {
                     BinaryOperator::StringConcat => Ok(ExprResult::String(left + right.to_string().as_str())),
-                    operator => Err(QueryErrorBuilder::new().undefined_function(
-                        operator.to_string(),
-                        "STRING".to_owned(),
-                        "NUMBER".to_owned(),
-                    ).build()),
+                    operator => Err(QueryErrorBuilder::new()
+                        .undefined_function(operator.to_string(), "STRING".to_owned(), "NUMBER".to_owned())
+                        .build()),
                 },
             }
         } else {

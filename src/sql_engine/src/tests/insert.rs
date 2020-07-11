@@ -38,7 +38,9 @@ fn insert_value_in_non_existent_column(mut sql_engine_with_schema: InMemorySqlEn
         sql_engine_with_schema
             .execute("insert into schema_name.table_name (non_existent) values (123);")
             .expect("no system errors"),
-        Err(QueryErrorBuilder::new().column_does_not_exist(vec!["non_existent".to_owned()]).build())
+        Err(QueryErrorBuilder::new()
+            .column_does_not_exist(vec!["non_existent".to_owned()])
+            .build())
     );
 }
 
@@ -709,11 +711,9 @@ mod operators {
                 with_table
                     .execute("insert into schema_name.table_name values (1 || 2);")
                     .expect("no system errors"),
-                Err(QueryErrorBuilder::new().undefined_function(
-                    "||".to_owned(),
-                    "NUMBER".to_owned(),
-                    "NUMBER".to_owned()
-                ).build())
+                Err(QueryErrorBuilder::new()
+                    .undefined_function("||".to_owned(), "NUMBER".to_owned(), "NUMBER".to_owned())
+                    .build())
             );
         }
     }
