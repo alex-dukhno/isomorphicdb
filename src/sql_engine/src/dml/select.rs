@@ -14,7 +14,7 @@
 
 use kernel::SystemResult;
 use protocol::results::{QueryErrorBuilder, QueryEvent, QueryResult};
-use sqlparser::ast::Query;
+use sqlparser::ast::{Expr, Ident, Query, Select, SelectItem, SetExpr, TableFactor, TableWithJoins};
 use std::{
     ops::Deref,
     sync::{Arc, Mutex},
@@ -41,12 +41,12 @@ impl<P: BackendStorage> SelectCommand<'_, P> {
     }
 
     pub(crate) fn execute(&mut self) -> SystemResult<QueryResult> {
-        let sqlparser::ast::Query { body, .. } = &*self.query;
-        if let sqlparser::ast::SetExpr::Select(select) = body {
-            let sqlparser::ast::Select { projection, from, .. } = select.deref();
-            let sqlparser::ast::TableWithJoins { relation, .. } = &from[0];
+        let Query { body, .. } = &*self.query;
+        if let SetExpr::Select(select) = body {
+            let Select { projection, from, .. } = select.deref();
+            let TableWithJoins { relation, .. } = &from[0];
             let (schema_name, table_name) = match relation {
-                sqlparser::ast::TableFactor::Table { name, .. } => {
+                TableFactor::Table { name, .. } => {
                     let table_name = name.0[1].to_string();
                     let schema_name = name.0[0].to_string();
                     (schema_name, table_name)
@@ -62,7 +62,7 @@ impl<P: BackendStorage> SelectCommand<'_, P> {
                 let mut columns: Vec<String> = vec![];
                 for item in projection {
                     match item {
-                        sqlparser::ast::SelectItem::Wildcard => {
+                        SelectItem::Wildcard => {
                             let all_columns =
                                 (self.storage.lock().unwrap()).table_columns(&schema_name, &table_name)?;
                             columns.extend(
@@ -72,9 +72,7 @@ impl<P: BackendStorage> SelectCommand<'_, P> {
                                     .collect::<Vec<String>>(),
                             )
                         }
-                        sqlparser::ast::SelectItem::UnnamedExpr(sqlparser::ast::Expr::Identifier(
-                            sqlparser::ast::Ident { value, .. },
-                        )) => columns.push(value.clone()),
+                        SelectItem::UnnamedExpr(Expr::Identifier(Ident { value, .. })) => columns.push(value.clone()),
                         _ => {
                             return Ok(Err(QueryErrorBuilder::new()
                                 .feature_not_supported(self.raw_sql_query.to_owned())

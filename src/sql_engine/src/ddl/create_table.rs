@@ -40,7 +40,7 @@ impl<P: BackendStorage> CreateTableCommand<P> {
         let mut column_definitions = vec![];
         for column in self.columns.iter() {
             let name = column.name.to_string();
-            let sql_type = match c.data_type {
+            let sql_type = match &column.data_type {
                 DataType::SmallInt => SqlType::SmallInt(i16::min_value()),
                 DataType::Int => SqlType::Integer(i32::min_value()),
                 DataType::BigInt => SqlType::BigInt(i64::min_value()),

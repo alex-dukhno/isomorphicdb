@@ -12,11 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use protocol::results::{QueryError, QueryErrorBuilder};
 use protocol::sql_types::PostgreSqlType;
 use serde::{Deserialize, Serialize};
 use std::convert::TryInto;
-use std::intrinsics::unreachable;
 
 #[derive(PartialEq, Debug, Copy, Clone, Serialize, Deserialize)]
 pub enum SqlType {
@@ -38,20 +36,15 @@ pub enum SqlType {
 }
 
 impl SqlType {
-    pub fn constraint(&self) -> Result<Box<dyn Constraint>, QueryError> {
+    pub fn constraint(&self) -> Box<dyn Constraint> {
         match *self {
-            Self::Char(length) => Ok(Box::new(CharSqlTypeConstraint { length })),
-            Self::VarChar(length) => Ok(Box::new(VarCharSqlTypeConstraint { length })),
-            Self::SmallInt(min) => Ok(Box::new(SmallIntTypeConstraint { min })),
-            Self::Integer(min) => Ok(Box::new(IntegerSqlTypeConstraint { min })),
-            Self::BigInt(min) => Ok(Box::new(BigIntTypeConstraint { min })),
-            Self::Bool => Ok(Box::new(BoolSqlTypeConstraint)),
-            sql_type => Err(QueryErrorBuilder::new()
-                .feature_not_supported(format!(
-                    "Type constraint for {:?} is not currently implemented",
-                    sql_type
-                ))
-                .build()),
+            Self::Char(length) => Box::new(CharSqlTypeConstraint { length }),
+            Self::VarChar(length) => Box::new(VarCharSqlTypeConstraint { length }),
+            Self::SmallInt(min) => Box::new(SmallIntTypeConstraint { min }),
+            Self::Integer(min) => Box::new(IntegerSqlTypeConstraint { min }),
+            Self::BigInt(min) => Box::new(BigIntTypeConstraint { min }),
+            Self::Bool => Box::new(BoolSqlTypeConstraint),
+            sql_type => unimplemented!("Type constraint for {:?} is not currently implemented", sql_type),
         }
     }
 
@@ -63,12 +56,7 @@ impl SqlType {
             Self::Integer(_min) => Box::new(IntegerSqlTypeSerializer),
             Self::BigInt(_min) => Box::new(BigIntTypeSerializer),
             Self::Bool => Box::new(BoolSqlTypeSerializer),
-            sql_type => Err(QueryErrorBuilder::new()
-                .feature_not_supported(format!(
-                    "Type Serializer for {:?} is not currently implemented",
-                    sql_type
-                ))
-                .build()),
+            sql_type => unimplemented!("Type Serializer for {:?} is not currently implemented", sql_type),
         }
     }
 

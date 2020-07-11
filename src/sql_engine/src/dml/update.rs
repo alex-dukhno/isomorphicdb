@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::dml::ExpressionEvaluation;
 use kernel::SystemResult;
 use protocol::results::{QueryErrorBuilder, QueryEvent, QueryResult};
 use sql_types::ConstraintError;
@@ -60,6 +61,10 @@ impl<P: BackendStorage> UpdateCommand<'_, P> {
                             .syntax_error(op.to_string() + expr.to_string().as_str())
                             .build()))
                     }
+                },
+                expr @ Expr::BinaryOp { .. } => match ExpressionEvaluation::eval(expr) {
+                    Ok(expr_result) => expr_result.value(),
+                    Err(e) => return Ok(Err(e)),
                 },
                 expr => return Ok(Err(QueryErrorBuilder::new().syntax_error(expr.to_string()).build())),
             };

@@ -12,15 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use bigdecimal::BigDecimal;
+use crate::dml::ExpressionEvaluation;
 use kernel::SystemResult;
-use protocol::results::{QueryError, QueryErrorBuilder, QueryEvent, QueryResult};
+use protocol::results::{QueryErrorBuilder, QueryEvent, QueryResult};
 use sql_types::ConstraintError;
-use sqlparser::ast::{BinaryOperator, DataType, Expr, Ident, ObjectName, Query, SetExpr, UnaryOperator, Value};
-use std::{
-    ops::Deref,
-    sync::{Arc, Mutex},
-};
+use sqlparser::ast::{DataType, Expr, Ident, ObjectName, Query, SetExpr, UnaryOperator, Value};
+use std::sync::{Arc, Mutex};
 use storage::{backend::BackendStorage, frontend::FrontendStorage, ColumnDefinition, OperationOnTableError};
 
 pub(crate) struct InsertCommand<'q, P: BackendStorage> {
@@ -98,7 +95,7 @@ impl<P: BackendStorage> InsertCommand<'_, P> {
                                     .build()))
                             }
                         },
-                        expr @ Expr::BinaryOp { .. } => match Self::eval(expr) {
+                        expr @ Expr::BinaryOp { .. } => match ExpressionEvaluation::eval(expr) {
                             Ok(expr_result) => expr_result.value(),
                             Err(e) => return Ok(Err(e)),
                         },
@@ -149,74 +146,6 @@ impl<P: BackendStorage> InsertCommand<'_, P> {
             Ok(Err(QueryErrorBuilder::new()
                 .feature_not_supported(self.raw_sql_query.to_owned())
                 .build()))
-        }
-    }
-
-    fn eval(expr: &Expr) -> Result<ExprResult, QueryError> {
-        if let Expr::BinaryOp { op, left, right } = expr {
-            let left = Self::eval(left.deref())?;
-            let right = Self::eval(right.deref())?;
-            match (left, right) {
-                (ExprResult::Number(left), ExprResult::Number(right)) => match op {
-                    BinaryOperator::Plus => Ok(ExprResult::Number(left + right)),
-                    BinaryOperator::Minus => Ok(ExprResult::Number(left - right)),
-                    BinaryOperator::Multiply => Ok(ExprResult::Number(left * right)),
-                    BinaryOperator::Divide => Ok(ExprResult::Number(left / right)),
-                    BinaryOperator::Modulus => Ok(ExprResult::Number(left % right)),
-                    BinaryOperator::BitwiseAnd => {
-                        let (left, _) = left.as_bigint_and_exponent();
-                        let (right, _) = right.as_bigint_and_exponent();
-                        Ok(ExprResult::Number(BigDecimal::from(left & &right)))
-                    }
-                    BinaryOperator::BitwiseOr => {
-                        let (left, _) = left.as_bigint_and_exponent();
-                        let (right, _) = right.as_bigint_and_exponent();
-                        Ok(ExprResult::Number(BigDecimal::from(left | &right)))
-                    }
-                    operator => Err(QueryErrorBuilder::new()
-                        .undefined_function(operator.to_string(), "NUMBER".to_owned(), "NUMBER".to_owned())
-                        .build()),
-                },
-                (ExprResult::String(left), ExprResult::String(right)) => match op {
-                    BinaryOperator::StringConcat => Ok(ExprResult::String(left + right.as_str())),
-                    operator => Err(QueryErrorBuilder::new()
-                        .undefined_function(operator.to_string(), "STRING".to_owned(), "STRING".to_owned())
-                        .build()),
-                },
-                (ExprResult::Number(left), ExprResult::String(right)) => match op {
-                    BinaryOperator::StringConcat => Ok(ExprResult::String(left.to_string() + right.as_str())),
-                    operator => Err(QueryErrorBuilder::new()
-                        .undefined_function(operator.to_string(), "NUMBER".to_owned(), "STRING".to_owned())
-                        .build()),
-                },
-                (ExprResult::String(left), ExprResult::Number(right)) => match op {
-                    BinaryOperator::StringConcat => Ok(ExprResult::String(left + right.to_string().as_str())),
-                    operator => Err(QueryErrorBuilder::new()
-                        .undefined_function(operator.to_string(), "STRING".to_owned(), "NUMBER".to_owned())
-                        .build()),
-                },
-            }
-        } else {
-            match expr {
-                Expr::Value(Value::Number(v)) => Ok(ExprResult::Number(v.clone())),
-                Expr::Value(Value::SingleQuotedString(v)) => Ok(ExprResult::String(v.clone())),
-                e => Err(QueryErrorBuilder::new().syntax_error(e.to_string()).build()),
-            }
-        }
-    }
-}
-
-#[derive(Debug)]
-enum ExprResult {
-    Number(BigDecimal),
-    String(String),
-}
-
-impl ExprResult {
-    fn value(self) -> String {
-        match self {
-            Self::Number(v) => v.to_string(),
-            Self::String(v) => v,
         }
     }
 }
