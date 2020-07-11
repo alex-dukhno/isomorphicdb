@@ -79,7 +79,14 @@ impl<P: BackendStorage> InsertCommand<'_, P> {
                         Expr::Cast { expr, data_type } => match (&**expr, data_type) {
                             (Expr::Value(Value::Boolean(v)), DataType::Boolean) => v.to_string(),
                             (Expr::Value(Value::SingleQuotedString(v)), DataType::Boolean) => v.to_string(),
-                            _ => unimplemented!("Cast from {:?} to {:?} is not currently supported", expr, data_type),
+                            _ => {
+                                return Ok(Err(QueryErrorBuilder::new()
+                                    .syntax_error(format!(
+                                        "Cast from {:?} to {:?} is not currently supported",
+                                        expr, data_type
+                                    ))
+                                    .build()))
+                            }
                         },
                         Expr::UnaryOp { op, expr } => match (op, &**expr) {
                             (UnaryOperator::Minus, Expr::Value(Value::Number(v))) => {
@@ -134,14 +141,13 @@ impl<P: BackendStorage> InsertCommand<'_, P> {
                     constraint_errors.iter().for_each(constraint_error_mapper);
                     Ok(Err(builder.build()))
                 }
-                Err(e) => {
-                    eprintln!("{:?}", e);
-                    unimplemented!()
+                Err(OperationOnTableError::InsertTooManyExpressions) => {
+                    Ok(Err(QueryErrorBuilder::new().too_many_insert_expressions().build()))
                 }
             }
         } else {
             Ok(Err(QueryErrorBuilder::new()
-                .not_supported_operation(self.raw_sql_query.to_owned())
+                .feature_not_supported(self.raw_sql_query.to_owned())
                 .build()))
         }
     }

@@ -79,7 +79,7 @@ pub(crate) enum Message {
     EmptyQueryResponse,
     /// An error has occurred. Contains (`Severity`, `Error Code`, `Error Message`)
     /// all of them are optional
-    ErrorResponse(Option<String>, Option<String>, Option<String>),
+    ErrorResponse(Option<&'static str>, Option<&'static str>, Option<String>),
     /// This message informs the frontend about the current (initial) setting of
     /// backend parameters, such as client_encoding or DateStyle
     ///

@@ -53,7 +53,7 @@ impl<P: BackendStorage> SelectCommand<'_, P> {
                 }
                 _ => {
                     return Ok(Err(QueryErrorBuilder::new()
-                        .not_supported_operation(self.raw_sql_query.to_owned())
+                        .feature_not_supported(self.raw_sql_query.to_owned())
                         .build()))
                 }
             };
@@ -77,7 +77,7 @@ impl<P: BackendStorage> SelectCommand<'_, P> {
                         )) => columns.push(value.clone()),
                         _ => {
                             return Ok(Err(QueryErrorBuilder::new()
-                                .not_supported_operation(self.raw_sql_query.to_owned())
+                                .feature_not_supported(self.raw_sql_query.to_owned())
                                 .build()));
                         }
                     }
@@ -105,12 +105,12 @@ impl<P: BackendStorage> SelectCommand<'_, P> {
                     .table_does_not_exist(schema_name.to_owned() + "." + table_name.as_str())
                     .build())),
                 _ => Ok(Err(QueryErrorBuilder::new()
-                    .not_supported_operation(self.raw_sql_query.to_owned())
+                    .feature_not_supported(self.raw_sql_query.to_owned())
                     .build())),
             }
         } else {
             Ok(Err(QueryErrorBuilder::new()
-                .not_supported_operation(self.raw_sql_query.to_owned())
+                .feature_not_supported(self.raw_sql_query.to_owned())
                 .build()))
         }
     }

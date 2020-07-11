@@ -317,8 +317,8 @@ mod tests {
                     .schema_already_exists(schema_name.clone())
                     .build())),
                 vec![Message::ErrorResponse(
-                    Some("ERROR".to_owned()),
-                    Some("42P06".to_owned()),
+                    Some("ERROR"),
+                    Some("42P06"),
                     Some(format!("schema \"{}\" already exists", schema_name)),
                 )]
             )
@@ -332,8 +332,8 @@ mod tests {
                     .schema_does_not_exist(schema_name.clone())
                     .build())),
                 vec![Message::ErrorResponse(
-                    Some("ERROR".to_owned()),
-                    Some("3F000".to_owned()),
+                    Some("ERROR"),
+                    Some("3F000"),
                     Some(format!("schema \"{}\" does not exist", schema_name)),
                 )]
             )
@@ -347,8 +347,8 @@ mod tests {
                     .table_already_exists(table_name.clone())
                     .build())),
                 vec![Message::ErrorResponse(
-                    Some("ERROR".to_owned()),
-                    Some("42P07".to_owned()),
+                    Some("ERROR"),
+                    Some("42P07"),
                     Some(format!("table \"{}\" already exists", table_name)),
                 )]
             )
@@ -362,8 +362,8 @@ mod tests {
                     .table_does_not_exist(table_name.clone())
                     .build())),
                 vec![Message::ErrorResponse(
-                    Some("ERROR".to_owned()),
-                    Some("42P01".to_owned()),
+                    Some("ERROR"),
+                    Some("42P01"),
                     Some(format!("table \"{}\" does not exist", table_name)),
                 )]
             )
@@ -376,8 +376,8 @@ mod tests {
                     .column_does_not_exist(vec!["column_not_in_table".to_owned()])
                     .build())),
                 vec![Message::ErrorResponse(
-                    Some("ERROR".to_owned()),
-                    Some("42703".to_owned()),
+                    Some("ERROR"),
+                    Some("42703"),
                     Some("column column_not_in_table does not exist".to_owned()),
                 )]
             )
@@ -393,23 +393,23 @@ mod tests {
                     ])
                     .build())),
                 vec![Message::ErrorResponse(
-                    Some("ERROR".to_owned()),
-                    Some("42703".to_owned()),
+                    Some("ERROR"),
+                    Some("42703"),
                     Some("columns column_not_in_table1, column_not_in_table2 do not exist".to_owned()),
                 )]
             )
         }
 
         #[test]
-        fn operation_is_not_supported() {
+        fn feature_not_supported() {
             let raw_sql_query = "some SQL query".to_owned();
             assert_eq!(
                 QueryResultMapper::map(Err(QueryErrorBuilder::new()
-                    .not_supported_operation(raw_sql_query.clone())
+                    .feature_not_supported(raw_sql_query.clone())
                     .build())),
                 vec![Message::ErrorResponse(
-                    Some("ERROR".to_owned()),
-                    Some("42601".to_owned()),
+                    Some("ERROR"),
+                    Some("0A000"),
                     Some(format!("Currently, Query '{}' can't be executed", raw_sql_query)),
                 )]
             )
@@ -423,8 +423,8 @@ mod tests {
             assert_eq!(
                 QueryResultMapper::map(Err(builder.build())),
                 vec![Message::ErrorResponse(
-                    Some("ERROR".to_owned()),
-                    Some("22003".to_owned()),
+                    Some("ERROR"),
+                    Some("22003"),
                     Some("smallint out of range".to_owned())
                 )]
             )
@@ -437,8 +437,8 @@ mod tests {
             assert_eq!(
                 QueryResultMapper::map(Err(builder.build())),
                 vec![Message::ErrorResponse(
-                    Some("ERROR".to_owned()),
-                    Some("2200G".to_owned()),
+                    Some("ERROR"),
+                    Some("2200G"),
                     Some("invalid input syntax for type smallint: \"abc\"".to_owned())
                 )]
             )
@@ -451,8 +451,8 @@ mod tests {
             assert_eq!(
                 QueryResultMapper::map(Err(builder.build())),
                 vec![Message::ErrorResponse(
-                    Some("ERROR".to_owned()),
-                    Some("22026".to_owned()),
+                    Some("ERROR"),
+                    Some("22026"),
                     Some("value too long for type character(5)".to_owned())
                 )]
             )
@@ -465,8 +465,8 @@ mod tests {
                     .undefined_function("||".to_owned(), "NUMBER".to_owned(), "NUMBER".to_owned())
                     .build())),
                 vec![Message::ErrorResponse(
-                    Some("ERROR".to_owned()),
-                    Some("42883".to_owned()),
+                    Some("ERROR"),
+                    Some("42883"),
                     Some("operator does not exist: (NUMBER || NUMBER)".to_owned())
                 )]
             )
@@ -479,8 +479,8 @@ mod tests {
                     .syntax_error("expression".to_owned())
                     .build())),
                 vec![Message::ErrorResponse(
-                    Some("ERROR".to_owned()),
-                    Some("42601".to_owned()),
+                    Some("ERROR"),
+                    Some("42601"),
                     Some("syntax error in expression".to_owned())
                 )]
             )

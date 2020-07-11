@@ -52,7 +52,7 @@ impl<P: BackendStorage> DeleteCommand<'_, P> {
                 .column_does_not_exist(non_existing_columns)
                 .build())),
             _ => Ok(Err(QueryErrorBuilder::new()
-                .not_supported_operation(self.raw_sql_query.to_owned())
+                .feature_not_supported(self.raw_sql_query.to_owned())
                 .build())),
         }
     }
