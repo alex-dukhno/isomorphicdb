@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+extern crate bigdecimal;
 extern crate log;
 
 use crate::{
@@ -22,7 +23,7 @@ use crate::{
     dml::{delete::DeleteCommand, insert::InsertCommand, select::SelectCommand, update::UpdateCommand},
 };
 use kernel::SystemResult;
-use protocol::results::{QueryError, QueryEvent, QueryResult};
+use protocol::results::{QueryErrorBuilder, QueryEvent, QueryResult};
 
 use sqlparser::{
     ast::{ObjectType, Statement},
@@ -50,7 +51,9 @@ impl<P: BackendStorage> Handler<P> {
             Ok(mut statements) => statements.pop().unwrap(),
             Err(e) => {
                 log::error!("{:?} can't be parsed. Error: {:?}", raw_sql_query, e);
-                unimplemented!("PANIC!!! Ah-a-a-a")
+                return Ok(Err(QueryErrorBuilder::new()
+                    .syntax_error(format!("{:?} can't be parsed", raw_sql_query))
+                    .build()));
             }
         };
         log::debug!("STATEMENT = {:?}", statement);
@@ -66,7 +69,9 @@ impl<P: BackendStorage> Handler<P> {
             Statement::Drop { object_type, names, .. } => match object_type {
                 ObjectType::Table => DropTableCommand::new(names[0].clone(), self.storage.clone()).execute(),
                 ObjectType::Schema => DropSchemaCommand::new(names[0].clone(), self.storage.clone()).execute(),
-                _ => Ok(Err(QueryError::not_supported_operation(raw_sql_query.to_owned()))),
+                _ => Ok(Err(QueryErrorBuilder::new()
+                    .feature_not_supported(raw_sql_query.to_owned())
+                    .build())),
             },
             Statement::Insert {
                 table_name,
@@ -83,7 +88,9 @@ impl<P: BackendStorage> Handler<P> {
             Statement::Delete { table_name, .. } => {
                 DeleteCommand::new(raw_sql_query, table_name, self.storage.clone()).execute()
             }
-            _ => Ok(Err(QueryError::not_supported_operation(raw_sql_query.to_owned()))),
+            _ => Ok(Err(QueryErrorBuilder::new()
+                .feature_not_supported(raw_sql_query.to_owned())
+                .build())),
         }
     }
 }

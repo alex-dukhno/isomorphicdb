@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use kernel::SystemResult;
-use protocol::results::{QueryError, QueryEvent, QueryResult};
+use protocol::results::{QueryErrorBuilder, QueryEvent, QueryResult};
 use sqlparser::ast::ObjectName;
 use std::sync::{Arc, Mutex};
 use storage::{backend::BackendStorage, frontend::FrontendStorage, DropTableError};
@@ -33,10 +33,12 @@ impl<P: BackendStorage> DropTableCommand<P> {
         let schema_name = self.name.0[0].to_string();
         match (self.storage.lock().unwrap()).drop_table(&schema_name, &table_name)? {
             Ok(()) => Ok(Ok(QueryEvent::TableDropped)),
-            Err(DropTableError::TableDoesNotExist) => Ok(Err(QueryError::table_does_not_exist(
-                schema_name + "." + table_name.as_str(),
-            ))),
-            Err(DropTableError::SchemaDoesNotExist) => Ok(Err(QueryError::schema_does_not_exist(schema_name))),
+            Err(DropTableError::TableDoesNotExist) => Ok(Err(QueryErrorBuilder::new()
+                .table_does_not_exist(schema_name + "." + table_name.as_str())
+                .build())),
+            Err(DropTableError::SchemaDoesNotExist) => {
+                Ok(Err(QueryErrorBuilder::new().schema_does_not_exist(schema_name).build()))
+            }
         }
     }
 }

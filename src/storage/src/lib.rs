@@ -16,12 +16,13 @@ extern crate kernel;
 extern crate log;
 extern crate sql_types;
 
+use serde::{Deserialize, Serialize};
 use sql_types::{ConstraintError, SqlType};
 
 pub mod backend;
 pub mod frontend;
 
-pub type Projection = (Vec<(String, sql_types::SqlType)>, Vec<Vec<String>>);
+pub type Projection = (Vec<ColumnDefinition>, Vec<Vec<String>>);
 
 #[derive(Debug, PartialEq)]
 pub struct SchemaAlreadyExists;
@@ -47,5 +48,69 @@ pub enum OperationOnTableError {
     InsertTooManyExpressions,
     // Returns non existing columns.
     ColumnDoesNotExist(Vec<String>),
-    ConstraintViolations(Vec<(ConstraintError, String, SqlType)>),
+    ConstraintViolations(Vec<(ConstraintError, ColumnDefinition)>),
+}
+
+#[derive(Debug, Clone)]
+pub struct TableDescription {
+    schema_name: String,
+    table_name: String,
+    column_data: Vec<ColumnDefinition>,
+}
+
+impl TableDescription {
+    pub fn new(schema_name: &str, table_name: &str, column_data: Vec<ColumnDefinition>) -> Self {
+        Self {
+            schema_name: schema_name.to_owned(),
+            table_name: table_name.to_owned(),
+            column_data
+        }
+    }
+
+    pub fn num_columns(&self) -> usize {
+        self.column_data.len()
+    }
+
+    pub fn column_type(&self, column_idx: usize) -> SqlType {
+        if let Some(column) = self.column_data.get(column_idx) {
+            column.sql_type
+        }
+        else { panic!("attempting to access type of invalid column index") }
+    }
+
+    pub fn column_type_by_name(&self, name: &str) -> Option<SqlType> {
+        self.column_data.iter().find(|column| column.name == name).map(|column| column.sql_type)
+    }
+
+    pub fn scheme(&self) -> &str {
+        self.schema_name.as_str()
+    }
+
+    pub fn table(&self) -> &str {
+        self.table_name.as_str()
+    }
+
+    pub fn full_name(&self) -> String {
+        format!("{}.{}", self.schema_name, self.table_name)
+    }
+}
+
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+pub struct ColumnDefinition {
+    name: String,
+    sql_type: SqlType,
+}
+
+impl ColumnDefinition {
+    pub fn sql_type(&self) -> SqlType {
+        self.sql_type
+    }
+
+    fn has_name(&self, other_name: &str) -> bool {
+        self.name == other_name
+    }
+
+    pub fn name(&self) -> String {
+        self.name.clone()
+    }
 }

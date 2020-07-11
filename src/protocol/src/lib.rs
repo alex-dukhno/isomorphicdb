@@ -222,10 +222,7 @@ mod tests {
     #[cfg(test)]
     mod mapper {
         use super::*;
-        use crate::{
-            results::{ConstraintViolation, QueryError},
-            sql_types::PostgreSqlType,
-        };
+        use crate::{results::QueryErrorBuilder, sql_types::PostgreSqlType};
 
         #[test]
         fn create_schema() {
@@ -316,10 +313,12 @@ mod tests {
         fn schema_already_exists() {
             let schema_name = "some_table_name".to_owned();
             assert_eq!(
-                QueryResultMapper::map(Err(QueryError::schema_already_exists(schema_name.clone()))),
+                QueryResultMapper::map(Err(QueryErrorBuilder::new()
+                    .schema_already_exists(schema_name.clone())
+                    .build())),
                 vec![Message::ErrorResponse(
-                    Some("ERROR".to_owned()),
-                    Some("42P06".to_owned()),
+                    Some("ERROR"),
+                    Some("42P06"),
                     Some(format!("schema \"{}\" already exists", schema_name)),
                 )]
             )
@@ -329,10 +328,12 @@ mod tests {
         fn schema_does_not_exists() {
             let schema_name = "some_table_name".to_owned();
             assert_eq!(
-                QueryResultMapper::map(Err(QueryError::schema_does_not_exist(schema_name.clone()))),
+                QueryResultMapper::map(Err(QueryErrorBuilder::new()
+                    .schema_does_not_exist(schema_name.clone())
+                    .build())),
                 vec![Message::ErrorResponse(
-                    Some("ERROR".to_owned()),
-                    Some("3F000".to_owned()),
+                    Some("ERROR"),
+                    Some("3F000"),
                     Some(format!("schema \"{}\" does not exist", schema_name)),
                 )]
             )
@@ -342,10 +343,12 @@ mod tests {
         fn table_already_exists() {
             let table_name = "some_table_name".to_owned();
             assert_eq!(
-                QueryResultMapper::map(Err(QueryError::table_already_exists(table_name.clone()))),
+                QueryResultMapper::map(Err(QueryErrorBuilder::new()
+                    .table_already_exists(table_name.clone())
+                    .build())),
                 vec![Message::ErrorResponse(
-                    Some("ERROR".to_owned()),
-                    Some("42P07".to_owned()),
+                    Some("ERROR"),
+                    Some("42P07"),
                     Some(format!("table \"{}\" already exists", table_name)),
                 )]
             )
@@ -355,10 +358,12 @@ mod tests {
         fn table_does_not_exists() {
             let table_name = "some_table_name".to_owned();
             assert_eq!(
-                QueryResultMapper::map(Err(QueryError::table_does_not_exist(table_name.clone()))),
+                QueryResultMapper::map(Err(QueryErrorBuilder::new()
+                    .table_does_not_exist(table_name.clone())
+                    .build())),
                 vec![Message::ErrorResponse(
-                    Some("ERROR".to_owned()),
-                    Some("42P01".to_owned()),
+                    Some("ERROR"),
+                    Some("42P01"),
                     Some(format!("table \"{}\" does not exist", table_name)),
                 )]
             )
@@ -367,12 +372,12 @@ mod tests {
         #[test]
         fn one_column_does_not_exists() {
             assert_eq!(
-                QueryResultMapper::map(Err(QueryError::column_does_not_exist(vec![
-                    "column_not_in_table".to_owned()
-                ]))),
+                QueryResultMapper::map(Err(QueryErrorBuilder::new()
+                    .column_does_not_exist(vec!["column_not_in_table".to_owned()])
+                    .build())),
                 vec![Message::ErrorResponse(
-                    Some("ERROR".to_owned()),
-                    Some("42703".to_owned()),
+                    Some("ERROR"),
+                    Some("42703"),
                     Some("column column_not_in_table does not exist".to_owned()),
                 )]
             )
@@ -381,40 +386,57 @@ mod tests {
         #[test]
         fn multiple_columns_does_not_exists() {
             assert_eq!(
-                QueryResultMapper::map(Err(QueryError::column_does_not_exist(vec![
-                    "column_not_in_table1".to_owned(),
-                    "column_not_in_table2".to_owned()
-                ]))),
+                QueryResultMapper::map(Err(QueryErrorBuilder::new()
+                    .column_does_not_exist(vec![
+                        "column_not_in_table1".to_owned(),
+                        "column_not_in_table2".to_owned()
+                    ])
+                    .build())),
                 vec![Message::ErrorResponse(
-                    Some("ERROR".to_owned()),
-                    Some("42703".to_owned()),
+                    Some("ERROR"),
+                    Some("42703"),
                     Some("columns column_not_in_table1, column_not_in_table2 do not exist".to_owned()),
                 )]
             )
         }
 
         #[test]
-        fn operation_is_not_supported() {
+        fn feature_not_supported() {
             let raw_sql_query = "some SQL query".to_owned();
             assert_eq!(
-                QueryResultMapper::map(Err(QueryError::not_supported_operation(raw_sql_query.clone()))),
+                QueryResultMapper::map(Err(QueryErrorBuilder::new()
+                    .feature_not_supported(raw_sql_query.clone())
+                    .build())),
                 vec![Message::ErrorResponse(
-                    Some("ERROR".to_owned()),
-                    Some("42601".to_owned()),
+                    Some("ERROR"),
+                    Some("0A000"),
                     Some(format!("Currently, Query '{}' can't be executed", raw_sql_query)),
                 )]
             )
         }
 
         #[test]
-        fn out_of_range_constraint_violation() {
+        fn too_many_insert_expressions() {
             assert_eq!(
-                QueryResultMapper::map(Err(QueryError::constraint_violations(vec![
-                    ConstraintViolation::out_of_range(PostgreSqlType::SmallInt)
-                ]))),
+                QueryResultMapper::map(Err(QueryErrorBuilder::new().too_many_insert_expressions().build())),
                 vec![Message::ErrorResponse(
-                    Some("ERROR".to_owned()),
-                    Some("22003".to_owned()),
+                    Some("ERROR"),
+                    Some("42601"),
+                    Some("INSERT has more expressions then target columns".to_owned()),
+                )]
+            )
+        }
+
+        #[test]
+        fn out_of_range_constraint_violation() {
+            let mut builder = QueryErrorBuilder::new();
+            builder.out_of_range(PostgreSqlType::SmallInt);
+
+            assert_eq!(
+                QueryResultMapper::map(Err(builder.build())),
+                vec![Message::ErrorResponse(
+                    Some("ERROR"),
+                    Some("22003"),
                     Some("smallint out of range".to_owned())
                 )]
             )
@@ -422,13 +444,13 @@ mod tests {
 
         #[test]
         fn type_mismatch_constraint_violation() {
+            let mut builder = QueryErrorBuilder::new();
+            builder.type_mismatch("abc", PostgreSqlType::SmallInt);
             assert_eq!(
-                QueryResultMapper::map(Err(QueryError::constraint_violations(vec![
-                    ConstraintViolation::type_mismatch("abc", PostgreSqlType::SmallInt)
-                ]))),
+                QueryResultMapper::map(Err(builder.build())),
                 vec![Message::ErrorResponse(
-                    Some("ERROR".to_owned()),
-                    Some("2200G".to_owned()),
+                    Some("ERROR"),
+                    Some("2200G"),
                     Some("invalid input syntax for type smallint: \"abc\"".to_owned())
                 )]
             )
@@ -436,14 +458,42 @@ mod tests {
 
         #[test]
         fn string_length_mismatch_constraint_violation() {
+            let mut builder = QueryErrorBuilder::new();
+            builder.string_length_mismatch(PostgreSqlType::Char, 5);
             assert_eq!(
-                QueryResultMapper::map(Err(QueryError::constraint_violations(vec![
-                    ConstraintViolation::string_length_mismatch(PostgreSqlType::Char, 5)
-                ]))),
+                QueryResultMapper::map(Err(builder.build())),
                 vec![Message::ErrorResponse(
-                    Some("ERROR".to_owned()),
-                    Some("22026".to_owned()),
+                    Some("ERROR"),
+                    Some("22026"),
                     Some("value too long for type character(5)".to_owned())
+                )]
+            )
+        }
+
+        #[test]
+        fn undefined_function() {
+            assert_eq!(
+                QueryResultMapper::map(Err(QueryErrorBuilder::new()
+                    .undefined_function("||".to_owned(), "NUMBER".to_owned(), "NUMBER".to_owned())
+                    .build())),
+                vec![Message::ErrorResponse(
+                    Some("ERROR"),
+                    Some("42883"),
+                    Some("operator does not exist: (NUMBER || NUMBER)".to_owned())
+                )]
+            )
+        }
+
+        #[test]
+        fn syntax_error() {
+            assert_eq!(
+                QueryResultMapper::map(Err(QueryErrorBuilder::new()
+                    .syntax_error("expression".to_owned())
+                    .build())),
+                vec![Message::ErrorResponse(
+                    Some("ERROR"),
+                    Some("42601"),
+                    Some("syntax error in expression".to_owned())
                 )]
             )
         }

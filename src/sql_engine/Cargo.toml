@@ -10,6 +10,7 @@ log = "0.4.8"
 kernel = { path = "../kernel" }
 storage = { path = "../storage" }
 sqlparser = { version = "0.5.1", features = ["bigdecimal"] }
+bigdecimal = "0.1.2"
 sql_types = { path = "../sql_types" }
 protocol = { path = "../protocol" }
 

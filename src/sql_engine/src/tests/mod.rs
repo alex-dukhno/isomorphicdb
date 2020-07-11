@@ -23,6 +23,8 @@ mod select;
 #[cfg(test)]
 mod table;
 #[cfg(test)]
+mod type_constraints;
+#[cfg(test)]
 mod update;
 
 use super::*;

@@ -13,9 +13,9 @@
 // limitations under the License.
 
 use kernel::SystemResult;
-use protocol::results::{QueryError, QueryEvent, QueryResult};
+use protocol::results::{QueryErrorBuilder, QueryEvent, QueryResult};
 use sql_types::SqlType;
-use sqlparser::ast::{ColumnDef, Ident, ObjectName};
+use sqlparser::ast::{ColumnDef, DataType, ObjectName};
 use std::sync::{Arc, Mutex};
 use storage::{backend::BackendStorage, frontend::FrontendStorage, CreateTableError};
 
@@ -37,56 +37,48 @@ impl<P: BackendStorage> CreateTableCommand<P> {
     pub(crate) fn execute(&mut self) -> SystemResult<QueryResult> {
         let table_name = self.name.0.pop().unwrap().to_string();
         let schema_name = self.name.0.pop().unwrap().to_string();
-        match (self.storage.lock().unwrap()).create_table(
-            &schema_name,
-            &table_name,
-            self.columns
-                .iter()
-                .cloned()
-                .map(|c| {
-                    let name = c.name.to_string();
-                    let sql_type = match c.data_type {
-                        sqlparser::ast::DataType::SmallInt => SqlType::SmallInt(i16::min_value()),
-                        sqlparser::ast::DataType::Int => SqlType::Integer(i32::min_value()),
-                        sqlparser::ast::DataType::BigInt => SqlType::BigInt(i64::min_value()),
-                        sqlparser::ast::DataType::Char(len) => SqlType::Char(len.unwrap_or(255)),
-                        sqlparser::ast::DataType::Varchar(len) => SqlType::VarChar(len.unwrap_or(255)),
-                        sqlparser::ast::DataType::Boolean => SqlType::Bool,
-                        sqlparser::ast::DataType::Custom(ObjectName(_serial)) => {
-                            if _serial
-                                == vec![Ident {
-                                    value: "serial".to_string(),
-                                    quote_style: None,
-                                }]
-                            {
-                                SqlType::Integer(1)
-                            } else if _serial
-                                == vec![Ident {
-                                    value: "bigserial".to_string(),
-                                    quote_style: None,
-                                }]
-                            {
-                                SqlType::BigInt(1)
-                            } else if _serial
-                                == vec![Ident {
-                                    value: "smallserial".to_string(),
-                                    quote_style: None,
-                                }]
-                            {
-                                SqlType::SmallInt(1)
-                            } else {
-                                unimplemented!()
-                            }
+        let mut column_definitions = vec![];
+        for column in self.columns.iter() {
+            let name = column.name.to_string();
+            let sql_type = match &column.data_type {
+                DataType::SmallInt => SqlType::SmallInt(i16::min_value()),
+                DataType::Int => SqlType::Integer(i32::min_value()),
+                DataType::BigInt => SqlType::BigInt(i64::min_value()),
+                DataType::Char(len) => SqlType::Char(len.unwrap_or(255)),
+                DataType::Varchar(len) => SqlType::VarChar(len.unwrap_or(255)),
+                DataType::Boolean => SqlType::Bool,
+                DataType::Custom(name) => {
+                    let name = name.to_string();
+                    match name.as_str() {
+                        "serial" => SqlType::Integer(1),
+                        "smallserial" => SqlType::SmallInt(1),
+                        "bigserial" => SqlType::BigInt(1),
+                        other_type => {
+                            return Ok(Err(QueryErrorBuilder::new()
+                                .feature_not_supported(format!("{} type is not supported", other_type))
+                                .build()))
                         }
-                        _ => unimplemented!(),
-                    };
-                    (name, sql_type)
-                })
-                .collect(),
-        )? {
+                    }
+                }
+                other_type => {
+                    return Ok(Err(QueryErrorBuilder::new()
+                        .feature_not_supported(format!("{} type is not supported", other_type))
+                        .build()))
+                }
+            };
+            column_definitions.push((name, sql_type))
+        }
+        match (self.storage.lock().unwrap()).create_table(&schema_name, &table_name, column_definitions)? {
             Ok(()) => Ok(Ok(QueryEvent::TableCreated)),
-            Err(CreateTableError::SchemaDoesNotExist) => Ok(Err(QueryError::schema_does_not_exist(schema_name))),
-            Err(CreateTableError::TableAlreadyExists) => Ok(Err(QueryError::table_already_exists(table_name))),
+            Err(CreateTableError::SchemaDoesNotExist) => {
+                Ok(Err(QueryErrorBuilder::new().schema_does_not_exist(schema_name).build()))
+            }
+            Err(CreateTableError::TableAlreadyExists) => {
+                // this is what the test expected. Also, there should maybe this name should already be generated somewhere.
+                Ok(Err(QueryErrorBuilder::new()
+                    .table_already_exists(format!("{}.{}", schema_name, table_name))
+                    .build()))
+            }
         }
     }
 }

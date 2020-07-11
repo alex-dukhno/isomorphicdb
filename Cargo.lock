@@ -902,6 +902,7 @@ dependencies = [
 name = "sql_engine"
 version = "0.1.0"
 dependencies = [
+ "bigdecimal",
  "kernel",
  "log",
  "protocol",

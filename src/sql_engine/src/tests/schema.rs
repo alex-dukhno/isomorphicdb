@@ -15,12 +15,58 @@
 use super::*;
 
 #[rstest::rstest]
+fn create_same_schema(mut sql_engine: InMemorySqlEngine) {
+    sql_engine
+        .execute("create schema schema_name;")
+        .expect("no system errors")
+        .expect("schema created");
+
+    assert_eq!(
+        sql_engine
+            .execute("create schema schema_name;")
+            .expect("no system errors"),
+        Err(QueryErrorBuilder::new()
+            .schema_already_exists("schema_name".to_owned())
+            .build())
+    )
+}
+
+#[rstest::rstest]
+fn drop_schema(mut sql_engine: InMemorySqlEngine) {
+    sql_engine
+        .execute("create schema schema_name;")
+        .expect("no system errors")
+        .expect("schema created");
+
+    assert_eq!(
+        sql_engine
+            .execute("drop schema schema_name;")
+            .expect("no system errors"),
+        Ok(QueryEvent::SchemaDropped)
+    )
+}
+
+#[rstest::rstest]
+fn drop_non_existent_schema(mut sql_engine: InMemorySqlEngine) {
+    assert_eq!(
+        sql_engine
+            .execute("drop schema non_existent;")
+            .expect("no system errors"),
+        Err(QueryErrorBuilder::new()
+            .schema_does_not_exist("non_existent".to_owned())
+            .build())
+    )
+}
+
+#[rstest::rstest]
 fn select_from_nonexistent_schema(mut sql_engine: InMemorySqlEngine) {
     assert_eq!(
         sql_engine
             .execute("select * from non_existent.some_table;")
             .expect("no system errors"),
-        Err(QueryError::schema_does_not_exist("non_existent".to_owned()))
+        Err(QueryErrorBuilder::new()
+            .schema_does_not_exist("non_existent".to_owned())
+            .build())
     );
 }
 
@@ -30,7 +76,9 @@ fn select_named_columns_from_nonexistent_schema(mut sql_engine: InMemorySqlEngin
         sql_engine
             .execute("select column_1 from schema_name.table_name;")
             .expect("no system errors"),
-        Err(QueryError::schema_does_not_exist("schema_name".to_owned()))
+        Err(QueryErrorBuilder::new()
+            .schema_does_not_exist("schema_name".to_owned())
+            .build())
     );
 }
 
@@ -40,7 +88,9 @@ fn insert_into_table_in_nonexistent_schema(mut sql_engine: InMemorySqlEngine) {
         sql_engine
             .execute("insert into schema_name.table_name values (123);")
             .expect("no system errors"),
-        Err(QueryError::schema_does_not_exist("schema_name".to_owned()))
+        Err(QueryErrorBuilder::new()
+            .schema_does_not_exist("schema_name".to_owned())
+            .build())
     );
 }
 
@@ -50,7 +100,9 @@ fn update_records_in_table_from_non_existent_schema(mut sql_engine: InMemorySqlE
         sql_engine
             .execute("update schema_name.table_name set column_test=789;")
             .expect("no system errors"),
-        Err(QueryError::schema_does_not_exist("schema_name".to_owned()))
+        Err(QueryErrorBuilder::new()
+            .schema_does_not_exist("schema_name".to_owned())
+            .build())
     );
 }
 
@@ -60,6 +112,8 @@ fn delete_from_table_in_nonexistent_schema(mut sql_engine: InMemorySqlEngine) {
         sql_engine
             .execute("delete from schema_name.table_name;")
             .expect("no system errors"),
-        Err(QueryError::schema_does_not_exist("schema_name".to_owned()))
+        Err(QueryErrorBuilder::new()
+            .schema_does_not_exist("schema_name".to_owned())
+            .build())
     );
 }

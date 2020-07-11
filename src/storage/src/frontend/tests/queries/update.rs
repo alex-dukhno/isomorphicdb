@@ -43,7 +43,7 @@ fn update_all_records(mut storage: PersistentStorage) {
         .table_columns("schema_name", "table_name")
         .expect("no system errors")
         .into_iter()
-        .map(|(name, _sql_type)| name)
+        .map(|column_definition| column_definition.name())
         .collect();
 
     assert_eq!(
@@ -51,7 +51,7 @@ fn update_all_records(mut storage: PersistentStorage) {
             .select_all_from("schema_name", "table_name", table_columns)
             .expect("no system errors"),
         Ok((
-            vec![("column_test".to_owned(), SqlType::SmallInt(i16::min_value()))],
+            vec![column_definition("column_test", SqlType::SmallInt(i16::min_value()))],
             vec![vec!["567".to_owned()], vec!["567".to_owned()], vec!["567".to_owned()]]
         ))
     );
@@ -135,8 +135,7 @@ mod constraints {
                 .expect("no system errors"),
             Err(OperationOnTableError::ConstraintViolations(vec![(
                 ConstraintError::OutOfRange,
-                "column_si".to_owned(),
-                SqlType::SmallInt(i16::min_value())
+                column_definition("column_si", SqlType::SmallInt(i16::min_value()))
             )]))
         );
     }
@@ -166,8 +165,7 @@ mod constraints {
                 .expect("no system errors"),
             Err(OperationOnTableError::ConstraintViolations(vec![(
                 ConstraintError::TypeMismatch("abc".to_owned()),
-                "column_si".to_owned(),
-                SqlType::SmallInt(i16::min_value())
+                column_definition("column_si", SqlType::SmallInt(i16::min_value()))
             )]))
         );
     }
@@ -196,8 +194,7 @@ mod constraints {
                 .expect("no system errors"),
             Err(OperationOnTableError::ConstraintViolations(vec![(
                 ConstraintError::ValueTooLong(10),
-                "column_c".to_owned(),
-                SqlType::Char(10)
+                column_definition("column_c", SqlType::Char(10))
             )]))
         );
     }
@@ -229,13 +226,11 @@ mod constraints {
             Err(OperationOnTableError::ConstraintViolations(vec![
                 (
                     ConstraintError::OutOfRange,
-                    "column_si".to_owned(),
-                    SqlType::SmallInt(i16::min_value())
+                    column_definition("column_si", SqlType::SmallInt(i16::min_value()))
                 ),
                 (
                     ConstraintError::OutOfRange,
-                    "column_i".to_owned(),
-                    SqlType::Integer(i32::min_value())
+                    column_definition("column_i", SqlType::Integer(i32::min_value()))
                 )
             ]))
         )

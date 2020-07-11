@@ -60,7 +60,7 @@ fn delete_all_from_table(mut storage: PersistentStorage) {
         .table_columns("schema_name", "table_name")
         .expect("no system errors")
         .into_iter()
-        .map(|(name, _sql_type)| name)
+        .map(|column_definition| column_definition.name())
         .collect();
 
     assert_eq!(
@@ -68,7 +68,7 @@ fn delete_all_from_table(mut storage: PersistentStorage) {
             .select_all_from("schema_name", "table_name", table_columns)
             .expect("no system errors"),
         Ok((
-            vec![("column_test".to_owned(), SqlType::SmallInt(i16::min_value()))],
+            vec![column_definition("column_test", SqlType::SmallInt(i16::min_value()))],
             vec![]
         ))
     );

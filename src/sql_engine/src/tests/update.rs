@@ -21,7 +21,9 @@ fn update_records_in_non_existent_table(mut sql_engine_with_schema: InMemorySqlE
         sql_engine_with_schema
             .execute("update schema_name.table_name set column_test=789;")
             .expect("no system errors"),
-        Err(QueryError::table_does_not_exist("schema_name.table_name".to_owned()))
+        Err(QueryErrorBuilder::new()
+            .table_does_not_exist("schema_name.table_name".to_owned())
+            .build())
     );
 }
 
@@ -233,7 +235,9 @@ fn update_records_in_nonexistent_table(mut sql_engine_with_schema: InMemorySqlEn
         sql_engine_with_schema
             .execute("update schema_name.table_name set column_test=789;")
             .expect("no system errors"),
-        Err(QueryError::table_does_not_exist("schema_name.table_name".to_owned()))
+        Err(QueryErrorBuilder::new()
+            .table_does_not_exist("schema_name.table_name".to_owned())
+            .build())
     );
 }
 
@@ -261,9 +265,464 @@ fn update_non_existent_columns_of_records(mut sql_engine_with_schema: InMemorySq
         sql_engine_with_schema
             .execute("update schema_name.table_name set col1=456, col2=789;")
             .expect("no system errors"),
-        Err(QueryError::column_does_not_exist(vec![
-            "col1".to_owned(),
-            "col2".to_owned()
-        ]))
+        Err(QueryErrorBuilder::new()
+            .column_does_not_exist(vec!["col1".to_owned(), "col2".to_owned()])
+            .build())
     );
+}
+
+#[cfg(test)]
+mod operators {
+    use super::*;
+
+    #[cfg(test)]
+    mod mathematical {
+        use super::*;
+
+        #[cfg(test)]
+        mod integers {
+            use super::*;
+
+            #[rstest::fixture]
+            fn with_table(mut sql_engine_with_schema: InMemorySqlEngine) -> InMemorySqlEngine {
+                sql_engine_with_schema
+                    .execute("create table schema_name.table_name(column_si smallint);")
+                    .expect("no system errors")
+                    .expect("table created");
+
+                sql_engine_with_schema
+                    .execute("insert into schema_name.table_name values (2);")
+                    .expect("no system errors")
+                    .expect("record inserted");
+
+                sql_engine_with_schema
+            }
+
+            #[rstest::rstest]
+            fn addition(mut with_table: InMemorySqlEngine) {
+                assert_eq!(
+                    with_table
+                        .execute("update schema_name.table_name set column_si = 1 + 2;")
+                        .expect("no system errors"),
+                    Ok(QueryEvent::RecordsUpdated(1))
+                );
+                assert_eq!(
+                    with_table
+                        .execute("select * from schema_name.table_name;")
+                        .expect("no system errors"),
+                    Ok(QueryEvent::RecordsSelected((
+                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
+                        vec![vec!["3".to_owned()]]
+                    )))
+                );
+            }
+
+            #[rstest::rstest]
+            fn subtraction(mut with_table: InMemorySqlEngine) {
+                assert_eq!(
+                    with_table
+                        .execute("update schema_name.table_name set column_si = 1 - 2;")
+                        .expect("no system errors"),
+                    Ok(QueryEvent::RecordsUpdated(1))
+                );
+                assert_eq!(
+                    with_table
+                        .execute("select * from schema_name.table_name;")
+                        .expect("no system errors"),
+                    Ok(QueryEvent::RecordsSelected((
+                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
+                        vec![vec!["-1".to_owned()]]
+                    )))
+                );
+            }
+
+            #[rstest::rstest]
+            fn multiplication(mut with_table: InMemorySqlEngine) {
+                assert_eq!(
+                    with_table
+                        .execute("update schema_name.table_name set column_si = 3 * 2;")
+                        .expect("no system errors"),
+                    Ok(QueryEvent::RecordsUpdated(1))
+                );
+                assert_eq!(
+                    with_table
+                        .execute("select * from schema_name.table_name;")
+                        .expect("no system errors"),
+                    Ok(QueryEvent::RecordsSelected((
+                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
+                        vec![vec!["6".to_owned()]]
+                    )))
+                );
+            }
+
+            #[rstest::rstest]
+            fn division(mut with_table: InMemorySqlEngine) {
+                assert_eq!(
+                    with_table
+                        .execute("update schema_name.table_name set column_si = 8 / 2;")
+                        .expect("no system errors"),
+                    Ok(QueryEvent::RecordsUpdated(1))
+                );
+                assert_eq!(
+                    with_table
+                        .execute("select * from schema_name.table_name;")
+                        .expect("no system errors"),
+                    Ok(QueryEvent::RecordsSelected((
+                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
+                        vec![vec!["4".to_owned()]]
+                    )))
+                );
+            }
+
+            #[rstest::rstest]
+            fn modulo(mut with_table: InMemorySqlEngine) {
+                assert_eq!(
+                    with_table
+                        .execute("update schema_name.table_name set column_si = 8 % 2;")
+                        .expect("no system errors"),
+                    Ok(QueryEvent::RecordsUpdated(1))
+                );
+                assert_eq!(
+                    with_table
+                        .execute("select * from schema_name.table_name;")
+                        .expect("no system errors"),
+                    Ok(QueryEvent::RecordsSelected((
+                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
+                        vec![vec!["0".to_owned()]]
+                    )))
+                );
+            }
+
+            #[rstest::rstest]
+            #[ignore]
+            // TODO ^ is bitwise in SQL standard
+            //      # is bitwise in PostgreSQL and it does not supported in sqlparser-rs
+            fn exponentiation(mut with_table: InMemorySqlEngine) {
+                assert_eq!(
+                    with_table
+                        .execute("update schema_name.table_name set column_si = 8 ^ 2;")
+                        .expect("no system errors"),
+                    Ok(QueryEvent::RecordsUpdated(1))
+                );
+                assert_eq!(
+                    with_table
+                        .execute("select * from schema_name.table_name;")
+                        .expect("no system errors"),
+                    Ok(QueryEvent::RecordsSelected((
+                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
+                        vec![vec!["64".to_owned()]]
+                    )))
+                );
+            }
+
+            #[rstest::rstest]
+            #[ignore]
+            // TODO |/<n> is square root in PostgreSQL and it does not supported in sqlparser-rs
+            fn square_root(mut with_table: InMemorySqlEngine) {
+                assert_eq!(
+                    with_table
+                        .execute("update schema_name.table_name set column_si = |/ 16;")
+                        .expect("no system errors"),
+                    Ok(QueryEvent::RecordsUpdated(1))
+                );
+                assert_eq!(
+                    with_table
+                        .execute("select * from schema_name.table_name;")
+                        .expect("no system errors"),
+                    Ok(QueryEvent::RecordsSelected((
+                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
+                        vec![vec!["4".to_owned()]]
+                    )))
+                );
+            }
+
+            #[rstest::rstest]
+            #[ignore]
+            // TODO ||/<n> is cube root in PostgreSQL and it does not supported in sqlparser-rs
+            fn cube_root(mut with_table: InMemorySqlEngine) {
+                assert_eq!(
+                    with_table
+                        .execute("update schema_name.table_name set column_si = ||/ 8;")
+                        .expect("no system errors"),
+                    Ok(QueryEvent::RecordsUpdated(1))
+                );
+                assert_eq!(
+                    with_table
+                        .execute("select * from schema_name.table_name;")
+                        .expect("no system errors"),
+                    Ok(QueryEvent::RecordsSelected((
+                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
+                        vec![vec!["2".to_owned()]]
+                    )))
+                );
+            }
+
+            #[rstest::rstest]
+            #[ignore]
+            // TODO <n>! is factorial in PostgreSQL and it does not supported in sqlparser-rs
+            fn factorial(mut with_table: InMemorySqlEngine) {
+                assert_eq!(
+                    with_table
+                        .execute("update schema_name.table_name set column_si = 5!;")
+                        .expect("no system errors"),
+                    Ok(QueryEvent::RecordsUpdated(1))
+                );
+                assert_eq!(
+                    with_table
+                        .execute("select * from schema_name.table_name;")
+                        .expect("no system errors"),
+                    Ok(QueryEvent::RecordsSelected((
+                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
+                        vec![vec!["120".to_owned()]]
+                    )))
+                );
+            }
+
+            #[rstest::rstest]
+            #[ignore]
+            // TODO !!<n> is prefix factorial in PostgreSQL and it does not supported in sqlparser-rs
+            fn prefix_factorial(mut with_table: InMemorySqlEngine) {
+                assert_eq!(
+                    with_table
+                        .execute("update schema_name.table_name set column_si = !!5;")
+                        .expect("no system errors"),
+                    Ok(QueryEvent::RecordsUpdated(1))
+                );
+                assert_eq!(
+                    with_table
+                        .execute("select * from schema_name.table_name;")
+                        .expect("no system errors"),
+                    Ok(QueryEvent::RecordsSelected((
+                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
+                        vec![vec!["120".to_owned()]]
+                    )))
+                );
+            }
+
+            #[rstest::rstest]
+            #[ignore]
+            // TODO @<n> is absolute value in PostgreSQL and it does not supported in sqlparser-rs
+            fn absolute_value(mut with_table: InMemorySqlEngine) {
+                assert_eq!(
+                    with_table
+                        .execute("update schema_name.table_name set column_si = @-5;")
+                        .expect("no system errors"),
+                    Ok(QueryEvent::RecordsUpdated(1))
+                );
+                assert_eq!(
+                    with_table
+                        .execute("select * from schema_name.table_name;")
+                        .expect("no system errors"),
+                    Ok(QueryEvent::RecordsSelected((
+                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
+                        vec![vec!["5".to_owned()]]
+                    )))
+                );
+            }
+
+            #[rstest::rstest]
+            fn bitwise_and(mut with_table: InMemorySqlEngine) {
+                assert_eq!(
+                    with_table
+                        .execute("update schema_name.table_name set column_si = 5 & 1;")
+                        .expect("no system errors"),
+                    Ok(QueryEvent::RecordsUpdated(1))
+                );
+                assert_eq!(
+                    with_table
+                        .execute("select * from schema_name.table_name;")
+                        .expect("no system errors"),
+                    Ok(QueryEvent::RecordsSelected((
+                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
+                        vec![vec!["1".to_owned()]]
+                    )))
+                );
+            }
+
+            #[rstest::rstest]
+            fn bitwise_or(mut with_table: InMemorySqlEngine) {
+                assert_eq!(
+                    with_table
+                        .execute("update schema_name.table_name set column_si = 5 | 2;")
+                        .expect("no system errors"),
+                    Ok(QueryEvent::RecordsUpdated(1))
+                );
+                assert_eq!(
+                    with_table
+                        .execute("select * from schema_name.table_name;")
+                        .expect("no system errors"),
+                    Ok(QueryEvent::RecordsSelected((
+                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
+                        vec![vec!["7".to_owned()]]
+                    )))
+                );
+            }
+
+            #[rstest::rstest]
+            #[ignore]
+            // TODO ~ <n> is bitwise NOT in PostgreSQL and it does not supported in sqlparser-rs
+            fn bitwise_not(mut with_table: InMemorySqlEngine) {
+                assert_eq!(
+                    with_table
+                        .execute("update schema_name.table_name set column_si = ~1;")
+                        .expect("no system errors"),
+                    Ok(QueryEvent::RecordsUpdated(1))
+                );
+                assert_eq!(
+                    with_table
+                        .execute("select * from schema_name.table_name;")
+                        .expect("no system errors"),
+                    Ok(QueryEvent::RecordsSelected((
+                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
+                        vec![vec!["-2".to_owned()]]
+                    )))
+                );
+            }
+
+            #[rstest::rstest]
+            #[ignore]
+            // TODO <n> << <m> is bitwise SHIFT LEFT in PostgreSQL and it does not supported in sqlparser-rs
+            fn bitwise_shift_left(mut with_table: InMemorySqlEngine) {
+                assert_eq!(
+                    with_table
+                        .execute("update schema_name.table_name set column_si = 1 << 4;")
+                        .expect("no system errors"),
+                    Ok(QueryEvent::RecordsUpdated(1))
+                );
+                assert_eq!(
+                    with_table
+                        .execute("select * from schema_name.table_name;")
+                        .expect("no system errors"),
+                    Ok(QueryEvent::RecordsSelected((
+                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
+                        vec![vec!["16".to_owned()]]
+                    )))
+                );
+            }
+
+            #[rstest::rstest]
+            #[ignore]
+            // TODO <n> >> <m> is bitwise SHIFT RIGHT in PostgreSQL and it does not supported in sqlparser-rs
+            fn bitwise_right_left(mut with_table: InMemorySqlEngine) {
+                assert_eq!(
+                    with_table
+                        .execute("update schema_name.table_name set column_si = 8 >> 2;")
+                        .expect("no system errors"),
+                    Ok(QueryEvent::RecordsUpdated(1))
+                );
+                assert_eq!(
+                    with_table
+                        .execute("select * from schema_name.table_name;")
+                        .expect("no system errors"),
+                    Ok(QueryEvent::RecordsSelected((
+                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
+                        vec![vec!["2".to_owned()]]
+                    )))
+                );
+            }
+
+            #[rstest::rstest]
+            fn evaluate_many_operations(mut with_table: InMemorySqlEngine) {
+                assert_eq!(
+                    with_table
+                        .execute("update schema_name.table_name set column_si = 5 & 13 % 10 + 1 * 20 - 40 / 4;")
+                        .expect("no system errors"),
+                    Ok(QueryEvent::RecordsUpdated(1))
+                );
+                assert_eq!(
+                    with_table
+                        .execute("select * from schema_name.table_name;")
+                        .expect("no system errors"),
+                    Ok(QueryEvent::RecordsSelected((
+                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
+                        vec![vec!["5".to_owned()]]
+                    )))
+                );
+            }
+        }
+    }
+
+    #[cfg(test)]
+    mod string {
+        use super::*;
+
+        #[rstest::fixture]
+        fn with_table(mut sql_engine_with_schema: InMemorySqlEngine) -> InMemorySqlEngine {
+            sql_engine_with_schema
+                .execute("create table schema_name.table_name(strings char(5));")
+                .expect("no system errors")
+                .expect("table created");
+
+            sql_engine_with_schema
+                .execute("insert into schema_name.table_name values ('x');")
+                .expect("no system errors")
+                .expect("record inserted");
+
+            sql_engine_with_schema
+        }
+
+        #[rstest::rstest]
+        fn concatenation(mut with_table: InMemorySqlEngine) {
+            assert_eq!(
+                with_table
+                    .execute("update schema_name.table_name set strings = '123' || '45';")
+                    .expect("no system errors"),
+                Ok(QueryEvent::RecordsUpdated(1))
+            );
+            assert_eq!(
+                with_table
+                    .execute("select * from schema_name.table_name;")
+                    .expect("no system errors"),
+                Ok(QueryEvent::RecordsSelected((
+                    vec![("strings".to_owned(), PostgreSqlType::Char)],
+                    vec![vec!["12345".to_owned()]]
+                )))
+            );
+        }
+
+        #[rstest::rstest]
+        fn concatenation_with_number(mut with_table: InMemorySqlEngine) {
+            with_table
+                .execute("update schema_name.table_name set strings = 1 || '45';")
+                .expect("no system errors")
+                .expect("record updated");
+
+            assert_eq!(
+                with_table
+                    .execute("select * from schema_name.table_name;")
+                    .expect("no system errors"),
+                Ok(QueryEvent::RecordsSelected((
+                    vec![("strings".to_owned(), PostgreSqlType::Char)],
+                    vec![vec!["145".to_owned()]]
+                )))
+            );
+
+            with_table
+                .execute("update schema_name.table_name set strings = '45' || 1;")
+                .expect("no system errors")
+                .expect("record updated");
+
+            assert_eq!(
+                with_table
+                    .execute("select * from schema_name.table_name;")
+                    .expect("no system errors"),
+                Ok(QueryEvent::RecordsSelected((
+                    vec![("strings".to_owned(), PostgreSqlType::Char)],
+                    vec![vec!["451".to_owned()]]
+                )))
+            );
+        }
+
+        #[rstest::rstest]
+        fn non_string_concatenation_not_supported(mut with_table: InMemorySqlEngine) {
+            assert_eq!(
+                with_table
+                    .execute("update schema_name.table_name set column_si = 1 || 2;")
+                    .expect("no system errors"),
+                Err(QueryErrorBuilder::new()
+                    .undefined_function("||".to_owned(), "NUMBER".to_owned(), "NUMBER".to_owned())
+                    .build())
+            );
+        }
+    }
 }

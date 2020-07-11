@@ -21,7 +21,26 @@ fn insert_into_nonexistent_table(mut sql_engine_with_schema: InMemorySqlEngine) 
         sql_engine_with_schema
             .execute("insert into schema_name.table_name values (123);")
             .expect("no system errors"),
-        Err(QueryError::table_does_not_exist("schema_name.table_name".to_owned()))
+        Err(QueryErrorBuilder::new()
+            .table_does_not_exist("schema_name.table_name".to_owned())
+            .build())
+    );
+}
+
+#[rstest::rstest]
+fn insert_value_in_non_existent_column(mut sql_engine_with_schema: InMemorySqlEngine) {
+    sql_engine_with_schema
+        .execute("create table schema_name.table_name (column_test smallint);")
+        .expect("no system errors")
+        .expect("table created");
+
+    assert_eq!(
+        sql_engine_with_schema
+            .execute("insert into schema_name.table_name (non_existent) values (123);")
+            .expect("no system errors"),
+        Err(QueryErrorBuilder::new()
+            .column_does_not_exist(vec!["non_existent".to_owned()])
+            .build())
     );
 }
 
@@ -235,360 +254,467 @@ fn insert_and_select_different_character_types(mut sql_engine_with_schema: InMem
     )
 }
 
+#[rstest::rstest]
+fn insert_booleans(mut sql_engine_with_schema: InMemorySqlEngine) {
+    sql_engine_with_schema
+        .execute("create table schema_name.table_name (b boolean);")
+        .expect("no system errors")
+        .expect("table created");
+
+    assert_eq!(
+        sql_engine_with_schema
+            .execute("insert into schema_name.table_name values(true);")
+            .expect("no system errors"),
+        Ok(QueryEvent::RecordsInserted(1))
+    );
+
+    assert_eq!(
+        sql_engine_with_schema
+            .execute("insert into schema_name.table_name values(TRUE::boolean);")
+            .expect("no system errors"),
+        Ok(QueryEvent::RecordsInserted(1))
+    );
+
+    assert_eq!(
+        sql_engine_with_schema
+            .execute("insert into schema_name.table_name values('true'::boolean);")
+            .expect("no system errors"),
+        Ok(QueryEvent::RecordsInserted(1))
+    );
+}
+
 #[cfg(test)]
-mod mathematical_operators {
+mod operators {
     use super::*;
 
-    #[rstest::fixture]
-    fn with_table(mut sql_engine_with_schema: InMemorySqlEngine) -> InMemorySqlEngine {
-        sql_engine_with_schema
-            .execute("create table schema_name.table_name(column_si smallint);")
-            .expect("no system errors")
-            .expect("table created");
+    #[cfg(test)]
+    mod mathematical {
+        use super::*;
 
-        sql_engine_with_schema
+        #[cfg(test)]
+        mod integers {
+            use super::*;
+
+            #[rstest::fixture]
+            fn with_table(mut sql_engine_with_schema: InMemorySqlEngine) -> InMemorySqlEngine {
+                sql_engine_with_schema
+                    .execute("create table schema_name.table_name(column_si smallint);")
+                    .expect("no system errors")
+                    .expect("table created");
+
+                sql_engine_with_schema
+            }
+
+            #[rstest::rstest]
+            fn addition(mut with_table: InMemorySqlEngine) {
+                assert_eq!(
+                    with_table
+                        .execute("insert into schema_name.table_name values (1 + 2);")
+                        .expect("no system errors"),
+                    Ok(QueryEvent::RecordsInserted(1))
+                );
+                assert_eq!(
+                    with_table
+                        .execute("select * from schema_name.table_name;")
+                        .expect("no system errors"),
+                    Ok(QueryEvent::RecordsSelected((
+                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
+                        vec![vec!["3".to_owned()]]
+                    )))
+                );
+            }
+
+            #[rstest::rstest]
+            fn subtraction(mut with_table: InMemorySqlEngine) {
+                assert_eq!(
+                    with_table
+                        .execute("insert into schema_name.table_name values (1 - 2);")
+                        .expect("no system errors"),
+                    Ok(QueryEvent::RecordsInserted(1))
+                );
+                assert_eq!(
+                    with_table
+                        .execute("select * from schema_name.table_name;")
+                        .expect("no system errors"),
+                    Ok(QueryEvent::RecordsSelected((
+                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
+                        vec![vec!["-1".to_owned()]]
+                    )))
+                );
+            }
+
+            #[rstest::rstest]
+            fn multiplication(mut with_table: InMemorySqlEngine) {
+                assert_eq!(
+                    with_table
+                        .execute("insert into schema_name.table_name values (3 * 2);")
+                        .expect("no system errors"),
+                    Ok(QueryEvent::RecordsInserted(1))
+                );
+                assert_eq!(
+                    with_table
+                        .execute("select * from schema_name.table_name;")
+                        .expect("no system errors"),
+                    Ok(QueryEvent::RecordsSelected((
+                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
+                        vec![vec!["6".to_owned()]]
+                    )))
+                );
+            }
+
+            #[rstest::rstest]
+            fn division(mut with_table: InMemorySqlEngine) {
+                assert_eq!(
+                    with_table
+                        .execute("insert into schema_name.table_name values (8 / 2);")
+                        .expect("no system errors"),
+                    Ok(QueryEvent::RecordsInserted(1))
+                );
+                assert_eq!(
+                    with_table
+                        .execute("select * from schema_name.table_name;")
+                        .expect("no system errors"),
+                    Ok(QueryEvent::RecordsSelected((
+                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
+                        vec![vec!["4".to_owned()]]
+                    )))
+                );
+            }
+
+            #[rstest::rstest]
+            fn modulo(mut with_table: InMemorySqlEngine) {
+                assert_eq!(
+                    with_table
+                        .execute("insert into schema_name.table_name values (8 % 2);")
+                        .expect("no system errors"),
+                    Ok(QueryEvent::RecordsInserted(1))
+                );
+                assert_eq!(
+                    with_table
+                        .execute("select * from schema_name.table_name;")
+                        .expect("no system errors"),
+                    Ok(QueryEvent::RecordsSelected((
+                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
+                        vec![vec!["0".to_owned()]]
+                    )))
+                );
+            }
+
+            #[rstest::rstest]
+            #[ignore]
+            // TODO ^ is bitwise in SQL standard
+            //      # is bitwise in PostgreSQL and it does not supported in sqlparser-rs
+            fn exponentiation(mut with_table: InMemorySqlEngine) {
+                assert_eq!(
+                    with_table
+                        .execute("insert into schema_name.table_name values (8 ^ 2);")
+                        .expect("no system errors"),
+                    Ok(QueryEvent::RecordsInserted(1))
+                );
+                assert_eq!(
+                    with_table
+                        .execute("select * from schema_name.table_name;")
+                        .expect("no system errors"),
+                    Ok(QueryEvent::RecordsSelected((
+                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
+                        vec![vec!["64".to_owned()]]
+                    )))
+                );
+            }
+
+            #[rstest::rstest]
+            #[ignore]
+            // TODO |/<n> is square root in PostgreSQL and it does not supported in sqlparser-rs
+            fn square_root(mut with_table: InMemorySqlEngine) {
+                assert_eq!(
+                    with_table
+                        .execute("insert into schema_name.table_name values (|/ 16);")
+                        .expect("no system errors"),
+                    Ok(QueryEvent::RecordsInserted(1))
+                );
+                assert_eq!(
+                    with_table
+                        .execute("select * from schema_name.table_name;")
+                        .expect("no system errors"),
+                    Ok(QueryEvent::RecordsSelected((
+                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
+                        vec![vec!["4".to_owned()]]
+                    )))
+                );
+            }
+
+            #[rstest::rstest]
+            #[ignore]
+            // TODO ||/<n> is cube root in PostgreSQL and it does not supported in sqlparser-rs
+            fn cube_root(mut with_table: InMemorySqlEngine) {
+                assert_eq!(
+                    with_table
+                        .execute("insert into schema_name.table_name values (||/ 8);")
+                        .expect("no system errors"),
+                    Ok(QueryEvent::RecordsInserted(1))
+                );
+                assert_eq!(
+                    with_table
+                        .execute("select * from schema_name.table_name;")
+                        .expect("no system errors"),
+                    Ok(QueryEvent::RecordsSelected((
+                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
+                        vec![vec!["2".to_owned()]]
+                    )))
+                );
+            }
+
+            #[rstest::rstest]
+            #[ignore]
+            // TODO <n>! is factorial in PostgreSQL and it does not supported in sqlparser-rs
+            fn factorial(mut with_table: InMemorySqlEngine) {
+                assert_eq!(
+                    with_table
+                        .execute("insert into schema_name.table_name values (5!);")
+                        .expect("no system errors"),
+                    Ok(QueryEvent::RecordsInserted(1))
+                );
+                assert_eq!(
+                    with_table
+                        .execute("select * from schema_name.table_name;")
+                        .expect("no system errors"),
+                    Ok(QueryEvent::RecordsSelected((
+                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
+                        vec![vec!["120".to_owned()]]
+                    )))
+                );
+            }
+
+            #[rstest::rstest]
+            #[ignore]
+            // TODO !!<n> is prefix factorial in PostgreSQL and it does not supported in sqlparser-rs
+            fn prefix_factorial(mut with_table: InMemorySqlEngine) {
+                assert_eq!(
+                    with_table
+                        .execute("insert into schema_name.table_name values (!!5);")
+                        .expect("no system errors"),
+                    Ok(QueryEvent::RecordsInserted(1))
+                );
+                assert_eq!(
+                    with_table
+                        .execute("select * from schema_name.table_name;")
+                        .expect("no system errors"),
+                    Ok(QueryEvent::RecordsSelected((
+                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
+                        vec![vec!["120".to_owned()]]
+                    )))
+                );
+            }
+
+            #[rstest::rstest]
+            #[ignore]
+            // TODO @<n> is absolute value in PostgreSQL and it does not supported in sqlparser-rs
+            fn absolute_value(mut with_table: InMemorySqlEngine) {
+                assert_eq!(
+                    with_table
+                        .execute("insert into schema_name.table_name values (@-5);")
+                        .expect("no system errors"),
+                    Ok(QueryEvent::RecordsInserted(1))
+                );
+                assert_eq!(
+                    with_table
+                        .execute("select * from schema_name.table_name;")
+                        .expect("no system errors"),
+                    Ok(QueryEvent::RecordsSelected((
+                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
+                        vec![vec!["5".to_owned()]]
+                    )))
+                );
+            }
+
+            #[rstest::rstest]
+            fn bitwise_and(mut with_table: InMemorySqlEngine) {
+                assert_eq!(
+                    with_table
+                        .execute("insert into schema_name.table_name values (5 & 1);")
+                        .expect("no system errors"),
+                    Ok(QueryEvent::RecordsInserted(1))
+                );
+                assert_eq!(
+                    with_table
+                        .execute("select * from schema_name.table_name;")
+                        .expect("no system errors"),
+                    Ok(QueryEvent::RecordsSelected((
+                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
+                        vec![vec!["1".to_owned()]]
+                    )))
+                );
+            }
+
+            #[rstest::rstest]
+            fn bitwise_or(mut with_table: InMemorySqlEngine) {
+                assert_eq!(
+                    with_table
+                        .execute("insert into schema_name.table_name values (5 | 2);")
+                        .expect("no system errors"),
+                    Ok(QueryEvent::RecordsInserted(1))
+                );
+                assert_eq!(
+                    with_table
+                        .execute("select * from schema_name.table_name;")
+                        .expect("no system errors"),
+                    Ok(QueryEvent::RecordsSelected((
+                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
+                        vec![vec!["7".to_owned()]]
+                    )))
+                );
+            }
+
+            #[rstest::rstest]
+            #[ignore]
+            // TODO ~ <n> is bitwise NOT in PostgreSQL and it does not supported in sqlparser-rs
+            fn bitwise_not(mut with_table: InMemorySqlEngine) {
+                assert_eq!(
+                    with_table
+                        .execute("insert into schema_name.table_name values (~1);")
+                        .expect("no system errors"),
+                    Ok(QueryEvent::RecordsInserted(1))
+                );
+                assert_eq!(
+                    with_table
+                        .execute("select * from schema_name.table_name;")
+                        .expect("no system errors"),
+                    Ok(QueryEvent::RecordsSelected((
+                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
+                        vec![vec!["-2".to_owned()]]
+                    )))
+                );
+            }
+
+            #[rstest::rstest]
+            #[ignore]
+            // TODO <n> << <m> is bitwise SHIFT LEFT in PostgreSQL and it does not supported in sqlparser-rs
+            fn bitwise_shift_left(mut with_table: InMemorySqlEngine) {
+                assert_eq!(
+                    with_table
+                        .execute("insert into schema_name.table_name values (1 << 4);")
+                        .expect("no system errors"),
+                    Ok(QueryEvent::RecordsInserted(1))
+                );
+                assert_eq!(
+                    with_table
+                        .execute("select * from schema_name.table_name;")
+                        .expect("no system errors"),
+                    Ok(QueryEvent::RecordsSelected((
+                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
+                        vec![vec!["16".to_owned()]]
+                    )))
+                );
+            }
+
+            #[rstest::rstest]
+            #[ignore]
+            // TODO <n> >> <m> is bitwise SHIFT RIGHT in PostgreSQL and it does not supported in sqlparser-rs
+            fn bitwise_right_left(mut with_table: InMemorySqlEngine) {
+                assert_eq!(
+                    with_table
+                        .execute("insert into schema_name.table_name values (8 >> 2);")
+                        .expect("no system errors"),
+                    Ok(QueryEvent::RecordsInserted(1))
+                );
+                assert_eq!(
+                    with_table
+                        .execute("select * from schema_name.table_name;")
+                        .expect("no system errors"),
+                    Ok(QueryEvent::RecordsSelected((
+                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
+                        vec![vec!["2".to_owned()]]
+                    )))
+                );
+            }
+
+            #[rstest::rstest]
+            fn evaluate_many_operations(mut with_table: InMemorySqlEngine) {
+                assert_eq!(
+                    with_table
+                        .execute("insert into schema_name.table_name values (5 & 13 % 10 + 1 * 20 - 40 / 4);")
+                        .expect("no system errors"),
+                    Ok(QueryEvent::RecordsInserted(1))
+                );
+                assert_eq!(
+                    with_table
+                        .execute("select * from schema_name.table_name;")
+                        .expect("no system errors"),
+                    Ok(QueryEvent::RecordsSelected((
+                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
+                        vec![vec!["5".to_owned()]]
+                    )))
+                );
+            }
+        }
     }
 
-    #[rstest::rstest]
-    fn addition(mut with_table: InMemorySqlEngine) {
-        assert_eq!(
-            with_table
-                .execute("insert into schema_name.table_name values (1 + 2);")
-                .expect("no system errors"),
-            Ok(QueryEvent::RecordsInserted(1))
-        );
-        assert_eq!(
-            with_table
-                .execute("select * from schema_name.table_name;")
-                .expect("no system errors"),
-            Ok(QueryEvent::RecordsSelected((
-                vec![("column_si".to_owned(), PostgreSqlType::SmallInt),],
-                vec![vec!["3".to_owned()]]
-            )))
-        );
-    }
+    #[cfg(test)]
+    mod string {
+        use super::*;
 
-    #[rstest::rstest]
-    fn subtraction(mut with_table: InMemorySqlEngine) {
-        assert_eq!(
-            with_table
-                .execute("insert into schema_name.table_name values (1 - 2);")
-                .expect("no system errors"),
-            Ok(QueryEvent::RecordsInserted(1))
-        );
-        assert_eq!(
-            with_table
-                .execute("select * from schema_name.table_name;")
-                .expect("no system errors"),
-            Ok(QueryEvent::RecordsSelected((
-                vec![("column_si".to_owned(), PostgreSqlType::SmallInt),],
-                vec![vec!["-1".to_owned()]]
-            )))
-        );
-    }
+        #[rstest::fixture]
+        fn with_table(mut sql_engine_with_schema: InMemorySqlEngine) -> InMemorySqlEngine {
+            sql_engine_with_schema
+                .execute("create table schema_name.table_name(strings char(5));")
+                .expect("no system errors")
+                .expect("table created");
 
-    #[rstest::rstest]
-    fn multiplication(mut with_table: InMemorySqlEngine) {
-        assert_eq!(
-            with_table
-                .execute("insert into schema_name.table_name values (3 * 2);")
-                .expect("no system errors"),
-            Ok(QueryEvent::RecordsInserted(1))
-        );
-        assert_eq!(
-            with_table
-                .execute("select * from schema_name.table_name;")
-                .expect("no system errors"),
-            Ok(QueryEvent::RecordsSelected((
-                vec![("column_si".to_owned(), PostgreSqlType::SmallInt),],
-                vec![vec!["6".to_owned()]]
-            )))
-        );
-    }
+            sql_engine_with_schema
+        }
 
-    #[rstest::rstest]
-    fn division(mut with_table: InMemorySqlEngine) {
-        assert_eq!(
-            with_table
-                .execute("insert into schema_name.table_name values (8 / 2);")
-                .expect("no system errors"),
-            Ok(QueryEvent::RecordsInserted(1))
-        );
-        assert_eq!(
-            with_table
-                .execute("select * from schema_name.table_name;")
-                .expect("no system errors"),
-            Ok(QueryEvent::RecordsSelected((
-                vec![("column_si".to_owned(), PostgreSqlType::SmallInt),],
-                vec![vec!["4".to_owned()]]
-            )))
-        );
-    }
+        #[rstest::rstest]
+        fn concatenation(mut with_table: InMemorySqlEngine) {
+            assert_eq!(
+                with_table
+                    .execute("insert into schema_name.table_name values ('123' || '45');")
+                    .expect("no system errors"),
+                Ok(QueryEvent::RecordsInserted(1))
+            );
+            assert_eq!(
+                with_table
+                    .execute("select * from schema_name.table_name;")
+                    .expect("no system errors"),
+                Ok(QueryEvent::RecordsSelected((
+                    vec![("strings".to_owned(), PostgreSqlType::Char)],
+                    vec![vec!["12345".to_owned()]]
+                )))
+            );
+        }
 
-    #[rstest::rstest]
-    fn modulo(mut with_table: InMemorySqlEngine) {
-        assert_eq!(
+        #[rstest::rstest]
+        fn concatenation_with_number(mut with_table: InMemorySqlEngine) {
             with_table
-                .execute("insert into schema_name.table_name values (8 % 2);")
-                .expect("no system errors"),
-            Ok(QueryEvent::RecordsInserted(1))
-        );
-        assert_eq!(
-            with_table
-                .execute("select * from schema_name.table_name;")
-                .expect("no system errors"),
-            Ok(QueryEvent::RecordsSelected((
-                vec![("column_si".to_owned(), PostgreSqlType::SmallInt),],
-                vec![vec!["0".to_owned()]]
-            )))
-        );
-    }
+                .execute("insert into schema_name.table_name values (1 || '45');")
+                .expect("no system errors")
+                .expect("record inserted");
 
-    #[rstest::rstest]
-    #[ignore]
-    // TODO ^ is bitwise in SQL standard
-    //      # is bitwise in PostgreSQL and it does not supported in sqlparser-rs
-    fn exponentiation(mut with_table: InMemorySqlEngine) {
-        assert_eq!(
             with_table
-                .execute("insert into schema_name.table_name values (8 ^ 2);")
-                .expect("no system errors"),
-            Ok(QueryEvent::RecordsInserted(1))
-        );
-        assert_eq!(
-            with_table
-                .execute("select * from schema_name.table_name;")
-                .expect("no system errors"),
-            Ok(QueryEvent::RecordsSelected((
-                vec![("column_si".to_owned(), PostgreSqlType::SmallInt),],
-                vec![vec!["64".to_owned()]]
-            )))
-        );
-    }
+                .execute("insert into schema_name.table_name values ('45' || 1);")
+                .expect("no system errors")
+                .expect("record inserted");
 
-    #[rstest::rstest]
-    #[ignore]
-    // TODO |/<n> is square root in PostgreSQL and it does not supported in sqlparser-rs
-    fn square_root(mut with_table: InMemorySqlEngine) {
-        assert_eq!(
-            with_table
-                .execute("insert into schema_name.table_name values (|/ 16);")
-                .expect("no system errors"),
-            Ok(QueryEvent::RecordsInserted(1))
-        );
-        assert_eq!(
-            with_table
-                .execute("select * from schema_name.table_name;")
-                .expect("no system errors"),
-            Ok(QueryEvent::RecordsSelected((
-                vec![("column_si".to_owned(), PostgreSqlType::SmallInt),],
-                vec![vec!["4".to_owned()]]
-            )))
-        );
-    }
+            assert_eq!(
+                with_table
+                    .execute("select * from schema_name.table_name;")
+                    .expect("no system errors"),
+                Ok(QueryEvent::RecordsSelected((
+                    vec![("strings".to_owned(), PostgreSqlType::Char)],
+                    vec![vec!["145".to_owned()], vec!["451".to_owned()]]
+                )))
+            );
+        }
 
-    #[rstest::rstest]
-    #[ignore]
-    // TODO ||/<n> is cube root in PostgreSQL and it does not supported in sqlparser-rs
-    fn cube_root(mut with_table: InMemorySqlEngine) {
-        assert_eq!(
-            with_table
-                .execute("insert into schema_name.table_name values (||/ 8);")
-                .expect("no system errors"),
-            Ok(QueryEvent::RecordsInserted(1))
-        );
-        assert_eq!(
-            with_table
-                .execute("select * from schema_name.table_name;")
-                .expect("no system errors"),
-            Ok(QueryEvent::RecordsSelected((
-                vec![("column_si".to_owned(), PostgreSqlType::SmallInt),],
-                vec![vec!["2".to_owned()]]
-            )))
-        );
-    }
-
-    #[rstest::rstest]
-    #[ignore]
-    // TODO <n>! is factorial in PostgreSQL and it does not supported in sqlparser-rs
-    fn factorial(mut with_table: InMemorySqlEngine) {
-        assert_eq!(
-            with_table
-                .execute("insert into schema_name.table_name values (5!);")
-                .expect("no system errors"),
-            Ok(QueryEvent::RecordsInserted(1))
-        );
-        assert_eq!(
-            with_table
-                .execute("select * from schema_name.table_name;")
-                .expect("no system errors"),
-            Ok(QueryEvent::RecordsSelected((
-                vec![("column_si".to_owned(), PostgreSqlType::SmallInt),],
-                vec![vec!["120".to_owned()]]
-            )))
-        );
-    }
-
-    #[rstest::rstest]
-    #[ignore]
-    // TODO !!<n> is prefix factorial in PostgreSQL and it does not supported in sqlparser-rs
-    fn prefix_factorial(mut with_table: InMemorySqlEngine) {
-        assert_eq!(
-            with_table
-                .execute("insert into schema_name.table_name values (!!5);")
-                .expect("no system errors"),
-            Ok(QueryEvent::RecordsInserted(1))
-        );
-        assert_eq!(
-            with_table
-                .execute("select * from schema_name.table_name;")
-                .expect("no system errors"),
-            Ok(QueryEvent::RecordsSelected((
-                vec![("column_si".to_owned(), PostgreSqlType::SmallInt),],
-                vec![vec!["120".to_owned()]]
-            )))
-        );
-    }
-
-    #[rstest::rstest]
-    #[ignore]
-    // TODO @<n> is absolute value in PostgreSQL and it does not supported in sqlparser-rs
-    fn absolute_value(mut with_table: InMemorySqlEngine) {
-        assert_eq!(
-            with_table
-                .execute("insert into schema_name.table_name values (@-5);")
-                .expect("no system errors"),
-            Ok(QueryEvent::RecordsInserted(1))
-        );
-        assert_eq!(
-            with_table
-                .execute("select * from schema_name.table_name;")
-                .expect("no system errors"),
-            Ok(QueryEvent::RecordsSelected((
-                vec![("column_si".to_owned(), PostgreSqlType::SmallInt),],
-                vec![vec!["5".to_owned()]]
-            )))
-        );
-    }
-
-    #[rstest::rstest]
-    fn bitwise_and(mut with_table: InMemorySqlEngine) {
-        assert_eq!(
-            with_table
-                .execute("insert into schema_name.table_name values (5 & 1);")
-                .expect("no system errors"),
-            Ok(QueryEvent::RecordsInserted(1))
-        );
-        assert_eq!(
-            with_table
-                .execute("select * from schema_name.table_name;")
-                .expect("no system errors"),
-            Ok(QueryEvent::RecordsSelected((
-                vec![("column_si".to_owned(), PostgreSqlType::SmallInt),],
-                vec![vec!["1".to_owned()]]
-            )))
-        );
-    }
-
-    #[rstest::rstest]
-    fn bitwise_or(mut with_table: InMemorySqlEngine) {
-        assert_eq!(
-            with_table
-                .execute("insert into schema_name.table_name values (5 | 2);")
-                .expect("no system errors"),
-            Ok(QueryEvent::RecordsInserted(1))
-        );
-        assert_eq!(
-            with_table
-                .execute("select * from schema_name.table_name;")
-                .expect("no system errors"),
-            Ok(QueryEvent::RecordsSelected((
-                vec![("column_si".to_owned(), PostgreSqlType::SmallInt),],
-                vec![vec!["7".to_owned()]]
-            )))
-        );
-    }
-
-    #[rstest::rstest]
-    #[ignore]
-    // TODO ~ <n> is bitwise NOT in PostgreSQL and it does not supported in sqlparser-rs
-    fn bitwise_not(mut with_table: InMemorySqlEngine) {
-        assert_eq!(
-            with_table
-                .execute("insert into schema_name.table_name values (~1);")
-                .expect("no system errors"),
-            Ok(QueryEvent::RecordsInserted(1))
-        );
-        assert_eq!(
-            with_table
-                .execute("select * from schema_name.table_name;")
-                .expect("no system errors"),
-            Ok(QueryEvent::RecordsSelected((
-                vec![("column_si".to_owned(), PostgreSqlType::SmallInt),],
-                vec![vec!["-2".to_owned()]]
-            )))
-        );
-    }
-
-    #[rstest::rstest]
-    #[ignore]
-    // TODO <n> << <m> is bitwise SHIFT LEFT in PostgreSQL and it does not supported in sqlparser-rs
-    fn bitwise_shift_left(mut with_table: InMemorySqlEngine) {
-        assert_eq!(
-            with_table
-                .execute("insert into schema_name.table_name values (1 << 4);")
-                .expect("no system errors"),
-            Ok(QueryEvent::RecordsInserted(1))
-        );
-        assert_eq!(
-            with_table
-                .execute("select * from schema_name.table_name;")
-                .expect("no system errors"),
-            Ok(QueryEvent::RecordsSelected((
-                vec![("column_si".to_owned(), PostgreSqlType::SmallInt),],
-                vec![vec!["16".to_owned()]]
-            )))
-        );
-    }
-
-    #[rstest::rstest]
-    #[ignore]
-    // TODO <n> >> <m> is bitwise SHIFT RIGHT in PostgreSQL and it does not supported in sqlparser-rs
-    fn bitwise_right_left(mut with_table: InMemorySqlEngine) {
-        assert_eq!(
-            with_table
-                .execute("insert into schema_name.table_name values (8 >> 2);")
-                .expect("no system errors"),
-            Ok(QueryEvent::RecordsInserted(1))
-        );
-        assert_eq!(
-            with_table
-                .execute("select * from schema_name.table_name;")
-                .expect("no system errors"),
-            Ok(QueryEvent::RecordsSelected((
-                vec![("column_si".to_owned(), PostgreSqlType::SmallInt),],
-                vec![vec!["2".to_owned()]]
-            )))
-        );
-    }
-
-    #[rstest::rstest]
-    #[ignore]
-    fn bitwise_operations_have_lesser_priority_than_arithmetic(mut with_table: InMemorySqlEngine) {
-        assert_eq!(
-            with_table
-                .execute("insert into schema_name.table_name values (5 & 3 + 1);")
-                .expect("no system errors"),
-            Ok(QueryEvent::RecordsInserted(1))
-        );
-        assert_eq!(
-            with_table
-                .execute("select * from schema_name.table_name;")
-                .expect("no system errors"),
-            Ok(QueryEvent::RecordsSelected((
-                vec![("column_si".to_owned(), PostgreSqlType::SmallInt),],
-                vec![vec!["4".to_owned()]]
-            )))
-        );
+        #[rstest::rstest]
+        fn non_string_concatenation_not_supported(mut with_table: InMemorySqlEngine) {
+            assert_eq!(
+                with_table
+                    .execute("insert into schema_name.table_name values (1 || 2);")
+                    .expect("no system errors"),
+                Err(QueryErrorBuilder::new()
+                    .undefined_function("||".to_owned(), "NUMBER".to_owned(), "NUMBER".to_owned())
+                    .build())
+            );
+        }
     }
 }
