@@ -24,7 +24,9 @@ mod schemaless {
             sql_engine
                 .execute("create table schema_name.table_name (column_name smallint);")
                 .expect("no system errors"),
-            Err(QueryError::schema_does_not_exist("schema_name".to_owned()))
+            Err(QueryErrorBuilder::new()
+                .schema_does_not_exist("schema_name".to_owned())
+                .build())
         );
     }
 
@@ -34,7 +36,9 @@ mod schemaless {
             sql_engine
                 .execute("drop table schema_name.table_name;")
                 .expect("no system errors"),
-            Err(QueryError::schema_does_not_exist("schema_name".to_owned()))
+            Err(QueryErrorBuilder::new()
+                .schema_does_not_exist("schema_name".to_owned())
+                .build())
         );
     }
 }
@@ -59,7 +63,9 @@ fn create_same_table(mut sql_engine_with_schema: InMemorySqlEngine) {
         sql_engine_with_schema
             .execute("create table schema_name.table_name (column_name smallint);")
             .expect("no system errors"),
-        Err(QueryError::table_already_exists("schema_name.table_name".to_owned()))
+        Err(QueryErrorBuilder::new()
+            .table_already_exists("schema_name.table_name".to_owned())
+            .build())
     );
 }
 
@@ -90,7 +96,9 @@ fn drop_non_existent_table(mut sql_engine_with_schema: InMemorySqlEngine) {
         sql_engine_with_schema
             .execute("drop table schema_name.table_name;")
             .expect("no system errors"),
-        Err(QueryError::table_does_not_exist("schema_name.table_name".to_owned()))
+        Err(QueryErrorBuilder::new()
+            .table_does_not_exist("schema_name.table_name".to_owned())
+            .build())
     );
 }
 

@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use super::*;
-use protocol::{results::ConstraintViolation, sql_types::PostgreSqlType};
+use protocol::{results::QueryErrorBuilder, sql_types::PostgreSqlType};
 
 #[rstest::fixture]
 fn int_table(mut sql_engine_with_schema: InMemorySqlEngine) -> InMemorySqlEngine {
@@ -41,37 +41,39 @@ mod insert {
 
     #[rstest::rstest]
     fn out_of_range(mut int_table: InMemorySqlEngine) {
+        let mut builder = QueryErrorBuilder::new();
+        builder.out_of_range(PostgreSqlType::SmallInt);
+
         assert_eq!(
             int_table
                 .execute("insert into schema_name.table_name values (32768);")
                 .expect("no system errors"),
-            Err(QueryError::constraint_violations(vec![
-                ConstraintViolation::out_of_range(PostgreSqlType::SmallInt)
-            ]))
+            Err(builder.build())
         );
     }
 
     #[rstest::rstest]
     fn type_mismatch(mut int_table: InMemorySqlEngine) {
+        let mut builder = QueryErrorBuilder::new();
+        builder.type_mismatch("str", PostgreSqlType::SmallInt);
+
         assert_eq!(
             int_table
                 .execute("insert into schema_name.table_name values ('str');")
                 .expect("no system errors"),
-            Err(QueryError::constraint_violations(vec![
-                ConstraintViolation::type_mismatch("str", PostgreSqlType::SmallInt)
-            ]))
+            Err(builder.build())
         )
     }
 
     #[rstest::rstest]
     fn value_too_long(mut str_table: InMemorySqlEngine) {
+        let mut builder = QueryErrorBuilder::new();
+        builder.string_length_mismatch(PostgreSqlType::VarChar, 5);
         assert_eq!(
             str_table
                 .execute("insert into schema_name.table_name values ('123457890');")
                 .expect("no system errors"),
-            Err(QueryError::constraint_violations(vec![
-                ConstraintViolation::string_length_mismatch(PostgreSqlType::VarChar, 5)
-            ]))
+            Err(builder.build())
         )
     }
 }
@@ -82,6 +84,9 @@ mod update {
 
     #[rstest::rstest]
     fn out_of_range(mut int_table: InMemorySqlEngine) {
+        let mut builder = QueryErrorBuilder::new();
+        builder.out_of_range(PostgreSqlType::SmallInt);
+
         int_table
             .execute("insert into schema_name.table_name values (32767);")
             .expect("no system errors")
@@ -91,14 +96,14 @@ mod update {
             int_table
                 .execute("update schema_name.table_name set col = 32768;")
                 .expect("no system errors"),
-            Err(QueryError::constraint_violations(vec![
-                ConstraintViolation::out_of_range(PostgreSqlType::SmallInt)
-            ]))
+            Err(builder.build())
         );
     }
 
     #[rstest::rstest]
     fn type_mismatch(mut int_table: InMemorySqlEngine) {
+        let mut builder = QueryErrorBuilder::new();
+        builder.type_mismatch("str", PostgreSqlType::SmallInt);
         int_table
             .execute("insert into schema_name.table_name values (32767);")
             .expect("no system errors")
@@ -108,14 +113,15 @@ mod update {
             int_table
                 .execute("update schema_name.table_name set col = 'str';")
                 .expect("no system errors"),
-            Err(QueryError::constraint_violations(vec![
-                ConstraintViolation::type_mismatch("str", PostgreSqlType::SmallInt)
-            ]))
+            Err(builder.build())
         )
     }
 
     #[rstest::rstest]
     fn value_too_long(mut str_table: InMemorySqlEngine) {
+        let mut builder = QueryErrorBuilder::new();
+        builder.string_length_mismatch(PostgreSqlType::VarChar, 5);
+
         str_table
             .execute("insert into schema_name.table_name values ('str');")
             .expect("no system errors")
@@ -125,9 +131,7 @@ mod update {
             str_table
                 .execute("update schema_name.table_name set col = '123457890';")
                 .expect("no system errors"),
-            Err(QueryError::constraint_violations(vec![
-                ConstraintViolation::string_length_mismatch(PostgreSqlType::VarChar, 5)
-            ]))
+            Err(builder.build())
         )
     }
 }

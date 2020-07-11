@@ -14,7 +14,7 @@
 
 use bigdecimal::BigDecimal;
 use kernel::SystemResult;
-use protocol::results::{ConstraintViolation, QueryError, QueryEvent, QueryResult};
+use protocol::results::{QueryError, QueryErrorBuilder, QueryEvent, QueryResult};
 use sql_types::ConstraintError;
 use sqlparser::ast::{BinaryOperator, DataType, Expr, Ident, ObjectName, Query, SetExpr, UnaryOperator, Value};
 use std::{
@@ -86,16 +86,16 @@ impl<P: BackendStorage> InsertCommand<'_, P> {
                                 "-".to_owned() + v.to_string().as_str()
                             }
                             (op, expr) => {
-                                return Ok(Err(QueryError::syntax_error(
-                                    op.to_string() + expr.to_string().as_str(),
-                                )))
+                                return Ok(Err(QueryErrorBuilder::new()
+                                    .syntax_error(op.to_string() + expr.to_string().as_str())
+                                    .build()))
                             }
                         },
                         expr @ Expr::BinaryOp { .. } => match Self::eval(expr) {
                             Ok(expr_result) => expr_result.value(),
                             Err(e) => return Ok(Err(e)),
                         },
-                        expr => return Ok(Err(QueryError::syntax_error(expr.to_string()))),
+                        expr => return Ok(Err(QueryErrorBuilder::new().syntax_error(expr.to_string()).build())),
                     };
                     row.push(v);
                 }
@@ -106,34 +106,33 @@ impl<P: BackendStorage> InsertCommand<'_, P> {
             match (self.storage.lock().unwrap()).insert_into(&schema_name, &table_name, columns, rows)? {
                 Ok(_) => Ok(Ok(QueryEvent::RecordsInserted(len))),
                 Err(OperationOnTableError::SchemaDoesNotExist) => {
-                    Ok(Err(QueryError::schema_does_not_exist(schema_name)))
+                    Ok(Err(QueryErrorBuilder::new().schema_does_not_exist(schema_name).build()))
                 }
-                Err(OperationOnTableError::TableDoesNotExist) => Ok(Err(QueryError::table_does_not_exist(
-                    schema_name + "." + table_name.as_str(),
-                ))),
+                Err(OperationOnTableError::TableDoesNotExist) => Ok(Err(QueryErrorBuilder::new()
+                    .table_does_not_exist(schema_name + "." + table_name.as_str())
+                    .build())),
                 Err(OperationOnTableError::ColumnDoesNotExist(non_existing_columns)) => {
-                    Ok(Err(QueryError::column_does_not_exist(non_existing_columns)))
+                    Ok(Err(QueryErrorBuilder::new()
+                        .column_does_not_exist(non_existing_columns)
+                        .build()))
                 }
                 Err(OperationOnTableError::ConstraintViolations(constraint_errors)) => {
+                    let mut builder = QueryErrorBuilder::new();
                     let constraint_error_mapper =
-                        |(err, column_definition): &(ConstraintError, ColumnDefinition)| -> ConstraintViolation {
-                            let sql_type = column_definition.sql_type();
-                            match err {
-                                ConstraintError::OutOfRange => {
-                                    ConstraintViolation::out_of_range(sql_type.to_pg_types())
-                                }
-                                ConstraintError::TypeMismatch(value) => {
-                                    ConstraintViolation::type_mismatch(value, sql_type.to_pg_types())
-                                }
-                                ConstraintError::ValueTooLong(len) => {
-                                    ConstraintViolation::string_length_mismatch(sql_type.to_pg_types(), *len)
-                                }
+                        |(err, column_definition): &(ConstraintError, ColumnDefinition)| match err {
+                            ConstraintError::OutOfRange => {
+                                builder.out_of_range(column_definition.sql_type().to_pg_types());
+                            }
+                            ConstraintError::TypeMismatch(value) => {
+                                builder.type_mismatch(value, column_definition.sql_type().to_pg_types());
+                            }
+                            ConstraintError::ValueTooLong(len) => {
+                                builder.string_length_mismatch(column_definition.sql_type().to_pg_types(), *len);
                             }
                         };
 
-                    let violations = constraint_errors.iter().map(constraint_error_mapper).collect();
-
-                    Ok(Err(QueryError::constraint_violations(violations)))
+                    constraint_errors.iter().for_each(constraint_error_mapper);
+                    Ok(Err(builder.build()))
                 }
                 Err(e) => {
                     eprintln!("{:?}", e);
@@ -141,7 +140,9 @@ impl<P: BackendStorage> InsertCommand<'_, P> {
                 }
             }
         } else {
-            Ok(Err(QueryError::not_supported_operation(self.raw_sql_query.to_owned())))
+            Ok(Err(QueryErrorBuilder::new()
+                .not_supported_operation(self.raw_sql_query.to_owned())
+                .build()))
         }
     }
 
@@ -166,42 +167,34 @@ impl<P: BackendStorage> InsertCommand<'_, P> {
                         let (right, _) = right.as_bigint_and_exponent();
                         Ok(ExprResult::Number(BigDecimal::from(left | &right)))
                     }
-                    operator => Err(QueryError::undefined_function(
-                        operator.to_string(),
-                        "NUMBER".to_owned(),
-                        "NUMBER".to_owned(),
-                    )),
+                    operator => Err(QueryErrorBuilder::new()
+                        .undefined_function(operator.to_string(), "NUMBER".to_owned(), "NUMBER".to_owned())
+                        .build()),
                 },
                 (ExprResult::String(left), ExprResult::String(right)) => match op {
                     BinaryOperator::StringConcat => Ok(ExprResult::String(left + right.as_str())),
-                    operator => Err(QueryError::undefined_function(
-                        operator.to_string(),
-                        "STRING".to_owned(),
-                        "STRING".to_owned(),
-                    )),
+                    operator => Err(QueryErrorBuilder::new()
+                        .undefined_function(operator.to_string(), "STRING".to_owned(), "STRING".to_owned())
+                        .build()),
                 },
                 (ExprResult::Number(left), ExprResult::String(right)) => match op {
                     BinaryOperator::StringConcat => Ok(ExprResult::String(left.to_string() + right.as_str())),
-                    operator => Err(QueryError::undefined_function(
-                        operator.to_string(),
-                        "NUMBER".to_owned(),
-                        "STRING".to_owned(),
-                    )),
+                    operator => Err(QueryErrorBuilder::new()
+                        .undefined_function(operator.to_string(), "NUMBER".to_owned(), "STRING".to_owned())
+                        .build()),
                 },
                 (ExprResult::String(left), ExprResult::Number(right)) => match op {
                     BinaryOperator::StringConcat => Ok(ExprResult::String(left + right.to_string().as_str())),
-                    operator => Err(QueryError::undefined_function(
-                        operator.to_string(),
-                        "STRING".to_owned(),
-                        "NUMBER".to_owned(),
-                    )),
+                    operator => Err(QueryErrorBuilder::new()
+                        .undefined_function(operator.to_string(), "STRING".to_owned(), "NUMBER".to_owned())
+                        .build()),
                 },
             }
         } else {
             match expr {
                 Expr::Value(Value::Number(v)) => Ok(ExprResult::Number(v.clone())),
                 Expr::Value(Value::SingleQuotedString(v)) => Ok(ExprResult::String(v.clone())),
-                e => Err(QueryError::syntax_error(e.to_string())),
+                e => Err(QueryErrorBuilder::new().syntax_error(e.to_string()).build()),
             }
         }
     }
