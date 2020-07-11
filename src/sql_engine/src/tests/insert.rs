@@ -318,7 +318,7 @@ mod operators {
                         .execute("select * from schema_name.table_name;")
                         .expect("no system errors"),
                     Ok(QueryEvent::RecordsSelected((
-                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt),],
+                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
                         vec![vec!["3".to_owned()]]
                     )))
                 );
@@ -337,7 +337,7 @@ mod operators {
                         .execute("select * from schema_name.table_name;")
                         .expect("no system errors"),
                     Ok(QueryEvent::RecordsSelected((
-                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt),],
+                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
                         vec![vec!["-1".to_owned()]]
                     )))
                 );
@@ -356,7 +356,7 @@ mod operators {
                         .execute("select * from schema_name.table_name;")
                         .expect("no system errors"),
                     Ok(QueryEvent::RecordsSelected((
-                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt),],
+                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
                         vec![vec!["6".to_owned()]]
                     )))
                 );
@@ -375,7 +375,7 @@ mod operators {
                         .execute("select * from schema_name.table_name;")
                         .expect("no system errors"),
                     Ok(QueryEvent::RecordsSelected((
-                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt),],
+                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
                         vec![vec!["4".to_owned()]]
                     )))
                 );
@@ -394,7 +394,7 @@ mod operators {
                         .execute("select * from schema_name.table_name;")
                         .expect("no system errors"),
                     Ok(QueryEvent::RecordsSelected((
-                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt),],
+                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
                         vec![vec!["0".to_owned()]]
                     )))
                 );
@@ -416,7 +416,7 @@ mod operators {
                         .execute("select * from schema_name.table_name;")
                         .expect("no system errors"),
                     Ok(QueryEvent::RecordsSelected((
-                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt),],
+                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
                         vec![vec!["64".to_owned()]]
                     )))
                 );
@@ -437,7 +437,7 @@ mod operators {
                         .execute("select * from schema_name.table_name;")
                         .expect("no system errors"),
                     Ok(QueryEvent::RecordsSelected((
-                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt),],
+                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
                         vec![vec!["4".to_owned()]]
                     )))
                 );
@@ -458,7 +458,7 @@ mod operators {
                         .execute("select * from schema_name.table_name;")
                         .expect("no system errors"),
                     Ok(QueryEvent::RecordsSelected((
-                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt),],
+                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
                         vec![vec!["2".to_owned()]]
                     )))
                 );
@@ -479,7 +479,7 @@ mod operators {
                         .execute("select * from schema_name.table_name;")
                         .expect("no system errors"),
                     Ok(QueryEvent::RecordsSelected((
-                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt),],
+                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
                         vec![vec!["120".to_owned()]]
                     )))
                 );
@@ -500,7 +500,7 @@ mod operators {
                         .execute("select * from schema_name.table_name;")
                         .expect("no system errors"),
                     Ok(QueryEvent::RecordsSelected((
-                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt),],
+                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
                         vec![vec!["120".to_owned()]]
                     )))
                 );
@@ -521,7 +521,7 @@ mod operators {
                         .execute("select * from schema_name.table_name;")
                         .expect("no system errors"),
                     Ok(QueryEvent::RecordsSelected((
-                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt),],
+                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
                         vec![vec!["5".to_owned()]]
                     )))
                 );
@@ -540,7 +540,7 @@ mod operators {
                         .execute("select * from schema_name.table_name;")
                         .expect("no system errors"),
                     Ok(QueryEvent::RecordsSelected((
-                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt),],
+                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
                         vec![vec!["1".to_owned()]]
                     )))
                 );
@@ -559,7 +559,7 @@ mod operators {
                         .execute("select * from schema_name.table_name;")
                         .expect("no system errors"),
                     Ok(QueryEvent::RecordsSelected((
-                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt),],
+                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
                         vec![vec!["7".to_owned()]]
                     )))
                 );
@@ -580,7 +580,7 @@ mod operators {
                         .execute("select * from schema_name.table_name;")
                         .expect("no system errors"),
                     Ok(QueryEvent::RecordsSelected((
-                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt),],
+                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
                         vec![vec!["-2".to_owned()]]
                     )))
                 );
@@ -601,7 +601,7 @@ mod operators {
                         .execute("select * from schema_name.table_name;")
                         .expect("no system errors"),
                     Ok(QueryEvent::RecordsSelected((
-                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt),],
+                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
                         vec![vec!["16".to_owned()]]
                     )))
                 );
@@ -622,7 +622,7 @@ mod operators {
                         .execute("select * from schema_name.table_name;")
                         .expect("no system errors"),
                     Ok(QueryEvent::RecordsSelected((
-                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt),],
+                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
                         vec![vec!["2".to_owned()]]
                     )))
                 );
@@ -641,7 +641,7 @@ mod operators {
                         .execute("select * from schema_name.table_name;")
                         .expect("no system errors"),
                     Ok(QueryEvent::RecordsSelected((
-                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt),],
+                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
                         vec![vec!["5".to_owned()]]
                     )))
                 );
@@ -676,7 +676,7 @@ mod operators {
                     .execute("select * from schema_name.table_name;")
                     .expect("no system errors"),
                 Ok(QueryEvent::RecordsSelected((
-                    vec![("strings".to_owned(), PostgreSqlType::Char),],
+                    vec![("strings".to_owned(), PostgreSqlType::Char)],
                     vec![vec!["12345".to_owned()]]
                 )))
             );
@@ -699,7 +699,7 @@ mod operators {
                     .execute("select * from schema_name.table_name;")
                     .expect("no system errors"),
                 Ok(QueryEvent::RecordsSelected((
-                    vec![("strings".to_owned(), PostgreSqlType::Char),],
+                    vec![("strings".to_owned(), PostgreSqlType::Char)],
                     vec![vec!["145".to_owned()], vec!["451".to_owned()]]
                 )))
             );

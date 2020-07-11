@@ -60,17 +60,17 @@ pub(crate) enum Severity {
 }
 
 // easy conversion into a string.
-impl Into<String> for Severity {
-    fn into(self) -> String {
+impl Into<&'static str> for Severity {
+    fn into(self) -> &'static str {
         match self {
-            Self::Error => "ERROR".to_string(),
-            Self::Fatal => "FATAL".to_string(),
-            Self::Panic => "PANIC".to_string(),
-            Self::Warning => "WARNING".to_string(),
-            Self::Notice => "NOTICE".to_string(),
-            Self::Debug => "DEBUG".to_string(),
-            Self::Info => "INFO".to_string(),
-            Self::Log => "LOG".to_string(),
+            Self::Error => "ERROR",
+            Self::Fatal => "FATAL",
+            Self::Panic => "PANIC",
+            Self::Warning => "WARNING",
+            Self::Notice => "NOTICE",
+            Self::Debug => "DEBUG",
+            Self::Info => "INFO",
+            Self::Log => "LOG",
         }
     }
 }
@@ -82,7 +82,7 @@ pub(crate) enum QueryErrorKind {
     SchemaDoesNotExist(String),
     TableDoesNotExist(String),
     ColumnDoesNotExist(Vec<String>),
-    NotSupportedOperation(String),
+    FeatureNotSupported(String),
     TooManyInsertExpressions,
 
     NumericTypeOutOfRange(PostgreSqlType),
@@ -91,6 +91,25 @@ pub(crate) enum QueryErrorKind {
 
     UndefinedFunction(String, String, String),
     SyntaxError(String),
+}
+
+impl QueryErrorKind {
+    fn code(&self) -> &'static str {
+        match self {
+            Self::SchemaAlreadyExists(_) => "42P06",
+            Self::TableAlreadyExists(_) => "42P07",
+            Self::SchemaDoesNotExist(_) => "3F000",
+            Self::TableDoesNotExist(_) => "42P01",
+            Self::ColumnDoesNotExist(_) => "42703",
+            Self::FeatureNotSupported(_) => "0A000",
+            Self::TooManyInsertExpressions => "42601",
+            Self::NumericTypeOutOfRange(_) => "22003",
+            Self::DataTypeMismatch(_, _) => "2200G",
+            Self::StringTypeLengthMismatch(_, _) => "22026",
+            Self::UndefinedFunction(_, _, _) => "42883",
+            Self::SyntaxError(_) => "42601",
+        }
+    }
 }
 
 impl Display for QueryErrorKind {
@@ -107,10 +126,10 @@ impl Display for QueryErrorKind {
                     write!(f, "column {} does not exist", columns[0])
                 }
             }
-            Self::NotSupportedOperation(raw_sql_query) => {
+            Self::FeatureNotSupported(raw_sql_query) => {
                 write!(f, "Currently, Query '{}' can't be executed", raw_sql_query)
             }
-            Self::TooManyInsertExpressions => write!(f, "INSERT has more epxressions then target columns"),
+            Self::TooManyInsertExpressions => write!(f, "INSERT has more expressions then target columns"),
             Self::NumericTypeOutOfRange(pg_type) => write!(f, "{} out of range", pg_type),
             Self::DataTypeMismatch(pg_type, value) => {
                 write!(f, "invalid input syntax for type {}: \"{}\"", pg_type, value)
@@ -130,17 +149,17 @@ impl Display for QueryErrorKind {
 #[derive(Debug, PartialEq)]
 pub(crate) struct QueryErrorInner {
     severity: Severity,
-    code: String,
     kind: QueryErrorKind,
 }
 
 impl QueryErrorInner {
-    fn code(&self) -> Option<String> {
-        Some(self.code.clone())
+    fn code(&self) -> Option<&'static str> {
+        Some(self.kind.code())
     }
 
-    fn severity(&self) -> Option<String> {
-        Some(self.severity.into())
+    fn severity(&self) -> Option<&'static str> {
+        let severity: &'static str = self.severity.into();
+        Some(severity)
     }
 
     fn message(&self) -> Option<String> {
@@ -148,7 +167,7 @@ impl QueryErrorInner {
     }
 }
 
-/// a container of errors that occured during query execution
+/// a container of errors that occurred during query execution
 #[derive(Debug, PartialEq)]
 pub struct QueryError {
     errors: Vec<QueryErrorInner>,
@@ -179,14 +198,6 @@ impl QueryErrorBuilder {
         Self::default()
     }
 
-    // I am not sure this is a good idea.
-    /// helper for building errors in one line.
-    pub fn build_with<Errs: FnMut(&mut Self)>(mut errs: Errs) -> QueryError {
-        let mut builder = Self::new();
-        errs(&mut builder);
-        builder.build()
-    }
-
     /// builds a QueryError containing all of the error generated
     pub fn build(self) -> QueryError {
         QueryError::new(self.errors)
@@ -199,7 +210,6 @@ impl QueryErrorBuilder {
     pub fn schema_already_exists(mut self, schema_name: String) -> Self {
         self.errors.push(QueryErrorInner {
             severity: Severity::Error,
-            code: "42P06".to_owned(),
             kind: QueryErrorKind::SchemaAlreadyExists(schema_name),
         });
         self
@@ -209,7 +219,6 @@ impl QueryErrorBuilder {
     pub fn schema_does_not_exist(mut self, schema_name: String) -> Self {
         self.errors.push(QueryErrorInner {
             severity: Severity::Error,
-            code: "3F000".to_owned(),
             kind: QueryErrorKind::SchemaDoesNotExist(schema_name),
         });
         self
@@ -219,7 +228,6 @@ impl QueryErrorBuilder {
     pub fn table_already_exists(mut self, table_name: String) -> Self {
         self.errors.push(QueryErrorInner {
             severity: Severity::Error,
-            code: "42P07".to_owned(),
             kind: QueryErrorKind::TableAlreadyExists(table_name),
         });
         self
@@ -229,7 +237,6 @@ impl QueryErrorBuilder {
     pub fn table_does_not_exist(mut self, table_name: String) -> Self {
         self.errors.push(QueryErrorInner {
             severity: Severity::Error,
-            code: "42P01".to_owned(),
             kind: QueryErrorKind::TableDoesNotExist(table_name),
         });
         self
@@ -239,18 +246,16 @@ impl QueryErrorBuilder {
     pub fn column_does_not_exist(mut self, non_existing_columns: Vec<String>) -> Self {
         self.errors.push(QueryErrorInner {
             severity: Severity::Error,
-            code: "42703".to_owned(),
             kind: QueryErrorKind::ColumnDoesNotExist(non_existing_columns),
         });
         self
     }
 
     /// not supported operation error constructor
-    pub fn not_supported_operation(mut self, raw_sql_query: String) -> Self {
+    pub fn feature_not_supported(mut self, feature_description: String) -> Self {
         self.errors.push(QueryErrorInner {
             severity: Severity::Error,
-            code: "42601".to_owned(),
-            kind: QueryErrorKind::NotSupportedOperation(raw_sql_query),
+            kind: QueryErrorKind::FeatureNotSupported(feature_description),
         });
         self
     }
@@ -259,7 +264,6 @@ impl QueryErrorBuilder {
     pub fn too_many_insert_expressions(mut self) -> Self {
         self.errors.push(QueryErrorInner {
             severity: Severity::Error,
-            code: "42601".to_owned(),
             kind: QueryErrorKind::TooManyInsertExpressions,
         });
         self
@@ -269,7 +273,6 @@ impl QueryErrorBuilder {
     pub fn syntax_error(mut self, expression: String) -> Self {
         self.errors.push(QueryErrorInner {
             severity: Severity::Error,
-            code: "42601".to_owned(),
             kind: QueryErrorKind::SyntaxError(expression),
         });
         self
@@ -279,7 +282,6 @@ impl QueryErrorBuilder {
     pub fn undefined_function(mut self, operator: String, left_type: String, right_type: String) -> Self {
         self.errors.push(QueryErrorInner {
             severity: Severity::Error,
-            code: "42883".to_owned(),
             kind: QueryErrorKind::UndefinedFunction(operator, left_type, right_type),
         });
         self
@@ -292,7 +294,6 @@ impl QueryErrorBuilder {
     pub fn out_of_range(&mut self, pg_type: PostgreSqlType) {
         self.errors.push(QueryErrorInner {
             severity: Severity::Error,
-            code: "22003".to_owned(),
             kind: QueryErrorKind::NumericTypeOutOfRange(pg_type),
         });
     }
@@ -301,7 +302,6 @@ impl QueryErrorBuilder {
     pub fn type_mismatch(&mut self, value: &str, pg_type: PostgreSqlType) {
         self.errors.push(QueryErrorInner {
             severity: Severity::Error,
-            code: "2200G".to_owned(),
             kind: QueryErrorKind::DataTypeMismatch(pg_type, value.to_owned()),
         });
     }
@@ -310,8 +310,60 @@ impl QueryErrorBuilder {
     pub fn string_length_mismatch(&mut self, pg_type: PostgreSqlType, len: u64) {
         self.errors.push(QueryErrorInner {
             severity: Severity::Error,
-            code: "22026".to_owned(),
             kind: QueryErrorKind::StringTypeLengthMismatch(pg_type, len),
         });
+    }
+}
+
+#[cfg(test)]
+mod severity {
+    use super::*;
+
+    #[test]
+    fn error() {
+        let severity: &'static str = Severity::Error.into();
+        assert_eq!(severity, "ERROR")
+    }
+
+    #[test]
+    fn fatal() {
+        let severity: &'static str = Severity::Fatal.into();
+        assert_eq!(severity, "FATAL")
+    }
+
+    #[test]
+    fn panic() {
+        let severity: &'static str = Severity::Panic.into();
+        assert_eq!(severity, "PANIC")
+    }
+
+    #[test]
+    fn warning() {
+        let severity: &'static str = Severity::Warning.into();
+        assert_eq!(severity, "WARNING")
+    }
+
+    #[test]
+    fn notice() {
+        let severity: &'static str = Severity::Notice.into();
+        assert_eq!(severity, "NOTICE")
+    }
+
+    #[test]
+    fn debug() {
+        let severity: &'static str = Severity::Debug.into();
+        assert_eq!(severity, "DEBUG")
+    }
+
+    #[test]
+    fn info() {
+        let severity: &'static str = Severity::Info.into();
+        assert_eq!(severity, "INFO")
+    }
+
+    #[test]
+    fn log() {
+        let severity: &'static str = Severity::Log.into();
+        assert_eq!(severity, "LOG")
     }
 }

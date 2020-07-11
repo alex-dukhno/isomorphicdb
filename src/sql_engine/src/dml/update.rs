@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::dml::ExpressionEvaluation;
 use kernel::SystemResult;
 use protocol::results::{QueryErrorBuilder, QueryEvent, QueryResult};
 use sql_types::ConstraintError;
@@ -44,29 +45,32 @@ impl<P: BackendStorage> UpdateCommand<'_, P> {
     pub(crate) fn execute(&mut self) -> SystemResult<QueryResult> {
         let schema_name = self.name.0[0].to_string();
         let table_name = self.name.0[1].to_string();
+        let mut to_update = vec![];
 
-        let to_update: Vec<(String, String)> = self
-            .assignments
-            .iter()
-            .map(|item| {
-                let Assignment { id, value } = &item;
-                let Ident { value: column, .. } = id;
+        for item in self.assignments.iter() {
+            let Assignment { id, value } = &item;
+            let Ident { value: column, .. } = id;
 
-                let value = match value {
-                    Expr::Value(Value::Number(val)) => val.to_string(),
-                    Expr::Value(Value::SingleQuotedString(v)) => v.to_string(),
-                    Expr::UnaryOp { op, expr } => match (op, &**expr) {
-                        (UnaryOperator::Minus, Expr::Value(Value::Number(v))) => {
-                            "-".to_owned() + v.to_string().as_str()
-                        }
-                        (op, expr) => unimplemented!("{:?} {:?} is not currently supported", op, expr),
-                    },
-                    expr => unimplemented!("{:?} is not currently supported", expr),
-                };
+            let value = match value {
+                Expr::Value(Value::Number(val)) => val.to_string(),
+                Expr::Value(Value::SingleQuotedString(v)) => v.to_string(),
+                Expr::UnaryOp { op, expr } => match (op, &**expr) {
+                    (UnaryOperator::Minus, Expr::Value(Value::Number(v))) => "-".to_owned() + v.to_string().as_str(),
+                    (op, expr) => {
+                        return Ok(Err(QueryErrorBuilder::new()
+                            .syntax_error(op.to_string() + expr.to_string().as_str())
+                            .build()))
+                    }
+                },
+                expr @ Expr::BinaryOp { .. } => match ExpressionEvaluation::eval(expr) {
+                    Ok(expr_result) => expr_result.value(),
+                    Err(e) => return Ok(Err(e)),
+                },
+                expr => return Ok(Err(QueryErrorBuilder::new().syntax_error(expr.to_string()).build())),
+            };
 
-                (column.to_owned(), value)
-            })
-            .collect();
+            to_update.push((column.to_owned(), value))
+        }
 
         match (self.storage.lock().unwrap()).update_all(&schema_name, &table_name, to_update)? {
             Ok(records_number) => Ok(Ok(QueryEvent::RecordsUpdated(records_number))),
@@ -98,7 +102,7 @@ impl<P: BackendStorage> UpdateCommand<'_, P> {
                 Ok(Err(builder.build()))
             }
             _ => Ok(Err(QueryErrorBuilder::new()
-                .not_supported_operation(self.raw_sql_query.to_owned())
+                .feature_not_supported(self.raw_sql_query.to_owned())
                 .build())),
         }
     }

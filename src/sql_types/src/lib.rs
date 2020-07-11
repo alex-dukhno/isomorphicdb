@@ -127,7 +127,7 @@ impl Serializer for SmallIntTypeSerializer {
     fn ser(&self, in_value: &str) -> Vec<u8> {
         match lexical::parse::<i16, _>(in_value) {
             Ok(parsed) => parsed.to_be_bytes().to_vec(),
-            Err(_) => unimplemented!(),
+            Err(_) => unreachable!(),
         }
     }
 
@@ -165,7 +165,7 @@ impl Serializer for IntegerSqlTypeSerializer {
     fn ser(&self, in_value: &str) -> Vec<u8> {
         match lexical::parse::<i32, _>(in_value) {
             Ok(parsed) => parsed.to_be_bytes().to_vec(),
-            Err(_) => unimplemented!(),
+            Err(_) => unreachable!(),
         }
     }
 
@@ -203,7 +203,7 @@ impl Serializer for BigIntTypeSerializer {
     fn ser(&self, in_value: &str) -> Vec<u8> {
         match lexical::parse::<i64, _>(in_value) {
             Ok(parsed) => parsed.to_be_bytes().to_vec(),
-            Err(_) => unimplemented!(),
+            Err(_) => unreachable!(),
         }
     }
 

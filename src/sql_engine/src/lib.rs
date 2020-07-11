@@ -51,7 +51,9 @@ impl<P: BackendStorage> Handler<P> {
             Ok(mut statements) => statements.pop().unwrap(),
             Err(e) => {
                 log::error!("{:?} can't be parsed. Error: {:?}", raw_sql_query, e);
-                unimplemented!("PANIC!!! Ah-a-a-a")
+                return Ok(Err(QueryErrorBuilder::new()
+                    .syntax_error(format!("{:?} can't be parsed", raw_sql_query))
+                    .build()));
             }
         };
         log::debug!("STATEMENT = {:?}", statement);
@@ -68,7 +70,7 @@ impl<P: BackendStorage> Handler<P> {
                 ObjectType::Table => DropTableCommand::new(names[0].clone(), self.storage.clone()).execute(),
                 ObjectType::Schema => DropSchemaCommand::new(names[0].clone(), self.storage.clone()).execute(),
                 _ => Ok(Err(QueryErrorBuilder::new()
-                    .not_supported_operation(raw_sql_query.to_owned())
+                    .feature_not_supported(raw_sql_query.to_owned())
                     .build())),
             },
             Statement::Insert {
@@ -87,7 +89,7 @@ impl<P: BackendStorage> Handler<P> {
                 DeleteCommand::new(raw_sql_query, table_name, self.storage.clone()).execute()
             }
             _ => Ok(Err(QueryErrorBuilder::new()
-                .not_supported_operation(raw_sql_query.to_owned())
+                .feature_not_supported(raw_sql_query.to_owned())
                 .build())),
         }
     }
