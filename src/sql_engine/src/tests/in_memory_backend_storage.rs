@@ -170,22 +170,20 @@ impl BackendStorage for InMemoryStorage {
     fn is_table_exists(&self, namespace: &str, object_name: &str) -> bool {
         match self.check_for_table(namespace, object_name) {
             Ok(result) => result.is_ok(),
-            Err(_) => false
+            Err(_) => false,
         }
     }
-
 
     fn check_for_table(&self, namespace: &str, object_name: &str) -> SystemResult<Result<(), OperationOnObjectError>> {
         match self.namespaces.get(namespace) {
             Some(namespace) => {
                 if namespace.objects.contains_key(object_name) {
                     Ok(Ok(()))
-                }
-                else {
+                } else {
                     Ok(Err(OperationOnObjectError::ObjectDoesNotExist))
                 }
             }
-            None => Ok(Err(OperationOnObjectError::NamespaceDoesNotExist))
+            None => Ok(Err(OperationOnObjectError::NamespaceDoesNotExist)),
         }
     }
 }

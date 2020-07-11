@@ -305,7 +305,6 @@ impl BackendStorage for SledBackendStorage {
             None => Ok(Err(OperationOnObjectError::NamespaceDoesNotExist)),
         }
     }
-
 }
 
 #[cfg(test)]
