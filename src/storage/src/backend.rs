@@ -283,7 +283,7 @@ impl BackendStorage for SledBackendStorage {
     fn is_table_exists(&self, namespace: &str, object_name: &str) -> bool {
         match self.check_for_table(namespace, object_name) {
             Ok(result) => result.is_ok(),
-            Err(_) => false
+            Err(_) => false,
         }
     }
 
@@ -292,15 +292,13 @@ impl BackendStorage for SledBackendStorage {
             Some(namespace) => {
                 if namespace.tree_names().contains(&(object_name.into())) {
                     Ok(Ok(()))
-                }
-                else {
+                } else {
                     Ok(Err(OperationOnObjectError::ObjectDoesNotExist))
                 }
             }
-            None => Ok(Err(OperationOnObjectError::NamespaceDoesNotExist))
+            None => Ok(Err(OperationOnObjectError::NamespaceDoesNotExist)),
         }
     }
-
 }
 
 #[cfg(test)]

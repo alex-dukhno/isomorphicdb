@@ -49,11 +49,19 @@ impl<P: BackendStorage> FrontendStorage<P> {
         }
     }
 
-    pub fn table_descriptor(&self, schema_name: &str, table_name: &str) -> SystemResult<Result<TableDescription, OperationOnTableError>> {
+    pub fn table_descriptor(
+        &self,
+        schema_name: &str,
+        table_name: &str,
+    ) -> SystemResult<Result<TableDescription, OperationOnTableError>> {
         match self.persistent.check_for_table(schema_name, table_name)? {
-            Ok(()) => {},
-            Err(OperationOnObjectError::NamespaceDoesNotExist) => return Ok(Err(OperationOnTableError::SchemaDoesNotExist)),
-            Err(OperationOnObjectError::ObjectDoesNotExist) => return Ok(Err(OperationOnTableError::TableDoesNotExist)),
+            Ok(()) => {}
+            Err(OperationOnObjectError::NamespaceDoesNotExist) => {
+                return Ok(Err(OperationOnTableError::SchemaDoesNotExist))
+            }
+            Err(OperationOnObjectError::ObjectDoesNotExist) => {
+                return Ok(Err(OperationOnTableError::TableDoesNotExist))
+            }
         }
 
         // we know the table exists
@@ -92,7 +100,7 @@ impl<P: BackendStorage> FrontendStorage<P> {
                         (schema_name.to_owned() + table_name).as_bytes().to_vec(),
                         column_names
                             .into_iter()
-                            .map(|(name, sql_type)| bincode::serialize(&ColumnDefinition{ name, sql_type }).unwrap())
+                            .map(|(name, sql_type)| bincode::serialize(&ColumnDefinition { name, sql_type }).unwrap())
                             .collect::<Vec<Vec<u8>>>()
                             .join(&b'|')
                             .to_vec(),

@@ -63,7 +63,7 @@ impl TableDescription {
         Self {
             schema_name: schema_name.to_owned(),
             table_name: table_name.to_owned(),
-            column_data
+            column_data,
         }
     }
 
@@ -74,12 +74,16 @@ impl TableDescription {
     pub fn column_type(&self, column_idx: usize) -> SqlType {
         if let Some(column) = self.column_data.get(column_idx) {
             column.sql_type
+        } else {
+            panic!("attempting to access type of invalid column index")
         }
-        else { panic!("attempting to access type of invalid column index") }
     }
 
     pub fn column_type_by_name(&self, name: &str) -> Option<SqlType> {
-        self.column_data.iter().find(|column| column.name == name).map(|column| column.sql_type)
+        self.column_data
+            .iter()
+            .find(|column| column.name == name)
+            .map(|column| column.sql_type)
     }
 
     pub fn scheme(&self) -> &str {
