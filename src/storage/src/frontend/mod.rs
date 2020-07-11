@@ -20,10 +20,9 @@ use crate::{
         OperationOnObjectError, Row, SledBackendStorage,
     },
     ColumnDefinition, CreateTableError, DropTableError, OperationOnTableError, Projection, SchemaAlreadyExists,
-    SchemaDoesNotExist,
+    SchemaDoesNotExist, TableDescription,
 };
 use kernel::{SystemError, SystemResult};
-use serde::{Deserialize, Serialize};
 use sql_types::SqlType;
 
 pub struct FrontendStorage<P: BackendStorage> {
@@ -48,6 +47,27 @@ impl<P: BackendStorage> FrontendStorage<P> {
                 Err(SystemError::unrecoverable("system namespace already exists".to_owned()))
             }
         }
+    }
+
+    pub fn table_descriptor(
+        &self,
+        schema_name: &str,
+        table_name: &str,
+    ) -> SystemResult<Result<TableDescription, OperationOnTableError>> {
+        match self.persistent.check_for_table(schema_name, table_name)? {
+            Ok(()) => {}
+            Err(OperationOnObjectError::NamespaceDoesNotExist) => {
+                return Ok(Err(OperationOnTableError::SchemaDoesNotExist))
+            }
+            Err(OperationOnObjectError::ObjectDoesNotExist) => {
+                return Ok(Err(OperationOnTableError::TableDoesNotExist))
+            }
+        }
+
+        // we know the table exists
+        let columns_metadata = self.table_columns(schema_name, table_name)?;
+
+        Ok(Ok(TableDescription::new(schema_name, table_name, columns_metadata)))
     }
 
     pub fn create_schema(&mut self, schema_name: &str) -> SystemResult<Result<(), SchemaAlreadyExists>> {
@@ -80,7 +100,7 @@ impl<P: BackendStorage> FrontendStorage<P> {
                         (schema_name.to_owned() + table_name).as_bytes().to_vec(),
                         column_names
                             .into_iter()
-                            .map(|(name, sql_type)| bincode::serialize(&ColumnMetadata { name, sql_type }).unwrap())
+                            .map(|(name, sql_type)| bincode::serialize(&ColumnDefinition { name, sql_type }).unwrap())
                             .collect::<Vec<Vec<u8>>>()
                             .join(&b'|')
                             .to_vec(),
@@ -103,7 +123,7 @@ impl<P: BackendStorage> FrontendStorage<P> {
         }
     }
 
-    pub fn table_columns(&mut self, schema_name: &str, table_name: &str) -> SystemResult<Vec<ColumnDefinition>> {
+    pub fn table_columns(&self, schema_name: &str, table_name: &str) -> SystemResult<Vec<ColumnDefinition>> {
         self.persistent
             .read("system", "columns")?
             .map(|reads| {
@@ -384,12 +404,6 @@ impl<P: BackendStorage> FrontendStorage<P> {
             Err(OperationOnObjectError::NamespaceDoesNotExist) => Ok(Err(OperationOnTableError::SchemaDoesNotExist)),
         }
     }
-}
-
-#[derive(Serialize, Deserialize)]
-struct ColumnMetadata {
-    name: String,
-    sql_type: SqlType,
 }
 
 #[cfg(test)]
