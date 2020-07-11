@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use kernel::SystemResult;
-use protocol::results::{QueryError, QueryEvent, QueryResult};
+use protocol::results::{QueryErrorBuilder, QueryEvent, QueryResult};
 use sql_types::SqlType;
 use sqlparser::ast::{ColumnDef, DataType, ObjectName};
 use std::sync::{Arc, Mutex};
@@ -68,10 +68,13 @@ impl<P: BackendStorage> CreateTableCommand<P> {
                 .collect(),
         )? {
             Ok(()) => Ok(Ok(QueryEvent::TableCreated)),
-            Err(CreateTableError::SchemaDoesNotExist) => Ok(Err(QueryError::schema_does_not_exist(schema_name))),
-            Err(CreateTableError::TableAlreadyExists) => Ok(Err(QueryError::table_already_exists(
-                schema_name + "." + table_name.as_str(),
-            ))),
+            Err(CreateTableError::SchemaDoesNotExist) => {
+                Ok(Err(QueryErrorBuilder::new().schema_does_not_exist(schema_name).build()))
+            }
+            Err(CreateTableError::TableAlreadyExists) => {
+                // this is what the test expected. Also, there should maybe this name should already be generated somewhere.
+                Ok(Err(QueryErrorBuilder::new().table_already_exists(format!("{}.{}", schema_name, table_name)).build()))
+            }
         }
     }
 }

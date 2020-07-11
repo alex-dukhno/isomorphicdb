@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use kernel::SystemResult;
-use protocol::results::{QueryError, QueryEvent, QueryResult};
+use protocol::results::{QueryErrorBuilder, QueryEvent, QueryResult};
 use sqlparser::ast::ObjectName;
 use std::sync::{Arc, Mutex};
 use storage::{backend::BackendStorage, frontend::FrontendStorage, OperationOnTableError};
@@ -42,14 +42,18 @@ impl<P: BackendStorage> DeleteCommand<'_, P> {
         let table_name = self.name.0[1].to_string();
         match (self.storage.lock().unwrap()).delete_all_from(&schema_name, &table_name)? {
             Ok(records_number) => Ok(Ok(QueryEvent::RecordsDeleted(records_number))),
-            Err(OperationOnTableError::SchemaDoesNotExist) => Ok(Err(QueryError::schema_does_not_exist(schema_name))),
-            Err(OperationOnTableError::TableDoesNotExist) => Ok(Err(QueryError::table_does_not_exist(
-                schema_name + "." + table_name.as_str(),
-            ))),
-            Err(OperationOnTableError::ColumnDoesNotExist(non_existing_columns)) => {
-                Ok(Err(QueryError::column_does_not_exist(non_existing_columns)))
+            Err(OperationOnTableError::SchemaDoesNotExist) => {
+                Ok(Err(QueryErrorBuilder::new().schema_does_not_exist(schema_name).build()))
             }
-            _ => Ok(Err(QueryError::not_supported_operation(self.raw_sql_query.to_owned()))),
+            Err(OperationOnTableError::TableDoesNotExist) => Ok(Err(QueryErrorBuilder::new()
+                .table_does_not_exist(schema_name + "." + table_name.as_str())
+                .build())),
+            Err(OperationOnTableError::ColumnDoesNotExist(non_existing_columns)) => Ok(Err(QueryErrorBuilder::new()
+                .column_does_not_exist(non_existing_columns)
+                .build())),
+            _ => Ok(Err(QueryErrorBuilder::new()
+                .not_supported_operation(self.raw_sql_query.to_owned())
+                .build())),
         }
     }
 }

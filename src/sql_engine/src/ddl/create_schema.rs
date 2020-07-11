@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use kernel::SystemResult;
-use protocol::results::{QueryError, QueryEvent, QueryResult};
+use protocol::results::{QueryErrorBuilder, QueryEvent, QueryResult};
 use sqlparser::ast::ObjectName;
 use std::sync::{Arc, Mutex};
 use storage::{backend::BackendStorage, frontend::FrontendStorage, SchemaAlreadyExists};
@@ -32,7 +32,7 @@ impl<P: BackendStorage> CreateSchemaCommand<P> {
         let schema_name = self.schema_name.to_string();
         match (self.storage.lock().unwrap()).create_schema(&schema_name)? {
             Ok(()) => Ok(Ok(QueryEvent::SchemaCreated)),
-            Err(SchemaAlreadyExists) => Ok(Err(QueryError::schema_already_exists(schema_name))),
+            Err(SchemaAlreadyExists) => Ok(Err(QueryErrorBuilder::new().schema_already_exists(schema_name).build())),
         }
     }
 }

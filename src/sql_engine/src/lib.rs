@@ -23,7 +23,7 @@ use crate::{
     dml::{delete::DeleteCommand, insert::InsertCommand, select::SelectCommand, update::UpdateCommand},
 };
 use kernel::SystemResult;
-use protocol::results::{QueryError, QueryEvent, QueryResult};
+use protocol::results::{QueryErrorBuilder, QueryEvent, QueryResult};
 
 use sqlparser::{
     ast::{ObjectType, Statement},
@@ -67,7 +67,9 @@ impl<P: BackendStorage> Handler<P> {
             Statement::Drop { object_type, names, .. } => match object_type {
                 ObjectType::Table => DropTableCommand::new(names[0].clone(), self.storage.clone()).execute(),
                 ObjectType::Schema => DropSchemaCommand::new(names[0].clone(), self.storage.clone()).execute(),
-                _ => Ok(Err(QueryError::not_supported_operation(raw_sql_query.to_owned()))),
+                _ => Ok(Err(QueryErrorBuilder::new()
+                    .not_supported_operation(raw_sql_query.to_owned())
+                    .build())),
             },
             Statement::Insert {
                 table_name,
@@ -84,7 +86,9 @@ impl<P: BackendStorage> Handler<P> {
             Statement::Delete { table_name, .. } => {
                 DeleteCommand::new(raw_sql_query, table_name, self.storage.clone()).execute()
             }
-            _ => Ok(Err(QueryError::not_supported_operation(raw_sql_query.to_owned()))),
+            _ => Ok(Err(QueryErrorBuilder::new()
+                .not_supported_operation(raw_sql_query.to_owned())
+                .build())),
         }
     }
 }
