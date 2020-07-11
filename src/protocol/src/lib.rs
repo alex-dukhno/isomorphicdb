@@ -416,6 +416,18 @@ mod tests {
         }
 
         #[test]
+        fn too_many_insert_expressions() {
+            assert_eq!(
+                QueryResultMapper::map(Err(QueryErrorBuilder::new().too_many_insert_expressions().build())),
+                vec![Message::ErrorResponse(
+                    Some("ERROR"),
+                    Some("42601"),
+                    Some("INSERT has more expressions then target columns".to_owned()),
+                )]
+            )
+        }
+
+        #[test]
         fn out_of_range_constraint_violation() {
             let mut builder = QueryErrorBuilder::new();
             builder.out_of_range(PostgreSqlType::SmallInt);

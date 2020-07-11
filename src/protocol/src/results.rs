@@ -129,7 +129,7 @@ impl Display for QueryErrorKind {
             Self::FeatureNotSupported(raw_sql_query) => {
                 write!(f, "Currently, Query '{}' can't be executed", raw_sql_query)
             }
-            Self::TooManyInsertExpressions => write!(f, "INSERT has more epxressions then target columns"),
+            Self::TooManyInsertExpressions => write!(f, "INSERT has more expressions then target columns"),
             Self::NumericTypeOutOfRange(pg_type) => write!(f, "{} out of range", pg_type),
             Self::DataTypeMismatch(pg_type, value) => {
                 write!(f, "invalid input syntax for type {}: \"{}\"", pg_type, value)
