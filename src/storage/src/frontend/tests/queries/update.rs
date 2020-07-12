@@ -16,22 +16,40 @@ use super::*;
 use sql_types::SqlType;
 
 #[rstest::rstest]
-fn update_all_records(mut storage: PersistentStorage) {
-    create_schema_with_table(
-        &mut storage,
-        "schema_name",
+fn update_all_records(default_schema_name: &str, mut storage_with_schema: PersistentStorage) {
+    create_table(
+        &mut storage_with_schema,
+        default_schema_name,
         "table_name",
         vec![("column_test", SqlType::SmallInt(i16::min_value()))],
     );
 
-    insert_into(&mut storage, "schema_name", "table_name", vec![], vec!["123"]);
-    insert_into(&mut storage, "schema_name", "table_name", vec![], vec!["456"]);
-    insert_into(&mut storage, "schema_name", "table_name", vec![], vec!["789"]);
+    insert_into(
+        &mut storage_with_schema,
+        default_schema_name,
+        "table_name",
+        vec![],
+        vec!["123"],
+    );
+    insert_into(
+        &mut storage_with_schema,
+        default_schema_name,
+        "table_name",
+        vec![],
+        vec!["456"],
+    );
+    insert_into(
+        &mut storage_with_schema,
+        default_schema_name,
+        "table_name",
+        vec![],
+        vec!["789"],
+    );
 
     assert_eq!(
-        storage
+        storage_with_schema
             .update_all(
-                "schema_name",
+                default_schema_name,
                 "table_name",
                 vec![("column_test".to_owned(), "567".to_owned())]
             )
@@ -39,16 +57,16 @@ fn update_all_records(mut storage: PersistentStorage) {
         Ok(3)
     );
 
-    let table_columns = storage
-        .table_columns("schema_name", "table_name")
+    let table_columns = storage_with_schema
+        .table_columns(default_schema_name, "table_name")
         .expect("no system errors")
         .into_iter()
         .map(|column_definition| column_definition.name())
         .collect();
 
     assert_eq!(
-        storage
-            .select_all_from("schema_name", "table_name", table_columns)
+        storage_with_schema
+            .select_all_from(default_schema_name, "table_name", table_columns)
             .expect("no system errors"),
         Ok((
             vec![column_definition("column_test", SqlType::SmallInt(i16::min_value()))],
@@ -58,12 +76,10 @@ fn update_all_records(mut storage: PersistentStorage) {
 }
 
 #[rstest::rstest]
-fn update_not_existed_table(mut storage: PersistentStorage) {
-    create_schema(&mut storage, "schema_name");
-
+fn update_not_existed_table(default_schema_name: &str, mut storage_with_schema: PersistentStorage) {
     assert_eq!(
-        storage
-            .update_all("schema_name", "not_existed", vec![])
+        storage_with_schema
+            .update_all(default_schema_name, "not_existed", vec![])
             .expect("no system errors"),
         Err(OperationOnTableError::TableDoesNotExist)
     );
@@ -85,10 +101,13 @@ mod constraints {
     use sql_types::ConstraintError;
 
     #[rstest::fixture]
-    fn storage_with_ints_table(mut storage: PersistentStorage) -> PersistentStorage {
-        create_schema_with_table(
-            &mut storage,
-            "schema_name",
+    fn storage_with_ints_table(
+        default_schema_name: &str,
+        mut storage_with_schema: PersistentStorage,
+    ) -> PersistentStorage {
+        create_table(
+            &mut storage_with_schema,
+            default_schema_name,
             "table_name",
             vec![
                 ("column_si", SqlType::SmallInt(i16::min_value())),
@@ -96,25 +115,28 @@ mod constraints {
                 ("column_bi", SqlType::BigInt(i64::min_value())),
             ],
         );
-        storage
+        storage_with_schema
     }
 
     #[rstest::fixture]
-    fn storage_with_chars_table(mut storage: PersistentStorage) -> PersistentStorage {
-        create_schema_with_table(
-            &mut storage,
-            "schema_name",
+    fn storage_with_chars_table(
+        default_schema_name: &str,
+        mut storage_with_schema: PersistentStorage,
+    ) -> PersistentStorage {
+        create_table(
+            &mut storage_with_schema,
+            default_schema_name,
             "table_name",
             vec![("column_c", SqlType::Char(10)), ("column_vc", SqlType::VarChar(10))],
         );
-        storage
+        storage_with_schema
     }
 
     #[rstest::rstest]
-    fn out_of_range_violation(mut storage_with_ints_table: PersistentStorage) {
+    fn out_of_range_violation(default_schema_name: &str, mut storage_with_ints_table: PersistentStorage) {
         storage_with_ints_table
             .insert_into(
-                "schema_name",
+                default_schema_name,
                 "table_name",
                 vec![],
                 vec![vec!["100".to_owned(), "100".to_owned(), "100".to_owned()]],
@@ -124,7 +146,7 @@ mod constraints {
         assert_eq!(
             storage_with_ints_table
                 .update_all(
-                    "schema_name",
+                    default_schema_name,
                     "table_name",
                     vec![
                         ("column_si".to_owned(), "-32769".to_owned()),
@@ -141,10 +163,10 @@ mod constraints {
     }
 
     #[rstest::rstest]
-    fn not_an_int_violation(mut storage_with_ints_table: PersistentStorage) {
+    fn not_an_int_violation(default_schema_name: &str, mut storage_with_ints_table: PersistentStorage) {
         storage_with_ints_table
             .insert_into(
-                "schema_name",
+                default_schema_name,
                 "table_name",
                 vec![],
                 vec![vec!["100".to_owned(), "100".to_owned(), "100".to_owned()]],
@@ -154,7 +176,7 @@ mod constraints {
         assert_eq!(
             storage_with_ints_table
                 .update_all(
-                    "schema_name",
+                    default_schema_name,
                     "table_name",
                     vec![
                         ("column_si".to_owned(), "abc".to_owned()),
@@ -171,10 +193,10 @@ mod constraints {
     }
 
     #[rstest::rstest]
-    fn value_too_long_violation(mut storage_with_chars_table: PersistentStorage) {
+    fn value_too_long_violation(default_schema_name: &str, mut storage_with_chars_table: PersistentStorage) {
         storage_with_chars_table
             .insert_into(
-                "schema_name",
+                default_schema_name,
                 "table_name",
                 vec![],
                 vec![vec!["100".to_owned(), "100".to_owned()]],
@@ -184,7 +206,7 @@ mod constraints {
         assert_eq!(
             storage_with_chars_table
                 .update_all(
-                    "schema_name",
+                    default_schema_name,
                     "table_name",
                     vec![
                         ("column_c".to_owned(), "12345678901".to_owned()),
@@ -200,10 +222,10 @@ mod constraints {
     }
 
     #[rstest::rstest]
-    fn multiple_columns_violation(mut storage_with_ints_table: PersistentStorage) {
+    fn multiple_columns_violation(default_schema_name: &str, mut storage_with_ints_table: PersistentStorage) {
         storage_with_ints_table
             .insert_into(
-                "schema_name",
+                default_schema_name,
                 "table_name",
                 vec![],
                 vec![vec!["100".to_owned(), "100".to_owned(), "100".to_owned()]],
@@ -214,7 +236,7 @@ mod constraints {
         assert_eq!(
             storage_with_ints_table
                 .update_all(
-                    "schema_name",
+                    default_schema_name,
                     "table_name",
                     vec![
                         ("column_si".to_owned(), "-32769".to_owned()),

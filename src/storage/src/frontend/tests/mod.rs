@@ -23,16 +23,20 @@ mod table;
 
 type PersistentStorage = FrontendStorage<SledBackendStorage>;
 
-fn column_definition(name: &'static str, sql_type: SqlType) -> ColumnDefinition {
-    ColumnDefinition {
-        name: name.to_owned(),
-        sql_type,
-    }
+#[rstest::fixture]
+fn default_schema_name() -> &'static str {
+    "schema_name"
 }
 
 #[rstest::fixture]
 fn storage() -> PersistentStorage {
     FrontendStorage::default().expect("no system errors")
+}
+
+#[rstest::fixture]
+fn storage_with_schema(mut storage: PersistentStorage, default_schema_name: &str) -> PersistentStorage {
+    create_schema(&mut storage, default_schema_name);
+    storage
 }
 
 fn create_schema<P: backend::BackendStorage>(storage: &mut FrontendStorage<P>, schema_name: &str) {
@@ -61,14 +65,11 @@ fn create_table<P: backend::BackendStorage>(
         .expect("table is created");
 }
 
-fn create_schema_with_table<P: backend::BackendStorage>(
-    storage: &mut FrontendStorage<P>,
-    schema_name: &str,
-    table_name: &str,
-    columns: Vec<(&str, SqlType)>,
-) {
-    create_schema(storage, schema_name);
-    create_table(storage, schema_name, table_name, columns)
+fn column_definition(name: &'static str, sql_type: SqlType) -> ColumnDefinition {
+    ColumnDefinition {
+        name: name.to_owned(),
+        sql_type,
+    }
 }
 
 fn insert_into<P: backend::BackendStorage>(
