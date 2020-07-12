@@ -36,6 +36,13 @@ pub enum SqlType {
 }
 
 impl SqlType {
+    pub fn validate_and_serialize(&self, value: &str) -> Result<Vec<u8>, ConstraintError> {
+        self.constraint().validate(value)
+            .and_then(|()| {
+                Ok(self.serializer().ser(value))
+            })
+    }
+
     pub fn constraint(&self) -> Box<dyn Constraint> {
         match *self {
             Self::Char(length) => Box::new(CharSqlTypeConstraint { length }),
