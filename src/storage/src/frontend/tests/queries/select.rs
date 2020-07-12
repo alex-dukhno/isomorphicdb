@@ -16,10 +16,10 @@ use super::*;
 use sql_types::SqlType;
 
 #[rstest::fixture]
-fn with_small_ints_table(mut storage: PersistentStorage) -> PersistentStorage {
-    create_schema_with_table(
-        &mut storage,
-        "schema_name",
+fn with_small_ints_table(default_schema_name: &str, mut storage_with_schema: PersistentStorage) -> PersistentStorage {
+    create_table(
+        &mut storage_with_schema,
+        default_schema_name,
         "table_name",
         vec![
             ("column_1", SqlType::SmallInt(i16::min_value())),
@@ -27,7 +27,7 @@ fn with_small_ints_table(mut storage: PersistentStorage) -> PersistentStorage {
             ("column_3", SqlType::SmallInt(i16::min_value())),
         ],
     );
-    storage
+    storage_with_schema
 }
 
 #[rstest::rstest]
@@ -41,35 +41,34 @@ fn select_from_table_from_non_existent_schema(mut storage: PersistentStorage) {
 }
 
 #[rstest::rstest]
-fn select_from_table_that_does_not_exist(mut storage: PersistentStorage) {
-    create_schema(&mut storage, "schema_name");
-    let table_columns = storage
-        .table_columns("schema_name", "not_existed")
+fn select_from_table_that_does_not_exist(default_schema_name: &str, mut storage_with_schema: PersistentStorage) {
+    let table_columns = storage_with_schema
+        .table_columns(default_schema_name, "not_existed")
         .expect("no system errors")
         .into_iter()
         .map(|column_definition| column_definition.name())
         .collect();
 
     assert_eq!(
-        storage
-            .select_all_from("schema_name", "not_existed", table_columns)
+        storage_with_schema
+            .select_all_from(default_schema_name, "not_existed", table_columns)
             .expect("no system errors"),
         Err(OperationOnTableError::TableDoesNotExist)
     );
 }
 
 #[rstest::rstest]
-fn select_all_from_table_with_many_columns(mut with_small_ints_table: PersistentStorage) {
+fn select_all_from_table_with_many_columns(default_schema_name: &str, mut with_small_ints_table: PersistentStorage) {
     insert_into(
         &mut with_small_ints_table,
-        "schema_name",
+        default_schema_name,
         "table_name",
         vec![],
         vec!["1", "2", "3"],
     );
 
     let table_columns = with_small_ints_table
-        .table_columns("schema_name", "table_name")
+        .table_columns(default_schema_name, "table_name")
         .expect("no system errors")
         .into_iter()
         .map(|column_definition| column_definition.name())
@@ -77,7 +76,7 @@ fn select_all_from_table_with_many_columns(mut with_small_ints_table: Persistent
 
     assert_eq!(
         with_small_ints_table
-            .select_all_from("schema_name", "table_name", table_columns)
+            .select_all_from(default_schema_name, "table_name", table_columns)
             .expect("no system errors"),
         Ok((
             vec![
@@ -91,24 +90,27 @@ fn select_all_from_table_with_many_columns(mut with_small_ints_table: Persistent
 }
 
 #[rstest::rstest]
-fn select_first_and_last_columns_from_table_with_multiple_columns(mut with_small_ints_table: PersistentStorage) {
+fn select_first_and_last_columns_from_table_with_multiple_columns(
+    default_schema_name: &str,
+    mut with_small_ints_table: PersistentStorage,
+) {
     insert_into(
         &mut with_small_ints_table,
-        "schema_name",
+        default_schema_name,
         "table_name",
         vec![],
         vec!["1", "2", "3"],
     );
     insert_into(
         &mut with_small_ints_table,
-        "schema_name",
+        default_schema_name,
         "table_name",
         vec![],
         vec!["4", "5", "6"],
     );
     insert_into(
         &mut with_small_ints_table,
-        "schema_name",
+        default_schema_name,
         "table_name",
         vec![],
         vec!["7", "8", "9"],
@@ -117,7 +119,7 @@ fn select_first_and_last_columns_from_table_with_multiple_columns(mut with_small
     assert_eq!(
         with_small_ints_table
             .select_all_from(
-                "schema_name",
+                default_schema_name,
                 "table_name",
                 vec!["column_1".to_owned(), "column_3".to_owned()]
             )
@@ -137,24 +139,27 @@ fn select_first_and_last_columns_from_table_with_multiple_columns(mut with_small
 }
 
 #[rstest::rstest]
-fn select_all_columns_reordered_from_table_with_multiple_columns(mut with_small_ints_table: PersistentStorage) {
+fn select_all_columns_reordered_from_table_with_multiple_columns(
+    default_schema_name: &str,
+    mut with_small_ints_table: PersistentStorage,
+) {
     insert_into(
         &mut with_small_ints_table,
-        "schema_name",
+        default_schema_name,
         "table_name",
         vec![],
         vec!["1", "2", "3"],
     );
     insert_into(
         &mut with_small_ints_table,
-        "schema_name",
+        default_schema_name,
         "table_name",
         vec![],
         vec!["4", "5", "6"],
     );
     insert_into(
         &mut with_small_ints_table,
-        "schema_name",
+        default_schema_name,
         "table_name",
         vec![],
         vec!["7", "8", "9"],
@@ -163,7 +168,7 @@ fn select_all_columns_reordered_from_table_with_multiple_columns(mut with_small_
     assert_eq!(
         with_small_ints_table
             .select_all_from(
-                "schema_name",
+                default_schema_name,
                 "table_name",
                 vec!["column_3".to_owned(), "column_1".to_owned(), "column_2".to_owned()]
             )
@@ -184,24 +189,24 @@ fn select_all_columns_reordered_from_table_with_multiple_columns(mut with_small_
 }
 
 #[rstest::rstest]
-fn select_with_column_name_duplication(mut with_small_ints_table: PersistentStorage) {
+fn select_with_column_name_duplication(default_schema_name: &str, mut with_small_ints_table: PersistentStorage) {
     insert_into(
         &mut with_small_ints_table,
-        "schema_name",
+        default_schema_name,
         "table_name",
         vec![],
         vec!["1", "2", "3"],
     );
     insert_into(
         &mut with_small_ints_table,
-        "schema_name",
+        default_schema_name,
         "table_name",
         vec![],
         vec!["4", "5", "6"],
     );
     insert_into(
         &mut with_small_ints_table,
-        "schema_name",
+        default_schema_name,
         "table_name",
         vec![],
         vec!["7", "8", "9"],
@@ -210,7 +215,7 @@ fn select_with_column_name_duplication(mut with_small_ints_table: PersistentStor
     assert_eq!(
         with_small_ints_table
             .select_all_from(
-                "schema_name",
+                default_schema_name,
                 "table_name",
                 vec![
                     "column_3".to_owned(),
@@ -257,10 +262,10 @@ fn select_with_column_name_duplication(mut with_small_ints_table: PersistentStor
 }
 
 #[rstest::rstest]
-fn select_different_integer_types(mut storage: PersistentStorage) {
-    create_schema_with_table(
-        &mut storage,
-        "schema_name",
+fn select_different_integer_types(default_schema_name: &str, mut storage_with_schema: PersistentStorage) {
+    create_table(
+        &mut storage_with_schema,
+        default_schema_name,
         "table_name",
         vec![
             ("small_int", SqlType::SmallInt(i16::min_value())),
@@ -270,31 +275,31 @@ fn select_different_integer_types(mut storage: PersistentStorage) {
     );
 
     insert_into(
-        &mut storage,
-        "schema_name",
+        &mut storage_with_schema,
+        default_schema_name,
         "table_name",
         vec![],
         vec!["1000", "2000000", "3000000000"],
     );
     insert_into(
-        &mut storage,
-        "schema_name",
+        &mut storage_with_schema,
+        default_schema_name,
         "table_name",
         vec![],
         vec!["4000", "5000000", "6000000000"],
     );
     insert_into(
-        &mut storage,
-        "schema_name",
+        &mut storage_with_schema,
+        default_schema_name,
         "table_name",
         vec![],
         vec!["7000", "8000000", "9000000000"],
     );
 
     assert_eq!(
-        storage
+        storage_with_schema
             .select_all_from(
-                "schema_name",
+                default_schema_name,
                 "table_name",
                 vec!["small_int".to_owned(), "integer".to_owned(), "big_int".to_owned()]
             )
@@ -315,40 +320,40 @@ fn select_different_integer_types(mut storage: PersistentStorage) {
 }
 
 #[rstest::rstest]
-fn select_different_character_strings_types(mut storage: PersistentStorage) {
-    create_schema_with_table(
-        &mut storage,
-        "schema_name",
+fn select_different_character_strings_types(default_schema_name: &str, mut storage_with_schema: PersistentStorage) {
+    create_table(
+        &mut storage_with_schema,
+        default_schema_name,
         "table_name",
         vec![("char_10", SqlType::Char(10)), ("var_char_20", SqlType::VarChar(20))],
     );
 
     insert_into(
-        &mut storage,
-        "schema_name",
+        &mut storage_with_schema,
+        default_schema_name,
         "table_name",
         vec![],
         vec!["1234567890", "12345678901234567890"],
     );
     insert_into(
-        &mut storage,
-        "schema_name",
+        &mut storage_with_schema,
+        default_schema_name,
         "table_name",
         vec![],
         vec!["12345", "1234567890"],
     );
     insert_into(
-        &mut storage,
-        "schema_name",
+        &mut storage_with_schema,
+        default_schema_name,
         "table_name",
         vec![],
         vec!["12345", "1234567890     "],
     );
 
     assert_eq!(
-        storage
+        storage_with_schema
             .select_all_from(
-                "schema_name",
+                default_schema_name,
                 "table_name",
                 vec!["char_10".to_owned(), "var_char_20".to_owned()]
             )
