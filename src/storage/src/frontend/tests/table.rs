@@ -16,13 +16,11 @@ use super::*;
 use sql_types::SqlType;
 
 #[rstest::rstest]
-fn create_tables_with_different_names(mut storage: PersistentStorage) {
-    create_schema(&mut storage, "schema_name");
-
+fn create_tables_with_different_names(default_schema_name: &str, mut storage_with_schema: PersistentStorage) {
     assert_eq!(
-        storage
+        storage_with_schema
             .create_table(
-                "schema_name",
+                default_schema_name,
                 "table_name_1",
                 vec![("column_rstest::rstest".to_owned(), SqlType::SmallInt(i16::min_value()))]
             )
@@ -30,9 +28,9 @@ fn create_tables_with_different_names(mut storage: PersistentStorage) {
         Ok(())
     );
     assert_eq!(
-        storage
+        storage_with_schema
             .create_table(
-                "schema_name",
+                default_schema_name,
                 "table_name_2",
                 vec![("column_rstest::rstest".to_owned(), SqlType::SmallInt(i16::min_value()))]
             )
@@ -42,18 +40,18 @@ fn create_tables_with_different_names(mut storage: PersistentStorage) {
 }
 
 #[rstest::rstest]
-fn create_table_with_the_same_name(mut storage: PersistentStorage) {
-    create_schema_with_table(
-        &mut storage,
-        "schema_name",
+fn create_table_with_the_same_name(default_schema_name: &str, mut storage_with_schema: PersistentStorage) {
+    create_table(
+        &mut storage_with_schema,
+        default_schema_name,
         "table_name",
         vec![("column_rstest::rstest", SqlType::SmallInt(i16::min_value()))],
     );
 
     assert_eq!(
-        storage
+        storage_with_schema
             .create_table(
-                "schema_name",
+                default_schema_name,
                 "table_name",
                 vec![("column_rstest::rstest".to_owned(), SqlType::SmallInt(i16::min_value()))]
             )
@@ -89,23 +87,23 @@ fn create_table_with_the_same_name_in_different_schemas(mut storage: PersistentS
 }
 
 #[rstest::rstest]
-fn drop_table(mut storage: PersistentStorage) {
-    create_schema_with_table(
-        &mut storage,
-        "schema_name",
+fn drop_table(default_schema_name: &str, mut storage_with_schema: PersistentStorage) {
+    create_table(
+        &mut storage_with_schema,
+        default_schema_name,
         "table_name",
         vec![("column_rstest::rstest", SqlType::SmallInt(i16::min_value()))],
     );
     assert_eq!(
-        storage
-            .drop_table("schema_name", "table_name")
+        storage_with_schema
+            .drop_table(default_schema_name, "table_name")
             .expect("no system errors"),
         Ok(())
     );
     assert_eq!(
-        storage
+        storage_with_schema
             .create_table(
-                "schema_name",
+                default_schema_name,
                 "table_name",
                 vec![("column_rstest::rstest".to_owned(), SqlType::SmallInt(i16::min_value()))]
             )
@@ -115,23 +113,22 @@ fn drop_table(mut storage: PersistentStorage) {
 }
 
 #[rstest::rstest]
-fn table_columns_on_empty_table(mut storage: PersistentStorage) {
-    create_schema_with_table(&mut storage, "schema_name", "table_name", vec![]);
+fn table_columns_on_empty_table(default_schema_name: &str, mut storage_with_schema: PersistentStorage) {
+    create_table(&mut storage_with_schema, default_schema_name, "table_name", vec![]);
 
     assert_eq!(
-        storage
-            .table_columns("schema_name", "table_name")
+        storage_with_schema
+            .table_columns(default_schema_name, "table_name")
             .expect("no system errors"),
         vec![]
     )
 }
 
 #[rstest::rstest]
-fn drop_not_created_table(mut storage: PersistentStorage) {
-    create_schema(&mut storage, "schema_name");
+fn drop_not_created_table(default_schema_name: &str, mut storage_with_schema: PersistentStorage) {
     assert_eq!(
-        storage
-            .drop_table("schema_name", "not_existed_table")
+        storage_with_schema
+            .drop_table(default_schema_name, "not_existed_table")
             .expect("no system errors"),
         Err(DropTableError::TableDoesNotExist)
     );
