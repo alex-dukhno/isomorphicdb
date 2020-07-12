@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use crate::query_listener::SmolQueryListener;
-use protocol::{listener::Secure, QueryListener};
+use protocol::{listener::ProtocolConfiguration, QueryListener};
 use std::env;
 
 const PORT: usize = 5432;
@@ -26,12 +26,12 @@ pub fn start() {
     smol::run(async {
         let secure = match env::var("SECURE") {
             Ok(s) => match s.to_lowercase().as_str() {
-                "ssl_only" => Secure::ssl_only(),
-                "gssenc_only" => Secure::gssenc_only(),
-                "both" => Secure::both(),
-                _ => Secure::none(),
+                "ssl_only" => ProtocolConfiguration::ssl_only(),
+                "gssenc_only" => ProtocolConfiguration::gssenc_only(),
+                "both" => ProtocolConfiguration::both(),
+                _ => ProtocolConfiguration::none(),
             },
-            _ => Secure::none(),
+            _ => ProtocolConfiguration::none(),
         };
 
         let listener = SmolQueryListener::bind(local_address, secure)

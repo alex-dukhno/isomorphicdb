@@ -80,18 +80,18 @@ pub enum Command {
 
 /// Structure to handle client-server PostgreSQL Wire Protocol connection
 pub struct Connection<RW: AsyncReadExt + AsyncWriteExt + Unpin> {
-    properties: (Version, Params, SslMode),
+    properties: (Version, Params),
     socket: RW,
 }
 
 impl<RW: AsyncReadExt + AsyncWriteExt + Unpin> Connection<RW> {
     /// Creates new Connection with properties and read-write socket
-    pub fn new(properties: (Version, Params, SslMode), socket: RW) -> Connection<RW> {
+    pub fn new(properties: (Version, Params), socket: RW) -> Connection<RW> {
         Connection { properties, socket }
     }
 
     /// connection properties tuple
-    pub fn properties(&self) -> &(Version, Params, SslMode) {
+    pub fn properties(&self) -> &(Version, Params) {
         &(self.properties)
     }
 

@@ -16,23 +16,16 @@ use async_native_tls::TlsStream;
 use async_std::fs::File;
 use async_trait::async_trait;
 use futures_util::io::{AsyncReadExt, AsyncWriteExt};
-use protocol::{listener::Secure, Command, Connection, QueryListener, ServerListener};
+use protocol::{listener::ProtocolConfiguration, Command, Connection, QueryListener, ServerListener};
 use smol::{Async, Task};
 use sql_engine::Handler;
 use std::{
     env, io,
     net::{SocketAddr, TcpListener, TcpStream},
     path::{Path, PathBuf},
-    sync::{
-        atomic::{AtomicU8, Ordering},
-        Arc, Mutex,
-    },
+    sync::{Arc, Mutex},
 };
 use storage::{backend::SledBackendStorage, frontend::FrontendStorage};
-
-pub const CREATED: u8 = 0;
-pub const RUNNING: u8 = 1;
-pub const STOPPED: u8 = 2;
 
 pub struct SmolServerListener {
     inner: Async<TcpListener>,
@@ -62,38 +55,26 @@ impl ServerListener for SmolServerListener {
 
 pub struct SmolQueryListener {
     listener: SmolServerListener,
-    secure: Secure,
-    state: Arc<AtomicU8>,
+    secure: ProtocolConfiguration,
     storage: Arc<Mutex<FrontendStorage<SledBackendStorage>>>,
 }
 
 impl SmolQueryListener {
-    pub async fn bind<A: ToString>(addr: A, secure: Secure) -> io::Result<SmolQueryListener> {
+    pub async fn bind<A: ToString>(addr: A, secure: ProtocolConfiguration) -> io::Result<SmolQueryListener> {
         let tcp_listener = Async::<TcpListener>::bind(addr)?;
         let server_listener = SmolServerListener::new(tcp_listener);
 
         let query_listener = SmolQueryListener::new(server_listener, secure);
-        query_listener.state.store(RUNNING, Ordering::SeqCst);
 
         Ok(query_listener)
     }
 
-    fn new(listener: SmolServerListener, secure: Secure) -> SmolQueryListener {
+    fn new(listener: SmolServerListener, secure: ProtocolConfiguration) -> SmolQueryListener {
         Self {
             listener,
             secure,
-            state: Arc::new(AtomicU8::new(CREATED)),
             storage: Arc::new(Mutex::new(FrontendStorage::default().unwrap())),
         }
-    }
-
-    pub fn state(&self) -> u8 {
-        self.state.load(Ordering::SeqCst)
-    }
-
-    #[allow(dead_code)]
-    pub fn stop(&self) {
-        self.state.store(STOPPED, Ordering::SeqCst);
     }
 }
 
@@ -107,11 +88,6 @@ impl QueryListener for SmolQueryListener {
     where
         RW: AsyncReadExt + AsyncWriteExt + Unpin + Send + Sync + 'static,
     {
-        if self.state() == STOPPED {
-            return false;
-        }
-
-        let state = self.state.clone();
         let storage = self.storage.clone();
         Task::spawn(async move {
             let mut sql_handler = Handler::new(storage);
@@ -120,15 +96,11 @@ impl QueryListener for SmolQueryListener {
             loop {
                 match connection.receive().await {
                     Err(e) => {
-                        log::debug!("SHOULD STOP");
                         log::error!("UNEXPECTED ERROR: {:?}", e);
-                        state.store(STOPPED, Ordering::SeqCst);
                         break;
                     }
                     Ok(Err(e)) => {
-                        log::debug!("SHOULD STOP");
                         log::error!("UNEXPECTED ERROR: {:?}", e);
-                        state.store(STOPPED, Ordering::SeqCst);
                         break;
                     }
                     Ok(Ok(Command::Terminate)) => {
@@ -154,7 +126,7 @@ impl QueryListener for SmolQueryListener {
         &self.listener
     }
 
-    fn secure(&self) -> &Secure {
+    fn configuration(&self) -> &ProtocolConfiguration {
         &self.secure
     }
 }
