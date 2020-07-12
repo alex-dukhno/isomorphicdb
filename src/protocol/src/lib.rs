@@ -172,8 +172,8 @@ impl ColumnMetadata {
 }
 
 /// Enum that describes possible `ssl` mode
-/// possible values `Require`, `Preferred` and `Disable`
-#[derive(Debug, PartialEq)]
+/// possible values `Require` and `Disable`
+#[derive(Clone, Debug, PartialEq)]
 pub enum SslMode {
     /// Client initiate connection that require `ssl` tunnel
     Require,

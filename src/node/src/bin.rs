@@ -17,5 +17,5 @@ extern crate simple_logger;
 
 fn main() {
     simple_logger::init_by_env();
-    node::node::Node::default().start();
+    node::node::start();
 }

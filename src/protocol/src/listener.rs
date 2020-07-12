@@ -23,106 +23,79 @@ use futures_util::io::{self, AsyncReadExt, AsyncWriteExt};
 use itertools::Itertools;
 use std::net::SocketAddr;
 
+const ACCEPT_SSL_ENCRYPTION: u8 = b'S';
+const REJECT_SSL_ENCRYPTION: u8 = b'N';
+
 /// Listener trait that use underline network to `accept` queries from clients
 #[async_trait]
 pub trait QueryListener {
-    /// Bidirectional read-write channel between client and server
-    type Channel: AsyncReadExt + AsyncWriteExt + Unpin + Send + Sync;
+    /// Bidirectional read-write TCP channel between client and server
+    type TcpChannel: AsyncReadExt + AsyncWriteExt + Unpin + Send + Sync + 'static;
+    /// Bidirectional read-write TLS channel between client and server
+    type TlsChannel: AsyncReadExt + AsyncWriteExt + Unpin + Send + Sync + 'static;
     /// ServerChannel that listens to client connections and creates bidirectional `Channels`
-    type ServerChannel: ServerListener<Channel = Self::Channel> + Unpin + Send + Sync;
+    type ServerChannel: ServerListener<TcpChannel = Self::TcpChannel, TlsChannel = Self::TlsChannel>
+        + Unpin
+        + Send
+        + Sync;
 
-    /// accepts incoming client connections
-    #[allow(clippy::if_same_then_else)]
-    async fn accept(&self) -> io::Result<Result<Connection<Self::Channel>>> {
-        let (mut socket, address) = self.server_channel().channel().await?;
-        log::debug!("ADDRESS {:?}", address);
+    /// starts query server
+    async fn start(&self) -> io::Result<Result<()>> {
+        loop {
+            let (mut socket, address) = self.server_channel().tcp_channel().await?;
+            log::debug!("ADDRESS {:?}", address);
 
-        let len = read_len(&mut socket).await?;
-        let mut message = read_message(len, &mut socket).await?;
-        log::debug!("MESSAGE FOR TEST = {:#?}", message);
-        let version = NetworkEndian::read_i32(message.bytes());
-        log::debug!("VERSION FOR TEST = {:#?}", version);
-        message.advance(4);
+            let len = read_len(&mut socket).await?;
+            let mut message = read_message(len, &mut socket).await?;
+            log::debug!("MESSAGE FOR TEST = {:#?}", message);
+            let version = NetworkEndian::read_i32(message.bytes());
+            log::debug!("VERSION FOR TEST = {:#?}", version);
+            message.advance(4);
 
-        if version == VERSION_3 {
-            let parsed = message
-                .bytes()
-                .split(|b| *b == 0)
-                .filter(|b| !b.is_empty())
-                .map(|b| std::str::from_utf8(b).unwrap().to_owned())
-                .tuples()
-                .collect::<Params>();
-            message.advance(message.remaining());
-            log::debug!("Version {}\nparams = {:?}", version, parsed);
-            socket.write_all(Message::AuthenticationOk.as_vec().as_slice()).await?;
-            Ok(Ok(Connection::new((version, parsed, SslMode::Disable), socket)))
-        } else if version == VERSION_SSL {
-            if self.secure().ssl_support() {
-                unimplemented!()
-            } else {
-                socket.write_all(Message::NoticeResponse.as_vec().as_slice()).await?;
-                let len = read_len(&mut socket).await?;
-                log::debug!("LEN = {:?}", len);
-                let mut message = read_message(len, &mut socket).await?;
-                log::debug!("MESSAGE FOR TEST = {:#?}", message);
-                let version = NetworkEndian::read_i32(message.bytes());
-                message.advance(4);
-                let parsed = {
-                    message
-                        .bytes()
-                        .split(|b| *b == 0)
-                        .filter(|b| !b.is_empty())
-                        .map(|b| std::str::from_utf8(b).unwrap().to_owned())
-                        .tuples()
-                        .collect::<Params>()
-                };
-                message.advance(message.remaining());
-                log::debug!("MESSAGE FOR TEST = {:#?}", parsed);
-                socket
-                    .write_all(Message::AuthenticationCleartextPassword.as_vec().as_slice())
-                    .await?;
-                let mut buffer = [0u8; 1];
-                let tag = socket.read_exact(&mut buffer).await.map(|_| buffer[0]);
-                log::debug!("client message response tag {:?}", tag);
-                log::debug!("waiting for authentication response");
-                let len = read_len(&mut socket).await?;
-                let _message = read_message(len, &mut socket).await?;
-                socket.write_all(Message::AuthenticationOk.as_vec().as_slice()).await?;
+            let running = match version {
+                VERSION_3 => {
+                    let connection = create_version_3_connection(socket, message).await?;
+                    self.handle_connection(connection)
+                }
+                VERSION_SSL => {
+                    if self.secure().ssl_support() {
+                        socket.write_all(&[ACCEPT_SSL_ENCRYPTION]).await?;
+                        let tls_socket = self.server_channel().tls_channel(socket).await?;
+                        let connection = create_ssl_connection(tls_socket).await?;
+                        log::debug!("initialize TLS connection");
+                        self.handle_connection(connection)
+                    } else {
+                        socket.write_all(&[REJECT_SSL_ENCRYPTION]).await?;
+                        let connection = create_ssl_connection(socket).await?;
+                        self.handle_connection(connection)
+                    }
+                }
+                VERSION_GSSENC => {
+                    if self.secure().gssenc_support() {
+                        unimplemented!()
+                    } else {
+                        return Ok(Err(Error::UnsupportedRequest));
+                    }
+                }
+                VERSION_CANCEL => return Ok(Err(Error::UnsupportedVersion)),
+                VERSION_2 => return Ok(Err(Error::UnsupportedVersion)),
+                VERSION_1 => return Ok(Err(Error::UnsupportedVersion)),
+                _ => return Ok(Err(Error::UnrecognizedVersion)),
+            };
 
-                socket
-                    .write_all(
-                        Message::ParameterStatus("client_encoding".to_owned(), "UTF8".to_owned())
-                            .as_vec()
-                            .as_slice(),
-                    )
-                    .await?;
-
-                socket
-                    .write_all(
-                        Message::ParameterStatus("DateStyle".to_owned(), "ISO".to_owned())
-                            .as_vec()
-                            .as_slice(),
-                    )
-                    .await?;
-
-                Ok(Ok(Connection::new((version, parsed, SslMode::Require), socket)))
+            if !running {
+                break;
             }
-        } else if version == VERSION_GSSENC {
-            if self.secure().gssenc_support() {
-                unimplemented!()
-            } else {
-                Ok(Err(Error::UnsupportedRequest))
-            }
-        } else if version == VERSION_CANCEL {
-            Ok(Err(Error::UnsupportedVersion))
-        } else if version == VERSION_2 {
-            Ok(Err(Error::UnsupportedVersion))
-        } else if version == VERSION_1 {
-            Ok(Err(Error::UnsupportedVersion))
-        } else {
-            Ok(Err(Error::UnrecognizedVersion))
         }
+
+        Ok(Ok(()))
     }
+
+    /// handles a new connection from a client, returns true if the server
+    /// should continue running, otherwise the server should exit.
+    fn handle_connection<RW>(&self, connection: Connection<RW>) -> bool
+    where
+        RW: AsyncReadExt + AsyncWriteExt + Unpin + Send + Sync + 'static;
 
     /// returns implementation of `ServerChannel`
     fn server_channel(&self) -> &Self::ServerChannel;
@@ -136,11 +109,15 @@ pub trait QueryListener {
 /// protocol channels
 #[async_trait]
 pub trait ServerListener {
-    /// Bidirectional read-write client-server channel
-    type Channel: AsyncReadExt + AsyncWriteExt + Unpin + Send + Sync;
+    /// Bidirectional read-write client-server TCP channel
+    type TcpChannel: AsyncReadExt + AsyncWriteExt + Unpin + Send + Sync;
+    /// Bidirectional read-write client-server TLS channel
+    type TlsChannel: AsyncReadExt + AsyncWriteExt + Unpin + Send + Sync;
 
-    /// returns bidirectional channel with client and socket address
-    async fn channel(&self) -> io::Result<(Self::Channel, SocketAddr)>;
+    /// returns bidirectional TCP channel with client and socket address
+    async fn tcp_channel(&self) -> io::Result<(Self::TcpChannel, SocketAddr)>;
+    /// returns bidirectional TLS channel with client and socket address
+    async fn tls_channel(&self, tcp_socket: Self::TcpChannel) -> io::Result<Self::TlsChannel>;
 }
 
 /// Struct to configure possible secure providers for client-server communication
@@ -215,30 +192,122 @@ where
     socket.read_exact(&mut buffer).await.map(|_| buffer)
 }
 
+async fn create_ssl_connection<RW>(mut socket: RW) -> io::Result<Connection<RW>>
+where
+    RW: AsyncReadExt + AsyncWriteExt + Unpin,
+{
+    let len = read_len(&mut socket).await?;
+    log::debug!("LEN = {:?}", len);
+    let mut message = read_message(len, &mut socket).await?;
+    log::debug!("MESSAGE FOR TEST = {:#?}", message);
+    let version = NetworkEndian::read_i32(message.bytes());
+    message.advance(4);
+    let parsed = {
+        message
+            .bytes()
+            .split(|b| *b == 0)
+            .filter(|b| !b.is_empty())
+            .map(|b| std::str::from_utf8(b).unwrap().to_owned())
+            .tuples()
+            .collect::<Params>()
+    };
+
+    message.advance(message.remaining());
+    log::debug!("MESSAGE FOR TEST = {:#?}", parsed);
+    socket
+        .write_all(Message::AuthenticationCleartextPassword.as_vec().as_slice())
+        .await?;
+    let mut buffer = [0u8; 1];
+    let tag = socket.read_exact(&mut buffer).await.map(|_| buffer[0]);
+    log::debug!("client message response tag {:?}", tag);
+    log::debug!("waiting for authentication response");
+    let len = read_len(&mut socket).await?;
+    let _message = read_message(len, &mut socket).await?;
+    socket.write_all(Message::AuthenticationOk.as_vec().as_slice()).await?;
+
+    socket
+        .write_all(
+            Message::ParameterStatus("client_encoding".to_owned(), "UTF8".to_owned())
+                .as_vec()
+                .as_slice(),
+        )
+        .await?;
+
+    socket
+        .write_all(
+            Message::ParameterStatus("DateStyle".to_owned(), "ISO".to_owned())
+                .as_vec()
+                .as_slice(),
+        )
+        .await?;
+
+    Ok(Connection::new((version, parsed, SslMode::Require), socket))
+}
+
+async fn create_version_3_connection<RW>(mut socket: RW, mut message: BytesMut) -> io::Result<Connection<RW>>
+where
+    RW: AsyncReadExt + AsyncWriteExt + Unpin,
+{
+    let parsed = message
+        .bytes()
+        .split(|b| *b == 0)
+        .filter(|b| !b.is_empty())
+        .map(|b| std::str::from_utf8(b).unwrap().to_owned())
+        .tuples()
+        .collect::<Params>();
+
+    message.advance(message.remaining());
+    log::debug!("Version {}\nparams = {:?}", VERSION_3, parsed);
+
+    socket.write_all(Message::AuthenticationOk.as_vec().as_slice()).await?;
+    Ok(Connection::new((VERSION_3, parsed, SslMode::Disable), socket))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Version;
     use std::net::{IpAddr, Ipv4Addr};
     use test_helpers::{async_io, pg_frontend};
 
-    struct MockQueryListener {
+    struct MockQueryListener<CB>
+    where
+        CB: FnMut((Version, Params, SslMode)) -> bool + Copy,
+    {
         server_listener: MockServerListener,
         secure: Secure,
+        callback: CB,
     }
 
-    impl MockQueryListener {
-        fn new(test_case: async_io::TestCase, secure: Secure) -> MockQueryListener {
-            MockQueryListener {
-                server_listener: MockServerListener::new(test_case),
+    impl<CB: FnMut((Version, Params, SslMode)) -> bool + Copy> MockQueryListener<CB> {
+        fn new(
+            tcp_test_case: async_io::TestCase,
+            tls_test_case: async_io::TestCase,
+            secure: Secure,
+            callback: CB,
+        ) -> Self {
+            Self {
+                server_listener: MockServerListener::new(tcp_test_case, tls_test_case),
                 secure,
+                callback,
             }
         }
     }
 
     #[async_trait]
-    impl QueryListener for MockQueryListener {
-        type Channel = async_io::TestCase;
+    impl<CB: FnMut((Version, Params, SslMode)) -> bool + Copy> QueryListener for MockQueryListener<CB> {
+        type TcpChannel = async_io::TestCase;
+        type TlsChannel = async_io::TestCase;
         type ServerChannel = MockServerListener;
+
+        #[allow(clippy::clone_on_copy)]
+        fn handle_connection<RW>(&self, connection: Connection<RW>) -> bool
+        where
+            RW: AsyncReadExt + AsyncWriteExt + Unpin + Send + Sync + 'static,
+        {
+            let properties = connection.properties();
+            (self.callback.clone())(properties.clone())
+        }
 
         fn server_channel(&self) -> &Self::ServerChannel {
             &self.server_listener
@@ -250,24 +319,33 @@ mod tests {
     }
 
     struct MockServerListener {
-        test_case: async_io::TestCase,
+        tcp_test_case: async_io::TestCase,
+        tls_test_case: async_io::TestCase,
     }
 
     impl MockServerListener {
-        fn new(test_case: async_io::TestCase) -> MockServerListener {
-            MockServerListener { test_case }
+        fn new(tcp_test_case: async_io::TestCase, tls_test_case: async_io::TestCase) -> MockServerListener {
+            MockServerListener {
+                tcp_test_case,
+                tls_test_case,
+            }
         }
     }
 
     #[async_trait]
     impl ServerListener for MockServerListener {
-        type Channel = async_io::TestCase;
+        type TcpChannel = async_io::TestCase;
+        type TlsChannel = async_io::TestCase;
 
-        async fn channel(&self) -> io::Result<(Self::Channel, SocketAddr)> {
+        async fn tcp_channel(&self) -> io::Result<(Self::TcpChannel, SocketAddr)> {
             Ok((
-                self.test_case.clone(),
+                self.tcp_test_case.clone(),
                 SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 5432),
             ))
+        }
+
+        async fn tls_channel(&self, _tcp_socket: Self::TcpChannel) -> io::Result<Self::TlsChannel> {
+            Ok(self.tls_test_case.clone())
         }
     }
 
@@ -277,11 +355,14 @@ mod tests {
 
         #[async_std::test]
         async fn trying_read_from_empty_stream() {
-            let test_case = async_io::TestCase::with_content(vec![]).await;
+            let tcp_test_case = async_io::TestCase::with_content(vec![]).await;
+            let tls_test_case = async_io::TestCase::with_content(vec![]).await;
 
-            let error = MockQueryListener::new(test_case, Secure::none()).accept().await;
+            let callback = |_| false;
+            let listener = MockQueryListener::new(tcp_test_case, tls_test_case, Secure::none(), callback);
 
-            assert!(error.is_err());
+            let result = listener.start().await;
+            assert!(result.is_err());
         }
 
         #[cfg(test)]
@@ -291,16 +372,19 @@ mod tests {
 
             #[async_std::test]
             async fn trying_read_setup_message() {
-                let test_case = async_io::TestCase::with_content(vec![&[0, 0, 0, 57]]).await;
+                let tcp_test_case = async_io::TestCase::with_content(vec![&[0, 0, 0, 57]]).await;
+                let tls_test_case = async_io::TestCase::with_content(vec![]).await;
 
-                let error = MockQueryListener::new(test_case, Secure::none()).accept().await;
+                let callback = |_| false;
+                let listener = MockQueryListener::new(tcp_test_case, tls_test_case, Secure::none(), callback);
 
-                assert!(error.is_err());
+                let result = listener.start().await;
+                assert!(result.is_err());
             }
 
             #[async_std::test]
             async fn successful_connection_handshake() -> io::Result<()> {
-                let test_case = async_io::TestCase::with_content(vec![
+                let tcp_test_case = async_io::TestCase::with_content(vec![
                     pg_frontend::Message::SslDisabled.as_vec().as_slice(),
                     pg_frontend::Message::Setup(vec![
                         ("client_encoding", "UTF8"),
@@ -311,29 +395,32 @@ mod tests {
                     .as_slice(),
                 ])
                 .await;
+                let tls_test_case = async_io::TestCase::with_content(vec![]).await;
 
-                let connection = MockQueryListener::new(test_case.clone(), Secure::none())
-                    .accept()
-                    .await?
-                    .expect("connection is open");
+                let callback = |properties| {
+                    assert_eq!(
+                        properties,
+                        (
+                            VERSION_3,
+                            vec![
+                                ("client_encoding".to_owned(), "UTF8".to_owned()),
+                                ("timezone".to_owned(), "UTC".to_owned()),
+                                ("user".to_owned(), "postgres".to_owned())
+                            ],
+                            SslMode::Disable
+                        )
+                    );
 
-                assert_eq!(
-                    connection.properties(),
-                    &(
-                        VERSION_3,
-                        vec![
-                            ("client_encoding".to_owned(), "UTF8".to_owned()),
-                            ("timezone".to_owned(), "UTC".to_owned()),
-                            ("user".to_owned(), "postgres".to_owned())
-                        ],
-                        SslMode::Disable
-                    )
-                );
+                    false
+                };
 
-                let actual_content = test_case.read_result().await;
+                let listener = MockQueryListener::new(tcp_test_case.clone(), tls_test_case, Secure::none(), callback);
+                let result = listener.start().await?;
+                assert!(result.is_ok());
+
+                let actual_content = tcp_test_case.read_result().await;
                 let mut expected_content = BytesMut::new();
                 expected_content.extend_from_slice(Message::AuthenticationOk.as_vec().as_slice());
-
                 assert_eq!(actual_content, expected_content);
 
                 Ok(())
@@ -346,32 +433,54 @@ mod tests {
 
             #[async_std::test]
             async fn trying_read_only_length_of_ssl_message() {
-                let test_case = async_io::TestCase::with_content(vec![&[0, 0, 0, 8]]).await;
+                let tcp_test_case = async_io::TestCase::with_content(vec![&[0, 0, 0, 8]]).await;
+                let tls_test_case = async_io::TestCase::with_content(vec![]).await;
 
-                let error = MockQueryListener::new(test_case, Secure::none()).accept().await;
+                let callback = |_| false;
+                let listener = MockQueryListener::new(tcp_test_case, tls_test_case, Secure::none(), callback);
 
-                assert!(error.is_err());
+                let result = listener.start().await;
+                assert!(result.is_err());
             }
 
             #[async_std::test]
-            async fn sending_notice_after_reading_ssl_message() {
-                let test_case =
+            async fn sending_reject_notification_for_none_secure() {
+                let tcp_test_case =
                     async_io::TestCase::with_content(vec![pg_frontend::Message::SslRequired.as_vec().as_slice()]).await;
+                let tls_test_case = async_io::TestCase::with_content(vec![]).await;
 
-                let error = MockQueryListener::new(test_case.clone(), Secure::none()).accept().await;
+                let callback = |_| false;
+                let listener = MockQueryListener::new(tcp_test_case.clone(), tls_test_case, Secure::none(), callback);
+                let result = listener.start().await;
+                assert!(result.is_err());
 
-                assert!(error.is_err());
-
-                let actual_content = test_case.read_result().await;
+                let actual_content = tcp_test_case.read_result().await;
                 let mut expected_content = BytesMut::new();
-                expected_content.extend_from_slice(Message::NoticeResponse.as_vec().as_slice());
-
+                expected_content.extend_from_slice(&[REJECT_SSL_ENCRYPTION]);
                 assert_eq!(actual_content, expected_content);
             }
 
             #[async_std::test]
-            async fn successful_connection_handshake() -> io::Result<()> {
-                let test_case = async_io::TestCase::with_content(vec![
+            async fn sending_accept_notification_for_ssl_only_secure() {
+                let tcp_test_case =
+                    async_io::TestCase::with_content(vec![pg_frontend::Message::SslRequired.as_vec().as_slice()]).await;
+                let tls_test_case = async_io::TestCase::with_content(vec![]).await;
+
+                let callback = |_| false;
+                let listener =
+                    MockQueryListener::new(tcp_test_case.clone(), tls_test_case, Secure::ssl_only(), callback);
+                let result = listener.start().await;
+                assert!(result.is_err());
+
+                let actual_content = tcp_test_case.read_result().await;
+                let mut expected_content = BytesMut::new();
+                expected_content.extend_from_slice(&[ACCEPT_SSL_ENCRYPTION]);
+                assert_eq!(actual_content, expected_content);
+            }
+
+            #[async_std::test]
+            async fn successful_connection_handshake_for_none_secure() -> io::Result<()> {
+                let tcp_test_case = async_io::TestCase::with_content(vec![
                     pg_frontend::Message::SslRequired.as_vec().as_slice(),
                     pg_frontend::Message::Setup(vec![
                         ("user", "username"),
@@ -384,16 +493,17 @@ mod tests {
                     pg_frontend::Message::Password("123").as_vec().as_slice(),
                 ])
                 .await;
+                let tls_test_case = async_io::TestCase::with_content(vec![]).await;
 
-                let connection = MockQueryListener::new(test_case.clone(), Secure::none())
-                    .accept()
-                    .await?;
+                let callback = |_| false;
 
-                assert!(connection.is_ok());
+                let listener = MockQueryListener::new(tcp_test_case.clone(), tls_test_case, Secure::none(), callback);
+                let result = listener.start().await;
+                assert!(result.is_ok());
 
-                let actual_content = test_case.read_result().await;
+                let actual_content = tcp_test_case.read_result().await;
                 let mut expected_content = BytesMut::new();
-                expected_content.extend_from_slice(Message::NoticeResponse.as_vec().as_slice());
+                expected_content.extend_from_slice(&[REJECT_SSL_ENCRYPTION]);
                 expected_content.extend_from_slice(Message::AuthenticationCleartextPassword.as_vec().as_slice());
                 expected_content.extend_from_slice(Message::AuthenticationOk.as_vec().as_slice());
                 expected_content.extend_from_slice(
@@ -406,8 +516,59 @@ mod tests {
                         .as_vec()
                         .as_slice(),
                 );
-
                 assert_eq!(actual_content, expected_content);
+
+                Ok(())
+            }
+
+            #[async_std::test]
+            async fn successful_connection_handshake_for_ssl_only_secure() -> io::Result<()> {
+                let tcp_test_case =
+                    async_io::TestCase::with_content(vec![pg_frontend::Message::SslRequired.as_vec().as_slice()]).await;
+                let tls_test_case = async_io::TestCase::with_content(vec![
+                    pg_frontend::Message::Setup(vec![
+                        ("user", "username"),
+                        ("database", "database_name"),
+                        ("application_name", "psql"),
+                        ("client_encoding", "UTF8"),
+                    ])
+                    .as_vec()
+                    .as_slice(),
+                    pg_frontend::Message::Password("123").as_vec().as_slice(),
+                ])
+                .await;
+
+                let callback = |_| false;
+
+                let listener = MockQueryListener::new(
+                    tcp_test_case.clone(),
+                    tls_test_case.clone(),
+                    Secure::ssl_only(),
+                    callback,
+                );
+                let result = listener.start().await;
+                assert!(result.is_ok());
+
+                let tcp_actual_content = tcp_test_case.read_result().await;
+                let mut tcp_expected_content = BytesMut::new();
+                tcp_expected_content.extend_from_slice(&[ACCEPT_SSL_ENCRYPTION]);
+                assert_eq!(tcp_actual_content, tcp_expected_content);
+
+                let tls_actual_content = tls_test_case.read_result().await;
+                let mut tls_expected_content = BytesMut::new();
+                tls_expected_content.extend_from_slice(Message::AuthenticationCleartextPassword.as_vec().as_slice());
+                tls_expected_content.extend_from_slice(Message::AuthenticationOk.as_vec().as_slice());
+                tls_expected_content.extend_from_slice(
+                    Message::ParameterStatus("client_encoding".to_owned(), "UTF8".to_owned())
+                        .as_vec()
+                        .as_slice(),
+                );
+                tls_expected_content.extend_from_slice(
+                    Message::ParameterStatus("DateStyle".to_owned(), "ISO".to_owned())
+                        .as_vec()
+                        .as_slice(),
+                );
+                assert_eq!(tls_actual_content, tls_expected_content);
 
                 Ok(())
             }
