@@ -31,10 +31,11 @@ use sqlparser::{
     parser::Parser,
 };
 use std::sync::{Arc, Mutex};
-use storage::{backend::BackendStorage, frontend::FrontendStorage};
+use storage::{backend::BackendStorage, frontend::FrontendStorage, TableDescription, ColumnDefinition};
 
 mod ddl;
 mod dml;
+mod analysis;
 
 pub struct Handler<P: BackendStorage> {
     storage: Arc<Mutex<FrontendStorage<P>>>,
