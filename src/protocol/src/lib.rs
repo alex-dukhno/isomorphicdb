@@ -422,7 +422,7 @@ mod tests {
                 vec![Message::ErrorResponse(
                     Some("ERROR"),
                     Some("42601"),
-                    Some("INSERT has more expressions then target columns".to_owned()),
+                    Some("INSERT has more expressions than target columns".to_owned()),
                 )]
             )
         }
