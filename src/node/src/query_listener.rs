@@ -16,6 +16,7 @@ use async_native_tls::TlsStream;
 use async_std::fs::File;
 use async_trait::async_trait;
 use futures_util::io::{AsyncReadExt, AsyncWriteExt};
+use protocol::listener::Channel;
 use protocol::{listener::Secure, Command, Connection, QueryListener, ServerListener};
 use smol::{Async, Task};
 use sql_engine::Handler;
@@ -49,21 +50,29 @@ impl ServerListener for SmolServerListener {
     type TcpChannel = Async<TcpStream>;
     type TlsChannel = TlsStream<Async<TcpStream>>;
 
-    async fn tcp_channel(&self) -> io::Result<(Self::TcpChannel, SocketAddr)> {
-        self.inner.accept().await
+    async fn tcp_channel<RW>(&self) -> io::Result<(Channel<RW>, SocketAddr)>
+    where
+        RW: AsyncReadExt + AsyncWriteExt + Unpin + Send + Sync + 'static,
+    {
+        let (socket, address) = self.socket().await;
+        Ok((Channel::Plain(socket), address))
     }
 
-    async fn tls_channel(&self, tcp_socket: Self::TcpChannel) -> io::Result<Self::TlsChannel> {
+    async fn tls_channel<RW>(&self, tcp_socket: Channel<RW>) -> io::Result<Channel<RW>>
+    where
+        RW: AsyncReadExt + AsyncWriteExt + Unpin + Send + Sync + 'static,
+    {
         let key = File::open(pfx_certificate_path()).await?;
         let password = pfx_certificate_password();
-        Ok(async_native_tls::accept(key, password, tcp_socket).await.unwrap())
+        Ok(Channel::Secured(
+            async_native_tls::accept(key, password, tcp_socket).await.unwrap(),
+        ))
     }
 }
 
 pub struct SmolQueryListener {
     listener: SmolServerListener,
     secure: Secure,
-    state: Arc<AtomicU8>,
     storage: Arc<Mutex<FrontendStorage<SledBackendStorage>>>,
 }
 
@@ -73,7 +82,6 @@ impl SmolQueryListener {
         let server_listener = SmolServerListener::new(tcp_listener);
 
         let query_listener = SmolQueryListener::new(server_listener, secure);
-        query_listener.state.store(RUNNING, Ordering::SeqCst);
 
         Ok(query_listener)
     }
@@ -82,7 +90,6 @@ impl SmolQueryListener {
         Self {
             listener,
             secure,
-            state: Arc::new(AtomicU8::new(CREATED)),
             storage: Arc::new(Mutex::new(FrontendStorage::default().unwrap())),
         }
     }
@@ -90,27 +97,13 @@ impl SmolQueryListener {
     pub fn state(&self) -> u8 {
         self.state.load(Ordering::SeqCst)
     }
-
-    #[allow(dead_code)]
-    pub fn stop(&self) {
-        self.state.store(STOPPED, Ordering::SeqCst);
-    }
 }
 
 #[async_trait]
 impl QueryListener for SmolQueryListener {
-    type TcpChannel = Async<TcpStream>;
-    type TlsChannel = TlsStream<Async<TcpStream>>;
     type ServerChannel = SmolServerListener;
 
-    fn handle_connection<RW>(&self, mut connection: Connection<RW>) -> bool
-    where
-        RW: AsyncReadExt + AsyncWriteExt + Unpin + Send + Sync + 'static,
-    {
-        if self.state() == STOPPED {
-            return false;
-        }
-
+    fn handle_connection(&self, mut connection: Connection<Async<TcpStream>>) -> bool {
         let state = self.state.clone();
         let storage = self.storage.clone();
         Task::spawn(async move {
