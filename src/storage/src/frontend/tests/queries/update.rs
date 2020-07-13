@@ -155,10 +155,13 @@ mod constraints {
                     ]
                 )
                 .expect("no system errors"),
-            Err(OperationOnTableError::ConstraintViolations(vec![(
-                ConstraintError::OutOfRange,
-                column_definition("column_si", SqlType::SmallInt(i16::min_value()))
-            )]))
+            Err(OperationOnTableError::ConstraintViolations(
+                vec![(
+                    ConstraintError::OutOfRange,
+                    column_definition("column_si", SqlType::SmallInt(i16::min_value()))
+                )],
+                1
+            ))
         );
     }
 
@@ -185,10 +188,13 @@ mod constraints {
                     ]
                 )
                 .expect("no system errors"),
-            Err(OperationOnTableError::ConstraintViolations(vec![(
-                ConstraintError::TypeMismatch("abc".to_owned()),
-                column_definition("column_si", SqlType::SmallInt(i16::min_value()))
-            )]))
+            Err(OperationOnTableError::ConstraintViolations(
+                vec![(
+                    ConstraintError::TypeMismatch("abc".to_owned()),
+                    column_definition("column_si", SqlType::SmallInt(i16::min_value()))
+                )],
+                1
+            ))
         );
     }
 
@@ -214,10 +220,13 @@ mod constraints {
                     ]
                 )
                 .expect("no system errors"),
-            Err(OperationOnTableError::ConstraintViolations(vec![(
-                ConstraintError::ValueTooLong(10),
-                column_definition("column_c", SqlType::Char(10))
-            )]))
+            Err(OperationOnTableError::ConstraintViolations(
+                vec![(
+                    ConstraintError::ValueTooLong(10),
+                    column_definition("column_c", SqlType::Char(10))
+                )],
+                1
+            ))
         );
     }
 
@@ -245,16 +254,19 @@ mod constraints {
                     ]
                 )
                 .expect("no system errors"),
-            Err(OperationOnTableError::ConstraintViolations(vec![
-                (
-                    ConstraintError::OutOfRange,
-                    column_definition("column_si", SqlType::SmallInt(i16::min_value()))
-                ),
-                (
-                    ConstraintError::OutOfRange,
-                    column_definition("column_i", SqlType::Integer(i32::min_value()))
-                )
-            ]))
+            Err(OperationOnTableError::ConstraintViolations(
+                vec![
+                    (
+                        ConstraintError::OutOfRange,
+                        column_definition("column_si", SqlType::SmallInt(i16::min_value()))
+                    ),
+                    (
+                        ConstraintError::OutOfRange,
+                        column_definition("column_i", SqlType::Integer(i32::min_value()))
+                    )
+                ],
+                1
+            ))
         )
     }
 }

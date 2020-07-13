@@ -83,18 +83,32 @@ impl<P: BackendStorage> UpdateCommand<'_, P> {
             Err(OperationOnTableError::ColumnDoesNotExist(non_existing_columns)) => Ok(Err(QueryErrorBuilder::new()
                 .column_does_not_exist(non_existing_columns)
                 .build())),
-            Err(OperationOnTableError::ConstraintViolations(constraint_errors)) => {
+            Err(OperationOnTableError::ConstraintViolations(constraint_errors, row_index)) => {
                 let mut builder = QueryErrorBuilder::new();
                 let constraint_error_mapper = |(err, column_definition): &(ConstraintError, ColumnDefinition)| match err
                 {
                     ConstraintError::OutOfRange => {
-                        builder.out_of_range(column_definition.sql_type().to_pg_types());
+                        builder.out_of_range(
+                            column_definition.sql_type().to_pg_types(),
+                            column_definition.name(),
+                            row_index,
+                        );
                     }
                     ConstraintError::TypeMismatch(value) => {
-                        builder.type_mismatch(value, column_definition.sql_type().to_pg_types());
+                        builder.type_mismatch(
+                            value,
+                            column_definition.sql_type().to_pg_types(),
+                            column_definition.name(),
+                            row_index,
+                        );
                     }
                     ConstraintError::ValueTooLong(len) => {
-                        builder.string_length_mismatch(column_definition.sql_type().to_pg_types(), *len);
+                        builder.string_length_mismatch(
+                            column_definition.sql_type().to_pg_types(),
+                            *len,
+                            column_definition.name(),
+                            row_index,
+                        );
                     }
                 };
 

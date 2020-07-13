@@ -204,7 +204,7 @@ impl<P: BackendStorage> FrontendStorage<P> {
         if self.persistent.is_table_exists(schema_name, table_name) {
             let mut errors = Vec::new();
 
-            for row in rows {
+            for (row_index, row) in rows.iter().enumerate() {
                 if row.len() > all_columns.len() {
                     // clear anything that could have been processed already.
                     to_write.clear();
@@ -228,7 +228,8 @@ impl<P: BackendStorage> FrontendStorage<P> {
 
                 // if there was an error then exit the loop.
                 if !errors.is_empty() {
-                    return Ok(Err(OperationOnTableError::ConstraintViolations(errors)));
+                    // In SQL indexes start from 1, not 0.
+                    return Ok(Err(OperationOnTableError::ConstraintViolations(errors, row_index + 1)));
                 }
 
                 to_write.push((key, record.join(&b'|')));
@@ -346,7 +347,8 @@ impl<P: BackendStorage> FrontendStorage<P> {
                     )));
                 }
                 if !errors.is_empty() {
-                    return Ok(Err(OperationOnTableError::ConstraintViolations(errors)));
+                    // Index will always be 1.
+                    return Ok(Err(OperationOnTableError::ConstraintViolations(errors, 1)));
                 }
                 let to_update: Vec<Row> = reads
                     .map(backend::Result::unwrap)

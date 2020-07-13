@@ -430,14 +430,14 @@ mod tests {
         #[test]
         fn out_of_range_constraint_violation() {
             let mut builder = QueryErrorBuilder::new();
-            builder.out_of_range(PostgreSqlType::SmallInt);
+            builder.out_of_range(PostgreSqlType::SmallInt, "col1".to_string(), 1);
 
             assert_eq!(
                 QueryResultMapper::map(Err(builder.build())),
                 vec![Message::ErrorResponse(
                     Some("ERROR"),
                     Some("22003"),
-                    Some("smallint out of range".to_owned())
+                    Some("smallint is out of range for column 'col1' at row 1".to_owned())
                 )]
             )
         }
@@ -445,13 +445,13 @@ mod tests {
         #[test]
         fn type_mismatch_constraint_violation() {
             let mut builder = QueryErrorBuilder::new();
-            builder.type_mismatch("abc", PostgreSqlType::SmallInt);
+            builder.type_mismatch("abc", PostgreSqlType::SmallInt, "col1".to_string(), 1);
             assert_eq!(
                 QueryResultMapper::map(Err(builder.build())),
                 vec![Message::ErrorResponse(
                     Some("ERROR"),
                     Some("2200G"),
-                    Some("invalid input syntax for type smallint: \"abc\"".to_owned())
+                    Some("invalid input syntax for type smallint for column 'col1' at row 1: \"abc\"".to_owned())
                 )]
             )
         }
@@ -459,13 +459,13 @@ mod tests {
         #[test]
         fn string_length_mismatch_constraint_violation() {
             let mut builder = QueryErrorBuilder::new();
-            builder.string_length_mismatch(PostgreSqlType::Char, 5);
+            builder.string_length_mismatch(PostgreSqlType::Char, 5, "col1".to_string(), 1);
             assert_eq!(
                 QueryResultMapper::map(Err(builder.build())),
                 vec![Message::ErrorResponse(
                     Some("ERROR"),
                     Some("22026"),
-                    Some("value too long for type character(5)".to_owned())
+                    Some("value too long for type character for column 'col1' at row 1 (5)".to_owned())
                 )]
             )
         }
