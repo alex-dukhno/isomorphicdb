@@ -25,6 +25,13 @@ To start up application you need to invoke the following command:
 docker run -it -d -p 5432:5432 docker.pkg.github.com/alex-dukhno/database/database
 ``` 
 
+If you crashed the database docker instance we highly appreatiate if you rerun
+scenario with:
+```shell script
+docker run -it -d -e RUST_BACKTRACE=1 -p 5432:5432 docker.pkg.github.com/alex-dukhno/database/database
+```
+and post a bug with backtrace. Thanks.
+
 To connect to database you have to have `psql` on your machine, it can be installed
 with `PostgreSQL` from the [official website](https://www.postgresql.org) or with
 package manager like `homebrew` or `apt-get`.
