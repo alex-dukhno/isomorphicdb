@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{sql_types, sql_types::PostgreSqlType, Message};
+use crate::{sql_types, sql_types::PostgreSqlType, ColumnMetadata, Message};
 use std::fmt::{self, Display, Formatter};
 
 /// Represents result of SQL query execution
@@ -43,6 +43,37 @@ pub enum QueryEvent {
     RecordsUpdated(usize),
     /// Number of records deleted into a table
     RecordsDeleted(usize),
+}
+
+impl Into<Vec<Message>> for QueryEvent {
+    fn into(self) -> Vec<Message> {
+        match self {
+            QueryEvent::SchemaCreated => vec![Message::CommandComplete("CREATE SCHEMA".to_owned())],
+            QueryEvent::SchemaDropped => vec![Message::CommandComplete("DROP SCHEMA".to_owned())],
+            QueryEvent::TableCreated => vec![Message::CommandComplete("CREATE TABLE".to_owned())],
+            QueryEvent::TableDropped => vec![Message::CommandComplete("DROP TABLE".to_owned())],
+            QueryEvent::VariableSet => vec![Message::CommandComplete("SET".to_owned())],
+            QueryEvent::TransactionStarted => vec![Message::CommandComplete("BEGIN".to_owned())],
+            QueryEvent::RecordsInserted(records) => vec![Message::CommandComplete(format!("INSERT 0 {}", records))],
+            QueryEvent::RecordsSelected(projection) => {
+                let definition = projection.0;
+                let description: Vec<ColumnMetadata> = definition
+                    .into_iter()
+                    .map(|(name, sql_type)| ColumnMetadata::new(name, sql_type.pg_oid(), sql_type.pg_len()))
+                    .collect();
+                let records = projection.1;
+                let len = records.len();
+                let mut messages = vec![Message::RowDescription(description)];
+                for record in records {
+                    messages.push(Message::DataRow(record));
+                }
+                messages.push(Message::CommandComplete(format!("SELECT {}", len)));
+                messages
+            }
+            QueryEvent::RecordsUpdated(records) => vec![Message::CommandComplete(format!("UPDATE {}", records))],
+            QueryEvent::RecordsDeleted(records) => vec![Message::CommandComplete(format!("DELETE {}", records))],
+        }
+    }
 }
 
 /// Message severities
@@ -221,8 +252,10 @@ impl QueryError {
     pub(crate) fn new(errors: Vec<QueryErrorInner>) -> Self {
         Self { errors }
     }
+}
 
-    pub(crate) fn into_messages(self) -> Vec<Message> {
+impl Into<Vec<Message>> for QueryError {
+    fn into(self) -> Vec<Message> {
         self.errors
             .into_iter()
             .map(|inner| Message::ErrorResponse(inner.severity(), inner.code(), inner.message()))
@@ -378,54 +411,360 @@ impl QueryErrorBuilder {
 }
 
 #[cfg(test)]
-mod severity {
+mod tests {
     use super::*;
 
-    #[test]
-    fn error() {
-        let severity: &'static str = Severity::Error.into();
-        assert_eq!(severity, "ERROR")
+    #[cfg(test)]
+    mod query_event {
+        use super::*;
+
+        #[test]
+        fn create_schema() {
+            let messages: Vec<Message> = QueryEvent::SchemaCreated.into();
+            assert_eq!(messages, vec![Message::CommandComplete("CREATE SCHEMA".to_owned())])
+        }
+
+        #[test]
+        fn drop_schema() {
+            let messages: Vec<Message> = QueryEvent::SchemaDropped.into();
+            assert_eq!(messages, vec![Message::CommandComplete("DROP SCHEMA".to_owned())])
+        }
+
+        #[test]
+        fn create_table() {
+            let messages: Vec<Message> = QueryEvent::TableCreated.into();
+            assert_eq!(messages, vec![Message::CommandComplete("CREATE TABLE".to_owned())]);
+        }
+
+        #[test]
+        fn drop_table() {
+            let messages: Vec<Message> = QueryEvent::TableDropped.into();
+            assert_eq!(messages, vec![Message::CommandComplete("DROP TABLE".to_owned())]);
+        }
+
+        #[test]
+        fn insert_record() {
+            let records_number = 3;
+            let messages: Vec<Message> = QueryEvent::RecordsInserted(records_number).into();
+            assert_eq!(
+                messages,
+                vec![Message::CommandComplete(format!("INSERT 0 {}", records_number))]
+            )
+        }
+
+        #[test]
+        fn select_records() {
+            let projection = (
+                vec![
+                    ("column_name_1".to_owned(), PostgreSqlType::SmallInt),
+                    ("column_name_2".to_owned(), PostgreSqlType::SmallInt),
+                ],
+                vec![
+                    vec!["1".to_owned(), "2".to_owned()],
+                    vec!["3".to_owned(), "4".to_owned()],
+                ],
+            );
+            let messages: Vec<Message> = QueryEvent::RecordsSelected(projection).into();
+            assert_eq!(
+                messages,
+                vec![
+                    Message::RowDescription(vec![
+                        ColumnMetadata::new("column_name_1".to_owned(), 21, 2),
+                        ColumnMetadata::new("column_name_2".to_owned(), 21, 2)
+                    ]),
+                    Message::DataRow(vec!["1".to_owned(), "2".to_owned()]),
+                    Message::DataRow(vec!["3".to_owned(), "4".to_owned()]),
+                    Message::CommandComplete("SELECT 2".to_owned())
+                ]
+            );
+        }
+
+        #[test]
+        fn update_records() {
+            let records_number = 3;
+            let messages: Vec<Message> = QueryEvent::RecordsUpdated(records_number).into();
+            assert_eq!(
+                messages,
+                vec![Message::CommandComplete(format!("UPDATE {}", records_number))]
+            );
+        }
+
+        #[test]
+        fn delete_records() {
+            let records_number = 3;
+            let messages: Vec<Message> = QueryEvent::RecordsDeleted(records_number).into();
+            assert_eq!(
+                messages,
+                vec![Message::CommandComplete(format!("DELETE {}", records_number))]
+            )
+        }
     }
 
-    #[test]
-    fn fatal() {
-        let severity: &'static str = Severity::Fatal.into();
-        assert_eq!(severity, "FATAL")
+    #[cfg(test)]
+    mod query_error {
+        use super::*;
+
+        #[test]
+        fn schema_already_exists() {
+            let schema_name = "some_table_name".to_owned();
+            let messages: Vec<Message> = QueryErrorBuilder::new()
+                .schema_already_exists(schema_name.clone())
+                .build()
+                .into();
+            assert_eq!(
+                messages,
+                vec![Message::ErrorResponse(
+                    Some("ERROR"),
+                    Some("42P06"),
+                    Some(format!("schema \"{}\" already exists", schema_name)),
+                )]
+            )
+        }
+
+        #[test]
+        fn schema_does_not_exists() {
+            let schema_name = "some_table_name".to_owned();
+            let messages: Vec<Message> = QueryErrorBuilder::new()
+                .schema_does_not_exist(schema_name.clone())
+                .build()
+                .into();
+            assert_eq!(
+                messages,
+                vec![Message::ErrorResponse(
+                    Some("ERROR"),
+                    Some("3F000"),
+                    Some(format!("schema \"{}\" does not exist", schema_name)),
+                )]
+            )
+        }
+
+        #[test]
+        fn table_already_exists() {
+            let table_name = "some_table_name".to_owned();
+            let messages: Vec<Message> = QueryErrorBuilder::new()
+                .table_already_exists(table_name.clone())
+                .build()
+                .into();
+            assert_eq!(
+                messages,
+                vec![Message::ErrorResponse(
+                    Some("ERROR"),
+                    Some("42P07"),
+                    Some(format!("table \"{}\" already exists", table_name)),
+                )]
+            )
+        }
+
+        #[test]
+        fn table_does_not_exists() {
+            let table_name = "some_table_name".to_owned();
+            let messages: Vec<Message> = QueryErrorBuilder::new()
+                .table_does_not_exist(table_name.clone())
+                .build()
+                .into();
+            assert_eq!(
+                messages,
+                vec![Message::ErrorResponse(
+                    Some("ERROR"),
+                    Some("42P01"),
+                    Some(format!("table \"{}\" does not exist", table_name)),
+                )]
+            )
+        }
+
+        #[test]
+        fn one_column_does_not_exists() {
+            let messages: Vec<Message> = QueryErrorBuilder::new()
+                .column_does_not_exist(vec!["column_not_in_table".to_owned()])
+                .build()
+                .into();
+            assert_eq!(
+                messages,
+                vec![Message::ErrorResponse(
+                    Some("ERROR"),
+                    Some("42703"),
+                    Some("column column_not_in_table does not exist".to_owned()),
+                )]
+            )
+        }
+
+        #[test]
+        fn multiple_columns_does_not_exists() {
+            let messages: Vec<Message> = QueryErrorBuilder::new()
+                .column_does_not_exist(vec![
+                    "column_not_in_table1".to_owned(),
+                    "column_not_in_table2".to_owned(),
+                ])
+                .build()
+                .into();
+            assert_eq!(
+                messages,
+                vec![Message::ErrorResponse(
+                    Some("ERROR"),
+                    Some("42703"),
+                    Some("columns column_not_in_table1, column_not_in_table2 do not exist".to_owned()),
+                )]
+            )
+        }
+
+        #[test]
+        fn feature_not_supported() {
+            let raw_sql_query = "some SQL query".to_owned();
+            let messages: Vec<Message> = QueryErrorBuilder::new()
+                .feature_not_supported(raw_sql_query.clone())
+                .build()
+                .into();
+            assert_eq!(
+                messages,
+                vec![Message::ErrorResponse(
+                    Some("ERROR"),
+                    Some("0A000"),
+                    Some(format!("Currently, Query '{}' can't be executed", raw_sql_query)),
+                )]
+            )
+        }
+
+        #[test]
+        fn too_many_insert_expressions() {
+            let messages: Vec<Message> = QueryErrorBuilder::new().too_many_insert_expressions().build().into();
+            assert_eq!(
+                messages,
+                vec![Message::ErrorResponse(
+                    Some("ERROR"),
+                    Some("42601"),
+                    Some("INSERT has more expressions than target columns".to_owned()),
+                )]
+            )
+        }
+
+        #[test]
+        fn out_of_range_constraint_violation() {
+            let mut builder = QueryErrorBuilder::new();
+            builder.out_of_range(PostgreSqlType::SmallInt, "col1".to_string(), 1);
+            let messages: Vec<Message> = builder.build().into();
+            assert_eq!(
+                messages,
+                vec![Message::ErrorResponse(
+                    Some("ERROR"),
+                    Some("22003"),
+                    Some("smallint is out of range for column 'col1' at row 1".to_owned())
+                )]
+            )
+        }
+
+        #[test]
+        fn type_mismatch_constraint_violation() {
+            let mut builder = QueryErrorBuilder::new();
+            builder.type_mismatch("abc", PostgreSqlType::SmallInt, "col1".to_string(), 1);
+            let messages: Vec<Message> = builder.build().into();
+            assert_eq!(
+                messages,
+                vec![Message::ErrorResponse(
+                    Some("ERROR"),
+                    Some("2200G"),
+                    Some("invalid input syntax for type smallint for column 'col1' at row 1: \"abc\"".to_owned())
+                )]
+            )
+        }
+
+        #[test]
+        fn string_length_mismatch_constraint_violation() {
+            let mut builder = QueryErrorBuilder::new();
+            builder.string_length_mismatch(PostgreSqlType::Char, 5, "col1".to_string(), 1);
+            let messages: Vec<Message> = builder.build().into();
+            assert_eq!(
+                messages,
+                vec![Message::ErrorResponse(
+                    Some("ERROR"),
+                    Some("22026"),
+                    Some("value too long for type character(5) for column 'col1' at row 1".to_owned())
+                )]
+            )
+        }
+
+        #[test]
+        fn undefined_function() {
+            let messages: Vec<Message> = QueryErrorBuilder::new()
+                .undefined_function("||".to_owned(), "NUMBER".to_owned(), "NUMBER".to_owned())
+                .build()
+                .into();
+            assert_eq!(
+                messages,
+                vec![Message::ErrorResponse(
+                    Some("ERROR"),
+                    Some("42883"),
+                    Some("operator does not exist: (NUMBER || NUMBER)".to_owned())
+                )]
+            )
+        }
+
+        #[test]
+        fn syntax_error() {
+            let messages: Vec<Message> = QueryErrorBuilder::new()
+                .syntax_error("expression".to_owned())
+                .build()
+                .into();
+            assert_eq!(
+                messages,
+                vec![Message::ErrorResponse(
+                    Some("ERROR"),
+                    Some("42601"),
+                    Some("syntax error in expression".to_owned())
+                )]
+            )
+        }
     }
 
-    #[test]
-    fn panic() {
-        let severity: &'static str = Severity::Panic.into();
-        assert_eq!(severity, "PANIC")
-    }
+    #[cfg(test)]
+    mod severity {
+        use super::*;
 
-    #[test]
-    fn warning() {
-        let severity: &'static str = Severity::Warning.into();
-        assert_eq!(severity, "WARNING")
-    }
+        #[test]
+        fn error() {
+            let severity: &'static str = Severity::Error.into();
+            assert_eq!(severity, "ERROR")
+        }
 
-    #[test]
-    fn notice() {
-        let severity: &'static str = Severity::Notice.into();
-        assert_eq!(severity, "NOTICE")
-    }
+        #[test]
+        fn fatal() {
+            let severity: &'static str = Severity::Fatal.into();
+            assert_eq!(severity, "FATAL")
+        }
 
-    #[test]
-    fn debug() {
-        let severity: &'static str = Severity::Debug.into();
-        assert_eq!(severity, "DEBUG")
-    }
+        #[test]
+        fn panic() {
+            let severity: &'static str = Severity::Panic.into();
+            assert_eq!(severity, "PANIC")
+        }
 
-    #[test]
-    fn info() {
-        let severity: &'static str = Severity::Info.into();
-        assert_eq!(severity, "INFO")
-    }
+        #[test]
+        fn warning() {
+            let severity: &'static str = Severity::Warning.into();
+            assert_eq!(severity, "WARNING")
+        }
 
-    #[test]
-    fn log() {
-        let severity: &'static str = Severity::Log.into();
-        assert_eq!(severity, "LOG")
+        #[test]
+        fn notice() {
+            let severity: &'static str = Severity::Notice.into();
+            assert_eq!(severity, "NOTICE")
+        }
+
+        #[test]
+        fn debug() {
+            let severity: &'static str = Severity::Debug.into();
+            assert_eq!(severity, "DEBUG")
+        }
+
+        #[test]
+        fn info() {
+            let severity: &'static str = Severity::Info.into();
+            assert_eq!(severity, "INFO")
+        }
+
+        #[test]
+        fn log() {
+            let severity: &'static str = Severity::Log.into();
+            assert_eq!(severity, "LOG")
+        }
     }
 }
