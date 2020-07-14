@@ -142,8 +142,8 @@ impl Display for QueryErrorKind {
             ),
             Self::StringTypeLengthMismatch(pg_type, len, column_name, row_index) => write!(
                 f,
-                "value too long for type {} for column '{}' at row {} ({})",
-                pg_type, column_name, row_index, len
+                "value too long for type {}({}) for column '{}' at row {}",
+                pg_type, len, column_name, row_index
             ),
             Self::UndefinedFunction(operator, left_type, right_type) => write!(
                 f,

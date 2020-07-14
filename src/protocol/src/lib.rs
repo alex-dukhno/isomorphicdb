@@ -465,7 +465,7 @@ mod tests {
                 vec![Message::ErrorResponse(
                     Some("ERROR"),
                     Some("22026"),
-                    Some("value too long for type character for column 'col1' at row 1 (5)".to_owned())
+                    Some("value too long for type character(5) for column 'col1' at row 1".to_owned())
                 )]
             )
         }
