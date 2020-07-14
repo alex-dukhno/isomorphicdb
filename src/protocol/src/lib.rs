@@ -18,7 +18,6 @@ extern crate log;
 
 use crate::messages::Message;
 use byteorder::{ByteOrder, NetworkEndian};
-use bytes::BytesMut;
 use futures_util::io::{AsyncReadExt, AsyncWriteExt};
 use std::io;
 
@@ -117,7 +116,7 @@ impl<RW: AsyncReadExt + AsyncWriteExt + Unpin> Connection<RW> {
                 .read_exact(&mut buffer)
                 .await
                 .map(|_| NetworkEndian::read_u32(&buffer))?;
-            let mut buffer = BytesMut::with_capacity(len as usize - 4);
+            let mut buffer = Vec::with_capacity(len as usize - 4);
             buffer.resize(len as usize - 4, b'0');
             let sql_buff = self.socket.read_exact(&mut buffer).await.map(|_| buffer)?;
             log::debug!("FOR TEST sql = {:?}", sql_buff);
@@ -530,7 +529,7 @@ mod tests {
                 assert_eq!(query, Ok(Command::Query("select 1;".to_owned())));
 
                 let actual_content = test_case.read_result().await;
-                let mut expected_content = BytesMut::new();
+                let mut expected_content = Vec::new();
                 expected_content.extend_from_slice(Message::ReadyForQuery.as_vec().as_slice());
                 assert_eq!(actual_content, expected_content);
 

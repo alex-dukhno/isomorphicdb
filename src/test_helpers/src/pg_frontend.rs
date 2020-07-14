@@ -12,10 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use bytes::{BufMut, BytesMut};
+use byteorder::{NetworkEndian, WriteBytesExt};
+use iobuf::{Iobuf, RWIobuf};
 
 const QUERY: u8 = b'Q';
 const TERMINATE: u8 = b'X';
+const PASSWORD: u8 = b'p';
 
 pub enum Message {
     Query(&'static str),
@@ -30,48 +32,63 @@ impl Message {
     pub fn as_vec(&self) -> Vec<u8> {
         match self {
             Message::Query(sql) => {
-                let mut buff = BytesMut::with_capacity(256);
-                buff.put_u8(QUERY);
+                let mut buff = RWIobuf::new(256);
+                buff.write_u8(QUERY);
                 let sql_bytes = sql.as_bytes();
-                buff.put_i32(sql_bytes.len() as i32 + 4 + 1);
-                buff.extend_from_slice(sql_bytes);
-                buff.put_u8(0);
-                buff.to_vec()
+                buff.write_u32::<NetworkEndian>(sql_bytes.len() as u32 + 4 + 1);
+                buff.fill(sql_bytes);
+                buff.write_u8(0);
+                buff.flip_lo();
+                let mut r = Vec::with_capacity(buff.len() as usize);
+                r.resize(buff.len() as usize, 0);
+                buff.consume(&mut r);
+                r
             }
             Message::Terminate => vec![TERMINATE, 0, 0, 0, 4],
             Message::Setup(params) => {
-                let mut buff = BytesMut::with_capacity(512);
-                buff.put_u16(3);
-                buff.put_u16(0);
+                let mut buff = RWIobuf::new(512);
+                let start = buff.len();
+                buff.write_u32::<NetworkEndian>(0);
+                buff.write_u16::<NetworkEndian>(3);
+                buff.write_u16::<NetworkEndian>(0);
                 for (key, value) in params {
-                    buff.extend_from_slice(key.as_bytes());
-                    buff.put_u8(0);
-                    buff.extend_from_slice(value.as_bytes());
-                    buff.put_u8(0);
+                    buff.fill(key.as_bytes());
+                    buff.write_u8(0);
+                    buff.fill(value.as_bytes());
+                    buff.write_u8(0);
                 }
-                buff.put_u8(0);
-                let len = buff.len();
-                let mut with_len = BytesMut::with_capacity(512);
-                with_len.put_u32(len as u32 + 4);
-                with_len.extend_from_slice(&buff);
-                with_len.to_vec()
+                buff.write_u8(0);
+                let end = buff.len();
+                buff.flip_lo();
+                buff.poke_be(0, start - end);
+                let mut r = Vec::with_capacity(buff.len() as usize);
+                r.resize(buff.len() as usize, 0);
+                buff.consume(&mut r);
+                r
             }
             Message::SslDisabled => vec![],
             Message::SslRequired => {
-                let mut buff = BytesMut::with_capacity(256);
-                buff.put_u32(8);
-                buff.put_u32(80_877_103);
-                buff.to_vec()
+                let mut buff = RWIobuf::new(512);
+                buff.write_u32::<NetworkEndian>(8);
+                buff.write_u32::<NetworkEndian>(80_877_103);
+                buff.flip_lo();
+                let mut r = Vec::with_capacity(buff.len() as usize);
+                r.resize(buff.len() as usize, 0);
+                buff.consume(&mut r);
+                r
             }
             Message::Password(password) => {
-                let mut buff = BytesMut::with_capacity(256);
-                buff.extend_from_slice(password.as_bytes());
-                buff.put_u8(0);
-                let mut with_len = BytesMut::with_capacity(256);
-                with_len.put_u8(b'p');
-                with_len.put_u32(buff.len() as u32 + 4);
-                with_len.extend_from_slice(&buff);
-                with_len.to_vec()
+                let mut buff = RWIobuf::new(512);
+                buff.write_u8(PASSWORD);
+                let password_bytes = password.as_bytes();
+                buff.write_u32::<NetworkEndian>(1 + 4 + password_bytes.len() as u32);
+                buff.fill(password_bytes);
+                buff.write_u8(0);
+                buff.flip_lo();
+                let mut r = Vec::with_capacity(buff.len() as usize);
+                r.resize(buff.len() as usize, 0);
+                buff.consume(&mut r);
+                r
             }
         }
     }

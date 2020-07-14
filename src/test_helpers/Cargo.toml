@@ -8,9 +8,10 @@ publish = false
 [dependencies]
 async-std = { version = "1.6.2", features = ["attributes"] }
 tempfile = "3.1.0"
-bytes = "0.5"
 storage = { path = "../storage" }
 kernel = { path = "../kernel" }
+byteorder = "1.3.4"
+iobuf = { git = "https://github.com/alex-dukhno/iobuf.git", branch="compile-with-1.46.0-nightly" }
 
 [dev-dependencies]
 rstest = "0.6.4"

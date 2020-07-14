@@ -13,7 +13,7 @@
 // limitations under the License.
 
 extern crate async_std;
-extern crate bytes;
+extern crate byteorder;
 extern crate tempfile;
 
 pub mod async_io;

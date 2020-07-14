@@ -18,7 +18,6 @@ use crate::{
 };
 use async_trait::async_trait;
 use byteorder::{ByteOrder, NetworkEndian};
-use bytes::{Buf, BytesMut};
 use futures_util::io::{self, AsyncReadExt, AsyncWriteExt};
 use itertools::Itertools;
 use std::net::SocketAddr;
@@ -46,15 +45,14 @@ pub trait QueryListener {
             log::debug!("ADDRESS {:?}", address);
 
             let len = read_len(&mut socket).await?;
-            let mut message = read_message(len, &mut socket).await?;
+            let message = read_message(len, &mut socket).await?;
             log::debug!("MESSAGE FOR TEST = {:#?}", message);
-            let version = NetworkEndian::read_i32(message.bytes());
+            let version = NetworkEndian::read_i32(&message);
             log::debug!("VERSION FOR TEST = {:#?}", version);
-            message.advance(4);
 
             let running = match version {
                 VERSION_3 => {
-                    let connection = create_version_3_connection(socket, message).await?;
+                    let connection = create_version_3_connection(socket, &message[4..]).await?;
                     self.handle_connection(connection)
                 }
                 VERSION_SSL => {
@@ -183,11 +181,11 @@ where
     Ok(len - 4)
 }
 
-async fn read_message<RW>(len: usize, socket: &mut RW) -> io::Result<BytesMut>
+async fn read_message<RW>(len: usize, socket: &mut RW) -> io::Result<Vec<u8>>
 where
     RW: AsyncReadExt + AsyncWriteExt + Unpin,
 {
-    let mut buffer = BytesMut::with_capacity(len);
+    let mut buffer = Vec::with_capacity(len);
     buffer.resize(len, b'0');
     socket.read_exact(&mut buffer).await.map(|_| buffer)
 }
@@ -198,13 +196,11 @@ where
 {
     let len = read_len(&mut socket).await?;
     log::debug!("LEN = {:?}", len);
-    let mut message = read_message(len, &mut socket).await?;
+    let message = read_message(len, &mut socket).await?;
     log::debug!("MESSAGE FOR TEST = {:#?}", message);
-    let version = NetworkEndian::read_i32(message.bytes());
-    message.advance(4);
+    let version = NetworkEndian::read_i32(&message);
     let parsed = {
-        message
-            .bytes()
+        message[4..]
             .split(|b| *b == 0)
             .filter(|b| !b.is_empty())
             .map(|b| std::str::from_utf8(b).unwrap().to_owned())
@@ -212,7 +208,6 @@ where
             .collect::<Params>()
     };
 
-    message.advance(message.remaining());
     log::debug!("MESSAGE FOR TEST = {:#?}", parsed);
     socket
         .write_all(Message::AuthenticationCleartextPassword.as_vec().as_slice())
@@ -244,19 +239,17 @@ where
     Ok(Connection::new((version, parsed, SslMode::Require), socket))
 }
 
-async fn create_version_3_connection<RW>(mut socket: RW, mut message: BytesMut) -> io::Result<Connection<RW>>
+async fn create_version_3_connection<RW>(mut socket: RW, message: &[u8]) -> io::Result<Connection<RW>>
 where
     RW: AsyncReadExt + AsyncWriteExt + Unpin,
 {
     let parsed = message
-        .bytes()
         .split(|b| *b == 0)
         .filter(|b| !b.is_empty())
         .map(|b| std::str::from_utf8(b).unwrap().to_owned())
         .tuples()
         .collect::<Params>();
 
-    message.advance(message.remaining());
     log::debug!("Version {}\nparams = {:?}", VERSION_3, parsed);
 
     socket.write_all(Message::AuthenticationOk.as_vec().as_slice()).await?;
@@ -419,7 +412,7 @@ mod tests {
                 assert!(result.is_ok());
 
                 let actual_content = tcp_test_case.read_result().await;
-                let mut expected_content = BytesMut::new();
+                let mut expected_content = Vec::new();
                 expected_content.extend_from_slice(Message::AuthenticationOk.as_vec().as_slice());
                 assert_eq!(actual_content, expected_content);
 
@@ -455,7 +448,7 @@ mod tests {
                 assert!(result.is_err());
 
                 let actual_content = tcp_test_case.read_result().await;
-                let mut expected_content = BytesMut::new();
+                let mut expected_content = Vec::new();
                 expected_content.extend_from_slice(&[REJECT_SSL_ENCRYPTION]);
                 assert_eq!(actual_content, expected_content);
             }
@@ -473,7 +466,7 @@ mod tests {
                 assert!(result.is_err());
 
                 let actual_content = tcp_test_case.read_result().await;
-                let mut expected_content = BytesMut::new();
+                let mut expected_content = Vec::new();
                 expected_content.extend_from_slice(&[ACCEPT_SSL_ENCRYPTION]);
                 assert_eq!(actual_content, expected_content);
             }
@@ -502,7 +495,7 @@ mod tests {
                 assert!(result.is_ok());
 
                 let actual_content = tcp_test_case.read_result().await;
-                let mut expected_content = BytesMut::new();
+                let mut expected_content = Vec::new();
                 expected_content.extend_from_slice(&[REJECT_SSL_ENCRYPTION]);
                 expected_content.extend_from_slice(Message::AuthenticationCleartextPassword.as_vec().as_slice());
                 expected_content.extend_from_slice(Message::AuthenticationOk.as_vec().as_slice());
@@ -550,12 +543,12 @@ mod tests {
                 assert!(result.is_ok());
 
                 let tcp_actual_content = tcp_test_case.read_result().await;
-                let mut tcp_expected_content = BytesMut::new();
+                let mut tcp_expected_content = Vec::new();
                 tcp_expected_content.extend_from_slice(&[ACCEPT_SSL_ENCRYPTION]);
                 assert_eq!(tcp_actual_content, tcp_expected_content);
 
                 let tls_actual_content = tls_test_case.read_result().await;
-                let mut tls_expected_content = BytesMut::new();
+                let mut tls_expected_content = Vec::new();
                 tls_expected_content.extend_from_slice(Message::AuthenticationCleartextPassword.as_vec().as_slice());
                 tls_expected_content.extend_from_slice(Message::AuthenticationOk.as_vec().as_slice());
                 tls_expected_content.extend_from_slice(

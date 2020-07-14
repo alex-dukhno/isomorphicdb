@@ -13,7 +13,9 @@
 // limitations under the License.
 
 use crate::ColumnMetadata;
-use bytes::{Buf, BufMut, BytesMut};
+use byteorder::{NetworkEndian, WriteBytesExt};
+use iobuf::{Iobuf, RWIobuf};
+use std::io::Write;
 
 // const PARSE_COMPLETE: u8 = b'1';
 // const BIND_COMPLETE: u8 = b'2';
@@ -99,82 +101,106 @@ impl Message {
             Message::AuthenticationOk => vec![AUTHENTICATION, 0, 0, 0, 8, 0, 0, 0, 0],
             Message::ReadyForQuery => vec![READY_FOR_QUERY, 0, 0, 0, 5, EMPTY_QUERY_RESPONSE],
             Message::DataRow(row) => {
-                let mut row_buff = BytesMut::with_capacity(256);
+                let mut buff = RWIobuf::new(512);
+                buff.write_u8(DATA_ROW);
+                let start = buff.len();
+                buff.write_u32::<NetworkEndian>(0);
+                buff.write_u16::<NetworkEndian>(row.len() as u16);
                 for field in row.iter() {
                     let as_string = field;
-                    row_buff.put_i32(as_string.len() as i32);
-                    row_buff.extend_from_slice(as_string.as_str().as_bytes());
+                    buff.write_u32::<NetworkEndian>(as_string.len() as u32);
+                    buff.fill(as_string.as_str().as_bytes());
                 }
-                let mut len_buff = BytesMut::new();
-                len_buff.put_u8(DATA_ROW);
-                len_buff.put_i32(6 + row_buff.len() as i32);
-                len_buff.put_i16(row.len() as i16);
-                len_buff.extend_from_slice(&row_buff);
-                len_buff.bytes().to_vec()
+                let end = buff.len();
+                buff.flip_lo();
+                buff.poke_be(1, start - end);
+                let mut r = Vec::with_capacity(buff.len() as usize);
+                r.resize(buff.len() as usize, 0);
+                buff.consume(&mut r);
+                r
             }
             Message::RowDescription(description) => {
-                let mut buff = BytesMut::with_capacity(256);
+                let mut buff = RWIobuf::new(256);
+                buff.write_u8(ROW_DESCRIPTION);
+                let start = buff.len();
+                buff.write_u32::<NetworkEndian>(0);
+                buff.write_u16::<NetworkEndian>(description.len() as u16);
                 for field in description.iter() {
-                    buff.put_slice(field.name.as_str().as_bytes());
-                    buff.put_u8(0); // end of c string
-                    buff.put_i32(0); // table id
-                    buff.put_i16(0); // column id
-                    buff.put_i32(field.type_id);
-                    buff.put_i16(field.type_size);
-                    buff.put_i32(-1); // type modifier
-                    buff.put_i16(0);
+                    buff.fill(field.name.as_str().as_bytes());
+                    buff.write_u8(0); // end of c string
+                    buff.write_u32::<NetworkEndian>(0); // table id
+                    buff.write_u16::<NetworkEndian>(0); // column id
+                    buff.write_i32::<NetworkEndian>(field.type_id);
+                    buff.write_i16::<NetworkEndian>(field.type_size);
+                    buff.write_i32::<NetworkEndian>(-1); // type modifier
+                    buff.write_i16::<NetworkEndian>(0);
                 }
-                let mut len_buff = BytesMut::new();
-                len_buff.put_u8(ROW_DESCRIPTION);
-                len_buff.put_i32(6 + buff.len() as i32);
-                len_buff.put_i16(description.len() as i16);
-                len_buff.extend_from_slice(&buff);
-                len_buff.to_vec()
+                let end = buff.len();
+                buff.flip_lo();
+                buff.poke_be(1, start - end);
+                let mut r = Vec::with_capacity(buff.len() as usize);
+                r.resize(buff.len() as usize, 0);
+                buff.consume(&mut r);
+                r
             }
             Message::CommandComplete(command) => {
-                let mut command_buff = BytesMut::with_capacity(256);
-                command_buff.put_u8(COMMAND_COMPLETE);
-                command_buff.put_i32(4 + command.len() as i32 + 1);
-                command_buff.extend_from_slice(command.as_bytes());
-                command_buff.put_u8(0);
-                command_buff.to_vec()
+                let mut buff = RWIobuf::new(512);
+                buff.write_u8(COMMAND_COMPLETE);
+                buff.write_i32::<NetworkEndian>(4 + command.len() as i32 + 1);
+                buff.write_all(command.as_bytes());
+                buff.write_u8(0);
+                buff.flip_lo();
+                let mut r = Vec::with_capacity(buff.len() as usize);
+                r.resize(buff.len() as usize, 0);
+                buff.consume(&mut r);
+                r
             }
             Message::EmptyQueryResponse => vec![EMPTY_QUERY_RESPONSE, 0, 0, 0, 4],
             Message::ErrorResponse(severity, code, message) => {
-                let mut error_response_buff = BytesMut::with_capacity(256);
-                error_response_buff.put_u8(ERROR_RESPONSE);
-                let mut message_buff = BytesMut::with_capacity(256);
+                let mut buff = RWIobuf::new(512);
+                buff.write_u8(ERROR_RESPONSE);
+                let start = buff.len();
+                buff.write_i32::<NetworkEndian>(0);
                 if let Some(severity) = severity.as_ref() {
-                    message_buff.put_u8(SEVERITY);
-                    message_buff.extend_from_slice(severity.as_bytes());
-                    message_buff.put_u8(0);
+                    buff.write_u8(SEVERITY);
+                    buff.fill(severity.as_bytes());
+                    buff.write_u8(0);
                 }
                 if let Some(code) = code.as_ref() {
-                    message_buff.put_u8(CODE);
-                    message_buff.extend_from_slice(code.as_bytes());
-                    message_buff.put_u8(0);
+                    buff.write_u8(CODE);
+                    buff.fill(code.as_bytes());
+                    buff.write_u8(0);
                 }
                 if let Some(message) = message.as_ref() {
-                    message_buff.put_u8(MESSAGE);
-                    message_buff.extend_from_slice(message.as_bytes());
-                    message_buff.put_u8(0);
+                    buff.write_u8(MESSAGE);
+                    buff.fill(message.as_bytes());
+                    buff.write_u8(0);
                 }
-                error_response_buff.put_i32(message_buff.len() as i32 + 4 + 1);
-                error_response_buff.extend_from_slice(message_buff.as_ref());
-                error_response_buff.put_u8(0);
-                error_response_buff.to_vec()
+                buff.write_u8(0);
+                let end = buff.len();
+                buff.flip_lo();
+                buff.poke_be(1, start - end);
+                let mut r = Vec::with_capacity(buff.len() as usize);
+                r.resize(buff.len() as usize, 0);
+                buff.consume(&mut r);
+                r
             }
             Message::ParameterStatus(name, value) => {
-                let mut parameter_status_buff = BytesMut::with_capacity(256);
-                parameter_status_buff.put_u8(PARAMETER_STATUS);
-                let mut parameters = BytesMut::with_capacity(256);
-                parameters.extend_from_slice(name.as_bytes());
-                parameters.put_u8(0);
-                parameters.extend_from_slice(value.as_bytes());
-                parameters.put_u8(0);
-                parameter_status_buff.put_u32(4 + parameters.bytes().len() as u32);
-                parameter_status_buff.extend_from_slice(parameters.as_ref());
-                parameter_status_buff.to_vec()
+                let mut buff = RWIobuf::new(512);
+                buff.write_u8(PARAMETER_STATUS);
+                let start = buff.len();
+                buff.write_u32::<NetworkEndian>(0);
+                buff.fill(name.as_bytes());
+                buff.write_u8(0);
+                buff.fill(value.as_bytes());
+                buff.write_u8(0);
+                let end = buff.len();
+                buff.flip_lo();
+                buff.poke_be(1, start - end);
+                let mut r = Vec::with_capacity(buff.len() as usize);
+                r.resize(buff.len() as usize, 0);
+                buff.consume(&mut r);
+                r
             }
         }
     }
