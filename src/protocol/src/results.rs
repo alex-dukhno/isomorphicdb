@@ -84,12 +84,28 @@ pub(crate) enum QueryErrorKind {
     ColumnDoesNotExist(Vec<String>),
     FeatureNotSupported(String),
     TooManyInsertExpressions,
-
-    NumericTypeOutOfRange(PostgreSqlType, String, usize),
-    DataTypeMismatch(PostgreSqlType, String, String, usize),
-    StringTypeLengthMismatch(PostgreSqlType, u64, String, usize),
-
-    UndefinedFunction(String, String, String),
+    NumericTypeOutOfRange {
+        pg_type: PostgreSqlType,
+        column_name: String,
+        row_index: usize,
+    },
+    DataTypeMismatch {
+        pg_type: PostgreSqlType,
+        value: String,
+        column_name: String,
+        row_index: usize,
+    },
+    StringTypeLengthMismatch {
+        pg_type: PostgreSqlType,
+        len: u64,
+        column_name: String,
+        row_index: usize,
+    },
+    UndefinedFunction {
+        operator: String,
+        left_type: String,
+        right_type: String,
+    },
     SyntaxError(String),
 }
 
@@ -103,10 +119,10 @@ impl QueryErrorKind {
             Self::ColumnDoesNotExist(_) => "42703",
             Self::FeatureNotSupported(_) => "0A000",
             Self::TooManyInsertExpressions => "42601",
-            Self::NumericTypeOutOfRange(_, _, _) => "22003",
-            Self::DataTypeMismatch(_, _, _, _) => "2200G",
-            Self::StringTypeLengthMismatch(_, _, _, _) => "22026",
-            Self::UndefinedFunction(_, _, _) => "42883",
+            Self::NumericTypeOutOfRange { .. } => "22003",
+            Self::DataTypeMismatch { .. } => "2200G",
+            Self::StringTypeLengthMismatch { .. } => "22026",
+            Self::UndefinedFunction { .. } => "42883",
             Self::SyntaxError(_) => "42601",
         }
     }
@@ -130,22 +146,40 @@ impl Display for QueryErrorKind {
                 write!(f, "Currently, Query '{}' can't be executed", raw_sql_query)
             }
             Self::TooManyInsertExpressions => write!(f, "INSERT has more expressions than target columns"),
-            Self::NumericTypeOutOfRange(pg_type, column_name, row_index) => write!(
+            Self::NumericTypeOutOfRange {
+                pg_type,
+                column_name,
+                row_index,
+            } => write!(
                 f,
                 "{} is out of range for column '{}' at row {}",
                 pg_type, column_name, row_index
             ),
-            Self::DataTypeMismatch(pg_type, value, column_name, row_index) => write!(
+            Self::DataTypeMismatch {
+                pg_type,
+                value,
+                column_name,
+                row_index,
+            } => write!(
                 f,
                 "invalid input syntax for type {} for column '{}' at row {}: \"{}\"",
                 pg_type, column_name, row_index, value
             ),
-            Self::StringTypeLengthMismatch(pg_type, len, column_name, row_index) => write!(
+            Self::StringTypeLengthMismatch {
+                pg_type,
+                len,
+                column_name,
+                row_index,
+            } => write!(
                 f,
                 "value too long for type {}({}) for column '{}' at row {}",
                 pg_type, len, column_name, row_index
             ),
-            Self::UndefinedFunction(operator, left_type, right_type) => write!(
+            Self::UndefinedFunction {
+                operator,
+                left_type,
+                right_type,
+            } => write!(
                 f,
                 "operator does not exist: ({} {} {})",
                 left_type, operator, right_type
@@ -292,7 +326,11 @@ impl QueryErrorBuilder {
     pub fn undefined_function(mut self, operator: String, left_type: String, right_type: String) -> Self {
         self.errors.push(QueryErrorInner {
             severity: Severity::Error,
-            kind: QueryErrorKind::UndefinedFunction(operator, left_type, right_type),
+            kind: QueryErrorKind::UndefinedFunction {
+                operator,
+                left_type,
+                right_type,
+            },
         });
         self
     }
@@ -304,7 +342,11 @@ impl QueryErrorBuilder {
     pub fn out_of_range(&mut self, pg_type: PostgreSqlType, column_name: String, row_index: usize) {
         self.errors.push(QueryErrorInner {
             severity: Severity::Error,
-            kind: QueryErrorKind::NumericTypeOutOfRange(pg_type, column_name, row_index),
+            kind: QueryErrorKind::NumericTypeOutOfRange {
+                pg_type,
+                column_name,
+                row_index,
+            },
         });
     }
 
@@ -312,7 +354,12 @@ impl QueryErrorBuilder {
     pub fn type_mismatch(&mut self, value: &str, pg_type: PostgreSqlType, column_name: String, row_index: usize) {
         self.errors.push(QueryErrorInner {
             severity: Severity::Error,
-            kind: QueryErrorKind::DataTypeMismatch(pg_type, value.to_owned(), column_name, row_index),
+            kind: QueryErrorKind::DataTypeMismatch {
+                pg_type,
+                value: value.to_owned(),
+                column_name,
+                row_index,
+            },
         });
     }
 
@@ -320,7 +367,12 @@ impl QueryErrorBuilder {
     pub fn string_length_mismatch(&mut self, pg_type: PostgreSqlType, len: u64, column_name: String, row_index: usize) {
         self.errors.push(QueryErrorInner {
             severity: Severity::Error,
-            kind: QueryErrorKind::StringTypeLengthMismatch(pg_type, len, column_name, row_index),
+            kind: QueryErrorKind::StringTypeLengthMismatch {
+                pg_type,
+                len,
+                column_name,
+                row_index,
+            },
         });
     }
 }
