@@ -1,10 +1,10 @@
 [bans]
 multiple-versions = "deny"
-skip-tree = [
-    # bytes -> loom -> scoped-tls
-    # node -> smol -> scoped-tls
-    { name = "scoped-tls" }
-]
+#skip-tree = [
+#    # bytes -> loom -> scoped-tls
+#    # node -> smol -> scoped-tls
+#    { name = "scoped-tls" }
+#]
 
 [licenses]
 private = { ignore = true }
@@ -13,6 +13,7 @@ confidence-threshold = 0.93
 allow = [
     "Apache-2.0",
     "BSD-2-Clause",
+    "BSD-3-Clause",
     "MIT",
     "Zlib",
 ]
@@ -24,3 +25,6 @@ exceptions = [
 [sources]
 unknown-git = "deny"
 unknown-registry = "deny"
+allow-git = [
+    "https://github.com/alex-dukhno/iobuf.git"
+]
