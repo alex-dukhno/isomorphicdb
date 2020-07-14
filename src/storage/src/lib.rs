@@ -48,7 +48,8 @@ pub enum OperationOnTableError {
     InsertTooManyExpressions,
     // Returns non existing columns.
     ColumnDoesNotExist(Vec<String>),
-    ConstraintViolations(Vec<(ConstraintError, ColumnDefinition)>),
+    // Returns vector of (error, column) and a row index.
+    ConstraintViolations(Vec<(ConstraintError, ColumnDefinition)>, usize),
 }
 
 #[derive(Debug, Clone)]

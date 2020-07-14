@@ -416,10 +416,13 @@ mod constraints {
                     vec![vec!["-32769".to_owned(), "100".to_owned(), "100".to_owned()]],
                 )
                 .expect("no system errors"),
-            Err(OperationOnTableError::ConstraintViolations(vec![(
-                ConstraintError::OutOfRange,
-                column_definition("column_si", SqlType::SmallInt(i16::min_value()))
-            )]))
+            Err(OperationOnTableError::ConstraintViolations(
+                vec![(
+                    ConstraintError::OutOfRange,
+                    column_definition("column_si", SqlType::SmallInt(i16::min_value()))
+                )],
+                1
+            ))
         );
     }
 
@@ -434,10 +437,13 @@ mod constraints {
                     vec![vec!["abc".to_owned(), "100".to_owned(), "100".to_owned()]],
                 )
                 .expect("no system errors"),
-            Err(OperationOnTableError::ConstraintViolations(vec![(
-                ConstraintError::TypeMismatch("abc".to_owned()),
-                column_definition("column_si", SqlType::SmallInt(i16::min_value()))
-            )]))
+            Err(OperationOnTableError::ConstraintViolations(
+                vec![(
+                    ConstraintError::TypeMismatch("abc".to_owned()),
+                    column_definition("column_si", SqlType::SmallInt(i16::min_value()))
+                )],
+                1
+            ))
         )
     }
 
@@ -452,10 +458,13 @@ mod constraints {
                     vec![vec!["12345678901".to_owned(), "100".to_owned()]],
                 )
                 .expect("no system errors"),
-            Err(OperationOnTableError::ConstraintViolations(vec![(
-                ConstraintError::ValueTooLong(10),
-                column_definition("column_c", SqlType::Char(10))
-            )]))
+            Err(OperationOnTableError::ConstraintViolations(
+                vec![(
+                    ConstraintError::ValueTooLong(10),
+                    column_definition("column_c", SqlType::Char(10))
+                )],
+                1
+            ))
         )
     }
 
@@ -473,16 +482,19 @@ mod constraints {
                     vec![vec!["-32769".to_owned(), "-2147483649".to_owned(), "100".to_owned()]],
                 )
                 .expect("no system errors"),
-            Err(OperationOnTableError::ConstraintViolations(vec![
-                (
-                    ConstraintError::OutOfRange,
-                    column_definition("column_si", SqlType::SmallInt(i16::min_value()))
-                ),
-                (
-                    ConstraintError::OutOfRange,
-                    column_definition("column_i", SqlType::Integer(i32::min_value()))
-                )
-            ]))
+            Err(OperationOnTableError::ConstraintViolations(
+                vec![
+                    (
+                        ConstraintError::OutOfRange,
+                        column_definition("column_si", SqlType::SmallInt(i16::min_value()))
+                    ),
+                    (
+                        ConstraintError::OutOfRange,
+                        column_definition("column_i", SqlType::Integer(i32::min_value()))
+                    )
+                ],
+                1
+            ))
         )
     }
 
@@ -508,16 +520,19 @@ mod constraints {
                 )
                 .expect("no system errors"),
             // we should only get the errors from the first row.
-            Err(OperationOnTableError::ConstraintViolations(vec![
-                (
-                    ConstraintError::OutOfRange,
-                    column_definition("column_si", SqlType::SmallInt(i16::min_value()))
-                ),
-                (
-                    ConstraintError::OutOfRange,
-                    column_definition("column_i", SqlType::Integer(i32::min_value()))
-                ),
-            ]))
+            Err(OperationOnTableError::ConstraintViolations(
+                vec![
+                    (
+                        ConstraintError::OutOfRange,
+                        column_definition("column_si", SqlType::SmallInt(i16::min_value()))
+                    ),
+                    (
+                        ConstraintError::OutOfRange,
+                        column_definition("column_i", SqlType::Integer(i32::min_value()))
+                    ),
+                ],
+                1
+            ))
         )
     }
 }

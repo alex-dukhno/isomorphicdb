@@ -85,9 +85,9 @@ pub(crate) enum QueryErrorKind {
     FeatureNotSupported(String),
     TooManyInsertExpressions,
 
-    NumericTypeOutOfRange(PostgreSqlType),
-    DataTypeMismatch(PostgreSqlType, String),
-    StringTypeLengthMismatch(PostgreSqlType, u64),
+    NumericTypeOutOfRange(PostgreSqlType, String, usize),
+    DataTypeMismatch(PostgreSqlType, String, String, usize),
+    StringTypeLengthMismatch(PostgreSqlType, u64, String, usize),
 
     UndefinedFunction(String, String, String),
     SyntaxError(String),
@@ -103,9 +103,9 @@ impl QueryErrorKind {
             Self::ColumnDoesNotExist(_) => "42703",
             Self::FeatureNotSupported(_) => "0A000",
             Self::TooManyInsertExpressions => "42601",
-            Self::NumericTypeOutOfRange(_) => "22003",
-            Self::DataTypeMismatch(_, _) => "2200G",
-            Self::StringTypeLengthMismatch(_, _) => "22026",
+            Self::NumericTypeOutOfRange(_, _, _) => "22003",
+            Self::DataTypeMismatch(_, _, _, _) => "2200G",
+            Self::StringTypeLengthMismatch(_, _, _, _) => "22026",
             Self::UndefinedFunction(_, _, _) => "42883",
             Self::SyntaxError(_) => "42601",
         }
@@ -129,12 +129,22 @@ impl Display for QueryErrorKind {
             Self::FeatureNotSupported(raw_sql_query) => {
                 write!(f, "Currently, Query '{}' can't be executed", raw_sql_query)
             }
-            Self::TooManyInsertExpressions => write!(f, "INSERT has more expressions then target columns"),
-            Self::NumericTypeOutOfRange(pg_type) => write!(f, "{} out of range", pg_type),
-            Self::DataTypeMismatch(pg_type, value) => {
-                write!(f, "invalid input syntax for type {}: \"{}\"", pg_type, value)
-            }
-            Self::StringTypeLengthMismatch(pg_type, len) => write!(f, "value too long for type {}({})", pg_type, len),
+            Self::TooManyInsertExpressions => write!(f, "INSERT has more expressions than target columns"),
+            Self::NumericTypeOutOfRange(pg_type, column_name, row_index) => write!(
+                f,
+                "{} is out of range for column '{}' at row {}",
+                pg_type, column_name, row_index
+            ),
+            Self::DataTypeMismatch(pg_type, value, column_name, row_index) => write!(
+                f,
+                "invalid input syntax for type {} for column '{}' at row {}: \"{}\"",
+                pg_type, column_name, row_index, value
+            ),
+            Self::StringTypeLengthMismatch(pg_type, len, column_name, row_index) => write!(
+                f,
+                "value too long for type {}({}) for column '{}' at row {}",
+                pg_type, len, column_name, row_index
+            ),
             Self::UndefinedFunction(operator, left_type, right_type) => write!(
                 f,
                 "operator does not exist: ({} {} {})",
@@ -291,26 +301,26 @@ impl QueryErrorBuilder {
     // and the rest are mut self.
 
     /// numeric out of range constructor
-    pub fn out_of_range(&mut self, pg_type: PostgreSqlType) {
+    pub fn out_of_range(&mut self, pg_type: PostgreSqlType, column_name: String, row_index: usize) {
         self.errors.push(QueryErrorInner {
             severity: Severity::Error,
-            kind: QueryErrorKind::NumericTypeOutOfRange(pg_type),
+            kind: QueryErrorKind::NumericTypeOutOfRange(pg_type, column_name, row_index),
         });
     }
 
     /// type mismatch constructor
-    pub fn type_mismatch(&mut self, value: &str, pg_type: PostgreSqlType) {
+    pub fn type_mismatch(&mut self, value: &str, pg_type: PostgreSqlType, column_name: String, row_index: usize) {
         self.errors.push(QueryErrorInner {
             severity: Severity::Error,
-            kind: QueryErrorKind::DataTypeMismatch(pg_type, value.to_owned()),
+            kind: QueryErrorKind::DataTypeMismatch(pg_type, value.to_owned(), column_name, row_index),
         });
     }
 
     /// length of string types do not match constructor
-    pub fn string_length_mismatch(&mut self, pg_type: PostgreSqlType, len: u64) {
+    pub fn string_length_mismatch(&mut self, pg_type: PostgreSqlType, len: u64, column_name: String, row_index: usize) {
         self.errors.push(QueryErrorInner {
             severity: Severity::Error,
-            kind: QueryErrorKind::StringTypeLengthMismatch(pg_type, len),
+            kind: QueryErrorKind::StringTypeLengthMismatch(pg_type, len, column_name, row_index),
         });
     }
 }

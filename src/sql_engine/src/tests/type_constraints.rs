@@ -42,7 +42,7 @@ mod insert {
     #[rstest::rstest]
     fn out_of_range(mut int_table: InMemorySqlEngine) {
         let mut builder = QueryErrorBuilder::new();
-        builder.out_of_range(PostgreSqlType::SmallInt);
+        builder.out_of_range(PostgreSqlType::SmallInt, "col".to_string(), 1);
 
         assert_eq!(
             int_table
@@ -55,7 +55,7 @@ mod insert {
     #[rstest::rstest]
     fn type_mismatch(mut int_table: InMemorySqlEngine) {
         let mut builder = QueryErrorBuilder::new();
-        builder.type_mismatch("str", PostgreSqlType::SmallInt);
+        builder.type_mismatch("str", PostgreSqlType::SmallInt, "col".to_string(), 1);
 
         assert_eq!(
             int_table
@@ -68,7 +68,7 @@ mod insert {
     #[rstest::rstest]
     fn value_too_long(mut str_table: InMemorySqlEngine) {
         let mut builder = QueryErrorBuilder::new();
-        builder.string_length_mismatch(PostgreSqlType::VarChar, 5);
+        builder.string_length_mismatch(PostgreSqlType::VarChar, 5, "col".to_string(), 1);
         assert_eq!(
             str_table
                 .execute("insert into schema_name.table_name values ('123457890');")
@@ -85,7 +85,7 @@ mod update {
     #[rstest::rstest]
     fn out_of_range(mut int_table: InMemorySqlEngine) {
         let mut builder = QueryErrorBuilder::new();
-        builder.out_of_range(PostgreSqlType::SmallInt);
+        builder.out_of_range(PostgreSqlType::SmallInt, "col".to_string(), 1);
 
         int_table
             .execute("insert into schema_name.table_name values (32767);")
@@ -103,7 +103,7 @@ mod update {
     #[rstest::rstest]
     fn type_mismatch(mut int_table: InMemorySqlEngine) {
         let mut builder = QueryErrorBuilder::new();
-        builder.type_mismatch("str", PostgreSqlType::SmallInt);
+        builder.type_mismatch("str", PostgreSqlType::SmallInt, "col".to_string(), 1);
         int_table
             .execute("insert into schema_name.table_name values (32767);")
             .expect("no system errors")
@@ -120,7 +120,7 @@ mod update {
     #[rstest::rstest]
     fn value_too_long(mut str_table: InMemorySqlEngine) {
         let mut builder = QueryErrorBuilder::new();
-        builder.string_length_mismatch(PostgreSqlType::VarChar, 5);
+        builder.string_length_mismatch(PostgreSqlType::VarChar, 5, "col".to_string(), 1);
 
         str_table
             .execute("insert into schema_name.table_name values ('str');")
