@@ -33,61 +33,58 @@ impl Message {
         match self {
             Message::Query(sql) => {
                 let mut buff = RWIobuf::new(256);
-                buff.write_u8(QUERY);
+                buff.write_u8(QUERY).unwrap();
                 let sql_bytes = sql.as_bytes();
-                buff.write_u32::<NetworkEndian>(sql_bytes.len() as u32 + 4 + 1);
-                buff.fill(sql_bytes);
-                buff.write_u8(0);
+                buff.write_u32::<NetworkEndian>(sql_bytes.len() as u32 + 4 + 1).unwrap();
+                buff.fill(sql_bytes).unwrap();
+                buff.write_u8(0).unwrap();
                 buff.flip_lo();
-                let mut r = Vec::with_capacity(buff.len() as usize);
-                r.resize(buff.len() as usize, 0);
-                buff.consume(&mut r);
+                let mut r = vec![0; buff.len() as usize];
+                buff.consume(&mut r).unwrap();
                 r
             }
             Message::Terminate => vec![TERMINATE, 0, 0, 0, 4],
             Message::Setup(params) => {
                 let mut buff = RWIobuf::new(512);
                 let start = buff.len();
-                buff.write_u32::<NetworkEndian>(0);
-                buff.write_u16::<NetworkEndian>(3);
-                buff.write_u16::<NetworkEndian>(0);
+                buff.write_u32::<NetworkEndian>(0).unwrap();
+                buff.write_u16::<NetworkEndian>(3).unwrap();
+                buff.write_u16::<NetworkEndian>(0).unwrap();
                 for (key, value) in params {
-                    buff.fill(key.as_bytes());
-                    buff.write_u8(0);
-                    buff.fill(value.as_bytes());
-                    buff.write_u8(0);
+                    buff.fill(key.as_bytes()).unwrap();
+                    buff.write_u8(0).unwrap();
+                    buff.fill(value.as_bytes()).unwrap();
+                    buff.write_u8(0).unwrap();
                 }
-                buff.write_u8(0);
+                buff.write_u8(0).unwrap();
                 let end = buff.len();
                 buff.flip_lo();
-                buff.poke_be(0, start - end);
-                let mut r = Vec::with_capacity(buff.len() as usize);
-                r.resize(buff.len() as usize, 0);
-                buff.consume(&mut r);
+                buff.poke_be(0, start - end).unwrap();
+                let mut r = vec![0; buff.len() as usize];
+                buff.consume(&mut r).unwrap();
                 r
             }
             Message::SslDisabled => vec![],
             Message::SslRequired => {
                 let mut buff = RWIobuf::new(512);
-                buff.write_u32::<NetworkEndian>(8);
-                buff.write_u32::<NetworkEndian>(80_877_103);
+                buff.write_u32::<NetworkEndian>(8).unwrap();
+                buff.write_u32::<NetworkEndian>(80_877_103).unwrap();
                 buff.flip_lo();
-                let mut r = Vec::with_capacity(buff.len() as usize);
-                r.resize(buff.len() as usize, 0);
-                buff.consume(&mut r);
+                let mut r = vec![0; buff.len() as usize];
+                buff.consume(&mut r).unwrap();
                 r
             }
             Message::Password(password) => {
                 let mut buff = RWIobuf::new(512);
-                buff.write_u8(PASSWORD);
+                buff.write_u8(PASSWORD).unwrap();
                 let password_bytes = password.as_bytes();
-                buff.write_u32::<NetworkEndian>(1 + 4 + password_bytes.len() as u32);
-                buff.fill(password_bytes);
-                buff.write_u8(0);
+                buff.write_u32::<NetworkEndian>(1 + 4 + password_bytes.len() as u32)
+                    .unwrap();
+                buff.fill(password_bytes).unwrap();
+                buff.write_u8(0).unwrap();
                 buff.flip_lo();
-                let mut r = Vec::with_capacity(buff.len() as usize);
-                r.resize(buff.len() as usize, 0);
-                buff.consume(&mut r);
+                let mut r = vec![0; buff.len() as usize];
+                buff.consume(&mut r).unwrap();
                 r
             }
         }
