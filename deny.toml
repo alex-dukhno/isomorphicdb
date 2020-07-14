@@ -1,10 +1,5 @@
 [bans]
 multiple-versions = "deny"
-#skip-tree = [
-#    # bytes -> loom -> scoped-tls
-#    # node -> smol -> scoped-tls
-#    { name = "scoped-tls" }
-#]
 
 [licenses]
 private = { ignore = true }
