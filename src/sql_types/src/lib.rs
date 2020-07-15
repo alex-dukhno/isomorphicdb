@@ -16,7 +16,7 @@ use protocol::sql_types::PostgreSqlType;
 use serde::{Deserialize, Serialize};
 use std::convert::TryInto;
 
-#[derive(PartialEq, Debug, Copy, Clone, Serialize, Deserialize)]
+#[derive(PartialEq, Eq, Debug, Copy, Clone, Serialize, Deserialize)]
 pub enum SqlType {
     Bool,
     Char(u64),

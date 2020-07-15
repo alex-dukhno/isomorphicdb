@@ -14,34 +14,59 @@
 
 ///! Module for representing how a query will be executed and values represented
 ///! during runtime.
-pub mod plan;
-pub mod transform;
 
-use crate::query::plan::PlanError;
-use sqlparser::ast::Statement;
+mod scalar;
+mod repr;
 
-/// represents a schema uniquely
-///
-/// this would be a u32
-#[derive(Debug, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
-pub struct SchemaId(String);
+pub use scalar::{ScalarOp};
+pub use repr::{Datum, Row};
 
-impl SchemaId {
-    pub fn name(&self) -> &str {
-        self.0.as_str()
+use sql_types::SqlType;
+
+/// A type of a column
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ColumnType {
+    #[allow(dead_code)]
+    nullable: bool,
+    /// the sql type
+    sql_type: SqlType
+}
+
+impl ColumnType {
+    pub fn new(sql_type: SqlType) -> Self {
+        Self {
+            nullable: false,
+            sql_type
+        }
+    }
+
+    pub fn typ(&self) -> SqlType {
+        self.sql_type
     }
 }
 
-#[derive(Debug)]
-pub enum TransformError {
-    SyntaxError(String),
-    PlanError(PlanError),
-    NotProcessed(Statement), // This is temporary WA to handle processed and unprocessed statements
-                             // ExprError(ExprError), ??
+/// relation (table) type
+/// A relation type is just the types of the columns.
+/// Materialize uses this same concept.
+#[derive(Debug, Clone, PartialEq, Eq)]
+
+pub struct RelationType {
+    /// the types of the columns in the specified order.
+    column_types: Vec<ColumnType>,
+    // Materialized also has a Vec<Vec<usize>> to represent the indices
+    // available for this table but I do not know how that is going to work
+    // in this database so I am leaving it out.
 }
 
-impl From<PlanError> for TransformError {
-    fn from(other: PlanError) -> TransformError {
-        TransformError::PlanError(other)
+impl RelationType {
+    pub fn new(column_types: Vec<ColumnType>) -> Self {
+        Self { column_types }
+    }
+
+    pub fn columns(&self) -> &[ColumnType] {
+        self.column_types.as_slice()
     }
 }
+
+#[cfg(test)]
+mod tests;

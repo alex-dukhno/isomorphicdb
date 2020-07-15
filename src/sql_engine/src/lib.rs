@@ -13,6 +13,7 @@
 // limitations under the License.
 
 extern crate bigdecimal;
+extern crate ordered_float;
 extern crate log;
 
 use crate::{
