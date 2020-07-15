@@ -685,6 +685,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ordered-float"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9fe9037165d7023b1228bc4ae9a2fa1a2b0095eca6c2998c624723dfd01314a5"
+dependencies = [
+ "num-traits",
+]
+
+[[package]]
 name = "parking"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1064,6 +1073,7 @@ dependencies = [
  "bigdecimal",
  "kernel",
  "log",
+ "ordered-float",
  "protocol",
  "rstest",
  "sql_types",

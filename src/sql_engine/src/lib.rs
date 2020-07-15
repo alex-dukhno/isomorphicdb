@@ -13,6 +13,7 @@
 // limitations under the License.
 
 extern crate bigdecimal;
+extern crate ordered_float;
 extern crate log;
 
 use crate::{
@@ -35,7 +36,7 @@ use storage::{backend::BackendStorage, frontend::FrontendStorage, TableDescripti
 
 mod ddl;
 mod dml;
-mod analysis;
+mod query;
 
 pub struct Handler<P: BackendStorage> {
     storage: Arc<Mutex<FrontendStorage<P>>>,
