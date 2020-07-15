@@ -10,6 +10,9 @@ RUN cp target/release/database /build-out/
 
 FROM ubuntu:20.04
 
+RUN apt-get update \
+    && apt-get install -y openssl
+
 ENV RUST_LOG=debug
 
 EXPOSE 5432

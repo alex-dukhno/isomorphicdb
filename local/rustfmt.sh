@@ -5,4 +5,4 @@ set -ex
 
 rustup toolchain install nightly --allow-downgrade --profile minimal --component rustfmt
 
-cargo +nightly fmt --all -- --check
+cargo +nightly fmt
