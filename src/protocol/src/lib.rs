@@ -130,7 +130,7 @@ impl<RW: AsyncReadExt + AsyncWriteExt + Unpin> Connection<RW> {
         }
     }
 
-    /// Sends response messages to client. Most of the time it is a single 
+    /// Sends response messages to client. Most of the time it is a single
     /// message, select result one of the exceptional situation
     pub async fn send(&mut self, query_result: QueryResult) -> io::Result<()> {
         let messages: Vec<Message> = query_result.map_or_else(|event| event.into(), |err| err.into());
