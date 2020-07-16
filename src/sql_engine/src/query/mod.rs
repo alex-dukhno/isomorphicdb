@@ -25,6 +25,7 @@ pub use scalar::{ScalarOp};
 pub use repr::{Datum, Row};
 pub use plan::Plan;
 pub use transform::QueryTransform;
+pub use relation::{RelationOp, RelationError};
 
 use sql_types::SqlType;
 
@@ -109,6 +110,14 @@ impl SchemaId {
     pub fn name(&self) -> &str {
         self.0.as_str()
     }
+}
+
+#[derive(Debug)]
+pub enum TransformError {
+    UnimplementedFeature(String),
+    SyntaxError(String),
+    RelationError(RelationError),
+    // ExprError(ExprError), ??
 }
 
 #[cfg(test)]

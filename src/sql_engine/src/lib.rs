@@ -62,7 +62,7 @@ impl<P: BackendStorage> Handler<P> {
 
         let plan = {
             let storage = self.storage.lock().unwrap();
-            let tranformer = query::QueryTransform::new(&storage);
+            let mut tranformer = query::QueryTransform::new(&storage);
             tranformer.process(statement.clone())
         };
 
