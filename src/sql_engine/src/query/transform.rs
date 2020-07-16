@@ -19,10 +19,11 @@ use std::sync::{Arc, Mutex};
 use super::*;
 use plan::{TableInfo, SchemaInfo};
 use crate::query::relation::RelationOp;
+use super::{Plan, Datum, Row, ScalarOp, RelationOp, RelationError, TransformError, TableId, SchemaId, RelationType};
 use storage::TableDescription;
 
 // I do not know what the error type is yet.
-type Result<T> = ::std::result::Result<T, ()>;
+type Result<T> = ::std::result::Result<T, TransformError>;
 
 // this could probably just be a function.
 /// structure for maintaining state while transforming the input statement.
@@ -32,23 +33,20 @@ pub struct QueryTransform<B: BackendStorage> {
 }
 
 fn table_from_object(object: &ObjectName) -> Result<TableId> {
-    if name.0.len() == 1 {
-        log::error!("unsupported table name '{}'. All table names must be qualified", name.to_string());
-        Err(())
-    } else if name.0.len() != 2 {
-        log::error!("unable to process table name '{}'", name.to_string());
-        Err(())
+    if object.0.len() == 1 {
+        Err(TransformError::SyntaxError(format!("unsupported table name '{}'. All table names must be qualified", object.to_string())))
+    } else if object.0.len() != 2 {
+        Err(TransformError::SyntaxError(format!("unable to process table name '{}'", object.to_string())))
     } else {
-        let table_name = name.0.last().unwrap().value.clone();
-        let schema_name = name.0.first().unwrap().value.clone();
+        let table_name = object.0.last().unwrap().value.clone();
+        let schema_name = object.0.first().unwrap().value.clone();
         Ok(TableId(SchemaId(schema_name), table_name))
     }
 }
 
 fn schema_from_object(object: &ObjectName) -> Result<SchemaId> {
     if object.0.len() != 1 {
-        log::error!("only unqualified schema names are supported");
-        Err(())
+        Err(TransformError::SyntaxError(format!("only unqualified schema names are supported, '{}'", object.to_string())))
     }
     else {
         let schema_name = object.to_string();
@@ -75,30 +73,16 @@ impl<B: BackendStorage> QueryTransform<B> {
                 unimplemented!()
             }
             Statement::CreateSchema { schema_name, .. } => {
-                if schema_name.0.len() != 1 {
-                    log::error!("only unqualified schema names are supported");
-                    Err(())
-                }
-                else {
-                    let schema_name = schema_name.to_string();
-                    if !self.frontend_storage.schema_exists(schema_name.as_str()) {
-                        let info = SchemaInfo { schema_name };
-                        Ok(Plan::CreateSchema(info))
-                    }
-                    else {
-                        // schema do not exists
-                        Err(())
-                    }
-                }
+                let schema_id = schema_from_object(schema_name)?;
+                Ok(Plan::CreateSchema(SchemaInfo { schema_name: schema_id.name().to_string() }))
             }
             Statement::Drop { object_type, names, .. } => match object_type {
                 ObjectType::Table => {
                     let mut table_names = Vec::with_capacity(names.len());
                     for name in names {
-                            let table_id = table_from_object(name)?;
-                            
-                            table_names.push(table_id);
-                        }
+                        let table_id = table_from_object(name)?;
+                        // check if the
+                        table_names.push(table_id);
                     }
                     Ok(Plan::DropTables(table_names))
                 },
@@ -152,7 +136,7 @@ impl<B: BackendStorage> QueryTransform<B> {
             SetExpr::Select(select) => self.handle_select(select),
             SetExpr::Query(query) => self.handle_query(query),
             SetExpr::Values(values) => self.handle_values(values),
-            _ => unimplemented!()
+            e => Err(TransformError::UnimplementedFeature(format!("{:?}", e)))
         }
     }
     fn handle_select(&mut self, select: &Select) -> Result<RelationOp> {
@@ -166,33 +150,34 @@ impl<B: BackendStorage> QueryTransform<B> {
         // 4. resolve having
         // 5. resolve projection
 
-        Err(())
+        Err(TransformError::UnimplementedFeature("select clauses are not implemented".to_string()))
     }
 
     fn handle_values(&self, values: &Values) -> Result<RelationOp> {
-        Err(())
+        Err(TransformError::UnimplementedFeature("values clauses are not implemented".to_string()))
     }
 
     fn handle_from_clause(&mut self, from: &[TableWithJoins]) -> Result<RelationOp> {
         // for now only handle when there is one table
         if from.len() == 1 {
             let TableWithJoins { relation, joins } = from.first().unwrap();
-            let table_info = self.resovle_table_factor(relation)?;
+            let table_info = self.resolve_table_factor(relation)?;
+            unimplemented!()
         }
         else {
-            log::error!("cartician product is currently not supported");
-            Err(())
+            // cartician product.
+            Err(TransformError::UnimplementedFeature("multiple table in the from clause are not implemented".to_string()))
         }
     }
 
     fn resolve_table_factor(&self, relation: &TableFactor) -> Result<RelationType> {
         match relation {
             TableFactor::Table { name, .. } => {
-                let table_info = self.frontend_storage.table_descriptor()
+                // let table_info = self.frontend_storage.table_descriptor();
             },
-            TableFactor::Derived { .. } => {}
-            TableFactor::NestedJoin(table) => {}
-
+            TableFactor::Derived { .. } => {},
+            TableFactor::NestedJoin(table) => {},
         }
+        unimplemented!()
     }
 }
