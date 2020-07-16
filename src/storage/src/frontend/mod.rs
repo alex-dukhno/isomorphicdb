@@ -394,6 +394,14 @@ impl<P: BackendStorage> FrontendStorage<P> {
             Err(OperationOnObjectError::NamespaceDoesNotExist) => Ok(Err(OperationOnTableError::SchemaDoesNotExist)),
         }
     }
+
+    pub fn schema_exists(&self, schema_name: &str) -> bool {
+        self.persistent.is_schema_exists(schema_name)
+    }
+
+    pub fn table_exists(&self, schema_name:& str, table_name: &str) -> bool {
+        self.persistent.is_table_exists(schema_name, table_name)
+    }
 }
 
 #[cfg(test)]

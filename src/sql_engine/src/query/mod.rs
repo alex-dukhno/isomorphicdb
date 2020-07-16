@@ -15,11 +15,16 @@
 ///! Module for representing how a query will be executed and values represented
 ///! during runtime.
 
-mod scalar;
+mod plan;
 mod repr;
+mod relation;
+mod scalar;
+mod transform;
 
 pub use scalar::{ScalarOp};
 pub use repr::{Datum, Row};
+pub use plan::Plan;
+pub use transform::QueryTransform;
 
 use sql_types::SqlType;
 
@@ -49,7 +54,6 @@ impl ColumnType {
 /// A relation type is just the types of the columns.
 /// Materialize uses this same concept.
 #[derive(Debug, Clone, PartialEq, Eq)]
-
 pub struct RelationType {
     /// the types of the columns in the specified order.
     column_types: Vec<ColumnType>,
@@ -65,6 +69,45 @@ impl RelationType {
 
     pub fn columns(&self) -> &[ColumnType] {
         self.column_types.as_slice()
+    }
+}
+
+// this works for now, but ideally this should be usize's instead of strings.
+
+/// represents a table uniquly
+///
+/// I would like this to be a single 64 bit number where the top bits are the
+/// schema id and lower bits are the table id.
+#[derive(Debug, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
+pub struct TableId(SchemaId, String);
+
+impl TableId {
+    pub fn new(schema: SchemaId, table_name: String) -> Self {
+        Self(schema, table_name)
+    }
+
+    pub fn schema_name(&self) -> &str {
+        self.0.name()
+    }
+
+    pub fn name(&self) -> &str {
+        self.1.as_str()
+    }
+}
+
+/// represents a schema Uniquly
+///
+/// this would be a u32
+#[derive(Debug, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
+pub struct SchemaId(String);
+
+impl SchemaId {
+    pub fn new(schema_name: String) -> Self {
+        Self(schema_name)
+    }
+
+    pub fn name(&self) -> &str {
+        self.0.as_str()
     }
 }
 

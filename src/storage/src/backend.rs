@@ -79,6 +79,8 @@ pub trait BackendStorage {
 
     fn is_table_exists(&self, namespace: &str, object_name: &str) -> bool;
 
+    fn is_schema_exists(&self, namespace: &str) -> bool;
+
     fn check_for_table(&self, namespace: &str, object_name: &str) -> SystemResult<Result<(), OperationOnObjectError>>;
 }
 
@@ -278,6 +280,10 @@ impl BackendStorage for SledBackendStorage {
             }
             None => Ok(Err(OperationOnObjectError::NamespaceDoesNotExist)),
         }
+    }
+
+    fn is_schema_exists(&self, namespace: &str) -> bool {
+        self.namespaces.contains_key(namespace)
     }
 
     fn is_table_exists(&self, namespace: &str, object_name: &str) -> bool {

@@ -163,6 +163,10 @@ impl BackendStorage for InMemoryStorage {
         }
     }
 
+    fn is_schema_exists(&self, namespace: &str) -> bool {
+        self.namespaces.contains_key(namespace)
+    }
+
     fn is_table_exists(&self, namespace: &str, object_name: &str) -> bool {
         match self.check_for_table(namespace, object_name) {
             Ok(result) => result.is_ok(),

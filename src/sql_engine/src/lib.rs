@@ -58,6 +58,16 @@ impl<P: BackendStorage> Handler<P> {
                     .build()));
             }
         };
+
+
+        let plan = {
+            let storage = self.storage.lock().unwrap();
+            let tranformer = query::QueryTransform::new(&storage);
+            tranformer.process(statement.clone())
+        };
+
+        log::debug!("{:#?}", plan);
+
         log::debug!("STATEMENT = {:?}", statement);
         match statement {
             Statement::StartTransaction { .. } => Ok(Ok(QueryEvent::TransactionStarted)),
