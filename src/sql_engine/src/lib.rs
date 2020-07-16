@@ -67,6 +67,16 @@ impl<P: BackendStorage> QueryExecutor<P> {
                     .build()));
             }
         };
+
+
+        let plan = {
+            let storage = self.storage.lock().unwrap();
+            let tranformer = query::QueryTransform::new(&storage);
+            tranformer.process(statement.clone())
+        };
+
+        log::debug!("{:#?}", plan);
+
         log::debug!("STATEMENT = {:?}", statement);
         match self.processor.process(statement) {
             Ok(Plan::CreateSchema(creation_info)) => {
