@@ -25,6 +25,3 @@ simple_logger = { version = "1.6.0", default-features = false }
 futures-util = "0.3.5"
 async-std = "1.6.2"
 async-native-tls = "0.3.3"
-
-[dev-dependencies]
-test_helpers = { path = "../test_helpers" }

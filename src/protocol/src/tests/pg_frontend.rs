@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use bytes::{BufMut, BytesMut};
-
 const QUERY: u8 = b'Q';
 const TERMINATE: u8 = b'X';
 
@@ -30,48 +28,48 @@ impl Message {
     pub fn as_vec(&self) -> Vec<u8> {
         match self {
             Message::Query(sql) => {
-                let mut buff = BytesMut::with_capacity(256);
-                buff.put_u8(QUERY);
                 let sql_bytes = sql.as_bytes();
-                buff.put_i32(sql_bytes.len() as i32 + 4 + 1);
+                let mut buff = Vec::new();
+                buff.extend_from_slice(&[QUERY]);
+                buff.extend_from_slice(&(sql_bytes.len() as i32 + 4 + 1).to_be_bytes());
                 buff.extend_from_slice(sql_bytes);
-                buff.put_u8(0);
-                buff.to_vec()
+                buff.extend_from_slice(&[0]);
+                buff
             }
             Message::Terminate => vec![TERMINATE, 0, 0, 0, 4],
             Message::Setup(params) => {
-                let mut buff = BytesMut::with_capacity(512);
-                buff.put_u16(3);
-                buff.put_u16(0);
+                let mut buff = Vec::new();
+                buff.extend_from_slice(&3u16.to_be_bytes());
+                buff.extend_from_slice(&0u16.to_be_bytes());
                 for (key, value) in params {
                     buff.extend_from_slice(key.as_bytes());
-                    buff.put_u8(0);
+                    buff.extend_from_slice(&[0]);
                     buff.extend_from_slice(value.as_bytes());
-                    buff.put_u8(0);
+                    buff.extend_from_slice(&[0]);
                 }
-                buff.put_u8(0);
+                buff.extend_from_slice(&[0]);
                 let len = buff.len();
-                let mut with_len = BytesMut::with_capacity(512);
-                with_len.put_u32(len as u32 + 4);
+                let mut with_len = Vec::new();
+                with_len.extend_from_slice(&(len as u32 + 4).to_be_bytes());
                 with_len.extend_from_slice(&buff);
-                with_len.to_vec()
+                with_len
             }
             Message::SslDisabled => vec![],
             Message::SslRequired => {
-                let mut buff = BytesMut::with_capacity(256);
-                buff.put_u32(8);
-                buff.put_u32(80_877_103);
-                buff.to_vec()
+                let mut buff = Vec::new();
+                buff.extend_from_slice(&8u32.to_be_bytes());
+                buff.extend_from_slice(&80_877_103u32.to_be_bytes());
+                buff
             }
             Message::Password(password) => {
-                let mut buff = BytesMut::with_capacity(256);
+                let mut buff = Vec::new();
                 buff.extend_from_slice(password.as_bytes());
-                buff.put_u8(0);
-                let mut with_len = BytesMut::with_capacity(256);
-                with_len.put_u8(b'p');
-                with_len.put_u32(buff.len() as u32 + 4);
+                buff.extend_from_slice(&[0]);
+                let mut with_len = Vec::new();
+                with_len.extend_from_slice(&[b'p']);
+                with_len.extend_from_slice(&(buff.len() as u32 + 4).to_be_bytes());
                 with_len.extend_from_slice(&buff);
-                with_len.to_vec()
+                with_len
             }
         }
     }

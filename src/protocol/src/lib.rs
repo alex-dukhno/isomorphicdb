@@ -16,9 +16,11 @@
 //! API for backend implementation of PostgreSQL Wire Protocol
 extern crate log;
 
+#[cfg(test)]
+mod tests;
+
 use crate::messages::Message;
 use byteorder::{ByteOrder, NetworkEndian};
-use bytes::BytesMut;
 use futures_util::{
     io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt},
     task::{Context, Poll},
@@ -152,7 +154,7 @@ impl Connection {
                 .read_exact(&mut buffer)
                 .await
                 .map(|_| NetworkEndian::read_u32(&buffer))?;
-            let mut buffer = BytesMut::with_capacity(len as usize - 4);
+            let mut buffer = Vec::with_capacity(len as usize - 4);
             buffer.resize(len as usize - 4, b'0');
             let sql_buff = self.channel.read_exact(&mut buffer).await.map(|_| buffer)?;
             log::debug!("FOR TEST sql = {:?}", sql_buff);
@@ -203,113 +205,6 @@ impl ColumnMetadata {
             name,
             type_id,
             type_size,
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[cfg(test)]
-    mod connection {
-        use super::*;
-        use test_helpers::async_io;
-
-        struct MockChannel {
-            socket: async_io::TestCase,
-        }
-
-        impl MockChannel {
-            pub fn new(socket: async_io::TestCase) -> Self {
-                Self { socket }
-            }
-        }
-
-        impl Channel for MockChannel {
-            fn poll_read(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut [u8]) -> Poll<io::Result<usize>> {
-                let socket = &mut self.get_mut().socket;
-                Pin::new(socket).poll_read(cx, buf)
-            }
-
-            fn poll_write(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<io::Result<usize>> {
-                let socket = &mut self.get_mut().socket;
-                Pin::new(socket).poll_write(cx, buf)
-            }
-
-            fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-                let socket = &mut self.get_mut().socket;
-                Pin::new(socket).poll_flush(cx)
-            }
-
-            fn poll_close(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-                let socket = &mut self.get_mut().socket;
-                Pin::new(socket).poll_close(cx)
-            }
-        }
-
-        #[cfg(test)]
-        mod read_query {
-            use super::*;
-
-            #[async_std::test]
-            async fn read_termination_command() -> io::Result<()> {
-                let test_case = async_io::TestCase::with_content(vec![&[88], &[0, 0, 0, 4]]).await;
-                let channel = Box::pin(MockChannel::new(test_case));
-                let mut connection = Connection::new((VERSION_3, vec![]), channel);
-
-                let query = connection.receive().await?;
-                assert_eq!(query, Ok(Command::Terminate));
-
-                Ok(())
-            }
-
-            #[async_std::test]
-            async fn read_query_successfully() -> io::Result<()> {
-                let test_case = async_io::TestCase::with_content(vec![&[81], &[0, 0, 0, 14], b"select 1;\0"]).await;
-                let channel = Box::pin(MockChannel::new(test_case.clone()));
-                let mut connection = Connection::new((VERSION_3, vec![]), channel);
-
-                let query = connection.receive().await?;
-                assert_eq!(query, Ok(Command::Query("select 1;".to_owned())));
-
-                let actual_content = test_case.read_result().await;
-                let mut expected_content = BytesMut::new();
-                expected_content.extend_from_slice(Message::ReadyForQuery.as_vec().as_slice());
-                assert_eq!(actual_content, expected_content);
-
-                Ok(())
-            }
-
-            #[async_std::test]
-            async fn unexpected_eof_when_read_type_code_of_query_request() {
-                let test_case = async_io::TestCase::with_content(vec![]).await;
-                let channel = Box::pin(MockChannel::new(test_case));
-                let mut connection = Connection::new((VERSION_3, vec![]), channel);
-
-                let query = connection.receive().await;
-                assert!(query.is_err());
-            }
-
-            #[async_std::test]
-            async fn unexpected_eof_when_read_length_of_query() {
-                let test_case = async_io::TestCase::with_content(vec![&[81]]).await;
-                let channel = Box::pin(MockChannel::new(test_case));
-                let mut connection = Connection::new((VERSION_3, vec![]), channel);
-
-                let query = connection.receive().await;
-                assert!(query.is_err());
-            }
-
-            #[async_std::test]
-            async fn unexpected_eof_when_query_string() {
-                let test_case = async_io::TestCase::with_content(vec![&[81], &[0, 0, 0, 14], b"sel;\0"]).await;
-                let channel = Box::pin(MockChannel::new(test_case));
-                let mut connection = Connection::new((VERSION_3, vec![]), channel);
-
-                let query = connection.receive().await;
-                assert!(query.is_err());
-            }
         }
     }
 }
