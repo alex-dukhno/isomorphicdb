@@ -12,27 +12,33 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use async_native_tls::TlsStream;
 use async_std::fs::File;
 use async_trait::async_trait;
-use futures_util::io::{AsyncReadExt, AsyncWriteExt};
-use protocol::{listener::Secure, Command, Connection, QueryListener, ServerListener};
-use smol::{Async, Task};
-use sql_engine::Handler;
+use futures_util::{
+    io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt},
+    task::{Context, Poll},
+};
+use protocol::{listener::ProtocolConfiguration, Channel, QueryListener, ServerListener};
+use smol::Async;
 use std::{
     env, io,
-    net::{SocketAddr, TcpListener, TcpStream},
+    net::{SocketAddr, TcpListener},
     path::{Path, PathBuf},
-    sync::{
-        atomic::{AtomicU8, Ordering},
-        Arc, Mutex,
-    },
+    pin::Pin,
 };
-use storage::{backend::SledBackendStorage, frontend::FrontendStorage};
 
-pub const CREATED: u8 = 0;
-pub const RUNNING: u8 = 1;
-pub const STOPPED: u8 = 2;
+#[async_trait]
+impl QueryListener for SmolQueryListener {
+    type ServerChannel = SmolServerListener;
+
+    fn configuration(&self) -> &ProtocolConfiguration {
+        &self.configuration
+    }
+
+    fn server_channel(&self) -> &Self::ServerChannel {
+        &self.listener
+    }
+}
 
 pub struct SmolServerListener {
     inner: Async<TcpListener>,
@@ -46,116 +52,65 @@ impl SmolServerListener {
 
 #[async_trait]
 impl ServerListener for SmolServerListener {
-    type TcpChannel = Async<TcpStream>;
-    type TlsChannel = TlsStream<Async<TcpStream>>;
-
-    async fn tcp_channel(&self) -> io::Result<(Self::TcpChannel, SocketAddr)> {
-        self.inner.accept().await
+    async fn tcp_channel(&self) -> io::Result<(Pin<Box<dyn Channel>>, SocketAddr)> {
+        let (socket, address) = self.inner.accept().await?;
+        Ok((Box::pin(SmolChannel::new(socket)), address))
     }
 
-    async fn tls_channel(&self, tcp_socket: Self::TcpChannel) -> io::Result<Self::TlsChannel> {
+    async fn tls_channel(&self, tcp_channel: Pin<Box<dyn Channel>>) -> io::Result<Pin<Box<dyn Channel>>> {
         let key = File::open(pfx_certificate_path()).await?;
         let password = pfx_certificate_password();
-        Ok(async_native_tls::accept(key, password, tcp_socket).await.unwrap())
+        let socket = async_native_tls::accept(key, password, tcp_channel).await.unwrap();
+        Ok(Box::pin(SmolChannel::new(socket)))
     }
 }
 
 pub struct SmolQueryListener {
+    configuration: ProtocolConfiguration,
     listener: SmolServerListener,
-    secure: Secure,
-    state: Arc<AtomicU8>,
-    storage: Arc<Mutex<FrontendStorage<SledBackendStorage>>>,
 }
 
 impl SmolQueryListener {
-    pub async fn bind<A: ToString>(addr: A, secure: Secure) -> io::Result<SmolQueryListener> {
+    pub async fn bind<A: ToString>(addr: A, configuration: ProtocolConfiguration) -> io::Result<SmolQueryListener> {
         let tcp_listener = Async::<TcpListener>::bind(addr)?;
-        let server_listener = SmolServerListener::new(tcp_listener);
+        let listener = SmolServerListener::new(tcp_listener);
 
-        let query_listener = SmolQueryListener::new(server_listener, secure);
-        query_listener.state.store(RUNNING, Ordering::SeqCst);
-
-        Ok(query_listener)
-    }
-
-    fn new(listener: SmolServerListener, secure: Secure) -> SmolQueryListener {
-        Self {
+        Ok(Self {
+            configuration,
             listener,
-            secure,
-            state: Arc::new(AtomicU8::new(CREATED)),
-            storage: Arc::new(Mutex::new(FrontendStorage::default().unwrap())),
-        }
-    }
-
-    pub fn state(&self) -> u8 {
-        self.state.load(Ordering::SeqCst)
-    }
-
-    #[allow(dead_code)]
-    pub fn stop(&self) {
-        self.state.store(STOPPED, Ordering::SeqCst);
+        })
     }
 }
 
-#[async_trait]
-impl QueryListener for SmolQueryListener {
-    type TcpChannel = Async<TcpStream>;
-    type TlsChannel = TlsStream<Async<TcpStream>>;
-    type ServerChannel = SmolServerListener;
+struct SmolChannel<RW: AsyncReadExt + AsyncWriteExt + Unpin + Send + Sync> {
+    socket: RW,
+}
 
-    fn handle_connection<RW>(&self, mut connection: Connection<RW>) -> bool
-    where
-        RW: AsyncReadExt + AsyncWriteExt + Unpin + Send + Sync + 'static,
-    {
-        if self.state() == STOPPED {
-            return false;
-        }
+impl<RW: AsyncRead + AsyncWrite + Unpin + Send + Sync> SmolChannel<RW> {
+    pub fn new(socket: RW) -> Self {
+        Self { socket }
+    }
+}
 
-        let state = self.state.clone();
-        let storage = self.storage.clone();
-        Task::spawn(async move {
-            let mut sql_handler = Handler::new(storage);
-
-            log::debug!("ready to handle query");
-            loop {
-                match connection.receive().await {
-                    Err(e) => {
-                        log::debug!("SHOULD STOP");
-                        log::error!("UNEXPECTED ERROR: {:?}", e);
-                        state.store(STOPPED, Ordering::SeqCst);
-                        break;
-                    }
-                    Ok(Err(e)) => {
-                        log::debug!("SHOULD STOP");
-                        log::error!("UNEXPECTED ERROR: {:?}", e);
-                        state.store(STOPPED, Ordering::SeqCst);
-                        break;
-                    }
-                    Ok(Ok(Command::Terminate)) => {
-                        log::debug!("Closing connection with client");
-                        break;
-                    }
-                    Ok(Ok(Command::Query(sql_query))) => {
-                        let response = sql_handler.execute(sql_query.as_str()).expect("no system error");
-                        match connection.send(response).await {
-                            Ok(()) => {}
-                            Err(error) => eprintln!("{:?}", error),
-                        }
-                    }
-                }
-            }
-        })
-        .detach();
-
-        true
+impl<RW: AsyncRead + AsyncWrite + Unpin + Send + Sync> Channel for SmolChannel<RW> {
+    fn poll_read(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut [u8]) -> Poll<io::Result<usize>> {
+        let socket = &mut self.get_mut().socket;
+        Pin::new(socket).poll_read(cx, buf)
     }
 
-    fn server_channel(&self) -> &Self::ServerChannel {
-        &self.listener
+    fn poll_write(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<io::Result<usize>> {
+        let socket = &mut self.get_mut().socket;
+        Pin::new(socket).poll_write(cx, buf)
     }
 
-    fn secure(&self) -> &Secure {
-        &self.secure
+    fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        let socket = &mut self.get_mut().socket;
+        Pin::new(socket).poll_flush(cx)
+    }
+
+    fn poll_close(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        let socket = &mut self.get_mut().socket;
+        Pin::new(socket).poll_close(cx)
     }
 }
 
