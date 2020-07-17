@@ -107,6 +107,13 @@ pub struct ColumnDefinition {
 }
 
 impl ColumnDefinition {
+    pub fn new(name: &str, sql_type: SqlType) -> Self {
+        Self {
+            name: name.to_string(),
+            sql_type
+        }
+    }
+
     pub fn sql_type(&self) -> SqlType {
         self.sql_type
     }
