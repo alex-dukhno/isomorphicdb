@@ -16,22 +16,31 @@
 use storage::ColumnDefinition;
 use super::{relation::RelationOp, TableId, SchemaId};
 
-#[derive(Debug, Clone)]
-pub struct TableInfo {
-    pub schema_name: String,
-    pub table_name: String,
-    pub columns: Vec<ColumnDefinition>
+#[derive(Debug)]
+pub enum PlanError {
+    SchemaAlreadyExists(String),
+    InvalidSchema(String),
+    TableAlreadyExists(String),
+    InvalidTable(String),
 }
 
 #[derive(Debug, Clone)]
-pub struct SchemaInfo {
+pub struct TableCreationInfo {
+    pub schema_name: String,
+    pub table_name: String,
+    pub columns: Vec<ColumnDefinition>
+    // pub table_constraints: Vec<TableConstraints> ??
+}
+
+#[derive(Debug, Clone)]
+pub struct SchemaCreationInfo {
     pub schema_name: String,
 }
 
 #[derive(Debug, Clone)]
 pub enum Plan {
-    CreateTable(TableInfo),
-    CreateSchema(SchemaInfo),
+    CreateTable(TableCreationInfo),
+    CreateSchema(SchemaCreationInfo),
     DropTables(Vec<TableId>),
     DropSchemas(Vec<SchemaId>),
 

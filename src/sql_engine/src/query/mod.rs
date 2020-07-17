@@ -23,7 +23,7 @@ mod transform;
 
 pub use scalar::{ScalarOp};
 pub use repr::{Datum, Row};
-pub use plan::Plan;
+pub use plan::{Plan, PlanError};
 pub use transform::QueryTransform;
 pub use relation::{RelationOp, RelationError};
 
@@ -116,8 +116,21 @@ impl SchemaId {
 pub enum TransformError {
     UnimplementedFeature(String),
     SyntaxError(String),
+    PlanError(PlanError),
     RelationError(RelationError),
     // ExprError(ExprError), ??
+}
+
+impl From<PlanError> for TransformError {
+    fn from(other: PlanError) -> TransformError {
+        TransformError::PlanError(other)
+    }
+}
+
+impl From<RelationError> for TransformError {
+    fn from(other: RelationError) -> TransformError {
+        TransformError::RelationError(other)
+    }
 }
 
 #[cfg(test)]
