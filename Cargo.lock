@@ -596,7 +596,6 @@ dependencies = [
  "sql_engine",
  "sql_types",
  "storage",
- "test_helpers",
 ]
 
 [[package]]

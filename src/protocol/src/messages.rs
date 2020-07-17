@@ -46,7 +46,7 @@ impl Into<&'_ [u8]> for Encryption {
 /// see https://www.postgresql.org/docs/12/protocol-flow.html
 #[allow(dead_code)]
 #[derive(Debug, PartialEq)]
-pub(crate) enum Message {
+pub enum Message {
     /// A warning message has been issued. The frontend should display the message
     /// but continue listening for ReadyForQuery or ErrorResponse.
     NoticeResponse,
