@@ -12,11 +12,13 @@
 
 ///! Module for transforming the input Query AST into representation the engine can proecess.
 
+use sql_types::SqlType;
 use storage::frontend::FrontendStorage;
 use storage::backend::BackendStorage;
+use storage::ColumnDefinition;
 use sqlparser::ast::*;
-use super::{Plan, Datum, Row, ScalarOp, RelationOp, RelationError, TransformError, TableId, SchemaId, RelationType};
-use super::plan::{TableInfo, SchemaInfo};
+use super::{Plan, Datum, Row, ScalarOp, RelationOp, RelationError, TransformError, TableId, SchemaId, RelationType, PlanError};
+use super::plan::{TableCreationInfo, SchemaCreationInfo};
 use storage::TableDescription;
 
 // I do not know what the error type is yet.
@@ -29,6 +31,8 @@ pub struct QueryTransform<'a, B: BackendStorage> {
     frontend_storage: &'a FrontendStorage<B>
 }
 
+// this was moved out to clean up the code. This is a good place
+// to start but should not be the final code.
 fn table_from_object(object: &ObjectName) -> Result<TableId> {
     if object.0.len() == 1 {
         Err(TransformError::SyntaxError(format!("unsupported table name '{}'. All table names must be qualified", object.to_string())))
@@ -51,10 +55,35 @@ fn schema_from_object(object: &ObjectName) -> Result<SchemaId> {
     }
 }
 
+fn sql_type_from_datatype(datatype: &DataType) -> Result<SqlType> {
+    match datatype {
+        DataType::SmallInt => Ok(SqlType::SmallInt(i16::min_value())),
+        DataType::Int => Ok(SqlType::Integer(i32::min_value())),
+        DataType::BigInt => Ok(SqlType::BigInt(i64::min_value())),
+        DataType::Char(len) => Ok(SqlType::Char(len.unwrap_or(255))),
+        DataType::Varchar(len) => Ok(SqlType::VarChar(len.unwrap_or(255))),
+        DataType::Boolean => Ok(SqlType::Bool),
+        DataType::Custom(name) => {
+            let name = name.to_string();
+            match name.as_str() {
+                "serial" => Ok(SqlType::Integer(1)),
+                "smallserial" => Ok(SqlType::SmallInt(1)),
+                "bigserial" => Ok(SqlType::BigInt(1)),
+                other_type => {
+                    Err(TransformError::UnimplementedFeature(format!("{} type is not supported", other_type)))
+                }
+            }
+        }
+        other_type => {
+            Err(TransformError::UnimplementedFeature(format!("{} type is not supported", other_type)))
+        }
+    }
+}
+
 impl<'a, B: BackendStorage> QueryTransform<'a, B> {
     pub fn new(frontend_storage: &'a FrontendStorage<B>) -> Self {
         Self {
-                frontend_storage,
+            frontend_storage,
         }
     }
 
@@ -67,36 +96,17 @@ impl<'a, B: BackendStorage> QueryTransform<'a, B> {
             Statement::StartTransaction { .. } |
             Statement::SetVariable { .. } => unimplemented!(),
             Statement::CreateTable { name, columns, .. } => {
-                unimplemented!()
+                self.handle_create_table(name, columns /* .. */)
             }
             Statement::CreateSchema { schema_name, .. } => {
                 let schema_id = schema_from_object(schema_name)?;
-                Ok(Plan::CreateSchema(SchemaInfo { schema_name: schema_id.name().to_string() }))
+                Ok(Plan::CreateSchema(SchemaCreationInfo { schema_name: schema_id.name().to_string() }))
             }
-            Statement::Drop { object_type, names, .. } => match object_type {
-                ObjectType::Table => {
-                    let mut table_names = Vec::with_capacity(names.len());
-                    for name in names {
-                        let table_id = table_from_object(name)?;
-                        // check if the
-                        table_names.push(table_id);
-                    }
-                    Ok(Plan::DropTables(table_names))
-                },
-                ObjectType::Schema => {
-                    let mut schema_names = Vec::with_capacity(names.len());
-                    for name in names {
-                        let schema_id = schema_from_object(name)?;
-                        schema_names.push(schema_id);
-                    }
-                    Ok(Plan::DropSchemas(schema_names))
-                },
-                _ => { unimplemented!() }
-            },
+            Statement::Drop { object_type, names, .. } => self.handle_drop(object_type, names),
             Statement::Insert {
-                table_name,
-                columns,
-                source,
+                table_name: _,
+                columns: _,
+                source: _,
                 ..
             } => { unimplemented!() },
             Statement::Query(query) => {
@@ -104,12 +114,82 @@ impl<'a, B: BackendStorage> QueryTransform<'a, B> {
                 Ok(Plan::Query(Box::new(op)))
             },
             Statement::Update {
-                table_name,
-                assignments,
+                table_name: _,
+                assignments: _,
                 ..
             } => { unimplemented!() },
-            Statement::Delete { table_name, .. } => { unimplemented!() }
+            Statement::Delete { table_name: _, .. } => { unimplemented!() }
             _ => unimplemented!()
+        }
+    }
+
+    fn resolve_column_definitions(&self, columns: &[ColumnDef]) -> Result<Vec<ColumnDefinition>> {
+        let mut column_defs = Vec::new();
+        for column in columns {
+            let sql_type = sql_type_from_datatype(&column.data_type)?;
+            // maybe a different type should be used to represent this instead of the storage's representation.
+            let column_definition = ColumnDefinition::new(column.name.value.as_str(), sql_type);
+            column_defs.push(column_definition);
+        }
+        Ok(column_defs)
+    }
+
+    fn handle_create_table(&mut self, name: &ObjectName, columns: &[ColumnDef]) -> Result<Plan> {
+        let table_id = table_from_object(name)?;
+        let schema_name = table_id.schema_name();
+        let table_name = table_id.name();
+        if !self.frontend_storage.schema_exists(schema_name) {
+            Err(TransformError::from(PlanError::InvalidSchema(schema_name.to_string())))
+        }
+        else if self.frontend_storage.table_exists(schema_name, table_name) {
+            Err(TransformError::from(PlanError::TableAlreadyExists(table_name.to_string())))
+        }
+        else {
+            let columns = self.resolve_column_definitions(columns)?;
+            let table_info = TableCreationInfo {
+                schema_name: schema_name.to_owned(),
+                table_name: table_name.to_owned(),
+                columns
+            };
+            Ok(Plan::CreateTable(table_info))
+        }
+    }
+
+    fn handle_drop(&mut self, object_type: &ObjectType, names: &[ObjectName]) -> Result<Plan> {
+        match object_type {
+            ObjectType::Table => {
+                let mut table_names = Vec::with_capacity(names.len());
+                for name in names {
+                    // I like the idea of abstracting this to a resolve_table_name(name) which would do
+                    // this check for us and can be reused else where. ideally this function could handle aliassing as well.
+                    let table_id = table_from_object(name)?;
+                    let schema_name = table_id.schema_name();
+                    let table_name = table_id.name();
+                    if !self.frontend_storage.schema_exists(schema_name) {
+                        return Err(TransformError::from(PlanError::InvalidSchema(schema_name.to_string())))
+                    }
+                    else if !self.frontend_storage.table_exists(schema_name, table_name) {
+                        return Err(TransformError::from(PlanError::InvalidTable(table_name.to_string())))
+                    }
+                    else {
+                        table_names.push(table_id);
+                    }
+                }
+                Ok(Plan::DropTables(table_names))
+            },
+            ObjectType::Schema => {
+                let mut schema_names = Vec::with_capacity(names.len());
+                for name in names {
+                    let schema_id = schema_from_object(name)?;
+                    if !self.frontend_storage.schema_exists(schema_id.name()) {
+                        return Err(TransformError::from(PlanError::InvalidSchema(schema_id.name().to_string())))
+                    }
+
+                        schema_names.push(schema_id);
+                }
+                Ok(Plan::DropSchemas(schema_names))
+            },
+            _ => { unimplemented!() }
         }
     }
 
@@ -137,11 +217,11 @@ impl<'a, B: BackendStorage> QueryTransform<'a, B> {
         }
     }
     fn handle_select(&mut self, select: &Select) -> Result<RelationOp> {
-        let Select { distinct, top, projection, from, selection, group_by, having } = select;
+        let Select { distinct: _, top: _, projection: _, from, selection: _, group_by: _, having: _ } = select;
         // this implementation is naive.
 
         // 1. resolve the from clause to know the resulting relation of the selection (from clause) push down predicates when possible.
-        let from_clause = self.handle_from_clause(from.as_slice())?;
+        let _from_clause = self.handle_from_clause(from.as_slice())?;
         // 2. resolve remaining predicates.
         // 3. resolve any groupby clauses
         // 4. resolve having
@@ -150,15 +230,15 @@ impl<'a, B: BackendStorage> QueryTransform<'a, B> {
         Err(TransformError::UnimplementedFeature("select clauses are not implemented".to_string()))
     }
 
-    fn handle_values(&self, values: &Values) -> Result<RelationOp> {
+    fn handle_values(&self, _values: &Values) -> Result<RelationOp> {
         Err(TransformError::UnimplementedFeature("values clauses are not implemented".to_string()))
     }
 
     fn handle_from_clause(&mut self, from: &[TableWithJoins]) -> Result<RelationOp> {
         // for now only handle when there is one table
         if from.len() == 1 {
-            let TableWithJoins { relation, joins } = from.first().unwrap();
-            let table_info = self.resolve_table_factor(relation)?;
+            let TableWithJoins { relation, joins: _ } = from.first().unwrap();
+            let _table_info = self.resolve_table_factor(relation)?;
             unimplemented!()
         }
         else {
@@ -169,11 +249,11 @@ impl<'a, B: BackendStorage> QueryTransform<'a, B> {
 
     fn resolve_table_factor(&self, relation: &TableFactor) -> Result<RelationType> {
         match relation {
-            TableFactor::Table { name, .. } => {
+            TableFactor::Table { name: _, .. } => {
                 // let table_info = self.frontend_storage.table_descriptor();
             },
             TableFactor::Derived { .. } => {},
-            TableFactor::NestedJoin(table) => {},
+            TableFactor::NestedJoin(_table) => {},
         }
         unimplemented!()
     }
