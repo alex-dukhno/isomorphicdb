@@ -15,11 +15,11 @@
 use sql_types::SqlType;
 use storage::frontend::FrontendStorage;
 use storage::backend::BackendStorage;
-use storage::ColumnDefinition;
+use storage::{ColumnDefinition, OperationOnTableError};
 use std::sync::{Arc, Mutex};
 use sqlparser::ast::*;
 use super::{Plan, Datum, Row, ScalarOp, RelationOp, RelationError, TransformError, TableId, SchemaId, RelationType, PlanError};
-use super::plan::{TableCreationInfo, SchemaCreationInfo};
+use super::plan::{TableCreationInfo, SchemaCreationInfo, TableInserts};
 use storage::TableDescription;
 
 // I do not know what the error type is yet.
@@ -101,15 +101,20 @@ impl<'a, B: BackendStorage> QueryTransform<'a, B> {
             }
             Statement::CreateSchema { schema_name, .. } => {
                 let schema_id = schema_from_object(schema_name)?;
-                Ok(Plan::CreateSchema(SchemaCreationInfo { schema_name: schema_id.name().to_string() }))
+                if self.frontend_storage.schema_exists(schema_id.name()) {
+                    Err(TransformError::from(PlanError::SchemaAlreadyExists(schema_id.name().to_string())))
+                }
+                else {
+                    Ok(Plan::CreateSchema(SchemaCreationInfo { schema_name: schema_id.name().to_string() }))
+                }
             }
             Statement::Drop { object_type, names, .. } => self.handle_drop(object_type, names),
             Statement::Insert {
-                table_name: _,
-                columns: _,
-                source: _,
+                table_name,
+                columns,
+                source,
                 ..
-            } => { unimplemented!() },
+            } => self.handle_insert(table_name, columns, source),
             Statement::Query(query) => {
                 let op = self.handle_query(query.as_ref())?;
                 Ok(Plan::Query(Box::new(op)))
@@ -194,6 +199,56 @@ impl<'a, B: BackendStorage> QueryTransform<'a, B> {
         }
     }
 
+    fn handle_insert(&mut self, name: &ObjectName, columns: &[Ident],  source: &Query) -> Result<Plan> {
+        let table_name = table_from_object(name)?;
+        let query_op = self.handle_query(source)?;
+
+        let table_descriptor = self.frontend_storage.table_descriptor(table_name.schema_name(), table_name.name()).unwrap().map_err(|e| {
+            match e {
+                OperationOnTableError::SchemaDoesNotExist => TransformError::from(PlanError::InvalidSchema(table_name.schema_name().to_string())),
+                OperationOnTableError::TableDoesNotExist => TransformError::from(PlanError::InvalidTable(table_name.name().to_string())),
+                _ => unreachable!()
+            }
+        })?;
+
+        let column_info = table_descriptor.column_data();
+
+        let column_indices = if !columns.is_empty() {
+            let mut column_indices = Vec::with_capacity(columns.len());
+            for column in columns {
+                if let Some((idx, _)) = column_info.iter().enumerate().find(|(_, column_def)| column_def.name() == column.value) {
+                    column_indices.push(ScalarOp::Column(idx));
+                }
+                else {
+                    return Err(TransformError::from(RelationError::InvalidColumnName {
+                        column: column.value.clone(),
+                        table: table_descriptor.full_name(),
+                    }))
+                }
+            }
+            column_indices
+        }
+        else {
+            (0..table_descriptor.column_len()).into_iter().map(|i| ScalarOp::Column(i)).collect::<Vec<ScalarOp>>()
+        };
+
+        // @TODO: check type compatability between the resulting relation type and the actual type of the columns
+        // the relation type are different then SqlType because the relation might be the result
+        // of a join or some other operation.
+        //
+        //let relation_type = query_op.typ(); // maybe this returns an Option
+        //relation_type.compatable(table_descriptor) or something like this?
+        // - Andrew Bregger
+
+        let table_insert = TableInserts {
+            table_id: table_name,
+            column_indices,
+            input: Box::new(query_op)
+        };
+
+        Ok(Plan::InsertRows(table_insert))
+    }
+
     fn handle_query(&mut self, query: &Query) -> Result<RelationOp> {
         let Query {
             body,
@@ -231,8 +286,19 @@ impl<'a, B: BackendStorage> QueryTransform<'a, B> {
         Err(TransformError::UnimplementedFeature("select clauses are not implemented".to_string()))
     }
 
-    fn handle_values(&self, _values: &Values) -> Result<RelationOp> {
-        Err(TransformError::UnimplementedFeature("values clauses are not implemented".to_string()))
+    fn handle_values(&self, values: &Values) -> Result<RelationOp> {
+        for expr_row in values.0 {
+            let mut row = Vec::new();
+            for expr in expr_row {
+                match resovle_expr(expr)? {
+                    Expr::Value(value) => row.push(value),
+                    e => {
+                        log::error!("invalid insert expression: {:#?}", e);
+                        unimplemented!()
+                    }
+                }
+            }
+        }
     }
 
     fn handle_from_clause(&mut self, from: &[TableWithJoins]) -> Result<RelationOp> {

@@ -14,7 +14,7 @@
 
 
 use storage::ColumnDefinition;
-use super::{relation::RelationOp, TableId, SchemaId};
+use super::{relation::RelationOp, TableId, SchemaId, ScalarOp};
 
 #[derive(Debug)]
 pub enum PlanError {
@@ -38,11 +38,18 @@ pub struct SchemaCreationInfo {
 }
 
 #[derive(Debug, Clone)]
+pub struct TableInserts {
+    pub table_id: TableId,
+    pub column_indices: Vec<ScalarOp>,
+    pub input: Box<RelationOp>
+}
+
+#[derive(Debug, Clone)]
 pub enum Plan {
     CreateTable(TableCreationInfo),
     CreateSchema(SchemaCreationInfo),
     DropTables(Vec<TableId>),
     DropSchemas(Vec<SchemaId>),
-
+    InsertRows(TableInserts),
     Query(Box<RelationOp>)
 }

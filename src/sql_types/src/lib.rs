@@ -89,7 +89,7 @@ pub trait Constraint {
     fn validate(&self, in_value: &str) -> Result<(), ConstraintError>;
 }
 
-#[derive(Debug, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ConstraintError {
     OutOfRange,
     TypeMismatch(String),

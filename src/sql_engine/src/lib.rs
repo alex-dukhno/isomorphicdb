@@ -59,7 +59,10 @@ impl<P: BackendStorage> QueryExecutor<P> {
     #[allow(clippy::match_wild_err_arm)]
     pub fn execute(&mut self, raw_sql_query: &str) -> SystemResult<QueryResult> {
         let statement = match Parser::parse_sql(&PostgreSqlDialect {}, raw_sql_query) {
-            Ok(mut statements) => statements.pop().unwrap(),
+            Ok(mut statements) => {
+                log::info!("stmts: {:#?}", statements);
+                statements.pop().unwrap()
+            }
             Err(e) => {
                 log::error!("{:?} can't be parsed. Error: {:?}", raw_sql_query, e);
                 return Ok(Err(QueryErrorBuilder::new()

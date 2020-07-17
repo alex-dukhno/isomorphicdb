@@ -68,7 +68,7 @@ impl TableDescription {
         }
     }
 
-    pub fn num_columns(&self) -> usize {
+    pub fn column_len(&self) -> usize {
         self.column_data.len()
     }
 
@@ -85,6 +85,10 @@ impl TableDescription {
             .iter()
             .find(|column| column.name == name)
             .map(|column| column.sql_type)
+    }
+
+    pub fn column_data(&self) -> &[ColumnDefinition] {
+        self.column_data.as_slice()
     }
 
     pub fn scheme(&self) -> &str {

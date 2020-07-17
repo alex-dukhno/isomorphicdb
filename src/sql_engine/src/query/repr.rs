@@ -98,6 +98,8 @@ impl<'a> Datum<'a> {
     pub fn from_str(val: &'a str) -> Datum<'a> {
         Datum::String(val)
     }
+
+    // @TODO: Add accessor helper functions.
 }
 
 /// in-memory representation of a table row. It is unable to deserialize

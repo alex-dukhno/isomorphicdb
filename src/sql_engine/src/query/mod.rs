@@ -15,6 +15,7 @@
 ///! Module for representing how a query will be executed and values represented
 ///! during runtime.
 
+mod expr;
 mod plan;
 mod repr;
 mod relation;
@@ -26,6 +27,7 @@ pub use repr::{Datum, Row};
 pub use plan::{Plan, PlanError};
 pub use transform::QueryTransform;
 pub use relation::{RelationOp, RelationError};
+use expr::resolve_static_expr;
 
 use sql_types::SqlType;
 
