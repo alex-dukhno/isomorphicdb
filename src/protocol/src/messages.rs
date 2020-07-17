@@ -15,30 +15,32 @@
 use crate::ColumnMetadata;
 use bytes::{Buf, BufMut, BytesMut};
 
-// const PARSE_COMPLETE: u8 = b'1';
-// const BIND_COMPLETE: u8 = b'2';
-// const CLOSE_COMPLETE: u8 = b'3';
-// const NOTIFICATION_RESPONSE: u8 = b'A';
-// const COPY_DONE: u8 = b'c';
 const COMMAND_COMPLETE: u8 = b'C';
-// const COPY_DATA: u8 = b'd';
 const DATA_ROW: u8 = b'D';
 const ERROR_RESPONSE: u8 = b'E';
 const SEVERITY: u8 = b'S';
 const CODE: u8 = b'C';
 const MESSAGE: u8 = b'M';
-// const COPY_IN_RESPONSE: u8 = b'G';
-// const COPY_OUT_RESPONSE: u8 = b'H';
 const EMPTY_QUERY_RESPONSE: u8 = b'I';
-// const BACKEND_KEY_DATA: u8 = b'K';
-// const NO_DATA: u8 = b'n';
 const NOTICE_RESPONSE: u8 = b'N';
 const AUTHENTICATION: u8 = b'R';
-// const PORTAL_SUSPENDED: u8 = b's';
 const PARAMETER_STATUS: u8 = b'S';
-// const PARAMETER_DESCRIPTION: u8 = b't';
 const ROW_DESCRIPTION: u8 = b'T';
 const READY_FOR_QUERY: u8 = b'Z';
+
+pub(crate) enum Encryption {
+    AcceptSsl,
+    RejectSsl,
+}
+
+impl Into<&'_ [u8]> for Encryption {
+    fn into(self) -> &'static [u8] {
+        match self {
+            Self::AcceptSsl => &[b'S'],
+            Self::RejectSsl => &[b'N'],
+        }
+    }
+}
 
 /// Backend PostgreSQL Wire Protocol messages
 /// see https://www.postgresql.org/docs/12/protocol-flow.html

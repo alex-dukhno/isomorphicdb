@@ -19,8 +19,11 @@ extern crate log;
 use crate::messages::Message;
 use byteorder::{ByteOrder, NetworkEndian};
 use bytes::BytesMut;
-use futures_util::io::{AsyncReadExt, AsyncWriteExt};
-use std::io;
+use futures_util::{
+    io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt},
+    task::{Context, Poll},
+};
+use std::{io, pin::Pin};
 
 use crate::results::QueryResult;
 pub use listener::{QueryListener, ServerListener};
@@ -78,26 +81,58 @@ pub enum Command {
     Terminate,
 }
 
-/// Structure to handle client-server PostgreSQL Wire Protocol connection
-pub struct Connection<RW: AsyncReadExt + AsyncWriteExt + Unpin> {
-    properties: (Version, Params, SslMode),
-    socket: RW,
+/// Abstract trait for bidirectional TCP or TLS channel
+pub trait Channel: Sync + Send {
+    /// used for implementing trait AsyncRead
+    fn poll_read(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut [u8]) -> Poll<io::Result<usize>>;
+    /// used for implementing trait AsyncWrite
+    fn poll_write(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<io::Result<usize>>;
+    /// used for implementing trait AsyncWrite
+    fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>>;
+    /// used for implementing trait AsyncWrite
+    fn poll_close(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>>;
 }
 
-impl<RW: AsyncReadExt + AsyncWriteExt + Unpin> Connection<RW> {
+impl AsyncRead for dyn Channel {
+    fn poll_read(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut [u8]) -> Poll<io::Result<usize>> {
+        self.poll_read(cx, buf)
+    }
+}
+
+impl AsyncWrite for dyn Channel {
+    fn poll_write(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<io::Result<usize>> {
+        self.poll_write(cx, buf)
+    }
+
+    fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        self.poll_flush(cx)
+    }
+
+    fn poll_close(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        self.poll_close(cx)
+    }
+}
+
+/// Structure to handle client-server PostgreSQL Wire Protocol connection
+pub struct Connection {
+    properties: (Version, Params),
+    channel: Pin<Box<dyn Channel>>,
+}
+
+impl Connection {
     /// Creates new Connection with properties and read-write socket
-    pub fn new(properties: (Version, Params, SslMode), socket: RW) -> Connection<RW> {
-        Connection { properties, socket }
+    pub fn new(properties: (Version, Params), channel: Pin<Box<dyn Channel>>) -> Connection {
+        Connection { properties, channel }
     }
 
     /// connection properties tuple
-    pub fn properties(&self) -> &(Version, Params, SslMode) {
+    pub fn properties(&self) -> &(Version, Params) {
         &(self.properties)
     }
 
     async fn send_ready_for_query(&mut self) -> io::Result<Result<()>> {
         log::debug!("send ready for query message");
-        self.socket
+        self.channel
             .write_all(Message::ReadyForQuery.as_vec().as_slice())
             .await?;
         Ok(Ok(()))
@@ -107,19 +142,19 @@ impl<RW: AsyncReadExt + AsyncWriteExt + Unpin> Connection<RW> {
     pub async fn receive(&mut self) -> io::Result<Result<Command>> {
         self.send_ready_for_query().await?.expect("to send ready for query");
         let mut buffer = [0u8; 1];
-        let tag = self.socket.read_exact(&mut buffer).await.map(|_| buffer[0])?;
+        let tag = self.channel.read_exact(&mut buffer).await.map(|_| buffer[0])?;
         if b'X' == tag {
             Ok(Ok(Command::Terminate))
         } else {
             let mut buffer = [0u8; 4];
             let len = self
-                .socket
+                .channel
                 .read_exact(&mut buffer)
                 .await
                 .map(|_| NetworkEndian::read_u32(&buffer))?;
             let mut buffer = BytesMut::with_capacity(len as usize - 4);
             buffer.resize(len as usize - 4, b'0');
-            let sql_buff = self.socket.read_exact(&mut buffer).await.map(|_| buffer)?;
+            let sql_buff = self.channel.read_exact(&mut buffer).await.map(|_| buffer)?;
             log::debug!("FOR TEST sql = {:?}", sql_buff);
             let sql = match String::from_utf8(sql_buff[..sql_buff.len() - 1].to_vec()) {
                 Ok(sql) => sql,
@@ -136,14 +171,14 @@ impl<RW: AsyncReadExt + AsyncWriteExt + Unpin> Connection<RW> {
         let messages: Vec<Message> = query_result.map_or_else(|event| event.into(), |err| err.into());
         for message in messages {
             log::debug!("{:?}", message);
-            self.socket.write_all(message.as_vec().as_slice()).await?;
+            self.channel.write_all(message.as_vec().as_slice()).await?;
         }
         log::debug!("end of the command is sent");
         Ok(())
     }
 }
 
-impl<RW: AsyncReadExt + AsyncWriteExt + Unpin> PartialEq for Connection<RW> {
+impl PartialEq for Connection {
     fn eq(&self, other: &Self) -> bool {
         self.properties().eq(other.properties())
     }
@@ -172,16 +207,6 @@ impl ColumnMetadata {
     }
 }
 
-/// Enum that describes possible `ssl` mode
-/// possible values `Require` and `Disable`
-#[derive(Clone, Debug, PartialEq)]
-pub enum SslMode {
-    /// Client initiate connection that require `ssl` tunnel
-    Require,
-    /// Client initiate connection without `ssl` tunnel
-    Disable,
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -189,19 +214,51 @@ mod tests {
     #[cfg(test)]
     mod connection {
         use super::*;
+        use test_helpers::async_io;
+
+        struct MockChannel {
+            socket: async_io::TestCase,
+        }
+
+        impl MockChannel {
+            pub fn new(socket: async_io::TestCase) -> Self {
+                Self { socket }
+            }
+        }
+
+        impl Channel for MockChannel {
+            fn poll_read(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut [u8]) -> Poll<io::Result<usize>> {
+                let socket = &mut self.get_mut().socket;
+                Pin::new(socket).poll_read(cx, buf)
+            }
+
+            fn poll_write(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<io::Result<usize>> {
+                let socket = &mut self.get_mut().socket;
+                Pin::new(socket).poll_write(cx, buf)
+            }
+
+            fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+                let socket = &mut self.get_mut().socket;
+                Pin::new(socket).poll_flush(cx)
+            }
+
+            fn poll_close(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+                let socket = &mut self.get_mut().socket;
+                Pin::new(socket).poll_close(cx)
+            }
+        }
 
         #[cfg(test)]
         mod read_query {
             use super::*;
-            use test_helpers::async_io;
 
             #[async_std::test]
             async fn read_termination_command() -> io::Result<()> {
                 let test_case = async_io::TestCase::with_content(vec![&[88], &[0, 0, 0, 4]]).await;
-                let mut connection = Connection::new((VERSION_3, vec![], SslMode::Disable), test_case);
+                let channel = Box::pin(MockChannel::new(test_case));
+                let mut connection = Connection::new((VERSION_3, vec![]), channel);
 
                 let query = connection.receive().await?;
-
                 assert_eq!(query, Ok(Command::Terminate));
 
                 Ok(())
@@ -210,10 +267,10 @@ mod tests {
             #[async_std::test]
             async fn read_query_successfully() -> io::Result<()> {
                 let test_case = async_io::TestCase::with_content(vec![&[81], &[0, 0, 0, 14], b"select 1;\0"]).await;
-                let mut connection = Connection::new((VERSION_3, vec![], SslMode::Disable), test_case.clone());
+                let channel = Box::pin(MockChannel::new(test_case.clone()));
+                let mut connection = Connection::new((VERSION_3, vec![]), channel);
 
                 let query = connection.receive().await?;
-
                 assert_eq!(query, Ok(Command::Query("select 1;".to_owned())));
 
                 let actual_content = test_case.read_result().await;
@@ -227,30 +284,30 @@ mod tests {
             #[async_std::test]
             async fn unexpected_eof_when_read_type_code_of_query_request() {
                 let test_case = async_io::TestCase::with_content(vec![]).await;
-                let mut connection = Connection::new((VERSION_3, vec![], SslMode::Disable), test_case);
+                let channel = Box::pin(MockChannel::new(test_case));
+                let mut connection = Connection::new((VERSION_3, vec![]), channel);
 
                 let query = connection.receive().await;
-
                 assert!(query.is_err());
             }
 
             #[async_std::test]
             async fn unexpected_eof_when_read_length_of_query() {
                 let test_case = async_io::TestCase::with_content(vec![&[81]]).await;
-                let mut connection = Connection::new((VERSION_3, vec![], SslMode::Disable), test_case);
+                let channel = Box::pin(MockChannel::new(test_case));
+                let mut connection = Connection::new((VERSION_3, vec![]), channel);
 
                 let query = connection.receive().await;
-
                 assert!(query.is_err());
             }
 
             #[async_std::test]
             async fn unexpected_eof_when_query_string() {
                 let test_case = async_io::TestCase::with_content(vec![&[81], &[0, 0, 0, 14], b"sel;\0"]).await;
-                let mut connection = Connection::new((VERSION_3, vec![], SslMode::Disable), test_case);
+                let channel = Box::pin(MockChannel::new(test_case));
+                let mut connection = Connection::new((VERSION_3, vec![]), channel);
 
                 let query = connection.receive().await;
-
                 assert!(query.is_err());
             }
         }
