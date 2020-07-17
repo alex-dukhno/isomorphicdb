@@ -15,6 +15,8 @@
 #[cfg(test)]
 mod delete;
 #[cfg(test)]
+mod in_memory_backend_storage;
+#[cfg(test)]
 mod insert;
 #[cfg(test)]
 mod schema;
@@ -29,9 +31,9 @@ mod update;
 
 use super::*;
 use crate::Handler;
+use in_memory_backend_storage::InMemoryStorage;
 use std::sync::{Arc, Mutex};
 use storage::frontend::FrontendStorage;
-use test_helpers::in_memory_backend_storage::InMemoryStorage;
 
 fn in_memory_storage() -> Arc<Mutex<FrontendStorage<InMemoryStorage>>> {
     Arc::new(Mutex::new(FrontendStorage::new(InMemoryStorage::default()).unwrap()))

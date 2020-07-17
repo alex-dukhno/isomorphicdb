@@ -16,4 +16,3 @@ protocol = { path = "../protocol" }
 
 [dev-dependencies]
 rstest = "0.6.4"
-test_helpers = { path = "../test_helpers" }

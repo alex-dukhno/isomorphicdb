@@ -18,7 +18,6 @@ use async_std::{
     sync::Arc,
     task::{Context, Poll},
 };
-use bytes::BytesMut;
 use std::{pin::Pin, sync::Mutex};
 use tempfile::NamedTempFile;
 
@@ -60,7 +59,7 @@ impl TestCase {
         }
     }
 
-    pub async fn read_result(&self) -> BytesMut {
+    pub async fn read_result(&self) -> Vec<u8> {
         use async_std::prelude::*;
 
         let mut result = Vec::new();
@@ -68,7 +67,7 @@ impl TestCase {
         file.seek(SeekFrom::Start(0)).await.unwrap();
         file.read_to_end(&mut result).await.unwrap();
 
-        BytesMut::from(result.as_slice())
+        result
     }
 }
 

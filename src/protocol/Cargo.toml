@@ -11,8 +11,7 @@ async-trait = "0.1.36"
 itertools = "0.9.0"
 futures-util = "0.3.5"
 byteorder = "1.3.4"
-bytes = "0.5"
 
 [dev-dependencies]
 async-std = { version = "1.6.2", features = ["attributes"] }
-test_helpers = { path = "../test_helpers" }
+tempfile = "3.1.0"

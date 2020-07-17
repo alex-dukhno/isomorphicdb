@@ -13,7 +13,6 @@
 // limitations under the License.
 
 use crate::ColumnMetadata;
-use bytes::{Buf, BufMut, BytesMut};
 
 const COMMAND_COMPLETE: u8 = b'C';
 const DATA_ROW: u8 = b'D';
@@ -46,7 +45,7 @@ impl Into<&'_ [u8]> for Encryption {
 /// see https://www.postgresql.org/docs/12/protocol-flow.html
 #[allow(dead_code)]
 #[derive(Debug, PartialEq)]
-pub enum Message {
+pub(crate) enum Message {
     /// A warning message has been issued. The frontend should display the message
     /// but continue listening for ReadyForQuery or ErrorResponse.
     NoticeResponse,
@@ -101,82 +100,81 @@ impl Message {
             Message::AuthenticationOk => vec![AUTHENTICATION, 0, 0, 0, 8, 0, 0, 0, 0],
             Message::ReadyForQuery => vec![READY_FOR_QUERY, 0, 0, 0, 5, EMPTY_QUERY_RESPONSE],
             Message::DataRow(row) => {
-                let mut row_buff = BytesMut::with_capacity(256);
+                let mut row_buff = Vec::new();
                 for field in row.iter() {
-                    let as_string = field;
-                    row_buff.put_i32(as_string.len() as i32);
-                    row_buff.extend_from_slice(as_string.as_str().as_bytes());
+                    row_buff.extend_from_slice(&(field.len() as i32).to_be_bytes());
+                    row_buff.extend_from_slice(field.as_str().as_bytes());
                 }
-                let mut len_buff = BytesMut::new();
-                len_buff.put_u8(DATA_ROW);
-                len_buff.put_i32(6 + row_buff.len() as i32);
-                len_buff.put_i16(row.len() as i16);
+                let mut len_buff = Vec::new();
+                len_buff.extend_from_slice(&[DATA_ROW]);
+                len_buff.extend_from_slice(&(6 + row_buff.len() as i32).to_be_bytes());
+                len_buff.extend_from_slice(&(row.len() as i16).to_be_bytes());
                 len_buff.extend_from_slice(&row_buff);
-                len_buff.bytes().to_vec()
+                len_buff
             }
             Message::RowDescription(description) => {
-                let mut buff = BytesMut::with_capacity(256);
+                let mut buff = Vec::new();
                 for field in description.iter() {
-                    buff.put_slice(field.name.as_str().as_bytes());
-                    buff.put_u8(0); // end of c string
-                    buff.put_i32(0); // table id
-                    buff.put_i16(0); // column id
-                    buff.put_i32(field.type_id);
-                    buff.put_i16(field.type_size);
-                    buff.put_i32(-1); // type modifier
-                    buff.put_i16(0);
+                    buff.extend_from_slice(field.name.as_str().as_bytes());
+                    buff.extend_from_slice(&[0]); // end of c string
+                    buff.extend_from_slice(&(0i32).to_be_bytes()); // table id
+                    buff.extend_from_slice(&(0i16).to_be_bytes()); // column id
+                    buff.extend_from_slice(&field.type_id.to_be_bytes());
+                    buff.extend_from_slice(&field.type_size.to_be_bytes());
+                    buff.extend_from_slice(&(-1i32).to_be_bytes()); // type modifier
+                    buff.extend_from_slice(&0i16.to_be_bytes());
                 }
-                let mut len_buff = BytesMut::new();
-                len_buff.put_u8(ROW_DESCRIPTION);
-                len_buff.put_i32(6 + buff.len() as i32);
-                len_buff.put_i16(description.len() as i16);
+                let mut len_buff = Vec::new();
+                len_buff.extend_from_slice(&[ROW_DESCRIPTION]);
+                len_buff.extend_from_slice(&(6 + buff.len() as i32).to_be_bytes());
+                len_buff.extend_from_slice(&(description.len() as i16).to_be_bytes());
                 len_buff.extend_from_slice(&buff);
-                len_buff.to_vec()
+                len_buff
             }
             Message::CommandComplete(command) => {
-                let mut command_buff = BytesMut::with_capacity(256);
-                command_buff.put_u8(COMMAND_COMPLETE);
-                command_buff.put_i32(4 + command.len() as i32 + 1);
+                let mut command_buff = Vec::new();
+                command_buff.extend_from_slice(&[COMMAND_COMPLETE]);
+                command_buff.extend_from_slice(&(4 + command.len() as i32 + 1).to_be_bytes());
                 command_buff.extend_from_slice(command.as_bytes());
-                command_buff.put_u8(0);
-                command_buff.to_vec()
+                command_buff.extend_from_slice(&[0]);
+                command_buff
             }
             Message::EmptyQueryResponse => vec![EMPTY_QUERY_RESPONSE, 0, 0, 0, 4],
             Message::ErrorResponse(severity, code, message) => {
-                let mut error_response_buff = BytesMut::with_capacity(256);
-                error_response_buff.put_u8(ERROR_RESPONSE);
-                let mut message_buff = BytesMut::with_capacity(256);
+                let mut error_response_buff = Vec::new();
+                error_response_buff.extend_from_slice(&[ERROR_RESPONSE]);
+                let mut message_buff = Vec::new();
                 if let Some(severity) = severity.as_ref() {
-                    message_buff.put_u8(SEVERITY);
+                    message_buff.extend_from_slice(&[SEVERITY]);
                     message_buff.extend_from_slice(severity.as_bytes());
-                    message_buff.put_u8(0);
+                    message_buff.extend_from_slice(&[0]);
                 }
                 if let Some(code) = code.as_ref() {
-                    message_buff.put_u8(CODE);
+                    message_buff.extend_from_slice(&[CODE]);
                     message_buff.extend_from_slice(code.as_bytes());
-                    message_buff.put_u8(0);
+                    message_buff.extend_from_slice(&[0]);
                 }
                 if let Some(message) = message.as_ref() {
-                    message_buff.put_u8(MESSAGE);
+                    message_buff.extend_from_slice(&[MESSAGE]);
                     message_buff.extend_from_slice(message.as_bytes());
-                    message_buff.put_u8(0);
+                    message_buff.extend_from_slice(&[0]);
                 }
-                error_response_buff.put_i32(message_buff.len() as i32 + 4 + 1);
+                error_response_buff.extend_from_slice(&(message_buff.len() as i32 + 4 + 1).to_be_bytes());
                 error_response_buff.extend_from_slice(message_buff.as_ref());
-                error_response_buff.put_u8(0);
+                error_response_buff.extend_from_slice(&[0]);
                 error_response_buff.to_vec()
             }
             Message::ParameterStatus(name, value) => {
-                let mut parameter_status_buff = BytesMut::with_capacity(256);
-                parameter_status_buff.put_u8(PARAMETER_STATUS);
-                let mut parameters = BytesMut::with_capacity(256);
+                let mut parameter_status_buff = Vec::new();
+                parameter_status_buff.extend_from_slice(&[PARAMETER_STATUS]);
+                let mut parameters = Vec::new();
                 parameters.extend_from_slice(name.as_bytes());
-                parameters.put_u8(0);
+                parameters.extend_from_slice(&[0]);
                 parameters.extend_from_slice(value.as_bytes());
-                parameters.put_u8(0);
-                parameter_status_buff.put_u32(4 + parameters.bytes().len() as u32);
+                parameters.extend_from_slice(&[0]);
+                parameter_status_buff.extend_from_slice(&(4 + parameters.len() as u32).to_be_bytes());
                 parameter_status_buff.extend_from_slice(parameters.as_ref());
-                parameter_status_buff.to_vec()
+                parameter_status_buff
             }
         }
     }
