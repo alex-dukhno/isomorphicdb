@@ -15,7 +15,7 @@
 use crate::query_listener::SmolQueryListener;
 use protocol::{listener::ProtocolConfiguration, Command, QueryListener};
 use smol::Task;
-use sql_engine::Handler;
+use sql_engine::QueryExecutor;
 use std::{
     env,
     sync::{
@@ -52,7 +52,7 @@ pub fn start() {
             let state = state.clone();
             let storage = storage.clone();
             Task::spawn(async move {
-                let mut sql_handler = Handler::new(storage.clone());
+                let mut sql_handler = QueryExecutor::new(storage.clone());
                 log::debug!("ready to handle query");
 
                 loop {

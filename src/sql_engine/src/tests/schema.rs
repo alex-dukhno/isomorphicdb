@@ -15,6 +15,16 @@
 use super::*;
 
 #[rstest::rstest]
+fn create_schema(mut sql_engine: InMemorySqlEngine) {
+    assert_eq!(
+        sql_engine
+            .execute("create schema schema_name;")
+            .expect("no system errors"),
+        Ok(QueryEvent::SchemaCreated)
+    )
+}
+
+#[rstest::rstest]
 fn create_same_schema(mut sql_engine: InMemorySqlEngine) {
     sql_engine
         .execute("create schema schema_name;")

@@ -77,6 +77,10 @@ impl<P: BackendStorage> FrontendStorage<P> {
         }
     }
 
+    pub fn schema_exists(&self, schema_name: &str) -> bool {
+        self.persistent.is_schema_exists(schema_name)
+    }
+
     pub fn drop_schema(&mut self, schema_name: &str) -> SystemResult<Result<(), SchemaDoesNotExist>> {
         match self.persistent.drop_namespace(schema_name)? {
             Ok(()) => Ok(Ok(())),
