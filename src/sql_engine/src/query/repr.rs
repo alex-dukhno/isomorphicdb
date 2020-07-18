@@ -43,6 +43,8 @@ pub enum Datum<'a> {
     Float32(OrderedFloat<f32>),
     Float64(OrderedFloat<f64>),
     String(&'a str),
+    // this should only be used when loading string into a database
+    OwnedString(String),
     // Bytes(&'a [u8]),
     // fill in the rest of the types as they get implemented.
 }
@@ -59,6 +61,7 @@ impl<'a> Datum<'a> {
             Self::Float32(_) => 1 + std::mem::size_of::<f32>(),
             Self::Float64(_) => 1 + std::mem::size_of::<f64>(),
             Self::String(val) => 1 + std::mem::size_of::<usize>() + val.len(),
+            Self::OwnedString(val) => 1 + std::mem::size_of::<usize>() + val.len(),
         }
     }
 
@@ -99,7 +102,71 @@ impl<'a> Datum<'a> {
         Datum::String(val)
     }
 
+    pub fn from_string(val: String) -> Datum<'static> {
+        Datum::OwnedString(val)
+    }
+
     // @TODO: Add accessor helper functions.
+    pub fn as_i16(&self) -> i16 {
+        match self {
+            Self::Int16(val) => *val,
+            _ => panic!("invalid use of Datum::as_i16")
+        }
+    }
+
+    pub fn as_i32(&self) -> i32 {
+        match self {
+            Self::Int32(val) => *val,
+            _ => panic!("invalid use of Datum::as_i32")
+        }
+    }
+
+    pub fn as_i64(&self) -> i64 {
+        match self {
+            Self::Int64(val) => *val,
+            _ => panic!("invalid use of Datum::as_i64")
+        }
+    }
+
+    pub fn as_f32(&self) -> f32 {
+        match self {
+            Self::Float32(val) => **val,
+            _ => panic!("invalid use of Datum::as_f32")
+        }
+    }
+
+    pub fn as_f64(&self) -> f64 {
+        match self {
+            Self::Float64(val) => **val,
+            _ => panic!("invlaid use of Datum::as_f64")
+        }
+    }
+
+    pub fn as_bool(&self) -> bool {
+        match self {
+            Self::True => true,
+            Self::False => false,
+            _ => panic!("invalid use of Datum::as_bool")
+        }
+    }
+
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::String(s) => s,
+            _ => panic!("invalid use of Datum::as_str"),
+        }
+    }
+
+    pub fn as_string(&self) -> &str {
+        match self {
+            Self::OwnedString(s) => s,
+            _ => panic!("invalid use of Datum::as_string"),
+        }
+    }
+
+    // arithmetic operations
+
+
 }
 
 /// in-memory representation of a table row. It is unable to deserialize
@@ -205,6 +272,11 @@ impl Row {
                     push_copy!(&mut data, val.len(), usize);
                     data.extend_from_slice(val.as_bytes());
                 },
+                Datum::<'a>::OwnedString(val) => {
+                    push_tag(&mut data,TypeTag::Str);
+                    push_copy!(&mut data, val.len(), usize);
+                    data.extend_from_slice(val.as_bytes());
+                }
                 Datum::<'a>::Null => push_tag(&mut data, TypeTag::Null),
             }
         }

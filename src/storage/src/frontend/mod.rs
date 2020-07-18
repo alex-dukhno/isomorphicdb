@@ -445,7 +445,7 @@ impl<P: BackendStorage> FrontendStorage<P> {
         self.persistent.is_schema_exists(schema_name)
     }
 
-    pub fn table_exists(&self, schema_name:& str, table_name: &str) -> bool {
+    pub fn table_exists(&self, schema_name: &str, table_name: &str) -> bool {
         self.persistent.is_table_exists(schema_name, table_name)
     }
 }
