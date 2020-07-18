@@ -14,12 +14,13 @@
 
 ///! Module for transforming the input Query AST into representation the engine can proecess.
 use crate::query::plan::SchemaCreationInfo;
-use crate::query::plan::{Plan, PlanError};
-use crate::query::{SchemaId, TransformError};
+use crate::query::{
+    plan::{Plan, PlanError},
+    SchemaId, TransformError,
+};
 use sqlparser::ast::{ObjectName, ObjectType, Statement};
 use std::sync::{Arc, Mutex};
-use storage::backend::BackendStorage;
-use storage::frontend::FrontendStorage;
+use storage::{backend::BackendStorage, frontend::FrontendStorage};
 
 type Result<T> = ::std::result::Result<T, TransformError>;
 

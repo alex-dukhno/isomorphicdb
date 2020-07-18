@@ -25,10 +25,11 @@ use crate::{
 use kernel::SystemResult;
 use protocol::results::{QueryErrorBuilder, QueryEvent, QueryResult};
 
-use crate::query::plan::Plan;
-use crate::query::plan::PlanError;
-use crate::query::transform::QueryProcessor;
-use crate::query::TransformError;
+use crate::query::{
+    plan::{Plan, PlanError},
+    transform::QueryProcessor,
+    TransformError,
+};
 use sqlparser::{
     ast::{ObjectType, Statement},
     dialect::PostgreSqlDialect,
@@ -50,7 +51,7 @@ impl<P: BackendStorage> QueryExecutor<P> {
     pub fn new(storage: Arc<Mutex<FrontendStorage<P>>>) -> Self {
         Self {
             storage: storage.clone(),
-            processor: QueryProcessor::new(storage.clone()),
+            processor: QueryProcessor::new(storage),
         }
     }
 
