@@ -32,8 +32,9 @@ mod update;
 use super::*;
 use crate::QueryExecutor;
 use in_memory_backend_storage::InMemoryStorage;
+use sql_types::SqlType;
 use std::sync::{Arc, Mutex};
-use storage::frontend::FrontendStorage;
+use storage::{frontend::FrontendStorage, ColumnDefinition};
 
 fn in_memory_storage() -> Arc<Mutex<FrontendStorage<InMemoryStorage>>> {
     Arc::new(Mutex::new(FrontendStorage::new(InMemoryStorage::default()).unwrap()))
@@ -54,4 +55,8 @@ fn sql_engine_with_schema(mut sql_engine: InMemorySqlEngine) -> InMemorySqlEngin
         .expect("schema created");
 
     sql_engine
+}
+
+fn column_definition(name: &'static str, sql_type: SqlType) -> ColumnDefinition {
+    ColumnDefinition::new(name, sql_type)
 }

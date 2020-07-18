@@ -10,7 +10,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::{relation::RelationOp, ScalarOp, SchemaId, TableId};
+use super::{SchemaId, TableId};
 ///! represents a plan to be executed by the engine.
 use storage::ColumnDefinition;
 
@@ -35,18 +35,9 @@ pub struct SchemaCreationInfo {
 }
 
 #[derive(Debug, Clone)]
-pub struct TableInserts {
-    pub table_id: TableId,
-    pub column_indices: Vec<ScalarOp>,
-    pub input: Box<RelationOp>,
-}
-
-#[derive(Debug, Clone)]
 pub enum Plan {
     CreateTable(TableCreationInfo),
     CreateSchema(SchemaCreationInfo),
     DropTables(Vec<TableId>),
     DropSchemas(Vec<SchemaId>),
-    InsertRows(TableInserts),
-    Query(Box<RelationOp>),
 }

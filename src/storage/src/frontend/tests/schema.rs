@@ -40,13 +40,13 @@ fn same_table_names_with_different_columns_in_different_schemas(mut storage: Per
         &mut storage,
         "schema_name_1",
         "table_name",
-        vec![("sn_1_column", SqlType::SmallInt(i16::min_value()))],
+        vec![column_definition("sn_1_column", SqlType::SmallInt(i16::min_value()))],
     );
     create_table(
         &mut storage,
         "schema_name_2",
         "table_name",
-        vec![("sn_2_column", SqlType::BigInt(i64::min_value()))],
+        vec![column_definition("sn_2_column", SqlType::BigInt(i64::min_value()))],
     );
 
     assert_eq!(
@@ -96,13 +96,13 @@ fn drop_schema_drops_tables_in_it(default_schema_name: &str, mut storage_with_sc
         &mut storage_with_schema,
         default_schema_name,
         "table_name_1",
-        vec![("column_test", SqlType::SmallInt(i16::min_value()))],
+        vec![column_definition("column_test", SqlType::SmallInt(i16::min_value()))],
     );
     create_table(
         &mut storage_with_schema,
         default_schema_name,
         "table_name_2",
-        vec![("column_test", SqlType::SmallInt(i16::min_value()))],
+        vec![column_definition("column_test", SqlType::SmallInt(i16::min_value()))],
     );
 
     assert_eq!(
@@ -122,7 +122,7 @@ fn drop_schema_drops_tables_in_it(default_schema_name: &str, mut storage_with_sc
             .create_table(
                 default_schema_name,
                 "table_name_1",
-                vec![("column_test".to_owned(), SqlType::SmallInt(i16::min_value()))]
+                &[column_definition("column_test", SqlType::SmallInt(i16::min_value()))]
             )
             .expect("no system errors"),
         Ok(())
@@ -132,7 +132,7 @@ fn drop_schema_drops_tables_in_it(default_schema_name: &str, mut storage_with_sc
             .create_table(
                 default_schema_name,
                 "table_name_2",
-                vec![("column_test".to_owned(), SqlType::SmallInt(i16::min_value()))]
+                &[column_definition("column_test", SqlType::SmallInt(i16::min_value()))]
             )
             .expect("no system errors"),
         Ok(())

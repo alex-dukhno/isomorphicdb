@@ -30,13 +30,9 @@ use crate::query::{
     plan::{Plan, PlanError},
     QueryProcessor, TransformError,
 };
-use sqlparser::{
-    ast::{ObjectType, Statement},
-    dialect::PostgreSqlDialect,
-    parser::Parser,
-};
+use sqlparser::{ast::Statement, dialect::PostgreSqlDialect, parser::Parser};
 use std::sync::{Arc, Mutex};
-use storage::{backend::BackendStorage, frontend::FrontendStorage, ColumnDefinition, TableDescription};
+use storage::{backend::BackendStorage, frontend::FrontendStorage};
 
 mod ddl;
 mod dml;
@@ -75,6 +71,9 @@ impl<P: BackendStorage> QueryExecutor<P> {
             Ok(Plan::CreateSchema(creation_info)) => {
                 CreateSchemaCommand::new(creation_info, self.storage.clone()).execute()
             }
+            Ok(Plan::CreateTable(creation_info)) => {
+                CreateTableCommand::new(creation_info, self.storage.clone()).execute()
+            }
             Ok(Plan::DropSchemas(schemas)) => {
                 for schema in schemas {
                     DropSchemaCommand::new(schema, self.storage.clone())
@@ -83,18 +82,17 @@ impl<P: BackendStorage> QueryExecutor<P> {
                 }
                 Ok(Ok(QueryEvent::SchemaDropped))
             }
+            Ok(Plan::DropTables(tables)) => {
+                for table in tables {
+                    DropTableCommand::new(table, self.storage.clone())
+                        .execute()?
+                        .expect("drop table");
+                }
+                Ok(Ok(QueryEvent::TableDropped))
+            }
             Err(TransformError::NotProcessed(statement)) => match statement {
                 Statement::StartTransaction { .. } => Ok(Ok(QueryEvent::TransactionStarted)),
                 Statement::SetVariable { .. } => Ok(Ok(QueryEvent::VariableSet)),
-                Statement::CreateTable { name, columns, .. } => {
-                    CreateTableCommand::new(name, columns, self.storage.clone()).execute()
-                }
-                Statement::Drop { object_type, names, .. } => match object_type {
-                    ObjectType::Table => DropTableCommand::new(names[0].clone(), self.storage.clone()).execute(),
-                    _ => Ok(Err(QueryErrorBuilder::new()
-                        .feature_not_supported(raw_sql_query.to_owned())
-                        .build())),
-                },
                 Statement::Insert {
                     table_name,
                     columns,
@@ -119,6 +117,12 @@ impl<P: BackendStorage> QueryExecutor<P> {
             }
             Err(TransformError::PlanError(PlanError::InvalidSchema(schema_name))) => {
                 Ok(Err(QueryErrorBuilder::new().schema_does_not_exist(schema_name).build()))
+            }
+            Err(TransformError::PlanError(PlanError::TableAlreadyExists(table_name))) => {
+                Ok(Err(QueryErrorBuilder::new().table_already_exists(table_name).build()))
+            }
+            Err(TransformError::PlanError(PlanError::InvalidTable(table_name))) => {
+                Ok(Err(QueryErrorBuilder::new().table_does_not_exist(table_name).build()))
             }
             _ => unimplemented!(), // other TransformError
         }

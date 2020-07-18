@@ -22,7 +22,10 @@ fn create_tables_with_different_names(default_schema_name: &str, mut storage_wit
             .create_table(
                 default_schema_name,
                 "table_name_1",
-                vec![("column_rstest::rstest".to_owned(), SqlType::SmallInt(i16::min_value()))]
+                &[column_definition(
+                    "column_rstest::rstest",
+                    SqlType::SmallInt(i16::min_value())
+                )]
             )
             .expect("no system errors"),
         Ok(())
@@ -32,7 +35,10 @@ fn create_tables_with_different_names(default_schema_name: &str, mut storage_wit
             .create_table(
                 default_schema_name,
                 "table_name_2",
-                vec![("column_rstest::rstest".to_owned(), SqlType::SmallInt(i16::min_value()))]
+                &[column_definition(
+                    "column_rstest::rstest",
+                    SqlType::SmallInt(i16::min_value())
+                )]
             )
             .expect("no system errors"),
         Ok(())
@@ -45,7 +51,10 @@ fn create_table_with_the_same_name(default_schema_name: &str, mut storage_with_s
         &mut storage_with_schema,
         default_schema_name,
         "table_name",
-        vec![("column_rstest::rstest", SqlType::SmallInt(i16::min_value()))],
+        vec![column_definition(
+            "column_rstest::rstest",
+            SqlType::SmallInt(i16::min_value()),
+        )],
     );
 
     assert_eq!(
@@ -53,7 +62,10 @@ fn create_table_with_the_same_name(default_schema_name: &str, mut storage_with_s
             .create_table(
                 default_schema_name,
                 "table_name",
-                vec![("column_rstest::rstest".to_owned(), SqlType::SmallInt(i16::min_value()))]
+                &[column_definition(
+                    "column_rstest::rstest",
+                    SqlType::SmallInt(i16::min_value())
+                )]
             )
             .expect("no system errors"),
         Err(CreateTableError::TableAlreadyExists)
@@ -69,7 +81,10 @@ fn create_table_with_the_same_name_in_different_schemas(mut storage: PersistentS
             .create_table(
                 "schema_name_1",
                 "table_name",
-                vec![("column_rstest::rstest".to_owned(), SqlType::SmallInt(i16::min_value()))]
+                &[column_definition(
+                    "column_rstest::rstest",
+                    SqlType::SmallInt(i16::min_value())
+                )]
             )
             .expect("no system errors"),
         Ok(())
@@ -79,7 +94,10 @@ fn create_table_with_the_same_name_in_different_schemas(mut storage: PersistentS
             .create_table(
                 "schema_name_2",
                 "table_name",
-                vec![("column_rstest::rstest".to_owned(), SqlType::SmallInt(i16::min_value()))]
+                &[column_definition(
+                    "column_rstest::rstest",
+                    SqlType::SmallInt(i16::min_value())
+                )]
             )
             .expect("no system errors"),
         Ok(())
@@ -92,7 +110,10 @@ fn drop_table(default_schema_name: &str, mut storage_with_schema: PersistentStor
         &mut storage_with_schema,
         default_schema_name,
         "table_name",
-        vec![("column_rstest::rstest", SqlType::SmallInt(i16::min_value()))],
+        vec![column_definition(
+            "column_rstest::rstest",
+            SqlType::SmallInt(i16::min_value()),
+        )],
     );
     assert_eq!(
         storage_with_schema
@@ -105,7 +126,10 @@ fn drop_table(default_schema_name: &str, mut storage_with_schema: PersistentStor
             .create_table(
                 default_schema_name,
                 "table_name",
-                vec![("column_rstest::rstest".to_owned(), SqlType::SmallInt(i16::min_value()))]
+                &[column_definition(
+                    "column_rstest::rstest",
+                    SqlType::SmallInt(i16::min_value())
+                )]
             )
             .expect("no system errors"),
         Ok(())

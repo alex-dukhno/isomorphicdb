@@ -11,17 +11,14 @@
 // limitations under the License.
 
 use super::{
-    plan::{SchemaCreationInfo, TableCreationInfo, TableInserts},
-    resolve_static_expr, Datum, Plan, PlanError, RelationError, RelationOp, RelationType, Row, ScalarOp, SchemaId,
-    TableId, TransformError,
+    plan::{Plan, PlanError, SchemaCreationInfo, TableCreationInfo},
+    SchemaId, TableId, TransformError,
 };
 ///! Module for transforming the input Query AST into representation the engine can proecess.
 use sql_types::SqlType;
 use sqlparser::ast::*;
 use std::sync::{Arc, Mutex, MutexGuard};
-use storage::{
-    backend::BackendStorage, frontend::FrontendStorage, ColumnDefinition, OperationOnTableError, TableDescription,
-};
+use storage::{backend::BackendStorage, frontend::FrontendStorage, ColumnDefinition};
 
 // I do not know what the error type is yet.
 type Result<T> = ::std::result::Result<T, TransformError>;
@@ -121,25 +118,7 @@ impl<B: BackendStorage> QueryProcessor<B> {
                 }
             }
             Statement::Drop { object_type, names, .. } => self.handle_drop(object_type, names),
-            Statement::Insert {
-                table_name,
-                columns,
-                source,
-                ..
-            } => self.handle_insert(table_name, columns, source),
-            Statement::Query(query) => {
-                let op = self.handle_query(query.as_ref())?;
-                Ok(Plan::Query(Box::new(op)))
-            }
-            Statement::StartTransaction { .. }
-            | Statement::SetVariable { .. }
-            | Statement::Update {
-                table_name: _,
-                assignments: _,
-                ..
-            }
-            | Statement::Delete { table_name: _, .. }
-            | _ => Err(TransformError::NotProcessed(stmt.clone())),
+            _ => Err(TransformError::NotProcessed(stmt.clone())),
         }
     }
 
@@ -161,9 +140,10 @@ impl<B: BackendStorage> QueryProcessor<B> {
         if !self.storage().schema_exists(schema_name) {
             Err(TransformError::from(PlanError::InvalidSchema(schema_name.to_string())))
         } else if self.storage().table_exists(schema_name, table_name) {
-            Err(TransformError::from(PlanError::TableAlreadyExists(
-                table_name.to_string(),
-            )))
+            Err(TransformError::from(PlanError::TableAlreadyExists(format!(
+                "{}.{}",
+                schema_name, table_name
+            ))))
         } else {
             let columns = self.resolve_column_definitions(columns)?;
             let table_info = TableCreationInfo {
@@ -188,7 +168,10 @@ impl<B: BackendStorage> QueryProcessor<B> {
                     if !self.storage().schema_exists(schema_name) {
                         return Err(TransformError::from(PlanError::InvalidSchema(schema_name.to_string())));
                     } else if !self.storage().table_exists(schema_name, table_name) {
-                        return Err(TransformError::from(PlanError::InvalidTable(table_name.to_string())));
+                        return Err(TransformError::from(PlanError::InvalidTable(format!(
+                            "{}.{}",
+                            schema_name, table_name
+                        ))));
                     } else {
                         table_names.push(table_id);
                     }
@@ -211,151 +194,5 @@ impl<B: BackendStorage> QueryProcessor<B> {
             }
             _ => unimplemented!(),
         }
-    }
-
-    fn handle_insert(&mut self, name: &ObjectName, columns: &[Ident], source: &Query) -> Result<Plan> {
-        let table_name = table_from_object(name)?;
-        let query_op = self.handle_query(source)?;
-
-        let table_descriptor = self
-            .storage()
-            .table_descriptor(table_name.schema_name(), table_name.name())
-            .unwrap()
-            .map_err(|e| match e {
-                OperationOnTableError::SchemaDoesNotExist => {
-                    TransformError::from(PlanError::InvalidSchema(table_name.schema_name().to_string()))
-                }
-                OperationOnTableError::TableDoesNotExist => {
-                    TransformError::from(PlanError::InvalidTable(table_name.name().to_string()))
-                }
-                _ => unreachable!(),
-            })?;
-
-        let column_info = table_descriptor.column_data();
-
-        let column_indices = if !columns.is_empty() {
-            let mut column_indices = Vec::with_capacity(columns.len());
-            for column in columns {
-                if let Some((idx, _)) = column_info
-                    .iter()
-                    .enumerate()
-                    .find(|(_, column_def)| column_def.name() == column.value)
-                {
-                    column_indices.push(ScalarOp::Column(idx));
-                } else {
-                    return Err(TransformError::from(RelationError::InvalidColumnName {
-                        column: column.value.clone(),
-                        table: table_descriptor.full_name(),
-                    }));
-                }
-            }
-            column_indices
-        } else {
-            (0..table_descriptor.column_len())
-                .into_iter()
-                .map(|i| ScalarOp::Column(i))
-                .collect::<Vec<ScalarOp>>()
-        };
-
-        // @TODO: check type compatability between the resulting relation type and the actual type of the columns
-        // the relation type are different then SqlType because the relation might be the result
-        // of a join or some other operation.
-        //
-        //let relation_type = query_op.typ(); // maybe this returns an Option
-        //relation_type.compatable(table_descriptor) or something like this?
-        // - Andrew Bregger
-
-        let table_insert = TableInserts {
-            table_id: table_name,
-            column_indices,
-            input: Box::new(query_op),
-        };
-
-        Ok(Plan::InsertRows(table_insert))
-    }
-
-    fn handle_query(&mut self, query: &Query) -> Result<RelationOp> {
-        let Query {
-            body,
-            ..
-            // order_by,
-            // limit,
-            // ctes,
-            // offset,
-            // fetch
-        } = query;
-        let relation_op = self.handle_set_expr(&body)?;
-
-        Ok(relation_op)
-    }
-
-    fn handle_set_expr(&mut self, expr: &SetExpr) -> Result<RelationOp> {
-        match expr {
-            SetExpr::Select(select) => self.handle_select(select),
-            SetExpr::Query(query) => self.handle_query(query),
-            SetExpr::Values(values) => self.handle_values(values),
-            e => Err(TransformError::UnimplementedFeature(format!("{:?}", e))),
-        }
-    }
-    fn handle_select(&mut self, select: &Select) -> Result<RelationOp> {
-        let Select {
-            distinct: _,
-            top: _,
-            projection: _,
-            from,
-            selection: _,
-            group_by: _,
-            having: _,
-        } = select;
-        // this implementation is naive.
-
-        // 1. resolve the from clause to know the resulting relation of the selection (from clause) push down predicates when possible.
-        let _from_clause = self.handle_from_clause(from.as_slice())?;
-        // 2. resolve remaining predicates.
-        // 3. resolve any groupby clauses
-        // 4. resolve having
-        // 5. resolve projection
-
-        Err(TransformError::UnimplementedFeature(
-            "select clauses are not implemented".to_string(),
-        ))
-    }
-
-    fn handle_values(&self, values: &Values) -> Result<RelationOp> {
-        let mut rows = Vec::new();
-        for expr_row in values.0.iter() {
-            let mut row = Vec::new();
-            for expr in expr_row {
-                let datum = resolve_static_expr(&expr).map_err(|e| TransformError::from(e))?;
-                row.push(datum);
-            }
-            rows.push(Row::pack(&row));
-        }
-        Ok(RelationOp::Constants(rows))
-    }
-
-    fn handle_from_clause(&mut self, from: &[TableWithJoins]) -> Result<RelationOp> {
-        // for now only handle when there is one table
-        if from.len() == 1 {
-            let TableWithJoins { relation, joins: _ } = from.first().unwrap();
-            let _table_info = self.resolve_table_factor(relation)?;
-            unimplemented!()
-        } else {
-            // cartician product.
-            Err(TransformError::UnimplementedFeature(
-                "multiple table in the from clause are not implemented".to_string(),
-            ))
-        }
-    }
-
-    fn resolve_table_factor(&self, relation: &TableFactor) -> Result<RelationType> {
-        match relation {
-            TableFactor::Table { name: _, .. } => {
-                // let table_info = self.frontend_storage.table_descriptor();
-            }
-            TableFactor::Derived { .. } => {}
-            TableFactor::NestedJoin(_table) => {}
-        }
-        unimplemented!()
     }
 }

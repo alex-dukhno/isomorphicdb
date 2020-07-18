@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::query::plan::SchemaCreationInfo;
+use crate::query::SchemaCreationInfo;
 use kernel::SystemResult;
 use protocol::results::{QueryErrorBuilder, QueryEvent, QueryResult};
 use std::sync::{Arc, Mutex};

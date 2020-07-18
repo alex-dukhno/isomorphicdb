@@ -22,9 +22,9 @@ fn with_small_ints_table(default_schema_name: &str, mut storage_with_schema: Per
         default_schema_name,
         "table_name",
         vec![
-            ("column_1", SqlType::SmallInt(i16::min_value())),
-            ("column_2", SqlType::SmallInt(i16::min_value())),
-            ("column_3", SqlType::SmallInt(i16::min_value())),
+            column_definition("column_1", SqlType::SmallInt(i16::min_value())),
+            column_definition("column_2", SqlType::SmallInt(i16::min_value())),
+            column_definition("column_3", SqlType::SmallInt(i16::min_value())),
         ],
     );
     storage_with_schema
@@ -268,9 +268,9 @@ fn select_different_integer_types(default_schema_name: &str, mut storage_with_sc
         default_schema_name,
         "table_name",
         vec![
-            ("small_int", SqlType::SmallInt(i16::min_value())),
-            ("integer", SqlType::Integer(i32::min_value())),
-            ("big_int", SqlType::BigInt(i64::min_value())),
+            column_definition("small_int", SqlType::SmallInt(i16::min_value())),
+            column_definition("integer", SqlType::Integer(i32::min_value())),
+            column_definition("big_int", SqlType::BigInt(i64::min_value())),
         ],
     );
 
@@ -325,7 +325,10 @@ fn select_different_character_strings_types(default_schema_name: &str, mut stora
         &mut storage_with_schema,
         default_schema_name,
         "table_name",
-        vec![("char_10", SqlType::Char(10)), ("var_char_20", SqlType::VarChar(20))],
+        vec![
+            column_definition("char_10", SqlType::Char(10)),
+            column_definition("var_char_20", SqlType::VarChar(20)),
+        ],
     );
 
     insert_into(

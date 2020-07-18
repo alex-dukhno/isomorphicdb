@@ -23,7 +23,6 @@ use crate::{
     SchemaDoesNotExist, TableDescription,
 };
 use kernel::{SystemError, SystemResult};
-use sql_types::SqlType;
 
 pub struct FrontendStorage<P: BackendStorage> {
     key_id_generator: usize,
@@ -88,7 +87,7 @@ impl<P: BackendStorage> FrontendStorage<P> {
         &mut self,
         schema_name: &str,
         table_name: &str,
-        column_names: Vec<(String, SqlType)>,
+        column_names: &[ColumnDefinition],
     ) -> SystemResult<Result<(), CreateTableError>> {
         match self.persistent.create_object(schema_name, table_name)? {
             Ok(()) => self
@@ -99,8 +98,8 @@ impl<P: BackendStorage> FrontendStorage<P> {
                     vec![(
                         (schema_name.to_owned() + table_name).as_bytes().to_vec(),
                         column_names
-                            .into_iter()
-                            .map(|(name, sql_type)| bincode::serialize(&ColumnDefinition { name, sql_type }).unwrap())
+                            .iter()
+                            .map(|column_defs| bincode::serialize(&column_defs).unwrap())
                             .collect::<Vec<Vec<u8>>>()
                             .join(&b'|')
                             .to_vec(),
