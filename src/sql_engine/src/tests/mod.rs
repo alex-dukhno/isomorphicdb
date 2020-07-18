@@ -30,7 +30,7 @@ mod type_constraints;
 mod update;
 
 use super::*;
-use crate::Handler;
+use crate::QueryExecutor;
 use in_memory_backend_storage::InMemoryStorage;
 use std::sync::{Arc, Mutex};
 use storage::frontend::FrontendStorage;
@@ -39,11 +39,11 @@ fn in_memory_storage() -> Arc<Mutex<FrontendStorage<InMemoryStorage>>> {
     Arc::new(Mutex::new(FrontendStorage::new(InMemoryStorage::default()).unwrap()))
 }
 
-type InMemorySqlEngine = Handler<InMemoryStorage>;
+type InMemorySqlEngine = QueryExecutor<InMemoryStorage>;
 
 #[rstest::fixture]
 fn sql_engine() -> InMemorySqlEngine {
-    Handler::new(in_memory_storage())
+    QueryExecutor::new(in_memory_storage())
 }
 
 #[rstest::fixture]

@@ -12,24 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::query::SchemaId;
 use kernel::SystemResult;
 use protocol::results::{QueryErrorBuilder, QueryEvent, QueryResult};
-use sqlparser::ast::ObjectName;
 use std::sync::{Arc, Mutex};
 use storage::{backend::BackendStorage, frontend::FrontendStorage, SchemaDoesNotExist};
 
 pub(crate) struct DropSchemaCommand<P: BackendStorage> {
-    name: ObjectName,
+    name: SchemaId,
     storage: Arc<Mutex<FrontendStorage<P>>>,
 }
 
 impl<P: BackendStorage> DropSchemaCommand<P> {
-    pub(crate) fn new(name: ObjectName, storage: Arc<Mutex<FrontendStorage<P>>>) -> DropSchemaCommand<P> {
+    pub(crate) fn new(name: SchemaId, storage: Arc<Mutex<FrontendStorage<P>>>) -> DropSchemaCommand<P> {
         DropSchemaCommand { name, storage }
     }
 
     pub(crate) fn execute(&mut self) -> SystemResult<QueryResult> {
-        let schema_name = self.name.0[0].to_string();
+        let schema_name = self.name.name().to_string();
         match (self.storage.lock().unwrap()).drop_schema(&schema_name)? {
             Ok(()) => Ok(Ok(QueryEvent::SchemaDropped)),
             Err(SchemaDoesNotExist) => Ok(Err(QueryErrorBuilder::new().schema_does_not_exist(schema_name).build())),

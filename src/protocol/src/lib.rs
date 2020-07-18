@@ -21,11 +21,12 @@ mod tests;
 
 use crate::messages::Message;
 use byteorder::{ByteOrder, NetworkEndian};
-use futures_util::{
-    io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt},
+use futures_util::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+use std::{
+    io,
+    pin::Pin,
     task::{Context, Poll},
 };
-use std::{io, pin::Pin};
 
 use crate::results::QueryResult;
 pub use listener::{QueryListener, ServerListener};

@@ -25,6 +25,10 @@ use crate::{
 use kernel::SystemResult;
 use protocol::results::{QueryErrorBuilder, QueryEvent, QueryResult};
 
+use crate::query::plan::Plan;
+use crate::query::plan::PlanError;
+use crate::query::transform::QueryProcessor;
+use crate::query::TransformError;
 use sqlparser::{
     ast::{ObjectType, Statement},
     dialect::PostgreSqlDialect,
@@ -35,14 +39,19 @@ use storage::{backend::BackendStorage, frontend::FrontendStorage};
 
 mod ddl;
 mod dml;
+mod query;
 
-pub struct Handler<P: BackendStorage> {
+pub struct QueryExecutor<P: BackendStorage> {
     storage: Arc<Mutex<FrontendStorage<P>>>,
+    processor: QueryProcessor<P>,
 }
 
-impl<P: BackendStorage> Handler<P> {
+impl<P: BackendStorage> QueryExecutor<P> {
     pub fn new(storage: Arc<Mutex<FrontendStorage<P>>>) -> Self {
-        Self { storage }
+        Self {
+            storage: storage.clone(),
+            processor: QueryProcessor::new(storage.clone()),
+        }
     }
 
     #[allow(clippy::match_wild_err_arm)]
@@ -57,40 +66,56 @@ impl<P: BackendStorage> Handler<P> {
             }
         };
         log::debug!("STATEMENT = {:?}", statement);
-        match statement {
-            Statement::StartTransaction { .. } => Ok(Ok(QueryEvent::TransactionStarted)),
-            Statement::SetVariable { .. } => Ok(Ok(QueryEvent::VariableSet)),
-            Statement::CreateTable { name, columns, .. } => {
-                CreateTableCommand::new(name, columns, self.storage.clone()).execute()
+        match self.processor.process(statement) {
+            Ok(Plan::CreateSchema(creation_info)) => {
+                CreateSchemaCommand::new(creation_info, self.storage.clone()).execute()
             }
-            Statement::CreateSchema { schema_name, .. } => {
-                CreateSchemaCommand::new(schema_name, self.storage.clone()).execute()
+            Ok(Plan::DropSchemas(schemas)) => {
+                for schema in schemas {
+                    DropSchemaCommand::new(schema, self.storage.clone())
+                        .execute()?
+                        .expect("drop schema");
+                }
+                Ok(Ok(QueryEvent::SchemaDropped))
             }
-            Statement::Drop { object_type, names, .. } => match object_type {
-                ObjectType::Table => DropTableCommand::new(names[0].clone(), self.storage.clone()).execute(),
-                ObjectType::Schema => DropSchemaCommand::new(names[0].clone(), self.storage.clone()).execute(),
+            Err(TransformError::NotProcessed(statement)) => match statement {
+                Statement::StartTransaction { .. } => Ok(Ok(QueryEvent::TransactionStarted)),
+                Statement::SetVariable { .. } => Ok(Ok(QueryEvent::VariableSet)),
+                Statement::CreateTable { name, columns, .. } => {
+                    CreateTableCommand::new(name, columns, self.storage.clone()).execute()
+                }
+                Statement::Drop { object_type, names, .. } => match object_type {
+                    ObjectType::Table => DropTableCommand::new(names[0].clone(), self.storage.clone()).execute(),
+                    _ => Ok(Err(QueryErrorBuilder::new()
+                        .feature_not_supported(raw_sql_query.to_owned())
+                        .build())),
+                },
+                Statement::Insert {
+                    table_name,
+                    columns,
+                    source,
+                    ..
+                } => InsertCommand::new(raw_sql_query, table_name, columns, source, self.storage.clone()).execute(),
+                Statement::Query(query) => SelectCommand::new(raw_sql_query, query, self.storage.clone()).execute(),
+                Statement::Update {
+                    table_name,
+                    assignments,
+                    ..
+                } => UpdateCommand::new(raw_sql_query, table_name, assignments, self.storage.clone()).execute(),
+                Statement::Delete { table_name, .. } => {
+                    DeleteCommand::new(raw_sql_query, table_name, self.storage.clone()).execute()
+                }
                 _ => Ok(Err(QueryErrorBuilder::new()
                     .feature_not_supported(raw_sql_query.to_owned())
                     .build())),
             },
-            Statement::Insert {
-                table_name,
-                columns,
-                source,
-                ..
-            } => InsertCommand::new(raw_sql_query, table_name, columns, source, self.storage.clone()).execute(),
-            Statement::Query(query) => SelectCommand::new(raw_sql_query, query, self.storage.clone()).execute(),
-            Statement::Update {
-                table_name,
-                assignments,
-                ..
-            } => UpdateCommand::new(raw_sql_query, table_name, assignments, self.storage.clone()).execute(),
-            Statement::Delete { table_name, .. } => {
-                DeleteCommand::new(raw_sql_query, table_name, self.storage.clone()).execute()
+            Err(TransformError::PlanError(PlanError::SchemaAlreadyExists(schema_name))) => {
+                Ok(Err(QueryErrorBuilder::new().schema_already_exists(schema_name).build()))
             }
-            _ => Ok(Err(QueryErrorBuilder::new()
-                .feature_not_supported(raw_sql_query.to_owned())
-                .build())),
+            Err(TransformError::PlanError(PlanError::InvalidSchema(schema_name))) => {
+                Ok(Err(QueryErrorBuilder::new().schema_does_not_exist(schema_name).build()))
+            }
+            _ => unimplemented!(), // other TransformError
         }
     }
 }
