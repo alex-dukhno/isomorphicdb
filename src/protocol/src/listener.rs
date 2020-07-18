@@ -34,30 +34,53 @@ pub trait QueryListener {
         let (mut socket, address) = self.server_channel().tcp_channel().await?;
         log::debug!("ADDRESS {:?}", address);
 
-        let len = read_len(&mut socket).await?;
-        let message = read_message(len, &mut socket).await?;
-        log::debug!("MESSAGE FOR TEST = {:#?}", message);
+        loop {
+            let len = read_len(&mut socket).await?;
+            let message = read_message(len, &mut socket).await?;
+            log::debug!("MESSAGE FOR TEST = {:#?}", message);
 
-        match decode_startup(message) {
-            Ok(ClientHandshake::Startup(version, params)) => {
-                socket.write_all(Message::AuthenticationOk.as_vec().as_slice()).await?;
-                Ok(Ok(Connection::new((version, params), socket)))
-            }
-            Ok(ClientHandshake::SslRequest) => {
-                if self.configuration().ssl_support() {
-                    socket.write_all(Encryption::AcceptSsl.into()).await?;
-                    let tls_socket = self.server_channel().tls_channel(socket).await?;
-                    let connection = create_ssl_connection(tls_socket).await?;
-                    log::debug!("initialize TLS connection");
-                    Ok(Ok(connection))
-                } else {
-                    socket.write_all(Encryption::RejectSsl.into()).await?;
-                    let connection = create_ssl_connection(socket).await?;
-                    Ok(Ok(connection))
+            match decode_startup(message) {
+                Ok(ClientHandshake::Startup(version, params)) => {
+                    socket
+                        .write_all(Message::AuthenticationCleartextPassword.as_vec().as_slice())
+                        .await?;
+                    let mut buffer = [0u8; 1];
+                    let tag = socket.read_exact(&mut buffer).await.map(|_| buffer[0]);
+                    log::debug!("client message response tag {:?}", tag);
+                    log::debug!("waiting for authentication response");
+                    let len = read_len(&mut socket).await?;
+                    let _message = read_message(len, &mut socket).await?;
+                    socket.write_all(Message::AuthenticationOk.as_vec().as_slice()).await?;
+
+                    socket
+                        .write_all(
+                            Message::ParameterStatus("client_encoding".to_owned(), "UTF8".to_owned())
+                                .as_vec()
+                                .as_slice(),
+                        )
+                        .await?;
+
+                    socket
+                        .write_all(
+                            Message::ParameterStatus("DateStyle".to_owned(), "ISO".to_owned())
+                                .as_vec()
+                                .as_slice(),
+                        )
+                        .await?;
+
+                    return Ok(Ok(Connection::new((version, params), socket)));
                 }
+                Ok(ClientHandshake::SslRequest) => {
+                    if self.configuration().ssl_support() {
+                        socket.write_all(Encryption::AcceptSsl.into()).await?;
+                        socket = self.server_channel().tls_channel(socket).await?;
+                    } else {
+                        socket.write_all(Encryption::RejectSsl.into()).await?;
+                    }
+                }
+                Ok(ClientHandshake::GssEncryptRequest) => return Ok(Err(Error::UnsupportedRequest)),
+                Err(error) => return Ok(Err(error)),
             }
-            Ok(ClientHandshake::GssEncryptRequest) => Ok(Err(Error::UnsupportedRequest)),
-            Err(error) => Ok(Err(error)),
         }
     }
 
@@ -180,50 +203,4 @@ where
     let mut buffer = Vec::with_capacity(len);
     buffer.resize(len, b'0');
     socket.read_exact(&mut buffer).await.map(|_| buffer)
-}
-
-async fn create_ssl_connection(mut socket: Pin<Box<dyn Channel>>) -> io::Result<Connection> {
-    let len = read_len(&mut socket).await?;
-    log::debug!("LEN = {:?}", len);
-    let message = read_message(len, &mut socket).await?;
-    log::debug!("MESSAGE FOR TEST = {:#?}", message);
-    let version = NetworkEndian::read_i32(&message);
-    let parsed = {
-        message[4..]
-            .split(|b| *b == 0)
-            .filter(|b| !b.is_empty())
-            .map(|b| std::str::from_utf8(b).unwrap().to_owned())
-            .tuples()
-            .collect::<Params>()
-    };
-
-    log::debug!("MESSAGE FOR TEST = {:#?}", parsed);
-    socket
-        .write_all(Message::AuthenticationCleartextPassword.as_vec().as_slice())
-        .await?;
-    let mut buffer = [0u8; 1];
-    let tag = socket.read_exact(&mut buffer).await.map(|_| buffer[0]);
-    log::debug!("client message response tag {:?}", tag);
-    log::debug!("waiting for authentication response");
-    let len = read_len(&mut socket).await?;
-    let _message = read_message(len, &mut socket).await?;
-    socket.write_all(Message::AuthenticationOk.as_vec().as_slice()).await?;
-
-    socket
-        .write_all(
-            Message::ParameterStatus("client_encoding".to_owned(), "UTF8".to_owned())
-                .as_vec()
-                .as_slice(),
-        )
-        .await?;
-
-    socket
-        .write_all(
-            Message::ParameterStatus("DateStyle".to_owned(), "ISO".to_owned())
-                .as_vec()
-                .as_slice(),
-        )
-        .await?;
-
-    Ok(Connection::new((version, parsed), socket))
 }
