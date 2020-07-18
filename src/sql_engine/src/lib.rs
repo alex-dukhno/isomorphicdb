@@ -13,8 +13,8 @@
 // limitations under the License.
 
 extern crate bigdecimal;
-extern crate ordered_float;
 extern crate log;
+extern crate ordered_float;
 
 use crate::{
     ddl::{
@@ -28,8 +28,7 @@ use protocol::results::{QueryErrorBuilder, QueryEvent, QueryResult};
 
 use crate::query::{
     plan::{Plan, PlanError},
-    transform::QueryProcessor,
-    TransformError,
+    QueryProcessor, TransformError,
 };
 use sqlparser::{
     ast::{ObjectType, Statement},
@@ -37,7 +36,7 @@ use sqlparser::{
     parser::Parser,
 };
 use std::sync::{Arc, Mutex};
-use storage::{backend::BackendStorage, frontend::FrontendStorage, TableDescription, ColumnDefinition};
+use storage::{backend::BackendStorage, frontend::FrontendStorage, ColumnDefinition, TableDescription};
 
 mod ddl;
 mod dml;
@@ -70,15 +69,6 @@ impl<P: BackendStorage> QueryExecutor<P> {
                     .build()));
             }
         };
-
-
-        let plan = {
-            let storage = self.storage.lock().unwrap();
-            let mut tranformer = query::QueryTransform::new(&storage);
-            tranformer.process(statement.clone())
-        };
-
-        log::debug!("{:#?}", plan);
 
         log::debug!("STATEMENT = {:?}", statement);
         match self.processor.process(statement) {

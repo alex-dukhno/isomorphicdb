@@ -55,8 +55,6 @@ pub trait BackendStorage {
 
     fn create_namespace(&mut self, namespace: &str) -> SystemResult<Result<(), NamespaceAlreadyExists>>;
 
-    fn is_schema_exists(&self, namespace: &str) -> bool;
-
     fn drop_namespace(&mut self, namespace: &str) -> SystemResult<Result<(), NamespaceDoesNotExist>>;
 
     fn create_object(&mut self, namespace: &str, object_name: &str) -> SystemResult<Result<(), CreateObjectError>>;
@@ -166,10 +164,6 @@ impl BackendStorage for SledBackendStorage {
         } else {
             self.new_namespace(namespace).map(|_| Ok(()))
         }
-    }
-
-    fn is_schema_exists(&self, namespace: &str) -> bool {
-        self.namespaces.contains_key(namespace)
     }
 
     fn drop_namespace(&mut self, namespace: &str) -> SystemResult<Result<(), NamespaceDoesNotExist>> {

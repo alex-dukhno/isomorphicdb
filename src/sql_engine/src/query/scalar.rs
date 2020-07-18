@@ -14,18 +14,13 @@
 
 ///! Module for representing scalar level operations. Implementation of
 ///! theses operators will be defined in a sperate module.
-
-use super::{Row, ColumnType, RelationType};
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum BinaryOp {
-
-}
+use super::{ColumnType, RelationType, Row};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum UnaryOp {
+pub enum BinaryOp {}
 
-}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum UnaryOp {}
 
 /// Operation performed on the table
 /// influenced by Materialized's ScalarExpr
@@ -38,5 +33,5 @@ pub enum ScalarOp {
     /// binary operator
     Binary(BinaryOp, Box<ScalarOp>, Box<ScalarOp>),
     /// uanry operator
-    Unary(UnaryOp, Box<ScalarOp>)
+    Unary(UnaryOp, Box<ScalarOp>),
 }

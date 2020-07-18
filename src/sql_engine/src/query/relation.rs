@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use sql_types::ConstraintError;
 use super::ScalarOp;
-use crate::query::{TableId, RelationType, Row};
+use crate::query::{RelationType, Row, TableId};
+use sql_types::ConstraintError;
 use storage::TableDescription;
 
 ///! module for representing relation operations.
@@ -32,10 +32,10 @@ use storage::TableDescription;
 #[derive(Debug, Clone)]
 pub enum RelationOp {
     // Materialize has a multiplicity for each row as well.
-    Constants(Result<Vec<Row>, Vec<ConstraintError>>),
+    Constants(Vec<Row>),
     Projection {
         input: Vec<RelationOp>,
-        outputs: Vec<usize>
+        outputs: Vec<usize>,
     },
     Predicate {
         input: Box<RelationOp>,
@@ -59,14 +59,11 @@ pub enum RelationOp {
     },
 
     SubQuery {
-        output: Box<RelationOp>
-    }
+        output: Box<RelationOp>,
+    },
 }
 
 #[derive(Debug)]
 pub enum RelationError {
-    InvalidColumnName {
-        column: String,
-        table: String
-    },
+    InvalidColumnName { column: String, table: String },
 }

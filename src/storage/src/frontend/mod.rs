@@ -25,50 +25,6 @@ use crate::{
 use kernel::{SystemError, SystemResult};
 use sql_types::SqlType;
 
-#[derive(Debug, Clone)]
-pub struct TableDescription {
-    schema_name: String,
-    table_name: String,
-    column_data: Vec<ColumnMetadata>,
-}
-
-impl TableDescription {
-    pub fn new(schema_name: &str, table_name: &str, column_data: Vec<ColumnMetadata>) -> Self {
-        Self {
-            schema_name: schema_name.to_owned(),
-            table_name: table_name.to_owned(),
-            column_data
-        }
-    }
-
-    pub fn num_columns(&self) -> usize {
-        self.column_data.len()
-    }
-
-    pub fn column_type(&self, column_idx: usize) -> SqlType {
-        if let Some(column) = self.column_data.get(column_idx) {
-            column.sql_type
-        }
-        else { panic!("attempting to access type of invalid column index") }
-    }
-
-    pub fn column_type_by_name(&self, name: &str) -> Option<SqlType> {
-        self.column_data.iter().find(|column| column.name == name).map(|column| column.sql_type)
-    }
-
-    pub fn scheme(&self) -> &str {
-        self.schema_name.as_str()
-    }
-
-    pub fn table(&self) -> &str {
-        self.table_name.as_str()
-    }
-
-    pub fn full_name(&self) -> String {
-        format!("{}.{}", self.schema_name, self.table_name)
-    }
-}
-
 pub struct FrontendStorage<P: BackendStorage> {
     key_id_generator: usize,
     persistent: P,
@@ -294,8 +250,6 @@ impl<P: BackendStorage> FrontendStorage<P> {
         table_name: &str,
         column_names: Vec<String>,
     ) -> SystemResult<Result<Projection, OperationOnTableError>> {
-
-
         let all_columns = self.table_columns(schema_name, table_name)?;
         let mut description = vec![];
         let mut column_indexes = vec![];

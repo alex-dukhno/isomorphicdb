@@ -72,8 +72,7 @@ impl<'a> Datum<'a> {
     pub fn from_bool(val: bool) -> Datum<'static> {
         if val {
             Datum::True
-        }
-        else {
+        } else {
             Datum::False
         }
     }
@@ -110,35 +109,35 @@ impl<'a> Datum<'a> {
     pub fn as_i16(&self) -> i16 {
         match self {
             Self::Int16(val) => *val,
-            _ => panic!("invalid use of Datum::as_i16")
+            _ => panic!("invalid use of Datum::as_i16"),
         }
     }
 
     pub fn as_i32(&self) -> i32 {
         match self {
             Self::Int32(val) => *val,
-            _ => panic!("invalid use of Datum::as_i32")
+            _ => panic!("invalid use of Datum::as_i32"),
         }
     }
 
     pub fn as_i64(&self) -> i64 {
         match self {
             Self::Int64(val) => *val,
-            _ => panic!("invalid use of Datum::as_i64")
+            _ => panic!("invalid use of Datum::as_i64"),
         }
     }
 
     pub fn as_f32(&self) -> f32 {
         match self {
             Self::Float32(val) => **val,
-            _ => panic!("invalid use of Datum::as_f32")
+            _ => panic!("invalid use of Datum::as_f32"),
         }
     }
 
     pub fn as_f64(&self) -> f64 {
         match self {
             Self::Float64(val) => **val,
-            _ => panic!("invlaid use of Datum::as_f64")
+            _ => panic!("invlaid use of Datum::as_f64"),
         }
     }
 
@@ -146,7 +145,7 @@ impl<'a> Datum<'a> {
         match self {
             Self::True => true,
             Self::False => false,
-            _ => panic!("invalid use of Datum::as_bool")
+            _ => panic!("invalid use of Datum::as_bool"),
         }
     }
 
@@ -165,8 +164,6 @@ impl<'a> Datum<'a> {
     }
 
     // arithmetic operations
-
-
 }
 
 /// in-memory representation of a table row. It is unable to deserialize
@@ -176,7 +173,7 @@ impl<'a> Datum<'a> {
 pub struct Row {
     // consider move to an version can store elements inline upto a point
     /// packed data.
-    data: Vec<u8>
+    data: Vec<u8>,
 }
 
 #[repr(u8)]
@@ -203,7 +200,7 @@ macro_rules! push_copy {
     ($ptr:expr, $val:expr, $T:ty) => {{
         let t = $val;
         assert_copy(t);
-        $ptr.extend_from_slice(&unsafe { std::mem::transmute::<_, [u8; std::mem::size_of::<$T>()]>(t)})
+        $ptr.extend_from_slice(&unsafe { std::mem::transmute::<_, [u8; std::mem::size_of::<$T>()]>(t) })
     }};
 }
 
@@ -245,35 +242,35 @@ impl Row {
                     push_tag(&mut data, TypeTag::True);
                 }
                 Datum::<'a>::False => {
-                    push_tag(&mut data,TypeTag::False);
+                    push_tag(&mut data, TypeTag::False);
                 }
                 Datum::<'a>::Int16(val) => {
-                    push_tag(&mut data,TypeTag::I16);
+                    push_tag(&mut data, TypeTag::I16);
                     push_copy!(&mut data, *val, i16);
                 }
                 Datum::<'a>::Int32(val) => {
-                    push_tag(&mut data,TypeTag::I32);
+                    push_tag(&mut data, TypeTag::I32);
                     push_copy!(&mut data, *val, i32);
-                },
+                }
                 Datum::<'a>::Int64(val) => {
-                    push_tag(&mut data,TypeTag::I64);
+                    push_tag(&mut data, TypeTag::I64);
                     push_copy!(&mut data, *val, i64);
                 }
                 Datum::<'a>::Float32(val) => {
-                    push_tag(&mut data,TypeTag::F32);
+                    push_tag(&mut data, TypeTag::F32);
                     push_copy!(&mut data, *val.deref(), f32)
                 }
                 Datum::<'a>::Float64(val) => {
-                    push_tag(&mut data,TypeTag::F64);
+                    push_tag(&mut data, TypeTag::F64);
                     push_copy!(&mut data, *val.deref(), f64)
                 }
                 Datum::<'a>::String(val) => {
-                    push_tag(&mut data,TypeTag::Str);
+                    push_tag(&mut data, TypeTag::Str);
                     push_copy!(&mut data, val.len(), usize);
                     data.extend_from_slice(val.as_bytes());
-                },
+                }
                 Datum::<'a>::OwnedString(val) => {
-                    push_tag(&mut data,TypeTag::Str);
+                    push_tag(&mut data, TypeTag::Str);
                     push_copy!(&mut data, val.len(), usize);
                     data.extend_from_slice(val.as_bytes());
                 }
@@ -281,9 +278,7 @@ impl Row {
             }
         }
 
-        Self {
-            data
-        }
+        Self { data }
     }
 
     pub fn unpack<'a>(&'a self) -> Vec<Datum<'a>> {
@@ -319,14 +314,13 @@ impl Row {
                 TypeTag::F64 => {
                     let val = unsafe { read::<f64>(data, &mut index) };
                     Datum::from_f64(val)
-                }
-                // SqlType::Decimal |
-                // SqlType::Time |
-                // SqlType::TimeWithTimeZone |
-                // SqlType::Timestamp |
-                // SqlType::TimestampWithTimeZone |
-                // SqlType::Date |
-                // SqlType::Interval => unimplemented!()
+                } // SqlType::Decimal |
+                  // SqlType::Time |
+                  // SqlType::TimeWithTimeZone |
+                  // SqlType::Timestamp |
+                  // SqlType::TimestampWithTimeZone |
+                  // SqlType::Date |
+                  // SqlType::Interval => unimplemented!()
             };
             res.push(datum)
         }

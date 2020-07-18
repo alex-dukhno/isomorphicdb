@@ -14,22 +14,22 @@
 
 ///! Module for representing how a query will be executed and values represented
 ///! during runtime.
-
 mod expr;
-mod plan;
-mod repr;
+pub mod plan;
 mod relation;
+mod repr;
 mod scalar;
 mod transform;
 
-pub use scalar::{ScalarOp};
-pub use repr::{Datum, Row};
+use expr::{resolve_static_expr, EvalError};
 pub use plan::{Plan, PlanError};
-pub use transform::QueryTransform;
-pub use relation::{RelationOp, RelationError};
-use expr::resolve_static_expr;
+pub use relation::{RelationError, RelationOp};
+pub use repr::{Datum, Row};
+pub use scalar::ScalarOp;
+pub use transform::QueryProcessor;
 
 use sql_types::SqlType;
+use sqlparser::ast::Statement;
 
 /// A type of a column
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -37,14 +37,14 @@ pub struct ColumnType {
     #[allow(dead_code)]
     nullable: bool,
     /// the sql type
-    sql_type: SqlType
+    sql_type: SqlType,
 }
 
 impl ColumnType {
     pub fn new(sql_type: SqlType) -> Self {
         Self {
             nullable: false,
-            sql_type
+            sql_type,
         }
     }
 
@@ -120,7 +120,8 @@ pub enum TransformError {
     SyntaxError(String),
     PlanError(PlanError),
     RelationError(RelationError),
-    // ExprError(ExprError), ??
+    EvalError(EvalError),
+    NotProcessed(Statement),
 }
 
 impl From<PlanError> for TransformError {
@@ -132,6 +133,12 @@ impl From<PlanError> for TransformError {
 impl From<RelationError> for TransformError {
     fn from(other: RelationError) -> TransformError {
         TransformError::RelationError(other)
+    }
+}
+
+impl From<EvalError> for TransformError {
+    fn from(other: EvalError) -> TransformError {
+        TransformError::EvalError(other)
     }
 }
 
