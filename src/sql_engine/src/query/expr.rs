@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::Datum;
-use sqlparser::ast::{self, *};
+use crate::query::repr::Datum;
+use sqlparser::ast::{Value, Expr, BinaryOperator, UnaryOperator};
 use std::convert::TryFrom;
 
 #[derive(Debug, Clone)]
@@ -24,10 +24,10 @@ pub enum EvalError {
     UnsupportedOperation,
 }
 
-impl<'a> TryFrom<&ast::Value> for Datum<'a> {
+impl<'a> TryFrom<&Value> for Datum<'a> {
     type Error = EvalError;
 
-    fn try_from(other: &ast::Value) -> Result<Self, EvalError> {
+    fn try_from(other: &Value) -> Result<Self, EvalError> {
         use Value::*;
         match other {
             Number(val) => {

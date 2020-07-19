@@ -27,7 +27,7 @@ use kernel::SystemResult;
 use protocol::results::{QueryErrorBuilder, QueryEvent, QueryResult};
 
 use crate::query::{
-    plan::{Plan, PlanError},
+    Plan, PlanError,
     QueryProcessor, TransformError,
 };
 use sqlparser::{ast::Statement, dialect::PostgreSqlDialect, parser::Parser};

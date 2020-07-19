@@ -14,8 +14,7 @@
 
 ///! Module for representing how a query will be executed and values represented
 ///! during runtime.
-pub mod plan;
-
+mod plan;
 mod transform;
 
 pub use plan::{Plan, PlanError, SchemaCreationInfo, TableCreationInfo};

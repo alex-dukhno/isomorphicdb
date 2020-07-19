@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::RelationType;
+use crate::query::RelationType;
 use ordered_float::OrderedFloat;
 use sql_types::SqlType;
 
