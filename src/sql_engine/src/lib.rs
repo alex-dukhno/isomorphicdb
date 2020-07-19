@@ -26,10 +26,7 @@ use crate::{
 use kernel::SystemResult;
 use protocol::results::{QueryErrorBuilder, QueryEvent, QueryResult};
 
-use crate::query::{
-    Plan, PlanError,
-    QueryProcessor, TransformError,
-};
+use crate::query::{Plan, PlanError, QueryProcessor, TransformError};
 use sqlparser::{ast::Statement, dialect::PostgreSqlDialect, parser::Parser};
 use std::sync::{Arc, Mutex};
 use storage::{backend::BackendStorage, frontend::FrontendStorage};
