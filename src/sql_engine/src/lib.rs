@@ -26,10 +26,19 @@ use crate::{
 use kernel::SystemResult;
 use protocol::results::{QueryErrorBuilder, QueryEvent, QueryResult};
 
+use crate::query::{
+    plan::{Plan, PlanError},
+    QueryProcessor, TransformError,
+};
+use sqlparser::{
+    ast::{ObjectType, Statement},
+    dialect::PostgreSqlDialect,
+    parser::Parser,
+};
 use crate::query::{Plan, PlanError, QueryProcessor, TransformError};
 use sqlparser::{ast::Statement, dialect::PostgreSqlDialect, parser::Parser};
 use std::sync::{Arc, Mutex};
-use storage::{backend::BackendStorage, frontend::FrontendStorage};
+use storage::{backend::BackendStorage, frontend::FrontendStorage, ColumnDefinition, TableDescription};
 
 mod ddl;
 mod dml;

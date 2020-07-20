@@ -1,3 +1,5 @@
+// Copyright 2020 Alex Dukhno
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -10,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::{SchemaId, TableId};
+use super::{relation::RelationOp, ScalarOp, SchemaId, TableId};
 ///! represents a plan to be executed by the engine.
 use storage::ColumnDefinition;
 
@@ -35,9 +37,18 @@ pub struct SchemaCreationInfo {
 }
 
 #[derive(Debug, Clone)]
+pub struct TableInserts {
+    pub table_id: TableId,
+    pub column_indices: Vec<ScalarOp>,
+    pub input: Box<RelationOp>,
+}
+
+#[derive(Debug, Clone)]
 pub enum Plan {
     CreateTable(TableCreationInfo),
     CreateSchema(SchemaCreationInfo),
     DropTables(Vec<TableId>),
     DropSchemas(Vec<SchemaId>),
+    InsertRows(TableInserts),
+    // Query(Box<RelationOp>),
 }
