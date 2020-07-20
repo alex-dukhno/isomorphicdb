@@ -87,10 +87,10 @@ pub fn resolve_static_expr<'a>(expr: &'a Expr) -> Result<Datum<'a>, EvalError> {
 }
 
 // precondition: lhs and rhs must reduced to Expr::Value otherwise, the original expression will be returned.
-pub fn resolve_binary_expr<'a>(_op: BinaryOperator, _lhs: Datum<'a>, rhs: Datum<'a>) -> Result<Datum<'a>, EvalError> {
-    Err(EvalError::UnsupportedOperation)
-}
+// pub fn resolve_binary_expr(_op: BinaryOperator, _lhs: Datum, _rhs: Datum) -> Result<Datum, EvalError> {
+//     Err(EvalError::UnsupportedOperation)
+// }
 
-pub fn resolve_unary_expr<'a>(_op: UnaryOperator, _operand: Datum<'a>) -> Result<Datum<'a>, EvalError> {
-    Err(EvalError::UnsupportedOperation)
-}
+// pub fn resolve_unary_expr(_op: UnaryOperator, _operand: Datum) -> Result<Datum, EvalError> {
+//     Err(EvalError::UnsupportedOperation)
+// }
