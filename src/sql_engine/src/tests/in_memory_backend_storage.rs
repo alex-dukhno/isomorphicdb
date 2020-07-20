@@ -68,10 +68,6 @@ impl BackendStorage for InMemoryStorage {
         }
     }
 
-    fn is_schema_exists(&self, namespace: &str) -> bool {
-        self.namespaces.contains_key(namespace)
-    }
-
     fn drop_namespace(&mut self, namespace: &str) -> SystemResult<Result<(), NamespaceDoesNotExist>> {
         match self.namespaces.remove(namespace) {
             Some(_namespace) => Ok(Ok(())),
@@ -165,6 +161,10 @@ impl BackendStorage for InMemoryStorage {
             },
             None => Ok(Err(OperationOnObjectError::NamespaceDoesNotExist)),
         }
+    }
+
+    fn is_schema_exists(&self, namespace: &str) -> bool {
+        self.namespaces.contains_key(namespace)
     }
 
     fn is_table_exists(&self, namespace: &str, object_name: &str) -> bool {

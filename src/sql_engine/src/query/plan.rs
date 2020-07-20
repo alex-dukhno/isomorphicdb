@@ -1,5 +1,3 @@
-// Copyright 2020 Alex Dukhno
-//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -12,13 +10,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use super::{SchemaId, TableId};
 ///! represents a plan to be executed by the engine.
-use crate::query::SchemaId;
+use storage::ColumnDefinition;
 
 #[derive(Debug)]
 pub enum PlanError {
     SchemaAlreadyExists(String),
     InvalidSchema(String),
+    TableAlreadyExists(String),
+    InvalidTable(String),
+}
+
+#[derive(Debug, Clone)]
+pub struct TableCreationInfo {
+    pub schema_name: String,
+    pub table_name: String,
+    pub columns: Vec<ColumnDefinition>, // pub table_constraints: Vec<TableConstraints> ??
 }
 
 #[derive(Debug, Clone)]
@@ -28,6 +36,8 @@ pub struct SchemaCreationInfo {
 
 #[derive(Debug, Clone)]
 pub enum Plan {
+    CreateTable(TableCreationInfo),
     CreateSchema(SchemaCreationInfo),
+    DropTables(Vec<TableId>),
     DropSchemas(Vec<SchemaId>),
 }

@@ -41,7 +41,7 @@ fn insert_many_rows_into_table(default_schema_name: &str, mut storage_with_schem
         &mut storage_with_schema,
         default_schema_name,
         "table_name",
-        vec![("column_test", SqlType::SmallInt(i16::min_value()))],
+        vec![column_definition("column_test", SqlType::SmallInt(i16::min_value()))],
     );
 
     insert_into(
@@ -84,9 +84,9 @@ fn insert_multiple_values_rows(default_schema_name: &str, mut storage_with_schem
         default_schema_name,
         "table_name",
         vec![
-            ("column_1", SqlType::SmallInt(i16::min_value())),
-            ("column_2", SqlType::SmallInt(i16::min_value())),
-            ("column_3", SqlType::SmallInt(i16::min_value())),
+            column_definition("column_1", SqlType::SmallInt(i16::min_value())),
+            column_definition("column_2", SqlType::SmallInt(i16::min_value())),
+            column_definition("column_3", SqlType::SmallInt(i16::min_value())),
         ],
     );
 
@@ -145,9 +145,9 @@ fn insert_named_columns(default_schema_name: &str, mut storage_with_schema: Pers
         default_schema_name,
         "table_name",
         vec![
-            ("column_1", SqlType::SmallInt(i16::min_value())),
-            ("column_2", SqlType::Char(10)),
-            ("column_3", SqlType::BigInt(i64::min_value())),
+            column_definition("column_1", SqlType::SmallInt(i16::min_value())),
+            column_definition("column_2", SqlType::Char(10)),
+            column_definition("column_3", SqlType::BigInt(i64::min_value())),
         ],
     );
 
@@ -208,9 +208,9 @@ fn insert_named_not_existed_column(default_schema_name: &str, mut storage_with_s
         default_schema_name,
         "table_name",
         vec![
-            ("column_1", SqlType::SmallInt(i16::min_value())),
-            ("column_2", SqlType::Char(10)),
-            ("column_3", SqlType::BigInt(i64::min_value())),
+            column_definition("column_1", SqlType::SmallInt(i16::min_value())),
+            column_definition("column_2", SqlType::Char(10)),
+            column_definition("column_3", SqlType::BigInt(i64::min_value())),
         ],
     );
 
@@ -242,7 +242,7 @@ fn insert_row_into_table(default_schema_name: &str, mut storage_with_schema: Per
         &mut storage_with_schema,
         default_schema_name,
         "table_name",
-        vec![("column_test", SqlType::SmallInt(i16::min_value()))],
+        vec![column_definition("column_test", SqlType::SmallInt(i16::min_value()))],
     );
 
     assert_eq!(
@@ -277,9 +277,9 @@ fn insert_too_many_expressions(default_schema_name: &str, mut storage_with_schem
         default_schema_name,
         "table_name",
         vec![
-            ("column_1", SqlType::SmallInt(i16::min_value())),
-            ("column_2", SqlType::Char(10)),
-            ("column_3", SqlType::BigInt(i64::min_value())),
+            column_definition("column_1", SqlType::SmallInt(i16::min_value())),
+            column_definition("column_2", SqlType::Char(10)),
+            column_definition("column_3", SqlType::BigInt(i64::min_value())),
         ],
     );
 
@@ -326,9 +326,9 @@ fn insert_too_many_expressions_labeled(default_schema_name: &str, mut storage_wi
         default_schema_name,
         "table_name",
         vec![
-            ("column_1", SqlType::SmallInt(i16::min_value())),
-            ("column_2", SqlType::Char(10)),
-            ("column_3", SqlType::BigInt(i64::min_value())),
+            column_definition("column_1", SqlType::SmallInt(i16::min_value())),
+            column_definition("column_2", SqlType::Char(10)),
+            column_definition("column_3", SqlType::BigInt(i64::min_value())),
         ],
     );
 
@@ -383,9 +383,9 @@ mod constraints {
             default_schema_name,
             "table_name",
             vec![
-                ("column_si", SqlType::SmallInt(i16::min_value())),
-                ("column_i", SqlType::Integer(i32::min_value())),
-                ("column_bi", SqlType::BigInt(i64::min_value())),
+                column_definition("column_si", SqlType::SmallInt(i16::min_value())),
+                column_definition("column_i", SqlType::Integer(i32::min_value())),
+                column_definition("column_bi", SqlType::BigInt(i64::min_value())),
             ],
         );
         storage_with_schema
@@ -400,7 +400,10 @@ mod constraints {
             &mut storage_with_schema,
             default_schema_name,
             "table_name",
-            vec![("column_c", SqlType::Char(10)), ("column_vc", SqlType::VarChar(10))],
+            vec![
+                column_definition("column_c", SqlType::Char(10)),
+                column_definition("column_vc", SqlType::VarChar(10)),
+            ],
         );
         storage_with_schema
     }

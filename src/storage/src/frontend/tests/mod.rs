@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use super::*;
+use sql_types::SqlType;
 
 #[cfg(test)]
 mod queries;
@@ -50,17 +51,10 @@ fn create_table<P: backend::BackendStorage>(
     storage: &mut FrontendStorage<P>,
     schema_name: &str,
     table_name: &str,
-    column_names: Vec<(&str, SqlType)>,
+    column_names: Vec<ColumnDefinition>,
 ) {
     storage
-        .create_table(
-            schema_name,
-            table_name,
-            column_names
-                .into_iter()
-                .map(|(name, sql_type)| (name.to_owned(), sql_type))
-                .collect::<Vec<(String, SqlType)>>(),
-        )
+        .create_table(schema_name, table_name, column_names.as_slice())
         .expect("no system errors")
         .expect("table is created");
 }

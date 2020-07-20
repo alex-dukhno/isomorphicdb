@@ -21,7 +21,7 @@ fn update_all_records(default_schema_name: &str, mut storage_with_schema: Persis
         &mut storage_with_schema,
         default_schema_name,
         "table_name",
-        vec![("column_test", SqlType::SmallInt(i16::min_value()))],
+        vec![column_definition("column_test", SqlType::SmallInt(i16::min_value()))],
     );
 
     insert_into(
@@ -110,9 +110,9 @@ mod constraints {
             default_schema_name,
             "table_name",
             vec![
-                ("column_si", SqlType::SmallInt(i16::min_value())),
-                ("column_i", SqlType::Integer(i32::min_value())),
-                ("column_bi", SqlType::BigInt(i64::min_value())),
+                column_definition("column_si", SqlType::SmallInt(i16::min_value())),
+                column_definition("column_i", SqlType::Integer(i32::min_value())),
+                column_definition("column_bi", SqlType::BigInt(i64::min_value())),
             ],
         );
         storage_with_schema
@@ -127,7 +127,10 @@ mod constraints {
             &mut storage_with_schema,
             default_schema_name,
             "table_name",
-            vec![("column_c", SqlType::Char(10)), ("column_vc", SqlType::VarChar(10))],
+            vec![
+                column_definition("column_c", SqlType::Char(10)),
+                column_definition("column_vc", SqlType::VarChar(10)),
+            ],
         );
         storage_with_schema
     }

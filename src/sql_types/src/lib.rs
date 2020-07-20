@@ -16,7 +16,7 @@ use protocol::sql_types::PostgreSqlType;
 use serde::{Deserialize, Serialize};
 use std::convert::TryInto;
 
-#[derive(PartialEq, Debug, Copy, Clone, Serialize, Deserialize)]
+#[derive(PartialEq, Eq, Debug, Copy, Clone, Serialize, Deserialize)]
 pub enum SqlType {
     Bool,
     Char(u64),
@@ -89,7 +89,7 @@ pub trait Constraint {
     fn validate(&self, in_value: &str) -> Result<(), ConstraintError>;
 }
 
-#[derive(Debug, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ConstraintError {
     OutOfRange,
     TypeMismatch(String),

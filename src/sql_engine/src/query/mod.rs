@@ -14,13 +14,44 @@
 
 ///! Module for representing how a query will be executed and values represented
 ///! during runtime.
-pub mod plan;
-pub mod transform;
+mod plan;
+mod transform;
 
-use crate::query::plan::PlanError;
+pub use plan::{Plan, PlanError, SchemaCreationInfo, TableCreationInfo};
+pub use transform::QueryProcessor;
+
+use sql_types::SqlType;
 use sqlparser::ast::Statement;
 
-/// represents a schema uniquely
+/// A type of a column
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ColumnType {
+    #[allow(dead_code)]
+    nullable: bool,
+    /// the sql type
+    sql_type: SqlType,
+}
+
+// this works for now, but ideally this should be usize's instead of strings.
+
+/// represents a table uniquly
+///
+/// I would like this to be a single 64 bit number where the top bits are the
+/// schema id and lower bits are the table id.
+#[derive(Debug, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
+pub struct TableId(SchemaId, String);
+
+impl TableId {
+    pub fn schema_name(&self) -> &str {
+        self.0.name()
+    }
+
+    pub fn name(&self) -> &str {
+        self.1.as_str()
+    }
+}
+
+/// represents a schema Uniquly
 ///
 /// this would be a u32
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
@@ -34,10 +65,10 @@ impl SchemaId {
 
 #[derive(Debug)]
 pub enum TransformError {
+    UnimplementedFeature(String),
     SyntaxError(String),
     PlanError(PlanError),
-    NotProcessed(Statement), // This is temporary WA to handle processed and unprocessed statements
-                             // ExprError(ExprError), ??
+    NotProcessed(Statement),
 }
 
 impl From<PlanError> for TransformError {

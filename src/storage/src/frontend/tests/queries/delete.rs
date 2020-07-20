@@ -41,7 +41,10 @@ fn delete_all_from_table(default_schema_name: &str, mut storage_with_schema: Per
         &mut storage_with_schema,
         default_schema_name,
         "table_name",
-        vec![("column_test", SqlType::SmallInt(i16::min_value()))],
+        vec![ColumnDefinition::new(
+            "column_test",
+            SqlType::SmallInt(i16::min_value()),
+        )],
     );
 
     insert_into(
