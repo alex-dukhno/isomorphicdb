@@ -21,16 +21,14 @@ mod repr;
 mod scalar;
 mod transform;
 
-pub use plan::{Plan, PlanError, SchemaCreationInfo, TableCreationInfo};
+use expr::resolve_static_expr;
+use expr::EvalError;
+pub use plan::{Plan, PlanError, SchemaCreationInfo, TableCreationInfo, TableInserts};
 pub use transform::QueryProcessor;
 
-use sql_types::SqlType;
-use expr::{resolve_static_expr, EvalError};
-pub use plan::{Plan, PlanError};
 pub use relation::{RelationError, RelationOp};
 pub use repr::{Datum, Row};
 pub use scalar::ScalarOp;
-pub use transform::QueryProcessor;
 
 use sql_types::SqlType;
 use sqlparser::ast::Statement;

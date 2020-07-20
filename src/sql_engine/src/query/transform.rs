@@ -13,13 +13,8 @@
 // limitations under the License.
 
 use super::{
-    plan::{Plan, PlanError, SchemaCreationInfo, TableCreationInfo},
-    SchemaId, TableId, TransformError,
-};
-use super::{
-    plan::{SchemaCreationInfo, TableCreationInfo, TableInserts},
-    resolve_static_expr, Datum, Plan, PlanError, RelationError, RelationOp, RelationType, Row, ScalarOp, SchemaId,
-    TableId, TransformError,
+    resolve_static_expr, Datum, Plan, PlanError, RelationError, RelationOp, RelationType, Row, ScalarOp,
+    SchemaCreationInfo, SchemaId, TableCreationInfo, TableId, TableInserts, TransformError,
 };
 ///! Module for transforming the input Query AST into representation the engine can proecess.
 use sql_types::SqlType;
@@ -132,11 +127,11 @@ impl<B: BackendStorage> QueryProcessor<B> {
                 source,
                 ..
             } => self.handle_insert(table_name, columns, source),
-            Statement::Query(query) => {
-                let op = self.handle_query(query.as_ref())?;
-                Ok(Plan::Query(Box::new(op)))
-            }
-            other _ => Err(TransformError::NotProcessed(other)),
+            // Statement::Query(query) => {
+            //     let op = self.handle_query(query.as_ref())?;
+            //     Ok(Plan::Query(Box::new(op)))
+            // }
+            other => Err(TransformError::NotProcessed(other.clone())),
         }
     }
 

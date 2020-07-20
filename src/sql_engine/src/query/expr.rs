@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use crate::query::repr::Datum;
-use sqlparser::ast::{Value, Expr, BinaryOperator, UnaryOperator};
+use sqlparser::ast::{BinaryOperator, Expr, UnaryOperator, Value};
 use std::convert::TryFrom;
 
 #[derive(Debug, Clone)]
