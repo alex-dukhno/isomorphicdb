@@ -22,6 +22,10 @@ smol = "0.1.18"
 protocol = { path = "../protocol" }
 log = "0.4.8"
 simple_logger = { version = "1.6.0", default-features = false }
-futures-util = "0.3.5"
+futures-lite = "0.1.6"
 async-std = "1.6.2"
+async-dup = "1.2.1"
 async-native-tls = "0.3.3"
+crossbeam-channel = "0.4.2"
+async-mutex = "1.1.5"
+blocking = "0.4.7"

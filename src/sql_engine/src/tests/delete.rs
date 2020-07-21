@@ -13,56 +13,66 @@
 // limitations under the License.
 
 use super::*;
-use protocol::sql_types::PostgreSqlType;
+use crate::{
+    tests::{in_memory_backend_storage::InMemoryStorage, Collector},
+    QueryExecutor,
+};
+use protocol::{
+    results::{QueryErrorBuilder, QueryEvent},
+    sql_types::PostgreSqlType,
+};
+use std::sync::Arc;
 
 #[rstest::rstest]
-fn delete_from_nonexistent_table(mut sql_engine_with_schema: InMemorySqlEngine) {
-    assert_eq!(
-        sql_engine_with_schema
-            .execute("delete from schema_name.table_name;")
-            .expect("no system errors"),
+fn delete_from_nonexistent_table(sql_engine_with_schema: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+    let (mut engine, collector) = sql_engine_with_schema;
+    engine
+        .execute("delete from schema_name.table_name;")
+        .expect("no system errors");
+
+    collector.assert_content(vec![
+        Ok(QueryEvent::SchemaCreated),
         Err(QueryErrorBuilder::new()
             .table_does_not_exist("schema_name.table_name".to_owned())
-            .build())
-    );
+            .build()),
+    ]);
 }
 
 #[rstest::rstest]
-fn delete_all_records(mut sql_engine_with_schema: InMemorySqlEngine) {
-    sql_engine_with_schema
+fn delete_all_records(sql_engine_with_schema: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+    let (mut engine, collector) = sql_engine_with_schema;
+    engine
         .execute("create table schema_name.table_name (column_test smallint);")
-        .expect("no system errors")
-        .expect("table created");
-    sql_engine_with_schema
+        .expect("no system errors");
+    engine
         .execute("insert into schema_name.table_name values (123);")
-        .expect("no system errors")
-        .expect("row inserted");
-    sql_engine_with_schema
+        .expect("no system errors");
+    engine
         .execute("insert into schema_name.table_name values (456);")
-        .expect("no system errors")
-        .expect("row inserted");
-    assert_eq!(
-        sql_engine_with_schema
-            .execute("select * from schema_name.table_name;")
-            .expect("no system errors"),
+        .expect("no system errors");
+    engine
+        .execute("select * from schema_name.table_name;")
+        .expect("no system errors");
+    engine
+        .execute("delete from schema_name.table_name;")
+        .expect("no system errors");
+    engine
+        .execute("select * from schema_name.table_name;")
+        .expect("no system errors");
+
+    collector.assert_content(vec![
+        Ok(QueryEvent::SchemaCreated),
+        Ok(QueryEvent::TableCreated),
+        Ok(QueryEvent::RecordsInserted(1)),
+        Ok(QueryEvent::RecordsInserted(1)),
         Ok(QueryEvent::RecordsSelected((
             vec![("column_test".to_owned(), PostgreSqlType::SmallInt)],
-            vec![vec!["123".to_owned()], vec!["456".to_owned()]]
-        )))
-    );
-    assert_eq!(
-        sql_engine_with_schema
-            .execute("delete from schema_name.table_name;")
-            .expect("no system errors"),
-        Ok(QueryEvent::RecordsDeleted(2))
-    );
-    assert_eq!(
-        sql_engine_with_schema
-            .execute("select * from schema_name.table_name;")
-            .expect("no system errors"),
+            vec![vec!["123".to_owned()], vec!["456".to_owned()]],
+        ))),
+        Ok(QueryEvent::RecordsDeleted(2)),
         Ok(QueryEvent::RecordsSelected((
             vec![("column_test".to_owned(), PostgreSqlType::SmallInt)],
-            vec![]
-        )))
-    );
+            vec![],
+        ))),
+    ])
 }
