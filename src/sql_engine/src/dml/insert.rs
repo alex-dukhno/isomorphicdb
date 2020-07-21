@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::query::TableInserts;
+use crate::query::{TableInserts, RelationOp, ScalarOp, Datum, Row};
 use crate::dml::ExpressionEvaluation;
 use kernel::SystemResult;
-use protocol::results::{QueryErrorBuilder, QueryEvent, QueryResult};
+use protocol::results::{QueryErrorBuilder, QueryEvent, QueryResult, QueryError};
 use sql_types::ConstraintError;
 use sqlparser::ast::{DataType, Expr, Ident, ObjectName, Query, SetExpr, UnaryOperator, Value};
 use std::sync::{Arc, Mutex};
@@ -41,6 +41,51 @@ impl<P: BackendStorage> InsertCommand<'_, P> {
     }
 
     pub(crate) fn execute(&mut self) -> SystemResult<QueryResult> {
-        todo!()
+        let table_id = &self.table_inserts.table_id;
+        let columns_indices = self.table_inserts.column_indices.as_slice();
+
+        // temporary: this only evaluates Values
+        if let RelationOp::Constants(rows) = self.table_inserts.input.as_ref() {
+            log::debug!("Input Data: {:#?}", rows);
+
+            let rows = if !columns_indices.is_empty() {
+                let mut ordered_rows = Vec::new();
+                for row in rows {
+                    let datums = row.unpack();
+                    // build a temporary buffer to map the values back into.
+                    // if this was a problem, QueryProcessor should catch it.
+                    // TODO: The default value or NULL should be initialized for SQL types of all columns.
+                    let mut ordered_datums = vec![Datum::from_null(); columns_indices.len()];
+
+                    for (idx, datums) in columns_indices.iter().zip(datums.iter()) {
+                        if let ScalarOp::Column(idx) = idx {
+                            ordered_datums[*idx] = datums.clone();
+                        } else {
+                            panic!("INSERT: using unsupported input source");
+                        }
+                    }
+
+                    ordered_rows.push(Row::pack(ordered_datums.as_slice()).to_bytes());
+                }
+                ordered_rows
+            }
+            else {
+                rows.iter().map(|row| row.clone().to_bytes()).collect()
+            };
+
+            let len = rows.len();
+
+            log::debug!("Row Data: {:#?}", rows);
+
+            match self.storage.lock().unwrap().insert_into(table_id.schema_name(), table_id.name(), rows) {
+                Ok(Ok(())) => Ok(Ok(QueryEvent::RecordsInserted(len))),
+                _ => unreachable!()
+            }
+
+        }
+        else {
+            Ok(Err(QueryErrorBuilder::new().feature_not_supported(self.raw_sql_query.to_owned()).build()))
+        }
+
     }
 }

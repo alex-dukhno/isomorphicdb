@@ -91,15 +91,12 @@ impl<P: BackendStorage> QueryExecutor<P> {
                 }
                 Ok(Ok(QueryEvent::TableDropped))
             }
+            Ok(Plan::InsertRows(intert_rows)) => {
+                InsertCommand::new(raw_sql_query, intert_rows, self.storage.clone()).execute()
+            }
             Err(TransformError::NotProcessed(statement)) => match statement {
                 Statement::StartTransaction { .. } => Ok(Ok(QueryEvent::TransactionStarted)),
                 Statement::SetVariable { .. } => Ok(Ok(QueryEvent::VariableSet)),
-                Statement::Insert {
-                    table_name,
-                    columns,
-                    source,
-                    ..
-                } => InsertCommand::new(raw_sql_query, table_name, columns, source, self.storage.clone()).execute(),
                 Statement::Query(query) => SelectCommand::new(raw_sql_query, query, self.storage.clone()).execute(),
                 Statement::Update {
                     table_name,

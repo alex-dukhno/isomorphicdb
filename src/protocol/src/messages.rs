@@ -122,7 +122,7 @@ impl Message {
                     buff.extend_from_slice(&field.type_id.to_be_bytes());
                     buff.extend_from_slice(&field.type_size.to_be_bytes());
                     buff.extend_from_slice(&(-1i32).to_be_bytes()); // type modifier
-                    buff.extend_from_slice(&0i16.to_be_bytes());
+                    buff.extend_from_slice(&0i16.to_be_bytes()); // column format
                 }
                 let mut len_buff = Vec::new();
                 len_buff.extend_from_slice(&[ROW_DESCRIPTION]);

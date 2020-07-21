@@ -32,7 +32,7 @@ use sql_types::SqlType;
 // }
 
 /// value shared by the row.
-#[derive(Debug, PartialEq, Eq, Ord, PartialOrd, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Ord, PartialOrd, Hash)]
 pub enum Datum<'a> {
     Null,
     True,
@@ -166,6 +166,23 @@ impl<'a> Datum<'a> {
     // arithmetic operations
 }
 
+impl ToString for Datum<'_> {
+    fn to_string(&self) -> String {
+        match self {
+            Self::Null => "NULL".to_string(),
+            Self::True => "t".to_string(),
+            Self::False => "f".to_string(),
+            Self::Int16(val) => val.to_string(),
+            Self::Int32(val) => val.to_string(),
+            Self::Int64(val) => val.to_string(),
+            Self::Float32(val) => val.into_inner().to_string(),
+            Self::Float64(val) => val.into_inner().to_string(),
+            Self::String(val) => val.to_string(),
+            Self::OwnedString(val) => val.clone(),
+        }
+    }
+}
+
 /// in-memory representation of a table row. It is unable to deserialize
 /// the row without knowing the types of each column, which makes this unsafe
 /// however it is more memory efficient.
@@ -225,6 +242,10 @@ fn read_tag(data: &[u8], idx: &mut usize) -> TypeTag {
 impl Row {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    pub fn to_bytes(self) -> Vec<u8> {
+        self.data
     }
 
     pub(crate) fn with_data(data: Vec<u8>) -> Self {

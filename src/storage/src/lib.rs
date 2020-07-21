@@ -22,7 +22,7 @@ use sql_types::{ConstraintError, SqlType};
 pub mod backend;
 pub mod frontend;
 
-pub type Projection = (Vec<ColumnDefinition>, Vec<Vec<String>>);
+pub type Projection = (Vec<ColumnDefinition>, Vec<Vec<u8>>);
 
 #[derive(Debug, PartialEq)]
 pub struct SchemaAlreadyExists;
