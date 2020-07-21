@@ -14,38 +14,44 @@
 
 use crate::dml::ExpressionEvaluation;
 use kernel::SystemResult;
-use protocol::results::{QueryErrorBuilder, QueryEvent, QueryResult};
+use protocol::{
+    results::{QueryErrorBuilder, QueryEvent},
+    Sender,
+};
 use sql_types::ConstraintError;
 use sqlparser::ast::{DataType, Expr, Ident, ObjectName, Query, SetExpr, UnaryOperator, Value};
 use std::sync::{Arc, Mutex};
 use storage::{backend::BackendStorage, frontend::FrontendStorage, ColumnDefinition, OperationOnTableError};
 
-pub(crate) struct InsertCommand<'q, P: BackendStorage> {
-    raw_sql_query: &'q str,
+pub(crate) struct InsertCommand<'ic, P: BackendStorage> {
+    raw_sql_query: &'ic str,
     name: ObjectName,
     columns: Vec<Ident>,
     source: Box<Query>,
     storage: Arc<Mutex<FrontendStorage<P>>>,
+    session: Arc<dyn Sender>,
 }
 
-impl<P: BackendStorage> InsertCommand<'_, P> {
+impl<'ic, P: BackendStorage> InsertCommand<'ic, P> {
     pub(crate) fn new(
-        raw_sql_query: &'_ str,
+        raw_sql_query: &'ic str,
         name: ObjectName,
         columns: Vec<Ident>,
         source: Box<Query>,
         storage: Arc<Mutex<FrontendStorage<P>>>,
-    ) -> InsertCommand<P> {
+        session: Arc<dyn Sender>,
+    ) -> InsertCommand<'ic, P> {
         InsertCommand {
             raw_sql_query,
             name,
             columns,
             source,
             storage,
+            session,
         }
     }
 
-    pub(crate) fn execute(&mut self) -> SystemResult<QueryResult> {
+    pub(crate) fn execute(&mut self) -> SystemResult<()> {
         let table_name = self.name.0.pop().unwrap().to_string();
         let schema_name = self.name.0.pop().unwrap().to_string();
         let Query { body, .. } = &*self.source;
@@ -77,12 +83,15 @@ impl<P: BackendStorage> InsertCommand<'_, P> {
                             (Expr::Value(Value::Boolean(v)), DataType::Boolean) => v.to_string(),
                             (Expr::Value(Value::SingleQuotedString(v)), DataType::Boolean) => v.to_string(),
                             _ => {
-                                return Ok(Err(QueryErrorBuilder::new()
-                                    .syntax_error(format!(
-                                        "Cast from {:?} to {:?} is not currently supported",
-                                        expr, data_type
-                                    ))
-                                    .build()))
+                                self.session
+                                    .send(Err(QueryErrorBuilder::new()
+                                        .syntax_error(format!(
+                                            "Cast from {:?} to {:?} is not currently supported",
+                                            expr, data_type
+                                        ))
+                                        .build()))
+                                    .expect("To Send Query Result to Client");
+                                return Ok(());
                             }
                         },
                         Expr::UnaryOp { op, expr } => match (op, &**expr) {
@@ -90,16 +99,26 @@ impl<P: BackendStorage> InsertCommand<'_, P> {
                                 "-".to_owned() + v.to_string().as_str()
                             }
                             (op, expr) => {
-                                return Ok(Err(QueryErrorBuilder::new()
-                                    .syntax_error(op.to_string() + expr.to_string().as_str())
-                                    .build()))
+                                self.session
+                                    .send(Err(QueryErrorBuilder::new()
+                                        .syntax_error(op.to_string() + expr.to_string().as_str())
+                                        .build()))
+                                    .expect("To Send Query Result to Client");
+                                return Ok(());
                             }
                         },
-                        expr @ Expr::BinaryOp { .. } => match ExpressionEvaluation::eval(expr) {
-                            Ok(expr_result) => expr_result.value(),
-                            Err(e) => return Ok(Err(e)),
-                        },
-                        expr => return Ok(Err(QueryErrorBuilder::new().syntax_error(expr.to_string()).build())),
+                        expr @ Expr::BinaryOp { .. } => {
+                            match ExpressionEvaluation::new(self.session.clone()).eval(expr) {
+                                Ok(expr_result) => expr_result.value(),
+                                Err(()) => return Ok(()),
+                            }
+                        }
+                        expr => {
+                            self.session
+                                .send(Err(QueryErrorBuilder::new().syntax_error(expr.to_string()).build()))
+                                .expect("To Send Query Result to Client");
+                            return Ok(());
+                        }
                     };
                     row.push(v);
                 }
@@ -108,17 +127,33 @@ impl<P: BackendStorage> InsertCommand<'_, P> {
 
             let len = rows.len();
             match (self.storage.lock().unwrap()).insert_into(&schema_name, &table_name, columns, rows)? {
-                Ok(_) => Ok(Ok(QueryEvent::RecordsInserted(len))),
-                Err(OperationOnTableError::SchemaDoesNotExist) => {
-                    Ok(Err(QueryErrorBuilder::new().schema_does_not_exist(schema_name).build()))
+                Ok(_) => {
+                    self.session
+                        .send(Ok(QueryEvent::RecordsInserted(len)))
+                        .expect("To Send Query Result to Client");
+                    Ok(())
                 }
-                Err(OperationOnTableError::TableDoesNotExist) => Ok(Err(QueryErrorBuilder::new()
-                    .table_does_not_exist(schema_name + "." + table_name.as_str())
-                    .build())),
+                Err(OperationOnTableError::SchemaDoesNotExist) => {
+                    self.session
+                        .send(Err(QueryErrorBuilder::new().schema_does_not_exist(schema_name).build()))
+                        .expect("To Send Query Result to Client");
+                    Ok(())
+                }
+                Err(OperationOnTableError::TableDoesNotExist) => {
+                    self.session
+                        .send(Err(QueryErrorBuilder::new()
+                            .table_does_not_exist(schema_name + "." + table_name.as_str())
+                            .build()))
+                        .expect("To Send Query Result to Client");
+                    Ok(())
+                }
                 Err(OperationOnTableError::ColumnDoesNotExist(non_existing_columns)) => {
-                    Ok(Err(QueryErrorBuilder::new()
-                        .column_does_not_exist(non_existing_columns)
-                        .build()))
+                    self.session
+                        .send(Err(QueryErrorBuilder::new()
+                            .column_does_not_exist(non_existing_columns)
+                            .build()))
+                        .expect("To Send Query Result to Client");
+                    Ok(())
                 }
                 Err(OperationOnTableError::ConstraintViolations(constraint_errors, row_index)) => {
                     let mut builder = QueryErrorBuilder::new();
@@ -152,16 +187,25 @@ impl<P: BackendStorage> InsertCommand<'_, P> {
                     constraint_errors.iter().for_each(|(err, column_definition)| {
                         constraint_error_mapper(err, column_definition, row_index)
                     });
-                    Ok(Err(builder.build()))
+                    self.session
+                        .send(Err(builder.build()))
+                        .expect("To Send Query Result to Client");
+                    Ok(())
                 }
                 Err(OperationOnTableError::InsertTooManyExpressions) => {
-                    Ok(Err(QueryErrorBuilder::new().too_many_insert_expressions().build()))
+                    self.session
+                        .send(Err(QueryErrorBuilder::new().too_many_insert_expressions().build()))
+                        .expect("To Send Query Result to Client");
+                    Ok(())
                 }
             }
         } else {
-            Ok(Err(QueryErrorBuilder::new()
-                .feature_not_supported(self.raw_sql_query.to_owned())
-                .build()))
+            self.session
+                .send(Err(QueryErrorBuilder::new()
+                    .feature_not_supported(self.raw_sql_query.to_owned())
+                    .build()))
+                .expect("To Send Query Result to Client");
+            Ok(())
         }
     }
 }

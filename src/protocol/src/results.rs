@@ -12,13 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{sql_types, sql_types::PostgreSqlType, ColumnMetadata, Message};
+use crate::{
+    messages::{ColumnMetadata, Message},
+    sql_types::PostgreSqlType,
+};
 use std::fmt::{self, Display, Formatter};
 
 /// Represents result of SQL query execution
 pub type QueryResult = std::result::Result<QueryEvent, QueryError>;
 /// Represents selected data from tables
-pub type Projection = (Vec<(String, sql_types::PostgreSqlType)>, Vec<Vec<String>>);
+pub type Projection = (Vec<(String, PostgreSqlType)>, Vec<Vec<String>>);
 
 /// Represents successful events that can happen in server backend
 #[derive(Debug, PartialEq)]
@@ -106,7 +109,7 @@ impl Into<&'static str> for Severity {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub(crate) enum QueryErrorKind {
     SchemaAlreadyExists(String),
     TableAlreadyExists(String),
@@ -221,7 +224,7 @@ impl Display for QueryErrorKind {
 }
 
 /// Represents error during query execution
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub(crate) struct QueryErrorInner {
     severity: Severity,
     kind: QueryErrorKind,
@@ -243,7 +246,7 @@ impl QueryErrorInner {
 }
 
 /// a container of errors that occurred during query execution
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct QueryError {
     errors: Vec<QueryErrorInner>,
 }
