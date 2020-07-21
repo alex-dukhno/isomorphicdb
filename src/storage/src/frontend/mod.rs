@@ -164,16 +164,19 @@ impl<P: BackendStorage> FrontendStorage<P> {
         table_name: &str,
         rows: Vec<Vec<u8>>,
     ) -> SystemResult<Result<(), OperationOnTableError>> {
-        let keyed_rows = rows.into_iter().map(|row| {
-            // this is bad
-            let key = self.key_id_generator.to_be_bytes().to_vec();
-            self.key_id_generator += 1;
-            (key, row)
-        }).collect::<Vec<(Vec<u8>, Vec<u8>)>>();
+        let keyed_rows = rows
+            .into_iter()
+            .map(|row| {
+                // this is bad
+                let key = self.key_id_generator.to_be_bytes().to_vec();
+                self.key_id_generator += 1;
+                (key, row)
+            })
+            .collect::<Vec<(Vec<u8>, Vec<u8>)>>();
 
         match self.persistent.write(schema_name, table_name, keyed_rows) {
             Ok(_size) => Ok(Ok(())),
-            Err(_) => unreachable!("QueryProcessor Error")
+            Err(_) => unreachable!("QueryProcessor Error"),
         }
     }
 
@@ -209,9 +212,7 @@ impl<P: BackendStorage> FrontendStorage<P> {
                 if !non_existing_columns.is_empty() {
                     return Ok(Err(OperationOnTableError::ColumnDoesNotExist(non_existing_columns)));
                 }
-                read.map(backend::Result::unwrap)
-                    .map(|(_key, values)| values)
-                    .collect()
+                read.map(backend::Result::unwrap).map(|(_key, values)| values).collect()
             }
             Err(OperationOnObjectError::ObjectDoesNotExist) => {
                 return Ok(Err(OperationOnTableError::TableDoesNotExist))

@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::query::{Datum, Row};
 use kernel::SystemResult;
 use protocol::results::{QueryErrorBuilder, QueryEvent, QueryResult};
 use sqlparser::ast::{Expr, Ident, Query, Select, SelectItem, SetExpr, TableFactor, TableWithJoins};
@@ -20,7 +21,6 @@ use std::{
     sync::{Arc, Mutex},
 };
 use storage::{backend::BackendStorage, frontend::FrontendStorage, OperationOnTableError};
-use crate::query::{Datum, Row};
 
 pub(crate) struct SelectCommand<'q, P: BackendStorage> {
     raw_sql_query: &'q str,
@@ -87,16 +87,28 @@ impl<P: BackendStorage> SelectCommand<'_, P> {
             use std::string::ToString;
             match (self.storage.lock().unwrap()).select_all_from(&schema_name, &table_name, table_columns)? {
                 Ok(records) => {
-                    let row_data = records.1.into_iter().map(|row| Row::with_data(row).unpack().into_iter().map(|datum| datum.to_string()).collect()).collect();
+                    let row_data = records
+                        .1
+                        .into_iter()
+                        .map(|row| {
+                            Row::with_data(row)
+                                .unpack()
+                                .into_iter()
+                                .map(|datum| datum.to_string())
+                                .collect()
+                        })
+                        .collect();
                     Ok(Ok(QueryEvent::RecordsSelected((
                         records
                             .0
                             .into_iter()
-                            .map(|column_definition| (column_definition.name(), column_definition.sql_type().to_pg_types()))
+                            .map(|column_definition| {
+                                (column_definition.name(), column_definition.sql_type().to_pg_types())
+                            })
                             .collect(),
                         row_data,
                     ))))
-                },
+                }
                 Err(OperationOnTableError::ColumnDoesNotExist(non_existing_columns)) => {
                     Ok(Err(QueryErrorBuilder::new()
                         .column_does_not_exist(non_existing_columns)

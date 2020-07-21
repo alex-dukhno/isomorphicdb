@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::query::{TableInserts, RelationOp, ScalarOp, Datum, Row};
 use crate::dml::ExpressionEvaluation;
+use crate::query::{Datum, RelationOp, Row, ScalarOp, TableInserts};
 use kernel::SystemResult;
-use protocol::results::{QueryErrorBuilder, QueryEvent, QueryResult, QueryError};
+use protocol::results::{QueryError, QueryErrorBuilder, QueryEvent, QueryResult};
 use sql_types::ConstraintError;
 use sqlparser::ast::{DataType, Expr, Ident, ObjectName, Query, SetExpr, UnaryOperator, Value};
 use std::sync::{Arc, Mutex};
@@ -68,8 +68,7 @@ impl<P: BackendStorage> InsertCommand<'_, P> {
                     ordered_rows.push(Row::pack(ordered_datums.as_slice()).to_bytes());
                 }
                 ordered_rows
-            }
-            else {
+            } else {
                 rows.iter().map(|row| row.clone().to_bytes()).collect()
             };
 
@@ -77,15 +76,19 @@ impl<P: BackendStorage> InsertCommand<'_, P> {
 
             log::debug!("Row Data: {:#?}", rows);
 
-            match self.storage.lock().unwrap().insert_into(table_id.schema_name(), table_id.name(), rows) {
+            match self
+                .storage
+                .lock()
+                .unwrap()
+                .insert_into(table_id.schema_name(), table_id.name(), rows)
+            {
                 Ok(Ok(())) => Ok(Ok(QueryEvent::RecordsInserted(len))),
-                _ => unreachable!()
+                _ => unreachable!(),
             }
-
+        } else {
+            Ok(Err(QueryErrorBuilder::new()
+                .feature_not_supported(self.raw_sql_query.to_owned())
+                .build()))
         }
-        else {
-            Ok(Err(QueryErrorBuilder::new().feature_not_supported(self.raw_sql_query.to_owned()).build()))
-        }
-
     }
 }
