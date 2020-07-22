@@ -17,9 +17,11 @@ kernel = { path = "../kernel" }
 sql_engine = { path = "../sql_engine" }
 sql_types = { path = "../sql_types" }
 storage = { path = "../storage" }
-smol = "0.1.18"
+futures-lite = "0.1.6"
+smol = "0.2.0"
+async-io = "0.1.5"
 protocol = { path = "../protocol" }
 log = "0.4.8"
 simple_logger = { version = "1.6.0", default-features = false }
 async-dup = "1.2.1"
-blocking = "0.4.7"
+blocking = "0.5.0"

@@ -36,7 +36,7 @@ fn file_with(content: Vec<&[u8]>) -> (File, NamedTempFile) {
     }
     file.seek(SeekFrom::Start(0))
         .expect("set position at the beginning of a file");
-    (named_temp_file.reopen().expect("reopen file").into(), named_temp_file)
+    (named_temp_file.reopen().expect("reopen file"), named_temp_file)
 }
 
 #[derive(Debug)]
@@ -50,8 +50,8 @@ pub struct TestCase {
 impl Clone for TestCase {
     fn clone(&self) -> Self {
         TestCase {
-            request: Mutex::new(Unblock::new(self.request_path.reopen().expect("reopen file").into())),
-            response: Mutex::new(Unblock::new(self.response_path.reopen().expect("reopen file").into())),
+            request: Mutex::new(Unblock::new(self.request_path.reopen().expect("reopen file"))),
+            response: Mutex::new(Unblock::new(self.response_path.reopen().expect("reopen file"))),
             request_path: self.request_path.clone(),
             response_path: self.response_path.clone(),
         }
