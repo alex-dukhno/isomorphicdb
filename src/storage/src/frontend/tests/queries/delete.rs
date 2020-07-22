@@ -52,21 +52,18 @@ fn delete_all_from_table(default_schema_name: &str, mut storage_with_schema: Per
         default_schema_name,
         "table_name",
         vec![],
-        vec!["123"],
     );
     insert_into(
         &mut storage_with_schema,
         default_schema_name,
         "table_name",
-        vec![],
-        vec!["456"],
+        vec![Datum::from_i16(456)],
     );
     insert_into(
         &mut storage_with_schema,
         default_schema_name,
         "table_name",
-        vec![],
-        vec!["789"],
+        vec![Datum::from_i16(789)],
     );
 
     assert_eq!(

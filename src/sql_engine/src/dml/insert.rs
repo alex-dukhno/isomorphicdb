@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::dml::ExpressionEvaluation;
 use crate::query::{Datum, RelationOp, Row, ScalarOp, TableInserts};
 use kernel::SystemResult;
 use protocol::results::{QueryError, QueryErrorBuilder, QueryEvent, QueryResult};

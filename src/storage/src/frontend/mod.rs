@@ -23,7 +23,6 @@ use crate::{
     SchemaDoesNotExist, TableDescription,
 };
 use kernel::{SystemError, SystemResult};
-use std::hint::unreachable_unchecked;
 
 pub struct FrontendStorage<P: BackendStorage> {
     key_id_generator: usize,
@@ -327,5 +326,5 @@ impl<P: BackendStorage> FrontendStorage<P> {
     }
 }
 
-// #[cfg(test)]
-// mod tests;
+#[cfg(test)]
+mod tests;

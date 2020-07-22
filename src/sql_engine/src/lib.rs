@@ -16,17 +16,22 @@ extern crate bigdecimal;
 extern crate log;
 extern crate ordered_float;
 
-use crate::{
+mod ddl;
+mod dml;
+pub mod query;
+
+use {
     ddl::{
         create_schema::CreateSchemaCommand, create_table::CreateTableCommand, drop_schema::DropSchemaCommand,
         drop_table::DropTableCommand,
     },
     dml::{delete::DeleteCommand, insert::InsertCommand, select::SelectCommand, update::UpdateCommand},
 };
+
 use kernel::SystemResult;
 use protocol::results::{QueryErrorBuilder, QueryEvent, QueryResult};
 
-use crate::query::{Plan, PlanError, QueryProcessor, TransformError};
+use query::{Plan, PlanError, QueryProcessor, TransformError};
 use sqlparser::{
     ast::{ObjectType, Statement},
     dialect::PostgreSqlDialect,
@@ -35,14 +40,12 @@ use sqlparser::{
 use std::sync::{Arc, Mutex};
 use storage::{backend::BackendStorage, frontend::FrontendStorage, ColumnDefinition, TableDescription};
 
-mod ddl;
-mod dml;
-mod query;
-
 pub struct QueryExecutor<P: BackendStorage> {
     storage: Arc<Mutex<FrontendStorage<P>>>,
     processor: QueryProcessor<P>,
 }
+
+
 
 impl<P: BackendStorage> QueryExecutor<P> {
     pub fn new(storage: Arc<Mutex<FrontendStorage<P>>>) -> Self {

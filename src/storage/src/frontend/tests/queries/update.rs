@@ -24,26 +24,26 @@ fn update_all_records(default_schema_name: &str, mut storage_with_schema: Persis
         vec![column_definition("column_test", SqlType::SmallInt(i16::min_value()))],
     );
 
+    let row1 = vec![Datum::from_i16(123)];
+    let row2 = vec![Datum::from_i16(456)];
+    let row3 = vec![Datum::from_i16(789)];
     insert_into(
         &mut storage_with_schema,
         default_schema_name,
         "table_name",
-        vec![],
-        vec!["123"],
+        row1,
     );
     insert_into(
         &mut storage_with_schema,
         default_schema_name,
         "table_name",
-        vec![],
-        vec!["456"],
+        row2,
     );
     insert_into(
         &mut storage_with_schema,
         default_schema_name,
         "table_name",
-        vec![],
-        vec!["789"],
+        row3,
     );
 
     assert_eq!(
@@ -64,13 +64,14 @@ fn update_all_records(default_schema_name: &str, mut storage_with_schema: Persis
         .map(|column_definition| column_definition.name())
         .collect();
 
+    let new_row = Row::pack(&[Datum::from_i16(567)]).to_bytes();
     assert_eq!(
         storage_with_schema
             .select_all_from(default_schema_name, "table_name", table_columns)
             .expect("no system errors"),
         Ok((
             vec![column_definition("column_test", SqlType::SmallInt(i16::min_value()))],
-            vec![vec!["567".to_owned()], vec!["567".to_owned()], vec!["567".to_owned()]]
+            vec![new_row.clone(), new_row.clone(), new_row.clone()],
         ))
     );
 }
@@ -94,7 +95,7 @@ fn update_non_existent_schema(mut storage: PersistentStorage) {
         Err(OperationOnTableError::SchemaDoesNotExist)
     );
 }
-
+/*
 #[cfg(test)]
 mod constraints {
     use super::*;
@@ -137,12 +138,13 @@ mod constraints {
 
     #[rstest::rstest]
     fn out_of_range_violation(default_schema_name: &str, mut storage_with_ints_table: PersistentStorage) {
+        let row = Row::pack(&["100".to_owned(), "100".to_owned(), "100".to_owned()]).to_bytes();
         storage_with_ints_table
             .insert_into(
                 default_schema_name,
                 "table_name",
                 vec![],
-                vec![vec!["100".to_owned(), "100".to_owned(), "100".to_owned()]],
+                vec![],
             )
             .expect("no system errors")
             .expect("record inserted");
@@ -273,3 +275,4 @@ mod constraints {
         )
     }
 }
+ */

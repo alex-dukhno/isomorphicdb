@@ -84,7 +84,6 @@ impl<P: BackendStorage> SelectCommand<'_, P> {
                 columns
             };
 
-            use std::string::ToString;
             match (self.storage.lock().unwrap()).select_all_from(&schema_name, &table_name, table_columns)? {
                 Ok(records) => {
                     let row_data = records

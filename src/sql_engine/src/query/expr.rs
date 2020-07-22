@@ -51,7 +51,7 @@ impl<'a> TryFrom<&Value> for Datum<'a> {
                 }
             }
             SingleQuotedString(value) => Ok(Datum::from_string(value.clone())),
-            NationalStringLiteral(value) => Err(EvalError::UnsupportedDatum("NationalStringLiteral".to_string())),
+            NationalStringLiteral(_value) => Err(EvalError::UnsupportedDatum("NationalStringLiteral".to_string())),
             HexStringLiteral(value) => match i64::from_str_radix(value.as_str(), 16) {
                 Ok(val) => Ok(Datum::from_i64(val)),
                 Err(_) => panic!("Failed to parse hex string"),
@@ -67,7 +67,7 @@ impl<'a> TryFrom<&Value> for Datum<'a> {
 pub fn resolve_static_expr<'a>(expr: &'a Expr) -> Result<Datum<'a>, EvalError> {
     use Expr::*;
     match expr {
-        BinaryOp { left, op, right } => {
+        BinaryOp { .. } => {
             /*
                         let resolved_left = resolve_static_expr(left)?;
                         let resolved_right = resolve_static_expr(right)?;
@@ -75,7 +75,7 @@ pub fn resolve_static_expr<'a>(expr: &'a Expr) -> Result<Datum<'a>, EvalError> {
             */
             Err(EvalError::UnsupportedOperation)
         }
-        UnaryOp { op, expr } => {
+        UnaryOp { .. } => {
             // let operand = resolve_static_expr(&expr)?;
             // resolve_unary_expr(*op, operand)
             Err(EvalError::UnsupportedOperation)

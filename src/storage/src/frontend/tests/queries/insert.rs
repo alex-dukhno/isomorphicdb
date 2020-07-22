@@ -15,11 +15,14 @@
 use super::*;
 use sql_types::SqlType;
 
+/* this will not happen anymore, these error will be caught by the QueryProcessor and
+   should not be expected to be caught later on.
+
 #[rstest::rstest]
 fn insert_into_non_existent_schema(mut storage: PersistentStorage) {
     assert_eq!(
         storage
-            .insert_into("non_existent", "not_existed", vec![], vec![vec!["123".to_owned()]])
+            .insert_into("non_existent", "not_existed", vec![vec!["123".to_owned()]])
             .expect("no system errors"),
         Err(OperationOnTableError::SchemaDoesNotExist)
     );
@@ -34,6 +37,7 @@ fn insert_into_non_existent_table(default_schema_name: &str, mut storage_with_sc
         Err(OperationOnTableError::TableDoesNotExist)
     );
 }
+ */
 
 #[rstest::rstest]
 fn insert_many_rows_into_table(default_schema_name: &str, mut storage_with_schema: PersistentStorage) {
@@ -43,20 +47,20 @@ fn insert_many_rows_into_table(default_schema_name: &str, mut storage_with_schem
         "table_name",
         vec![column_definition("column_test", SqlType::SmallInt(i16::min_value()))],
     );
+    let row1 = vec![Datum::from_i16(123)];
+    let row2 = vec![Datum::from_i16(456)];
 
     insert_into(
         &mut storage_with_schema,
         default_schema_name,
         "table_name",
-        vec![],
-        vec!["123"],
+        row1.clone(),
     );
     insert_into(
         &mut storage_with_schema,
         default_schema_name,
         "table_name",
-        vec![],
-        vec!["456"],
+        row2.clone(),
     );
 
     let table_columns = storage_with_schema
@@ -72,7 +76,7 @@ fn insert_many_rows_into_table(default_schema_name: &str, mut storage_with_schem
             .expect("no system errors"),
         Ok((
             vec![column_definition("column_test", SqlType::SmallInt(i16::min_value()))],
-            vec![vec!["123".to_owned()], vec!["456".to_owned()]]
+            vec![Row::pack(row1.as_slice()).to_bytes(), Row::pack(row2.as_slice()).to_bytes()]
         ))
     );
 }
@@ -89,27 +93,27 @@ fn insert_multiple_values_rows(default_schema_name: &str, mut storage_with_schem
             column_definition("column_3", SqlType::SmallInt(i16::min_value())),
         ],
     );
+    let row1 = vec![Datum::from_i16(1), Datum::from_i16(2), Datum::from_i16(3)];
+    let row2 = vec![Datum::from_i16(4), Datum::from_i16(5), Datum::from_i16(6)];
+    let row3 = vec![Datum::from_i16(7), Datum::from_i16(8), Datum::from_i16(9)];
 
     insert_into(
         &mut storage_with_schema,
         default_schema_name,
         "table_name",
-        vec![],
-        vec!["1", "2", "3"],
+        row1.clone(),
     );
     insert_into(
         &mut storage_with_schema,
         default_schema_name,
         "table_name",
-        vec![],
-        vec!["4", "5", "6"],
+        row2.clone(),
     );
     insert_into(
         &mut storage_with_schema,
         default_schema_name,
         "table_name",
-        vec![],
-        vec!["7", "8", "9"],
+        row3.clone(),
     );
 
     let table_columns = storage_with_schema
@@ -130,14 +134,15 @@ fn insert_multiple_values_rows(default_schema_name: &str, mut storage_with_schem
                 column_definition("column_3", SqlType::SmallInt(i16::min_value()))
             ],
             vec![
-                vec!["1".to_owned(), "2".to_owned(), "3".to_owned()],
-                vec!["4".to_owned(), "5".to_owned(), "6".to_owned()],
-                vec!["7".to_owned(), "8".to_owned(), "9".to_owned()],
+                Row::pack(&row1).to_bytes(),
+                Row::pack(&row2).to_bytes(),
+                Row::pack(&row3).to_bytes(),
             ],
         ))
     );
 }
 
+/* named columns and associated errors are handled by the QueryProcessor
 #[rstest::rstest]
 fn insert_named_columns(default_schema_name: &str, mut storage_with_schema: PersistentStorage) {
     create_table(
@@ -235,6 +240,7 @@ fn insert_named_not_existed_column(default_schema_name: &str, mut storage_with_s
         ))
     )
 }
+ */
 
 #[rstest::rstest]
 fn insert_row_into_table(default_schema_name: &str, mut storage_with_schema: PersistentStorage) {
@@ -245,9 +251,11 @@ fn insert_row_into_table(default_schema_name: &str, mut storage_with_schema: Per
         vec![column_definition("column_test", SqlType::SmallInt(i16::min_value()))],
     );
 
+    let row = Row::pack(&[Datum::from_i16(123)]).to_bytes();
+
     assert_eq!(
         storage_with_schema
-            .insert_into(default_schema_name, "table_name", vec![], vec![vec!["123".to_owned()]])
+            .insert_into(default_schema_name, "table_name", vec![row.clone()])
             .expect("no system errors"),
         Ok(())
     );
@@ -265,11 +273,12 @@ fn insert_row_into_table(default_schema_name: &str, mut storage_with_schema: Per
             .expect("no system errors"),
         Ok((
             vec![column_definition("column_test", SqlType::SmallInt(i16::min_value()))],
-            vec![vec!["123".to_owned()]]
+            vec![row]
         ))
     );
 }
 
+/* this will be handled by the QueryProcessor.
 #[rstest::rstest]
 fn insert_too_many_expressions(default_schema_name: &str, mut storage_with_schema: PersistentStorage) {
     create_table(
@@ -285,13 +294,15 @@ fn insert_too_many_expressions(default_schema_name: &str, mut storage_with_schem
 
     let columns = vec![];
 
+    let row = Row::pack(&[Datum::from_i16(1), Datum::String("2"), "3".to_owned(), "4".to_owned()]
+
     assert_eq!(
         storage_with_schema
             .insert_into(
                 default_schema_name,
                 "table_name",
                 columns,
-                vec![vec!["1".to_owned(), "2".to_owned(), "3".to_owned(), "4".to_owned()]],
+                vec![],
             )
             .expect("no system errors"),
         Err(OperationOnTableError::InsertTooManyExpressions)
@@ -539,3 +550,4 @@ mod constraints {
         )
     }
 }
+ */

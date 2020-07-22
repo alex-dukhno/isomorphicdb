@@ -21,6 +21,10 @@ mod queries;
 mod schema;
 #[cfg(test)]
 mod table;
+#[cfg(test)]
+extern crate sql_engine;
+
+use sql_engine::query::{Datum, Row};
 
 type PersistentStorage = FrontendStorage<SledBackendStorage>;
 
@@ -70,15 +74,13 @@ fn insert_into<P: backend::BackendStorage>(
     storage: &mut FrontendStorage<P>,
     schema_name: &str,
     table_name: &str,
-    columns: Vec<&str>,
-    values: Vec<&str>,
+    values: Vec<Datum>,
 ) {
     storage
         .insert_into(
             schema_name,
             table_name,
-            columns.into_iter().map(ToOwned::to_owned).collect(),
-            vec![values.into_iter().map(ToOwned::to_owned).collect()],
+            vec![Row::pack(values.as_slice()).to_bytes()]
         )
         .expect("no system errors")
         .expect("values are inserted");

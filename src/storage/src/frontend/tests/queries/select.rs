@@ -59,12 +59,12 @@ fn select_from_table_that_does_not_exist(default_schema_name: &str, mut storage_
 
 #[rstest::rstest]
 fn select_all_from_table_with_many_columns(default_schema_name: &str, mut with_small_ints_table: PersistentStorage) {
+    let row = vec![Datum::from_i16(1), Datum::from_i16(2), Datum::from_i16( 3)];
     insert_into(
         &mut with_small_ints_table,
         default_schema_name,
         "table_name",
-        vec![],
-        vec!["1", "2", "3"],
+        row.clone()
     );
 
     let table_columns = with_small_ints_table
@@ -84,7 +84,7 @@ fn select_all_from_table_with_many_columns(default_schema_name: &str, mut with_s
                 column_definition("column_2", SqlType::SmallInt(i16::min_value())),
                 column_definition("column_3", SqlType::SmallInt(i16::min_value()))
             ],
-            vec![vec!["1".to_owned(), "2".to_owned(), "3".to_owned()]]
+            vec![Row::pack(&row).to_bytes()]
         ))
     );
 }
@@ -94,26 +94,27 @@ fn select_first_and_last_columns_from_table_with_multiple_columns(
     default_schema_name: &str,
     mut with_small_ints_table: PersistentStorage,
 ) {
+    let row1 = vec![Datum::from_i16(1), Datum::from_i16(2), Datum::from_i16(3)];
+    let row2 = vec![Datum::from_i16(4), Datum::from_i16(5), Datum::from_i16(6)];
+    let row3 = vec![Datum::from_i16(7), Datum::from_i16(8), Datum::from_i16(9)];
+
     insert_into(
         &mut with_small_ints_table,
         default_schema_name,
         "table_name",
-        vec![],
-        vec!["1", "2", "3"],
+        row1.clone(),
     );
     insert_into(
         &mut with_small_ints_table,
         default_schema_name,
         "table_name",
-        vec![],
-        vec!["4", "5", "6"],
+        row2.clone(),
     );
     insert_into(
         &mut with_small_ints_table,
         default_schema_name,
         "table_name",
-        vec![],
-        vec!["7", "8", "9"],
+        row3.clone(),
     );
 
     assert_eq!(
@@ -130,9 +131,9 @@ fn select_first_and_last_columns_from_table_with_multiple_columns(
                 column_definition("column_3", SqlType::SmallInt(i16::min_value()))
             ],
             vec![
-                vec!["1".to_owned(), "3".to_owned()],
-                vec!["4".to_owned(), "6".to_owned()],
-                vec!["7".to_owned(), "9".to_owned()],
+                Row::pack(&row1).to_bytes(),
+                Row::pack(&row2).to_bytes(),
+                Row::pack(&row3).to_bytes(),
             ],
         ))
     );
@@ -143,26 +144,27 @@ fn select_all_columns_reordered_from_table_with_multiple_columns(
     default_schema_name: &str,
     mut with_small_ints_table: PersistentStorage,
 ) {
+    let row1 = vec![Datum::from_i16(1), Datum::from_i16(2), Datum::from_i16(3)];
+    let row2 = vec![Datum::from_i16(4), Datum::from_i16(5), Datum::from_i16(6)];
+    let row3 = vec![Datum::from_i16(7), Datum::from_i16(8), Datum::from_i16(9)];
+
     insert_into(
         &mut with_small_ints_table,
         default_schema_name,
         "table_name",
-        vec![],
-        vec!["1", "2", "3"],
+        row1,
     );
     insert_into(
         &mut with_small_ints_table,
         default_schema_name,
         "table_name",
-        vec![],
-        vec!["4", "5", "6"],
+        row2
     );
     insert_into(
         &mut with_small_ints_table,
         default_schema_name,
         "table_name",
-        vec![],
-        vec!["7", "8", "9"],
+        row3,
     );
 
     assert_eq!(
@@ -180,9 +182,9 @@ fn select_all_columns_reordered_from_table_with_multiple_columns(
                 column_definition("column_2", SqlType::SmallInt(i16::min_value()))
             ],
             vec![
-                vec!["3".to_owned(), "1".to_owned(), "2".to_owned()],
-                vec!["6".to_owned(), "4".to_owned(), "5".to_owned()],
-                vec!["9".to_owned(), "7".to_owned(), "8".to_owned()],
+                Row::pack(&[Datum::from_i16(3), Datum::from_i16(1), Datum::from_i16(2)]).to_bytes(),
+                Row::pack(&[Datum::from_i16(6), Datum::from_i16(4), Datum::from_i16(5)]).to_bytes(),
+                Row::pack(&[Datum::from_i16(9), Datum::from_i16(7), Datum::from_i16(8)]).to_bytes(),
             ],
         ))
     );
@@ -190,26 +192,27 @@ fn select_all_columns_reordered_from_table_with_multiple_columns(
 
 #[rstest::rstest]
 fn select_with_column_name_duplication(default_schema_name: &str, mut with_small_ints_table: PersistentStorage) {
+    let row1 = vec![Datum::from_i16(1), Datum::from_i16(2), Datum::from_i16(3)];
+    let row2 = vec![Datum::from_i16(4), Datum::from_i16(5), Datum::from_i16(6)];
+    let row3 = vec![Datum::from_i16(7), Datum::from_i16(8), Datum::from_i16(9)];
+
     insert_into(
         &mut with_small_ints_table,
         default_schema_name,
         "table_name",
-        vec![],
-        vec!["1", "2", "3"],
+        row1,
     );
     insert_into(
         &mut with_small_ints_table,
         default_schema_name,
         "table_name",
-        vec![],
-        vec!["4", "5", "6"],
+        row2,
     );
     insert_into(
         &mut with_small_ints_table,
         default_schema_name,
         "table_name",
-        vec![],
-        vec!["7", "8", "9"],
+        row3,
     );
 
     assert_eq!(
@@ -235,27 +238,27 @@ fn select_with_column_name_duplication(default_schema_name: &str, mut with_small
                 column_definition("column_2", SqlType::SmallInt(i16::min_value()))
             ],
             vec![
-                vec![
-                    "3".to_owned(),
-                    "2".to_owned(),
-                    "1".to_owned(),
-                    "3".to_owned(),
-                    "2".to_owned()
-                ],
-                vec![
-                    "6".to_owned(),
-                    "5".to_owned(),
-                    "4".to_owned(),
-                    "6".to_owned(),
-                    "5".to_owned()
-                ],
-                vec![
-                    "9".to_owned(),
-                    "8".to_owned(),
-                    "7".to_owned(),
-                    "9".to_owned(),
-                    "8".to_owned()
-                ],
+                Row::pack(&[
+                    Datum::from_i16(3),
+                    Datum::from_i16(2),
+                    Datum::from_i16(1),
+                    Datum::from_i16(3),
+                    Datum::from_i16(2)
+                ]).to_bytes(),
+                Row::pack(&[
+                    Datum::from_i16(6),
+                    Datum::from_i16(5),
+                    Datum::from_i16(4),
+                    Datum::from_i16(6),
+                    Datum::from_i16(5),
+                ]).to_bytes(),
+                Row::pack(&[
+                    Datum::from_i16(9),
+                    Datum::from_i16(8),
+                    Datum::from_i16(7),
+                    Datum::from_i16(9),
+                    Datum::from_i16(8),
+                ]).to_bytes(),
             ],
         ))
     );
@@ -273,27 +276,27 @@ fn select_different_integer_types(default_schema_name: &str, mut storage_with_sc
             column_definition("big_int", SqlType::BigInt(i64::min_value())),
         ],
     );
+    let row1 = vec![Datum::from_i16(1000), Datum::from_i32(2000000), Datum::from_i64(3000000000)];
+    let row2 = vec![Datum::from_i16(4000), Datum::from_i32(5000000), Datum::from_i64(6000000000)];
+    let row3 = vec![Datum::from_i16(7000), Datum::from_i32(8000000), Datum::from_i64(9000000000)];
 
     insert_into(
         &mut storage_with_schema,
         default_schema_name,
         "table_name",
-        vec![],
-        vec!["1000", "2000000", "3000000000"],
+        row1.clone(),
     );
     insert_into(
         &mut storage_with_schema,
         default_schema_name,
         "table_name",
-        vec![],
-        vec!["4000", "5000000", "6000000000"],
+        row2.clone(),
     );
     insert_into(
         &mut storage_with_schema,
         default_schema_name,
         "table_name",
-        vec![],
-        vec!["7000", "8000000", "9000000000"],
+        row3.clone(),
     );
 
     assert_eq!(
@@ -311,9 +314,9 @@ fn select_different_integer_types(default_schema_name: &str, mut storage_with_sc
                 column_definition("big_int", SqlType::BigInt(i64::min_value())),
             ],
             vec![
-                vec!["1000".to_owned(), "2000000".to_owned(), "3000000000".to_owned()],
-                vec!["4000".to_owned(), "5000000".to_owned(), "6000000000".to_owned()],
-                vec!["7000".to_owned(), "8000000".to_owned(), "9000000000".to_owned()],
+                Row::pack(&row1).to_bytes(),
+                Row::pack(&row2).to_bytes(),
+                Row::pack(&row3).to_bytes(),
             ],
         ))
     );
@@ -330,27 +333,27 @@ fn select_different_character_strings_types(default_schema_name: &str, mut stora
             column_definition("var_char_20", SqlType::VarChar(20)),
         ],
     );
+    let row1 = vec![Datum::from_str("1234567890"), Datum::from_str("12345678901234567890")];
+    let row2 = vec![Datum::from_str("12345"), Datum::from_str("1234567890")];
+    let row3 = vec![Datum::from_str("12345"), Datum::from_str("1234567890     ")];
 
     insert_into(
         &mut storage_with_schema,
         default_schema_name,
         "table_name",
-        vec![],
-        vec!["1234567890", "12345678901234567890"],
+        row1.clone(),
     );
     insert_into(
         &mut storage_with_schema,
         default_schema_name,
         "table_name",
-        vec![],
-        vec!["12345", "1234567890"],
+        row2.clone(),
     );
     insert_into(
         &mut storage_with_schema,
         default_schema_name,
         "table_name",
-        vec![],
-        vec!["12345", "1234567890     "],
+        row3.clone(),
     );
 
     assert_eq!(
@@ -367,9 +370,9 @@ fn select_different_character_strings_types(default_schema_name: &str, mut stora
                 column_definition("var_char_20", SqlType::VarChar(20)),
             ],
             vec![
-                vec!["1234567890".to_owned(), "12345678901234567890".to_owned()],
-                vec!["12345".to_owned(), "1234567890".to_owned()],
-                vec!["12345".to_owned(), "1234567890".to_owned()],
+                Row::pack(&row1).to_bytes(),
+                Row::pack(&row2).to_bytes(),
+                Row::pack(&row3).to_bytes(),
             ],
         ))
     );
