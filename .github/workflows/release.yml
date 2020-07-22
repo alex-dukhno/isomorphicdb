@@ -1,0 +1,28 @@
+name: Publish Release Bundle
+
+on:
+  release:
+    types: [published]
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  RUSTFLAGS: -Dwarnings
+  RUST_BACKTRACE: 1
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v2
+      - name: build-&-push-docker-image
+        uses: docker/build-push-action@v1
+        with:
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          registry: docker.pkg.github.com
+          repository: alex-dukhno/database/database
+          tags: tag_with_ref
