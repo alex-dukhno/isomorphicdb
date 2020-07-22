@@ -25,4 +25,4 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
           registry: docker.pkg.github.com
           repository: alex-dukhno/database/database
-          tags: tag_with_ref
+          tag_with_ref: true
