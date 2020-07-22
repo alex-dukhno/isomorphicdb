@@ -22,9 +22,12 @@ use crate::{
 };
 use async_mutex::Mutex as AsyncMutex;
 use async_native_tls::TlsStream;
-use blocking::{block_on, Unblock};
+use blocking::Unblock;
 use byteorder::{ByteOrder, NetworkEndian};
-use futures_lite::io::{self, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, ErrorKind};
+use futures_lite::{
+    future::block_on,
+    io::{self, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, ErrorKind},
+};
 use itertools::Itertools;
 use std::{
     fs::File,

@@ -15,9 +15,13 @@
 use crate::{
     hand_shake,
     messages::{Encryption, Message},
-    tests::{async_io, async_io::empty_file_named, certificate_content, pg_frontend},
+    tests::{
+        async_io::{empty_file_named, TestCase},
+        certificate_content, pg_frontend,
+    },
     ProtocolConfiguration,
 };
+use futures_lite::future::block_on;
 use std::{
     io::Write,
     net::{Ipv4Addr, SocketAddr, SocketAddrV4},
@@ -32,170 +36,178 @@ fn path_to_temp_certificate() -> PathBuf {
     named_temp_file.path().to_path_buf()
 }
 
-#[async_std::test]
-async fn trying_read_from_empty_stream() {
-    let test_case = async_io::TestCase::with_content(vec![]).await;
+#[test]
+fn trying_read_from_empty_stream() {
+    block_on(async {
+        let test_case = TestCase::with_content(vec![]);
 
-    let config = ProtocolConfiguration::none();
+        let config = ProtocolConfiguration::none();
 
-    let result = hand_shake(
-        test_case,
-        SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 8080)),
-        &config,
-    )
-    .await;
+        let result = hand_shake(
+            test_case,
+            SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 8080)),
+            &config,
+        )
+        .await;
 
-    assert!(result.is_err());
+        assert!(result.is_err());
+    });
 }
 
-#[async_std::test]
-async fn trying_read_only_length_of_ssl_message() {
-    let test_case = async_io::TestCase::with_content(vec![&[0, 0, 0, 8], &[]]).await;
+#[test]
+fn trying_read_only_length_of_ssl_message() {
+    block_on(async {
+        let test_case = TestCase::with_content(vec![&[0, 0, 0, 8], &[]]);
 
-    let config = ProtocolConfiguration::none();
+        let config = ProtocolConfiguration::none();
 
-    let result = hand_shake(
-        test_case,
-        SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 8080)),
-        &config,
-    )
-    .await;
+        let result = hand_shake(
+            test_case,
+            SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 8080)),
+            &config,
+        )
+        .await;
 
-    assert!(result.is_err());
+        assert!(result.is_err());
+    });
 }
 
-#[async_std::test]
-async fn sending_reject_notification_for_none_secure() {
-    let test_case =
-        async_io::TestCase::with_content(vec![pg_frontend::Message::SslRequired.as_vec().as_slice(), &[]]).await;
+#[test]
+fn sending_reject_notification_for_none_secure() {
+    block_on(async {
+        let test_case = TestCase::with_content(vec![pg_frontend::Message::SslRequired.as_vec().as_slice(), &[]]);
 
-    let config = ProtocolConfiguration::none();
+        let config = ProtocolConfiguration::none();
 
-    let result = hand_shake(
-        test_case.clone(),
-        SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 8080)),
-        &config,
-    )
-    .await;
+        let result = hand_shake(
+            test_case.clone(),
+            SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 8080)),
+            &config,
+        )
+        .await;
 
-    assert!(result.is_err());
+        assert!(result.is_err());
 
-    let actual_content = test_case.read_result().await;
-    let mut expected_content = Vec::new();
-    expected_content.extend_from_slice(Encryption::RejectSsl.into());
-    assert_eq!(actual_content, expected_content);
+        let actual_content = test_case.read_result().await;
+        let mut expected_content = Vec::new();
+        expected_content.extend_from_slice(Encryption::RejectSsl.into());
+        assert_eq!(actual_content, expected_content);
+    });
 }
 
-#[async_std::test]
-async fn sending_accept_notification_for_ssl_only_secure() {
-    let test_case =
-        async_io::TestCase::with_content(vec![pg_frontend::Message::SslRequired.as_vec().as_slice(), &[]]).await;
+#[test]
+fn sending_accept_notification_for_ssl_only_secure() {
+    block_on(async {
+        let test_case = TestCase::with_content(vec![pg_frontend::Message::SslRequired.as_vec().as_slice(), &[]]);
 
-    let config = ProtocolConfiguration::with_ssl(path_to_temp_certificate(), "password".to_owned());
+        let config = ProtocolConfiguration::with_ssl(path_to_temp_certificate(), "password".to_owned());
 
-    let result = hand_shake(
-        test_case.clone(),
-        SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 8080)),
-        &config,
-    )
-    .await;
+        let result = hand_shake(
+            test_case.clone(),
+            SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 8080)),
+            &config,
+        )
+        .await;
 
-    assert!(result.is_err());
+        assert!(result.is_err());
 
-    let actual_content = test_case.read_result().await;
-    let mut expected_content = Vec::new();
-    expected_content.extend_from_slice(Encryption::AcceptSsl.into());
-    assert_eq!(actual_content, expected_content);
+        let actual_content = test_case.read_result().await;
+        let mut expected_content = Vec::new();
+        expected_content.extend_from_slice(Encryption::AcceptSsl.into());
+        assert_eq!(actual_content, expected_content);
+    });
 }
 
-#[async_std::test]
-async fn successful_connection_handshake_for_none_secure() {
-    let test_case = async_io::TestCase::with_content(vec![
-        pg_frontend::Message::SslRequired.as_vec().as_slice(),
-        pg_frontend::Message::Setup(vec![
-            ("user", "username"),
-            ("database", "database_name"),
-            ("application_name", "psql"),
-            ("client_encoding", "UTF8"),
-        ])
-        .as_vec()
-        .as_slice(),
-        pg_frontend::Message::Password("123").as_vec().as_slice(),
-        &[],
-    ])
-    .await;
-
-    let config = ProtocolConfiguration::none();
-
-    let result = hand_shake(
-        test_case.clone(),
-        SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 8080)),
-        &config,
-    )
-    .await;
-
-    assert!(result.is_ok());
-
-    let actual_content = test_case.read_result().await;
-    let mut expected_content = Vec::new();
-    expected_content.extend_from_slice(Encryption::RejectSsl.into());
-    expected_content.extend_from_slice(Message::AuthenticationCleartextPassword.as_vec().as_slice());
-    expected_content.extend_from_slice(Message::AuthenticationOk.as_vec().as_slice());
-    expected_content.extend_from_slice(
-        Message::ParameterStatus("client_encoding".to_owned(), "UTF8".to_owned())
+#[test]
+fn successful_connection_handshake_for_none_secure() {
+    block_on(async {
+        let test_case = TestCase::with_content(vec![
+            pg_frontend::Message::SslRequired.as_vec().as_slice(),
+            pg_frontend::Message::Setup(vec![
+                ("user", "username"),
+                ("database", "database_name"),
+                ("application_name", "psql"),
+                ("client_encoding", "UTF8"),
+            ])
             .as_vec()
             .as_slice(),
-    );
-    expected_content.extend_from_slice(
-        Message::ParameterStatus("DateStyle".to_owned(), "ISO".to_owned())
-            .as_vec()
-            .as_slice(),
-    );
-    assert_eq!(actual_content, expected_content);
+            pg_frontend::Message::Password("123").as_vec().as_slice(),
+            &[],
+        ]);
+
+        let config = ProtocolConfiguration::none();
+
+        let result = hand_shake(
+            test_case.clone(),
+            SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 8080)),
+            &config,
+        )
+        .await;
+
+        assert!(result.is_ok());
+
+        let actual_content = test_case.read_result().await;
+        let mut expected_content = Vec::new();
+        expected_content.extend_from_slice(Encryption::RejectSsl.into());
+        expected_content.extend_from_slice(Message::AuthenticationCleartextPassword.as_vec().as_slice());
+        expected_content.extend_from_slice(Message::AuthenticationOk.as_vec().as_slice());
+        expected_content.extend_from_slice(
+            Message::ParameterStatus("client_encoding".to_owned(), "UTF8".to_owned())
+                .as_vec()
+                .as_slice(),
+        );
+        expected_content.extend_from_slice(
+            Message::ParameterStatus("DateStyle".to_owned(), "ISO".to_owned())
+                .as_vec()
+                .as_slice(),
+        );
+        assert_eq!(actual_content, expected_content);
+    });
 }
 
-#[async_std::test]
+#[test]
 #[ignore] //TODO find work around not to do real SSL handshake
-async fn successful_connection_handshake_for_ssl_only_secure() {
-    let test_case = async_io::TestCase::with_content(vec![
-        pg_frontend::Message::SslRequired.as_vec().as_slice(),
-        pg_frontend::Message::Setup(vec![
-            ("user", "username"),
-            ("database", "database_name"),
-            ("application_name", "psql"),
-            ("client_encoding", "UTF8"),
-        ])
-        .as_vec()
-        .as_slice(),
-        pg_frontend::Message::Password("123").as_vec().as_slice(),
-    ])
-    .await;
-
-    let config = ProtocolConfiguration::with_ssl(path_to_temp_certificate(), "password".to_owned());
-
-    let result = hand_shake(
-        test_case.clone(),
-        SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 8080)),
-        &config,
-    )
-    .await;
-
-    assert!(result.is_ok());
-
-    let actual_content = test_case.read_result().await;
-    let mut expected_content = Vec::new();
-    expected_content.extend_from_slice(Encryption::AcceptSsl.into());
-    expected_content.extend_from_slice(Message::AuthenticationCleartextPassword.as_vec().as_slice());
-    expected_content.extend_from_slice(Message::AuthenticationOk.as_vec().as_slice());
-    expected_content.extend_from_slice(
-        Message::ParameterStatus("client_encoding".to_owned(), "UTF8".to_owned())
+fn successful_connection_handshake_for_ssl_only_secure() {
+    block_on(async {
+        let test_case = TestCase::with_content(vec![
+            pg_frontend::Message::SslRequired.as_vec().as_slice(),
+            pg_frontend::Message::Setup(vec![
+                ("user", "username"),
+                ("database", "database_name"),
+                ("application_name", "psql"),
+                ("client_encoding", "UTF8"),
+            ])
             .as_vec()
             .as_slice(),
-    );
-    expected_content.extend_from_slice(
-        Message::ParameterStatus("DateStyle".to_owned(), "ISO".to_owned())
-            .as_vec()
-            .as_slice(),
-    );
-    assert_eq!(actual_content, expected_content);
+            pg_frontend::Message::Password("123").as_vec().as_slice(),
+        ]);
+
+        let config = ProtocolConfiguration::with_ssl(path_to_temp_certificate(), "password".to_owned());
+
+        let result = hand_shake(
+            test_case.clone(),
+            SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 8080)),
+            &config,
+        )
+        .await;
+
+        assert!(result.is_ok());
+
+        let actual_content = test_case.read_result().await;
+        let mut expected_content = Vec::new();
+        expected_content.extend_from_slice(Encryption::AcceptSsl.into());
+        expected_content.extend_from_slice(Message::AuthenticationCleartextPassword.as_vec().as_slice());
+        expected_content.extend_from_slice(Message::AuthenticationOk.as_vec().as_slice());
+        expected_content.extend_from_slice(
+            Message::ParameterStatus("client_encoding".to_owned(), "UTF8".to_owned())
+                .as_vec()
+                .as_slice(),
+        );
+        expected_content.extend_from_slice(
+            Message::ParameterStatus("DateStyle".to_owned(), "ISO".to_owned())
+                .as_vec()
+                .as_slice(),
+        );
+        assert_eq!(actual_content, expected_content);
+    });
 }
