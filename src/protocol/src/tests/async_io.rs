@@ -21,7 +21,7 @@ use async_std::{
 use std::{pin::Pin, sync::Mutex};
 use tempfile::NamedTempFile;
 
-fn empty_file_named() -> NamedTempFile {
+pub(crate) fn empty_file_named() -> NamedTempFile {
     NamedTempFile::new().expect("Failed to create tempfile")
 }
 

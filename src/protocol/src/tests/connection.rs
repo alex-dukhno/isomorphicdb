@@ -12,12 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{
-    messages::Message,
-    tests::{async_io, MockChannel},
-    Command, Connection, VERSION_3,
-};
-use std::io;
+use crate::{messages::Message, tests::async_io, Channel, Command, RequestReceiver, VERSION_3};
+use async_mutex::Mutex as AsyncMutex;
+use std::{io, sync::Arc};
 
 #[cfg(test)]
 mod read_query {
@@ -25,11 +22,11 @@ mod read_query {
 
     #[async_std::test]
     async fn read_termination_command() -> io::Result<()> {
-        let test_case = async_io::TestCase::with_content(vec![&[88], &[0, 0, 0, 4]]).await;
-        let channel = Box::pin(MockChannel::new(test_case));
-        let mut connection = Connection::new((VERSION_3, vec![]), channel);
+        let test_case = super::async_io::TestCase::with_content(vec![&[88], &[0, 0, 0, 4]]).await;
+        let channel = Arc::new(AsyncMutex::new(Channel::Plain(test_case)));
+        let mut receiver = RequestReceiver::new((VERSION_3, vec![]), channel);
 
-        let query = connection.receive().await?;
+        let query = receiver.receive().await?;
         assert_eq!(query, Ok(Command::Terminate));
 
         Ok(())
@@ -37,11 +34,11 @@ mod read_query {
 
     #[async_std::test]
     async fn read_query_successfully() -> io::Result<()> {
-        let test_case = async_io::TestCase::with_content(vec![&[81], &[0, 0, 0, 14], b"select 1;\0"]).await;
-        let channel = Box::pin(MockChannel::new(test_case.clone()));
-        let mut connection = Connection::new((VERSION_3, vec![]), channel);
+        let test_case = super::async_io::TestCase::with_content(vec![&[81], &[0, 0, 0, 14], b"select 1;\0"]).await;
+        let channel = Arc::new(AsyncMutex::new(Channel::Plain(test_case.clone())));
+        let mut receiver = RequestReceiver::new((VERSION_3, vec![]), channel);
 
-        let query = connection.receive().await?;
+        let query = receiver.receive().await?;
         assert_eq!(query, Ok(Command::Query("select 1;".to_owned())));
 
         let actual_content = test_case.read_result().await;
@@ -54,9 +51,9 @@ mod read_query {
 
     #[async_std::test]
     async fn unexpected_eof_when_read_type_code_of_query_request() {
-        let test_case = async_io::TestCase::with_content(vec![]).await;
-        let channel = Box::pin(MockChannel::new(test_case));
-        let mut connection = Connection::new((VERSION_3, vec![]), channel);
+        let test_case = super::async_io::TestCase::with_content(vec![]).await;
+        let channel = Arc::new(AsyncMutex::new(Channel::Plain(test_case)));
+        let mut connection = RequestReceiver::new((VERSION_3, vec![]), channel);
 
         let query = connection.receive().await;
         assert!(query.is_err());
@@ -64,9 +61,9 @@ mod read_query {
 
     #[async_std::test]
     async fn unexpected_eof_when_read_length_of_query() {
-        let test_case = async_io::TestCase::with_content(vec![&[81]]).await;
-        let channel = Box::pin(MockChannel::new(test_case));
-        let mut connection = Connection::new((VERSION_3, vec![]), channel);
+        let test_case = super::async_io::TestCase::with_content(vec![&[81]]).await;
+        let channel = Arc::new(AsyncMutex::new(Channel::Plain(test_case)));
+        let mut connection = RequestReceiver::new((VERSION_3, vec![]), channel);
 
         let query = connection.receive().await;
         assert!(query.is_err());
@@ -74,9 +71,9 @@ mod read_query {
 
     #[async_std::test]
     async fn unexpected_eof_when_query_string() {
-        let test_case = async_io::TestCase::with_content(vec![&[81], &[0, 0, 0, 14], b"sel;\0"]).await;
-        let channel = Box::pin(MockChannel::new(test_case));
-        let mut connection = Connection::new((VERSION_3, vec![]), channel);
+        let test_case = super::async_io::TestCase::with_content(vec![&[81], &[0, 0, 0, 14], b"sel;\0"]).await;
+        let channel = Arc::new(AsyncMutex::new(Channel::Plain(test_case)));
+        let mut connection = RequestReceiver::new((VERSION_3, vec![]), channel);
 
         let query = connection.receive().await;
         assert!(query.is_err());

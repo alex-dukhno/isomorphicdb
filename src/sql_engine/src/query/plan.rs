@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::{relation::RelationOp, ScalarOp, SchemaId, TableId};
 ///! represents a plan to be executed by the engine.
+use super::{relation::RelationOp, ScalarOp, SchemaId, TableId};
 use storage::ColumnDefinition;
 
 #[derive(Debug)]
@@ -51,4 +51,5 @@ pub enum Plan {
     DropSchemas(Vec<SchemaId>),
     InsertRows(TableInserts),
     // Query(Box<RelationOp>),
+    NotProcessed(Statement),
 }

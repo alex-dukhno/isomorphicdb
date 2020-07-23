@@ -16,70 +16,84 @@ use super::*;
 use protocol::sql_types::PostgreSqlType;
 
 #[rstest::rstest]
-fn select_from_not_existed_table(mut sql_engine_with_schema: InMemorySqlEngine) {
-    assert_eq!(
-        sql_engine_with_schema
-            .execute("select * from schema_name.non_existent;")
-            .expect("no system errors"),
+fn select_from_not_existed_table(sql_engine_with_schema: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+    let (mut engine, collector) = sql_engine_with_schema;
+    engine
+        .execute("select * from schema_name.non_existent;")
+        .expect("no system errors");
+
+    collector.assert_content(vec![
+        Ok(QueryEvent::SchemaCreated),
         Err(QueryErrorBuilder::new()
             .table_does_not_exist("schema_name.non_existent".to_owned())
-            .build())
-    );
+            .build()),
+    ]);
 }
 
 #[rstest::rstest]
-fn select_named_columns_from_non_existent_table(mut sql_engine_with_schema: InMemorySqlEngine) {
-    assert_eq!(
-        sql_engine_with_schema
-            .execute("select column_1 from schema_name.non_existent;")
-            .expect("no system errors"),
+fn select_named_columns_from_non_existent_table(
+    sql_engine_with_schema: (QueryExecutor<InMemoryStorage>, Arc<Collector>),
+) {
+    let (mut engine, collector) = sql_engine_with_schema;
+    engine
+        .execute("select column_1 from schema_name.non_existent;")
+        .expect("no system errors");
+
+    collector.assert_content(vec![
+        Ok(QueryEvent::SchemaCreated),
         Err(QueryErrorBuilder::new()
             .table_does_not_exist("schema_name.non_existent".to_owned())
-            .build())
-    );
+            .build()),
+    ]);
 }
 
 #[rstest::rstest]
-fn select_all_from_table_with_multiple_columns(mut sql_engine_with_schema: InMemorySqlEngine) {
-    sql_engine_with_schema
+fn select_all_from_table_with_multiple_columns(
+    sql_engine_with_schema: (QueryExecutor<InMemoryStorage>, Arc<Collector>),
+) {
+    let (mut engine, collector) = sql_engine_with_schema;
+    engine
         .execute("create table schema_name.table_name (column_1 smallint, column_2 smallint, column_3 smallint);")
-        .expect("no system errors")
-        .expect("table created");
-    sql_engine_with_schema
+        .expect("no system errors");
+    engine
         .execute("insert into schema_name.table_name values (123, 456, 789);")
-        .expect("no system errors")
-        .expect("row inserted");
+        .expect("no system errors");
+    engine
+        .execute("select * from schema_name.table_name;")
+        .expect("no system errors");
 
-    assert_eq!(
-        sql_engine_with_schema
-            .execute("select * from schema_name.table_name;")
-            .expect("no system errors"),
+    collector.assert_content(vec![
+        Ok(QueryEvent::SchemaCreated),
+        Ok(QueryEvent::TableCreated),
+        Ok(QueryEvent::RecordsInserted(1)),
         Ok(QueryEvent::RecordsSelected((
             vec![
                 ("column_1".to_owned(), PostgreSqlType::SmallInt),
                 ("column_2".to_owned(), PostgreSqlType::SmallInt),
-                ("column_3".to_owned(), PostgreSqlType::SmallInt)
+                ("column_3".to_owned(), PostgreSqlType::SmallInt),
             ],
-            vec![vec!["123".to_owned(), "456".to_owned(), "789".to_owned()]]
-        )))
-    );
+            vec![vec!["123".to_owned(), "456".to_owned(), "789".to_owned()]],
+        ))),
+    ]);
 }
 
 #[rstest::rstest]
-fn select_not_all_columns(mut sql_engine_with_schema: InMemorySqlEngine) {
-    sql_engine_with_schema
+fn select_not_all_columns(sql_engine_with_schema: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+    let (mut engine, collector) = sql_engine_with_schema;
+    engine
         .execute("create table schema_name.table_name (column_1 smallint, column_2 smallint, column_3 smallint);")
-        .expect("no system errors")
-        .expect("table created");
-    sql_engine_with_schema
+        .expect("no system errors");
+    engine
         .execute("insert into schema_name.table_name values (1, 4, 7), (2, 5, 8), (3, 6, 9);")
-        .expect("no system errors")
-        .expect("rows inserted");
+        .expect("no system errors");
+    engine
+        .execute("select column_3, column_2 from schema_name.table_name;")
+        .expect("no system errors");
 
-    assert_eq!(
-        sql_engine_with_schema
-            .execute("select column_3, column_2 from schema_name.table_name;")
-            .expect("no system errors"),
+    collector.assert_content(vec![
+        Ok(QueryEvent::SchemaCreated),
+        Ok(QueryEvent::TableCreated),
+        Ok(QueryEvent::RecordsInserted(3)),
         Ok(QueryEvent::RecordsSelected((
             vec![
                 ("column_3".to_owned(), PostgreSqlType::SmallInt),
@@ -89,27 +103,29 @@ fn select_not_all_columns(mut sql_engine_with_schema: InMemorySqlEngine) {
                 vec!["7".to_owned(), "4".to_owned()],
                 vec!["8".to_owned(), "5".to_owned()],
                 vec!["9".to_owned(), "6".to_owned()],
-            ]
-        )))
-    );
+            ],
+        ))),
+    ]);
 }
 
 #[rstest::rstest]
-fn select_non_existing_columns_from_table(mut sql_engine_with_schema: InMemorySqlEngine) {
-    sql_engine_with_schema
+fn select_non_existing_columns_from_table(sql_engine_with_schema: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+    let (mut engine, collector) = sql_engine_with_schema;
+    engine
         .execute("create table schema_name.table_name (column_in_table smallint);")
-        .expect("no system errors")
-        .expect("table created");
+        .expect("no system errors");
+    engine
+        .execute("select column_not_in_table1, column_not_in_table2 from schema_name.table_name;")
+        .expect("no system errors");
 
-    assert_eq!(
-        sql_engine_with_schema
-            .execute("select column_not_in_table1, column_not_in_table2 from schema_name.table_name;")
-            .expect("no system errors"),
+    collector.assert_content(vec![
+        Ok(QueryEvent::SchemaCreated),
+        Ok(QueryEvent::TableCreated),
         Err(QueryErrorBuilder::new()
             .column_does_not_exist(vec![
                 "column_not_in_table1".to_owned(),
-                "column_not_in_table2".to_owned()
+                "column_not_in_table2".to_owned(),
             ])
-            .build())
-    );
+            .build()),
+    ]);
 }

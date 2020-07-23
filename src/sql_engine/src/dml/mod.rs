@@ -13,22 +13,28 @@
 // limitations under the License.
 
 use bigdecimal::BigDecimal;
-use protocol::results::{QueryError, QueryErrorBuilder};
+use protocol::{results::QueryErrorBuilder, Sender};
 use sqlparser::ast::{BinaryOperator, Expr, Value};
-use std::ops::Deref;
+use std::{ops::Deref, sync::Arc};
 
 pub(crate) mod delete;
 pub(crate) mod insert;
 pub(crate) mod select;
 pub(crate) mod update;
 
-pub(crate) struct ExpressionEvaluation;
+pub(crate) struct ExpressionEvaluation {
+    session: Arc<dyn Sender>,
+}
 
 impl ExpressionEvaluation {
-    pub(crate) fn eval(expr: &Expr) -> Result<ExprResult, QueryError> {
+    pub(crate) fn new(session: Arc<dyn Sender>) -> ExpressionEvaluation {
+        ExpressionEvaluation { session }
+    }
+
+    pub(crate) fn eval(&mut self, expr: &Expr) -> Result<ExprResult, ()> {
         if let Expr::BinaryOp { op, left, right } = expr {
-            let left = Self::eval(left.deref())?;
-            let right = Self::eval(right.deref())?;
+            let left = self.eval(left.deref())?;
+            let right = self.eval(right.deref())?;
             match (left, right) {
                 (ExprResult::Number(left), ExprResult::Number(right)) => match op {
                     BinaryOperator::Plus => Ok(ExprResult::Number(left + right)),
@@ -46,34 +52,59 @@ impl ExpressionEvaluation {
                         let (right, _) = right.as_bigint_and_exponent();
                         Ok(ExprResult::Number(BigDecimal::from(left | &right)))
                     }
-                    operator => Err(QueryErrorBuilder::new()
-                        .undefined_function(operator.to_string(), "NUMBER".to_owned(), "NUMBER".to_owned())
-                        .build()),
+                    operator => {
+                        self.session
+                            .send(Err(QueryErrorBuilder::new()
+                                .undefined_function(operator.to_string(), "NUMBER".to_owned(), "NUMBER".to_owned())
+                                .build()))
+                            .expect("To Send Query Result to Client");
+                        Err(())
+                    }
                 },
                 (ExprResult::String(left), ExprResult::String(right)) => match op {
                     BinaryOperator::StringConcat => Ok(ExprResult::String(left + right.as_str())),
-                    operator => Err(QueryErrorBuilder::new()
-                        .undefined_function(operator.to_string(), "STRING".to_owned(), "STRING".to_owned())
-                        .build()),
+                    operator => {
+                        self.session
+                            .send(Err(QueryErrorBuilder::new()
+                                .undefined_function(operator.to_string(), "STRING".to_owned(), "STRING".to_owned())
+                                .build()))
+                            .expect("To Send Query Result to Client");
+                        Err(())
+                    }
                 },
                 (ExprResult::Number(left), ExprResult::String(right)) => match op {
                     BinaryOperator::StringConcat => Ok(ExprResult::String(left.to_string() + right.as_str())),
-                    operator => Err(QueryErrorBuilder::new()
-                        .undefined_function(operator.to_string(), "NUMBER".to_owned(), "STRING".to_owned())
-                        .build()),
+                    operator => {
+                        self.session
+                            .send(Err(QueryErrorBuilder::new()
+                                .undefined_function(operator.to_string(), "NUMBER".to_owned(), "STRING".to_owned())
+                                .build()))
+                            .expect("To Send Query Result to Client");
+                        Err(())
+                    }
                 },
                 (ExprResult::String(left), ExprResult::Number(right)) => match op {
                     BinaryOperator::StringConcat => Ok(ExprResult::String(left + right.to_string().as_str())),
-                    operator => Err(QueryErrorBuilder::new()
-                        .undefined_function(operator.to_string(), "STRING".to_owned(), "NUMBER".to_owned())
-                        .build()),
+                    operator => {
+                        self.session
+                            .send(Err(QueryErrorBuilder::new()
+                                .undefined_function(operator.to_string(), "STRING".to_owned(), "NUMBER".to_owned())
+                                .build()))
+                            .expect("To Send Query Result to Client");
+                        Err(())
+                    }
                 },
             }
         } else {
             match expr {
                 Expr::Value(Value::Number(v)) => Ok(ExprResult::Number(v.clone())),
                 Expr::Value(Value::SingleQuotedString(v)) => Ok(ExprResult::String(v.clone())),
-                e => Err(QueryErrorBuilder::new().syntax_error(e.to_string()).build()),
+                e => {
+                    self.session
+                        .send(Err(QueryErrorBuilder::new().syntax_error(e.to_string()).build()))
+                        .expect("To Send Query Result to Client");
+                    Err(())
+                }
             }
         }
     }

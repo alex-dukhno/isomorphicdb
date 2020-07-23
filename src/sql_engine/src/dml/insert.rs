@@ -14,7 +14,10 @@
 
 use crate::query::{Datum, RelationOp, Row, ScalarOp, TableInserts};
 use kernel::SystemResult;
-use protocol::results::{QueryError, QueryErrorBuilder, QueryEvent, QueryResult};
+use protocol::{
+    results::{QueryErrorBuilder, QueryEvent},
+    Sender,
+};
 use sql_types::ConstraintError;
 use sqlparser::ast::{DataType, Expr, Ident, ObjectName, Query, SetExpr, UnaryOperator, Value};
 use std::sync::{Arc, Mutex};
@@ -24,22 +27,25 @@ pub(crate) struct InsertCommand<'q, P: BackendStorage> {
     raw_sql_query: &'q str,
     table_inserts: TableInserts,
     storage: Arc<Mutex<FrontendStorage<P>>>,
+    session: Arc<dyn Sender>,
 }
 
-impl<P: BackendStorage> InsertCommand<'_, P> {
+impl<'ic, P: BackendStorage> InsertCommand<'ic, P> {
     pub(crate) fn new(
         raw_sql_query: &'_ str,
         table_inserts: TableInserts,
         storage: Arc<Mutex<FrontendStorage<P>>>,
-    ) -> InsertCommand<P> {
+        session: Arc<dyn Sender>,
+    ) -> InsertCommand<'ic, P> {
         InsertCommand {
             raw_sql_query,
             table_inserts,
             storage,
+            session,
         }
     }
 
-    pub(crate) fn execute(&mut self) -> SystemResult<QueryResult> {
+    pub(crate) fn execute(&mut self) -> SystemResult<()> {
         let table_id = &self.table_inserts.table_id;
         let columns_indices = self.table_inserts.column_indices.as_slice();
 
@@ -81,13 +87,30 @@ impl<P: BackendStorage> InsertCommand<'_, P> {
                 .unwrap()
                 .insert_into(table_id.schema_name(), table_id.name(), rows)
             {
-                Ok(Ok(())) => Ok(Ok(QueryEvent::RecordsInserted(len))),
+                Ok(Ok(())) => self.session.send(Ok(QueryEvent::RecordsInserted(len))).expect("To Send Query Result to Client"),
                 _ => unreachable!(),
+                    constraint_errors.iter().for_each(|(err, column_definition)| {
+                        constraint_error_mapper(err, column_definition, row_index)
+                    });
+                    self.session
+                        .send(Err(builder.build()))
+                        .expect("To Send Query Result to Client");
+                    Ok(())
+                }
+                Err(OperationOnTableError::InsertTooManyExpressions) => {
+                    self.session
+                        .send(Err(QueryErrorBuilder::new().too_many_insert_expressions().build()))
+                        .expect("To Send Query Result to Client");
+                    Ok(())
+                }
             }
         } else {
-            Ok(Err(QueryErrorBuilder::new()
-                .feature_not_supported(self.raw_sql_query.to_owned())
-                .build()))
+            self.session
+                .send(Err(QueryErrorBuilder::new()
+                    .feature_not_supported(self.raw_sql_query.to_owned())
+                    .build()))
+                .expect("To Send Query Result to Client");
+            Ok(())
         }
     }
 }

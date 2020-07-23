@@ -14,30 +14,48 @@
 
 use crate::query::SchemaCreationInfo;
 use kernel::SystemResult;
-use protocol::results::{QueryErrorBuilder, QueryEvent, QueryResult};
+use protocol::{
+    results::{QueryErrorBuilder, QueryEvent},
+    Sender,
+};
 use std::sync::{Arc, Mutex};
 use storage::{backend::BackendStorage, frontend::FrontendStorage, SchemaAlreadyExists};
 
 pub(crate) struct CreateSchemaCommand<P: BackendStorage> {
     schema_info: SchemaCreationInfo,
     storage: Arc<Mutex<FrontendStorage<P>>>,
+    session: Arc<dyn Sender>,
 }
 
 impl<P: BackendStorage> CreateSchemaCommand<P> {
     pub(crate) fn new(
         schema_info: SchemaCreationInfo,
         storage: Arc<Mutex<FrontendStorage<P>>>,
+        session: Arc<dyn Sender>,
     ) -> CreateSchemaCommand<P> {
-        CreateSchemaCommand { schema_info, storage }
+        CreateSchemaCommand {
+            schema_info,
+            storage,
+            session,
+        }
     }
 
-    pub(crate) fn execute(&mut self) -> SystemResult<QueryResult> {
+    pub(crate) fn execute(&mut self) -> SystemResult<()> {
         let schema_name = &self.schema_info.schema_name;
         match (self.storage.lock().unwrap()).create_schema(schema_name)? {
-            Ok(()) => Ok(Ok(QueryEvent::SchemaCreated)),
-            Err(SchemaAlreadyExists) => Ok(Err(QueryErrorBuilder::new()
-                .schema_already_exists(schema_name.clone())
-                .build())),
+            Ok(()) => {
+                self.session
+                    .send(Ok(QueryEvent::SchemaCreated))
+                    .expect("To Send Query Result to Client");
+                Ok(())
+            }
+            Err(SchemaAlreadyExists) => {
+                let error = QueryErrorBuilder::new()
+                    .schema_already_exists(schema_name.clone())
+                    .build();
+                self.session.send(Err(error)).expect("To Send Query Result to Client");
+                Ok(())
+            }
         }
     }
 }

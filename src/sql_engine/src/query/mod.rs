@@ -79,7 +79,7 @@ impl RelationType {
 
 // this works for now, but ideally this should be usize's instead of strings.
 
-/// represents a table uniquly
+/// represents a table uniquely
 ///
 /// I would like this to be a single 64 bit number where the top bits are the
 /// schema id and lower bits are the table id.
@@ -100,7 +100,7 @@ impl TableId {
     }
 }
 
-/// represents a schema Uniquly
+/// represents a schema uniquely
 ///
 /// this would be a u32
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]

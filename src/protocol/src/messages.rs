@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::ColumnMetadata;
-
 const COMMAND_COMPLETE: u8 = b'C';
 const DATA_ROW: u8 = b'D';
 const ERROR_RESPONSE: u8 = b'E';
@@ -45,7 +43,7 @@ impl Into<&'_ [u8]> for Encryption {
 /// see https://www.postgresql.org/docs/12/protocol-flow.html
 #[allow(dead_code)]
 #[derive(Debug, PartialEq)]
-pub(crate) enum Message {
+pub enum Message {
     /// A warning message has been issued. The frontend should display the message
     /// but continue listening for ReadyForQuery or ErrorResponse.
     NoticeResponse,
@@ -176,6 +174,29 @@ impl Message {
                 parameter_status_buff.extend_from_slice(parameters.as_ref());
                 parameter_status_buff
             }
+        }
+    }
+}
+
+/// Struct description of metadata that describes how client should interpret
+/// outgoing selected data
+#[derive(Clone, Debug, PartialEq)]
+pub struct ColumnMetadata {
+    /// name of the column that was specified in query
+    pub name: String,
+    /// PostgreSQL data type id
+    pub type_id: i32,
+    /// PostgreSQL data type size
+    pub type_size: i16,
+}
+
+impl ColumnMetadata {
+    /// Creates new column metadata
+    pub fn new(name: String, type_id: i32, type_size: i16) -> Self {
+        Self {
+            name,
+            type_id,
+            type_size,
         }
     }
 }
