@@ -382,7 +382,12 @@ fn select_columns_for_non_existent_table(mut storage_with_schema: PersistentStor
             .select_all_from(
                 "system",
                 "columns",
-                vec!["schema_name".to_owned(), "table_name".to_owned(), "column_name".to_owned(), "column_type".to_owned()]
+                vec![
+                    "schema_name".to_owned(),
+                    "table_name".to_owned(),
+                    "column_name".to_owned(),
+                    "column_type".to_owned()
+                ]
             )
             .expect("no system errors"),
         Ok((
@@ -414,7 +419,12 @@ fn select_columns_for_all_tables(default_schema_name: &str, mut storage_with_sch
             .select_all_from(
                 "system",
                 "columns",
-                vec!["schema_name".to_owned(), "table_name".to_owned(), "column_name".to_owned(), "column_type".to_owned()]
+                vec![
+                    "schema_name".to_owned(),
+                    "table_name".to_owned(),
+                    "column_name".to_owned(),
+                    "column_type".to_owned()
+                ]
             )
             .expect("no system errors"),
         Ok((
@@ -425,8 +435,18 @@ fn select_columns_for_all_tables(default_schema_name: &str, mut storage_with_sch
                 column_definition("column_type", SqlType::VarChar(100)),
             ],
             vec![
-                vec![default_schema_name.to_owned(), "table_name_1".to_owned(), "big_int".to_owned(), "BIGINT".to_owned()],
-                vec![default_schema_name.to_owned(), "table_name_1".to_owned(), "char_10".to_owned(), "CHAR (10)".to_owned()],
+                vec![
+                    default_schema_name.to_owned(),
+                    "table_name_1".to_owned(),
+                    "big_int".to_owned(),
+                    "BIGINT".to_owned()
+                ],
+                vec![
+                    default_schema_name.to_owned(),
+                    "table_name_1".to_owned(),
+                    "char_10".to_owned(),
+                    "CHAR (10)".to_owned()
+                ],
             ],
         ))
     );
@@ -446,7 +466,12 @@ fn select_columns_for_all_tables(default_schema_name: &str, mut storage_with_sch
             .select_all_from(
                 "system",
                 "columns",
-                vec!["schema_name".to_owned(), "table_name".to_owned(), "column_name".to_owned(), "column_type".to_owned()]
+                vec![
+                    "schema_name".to_owned(),
+                    "table_name".to_owned(),
+                    "column_name".to_owned(),
+                    "column_type".to_owned()
+                ]
             )
             .expect("no system errors"),
         Ok((
@@ -457,10 +482,30 @@ fn select_columns_for_all_tables(default_schema_name: &str, mut storage_with_sch
                 column_definition("column_type", SqlType::VarChar(100)),
             ],
             vec![
-                vec![default_schema_name.to_owned(), "table_name_1".to_owned(), "big_int".to_owned(), "BIGINT".to_owned()],
-                vec![default_schema_name.to_owned(), "table_name_1".to_owned(), "char_10".to_owned(), "CHAR (10)".to_owned()],
-                vec![default_schema_name.to_owned(), "table_name_2".to_owned(), "decimal".to_owned(), "DECIMAL".to_owned()],
-                vec![default_schema_name.to_owned(), "table_name_2".to_owned(), "var_char_20".to_owned(), "VARCHAR (20)".to_owned()],
+                vec![
+                    default_schema_name.to_owned(),
+                    "table_name_1".to_owned(),
+                    "big_int".to_owned(),
+                    "BIGINT".to_owned()
+                ],
+                vec![
+                    default_schema_name.to_owned(),
+                    "table_name_1".to_owned(),
+                    "char_10".to_owned(),
+                    "CHAR (10)".to_owned()
+                ],
+                vec![
+                    default_schema_name.to_owned(),
+                    "table_name_2".to_owned(),
+                    "decimal".to_owned(),
+                    "DECIMAL".to_owned()
+                ],
+                vec![
+                    default_schema_name.to_owned(),
+                    "table_name_2".to_owned(),
+                    "var_char_20".to_owned(),
+                    "VARCHAR (20)".to_owned()
+                ],
             ],
         ))
     );
@@ -493,7 +538,12 @@ fn select_columns_after_drop(default_schema_name: &str, mut storage_with_schema:
             .select_all_from(
                 "system",
                 "columns",
-                vec!["schema_name".to_owned(), "table_name".to_owned(), "column_name".to_owned(), "column_type".to_owned()]
+                vec![
+                    "schema_name".to_owned(),
+                    "table_name".to_owned(),
+                    "column_name".to_owned(),
+                    "column_type".to_owned()
+                ]
             )
             .expect("no system errors"),
         Ok((
@@ -504,10 +554,30 @@ fn select_columns_after_drop(default_schema_name: &str, mut storage_with_schema:
                 column_definition("column_type", SqlType::VarChar(100)),
             ],
             vec![
-                vec![default_schema_name.to_owned(), "table_name_1".to_owned(), "big_int".to_owned(), "BIGINT".to_owned()],
-                vec![default_schema_name.to_owned(), "table_name_1".to_owned(), "char_10".to_owned(), "CHAR (10)".to_owned()],
-                vec![default_schema_name.to_owned(), "table_name_2".to_owned(), "decimal".to_owned(), "DECIMAL".to_owned()],
-                vec![default_schema_name.to_owned(), "table_name_2".to_owned(), "var_char_20".to_owned(), "VARCHAR (20)".to_owned()],
+                vec![
+                    default_schema_name.to_owned(),
+                    "table_name_1".to_owned(),
+                    "big_int".to_owned(),
+                    "BIGINT".to_owned()
+                ],
+                vec![
+                    default_schema_name.to_owned(),
+                    "table_name_1".to_owned(),
+                    "char_10".to_owned(),
+                    "CHAR (10)".to_owned()
+                ],
+                vec![
+                    default_schema_name.to_owned(),
+                    "table_name_2".to_owned(),
+                    "decimal".to_owned(),
+                    "DECIMAL".to_owned()
+                ],
+                vec![
+                    default_schema_name.to_owned(),
+                    "table_name_2".to_owned(),
+                    "var_char_20".to_owned(),
+                    "VARCHAR (20)".to_owned()
+                ],
             ],
         ))
     );
@@ -524,7 +594,12 @@ fn select_columns_after_drop(default_schema_name: &str, mut storage_with_schema:
             .select_all_from(
                 "system",
                 "columns",
-                vec!["schema_name".to_owned(), "table_name".to_owned(), "column_name".to_owned(), "column_type".to_owned()]
+                vec![
+                    "schema_name".to_owned(),
+                    "table_name".to_owned(),
+                    "column_name".to_owned(),
+                    "column_type".to_owned()
+                ]
             )
             .expect("no system errors"),
         Ok((
@@ -535,8 +610,18 @@ fn select_columns_after_drop(default_schema_name: &str, mut storage_with_schema:
                 column_definition("column_type", SqlType::VarChar(100)),
             ],
             vec![
-                vec![default_schema_name.to_owned(), "table_name_2".to_owned(), "decimal".to_owned(), "DECIMAL".to_owned()],
-                vec![default_schema_name.to_owned(), "table_name_2".to_owned(), "var_char_20".to_owned(), "VARCHAR (20)".to_owned()],
+                vec![
+                    default_schema_name.to_owned(),
+                    "table_name_2".to_owned(),
+                    "decimal".to_owned(),
+                    "DECIMAL".to_owned()
+                ],
+                vec![
+                    default_schema_name.to_owned(),
+                    "table_name_2".to_owned(),
+                    "var_char_20".to_owned(),
+                    "VARCHAR (20)".to_owned()
+                ],
             ],
         ))
     );
@@ -553,7 +638,12 @@ fn select_columns_after_drop(default_schema_name: &str, mut storage_with_schema:
             .select_all_from(
                 "system",
                 "columns",
-                vec!["schema_name".to_owned(), "table_name".to_owned(), "column_name".to_owned(), "column_type".to_owned()]
+                vec![
+                    "schema_name".to_owned(),
+                    "table_name".to_owned(),
+                    "column_name".to_owned(),
+                    "column_type".to_owned()
+                ]
             )
             .expect("no system errors"),
         Ok((

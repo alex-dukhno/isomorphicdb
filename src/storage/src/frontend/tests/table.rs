@@ -161,9 +161,7 @@ fn drop_not_created_table(default_schema_name: &str, mut storage_with_schema: Pe
 #[rstest::rstest]
 fn columns_on_system_table(storage: PersistentStorage) {
     assert_eq!(
-        storage
-            .table_columns("system", "columns")
-            .expect("no system errors"),
+        storage.table_columns("system", "columns").expect("no system errors"),
         vec![
             column_definition("schema_name", SqlType::VarChar(100)),
             column_definition("table_name", SqlType::VarChar(100)),
