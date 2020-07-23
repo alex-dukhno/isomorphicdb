@@ -32,7 +32,7 @@ pub(crate) struct InsertCommand<'q, P: BackendStorage> {
 
 impl<'ic, P: BackendStorage> InsertCommand<'ic, P> {
     pub(crate) fn new(
-        raw_sql_query: &'_ str,
+        raw_sql_query: &'ic str,
         table_inserts: TableInserts,
         storage: Arc<Mutex<FrontendStorage<P>>>,
         session: Arc<dyn Sender>,
@@ -89,21 +89,22 @@ impl<'ic, P: BackendStorage> InsertCommand<'ic, P> {
             {
                 Ok(Ok(())) => self.session.send(Ok(QueryEvent::RecordsInserted(len))).expect("To Send Query Result to Client"),
                 _ => unreachable!(),
-                    constraint_errors.iter().for_each(|(err, column_definition)| {
-                        constraint_error_mapper(err, column_definition, row_index)
-                    });
-                    self.session
-                        .send(Err(builder.build()))
-                        .expect("To Send Query Result to Client");
-                    Ok(())
-                }
-                Err(OperationOnTableError::InsertTooManyExpressions) => {
-                    self.session
-                        .send(Err(QueryErrorBuilder::new().too_many_insert_expressions().build()))
-                        .expect("To Send Query Result to Client");
-                    Ok(())
-                }
+                //     constraint_errors.iter().for_each(|(err, column_definition)| {
+                //         constraint_error_mapper(err, column_definition, row_index)
+                //     });
+                //     self.session
+                //         .send(Err(builder.build()))
+                //         .expect("To Send Query Result to Client");
+                //     Ok(())
+                // }
+                // Err(OperationOnTableError::InsertTooManyExpressions) => {
+                //     self.session
+                //         .send(Err(QueryErrorBuilder::new().too_many_insert_expressions().build()))
+                //         .expect("To Send Query Result to Client");
+                //     Ok(())
+                // }
             }
+            Ok(())
         } else {
             self.session
                 .send(Err(QueryErrorBuilder::new()

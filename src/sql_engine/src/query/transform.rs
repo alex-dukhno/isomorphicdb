@@ -14,17 +14,18 @@
 
 ///! Module for transforming the input Query AST into representation the engine can process.
 use crate::query::plan::SchemaCreationInfo;
-use crate::query::{plan::Plan, SchemaId, TableCreationInfo, TableId};
+use crate::query::{plan::Plan, SchemaId, TableCreationInfo, TableId, RelationError, ScalarOp, RelationOp, RelationType, TableInserts, Row};
+use crate::query::expr::{resolve_static_expr, EvalError};
 use protocol::{results::QueryErrorBuilder, Sender};
 use sql_types::SqlType;
-use sqlparser::ast::{ColumnDef, DataType, ObjectName, ObjectType, Statement};
+use sqlparser::ast::{ColumnDef, DataType, ObjectName, ObjectType, Statement, SetExpr, Select, Values, TableWithJoins, TableFactor, Query, Ident};
 use std::sync::{Arc, Mutex, MutexGuard};
 use storage::{
     backend::BackendStorage, frontend::FrontendStorage, ColumnDefinition, OperationOnTableError, TableDescription,
 };
 
 // I do not know what the error type is yet.
-type Result<T> = ::std::result::Result<T, TransformError>;
+type Result<T> = ::std::result::Result<T, ()>;
 
 // this could probably just be a function.
 /// structure for maintaining state while transforming the input statement.
@@ -155,7 +156,7 @@ impl<'qp, B: BackendStorage> QueryProcessor<B> {
             //     let op = self.handle_query(query.as_ref())?;
             //     Ok(Plan::Query(Box::new(op)))
             // }
-            other => Err(Plan::NotProcessed(other.clone())),
+            other => Ok(Plan::NotProcessed(other.clone())),
         }
     }
 
@@ -251,7 +252,7 @@ impl<'qp, B: BackendStorage> QueryProcessor<B> {
     }
 
     fn handle_insert(&mut self, name: &ObjectName, columns: &[Ident], source: &Query) -> Result<Plan> {
-        let table_name = table_from_object(name)?;
+        let table_name = self.table_from_object(name)?;
         let query_op = self.handle_query(source)?;
 
         let table_descriptor = self
@@ -260,10 +261,10 @@ impl<'qp, B: BackendStorage> QueryProcessor<B> {
             .unwrap()
             .map_err(|e| match e {
                 OperationOnTableError::SchemaDoesNotExist => {
-                    TransformError::from(PlanError::InvalidSchema(table_name.schema_name().to_string()))
+                    // TransformError::from(PlanError::InvalidSchema(table_name.schema_name().to_string()))
                 }
                 OperationOnTableError::TableDoesNotExist => {
-                    TransformError::from(PlanError::InvalidTable(table_name.name().to_string()))
+                    // TransformError::from(PlanError::InvalidTable(table_name.name().to_string()))
                 }
                 _ => unreachable!(),
             })?;
@@ -280,10 +281,10 @@ impl<'qp, B: BackendStorage> QueryProcessor<B> {
                 {
                     column_indices.push(ScalarOp::Column(idx));
                 } else {
-                    return Err(TransformError::from(RelationError::InvalidColumnName {
-                        column: column.value.clone(),
-                        table: table_descriptor.full_name(),
-                    }));
+                    // return Err(TransformError::from(RelationError::InvalidColumnName {
+                    //     column: column.value.clone(),
+                    //     table: table_descriptor.full_name(),
+                    // }));
                 }
             }
             column_indices
@@ -331,7 +332,7 @@ impl<'qp, B: BackendStorage> QueryProcessor<B> {
             SetExpr::Select(select) => self.handle_select(select),
             SetExpr::Query(query) => self.handle_query(query),
             SetExpr::Values(values) => self.handle_values(values),
-            e => Err(TransformError::UnimplementedFeature(format!("{:?}", e))),
+            e => Err(QueryErrorBuilder::new().feature_not_supported(format!("{:?}", e)).build()).expect("To Send Query Processor Error to Client"),
         }
     }
     fn handle_select(&mut self, select: &Select) -> Result<RelationOp> {
@@ -353,20 +354,36 @@ impl<'qp, B: BackendStorage> QueryProcessor<B> {
         // 4. resolve having
         // 5. resolve projection
 
-        Err(TransformError::UnimplementedFeature(
-            "select clauses are not implemented".to_string(),
-        ))
+        self.session.send(Err(QueryErrorBuilder::new().feature_not_supported("select statements".to_string()).build())).expect("To Send Query Processor Error to Client");
+        Err(())
     }
 
     fn handle_values(&self, values: &Values) -> Result<RelationOp> {
         let mut rows = Vec::new();
         for expr_row in values.0.iter() {
             let mut row = Vec::new();
-            for expr in expr_row {
-                let datum = resolve_static_expr(&expr).map_err(|e| TransformError::from(e))?;
-                row.push(datum);
+            let mut errors = Vec::new();
+            for expr in expr_row{
+                match resolve_static_expr(&expr) {
+                    Ok(datum) => rows.push(Row::pack(&row)),
+                    Err(e) => errors.push(e),
+                }
             }
-            rows.push(Row::pack(&row));
+
+            if !errors.is_empty() {
+                // let mut builder = QueryErrorBuilder::new();
+                // for error in errors {
+                //     match error {
+                //         EvalError::OutOfRangeNumeric(idx) => {
+                //             // we do not have access to the information we need here to handle this here.
+                //             // maybe there is a better place to handle these errors.
+                //             builder.out_of_range();
+                //         }
+                //     }
+                // }
+                self.session.send(Err(QueryErrorBuilder::new().feature_not_supported("constraint errors are not handled right now".to_string()).build())).expect("Sending Error to Client");
+                return Err(());
+            }
         }
         Ok(RelationOp::Constants(rows))
     }
@@ -379,9 +396,8 @@ impl<'qp, B: BackendStorage> QueryProcessor<B> {
             unimplemented!()
         } else {
             // cartician product.
-            Err(TransformError::UnimplementedFeature(
-                "multiple table in the from clause are not implemented".to_string(),
-            ))
+            self.session.send(Err(QueryErrorBuilder::new().feature_not_supported("multi-table select".to_string()).build())).expect("To Send Query Processor Error to Client");
+            Err(())
         }
     }
 

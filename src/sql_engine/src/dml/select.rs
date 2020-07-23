@@ -120,7 +120,8 @@ impl<'sc, P: BackendStorage> SelectCommand<'sc, P> {
                     let projection = (columns, row_data);
                     self.session
                         .send(Ok(QueryEvent::RecordsSelected(projection)))
-                        .expect("To Send Query Result to Client")
+                        .expect("To Send Query Result to Client");
+                    Ok(())
                 }
                 Err(OperationOnTableError::ColumnDoesNotExist(non_existing_columns)) => {
                     self.session

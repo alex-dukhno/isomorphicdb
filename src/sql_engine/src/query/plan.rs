@@ -15,6 +15,7 @@
 ///! represents a plan to be executed by the engine.
 use super::{relation::RelationOp, ScalarOp, SchemaId, TableId};
 use storage::ColumnDefinition;
+use sqlparser::ast::Statement;
 
 #[derive(Debug)]
 pub enum PlanError {
