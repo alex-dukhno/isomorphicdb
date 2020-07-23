@@ -20,22 +20,20 @@ mod ddl;
 mod dml;
 pub mod query;
 
-use {
-    ddl::{
-        create_schema::CreateSchemaCommand, create_table::CreateTableCommand, drop_schema::DropSchemaCommand,
-        drop_table::DropTableCommand,
-    },
-    dml::{delete::DeleteCommand, insert::InsertCommand, select::SelectCommand, update::UpdateCommand},
+use ddl::{
+    create_schema::CreateSchemaCommand, create_table::CreateTableCommand, drop_schema::DropSchemaCommand,
+    drop_table::DropTableCommand,
 };
+use dml::{delete::DeleteCommand, insert::InsertCommand, select::SelectCommand, update::UpdateCommand};
 
 use kernel::SystemResult;
 use protocol::results::{QueryErrorBuilder, QueryEvent};
 
-use crate::query::{Plan, QueryProcessor};
 use protocol::Sender;
+use query::{Plan, QueryProcessor};
 use sqlparser::{ast::Statement, dialect::PostgreSqlDialect, parser::Parser};
 use std::sync::{Arc, Mutex};
-use storage::{backend::BackendStorage, frontend::FrontendStorage, ColumnDefinition, TableDescription};
+use storage::{backend::BackendStorage, frontend::FrontendStorage};
 
 pub struct QueryExecutor<P: BackendStorage> {
     storage: Arc<Mutex<FrontendStorage<P>>>,

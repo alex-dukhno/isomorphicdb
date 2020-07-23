@@ -14,7 +14,7 @@
 
 ///! Module for representing scalar level operations. Implementation of
 ///! theses operators will be defined in a sperate module.
-use super::{ColumnType, RelationType, Row};
+use super::{RelationType, Row};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BinaryOp {}

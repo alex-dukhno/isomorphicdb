@@ -15,78 +15,76 @@
 use super::*;
 use sql_types::SqlType;
 
-#[rstest::rstest]
-fn delete_all_from_non_existent_schema(mut storage: PersistentStorage) {
-    assert_eq!(
-        storage
-            .delete_all_from("non_existent", "table_name")
-            .expect("no system errors"),
-        Err(OperationOnTableError::SchemaDoesNotExist)
-    );
-}
-
-#[rstest::rstest]
-fn delete_all_from_not_existed_table(default_schema_name: &str, mut storage_with_schema: PersistentStorage) {
-    assert_eq!(
-        storage_with_schema
-            .delete_all_from(default_schema_name, "table_name")
-            .expect("no system errors"),
-        Err(OperationOnTableError::TableDoesNotExist)
-    );
-}
-
-#[rstest::rstest]
-fn delete_all_from_table(default_schema_name: &str, mut storage_with_schema: PersistentStorage) {
-    create_table(
-        &mut storage_with_schema,
-        default_schema_name,
-        "table_name",
-        vec![ColumnDefinition::new(
-            "column_test",
-            SqlType::SmallInt(i16::min_value()),
-        )],
-    );
-
-    insert_into(
-        &mut storage_with_schema,
-        default_schema_name,
-        "table_name",
-        vec![],
-    );
-    insert_into(
-        &mut storage_with_schema,
-        default_schema_name,
-        "table_name",
-        vec![Datum::from_i16(456)],
-    );
-    insert_into(
-        &mut storage_with_schema,
-        default_schema_name,
-        "table_name",
-        vec![Datum::from_i16(789)],
-    );
-
-    assert_eq!(
-        storage_with_schema
-            .delete_all_from(default_schema_name, "table_name")
-            .expect("no system errors"),
-        Ok(3)
-    );
-
-    let table_columns = storage_with_schema
-        .table_columns(default_schema_name, "table_name")
-        .expect("no system errors")
-        .into_iter()
-        .map(|column_definition| column_definition.name())
-        .collect();
-
-    assert_eq!(
-        storage_with_schema
-            .select_all_from("schema_name", "table_name", table_columns)
-            .expect("no system errors"),
-        Ok((
-            vec![column_definition("column_test", SqlType::SmallInt(i16::min_value()))],
-            vec![]
-        ))
-    );
-}
+// #[rstest::rstest]
+// #[ignore]
+// fn delete_all_from_non_existent_schema(mut storage: PersistentStorage) {
+//     assert_eq!(
+//         storage
+//             .delete_all_from("non_existent", "table_name")
+//             .expect("no system errors"),
+//         Err(OperationOnTableError::SchemaDoesNotExist)
+//     );
+// }
+//
+// #[rstest::rstest]
+// #[ignore]
+// fn delete_all_from_not_existed_table(default_schema_name: &str, mut storage_with_schema: PersistentStorage) {
+//     assert_eq!(
+//         storage_with_schema
+//             .delete_all_from(default_schema_name, "table_name")
+//             .expect("no system errors"),
+//         Err(OperationOnTableError::TableDoesNotExist)
+//     );
+// }
+//
+// #[rstest::rstest]
+// #[ignore]
+// fn delete_all_from_table(default_schema_name: &str, mut storage_with_schema: PersistentStorage) {
+//     create_table(
+//         &mut storage_with_schema,
+//         default_schema_name,
+//         "table_name",
+//         vec![ColumnDefinition::new(
+//             "column_test",
+//             SqlType::SmallInt(i16::min_value()),
+//         )],
+//     );
+//
+//     insert_into(&mut storage_with_schema, default_schema_name, "table_name", vec![]);
+//     insert_into(
+//         &mut storage_with_schema,
+//         default_schema_name,
+//         "table_name",
+//         vec![Datum::from_i16(456)],
+//     );
+//     insert_into(
+//         &mut storage_with_schema,
+//         default_schema_name,
+//         "table_name",
+//         vec![Datum::from_i16(789)],
+//     );
+//
+//     assert_eq!(
+//         storage_with_schema
+//             .delete_all_from(default_schema_name, "table_name")
+//             .expect("no system errors"),
+//         Ok(3)
+//     );
+//
+//     let table_columns = storage_with_schema
+//         .table_columns(default_schema_name, "table_name")
+//         .expect("no system errors")
+//         .into_iter()
+//         .map(|column_definition| column_definition.name())
+//         .collect();
+//
+//     assert_eq!(
+//         storage_with_schema
+//             .select_all_from("schema_name", "table_name", table_columns)
+//             .expect("no system errors"),
+//         Ok((
+//             vec![column_definition("column_test", SqlType::SmallInt(i16::min_value()))],
+//             vec![]
+//         ))
+//     );
+// }

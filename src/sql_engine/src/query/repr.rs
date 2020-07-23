@@ -12,9 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::query::RelationType;
 use ordered_float::OrderedFloat;
-use sql_types::SqlType;
 
 ///! Runtime cell and row representation.
 
@@ -97,6 +95,7 @@ impl<'a> Datum<'a> {
         Datum::Float64(val.into())
     }
 
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(val: &'a str) -> Datum<'a> {
         Datum::String(val)
     }
@@ -244,6 +243,7 @@ impl Row {
         Self::default()
     }
 
+    #[allow(clippy::wrong_self_convention)]
     pub fn to_bytes(self) -> Vec<u8> {
         self.data
     }
@@ -302,7 +302,7 @@ impl Row {
         Self { data }
     }
 
-    pub fn unpack<'a>(&'a self) -> Vec<Datum<'a>> {
+    pub fn unpack(&self) -> Vec<Datum> {
         let mut index = 0;
         let mut res = Vec::new();
         let data = self.data.as_slice();

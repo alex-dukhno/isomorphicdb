@@ -14,16 +14,15 @@
 
 ///! Module for representing how a query will be executed and values represented
 ///! during runtime.
-mod expr;
+pub mod expr;
 mod plan;
 mod relation;
 mod repr;
 mod scalar;
 mod transform;
 
-use expr::resolve_static_expr;
 use expr::EvalError;
-pub use plan::{Plan, PlanError, SchemaCreationInfo, TableCreationInfo, TableInserts};
+pub use plan::{Plan, SchemaCreationInfo, TableCreationInfo, TableInserts};
 pub use transform::QueryProcessor;
 
 pub use relation::{RelationError, RelationOp};
@@ -120,16 +119,9 @@ impl SchemaId {
 pub enum TransformError {
     UnimplementedFeature(String),
     SyntaxError(String),
-    PlanError(PlanError),
     RelationError(RelationError),
     EvalError(EvalError),
     NotProcessed(Statement),
-}
-
-impl From<PlanError> for TransformError {
-    fn from(other: PlanError) -> TransformError {
-        TransformError::PlanError(other)
-    }
 }
 
 impl From<RelationError> for TransformError {

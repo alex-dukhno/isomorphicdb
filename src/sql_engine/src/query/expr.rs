@@ -13,8 +13,10 @@
 // limitations under the License.
 
 use crate::query::repr::Datum;
-use sqlparser::ast::{BinaryOperator, Expr, UnaryOperator, Value};
+use bigdecimal::BigDecimal;
+use sqlparser::ast::{Expr, UnaryOperator, Value};
 use std::convert::TryFrom;
+use std::str::FromStr;
 
 #[derive(Debug, Clone)]
 pub enum EvalError {
@@ -40,14 +42,12 @@ impl<'a> TryFrom<&Value> for Datum<'a> {
                     } else {
                         Err(EvalError::OutOfRangeNumeric)
                     }
+                } else if let Some(val) = val.to_f32() {
+                    Ok(Datum::from_f32(val))
+                } else if let Some(val) = val.to_f64() {
+                    Ok(Datum::from_f64(val))
                 } else {
-                    if let Some(val) = val.to_f32() {
-                        Ok(Datum::from_f32(val))
-                    } else if let Some(val) = val.to_f64() {
-                        Ok(Datum::from_f64(val))
-                    } else {
-                        Err(EvalError::OutOfRangeNumeric)
-                    }
+                    Err(EvalError::OutOfRangeNumeric)
                 }
             }
             SingleQuotedString(value) => Ok(Datum::from_string(value.clone())),
@@ -68,10 +68,9 @@ impl<'a> TryFrom<&Value> for Datum<'a> {
 // expression is being evaluated. It is expected this function to be used in places the expression
 // will result in an actual "value" or Datum. Which for most of those evaluations we what to know
 // the information about the query that we currently do not have.
-pub fn resolve_static_expr<'a>(expr: &'a Expr) -> Result<Datum<'a>, EvalError> {
-    use Expr::*;
+pub fn resolve_static_expr(expr: &Expr) -> Result<Datum, EvalError> {
     match expr {
-        BinaryOp { .. } => {
+        Expr::BinaryOp { .. } => {
             /*
                         let resolved_left = resolve_static_expr(left)?;
                         let resolved_right = resolve_static_expr(right)?;
@@ -79,13 +78,16 @@ pub fn resolve_static_expr<'a>(expr: &'a Expr) -> Result<Datum<'a>, EvalError> {
             */
             Err(EvalError::UnsupportedOperation)
         }
-        UnaryOp { .. } => {
-            // let operand = resolve_static_expr(&expr)?;
-            // resolve_unary_expr(*op, operand)
-            Err(EvalError::UnsupportedOperation)
+        Expr::UnaryOp { op, expr } => {
+            match (op, &**expr) {
+                (UnaryOperator::Minus, Expr::Value(Value::Number(v))) => Datum::try_from(&Value::Number(-v)),
+                // let operand = resolve_static_expr(&expr)?;
+                // resolve_unary_expr(*op, operand)
+                _ => Err(EvalError::UnsupportedOperation),
+            }
         }
-        Nested(expr) => resolve_static_expr(&expr),
-        Value(value) => Datum::try_from(value),
+        Expr::Nested(expr) => resolve_static_expr(&expr),
+        Expr::Value(value) => Datum::try_from(value),
         _ => Err(EvalError::InvalidExpressionInStaticContext),
     }
 }

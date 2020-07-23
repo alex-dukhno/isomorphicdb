@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use crate::dml::ExpressionEvaluation;
+use crate::query::expr::resolve_static_expr;
 use kernel::SystemResult;
 use protocol::{
     results::{QueryErrorBuilder, QueryEvent},
@@ -57,31 +58,42 @@ impl<'uc, P: BackendStorage> UpdateCommand<'uc, P> {
             let Assignment { id, value } = &item;
             let Ident { value: column, .. } = id;
 
-            let value = match value {
-                Expr::Value(Value::Number(val)) => val.to_string(),
-                Expr::Value(Value::SingleQuotedString(v)) => v.to_string(),
-                Expr::UnaryOp { op, expr } => match (op, &**expr) {
-                    (UnaryOperator::Minus, Expr::Value(Value::Number(v))) => "-".to_owned() + v.to_string().as_str(),
-                    (op, expr) => {
-                        self.session
-                            .send(Err(QueryErrorBuilder::new()
-                                .syntax_error(op.to_string() + expr.to_string().as_str())
-                                .build()))
-                            .expect("To Send Query Result to Client");
-                        return Ok(());
-                    }
-                },
-                expr @ Expr::BinaryOp { .. } => match ExpressionEvaluation::new(self.session.clone()).eval(expr) {
-                    Ok(expr_result) => expr_result.value(),
-                    Err(()) => return Ok(()),
-                },
-                expr => {
+            let value = match resolve_static_expr(value) {
+                Ok(datum) => datum,
+                Err(e) => {
                     self.session
-                        .send(Err(QueryErrorBuilder::new().syntax_error(expr.to_string()).build()))
-                        .expect("To Send Query Result to Client");
+                        .send(Err(QueryErrorBuilder::new()
+                            .feature_not_supported(format!("{:?}", e))
+                            .build()))
+                        .expect("To Send Result to Client");
                     return Ok(());
                 }
             };
+            // let value = match value {
+            //     Expr::Value(Value::Number(val)) => val.to_string(),
+            //     Expr::Value(Value::SingleQuotedString(v)) => v.to_string(),
+            //     Expr::UnaryOp { op, expr } => match (op, &**expr) {
+            //         (UnaryOperator::Minus, Expr::Value(Value::Number(v))) => "-".to_owned() + v.to_string().as_str(),
+            //         (op, expr) => {
+            //             self.session
+            //                 .send(Err(QueryErrorBuilder::new()
+            //                     .syntax_error(op.to_string() + expr.to_string().as_str())
+            //                     .build()))
+            //                 .expect("To Send Query Result to Client");
+            //             return Ok(());
+            //         }
+            //     },
+            //     expr @ Expr::BinaryOp { .. } => match ExpressionEvaluation::new(self.session.clone()).eval(expr) {
+            //         Ok(expr_result) => expr_result.value(),
+            //         Err(()) => return Ok(()),
+            //     },
+            //     expr => {
+            //         self.session
+            //             .send(Err(QueryErrorBuilder::new().syntax_error(expr.to_string()).build()))
+            //             .expect("To Send Query Result to Client");
+            //         return Ok(());
+            //     }
+            // };
 
             to_update.push((column.to_owned(), value))
         }

@@ -19,12 +19,11 @@ use protocol::{
     Sender,
 };
 use sql_types::ConstraintError;
-use sqlparser::ast::{DataType, Expr, Ident, ObjectName, Query, SetExpr, UnaryOperator, Value};
 use std::sync::{Arc, Mutex};
 use storage::{backend::BackendStorage, frontend::FrontendStorage, ColumnDefinition, OperationOnTableError};
 
-pub(crate) struct InsertCommand<'q, P: BackendStorage> {
-    raw_sql_query: &'q str,
+pub(crate) struct InsertCommand<'ic, P: BackendStorage> {
+    raw_sql_query: &'ic str,
     table_inserts: TableInserts,
     storage: Arc<Mutex<FrontendStorage<P>>>,
     session: Arc<dyn Sender>,
@@ -78,33 +77,82 @@ impl<'ic, P: BackendStorage> InsertCommand<'ic, P> {
             };
 
             let len = rows.len();
-
             log::debug!("Row Data: {:#?}", rows);
+            match (self.storage.lock().unwrap()).insert_into(table_id.schema_name(), table_id.name(), rows)? {
+                Ok(_) => {
+                    self.session
+                        .send(Ok(QueryEvent::RecordsInserted(len)))
+                        .expect("To Send Query Result to Client");
+                    Ok(())
+                }
+                Err(OperationOnTableError::SchemaDoesNotExist) => {
+                    self.session
+                        .send(Err(QueryErrorBuilder::new()
+                            .schema_does_not_exist(table_id.schema_name().to_owned())
+                            .build()))
+                        .expect("To Send Query Result to Client");
+                    Ok(())
+                }
+                Err(OperationOnTableError::TableDoesNotExist) => {
+                    self.session
+                        .send(Err(QueryErrorBuilder::new()
+                            .table_does_not_exist(table_id.schema_name().to_owned() + "." + table_id.name())
+                            .build()))
+                        .expect("To Send Query Result to Client");
+                    Ok(())
+                }
+                Err(OperationOnTableError::ColumnDoesNotExist(non_existing_columns)) => {
+                    self.session
+                        .send(Err(QueryErrorBuilder::new()
+                            .column_does_not_exist(non_existing_columns)
+                            .build()))
+                        .expect("To Send Query Result to Client");
+                    Ok(())
+                }
+                Err(OperationOnTableError::ConstraintViolations(constraint_errors, row_index)) => {
+                    let mut builder = QueryErrorBuilder::new();
+                    let mut constraint_error_mapper =
+                        |err: &ConstraintError, column_definition: &ColumnDefinition, row_index: usize| match err {
+                            ConstraintError::OutOfRange => {
+                                builder.out_of_range(
+                                    column_definition.sql_type().to_pg_types(),
+                                    column_definition.name(),
+                                    row_index,
+                                );
+                            }
+                            ConstraintError::TypeMismatch(value) => {
+                                builder.type_mismatch(
+                                    value,
+                                    column_definition.sql_type().to_pg_types(),
+                                    column_definition.name(),
+                                    row_index,
+                                );
+                            }
+                            ConstraintError::ValueTooLong(len) => {
+                                builder.string_length_mismatch(
+                                    column_definition.sql_type().to_pg_types(),
+                                    *len,
+                                    column_definition.name(),
+                                    row_index,
+                                );
+                            }
+                        };
 
-            match self
-                .storage
-                .lock()
-                .unwrap()
-                .insert_into(table_id.schema_name(), table_id.name(), rows)
-            {
-                Ok(Ok(())) => self.session.send(Ok(QueryEvent::RecordsInserted(len))).expect("To Send Query Result to Client"),
-                _ => unreachable!(),
-                //     constraint_errors.iter().for_each(|(err, column_definition)| {
-                //         constraint_error_mapper(err, column_definition, row_index)
-                //     });
-                //     self.session
-                //         .send(Err(builder.build()))
-                //         .expect("To Send Query Result to Client");
-                //     Ok(())
-                // }
-                // Err(OperationOnTableError::InsertTooManyExpressions) => {
-                //     self.session
-                //         .send(Err(QueryErrorBuilder::new().too_many_insert_expressions().build()))
-                //         .expect("To Send Query Result to Client");
-                //     Ok(())
-                // }
+                    constraint_errors.iter().for_each(|(err, column_definition)| {
+                        constraint_error_mapper(err, column_definition, row_index)
+                    });
+                    self.session
+                        .send(Err(builder.build()))
+                        .expect("To Send Query Result to Client");
+                    Ok(())
+                }
+                Err(OperationOnTableError::InsertTooManyExpressions) => {
+                    self.session
+                        .send(Err(QueryErrorBuilder::new().too_many_insert_expressions().build()))
+                        .expect("To Send Query Result to Client");
+                    Ok(())
+                }
             }
-            Ok(())
         } else {
             self.session
                 .send(Err(QueryErrorBuilder::new()
