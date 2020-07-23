@@ -99,24 +99,21 @@ impl<P: BackendStorage> FrontendStorage<P> {
 
                     self.key_id_generator += 1;
 
+                    let ser = SqlType::VarChar(100).serializer();
                     let value = vec![
-                        SqlType::VarChar(100).serializer().ser(schema_name),
-                        SqlType::VarChar(100).serializer().ser(table_name),
-                        SqlType::VarChar(100).serializer().ser(column.name.as_str()),
-                        SqlType::VarChar(100).serializer().ser(column.sql_type.to_string().as_str()),
+                        ser.ser(schema_name),
+                        ser.ser(table_name),
+                        ser.ser(column.name.as_str()),
+                        ser.ser(column.sql_type.to_string().as_str()),
                         bincode::serialize(&column.sql_type).unwrap(),
-                    ].join(&b'|');
+                    ]
+                    .join(&b'|');
 
                     rows.push((key, value));
                 }
 
-                self
-                    .persistent
-                    .write(
-                        "system",
-                        "columns",
-                        rows,
-                    )?
+                self.persistent
+                    .write("system", "columns", rows)?
                     .map(|_| {
                         log::info!("column data is recorded");
                         Ok(())
@@ -129,7 +126,7 @@ impl<P: BackendStorage> FrontendStorage<P> {
                         log::error!("{}", message);
                         SystemError::unrecoverable(message)
                     })
-            },
+            }
             Err(CreateObjectError::ObjectAlreadyExists) => Ok(Err(CreateTableError::TableAlreadyExists)),
             Err(CreateObjectError::NamespaceDoesNotExist) => Ok(Err(CreateTableError::SchemaDoesNotExist)),
         }
@@ -152,18 +149,19 @@ impl<P: BackendStorage> FrontendStorage<P> {
                     .map(|row| {
                         let (_, values) = row.unwrap();
 
-                        let values = values
-                            .split(|b| *b == b'|')
-                            .collect::<Vec<_>>();
+                        let values = values.split(|b| *b == b'|').collect::<Vec<_>>();
 
-                        let schema = SqlType::VarChar(100).serializer().des(values[0]);
-                        let table = SqlType::VarChar(100).serializer().des(values[1]);
-                        let column = SqlType::VarChar(100).serializer().des(values[2]);
+                        let ser = SqlType::VarChar(100).serializer();
+                        let schema = ser.des(values[0]);
+                        let table = ser.des(values[1]);
+                        let column = ser.des(values[2]);
                         let sql_type: SqlType = bincode::deserialize(values[4]).unwrap();
 
                         (schema, table, column, sql_type)
                     })
-                    .filter(|(schema, table, _, _)| *schema == schema_name.to_string() && *table == table_name.to_string())
+                    .filter(|(schema, table, _, _)| {
+                        *schema == schema_name.to_string() && *table == table_name.to_string()
+                    })
                     .map(|(_, _, column, sql_type)| ColumnDefinition::new(column.as_str(), sql_type))
                     .collect::<Vec<_>>()
             })
