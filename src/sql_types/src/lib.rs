@@ -15,7 +15,6 @@
 use protocol::sql_types::PostgreSqlType;
 use serde::{Deserialize, Serialize};
 use std::convert::TryInto;
-use std::fmt;
 
 #[derive(PartialEq, Eq, Debug, Copy, Clone, Serialize, Deserialize)]
 pub enum SqlType {
@@ -34,28 +33,6 @@ pub enum SqlType {
     TimestampWithTimeZone,
     Date,
     Interval,
-}
-
-impl fmt::Display for SqlType {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            SqlType::Bool => write!(f, "BOOL"),
-            SqlType::Char(s) => write!(f, "CHAR ({})", s),
-            SqlType::VarChar(s) => write!(f, "VARCHAR ({})", s),
-            SqlType::Decimal => write!(f, "DECIMAL"),
-            SqlType::SmallInt(_) => write!(f, "SMALLINT"),
-            SqlType::Integer(_) => write!(f, "INT"),
-            SqlType::BigInt(_) => write!(f, "BIGINT"),
-            SqlType::Real => write!(f, "REAL"),
-            SqlType::DoublePrecision => write!(f, "DOUBLE"),
-            SqlType::Time => write!(f, "TIME"),
-            SqlType::TimeWithTimeZone => write!(f, "TIME_WITH_TIMEZONE"),
-            SqlType::Timestamp => write!(f, "TIMESTAMP"),
-            SqlType::TimestampWithTimeZone => write!(f, "TIMESTAMP_WITH_TIMEZONE"),
-            SqlType::Date => write!(f, "DATE"),
-            SqlType::Interval => write!(f, "INTERVAL"),
-        }
-    }
 }
 
 impl SqlType {
