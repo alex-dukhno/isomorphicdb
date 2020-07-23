@@ -176,7 +176,8 @@ impl<P: BackendStorage> FrontendStorage<P> {
     pub fn drop_table(&mut self, schema_name: &str, table_name: &str) -> SystemResult<Result<(), DropTableError>> {
         match self.persistent.drop_object(schema_name, table_name)? {
             Ok(()) => {
-                let keys = self.persistent
+                let keys = self
+                    .persistent
                     .read("system", "columns")?
                     .map(|reads| {
                         reads
@@ -204,15 +205,14 @@ impl<P: BackendStorage> FrontendStorage<P> {
                         SystemError::unrecoverable(message)
                     })?;
 
-                self.persistent.delete("system", "columns", keys)?
-                    .map_err(|error| {
-                        let message = format!(
-                            "Can't access \"system.columns\" table to read columns metadata because of {:?}",
-                            error
-                        );
-                        log::error!("{}", message);
-                        SystemError::unrecoverable(message)
-                    })?;
+                self.persistent.delete("system", "columns", keys)?.map_err(|error| {
+                    let message = format!(
+                        "Can't access \"system.columns\" table to read columns metadata because of {:?}",
+                        error
+                    );
+                    log::error!("{}", message);
+                    SystemError::unrecoverable(message)
+                })?;
 
                 Ok(Ok(()))
             }
