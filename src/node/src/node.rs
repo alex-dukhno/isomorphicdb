@@ -13,8 +13,10 @@
 // limitations under the License.
 
 use async_dup::Arc as AsyncArc;
-use protocol::{Command, ProtocolConfiguration};
-use smol::{Async, Task};
+use async_io::Async;
+use futures_lite::future::block_on;
+use protocol::{Command, ProtocolConfiguration, Receiver};
+use smol::{self, Task};
 use sql_engine::QueryExecutor;
 use std::{
     env,
@@ -27,19 +29,17 @@ use std::{
 };
 use storage::{backend::SledBackendStorage, frontend::FrontendStorage};
 
-const PORT: usize = 5432;
-const HOST: &str = "0.0.0.0";
+const PORT: u16 = 5432;
+const HOST: [u8; 4] = [0, 0, 0, 0];
 
 pub const RUNNING: u8 = 0;
 pub const STOPPED: u8 = 1;
 
 pub fn start() {
-    smol::run(async {
-        let local_address = format!("{}:{}", HOST, PORT);
-        log::debug!("Starting server on {}", local_address);
+    block_on(async {
         let storage: Arc<Mutex<FrontendStorage<SledBackendStorage>>> =
             Arc::new(Mutex::new(FrontendStorage::default().unwrap()));
-        let listener = Async::<TcpListener>::bind(local_address.as_str()).expect("OK");
+        let listener = Async::<TcpListener>::bind((HOST, PORT)).expect("OK");
 
         let state = Arc::new(AtomicU8::new(RUNNING));
         let config = protocol_configuration();
