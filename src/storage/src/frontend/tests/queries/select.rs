@@ -374,3 +374,196 @@ fn select_different_character_strings_types(default_schema_name: &str, mut stora
         ))
     );
 }
+
+#[rstest::rstest]
+fn select_columns_for_non_existent_table(mut storage_with_schema: PersistentStorage) {
+    assert_eq!(
+        storage_with_schema
+            .select_all_from(
+                "system",
+                "columns",
+                vec!["schema_name".to_owned(), "table_name".to_owned(), "column_name".to_owned(), "column_type".to_owned()]
+            )
+            .expect("no system errors"),
+        Ok((
+            vec![
+                column_definition("schema_name", SqlType::VarChar(100)),
+                column_definition("table_name", SqlType::VarChar(100)),
+                column_definition("column_name", SqlType::VarChar(100)),
+                column_definition("column_type", SqlType::VarChar(100)),
+            ],
+            vec![],
+        ))
+    );
+}
+
+#[rstest::rstest]
+fn select_columns_for_all_tables(default_schema_name: &str, mut storage_with_schema: PersistentStorage) {
+    create_table(
+        &mut storage_with_schema,
+        default_schema_name,
+        "table_name_1",
+        vec![
+            column_definition("big_int", SqlType::BigInt(0)),
+            column_definition("char_10", SqlType::Char(10)),
+        ],
+    );
+
+    assert_eq!(
+        storage_with_schema
+            .select_all_from(
+                "system",
+                "columns",
+                vec!["schema_name".to_owned(), "table_name".to_owned(), "column_name".to_owned(), "column_type".to_owned()]
+            )
+            .expect("no system errors"),
+        Ok((
+            vec![
+                column_definition("schema_name", SqlType::VarChar(100)),
+                column_definition("table_name", SqlType::VarChar(100)),
+                column_definition("column_name", SqlType::VarChar(100)),
+                column_definition("column_type", SqlType::VarChar(100)),
+            ],
+            vec![
+                vec![default_schema_name.to_owned(), "table_name_1".to_owned(), "big_int".to_owned(), "BIGINT".to_owned()],
+                vec![default_schema_name.to_owned(), "table_name_1".to_owned(), "char_10".to_owned(), "CHAR (10)".to_owned()],
+            ],
+        ))
+    );
+
+    create_table(
+        &mut storage_with_schema,
+        default_schema_name,
+        "table_name_2",
+        vec![
+            column_definition("decimal", SqlType::Decimal),
+            column_definition("var_char_20", SqlType::VarChar(20)),
+        ],
+    );
+
+    assert_eq!(
+        storage_with_schema
+            .select_all_from(
+                "system",
+                "columns",
+                vec!["schema_name".to_owned(), "table_name".to_owned(), "column_name".to_owned(), "column_type".to_owned()]
+            )
+            .expect("no system errors"),
+        Ok((
+            vec![
+                column_definition("schema_name", SqlType::VarChar(100)),
+                column_definition("table_name", SqlType::VarChar(100)),
+                column_definition("column_name", SqlType::VarChar(100)),
+                column_definition("column_type", SqlType::VarChar(100)),
+            ],
+            vec![
+                vec![default_schema_name.to_owned(), "table_name_1".to_owned(), "big_int".to_owned(), "BIGINT".to_owned()],
+                vec![default_schema_name.to_owned(), "table_name_1".to_owned(), "char_10".to_owned(), "CHAR (10)".to_owned()],
+                vec![default_schema_name.to_owned(), "table_name_2".to_owned(), "decimal".to_owned(), "DECIMAL".to_owned()],
+                vec![default_schema_name.to_owned(), "table_name_2".to_owned(), "var_char_20".to_owned(), "VARCHAR (20)".to_owned()],
+            ],
+        ))
+    );
+}
+
+#[rstest::rstest]
+fn select_columns_after_drop(default_schema_name: &str, mut storage_with_schema: PersistentStorage) {
+    create_table(
+        &mut storage_with_schema,
+        default_schema_name,
+        "table_name_1",
+        vec![
+            column_definition("big_int", SqlType::BigInt(0)),
+            column_definition("char_10", SqlType::Char(10)),
+        ],
+    );
+
+    create_table(
+        &mut storage_with_schema,
+        default_schema_name,
+        "table_name_2",
+        vec![
+            column_definition("decimal", SqlType::Decimal),
+            column_definition("var_char_20", SqlType::VarChar(20)),
+        ],
+    );
+
+    assert_eq!(
+        storage_with_schema
+            .select_all_from(
+                "system",
+                "columns",
+                vec!["schema_name".to_owned(), "table_name".to_owned(), "column_name".to_owned(), "column_type".to_owned()]
+            )
+            .expect("no system errors"),
+        Ok((
+            vec![
+                column_definition("schema_name", SqlType::VarChar(100)),
+                column_definition("table_name", SqlType::VarChar(100)),
+                column_definition("column_name", SqlType::VarChar(100)),
+                column_definition("column_type", SqlType::VarChar(100)),
+            ],
+            vec![
+                vec![default_schema_name.to_owned(), "table_name_1".to_owned(), "big_int".to_owned(), "BIGINT".to_owned()],
+                vec![default_schema_name.to_owned(), "table_name_1".to_owned(), "char_10".to_owned(), "CHAR (10)".to_owned()],
+                vec![default_schema_name.to_owned(), "table_name_2".to_owned(), "decimal".to_owned(), "DECIMAL".to_owned()],
+                vec![default_schema_name.to_owned(), "table_name_2".to_owned(), "var_char_20".to_owned(), "VARCHAR (20)".to_owned()],
+            ],
+        ))
+    );
+
+    assert_eq!(
+        storage_with_schema
+            .drop_table(default_schema_name, "table_name_1")
+            .expect("no system errors"),
+        Ok(())
+    );
+
+    assert_eq!(
+        storage_with_schema
+            .select_all_from(
+                "system",
+                "columns",
+                vec!["schema_name".to_owned(), "table_name".to_owned(), "column_name".to_owned(), "column_type".to_owned()]
+            )
+            .expect("no system errors"),
+        Ok((
+            vec![
+                column_definition("schema_name", SqlType::VarChar(100)),
+                column_definition("table_name", SqlType::VarChar(100)),
+                column_definition("column_name", SqlType::VarChar(100)),
+                column_definition("column_type", SqlType::VarChar(100)),
+            ],
+            vec![
+                vec![default_schema_name.to_owned(), "table_name_2".to_owned(), "decimal".to_owned(), "DECIMAL".to_owned()],
+                vec![default_schema_name.to_owned(), "table_name_2".to_owned(), "var_char_20".to_owned(), "VARCHAR (20)".to_owned()],
+            ],
+        ))
+    );
+
+    assert_eq!(
+        storage_with_schema
+            .drop_table(default_schema_name, "table_name_2")
+            .expect("no system errors"),
+        Ok(())
+    );
+
+    assert_eq!(
+        storage_with_schema
+            .select_all_from(
+                "system",
+                "columns",
+                vec!["schema_name".to_owned(), "table_name".to_owned(), "column_name".to_owned(), "column_type".to_owned()]
+            )
+            .expect("no system errors"),
+        Ok((
+            vec![
+                column_definition("schema_name", SqlType::VarChar(100)),
+                column_definition("table_name", SqlType::VarChar(100)),
+                column_definition("column_name", SqlType::VarChar(100)),
+                column_definition("column_type", SqlType::VarChar(100)),
+            ],
+            vec![],
+        ))
+    );
+}
