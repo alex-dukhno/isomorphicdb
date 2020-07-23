@@ -96,46 +96,64 @@ impl<'sc, P: BackendStorage> SelectCommand<'sc, P> {
                 columns
             };
 
-            match (self.storage.lock().unwrap()).select_all_from(&schema_name, &table_name, table_columns)? {
-                // Ok(records) => {
-                //     let projection = (
-                //         records
-                //             .0
-                //             .into_iter()
-                //             .map(|column_definition| {
-                //                 (column_definition.name(), column_definition.sql_type().to_pg_types())
-                //             })
-                //             .collect(),
-                //         records.1,
-                //     );
-                //     self.session
-                //         .send(Ok(QueryEvent::RecordsSelected((
-                //             projection.0,
-                //             projection
-                //                 .1
-                //                 .into_iter()
-                //                 .map(|utf_bytes| String::from_utf8(utf_bytes).unwrap())
-                //                 .collect(),
-                //         ))))
-                //         .expect("To Send Query Result to Client");
-                //     Ok(())
-                // }
-                Ok(records) => {
-                    let row_data = records
-                        .1
+            match (self.storage.lock().unwrap()).select_all_from(&schema_name, &table_name, table_columns.clone())? {
+                Ok((all_columns, records)) => {
+                    let mut description = vec![];
+                    let mut column_indexes = vec![];
+                    let mut non_existing_columns = vec![];
+                    for (i, column_name) in table_columns.iter().enumerate() {
+                        let mut found = None;
+                        for (index, column_definition) in all_columns.iter().enumerate() {
+                            if column_definition.has_name(column_name) {
+                                found = Some(((index, i), column_definition.clone()));
+                                break;
+                            }
+                        }
+
+                        if let Some((index_pair, column_definition)) = found {
+                            column_indexes.push(index_pair);
+                            description.push(column_definition);
+                        } else {
+                            non_existing_columns.push(column_name.clone());
+                        }
+                    }
+
+                    if !non_existing_columns.is_empty() {
+                        self.session
+                            .send(Err(QueryErrorBuilder::new()
+                                .column_does_not_exist(non_existing_columns)
+                                .build()))
+                            .expect("To Send Result to Client");
+                        return Ok(());
+                    }
+
+                    log::debug!("RECORDS {:#?}", records);
+
+                    let row_data: Vec<Vec<String>> = records
                         .into_iter()
                         .map(|row| {
-                            Row::with_data(row)
+                            let row: Vec<String> = Row::with_data(row)
                                 .unpack()
                                 .into_iter()
                                 .map(|datum| datum.to_string())
-                                .collect()
+                                .collect();
+
+                            let mut values: Vec<(&usize, String)> = vec![];
+                            for (_i, (origin, ord)) in column_indexes.iter().enumerate() {
+                                for (index, value) in row.iter().enumerate() {
+                                    if index == *origin {
+                                        values.push((ord, value.clone()))
+                                    }
+                                }
+                            }
+                            log::debug!("{:#?}", values);
+                            values.into_iter().map(|(_, value)| value).collect()
                         })
                         .collect();
+
                     self.session
                         .send(Ok(QueryEvent::RecordsSelected((
-                            records
-                                .0
+                            description
                                 .into_iter()
                                 .map(|column_definition| {
                                     (column_definition.name(), column_definition.sql_type().to_pg_types())

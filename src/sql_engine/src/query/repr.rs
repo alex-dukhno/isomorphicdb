@@ -302,7 +302,7 @@ impl Row {
         Self { data }
     }
 
-    pub fn unpack<'a>(&'a self) -> Vec<Datum<'a>> {
+    pub fn unpack(&self) -> Vec<Datum> {
         let mut index = 0;
         let mut res = Vec::new();
         let data = self.data.as_slice();

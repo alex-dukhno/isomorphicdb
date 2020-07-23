@@ -39,6 +39,7 @@ fn str_table(
     (engine, collector)
 }
 
+// TODO should be fixed by https://github.com/alex-dukhno/database/issues/202
 #[cfg(test)]
 mod insert {
     use super::*;

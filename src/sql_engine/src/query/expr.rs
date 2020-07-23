@@ -13,8 +13,10 @@
 // limitations under the License.
 
 use crate::query::repr::Datum;
-use sqlparser::ast::{Expr, Value};
+use bigdecimal::BigDecimal;
+use sqlparser::ast::{Expr, UnaryOperator, Value};
 use std::convert::TryFrom;
+use std::str::FromStr;
 
 #[derive(Debug, Clone)]
 pub enum EvalError {
@@ -63,9 +65,8 @@ impl<'a> TryFrom<&Value> for Datum<'a> {
 
 // this must be improved later when we know what we are doing...
 pub fn resolve_static_expr(expr: &Expr) -> Result<Datum, EvalError> {
-    use Expr::*;
     match expr {
-        BinaryOp { .. } => {
+        Expr::BinaryOp { .. } => {
             /*
                         let resolved_left = resolve_static_expr(left)?;
                         let resolved_right = resolve_static_expr(right)?;
@@ -73,13 +74,16 @@ pub fn resolve_static_expr(expr: &Expr) -> Result<Datum, EvalError> {
             */
             Err(EvalError::UnsupportedOperation)
         }
-        UnaryOp { .. } => {
-            // let operand = resolve_static_expr(&expr)?;
-            // resolve_unary_expr(*op, operand)
-            Err(EvalError::UnsupportedOperation)
+        Expr::UnaryOp { op, expr } => {
+            match (op, &**expr) {
+                (UnaryOperator::Minus, Expr::Value(Value::Number(v))) => Datum::try_from(&Value::Number(-v)),
+                // let operand = resolve_static_expr(&expr)?;
+                // resolve_unary_expr(*op, operand)
+                _ => Err(EvalError::UnsupportedOperation),
+            }
         }
-        Nested(expr) => resolve_static_expr(&expr),
-        Value(value) => Datum::try_from(value),
+        Expr::Nested(expr) => resolve_static_expr(&expr),
+        Expr::Value(value) => Datum::try_from(value),
         _ => Err(EvalError::InvalidExpressionInStaticContext),
     }
 }

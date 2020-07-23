@@ -15,46 +15,45 @@
 use super::*;
 use protocol::sql_types::PostgreSqlType;
 
-// #[rstest::rstest]
-// #[ignore]
-// fn update_all_records(sql_engine_with_schema: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
-//     let (mut engine, collector) = sql_engine_with_schema;
-//     engine
-//         .execute("create table schema_name.table_name (column_test smallint);")
-//         .expect("no system errors");
-//     engine
-//         .execute("insert into schema_name.table_name values (123);")
-//         .expect("no system errors");
-//     engine
-//         .execute("insert into schema_name.table_name values (456);")
-//         .expect("no system errors");
-//     engine
-//         .execute("select * from schema_name.table_name;")
-//         .expect("no system errors");
-//     engine
-//         .execute("update schema_name.table_name set column_test=789;")
-//         .expect("no system errors");
-//     engine
-//         .execute("select * from schema_name.table_name;")
-//         .expect("no system errors");
-//
-//     collector.assert_content(vec![
-//         Ok(QueryEvent::SchemaCreated),
-//         Ok(QueryEvent::TableCreated),
-//         Ok(QueryEvent::RecordsInserted(1)),
-//         Ok(QueryEvent::RecordsInserted(1)),
-//         Ok(QueryEvent::RecordsSelected((
-//             vec![("column_test".to_owned(), PostgreSqlType::SmallInt)],
-//             vec![vec!["123".to_owned()], vec!["456".to_owned()]],
-//         ))),
-//         Ok(QueryEvent::RecordsUpdated(2)),
-//         Ok(QueryEvent::RecordsSelected((
-//             vec![("column_test".to_owned(), PostgreSqlType::SmallInt)],
-//             vec![vec!["789".to_owned()], vec!["789".to_owned()]],
-//         ))),
-//     ]);
-// }
-//
+#[rstest::rstest]
+fn update_all_records(sql_engine_with_schema: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+    let (mut engine, collector) = sql_engine_with_schema;
+    engine
+        .execute("create table schema_name.table_name (column_test smallint);")
+        .expect("no system errors");
+    engine
+        .execute("insert into schema_name.table_name values (123);")
+        .expect("no system errors");
+    engine
+        .execute("insert into schema_name.table_name values (456);")
+        .expect("no system errors");
+    engine
+        .execute("select * from schema_name.table_name;")
+        .expect("no system errors");
+    engine
+        .execute("update schema_name.table_name set column_test=789;")
+        .expect("no system errors");
+    engine
+        .execute("select * from schema_name.table_name;")
+        .expect("no system errors");
+
+    collector.assert_content(vec![
+        Ok(QueryEvent::SchemaCreated),
+        Ok(QueryEvent::TableCreated),
+        Ok(QueryEvent::RecordsInserted(1)),
+        Ok(QueryEvent::RecordsInserted(1)),
+        Ok(QueryEvent::RecordsSelected((
+            vec![("column_test".to_owned(), PostgreSqlType::SmallInt)],
+            vec![vec!["123".to_owned()], vec!["456".to_owned()]],
+        ))),
+        Ok(QueryEvent::RecordsUpdated(2)),
+        Ok(QueryEvent::RecordsSelected((
+            vec![("column_test".to_owned(), PostgreSqlType::SmallInt)],
+            vec![vec!["789".to_owned()], vec!["789".to_owned()]],
+        ))),
+    ]);
+}
+
 // #[rstest::rstest]
 // #[ignore]
 // fn update_single_column_of_all_records(sql_engine_with_schema: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {

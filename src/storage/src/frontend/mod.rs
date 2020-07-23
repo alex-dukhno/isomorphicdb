@@ -186,33 +186,28 @@ impl<P: BackendStorage> FrontendStorage<P> {
         column_names: Vec<String>,
     ) -> SystemResult<Result<Projection, OperationOnTableError>> {
         let all_columns = self.table_columns(schema_name, table_name)?;
-        let mut description = vec![];
-        let mut column_indexes = vec![];
-        let mut non_existing_columns = vec![];
-        for (i, column_name) in column_names.iter().enumerate() {
-            let mut found = None;
-            for (index, column_definition) in all_columns.iter().enumerate() {
-                if column_definition.has_name(column_name) {
-                    found = Some(((index, i), column_definition.clone()));
-                    break;
-                }
-            }
-
-            if let Some((index_pair, column_definition)) = found {
-                column_indexes.push(index_pair);
-                description.push(column_definition);
-            } else {
-                non_existing_columns.push(column_name.clone());
-            }
-        }
+        // let mut description = vec![];
+        // let mut column_indexes = vec![];
+        // let mut non_existing_columns = vec![];
+        // for (i, column_name) in column_names.iter().enumerate() {
+        //     let mut found = None;
+        //     for (index, column_definition) in all_columns.iter().enumerate() {
+        //         if column_definition.has_name(column_name) {
+        //             found = Some(((index, i), column_definition.clone()));
+        //             break;
+        //         }
+        //     }
+        //
+        //     if let Some((index_pair, column_definition)) = found {
+        //         column_indexes.push(index_pair);
+        //         description.push(column_definition);
+        //     } else {
+        //         non_existing_columns.push(column_name.clone());
+        //     }
+        // }
 
         let data = match self.persistent.read(schema_name, table_name)? {
-            Ok(read) => {
-                if !non_existing_columns.is_empty() {
-                    return Ok(Err(OperationOnTableError::ColumnDoesNotExist(non_existing_columns)));
-                }
-                read.map(backend::Result::unwrap).map(|(_key, values)| values).collect()
-            }
+            Ok(read) => read.map(backend::Result::unwrap).map(|(_key, values)| values).collect(),
             Err(OperationOnObjectError::ObjectDoesNotExist) => {
                 return Ok(Err(OperationOnTableError::TableDoesNotExist))
             }
@@ -220,7 +215,7 @@ impl<P: BackendStorage> FrontendStorage<P> {
                 return Ok(Err(OperationOnTableError::SchemaDoesNotExist))
             }
         };
-        Ok(Ok((description, data)))
+        Ok(Ok((all_columns, data)))
     }
 
     pub fn update_all(

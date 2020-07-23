@@ -192,10 +192,7 @@ fn insert_and_select_different_integer_types(sql_engine_with_schema: (QueryExecu
     collector.assert_content(vec![
         Ok(QueryEvent::SchemaCreated),
         Ok(QueryEvent::TableCreated),
-        Err(QueryErrorBuilder::new()
-            .feature_not_supported("UnsupportedOperation".to_owned())
-            .build()),
-        // Ok(QueryEvent::RecordsInserted(1)),
+        Ok(QueryEvent::RecordsInserted(1)),
         Ok(QueryEvent::RecordsInserted(1)),
         Ok(QueryEvent::RecordsSelected((
             vec![
@@ -205,12 +202,12 @@ fn insert_and_select_different_integer_types(sql_engine_with_schema: (QueryExecu
                 ("column_serial".to_owned(), PostgreSqlType::Integer),
             ],
             vec![
-                // vec![
-                //     "-32768".to_owned(),
-                //     "-2147483648".to_owned(),
-                //     "-9223372036854775808".to_owned(),
-                //     "1".to_owned(),
-                // ],
+                vec![
+                    "-32768".to_owned(),
+                    "-2147483648".to_owned(),
+                    "-9223372036854775808".to_owned(),
+                    "1".to_owned(),
+                ],
                 vec![
                     "32767".to_owned(),
                     "2147483647".to_owned(),
