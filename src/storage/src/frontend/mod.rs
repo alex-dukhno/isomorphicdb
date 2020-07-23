@@ -23,6 +23,7 @@ use crate::{
     SchemaDoesNotExist, TableDescription,
 };
 use kernel::{SystemError, SystemResult};
+use sql_types::SqlType;
 
 pub struct FrontendStorage<P: BackendStorage> {
     key_id_generator: usize,
@@ -90,54 +91,81 @@ impl<P: BackendStorage> FrontendStorage<P> {
         column_names: &[ColumnDefinition],
     ) -> SystemResult<Result<(), CreateTableError>> {
         match self.persistent.create_object(schema_name, table_name)? {
-            Ok(()) => self
-                .persistent
-                .write(
-                    "system",
-                    "columns",
-                    vec![(
-                        (schema_name.to_owned() + table_name).as_bytes().to_vec(),
-                        column_names
-                            .iter()
-                            .map(|column_defs| bincode::serialize(&column_defs).unwrap())
-                            .collect::<Vec<Vec<u8>>>()
-                            .join(&b'|')
-                            .to_vec(),
-                    )],
-                )?
-                .map(|_| {
-                    log::info!("column data is recorded");
-                    Ok(())
-                })
-                .map_err(|error| {
-                    let message = format!(
-                        "Can't access \"system.columns\" table to read columns metadata because of {:?}",
-                        error
-                    );
-                    log::error!("{}", message);
-                    SystemError::unrecoverable(message)
-                }),
+            Ok(()) => {
+                let mut rows = vec![];
+
+                for column in column_names {
+                    let key = self.key_id_generator.to_be_bytes().to_vec();
+
+                    self.key_id_generator += 1;
+
+                    let value = vec![
+                        SqlType::VarChar(100).serializer().ser(schema_name),
+                        SqlType::VarChar(100).serializer().ser(table_name),
+                        SqlType::VarChar(100).serializer().ser(column.name.as_str()),
+                        SqlType::VarChar(100).serializer().ser(column.sql_type.to_string().as_str()),
+                        bincode::serialize(&column.sql_type).unwrap(),
+                    ].join(&b'|');
+
+                    rows.push((key, value));
+                }
+
+                self
+                    .persistent
+                    .write(
+                        "system",
+                        "columns",
+                        rows,
+                    )?
+                    .map(|_| {
+                        log::info!("column data is recorded");
+                        Ok(())
+                    })
+                    .map_err(|error| {
+                        let message = format!(
+                            "Can't access \"system.columns\" table to read columns metadata because of {:?}",
+                            error
+                        );
+                        log::error!("{}", message);
+                        SystemError::unrecoverable(message)
+                    })
+            },
             Err(CreateObjectError::ObjectAlreadyExists) => Ok(Err(CreateTableError::TableAlreadyExists)),
             Err(CreateObjectError::NamespaceDoesNotExist) => Ok(Err(CreateTableError::SchemaDoesNotExist)),
         }
     }
 
     pub fn table_columns(&self, schema_name: &str, table_name: &str) -> SystemResult<Vec<ColumnDefinition>> {
+        if schema_name == "system" && table_name == "columns" {
+            return Ok(vec![
+                ColumnDefinition::new("schema_name", SqlType::VarChar(100)),
+                ColumnDefinition::new("table_name", SqlType::VarChar(100)),
+                ColumnDefinition::new("column_name", SqlType::VarChar(100)),
+                ColumnDefinition::new("column_type", SqlType::VarChar(100)),
+            ]);
+        }
+
         self.persistent
             .read("system", "columns")?
             .map(|reads| {
                 reads
-                    .map(backend::Result::unwrap)
-                    .filter(|(table, _columns)| *table == (schema_name.to_owned() + table_name).as_bytes().to_vec())
-                    .map(|(_id, columns)| {
-                        columns
+                    .map(|row| {
+                        let (_, values) = row.unwrap();
+
+                        let values = values
                             .split(|b| *b == b'|')
-                            .filter(|v| !v.is_empty())
-                            .map(|c| bincode::deserialize(c).unwrap())
-                            .collect::<Vec<_>>()
+                            .collect::<Vec<_>>();
+
+                        let schema = SqlType::VarChar(100).serializer().des(values[0]);
+                        let table = SqlType::VarChar(100).serializer().des(values[1]);
+                        let column = SqlType::VarChar(100).serializer().des(values[2]);
+                        let sql_type: SqlType = bincode::deserialize(values[4]).unwrap();
+
+                        (schema, table, column, sql_type)
                     })
-                    .next()
-                    .unwrap_or_default()
+                    .filter(|(schema, table, _, _)| *schema == schema_name.to_string() && *table == table_name.to_string())
+                    .map(|(_, _, column, sql_type)| ColumnDefinition::new(column.as_str(), sql_type))
+                    .collect::<Vec<_>>()
             })
             .map_err(|error| {
                 let message = format!(
