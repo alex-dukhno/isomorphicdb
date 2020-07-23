@@ -18,10 +18,11 @@ extern crate log;
 
 use crate::{
     messages::{Encryption, Message},
-    results::{QueryError, QueryResult},
+    results::QueryResult,
 };
 use async_mutex::Mutex as AsyncMutex;
 use async_native_tls::TlsStream;
+use async_trait::async_trait;
 use blocking::Unblock;
 use byteorder::{ByteOrder, NetworkEndian};
 use futures_lite::{
@@ -88,12 +89,16 @@ pub enum Command {
     Terminate,
 }
 
-/// blah
+/// Perform `PostgreSql` wire protocol hand shake to establish connection with
+/// a client based on `config` parameters and using `stream` as a medium to
+/// communicate
+/// As a result of operation returns tuple of `Receiver` and `Sender`
+/// that have to be used to communicate with the client on performing commands
 pub async fn hand_shake<RW>(
     stream: RW,
     address: SocketAddr,
     config: &ProtocolConfiguration,
-) -> io::Result<Result<(RequestReceiver<RW>, ResponseSender<RW>)>>
+) -> io::Result<Result<(impl Receiver, impl Sender)>>
 where
     RW: AsyncRead + AsyncWrite + Unpin,
 {
@@ -210,8 +215,7 @@ fn decode_startup(message: Vec<u8>) -> Result<ClientHandshake> {
     }
 }
 
-/// Structure to handle client-server PostgreSQL Wire Protocol connection
-pub struct RequestReceiver<RW: AsyncRead + AsyncWrite + Unpin> {
+struct RequestReceiver<RW: AsyncRead + AsyncWrite + Unpin> {
     properties: (Version, Params),
     channel: Arc<AsyncMutex<Channel<RW>>>,
 }
@@ -226,9 +230,11 @@ impl<RW: AsyncRead + AsyncWrite + Unpin> RequestReceiver<RW> {
     pub fn properties(&self) -> &(Version, Params) {
         &(self.properties)
     }
+}
 
-    /// receives and decodes a command from remote client
-    pub async fn receive(&mut self) -> io::Result<Result<Command>> {
+#[async_trait]
+impl<RW: AsyncRead + AsyncWrite + Unpin> Receiver for RequestReceiver<RW> {
+    async fn receive(&mut self) -> io::Result<Result<Command>> {
         log::debug!("send ready for query message");
         self.channel
             .lock()
@@ -275,8 +281,14 @@ impl<RW: AsyncRead + AsyncWrite + Unpin> RequestReceiver<RW> {
     }
 }
 
-/// blah
-pub struct ResponseSender<RW: AsyncRead + AsyncWrite + Unpin> {
+/// Trait to handle client to server commands for PostgreSQL Wire Protocol connection
+#[async_trait]
+pub trait Receiver: Send + Sync {
+    /// receives and decodes a command from remote client
+    async fn receive(&mut self) -> io::Result<Result<Command>>;
+}
+
+struct ResponseSender<RW: AsyncRead + AsyncWrite + Unpin> {
     properties: (Version, Params),
     channel: Arc<AsyncMutex<Channel<RW>>>,
 }
@@ -294,21 +306,6 @@ impl<RW: AsyncRead + AsyncWrite + Unpin> ResponseSender<RW> {
     /// Creates new Connection with properties and read-write socket
     pub(crate) fn new(properties: (Version, Params), channel: Arc<AsyncMutex<Channel<RW>>>) -> ResponseSender<RW> {
         ResponseSender { properties, channel }
-    }
-
-    /// send message to a client
-    pub async fn send_single(&mut self, message: Message) -> io::Result<()> {
-        self.channel.lock().await.write_all(message.as_vec().as_slice()).await?;
-        Ok(())
-    }
-
-    /// send message to a client
-    pub async fn send_error(&mut self, message: QueryError) -> io::Result<()> {
-        let messages: Vec<Message> = message.into();
-        for message in messages {
-            self.channel.lock().await.write_all(message.as_vec().as_slice()).await?;
-        }
-        Ok(())
     }
 }
 
@@ -331,7 +328,8 @@ impl<RW: AsyncRead + AsyncWrite + Unpin> Sender for ResponseSender<RW> {
     }
 }
 
-/// blah
+/// Trait to handle server to client query results for PostgreSQL Wire Protocol
+/// connection
 pub trait Sender: Send + Sync {
     /// Sends response messages to client. Most of the time it is a single
     /// message, select result one of the exceptional situation
