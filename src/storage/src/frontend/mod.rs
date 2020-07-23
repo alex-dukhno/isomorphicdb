@@ -159,9 +159,7 @@ impl<P: BackendStorage> FrontendStorage<P> {
 
                         (schema, table, column, sql_type)
                     })
-                    .filter(|(schema, table, _, _)| {
-                        *schema == schema_name.to_string() && *table == table_name.to_string()
-                    })
+                    .filter(|(schema, table, _, _)| schema.as_str() == schema_name && table.as_str() == table_name)
                     .map(|(_, _, column, sql_type)| ColumnDefinition::new(column.as_str(), sql_type))
                     .collect::<Vec<_>>()
             })
