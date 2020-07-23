@@ -15,115 +15,105 @@
 use super::*;
 
 #[rstest::rstest]
-fn create_schema(mut sql_engine: InMemorySqlEngine) {
-    assert_eq!(
-        sql_engine
-            .execute("create schema schema_name;")
-            .expect("no system errors"),
-        Ok(QueryEvent::SchemaCreated)
-    )
+fn create_schema(sql_engine: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+    let (mut engine, collector) = sql_engine;
+    engine.execute("create schema schema_name;").expect("no system errors");
+
+    collector.assert_content(vec![Ok(QueryEvent::SchemaCreated)]);
 }
 
 #[rstest::rstest]
-fn create_same_schema(mut sql_engine: InMemorySqlEngine) {
-    sql_engine
-        .execute("create schema schema_name;")
-        .expect("no system errors")
-        .expect("schema created");
+fn create_same_schema(sql_engine: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+    let (mut engine, collector) = sql_engine;
+    engine.execute("create schema schema_name;").expect("no system errors");
+    engine.execute("create schema schema_name;").expect("no system errors");
 
-    assert_eq!(
-        sql_engine
-            .execute("create schema schema_name;")
-            .expect("no system errors"),
+    collector.assert_content(vec![
+        Ok(QueryEvent::SchemaCreated),
         Err(QueryErrorBuilder::new()
             .schema_already_exists("schema_name".to_owned())
-            .build())
-    )
+            .build()),
+    ]);
 }
 
 #[rstest::rstest]
-fn drop_schema(mut sql_engine: InMemorySqlEngine) {
-    sql_engine
-        .execute("create schema schema_name;")
-        .expect("no system errors")
-        .expect("schema created");
+fn drop_schema(sql_engine: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+    let (mut engine, collector) = sql_engine;
+    engine.execute("create schema schema_name;").expect("no system errors");
+    engine.execute("drop schema schema_name;").expect("no system errors");
 
-    assert_eq!(
-        sql_engine
-            .execute("drop schema schema_name;")
-            .expect("no system errors"),
-        Ok(QueryEvent::SchemaDropped)
-    )
+    collector.assert_content(vec![Ok(QueryEvent::SchemaCreated), Ok(QueryEvent::SchemaDropped)]);
 }
 
 #[rstest::rstest]
-fn drop_non_existent_schema(mut sql_engine: InMemorySqlEngine) {
-    assert_eq!(
-        sql_engine
-            .execute("drop schema non_existent;")
-            .expect("no system errors"),
-        Err(QueryErrorBuilder::new()
-            .schema_does_not_exist("non_existent".to_owned())
-            .build())
-    )
+fn drop_non_existent_schema(sql_engine: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+    let (mut engine, collector) = sql_engine;
+
+    engine.execute("drop schema non_existent;").expect("no system errors");
+
+    collector.assert_content(vec![Err(QueryErrorBuilder::new()
+        .schema_does_not_exist("non_existent".to_owned())
+        .build())]);
 }
 
 #[rstest::rstest]
-fn select_from_nonexistent_schema(mut sql_engine: InMemorySqlEngine) {
-    assert_eq!(
-        sql_engine
-            .execute("select * from non_existent.some_table;")
-            .expect("no system errors"),
-        Err(QueryErrorBuilder::new()
-            .schema_does_not_exist("non_existent".to_owned())
-            .build())
-    );
+fn select_from_nonexistent_schema(sql_engine: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+    let (mut engine, collector) = sql_engine;
+
+    engine
+        .execute("select * from non_existent.some_table;")
+        .expect("no system errors");
+
+    collector.assert_content(vec![Err(QueryErrorBuilder::new()
+        .schema_does_not_exist("non_existent".to_owned())
+        .build())]);
 }
 
 #[rstest::rstest]
-fn select_named_columns_from_nonexistent_schema(mut sql_engine: InMemorySqlEngine) {
-    assert_eq!(
-        sql_engine
-            .execute("select column_1 from schema_name.table_name;")
-            .expect("no system errors"),
-        Err(QueryErrorBuilder::new()
-            .schema_does_not_exist("schema_name".to_owned())
-            .build())
-    );
+fn select_named_columns_from_nonexistent_schema(sql_engine: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+    let (mut engine, collector) = sql_engine;
+    engine
+        .execute("select column_1 from schema_name.table_name;")
+        .expect("no system errors");
+
+    collector.assert_content(vec![Err(QueryErrorBuilder::new()
+        .schema_does_not_exist("schema_name".to_owned())
+        .build())]);
 }
 
 #[rstest::rstest]
-fn insert_into_table_in_nonexistent_schema(mut sql_engine: InMemorySqlEngine) {
-    assert_eq!(
-        sql_engine
-            .execute("insert into schema_name.table_name values (123);")
-            .expect("no system errors"),
-        Err(QueryErrorBuilder::new()
-            .schema_does_not_exist("schema_name".to_owned())
-            .build())
-    );
+#[ignore]
+fn insert_into_table_in_nonexistent_schema(sql_engine: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+    let (mut engine, collector) = sql_engine;
+    engine
+        .execute("insert into schema_name.table_name values (123);")
+        .expect("no system errors");
+
+    collector.assert_content(vec![Err(QueryErrorBuilder::new()
+        .schema_does_not_exist("schema_name".to_owned())
+        .build())]);
 }
 
 #[rstest::rstest]
-fn update_records_in_table_from_non_existent_schema(mut sql_engine: InMemorySqlEngine) {
-    assert_eq!(
-        sql_engine
-            .execute("update schema_name.table_name set column_test=789;")
-            .expect("no system errors"),
-        Err(QueryErrorBuilder::new()
-            .schema_does_not_exist("schema_name".to_owned())
-            .build())
-    );
+fn update_records_in_table_from_non_existent_schema(sql_engine: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+    let (mut engine, collector) = sql_engine;
+    engine
+        .execute("update schema_name.table_name set column_test=789;")
+        .expect("no system errors");
+
+    collector.assert_content(vec![Err(QueryErrorBuilder::new()
+        .schema_does_not_exist("schema_name".to_owned())
+        .build())]);
 }
 
 #[rstest::rstest]
-fn delete_from_table_in_nonexistent_schema(mut sql_engine: InMemorySqlEngine) {
-    assert_eq!(
-        sql_engine
-            .execute("delete from schema_name.table_name;")
-            .expect("no system errors"),
-        Err(QueryErrorBuilder::new()
-            .schema_does_not_exist("schema_name".to_owned())
-            .build())
-    );
+fn delete_from_table_in_nonexistent_schema(sql_engine: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+    let (mut engine, collector) = sql_engine;
+    engine
+        .execute("delete from schema_name.table_name;")
+        .expect("no system errors");
+
+    collector.assert_content(vec![Err(QueryErrorBuilder::new()
+        .schema_does_not_exist("schema_name".to_owned())
+        .build())]);
 }

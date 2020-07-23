@@ -20,43 +20,38 @@ mod ddl;
 mod dml;
 pub mod query;
 
-use {
-    ddl::{
-        create_schema::CreateSchemaCommand, create_table::CreateTableCommand, drop_schema::DropSchemaCommand,
-        drop_table::DropTableCommand,
-    },
-    dml::{delete::DeleteCommand, insert::InsertCommand, select::SelectCommand, update::UpdateCommand},
+use ddl::{
+    create_schema::CreateSchemaCommand, create_table::CreateTableCommand, drop_schema::DropSchemaCommand,
+    drop_table::DropTableCommand,
 };
+use dml::{delete::DeleteCommand, insert::InsertCommand, select::SelectCommand, update::UpdateCommand};
 
 use kernel::SystemResult;
-use protocol::results::{QueryErrorBuilder, QueryEvent, QueryResult};
+use protocol::results::{QueryErrorBuilder, QueryEvent};
 
-use query::{Plan, PlanError, QueryProcessor, TransformError};
-use sqlparser::{
-    ast::{ObjectType, Statement},
-    dialect::PostgreSqlDialect,
-    parser::Parser,
-};
+use protocol::Sender;
+use query::{Plan, QueryProcessor};
+use sqlparser::{ast::Statement, dialect::PostgreSqlDialect, parser::Parser};
 use std::sync::{Arc, Mutex};
-use storage::{backend::BackendStorage, frontend::FrontendStorage, ColumnDefinition, TableDescription};
+use storage::{backend::BackendStorage, frontend::FrontendStorage};
 
 pub struct QueryExecutor<P: BackendStorage> {
     storage: Arc<Mutex<FrontendStorage<P>>>,
     processor: QueryProcessor<P>,
+    session: Arc<dyn Sender>,
 }
 
-
-
 impl<P: BackendStorage> QueryExecutor<P> {
-    pub fn new(storage: Arc<Mutex<FrontendStorage<P>>>) -> Self {
+    pub fn new(storage: Arc<Mutex<FrontendStorage<P>>>, session: Arc<dyn Sender>) -> Self {
         Self {
             storage: storage.clone(),
-            processor: QueryProcessor::new(storage),
+            processor: QueryProcessor::new(storage, session.clone()),
+            session,
         }
     }
 
     #[allow(clippy::match_wild_err_arm)]
-    pub fn execute(&mut self, raw_sql_query: &str) -> SystemResult<QueryResult> {
+    pub fn execute(&mut self, raw_sql_query: &str) -> SystemResult<()> {
         let statement = match Parser::parse_sql(&PostgreSqlDialect {}, raw_sql_query) {
             Ok(mut statements) => {
                 log::info!("stmts: {:#?}", statements);
@@ -64,68 +59,88 @@ impl<P: BackendStorage> QueryExecutor<P> {
             }
             Err(e) => {
                 log::error!("{:?} can't be parsed. Error: {:?}", raw_sql_query, e);
-                return Ok(Err(QueryErrorBuilder::new()
+                let query_error = QueryErrorBuilder::new()
                     .syntax_error(format!("{:?} can't be parsed", raw_sql_query))
-                    .build()));
+                    .build();
+                self.session
+                    .send(Err(query_error))
+                    .expect("To Send Query Result to Client");
+                return Ok(());
             }
         };
 
         log::debug!("STATEMENT = {:?}", statement);
         match self.processor.process(statement) {
             Ok(Plan::CreateSchema(creation_info)) => {
-                CreateSchemaCommand::new(creation_info, self.storage.clone()).execute()
+                CreateSchemaCommand::new(creation_info, self.storage.clone(), self.session.clone()).execute()
             }
             Ok(Plan::CreateTable(creation_info)) => {
-                CreateTableCommand::new(creation_info, self.storage.clone()).execute()
+                CreateTableCommand::new(creation_info, self.storage.clone(), self.session.clone()).execute()
             }
             Ok(Plan::DropSchemas(schemas)) => {
                 for schema in schemas {
-                    DropSchemaCommand::new(schema, self.storage.clone())
-                        .execute()?
-                        .expect("drop schema");
+                    DropSchemaCommand::new(schema, self.storage.clone(), self.session.clone()).execute()?;
                 }
-                Ok(Ok(QueryEvent::SchemaDropped))
+                Ok(())
             }
             Ok(Plan::DropTables(tables)) => {
                 for table in tables {
-                    DropTableCommand::new(table, self.storage.clone())
-                        .execute()?
-                        .expect("drop table");
+                    DropTableCommand::new(table, self.storage.clone(), self.session.clone()).execute()?;
                 }
-                Ok(Ok(QueryEvent::TableDropped))
+                Ok(())
             }
-            Ok(Plan::InsertRows(intert_rows)) => {
-                InsertCommand::new(raw_sql_query, intert_rows, self.storage.clone()).execute()
+            Ok(Plan::InsertRows(insert_rows)) => {
+                InsertCommand::new(raw_sql_query, insert_rows, self.storage.clone(), self.session.clone()).execute()
             }
-            Err(TransformError::NotProcessed(statement)) => match statement {
-                Statement::StartTransaction { .. } => Ok(Ok(QueryEvent::TransactionStarted)),
-                Statement::SetVariable { .. } => Ok(Ok(QueryEvent::VariableSet)),
-                Statement::Query(query) => SelectCommand::new(raw_sql_query, query, self.storage.clone()).execute(),
+            Ok(Plan::NotProcessed(statement)) => match statement {
+                Statement::StartTransaction { .. } => {
+                    self.session
+                        .send(Ok(QueryEvent::TransactionStarted))
+                        .expect("To Send Query Result to Client");
+                    Ok(())
+                }
+                Statement::SetVariable { .. } => {
+                    self.session
+                        .send(Ok(QueryEvent::VariableSet))
+                        .expect("To Send Query Result to Client");
+                    Ok(())
+                }
+                Statement::Drop { .. } => {
+                    self.session
+                        .send(Err(QueryErrorBuilder::new()
+                            .feature_not_supported(raw_sql_query.to_owned())
+                            .build()))
+                        .expect("To Send Query Result to Client");
+                    Ok(())
+                }
+                Statement::Query(query) => {
+                    SelectCommand::new(raw_sql_query, query, self.storage.clone(), self.session.clone()).execute()
+                }
                 Statement::Update {
                     table_name,
                     assignments,
                     ..
-                } => UpdateCommand::new(raw_sql_query, table_name, assignments, self.storage.clone()).execute(),
+                } => UpdateCommand::new(
+                    raw_sql_query,
+                    table_name,
+                    assignments,
+                    self.storage.clone(),
+                    self.session.clone(),
+                )
+                .execute(),
                 Statement::Delete { table_name, .. } => {
-                    DeleteCommand::new(raw_sql_query, table_name, self.storage.clone()).execute()
+                    DeleteCommand::new(raw_sql_query, table_name, self.storage.clone(), self.session.clone()).execute()
                 }
-                _ => Ok(Err(QueryErrorBuilder::new()
-                    .feature_not_supported(raw_sql_query.to_owned())
-                    .build())),
+                _ => {
+                    self.session
+                        .send(Err(QueryErrorBuilder::new()
+                            .feature_not_supported(raw_sql_query.to_owned())
+                            .build()))
+                        .expect("To Send Query Result to Client");
+                    Ok(())
+                }
             },
-            Err(TransformError::PlanError(PlanError::SchemaAlreadyExists(schema_name))) => {
-                Ok(Err(QueryErrorBuilder::new().schema_already_exists(schema_name).build()))
-            }
-            Err(TransformError::PlanError(PlanError::InvalidSchema(schema_name))) => {
-                Ok(Err(QueryErrorBuilder::new().schema_does_not_exist(schema_name).build()))
-            }
-            Err(TransformError::PlanError(PlanError::TableAlreadyExists(table_name))) => {
-                Ok(Err(QueryErrorBuilder::new().table_already_exists(table_name).build()))
-            }
-            Err(TransformError::PlanError(PlanError::InvalidTable(table_name))) => {
-                Ok(Err(QueryErrorBuilder::new().table_does_not_exist(table_name).build()))
-            }
-            _ => unimplemented!(), // other TransformError
+            Err(()) => Ok(()),
         }
     }
 }

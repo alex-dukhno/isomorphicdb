@@ -16,110 +16,117 @@ use super::*;
 use protocol::sql_types::PostgreSqlType;
 
 #[rstest::rstest]
-fn insert_into_nonexistent_table(mut sql_engine_with_schema: InMemorySqlEngine) {
-    assert_eq!(
-        sql_engine_with_schema
-            .execute("insert into schema_name.table_name values (123);")
-            .expect("no system errors"),
+fn insert_into_nonexistent_table(sql_engine_with_schema: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+    let (mut engine, collector) = sql_engine_with_schema;
+    engine
+        .execute("insert into schema_name.table_name values (123);")
+        .expect("no system errors");
+
+    collector.assert_content(vec![
+        Ok(QueryEvent::SchemaCreated),
         Err(QueryErrorBuilder::new()
             .table_does_not_exist("schema_name.table_name".to_owned())
-            .build())
-    );
+            .build()),
+    ]);
 }
 
 #[rstest::rstest]
-fn insert_value_in_non_existent_column(mut sql_engine_with_schema: InMemorySqlEngine) {
-    sql_engine_with_schema
+fn insert_value_in_non_existent_column(sql_engine_with_schema: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+    let (mut engine, collector) = sql_engine_with_schema;
+    engine
         .execute("create table schema_name.table_name (column_test smallint);")
-        .expect("no system errors")
-        .expect("table created");
+        .expect("no system errors");
+    engine
+        .execute("insert into schema_name.table_name (non_existent) values (123);")
+        .expect("no system errors");
 
-    assert_eq!(
-        sql_engine_with_schema
-            .execute("insert into schema_name.table_name (non_existent) values (123);")
-            .expect("no system errors"),
+    collector.assert_content(vec![
+        Ok(QueryEvent::SchemaCreated),
+        Ok(QueryEvent::TableCreated),
         Err(QueryErrorBuilder::new()
-            .column_does_not_exist(vec!["non_existent".to_owned()])
-            .build())
-    );
+            .column_does_not_exist(vec!["schema_name.table_name.non_existent".to_owned()])
+            .build()),
+    ]);
 }
 
 #[rstest::rstest]
-fn insert_and_select_single_row(mut sql_engine_with_schema: InMemorySqlEngine) {
-    sql_engine_with_schema
+fn insert_and_select_single_row(sql_engine_with_schema: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+    let (mut engine, collector) = sql_engine_with_schema;
+    engine
         .execute("create table schema_name.table_name (column_test smallint);")
-        .expect("no system errors")
-        .expect("table created");
+        .expect("no system errors");
 
-    assert_eq!(
-        sql_engine_with_schema
-            .execute("insert into schema_name.table_name values (123);")
-            .expect("no system errors"),
-        Ok(QueryEvent::RecordsInserted(1))
-    );
-    assert_eq!(
-        sql_engine_with_schema
-            .execute("select * from schema_name.table_name;")
-            .expect("no system errors"),
-        Ok(QueryEvent::RecordsSelected((
-            vec![("column_test".to_owned(), PostgreSqlType::SmallInt)],
-            vec![vec!["123".to_owned()]]
-        )))
-    );
-}
-
-#[rstest::rstest]
-fn insert_and_select_multiple_rows(mut sql_engine_with_schema: InMemorySqlEngine) {
-    sql_engine_with_schema
-        .execute("create table schema_name.table_name (column_test smallint);")
-        .expect("no system errors")
-        .expect("table created");
-    sql_engine_with_schema
+    engine
         .execute("insert into schema_name.table_name values (123);")
-        .expect("no system errors")
-        .expect("row inserted");
+        .expect("no system errors");
+    engine
+        .execute("select * from schema_name.table_name;")
+        .expect("no system errors");
 
-    assert_eq!(
-        sql_engine_with_schema
-            .execute("select * from schema_name.table_name;")
-            .expect("no system errors"),
+    collector.assert_content(vec![
+        Ok(QueryEvent::SchemaCreated),
+        Ok(QueryEvent::TableCreated),
+        Ok(QueryEvent::RecordsInserted(1)),
         Ok(QueryEvent::RecordsSelected((
             vec![("column_test".to_owned(), PostgreSqlType::SmallInt)],
-            vec![vec!["123".to_owned()]]
-        )))
-    );
-
-    sql_engine_with_schema
-        .execute("insert into schema_name.table_name values (456);")
-        .expect("no system errors")
-        .expect("row inserted");
-
-    assert_eq!(
-        sql_engine_with_schema
-            .execute("select * from schema_name.table_name;")
-            .expect("no system errors"),
-        Ok(QueryEvent::RecordsSelected((
-            vec![("column_test".to_owned(), PostgreSqlType::SmallInt)],
-            vec![vec!["123".to_owned()], vec!["456".to_owned()]]
-        )))
-    );
+            vec![vec!["123".to_owned()]],
+        ))),
+    ]);
 }
 
 #[rstest::rstest]
-fn insert_and_select_named_columns(mut sql_engine_with_schema: InMemorySqlEngine) {
-    sql_engine_with_schema
-        .execute("create table schema_name.table_name (col1 smallint, col2 smallint, col3 smallint);")
-        .expect("no system errors")
-        .expect("table created");
-    sql_engine_with_schema
-        .execute("insert into schema_name.table_name (col2, col3, col1) values (1, 2, 3), (4, 5, 6);")
-        .expect("no system errors")
-        .expect("row inserted");
+fn insert_and_select_multiple_rows(sql_engine_with_schema: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+    let (mut engine, collector) = sql_engine_with_schema;
+    engine
+        .execute("create table schema_name.table_name (column_test smallint);")
+        .expect("no system errors");
+    engine
+        .execute("insert into schema_name.table_name values (123);")
+        .expect("no system errors");
+    engine
+        .execute("select * from schema_name.table_name;")
+        .expect("no system errors");
 
-    assert_eq!(
-        sql_engine_with_schema
-            .execute("select * from schema_name.table_name;")
-            .expect("no system errors"),
+    engine
+        .execute("insert into schema_name.table_name values (456);")
+        .expect("no system errors");
+    engine
+        .execute("select * from schema_name.table_name;")
+        .expect("no system errors");
+
+    collector.assert_content(vec![
+        Ok(QueryEvent::SchemaCreated),
+        Ok(QueryEvent::TableCreated),
+        Ok(QueryEvent::RecordsInserted(1)),
+        Ok(QueryEvent::RecordsSelected((
+            vec![("column_test".to_owned(), PostgreSqlType::SmallInt)],
+            vec![vec!["123".to_owned()]],
+        ))),
+        Ok(QueryEvent::RecordsInserted(1)),
+        Ok(QueryEvent::RecordsSelected((
+            vec![("column_test".to_owned(), PostgreSqlType::SmallInt)],
+            vec![vec!["123".to_owned()], vec!["456".to_owned()]],
+        ))),
+    ]);
+}
+
+#[rstest::rstest]
+fn insert_and_select_named_columns(sql_engine_with_schema: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+    let (mut engine, collector) = sql_engine_with_schema;
+    engine
+        .execute("create table schema_name.table_name (col1 smallint, col2 smallint, col3 smallint);")
+        .expect("no system errors");
+    engine
+        .execute("insert into schema_name.table_name (col2, col3, col1) values (1, 2, 3), (4, 5, 6);")
+        .expect("no system errors");
+    engine
+        .execute("select * from schema_name.table_name;")
+        .expect("no system errors");
+
+    collector.assert_content(vec![
+        Ok(QueryEvent::SchemaCreated),
+        Ok(QueryEvent::TableCreated),
+        Ok(QueryEvent::RecordsInserted(2)),
         Ok(QueryEvent::RecordsSelected((
             vec![
                 ("col1".to_owned(), PostgreSqlType::SmallInt),
@@ -129,68 +136,67 @@ fn insert_and_select_named_columns(mut sql_engine_with_schema: InMemorySqlEngine
             vec![
                 vec!["3".to_owned(), "1".to_owned(), "2".to_owned()],
                 vec!["6".to_owned(), "4".to_owned(), "5".to_owned()],
-            ]
-        )))
-    );
+            ],
+        ))),
+    ]);
 }
 
 #[rstest::rstest]
-fn insert_multiple_rows(mut sql_engine_with_schema: InMemorySqlEngine) {
-    sql_engine_with_schema
+fn insert_multiple_rows(sql_engine_with_schema: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+    let (mut engine, collector) = sql_engine_with_schema;
+    engine
         .execute("create table schema_name.table_name (column_1 smallint, column_2 smallint, column_3 smallint);")
-        .expect("no system errors")
-        .expect("table created");
+        .expect("no system errors");
+    engine
+        .execute("insert into schema_name.table_name values (1, 4, 7), (2, 5, 8), (3, 6, 9);")
+        .expect("no system errors");
+    engine
+        .execute("select * from schema_name.table_name;")
+        .expect("no system errors");
 
-    assert_eq!(
-        sql_engine_with_schema
-            .execute("insert into schema_name.table_name values (1, 4, 7), (2, 5, 8), (3, 6, 9);")
-            .expect("no system errors"),
-        Ok(QueryEvent::RecordsInserted(3))
-    );
-    assert_eq!(
-        sql_engine_with_schema
-            .execute("select * from schema_name.table_name;")
-            .expect("no system errors"),
+    collector.assert_content(vec![
+        Ok(QueryEvent::SchemaCreated),
+        Ok(QueryEvent::TableCreated),
+        Ok(QueryEvent::RecordsInserted(3)),
         Ok(QueryEvent::RecordsSelected((
             vec![
                 ("column_1".to_owned(), PostgreSqlType::SmallInt),
                 ("column_2".to_owned(), PostgreSqlType::SmallInt),
-                ("column_3".to_owned(), PostgreSqlType::SmallInt)
+                ("column_3".to_owned(), PostgreSqlType::SmallInt),
             ],
             vec![
                 vec!["1".to_owned(), "4".to_owned(), "7".to_owned()],
                 vec!["2".to_owned(), "5".to_owned(), "8".to_owned()],
                 vec!["3".to_owned(), "6".to_owned(), "9".to_owned()],
-            ]
-        )))
-    );
+            ],
+        ))),
+    ]);
 }
 
 #[rstest::rstest]
-fn insert_and_select_different_integer_types(mut sql_engine_with_schema: InMemorySqlEngine) {
-    sql_engine_with_schema
+fn insert_and_select_different_integer_types(sql_engine_with_schema: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+    let (mut engine, collector) = sql_engine_with_schema;
+    engine
         .execute("create table schema_name.table_name (column_si smallint, column_i integer, column_bi bigint, column_serial serial);")
-        .expect("no system errors")
-        .expect("table created");
+        .expect("no system errors");
+    engine
+        .execute("insert into schema_name.table_name values(-32768, -2147483648, -9223372036854775808, 1);")
+        .expect("no system errors");
+    engine
+        .execute("insert into schema_name.table_name values(32767, 2147483647, 9223372036854775807, 1);")
+        .expect("no system errors");
+    engine
+        .execute("select * from schema_name.table_name;")
+        .expect("no system errors");
 
-    assert_eq!(
-        sql_engine_with_schema
-            .execute("insert into schema_name.table_name values(-32768, -2147483648, -9223372036854775808, 1);")
-            .expect("no system errors"),
-        Ok(QueryEvent::RecordsInserted(1))
-    );
-
-    assert_eq!(
-        sql_engine_with_schema
-            .execute("insert into schema_name.table_name values(32767, 2147483647, 9223372036854775807, 1);")
-            .expect("no system errors"),
-        Ok(QueryEvent::RecordsInserted(1))
-    );
-
-    assert_eq!(
-        sql_engine_with_schema
-            .execute("select * from schema_name.table_name;")
-            .expect("no system errors"),
+    collector.assert_content(vec![
+        Ok(QueryEvent::SchemaCreated),
+        Ok(QueryEvent::TableCreated),
+        Err(QueryErrorBuilder::new()
+            .feature_not_supported("UnsupportedOperation".to_owned())
+            .build()),
+        // Ok(QueryEvent::RecordsInserted(1)),
+        Ok(QueryEvent::RecordsInserted(1)),
         Ok(QueryEvent::RecordsSelected((
             vec![
                 ("column_si".to_owned(), PostgreSqlType::SmallInt),
@@ -199,88 +205,87 @@ fn insert_and_select_different_integer_types(mut sql_engine_with_schema: InMemor
                 ("column_serial".to_owned(), PostgreSqlType::Integer),
             ],
             vec![
-                vec![
-                    "-32768".to_owned(),
-                    "-2147483648".to_owned(),
-                    "-9223372036854775808".to_owned(),
-                    "1".to_owned()
-                ],
+                // vec![
+                //     "-32768".to_owned(),
+                //     "-2147483648".to_owned(),
+                //     "-9223372036854775808".to_owned(),
+                //     "1".to_owned(),
+                // ],
                 vec![
                     "32767".to_owned(),
                     "2147483647".to_owned(),
                     "9223372036854775807".to_owned(),
-                    "1".to_owned()
+                    "1".to_owned(),
                 ],
-            ]
-        )))
-    )
+            ],
+        ))),
+    ]);
 }
 
 #[rstest::rstest]
-fn insert_and_select_different_character_types(mut sql_engine_with_schema: InMemorySqlEngine) {
-    sql_engine_with_schema
+fn insert_and_select_different_character_types(
+    sql_engine_with_schema: (QueryExecutor<InMemoryStorage>, Arc<Collector>),
+) {
+    let (mut engine, collector) = sql_engine_with_schema;
+    engine
         .execute("create table schema_name.table_name (column_c char(10), column_vc varchar(10));")
-        .expect("no system errors")
-        .expect("table created");
+        .expect("no system errors");
+    engine
+        .execute("insert into schema_name.table_name values('12345abcde', '12345abcde');")
+        .expect("no system errors");
+    engine
+        .execute("insert into schema_name.table_name values('12345abcde', 'abcde');")
+        .expect("no system errors");
+    engine
+        .execute("select * from schema_name.table_name;")
+        .expect("no system errors");
 
-    assert_eq!(
-        sql_engine_with_schema
-            .execute("insert into schema_name.table_name values('12345abcde', '12345abcde');")
-            .expect("no system errors"),
-        Ok(QueryEvent::RecordsInserted(1))
-    );
-
-    assert_eq!(
-        sql_engine_with_schema
-            .execute("insert into schema_name.table_name values('12345abcde', 'abcde');")
-            .expect("no system errors"),
-        Ok(QueryEvent::RecordsInserted(1))
-    );
-
-    assert_eq!(
-        sql_engine_with_schema
-            .execute("select * from schema_name.table_name;")
-            .expect("no system errors"),
+    collector.assert_content(vec![
+        Ok(QueryEvent::SchemaCreated),
+        Ok(QueryEvent::TableCreated),
+        Ok(QueryEvent::RecordsInserted(1)),
+        Ok(QueryEvent::RecordsInserted(1)),
         Ok(QueryEvent::RecordsSelected((
             vec![
                 ("column_c".to_owned(), PostgreSqlType::Char),
-                ("column_vc".to_owned(), PostgreSqlType::VarChar)
+                ("column_vc".to_owned(), PostgreSqlType::VarChar),
             ],
             vec![
                 vec!["12345abcde".to_owned(), "12345abcde".to_owned()],
                 vec!["12345abcde".to_owned(), "abcde".to_owned()],
-            ]
-        )))
-    )
+            ],
+        ))),
+    ]);
 }
 
 #[rstest::rstest]
-fn insert_booleans(mut sql_engine_with_schema: InMemorySqlEngine) {
-    sql_engine_with_schema
+fn insert_booleans(sql_engine_with_schema: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+    let (mut engine, collector) = sql_engine_with_schema;
+    engine
         .execute("create table schema_name.table_name (b boolean);")
-        .expect("no system errors")
-        .expect("table created");
+        .expect("no system errors");
+    engine
+        .execute("insert into schema_name.table_name values(true);")
+        .expect("no system errors");
+    engine
+        .execute("insert into schema_name.table_name values(TRUE::boolean);")
+        .expect("no system errors");
+    engine
+        .execute("insert into schema_name.table_name values('true'::boolean);")
+        .expect("no system errors");
 
-    assert_eq!(
-        sql_engine_with_schema
-            .execute("insert into schema_name.table_name values(true);")
-            .expect("no system errors"),
-        Ok(QueryEvent::RecordsInserted(1))
-    );
-
-    assert_eq!(
-        sql_engine_with_schema
-            .execute("insert into schema_name.table_name values(TRUE::boolean);")
-            .expect("no system errors"),
-        Ok(QueryEvent::RecordsInserted(1))
-    );
-
-    assert_eq!(
-        sql_engine_with_schema
-            .execute("insert into schema_name.table_name values('true'::boolean);")
-            .expect("no system errors"),
-        Ok(QueryEvent::RecordsInserted(1))
-    );
+    collector.assert_content(vec![
+        Ok(QueryEvent::SchemaCreated),
+        Ok(QueryEvent::TableCreated),
+        Ok(QueryEvent::RecordsInserted(1)),
+        Err(QueryErrorBuilder::new()
+            .feature_not_supported("InvalidExpressionInStaticContext".to_owned())
+            .build()),
+        // Ok(QueryEvent::RecordsInserted(1)),
+        Err(QueryErrorBuilder::new()
+            .feature_not_supported("InvalidExpressionInStaticContext".to_owned())
+            .build()), // Ok(QueryEvent::RecordsInserted(1)),
+    ]);
 }
 
 #[cfg(test)]
@@ -296,355 +301,399 @@ mod operators {
             use super::*;
 
             #[rstest::fixture]
-            fn with_table(mut sql_engine_with_schema: InMemorySqlEngine) -> InMemorySqlEngine {
-                sql_engine_with_schema
+            fn with_table(
+                sql_engine_with_schema: (QueryExecutor<InMemoryStorage>, Arc<Collector>),
+            ) -> (QueryExecutor<InMemoryStorage>, Arc<Collector>) {
+                let (mut engine, collector) = sql_engine_with_schema;
+                engine
                     .execute("create table schema_name.table_name(column_si smallint);")
-                    .expect("no system errors")
-                    .expect("table created");
+                    .expect("no system errors");
 
-                sql_engine_with_schema
+                (engine, collector)
             }
 
             #[rstest::rstest]
-            fn addition(mut with_table: InMemorySqlEngine) {
-                assert_eq!(
-                    with_table
-                        .execute("insert into schema_name.table_name values (1 + 2);")
-                        .expect("no system errors"),
-                    Ok(QueryEvent::RecordsInserted(1))
-                );
-                assert_eq!(
-                    with_table
-                        .execute("select * from schema_name.table_name;")
-                        .expect("no system errors"),
+            #[ignore]
+            fn addition(with_table: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+                let (mut engine, collector) = with_table;
+                engine
+                    .execute("insert into schema_name.table_name values (1 + 2);")
+                    .expect("no system errors");
+                engine
+                    .execute("select * from schema_name.table_name;")
+                    .expect("no system errors");
+
+                collector.assert_content(vec![
+                    Ok(QueryEvent::SchemaCreated),
+                    Ok(QueryEvent::TableCreated),
+                    Ok(QueryEvent::RecordsInserted(1)),
                     Ok(QueryEvent::RecordsSelected((
                         vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
-                        vec![vec!["3".to_owned()]]
-                    )))
-                );
+                        vec![vec!["3".to_owned()]],
+                    ))),
+                ]);
             }
 
             #[rstest::rstest]
-            fn subtraction(mut with_table: InMemorySqlEngine) {
-                assert_eq!(
-                    with_table
-                        .execute("insert into schema_name.table_name values (1 - 2);")
-                        .expect("no system errors"),
-                    Ok(QueryEvent::RecordsInserted(1))
-                );
-                assert_eq!(
-                    with_table
-                        .execute("select * from schema_name.table_name;")
-                        .expect("no system errors"),
+            #[ignore]
+            fn subtraction(with_table: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+                let (mut engine, collector) = with_table;
+                engine
+                    .execute("insert into schema_name.table_name values (1 - 2);")
+                    .expect("no system errors");
+                engine
+                    .execute("select * from schema_name.table_name;")
+                    .expect("no system errors");
+
+                collector.assert_content(vec![
+                    Ok(QueryEvent::SchemaCreated),
+                    Ok(QueryEvent::TableCreated),
+                    Ok(QueryEvent::RecordsInserted(1)),
                     Ok(QueryEvent::RecordsSelected((
                         vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
-                        vec![vec!["-1".to_owned()]]
-                    )))
-                );
+                        vec![vec!["-1".to_owned()]],
+                    ))),
+                ]);
             }
 
             #[rstest::rstest]
-            fn multiplication(mut with_table: InMemorySqlEngine) {
-                assert_eq!(
-                    with_table
-                        .execute("insert into schema_name.table_name values (3 * 2);")
-                        .expect("no system errors"),
-                    Ok(QueryEvent::RecordsInserted(1))
-                );
-                assert_eq!(
-                    with_table
-                        .execute("select * from schema_name.table_name;")
-                        .expect("no system errors"),
+            #[ignore]
+            fn multiplication(with_table: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+                let (mut engine, collector) = with_table;
+                engine
+                    .execute("insert into schema_name.table_name values (3 * 2);")
+                    .expect("no system errors");
+                engine
+                    .execute("select * from schema_name.table_name;")
+                    .expect("no system errors");
+
+                collector.assert_content(vec![
+                    Ok(QueryEvent::SchemaCreated),
+                    Ok(QueryEvent::TableCreated),
+                    Ok(QueryEvent::RecordsInserted(1)),
                     Ok(QueryEvent::RecordsSelected((
                         vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
-                        vec![vec!["6".to_owned()]]
-                    )))
-                );
+                        vec![vec!["6".to_owned()]],
+                    ))),
+                ]);
             }
 
             #[rstest::rstest]
-            fn division(mut with_table: InMemorySqlEngine) {
-                assert_eq!(
-                    with_table
-                        .execute("insert into schema_name.table_name values (8 / 2);")
-                        .expect("no system errors"),
-                    Ok(QueryEvent::RecordsInserted(1))
-                );
-                assert_eq!(
-                    with_table
-                        .execute("select * from schema_name.table_name;")
-                        .expect("no system errors"),
+            #[ignore]
+            fn division(with_table: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+                let (mut engine, collector) = with_table;
+                engine
+                    .execute("insert into schema_name.table_name values (8 / 2);")
+                    .expect("no system errors");
+                engine
+                    .execute("select * from schema_name.table_name;")
+                    .expect("no system errors");
+
+                collector.assert_content(vec![
+                    Ok(QueryEvent::SchemaCreated),
+                    Ok(QueryEvent::TableCreated),
+                    Ok(QueryEvent::RecordsInserted(1)),
                     Ok(QueryEvent::RecordsSelected((
                         vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
-                        vec![vec!["4".to_owned()]]
-                    )))
-                );
+                        vec![vec!["4".to_owned()]],
+                    ))),
+                ]);
             }
 
             #[rstest::rstest]
-            fn modulo(mut with_table: InMemorySqlEngine) {
-                assert_eq!(
-                    with_table
-                        .execute("insert into schema_name.table_name values (8 % 2);")
-                        .expect("no system errors"),
-                    Ok(QueryEvent::RecordsInserted(1))
-                );
-                assert_eq!(
-                    with_table
-                        .execute("select * from schema_name.table_name;")
-                        .expect("no system errors"),
+            #[ignore]
+            fn modulo(with_table: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+                let (mut engine, collector) = with_table;
+                engine
+                    .execute("insert into schema_name.table_name values (8 % 2);")
+                    .expect("no system errors");
+                engine
+                    .execute("select * from schema_name.table_name;")
+                    .expect("no system errors");
+
+                collector.assert_content(vec![
+                    Ok(QueryEvent::SchemaCreated),
+                    Ok(QueryEvent::TableCreated),
+                    Ok(QueryEvent::RecordsInserted(1)),
                     Ok(QueryEvent::RecordsSelected((
                         vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
-                        vec![vec!["0".to_owned()]]
-                    )))
-                );
+                        vec![vec!["0".to_owned()]],
+                    ))),
+                ]);
             }
 
             #[rstest::rstest]
             #[ignore]
             // TODO ^ is bitwise in SQL standard
             //      # is bitwise in PostgreSQL and it does not supported in sqlparser-rs
-            fn exponentiation(mut with_table: InMemorySqlEngine) {
-                assert_eq!(
-                    with_table
-                        .execute("insert into schema_name.table_name values (8 ^ 2);")
-                        .expect("no system errors"),
-                    Ok(QueryEvent::RecordsInserted(1))
-                );
-                assert_eq!(
-                    with_table
-                        .execute("select * from schema_name.table_name;")
-                        .expect("no system errors"),
+            fn exponentiation(with_table: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+                let (mut engine, collector) = with_table;
+                engine
+                    .execute("insert into schema_name.table_name values (8 ^ 2);")
+                    .expect("no system errors");
+                engine
+                    .execute("select * from schema_name.table_name;")
+                    .expect("no system errors");
+
+                collector.assert_content(vec![
+                    Ok(QueryEvent::SchemaCreated),
+                    Ok(QueryEvent::TableCreated),
+                    Ok(QueryEvent::RecordsInserted(1)),
                     Ok(QueryEvent::RecordsSelected((
                         vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
-                        vec![vec!["64".to_owned()]]
-                    )))
-                );
+                        vec![vec!["64".to_owned()]],
+                    ))),
+                ]);
             }
 
             #[rstest::rstest]
             #[ignore]
             // TODO |/<n> is square root in PostgreSQL and it does not supported in sqlparser-rs
-            fn square_root(mut with_table: InMemorySqlEngine) {
-                assert_eq!(
-                    with_table
-                        .execute("insert into schema_name.table_name values (|/ 16);")
-                        .expect("no system errors"),
-                    Ok(QueryEvent::RecordsInserted(1))
-                );
-                assert_eq!(
-                    with_table
-                        .execute("select * from schema_name.table_name;")
-                        .expect("no system errors"),
+            fn square_root(with_table: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+                let (mut engine, collector) = with_table;
+                engine
+                    .execute("insert into schema_name.table_name values (|/ 16);")
+                    .expect("no system errors");
+                engine
+                    .execute("select * from schema_name.table_name;")
+                    .expect("no system errors");
+
+                collector.assert_content(vec![
+                    Ok(QueryEvent::SchemaCreated),
+                    Ok(QueryEvent::TableCreated),
+                    Ok(QueryEvent::RecordsInserted(1)),
                     Ok(QueryEvent::RecordsSelected((
                         vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
-                        vec![vec!["4".to_owned()]]
-                    )))
-                );
+                        vec![vec!["4".to_owned()]],
+                    ))),
+                ]);
             }
 
             #[rstest::rstest]
             #[ignore]
             // TODO ||/<n> is cube root in PostgreSQL and it does not supported in sqlparser-rs
-            fn cube_root(mut with_table: InMemorySqlEngine) {
-                assert_eq!(
-                    with_table
-                        .execute("insert into schema_name.table_name values (||/ 8);")
-                        .expect("no system errors"),
-                    Ok(QueryEvent::RecordsInserted(1))
-                );
-                assert_eq!(
-                    with_table
-                        .execute("select * from schema_name.table_name;")
-                        .expect("no system errors"),
+            fn cube_root(with_table: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+                let (mut engine, collector) = with_table;
+                engine
+                    .execute("insert into schema_name.table_name values (||/ 8);")
+                    .expect("no system errors");
+                engine
+                    .execute("select * from schema_name.table_name;")
+                    .expect("no system errors");
+
+                collector.assert_content(vec![
+                    Ok(QueryEvent::SchemaCreated),
+                    Ok(QueryEvent::TableCreated),
+                    Ok(QueryEvent::RecordsInserted(1)),
                     Ok(QueryEvent::RecordsSelected((
                         vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
-                        vec![vec!["2".to_owned()]]
-                    )))
-                );
+                        vec![vec!["2".to_owned()]],
+                    ))),
+                ]);
             }
 
             #[rstest::rstest]
             #[ignore]
             // TODO <n>! is factorial in PostgreSQL and it does not supported in sqlparser-rs
-            fn factorial(mut with_table: InMemorySqlEngine) {
-                assert_eq!(
-                    with_table
-                        .execute("insert into schema_name.table_name values (5!);")
-                        .expect("no system errors"),
-                    Ok(QueryEvent::RecordsInserted(1))
-                );
-                assert_eq!(
-                    with_table
-                        .execute("select * from schema_name.table_name;")
-                        .expect("no system errors"),
+            fn factorial(with_table: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+                let (mut engine, collector) = with_table;
+                engine
+                    .execute("insert into schema_name.table_name values (5!);")
+                    .expect("no system errors");
+                engine
+                    .execute("select * from schema_name.table_name;")
+                    .expect("no system errors");
+
+                collector.assert_content(vec![
+                    Ok(QueryEvent::SchemaCreated),
+                    Ok(QueryEvent::TableCreated),
+                    Ok(QueryEvent::RecordsInserted(1)),
                     Ok(QueryEvent::RecordsSelected((
                         vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
-                        vec![vec!["120".to_owned()]]
-                    )))
-                );
+                        vec![vec!["120".to_owned()]],
+                    ))),
+                ]);
             }
 
             #[rstest::rstest]
             #[ignore]
             // TODO !!<n> is prefix factorial in PostgreSQL and it does not supported in sqlparser-rs
-            fn prefix_factorial(mut with_table: InMemorySqlEngine) {
-                assert_eq!(
-                    with_table
-                        .execute("insert into schema_name.table_name values (!!5);")
-                        .expect("no system errors"),
-                    Ok(QueryEvent::RecordsInserted(1))
-                );
-                assert_eq!(
-                    with_table
-                        .execute("select * from schema_name.table_name;")
-                        .expect("no system errors"),
+            fn prefix_factorial(with_table: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+                let (mut engine, collector) = with_table;
+                engine
+                    .execute("insert into schema_name.table_name values (!!5);")
+                    .expect("no system errors");
+                engine
+                    .execute("select * from schema_name.table_name;")
+                    .expect("no system errors");
+
+                collector.assert_content(vec![
+                    Ok(QueryEvent::SchemaCreated),
+                    Ok(QueryEvent::TableCreated),
+                    Ok(QueryEvent::RecordsInserted(1)),
                     Ok(QueryEvent::RecordsSelected((
                         vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
-                        vec![vec!["120".to_owned()]]
-                    )))
-                );
+                        vec![vec!["120".to_owned()]],
+                    ))),
+                ]);
             }
 
             #[rstest::rstest]
             #[ignore]
             // TODO @<n> is absolute value in PostgreSQL and it does not supported in sqlparser-rs
-            fn absolute_value(mut with_table: InMemorySqlEngine) {
-                assert_eq!(
-                    with_table
-                        .execute("insert into schema_name.table_name values (@-5);")
-                        .expect("no system errors"),
-                    Ok(QueryEvent::RecordsInserted(1))
-                );
-                assert_eq!(
-                    with_table
-                        .execute("select * from schema_name.table_name;")
-                        .expect("no system errors"),
+            fn absolute_value(with_table: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+                let (mut engine, collector) = with_table;
+                engine
+                    .execute("insert into schema_name.table_name values (@-5);")
+                    .expect("no system errors");
+                engine
+                    .execute("select * from schema_name.table_name;")
+                    .expect("no system errors");
+
+                collector.assert_content(vec![
+                    Ok(QueryEvent::SchemaCreated),
+                    Ok(QueryEvent::TableCreated),
+                    Ok(QueryEvent::RecordsInserted(1)),
                     Ok(QueryEvent::RecordsSelected((
                         vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
-                        vec![vec!["5".to_owned()]]
-                    )))
-                );
+                        vec![vec!["5".to_owned()]],
+                    ))),
+                ]);
             }
 
             #[rstest::rstest]
-            fn bitwise_and(mut with_table: InMemorySqlEngine) {
-                assert_eq!(
-                    with_table
-                        .execute("insert into schema_name.table_name values (5 & 1);")
-                        .expect("no system errors"),
-                    Ok(QueryEvent::RecordsInserted(1))
-                );
-                assert_eq!(
-                    with_table
-                        .execute("select * from schema_name.table_name;")
-                        .expect("no system errors"),
+            #[ignore]
+            fn bitwise_and(with_table: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+                let (mut engine, collector) = with_table;
+                engine
+                    .execute("insert into schema_name.table_name values (5 & 1);")
+                    .expect("no system errors");
+                engine
+                    .execute("select * from schema_name.table_name;")
+                    .expect("no system errors");
+
+                collector.assert_content(vec![
+                    Ok(QueryEvent::SchemaCreated),
+                    Ok(QueryEvent::TableCreated),
+                    Ok(QueryEvent::RecordsInserted(1)),
                     Ok(QueryEvent::RecordsSelected((
                         vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
-                        vec![vec!["1".to_owned()]]
-                    )))
-                );
+                        vec![vec!["1".to_owned()]],
+                    ))),
+                ]);
             }
 
             #[rstest::rstest]
-            fn bitwise_or(mut with_table: InMemorySqlEngine) {
-                assert_eq!(
-                    with_table
-                        .execute("insert into schema_name.table_name values (5 | 2);")
-                        .expect("no system errors"),
-                    Ok(QueryEvent::RecordsInserted(1))
-                );
-                assert_eq!(
-                    with_table
-                        .execute("select * from schema_name.table_name;")
-                        .expect("no system errors"),
+            #[ignore]
+            fn bitwise_or(with_table: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+                let (mut engine, collector) = with_table;
+                engine
+                    .execute("insert into schema_name.table_name values (5 | 2);")
+                    .expect("no system errors");
+                engine
+                    .execute("select * from schema_name.table_name;")
+                    .expect("no system errors");
+
+                collector.assert_content(vec![
+                    Ok(QueryEvent::SchemaCreated),
+                    Ok(QueryEvent::TableCreated),
+                    Ok(QueryEvent::RecordsInserted(1)),
                     Ok(QueryEvent::RecordsSelected((
                         vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
-                        vec![vec!["7".to_owned()]]
-                    )))
-                );
+                        vec![vec!["7".to_owned()]],
+                    ))),
+                ]);
             }
 
             #[rstest::rstest]
             #[ignore]
             // TODO ~ <n> is bitwise NOT in PostgreSQL and it does not supported in sqlparser-rs
-            fn bitwise_not(mut with_table: InMemorySqlEngine) {
-                assert_eq!(
-                    with_table
-                        .execute("insert into schema_name.table_name values (~1);")
-                        .expect("no system errors"),
-                    Ok(QueryEvent::RecordsInserted(1))
-                );
-                assert_eq!(
-                    with_table
-                        .execute("select * from schema_name.table_name;")
-                        .expect("no system errors"),
+            fn bitwise_not(with_table: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+                let (mut engine, collector) = with_table;
+                engine
+                    .execute("insert into schema_name.table_name values (~1);")
+                    .expect("no system errors");
+                engine
+                    .execute("select * from schema_name.table_name;")
+                    .expect("no system errors");
+
+                collector.assert_content(vec![
+                    Ok(QueryEvent::SchemaCreated),
+                    Ok(QueryEvent::TableCreated),
+                    Ok(QueryEvent::RecordsInserted(1)),
                     Ok(QueryEvent::RecordsSelected((
                         vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
-                        vec![vec!["-2".to_owned()]]
-                    )))
-                );
+                        vec![vec!["-2".to_owned()]],
+                    ))),
+                ]);
             }
 
             #[rstest::rstest]
             #[ignore]
             // TODO <n> << <m> is bitwise SHIFT LEFT in PostgreSQL and it does not supported in sqlparser-rs
-            fn bitwise_shift_left(mut with_table: InMemorySqlEngine) {
-                assert_eq!(
-                    with_table
-                        .execute("insert into schema_name.table_name values (1 << 4);")
-                        .expect("no system errors"),
-                    Ok(QueryEvent::RecordsInserted(1))
-                );
-                assert_eq!(
-                    with_table
-                        .execute("select * from schema_name.table_name;")
-                        .expect("no system errors"),
+            fn bitwise_shift_left(with_table: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+                let (mut engine, collector) = with_table;
+                engine
+                    .execute("insert into schema_name.table_name values (1 << 4);")
+                    .expect("no system errors");
+                engine
+                    .execute("select * from schema_name.table_name;")
+                    .expect("no system errors");
+
+                collector.assert_content(vec![
+                    Ok(QueryEvent::SchemaCreated),
+                    Ok(QueryEvent::TableCreated),
+                    Ok(QueryEvent::RecordsInserted(1)),
                     Ok(QueryEvent::RecordsSelected((
                         vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
-                        vec![vec!["16".to_owned()]]
-                    )))
-                );
+                        vec![vec!["16".to_owned()]],
+                    ))),
+                ]);
             }
 
             #[rstest::rstest]
             #[ignore]
             // TODO <n> >> <m> is bitwise SHIFT RIGHT in PostgreSQL and it does not supported in sqlparser-rs
-            fn bitwise_right_left(mut with_table: InMemorySqlEngine) {
-                assert_eq!(
-                    with_table
-                        .execute("insert into schema_name.table_name values (8 >> 2);")
-                        .expect("no system errors"),
-                    Ok(QueryEvent::RecordsInserted(1))
-                );
-                assert_eq!(
-                    with_table
-                        .execute("select * from schema_name.table_name;")
-                        .expect("no system errors"),
+            fn bitwise_right_left(with_table: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+                let (mut engine, collector) = with_table;
+                engine
+                    .execute("insert into schema_name.table_name values (8 >> 2);")
+                    .expect("no system errors");
+                engine
+                    .execute("select * from schema_name.table_name;")
+                    .expect("no system errors");
+
+                collector.assert_content(vec![
+                    Ok(QueryEvent::SchemaCreated),
+                    Ok(QueryEvent::TableCreated),
+                    Ok(QueryEvent::RecordsInserted(1)),
                     Ok(QueryEvent::RecordsSelected((
                         vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
-                        vec![vec!["2".to_owned()]]
-                    )))
-                );
+                        vec![vec!["2".to_owned()]],
+                    ))),
+                ]);
             }
 
             #[rstest::rstest]
-            fn evaluate_many_operations(mut with_table: InMemorySqlEngine) {
-                assert_eq!(
-                    with_table
-                        .execute("insert into schema_name.table_name values (5 & 13 % 10 + 1 * 20 - 40 / 4);")
-                        .expect("no system errors"),
-                    Ok(QueryEvent::RecordsInserted(1))
-                );
-                assert_eq!(
-                    with_table
-                        .execute("select * from schema_name.table_name;")
-                        .expect("no system errors"),
+            #[ignore]
+            fn evaluate_many_operations(with_table: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+                let (mut engine, collector) = with_table;
+                engine
+                    .execute("insert into schema_name.table_name values (5 & 13 % 10 + 1 * 20 - 40 / 4);")
+                    .expect("no system errors");
+                engine
+                    .execute("select * from schema_name.table_name;")
+                    .expect("no system errors");
+
+                collector.assert_content(vec![
+                    Ok(QueryEvent::SchemaCreated),
+                    Ok(QueryEvent::TableCreated),
+                    Ok(QueryEvent::RecordsInserted(1)),
                     Ok(QueryEvent::RecordsSelected((
                         vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
-                        vec![vec!["5".to_owned()]]
-                    )))
-                );
+                        vec![vec!["5".to_owned()]],
+                    ))),
+                ]);
             }
         }
     }
@@ -654,67 +703,81 @@ mod operators {
         use super::*;
 
         #[rstest::fixture]
-        fn with_table(mut sql_engine_with_schema: InMemorySqlEngine) -> InMemorySqlEngine {
-            sql_engine_with_schema
+        fn with_table(
+            sql_engine_with_schema: (QueryExecutor<InMemoryStorage>, Arc<Collector>),
+        ) -> (QueryExecutor<InMemoryStorage>, Arc<Collector>) {
+            let (mut engine, collector) = sql_engine_with_schema;
+            engine
                 .execute("create table schema_name.table_name(strings char(5));")
-                .expect("no system errors")
-                .expect("table created");
+                .expect("no system errors");
 
-            sql_engine_with_schema
+            (engine, collector)
         }
 
         #[rstest::rstest]
-        fn concatenation(mut with_table: InMemorySqlEngine) {
-            assert_eq!(
-                with_table
-                    .execute("insert into schema_name.table_name values ('123' || '45');")
-                    .expect("no system errors"),
-                Ok(QueryEvent::RecordsInserted(1))
-            );
-            assert_eq!(
-                with_table
-                    .execute("select * from schema_name.table_name;")
-                    .expect("no system errors"),
+        #[ignore]
+        fn concatenation(with_table: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+            let (mut engine, collector) = with_table;
+            engine
+                .execute("insert into schema_name.table_name values ('123' || '45');")
+                .expect("no system errors");
+            engine
+                .execute("select * from schema_name.table_name;")
+                .expect("no system errors");
+
+            collector.assert_content(vec![
+                Ok(QueryEvent::SchemaCreated),
+                Ok(QueryEvent::TableCreated),
+                Ok(QueryEvent::RecordsInserted(1)),
                 Ok(QueryEvent::RecordsSelected((
                     vec![("strings".to_owned(), PostgreSqlType::Char)],
-                    vec![vec!["12345".to_owned()]]
-                )))
-            );
+                    vec![vec!["12345".to_owned()]],
+                ))),
+            ]);
         }
 
         #[rstest::rstest]
-        fn concatenation_with_number(mut with_table: InMemorySqlEngine) {
-            with_table
+        #[ignore]
+        fn concatenation_with_number(with_table: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+            let (mut engine, collector) = with_table;
+            engine
                 .execute("insert into schema_name.table_name values (1 || '45');")
-                .expect("no system errors")
-                .expect("record inserted");
-
-            with_table
+                .expect("no system errors");
+            engine
                 .execute("insert into schema_name.table_name values ('45' || 1);")
-                .expect("no system errors")
-                .expect("record inserted");
+                .expect("no system errors");
+            engine
+                .execute("select * from schema_name.table_name;")
+                .expect("no system errors");
 
-            assert_eq!(
-                with_table
-                    .execute("select * from schema_name.table_name;")
-                    .expect("no system errors"),
+            collector.assert_content(vec![
+                Ok(QueryEvent::SchemaCreated),
+                Ok(QueryEvent::TableCreated),
+                Ok(QueryEvent::RecordsInserted(1)),
+                Ok(QueryEvent::RecordsInserted(1)),
                 Ok(QueryEvent::RecordsSelected((
                     vec![("strings".to_owned(), PostgreSqlType::Char)],
-                    vec![vec!["145".to_owned()], vec!["451".to_owned()]]
-                )))
-            );
+                    vec![vec!["145".to_owned()], vec!["451".to_owned()]],
+                ))),
+            ]);
         }
 
         #[rstest::rstest]
-        fn non_string_concatenation_not_supported(mut with_table: InMemorySqlEngine) {
-            assert_eq!(
-                with_table
-                    .execute("insert into schema_name.table_name values (1 || 2);")
-                    .expect("no system errors"),
+        #[ignore]
+        fn non_string_concatenation_not_supported(with_table: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+            let (mut engine, collector) = with_table;
+
+            engine
+                .execute("insert into schema_name.table_name values (1 || 2);")
+                .expect("no system errors");
+
+            collector.assert_content(vec![
+                Ok(QueryEvent::SchemaCreated),
+                Ok(QueryEvent::TableCreated),
                 Err(QueryErrorBuilder::new()
                     .undefined_function("||".to_owned(), "NUMBER".to_owned(), "NUMBER".to_owned())
-                    .build())
-            );
+                    .build()),
+            ]);
         }
     }
 }

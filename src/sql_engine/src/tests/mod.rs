@@ -32,26 +32,46 @@ mod update;
 use super::*;
 use crate::QueryExecutor;
 use in_memory_backend_storage::InMemoryStorage;
-use std::sync::{Arc, Mutex};
+use protocol::results::QueryResult;
+use std::{
+    io,
+    ops::Deref,
+    sync::{Arc, Mutex},
+};
 use storage::frontend::FrontendStorage;
 
 fn in_memory_storage() -> Arc<Mutex<FrontendStorage<InMemoryStorage>>> {
     Arc::new(Mutex::new(FrontendStorage::new(InMemoryStorage::default()).unwrap()))
 }
 
-type InMemorySqlEngine = QueryExecutor<InMemoryStorage>;
+struct Collector(Mutex<Vec<QueryResult>>);
 
-#[rstest::fixture]
-fn sql_engine() -> InMemorySqlEngine {
-    QueryExecutor::new(in_memory_storage())
+impl Sender for Collector {
+    fn send(&self, query_result: QueryResult) -> io::Result<()> {
+        self.0.lock().expect("locked").push(query_result);
+        Ok(())
+    }
+}
+
+impl Collector {
+    fn assert_content(&self, expected: Vec<QueryResult>) {
+        let result = self.0.lock().expect("locked");
+        assert_eq!(result.deref(), &expected)
+    }
 }
 
 #[rstest::fixture]
-fn sql_engine_with_schema(mut sql_engine: InMemorySqlEngine) -> InMemorySqlEngine {
-    sql_engine
-        .execute("create schema schema_name;")
-        .expect("no system errors")
-        .expect("schema created");
+fn sql_engine() -> (QueryExecutor<InMemoryStorage>, Arc<Collector>) {
+    let collector = Arc::new(Collector(Mutex::new(vec![])));
+    (QueryExecutor::new(in_memory_storage(), collector.clone()), collector)
+}
 
-    sql_engine
+#[rstest::fixture]
+fn sql_engine_with_schema(
+    sql_engine: (QueryExecutor<InMemoryStorage>, Arc<Collector>),
+) -> (QueryExecutor<InMemoryStorage>, Arc<Collector>) {
+    let (mut engine, collector) = sql_engine;
+    engine.execute("create schema schema_name;").expect("no system errors");
+
+    (engine, collector)
 }

@@ -12,9 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::query::{Datum, Row};
+use crate::query::Row;
 use kernel::SystemResult;
-use protocol::results::{QueryErrorBuilder, QueryEvent, QueryResult};
+use protocol::{
+    results::{QueryErrorBuilder, QueryEvent},
+    Sender,
+};
 use sqlparser::ast::{Expr, Ident, Query, Select, SelectItem, SetExpr, TableFactor, TableWithJoins};
 use std::{
     ops::Deref,
@@ -22,26 +25,29 @@ use std::{
 };
 use storage::{backend::BackendStorage, frontend::FrontendStorage, OperationOnTableError};
 
-pub(crate) struct SelectCommand<'q, P: BackendStorage> {
-    raw_sql_query: &'q str,
+pub(crate) struct SelectCommand<'sc, P: BackendStorage> {
+    raw_sql_query: &'sc str,
     query: Box<Query>,
     storage: Arc<Mutex<FrontendStorage<P>>>,
+    session: Arc<dyn Sender>,
 }
 
-impl<P: BackendStorage> SelectCommand<'_, P> {
+impl<'sc, P: BackendStorage> SelectCommand<'sc, P> {
     pub(crate) fn new(
-        raw_sql_query: &'_ str,
+        raw_sql_query: &'sc str,
         query: Box<Query>,
         storage: Arc<Mutex<FrontendStorage<P>>>,
-    ) -> SelectCommand<P> {
+        session: Arc<dyn Sender>,
+    ) -> SelectCommand<'sc, P> {
         SelectCommand {
             raw_sql_query,
             query,
             storage,
+            session,
         }
     }
 
-    pub(crate) fn execute(&mut self) -> SystemResult<QueryResult> {
+    pub(crate) fn execute(&mut self) -> SystemResult<()> {
         let Query { body, .. } = &*self.query;
         if let SetExpr::Select(select) = body {
             let Select { projection, from, .. } = select.deref();
@@ -53,9 +59,12 @@ impl<P: BackendStorage> SelectCommand<'_, P> {
                     (schema_name, table_name)
                 }
                 _ => {
-                    return Ok(Err(QueryErrorBuilder::new()
-                        .feature_not_supported(self.raw_sql_query.to_owned())
-                        .build()))
+                    self.session
+                        .send(Err(QueryErrorBuilder::new()
+                            .feature_not_supported(self.raw_sql_query.to_owned())
+                            .build()))
+                        .expect("To Send Query Result to Client");
+                    return Ok(());
                 }
             };
             let table_columns = {
@@ -75,9 +84,12 @@ impl<P: BackendStorage> SelectCommand<'_, P> {
                         }
                         SelectItem::UnnamedExpr(Expr::Identifier(Ident { value, .. })) => columns.push(value.clone()),
                         _ => {
-                            return Ok(Err(QueryErrorBuilder::new()
-                                .feature_not_supported(self.raw_sql_query.to_owned())
-                                .build()));
+                            self.session
+                                .send(Err(QueryErrorBuilder::new()
+                                    .feature_not_supported(self.raw_sql_query.to_owned())
+                                    .build()))
+                                .expect("To Send Query Result to Client");
+                            return Ok(());
                         }
                     }
                 }
@@ -85,6 +97,29 @@ impl<P: BackendStorage> SelectCommand<'_, P> {
             };
 
             match (self.storage.lock().unwrap()).select_all_from(&schema_name, &table_name, table_columns)? {
+                // Ok(records) => {
+                //     let projection = (
+                //         records
+                //             .0
+                //             .into_iter()
+                //             .map(|column_definition| {
+                //                 (column_definition.name(), column_definition.sql_type().to_pg_types())
+                //             })
+                //             .collect(),
+                //         records.1,
+                //     );
+                //     self.session
+                //         .send(Ok(QueryEvent::RecordsSelected((
+                //             projection.0,
+                //             projection
+                //                 .1
+                //                 .into_iter()
+                //                 .map(|utf_bytes| String::from_utf8(utf_bytes).unwrap())
+                //                 .collect(),
+                //         ))))
+                //         .expect("To Send Query Result to Client");
+                //     Ok(())
+                // }
                 Ok(records) => {
                     let row_data = records
                         .1
@@ -97,36 +132,60 @@ impl<P: BackendStorage> SelectCommand<'_, P> {
                                 .collect()
                         })
                         .collect();
-                    Ok(Ok(QueryEvent::RecordsSelected((
-                        records
-                            .0
-                            .into_iter()
-                            .map(|column_definition| {
-                                (column_definition.name(), column_definition.sql_type().to_pg_types())
-                            })
-                            .collect(),
-                        row_data,
-                    ))))
+                    self.session
+                        .send(Ok(QueryEvent::RecordsSelected((
+                            records
+                                .0
+                                .into_iter()
+                                .map(|column_definition| {
+                                    (column_definition.name(), column_definition.sql_type().to_pg_types())
+                                })
+                                .collect(),
+                            row_data,
+                        ))))
+                        .expect("To Send Result to Client");
+                    Ok(())
                 }
                 Err(OperationOnTableError::ColumnDoesNotExist(non_existing_columns)) => {
-                    Ok(Err(QueryErrorBuilder::new()
-                        .column_does_not_exist(non_existing_columns)
-                        .build()))
+                    self.session
+                        .send(Err(QueryErrorBuilder::new()
+                            .column_does_not_exist(non_existing_columns)
+                            .build()))
+                        .expect("To Send Query Result to Client");
+                    Ok(())
                 }
-                Err(OperationOnTableError::SchemaDoesNotExist) => Ok(Err(QueryErrorBuilder::new()
-                    .schema_does_not_exist(schema_name.to_owned())
-                    .build())),
-                Err(OperationOnTableError::TableDoesNotExist) => Ok(Err(QueryErrorBuilder::new()
-                    .table_does_not_exist(schema_name.to_owned() + "." + table_name.as_str())
-                    .build())),
-                _ => Ok(Err(QueryErrorBuilder::new()
-                    .feature_not_supported(self.raw_sql_query.to_owned())
-                    .build())),
+                Err(OperationOnTableError::SchemaDoesNotExist) => {
+                    self.session
+                        .send(Err(QueryErrorBuilder::new()
+                            .schema_does_not_exist(schema_name.to_owned())
+                            .build()))
+                        .expect("To Send Query Result to Client");
+                    Ok(())
+                }
+                Err(OperationOnTableError::TableDoesNotExist) => {
+                    self.session
+                        .send(Err(QueryErrorBuilder::new()
+                            .table_does_not_exist(schema_name.to_owned() + "." + table_name.as_str())
+                            .build()))
+                        .expect("To Send Query Result to Client");
+                    Ok(())
+                }
+                _ => {
+                    self.session
+                        .send(Err(QueryErrorBuilder::new()
+                            .feature_not_supported(self.raw_sql_query.to_owned())
+                            .build()))
+                        .expect("To Send Query Result to Client");
+                    Ok(())
+                }
             }
         } else {
-            Ok(Err(QueryErrorBuilder::new()
-                .feature_not_supported(self.raw_sql_query.to_owned())
-                .build()))
+            self.session
+                .send(Err(QueryErrorBuilder::new()
+                    .feature_not_supported(self.raw_sql_query.to_owned())
+                    .build()))
+                .expect("To Send Query Result to Client");
+            Ok(())
         }
     }
 }

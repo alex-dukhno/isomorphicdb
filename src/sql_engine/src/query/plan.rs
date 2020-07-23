@@ -12,17 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::{relation::RelationOp, ScalarOp, SchemaId, TableId};
 ///! represents a plan to be executed by the engine.
+use crate::query::{RelationOp, ScalarOp, SchemaId, TableId};
+use sqlparser::ast::Statement;
 use storage::ColumnDefinition;
-
-#[derive(Debug)]
-pub enum PlanError {
-    SchemaAlreadyExists(String),
-    InvalidSchema(String),
-    TableAlreadyExists(String),
-    InvalidTable(String),
-}
 
 #[derive(Debug, Clone)]
 pub struct TableCreationInfo {
@@ -49,6 +42,7 @@ pub enum Plan {
     CreateSchema(SchemaCreationInfo),
     DropTables(Vec<TableId>),
     DropSchemas(Vec<SchemaId>),
+    NotProcessed(Statement),
     InsertRows(TableInserts),
     // Query(Box<RelationOp>),
 }

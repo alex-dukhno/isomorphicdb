@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use crate::query::repr::Datum;
-use sqlparser::ast::{BinaryOperator, Expr, UnaryOperator, Value};
+use sqlparser::ast::{Expr, Value};
 use std::convert::TryFrom;
 
 #[derive(Debug, Clone)]
@@ -40,14 +40,12 @@ impl<'a> TryFrom<&Value> for Datum<'a> {
                     } else {
                         Err(EvalError::OutOfRangeNumeric)
                     }
+                } else if let Some(val) = val.to_f32() {
+                    Ok(Datum::from_f32(val))
+                } else if let Some(val) = val.to_f64() {
+                    Ok(Datum::from_f64(val))
                 } else {
-                    if let Some(val) = val.to_f32() {
-                        Ok(Datum::from_f32(val))
-                    } else if let Some(val) = val.to_f64() {
-                        Ok(Datum::from_f64(val))
-                    } else {
-                        Err(EvalError::OutOfRangeNumeric)
-                    }
+                    Err(EvalError::OutOfRangeNumeric)
                 }
             }
             SingleQuotedString(value) => Ok(Datum::from_string(value.clone())),
@@ -64,7 +62,7 @@ impl<'a> TryFrom<&Value> for Datum<'a> {
 }
 
 // this must be improved later when we know what we are doing...
-pub fn resolve_static_expr<'a>(expr: &'a Expr) -> Result<Datum<'a>, EvalError> {
+pub fn resolve_static_expr(expr: &Expr) -> Result<Datum, EvalError> {
     use Expr::*;
     match expr {
         BinaryOp { .. } => {

@@ -12,9 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::query::scalar::ScalarOp;
-use crate::query::{RelationType, Row, TableId};
-use sql_types::ConstraintError;
+use crate::query::{scalar::ScalarOp, RelationType, Row, TableId};
 use storage::TableDescription;
 
 ///! module for representing relation operations.

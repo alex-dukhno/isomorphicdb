@@ -77,11 +77,7 @@ fn insert_into<P: backend::BackendStorage>(
     values: Vec<Datum>,
 ) {
     storage
-        .insert_into(
-            schema_name,
-            table_name,
-            vec![Row::pack(values.as_slice()).to_bytes()]
-        )
+        .insert_into(schema_name, table_name, vec![Row::pack(values.as_slice()).to_bytes()])
         .expect("no system errors")
         .expect("values are inserted");
 }

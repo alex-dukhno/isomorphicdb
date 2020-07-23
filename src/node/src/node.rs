@@ -12,12 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::query_listener::SmolQueryListener;
-use protocol::{listener::ProtocolConfiguration, Command, QueryListener};
-use smol::Task;
+use async_dup::Arc as AsyncArc;
+use async_io::Async;
+use futures_lite::future::block_on;
+use protocol::{Command, ProtocolConfiguration, Receiver};
+use smol::{self, Task};
 use sql_engine::QueryExecutor;
 use std::{
     env,
+    net::TcpListener,
+    path::{Path, PathBuf},
     sync::{
         atomic::{AtomicU8, Ordering},
         Arc, Mutex,
@@ -25,73 +29,88 @@ use std::{
 };
 use storage::{backend::SledBackendStorage, frontend::FrontendStorage};
 
-const PORT: usize = 5432;
-const HOST: &str = "0.0.0.0";
+const PORT: u16 = 5432;
+const HOST: [u8; 4] = [0, 0, 0, 0];
 
 pub const RUNNING: u8 = 0;
 pub const STOPPED: u8 = 1;
 
 pub fn start() {
-    smol::run(async {
-        let local_address = format!("{}:{}", HOST, PORT);
-        log::debug!("Starting server on {}", local_address);
-
-        let listener = SmolQueryListener::bind(local_address, protocol_configuration())
-            .await
-            .expect("open server connection");
-
-        let state = Arc::new(AtomicU8::new(RUNNING));
+    block_on(async {
         let storage: Arc<Mutex<FrontendStorage<SledBackendStorage>>> =
             Arc::new(Mutex::new(FrontendStorage::default().unwrap()));
+        let listener = Async::<TcpListener>::bind((HOST, PORT)).expect("OK");
 
-        while let Ok(mut connection) = listener.accept().await.expect("no io errors") {
-            if state.load(Ordering::SeqCst) == STOPPED {
-                return;
-            }
+        let state = Arc::new(AtomicU8::new(RUNNING));
+        let config = protocol_configuration();
 
-            let state = state.clone();
-            let storage = storage.clone();
-            Task::spawn(async move {
-                let mut sql_handler = QueryExecutor::new(storage.clone());
-                log::debug!("ready to handle query");
+        while let Ok((tcp_stream, address)) = listener.accept().await {
+            let tcp_stream = AsyncArc::new(tcp_stream);
+            if let Ok((mut receiver, sender)) = protocol::hand_shake(tcp_stream, address, &config)
+                .await
+                .expect("no io errors")
+            {
+                if state.load(Ordering::SeqCst) == STOPPED {
+                    return;
+                }
+                let state = state.clone();
+                let storage = storage.clone();
+                let sender = Arc::new(sender);
+                let s = sender.clone();
+                Task::spawn(async move {
+                    let mut query_executor = QueryExecutor::new(storage.clone(), s);
+                    log::debug!("ready to handle query");
 
-                loop {
-                    match connection.receive().await {
-                        Err(e) => {
-                            log::error!("UNEXPECTED ERROR: {:?}", e);
-                            state.store(STOPPED, Ordering::SeqCst);
-                            return;
-                        }
-                        Ok(Err(e)) => {
-                            log::error!("UNEXPECTED ERROR: {:?}", e);
-                            state.store(STOPPED, Ordering::SeqCst);
-                            return;
-                        }
-                        Ok(Ok(Command::Terminate)) => {
-                            log::debug!("Closing connection with client");
-                            break;
-                        }
-                        Ok(Ok(Command::Query(sql_query))) => {
-                            let response = sql_handler.execute(sql_query.as_str()).expect("no system error");
-                            match connection.send(response).await {
-                                Ok(()) => {}
-                                Err(error) => eprintln!("{:?}", error), // break Err(SystemError::io(error)),
+                    Task::spawn(async move {
+                        loop {
+                            match receiver.receive().await {
+                                Err(e) => {
+                                    log::error!("UNEXPECTED ERROR: {:?}", e);
+                                    state.store(STOPPED, Ordering::SeqCst);
+                                    return;
+                                }
+                                Ok(Err(e)) => {
+                                    log::error!("UNEXPECTED ERROR: {:?}", e);
+                                    state.store(STOPPED, Ordering::SeqCst);
+                                    return;
+                                }
+                                Ok(Ok(Command::Terminate)) => {
+                                    log::debug!("Closing connection with client");
+                                    break;
+                                }
+                                Ok(Ok(Command::Query(sql_query))) => {
+                                    query_executor.execute(sql_query.as_str()).expect("no system error");
+                                }
                             }
                         }
-                    }
-                }
-            })
-            .detach();
+                    })
+                    .detach();
+                })
+                .detach();
+            }
         }
     });
+}
+
+fn pfx_certificate_path() -> PathBuf {
+    let file = env::var("PFX_CERTIFICATE_FILE").unwrap();
+    let path = Path::new(&file);
+    if path.is_absolute() {
+        return path.to_path_buf();
+    }
+
+    let current_dir = env::current_dir().unwrap();
+    current_dir.as_path().join(path)
+}
+
+fn pfx_certificate_password() -> String {
+    env::var("PFX_CERTIFICATE_PASSWORD").unwrap()
 }
 
 fn protocol_configuration() -> ProtocolConfiguration {
     match env::var("SECURE") {
         Ok(s) => match s.to_lowercase().as_str() {
-            "ssl_only" => ProtocolConfiguration::ssl_only(),
-            "gssenc_only" => ProtocolConfiguration::gssenc_only(),
-            "both" => ProtocolConfiguration::both(),
+            "ssl_only" => ProtocolConfiguration::with_ssl(pfx_certificate_path(), pfx_certificate_password()),
             _ => ProtocolConfiguration::none(),
         },
         _ => ProtocolConfiguration::none(),
