@@ -78,7 +78,6 @@ fn select_all_from_table_with_multiple_columns(
 }
 
 #[rstest::rstest]
-#[ignore]
 fn select_not_all_columns(sql_engine_with_schema: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
     let (mut engine, collector) = sql_engine_with_schema;
     engine

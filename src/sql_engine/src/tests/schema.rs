@@ -82,7 +82,6 @@ fn select_named_columns_from_nonexistent_schema(sql_engine: (QueryExecutor<InMem
 }
 
 #[rstest::rstest]
-#[ignore]
 fn insert_into_table_in_nonexistent_schema(sql_engine: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
     let (mut engine, collector) = sql_engine;
     engine

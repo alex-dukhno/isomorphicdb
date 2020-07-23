@@ -14,7 +14,7 @@
 
 ///! Module for representing how a query will be executed and values represented
 ///! during runtime.
-mod expr;
+pub mod expr;
 mod plan;
 mod relation;
 mod repr;

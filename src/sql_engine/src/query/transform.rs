@@ -266,7 +266,7 @@ impl<'qp, B: BackendStorage> QueryProcessor<B> {
             Err(OperationOnTableError::SchemaDoesNotExist) => {
                 self.session
                     .send(Err(QueryErrorBuilder::new()
-                        .table_already_exists(table_name.schema_name().to_string())
+                        .schema_does_not_exist(table_name.schema_name().to_string())
                         .build()))
                     .expect("To Send Result to Client");
                 return Err(());
@@ -309,7 +309,7 @@ impl<'qp, B: BackendStorage> QueryProcessor<B> {
                 .collect::<Vec<ScalarOp>>()
         };
 
-        // @TODO: check type compatability between the resulting relation type and the actual type of the columns
+        // @TODO: check type compatibility between the resulting relation type and the actual type of the columns
         // the relation type are different then SqlType because the relation might be the result
         // of a join or some other operation.
         //

@@ -24,7 +24,6 @@ mod scalar {
     // }
 
     #[test]
-    #[ignore]
     fn row_packing_single() {
         let datums = vec![Datum::from_bool(true)];
         let row = Row::pack(&datums);
@@ -32,7 +31,6 @@ mod scalar {
     }
 
     #[test]
-    #[ignore]
     fn row_packing_multiple() {
         let datums = vec![Datum::from_bool(true), Datum::from_i32(100000)];
         let row = Row::pack(&datums);
@@ -40,12 +38,11 @@ mod scalar {
     }
 
     #[test]
-    #[ignore]
     fn row_packing_with_floats() {
         let datums = vec![
             Datum::from_bool(false),
             Datum::from_i32(100000),
-            Datum::from_f64(100.134_212_309_847),
+            Datum::from_f32(100.134_21),
         ];
         let row = Row::pack(&datums);
         assert_eq!(
@@ -55,7 +52,6 @@ mod scalar {
     }
 
     #[test]
-    #[ignore]
     fn row_packing_with_null() {
         let datums = vec![Datum::from_bool(true), Datum::from_null(), Datum::from_i32(100000)];
         let row = Row::pack(&datums);
@@ -63,7 +59,6 @@ mod scalar {
     }
 
     #[test]
-    #[ignore]
     fn row_packing_string() {
         let datums = vec![Datum::from_bool(true), Datum::from_str("hello")];
         let row = Row::pack(&datums);
@@ -76,7 +71,6 @@ mod scalar {
     }
 
     #[test]
-    #[ignore]
     fn row_unpacking_single() {
         let datums = vec![Datum::from_bool(true)];
         let row = Row::pack(&datums);
@@ -84,7 +78,6 @@ mod scalar {
     }
 
     #[test]
-    #[ignore]
     fn row_unpacking_multiple() {
         let datums = vec![Datum::from_bool(true), Datum::from_i32(100000)];
         let row = Row::pack(&datums);
@@ -92,7 +85,6 @@ mod scalar {
     }
 
     #[test]
-    #[ignore]
     fn row_unpacking_with_floats() {
         let datums = vec![
             Datum::from_bool(false),
@@ -104,7 +96,6 @@ mod scalar {
     }
 
     #[test]
-    #[ignore]
     fn row_unpacking_with_null() {
         let datums = vec![Datum::from_bool(true), Datum::from_null(), Datum::from_i32(100000)];
         let row = Row::pack(&datums);
@@ -112,7 +103,6 @@ mod scalar {
     }
 
     #[test]
-    #[ignore]
     fn row_unpacking_string() {
         let datums = vec![Datum::from_bool(true), Datum::from_str("hello")];
         let row = Row::pack(&datums);
