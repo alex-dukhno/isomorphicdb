@@ -37,12 +37,20 @@ pub struct TableInserts {
 }
 
 #[derive(Debug, Clone)]
+pub struct TableUpdates {
+    pub table_id: TableId,
+    pub assignments: Vec<ScalarOp>,
+    pub predicate: Option<RelationOp>
+}
+
+#[derive(Debug, Clone)]
 pub enum Plan {
     CreateTable(TableCreationInfo),
     CreateSchema(SchemaCreationInfo),
     DropTables(Vec<TableId>),
     DropSchemas(Vec<SchemaId>),
-    NotProcessed(Statement),
     InsertRows(TableInserts),
+    // Update(TableUpdates),
+    NotProcessed(Statement),
     // Query(Box<RelationOp>),
 }

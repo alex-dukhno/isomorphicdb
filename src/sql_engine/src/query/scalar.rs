@@ -32,6 +32,11 @@ pub enum ScalarOp {
     Literal(Vec<Row>, RelationType),
     /// binary operator
     Binary(BinaryOp, Box<ScalarOp>, Box<ScalarOp>),
-    /// uanry operator
+    /// unary operator
     Unary(UnaryOp, Box<ScalarOp>),
+    /// assignment operator, maybe this should be a RelationOp
+    Assignment {
+        column: usize,
+        value: Box<ScalarOp>
+    },
 }

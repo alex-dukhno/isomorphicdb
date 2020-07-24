@@ -13,21 +13,20 @@
 // limitations under the License.
 
 ///! Module for transforming the input Query AST into representation the engine can process.
-use crate::query::plan::SchemaCreationInfo;
+use crate::query::plan::{SchemaCreationInfo, TableUpdates};
 use crate::query::{
     expr::resolve_static_expr, plan::Plan, RelationOp, RelationType, Row, ScalarOp, SchemaId, TableCreationInfo,
     TableId, TableInserts,
 };
 use protocol::{results::QueryErrorBuilder, Sender};
 use sql_types::SqlType;
-use sqlparser::ast::{
-    ColumnDef, DataType, Ident, ObjectName, ObjectType, Query, Select, SetExpr, Statement, TableFactor, TableWithJoins,
-    Values,
-};
+use sqlparser::ast::{ColumnDef, DataType, Ident, ObjectName, ObjectType, Query, Select, SetExpr, Statement, TableFactor, TableWithJoins, Values, Assignment, Expr};
 use std::sync::{Arc, Mutex, MutexGuard};
 use storage::{backend::BackendStorage, frontend::FrontendStorage, ColumnDefinition, OperationOnTableError};
 
 type Result<T> = std::result::Result<T, ()>;
+
+// @todo: handle the possibility of a SystemError.
 
 // this could probably just be a function.
 /// structure for maintaining state while transforming the input statement.
@@ -50,8 +49,7 @@ impl<'qp, B: BackendStorage> QueryProcessor<B> {
         self.handle_statement(&stmt)
     }
 
-    // this was moved out to clean up the code. This is a good place
-    // to start but should not be the final code.
+    // This is a good place to start but should not be the final code.
     fn table_from_object(&self, object: &ObjectName) -> Result<TableId> {
         if object.0.len() == 1 {
             self.session
@@ -74,6 +72,23 @@ impl<'qp, B: BackendStorage> QueryProcessor<B> {
             let table_name = object.0.last().unwrap().value.clone();
             let schema_name = object.0.first().unwrap().value.clone();
             Ok(TableId(SchemaId(schema_name), table_name))
+        }
+    }
+
+    fn schema_from_object(&mut self, object: &ObjectName) -> Result<SchemaId> {
+        if object.0.len() != 1 {
+            self.session
+                .send(Err(QueryErrorBuilder::new()
+                    .syntax_error(format!(
+                        "only unqualified schema names are supported, '{}'",
+                        object.to_string()
+                    ))
+                    .build()))
+                .expect("To Send Query Result to Client");
+            Err(())
+        } else {
+            let schema_name = object.to_string();
+            Ok(SchemaId(schema_name))
         }
     }
 
@@ -112,23 +127,6 @@ impl<'qp, B: BackendStorage> QueryProcessor<B> {
         }
     }
 
-    fn schema_from_object(&mut self, object: &ObjectName) -> Result<SchemaId> {
-        if object.0.len() != 1 {
-            self.session
-                .send(Err(QueryErrorBuilder::new()
-                    .syntax_error(format!(
-                        "only unqualified schema names are supported, '{}'",
-                        object.to_string()
-                    ))
-                    .build()))
-                .expect("To Send Query Result to Client");
-            Err(())
-        } else {
-            let schema_name = object.to_string();
-            Ok(SchemaId(schema_name))
-        }
-    }
-
     fn handle_statement(&mut self, stmt: &Statement) -> Result<Plan> {
         match stmt {
             Statement::CreateTable { name, columns, .. } => self.handle_create_table(name, columns),
@@ -154,6 +152,9 @@ impl<'qp, B: BackendStorage> QueryProcessor<B> {
                 source,
                 ..
             } => self.handle_insert(table_name, columns, source),
+            // Statement::Update {
+            //     table_name, assignments, selection
+            // } => self.handle_update(table_name, assignments, selection.as_ref()),
             // Statement::Query(query) => {
             //     let op = self.handle_query(query.as_ref())?;
             //     Ok(Plan::Query(Box::new(op)))
@@ -356,6 +357,7 @@ impl<'qp, B: BackendStorage> QueryProcessor<B> {
             }
         }
     }
+
     fn handle_select(&mut self, select: &Select) -> Result<RelationOp> {
         let Select {
             distinct: _,
@@ -388,7 +390,7 @@ impl<'qp, B: BackendStorage> QueryProcessor<B> {
         for expr_row in values.0.iter() {
             let mut row = Vec::new();
             for expr in expr_row {
-                let datum = match resolve_static_expr(&expr) {
+                let datum = match resolve_static_expr(&expr) { // see comment at function declaration
                     Ok(datum) => datum,
                     Err(e) => {
                         self.session
@@ -432,5 +434,52 @@ impl<'qp, B: BackendStorage> QueryProcessor<B> {
             TableFactor::NestedJoin(_table) => {}
         }
         unimplemented!()
+    }
+
+    fn handle_update(&mut self, table_name: &ObjectName, assignments: &[Assignment], selection: Option<&Expr>) -> Result<Plan> {
+        Err(())
+        // let table_id = self.table_from_object(table_name)?;
+        //
+        // let mut assignments_ops = Vec::new();
+        //
+        // let relation_info = self.storage().table_descriptor(table_id.schema_name(), table_id.name()).unwrap().unwrap();
+        //
+        // let mut invalid_columns = Vec::new();
+        //
+        // for item in assignments.iter() {
+        //     let Assignment { id, value } = &item;
+        //     let Ident { value: column, .. } = id;
+        //
+        //     if let Some((idx, data)) = relation_info.find_column(value.as_str()) {
+        //         let value = match resolve_static_expr(value) {
+        //             Ok(datum) => datum,
+        //             Err(e) => {
+        //                 self.session
+        //                     .send(Err(QueryErrorBuilder::new()
+        //                         .feature_not_supported(format!("{:?}", e))
+        //                         .build()))
+        //                     .expect("To Send Result to Client");
+        //                 return Err(());
+        //             }
+        //         };
+        //     }
+        //     else {
+        //         invalid_columns.push(column.clone());
+        //     }
+        // }
+        //
+        // if invalid_columns.is_empty() {
+        //     let update = TableUpdates {
+        //         table_id,
+        //         assignments: assignments_ops,
+        //         predicate: None,
+        //     };
+        //
+        //     Ok(Plan::Update(update))
+        // }
+        // else {
+        //     self.session.send(Err(QueryErrorBuilder::new().column_does_not_exist(invalid_columns).build())).expect("Sending Error to Client");
+        //     Err(())
+        // }
     }
 }

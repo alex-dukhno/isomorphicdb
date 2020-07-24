@@ -23,6 +23,8 @@ use sql_types::ConstraintError;
 use sqlparser::ast::{Assignment, Expr, Ident, ObjectName, UnaryOperator, Value};
 use std::sync::{Arc, Mutex};
 use storage::{backend::BackendStorage, frontend::FrontendStorage, ColumnDefinition, OperationOnTableError};
+use crate::query::{Row, unpack_raw};
+use std::collections::BTreeSet;
 
 pub(crate) struct UpdateCommand<'uc, P: BackendStorage> {
     raw_sql_query: &'uc str,
@@ -53,6 +55,27 @@ impl<'uc, P: BackendStorage> UpdateCommand<'uc, P> {
         let schema_name = self.name.0[0].to_string();
         let table_name = self.name.0[1].to_string();
         let mut to_update = vec![];
+        let mut non_existing_columns = BTreeSet::new();
+
+        // only process the rows if the table and schema exist.
+        let table_desciption = match self.storage.lock().unwrap().table_descriptor(schema_name.as_str(), table_name.as_str())? {
+            Ok(desc) => desc,
+            Err(OperationOnTableError::SchemaDoesNotExist) => {
+                self.session
+                    .send(Err(QueryErrorBuilder::new().schema_does_not_exist(schema_name.to_string()).build()))
+                    .expect("To Send Query Result to Client");
+                return Ok(())
+            }
+            Err(OperationOnTableError::TableDoesNotExist) => {
+                self.session
+                    .send(Err(QueryErrorBuilder::new()
+                        .table_does_not_exist(format!("{}.{}", schema_name, table_name))
+                        .build()))
+                    .expect("To Send Query Result to Client");
+                return Ok(())
+            }
+            _ => unreachable!()
+        };
 
         for item in self.assignments.iter() {
             let Assignment { id, value } = &item;
@@ -94,11 +117,42 @@ impl<'uc, P: BackendStorage> UpdateCommand<'uc, P> {
             //         return Ok(());
             //     }
             // };
-
-            to_update.push((column.to_owned(), value))
+            if let Some((idx, _)) = table_desciption.find_column(column.as_str()) {
+                // type compatibility needs to be checked
+                to_update.push((idx, value));
+            }
+            else {
+                non_existing_columns.insert(column.clone());
+            }
         }
 
-        match (self.storage.lock().unwrap()).update_all(&schema_name, &table_name, to_update)? {
+        if !non_existing_columns.is_empty() {
+            self.session
+                .send(Err(QueryErrorBuilder::new()
+                    .column_does_not_exist(non_existing_columns.into_iter().collect())
+                    .build()))
+                .expect("To Send Query Result to Client");
+            return Ok(());
+        }
+
+        let rows: Vec<(Vec<u8>, Vec<u8>)> = self.storage.lock()
+            .unwrap()
+            .read_unchecked(schema_name.as_str(), table_name.as_str())?
+            .map(Result::unwrap)
+            .map(|(key, value)| {
+                let mut datums = unpack_raw(value.as_slice()); // let mut datums = Row::with_data(value.clone()).unpack();
+                // for (idx, column_def, value) in &to_update {
+                //     datums[*idx] = value.clone();
+                // }
+                // (key, Row::pack(datums.clone().as_slice()).to_bytes())
+                for (idx, data) in to_update.as_slice() {
+                    datums[*idx] = data.clone();
+                }
+                (key, crate::query::Row::pack(&datums).to_bytes())
+            }).collect();
+
+
+        match (self.storage.lock().unwrap()).update_all(&schema_name, &table_name, rows)? {
             Ok(records_number) => {
                 self.session
                     .send(Ok(QueryEvent::RecordsUpdated(records_number)))
@@ -107,14 +161,14 @@ impl<'uc, P: BackendStorage> UpdateCommand<'uc, P> {
             }
             Err(OperationOnTableError::SchemaDoesNotExist) => {
                 self.session
-                    .send(Err(QueryErrorBuilder::new().schema_does_not_exist(schema_name).build()))
+                    .send(Err(QueryErrorBuilder::new().schema_does_not_exist(schema_name.to_string()).build()))
                     .expect("To Send Query Result to Client");
                 Ok(())
             }
             Err(OperationOnTableError::TableDoesNotExist) => {
                 self.session
                     .send(Err(QueryErrorBuilder::new()
-                        .table_does_not_exist(schema_name + "." + table_name.as_str())
+                        .table_does_not_exist(format!("{}.{}", schema_name, table_name))
                         .build()))
                     .expect("To Send Query Result to Client");
                 Ok(())
