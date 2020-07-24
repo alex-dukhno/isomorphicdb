@@ -19,7 +19,8 @@ from psycopg2 import connect
 
 # all imports from errors are OK if you can find such exception class in docs
 # >>> https://www.psycopg.org/docs/errors.html
-from psycopg2.errors import NumericValueOutOfRange
+from psycopg2.errors import (NumericValueOutOfRange, NullValueNotAllowed, MostSpecificTypeMismatch,
+                             DivisionByZero)
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -43,6 +44,8 @@ def create_cursor(request) -> cursor:
 @pytest.fixture(scope='function')
 def create_drop_test_schema_fixture(request, create_cursor) -> cursor:
     cur = create_cursor
+    # ToDo
+    # cur.execute("drop schema if exists schema_name cascade;")
     cur.execute('create schema schema_name;')
 
     def close_all():
@@ -160,6 +163,39 @@ def test_many_numeric_constraint_violations(create_drop_test_schema_fixture: cur
     cur.execute('select * from schema_name.table_name;')
     r = cur.fetchall()
     assert r == [(-32768, -2147483648, -9223372036854775808,), (32767, 2147483647, 9223372036854775807,)]
+
+
+@pytest.mark.xfail
+def test_not_null_constraint_violation(create_drop_test_schema_fixture: cursor):
+    """ check that DB can control that NULL value is not allowed for specific column"""
+
+    cur = create_drop_test_schema_fixture
+    cur.execute('create table schema_name.table_name(id integer, test integer not null)')
+
+    with pytest.raises(NullValueNotAllowed) as e:
+        cur.execute("insert into schema_name.table_name (id) values (%s)", (1,))
+    assert e.value.pgcode == '22004'
+
+
+def test_most_specific_type_mismatch(create_drop_test_schema_fixture: cursor):
+    """ check that DB can control that value has specific type"""
+
+    cur = create_drop_test_schema_fixture
+    cur.execute('create table schema_name.table_name(id integer, test integer)')
+
+    with pytest.raises(MostSpecificTypeMismatch) as e:
+        cur.execute("insert into schema_name.table_name (id, test) values (%s, %s)", (1, 'test_string_not_int'))
+    assert e.value.pgcode == '2200G'
+
+
+@pytest.mark.skip
+def test_division_by_zero(create_drop_test_schema_fixture: cursor):
+    cur = create_drop_test_schema_fixture
+    cur.execute('create table schema_name.table_name(id integer, test integer)')
+
+    with pytest.raises(DivisionByZero) as e:
+        cur.execute("insert into schema_name.table_name (id, test) values (%s, 1/0)", (1,))
+    assert e.value.pgcode == '22012'
 
 
 def test_math_operations_in_insert(create_drop_test_schema_fixture: cursor):
