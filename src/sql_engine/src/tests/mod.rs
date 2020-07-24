@@ -33,12 +33,14 @@ use super::*;
 use crate::QueryExecutor;
 use in_memory_backend_storage::InMemoryStorage;
 use protocol::results::QueryResult;
+use sql_types::SqlType;
 use std::{
     io,
     ops::Deref,
     sync::{Arc, Mutex},
 };
 use storage::frontend::FrontendStorage;
+use storage::ColumnDefinition;
 
 fn in_memory_storage() -> Arc<Mutex<FrontendStorage<InMemoryStorage>>> {
     Arc::new(Mutex::new(FrontendStorage::new(InMemoryStorage::default()).unwrap()))

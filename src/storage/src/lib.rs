@@ -122,7 +122,7 @@ impl ColumnDefinition {
         self.sql_type
     }
 
-    fn has_name(&self, other_name: &str) -> bool {
+    pub fn has_name(&self, other_name: &str) -> bool {
         self.name == other_name
     }
 

@@ -16,66 +16,6 @@ use super::*;
 use sql_types::SqlType;
 
 #[rstest::rstest]
-fn update_all_records(default_schema_name: &str, mut storage_with_schema: PersistentStorage) {
-    create_table(
-        &mut storage_with_schema,
-        default_schema_name,
-        "table_name",
-        vec![column_definition("column_test", SqlType::SmallInt(i16::min_value()))],
-    );
-
-    insert_into(
-        &mut storage_with_schema,
-        default_schema_name,
-        "table_name",
-        vec![],
-        vec!["123"],
-    );
-    insert_into(
-        &mut storage_with_schema,
-        default_schema_name,
-        "table_name",
-        vec![],
-        vec!["456"],
-    );
-    insert_into(
-        &mut storage_with_schema,
-        default_schema_name,
-        "table_name",
-        vec![],
-        vec!["789"],
-    );
-
-    assert_eq!(
-        storage_with_schema
-            .update_all(
-                default_schema_name,
-                "table_name",
-                vec![("column_test".to_owned(), "567".to_owned())]
-            )
-            .expect("no system errors"),
-        Ok(3)
-    );
-
-    let table_columns = storage_with_schema
-        .table_columns(default_schema_name, "table_name")
-        .expect("no system errors")
-        .into_iter()
-        .map(|column_definition| column_definition.name())
-        .collect();
-
-    assert_eq!(
-        storage_with_schema
-            .select_all_from(default_schema_name, "table_name", table_columns)
-            .expect("no system errors"),
-        Ok((
-            vec![column_definition("column_test", SqlType::SmallInt(i16::min_value()))],
-            vec![vec!["567".to_owned()], vec!["567".to_owned()], vec!["567".to_owned()]]
-        ))
-    );
-}
-
-#[rstest::rstest]
 fn update_not_existed_table(default_schema_name: &str, mut storage_with_schema: PersistentStorage) {
     assert_eq!(
         storage_with_schema
@@ -141,8 +81,10 @@ mod constraints {
             .insert_into(
                 default_schema_name,
                 "table_name",
-                vec![],
-                vec![vec!["100".to_owned(), "100".to_owned(), "100".to_owned()]],
+                vec![(
+                    1usize.to_be_bytes().to_vec(),
+                    vec!["100".as_bytes(), "100".as_bytes(), "100".as_bytes()].join(&b'|'),
+                )],
             )
             .expect("no system errors")
             .expect("record inserted");
@@ -174,8 +116,10 @@ mod constraints {
             .insert_into(
                 default_schema_name,
                 "table_name",
-                vec![],
-                vec![vec!["100".to_owned(), "100".to_owned(), "100".to_owned()]],
+                vec![(
+                    1usize.to_be_bytes().to_vec(),
+                    vec!["100".as_bytes(), "100".as_bytes(), "100".as_bytes()].join(&b'|'),
+                )],
             )
             .expect("no system errors")
             .expect("record inserted");
@@ -207,8 +151,10 @@ mod constraints {
             .insert_into(
                 default_schema_name,
                 "table_name",
-                vec![],
-                vec![vec!["100".to_owned(), "100".to_owned()]],
+                vec![(
+                    1usize.to_be_bytes().to_vec(),
+                    vec!["100".as_bytes(), "100".as_bytes()].join(&b'|'),
+                )],
             )
             .expect("no system errors")
             .expect("record inserted");
@@ -239,8 +185,10 @@ mod constraints {
             .insert_into(
                 default_schema_name,
                 "table_name",
-                vec![],
-                vec![vec!["100".to_owned(), "100".to_owned(), "100".to_owned()]],
+                vec![(
+                    1usize.to_be_bytes().to_vec(),
+                    vec!["100".as_bytes(), "100".as_bytes(), "100".as_bytes()].join(&b'|'),
+                )],
             )
             .expect("no system errors")
             .expect("records inserted");

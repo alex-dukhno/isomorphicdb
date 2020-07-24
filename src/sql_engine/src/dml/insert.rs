@@ -21,6 +21,7 @@ use protocol::{
 use sql_types::ConstraintError;
 use sqlparser::ast::{DataType, Expr, Ident, ObjectName, Query, SetExpr, UnaryOperator, Value};
 use std::sync::{Arc, Mutex};
+use storage::backend::Row;
 use storage::{backend::BackendStorage, frontend::FrontendStorage, ColumnDefinition, OperationOnTableError};
 
 pub(crate) struct InsertCommand<'ic, P: BackendStorage> {
@@ -126,7 +127,122 @@ impl<'ic, P: BackendStorage> InsertCommand<'ic, P> {
             }
 
             let len = rows.len();
-            match (self.storage.lock().unwrap()).insert_into(&schema_name, &table_name, columns, rows)? {
+
+            let column_names = columns.clone();
+            let all_columns = (self.storage.lock().unwrap()).table_columns(&schema_name, &table_name)?;
+            let index_columns = if column_names.is_empty() {
+                let mut index_cols = vec![];
+                for (index, column_definition) in all_columns.iter().cloned().enumerate() {
+                    index_cols.push((index, column_definition));
+                }
+
+                index_cols
+            } else {
+                let mut index_cols = vec![];
+                let mut non_existing_cols = vec![];
+                for column_name in column_names {
+                    let mut found = None;
+                    for (index, column_definition) in all_columns.iter().enumerate() {
+                        if column_definition.has_name(&column_name) {
+                            found = Some((index, column_definition.clone()));
+                            break;
+                        }
+                    }
+
+                    match found {
+                        Some(index_col) => {
+                            index_cols.push(index_col);
+                        }
+                        None => non_existing_cols.push(column_name),
+                    }
+                }
+
+                if !non_existing_cols.is_empty() {
+                    self.session
+                        .send(Err(QueryErrorBuilder::new()
+                            .column_does_not_exist(non_existing_cols)
+                            .build()))
+                        .expect("To Send Result to Client");
+                    return Ok(());
+                }
+
+                index_cols
+            };
+
+            let mut to_write: Vec<Row> = vec![];
+            if (self.storage.lock().unwrap()).table_exists(&schema_name, &table_name) {
+                let mut errors = Vec::new();
+
+                for (row_index, row) in rows.iter().enumerate() {
+                    if row.len() > all_columns.len() {
+                        // clear anything that could have been processed already.
+                        to_write.clear();
+                        self.session
+                            .send(Err(QueryErrorBuilder::new().too_many_insert_expressions().build()))
+                            .expect("To Send Result to Client");
+                        return Ok(());
+                    }
+
+                    let key = (self.storage.lock().unwrap()).next_key_id().to_be_bytes().to_vec();
+
+                    // TODO: The default value or NULL should be initialized for SQL types of all columns.
+                    let mut record = vec![vec![0, 0]; all_columns.len()];
+                    for (item, (index, column_definition)) in row.iter().zip(index_columns.iter()) {
+                        match column_definition.sql_type().validate_and_serialize(item.as_str()) {
+                            Ok(bytes) => {
+                                record[*index] = bytes;
+                            }
+                            Err(e) => {
+                                errors.push((e, column_definition.clone()));
+                            }
+                        }
+                    }
+
+                    // if there was an error then exit the loop.
+                    if !errors.is_empty() {
+                        // In SQL indexes start from 1, not 0.
+                        let mut builder = QueryErrorBuilder::new();
+                        let mut constraint_error_mapper =
+                            |err: &ConstraintError, column_definition: &ColumnDefinition, row_index: usize| match err {
+                                ConstraintError::OutOfRange => {
+                                    builder.out_of_range(
+                                        column_definition.sql_type().to_pg_types(),
+                                        column_definition.name(),
+                                        row_index,
+                                    );
+                                }
+                                ConstraintError::TypeMismatch(value) => {
+                                    builder.type_mismatch(
+                                        value,
+                                        column_definition.sql_type().to_pg_types(),
+                                        column_definition.name(),
+                                        row_index,
+                                    );
+                                }
+                                ConstraintError::ValueTooLong(len) => {
+                                    builder.string_length_mismatch(
+                                        column_definition.sql_type().to_pg_types(),
+                                        *len,
+                                        column_definition.name(),
+                                        row_index,
+                                    );
+                                }
+                            };
+
+                        errors.iter().for_each(|(err, column_definition)| {
+                            constraint_error_mapper(err, column_definition, row_index + 1)
+                        });
+                        self.session
+                            .send(Err(builder.build()))
+                            .expect("To Send Query Result to Client");
+                        return Ok(());
+                    }
+
+                    to_write.push((key, record.join(&b'|')));
+                }
+            }
+
+            match (self.storage.lock().unwrap()).insert_into(&schema_name, &table_name, to_write)? {
                 Ok(_) => {
                     self.session
                         .send(Ok(QueryEvent::RecordsInserted(len)))
