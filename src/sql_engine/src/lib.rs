@@ -88,9 +88,15 @@ impl<P: BackendStorage> QueryExecutor<P> {
                     DropTableCommand::new(table, self.storage.clone(), self.session.clone()).execute()?;
                 }
                 Ok(())
-            }
-            Ok(Plan::InsertRows(insert_rows)) => {
-                InsertCommand::new(raw_sql_query, insert_rows, self.storage.clone(), self.session.clone()).execute()
+            },
+            Ok(Plan::InsertRows(insert_info)) => {
+                InsertCommand::new(
+                        raw_sql_query,
+                        insert_info,
+                        self.storage.clone(),
+                        self.session.clone(),
+                    )
+                    .execute()
             }
             Ok(Plan::NotProcessed(statement)) => match statement {
                 Statement::StartTransaction { .. } => {

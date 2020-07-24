@@ -26,7 +26,7 @@ pub use plan::{Plan, SchemaCreationInfo, TableCreationInfo, TableInserts};
 pub use transform::QueryProcessor;
 
 pub use relation::{RelationError, RelationOp};
-pub use repr::{Datum, Row};
+pub use repr::{Datum, Row, unpack_raw};
 pub use scalar::ScalarOp;
 
 use sql_types::SqlType;

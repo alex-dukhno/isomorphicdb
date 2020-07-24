@@ -87,6 +87,15 @@ impl TableDescription {
             .map(|column| column.sql_type)
     }
 
+    pub fn find_column(&self, name: &str) -> Option<(usize, &ColumnDefinition)> {
+        for (idx, data) in self.column_data.iter().enumerate() {
+            if data.has_name(name) {
+               return Some((idx, data))
+            }
+        }
+        None
+    }
+
     pub fn column_data(&self) -> &[ColumnDefinition] {
         self.column_data.as_slice()
     }

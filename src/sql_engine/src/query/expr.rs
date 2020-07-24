@@ -64,6 +64,10 @@ impl<'a> TryFrom<&Value> for Datum<'a> {
 }
 
 // this must be improved later when we know what we are doing...
+// the current limitation of this is that is doesn't know anything about the context the given
+// expression is being evaluated. It is expected this function to be used in places the expression
+// will result in an actual "value" or Datum. Which for most of those evaluations we what to know
+// the information about the query that we currently do not have.
 pub fn resolve_static_expr(expr: &Expr) -> Result<Datum, EvalError> {
     match expr {
         Expr::BinaryOp { .. } => {

@@ -303,48 +303,51 @@ impl Row {
     }
 
     pub fn unpack(&self) -> Vec<Datum> {
-        let mut index = 0;
-        let mut res = Vec::new();
-        let data = self.data.as_slice();
-        while index < data.len() {
-            let tag = read_tag(data, &mut index);
-            let datum = match tag {
-                TypeTag::Null => Datum::from_null(),
-                TypeTag::True => Datum::from_bool(true),
-                TypeTag::False => Datum::from_bool(false),
-                TypeTag::Str => {
-                    let val = unsafe { read_string(data, &mut index) };
-                    Datum::String(val)
-                }
-                TypeTag::I16 => {
-                    let val = unsafe { read::<i16>(data, &mut index) };
-                    Datum::from_i16(val)
-                }
-                TypeTag::I32 => {
-                    let val = unsafe { read::<i32>(data, &mut index) };
-                    Datum::from_i32(val)
-                }
-                TypeTag::I64 => {
-                    let val = unsafe { read::<i64>(data, &mut index) };
-                    Datum::from_i64(val)
-                }
-                TypeTag::F32 => {
-                    let val = unsafe { read::<f32>(data, &mut index) };
-                    Datum::from_f32(val)
-                }
-                TypeTag::F64 => {
-                    let val = unsafe { read::<f64>(data, &mut index) };
-                    Datum::from_f64(val)
-                } // SqlType::Decimal |
-                  // SqlType::Time |
-                  // SqlType::TimeWithTimeZone |
-                  // SqlType::Timestamp |
-                  // SqlType::TimestampWithTimeZone |
-                  // SqlType::Date |
-                  // SqlType::Interval => unimplemented!()
-            };
-            res.push(datum)
-        }
-        res
+        unpack_raw(self.data.as_slice())
     }
+}
+
+pub fn unpack_raw(data: &[u8]) -> Vec<Datum> {
+    let mut index = 0;
+    let mut res = Vec::new();
+    while index < data.len() {
+        let tag = read_tag(data, &mut index);
+        let datum = match tag {
+            TypeTag::Null => Datum::from_null(),
+            TypeTag::True => Datum::from_bool(true),
+            TypeTag::False => Datum::from_bool(false),
+            TypeTag::Str => {
+                let val = unsafe { read_string(data, &mut index) };
+                Datum::String(val)
+            }
+            TypeTag::I16 => {
+                let val = unsafe { read::<i16>(data, &mut index) };
+                Datum::from_i16(val)
+            }
+            TypeTag::I32 => {
+                let val = unsafe { read::<i32>(data, &mut index) };
+                Datum::from_i32(val)
+            }
+            TypeTag::I64 => {
+                let val = unsafe { read::<i64>(data, &mut index) };
+                Datum::from_i64(val)
+            }
+            TypeTag::F32 => {
+                let val = unsafe { read::<f32>(data, &mut index) };
+                Datum::from_f32(val)
+            }
+            TypeTag::F64 => {
+                let val = unsafe { read::<f64>(data, &mut index) };
+                Datum::from_f64(val)
+            } // SqlType::Decimal |
+            // SqlType::Time |
+            // SqlType::TimeWithTimeZone |
+            // SqlType::Timestamp |
+            // SqlType::TimestampWithTimeZone |
+            // SqlType::Date |
+            // SqlType::Interval => unimplemented!()
+        };
+        res.push(datum)
+    }
+    res
 }
