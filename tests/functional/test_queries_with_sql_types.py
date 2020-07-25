@@ -16,7 +16,7 @@ import pytest
 
 from psycopg2._psycopg import cursor
 from random import choice
-from tests.functional.fixtures import create_drop_test_schema_fixture, create_cursor
+from fixtures import create_drop_test_schema_fixture, create_cursor
 
 
 def test_integer_types(create_drop_test_schema_fixture: cursor):

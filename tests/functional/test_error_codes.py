@@ -7,7 +7,7 @@ from psycopg2.errors import (NumericValueOutOfRange, NullValueNotAllowed, MostSp
 # >>> https://www.psycopg.org/docs/errors.html
 
 from psycopg2.errorcodes import *
-from tests.functional.fixtures import create_drop_test_schema_fixture, create_cursor
+from fixtures import create_drop_test_schema_fixture, create_cursor
 
 
 def test_numeric_constraint_violations(create_drop_test_schema_fixture: cursor):

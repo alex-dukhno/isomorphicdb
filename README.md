@@ -77,7 +77,7 @@ For windows, you can easily install `python` from [official site](https://www.py
     ```
 1. After that you can run all tests with:
    ```shell script
-   pytest -v tests/functional/*
+   pytest -v tests/functional/
    ```
 1. or tests in specified file with:
     ```shell script

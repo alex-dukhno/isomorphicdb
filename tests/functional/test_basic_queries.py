@@ -16,7 +16,7 @@ import pytest
 
 from psycopg2.errors import DuplicateSchema, DuplicateTable
 from psycopg2._psycopg import cursor
-from tests.functional.fixtures import create_drop_test_schema_fixture, create_cursor
+from fixtures import create_drop_test_schema_fixture, create_cursor
 
 
 def test_create_duplicate_schema(create_drop_test_schema_fixture: cursor):
