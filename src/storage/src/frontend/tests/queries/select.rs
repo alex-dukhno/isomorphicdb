@@ -77,6 +77,6 @@ fn select_all_from_table_with_many_columns(default_schema_name: &str, mut with_s
         with_small_ints_table
             .select_all_from(default_schema_name, "table_name", table_columns)
             .expect("no system errors"),
-        Ok(vec![vec!["1".as_bytes(), "2".as_bytes(), "3".as_bytes()].join(&b'|')])
+        Ok(vec![b"1|2|3".to_vec()])
     );
 }

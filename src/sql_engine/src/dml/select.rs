@@ -166,16 +166,14 @@ impl<'sc, P: BackendStorage> SelectCommand<'sc, P> {
                 }
                 Err(OperationOnTableError::SchemaDoesNotExist) => {
                     self.session
-                        .send(Err(QueryErrorBuilder::new()
-                            .schema_does_not_exist(schema_name.to_owned())
-                            .build()))
+                        .send(Err(QueryErrorBuilder::new().schema_does_not_exist(schema_name).build()))
                         .expect("To Send Query Result to Client");
                     Ok(())
                 }
                 Err(OperationOnTableError::TableDoesNotExist) => {
                     self.session
                         .send(Err(QueryErrorBuilder::new()
-                            .table_does_not_exist(schema_name.to_owned() + "." + table_name.as_str())
+                            .table_does_not_exist(schema_name + "." + table_name.as_str())
                             .build()))
                         .expect("To Send Query Result to Client");
                     Ok(())

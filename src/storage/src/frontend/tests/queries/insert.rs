@@ -21,7 +21,7 @@ fn insert_into_non_existent_schema(mut storage: PersistentStorage) {
             .insert_into(
                 "non_existent",
                 "not_existed",
-                vec![(1usize.to_be_bytes().to_vec(), vec!["123".as_bytes()].join(&b'|'))]
+                vec![(1usize.to_be_bytes().to_vec(), b"123".to_vec())]
             )
             .expect("no system errors"),
         Err(OperationOnTableError::SchemaDoesNotExist)
@@ -35,7 +35,7 @@ fn insert_into_non_existent_table(default_schema_name: &str, mut storage_with_sc
             .insert_into(
                 default_schema_name,
                 "not_existed",
-                vec![(1usize.to_be_bytes().to_vec(), vec!["123".as_bytes()].join(&b'|'))]
+                vec![(1usize.to_be_bytes().to_vec(), b"123".to_vec())]
             )
             .expect("no system errors"),
         Err(OperationOnTableError::TableDoesNotExist)

@@ -21,8 +21,11 @@ use protocol::{
 use sql_types::ConstraintError;
 use sqlparser::ast::{DataType, Expr, Ident, ObjectName, Query, SetExpr, UnaryOperator, Value};
 use std::sync::{Arc, Mutex};
-use storage::backend::Row;
-use storage::{backend::BackendStorage, frontend::FrontendStorage, ColumnDefinition, OperationOnTableError};
+use storage::{
+    backend::{BackendStorage, Row},
+    frontend::FrontendStorage,
+    ColumnDefinition, OperationOnTableError,
+};
 
 pub(crate) struct InsertCommand<'ic, P: BackendStorage> {
     raw_sql_query: &'ic str,
@@ -128,7 +131,7 @@ impl<'ic, P: BackendStorage> InsertCommand<'ic, P> {
 
             let len = rows.len();
 
-            let column_names = columns.clone();
+            let column_names = columns;
             let all_columns = (self.storage.lock().unwrap()).table_columns(&schema_name, &table_name)?;
             let index_columns = if column_names.is_empty() {
                 let mut index_cols = vec![];

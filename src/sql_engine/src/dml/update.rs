@@ -20,10 +20,16 @@ use protocol::{
 };
 use sql_types::ConstraintError;
 use sqlparser::ast::{Assignment, Expr, Ident, ObjectName, UnaryOperator, Value};
-use std::collections::BTreeSet;
-use std::sync::{Arc, Mutex};
-use storage::backend::Row;
-use storage::{backend, backend::BackendStorage, frontend::FrontendStorage, ColumnDefinition, OperationOnTableError};
+use std::{
+    collections::BTreeSet,
+    sync::{Arc, Mutex},
+};
+use storage::{
+    backend,
+    backend::{BackendStorage, Row},
+    frontend::FrontendStorage,
+    ColumnDefinition, OperationOnTableError,
+};
 
 pub(crate) struct UpdateCommand<'uc, P: BackendStorage> {
     raw_sql_query: &'uc str,

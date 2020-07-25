@@ -12,11 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::backend::ReadCursor;
 use crate::{
     backend::{
         self, BackendStorage, CreateObjectError, DropObjectError, NamespaceAlreadyExists, NamespaceDoesNotExist,
-        OperationOnObjectError, Row, SledBackendStorage,
+        OperationOnObjectError, ReadCursor, Row, SledBackendStorage,
     },
     ColumnDefinition, CreateTableError, DropTableError, OperationOnTableError, SchemaAlreadyExists, SchemaDoesNotExist,
     TableDescription,
