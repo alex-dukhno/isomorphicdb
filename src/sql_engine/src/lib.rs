@@ -21,7 +21,7 @@ use crate::{
         drop_table::DropTableCommand,
     },
     dml::{delete::DeleteCommand, insert::InsertCommand, select::SelectCommand, update::UpdateCommand},
-    query::{plan::Plan, transform::QueryProcessor},
+    query::{plan::Plan, process::QueryProcessor},
 };
 use kernel::SystemResult;
 use protocol::{
@@ -90,6 +90,9 @@ impl<P: BackendStorage> QueryExecutor<P> {
                 }
                 Ok(())
             }
+            Ok(Plan::Insert(table_insert)) => {
+                InsertCommand::new(raw_sql_query, table_insert, self.storage.clone(), self.session.clone()).execute()
+            }
             Ok(Plan::NotProcessed(statement)) => match statement {
                 Statement::StartTransaction { .. } => {
                     self.session
@@ -111,20 +114,6 @@ impl<P: BackendStorage> QueryExecutor<P> {
                         .expect("To Send Query Result to Client");
                     Ok(())
                 }
-                Statement::Insert {
-                    table_name,
-                    columns,
-                    source,
-                    ..
-                } => InsertCommand::new(
-                    raw_sql_query,
-                    table_name,
-                    columns,
-                    source,
-                    self.storage.clone(),
-                    self.session.clone(),
-                )
-                .execute(),
                 Statement::Query(query) => {
                     SelectCommand::new(raw_sql_query, query, self.storage.clone(), self.session.clone()).execute()
                 }

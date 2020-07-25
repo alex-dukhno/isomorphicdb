@@ -75,7 +75,7 @@ fn delete_all_from_table(default_schema_name: &str, mut storage_with_schema: Per
 
     assert_eq!(
         storage_with_schema
-            .select_all_from("schema_name", "table_name")
+            .table_scan("schema_name", "table_name")
             .expect("no system errors"),
         Ok(vec![])
     );

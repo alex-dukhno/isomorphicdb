@@ -81,7 +81,7 @@ fn insert_into<P: backend::BackendStorage>(
                 .map(|(k, v)| {
                     let key = k.to_be_bytes().to_vec();
                     let values = v.into_iter().map(|s| s.as_bytes()).collect::<Vec<_>>().join(&b'|');
-                    (key, values)
+                    (Binary::with_data(key), Binary::with_data(values))
                 })
                 .collect(),
         )

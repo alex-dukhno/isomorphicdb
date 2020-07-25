@@ -14,7 +14,7 @@
 
 ///! represents a plan to be executed by the engine.
 use crate::query::{SchemaId, TableId};
-use sqlparser::ast::Statement;
+use sqlparser::ast::{Ident, Query, Statement};
 use storage::ColumnDefinition;
 
 #[derive(Debug, Clone)]
@@ -30,10 +30,18 @@ pub struct SchemaCreationInfo {
 }
 
 #[derive(Debug, Clone)]
+pub struct TableInserts {
+    pub table_id: TableId,
+    pub column_indices: Vec<Ident>,
+    pub input: Box<Query>,
+}
+
+#[derive(Debug, Clone)]
 pub enum Plan {
     CreateTable(TableCreationInfo),
     CreateSchema(SchemaCreationInfo),
     DropTables(Vec<TableId>),
     DropSchemas(Vec<SchemaId>),
+    Insert(TableInserts),
     NotProcessed(Statement),
 }

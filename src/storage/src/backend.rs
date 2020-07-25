@@ -13,12 +13,13 @@
 // limitations under the License.
 
 use kernel::{SystemError, SystemResult};
+use representation::Binary;
 use std::{collections::HashMap, fmt::Debug};
 
 pub type Result<T, E> = std::result::Result<T, E>;
 pub type Row = (Key, Values);
-pub type Key = Vec<u8>;
-pub type Values = Vec<u8>;
+pub type Key = Binary;
+pub type Values = Binary;
 pub type ReadCursor = Box<dyn Iterator<Item = Result<Row, SystemError>>>;
 
 #[derive(Debug, PartialEq)]
@@ -216,7 +217,9 @@ impl BackendStorage for SledBackendStorage {
                         Ok(object) => {
                             let mut written_rows = 0;
                             for (key, values) in rows {
-                                match object.insert::<sled::IVec, sled::IVec>(key.into(), values.into()) {
+                                match object
+                                    .insert::<sled::IVec, sled::IVec>(key.to_bytes().into(), values.to_bytes().into())
+                                {
                                     Ok(_) => written_rows += 1,
                                     Err(error) => return Err(Self::ErrorMapper::map(error)),
                                 }
@@ -239,7 +242,9 @@ impl BackendStorage for SledBackendStorage {
                 if namespace.tree_names().contains(&(object_name.into())) {
                     match namespace.open_tree(object_name) {
                         Ok(object) => Ok(Ok(Box::new(object.iter().map(|item| match item {
-                            Ok((key, values)) => Ok((key.to_vec(), values.to_vec())),
+                            Ok((key, values)) => {
+                                Ok((Binary::with_data(key.to_vec()), Binary::with_data(values.to_vec())))
+                            }
                             Err(error) => Err(Self::ErrorMapper::map(error)),
                         })))),
                         Err(error) => Err(Self::ErrorMapper::map(error)),
@@ -265,7 +270,7 @@ impl BackendStorage for SledBackendStorage {
                     match namespace.open_tree(object_name) {
                         Ok(object) => {
                             for key in keys {
-                                match object.remove(key) {
+                                match object.remove(key.to_bytes()) {
                                     Ok(_) => deleted += 1,
                                     Err(error) => return Err(Self::ErrorMapper::map(error)),
                                 }
@@ -803,19 +808,24 @@ mod tests {
         items
             .into_iter()
             .map(|(key, values)| {
-                let k = key.to_be_bytes().to_vec();
-                let v = values
-                    .into_iter()
-                    .map(|s| s.as_bytes())
-                    .collect::<Vec<&[u8]>>()
-                    .join(&b'|');
+                let k = Binary::with_data(key.to_be_bytes().to_vec());
+                let v = Binary::with_data(
+                    values
+                        .into_iter()
+                        .map(|s| s.as_bytes())
+                        .collect::<Vec<&[u8]>>()
+                        .join(&b'|'),
+                );
                 (k, v)
             })
             .collect()
     }
 
     fn as_keys(items: Vec<u8>) -> Vec<Key> {
-        items.into_iter().map(|key| key.to_be_bytes().to_vec()).collect()
+        items
+            .into_iter()
+            .map(|key| Binary::with_data(key.to_be_bytes().to_vec()))
+            .collect()
     }
 
     fn as_read_cursor(items: Vec<(u8, Vec<&'static str>)>) -> ReadCursor {
@@ -826,7 +836,7 @@ mod tests {
                 .map(|s| s.as_bytes())
                 .collect::<Vec<&[u8]>>()
                 .join(&b'|');
-            Ok((k, v))
+            Ok((Binary::with_data(k), Binary::with_data(v)))
         }))
     }
 }

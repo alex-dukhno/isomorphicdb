@@ -274,7 +274,7 @@ fn read_tag(data: &[u8], idx: &mut usize) -> TypeTag {
 /// in-memory representation of a table row. It is unable to deserialize
 /// the row without knowing the types of each column, which makes this unsafe
 /// however it is more memory efficient.
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, PartialOrd, Ord)]
 pub struct Binary(Vec<u8>);
 
 impl Binary {
@@ -283,8 +283,8 @@ impl Binary {
     }
 
     #[allow(clippy::wrong_self_convention)]
-    pub fn to_bytes(self) -> Vec<u8> {
-        self.0
+    pub fn to_bytes(&self) -> &[u8] {
+        self.0.as_slice()
     }
 
     pub fn with_data(data: Vec<u8>) -> Self {

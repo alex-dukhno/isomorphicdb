@@ -34,7 +34,7 @@ fn with_small_ints_table(default_schema_name: &str, mut storage_with_schema: Per
 fn select_from_table_from_non_existent_schema(mut storage: PersistentStorage) {
     assert_eq!(
         storage
-            .select_all_from("non_existent", "table_name")
+            .table_scan("non_existent", "table_name")
             .expect("no system errors"),
         Err(OperationOnTableError::SchemaDoesNotExist)
     );
@@ -44,7 +44,7 @@ fn select_from_table_from_non_existent_schema(mut storage: PersistentStorage) {
 fn select_from_table_that_does_not_exist(default_schema_name: &str, mut storage_with_schema: PersistentStorage) {
     assert_eq!(
         storage_with_schema
-            .select_all_from(default_schema_name, "not_existed")
+            .table_scan(default_schema_name, "not_existed")
             .expect("no system errors"),
         Err(OperationOnTableError::TableDoesNotExist)
     );
@@ -61,7 +61,7 @@ fn select_all_from_table_with_many_columns(default_schema_name: &str, mut with_s
 
     assert_eq!(
         with_small_ints_table
-            .select_all_from(default_schema_name, "table_name")
+            .table_scan(default_schema_name, "table_name")
             .expect("no system errors"),
         Ok(vec![Binary::with_data(b"1|2|3".to_vec())])
     );

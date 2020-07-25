@@ -191,6 +191,7 @@ impl BackendStorage for InMemoryStorage {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use representation::Binary;
 
     type Storage = InMemoryStorage;
 
@@ -624,13 +625,16 @@ mod tests {
                     .map(|s| s.as_bytes().to_vec())
                     .collect::<Vec<_>>()
                     .join(&b'|');
-                (k, v)
+                (Binary::with_data(k), Binary::with_data(v))
             })
             .collect()
     }
 
     fn as_keys(items: Vec<u8>) -> Vec<Key> {
-        items.into_iter().map(|key| key.to_be_bytes().to_vec()).collect()
+        items
+            .into_iter()
+            .map(|key| Binary::with_data(key.to_be_bytes().to_vec()))
+            .collect()
     }
 
     fn as_read_cursor(items: Vec<(u8, Vec<&'static str>)>) -> ReadCursor {
@@ -641,7 +645,7 @@ mod tests {
                 .map(|s| s.as_bytes().to_vec())
                 .collect::<Vec<_>>()
                 .join(&b'|');
-            Ok((k, v))
+            Ok((Binary::with_data(k), Binary::with_data(v)))
         }))
     }
 }

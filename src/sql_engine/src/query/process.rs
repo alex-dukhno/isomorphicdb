@@ -13,20 +13,18 @@
 // limitations under the License.
 
 ///! Module for transforming the input Query AST into representation the engine can process.
-use crate::query::plan::{SchemaCreationInfo, TableCreationInfo};
-use crate::query::{plan::Plan, SchemaId, TableId};
+use crate::query::plan::{Plan, SchemaCreationInfo, TableCreationInfo, TableInserts};
+use crate::query::{SchemaId, SchemaNamingError, TableId, TableNamingError};
 use protocol::{results::QueryErrorBuilder, Sender};
 use sql_types::SqlType;
 use sqlparser::ast::{ColumnDef, DataType, ObjectName, ObjectType, Statement};
+use std::convert::TryFrom;
 use std::sync::{Arc, Mutex, MutexGuard};
 use storage::{backend::BackendStorage, frontend::FrontendStorage, ColumnDefinition};
 
 type Result<T> = std::result::Result<T, ()>;
 
-// this could probably just be a function.
-/// structure for maintaining state while transforming the input statement.
 pub(crate) struct QueryProcessor<B: BackendStorage> {
-    /// access to table and schema information.
     storage: Arc<Mutex<FrontendStorage<B>>>,
     session: Arc<dyn Sender>,
 }
@@ -36,55 +34,55 @@ impl<'qp, B: BackendStorage> QueryProcessor<B> {
         Self { storage, session }
     }
 
-    pub fn storage(&self) -> MutexGuard<FrontendStorage<B>> {
+    fn storage(&self) -> MutexGuard<FrontendStorage<B>> {
         self.storage.lock().unwrap()
     }
 
     pub fn process(&mut self, stmt: Statement) -> Result<Plan> {
-        self.handle_statement(&stmt)
-    }
-
-    fn schema_from_object(&mut self, object: &ObjectName) -> Result<SchemaId> {
-        if object.0.len() != 1 {
-            self.session
-                .send(Err(QueryErrorBuilder::new()
-                    .syntax_error(format!(
-                        "only unqualified schema names are supported, '{}'",
-                        object.to_string()
-                    ))
-                    .build()))
-                .expect("To Send Query Result to Client");
-            Err(())
-        } else {
-            let schema_name = object.to_string();
-            Ok(SchemaId(schema_name))
-        }
-    }
-
-    // this was moved out to clean up the code. This is a good place
-    // to start but should not be the final code.
-    fn table_from_object(&self, object: &ObjectName) -> Result<TableId> {
-        if object.0.len() == 1 {
-            self.session
-                .send(Err(QueryErrorBuilder::new()
-                    .syntax_error(format!(
-                        "unsupported table name '{}'. All table names must be qualified",
-                        object.to_string()
-                    ))
-                    .build()))
-                .expect("To Send Query Result to Client");
-            Err(())
-        } else if object.0.len() != 2 {
-            self.session
-                .send(Err(QueryErrorBuilder::new()
-                    .syntax_error(format!("unable to process table name '{}'", object.to_string()))
-                    .build()))
-                .expect("To Send Query Result to Client");
-            Err(())
-        } else {
-            let table_name = object.0.last().unwrap().value.clone();
-            let schema_name = object.0.first().unwrap().value.clone();
-            Ok(TableId(SchemaId(schema_name), table_name))
+        match stmt {
+            Statement::CreateTable { name, columns, .. } => self.handle_create_table(name, &columns),
+            Statement::CreateSchema { schema_name, .. } => {
+                let schema_id = match SchemaId::try_from(schema_name) {
+                    Ok(schema_id) => schema_id,
+                    Err(SchemaNamingError(message)) => {
+                        self.session
+                            .send(Err(QueryErrorBuilder::new().syntax_error(message).build()))
+                            .expect("To Send Query Result to Client");
+                        return Err(());
+                    }
+                };
+                if self.storage().schema_exists(schema_id.name()) {
+                    self.session
+                        .send(Err(QueryErrorBuilder::new()
+                            .schema_already_exists(schema_id.name().to_string())
+                            .build()))
+                        .expect("To Send Query Result to Client");
+                    Err(())
+                } else {
+                    Ok(Plan::CreateSchema(SchemaCreationInfo {
+                        schema_name: schema_id.name().to_string(),
+                    }))
+                }
+            }
+            Statement::Drop { object_type, names, .. } => self.handle_drop(&object_type, &names),
+            Statement::Insert {
+                table_name,
+                columns,
+                source,
+            } => match TableId::try_from(table_name) {
+                Ok(table_id) => Ok(Plan::Insert(TableInserts {
+                    table_id,
+                    column_indices: columns,
+                    input: source,
+                })),
+                Err(TableNamingError(message)) => {
+                    self.session
+                        .send(Err(QueryErrorBuilder::new().syntax_error(message).build()))
+                        .expect("To Send Query Result to Client");
+                    Err(())
+                }
+            },
+            _ => Ok(Plan::NotProcessed(stmt.clone())),
         }
     }
 
@@ -123,29 +121,6 @@ impl<'qp, B: BackendStorage> QueryProcessor<B> {
         }
     }
 
-    fn handle_statement(&mut self, stmt: &Statement) -> Result<Plan> {
-        match stmt {
-            Statement::CreateTable { name, columns, .. } => self.handle_create_table(name, columns),
-            Statement::CreateSchema { schema_name, .. } => {
-                let schema_id = self.schema_from_object(schema_name)?;
-                if self.storage().schema_exists(schema_id.name()) {
-                    self.session
-                        .send(Err(QueryErrorBuilder::new()
-                            .schema_already_exists(schema_id.name().to_string())
-                            .build()))
-                        .expect("To Send Query Result to Client");
-                    Err(())
-                } else {
-                    Ok(Plan::CreateSchema(SchemaCreationInfo {
-                        schema_name: schema_id.name().to_string(),
-                    }))
-                }
-            }
-            Statement::Drop { object_type, names, .. } => self.handle_drop(object_type, names),
-            _ => Ok(Plan::NotProcessed(stmt.clone())),
-        }
-    }
-
     fn resolve_column_definitions(&self, columns: &[ColumnDef]) -> Result<Vec<ColumnDefinition>> {
         let mut column_defs = Vec::new();
         for column in columns {
@@ -157,8 +132,16 @@ impl<'qp, B: BackendStorage> QueryProcessor<B> {
         Ok(column_defs)
     }
 
-    fn handle_create_table(&mut self, name: &ObjectName, columns: &[ColumnDef]) -> Result<Plan> {
-        let table_id = self.table_from_object(name)?;
+    fn handle_create_table(&mut self, name: ObjectName, columns: &[ColumnDef]) -> Result<Plan> {
+        let table_id = match TableId::try_from(name) {
+            Ok(table_id) => table_id,
+            Err(TableNamingError(message)) => {
+                self.session
+                    .send(Err(QueryErrorBuilder::new().syntax_error(message).build()))
+                    .expect("To Send Query Result to Client");
+                return Err(());
+            }
+        };
         let schema_name = table_id.schema_name();
         let table_name = table_id.name();
         if !self.storage().schema_exists(schema_name) {
@@ -193,7 +176,15 @@ impl<'qp, B: BackendStorage> QueryProcessor<B> {
                 for name in names {
                     // I like the idea of abstracting this to a resolve_table_name(name) which would do
                     // this check for us and can be reused else where. ideally this function could handle aliasing as well.
-                    let table_id = self.table_from_object(name)?;
+                    let table_id = match TableId::try_from(name.clone()) {
+                        Ok(table_id) => table_id,
+                        Err(TableNamingError(message)) => {
+                            self.session
+                                .send(Err(QueryErrorBuilder::new().syntax_error(message).build()))
+                                .expect("To Send Query Result to Client");
+                            return Err(());
+                        }
+                    };
                     let schema_name = table_id.schema_name();
                     let table_name = table_id.name();
                     if !self.storage().schema_exists(schema_name) {
@@ -219,7 +210,15 @@ impl<'qp, B: BackendStorage> QueryProcessor<B> {
             ObjectType::Schema => {
                 let mut schema_names = Vec::with_capacity(names.len());
                 for name in names {
-                    let schema_id = self.schema_from_object(name)?;
+                    let schema_id = match SchemaId::try_from(name.clone()) {
+                        Ok(schema_id) => schema_id,
+                        Err(SchemaNamingError(message)) => {
+                            self.session
+                                .send(Err(QueryErrorBuilder::new().syntax_error(message).build()))
+                                .expect("To Send Query Result to Client");
+                            return Err(());
+                        }
+                    };
                     if !self.storage().schema_exists(schema_id.name()) {
                         self.session
                             .send(Err(QueryErrorBuilder::new()

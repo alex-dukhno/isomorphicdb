@@ -197,11 +197,11 @@ impl<'uc, P: BackendStorage> UpdateCommand<'uc, P> {
             .expect("no system errors")
             .map(backend::Result::unwrap)
             .map(|(key, values)| {
-                let mut datums = unpack_raw(values.as_slice());
+                let mut datums = unpack_raw(values.to_bytes());
                 for (idx, data) in index_value_pairs.as_slice() {
                     datums[*idx] = data.clone();
                 }
-                (key, Binary::pack(&datums).to_bytes())
+                (key, Binary::pack(&datums))
             })
             .collect();
 
