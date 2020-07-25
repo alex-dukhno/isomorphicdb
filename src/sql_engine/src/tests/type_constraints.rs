@@ -189,4 +189,28 @@ mod update {
             Err(builder.build()),
         ]);
     }
+
+    #[rstest::rstest]
+    fn multiple_columns_violation(multiple_ints_table: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+        let (mut engine, collector) = multiple_ints_table;
+        let mut builder = QueryErrorBuilder::new();
+
+        engine
+            .execute("insert into schema_name.table_name values (100, 100, 100), (100, 100, 100);")
+            .expect("no system errors");
+
+        engine
+            .execute("update schema_name.table_name set column_si = -32769, column_i= -2147483649, column_bi=100;")
+            .expect("no system errors");
+
+        builder.out_of_range(PostgreSqlType::SmallInt, "column_si".to_owned(), 1);
+        builder.out_of_range(PostgreSqlType::Integer, "column_i".to_owned(), 1);
+
+        collector.assert_content(vec![
+            Ok(QueryEvent::SchemaCreated),
+            Ok(QueryEvent::TableCreated),
+            Ok(QueryEvent::RecordsInserted(2)),
+            Err(builder.build()),
+        ]);
+    }
 }

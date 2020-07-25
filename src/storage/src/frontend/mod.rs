@@ -12,8 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::collections::BTreeSet;
-
+use crate::backend::ReadCursor;
 use crate::{
     backend::{
         self, BackendStorage, CreateObjectError, DropObjectError, NamespaceAlreadyExists, NamespaceDoesNotExist,
@@ -183,27 +182,6 @@ impl<P: BackendStorage> FrontendStorage<P> {
         table_name: &str,
         _column_names: Vec<String>,
     ) -> SystemResult<Result<Vec<Vec<u8>>, OperationOnTableError>> {
-        // let all_columns = self.table_columns(schema_name, table_name)?;
-        // let mut description = vec![];
-        // let mut column_indexes = vec![];
-        // let mut non_existing_columns = vec![];
-        // for (i, column_name) in column_names.iter().enumerate() {
-        //     let mut found = None;
-        //     for (index, column_definition) in all_columns.iter().enumerate() {
-        //         if column_definition.has_name(column_name) {
-        //             found = Some(((index, i), column_definition.clone()));
-        //             break;
-        //         }
-        //     }
-        //
-        //     if let Some((index_pair, column_definition)) = found {
-        //         column_indexes.push(index_pair);
-        //         description.push(column_definition);
-        //     } else {
-        //         non_existing_columns.push(column_name.clone());
-        //     }
-        // }
-
         let data = match self.persistent.read(schema_name, table_name)? {
             Ok(read) => read.map(backend::Result::unwrap).map(|(_key, values)| values).collect(),
             Err(OperationOnObjectError::ObjectDoesNotExist) => {
@@ -216,77 +194,20 @@ impl<P: BackendStorage> FrontendStorage<P> {
         Ok(Ok(data))
     }
 
+    pub fn read_unchecked(&self, schema_name: &str, table_name: &str) -> SystemResult<ReadCursor> {
+        Ok(self.persistent.read(schema_name, table_name)?.unwrap())
+    }
+
     pub fn update_all(
         &mut self,
         schema_name: &str,
         table_name: &str,
-        rows: Vec<(String, String)>,
+        rows: Vec<Row>,
     ) -> SystemResult<Result<usize, OperationOnTableError>> {
-        let all_columns = self.table_columns(schema_name, table_name)?;
-        let mut errors = Vec::new();
-        let mut index_value_pairs = Vec::new();
-        let mut non_existing_columns = BTreeSet::new();
-        let mut column_exists = false;
-
-        // only process the rows if the table and schema exist.
-        if self.persistent.is_table_exists(schema_name, table_name) {
-            for (column_name, value) in rows {
-                for (index, column_definition) in all_columns.iter().enumerate() {
-                    if column_definition.has_name(&column_name) {
-                        match column_definition.sql_type().validate_and_serialize(value.as_str()) {
-                            Ok(bytes) => {
-                                index_value_pairs.push((index, bytes));
-                            }
-                            Err(e) => {
-                                errors.push((e, column_definition.clone()));
-                            }
-                        }
-
-                        column_exists = true;
-
-                        break;
-                    }
-                }
-
-                if !column_exists {
-                    non_existing_columns.insert(column_name.clone());
-                }
-            }
-        }
-
-        match self.persistent.read(schema_name, table_name)? {
-            Ok(reads) => {
-                if !non_existing_columns.is_empty() {
-                    return Ok(Err(OperationOnTableError::ColumnDoesNotExist(
-                        non_existing_columns.into_iter().collect(),
-                    )));
-                }
-                if !errors.is_empty() {
-                    // Index will always be 1.
-                    return Ok(Err(OperationOnTableError::ConstraintViolations(errors, 1)));
-                }
-                let to_update: Vec<Row> = reads
-                    .map(backend::Result::unwrap)
-                    .map(|(key, values)| {
-                        let mut values: Vec<&[u8]> = values.split(|b| *b == b'|').collect();
-                        for (index, updated_value) in &index_value_pairs {
-                            values[*index] = updated_value;
-                        }
-
-                        (key, values.join(&b'|'))
-                    })
-                    .collect();
-
-                let len = to_update.len();
-                match self.persistent.write(schema_name, table_name, to_update)? {
-                    Ok(_size) => Ok(Ok(len)),
-                    _ => unreachable!(
-                        "all errors that make code fall in here should have been handled in read operation"
-                    ),
-                }
-            }
-            Err(OperationOnObjectError::ObjectDoesNotExist) => Ok(Err(OperationOnTableError::TableDoesNotExist)),
-            Err(OperationOnObjectError::NamespaceDoesNotExist) => Ok(Err(OperationOnTableError::SchemaDoesNotExist)),
+        let len = rows.len();
+        match self.persistent.write(schema_name, table_name, rows)? {
+            Ok(_size) => Ok(Ok(len)),
+            _ => unreachable!("all errors that make code fall in here should have been handled in read operation"),
         }
     }
 

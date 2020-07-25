@@ -14,7 +14,6 @@
 
 use super::*;
 use protocol::sql_types::PostgreSqlType;
-use sql_types::SqlType;
 
 #[rstest::rstest]
 fn select_from_not_existed_table(sql_engine_with_schema: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
