@@ -14,42 +14,9 @@
 
 import pytest
 
-from psycopg2._psycopg import connection, cursor
-from psycopg2 import connect
-
-# all imports from errors are OK if you can find such exception class in docs
-# >>> https://www.psycopg.org/docs/errors.html
-from psycopg2.errors import NumericValueOutOfRange
-
-
-@pytest.fixture(scope="session", autouse=True)
-def create_cursor(request) -> cursor:
-
-    conn = connect(host="localhost", password="check_this_out", database="postgres")
-    assert isinstance(conn, connection), "Failed to connect to DB"
-
-    cur = conn.cursor()
-    assert isinstance(cur, cursor)
-
-    def close_all():
-        cur.close()
-        conn.close()
-
-    request.addfinalizer(close_all)
-
-    return cur
-
-
-@pytest.fixture(scope='function')
-def create_drop_test_schema_fixture(request, create_cursor) -> cursor:
-    cur = create_cursor
-    cur.execute('create schema schema_name;')
-
-    def close_all():
-        cur.execute("drop schema schema_name cascade;")
-
-    request.addfinalizer(close_all)
-    return cur
+from psycopg2._psycopg import cursor
+from random import choice
+from fixtures import create_drop_test_schema_fixture, create_cursor
 
 
 def test_integer_types(create_drop_test_schema_fixture: cursor):
@@ -85,7 +52,6 @@ def test_character_types(create_drop_test_schema_fixture: cursor):
 
 
 def test_boolean_types(create_drop_test_schema_fixture):
-    import random
     cur = create_drop_test_schema_fixture
 
     cur.execute(
@@ -118,48 +84,12 @@ def test_boolean_types(create_drop_test_schema_fixture):
     for (w, outcome) in word_to_value.items():
         # it should work regardless of case so we randomly generate
         # a string, which have both upper and lower case letters
-        random_case_w = "".join(random.choice([k.upper(), k]) for k in w)
-        cur.execute('INSERT INTO schema_name.table_name VALUES(%s);' % random_case_w)
+        random_case_w = "".join(choice([k.upper(), k]) for k in w)
+        cur.execute(f'INSERT INTO schema_name.table_name VALUES({random_case_w});')
         cur.execute('SELECT * FROM schema_name.table_name;')
         r = cur.fetchmany(1)
-        assert r == [(outcome, )], "Failed for value: %s" % random_case_w
+        assert r == [(outcome, )], f"Failed for value: {random_case_w}"
         cur.execute('DELETE FROM schema_name.table_name;')
-
-
-def test_numeric_constraint_violations(create_drop_test_schema_fixture: cursor):
-    cur = create_drop_test_schema_fixture
-    cur.execute('create table schema_name.table_name(si_col smallint, i_col integer, bi_col bigint);')
-    args = [(-32768, -2147483648, -9223372036854775808),
-            (32767, 2147483647, 9223372036854775807)]
-    cur.executemany('insert into schema_name.table_name values (%s, %s, %s)', args)
-
-    # await for NumericValueOutOfRange, will throw an error on different exception
-    with pytest.raises(NumericValueOutOfRange) as e:
-        cur.execute('insert into schema_name.table_name values (%d, %d, %d);' %
-                    (32767, 2147483647, 9223372036854775809))
-    assert e.value.pgcode == '22003'  # check for specific exception code
-
-    cur.execute('select * from schema_name.table_name;')
-    r = cur.fetchall()
-    assert r == [(-32768, -2147483648, -9223372036854775808,), (32767, 2147483647, 9223372036854775807,)]
-
-
-def test_many_numeric_constraint_violations(create_drop_test_schema_fixture: cursor):
-    cur = create_drop_test_schema_fixture
-    cur.execute('create table schema_name.table_name(si_col smallint, i_col integer, bi_col bigint);')
-    args = [(-32768, -2147483648, -9223372036854775808),
-            (32767, 2147483647, 9223372036854775807)]
-    cur.executemany('insert into schema_name.table_name values (%s, %s, %s)', args)
-
-    # await for NumericValueOutOfRange, will throw an error on different exception
-    with pytest.raises(NumericValueOutOfRange) as e:
-        cur.execute('insert into schema_name.table_name values (%d, %d, %d);' %
-                    (33767, 2147483647, 9223372036854775809))
-    assert e.value.pgcode == '22003'  # check for specific exception code
-
-    cur.execute('select * from schema_name.table_name;')
-    r = cur.fetchall()
-    assert r == [(-32768, -2147483648, -9223372036854775808,), (32767, 2147483647, 9223372036854775807,)]
 
 
 def test_math_operations_in_insert(create_drop_test_schema_fixture: cursor):
