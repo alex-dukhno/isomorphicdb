@@ -12,11 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::query::RelationType;
-use ordered_float::OrderedFloat;
-use sql_types::SqlType;
-
 ///! Runtime cell and row representation.
+use bigdecimal::ToPrimitive;
+use ordered_float::OrderedFloat;
+use sqlparser::ast::Value;
+use std::convert::TryFrom;
 
 // owned parallel of Datum but owns the content.
 // pub enum Value {
@@ -32,7 +32,7 @@ use sql_types::SqlType;
 // }
 
 /// value shared by the row.
-#[derive(Debug, PartialEq, Eq, Ord, PartialOrd, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Ord, PartialOrd, Hash)]
 pub enum Datum<'a> {
     Null,
     True,
@@ -97,6 +97,7 @@ impl<'a> Datum<'a> {
         Datum::Float64(val.into())
     }
 
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(val: &'a str) -> Datum<'a> {
         Datum::String(val)
     }
@@ -166,14 +167,62 @@ impl<'a> Datum<'a> {
     // arithmetic operations
 }
 
-/// in-memory representation of a table row. It is unable to deserialize
-/// the row without knowing the types of each column, which makes this unsafe
-/// however it is more memory efficient.
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
-pub struct Row {
-    // consider move to an version can store elements inline upto a point
-    /// packed data.
-    data: Vec<u8>,
+#[derive(Debug, Clone)]
+pub enum EvalError {
+    InvalidExpressionInStaticContext,
+    UnsupportedDatum(String),
+    OutOfRangeNumeric,
+    UnsupportedOperation,
+}
+
+impl<'a> TryFrom<&Value> for Datum<'a> {
+    type Error = EvalError;
+
+    fn try_from(other: &Value) -> Result<Self, EvalError> {
+        match other {
+            Value::Number(val) => {
+                if val.is_integer() {
+                    if let Some(val) = val.to_i32() {
+                        Ok(Datum::from_i32(val))
+                    } else if let Some(val) = val.to_i64() {
+                        Ok(Datum::from_i64(val))
+                    } else {
+                        Err(EvalError::OutOfRangeNumeric)
+                    }
+                } else {
+                    Err(EvalError::OutOfRangeNumeric)
+                }
+            }
+            Value::SingleQuotedString(value) => Ok(Datum::from_string(value.trim().to_owned())),
+            Value::HexStringLiteral(value) => match i64::from_str_radix(value.as_str(), 16) {
+                Ok(val) => Ok(Datum::from_i64(val)),
+                Err(_) => panic!("Failed to parse hex string"),
+            },
+            Value::Boolean(val) => Ok(Datum::from_bool(*val)),
+            Value::Null => Ok(Datum::from_null()),
+            Value::Interval { .. } => Err(EvalError::UnsupportedDatum("Interval".to_string())),
+            Value::NationalStringLiteral(_value) => {
+                Err(EvalError::UnsupportedDatum("NationalStringLiteral".to_string()))
+            }
+        }
+    }
+}
+
+impl ToString for Datum<'_> {
+    fn to_string(&self) -> String {
+        match self {
+            Self::Null => "NULL".to_string(),
+            Self::True => "t".to_string(),
+            Self::False => "f".to_string(),
+            Self::Int16(val) => val.to_string(),
+            Self::Int32(val) => val.to_string(),
+            Self::Int64(val) => val.to_string(),
+            Self::Float32(val) => val.into_inner().to_string(),
+            Self::Float64(val) => val.into_inner().to_string(),
+            Self::String(val) => val.to_string(),
+            Self::OwnedString(val) => val.clone(),
+        }
+    }
 }
 
 #[repr(u8)]
@@ -222,13 +271,24 @@ fn read_tag(data: &[u8], idx: &mut usize) -> TypeTag {
     unsafe { read::<TypeTag>(data, idx) }
 }
 
-impl Row {
+/// in-memory representation of a table row. It is unable to deserialize
+/// the row without knowing the types of each column, which makes this unsafe
+/// however it is more memory efficient.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Binary(Vec<u8>);
+
+impl Binary {
     pub fn new() -> Self {
         Self::default()
     }
 
-    pub(crate) fn with_data(data: Vec<u8>) -> Self {
-        Self { data }
+    #[allow(clippy::wrong_self_convention)]
+    pub fn to_bytes(self) -> Vec<u8> {
+        self.0
+    }
+
+    pub fn with_data(data: Vec<u8>) -> Self {
+        Self(data)
     }
 
     pub fn pack<'a>(other: &[Datum<'a>]) -> Self {
@@ -278,52 +338,146 @@ impl Row {
             }
         }
 
-        Self { data }
+        Self(data)
     }
 
-    pub fn unpack<'a>(&'a self) -> Vec<Datum<'a>> {
-        let mut index = 0;
-        let mut res = Vec::new();
-        let data = self.data.as_slice();
-        while index < data.len() {
-            let tag = read_tag(data, &mut index);
-            let datum = match tag {
-                TypeTag::Null => Datum::from_null(),
-                TypeTag::True => Datum::from_bool(true),
-                TypeTag::False => Datum::from_bool(false),
-                TypeTag::Str => {
-                    let val = unsafe { read_string(data, &mut index) };
-                    Datum::String(val)
-                }
-                TypeTag::I16 => {
-                    let val = unsafe { read::<i16>(data, &mut index) };
-                    Datum::from_i16(val)
-                }
-                TypeTag::I32 => {
-                    let val = unsafe { read::<i32>(data, &mut index) };
-                    Datum::from_i32(val)
-                }
-                TypeTag::I64 => {
-                    let val = unsafe { read::<i64>(data, &mut index) };
-                    Datum::from_i64(val)
-                }
-                TypeTag::F32 => {
-                    let val = unsafe { read::<f32>(data, &mut index) };
-                    Datum::from_f32(val)
-                }
-                TypeTag::F64 => {
-                    let val = unsafe { read::<f64>(data, &mut index) };
-                    Datum::from_f64(val)
-                } // SqlType::Decimal |
-                  // SqlType::Time |
-                  // SqlType::TimeWithTimeZone |
-                  // SqlType::Timestamp |
-                  // SqlType::TimestampWithTimeZone |
-                  // SqlType::Date |
-                  // SqlType::Interval => unimplemented!()
-            };
-            res.push(datum)
-        }
-        res
+    pub fn unpack(&self) -> Vec<Datum> {
+        unpack_raw(self.0.as_slice())
+    }
+}
+
+pub fn unpack_raw(data: &[u8]) -> Vec<Datum> {
+    let mut index = 0;
+    let mut res = Vec::new();
+    while index < data.len() {
+        let tag = read_tag(data, &mut index);
+        let datum = match tag {
+            TypeTag::Null => Datum::from_null(),
+            TypeTag::True => Datum::from_bool(true),
+            TypeTag::False => Datum::from_bool(false),
+            TypeTag::Str => {
+                let val = unsafe { read_string(data, &mut index) };
+                Datum::String(val)
+            }
+            TypeTag::I16 => {
+                let val = unsafe { read::<i16>(data, &mut index) };
+                Datum::from_i16(val)
+            }
+            TypeTag::I32 => {
+                let val = unsafe { read::<i32>(data, &mut index) };
+                Datum::from_i32(val)
+            }
+            TypeTag::I64 => {
+                let val = unsafe { read::<i64>(data, &mut index) };
+                Datum::from_i64(val)
+            }
+            TypeTag::F32 => {
+                let val = unsafe { read::<f32>(data, &mut index) };
+                Datum::from_f32(val)
+            }
+            TypeTag::F64 => {
+                let val = unsafe { read::<f64>(data, &mut index) };
+                Datum::from_f64(val)
+            } // SqlType::Decimal |
+              // SqlType::Time |
+              // SqlType::TimeWithTimeZone |
+              // SqlType::Timestamp |
+              // SqlType::TimestampWithTimeZone |
+              // SqlType::Date |
+              // SqlType::Interval => unimplemented!()
+        };
+        res.push(datum)
+    }
+    res
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn row_packing_single() {
+        let datums = vec![Datum::from_bool(true)];
+        let row = Binary::pack(&datums);
+        assert_eq!(row, Binary::with_data(vec![0x1]));
+    }
+
+    #[test]
+    fn row_packing_multiple() {
+        let datums = vec![Datum::from_bool(true), Datum::from_i32(100000)];
+        let row = Binary::pack(&datums);
+        assert_eq!(row, Binary::with_data(vec![0x1, 0x4, 0xa0, 0x86, 0x1, 0x0]));
+    }
+
+    #[test]
+    fn row_packing_with_floats() {
+        let datums = vec![
+            Datum::from_bool(false),
+            Datum::from_i32(100000),
+            Datum::from_f32(100.134_21),
+        ];
+        let row = Binary::pack(&datums);
+        assert_eq!(
+            row,
+            Binary::with_data(vec![0x2, 0x4, 0xa0, 0x86, 0x1, 0x0, 0x6, 0xb7, 0x44, 0xc8, 0x42])
+        );
+    }
+
+    #[test]
+    fn row_packing_with_null() {
+        let datums = vec![Datum::from_bool(true), Datum::from_null(), Datum::from_i32(100000)];
+        let row = Binary::pack(&datums);
+        assert_eq!(row, Binary::with_data(vec![0x1, 0x0, 0x4, 0xa0, 0x86, 0x1, 0x0]));
+    }
+
+    #[test]
+    fn row_packing_string() {
+        let datums = vec![Datum::from_bool(true), Datum::from_str("hello")];
+        let row = Binary::pack(&datums);
+        assert_eq!(
+            row,
+            Binary::with_data(vec![
+                0x1, 0x8, 0x5, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x68, 0x65, 0x6c, 0x6c, 0x6f
+            ])
+        );
+    }
+
+    #[test]
+    fn row_unpacking_single() {
+        let datums = vec![Datum::from_bool(true)];
+        let row = Binary::pack(&datums);
+        assert_eq!(row.unpack(), datums);
+    }
+
+    #[test]
+    fn row_unpacking_multiple() {
+        let datums = vec![Datum::from_bool(true), Datum::from_i32(100000)];
+        let row = Binary::pack(&datums);
+        assert_eq!(row.unpack(), datums);
+    }
+
+    #[test]
+    fn row_unpacking_with_floats() {
+        let datums = vec![
+            Datum::from_bool(false),
+            Datum::from_i32(100000),
+            Datum::from_f64(100.134_212_309_847),
+        ];
+        let row = Binary::pack(&datums);
+        assert_eq!(row.unpack(), datums);
+    }
+
+    #[test]
+    fn row_unpacking_with_null() {
+        let datums = vec![Datum::from_bool(true), Datum::from_null(), Datum::from_i32(100000)];
+        let row = Binary::pack(&datums);
+        assert_eq!(row.unpack(), datums);
+    }
+
+    #[test]
+    fn row_unpacking_string() {
+        let datums = vec![Datum::from_bool(true), Datum::from_str("hello")];
+        let row = Binary::pack(&datums);
+        assert_eq!(row.unpack(), datums);
     }
 }

@@ -14,7 +14,6 @@
 
 extern crate bigdecimal;
 extern crate log;
-extern crate ordered_float;
 
 use crate::{
     ddl::{
@@ -22,12 +21,13 @@ use crate::{
         drop_table::DropTableCommand,
     },
     dml::{delete::DeleteCommand, insert::InsertCommand, select::SelectCommand, update::UpdateCommand},
+    query::{plan::Plan, transform::QueryProcessor},
 };
 use kernel::SystemResult;
-use protocol::results::{QueryErrorBuilder, QueryEvent};
-
-use crate::query::{Plan, QueryProcessor};
-use protocol::Sender;
+use protocol::{
+    results::{QueryErrorBuilder, QueryEvent},
+    Sender,
+};
 use sqlparser::{ast::Statement, dialect::PostgreSqlDialect, parser::Parser};
 use std::sync::{Arc, Mutex};
 use storage::{backend::BackendStorage, frontend::FrontendStorage};

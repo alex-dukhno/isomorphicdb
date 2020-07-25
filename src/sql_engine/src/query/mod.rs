@@ -14,11 +14,8 @@
 
 ///! Module for representing how a query will be executed and values represented
 ///! during runtime.
-mod plan;
-mod transform;
-
-pub use plan::{Plan, SchemaCreationInfo, TableCreationInfo};
-pub use transform::QueryProcessor;
+pub mod plan;
+pub mod transform;
 
 use sql_types::SqlType;
 

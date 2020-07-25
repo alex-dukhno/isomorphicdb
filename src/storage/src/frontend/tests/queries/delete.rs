@@ -73,16 +73,9 @@ fn delete_all_from_table(default_schema_name: &str, mut storage_with_schema: Per
         Ok(3)
     );
 
-    let table_columns = storage_with_schema
-        .table_columns(default_schema_name, "table_name")
-        .expect("no system errors")
-        .into_iter()
-        .map(|column_definition| column_definition.name())
-        .collect();
-
     assert_eq!(
         storage_with_schema
-            .select_all_from("schema_name", "table_name", table_columns)
+            .select_all_from("schema_name", "table_name")
             .expect("no system errors"),
         Ok(vec![])
     );

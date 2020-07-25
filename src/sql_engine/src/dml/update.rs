@@ -18,10 +18,12 @@ use protocol::{
     results::{QueryErrorBuilder, QueryEvent},
     Sender,
 };
+use representation::{unpack_raw, Binary, Datum};
 use sql_types::ConstraintError;
 use sqlparser::ast::{Assignment, Expr, Ident, ObjectName, UnaryOperator, Value};
 use std::{
     collections::BTreeSet,
+    convert::TryFrom,
     sync::{Arc, Mutex},
 };
 use storage::{
@@ -61,15 +63,15 @@ impl<'uc, P: BackendStorage> UpdateCommand<'uc, P> {
         let table_name = self.name.0[1].to_string();
         let mut to_update = vec![];
 
+        let evaluation = ExpressionEvaluation::new(self.session.clone());
+
         for item in self.assignments.iter() {
             let Assignment { id, value } = &item;
             let Ident { value: column, .. } = id;
-
             let value = match value {
-                Expr::Value(Value::Number(val)) => val.to_string(),
-                Expr::Value(Value::SingleQuotedString(v)) => v.to_string(),
+                Expr::Value(value) => value.clone(),
                 Expr::UnaryOp { op, expr } => match (op, &**expr) {
-                    (UnaryOperator::Minus, Expr::Value(Value::Number(v))) => "-".to_owned() + v.to_string().as_str(),
+                    (UnaryOperator::Minus, Expr::Value(Value::Number(v))) => Value::Number(-v),
                     (op, expr) => {
                         self.session
                             .send(Err(QueryErrorBuilder::new()
@@ -79,8 +81,8 @@ impl<'uc, P: BackendStorage> UpdateCommand<'uc, P> {
                         return Ok(());
                     }
                 },
-                expr @ Expr::BinaryOp { .. } => match ExpressionEvaluation::new(self.session.clone()).eval(expr) {
-                    Ok(expr_result) => expr_result.value(),
+                expr @ Expr::BinaryOp { .. } => match evaluation.eval(expr) {
+                    Ok(expr_result) => expr_result,
                     Err(()) => return Ok(()),
                 },
                 expr => {
@@ -112,9 +114,15 @@ impl<'uc, P: BackendStorage> UpdateCommand<'uc, P> {
             for (column_name, value) in to_update {
                 for (index, column_definition) in all_columns.iter().enumerate() {
                     if column_definition.has_name(&column_name) {
-                        match column_definition.sql_type().validate_and_serialize(value.as_str()) {
-                            Ok(bytes) => {
-                                index_value_pairs.push((index, bytes));
+                        let v = match value.clone() {
+                            Value::Number(v) => v.to_string(),
+                            Value::SingleQuotedString(v) => v.to_string(),
+                            Value::Boolean(v) => v.to_string(),
+                            _ => unimplemented!("other types not implemented"),
+                        };
+                        match column_definition.sql_type().constraint().validate(v.as_str()) {
+                            Ok(()) => {
+                                index_value_pairs.push((index, Datum::try_from(&value).unwrap()));
                             }
                             Err(e) => {
                                 errors.push((e, column_definition.clone()));
@@ -189,12 +197,11 @@ impl<'uc, P: BackendStorage> UpdateCommand<'uc, P> {
             .expect("no system errors")
             .map(backend::Result::unwrap)
             .map(|(key, values)| {
-                let mut values: Vec<&[u8]> = values.split(|b| *b == b'|').collect();
-                for (index, updated_value) in &index_value_pairs {
-                    values[*index] = updated_value;
+                let mut datums = unpack_raw(values.as_slice());
+                for (idx, data) in index_value_pairs.as_slice() {
+                    datums[*idx] = data.clone();
                 }
-
-                (key, values.join(&b'|'))
+                (key, Binary::pack(&datums).to_bytes())
             })
             .collect();
 

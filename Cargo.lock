@@ -864,6 +864,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "representation"
+version = "0.1.0"
+dependencies = [
+ "bigdecimal",
+ "ordered-float",
+ "sqlparser",
+]
+
+[[package]]
 name = "rstest"
 version = "0.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1054,8 +1063,8 @@ dependencies = [
  "futures-lite",
  "kernel",
  "log",
- "ordered-float",
  "protocol",
+ "representation",
  "rstest",
  "sql_types",
  "sqlparser",
@@ -1096,6 +1105,7 @@ dependencies = [
  "bincode",
  "kernel",
  "log",
+ "representation",
  "rstest",
  "serde",
  "sled",
