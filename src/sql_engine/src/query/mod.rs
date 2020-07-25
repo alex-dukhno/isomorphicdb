@@ -15,20 +15,19 @@
 ///! Module for representing how a query will be executed and values represented
 ///! during runtime.
 pub mod plan;
-pub mod transform;
+pub mod process;
 
 use sql_types::SqlType;
+use sqlparser::ast::ObjectName;
+use std::convert::TryFrom;
 
 /// A type of a column
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ColumnType {
     #[allow(dead_code)]
     nullable: bool,
-    /// the sql type
     sql_type: SqlType,
 }
-
-// this works for now, but ideally this should be usize's instead of strings.
 
 /// represents a table uniquely
 ///
@@ -47,6 +46,30 @@ impl TableId {
     }
 }
 
+impl TryFrom<ObjectName> for TableId {
+    type Error = TableNamingError;
+
+    fn try_from(object: ObjectName) -> Result<Self, Self::Error> {
+        if object.0.len() == 1 {
+            Err(TableNamingError(format!(
+                "unsupported table name '{}'. All table names must be qualified",
+                object.to_string()
+            )))
+        } else if object.0.len() != 2 {
+            Err(TableNamingError(format!(
+                "unable to process table name '{}'",
+                object.to_string()
+            )))
+        } else {
+            let table_name = object.0.last().unwrap().value.clone();
+            let schema_name = object.0.first().unwrap().value.clone();
+            Ok(TableId(SchemaId(schema_name), table_name))
+        }
+    }
+}
+
+pub struct TableNamingError(String);
+
 /// represents a schema uniquely
 ///
 /// this would be a u32
@@ -58,3 +81,20 @@ impl SchemaId {
         self.0.as_str()
     }
 }
+
+impl TryFrom<ObjectName> for SchemaId {
+    type Error = SchemaNamingError;
+
+    fn try_from(object: ObjectName) -> Result<Self, Self::Error> {
+        if object.0.len() != 1 {
+            Err(SchemaNamingError(format!(
+                "only unqualified schema names are supported, '{}'",
+                object
+            )))
+        } else {
+            Ok(SchemaId(object.to_string()))
+        }
+    }
+}
+
+pub struct SchemaNamingError(String);

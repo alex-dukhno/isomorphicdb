@@ -94,7 +94,7 @@ impl<'sc, P: BackendStorage> SelectCommand<'sc, P> {
                 }
                 columns
             };
-            let data = (self.storage.lock().unwrap()).select_all_from(&schema_name, &table_name)?;
+            let data = (self.storage.lock().unwrap()).table_scan(&schema_name, &table_name)?;
             match data {
                 Ok(records) => {
                     let all_columns = (self.storage.lock().unwrap()).table_columns(&schema_name, &table_name)?;
@@ -144,21 +144,6 @@ impl<'sc, P: BackendStorage> SelectCommand<'sc, P> {
                             values.into_iter().map(|(_, value)| value).collect()
                         })
                         .collect();
-
-                    // let values = records
-                    //     .into_iter()
-                    //     .map(|bytes| {
-                    //         let mut values = vec![];
-                    //         for (i, (origin, ord)) in column_indexes.iter().enumerate() {
-                    //             for (index, value) in bytes.split(|b| *b == b'|').enumerate() {
-                    //                 if index == *origin {
-                    //                     values.push((ord, description[i].sql_type().serializer().des(value)))
-                    //                 }
-                    //             }
-                    //         }
-                    //         values.into_iter().map(|(_, value)| value).collect()
-                    //     })
-                    //     .collect();
 
                     let projection = (
                         description

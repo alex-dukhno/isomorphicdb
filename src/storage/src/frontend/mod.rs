@@ -101,13 +101,15 @@ impl<P: BackendStorage> FrontendStorage<P> {
                     "system",
                     "columns",
                     vec![(
-                        (schema_name.to_owned() + table_name).as_bytes().to_vec(),
-                        column_names
-                            .iter()
-                            .map(|column_defs| bincode::serialize(&column_defs).unwrap())
-                            .collect::<Vec<Vec<u8>>>()
-                            .join(&b'|')
-                            .to_vec(),
+                        Binary::with_data((schema_name.to_owned() + table_name).as_bytes().to_vec()),
+                        Binary::with_data(
+                            column_names
+                                .iter()
+                                .map(|column_defs| bincode::serialize(&column_defs).unwrap())
+                                .collect::<Vec<Vec<u8>>>()
+                                .join(&b'|')
+                                .to_vec(),
+                        ),
                     )],
                 )?
                 .map(|_| {
@@ -133,9 +135,12 @@ impl<P: BackendStorage> FrontendStorage<P> {
             .map(|reads| {
                 reads
                     .map(backend::Result::unwrap)
-                    .filter(|(table, _columns)| *table == (schema_name.to_owned() + table_name).as_bytes().to_vec())
+                    .filter(|(table, _columns)| {
+                        *table == Binary::with_data((schema_name.to_owned() + table_name).as_bytes().to_vec())
+                    })
                     .map(|(_id, columns)| {
                         columns
+                            .to_bytes()
                             .split(|b| *b == b'|')
                             .filter(|v| !v.is_empty())
                             .map(|c| bincode::deserialize(c).unwrap())
@@ -176,16 +181,13 @@ impl<P: BackendStorage> FrontendStorage<P> {
         }
     }
 
-    pub fn select_all_from(
+    pub fn table_scan(
         &mut self,
         schema_name: &str,
         table_name: &str,
     ) -> SystemResult<Result<Vec<Binary>, OperationOnTableError>> {
         let data = match self.persistent.read(schema_name, table_name)? {
-            Ok(read) => read
-                .map(backend::Result::unwrap)
-                .map(|(_key, values)| Binary::with_data(values))
-                .collect(),
+            Ok(read) => read.map(backend::Result::unwrap).map(|(_key, values)| values).collect(),
             Err(OperationOnObjectError::ObjectDoesNotExist) => {
                 return Ok(Err(OperationOnTableError::TableDoesNotExist))
             }

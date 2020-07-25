@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use crate::dml::ExpressionEvaluation;
+use crate::query::plan::TableInserts;
 use kernel::SystemResult;
 use protocol::{
     results::{QueryErrorBuilder, QueryEvent},
@@ -20,7 +21,7 @@ use protocol::{
 };
 use representation::{Binary, Datum};
 use sql_types::ConstraintError;
-use sqlparser::ast::{DataType, Expr, Ident, ObjectName, Query, SetExpr, UnaryOperator, Value};
+use sqlparser::ast::{DataType, Expr, Query, SetExpr, UnaryOperator, Value};
 use std::{
     convert::TryFrom,
     str::FromStr,
@@ -34,9 +35,7 @@ use storage::{
 
 pub(crate) struct InsertCommand<'ic, P: BackendStorage> {
     raw_sql_query: &'ic str,
-    name: ObjectName,
-    columns: Vec<Ident>,
-    source: Box<Query>,
+    table_inserts: TableInserts,
     storage: Arc<Mutex<FrontendStorage<P>>>,
     session: Arc<dyn Sender>,
 }
@@ -44,34 +43,31 @@ pub(crate) struct InsertCommand<'ic, P: BackendStorage> {
 impl<'ic, P: BackendStorage> InsertCommand<'ic, P> {
     pub(crate) fn new(
         raw_sql_query: &'ic str,
-        name: ObjectName,
-        columns: Vec<Ident>,
-        source: Box<Query>,
+        table_inserts: TableInserts,
         storage: Arc<Mutex<FrontendStorage<P>>>,
         session: Arc<dyn Sender>,
     ) -> InsertCommand<'ic, P> {
         InsertCommand {
             raw_sql_query,
-            name,
-            columns,
-            source,
+            table_inserts,
             storage,
             session,
         }
     }
 
     pub(crate) fn execute(&mut self) -> SystemResult<()> {
-        let table_name = self.name.0.pop().unwrap().to_string();
-        let schema_name = self.name.0.pop().unwrap().to_string();
-        let Query { body, .. } = &*self.source;
+        let table_name = self.table_inserts.table_id.name();
+        let schema_name = self.table_inserts.table_id.schema_name();
+        let Query { body, .. } = &*self.table_inserts.input;
         match &body {
             SetExpr::Values(values) => {
                 let values = &values.0;
 
-                let columns = if self.columns.is_empty() {
+                let columns = if self.table_inserts.column_indices.is_empty() {
                     vec![]
                 } else {
-                    self.columns
+                    self.table_inserts
+                        .column_indices
                         .clone()
                         .into_iter()
                         .map(|id| {
@@ -159,7 +155,7 @@ impl<'ic, P: BackendStorage> InsertCommand<'ic, P> {
                             Some(index_col) => {
                                 index_cols.push(index_col);
                             }
-                            None => non_existing_cols.push(column_name),
+                            None => non_existing_cols.push(column_name.clone()),
                         }
                     }
 
@@ -252,7 +248,7 @@ impl<'ic, P: BackendStorage> InsertCommand<'ic, P> {
                             return Ok(());
                         }
 
-                        to_write.push((key, Binary::pack(&record).to_bytes()));
+                        to_write.push((Binary::with_data(key), Binary::pack(&record)));
                     }
                 }
 
@@ -265,14 +261,16 @@ impl<'ic, P: BackendStorage> InsertCommand<'ic, P> {
                     }
                     Err(OperationOnTableError::SchemaDoesNotExist) => {
                         self.session
-                            .send(Err(QueryErrorBuilder::new().schema_does_not_exist(schema_name).build()))
+                            .send(Err(QueryErrorBuilder::new()
+                                .schema_does_not_exist(schema_name.to_owned())
+                                .build()))
                             .expect("To Send Query Result to Client");
                         Ok(())
                     }
                     Err(OperationOnTableError::TableDoesNotExist) => {
                         self.session
                             .send(Err(QueryErrorBuilder::new()
-                                .table_does_not_exist(schema_name + "." + table_name.as_str())
+                                .table_does_not_exist(schema_name.to_owned() + "." + table_name)
                                 .build()))
                             .expect("To Send Query Result to Client");
                         Ok(())
