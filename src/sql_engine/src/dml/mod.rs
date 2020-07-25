@@ -31,10 +31,17 @@ impl ExpressionEvaluation {
         ExpressionEvaluation { session }
     }
 
-    pub(crate) fn eval(&mut self, expr: &Expr) -> Result<ExprResult, ()> {
+    pub(crate) fn eval(&self, expr: &Expr) -> Result<Value, ()> {
+        match self.inner_eval(expr)? {
+            ExprResult::Number(v) => Ok(Value::Number(v)),
+            ExprResult::String(v) => Ok(Value::SingleQuotedString(v)),
+        }
+    }
+
+    fn inner_eval(&self, expr: &Expr) -> Result<ExprResult, ()> {
         if let Expr::BinaryOp { op, left, right } = expr {
-            let left = self.eval(left.deref())?;
-            let right = self.eval(right.deref())?;
+            let left = self.inner_eval(left.deref())?;
+            let right = self.inner_eval(right.deref())?;
             match (left, right) {
                 (ExprResult::Number(left), ExprResult::Number(right)) => match op {
                     BinaryOperator::Plus => Ok(ExprResult::Number(left + right)),
@@ -114,13 +121,4 @@ impl ExpressionEvaluation {
 pub(crate) enum ExprResult {
     Number(BigDecimal),
     String(String),
-}
-
-impl ExprResult {
-    pub(crate) fn value(self) -> String {
-        match self {
-            Self::Number(v) => v.to_string(),
-            Self::String(v) => v,
-        }
-    }
 }

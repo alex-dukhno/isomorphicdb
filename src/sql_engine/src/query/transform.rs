@@ -13,8 +13,8 @@
 // limitations under the License.
 
 ///! Module for transforming the input Query AST into representation the engine can process.
-use crate::query::plan::SchemaCreationInfo;
-use crate::query::{plan::Plan, SchemaId, TableCreationInfo, TableId};
+use crate::query::plan::{SchemaCreationInfo, TableCreationInfo};
+use crate::query::{plan::Plan, SchemaId, TableId};
 use protocol::{results::QueryErrorBuilder, Sender};
 use sql_types::SqlType;
 use sqlparser::ast::{ColumnDef, DataType, ObjectName, ObjectType, Statement};
@@ -25,7 +25,7 @@ type Result<T> = std::result::Result<T, ()>;
 
 // this could probably just be a function.
 /// structure for maintaining state while transforming the input statement.
-pub struct QueryProcessor<B: BackendStorage> {
+pub(crate) struct QueryProcessor<B: BackendStorage> {
     /// access to table and schema information.
     storage: Arc<Mutex<FrontendStorage<B>>>,
     session: Arc<dyn Sender>,
@@ -42,6 +42,23 @@ impl<'qp, B: BackendStorage> QueryProcessor<B> {
 
     pub fn process(&mut self, stmt: Statement) -> Result<Plan> {
         self.handle_statement(&stmt)
+    }
+
+    fn schema_from_object(&mut self, object: &ObjectName) -> Result<SchemaId> {
+        if object.0.len() != 1 {
+            self.session
+                .send(Err(QueryErrorBuilder::new()
+                    .syntax_error(format!(
+                        "only unqualified schema names are supported, '{}'",
+                        object.to_string()
+                    ))
+                    .build()))
+                .expect("To Send Query Result to Client");
+            Err(())
+        } else {
+            let schema_name = object.to_string();
+            Ok(SchemaId(schema_name))
+        }
     }
 
     // this was moved out to clean up the code. This is a good place
@@ -103,23 +120,6 @@ impl<'qp, B: BackendStorage> QueryProcessor<B> {
                     .expect("To Send Query Result to Client");
                 Err(())
             }
-        }
-    }
-
-    fn schema_from_object(&mut self, object: &ObjectName) -> Result<SchemaId> {
-        if object.0.len() != 1 {
-            self.session
-                .send(Err(QueryErrorBuilder::new()
-                    .syntax_error(format!(
-                        "only unqualified schema names are supported, '{}'",
-                        object.to_string()
-                    ))
-                    .build()))
-                .expect("To Send Query Result to Client");
-            Err(())
-        } else {
-            let schema_name = object.to_string();
-            Ok(SchemaId(schema_name))
         }
     }
 

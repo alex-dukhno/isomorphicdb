@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::query::TableCreationInfo;
+use crate::query::plan::TableCreationInfo;
 use kernel::SystemResult;
 use protocol::{
     results::{QueryErrorBuilder, QueryEvent},

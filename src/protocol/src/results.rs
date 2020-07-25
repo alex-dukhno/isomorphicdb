@@ -121,7 +121,7 @@ pub(crate) enum QueryErrorKind {
     NumericTypeOutOfRange {
         pg_type: PostgreSqlType,
         column_name: String,
-        row_index: usize,
+        row_index: usize, // TODO make it optional - does not make sense for update query
     },
     DataTypeMismatch {
         pg_type: PostgreSqlType,

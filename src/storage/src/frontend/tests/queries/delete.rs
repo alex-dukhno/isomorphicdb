@@ -51,22 +51,19 @@ fn delete_all_from_table(default_schema_name: &str, mut storage_with_schema: Per
         &mut storage_with_schema,
         default_schema_name,
         "table_name",
-        vec![],
-        vec!["123"],
+        vec![(1, vec!["123"])],
     );
     insert_into(
         &mut storage_with_schema,
         default_schema_name,
         "table_name",
-        vec![],
-        vec!["456"],
+        vec![(2, vec!["456"])],
     );
     insert_into(
         &mut storage_with_schema,
         default_schema_name,
         "table_name",
-        vec![],
-        vec!["789"],
+        vec![(3, vec!["789"])],
     );
 
     assert_eq!(
@@ -76,20 +73,10 @@ fn delete_all_from_table(default_schema_name: &str, mut storage_with_schema: Per
         Ok(3)
     );
 
-    let table_columns = storage_with_schema
-        .table_columns(default_schema_name, "table_name")
-        .expect("no system errors")
-        .into_iter()
-        .map(|column_definition| column_definition.name())
-        .collect();
-
     assert_eq!(
         storage_with_schema
-            .select_all_from("schema_name", "table_name", table_columns)
+            .select_all_from("schema_name", "table_name")
             .expect("no system errors"),
-        Ok((
-            vec![column_definition("column_test", SqlType::SmallInt(i16::min_value()))],
-            vec![]
-        ))
+        Ok(vec![])
     );
 }

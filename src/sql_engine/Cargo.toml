@@ -11,10 +11,10 @@ kernel = { path = "../kernel" }
 storage = { path = "../storage" }
 sqlparser = { version = "0.5.1", features = ["bigdecimal"] }
 bigdecimal = "0.1.2"
-ordered-float = "2.0.0"
 sql_types = { path = "../sql_types" }
 protocol = { path = "../protocol" }
 futures-lite = "0.1.6"
+representation = { path = "../representation" }
 
 [dev-dependencies]
 rstest = "0.6.4"

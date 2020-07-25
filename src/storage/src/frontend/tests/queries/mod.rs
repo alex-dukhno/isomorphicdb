@@ -20,5 +20,3 @@ mod delete;
 mod insert;
 #[cfg(test)]
 mod select;
-#[cfg(test)]
-mod update;
