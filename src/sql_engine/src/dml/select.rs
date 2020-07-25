@@ -94,17 +94,62 @@ impl<'sc, P: BackendStorage> SelectCommand<'sc, P> {
                 }
                 columns
             };
-            match (self.storage.lock().unwrap()).select_all_from(&schema_name, &table_name, table_columns)? {
+            let data = (self.storage.lock().unwrap()).select_all_from(&schema_name, &table_name, vec![])?;
+            match data {
                 Ok(records) => {
+                    let all_columns = (self.storage.lock().unwrap()).table_columns(&schema_name, &table_name)?;
+                    let mut description = vec![];
+                    let mut column_indexes = vec![];
+                    let mut non_existing_columns = vec![];
+                    for (i, column_name) in table_columns.iter().enumerate() {
+                        let mut found = None;
+                        for (index, column_definition) in all_columns.iter().enumerate() {
+                            if column_definition.has_name(column_name) {
+                                found = Some(((index, i), column_definition.clone()));
+                                break;
+                            }
+                        }
+
+                        if let Some((index_pair, column_definition)) = found {
+                            column_indexes.push(index_pair);
+                            description.push(column_definition);
+                        } else {
+                            non_existing_columns.push(column_name.clone());
+                        }
+                    }
+
+                    if !non_existing_columns.is_empty() {
+                        self.session
+                            .send(Err(QueryErrorBuilder::new()
+                                .column_does_not_exist(non_existing_columns)
+                                .build()))
+                            .expect("To Send Result to Client");
+                        return Ok(());
+                    }
+
+                    let values = records
+                        .into_iter()
+                        .map(|bytes| {
+                            let mut values = vec![];
+                            for (i, (origin, ord)) in column_indexes.iter().enumerate() {
+                                for (index, value) in bytes.split(|b| *b == b'|').enumerate() {
+                                    if index == *origin {
+                                        values.push((ord, description[i].sql_type().serializer().des(value)))
+                                    }
+                                }
+                            }
+                            values.into_iter().map(|(_, value)| value).collect()
+                        })
+                        .collect();
+
                     let projection = (
-                        records
-                            .0
+                        description
                             .into_iter()
                             .map(|column_definition| {
                                 (column_definition.name(), column_definition.sql_type().to_pg_types())
                             })
                             .collect(),
-                        records.1,
+                        values,
                     );
                     self.session
                         .send(Ok(QueryEvent::RecordsSelected(projection)))
@@ -121,16 +166,14 @@ impl<'sc, P: BackendStorage> SelectCommand<'sc, P> {
                 }
                 Err(OperationOnTableError::SchemaDoesNotExist) => {
                     self.session
-                        .send(Err(QueryErrorBuilder::new()
-                            .schema_does_not_exist(schema_name.to_owned())
-                            .build()))
+                        .send(Err(QueryErrorBuilder::new().schema_does_not_exist(schema_name).build()))
                         .expect("To Send Query Result to Client");
                     Ok(())
                 }
                 Err(OperationOnTableError::TableDoesNotExist) => {
                     self.session
                         .send(Err(QueryErrorBuilder::new()
-                            .table_does_not_exist(schema_name.to_owned() + "." + table_name.as_str())
+                            .table_does_not_exist(schema_name + "." + table_name.as_str())
                             .build()))
                         .expect("To Send Query Result to Client");
                     Ok(())

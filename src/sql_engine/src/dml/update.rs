@@ -20,8 +20,16 @@ use protocol::{
 };
 use sql_types::ConstraintError;
 use sqlparser::ast::{Assignment, Expr, Ident, ObjectName, UnaryOperator, Value};
-use std::sync::{Arc, Mutex};
-use storage::{backend::BackendStorage, frontend::FrontendStorage, ColumnDefinition, OperationOnTableError};
+use std::{
+    collections::BTreeSet,
+    sync::{Arc, Mutex},
+};
+use storage::{
+    backend,
+    backend::{BackendStorage, Row},
+    frontend::FrontendStorage,
+    ColumnDefinition, OperationOnTableError,
+};
 
 pub(crate) struct UpdateCommand<'uc, P: BackendStorage> {
     raw_sql_query: &'uc str,
@@ -85,6 +93,110 @@ impl<'uc, P: BackendStorage> UpdateCommand<'uc, P> {
 
             to_update.push((column.to_owned(), value))
         }
+
+        if !(self.storage.lock().unwrap()).schema_exists(&schema_name) {
+            self.session
+                .send(Err(QueryErrorBuilder::new().schema_does_not_exist(schema_name).build()))
+                .expect("To Send Result to Client");
+            return Ok(());
+        }
+
+        let all_columns = (self.storage.lock().unwrap()).table_columns(&schema_name, &table_name)?;
+        let mut errors = Vec::new();
+        let mut index_value_pairs = Vec::new();
+        let mut non_existing_columns = BTreeSet::new();
+        let mut column_exists = false;
+
+        // only process the rows if the table and schema exist.
+        if (self.storage.lock().unwrap()).table_exists(&schema_name, &table_name) {
+            for (column_name, value) in to_update {
+                for (index, column_definition) in all_columns.iter().enumerate() {
+                    if column_definition.has_name(&column_name) {
+                        match column_definition.sql_type().validate_and_serialize(value.as_str()) {
+                            Ok(bytes) => {
+                                index_value_pairs.push((index, bytes));
+                            }
+                            Err(e) => {
+                                errors.push((e, column_definition.clone()));
+                            }
+                        }
+
+                        column_exists = true;
+
+                        break;
+                    }
+                }
+
+                if !column_exists {
+                    non_existing_columns.insert(column_name.clone());
+                }
+            }
+        } else {
+            self.session
+                .send(Err(QueryErrorBuilder::new()
+                    .table_does_not_exist(schema_name + "." + table_name.as_str())
+                    .build()))
+                .expect("To Send Result to Client");
+            return Ok(());
+        }
+
+        if !non_existing_columns.is_empty() {
+            self.session
+                .send(Err(QueryErrorBuilder::new()
+                    .column_does_not_exist(non_existing_columns.into_iter().collect())
+                    .build()))
+                .expect("To Send Result to Client");
+            return Ok(());
+        }
+        if !errors.is_empty() {
+            let row_index = 1;
+            let mut builder = QueryErrorBuilder::new();
+            let constraint_error_mapper = |(err, column_definition): &(ConstraintError, ColumnDefinition)| match err {
+                ConstraintError::OutOfRange => {
+                    builder.out_of_range(
+                        column_definition.sql_type().to_pg_types(),
+                        column_definition.name(),
+                        row_index,
+                    );
+                }
+                ConstraintError::TypeMismatch(value) => {
+                    builder.type_mismatch(
+                        value,
+                        column_definition.sql_type().to_pg_types(),
+                        column_definition.name(),
+                        row_index,
+                    );
+                }
+                ConstraintError::ValueTooLong(len) => {
+                    builder.string_length_mismatch(
+                        column_definition.sql_type().to_pg_types(),
+                        *len,
+                        column_definition.name(),
+                        row_index,
+                    );
+                }
+            };
+
+            errors.iter().for_each(constraint_error_mapper);
+            self.session
+                .send(Err(builder.build()))
+                .expect("To Send Query Result to Client");
+            return Ok(());
+        }
+
+        let to_update: Vec<Row> = (self.storage.lock().unwrap())
+            .read_unchecked(&schema_name, &table_name)
+            .expect("no system errors")
+            .map(backend::Result::unwrap)
+            .map(|(key, values)| {
+                let mut values: Vec<&[u8]> = values.split(|b| *b == b'|').collect();
+                for (index, updated_value) in &index_value_pairs {
+                    values[*index] = updated_value;
+                }
+
+                (key, values.join(&b'|'))
+            })
+            .collect();
 
         match (self.storage.lock().unwrap()).update_all(&schema_name, &table_name, to_update)? {
             Ok(records_number) => {

@@ -28,6 +28,18 @@ fn int_table(
 }
 
 #[rstest::fixture]
+fn multiple_ints_table(
+    sql_engine_with_schema: (QueryExecutor<InMemoryStorage>, Arc<Collector>),
+) -> (QueryExecutor<InMemoryStorage>, Arc<Collector>) {
+    let (mut engine, collector) = sql_engine_with_schema;
+    engine
+        .execute("create table schema_name.table_name(column_si smallint, column_i integer, column_bi bigint);")
+        .expect("no system errors");
+
+    (engine, collector)
+}
+
+#[rstest::fixture]
 fn str_table(
     sql_engine_with_schema: (QueryExecutor<InMemoryStorage>, Arc<Collector>),
 ) -> (QueryExecutor<InMemoryStorage>, Arc<Collector>) {
@@ -69,6 +81,24 @@ mod insert {
         engine
             .execute("insert into schema_name.table_name values ('str');")
             .expect("no system errors");
+
+        collector.assert_content(vec![
+            Ok(QueryEvent::SchemaCreated),
+            Ok(QueryEvent::TableCreated),
+            Err(builder.build()),
+        ]);
+    }
+
+    #[rstest::rstest]
+    fn multiple_columns_multiple_row_violation(multiple_ints_table: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+        let (mut engine, collector) = multiple_ints_table;
+        engine
+            .execute("insert into schema_name.table_name values (-32769, -2147483649, 100), (100, -2147483649, -9223372036854775809);")
+            .expect("no system errors");
+
+        let mut builder = QueryErrorBuilder::new();
+        builder.out_of_range(PostgreSqlType::SmallInt, "column_si".to_owned(), 1);
+        builder.out_of_range(PostgreSqlType::Integer, "column_i".to_owned(), 1);
 
         collector.assert_content(vec![
             Ok(QueryEvent::SchemaCreated),
@@ -156,6 +186,30 @@ mod update {
             Ok(QueryEvent::SchemaCreated),
             Ok(QueryEvent::TableCreated),
             Ok(QueryEvent::RecordsInserted(1)),
+            Err(builder.build()),
+        ]);
+    }
+
+    #[rstest::rstest]
+    fn multiple_columns_violation(multiple_ints_table: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+        let (mut engine, collector) = multiple_ints_table;
+        let mut builder = QueryErrorBuilder::new();
+
+        engine
+            .execute("insert into schema_name.table_name values (100, 100, 100), (100, 100, 100);")
+            .expect("no system errors");
+
+        engine
+            .execute("update schema_name.table_name set column_si = -32769, column_i= -2147483649, column_bi=100;")
+            .expect("no system errors");
+
+        builder.out_of_range(PostgreSqlType::SmallInt, "column_si".to_owned(), 1);
+        builder.out_of_range(PostgreSqlType::Integer, "column_i".to_owned(), 1);
+
+        collector.assert_content(vec![
+            Ok(QueryEvent::SchemaCreated),
+            Ok(QueryEvent::TableCreated),
+            Ok(QueryEvent::RecordsInserted(2)),
             Err(builder.build()),
         ]);
     }
