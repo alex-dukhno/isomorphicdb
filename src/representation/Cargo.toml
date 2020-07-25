@@ -1,0 +1,11 @@
+[package]
+name = "representation"
+version = "0.1.0"
+authors = ["Alex Dukhno <alex.dukhno@icloud.com>"]
+edition = "2018"
+publish = false
+
+[dependencies]
+ordered-float = "2.0.0"
+sqlparser = { version = "0.5.1", features = ["bigdecimal"] }
+bigdecimal = "0.1.2"

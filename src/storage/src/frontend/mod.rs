@@ -21,6 +21,7 @@ use crate::{
     TableDescription,
 };
 use kernel::{SystemError, SystemResult};
+use representation::Binary;
 
 pub struct FrontendStorage<P: BackendStorage> {
     key_id_generator: usize,
@@ -179,10 +180,12 @@ impl<P: BackendStorage> FrontendStorage<P> {
         &mut self,
         schema_name: &str,
         table_name: &str,
-        _column_names: Vec<String>,
-    ) -> SystemResult<Result<Vec<Vec<u8>>, OperationOnTableError>> {
+    ) -> SystemResult<Result<Vec<Binary>, OperationOnTableError>> {
         let data = match self.persistent.read(schema_name, table_name)? {
-            Ok(read) => read.map(backend::Result::unwrap).map(|(_key, values)| values).collect(),
+            Ok(read) => read
+                .map(backend::Result::unwrap)
+                .map(|(_key, values)| Binary::with_data(values))
+                .collect(),
             Err(OperationOnObjectError::ObjectDoesNotExist) => {
                 return Ok(Err(OperationOnTableError::TableDoesNotExist))
             }

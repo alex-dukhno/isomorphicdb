@@ -94,7 +94,7 @@ impl<'sc, P: BackendStorage> SelectCommand<'sc, P> {
                 }
                 columns
             };
-            let data = (self.storage.lock().unwrap()).select_all_from(&schema_name, &table_name, vec![])?;
+            let data = (self.storage.lock().unwrap()).select_all_from(&schema_name, &table_name)?;
             match data {
                 Ok(records) => {
                     let all_columns = (self.storage.lock().unwrap()).table_columns(&schema_name, &table_name)?;
@@ -127,20 +127,38 @@ impl<'sc, P: BackendStorage> SelectCommand<'sc, P> {
                         return Ok(());
                     }
 
-                    let values = records
+                    let values: Vec<Vec<String>> = records
                         .into_iter()
-                        .map(|bytes| {
-                            let mut values = vec![];
-                            for (i, (origin, ord)) in column_indexes.iter().enumerate() {
-                                for (index, value) in bytes.split(|b| *b == b'|').enumerate() {
+                        .map(|row| {
+                            let row: Vec<String> = row.unpack().into_iter().map(|datum| datum.to_string()).collect();
+
+                            let mut values: Vec<(&usize, String)> = vec![];
+                            for (_i, (origin, ord)) in column_indexes.iter().enumerate() {
+                                for (index, value) in row.iter().enumerate() {
                                     if index == *origin {
-                                        values.push((ord, description[i].sql_type().serializer().des(value)))
+                                        values.push((ord, value.clone()))
                                     }
                                 }
                             }
+                            log::debug!("{:#?}", values);
                             values.into_iter().map(|(_, value)| value).collect()
                         })
                         .collect();
+
+                    // let values = records
+                    //     .into_iter()
+                    //     .map(|bytes| {
+                    //         let mut values = vec![];
+                    //         for (i, (origin, ord)) in column_indexes.iter().enumerate() {
+                    //             for (index, value) in bytes.split(|b| *b == b'|').enumerate() {
+                    //                 if index == *origin {
+                    //                     values.push((ord, description[i].sql_type().serializer().des(value)))
+                    //                 }
+                    //             }
+                    //         }
+                    //         values.into_iter().map(|(_, value)| value).collect()
+                    //     })
+                    //     .collect();
 
                     let projection = (
                         description

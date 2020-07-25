@@ -6,4 +6,5 @@ members = [
     "src/sql_engine",
     "src/sql_types",
     "src/storage",
+    "src/representation",
 ]
