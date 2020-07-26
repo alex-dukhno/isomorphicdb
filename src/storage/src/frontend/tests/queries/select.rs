@@ -31,26 +31,6 @@ fn with_small_ints_table(default_schema_name: &str, mut storage_with_schema: Per
 }
 
 #[rstest::rstest]
-fn select_from_table_from_non_existent_schema(mut storage: PersistentStorage) {
-    assert_eq!(
-        storage
-            .table_scan("non_existent", "table_name")
-            .expect("no system errors"),
-        Err(OperationOnTableError::SchemaDoesNotExist)
-    );
-}
-
-#[rstest::rstest]
-fn select_from_table_that_does_not_exist(default_schema_name: &str, mut storage_with_schema: PersistentStorage) {
-    assert_eq!(
-        storage_with_schema
-            .table_scan(default_schema_name, "not_existed")
-            .expect("no system errors"),
-        Err(OperationOnTableError::TableDoesNotExist)
-    );
-}
-
-#[rstest::rstest]
 fn select_all_from_table_with_many_columns(default_schema_name: &str, mut with_small_ints_table: PersistentStorage) {
     insert_into(
         &mut with_small_ints_table,
@@ -62,7 +42,7 @@ fn select_all_from_table_with_many_columns(default_schema_name: &str, mut with_s
     assert_eq!(
         with_small_ints_table
             .table_scan(default_schema_name, "table_name")
-            .expect("no system errors"),
+            .map(|read| read.map(Result::unwrap).map(|(_key, values)| values).collect()),
         Ok(vec![Binary::with_data(b"1|2|3".to_vec())])
     );
 }

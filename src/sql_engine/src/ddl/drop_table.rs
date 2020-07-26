@@ -14,12 +14,9 @@
 
 use crate::query::TableId;
 use kernel::SystemResult;
-use protocol::{
-    results::{QueryErrorBuilder, QueryEvent},
-    Sender,
-};
+use protocol::{results::QueryEvent, Sender};
 use std::sync::{Arc, Mutex};
-use storage::{backend::BackendStorage, frontend::FrontendStorage, DropTableError};
+use storage::{backend::BackendStorage, frontend::FrontendStorage};
 
 pub(crate) struct DropTableCommand<P: BackendStorage> {
     name: TableId,
@@ -39,26 +36,11 @@ impl<P: BackendStorage> DropTableCommand<P> {
     pub(crate) fn execute(&mut self) -> SystemResult<()> {
         let table_name = self.name.name();
         let schema_name = self.name.schema_name();
-        match (self.storage.lock().unwrap()).drop_table(schema_name, table_name)? {
+        match (self.storage.lock().unwrap()).drop_table(schema_name, table_name) {
+            Err(error) => Err(error),
             Ok(()) => {
                 self.session
                     .send(Ok(QueryEvent::TableDropped))
-                    .expect("To Send Query Result to Client");
-                Ok(())
-            }
-            Err(DropTableError::TableDoesNotExist) => {
-                self.session
-                    .send(Err(QueryErrorBuilder::new()
-                        .table_does_not_exist(schema_name.to_owned() + "." + table_name)
-                        .build()))
-                    .expect("To Send Query Result to Client");
-                Ok(())
-            }
-            Err(DropTableError::SchemaDoesNotExist) => {
-                self.session
-                    .send(Err(QueryErrorBuilder::new()
-                        .schema_does_not_exist(schema_name.to_owned())
-                        .build()))
                     .expect("To Send Query Result to Client");
                 Ok(())
             }

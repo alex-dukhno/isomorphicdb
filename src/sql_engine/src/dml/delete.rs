@@ -13,73 +13,54 @@
 // limitations under the License.
 
 use kernel::SystemResult;
-use protocol::{
-    results::{QueryErrorBuilder, QueryEvent},
-    Sender,
-};
+use protocol::results::QueryErrorBuilder;
+use protocol::{results::QueryEvent, Sender};
 use sqlparser::ast::ObjectName;
 use std::sync::{Arc, Mutex};
-use storage::{backend::BackendStorage, frontend::FrontendStorage, OperationOnTableError};
+use storage::{backend::BackendStorage, frontend::FrontendStorage};
 
-pub(crate) struct DeleteCommand<'dc, P: BackendStorage> {
-    raw_sql_query: &'dc str,
+pub(crate) struct DeleteCommand<P: BackendStorage> {
     name: ObjectName,
     storage: Arc<Mutex<FrontendStorage<P>>>,
     session: Arc<dyn Sender>,
 }
 
-impl<'dc, P: BackendStorage> DeleteCommand<'dc, P> {
+impl<P: BackendStorage> DeleteCommand<P> {
     pub(crate) fn new(
-        raw_sql_query: &'dc str,
         name: ObjectName,
         storage: Arc<Mutex<FrontendStorage<P>>>,
         session: Arc<dyn Sender>,
-    ) -> DeleteCommand<'dc, P> {
-        DeleteCommand {
-            raw_sql_query,
-            name,
-            storage,
-            session,
-        }
+    ) -> DeleteCommand<P> {
+        DeleteCommand { name, storage, session }
     }
 
     pub(crate) fn execute(&mut self) -> SystemResult<()> {
         let schema_name = self.name.0[0].to_string();
         let table_name = self.name.0[1].to_string();
-        match (self.storage.lock().unwrap()).delete_all_from(&schema_name, &table_name)? {
+
+        if !(self.storage.lock().unwrap()).schema_exists(&schema_name) {
+            self.session
+                .send(Err(QueryErrorBuilder::new()
+                    .schema_does_not_exist(schema_name.to_owned())
+                    .build()))
+                .expect("To Send Result to Client");
+            return Ok(());
+        }
+
+        if !(self.storage.lock().unwrap()).table_exists(&schema_name, &table_name) {
+            self.session
+                .send(Err(QueryErrorBuilder::new()
+                    .table_does_not_exist(schema_name + "." + table_name.as_str())
+                    .build()))
+                .expect("To Send Result to Client");
+            return Ok(());
+        }
+
+        match (self.storage.lock().unwrap()).delete_all_from(&schema_name, &table_name) {
+            Err(e) => Err(e),
             Ok(records_number) => {
                 self.session
                     .send(Ok(QueryEvent::RecordsDeleted(records_number)))
-                    .expect("To Send Query Result to Client");
-                Ok(())
-            }
-            Err(OperationOnTableError::SchemaDoesNotExist) => {
-                self.session
-                    .send(Err(QueryErrorBuilder::new().schema_does_not_exist(schema_name).build()))
-                    .expect("To Send Query Result to Client");
-                Ok(())
-            }
-            Err(OperationOnTableError::TableDoesNotExist) => {
-                self.session
-                    .send(Err(QueryErrorBuilder::new()
-                        .table_does_not_exist(schema_name + "." + table_name.as_str())
-                        .build()))
-                    .expect("To Send Query Result to Client");
-                Ok(())
-            }
-            Err(OperationOnTableError::ColumnDoesNotExist(non_existing_columns)) => {
-                self.session
-                    .send(Err(QueryErrorBuilder::new()
-                        .column_does_not_exist(non_existing_columns)
-                        .build()))
-                    .expect("To Send Query Result to Client");
-                Ok(())
-            }
-            _ => {
-                self.session
-                    .send(Err(QueryErrorBuilder::new()
-                        .feature_not_supported(self.raw_sql_query.to_owned())
-                        .build()))
                     .expect("To Send Query Result to Client");
                 Ok(())
             }

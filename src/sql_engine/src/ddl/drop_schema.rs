@@ -14,12 +14,9 @@
 
 use crate::query::SchemaId;
 use kernel::SystemResult;
-use protocol::{
-    results::{QueryErrorBuilder, QueryEvent},
-    Sender,
-};
+use protocol::{results::QueryEvent, Sender};
 use std::sync::{Arc, Mutex};
-use storage::{backend::BackendStorage, frontend::FrontendStorage, SchemaDoesNotExist};
+use storage::{backend::BackendStorage, frontend::FrontendStorage};
 
 pub(crate) struct DropSchemaCommand<P: BackendStorage> {
     name: SchemaId,
@@ -38,16 +35,11 @@ impl<P: BackendStorage> DropSchemaCommand<P> {
 
     pub(crate) fn execute(&mut self) -> SystemResult<()> {
         let schema_name = self.name.name().to_string();
-        match (self.storage.lock().unwrap()).drop_schema(&schema_name)? {
+        match (self.storage.lock().unwrap()).drop_schema(&schema_name) {
+            Err(error) => Err(error),
             Ok(()) => {
                 self.session
                     .send(Ok(QueryEvent::SchemaDropped))
-                    .expect("To Send Query Result to Client");
-                Ok(())
-            }
-            Err(SchemaDoesNotExist) => {
-                self.session
-                    .send(Err(QueryErrorBuilder::new().schema_does_not_exist(schema_name).build()))
                     .expect("To Send Query Result to Client");
                 Ok(())
             }

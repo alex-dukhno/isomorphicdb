@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::fmt::{self, Display, Formatter};
+
 pub type SystemResult<T> = std::result::Result<T, SystemError>;
 
 #[derive(Debug)]
@@ -23,8 +25,42 @@ pub struct SystemError {
 }
 
 impl SystemError {
+    pub fn bug_in_sql_engine(operation: Operation, object: Object) -> SystemError {
+        fn context_message(operation: Operation, object: Object) -> String {
+            match object {
+                Object::Schema(schema_name) => format!(
+                    "It does not check '{}' existence of SCHEMA before {} one",
+                    schema_name, operation
+                ),
+                Object::Table(schema_name, table_name) => format!(
+                    "It does not check '{}.{}' existence of TABLE before {} one",
+                    schema_name, table_name, operation
+                ),
+            }
+        }
+
+        SystemError {
+            message: format!(
+                "This is most possibly a 🐛[BUG] in sql engine.\n{}",
+                context_message(operation, object)
+            ),
+            backtrace: backtrace::Backtrace::new(),
+            cause: None,
+            kind: SystemErrorKind::SqlEngineBug,
+        }
+    }
+
+    pub fn runtime_check_failure(message: String) -> SystemError {
+        SystemError {
+            message,
+            backtrace: backtrace::Backtrace::new(),
+            cause: None,
+            kind: SystemErrorKind::RuntimeCheckFailure,
+        }
+    }
+
     pub fn unrecoverable(message: String) -> SystemError {
-        Self {
+        SystemError {
             message,
             backtrace: backtrace::Backtrace::new(),
             cause: None,
@@ -33,7 +69,7 @@ impl SystemError {
     }
 
     pub fn unrecoverable_with_cause(message: String, cause: backtrace::Backtrace) -> SystemError {
-        Self {
+        SystemError {
             message,
             backtrace: backtrace::Backtrace::new(),
             cause: Some(cause),
@@ -42,7 +78,7 @@ impl SystemError {
     }
 
     pub fn io(io_error: std::io::Error) -> SystemError {
-        Self {
+        SystemError {
             message: "IO error has happened".to_owned(),
             backtrace: backtrace::Backtrace::new(),
             cause: None,
@@ -60,7 +96,30 @@ impl PartialEq for SystemError {
 #[derive(Debug)]
 pub enum SystemErrorKind {
     Unrecoverable,
+    RuntimeCheckFailure,
+    SqlEngineBug,
     Io(std::io::Error),
+}
+
+pub enum Operation {
+    Create,
+    Drop,
+    Access,
+}
+
+impl Display for Operation {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Operation::Create => write!(f, "creating"),
+            Operation::Drop => write!(f, "dropping"),
+            Operation::Access => write!(f, "accessing"),
+        }
+    }
+}
+
+pub enum Object<'o> {
+    Table(&'o str, &'o str),
+    Schema(&'o str),
 }
 
 impl PartialEq for SystemErrorKind {

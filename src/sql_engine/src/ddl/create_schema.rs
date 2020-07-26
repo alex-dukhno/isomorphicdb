@@ -14,12 +14,9 @@
 
 use crate::query::plan::SchemaCreationInfo;
 use kernel::SystemResult;
-use protocol::{
-    results::{QueryErrorBuilder, QueryEvent},
-    Sender,
-};
+use protocol::{results::QueryEvent, Sender};
 use std::sync::{Arc, Mutex};
-use storage::{backend::BackendStorage, frontend::FrontendStorage, SchemaAlreadyExists};
+use storage::{backend::BackendStorage, frontend::FrontendStorage};
 
 pub(crate) struct CreateSchemaCommand<P: BackendStorage> {
     schema_info: SchemaCreationInfo,
@@ -42,18 +39,12 @@ impl<P: BackendStorage> CreateSchemaCommand<P> {
 
     pub(crate) fn execute(&mut self) -> SystemResult<()> {
         let schema_name = &self.schema_info.schema_name;
-        match (self.storage.lock().unwrap()).create_schema(schema_name)? {
+        match (self.storage.lock().unwrap()).create_schema(schema_name) {
+            Err(error) => Err(error),
             Ok(()) => {
                 self.session
                     .send(Ok(QueryEvent::SchemaCreated))
                     .expect("To Send Query Result to Client");
-                Ok(())
-            }
-            Err(SchemaAlreadyExists) => {
-                let error = QueryErrorBuilder::new()
-                    .schema_already_exists(schema_name.clone())
-                    .build();
-                self.session.send(Err(error)).expect("To Send Query Result to Client");
                 Ok(())
             }
         }
