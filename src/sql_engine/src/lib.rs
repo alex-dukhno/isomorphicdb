@@ -121,16 +121,9 @@ impl<P: BackendStorage> QueryExecutor<P> {
                     table_name,
                     assignments,
                     ..
-                } => UpdateCommand::new(
-                    raw_sql_query,
-                    table_name,
-                    assignments,
-                    self.storage.clone(),
-                    self.session.clone(),
-                )
-                .execute(),
+                } => UpdateCommand::new(table_name, assignments, self.storage.clone(), self.session.clone()).execute(),
                 Statement::Delete { table_name, .. } => {
-                    DeleteCommand::new(raw_sql_query, table_name, self.storage.clone(), self.session.clone()).execute()
+                    DeleteCommand::new(table_name, self.storage.clone(), self.session.clone()).execute()
                 }
                 _ => {
                     self.session

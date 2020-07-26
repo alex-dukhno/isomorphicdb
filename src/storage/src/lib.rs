@@ -16,6 +16,8 @@ extern crate kernel;
 extern crate log;
 extern crate sql_types;
 
+use kernel::SystemError;
+use representation::Binary;
 use serde::{Deserialize, Serialize};
 use sql_types::{ConstraintError, SqlType};
 
@@ -23,6 +25,10 @@ pub mod backend;
 pub mod frontend;
 
 pub type Projection = (Vec<ColumnDefinition>, Vec<Vec<String>>);
+pub type Row = (Key, Values);
+pub type Key = Binary;
+pub type Values = Binary;
+pub type ReadCursor = Box<dyn Iterator<Item = Result<Row, SystemError>>>;
 
 #[derive(Debug, PartialEq)]
 pub struct SchemaAlreadyExists;

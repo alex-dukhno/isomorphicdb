@@ -12,11 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use kernel::{SystemError, SystemResult};
+use kernel::SystemResult;
 use std::collections::{BTreeMap, HashMap};
-use storage::backend::{
-    BackendStorage, CreateObjectError, DropObjectError, Key, NamespaceAlreadyExists, NamespaceDoesNotExist,
-    OperationOnObjectError, ReadCursor, Result, Row, Values,
+use storage::{
+    backend::{BackendError, BackendResult, BackendStorage},
+    Key, ReadCursor, Row, Values,
 };
 
 #[derive(Default, Debug)]
@@ -37,13 +37,9 @@ pub struct InMemoryStorage {
 impl BackendStorage for InMemoryStorage {
     type ErrorMapper = storage::backend::SledErrorMapper;
 
-    fn create_namespace_with_objects(
-        &mut self,
-        namespace: &str,
-        object_names: Vec<&str>,
-    ) -> SystemResult<Result<(), NamespaceAlreadyExists>> {
+    fn create_namespace_with_objects(&mut self, namespace: &str, object_names: Vec<&str>) -> BackendResult<()> {
         if self.namespaces.contains_key(namespace) {
-            Ok(Err(NamespaceAlreadyExists))
+            Err(BackendError::RuntimeCheckError)
         } else {
             let namespace = self
                 .namespaces
@@ -55,58 +51,53 @@ impl BackendStorage for InMemoryStorage {
                     .objects
                     .insert(object_name.to_owned(), StorageObject::default());
             }
-            Ok(Ok(()))
+            Ok(())
         }
     }
 
-    fn create_namespace(&mut self, namespace: &str) -> SystemResult<Result<(), NamespaceAlreadyExists>> {
+    fn create_namespace(&mut self, namespace: &str) -> BackendResult<()> {
         if self.namespaces.contains_key(namespace) {
-            Ok(Err(NamespaceAlreadyExists))
+            Err(BackendError::RuntimeCheckError)
         } else {
             self.namespaces.insert(namespace.to_owned(), Namespace::default());
-            Ok(Ok(()))
+            Ok(())
         }
     }
 
-    fn drop_namespace(&mut self, namespace: &str) -> SystemResult<Result<(), NamespaceDoesNotExist>> {
+    fn drop_namespace(&mut self, namespace: &str) -> BackendResult<()> {
         match self.namespaces.remove(namespace) {
-            Some(_namespace) => Ok(Ok(())),
-            None => Ok(Err(NamespaceDoesNotExist)),
+            Some(_namespace) => Ok(()),
+            None => Err(BackendError::RuntimeCheckError),
         }
     }
 
-    fn create_object(&mut self, namespace: &str, object_name: &str) -> SystemResult<Result<(), CreateObjectError>> {
+    fn create_object(&mut self, namespace: &str, object_name: &str) -> BackendResult<()> {
         match self.namespaces.get_mut(namespace) {
             Some(namespace) => {
                 if namespace.objects.contains_key(object_name) {
-                    Ok(Err(CreateObjectError::ObjectAlreadyExists))
+                    Err(BackendError::RuntimeCheckError)
                 } else {
                     namespace
                         .objects
                         .insert(object_name.to_owned(), StorageObject::default());
-                    Ok(Ok(()))
+                    Ok(())
                 }
             }
-            None => Ok(Err(CreateObjectError::NamespaceDoesNotExist)),
+            None => Err(BackendError::RuntimeCheckError),
         }
     }
 
-    fn drop_object(&mut self, namespace: &str, object_name: &str) -> SystemResult<Result<(), DropObjectError>> {
+    fn drop_object(&mut self, namespace: &str, object_name: &str) -> BackendResult<()> {
         match self.namespaces.get_mut(namespace) {
             Some(namespace) => match namespace.objects.remove(object_name) {
-                Some(_) => Ok(Ok(())),
-                None => Ok(Err(DropObjectError::ObjectDoesNotExist)),
+                Some(_) => Ok(()),
+                None => Err(BackendError::RuntimeCheckError),
             },
-            None => Ok(Err(DropObjectError::NamespaceDoesNotExist)),
+            None => Err(BackendError::RuntimeCheckError),
         }
     }
 
-    fn write(
-        &mut self,
-        namespace: &str,
-        object_name: &str,
-        rows: Vec<(Key, Values)>,
-    ) -> SystemResult<Result<usize, OperationOnObjectError>> {
+    fn write(&mut self, namespace: &str, object_name: &str, rows: Vec<(Key, Values)>) -> BackendResult<usize> {
         match self.namespaces.get_mut(namespace) {
             Some(namespace) => match namespace.objects.get_mut(object_name) {
                 Some(object) => {
@@ -114,38 +105,33 @@ impl BackendStorage for InMemoryStorage {
                     for (key, value) in rows {
                         object.records.insert(key, value);
                     }
-                    Ok(Ok(len))
+                    Ok(len)
                 }
-                None => Ok(Err(OperationOnObjectError::ObjectDoesNotExist)),
+                None => Err(BackendError::RuntimeCheckError),
             },
-            None => Ok(Err(OperationOnObjectError::NamespaceDoesNotExist)),
+            None => Err(BackendError::RuntimeCheckError),
         }
     }
 
-    fn read(&self, namespace: &str, object_name: &str) -> SystemResult<Result<ReadCursor, OperationOnObjectError>> {
+    fn read(&self, namespace: &str, object_name: &str) -> BackendResult<ReadCursor> {
         match self.namespaces.get(namespace) {
             Some(namespace) => match namespace.objects.get(object_name) {
-                Some(object) => Ok(Ok(Box::new(
+                Some(object) => Ok(Box::new(
                     object
                         .records
                         .clone()
                         .into_iter()
                         .map(Ok)
-                        .collect::<Vec<Result<Row, SystemError>>>()
+                        .collect::<Vec<SystemResult<Row>>>()
                         .into_iter(),
-                ))),
-                None => Ok(Err(OperationOnObjectError::ObjectDoesNotExist)),
+                )),
+                None => Err(BackendError::RuntimeCheckError),
             },
-            None => Ok(Err(OperationOnObjectError::NamespaceDoesNotExist)),
+            None => Err(BackendError::RuntimeCheckError),
         }
     }
 
-    fn delete(
-        &mut self,
-        namespace: &str,
-        object_name: &str,
-        keys: Vec<Key>,
-    ) -> SystemResult<Result<usize, OperationOnObjectError>> {
+    fn delete(&mut self, namespace: &str, object_name: &str, keys: Vec<Key>) -> BackendResult<usize> {
         match self.namespaces.get_mut(namespace) {
             Some(namespace) => match namespace.objects.get_mut(object_name) {
                 Some(object) => {
@@ -155,35 +141,32 @@ impl BackendStorage for InMemoryStorage {
                         .into_iter()
                         .filter(|(key, _values)| !keys.contains(key))
                         .collect();
-                    Ok(Ok(keys.len()))
+                    Ok(keys.len())
                 }
-                None => Ok(Err(OperationOnObjectError::ObjectDoesNotExist)),
+                None => Err(BackendError::RuntimeCheckError),
             },
-            None => Ok(Err(OperationOnObjectError::NamespaceDoesNotExist)),
+            None => Err(BackendError::RuntimeCheckError),
         }
     }
 
-    fn is_schema_exists(&self, namespace: &str) -> bool {
+    fn is_namespace_exists(&self, namespace: &str) -> bool {
         self.namespaces.contains_key(namespace)
     }
 
-    fn is_table_exists(&self, namespace: &str, object_name: &str) -> bool {
-        match self.check_for_table(namespace, object_name) {
-            Ok(result) => result.is_ok(),
-            Err(_) => false,
-        }
+    fn is_object_exists(&self, namespace: &str, object_name: &str) -> bool {
+        self.check_for_object(namespace, object_name).is_ok()
     }
 
-    fn check_for_table(&self, namespace: &str, object_name: &str) -> SystemResult<Result<(), OperationOnObjectError>> {
+    fn check_for_object(&self, namespace: &str, object_name: &str) -> BackendResult<()> {
         match self.namespaces.get(namespace) {
             Some(namespace) => {
                 if namespace.objects.contains_key(object_name) {
-                    Ok(Ok(()))
+                    Ok(())
                 } else {
-                    Ok(Err(OperationOnObjectError::ObjectDoesNotExist))
+                    Err(BackendError::RuntimeCheckError)
                 }
             }
-            None => Ok(Err(OperationOnObjectError::NamespaceDoesNotExist)),
+            None => Err(BackendError::RuntimeCheckError),
         }
     }
 }
@@ -202,10 +185,7 @@ mod tests {
 
     #[rstest::fixture]
     fn with_namespace(mut storage: Storage) -> Storage {
-        storage
-            .create_namespace("namespace")
-            .expect("no system errors")
-            .expect("namespace created");
+        storage.create_namespace("namespace").expect("namespace created");
         storage
     }
 
@@ -213,7 +193,6 @@ mod tests {
     fn with_object(mut with_namespace: Storage) -> Storage {
         with_namespace
             .create_object("namespace", "object_name")
-            .expect("no system errors")
             .expect("object created");
         with_namespace
     }
@@ -225,107 +204,39 @@ mod tests {
         #[rstest::rstest]
         fn create_namespace_with_objects(mut storage: Storage) {
             assert_eq!(
-                storage
-                    .create_namespace_with_objects("namespace", vec!["object_1", "object_2"])
-                    .expect("no system errors"),
+                storage.create_namespace_with_objects("namespace", vec!["object_1", "object_2"]),
                 Ok(())
             );
 
-            assert_eq!(
-                storage
-                    .create_object("namespace", "object_1")
-                    .expect("no system errors"),
-                Err(CreateObjectError::ObjectAlreadyExists)
-            );
-            assert_eq!(
-                storage
-                    .create_object("namespace", "object_2")
-                    .expect("no system errors"),
-                Err(CreateObjectError::ObjectAlreadyExists)
-            );
-        }
-
-        #[rstest::rstest]
-        fn create_namespace_with_objects_that_already_exists(mut with_namespace: Storage) {
-            assert_eq!(
-                with_namespace
-                    .create_namespace_with_objects("namespace", vec!["object_1", "object_2"])
-                    .expect("no system errors"),
-                Err(NamespaceAlreadyExists)
-            );
+            assert!(storage.is_object_exists("namespace", "object_1"));
+            assert!(storage.is_object_exists("namespace", "object_2"));
         }
 
         #[rstest::rstest]
         fn create_namespaces_with_different_names(mut storage: Storage) {
-            assert_eq!(
-                storage.create_namespace("namespace_1").expect("namespace created"),
-                Ok(())
-            );
-            assert_eq!(
-                storage.create_namespace("namespace_2").expect("namespace created"),
-                Ok(())
-            );
-        }
-
-        #[rstest::rstest]
-        fn create_namespace_with_existing_name(mut with_namespace: Storage) {
-            assert_eq!(
-                with_namespace.create_namespace("namespace").expect("no system errors"),
-                Err(NamespaceAlreadyExists)
-            );
+            assert_eq!(storage.create_namespace("namespace_1"), Ok(()));
+            assert_eq!(storage.create_namespace("namespace_2"), Ok(()));
         }
 
         #[rstest::rstest]
         fn drop_namespace(mut with_namespace: Storage) {
-            assert_eq!(
-                with_namespace.drop_namespace("namespace").expect("namespace dropped"),
-                Ok(())
-            );
-            assert_eq!(
-                with_namespace.create_namespace("namespace").expect("namespace created"),
-                Ok(())
-            );
-        }
-
-        #[rstest::rstest]
-        fn drop_namespace_that_was_not_created(mut storage: Storage) {
-            assert_eq!(
-                storage.drop_namespace("does_not_exists").expect("no system errors"),
-                Err(NamespaceDoesNotExist)
-            );
+            assert_eq!(with_namespace.drop_namespace("namespace"), Ok(()));
+            assert_eq!(with_namespace.create_namespace("namespace"), Ok(()));
         }
 
         #[rstest::rstest]
         fn dropping_namespace_drops_objects_in_it(mut with_namespace: Storage) {
             with_namespace
                 .create_object("namespace", "object_name_1")
-                .expect("no system errors")
                 .expect("object created");
             with_namespace
                 .create_object("namespace", "object_name_2")
-                .expect("no system errors")
                 .expect("object created");
 
-            assert_eq!(
-                with_namespace.drop_namespace("namespace").expect("no system errors"),
-                Ok(())
-            );
-            assert_eq!(
-                with_namespace.create_namespace("namespace").expect("namespace created"),
-                Ok(())
-            );
-            assert_eq!(
-                with_namespace
-                    .create_object("namespace", "object_name_1")
-                    .expect("no system errors"),
-                Ok(())
-            );
-            assert_eq!(
-                with_namespace
-                    .create_object("namespace", "object_name_2")
-                    .expect("no system errors"),
-                Ok(())
-            );
+            assert_eq!(with_namespace.drop_namespace("namespace"), Ok(()));
+            assert_eq!(with_namespace.create_namespace("namespace"), Ok(()));
+            assert_eq!(with_namespace.create_object("namespace", "object_name_1"), Ok(()));
+            assert_eq!(with_namespace.create_object("namespace", "object_name_2"), Ok(()));
         }
     }
 
@@ -335,67 +246,16 @@ mod tests {
 
         #[rstest::rstest]
         fn create_objects_with_different_names(mut with_namespace: Storage) {
-            assert_eq!(
-                with_namespace
-                    .create_object("namespace", "object_name_1")
-                    .expect("no system errors"),
-                Ok(())
-            );
-            assert_eq!(
-                with_namespace
-                    .create_object("namespace", "object_name_2")
-                    .expect("no system errors"),
-                Ok(())
-            );
-        }
-
-        #[rstest::rstest]
-        fn create_object_with_the_same_name(mut with_namespace: Storage) {
-            with_namespace
-                .create_object("namespace", "object_name")
-                .expect("no system errors")
-                .expect("object created");
-
-            assert_eq!(
-                with_namespace
-                    .create_object("namespace", "object_name")
-                    .expect("no system errors"),
-                Err(CreateObjectError::ObjectAlreadyExists)
-            );
+            assert_eq!(with_namespace.create_object("namespace", "object_name_1"), Ok(()));
+            assert_eq!(with_namespace.create_object("namespace", "object_name_2"), Ok(()));
         }
 
         #[rstest::rstest]
         fn create_object_with_the_same_name_in_different_namespaces(mut storage: Storage) {
-            storage
-                .create_namespace("namespace_1")
-                .expect("no system errors")
-                .expect("namespace created");
-            storage
-                .create_namespace("namespace_2")
-                .expect("no system errors")
-                .expect("namespace created");
-            assert_eq!(
-                storage
-                    .create_object("namespace_1", "object_name")
-                    .expect("no system errors"),
-                Ok(())
-            );
-            assert_eq!(
-                storage
-                    .create_object("namespace_2", "object_name")
-                    .expect("no system errors"),
-                Ok(())
-            );
-        }
-
-        #[rstest::rstest]
-        fn create_object_in_not_existent_namespace(mut storage: Storage) {
-            assert_eq!(
-                storage
-                    .create_object("not_existent", "object_name")
-                    .expect("no system errors"),
-                Err(CreateObjectError::NamespaceDoesNotExist)
-            );
+            storage.create_namespace("namespace_1").expect("namespace created");
+            storage.create_namespace("namespace_2").expect("namespace created");
+            assert_eq!(storage.create_object("namespace_1", "object_name"), Ok(()));
+            assert_eq!(storage.create_object("namespace_2", "object_name"), Ok(()));
         }
     }
 
@@ -405,36 +265,8 @@ mod tests {
 
         #[rstest::rstest]
         fn drop_object(mut with_object: Storage) {
-            assert_eq!(
-                with_object
-                    .drop_object("namespace", "object_name")
-                    .expect("no system errors"),
-                Ok(())
-            );
-            assert_eq!(
-                with_object
-                    .create_object("namespace", "object_name")
-                    .expect("no system errors"),
-                Ok(())
-            );
-        }
-
-        #[rstest::rstest]
-        fn drop_not_created_object(mut with_namespace: Storage) {
-            assert_eq!(
-                with_namespace
-                    .drop_object("namespace", "not_existed_object")
-                    .expect("no system errors"),
-                Err(DropObjectError::ObjectDoesNotExist)
-            );
-        }
-
-        #[rstest::rstest]
-        fn drop_object_in_not_existent_namespace(mut storage: Storage) {
-            assert_eq!(
-                storage.drop_object("not_existent", "object").expect("no system errors"),
-                Err(DropObjectError::NamespaceDoesNotExist)
-            );
+            assert_eq!(with_object.drop_object("namespace", "object_name"), Ok(()));
+            assert_eq!(with_object.create_object("namespace", "object_name"), Ok(()));
         }
     }
 
@@ -445,17 +277,14 @@ mod tests {
         #[rstest::rstest]
         fn insert_row_into_object(mut with_object: Storage) {
             assert_eq!(
-                with_object
-                    .write("namespace", "object_name", as_rows(vec![(1u8, vec!["123"])],))
-                    .expect("no system errors"),
+                with_object.write("namespace", "object_name", as_rows(vec![(1u8, vec!["123"])])),
                 Ok(1)
             );
 
             assert_eq!(
                 with_object
                     .read("namespace", "object_name")
-                    .expect("no system errors")
-                    .map(|iter| iter.collect::<Vec<Result<Row, SystemError>>>()),
+                    .map(|iter| iter.collect::<Vec<SystemResult<Row>>>()),
                 Ok(as_read_cursor(vec![(1u8, vec!["123"])]).collect())
             );
         }
@@ -464,61 +293,16 @@ mod tests {
         fn insert_many_rows_into_object(mut with_object: Storage) {
             with_object
                 .write("namespace", "object_name", as_rows(vec![(1u8, vec!["123"])]))
-                .expect("no system errors")
                 .expect("values are written");
             with_object
                 .write("namespace", "object_name", as_rows(vec![(2u8, vec!["456"])]))
-                .expect("no system errors")
                 .expect("values are written");
 
             assert_eq!(
                 with_object
                     .read("namespace", "object_name")
-                    .expect("no system errors")
-                    .map(|iter| iter.collect::<Vec<Result<Row, SystemError>>>()),
+                    .map(|iter| iter.collect::<Vec<SystemResult<Row>>>()),
                 Ok(as_read_cursor(vec![(1u8, vec!["123"]), (2u8, vec!["456"])]).collect())
-            );
-        }
-
-        #[rstest::rstest]
-        fn insert_into_non_existent_object(mut with_namespace: Storage) {
-            assert_eq!(
-                with_namespace
-                    .write("namespace", "not_existed", as_rows(vec![(1u8, vec!["123"])],))
-                    .expect("no system errors"),
-                Err(OperationOnObjectError::ObjectDoesNotExist)
-            );
-        }
-
-        #[rstest::rstest]
-        fn insert_into_object_in_non_existent_namespace(mut storage: Storage) {
-            assert_eq!(
-                storage
-                    .write("not_existed", "object", as_rows(vec![(1u8, vec!["123"])],))
-                    .expect("no system errors"),
-                Err(OperationOnObjectError::NamespaceDoesNotExist)
-            );
-        }
-
-        #[rstest::rstest]
-        fn select_from_object_that_does_not_exist(with_namespace: Storage) {
-            assert_eq!(
-                with_namespace
-                    .read("namespace", "not_existed")
-                    .expect("no system errors")
-                    .map(|iter| iter.collect::<Vec<Result<Row, SystemError>>>()),
-                Err(OperationOnObjectError::ObjectDoesNotExist)
-            );
-        }
-
-        #[rstest::rstest]
-        fn select_from_object_in_not_existent_namespace(storage: Storage) {
-            assert_eq!(
-                storage
-                    .read("not_existed", "object")
-                    .expect("no system errors")
-                    .map(|iter| iter.collect::<Vec<Result<Row, SystemError>>>()),
-                Err(OperationOnObjectError::NamespaceDoesNotExist)
             );
         }
 
@@ -530,42 +314,18 @@ mod tests {
                     "object_name",
                     as_rows(vec![(1u8, vec!["123"]), (2u8, vec!["456"]), (3u8, vec!["789"])]),
                 )
-                .expect("no system errors")
                 .expect("write occurred");
 
             assert_eq!(
-                with_object
-                    .delete("namespace", "object_name", as_keys(vec![2u8]))
-                    .expect("no system errors"),
+                with_object.delete("namespace", "object_name", as_keys(vec![2u8])),
                 Ok(1)
             );
 
             assert_eq!(
                 with_object
                     .read("namespace", "object_name")
-                    .expect("no system errors")
-                    .map(|iter| iter.collect::<Vec<Result<Row, SystemError>>>()),
+                    .map(|iter| iter.collect::<Vec<SystemResult<Row>>>()),
                 Ok(as_read_cursor(vec![(1u8, vec!["123"]), (3u8, vec!["789"])]).collect())
-            );
-        }
-
-        #[rstest::rstest]
-        fn delete_from_not_existed_object(mut with_namespace: Storage) {
-            assert_eq!(
-                with_namespace
-                    .delete("namespace", "not_existent", vec![])
-                    .expect("no system errors"),
-                Err(OperationOnObjectError::ObjectDoesNotExist)
-            );
-        }
-
-        #[rstest::rstest]
-        fn delete_from_not_existent_namespace(mut storage: Storage) {
-            assert_eq!(
-                storage
-                    .delete("not existent", "object", vec![])
-                    .expect("no system errors"),
-                Err(OperationOnObjectError::NamespaceDoesNotExist)
             );
         }
 
@@ -573,14 +333,12 @@ mod tests {
         fn select_all_from_object_with_many_columns(mut with_object: Storage) {
             with_object
                 .write("namespace", "object_name", as_rows(vec![(1u8, vec!["1", "2", "3"])]))
-                .expect("no system errors")
                 .expect("write occurred");
 
             assert_eq!(
                 with_object
                     .read("namespace", "object_name")
-                    .expect("no system errors")
-                    .map(|iter| iter.collect::<Vec<Result<Row, SystemError>>>()),
+                    .map(|iter| iter.collect::<Vec<SystemResult<Row>>>()),
                 Ok(as_read_cursor(vec![(1u8, vec!["1", "2", "3"])]).collect())
             );
         }
@@ -597,14 +355,12 @@ mod tests {
                         (3u8, vec!["7", "8", "9"]),
                     ]),
                 )
-                .expect("no system errors")
                 .expect("write occurred");
 
             assert_eq!(
                 with_object
                     .read("namespace", "object_name")
-                    .expect("no system errors")
-                    .map(|iter| iter.collect::<Vec<Result<Row, SystemError>>>()),
+                    .map(|iter| iter.collect::<Vec<SystemResult<Row>>>()),
                 Ok(as_read_cursor(vec![
                     (1u8, vec!["1", "2", "3"]),
                     (2u8, vec!["4", "5", "6"]),
@@ -619,13 +375,15 @@ mod tests {
         items
             .into_iter()
             .map(|(key, values)| {
-                let k = key.to_be_bytes().to_vec();
-                let v = values
-                    .into_iter()
-                    .map(|s| s.as_bytes().to_vec())
-                    .collect::<Vec<_>>()
-                    .join(&b'|');
-                (Binary::with_data(k), Binary::with_data(v))
+                let k = Binary::with_data(key.to_be_bytes().to_vec());
+                let v = Binary::with_data(
+                    values
+                        .into_iter()
+                        .map(|s| s.as_bytes())
+                        .collect::<Vec<&[u8]>>()
+                        .join(&b'|'),
+                );
+                (k, v)
             })
             .collect()
     }
@@ -642,8 +400,8 @@ mod tests {
             let k = key.to_be_bytes().to_vec();
             let v = values
                 .into_iter()
-                .map(|s| s.as_bytes().to_vec())
-                .collect::<Vec<_>>()
+                .map(|s| s.as_bytes())
+                .collect::<Vec<&[u8]>>()
                 .join(&b'|');
             Ok((Binary::with_data(k), Binary::with_data(v)))
         }))

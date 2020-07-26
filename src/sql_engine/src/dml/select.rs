@@ -22,7 +22,7 @@ use std::{
     ops::Deref,
     sync::{Arc, Mutex},
 };
-use storage::{backend::BackendStorage, frontend::FrontendStorage, OperationOnTableError};
+use storage::{backend::BackendStorage, frontend::FrontendStorage};
 
 pub(crate) struct SelectCommand<'sc, P: BackendStorage> {
     raw_sql_query: &'sc str,
@@ -66,6 +66,23 @@ impl<'sc, P: BackendStorage> SelectCommand<'sc, P> {
                     return Ok(());
                 }
             };
+
+            if !(self.storage.lock().unwrap()).schema_exists(&schema_name) {
+                self.session
+                    .send(Err(QueryErrorBuilder::new().schema_does_not_exist(schema_name).build()))
+                    .expect("To Send Result to Client");
+                return Ok(());
+            }
+
+            if !(self.storage.lock().unwrap()).table_exists(&schema_name, &table_name) {
+                self.session
+                    .send(Err(QueryErrorBuilder::new()
+                        .table_does_not_exist(schema_name + "." + table_name.as_str())
+                        .build()))
+                    .expect("To Send Result to Client");
+                return Ok(());
+            }
+
             let table_columns = {
                 let projection = projection.clone();
                 let mut columns: Vec<String> = vec![];
@@ -94,8 +111,9 @@ impl<'sc, P: BackendStorage> SelectCommand<'sc, P> {
                 }
                 columns
             };
-            let data = (self.storage.lock().unwrap()).table_scan(&schema_name, &table_name)?;
+            let data = (self.storage.lock().unwrap()).table_scan(&schema_name, &table_name);
             match data {
+                Err(error) => Err(error),
                 Ok(records) => {
                     let all_columns = (self.storage.lock().unwrap()).table_columns(&schema_name, &table_name)?;
                     let mut description = vec![];
@@ -128,9 +146,9 @@ impl<'sc, P: BackendStorage> SelectCommand<'sc, P> {
                     }
 
                     let values: Vec<Vec<String>> = records
-                        .into_iter()
-                        .map(|row| {
-                            let row: Vec<String> = row.unpack().into_iter().map(|datum| datum.to_string()).collect();
+                        .map(Result::unwrap)
+                        .map(|(_key, values)| {
+                            let row: Vec<String> = values.unpack().into_iter().map(|datum| datum.to_string()).collect();
 
                             let mut values: Vec<(&usize, String)> = vec![];
                             for (_i, (origin, ord)) in column_indexes.iter().enumerate() {
@@ -156,36 +174,6 @@ impl<'sc, P: BackendStorage> SelectCommand<'sc, P> {
                     );
                     self.session
                         .send(Ok(QueryEvent::RecordsSelected(projection)))
-                        .expect("To Send Query Result to Client");
-                    Ok(())
-                }
-                Err(OperationOnTableError::ColumnDoesNotExist(non_existing_columns)) => {
-                    self.session
-                        .send(Err(QueryErrorBuilder::new()
-                            .column_does_not_exist(non_existing_columns)
-                            .build()))
-                        .expect("To Send Query Result to Client");
-                    Ok(())
-                }
-                Err(OperationOnTableError::SchemaDoesNotExist) => {
-                    self.session
-                        .send(Err(QueryErrorBuilder::new().schema_does_not_exist(schema_name).build()))
-                        .expect("To Send Query Result to Client");
-                    Ok(())
-                }
-                Err(OperationOnTableError::TableDoesNotExist) => {
-                    self.session
-                        .send(Err(QueryErrorBuilder::new()
-                            .table_does_not_exist(schema_name + "." + table_name.as_str())
-                            .build()))
-                        .expect("To Send Query Result to Client");
-                    Ok(())
-                }
-                _ => {
-                    self.session
-                        .send(Err(QueryErrorBuilder::new()
-                            .feature_not_supported(self.raw_sql_query.to_owned())
-                            .build()))
                         .expect("To Send Query Result to Client");
                     Ok(())
                 }

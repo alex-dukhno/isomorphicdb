@@ -78,9 +78,10 @@ pub fn start() {
                                     log::debug!("Closing connection with client");
                                     break;
                                 }
-                                Ok(Ok(Command::Query(sql_query))) => {
-                                    query_executor.execute(sql_query.as_str()).expect("no system error");
-                                }
+                                Ok(Ok(Command::Query(sql_query))) => match query_executor.execute(sql_query.as_str()) {
+                                    Ok(()) => {}
+                                    Err(error) => log::error!("{:?}", error),
+                                },
                             }
                         }
                     })

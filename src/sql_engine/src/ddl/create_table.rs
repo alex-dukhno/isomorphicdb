@@ -14,12 +14,9 @@
 
 use crate::query::plan::TableCreationInfo;
 use kernel::SystemResult;
-use protocol::{
-    results::{QueryErrorBuilder, QueryEvent},
-    Sender,
-};
+use protocol::{results::QueryEvent, Sender};
 use std::sync::{Arc, Mutex};
-use storage::{backend::BackendStorage, frontend::FrontendStorage, CreateTableError};
+use storage::{backend::BackendStorage, frontend::FrontendStorage};
 
 pub(crate) struct CreateTableCommand<P: BackendStorage> {
     table_info: TableCreationInfo,
@@ -44,31 +41,11 @@ impl<P: BackendStorage> CreateTableCommand<P> {
         let table_name = self.table_info.table_name.as_str();
         let schema_name = self.table_info.schema_name.as_str();
 
-        match (self.storage.lock().unwrap()).create_table(
-            schema_name,
-            table_name,
-            self.table_info.columns.as_slice(),
-        )? {
+        match (self.storage.lock().unwrap()).create_table(schema_name, table_name, self.table_info.columns.as_slice()) {
+            Err(error) => Err(error),
             Ok(()) => {
                 self.session
                     .send(Ok(QueryEvent::TableCreated))
-                    .expect("To Send Query Result to Client");
-                Ok(())
-            }
-            Err(CreateTableError::SchemaDoesNotExist) => {
-                self.session
-                    .send(Err(QueryErrorBuilder::new()
-                        .schema_does_not_exist(schema_name.to_string())
-                        .build()))
-                    .expect("To Send Query Result to Client");
-                Ok(())
-            }
-            Err(CreateTableError::TableAlreadyExists) => {
-                // this is what the test expected. Also, there should maybe this name should already be generated somewhere.
-                self.session
-                    .send(Err(QueryErrorBuilder::new()
-                        .table_already_exists(format!("{}.{}", schema_name, table_name))
-                        .build()))
                     .expect("To Send Query Result to Client");
                 Ok(())
             }

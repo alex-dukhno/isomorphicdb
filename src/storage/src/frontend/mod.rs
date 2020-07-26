@@ -13,14 +13,10 @@
 // limitations under the License.
 
 use crate::{
-    backend::{
-        self, BackendStorage, CreateObjectError, DropObjectError, NamespaceAlreadyExists, NamespaceDoesNotExist,
-        OperationOnObjectError, ReadCursor, Row, SledBackendStorage,
-    },
-    ColumnDefinition, CreateTableError, DropTableError, OperationOnTableError, SchemaAlreadyExists, SchemaDoesNotExist,
-    TableDescription,
+    backend::{BackendError, BackendStorage, SledBackendStorage},
+    ColumnDefinition, ReadCursor, Row, TableDescription,
 };
-use kernel::{SystemError, SystemResult};
+use kernel::{Object, Operation, SystemError, SystemResult};
 use representation::Binary;
 
 pub struct FrontendStorage<P: BackendStorage> {
@@ -36,14 +32,16 @@ impl FrontendStorage<SledBackendStorage> {
 
 impl<P: BackendStorage> FrontendStorage<P> {
     pub fn new(mut persistent: P) -> SystemResult<Self> {
-        match persistent.create_namespace_with_objects("system", vec!["columns"])? {
+        match persistent.create_namespace_with_objects("system", vec!["columns"]) {
             Ok(()) => Ok(Self {
                 key_id_generator: 0,
                 persistent,
             }),
-            Err(NamespaceAlreadyExists) => {
-                Err(SystemError::unrecoverable("system namespace already exists".to_owned()))
-            }
+            Err(BackendError::SystemError(e)) => Err(e),
+            Err(BackendError::RuntimeCheckError) => Err(SystemError::bug_in_sql_engine(
+                Operation::Create,
+                Object::Schema("system"),
+            )),
         }
     }
 
@@ -53,38 +51,43 @@ impl<P: BackendStorage> FrontendStorage<P> {
         key_id
     }
 
-    pub fn table_descriptor(
-        &self,
-        schema_name: &str,
-        table_name: &str,
-    ) -> SystemResult<Result<TableDescription, OperationOnTableError>> {
-        match self.persistent.check_for_table(schema_name, table_name)? {
+    pub fn table_descriptor(&self, schema_name: &str, table_name: &str) -> SystemResult<TableDescription> {
+        match self.persistent.check_for_object(schema_name, table_name) {
             Ok(()) => {}
-            Err(OperationOnObjectError::NamespaceDoesNotExist) => {
-                return Ok(Err(OperationOnTableError::SchemaDoesNotExist))
-            }
-            Err(OperationOnObjectError::ObjectDoesNotExist) => {
-                return Ok(Err(OperationOnTableError::TableDoesNotExist))
+            Err(BackendError::SystemError(error)) => return Err(error),
+            Err(BackendError::RuntimeCheckError) => {
+                return Err(SystemError::bug_in_sql_engine(
+                    Operation::Access,
+                    Object::Table(schema_name, table_name),
+                ));
             }
         }
 
         // we know the table exists
         let columns_metadata = self.table_columns(schema_name, table_name)?;
 
-        Ok(Ok(TableDescription::new(schema_name, table_name, columns_metadata)))
+        Ok(TableDescription::new(schema_name, table_name, columns_metadata))
     }
 
-    pub fn create_schema(&mut self, schema_name: &str) -> SystemResult<Result<(), SchemaAlreadyExists>> {
-        match self.persistent.create_namespace(schema_name)? {
-            Ok(()) => Ok(Ok(())),
-            Err(NamespaceAlreadyExists) => Ok(Err(SchemaAlreadyExists)),
+    pub fn create_schema(&mut self, schema_name: &str) -> SystemResult<()> {
+        match self.persistent.create_namespace(schema_name) {
+            Ok(()) => Ok(()),
+            Err(BackendError::SystemError(error)) => Err(error),
+            Err(BackendError::RuntimeCheckError) => Err(SystemError::bug_in_sql_engine(
+                Operation::Create,
+                Object::Schema(schema_name),
+            )),
         }
     }
 
-    pub fn drop_schema(&mut self, schema_name: &str) -> SystemResult<Result<(), SchemaDoesNotExist>> {
-        match self.persistent.drop_namespace(schema_name)? {
-            Ok(()) => Ok(Ok(())),
-            Err(NamespaceDoesNotExist) => Ok(Err(SchemaDoesNotExist)),
+    pub fn drop_schema(&mut self, schema_name: &str) -> SystemResult<()> {
+        match self.persistent.drop_namespace(schema_name) {
+            Ok(()) => Ok(()),
+            Err(BackendError::SystemError(error)) => Err(error),
+            Err(BackendError::RuntimeCheckError) => Err(SystemError::bug_in_sql_engine(
+                Operation::Drop,
+                Object::Schema(schema_name),
+            )),
         }
     }
 
@@ -93,154 +96,136 @@ impl<P: BackendStorage> FrontendStorage<P> {
         schema_name: &str,
         table_name: &str,
         column_names: &[ColumnDefinition],
-    ) -> SystemResult<Result<(), CreateTableError>> {
-        match self.persistent.create_object(schema_name, table_name)? {
-            Ok(()) => self
-                .persistent
-                .write(
-                    "system",
-                    "columns",
-                    vec![(
-                        Binary::with_data((schema_name.to_owned() + table_name).as_bytes().to_vec()),
-                        Binary::with_data(
-                            column_names
-                                .iter()
-                                .map(|column_defs| bincode::serialize(&column_defs).unwrap())
-                                .collect::<Vec<Vec<u8>>>()
-                                .join(&b'|')
-                                .to_vec(),
-                        ),
-                    )],
-                )?
-                .map(|_| {
+    ) -> SystemResult<()> {
+        match self.persistent.create_object(schema_name, table_name) {
+            Ok(()) => match self.persistent.write(
+                "system",
+                "columns",
+                vec![(
+                    Binary::with_data((schema_name.to_owned() + table_name).as_bytes().to_vec()),
+                    Binary::with_data(
+                        column_names
+                            .iter()
+                            .map(|column_defs| bincode::serialize(&column_defs).unwrap())
+                            .collect::<Vec<Vec<u8>>>()
+                            .join(&b'|')
+                            .to_vec(),
+                    ),
+                )],
+            ) {
+                Ok(_size) => {
                     log::info!("column data is recorded");
                     Ok(())
-                })
-                .map_err(|error| {
-                    let message = format!(
-                        "Can't access \"system.columns\" table to read columns metadata because of {:?}",
-                        error
-                    );
-                    log::error!("{}", message);
-                    SystemError::unrecoverable(message)
-                }),
-            Err(CreateObjectError::ObjectAlreadyExists) => Ok(Err(CreateTableError::TableAlreadyExists)),
-            Err(CreateObjectError::NamespaceDoesNotExist) => Ok(Err(CreateTableError::SchemaDoesNotExist)),
+                }
+                Err(BackendError::SystemError(error)) => Err(error),
+                Err(BackendError::RuntimeCheckError) => Err(SystemError::bug_in_sql_engine(
+                    Operation::Access,
+                    Object::Table("system", "columns"),
+                )),
+            },
+            Err(BackendError::SystemError(error)) => Err(error),
+            Err(BackendError::RuntimeCheckError) => Err(SystemError::bug_in_sql_engine(
+                Operation::Create,
+                Object::Table(schema_name, table_name),
+            )),
         }
     }
 
     pub fn table_columns(&self, schema_name: &str, table_name: &str) -> SystemResult<Vec<ColumnDefinition>> {
-        self.persistent
-            .read("system", "columns")?
-            .map(|reads| {
-                reads
-                    .map(backend::Result::unwrap)
-                    .filter(|(table, _columns)| {
-                        *table == Binary::with_data((schema_name.to_owned() + table_name).as_bytes().to_vec())
-                    })
-                    .map(|(_id, columns)| {
-                        columns
-                            .to_bytes()
-                            .split(|b| *b == b'|')
-                            .filter(|v| !v.is_empty())
-                            .map(|c| bincode::deserialize(c).unwrap())
-                            .collect::<Vec<_>>()
-                    })
-                    .next()
-                    .unwrap_or_default()
-            })
-            .map_err(|error| {
-                let message = format!(
-                    "Can't access \"system.columns\" table to read columns metadata because of {:?}",
-                    error
-                );
-                log::error!("{}", message);
-                SystemError::unrecoverable(message)
-            })
-    }
-
-    pub fn drop_table(&mut self, schema_name: &str, table_name: &str) -> SystemResult<Result<(), DropTableError>> {
-        match self.persistent.drop_object(schema_name, table_name)? {
-            Ok(()) => Ok(Ok(())),
-            Err(DropObjectError::ObjectDoesNotExist) => Ok(Err(DropTableError::TableDoesNotExist)),
-            Err(DropObjectError::NamespaceDoesNotExist) => Ok(Err(DropTableError::SchemaDoesNotExist)),
+        match self.persistent.read("system", "columns") {
+            Ok(reads) => Ok(reads
+                .map(Result::unwrap)
+                .filter(|(table, _columns)| {
+                    *table == Binary::with_data((schema_name.to_owned() + table_name).as_bytes().to_vec())
+                })
+                .map(|(_id, columns)| {
+                    columns
+                        .to_bytes()
+                        .split(|b| *b == b'|')
+                        .filter(|v| !v.is_empty())
+                        .map(|c| bincode::deserialize(c).unwrap())
+                        .collect::<Vec<_>>()
+                })
+                .next()
+                .unwrap_or_default()),
+            Err(BackendError::SystemError(error)) => Err(error),
+            Err(BackendError::RuntimeCheckError) => Err(SystemError::bug_in_sql_engine(
+                Operation::Access,
+                Object::Table(schema_name, table_name),
+            )),
         }
     }
 
-    pub fn insert_into(
-        &mut self,
-        schema_name: &str,
-        table_name: &str,
-        values: Vec<Row>,
-    ) -> SystemResult<Result<(), OperationOnTableError>> {
-        eprintln!("{:#?}", values);
-        match self.persistent.write(schema_name, table_name, values)? {
-            Ok(_size) => Ok(Ok(())),
-            Err(OperationOnObjectError::ObjectDoesNotExist) => Ok(Err(OperationOnTableError::TableDoesNotExist)),
-            Err(OperationOnObjectError::NamespaceDoesNotExist) => Ok(Err(OperationOnTableError::SchemaDoesNotExist)),
+    pub fn drop_table(&mut self, schema_name: &str, table_name: &str) -> SystemResult<()> {
+        match self.persistent.drop_object(schema_name, table_name) {
+            Ok(()) => Ok(()),
+            Err(BackendError::SystemError(error)) => Err(error),
+            Err(BackendError::RuntimeCheckError) => Err(SystemError::bug_in_sql_engine(
+                Operation::Drop,
+                Object::Table(schema_name, table_name),
+            )),
         }
     }
 
-    pub fn table_scan(
-        &mut self,
-        schema_name: &str,
-        table_name: &str,
-    ) -> SystemResult<Result<Vec<Binary>, OperationOnTableError>> {
-        let data = match self.persistent.read(schema_name, table_name)? {
-            Ok(read) => read.map(backend::Result::unwrap).map(|(_key, values)| values).collect(),
-            Err(OperationOnObjectError::ObjectDoesNotExist) => {
-                return Ok(Err(OperationOnTableError::TableDoesNotExist))
-            }
-            Err(OperationOnObjectError::NamespaceDoesNotExist) => {
-                return Ok(Err(OperationOnTableError::SchemaDoesNotExist))
-            }
-        };
-        Ok(Ok(data))
-    }
-
-    pub fn read_unchecked(&self, schema_name: &str, table_name: &str) -> SystemResult<ReadCursor> {
-        Ok(self.persistent.read(schema_name, table_name)?.unwrap())
-    }
-
-    pub fn update_all(
-        &mut self,
-        schema_name: &str,
-        table_name: &str,
-        rows: Vec<Row>,
-    ) -> SystemResult<Result<usize, OperationOnTableError>> {
-        let len = rows.len();
-        match self.persistent.write(schema_name, table_name, rows)? {
-            Ok(_size) => Ok(Ok(len)),
-            _ => unreachable!("all errors that make code fall in here should have been handled in read operation"),
+    pub fn insert_into(&mut self, schema_name: &str, table_name: &str, values: Vec<Row>) -> SystemResult<usize> {
+        log::debug!("{:#?}", values);
+        match self.persistent.write(schema_name, table_name, values) {
+            Ok(size) => Ok(size),
+            Err(BackendError::SystemError(error)) => Err(error),
+            Err(BackendError::RuntimeCheckError) => Err(SystemError::bug_in_sql_engine(
+                Operation::Access,
+                Object::Table(schema_name, table_name),
+            )),
         }
     }
 
-    pub fn delete_all_from(
-        &mut self,
-        schema_name: &str,
-        table_name: &str,
-    ) -> SystemResult<Result<usize, OperationOnTableError>> {
-        match self.persistent.read(schema_name, table_name)? {
+    pub fn table_scan(&mut self, schema_name: &str, table_name: &str) -> SystemResult<ReadCursor> {
+        match self.persistent.read(schema_name, table_name) {
+            Ok(read) => Ok(read),
+            Err(BackendError::SystemError(error)) => Err(error),
+            Err(BackendError::RuntimeCheckError) => Err(SystemError::bug_in_sql_engine(
+                Operation::Access,
+                Object::Table(schema_name, table_name),
+            )),
+        }
+    }
+
+    pub fn update_all(&mut self, schema_name: &str, table_name: &str, rows: Vec<Row>) -> SystemResult<usize> {
+        match self.persistent.write(schema_name, table_name, rows) {
+            Ok(size) => Ok(size),
+            Err(BackendError::SystemError(error)) => Err(error),
+            Err(BackendError::RuntimeCheckError) => Err(SystemError::bug_in_sql_engine(
+                Operation::Access,
+                Object::Table(schema_name, table_name),
+            )),
+        }
+    }
+
+    pub fn delete_all_from(&mut self, schema_name: &str, table_name: &str) -> SystemResult<usize> {
+        match self.persistent.read(schema_name, table_name) {
             Ok(reads) => {
-                let keys = reads.map(backend::Result::unwrap).map(|(key, _)| key).collect();
-                match self.persistent.delete(schema_name, table_name, keys)? {
-                    Ok(len) => Ok(Ok(len)),
+                let keys = reads.map(Result::unwrap).map(|(key, _)| key).collect();
+                match self.persistent.delete(schema_name, table_name, keys) {
+                    Ok(len) => Ok(len),
                     _ => unreachable!(
                         "all errors that make code fall in here should have been handled in read operation"
                     ),
                 }
             }
-            Err(OperationOnObjectError::ObjectDoesNotExist) => Ok(Err(OperationOnTableError::TableDoesNotExist)),
-            Err(OperationOnObjectError::NamespaceDoesNotExist) => Ok(Err(OperationOnTableError::SchemaDoesNotExist)),
+            Err(BackendError::SystemError(error)) => Err(error),
+            Err(BackendError::RuntimeCheckError) => Err(SystemError::bug_in_sql_engine(
+                Operation::Access,
+                Object::Table(schema_name, table_name),
+            )),
         }
     }
 
     pub fn schema_exists(&self, schema_name: &str) -> bool {
-        self.persistent.is_schema_exists(schema_name)
+        self.persistent.is_namespace_exists(schema_name)
     }
 
     pub fn table_exists(&self, schema_name: &str, table_name: &str) -> bool {
-        self.persistent.is_table_exists(schema_name, table_name)
+        self.persistent.is_object_exists(schema_name, table_name)
     }
 }
 

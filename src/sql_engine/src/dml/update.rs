@@ -26,31 +26,23 @@ use std::{
     convert::TryFrom,
     sync::{Arc, Mutex},
 };
-use storage::{
-    backend,
-    backend::{BackendStorage, Row},
-    frontend::FrontendStorage,
-    ColumnDefinition, OperationOnTableError,
-};
+use storage::{backend::BackendStorage, frontend::FrontendStorage, ColumnDefinition, Row};
 
-pub(crate) struct UpdateCommand<'uc, P: BackendStorage> {
-    raw_sql_query: &'uc str,
+pub(crate) struct UpdateCommand<P: BackendStorage> {
     name: ObjectName,
     assignments: Vec<Assignment>,
     storage: Arc<Mutex<FrontendStorage<P>>>,
     session: Arc<dyn Sender>,
 }
 
-impl<'uc, P: BackendStorage> UpdateCommand<'uc, P> {
+impl<P: BackendStorage> UpdateCommand<P> {
     pub(crate) fn new(
-        raw_sql_query: &'uc str,
         name: ObjectName,
         assignments: Vec<Assignment>,
         storage: Arc<Mutex<FrontendStorage<P>>>,
         session: Arc<dyn Sender>,
-    ) -> UpdateCommand<'uc, P> {
+    ) -> UpdateCommand<P> {
         UpdateCommand {
-            raw_sql_query,
             name,
             assignments,
             storage,
@@ -192,88 +184,25 @@ impl<'uc, P: BackendStorage> UpdateCommand<'uc, P> {
             return Ok(());
         }
 
-        let to_update: Vec<Row> = (self.storage.lock().unwrap())
-            .read_unchecked(&schema_name, &table_name)
-            .expect("no system errors")
-            .map(backend::Result::unwrap)
-            .map(|(key, values)| {
-                let mut datums = unpack_raw(values.to_bytes());
-                for (idx, data) in index_value_pairs.as_slice() {
-                    datums[*idx] = data.clone();
-                }
-                (key, Binary::pack(&datums))
-            })
-            .collect();
+        let to_update: Vec<Row> = match (self.storage.lock().unwrap()).table_scan(&schema_name, &table_name) {
+            Err(error) => return Err(error),
+            Ok(reads) => reads
+                .map(Result::unwrap)
+                .map(|(key, values)| {
+                    let mut datums = unpack_raw(values.to_bytes());
+                    for (idx, data) in index_value_pairs.as_slice() {
+                        datums[*idx] = data.clone();
+                    }
+                    (key, Binary::pack(&datums))
+                })
+                .collect(),
+        };
 
-        match (self.storage.lock().unwrap()).update_all(&schema_name, &table_name, to_update)? {
+        match (self.storage.lock().unwrap()).update_all(&schema_name, &table_name, to_update) {
+            Err(error) => Err(error),
             Ok(records_number) => {
                 self.session
                     .send(Ok(QueryEvent::RecordsUpdated(records_number)))
-                    .expect("To Send Query Result to Client");
-                Ok(())
-            }
-            Err(OperationOnTableError::SchemaDoesNotExist) => {
-                self.session
-                    .send(Err(QueryErrorBuilder::new().schema_does_not_exist(schema_name).build()))
-                    .expect("To Send Query Result to Client");
-                Ok(())
-            }
-            Err(OperationOnTableError::TableDoesNotExist) => {
-                self.session
-                    .send(Err(QueryErrorBuilder::new()
-                        .table_does_not_exist(schema_name + "." + table_name.as_str())
-                        .build()))
-                    .expect("To Send Query Result to Client");
-                Ok(())
-            }
-            Err(OperationOnTableError::ColumnDoesNotExist(non_existing_columns)) => {
-                self.session
-                    .send(Err(QueryErrorBuilder::new()
-                        .column_does_not_exist(non_existing_columns)
-                        .build()))
-                    .expect("To Send Query Result to Client");
-                Ok(())
-            }
-            Err(OperationOnTableError::ConstraintViolations(constraint_errors, row_index)) => {
-                let mut builder = QueryErrorBuilder::new();
-                let constraint_error_mapper = |(err, column_definition): &(ConstraintError, ColumnDefinition)| match err
-                {
-                    ConstraintError::OutOfRange => {
-                        builder.out_of_range(
-                            column_definition.sql_type().to_pg_types(),
-                            column_definition.name(),
-                            row_index,
-                        );
-                    }
-                    ConstraintError::TypeMismatch(value) => {
-                        builder.type_mismatch(
-                            value,
-                            column_definition.sql_type().to_pg_types(),
-                            column_definition.name(),
-                            row_index,
-                        );
-                    }
-                    ConstraintError::ValueTooLong(len) => {
-                        builder.string_length_mismatch(
-                            column_definition.sql_type().to_pg_types(),
-                            *len,
-                            column_definition.name(),
-                            row_index,
-                        );
-                    }
-                };
-
-                constraint_errors.iter().for_each(constraint_error_mapper);
-                self.session
-                    .send(Err(builder.build()))
-                    .expect("To Send Query Result to Client");
-                Ok(())
-            }
-            _ => {
-                self.session
-                    .send(Err(QueryErrorBuilder::new()
-                        .feature_not_supported(self.raw_sql_query.to_owned())
-                        .build()))
                     .expect("To Send Query Result to Client");
                 Ok(())
             }

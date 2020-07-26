@@ -12,8 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::dml::ExpressionEvaluation;
-use crate::query::plan::TableInserts;
+use crate::{dml::ExpressionEvaluation, query::plan::TableInserts};
 use kernel::SystemResult;
 use protocol::{
     results::{QueryErrorBuilder, QueryEvent},
@@ -27,11 +26,7 @@ use std::{
     str::FromStr,
     sync::{Arc, Mutex},
 };
-use storage::{
-    backend::{BackendStorage, Row},
-    frontend::FrontendStorage,
-    ColumnDefinition, OperationOnTableError,
-};
+use storage::{backend::BackendStorage, frontend::FrontendStorage, ColumnDefinition, Row};
 
 pub(crate) struct InsertCommand<'ic, P: BackendStorage> {
     raw_sql_query: &'ic str,
@@ -128,7 +123,23 @@ impl<'ic, P: BackendStorage> InsertCommand<'ic, P> {
                     rows.push(row);
                 }
 
-                let len = rows.len();
+                if !(self.storage.lock().unwrap()).schema_exists(schema_name) {
+                    self.session
+                        .send(Err(QueryErrorBuilder::new()
+                            .schema_does_not_exist(schema_name.to_owned())
+                            .build()))
+                        .expect("To Send Result to Client");
+                    return Ok(());
+                }
+
+                if !(self.storage.lock().unwrap()).table_exists(schema_name, table_name) {
+                    self.session
+                        .send(Err(QueryErrorBuilder::new()
+                            .table_does_not_exist(schema_name.to_owned() + "." + table_name)
+                            .build()))
+                        .expect("To Send Result to Client");
+                    return Ok(());
+                }
 
                 let column_names = columns;
                 let all_columns = (self.storage.lock().unwrap()).table_columns(&schema_name, &table_name)?;
@@ -252,78 +263,12 @@ impl<'ic, P: BackendStorage> InsertCommand<'ic, P> {
                     }
                 }
 
-                match (self.storage.lock().unwrap()).insert_into(&schema_name, &table_name, to_write)? {
-                    Ok(_) => {
+                match (self.storage.lock().unwrap()).insert_into(&schema_name, &table_name, to_write) {
+                    Err(error) => Err(error),
+                    Ok(size) => {
                         self.session
-                            .send(Ok(QueryEvent::RecordsInserted(len)))
-                            .expect("To Send Query Result to Client");
-                        Ok(())
-                    }
-                    Err(OperationOnTableError::SchemaDoesNotExist) => {
-                        self.session
-                            .send(Err(QueryErrorBuilder::new()
-                                .schema_does_not_exist(schema_name.to_owned())
-                                .build()))
-                            .expect("To Send Query Result to Client");
-                        Ok(())
-                    }
-                    Err(OperationOnTableError::TableDoesNotExist) => {
-                        self.session
-                            .send(Err(QueryErrorBuilder::new()
-                                .table_does_not_exist(schema_name.to_owned() + "." + table_name)
-                                .build()))
-                            .expect("To Send Query Result to Client");
-                        Ok(())
-                    }
-                    Err(OperationOnTableError::ColumnDoesNotExist(non_existing_columns)) => {
-                        self.session
-                            .send(Err(QueryErrorBuilder::new()
-                                .column_does_not_exist(non_existing_columns)
-                                .build()))
-                            .expect("To Send Query Result to Client");
-                        Ok(())
-                    }
-                    Err(OperationOnTableError::ConstraintViolations(constraint_errors, row_index)) => {
-                        let mut builder = QueryErrorBuilder::new();
-                        let mut constraint_error_mapper =
-                            |err: &ConstraintError, column_definition: &ColumnDefinition, row_index: usize| match err {
-                                ConstraintError::OutOfRange => {
-                                    builder.out_of_range(
-                                        column_definition.sql_type().to_pg_types(),
-                                        column_definition.name(),
-                                        row_index,
-                                    );
-                                }
-                                ConstraintError::TypeMismatch(value) => {
-                                    builder.type_mismatch(
-                                        value,
-                                        column_definition.sql_type().to_pg_types(),
-                                        column_definition.name(),
-                                        row_index,
-                                    );
-                                }
-                                ConstraintError::ValueTooLong(len) => {
-                                    builder.string_length_mismatch(
-                                        column_definition.sql_type().to_pg_types(),
-                                        *len,
-                                        column_definition.name(),
-                                        row_index,
-                                    );
-                                }
-                            };
-
-                        constraint_errors.iter().for_each(|(err, column_definition)| {
-                            constraint_error_mapper(err, column_definition, row_index)
-                        });
-                        self.session
-                            .send(Err(builder.build()))
-                            .expect("To Send Query Result to Client");
-                        Ok(())
-                    }
-                    Err(OperationOnTableError::InsertTooManyExpressions) => {
-                        self.session
-                            .send(Err(QueryErrorBuilder::new().too_many_insert_expressions().build()))
-                            .expect("To Send Query Result to Client");
+                            .send(Ok(QueryEvent::RecordsInserted(size)))
+                            .expect("To Send Result to Client");
                         Ok(())
                     }
                 }

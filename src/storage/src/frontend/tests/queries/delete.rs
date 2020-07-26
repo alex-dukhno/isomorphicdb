@@ -16,26 +16,6 @@ use super::*;
 use sql_types::SqlType;
 
 #[rstest::rstest]
-fn delete_all_from_non_existent_schema(mut storage: PersistentStorage) {
-    assert_eq!(
-        storage
-            .delete_all_from("non_existent", "table_name")
-            .expect("no system errors"),
-        Err(OperationOnTableError::SchemaDoesNotExist)
-    );
-}
-
-#[rstest::rstest]
-fn delete_all_from_not_existed_table(default_schema_name: &str, mut storage_with_schema: PersistentStorage) {
-    assert_eq!(
-        storage_with_schema
-            .delete_all_from(default_schema_name, "table_name")
-            .expect("no system errors"),
-        Err(OperationOnTableError::TableDoesNotExist)
-    );
-}
-
-#[rstest::rstest]
 fn delete_all_from_table(default_schema_name: &str, mut storage_with_schema: PersistentStorage) {
     create_table(
         &mut storage_with_schema,
@@ -67,16 +47,14 @@ fn delete_all_from_table(default_schema_name: &str, mut storage_with_schema: Per
     );
 
     assert_eq!(
-        storage_with_schema
-            .delete_all_from(default_schema_name, "table_name")
-            .expect("no system errors"),
+        storage_with_schema.delete_all_from(default_schema_name, "table_name"),
         Ok(3)
     );
 
     assert_eq!(
         storage_with_schema
             .table_scan("schema_name", "table_name")
-            .expect("no system errors"),
+            .map(Iterator::collect),
         Ok(vec![])
     );
 }
