@@ -69,9 +69,7 @@ impl<'sc, P: BackendStorage> SelectCommand<'sc, P> {
 
             if !(self.storage.lock().unwrap()).schema_exists(&schema_name) {
                 self.session
-                    .send(Err(QueryErrorBuilder::new()
-                        .schema_does_not_exist(schema_name.to_owned())
-                        .build()))
+                    .send(Err(QueryErrorBuilder::new().schema_does_not_exist(schema_name).build()))
                     .expect("To Send Result to Client");
                 return Ok(());
             }
@@ -79,7 +77,7 @@ impl<'sc, P: BackendStorage> SelectCommand<'sc, P> {
             if !(self.storage.lock().unwrap()).table_exists(&schema_name, &table_name) {
                 self.session
                     .send(Err(QueryErrorBuilder::new()
-                        .table_does_not_exist(schema_name.to_owned() + "." + table_name.as_str())
+                        .table_does_not_exist(schema_name + "." + table_name.as_str())
                         .build()))
                     .expect("To Send Result to Client");
                 return Ok(());
@@ -148,7 +146,6 @@ impl<'sc, P: BackendStorage> SelectCommand<'sc, P> {
                     }
 
                     let values: Vec<Vec<String>> = records
-                        .into_iter()
                         .map(Result::unwrap)
                         .map(|(_key, values)| {
                             let row: Vec<String> = values.unpack().into_iter().map(|datum| datum.to_string()).collect();

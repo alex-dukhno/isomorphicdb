@@ -13,8 +13,10 @@
 // limitations under the License.
 
 use kernel::SystemResult;
-use protocol::results::QueryErrorBuilder;
-use protocol::{results::QueryEvent, Sender};
+use protocol::{
+    results::{QueryErrorBuilder, QueryEvent},
+    Sender,
+};
 use sqlparser::ast::ObjectName;
 use std::sync::{Arc, Mutex};
 use storage::{backend::BackendStorage, frontend::FrontendStorage};
@@ -40,9 +42,7 @@ impl<P: BackendStorage> DeleteCommand<P> {
 
         if !(self.storage.lock().unwrap()).schema_exists(&schema_name) {
             self.session
-                .send(Err(QueryErrorBuilder::new()
-                    .schema_does_not_exist(schema_name.to_owned())
-                    .build()))
+                .send(Err(QueryErrorBuilder::new().schema_does_not_exist(schema_name).build()))
                 .expect("To Send Result to Client");
             return Ok(());
         }

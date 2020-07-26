@@ -14,8 +14,10 @@
 
 use kernel::SystemResult;
 use std::collections::{BTreeMap, HashMap};
-use storage::backend::{BackendError, BackendResult};
-use storage::{backend::BackendStorage, Key, ReadCursor, Row, Values};
+use storage::{
+    backend::{BackendError, BackendResult, BackendStorage},
+    Key, ReadCursor, Row, Values,
+};
 
 #[derive(Default, Debug)]
 struct StorageObject {

@@ -18,8 +18,10 @@ use crate::query::{SchemaId, SchemaNamingError, TableId, TableNamingError};
 use protocol::{results::QueryErrorBuilder, Sender};
 use sql_types::SqlType;
 use sqlparser::ast::{ColumnDef, DataType, ObjectName, ObjectType, Statement};
-use std::convert::TryFrom;
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::{
+    convert::TryFrom,
+    sync::{Arc, Mutex, MutexGuard},
+};
 use storage::{backend::BackendStorage, frontend::FrontendStorage, ColumnDefinition};
 
 type Result<T> = std::result::Result<T, ()>;
