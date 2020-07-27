@@ -43,6 +43,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "async-executor"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "90f47c78ea98277cb1f5e6f60ba4fc762f5eafe9f6511bc2f7dfd8b75c225650"
+dependencies = [
+ "async-io",
+ "futures-lite",
+ "multitask",
+ "parking",
+ "scoped-tls",
+ "waker-fn",
+]
+
+[[package]]
 name = "async-io"
 version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -88,7 +102,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "556790e2ea8d562a416bed6d04c4e92f949a1d5c4c724544c30d25f063b84b03"
 dependencies = [
  "async-io",
- "blocking 0.5.0",
+ "blocking",
  "futures-lite",
 ]
 
@@ -191,20 +205,6 @@ name = "bitflags"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf1de2fe8c75bc145a2f577add951f8134889b4795d47466a54a5c846d691693"
-
-[[package]]
-name = "blocking"
-version = "0.4.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d2468ff7bf85066b4a3678fede6fe66db31846d753ff0adfbfab2c6a6e81612b"
-dependencies = [
- "async-channel",
- "atomic-waker",
- "futures-lite",
- "once_cell",
- "parking",
- "waker-fn",
-]
 
 [[package]]
 name = "blocking"
@@ -317,6 +317,12 @@ dependencies = [
  "cfg-if",
  "lazy_static",
 ]
+
+[[package]]
+name = "easy-parallel"
+version = "3.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1dd4afd79212583ff429b913ad6605242ed7eec277e950b1438f300748f948f4"
 
 [[package]]
 name = "either"
@@ -598,7 +604,7 @@ version = "0.1.0"
 dependencies = [
  "async-dup",
  "async-io",
- "blocking 0.5.0",
+ "blocking",
  "futures-lite",
  "kernel",
  "log",
@@ -784,7 +790,7 @@ dependencies = [
  "async-native-tls",
  "async-net",
  "async-trait",
- "blocking 0.5.0",
+ "blocking",
  "byteorder",
  "futures-lite",
  "itertools",
@@ -911,6 +917,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "scoped-tls"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ea6a9290e3c9cf0f18145ef7ffa62d68ee0bf5fcd651017e586dc7fd5da448c2"
+
+[[package]]
 name = "scopeguard"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1024,15 +1036,17 @@ checksum = "3757cb9d89161a2f24e1cf78efa0c1fcff485d18e3f55e0aa3480824ddaa0f3f"
 
 [[package]]
 name = "smol"
-version = "0.2.0"
+version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "346a94824d48ed7c5fc7247f3cbbf0317bdfe15fc39d08f9262609cccce61254"
+checksum = "5845838db1ab989f5ea8390faf8a5607de76b6fa70e4d5faf84780192b723a62"
 dependencies = [
+ "async-channel",
+ "async-executor",
  "async-io",
- "blocking 0.4.7",
- "multitask",
+ "blocking",
+ "easy-parallel",
+ "futures-lite",
  "num_cpus",
- "once_cell",
 ]
 
 [[package]]
