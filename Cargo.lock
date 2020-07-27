@@ -89,12 +89,12 @@ dependencies = [
 
 [[package]]
 name = "async-net"
-version = "0.1.1"
+version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "06a8331a18438790b68a3c7e236aa73147c0ef815805bf532eb91b2380ec98d1"
+checksum = "556790e2ea8d562a416bed6d04c4e92f949a1d5c4c724544c30d25f063b84b03"
 dependencies = [
  "async-io",
- "blocking 0.4.7",
+ "blocking 0.5.0",
  "futures-lite",
 ]
 
