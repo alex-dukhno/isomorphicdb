@@ -43,5 +43,5 @@ pub enum Plan {
     DropTables(Vec<TableId>),
     DropSchemas(Vec<SchemaId>),
     Insert(TableInserts),
-    NotProcessed(Statement),
+    NotProcessed(Box<Statement>),
 }

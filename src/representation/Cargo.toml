@@ -7,5 +7,5 @@ publish = false
 
 [dependencies]
 ordered-float = "2.0.0"
-sqlparser = { version = "0.5.1", features = ["bigdecimal"] }
+sqlparser = { version = "0.6.1", features = ["bigdecimal"] }
 bigdecimal = "0.1.2"

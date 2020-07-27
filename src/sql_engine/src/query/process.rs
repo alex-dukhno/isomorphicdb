@@ -84,7 +84,7 @@ impl<'qp, B: BackendStorage> QueryProcessor<B> {
                     Err(())
                 }
             },
-            _ => Ok(Plan::NotProcessed(stmt.clone())),
+            _ => Ok(Plan::NotProcessed(Box::new(stmt.clone()))),
         }
     }
 

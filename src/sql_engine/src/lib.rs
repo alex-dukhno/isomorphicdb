@@ -93,7 +93,7 @@ impl<P: BackendStorage> QueryExecutor<P> {
             Ok(Plan::Insert(table_insert)) => {
                 InsertCommand::new(raw_sql_query, table_insert, self.storage.clone(), self.session.clone()).execute()
             }
-            Ok(Plan::NotProcessed(statement)) => match statement {
+            Ok(Plan::NotProcessed(statement)) => match *statement {
                 Statement::StartTransaction { .. } => {
                     self.session
                         .send(Ok(QueryEvent::TransactionStarted))
