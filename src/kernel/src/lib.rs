@@ -20,7 +20,6 @@ pub type SystemResult<T> = std::result::Result<T, SystemError>;
 pub struct SystemError {
     message: String,
     backtrace: backtrace::Backtrace,
-    cause: Option<backtrace::Backtrace>,
     kind: SystemErrorKind,
 }
 
@@ -45,7 +44,6 @@ impl SystemError {
                 context_message(operation, object)
             ),
             backtrace: backtrace::Backtrace::new(),
-            cause: None,
             kind: SystemErrorKind::SqlEngineBug,
         }
     }
@@ -54,7 +52,6 @@ impl SystemError {
         SystemError {
             message,
             backtrace: backtrace::Backtrace::new(),
-            cause: None,
             kind: SystemErrorKind::RuntimeCheckFailure,
         }
     }
@@ -63,16 +60,6 @@ impl SystemError {
         SystemError {
             message,
             backtrace: backtrace::Backtrace::new(),
-            cause: None,
-            kind: SystemErrorKind::Unrecoverable,
-        }
-    }
-
-    pub fn unrecoverable_with_cause(message: String, cause: backtrace::Backtrace) -> SystemError {
-        SystemError {
-            message,
-            backtrace: backtrace::Backtrace::new(),
-            cause: Some(cause),
             kind: SystemErrorKind::Unrecoverable,
         }
     }
@@ -81,7 +68,6 @@ impl SystemError {
         SystemError {
             message: "IO error has happened".to_owned(),
             backtrace: backtrace::Backtrace::new(),
-            cause: None,
             kind: SystemErrorKind::Io(io_error),
         }
     }

@@ -71,11 +71,11 @@ impl StorageErrorMapper for SledErrorMapper {
             sled::Error::Unsupported(operation) => {
                 SystemError::unrecoverable(format!("Unsupported operation [{}] was used on Sled", operation))
             }
-            sled::Error::Corruption { at, bt: cause } => {
+            sled::Error::Corruption { at, bt: _bt } => {
                 if let Some(at) = at {
-                    SystemError::unrecoverable_with_cause(format!("Sled encountered corruption at {}", at), cause)
+                    SystemError::unrecoverable(format!("Sled encountered corruption at {}", at))
                 } else {
-                    SystemError::unrecoverable_with_cause("Sled encountered corruption".to_owned(), cause)
+                    SystemError::unrecoverable("Sled encountered corruption".to_owned())
                 }
             }
             sled::Error::ReportableBug(description) => {
@@ -260,7 +260,6 @@ impl BackendStorage for SledBackendStorage {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use backtrace::Backtrace;
     use kernel::SystemResult;
 
     type Storage = SledBackendStorage;
@@ -308,26 +307,18 @@ mod tests {
 
         #[test]
         fn corruption_with_position() {
-            let cause = Backtrace::new();
             let at = DiskPtr::Inline(900);
             assert_eq!(
-                SledErrorMapper::map(sled::Error::Corruption {
-                    at: Some(at),
-                    bt: cause.clone()
-                }),
-                SystemError::unrecoverable_with_cause(format!("Sled encountered corruption at {}", at), cause,)
+                SledErrorMapper::map(sled::Error::Corruption { at: Some(at), bt: () }),
+                SystemError::unrecoverable(format!("Sled encountered corruption at {}", at))
             )
         }
 
         #[test]
         fn corruption_without_position() {
-            let cause = Backtrace::new();
             assert_eq!(
-                SledErrorMapper::map(sled::Error::Corruption {
-                    at: None,
-                    bt: cause.clone()
-                }),
-                SystemError::unrecoverable_with_cause("Sled encountered corruption".to_owned(), cause,)
+                SledErrorMapper::map(sled::Error::Corruption { at: None, bt: () }),
+                SystemError::unrecoverable("Sled encountered corruption".to_owned())
             )
         }
 
