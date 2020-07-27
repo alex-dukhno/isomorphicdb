@@ -19,7 +19,7 @@ sql_types = { path = "../sql_types" }
 storage = { path = "../storage" }
 futures-lite = "0.1.6"
 smol = "0.2.0"
-async-io = "0.1.5"
+async-io = "0.1.6"
 protocol = { path = "../protocol" }
 log = "0.4.8"
 simple_logger = { version = "1.6.0", default-features = false }
