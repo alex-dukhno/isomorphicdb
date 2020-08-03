@@ -14,9 +14,8 @@
 
 use async_dup::Arc as AsyncArc;
 use async_io::Async;
-use futures_lite::future::block_on;
 use protocol::{Command, ProtocolConfiguration, Receiver};
-use smol::{self, Task};
+use smol::{self, block_on, Task};
 use sql_engine::QueryExecutor;
 use std::{
     env,
