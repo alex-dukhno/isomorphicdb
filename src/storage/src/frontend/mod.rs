@@ -95,7 +95,7 @@ impl<P: BackendStorage> FrontendStorage<P> {
         &mut self,
         schema_name: &str,
         table_name: &str,
-        column_names: &[ColumnDefinition],
+        column_definitions: &[ColumnDefinition],
     ) -> SystemResult<()> {
         match self.persistent.create_object(schema_name, table_name) {
             Ok(()) => match self.persistent.write(
@@ -104,7 +104,7 @@ impl<P: BackendStorage> FrontendStorage<P> {
                 vec![(
                     Binary::with_data((schema_name.to_owned() + table_name).as_bytes().to_vec()),
                     Binary::with_data(
-                        column_names
+                        column_definitions
                             .iter()
                             .map(|column_defs| bincode::serialize(&column_defs).unwrap())
                             .collect::<Vec<Vec<u8>>>()

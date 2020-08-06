@@ -1109,6 +1109,7 @@ version = "0.1.0"
 dependencies = [
  "backtrace",
  "bincode",
+ "itertools",
  "kernel",
  "log",
  "representation",
