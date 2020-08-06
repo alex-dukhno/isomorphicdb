@@ -73,6 +73,7 @@ pub fn start() {
                                     state.store(STOPPED, Ordering::SeqCst);
                                     return;
                                 }
+                                Ok(Ok(Command::Continue)) => {}
                                 Ok(Ok(Command::Terminate)) => {
                                     log::debug!("Closing connection with client");
                                     break;
