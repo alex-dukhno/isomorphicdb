@@ -154,7 +154,7 @@ impl<P: BackendStorage> UpdateCommand<P> {
             let constraint_error_mapper = |(err, column_definition): &(ConstraintError, ColumnDefinition)| match err {
                 ConstraintError::OutOfRange => {
                     builder.out_of_range(
-                        column_definition.sql_type().to_pg_types(),
+                        (&column_definition.sql_type()).into(),
                         column_definition.name(),
                         row_index,
                     );
@@ -162,14 +162,14 @@ impl<P: BackendStorage> UpdateCommand<P> {
                 ConstraintError::TypeMismatch(value) => {
                     builder.type_mismatch(
                         value,
-                        column_definition.sql_type().to_pg_types(),
+                        (&column_definition.sql_type()).into(),
                         column_definition.name(),
                         row_index,
                     );
                 }
                 ConstraintError::ValueTooLong(len) => {
                     builder.string_length_mismatch(
-                        column_definition.sql_type().to_pg_types(),
+                        (&column_definition.sql_type()).into(),
                         *len,
                         column_definition.name(),
                         row_index,

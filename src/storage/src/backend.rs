@@ -110,7 +110,7 @@ impl SledBackendStorage {
 impl BackendStorage for SledBackendStorage {
     type ErrorMapper = SledErrorMapper;
 
-    fn create_namespace_with_objects(&mut self, namespace: &str, object_names: Vec<&str>) -> Result<(), BackendError> {
+    fn create_namespace_with_objects(&mut self, namespace: &str, object_names: Vec<&str>) -> BackendResult<()> {
         let namespace = self.new_namespace(namespace)?;
         for object_name in object_names {
             match namespace.open_tree(object_name) {
@@ -135,7 +135,7 @@ impl BackendStorage for SledBackendStorage {
         }
     }
 
-    fn create_object(&mut self, namespace: &str, object_name: &str) -> Result<(), BackendError> {
+    fn create_object(&mut self, namespace: &str, object_name: &str) -> BackendResult<()> {
         match self.namespaces.get(namespace) {
             Some(namespace) => {
                 if namespace.tree_names().contains(&(object_name.into())) {

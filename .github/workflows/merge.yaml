@@ -69,7 +69,7 @@ jobs:
           command: test
           args: --all
       - name: code-coverage
-        run: cargo tarpaulin --exclude-files proof-of-concepts/ -o Lcov --output-dir ./coverage
+        run: cargo tarpaulin -o Lcov --output-dir ./coverage
       - name: coveralls
         uses: coverallsapp/github-action@master
         with:

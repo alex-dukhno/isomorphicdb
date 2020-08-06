@@ -226,7 +226,7 @@ impl<'ic, P: BackendStorage> InsertCommand<'ic, P> {
                                     match err {
                                         ConstraintError::OutOfRange => {
                                             builder.out_of_range(
-                                                column_definition.sql_type().to_pg_types(),
+                                                (&column_definition.sql_type()).into(),
                                                 column_definition.name(),
                                                 row_index,
                                             );
@@ -234,14 +234,14 @@ impl<'ic, P: BackendStorage> InsertCommand<'ic, P> {
                                         ConstraintError::TypeMismatch(value) => {
                                             builder.type_mismatch(
                                                 value,
-                                                column_definition.sql_type().to_pg_types(),
+                                                (&column_definition.sql_type()).into(),
                                                 column_definition.name(),
                                                 row_index,
                                             );
                                         }
                                         ConstraintError::ValueTooLong(len) => {
                                             builder.string_length_mismatch(
-                                                column_definition.sql_type().to_pg_types(),
+                                                (&column_definition.sql_type()).into(),
                                                 *len,
                                                 column_definition.name(),
                                                 row_index,

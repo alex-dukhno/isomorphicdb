@@ -166,9 +166,7 @@ impl<'sc, P: BackendStorage> SelectCommand<'sc, P> {
                     let projection = (
                         description
                             .into_iter()
-                            .map(|column_definition| {
-                                (column_definition.name(), column_definition.sql_type().to_pg_types())
-                            })
+                            .map(|column_definition| (column_definition.name(), (&column_definition.sql_type()).into()))
                             .collect(),
                         values,
                     );
