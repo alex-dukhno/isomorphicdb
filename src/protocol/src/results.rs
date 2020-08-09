@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use crate::{
-    messages::{ColumnMetadata, Message},
+    messages::{BackendMessage, ColumnMetadata},
     sql_types::PostgreSqlType,
 };
 use std::fmt::{self, Display, Formatter};
@@ -48,16 +48,18 @@ pub enum QueryEvent {
     RecordsDeleted(usize),
 }
 
-impl Into<Vec<Message>> for QueryEvent {
-    fn into(self) -> Vec<Message> {
+impl Into<Vec<BackendMessage>> for QueryEvent {
+    fn into(self) -> Vec<BackendMessage> {
         match self {
-            QueryEvent::SchemaCreated => vec![Message::CommandComplete("CREATE SCHEMA".to_owned())],
-            QueryEvent::SchemaDropped => vec![Message::CommandComplete("DROP SCHEMA".to_owned())],
-            QueryEvent::TableCreated => vec![Message::CommandComplete("CREATE TABLE".to_owned())],
-            QueryEvent::TableDropped => vec![Message::CommandComplete("DROP TABLE".to_owned())],
-            QueryEvent::VariableSet => vec![Message::CommandComplete("SET".to_owned())],
-            QueryEvent::TransactionStarted => vec![Message::CommandComplete("BEGIN".to_owned())],
-            QueryEvent::RecordsInserted(records) => vec![Message::CommandComplete(format!("INSERT 0 {}", records))],
+            QueryEvent::SchemaCreated => vec![BackendMessage::CommandComplete("CREATE SCHEMA".to_owned())],
+            QueryEvent::SchemaDropped => vec![BackendMessage::CommandComplete("DROP SCHEMA".to_owned())],
+            QueryEvent::TableCreated => vec![BackendMessage::CommandComplete("CREATE TABLE".to_owned())],
+            QueryEvent::TableDropped => vec![BackendMessage::CommandComplete("DROP TABLE".to_owned())],
+            QueryEvent::VariableSet => vec![BackendMessage::CommandComplete("SET".to_owned())],
+            QueryEvent::TransactionStarted => vec![BackendMessage::CommandComplete("BEGIN".to_owned())],
+            QueryEvent::RecordsInserted(records) => {
+                vec![BackendMessage::CommandComplete(format!("INSERT 0 {}", records))]
+            }
             QueryEvent::RecordsSelected(projection) => {
                 let definition = projection.0;
                 let description: Vec<ColumnMetadata> = definition
@@ -66,15 +68,15 @@ impl Into<Vec<Message>> for QueryEvent {
                     .collect();
                 let records = projection.1;
                 let len = records.len();
-                let mut messages = vec![Message::RowDescription(description)];
+                let mut messages = vec![BackendMessage::RowDescription(description)];
                 for record in records {
-                    messages.push(Message::DataRow(record));
+                    messages.push(BackendMessage::DataRow(record));
                 }
-                messages.push(Message::CommandComplete(format!("SELECT {}", len)));
+                messages.push(BackendMessage::CommandComplete(format!("SELECT {}", len)));
                 messages
             }
-            QueryEvent::RecordsUpdated(records) => vec![Message::CommandComplete(format!("UPDATE {}", records))],
-            QueryEvent::RecordsDeleted(records) => vec![Message::CommandComplete(format!("DELETE {}", records))],
+            QueryEvent::RecordsUpdated(records) => vec![BackendMessage::CommandComplete(format!("UPDATE {}", records))],
+            QueryEvent::RecordsDeleted(records) => vec![BackendMessage::CommandComplete(format!("DELETE {}", records))],
         }
     }
 }
@@ -257,11 +259,11 @@ impl QueryError {
     }
 }
 
-impl Into<Vec<Message>> for QueryError {
-    fn into(self) -> Vec<Message> {
+impl Into<Vec<BackendMessage>> for QueryError {
+    fn into(self) -> Vec<BackendMessage> {
         self.errors
             .into_iter()
-            .map(|inner| Message::ErrorResponse(inner.severity(), inner.code(), inner.message()))
+            .map(|inner| BackendMessage::ErrorResponse(inner.severity(), inner.code(), inner.message()))
             .collect::<Vec<_>>()
     }
 }
@@ -423,35 +425,44 @@ mod tests {
 
         #[test]
         fn create_schema() {
-            let messages: Vec<Message> = QueryEvent::SchemaCreated.into();
-            assert_eq!(messages, vec![Message::CommandComplete("CREATE SCHEMA".to_owned())])
+            let messages: Vec<BackendMessage> = QueryEvent::SchemaCreated.into();
+            assert_eq!(
+                messages,
+                vec![BackendMessage::CommandComplete("CREATE SCHEMA".to_owned())]
+            )
         }
 
         #[test]
         fn drop_schema() {
-            let messages: Vec<Message> = QueryEvent::SchemaDropped.into();
-            assert_eq!(messages, vec![Message::CommandComplete("DROP SCHEMA".to_owned())])
+            let messages: Vec<BackendMessage> = QueryEvent::SchemaDropped.into();
+            assert_eq!(
+                messages,
+                vec![BackendMessage::CommandComplete("DROP SCHEMA".to_owned())]
+            )
         }
 
         #[test]
         fn create_table() {
-            let messages: Vec<Message> = QueryEvent::TableCreated.into();
-            assert_eq!(messages, vec![Message::CommandComplete("CREATE TABLE".to_owned())]);
+            let messages: Vec<BackendMessage> = QueryEvent::TableCreated.into();
+            assert_eq!(
+                messages,
+                vec![BackendMessage::CommandComplete("CREATE TABLE".to_owned())]
+            );
         }
 
         #[test]
         fn drop_table() {
-            let messages: Vec<Message> = QueryEvent::TableDropped.into();
-            assert_eq!(messages, vec![Message::CommandComplete("DROP TABLE".to_owned())]);
+            let messages: Vec<BackendMessage> = QueryEvent::TableDropped.into();
+            assert_eq!(messages, vec![BackendMessage::CommandComplete("DROP TABLE".to_owned())]);
         }
 
         #[test]
         fn insert_record() {
             let records_number = 3;
-            let messages: Vec<Message> = QueryEvent::RecordsInserted(records_number).into();
+            let messages: Vec<BackendMessage> = QueryEvent::RecordsInserted(records_number).into();
             assert_eq!(
                 messages,
-                vec![Message::CommandComplete(format!("INSERT 0 {}", records_number))]
+                vec![BackendMessage::CommandComplete(format!("INSERT 0 {}", records_number))]
             )
         }
 
@@ -467,17 +478,17 @@ mod tests {
                     vec!["3".to_owned(), "4".to_owned()],
                 ],
             );
-            let messages: Vec<Message> = QueryEvent::RecordsSelected(projection).into();
+            let messages: Vec<BackendMessage> = QueryEvent::RecordsSelected(projection).into();
             assert_eq!(
                 messages,
                 vec![
-                    Message::RowDescription(vec![
+                    BackendMessage::RowDescription(vec![
                         ColumnMetadata::new("column_name_1".to_owned(), 21, 2),
                         ColumnMetadata::new("column_name_2".to_owned(), 21, 2)
                     ]),
-                    Message::DataRow(vec!["1".to_owned(), "2".to_owned()]),
-                    Message::DataRow(vec!["3".to_owned(), "4".to_owned()]),
-                    Message::CommandComplete("SELECT 2".to_owned())
+                    BackendMessage::DataRow(vec!["1".to_owned(), "2".to_owned()]),
+                    BackendMessage::DataRow(vec!["3".to_owned(), "4".to_owned()]),
+                    BackendMessage::CommandComplete("SELECT 2".to_owned())
                 ]
             );
         }
@@ -485,20 +496,20 @@ mod tests {
         #[test]
         fn update_records() {
             let records_number = 3;
-            let messages: Vec<Message> = QueryEvent::RecordsUpdated(records_number).into();
+            let messages: Vec<BackendMessage> = QueryEvent::RecordsUpdated(records_number).into();
             assert_eq!(
                 messages,
-                vec![Message::CommandComplete(format!("UPDATE {}", records_number))]
+                vec![BackendMessage::CommandComplete(format!("UPDATE {}", records_number))]
             );
         }
 
         #[test]
         fn delete_records() {
             let records_number = 3;
-            let messages: Vec<Message> = QueryEvent::RecordsDeleted(records_number).into();
+            let messages: Vec<BackendMessage> = QueryEvent::RecordsDeleted(records_number).into();
             assert_eq!(
                 messages,
-                vec![Message::CommandComplete(format!("DELETE {}", records_number))]
+                vec![BackendMessage::CommandComplete(format!("DELETE {}", records_number))]
             )
         }
     }
@@ -510,13 +521,13 @@ mod tests {
         #[test]
         fn schema_already_exists() {
             let schema_name = "some_table_name".to_owned();
-            let messages: Vec<Message> = QueryErrorBuilder::new()
+            let messages: Vec<BackendMessage> = QueryErrorBuilder::new()
                 .schema_already_exists(schema_name.clone())
                 .build()
                 .into();
             assert_eq!(
                 messages,
-                vec![Message::ErrorResponse(
+                vec![BackendMessage::ErrorResponse(
                     Some("ERROR"),
                     Some("42P06"),
                     Some(format!("schema \"{}\" already exists", schema_name)),
@@ -527,13 +538,13 @@ mod tests {
         #[test]
         fn schema_does_not_exists() {
             let schema_name = "some_table_name".to_owned();
-            let messages: Vec<Message> = QueryErrorBuilder::new()
+            let messages: Vec<BackendMessage> = QueryErrorBuilder::new()
                 .schema_does_not_exist(schema_name.clone())
                 .build()
                 .into();
             assert_eq!(
                 messages,
-                vec![Message::ErrorResponse(
+                vec![BackendMessage::ErrorResponse(
                     Some("ERROR"),
                     Some("3F000"),
                     Some(format!("schema \"{}\" does not exist", schema_name)),
@@ -544,13 +555,13 @@ mod tests {
         #[test]
         fn table_already_exists() {
             let table_name = "some_table_name".to_owned();
-            let messages: Vec<Message> = QueryErrorBuilder::new()
+            let messages: Vec<BackendMessage> = QueryErrorBuilder::new()
                 .table_already_exists(table_name.clone())
                 .build()
                 .into();
             assert_eq!(
                 messages,
-                vec![Message::ErrorResponse(
+                vec![BackendMessage::ErrorResponse(
                     Some("ERROR"),
                     Some("42P07"),
                     Some(format!("table \"{}\" already exists", table_name)),
@@ -561,13 +572,13 @@ mod tests {
         #[test]
         fn table_does_not_exists() {
             let table_name = "some_table_name".to_owned();
-            let messages: Vec<Message> = QueryErrorBuilder::new()
+            let messages: Vec<BackendMessage> = QueryErrorBuilder::new()
                 .table_does_not_exist(table_name.clone())
                 .build()
                 .into();
             assert_eq!(
                 messages,
-                vec![Message::ErrorResponse(
+                vec![BackendMessage::ErrorResponse(
                     Some("ERROR"),
                     Some("42P01"),
                     Some(format!("table \"{}\" does not exist", table_name)),
@@ -577,13 +588,13 @@ mod tests {
 
         #[test]
         fn one_column_does_not_exists() {
-            let messages: Vec<Message> = QueryErrorBuilder::new()
+            let messages: Vec<BackendMessage> = QueryErrorBuilder::new()
                 .column_does_not_exist(vec!["column_not_in_table".to_owned()])
                 .build()
                 .into();
             assert_eq!(
                 messages,
-                vec![Message::ErrorResponse(
+                vec![BackendMessage::ErrorResponse(
                     Some("ERROR"),
                     Some("42703"),
                     Some("column column_not_in_table does not exist".to_owned()),
@@ -593,7 +604,7 @@ mod tests {
 
         #[test]
         fn multiple_columns_does_not_exists() {
-            let messages: Vec<Message> = QueryErrorBuilder::new()
+            let messages: Vec<BackendMessage> = QueryErrorBuilder::new()
                 .column_does_not_exist(vec![
                     "column_not_in_table1".to_owned(),
                     "column_not_in_table2".to_owned(),
@@ -602,7 +613,7 @@ mod tests {
                 .into();
             assert_eq!(
                 messages,
-                vec![Message::ErrorResponse(
+                vec![BackendMessage::ErrorResponse(
                     Some("ERROR"),
                     Some("42703"),
                     Some("columns column_not_in_table1, column_not_in_table2 do not exist".to_owned()),
@@ -613,13 +624,13 @@ mod tests {
         #[test]
         fn feature_not_supported() {
             let raw_sql_query = "some SQL query".to_owned();
-            let messages: Vec<Message> = QueryErrorBuilder::new()
+            let messages: Vec<BackendMessage> = QueryErrorBuilder::new()
                 .feature_not_supported(raw_sql_query.clone())
                 .build()
                 .into();
             assert_eq!(
                 messages,
-                vec![Message::ErrorResponse(
+                vec![BackendMessage::ErrorResponse(
                     Some("ERROR"),
                     Some("0A000"),
                     Some(format!("Currently, Query '{}' can't be executed", raw_sql_query)),
@@ -629,10 +640,10 @@ mod tests {
 
         #[test]
         fn too_many_insert_expressions() {
-            let messages: Vec<Message> = QueryErrorBuilder::new().too_many_insert_expressions().build().into();
+            let messages: Vec<BackendMessage> = QueryErrorBuilder::new().too_many_insert_expressions().build().into();
             assert_eq!(
                 messages,
-                vec![Message::ErrorResponse(
+                vec![BackendMessage::ErrorResponse(
                     Some("ERROR"),
                     Some("42601"),
                     Some("INSERT has more expressions than target columns".to_owned()),
@@ -644,10 +655,10 @@ mod tests {
         fn out_of_range_constraint_violation() {
             let mut builder = QueryErrorBuilder::new();
             builder.out_of_range(PostgreSqlType::SmallInt, "col1".to_string(), 1);
-            let messages: Vec<Message> = builder.build().into();
+            let messages: Vec<BackendMessage> = builder.build().into();
             assert_eq!(
                 messages,
-                vec![Message::ErrorResponse(
+                vec![BackendMessage::ErrorResponse(
                     Some("ERROR"),
                     Some("22003"),
                     Some("smallint is out of range for column 'col1' at row 1".to_owned())
@@ -659,10 +670,10 @@ mod tests {
         fn type_mismatch_constraint_violation() {
             let mut builder = QueryErrorBuilder::new();
             builder.type_mismatch("abc", PostgreSqlType::SmallInt, "col1".to_string(), 1);
-            let messages: Vec<Message> = builder.build().into();
+            let messages: Vec<BackendMessage> = builder.build().into();
             assert_eq!(
                 messages,
-                vec![Message::ErrorResponse(
+                vec![BackendMessage::ErrorResponse(
                     Some("ERROR"),
                     Some("2200G"),
                     Some("invalid input syntax for type smallint for column 'col1' at row 1: \"abc\"".to_owned())
@@ -674,10 +685,10 @@ mod tests {
         fn string_length_mismatch_constraint_violation() {
             let mut builder = QueryErrorBuilder::new();
             builder.string_length_mismatch(PostgreSqlType::Char, 5, "col1".to_string(), 1);
-            let messages: Vec<Message> = builder.build().into();
+            let messages: Vec<BackendMessage> = builder.build().into();
             assert_eq!(
                 messages,
-                vec![Message::ErrorResponse(
+                vec![BackendMessage::ErrorResponse(
                     Some("ERROR"),
                     Some("22026"),
                     Some("value too long for type character(5) for column 'col1' at row 1".to_owned())
@@ -687,13 +698,13 @@ mod tests {
 
         #[test]
         fn undefined_function() {
-            let messages: Vec<Message> = QueryErrorBuilder::new()
+            let messages: Vec<BackendMessage> = QueryErrorBuilder::new()
                 .undefined_function("||".to_owned(), "NUMBER".to_owned(), "NUMBER".to_owned())
                 .build()
                 .into();
             assert_eq!(
                 messages,
-                vec![Message::ErrorResponse(
+                vec![BackendMessage::ErrorResponse(
                     Some("ERROR"),
                     Some("42883"),
                     Some("operator does not exist: (NUMBER || NUMBER)".to_owned())
@@ -703,13 +714,13 @@ mod tests {
 
         #[test]
         fn syntax_error() {
-            let messages: Vec<Message> = QueryErrorBuilder::new()
+            let messages: Vec<BackendMessage> = QueryErrorBuilder::new()
                 .syntax_error("expression".to_owned())
                 .build()
                 .into();
             assert_eq!(
                 messages,
-                vec![Message::ErrorResponse(
+                vec![BackendMessage::ErrorResponse(
                     Some("ERROR"),
                     Some("42601"),
                     Some("syntax error in expression".to_owned())
