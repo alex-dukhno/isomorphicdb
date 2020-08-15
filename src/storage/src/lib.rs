@@ -23,12 +23,15 @@ use sql_types::{ConstraintError, SqlType};
 
 pub mod backend;
 pub mod frontend;
+pub mod inner;
+pub(crate) mod on_disk;
 
 pub type Projection = (Vec<ColumnDefinition>, Vec<Vec<String>>);
 pub type Row = (Key, Values);
 pub type Key = Binary;
 pub type Values = Binary;
 pub type ReadCursor = Box<dyn Iterator<Item = Result<Row, SystemError>>>;
+pub type NewReadCursor = Box<dyn Iterator<Item = Result<(Vec<u8>, Vec<u8>), SystemError>>>;
 
 #[derive(Debug, PartialEq)]
 pub struct SchemaAlreadyExists;

@@ -24,6 +24,14 @@ pub struct SystemError {
 }
 
 impl SystemError {
+    pub fn bug_in_storage(message: String) -> SystemError {
+        SystemError {
+            message,
+            backtrace: backtrace::Backtrace::new(),
+            kind: SystemErrorKind::Bug,
+        }
+    }
+
     pub fn bug_in_sql_engine(operation: Operation, object: Object) -> SystemError {
         fn context_message(operation: Operation, object: Object) -> String {
             match object {
@@ -44,7 +52,7 @@ impl SystemError {
                 context_message(operation, object)
             ),
             backtrace: backtrace::Backtrace::new(),
-            kind: SystemErrorKind::SqlEngineBug,
+            kind: SystemErrorKind::Bug,
         }
     }
 
@@ -83,7 +91,7 @@ impl PartialEq for SystemError {
 pub enum SystemErrorKind {
     Unrecoverable,
     RuntimeCheckFailure,
-    SqlEngineBug,
+    Bug,
     Io(std::io::Error),
 }
 

@@ -63,26 +63,6 @@ impl SqlType {
             sql_type => unimplemented!("Type Serializer for {:?} is not currently implemented", sql_type),
         }
     }
-
-    pub fn to_pg_types(&self) -> PostgreSqlType {
-        match *self {
-            Self::Bool => PostgreSqlType::Bool,
-            Self::Char(_) => PostgreSqlType::Char,
-            Self::VarChar(_) => PostgreSqlType::VarChar,
-            Self::Decimal => PostgreSqlType::Decimal,
-            Self::SmallInt(_) => PostgreSqlType::SmallInt,
-            Self::Integer(_) => PostgreSqlType::Integer,
-            Self::BigInt(_) => PostgreSqlType::BigInt,
-            Self::Real => PostgreSqlType::Real,
-            Self::DoublePrecision => PostgreSqlType::DoublePrecision,
-            Self::Time => PostgreSqlType::Time,
-            Self::TimeWithTimeZone => PostgreSqlType::TimeWithTimeZone,
-            Self::Timestamp => PostgreSqlType::Timestamp,
-            Self::TimestampWithTimeZone => PostgreSqlType::TimestampWithTimeZone,
-            Self::Date => PostgreSqlType::Date,
-            Self::Interval => PostgreSqlType::Interval,
-        }
-    }
 }
 
 impl Into<PostgreSqlType> for &SqlType {

@@ -22,6 +22,28 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cff77d8686867eceff3105329d4698d96c2391c176d5d03adc90c7389162b5b8"
 
 [[package]]
+name = "assert2"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0c22fadcb78e2e42dfe29f58754994d3dcbb701265a62f874c071f2df59a044e"
+dependencies = [
+ "assert2-macros",
+ "yansi",
+]
+
+[[package]]
+name = "assert2-macros"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5ac02ceddba6778164eb02272ce87c49b8ff5ed7dea2d5b1caa0f53ec9323a60"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "rustc_version",
+ "syn",
+]
+
+[[package]]
 name = "async-channel"
 version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1108,6 +1130,7 @@ checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 name = "storage"
 version = "0.1.0"
 dependencies = [
+ "assert2",
  "backtrace",
  "bincode",
  "itertools",
@@ -1118,6 +1141,7 @@ dependencies = [
  "serde",
  "sled",
  "sql_types",
+ "tempfile",
 ]
 
 [[package]]
@@ -1336,3 +1360,9 @@ name = "winapi-x86_64-pc-windows-gnu"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
+
+[[package]]
+name = "yansi"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9fc79f4a1e39857fc00c3f662cbf2651c771f00e9c15fe2abc341806bd46bd71"
