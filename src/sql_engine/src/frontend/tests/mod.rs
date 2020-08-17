@@ -13,7 +13,6 @@
 // limitations under the License.
 
 use super::*;
-use crate::backend;
 use sql_types::SqlType;
 
 #[cfg(test)]
@@ -41,11 +40,11 @@ fn storage_with_schema(mut storage: PersistentStorage, default_schema_name: &str
     storage
 }
 
-fn create_schema<P: backend::BackendStorage>(storage: &mut FrontendStorage<P>, schema_name: &str) {
+fn create_schema<P: BackendStorage>(storage: &mut FrontendStorage<P>, schema_name: &str) {
     storage.create_schema(schema_name).expect("schema is created");
 }
 
-fn create_table<P: backend::BackendStorage>(
+fn create_table<P: BackendStorage>(
     storage: &mut FrontendStorage<P>,
     schema_name: &str,
     table_name: &str,
@@ -63,7 +62,7 @@ fn column_definition(name: &'static str, sql_type: SqlType) -> ColumnDefinition 
     }
 }
 
-fn insert_into<P: backend::BackendStorage>(
+fn insert_into<P: BackendStorage>(
     storage: &mut FrontendStorage<P>,
     schema_name: &str,
     table_name: &str,

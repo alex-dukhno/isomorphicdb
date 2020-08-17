@@ -12,12 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{
-    backend::{BackendError, BackendStorage, SledBackendStorage},
-    ColumnDefinition, ReadCursor, Row, TableDescription,
-};
+use crate::{ColumnDefinition, TableDescription};
 use kernel::{Object, Operation, SystemError, SystemResult};
 use representation::Binary;
+use storage::{BackendError, BackendStorage, ReadCursor, Row, SledBackendStorage};
 
 pub struct FrontendStorage<P: BackendStorage> {
     key_id_generator: usize,

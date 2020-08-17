@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::frontend::FrontendStorage;
 use kernel::SystemResult;
 use protocol::{
     results::{QueryErrorBuilder, QueryEvent},
@@ -19,7 +20,7 @@ use protocol::{
 };
 use sqlparser::ast::ObjectName;
 use std::sync::{Arc, Mutex};
-use storage::{backend::BackendStorage, frontend::FrontendStorage};
+use storage::BackendStorage;
 
 pub(crate) struct DeleteCommand<P: BackendStorage> {
     name: ObjectName,

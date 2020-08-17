@@ -14,10 +14,7 @@
 
 use kernel::SystemResult;
 use std::collections::{BTreeMap, HashMap};
-use storage::{
-    backend::{BackendError, BackendResult, BackendStorage},
-    Key, ReadCursor, Row, Values,
-};
+use storage::{BackendError, BackendResult, BackendStorage, Key, ReadCursor, Row, Values};
 
 #[derive(Default, Debug)]
 struct StorageObject {
@@ -35,7 +32,7 @@ pub struct InMemoryStorage {
 }
 
 impl BackendStorage for InMemoryStorage {
-    type ErrorMapper = storage::backend::SledErrorMapper;
+    type ErrorMapper = storage::SledErrorMapper;
 
     fn create_namespace_with_objects(&mut self, namespace: &str, object_names: Vec<&str>) -> BackendResult<()> {
         if self.namespaces.contains_key(namespace) {

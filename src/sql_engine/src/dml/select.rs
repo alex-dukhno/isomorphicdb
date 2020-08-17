@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::frontend::FrontendStorage;
 use kernel::SystemResult;
 use protocol::{
     results::{QueryErrorBuilder, QueryEvent},
@@ -22,7 +23,7 @@ use std::{
     ops::Deref,
     sync::{Arc, Mutex},
 };
-use storage::{backend::BackendStorage, frontend::FrontendStorage};
+use storage::BackendStorage;
 
 pub(crate) struct SelectCommand<'sc, P: BackendStorage> {
     raw_sql_query: &'sc str,

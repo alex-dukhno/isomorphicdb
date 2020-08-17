@@ -13,6 +13,8 @@
 // limitations under the License.
 
 use crate::dml::ExpressionEvaluation;
+use crate::frontend::FrontendStorage;
+use crate::ColumnDefinition;
 use kernel::SystemResult;
 use protocol::{
     results::{QueryErrorBuilder, QueryEvent},
@@ -26,7 +28,7 @@ use std::{
     convert::TryFrom,
     sync::{Arc, Mutex},
 };
-use storage::{backend::BackendStorage, frontend::FrontendStorage, ColumnDefinition, Row};
+use storage::{BackendStorage, Row};
 
 pub(crate) struct UpdateCommand<P: BackendStorage> {
     name: ObjectName,

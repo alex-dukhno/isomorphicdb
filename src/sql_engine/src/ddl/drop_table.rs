@@ -12,11 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::frontend::FrontendStorage;
 use crate::query::TableId;
 use kernel::SystemResult;
 use protocol::{results::QueryEvent, Sender};
 use std::sync::{Arc, Mutex};
-use storage::{backend::BackendStorage, frontend::FrontendStorage};
+use storage::BackendStorage;
 
 pub(crate) struct DropTableCommand<P: BackendStorage> {
     name: TableId,

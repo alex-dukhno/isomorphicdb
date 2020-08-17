@@ -12,7 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{dml::ExpressionEvaluation, query::plan::TableInserts};
+use crate::frontend::FrontendStorage;
+use crate::{dml::ExpressionEvaluation, query::plan::TableInserts, ColumnDefinition};
 use kernel::SystemResult;
 use protocol::{
     results::{QueryErrorBuilder, QueryEvent},
@@ -26,7 +27,7 @@ use std::{
     str::FromStr,
     sync::{Arc, Mutex},
 };
-use storage::{backend::BackendStorage, frontend::FrontendStorage, ColumnDefinition, Row};
+use storage::{BackendStorage, Row};
 
 pub(crate) struct InsertCommand<'ic, P: BackendStorage> {
     raw_sql_query: &'ic str,

@@ -30,6 +30,7 @@ mod type_constraints;
 mod update;
 
 use super::*;
+use crate::frontend::FrontendStorage;
 use crate::QueryExecutor;
 use in_memory_backend_storage::InMemoryStorage;
 use protocol::results::QueryResult;
@@ -38,7 +39,6 @@ use std::{
     ops::Deref,
     sync::{Arc, Mutex},
 };
-use storage::frontend::FrontendStorage;
 
 fn in_memory_storage() -> Arc<Mutex<FrontendStorage<InMemoryStorage>>> {
     Arc::new(Mutex::new(FrontendStorage::new(InMemoryStorage::default()).unwrap()))
