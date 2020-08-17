@@ -13,7 +13,7 @@ sqlparser = { version = "0.6.1", features = ["bigdecimal"] }
 bigdecimal = "0.1.2"
 sql_types = { path = "../sql_types" }
 protocol = { path = "../protocol" }
-futures-lite = "0.1.10"
+futures-lite = "0.1.11"
 representation = { path = "../representation" }
 
 [dev-dependencies]
