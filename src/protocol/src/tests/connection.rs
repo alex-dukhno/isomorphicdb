@@ -12,9 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{
-    messages::BackendMessage, tests::async_io::TestCase, Channel, Command, Receiver, RequestReceiver, VERSION_3,
-};
+use crate::{tests::async_io::TestCase, Channel, Command, Receiver, RequestReceiver, VERSION_3};
 use async_mutex::Mutex as AsyncMutex;
 use futures_lite::future::block_on;
 use std::sync::Arc;
@@ -44,11 +42,6 @@ mod read_query {
 
             let query = receiver.receive().await.expect("no io errors");
             assert_eq!(query, Ok(Command::Query("select 1;".to_owned())));
-
-            let actual_content = test_case.read_result().await;
-            let mut expected_content = Vec::new();
-            expected_content.extend_from_slice(BackendMessage::ReadyForQuery.as_vec().as_slice());
-            assert_eq!(actual_content, expected_content);
         });
     }
 

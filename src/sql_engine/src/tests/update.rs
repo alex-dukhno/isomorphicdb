@@ -37,7 +37,7 @@ fn update_all_records(sql_engine_with_schema: (QueryExecutor, Arc<Collector>)) {
         .execute("select * from schema_name.table_name;")
         .expect("no system errors");
 
-    collector.assert_content(vec![
+    collector.assert_content_for_single_queries(vec![
         Ok(QueryEvent::SchemaCreated),
         Ok(QueryEvent::TableCreated),
         Ok(QueryEvent::RecordsInserted(1)),
@@ -76,7 +76,7 @@ fn update_single_column_of_all_records(sql_engine_with_schema: (QueryExecutor, A
         .execute("select * from schema_name.table_name;")
         .expect("no system errors");
 
-    collector.assert_content(vec![
+    collector.assert_content_for_single_queries(vec![
         Ok(QueryEvent::SchemaCreated),
         Ok(QueryEvent::TableCreated),
         Ok(QueryEvent::RecordsInserted(1)),
@@ -127,7 +127,7 @@ fn update_multiple_columns_of_all_records(sql_engine_with_schema: (QueryExecutor
         .execute("select * from schema_name.table_name;")
         .expect("no system errors");
 
-    collector.assert_content(vec![
+    collector.assert_content_for_single_queries(vec![
         Ok(QueryEvent::SchemaCreated),
         Ok(QueryEvent::TableCreated),
         Ok(QueryEvent::RecordsInserted(1)),
@@ -177,7 +177,7 @@ fn update_all_records_in_multiple_columns(sql_engine_with_schema: (QueryExecutor
         .execute("select * from schema_name.table_name;")
         .expect("no system errors");
 
-    collector.assert_content(vec![
+    collector.assert_content_for_single_queries(vec![
         Ok(QueryEvent::SchemaCreated),
         Ok(QueryEvent::TableCreated),
         Ok(QueryEvent::RecordsInserted(3)),
@@ -216,7 +216,7 @@ fn update_records_in_nonexistent_table(sql_engine_with_schema: (QueryExecutor, A
         .execute("update schema_name.table_name set column_test=789;")
         .expect("no system errors");
 
-    collector.assert_content(vec![
+    collector.assert_content_for_single_queries(vec![
         Ok(QueryEvent::SchemaCreated),
         Err(QueryErrorBuilder::new()
             .table_does_not_exist("schema_name.table_name".to_owned())
@@ -240,7 +240,7 @@ fn update_non_existent_columns_of_records(sql_engine_with_schema: (QueryExecutor
         .execute("update schema_name.table_name set col1=456, col2=789;")
         .expect("no system errors");
 
-    collector.assert_content(vec![
+    collector.assert_content_for_single_queries(vec![
         Ok(QueryEvent::SchemaCreated),
         Ok(QueryEvent::TableCreated),
         Ok(QueryEvent::RecordsInserted(1)),
@@ -290,7 +290,7 @@ mod operators {
                     .execute("select * from schema_name.table_name;")
                     .expect("no system errors");
 
-                collector.assert_content(vec![
+                collector.assert_content_for_single_queries(vec![
                     Ok(QueryEvent::SchemaCreated),
                     Ok(QueryEvent::TableCreated),
                     Ok(QueryEvent::RecordsInserted(1)),
@@ -312,7 +312,7 @@ mod operators {
                     .execute("select * from schema_name.table_name;")
                     .expect("no system errors");
 
-                collector.assert_content(vec![
+                collector.assert_content_for_single_queries(vec![
                     Ok(QueryEvent::SchemaCreated),
                     Ok(QueryEvent::TableCreated),
                     Ok(QueryEvent::RecordsInserted(1)),
@@ -334,7 +334,7 @@ mod operators {
                     .execute("select * from schema_name.table_name;")
                     .expect("no system errors");
 
-                collector.assert_content(vec![
+                collector.assert_content_for_single_queries(vec![
                     Ok(QueryEvent::SchemaCreated),
                     Ok(QueryEvent::TableCreated),
                     Ok(QueryEvent::RecordsInserted(1)),
@@ -356,7 +356,7 @@ mod operators {
                     .execute("select * from schema_name.table_name;")
                     .expect("no system errors");
 
-                collector.assert_content(vec![
+                collector.assert_content_for_single_queries(vec![
                     Ok(QueryEvent::SchemaCreated),
                     Ok(QueryEvent::TableCreated),
                     Ok(QueryEvent::RecordsInserted(1)),
@@ -378,7 +378,7 @@ mod operators {
                     .execute("select * from schema_name.table_name;")
                     .expect("no system errors");
 
-                collector.assert_content(vec![
+                collector.assert_content_for_single_queries(vec![
                     Ok(QueryEvent::SchemaCreated),
                     Ok(QueryEvent::TableCreated),
                     Ok(QueryEvent::RecordsInserted(1)),
@@ -403,7 +403,7 @@ mod operators {
                     .execute("select * from schema_name.table_name;")
                     .expect("no system errors");
 
-                collector.assert_content(vec![
+                collector.assert_content_for_single_queries(vec![
                     Ok(QueryEvent::SchemaCreated),
                     Ok(QueryEvent::TableCreated),
                     Ok(QueryEvent::RecordsInserted(1)),
@@ -427,7 +427,7 @@ mod operators {
                     .execute("select * from schema_name.table_name;")
                     .expect("no system errors");
 
-                collector.assert_content(vec![
+                collector.assert_content_for_single_queries(vec![
                     Ok(QueryEvent::SchemaCreated),
                     Ok(QueryEvent::TableCreated),
                     Ok(QueryEvent::RecordsInserted(1)),
@@ -451,7 +451,7 @@ mod operators {
                     .execute("select * from schema_name.table_name;")
                     .expect("no system errors");
 
-                collector.assert_content(vec![
+                collector.assert_content_for_single_queries(vec![
                     Ok(QueryEvent::SchemaCreated),
                     Ok(QueryEvent::TableCreated),
                     Ok(QueryEvent::RecordsInserted(1)),
@@ -475,7 +475,7 @@ mod operators {
                     .execute("select * from schema_name.table_name;")
                     .expect("no system errors");
 
-                collector.assert_content(vec![
+                collector.assert_content_for_single_queries(vec![
                     Ok(QueryEvent::SchemaCreated),
                     Ok(QueryEvent::TableCreated),
                     Ok(QueryEvent::RecordsInserted(1)),
@@ -499,7 +499,7 @@ mod operators {
                     .execute("select * from schema_name.table_name;")
                     .expect("no system errors");
 
-                collector.assert_content(vec![
+                collector.assert_content_for_single_queries(vec![
                     Ok(QueryEvent::SchemaCreated),
                     Ok(QueryEvent::TableCreated),
                     Ok(QueryEvent::RecordsInserted(1)),
@@ -523,7 +523,7 @@ mod operators {
                     .execute("select * from schema_name.table_name;")
                     .expect("no system errors");
 
-                collector.assert_content(vec![
+                collector.assert_content_for_single_queries(vec![
                     Ok(QueryEvent::SchemaCreated),
                     Ok(QueryEvent::TableCreated),
                     Ok(QueryEvent::RecordsInserted(1)),
@@ -545,7 +545,7 @@ mod operators {
                     .execute("select * from schema_name.table_name;")
                     .expect("no system errors");
 
-                collector.assert_content(vec![
+                collector.assert_content_for_single_queries(vec![
                     Ok(QueryEvent::SchemaCreated),
                     Ok(QueryEvent::TableCreated),
                     Ok(QueryEvent::RecordsInserted(1)),
@@ -567,7 +567,7 @@ mod operators {
                     .execute("select * from schema_name.table_name;")
                     .expect("no system errors");
 
-                collector.assert_content(vec![
+                collector.assert_content_for_single_queries(vec![
                     Ok(QueryEvent::SchemaCreated),
                     Ok(QueryEvent::TableCreated),
                     Ok(QueryEvent::RecordsInserted(1)),
@@ -591,7 +591,7 @@ mod operators {
                     .execute("select * from schema_name.table_name;")
                     .expect("no system errors");
 
-                collector.assert_content(vec![
+                collector.assert_content_for_single_queries(vec![
                     Ok(QueryEvent::SchemaCreated),
                     Ok(QueryEvent::TableCreated),
                     Ok(QueryEvent::RecordsInserted(1)),
@@ -615,7 +615,7 @@ mod operators {
                     .execute("select * from schema_name.table_name;")
                     .expect("no system errors");
 
-                collector.assert_content(vec![
+                collector.assert_content_for_single_queries(vec![
                     Ok(QueryEvent::SchemaCreated),
                     Ok(QueryEvent::TableCreated),
                     Ok(QueryEvent::RecordsInserted(1)),
@@ -639,7 +639,7 @@ mod operators {
                     .execute("select * from schema_name.table_name;")
                     .expect("no system errors");
 
-                collector.assert_content(vec![
+                collector.assert_content_for_single_queries(vec![
                     Ok(QueryEvent::SchemaCreated),
                     Ok(QueryEvent::TableCreated),
                     Ok(QueryEvent::RecordsInserted(1)),
@@ -661,7 +661,7 @@ mod operators {
                     .execute("select * from schema_name.table_name;")
                     .expect("no system errors");
 
-                collector.assert_content(vec![
+                collector.assert_content_for_single_queries(vec![
                     Ok(QueryEvent::SchemaCreated),
                     Ok(QueryEvent::TableCreated),
                     Ok(QueryEvent::RecordsInserted(1)),
@@ -703,7 +703,7 @@ mod operators {
                 .execute("select * from schema_name.table_name;")
                 .expect("no system errors");
 
-            collector.assert_content(vec![
+            collector.assert_content_for_single_queries(vec![
                 Ok(QueryEvent::SchemaCreated),
                 Ok(QueryEvent::TableCreated),
                 Ok(QueryEvent::RecordsInserted(1)),
@@ -731,7 +731,7 @@ mod operators {
                 .execute("select * from schema_name.table_name;")
                 .expect("no system errors");
 
-            collector.assert_content(vec![
+            collector.assert_content_for_single_queries(vec![
                 Ok(QueryEvent::SchemaCreated),
                 Ok(QueryEvent::TableCreated),
                 Ok(QueryEvent::RecordsInserted(1)),
@@ -755,7 +755,7 @@ mod operators {
                 .execute("update schema_name.table_name set column_si = 1 || 2;")
                 .expect("no system errors");
 
-            collector.assert_content(vec![
+            collector.assert_content_for_single_queries(vec![
                 Ok(QueryEvent::SchemaCreated),
                 Ok(QueryEvent::TableCreated),
                 Ok(QueryEvent::RecordsInserted(1)),

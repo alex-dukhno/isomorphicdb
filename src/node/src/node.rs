@@ -72,14 +72,31 @@ pub fn start() {
                                     return;
                                 }
                                 Ok(Ok(Command::Continue)) => {}
-                                Ok(Ok(Command::Terminate)) => {
-                                    log::debug!("Closing connection with client");
-                                    break;
+                                Ok(Ok(Command::DescribeStatement(name))) => {
+                                    match query_executor.describe_prepared_statement(name.as_str()) {
+                                        Ok(()) => {}
+                                        Err(error) => log::error!("{:?}", error),
+                                    }
+                                }
+                                Ok(Ok(Command::Flush)) => query_executor.flush(),
+                                Ok(Ok(Command::Parse(statement_name, sql_query, param_types))) => {
+                                    match query_executor.parse(
+                                        statement_name.as_str(),
+                                        sql_query.as_str(),
+                                        param_types.as_ref(),
+                                    ) {
+                                        Ok(()) => {}
+                                        Err(error) => log::error!("{:?}", error),
+                                    }
                                 }
                                 Ok(Ok(Command::Query(sql_query))) => match query_executor.execute(sql_query.as_str()) {
                                     Ok(()) => {}
                                     Err(error) => log::error!("{:?}", error),
                                 },
+                                Ok(Ok(Command::Terminate)) => {
+                                    log::debug!("Closing connection with client");
+                                    break;
+                                }
                             }
                         }
                     })

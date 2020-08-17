@@ -15,9 +15,13 @@
 #[cfg(test)]
 mod delete;
 #[cfg(test)]
+mod describe_prepared_statement;
+#[cfg(test)]
 mod in_memory_backend_storage;
 #[cfg(test)]
 mod insert;
+#[cfg(test)]
+mod parse;
 #[cfg(test)]
 mod schema;
 #[cfg(test)]
@@ -48,6 +52,10 @@ fn in_memory_storage() -> Arc<Mutex<CatalogManager>> {
 struct Collector(Mutex<Vec<QueryResult>>);
 
 impl Sender for Collector {
+    fn flush(&self) -> io::Result<()> {
+        Ok(())
+    }
+
     fn send(&self, query_result: QueryResult) -> io::Result<()> {
         self.0.lock().expect("locked").push(query_result);
         Ok(())
@@ -58,6 +66,15 @@ impl Collector {
     fn assert_content(&self, expected: Vec<QueryResult>) {
         let result = self.0.lock().expect("locked");
         assert_eq!(result.deref(), &expected)
+    }
+
+    fn assert_content_for_single_queries(&self, expected: Vec<QueryResult>) {
+        let actual = self.0.lock().expect("locked");
+        let expected: Vec<QueryResult> = expected
+            .iter()
+            .flat_map(|result| vec![result.clone(), Ok(QueryEvent::QueryComplete)])
+            .collect();
+        assert_eq!(actual.deref(), &expected)
     }
 }
 
