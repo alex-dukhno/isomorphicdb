@@ -15,6 +15,7 @@
 ///! Runtime cell and row representation.
 use bigdecimal::ToPrimitive;
 use ordered_float::OrderedFloat;
+use sql_types::SqlType;
 use sqlparser::ast::Value;
 use std::convert::TryFrom;
 
@@ -46,7 +47,7 @@ pub enum Datum<'a> {
     // this should only be used when loading string into a database
     OwnedString(String),
     // Bytes(&'a [u8]),
-    // fill in the rest of the types as they get implemented.
+    SqlType(SqlType), // fill in the rest of the types as they get implemented.
 }
 
 impl<'a> Datum<'a> {
@@ -62,6 +63,7 @@ impl<'a> Datum<'a> {
             Self::Float64(_) => 1 + std::mem::size_of::<f64>(),
             Self::String(val) => 1 + std::mem::size_of::<usize>() + val.len(),
             Self::OwnedString(val) => 1 + std::mem::size_of::<usize>() + val.len(),
+            Self::SqlType(_) => 1 + std::mem::size_of::<SqlType>(),
         }
     }
 
@@ -104,6 +106,17 @@ impl<'a> Datum<'a> {
 
     pub fn from_string(val: String) -> Datum<'static> {
         Datum::OwnedString(val)
+    }
+
+    pub fn from_sql_type(val: SqlType) -> Datum<'static> {
+        Datum::SqlType(val)
+    }
+
+    pub fn as_sql_type(&self) -> SqlType {
+        match self {
+            Self::SqlType(sql_type) => *sql_type,
+            _ => panic!("invalid use of Datum::as_sql_type"),
+        }
     }
 
     // @TODO: Add accessor helper functions.
@@ -221,6 +234,7 @@ impl ToString for Datum<'_> {
             Self::Float64(val) => val.into_inner().to_string(),
             Self::String(val) => val.to_string(),
             Self::OwnedString(val) => val.clone(),
+            Self::SqlType(val) => val.to_string(),
         }
     }
 }
@@ -236,7 +250,7 @@ enum TypeTag {
     F32,
     F64,
     Str,
-    // fill in the rest of the types.
+    SqlType, // fill in the rest of the types.
 }
 
 fn assert_copy<T: Copy>(_t: T) {}
@@ -334,6 +348,10 @@ impl Binary {
                     push_copy!(&mut data, val.len(), usize);
                     data.extend_from_slice(val.as_bytes());
                 }
+                Datum::<'a>::SqlType(sql_type) => {
+                    push_tag(&mut data, TypeTag::SqlType);
+                    push_copy!(&mut data, *sql_type, SqlType);
+                }
                 Datum::<'a>::Null => push_tag(&mut data, TypeTag::Null),
             }
         }
@@ -378,6 +396,10 @@ pub fn unpack_raw(data: &[u8]) -> Vec<Datum> {
             TypeTag::F64 => {
                 let val = unsafe { read::<f64>(data, &mut index) };
                 Datum::from_f64(val)
+            }
+            TypeTag::SqlType => {
+                let val = unsafe { read::<SqlType>(data, &mut index) };
+                Datum::from_sql_type(val)
             } // SqlType::Decimal |
               // SqlType::Time |
               // SqlType::TimeWithTimeZone |
@@ -394,6 +416,13 @@ pub fn unpack_raw(data: &[u8]) -> Vec<Datum> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn pack_unpack_sql_type() {
+        let data = vec![Datum::from_sql_type(SqlType::VarChar(32))];
+        let row = Binary::pack(&data);
+        assert_eq!(vec![Datum::from_sql_type(SqlType::VarChar(32))], row.unpack());
+    }
 
     #[test]
     fn row_packing_single() {

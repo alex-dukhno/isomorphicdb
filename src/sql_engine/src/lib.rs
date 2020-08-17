@@ -33,8 +33,10 @@ use std::sync::{Arc, Mutex};
 use storage::{backend::BackendStorage, frontend::FrontendStorage};
 
 mod ddl;
+mod definitions;
 mod dml;
 mod query;
+mod storage_manager;
 
 pub struct QueryExecutor<P: BackendStorage> {
     storage: Arc<Mutex<FrontendStorage<P>>>,
