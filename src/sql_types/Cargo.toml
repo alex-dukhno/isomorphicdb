@@ -7,7 +7,7 @@ publish = false
 
 [dependencies]
 lexical = "5.2.0"
-serde = { version = "1.0.114", features = ["derive"] }
+serde = { version = "1.0.115", features = ["derive"] }
 protocol = { path = "../protocol" }
 
 [dev-dependencies]
