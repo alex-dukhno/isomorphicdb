@@ -15,7 +15,7 @@
 extern crate bigdecimal;
 extern crate log;
 
-use crate::frontend::FrontendStorage;
+use crate::catalog_manager::CatalogManager;
 use crate::{
     ddl::{
         create_schema::CreateSchemaCommand, create_table::CreateTableCommand, drop_schema::DropSchemaCommand,
@@ -33,23 +33,23 @@ use serde::{Deserialize, Serialize};
 use sql_types::SqlType;
 use sqlparser::{ast::Statement, dialect::PostgreSqlDialect, parser::Parser};
 use std::sync::{Arc, Mutex};
-use storage::BackendStorage;
+use storage::DatabaseCatalog;
 
+pub mod catalog_manager;
 mod ddl;
 mod dml;
-pub mod frontend;
 mod query;
 
 pub type Projection = (Vec<ColumnDefinition>, Vec<Vec<String>>);
 
 #[derive(Debug, Clone)]
-pub struct TableDescription {
+pub struct TableDefinition {
     schema_name: String,
     table_name: String,
     column_data: Vec<ColumnDefinition>,
 }
 
-impl TableDescription {
+impl TableDefinition {
     pub fn new(schema_name: &str, table_name: &str, column_data: Vec<ColumnDefinition>) -> Self {
         Self {
             schema_name: schema_name.to_owned(),
@@ -121,14 +121,14 @@ impl ColumnDefinition {
     }
 }
 
-pub struct QueryExecutor<P: BackendStorage> {
-    storage: Arc<Mutex<FrontendStorage<P>>>,
-    processor: QueryProcessor<P>,
+pub struct QueryExecutor {
+    storage: Arc<Mutex<CatalogManager>>,
+    processor: QueryProcessor,
     session: Arc<dyn Sender>,
 }
 
-impl<P: BackendStorage> QueryExecutor<P> {
-    pub fn new(storage: Arc<Mutex<FrontendStorage<P>>>, session: Arc<dyn Sender>) -> Self {
+impl QueryExecutor {
+    pub fn new(storage: Arc<Mutex<CatalogManager>>, session: Arc<dyn Sender>) -> Self {
         Self {
             storage: storage.clone(),
             processor: QueryProcessor::new(storage, session.clone()),

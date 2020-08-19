@@ -12,25 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::frontend::FrontendStorage;
+use crate::catalog_manager::CatalogManager;
 use crate::query::SchemaId;
 use kernel::SystemResult;
 use protocol::{results::QueryEvent, Sender};
 use std::sync::{Arc, Mutex};
-use storage::BackendStorage;
+use storage::DatabaseCatalog;
 
-pub(crate) struct DropSchemaCommand<P: BackendStorage> {
+pub(crate) struct DropSchemaCommand {
     name: SchemaId,
-    storage: Arc<Mutex<FrontendStorage<P>>>,
+    storage: Arc<Mutex<CatalogManager>>,
     session: Arc<dyn Sender>,
 }
 
-impl<P: BackendStorage> DropSchemaCommand<P> {
+impl DropSchemaCommand {
     pub(crate) fn new(
         name: SchemaId,
-        storage: Arc<Mutex<FrontendStorage<P>>>,
+        storage: Arc<Mutex<CatalogManager>>,
         session: Arc<dyn Sender>,
-    ) -> DropSchemaCommand<P> {
+    ) -> DropSchemaCommand {
         DropSchemaCommand { name, storage, session }
     }
 

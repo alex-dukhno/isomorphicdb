@@ -19,6 +19,7 @@ extern crate sql_types;
 use kernel::SystemError;
 use representation::Binary;
 use serde::{Deserialize, Serialize};
+use sled::{Db as KeySpace, Error as SledError};
 use sql_types::{ConstraintError, SqlType};
 use std::collections::HashMap;
 
@@ -26,100 +27,61 @@ pub type Row = (Key, Values);
 pub type Key = Binary;
 pub type Values = Binary;
 pub type ReadCursor = Box<dyn Iterator<Item = Result<Row, SystemError>>>;
+pub type StorageResult<T> = std::result::Result<T, StorageError>;
 
 #[derive(Debug, PartialEq)]
-pub struct SchemaAlreadyExists;
-#[derive(Debug, PartialEq)]
-pub struct SchemaDoesNotExist;
-
-#[derive(Debug, PartialEq)]
-pub enum CreateTableError {
-    SchemaDoesNotExist,
-    TableAlreadyExists,
-}
-
-#[derive(Debug, PartialEq)]
-pub enum DropTableError {
-    SchemaDoesNotExist,
-    TableDoesNotExist,
-}
-
-// #[derive(Debug, PartialEq)]
-// pub enum OperationOnTableError {
-//     SchemaDoesNotExist,
-//     TableDoesNotExist,
-//     InsertTooManyExpressions,
-//     // Returns non existing columns.
-//     ColumnDoesNotExist(Vec<String>),
-//     // Returns vector of (error, column) and a row index.
-//     ConstraintViolations(Vec<(ConstraintError, ColumnDefinition)>, usize),
-// }
-
-#[derive(Debug, PartialEq)]
-pub enum BackendError {
+pub enum StorageError {
     RuntimeCheckError,
     SystemError(SystemError),
 }
 
-pub type BackendResult<T> = std::result::Result<T, BackendError>;
+pub trait DatabaseCatalog {
+    fn create_namespace_with_objects(&mut self, namespace: &str, object_names: Vec<&str>) -> StorageResult<()>;
 
-pub trait BackendStorage {
-    type ErrorMapper: StorageErrorMapper;
+    fn create_namespace(&mut self, namespace: &str) -> StorageResult<()>;
 
-    fn create_namespace_with_objects(&mut self, namespace: &str, object_names: Vec<&str>) -> BackendResult<()>;
-
-    fn create_namespace(&mut self, namespace: &str) -> BackendResult<()>;
-
-    fn drop_namespace(&mut self, namespace: &str) -> BackendResult<()>;
-
-    fn create_object(&mut self, namespace: &str, object_name: &str) -> BackendResult<()>;
-
-    fn drop_object(&mut self, namespace: &str, object_name: &str) -> BackendResult<()>;
-
-    fn write(&mut self, namespace: &str, object_name: &str, values: Vec<Row>) -> BackendResult<usize>;
-
-    fn read(&self, namespace: &str, object_name: &str) -> BackendResult<ReadCursor>;
-
-    fn delete(&mut self, namespace: &str, object_name: &str, keys: Vec<Key>) -> BackendResult<usize>;
-
-    fn is_object_exists(&self, namespace: &str, object_name: &str) -> bool;
+    fn drop_namespace(&mut self, namespace: &str) -> StorageResult<()>;
 
     fn is_namespace_exists(&self, namespace: &str) -> bool;
 
-    fn check_for_object(&self, namespace: &str, object_name: &str) -> BackendResult<()>;
-}
+    fn create_tree(&mut self, namespace: &str, object_name: &str) -> StorageResult<()>;
 
-pub trait StorageErrorMapper {
-    type Error;
+    fn drop_tree(&mut self, namespace: &str, object_name: &str) -> StorageResult<()>;
 
-    fn map(error: Self::Error) -> kernel::SystemError;
+    fn is_tree_exists(&self, namespace: &str, object_name: &str) -> bool;
+
+    fn write(&mut self, namespace: &str, object_name: &str, values: Vec<Row>) -> StorageResult<usize>;
+
+    fn read(&self, namespace: &str, object_name: &str) -> StorageResult<ReadCursor>;
+
+    fn delete(&mut self, namespace: &str, object_name: &str, keys: Vec<Key>) -> StorageResult<usize>;
+
+    fn check_for_object(&self, namespace: &str, object_name: &str) -> StorageResult<()>;
 }
 
 pub struct SledErrorMapper;
 
-impl StorageErrorMapper for SledErrorMapper {
-    type Error = sled::Error;
-
-    fn map(error: Self::Error) -> SystemError {
+impl SledErrorMapper {
+    fn map(error: SledError) -> SystemError {
         match error {
-            sled::Error::CollectionNotFound(system_file) => SystemError::unrecoverable(format!(
+            SledError::CollectionNotFound(system_file) => SystemError::unrecoverable(format!(
                 "System file [{}] can't be found",
                 String::from_utf8(system_file.to_vec()).expect("name of system file")
             )),
-            sled::Error::Unsupported(operation) => {
+            SledError::Unsupported(operation) => {
                 SystemError::unrecoverable(format!("Unsupported operation [{}] was used on Sled", operation))
             }
-            sled::Error::Corruption { at, bt: _bt } => {
+            SledError::Corruption { at, bt: _bt } => {
                 if let Some(at) = at {
                     SystemError::unrecoverable(format!("Sled encountered corruption at {}", at))
                 } else {
                     SystemError::unrecoverable("Sled encountered corruption".to_owned())
                 }
             }
-            sled::Error::ReportableBug(description) => {
+            SledError::ReportableBug(description) => {
                 SystemError::unrecoverable(format!("Sled encountered reportable BUG: {}", description))
             }
-            sled::Error::Io(error) => SystemError::io(error),
+            SledError::Io(error) => SystemError::io(error),
         }
     }
 }
@@ -130,77 +92,75 @@ pub struct SledBackendStorage {
 }
 
 impl SledBackendStorage {
-    fn new_namespace(&mut self, namespace: &str) -> BackendResult<&mut sled::Db> {
+    fn new_namespace(&mut self, namespace: &str) -> StorageResult<&mut sled::Db> {
         if self.namespaces.contains_key(namespace) {
-            Err(BackendError::RuntimeCheckError)
+            Err(StorageError::RuntimeCheckError)
         } else {
             match sled::Config::default().temporary(true).open() {
                 Ok(database) => {
                     let database = self.namespaces.entry(namespace.to_owned()).or_insert(database);
                     Ok(database)
                 }
-                Err(error) => Err(BackendError::SystemError(SledErrorMapper::map(error))),
+                Err(error) => Err(StorageError::SystemError(SledErrorMapper::map(error))),
             }
         }
     }
 }
 
-impl BackendStorage for SledBackendStorage {
-    type ErrorMapper = SledErrorMapper;
-
-    fn create_namespace_with_objects(&mut self, namespace: &str, object_names: Vec<&str>) -> BackendResult<()> {
+impl DatabaseCatalog for SledBackendStorage {
+    fn create_namespace_with_objects(&mut self, namespace: &str, object_names: Vec<&str>) -> StorageResult<()> {
         let namespace = self.new_namespace(namespace)?;
         for object_name in object_names {
             match namespace.open_tree(object_name) {
                 Ok(_object) => (),
-                Err(error) => return Err(BackendError::SystemError(Self::ErrorMapper::map(error))),
+                Err(error) => return Err(StorageError::SystemError(SledErrorMapper::map(error))),
             }
         }
         Ok(())
     }
 
-    fn create_namespace(&mut self, namespace: &str) -> BackendResult<()> {
+    fn create_namespace(&mut self, namespace: &str) -> StorageResult<()> {
         self.new_namespace(namespace).map(|_| ())
     }
 
-    fn drop_namespace(&mut self, namespace: &str) -> BackendResult<()> {
+    fn drop_namespace(&mut self, namespace: &str) -> StorageResult<()> {
         match self.namespaces.remove(namespace) {
             Some(namespace) => {
                 drop(namespace);
                 Ok(())
             }
-            None => Err(BackendError::RuntimeCheckError),
+            None => Err(StorageError::RuntimeCheckError),
         }
     }
 
-    fn create_object(&mut self, namespace: &str, object_name: &str) -> BackendResult<()> {
+    fn create_tree(&mut self, namespace: &str, object_name: &str) -> StorageResult<()> {
         match self.namespaces.get(namespace) {
             Some(namespace) => {
                 if namespace.tree_names().contains(&(object_name.into())) {
-                    Err(BackendError::RuntimeCheckError)
+                    Err(StorageError::RuntimeCheckError)
                 } else {
                     match namespace.open_tree(object_name) {
                         Ok(_object) => Ok(()),
-                        Err(error) => Err(BackendError::SystemError(Self::ErrorMapper::map(error))),
+                        Err(error) => Err(StorageError::SystemError(SledErrorMapper::map(error))),
                     }
                 }
             }
-            None => Err(BackendError::RuntimeCheckError),
+            None => Err(StorageError::RuntimeCheckError),
         }
     }
 
-    fn drop_object(&mut self, namespace: &str, object_name: &str) -> BackendResult<()> {
+    fn drop_tree(&mut self, namespace: &str, object_name: &str) -> StorageResult<()> {
         match self.namespaces.get(namespace) {
             Some(namespace) => match namespace.drop_tree(object_name.as_bytes()) {
                 Ok(true) => Ok(()),
-                Ok(false) => Err(BackendError::RuntimeCheckError),
-                Err(error) => Err(BackendError::SystemError(Self::ErrorMapper::map(error))),
+                Ok(false) => Err(StorageError::RuntimeCheckError),
+                Err(error) => Err(StorageError::SystemError(SledErrorMapper::map(error))),
             },
-            None => Err(BackendError::RuntimeCheckError),
+            None => Err(StorageError::RuntimeCheckError),
         }
     }
 
-    fn write(&mut self, namespace: &str, object_name: &str, rows: Vec<Row>) -> BackendResult<usize> {
+    fn write(&mut self, namespace: &str, object_name: &str, rows: Vec<Row>) -> StorageResult<usize> {
         match self.namespaces.get(namespace) {
             Some(namespace) => {
                 if namespace.tree_names().contains(&(object_name.into())) {
@@ -212,22 +172,22 @@ impl BackendStorage for SledBackendStorage {
                                     .insert::<sled::IVec, sled::IVec>(key.to_bytes().into(), values.to_bytes().into())
                                 {
                                     Ok(_) => written_rows += 1,
-                                    Err(error) => return Err(BackendError::SystemError(Self::ErrorMapper::map(error))),
+                                    Err(error) => return Err(StorageError::SystemError(SledErrorMapper::map(error))),
                                 }
                             }
                             Ok(written_rows)
                         }
-                        Err(error) => Err(BackendError::SystemError(Self::ErrorMapper::map(error))),
+                        Err(error) => Err(StorageError::SystemError(SledErrorMapper::map(error))),
                     }
                 } else {
-                    Err(BackendError::RuntimeCheckError)
+                    Err(StorageError::RuntimeCheckError)
                 }
             }
-            None => Err(BackendError::RuntimeCheckError),
+            None => Err(StorageError::RuntimeCheckError),
         }
     }
 
-    fn read(&self, namespace: &str, object_name: &str) -> BackendResult<ReadCursor> {
+    fn read(&self, namespace: &str, object_name: &str) -> StorageResult<ReadCursor> {
         match self.namespaces.get(namespace) {
             Some(namespace) => {
                 if namespace.tree_names().contains(&(object_name.into())) {
@@ -236,19 +196,19 @@ impl BackendStorage for SledBackendStorage {
                             Ok((key, values)) => {
                                 Ok((Binary::with_data(key.to_vec()), Binary::with_data(values.to_vec())))
                             }
-                            Err(error) => Err(Self::ErrorMapper::map(error)),
+                            Err(error) => Err(SledErrorMapper::map(error)),
                         }))),
-                        Err(error) => Err(BackendError::SystemError(Self::ErrorMapper::map(error))),
+                        Err(error) => Err(StorageError::SystemError(SledErrorMapper::map(error))),
                     }
                 } else {
-                    Err(BackendError::RuntimeCheckError)
+                    Err(StorageError::RuntimeCheckError)
                 }
             }
-            None => Err(BackendError::RuntimeCheckError),
+            None => Err(StorageError::RuntimeCheckError),
         }
     }
 
-    fn delete(&mut self, namespace: &str, object_name: &str, keys: Vec<Key>) -> BackendResult<usize> {
+    fn delete(&mut self, namespace: &str, object_name: &str, keys: Vec<Key>) -> StorageResult<usize> {
         match self.namespaces.get(namespace) {
             Some(namespace) => {
                 if namespace.tree_names().contains(&(object_name.into())) {
@@ -258,18 +218,18 @@ impl BackendStorage for SledBackendStorage {
                             for key in keys {
                                 match object.remove(key.to_bytes()) {
                                     Ok(_) => deleted += 1,
-                                    Err(error) => return Err(BackendError::SystemError(Self::ErrorMapper::map(error))),
+                                    Err(error) => return Err(StorageError::SystemError(SledErrorMapper::map(error))),
                                 }
                             }
                         }
-                        Err(error) => return Err(BackendError::SystemError(Self::ErrorMapper::map(error))),
+                        Err(error) => return Err(StorageError::SystemError(SledErrorMapper::map(error))),
                     }
                     Ok(deleted)
                 } else {
-                    Err(BackendError::RuntimeCheckError)
+                    Err(StorageError::RuntimeCheckError)
                 }
             }
-            None => Err(BackendError::RuntimeCheckError),
+            None => Err(StorageError::RuntimeCheckError),
         }
     }
 
@@ -277,20 +237,20 @@ impl BackendStorage for SledBackendStorage {
         self.namespaces.contains_key(namespace)
     }
 
-    fn is_object_exists(&self, namespace: &str, object_name: &str) -> bool {
+    fn is_tree_exists(&self, namespace: &str, object_name: &str) -> bool {
         self.check_for_object(namespace, object_name).is_ok()
     }
 
-    fn check_for_object(&self, namespace: &str, object_name: &str) -> BackendResult<()> {
+    fn check_for_object(&self, namespace: &str, object_name: &str) -> StorageResult<()> {
         match self.namespaces.get(namespace) {
             Some(namespace) => {
                 if namespace.tree_names().contains(&(object_name.into())) {
                     Ok(())
                 } else {
-                    Err(BackendError::RuntimeCheckError)
+                    Err(StorageError::RuntimeCheckError)
                 }
             }
-            None => Err(BackendError::RuntimeCheckError),
+            None => Err(StorageError::RuntimeCheckError),
         }
     }
 }
@@ -316,7 +276,7 @@ mod tests {
     #[rstest::fixture]
     fn with_object(mut with_namespace: Storage) -> Storage {
         with_namespace
-            .create_object("namespace", "object_name")
+            .create_tree("namespace", "object_name")
             .expect("object created");
         with_namespace
     }
@@ -330,7 +290,7 @@ mod tests {
         #[test]
         fn collection_not_found() {
             assert_eq!(
-                SledErrorMapper::map(sled::Error::CollectionNotFound(sled::IVec::from("test"))),
+                SledErrorMapper::map(SledError::CollectionNotFound(sled::IVec::from("test"))),
                 SystemError::unrecoverable("System file [test] can't be found".to_owned())
             )
         }
@@ -338,7 +298,7 @@ mod tests {
         #[test]
         fn unsupported() {
             assert_eq!(
-                SledErrorMapper::map(sled::Error::Unsupported("NOT_SUPPORTED".to_owned())),
+                SledErrorMapper::map(SledError::Unsupported("NOT_SUPPORTED".to_owned())),
                 SystemError::unrecoverable("Unsupported operation [NOT_SUPPORTED] was used on Sled".to_owned())
             )
         }
@@ -347,7 +307,7 @@ mod tests {
         fn corruption_with_position() {
             let at = DiskPtr::Inline(900);
             assert_eq!(
-                SledErrorMapper::map(sled::Error::Corruption { at: Some(at), bt: () }),
+                SledErrorMapper::map(SledError::Corruption { at: Some(at), bt: () }),
                 SystemError::unrecoverable(format!("Sled encountered corruption at {}", at))
             )
         }
@@ -355,7 +315,7 @@ mod tests {
         #[test]
         fn corruption_without_position() {
             assert_eq!(
-                SledErrorMapper::map(sled::Error::Corruption { at: None, bt: () }),
+                SledErrorMapper::map(SledError::Corruption { at: None, bt: () }),
                 SystemError::unrecoverable("Sled encountered corruption".to_owned())
             )
         }
@@ -364,7 +324,7 @@ mod tests {
         fn reportable_bug() {
             let description = "SOME_BUG_HERE";
             assert_eq!(
-                SledErrorMapper::map(sled::Error::ReportableBug(description.to_owned())),
+                SledErrorMapper::map(SledError::ReportableBug(description.to_owned())),
                 SystemError::unrecoverable(format!("Sled encountered reportable BUG: {}", description))
             );
         }
@@ -372,7 +332,7 @@ mod tests {
         #[test]
         fn io() {
             assert_eq!(
-                SledErrorMapper::map(sled::Error::Io(Error::new(ErrorKind::Other, "oh no!"))),
+                SledErrorMapper::map(SledError::Io(Error::new(ErrorKind::Other, "oh no!"))),
                 SystemError::io(Error::new(ErrorKind::Other, "oh no!"))
             )
         }
@@ -389,8 +349,8 @@ mod tests {
                 Ok(())
             );
 
-            assert!(storage.is_object_exists("namespace", "object_1"));
-            assert!(storage.is_object_exists("namespace", "object_2"));
+            assert!(storage.is_tree_exists("namespace", "object_1"));
+            assert!(storage.is_tree_exists("namespace", "object_2"));
         }
 
         #[rstest::rstest]
@@ -408,16 +368,16 @@ mod tests {
         #[rstest::rstest]
         fn dropping_namespace_drops_objects_in_it(mut with_namespace: Storage) {
             with_namespace
-                .create_object("namespace", "object_name_1")
+                .create_tree("namespace", "object_name_1")
                 .expect("object created");
             with_namespace
-                .create_object("namespace", "object_name_2")
+                .create_tree("namespace", "object_name_2")
                 .expect("object created");
 
             assert_eq!(with_namespace.drop_namespace("namespace"), Ok(()));
             assert_eq!(with_namespace.create_namespace("namespace"), Ok(()));
-            assert_eq!(with_namespace.create_object("namespace", "object_name_1"), Ok(()));
-            assert_eq!(with_namespace.create_object("namespace", "object_name_2"), Ok(()));
+            assert_eq!(with_namespace.create_tree("namespace", "object_name_1"), Ok(()));
+            assert_eq!(with_namespace.create_tree("namespace", "object_name_2"), Ok(()));
         }
     }
 
@@ -427,16 +387,16 @@ mod tests {
 
         #[rstest::rstest]
         fn create_objects_with_different_names(mut with_namespace: Storage) {
-            assert_eq!(with_namespace.create_object("namespace", "object_name_1"), Ok(()));
-            assert_eq!(with_namespace.create_object("namespace", "object_name_2"), Ok(()));
+            assert_eq!(with_namespace.create_tree("namespace", "object_name_1"), Ok(()));
+            assert_eq!(with_namespace.create_tree("namespace", "object_name_2"), Ok(()));
         }
 
         #[rstest::rstest]
         fn create_object_with_the_same_name_in_different_namespaces(mut storage: Storage) {
             storage.create_namespace("namespace_1").expect("namespace created");
             storage.create_namespace("namespace_2").expect("namespace created");
-            assert_eq!(storage.create_object("namespace_1", "object_name"), Ok(()));
-            assert_eq!(storage.create_object("namespace_2", "object_name"), Ok(()));
+            assert_eq!(storage.create_tree("namespace_1", "object_name"), Ok(()));
+            assert_eq!(storage.create_tree("namespace_2", "object_name"), Ok(()));
         }
     }
 
@@ -446,8 +406,8 @@ mod tests {
 
         #[rstest::rstest]
         fn drop_object(mut with_object: Storage) {
-            assert_eq!(with_object.drop_object("namespace", "object_name"), Ok(()));
-            assert_eq!(with_object.create_object("namespace", "object_name"), Ok(()));
+            assert_eq!(with_object.drop_tree("namespace", "object_name"), Ok(()));
+            assert_eq!(with_object.create_tree("namespace", "object_name"), Ok(()));
         }
     }
 

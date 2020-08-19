@@ -24,7 +24,7 @@ use protocol::{
 use std::sync::Arc;
 
 #[rstest::rstest]
-fn delete_from_nonexistent_table(sql_engine_with_schema: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+fn delete_from_nonexistent_table(sql_engine_with_schema: (QueryExecutor, Arc<Collector>)) {
     let (mut engine, collector) = sql_engine_with_schema;
     engine
         .execute("delete from schema_name.table_name;")
@@ -39,7 +39,7 @@ fn delete_from_nonexistent_table(sql_engine_with_schema: (QueryExecutor<InMemory
 }
 
 #[rstest::rstest]
-fn delete_all_records(sql_engine_with_schema: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+fn delete_all_records(sql_engine_with_schema: (QueryExecutor, Arc<Collector>)) {
     let (mut engine, collector) = sql_engine_with_schema;
     engine
         .execute("create table schema_name.table_name (column_test smallint);")

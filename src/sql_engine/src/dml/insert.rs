@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::frontend::FrontendStorage;
+use crate::catalog_manager::CatalogManager;
 use crate::{dml::ExpressionEvaluation, query::plan::TableInserts, ColumnDefinition};
 use kernel::SystemResult;
 use protocol::{
@@ -27,22 +27,22 @@ use std::{
     str::FromStr,
     sync::{Arc, Mutex},
 };
-use storage::{BackendStorage, Row};
+use storage::{DatabaseCatalog, Row};
 
-pub(crate) struct InsertCommand<'ic, P: BackendStorage> {
+pub(crate) struct InsertCommand<'ic> {
     raw_sql_query: &'ic str,
     table_inserts: TableInserts,
-    storage: Arc<Mutex<FrontendStorage<P>>>,
+    storage: Arc<Mutex<CatalogManager>>,
     session: Arc<dyn Sender>,
 }
 
-impl<'ic, P: BackendStorage> InsertCommand<'ic, P> {
+impl<'ic> InsertCommand<'ic> {
     pub(crate) fn new(
         raw_sql_query: &'ic str,
         table_inserts: TableInserts,
-        storage: Arc<Mutex<FrontendStorage<P>>>,
+        storage: Arc<Mutex<CatalogManager>>,
         session: Arc<dyn Sender>,
-    ) -> InsertCommand<'ic, P> {
+    ) -> InsertCommand<'ic> {
         InsertCommand {
             raw_sql_query,
             table_inserts,
