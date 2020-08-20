@@ -15,8 +15,8 @@
 extern crate bigdecimal;
 extern crate log;
 
-use crate::catalog_manager::CatalogManager;
 use crate::{
+    catalog_manager::CatalogManager,
     ddl::{
         create_schema::CreateSchemaCommand, create_table::CreateTableCommand, drop_schema::DropSchemaCommand,
         drop_table::DropTableCommand,
@@ -33,7 +33,6 @@ use serde::{Deserialize, Serialize};
 use sql_types::SqlType;
 use sqlparser::{ast::Statement, dialect::PostgreSqlDialect, parser::Parser};
 use std::sync::{Arc, Mutex};
-use storage::DatabaseCatalog;
 
 pub mod catalog_manager;
 mod ddl;

@@ -16,8 +16,7 @@ use async_dup::Arc as AsyncArc;
 use async_io::Async;
 use protocol::{Command, ProtocolConfiguration, Receiver};
 use smol::{self, block_on, Task};
-use sql_engine::catalog_manager::CatalogManager;
-use sql_engine::QueryExecutor;
+use sql_engine::{catalog_manager::CatalogManager, QueryExecutor};
 use std::{
     env,
     net::TcpListener,
@@ -27,7 +26,6 @@ use std::{
         Arc, Mutex,
     },
 };
-use storage::SledBackendStorage;
 
 const PORT: u16 = 5432;
 const HOST: [u8; 4] = [0, 0, 0, 0];

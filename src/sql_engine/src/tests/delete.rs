@@ -13,10 +13,7 @@
 // limitations under the License.
 
 use super::*;
-use crate::{
-    tests::{in_memory_backend_storage::InMemoryStorage, Collector},
-    QueryExecutor,
-};
+use crate::{tests::Collector, QueryExecutor};
 use protocol::{
     results::{QueryErrorBuilder, QueryEvent},
     sql_types::PostgreSqlType,

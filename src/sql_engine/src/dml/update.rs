@@ -12,9 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::catalog_manager::CatalogManager;
-use crate::dml::ExpressionEvaluation;
-use crate::ColumnDefinition;
+use crate::{catalog_manager::CatalogManager, dml::ExpressionEvaluation, ColumnDefinition};
 use kernel::SystemResult;
 use protocol::{
     results::{QueryErrorBuilder, QueryEvent},
@@ -28,7 +26,7 @@ use std::{
     convert::TryFrom,
     sync::{Arc, Mutex},
 };
-use storage::{DatabaseCatalog, Row};
+use storage::Row;
 
 pub(crate) struct UpdateCommand {
     name: ObjectName,

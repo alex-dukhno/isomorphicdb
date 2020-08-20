@@ -12,12 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::catalog_manager::CatalogManager;
-use crate::query::TableId;
+use crate::{catalog_manager::CatalogManager, query::TableId};
 use kernel::SystemResult;
 use protocol::{results::QueryEvent, Sender};
 use std::sync::{Arc, Mutex};
-use storage::DatabaseCatalog;
 
 pub(crate) struct DropTableCommand {
     name: TableId,

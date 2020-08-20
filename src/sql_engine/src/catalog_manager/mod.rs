@@ -17,6 +17,8 @@ use kernel::{Object, Operation, SystemError, SystemResult};
 use representation::Binary;
 use storage::{DatabaseCatalog, ReadCursor, Row, SledBackendStorage, StorageError};
 
+mod metadata;
+
 pub struct CatalogManager {
     key_id_generator: usize,
     persistent: Box<dyn DatabaseCatalog>,

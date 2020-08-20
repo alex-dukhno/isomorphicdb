@@ -20,7 +20,6 @@ use protocol::{
 };
 use sqlparser::ast::ObjectName;
 use std::sync::{Arc, Mutex};
-use storage::DatabaseCatalog;
 
 pub(crate) struct DeleteCommand {
     name: ObjectName,

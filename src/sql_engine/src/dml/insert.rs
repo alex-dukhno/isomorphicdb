@@ -12,8 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::catalog_manager::CatalogManager;
-use crate::{dml::ExpressionEvaluation, query::plan::TableInserts, ColumnDefinition};
+use crate::{catalog_manager::CatalogManager, dml::ExpressionEvaluation, query::plan::TableInserts, ColumnDefinition};
 use kernel::SystemResult;
 use protocol::{
     results::{QueryErrorBuilder, QueryEvent},
@@ -27,7 +26,7 @@ use std::{
     str::FromStr,
     sync::{Arc, Mutex},
 };
-use storage::{DatabaseCatalog, Row};
+use storage::Row;
 
 pub(crate) struct InsertCommand<'ic> {
     raw_sql_query: &'ic str,

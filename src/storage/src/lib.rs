@@ -14,13 +14,10 @@
 
 extern crate kernel;
 extern crate log;
-extern crate sql_types;
 
 use kernel::SystemError;
 use representation::Binary;
-use serde::{Deserialize, Serialize};
-use sled::{Db as KeySpace, Error as SledError};
-use sql_types::{ConstraintError, SqlType};
+use sled::{Db as NameSpace, Error as SledError};
 use std::collections::HashMap;
 
 pub type Row = (Key, Values);
@@ -88,11 +85,11 @@ impl SledErrorMapper {
 
 #[derive(Default)]
 pub struct SledBackendStorage {
-    namespaces: HashMap<String, sled::Db>,
+    namespaces: HashMap<String, NameSpace>,
 }
 
 impl SledBackendStorage {
-    fn new_namespace(&mut self, namespace: &str) -> StorageResult<&mut sled::Db> {
+    fn new_namespace(&mut self, namespace: &str) -> StorageResult<&mut NameSpace> {
         if self.namespaces.contains_key(namespace) {
             Err(StorageError::RuntimeCheckError)
         } else {

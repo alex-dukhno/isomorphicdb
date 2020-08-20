@@ -12,11 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::catalog_manager::CatalogManager;
 ///! Module for transforming the input Query AST into representation the engine can process.
 use crate::query::plan::{Plan, SchemaCreationInfo, TableCreationInfo, TableInserts};
-use crate::query::{SchemaId, SchemaNamingError, TableId, TableNamingError};
-use crate::ColumnDefinition;
+use crate::{
+    catalog_manager::CatalogManager,
+    query::{SchemaId, SchemaNamingError, TableId, TableNamingError},
+    ColumnDefinition,
+};
 use protocol::{results::QueryErrorBuilder, Sender};
 use sql_types::SqlType;
 use sqlparser::ast::{ColumnDef, DataType, ObjectName, ObjectType, Statement};
@@ -24,7 +26,6 @@ use std::{
     convert::TryFrom,
     sync::{Arc, Mutex, MutexGuard},
 };
-use storage::DatabaseCatalog;
 
 type Result<T> = std::result::Result<T, ()>;
 

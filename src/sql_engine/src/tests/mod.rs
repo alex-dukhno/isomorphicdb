@@ -30,8 +30,7 @@ mod type_constraints;
 mod update;
 
 use super::*;
-use crate::catalog_manager::CatalogManager;
-use crate::QueryExecutor;
+use crate::{catalog_manager::CatalogManager, QueryExecutor};
 use in_memory_backend_storage::InMemoryStorage;
 use protocol::results::QueryResult;
 use std::{

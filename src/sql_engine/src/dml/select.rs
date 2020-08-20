@@ -23,7 +23,6 @@ use std::{
     ops::Deref,
     sync::{Arc, Mutex},
 };
-use storage::DatabaseCatalog;
 
 pub(crate) struct SelectCommand<'sc> {
     raw_sql_query: &'sc str,
