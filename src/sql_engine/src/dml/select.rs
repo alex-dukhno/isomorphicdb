@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::catalog_manager::CatalogManager;
 use kernel::SystemResult;
 use protocol::{
     results::{QueryErrorBuilder, QueryEvent},
@@ -22,22 +23,21 @@ use std::{
     ops::Deref,
     sync::{Arc, Mutex},
 };
-use storage::{backend::BackendStorage, frontend::FrontendStorage};
 
-pub(crate) struct SelectCommand<'sc, P: BackendStorage> {
+pub(crate) struct SelectCommand<'sc> {
     raw_sql_query: &'sc str,
     query: Box<Query>,
-    storage: Arc<Mutex<FrontendStorage<P>>>,
+    storage: Arc<Mutex<CatalogManager>>,
     session: Arc<dyn Sender>,
 }
 
-impl<'sc, P: BackendStorage> SelectCommand<'sc, P> {
+impl<'sc> SelectCommand<'sc> {
     pub(crate) fn new(
         raw_sql_query: &'sc str,
         query: Box<Query>,
-        storage: Arc<Mutex<FrontendStorage<P>>>,
+        storage: Arc<Mutex<CatalogManager>>,
         session: Arc<dyn Sender>,
-    ) -> SelectCommand<'sc, P> {
+    ) -> SelectCommand<'sc> {
         SelectCommand {
             raw_sql_query,
             query,

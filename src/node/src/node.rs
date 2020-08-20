@@ -16,7 +16,7 @@ use async_dup::Arc as AsyncArc;
 use async_io::Async;
 use protocol::{Command, ProtocolConfiguration, Receiver};
 use smol::{self, block_on, Task};
-use sql_engine::QueryExecutor;
+use sql_engine::{catalog_manager::CatalogManager, QueryExecutor};
 use std::{
     env,
     net::TcpListener,
@@ -26,7 +26,6 @@ use std::{
         Arc, Mutex,
     },
 };
-use storage::{backend::SledBackendStorage, frontend::FrontendStorage};
 
 const PORT: u16 = 5432;
 const HOST: [u8; 4] = [0, 0, 0, 0];
@@ -36,8 +35,7 @@ pub const STOPPED: u8 = 1;
 
 pub fn start() {
     block_on(async {
-        let storage: Arc<Mutex<FrontendStorage<SledBackendStorage>>> =
-            Arc::new(Mutex::new(FrontendStorage::default().unwrap()));
+        let storage: Arc<Mutex<CatalogManager>> = Arc::new(Mutex::new(CatalogManager::default().unwrap()));
         let listener = Async::<TcpListener>::bind((HOST, PORT)).expect("OK");
 
         let state = Arc::new(AtomicU8::new(RUNNING));

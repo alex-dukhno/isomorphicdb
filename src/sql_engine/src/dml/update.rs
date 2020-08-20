@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::dml::ExpressionEvaluation;
+use crate::{catalog_manager::CatalogManager, dml::ExpressionEvaluation, ColumnDefinition};
 use kernel::SystemResult;
 use protocol::{
     results::{QueryErrorBuilder, QueryEvent},
@@ -26,22 +26,22 @@ use std::{
     convert::TryFrom,
     sync::{Arc, Mutex},
 };
-use storage::{backend::BackendStorage, frontend::FrontendStorage, ColumnDefinition, Row};
+use storage::Row;
 
-pub(crate) struct UpdateCommand<P: BackendStorage> {
+pub(crate) struct UpdateCommand {
     name: ObjectName,
     assignments: Vec<Assignment>,
-    storage: Arc<Mutex<FrontendStorage<P>>>,
+    storage: Arc<Mutex<CatalogManager>>,
     session: Arc<dyn Sender>,
 }
 
-impl<P: BackendStorage> UpdateCommand<P> {
+impl UpdateCommand {
     pub(crate) fn new(
         name: ObjectName,
         assignments: Vec<Assignment>,
-        storage: Arc<Mutex<FrontendStorage<P>>>,
+        storage: Arc<Mutex<CatalogManager>>,
         session: Arc<dyn Sender>,
-    ) -> UpdateCommand<P> {
+    ) -> UpdateCommand {
         UpdateCommand {
             name,
             assignments,

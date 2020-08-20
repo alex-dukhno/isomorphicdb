@@ -12,33 +12,36 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{
-    backend::{BackendError, BackendStorage, SledBackendStorage},
-    ColumnDefinition, ReadCursor, Row, TableDescription,
-};
+use crate::{ColumnDefinition, TableDefinition};
 use kernel::{Object, Operation, SystemError, SystemResult};
 use representation::Binary;
+use storage::{DatabaseCatalog, ReadCursor, Row, SledBackendStorage, StorageError};
 
-pub struct FrontendStorage<P: BackendStorage> {
+mod metadata;
+
+pub struct CatalogManager {
     key_id_generator: usize,
-    persistent: P,
+    persistent: Box<dyn DatabaseCatalog>,
 }
 
-impl FrontendStorage<SledBackendStorage> {
+impl CatalogManager {
     pub fn default() -> SystemResult<Self> {
-        Self::new(SledBackendStorage::default())
+        Self::new(Box::new(SledBackendStorage::default()))
     }
 }
 
-impl<P: BackendStorage> FrontendStorage<P> {
-    pub fn new(mut persistent: P) -> SystemResult<Self> {
+unsafe impl Send for CatalogManager {}
+unsafe impl Sync for CatalogManager {}
+
+impl CatalogManager {
+    pub fn new(mut persistent: Box<dyn DatabaseCatalog>) -> SystemResult<Self> {
         match persistent.create_namespace_with_objects("system", vec!["columns"]) {
             Ok(()) => Ok(Self {
                 key_id_generator: 0,
                 persistent,
             }),
-            Err(BackendError::SystemError(e)) => Err(e),
-            Err(BackendError::RuntimeCheckError) => Err(SystemError::bug_in_sql_engine(
+            Err(StorageError::SystemError(e)) => Err(e),
+            Err(StorageError::RuntimeCheckError) => Err(SystemError::bug_in_sql_engine(
                 Operation::Create,
                 Object::Schema("system"),
             )),
@@ -51,11 +54,11 @@ impl<P: BackendStorage> FrontendStorage<P> {
         key_id
     }
 
-    pub fn table_descriptor(&self, schema_name: &str, table_name: &str) -> SystemResult<TableDescription> {
+    pub fn table_descriptor(&self, schema_name: &str, table_name: &str) -> SystemResult<TableDefinition> {
         match self.persistent.check_for_object(schema_name, table_name) {
             Ok(()) => {}
-            Err(BackendError::SystemError(error)) => return Err(error),
-            Err(BackendError::RuntimeCheckError) => {
+            Err(StorageError::SystemError(error)) => return Err(error),
+            Err(StorageError::RuntimeCheckError) => {
                 return Err(SystemError::bug_in_sql_engine(
                     Operation::Access,
                     Object::Table(schema_name, table_name),
@@ -66,14 +69,14 @@ impl<P: BackendStorage> FrontendStorage<P> {
         // we know the table exists
         let columns_metadata = self.table_columns(schema_name, table_name)?;
 
-        Ok(TableDescription::new(schema_name, table_name, columns_metadata))
+        Ok(TableDefinition::new(schema_name, table_name, columns_metadata))
     }
 
     pub fn create_schema(&mut self, schema_name: &str) -> SystemResult<()> {
         match self.persistent.create_namespace(schema_name) {
             Ok(()) => Ok(()),
-            Err(BackendError::SystemError(error)) => Err(error),
-            Err(BackendError::RuntimeCheckError) => Err(SystemError::bug_in_sql_engine(
+            Err(StorageError::SystemError(error)) => Err(error),
+            Err(StorageError::RuntimeCheckError) => Err(SystemError::bug_in_sql_engine(
                 Operation::Create,
                 Object::Schema(schema_name),
             )),
@@ -83,8 +86,8 @@ impl<P: BackendStorage> FrontendStorage<P> {
     pub fn drop_schema(&mut self, schema_name: &str) -> SystemResult<()> {
         match self.persistent.drop_namespace(schema_name) {
             Ok(()) => Ok(()),
-            Err(BackendError::SystemError(error)) => Err(error),
-            Err(BackendError::RuntimeCheckError) => Err(SystemError::bug_in_sql_engine(
+            Err(StorageError::SystemError(error)) => Err(error),
+            Err(StorageError::RuntimeCheckError) => Err(SystemError::bug_in_sql_engine(
                 Operation::Drop,
                 Object::Schema(schema_name),
             )),
@@ -97,7 +100,7 @@ impl<P: BackendStorage> FrontendStorage<P> {
         table_name: &str,
         column_definitions: &[ColumnDefinition],
     ) -> SystemResult<()> {
-        match self.persistent.create_object(schema_name, table_name) {
+        match self.persistent.create_tree(schema_name, table_name) {
             Ok(()) => match self.persistent.write(
                 "system",
                 "columns",
@@ -117,14 +120,14 @@ impl<P: BackendStorage> FrontendStorage<P> {
                     log::info!("column data is recorded");
                     Ok(())
                 }
-                Err(BackendError::SystemError(error)) => Err(error),
-                Err(BackendError::RuntimeCheckError) => Err(SystemError::bug_in_sql_engine(
+                Err(StorageError::SystemError(error)) => Err(error),
+                Err(StorageError::RuntimeCheckError) => Err(SystemError::bug_in_sql_engine(
                     Operation::Access,
                     Object::Table("system", "columns"),
                 )),
             },
-            Err(BackendError::SystemError(error)) => Err(error),
-            Err(BackendError::RuntimeCheckError) => Err(SystemError::bug_in_sql_engine(
+            Err(StorageError::SystemError(error)) => Err(error),
+            Err(StorageError::RuntimeCheckError) => Err(SystemError::bug_in_sql_engine(
                 Operation::Create,
                 Object::Table(schema_name, table_name),
             )),
@@ -148,8 +151,8 @@ impl<P: BackendStorage> FrontendStorage<P> {
                 })
                 .next()
                 .unwrap_or_default()),
-            Err(BackendError::SystemError(error)) => Err(error),
-            Err(BackendError::RuntimeCheckError) => Err(SystemError::bug_in_sql_engine(
+            Err(StorageError::SystemError(error)) => Err(error),
+            Err(StorageError::RuntimeCheckError) => Err(SystemError::bug_in_sql_engine(
                 Operation::Access,
                 Object::Table(schema_name, table_name),
             )),
@@ -157,10 +160,10 @@ impl<P: BackendStorage> FrontendStorage<P> {
     }
 
     pub fn drop_table(&mut self, schema_name: &str, table_name: &str) -> SystemResult<()> {
-        match self.persistent.drop_object(schema_name, table_name) {
+        match self.persistent.drop_tree(schema_name, table_name) {
             Ok(()) => Ok(()),
-            Err(BackendError::SystemError(error)) => Err(error),
-            Err(BackendError::RuntimeCheckError) => Err(SystemError::bug_in_sql_engine(
+            Err(StorageError::SystemError(error)) => Err(error),
+            Err(StorageError::RuntimeCheckError) => Err(SystemError::bug_in_sql_engine(
                 Operation::Drop,
                 Object::Table(schema_name, table_name),
             )),
@@ -171,8 +174,8 @@ impl<P: BackendStorage> FrontendStorage<P> {
         log::debug!("{:#?}", values);
         match self.persistent.write(schema_name, table_name, values) {
             Ok(size) => Ok(size),
-            Err(BackendError::SystemError(error)) => Err(error),
-            Err(BackendError::RuntimeCheckError) => Err(SystemError::bug_in_sql_engine(
+            Err(StorageError::SystemError(error)) => Err(error),
+            Err(StorageError::RuntimeCheckError) => Err(SystemError::bug_in_sql_engine(
                 Operation::Access,
                 Object::Table(schema_name, table_name),
             )),
@@ -182,8 +185,8 @@ impl<P: BackendStorage> FrontendStorage<P> {
     pub fn table_scan(&mut self, schema_name: &str, table_name: &str) -> SystemResult<ReadCursor> {
         match self.persistent.read(schema_name, table_name) {
             Ok(read) => Ok(read),
-            Err(BackendError::SystemError(error)) => Err(error),
-            Err(BackendError::RuntimeCheckError) => Err(SystemError::bug_in_sql_engine(
+            Err(StorageError::SystemError(error)) => Err(error),
+            Err(StorageError::RuntimeCheckError) => Err(SystemError::bug_in_sql_engine(
                 Operation::Access,
                 Object::Table(schema_name, table_name),
             )),
@@ -193,8 +196,8 @@ impl<P: BackendStorage> FrontendStorage<P> {
     pub fn update_all(&mut self, schema_name: &str, table_name: &str, rows: Vec<Row>) -> SystemResult<usize> {
         match self.persistent.write(schema_name, table_name, rows) {
             Ok(size) => Ok(size),
-            Err(BackendError::SystemError(error)) => Err(error),
-            Err(BackendError::RuntimeCheckError) => Err(SystemError::bug_in_sql_engine(
+            Err(StorageError::SystemError(error)) => Err(error),
+            Err(StorageError::RuntimeCheckError) => Err(SystemError::bug_in_sql_engine(
                 Operation::Access,
                 Object::Table(schema_name, table_name),
             )),
@@ -212,8 +215,8 @@ impl<P: BackendStorage> FrontendStorage<P> {
                     ),
                 }
             }
-            Err(BackendError::SystemError(error)) => Err(error),
-            Err(BackendError::RuntimeCheckError) => Err(SystemError::bug_in_sql_engine(
+            Err(StorageError::SystemError(error)) => Err(error),
+            Err(StorageError::RuntimeCheckError) => Err(SystemError::bug_in_sql_engine(
                 Operation::Access,
                 Object::Table(schema_name, table_name),
             )),
@@ -225,7 +228,7 @@ impl<P: BackendStorage> FrontendStorage<P> {
     }
 
     pub fn table_exists(&self, schema_name: &str, table_name: &str) -> bool {
-        self.persistent.is_object_exists(schema_name, table_name)
+        self.persistent.is_tree_exists(schema_name, table_name)
     }
 }
 

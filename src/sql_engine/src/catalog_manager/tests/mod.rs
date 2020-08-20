@@ -13,7 +13,6 @@
 // limitations under the License.
 
 use super::*;
-use crate::backend;
 use sql_types::SqlType;
 
 #[cfg(test)]
@@ -23,7 +22,7 @@ mod schema;
 #[cfg(test)]
 mod table;
 
-type PersistentStorage = FrontendStorage<SledBackendStorage>;
+type PersistentStorage = CatalogManager;
 
 #[rstest::fixture]
 fn default_schema_name() -> &'static str {
@@ -32,7 +31,7 @@ fn default_schema_name() -> &'static str {
 
 #[rstest::fixture]
 fn storage() -> PersistentStorage {
-    FrontendStorage::default().expect("no system errors")
+    CatalogManager::default().expect("no system errors")
 }
 
 #[rstest::fixture]
@@ -41,12 +40,12 @@ fn storage_with_schema(mut storage: PersistentStorage, default_schema_name: &str
     storage
 }
 
-fn create_schema<P: backend::BackendStorage>(storage: &mut FrontendStorage<P>, schema_name: &str) {
+fn create_schema(storage: &mut CatalogManager, schema_name: &str) {
     storage.create_schema(schema_name).expect("schema is created");
 }
 
-fn create_table<P: backend::BackendStorage>(
-    storage: &mut FrontendStorage<P>,
+fn create_table(
+    storage: &mut CatalogManager,
     schema_name: &str,
     table_name: &str,
     column_names: Vec<ColumnDefinition>,
@@ -63,12 +62,7 @@ fn column_definition(name: &'static str, sql_type: SqlType) -> ColumnDefinition 
     }
 }
 
-fn insert_into<P: backend::BackendStorage>(
-    storage: &mut FrontendStorage<P>,
-    schema_name: &str,
-    table_name: &str,
-    values: Vec<(i32, Vec<&str>)>,
-) {
+fn insert_into(storage: &mut CatalogManager, schema_name: &str, table_name: &str, values: Vec<(i32, Vec<&str>)>) {
     storage
         .insert_into(
             schema_name,

@@ -1073,12 +1073,14 @@ name = "sql_engine"
 version = "0.1.0"
 dependencies = [
  "bigdecimal",
+ "bincode",
  "futures-lite",
  "kernel",
  "log",
  "protocol",
  "representation",
  "rstest",
+ "serde",
  "sql_types",
  "sqlparser",
  "storage",

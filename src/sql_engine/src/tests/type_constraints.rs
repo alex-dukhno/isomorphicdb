@@ -16,9 +16,7 @@ use super::*;
 use protocol::{results::QueryErrorBuilder, sql_types::PostgreSqlType};
 
 #[rstest::fixture]
-fn int_table(
-    sql_engine_with_schema: (QueryExecutor<InMemoryStorage>, Arc<Collector>),
-) -> (QueryExecutor<InMemoryStorage>, Arc<Collector>) {
+fn int_table(sql_engine_with_schema: (QueryExecutor, Arc<Collector>)) -> (QueryExecutor, Arc<Collector>) {
     let (mut engine, collector) = sql_engine_with_schema;
     engine
         .execute("create table schema_name.table_name(col smallint);")
@@ -28,9 +26,7 @@ fn int_table(
 }
 
 #[rstest::fixture]
-fn multiple_ints_table(
-    sql_engine_with_schema: (QueryExecutor<InMemoryStorage>, Arc<Collector>),
-) -> (QueryExecutor<InMemoryStorage>, Arc<Collector>) {
+fn multiple_ints_table(sql_engine_with_schema: (QueryExecutor, Arc<Collector>)) -> (QueryExecutor, Arc<Collector>) {
     let (mut engine, collector) = sql_engine_with_schema;
     engine
         .execute("create table schema_name.table_name(column_si smallint, column_i integer, column_bi bigint);")
@@ -40,9 +36,7 @@ fn multiple_ints_table(
 }
 
 #[rstest::fixture]
-fn str_table(
-    sql_engine_with_schema: (QueryExecutor<InMemoryStorage>, Arc<Collector>),
-) -> (QueryExecutor<InMemoryStorage>, Arc<Collector>) {
+fn str_table(sql_engine_with_schema: (QueryExecutor, Arc<Collector>)) -> (QueryExecutor, Arc<Collector>) {
     let (mut engine, collector) = sql_engine_with_schema;
     engine
         .execute("create table schema_name.table_name(col varchar(5));")
@@ -56,7 +50,7 @@ mod insert {
     use super::*;
 
     #[rstest::rstest]
-    fn out_of_range(int_table: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+    fn out_of_range(int_table: (QueryExecutor, Arc<Collector>)) {
         let (mut engine, collector) = int_table;
         let mut builder = QueryErrorBuilder::new();
         builder.out_of_range(PostgreSqlType::SmallInt, "col".to_string(), 1);
@@ -73,7 +67,7 @@ mod insert {
     }
 
     #[rstest::rstest]
-    fn type_mismatch(int_table: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+    fn type_mismatch(int_table: (QueryExecutor, Arc<Collector>)) {
         let (mut engine, collector) = int_table;
         let mut builder = QueryErrorBuilder::new();
         builder.type_mismatch("str", PostgreSqlType::SmallInt, "col".to_string(), 1);
@@ -90,7 +84,7 @@ mod insert {
     }
 
     #[rstest::rstest]
-    fn multiple_columns_multiple_row_violation(multiple_ints_table: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+    fn multiple_columns_multiple_row_violation(multiple_ints_table: (QueryExecutor, Arc<Collector>)) {
         let (mut engine, collector) = multiple_ints_table;
         engine
             .execute("insert into schema_name.table_name values (-32769, -2147483649, 100), (100, -2147483649, -9223372036854775809);")
@@ -108,7 +102,7 @@ mod insert {
     }
 
     #[rstest::rstest]
-    fn value_too_long(str_table: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+    fn value_too_long(str_table: (QueryExecutor, Arc<Collector>)) {
         let (mut engine, collector) = str_table;
         let mut builder = QueryErrorBuilder::new();
         builder.string_length_mismatch(PostgreSqlType::VarChar, 5, "col".to_string(), 1);
@@ -129,7 +123,7 @@ mod update {
     use super::*;
 
     #[rstest::rstest]
-    fn out_of_range(int_table: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+    fn out_of_range(int_table: (QueryExecutor, Arc<Collector>)) {
         let (mut engine, collector) = int_table;
         let mut builder = QueryErrorBuilder::new();
         builder.out_of_range(PostgreSqlType::SmallInt, "col".to_string(), 1);
@@ -150,7 +144,7 @@ mod update {
     }
 
     #[rstest::rstest]
-    fn type_mismatch(int_table: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+    fn type_mismatch(int_table: (QueryExecutor, Arc<Collector>)) {
         let (mut engine, collector) = int_table;
         let mut builder = QueryErrorBuilder::new();
         builder.type_mismatch("str", PostgreSqlType::SmallInt, "col".to_string(), 1);
@@ -170,7 +164,7 @@ mod update {
     }
 
     #[rstest::rstest]
-    fn value_too_long(str_table: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+    fn value_too_long(str_table: (QueryExecutor, Arc<Collector>)) {
         let (mut engine, collector) = str_table;
         let mut builder = QueryErrorBuilder::new();
         builder.string_length_mismatch(PostgreSqlType::VarChar, 5, "col".to_string(), 1);
@@ -191,7 +185,7 @@ mod update {
     }
 
     #[rstest::rstest]
-    fn multiple_columns_violation(multiple_ints_table: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+    fn multiple_columns_violation(multiple_ints_table: (QueryExecutor, Arc<Collector>)) {
         let (mut engine, collector) = multiple_ints_table;
         let mut builder = QueryErrorBuilder::new();
 

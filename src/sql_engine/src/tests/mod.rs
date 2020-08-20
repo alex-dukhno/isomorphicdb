@@ -30,7 +30,7 @@ mod type_constraints;
 mod update;
 
 use super::*;
-use crate::QueryExecutor;
+use crate::{catalog_manager::CatalogManager, QueryExecutor};
 use in_memory_backend_storage::InMemoryStorage;
 use protocol::results::QueryResult;
 use std::{
@@ -38,10 +38,11 @@ use std::{
     ops::Deref,
     sync::{Arc, Mutex},
 };
-use storage::frontend::FrontendStorage;
 
-fn in_memory_storage() -> Arc<Mutex<FrontendStorage<InMemoryStorage>>> {
-    Arc::new(Mutex::new(FrontendStorage::new(InMemoryStorage::default()).unwrap()))
+fn in_memory_storage() -> Arc<Mutex<CatalogManager>> {
+    Arc::new(Mutex::new(
+        CatalogManager::new(Box::new(InMemoryStorage::default())).unwrap(),
+    ))
 }
 
 struct Collector(Mutex<Vec<QueryResult>>);
@@ -61,15 +62,13 @@ impl Collector {
 }
 
 #[rstest::fixture]
-fn sql_engine() -> (QueryExecutor<InMemoryStorage>, Arc<Collector>) {
+fn sql_engine() -> (QueryExecutor, Arc<Collector>) {
     let collector = Arc::new(Collector(Mutex::new(vec![])));
     (QueryExecutor::new(in_memory_storage(), collector.clone()), collector)
 }
 
 #[rstest::fixture]
-fn sql_engine_with_schema(
-    sql_engine: (QueryExecutor<InMemoryStorage>, Arc<Collector>),
-) -> (QueryExecutor<InMemoryStorage>, Arc<Collector>) {
+fn sql_engine_with_schema(sql_engine: (QueryExecutor, Arc<Collector>)) -> (QueryExecutor, Arc<Collector>) {
     let (mut engine, collector) = sql_engine;
     engine.execute("create schema schema_name;").expect("no system errors");
 

@@ -12,24 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::query::plan::TableCreationInfo;
+use crate::{catalog_manager::CatalogManager, query::plan::TableCreationInfo};
 use kernel::SystemResult;
 use protocol::{results::QueryEvent, Sender};
 use std::sync::{Arc, Mutex};
-use storage::{backend::BackendStorage, frontend::FrontendStorage};
 
-pub(crate) struct CreateTableCommand<P: BackendStorage> {
+pub(crate) struct CreateTableCommand {
     table_info: TableCreationInfo,
-    storage: Arc<Mutex<FrontendStorage<P>>>,
+    storage: Arc<Mutex<CatalogManager>>,
     session: Arc<dyn Sender>,
 }
 
-impl<P: BackendStorage> CreateTableCommand<P> {
+impl CreateTableCommand {
     pub(crate) fn new(
         table_info: TableCreationInfo,
-        storage: Arc<Mutex<FrontendStorage<P>>>,
+        storage: Arc<Mutex<CatalogManager>>,
         session: Arc<dyn Sender>,
-    ) -> CreateTableCommand<P> {
+    ) -> CreateTableCommand {
         CreateTableCommand {
             table_info,
             storage,

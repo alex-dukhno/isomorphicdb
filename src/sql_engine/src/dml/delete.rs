@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::catalog_manager::CatalogManager;
 use kernel::SystemResult;
 use protocol::{
     results::{QueryErrorBuilder, QueryEvent},
@@ -19,20 +20,19 @@ use protocol::{
 };
 use sqlparser::ast::ObjectName;
 use std::sync::{Arc, Mutex};
-use storage::{backend::BackendStorage, frontend::FrontendStorage};
 
-pub(crate) struct DeleteCommand<P: BackendStorage> {
+pub(crate) struct DeleteCommand {
     name: ObjectName,
-    storage: Arc<Mutex<FrontendStorage<P>>>,
+    storage: Arc<Mutex<CatalogManager>>,
     session: Arc<dyn Sender>,
 }
 
-impl<P: BackendStorage> DeleteCommand<P> {
+impl DeleteCommand {
     pub(crate) fn new(
         name: ObjectName,
-        storage: Arc<Mutex<FrontendStorage<P>>>,
+        storage: Arc<Mutex<CatalogManager>>,
         session: Arc<dyn Sender>,
-    ) -> DeleteCommand<P> {
+    ) -> DeleteCommand {
         DeleteCommand { name, storage, session }
     }
 

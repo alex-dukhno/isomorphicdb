@@ -14,10 +14,7 @@
 
 use kernel::SystemResult;
 use std::collections::{BTreeMap, HashMap};
-use storage::{
-    backend::{BackendError, BackendResult, BackendStorage},
-    Key, ReadCursor, Row, Values,
-};
+use storage::{DatabaseCatalog, Key, ReadCursor, Row, StorageError, StorageResult, Values};
 
 #[derive(Default, Debug)]
 struct StorageObject {
@@ -34,12 +31,10 @@ pub struct InMemoryStorage {
     namespaces: HashMap<String, Namespace>,
 }
 
-impl BackendStorage for InMemoryStorage {
-    type ErrorMapper = storage::backend::SledErrorMapper;
-
-    fn create_namespace_with_objects(&mut self, namespace: &str, object_names: Vec<&str>) -> BackendResult<()> {
+impl DatabaseCatalog for InMemoryStorage {
+    fn create_namespace_with_objects(&mut self, namespace: &str, object_names: Vec<&str>) -> StorageResult<()> {
         if self.namespaces.contains_key(namespace) {
-            Err(BackendError::RuntimeCheckError)
+            Err(StorageError::RuntimeCheckError)
         } else {
             let namespace = self
                 .namespaces
@@ -55,27 +50,27 @@ impl BackendStorage for InMemoryStorage {
         }
     }
 
-    fn create_namespace(&mut self, namespace: &str) -> BackendResult<()> {
+    fn create_namespace(&mut self, namespace: &str) -> StorageResult<()> {
         if self.namespaces.contains_key(namespace) {
-            Err(BackendError::RuntimeCheckError)
+            Err(StorageError::RuntimeCheckError)
         } else {
             self.namespaces.insert(namespace.to_owned(), Namespace::default());
             Ok(())
         }
     }
 
-    fn drop_namespace(&mut self, namespace: &str) -> BackendResult<()> {
+    fn drop_namespace(&mut self, namespace: &str) -> StorageResult<()> {
         match self.namespaces.remove(namespace) {
             Some(_namespace) => Ok(()),
-            None => Err(BackendError::RuntimeCheckError),
+            None => Err(StorageError::RuntimeCheckError),
         }
     }
 
-    fn create_object(&mut self, namespace: &str, object_name: &str) -> BackendResult<()> {
+    fn create_tree(&mut self, namespace: &str, object_name: &str) -> StorageResult<()> {
         match self.namespaces.get_mut(namespace) {
             Some(namespace) => {
                 if namespace.objects.contains_key(object_name) {
-                    Err(BackendError::RuntimeCheckError)
+                    Err(StorageError::RuntimeCheckError)
                 } else {
                     namespace
                         .objects
@@ -83,21 +78,21 @@ impl BackendStorage for InMemoryStorage {
                     Ok(())
                 }
             }
-            None => Err(BackendError::RuntimeCheckError),
+            None => Err(StorageError::RuntimeCheckError),
         }
     }
 
-    fn drop_object(&mut self, namespace: &str, object_name: &str) -> BackendResult<()> {
+    fn drop_tree(&mut self, namespace: &str, object_name: &str) -> StorageResult<()> {
         match self.namespaces.get_mut(namespace) {
             Some(namespace) => match namespace.objects.remove(object_name) {
                 Some(_) => Ok(()),
-                None => Err(BackendError::RuntimeCheckError),
+                None => Err(StorageError::RuntimeCheckError),
             },
-            None => Err(BackendError::RuntimeCheckError),
+            None => Err(StorageError::RuntimeCheckError),
         }
     }
 
-    fn write(&mut self, namespace: &str, object_name: &str, rows: Vec<(Key, Values)>) -> BackendResult<usize> {
+    fn write(&mut self, namespace: &str, object_name: &str, rows: Vec<(Key, Values)>) -> StorageResult<usize> {
         match self.namespaces.get_mut(namespace) {
             Some(namespace) => match namespace.objects.get_mut(object_name) {
                 Some(object) => {
@@ -107,13 +102,13 @@ impl BackendStorage for InMemoryStorage {
                     }
                     Ok(len)
                 }
-                None => Err(BackendError::RuntimeCheckError),
+                None => Err(StorageError::RuntimeCheckError),
             },
-            None => Err(BackendError::RuntimeCheckError),
+            None => Err(StorageError::RuntimeCheckError),
         }
     }
 
-    fn read(&self, namespace: &str, object_name: &str) -> BackendResult<ReadCursor> {
+    fn read(&self, namespace: &str, object_name: &str) -> StorageResult<ReadCursor> {
         match self.namespaces.get(namespace) {
             Some(namespace) => match namespace.objects.get(object_name) {
                 Some(object) => Ok(Box::new(
@@ -125,13 +120,13 @@ impl BackendStorage for InMemoryStorage {
                         .collect::<Vec<SystemResult<Row>>>()
                         .into_iter(),
                 )),
-                None => Err(BackendError::RuntimeCheckError),
+                None => Err(StorageError::RuntimeCheckError),
             },
-            None => Err(BackendError::RuntimeCheckError),
+            None => Err(StorageError::RuntimeCheckError),
         }
     }
 
-    fn delete(&mut self, namespace: &str, object_name: &str, keys: Vec<Key>) -> BackendResult<usize> {
+    fn delete(&mut self, namespace: &str, object_name: &str, keys: Vec<Key>) -> StorageResult<usize> {
         match self.namespaces.get_mut(namespace) {
             Some(namespace) => match namespace.objects.get_mut(object_name) {
                 Some(object) => {
@@ -143,9 +138,9 @@ impl BackendStorage for InMemoryStorage {
                         .collect();
                     Ok(keys.len())
                 }
-                None => Err(BackendError::RuntimeCheckError),
+                None => Err(StorageError::RuntimeCheckError),
             },
-            None => Err(BackendError::RuntimeCheckError),
+            None => Err(StorageError::RuntimeCheckError),
         }
     }
 
@@ -153,20 +148,20 @@ impl BackendStorage for InMemoryStorage {
         self.namespaces.contains_key(namespace)
     }
 
-    fn is_object_exists(&self, namespace: &str, object_name: &str) -> bool {
+    fn is_tree_exists(&self, namespace: &str, object_name: &str) -> bool {
         self.check_for_object(namespace, object_name).is_ok()
     }
 
-    fn check_for_object(&self, namespace: &str, object_name: &str) -> BackendResult<()> {
+    fn check_for_object(&self, namespace: &str, object_name: &str) -> StorageResult<()> {
         match self.namespaces.get(namespace) {
             Some(namespace) => {
                 if namespace.objects.contains_key(object_name) {
                     Ok(())
                 } else {
-                    Err(BackendError::RuntimeCheckError)
+                    Err(StorageError::RuntimeCheckError)
                 }
             }
-            None => Err(BackendError::RuntimeCheckError),
+            None => Err(StorageError::RuntimeCheckError),
         }
     }
 }
@@ -192,7 +187,7 @@ mod tests {
     #[rstest::fixture]
     fn with_object(mut with_namespace: Storage) -> Storage {
         with_namespace
-            .create_object("namespace", "object_name")
+            .create_tree("namespace", "object_name")
             .expect("object created");
         with_namespace
     }
@@ -208,8 +203,8 @@ mod tests {
                 Ok(())
             );
 
-            assert!(storage.is_object_exists("namespace", "object_1"));
-            assert!(storage.is_object_exists("namespace", "object_2"));
+            assert!(storage.is_tree_exists("namespace", "object_1"));
+            assert!(storage.is_tree_exists("namespace", "object_2"));
         }
 
         #[rstest::rstest]
@@ -227,16 +222,16 @@ mod tests {
         #[rstest::rstest]
         fn dropping_namespace_drops_objects_in_it(mut with_namespace: Storage) {
             with_namespace
-                .create_object("namespace", "object_name_1")
+                .create_tree("namespace", "object_name_1")
                 .expect("object created");
             with_namespace
-                .create_object("namespace", "object_name_2")
+                .create_tree("namespace", "object_name_2")
                 .expect("object created");
 
             assert_eq!(with_namespace.drop_namespace("namespace"), Ok(()));
             assert_eq!(with_namespace.create_namespace("namespace"), Ok(()));
-            assert_eq!(with_namespace.create_object("namespace", "object_name_1"), Ok(()));
-            assert_eq!(with_namespace.create_object("namespace", "object_name_2"), Ok(()));
+            assert_eq!(with_namespace.create_tree("namespace", "object_name_1"), Ok(()));
+            assert_eq!(with_namespace.create_tree("namespace", "object_name_2"), Ok(()));
         }
     }
 
@@ -246,16 +241,16 @@ mod tests {
 
         #[rstest::rstest]
         fn create_objects_with_different_names(mut with_namespace: Storage) {
-            assert_eq!(with_namespace.create_object("namespace", "object_name_1"), Ok(()));
-            assert_eq!(with_namespace.create_object("namespace", "object_name_2"), Ok(()));
+            assert_eq!(with_namespace.create_tree("namespace", "object_name_1"), Ok(()));
+            assert_eq!(with_namespace.create_tree("namespace", "object_name_2"), Ok(()));
         }
 
         #[rstest::rstest]
         fn create_object_with_the_same_name_in_different_namespaces(mut storage: Storage) {
             storage.create_namespace("namespace_1").expect("namespace created");
             storage.create_namespace("namespace_2").expect("namespace created");
-            assert_eq!(storage.create_object("namespace_1", "object_name"), Ok(()));
-            assert_eq!(storage.create_object("namespace_2", "object_name"), Ok(()));
+            assert_eq!(storage.create_tree("namespace_1", "object_name"), Ok(()));
+            assert_eq!(storage.create_tree("namespace_2", "object_name"), Ok(()));
         }
     }
 
@@ -265,8 +260,8 @@ mod tests {
 
         #[rstest::rstest]
         fn drop_object(mut with_object: Storage) {
-            assert_eq!(with_object.drop_object("namespace", "object_name"), Ok(()));
-            assert_eq!(with_object.create_object("namespace", "object_name"), Ok(()));
+            assert_eq!(with_object.drop_tree("namespace", "object_name"), Ok(()));
+            assert_eq!(with_object.create_tree("namespace", "object_name"), Ok(()));
         }
     }
 

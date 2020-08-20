@@ -14,7 +14,11 @@
 
 ///! Module for transforming the input Query AST into representation the engine can process.
 use crate::query::plan::{Plan, SchemaCreationInfo, TableCreationInfo, TableInserts};
-use crate::query::{SchemaId, SchemaNamingError, TableId, TableNamingError};
+use crate::{
+    catalog_manager::CatalogManager,
+    query::{SchemaId, SchemaNamingError, TableId, TableNamingError},
+    ColumnDefinition,
+};
 use protocol::{results::QueryErrorBuilder, Sender};
 use sql_types::SqlType;
 use sqlparser::ast::{ColumnDef, DataType, ObjectName, ObjectType, Statement};
@@ -22,21 +26,20 @@ use std::{
     convert::TryFrom,
     sync::{Arc, Mutex, MutexGuard},
 };
-use storage::{backend::BackendStorage, frontend::FrontendStorage, ColumnDefinition};
 
 type Result<T> = std::result::Result<T, ()>;
 
-pub(crate) struct QueryProcessor<B: BackendStorage> {
-    storage: Arc<Mutex<FrontendStorage<B>>>,
+pub(crate) struct QueryProcessor {
+    storage: Arc<Mutex<CatalogManager>>,
     session: Arc<dyn Sender>,
 }
 
-impl<'qp, B: BackendStorage> QueryProcessor<B> {
-    pub fn new(storage: Arc<Mutex<FrontendStorage<B>>>, session: Arc<dyn Sender>) -> Self {
+impl<'qp> QueryProcessor {
+    pub fn new(storage: Arc<Mutex<CatalogManager>>, session: Arc<dyn Sender>) -> Self {
         Self { storage, session }
     }
 
-    fn storage(&self) -> MutexGuard<FrontendStorage<B>> {
+    fn storage(&self) -> MutexGuard<CatalogManager> {
         self.storage.lock().unwrap()
     }
 
