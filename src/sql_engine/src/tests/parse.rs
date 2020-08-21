@@ -26,7 +26,7 @@ fn parse_select_statement(sql_engine_with_schema: (QueryExecutor, Arc<Collector>
         .parse(
             "statement_name",
             "select * from schema_name.table_name where column = $1 and column_2 = $2;",
-            &vec![PostgreSqlType::SmallInt, PostgreSqlType::SmallInt],
+            &[PostgreSqlType::SmallInt, PostgreSqlType::SmallInt],
         )
         .expect("no system errors");
 
@@ -46,7 +46,7 @@ fn parse_select_statement_with_not_existed_table(sql_engine_with_schema: (QueryE
         .parse(
             "statement_name",
             "select * from schema_name.non_existent where column_1 = $1;",
-            &vec![],
+            &[],
         )
         .unwrap_err();
     assert_eq!(
@@ -73,7 +73,7 @@ fn parse_select_statement_with_not_existed_column(sql_engine_with_schema: (Query
         .parse(
             "statement_name",
             "select column_not_in_table from schema_name.table_name where column_1 = $1;",
-            &vec![],
+            &[],
         )
         .unwrap_err();
     assert_eq!(
@@ -102,7 +102,7 @@ fn parse_update_statement(sql_engine_with_schema: (QueryExecutor, Arc<Collector>
         .parse(
             "statement_name",
             "update schema_name.table_name set column_1 = $1 where column_2 = $2;",
-            &vec![PostgreSqlType::SmallInt, PostgreSqlType::SmallInt],
+            &[PostgreSqlType::SmallInt, PostgreSqlType::SmallInt],
         )
         .expect("no system errors");
 

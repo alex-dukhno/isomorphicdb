@@ -25,7 +25,7 @@ fn describe_select_statement(sql_engine_with_schema: (QueryExecutor, Arc<Collect
         .parse(
             "statement_name",
             "select * from schema_name.table_name where column = $1 and column_2 = $2;",
-            &vec![PostgreSqlType::SmallInt, PostgreSqlType::SmallInt],
+            &[PostgreSqlType::SmallInt, PostgreSqlType::SmallInt],
         )
         .expect("no system errors");
     engine
@@ -57,7 +57,7 @@ fn describe_update_statement(sql_engine_with_schema: (QueryExecutor, Arc<Collect
         .parse(
             "statement_name",
             "update schema_name.table_name set column_1 = $1 where column_2 = $2;",
-            &vec![PostgreSqlType::SmallInt, PostgreSqlType::SmallInt],
+            &[PostgreSqlType::SmallInt, PostgreSqlType::SmallInt],
         )
         .expect("no system errors");
     engine
