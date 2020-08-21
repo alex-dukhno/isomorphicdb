@@ -59,7 +59,7 @@ mod insert {
             .execute("insert into schema_name.table_name values (32768);")
             .expect("no system errors");
 
-        collector.assert_content(vec![
+        collector.assert_content_for_single_queries(vec![
             Ok(QueryEvent::SchemaCreated),
             Ok(QueryEvent::TableCreated),
             Err(builder.build()),
@@ -76,7 +76,7 @@ mod insert {
             .execute("insert into schema_name.table_name values ('str');")
             .expect("no system errors");
 
-        collector.assert_content(vec![
+        collector.assert_content_for_single_queries(vec![
             Ok(QueryEvent::SchemaCreated),
             Ok(QueryEvent::TableCreated),
             Err(builder.build()),
@@ -94,7 +94,7 @@ mod insert {
         builder.out_of_range(PostgreSqlType::SmallInt, "column_si".to_owned(), 1);
         builder.out_of_range(PostgreSqlType::Integer, "column_i".to_owned(), 1);
 
-        collector.assert_content(vec![
+        collector.assert_content_for_single_queries(vec![
             Ok(QueryEvent::SchemaCreated),
             Ok(QueryEvent::TableCreated),
             Err(builder.build()),
@@ -110,7 +110,7 @@ mod insert {
             .execute("insert into schema_name.table_name values ('123457890');")
             .expect("no system errors");
 
-        collector.assert_content(vec![
+        collector.assert_content_for_single_queries(vec![
             Ok(QueryEvent::SchemaCreated),
             Ok(QueryEvent::TableCreated),
             Err(builder.build()),
@@ -135,7 +135,7 @@ mod update {
             .execute("update schema_name.table_name set col = 32768;")
             .expect("no system errors");
 
-        collector.assert_content(vec![
+        collector.assert_content_for_single_queries(vec![
             Ok(QueryEvent::SchemaCreated),
             Ok(QueryEvent::TableCreated),
             Ok(QueryEvent::RecordsInserted(1)),
@@ -155,7 +155,7 @@ mod update {
             .execute("update schema_name.table_name set col = 'str';")
             .expect("no system errors");
 
-        collector.assert_content(vec![
+        collector.assert_content_for_single_queries(vec![
             Ok(QueryEvent::SchemaCreated),
             Ok(QueryEvent::TableCreated),
             Ok(QueryEvent::RecordsInserted(1)),
@@ -176,7 +176,7 @@ mod update {
             .execute("update schema_name.table_name set col = '123457890';")
             .expect("no system errors");
 
-        collector.assert_content(vec![
+        collector.assert_content_for_single_queries(vec![
             Ok(QueryEvent::SchemaCreated),
             Ok(QueryEvent::TableCreated),
             Ok(QueryEvent::RecordsInserted(1)),
@@ -200,7 +200,7 @@ mod update {
         builder.out_of_range(PostgreSqlType::SmallInt, "column_si".to_owned(), 1);
         builder.out_of_range(PostgreSqlType::Integer, "column_i".to_owned(), 1);
 
-        collector.assert_content(vec![
+        collector.assert_content_for_single_queries(vec![
             Ok(QueryEvent::SchemaCreated),
             Ok(QueryEvent::TableCreated),
             Ok(QueryEvent::RecordsInserted(2)),

@@ -27,7 +27,7 @@ fn delete_from_nonexistent_table(sql_engine_with_schema: (QueryExecutor, Arc<Col
         .execute("delete from schema_name.table_name;")
         .expect("no system errors");
 
-    collector.assert_content(vec![
+    collector.assert_content_for_single_queries(vec![
         Ok(QueryEvent::SchemaCreated),
         Err(QueryErrorBuilder::new()
             .table_does_not_exist("schema_name.table_name".to_owned())
@@ -57,7 +57,7 @@ fn delete_all_records(sql_engine_with_schema: (QueryExecutor, Arc<Collector>)) {
         .execute("select * from schema_name.table_name;")
         .expect("no system errors");
 
-    collector.assert_content(vec![
+    collector.assert_content_for_single_queries(vec![
         Ok(QueryEvent::SchemaCreated),
         Ok(QueryEvent::TableCreated),
         Ok(QueryEvent::RecordsInserted(1)),

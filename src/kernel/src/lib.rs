@@ -113,6 +113,7 @@ impl PartialEq for SystemErrorKind {
         match (self, other) {
             (SystemErrorKind::Io(_), SystemErrorKind::Io(_)) => true,
             (SystemErrorKind::Unrecoverable, SystemErrorKind::Unrecoverable) => true,
+            (SystemErrorKind::RuntimeCheckFailure, SystemErrorKind::RuntimeCheckFailure) => true,
             _ => false,
         }
     }

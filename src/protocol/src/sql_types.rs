@@ -36,6 +36,28 @@ pub enum PostgreSqlType {
 }
 
 impl PostgreSqlType {
+    /// Returns the type corresponding to the provided OID, if the OID is known.
+    pub fn from_oid(oid: u32) -> Option<Self> {
+        match oid {
+            16 => Some(Self::Bool),
+            18 => Some(Self::Char),
+            20 => Some(Self::BigInt),
+            21 => Some(Self::SmallInt),
+            23 => Some(Self::Integer),
+            700 => Some(Self::Real),
+            701 => Some(Self::DoublePrecision),
+            1043 => Some(Self::VarChar),
+            1082 => Some(Self::Date),
+            1083 => Some(Self::Time),
+            1114 => Some(Self::Timestamp),
+            1184 => Some(Self::TimestampWithTimeZone),
+            1186 => Some(Self::Interval),
+            1266 => Some(Self::TimeWithTimeZone),
+            1700 => Some(Self::Decimal),
+            _ => None,
+        }
+    }
+
     /// PostgreSQL type OID
     pub fn pg_oid(&self) -> i32 {
         match self {

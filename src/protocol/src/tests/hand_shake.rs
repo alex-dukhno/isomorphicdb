@@ -166,6 +166,7 @@ fn successful_connection_handshake_for_none_secure() {
                 .as_vec()
                 .as_slice(),
         );
+        expected_content.extend_from_slice(BackendMessage::ReadyForQuery.as_vec().as_slice());
         assert_eq!(actual_content, expected_content);
     });
 }

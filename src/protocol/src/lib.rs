@@ -19,6 +19,7 @@ extern crate log;
 use crate::{
     messages::{BackendMessage, Encryption, FrontendMessage},
     results::QueryResult,
+    sql_types::PostgreSqlType,
 };
 use async_mutex::Mutex as AsyncMutex;
 use async_native_tls::TlsStream;
@@ -89,6 +90,12 @@ pub enum Error {
 pub enum Command {
     /// Nothing needs to handle on client, just to receive next message
     Continue,
+    /// Client commands to describe a prepared statement
+    DescribeStatement(String),
+    /// Client commands to flush the output stream
+    Flush,
+    /// Client commands to prepare a statement for execution
+    Parse(String, String, Vec<PostgreSqlType>),
     /// Client commands to execute a `Query`
     Query(String),
     /// Client commands to terminate current connection
@@ -167,6 +174,11 @@ where
                             .as_vec()
                             .as_slice(),
                     )
+                    .await?;
+
+                log::debug!("Send ready_for_query message");
+                channel
+                    .write_all(BackendMessage::ReadyForQuery.as_vec().as_slice())
                     .await?;
 
                 let channel = Arc::new(AsyncMutex::new(channel));
@@ -251,13 +263,6 @@ impl<RW: AsyncRead + AsyncWrite + Unpin> RequestReceiver<RW> {
 #[async_trait]
 impl<RW: AsyncRead + AsyncWrite + Unpin> Receiver for RequestReceiver<RW> {
     async fn receive(&mut self) -> io::Result<Result<Command>> {
-        log::debug!("Send ready_for_query message");
-        self.channel
-            .lock()
-            .await
-            .write_all(BackendMessage::ReadyForQuery.as_vec().as_slice())
-            .await?;
-
         // Parses the one-byte tag.
         let mut buffer = [0u8; 1];
         let tag = self
@@ -290,6 +295,13 @@ impl<RW: AsyncRead + AsyncWrite + Unpin> Receiver for RequestReceiver<RW> {
         };
 
         match message {
+            FrontendMessage::DescribeStatement { name } => Ok(Ok(Command::DescribeStatement(name))),
+            FrontendMessage::Flush => Ok(Ok(Command::Flush)),
+            FrontendMessage::Parse {
+                statement_name,
+                sql,
+                param_types,
+            } => Ok(Ok(Command::Parse(statement_name, sql, param_types))),
             FrontendMessage::Query { sql } => Ok(Ok(Command::Query(sql))),
             FrontendMessage::Terminate => Ok(Ok(Command::Terminate)),
             _ => Ok(Ok(Command::Continue)),
@@ -326,6 +338,14 @@ impl<RW: AsyncRead + AsyncWrite + Unpin> ResponseSender<RW> {
 }
 
 impl<RW: AsyncRead + AsyncWrite + Unpin> Sender for ResponseSender<RW> {
+    fn flush(&self) -> io::Result<()> {
+        block_on(async {
+            self.channel.lock().await.flush().await.expect("OK");
+        });
+
+        Ok(())
+    }
+
     fn send(&self, query_result: QueryResult) -> io::Result<()> {
         block_on(async {
             let messages: Vec<BackendMessage> = query_result.map_or_else(|event| event.into(), |err| err.into());
@@ -347,6 +367,9 @@ impl<RW: AsyncRead + AsyncWrite + Unpin> Sender for ResponseSender<RW> {
 /// Trait to handle server to client query results for PostgreSQL Wire Protocol
 /// connection
 pub trait Sender: Send + Sync {
+    /// Flushes the output stream.
+    fn flush(&self) -> io::Result<()>;
+
     /// Sends response messages to client. Most of the time it is a single
     /// message, select result one of the exceptional situation
     fn send(&self, query_result: QueryResult) -> io::Result<()>;

@@ -12,7 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{Error, Result};
+use crate::{sql_types::PostgreSqlType, Error, Result};
+use byteorder::{ByteOrder, NetworkEndian};
 
 const COMMAND_COMPLETE: u8 = b'C';
 const DATA_ROW: u8 = b'D';
@@ -26,6 +27,11 @@ const AUTHENTICATION: u8 = b'R';
 const PARAMETER_STATUS: u8 = b'S';
 const ROW_DESCRIPTION: u8 = b'T';
 const READY_FOR_QUERY: u8 = b'Z';
+const PARAMETER_DESCRIPTION: u8 = b't';
+const NO_DATA: u8 = b'n';
+const PARSE_COMPLETE: u8 = b'1';
+const BIND_COMPLETE: u8 = b'2';
+const CLOSE_COMPLETE: u8 = b'3';
 
 pub(crate) enum Encryption {
     AcceptSsl,
@@ -62,6 +68,9 @@ pub enum FrontendMessage {
         statement_name: String,
         /// The SQL to parse.
         sql: String,
+        /// The number of specified parameter data types can be less than the
+        /// number of parameters specified in the query.
+        param_types: Vec<PostgreSqlType>,
     },
 
     /// Describe an existing prepared statement.
@@ -212,6 +221,19 @@ pub enum BackendMessage {
     /// see https://www.postgresql.org/docs/12/protocol-flow.html#PROTOCOL-ASYNC
     /// 3rd and 4th paragraph
     ParameterStatus(String, String),
+    /// Indicates that parameters are needed by a prepared statement.
+    ParameterDescription(Vec<i32>),
+    /// Indicates that the statement will not return rows.
+    NoData,
+    /// This message informs the frontend about the previous `Parse` frontend
+    /// message is successful.
+    ParseComplete,
+    /// This message informs the frontend about the previous `Bind` frontend
+    /// message is successful.
+    BindComplete,
+    /// This message informs the frontend about the previous `Close` frontend
+    /// message is successful.
+    CloseComplete,
 }
 
 impl BackendMessage {
@@ -300,6 +322,22 @@ impl BackendMessage {
                 parameter_status_buff.extend_from_slice(parameters.as_ref());
                 parameter_status_buff
             }
+            BackendMessage::ParameterDescription(type_ids) => {
+                let mut type_id_buff = Vec::new();
+                for type_id in type_ids.iter() {
+                    type_id_buff.extend_from_slice(&type_id.to_be_bytes());
+                }
+                let mut buff = Vec::new();
+                buff.extend_from_slice(&[PARAMETER_DESCRIPTION]);
+                buff.extend_from_slice(&(6 + type_id_buff.len() as i32).to_be_bytes());
+                buff.extend_from_slice(&(type_ids.len() as i16).to_be_bytes());
+                buff.extend_from_slice(&type_id_buff);
+                buff
+            }
+            BackendMessage::NoData => vec![NO_DATA, 0, 0, 0, 4],
+            BackendMessage::ParseComplete => vec![PARSE_COMPLETE, 0, 0, 0, 4],
+            BackendMessage::BindComplete => vec![BIND_COMPLETE, 0, 0, 0, 4],
+            BackendMessage::CloseComplete => vec![CLOSE_COMPLETE, 0, 0, 0, 4],
         }
     }
 }
@@ -372,6 +410,28 @@ impl<'a> Cursor<'a> {
             Err(Error::InvalidUtfString)
         }
     }
+
+    /// Reads the next 16-bit signed integer, advancing the cursor by two
+    /// bytes.
+    fn read_i16(&mut self) -> Result<i16> {
+        if self.buf.len() < 2 {
+            return Err(Error::InvalidInput("not enough buffer for an Int16".to_owned()));
+        }
+        let val = NetworkEndian::read_i16(self.buf);
+        self.advance(2);
+        Ok(val)
+    }
+
+    /// Reads the next 32-bit unsigned integer, advancing the cursor by four
+    /// bytes.
+    fn read_u32(&mut self) -> Result<u32> {
+        if self.buf.len() < 4 {
+            return Err(Error::InvalidInput("not enough buffer for an Int32".to_owned()));
+        }
+        let val = NetworkEndian::read_u32(self.buf);
+        self.advance(4);
+        Ok(val)
+    }
 }
 
 fn decode_bind(mut cursor: Cursor) -> Result<FrontendMessage> {
@@ -422,7 +482,18 @@ fn decode_parse(mut cursor: Cursor) -> Result<FrontendMessage> {
     let statement_name = cursor.read_cstr()?.to_owned();
     let sql = cursor.read_cstr()?.to_owned();
 
-    Ok(FrontendMessage::Parse { statement_name, sql })
+    let mut param_types = vec![];
+    for _ in 0..cursor.read_i16()? {
+        let oid = cursor.read_u32()?;
+        let sql_type = PostgreSqlType::from_oid(oid).unwrap();
+        param_types.push(sql_type);
+    }
+
+    Ok(FrontendMessage::Parse {
+        statement_name,
+        sql,
+        param_types,
+    })
 }
 
 fn decode_sync(_cursor: Cursor) -> Result<FrontendMessage> {
@@ -543,14 +614,16 @@ mod decoding_frontend_messages {
     fn parse() {
         let buffer = [
             0, 115, 101, 108, 101, 99, 116, 32, 42, 32, 102, 114, 111, 109, 32, 115, 99, 104, 101, 109, 97, 95, 110,
-            97, 109, 101, 46, 116, 97, 98, 108, 101, 95, 110, 97, 109, 101, 59, 0, 0, 0,
+            97, 109, 101, 46, 116, 97, 98, 108, 101, 95, 110, 97, 109, 101, 32, 119, 104, 101, 114, 101, 32, 115, 105,
+            95, 99, 111, 108, 117, 109, 110, 32, 61, 32, 36, 49, 59, 0, 0, 1, 0, 0, 0, 23,
         ];
         let message = FrontendMessage::decode(b'P', &buffer);
         assert_eq!(
             message,
             Ok(FrontendMessage::Parse {
                 statement_name: "".to_owned(),
-                sql: "select * from schema_name.table_name;".to_owned()
+                sql: "select * from schema_name.table_name where si_column = $1;".to_owned(),
+                param_types: vec![PostgreSqlType::Integer]
             })
         );
     }
@@ -711,5 +784,33 @@ mod serializing_backend_messages {
             BackendMessage::ErrorResponse(None, None, None).as_vec(),
             vec![ERROR_RESPONSE, 0, 0, 0, 5, 0]
         )
+    }
+
+    #[test]
+    fn parameter_description() {
+        assert_eq!(
+            BackendMessage::ParameterDescription(vec![23]).as_vec(),
+            vec![PARAMETER_DESCRIPTION, 0, 0, 0, 10, 0, 1, 0, 0, 0, 23]
+        )
+    }
+
+    #[test]
+    fn no_data() {
+        assert_eq!(BackendMessage::NoData.as_vec(), vec![NO_DATA, 0, 0, 0, 4])
+    }
+
+    #[test]
+    fn parse_complete() {
+        assert_eq!(BackendMessage::ParseComplete.as_vec(), vec![PARSE_COMPLETE, 0, 0, 0, 4])
+    }
+
+    #[test]
+    fn bind_complete() {
+        assert_eq!(BackendMessage::BindComplete.as_vec(), vec![BIND_COMPLETE, 0, 0, 0, 4])
+    }
+
+    #[test]
+    fn close_complete() {
+        assert_eq!(BackendMessage::CloseComplete.as_vec(), vec![CLOSE_COMPLETE, 0, 0, 0, 4])
     }
 }

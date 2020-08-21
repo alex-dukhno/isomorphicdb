@@ -20,11 +20,13 @@ use std::fmt::{self, Display, Formatter};
 
 /// Represents result of SQL query execution
 pub type QueryResult = std::result::Result<QueryEvent, QueryError>;
+/// Represents selected columns from tables
+pub type Description = Vec<(String, PostgreSqlType)>;
 /// Represents selected data from tables
-pub type Projection = (Vec<(String, PostgreSqlType)>, Vec<Vec<String>>);
+pub type Projection = (Description, Vec<Vec<String>>);
 
 /// Represents successful events that can happen in server backend
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum QueryEvent {
     /// Schema successfully created
     SchemaCreated,
@@ -46,6 +48,12 @@ pub enum QueryEvent {
     RecordsUpdated(usize),
     /// Number of records deleted into a table
     RecordsDeleted(usize),
+    /// Parameters described needed by a prepared statement
+    PreparedStatementDescribed(Vec<PostgreSqlType>, Description),
+    /// Parsing the exteneded query is complete
+    ParseComplete,
+    /// Processing of the query is complete
+    QueryComplete,
 }
 
 impl Into<Vec<BackendMessage>> for QueryEvent {
@@ -77,6 +85,22 @@ impl Into<Vec<BackendMessage>> for QueryEvent {
             }
             QueryEvent::RecordsUpdated(records) => vec![BackendMessage::CommandComplete(format!("UPDATE {}", records))],
             QueryEvent::RecordsDeleted(records) => vec![BackendMessage::CommandComplete(format!("DELETE {}", records))],
+            QueryEvent::PreparedStatementDescribed(param_types, description) => {
+                let desc_message = if description.is_empty() {
+                    BackendMessage::NoData
+                } else {
+                    let columns: Vec<ColumnMetadata> = description
+                        .into_iter()
+                        .map(|(name, sql_type)| ColumnMetadata::new(name, sql_type.pg_oid(), sql_type.pg_len()))
+                        .collect();
+                    BackendMessage::RowDescription(columns)
+                };
+
+                let type_ids = param_types.iter().map(|t| t.pg_oid()).collect();
+                vec![BackendMessage::ParameterDescription(type_ids), desc_message]
+            }
+            QueryEvent::QueryComplete => vec![BackendMessage::ReadyForQuery],
+            QueryEvent::ParseComplete => vec![BackendMessage::ParseComplete],
         }
     }
 }
@@ -118,6 +142,7 @@ pub(crate) enum QueryErrorKind {
     SchemaDoesNotExist(String),
     TableDoesNotExist(String),
     ColumnDoesNotExist(Vec<String>),
+    PreparedStatementDoesNotExist(String),
     FeatureNotSupported(String),
     TooManyInsertExpressions,
     NumericTypeOutOfRange {
@@ -153,6 +178,7 @@ impl QueryErrorKind {
             Self::SchemaDoesNotExist(_) => "3F000",
             Self::TableDoesNotExist(_) => "42P01",
             Self::ColumnDoesNotExist(_) => "42703",
+            Self::PreparedStatementDoesNotExist(_) => "26000",
             Self::FeatureNotSupported(_) => "0A000",
             Self::TooManyInsertExpressions => "42601",
             Self::NumericTypeOutOfRange { .. } => "22003",
@@ -177,6 +203,9 @@ impl Display for QueryErrorKind {
                 } else {
                     write!(f, "column {} does not exist", columns[0])
                 }
+            }
+            Self::PreparedStatementDoesNotExist(statement_name) => {
+                write!(f, "prepared statement {} does not exist", statement_name)
             }
             Self::FeatureNotSupported(raw_sql_query) => {
                 write!(f, "Currently, Query '{}' can't be executed", raw_sql_query)
@@ -329,6 +358,15 @@ impl QueryErrorBuilder {
         self.errors.push(QueryErrorInner {
             severity: Severity::Error,
             kind: QueryErrorKind::ColumnDoesNotExist(non_existing_columns),
+        });
+        self
+    }
+
+    /// prepared statement does not exist error constructor
+    pub fn prepared_statement_does_not_exist(mut self, statement_name: String) -> Self {
+        self.errors.push(QueryErrorInner {
+            severity: Severity::Error,
+            kind: QueryErrorKind::PreparedStatementDoesNotExist(statement_name),
         });
         self
     }
@@ -512,6 +550,38 @@ mod tests {
                 vec![BackendMessage::CommandComplete(format!("DELETE {}", records_number))]
             )
         }
+
+        #[test]
+        fn describe_prepared_statement() {
+            let messages: Vec<BackendMessage> = QueryEvent::PreparedStatementDescribed(
+                vec![PostgreSqlType::SmallInt],
+                vec![("si_column".to_owned(), PostgreSqlType::SmallInt)],
+            )
+            .into();
+            assert_eq!(
+                messages,
+                [
+                    BackendMessage::ParameterDescription(vec![21]),
+                    BackendMessage::RowDescription(vec![ColumnMetadata {
+                        name: "si_column".to_owned(),
+                        type_id: 21,
+                        type_size: 2
+                    }])
+                ]
+            )
+        }
+
+        #[test]
+        fn complete_parse() {
+            let messages: Vec<BackendMessage> = QueryEvent::ParseComplete.into();
+            assert_eq!(messages, [BackendMessage::ParseComplete])
+        }
+
+        #[test]
+        fn complete_query() {
+            let messages: Vec<BackendMessage> = QueryEvent::QueryComplete.into();
+            assert_eq!(messages, [BackendMessage::ReadyForQuery])
+        }
     }
 
     #[cfg(test)]
@@ -617,6 +687,22 @@ mod tests {
                     Some("ERROR"),
                     Some("42703"),
                     Some("columns column_not_in_table1, column_not_in_table2 do not exist".to_owned()),
+                )]
+            )
+        }
+
+        #[test]
+        fn prepared_statement_does_not_exists() {
+            let messages: Vec<BackendMessage> = QueryErrorBuilder::new()
+                .prepared_statement_does_not_exist("statement_name".to_owned())
+                .build()
+                .into();
+            assert_eq!(
+                messages,
+                vec![BackendMessage::ErrorResponse(
+                    Some("ERROR"),
+                    Some("26000"),
+                    Some("prepared statement statement_name does not exist".to_owned()),
                 )]
             )
         }
