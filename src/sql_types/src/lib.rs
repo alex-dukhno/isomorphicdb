@@ -16,7 +16,7 @@ use protocol::sql_types::PostgreSqlType;
 use serde::{Deserialize, Serialize};
 use std::convert::TryInto;
 
-#[derive(PartialEq, Eq, Debug, Copy, Clone, Serialize, Deserialize)]
+#[derive(PartialEq, Eq, Debug, Copy, Clone, Serialize, Deserialize, Hash, Ord, PartialOrd)]
 pub enum SqlType {
     Bool,
     Char(u64),
@@ -33,6 +33,35 @@ pub enum SqlType {
     TimestampWithTimeZone,
     Date,
     Interval,
+}
+
+impl ToString for SqlType {
+    fn to_string(&self) -> String {
+        let string: &'static str = self.into();
+        string.to_owned()
+    }
+}
+
+impl Into<&'static str> for &SqlType {
+    fn into(self) -> &'static str {
+        match self {
+            SqlType::Bool => "bool",
+            SqlType::Char(_) => "char",
+            SqlType::VarChar(_) => "varchar",
+            SqlType::SmallInt(_) => "smallint",
+            SqlType::Integer(_) => "integer",
+            SqlType::BigInt(_) => "bigint",
+            SqlType::Decimal => "decimal",
+            SqlType::Real => "real",
+            SqlType::DoublePrecision => "double precision",
+            SqlType::Time => "time",
+            SqlType::TimeWithTimeZone => "time with time zone",
+            SqlType::Timestamp => "timestamp",
+            SqlType::TimestampWithTimeZone => "timestamp with time zone",
+            SqlType::Date => "date",
+            SqlType::Interval => "interval",
+        }
+    }
 }
 
 impl SqlType {

@@ -13,7 +13,12 @@
 // limitations under the License.
 
 use crate::ColumnDefinition;
+use kernel::{SystemError, SystemResult};
+use representation::{Binary, Datum};
 use sql_types::SqlType;
+use std::collections::BTreeMap;
+use std::path::PathBuf;
+use std::sync::Arc;
 use std::{
     collections::HashMap,
     sync::{
@@ -21,11 +26,20 @@ use std::{
         RwLock,
     },
 };
+use storage::{DatabaseCatalog, InitStatus, SledDatabaseCatalog, StorageError};
 
-#[allow(dead_code)]
-const DEFAULT_CATALOG: &'_ str = "public";
+const SYSTEM_CATALOG: &'_ str = "system";
+// CREATE SCHEMA DEFINITION_SCHEMA
+//      AUTHORIZATION DEFINITION_SCHEMA
 #[allow(dead_code)]
 const DEFINITION_SCHEMA: &'_ str = "DEFINITION_SCHEMA";
+//CREATE TABLE CATALOG_NAMES (
+//     CATALOG_NAME    INFORMATION_SCHEMA.SQL_IDENTIFIER,
+//                     CONSTRAINT CATALOG_NAMES_PRIMARY_KEY
+//                         PRIMARY KEY (CATALOG_NAME)
+// )
+#[allow(dead_code)]
+const CATALOG_NAMES_TABLE: &'_ str = "CATALOG_NAMES";
 // CREATE TABLE SCHEMATA (
 //     CATALOG_NAME                    INFORMATION_SCHEMA.SQL_IDENTIFIER,
 //     SCHEMA_NAME                     INFORMATION_SCHEMA.SQL_IDENTIFIER,
@@ -257,6 +271,11 @@ const TABLES_TABLE: &'_ str = "TABLES";
 #[allow(dead_code)]
 const COLUMNS_TABLE: &'_ str = "COLUMNS";
 
+#[allow(dead_code)]
+fn catalog_names_types() -> [ColumnDefinition; 1] {
+    [ColumnDefinition::new("CATALOG_NAME", SqlType::VarChar(255))]
+}
+
 /// **SCHEMATA_TABLE** sql types definition
 /// CATALOG_NAME    varchar(255)
 /// SCHEMA_NAME     varchar(255)
@@ -298,34 +317,512 @@ fn columns_table_types() -> [ColumnDefinition; 5] {
     ]
 }
 
-#[allow(dead_code)]
-pub(crate) struct DataDefinition {
-    schemas_id: AtomicU64,
-    schemas: RwLock<HashMap<String, u64>>,
+pub enum DropStrategy {
+    Restrict,
+    Cascade,
 }
 
-#[allow(dead_code)]
+type Id = u64;
+type Name = String;
+
+struct Catalog {
+    id: Id,
+    schemas: RwLock<HashMap<Name, Arc<Schema>>>,
+    schema_id_generator: AtomicU64,
+}
+
+impl Catalog {
+    fn new(id: Id) -> Catalog {
+        Catalog {
+            id,
+            schemas: RwLock::default(),
+            schema_id_generator: AtomicU64::default(),
+        }
+    }
+
+    fn id(&self) -> Id {
+        self.id
+    }
+
+    fn schema_exists(&self, schema_name: &str) -> Option<Id> {
+        self.schemas
+            .read()
+            .expect("to acquire read lock")
+            .get(schema_name)
+            .map(|schema| schema.id())
+    }
+
+    fn create_schema(&self, schema_name: &str) -> Id {
+        let schema_id = self.schema_id_generator.fetch_add(1, Ordering::SeqCst);
+        self.schemas
+            .write()
+            .expect("to acquire write lock")
+            .insert(schema_name.to_owned(), Arc::new(Schema::new(schema_id)));
+        schema_id
+    }
+
+    fn add_schema(&self, schema_id: Id, schema_name: &str) -> Arc<Schema> {
+        let schema = Arc::new(Schema::new(schema_id));
+        self.schemas
+            .write()
+            .expect("to acquire write lock")
+            .insert(schema_name.to_owned(), schema.clone());
+        schema
+    }
+
+    fn remove_schema(&self, schema_name: &str) {
+        self.schemas.write().expect("to acquire write lock").remove(schema_name);
+    }
+
+    fn schema(&self, schema_name: &str) -> Option<Arc<Schema>> {
+        self.schemas
+            .read()
+            .expect("to acquire read lock")
+            .get(schema_name)
+            .cloned()
+    }
+}
+
+struct Schema {
+    id: Id,
+    tables: RwLock<HashMap<Name, Arc<Table>>>,
+    table_id_generator: AtomicU64,
+}
+
+impl Schema {
+    fn new(id: Id) -> Schema {
+        Schema {
+            id,
+            tables: RwLock::default(),
+            table_id_generator: AtomicU64::default(),
+        }
+    }
+
+    fn id(&self) -> Id {
+        self.id
+    }
+
+    fn create_table(&self, table_name: &str, column_definitions: &[ColumnDefinition]) -> Arc<Table> {
+        let table_id = self.table_id_generator.fetch_add(1, Ordering::SeqCst);
+        let table = Arc::new(Table::new(table_id, column_definitions));
+        self.tables
+            .write()
+            .expect("to acquire write lock")
+            .insert(table_name.to_owned(), table.clone());
+        table
+    }
+
+    fn add_table(
+        &self,
+        table_id: Id,
+        table_name: &str,
+        column_definitions: BTreeMap<Id, ColumnDefinition>,
+        max_id: Id,
+    ) {
+        self.tables.write().expect("to acquire write lock").insert(
+            table_name.to_owned(),
+            Arc::new(Table::restore(table_id, column_definitions, max_id)),
+        );
+    }
+
+    fn table_exists(&self, table_name: &str) -> Option<Id> {
+        self.tables
+            .read()
+            .expect("to acquire read lock")
+            .get(table_name)
+            .map(|table| table.id())
+    }
+
+    fn remove_table(&self, table_name: &str) {
+        self.tables.write().expect("to acquire lock").remove(table_name);
+    }
+}
+
+struct Table {
+    id: Id,
+    columns: RwLock<BTreeMap<Id, ColumnDefinition>>,
+    column_id_generator: AtomicU64,
+}
+
+impl Table {
+    fn new(id: Id, column_definitions: &[ColumnDefinition]) -> Table {
+        let table = Table {
+            id,
+            columns: RwLock::default(),
+            column_id_generator: AtomicU64::default(),
+        };
+        for column_definition in column_definitions.to_vec().into_iter() {
+            table.add_column(column_definition)
+        }
+        table
+    }
+
+    fn restore(id: Id, column_definitions: BTreeMap<Id, ColumnDefinition>, max_id: Id) -> Table {
+        Table {
+            id,
+            columns: RwLock::new(column_definitions),
+            column_id_generator: AtomicU64::new(max_id),
+        }
+    }
+
+    fn id(&self) -> Id {
+        self.id
+    }
+
+    fn add_column(&self, column_definition: ColumnDefinition) {
+        let column_id = self.column_id_generator.fetch_add(1, Ordering::SeqCst);
+        self.columns
+            .write()
+            .expect("to acquire write lock")
+            .insert(column_id, column_definition);
+    }
+
+    fn columns(&self) -> Vec<(Id, ColumnDefinition)> {
+        self.columns
+            .read()
+            .expect("to acquire read lock")
+            .iter()
+            .map(|(id, definition)| (*id, definition.clone()))
+            .collect()
+    }
+}
+
+pub(crate) struct DataDefinition {
+    catalog_ids: AtomicU64,
+    catalogs: RwLock<HashMap<Name, Arc<Catalog>>>,
+    system_catalog: Option<Box<dyn DatabaseCatalog>>,
+}
+
 impl DataDefinition {
     pub(crate) fn in_memory() -> DataDefinition {
         DataDefinition {
-            schemas_id: AtomicU64::default(),
-            schemas: RwLock::new(HashMap::new()),
+            catalog_ids: AtomicU64::default(),
+            catalogs: RwLock::default(),
+            system_catalog: None,
+        }
+    }
+
+    pub(crate) fn persistent(path: &PathBuf) -> SystemResult<DataDefinition> {
+        let system_catalog = SledDatabaseCatalog::new(path.join(SYSTEM_CATALOG));
+        let (catalogs, catalog_ids) = match system_catalog.init(DEFINITION_SCHEMA) {
+            Ok(InitStatus::Loaded) => {
+                let mut max_id = 0;
+                let catalogs = system_catalog
+                    .read(DEFINITION_SCHEMA, CATALOG_NAMES_TABLE)
+                    .expect("to have CATALOG_NAMES table")
+                    .map(Result::unwrap)
+                    .map(|(id, name)| {
+                        let catalog_id = id.unpack()[0].as_u64();
+                        max_id = max_id.max(catalog_id);
+                        let catalog_name = name.unpack()[0].as_str().to_owned();
+                        (catalog_name, Arc::new(Catalog::new(catalog_id)))
+                    })
+                    .collect::<HashMap<_, _>>();
+                (catalogs, max_id)
+            }
+            Ok(InitStatus::Created) => {
+                system_catalog
+                    .create_tree(DEFINITION_SCHEMA, CATALOG_NAMES_TABLE)
+                    .expect("table CATALOG_NAMES is created");
+                system_catalog
+                    .create_tree(DEFINITION_SCHEMA, SCHEMATA_TABLE)
+                    .expect("table SCHEMATA is created");
+                system_catalog
+                    .create_tree(DEFINITION_SCHEMA, TABLES_TABLE)
+                    .expect("table TABLES is created");
+                system_catalog
+                    .create_tree(DEFINITION_SCHEMA, COLUMNS_TABLE)
+                    .expect("table COLUMNS is created");
+                (HashMap::new(), 0)
+            }
+            Err(StorageError::RuntimeCheckError) => {
+                return Err(SystemError::runtime_check_failure(
+                    "No Path in SledDatabaseCatalog".to_owned(),
+                ))
+            }
+            Err(StorageError::SystemError(error)) => return Err(error),
+        };
+        Ok(DataDefinition {
+            catalog_ids: AtomicU64::new(catalog_ids),
+            catalogs: RwLock::new(catalogs),
+            system_catalog: Some(Box::new(system_catalog)),
+        })
+    }
+
+    pub(crate) fn create_catalog(&self, catalog_name: &str) {
+        let catalog_id = self.catalog_ids.fetch_add(1, Ordering::SeqCst);
+        self.catalogs
+            .write()
+            .expect("to acquire write lock")
+            .insert(catalog_name.to_owned(), Arc::new(Catalog::new(catalog_id)));
+        if let Some(system_catalog) = self.system_catalog.as_ref() {
+            system_catalog
+                .write(
+                    DEFINITION_SCHEMA,
+                    CATALOG_NAMES_TABLE,
+                    vec![(
+                        Binary::pack(&[Datum::from_u64(catalog_id)]),
+                        Binary::pack(&[Datum::from_str(catalog_name)]),
+                    )],
+                )
+                .expect("to save catalog");
+        }
+    }
+
+    pub(crate) fn catalog_exists(&self, catalog_name: &str) -> Option<Id> {
+        self.catalogs
+            .read()
+            .expect("to acquire read lock")
+            .get(catalog_name)
+            .map(|database| database.id())
+    }
+
+    pub(crate) fn drop_catalog(&self, catalog_name: &str, _strategy: DropStrategy) {
+        match self
+            .catalogs
+            .write()
+            .expect("to acquire write lock")
+            .remove(catalog_name)
+        {
+            Some(catalog) => {
+                if let Some(system_catalog) = self.system_catalog.as_ref() {
+                    system_catalog
+                        .delete(
+                            DEFINITION_SCHEMA,
+                            CATALOG_NAMES_TABLE,
+                            vec![Binary::pack(&[Datum::from_u64(catalog.id())])],
+                        )
+                        .expect("to remove catalog");
+                }
+            }
+            None => {}
         }
     }
 
     pub(crate) fn create_schema(&self, catalog_name: &str, schema_name: &str) {
-        let id = self.schemas_id.fetch_add(1, Ordering::SeqCst);
-        self.schemas
-            .write()
-            .expect("to acquire write lock")
-            .insert(catalog_name.to_owned() + "." + schema_name, id);
+        let catalog = match self.catalog(catalog_name) {
+            Some(catalog) => catalog.clone(),
+            None => return,
+        };
+        let schema_id = catalog.create_schema(schema_name);
+        if let Some(system_catalog) = self.system_catalog.as_ref() {
+            system_catalog
+                .write(
+                    DEFINITION_SCHEMA,
+                    SCHEMATA_TABLE,
+                    vec![(
+                        Binary::pack(&[Datum::from_u64(schema_id)]),
+                        Binary::pack(&[Datum::from_str(catalog_name), Datum::from_str(schema_name)]),
+                    )],
+                )
+                .expect("to save schema");
+        }
     }
 
-    pub(crate) fn schema_exists(&self, catalog_name: &str, schema_name: &str) -> Option<u64> {
-        self.schemas
+    pub(crate) fn schema_exists(&self, catalog_name: &str, schema_name: &str) -> Option<(Id, Option<Id>)> {
+        let catalog = match self.catalog(catalog_name) {
+            Some(catalog) => catalog,
+            None => return None,
+        };
+        let schema_id = match catalog.schema_exists(schema_name) {
+            None => {
+                if let Some(system_catalog) = self.system_catalog.as_ref() {
+                    let schema_id = system_catalog
+                        .read(DEFINITION_SCHEMA, SCHEMATA_TABLE)
+                        .expect("to have SCHEMATA_TABLE table")
+                        .map(Result::unwrap)
+                        .map(|(record_id, columns)| {
+                            let id = record_id.unpack()[0].as_u64();
+                            let name = columns.unpack()[1].as_str().to_owned();
+                            (id, name)
+                        })
+                        .filter(|(_id, name)| name == &schema_name)
+                        .map(|(id, _name)| id)
+                        .next();
+                    match schema_id {
+                        Some(schema_id) => {
+                            catalog.add_schema(schema_id, schema_name);
+                            Some(schema_id)
+                        }
+                        None => None,
+                    }
+                } else {
+                    None
+                }
+            }
+            schema_id => schema_id,
+        };
+        Some((catalog.id(), schema_id))
+    }
+
+    pub(crate) fn drop_schema(&self, catalog_name: &str, schema_name: &str) {
+        let catalog = match self.catalog(catalog_name) {
+            Some(catalog) => catalog,
+            None => return,
+        };
+        catalog.remove_schema(schema_name);
+    }
+
+    pub(crate) fn table_exists(
+        &self,
+        catalog_name: &str,
+        schema_name: &str,
+        table_name: &str,
+    ) -> Option<(Id, Option<(Id, Option<Id>)>)> {
+        let catalog = match self.catalog(catalog_name) {
+            Some(catalog) => catalog,
+            None => return None,
+        };
+        let schema = match catalog.schema(schema_name) {
+            Some(schema) => schema,
+            None => {
+                if let Some(system_catalog) = self.system_catalog.as_ref() {
+                    let schema_id = system_catalog
+                        .read(DEFINITION_SCHEMA, SCHEMATA_TABLE)
+                        .expect("to have SCHEMATA_TABLE table")
+                        .map(Result::unwrap)
+                        .map(|(record_id, columns)| {
+                            let id = record_id.unpack()[0].as_u64();
+                            let name = columns.unpack()[1].as_str().to_owned();
+                            (id, name)
+                        })
+                        .filter(|(_id, name)| name == &schema_name)
+                        .map(|(id, _name)| id)
+                        .next();
+                    match schema_id {
+                        Some(schema_id) => catalog.add_schema(schema_id, schema_name),
+                        None => return Some((catalog.id(), None)),
+                    }
+                } else {
+                    return Some((catalog.id(), None));
+                }
+            }
+        };
+        let table_id = match schema.table_exists(table_name) {
+            None => {
+                if let Some(system_catalog) = self.system_catalog.as_ref() {
+                    let table_info = system_catalog
+                        .read(DEFINITION_SCHEMA, TABLES_TABLE)
+                        .expect("to have TABLES table")
+                        .map(Result::unwrap)
+                        .map(|(record_id, data)| {
+                            let id = record_id.unpack()[0].as_u64();
+                            let data = data.unpack();
+                            let schema = data[1].as_str().to_owned();
+                            let table = data[2].as_str().to_owned();
+                            (id, schema, table)
+                        })
+                        .filter(|(_id, schema, table)| schema == schema_name && table == table_name)
+                        .map(|(id, _schema, _table)| id)
+                        .next();
+                    match table_info {
+                        Some(table_id) => {
+                            let mut max_id = 0;
+                            let table_columns = system_catalog
+                                .read(DEFINITION_SCHEMA, COLUMNS_TABLE)
+                                .expect("to have COLUMNS table")
+                                .map(Result::unwrap)
+                                .map(|(record_id, data)| {
+                                    let id = record_id.unpack()[0].as_u64();
+                                    let data = data.unpack();
+                                    let schema = data[1].as_str().to_owned();
+                                    let table = data[2].as_str().to_owned();
+                                    let column = data[3].as_str().to_owned();
+                                    let sql_type = data[4].as_sql_type();
+                                    max_id = max_id.max(id);
+                                    (id, schema, table, column, sql_type)
+                                })
+                                .filter(|(_id, schema, table, _column, _sql_type)| {
+                                    schema == schema_name && table == table_name
+                                })
+                                .map(|(id, _schema, _table, column, sql_type)| {
+                                    (id, ColumnDefinition::new(column.as_str(), sql_type))
+                                })
+                                .collect::<BTreeMap<_, _>>();
+                            schema.add_table(table_id, table_name, table_columns, max_id);
+                            Some(table_id)
+                        }
+                        None => None,
+                    }
+                } else {
+                    None
+                }
+            }
+            table_id => table_id,
+        };
+        Some((catalog.id(), Some((schema.id(), table_id))))
+    }
+
+    pub(crate) fn create_table(
+        &self,
+        catalog_name: &str,
+        schema_name: &str,
+        table_name: &str,
+        column_definitions: &[ColumnDefinition],
+    ) {
+        let catalog = match self.catalog(catalog_name) {
+            Some(catalog) => catalog,
+            None => return,
+        };
+        let schema = match catalog.schema(schema_name) {
+            Some(schema) => schema,
+            None => return,
+        };
+        let created_table = schema.create_table(table_name, column_definitions);
+        if let Some(system_catalog) = self.system_catalog.as_ref() {
+            system_catalog
+                .write(
+                    DEFINITION_SCHEMA,
+                    TABLES_TABLE,
+                    vec![(
+                        Binary::pack(&[Datum::from_u64(created_table.id())]),
+                        Binary::pack(&[
+                            Datum::from_str(catalog_name),
+                            Datum::from_str(schema_name),
+                            Datum::from_str(table_name),
+                        ]),
+                    )],
+                )
+                .expect("to save table info");
+            for (id, column) in created_table.columns() {
+                system_catalog
+                    .write(
+                        DEFINITION_SCHEMA,
+                        COLUMNS_TABLE,
+                        vec![(
+                            Binary::pack(&[Datum::from_u64(id)]),
+                            Binary::pack(&[
+                                Datum::from_str(catalog_name),
+                                Datum::from_str(schema_name),
+                                Datum::from_str(table_name),
+                                Datum::from_str(column.name().as_str()),
+                                Datum::from_sql_type(column.sql_type()),
+                                Datum::UInt64(id),
+                            ]),
+                        )],
+                    )
+                    .expect("to save column");
+            }
+        }
+    }
+
+    pub(crate) fn drop_table(&self, catalog_name: &str, schema_name: &str, table_name: &str) {
+        let catalog = match self.catalog(catalog_name) {
+            Some(catalog) => catalog,
+            None => return,
+        };
+        let schema = match catalog.schema(schema_name) {
+            Some(schema) => schema,
+            None => return,
+        };
+        schema.remove_table(table_name);
+    }
+
+    fn catalog(&self, catalog_name: &str) -> Option<Arc<Catalog>> {
+        self.catalogs
             .read()
             .expect("to acquire read lock")
-            .get(&(catalog_name.to_owned() + "." + schema_name))
+            .get(catalog_name)
             .cloned()
     }
 }
@@ -335,18 +832,204 @@ mod tests {
     use super::*;
 
     #[test]
+    fn not_created_catalog_does_not_exist() {
+        let data_definition = DataDefinition::in_memory();
+
+        assert!(data_definition.catalog_exists("catalog_name").is_none());
+    }
+
+    #[test]
+    fn create_catalog() {
+        let data_definition = DataDefinition::in_memory();
+
+        data_definition.create_catalog("catalog_name");
+
+        assert!(data_definition.catalog_exists("catalog_name").is_some());
+    }
+
+    #[test]
+    fn drop_catalog() {
+        let data_definition = DataDefinition::in_memory();
+
+        data_definition.create_catalog("catalog_name");
+
+        assert!(data_definition.catalog_exists("catalog_name").is_some());
+
+        data_definition.drop_catalog("catalog_name", DropStrategy::Restrict);
+
+        assert!(data_definition.catalog_exists("catalog_name").is_none());
+    }
+
+    #[test]
     fn not_created_schema_does_not_exist() {
         let data_definition = DataDefinition::in_memory();
 
-        assert!(data_definition.schema_exists("catalog_name", "schema_name").is_none());
+        data_definition.create_catalog("catalog_name");
+        assert!(data_definition
+            .schema_exists("catalog_name", "schema_name")
+            .expect("to have catalog")
+            .1
+            .is_none());
     }
 
     #[test]
     fn create_schema() {
         let data_definition = DataDefinition::in_memory();
 
+        data_definition.create_catalog("catalog_name");
         data_definition.create_schema("catalog_name", "schema_name");
 
         assert!(data_definition.schema_exists("catalog_name", "schema_name").is_some());
+    }
+
+    #[test]
+    fn drop_schema() {
+        let data_definition = DataDefinition::in_memory();
+
+        data_definition.create_catalog("catalog_name");
+        data_definition.create_schema("catalog_name", "schema_name");
+
+        assert!(data_definition.schema_exists("catalog_name", "schema_name").is_some());
+
+        data_definition.drop_schema("catalog_name", "schema_name");
+
+        assert!(data_definition
+            .schema_exists("catalog_name", "schema_name")
+            .expect("to have catalog")
+            .1
+            .is_none());
+    }
+
+    #[test]
+    fn not_created_table_does_not_exist() {
+        let data_definition = DataDefinition::in_memory();
+
+        data_definition.create_catalog("catalog_name");
+        data_definition.create_schema("catalog_name", "schema_name");
+        assert!(data_definition
+            .table_exists("catalog_name", "schema_name", "table_name")
+            .expect("to have catalog")
+            .1
+            .expect("to have schema")
+            .1
+            .is_none());
+    }
+
+    #[test]
+    fn create_table() {
+        let data_definition = DataDefinition::in_memory();
+
+        data_definition.create_catalog("catalog_name");
+        data_definition.create_schema("catalog_name", "schema_name");
+        data_definition.create_table("catalog_name", "schema_name", "table_name", &[]);
+
+        assert!(data_definition
+            .table_exists("catalog_name", "schema_name", "table_name")
+            .expect("to have catalog")
+            .1
+            .expect("to have schema")
+            .1
+            .is_some());
+    }
+
+    #[test]
+    fn drop_table() {
+        let data_definition = DataDefinition::in_memory();
+
+        data_definition.create_catalog("catalog_name");
+        data_definition.create_schema("catalog_name", "schema_name");
+        data_definition.create_table("catalog_name", "schema_name", "table_name", &[]);
+
+        assert!(data_definition
+            .table_exists("catalog_name", "schema_name", "table_name")
+            .expect("to have catalog")
+            .1
+            .expect("to have schema")
+            .1
+            .is_some());
+
+        data_definition.drop_table("catalog_name", "schema_name", "table_name");
+
+        assert!(data_definition
+            .table_exists("catalog_name", "schema_name", "table_name")
+            .expect("to have catalog")
+            .1
+            .expect("to have schema")
+            .1
+            .is_none());
+    }
+
+    #[cfg(test)]
+    mod persistent {
+        use super::*;
+
+        #[test]
+        fn storage_preserve_created_catalog_after_restart() {
+            let root_path = tempfile::tempdir().expect("to create temporary folder");
+            let path = root_path.into_path();
+            let data_definition = DataDefinition::persistent(&path).expect("create persistent data definition");
+            data_definition.create_catalog("catalog_name");
+            drop(data_definition);
+
+            let data_definition = DataDefinition::persistent(&path).expect("create persistent data definition");
+            assert!(data_definition.catalog_exists("catalog_name").is_some());
+        }
+
+        #[test]
+        fn dropped_catalog_is_not_preserved_after_restart() {
+            let root_path = tempfile::tempdir().expect("to create temporary folder");
+            let path = root_path.into_path();
+            let data_definition = DataDefinition::persistent(&path).expect("create persistent data definition");
+            data_definition.create_catalog("catalog_name");
+            assert!(data_definition.catalog_exists("catalog_name").is_some());
+            data_definition.drop_catalog("catalog_name", DropStrategy::Restrict);
+            assert!(data_definition.catalog_exists("catalog_name").is_none());
+            drop(data_definition);
+
+            let data_definition = DataDefinition::persistent(&path).expect("create persistent data definition");
+            assert!(data_definition.catalog_exists("catalog_name").is_none());
+        }
+
+        #[test]
+        fn storage_preserve_created_schema_after_restart() {
+            let root_path = tempfile::tempdir().expect("to create temporary folder");
+            let path = root_path.into_path();
+            let data_definition = DataDefinition::persistent(&path).expect("create persistent data definition");
+            data_definition.create_catalog("catalog_name");
+            data_definition.create_schema("catalog_name", "schema_name");
+            drop(data_definition);
+
+            let data_definition = DataDefinition::persistent(&path).expect("create persistent data definition");
+            assert!(data_definition
+                .schema_exists("catalog_name", "schema_name")
+                .expect("to have catalog")
+                .1
+                .is_some());
+        }
+
+        #[test]
+        fn storage_preserve_created_table_after_restart() {
+            let root_path = tempfile::tempdir().expect("to create temporary folder");
+            let path = root_path.into_path();
+            let data_definition = DataDefinition::persistent(&path).expect("create persistent data definition");
+            data_definition.create_catalog("catalog_name");
+            data_definition.create_schema("catalog_name", "schema_name");
+            data_definition.create_table(
+                "catalog_name",
+                "schema_name",
+                "table_name",
+                &[ColumnDefinition::new("col_1", SqlType::Integer(0))],
+            );
+            drop(data_definition);
+
+            let data_definition = DataDefinition::persistent(&path).expect("create persistent data definition");
+            assert!(data_definition
+                .table_exists("catalog_name", "schema_name", "table_name")
+                .expect("to have catalog")
+                .1
+                .expect("to have schema")
+                .1
+                .is_some());
+        }
     }
 }

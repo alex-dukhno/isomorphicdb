@@ -19,6 +19,8 @@ use kernel::SystemError;
 use representation::Binary;
 use sled::{Db as NameSpace, Error as SledError};
 use std::collections::HashMap;
+use std::path::PathBuf;
+use std::sync::{Arc, RwLock};
 
 pub type Row = (Key, Values);
 pub type Key = Binary;
@@ -33,25 +35,25 @@ pub enum StorageError {
 }
 
 pub trait DatabaseCatalog {
-    fn create_namespace_with_objects(&mut self, namespace: &str, object_names: Vec<&str>) -> StorageResult<()>;
+    fn create_namespace_with_objects(&self, namespace: &str, object_names: Vec<&str>) -> StorageResult<()>;
 
-    fn create_namespace(&mut self, namespace: &str) -> StorageResult<()>;
+    fn create_namespace(&self, namespace: &str) -> StorageResult<()>;
 
-    fn drop_namespace(&mut self, namespace: &str) -> StorageResult<()>;
+    fn drop_namespace(&self, namespace: &str) -> StorageResult<()>;
 
     fn is_namespace_exists(&self, namespace: &str) -> bool;
 
-    fn create_tree(&mut self, namespace: &str, object_name: &str) -> StorageResult<()>;
+    fn create_tree(&self, namespace: &str, object_name: &str) -> StorageResult<()>;
 
-    fn drop_tree(&mut self, namespace: &str, object_name: &str) -> StorageResult<()>;
+    fn drop_tree(&self, namespace: &str, object_name: &str) -> StorageResult<()>;
 
     fn is_tree_exists(&self, namespace: &str, object_name: &str) -> bool;
 
-    fn write(&mut self, namespace: &str, object_name: &str, values: Vec<Row>) -> StorageResult<usize>;
+    fn write(&self, namespace: &str, object_name: &str, values: Vec<Row>) -> StorageResult<usize>;
 
     fn read(&self, namespace: &str, object_name: &str) -> StorageResult<ReadCursor>;
 
-    fn delete(&mut self, namespace: &str, object_name: &str, keys: Vec<Key>) -> StorageResult<usize>;
+    fn delete(&self, namespace: &str, object_name: &str, keys: Vec<Key>) -> StorageResult<usize>;
 
     fn check_for_object(&self, namespace: &str, object_name: &str) -> StorageResult<()>;
 }
@@ -83,20 +85,66 @@ impl SledErrorMapper {
     }
 }
 
-#[derive(Default)]
-pub struct SledBackendStorage {
-    namespaces: HashMap<String, NameSpace>,
+pub enum InitStatus {
+    Created,
+    Loaded,
 }
 
-impl SledBackendStorage {
-    fn new_namespace(&mut self, namespace: &str) -> StorageResult<&mut NameSpace> {
-        if self.namespaces.contains_key(namespace) {
+#[derive(Default)]
+pub struct SledDatabaseCatalog {
+    path: Option<PathBuf>,
+    namespaces: RwLock<HashMap<String, Arc<NameSpace>>>,
+}
+
+impl SledDatabaseCatalog {
+    pub fn new(path: PathBuf) -> SledDatabaseCatalog {
+        SledDatabaseCatalog {
+            path: Some(path),
+            namespaces: RwLock::new(HashMap::new()),
+        }
+    }
+
+    pub fn init(&self, namespace_name: &str) -> StorageResult<InitStatus> {
+        eprintln!("{:?}", self.path);
+        if let Some(path) = self.path.as_ref() {
+            let path_to_namespace = PathBuf::from(path).join(namespace_name);
+            match sled::open(path_to_namespace) {
+                Ok(namespace) => {
+                    let recovered = namespace.was_recovered();
+                    self.namespaces
+                        .write()
+                        .expect("to acquire write lock")
+                        .insert(namespace_name.to_owned(), Arc::new(namespace));
+                    if recovered {
+                        Ok(InitStatus::Loaded)
+                    } else {
+                        Ok(InitStatus::Created)
+                    }
+                }
+                Err(error) => Err(StorageError::SystemError(SledErrorMapper::map(error))),
+            }
+        } else {
+            Err(StorageError::RuntimeCheckError)
+        }
+    }
+
+    fn new_namespace(&self, namespace: &str) -> StorageResult<Arc<NameSpace>> {
+        if self
+            .namespaces
+            .read()
+            .expect("to acquire read lock")
+            .contains_key(namespace)
+        {
             Err(StorageError::RuntimeCheckError)
         } else {
             match sled::Config::default().temporary(true).open() {
                 Ok(database) => {
-                    let database = self.namespaces.entry(namespace.to_owned()).or_insert(database);
-                    Ok(database)
+                    let database = Arc::new(database);
+                    self.namespaces
+                        .write()
+                        .expect("to acquire write lock")
+                        .insert(namespace.to_owned(), database.clone());
+                    Ok(database.clone())
                 }
                 Err(error) => Err(StorageError::SystemError(SledErrorMapper::map(error))),
             }
@@ -104,8 +152,8 @@ impl SledBackendStorage {
     }
 }
 
-impl DatabaseCatalog for SledBackendStorage {
-    fn create_namespace_with_objects(&mut self, namespace: &str, object_names: Vec<&str>) -> StorageResult<()> {
+impl DatabaseCatalog for SledDatabaseCatalog {
+    fn create_namespace_with_objects(&self, namespace: &str, object_names: Vec<&str>) -> StorageResult<()> {
         let namespace = self.new_namespace(namespace)?;
         for object_name in object_names {
             match namespace.open_tree(object_name) {
@@ -116,12 +164,17 @@ impl DatabaseCatalog for SledBackendStorage {
         Ok(())
     }
 
-    fn create_namespace(&mut self, namespace: &str) -> StorageResult<()> {
+    fn create_namespace(&self, namespace: &str) -> StorageResult<()> {
         self.new_namespace(namespace).map(|_| ())
     }
 
-    fn drop_namespace(&mut self, namespace: &str) -> StorageResult<()> {
-        match self.namespaces.remove(namespace) {
+    fn drop_namespace(&self, namespace: &str) -> StorageResult<()> {
+        match self
+            .namespaces
+            .write()
+            .expect("to acquire write lock")
+            .remove(namespace)
+        {
             Some(namespace) => {
                 drop(namespace);
                 Ok(())
@@ -130,8 +183,8 @@ impl DatabaseCatalog for SledBackendStorage {
         }
     }
 
-    fn create_tree(&mut self, namespace: &str, object_name: &str) -> StorageResult<()> {
-        match self.namespaces.get(namespace) {
+    fn create_tree(&self, namespace: &str, object_name: &str) -> StorageResult<()> {
+        match self.namespaces.read().expect("to acquire read lock").get(namespace) {
             Some(namespace) => {
                 if namespace.tree_names().contains(&(object_name.into())) {
                     Err(StorageError::RuntimeCheckError)
@@ -146,8 +199,8 @@ impl DatabaseCatalog for SledBackendStorage {
         }
     }
 
-    fn drop_tree(&mut self, namespace: &str, object_name: &str) -> StorageResult<()> {
-        match self.namespaces.get(namespace) {
+    fn drop_tree(&self, namespace: &str, object_name: &str) -> StorageResult<()> {
+        match self.namespaces.read().expect("to acquire read lock").get(namespace) {
             Some(namespace) => match namespace.drop_tree(object_name.as_bytes()) {
                 Ok(true) => Ok(()),
                 Ok(false) => Err(StorageError::RuntimeCheckError),
@@ -157,8 +210,8 @@ impl DatabaseCatalog for SledBackendStorage {
         }
     }
 
-    fn write(&mut self, namespace: &str, object_name: &str, rows: Vec<Row>) -> StorageResult<usize> {
-        match self.namespaces.get(namespace) {
+    fn write(&self, namespace: &str, object_name: &str, rows: Vec<Row>) -> StorageResult<usize> {
+        match self.namespaces.read().expect("to acquire read lock").get(namespace) {
             Some(namespace) => {
                 if namespace.tree_names().contains(&(object_name.into())) {
                     match namespace.open_tree(object_name) {
@@ -185,7 +238,7 @@ impl DatabaseCatalog for SledBackendStorage {
     }
 
     fn read(&self, namespace: &str, object_name: &str) -> StorageResult<ReadCursor> {
-        match self.namespaces.get(namespace) {
+        match self.namespaces.read().expect("to acquire read lock").get(namespace) {
             Some(namespace) => {
                 if namespace.tree_names().contains(&(object_name.into())) {
                     match namespace.open_tree(object_name) {
@@ -205,8 +258,8 @@ impl DatabaseCatalog for SledBackendStorage {
         }
     }
 
-    fn delete(&mut self, namespace: &str, object_name: &str, keys: Vec<Key>) -> StorageResult<usize> {
-        match self.namespaces.get(namespace) {
+    fn delete(&self, namespace: &str, object_name: &str, keys: Vec<Key>) -> StorageResult<usize> {
+        match self.namespaces.read().expect("to acquire read lock").get(namespace) {
             Some(namespace) => {
                 if namespace.tree_names().contains(&(object_name.into())) {
                     let mut deleted = 0;
@@ -231,7 +284,10 @@ impl DatabaseCatalog for SledBackendStorage {
     }
 
     fn is_namespace_exists(&self, namespace: &str) -> bool {
-        self.namespaces.contains_key(namespace)
+        self.namespaces
+            .read()
+            .expect("to acquire read lock")
+            .contains_key(namespace)
     }
 
     fn is_tree_exists(&self, namespace: &str, object_name: &str) -> bool {
@@ -239,7 +295,7 @@ impl DatabaseCatalog for SledBackendStorage {
     }
 
     fn check_for_object(&self, namespace: &str, object_name: &str) -> StorageResult<()> {
-        match self.namespaces.get(namespace) {
+        match self.namespaces.read().expect("to acquire read lock").get(namespace) {
             Some(namespace) => {
                 if namespace.tree_names().contains(&(object_name.into())) {
                     Ok(())
@@ -257,7 +313,7 @@ mod tests {
     use super::*;
     use kernel::SystemResult;
 
-    type Storage = SledBackendStorage;
+    type Storage = SledDatabaseCatalog;
 
     #[rstest::fixture]
     fn storage() -> Storage {

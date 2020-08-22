@@ -14,6 +14,7 @@
 
 use kernel::SystemResult;
 use std::collections::{BTreeMap, HashMap};
+use std::sync::RwLock;
 use storage::{DatabaseCatalog, Key, ReadCursor, Row, StorageError, StorageResult, Values};
 
 #[derive(Default, Debug)]
@@ -28,46 +29,69 @@ struct Namespace {
 
 #[derive(Default)]
 pub struct InMemoryStorage {
-    namespaces: HashMap<String, Namespace>,
+    namespaces: RwLock<HashMap<String, Namespace>>,
 }
 
 impl DatabaseCatalog for InMemoryStorage {
-    fn create_namespace_with_objects(&mut self, namespace: &str, object_names: Vec<&str>) -> StorageResult<()> {
-        if self.namespaces.contains_key(namespace) {
+    fn create_namespace_with_objects(&self, namespace_name: &str, object_names: Vec<&str>) -> StorageResult<()> {
+        if self
+            .namespaces
+            .read()
+            .expect("to acquire read lock")
+            .contains_key(namespace_name)
+        {
             Err(StorageError::RuntimeCheckError)
         } else {
-            let namespace = self
-                .namespaces
-                .entry(namespace.to_owned())
-                .or_insert_with(Namespace::default);
-
+            let mut namespace = Namespace::default();
             for object_name in object_names {
                 namespace
                     .objects
                     .insert(object_name.to_owned(), StorageObject::default());
             }
+            self.namespaces
+                .write()
+                .expect("to acquire write lock")
+                .insert(namespace_name.to_owned(), namespace);
             Ok(())
         }
     }
 
-    fn create_namespace(&mut self, namespace: &str) -> StorageResult<()> {
-        if self.namespaces.contains_key(namespace) {
+    fn create_namespace(&self, namespace: &str) -> StorageResult<()> {
+        if self
+            .namespaces
+            .read()
+            .expect("to acquire read lock")
+            .contains_key(namespace)
+        {
             Err(StorageError::RuntimeCheckError)
         } else {
-            self.namespaces.insert(namespace.to_owned(), Namespace::default());
+            self.namespaces
+                .write()
+                .expect("to acquire write lock")
+                .insert(namespace.to_owned(), Namespace::default());
             Ok(())
         }
     }
 
-    fn drop_namespace(&mut self, namespace: &str) -> StorageResult<()> {
-        match self.namespaces.remove(namespace) {
+    fn drop_namespace(&self, namespace: &str) -> StorageResult<()> {
+        match self
+            .namespaces
+            .write()
+            .expect("to acquire write lock")
+            .remove(namespace)
+        {
             Some(_namespace) => Ok(()),
             None => Err(StorageError::RuntimeCheckError),
         }
     }
 
-    fn create_tree(&mut self, namespace: &str, object_name: &str) -> StorageResult<()> {
-        match self.namespaces.get_mut(namespace) {
+    fn create_tree(&self, namespace: &str, object_name: &str) -> StorageResult<()> {
+        match self
+            .namespaces
+            .write()
+            .expect("to acquire write lock")
+            .get_mut(namespace)
+        {
             Some(namespace) => {
                 if namespace.objects.contains_key(object_name) {
                     Err(StorageError::RuntimeCheckError)
@@ -82,8 +106,13 @@ impl DatabaseCatalog for InMemoryStorage {
         }
     }
 
-    fn drop_tree(&mut self, namespace: &str, object_name: &str) -> StorageResult<()> {
-        match self.namespaces.get_mut(namespace) {
+    fn drop_tree(&self, namespace: &str, object_name: &str) -> StorageResult<()> {
+        match self
+            .namespaces
+            .write()
+            .expect("to acquire write lock")
+            .get_mut(namespace)
+        {
             Some(namespace) => match namespace.objects.remove(object_name) {
                 Some(_) => Ok(()),
                 None => Err(StorageError::RuntimeCheckError),
@@ -92,8 +121,13 @@ impl DatabaseCatalog for InMemoryStorage {
         }
     }
 
-    fn write(&mut self, namespace: &str, object_name: &str, rows: Vec<(Key, Values)>) -> StorageResult<usize> {
-        match self.namespaces.get_mut(namespace) {
+    fn write(&self, namespace: &str, object_name: &str, rows: Vec<(Key, Values)>) -> StorageResult<usize> {
+        match self
+            .namespaces
+            .write()
+            .expect("to acquire write lock")
+            .get_mut(namespace)
+        {
             Some(namespace) => match namespace.objects.get_mut(object_name) {
                 Some(object) => {
                     let len = rows.len();
@@ -109,7 +143,7 @@ impl DatabaseCatalog for InMemoryStorage {
     }
 
     fn read(&self, namespace: &str, object_name: &str) -> StorageResult<ReadCursor> {
-        match self.namespaces.get(namespace) {
+        match self.namespaces.read().expect("to acquire read lock").get(namespace) {
             Some(namespace) => match namespace.objects.get(object_name) {
                 Some(object) => Ok(Box::new(
                     object
@@ -126,8 +160,13 @@ impl DatabaseCatalog for InMemoryStorage {
         }
     }
 
-    fn delete(&mut self, namespace: &str, object_name: &str, keys: Vec<Key>) -> StorageResult<usize> {
-        match self.namespaces.get_mut(namespace) {
+    fn delete(&self, namespace: &str, object_name: &str, keys: Vec<Key>) -> StorageResult<usize> {
+        match self
+            .namespaces
+            .write()
+            .expect("to acquire write lock")
+            .get_mut(namespace)
+        {
             Some(namespace) => match namespace.objects.get_mut(object_name) {
                 Some(object) => {
                     object.records = object
@@ -145,7 +184,10 @@ impl DatabaseCatalog for InMemoryStorage {
     }
 
     fn is_namespace_exists(&self, namespace: &str) -> bool {
-        self.namespaces.contains_key(namespace)
+        self.namespaces
+            .read()
+            .expect("to acquire read lock")
+            .contains_key(namespace)
     }
 
     fn is_tree_exists(&self, namespace: &str, object_name: &str) -> bool {
@@ -153,7 +195,7 @@ impl DatabaseCatalog for InMemoryStorage {
     }
 
     fn check_for_object(&self, namespace: &str, object_name: &str) -> StorageResult<()> {
-        match self.namespaces.get(namespace) {
+        match self.namespaces.read().expect("to acquire read lock").get(namespace) {
             Some(namespace) => {
                 if namespace.objects.contains_key(object_name) {
                     Ok(())
