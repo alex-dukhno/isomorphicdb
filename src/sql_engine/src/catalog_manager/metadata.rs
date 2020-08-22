@@ -370,8 +370,12 @@ impl Catalog {
         schema
     }
 
-    fn remove_schema(&self, schema_name: &str) {
-        self.schemas.write().expect("to acquire write lock").remove(schema_name);
+    fn remove_schema(&self, schema_name: &str) -> Option<Id> {
+        self.schemas
+            .write()
+            .expect("to acquire write lock")
+            .remove(schema_name)
+            .map(|schema| schema.id())
     }
 
     fn schema(&self, schema_name: &str) -> Option<Arc<Schema>> {
@@ -433,8 +437,12 @@ impl Schema {
             .map(|table| table.id())
     }
 
-    fn remove_table(&self, table_name: &str) {
-        self.tables.write().expect("to acquire lock").remove(table_name);
+    fn remove_table(&self, table_name: &str) -> Option<Id> {
+        self.tables
+            .write()
+            .expect("to acquire lock")
+            .remove(table_name)
+            .map(|table| table.id())
     }
 }
 
@@ -660,7 +668,21 @@ impl DataDefinition {
             Some(catalog) => catalog,
             None => return,
         };
-        catalog.remove_schema(schema_name);
+        let schema_id = catalog.remove_schema(schema_name);
+        if let Some(system_catalog) = self.system_catalog.as_ref() {
+            match schema_id {
+                Some(schema_id) => {
+                    system_catalog
+                        .delete(
+                            DEFINITION_SCHEMA,
+                            SCHEMATA_TABLE,
+                            vec![Binary::pack(&[Datum::from_u64(schema_id)])],
+                        )
+                        .expect("to remove schema");
+                }
+                None => {}
+            }
+        }
     }
 
     pub(crate) fn table_exists(
@@ -815,7 +837,21 @@ impl DataDefinition {
             Some(schema) => schema,
             None => return,
         };
-        schema.remove_table(table_name);
+        let table_id = schema.remove_table(table_name);
+        if let Some(system_catalog) = self.system_catalog.as_ref() {
+            match table_id {
+                Some(table_id) => {
+                    system_catalog
+                        .delete(
+                            DEFINITION_SCHEMA,
+                            TABLES_TABLE,
+                            vec![Binary::pack(&[Datum::from_u64(table_id)])],
+                        )
+                        .expect("to remove table");
+                }
+                None => {}
+            }
+        }
     }
 
     fn catalog(&self, catalog_name: &str) -> Option<Arc<Catalog>> {
@@ -963,11 +999,17 @@ mod tests {
     mod persistent {
         use super::*;
 
-        #[test]
-        fn storage_preserve_created_catalog_after_restart() {
+        #[rstest::fixture]
+        fn storage_path() -> (DataDefinition, PathBuf) {
             let root_path = tempfile::tempdir().expect("to create temporary folder");
             let path = root_path.into_path();
             let data_definition = DataDefinition::persistent(&path).expect("create persistent data definition");
+            (data_definition, path)
+        }
+
+        #[rstest::rstest]
+        fn storage_preserve_created_catalog_after_restart(storage_path: (DataDefinition, PathBuf)) {
+            let (data_definition, path) = storage_path;
             data_definition.create_catalog("catalog_name");
             drop(data_definition);
 
@@ -975,11 +1017,9 @@ mod tests {
             assert!(data_definition.catalog_exists("catalog_name").is_some());
         }
 
-        #[test]
-        fn dropped_catalog_is_not_preserved_after_restart() {
-            let root_path = tempfile::tempdir().expect("to create temporary folder");
-            let path = root_path.into_path();
-            let data_definition = DataDefinition::persistent(&path).expect("create persistent data definition");
+        #[rstest::rstest]
+        fn dropped_catalog_is_not_preserved_after_restart(storage_path: (DataDefinition, PathBuf)) {
+            let (data_definition, path) = storage_path;
             data_definition.create_catalog("catalog_name");
             assert!(data_definition.catalog_exists("catalog_name").is_some());
             data_definition.drop_catalog("catalog_name", DropStrategy::Restrict);
@@ -990,11 +1030,9 @@ mod tests {
             assert!(data_definition.catalog_exists("catalog_name").is_none());
         }
 
-        #[test]
-        fn storage_preserve_created_schema_after_restart() {
-            let root_path = tempfile::tempdir().expect("to create temporary folder");
-            let path = root_path.into_path();
-            let data_definition = DataDefinition::persistent(&path).expect("create persistent data definition");
+        #[rstest::rstest]
+        fn storage_preserve_created_schema_after_restart(storage_path: (DataDefinition, PathBuf)) {
+            let (data_definition, path) = storage_path;
             data_definition.create_catalog("catalog_name");
             data_definition.create_schema("catalog_name", "schema_name");
             drop(data_definition);
@@ -1007,11 +1045,35 @@ mod tests {
                 .is_some());
         }
 
-        #[test]
-        fn storage_preserve_created_table_after_restart() {
-            let root_path = tempfile::tempdir().expect("to create temporary folder");
-            let path = root_path.into_path();
+        #[rstest::rstest]
+        fn dropped_schema_is_not_preserved_after_restart(storage_path: (DataDefinition, PathBuf)) {
+            let (data_definition, path) = storage_path;
+            data_definition.create_catalog("catalog_name");
+            data_definition.create_schema("catalog_name", "schema_name");
+            assert!(data_definition
+                .schema_exists("catalog_name", "schema_name")
+                .expect("to have catalog")
+                .1
+                .is_some());
+            data_definition.drop_schema("catalog_name", "schema_name");
+            assert!(data_definition
+                .schema_exists("catalog_name", "schema_name")
+                .expect("to have catalog")
+                .1
+                .is_none());
+            drop(data_definition);
+
             let data_definition = DataDefinition::persistent(&path).expect("create persistent data definition");
+            assert!(data_definition
+                .schema_exists("catalog_name", "schema_name")
+                .expect("to have catalog")
+                .1
+                .is_none());
+        }
+
+        #[rstest::rstest]
+        fn storage_preserve_created_table_after_restart(storage_path: (DataDefinition, PathBuf)) {
+            let (data_definition, path) = storage_path;
             data_definition.create_catalog("catalog_name");
             data_definition.create_schema("catalog_name", "schema_name");
             data_definition.create_table(
@@ -1030,6 +1092,44 @@ mod tests {
                 .expect("to have schema")
                 .1
                 .is_some());
+        }
+
+        #[rstest::rstest]
+        fn dropped_table_is_not_preserved_after_restart(storage_path: (DataDefinition, PathBuf)) {
+            let (data_definition, path) = storage_path;
+            data_definition.create_catalog("catalog_name");
+            data_definition.create_schema("catalog_name", "schema_name");
+            data_definition.create_table(
+                "catalog_name",
+                "schema_name",
+                "table_name",
+                &[ColumnDefinition::new("col_1", SqlType::Integer(0))],
+            );
+            assert!(data_definition
+                .table_exists("catalog_name", "schema_name", "table_name")
+                .expect("to have catalog")
+                .1
+                .expect("to have schema")
+                .1
+                .is_some());
+            data_definition.drop_table("catalog_name", "schema_name", "table_name");
+            assert!(data_definition
+                .table_exists("catalog_name", "schema_name", "table_name")
+                .expect("to have catalog")
+                .1
+                .expect("to have schema")
+                .1
+                .is_none());
+            drop(data_definition);
+
+            let data_definition = DataDefinition::persistent(&path).expect("create persistent data definition");
+            assert!(data_definition
+                .table_exists("catalog_name", "schema_name", "table_name")
+                .expect("to have catalog")
+                .1
+                .expect("to have schema")
+                .1
+                .is_none());
         }
     }
 }
