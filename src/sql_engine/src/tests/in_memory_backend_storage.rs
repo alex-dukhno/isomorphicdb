@@ -13,7 +13,10 @@
 // limitations under the License.
 
 use kernel::SystemResult;
-use std::collections::{BTreeMap, HashMap};
+use std::{
+    collections::{BTreeMap, HashMap},
+    sync::RwLock,
+};
 use storage::{DatabaseCatalog, Key, ReadCursor, Row, StorageError, StorageResult, Values};
 
 #[derive(Default, Debug)]
@@ -28,46 +31,69 @@ struct Namespace {
 
 #[derive(Default)]
 pub struct InMemoryStorage {
-    namespaces: HashMap<String, Namespace>,
+    namespaces: RwLock<HashMap<String, Namespace>>,
 }
 
 impl DatabaseCatalog for InMemoryStorage {
-    fn create_namespace_with_objects(&mut self, namespace: &str, object_names: Vec<&str>) -> StorageResult<()> {
-        if self.namespaces.contains_key(namespace) {
+    fn create_namespace_with_objects(&self, namespace_name: &str, object_names: Vec<&str>) -> StorageResult<()> {
+        if self
+            .namespaces
+            .read()
+            .expect("to acquire read lock")
+            .contains_key(namespace_name)
+        {
             Err(StorageError::RuntimeCheckError)
         } else {
-            let namespace = self
-                .namespaces
-                .entry(namespace.to_owned())
-                .or_insert_with(Namespace::default);
-
+            let mut namespace = Namespace::default();
             for object_name in object_names {
                 namespace
                     .objects
                     .insert(object_name.to_owned(), StorageObject::default());
             }
+            self.namespaces
+                .write()
+                .expect("to acquire write lock")
+                .insert(namespace_name.to_owned(), namespace);
             Ok(())
         }
     }
 
-    fn create_namespace(&mut self, namespace: &str) -> StorageResult<()> {
-        if self.namespaces.contains_key(namespace) {
+    fn create_namespace(&self, namespace: &str) -> StorageResult<()> {
+        if self
+            .namespaces
+            .read()
+            .expect("to acquire read lock")
+            .contains_key(namespace)
+        {
             Err(StorageError::RuntimeCheckError)
         } else {
-            self.namespaces.insert(namespace.to_owned(), Namespace::default());
+            self.namespaces
+                .write()
+                .expect("to acquire write lock")
+                .insert(namespace.to_owned(), Namespace::default());
             Ok(())
         }
     }
 
-    fn drop_namespace(&mut self, namespace: &str) -> StorageResult<()> {
-        match self.namespaces.remove(namespace) {
+    fn drop_namespace(&self, namespace: &str) -> StorageResult<()> {
+        match self
+            .namespaces
+            .write()
+            .expect("to acquire write lock")
+            .remove(namespace)
+        {
             Some(_namespace) => Ok(()),
             None => Err(StorageError::RuntimeCheckError),
         }
     }
 
-    fn create_tree(&mut self, namespace: &str, object_name: &str) -> StorageResult<()> {
-        match self.namespaces.get_mut(namespace) {
+    fn create_tree(&self, namespace: &str, object_name: &str) -> StorageResult<()> {
+        match self
+            .namespaces
+            .write()
+            .expect("to acquire write lock")
+            .get_mut(namespace)
+        {
             Some(namespace) => {
                 if namespace.objects.contains_key(object_name) {
                     Err(StorageError::RuntimeCheckError)
@@ -82,8 +108,13 @@ impl DatabaseCatalog for InMemoryStorage {
         }
     }
 
-    fn drop_tree(&mut self, namespace: &str, object_name: &str) -> StorageResult<()> {
-        match self.namespaces.get_mut(namespace) {
+    fn drop_tree(&self, namespace: &str, object_name: &str) -> StorageResult<()> {
+        match self
+            .namespaces
+            .write()
+            .expect("to acquire write lock")
+            .get_mut(namespace)
+        {
             Some(namespace) => match namespace.objects.remove(object_name) {
                 Some(_) => Ok(()),
                 None => Err(StorageError::RuntimeCheckError),
@@ -92,8 +123,13 @@ impl DatabaseCatalog for InMemoryStorage {
         }
     }
 
-    fn write(&mut self, namespace: &str, object_name: &str, rows: Vec<(Key, Values)>) -> StorageResult<usize> {
-        match self.namespaces.get_mut(namespace) {
+    fn write(&self, namespace: &str, object_name: &str, rows: Vec<(Key, Values)>) -> StorageResult<usize> {
+        match self
+            .namespaces
+            .write()
+            .expect("to acquire write lock")
+            .get_mut(namespace)
+        {
             Some(namespace) => match namespace.objects.get_mut(object_name) {
                 Some(object) => {
                     let len = rows.len();
@@ -109,7 +145,7 @@ impl DatabaseCatalog for InMemoryStorage {
     }
 
     fn read(&self, namespace: &str, object_name: &str) -> StorageResult<ReadCursor> {
-        match self.namespaces.get(namespace) {
+        match self.namespaces.read().expect("to acquire read lock").get(namespace) {
             Some(namespace) => match namespace.objects.get(object_name) {
                 Some(object) => Ok(Box::new(
                     object
@@ -126,8 +162,13 @@ impl DatabaseCatalog for InMemoryStorage {
         }
     }
 
-    fn delete(&mut self, namespace: &str, object_name: &str, keys: Vec<Key>) -> StorageResult<usize> {
-        match self.namespaces.get_mut(namespace) {
+    fn delete(&self, namespace: &str, object_name: &str, keys: Vec<Key>) -> StorageResult<usize> {
+        match self
+            .namespaces
+            .write()
+            .expect("to acquire write lock")
+            .get_mut(namespace)
+        {
             Some(namespace) => match namespace.objects.get_mut(object_name) {
                 Some(object) => {
                     object.records = object
@@ -145,7 +186,10 @@ impl DatabaseCatalog for InMemoryStorage {
     }
 
     fn is_namespace_exists(&self, namespace: &str) -> bool {
-        self.namespaces.contains_key(namespace)
+        self.namespaces
+            .read()
+            .expect("to acquire read lock")
+            .contains_key(namespace)
     }
 
     fn is_tree_exists(&self, namespace: &str, object_name: &str) -> bool {
@@ -153,7 +197,7 @@ impl DatabaseCatalog for InMemoryStorage {
     }
 
     fn check_for_object(&self, namespace: &str, object_name: &str) -> StorageResult<()> {
-        match self.namespaces.get(namespace) {
+        match self.namespaces.read().expect("to acquire read lock").get(namespace) {
             Some(namespace) => {
                 if namespace.objects.contains_key(object_name) {
                     Ok(())
@@ -179,13 +223,13 @@ mod tests {
     }
 
     #[rstest::fixture]
-    fn with_namespace(mut storage: Storage) -> Storage {
+    fn with_namespace(storage: Storage) -> Storage {
         storage.create_namespace("namespace").expect("namespace created");
         storage
     }
 
     #[rstest::fixture]
-    fn with_object(mut with_namespace: Storage) -> Storage {
+    fn with_object(with_namespace: Storage) -> Storage {
         with_namespace
             .create_tree("namespace", "object_name")
             .expect("object created");
@@ -197,7 +241,7 @@ mod tests {
         use super::*;
 
         #[rstest::rstest]
-        fn create_namespace_with_objects(mut storage: Storage) {
+        fn create_namespace_with_objects(storage: Storage) {
             assert_eq!(
                 storage.create_namespace_with_objects("namespace", vec!["object_1", "object_2"]),
                 Ok(())
@@ -208,19 +252,19 @@ mod tests {
         }
 
         #[rstest::rstest]
-        fn create_namespaces_with_different_names(mut storage: Storage) {
+        fn create_namespaces_with_different_names(storage: Storage) {
             assert_eq!(storage.create_namespace("namespace_1"), Ok(()));
             assert_eq!(storage.create_namespace("namespace_2"), Ok(()));
         }
 
         #[rstest::rstest]
-        fn drop_namespace(mut with_namespace: Storage) {
+        fn drop_namespace(with_namespace: Storage) {
             assert_eq!(with_namespace.drop_namespace("namespace"), Ok(()));
             assert_eq!(with_namespace.create_namespace("namespace"), Ok(()));
         }
 
         #[rstest::rstest]
-        fn dropping_namespace_drops_objects_in_it(mut with_namespace: Storage) {
+        fn dropping_namespace_drops_objects_in_it(with_namespace: Storage) {
             with_namespace
                 .create_tree("namespace", "object_name_1")
                 .expect("object created");
@@ -240,13 +284,13 @@ mod tests {
         use super::*;
 
         #[rstest::rstest]
-        fn create_objects_with_different_names(mut with_namespace: Storage) {
+        fn create_objects_with_different_names(with_namespace: Storage) {
             assert_eq!(with_namespace.create_tree("namespace", "object_name_1"), Ok(()));
             assert_eq!(with_namespace.create_tree("namespace", "object_name_2"), Ok(()));
         }
 
         #[rstest::rstest]
-        fn create_object_with_the_same_name_in_different_namespaces(mut storage: Storage) {
+        fn create_object_with_the_same_name_in_different_namespaces(storage: Storage) {
             storage.create_namespace("namespace_1").expect("namespace created");
             storage.create_namespace("namespace_2").expect("namespace created");
             assert_eq!(storage.create_tree("namespace_1", "object_name"), Ok(()));
@@ -259,7 +303,7 @@ mod tests {
         use super::*;
 
         #[rstest::rstest]
-        fn drop_object(mut with_object: Storage) {
+        fn drop_object(with_object: Storage) {
             assert_eq!(with_object.drop_tree("namespace", "object_name"), Ok(()));
             assert_eq!(with_object.create_tree("namespace", "object_name"), Ok(()));
         }
@@ -270,7 +314,7 @@ mod tests {
         use super::*;
 
         #[rstest::rstest]
-        fn insert_row_into_object(mut with_object: Storage) {
+        fn insert_row_into_object(with_object: Storage) {
             assert_eq!(
                 with_object.write("namespace", "object_name", as_rows(vec![(1u8, vec!["123"])])),
                 Ok(1)
@@ -285,7 +329,7 @@ mod tests {
         }
 
         #[rstest::rstest]
-        fn insert_many_rows_into_object(mut with_object: Storage) {
+        fn insert_many_rows_into_object(with_object: Storage) {
             with_object
                 .write("namespace", "object_name", as_rows(vec![(1u8, vec!["123"])]))
                 .expect("values are written");
@@ -302,7 +346,7 @@ mod tests {
         }
 
         #[rstest::rstest]
-        fn delete_some_records_from_object(mut with_object: Storage) {
+        fn delete_some_records_from_object(with_object: Storage) {
             with_object
                 .write(
                     "namespace",
@@ -325,7 +369,7 @@ mod tests {
         }
 
         #[rstest::rstest]
-        fn select_all_from_object_with_many_columns(mut with_object: Storage) {
+        fn select_all_from_object_with_many_columns(with_object: Storage) {
             with_object
                 .write("namespace", "object_name", as_rows(vec![(1u8, vec!["1", "2", "3"])]))
                 .expect("write occurred");
@@ -339,7 +383,7 @@ mod tests {
         }
 
         #[rstest::rstest]
-        fn insert_multiple_rows(mut with_object: Storage) {
+        fn insert_multiple_rows(with_object: Storage) {
             with_object
                 .write(
                     "namespace",

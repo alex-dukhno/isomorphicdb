@@ -875,6 +875,7 @@ version = "0.1.0"
 dependencies = [
  "bigdecimal",
  "ordered-float",
+ "sql_types",
  "sqlparser",
 ]
 
@@ -1084,6 +1085,7 @@ dependencies = [
  "sql_types",
  "sqlparser",
  "storage",
+ "tempfile",
 ]
 
 [[package]]

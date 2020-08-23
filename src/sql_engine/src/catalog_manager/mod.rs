@@ -12,33 +12,39 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{ColumnDefinition, TableDefinition};
+use crate::{catalog_manager::metadata::DataDefinition, ColumnDefinition, TableDefinition};
 use kernel::{Object, Operation, SystemError, SystemResult};
 use representation::Binary;
-use storage::{DatabaseCatalog, ReadCursor, Row, SledBackendStorage, StorageError};
+use storage::{DatabaseCatalog, ReadCursor, Row, SledDatabaseCatalog, StorageError};
 
 mod metadata;
 
+#[allow(dead_code)]
 pub struct CatalogManager {
     key_id_generator: usize,
     persistent: Box<dyn DatabaseCatalog>,
+    data_definition: DataDefinition,
 }
 
 impl CatalogManager {
     pub fn default() -> SystemResult<Self> {
-        Self::new(Box::new(SledBackendStorage::default()))
+        Self::new(Box::new(SledDatabaseCatalog::default()))
     }
 }
 
 unsafe impl Send for CatalogManager {}
 unsafe impl Sync for CatalogManager {}
 
+#[allow(dead_code)]
+const DEFAULT_CATALOG: &'_ str = "public";
+
 impl CatalogManager {
-    pub fn new(mut persistent: Box<dyn DatabaseCatalog>) -> SystemResult<Self> {
+    pub fn new(persistent: Box<dyn DatabaseCatalog>) -> SystemResult<Self> {
         match persistent.create_namespace_with_objects("system", vec!["columns"]) {
             Ok(()) => Ok(Self {
                 key_id_generator: 0,
                 persistent,
+                data_definition: DataDefinition::in_memory(),
             }),
             Err(StorageError::SystemError(e)) => Err(e),
             Err(StorageError::RuntimeCheckError) => Err(SystemError::bug_in_sql_engine(
