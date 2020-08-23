@@ -84,15 +84,12 @@ impl PersistentDatabaseCatalog {
     }
 
     pub fn open_tree(&self, namespace: &str, tree_name: &str) {
-        match self.namespaces.read().expect("to acquire write lock").get(namespace) {
-            Some(namespace) => {
-                namespace
-                    .open_tree(tree_name)
-                    .expect("to open tree")
-                    .flush()
-                    .expect("to flush");
-            }
-            None => {}
+        if let Some(namespace) = self.namespaces.read().expect("to acquire write lock").get(namespace) {
+            namespace
+                .open_tree(tree_name)
+                .expect("to open tree")
+                .flush()
+                .expect("to flush");
         }
     }
 
