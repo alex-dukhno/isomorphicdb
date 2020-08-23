@@ -37,7 +37,7 @@ pub fn start() {
     let persistent = env::var("PERSISTENT").is_ok();
     block_on(async {
         let storage = if persistent {
-            Arc::new(CatalogManager::persistent(PathBuf::new()).unwrap())
+            Arc::new(CatalogManager::persistent(PathBuf::new().join("database")).unwrap())
         } else {
             Arc::new(CatalogManager::in_memory().unwrap())
         };

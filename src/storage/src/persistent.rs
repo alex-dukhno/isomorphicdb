@@ -64,6 +64,7 @@ impl PersistentDatabaseCatalog {
 
     pub fn init(&self, namespace_name: &str) -> StorageResult<InitStatus> {
         let path_to_namespace = PathBuf::from(&self.path).join(namespace_name);
+        log::info!("path to namespace {:?}", path_to_namespace);
         match sled::open(path_to_namespace) {
             Ok(namespace) => {
                 let recovered = namespace.was_recovered();
@@ -82,22 +83,37 @@ impl PersistentDatabaseCatalog {
         }
     }
 
-    fn new_namespace(&self, namespace: &str) -> StorageResult<Arc<NameSpace>> {
+    pub fn open_tree(&self, namespace: &str, tree_name: &str) {
+        match self.namespaces.read().expect("to acquire write lock").get(namespace) {
+            Some(namespace) => {
+                namespace
+                    .open_tree(tree_name)
+                    .expect("to open tree")
+                    .flush()
+                    .expect("to flush");
+            }
+            None => {}
+        }
+    }
+
+    fn new_namespace(&self, namespace_name: &str) -> StorageResult<Arc<NameSpace>> {
         if self
             .namespaces
             .read()
             .expect("to acquire read lock")
-            .contains_key(namespace)
+            .contains_key(namespace_name)
         {
             Err(StorageError::RuntimeCheckError)
         } else {
-            match sled::Config::default().temporary(true).open() {
+            let path_to_namespace = PathBuf::from(&self.path).join(namespace_name);
+            log::info!("path to namespace {:?}", path_to_namespace);
+            match sled::open(path_to_namespace) {
                 Ok(database) => {
                     let database = Arc::new(database);
                     self.namespaces
                         .write()
                         .expect("to acquire write lock")
-                        .insert(namespace.to_owned(), database.clone());
+                        .insert(namespace_name.to_owned(), database.clone());
                     Ok(database)
                 }
                 Err(error) => Err(StorageError::SystemError(SledErrorMapper::map(error))),
@@ -145,6 +161,7 @@ impl Storage for PersistentDatabaseCatalog {
                                 object_name,
                                 object
                             );
+                            object.flush().expect("Ok");
                             Ok(())
                         }
                         Err(error) => Err(StorageError::SystemError(SledErrorMapper::map(error))),
@@ -166,14 +183,19 @@ impl Storage for PersistentDatabaseCatalog {
         }
     }
 
-    fn write(&self, namespace: &str, object_name: &str, rows: Vec<Row>) -> StorageResult<usize> {
-        match self.namespaces.read().expect("to acquire read lock").get(namespace) {
+    fn write(&self, namespace_name: &str, object_name: &str, rows: Vec<Row>) -> StorageResult<usize> {
+        match self
+            .namespaces
+            .read()
+            .expect("to acquire read lock")
+            .get(namespace_name)
+        {
             Some(namespace) => {
                 if namespace.tree_names().contains(&(object_name.into())) {
                     match namespace.open_tree(object_name) {
                         Ok(object) => {
                             let mut written_rows = 0;
-                            for (key, values) in rows {
+                            for (key, values) in rows.iter() {
                                 match object
                                     .insert::<sled::IVec, sled::IVec>(key.to_bytes().into(), values.to_bytes().into())
                                 {
@@ -181,6 +203,8 @@ impl Storage for PersistentDatabaseCatalog {
                                     Err(error) => return Err(StorageError::SystemError(SledErrorMapper::map(error))),
                                 }
                             }
+                            object.flush().expect("Ok");
+                            log::info!("{:?} data is written to {:?}.{:?}", rows, namespace_name, object_name);
                             Ok(written_rows)
                         }
                         Err(error) => Err(StorageError::SystemError(SledErrorMapper::map(error))),
@@ -193,8 +217,13 @@ impl Storage for PersistentDatabaseCatalog {
         }
     }
 
-    fn read(&self, namespace: &str, object_name: &str) -> StorageResult<ReadCursor> {
-        match self.namespaces.read().expect("to acquire read lock").get(namespace) {
+    fn read(&self, namespace_name: &str, object_name: &str) -> StorageResult<ReadCursor> {
+        match self
+            .namespaces
+            .read()
+            .expect("to acquire read lock")
+            .get(namespace_name)
+        {
             Some(namespace) => {
                 if namespace.tree_names().contains(&(object_name.into())) {
                     match namespace.open_tree(object_name) {
@@ -207,10 +236,18 @@ impl Storage for PersistentDatabaseCatalog {
                         Err(error) => Err(StorageError::SystemError(SledErrorMapper::map(error))),
                     }
                 } else {
+                    log::error!(
+                        "No namespace with {:?} doesn't contain {:?} object",
+                        namespace_name,
+                        object_name
+                    );
                     Err(StorageError::RuntimeCheckError)
                 }
             }
-            None => Err(StorageError::RuntimeCheckError),
+            None => {
+                log::error!("No namespace with {:?} name found", namespace_name);
+                Err(StorageError::RuntimeCheckError)
+            }
         }
     }
 
@@ -227,6 +264,7 @@ impl Storage for PersistentDatabaseCatalog {
                                     Err(error) => return Err(StorageError::SystemError(SledErrorMapper::map(error))),
                                 }
                             }
+                            object.flush().expect("Ok");
                         }
                         Err(error) => return Err(StorageError::SystemError(SledErrorMapper::map(error))),
                     }
