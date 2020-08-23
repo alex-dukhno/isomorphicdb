@@ -18,9 +18,11 @@ extern crate log;
 use kernel::SystemError;
 use representation::Binary;
 use sled::{Db as NameSpace, Error as SledError};
-use std::collections::HashMap;
-use std::path::PathBuf;
-use std::sync::{Arc, RwLock};
+use std::{
+    collections::HashMap,
+    path::PathBuf,
+    sync::{Arc, RwLock},
+};
 
 pub type Row = (Key, Values);
 pub type Key = Binary;
@@ -144,7 +146,7 @@ impl SledDatabaseCatalog {
                         .write()
                         .expect("to acquire write lock")
                         .insert(namespace.to_owned(), database.clone());
-                    Ok(database.clone())
+                    Ok(database)
                 }
                 Err(error) => Err(StorageError::SystemError(SledErrorMapper::map(error))),
             }
@@ -321,13 +323,13 @@ mod tests {
     }
 
     #[rstest::fixture]
-    fn with_namespace(mut storage: Storage) -> Storage {
+    fn with_namespace(storage: Storage) -> Storage {
         storage.create_namespace("namespace").expect("namespace created");
         storage
     }
 
     #[rstest::fixture]
-    fn with_object(mut with_namespace: Storage) -> Storage {
+    fn with_object(with_namespace: Storage) -> Storage {
         with_namespace
             .create_tree("namespace", "object_name")
             .expect("object created");
@@ -396,7 +398,7 @@ mod tests {
         use super::*;
 
         #[rstest::rstest]
-        fn create_namespace_with_objects(mut storage: Storage) {
+        fn create_namespace_with_objects(storage: Storage) {
             assert_eq!(
                 storage.create_namespace_with_objects("namespace", vec!["object_1", "object_2"]),
                 Ok(())
@@ -407,19 +409,19 @@ mod tests {
         }
 
         #[rstest::rstest]
-        fn create_namespaces_with_different_names(mut storage: Storage) {
+        fn create_namespaces_with_different_names(storage: Storage) {
             assert_eq!(storage.create_namespace("namespace_1"), Ok(()));
             assert_eq!(storage.create_namespace("namespace_2"), Ok(()));
         }
 
         #[rstest::rstest]
-        fn drop_namespace(mut with_namespace: Storage) {
+        fn drop_namespace(with_namespace: Storage) {
             assert_eq!(with_namespace.drop_namespace("namespace"), Ok(()));
             assert_eq!(with_namespace.create_namespace("namespace"), Ok(()));
         }
 
         #[rstest::rstest]
-        fn dropping_namespace_drops_objects_in_it(mut with_namespace: Storage) {
+        fn dropping_namespace_drops_objects_in_it(with_namespace: Storage) {
             with_namespace
                 .create_tree("namespace", "object_name_1")
                 .expect("object created");
@@ -439,13 +441,13 @@ mod tests {
         use super::*;
 
         #[rstest::rstest]
-        fn create_objects_with_different_names(mut with_namespace: Storage) {
+        fn create_objects_with_different_names(with_namespace: Storage) {
             assert_eq!(with_namespace.create_tree("namespace", "object_name_1"), Ok(()));
             assert_eq!(with_namespace.create_tree("namespace", "object_name_2"), Ok(()));
         }
 
         #[rstest::rstest]
-        fn create_object_with_the_same_name_in_different_namespaces(mut storage: Storage) {
+        fn create_object_with_the_same_name_in_different_namespaces(storage: Storage) {
             storage.create_namespace("namespace_1").expect("namespace created");
             storage.create_namespace("namespace_2").expect("namespace created");
             assert_eq!(storage.create_tree("namespace_1", "object_name"), Ok(()));
@@ -458,7 +460,7 @@ mod tests {
         use super::*;
 
         #[rstest::rstest]
-        fn drop_object(mut with_object: Storage) {
+        fn drop_object(with_object: Storage) {
             assert_eq!(with_object.drop_tree("namespace", "object_name"), Ok(()));
             assert_eq!(with_object.create_tree("namespace", "object_name"), Ok(()));
         }
@@ -469,7 +471,7 @@ mod tests {
         use super::*;
 
         #[rstest::rstest]
-        fn insert_row_into_object(mut with_object: Storage) {
+        fn insert_row_into_object(with_object: Storage) {
             assert_eq!(
                 with_object.write("namespace", "object_name", as_rows(vec![(1u8, vec!["123"])])),
                 Ok(1)
@@ -484,7 +486,7 @@ mod tests {
         }
 
         #[rstest::rstest]
-        fn insert_many_rows_into_object(mut with_object: Storage) {
+        fn insert_many_rows_into_object(with_object: Storage) {
             with_object
                 .write("namespace", "object_name", as_rows(vec![(1u8, vec!["123"])]))
                 .expect("values are written");
@@ -501,7 +503,7 @@ mod tests {
         }
 
         #[rstest::rstest]
-        fn delete_some_records_from_object(mut with_object: Storage) {
+        fn delete_some_records_from_object(with_object: Storage) {
             with_object
                 .write(
                     "namespace",
@@ -524,7 +526,7 @@ mod tests {
         }
 
         #[rstest::rstest]
-        fn select_all_from_object_with_many_columns(mut with_object: Storage) {
+        fn select_all_from_object_with_many_columns(with_object: Storage) {
             with_object
                 .write("namespace", "object_name", as_rows(vec![(1u8, vec!["1", "2", "3"])]))
                 .expect("write occurred");
@@ -538,7 +540,7 @@ mod tests {
         }
 
         #[rstest::rstest]
-        fn insert_multiple_rows(mut with_object: Storage) {
+        fn insert_multiple_rows(with_object: Storage) {
             with_object
                 .write(
                     "namespace",

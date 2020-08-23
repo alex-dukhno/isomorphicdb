@@ -12,14 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::catalog_manager::metadata::DataDefinition;
-use crate::{ColumnDefinition, TableDefinition};
+use crate::{catalog_manager::metadata::DataDefinition, ColumnDefinition, TableDefinition};
 use kernel::{Object, Operation, SystemError, SystemResult};
 use representation::Binary;
 use storage::{DatabaseCatalog, ReadCursor, Row, SledDatabaseCatalog, StorageError};
 
 mod metadata;
 
+#[allow(dead_code)]
 pub struct CatalogManager {
     key_id_generator: usize,
     persistent: Box<dyn DatabaseCatalog>,
@@ -39,7 +39,7 @@ unsafe impl Sync for CatalogManager {}
 const DEFAULT_CATALOG: &'_ str = "public";
 
 impl CatalogManager {
-    pub fn new(mut persistent: Box<dyn DatabaseCatalog>) -> SystemResult<Self> {
+    pub fn new(persistent: Box<dyn DatabaseCatalog>) -> SystemResult<Self> {
         match persistent.create_namespace_with_objects("system", vec!["columns"]) {
             Ok(()) => Ok(Self {
                 key_id_generator: 0,
