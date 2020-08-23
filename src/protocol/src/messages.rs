@@ -478,6 +478,18 @@ fn decode_flush(_cursor: Cursor) -> Result<FrontendMessage> {
     Ok(FrontendMessage::Flush)
 }
 
+// For some reason `clippy` thinks that `param_types` is going to contain
+// only the same `PostgreSqlType` variant
+// error: it looks like the same item is being pushed into this Vec
+//    --> src/protocol/src/messages.rs:490:9
+//     |
+// 490 |         param_types.push(sql_type);
+//     |         ^^^^^^^^^^^
+//     |
+//     = note: `-D clippy::same-item-push` implied by `-D warnings`
+//     = help: try using vec![sql_type;SIZE] or param_types.resize(NEW_SIZE, sql_type)
+//     = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#same_item_push
+#[allow(clippy::same_item_push)]
 fn decode_parse(mut cursor: Cursor) -> Result<FrontendMessage> {
     let statement_name = cursor.read_cstr()?.to_owned();
     let sql = cursor.read_cstr()?.to_owned();

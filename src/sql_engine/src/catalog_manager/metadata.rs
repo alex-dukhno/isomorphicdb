@@ -1192,6 +1192,48 @@ mod tests {
         }
 
         #[rstest::rstest]
+        fn storage_preserve_created_table_with_the_same_name_in_different_schemas_after_restart(
+            storage_path: (DataDefinition, PathBuf),
+        ) {
+            let (data_definition, path) = storage_path;
+            data_definition.create_catalog("catalog_name");
+            data_definition.create_schema("catalog_name", "schema_name_1");
+            data_definition.create_table(
+                "catalog_name",
+                "schema_name_1",
+                "table_name",
+                &[ColumnDefinition::new("col_1", SqlType::Integer(0))],
+            );
+            data_definition.create_schema("catalog_name", "schema_name_2");
+            data_definition.create_table(
+                "catalog_name",
+                "schema_name_2",
+                "table_name",
+                &[ColumnDefinition::new("col_1", SqlType::SmallInt(0))],
+            );
+            assert_eq!(
+                data_definition.table_columns("catalog_name", "schema_name_1", "table_name"),
+                vec![ColumnDefinition::new("col_1", SqlType::Integer(0))]
+            );
+            assert_eq!(
+                data_definition.table_columns("catalog_name", "schema_name_2", "table_name"),
+                vec![ColumnDefinition::new("col_1", SqlType::SmallInt(0))]
+            );
+            drop(data_definition);
+
+            let data_definition = DataDefinition::persistent(&path).expect("create persistent data definition");
+
+            assert_eq!(
+                data_definition.table_columns("catalog_name", "schema_name_1", "table_name"),
+                vec![ColumnDefinition::new("col_1", SqlType::Integer(0))]
+            );
+            assert_eq!(
+                data_definition.table_columns("catalog_name", "schema_name_2", "table_name"),
+                vec![ColumnDefinition::new("col_1", SqlType::SmallInt(0))]
+            );
+        }
+
+        #[rstest::rstest]
         fn storage_preserve_created_multiple_tables_in_different_schemas_and_catalogs_after_restart(
             storage_path: (DataDefinition, PathBuf),
         ) {
