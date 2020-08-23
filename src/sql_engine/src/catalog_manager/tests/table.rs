@@ -16,7 +16,7 @@ use super::*;
 use sql_types::SqlType;
 
 #[rstest::rstest]
-fn create_tables_with_different_names(default_schema_name: &str, mut storage_with_schema: PersistentStorage) {
+fn create_tables_with_different_names(default_schema_name: &str, storage_with_schema: PersistentStorage) {
     assert_eq!(
         storage_with_schema.create_table(
             default_schema_name,

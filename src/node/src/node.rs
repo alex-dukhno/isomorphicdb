@@ -23,7 +23,7 @@ use std::{
     path::{Path, PathBuf},
     sync::{
         atomic::{AtomicU8, Ordering},
-        Arc, Mutex,
+        Arc,
     },
 };
 
@@ -35,7 +35,7 @@ pub const STOPPED: u8 = 1;
 
 pub fn start() {
     block_on(async {
-        let storage: Arc<Mutex<CatalogManager>> = Arc::new(Mutex::new(CatalogManager::default().unwrap()));
+        let storage: Arc<CatalogManager> = Arc::new(CatalogManager::default().unwrap());
         let listener = Async::<TcpListener>::bind((HOST, PORT)).expect("OK");
 
         let state = Arc::new(AtomicU8::new(RUNNING));

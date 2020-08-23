@@ -43,10 +43,8 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-fn in_memory_storage() -> Arc<Mutex<CatalogManager>> {
-    Arc::new(Mutex::new(
-        CatalogManager::new(Box::new(InMemoryStorage::default())).unwrap(),
-    ))
+fn in_memory_storage() -> Arc<CatalogManager> {
+    Arc::new(CatalogManager::new(Box::new(InMemoryStorage::default())).unwrap())
 }
 
 struct Collector(Mutex<Vec<QueryResult>>);

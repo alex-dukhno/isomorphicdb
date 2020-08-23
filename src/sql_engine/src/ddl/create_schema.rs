@@ -15,18 +15,18 @@
 use crate::{catalog_manager::CatalogManager, query::plan::SchemaCreationInfo};
 use kernel::SystemResult;
 use protocol::{results::QueryEvent, Sender};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 pub(crate) struct CreateSchemaCommand {
     schema_info: SchemaCreationInfo,
-    storage: Arc<Mutex<CatalogManager>>,
+    storage: Arc<CatalogManager>,
     session: Arc<dyn Sender>,
 }
 
 impl CreateSchemaCommand {
     pub(crate) fn new(
         schema_info: SchemaCreationInfo,
-        storage: Arc<Mutex<CatalogManager>>,
+        storage: Arc<CatalogManager>,
         session: Arc<dyn Sender>,
     ) -> CreateSchemaCommand {
         CreateSchemaCommand {
@@ -38,7 +38,7 @@ impl CreateSchemaCommand {
 
     pub(crate) fn execute(&mut self) -> SystemResult<()> {
         let schema_name = &self.schema_info.schema_name;
-        match (self.storage.lock().unwrap()).create_schema(schema_name) {
+        match self.storage.create_schema(schema_name) {
             Err(error) => Err(error),
             Ok(()) => {
                 self.session

@@ -38,7 +38,7 @@ use sqlparser::{
     dialect::{Dialect, PostgreSqlDialect},
     parser::Parser,
 };
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 pub mod catalog_manager;
 mod ddl;
@@ -129,13 +129,13 @@ impl ColumnDefinition {
 
 pub struct QueryExecutor {
     processor: QueryProcessor,
-    storage: Arc<Mutex<CatalogManager>>,
+    storage: Arc<CatalogManager>,
     sender: Arc<dyn Sender>,
     session: Session,
 }
 
 impl QueryExecutor {
-    pub fn new(storage: Arc<Mutex<CatalogManager>>, sender: Arc<dyn Sender>) -> Self {
+    pub fn new(storage: Arc<CatalogManager>, sender: Arc<dyn Sender>) -> Self {
         Self {
             storage: storage.clone(),
             sender: sender.clone(),

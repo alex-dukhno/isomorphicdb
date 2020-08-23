@@ -21,17 +21,13 @@ use protocol::{
 use representation::{Binary, Datum};
 use sql_types::ConstraintError;
 use sqlparser::ast::{DataType, Expr, Query, SetExpr, UnaryOperator, Value};
-use std::{
-    convert::TryFrom,
-    str::FromStr,
-    sync::{Arc, Mutex},
-};
+use std::{convert::TryFrom, str::FromStr, sync::Arc};
 use storage::Row;
 
 pub(crate) struct InsertCommand<'ic> {
     raw_sql_query: &'ic str,
     table_inserts: TableInserts,
-    storage: Arc<Mutex<CatalogManager>>,
+    storage: Arc<CatalogManager>,
     session: Arc<dyn Sender>,
 }
 
@@ -39,7 +35,7 @@ impl<'ic> InsertCommand<'ic> {
     pub(crate) fn new(
         raw_sql_query: &'ic str,
         table_inserts: TableInserts,
-        storage: Arc<Mutex<CatalogManager>>,
+        storage: Arc<CatalogManager>,
         session: Arc<dyn Sender>,
     ) -> InsertCommand<'ic> {
         InsertCommand {
@@ -123,7 +119,7 @@ impl<'ic> InsertCommand<'ic> {
                     rows.push(row);
                 }
 
-                if !(self.storage.lock().unwrap()).schema_exists(schema_name) {
+                if !self.storage.schema_exists(schema_name) {
                     self.session
                         .send(Err(QueryErrorBuilder::new()
                             .schema_does_not_exist(schema_name.to_owned())
@@ -132,7 +128,7 @@ impl<'ic> InsertCommand<'ic> {
                     return Ok(());
                 }
 
-                if !(self.storage.lock().unwrap()).table_exists(schema_name, table_name) {
+                if !self.storage.table_exists(schema_name, table_name) {
                     self.session
                         .send(Err(QueryErrorBuilder::new()
                             .table_does_not_exist(schema_name.to_owned() + "." + table_name)
@@ -142,7 +138,7 @@ impl<'ic> InsertCommand<'ic> {
                 }
 
                 let column_names = columns;
-                let all_columns = (self.storage.lock().unwrap()).table_columns(&schema_name, &table_name)?;
+                let all_columns = self.storage.table_columns(&schema_name, &table_name)?;
                 let index_columns = if column_names.is_empty() {
                     let mut index_cols = vec![];
                     for (index, column_definition) in all_columns.iter().cloned().enumerate() {
@@ -183,7 +179,7 @@ impl<'ic> InsertCommand<'ic> {
                 };
 
                 let mut to_write: Vec<Row> = vec![];
-                if (self.storage.lock().unwrap()).table_exists(&schema_name, &table_name) {
+                if self.storage.table_exists(&schema_name, &table_name) {
                     let mut errors = Vec::new();
 
                     for (row_index, row) in rows.iter().enumerate() {
@@ -196,7 +192,7 @@ impl<'ic> InsertCommand<'ic> {
                             return Ok(());
                         }
 
-                        let key = (self.storage.lock().unwrap()).next_key_id().to_be_bytes().to_vec();
+                        let key = self.storage.next_key_id().to_be_bytes().to_vec();
 
                         // TODO: The default value or NULL should be initialized for SQL types of all columns.
                         let mut record = vec![Datum::from_null(); all_columns.len()];
@@ -263,7 +259,7 @@ impl<'ic> InsertCommand<'ic> {
                     }
                 }
 
-                match (self.storage.lock().unwrap()).insert_into(&schema_name, &table_name, to_write) {
+                match self.storage.insert_into(&schema_name, &table_name, to_write) {
                     Err(error) => Err(error),
                     Ok(size) => {
                         self.session

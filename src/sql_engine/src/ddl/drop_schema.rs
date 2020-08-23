@@ -15,26 +15,22 @@
 use crate::{catalog_manager::CatalogManager, query::SchemaId};
 use kernel::SystemResult;
 use protocol::{results::QueryEvent, Sender};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 pub(crate) struct DropSchemaCommand {
     name: SchemaId,
-    storage: Arc<Mutex<CatalogManager>>,
+    storage: Arc<CatalogManager>,
     session: Arc<dyn Sender>,
 }
 
 impl DropSchemaCommand {
-    pub(crate) fn new(
-        name: SchemaId,
-        storage: Arc<Mutex<CatalogManager>>,
-        session: Arc<dyn Sender>,
-    ) -> DropSchemaCommand {
+    pub(crate) fn new(name: SchemaId, storage: Arc<CatalogManager>, session: Arc<dyn Sender>) -> DropSchemaCommand {
         DropSchemaCommand { name, storage, session }
     }
 
     pub(crate) fn execute(&mut self) -> SystemResult<()> {
         let schema_name = self.name.name().to_string();
-        match (self.storage.lock().unwrap()).drop_schema(&schema_name) {
+        match self.storage.drop_schema(&schema_name) {
             Err(error) => Err(error),
             Ok(()) => {
                 self.session

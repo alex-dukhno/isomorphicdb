@@ -16,7 +16,7 @@ use super::*;
 use sql_types::SqlType;
 
 #[rstest::rstest]
-fn create_schemas_with_different_names(mut storage: PersistentStorage) {
+fn create_schemas_with_different_names(storage: PersistentStorage) {
     assert_eq!(storage.create_schema("schema_1"), Ok(()));
     assert_eq!(storage.create_schema("schema_2"), Ok(()));
 }
@@ -56,7 +56,7 @@ fn same_table_names_with_different_columns_in_different_schemas(mut storage: Per
 }
 
 #[rstest::rstest]
-fn drop_schema(default_schema_name: &str, mut storage_with_schema: PersistentStorage) {
+fn drop_schema(default_schema_name: &str, storage_with_schema: PersistentStorage) {
     assert_eq!(storage_with_schema.drop_schema(default_schema_name), Ok(()));
     assert_eq!(storage_with_schema.create_schema(default_schema_name), Ok(()));
 }

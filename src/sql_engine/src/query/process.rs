@@ -22,25 +22,18 @@ use crate::{
 use protocol::{results::QueryErrorBuilder, Sender};
 use sql_types::SqlType;
 use sqlparser::ast::{ColumnDef, DataType, ObjectName, ObjectType, Statement};
-use std::{
-    convert::TryFrom,
-    sync::{Arc, Mutex, MutexGuard},
-};
+use std::{convert::TryFrom, sync::Arc};
 
 type Result<T> = std::result::Result<T, ()>;
 
 pub(crate) struct QueryProcessor {
-    storage: Arc<Mutex<CatalogManager>>,
+    storage: Arc<CatalogManager>,
     session: Arc<dyn Sender>,
 }
 
 impl<'qp> QueryProcessor {
-    pub fn new(storage: Arc<Mutex<CatalogManager>>, session: Arc<dyn Sender>) -> Self {
+    pub fn new(storage: Arc<CatalogManager>, session: Arc<dyn Sender>) -> Self {
         Self { storage, session }
-    }
-
-    fn storage(&self) -> MutexGuard<CatalogManager> {
-        self.storage.lock().unwrap()
     }
 
     pub fn process(&mut self, stmt: Statement) -> Result<Plan> {
@@ -56,7 +49,7 @@ impl<'qp> QueryProcessor {
                         return Err(());
                     }
                 };
-                if self.storage().schema_exists(schema_id.name()) {
+                if self.storage.schema_exists(schema_id.name()) {
                     self.session
                         .send(Err(QueryErrorBuilder::new()
                             .schema_already_exists(schema_id.name().to_string())
@@ -149,14 +142,14 @@ impl<'qp> QueryProcessor {
         };
         let schema_name = table_id.schema_name();
         let table_name = table_id.name();
-        if !self.storage().schema_exists(schema_name) {
+        if !self.storage.schema_exists(schema_name) {
             self.session
                 .send(Err(QueryErrorBuilder::new()
                     .schema_does_not_exist(schema_name.to_string())
                     .build()))
                 .expect("To Send Query Result to Client");
             Err(())
-        } else if self.storage().table_exists(schema_name, table_name) {
+        } else if self.storage.table_exists(schema_name, table_name) {
             self.session
                 .send(Err(QueryErrorBuilder::new()
                     .table_already_exists(format!("{}.{}", schema_name, table_name))
@@ -192,14 +185,14 @@ impl<'qp> QueryProcessor {
                     };
                     let schema_name = table_id.schema_name();
                     let table_name = table_id.name();
-                    if !self.storage().schema_exists(schema_name) {
+                    if !self.storage.schema_exists(schema_name) {
                         self.session
                             .send(Err(QueryErrorBuilder::new()
                                 .schema_does_not_exist(schema_name.to_string())
                                 .build()))
                             .expect("To Send Query Result to Client");
                         return Err(());
-                    } else if !self.storage().table_exists(schema_name, table_name) {
+                    } else if !self.storage.table_exists(schema_name, table_name) {
                         self.session
                             .send(Err(QueryErrorBuilder::new()
                                 .table_does_not_exist(format!("{}.{}", schema_name, table_name))
@@ -224,7 +217,7 @@ impl<'qp> QueryProcessor {
                             return Err(());
                         }
                     };
-                    if !self.storage().schema_exists(schema_id.name()) {
+                    if !self.storage.schema_exists(schema_id.name()) {
                         self.session
                             .send(Err(QueryErrorBuilder::new()
                                 .schema_does_not_exist(schema_id.name().to_string())

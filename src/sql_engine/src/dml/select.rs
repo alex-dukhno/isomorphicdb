@@ -19,15 +19,12 @@ use protocol::{
     Sender,
 };
 use sqlparser::ast::{Expr, Ident, Query, Select, SelectItem, SetExpr, TableFactor, TableWithJoins};
-use std::{
-    ops::Deref,
-    sync::{Arc, Mutex},
-};
+use std::{ops::Deref, sync::Arc};
 
 pub(crate) struct SelectCommand<'sc> {
     raw_sql_query: &'sc str,
     query: Box<Query>,
-    storage: Arc<Mutex<CatalogManager>>,
+    storage: Arc<CatalogManager>,
     session: Arc<dyn Sender>,
 }
 
@@ -35,7 +32,7 @@ impl<'sc> SelectCommand<'sc> {
     pub(crate) fn new(
         raw_sql_query: &'sc str,
         query: Box<Query>,
-        storage: Arc<Mutex<CatalogManager>>,
+        storage: Arc<CatalogManager>,
         session: Arc<dyn Sender>,
     ) -> SelectCommand<'sc> {
         SelectCommand {
@@ -67,14 +64,14 @@ impl<'sc> SelectCommand<'sc> {
                 }
             };
 
-            if !(self.storage.lock().unwrap()).schema_exists(&schema_name) {
+            if !self.storage.schema_exists(&schema_name) {
                 self.session
                     .send(Err(QueryErrorBuilder::new().schema_does_not_exist(schema_name).build()))
                     .expect("To Send Result to Client");
                 return Err(SystemError::runtime_check_failure("Schema Does Not Exist".to_owned()));
             }
 
-            if !(self.storage.lock().unwrap()).table_exists(&schema_name, &table_name) {
+            if !self.storage.table_exists(&schema_name, &table_name) {
                 self.session
                     .send(Err(QueryErrorBuilder::new()
                         .table_does_not_exist(schema_name + "." + table_name.as_str())
@@ -89,8 +86,7 @@ impl<'sc> SelectCommand<'sc> {
                 for item in projection {
                     match item {
                         SelectItem::Wildcard => {
-                            let all_columns =
-                                (self.storage.lock().unwrap()).table_columns(&schema_name, &table_name)?;
+                            let all_columns = self.storage.table_columns(&schema_name, &table_name)?;
                             columns.extend(
                                 all_columns
                                     .into_iter()
@@ -112,7 +108,7 @@ impl<'sc> SelectCommand<'sc> {
                 columns
             };
 
-            let all_columns = (self.storage.lock().unwrap()).table_columns(&schema_name, &table_name)?;
+            let all_columns = self.storage.table_columns(&schema_name, &table_name)?;
             let mut column_definitions = vec![];
             let mut non_existing_columns = vec![];
             for column_name in table_columns {
@@ -177,14 +173,14 @@ impl<'sc> SelectCommand<'sc> {
                 }
             };
 
-            if !(self.storage.lock().unwrap()).schema_exists(&schema_name) {
+            if !self.storage.schema_exists(&schema_name) {
                 self.session
                     .send(Err(QueryErrorBuilder::new().schema_does_not_exist(schema_name).build()))
                     .expect("To Send Result to Client");
                 return Ok(());
             }
 
-            if !(self.storage.lock().unwrap()).table_exists(&schema_name, &table_name) {
+            if !self.storage.table_exists(&schema_name, &table_name) {
                 self.session
                     .send(Err(QueryErrorBuilder::new()
                         .table_does_not_exist(schema_name + "." + table_name.as_str())
@@ -199,8 +195,7 @@ impl<'sc> SelectCommand<'sc> {
                 for item in projection {
                     match item {
                         SelectItem::Wildcard => {
-                            let all_columns =
-                                (self.storage.lock().unwrap()).table_columns(&schema_name, &table_name)?;
+                            let all_columns = self.storage.table_columns(&schema_name, &table_name)?;
                             columns.extend(
                                 all_columns
                                     .into_iter()
@@ -221,11 +216,11 @@ impl<'sc> SelectCommand<'sc> {
                 }
                 columns
             };
-            let data = (self.storage.lock().unwrap()).table_scan(&schema_name, &table_name);
+            let data = self.storage.table_scan(&schema_name, &table_name);
             match data {
                 Err(error) => Err(error),
                 Ok(records) => {
-                    let all_columns = (self.storage.lock().unwrap()).table_columns(&schema_name, &table_name)?;
+                    let all_columns = self.storage.table_columns(&schema_name, &table_name)?;
                     let mut description = vec![];
                     let mut column_indexes = vec![];
                     let mut non_existing_columns = vec![];
