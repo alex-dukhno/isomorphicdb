@@ -22,18 +22,18 @@ fn create_schemas_with_different_names(storage: PersistentStorage) {
 }
 
 #[rstest::rstest]
-fn same_table_names_with_different_columns_in_different_schemas(mut storage: PersistentStorage) {
-    create_schema(&mut storage, "schema_name_1");
-    create_schema(&mut storage, "schema_name_2");
+fn same_table_names_with_different_columns_in_different_schemas(storage: PersistentStorage) {
+    create_schema(&storage, "schema_name_1");
+    create_schema(&storage, "schema_name_2");
 
     create_table(
-        &mut storage,
+        &storage,
         "schema_name_1",
         "table_name",
         vec![column_definition("sn_1_column", SqlType::SmallInt(i16::min_value()))],
     );
     create_table(
-        &mut storage,
+        &storage,
         "schema_name_2",
         "table_name",
         vec![column_definition("sn_2_column", SqlType::BigInt(i64::min_value()))],
@@ -65,15 +65,15 @@ fn drop_schema(default_schema_name: &str, storage_with_schema: PersistentStorage
 #[ignore]
 // TODO store tables and columns into "system" schema
 //      but simple select by predicate has to be implemented
-fn drop_schema_drops_tables_in_it(default_schema_name: &str, mut storage_with_schema: PersistentStorage) {
+fn drop_schema_drops_tables_in_it(default_schema_name: &str, storage_with_schema: PersistentStorage) {
     create_table(
-        &mut storage_with_schema,
+        &storage_with_schema,
         default_schema_name,
         "table_name_1",
         vec![column_definition("column_test", SqlType::SmallInt(i16::min_value()))],
     );
     create_table(
-        &mut storage_with_schema,
+        &storage_with_schema,
         default_schema_name,
         "table_name_2",
         vec![column_definition("column_test", SqlType::SmallInt(i16::min_value()))],
