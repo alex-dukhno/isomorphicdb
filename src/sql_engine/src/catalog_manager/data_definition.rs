@@ -377,6 +377,15 @@ impl Catalog {
             .get(schema_name)
             .cloned()
     }
+
+    fn schemas(&self) -> Vec<String> {
+        self.schemas
+            .read()
+            .expect("to acquire read lock")
+            .keys()
+            .cloned()
+            .collect()
+    }
 }
 
 struct Schema {
@@ -443,6 +452,15 @@ impl Schema {
             .expect("to acquire lock")
             .remove(table_name)
             .map(|table| table.id())
+    }
+
+    fn tables(&self) -> Vec<String> {
+        self.tables
+            .read()
+            .expect("to acquire read lock")
+            .keys()
+            .cloned()
+            .collect()
     }
 }
 
@@ -633,6 +651,7 @@ impl DataDefinition {
     }
 
     pub(crate) fn schema_exists(&self, catalog_name: &str, schema_name: &str) -> SchemaId {
+        log::debug!("checking schema existence {:?}.{:?}", catalog_name, schema_name);
         let catalog = match self.catalog(catalog_name) {
             Some(catalog) => catalog,
             None => return None,
@@ -668,7 +687,9 @@ impl DataDefinition {
             }
             schema_id => schema_id,
         };
-        Some((catalog.id(), schema_id))
+        let result = Some((catalog.id(), schema_id));
+        log::debug!("{:?}", result);
+        result
     }
 
     pub(crate) fn drop_schema(&self, catalog_name: &str, schema_name: &str) {
@@ -693,7 +714,39 @@ impl DataDefinition {
         }
     }
 
+    pub(crate) fn schemas(&self, catalog_name: &str) -> Vec<String> {
+        match self.catalog(catalog_name) {
+            Some(catalog) => {
+                if let Some(system_catalog) = self.system_catalog.as_ref() {
+                    for (id, _catalog, schema) in system_catalog
+                        .read(DEFINITION_SCHEMA, SCHEMATA_TABLE)
+                        .expect("to have SCHEMATA_TABLE table")
+                        .map(Result::unwrap)
+                        .map(|(record_id, columns)| {
+                            let id = record_id.unpack()[1].as_u64();
+                            let columns = columns.unpack();
+                            let catalog = columns[0].as_str().to_owned();
+                            let schema = columns[1].as_str().to_owned();
+                            (id, catalog, schema)
+                        })
+                        .filter(|(_id, catalog, _schema)| catalog == catalog_name)
+                    {
+                        catalog.add_schema(id, schema.as_str());
+                    }
+                }
+                catalog.schemas()
+            }
+            None => vec![],
+        }
+    }
+
     pub(crate) fn table_exists(&self, catalog_name: &str, schema_name: &str, table_name: &str) -> TableId {
+        log::debug!(
+            "checking table existence {:?}.{:?}.{:?}",
+            catalog_name,
+            schema_name,
+            table_name
+        );
         let catalog = match self.catalog(catalog_name) {
             Some(catalog) => catalog,
             None => return None,
@@ -775,7 +828,9 @@ impl DataDefinition {
             }
             table_id => table_id,
         };
-        Some((catalog.id(), Some((schema.id(), table_id))))
+        let result = Some((catalog.id(), Some((schema.id(), table_id))));
+        log::debug!("{:?}", result);
+        result
     }
 
     pub(crate) fn create_table(
@@ -865,6 +920,56 @@ impl DataDefinition {
                     .expect("to remove table");
             }
         }
+    }
+
+    pub(crate) fn tables(&self, catalog_name: &str, schema_name: &str) -> Vec<String> {
+        let catalog = match self.catalog(catalog_name) {
+            Some(catalog) => catalog,
+            None => return vec![],
+        };
+        let schema = match catalog.schema(schema_name) {
+            Some(schema) => schema,
+            None => return vec![],
+        };
+        if let Some(system_catalog) = self.system_catalog.as_ref() {
+            for (table_id, _catalog, _schema, table) in system_catalog
+                .read(DEFINITION_SCHEMA, TABLES_TABLE)
+                .expect("to have SCHEMATA_TABLE table")
+                .map(Result::unwrap)
+                .map(|(record_id, columns)| {
+                    let id = record_id.unpack()[1].as_u64();
+                    let columns = columns.unpack();
+                    let catalog = columns[0].as_str().to_owned();
+                    let schema = columns[1].as_str().to_owned();
+                    let table = columns[2].as_str().to_owned();
+                    (id, catalog, schema, table)
+                })
+                .filter(|(_id, catalog, schema, _table)| catalog == catalog_name && schema == schema_name)
+            {
+                let mut max_id = 0;
+                let table_columns = system_catalog
+                    .read(DEFINITION_SCHEMA, COLUMNS_TABLE)
+                    .expect("to have COLUMNS table")
+                    .map(Result::unwrap)
+                    .map(|(record_id, data)| {
+                        let id = record_id.unpack()[3].as_u64();
+                        let data = data.unpack();
+                        let schema = data[1].as_str().to_owned();
+                        let table = data[2].as_str().to_owned();
+                        let column = data[3].as_str().to_owned();
+                        let sql_type = data[4].as_sql_type();
+                        max_id = max_id.max(id);
+                        (id, schema, table, column, sql_type)
+                    })
+                    .filter(|(_id, schema, _table, _column, _sql_type)| schema == schema_name)
+                    .map(|(id, _schema, _table, column, sql_type)| {
+                        (id, ColumnDefinition::new(column.as_str(), sql_type))
+                    })
+                    .collect::<BTreeMap<_, _>>();
+                schema.add_table(table_id, table.as_str(), table_columns, max_id);
+            }
+        }
+        schema.tables()
     }
 
     pub(crate) fn table_columns(

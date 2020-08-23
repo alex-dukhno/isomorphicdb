@@ -1128,6 +1128,7 @@ dependencies = [
  "serde",
  "sled",
  "sql_types",
+ "tempfile",
 ]
 
 [[package]]

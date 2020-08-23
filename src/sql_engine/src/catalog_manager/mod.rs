@@ -18,7 +18,7 @@ use std::{
     path::PathBuf,
     sync::atomic::{AtomicU64, Ordering},
 };
-use storage::{InMemoryDatabaseCatalog, PersistentDatabaseCatalog, ReadCursor, Row, Storage, StorageError};
+use storage::{InMemoryDatabaseCatalog, InitStatus, PersistentDatabaseCatalog, ReadCursor, Row, Storage, StorageError};
 
 mod data_definition;
 
@@ -52,10 +52,40 @@ impl CatalogManager {
 
     pub fn persistent(path: PathBuf) -> SystemResult<CatalogManager> {
         let data_definition = DataDefinition::persistent(&path)?;
-        data_definition.create_catalog(DEFAULT_CATALOG);
+        let catalog = PersistentDatabaseCatalog::new(path.join(DEFAULT_CATALOG));
+        match data_definition.catalog_exists(DEFAULT_CATALOG) {
+            Some(_id) => {
+                for schema in data_definition.schemas(DEFAULT_CATALOG) {
+                    match catalog.init(schema.as_str()) {
+                        Ok(InitStatus::Loaded) => {
+                            for table in data_definition.tables(DEFAULT_CATALOG, schema.as_str()) {
+                                catalog.open_tree(schema.as_str(), table.as_str());
+                            }
+                        }
+                        Ok(InitStatus::Created) => {
+                            log::error!("Schema {:?} should have been already created", schema);
+                            return Err(SystemError::bug_in_sql_engine(
+                                Operation::Access,
+                                Object::Schema(schema.as_str()),
+                            ));
+                        }
+                        Err(error) => {
+                            log::error!("Error during schema {:?} initialization {:?}", schema, error);
+                            return Err(SystemError::bug_in_sql_engine(
+                                Operation::Access,
+                                Object::Schema(schema.as_str()),
+                            ));
+                        }
+                    }
+                }
+            }
+            None => {
+                data_definition.create_catalog(DEFAULT_CATALOG);
+            }
+        }
         Ok(Self {
             key_id_generator: AtomicU64::default(),
-            data_storage: Box::new(PersistentDatabaseCatalog::new(path)),
+            data_storage: Box::new(catalog),
             data_definition,
         })
     }
