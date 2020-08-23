@@ -14,12 +14,10 @@
 
 use crate::{catalog_manager::metadata::DataDefinition, ColumnDefinition, TableDefinition};
 use kernel::{Object, Operation, SystemError, SystemResult};
-use representation::Binary;
 use storage::{DatabaseCatalog, ReadCursor, Row, SledDatabaseCatalog, StorageError};
 
 mod metadata;
 
-#[allow(dead_code)]
 pub struct CatalogManager {
     key_id_generator: usize,
     persistent: Box<dyn DatabaseCatalog>,
@@ -35,17 +33,20 @@ impl CatalogManager {
 unsafe impl Send for CatalogManager {}
 unsafe impl Sync for CatalogManager {}
 
-#[allow(dead_code)]
 const DEFAULT_CATALOG: &'_ str = "public";
 
 impl CatalogManager {
     pub fn new(persistent: Box<dyn DatabaseCatalog>) -> SystemResult<Self> {
         match persistent.create_namespace_with_objects("system", vec!["columns"]) {
-            Ok(()) => Ok(Self {
-                key_id_generator: 0,
-                persistent,
-                data_definition: DataDefinition::in_memory(),
-            }),
+            Ok(()) => {
+                let definition = DataDefinition::in_memory();
+                definition.create_catalog(DEFAULT_CATALOG);
+                Ok(Self {
+                    key_id_generator: 0,
+                    persistent,
+                    data_definition: definition,
+                })
+            }
             Err(StorageError::SystemError(e)) => Err(e),
             Err(StorageError::RuntimeCheckError) => Err(SystemError::bug_in_sql_engine(
                 Operation::Create,
@@ -61,24 +62,21 @@ impl CatalogManager {
     }
 
     pub fn table_descriptor(&self, schema_name: &str, table_name: &str) -> SystemResult<TableDefinition> {
-        match self.persistent.check_for_object(schema_name, table_name) {
-            Ok(()) => {}
-            Err(StorageError::SystemError(error)) => return Err(error),
-            Err(StorageError::RuntimeCheckError) => {
-                return Err(SystemError::bug_in_sql_engine(
-                    Operation::Access,
-                    Object::Table(schema_name, table_name),
-                ));
-            }
+        if self.table_exists(schema_name, table_name) {
+            // we know the table exists
+            let columns_metadata = self.table_columns(schema_name, table_name)?;
+
+            Ok(TableDefinition::new(schema_name, table_name, columns_metadata))
+        } else {
+            Err(SystemError::bug_in_sql_engine(
+                Operation::Access,
+                Object::Table(schema_name, table_name),
+            ))
         }
-
-        // we know the table exists
-        let columns_metadata = self.table_columns(schema_name, table_name)?;
-
-        Ok(TableDefinition::new(schema_name, table_name, columns_metadata))
     }
 
     pub fn create_schema(&mut self, schema_name: &str) -> SystemResult<()> {
+        self.data_definition.create_schema(DEFAULT_CATALOG, schema_name);
         match self.persistent.create_namespace(schema_name) {
             Ok(()) => Ok(()),
             Err(StorageError::SystemError(error)) => Err(error),
@@ -90,6 +88,7 @@ impl CatalogManager {
     }
 
     pub fn drop_schema(&mut self, schema_name: &str) -> SystemResult<()> {
+        self.data_definition.drop_schema(DEFAULT_CATALOG, schema_name);
         match self.persistent.drop_namespace(schema_name) {
             Ok(()) => Ok(()),
             Err(StorageError::SystemError(error)) => Err(error),
@@ -106,32 +105,10 @@ impl CatalogManager {
         table_name: &str,
         column_definitions: &[ColumnDefinition],
     ) -> SystemResult<()> {
+        self.data_definition
+            .create_table(DEFAULT_CATALOG, schema_name, table_name, column_definitions);
         match self.persistent.create_tree(schema_name, table_name) {
-            Ok(()) => match self.persistent.write(
-                "system",
-                "columns",
-                vec![(
-                    Binary::with_data((schema_name.to_owned() + table_name).as_bytes().to_vec()),
-                    Binary::with_data(
-                        column_definitions
-                            .iter()
-                            .map(|column_defs| bincode::serialize(&column_defs).unwrap())
-                            .collect::<Vec<Vec<u8>>>()
-                            .join(&b'|')
-                            .to_vec(),
-                    ),
-                )],
-            ) {
-                Ok(_size) => {
-                    log::info!("column data is recorded");
-                    Ok(())
-                }
-                Err(StorageError::SystemError(error)) => Err(error),
-                Err(StorageError::RuntimeCheckError) => Err(SystemError::bug_in_sql_engine(
-                    Operation::Access,
-                    Object::Table("system", "columns"),
-                )),
-            },
+            Ok(()) => Ok(()),
             Err(StorageError::SystemError(error)) => Err(error),
             Err(StorageError::RuntimeCheckError) => Err(SystemError::bug_in_sql_engine(
                 Operation::Create,
@@ -141,31 +118,14 @@ impl CatalogManager {
     }
 
     pub fn table_columns(&self, schema_name: &str, table_name: &str) -> SystemResult<Vec<ColumnDefinition>> {
-        match self.persistent.read("system", "columns") {
-            Ok(reads) => Ok(reads
-                .map(Result::unwrap)
-                .filter(|(table, _columns)| {
-                    *table == Binary::with_data((schema_name.to_owned() + table_name).as_bytes().to_vec())
-                })
-                .map(|(_id, columns)| {
-                    columns
-                        .to_bytes()
-                        .split(|b| *b == b'|')
-                        .filter(|v| !v.is_empty())
-                        .map(|c| bincode::deserialize(c).unwrap())
-                        .collect::<Vec<_>>()
-                })
-                .next()
-                .unwrap_or_default()),
-            Err(StorageError::SystemError(error)) => Err(error),
-            Err(StorageError::RuntimeCheckError) => Err(SystemError::bug_in_sql_engine(
-                Operation::Access,
-                Object::Table(schema_name, table_name),
-            )),
-        }
+        Ok(self
+            .data_definition
+            .table_columns(DEFAULT_CATALOG, schema_name, table_name))
     }
 
     pub fn drop_table(&mut self, schema_name: &str, table_name: &str) -> SystemResult<()> {
+        self.data_definition
+            .drop_table(DEFAULT_CATALOG, schema_name, table_name);
         match self.persistent.drop_tree(schema_name, table_name) {
             Ok(()) => Ok(()),
             Err(StorageError::SystemError(error)) => Err(error),
@@ -230,11 +190,18 @@ impl CatalogManager {
     }
 
     pub fn schema_exists(&self, schema_name: &str) -> bool {
-        self.persistent.is_namespace_exists(schema_name)
+        matches!(
+            self.data_definition.schema_exists(DEFAULT_CATALOG, schema_name),
+            Some((_, Some(_)))
+        )
     }
 
     pub fn table_exists(&self, schema_name: &str, table_name: &str) -> bool {
-        self.persistent.is_tree_exists(schema_name, table_name)
+        matches!(
+            self.data_definition
+                .table_exists(DEFAULT_CATALOG, schema_name, table_name),
+            Some((_, Some((_, Some(_)))))
+        )
     }
 }
 
