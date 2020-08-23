@@ -27,8 +27,7 @@ pub type StorageResult<T> = std::result::Result<T, StorageError>;
 mod in_memory;
 mod persistent;
 
-pub use crate::in_memory::InMemoryDatabaseCatalog;
-pub use crate::persistent::PersistentDatabaseCatalog;
+pub use crate::{in_memory::InMemoryDatabaseCatalog, persistent::PersistentDatabaseCatalog};
 
 pub enum InitStatus {
     Created,

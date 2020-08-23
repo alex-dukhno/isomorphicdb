@@ -14,8 +14,10 @@
 
 use crate::{catalog_manager::data_definition::DataDefinition, ColumnDefinition, TableDefinition};
 use kernel::{Object, Operation, SystemError, SystemResult};
-use std::path::PathBuf;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::{
+    path::PathBuf,
+    sync::atomic::{AtomicU64, Ordering},
+};
 use storage::{InMemoryDatabaseCatalog, PersistentDatabaseCatalog, ReadCursor, Row, Storage, StorageError};
 
 mod data_definition;

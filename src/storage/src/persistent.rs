@@ -16,9 +16,11 @@ use crate::{InitStatus, Key, ReadCursor, Row, Storage, StorageError, StorageResu
 use kernel::SystemError;
 use representation::Binary;
 use sled::{Db as NameSpace, Error as SledError};
-use std::collections::HashMap;
-use std::path::PathBuf;
-use std::sync::{Arc, RwLock};
+use std::{
+    collections::HashMap,
+    path::PathBuf,
+    sync::{Arc, RwLock},
+};
 
 pub struct SledErrorMapper;
 
