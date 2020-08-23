@@ -36,21 +36,16 @@ fn storage() -> PersistentStorage {
 }
 
 #[rstest::fixture]
-fn storage_with_schema(mut storage: PersistentStorage, default_schema_name: &str) -> PersistentStorage {
-    create_schema(&mut storage, default_schema_name);
+fn storage_with_schema(storage: PersistentStorage, default_schema_name: &str) -> PersistentStorage {
+    create_schema(&storage, default_schema_name);
     storage
 }
 
-fn create_schema(storage: &mut CatalogManager, schema_name: &str) {
+fn create_schema(storage: &CatalogManager, schema_name: &str) {
     storage.create_schema(schema_name).expect("schema is created");
 }
 
-fn create_table(
-    storage: &mut CatalogManager,
-    schema_name: &str,
-    table_name: &str,
-    column_names: Vec<ColumnDefinition>,
-) {
+fn create_table(storage: &CatalogManager, schema_name: &str, table_name: &str, column_names: Vec<ColumnDefinition>) {
     storage
         .create_table(schema_name, table_name, column_names.as_slice())
         .expect("table is created");
@@ -63,7 +58,7 @@ fn column_definition(name: &'static str, sql_type: SqlType) -> ColumnDefinition 
     }
 }
 
-fn insert_into(storage: &mut CatalogManager, schema_name: &str, table_name: &str, values: Vec<(i32, Vec<&str>)>) {
+fn insert_into(storage: &CatalogManager, schema_name: &str, table_name: &str, values: Vec<(i32, Vec<&str>)>) {
     storage
         .insert_into(
             schema_name,

@@ -12,7 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::fmt::{self, Display, Formatter};
+use std::{
+    convert::TryFrom,
+    fmt::{self, Display, Formatter},
+};
+
+/// PostgreSQL Object Identifier
+pub type Oid = u32;
 
 /// Represents PostgreSQL data type and methods to send over wire
 #[allow(missing_docs)]
@@ -35,31 +41,35 @@ pub enum PostgreSqlType {
     Interval,
 }
 
-impl PostgreSqlType {
+impl TryFrom<Oid> for PostgreSqlType {
+    type Error = ();
+
     /// Returns the type corresponding to the provided OID, if the OID is known.
-    pub fn from_oid(oid: u32) -> Option<Self> {
+    fn try_from(oid: Oid) -> Result<Self, Self::Error> {
         match oid {
-            16 => Some(Self::Bool),
-            18 => Some(Self::Char),
-            20 => Some(Self::BigInt),
-            21 => Some(Self::SmallInt),
-            23 => Some(Self::Integer),
-            700 => Some(Self::Real),
-            701 => Some(Self::DoublePrecision),
-            1043 => Some(Self::VarChar),
-            1082 => Some(Self::Date),
-            1083 => Some(Self::Time),
-            1114 => Some(Self::Timestamp),
-            1184 => Some(Self::TimestampWithTimeZone),
-            1186 => Some(Self::Interval),
-            1266 => Some(Self::TimeWithTimeZone),
-            1700 => Some(Self::Decimal),
-            _ => None,
+            16 => Ok(PostgreSqlType::Bool),
+            18 => Ok(PostgreSqlType::Char),
+            20 => Ok(PostgreSqlType::BigInt),
+            21 => Ok(PostgreSqlType::SmallInt),
+            23 => Ok(PostgreSqlType::Integer),
+            700 => Ok(PostgreSqlType::Real),
+            701 => Ok(PostgreSqlType::DoublePrecision),
+            1043 => Ok(PostgreSqlType::VarChar),
+            1082 => Ok(PostgreSqlType::Date),
+            1083 => Ok(PostgreSqlType::Time),
+            1114 => Ok(PostgreSqlType::Timestamp),
+            1184 => Ok(PostgreSqlType::TimestampWithTimeZone),
+            1186 => Ok(PostgreSqlType::Interval),
+            1266 => Ok(PostgreSqlType::TimeWithTimeZone),
+            1700 => Ok(PostgreSqlType::Decimal),
+            _ => Err(()),
         }
     }
+}
 
+impl PostgreSqlType {
     /// PostgreSQL type OID
-    pub fn pg_oid(&self) -> i32 {
+    pub fn pg_oid(&self) -> Oid {
         match self {
             Self::Bool => 16,
             Self::Char => 18,

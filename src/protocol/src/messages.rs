@@ -14,6 +14,7 @@
 
 use crate::{sql_types::PostgreSqlType, Error, Result};
 use byteorder::{ByteOrder, NetworkEndian};
+use std::convert::TryFrom;
 
 const COMMAND_COMPLETE: u8 = b'C';
 const DATA_ROW: u8 = b'D';
@@ -222,7 +223,7 @@ pub enum BackendMessage {
     /// 3rd and 4th paragraph
     ParameterStatus(String, String),
     /// Indicates that parameters are needed by a prepared statement.
-    ParameterDescription(Vec<i32>),
+    ParameterDescription(Vec<u32>),
     /// Indicates that the statement will not return rows.
     NoData,
     /// This message informs the frontend about the previous `Parse` frontend
@@ -349,14 +350,14 @@ pub struct ColumnMetadata {
     /// name of the column that was specified in query
     pub name: String,
     /// PostgreSQL data type id
-    pub type_id: i32,
+    pub type_id: u32,
     /// PostgreSQL data type size
     pub type_size: i16,
 }
 
 impl ColumnMetadata {
     /// Creates new column metadata
-    pub fn new(name: String, type_id: i32, type_size: i16) -> Self {
+    pub fn new(name: String, type_id: u32, type_size: i16) -> Self {
         Self {
             name,
             type_id,
@@ -485,7 +486,7 @@ fn decode_parse(mut cursor: Cursor) -> Result<FrontendMessage> {
     let mut param_types = vec![];
     for _ in 0..cursor.read_i16()? {
         let oid = cursor.read_u32()?;
-        let sql_type = PostgreSqlType::from_oid(oid).unwrap();
+        let sql_type = PostgreSqlType::try_from(oid).unwrap();
         param_types.push(sql_type);
     }
 

@@ -14,12 +14,13 @@
 
 use crate::{catalog_manager::metadata::DataDefinition, ColumnDefinition, TableDefinition};
 use kernel::{Object, Operation, SystemError, SystemResult};
+use std::sync::atomic::{AtomicU64, Ordering};
 use storage::{DatabaseCatalog, ReadCursor, Row, SledDatabaseCatalog, StorageError};
 
 mod metadata;
 
 pub struct CatalogManager {
-    key_id_generator: usize,
+    key_id_generator: AtomicU64,
     persistent: Box<dyn DatabaseCatalog>,
     data_definition: DataDefinition,
 }
@@ -42,7 +43,7 @@ impl CatalogManager {
                 let definition = DataDefinition::in_memory();
                 definition.create_catalog(DEFAULT_CATALOG);
                 Ok(Self {
-                    key_id_generator: 0,
+                    key_id_generator: AtomicU64::default(),
                     persistent,
                     data_definition: definition,
                 })
@@ -55,10 +56,8 @@ impl CatalogManager {
         }
     }
 
-    pub fn next_key_id(&mut self) -> usize {
-        let key_id = self.key_id_generator;
-        self.key_id_generator += 1;
-        key_id
+    pub fn next_key_id(&self) -> u64 {
+        self.key_id_generator.fetch_add(1, Ordering::SeqCst)
     }
 
     pub fn table_descriptor(&self, schema_name: &str, table_name: &str) -> SystemResult<TableDefinition> {
@@ -75,7 +74,7 @@ impl CatalogManager {
         }
     }
 
-    pub fn create_schema(&mut self, schema_name: &str) -> SystemResult<()> {
+    pub fn create_schema(&self, schema_name: &str) -> SystemResult<()> {
         self.data_definition.create_schema(DEFAULT_CATALOG, schema_name);
         match self.persistent.create_namespace(schema_name) {
             Ok(()) => Ok(()),
@@ -87,7 +86,7 @@ impl CatalogManager {
         }
     }
 
-    pub fn drop_schema(&mut self, schema_name: &str) -> SystemResult<()> {
+    pub fn drop_schema(&self, schema_name: &str) -> SystemResult<()> {
         self.data_definition.drop_schema(DEFAULT_CATALOG, schema_name);
         match self.persistent.drop_namespace(schema_name) {
             Ok(()) => Ok(()),
@@ -100,7 +99,7 @@ impl CatalogManager {
     }
 
     pub fn create_table(
-        &mut self,
+        &self,
         schema_name: &str,
         table_name: &str,
         column_definitions: &[ColumnDefinition],
@@ -123,7 +122,7 @@ impl CatalogManager {
             .table_columns(DEFAULT_CATALOG, schema_name, table_name))
     }
 
-    pub fn drop_table(&mut self, schema_name: &str, table_name: &str) -> SystemResult<()> {
+    pub fn drop_table(&self, schema_name: &str, table_name: &str) -> SystemResult<()> {
         self.data_definition
             .drop_table(DEFAULT_CATALOG, schema_name, table_name);
         match self.persistent.drop_tree(schema_name, table_name) {
@@ -136,7 +135,7 @@ impl CatalogManager {
         }
     }
 
-    pub fn insert_into(&mut self, schema_name: &str, table_name: &str, values: Vec<Row>) -> SystemResult<usize> {
+    pub fn insert_into(&self, schema_name: &str, table_name: &str, values: Vec<Row>) -> SystemResult<usize> {
         log::debug!("{:#?}", values);
         match self.persistent.write(schema_name, table_name, values) {
             Ok(size) => Ok(size),
@@ -148,7 +147,7 @@ impl CatalogManager {
         }
     }
 
-    pub fn table_scan(&mut self, schema_name: &str, table_name: &str) -> SystemResult<ReadCursor> {
+    pub fn table_scan(&self, schema_name: &str, table_name: &str) -> SystemResult<ReadCursor> {
         match self.persistent.read(schema_name, table_name) {
             Ok(read) => Ok(read),
             Err(StorageError::SystemError(error)) => Err(error),
@@ -159,7 +158,7 @@ impl CatalogManager {
         }
     }
 
-    pub fn update_all(&mut self, schema_name: &str, table_name: &str, rows: Vec<Row>) -> SystemResult<usize> {
+    pub fn update_all(&self, schema_name: &str, table_name: &str, rows: Vec<Row>) -> SystemResult<usize> {
         match self.persistent.write(schema_name, table_name, rows) {
             Ok(size) => Ok(size),
             Err(StorageError::SystemError(error)) => Err(error),
@@ -170,7 +169,7 @@ impl CatalogManager {
         }
     }
 
-    pub fn delete_all_from(&mut self, schema_name: &str, table_name: &str) -> SystemResult<usize> {
+    pub fn delete_all_from(&self, schema_name: &str, table_name: &str) -> SystemResult<usize> {
         match self.persistent.read(schema_name, table_name) {
             Ok(reads) => {
                 let keys = reads.map(Result::unwrap).map(|(key, _)| key).collect();

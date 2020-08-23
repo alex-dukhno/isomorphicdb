@@ -16,7 +16,7 @@ use super::*;
 use sql_types::SqlType;
 
 #[rstest::rstest]
-fn create_tables_with_different_names(default_schema_name: &str, mut storage_with_schema: PersistentStorage) {
+fn create_tables_with_different_names(default_schema_name: &str, storage_with_schema: PersistentStorage) {
     assert_eq!(
         storage_with_schema.create_table(
             default_schema_name,
@@ -42,9 +42,9 @@ fn create_tables_with_different_names(default_schema_name: &str, mut storage_wit
 }
 
 #[rstest::rstest]
-fn create_table_with_the_same_name_in_different_schemas(mut storage: PersistentStorage) {
-    create_schema(&mut storage, "schema_name_1");
-    create_schema(&mut storage, "schema_name_2");
+fn create_table_with_the_same_name_in_different_schemas(storage: PersistentStorage) {
+    create_schema(&storage, "schema_name_1");
+    create_schema(&storage, "schema_name_2");
     assert_eq!(
         storage.create_table(
             "schema_name_1",
@@ -70,9 +70,9 @@ fn create_table_with_the_same_name_in_different_schemas(mut storage: PersistentS
 }
 
 #[rstest::rstest]
-fn drop_table(default_schema_name: &str, mut storage_with_schema: PersistentStorage) {
+fn drop_table(default_schema_name: &str, storage_with_schema: PersistentStorage) {
     create_table(
-        &mut storage_with_schema,
+        &storage_with_schema,
         default_schema_name,
         "table_name",
         vec![column_definition(
@@ -98,8 +98,8 @@ fn drop_table(default_schema_name: &str, mut storage_with_schema: PersistentStor
 }
 
 #[rstest::rstest]
-fn table_columns_on_empty_table(default_schema_name: &str, mut storage_with_schema: PersistentStorage) {
-    create_table(&mut storage_with_schema, default_schema_name, "table_name", vec![]);
+fn table_columns_on_empty_table(default_schema_name: &str, storage_with_schema: PersistentStorage) {
+    create_table(&storage_with_schema, default_schema_name, "table_name", vec![]);
 
     assert_eq!(
         storage_with_schema

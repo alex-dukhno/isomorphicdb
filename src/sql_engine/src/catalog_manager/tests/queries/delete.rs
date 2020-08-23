@@ -16,9 +16,9 @@ use super::*;
 use sql_types::SqlType;
 
 #[rstest::rstest]
-fn delete_all_from_table(default_schema_name: &str, mut storage_with_schema: PersistentStorage) {
+fn delete_all_from_table(default_schema_name: &str, storage_with_schema: PersistentStorage) {
     create_table(
-        &mut storage_with_schema,
+        &storage_with_schema,
         default_schema_name,
         "table_name",
         vec![ColumnDefinition::new(
@@ -28,19 +28,19 @@ fn delete_all_from_table(default_schema_name: &str, mut storage_with_schema: Per
     );
 
     insert_into(
-        &mut storage_with_schema,
+        &storage_with_schema,
         default_schema_name,
         "table_name",
         vec![(1, vec!["123"])],
     );
     insert_into(
-        &mut storage_with_schema,
+        &storage_with_schema,
         default_schema_name,
         "table_name",
         vec![(2, vec!["456"])],
     );
     insert_into(
-        &mut storage_with_schema,
+        &storage_with_schema,
         default_schema_name,
         "table_name",
         vec![(3, vec!["789"])],

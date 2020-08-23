@@ -15,27 +15,23 @@
 use crate::{catalog_manager::CatalogManager, query::TableId};
 use kernel::SystemResult;
 use protocol::{results::QueryEvent, Sender};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 pub(crate) struct DropTableCommand {
     name: TableId,
-    storage: Arc<Mutex<CatalogManager>>,
+    storage: Arc<CatalogManager>,
     session: Arc<dyn Sender>,
 }
 
 impl DropTableCommand {
-    pub(crate) fn new(
-        name: TableId,
-        storage: Arc<Mutex<CatalogManager>>,
-        session: Arc<dyn Sender>,
-    ) -> DropTableCommand {
+    pub(crate) fn new(name: TableId, storage: Arc<CatalogManager>, session: Arc<dyn Sender>) -> DropTableCommand {
         DropTableCommand { name, storage, session }
     }
 
     pub(crate) fn execute(&mut self) -> SystemResult<()> {
         let table_name = self.name.name();
         let schema_name = self.name.schema_name();
-        match (self.storage.lock().unwrap()).drop_table(schema_name, table_name) {
+        match self.storage.drop_table(schema_name, table_name) {
             Err(error) => Err(error),
             Ok(()) => {
                 self.session
