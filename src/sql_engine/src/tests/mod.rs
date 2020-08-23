@@ -17,8 +17,6 @@ mod delete;
 #[cfg(test)]
 mod describe_prepared_statement;
 #[cfg(test)]
-mod in_memory_backend_storage;
-#[cfg(test)]
 mod insert;
 #[cfg(test)]
 mod parse;
@@ -35,7 +33,6 @@ mod update;
 
 use super::*;
 use crate::{catalog_manager::CatalogManager, QueryExecutor};
-use in_memory_backend_storage::InMemoryStorage;
 use protocol::results::QueryResult;
 use std::{
     io,
@@ -44,7 +41,7 @@ use std::{
 };
 
 fn in_memory_storage() -> Arc<CatalogManager> {
-    Arc::new(CatalogManager::new(Box::new(InMemoryStorage::default())).unwrap())
+    Arc::new(CatalogManager::default())
 }
 
 struct Collector(Mutex<Vec<QueryResult>>);

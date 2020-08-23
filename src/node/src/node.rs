@@ -34,8 +34,13 @@ pub const RUNNING: u8 = 0;
 pub const STOPPED: u8 = 1;
 
 pub fn start() {
+    let persistent = env::var("PERSISTENT").is_ok();
     block_on(async {
-        let storage: Arc<CatalogManager> = Arc::new(CatalogManager::default().unwrap());
+        let storage = if persistent {
+            Arc::new(CatalogManager::persistent(PathBuf::new()).unwrap())
+        } else {
+            Arc::new(CatalogManager::in_memory().unwrap())
+        };
         let listener = Async::<TcpListener>::bind((HOST, PORT)).expect("OK");
 
         let state = Arc::new(AtomicU8::new(RUNNING));

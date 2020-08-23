@@ -24,19 +24,17 @@ use std::{
         Arc, RwLock,
     },
 };
-use storage::{DatabaseCatalog, InitStatus, SledDatabaseCatalog, StorageError};
+use storage::{InitStatus, PersistentDatabaseCatalog, Storage, StorageError};
 
 const SYSTEM_CATALOG: &'_ str = "system";
 // CREATE SCHEMA DEFINITION_SCHEMA
 //      AUTHORIZATION DEFINITION_SCHEMA
-#[allow(dead_code)]
 const DEFINITION_SCHEMA: &'_ str = "DEFINITION_SCHEMA";
 //CREATE TABLE CATALOG_NAMES (
 //     CATALOG_NAME    INFORMATION_SCHEMA.SQL_IDENTIFIER,
 //                     CONSTRAINT CATALOG_NAMES_PRIMARY_KEY
 //                         PRIMARY KEY (CATALOG_NAME)
 // )
-#[allow(dead_code)]
 const CATALOG_NAMES_TABLE: &'_ str = "CATALOG_NAMES";
 // CREATE TABLE SCHEMATA (
 //     CATALOG_NAME                    INFORMATION_SCHEMA.SQL_IDENTIFIER,
@@ -66,7 +64,6 @@ const CATALOG_NAMES_TABLE: &'_ str = "CATALOG_NAMES";
 //         FOREIGN KEY (CATALOG_NAME)
 //         REFERENCES CATALOG_NAMES
 // )
-#[allow(dead_code)]
 const SCHEMATA_TABLE: &'_ str = "SCHEMATA";
 // CREATE TABLE TABLES (
 //     TABLE_CATALOG                               INFORMATION_SCHEMA.SQL_IDENTIFIER,
@@ -169,7 +166,6 @@ const SCHEMATA_TABLE: &'_ str = "SCHEMATA";
 //             )
 //         )
 // )
-#[allow(dead_code)]
 const TABLES_TABLE: &'_ str = "TABLES";
 // CREATE TABLE COLUMNS (
 //     TABLE_CATALOG           INFORMATION_SCHEMA.SQL_IDENTIFIER,
@@ -315,6 +311,7 @@ fn columns_table_types() -> [ColumnDefinition; 5] {
 }
 
 pub(crate) type Id = u64;
+#[allow(dead_code)]
 pub(crate) type CatalogId = Option<Id>;
 pub(crate) type SchemaId = Option<(Id, Option<Id>)>;
 pub(crate) type TableId = Option<(Id, Option<(Id, Option<Id>)>)>;
@@ -507,10 +504,9 @@ pub(crate) enum DropStrategy {
 pub(crate) struct DataDefinition {
     catalog_ids: AtomicU64,
     catalogs: RwLock<HashMap<Name, Arc<Catalog>>>,
-    system_catalog: Option<Box<dyn DatabaseCatalog>>,
+    system_catalog: Option<Box<dyn Storage>>,
 }
 
-#[allow(dead_code)]
 impl DataDefinition {
     pub(crate) fn in_memory() -> DataDefinition {
         DataDefinition {
@@ -521,7 +517,7 @@ impl DataDefinition {
     }
 
     pub(crate) fn persistent(path: &PathBuf) -> SystemResult<DataDefinition> {
-        let system_catalog = SledDatabaseCatalog::new(path.join(SYSTEM_CATALOG));
+        let system_catalog = PersistentDatabaseCatalog::new(path.join(SYSTEM_CATALOG));
         let (catalogs, catalog_ids) = match system_catalog.init(DEFINITION_SCHEMA) {
             Ok(InitStatus::Loaded) => {
                 let mut max_id = 0;
@@ -587,6 +583,7 @@ impl DataDefinition {
         }
     }
 
+    #[allow(dead_code)]
     pub(crate) fn catalog_exists(&self, catalog_name: &str) -> CatalogId {
         self.catalogs
             .read()
@@ -595,6 +592,7 @@ impl DataDefinition {
             .map(|database| database.id())
     }
 
+    #[allow(dead_code)]
     pub(crate) fn drop_catalog(&self, catalog_name: &str, _strategy: DropStrategy) {
         if let Some(catalog) = self
             .catalogs

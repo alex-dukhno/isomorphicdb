@@ -32,7 +32,7 @@ fn default_schema_name() -> &'static str {
 
 #[rstest::fixture]
 fn storage() -> PersistentStorage {
-    CatalogManager::default().expect("no system errors")
+    CatalogManager::default()
 }
 
 #[rstest::fixture]
