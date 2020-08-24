@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::catalog_manager::DropSchemaError;
 use crate::{catalog_manager::DropStrategy, ColumnDefinition};
 use kernel::{SystemError, SystemResult};
 use representation::{Binary, Datum};
@@ -523,13 +524,6 @@ impl Table {
 
 #[derive(Debug, PartialEq)]
 pub(crate) enum DropCatalogError {
-    DoesNotExist,
-    HasDependentObjects,
-}
-
-#[derive(Debug, PartialEq)]
-pub(crate) enum DropSchemaError {
-    CatalogDoesNotExist,
     DoesNotExist,
     HasDependentObjects,
 }

@@ -27,6 +27,13 @@ pub enum DropStrategy {
     Cascade,
 }
 
+#[derive(Debug, PartialEq)]
+pub enum DropSchemaError {
+    CatalogDoesNotExist,
+    DoesNotExist,
+    HasDependentObjects,
+}
+
 pub struct CatalogManager {
     key_id_generator: AtomicU64,
     data_storage: Box<dyn Database>,
@@ -125,17 +132,17 @@ impl CatalogManager {
         }
     }
 
-    pub fn drop_schema(&self, schema_name: &str, strategy: DropStrategy) -> SystemResult<()> {
-        self.data_definition
-            .drop_schema(DEFAULT_CATALOG, schema_name, strategy)
-            .expect("to drop schema");
-        match self.data_storage.drop_schema(schema_name) {
-            Ok(()) => Ok(()),
-            Err(StorageError::SystemError(error)) => Err(error),
-            Err(StorageError::RuntimeCheckError) => Err(SystemError::bug_in_sql_engine(
-                Operation::Drop,
-                Object::Schema(schema_name),
-            )),
+    pub fn drop_schema(&self, schema_name: &str, strategy: DropStrategy) -> SystemResult<Result<(), DropSchemaError>> {
+        match self.data_definition.drop_schema(DEFAULT_CATALOG, schema_name, strategy) {
+            Ok(()) => match self.data_storage.drop_schema(schema_name) {
+                Ok(()) => Ok(Ok(())),
+                Err(StorageError::SystemError(error)) => Err(error),
+                Err(StorageError::RuntimeCheckError) => Err(SystemError::bug_in_sql_engine(
+                    Operation::Drop,
+                    Object::Schema(schema_name),
+                )),
+            },
+            Err(error) => Ok(Err(error)),
         }
     }
 

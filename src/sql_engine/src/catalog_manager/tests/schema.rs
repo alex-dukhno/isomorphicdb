@@ -58,10 +58,28 @@ fn same_table_names_with_different_columns_in_different_schemas(storage: Catalog
 #[rstest::rstest]
 fn drop_schema(default_schema_name: &str, storage_with_schema: CatalogManager) {
     assert_eq!(
-        storage_with_schema.drop_schema(default_schema_name, DropStrategy::Restrict),
+        storage_with_schema
+            .drop_schema(default_schema_name, DropStrategy::Restrict)
+            .expect("no system errors"),
         Ok(())
     );
     assert_eq!(storage_with_schema.create_schema(default_schema_name), Ok(()));
+}
+
+#[rstest::rstest]
+fn restrict_drop_schema_does_not_drop_schema_with_table(
+    default_schema_name: &str,
+    storage_with_schema: CatalogManager,
+) {
+    storage_with_schema
+        .create_table(default_schema_name, "table_name", &[])
+        .expect("no system errors");
+    assert_eq!(
+        storage_with_schema
+            .drop_schema(default_schema_name, DropStrategy::Restrict)
+            .expect("no system errors"),
+        Err(DropSchemaError::HasDependentObjects)
+    );
 }
 
 #[rstest::rstest]
@@ -80,7 +98,9 @@ fn cascade_drop_schema_drops_tables_in_it(default_schema_name: &str, storage_wit
     );
 
     assert_eq!(
-        storage_with_schema.drop_schema(default_schema_name, DropStrategy::Cascade),
+        storage_with_schema
+            .drop_schema(default_schema_name, DropStrategy::Cascade)
+            .expect("no system errors"),
         Ok(())
     );
     assert_eq!(storage_with_schema.create_schema(default_schema_name), Ok(()));

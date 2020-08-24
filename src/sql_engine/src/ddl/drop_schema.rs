@@ -12,11 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::catalog_manager::DropSchemaError;
 use crate::{
     catalog_manager::{CatalogManager, DropStrategy},
     query::SchemaId,
 };
 use kernel::SystemResult;
+use protocol::results::QueryErrorBuilder;
 use protocol::{results::QueryEvent, Sender};
 use std::sync::Arc;
 
@@ -51,7 +53,25 @@ impl DropSchemaCommand {
         };
         match self.storage.drop_schema(&schema_name, strategy) {
             Err(error) => Err(error),
-            Ok(()) => {
+            Ok(Err(DropSchemaError::CatalogDoesNotExist)) => {
+                //ignore. Catalogs are not implemented
+                Ok(())
+            }
+            Ok(Err(DropSchemaError::HasDependentObjects)) => {
+                self.session
+                    .send(Err(QueryErrorBuilder::new()
+                        .schema_has_dependent_objects(schema_name)
+                        .build()))
+                    .expect("To Send Query Result to Client");
+                Ok(())
+            }
+            Ok(Err(DropSchemaError::DoesNotExist)) => {
+                self.session
+                    .send(Err(QueryErrorBuilder::new().schema_does_not_exist(schema_name).build()))
+                    .expect("To Send Query Result to Client");
+                Ok(())
+            }
+            Ok(Ok(())) => {
                 self.session
                     .send(Ok(QueryEvent::SchemaDropped))
                     .expect("To Send Query Result to Client");
