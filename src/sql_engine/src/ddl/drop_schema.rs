@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::catalog_manager::DropStrategy;
 use crate::{catalog_manager::CatalogManager, query::SchemaId};
 use kernel::SystemResult;
 use protocol::{results::QueryEvent, Sender};
@@ -19,18 +20,34 @@ use std::sync::Arc;
 
 pub(crate) struct DropSchemaCommand {
     name: SchemaId,
+    cascade: bool,
     storage: Arc<CatalogManager>,
     session: Arc<dyn Sender>,
 }
 
 impl DropSchemaCommand {
-    pub(crate) fn new(name: SchemaId, storage: Arc<CatalogManager>, session: Arc<dyn Sender>) -> DropSchemaCommand {
-        DropSchemaCommand { name, storage, session }
+    pub(crate) fn new(
+        name: SchemaId,
+        cascade: bool,
+        storage: Arc<CatalogManager>,
+        session: Arc<dyn Sender>,
+    ) -> DropSchemaCommand {
+        DropSchemaCommand {
+            name,
+            cascade,
+            storage,
+            session,
+        }
     }
 
     pub(crate) fn execute(&mut self) -> SystemResult<()> {
         let schema_name = self.name.name().to_string();
-        match self.storage.drop_schema(&schema_name) {
+        let strategy = if self.cascade {
+            DropStrategy::Cascade
+        } else {
+            DropStrategy::Restrict
+        };
+        match self.storage.drop_schema(&schema_name, strategy) {
             Err(error) => Err(error),
             Ok(()) => {
                 self.session

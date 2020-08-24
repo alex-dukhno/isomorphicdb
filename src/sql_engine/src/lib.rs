@@ -172,8 +172,8 @@ impl QueryExecutor {
                 CreateTableCommand::new(creation_info, self.storage.clone(), self.sender.clone()).execute()?
             }
             Ok(Plan::DropSchemas(schemas)) => {
-                for schema in schemas {
-                    DropSchemaCommand::new(schema, self.storage.clone(), self.sender.clone()).execute()?;
+                for (schema, cascade) in schemas {
+                    DropSchemaCommand::new(schema, cascade, self.storage.clone(), self.sender.clone()).execute()?;
                 }
             }
             Ok(Plan::DropTables(tables)) => {

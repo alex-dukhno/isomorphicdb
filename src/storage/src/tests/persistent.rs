@@ -13,27 +13,27 @@
 // limitations under the License.
 
 use super::*;
-use crate::persistent::PersistentDatabaseCatalog;
+use crate::persistent::PersistentDatabase;
 
-type StorageUnderTest = PersistentDatabaseCatalog;
+type Storage = PersistentDatabase;
 
 #[rstest::fixture]
-fn storage() -> StorageUnderTest {
+fn storage() -> Storage {
     let root_path = tempfile::tempdir().expect("to create temporary folder");
     let path = root_path.into_path();
-    StorageUnderTest::new(path)
+    Storage::new(path)
 }
 
 #[rstest::fixture]
-fn with_namespace(storage: StorageUnderTest) -> StorageUnderTest {
-    storage.create_namespace("namespace").expect("namespace created");
+fn with_namespace(storage: Storage) -> Storage {
+    storage.create_schema("namespace").expect("namespace created");
     storage
 }
 
 #[rstest::fixture]
-fn with_object(with_namespace: StorageUnderTest) -> StorageUnderTest {
+fn with_object(with_namespace: Storage) -> Storage {
     with_namespace
-        .create_tree("namespace", "object_name")
+        .create_object("namespace", "object_name")
         .expect("object created");
     with_namespace
 }
@@ -43,31 +43,31 @@ mod namespace {
     use super::*;
 
     #[rstest::rstest]
-    fn create_namespaces_with_different_names(storage: StorageUnderTest) {
-        assert_eq!(storage.create_namespace("namespace_1"), Ok(()));
-        assert_eq!(storage.create_namespace("namespace_2"), Ok(()));
+    fn create_namespaces_with_different_names(storage: Storage) {
+        assert_eq!(storage.create_schema("namespace_1"), Ok(()));
+        assert_eq!(storage.create_schema("namespace_2"), Ok(()));
     }
 
     #[rstest::rstest]
-    fn drop_namespace(with_namespace: StorageUnderTest) {
-        assert_eq!(with_namespace.drop_namespace("namespace"), Ok(()));
-        assert_eq!(with_namespace.create_namespace("namespace"), Ok(()));
+    fn drop_namespace(with_namespace: Storage) {
+        assert_eq!(with_namespace.drop_schema("namespace"), Ok(()));
+        assert_eq!(with_namespace.create_schema("namespace"), Ok(()));
     }
 
     #[rstest::rstest]
     #[ignore]
-    fn dropping_namespace_drops_objects_in_it(with_namespace: StorageUnderTest) {
+    fn dropping_namespace_drops_objects_in_it(with_namespace: Storage) {
         with_namespace
-            .create_tree("namespace", "object_name_1")
+            .create_object("namespace", "object_name_1")
             .expect("object created");
         with_namespace
-            .create_tree("namespace", "object_name_2")
+            .create_object("namespace", "object_name_2")
             .expect("object created");
 
-        assert_eq!(with_namespace.drop_namespace("namespace"), Ok(()));
-        assert_eq!(with_namespace.create_namespace("namespace"), Ok(()));
-        assert_eq!(with_namespace.create_tree("namespace", "object_name_1"), Ok(()));
-        assert_eq!(with_namespace.create_tree("namespace", "object_name_2"), Ok(()));
+        assert_eq!(with_namespace.drop_schema("namespace"), Ok(()));
+        assert_eq!(with_namespace.create_schema("namespace"), Ok(()));
+        assert_eq!(with_namespace.create_object("namespace", "object_name_1"), Ok(()));
+        assert_eq!(with_namespace.create_object("namespace", "object_name_2"), Ok(()));
     }
 }
 
@@ -76,17 +76,17 @@ mod create_object {
     use super::*;
 
     #[rstest::rstest]
-    fn create_objects_with_different_names(with_namespace: StorageUnderTest) {
-        assert_eq!(with_namespace.create_tree("namespace", "object_name_1"), Ok(()));
-        assert_eq!(with_namespace.create_tree("namespace", "object_name_2"), Ok(()));
+    fn create_objects_with_different_names(with_namespace: Storage) {
+        assert_eq!(with_namespace.create_object("namespace", "object_name_1"), Ok(()));
+        assert_eq!(with_namespace.create_object("namespace", "object_name_2"), Ok(()));
     }
 
     #[rstest::rstest]
-    fn create_object_with_the_same_name_in_different_namespaces(storage: StorageUnderTest) {
-        storage.create_namespace("namespace_1").expect("namespace created");
-        storage.create_namespace("namespace_2").expect("namespace created");
-        assert_eq!(storage.create_tree("namespace_1", "object_name"), Ok(()));
-        assert_eq!(storage.create_tree("namespace_2", "object_name"), Ok(()));
+    fn create_object_with_the_same_name_in_different_namespaces(storage: Storage) {
+        storage.create_schema("namespace_1").expect("namespace created");
+        storage.create_schema("namespace_2").expect("namespace created");
+        assert_eq!(storage.create_object("namespace_1", "object_name"), Ok(()));
+        assert_eq!(storage.create_object("namespace_2", "object_name"), Ok(()));
     }
 }
 
@@ -95,9 +95,9 @@ mod drop_object {
     use super::*;
 
     #[rstest::rstest]
-    fn drop_object(with_object: StorageUnderTest) {
-        assert_eq!(with_object.drop_tree("namespace", "object_name"), Ok(()));
-        assert_eq!(with_object.create_tree("namespace", "object_name"), Ok(()));
+    fn drop_object(with_object: Storage) {
+        assert_eq!(with_object.drop_object("namespace", "object_name"), Ok(()));
+        assert_eq!(with_object.create_object("namespace", "object_name"), Ok(()));
     }
 }
 
@@ -106,7 +106,7 @@ mod operations_on_object {
     use super::*;
 
     #[rstest::rstest]
-    fn insert_row_into_object(with_object: StorageUnderTest) {
+    fn insert_row_into_object(with_object: Storage) {
         assert_eq!(
             with_object.write("namespace", "object_name", as_rows(vec![(1u8, vec!["123"])])),
             Ok(1)
@@ -121,7 +121,7 @@ mod operations_on_object {
     }
 
     #[rstest::rstest]
-    fn insert_many_rows_into_object(with_object: StorageUnderTest) {
+    fn insert_many_rows_into_object(with_object: Storage) {
         with_object
             .write("namespace", "object_name", as_rows(vec![(1u8, vec!["123"])]))
             .expect("values are written");
@@ -138,7 +138,7 @@ mod operations_on_object {
     }
 
     #[rstest::rstest]
-    fn delete_some_records_from_object(with_object: StorageUnderTest) {
+    fn delete_some_records_from_object(with_object: Storage) {
         with_object
             .write(
                 "namespace",
@@ -161,7 +161,7 @@ mod operations_on_object {
     }
 
     #[rstest::rstest]
-    fn select_all_from_object_with_many_columns(with_object: StorageUnderTest) {
+    fn select_all_from_object_with_many_columns(with_object: Storage) {
         with_object
             .write("namespace", "object_name", as_rows(vec![(1u8, vec!["1", "2", "3"])]))
             .expect("write occurred");
@@ -175,7 +175,7 @@ mod operations_on_object {
     }
 
     #[rstest::rstest]
-    fn insert_multiple_rows(with_object: StorageUnderTest) {
+    fn insert_multiple_rows(with_object: Storage) {
         with_object
             .write(
                 "namespace",

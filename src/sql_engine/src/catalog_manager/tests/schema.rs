@@ -16,13 +16,13 @@ use super::*;
 use sql_types::SqlType;
 
 #[rstest::rstest]
-fn create_schemas_with_different_names(storage: PersistentStorage) {
+fn create_schemas_with_different_names(storage: CatalogManager) {
     assert_eq!(storage.create_schema("schema_1"), Ok(()));
     assert_eq!(storage.create_schema("schema_2"), Ok(()));
 }
 
 #[rstest::rstest]
-fn same_table_names_with_different_columns_in_different_schemas(storage: PersistentStorage) {
+fn same_table_names_with_different_columns_in_different_schemas(storage: CatalogManager) {
     create_schema(&storage, "schema_name_1");
     create_schema(&storage, "schema_name_2");
 
@@ -56,16 +56,16 @@ fn same_table_names_with_different_columns_in_different_schemas(storage: Persist
 }
 
 #[rstest::rstest]
-fn drop_schema(default_schema_name: &str, storage_with_schema: PersistentStorage) {
-    assert_eq!(storage_with_schema.drop_schema(default_schema_name), Ok(()));
+fn drop_schema(default_schema_name: &str, storage_with_schema: CatalogManager) {
+    assert_eq!(
+        storage_with_schema.drop_schema(default_schema_name, DropStrategy::Restrict),
+        Ok(())
+    );
     assert_eq!(storage_with_schema.create_schema(default_schema_name), Ok(()));
 }
 
 #[rstest::rstest]
-#[ignore]
-// TODO store tables and columns into "system" schema
-//      but simple select by predicate has to be implemented
-fn drop_schema_drops_tables_in_it(default_schema_name: &str, storage_with_schema: PersistentStorage) {
+fn cascade_drop_schema_drops_tables_in_it(default_schema_name: &str, storage_with_schema: CatalogManager) {
     create_table(
         &storage_with_schema,
         default_schema_name,
@@ -79,7 +79,10 @@ fn drop_schema_drops_tables_in_it(default_schema_name: &str, storage_with_schema
         vec![column_definition("column_test", SqlType::SmallInt(i16::min_value()))],
     );
 
-    assert_eq!(storage_with_schema.drop_schema(default_schema_name), Ok(()));
+    assert_eq!(
+        storage_with_schema.drop_schema(default_schema_name, DropStrategy::Cascade),
+        Ok(())
+    );
     assert_eq!(storage_with_schema.create_schema(default_schema_name), Ok(()));
     assert_eq!(
         storage_with_schema.create_table(

@@ -16,7 +16,7 @@ use super::*;
 use sql_types::SqlType;
 
 #[rstest::rstest]
-fn create_tables_with_different_names(default_schema_name: &str, storage_with_schema: PersistentStorage) {
+fn create_tables_with_different_names(default_schema_name: &str, storage_with_schema: CatalogManager) {
     assert_eq!(
         storage_with_schema.create_table(
             default_schema_name,
@@ -42,7 +42,7 @@ fn create_tables_with_different_names(default_schema_name: &str, storage_with_sc
 }
 
 #[rstest::rstest]
-fn create_table_with_the_same_name_in_different_schemas(storage: PersistentStorage) {
+fn create_table_with_the_same_name_in_different_schemas(storage: CatalogManager) {
     create_schema(&storage, "schema_name_1");
     create_schema(&storage, "schema_name_2");
     assert_eq!(
@@ -70,7 +70,7 @@ fn create_table_with_the_same_name_in_different_schemas(storage: PersistentStora
 }
 
 #[rstest::rstest]
-fn drop_table(default_schema_name: &str, storage_with_schema: PersistentStorage) {
+fn drop_table(default_schema_name: &str, storage_with_schema: CatalogManager) {
     create_table(
         &storage_with_schema,
         default_schema_name,
@@ -98,7 +98,7 @@ fn drop_table(default_schema_name: &str, storage_with_schema: PersistentStorage)
 }
 
 #[rstest::rstest]
-fn table_columns_on_empty_table(default_schema_name: &str, storage_with_schema: PersistentStorage) {
+fn table_columns_on_empty_table(default_schema_name: &str, storage_with_schema: CatalogManager) {
     create_table(&storage_with_schema, default_schema_name, "table_name", vec![]);
 
     assert_eq!(

@@ -41,7 +41,7 @@ pub enum Plan {
     CreateTable(TableCreationInfo),
     CreateSchema(SchemaCreationInfo),
     DropTables(Vec<TableId>),
-    DropSchemas(Vec<SchemaId>),
+    DropSchemas(Vec<(SchemaId, bool)>),
     Insert(TableInserts),
     NotProcessed(Box<Statement>),
 }

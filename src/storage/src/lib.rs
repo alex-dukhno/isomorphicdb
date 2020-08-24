@@ -27,7 +27,7 @@ pub type StorageResult<T> = std::result::Result<T, StorageError>;
 mod in_memory;
 mod persistent;
 
-pub use crate::{in_memory::InMemoryDatabaseCatalog, persistent::PersistentDatabaseCatalog};
+pub use crate::{in_memory::InMemoryDatabase, persistent::PersistentDatabase};
 
 pub enum InitStatus {
     Created,
@@ -40,20 +40,20 @@ pub enum StorageError {
     SystemError(SystemError),
 }
 
-pub trait Storage {
-    fn create_namespace(&self, namespace: &str) -> StorageResult<()>;
+pub trait Database {
+    fn create_schema(&self, schema_name: &str) -> StorageResult<()>;
 
-    fn drop_namespace(&self, namespace: &str) -> StorageResult<()>;
+    fn drop_schema(&self, schema_name: &str) -> StorageResult<()>;
 
-    fn create_tree(&self, namespace: &str, object_name: &str) -> StorageResult<()>;
+    fn create_object(&self, schema_name: &str, object_name: &str) -> StorageResult<()>;
 
-    fn drop_tree(&self, namespace: &str, object_name: &str) -> StorageResult<()>;
+    fn drop_object(&self, schema_name: &str, object_name: &str) -> StorageResult<()>;
 
-    fn write(&self, namespace: &str, object_name: &str, values: Vec<Row>) -> StorageResult<usize>;
+    fn write(&self, schema_name: &str, object_name: &str, values: Vec<Row>) -> StorageResult<usize>;
 
-    fn read(&self, namespace: &str, object_name: &str) -> StorageResult<ReadCursor>;
+    fn read(&self, schema_name: &str, object_name: &str) -> StorageResult<ReadCursor>;
 
-    fn delete(&self, namespace: &str, object_name: &str, keys: Vec<Key>) -> StorageResult<usize>;
+    fn delete(&self, schema_name: &str, object_name: &str, keys: Vec<Key>) -> StorageResult<usize>;
 }
 
 #[cfg(test)]

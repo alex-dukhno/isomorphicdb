@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{InitStatus, Key, ReadCursor, Row, Storage, StorageError, StorageResult};
+use crate::{Database, InitStatus, Key, ReadCursor, Row, StorageError, StorageResult};
 use kernel::SystemError;
 use representation::Binary;
-use sled::{Db as NameSpace, Error as SledError};
+use sled::{Db as Schema, Error as SledError};
 use std::{
     collections::HashMap,
     path::PathBuf,
@@ -49,30 +49,30 @@ impl SledErrorMapper {
     }
 }
 
-pub struct PersistentDatabaseCatalog {
+pub struct PersistentDatabase {
     path: PathBuf,
-    namespaces: RwLock<HashMap<String, Arc<NameSpace>>>,
+    schemas: RwLock<HashMap<String, Arc<Schema>>>,
 }
 
-impl PersistentDatabaseCatalog {
-    pub fn new(path: PathBuf) -> PersistentDatabaseCatalog {
-        PersistentDatabaseCatalog {
+impl PersistentDatabase {
+    pub fn new(path: PathBuf) -> PersistentDatabase {
+        PersistentDatabase {
             path,
-            namespaces: RwLock::default(),
+            schemas: RwLock::default(),
         }
     }
 
-    pub fn init(&self, namespace_name: &str) -> StorageResult<InitStatus> {
-        let path_to_namespace = PathBuf::from(&self.path).join(namespace_name);
-        log::info!("path to namespace {:?}", path_to_namespace);
-        match sled::open(path_to_namespace) {
-            Ok(namespace) => {
-                let recovered = namespace.was_recovered();
-                self.namespaces
+    pub fn init(&self, schema_name: &str) -> StorageResult<InitStatus> {
+        let path_to_schema = PathBuf::from(&self.path).join(schema_name);
+        log::info!("path to schema {:?}", path_to_schema);
+        match sled::open(path_to_schema) {
+            Ok(schema) => {
+                let recovered = schema.was_recovered();
+                self.schemas
                     .write()
                     .expect("to acquire write lock")
-                    .insert(namespace_name.to_owned(), Arc::new(namespace));
-                log::debug!("namespaces after initialization {:?}", self.namespaces);
+                    .insert(schema_name.to_owned(), Arc::new(schema));
+                log::debug!("namespaces after initialization {:?}", self.schemas);
                 if recovered {
                     Ok(InitStatus::Loaded)
                 } else {
@@ -83,35 +83,35 @@ impl PersistentDatabaseCatalog {
         }
     }
 
-    pub fn open_tree(&self, namespace: &str, tree_name: &str) {
-        if let Some(namespace) = self.namespaces.read().expect("to acquire write lock").get(namespace) {
-            namespace
-                .open_tree(tree_name)
+    pub fn open_object(&self, schema_name: &str, object_name: &str) {
+        if let Some(schema) = self.schemas.read().expect("to acquire write lock").get(schema_name) {
+            schema
+                .open_tree(object_name)
                 .expect("to open tree")
                 .flush()
                 .expect("to flush");
         }
     }
 
-    fn new_namespace(&self, namespace_name: &str) -> StorageResult<Arc<NameSpace>> {
+    fn new_schema(&self, schema_name: &str) -> StorageResult<Arc<Schema>> {
         if self
-            .namespaces
+            .schemas
             .read()
             .expect("to acquire read lock")
-            .contains_key(namespace_name)
+            .contains_key(schema_name)
         {
             Err(StorageError::RuntimeCheckError)
         } else {
-            let path_to_namespace = PathBuf::from(&self.path).join(namespace_name);
-            log::info!("path to namespace {:?}", path_to_namespace);
-            match sled::open(path_to_namespace) {
-                Ok(database) => {
-                    let database = Arc::new(database);
-                    self.namespaces
+            let path_to_schema = PathBuf::from(&self.path).join(schema_name);
+            log::info!("path to schema {:?}", path_to_schema);
+            match sled::open(path_to_schema) {
+                Ok(schema) => {
+                    let schema = Arc::new(schema);
+                    self.schemas
                         .write()
                         .expect("to acquire write lock")
-                        .insert(namespace_name.to_owned(), database.clone());
-                    Ok(database)
+                        .insert(schema_name.to_owned(), schema.clone());
+                    Ok(schema)
                 }
                 Err(error) => Err(StorageError::SystemError(SledErrorMapper::map(error))),
             }
@@ -119,45 +119,38 @@ impl PersistentDatabaseCatalog {
     }
 }
 
-impl Storage for PersistentDatabaseCatalog {
-    fn create_namespace(&self, namespace: &str) -> StorageResult<()> {
-        self.new_namespace(namespace).map(|_| ())
+impl Database for PersistentDatabase {
+    fn create_schema(&self, schema_name: &str) -> StorageResult<()> {
+        self.new_schema(schema_name).map(|_| ())
     }
 
-    fn drop_namespace(&self, namespace: &str) -> StorageResult<()> {
-        match self
-            .namespaces
-            .write()
-            .expect("to acquire write lock")
-            .remove(namespace)
-        {
-            Some(namespace) => {
-                drop(namespace);
+    fn drop_schema(&self, schema_name: &str) -> StorageResult<()> {
+        match self.schemas.write().expect("to acquire write lock").remove(schema_name) {
+            Some(schema) => {
+                for tree in schema.tree_names() {
+                    let name = tree.clone();
+                    match schema.drop_tree(tree) {
+                        Ok(true) => log::info!("{:?} was dropped", name),
+                        Ok(false) => log::info!("{:?} was not dropped", name),
+                        Err(error) => log::error!("{:?} was not dropped due to {:?}", name, error),
+                    }
+                }
+                drop(schema);
                 Ok(())
             }
             None => Err(StorageError::RuntimeCheckError),
         }
     }
 
-    fn create_tree(&self, namespace_name: &str, object_name: &str) -> StorageResult<()> {
-        match self
-            .namespaces
-            .read()
-            .expect("to acquire read lock")
-            .get(namespace_name)
-        {
-            Some(namespace) => {
-                if namespace.tree_names().contains(&(object_name.into())) {
+    fn create_object(&self, schema_name: &str, object_name: &str) -> StorageResult<()> {
+        match self.schemas.read().expect("to acquire read lock").get(schema_name) {
+            Some(schema) => {
+                if schema.tree_names().contains(&(object_name.into())) {
                     Err(StorageError::RuntimeCheckError)
                 } else {
-                    match namespace.open_tree(object_name) {
+                    match schema.open_tree(object_name) {
                         Ok(object) => {
-                            log::debug!(
-                                "tree {:?}.{:?} was created as {:?}",
-                                namespace_name,
-                                object_name,
-                                object
-                            );
+                            log::debug!("tree {:?}.{:?} was created as {:?}", schema_name, object_name, object);
                             object.flush().expect("Ok");
                             Ok(())
                         }
@@ -169,9 +162,9 @@ impl Storage for PersistentDatabaseCatalog {
         }
     }
 
-    fn drop_tree(&self, namespace: &str, object_name: &str) -> StorageResult<()> {
-        match self.namespaces.read().expect("to acquire read lock").get(namespace) {
-            Some(namespace) => match namespace.drop_tree(object_name.as_bytes()) {
+    fn drop_object(&self, schema_name: &str, object_name: &str) -> StorageResult<()> {
+        match self.schemas.read().expect("to acquire read lock").get(schema_name) {
+            Some(schema) => match schema.drop_tree(object_name.as_bytes()) {
                 Ok(true) => Ok(()),
                 Ok(false) => Err(StorageError::RuntimeCheckError),
                 Err(error) => Err(StorageError::SystemError(SledErrorMapper::map(error))),
@@ -180,16 +173,11 @@ impl Storage for PersistentDatabaseCatalog {
         }
     }
 
-    fn write(&self, namespace_name: &str, object_name: &str, rows: Vec<Row>) -> StorageResult<usize> {
-        match self
-            .namespaces
-            .read()
-            .expect("to acquire read lock")
-            .get(namespace_name)
-        {
-            Some(namespace) => {
-                if namespace.tree_names().contains(&(object_name.into())) {
-                    match namespace.open_tree(object_name) {
+    fn write(&self, schema_name: &str, object_name: &str, rows: Vec<Row>) -> StorageResult<usize> {
+        match self.schemas.read().expect("to acquire read lock").get(schema_name) {
+            Some(schema) => {
+                if schema.tree_names().contains(&(object_name.into())) {
+                    match schema.open_tree(object_name) {
                         Ok(object) => {
                             let mut written_rows = 0;
                             for (key, values) in rows.iter() {
@@ -201,7 +189,7 @@ impl Storage for PersistentDatabaseCatalog {
                                 }
                             }
                             object.flush().expect("Ok");
-                            log::info!("{:?} data is written to {:?}.{:?}", rows, namespace_name, object_name);
+                            log::info!("{:?} data is written to {:?}.{:?}", rows, schema_name, object_name);
                             Ok(written_rows)
                         }
                         Err(error) => Err(StorageError::SystemError(SledErrorMapper::map(error))),
@@ -214,16 +202,11 @@ impl Storage for PersistentDatabaseCatalog {
         }
     }
 
-    fn read(&self, namespace_name: &str, object_name: &str) -> StorageResult<ReadCursor> {
-        match self
-            .namespaces
-            .read()
-            .expect("to acquire read lock")
-            .get(namespace_name)
-        {
-            Some(namespace) => {
-                if namespace.tree_names().contains(&(object_name.into())) {
-                    match namespace.open_tree(object_name) {
+    fn read(&self, schema_name: &str, object_name: &str) -> StorageResult<ReadCursor> {
+        match self.schemas.read().expect("to acquire read lock").get(schema_name) {
+            Some(schema) => {
+                if schema.tree_names().contains(&(object_name.into())) {
+                    match schema.open_tree(object_name) {
                         Ok(object) => Ok(Box::new(object.iter().map(|item| match item {
                             Ok((key, values)) => {
                                 Ok((Binary::with_data(key.to_vec()), Binary::with_data(values.to_vec())))
@@ -235,25 +218,25 @@ impl Storage for PersistentDatabaseCatalog {
                 } else {
                     log::error!(
                         "No namespace with {:?} doesn't contain {:?} object",
-                        namespace_name,
+                        schema_name,
                         object_name
                     );
                     Err(StorageError::RuntimeCheckError)
                 }
             }
             None => {
-                log::error!("No namespace with {:?} name found", namespace_name);
+                log::error!("No namespace with {:?} name found", schema_name);
                 Err(StorageError::RuntimeCheckError)
             }
         }
     }
 
-    fn delete(&self, namespace: &str, object_name: &str, keys: Vec<Key>) -> StorageResult<usize> {
-        match self.namespaces.read().expect("to acquire read lock").get(namespace) {
-            Some(namespace) => {
-                if namespace.tree_names().contains(&(object_name.into())) {
+    fn delete(&self, schema_name: &str, object_name: &str, keys: Vec<Key>) -> StorageResult<usize> {
+        match self.schemas.read().expect("to acquire read lock").get(schema_name) {
+            Some(schema) => {
+                if schema.tree_names().contains(&(object_name.into())) {
                     let mut deleted = 0;
-                    match namespace.open_tree(object_name) {
+                    match schema.open_tree(object_name) {
                         Ok(object) => {
                             for key in keys {
                                 match object.remove(key.to_bytes()) {
@@ -331,6 +314,3 @@ mod sled_error_mapper {
         )
     }
 }
-
-#[cfg(test)]
-mod tests {}
