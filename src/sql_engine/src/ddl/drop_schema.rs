@@ -12,14 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::catalog_manager::DropSchemaError;
 use crate::{
-    catalog_manager::{CatalogManager, DropStrategy},
+    catalog_manager::{CatalogManager, DropSchemaError, DropStrategy},
     query::SchemaId,
 };
 use kernel::SystemResult;
-use protocol::results::QueryErrorBuilder;
-use protocol::{results::QueryEvent, Sender};
+use protocol::{
+    results::{QueryErrorBuilder, QueryEvent},
+    Sender,
+};
 use std::sync::Arc;
 
 pub(crate) struct DropSchemaCommand {
