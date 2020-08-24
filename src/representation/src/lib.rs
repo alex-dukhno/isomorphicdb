@@ -271,7 +271,7 @@ fn read_tag(data: &[u8], idx: &mut usize) -> TypeTag {
     unsafe { read::<TypeTag>(data, idx) }
 }
 
-/// in-memory representation of a table row. It is unable to deserialize
+/// in-memory runtime representation of a table row. It is unable to deserialize
 /// the row without knowing the types of each column, which makes this unsafe
 /// however it is more memory efficient.
 #[derive(Debug, Clone, PartialEq, Eq, Default, PartialOrd, Ord)]

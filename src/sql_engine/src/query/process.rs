@@ -17,7 +17,7 @@ use crate::query::plan::{Plan, SchemaCreationInfo, TableCreationInfo, TableInser
 use crate::query::{SchemaId, SchemaNamingError, TableId, TableNamingError};
 use protocol::{results::QueryErrorBuilder, Sender};
 use sql_types::SqlType;
-use sqlparser::ast::{ColumnDef, DataType, ObjectName, ObjectType, Statement};
+use sqlparser::ast::{ColumnDef, DataType, ObjectName, ObjectType, Query, Statement, SetExpr};
 use std::{
     convert::TryFrom,
     sync::{Arc, Mutex, MutexGuard},
@@ -84,6 +84,7 @@ impl<'qp, B: BackendStorage> QueryProcessor<B> {
                     Err(())
                 }
             },
+            Statement::Query(query) => self.handle_query(query),
             _ => Ok(Plan::NotProcessed(Box::new(stmt.clone()))),
         }
     }
@@ -236,5 +237,20 @@ impl<'qp, B: BackendStorage> QueryProcessor<B> {
             }
             _ => unimplemented!(),
         }
+    }
+
+    fn handle_query(&mut self, query: Box<Query>) -> Result<Plan> {
+        let Query {
+            ctes,
+            body,
+            order_by,
+            limit,
+            offset,
+            fetch,
+        } = query;
+
+        let SetExpr {
+
+        } = body;
     }
 }

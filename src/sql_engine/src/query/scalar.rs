@@ -14,13 +14,44 @@
 
 ///! Module for representing scalar level operations. Implementation of
 ///! theses operators will be defined in a sperate module.
-use super::{ColumnType, RelationType, Row};
+use super::{ColumnType};
+use representation::Binary;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum BinaryOp {}
+pub enum BinaryOp {
+    Plus,
+    Minus,
+    Multiply,
+    Division,
+    Modulo,
+
+    BitAnd,
+    BitOr,
+    BitXOR,
+
+    Equal,
+    Greater,
+    Less,
+    GreaterEqual,
+    LessEqual,
+    NotEqual,
+    PlusEqual,
+    MinusEqual,
+
+    MultiplyEqual,
+    DivisionEqual,
+    ModuleEqual,
+    BitAndEqual,
+    XOREqual,
+    OREqual,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum UnaryOp {}
+pub enum UnaryOp {
+    Plus,
+    Minus,
+    BitNot,
+}
 
 /// Operation performed on the table
 /// influenced by Materialized's ScalarExpr
@@ -29,9 +60,9 @@ pub enum ScalarOp {
     /// column access
     Column(usize),
     /// literal value (owned) and expected type.
-    Literal(Vec<Row>, RelationType),
+    Literal(Vec<Binary>, RelationType),
     /// binary operator
     Binary(BinaryOp, Box<ScalarOp>, Box<ScalarOp>),
-    /// uanry operator
+    /// unary operator
     Unary(UnaryOp, Box<ScalarOp>),
 }

@@ -13,9 +13,10 @@
 // limitations under the License.
 
 use crate::query::scalar::ScalarOp;
-use crate::query::{RelationType, Row, TableId};
+use crate::query::{TableId};
 use sql_types::ConstraintError;
 use storage::TableDescription;
+use representation::Binary;
 
 ///! module for representing relation operations.
 
@@ -32,7 +33,7 @@ use storage::TableDescription;
 #[derive(Debug, Clone)]
 pub enum RelationOp {
     // Materialize has a multiplicity for each row as well.
-    Constants(Vec<Row>),
+    Constants(Vec<Binary>),
     Projection {
         input: Vec<RelationOp>,
         outputs: Vec<usize>,

@@ -16,6 +16,8 @@
 ///! during runtime.
 pub mod plan;
 pub mod process;
+pub mod relation;
+pub mod scalar;
 
 use sql_types::SqlType;
 use sqlparser::ast::ObjectName;
