@@ -62,7 +62,12 @@ impl<'qp> QueryProcessor {
                     }))
                 }
             }
-            Statement::Drop { object_type, names, .. } => self.handle_drop(&object_type, &names),
+            Statement::Drop {
+                object_type,
+                names,
+                cascade,
+                ..
+            } => self.handle_drop(&object_type, &names, cascade),
             Statement::Insert {
                 table_name,
                 columns,
@@ -167,7 +172,7 @@ impl<'qp> QueryProcessor {
         }
     }
 
-    fn handle_drop(&mut self, object_type: &ObjectType, names: &[ObjectName]) -> Result<Plan> {
+    fn handle_drop(&mut self, object_type: &ObjectType, names: &[ObjectName], cascade: bool) -> Result<Plan> {
         match object_type {
             ObjectType::Table => {
                 let mut table_names = Vec::with_capacity(names.len());
@@ -226,7 +231,7 @@ impl<'qp> QueryProcessor {
                         return Err(());
                     }
 
-                    schema_names.push(schema_id);
+                    schema_names.push((schema_id, cascade));
                 }
                 Ok(Plan::DropSchemas(schema_names))
             }

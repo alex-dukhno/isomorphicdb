@@ -140,6 +140,7 @@ pub(crate) enum QueryErrorKind {
     SchemaAlreadyExists(String),
     TableAlreadyExists(String),
     SchemaDoesNotExist(String),
+    SchemaHasDependentObjects(String),
     TableDoesNotExist(String),
     ColumnDoesNotExist(Vec<String>),
     PreparedStatementDoesNotExist(String),
@@ -176,6 +177,7 @@ impl QueryErrorKind {
             Self::SchemaAlreadyExists(_) => "42P06",
             Self::TableAlreadyExists(_) => "42P07",
             Self::SchemaDoesNotExist(_) => "3F000",
+            Self::SchemaHasDependentObjects(_) => "2BP01",
             Self::TableDoesNotExist(_) => "42P01",
             Self::ColumnDoesNotExist(_) => "42703",
             Self::PreparedStatementDoesNotExist(_) => "26000",
@@ -196,6 +198,9 @@ impl Display for QueryErrorKind {
             Self::SchemaAlreadyExists(schema_name) => write!(f, "schema \"{}\" already exists", schema_name),
             Self::TableAlreadyExists(table_name) => write!(f, "table \"{}\" already exists", table_name),
             Self::SchemaDoesNotExist(schema_name) => write!(f, "schema \"{}\" does not exist", schema_name),
+            Self::SchemaHasDependentObjects(schema_name) => {
+                write!(f, "schema \"{}\" has dependent objects", schema_name)
+            }
             Self::TableDoesNotExist(table_name) => write!(f, "table \"{}\" does not exist", table_name),
             Self::ColumnDoesNotExist(columns) => {
                 if columns.len() > 1 {
@@ -331,6 +336,15 @@ impl QueryErrorBuilder {
         self.errors.push(QueryErrorInner {
             severity: Severity::Error,
             kind: QueryErrorKind::SchemaDoesNotExist(schema_name),
+        });
+        self
+    }
+
+    /// schema has dependent objects error constructor
+    pub fn schema_has_dependent_objects(mut self, schema_name: String) -> Self {
+        self.errors.push(QueryErrorInner {
+            severity: Severity::Error,
+            kind: QueryErrorKind::SchemaHasDependentObjects(schema_name),
         });
         self
     }

@@ -17,7 +17,7 @@ use representation::Binary;
 use sql_types::SqlType;
 
 #[rstest::fixture]
-fn with_small_ints_table(default_schema_name: &str, storage_with_schema: PersistentStorage) -> PersistentStorage {
+fn with_small_ints_table(default_schema_name: &str, storage_with_schema: CatalogManager) -> CatalogManager {
     create_table(
         &storage_with_schema,
         default_schema_name,
@@ -32,7 +32,7 @@ fn with_small_ints_table(default_schema_name: &str, storage_with_schema: Persist
 }
 
 #[rstest::rstest]
-fn select_all_from_table_with_many_columns(default_schema_name: &str, with_small_ints_table: PersistentStorage) {
+fn select_all_from_table_with_many_columns(default_schema_name: &str, with_small_ints_table: CatalogManager) {
     insert_into(
         &with_small_ints_table,
         default_schema_name,

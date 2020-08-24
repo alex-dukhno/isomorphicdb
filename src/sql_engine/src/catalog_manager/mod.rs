@@ -18,13 +18,25 @@ use std::{
     path::PathBuf,
     sync::atomic::{AtomicU64, Ordering},
 };
-use storage::{InMemoryDatabaseCatalog, InitStatus, PersistentDatabaseCatalog, ReadCursor, Row, Storage, StorageError};
+use storage::{Database, InMemoryDatabase, InitStatus, PersistentDatabase, ReadCursor, Row, StorageError};
 
 mod data_definition;
 
+pub enum DropStrategy {
+    Restrict,
+    Cascade,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum DropSchemaError {
+    CatalogDoesNotExist,
+    DoesNotExist,
+    HasDependentObjects,
+}
+
 pub struct CatalogManager {
     key_id_generator: AtomicU64,
-    data_storage: Box<dyn Storage>,
+    data_storage: Box<dyn Database>,
     data_definition: DataDefinition,
 }
 
@@ -45,21 +57,21 @@ impl CatalogManager {
         data_definition.create_catalog(DEFAULT_CATALOG);
         Ok(Self {
             key_id_generator: AtomicU64::default(),
-            data_storage: Box::new(InMemoryDatabaseCatalog::default()),
+            data_storage: Box::new(InMemoryDatabase::default()),
             data_definition,
         })
     }
 
     pub fn persistent(path: PathBuf) -> SystemResult<CatalogManager> {
         let data_definition = DataDefinition::persistent(&path)?;
-        let catalog = PersistentDatabaseCatalog::new(path.join(DEFAULT_CATALOG));
+        let catalog = PersistentDatabase::new(path.join(DEFAULT_CATALOG));
         match data_definition.catalog_exists(DEFAULT_CATALOG) {
             Some(_id) => {
                 for schema in data_definition.schemas(DEFAULT_CATALOG) {
                     match catalog.init(schema.as_str()) {
                         Ok(InitStatus::Loaded) => {
                             for table in data_definition.tables(DEFAULT_CATALOG, schema.as_str()) {
-                                catalog.open_tree(schema.as_str(), table.as_str());
+                                catalog.open_object(schema.as_str(), table.as_str());
                             }
                         }
                         Ok(InitStatus::Created) => {
@@ -110,7 +122,7 @@ impl CatalogManager {
 
     pub fn create_schema(&self, schema_name: &str) -> SystemResult<()> {
         self.data_definition.create_schema(DEFAULT_CATALOG, schema_name);
-        match self.data_storage.create_namespace(schema_name) {
+        match self.data_storage.create_schema(schema_name) {
             Ok(()) => Ok(()),
             Err(StorageError::SystemError(error)) => Err(error),
             Err(StorageError::RuntimeCheckError) => Err(SystemError::bug_in_sql_engine(
@@ -120,15 +132,17 @@ impl CatalogManager {
         }
     }
 
-    pub fn drop_schema(&self, schema_name: &str) -> SystemResult<()> {
-        self.data_definition.drop_schema(DEFAULT_CATALOG, schema_name);
-        match self.data_storage.drop_namespace(schema_name) {
-            Ok(()) => Ok(()),
-            Err(StorageError::SystemError(error)) => Err(error),
-            Err(StorageError::RuntimeCheckError) => Err(SystemError::bug_in_sql_engine(
-                Operation::Drop,
-                Object::Schema(schema_name),
-            )),
+    pub fn drop_schema(&self, schema_name: &str, strategy: DropStrategy) -> SystemResult<Result<(), DropSchemaError>> {
+        match self.data_definition.drop_schema(DEFAULT_CATALOG, schema_name, strategy) {
+            Ok(()) => match self.data_storage.drop_schema(schema_name) {
+                Ok(()) => Ok(Ok(())),
+                Err(StorageError::SystemError(error)) => Err(error),
+                Err(StorageError::RuntimeCheckError) => Err(SystemError::bug_in_sql_engine(
+                    Operation::Drop,
+                    Object::Schema(schema_name),
+                )),
+            },
+            Err(error) => Ok(Err(error)),
         }
     }
 
@@ -140,7 +154,7 @@ impl CatalogManager {
     ) -> SystemResult<()> {
         self.data_definition
             .create_table(DEFAULT_CATALOG, schema_name, table_name, column_definitions);
-        match self.data_storage.create_tree(schema_name, table_name) {
+        match self.data_storage.create_object(schema_name, table_name) {
             Ok(()) => Ok(()),
             Err(StorageError::SystemError(error)) => Err(error),
             Err(StorageError::RuntimeCheckError) => Err(SystemError::bug_in_sql_engine(
@@ -159,7 +173,7 @@ impl CatalogManager {
     pub fn drop_table(&self, schema_name: &str, table_name: &str) -> SystemResult<()> {
         self.data_definition
             .drop_table(DEFAULT_CATALOG, schema_name, table_name);
-        match self.data_storage.drop_tree(schema_name, table_name) {
+        match self.data_storage.drop_object(schema_name, table_name) {
             Ok(()) => Ok(()),
             Err(StorageError::SystemError(error)) => Err(error),
             Err(StorageError::RuntimeCheckError) => Err(SystemError::bug_in_sql_engine(
