@@ -17,8 +17,9 @@
 extern crate log;
 
 use crate::{
-    messages::{Encryption, Message},
+    messages::{BackendMessage, Encryption, FrontendMessage},
     results::QueryResult,
+    sql_types::PostgreSqlType,
 };
 use async_mutex::Mutex as AsyncMutex;
 use async_native_tls::TlsStream;
@@ -70,8 +71,12 @@ pub const VERSION_GSSENC: Version = (1234 << 16) + 5680;
 /// `Error` type in protocol `Result`. Indicates that something went not well
 #[derive(Debug, PartialEq)]
 pub enum Error {
-    /// Indicates that incoming query can't be parsed as UTF-8 string
-    QueryIsNotValidUtfString,
+    /// Indicates that incoming data is invalid
+    InvalidInput(String),
+    /// Indicates that incoming data can't be parsed as UTF-8 string
+    InvalidUtfString,
+    /// Indicates that frontend message is not supported
+    UnsupportedFrontendMessage,
     /// Indicates that protocol version is not supported
     UnsupportedVersion,
     /// Indicates that client request is not supported
@@ -83,6 +88,14 @@ pub enum Error {
 /// Result of handling incoming bytes from a client
 #[derive(Debug, PartialEq)]
 pub enum Command {
+    /// Nothing needs to handle on client, just to receive next message
+    Continue,
+    /// Client commands to describe a prepared statement
+    DescribeStatement(String),
+    /// Client commands to flush the output stream
+    Flush,
+    /// Client commands to prepare a statement for execution
+    Parse(String, String, Vec<PostgreSqlType>),
     /// Client commands to execute a `Query`
     Query(String),
     /// Client commands to terminate current connection
@@ -120,7 +133,7 @@ where
         match decode_startup(message) {
             Ok(ClientHandshake::Startup(version, params)) => {
                 channel
-                    .write_all(Message::AuthenticationCleartextPassword.as_vec().as_slice())
+                    .write_all(BackendMessage::AuthenticationCleartextPassword.as_vec().as_slice())
                     .await?;
                 let mut buffer = [0u8; 1];
                 let tag = channel.read_exact(&mut buffer).await.map(|_| buffer[0]);
@@ -135,11 +148,13 @@ where
                 let mut buffer = Vec::with_capacity(len);
                 buffer.resize(len, b'0');
                 let _message = channel.read_exact(&mut buffer).await.map(|_| buffer)?;
-                channel.write_all(Message::AuthenticationOk.as_vec().as_slice()).await?;
+                channel
+                    .write_all(BackendMessage::AuthenticationOk.as_vec().as_slice())
+                    .await?;
 
                 channel
                     .write_all(
-                        Message::ParameterStatus("client_encoding".to_owned(), "UTF8".to_owned())
+                        BackendMessage::ParameterStatus("client_encoding".to_owned(), "UTF8".to_owned())
                             .as_vec()
                             .as_slice(),
                     )
@@ -147,10 +162,23 @@ where
 
                 channel
                     .write_all(
-                        Message::ParameterStatus("DateStyle".to_owned(), "ISO".to_owned())
+                        BackendMessage::ParameterStatus("DateStyle".to_owned(), "ISO".to_owned())
                             .as_vec()
                             .as_slice(),
                     )
+                    .await?;
+
+                channel
+                    .write_all(
+                        BackendMessage::ParameterStatus("integer_datetimes".to_owned(), "off".to_owned())
+                            .as_vec()
+                            .as_slice(),
+                    )
+                    .await?;
+
+                log::debug!("Send ready_for_query message");
+                channel
+                    .write_all(BackendMessage::ReadyForQuery.as_vec().as_slice())
                     .await?;
 
                 let channel = Arc::new(AsyncMutex::new(channel));
@@ -235,12 +263,7 @@ impl<RW: AsyncRead + AsyncWrite + Unpin> RequestReceiver<RW> {
 #[async_trait]
 impl<RW: AsyncRead + AsyncWrite + Unpin> Receiver for RequestReceiver<RW> {
     async fn receive(&mut self) -> io::Result<Result<Command>> {
-        log::debug!("send ready for query message");
-        self.channel
-            .lock()
-            .await
-            .write_all(Message::ReadyForQuery.as_vec().as_slice())
-            .await?;
+        // Parses the one-byte tag.
         let mut buffer = [0u8; 1];
         let tag = self
             .channel
@@ -250,33 +273,38 @@ impl<RW: AsyncRead + AsyncWrite + Unpin> Receiver for RequestReceiver<RW> {
             .await
             .map(|_| buffer[0])?;
         log::debug!("tag {:?}", tag);
-        if b'X' == tag {
-            Ok(Ok(Command::Terminate))
-        } else {
-            let mut buffer = [0u8; 4];
-            let len = self
-                .channel
-                .lock()
-                .await
-                .read_exact(&mut buffer)
-                .await
-                .map(|_| NetworkEndian::read_u32(&buffer))?;
-            let mut buffer = Vec::with_capacity(len as usize - 4);
-            buffer.resize(len as usize - 4, b'0');
-            let sql_buff = self
-                .channel
-                .lock()
-                .await
-                .read_exact(&mut buffer)
-                .await
-                .map(|_| buffer)?;
-            log::debug!("FOR TEST sql = {:?}", sql_buff);
-            let sql = match String::from_utf8(sql_buff[..sql_buff.len() - 1].to_vec()) {
-                Ok(sql) => sql,
-                Err(_e) => return Ok(Err(Error::QueryIsNotValidUtfString)),
-            };
-            log::debug!("SQL = {}", sql);
-            Ok(Ok(Command::Query(sql)))
+
+        // Parses the frame length.
+        let mut buffer = [0u8; 4];
+        let len = self
+            .channel
+            .lock()
+            .await
+            .read_exact(&mut buffer)
+            .await
+            .map(|_| NetworkEndian::read_u32(&buffer))?;
+
+        // Parses the frame data.
+        let mut buffer = Vec::with_capacity(len as usize - 4);
+        buffer.resize(len as usize - 4, b'0');
+        self.channel.lock().await.read_exact(&mut buffer).await?;
+
+        let message = match FrontendMessage::decode(tag, &buffer) {
+            Ok(msg) => msg,
+            Err(err) => return Ok(Err(err)),
+        };
+
+        match message {
+            FrontendMessage::DescribeStatement { name } => Ok(Ok(Command::DescribeStatement(name))),
+            FrontendMessage::Flush => Ok(Ok(Command::Flush)),
+            FrontendMessage::Parse {
+                statement_name,
+                sql,
+                param_types,
+            } => Ok(Ok(Command::Parse(statement_name, sql, param_types))),
+            FrontendMessage::Query { sql } => Ok(Ok(Command::Query(sql))),
+            FrontendMessage::Terminate => Ok(Ok(Command::Terminate)),
+            _ => Ok(Ok(Command::Continue)),
         }
     }
 }
@@ -310,9 +338,17 @@ impl<RW: AsyncRead + AsyncWrite + Unpin> ResponseSender<RW> {
 }
 
 impl<RW: AsyncRead + AsyncWrite + Unpin> Sender for ResponseSender<RW> {
+    fn flush(&self) -> io::Result<()> {
+        block_on(async {
+            self.channel.lock().await.flush().await.expect("OK");
+        });
+
+        Ok(())
+    }
+
     fn send(&self, query_result: QueryResult) -> io::Result<()> {
         block_on(async {
-            let messages: Vec<Message> = query_result.map_or_else(|event| event.into(), |err| err.into());
+            let messages: Vec<BackendMessage> = query_result.map_or_else(|event| event.into(), |err| err.into());
             for message in messages {
                 log::debug!("{:?}", message);
                 self.channel
@@ -331,6 +367,9 @@ impl<RW: AsyncRead + AsyncWrite + Unpin> Sender for ResponseSender<RW> {
 /// Trait to handle server to client query results for PostgreSQL Wire Protocol
 /// connection
 pub trait Sender: Send + Sync {
+    /// Flushes the output stream.
+    fn flush(&self) -> io::Result<()>;
+
     /// Sends response messages to client. Most of the time it is a single
     /// message, select result one of the exceptional situation
     fn send(&self, query_result: QueryResult) -> io::Result<()>;

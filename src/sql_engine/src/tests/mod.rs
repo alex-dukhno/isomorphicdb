@@ -15,9 +15,11 @@
 #[cfg(test)]
 mod delete;
 #[cfg(test)]
-mod in_memory_backend_storage;
+mod describe_prepared_statement;
 #[cfg(test)]
 mod insert;
+#[cfg(test)]
+mod parse;
 #[cfg(test)]
 mod schema;
 #[cfg(test)]
@@ -30,23 +32,25 @@ mod type_constraints;
 mod update;
 
 use super::*;
-use crate::QueryExecutor;
-use in_memory_backend_storage::InMemoryStorage;
+use crate::{catalog_manager::CatalogManager, QueryExecutor};
 use protocol::results::QueryResult;
 use std::{
     io,
     ops::Deref,
     sync::{Arc, Mutex},
 };
-use storage::frontend::FrontendStorage;
 
-fn in_memory_storage() -> Arc<Mutex<FrontendStorage<InMemoryStorage>>> {
-    Arc::new(Mutex::new(FrontendStorage::new(InMemoryStorage::default()).unwrap()))
+fn in_memory_storage() -> Arc<CatalogManager> {
+    Arc::new(CatalogManager::default())
 }
 
 struct Collector(Mutex<Vec<QueryResult>>);
 
 impl Sender for Collector {
+    fn flush(&self) -> io::Result<()> {
+        Ok(())
+    }
+
     fn send(&self, query_result: QueryResult) -> io::Result<()> {
         self.0.lock().expect("locked").push(query_result);
         Ok(())
@@ -58,18 +62,25 @@ impl Collector {
         let result = self.0.lock().expect("locked");
         assert_eq!(result.deref(), &expected)
     }
+
+    fn assert_content_for_single_queries(&self, expected: Vec<QueryResult>) {
+        let actual = self.0.lock().expect("locked");
+        let expected: Vec<QueryResult> = expected
+            .iter()
+            .flat_map(|result| vec![result.clone(), Ok(QueryEvent::QueryComplete)])
+            .collect();
+        assert_eq!(actual.deref(), &expected)
+    }
 }
 
 #[rstest::fixture]
-fn sql_engine() -> (QueryExecutor<InMemoryStorage>, Arc<Collector>) {
+fn sql_engine() -> (QueryExecutor, Arc<Collector>) {
     let collector = Arc::new(Collector(Mutex::new(vec![])));
     (QueryExecutor::new(in_memory_storage(), collector.clone()), collector)
 }
 
 #[rstest::fixture]
-fn sql_engine_with_schema(
-    sql_engine: (QueryExecutor<InMemoryStorage>, Arc<Collector>),
-) -> (QueryExecutor<InMemoryStorage>, Arc<Collector>) {
+fn sql_engine_with_schema(sql_engine: (QueryExecutor, Arc<Collector>)) -> (QueryExecutor, Arc<Collector>) {
     let (mut engine, collector) = sql_engine;
     engine.execute("create schema schema_name;").expect("no system errors");
 

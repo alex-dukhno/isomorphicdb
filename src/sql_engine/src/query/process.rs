@@ -14,30 +14,26 @@
 
 ///! Module for transforming the input Query AST into representation the engine can process.
 use crate::query::plan::{Plan, SchemaCreationInfo, TableCreationInfo, TableInserts};
-use crate::query::{SchemaId, SchemaNamingError, TableId, TableNamingError};
+use crate::{
+    catalog_manager::CatalogManager,
+    query::{SchemaId, SchemaNamingError, TableId, TableNamingError},
+    ColumnDefinition,
+};
 use protocol::{results::QueryErrorBuilder, Sender};
 use sql_types::SqlType;
-use sqlparser::ast::{ColumnDef, DataType, ObjectName, ObjectType, Query, Statement, SetExpr};
-use std::{
-    convert::TryFrom,
-    sync::{Arc, Mutex, MutexGuard},
-};
-use storage::{backend::BackendStorage, frontend::FrontendStorage, ColumnDefinition};
+use sqlparser::ast::{ColumnDef, DataType, ObjectName, ObjectType, Statement};
+use std::{convert::TryFrom, sync::Arc};
 
 type Result<T> = std::result::Result<T, ()>;
 
-pub(crate) struct QueryProcessor<B: BackendStorage> {
-    storage: Arc<Mutex<FrontendStorage<B>>>,
+pub(crate) struct QueryProcessor {
+    storage: Arc<CatalogManager>,
     session: Arc<dyn Sender>,
 }
 
-impl<'qp, B: BackendStorage> QueryProcessor<B> {
-    pub fn new(storage: Arc<Mutex<FrontendStorage<B>>>, session: Arc<dyn Sender>) -> Self {
+impl<'qp> QueryProcessor {
+    pub fn new(storage: Arc<CatalogManager>, session: Arc<dyn Sender>) -> Self {
         Self { storage, session }
-    }
-
-    fn storage(&self) -> MutexGuard<FrontendStorage<B>> {
-        self.storage.lock().unwrap()
     }
 
     pub fn process(&mut self, stmt: Statement) -> Result<Plan> {
@@ -53,7 +49,7 @@ impl<'qp, B: BackendStorage> QueryProcessor<B> {
                         return Err(());
                     }
                 };
-                if self.storage().schema_exists(schema_id.name()) {
+                if self.storage.schema_exists(schema_id.name()) {
                     self.session
                         .send(Err(QueryErrorBuilder::new()
                             .schema_already_exists(schema_id.name().to_string())
@@ -147,14 +143,14 @@ impl<'qp, B: BackendStorage> QueryProcessor<B> {
         };
         let schema_name = table_id.schema_name();
         let table_name = table_id.name();
-        if !self.storage().schema_exists(schema_name) {
+        if !self.storage.schema_exists(schema_name) {
             self.session
                 .send(Err(QueryErrorBuilder::new()
                     .schema_does_not_exist(schema_name.to_string())
                     .build()))
                 .expect("To Send Query Result to Client");
             Err(())
-        } else if self.storage().table_exists(schema_name, table_name) {
+        } else if self.storage.table_exists(schema_name, table_name) {
             self.session
                 .send(Err(QueryErrorBuilder::new()
                     .table_already_exists(format!("{}.{}", schema_name, table_name))
@@ -190,14 +186,14 @@ impl<'qp, B: BackendStorage> QueryProcessor<B> {
                     };
                     let schema_name = table_id.schema_name();
                     let table_name = table_id.name();
-                    if !self.storage().schema_exists(schema_name) {
+                    if !self.storage.schema_exists(schema_name) {
                         self.session
                             .send(Err(QueryErrorBuilder::new()
                                 .schema_does_not_exist(schema_name.to_string())
                                 .build()))
                             .expect("To Send Query Result to Client");
                         return Err(());
-                    } else if !self.storage().table_exists(schema_name, table_name) {
+                    } else if !self.storage.table_exists(schema_name, table_name) {
                         self.session
                             .send(Err(QueryErrorBuilder::new()
                                 .table_does_not_exist(format!("{}.{}", schema_name, table_name))
@@ -222,7 +218,7 @@ impl<'qp, B: BackendStorage> QueryProcessor<B> {
                             return Err(());
                         }
                     };
-                    if !self.storage().schema_exists(schema_id.name()) {
+                    if !self.storage.schema_exists(schema_id.name()) {
                         self.session
                             .send(Err(QueryErrorBuilder::new()
                                 .schema_does_not_exist(schema_id.name().to_string())

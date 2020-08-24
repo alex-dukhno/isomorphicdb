@@ -13,10 +13,7 @@
 // limitations under the License.
 
 use super::*;
-use crate::{
-    tests::{in_memory_backend_storage::InMemoryStorage, Collector},
-    QueryExecutor,
-};
+use crate::{tests::Collector, QueryExecutor};
 use protocol::{
     results::{QueryErrorBuilder, QueryEvent},
     sql_types::PostgreSqlType,
@@ -24,13 +21,13 @@ use protocol::{
 use std::sync::Arc;
 
 #[rstest::rstest]
-fn delete_from_nonexistent_table(sql_engine_with_schema: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+fn delete_from_nonexistent_table(sql_engine_with_schema: (QueryExecutor, Arc<Collector>)) {
     let (mut engine, collector) = sql_engine_with_schema;
     engine
         .execute("delete from schema_name.table_name;")
         .expect("no system errors");
 
-    collector.assert_content(vec![
+    collector.assert_content_for_single_queries(vec![
         Ok(QueryEvent::SchemaCreated),
         Err(QueryErrorBuilder::new()
             .table_does_not_exist("schema_name.table_name".to_owned())
@@ -39,7 +36,7 @@ fn delete_from_nonexistent_table(sql_engine_with_schema: (QueryExecutor<InMemory
 }
 
 #[rstest::rstest]
-fn delete_all_records(sql_engine_with_schema: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+fn delete_all_records(sql_engine_with_schema: (QueryExecutor, Arc<Collector>)) {
     let (mut engine, collector) = sql_engine_with_schema;
     engine
         .execute("create table schema_name.table_name (column_test smallint);")
@@ -60,7 +57,7 @@ fn delete_all_records(sql_engine_with_schema: (QueryExecutor<InMemoryStorage>, A
         .execute("select * from schema_name.table_name;")
         .expect("no system errors");
 
-    collector.assert_content(vec![
+    collector.assert_content_for_single_queries(vec![
         Ok(QueryEvent::SchemaCreated),
         Ok(QueryEvent::TableCreated),
         Ok(QueryEvent::RecordsInserted(1)),

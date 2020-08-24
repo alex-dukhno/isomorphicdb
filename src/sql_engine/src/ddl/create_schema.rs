@@ -12,24 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::query::plan::SchemaCreationInfo;
+use crate::{catalog_manager::CatalogManager, query::plan::SchemaCreationInfo};
 use kernel::SystemResult;
 use protocol::{results::QueryEvent, Sender};
-use std::sync::{Arc, Mutex};
-use storage::{backend::BackendStorage, frontend::FrontendStorage};
+use std::sync::Arc;
 
-pub(crate) struct CreateSchemaCommand<P: BackendStorage> {
+pub(crate) struct CreateSchemaCommand {
     schema_info: SchemaCreationInfo,
-    storage: Arc<Mutex<FrontendStorage<P>>>,
+    storage: Arc<CatalogManager>,
     session: Arc<dyn Sender>,
 }
 
-impl<P: BackendStorage> CreateSchemaCommand<P> {
+impl CreateSchemaCommand {
     pub(crate) fn new(
         schema_info: SchemaCreationInfo,
-        storage: Arc<Mutex<FrontendStorage<P>>>,
+        storage: Arc<CatalogManager>,
         session: Arc<dyn Sender>,
-    ) -> CreateSchemaCommand<P> {
+    ) -> CreateSchemaCommand {
         CreateSchemaCommand {
             schema_info,
             storage,
@@ -39,7 +38,7 @@ impl<P: BackendStorage> CreateSchemaCommand<P> {
 
     pub(crate) fn execute(&mut self) -> SystemResult<()> {
         let schema_name = &self.schema_info.schema_name;
-        match (self.storage.lock().unwrap()).create_schema(schema_name) {
+        match self.storage.create_schema(schema_name) {
             Err(error) => Err(error),
             Ok(()) => {
                 self.session

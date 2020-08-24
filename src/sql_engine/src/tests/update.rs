@@ -16,7 +16,7 @@ use super::*;
 use protocol::sql_types::PostgreSqlType;
 
 #[rstest::rstest]
-fn update_all_records(sql_engine_with_schema: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+fn update_all_records(sql_engine_with_schema: (QueryExecutor, Arc<Collector>)) {
     let (mut engine, collector) = sql_engine_with_schema;
     engine
         .execute("create table schema_name.table_name (column_test smallint);")
@@ -37,7 +37,7 @@ fn update_all_records(sql_engine_with_schema: (QueryExecutor<InMemoryStorage>, A
         .execute("select * from schema_name.table_name;")
         .expect("no system errors");
 
-    collector.assert_content(vec![
+    collector.assert_content_for_single_queries(vec![
         Ok(QueryEvent::SchemaCreated),
         Ok(QueryEvent::TableCreated),
         Ok(QueryEvent::RecordsInserted(1)),
@@ -55,7 +55,7 @@ fn update_all_records(sql_engine_with_schema: (QueryExecutor<InMemoryStorage>, A
 }
 
 #[rstest::rstest]
-fn update_single_column_of_all_records(sql_engine_with_schema: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+fn update_single_column_of_all_records(sql_engine_with_schema: (QueryExecutor, Arc<Collector>)) {
     let (mut engine, collector) = sql_engine_with_schema;
     engine
         .execute("create table schema_name.table_name (col1 smallint, col2 smallint);")
@@ -76,7 +76,7 @@ fn update_single_column_of_all_records(sql_engine_with_schema: (QueryExecutor<In
         .execute("select * from schema_name.table_name;")
         .expect("no system errors");
 
-    collector.assert_content(vec![
+    collector.assert_content_for_single_queries(vec![
         Ok(QueryEvent::SchemaCreated),
         Ok(QueryEvent::TableCreated),
         Ok(QueryEvent::RecordsInserted(1)),
@@ -106,7 +106,7 @@ fn update_single_column_of_all_records(sql_engine_with_schema: (QueryExecutor<In
 }
 
 #[rstest::rstest]
-fn update_multiple_columns_of_all_records(sql_engine_with_schema: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+fn update_multiple_columns_of_all_records(sql_engine_with_schema: (QueryExecutor, Arc<Collector>)) {
     let (mut engine, collector) = sql_engine_with_schema;
     engine
         .execute("create table schema_name.table_name (col1 smallint, col2 smallint, col3 smallint);")
@@ -127,7 +127,7 @@ fn update_multiple_columns_of_all_records(sql_engine_with_schema: (QueryExecutor
         .execute("select * from schema_name.table_name;")
         .expect("no system errors");
 
-    collector.assert_content(vec![
+    collector.assert_content_for_single_queries(vec![
         Ok(QueryEvent::SchemaCreated),
         Ok(QueryEvent::TableCreated),
         Ok(QueryEvent::RecordsInserted(1)),
@@ -159,7 +159,7 @@ fn update_multiple_columns_of_all_records(sql_engine_with_schema: (QueryExecutor
 }
 
 #[rstest::rstest]
-fn update_all_records_in_multiple_columns(sql_engine_with_schema: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+fn update_all_records_in_multiple_columns(sql_engine_with_schema: (QueryExecutor, Arc<Collector>)) {
     let (mut engine, collector) = sql_engine_with_schema;
     engine
         .execute("create table schema_name.table_name (column_1 smallint, column_2 smallint, column_3 smallint);")
@@ -177,7 +177,7 @@ fn update_all_records_in_multiple_columns(sql_engine_with_schema: (QueryExecutor
         .execute("select * from schema_name.table_name;")
         .expect("no system errors");
 
-    collector.assert_content(vec![
+    collector.assert_content_for_single_queries(vec![
         Ok(QueryEvent::SchemaCreated),
         Ok(QueryEvent::TableCreated),
         Ok(QueryEvent::RecordsInserted(3)),
@@ -210,13 +210,13 @@ fn update_all_records_in_multiple_columns(sql_engine_with_schema: (QueryExecutor
 }
 
 #[rstest::rstest]
-fn update_records_in_nonexistent_table(sql_engine_with_schema: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+fn update_records_in_nonexistent_table(sql_engine_with_schema: (QueryExecutor, Arc<Collector>)) {
     let (mut engine, collector) = sql_engine_with_schema;
     engine
         .execute("update schema_name.table_name set column_test=789;")
         .expect("no system errors");
 
-    collector.assert_content(vec![
+    collector.assert_content_for_single_queries(vec![
         Ok(QueryEvent::SchemaCreated),
         Err(QueryErrorBuilder::new()
             .table_does_not_exist("schema_name.table_name".to_owned())
@@ -225,7 +225,7 @@ fn update_records_in_nonexistent_table(sql_engine_with_schema: (QueryExecutor<In
 }
 
 #[rstest::rstest]
-fn update_non_existent_columns_of_records(sql_engine_with_schema: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+fn update_non_existent_columns_of_records(sql_engine_with_schema: (QueryExecutor, Arc<Collector>)) {
     let (mut engine, collector) = sql_engine_with_schema;
     engine
         .execute("create table schema_name.table_name (column_test smallint);")
@@ -240,7 +240,7 @@ fn update_non_existent_columns_of_records(sql_engine_with_schema: (QueryExecutor
         .execute("update schema_name.table_name set col1=456, col2=789;")
         .expect("no system errors");
 
-    collector.assert_content(vec![
+    collector.assert_content_for_single_queries(vec![
         Ok(QueryEvent::SchemaCreated),
         Ok(QueryEvent::TableCreated),
         Ok(QueryEvent::RecordsInserted(1)),
@@ -267,9 +267,7 @@ mod operators {
             use super::*;
 
             #[rstest::fixture]
-            fn with_table(
-                sql_engine_with_schema: (QueryExecutor<InMemoryStorage>, Arc<Collector>),
-            ) -> (QueryExecutor<InMemoryStorage>, Arc<Collector>) {
+            fn with_table(sql_engine_with_schema: (QueryExecutor, Arc<Collector>)) -> (QueryExecutor, Arc<Collector>) {
                 let (mut engine, collector) = sql_engine_with_schema;
                 engine
                     .execute("create table schema_name.table_name(column_si smallint);")
@@ -283,7 +281,7 @@ mod operators {
             }
 
             #[rstest::rstest]
-            fn addition(with_table: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+            fn addition(with_table: (QueryExecutor, Arc<Collector>)) {
                 let (mut engine, collector) = with_table;
                 engine
                     .execute("update schema_name.table_name set column_si = 1 + 2;")
@@ -292,7 +290,7 @@ mod operators {
                     .execute("select * from schema_name.table_name;")
                     .expect("no system errors");
 
-                collector.assert_content(vec![
+                collector.assert_content_for_single_queries(vec![
                     Ok(QueryEvent::SchemaCreated),
                     Ok(QueryEvent::TableCreated),
                     Ok(QueryEvent::RecordsInserted(1)),
@@ -305,7 +303,7 @@ mod operators {
             }
 
             #[rstest::rstest]
-            fn subtraction(with_table: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+            fn subtraction(with_table: (QueryExecutor, Arc<Collector>)) {
                 let (mut engine, collector) = with_table;
                 engine
                     .execute("update schema_name.table_name set column_si = 1 - 2;")
@@ -314,7 +312,7 @@ mod operators {
                     .execute("select * from schema_name.table_name;")
                     .expect("no system errors");
 
-                collector.assert_content(vec![
+                collector.assert_content_for_single_queries(vec![
                     Ok(QueryEvent::SchemaCreated),
                     Ok(QueryEvent::TableCreated),
                     Ok(QueryEvent::RecordsInserted(1)),
@@ -327,7 +325,7 @@ mod operators {
             }
 
             #[rstest::rstest]
-            fn multiplication(with_table: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+            fn multiplication(with_table: (QueryExecutor, Arc<Collector>)) {
                 let (mut engine, collector) = with_table;
                 engine
                     .execute("update schema_name.table_name set column_si = 3 * 2;")
@@ -336,7 +334,7 @@ mod operators {
                     .execute("select * from schema_name.table_name;")
                     .expect("no system errors");
 
-                collector.assert_content(vec![
+                collector.assert_content_for_single_queries(vec![
                     Ok(QueryEvent::SchemaCreated),
                     Ok(QueryEvent::TableCreated),
                     Ok(QueryEvent::RecordsInserted(1)),
@@ -349,7 +347,7 @@ mod operators {
             }
 
             #[rstest::rstest]
-            fn division(with_table: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+            fn division(with_table: (QueryExecutor, Arc<Collector>)) {
                 let (mut engine, collector) = with_table;
                 engine
                     .execute("update schema_name.table_name set column_si = 8 / 2;")
@@ -358,7 +356,7 @@ mod operators {
                     .execute("select * from schema_name.table_name;")
                     .expect("no system errors");
 
-                collector.assert_content(vec![
+                collector.assert_content_for_single_queries(vec![
                     Ok(QueryEvent::SchemaCreated),
                     Ok(QueryEvent::TableCreated),
                     Ok(QueryEvent::RecordsInserted(1)),
@@ -371,7 +369,7 @@ mod operators {
             }
 
             #[rstest::rstest]
-            fn modulo(with_table: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+            fn modulo(with_table: (QueryExecutor, Arc<Collector>)) {
                 let (mut engine, collector) = with_table;
                 engine
                     .execute("update schema_name.table_name set column_si = 8 % 2;")
@@ -380,7 +378,7 @@ mod operators {
                     .execute("select * from schema_name.table_name;")
                     .expect("no system errors");
 
-                collector.assert_content(vec![
+                collector.assert_content_for_single_queries(vec![
                     Ok(QueryEvent::SchemaCreated),
                     Ok(QueryEvent::TableCreated),
                     Ok(QueryEvent::RecordsInserted(1)),
@@ -396,7 +394,7 @@ mod operators {
             #[ignore]
             // TODO ^ is bitwise in SQL standard
             //      # is bitwise in PostgreSQL and it does not supported in sqlparser-rs
-            fn exponentiation(with_table: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+            fn exponentiation(with_table: (QueryExecutor, Arc<Collector>)) {
                 let (mut engine, collector) = with_table;
                 engine
                     .execute("update schema_name.table_name set column_si = 8 ^ 2;")
@@ -405,7 +403,7 @@ mod operators {
                     .execute("select * from schema_name.table_name;")
                     .expect("no system errors");
 
-                collector.assert_content(vec![
+                collector.assert_content_for_single_queries(vec![
                     Ok(QueryEvent::SchemaCreated),
                     Ok(QueryEvent::TableCreated),
                     Ok(QueryEvent::RecordsInserted(1)),
@@ -420,7 +418,7 @@ mod operators {
             #[rstest::rstest]
             #[ignore]
             // TODO |/<n> is square root in PostgreSQL and it does not supported in sqlparser-rs
-            fn square_root(with_table: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+            fn square_root(with_table: (QueryExecutor, Arc<Collector>)) {
                 let (mut engine, collector) = with_table;
                 engine
                     .execute("update schema_name.table_name set column_si = |/ 16;")
@@ -429,7 +427,7 @@ mod operators {
                     .execute("select * from schema_name.table_name;")
                     .expect("no system errors");
 
-                collector.assert_content(vec![
+                collector.assert_content_for_single_queries(vec![
                     Ok(QueryEvent::SchemaCreated),
                     Ok(QueryEvent::TableCreated),
                     Ok(QueryEvent::RecordsInserted(1)),
@@ -444,7 +442,7 @@ mod operators {
             #[rstest::rstest]
             #[ignore]
             // TODO ||/<n> is cube root in PostgreSQL and it does not supported in sqlparser-rs
-            fn cube_root(with_table: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+            fn cube_root(with_table: (QueryExecutor, Arc<Collector>)) {
                 let (mut engine, collector) = with_table;
                 engine
                     .execute("update schema_name.table_name set column_si = ||/ 8;")
@@ -453,7 +451,7 @@ mod operators {
                     .execute("select * from schema_name.table_name;")
                     .expect("no system errors");
 
-                collector.assert_content(vec![
+                collector.assert_content_for_single_queries(vec![
                     Ok(QueryEvent::SchemaCreated),
                     Ok(QueryEvent::TableCreated),
                     Ok(QueryEvent::RecordsInserted(1)),
@@ -468,7 +466,7 @@ mod operators {
             #[rstest::rstest]
             #[ignore]
             // TODO <n>! is factorial in PostgreSQL and it does not supported in sqlparser-rs
-            fn factorial(with_table: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+            fn factorial(with_table: (QueryExecutor, Arc<Collector>)) {
                 let (mut engine, collector) = with_table;
                 engine
                     .execute("update schema_name.table_name set column_si = 5!;")
@@ -477,7 +475,7 @@ mod operators {
                     .execute("select * from schema_name.table_name;")
                     .expect("no system errors");
 
-                collector.assert_content(vec![
+                collector.assert_content_for_single_queries(vec![
                     Ok(QueryEvent::SchemaCreated),
                     Ok(QueryEvent::TableCreated),
                     Ok(QueryEvent::RecordsInserted(1)),
@@ -492,7 +490,7 @@ mod operators {
             #[rstest::rstest]
             #[ignore]
             // TODO !!<n> is prefix factorial in PostgreSQL and it does not supported in sqlparser-rs
-            fn prefix_factorial(with_table: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+            fn prefix_factorial(with_table: (QueryExecutor, Arc<Collector>)) {
                 let (mut engine, collector) = with_table;
                 engine
                     .execute("update schema_name.table_name set column_si = !!5;")
@@ -501,7 +499,7 @@ mod operators {
                     .execute("select * from schema_name.table_name;")
                     .expect("no system errors");
 
-                collector.assert_content(vec![
+                collector.assert_content_for_single_queries(vec![
                     Ok(QueryEvent::SchemaCreated),
                     Ok(QueryEvent::TableCreated),
                     Ok(QueryEvent::RecordsInserted(1)),
@@ -516,7 +514,7 @@ mod operators {
             #[rstest::rstest]
             #[ignore]
             // TODO @<n> is absolute value in PostgreSQL and it does not supported in sqlparser-rs
-            fn absolute_value(with_table: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+            fn absolute_value(with_table: (QueryExecutor, Arc<Collector>)) {
                 let (mut engine, collector) = with_table;
                 engine
                     .execute("update schema_name.table_name set column_si = @-5;")
@@ -525,7 +523,7 @@ mod operators {
                     .execute("select * from schema_name.table_name;")
                     .expect("no system errors");
 
-                collector.assert_content(vec![
+                collector.assert_content_for_single_queries(vec![
                     Ok(QueryEvent::SchemaCreated),
                     Ok(QueryEvent::TableCreated),
                     Ok(QueryEvent::RecordsInserted(1)),
@@ -538,7 +536,7 @@ mod operators {
             }
 
             #[rstest::rstest]
-            fn bitwise_and(with_table: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+            fn bitwise_and(with_table: (QueryExecutor, Arc<Collector>)) {
                 let (mut engine, collector) = with_table;
                 engine
                     .execute("update schema_name.table_name set column_si = 5 & 1;")
@@ -547,7 +545,7 @@ mod operators {
                     .execute("select * from schema_name.table_name;")
                     .expect("no system errors");
 
-                collector.assert_content(vec![
+                collector.assert_content_for_single_queries(vec![
                     Ok(QueryEvent::SchemaCreated),
                     Ok(QueryEvent::TableCreated),
                     Ok(QueryEvent::RecordsInserted(1)),
@@ -560,7 +558,7 @@ mod operators {
             }
 
             #[rstest::rstest]
-            fn bitwise_or(with_table: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+            fn bitwise_or(with_table: (QueryExecutor, Arc<Collector>)) {
                 let (mut engine, collector) = with_table;
                 engine
                     .execute("update schema_name.table_name set column_si = 5 | 2;")
@@ -569,7 +567,7 @@ mod operators {
                     .execute("select * from schema_name.table_name;")
                     .expect("no system errors");
 
-                collector.assert_content(vec![
+                collector.assert_content_for_single_queries(vec![
                     Ok(QueryEvent::SchemaCreated),
                     Ok(QueryEvent::TableCreated),
                     Ok(QueryEvent::RecordsInserted(1)),
@@ -584,7 +582,7 @@ mod operators {
             #[rstest::rstest]
             #[ignore]
             // TODO ~ <n> is bitwise NOT in PostgreSQL and it does not supported in sqlparser-rs
-            fn bitwise_not(with_table: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+            fn bitwise_not(with_table: (QueryExecutor, Arc<Collector>)) {
                 let (mut engine, collector) = with_table;
                 engine
                     .execute("update schema_name.table_name set column_si = ~1;")
@@ -593,7 +591,7 @@ mod operators {
                     .execute("select * from schema_name.table_name;")
                     .expect("no system errors");
 
-                collector.assert_content(vec![
+                collector.assert_content_for_single_queries(vec![
                     Ok(QueryEvent::SchemaCreated),
                     Ok(QueryEvent::TableCreated),
                     Ok(QueryEvent::RecordsInserted(1)),
@@ -608,7 +606,7 @@ mod operators {
             #[rstest::rstest]
             #[ignore]
             // TODO <n> << <m> is bitwise SHIFT LEFT in PostgreSQL and it does not supported in sqlparser-rs
-            fn bitwise_shift_left(with_table: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+            fn bitwise_shift_left(with_table: (QueryExecutor, Arc<Collector>)) {
                 let (mut engine, collector) = with_table;
                 engine
                     .execute("update schema_name.table_name set column_si = 1 << 4;")
@@ -617,7 +615,7 @@ mod operators {
                     .execute("select * from schema_name.table_name;")
                     .expect("no system errors");
 
-                collector.assert_content(vec![
+                collector.assert_content_for_single_queries(vec![
                     Ok(QueryEvent::SchemaCreated),
                     Ok(QueryEvent::TableCreated),
                     Ok(QueryEvent::RecordsInserted(1)),
@@ -632,7 +630,7 @@ mod operators {
             #[rstest::rstest]
             #[ignore]
             // TODO <n> >> <m> is bitwise SHIFT RIGHT in PostgreSQL and it does not supported in sqlparser-rs
-            fn bitwise_right_left(with_table: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+            fn bitwise_right_left(with_table: (QueryExecutor, Arc<Collector>)) {
                 let (mut engine, collector) = with_table;
                 engine
                     .execute("update schema_name.table_name set column_si = 8 >> 2;")
@@ -641,7 +639,7 @@ mod operators {
                     .execute("select * from schema_name.table_name;")
                     .expect("no system errors");
 
-                collector.assert_content(vec![
+                collector.assert_content_for_single_queries(vec![
                     Ok(QueryEvent::SchemaCreated),
                     Ok(QueryEvent::TableCreated),
                     Ok(QueryEvent::RecordsInserted(1)),
@@ -654,7 +652,7 @@ mod operators {
             }
 
             #[rstest::rstest]
-            fn evaluate_many_operations(with_table: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+            fn evaluate_many_operations(with_table: (QueryExecutor, Arc<Collector>)) {
                 let (mut engine, collector) = with_table;
                 engine
                     .execute("update schema_name.table_name set column_si = 5 & 13 % 10 + 1 * 20 - 40 / 4;")
@@ -663,7 +661,7 @@ mod operators {
                     .execute("select * from schema_name.table_name;")
                     .expect("no system errors");
 
-                collector.assert_content(vec![
+                collector.assert_content_for_single_queries(vec![
                     Ok(QueryEvent::SchemaCreated),
                     Ok(QueryEvent::TableCreated),
                     Ok(QueryEvent::RecordsInserted(1)),
@@ -682,9 +680,7 @@ mod operators {
         use super::*;
 
         #[rstest::fixture]
-        fn with_table(
-            sql_engine_with_schema: (QueryExecutor<InMemoryStorage>, Arc<Collector>),
-        ) -> (QueryExecutor<InMemoryStorage>, Arc<Collector>) {
+        fn with_table(sql_engine_with_schema: (QueryExecutor, Arc<Collector>)) -> (QueryExecutor, Arc<Collector>) {
             let (mut engine, collector) = sql_engine_with_schema;
             engine
                 .execute("create table schema_name.table_name(strings char(5));")
@@ -698,7 +694,7 @@ mod operators {
         }
 
         #[rstest::rstest]
-        fn concatenation(with_table: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+        fn concatenation(with_table: (QueryExecutor, Arc<Collector>)) {
             let (mut engine, collector) = with_table;
             engine
                 .execute("update schema_name.table_name set strings = '123' || '45';")
@@ -707,7 +703,7 @@ mod operators {
                 .execute("select * from schema_name.table_name;")
                 .expect("no system errors");
 
-            collector.assert_content(vec![
+            collector.assert_content_for_single_queries(vec![
                 Ok(QueryEvent::SchemaCreated),
                 Ok(QueryEvent::TableCreated),
                 Ok(QueryEvent::RecordsInserted(1)),
@@ -720,7 +716,7 @@ mod operators {
         }
 
         #[rstest::rstest]
-        fn concatenation_with_number(with_table: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+        fn concatenation_with_number(with_table: (QueryExecutor, Arc<Collector>)) {
             let (mut engine, collector) = with_table;
             engine
                 .execute("update schema_name.table_name set strings = 1 || '45';")
@@ -735,7 +731,7 @@ mod operators {
                 .execute("select * from schema_name.table_name;")
                 .expect("no system errors");
 
-            collector.assert_content(vec![
+            collector.assert_content_for_single_queries(vec![
                 Ok(QueryEvent::SchemaCreated),
                 Ok(QueryEvent::TableCreated),
                 Ok(QueryEvent::RecordsInserted(1)),
@@ -753,13 +749,13 @@ mod operators {
         }
 
         #[rstest::rstest]
-        fn non_string_concatenation_not_supported(with_table: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+        fn non_string_concatenation_not_supported(with_table: (QueryExecutor, Arc<Collector>)) {
             let (mut engine, collector) = with_table;
             engine
                 .execute("update schema_name.table_name set column_si = 1 || 2;")
                 .expect("no system errors");
 
-            collector.assert_content(vec![
+            collector.assert_content_for_single_queries(vec![
                 Ok(QueryEvent::SchemaCreated),
                 Ok(QueryEvent::TableCreated),
                 Ok(QueryEvent::RecordsInserted(1)),

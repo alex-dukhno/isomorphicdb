@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::dml::ExpressionEvaluation;
+use crate::{catalog_manager::CatalogManager, dml::ExpressionEvaluation, ColumnDefinition};
 use kernel::SystemResult;
 use protocol::{
     results::{QueryErrorBuilder, QueryEvent},
@@ -21,27 +21,23 @@ use protocol::{
 use representation::{unpack_raw, Binary, Datum};
 use sql_types::ConstraintError;
 use sqlparser::ast::{Assignment, Expr, Ident, ObjectName, UnaryOperator, Value};
-use std::{
-    collections::BTreeSet,
-    convert::TryFrom,
-    sync::{Arc, Mutex},
-};
-use storage::{backend::BackendStorage, frontend::FrontendStorage, ColumnDefinition, Row};
+use std::{collections::BTreeSet, convert::TryFrom, sync::Arc};
+use storage::Row;
 
-pub(crate) struct UpdateCommand<P: BackendStorage> {
+pub(crate) struct UpdateCommand {
     name: ObjectName,
     assignments: Vec<Assignment>,
-    storage: Arc<Mutex<FrontendStorage<P>>>,
+    storage: Arc<CatalogManager>,
     session: Arc<dyn Sender>,
 }
 
-impl<P: BackendStorage> UpdateCommand<P> {
+impl UpdateCommand {
     pub(crate) fn new(
         name: ObjectName,
         assignments: Vec<Assignment>,
-        storage: Arc<Mutex<FrontendStorage<P>>>,
+        storage: Arc<CatalogManager>,
         session: Arc<dyn Sender>,
-    ) -> UpdateCommand<P> {
+    ) -> UpdateCommand {
         UpdateCommand {
             name,
             assignments,
@@ -88,21 +84,21 @@ impl<P: BackendStorage> UpdateCommand<P> {
             to_update.push((column.to_owned(), value))
         }
 
-        if !(self.storage.lock().unwrap()).schema_exists(&schema_name) {
+        if !self.storage.schema_exists(&schema_name) {
             self.session
                 .send(Err(QueryErrorBuilder::new().schema_does_not_exist(schema_name).build()))
                 .expect("To Send Result to Client");
             return Ok(());
         }
 
-        let all_columns = (self.storage.lock().unwrap()).table_columns(&schema_name, &table_name)?;
+        let all_columns = self.storage.table_columns(&schema_name, &table_name)?;
         let mut errors = Vec::new();
         let mut index_value_pairs = Vec::new();
         let mut non_existing_columns = BTreeSet::new();
         let mut column_exists = false;
 
         // only process the rows if the table and schema exist.
-        if (self.storage.lock().unwrap()).table_exists(&schema_name, &table_name) {
+        if self.storage.table_exists(&schema_name, &table_name) {
             for (column_name, value) in to_update {
                 for (index, column_definition) in all_columns.iter().enumerate() {
                     if column_definition.has_name(&column_name) {
@@ -154,7 +150,7 @@ impl<P: BackendStorage> UpdateCommand<P> {
             let constraint_error_mapper = |(err, column_definition): &(ConstraintError, ColumnDefinition)| match err {
                 ConstraintError::OutOfRange => {
                     builder.out_of_range(
-                        column_definition.sql_type().to_pg_types(),
+                        (&column_definition.sql_type()).into(),
                         column_definition.name(),
                         row_index,
                     );
@@ -162,14 +158,14 @@ impl<P: BackendStorage> UpdateCommand<P> {
                 ConstraintError::TypeMismatch(value) => {
                     builder.type_mismatch(
                         value,
-                        column_definition.sql_type().to_pg_types(),
+                        (&column_definition.sql_type()).into(),
                         column_definition.name(),
                         row_index,
                     );
                 }
                 ConstraintError::ValueTooLong(len) => {
                     builder.string_length_mismatch(
-                        column_definition.sql_type().to_pg_types(),
+                        (&column_definition.sql_type()).into(),
                         *len,
                         column_definition.name(),
                         row_index,
@@ -184,7 +180,7 @@ impl<P: BackendStorage> UpdateCommand<P> {
             return Ok(());
         }
 
-        let to_update: Vec<Row> = match (self.storage.lock().unwrap()).table_scan(&schema_name, &table_name) {
+        let to_update: Vec<Row> = match self.storage.table_scan(&schema_name, &table_name) {
             Err(error) => return Err(error),
             Ok(reads) => reads
                 .map(Result::unwrap)
@@ -198,7 +194,7 @@ impl<P: BackendStorage> UpdateCommand<P> {
                 .collect(),
         };
 
-        match (self.storage.lock().unwrap()).update_all(&schema_name, &table_name, to_update) {
+        match self.storage.update_all(&schema_name, &table_name, to_update) {
             Err(error) => Err(error),
             Ok(records_number) => {
                 self.session

@@ -12,27 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::catalog_manager::CatalogManager;
 use kernel::SystemResult;
 use protocol::{
     results::{QueryErrorBuilder, QueryEvent},
     Sender,
 };
 use sqlparser::ast::ObjectName;
-use std::sync::{Arc, Mutex};
-use storage::{backend::BackendStorage, frontend::FrontendStorage};
+use std::sync::Arc;
 
-pub(crate) struct DeleteCommand<P: BackendStorage> {
+pub(crate) struct DeleteCommand {
     name: ObjectName,
-    storage: Arc<Mutex<FrontendStorage<P>>>,
+    storage: Arc<CatalogManager>,
     session: Arc<dyn Sender>,
 }
 
-impl<P: BackendStorage> DeleteCommand<P> {
-    pub(crate) fn new(
-        name: ObjectName,
-        storage: Arc<Mutex<FrontendStorage<P>>>,
-        session: Arc<dyn Sender>,
-    ) -> DeleteCommand<P> {
+impl DeleteCommand {
+    pub(crate) fn new(name: ObjectName, storage: Arc<CatalogManager>, session: Arc<dyn Sender>) -> DeleteCommand {
         DeleteCommand { name, storage, session }
     }
 
@@ -40,14 +36,14 @@ impl<P: BackendStorage> DeleteCommand<P> {
         let schema_name = self.name.0[0].to_string();
         let table_name = self.name.0[1].to_string();
 
-        if !(self.storage.lock().unwrap()).schema_exists(&schema_name) {
+        if !self.storage.schema_exists(&schema_name) {
             self.session
                 .send(Err(QueryErrorBuilder::new().schema_does_not_exist(schema_name).build()))
                 .expect("To Send Result to Client");
             return Ok(());
         }
 
-        if !(self.storage.lock().unwrap()).table_exists(&schema_name, &table_name) {
+        if !self.storage.table_exists(&schema_name, &table_name) {
             self.session
                 .send(Err(QueryErrorBuilder::new()
                     .table_does_not_exist(schema_name + "." + table_name.as_str())
@@ -56,7 +52,7 @@ impl<P: BackendStorage> DeleteCommand<P> {
             return Ok(());
         }
 
-        match (self.storage.lock().unwrap()).delete_all_from(&schema_name, &table_name) {
+        match self.storage.delete_all_from(&schema_name, &table_name) {
             Err(e) => Err(e),
             Ok(records_number) => {
                 self.session

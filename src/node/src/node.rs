@@ -14,20 +14,18 @@
 
 use async_dup::Arc as AsyncArc;
 use async_io::Async;
-use futures_lite::future::block_on;
 use protocol::{Command, ProtocolConfiguration, Receiver};
-use smol::{self, Task};
-use sql_engine::QueryExecutor;
+use smol::{self, block_on, Task};
+use sql_engine::{catalog_manager::CatalogManager, QueryExecutor};
 use std::{
     env,
     net::TcpListener,
     path::{Path, PathBuf},
     sync::{
         atomic::{AtomicU8, Ordering},
-        Arc, Mutex,
+        Arc,
     },
 };
-use storage::{backend::SledBackendStorage, frontend::FrontendStorage};
 
 const PORT: u16 = 5432;
 const HOST: [u8; 4] = [0, 0, 0, 0];
@@ -36,9 +34,13 @@ pub const RUNNING: u8 = 0;
 pub const STOPPED: u8 = 1;
 
 pub fn start() {
+    let persistent = env::var("PERSISTENT").is_ok();
     block_on(async {
-        let storage: Arc<Mutex<FrontendStorage<SledBackendStorage>>> =
-            Arc::new(Mutex::new(FrontendStorage::default().unwrap()));
+        let storage = if persistent {
+            Arc::new(CatalogManager::persistent(PathBuf::new().join("database")).unwrap())
+        } else {
+            Arc::new(CatalogManager::in_memory().unwrap())
+        };
         let listener = Async::<TcpListener>::bind((HOST, PORT)).expect("OK");
 
         let state = Arc::new(AtomicU8::new(RUNNING));
@@ -74,14 +76,32 @@ pub fn start() {
                                     state.store(STOPPED, Ordering::SeqCst);
                                     return;
                                 }
-                                Ok(Ok(Command::Terminate)) => {
-                                    log::debug!("Closing connection with client");
-                                    break;
+                                Ok(Ok(Command::Continue)) => {}
+                                Ok(Ok(Command::DescribeStatement(name))) => {
+                                    match query_executor.describe_prepared_statement(name.as_str()) {
+                                        Ok(()) => {}
+                                        Err(error) => log::error!("{:?}", error),
+                                    }
+                                }
+                                Ok(Ok(Command::Flush)) => query_executor.flush(),
+                                Ok(Ok(Command::Parse(statement_name, sql_query, param_types))) => {
+                                    match query_executor.parse(
+                                        statement_name.as_str(),
+                                        sql_query.as_str(),
+                                        param_types.as_ref(),
+                                    ) {
+                                        Ok(()) => {}
+                                        Err(error) => log::error!("{:?}", error),
+                                    }
                                 }
                                 Ok(Ok(Command::Query(sql_query))) => match query_executor.execute(sql_query.as_str()) {
                                     Ok(()) => {}
                                     Err(error) => log::error!("{:?}", error),
                                 },
+                                Ok(Ok(Command::Terminate)) => {
+                                    log::debug!("Closing connection with client");
+                                    break;
+                                }
                             }
                         }
                     })

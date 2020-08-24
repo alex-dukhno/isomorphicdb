@@ -15,6 +15,7 @@
 ///! Runtime cell and row representation.
 use bigdecimal::ToPrimitive;
 use ordered_float::OrderedFloat;
+use sql_types::SqlType;
 use sqlparser::ast::Value;
 use std::convert::TryFrom;
 
@@ -40,12 +41,14 @@ pub enum Datum<'a> {
     Int16(i16),
     Int32(i32),
     Int64(i64),
+    UInt64(u64),
     Float32(OrderedFloat<f32>),
     Float64(OrderedFloat<f64>),
     String(&'a str),
     // this should only be used when loading string into a database
     OwnedString(String),
     // Bytes(&'a [u8]),
+    SqlType(SqlType),
     // fill in the rest of the types as they get implemented.
 }
 
@@ -58,10 +61,12 @@ impl<'a> Datum<'a> {
             Self::Int16(_) => 1 + std::mem::size_of::<i16>(),
             Self::Int32(_) => 1 + std::mem::size_of::<i32>(),
             Self::Int64(_) => 1 + std::mem::size_of::<i64>(),
+            Self::UInt64(_) => 1 + std::mem::size_of::<u64>(),
             Self::Float32(_) => 1 + std::mem::size_of::<f32>(),
             Self::Float64(_) => 1 + std::mem::size_of::<f64>(),
             Self::String(val) => 1 + std::mem::size_of::<usize>() + val.len(),
             Self::OwnedString(val) => 1 + std::mem::size_of::<usize>() + val.len(),
+            Self::SqlType(_) => 1 + std::mem::size_of::<SqlType>(),
         }
     }
 
@@ -89,6 +94,10 @@ impl<'a> Datum<'a> {
         Datum::Int64(val)
     }
 
+    pub fn from_u64(val: u64) -> Datum<'static> {
+        Datum::UInt64(val)
+    }
+
     pub fn from_f32(val: f32) -> Datum<'static> {
         Datum::Float32(val.into())
     }
@@ -104,6 +113,10 @@ impl<'a> Datum<'a> {
 
     pub fn from_string(val: String) -> Datum<'static> {
         Datum::OwnedString(val)
+    }
+
+    pub fn from_sql_type(val: SqlType) -> Datum<'static> {
+        Datum::SqlType(val)
     }
 
     // @TODO: Add accessor helper functions.
@@ -125,6 +138,13 @@ impl<'a> Datum<'a> {
         match self {
             Self::Int64(val) => *val,
             _ => panic!("invalid use of Datum::as_i64"),
+        }
+    }
+
+    pub fn as_u64(&self) -> u64 {
+        match self {
+            Self::UInt64(val) => *val,
+            _ => panic!("invalid use of Datum::as_u64"),
         }
     }
 
@@ -161,6 +181,13 @@ impl<'a> Datum<'a> {
         match self {
             Self::OwnedString(s) => s,
             _ => panic!("invalid use of Datum::as_string"),
+        }
+    }
+
+    pub fn as_sql_type(&self) -> SqlType {
+        match self {
+            Self::SqlType(sql_type) => *sql_type,
+            _ => panic!("invalid use of Datum::as_sql_type"),
         }
     }
 
@@ -217,10 +244,12 @@ impl ToString for Datum<'_> {
             Self::Int16(val) => val.to_string(),
             Self::Int32(val) => val.to_string(),
             Self::Int64(val) => val.to_string(),
+            Self::UInt64(val) => val.to_string(),
             Self::Float32(val) => val.into_inner().to_string(),
             Self::Float64(val) => val.into_inner().to_string(),
             Self::String(val) => val.to_string(),
             Self::OwnedString(val) => val.clone(),
+            Self::SqlType(val) => val.to_string(),
         }
     }
 }
@@ -233,9 +262,11 @@ enum TypeTag {
     I16,
     I32,
     I64,
+    U64,
     F32,
     F64,
     Str,
+    SqlType,
     // fill in the rest of the types.
 }
 
@@ -316,6 +347,10 @@ impl Binary {
                     push_tag(&mut data, TypeTag::I64);
                     push_copy!(&mut data, *val, i64);
                 }
+                Datum::<'a>::UInt64(val) => {
+                    push_tag(&mut data, TypeTag::U64);
+                    push_copy!(&mut data, *val, u64);
+                }
                 Datum::<'a>::Float32(val) => {
                     push_tag(&mut data, TypeTag::F32);
                     push_copy!(&mut data, *val.deref(), f32)
@@ -335,6 +370,10 @@ impl Binary {
                     data.extend_from_slice(val.as_bytes());
                 }
                 Datum::<'a>::Null => push_tag(&mut data, TypeTag::Null),
+                Datum::<'a>::SqlType(sql_type) => {
+                    push_tag(&mut data, TypeTag::SqlType);
+                    push_copy!(&mut data, *sql_type, SqlType);
+                }
             }
         }
 
@@ -371,6 +410,10 @@ pub fn unpack_raw(data: &[u8]) -> Vec<Datum> {
                 let val = unsafe { read::<i64>(data, &mut index) };
                 Datum::from_i64(val)
             }
+            TypeTag::U64 => {
+                let val = unsafe { read::<u64>(data, &mut index) };
+                Datum::from_u64(val)
+            }
             TypeTag::F32 => {
                 let val = unsafe { read::<f32>(data, &mut index) };
                 Datum::from_f32(val)
@@ -378,6 +421,10 @@ pub fn unpack_raw(data: &[u8]) -> Vec<Datum> {
             TypeTag::F64 => {
                 let val = unsafe { read::<f64>(data, &mut index) };
                 Datum::from_f64(val)
+            }
+            TypeTag::SqlType => {
+                let val = unsafe { read::<SqlType>(data, &mut index) };
+                Datum::from_sql_type(val)
             } // SqlType::Decimal |
               // SqlType::Time |
               // SqlType::TimeWithTimeZone |
@@ -419,7 +466,7 @@ mod tests {
         let row = Binary::pack(&datums);
         assert_eq!(
             row,
-            Binary::with_data(vec![0x2, 0x4, 0xa0, 0x86, 0x1, 0x0, 0x6, 0xb7, 0x44, 0xc8, 0x42])
+            Binary::with_data(vec![0x2, 0x4, 0xa0, 0x86, 0x1, 0x0, 0x7, 0xb7, 0x44, 0xc8, 0x42])
         );
     }
 
@@ -437,7 +484,7 @@ mod tests {
         assert_eq!(
             row,
             Binary::with_data(vec![
-                0x1, 0x8, 0x5, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x68, 0x65, 0x6c, 0x6c, 0x6f
+                0x1, 0x9, 0x5, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x68, 0x65, 0x6c, 0x6c, 0x6f
             ])
         );
     }
@@ -479,5 +526,12 @@ mod tests {
         let datums = vec![Datum::from_bool(true), Datum::from_str("hello")];
         let row = Binary::pack(&datums);
         assert_eq!(row.unpack(), datums);
+    }
+
+    #[test]
+    fn row_unpacking_sql_type() {
+        let data = vec![Datum::from_sql_type(SqlType::VarChar(32))];
+        let row = Binary::pack(&data);
+        assert_eq!(vec![Datum::from_sql_type(SqlType::VarChar(32))], row.unpack());
     }
 }

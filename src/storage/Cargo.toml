@@ -8,12 +8,14 @@ publish = false
 [dependencies]
 kernel = { path = "../kernel" }
 log = "0.4.8"
-sled = { version = "0.34.0", features = ["default"] }
+sled = { version = "0.34.2", features = ["default"] }
 sql_types = { path = "../sql_types" }
-serde = { version = "1.0.114", features = ["derive"] }
+serde = { version = "1.0.115", features = ["derive"] }
 bincode = "1.3.1"
 representation = { path = "../representation" }
+itertools = "0.9.0"
 
 [dev-dependencies]
 backtrace = "0.3.49"
 rstest = "0.6.4"
+tempfile = "3.1.0"

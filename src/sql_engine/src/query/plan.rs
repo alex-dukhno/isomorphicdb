@@ -14,8 +14,8 @@
 
 ///! represents a plan to be executed by the engine.
 use crate::query::{SchemaId, TableId};
+use crate::ColumnDefinition;
 use sqlparser::ast::{Ident, Query, Statement};
-use storage::ColumnDefinition;
 
 #[derive(Debug, Clone)]
 pub struct TableCreationInfo {

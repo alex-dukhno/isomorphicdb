@@ -13,12 +13,13 @@
 // limitations under the License.
 
 use super::*;
+use representation::Binary;
 use sql_types::SqlType;
 
 #[rstest::fixture]
-fn with_small_ints_table(default_schema_name: &str, mut storage_with_schema: PersistentStorage) -> PersistentStorage {
+fn with_small_ints_table(default_schema_name: &str, storage_with_schema: PersistentStorage) -> PersistentStorage {
     create_table(
-        &mut storage_with_schema,
+        &storage_with_schema,
         default_schema_name,
         "table_name",
         vec![
@@ -31,9 +32,9 @@ fn with_small_ints_table(default_schema_name: &str, mut storage_with_schema: Per
 }
 
 #[rstest::rstest]
-fn select_all_from_table_with_many_columns(default_schema_name: &str, mut with_small_ints_table: PersistentStorage) {
+fn select_all_from_table_with_many_columns(default_schema_name: &str, with_small_ints_table: PersistentStorage) {
     insert_into(
-        &mut with_small_ints_table,
+        &with_small_ints_table,
         default_schema_name,
         "table_name",
         vec![(1, vec!["1", "2", "3"])],

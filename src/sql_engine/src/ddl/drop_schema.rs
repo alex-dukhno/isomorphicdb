@@ -12,30 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::query::SchemaId;
+use crate::{catalog_manager::CatalogManager, query::SchemaId};
 use kernel::SystemResult;
 use protocol::{results::QueryEvent, Sender};
-use std::sync::{Arc, Mutex};
-use storage::{backend::BackendStorage, frontend::FrontendStorage};
+use std::sync::Arc;
 
-pub(crate) struct DropSchemaCommand<P: BackendStorage> {
+pub(crate) struct DropSchemaCommand {
     name: SchemaId,
-    storage: Arc<Mutex<FrontendStorage<P>>>,
+    storage: Arc<CatalogManager>,
     session: Arc<dyn Sender>,
 }
 
-impl<P: BackendStorage> DropSchemaCommand<P> {
-    pub(crate) fn new(
-        name: SchemaId,
-        storage: Arc<Mutex<FrontendStorage<P>>>,
-        session: Arc<dyn Sender>,
-    ) -> DropSchemaCommand<P> {
+impl DropSchemaCommand {
+    pub(crate) fn new(name: SchemaId, storage: Arc<CatalogManager>, session: Arc<dyn Sender>) -> DropSchemaCommand {
         DropSchemaCommand { name, storage, session }
     }
 
     pub(crate) fn execute(&mut self) -> SystemResult<()> {
         let schema_name = self.name.name().to_string();
-        match (self.storage.lock().unwrap()).drop_schema(&schema_name) {
+        match self.storage.drop_schema(&schema_name) {
             Err(error) => Err(error),
             Ok(()) => {
                 self.session

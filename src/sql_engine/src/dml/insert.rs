@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{dml::ExpressionEvaluation, query::plan::TableInserts};
+use crate::{catalog_manager::CatalogManager, dml::ExpressionEvaluation, query::plan::TableInserts, ColumnDefinition};
 use kernel::SystemResult;
 use protocol::{
     results::{QueryErrorBuilder, QueryEvent},
@@ -21,27 +21,23 @@ use protocol::{
 use representation::{Binary, Datum};
 use sql_types::ConstraintError;
 use sqlparser::ast::{DataType, Expr, Query, SetExpr, UnaryOperator, Value};
-use std::{
-    convert::TryFrom,
-    str::FromStr,
-    sync::{Arc, Mutex},
-};
-use storage::{backend::BackendStorage, frontend::FrontendStorage, ColumnDefinition, Row};
+use std::{convert::TryFrom, str::FromStr, sync::Arc};
+use storage::Row;
 
-pub(crate) struct InsertCommand<'ic, P: BackendStorage> {
+pub(crate) struct InsertCommand<'ic> {
     raw_sql_query: &'ic str,
     table_inserts: TableInserts,
-    storage: Arc<Mutex<FrontendStorage<P>>>,
+    storage: Arc<CatalogManager>,
     session: Arc<dyn Sender>,
 }
 
-impl<'ic, P: BackendStorage> InsertCommand<'ic, P> {
+impl<'ic> InsertCommand<'ic> {
     pub(crate) fn new(
         raw_sql_query: &'ic str,
         table_inserts: TableInserts,
-        storage: Arc<Mutex<FrontendStorage<P>>>,
+        storage: Arc<CatalogManager>,
         session: Arc<dyn Sender>,
-    ) -> InsertCommand<'ic, P> {
+    ) -> InsertCommand<'ic> {
         InsertCommand {
             raw_sql_query,
             table_inserts,
@@ -123,7 +119,7 @@ impl<'ic, P: BackendStorage> InsertCommand<'ic, P> {
                     rows.push(row);
                 }
 
-                if !(self.storage.lock().unwrap()).schema_exists(schema_name) {
+                if !self.storage.schema_exists(schema_name) {
                     self.session
                         .send(Err(QueryErrorBuilder::new()
                             .schema_does_not_exist(schema_name.to_owned())
@@ -132,7 +128,7 @@ impl<'ic, P: BackendStorage> InsertCommand<'ic, P> {
                     return Ok(());
                 }
 
-                if !(self.storage.lock().unwrap()).table_exists(schema_name, table_name) {
+                if !self.storage.table_exists(schema_name, table_name) {
                     self.session
                         .send(Err(QueryErrorBuilder::new()
                             .table_does_not_exist(schema_name.to_owned() + "." + table_name)
@@ -142,7 +138,7 @@ impl<'ic, P: BackendStorage> InsertCommand<'ic, P> {
                 }
 
                 let column_names = columns;
-                let all_columns = (self.storage.lock().unwrap()).table_columns(&schema_name, &table_name)?;
+                let all_columns = self.storage.table_columns(&schema_name, &table_name)?;
                 let index_columns = if column_names.is_empty() {
                     let mut index_cols = vec![];
                     for (index, column_definition) in all_columns.iter().cloned().enumerate() {
@@ -183,7 +179,7 @@ impl<'ic, P: BackendStorage> InsertCommand<'ic, P> {
                 };
 
                 let mut to_write: Vec<Row> = vec![];
-                if (self.storage.lock().unwrap()).table_exists(&schema_name, &table_name) {
+                if self.storage.table_exists(&schema_name, &table_name) {
                     let mut errors = Vec::new();
 
                     for (row_index, row) in rows.iter().enumerate() {
@@ -196,7 +192,7 @@ impl<'ic, P: BackendStorage> InsertCommand<'ic, P> {
                             return Ok(());
                         }
 
-                        let key = (self.storage.lock().unwrap()).next_key_id().to_be_bytes().to_vec();
+                        let key = self.storage.next_key_id().to_be_bytes().to_vec();
 
                         // TODO: The default value or NULL should be initialized for SQL types of all columns.
                         let mut record = vec![Datum::from_null(); all_columns.len()];
@@ -226,7 +222,7 @@ impl<'ic, P: BackendStorage> InsertCommand<'ic, P> {
                                     match err {
                                         ConstraintError::OutOfRange => {
                                             builder.out_of_range(
-                                                column_definition.sql_type().to_pg_types(),
+                                                (&column_definition.sql_type()).into(),
                                                 column_definition.name(),
                                                 row_index,
                                             );
@@ -234,14 +230,14 @@ impl<'ic, P: BackendStorage> InsertCommand<'ic, P> {
                                         ConstraintError::TypeMismatch(value) => {
                                             builder.type_mismatch(
                                                 value,
-                                                column_definition.sql_type().to_pg_types(),
+                                                (&column_definition.sql_type()).into(),
                                                 column_definition.name(),
                                                 row_index,
                                             );
                                         }
                                         ConstraintError::ValueTooLong(len) => {
                                             builder.string_length_mismatch(
-                                                column_definition.sql_type().to_pg_types(),
+                                                (&column_definition.sql_type()).into(),
                                                 *len,
                                                 column_definition.name(),
                                                 row_index,
@@ -263,7 +259,7 @@ impl<'ic, P: BackendStorage> InsertCommand<'ic, P> {
                     }
                 }
 
-                match (self.storage.lock().unwrap()).insert_into(&schema_name, &table_name, to_write) {
+                match self.storage.insert_into(&schema_name, &table_name, to_write) {
                     Err(error) => Err(error),
                     Ok(size) => {
                         self.session

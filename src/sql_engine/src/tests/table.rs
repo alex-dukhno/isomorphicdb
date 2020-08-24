@@ -19,44 +19,44 @@ mod schemaless {
     use super::*;
 
     #[rstest::rstest]
-    fn create_table_in_non_existent_schema(sql_engine: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+    fn create_table_in_non_existent_schema(sql_engine: (QueryExecutor, Arc<Collector>)) {
         let (mut engine, collector) = sql_engine;
 
         engine
             .execute("create table schema_name.table_name (column_name smallint);")
             .expect("no system errors");
 
-        collector.assert_content(vec![Err(QueryErrorBuilder::new()
+        collector.assert_content_for_single_queries(vec![Err(QueryErrorBuilder::new()
             .schema_does_not_exist("schema_name".to_owned())
             .build())]);
     }
 
     #[rstest::rstest]
-    fn drop_table_from_non_existent_schema(sql_engine: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+    fn drop_table_from_non_existent_schema(sql_engine: (QueryExecutor, Arc<Collector>)) {
         let (mut engine, collector) = sql_engine;
         engine
             .execute("drop table schema_name.table_name;")
             .expect("no system errors");
 
-        collector.assert_content(vec![Err(QueryErrorBuilder::new()
+        collector.assert_content_for_single_queries(vec![Err(QueryErrorBuilder::new()
             .schema_does_not_exist("schema_name".to_owned())
             .build())]);
     }
 }
 
 #[rstest::rstest]
-fn create_table(sql_engine_with_schema: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+fn create_table(sql_engine_with_schema: (QueryExecutor, Arc<Collector>)) {
     let (mut engine, collector) = sql_engine_with_schema;
 
     engine
         .execute("create table schema_name.table_name (column_name smallint);")
         .expect("no system errors");
 
-    collector.assert_content(vec![Ok(QueryEvent::SchemaCreated), Ok(QueryEvent::TableCreated)]);
+    collector.assert_content_for_single_queries(vec![Ok(QueryEvent::SchemaCreated), Ok(QueryEvent::TableCreated)]);
 }
 
 #[rstest::rstest]
-fn create_same_table(sql_engine_with_schema: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+fn create_same_table(sql_engine_with_schema: (QueryExecutor, Arc<Collector>)) {
     let (mut engine, collector) = sql_engine_with_schema;
     engine
         .execute("create table schema_name.table_name (column_name smallint);")
@@ -65,7 +65,7 @@ fn create_same_table(sql_engine_with_schema: (QueryExecutor<InMemoryStorage>, Ar
         .execute("create table schema_name.table_name (column_name smallint);")
         .expect("no system errors");
 
-    collector.assert_content(vec![
+    collector.assert_content_for_single_queries(vec![
         Ok(QueryEvent::SchemaCreated),
         Ok(QueryEvent::TableCreated),
         Err(QueryErrorBuilder::new()
@@ -75,7 +75,7 @@ fn create_same_table(sql_engine_with_schema: (QueryExecutor<InMemoryStorage>, Ar
 }
 
 #[rstest::rstest]
-fn drop_table(sql_engine_with_schema: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+fn drop_table(sql_engine_with_schema: (QueryExecutor, Arc<Collector>)) {
     let (mut engine, collector) = sql_engine_with_schema;
     engine
         .execute("create table schema_name.table_name (column_name smallint);")
@@ -87,7 +87,7 @@ fn drop_table(sql_engine_with_schema: (QueryExecutor<InMemoryStorage>, Arc<Colle
         .execute("create table schema_name.table_name (column_name smallint);")
         .expect("no system errors");
 
-    collector.assert_content(vec![
+    collector.assert_content_for_single_queries(vec![
         Ok(QueryEvent::SchemaCreated),
         Ok(QueryEvent::TableCreated),
         Ok(QueryEvent::TableDropped),
@@ -96,13 +96,13 @@ fn drop_table(sql_engine_with_schema: (QueryExecutor<InMemoryStorage>, Arc<Colle
 }
 
 #[rstest::rstest]
-fn drop_non_existent_table(sql_engine_with_schema: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+fn drop_non_existent_table(sql_engine_with_schema: (QueryExecutor, Arc<Collector>)) {
     let (mut engine, collector) = sql_engine_with_schema;
     engine
         .execute("drop table schema_name.table_name;")
         .expect("no system errors");
 
-    collector.assert_content(vec![
+    collector.assert_content_for_single_queries(vec![
         Ok(QueryEvent::SchemaCreated),
         Err(QueryErrorBuilder::new()
             .table_does_not_exist("schema_name.table_name".to_owned())
@@ -115,7 +115,7 @@ mod different_types {
     use super::*;
 
     #[rstest::rstest]
-    fn ints(sql_engine_with_schema: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+    fn ints(sql_engine_with_schema: (QueryExecutor, Arc<Collector>)) {
         let (mut engine, collector) = sql_engine_with_schema;
         engine
             .execute(
@@ -127,11 +127,11 @@ mod different_types {
             )
             .expect("no system errors");
 
-        collector.assert_content(vec![Ok(QueryEvent::SchemaCreated), Ok(QueryEvent::TableCreated)]);
+        collector.assert_content_for_single_queries(vec![Ok(QueryEvent::SchemaCreated), Ok(QueryEvent::TableCreated)]);
     }
 
     #[rstest::rstest]
-    fn strings(sql_engine_with_schema: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+    fn strings(sql_engine_with_schema: (QueryExecutor, Arc<Collector>)) {
         let (mut engine, collector) = sql_engine_with_schema;
         engine
             .execute(
@@ -142,11 +142,11 @@ mod different_types {
             )
             .expect("no system errors");
 
-        collector.assert_content(vec![Ok(QueryEvent::SchemaCreated), Ok(QueryEvent::TableCreated)]);
+        collector.assert_content_for_single_queries(vec![Ok(QueryEvent::SchemaCreated), Ok(QueryEvent::TableCreated)]);
     }
 
     #[rstest::rstest]
-    fn boolean(sql_engine_with_schema: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+    fn boolean(sql_engine_with_schema: (QueryExecutor, Arc<Collector>)) {
         let (mut engine, collector) = sql_engine_with_schema;
         engine
             .execute(
@@ -156,11 +156,11 @@ mod different_types {
             )
             .expect("no system errors");
 
-        collector.assert_content(vec![Ok(QueryEvent::SchemaCreated), Ok(QueryEvent::TableCreated)]);
+        collector.assert_content_for_single_queries(vec![Ok(QueryEvent::SchemaCreated), Ok(QueryEvent::TableCreated)]);
     }
 
     #[rstest::rstest]
-    fn serials(sql_engine_with_schema: (QueryExecutor<InMemoryStorage>, Arc<Collector>)) {
+    fn serials(sql_engine_with_schema: (QueryExecutor, Arc<Collector>)) {
         let (mut engine, collector) = sql_engine_with_schema;
         engine
             .execute(
@@ -172,6 +172,6 @@ mod different_types {
             )
             .expect("no system errors");
 
-        collector.assert_content(vec![Ok(QueryEvent::SchemaCreated), Ok(QueryEvent::TableCreated)]);
+        collector.assert_content_for_single_queries(vec![Ok(QueryEvent::SchemaCreated), Ok(QueryEvent::TableCreated)]);
     }
 }

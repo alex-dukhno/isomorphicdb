@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::{sql_types::PostgreSqlType, Error, Result};
+use byteorder::{ByteOrder, NetworkEndian};
+use std::convert::TryFrom;
+
 const COMMAND_COMPLETE: u8 = b'C';
 const DATA_ROW: u8 = b'D';
 const ERROR_RESPONSE: u8 = b'E';
@@ -24,6 +28,11 @@ const AUTHENTICATION: u8 = b'R';
 const PARAMETER_STATUS: u8 = b'S';
 const ROW_DESCRIPTION: u8 = b'T';
 const READY_FOR_QUERY: u8 = b'Z';
+const PARAMETER_DESCRIPTION: u8 = b't';
+const NO_DATA: u8 = b'n';
+const PARSE_COMPLETE: u8 = b'1';
+const BIND_COMPLETE: u8 = b'2';
+const CLOSE_COMPLETE: u8 = b'3';
 
 pub(crate) enum Encryption {
     AcceptSsl,
@@ -39,11 +48,138 @@ impl Into<&'_ [u8]> for Encryption {
     }
 }
 
+/// Frontend PostgreSQL Wire Protocol messages
+/// see https://www.postgresql.org/docs/12/protocol-flow.html
+#[derive(Debug, PartialEq)]
+pub enum FrontendMessage {
+    /// Execute the specified SQL.
+    ///
+    /// This is issued as part of the simple query flow.
+    Query {
+        /// The SQL to execute.
+        sql: String,
+    },
+
+    /// Parse the specified SQL into a prepared statement.
+    ///
+    /// This starts the extended query flow.
+    Parse {
+        /// The name of the prepared statement to create. An empty string
+        /// specifies the unnamed prepared statement.
+        statement_name: String,
+        /// The SQL to parse.
+        sql: String,
+        /// The number of specified parameter data types can be less than the
+        /// number of parameters specified in the query.
+        param_types: Vec<PostgreSqlType>,
+    },
+
+    /// Describe an existing prepared statement.
+    ///
+    /// This command is part of the extended query flow.
+    DescribeStatement {
+        /// The name of the prepared statement to describe.
+        name: String,
+    },
+
+    /// Describe an existing portal.
+    ///
+    /// This command is part of the extended query flow.
+    DescribePortal {
+        /// The name of the portal to describe.
+        name: String,
+    },
+
+    /// Bind an existing prepared statement to a portal.
+    ///
+    /// This command is part of the extended query flow.
+    Bind {
+        /// The destination portal. An empty string selects the unnamed
+        /// portal. The portal can later be executed with the `Execute` command.
+        portal_name: String,
+        /// The source prepared statement. An empty string selects the unnamed
+        /// prepared statement.
+        statement_name: String,
+    },
+
+    /// Execute a bound portal.
+    ///
+    /// This command is part of the extended query flow.
+    Execute {
+        /// The name of the portal to execute.
+        portal_name: String,
+    },
+
+    /// Flush any pending output.
+    ///
+    /// This command is part of the extended query flow.
+    Flush,
+
+    /// Finish an extended query.
+    ///
+    /// This command is part of the extended query flow.
+    Sync,
+
+    /// Close the named statement.
+    ///
+    /// This command is part of the extended query flow.
+    CloseStatement {
+        /// The name of the prepared statement to close.
+        name: String,
+    },
+
+    /// Close the named portal.
+    ///
+    /// This command is part of the extended query flow.
+    ClosePortal {
+        /// The name of the portal to close.
+        name: String,
+    },
+
+    /// Terminate a connection.
+    Terminate,
+}
+
+impl FrontendMessage {
+    /// decodes buffer data to a frontend message
+    pub fn decode(tag: u8, buffer: &[u8]) -> Result<Self> {
+        log::debug!(
+            "Receives frontend tag = {:?}, buffer = {:?}",
+            std::char::from_u32(tag as u32).unwrap(),
+            buffer
+        );
+
+        let cursor = Cursor::new(buffer);
+        match tag {
+            // Simple query flow.
+            b'Q' => decode_query(cursor),
+
+            // Extended query flow.
+            b'B' => decode_bind(cursor),
+            b'C' => decode_close(cursor),
+            b'D' => decode_describe(cursor),
+            b'E' => decode_execute(cursor),
+            b'H' => decode_flush(cursor),
+            b'P' => decode_parse(cursor),
+            b'S' => decode_sync(cursor),
+
+            // Termination.
+            b'X' => decode_terminate(cursor),
+
+            // Invalid.
+            _ => {
+                log::debug!("Unsupport frontend message tag {}", tag);
+                Err(Error::UnsupportedFrontendMessage)
+            }
+        }
+    }
+}
+
 /// Backend PostgreSQL Wire Protocol messages
 /// see https://www.postgresql.org/docs/12/protocol-flow.html
 #[allow(dead_code)]
 #[derive(Debug, PartialEq)]
-pub enum Message {
+pub enum BackendMessage {
     /// A warning message has been issued. The frontend should display the message
     /// but continue listening for ReadyForQuery or ErrorResponse.
     NoticeResponse,
@@ -86,18 +222,31 @@ pub enum Message {
     /// see https://www.postgresql.org/docs/12/protocol-flow.html#PROTOCOL-ASYNC
     /// 3rd and 4th paragraph
     ParameterStatus(String, String),
+    /// Indicates that parameters are needed by a prepared statement.
+    ParameterDescription(Vec<u32>),
+    /// Indicates that the statement will not return rows.
+    NoData,
+    /// This message informs the frontend about the previous `Parse` frontend
+    /// message is successful.
+    ParseComplete,
+    /// This message informs the frontend about the previous `Bind` frontend
+    /// message is successful.
+    BindComplete,
+    /// This message informs the frontend about the previous `Close` frontend
+    /// message is successful.
+    CloseComplete,
 }
 
-impl Message {
+impl BackendMessage {
     /// returns binary representation of a backend message
     pub fn as_vec(&self) -> Vec<u8> {
         match self {
-            Message::NoticeResponse => vec![NOTICE_RESPONSE],
-            Message::AuthenticationCleartextPassword => vec![AUTHENTICATION, 0, 0, 0, 8, 0, 0, 0, 3],
-            Message::AuthenticationMD5Password => vec![AUTHENTICATION, 0, 0, 0, 12, 0, 0, 0, 5, 1, 1, 1, 1],
-            Message::AuthenticationOk => vec![AUTHENTICATION, 0, 0, 0, 8, 0, 0, 0, 0],
-            Message::ReadyForQuery => vec![READY_FOR_QUERY, 0, 0, 0, 5, EMPTY_QUERY_RESPONSE],
-            Message::DataRow(row) => {
+            BackendMessage::NoticeResponse => vec![NOTICE_RESPONSE],
+            BackendMessage::AuthenticationCleartextPassword => vec![AUTHENTICATION, 0, 0, 0, 8, 0, 0, 0, 3],
+            BackendMessage::AuthenticationMD5Password => vec![AUTHENTICATION, 0, 0, 0, 12, 0, 0, 0, 5, 1, 1, 1, 1],
+            BackendMessage::AuthenticationOk => vec![AUTHENTICATION, 0, 0, 0, 8, 0, 0, 0, 0],
+            BackendMessage::ReadyForQuery => vec![READY_FOR_QUERY, 0, 0, 0, 5, EMPTY_QUERY_RESPONSE],
+            BackendMessage::DataRow(row) => {
                 let mut row_buff = Vec::new();
                 for field in row.iter() {
                     row_buff.extend_from_slice(&(field.len() as i32).to_be_bytes());
@@ -110,7 +259,7 @@ impl Message {
                 len_buff.extend_from_slice(&row_buff);
                 len_buff
             }
-            Message::RowDescription(description) => {
+            BackendMessage::RowDescription(description) => {
                 let mut buff = Vec::new();
                 for field in description.iter() {
                     buff.extend_from_slice(field.name.as_str().as_bytes());
@@ -129,7 +278,7 @@ impl Message {
                 len_buff.extend_from_slice(&buff);
                 len_buff
             }
-            Message::CommandComplete(command) => {
+            BackendMessage::CommandComplete(command) => {
                 let mut command_buff = Vec::new();
                 command_buff.extend_from_slice(&[COMMAND_COMPLETE]);
                 command_buff.extend_from_slice(&(4 + command.len() as i32 + 1).to_be_bytes());
@@ -137,8 +286,8 @@ impl Message {
                 command_buff.extend_from_slice(&[0]);
                 command_buff
             }
-            Message::EmptyQueryResponse => vec![EMPTY_QUERY_RESPONSE, 0, 0, 0, 4],
-            Message::ErrorResponse(severity, code, message) => {
+            BackendMessage::EmptyQueryResponse => vec![EMPTY_QUERY_RESPONSE, 0, 0, 0, 4],
+            BackendMessage::ErrorResponse(severity, code, message) => {
                 let mut error_response_buff = Vec::new();
                 error_response_buff.extend_from_slice(&[ERROR_RESPONSE]);
                 let mut message_buff = Vec::new();
@@ -162,7 +311,7 @@ impl Message {
                 error_response_buff.extend_from_slice(&[0]);
                 error_response_buff.to_vec()
             }
-            Message::ParameterStatus(name, value) => {
+            BackendMessage::ParameterStatus(name, value) => {
                 let mut parameter_status_buff = Vec::new();
                 parameter_status_buff.extend_from_slice(&[PARAMETER_STATUS]);
                 let mut parameters = Vec::new();
@@ -174,6 +323,22 @@ impl Message {
                 parameter_status_buff.extend_from_slice(parameters.as_ref());
                 parameter_status_buff
             }
+            BackendMessage::ParameterDescription(type_ids) => {
+                let mut type_id_buff = Vec::new();
+                for type_id in type_ids.iter() {
+                    type_id_buff.extend_from_slice(&type_id.to_be_bytes());
+                }
+                let mut buff = Vec::new();
+                buff.extend_from_slice(&[PARAMETER_DESCRIPTION]);
+                buff.extend_from_slice(&(6 + type_id_buff.len() as i32).to_be_bytes());
+                buff.extend_from_slice(&(type_ids.len() as i16).to_be_bytes());
+                buff.extend_from_slice(&type_id_buff);
+                buff
+            }
+            BackendMessage::NoData => vec![NO_DATA, 0, 0, 0, 4],
+            BackendMessage::ParseComplete => vec![PARSE_COMPLETE, 0, 0, 0, 4],
+            BackendMessage::BindComplete => vec![BIND_COMPLETE, 0, 0, 0, 4],
+            BackendMessage::CloseComplete => vec![CLOSE_COMPLETE, 0, 0, 0, 4],
         }
     }
 }
@@ -185,14 +350,14 @@ pub struct ColumnMetadata {
     /// name of the column that was specified in query
     pub name: String,
     /// PostgreSQL data type id
-    pub type_id: i32,
+    pub type_id: u32,
     /// PostgreSQL data type size
     pub type_size: i16,
 }
 
 impl ColumnMetadata {
     /// Creates new column metadata
-    pub fn new(name: String, type_id: i32, type_size: i16) -> Self {
+    pub fn new(name: String, type_id: u32, type_size: i16) -> Self {
         Self {
             name,
             type_id,
@@ -201,19 +366,295 @@ impl ColumnMetadata {
     }
 }
 
+/// Decodes data within messages.
+#[derive(Debug)]
+struct Cursor<'a> {
+    buf: &'a [u8],
+}
+
+impl<'a> Cursor<'a> {
+    /// Constructs a new `Cursor` from a byte slice. The cursor will begin
+    /// decoding from the beginning of the slice.
+    fn new(buf: &'a [u8]) -> Cursor {
+        Cursor { buf }
+    }
+
+    /// Advances the cursor by `n` bytes.
+    fn advance(&mut self, n: usize) {
+        self.buf = &self.buf[n..]
+    }
+
+    /// Returns the next byte without advancing the cursor.
+    fn peek_byte(&self) -> Result<u8> {
+        self.buf
+            .get(0)
+            .copied()
+            .ok_or_else(|| Error::InvalidInput("No byte to read".to_owned()))
+    }
+
+    /// Returns the next byte, advancing the cursor by one byte.
+    fn read_byte(&mut self) -> Result<u8> {
+        let byte = self.peek_byte()?;
+        self.advance(1);
+        Ok(byte)
+    }
+
+    /// Returns the next null-terminated string. The null character is not
+    /// included the returned string. The cursor is advanced past the null-
+    /// terminated string.
+    fn read_cstr(&mut self) -> Result<&'a str> {
+        if let Some(pos) = self.buf.iter().position(|b| *b == 0) {
+            let val = std::str::from_utf8(&self.buf[..pos]).map_err(|_e| Error::InvalidUtfString)?;
+            self.advance(pos + 1);
+            Ok(val)
+        } else {
+            Err(Error::InvalidUtfString)
+        }
+    }
+
+    /// Reads the next 16-bit signed integer, advancing the cursor by two
+    /// bytes.
+    fn read_i16(&mut self) -> Result<i16> {
+        if self.buf.len() < 2 {
+            return Err(Error::InvalidInput("not enough buffer for an Int16".to_owned()));
+        }
+        let val = NetworkEndian::read_i16(self.buf);
+        self.advance(2);
+        Ok(val)
+    }
+
+    /// Reads the next 32-bit unsigned integer, advancing the cursor by four
+    /// bytes.
+    fn read_u32(&mut self) -> Result<u32> {
+        if self.buf.len() < 4 {
+            return Err(Error::InvalidInput("not enough buffer for an Int32".to_owned()));
+        }
+        let val = NetworkEndian::read_u32(self.buf);
+        self.advance(4);
+        Ok(val)
+    }
+}
+
+fn decode_bind(mut cursor: Cursor) -> Result<FrontendMessage> {
+    let portal_name = cursor.read_cstr()?.to_owned();
+    let statement_name = cursor.read_cstr()?.to_owned();
+    Ok(FrontendMessage::Bind {
+        portal_name,
+        statement_name,
+    })
+}
+
+fn decode_close(mut cursor: Cursor) -> Result<FrontendMessage> {
+    let first_char = cursor.read_byte()?;
+    let name = cursor.read_cstr()?.to_owned();
+    match first_char {
+        b'P' => Ok(FrontendMessage::ClosePortal { name }),
+        b'S' => Ok(FrontendMessage::CloseStatement { name }),
+        other => Err(Error::InvalidInput(format!(
+            "invalid type byte in Close frontend message: {:?}",
+            std::char::from_u32(other as u32).unwrap(),
+        ))),
+    }
+}
+
+fn decode_describe(mut cursor: Cursor) -> Result<FrontendMessage> {
+    let first_char = cursor.read_byte()?;
+    let name = cursor.read_cstr()?.to_owned();
+    match first_char {
+        b'P' => Ok(FrontendMessage::DescribePortal { name }),
+        b'S' => Ok(FrontendMessage::DescribeStatement { name }),
+        other => Err(Error::InvalidInput(format!(
+            "invalid type byte in Describe frontend message: {:?}",
+            std::char::from_u32(other as u32).unwrap(),
+        ))),
+    }
+}
+
+fn decode_execute(mut cursor: Cursor) -> Result<FrontendMessage> {
+    let portal_name = cursor.read_cstr()?.to_owned();
+    Ok(FrontendMessage::Execute { portal_name })
+}
+
+fn decode_flush(_cursor: Cursor) -> Result<FrontendMessage> {
+    Ok(FrontendMessage::Flush)
+}
+
+fn decode_parse(mut cursor: Cursor) -> Result<FrontendMessage> {
+    let statement_name = cursor.read_cstr()?.to_owned();
+    let sql = cursor.read_cstr()?.to_owned();
+
+    let mut param_types = vec![];
+    for _ in 0..cursor.read_i16()? {
+        let oid = cursor.read_u32()?;
+        let sql_type = PostgreSqlType::try_from(oid).unwrap();
+        param_types.push(sql_type);
+    }
+
+    Ok(FrontendMessage::Parse {
+        statement_name,
+        sql,
+        param_types,
+    })
+}
+
+fn decode_sync(_cursor: Cursor) -> Result<FrontendMessage> {
+    Ok(FrontendMessage::Sync)
+}
+
+fn decode_query(mut cursor: Cursor) -> Result<FrontendMessage> {
+    let sql = cursor.read_cstr()?.to_owned();
+    Ok(FrontendMessage::Query { sql })
+}
+
+fn decode_terminate(_cursor: Cursor) -> Result<FrontendMessage> {
+    Ok(FrontendMessage::Terminate)
+}
+
 #[cfg(test)]
-mod serialized_messages {
+mod decoding_frontend_messages {
+    use super::*;
+
+    #[test]
+    fn query() {
+        let buffer = [
+            99, 114, 101, 97, 116, 101, 32, 115, 99, 104, 101, 109, 97, 32, 115, 99, 104, 101, 109, 97, 95, 110, 97,
+            109, 101, 59, 0,
+        ];
+        let message = FrontendMessage::decode(b'Q', &buffer);
+        assert_eq!(
+            message,
+            Ok(FrontendMessage::Query {
+                sql: "create schema schema_name;".to_owned()
+            })
+        );
+    }
+
+    #[test]
+    fn bind() {
+        let buffer = [
+            112, 111, 114, 116, 97, 108, 95, 110, 97, 109, 101, 0, 115, 116, 97, 116, 101, 109, 101, 110, 116, 95, 110,
+            97, 109, 101, 0,
+        ];
+        let message = FrontendMessage::decode(b'B', &buffer);
+        assert_eq!(
+            message,
+            Ok(FrontendMessage::Bind {
+                portal_name: "portal_name".to_owned(),
+                statement_name: "statement_name".to_owned(),
+            })
+        );
+    }
+
+    #[test]
+    fn close_protal() {
+        let buffer = [80, 112, 111, 114, 116, 97, 108, 95, 110, 97, 109, 101, 0];
+        let message = FrontendMessage::decode(b'C', &buffer);
+        assert_eq!(
+            message,
+            Ok(FrontendMessage::ClosePortal {
+                name: "portal_name".to_owned(),
+            })
+        );
+    }
+
+    #[test]
+    fn close_statement() {
+        let buffer = [83, 115, 116, 97, 116, 101, 109, 101, 110, 116, 95, 110, 97, 109, 101, 0];
+        let message = FrontendMessage::decode(b'C', &buffer);
+        assert_eq!(
+            message,
+            Ok(FrontendMessage::CloseStatement {
+                name: "statement_name".to_owned(),
+            })
+        );
+    }
+
+    #[test]
+    fn describe_portal() {
+        let buffer = [80, 112, 111, 114, 116, 97, 108, 95, 110, 97, 109, 101, 0];
+        let message = FrontendMessage::decode(b'D', &buffer);
+        assert_eq!(
+            message,
+            Ok(FrontendMessage::DescribePortal {
+                name: "portal_name".to_owned()
+            })
+        );
+    }
+
+    #[test]
+    fn describe_statement() {
+        let buffer = [83, 115, 116, 97, 116, 101, 109, 101, 110, 116, 95, 110, 97, 109, 101, 0];
+        let message = FrontendMessage::decode(b'D', &buffer);
+        assert_eq!(
+            message,
+            Ok(FrontendMessage::DescribeStatement {
+                name: "statement_name".to_owned()
+            })
+        );
+    }
+
+    #[test]
+    fn execute() {
+        let buffer = [112, 111, 114, 116, 97, 108, 95, 110, 97, 109, 101, 0];
+        let message = FrontendMessage::decode(b'E', &buffer);
+        assert_eq!(
+            message,
+            Ok(FrontendMessage::Execute {
+                portal_name: "portal_name".to_owned()
+            })
+        );
+    }
+
+    #[test]
+    fn flush() {
+        let message = FrontendMessage::decode(b'H', &[]);
+        assert_eq!(message, Ok(FrontendMessage::Flush));
+    }
+
+    #[test]
+    fn parse() {
+        let buffer = [
+            0, 115, 101, 108, 101, 99, 116, 32, 42, 32, 102, 114, 111, 109, 32, 115, 99, 104, 101, 109, 97, 95, 110,
+            97, 109, 101, 46, 116, 97, 98, 108, 101, 95, 110, 97, 109, 101, 32, 119, 104, 101, 114, 101, 32, 115, 105,
+            95, 99, 111, 108, 117, 109, 110, 32, 61, 32, 36, 49, 59, 0, 0, 1, 0, 0, 0, 23,
+        ];
+        let message = FrontendMessage::decode(b'P', &buffer);
+        assert_eq!(
+            message,
+            Ok(FrontendMessage::Parse {
+                statement_name: "".to_owned(),
+                sql: "select * from schema_name.table_name where si_column = $1;".to_owned(),
+                param_types: vec![PostgreSqlType::Integer]
+            })
+        );
+    }
+
+    #[test]
+    fn sync() {
+        let message = FrontendMessage::decode(b'S', &[]);
+        assert_eq!(message, Ok(FrontendMessage::Sync));
+    }
+
+    #[test]
+    fn terminate() {
+        let message = FrontendMessage::decode(b'X', &[]);
+        assert_eq!(message, Ok(FrontendMessage::Terminate));
+    }
+}
+
+#[cfg(test)]
+mod serializing_backend_messages {
     use super::*;
 
     #[test]
     fn notice() {
-        assert_eq!(Message::NoticeResponse.as_vec(), vec![NOTICE_RESPONSE]);
+        assert_eq!(BackendMessage::NoticeResponse.as_vec(), vec![NOTICE_RESPONSE]);
     }
 
     #[test]
     fn authentication_cleartext_password() {
         assert_eq!(
-            Message::AuthenticationCleartextPassword.as_vec(),
+            BackendMessage::AuthenticationCleartextPassword.as_vec(),
             vec![AUTHENTICATION, 0, 0, 0, 8, 0, 0, 0, 3]
         )
     }
@@ -221,7 +662,7 @@ mod serialized_messages {
     #[test]
     fn authentication_md5_password() {
         assert_eq!(
-            Message::AuthenticationMD5Password.as_vec(),
+            BackendMessage::AuthenticationMD5Password.as_vec(),
             vec![AUTHENTICATION, 0, 0, 0, 12, 0, 0, 0, 5, 1, 1, 1, 1]
         )
     }
@@ -229,7 +670,7 @@ mod serialized_messages {
     #[test]
     fn authentication_ok() {
         assert_eq!(
-            Message::AuthenticationOk.as_vec(),
+            BackendMessage::AuthenticationOk.as_vec(),
             vec![AUTHENTICATION, 0, 0, 0, 8, 0, 0, 0, 0]
         )
     }
@@ -237,7 +678,7 @@ mod serialized_messages {
     #[test]
     fn parameter_status() {
         assert_eq!(
-            Message::ParameterStatus("client_encoding".to_owned(), "UTF8".to_owned()).as_vec(),
+            BackendMessage::ParameterStatus("client_encoding".to_owned(), "UTF8".to_owned()).as_vec(),
             vec![
                 PARAMETER_STATUS,
                 0,
@@ -272,7 +713,7 @@ mod serialized_messages {
     #[test]
     fn ready_for_query() {
         assert_eq!(
-            Message::ReadyForQuery.as_vec(),
+            BackendMessage::ReadyForQuery.as_vec(),
             vec![READY_FOR_QUERY, 0, 0, 0, 5, EMPTY_QUERY_RESPONSE]
         )
     }
@@ -280,7 +721,7 @@ mod serialized_messages {
     #[test]
     fn data_row() {
         assert_eq!(
-            Message::DataRow(vec!["1".to_owned(), "2".to_owned(), "3".to_owned()]).as_vec(),
+            BackendMessage::DataRow(vec!["1".to_owned(), "2".to_owned(), "3".to_owned()]).as_vec(),
             vec![DATA_ROW, 0, 0, 0, 21, 0, 3, 0, 0, 0, 1, 49, 0, 0, 0, 1, 50, 0, 0, 0, 1, 51]
         )
     }
@@ -288,7 +729,7 @@ mod serialized_messages {
     #[test]
     fn row_description() {
         assert_eq!(
-            Message::RowDescription(vec![ColumnMetadata::new("c1".to_owned(), 23, 4)]).as_vec(),
+            BackendMessage::RowDescription(vec![ColumnMetadata::new("c1".to_owned(), 23, 4)]).as_vec(),
             vec![
                 ROW_DESCRIPTION,
                 0,
@@ -325,7 +766,7 @@ mod serialized_messages {
     #[test]
     fn command_complete() {
         assert_eq!(
-            Message::CommandComplete("SELECT".to_owned()).as_vec(),
+            BackendMessage::CommandComplete("SELECT".to_owned()).as_vec(),
             vec![COMMAND_COMPLETE, 0, 0, 0, 11, 83, 69, 76, 69, 67, 84, 0]
         )
     }
@@ -333,7 +774,7 @@ mod serialized_messages {
     #[test]
     fn empty_response() {
         assert_eq!(
-            Message::EmptyQueryResponse.as_vec(),
+            BackendMessage::EmptyQueryResponse.as_vec(),
             vec![EMPTY_QUERY_RESPONSE, 0, 0, 0, 4]
         )
     }
@@ -341,8 +782,36 @@ mod serialized_messages {
     #[test]
     fn error_response() {
         assert_eq!(
-            Message::ErrorResponse(None, None, None).as_vec(),
+            BackendMessage::ErrorResponse(None, None, None).as_vec(),
             vec![ERROR_RESPONSE, 0, 0, 0, 5, 0]
         )
+    }
+
+    #[test]
+    fn parameter_description() {
+        assert_eq!(
+            BackendMessage::ParameterDescription(vec![23]).as_vec(),
+            vec![PARAMETER_DESCRIPTION, 0, 0, 0, 10, 0, 1, 0, 0, 0, 23]
+        )
+    }
+
+    #[test]
+    fn no_data() {
+        assert_eq!(BackendMessage::NoData.as_vec(), vec![NO_DATA, 0, 0, 0, 4])
+    }
+
+    #[test]
+    fn parse_complete() {
+        assert_eq!(BackendMessage::ParseComplete.as_vec(), vec![PARSE_COMPLETE, 0, 0, 0, 4])
+    }
+
+    #[test]
+    fn bind_complete() {
+        assert_eq!(BackendMessage::BindComplete.as_vec(), vec![BIND_COMPLETE, 0, 0, 0, 4])
+    }
+
+    #[test]
+    fn close_complete() {
+        assert_eq!(BackendMessage::CloseComplete.as_vec(), vec![CLOSE_COMPLETE, 0, 0, 0, 4])
     }
 }

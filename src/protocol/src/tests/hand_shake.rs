@@ -14,7 +14,7 @@
 
 use crate::{
     hand_shake,
-    messages::{Encryption, Message},
+    messages::{BackendMessage, Encryption},
     tests::{
         async_io::{empty_file_named, TestCase},
         certificate_content, pg_frontend,
@@ -149,18 +149,24 @@ fn successful_connection_handshake_for_none_secure() {
         let actual_content = test_case.read_result().await;
         let mut expected_content = Vec::new();
         expected_content.extend_from_slice(Encryption::RejectSsl.into());
-        expected_content.extend_from_slice(Message::AuthenticationCleartextPassword.as_vec().as_slice());
-        expected_content.extend_from_slice(Message::AuthenticationOk.as_vec().as_slice());
+        expected_content.extend_from_slice(BackendMessage::AuthenticationCleartextPassword.as_vec().as_slice());
+        expected_content.extend_from_slice(BackendMessage::AuthenticationOk.as_vec().as_slice());
         expected_content.extend_from_slice(
-            Message::ParameterStatus("client_encoding".to_owned(), "UTF8".to_owned())
+            BackendMessage::ParameterStatus("client_encoding".to_owned(), "UTF8".to_owned())
                 .as_vec()
                 .as_slice(),
         );
         expected_content.extend_from_slice(
-            Message::ParameterStatus("DateStyle".to_owned(), "ISO".to_owned())
+            BackendMessage::ParameterStatus("DateStyle".to_owned(), "ISO".to_owned())
                 .as_vec()
                 .as_slice(),
         );
+        expected_content.extend_from_slice(
+            BackendMessage::ParameterStatus("integer_datetimes".to_owned(), "off".to_owned())
+                .as_vec()
+                .as_slice(),
+        );
+        expected_content.extend_from_slice(BackendMessage::ReadyForQuery.as_vec().as_slice());
         assert_eq!(actual_content, expected_content);
     });
 }
@@ -196,15 +202,15 @@ fn successful_connection_handshake_for_ssl_only_secure() {
         let actual_content = test_case.read_result().await;
         let mut expected_content = Vec::new();
         expected_content.extend_from_slice(Encryption::AcceptSsl.into());
-        expected_content.extend_from_slice(Message::AuthenticationCleartextPassword.as_vec().as_slice());
-        expected_content.extend_from_slice(Message::AuthenticationOk.as_vec().as_slice());
+        expected_content.extend_from_slice(BackendMessage::AuthenticationCleartextPassword.as_vec().as_slice());
+        expected_content.extend_from_slice(BackendMessage::AuthenticationOk.as_vec().as_slice());
         expected_content.extend_from_slice(
-            Message::ParameterStatus("client_encoding".to_owned(), "UTF8".to_owned())
+            BackendMessage::ParameterStatus("client_encoding".to_owned(), "UTF8".to_owned())
                 .as_vec()
                 .as_slice(),
         );
         expected_content.extend_from_slice(
-            Message::ParameterStatus("DateStyle".to_owned(), "ISO".to_owned())
+            BackendMessage::ParameterStatus("DateStyle".to_owned(), "ISO".to_owned())
                 .as_vec()
                 .as_slice(),
         );

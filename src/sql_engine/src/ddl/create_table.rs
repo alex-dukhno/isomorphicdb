@@ -12,24 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::query::plan::TableCreationInfo;
+use crate::{catalog_manager::CatalogManager, query::plan::TableCreationInfo};
 use kernel::SystemResult;
 use protocol::{results::QueryEvent, Sender};
-use std::sync::{Arc, Mutex};
-use storage::{backend::BackendStorage, frontend::FrontendStorage};
+use std::sync::Arc;
 
-pub(crate) struct CreateTableCommand<P: BackendStorage> {
+pub(crate) struct CreateTableCommand {
     table_info: TableCreationInfo,
-    storage: Arc<Mutex<FrontendStorage<P>>>,
+    storage: Arc<CatalogManager>,
     session: Arc<dyn Sender>,
 }
 
-impl<P: BackendStorage> CreateTableCommand<P> {
+impl CreateTableCommand {
     pub(crate) fn new(
         table_info: TableCreationInfo,
-        storage: Arc<Mutex<FrontendStorage<P>>>,
+        storage: Arc<CatalogManager>,
         session: Arc<dyn Sender>,
-    ) -> CreateTableCommand<P> {
+    ) -> CreateTableCommand {
         CreateTableCommand {
             table_info,
             storage,
@@ -41,7 +40,10 @@ impl<P: BackendStorage> CreateTableCommand<P> {
         let table_name = self.table_info.table_name.as_str();
         let schema_name = self.table_info.schema_name.as_str();
 
-        match (self.storage.lock().unwrap()).create_table(schema_name, table_name, self.table_info.columns.as_slice()) {
+        match self
+            .storage
+            .create_table(schema_name, table_name, self.table_info.columns.as_slice())
+        {
             Err(error) => Err(error),
             Ok(()) => {
                 self.session
