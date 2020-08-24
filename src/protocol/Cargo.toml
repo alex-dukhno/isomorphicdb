@@ -14,7 +14,7 @@ async-trait = "0.1.37"
 async-dup = "1.2.1"
 async-net = "0.1.2"
 async-native-tls = "0.3.3"
-blocking = "0.5.1"
+blocking = "0.5.2"
 async-mutex = "1.1.5"
 
 [dev-dependencies]
