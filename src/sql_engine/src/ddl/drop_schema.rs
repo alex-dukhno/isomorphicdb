@@ -12,8 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::catalog_manager::DropStrategy;
-use crate::{catalog_manager::CatalogManager, query::SchemaId};
+use crate::{
+    catalog_manager::{CatalogManager, DropStrategy},
+    query::SchemaId,
+};
 use kernel::SystemResult;
 use protocol::{results::QueryEvent, Sender};
 use std::sync::Arc;

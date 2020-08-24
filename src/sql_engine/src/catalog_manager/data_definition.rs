@@ -12,8 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::catalog_manager::DropStrategy;
-use crate::ColumnDefinition;
+use crate::{catalog_manager::DropStrategy, ColumnDefinition};
 use kernel::{SystemError, SystemResult};
 use representation::{Binary, Datum};
 use sql_types::SqlType;
