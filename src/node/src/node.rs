@@ -17,7 +17,6 @@ use async_io::Async;
 use protocol::{Command, ProtocolConfiguration, Receiver};
 use smol::{self, block_on, Task};
 use sql_engine::{catalog_manager::CatalogManager, QueryExecutor};
-use std::str::FromStr;
 use std::{
     env,
     net::TcpListener,
