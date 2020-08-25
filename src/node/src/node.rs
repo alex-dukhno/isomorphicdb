@@ -17,6 +17,7 @@ use async_io::Async;
 use protocol::{Command, ProtocolConfiguration, Receiver};
 use smol::{self, block_on, Task};
 use sql_engine::{catalog_manager::CatalogManager, QueryExecutor};
+use std::str::FromStr;
 use std::{
     env,
     net::TcpListener,
@@ -35,9 +36,10 @@ pub const STOPPED: u8 = 1;
 
 pub fn start() {
     let persistent = env::var("PERSISTENT").is_ok();
+    let root_path = env::var("ROOT_PATH").map(PathBuf::from).unwrap_or_default();
     block_on(async {
         let storage = if persistent {
-            Arc::new(CatalogManager::persistent(PathBuf::new().join("database")).unwrap())
+            Arc::new(CatalogManager::persistent(root_path.join("database")).unwrap())
         } else {
             Arc::new(CatalogManager::in_memory().unwrap())
         };
