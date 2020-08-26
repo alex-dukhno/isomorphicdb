@@ -12,7 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{catalog_manager::CatalogManager, dml::ExpressionEvaluation, query::plan::TableInserts, ColumnDefinition};
+use crate::{
+    catalog_manager::CatalogManager,
+    query::{expr::ExpressionEvaluation, plan::TableInserts},
+    ColumnDefinition,
+};
 use kernel::SystemResult;
 use protocol::{
     results::{QueryErrorBuilder, QueryEvent},
@@ -73,48 +77,12 @@ impl<'ic> InsertCommand<'ic> {
                 for line in values {
                     let mut row = vec![];
                     for col in line {
-                        let v = match col {
-                            Expr::Value(value) => value.clone(),
-                            Expr::Cast { expr, data_type } => match (&**expr, data_type) {
-                                (Expr::Value(Value::Boolean(v)), DataType::Boolean) => Value::Boolean(*v),
-                                (Expr::Value(Value::SingleQuotedString(v)), DataType::Boolean) => {
-                                    Value::Boolean(bool::from_str(v).unwrap())
-                                }
-                                _ => {
-                                    self.session
-                                        .send(Err(QueryErrorBuilder::new()
-                                            .syntax_error(format!(
-                                                "Cast from {:?} to {:?} is not currently supported",
-                                                expr, data_type
-                                            ))
-                                            .build()))
-                                        .expect("To Send Query Result to Client");
-                                    return Ok(());
-                                }
-                            },
-                            Expr::UnaryOp { op, expr } => match (op, &**expr) {
-                                (UnaryOperator::Minus, Expr::Value(Value::Number(v))) => Value::Number(-v),
-                                (op, expr) => {
-                                    self.session
-                                        .send(Err(QueryErrorBuilder::new()
-                                            .syntax_error(op.to_string() + expr.to_string().as_str())
-                                            .build()))
-                                        .expect("To Send Query Result to Client");
-                                    return Ok(());
-                                }
-                            },
-                            expr @ Expr::BinaryOp { .. } => match evaluation.eval(expr) {
-                                Ok(expr_result) => expr_result,
-                                Err(()) => return Ok(()),
-                            },
-                            expr => {
-                                self.session
-                                    .send(Err(QueryErrorBuilder::new().syntax_error(expr.to_string()).build()))
-                                    .expect("To Send Query Result to Client");
-                                return Ok(());
+                        match evaluation.eval(col) {
+                            Ok(v) => {
+                                row.push(v);
                             }
-                        };
-                        row.push(v);
+                            Err(_) => return Ok(()),
+                        }
                     }
                     rows.push(row);
                 }
@@ -197,15 +165,17 @@ impl<'ic> InsertCommand<'ic> {
                         // TODO: The default value or NULL should be initialized for SQL types of all columns.
                         let mut record = vec![Datum::from_null(); all_columns.len()];
                         for (item, (index, column_definition)) in row.iter().zip(index_columns.iter()) {
-                            let v = match item.clone() {
-                                Value::Number(v) => v.to_string(),
-                                Value::SingleQuotedString(v) => v.to_string(),
-                                Value::Boolean(v) => v.to_string(),
-                                _ => unimplemented!("other types not implemented"),
-                            };
+                            // let v = match item.clone() {
+                            //     Value::Number(v) => v.to_string(),
+                            //     Value::SingleQuotedString(v) => v.to_string(),
+                            //     Value::Boolean(v) => v.to_string(),
+                            //     _ => unimplemented!("other types not implemented"),
+                            // };
+                            let datum = item.as_datum().unwrap();
+                            let v = datum.to_string();
                             match column_definition.sql_type().constraint().validate(v.as_str()) {
                                 Ok(()) => {
-                                    record[*index] = Datum::try_from(item).unwrap();
+                                    record[*index] = datum;
                                 }
                                 Err(e) => {
                                     errors.push((e, column_definition.clone()));

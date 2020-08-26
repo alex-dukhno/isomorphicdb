@@ -14,8 +14,9 @@
 
 ///! Module for representing scalar level operations. Implementation of
 ///! theses operators will be defined in a sperate module.
-use super::{ColumnType};
-use representation::Binary;
+use super::ColumnType;
+use representation::{Binary, Datum};
+// use crate::query::relation::RelationType;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BinaryOp {
@@ -60,9 +61,25 @@ pub enum ScalarOp {
     /// column access
     Column(usize),
     /// literal value (owned) and expected type.
-    Literal(Vec<Binary>, RelationType),
+    Literal(Datum<'static>),
     /// binary operator
     Binary(BinaryOp, Box<ScalarOp>, Box<ScalarOp>),
     /// unary operator
     Unary(UnaryOp, Box<ScalarOp>),
+}
+
+impl ScalarOp {
+    pub fn is_literal(&self) -> bool {
+        match self {
+            ScalarOp::Literal(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn as_datum(&self) -> Option<Datum<'static>> {
+        match self {
+            ScalarOp::Literal(datum) => Some(datum.clone()),
+            _ => None,
+        }
+    }
 }

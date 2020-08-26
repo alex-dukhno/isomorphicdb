@@ -13,10 +13,9 @@
 // limitations under the License.
 
 use crate::query::scalar::ScalarOp;
-use crate::query::{TableId};
-use sql_types::ConstraintError;
-use storage::TableDescription;
+use crate::query::TableId;
 use representation::Binary;
+use sql_types::ConstraintError;
 
 ///! module for representing relation operations.
 
@@ -47,8 +46,8 @@ pub enum RelationOp {
         // Id the table that needs to be loaded.
         // and maybe some other information we need about it.
         table: TableId,
-        table_type: RelationType,
-        descriptor: TableDescription,
+        // table_type: RelationType,
+        // descriptor: TableDescription,
     },
 
     Join {

@@ -12,7 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{catalog_manager::CatalogManager, dml::ExpressionEvaluation, ColumnDefinition};
+use crate::query::expr::ExpressionEvaluation;
+use crate::{catalog_manager::CatalogManager, ColumnDefinition};
 use kernel::SystemResult;
 use protocol::{
     results::{QueryErrorBuilder, QueryEvent},
@@ -56,29 +57,18 @@ impl UpdateCommand {
         for item in self.assignments.iter() {
             let Assignment { id, value } = &item;
             let Ident { value: column, .. } = id;
-            let value = match value {
-                Expr::Value(value) => value.clone(),
-                Expr::UnaryOp { op, expr } => match (op, &**expr) {
-                    (UnaryOperator::Minus, Expr::Value(Value::Number(v))) => Value::Number(-v),
-                    (op, expr) => {
-                        self.session
-                            .send(Err(QueryErrorBuilder::new()
-                                .syntax_error(op.to_string() + expr.to_string().as_str())
-                                .build()))
-                            .expect("To Send Query Result to Client");
-                        return Ok(());
+            let value = match evaluation.eval(value) {
+                Ok(value) => {
+                    if value.is_literal() {
+                        value
+                    } else {
+                        self.session.send(Err(QueryErrorBuilder::new().feature_not_supported(
+                            "Only expressions resulting in a literal are supported".to_string()
+                        ).build()));
+                        return Ok(())
                     }
-                },
-                expr @ Expr::BinaryOp { .. } => match evaluation.eval(expr) {
-                    Ok(expr_result) => expr_result,
-                    Err(()) => return Ok(()),
-                },
-                expr => {
-                    self.session
-                        .send(Err(QueryErrorBuilder::new().syntax_error(expr.to_string()).build()))
-                        .expect("To Send Query Result to Client");
-                    return Ok(());
                 }
+                Err(()) => return Ok(()),
             };
 
             to_update.push((column.to_owned(), value))
@@ -102,15 +92,11 @@ impl UpdateCommand {
             for (column_name, value) in to_update {
                 for (index, column_definition) in all_columns.iter().enumerate() {
                     if column_definition.has_name(&column_name) {
-                        let v = match value.clone() {
-                            Value::Number(v) => v.to_string(),
-                            Value::SingleQuotedString(v) => v.to_string(),
-                            Value::Boolean(v) => v.to_string(),
-                            _ => unimplemented!("other types not implemented"),
-                        };
+                        let datum = value.as_datum().unwrap();
+                        let v = datum.to_string();
                         match column_definition.sql_type().constraint().validate(v.as_str()) {
                             Ok(()) => {
-                                index_value_pairs.push((index, Datum::try_from(&value).unwrap()));
+                                index_value_pairs.push((index, datum));
                             }
                             Err(e) => {
                                 errors.push((e, column_definition.clone()));

@@ -21,7 +21,7 @@ use crate::{
 };
 use protocol::{results::QueryErrorBuilder, Sender};
 use sql_types::SqlType;
-use sqlparser::ast::{ColumnDef, DataType, ObjectName, ObjectType, Statement};
+use sqlparser::ast::{ColumnDef, DataType, ObjectName, ObjectType, Query, Select, SetExpr, Statement};
 use std::{convert::TryFrom, sync::Arc};
 
 type Result<T> = std::result::Result<T, ()>;
@@ -80,7 +80,7 @@ impl<'qp> QueryProcessor {
                     Err(())
                 }
             },
-            Statement::Query(query) => self.handle_query(query),
+            // Statement::Query(query) => self.handle_query(query),
             _ => Ok(Plan::NotProcessed(Box::new(stmt.clone()))),
         }
     }
@@ -243,10 +243,28 @@ impl<'qp> QueryProcessor {
             limit,
             offset,
             fetch,
-        } = query;
+        } = query.as_ref();
 
-        let SetExpr {
+        let set_expr_plan = match body {
+            SetExpr::Select(select) => self.handle_select(select)?,
+            SetExpr::Values(values) => unimplemented!(),
+            SetExpr::Query(query) => unimplemented!(),
+            SetExpr::SetOperation { .. } => unimplemented!(),
+        };
 
-        } = body;
+        Ok(set_expr_plan)
+    }
+
+    fn handle_select(&mut self, select: &Select) -> Result<Plan> {
+        let Select {
+            distinct,
+            top,
+            projection,
+            from,
+            selection,
+            group_by,
+            having,
+        } = select;
+        Err(())
     }
 }

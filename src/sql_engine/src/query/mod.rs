@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+pub mod expr;
 ///! Module for representing how a query will be executed and values represented
 ///! during runtime.
 pub mod plan;

@@ -18,6 +18,7 @@ use ordered_float::OrderedFloat;
 use sql_types::SqlType;
 use sqlparser::ast::Value;
 use std::convert::TryFrom;
+use std::ops::{Add, Div, Mul, Sub, BitAnd, BitOr, Rem};
 
 // owned parallel of Datum but owns the content.
 // pub enum Value {
@@ -41,6 +42,7 @@ pub enum Datum<'a> {
     Int16(i16),
     Int32(i32),
     Int64(i64),
+    // should u16, u32 be implemented here?
     UInt64(u64),
     Float32(OrderedFloat<f32>),
     Float64(OrderedFloat<f64>),
@@ -191,14 +193,65 @@ impl<'a> Datum<'a> {
         }
     }
 
+    pub fn is_integer(&self) -> bool {
+        match self {
+            Self::Int16(_) |
+            Self::Int32(_) |
+            Self::Int64(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_float(&self) -> bool {
+        match self {
+            Self::Float32(_) |
+            Self::Float64(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_string(&self) -> bool {
+        match self {
+            Self::String(_) |
+            Self::OwnedString(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_boolean(&self) -> bool {
+        match self {
+            Self::True |
+            Self::False => true,
+            _ => false
+        }
+    }
+
+    pub fn is_null(&self) -> bool {
+        if let Self::Null = self {
+            true
+        }
+        else {
+            false
+        }
+    }
+
+    pub fn is_type(&self) -> bool {
+        if let Self::SqlType(_) = self {
+            true
+        }
+        else {
+            false
+        }
+    }
+
+
     // arithmetic operations
 }
 
 #[derive(Debug, Clone)]
 pub enum EvalError {
-    InvalidExpressionInStaticContext,
     UnsupportedDatum(String),
-    OutOfRangeNumeric,
+    OutOfRangeNumeric(SqlType),
     UnsupportedOperation,
 }
 
@@ -206,18 +259,26 @@ impl<'a> TryFrom<&Value> for Datum<'a> {
     type Error = EvalError;
 
     fn try_from(other: &Value) -> Result<Self, EvalError> {
+        log::debug!("Datum::try_from({})", other);
         match other {
             Value::Number(val) => {
+                // there has to be a better way of doing this.
                 if val.is_integer() {
                     if let Some(val) = val.to_i32() {
                         Ok(Datum::from_i32(val))
                     } else if let Some(val) = val.to_i64() {
                         Ok(Datum::from_i64(val))
                     } else {
-                        Err(EvalError::OutOfRangeNumeric)
+                        Err(EvalError::OutOfRangeNumeric(SqlType::Integer(i32::min_value())))
                     }
                 } else {
-                    Err(EvalError::OutOfRangeNumeric)
+                    if let Some(val) = val.to_f32() {
+                        Ok(Datum::from_f32(val))
+                    } else if let Some(val) = val.to_f64() {
+                        Ok(Datum::from_f64(val))
+                    } else {
+                        Err(EvalError::OutOfRangeNumeric(SqlType::DoublePrecision))
+                    }
                 }
             }
             Value::SingleQuotedString(value) => Ok(Datum::from_string(value.trim().to_owned())),
@@ -437,6 +498,67 @@ pub fn unpack_raw(data: &[u8]) -> Vec<Datum> {
     }
     res
 }
+
+macro_rules! impl_op_integral {
+    ($op:tt, $lhs:expr, $rhs:expr) => {
+        match ($lhs, $rhs) {
+            (Datum::Int16(lhs), Datum::Int16(rhs)) => Datum::Int16(lhs $op rhs),
+            (Datum::Int32(lhs), Datum::Int32(rhs)) => Datum::Int32(lhs $op rhs),
+            (Datum::Int64(lhs), Datum::Int64(rhs)) => Datum::Int64(lhs $op rhs),
+            (Datum::UInt64(lhs), Datum::UInt64(rhs)) => Datum::UInt64(lhs $op rhs),
+            (_, _) => panic!("{} can not be used for no arithmetic types", stringify!($op)),
+        }
+    }
+}
+
+macro_rules! impl_op {
+    ($op:tt, $lhs:expr, $rhs:expr) => {
+        match ($lhs, $rhs) {
+            (Datum::Int16(lhs), Datum::Int16(rhs)) => Datum::Int16(lhs $op rhs),
+            (Datum::Int32(lhs), Datum::Int32(rhs)) => Datum::Int32(lhs $op rhs),
+            (Datum::Int64(lhs), Datum::Int64(rhs)) => Datum::Int64(lhs $op rhs),
+
+            (Datum::UInt64(lhs), Datum::UInt64(rhs)) => Datum::UInt64(lhs $op rhs),
+
+            (Datum::Float32(lhs), Datum::Float32(rhs)) => Datum::Float32(lhs $op rhs),
+            (Datum::Float64(lhs), Datum::Float64(rhs)) => Datum::Float64(lhs $op rhs),
+            (_, _) => panic!("{} can not be used for no arithmetic types", stringify!($op)),
+        }
+    }
+}
+
+macro_rules! impl_trait_integral {
+    ($name:ident, $method:ident, $op:tt) => {
+        impl<'a> $name<Self> for Datum<'a> {
+            type Output = Self;
+
+            fn $method(self, rhs: Datum<'a>) -> Self::Output {
+                impl_op_integral!($op, self, rhs)
+            }
+        }
+    };
+}
+
+macro_rules! impl_trait {
+    ($name:ident, $method:ident, $op:tt) => {
+        impl<'a> $name<Self> for Datum<'a> {
+            type Output = Self;
+
+            fn $method(self, rhs: Datum<'a>) -> Self::Output {
+                impl_op!($op, self, rhs)
+            }
+        }
+    };
+}
+
+impl_trait!(Add, add, +);
+impl_trait!(Sub, sub, -);
+impl_trait!(Div, div, /);
+impl_trait!(Mul, mul, *);
+
+impl_trait_integral!(BitAnd, bitand, &);
+impl_trait_integral!(BitOr, bitor, |);
+impl_trait_integral!(Rem, rem, %);
 
 #[cfg(test)]
 mod tests {
