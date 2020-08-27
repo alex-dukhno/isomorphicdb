@@ -102,7 +102,15 @@ impl<'ic> InsertCommand<'ic> {
                     for col in line {
                         match evaluation.eval(col) {
                             Ok(v) => {
-                                row.push(v);
+                                if v.is_literal() {
+                                    row.push(v);
+                                }
+                                else {
+                                    self.session.send(Err(QueryErrorBuilder::new()
+                                        .feature_not_supported("Only expressions resulting in a literal are supported".to_string())
+                                        .build())).expect("To Send Query Result to Client");;
+                                    return Ok(());
+                                }
                             }
                             Err(_) => return Ok(()),
                         }
