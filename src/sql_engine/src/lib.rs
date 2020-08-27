@@ -83,6 +83,14 @@ impl TableDefinition {
             .map(|column| column.sql_type)
     }
 
+    pub fn column_by_name_with_index(&self, name: &str) -> Option<(usize, ColumnDefinition)> {
+        self.column_data
+            .iter()
+            .enumerate()
+            .find(|elem| elem.1.name == name)
+            .map(|(idx, column)| (idx, column.clone()))
+    }
+
     pub fn column_data(&self) -> &[ColumnDefinition] {
         self.column_data.as_slice()
     }

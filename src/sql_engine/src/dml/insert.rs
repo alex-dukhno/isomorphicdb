@@ -72,20 +72,6 @@ impl<'ic> InsertCommand<'ic> {
                         .collect()
                 };
 
-                let evaluation = ExpressionEvaluation::new(self.session.clone());
-                let mut rows = vec![];
-                for line in values {
-                    let mut row = vec![];
-                    for col in line {
-                        match evaluation.eval(col) {
-                            Ok(v) => {
-                                row.push(v);
-                            }
-                            Err(_) => return Ok(()),
-                        }
-                    }
-                    rows.push(row);
-                }
 
                 if !self.storage.schema_exists(schema_name) {
                     self.session
@@ -105,8 +91,25 @@ impl<'ic> InsertCommand<'ic> {
                     return Ok(());
                 }
 
+                let table_definition = self.storage.table_descriptor(&schema_name, &table_name)?;
                 let column_names = columns;
-                let all_columns = self.storage.table_columns(&schema_name, &table_name)?;
+                let all_columns = table_definition.column_data();
+
+                let evaluation = ExpressionEvaluation::new(self.session.clone(), vec![table_definition.clone()]);
+                let mut rows = vec![];
+                for line in values {
+                    let mut row = vec![];
+                    for col in line {
+                        match evaluation.eval(col) {
+                            Ok(v) => {
+                                row.push(v);
+                            }
+                            Err(_) => return Ok(()),
+                        }
+                    }
+                    rows.push(row);
+                }
+
                 let index_columns = if column_names.is_empty() {
                     let mut index_cols = vec![];
                     for (index, column_definition) in all_columns.iter().cloned().enumerate() {

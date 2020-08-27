@@ -167,6 +167,12 @@ pub(crate) enum QueryErrorKind {
         left_type: String,
         right_type: String,
     },
+    AmbiguousColumnName {
+        column: String,
+    },
+    UndefinedColumn {
+        column: String,
+    },
     SyntaxError(String),
 }
 
@@ -185,6 +191,8 @@ impl QueryErrorKind {
             Self::DataTypeMismatch { .. } => "2200G",
             Self::StringTypeLengthMismatch { .. } => "22026",
             Self::UndefinedFunction { .. } => "42883",
+            Self::AmbiguousColumnName { .. } => "42702",
+            Self::UndefinedColumn { .. } => "42883",
             Self::SyntaxError(_) => "42601",
         }
     }
@@ -249,6 +257,8 @@ impl Display for QueryErrorKind {
                 "operator does not exist: ({} {} {})",
                 left_type, operator, right_type
             ),
+            Self::AmbiguousColumnName { column } => write!(f, "use of ambiguous column name in context: '{}'", column),
+            Self::UndefinedColumn { column } => write!(f, "use of undefined column: '{}'", column),
             Self::SyntaxError(expression) => write!(f, "syntax error in {}", expression),
         }
     }
@@ -411,6 +421,24 @@ impl QueryErrorBuilder {
         self
     }
 
+    /// when the name of a column is ambiguous in a multi-table context
+    pub fn ambiguous_column(mut self, column: String) -> Self {
+        self.errors.push(QueryErrorInner {
+            severity: Severity::Error,
+            kind: QueryErrorKind::AmbiguousColumnName {column}
+        });
+        self
+    }
+
+    /// user of an undefined column
+    pub fn undefined_column(mut self, column: String) -> Self {
+        self.errors.push(QueryErrorInner {
+            severity: Severity::Error,
+            kind: QueryErrorKind::UndefinedColumn{column}
+        });
+        self
+    }
+
     // These errors can be generated multiple at a time which is why they are &mut self
     // and the rest are mut self.
 
@@ -438,6 +466,7 @@ impl QueryErrorBuilder {
             },
         });
     }
+
 
     /// length of string types do not match constructor
     pub fn string_length_mismatch(&mut self, pg_type: PostgreSqlType, len: u64, column_name: String, row_index: usize) {

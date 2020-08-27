@@ -7,14 +7,16 @@ use std::convert::TryFrom;
 use std::ops::Deref;
 use std::str::FromStr;
 use std::sync::Arc;
+use crate::{TableDefinition, ColumnDefinition};
 
 pub(crate) struct ExpressionEvaluation {
     session: Arc<dyn Sender>,
+    table_info: Vec<TableDefinition>
 }
 
 impl ExpressionEvaluation {
-    pub(crate) fn new(session: Arc<dyn Sender>) -> ExpressionEvaluation {
-        ExpressionEvaluation { session }
+    pub(crate) fn new(session: Arc<dyn Sender>, table_info: Vec<TableDefinition>) -> ExpressionEvaluation {
+        ExpressionEvaluation { session, table_info }
     }
 
     pub(crate) fn eval(&self, expr: &Expr) -> Result<ScalarOp, ()> {
@@ -159,6 +161,23 @@ impl ExpressionEvaluation {
                     Err(())
                 }
             },
+            Expr::Identifier(ident) => {
+                if let Some((idx, _)) = self.find_column_by_name(ident.value.as_str())? {
+                    Ok(ScalarOp::Column(idx))
+                }
+                else {
+                    self.session
+                        .send(Err(QueryErrorBuilder::new().undefined_column(ident.value.clone()).build()))
+                        .expect("To Send Query Result to Client");
+                    Err(())
+                }
+            }
+            Expr::CompoundIdentifier(idents) => {
+                self.session
+                    .send(Err(QueryErrorBuilder::new().syntax_error(String::new()).build()))
+                    .expect("To Send Query Result to Client");
+                Err(())
+            }
             _ => {
                 self.session
                     .send(Err(QueryErrorBuilder::new().syntax_error(expr.to_string()).build()))
@@ -166,5 +185,22 @@ impl ExpressionEvaluation {
                 Err(())
             }
         }
+    }
+
+    fn find_column_by_name(&self, name: &str) -> Result<Option<(usize, ColumnDefinition)>, ()> {
+        let mut found = None;
+        for table_info in self.table_info.to_vec() {
+            if let Some((idx, column)) = table_info.column_by_name_with_index(name) {
+                if found.is_some() {
+                    let kind = QueryErrorBuilder::new().ambiguous_column(name.to_string()).build();
+                    self.session.send(Err(kind)).expect("To Send Query Result to Client");
+                    return Err(());
+                }
+                else {
+                    found = Some((idx, column));
+                }
+            }
+        }
+        Ok(found)
     }
 }

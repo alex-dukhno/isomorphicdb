@@ -52,27 +52,7 @@ impl UpdateCommand {
         let table_name = self.name.0[1].to_string();
         let mut to_update = vec![];
 
-        let evaluation = ExpressionEvaluation::new(self.session.clone());
 
-        for item in self.assignments.iter() {
-            let Assignment { id, value } = &item;
-            let Ident { value: column, .. } = id;
-            let value = match evaluation.eval(value) {
-                Ok(value) => {
-                    if value.is_literal() {
-                        value
-                    } else {
-                        self.session.send(Err(QueryErrorBuilder::new()
-                            .feature_not_supported("Only expressions resulting in a literal are supported".to_string())
-                            .build())).expect("To Send Query Result to Client");;
-                        return Ok(());
-                    }
-                }
-                Err(()) => return Ok(()),
-            };
-
-            to_update.push((column.to_owned(), value))
-        }
 
         if !self.storage.schema_exists(&schema_name) {
             self.session
@@ -81,14 +61,42 @@ impl UpdateCommand {
             return Ok(());
         }
 
-        let all_columns = self.storage.table_columns(&schema_name, &table_name)?;
+
+        let all_columns;
         let mut errors = Vec::new();
         let mut index_value_pairs = Vec::new();
         let mut non_existing_columns = BTreeSet::new();
         let mut column_exists = false;
 
+
         // only process the rows if the table and schema exist.
         if self.storage.table_exists(&schema_name, &table_name) {
+            let table_definition = self.storage.table_descriptor(&schema_name, &table_name)?;
+            all_columns = table_definition.column_data();
+
+            let evaluation = ExpressionEvaluation::new(self.session.clone(), vec![table_definition.clone()]);
+
+            for item in self.assignments.iter() {
+                let Assignment { id, value } = &item;
+                let Ident { value: column, .. } = id;
+                let value = match evaluation.eval(value) {
+                    Ok(value) => {
+                        if value.is_literal() {
+                            value
+                        } else {
+                            self.session.send(Err(QueryErrorBuilder::new()
+                                .feature_not_supported("Only expressions resulting in a literal are supported".to_string())
+                                .build())).expect("To Send Query Result to Client");;
+                            return Ok(());
+                        }
+                    }
+                    Err(()) => return Ok(()),
+                };
+
+                to_update.push((column.to_owned(), value))
+            }
+
+
             for (column_name, value) in to_update {
                 for (index, column_definition) in all_columns.iter().enumerate() {
                     if column_definition.has_name(&column_name) {
