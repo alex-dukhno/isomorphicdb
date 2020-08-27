@@ -18,7 +18,7 @@ use ordered_float::OrderedFloat;
 use sql_types::SqlType;
 use sqlparser::ast::Value;
 use std::convert::TryFrom;
-use std::ops::{Add, Div, Mul, Sub, BitAnd, BitOr, Rem};
+use std::ops::{Add, BitAnd, BitOr, Div, Mul, Rem, Shl, Shr, Sub};
 
 // owned parallel of Datum but owns the content.
 // pub enum Value {
@@ -195,42 +195,36 @@ impl<'a> Datum<'a> {
 
     pub fn is_integer(&self) -> bool {
         match self {
-            Self::Int16(_) |
-            Self::Int32(_) |
-            Self::Int64(_) => true,
+            Self::Int16(_) | Self::Int32(_) | Self::Int64(_) => true,
             _ => false,
         }
     }
 
     pub fn is_float(&self) -> bool {
         match self {
-            Self::Float32(_) |
-            Self::Float64(_) => true,
+            Self::Float32(_) | Self::Float64(_) => true,
             _ => false,
         }
     }
 
     pub fn is_string(&self) -> bool {
         match self {
-            Self::String(_) |
-            Self::OwnedString(_) => true,
+            Self::String(_) | Self::OwnedString(_) => true,
             _ => false,
         }
     }
 
     pub fn is_boolean(&self) -> bool {
         match self {
-            Self::True |
-            Self::False => true,
-            _ => false
+            Self::True | Self::False => true,
+            _ => false,
         }
     }
 
     pub fn is_null(&self) -> bool {
         if let Self::Null = self {
             true
-        }
-        else {
+        } else {
             false
         }
     }
@@ -238,12 +232,10 @@ impl<'a> Datum<'a> {
     pub fn is_type(&self) -> bool {
         if let Self::SqlType(_) = self {
             true
-        }
-        else {
+        } else {
             false
         }
     }
-
 
     // arithmetic operations
 }
@@ -559,6 +551,9 @@ impl_trait!(Mul, mul, *);
 impl_trait_integral!(BitAnd, bitand, &);
 impl_trait_integral!(BitOr, bitor, |);
 impl_trait_integral!(Rem, rem, %);
+
+impl_trait_integral!(Shl, shl, <<);
+impl_trait_integral!(Shr, shr, >>);
 
 #[cfg(test)]
 mod tests {

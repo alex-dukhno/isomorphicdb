@@ -2,11 +2,11 @@ use crate::query::scalar::ScalarOp;
 use protocol::results::{QueryErrorBuilder, QueryResult};
 use protocol::Sender;
 use representation::{Datum, EvalError};
-use sqlparser::ast::{BinaryOperator, Expr, Value, DataType, UnaryOperator};
+use sqlparser::ast::{BinaryOperator, DataType, Expr, UnaryOperator, Value};
 use std::convert::TryFrom;
 use std::ops::Deref;
-use std::sync::Arc;
 use std::str::FromStr;
+use std::sync::Arc;
 
 pub(crate) struct ExpressionEvaluation {
     session: Arc<dyn Sender>,
@@ -48,43 +48,24 @@ impl ExpressionEvaluation {
                             Ok(datum) => Ok(ScalarOp::Literal(datum)),
                             Err(e) => {
                                 let err = match e {
-                                    EvalError::UnsupportedDatum(ty) =>
-                                        QueryErrorBuilder::new().
-                                            feature_not_supported(format!("Data type not supported: {}", ty))
-                                            .build(),
+                                    EvalError::UnsupportedDatum(ty) => QueryErrorBuilder::new()
+                                        .feature_not_supported(format!("Data type not supported: {}", ty))
+                                        .build(),
                                     EvalError::OutOfRangeNumeric(ty) => {
                                         let mut builder = QueryErrorBuilder::new();
                                         builder.out_of_range(ty.to_pg_types(), String::new(), 0);
                                         builder.build()
-                                    },
+                                    }
                                     EvalError::UnsupportedOperation => QueryErrorBuilder::new()
                                         .feature_not_supported("Use of unsupported expression feature".to_string())
                                         .build(),
                                 };
 
-                                self.session.send(Err(err));
+                                self.session.send(Err(err)).expect("To Send Query Result to Client");;
                                 Err(())
                             }
                         }
                     }
-                    // (UnaryOperator::Minus, ScalarOp::Literal(datum)) => {
-                    //     let datum = match datum {
-                    //         Datum::Int16(val) => Datum::Int16(-val),
-                    //         Datum::Int32(val) => Datum::Int32(-val),
-                    //         Datum::Int64(val) => Datum::Int64(-val),
-                    //         Datum::Float32(val) => Datum::Float32(-val),
-                    //         Datum::Float64(val) => Datum::Float64(-val),
-                    //         _ => {
-                    //             self.session
-                    //                 .send(Err(QueryErrorBuilder::new()
-                    //                     .syntax_error(op.to_string() + expr.to_string().as_str())
-                    //                     .build()))
-                    //                 .expect("To Send Query Result to Client");
-                    //             return Err(());
-                    //         }
-                    //     };
-                    //     Ok(ScalarOp::Literal(datum))
-                    // }
                     (op, operand) => {
                         self.session
                             .send(Err(QueryErrorBuilder::new()
@@ -109,19 +90,45 @@ impl ExpressionEvaluation {
                                 BinaryOperator::Modulus => Ok(ScalarOp::Literal(left % right)),
                                 BinaryOperator::BitwiseAnd => Ok(ScalarOp::Literal(left & right)),
                                 BinaryOperator::BitwiseOr => Ok(ScalarOp::Literal(left | right)),
+                                BinaryOperator::StringConcat => {
+                                    let kind = QueryErrorBuilder::new()
+                                        .undefined_function(op.to_string(), "NUMBER".to_owned(), "NUMBER".to_owned())
+                                        .build();
+                                    self.session.send(Err(kind)).expect("To Send Query Result to Client");;
+                                    return Err(());
+                                }
                                 _ => panic!(),
                             }
-                        }
-                        else if left.is_float() && right.is_float() {
+                        } else if left.is_float() && right.is_float() {
                             match op {
                                 BinaryOperator::Plus => Ok(ScalarOp::Literal(left + right)),
                                 BinaryOperator::Minus => Ok(ScalarOp::Literal(left - right)),
                                 BinaryOperator::Multiply => Ok(ScalarOp::Literal(left * right)),
                                 BinaryOperator::Divide => Ok(ScalarOp::Literal(left / right)),
-                                _ => panic!()
+                                BinaryOperator::StringConcat => {
+                                    let kind = QueryErrorBuilder::new()
+                                        .undefined_function(op.to_string(), "NUMBER".to_owned(), "NUMBER".to_owned())
+                                        .build();
+                                    self.session.send(Err(kind)).expect("To Send Query Result to Client");;
+                                    return Err(());
+                                }
+                                _ => panic!(),
                             }
-                        }
-                        else {
+                        } else if left.is_string() || right.is_string() {
+                            match op {
+                                BinaryOperator::StringConcat => {
+                                    let value = format!("{}{}", left.to_string(), right.to_string());
+                                    Ok(ScalarOp::Literal(Datum::OwnedString(value)))
+                                }
+                                _ => {
+                                    let kind = QueryErrorBuilder::new()
+                                        .undefined_function(op.to_string(), "STRING".to_owned(), "STRING".to_owned())
+                                        .build();
+                                    self.session.send(Err(kind)).expect("To Send Query Result to Client");;
+                                    return Err(());
+                                }
+                            }
+                        } else {
                             self.session
                                 .send(Err(QueryErrorBuilder::new().syntax_error(expr.to_string()).build()))
                                 .expect("To Send Query Result to Client");
@@ -135,21 +142,20 @@ impl ExpressionEvaluation {
                 Ok(datum) => Ok(ScalarOp::Literal(datum)),
                 Err(e) => {
                     let err = match e {
-                        EvalError::UnsupportedDatum(ty) =>
-                            QueryErrorBuilder::new().
-                                feature_not_supported(format!("Data type not supported: {}", ty))
-                                .build(),
+                        EvalError::UnsupportedDatum(ty) => QueryErrorBuilder::new()
+                            .feature_not_supported(format!("Data type not supported: {}", ty))
+                            .build(),
                         EvalError::OutOfRangeNumeric(ty) => {
                             let mut builder = QueryErrorBuilder::new();
                             builder.out_of_range(ty.to_pg_types(), String::new(), 0);
                             builder.build()
-                        },
+                        }
                         EvalError::UnsupportedOperation => QueryErrorBuilder::new()
                             .feature_not_supported("Use of unsupported expression feature".to_string())
                             .build(),
                     };
 
-                    self.session.send(Err(err));
+                    self.session.send(Err(err)).expect("To Send Query Result to Client");
                     Err(())
                 }
             },

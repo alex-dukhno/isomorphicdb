@@ -62,10 +62,10 @@ impl UpdateCommand {
                     if value.is_literal() {
                         value
                     } else {
-                        self.session.send(Err(QueryErrorBuilder::new().feature_not_supported(
-                            "Only expressions resulting in a literal are supported".to_string()
-                        ).build()));
-                        return Ok(())
+                        self.session.send(Err(QueryErrorBuilder::new()
+                            .feature_not_supported("Only expressions resulting in a literal are supported".to_string())
+                            .build())).expect("To Send Query Result to Client");;
+                        return Ok(());
                     }
                 }
                 Err(()) => return Ok(()),

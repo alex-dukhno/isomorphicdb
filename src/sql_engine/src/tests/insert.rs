@@ -635,7 +635,7 @@ mod operators {
             #[rstest::rstest]
             #[ignore]
             // TODO <n> >> <m> is bitwise SHIFT RIGHT in PostgreSQL and it does not supported in sqlparser-rs
-            fn bitwise_right_left(with_table: (QueryExecutor, Arc<Collector>)) {
+            fn bitwise_shift_right(with_table: (QueryExecutor, Arc<Collector>)) {
                 let (mut engine, collector) = with_table;
                 engine
                     .execute("insert into schema_name.table_name values (8 >> 2);")
