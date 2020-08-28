@@ -14,7 +14,7 @@
 
 use fail::FailScenario;
 use representation::Binary;
-use storage::{Database, DefinitionError, InnerStorageError, PersistentDatabase};
+use storage::{Database, DefinitionError, PersistentDatabase, StorageError};
 
 #[rstest::fixture]
 fn scenario() -> FailScenario<'static> {
@@ -58,7 +58,7 @@ fn corruption_error(database: PersistentDatabase, scenario: FailScenario) {
         database
             .delete("schema_name", "object_name", vec![Binary::with_data(vec![])])
             .expect("no io error"),
-        Err(InnerStorageError::Storage)
+        Err(StorageError::Storage)
     );
 
     scenario.teardown();
@@ -72,7 +72,7 @@ fn reportable_bug(database: PersistentDatabase, scenario: FailScenario) {
         database
             .delete("schema_name", "object_name", vec![Binary::with_data(vec![])])
             .expect("no io error"),
-        Err(InnerStorageError::Storage)
+        Err(StorageError::Storage)
     );
 
     scenario.teardown();
@@ -86,7 +86,7 @@ fn unsupported_operation(database: PersistentDatabase, scenario: FailScenario) {
         database
             .delete("schema_name", "object_name", vec![Binary::with_data(vec![])])
             .expect("no io error"),
-        Err(InnerStorageError::Storage)
+        Err(StorageError::Storage)
     );
 
     scenario.teardown();

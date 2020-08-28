@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use fail::FailScenario;
-use storage::{Database, InnerStorageError, PersistentDatabase};
+use storage::{Database, PersistentDatabase, StorageError};
 
 #[rstest::fixture]
 fn scenario() -> FailScenario<'static> {
@@ -43,7 +43,7 @@ fn io_error(database: PersistentDatabase, scenario: FailScenario) {
 
     assert_eq!(
         database.drop_schema("schema_name").expect("no io error"),
-        Err(InnerStorageError::CascadeIo(vec!["object_name".to_owned()]))
+        Err(StorageError::CascadeIo(vec!["object_name".to_owned()]))
     );
 
     scenario.teardown();
@@ -55,7 +55,7 @@ fn corruption_error(database: PersistentDatabase, scenario: FailScenario) {
 
     assert_eq!(
         database.drop_schema("schema_name").expect("no io error"),
-        Err(InnerStorageError::Storage)
+        Err(StorageError::Storage)
     );
 
     scenario.teardown();
@@ -67,7 +67,7 @@ fn reportable_bug(database: PersistentDatabase, scenario: FailScenario) {
 
     assert_eq!(
         database.drop_schema("schema_name").expect("no io error"),
-        Err(InnerStorageError::Storage)
+        Err(StorageError::Storage)
     );
 
     scenario.teardown();
@@ -88,7 +88,7 @@ fn unsupported_operation(database: PersistentDatabase, scenario: FailScenario) {
 
     assert_eq!(
         database.drop_schema("schema_name").expect("no io error"),
-        Err(InnerStorageError::Storage)
+        Err(StorageError::Storage)
     );
 
     scenario.teardown();
@@ -100,7 +100,7 @@ fn collection_not_found(database: PersistentDatabase, scenario: FailScenario) {
 
     assert_eq!(
         database.drop_schema("schema_name").expect("no io error"),
-        Err(InnerStorageError::Storage)
+        Err(StorageError::Storage)
     );
 
     scenario.teardown();

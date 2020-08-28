@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{Database, DefinitionError, InitStatus, InnerStorageError, Key, ReadCursor, Row, RowResult};
+use crate::{Database, DefinitionError, InitStatus, Key, ReadCursor, Row, RowResult, StorageError};
 use representation::Binary;
 use sled::{Db as Schema, DiskPtr, Error as SledError, IVec, Tree};
 use std::{
@@ -35,7 +35,7 @@ impl PersistentDatabase {
         }
     }
 
-    pub fn init(&self, schema_name: &str) -> io::Result<Result<InitStatus, InnerStorageError>> {
+    pub fn init(&self, schema_name: &str) -> io::Result<Result<InitStatus, StorageError>> {
         let path_to_schema = PathBuf::from(&self.path).join(schema_name);
         log::info!("path to schema {:?}", path_to_schema);
         match self.open_database(path_to_schema) {
@@ -54,10 +54,10 @@ impl PersistentDatabase {
             }
             Err(error) => match error {
                 SledError::Io(io_error) => Err(io_error),
-                SledError::Corruption { .. } => Ok(Err(InnerStorageError::Storage)),
-                SledError::ReportableBug(_) => Ok(Err(InnerStorageError::Storage)),
-                SledError::Unsupported(_) => Ok(Err(InnerStorageError::Storage)),
-                SledError::CollectionNotFound(_) => Ok(Err(InnerStorageError::Storage)),
+                SledError::Corruption { .. } => Ok(Err(StorageError::Storage)),
+                SledError::ReportableBug(_) => Ok(Err(StorageError::Storage)),
+                SledError::Unsupported(_) => Ok(Err(StorageError::Storage)),
+                SledError::CollectionNotFound(_) => Ok(Err(StorageError::Storage)),
             },
         }
     }
@@ -80,14 +80,14 @@ impl PersistentDatabase {
         &self,
         schema: Arc<Schema>,
         object_name: &str,
-    ) -> io::Result<Result<Result<Tree, DefinitionError>, InnerStorageError>> {
+    ) -> io::Result<Result<Result<Tree, DefinitionError>, StorageError>> {
         match self.open_tree_with_failpoint(schema, object_name) {
             Ok(tree) => Ok(Ok(Ok(tree))),
             Err(error) => match error {
                 SledError::Io(io_error) => Err(io_error),
-                SledError::Corruption { .. } => Ok(Err(InnerStorageError::Storage)),
-                SledError::ReportableBug(_) => Ok(Err(InnerStorageError::Storage)),
-                SledError::Unsupported(_) => Ok(Err(InnerStorageError::Storage)),
+                SledError::Corruption { .. } => Ok(Err(StorageError::Storage)),
+                SledError::ReportableBug(_) => Ok(Err(StorageError::Storage)),
+                SledError::Unsupported(_) => Ok(Err(StorageError::Storage)),
                 SledError::CollectionNotFound(_) => Ok(Ok(Err(DefinitionError::ObjectDoesNotExist))),
             },
         }
@@ -98,7 +98,7 @@ impl PersistentDatabase {
         schema.open_tree(object_name)
     }
 
-    fn drop_database(&self, schema: Arc<Schema>) -> io::Result<Result<Result<(), DefinitionError>, InnerStorageError>> {
+    fn drop_database(&self, schema: Arc<Schema>) -> io::Result<Result<Result<(), DefinitionError>, StorageError>> {
         let mut io_errors = vec![];
         for tree_name in schema.tree_names() {
             let name = tree_name.clone();
@@ -106,20 +106,20 @@ impl PersistentDatabase {
                 Ok(true) => log::info!("{:?} was dropped", name),
                 Ok(false) => log::info!("{:?} was not dropped", name),
                 Err(SledError::Io(_)) => io_errors.push(String::from_utf8_lossy(&name).into()),
-                Err(SledError::Corruption { .. }) => return Ok(Err(InnerStorageError::Storage)),
-                Err(SledError::CollectionNotFound(_)) => return Ok(Err(InnerStorageError::Storage)),
+                Err(SledError::Corruption { .. }) => return Ok(Err(StorageError::Storage)),
+                Err(SledError::CollectionNotFound(_)) => return Ok(Err(StorageError::Storage)),
                 Err(SledError::Unsupported(message)) => {
                     if message != "cannot remove the core structures" {
-                        return Ok(Err(InnerStorageError::Storage));
+                        return Ok(Err(StorageError::Storage));
                     }
                 }
-                Err(SledError::ReportableBug(_)) => return Ok(Err(InnerStorageError::Storage)),
+                Err(SledError::ReportableBug(_)) => return Ok(Err(StorageError::Storage)),
             }
         }
         if io_errors.is_empty() {
             Ok(Ok(Ok(())))
         } else {
-            Ok(Err(InnerStorageError::CascadeIo(io_errors)))
+            Ok(Err(StorageError::CascadeIo(io_errors)))
         }
     }
 
@@ -171,7 +171,7 @@ impl PersistentDatabase {
 }
 
 impl Database for PersistentDatabase {
-    fn create_schema(&self, schema_name: &str) -> io::Result<Result<Result<(), DefinitionError>, InnerStorageError>> {
+    fn create_schema(&self, schema_name: &str) -> io::Result<Result<Result<(), DefinitionError>, StorageError>> {
         if self
             .schemas
             .read()
@@ -192,16 +192,16 @@ impl Database for PersistentDatabase {
                 }
                 Err(error) => match error {
                     SledError::Io(io_error) => Err(io_error),
-                    SledError::Corruption { .. } => Ok(Err(InnerStorageError::Storage)),
-                    SledError::ReportableBug(_) => Ok(Err(InnerStorageError::Storage)),
-                    SledError::Unsupported(_) => Ok(Err(InnerStorageError::Storage)),
-                    SledError::CollectionNotFound(_) => Ok(Err(InnerStorageError::Storage)),
+                    SledError::Corruption { .. } => Ok(Err(StorageError::Storage)),
+                    SledError::ReportableBug(_) => Ok(Err(StorageError::Storage)),
+                    SledError::Unsupported(_) => Ok(Err(StorageError::Storage)),
+                    SledError::CollectionNotFound(_) => Ok(Err(StorageError::Storage)),
                 },
             }
         }
     }
 
-    fn drop_schema(&self, schema_name: &str) -> io::Result<Result<Result<(), DefinitionError>, InnerStorageError>> {
+    fn drop_schema(&self, schema_name: &str) -> io::Result<Result<Result<(), DefinitionError>, StorageError>> {
         match self.schemas.write().expect("to acquire write lock").remove(schema_name) {
             Some(schema) => self.drop_database(schema),
             None => Ok(Ok(Err(DefinitionError::SchemaDoesNotExist))),
@@ -212,7 +212,7 @@ impl Database for PersistentDatabase {
         &self,
         schema_name: &str,
         object_name: &str,
-    ) -> io::Result<Result<Result<(), DefinitionError>, InnerStorageError>> {
+    ) -> io::Result<Result<Result<(), DefinitionError>, StorageError>> {
         match self.schemas.read().expect("to acquire read lock").get(schema_name) {
             Some(schema) => {
                 if schema.tree_names().contains(&(object_name.into())) {
@@ -230,16 +230,16 @@ impl Database for PersistentDatabase {
         &self,
         schema_name: &str,
         object_name: &str,
-    ) -> io::Result<Result<Result<(), DefinitionError>, InnerStorageError>> {
+    ) -> io::Result<Result<Result<(), DefinitionError>, StorageError>> {
         match self.schemas.read().expect("to acquire read lock").get(schema_name) {
             Some(schema) => match self.drop_tree_with_failpoint(schema.clone(), object_name.as_bytes().into()) {
                 Ok(true) => Ok(Ok(Ok(()))),
                 Ok(false) => Ok(Ok(Err(DefinitionError::ObjectDoesNotExist))),
                 Err(error) => match error {
                     SledError::Io(io_error) => Err(io_error),
-                    SledError::Corruption { .. } => Ok(Err(InnerStorageError::Storage)),
-                    SledError::ReportableBug(_) => Ok(Err(InnerStorageError::Storage)),
-                    SledError::Unsupported(_) => Ok(Err(InnerStorageError::Storage)),
+                    SledError::Corruption { .. } => Ok(Err(StorageError::Storage)),
+                    SledError::ReportableBug(_) => Ok(Err(StorageError::Storage)),
+                    SledError::Unsupported(_) => Ok(Err(StorageError::Storage)),
                     SledError::CollectionNotFound(_) => Ok(Ok(Err(DefinitionError::ObjectDoesNotExist))),
                 },
             },
@@ -252,7 +252,7 @@ impl Database for PersistentDatabase {
         schema_name: &str,
         object_name: &str,
         rows: Vec<Row>,
-    ) -> io::Result<Result<Result<usize, DefinitionError>, InnerStorageError>> {
+    ) -> io::Result<Result<Result<usize, DefinitionError>, StorageError>> {
         match self.schemas.read().expect("to acquire read lock").get(schema_name) {
             Some(schema) => {
                 if schema.tree_names().contains(&(object_name.into())) {
@@ -264,9 +264,9 @@ impl Database for PersistentDatabase {
                                     Ok(_) => written_rows += 1,
                                     Err(error) => match error {
                                         SledError::Io(io_error) => return Err(io_error),
-                                        SledError::Corruption { .. } => return Ok(Err(InnerStorageError::Storage)),
-                                        SledError::ReportableBug(_) => return Ok(Err(InnerStorageError::Storage)),
-                                        SledError::Unsupported(_) => return Ok(Err(InnerStorageError::Storage)),
+                                        SledError::Corruption { .. } => return Ok(Err(StorageError::Storage)),
+                                        SledError::ReportableBug(_) => return Ok(Err(StorageError::Storage)),
+                                        SledError::Unsupported(_) => return Ok(Err(StorageError::Storage)),
                                         SledError::CollectionNotFound(_) => {
                                             return Ok(Ok(Err(DefinitionError::ObjectDoesNotExist)))
                                         }
@@ -281,9 +281,9 @@ impl Database for PersistentDatabase {
                                 }
                                 Err(error) => match error {
                                     SledError::Io(io_error) => Err(io_error),
-                                    SledError::Corruption { .. } => Ok(Err(InnerStorageError::Storage)),
-                                    SledError::ReportableBug(_) => Ok(Err(InnerStorageError::Storage)),
-                                    SledError::Unsupported(_) => Ok(Err(InnerStorageError::Storage)),
+                                    SledError::Corruption { .. } => Ok(Err(StorageError::Storage)),
+                                    SledError::ReportableBug(_) => Ok(Err(StorageError::Storage)),
+                                    SledError::Unsupported(_) => Ok(Err(StorageError::Storage)),
                                     SledError::CollectionNotFound(_) => {
                                         Ok(Ok(Err(DefinitionError::ObjectDoesNotExist)))
                                     }
@@ -304,7 +304,7 @@ impl Database for PersistentDatabase {
         &self,
         schema_name: &str,
         object_name: &str,
-    ) -> io::Result<Result<Result<ReadCursor, DefinitionError>, InnerStorageError>> {
+    ) -> io::Result<Result<Result<ReadCursor, DefinitionError>, StorageError>> {
         match self.schemas.read().expect("to acquire read lock").get(schema_name) {
             Some(schema) => {
                 if schema.tree_names().contains(&(object_name.into())) {
@@ -317,10 +317,10 @@ impl Database for PersistentDatabase {
                                 ))),
                                 Err(error) => match error {
                                     SledError::Io(io_error) => Err(io_error),
-                                    SledError::Corruption { .. } => Ok(Err(InnerStorageError::Storage)),
-                                    SledError::ReportableBug(_) => Ok(Err(InnerStorageError::Storage)),
-                                    SledError::Unsupported(_) => Ok(Err(InnerStorageError::Storage)),
-                                    SledError::CollectionNotFound(_) => Ok(Err(InnerStorageError::Storage)),
+                                    SledError::Corruption { .. } => Ok(Err(StorageError::Storage)),
+                                    SledError::ReportableBug(_) => Ok(Err(StorageError::Storage)),
+                                    SledError::Unsupported(_) => Ok(Err(StorageError::Storage)),
+                                    SledError::CollectionNotFound(_) => Ok(Err(StorageError::Storage)),
                                 },
                             },
                         ))))),
@@ -347,7 +347,7 @@ impl Database for PersistentDatabase {
         schema_name: &str,
         object_name: &str,
         keys: Vec<Key>,
-    ) -> io::Result<Result<Result<usize, DefinitionError>, InnerStorageError>> {
+    ) -> io::Result<Result<Result<usize, DefinitionError>, StorageError>> {
         match self.schemas.read().expect("to acquire read lock").get(schema_name) {
             Some(schema) => {
                 if schema.tree_names().contains(&(object_name.into())) {
@@ -359,9 +359,9 @@ impl Database for PersistentDatabase {
                                     Ok(_) => deleted += 1,
                                     Err(error) => match error {
                                         SledError::Io(io_error) => return Err(io_error),
-                                        SledError::Corruption { .. } => return Ok(Err(InnerStorageError::Storage)),
-                                        SledError::ReportableBug(_) => return Ok(Err(InnerStorageError::Storage)),
-                                        SledError::Unsupported(_) => return Ok(Err(InnerStorageError::Storage)),
+                                        SledError::Corruption { .. } => return Ok(Err(StorageError::Storage)),
+                                        SledError::ReportableBug(_) => return Ok(Err(StorageError::Storage)),
+                                        SledError::Unsupported(_) => return Ok(Err(StorageError::Storage)),
                                         SledError::CollectionNotFound(_) => {
                                             return Ok(Ok(Err(DefinitionError::ObjectDoesNotExist)))
                                         }
@@ -375,9 +375,9 @@ impl Database for PersistentDatabase {
                                 }
                                 Err(error) => match error {
                                     SledError::Io(io_error) => Err(io_error),
-                                    SledError::Corruption { .. } => Ok(Err(InnerStorageError::Storage)),
-                                    SledError::ReportableBug(_) => Ok(Err(InnerStorageError::Storage)),
-                                    SledError::Unsupported(_) => Ok(Err(InnerStorageError::Storage)),
+                                    SledError::Corruption { .. } => Ok(Err(StorageError::Storage)),
+                                    SledError::ReportableBug(_) => Ok(Err(StorageError::Storage)),
+                                    SledError::Unsupported(_) => Ok(Err(StorageError::Storage)),
                                     SledError::CollectionNotFound(_) => {
                                         Ok(Ok(Err(DefinitionError::ObjectDoesNotExist)))
                                     }

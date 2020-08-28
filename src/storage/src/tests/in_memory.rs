@@ -254,7 +254,7 @@ mod operations_on_object {
                 .expect("no platform error")
                 .map(|iter| iter
                     .map(|ok| ok.expect("no io error"))
-                    .collect::<Vec<Result<Row, InnerStorageError>>>()),
+                    .collect::<Vec<Result<Row, StorageError>>>()),
             Ok(as_read_cursor(vec![(1u8, vec!["123"])])
                 .map(|ok| ok.expect("no io error"))
                 .collect())
@@ -281,7 +281,7 @@ mod operations_on_object {
                 .expect("no platform error")
                 .map(|iter| iter
                     .map(|ok| ok.expect("no io error"))
-                    .collect::<Vec<Result<Row, InnerStorageError>>>()),
+                    .collect::<Vec<Result<Row, StorageError>>>()),
             Ok(as_read_cursor(vec![(1u8, vec!["123"]), (2u8, vec!["456"])])
                 .map(|ok| ok.expect("no io error"))
                 .collect())
@@ -336,7 +336,7 @@ mod operations_on_object {
                 .expect("no platform error")
                 .map(|iter| iter
                     .map(|ok| ok.expect("no io error"))
-                    .collect::<Vec<Result<Row, InnerStorageError>>>()),
+                    .collect::<Vec<Result<Row, StorageError>>>()),
             Ok(as_read_cursor(vec![(1u8, vec!["123"]), (3u8, vec!["789"])])
                 .map(|ok| ok.expect("no io error"))
                 .collect())
@@ -378,7 +378,7 @@ mod operations_on_object {
                 .expect("no platform error")
                 .map(|iter| iter
                     .map(|ok| ok.expect("no io error"))
-                    .collect::<Vec<Result<Row, InnerStorageError>>>()),
+                    .collect::<Vec<Result<Row, StorageError>>>()),
             Ok(as_read_cursor(vec![(1u8, vec!["1", "2", "3"])])
                 .map(|ok| ok.expect("no io error"))
                 .collect())
@@ -408,7 +408,7 @@ mod operations_on_object {
                 .expect("no platform error")
                 .map(|iter| iter
                     .map(|ok| ok.expect("no io error"))
-                    .collect::<Vec<Result<Row, InnerStorageError>>>()),
+                    .collect::<Vec<Result<Row, StorageError>>>()),
             Ok(as_read_cursor(vec![
                 (1u8, vec!["1", "2", "3"]),
                 (2u8, vec!["4", "5", "6"]),

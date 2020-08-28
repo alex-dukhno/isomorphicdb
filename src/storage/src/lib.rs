@@ -12,16 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use kernel::SystemError;
 use representation::Binary;
 use std::io::{self};
 
 pub type Row = (Key, Values);
 pub type Key = Binary;
 pub type Values = Binary;
-pub type RowResult = io::Result<Result<Row, InnerStorageError>>;
+pub type RowResult = io::Result<Result<Row, StorageError>>;
 pub type ReadCursor = Box<dyn Iterator<Item = RowResult>>;
-pub type StorageResult<T> = Result<T, StorageError>;
 
 mod in_memory;
 mod persistent;
@@ -35,17 +33,9 @@ pub enum InitStatus {
 
 #[derive(Debug, PartialEq)]
 pub enum StorageError {
-    RuntimeCheckError,
-    SystemError(SystemError),
-    SledError(sled::Error),
-}
-
-#[derive(Debug, PartialEq)]
-pub enum InnerStorageError {
     Io,
     CascadeIo(Vec<String>),
     Storage,
-    DefinitionChanged(Definition),
 }
 
 #[derive(Debug, PartialEq)]
@@ -56,50 +46,42 @@ pub enum DefinitionError {
     ObjectDoesNotExist,
 }
 
-#[derive(Debug, PartialEq)]
-pub enum Definition {
-    SchemaAlreadyExists,
-    SchemaDoesNotExist,
-    ObjectAlreadyExists,
-    ObjectDoesNotExist,
-}
-
 pub trait Database {
-    fn create_schema(&self, schema_name: &str) -> io::Result<Result<Result<(), DefinitionError>, InnerStorageError>>;
+    fn create_schema(&self, schema_name: &str) -> io::Result<Result<Result<(), DefinitionError>, StorageError>>;
 
-    fn drop_schema(&self, schema_name: &str) -> io::Result<Result<Result<(), DefinitionError>, InnerStorageError>>;
+    fn drop_schema(&self, schema_name: &str) -> io::Result<Result<Result<(), DefinitionError>, StorageError>>;
 
     fn create_object(
         &self,
         schema_name: &str,
         object_name: &str,
-    ) -> io::Result<Result<Result<(), DefinitionError>, InnerStorageError>>;
+    ) -> io::Result<Result<Result<(), DefinitionError>, StorageError>>;
 
     fn drop_object(
         &self,
         schema_name: &str,
         object_name: &str,
-    ) -> io::Result<Result<Result<(), DefinitionError>, InnerStorageError>>;
+    ) -> io::Result<Result<Result<(), DefinitionError>, StorageError>>;
 
     fn write(
         &self,
         schema_name: &str,
         object_name: &str,
         values: Vec<Row>,
-    ) -> io::Result<Result<Result<usize, DefinitionError>, InnerStorageError>>;
+    ) -> io::Result<Result<Result<usize, DefinitionError>, StorageError>>;
 
     fn read(
         &self,
         schema_name: &str,
         object_name: &str,
-    ) -> io::Result<Result<Result<ReadCursor, DefinitionError>, InnerStorageError>>;
+    ) -> io::Result<Result<Result<ReadCursor, DefinitionError>, StorageError>>;
 
     fn delete(
         &self,
         schema_name: &str,
         object_name: &str,
         keys: Vec<Key>,
-    ) -> io::Result<Result<Result<usize, DefinitionError>, InnerStorageError>>;
+    ) -> io::Result<Result<Result<usize, DefinitionError>, StorageError>>;
 }
 
 #[cfg(test)]

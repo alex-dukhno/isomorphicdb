@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use fail::FailScenario;
-use storage::{Database, DefinitionError, InnerStorageError, PersistentDatabase};
+use storage::{Database, DefinitionError, PersistentDatabase, StorageError};
 
 #[rstest::fixture]
 fn scenario() -> FailScenario<'static> {
@@ -52,7 +52,7 @@ fn corruption_error(database: PersistentDatabase, scenario: FailScenario) {
 
     assert_eq!(
         database.drop_object("schema_name", "object_name").expect("no io error"),
-        Err(InnerStorageError::Storage)
+        Err(StorageError::Storage)
     );
 
     scenario.teardown();
@@ -64,7 +64,7 @@ fn reportable_bug(database: PersistentDatabase, scenario: FailScenario) {
 
     assert_eq!(
         database.drop_object("schema_name", "object_name").expect("no io error"),
-        Err(InnerStorageError::Storage)
+        Err(StorageError::Storage)
     );
 
     scenario.teardown();
@@ -76,7 +76,7 @@ fn unsupported_operation(database: PersistentDatabase, scenario: FailScenario) {
 
     assert_eq!(
         database.drop_object("schema_name", "object_name").expect("no io error"),
-        Err(InnerStorageError::Storage)
+        Err(StorageError::Storage)
     );
 
     scenario.teardown();
