@@ -43,7 +43,11 @@ fn select_all_from_table_with_many_columns(default_schema_name: &str, with_small
     assert_eq!(
         with_small_ints_table
             .table_scan(default_schema_name, "table_name")
-            .map(|read| read.map(Result::unwrap).map(|(_key, values)| values).collect()),
+            .map(|read| read
+                .map(Result::unwrap)
+                .map(Result::unwrap)
+                .map(|(_key, values)| values)
+                .collect()),
         Ok(vec![Binary::with_data(b"1|2|3".to_vec())])
     );
 }

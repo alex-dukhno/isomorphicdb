@@ -12,42 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{Database, InitStatus, Key, ReadCursor, Row, StorageError, StorageResult};
-use kernel::SystemError;
+use crate::{Database, DefinitionError, InitStatus, Key, ReadCursor, Row, RowResult, StorageError};
 use representation::Binary;
-use sled::{Db as Schema, Error as SledError};
+use sled::{Db as Schema, DiskPtr, Error as SledError, IVec, Tree};
 use std::{
     collections::HashMap,
+    io::{self, ErrorKind},
     path::PathBuf,
     sync::{Arc, RwLock},
 };
-
-pub struct SledErrorMapper;
-
-impl SledErrorMapper {
-    fn map(error: SledError) -> SystemError {
-        match error {
-            SledError::CollectionNotFound(system_file) => SystemError::unrecoverable(format!(
-                "System file [{}] can't be found",
-                String::from_utf8(system_file.to_vec()).expect("name of system file")
-            )),
-            SledError::Unsupported(operation) => {
-                SystemError::unrecoverable(format!("Unsupported operation [{}] was used on Sled", operation))
-            }
-            SledError::Corruption { at, bt: _bt } => {
-                if let Some(at) = at {
-                    SystemError::unrecoverable(format!("Sled encountered corruption at {}", at))
-                } else {
-                    SystemError::unrecoverable("Sled encountered corruption".to_owned())
-                }
-            }
-            SledError::ReportableBug(description) => {
-                SystemError::unrecoverable(format!("Sled encountered reportable BUG: {}", description))
-            }
-            SledError::Io(error) => SystemError::io(error),
-        }
-    }
-}
 
 pub struct PersistentDatabase {
     path: PathBuf,
@@ -62,10 +35,10 @@ impl PersistentDatabase {
         }
     }
 
-    pub fn init(&self, schema_name: &str) -> StorageResult<InitStatus> {
+    pub fn init(&self, schema_name: &str) -> io::Result<Result<InitStatus, StorageError>> {
         let path_to_schema = PathBuf::from(&self.path).join(schema_name);
         log::info!("path to schema {:?}", path_to_schema);
-        match sled::open(path_to_schema) {
+        match self.open_database(path_to_schema) {
             Ok(schema) => {
                 let recovered = schema.was_recovered();
                 self.schemas
@@ -74,146 +47,284 @@ impl PersistentDatabase {
                     .insert(schema_name.to_owned(), Arc::new(schema));
                 log::debug!("namespaces after initialization {:?}", self.schemas);
                 if recovered {
-                    Ok(InitStatus::Loaded)
+                    Ok(Ok(InitStatus::Loaded))
                 } else {
-                    Ok(InitStatus::Created)
+                    Ok(Ok(InitStatus::Created))
                 }
             }
-            Err(error) => Err(StorageError::SystemError(SledErrorMapper::map(error))),
+            Err(error) => match error {
+                SledError::Io(io_error) => Err(io_error),
+                SledError::Corruption { .. } => Ok(Err(StorageError::Storage)),
+                SledError::ReportableBug(_) => Ok(Err(StorageError::Storage)),
+                SledError::Unsupported(_) => Ok(Err(StorageError::Storage)),
+                SledError::CollectionNotFound(_) => Ok(Err(StorageError::Storage)),
+            },
         }
     }
 
     pub fn open_object(&self, schema_name: &str, object_name: &str) {
         if let Some(schema) = self.schemas.read().expect("to acquire write lock").get(schema_name) {
-            schema
-                .open_tree(object_name)
-                .expect("to open tree")
-                .flush()
-                .expect("to flush");
+            self.open_tree(schema.clone(), object_name)
+                .expect("no io error")
+                .expect("no platform error")
+                .expect("no definition error");
         }
     }
 
-    fn new_schema(&self, schema_name: &str) -> StorageResult<Arc<Schema>> {
+    fn open_database(&self, path_to_schema: PathBuf) -> Result<Schema, SledError> {
+        fail::fail_point!("sled-fail-to-open-db", |kind| Err(sled_error(kind)));
+        sled::open(path_to_schema)
+    }
+
+    fn open_tree(
+        &self,
+        schema: Arc<Schema>,
+        object_name: &str,
+    ) -> io::Result<Result<Result<Tree, DefinitionError>, StorageError>> {
+        match self.open_tree_with_failpoint(schema, object_name) {
+            Ok(tree) => Ok(Ok(Ok(tree))),
+            Err(error) => match error {
+                SledError::Io(io_error) => Err(io_error),
+                SledError::Corruption { .. } => Ok(Err(StorageError::Storage)),
+                SledError::ReportableBug(_) => Ok(Err(StorageError::Storage)),
+                SledError::Unsupported(_) => Ok(Err(StorageError::Storage)),
+                SledError::CollectionNotFound(_) => Ok(Ok(Err(DefinitionError::ObjectDoesNotExist))),
+            },
+        }
+    }
+
+    fn open_tree_with_failpoint(&self, schema: Arc<Schema>, object_name: &str) -> Result<Tree, SledError> {
+        fail::fail_point!("sled-fail-to-open-tree", |kind| Err(sled_error(kind)));
+        schema.open_tree(object_name)
+    }
+
+    fn drop_database(&self, schema: Arc<Schema>) -> io::Result<Result<Result<(), DefinitionError>, StorageError>> {
+        let mut io_errors = vec![];
+        for tree_name in schema.tree_names() {
+            let name = tree_name.clone();
+            match self.drop_database_cascade_with_failpoint(schema.clone(), tree_name) {
+                Ok(true) => log::info!("{:?} was dropped", name),
+                Ok(false) => log::info!("{:?} was not dropped", name),
+                Err(SledError::Io(_)) => io_errors.push(String::from_utf8_lossy(&name).into()),
+                Err(SledError::Corruption { .. }) => return Ok(Err(StorageError::Storage)),
+                Err(SledError::CollectionNotFound(_)) => return Ok(Err(StorageError::Storage)),
+                Err(SledError::Unsupported(message)) => {
+                    if message != "cannot remove the core structures" {
+                        return Ok(Err(StorageError::Storage));
+                    }
+                }
+                Err(SledError::ReportableBug(_)) => return Ok(Err(StorageError::Storage)),
+            }
+        }
+        if io_errors.is_empty() {
+            Ok(Ok(Ok(())))
+        } else {
+            Ok(Err(StorageError::CascadeIo(io_errors)))
+        }
+    }
+
+    fn drop_database_cascade_with_failpoint(&self, schema: Arc<Schema>, tree: IVec) -> Result<bool, SledError> {
+        fail::fail_point!("sled-fail-to-drop-db", |kind| {
+            if tree == b"__sled__default" {
+                Err(SledError::Unsupported("cannot remove the core structures".into()))
+            } else {
+                Err(sled_error(kind))
+            }
+        });
+        schema.drop_tree(tree)
+    }
+
+    fn drop_tree_with_failpoint(&self, schema: Arc<Schema>, tree: IVec) -> Result<bool, SledError> {
+        fail::fail_point!("sled-fail-to-drop-tree", |kind| Err(sled_error(kind)));
+        schema.drop_tree(tree)
+    }
+
+    fn insert_into_tree_with_failpoint(
+        &self,
+        tree: &Tree,
+        key: &Binary,
+        values: &Binary,
+    ) -> Result<Option<IVec>, SledError> {
+        fail::fail_point!("sled-fail-to-insert-into-tree", |kind| Err(sled_error(kind)));
+        tree.insert(key.to_bytes(), values.to_bytes())
+    }
+
+    fn tree_flush_with_failpoint(&self, tree: Tree) -> Result<usize, SledError> {
+        fail::fail_point!("sled-fail-to-flush-tree", |kind| Err(sled_error(kind)));
+        tree.flush()
+    }
+
+    fn iterator_over_tree_with_failpoint(&self, object: Tree) -> Box<dyn Iterator<Item = sled::Result<(IVec, IVec)>>> {
+        fail::fail_point!("sled-fail-iterate-over-tree", |kind| Box::new(
+            vec![Err(sled_error(kind))].into_iter()
+        ));
+        Box::new(object.iter())
+    }
+    fn remove_fro_tree_with_failpoint(&self, object: &Tree, key: Binary) -> Result<Option<IVec>, SledError> {
+        fail::fail_point!("sled-fail-to-remove-from-tree", |kind| Err(sled_error(kind)));
+        object.remove(key.to_bytes())
+    }
+
+    fn empty_iterator(&self) -> Box<dyn Iterator<Item = RowResult>> {
+        Box::new(std::iter::empty())
+    }
+}
+
+impl Database for PersistentDatabase {
+    fn create_schema(&self, schema_name: &str) -> io::Result<Result<Result<(), DefinitionError>, StorageError>> {
         if self
             .schemas
             .read()
             .expect("to acquire read lock")
             .contains_key(schema_name)
         {
-            Err(StorageError::RuntimeCheckError)
+            Ok(Ok(Err(DefinitionError::SchemaAlreadyExists)))
         } else {
             let path_to_schema = PathBuf::from(&self.path).join(schema_name);
             log::info!("path to schema {:?}", path_to_schema);
-            match sled::open(path_to_schema) {
+            match self.open_database(path_to_schema) {
                 Ok(schema) => {
-                    let schema = Arc::new(schema);
                     self.schemas
                         .write()
                         .expect("to acquire write lock")
-                        .insert(schema_name.to_owned(), schema.clone());
-                    Ok(schema)
+                        .insert(schema_name.to_owned(), Arc::new(schema));
+                    Ok(Ok(Ok(())))
                 }
-                Err(error) => Err(StorageError::SystemError(SledErrorMapper::map(error))),
+                Err(error) => match error {
+                    SledError::Io(io_error) => Err(io_error),
+                    SledError::Corruption { .. } => Ok(Err(StorageError::Storage)),
+                    SledError::ReportableBug(_) => Ok(Err(StorageError::Storage)),
+                    SledError::Unsupported(_) => Ok(Err(StorageError::Storage)),
+                    SledError::CollectionNotFound(_) => Ok(Err(StorageError::Storage)),
+                },
             }
         }
     }
-}
 
-impl Database for PersistentDatabase {
-    fn create_schema(&self, schema_name: &str) -> StorageResult<()> {
-        self.new_schema(schema_name).map(|_| ())
-    }
-
-    fn drop_schema(&self, schema_name: &str) -> StorageResult<()> {
+    fn drop_schema(&self, schema_name: &str) -> io::Result<Result<Result<(), DefinitionError>, StorageError>> {
         match self.schemas.write().expect("to acquire write lock").remove(schema_name) {
-            Some(schema) => {
-                for tree in schema.tree_names() {
-                    let name = tree.clone();
-                    match schema.drop_tree(tree) {
-                        Ok(true) => log::info!("{:?} was dropped", name),
-                        Ok(false) => log::info!("{:?} was not dropped", name),
-                        Err(error) => log::error!("{:?} was not dropped due to {:?}", name, error),
-                    }
-                }
-                drop(schema);
-                Ok(())
-            }
-            None => Err(StorageError::RuntimeCheckError),
+            Some(schema) => self.drop_database(schema),
+            None => Ok(Ok(Err(DefinitionError::SchemaDoesNotExist))),
         }
     }
 
-    fn create_object(&self, schema_name: &str, object_name: &str) -> StorageResult<()> {
+    fn create_object(
+        &self,
+        schema_name: &str,
+        object_name: &str,
+    ) -> io::Result<Result<Result<(), DefinitionError>, StorageError>> {
         match self.schemas.read().expect("to acquire read lock").get(schema_name) {
             Some(schema) => {
                 if schema.tree_names().contains(&(object_name.into())) {
-                    Err(StorageError::RuntimeCheckError)
+                    Ok(Ok(Err(DefinitionError::ObjectAlreadyExists)))
                 } else {
-                    match schema.open_tree(object_name) {
-                        Ok(object) => {
-                            log::debug!("tree {:?}.{:?} was created as {:?}", schema_name, object_name, object);
-                            object.flush().expect("Ok");
-                            Ok(())
-                        }
-                        Err(error) => Err(StorageError::SystemError(SledErrorMapper::map(error))),
-                    }
+                    self.open_tree(schema.clone(), object_name)
+                        .map(|io| io.map(|storage| storage.map(|_object| ())))
                 }
             }
-            None => Err(StorageError::RuntimeCheckError),
+            None => Ok(Ok(Err(DefinitionError::SchemaDoesNotExist))),
         }
     }
 
-    fn drop_object(&self, schema_name: &str, object_name: &str) -> StorageResult<()> {
+    fn drop_object(
+        &self,
+        schema_name: &str,
+        object_name: &str,
+    ) -> io::Result<Result<Result<(), DefinitionError>, StorageError>> {
         match self.schemas.read().expect("to acquire read lock").get(schema_name) {
-            Some(schema) => match schema.drop_tree(object_name.as_bytes()) {
-                Ok(true) => Ok(()),
-                Ok(false) => Err(StorageError::RuntimeCheckError),
-                Err(error) => Err(StorageError::SystemError(SledErrorMapper::map(error))),
+            Some(schema) => match self.drop_tree_with_failpoint(schema.clone(), object_name.as_bytes().into()) {
+                Ok(true) => Ok(Ok(Ok(()))),
+                Ok(false) => Ok(Ok(Err(DefinitionError::ObjectDoesNotExist))),
+                Err(error) => match error {
+                    SledError::Io(io_error) => Err(io_error),
+                    SledError::Corruption { .. } => Ok(Err(StorageError::Storage)),
+                    SledError::ReportableBug(_) => Ok(Err(StorageError::Storage)),
+                    SledError::Unsupported(_) => Ok(Err(StorageError::Storage)),
+                    SledError::CollectionNotFound(_) => Ok(Ok(Err(DefinitionError::ObjectDoesNotExist))),
+                },
             },
-            None => Err(StorageError::RuntimeCheckError),
+            None => Ok(Ok(Err(DefinitionError::SchemaDoesNotExist))),
         }
     }
 
-    fn write(&self, schema_name: &str, object_name: &str, rows: Vec<Row>) -> StorageResult<usize> {
+    fn write(
+        &self,
+        schema_name: &str,
+        object_name: &str,
+        rows: Vec<Row>,
+    ) -> io::Result<Result<Result<usize, DefinitionError>, StorageError>> {
         match self.schemas.read().expect("to acquire read lock").get(schema_name) {
             Some(schema) => {
                 if schema.tree_names().contains(&(object_name.into())) {
-                    match schema.open_tree(object_name) {
-                        Ok(object) => {
+                    match self.open_tree(schema.clone(), object_name) {
+                        Ok(Ok(Ok(object))) => {
                             let mut written_rows = 0;
                             for (key, values) in rows.iter() {
-                                match object
-                                    .insert::<sled::IVec, sled::IVec>(key.to_bytes().into(), values.to_bytes().into())
-                                {
+                                match self.insert_into_tree_with_failpoint(&object, key, values) {
                                     Ok(_) => written_rows += 1,
-                                    Err(error) => return Err(StorageError::SystemError(SledErrorMapper::map(error))),
+                                    Err(error) => match error {
+                                        SledError::Io(io_error) => return Err(io_error),
+                                        SledError::Corruption { .. } => return Ok(Err(StorageError::Storage)),
+                                        SledError::ReportableBug(_) => return Ok(Err(StorageError::Storage)),
+                                        SledError::Unsupported(_) => return Ok(Err(StorageError::Storage)),
+                                        SledError::CollectionNotFound(_) => {
+                                            return Ok(Ok(Err(DefinitionError::ObjectDoesNotExist)))
+                                        }
+                                    },
                                 }
                             }
-                            object.flush().expect("Ok");
-                            log::info!("{:?} data is written to {:?}.{:?}", rows, schema_name, object_name);
-                            Ok(written_rows)
+                            match self.tree_flush_with_failpoint(object) {
+                                Ok(flushed) => {
+                                    log::trace!("{:?} data is written to {:?}.{:?}", rows, schema_name, object_name);
+                                    log::debug!("| inserted {:?} | flushed {:?} |", written_rows, flushed);
+                                    Ok(Ok(Ok(written_rows)))
+                                }
+                                Err(error) => match error {
+                                    SledError::Io(io_error) => Err(io_error),
+                                    SledError::Corruption { .. } => Ok(Err(StorageError::Storage)),
+                                    SledError::ReportableBug(_) => Ok(Err(StorageError::Storage)),
+                                    SledError::Unsupported(_) => Ok(Err(StorageError::Storage)),
+                                    SledError::CollectionNotFound(_) => {
+                                        Ok(Ok(Err(DefinitionError::ObjectDoesNotExist)))
+                                    }
+                                },
+                            }
                         }
-                        Err(error) => Err(StorageError::SystemError(SledErrorMapper::map(error))),
+                        otherwise => otherwise.map(|io| io.map(|storage| storage.map(|_object| 0))),
                     }
                 } else {
-                    Err(StorageError::RuntimeCheckError)
+                    Ok(Ok(Err(DefinitionError::ObjectDoesNotExist)))
                 }
             }
-            None => Err(StorageError::RuntimeCheckError),
+            None => Ok(Ok(Err(DefinitionError::SchemaDoesNotExist))),
         }
     }
 
-    fn read(&self, schema_name: &str, object_name: &str) -> StorageResult<ReadCursor> {
+    fn read(
+        &self,
+        schema_name: &str,
+        object_name: &str,
+    ) -> io::Result<Result<Result<ReadCursor, DefinitionError>, StorageError>> {
         match self.schemas.read().expect("to acquire read lock").get(schema_name) {
             Some(schema) => {
                 if schema.tree_names().contains(&(object_name.into())) {
-                    match schema.open_tree(object_name) {
-                        Ok(object) => Ok(Box::new(object.iter().map(|item| match item {
-                            Ok((key, values)) => {
-                                Ok((Binary::with_data(key.to_vec()), Binary::with_data(values.to_vec())))
-                            }
-                            Err(error) => Err(SledErrorMapper::map(error)),
-                        }))),
-                        Err(error) => Err(StorageError::SystemError(SledErrorMapper::map(error))),
+                    match self.open_tree(schema.clone(), object_name) {
+                        Ok(Ok(Ok(object))) => Ok(Ok(Ok(Box::new(self.iterator_over_tree_with_failpoint(object).map(
+                            |item| match item {
+                                Ok((key, values)) => Ok(Ok((
+                                    Binary::with_data(key.to_vec()),
+                                    Binary::with_data(values.to_vec()),
+                                ))),
+                                Err(error) => match error {
+                                    SledError::Io(io_error) => Err(io_error),
+                                    SledError::Corruption { .. } => Ok(Err(StorageError::Storage)),
+                                    SledError::ReportableBug(_) => Ok(Err(StorageError::Storage)),
+                                    SledError::Unsupported(_) => Ok(Err(StorageError::Storage)),
+                                    SledError::CollectionNotFound(_) => Ok(Err(StorageError::Storage)),
+                                },
+                            },
+                        ))))),
+                        otherwise => otherwise.map(|io| io.map(|storage| storage.map(|_object| self.empty_iterator()))),
                     }
                 } else {
                     log::error!(
@@ -221,96 +332,80 @@ impl Database for PersistentDatabase {
                         schema_name,
                         object_name
                     );
-                    Err(StorageError::RuntimeCheckError)
+                    Ok(Ok(Err(DefinitionError::ObjectDoesNotExist)))
                 }
             }
             None => {
-                log::error!("No namespace with {:?} name found", schema_name);
-                Err(StorageError::RuntimeCheckError)
+                log::error!("No schema with {:?} name found", schema_name);
+                Ok(Ok(Err(DefinitionError::SchemaDoesNotExist)))
             }
         }
     }
 
-    fn delete(&self, schema_name: &str, object_name: &str, keys: Vec<Key>) -> StorageResult<usize> {
+    fn delete(
+        &self,
+        schema_name: &str,
+        object_name: &str,
+        keys: Vec<Key>,
+    ) -> io::Result<Result<Result<usize, DefinitionError>, StorageError>> {
         match self.schemas.read().expect("to acquire read lock").get(schema_name) {
             Some(schema) => {
                 if schema.tree_names().contains(&(object_name.into())) {
-                    let mut deleted = 0;
-                    match schema.open_tree(object_name) {
-                        Ok(object) => {
+                    match self.open_tree(schema.clone(), object_name) {
+                        Ok(Ok(Ok(object))) => {
+                            let mut deleted = 0;
                             for key in keys {
-                                match object.remove(key.to_bytes()) {
+                                match self.remove_fro_tree_with_failpoint(&object, key) {
                                     Ok(_) => deleted += 1,
-                                    Err(error) => return Err(StorageError::SystemError(SledErrorMapper::map(error))),
+                                    Err(error) => match error {
+                                        SledError::Io(io_error) => return Err(io_error),
+                                        SledError::Corruption { .. } => return Ok(Err(StorageError::Storage)),
+                                        SledError::ReportableBug(_) => return Ok(Err(StorageError::Storage)),
+                                        SledError::Unsupported(_) => return Ok(Err(StorageError::Storage)),
+                                        SledError::CollectionNotFound(_) => {
+                                            return Ok(Ok(Err(DefinitionError::ObjectDoesNotExist)))
+                                        }
+                                    },
                                 }
                             }
-                            object.flush().expect("Ok");
+                            match self.tree_flush_with_failpoint(object) {
+                                Ok(flushed) => {
+                                    log::debug!("| inserted {:?} | flushed {:?} |", deleted, flushed);
+                                    Ok(Ok(Ok(deleted)))
+                                }
+                                Err(error) => match error {
+                                    SledError::Io(io_error) => Err(io_error),
+                                    SledError::Corruption { .. } => Ok(Err(StorageError::Storage)),
+                                    SledError::ReportableBug(_) => Ok(Err(StorageError::Storage)),
+                                    SledError::Unsupported(_) => Ok(Err(StorageError::Storage)),
+                                    SledError::CollectionNotFound(_) => {
+                                        Ok(Ok(Err(DefinitionError::ObjectDoesNotExist)))
+                                    }
+                                },
+                            }
                         }
-                        Err(error) => return Err(StorageError::SystemError(SledErrorMapper::map(error))),
+                        otherwise => otherwise.map(|io| io.map(|storage| storage.map(|_object| 0))),
                     }
-                    Ok(deleted)
                 } else {
-                    Err(StorageError::RuntimeCheckError)
+                    Ok(Ok(Err(DefinitionError::ObjectDoesNotExist)))
                 }
             }
-            None => Err(StorageError::RuntimeCheckError),
+            None => Ok(Ok(Err(DefinitionError::SchemaDoesNotExist))),
         }
     }
 }
 
-#[cfg(test)]
-mod sled_error_mapper {
-    use super::*;
-    use sled::DiskPtr;
-    use std::io::{Error, ErrorKind};
-
-    #[test]
-    fn collection_not_found() {
-        assert_eq!(
-            SledErrorMapper::map(SledError::CollectionNotFound(sled::IVec::from("test"))),
-            SystemError::unrecoverable("System file [test] can't be found".to_owned())
-        )
-    }
-
-    #[test]
-    fn unsupported() {
-        assert_eq!(
-            SledErrorMapper::map(SledError::Unsupported("NOT_SUPPORTED".to_owned())),
-            SystemError::unrecoverable("Unsupported operation [NOT_SUPPORTED] was used on Sled".to_owned())
-        )
-    }
-
-    #[test]
-    fn corruption_with_position() {
-        let at = DiskPtr::Inline(900);
-        assert_eq!(
-            SledErrorMapper::map(SledError::Corruption { at: Some(at), bt: () }),
-            SystemError::unrecoverable(format!("Sled encountered corruption at {}", at))
-        )
-    }
-
-    #[test]
-    fn corruption_without_position() {
-        assert_eq!(
-            SledErrorMapper::map(SledError::Corruption { at: None, bt: () }),
-            SystemError::unrecoverable("Sled encountered corruption".to_owned())
-        )
-    }
-
-    #[test]
-    fn reportable_bug() {
-        let description = "SOME_BUG_HERE";
-        assert_eq!(
-            SledErrorMapper::map(SledError::ReportableBug(description.to_owned())),
-            SystemError::unrecoverable(format!("Sled encountered reportable BUG: {}", description))
-        );
-    }
-
-    #[test]
-    fn io() {
-        assert_eq!(
-            SledErrorMapper::map(SledError::Io(Error::new(ErrorKind::Other, "oh no!"))),
-            SystemError::io(Error::new(ErrorKind::Other, "oh no!"))
-        )
+fn sled_error(kind: Option<String>) -> SledError {
+    match kind.as_deref() {
+        Some("io") => SledError::Io(ErrorKind::Other.into()),
+        Some("corruption") => SledError::Corruption {
+            at: Some(DiskPtr::Inline(500)),
+            bt: (),
+        },
+        Some("bug") => SledError::ReportableBug("BUG".to_owned()),
+        Some("unsupported(core_structure)") => SledError::Unsupported("cannot remove the core structures".into()),
+        Some("unsupported") => SledError::Unsupported("Unsupported Operation".to_owned()),
+        Some("collection_not_found") => SledError::CollectionNotFound(vec![].into()),
+        _ => panic!("wrong sled error kind {:?}", &kind),
     }
 }

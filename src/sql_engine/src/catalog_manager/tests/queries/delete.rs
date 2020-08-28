@@ -54,7 +54,7 @@ fn delete_all_from_table(default_schema_name: &str, storage_with_schema: Catalog
     assert_eq!(
         storage_with_schema
             .table_scan("schema_name", "table_name")
-            .map(Iterator::collect),
+            .map(|iter| iter.map(Result::unwrap).map(Result::unwrap).collect()),
         Ok(vec![])
     );
 }
