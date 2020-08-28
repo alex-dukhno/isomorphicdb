@@ -1,8 +1,8 @@
-use crate::query::scalar::ScalarOp;
+use crate::query::scalar::{ScalarOp};
 use protocol::results::{QueryErrorBuilder, QueryResult};
 use protocol::Sender;
 use representation::{Datum, EvalError};
-use sqlparser::ast::{BinaryOperator, DataType, Expr, UnaryOperator, Value};
+use sqlparser::ast::{BinaryOperator, DataType, Expr, UnaryOperator, Value, Assignment};
 use std::convert::TryFrom;
 use std::ops::Deref;
 use std::str::FromStr;
@@ -74,6 +74,7 @@ impl ExpressionEvaluation {
                                 .syntax_error(op.to_string() + expr.to_string().as_str())
                                 .build()))
                             .expect("To Send Query Result to Client");
+                        // EvalScalarOp::eval_unary_literal_expr(op, *op, operand)?;
                         return Err(());
                     }
                 }
@@ -83,61 +84,11 @@ impl ExpressionEvaluation {
                 let rhs = self.inner_eval(right.deref())?;
                 match (lhs, rhs) {
                     (ScalarOp::Literal(left), ScalarOp::Literal(right)) => {
-                        if left.is_integer() && right.is_integer() {
-                            match op {
-                                BinaryOperator::Plus => Ok(ScalarOp::Literal(left + right)),
-                                BinaryOperator::Minus => Ok(ScalarOp::Literal(left - right)),
-                                BinaryOperator::Multiply => Ok(ScalarOp::Literal(left * right)),
-                                BinaryOperator::Divide => Ok(ScalarOp::Literal(left / right)),
-                                BinaryOperator::Modulus => Ok(ScalarOp::Literal(left % right)),
-                                BinaryOperator::BitwiseAnd => Ok(ScalarOp::Literal(left & right)),
-                                BinaryOperator::BitwiseOr => Ok(ScalarOp::Literal(left | right)),
-                                BinaryOperator::StringConcat => {
-                                    let kind = QueryErrorBuilder::new()
-                                        .undefined_function(op.to_string(), "NUMBER".to_owned(), "NUMBER".to_owned())
-                                        .build();
-                                    self.session.send(Err(kind)).expect("To Send Query Result to Client");;
-                                    return Err(());
-                                }
-                                _ => panic!(),
-                            }
-                        } else if left.is_float() && right.is_float() {
-                            match op {
-                                BinaryOperator::Plus => Ok(ScalarOp::Literal(left + right)),
-                                BinaryOperator::Minus => Ok(ScalarOp::Literal(left - right)),
-                                BinaryOperator::Multiply => Ok(ScalarOp::Literal(left * right)),
-                                BinaryOperator::Divide => Ok(ScalarOp::Literal(left / right)),
-                                BinaryOperator::StringConcat => {
-                                    let kind = QueryErrorBuilder::new()
-                                        .undefined_function(op.to_string(), "NUMBER".to_owned(), "NUMBER".to_owned())
-                                        .build();
-                                    self.session.send(Err(kind)).expect("To Send Query Result to Client");;
-                                    return Err(());
-                                }
-                                _ => panic!(),
-                            }
-                        } else if left.is_string() || right.is_string() {
-                            match op {
-                                BinaryOperator::StringConcat => {
-                                    let value = format!("{}{}", left.to_string(), right.to_string());
-                                    Ok(ScalarOp::Literal(Datum::OwnedString(value)))
-                                }
-                                _ => {
-                                    let kind = QueryErrorBuilder::new()
-                                        .undefined_function(op.to_string(), "STRING".to_owned(), "STRING".to_owned())
-                                        .build();
-                                    self.session.send(Err(kind)).expect("To Send Query Result to Client");;
-                                    return Err(());
-                                }
-                            }
-                        } else {
-                            self.session
-                                .send(Err(QueryErrorBuilder::new().syntax_error(expr.to_string()).build()))
-                                .expect("To Send Query Result to Client");
-                            Err(())
-                        }
+                        EvalScalarOp::eval_binary_literal_expr(self.session.as_ref(), op.clone(), left, right).map(ScalarOp::Literal)
                     }
-                    (_, _) => panic!(),
+                    (left, right) => {
+                        Ok(ScalarOp::Binary(op.clone(), Box::new(left), Box::new(right)))
+                    }
                 }
             }
             Expr::Value(value) => match Datum::try_from(value) {
@@ -187,7 +138,26 @@ impl ExpressionEvaluation {
         }
     }
 
-    fn find_column_by_name(&self, name: &str) -> Result<Option<(usize, ColumnDefinition)>, ()> {
+    pub fn eval_assignment(&self, assignment: &Assignment) -> Result<ScalarOp, ()> {
+        let Assignment { id, value } = assignment;
+        let destination = if let Some((idx, _)) = self.find_column_by_name(id.value.as_str())? {
+            idx
+        }
+        else {
+            let kind = QueryErrorBuilder::new().undefined_column(id.value.clone()).build();
+            self.session.send(Err(kind)).expect("To Send Query Result to Client");
+            return Err(())
+        };
+
+        let value = self.eval(value)?;
+
+        Ok(ScalarOp::Assignment {
+            destination,
+            value: Box::new(value),
+        })
+    }
+
+    pub fn find_column_by_name(&self, name: &str) -> Result<Option<(usize, ColumnDefinition)>, ()> {
         let mut found = None;
         for table_info in self.table_info.to_vec() {
             if let Some((idx, column)) = table_info.column_by_name_with_index(name) {
@@ -202,5 +172,100 @@ impl ExpressionEvaluation {
             }
         }
         Ok(found)
+    }
+}
+
+pub struct EvalScalarOp;
+
+impl EvalScalarOp {
+    pub fn eval<'a, 'b: 'a>(session: &dyn Sender, row: &[Datum<'a>], eval: &ScalarOp) -> Result<Datum<'a>, ()> {
+        match eval {
+            ScalarOp::Column(idx) => Ok(row[*idx].clone()),
+            ScalarOp::Literal(datum) => Ok(datum.clone()),
+            ScalarOp::Binary(op, lhs, rhs) => {
+                let left = Self::eval(session, row, lhs.as_ref())?;
+                let right = Self::eval(session, row, rhs.as_ref())?;
+                Self::eval_binary_literal_expr(session, op.clone(), left, right)
+            }
+            ScalarOp::Unary(op, operand) => {
+                let operand = Self::eval(session, row, operand.as_ref())?;
+                Self::eval_unary_literal_expr(session, op.clone(), operand)
+            }
+            ScalarOp::Assignment {..} =>
+                panic!("EvalScalarOp:eval should not be evaluated on a ScalarOp::Assignment"),
+        }
+    }
+
+    pub fn eval_on_row(session: &dyn Sender, row: &mut [Datum], eval: &ScalarOp) -> Result<(), ()> {
+        match eval {
+            ScalarOp::Assignment { destination, value } => {
+                let value = Self::eval(session, row, value.as_ref())?;
+                row[*destination] = value;
+            }
+            _ => {
+                panic!("EvalScalarOp:eval_on_row should only be evaluated on a ScalarOp::Assignment");
+            }
+        }
+        Ok(())
+    }
+
+    pub fn eval_binary_literal_expr<'b>(session: &dyn Sender, op: BinaryOperator, left: Datum<'b>, right: Datum<'b>) -> Result<Datum<'b>, ()> {
+        if left.is_integer() && right.is_integer() {
+            match op {
+                BinaryOperator::Plus => Ok(left + right),
+                BinaryOperator::Minus => Ok(left - right),
+                BinaryOperator::Multiply => Ok(left * right),
+                BinaryOperator::Divide => Ok(left / right),
+                BinaryOperator::Modulus => Ok(left % right),
+                BinaryOperator::BitwiseAnd => Ok(left & right),
+                BinaryOperator::BitwiseOr => Ok(left | right),
+                BinaryOperator::StringConcat => {
+                    let kind = QueryErrorBuilder::new()
+                        .undefined_function(op.to_string(), "NUMBER".to_owned(), "NUMBER".to_owned())
+                        .build();
+                    session.send(Err(kind)).expect("To Send Query Result to Client");;
+                    return Err(());
+                }
+                _ => panic!(),
+            }
+        } else if left.is_float() && right.is_float() {
+            match op {
+                BinaryOperator::Plus => Ok(left + right),
+                BinaryOperator::Minus => Ok(left - right),
+                BinaryOperator::Multiply => Ok(left * right),
+                BinaryOperator::Divide => Ok(left / right),
+                BinaryOperator::StringConcat => {
+                    let kind = QueryErrorBuilder::new()
+                        .undefined_function(op.to_string(), "NUMBER".to_owned(), "NUMBER".to_owned())
+                        .build();
+                    session.send(Err(kind)).expect("To Send Query Result to Client");;
+                    return Err(());
+                }
+                _ => panic!(),
+            }
+        } else if left.is_string() || right.is_string() {
+            match op {
+                BinaryOperator::StringConcat => {
+                    let value = format!("{}{}", left.to_string(), right.to_string());
+                    Ok(Datum::OwnedString(value))
+                }
+                _ => {
+                    let kind = QueryErrorBuilder::new()
+                        .undefined_function(op.to_string(), "STRING".to_owned(), "STRING".to_owned())
+                        .build();
+                    session.send(Err(kind)).expect("To Send Query Result to Client");;
+                    return Err(());
+                }
+            }
+        } else {
+            session
+                .send(Err(QueryErrorBuilder::new().syntax_error(format!("{} {} {}", left.to_string(), op.to_string(), right.to_string())).build()))
+                .expect("To Send Query Result to Client");
+            Err(())
+        }
+    }
+
+    pub fn eval_unary_literal_expr<'b>(session: &dyn Sender, op: UnaryOperator, operand: Datum) -> Result<Datum<'b>, ()> {
+        unimplemented!()
     }
 }

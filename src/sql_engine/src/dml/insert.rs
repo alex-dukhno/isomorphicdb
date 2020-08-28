@@ -176,12 +176,6 @@ impl<'ic> InsertCommand<'ic> {
                         // TODO: The default value or NULL should be initialized for SQL types of all columns.
                         let mut record = vec![Datum::from_null(); all_columns.len()];
                         for (item, (index, column_definition)) in row.iter().zip(index_columns.iter()) {
-                            // let v = match item.clone() {
-                            //     Value::Number(v) => v.to_string(),
-                            //     Value::SingleQuotedString(v) => v.to_string(),
-                            //     Value::Boolean(v) => v.to_string(),
-                            //     _ => unimplemented!("other types not implemented"),
-                            // };
                             let datum = item.as_datum().unwrap();
                             let v = datum.to_string();
                             match column_definition.sql_type().constraint().validate(v.as_str()) {

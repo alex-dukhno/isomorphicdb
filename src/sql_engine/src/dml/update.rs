@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::query::expr::ExpressionEvaluation;
+use crate::query::expr::{ExpressionEvaluation, EvalScalarOp};
 use crate::{catalog_manager::CatalogManager, ColumnDefinition};
 use kernel::SystemResult;
 use protocol::{
@@ -24,6 +24,7 @@ use sql_types::ConstraintError;
 use sqlparser::ast::{Assignment, Expr, Ident, ObjectName, UnaryOperator, Value};
 use std::{collections::BTreeSet, convert::TryFrom, sync::Arc};
 use storage::Row;
+use crate::query::scalar::ScalarOp;
 
 pub(crate) struct UpdateCommand {
     name: ObjectName,
@@ -63,71 +64,53 @@ impl UpdateCommand {
 
 
         let all_columns;
-        let mut errors = Vec::new();
-        let mut index_value_pairs = Vec::new();
+        // let mut errors = Vec::new();
         let mut non_existing_columns = BTreeSet::new();
         let mut column_exists = false;
 
 
         // only process the rows if the table and schema exist.
-        if self.storage.table_exists(&schema_name, &table_name) {
-            let table_definition = self.storage.table_descriptor(&schema_name, &table_name)?;
-            all_columns = table_definition.column_data();
-
-            let evaluation = ExpressionEvaluation::new(self.session.clone(), vec![table_definition.clone()]);
-
-            for item in self.assignments.iter() {
-                let Assignment { id, value } = &item;
-                let Ident { value: column, .. } = id;
-                let value = match evaluation.eval(value) {
-                    Ok(value) => {
-                        if value.is_literal() {
-                            value
-                        } else {
-                            self.session.send(Err(QueryErrorBuilder::new()
-                                .feature_not_supported("Only expressions resulting in a literal are supported".to_string())
-                                .build())).expect("To Send Query Result to Client");;
-                            return Ok(());
-                        }
-                    }
-                    Err(()) => return Ok(()),
-                };
-
-                to_update.push((column.to_owned(), value))
-            }
-
-
-            for (column_name, value) in to_update {
-                for (index, column_definition) in all_columns.iter().enumerate() {
-                    if column_definition.has_name(&column_name) {
-                        let datum = value.as_datum().unwrap();
-                        let v = datum.to_string();
-                        match column_definition.sql_type().constraint().validate(v.as_str()) {
-                            Ok(()) => {
-                                index_value_pairs.push((index, datum));
-                            }
-                            Err(e) => {
-                                errors.push((e, column_definition.clone()));
-                            }
-                        }
-
-                        column_exists = true;
-
-                        break;
-                    }
-                }
-
-                if !column_exists {
-                    non_existing_columns.insert(column_name.clone());
-                }
-            }
-        } else {
+        if !self.storage.table_exists(&schema_name, &table_name) {
+            // for (column_name, value) in to_update {
+            //     for (index, column_definition) in all_columns.iter().enumerate() {
+            //         if column_definition.has_name(&column_name) {
+            //             let datum = value.as_datum().unwrap();
+            //             let v = datum.to_string();
+            //             match column_definition.sql_type().constraint().validate(v.as_str()) {
+            //                 Ok(()) => {
+            //                     index_value_pairs.push((index, datum));
+            //                 }
+            //                 Err(e) => {
+            //                     errors.push((e, column_definition.clone()));
+            //                 }
+            //             }
+            //             column_exists = true;
+            //             break;
+            //         }
+            //     }
+            //
+            //     if !column_exists {
+            //         non_existing_columns.insert(column_name.clone());
+            //     }
+            // }
             self.session
                 .send(Err(QueryErrorBuilder::new()
                     .table_does_not_exist(schema_name + "." + table_name.as_str())
                     .build()))
                 .expect("To Send Result to Client");
             return Ok(());
+        }
+
+        let table_definition = self.storage.table_descriptor(&schema_name, &table_name)?;
+        all_columns = table_definition.column_data();
+
+        let evaluation = ExpressionEvaluation::new(self.session.clone(), vec![table_definition.clone()]);
+
+        for item in self.assignments.iter() {
+            match evaluation.eval_assignment(item) {
+                Ok(assign) => to_update.push(assign),
+                Err(()) => return Ok(()),
+            }
         }
 
         if !non_existing_columns.is_empty() {
@@ -138,41 +121,41 @@ impl UpdateCommand {
                 .expect("To Send Result to Client");
             return Ok(());
         }
-        if !errors.is_empty() {
-            let row_index = 1;
-            let mut builder = QueryErrorBuilder::new();
-            let constraint_error_mapper = |(err, column_definition): &(ConstraintError, ColumnDefinition)| match err {
-                ConstraintError::OutOfRange => {
-                    builder.out_of_range(
-                        (&column_definition.sql_type()).into(),
-                        column_definition.name(),
-                        row_index,
-                    );
-                }
-                ConstraintError::TypeMismatch(value) => {
-                    builder.type_mismatch(
-                        value,
-                        (&column_definition.sql_type()).into(),
-                        column_definition.name(),
-                        row_index,
-                    );
-                }
-                ConstraintError::ValueTooLong(len) => {
-                    builder.string_length_mismatch(
-                        (&column_definition.sql_type()).into(),
-                        *len,
-                        column_definition.name(),
-                        row_index,
-                    );
-                }
-            };
-
-            errors.iter().for_each(constraint_error_mapper);
-            self.session
-                .send(Err(builder.build()))
-                .expect("To Send Query Result to Client");
-            return Ok(());
-        }
+        // if !errors.is_empty() {
+        //     let row_index = 1;
+        //     let mut builder = QueryErrorBuilder::new();
+        //     let constraint_error_mapper = |(err, column_definition): &(ConstraintError, ColumnDefinition)| match err {
+        //         ConstraintError::OutOfRange => {
+        //             builder.out_of_range(
+        //                 (&column_definition.sql_type()).into(),
+        //                 column_definition.name(),
+        //                 row_index,
+        //             );
+        //         }
+        //         ConstraintError::TypeMismatch(value) => {
+        //             builder.type_mismatch(
+        //                 value,
+        //                 (&column_definition.sql_type()).into(),
+        //                 column_definition.name(),
+        //                 row_index,
+        //             );
+        //         }
+        //         ConstraintError::ValueTooLong(len) => {
+        //             builder.string_length_mismatch(
+        //                 (&column_definition.sql_type()).into(),
+        //                 *len,
+        //                 column_definition.name(),
+        //                 row_index,
+        //             );
+        //         }
+        //     };
+        //
+        //     errors.iter().for_each(constraint_error_mapper);
+        //     self.session
+        //         .send(Err(builder.build()))
+        //         .expect("To Send Query Result to Client");
+        //     return Ok(());
+        // }
 
         let to_update: Vec<Row> = match self.storage.table_scan(&schema_name, &table_name) {
             Err(error) => return Err(error),
@@ -180,9 +163,11 @@ impl UpdateCommand {
                 .map(Result::unwrap)
                 .map(|(key, values)| {
                     let mut datums = unpack_raw(values.to_bytes());
-                    for (idx, data) in index_value_pairs.as_slice() {
-                        datums[*idx] = data.clone();
+
+                    for update in to_update.as_slice() {
+                        EvalScalarOp::eval_on_row(self.session.as_ref(), &mut datums.as_mut_slice(), update).expect("failed to eval assignment expression");
                     }
+
                     (key, Binary::pack(&datums))
                 })
                 .collect(),

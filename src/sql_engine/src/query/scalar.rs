@@ -16,43 +16,8 @@
 ///! theses operators will be defined in a sperate module.
 use super::ColumnType;
 use representation::{Binary, Datum};
+use sqlparser::ast::{BinaryOperator, UnaryOperator};
 // use crate::query::relation::RelationType;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum BinaryOp {
-    Plus,
-    Minus,
-    Multiply,
-    Division,
-    Modulo,
-
-    BitAnd,
-    BitOr,
-    BitXOR,
-
-    Equal,
-    Greater,
-    Less,
-    GreaterEqual,
-    LessEqual,
-    NotEqual,
-    PlusEqual,
-    MinusEqual,
-
-    MultiplyEqual,
-    DivisionEqual,
-    ModuleEqual,
-    BitAndEqual,
-    XOREqual,
-    OREqual,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum UnaryOp {
-    Plus,
-    Minus,
-    BitNot,
-}
 
 /// Operation performed on the table
 /// influenced by Materialized's ScalarExpr
@@ -63,9 +28,13 @@ pub enum ScalarOp {
     /// literal value (owned) and expected type.
     Literal(Datum<'static>),
     /// binary operator
-    Binary(BinaryOp, Box<ScalarOp>, Box<ScalarOp>),
+    Binary(BinaryOperator, Box<ScalarOp>, Box<ScalarOp>),
     /// unary operator
-    Unary(UnaryOp, Box<ScalarOp>),
+    Unary(UnaryOperator, Box<ScalarOp>),
+    Assignment {
+        destination: usize,
+        value: Box<ScalarOp>,
+    }
 }
 
 impl ScalarOp {
