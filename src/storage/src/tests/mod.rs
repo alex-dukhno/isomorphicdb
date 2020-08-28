@@ -19,6 +19,16 @@ mod in_memory;
 #[cfg(test)]
 mod persistent;
 
+#[rstest::fixture]
+fn schema_name() -> &'static str {
+    "schema_name"
+}
+
+#[rstest::fixture]
+fn object_name() -> &'static str {
+    "object_name"
+}
+
 fn as_rows(items: Vec<(u8, Vec<&'static str>)>) -> Vec<Row> {
     items
         .into_iter()
@@ -51,6 +61,6 @@ fn as_read_cursor(items: Vec<(u8, Vec<&'static str>)>) -> ReadCursor {
             .map(|s| s.as_bytes())
             .collect::<Vec<&[u8]>>()
             .join(&b'|');
-        Ok((Binary::with_data(k), Binary::with_data(v)))
+        Ok(Ok((Binary::with_data(k), Binary::with_data(v))))
     }))
 }

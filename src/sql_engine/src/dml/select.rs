@@ -252,6 +252,7 @@ impl<'sc> SelectCommand<'sc> {
 
                     let values: Vec<Vec<String>> = records
                         .map(Result::unwrap)
+                        .map(Result::unwrap)
                         .map(|(_key, values)| {
                             let row: Vec<String> = values.unpack().into_iter().map(|datum| datum.to_string()).collect();
 

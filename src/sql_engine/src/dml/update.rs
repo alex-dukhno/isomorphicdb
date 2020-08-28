@@ -184,6 +184,7 @@ impl UpdateCommand {
             Err(error) => return Err(error),
             Ok(reads) => reads
                 .map(Result::unwrap)
+                .map(Result::unwrap)
                 .map(|(key, values)| {
                     let mut datums = unpack_raw(values.to_bytes());
                     for (idx, data) in index_value_pairs.as_slice() {
