@@ -14,10 +14,7 @@
 
 use super::*;
 use crate::{tests::Collector, QueryExecutor};
-use protocol::{
-    results::{QueryErrorBuilder, QueryEvent},
-    sql_types::PostgreSqlType,
-};
+use protocol::{results::QueryEvent, sql_types::PostgreSqlType};
 use std::sync::Arc;
 
 #[rstest::rstest]
@@ -29,9 +26,9 @@ fn delete_from_nonexistent_table(sql_engine_with_schema: (QueryExecutor, Arc<Col
 
     collector.assert_content_for_single_queries(vec![
         Ok(QueryEvent::SchemaCreated),
-        Err(QueryErrorBuilder::new()
-            .table_does_not_exist("schema_name.table_name".to_owned())
-            .build()),
+        Ok(QueryEvent::QueryComplete),
+        Err(QueryError::table_does_not_exist("schema_name.table_name".to_owned())),
+        Ok(QueryEvent::QueryComplete),
     ]);
 }
 
@@ -59,17 +56,24 @@ fn delete_all_records(sql_engine_with_schema: (QueryExecutor, Arc<Collector>)) {
 
     collector.assert_content_for_single_queries(vec![
         Ok(QueryEvent::SchemaCreated),
+        Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::TableCreated),
+        Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::RecordsInserted(1)),
+        Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::RecordsInserted(1)),
+        Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::RecordsSelected((
             vec![("column_test".to_owned(), PostgreSqlType::SmallInt)],
             vec![vec!["123".to_owned()], vec!["456".to_owned()]],
         ))),
+        Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::RecordsDeleted(2)),
+        Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::RecordsSelected((
             vec![("column_test".to_owned(), PostgreSqlType::SmallInt)],
             vec![],
         ))),
+        Ok(QueryEvent::QueryComplete),
     ])
 }

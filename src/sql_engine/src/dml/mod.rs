@@ -13,7 +13,8 @@
 // limitations under the License.
 
 use bigdecimal::BigDecimal;
-use protocol::{results::QueryErrorBuilder, Sender};
+use protocol::results::QueryError;
+use protocol::Sender;
 use sqlparser::ast::{BinaryOperator, Expr, Value};
 use std::{ops::Deref, sync::Arc};
 
@@ -61,9 +62,11 @@ impl ExpressionEvaluation {
                     }
                     operator => {
                         self.session
-                            .send(Err(QueryErrorBuilder::new()
-                                .undefined_function(operator.to_string(), "NUMBER".to_owned(), "NUMBER".to_owned())
-                                .build()))
+                            .send(Err(QueryError::undefined_function(
+                                operator.to_string(),
+                                "NUMBER".to_owned(),
+                                "NUMBER".to_owned(),
+                            )))
                             .expect("To Send Query Result to Client");
                         Err(())
                     }
@@ -72,9 +75,11 @@ impl ExpressionEvaluation {
                     BinaryOperator::StringConcat => Ok(ExprResult::String(left + right.as_str())),
                     operator => {
                         self.session
-                            .send(Err(QueryErrorBuilder::new()
-                                .undefined_function(operator.to_string(), "STRING".to_owned(), "STRING".to_owned())
-                                .build()))
+                            .send(Err(QueryError::undefined_function(
+                                operator.to_string(),
+                                "STRING".to_owned(),
+                                "STRING".to_owned(),
+                            )))
                             .expect("To Send Query Result to Client");
                         Err(())
                     }
@@ -83,9 +88,11 @@ impl ExpressionEvaluation {
                     BinaryOperator::StringConcat => Ok(ExprResult::String(left.to_string() + right.as_str())),
                     operator => {
                         self.session
-                            .send(Err(QueryErrorBuilder::new()
-                                .undefined_function(operator.to_string(), "NUMBER".to_owned(), "STRING".to_owned())
-                                .build()))
+                            .send(Err(QueryError::undefined_function(
+                                operator.to_string(),
+                                "NUMBER".to_owned(),
+                                "STRING".to_owned(),
+                            )))
                             .expect("To Send Query Result to Client");
                         Err(())
                     }
@@ -94,9 +101,11 @@ impl ExpressionEvaluation {
                     BinaryOperator::StringConcat => Ok(ExprResult::String(left + right.to_string().as_str())),
                     operator => {
                         self.session
-                            .send(Err(QueryErrorBuilder::new()
-                                .undefined_function(operator.to_string(), "STRING".to_owned(), "NUMBER".to_owned())
-                                .build()))
+                            .send(Err(QueryError::undefined_function(
+                                operator.to_string(),
+                                "STRING".to_owned(),
+                                "NUMBER".to_owned(),
+                            )))
                             .expect("To Send Query Result to Client");
                         Err(())
                     }
@@ -108,7 +117,7 @@ impl ExpressionEvaluation {
                 Expr::Value(Value::SingleQuotedString(v)) => Ok(ExprResult::String(v.clone())),
                 e => {
                     self.session
-                        .send(Err(QueryErrorBuilder::new().syntax_error(e.to_string()).build()))
+                        .send(Err(QueryError::syntax_error(e.to_string())))
                         .expect("To Send Query Result to Client");
                     Err(())
                 }

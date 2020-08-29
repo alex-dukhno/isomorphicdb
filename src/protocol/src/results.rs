@@ -50,7 +50,7 @@ pub enum QueryEvent {
     RecordsDeleted(usize),
     /// Parameters described needed by a prepared statement
     PreparedStatementDescribed(Vec<PostgreSqlType>, Description),
-    /// Parsing the exteneded query is complete
+    /// Parsing the extended query is complete
     ParseComplete,
     /// Processing of the query is complete
     QueryComplete,
@@ -155,13 +155,13 @@ pub(crate) enum QueryErrorKind {
         pg_type: PostgreSqlType,
         value: String,
         column_name: String,
-        row_index: usize,
+        row_index: usize, // TODO make it optional - does not make sense for update query
     },
     StringTypeLengthMismatch {
         pg_type: PostgreSqlType,
         len: u64,
         column_name: String,
-        row_index: usize,
+        row_index: usize, // TODO make it optional - does not make sense for update query
     },
     UndefinedFunction {
         operator: String,
@@ -261,12 +261,12 @@ impl Display for QueryErrorKind {
 
 /// Represents error during query execution
 #[derive(Debug, PartialEq, Clone)]
-pub(crate) struct QueryErrorInner {
+pub struct QueryError {
     severity: Severity,
     kind: QueryErrorKind,
 }
 
-impl QueryErrorInner {
+impl QueryError {
     fn code(&self) -> Option<&'static str> {
         Some(self.kind.code())
     }
@@ -281,168 +281,120 @@ impl QueryErrorInner {
     }
 }
 
-/// a container of errors that occurred during query execution
-#[derive(Debug, PartialEq, Clone)]
-pub struct QueryError {
-    errors: Vec<QueryErrorInner>,
+impl Into<BackendMessage> for QueryError {
+    fn into(self) -> BackendMessage {
+        BackendMessage::ErrorResponse(self.severity(), self.code(), self.message())
+    }
 }
 
 impl QueryError {
-    pub(crate) fn new(errors: Vec<QueryErrorInner>) -> Self {
-        Self { errors }
-    }
-}
-
-impl Into<Vec<BackendMessage>> for QueryError {
-    fn into(self) -> Vec<BackendMessage> {
-        self.errors
-            .into_iter()
-            .map(|inner| BackendMessage::ErrorResponse(inner.severity(), inner.code(), inner.message()))
-            .collect::<Vec<_>>()
-    }
-}
-
-/// a structure for building a QueryError
-#[derive(Default, Debug)]
-pub struct QueryErrorBuilder {
-    errors: Vec<QueryErrorInner>,
-}
-
-impl QueryErrorBuilder {
-    /// constructs a new builder.
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// builds a QueryError containing all of the error generated
-    pub fn build(self) -> QueryError {
-        QueryError::new(self.errors)
-    }
-
-    // these error will stop the execution of the query; therefore there will only
-    // ever be one.
-
     /// schema already exists error constructor
-    pub fn schema_already_exists(mut self, schema_name: String) -> Self {
-        self.errors.push(QueryErrorInner {
+    pub fn schema_already_exists(schema_name: String) -> QueryError {
+        QueryError {
             severity: Severity::Error,
             kind: QueryErrorKind::SchemaAlreadyExists(schema_name),
-        });
-        self
+        }
     }
 
     /// schema does not exist error constructor
-    pub fn schema_does_not_exist(mut self, schema_name: String) -> Self {
-        self.errors.push(QueryErrorInner {
+    pub fn schema_does_not_exist(schema_name: String) -> QueryError {
+        QueryError {
             severity: Severity::Error,
             kind: QueryErrorKind::SchemaDoesNotExist(schema_name),
-        });
-        self
+        }
     }
 
     /// schema has dependent objects error constructor
-    pub fn schema_has_dependent_objects(mut self, schema_name: String) -> Self {
-        self.errors.push(QueryErrorInner {
+    pub fn schema_has_dependent_objects(schema_name: String) -> QueryError {
+        QueryError {
             severity: Severity::Error,
             kind: QueryErrorKind::SchemaHasDependentObjects(schema_name),
-        });
-        self
+        }
     }
 
     /// table already exists error constructor
-    pub fn table_already_exists(mut self, table_name: String) -> Self {
-        self.errors.push(QueryErrorInner {
+    pub fn table_already_exists(table_name: String) -> QueryError {
+        QueryError {
             severity: Severity::Error,
             kind: QueryErrorKind::TableAlreadyExists(table_name),
-        });
-        self
+        }
     }
 
     /// table does not exist error constructor
-    pub fn table_does_not_exist(mut self, table_name: String) -> Self {
-        self.errors.push(QueryErrorInner {
+    pub fn table_does_not_exist(table_name: String) -> QueryError {
+        QueryError {
             severity: Severity::Error,
             kind: QueryErrorKind::TableDoesNotExist(table_name),
-        });
-        self
+        }
     }
 
     /// column does not exists error constructor
-    pub fn column_does_not_exist(mut self, non_existing_columns: Vec<String>) -> Self {
-        self.errors.push(QueryErrorInner {
+    pub fn column_does_not_exist(non_existing_columns: Vec<String>) -> QueryError {
+        QueryError {
             severity: Severity::Error,
             kind: QueryErrorKind::ColumnDoesNotExist(non_existing_columns),
-        });
-        self
+        }
     }
 
     /// prepared statement does not exist error constructor
-    pub fn prepared_statement_does_not_exist(mut self, statement_name: String) -> Self {
-        self.errors.push(QueryErrorInner {
+    pub fn prepared_statement_does_not_exist(statement_name: String) -> QueryError {
+        QueryError {
             severity: Severity::Error,
             kind: QueryErrorKind::PreparedStatementDoesNotExist(statement_name),
-        });
-        self
+        }
     }
 
     /// not supported operation error constructor
-    pub fn feature_not_supported(mut self, feature_description: String) -> Self {
-        self.errors.push(QueryErrorInner {
+    pub fn feature_not_supported(feature_description: String) -> QueryError {
+        QueryError {
             severity: Severity::Error,
             kind: QueryErrorKind::FeatureNotSupported(feature_description),
-        });
-        self
+        }
     }
 
     /// too many insert expressions errors constructors
-    pub fn too_many_insert_expressions(mut self) -> Self {
-        self.errors.push(QueryErrorInner {
+    pub fn too_many_insert_expressions() -> QueryError {
+        QueryError {
             severity: Severity::Error,
             kind: QueryErrorKind::TooManyInsertExpressions,
-        });
-        self
+        }
     }
 
     /// syntax error in the expression as part of query
-    pub fn syntax_error(mut self, expression: String) -> Self {
-        self.errors.push(QueryErrorInner {
+    pub fn syntax_error(expression: String) -> QueryError {
+        QueryError {
             severity: Severity::Error,
             kind: QueryErrorKind::SyntaxError(expression),
-        });
-        self
+        }
     }
 
     /// operator or function is not found for operands
-    pub fn undefined_function(mut self, operator: String, left_type: String, right_type: String) -> Self {
-        self.errors.push(QueryErrorInner {
+    pub fn undefined_function(operator: String, left_type: String, right_type: String) -> QueryError {
+        QueryError {
             severity: Severity::Error,
             kind: QueryErrorKind::UndefinedFunction {
                 operator,
                 left_type,
                 right_type,
             },
-        });
-        self
+        }
     }
 
-    // These errors can be generated multiple at a time which is why they are &mut self
-    // and the rest are mut self.
-
     /// numeric out of range constructor
-    pub fn out_of_range(&mut self, pg_type: PostgreSqlType, column_name: String, row_index: usize) {
-        self.errors.push(QueryErrorInner {
+    pub fn out_of_range(pg_type: PostgreSqlType, column_name: String, row_index: usize) -> QueryError {
+        QueryError {
             severity: Severity::Error,
             kind: QueryErrorKind::NumericTypeOutOfRange {
                 pg_type,
                 column_name,
                 row_index,
             },
-        });
+        }
     }
 
     /// type mismatch constructor
-    pub fn type_mismatch(&mut self, value: &str, pg_type: PostgreSqlType, column_name: String, row_index: usize) {
-        self.errors.push(QueryErrorInner {
+    pub fn type_mismatch(value: &str, pg_type: PostgreSqlType, column_name: String, row_index: usize) -> QueryError {
+        QueryError {
             severity: Severity::Error,
             kind: QueryErrorKind::DataTypeMismatch {
                 pg_type,
@@ -450,12 +402,17 @@ impl QueryErrorBuilder {
                 column_name,
                 row_index,
             },
-        });
+        }
     }
 
     /// length of string types do not match constructor
-    pub fn string_length_mismatch(&mut self, pg_type: PostgreSqlType, len: u64, column_name: String, row_index: usize) {
-        self.errors.push(QueryErrorInner {
+    pub fn string_length_mismatch(
+        pg_type: PostgreSqlType,
+        len: u64,
+        column_name: String,
+        row_index: usize,
+    ) -> QueryError {
+        QueryError {
             severity: Severity::Error,
             kind: QueryErrorKind::StringTypeLengthMismatch {
                 pg_type,
@@ -463,7 +420,7 @@ impl QueryErrorBuilder {
                 column_name,
                 row_index,
             },
-        });
+        }
     }
 }
 
@@ -605,226 +562,197 @@ mod tests {
         #[test]
         fn schema_already_exists() {
             let schema_name = "some_table_name".to_owned();
-            let messages: Vec<BackendMessage> = QueryErrorBuilder::new()
-                .schema_already_exists(schema_name.clone())
-                .build()
-                .into();
+            let message: BackendMessage = QueryError::schema_already_exists(schema_name.clone()).into();
             assert_eq!(
-                messages,
-                vec![BackendMessage::ErrorResponse(
+                message,
+                BackendMessage::ErrorResponse(
                     Some("ERROR"),
                     Some("42P06"),
                     Some(format!("schema \"{}\" already exists", schema_name)),
-                )]
+                )
             )
         }
 
         #[test]
         fn schema_does_not_exists() {
             let schema_name = "some_table_name".to_owned();
-            let messages: Vec<BackendMessage> = QueryErrorBuilder::new()
-                .schema_does_not_exist(schema_name.clone())
-                .build()
-                .into();
+            let message: BackendMessage = QueryError::schema_does_not_exist(schema_name.clone()).into();
             assert_eq!(
-                messages,
-                vec![BackendMessage::ErrorResponse(
+                message,
+                BackendMessage::ErrorResponse(
                     Some("ERROR"),
                     Some("3F000"),
                     Some(format!("schema \"{}\" does not exist", schema_name)),
-                )]
+                )
             )
         }
 
         #[test]
         fn table_already_exists() {
             let table_name = "some_table_name".to_owned();
-            let messages: Vec<BackendMessage> = QueryErrorBuilder::new()
-                .table_already_exists(table_name.clone())
-                .build()
-                .into();
+            let message: BackendMessage = QueryError::table_already_exists(table_name.clone()).into();
             assert_eq!(
-                messages,
-                vec![BackendMessage::ErrorResponse(
+                message,
+                BackendMessage::ErrorResponse(
                     Some("ERROR"),
                     Some("42P07"),
                     Some(format!("table \"{}\" already exists", table_name)),
-                )]
+                )
             )
         }
 
         #[test]
         fn table_does_not_exists() {
             let table_name = "some_table_name".to_owned();
-            let messages: Vec<BackendMessage> = QueryErrorBuilder::new()
-                .table_does_not_exist(table_name.clone())
-                .build()
-                .into();
+            let message: BackendMessage = QueryError::table_does_not_exist(table_name.clone()).into();
             assert_eq!(
-                messages,
-                vec![BackendMessage::ErrorResponse(
+                message,
+                BackendMessage::ErrorResponse(
                     Some("ERROR"),
                     Some("42P01"),
                     Some(format!("table \"{}\" does not exist", table_name)),
-                )]
+                )
             )
         }
 
         #[test]
         fn one_column_does_not_exists() {
-            let messages: Vec<BackendMessage> = QueryErrorBuilder::new()
-                .column_does_not_exist(vec!["column_not_in_table".to_owned()])
-                .build()
-                .into();
+            let message: BackendMessage =
+                QueryError::column_does_not_exist(vec!["column_not_in_table".to_owned()]).into();
             assert_eq!(
-                messages,
-                vec![BackendMessage::ErrorResponse(
+                message,
+                BackendMessage::ErrorResponse(
                     Some("ERROR"),
                     Some("42703"),
                     Some("column column_not_in_table does not exist".to_owned()),
-                )]
+                )
             )
         }
 
         #[test]
         fn multiple_columns_does_not_exists() {
-            let messages: Vec<BackendMessage> = QueryErrorBuilder::new()
-                .column_does_not_exist(vec![
-                    "column_not_in_table1".to_owned(),
-                    "column_not_in_table2".to_owned(),
-                ])
-                .build()
-                .into();
+            let message: BackendMessage = QueryError::column_does_not_exist(vec![
+                "column_not_in_table1".to_owned(),
+                "column_not_in_table2".to_owned(),
+            ])
+            .into();
             assert_eq!(
-                messages,
-                vec![BackendMessage::ErrorResponse(
+                message,
+                BackendMessage::ErrorResponse(
                     Some("ERROR"),
                     Some("42703"),
                     Some("columns column_not_in_table1, column_not_in_table2 do not exist".to_owned()),
-                )]
+                )
             )
         }
 
         #[test]
         fn prepared_statement_does_not_exists() {
-            let messages: Vec<BackendMessage> = QueryErrorBuilder::new()
-                .prepared_statement_does_not_exist("statement_name".to_owned())
-                .build()
-                .into();
+            let messages: BackendMessage =
+                QueryError::prepared_statement_does_not_exist("statement_name".to_owned()).into();
             assert_eq!(
                 messages,
-                vec![BackendMessage::ErrorResponse(
+                BackendMessage::ErrorResponse(
                     Some("ERROR"),
                     Some("26000"),
                     Some("prepared statement statement_name does not exist".to_owned()),
-                )]
+                )
             )
         }
 
         #[test]
         fn feature_not_supported() {
             let raw_sql_query = "some SQL query".to_owned();
-            let messages: Vec<BackendMessage> = QueryErrorBuilder::new()
-                .feature_not_supported(raw_sql_query.clone())
-                .build()
-                .into();
+            let message: BackendMessage = QueryError::feature_not_supported(raw_sql_query.clone()).into();
             assert_eq!(
-                messages,
-                vec![BackendMessage::ErrorResponse(
+                message,
+                BackendMessage::ErrorResponse(
                     Some("ERROR"),
                     Some("0A000"),
                     Some(format!("Currently, Query '{}' can't be executed", raw_sql_query)),
-                )]
+                )
             )
         }
 
         #[test]
         fn too_many_insert_expressions() {
-            let messages: Vec<BackendMessage> = QueryErrorBuilder::new().too_many_insert_expressions().build().into();
+            let message: BackendMessage = QueryError::too_many_insert_expressions().into();
             assert_eq!(
-                messages,
-                vec![BackendMessage::ErrorResponse(
+                message,
+                BackendMessage::ErrorResponse(
                     Some("ERROR"),
                     Some("42601"),
                     Some("INSERT has more expressions than target columns".to_owned()),
-                )]
+                )
             )
         }
 
         #[test]
         fn out_of_range_constraint_violation() {
-            let mut builder = QueryErrorBuilder::new();
-            builder.out_of_range(PostgreSqlType::SmallInt, "col1".to_string(), 1);
-            let messages: Vec<BackendMessage> = builder.build().into();
+            let message: BackendMessage =
+                QueryError::out_of_range(PostgreSqlType::SmallInt, "col1".to_string(), 1).into();
             assert_eq!(
-                messages,
-                vec![BackendMessage::ErrorResponse(
+                message,
+                BackendMessage::ErrorResponse(
                     Some("ERROR"),
                     Some("22003"),
                     Some("smallint is out of range for column 'col1' at row 1".to_owned())
-                )]
+                )
             )
         }
 
         #[test]
         fn type_mismatch_constraint_violation() {
-            let mut builder = QueryErrorBuilder::new();
-            builder.type_mismatch("abc", PostgreSqlType::SmallInt, "col1".to_string(), 1);
-            let messages: Vec<BackendMessage> = builder.build().into();
+            let message: BackendMessage =
+                QueryError::type_mismatch("abc", PostgreSqlType::SmallInt, "col1".to_string(), 1).into();
             assert_eq!(
-                messages,
-                vec![BackendMessage::ErrorResponse(
+                message,
+                BackendMessage::ErrorResponse(
                     Some("ERROR"),
                     Some("2200G"),
                     Some("invalid input syntax for type smallint for column 'col1' at row 1: \"abc\"".to_owned())
-                )]
+                )
             )
         }
 
         #[test]
         fn string_length_mismatch_constraint_violation() {
-            let mut builder = QueryErrorBuilder::new();
-            builder.string_length_mismatch(PostgreSqlType::Char, 5, "col1".to_string(), 1);
-            let messages: Vec<BackendMessage> = builder.build().into();
+            let message: BackendMessage =
+                QueryError::string_length_mismatch(PostgreSqlType::Char, 5, "col1".to_string(), 1).into();
             assert_eq!(
-                messages,
-                vec![BackendMessage::ErrorResponse(
+                message,
+                BackendMessage::ErrorResponse(
                     Some("ERROR"),
                     Some("22026"),
                     Some("value too long for type character(5) for column 'col1' at row 1".to_owned())
-                )]
+                )
             )
         }
 
         #[test]
         fn undefined_function() {
-            let messages: Vec<BackendMessage> = QueryErrorBuilder::new()
-                .undefined_function("||".to_owned(), "NUMBER".to_owned(), "NUMBER".to_owned())
-                .build()
-                .into();
+            let message: BackendMessage =
+                QueryError::undefined_function("||".to_owned(), "NUMBER".to_owned(), "NUMBER".to_owned()).into();
             assert_eq!(
-                messages,
-                vec![BackendMessage::ErrorResponse(
+                message,
+                BackendMessage::ErrorResponse(
                     Some("ERROR"),
                     Some("42883"),
                     Some("operator does not exist: (NUMBER || NUMBER)".to_owned())
-                )]
+                )
             )
         }
 
         #[test]
         fn syntax_error() {
-            let messages: Vec<BackendMessage> = QueryErrorBuilder::new()
-                .syntax_error("expression".to_owned())
-                .build()
-                .into();
+            let messages: BackendMessage = QueryError::syntax_error("expression".to_owned()).into();
             assert_eq!(
                 messages,
-                vec![BackendMessage::ErrorResponse(
+                BackendMessage::ErrorResponse(
                     Some("ERROR"),
                     Some("42601"),
                     Some("syntax error in expression".to_owned())
-                )]
+                )
             )
         }
     }

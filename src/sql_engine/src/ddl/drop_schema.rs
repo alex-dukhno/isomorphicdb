@@ -17,10 +17,8 @@ use crate::{
     query::SchemaId,
 };
 use kernel::SystemResult;
-use protocol::{
-    results::{QueryErrorBuilder, QueryEvent},
-    Sender,
-};
+use protocol::results::QueryError;
+use protocol::{results::QueryEvent, Sender};
 use std::sync::Arc;
 
 pub(crate) struct DropSchemaCommand {
@@ -60,15 +58,13 @@ impl DropSchemaCommand {
             }
             Ok(Err(DropSchemaError::HasDependentObjects)) => {
                 self.session
-                    .send(Err(QueryErrorBuilder::new()
-                        .schema_has_dependent_objects(schema_name)
-                        .build()))
+                    .send(Err(QueryError::schema_has_dependent_objects(schema_name)))
                     .expect("To Send Query Result to Client");
                 Ok(())
             }
             Ok(Err(DropSchemaError::DoesNotExist)) => {
                 self.session
-                    .send(Err(QueryErrorBuilder::new().schema_does_not_exist(schema_name).build()))
+                    .send(Err(QueryError::schema_does_not_exist(schema_name)))
                     .expect("To Send Query Result to Client");
                 Ok(())
             }

@@ -33,7 +33,7 @@ mod update;
 
 use super::*;
 use crate::{catalog_manager::CatalogManager, QueryExecutor};
-use protocol::results::QueryResult;
+use protocol::results::{QueryError, QueryResult};
 use std::{
     io,
     ops::Deref,
@@ -65,10 +65,6 @@ impl Collector {
 
     fn assert_content_for_single_queries(&self, expected: Vec<QueryResult>) {
         let actual = self.0.lock().expect("locked");
-        let expected: Vec<QueryResult> = expected
-            .iter()
-            .flat_map(|result| vec![result.clone(), Ok(QueryEvent::QueryComplete)])
-            .collect();
         assert_eq!(actual.deref(), &expected)
     }
 }

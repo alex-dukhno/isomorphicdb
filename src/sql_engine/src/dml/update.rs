@@ -12,12 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{catalog_manager::CatalogManager, dml::ExpressionEvaluation, ColumnDefinition};
+use crate::{catalog_manager::CatalogManager, dml::ExpressionEvaluation};
 use kernel::SystemResult;
-use protocol::{
-    results::{QueryErrorBuilder, QueryEvent},
-    Sender,
-};
+use protocol::results::QueryError;
+use protocol::{results::QueryEvent, Sender};
 use representation::{unpack_raw, Binary, Datum};
 use sql_types::ConstraintError;
 use sqlparser::ast::{Assignment, Expr, Ident, ObjectName, UnaryOperator, Value};
@@ -62,9 +60,9 @@ impl UpdateCommand {
                     (UnaryOperator::Minus, Expr::Value(Value::Number(v))) => Value::Number(-v),
                     (op, expr) => {
                         self.session
-                            .send(Err(QueryErrorBuilder::new()
-                                .syntax_error(op.to_string() + expr.to_string().as_str())
-                                .build()))
+                            .send(Err(QueryError::syntax_error(
+                                op.to_string() + expr.to_string().as_str(),
+                            )))
                             .expect("To Send Query Result to Client");
                         return Ok(());
                     }
@@ -75,7 +73,7 @@ impl UpdateCommand {
                 },
                 expr => {
                     self.session
-                        .send(Err(QueryErrorBuilder::new().syntax_error(expr.to_string()).build()))
+                        .send(Err(QueryError::syntax_error(expr.to_string())))
                         .expect("To Send Query Result to Client");
                     return Ok(());
                 }
@@ -86,7 +84,7 @@ impl UpdateCommand {
 
         if !self.storage.schema_exists(&schema_name) {
             self.session
-                .send(Err(QueryErrorBuilder::new().schema_does_not_exist(schema_name).build()))
+                .send(Err(QueryError::schema_does_not_exist(schema_name)))
                 .expect("To Send Result to Client");
             return Ok(());
         }
@@ -129,54 +127,44 @@ impl UpdateCommand {
             }
         } else {
             self.session
-                .send(Err(QueryErrorBuilder::new()
-                    .table_does_not_exist(schema_name + "." + table_name.as_str())
-                    .build()))
+                .send(Err(QueryError::table_does_not_exist(
+                    schema_name + "." + table_name.as_str(),
+                )))
                 .expect("To Send Result to Client");
             return Ok(());
         }
 
         if !non_existing_columns.is_empty() {
             self.session
-                .send(Err(QueryErrorBuilder::new()
-                    .column_does_not_exist(non_existing_columns.into_iter().collect())
-                    .build()))
+                .send(Err(QueryError::column_does_not_exist(
+                    non_existing_columns.into_iter().collect(),
+                )))
                 .expect("To Send Result to Client");
             return Ok(());
         }
         if !errors.is_empty() {
-            let row_index = 1;
-            let mut builder = QueryErrorBuilder::new();
-            let constraint_error_mapper = |(err, column_definition): &(ConstraintError, ColumnDefinition)| match err {
-                ConstraintError::OutOfRange => {
-                    builder.out_of_range(
+            for (error, column_definition) in errors {
+                let error_to_send = match error {
+                    ConstraintError::OutOfRange => {
+                        QueryError::out_of_range((&column_definition.sql_type()).into(), column_definition.name(), 1)
+                    }
+                    ConstraintError::TypeMismatch(value) => QueryError::type_mismatch(
+                        &value,
                         (&column_definition.sql_type()).into(),
                         column_definition.name(),
-                        row_index,
-                    );
-                }
-                ConstraintError::TypeMismatch(value) => {
-                    builder.type_mismatch(
-                        value,
+                        1,
+                    ),
+                    ConstraintError::ValueTooLong(len) => QueryError::string_length_mismatch(
                         (&column_definition.sql_type()).into(),
+                        len,
                         column_definition.name(),
-                        row_index,
-                    );
-                }
-                ConstraintError::ValueTooLong(len) => {
-                    builder.string_length_mismatch(
-                        (&column_definition.sql_type()).into(),
-                        *len,
-                        column_definition.name(),
-                        row_index,
-                    );
-                }
-            };
-
-            errors.iter().for_each(constraint_error_mapper);
-            self.session
-                .send(Err(builder.build()))
-                .expect("To Send Query Result to Client");
+                        1,
+                    ),
+                };
+                self.session
+                    .send(Err(error_to_send))
+                    .expect("To Send Query Result to Client");
+            }
             return Ok(());
         }
 
