@@ -14,8 +14,9 @@
 
 use crate::catalog_manager::CatalogManager;
 use kernel::{SystemError, SystemResult};
+use protocol::results::QueryError;
 use protocol::{
-    results::{Description, QueryErrorBuilder, QueryEvent},
+    results::{Description, QueryEvent},
     Sender,
 };
 use sqlparser::ast::{Expr, Ident, Query, Select, SelectItem, SetExpr, TableFactor, TableWithJoins};
@@ -56,9 +57,7 @@ impl<'sc> SelectCommand<'sc> {
                 }
                 _ => {
                     self.session
-                        .send(Err(QueryErrorBuilder::new()
-                            .feature_not_supported(self.raw_sql_query.to_owned())
-                            .build()))
+                        .send(Err(QueryError::feature_not_supported(self.raw_sql_query.to_owned())))
                         .expect("To Send Query Result to Client");
                     return Err(SystemError::runtime_check_failure("Feature Not Supported".to_owned()));
                 }
@@ -66,16 +65,16 @@ impl<'sc> SelectCommand<'sc> {
 
             if !self.storage.schema_exists(&schema_name) {
                 self.session
-                    .send(Err(QueryErrorBuilder::new().schema_does_not_exist(schema_name).build()))
+                    .send(Err(QueryError::schema_does_not_exist(schema_name)))
                     .expect("To Send Result to Client");
                 return Err(SystemError::runtime_check_failure("Schema Does Not Exist".to_owned()));
             }
 
             if !self.storage.table_exists(&schema_name, &table_name) {
                 self.session
-                    .send(Err(QueryErrorBuilder::new()
-                        .table_does_not_exist(schema_name + "." + table_name.as_str())
-                        .build()))
+                    .send(Err(QueryError::table_does_not_exist(
+                        schema_name + "." + table_name.as_str(),
+                    )))
                     .expect("To Send Result to Client");
                 return Err(SystemError::runtime_check_failure("Table Does Not Exist".to_owned()));
             }
@@ -97,9 +96,7 @@ impl<'sc> SelectCommand<'sc> {
                         SelectItem::UnnamedExpr(Expr::Identifier(Ident { value, .. })) => columns.push(value.clone()),
                         _ => {
                             self.session
-                                .send(Err(QueryErrorBuilder::new()
-                                    .feature_not_supported(self.raw_sql_query.to_owned())
-                                    .build()))
+                                .send(Err(QueryError::feature_not_supported(self.raw_sql_query.to_owned())))
                                 .expect("To Send Query Result to Client");
                             return Err(SystemError::runtime_check_failure("Feature Not Supported".to_owned()));
                         }
@@ -129,9 +126,7 @@ impl<'sc> SelectCommand<'sc> {
 
             if !non_existing_columns.is_empty() {
                 self.session
-                    .send(Err(QueryErrorBuilder::new()
-                        .column_does_not_exist(non_existing_columns)
-                        .build()))
+                    .send(Err(QueryError::column_does_not_exist(non_existing_columns)))
                     .expect("To Send Result to Client");
                 return Err(SystemError::runtime_check_failure("Column Does Not Exist".to_owned()));
             }
@@ -144,9 +139,7 @@ impl<'sc> SelectCommand<'sc> {
             Ok(description)
         } else {
             self.session
-                .send(Err(QueryErrorBuilder::new()
-                    .feature_not_supported(self.raw_sql_query.to_owned())
-                    .build()))
+                .send(Err(QueryError::feature_not_supported(self.raw_sql_query.to_owned())))
                 .expect("To Send Query Result to Client");
             Err(SystemError::runtime_check_failure("Feature Not Supported".to_owned()))
         }
@@ -165,9 +158,7 @@ impl<'sc> SelectCommand<'sc> {
                 }
                 _ => {
                     self.session
-                        .send(Err(QueryErrorBuilder::new()
-                            .feature_not_supported(self.raw_sql_query.to_owned())
-                            .build()))
+                        .send(Err(QueryError::feature_not_supported(self.raw_sql_query.to_owned())))
                         .expect("To Send Query Result to Client");
                     return Ok(());
                 }
@@ -175,16 +166,16 @@ impl<'sc> SelectCommand<'sc> {
 
             if !self.storage.schema_exists(&schema_name) {
                 self.session
-                    .send(Err(QueryErrorBuilder::new().schema_does_not_exist(schema_name).build()))
+                    .send(Err(QueryError::schema_does_not_exist(schema_name)))
                     .expect("To Send Result to Client");
                 return Ok(());
             }
 
             if !self.storage.table_exists(&schema_name, &table_name) {
                 self.session
-                    .send(Err(QueryErrorBuilder::new()
-                        .table_does_not_exist(schema_name + "." + table_name.as_str())
-                        .build()))
+                    .send(Err(QueryError::table_does_not_exist(
+                        schema_name + "." + table_name.as_str(),
+                    )))
                     .expect("To Send Result to Client");
                 return Ok(());
             }
@@ -206,9 +197,7 @@ impl<'sc> SelectCommand<'sc> {
                         SelectItem::UnnamedExpr(Expr::Identifier(Ident { value, .. })) => columns.push(value.clone()),
                         _ => {
                             self.session
-                                .send(Err(QueryErrorBuilder::new()
-                                    .feature_not_supported(self.raw_sql_query.to_owned())
-                                    .build()))
+                                .send(Err(QueryError::feature_not_supported(self.raw_sql_query.to_owned())))
                                 .expect("To Send Query Result to Client");
                             return Ok(());
                         }
@@ -243,9 +232,7 @@ impl<'sc> SelectCommand<'sc> {
 
                     if !non_existing_columns.is_empty() {
                         self.session
-                            .send(Err(QueryErrorBuilder::new()
-                                .column_does_not_exist(non_existing_columns)
-                                .build()))
+                            .send(Err(QueryError::column_does_not_exist(non_existing_columns)))
                             .expect("To Send Result to Client");
                         return Ok(());
                     }
@@ -284,9 +271,7 @@ impl<'sc> SelectCommand<'sc> {
             }
         } else {
             self.session
-                .send(Err(QueryErrorBuilder::new()
-                    .feature_not_supported(self.raw_sql_query.to_owned())
-                    .build()))
+                .send(Err(QueryError::feature_not_supported(self.raw_sql_query.to_owned())))
                 .expect("To Send Query Result to Client");
             Ok(())
         }

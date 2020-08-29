@@ -12,12 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{catalog_manager::CatalogManager, dml::ExpressionEvaluation, query::plan::TableInserts, ColumnDefinition};
+use crate::{catalog_manager::CatalogManager, dml::ExpressionEvaluation, query::plan::TableInserts};
 use kernel::SystemResult;
-use protocol::{
-    results::{QueryErrorBuilder, QueryEvent},
-    Sender,
-};
+use protocol::results::QueryError;
+use protocol::{results::QueryEvent, Sender};
 use representation::{Binary, Datum};
 use sql_types::ConstraintError;
 use sqlparser::ast::{DataType, Expr, Query, SetExpr, UnaryOperator, Value};
@@ -82,12 +80,10 @@ impl<'ic> InsertCommand<'ic> {
                                 }
                                 _ => {
                                     self.session
-                                        .send(Err(QueryErrorBuilder::new()
-                                            .syntax_error(format!(
-                                                "Cast from {:?} to {:?} is not currently supported",
-                                                expr, data_type
-                                            ))
-                                            .build()))
+                                        .send(Err(QueryError::syntax_error(format!(
+                                            "Cast from {:?} to {:?} is not currently supported",
+                                            expr, data_type
+                                        ))))
                                         .expect("To Send Query Result to Client");
                                     return Ok(());
                                 }
@@ -96,9 +92,9 @@ impl<'ic> InsertCommand<'ic> {
                                 (UnaryOperator::Minus, Expr::Value(Value::Number(v))) => Value::Number(-v),
                                 (op, expr) => {
                                     self.session
-                                        .send(Err(QueryErrorBuilder::new()
-                                            .syntax_error(op.to_string() + expr.to_string().as_str())
-                                            .build()))
+                                        .send(Err(QueryError::syntax_error(
+                                            op.to_string() + expr.to_string().as_str(),
+                                        )))
                                         .expect("To Send Query Result to Client");
                                     return Ok(());
                                 }
@@ -109,7 +105,7 @@ impl<'ic> InsertCommand<'ic> {
                             },
                             expr => {
                                 self.session
-                                    .send(Err(QueryErrorBuilder::new().syntax_error(expr.to_string()).build()))
+                                    .send(Err(QueryError::syntax_error(expr.to_string())))
                                     .expect("To Send Query Result to Client");
                                 return Ok(());
                             }
@@ -121,18 +117,16 @@ impl<'ic> InsertCommand<'ic> {
 
                 if !self.storage.schema_exists(schema_name) {
                     self.session
-                        .send(Err(QueryErrorBuilder::new()
-                            .schema_does_not_exist(schema_name.to_owned())
-                            .build()))
+                        .send(Err(QueryError::schema_does_not_exist(schema_name.to_owned())))
                         .expect("To Send Result to Client");
                     return Ok(());
                 }
 
                 if !self.storage.table_exists(schema_name, table_name) {
                     self.session
-                        .send(Err(QueryErrorBuilder::new()
-                            .table_does_not_exist(schema_name.to_owned() + "." + table_name)
-                            .build()))
+                        .send(Err(QueryError::table_does_not_exist(
+                            schema_name.to_owned() + "." + table_name,
+                        )))
                         .expect("To Send Result to Client");
                     return Ok(());
                 }
@@ -168,9 +162,7 @@ impl<'ic> InsertCommand<'ic> {
 
                     if !non_existing_cols.is_empty() {
                         self.session
-                            .send(Err(QueryErrorBuilder::new()
-                                .column_does_not_exist(non_existing_cols)
-                                .build()))
+                            .send(Err(QueryError::column_does_not_exist(non_existing_cols)))
                             .expect("To Send Result to Client");
                         return Ok(());
                     }
@@ -187,7 +179,7 @@ impl<'ic> InsertCommand<'ic> {
                             // clear anything that could have been processed already.
                             to_write.clear();
                             self.session
-                                .send(Err(QueryErrorBuilder::new().too_many_insert_expressions().build()))
+                                .send(Err(QueryError::too_many_insert_expressions()))
                                 .expect("To Send Result to Client");
                             return Ok(());
                         }
@@ -215,46 +207,32 @@ impl<'ic> InsertCommand<'ic> {
 
                         // if there was an error then exit the loop.
                         if !errors.is_empty() {
-                            // In SQL indexes start from 1, not 0.
-                            let mut builder = QueryErrorBuilder::new();
-                            let mut constraint_error_mapper =
-                                |err: &ConstraintError, column_definition: &ColumnDefinition, row_index: usize| {
-                                    match err {
-                                        ConstraintError::OutOfRange => {
-                                            builder.out_of_range(
-                                                (&column_definition.sql_type()).into(),
-                                                column_definition.name(),
-                                                row_index,
-                                            );
-                                        }
-                                        ConstraintError::TypeMismatch(value) => {
-                                            builder.type_mismatch(
-                                                value,
-                                                (&column_definition.sql_type()).into(),
-                                                column_definition.name(),
-                                                row_index,
-                                            );
-                                        }
-                                        ConstraintError::ValueTooLong(len) => {
-                                            builder.string_length_mismatch(
-                                                (&column_definition.sql_type()).into(),
-                                                *len,
-                                                column_definition.name(),
-                                                row_index,
-                                            );
-                                        }
-                                    }
+                            for (error, column_definition) in errors {
+                                let error_to_send = match error {
+                                    ConstraintError::OutOfRange => QueryError::out_of_range(
+                                        (&column_definition.sql_type()).into(),
+                                        column_definition.name(),
+                                        row_index + 1,
+                                    ),
+                                    ConstraintError::TypeMismatch(value) => QueryError::type_mismatch(
+                                        &value,
+                                        (&column_definition.sql_type()).into(),
+                                        column_definition.name(),
+                                        row_index + 1,
+                                    ),
+                                    ConstraintError::ValueTooLong(len) => QueryError::string_length_mismatch(
+                                        (&column_definition.sql_type()).into(),
+                                        len,
+                                        column_definition.name(),
+                                        row_index + 1,
+                                    ),
                                 };
-
-                            errors.iter().for_each(|(err, column_definition)| {
-                                constraint_error_mapper(err, column_definition, row_index + 1)
-                            });
-                            self.session
-                                .send(Err(builder.build()))
-                                .expect("To Send Query Result to Client");
+                                self.session
+                                    .send(Err(error_to_send))
+                                    .expect("To Send Query Result to Client");
+                            }
                             return Ok(());
                         }
-
                         to_write.push((Binary::with_data(key), Binary::pack(&record)));
                     }
                 }
@@ -271,9 +249,7 @@ impl<'ic> InsertCommand<'ic> {
             }
             _ => {
                 self.session
-                    .send(Err(QueryErrorBuilder::new()
-                        .feature_not_supported(self.raw_sql_query.to_owned())
-                        .build()))
+                    .send(Err(QueryError::feature_not_supported(self.raw_sql_query.to_owned())))
                     .expect("To Send Query Result to Client");
                 Ok(())
             }

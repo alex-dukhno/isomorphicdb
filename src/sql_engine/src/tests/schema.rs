@@ -19,7 +19,7 @@ fn create_schema(sql_engine: (QueryExecutor, Arc<Collector>)) {
     let (mut engine, collector) = sql_engine;
     engine.execute("create schema schema_name;").expect("no system errors");
 
-    collector.assert_content_for_single_queries(vec![Ok(QueryEvent::SchemaCreated)]);
+    collector.assert_content_for_single_queries(vec![Ok(QueryEvent::SchemaCreated), Ok(QueryEvent::QueryComplete)]);
 }
 
 #[rstest::rstest]
@@ -30,9 +30,9 @@ fn create_same_schema(sql_engine: (QueryExecutor, Arc<Collector>)) {
 
     collector.assert_content_for_single_queries(vec![
         Ok(QueryEvent::SchemaCreated),
-        Err(QueryErrorBuilder::new()
-            .schema_already_exists("schema_name".to_owned())
-            .build()),
+        Ok(QueryEvent::QueryComplete),
+        Err(QueryError::schema_already_exists("schema_name".to_owned())),
+        Ok(QueryEvent::QueryComplete),
     ]);
 }
 
@@ -42,7 +42,12 @@ fn drop_schema(sql_engine: (QueryExecutor, Arc<Collector>)) {
     engine.execute("create schema schema_name;").expect("no system errors");
     engine.execute("drop schema schema_name;").expect("no system errors");
 
-    collector.assert_content_for_single_queries(vec![Ok(QueryEvent::SchemaCreated), Ok(QueryEvent::SchemaDropped)]);
+    collector.assert_content_for_single_queries(vec![
+        Ok(QueryEvent::SchemaCreated),
+        Ok(QueryEvent::QueryComplete),
+        Ok(QueryEvent::SchemaDropped),
+        Ok(QueryEvent::QueryComplete),
+    ]);
 }
 
 #[rstest::rstest]
@@ -51,9 +56,10 @@ fn drop_non_existent_schema(sql_engine: (QueryExecutor, Arc<Collector>)) {
 
     engine.execute("drop schema non_existent;").expect("no system errors");
 
-    collector.assert_content_for_single_queries(vec![Err(QueryErrorBuilder::new()
-        .schema_does_not_exist("non_existent".to_owned())
-        .build())]);
+    collector.assert_content_for_single_queries(vec![
+        Err(QueryError::schema_does_not_exist("non_existent".to_owned())),
+        Ok(QueryEvent::QueryComplete),
+    ]);
 }
 
 #[rstest::rstest]
@@ -64,9 +70,10 @@ fn select_from_nonexistent_schema(sql_engine: (QueryExecutor, Arc<Collector>)) {
         .execute("select * from non_existent.some_table;")
         .expect("no system errors");
 
-    collector.assert_content_for_single_queries(vec![Err(QueryErrorBuilder::new()
-        .schema_does_not_exist("non_existent".to_owned())
-        .build())]);
+    collector.assert_content_for_single_queries(vec![
+        Err(QueryError::schema_does_not_exist("non_existent".to_owned())),
+        Ok(QueryEvent::QueryComplete),
+    ]);
 }
 
 #[rstest::rstest]
@@ -76,9 +83,10 @@ fn select_named_columns_from_nonexistent_schema(sql_engine: (QueryExecutor, Arc<
         .execute("select column_1 from schema_name.table_name;")
         .expect("no system errors");
 
-    collector.assert_content_for_single_queries(vec![Err(QueryErrorBuilder::new()
-        .schema_does_not_exist("schema_name".to_owned())
-        .build())]);
+    collector.assert_content_for_single_queries(vec![
+        Err(QueryError::schema_does_not_exist("schema_name".to_owned())),
+        Ok(QueryEvent::QueryComplete),
+    ]);
 }
 
 #[rstest::rstest]
@@ -88,9 +96,10 @@ fn insert_into_table_in_nonexistent_schema(sql_engine: (QueryExecutor, Arc<Colle
         .execute("insert into schema_name.table_name values (123);")
         .expect("no system errors");
 
-    collector.assert_content_for_single_queries(vec![Err(QueryErrorBuilder::new()
-        .schema_does_not_exist("schema_name".to_owned())
-        .build())]);
+    collector.assert_content_for_single_queries(vec![
+        Err(QueryError::schema_does_not_exist("schema_name".to_owned())),
+        Ok(QueryEvent::QueryComplete),
+    ]);
 }
 
 #[rstest::rstest]
@@ -100,9 +109,10 @@ fn update_records_in_table_from_non_existent_schema(sql_engine: (QueryExecutor, 
         .execute("update schema_name.table_name set column_test=789;")
         .expect("no system errors");
 
-    collector.assert_content_for_single_queries(vec![Err(QueryErrorBuilder::new()
-        .schema_does_not_exist("schema_name".to_owned())
-        .build())]);
+    collector.assert_content_for_single_queries(vec![
+        Err(QueryError::schema_does_not_exist("schema_name".to_owned())),
+        Ok(QueryEvent::QueryComplete),
+    ]);
 }
 
 #[rstest::rstest]
@@ -112,7 +122,8 @@ fn delete_from_table_in_nonexistent_schema(sql_engine: (QueryExecutor, Arc<Colle
         .execute("delete from schema_name.table_name;")
         .expect("no system errors");
 
-    collector.assert_content_for_single_queries(vec![Err(QueryErrorBuilder::new()
-        .schema_does_not_exist("schema_name".to_owned())
-        .build())]);
+    collector.assert_content_for_single_queries(vec![
+        Err(QueryError::schema_does_not_exist("schema_name".to_owned())),
+        Ok(QueryEvent::QueryComplete),
+    ]);
 }

@@ -39,18 +39,25 @@ fn update_all_records(sql_engine_with_schema: (QueryExecutor, Arc<Collector>)) {
 
     collector.assert_content_for_single_queries(vec![
         Ok(QueryEvent::SchemaCreated),
+        Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::TableCreated),
+        Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::RecordsInserted(1)),
+        Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::RecordsInserted(1)),
+        Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::RecordsSelected((
             vec![("column_test".to_owned(), PostgreSqlType::SmallInt)],
             vec![vec!["123".to_owned()], vec!["456".to_owned()]],
         ))),
+        Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::RecordsUpdated(2)),
+        Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::RecordsSelected((
             vec![("column_test".to_owned(), PostgreSqlType::SmallInt)],
             vec![vec!["789".to_owned()], vec!["789".to_owned()]],
         ))),
+        Ok(QueryEvent::QueryComplete),
     ]);
 }
 
@@ -78,9 +85,13 @@ fn update_single_column_of_all_records(sql_engine_with_schema: (QueryExecutor, A
 
     collector.assert_content_for_single_queries(vec![
         Ok(QueryEvent::SchemaCreated),
+        Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::TableCreated),
+        Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::RecordsInserted(1)),
+        Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::RecordsInserted(1)),
+        Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::RecordsSelected((
             vec![
                 ("col1".to_owned(), PostgreSqlType::SmallInt),
@@ -91,7 +102,9 @@ fn update_single_column_of_all_records(sql_engine_with_schema: (QueryExecutor, A
                 vec!["456".to_owned(), "789".to_owned()],
             ],
         ))),
+        Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::RecordsUpdated(2)),
+        Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::RecordsSelected((
             vec![
                 ("col1".to_owned(), PostgreSqlType::SmallInt),
@@ -102,6 +115,7 @@ fn update_single_column_of_all_records(sql_engine_with_schema: (QueryExecutor, A
                 vec!["456".to_owned(), "357".to_owned()],
             ],
         ))),
+        Ok(QueryEvent::QueryComplete),
     ]);
 }
 
@@ -129,9 +143,13 @@ fn update_multiple_columns_of_all_records(sql_engine_with_schema: (QueryExecutor
 
     collector.assert_content_for_single_queries(vec![
         Ok(QueryEvent::SchemaCreated),
+        Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::TableCreated),
+        Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::RecordsInserted(1)),
+        Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::RecordsInserted(1)),
+        Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::RecordsSelected((
             vec![
                 ("col1".to_owned(), PostgreSqlType::SmallInt),
@@ -143,7 +161,9 @@ fn update_multiple_columns_of_all_records(sql_engine_with_schema: (QueryExecutor
                 vec!["444".to_owned(), "555".to_owned(), "666".to_owned()],
             ],
         ))),
+        Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::RecordsUpdated(2)),
+        Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::RecordsSelected((
             vec![
                 ("col1".to_owned(), PostgreSqlType::SmallInt),
@@ -155,6 +175,7 @@ fn update_multiple_columns_of_all_records(sql_engine_with_schema: (QueryExecutor
                 vec!["999".to_owned(), "555".to_owned(), "777".to_owned()],
             ],
         ))),
+        Ok(QueryEvent::QueryComplete),
     ]);
 }
 
@@ -179,8 +200,11 @@ fn update_all_records_in_multiple_columns(sql_engine_with_schema: (QueryExecutor
 
     collector.assert_content_for_single_queries(vec![
         Ok(QueryEvent::SchemaCreated),
+        Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::TableCreated),
+        Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::RecordsInserted(3)),
+        Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::RecordsSelected((
             vec![
                 ("column_1".to_owned(), PostgreSqlType::SmallInt),
@@ -193,7 +217,9 @@ fn update_all_records_in_multiple_columns(sql_engine_with_schema: (QueryExecutor
                 vec!["7".to_owned(), "8".to_owned(), "9".to_owned()],
             ],
         ))),
+        Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::RecordsUpdated(3)),
+        Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::RecordsSelected((
             vec![
                 ("column_1".to_owned(), PostgreSqlType::SmallInt),
@@ -206,6 +232,7 @@ fn update_all_records_in_multiple_columns(sql_engine_with_schema: (QueryExecutor
                 vec!["10".to_owned(), "-20".to_owned(), "30".to_owned()],
             ],
         ))),
+        Ok(QueryEvent::QueryComplete),
     ]);
 }
 
@@ -218,9 +245,9 @@ fn update_records_in_nonexistent_table(sql_engine_with_schema: (QueryExecutor, A
 
     collector.assert_content_for_single_queries(vec![
         Ok(QueryEvent::SchemaCreated),
-        Err(QueryErrorBuilder::new()
-            .table_does_not_exist("schema_name.table_name".to_owned())
-            .build()),
+        Ok(QueryEvent::QueryComplete),
+        Err(QueryError::table_does_not_exist("schema_name.table_name".to_owned())),
+        Ok(QueryEvent::QueryComplete),
     ]);
 }
 
@@ -242,15 +269,21 @@ fn update_non_existent_columns_of_records(sql_engine_with_schema: (QueryExecutor
 
     collector.assert_content_for_single_queries(vec![
         Ok(QueryEvent::SchemaCreated),
+        Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::TableCreated),
+        Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::RecordsInserted(1)),
+        Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::RecordsSelected((
             vec![("column_test".to_owned(), PostgreSqlType::SmallInt)],
             vec![vec!["123".to_owned()]],
         ))),
-        Err(QueryErrorBuilder::new()
-            .column_does_not_exist(vec!["col1".to_owned(), "col2".to_owned()])
-            .build()),
+        Ok(QueryEvent::QueryComplete),
+        Err(QueryError::column_does_not_exist(vec![
+            "col1".to_owned(),
+            "col2".to_owned(),
+        ])),
+        Ok(QueryEvent::QueryComplete),
     ]);
 }
 
@@ -292,13 +325,18 @@ mod operators {
 
                 collector.assert_content_for_single_queries(vec![
                     Ok(QueryEvent::SchemaCreated),
+                    Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::TableCreated),
+                    Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::RecordsInserted(1)),
+                    Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::RecordsUpdated(1)),
+                    Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::RecordsSelected((
                         vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
                         vec![vec!["3".to_owned()]],
                     ))),
+                    Ok(QueryEvent::QueryComplete),
                 ]);
             }
 
@@ -314,13 +352,18 @@ mod operators {
 
                 collector.assert_content_for_single_queries(vec![
                     Ok(QueryEvent::SchemaCreated),
+                    Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::TableCreated),
+                    Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::RecordsInserted(1)),
+                    Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::RecordsUpdated(1)),
+                    Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::RecordsSelected((
                         vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
                         vec![vec!["-1".to_owned()]],
                     ))),
+                    Ok(QueryEvent::QueryComplete),
                 ]);
             }
 
@@ -336,13 +379,18 @@ mod operators {
 
                 collector.assert_content_for_single_queries(vec![
                     Ok(QueryEvent::SchemaCreated),
+                    Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::TableCreated),
+                    Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::RecordsInserted(1)),
+                    Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::RecordsUpdated(1)),
+                    Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::RecordsSelected((
                         vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
                         vec![vec!["6".to_owned()]],
                     ))),
+                    Ok(QueryEvent::QueryComplete),
                 ]);
             }
 
@@ -358,13 +406,18 @@ mod operators {
 
                 collector.assert_content_for_single_queries(vec![
                     Ok(QueryEvent::SchemaCreated),
+                    Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::TableCreated),
+                    Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::RecordsInserted(1)),
+                    Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::RecordsUpdated(1)),
+                    Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::RecordsSelected((
                         vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
                         vec![vec!["4".to_owned()]],
                     ))),
+                    Ok(QueryEvent::QueryComplete),
                 ]);
             }
 
@@ -380,13 +433,18 @@ mod operators {
 
                 collector.assert_content_for_single_queries(vec![
                     Ok(QueryEvent::SchemaCreated),
+                    Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::TableCreated),
+                    Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::RecordsInserted(1)),
+                    Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::RecordsUpdated(1)),
+                    Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::RecordsSelected((
                         vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
                         vec![vec!["0".to_owned()]],
                     ))),
+                    Ok(QueryEvent::QueryComplete),
                 ]);
             }
 
@@ -405,13 +463,18 @@ mod operators {
 
                 collector.assert_content_for_single_queries(vec![
                     Ok(QueryEvent::SchemaCreated),
+                    Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::TableCreated),
+                    Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::RecordsInserted(1)),
+                    Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::RecordsUpdated(1)),
+                    Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::RecordsSelected((
                         vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
                         vec![vec!["64".to_owned()]],
                     ))),
+                    Ok(QueryEvent::QueryComplete),
                 ]);
             }
 
@@ -429,13 +492,18 @@ mod operators {
 
                 collector.assert_content_for_single_queries(vec![
                     Ok(QueryEvent::SchemaCreated),
+                    Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::TableCreated),
+                    Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::RecordsInserted(1)),
+                    Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::RecordsUpdated(1)),
+                    Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::RecordsSelected((
                         vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
                         vec![vec!["4".to_owned()]],
                     ))),
+                    Ok(QueryEvent::QueryComplete),
                 ]);
             }
 
@@ -453,13 +521,18 @@ mod operators {
 
                 collector.assert_content_for_single_queries(vec![
                     Ok(QueryEvent::SchemaCreated),
+                    Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::TableCreated),
+                    Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::RecordsInserted(1)),
+                    Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::RecordsUpdated(1)),
+                    Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::RecordsSelected((
                         vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
                         vec![vec!["2".to_owned()]],
                     ))),
+                    Ok(QueryEvent::QueryComplete),
                 ]);
             }
 
@@ -477,13 +550,18 @@ mod operators {
 
                 collector.assert_content_for_single_queries(vec![
                     Ok(QueryEvent::SchemaCreated),
+                    Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::TableCreated),
+                    Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::RecordsInserted(1)),
+                    Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::RecordsUpdated(1)),
+                    Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::RecordsSelected((
                         vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
                         vec![vec!["120".to_owned()]],
                     ))),
+                    Ok(QueryEvent::QueryComplete),
                 ]);
             }
 
@@ -501,13 +579,18 @@ mod operators {
 
                 collector.assert_content_for_single_queries(vec![
                     Ok(QueryEvent::SchemaCreated),
+                    Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::TableCreated),
+                    Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::RecordsInserted(1)),
+                    Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::RecordsUpdated(1)),
+                    Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::RecordsSelected((
                         vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
                         vec![vec!["120".to_owned()]],
                     ))),
+                    Ok(QueryEvent::QueryComplete),
                 ]);
             }
 
@@ -525,13 +608,18 @@ mod operators {
 
                 collector.assert_content_for_single_queries(vec![
                     Ok(QueryEvent::SchemaCreated),
+                    Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::TableCreated),
+                    Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::RecordsInserted(1)),
+                    Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::RecordsUpdated(1)),
+                    Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::RecordsSelected((
                         vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
                         vec![vec!["5".to_owned()]],
                     ))),
+                    Ok(QueryEvent::QueryComplete),
                 ]);
             }
 
@@ -547,13 +635,18 @@ mod operators {
 
                 collector.assert_content_for_single_queries(vec![
                     Ok(QueryEvent::SchemaCreated),
+                    Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::TableCreated),
+                    Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::RecordsInserted(1)),
+                    Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::RecordsUpdated(1)),
+                    Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::RecordsSelected((
                         vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
                         vec![vec!["1".to_owned()]],
                     ))),
+                    Ok(QueryEvent::QueryComplete),
                 ]);
             }
 
@@ -569,13 +662,18 @@ mod operators {
 
                 collector.assert_content_for_single_queries(vec![
                     Ok(QueryEvent::SchemaCreated),
+                    Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::TableCreated),
+                    Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::RecordsInserted(1)),
+                    Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::RecordsUpdated(1)),
+                    Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::RecordsSelected((
                         vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
                         vec![vec!["7".to_owned()]],
                     ))),
+                    Ok(QueryEvent::QueryComplete),
                 ]);
             }
 
@@ -593,13 +691,18 @@ mod operators {
 
                 collector.assert_content_for_single_queries(vec![
                     Ok(QueryEvent::SchemaCreated),
+                    Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::TableCreated),
+                    Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::RecordsInserted(1)),
+                    Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::RecordsUpdated(1)),
+                    Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::RecordsSelected((
                         vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
                         vec![vec!["-2".to_owned()]],
                     ))),
+                    Ok(QueryEvent::QueryComplete),
                 ]);
             }
 
@@ -617,13 +720,18 @@ mod operators {
 
                 collector.assert_content_for_single_queries(vec![
                     Ok(QueryEvent::SchemaCreated),
+                    Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::TableCreated),
+                    Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::RecordsInserted(1)),
+                    Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::RecordsUpdated(1)),
+                    Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::RecordsSelected((
                         vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
                         vec![vec!["16".to_owned()]],
                     ))),
+                    Ok(QueryEvent::QueryComplete),
                 ]);
             }
 
@@ -641,13 +749,18 @@ mod operators {
 
                 collector.assert_content_for_single_queries(vec![
                     Ok(QueryEvent::SchemaCreated),
+                    Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::TableCreated),
+                    Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::RecordsInserted(1)),
+                    Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::RecordsUpdated(1)),
+                    Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::RecordsSelected((
                         vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
                         vec![vec!["2".to_owned()]],
                     ))),
+                    Ok(QueryEvent::QueryComplete),
                 ]);
             }
 
@@ -663,13 +776,18 @@ mod operators {
 
                 collector.assert_content_for_single_queries(vec![
                     Ok(QueryEvent::SchemaCreated),
+                    Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::TableCreated),
+                    Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::RecordsInserted(1)),
+                    Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::RecordsUpdated(1)),
+                    Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::RecordsSelected((
                         vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
                         vec![vec!["5".to_owned()]],
                     ))),
+                    Ok(QueryEvent::QueryComplete),
                 ]);
             }
         }
@@ -705,13 +823,18 @@ mod operators {
 
             collector.assert_content_for_single_queries(vec![
                 Ok(QueryEvent::SchemaCreated),
+                Ok(QueryEvent::QueryComplete),
                 Ok(QueryEvent::TableCreated),
+                Ok(QueryEvent::QueryComplete),
                 Ok(QueryEvent::RecordsInserted(1)),
+                Ok(QueryEvent::QueryComplete),
                 Ok(QueryEvent::RecordsUpdated(1)),
+                Ok(QueryEvent::QueryComplete),
                 Ok(QueryEvent::RecordsSelected((
                     vec![("strings".to_owned(), PostgreSqlType::Char)],
                     vec![vec!["12345".to_owned()]],
                 ))),
+                Ok(QueryEvent::QueryComplete),
             ]);
         }
 
@@ -733,18 +856,25 @@ mod operators {
 
             collector.assert_content_for_single_queries(vec![
                 Ok(QueryEvent::SchemaCreated),
+                Ok(QueryEvent::QueryComplete),
                 Ok(QueryEvent::TableCreated),
+                Ok(QueryEvent::QueryComplete),
                 Ok(QueryEvent::RecordsInserted(1)),
+                Ok(QueryEvent::QueryComplete),
                 Ok(QueryEvent::RecordsUpdated(1)),
+                Ok(QueryEvent::QueryComplete),
                 Ok(QueryEvent::RecordsSelected((
                     vec![("strings".to_owned(), PostgreSqlType::Char)],
                     vec![vec!["145".to_owned()]],
                 ))),
+                Ok(QueryEvent::QueryComplete),
                 Ok(QueryEvent::RecordsUpdated(1)),
+                Ok(QueryEvent::QueryComplete),
                 Ok(QueryEvent::RecordsSelected((
                     vec![("strings".to_owned(), PostgreSqlType::Char)],
                     vec![vec!["451".to_owned()]],
                 ))),
+                Ok(QueryEvent::QueryComplete),
             ]);
         }
 
@@ -757,11 +887,17 @@ mod operators {
 
             collector.assert_content_for_single_queries(vec![
                 Ok(QueryEvent::SchemaCreated),
+                Ok(QueryEvent::QueryComplete),
                 Ok(QueryEvent::TableCreated),
+                Ok(QueryEvent::QueryComplete),
                 Ok(QueryEvent::RecordsInserted(1)),
-                Err(QueryErrorBuilder::new()
-                    .undefined_function("||".to_owned(), "NUMBER".to_owned(), "NUMBER".to_owned())
-                    .build()),
+                Ok(QueryEvent::QueryComplete),
+                Err(QueryError::undefined_function(
+                    "||".to_owned(),
+                    "NUMBER".to_owned(),
+                    "NUMBER".to_owned(),
+                )),
+                Ok(QueryEvent::QueryComplete),
             ]);
         }
     }

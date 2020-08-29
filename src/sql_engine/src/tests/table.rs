@@ -26,9 +26,10 @@ mod schemaless {
             .execute("create table schema_name.table_name (column_name smallint);")
             .expect("no system errors");
 
-        collector.assert_content_for_single_queries(vec![Err(QueryErrorBuilder::new()
-            .schema_does_not_exist("schema_name".to_owned())
-            .build())]);
+        collector.assert_content_for_single_queries(vec![
+            Err(QueryError::schema_does_not_exist("schema_name".to_owned())),
+            Ok(QueryEvent::QueryComplete),
+        ]);
     }
 
     #[rstest::rstest]
@@ -38,9 +39,10 @@ mod schemaless {
             .execute("drop table schema_name.table_name;")
             .expect("no system errors");
 
-        collector.assert_content_for_single_queries(vec![Err(QueryErrorBuilder::new()
-            .schema_does_not_exist("schema_name".to_owned())
-            .build())]);
+        collector.assert_content_for_single_queries(vec![
+            Err(QueryError::schema_does_not_exist("schema_name".to_owned())),
+            Ok(QueryEvent::QueryComplete),
+        ]);
     }
 }
 
@@ -52,7 +54,12 @@ fn create_table(sql_engine_with_schema: (QueryExecutor, Arc<Collector>)) {
         .execute("create table schema_name.table_name (column_name smallint);")
         .expect("no system errors");
 
-    collector.assert_content_for_single_queries(vec![Ok(QueryEvent::SchemaCreated), Ok(QueryEvent::TableCreated)]);
+    collector.assert_content_for_single_queries(vec![
+        Ok(QueryEvent::SchemaCreated),
+        Ok(QueryEvent::QueryComplete),
+        Ok(QueryEvent::TableCreated),
+        Ok(QueryEvent::QueryComplete),
+    ]);
 }
 
 #[rstest::rstest]
@@ -67,10 +74,11 @@ fn create_same_table(sql_engine_with_schema: (QueryExecutor, Arc<Collector>)) {
 
     collector.assert_content_for_single_queries(vec![
         Ok(QueryEvent::SchemaCreated),
+        Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::TableCreated),
-        Err(QueryErrorBuilder::new()
-            .table_already_exists("schema_name.table_name".to_owned())
-            .build()),
+        Ok(QueryEvent::QueryComplete),
+        Err(QueryError::table_already_exists("schema_name.table_name".to_owned())),
+        Ok(QueryEvent::QueryComplete),
     ]);
 }
 
@@ -89,9 +97,13 @@ fn drop_table(sql_engine_with_schema: (QueryExecutor, Arc<Collector>)) {
 
     collector.assert_content_for_single_queries(vec![
         Ok(QueryEvent::SchemaCreated),
+        Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::TableCreated),
+        Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::TableDropped),
+        Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::TableCreated),
+        Ok(QueryEvent::QueryComplete),
     ]);
 }
 
@@ -104,9 +116,9 @@ fn drop_non_existent_table(sql_engine_with_schema: (QueryExecutor, Arc<Collector
 
     collector.assert_content_for_single_queries(vec![
         Ok(QueryEvent::SchemaCreated),
-        Err(QueryErrorBuilder::new()
-            .table_does_not_exist("schema_name.table_name".to_owned())
-            .build()),
+        Ok(QueryEvent::QueryComplete),
+        Err(QueryError::table_does_not_exist("schema_name.table_name".to_owned())),
+        Ok(QueryEvent::QueryComplete),
     ]);
 }
 
@@ -127,7 +139,12 @@ mod different_types {
             )
             .expect("no system errors");
 
-        collector.assert_content_for_single_queries(vec![Ok(QueryEvent::SchemaCreated), Ok(QueryEvent::TableCreated)]);
+        collector.assert_content_for_single_queries(vec![
+            Ok(QueryEvent::SchemaCreated),
+            Ok(QueryEvent::QueryComplete),
+            Ok(QueryEvent::TableCreated),
+            Ok(QueryEvent::QueryComplete),
+        ]);
     }
 
     #[rstest::rstest]
@@ -142,7 +159,12 @@ mod different_types {
             )
             .expect("no system errors");
 
-        collector.assert_content_for_single_queries(vec![Ok(QueryEvent::SchemaCreated), Ok(QueryEvent::TableCreated)]);
+        collector.assert_content_for_single_queries(vec![
+            Ok(QueryEvent::SchemaCreated),
+            Ok(QueryEvent::QueryComplete),
+            Ok(QueryEvent::TableCreated),
+            Ok(QueryEvent::QueryComplete),
+        ]);
     }
 
     #[rstest::rstest]
@@ -156,7 +178,12 @@ mod different_types {
             )
             .expect("no system errors");
 
-        collector.assert_content_for_single_queries(vec![Ok(QueryEvent::SchemaCreated), Ok(QueryEvent::TableCreated)]);
+        collector.assert_content_for_single_queries(vec![
+            Ok(QueryEvent::SchemaCreated),
+            Ok(QueryEvent::QueryComplete),
+            Ok(QueryEvent::TableCreated),
+            Ok(QueryEvent::QueryComplete),
+        ]);
     }
 
     #[rstest::rstest]
@@ -172,6 +199,11 @@ mod different_types {
             )
             .expect("no system errors");
 
-        collector.assert_content_for_single_queries(vec![Ok(QueryEvent::SchemaCreated), Ok(QueryEvent::TableCreated)]);
+        collector.assert_content_for_single_queries(vec![
+            Ok(QueryEvent::SchemaCreated),
+            Ok(QueryEvent::QueryComplete),
+            Ok(QueryEvent::TableCreated),
+            Ok(QueryEvent::QueryComplete),
+        ]);
     }
 }

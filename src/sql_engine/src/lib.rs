@@ -26,11 +26,8 @@ use crate::{
     session::{statement::PreparedStatement, Session},
 };
 use kernel::SystemResult;
-use protocol::{
-    results::{QueryErrorBuilder, QueryEvent},
-    sql_types::PostgreSqlType,
-    Sender,
-};
+use protocol::results::QueryError;
+use protocol::{results::QueryEvent, sql_types::PostgreSqlType, Sender};
 use serde::{Deserialize, Serialize};
 use sql_types::SqlType;
 use sqlparser::{
@@ -101,11 +98,11 @@ impl QueryExecutor {
             }
             Err(e) => {
                 log::error!("{:?} can't be parsed. Error: {:?}", raw_sql_query, e);
-                let query_error = QueryErrorBuilder::new()
-                    .syntax_error(format!("{:?} can't be parsed", raw_sql_query))
-                    .build();
                 self.sender
-                    .send(Err(query_error))
+                    .send(Err(QueryError::syntax_error(format!(
+                        "{:?} can't be parsed",
+                        raw_sql_query
+                    ))))
                     .expect("To Send Query Result to Client");
                 return Ok(());
             }
@@ -145,9 +142,7 @@ impl QueryExecutor {
                 }
                 Statement::Drop { .. } => {
                     self.sender
-                        .send(Err(QueryErrorBuilder::new()
-                            .feature_not_supported(raw_sql_query.to_owned())
-                            .build()))
+                        .send(Err(QueryError::feature_not_supported(raw_sql_query.to_owned())))
                         .expect("To Send Query Result to Client");
                 }
                 Statement::Query(query) => {
@@ -165,9 +160,7 @@ impl QueryExecutor {
                 }
                 _ => {
                     self.sender
-                        .send(Err(QueryErrorBuilder::new()
-                            .feature_not_supported(raw_sql_query.to_owned())
-                            .build()))
+                        .send(Err(QueryError::feature_not_supported(raw_sql_query.to_owned())))
                         .expect("To Send Query Result to Client");
                 }
             },
@@ -194,11 +187,11 @@ impl QueryExecutor {
             }
             Err(e) => {
                 log::error!("{:?} can't be parsed. Error: {:?}", raw_sql_query, e);
-                let query_error = QueryErrorBuilder::new()
-                    .syntax_error(format!("{:?} can't be parsed", raw_sql_query))
-                    .build();
                 self.sender
-                    .send(Err(query_error))
+                    .send(Err(QueryError::syntax_error(format!(
+                        "{:?} can't be parsed",
+                        raw_sql_query
+                    ))))
                     .expect("To Send Query Result to Client");
                 return Ok(());
             }
@@ -234,10 +227,9 @@ impl QueryExecutor {
                     .expect("To Send ParametersDescribed Event");
             }
             None => {
-                let query_error = QueryErrorBuilder::new()
-                    .prepared_statement_does_not_exist(name.to_owned())
-                    .build();
-                self.sender.send(Err(query_error)).expect("To Send Error to Client");
+                self.sender
+                    .send(Err(QueryError::prepared_statement_does_not_exist(name.to_owned())))
+                    .expect("To Send Error to Client");
             }
         };
 

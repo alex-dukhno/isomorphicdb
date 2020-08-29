@@ -348,15 +348,29 @@ impl<RW: AsyncRead + AsyncWrite + Unpin> Sender for ResponseSender<RW> {
 
     fn send(&self, query_result: QueryResult) -> io::Result<()> {
         block_on(async {
-            let messages: Vec<BackendMessage> = query_result.map_or_else(|event| event.into(), |err| err.into());
-            for message in messages {
-                log::debug!("{:?}", message);
-                self.channel
-                    .lock()
-                    .await
-                    .write_all(message.as_vec().as_slice())
-                    .await
-                    .expect("OK");
+            match query_result {
+                Ok(event) => {
+                    let messages: Vec<BackendMessage> = event.into();
+                    for message in messages {
+                        log::debug!("{:?}", message);
+                        self.channel
+                            .lock()
+                            .await
+                            .write_all(message.as_vec().as_slice())
+                            .await
+                            .expect("OK");
+                    }
+                }
+                Err(error) => {
+                    let message: BackendMessage = error.into();
+                    log::debug!("{:?}", message);
+                    self.channel
+                        .lock()
+                        .await
+                        .write_all(message.as_vec().as_slice())
+                        .await
+                        .expect("OK");
+                }
             }
             log::debug!("end of the command is sent");
         });

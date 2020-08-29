@@ -14,10 +14,8 @@
 
 use crate::catalog_manager::CatalogManager;
 use kernel::SystemResult;
-use protocol::{
-    results::{QueryErrorBuilder, QueryEvent},
-    Sender,
-};
+use protocol::results::QueryError;
+use protocol::{results::QueryEvent, Sender};
 use sqlparser::ast::ObjectName;
 use std::sync::Arc;
 
@@ -38,16 +36,16 @@ impl DeleteCommand {
 
         if !self.storage.schema_exists(&schema_name) {
             self.session
-                .send(Err(QueryErrorBuilder::new().schema_does_not_exist(schema_name).build()))
+                .send(Err(QueryError::schema_does_not_exist(schema_name)))
                 .expect("To Send Result to Client");
             return Ok(());
         }
 
         if !self.storage.table_exists(&schema_name, &table_name) {
             self.session
-                .send(Err(QueryErrorBuilder::new()
-                    .table_does_not_exist(schema_name + "." + table_name.as_str())
-                    .build()))
+                .send(Err(QueryError::table_does_not_exist(
+                    schema_name + "." + table_name.as_str(),
+                )))
                 .expect("To Send Result to Client");
             return Ok(());
         }
