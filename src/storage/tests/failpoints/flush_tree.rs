@@ -40,7 +40,7 @@ fn database() -> PersistentDatabase {
 
 #[rstest::rstest]
 fn io_error(database: PersistentDatabase, scenario: FailScenario) {
-    fail::cfg("sled-fail-to-insert-into-tree", "return(io)").unwrap();
+    fail::cfg("sled-fail-to-flush-tree", "return(io)").unwrap();
 
     assert!(matches!(
         database.write(
@@ -56,7 +56,7 @@ fn io_error(database: PersistentDatabase, scenario: FailScenario) {
 
 #[rstest::rstest]
 fn corruption_error(database: PersistentDatabase, scenario: FailScenario) {
-    fail::cfg("sled-fail-to-insert-into-tree", "return(corruption)").unwrap();
+    fail::cfg("sled-fail-to-flush-tree", "return(corruption)").unwrap();
 
     assert_eq!(
         database
@@ -74,7 +74,7 @@ fn corruption_error(database: PersistentDatabase, scenario: FailScenario) {
 
 #[rstest::rstest]
 fn reportable_bug(database: PersistentDatabase, scenario: FailScenario) {
-    fail::cfg("sled-fail-to-insert-into-tree", "return(bug)").unwrap();
+    fail::cfg("sled-fail-to-flush-tree", "return(bug)").unwrap();
 
     assert_eq!(
         database
@@ -92,7 +92,7 @@ fn reportable_bug(database: PersistentDatabase, scenario: FailScenario) {
 
 #[rstest::rstest]
 fn unsupported_operation(database: PersistentDatabase, scenario: FailScenario) {
-    fail::cfg("sled-fail-to-insert-into-tree", "return(unsupported)").unwrap();
+    fail::cfg("sled-fail-to-flush-tree", "return(unsupported)").unwrap();
 
     assert_eq!(
         database
@@ -110,7 +110,7 @@ fn unsupported_operation(database: PersistentDatabase, scenario: FailScenario) {
 
 #[rstest::rstest]
 fn collection_not_found(database: PersistentDatabase, scenario: FailScenario) {
-    fail::cfg("sled-fail-to-insert-into-tree", "return(collection_not_found)").unwrap();
+    fail::cfg("sled-fail-to-flush-tree", "return(collection_not_found)").unwrap();
 
     assert_eq!(
         database
