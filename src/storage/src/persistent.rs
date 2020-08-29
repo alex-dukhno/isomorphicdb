@@ -293,22 +293,6 @@ impl Database for PersistentDatabase {
                                 }
                             }
                             self.tree_flush(object, written_rows)
-                            // match  {
-                            //     Ok(flushed) => {
-                            //         log::trace!("{:?} data is written to {:?}.{:?}", rows, schema_name, object_name);
-                            //         log::debug!("| inserted {:?} | flushed {:?} |", written_rows, flushed);
-                            //         Ok(Ok(Ok(written_rows)))
-                            //     }
-                            //     Err(error) => match error {
-                            //         SledError::Io(io_error) => Err(io_error),
-                            //         SledError::Corruption { .. } => Ok(Err(StorageError::Storage)),
-                            //         SledError::ReportableBug(_) => Ok(Err(StorageError::Storage)),
-                            //         SledError::Unsupported(_) => Ok(Err(StorageError::Storage)),
-                            //         SledError::CollectionNotFound(_) => {
-                            //             Ok(Ok(Err(DefinitionError::ObjectDoesNotExist)))
-                            //         }
-                            //     },
-                            // }
                         }
                         otherwise => otherwise.map(|io| io.map(|storage| storage.map(|_object| 0))),
                     }
@@ -389,21 +373,6 @@ impl Database for PersistentDatabase {
                                 }
                             }
                             self.tree_flush(object, deleted)
-                            // match self.tree_flush_with_failpoint(object) {
-                            //     Ok(flushed) => {
-                            //         log::debug!("| inserted {:?} | flushed {:?} |", deleted, flushed);
-                            //         Ok(Ok(Ok(deleted)))
-                            //     }
-                            //     Err(error) => match error {
-                            //         SledError::Io(io_error) => Err(io_error),
-                            //         SledError::Corruption { .. } => Ok(Err(StorageError::Storage)),
-                            //         SledError::ReportableBug(_) => Ok(Err(StorageError::Storage)),
-                            //         SledError::Unsupported(_) => Ok(Err(StorageError::Storage)),
-                            //         SledError::CollectionNotFound(_) => {
-                            //             Ok(Ok(Err(DefinitionError::ObjectDoesNotExist)))
-                            //         }
-                            //     },
-                            // }
                         }
                         otherwise => otherwise.map(|io| io.map(|storage| storage.map(|_object| 0))),
                     }
