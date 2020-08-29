@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{catalog_manager::data_definition::DataDefinition, ColumnDefinition, TableDefinition};
+use crate::{catalog_manager::data_definition::DataDefinition, ColumnDefinition};
 use kernel::{Object, Operation, SystemError, SystemResult};
 use std::{
     path::PathBuf,
@@ -105,20 +105,6 @@ impl CatalogManager {
 
     pub fn next_key_id(&self) -> u64 {
         self.key_id_generator.fetch_add(1, Ordering::SeqCst)
-    }
-
-    pub fn table_descriptor(&self, schema_name: &str, table_name: &str) -> SystemResult<TableDefinition> {
-        if self.table_exists(schema_name, table_name) {
-            // we know the table exists
-            let columns_metadata = self.table_columns(schema_name, table_name)?;
-
-            Ok(TableDefinition::new(schema_name, table_name, columns_metadata))
-        } else {
-            Err(SystemError::bug_in_sql_engine(
-                Operation::Access,
-                Object::Table(schema_name, table_name),
-            ))
-        }
     }
 
     pub fn create_schema(&self, schema_name: &str) -> SystemResult<()> {

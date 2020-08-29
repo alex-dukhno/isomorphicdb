@@ -17,6 +17,8 @@ use representation::Binary;
 use sql_types::SqlType;
 
 #[cfg(test)]
+mod persistence;
+#[cfg(test)]
 mod queries;
 #[cfg(test)]
 mod schema;
