@@ -2176,12 +2176,6 @@ mod tests {
                 data_definition.table_columns("catalog_name", "schema_name", "table_name"),
                 vec![]
             );
-
-            // data_definition.create_schema("catalog_name", "schema_name");
-            // assert!(matches!(
-            //     data_definition.table_exists("catalog_name", "schema_name", "table_name"),
-            //     Some((_, Some((_, None))))
-            // ));
         }
     }
 }
