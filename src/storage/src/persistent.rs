@@ -38,28 +38,21 @@ impl PersistentDatabase {
     pub fn init(&self, schema_name: &str) -> io::Result<Result<InitStatus, StorageError>> {
         let path_to_schema = PathBuf::from(&self.path).join(schema_name);
         log::info!("path to schema {:?}", path_to_schema);
-        match self.open_database(path_to_schema) {
-            Ok(schema) => {
+        self.open_database(path_to_schema).map(|storage| {
+            storage.map(|schema| {
                 let recovered = schema.was_recovered();
                 self.schemas
                     .write()
                     .expect("to acquire write lock")
                     .insert(schema_name.to_owned(), Arc::new(schema));
-                log::debug!("namespaces after initialization {:?}", self.schemas);
+                log::debug!("schemas after initialization {:?}", self.schemas);
                 if recovered {
-                    Ok(Ok(InitStatus::Loaded))
+                    InitStatus::Loaded
                 } else {
-                    Ok(Ok(InitStatus::Created))
+                    InitStatus::Created
                 }
-            }
-            Err(error) => match error {
-                SledError::Io(io_error) => Err(io_error),
-                SledError::Corruption { .. } => Ok(Err(StorageError::Storage)),
-                SledError::ReportableBug(_) => Ok(Err(StorageError::Storage)),
-                SledError::Unsupported(_) => Ok(Err(StorageError::Storage)),
-                SledError::CollectionNotFound(_) => Ok(Err(StorageError::Storage)),
-            },
-        }
+            })
+        })
     }
 
     pub fn open_object(&self, schema_name: &str, object_name: &str) {
@@ -71,7 +64,20 @@ impl PersistentDatabase {
         }
     }
 
-    fn open_database(&self, path_to_schema: PathBuf) -> Result<Schema, SledError> {
+    fn open_database(&self, path_to_schema: PathBuf) -> io::Result<Result<Schema, StorageError>> {
+        match self.open_database_with_failpoint(path_to_schema) {
+            Ok(schema) => Ok(Ok(schema)),
+            Err(error) => match error {
+                SledError::Io(io_error) => Err(io_error),
+                SledError::Corruption { .. } => Ok(Err(StorageError::Storage)),
+                SledError::ReportableBug(_) => Ok(Err(StorageError::Storage)),
+                SledError::Unsupported(_) => Ok(Err(StorageError::Storage)),
+                SledError::CollectionNotFound(_) => Ok(Err(StorageError::Storage)),
+            },
+        }
+    }
+
+    fn open_database_with_failpoint(&self, path_to_schema: PathBuf) -> Result<Schema, SledError> {
         fail::fail_point!("sled-fail-to-open-db", |kind| Err(sled_error(kind)));
         sled::open(path_to_schema)
     }
@@ -149,6 +155,26 @@ impl PersistentDatabase {
         tree.insert(key.to_bytes(), values.to_bytes())
     }
 
+    fn tree_flush(
+        &self,
+        tree: Tree,
+        io_operations: usize,
+    ) -> io::Result<Result<Result<usize, DefinitionError>, StorageError>> {
+        match self.tree_flush_with_failpoint(tree) {
+            Ok(flushed) => {
+                log::debug!("| io operations {:?} | flushed {:?} |", io_operations, flushed);
+                Ok(Ok(Ok(io_operations)))
+            }
+            Err(error) => match error {
+                SledError::Io(io_error) => Err(io_error),
+                SledError::Corruption { .. } => Ok(Err(StorageError::Storage)),
+                SledError::ReportableBug(_) => Ok(Err(StorageError::Storage)),
+                SledError::Unsupported(_) => Ok(Err(StorageError::Storage)),
+                SledError::CollectionNotFound(_) => Ok(Ok(Err(DefinitionError::ObjectDoesNotExist))),
+            },
+        }
+    }
+
     fn tree_flush_with_failpoint(&self, tree: Tree) -> Result<usize, SledError> {
         fail::fail_point!("sled-fail-to-flush-tree", |kind| Err(sled_error(kind)));
         tree.flush()
@@ -182,22 +208,15 @@ impl Database for PersistentDatabase {
         } else {
             let path_to_schema = PathBuf::from(&self.path).join(schema_name);
             log::info!("path to schema {:?}", path_to_schema);
-            match self.open_database(path_to_schema) {
-                Ok(schema) => {
+            self.open_database(path_to_schema).map(|storage| {
+                storage.map(|schema| {
                     self.schemas
                         .write()
                         .expect("to acquire write lock")
                         .insert(schema_name.to_owned(), Arc::new(schema));
-                    Ok(Ok(Ok(())))
-                }
-                Err(error) => match error {
-                    SledError::Io(io_error) => Err(io_error),
-                    SledError::Corruption { .. } => Ok(Err(StorageError::Storage)),
-                    SledError::ReportableBug(_) => Ok(Err(StorageError::Storage)),
-                    SledError::Unsupported(_) => Ok(Err(StorageError::Storage)),
-                    SledError::CollectionNotFound(_) => Ok(Err(StorageError::Storage)),
-                },
-            }
+                    Ok(())
+                })
+            })
         }
     }
 
@@ -273,22 +292,7 @@ impl Database for PersistentDatabase {
                                     },
                                 }
                             }
-                            match self.tree_flush_with_failpoint(object) {
-                                Ok(flushed) => {
-                                    log::trace!("{:?} data is written to {:?}.{:?}", rows, schema_name, object_name);
-                                    log::debug!("| inserted {:?} | flushed {:?} |", written_rows, flushed);
-                                    Ok(Ok(Ok(written_rows)))
-                                }
-                                Err(error) => match error {
-                                    SledError::Io(io_error) => Err(io_error),
-                                    SledError::Corruption { .. } => Ok(Err(StorageError::Storage)),
-                                    SledError::ReportableBug(_) => Ok(Err(StorageError::Storage)),
-                                    SledError::Unsupported(_) => Ok(Err(StorageError::Storage)),
-                                    SledError::CollectionNotFound(_) => {
-                                        Ok(Ok(Err(DefinitionError::ObjectDoesNotExist)))
-                                    }
-                                },
-                            }
+                            self.tree_flush(object, written_rows)
                         }
                         otherwise => otherwise.map(|io| io.map(|storage| storage.map(|_object| 0))),
                     }
@@ -368,21 +372,7 @@ impl Database for PersistentDatabase {
                                     },
                                 }
                             }
-                            match self.tree_flush_with_failpoint(object) {
-                                Ok(flushed) => {
-                                    log::debug!("| inserted {:?} | flushed {:?} |", deleted, flushed);
-                                    Ok(Ok(Ok(deleted)))
-                                }
-                                Err(error) => match error {
-                                    SledError::Io(io_error) => Err(io_error),
-                                    SledError::Corruption { .. } => Ok(Err(StorageError::Storage)),
-                                    SledError::ReportableBug(_) => Ok(Err(StorageError::Storage)),
-                                    SledError::Unsupported(_) => Ok(Err(StorageError::Storage)),
-                                    SledError::CollectionNotFound(_) => {
-                                        Ok(Ok(Err(DefinitionError::ObjectDoesNotExist)))
-                                    }
-                                },
-                            }
+                            self.tree_flush(object, deleted)
                         }
                         otherwise => otherwise.map(|io| io.map(|storage| storage.map(|_object| 0))),
                     }
