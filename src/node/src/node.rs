@@ -75,6 +75,24 @@ pub fn start() {
                                 state.store(STOPPED, Ordering::SeqCst);
                                 return;
                             }
+                            Ok(Ok(Command::Bind(
+                                portal_name,
+                                statement_name,
+                                param_formats,
+                                raw_params,
+                                result_formats,
+                            ))) => {
+                                match query_executor.bind_prepared_statement_to_portal(
+                                    portal_name.as_str(),
+                                    statement_name.as_str(),
+                                    param_formats.as_ref(),
+                                    raw_params.as_ref(),
+                                    result_formats.as_ref(),
+                                ) {
+                                    Ok(()) => {}
+                                    Err(error) => log::error!("{:?}", error),
+                                }
+                            }
                             Ok(Ok(Command::Continue)) => {}
                             Ok(Ok(Command::DescribeStatement(name))) => {
                                 match query_executor.describe_prepared_statement(name.as_str()) {
@@ -82,9 +100,15 @@ pub fn start() {
                                     Err(error) => log::error!("{:?}", error),
                                 }
                             }
+                            Ok(Ok(Command::Execute(portal_name, max_rows))) => {
+                                match query_executor.execute_portal(portal_name.as_str(), max_rows) {
+                                    Ok(()) => {}
+                                    Err(error) => log::error!("{:?}", error),
+                                }
+                            }
                             Ok(Ok(Command::Flush)) => query_executor.flush(),
                             Ok(Ok(Command::Parse(statement_name, sql_query, param_types))) => {
-                                match query_executor.parse(
+                                match query_executor.parse_prepared_statement(
                                     statement_name.as_str(),
                                     sql_query.as_str(),
                                     param_types.as_ref(),

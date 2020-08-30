@@ -23,7 +23,7 @@ fn parse_select_statement(sql_engine_with_schema: (QueryExecutor, Arc<Collector>
         .execute("create table schema_name.table_name (column_1 smallint, column_2 smallint);")
         .expect("no system errors");
     engine
-        .parse(
+        .parse_prepared_statement(
             "statement_name",
             "select * from schema_name.table_name where column = $1 and column_2 = $2;",
             &[PostgreSqlType::SmallInt, PostgreSqlType::SmallInt],
@@ -43,7 +43,7 @@ fn parse_select_statement(sql_engine_with_schema: (QueryExecutor, Arc<Collector>
 fn parse_select_statement_with_not_existed_table(sql_engine_with_schema: (QueryExecutor, Arc<Collector>)) {
     let (mut engine, collector) = sql_engine_with_schema;
     let error = engine
-        .parse(
+        .parse_prepared_statement(
             "statement_name",
             "select * from schema_name.non_existent where column_1 = $1;",
             &[],
@@ -68,7 +68,7 @@ fn parse_select_statement_with_not_existed_column(sql_engine_with_schema: (Query
         .execute("create table schema_name.table_name (column_1 smallint, column_2 smallint);")
         .expect("no system errors");
     let error = engine
-        .parse(
+        .parse_prepared_statement(
             "statement_name",
             "select column_not_in_table from schema_name.table_name where column_1 = $1;",
             &[],
@@ -97,7 +97,7 @@ fn parse_update_statement(sql_engine_with_schema: (QueryExecutor, Arc<Collector>
         .execute("create table schema_name.table_name (column_1 smallint, column_2 smallint);")
         .expect("no system errors");
     engine
-        .parse(
+        .parse_prepared_statement(
             "statement_name",
             "update schema_name.table_name set column_1 = $1 where column_2 = $2;",
             &[PostgreSqlType::SmallInt, PostgreSqlType::SmallInt],

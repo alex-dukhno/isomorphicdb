@@ -34,34 +34,41 @@
 //! 4. The client issues an `Execute` message with the name of a portal, causing
 //!    that portal to actually start scanning and returning results.
 
-use protocol::{results::Description, sql_types::PostgreSqlType};
+use protocol::{results::Description, sql_formats::PostgreSqlFormat, sql_types::PostgreSqlType};
 use sqlparser::ast::Statement;
 
 /// A prepared statement.
 #[derive(Clone, Debug)]
 pub struct PreparedStatement {
-    sql: Statement,
+    /// The raw prepared SQL statement will be bound to a portal.
+    stmt: Statement,
+    /// The types of any bound parameters.
     param_types: Vec<PostgreSqlType>,
+    /// The type of the rows that will be returned.
     description: Description,
 }
 
 impl PreparedStatement {
     /// Constructs a new `PreparedStatement`.
-    pub fn new(sql: Statement, param_types: Vec<PostgreSqlType>, description: Description) -> PreparedStatement {
+    pub fn new(stmt: Statement, param_types: Vec<PostgreSqlType>, description: Description) -> PreparedStatement {
         PreparedStatement {
-            sql,
+            stmt,
             param_types,
             description,
         }
     }
 
-    /// Returns the types of any parameters in this prepared statement.
+    /// Returns the raw prepared SQL statement.
+    pub fn stmt(&self) -> &Statement {
+        &self.stmt
+    }
+
+    /// Returns the types of any bound parameters.
     pub fn param_types(&self) -> &[PostgreSqlType] {
         &self.param_types
     }
 
-    /// Returns the type of the rows that will be returned by this prepared
-    /// statement.
+    /// Returns the type of the rows that will be returned.
     pub fn description(&self) -> &[(String, PostgreSqlType)] {
         self.description.as_ref()
     }
@@ -72,6 +79,24 @@ impl PreparedStatement {
 pub struct Portal {
     /// The name of the prepared statement that is bound to this portal.
     statement_name: String,
+    /// The bound SQL statement from the prepared statement.
+    stmt: Statement,
+    /// The desired output format for each column in the result set.
+    result_formats: Vec<PostgreSqlFormat>,
 }
 
-impl Portal {}
+impl Portal {
+    /// Constructs a new `Portal`.
+    pub fn new(statement_name: String, stmt: Statement, result_formats: Vec<PostgreSqlFormat>) -> Self {
+        Self {
+            statement_name,
+            stmt,
+            result_formats,
+        }
+    }
+
+    /// Returns the bound SQL statement.
+    pub fn stmt(&self) -> &Statement {
+        &self.stmt
+    }
+}

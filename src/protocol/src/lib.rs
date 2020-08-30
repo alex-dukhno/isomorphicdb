@@ -19,6 +19,7 @@ extern crate log;
 use crate::{
     messages::{BackendMessage, Encryption, FrontendMessage},
     results::QueryResult,
+    sql_formats::PostgreSqlFormat,
     sql_types::PostgreSqlType,
 };
 use async_mutex::Mutex as AsyncMutex;
@@ -45,8 +46,12 @@ use std::{
 pub mod messages;
 /// Module contains functionality to represent query result
 pub mod results;
+/// Module contains functionality to represent SQL format
+pub mod sql_formats;
 /// Module contains functionality to represent SQL type system
 pub mod sql_types;
+/// Module contains functionality to represent SQL data value
+pub mod sql_values;
 
 /// Protocol version
 pub type Version = i32;
@@ -88,10 +93,20 @@ pub enum Error {
 /// Result of handling incoming bytes from a client
 #[derive(Debug, PartialEq)]
 pub enum Command {
+    /// Client commands to bind a prepared statement to a portal
+    Bind(
+        String,
+        String,
+        Vec<PostgreSqlFormat>,
+        Vec<Option<Vec<u8>>>,
+        Vec<PostgreSqlFormat>,
+    ),
     /// Nothing needs to handle on client, just to receive next message
     Continue,
     /// Client commands to describe a prepared statement
     DescribeStatement(String),
+    /// Client commands to execute a portal
+    Execute(String, i32),
     /// Client commands to flush the output stream
     Flush,
     /// Client commands to prepare a statement for execution
@@ -296,7 +311,21 @@ impl<RW: AsyncRead + AsyncWrite + Unpin> Receiver for RequestReceiver<RW> {
         log::debug!("MESSAGE {:?}", message);
 
         match message {
+            FrontendMessage::Bind {
+                portal_name,
+                statement_name,
+                param_formats,
+                raw_params,
+                result_formats,
+            } => Ok(Ok(Command::Bind(
+                portal_name,
+                statement_name,
+                param_formats,
+                raw_params,
+                result_formats,
+            ))),
             FrontendMessage::DescribeStatement { name } => Ok(Ok(Command::DescribeStatement(name))),
+            FrontendMessage::Execute { portal_name, max_rows } => Ok(Ok(Command::Execute(portal_name, max_rows))),
             FrontendMessage::Flush => Ok(Ok(Command::Flush)),
             FrontendMessage::Parse {
                 statement_name,

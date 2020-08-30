@@ -14,6 +14,8 @@
 
 pub(crate) mod statement;
 
+use protocol::sql_formats::PostgreSqlFormat;
+use sqlparser::ast::Statement;
 use statement::{Portal, PreparedStatement};
 use std::collections::HashMap;
 
@@ -40,5 +42,20 @@ impl Session {
 
     pub fn set_prepared_statement(&mut self, name: String, statement: PreparedStatement) {
         self.prepared_statements.insert(name, statement);
+    }
+
+    pub fn get_portal(&self, name: &str) -> Option<&Portal> {
+        self.portals.get(name)
+    }
+
+    pub fn set_portal(
+        &mut self,
+        portal_name: String,
+        statement_name: String,
+        stmt: Statement,
+        result_formats: Vec<PostgreSqlFormat>,
+    ) {
+        let new_portal = Portal::new(statement_name, stmt, result_formats);
+        self.portals.insert(portal_name, new_portal);
     }
 }

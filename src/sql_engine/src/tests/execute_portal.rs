@@ -16,7 +16,7 @@ use super::*;
 use protocol::sql_types::PostgreSqlType;
 
 #[rstest::rstest]
-fn describe_select_statement(sql_engine_with_schema: (QueryExecutor, Arc<Collector>)) {
+fn execute_insert_portal(sql_engine_with_schema: (QueryExecutor, Arc<Collector>)) {
     let (mut engine, collector) = sql_engine_with_schema;
     engine
         .execute("create table schema_name.table_name (column_1 smallint, column_2 smallint);")
@@ -24,69 +24,68 @@ fn describe_select_statement(sql_engine_with_schema: (QueryExecutor, Arc<Collect
     engine
         .parse_prepared_statement(
             "statement_name",
-            "select * from schema_name.table_name where column = $1 and column_2 = $2;",
+            "insert into schema_name.table_name values ($1, $2);",
             &[PostgreSqlType::SmallInt, PostgreSqlType::SmallInt],
         )
         .expect("no system errors");
     engine
-        .describe_prepared_statement("statement_name")
+        .bind_prepared_statement_to_portal(
+            "portal_name",
+            "statement_name",
+            &[PostgreSqlFormat::Binary, PostgreSqlFormat::Text],
+            &[Some(vec![0, 1]), Some(b"2".to_vec())],
+            &[],
+        )
         .expect("no system errors");
+    engine.execute_portal("portal_name", 0).expect("no system errors");
+
     collector.assert_content(vec![
         Ok(QueryEvent::SchemaCreated),
         Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::TableCreated),
         Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::ParseComplete),
-        Ok(QueryEvent::PreparedStatementDescribed(
-            vec![PostgreSqlType::SmallInt, PostgreSqlType::SmallInt],
-            vec![
-                ("column_1".to_owned(), PostgreSqlType::SmallInt),
-                ("column_2".to_owned(), PostgreSqlType::SmallInt),
-            ],
-        )),
+        Ok(QueryEvent::BindComplete),
+        Ok(QueryEvent::RecordsInserted(1)),
     ]);
 }
 
 #[rstest::rstest]
-fn describe_update_statement(sql_engine_with_schema: (QueryExecutor, Arc<Collector>)) {
+fn execute_update_portal(sql_engine_with_schema: (QueryExecutor, Arc<Collector>)) {
     let (mut engine, collector) = sql_engine_with_schema;
     engine
         .execute("create table schema_name.table_name (column_1 smallint, column_2 smallint);")
         .expect("no system errors");
     engine
+        .execute("insert into schema_name.table_name values (1, 2);")
+        .expect("no system errors");
+    engine
         .parse_prepared_statement(
             "statement_name",
-            "update schema_name.table_name set column_1 = $1 where column_2 = $2;",
+            "update schema_name.table_name set column_1 = $1, column_2 = $2;",
             &[PostgreSqlType::SmallInt, PostgreSqlType::SmallInt],
         )
         .expect("no system errors");
     engine
-        .describe_prepared_statement("statement_name")
+        .bind_prepared_statement_to_portal(
+            "portal_name",
+            "statement_name",
+            &[PostgreSqlFormat::Binary, PostgreSqlFormat::Text],
+            &[Some(vec![0, 1]), Some(b"2".to_vec())],
+            &[],
+        )
         .expect("no system errors");
+    engine.execute_portal("portal_name", 0).expect("no system errors");
 
     collector.assert_content(vec![
         Ok(QueryEvent::SchemaCreated),
         Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::TableCreated),
         Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::ParseComplete),
-        Ok(QueryEvent::PreparedStatementDescribed(
-            vec![PostgreSqlType::SmallInt, PostgreSqlType::SmallInt],
-            vec![],
-        )),
-    ]);
-}
-
-#[rstest::rstest]
-fn describe_not_existed_statement(sql_engine_with_schema: (QueryExecutor, Arc<Collector>)) {
-    let (mut engine, collector) = sql_engine_with_schema;
-    engine
-        .describe_prepared_statement("non_existent")
-        .expect("no system errors");
-
-    collector.assert_content(vec![
-        Ok(QueryEvent::SchemaCreated),
+        Ok(QueryEvent::RecordsInserted(1)),
         Ok(QueryEvent::QueryComplete),
-        Err(QueryError::prepared_statement_does_not_exist("non_existent".to_owned())),
+        Ok(QueryEvent::ParseComplete),
+        Ok(QueryEvent::BindComplete),
+        Ok(QueryEvent::RecordsUpdated(1)),
     ]);
 }
