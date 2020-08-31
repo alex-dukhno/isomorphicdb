@@ -17,7 +17,7 @@ kernel = { path = "../kernel" }
 sql_engine = { path = "../sql_engine" }
 sql_types = { path = "../sql_types" }
 storage = { path = "../storage" }
-futures-lite = "0.1.11"
+futures-lite = "1.0.0"
 smol = "0.3.3"
 async-io = "0.1.11"
 protocol = { path = "../protocol" }
