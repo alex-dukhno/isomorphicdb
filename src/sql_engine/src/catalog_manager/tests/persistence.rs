@@ -12,8 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::catalog_manager::CatalogManager;
-use crate::ColumnDefinition;
+use crate::{catalog_manager::CatalogManager, ColumnDefinition};
 use representation::{Binary, Datum};
 use sql_types::SqlType;
 use std::path::PathBuf;

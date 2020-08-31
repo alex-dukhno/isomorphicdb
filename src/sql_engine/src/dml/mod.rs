@@ -13,8 +13,7 @@
 // limitations under the License.
 
 use bigdecimal::BigDecimal;
-use protocol::results::QueryError;
-use protocol::Sender;
+use protocol::{results::QueryError, Sender};
 use sqlparser::ast::{BinaryOperator, Expr, Value};
 use std::{ops::Deref, sync::Arc};
 

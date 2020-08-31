@@ -14,8 +14,10 @@
 
 use crate::{catalog_manager::CatalogManager, dml::ExpressionEvaluation};
 use kernel::SystemResult;
-use protocol::results::QueryError;
-use protocol::{results::QueryEvent, Sender};
+use protocol::{
+    results::{QueryError, QueryEvent},
+    Sender,
+};
 use representation::{unpack_raw, Binary, Datum};
 use sql_types::ConstraintError;
 use sqlparser::ast::{Assignment, Expr, Ident, ObjectName, UnaryOperator, Value};
