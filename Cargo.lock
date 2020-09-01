@@ -48,12 +48,21 @@ version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "90f47c78ea98277cb1f5e6f60ba4fc762f5eafe9f6511bc2f7dfd8b75c225650"
 dependencies = [
- "async-io",
- "futures-lite 0.1.11",
- "multitask",
- "parking 1.0.6",
- "scoped-tls",
- "waker-fn",
+ "async-task",
+ "concurrent-queue",
+ "fastrand",
+ "futures-lite",
+ "once_cell",
+]
+
+[[package]]
+name = "async-fs"
+version = "1.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d90e4baef8f76edf22f63ecdee360541ceb56236948ac03f2904329a26debd20"
+dependencies = [
+ "blocking",
+ "futures-lite",
 ]
 
 [[package]]
@@ -64,7 +73,8 @@ checksum = "3ae22a338d28c75b53702b66f77979062cb29675db376d99e451af4fa79dedb3"
 dependencies = [
  "cfg-if",
  "concurrent-queue",
- "futures-lite 0.1.11",
+ "fastrand",
+ "futures-lite",
  "libc",
  "once_cell",
  "parking 2.0.0",
@@ -94,6 +104,52 @@ dependencies = [
  "native-tls",
  "thiserror",
  "url",
+]
+
+[[package]]
+name = "async-net"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "79db11f7831e0de63763ed8e3f23c2095aad16c6ca2fffa727b922a955f026b2"
+dependencies = [
+ "async-io",
+ "blocking",
+ "futures-lite",
+]
+
+[[package]]
+name = "async-process"
+version = "0.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "23d510baf319291a41e6c3363df4408a3b196ad18fcb1305ae4e500f2eabe260"
+dependencies = [
+ "async-io",
+ "blocking",
+ "cfg-if",
+ "event-listener",
+ "futures-lite",
+ "once_cell",
+ "signal-hook",
+ "winapi",
+]
+
+[[package]]
+name = "async-rwlock"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6f8978b5ae008b5177da07a1bf1bfbe428f9bdb970c3fca0e92ed1c1930d7f34"
+dependencies = [
+ "async-mutex",
+ "event-listener",
+]
+
+[[package]]
+name = "async-semaphore"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "64fa45fce1280cc450781869a9edec7986cdefb971d3e1607798b5e52bad068a"
+dependencies = [
+ "event-listener",
 ]
 
 [[package]]
@@ -199,13 +255,14 @@ checksum = "cf1de2fe8c75bc145a2f577add951f8134889b4795d47466a54a5c846d691693"
 
 [[package]]
 name = "blocking"
-version = "0.5.2"
+version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ea5800d29218fea137b0880387e5948694a23c93fcdde157006966693a865c7c"
+checksum = "3f30e08a950487f80d2de5cbb72772c8bbaed6002dc8d979722dabd034ede18d"
 dependencies = [
  "async-channel",
  "atomic-waker",
- "futures-lite 0.1.11",
+ "fastrand",
+ "futures-lite",
  "once_cell",
  "waker-fn",
 ]
@@ -389,21 +446,6 @@ name = "futures-io"
 version = "0.3.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "de27142b013a8e869c14957e6d2edeef89e97c289e69d042ee3a49acd8b51789"
-
-[[package]]
-name = "futures-lite"
-version = "0.1.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "97999970129b808f0ccba93211201d431fcc12d7e1ffae03a61b5cedd1a7ced2"
-dependencies = [
- "fastrand",
- "futures-core",
- "futures-io",
- "memchr",
- "parking 2.0.0",
- "pin-project-lite",
- "waker-fn",
-]
 
 [[package]]
 name = "futures-lite"
@@ -622,7 +664,7 @@ dependencies = [
  "async-dup",
  "async-io",
  "blocking",
- "futures-lite 1.0.0",
+ "futures-lite",
  "kernel",
  "log",
  "protocol",
@@ -827,7 +869,7 @@ dependencies = [
  "async-trait",
  "blocking",
  "byteorder",
- "futures-lite 1.0.0",
+ "futures-lite",
  "itertools",
  "log",
  "tempfile",
@@ -1079,11 +1121,12 @@ dependencies = [
  "async-channel",
  "async-executor",
  "async-io",
+ "async-lock",
+ "async-net",
+ "async-process",
  "blocking",
- "cfg-if",
- "easy-parallel",
- "futures-lite 0.1.11",
- "num_cpus",
+ "futures-lite",
+ "once_cell",
 ]
 
 [[package]]
@@ -1104,7 +1147,7 @@ version = "0.1.0"
 dependencies = [
  "bigdecimal",
  "bincode",
- "futures-lite 1.0.0",
+ "futures-lite",
  "kernel",
  "log",
  "protocol",

@@ -21,7 +21,7 @@ use crate::{
     results::QueryResult,
     sql_types::PostgreSqlType,
 };
-use async_dup::{Arc as AsyncArc, Mutex as AsyncMutex};
+use async_mutex::Mutex as AsyncMutex;
 use async_native_tls::TlsStream;
 use async_trait::async_trait;
 use blocking::Unblock;
@@ -181,7 +181,7 @@ where
                     .write_all(BackendMessage::ReadyForQuery.as_vec().as_slice())
                     .await?;
 
-                let channel = AsyncArc::new(AsyncMutex::new(channel));
+                let channel = Arc::new(AsyncMutex::new(channel));
                 return Ok(Ok((
                     RequestReceiver::new((version, params.clone()), channel.clone()),
                     ResponseSender::new((version, params), channel),
@@ -245,15 +245,12 @@ fn decode_startup(message: Vec<u8>) -> Result<ClientHandshake> {
 
 struct RequestReceiver<RW: AsyncRead + AsyncWrite + Unpin> {
     properties: (Version, Params),
-    channel: AsyncArc<AsyncMutex<Channel<RW>>>,
+    channel: Arc<AsyncMutex<Channel<RW>>>,
 }
 
 impl<RW: AsyncRead + AsyncWrite + Unpin> RequestReceiver<RW> {
     /// Creates new Connection with properties and read-write socket
-    pub(crate) fn new(
-        properties: (Version, Params),
-        channel: AsyncArc<AsyncMutex<Channel<RW>>>,
-    ) -> RequestReceiver<RW> {
+    pub(crate) fn new(properties: (Version, Params), channel: Arc<AsyncMutex<Channel<RW>>>) -> RequestReceiver<RW> {
         RequestReceiver { properties, channel }
     }
 
@@ -268,7 +265,13 @@ impl<RW: AsyncRead + AsyncWrite + Unpin> Receiver for RequestReceiver<RW> {
     async fn receive(&mut self) -> io::Result<Result<Command>> {
         // Parses the one-byte tag.
         let mut buffer = [0u8; 1];
-        let tag = self.channel.lock().read_exact(&mut buffer).await.map(|_| buffer[0])?;
+        let tag = self
+            .channel
+            .lock()
+            .await
+            .read_exact(&mut buffer)
+            .await
+            .map(|_| buffer[0])?;
         log::debug!("TAG {:?}", tag);
 
         // Parses the frame length.
@@ -276,6 +279,7 @@ impl<RW: AsyncRead + AsyncWrite + Unpin> Receiver for RequestReceiver<RW> {
         let len = self
             .channel
             .lock()
+            .await
             .read_exact(&mut buffer)
             .await
             .map(|_| NetworkEndian::read_u32(&buffer))?;
@@ -283,7 +287,7 @@ impl<RW: AsyncRead + AsyncWrite + Unpin> Receiver for RequestReceiver<RW> {
         // Parses the frame data.
         let mut buffer = Vec::with_capacity(len as usize - 4);
         buffer.resize(len as usize - 4, b'0');
-        self.channel.lock().read_exact(&mut buffer).await?;
+        self.channel.lock().await.read_exact(&mut buffer).await?;
 
         let message = match FrontendMessage::decode(tag, &buffer) {
             Ok(msg) => msg,
@@ -315,7 +319,7 @@ pub trait Receiver: Send + Sync {
 
 struct ResponseSender<RW: AsyncRead + AsyncWrite + Unpin> {
     properties: (Version, Params),
-    channel: AsyncArc<AsyncMutex<Channel<RW>>>,
+    channel: Arc<AsyncMutex<Channel<RW>>>,
 }
 
 impl<RW: AsyncRead + AsyncWrite + Unpin> Clone for ResponseSender<RW> {
@@ -329,7 +333,7 @@ impl<RW: AsyncRead + AsyncWrite + Unpin> Clone for ResponseSender<RW> {
 
 impl<RW: AsyncRead + AsyncWrite + Unpin> ResponseSender<RW> {
     /// Creates new Connection with properties and read-write socket
-    pub(crate) fn new(properties: (Version, Params), channel: AsyncArc<AsyncMutex<Channel<RW>>>) -> ResponseSender<RW> {
+    pub(crate) fn new(properties: (Version, Params), channel: Arc<AsyncMutex<Channel<RW>>>) -> ResponseSender<RW> {
         ResponseSender { properties, channel }
     }
 }
@@ -337,7 +341,7 @@ impl<RW: AsyncRead + AsyncWrite + Unpin> ResponseSender<RW> {
 impl<RW: AsyncRead + AsyncWrite + Unpin> Sender for ResponseSender<RW> {
     fn flush(&self) -> io::Result<()> {
         block_on(async {
-            self.channel.lock().flush().await.expect("OK");
+            self.channel.lock().await.flush().await.expect("OK");
         });
 
         Ok(())
@@ -353,6 +357,7 @@ impl<RW: AsyncRead + AsyncWrite + Unpin> Sender for ResponseSender<RW> {
                         log::debug!("{:?}", message);
                         self.channel
                             .lock()
+                            .await
                             .write_all(message.as_vec().as_slice())
                             .await
                             .expect("OK");
@@ -363,6 +368,7 @@ impl<RW: AsyncRead + AsyncWrite + Unpin> Sender for ResponseSender<RW> {
                     log::debug!("{:?}", message);
                     self.channel
                         .lock()
+                        .await
                         .write_all(message.as_vec().as_slice())
                         .await
                         .expect("OK");

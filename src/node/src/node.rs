@@ -15,7 +15,6 @@
 use async_dup::Arc as AsyncArc;
 use async_io::Async;
 use protocol::{Command, ProtocolConfiguration, Receiver};
-use smol::{self, block_on, Task};
 use sql_engine::{catalog_manager::CatalogManager, QueryExecutor};
 use std::{
     env,
@@ -36,7 +35,7 @@ pub const STOPPED: u8 = 1;
 pub fn start() {
     let persistent = env::var("PERSISTENT").is_ok();
     let root_path = env::var("ROOT_PATH").map(PathBuf::from).unwrap_or_default();
-    block_on(async {
+    smol::block_on(async {
         let storage = if persistent {
             Arc::new(CatalogManager::persistent(root_path.join("database")).unwrap())
         } else {
@@ -63,7 +62,7 @@ pub fn start() {
                 let mut query_executor = QueryExecutor::new(storage.clone(), s);
                 log::debug!("ready to handle query");
 
-                ex.spawn(async move {
+                smol::spawn(async move {
                     loop {
                         match receiver.receive().await {
                             Err(e) => {
