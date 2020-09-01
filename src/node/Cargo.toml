@@ -18,8 +18,8 @@ sql_engine = { path = "../sql_engine" }
 sql_types = { path = "../sql_types" }
 storage = { path = "../storage" }
 futures-lite = "1.0.0"
-smol = "0.3.3"
-async-io = "0.1.11"
+smol = "0.4.3"
+async-io = "0.2.6"
 protocol = { path = "../protocol" }
 log = "0.4.8"
 simple_logger = { version = "1.7.0", default-features = false }
