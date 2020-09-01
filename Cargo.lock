@@ -97,17 +97,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "async-net"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "556790e2ea8d562a416bed6d04c4e92f949a1d5c4c724544c30d25f063b84b03"
-dependencies = [
- "async-io",
- "blocking",
- "futures-lite 0.1.11",
-]
-
-[[package]]
 name = "async-std"
 version = "1.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -833,7 +822,6 @@ dependencies = [
  "async-dup",
  "async-mutex",
  "async-native-tls",
- "async-net",
  "async-trait",
  "blocking",
  "byteorder",

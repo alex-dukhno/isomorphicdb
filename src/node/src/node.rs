@@ -60,53 +60,52 @@ pub fn start() {
                 let storage = storage.clone();
                 let sender = Arc::new(sender);
                 let s = sender.clone();
-                Task::spawn(async move {
-                    let mut query_executor = QueryExecutor::new(storage.clone(), s);
-                    log::debug!("ready to handle query");
+                let mut query_executor = QueryExecutor::new(storage.clone(), s);
+                log::debug!("ready to handle query");
 
-                    Task::spawn(async move {
-                        loop {
-                            match receiver.receive().await {
-                                Err(e) => {
-                                    log::error!("UNEXPECTED ERROR: {:?}", e);
-                                    state.store(STOPPED, Ordering::SeqCst);
-                                    return;
-                                }
-                                Ok(Err(e)) => {
-                                    log::error!("UNEXPECTED ERROR: {:?}", e);
-                                    state.store(STOPPED, Ordering::SeqCst);
-                                    return;
-                                }
-                                Ok(Ok(Command::Continue)) => {}
-                                Ok(Ok(Command::DescribeStatement(name))) => {
-                                    match query_executor.describe_prepared_statement(name.as_str()) {
-                                        Ok(()) => {}
-                                        Err(error) => log::error!("{:?}", error),
-                                    }
-                                }
-                                Ok(Ok(Command::Flush)) => query_executor.flush(),
-                                Ok(Ok(Command::Parse(statement_name, sql_query, param_types))) => {
-                                    match query_executor.parse(
-                                        statement_name.as_str(),
-                                        sql_query.as_str(),
-                                        param_types.as_ref(),
-                                    ) {
-                                        Ok(()) => {}
-                                        Err(error) => log::error!("{:?}", error),
-                                    }
-                                }
-                                Ok(Ok(Command::Query(sql_query))) => match query_executor.execute(sql_query.as_str()) {
+                ex.spawn(async move {
+                    loop {
+                        match receiver.receive().await {
+                            Err(e) => {
+                                log::error!("UNEXPECTED ERROR: {:?}", e);
+                                state.store(STOPPED, Ordering::SeqCst);
+                                return;
+                            }
+                            Ok(Err(e)) => {
+                                log::error!("UNEXPECTED ERROR: {:?}", e);
+                                state.store(STOPPED, Ordering::SeqCst);
+                                return;
+                            }
+                            Ok(Ok(Command::Continue)) => {}
+                            Ok(Ok(Command::DescribeStatement(name))) => {
+                                match query_executor.describe_prepared_statement(name.as_str()) {
                                     Ok(()) => {}
                                     Err(error) => log::error!("{:?}", error),
-                                },
-                                Ok(Ok(Command::Terminate)) => {
-                                    log::debug!("Closing connection with client");
-                                    break;
                                 }
                             }
+                            Ok(Ok(Command::Flush)) => query_executor.flush(),
+                            Ok(Ok(Command::Parse(statement_name, sql_query, param_types))) => {
+                                match query_executor.parse(
+                                    statement_name.as_str(),
+                                    sql_query.as_str(),
+                                    param_types.as_ref(),
+                                ) {
+                                    Ok(()) => {}
+                                    Err(error) => log::error!("{:?}", error),
+                                }
+                            }
+                            Ok(Ok(Command::Query(sql_query))) => match query_executor.execute(sql_query.as_str()) {
+                                Ok(()) => {
+                                    query_executor.flush();
+                                }
+                                Err(error) => log::error!("{:?}", error),
+                            },
+                            Ok(Ok(Command::Terminate)) => {
+                                log::debug!("Closing connection with client");
+                                break;
+                            }
                         }
-                    })
-                    .detach();
+                    }
                 })
                 .detach();
             }
