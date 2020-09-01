@@ -49,7 +49,7 @@ impl UpdateCommand {
         let table_name = self.name.0[1].to_string();
         let mut to_update = vec![];
 
-        let evaluation = ExpressionEvaluation::new(self.session.clone());
+        let mut evaluation = ExpressionEvaluation::new(self.session.clone());
 
         for item in self.assignments.iter() {
             let Assignment { id, value } = &item;

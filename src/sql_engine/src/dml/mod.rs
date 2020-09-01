@@ -32,14 +32,14 @@ impl ExpressionEvaluation {
         ExpressionEvaluation { session }
     }
 
-    pub(crate) fn eval(&self, expr: &Expr) -> Result<Value, ()> {
+    pub(crate) fn eval(&mut self, expr: &Expr) -> Result<Value, ()> {
         match self.inner_eval(expr)? {
             ExprResult::Number(v) => Ok(Value::Number(v)),
             ExprResult::String(v) => Ok(Value::SingleQuotedString(v)),
         }
     }
 
-    fn inner_eval(&self, expr: &Expr) -> Result<ExprResult, ()> {
+    fn inner_eval(&mut self, expr: &Expr) -> Result<ExprResult, ()> {
         if let Expr::BinaryOp { op, left, right } = expr {
             let left = self.inner_eval(left.deref())?;
             let right = self.inner_eval(right.deref())?;
