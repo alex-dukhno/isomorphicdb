@@ -14,10 +14,8 @@
 
 use crate::catalog_manager::CatalogManager;
 use kernel::SystemResult;
-use protocol::{
-    results::{QueryError, QueryEvent},
-    Sender,
-};
+use protocol::results::QueryError;
+use protocol::{results::QueryEvent, Sender};
 use sqlparser::ast::ObjectName;
 use std::sync::Arc;
 
