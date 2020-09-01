@@ -66,7 +66,7 @@ impl<'ic> InsertCommand<'ic> {
                         .collect()
                 };
 
-                let evaluation = ExpressionEvaluation::new(self.session.clone());
+                let mut evaluation = ExpressionEvaluation::new(self.session.clone());
                 let mut rows = vec![];
                 for line in values {
                     let mut row = vec![];
