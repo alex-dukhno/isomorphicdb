@@ -19,7 +19,8 @@ use crate::{
     query::{SchemaId, SchemaNamingError, TableId, TableNamingError},
     ColumnDefinition,
 };
-use protocol::{results::QueryError, Sender};
+use protocol::results::QueryError;
+use protocol::Sender;
 use sql_types::SqlType;
 use sqlparser::ast::{ColumnDef, DataType, ObjectName, ObjectType, Statement};
 use std::{convert::TryFrom, sync::Arc};

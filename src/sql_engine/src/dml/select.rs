@@ -14,8 +14,9 @@
 
 use crate::catalog_manager::CatalogManager;
 use kernel::{SystemError, SystemResult};
+use protocol::results::QueryError;
 use protocol::{
-    results::{Description, QueryError, QueryEvent},
+    results::{Description, QueryEvent},
     Sender,
 };
 use sqlparser::ast::{Expr, Ident, Query, Select, SelectItem, SetExpr, TableFactor, TableWithJoins};
