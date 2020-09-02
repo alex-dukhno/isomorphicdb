@@ -425,7 +425,7 @@ impl QueryErrorBuilder {
     pub fn ambiguous_column(mut self, column: String) -> Self {
         self.errors.push(QueryErrorInner {
             severity: Severity::Error,
-            kind: QueryErrorKind::AmbiguousColumnName {column}
+            kind: QueryErrorKind::AmbiguousColumnName { column },
         });
         self
     }
@@ -434,7 +434,7 @@ impl QueryErrorBuilder {
     pub fn undefined_column(mut self, column: String) -> Self {
         self.errors.push(QueryErrorInner {
             severity: Severity::Error,
-            kind: QueryErrorKind::UndefinedColumn{column}
+            kind: QueryErrorKind::UndefinedColumn { column },
         });
         self
     }
@@ -466,7 +466,6 @@ impl QueryErrorBuilder {
             },
         });
     }
-
 
     /// length of string types do not match constructor
     pub fn string_length_mismatch(&mut self, pg_type: PostgreSqlType, len: u64, column_name: String, row_index: usize) {

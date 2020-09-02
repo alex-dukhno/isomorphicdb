@@ -72,7 +72,6 @@ impl<'ic> InsertCommand<'ic> {
                         .collect()
                 };
 
-
                 if !self.storage.schema_exists(schema_name) {
                     self.session
                         .send(Err(QueryErrorBuilder::new()
@@ -104,11 +103,14 @@ impl<'ic> InsertCommand<'ic> {
                             Ok(v) => {
                                 if v.is_literal() {
                                     row.push(v);
-                                }
-                                else {
-                                    self.session.send(Err(QueryErrorBuilder::new()
-                                        .feature_not_supported("Only expressions resulting in a literal are supported".to_string())
-                                        .build())).expect("To Send Query Result to Client");;
+                                } else {
+                                    self.session
+                                        .send(Err(QueryErrorBuilder::new()
+                                            .feature_not_supported(
+                                                "Only expressions resulting in a literal are supported".to_string(),
+                                            )
+                                            .build()))
+                                        .expect("To Send Query Result to Client");
                                     return Ok(());
                                 }
                             }

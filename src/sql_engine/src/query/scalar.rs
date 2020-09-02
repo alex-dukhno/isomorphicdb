@@ -15,7 +15,8 @@
 ///! Module for representing scalar level operations. Implementation of
 ///! theses operators will be defined in a sperate module.
 use super::ColumnType;
-use representation::{Binary, Datum};
+use representation::{Binary, Datum, ScalarType};
+use sql_types::SqlType;
 use sqlparser::ast::{BinaryOperator, UnaryOperator};
 // use crate::query::relation::RelationType;
 
@@ -24,17 +25,18 @@ use sqlparser::ast::{BinaryOperator, UnaryOperator};
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ScalarOp {
     /// column access
-    Column(usize),
+    Column(usize, ScalarType),
     /// literal value (owned) and expected type.
     Literal(Datum<'static>),
     /// binary operator
-    Binary(BinaryOperator, Box<ScalarOp>, Box<ScalarOp>),
+    Binary(BinaryOperator, Box<ScalarOp>, Box<ScalarOp>, ScalarType),
     /// unary operator
-    Unary(UnaryOperator, Box<ScalarOp>),
+    Unary(UnaryOperator, Box<ScalarOp>, ScalarType),
     Assignment {
         destination: usize,
         value: Box<ScalarOp>,
-    }
+        ty: ScalarType,
+    },
 }
 
 impl ScalarOp {
@@ -51,4 +53,18 @@ impl ScalarOp {
             _ => None,
         }
     }
+
+    pub fn scalar_type(&self) -> ScalarType {
+        match self {
+            ScalarOp::Column(_, ty) => ty.clone(),
+            ScalarOp::Literal(datum) => datum.scalar_type().unwrap(),
+            ScalarOp::Binary(_, _, _, ty) => ty.clone(),
+            ScalarOp::Unary(_, _, ty) => ty.clone(),
+            ScalarOp::Assignment {
+                ty,
+                ..
+            } => ty.clone(),
+        }
+    }
 }
+

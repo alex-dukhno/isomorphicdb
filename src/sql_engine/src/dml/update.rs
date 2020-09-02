@@ -12,7 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::query::expr::{ExpressionEvaluation, EvalScalarOp};
+use crate::query::expr::{EvalScalarOp, ExpressionEvaluation};
+use crate::query::scalar::ScalarOp;
 use crate::{catalog_manager::CatalogManager, ColumnDefinition};
 use kernel::SystemResult;
 use protocol::{
@@ -24,7 +25,6 @@ use sql_types::ConstraintError;
 use sqlparser::ast::{Assignment, Expr, Ident, ObjectName, UnaryOperator, Value};
 use std::{collections::BTreeSet, convert::TryFrom, sync::Arc};
 use storage::Row;
-use crate::query::scalar::ScalarOp;
 
 pub(crate) struct UpdateCommand {
     name: ObjectName,
@@ -53,8 +53,6 @@ impl UpdateCommand {
         let table_name = self.name.0[1].to_string();
         let mut to_update = vec![];
 
-
-
         if !self.storage.schema_exists(&schema_name) {
             self.session
                 .send(Err(QueryErrorBuilder::new().schema_does_not_exist(schema_name).build()))
@@ -62,12 +60,10 @@ impl UpdateCommand {
             return Ok(());
         }
 
-
         let all_columns;
         // let mut errors = Vec::new();
         let mut non_existing_columns = BTreeSet::new();
         let mut column_exists = false;
-
 
         // only process the rows if the table and schema exist.
         if !self.storage.table_exists(&schema_name, &table_name) {
@@ -165,7 +161,8 @@ impl UpdateCommand {
                     let mut datums = unpack_raw(values.to_bytes());
 
                     for update in to_update.as_slice() {
-                        EvalScalarOp::eval_on_row(self.session.as_ref(), &mut datums.as_mut_slice(), update).expect("failed to eval assignment expression");
+                        EvalScalarOp::eval_on_row(self.session.as_ref(), &mut datums.as_mut_slice(), update)
+                            .expect("failed to eval assignment expression");
                     }
 
                     (key, Binary::pack(&datums))

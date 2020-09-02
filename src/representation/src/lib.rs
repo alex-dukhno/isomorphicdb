@@ -20,18 +20,56 @@ use sqlparser::ast::Value;
 use std::convert::TryFrom;
 use std::ops::{Add, BitAnd, BitOr, Div, Mul, Rem, Shl, Shr, Sub};
 
-// owned parallel of Datum but owns the content.
-// pub enum Value {
-//     Null,
-//     True,
-//     False,
-//     Int32(i32),
-//     Int64(i64),
-//     Float32(f32),
-//     Float64(f64),
-//     String(String),
-//     // Bytes(Vec<u8>)
-// }
+#[derive(Debug, Clone, Copy, Ord, PartialOrd, Eq, PartialEq)]
+pub enum ScalarType {
+    Int16,
+    Int32,
+    Int64,
+    UInt64,
+    Float32,
+    Float64,
+    Boolean,
+    String,
+}
+
+impl ScalarType {
+    pub fn is_integer(&self) -> bool {
+        match self {
+            Self::Int64 | Self::Int32 | Self::Int16 => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_float(&self) -> bool {
+        match self {
+            Self::Float64 | Self::Float32 => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_string(&self) -> bool {
+        *self == Self::String
+    }
+
+    pub fn is_boolean(&self) -> bool {
+        *self == Self::Boolean
+    }
+}
+
+impl ToString for ScalarType {
+    fn to_string(&self) -> String {
+        match self {
+            Self::Int16     => "Int16".to_string(),
+            Self::Int32     => "Int32".to_string(),
+            Self::Int64     => "Int64".to_string(),
+            Self::UInt64    => "UInt64".to_string(),
+            Self::Float32   => "Float32".to_string(),
+            Self::Float64   => "Float64".to_string(),
+            Self::Boolean   => "Bool".to_string(),
+            Self::String    => "String".to_string(),
+        }
+    }
+}
 
 /// value shared by the row.
 #[derive(Debug, Clone, PartialEq, Eq, Ord, PartialOrd, Hash)]
@@ -119,6 +157,22 @@ impl<'a> Datum<'a> {
 
     pub fn from_sql_type(val: SqlType) -> Datum<'static> {
         Datum::SqlType(val)
+    }
+
+    pub fn scalar_type(&self) -> Option<ScalarType> {
+        match self {
+            Datum::Null => None,
+            Datum::True | Datum::False => Some(ScalarType::Boolean),
+            Datum::Int16(_) => Some(ScalarType::Int16),
+            Datum::Int32(_) => Some(ScalarType::Int32),
+            Datum::Int64(_) => Some(ScalarType::Int64),
+            Datum::Float32(_) => Some(ScalarType::Float32),
+            Datum::Float64(_) => Some(ScalarType::Float64),
+            Datum::String(_) |
+            Datum::OwnedString(_) => Some(ScalarType::String),
+            Datum::UInt64(_) => Some(ScalarType::UInt64),
+            _ => None,
+        }
     }
 
     // @TODO: Add accessor helper functions.
