@@ -13,6 +13,13 @@ Check https://github.com/alex-dukhno/database/commits/master for undocumented ch
 
 ### Fixed
 
+## [0.1.3] - 2020-07-22
+
+### Added
+ - database can run in a persistent mode, your data will survive a restart (#247) 
+ - supported `DROP SCHEMA ... CASCADE` (#253)
+ - docker container runs in persistent mode by default (#257)
+
 ## [0.1.2] - 2020-07-22
 
 ### Added

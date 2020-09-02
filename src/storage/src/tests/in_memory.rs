@@ -13,58 +13,94 @@
 // limitations under the License.
 
 use super::*;
-use crate::in_memory::InMemoryDatabaseCatalog;
+use crate::in_memory::InMemoryDatabase;
 
-type StorageUnderTest = InMemoryDatabaseCatalog;
+type Storage = InMemoryDatabase;
 
 #[rstest::fixture]
-fn storage() -> StorageUnderTest {
-    StorageUnderTest::default()
+fn storage() -> Storage {
+    Storage::default()
 }
 
 #[rstest::fixture]
-fn with_namespace(storage: StorageUnderTest) -> StorageUnderTest {
-    storage.create_namespace("namespace").expect("namespace created");
+fn with_schema(storage: Storage, schema_name: &'_ str) -> Storage {
+    storage
+        .create_schema(schema_name)
+        .expect("no io error")
+        .expect("no platform errors")
+        .expect("schema created");
     storage
 }
 
 #[rstest::fixture]
-fn with_object(with_namespace: StorageUnderTest) -> StorageUnderTest {
-    with_namespace
-        .create_tree("namespace", "object_name")
+fn with_object(with_schema: Storage, schema_name: &'_ str, object_name: &'_ str) -> Storage {
+    with_schema
+        .create_object(schema_name, object_name)
+        .expect("no io error")
+        .expect("no storage error")
         .expect("object created");
-    with_namespace
+    with_schema
 }
 
 #[cfg(test)]
-mod namespace {
+mod schemas {
     use super::*;
 
     #[rstest::rstest]
-    fn create_namespaces_with_different_names(storage: StorageUnderTest) {
-        assert_eq!(storage.create_namespace("namespace_1"), Ok(()));
-        assert_eq!(storage.create_namespace("namespace_2"), Ok(()));
+    fn create_schemas_with_different_names(storage: Storage) {
+        assert_eq!(storage.create_schema("schema_name_1").expect("no io error"), Ok(Ok(())));
+        assert_eq!(storage.create_schema("schema_name_2").expect("no io error"), Ok(Ok(())));
     }
 
     #[rstest::rstest]
-    fn drop_namespace(with_namespace: StorageUnderTest) {
-        assert_eq!(with_namespace.drop_namespace("namespace"), Ok(()));
-        assert_eq!(with_namespace.create_namespace("namespace"), Ok(()));
+    fn drop_schema(with_schema: Storage, schema_name: &'_ str) {
+        assert_eq!(with_schema.drop_schema(schema_name).expect("no io error"), Ok(Ok(())));
+        assert_eq!(with_schema.create_schema(schema_name).expect("no io error"), Ok(Ok(())));
     }
 
     #[rstest::rstest]
-    fn dropping_namespace_drops_objects_in_it(with_namespace: StorageUnderTest) {
-        with_namespace
-            .create_tree("namespace", "object_name_1")
+    fn dropping_schema_drops_objects_in_it(with_schema: Storage, schema_name: &'_ str) {
+        with_schema
+            .create_object(schema_name, "object_name_1")
+            .expect("no io error")
+            .expect("no storage error")
             .expect("object created");
-        with_namespace
-            .create_tree("namespace", "object_name_2")
+        with_schema
+            .create_object(schema_name, "object_name_2")
+            .expect("no io error")
+            .expect("no storage error")
             .expect("object created");
 
-        assert_eq!(with_namespace.drop_namespace("namespace"), Ok(()));
-        assert_eq!(with_namespace.create_namespace("namespace"), Ok(()));
-        assert_eq!(with_namespace.create_tree("namespace", "object_name_1"), Ok(()));
-        assert_eq!(with_namespace.create_tree("namespace", "object_name_2"), Ok(()));
+        assert_eq!(with_schema.drop_schema(schema_name).expect("no io error"), Ok(Ok(())));
+        assert_eq!(with_schema.create_schema(schema_name).expect("no io error"), Ok(Ok(())));
+        assert_eq!(
+            with_schema
+                .create_object(schema_name, "object_name_1")
+                .expect("no io error"),
+            Ok(Ok(()))
+        );
+        assert_eq!(
+            with_schema
+                .create_object(schema_name, "object_name_2")
+                .expect("no io error"),
+            Ok(Ok(()))
+        );
+    }
+
+    #[rstest::rstest]
+    fn create_schema_with_the_same_name(with_schema: Storage, schema_name: &'_ str) {
+        assert_eq!(
+            with_schema.create_schema(schema_name).expect("no io error"),
+            Ok(Err(DefinitionError::SchemaAlreadyExists))
+        )
+    }
+
+    #[rstest::rstest]
+    fn drop_schema_that_does_not_exist(storage: Storage, schema_name: &'_ str) {
+        assert_eq!(
+            storage.drop_schema(schema_name).expect("no io error"),
+            Ok(Err(DefinitionError::SchemaDoesNotExist))
+        )
     }
 }
 
@@ -73,17 +109,69 @@ mod create_object {
     use super::*;
 
     #[rstest::rstest]
-    fn create_objects_with_different_names(with_namespace: StorageUnderTest) {
-        assert_eq!(with_namespace.create_tree("namespace", "object_name_1"), Ok(()));
-        assert_eq!(with_namespace.create_tree("namespace", "object_name_2"), Ok(()));
+    fn create_objects_with_different_names(with_schema: Storage, schema_name: &'_ str) {
+        assert_eq!(
+            with_schema
+                .create_object(schema_name, "object_name_1")
+                .expect("no io error"),
+            Ok(Ok(()))
+        );
+        assert_eq!(
+            with_schema
+                .create_object(schema_name, "object_name_2")
+                .expect("no io error"),
+            Ok(Ok(()))
+        );
     }
 
     #[rstest::rstest]
-    fn create_object_with_the_same_name_in_different_namespaces(storage: StorageUnderTest) {
-        storage.create_namespace("namespace_1").expect("namespace created");
-        storage.create_namespace("namespace_2").expect("namespace created");
-        assert_eq!(storage.create_tree("namespace_1", "object_name"), Ok(()));
-        assert_eq!(storage.create_tree("namespace_2", "object_name"), Ok(()));
+    fn create_objects_with_the_same_name_in_the_same_schema(
+        with_object: Storage,
+        schema_name: &'_ str,
+        object_name: &'_ str,
+    ) {
+        assert_eq!(
+            with_object
+                .create_object(schema_name, object_name)
+                .expect("no io error"),
+            Ok(Err(DefinitionError::ObjectAlreadyExists))
+        )
+    }
+
+    #[rstest::rstest]
+    fn create_objects_in_non_existent_schema(storage: Storage, object_name: &'_ str) {
+        assert_eq!(
+            storage
+                .create_object("does_not_exist", object_name)
+                .expect("no io error"),
+            Ok(Err(DefinitionError::SchemaDoesNotExist))
+        )
+    }
+
+    #[rstest::rstest]
+    fn create_object_with_the_same_name_in_different_namespaces(storage: Storage) {
+        storage
+            .create_schema("schema_name_1")
+            .expect("no io error")
+            .expect("no platform errors")
+            .expect("schema created");
+        storage
+            .create_schema("schema_name_2")
+            .expect("no io error")
+            .expect("no platform errors")
+            .expect("schema created");
+        assert_eq!(
+            storage
+                .create_object("schema_name_1", "object_name")
+                .expect("no io error"),
+            Ok(Ok(()))
+        );
+        assert_eq!(
+            storage
+                .create_object("schema_name_2", "object_name")
+                .expect("no io error"),
+            Ok(Ok(()))
+        );
     }
 }
 
@@ -92,9 +180,33 @@ mod drop_object {
     use super::*;
 
     #[rstest::rstest]
-    fn drop_object(with_object: StorageUnderTest) {
-        assert_eq!(with_object.drop_tree("namespace", "object_name"), Ok(()));
-        assert_eq!(with_object.create_tree("namespace", "object_name"), Ok(()));
+    fn drop_object(with_object: Storage, schema_name: &'_ str, object_name: &'_ str) {
+        assert_eq!(
+            with_object.drop_object(schema_name, object_name).expect("no io error"),
+            Ok(Ok(()))
+        );
+        assert_eq!(
+            with_object
+                .create_object(schema_name, object_name)
+                .expect("no io error"),
+            Ok(Ok(()))
+        );
+    }
+
+    #[rstest::rstest]
+    fn drop_object_from_schema_that_does_not_exist(storage: Storage, object_name: &'_ str) {
+        assert_eq!(
+            storage.drop_object("does_not_exist", object_name).expect("no io error"),
+            Ok(Err(DefinitionError::SchemaDoesNotExist))
+        );
+    }
+
+    #[rstest::rstest]
+    fn drop_object_that_does_not_exist(with_schema: Storage, schema_name: &'_ str, object_name: &'_ str) {
+        assert_eq!(
+            with_schema.drop_object(schema_name, object_name).expect("no io error"),
+            Ok(Err(DefinitionError::ObjectDoesNotExist))
+        );
     }
 }
 
@@ -103,97 +215,206 @@ mod operations_on_object {
     use super::*;
 
     #[rstest::rstest]
-    fn insert_row_into_object(with_object: StorageUnderTest) {
+    fn write_row_into_object_that_does_not_exist(with_schema: Storage, schema_name: &'_ str, object_name: &'_ str) {
         assert_eq!(
-            with_object.write("namespace", "object_name", as_rows(vec![(1u8, vec!["123"])])),
-            Ok(1)
-        );
-
-        assert_eq!(
-            with_object
-                .read("namespace", "object_name")
-                .map(|iter| iter.collect::<Vec<SystemResult<Row>>>()),
-            Ok(as_read_cursor(vec![(1u8, vec!["123"])]).collect())
+            with_schema
+                .write(schema_name, object_name, as_rows(vec![(1u8, vec!["123"])]))
+                .expect("no io error"),
+            Ok(Err(DefinitionError::ObjectDoesNotExist))
         );
     }
 
     #[rstest::rstest]
-    fn insert_many_rows_into_object(with_object: StorageUnderTest) {
-        with_object
-            .write("namespace", "object_name", as_rows(vec![(1u8, vec!["123"])]))
-            .expect("values are written");
-        with_object
-            .write("namespace", "object_name", as_rows(vec![(2u8, vec!["456"])]))
-            .expect("values are written");
-
+    fn write_row_into_object_in_schema_that_does_not_exist(
+        storage: Storage,
+        schema_name: &'_ str,
+        object_name: &'_ str,
+    ) {
         assert_eq!(
-            with_object
-                .read("namespace", "object_name")
-                .map(|iter| iter.collect::<Vec<SystemResult<Row>>>()),
-            Ok(as_read_cursor(vec![(1u8, vec!["123"]), (2u8, vec!["456"])]).collect())
+            storage
+                .write(schema_name, object_name, as_rows(vec![(1u8, vec!["123"])]))
+                .expect("no io error"),
+            Ok(Err(DefinitionError::SchemaDoesNotExist))
         );
     }
 
     #[rstest::rstest]
-    fn delete_some_records_from_object(with_object: StorageUnderTest) {
+    fn write_read_row_into_object(with_object: Storage, schema_name: &'_ str, object_name: &'_ str) {
+        assert_eq!(
+            with_object
+                .write(schema_name, object_name, as_rows(vec![(1u8, vec!["123"])]))
+                .expect("no io error"),
+            Ok(Ok(1))
+        );
+
+        assert_eq!(
+            with_object
+                .read(schema_name, object_name)
+                .expect("no io error")
+                .expect("no platform error")
+                .map(|iter| iter
+                    .map(|ok| ok.expect("no io error"))
+                    .collect::<Vec<Result<Row, StorageError>>>()),
+            Ok(as_read_cursor(vec![(1u8, vec!["123"])])
+                .map(|ok| ok.expect("no io error"))
+                .collect())
+        );
+    }
+
+    #[rstest::rstest]
+    fn write_read_many_rows_into_object(with_object: Storage, schema_name: &'_ str, object_name: &'_ str) {
+        with_object
+            .write(schema_name, object_name, as_rows(vec![(1u8, vec!["123"])]))
+            .expect("no io error")
+            .expect("no platform error")
+            .expect("values are written");
+        with_object
+            .write(schema_name, object_name, as_rows(vec![(2u8, vec!["456"])]))
+            .expect("no io error")
+            .expect("no platform error")
+            .expect("values are written");
+
+        assert_eq!(
+            with_object
+                .read(schema_name, object_name)
+                .expect("no io error")
+                .expect("no platform error")
+                .map(|iter| iter
+                    .map(|ok| ok.expect("no io error"))
+                    .collect::<Vec<Result<Row, StorageError>>>()),
+            Ok(as_read_cursor(vec![(1u8, vec!["123"]), (2u8, vec!["456"])])
+                .map(|ok| ok.expect("no io error"))
+                .collect())
+        );
+    }
+
+    #[rstest::rstest]
+    fn delete_from_object_that_does_not_exist(with_schema: Storage, schema_name: &'_ str, object_name: &'_ str) {
+        assert_eq!(
+            with_schema
+                .delete(schema_name, object_name, vec![])
+                .expect("no io error"),
+            Ok(Err(DefinitionError::ObjectDoesNotExist))
+        );
+    }
+
+    #[rstest::rstest]
+    fn delete_from_object_that_in_schema_that_does_not_exist(
+        storage: Storage,
+        schema_name: &'_ str,
+        object_name: &'_ str,
+    ) {
+        assert_eq!(
+            storage.delete(schema_name, object_name, vec![]).expect("no io error"),
+            Ok(Err(DefinitionError::SchemaDoesNotExist))
+        );
+    }
+
+    #[rstest::rstest]
+    fn write_delete_read_records_from_object(with_object: Storage, schema_name: &'_ str, object_name: &'_ str) {
         with_object
             .write(
-                "namespace",
-                "object_name",
+                schema_name,
+                object_name,
                 as_rows(vec![(1u8, vec!["123"]), (2u8, vec!["456"]), (3u8, vec!["789"])]),
             )
-            .expect("write occurred");
+            .expect("no io error")
+            .expect("no platform error")
+            .expect("values are written");
 
         assert_eq!(
-            with_object.delete("namespace", "object_name", as_keys(vec![2u8])),
-            Ok(1)
+            with_object
+                .delete(schema_name, object_name, as_keys(vec![2u8]))
+                .expect("no io error"),
+            Ok(Ok(1))
         );
 
         assert_eq!(
             with_object
-                .read("namespace", "object_name")
-                .map(|iter| iter.collect::<Vec<SystemResult<Row>>>()),
-            Ok(as_read_cursor(vec![(1u8, vec!["123"]), (3u8, vec!["789"])]).collect())
+                .read(schema_name, object_name)
+                .expect("no io error")
+                .expect("no platform error")
+                .map(|iter| iter
+                    .map(|ok| ok.expect("no io error"))
+                    .collect::<Vec<Result<Row, StorageError>>>()),
+            Ok(as_read_cursor(vec![(1u8, vec!["123"]), (3u8, vec!["789"])])
+                .map(|ok| ok.expect("no io error"))
+                .collect())
         );
     }
 
     #[rstest::rstest]
-    fn select_all_from_object_with_many_columns(with_object: StorageUnderTest) {
+    fn read_from_object_that_does_not_exist(with_schema: Storage, schema_name: &'_ str, object_name: &'_ str) {
+        assert!(matches!(
+            with_schema.read(schema_name, object_name).expect("no io error"),
+            Ok(Err(DefinitionError::ObjectDoesNotExist))
+        ));
+    }
+
+    #[rstest::rstest]
+    fn read_from_object_that_in_schema_that_does_not_exist(
+        storage: Storage,
+        schema_name: &'_ str,
+        object_name: &'_ str,
+    ) {
+        assert!(matches!(
+            storage.read(schema_name, object_name).expect("no io error"),
+            Ok(Err(DefinitionError::SchemaDoesNotExist))
+        ));
+    }
+
+    #[rstest::rstest]
+    fn read_all_from_object_with_many_columns(with_object: Storage, schema_name: &'_ str, object_name: &'_ str) {
         with_object
-            .write("namespace", "object_name", as_rows(vec![(1u8, vec!["1", "2", "3"])]))
-            .expect("write occurred");
+            .write(schema_name, object_name, as_rows(vec![(1u8, vec!["1", "2", "3"])]))
+            .expect("no io error")
+            .expect("no platform error")
+            .expect("values are written");
 
         assert_eq!(
             with_object
-                .read("namespace", "object_name")
-                .map(|iter| iter.collect::<Vec<SystemResult<Row>>>()),
-            Ok(as_read_cursor(vec![(1u8, vec!["1", "2", "3"])]).collect())
+                .read(schema_name, object_name)
+                .expect("no io error")
+                .expect("no platform error")
+                .map(|iter| iter
+                    .map(|ok| ok.expect("no io error"))
+                    .collect::<Vec<Result<Row, StorageError>>>()),
+            Ok(as_read_cursor(vec![(1u8, vec!["1", "2", "3"])])
+                .map(|ok| ok.expect("no io error"))
+                .collect())
         );
     }
 
     #[rstest::rstest]
-    fn insert_multiple_rows(with_object: StorageUnderTest) {
+    fn write_read_multiple_columns(with_object: Storage, schema_name: &'_ str, object_name: &'_ str) {
         with_object
             .write(
-                "namespace",
-                "object_name",
+                schema_name,
+                object_name,
                 as_rows(vec![
                     (1u8, vec!["1", "2", "3"]),
                     (2u8, vec!["4", "5", "6"]),
                     (3u8, vec!["7", "8", "9"]),
                 ]),
             )
-            .expect("write occurred");
+            .expect("no io error")
+            .expect("no platform error")
+            .expect("values are written");
 
         assert_eq!(
             with_object
-                .read("namespace", "object_name")
-                .map(|iter| iter.collect::<Vec<SystemResult<Row>>>()),
+                .read(schema_name, object_name)
+                .expect("no io error")
+                .expect("no platform error")
+                .map(|iter| iter
+                    .map(|ok| ok.expect("no io error"))
+                    .collect::<Vec<Result<Row, StorageError>>>()),
             Ok(as_read_cursor(vec![
                 (1u8, vec!["1", "2", "3"]),
                 (2u8, vec!["4", "5", "6"]),
                 (3u8, vec!["7", "8", "9"])
             ])
+            .map(|ok| ok.expect("no io error"))
             .collect()),
         );
     }

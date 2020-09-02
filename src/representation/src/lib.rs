@@ -532,13 +532,7 @@ pub fn unpack_raw(data: &[u8]) -> Vec<Datum> {
             TypeTag::SqlType => {
                 let val = unsafe { read::<SqlType>(data, &mut index) };
                 Datum::from_sql_type(val)
-            } // SqlType::Decimal |
-              // SqlType::Time |
-              // SqlType::TimeWithTimeZone |
-              // SqlType::Timestamp |
-              // SqlType::TimestampWithTimeZone |
-              // SqlType::Date |
-              // SqlType::Interval => unimplemented!()
+            }
         };
         res.push(datum)
     }
@@ -613,96 +607,57 @@ impl_trait_integral!(Shr, shr, >>);
 mod tests {
     use super::*;
 
-    #[test]
-    fn row_packing_single() {
-        let datums = vec![Datum::from_bool(true)];
-        let row = Binary::pack(&datums);
-        assert_eq!(row, Binary::with_data(vec![0x1]));
-    }
+    #[cfg(test)]
+    mod pack_unpack_types {
+        use super::*;
 
-    #[test]
-    fn row_packing_multiple() {
-        let datums = vec![Datum::from_bool(true), Datum::from_i32(100000)];
-        let row = Binary::pack(&datums);
-        assert_eq!(row, Binary::with_data(vec![0x1, 0x4, 0xa0, 0x86, 0x1, 0x0]));
-    }
+        #[test]
+        fn null() {
+            let data = vec![Datum::from_null()];
+            let row = Binary::pack(&data);
+            assert_eq!(data, row.unpack());
+        }
 
-    #[test]
-    fn row_packing_with_floats() {
-        let datums = vec![
-            Datum::from_bool(false),
-            Datum::from_i32(100000),
-            Datum::from_f32(100.134_21),
-        ];
-        let row = Binary::pack(&datums);
-        assert_eq!(
-            row,
-            Binary::with_data(vec![0x2, 0x4, 0xa0, 0x86, 0x1, 0x0, 0x7, 0xb7, 0x44, 0xc8, 0x42])
-        );
-    }
+        #[test]
+        fn booleans() {
+            let data = vec![Datum::from_bool(true)];
+            let row = Binary::pack(&data);
+            assert_eq!(data, row.unpack());
+        }
 
-    #[test]
-    fn row_packing_with_null() {
-        let datums = vec![Datum::from_bool(true), Datum::from_null(), Datum::from_i32(100000)];
-        let row = Binary::pack(&datums);
-        assert_eq!(row, Binary::with_data(vec![0x1, 0x0, 0x4, 0xa0, 0x86, 0x1, 0x0]));
-    }
+        #[test]
+        fn floats() {
+            let data = vec![Datum::from_f32(1000.123), Datum::from_f64(100.134_219_234_555)];
+            let row = Binary::pack(&data);
+            assert_eq!(data, row.unpack());
+        }
 
-    #[test]
-    fn row_packing_string() {
-        let datums = vec![Datum::from_bool(true), Datum::from_str("hello")];
-        let row = Binary::pack(&datums);
-        assert_eq!(
-            row,
-            Binary::with_data(vec![
-                0x1, 0x9, 0x5, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x68, 0x65, 0x6c, 0x6c, 0x6f
-            ])
-        );
-    }
+        #[test]
+        fn integers() {
+            let data = vec![Datum::from_i16(100), Datum::from_i32(1_000), Datum::from_i64(10_000)];
+            let row = Binary::pack(&data);
+            assert_eq!(data, row.unpack());
+        }
 
-    #[test]
-    fn row_unpacking_single() {
-        let datums = vec![Datum::from_bool(true)];
-        let row = Binary::pack(&datums);
-        assert_eq!(row.unpack(), datums);
-    }
+        #[test]
+        fn unsigned_integers() {
+            let data = vec![Datum::from_u64(10_000)];
+            let row = Binary::pack(&data);
+            assert_eq!(data, row.unpack());
+        }
 
-    #[test]
-    fn row_unpacking_multiple() {
-        let datums = vec![Datum::from_bool(true), Datum::from_i32(100000)];
-        let row = Binary::pack(&datums);
-        assert_eq!(row.unpack(), datums);
-    }
+        #[test]
+        fn strings() {
+            let data = vec![Datum::from_string("string".to_owned()), Datum::from_str("hello")];
+            let row = Binary::pack(&data);
+            assert_eq!(vec![Datum::from_str("string"), Datum::from_str("hello")], row.unpack());
+        }
 
-    #[test]
-    fn row_unpacking_with_floats() {
-        let datums = vec![
-            Datum::from_bool(false),
-            Datum::from_i32(100000),
-            Datum::from_f64(100.134_212_309_847),
-        ];
-        let row = Binary::pack(&datums);
-        assert_eq!(row.unpack(), datums);
-    }
-
-    #[test]
-    fn row_unpacking_with_null() {
-        let datums = vec![Datum::from_bool(true), Datum::from_null(), Datum::from_i32(100000)];
-        let row = Binary::pack(&datums);
-        assert_eq!(row.unpack(), datums);
-    }
-
-    #[test]
-    fn row_unpacking_string() {
-        let datums = vec![Datum::from_bool(true), Datum::from_str("hello")];
-        let row = Binary::pack(&datums);
-        assert_eq!(row.unpack(), datums);
-    }
-
-    #[test]
-    fn row_unpacking_sql_type() {
-        let data = vec![Datum::from_sql_type(SqlType::VarChar(32))];
-        let row = Binary::pack(&data);
-        assert_eq!(vec![Datum::from_sql_type(SqlType::VarChar(32))], row.unpack());
+        #[test]
+        fn sql_type() {
+            let data = vec![Datum::from_sql_type(SqlType::VarChar(32))];
+            let row = Binary::pack(&data);
+            assert_eq!(data, row.unpack());
+        }
     }
 }

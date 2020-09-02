@@ -12,19 +12,31 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{catalog_manager::data_definition::DataDefinition, ColumnDefinition, TableDefinition};
+use crate::{catalog_manager::data_definition::DataDefinition, ColumnDefinition};
 use kernel::{Object, Operation, SystemError, SystemResult};
 use std::{
     path::PathBuf,
     sync::atomic::{AtomicU64, Ordering},
 };
-use storage::{InMemoryDatabaseCatalog, InitStatus, PersistentDatabaseCatalog, ReadCursor, Row, Storage, StorageError};
+use storage::{Database, InMemoryDatabase, InitStatus, PersistentDatabase, ReadCursor, Row};
 
 mod data_definition;
 
+pub enum DropStrategy {
+    Restrict,
+    Cascade,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum DropSchemaError {
+    CatalogDoesNotExist,
+    DoesNotExist,
+    HasDependentObjects,
+}
+
 pub struct CatalogManager {
     key_id_generator: AtomicU64,
-    data_storage: Box<dyn Storage>,
+    data_storage: Box<dyn Database>,
     data_definition: DataDefinition,
 }
 
@@ -45,37 +57,38 @@ impl CatalogManager {
         data_definition.create_catalog(DEFAULT_CATALOG);
         Ok(Self {
             key_id_generator: AtomicU64::default(),
-            data_storage: Box::new(InMemoryDatabaseCatalog::default()),
+            data_storage: Box::new(InMemoryDatabase::default()),
             data_definition,
         })
     }
 
     pub fn persistent(path: PathBuf) -> SystemResult<CatalogManager> {
         let data_definition = DataDefinition::persistent(&path)?;
-        let catalog = PersistentDatabaseCatalog::new(path.join(DEFAULT_CATALOG));
+        let catalog = PersistentDatabase::new(path.join(DEFAULT_CATALOG));
         match data_definition.catalog_exists(DEFAULT_CATALOG) {
             Some(_id) => {
                 for schema in data_definition.schemas(DEFAULT_CATALOG) {
                     match catalog.init(schema.as_str()) {
-                        Ok(InitStatus::Loaded) => {
+                        Ok(Ok(InitStatus::Loaded)) => {
                             for table in data_definition.tables(DEFAULT_CATALOG, schema.as_str()) {
-                                catalog.open_tree(schema.as_str(), table.as_str());
+                                catalog.open_object(schema.as_str(), table.as_str());
                             }
                         }
-                        Ok(InitStatus::Created) => {
+                        Ok(Ok(InitStatus::Created)) => {
                             log::error!("Schema {:?} should have been already created", schema);
                             return Err(SystemError::bug_in_sql_engine(
                                 Operation::Access,
                                 Object::Schema(schema.as_str()),
                             ));
                         }
-                        Err(error) => {
+                        Ok(Err(error)) => {
                             log::error!("Error during schema {:?} initialization {:?}", schema, error);
                             return Err(SystemError::bug_in_sql_engine(
                                 Operation::Access,
                                 Object::Schema(schema.as_str()),
                             ));
                         }
+                        Err(io_error) => return Err(SystemError::io(io_error)),
                     }
                 }
             }
@@ -94,41 +107,27 @@ impl CatalogManager {
         self.key_id_generator.fetch_add(1, Ordering::SeqCst)
     }
 
-    pub fn table_descriptor(&self, schema_name: &str, table_name: &str) -> SystemResult<TableDefinition> {
-        if self.table_exists(schema_name, table_name) {
-            // we know the table exists
-            let columns_metadata = self.table_columns(schema_name, table_name)?;
-
-            Ok(TableDefinition::new(schema_name, table_name, columns_metadata))
-        } else {
-            Err(SystemError::bug_in_sql_engine(
-                Operation::Access,
-                Object::Table(schema_name, table_name),
-            ))
-        }
-    }
-
     pub fn create_schema(&self, schema_name: &str) -> SystemResult<()> {
         self.data_definition.create_schema(DEFAULT_CATALOG, schema_name);
-        match self.data_storage.create_namespace(schema_name) {
-            Ok(()) => Ok(()),
-            Err(StorageError::SystemError(error)) => Err(error),
-            Err(StorageError::RuntimeCheckError) => Err(SystemError::bug_in_sql_engine(
+        match self.data_storage.create_schema(schema_name) {
+            Ok(Ok(Ok(()))) => Ok(()),
+            _ => Err(SystemError::bug_in_sql_engine(
                 Operation::Create,
                 Object::Schema(schema_name),
             )),
         }
     }
 
-    pub fn drop_schema(&self, schema_name: &str) -> SystemResult<()> {
-        self.data_definition.drop_schema(DEFAULT_CATALOG, schema_name);
-        match self.data_storage.drop_namespace(schema_name) {
-            Ok(()) => Ok(()),
-            Err(StorageError::SystemError(error)) => Err(error),
-            Err(StorageError::RuntimeCheckError) => Err(SystemError::bug_in_sql_engine(
-                Operation::Drop,
-                Object::Schema(schema_name),
-            )),
+    pub fn drop_schema(&self, schema_name: &str, strategy: DropStrategy) -> SystemResult<Result<(), DropSchemaError>> {
+        match self.data_definition.drop_schema(DEFAULT_CATALOG, schema_name, strategy) {
+            Ok(()) => match self.data_storage.drop_schema(schema_name) {
+                Ok(Ok(Ok(()))) => Ok(Ok(())),
+                _ => Err(SystemError::bug_in_sql_engine(
+                    Operation::Drop,
+                    Object::Schema(schema_name),
+                )),
+            },
+            Err(error) => Ok(Err(error)),
         }
     }
 
@@ -140,10 +139,9 @@ impl CatalogManager {
     ) -> SystemResult<()> {
         self.data_definition
             .create_table(DEFAULT_CATALOG, schema_name, table_name, column_definitions);
-        match self.data_storage.create_tree(schema_name, table_name) {
-            Ok(()) => Ok(()),
-            Err(StorageError::SystemError(error)) => Err(error),
-            Err(StorageError::RuntimeCheckError) => Err(SystemError::bug_in_sql_engine(
+        match self.data_storage.create_object(schema_name, table_name) {
+            Ok(Ok(Ok(()))) => Ok(()),
+            _ => Err(SystemError::bug_in_sql_engine(
                 Operation::Create,
                 Object::Table(schema_name, table_name),
             )),
@@ -159,10 +157,9 @@ impl CatalogManager {
     pub fn drop_table(&self, schema_name: &str, table_name: &str) -> SystemResult<()> {
         self.data_definition
             .drop_table(DEFAULT_CATALOG, schema_name, table_name);
-        match self.data_storage.drop_tree(schema_name, table_name) {
-            Ok(()) => Ok(()),
-            Err(StorageError::SystemError(error)) => Err(error),
-            Err(StorageError::RuntimeCheckError) => Err(SystemError::bug_in_sql_engine(
+        match self.data_storage.drop_object(schema_name, table_name) {
+            Ok(Ok(Ok(()))) => Ok(()),
+            _ => Err(SystemError::bug_in_sql_engine(
                 Operation::Drop,
                 Object::Table(schema_name, table_name),
             )),
@@ -172,9 +169,8 @@ impl CatalogManager {
     pub fn insert_into(&self, schema_name: &str, table_name: &str, values: Vec<Row>) -> SystemResult<usize> {
         log::debug!("{:#?}", values);
         match self.data_storage.write(schema_name, table_name, values) {
-            Ok(size) => Ok(size),
-            Err(StorageError::SystemError(error)) => Err(error),
-            Err(StorageError::RuntimeCheckError) => Err(SystemError::bug_in_sql_engine(
+            Ok(Ok(Ok(size))) => Ok(size),
+            _ => Err(SystemError::bug_in_sql_engine(
                 Operation::Access,
                 Object::Table(schema_name, table_name),
             )),
@@ -183,9 +179,8 @@ impl CatalogManager {
 
     pub fn table_scan(&self, schema_name: &str, table_name: &str) -> SystemResult<ReadCursor> {
         match self.data_storage.read(schema_name, table_name) {
-            Ok(read) => Ok(read),
-            Err(StorageError::SystemError(error)) => Err(error),
-            Err(StorageError::RuntimeCheckError) => Err(SystemError::bug_in_sql_engine(
+            Ok(Ok(Ok(read))) => Ok(read),
+            _ => Err(SystemError::bug_in_sql_engine(
                 Operation::Access,
                 Object::Table(schema_name, table_name),
             )),
@@ -194,9 +189,8 @@ impl CatalogManager {
 
     pub fn update_all(&self, schema_name: &str, table_name: &str, rows: Vec<Row>) -> SystemResult<usize> {
         match self.data_storage.write(schema_name, table_name, rows) {
-            Ok(size) => Ok(size),
-            Err(StorageError::SystemError(error)) => Err(error),
-            Err(StorageError::RuntimeCheckError) => Err(SystemError::bug_in_sql_engine(
+            Ok(Ok(Ok(size))) => Ok(size),
+            _ => Err(SystemError::bug_in_sql_engine(
                 Operation::Access,
                 Object::Table(schema_name, table_name),
             )),
@@ -205,17 +199,20 @@ impl CatalogManager {
 
     pub fn delete_all_from(&self, schema_name: &str, table_name: &str) -> SystemResult<usize> {
         match self.data_storage.read(schema_name, table_name) {
-            Ok(reads) => {
-                let keys = reads.map(Result::unwrap).map(|(key, _)| key).collect();
+            Ok(Ok(Ok(reads))) => {
+                let keys = reads
+                    .map(Result::unwrap)
+                    .map(Result::unwrap)
+                    .map(|(key, _)| key)
+                    .collect();
                 match self.data_storage.delete(schema_name, table_name, keys) {
-                    Ok(len) => Ok(len),
+                    Ok(Ok(Ok(len))) => Ok(len),
                     _ => unreachable!(
                         "all errors that make code fall in here should have been handled in read operation"
                     ),
                 }
             }
-            Err(StorageError::SystemError(error)) => Err(error),
-            Err(StorageError::RuntimeCheckError) => Err(SystemError::bug_in_sql_engine(
+            _ => Err(SystemError::bug_in_sql_engine(
                 Operation::Access,
                 Object::Table(schema_name, table_name),
             )),

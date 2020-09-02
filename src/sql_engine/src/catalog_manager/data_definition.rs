@@ -12,7 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::ColumnDefinition;
+use crate::{
+    catalog_manager::{DropSchemaError, DropStrategy},
+    ColumnDefinition,
+};
 use kernel::{SystemError, SystemResult};
 use representation::{Binary, Datum};
 use sql_types::SqlType;
@@ -24,7 +27,7 @@ use std::{
         Arc, RwLock,
     },
 };
-use storage::{InitStatus, PersistentDatabaseCatalog, Storage, StorageError};
+use storage::{Database, InitStatus, PersistentDatabase};
 
 const SYSTEM_CATALOG: &'_ str = "system";
 // CREATE SCHEMA DEFINITION_SCHEMA
@@ -386,6 +389,10 @@ impl Catalog {
             .cloned()
             .collect()
     }
+
+    fn empty(&self) -> bool {
+        self.schemas.read().expect("to acquire read lock").is_empty()
+    }
 }
 
 struct Schema {
@@ -462,6 +469,10 @@ impl Schema {
             .cloned()
             .collect()
     }
+
+    fn empty(&self) -> bool {
+        self.tables.read().expect("to acquire read lock").is_empty()
+    }
 }
 
 struct Table {
@@ -513,16 +524,16 @@ impl Table {
     }
 }
 
-#[allow(dead_code)]
-pub(crate) enum DropStrategy {
-    Restrict,
-    Cascade,
+#[derive(Debug, PartialEq)]
+pub(crate) enum DropCatalogError {
+    DoesNotExist,
+    HasDependentObjects,
 }
 
 pub(crate) struct DataDefinition {
     catalog_ids: AtomicU64,
     catalogs: RwLock<HashMap<Name, Arc<Catalog>>>,
-    system_catalog: Option<Box<dyn Storage>>,
+    system_catalog: Option<Box<dyn Database>>,
 }
 
 impl DataDefinition {
@@ -535,13 +546,16 @@ impl DataDefinition {
     }
 
     pub(crate) fn persistent(path: &PathBuf) -> SystemResult<DataDefinition> {
-        let system_catalog = PersistentDatabaseCatalog::new(path.join(SYSTEM_CATALOG));
+        let system_catalog = PersistentDatabase::new(path.join(SYSTEM_CATALOG));
         let (catalogs, catalog_ids) = match system_catalog.init(DEFINITION_SCHEMA) {
-            Ok(InitStatus::Loaded) => {
+            Ok(Ok(InitStatus::Loaded)) => {
                 let mut max_id = 0;
                 let catalogs = system_catalog
                     .read(DEFINITION_SCHEMA, CATALOG_NAMES_TABLE)
+                    .expect("no io error")
+                    .expect("no platform error")
                     .expect("to have CATALOG_NAMES table")
+                    .map(Result::unwrap)
                     .map(Result::unwrap)
                     .map(|(id, name)| {
                         let catalog_id = id.unpack()[0].as_u64();
@@ -552,27 +566,34 @@ impl DataDefinition {
                     .collect::<HashMap<_, _>>();
                 (catalogs, max_id)
             }
-            Ok(InitStatus::Created) => {
+            Ok(Ok(InitStatus::Created)) => {
                 system_catalog
-                    .create_tree(DEFINITION_SCHEMA, CATALOG_NAMES_TABLE)
+                    .create_object(DEFINITION_SCHEMA, CATALOG_NAMES_TABLE)
+                    .expect("no io error")
+                    .expect("no platform error")
                     .expect("table CATALOG_NAMES is created");
                 system_catalog
-                    .create_tree(DEFINITION_SCHEMA, SCHEMATA_TABLE)
+                    .create_object(DEFINITION_SCHEMA, SCHEMATA_TABLE)
+                    .expect("no io error")
+                    .expect("no platform error")
                     .expect("table SCHEMATA is created");
                 system_catalog
-                    .create_tree(DEFINITION_SCHEMA, TABLES_TABLE)
+                    .create_object(DEFINITION_SCHEMA, TABLES_TABLE)
+                    .expect("no io error")
+                    .expect("no platform error")
                     .expect("table TABLES is created");
                 system_catalog
-                    .create_tree(DEFINITION_SCHEMA, COLUMNS_TABLE)
+                    .create_object(DEFINITION_SCHEMA, COLUMNS_TABLE)
+                    .expect("no io error")
+                    .expect("no platform error")
                     .expect("table COLUMNS is created");
                 (HashMap::new(), 0)
             }
-            Err(StorageError::RuntimeCheckError) => {
+            _ => {
                 return Err(SystemError::runtime_check_failure(
                     "No Path in SledDatabaseCatalog".to_owned(),
                 ))
             }
-            Err(StorageError::SystemError(error)) => return Err(error),
         };
         Ok(DataDefinition {
             catalog_ids: AtomicU64::new(catalog_ids),
@@ -597,6 +618,8 @@ impl DataDefinition {
                         Binary::pack(&[Datum::from_str(catalog_name)]),
                     )],
                 )
+                .expect("no io error")
+                .expect("no platform error")
                 .expect("to save catalog");
         }
     }
@@ -607,26 +630,120 @@ impl DataDefinition {
             .read()
             .expect("to acquire read lock")
             .get(catalog_name)
-            .map(|database| database.id())
+            .map(|catalog| catalog.id())
     }
 
     #[allow(dead_code)]
-    pub(crate) fn drop_catalog(&self, catalog_name: &str, _strategy: DropStrategy) {
-        if let Some(catalog) = self
-            .catalogs
-            .write()
-            .expect("to acquire write lock")
-            .remove(catalog_name)
-        {
-            if let Some(system_catalog) = self.system_catalog.as_ref() {
-                system_catalog
-                    .delete(
-                        DEFINITION_SCHEMA,
-                        CATALOG_NAMES_TABLE,
-                        vec![Binary::pack(&[Datum::from_u64(catalog.id())])],
-                    )
-                    .expect("to remove catalog");
+    pub(crate) fn drop_catalog(&self, catalog_name: &str, strategy: DropStrategy) -> Result<(), DropCatalogError> {
+        if let Some(catalog) = self.catalog(catalog_name) {
+            match strategy {
+                DropStrategy::Restrict => {
+                    if catalog.empty() {
+                        if let Some(catalog) = self
+                            .catalogs
+                            .write()
+                            .expect("to acquire write lock")
+                            .remove(catalog_name)
+                        {
+                            if let Some(system_catalog) = self.system_catalog.as_ref() {
+                                system_catalog
+                                    .delete(
+                                        DEFINITION_SCHEMA,
+                                        CATALOG_NAMES_TABLE,
+                                        vec![Binary::pack(&[Datum::from_u64(catalog.id())])],
+                                    )
+                                    .expect("no io error")
+                                    .expect("no platform error")
+                                    .expect("to remove catalog");
+                            }
+                        }
+                        Ok(())
+                    } else {
+                        Err(DropCatalogError::HasDependentObjects)
+                    }
+                }
+                DropStrategy::Cascade => {
+                    if let Some(catalog) = self
+                        .catalogs
+                        .write()
+                        .expect("to acquire write lock")
+                        .remove(catalog_name)
+                    {
+                        if let Some(system_catalog) = self.system_catalog.as_ref() {
+                            system_catalog
+                                .delete(
+                                    DEFINITION_SCHEMA,
+                                    CATALOG_NAMES_TABLE,
+                                    vec![Binary::pack(&[Datum::from_u64(catalog.id())])],
+                                )
+                                .expect("no io error")
+                                .expect("no platform error")
+                                .expect("to remove catalog");
+                            let schema_record_ids = system_catalog
+                                .read(DEFINITION_SCHEMA, SCHEMATA_TABLE)
+                                .expect("no io error")
+                                .expect("no platform error")
+                                .expect("to have SCHEMATA table")
+                                .map(Result::unwrap)
+                                .map(Result::unwrap)
+                                .map(|(record_id, _columns)| {
+                                    let catalog_id = record_id.unpack()[0].as_u64();
+                                    (catalog_id, record_id)
+                                })
+                                .filter(|(catalog_id, _record_id)| *catalog_id == catalog.id())
+                                .map(|(_catalog_id, record_id)| record_id)
+                                .collect();
+                            system_catalog
+                                .delete(DEFINITION_SCHEMA, SCHEMATA_TABLE, schema_record_ids)
+                                .expect("no io error")
+                                .expect("no platform error")
+                                .expect("to remove schemas under catalog");
+                            let table_record_ids = system_catalog
+                                .read(DEFINITION_SCHEMA, TABLES_TABLE)
+                                .expect("no io error")
+                                .expect("no platform error")
+                                .expect("to have TABLES table")
+                                .map(Result::unwrap)
+                                .map(Result::unwrap)
+                                .map(|(record_id, _columns)| {
+                                    let catalog_id = record_id.unpack()[0].as_u64();
+                                    (catalog_id, record_id)
+                                })
+                                .filter(|(catalog_id, _record_id)| *catalog_id == catalog.id())
+                                .map(|(_catalog_id, record_id)| record_id)
+                                .collect();
+                            system_catalog
+                                .delete(DEFINITION_SCHEMA, TABLES_TABLE, table_record_ids)
+                                .expect("no io error")
+                                .expect("no platform error")
+                                .expect("to remove tables under catalog");
+                            let table_column_record_ids = system_catalog
+                                .read(DEFINITION_SCHEMA, COLUMNS_TABLE)
+                                .expect("no io error")
+                                .expect("no platform error")
+                                .expect("to have COLUMNS table")
+                                .map(Result::unwrap)
+                                .map(Result::unwrap)
+                                .map(|(record_id, _data)| {
+                                    let record = record_id.unpack();
+                                    let catalog = record[0].as_u64();
+                                    (record_id, catalog)
+                                })
+                                .filter(|(_record_id, catalog_id)| *catalog_id == catalog.id())
+                                .map(|(record_id, _catalog)| record_id)
+                                .collect();
+                            system_catalog
+                                .delete(DEFINITION_SCHEMA, COLUMNS_TABLE, table_column_record_ids)
+                                .expect("no io error")
+                                .expect("no platform error")
+                                .expect("to have remove tables columns under catalog");
+                        }
+                    }
+                    Ok(())
+                }
             }
+        } else {
+            Err(DropCatalogError::DoesNotExist)
         }
     }
 
@@ -646,6 +763,8 @@ impl DataDefinition {
                         Binary::pack(&[Datum::from_str(catalog_name), Datum::from_str(schema_name)]),
                     )],
                 )
+                .expect("no io error")
+                .expect("no platform error")
                 .expect("to save schema");
         }
     }
@@ -661,7 +780,10 @@ impl DataDefinition {
                 if let Some(system_catalog) = self.system_catalog.as_ref() {
                     let schema_id = system_catalog
                         .read(DEFINITION_SCHEMA, SCHEMATA_TABLE)
+                        .expect("no io error")
+                        .expect("no platform error")
                         .expect("to have SCHEMATA_TABLE table")
+                        .map(Result::unwrap)
                         .map(Result::unwrap)
                         .map(|(record_id, columns)| {
                             let _catalog_id = record_id.unpack()[0].as_u64();
@@ -692,24 +814,116 @@ impl DataDefinition {
         result
     }
 
-    pub(crate) fn drop_schema(&self, catalog_name: &str, schema_name: &str) {
+    pub(crate) fn drop_schema(
+        &self,
+        catalog_name: &str,
+        schema_name: &str,
+        strategy: DropStrategy,
+    ) -> Result<(), DropSchemaError> {
         let catalog = match self.catalog(catalog_name) {
             Some(catalog) => catalog,
-            None => return,
+            None => return Err(DropSchemaError::CatalogDoesNotExist),
         };
-        let schema_id = catalog.remove_schema(schema_name);
-        if let Some(system_catalog) = self.system_catalog.as_ref() {
-            if let Some(schema_id) = schema_id {
-                system_catalog
-                    .delete(
-                        DEFINITION_SCHEMA,
-                        SCHEMATA_TABLE,
-                        vec![Binary::pack(&[
-                            Datum::from_u64(catalog.id()),
-                            Datum::from_u64(schema_id),
-                        ])],
-                    )
-                    .expect("to remove schema");
+        let schema = match catalog.schema(schema_name) {
+            Some(schema) => schema,
+            None => return Err(DropSchemaError::DoesNotExist),
+        };
+        match strategy {
+            DropStrategy::Restrict => {
+                if schema.empty() {
+                    let schema_id = catalog.remove_schema(schema_name);
+                    match schema_id {
+                        None => Err(DropSchemaError::DoesNotExist),
+                        Some(schema_id) => {
+                            if let Some(system_catalog) = self.system_catalog.as_ref() {
+                                system_catalog
+                                    .delete(
+                                        DEFINITION_SCHEMA,
+                                        SCHEMATA_TABLE,
+                                        vec![Binary::pack(&[
+                                            Datum::from_u64(catalog.id()),
+                                            Datum::from_u64(schema_id),
+                                        ])],
+                                    )
+                                    .expect("no io error")
+                                    .expect("no platform error")
+                                    .expect("to remove schema");
+                            }
+                            Ok(())
+                        }
+                    }
+                } else {
+                    Err(DropSchemaError::HasDependentObjects)
+                }
+            }
+            DropStrategy::Cascade => {
+                let schema_id = catalog.remove_schema(schema_name);
+                match schema_id {
+                    None => Err(DropSchemaError::DoesNotExist),
+                    Some(schema_id) => {
+                        if let Some(system_catalog) = self.system_catalog.as_ref() {
+                            system_catalog
+                                .delete(
+                                    DEFINITION_SCHEMA,
+                                    SCHEMATA_TABLE,
+                                    vec![Binary::pack(&[
+                                        Datum::from_u64(catalog.id()),
+                                        Datum::from_u64(schema_id),
+                                    ])],
+                                )
+                                .expect("no io error")
+                                .expect("no platform error")
+                                .expect("to remove schema");
+                            let table_record_ids = system_catalog
+                                .read(DEFINITION_SCHEMA, TABLES_TABLE)
+                                .expect("no io error")
+                                .expect("no platform error")
+                                .expect("to have TABLES table")
+                                .map(Result::unwrap)
+                                .map(Result::unwrap)
+                                .map(|(record_id, _columns)| {
+                                    let ids = record_id.unpack();
+                                    let catalog_id = ids[0].as_u64();
+                                    let schema_id = ids[1].as_u64();
+                                    (catalog_id, schema_id, record_id)
+                                })
+                                .filter(|(catalog_id, schema, _record_id)| {
+                                    *catalog_id == catalog.id() && *schema == schema_id
+                                })
+                                .map(|(_catalog_id, _schema, record_id)| record_id)
+                                .collect();
+                            system_catalog
+                                .delete(DEFINITION_SCHEMA, TABLES_TABLE, table_record_ids)
+                                .expect("no io error")
+                                .expect("no platform error")
+                                .expect("to remove tables under catalog");
+                            let table_column_record_ids = system_catalog
+                                .read(DEFINITION_SCHEMA, COLUMNS_TABLE)
+                                .expect("no io error")
+                                .expect("no platform error")
+                                .expect("to have COLUMNS table")
+                                .map(Result::unwrap)
+                                .map(Result::unwrap)
+                                .map(|(record_id, _data)| {
+                                    let record = record_id.unpack();
+                                    let catalog = record[0].as_u64();
+                                    let schema = record[1].as_u64();
+                                    (record_id, catalog, schema)
+                                })
+                                .filter(|(_record_id, catalog_id, schema)| {
+                                    *catalog_id == catalog.id() && *schema == schema_id
+                                })
+                                .map(|(record_id, _catalog, _schema)| record_id)
+                                .collect();
+                            system_catalog
+                                .delete(DEFINITION_SCHEMA, COLUMNS_TABLE, table_column_record_ids)
+                                .expect("no io error")
+                                .expect("no platform error")
+                                .expect("to have remove tables columns under catalog");
+                        }
+                        Ok(())
+                    }
+                }
             }
         }
     }
@@ -720,7 +934,10 @@ impl DataDefinition {
                 if let Some(system_catalog) = self.system_catalog.as_ref() {
                     for (id, _catalog, schema) in system_catalog
                         .read(DEFINITION_SCHEMA, SCHEMATA_TABLE)
+                        .expect("no io error")
+                        .expect("no platform error")
                         .expect("to have SCHEMATA_TABLE table")
+                        .map(Result::unwrap)
                         .map(Result::unwrap)
                         .map(|(record_id, columns)| {
                             let id = record_id.unpack()[1].as_u64();
@@ -741,12 +958,6 @@ impl DataDefinition {
     }
 
     pub(crate) fn table_exists(&self, catalog_name: &str, schema_name: &str, table_name: &str) -> TableId {
-        log::debug!(
-            "checking table existence {:?}.{:?}.{:?}",
-            catalog_name,
-            schema_name,
-            table_name
-        );
         let catalog = match self.catalog(catalog_name) {
             Some(catalog) => catalog,
             None => return None,
@@ -757,7 +968,10 @@ impl DataDefinition {
                 if let Some(system_catalog) = self.system_catalog.as_ref() {
                     let schema_id = system_catalog
                         .read(DEFINITION_SCHEMA, SCHEMATA_TABLE)
+                        .expect("no io error")
+                        .expect("no platform error")
                         .expect("to have SCHEMATA_TABLE table")
+                        .map(Result::unwrap)
                         .map(Result::unwrap)
                         .map(|(record_id, columns)| {
                             let id = record_id.unpack()[0].as_u64();
@@ -781,7 +995,10 @@ impl DataDefinition {
                 if let Some(system_catalog) = self.system_catalog.as_ref() {
                     let table_info = system_catalog
                         .read(DEFINITION_SCHEMA, TABLES_TABLE)
+                        .expect("no io error")
+                        .expect("no platform error")
                         .expect("to have TABLES table")
+                        .map(Result::unwrap)
                         .map(Result::unwrap)
                         .map(|(record_id, data)| {
                             let id = record_id.unpack()[0].as_u64();
@@ -798,7 +1015,10 @@ impl DataDefinition {
                             let mut max_id = 0;
                             let table_columns = system_catalog
                                 .read(DEFINITION_SCHEMA, COLUMNS_TABLE)
+                                .expect("no io error")
+                                .expect("no platform error")
                                 .expect("to have COLUMNS table")
+                                .map(Result::unwrap)
                                 .map(Result::unwrap)
                                 .map(|(record_id, data)| {
                                     let id = record_id.unpack()[3].as_u64();
@@ -867,6 +1087,8 @@ impl DataDefinition {
                         ]),
                     )],
                 )
+                .expect("no io error")
+                .expect("no platform error")
                 .expect("to save table info");
             for (id, column) in created_table.columns() {
                 system_catalog
@@ -890,6 +1112,8 @@ impl DataDefinition {
                             ]),
                         )],
                     )
+                    .expect("no io error")
+                    .expect("no platform error")
                     .expect("to save column");
             }
         }
@@ -917,6 +1141,8 @@ impl DataDefinition {
                             Datum::from_u64(table_id),
                         ])],
                     )
+                    .expect("no io error")
+                    .expect("no platform error")
                     .expect("to remove table");
             }
         }
@@ -934,7 +1160,10 @@ impl DataDefinition {
         if let Some(system_catalog) = self.system_catalog.as_ref() {
             for (table_id, _catalog, _schema, table) in system_catalog
                 .read(DEFINITION_SCHEMA, TABLES_TABLE)
+                .expect("no io error")
+                .expect("no platform error")
                 .expect("to have SCHEMATA_TABLE table")
+                .map(Result::unwrap)
                 .map(Result::unwrap)
                 .map(|(record_id, columns)| {
                     let id = record_id.unpack()[1].as_u64();
@@ -949,7 +1178,10 @@ impl DataDefinition {
                 let mut max_id = 0;
                 let table_columns = system_catalog
                     .read(DEFINITION_SCHEMA, COLUMNS_TABLE)
+                    .expect("no io error")
+                    .expect("no platform error")
                     .expect("to have COLUMNS table")
+                    .map(Result::unwrap)
                     .map(Result::unwrap)
                     .map(|(record_id, data)| {
                         let id = record_id.unpack()[3].as_u64();
@@ -1015,7 +1247,21 @@ mod tests {
     fn not_created_catalog_does_not_exist() {
         let data_definition = DataDefinition::in_memory();
 
-        assert!(data_definition.catalog_exists("catalog_name").is_none());
+        assert!(matches!(data_definition.catalog_exists("catalog_name"), None));
+    }
+
+    #[test]
+    fn cant_drop_non_existent_catalog() {
+        let data_definition = DataDefinition::in_memory();
+
+        assert_eq!(
+            data_definition.drop_catalog("catalog_name", DropStrategy::Restrict),
+            Err(DropCatalogError::DoesNotExist)
+        );
+        assert_eq!(
+            data_definition.drop_catalog("catalog_name", DropStrategy::Cascade),
+            Err(DropCatalogError::DoesNotExist)
+        );
     }
 
     #[test]
@@ -1024,7 +1270,7 @@ mod tests {
 
         data_definition.create_catalog("catalog_name");
 
-        assert!(data_definition.catalog_exists("catalog_name").is_some());
+        assert!(matches!(data_definition.catalog_exists("catalog_name"), Some(_)));
     }
 
     #[test]
@@ -1033,11 +1279,48 @@ mod tests {
 
         data_definition.create_catalog("catalog_name");
 
-        assert!(data_definition.catalog_exists("catalog_name").is_some());
+        assert!(matches!(data_definition.catalog_exists("catalog_name"), Some(_)));
 
-        data_definition.drop_catalog("catalog_name", DropStrategy::Restrict);
+        assert_eq!(
+            data_definition.drop_catalog("catalog_name", DropStrategy::Restrict),
+            Ok(())
+        );
 
-        assert!(data_definition.catalog_exists("catalog_name").is_none());
+        assert!(matches!(data_definition.catalog_exists("catalog_name"), None));
+    }
+
+    #[test]
+    fn restrict_drop_strategy_cant_drop_non_empty_catalog() {
+        let data_definition = DataDefinition::in_memory();
+
+        data_definition.create_catalog("catalog_name");
+        data_definition.create_schema("catalog_name", "schema_name");
+
+        assert_eq!(
+            data_definition.drop_catalog("catalog_name", DropStrategy::Restrict),
+            Err(DropCatalogError::HasDependentObjects)
+        );
+
+        assert!(matches!(data_definition.catalog_exists("catalog_name"), Some(_)));
+    }
+
+    #[test]
+    fn cascade_drop_of_non_empty_catalog() {
+        let data_definition = DataDefinition::in_memory();
+
+        data_definition.create_catalog("catalog_name");
+        data_definition.create_schema("catalog_name", "schema_name");
+
+        assert_eq!(
+            data_definition.drop_catalog("catalog_name", DropStrategy::Cascade),
+            Ok(())
+        );
+
+        assert!(matches!(data_definition.catalog_exists("catalog_name"), None));
+        assert!(matches!(
+            data_definition.schema_exists("catalog_name", "schema_name"),
+            None
+        ));
     }
 
     #[test]
@@ -1045,11 +1328,39 @@ mod tests {
         let data_definition = DataDefinition::in_memory();
 
         data_definition.create_catalog("catalog_name");
-        assert!(data_definition
-            .schema_exists("catalog_name", "schema_name")
-            .expect("to have catalog")
-            .1
-            .is_none());
+        assert!(matches!(
+            data_definition.schema_exists("catalog_name", "schema_name"),
+            Some((_, None))
+        ));
+    }
+
+    #[test]
+    fn cant_drop_schema_from_nonexistent_catalog() {
+        let data_definition = DataDefinition::in_memory();
+
+        assert_eq!(
+            data_definition.drop_schema("catalog_name", "schema_name", DropStrategy::Restrict),
+            Err(DropSchemaError::CatalogDoesNotExist)
+        );
+        assert_eq!(
+            data_definition.drop_schema("catalog_name", "schema_name", DropStrategy::Cascade),
+            Err(DropSchemaError::CatalogDoesNotExist)
+        );
+    }
+
+    #[test]
+    fn cant_drop_non_existent_schema() {
+        let data_definition = DataDefinition::in_memory();
+
+        data_definition.create_catalog("catalog_name");
+        assert_eq!(
+            data_definition.drop_schema("catalog_name", "schema_name", DropStrategy::Restrict),
+            Err(DropSchemaError::DoesNotExist)
+        );
+        assert_eq!(
+            data_definition.drop_schema("catalog_name", "schema_name", DropStrategy::Cascade),
+            Err(DropSchemaError::DoesNotExist)
+        );
     }
 
     #[test]
@@ -1071,13 +1382,61 @@ mod tests {
 
         assert!(data_definition.schema_exists("catalog_name", "schema_name").is_some());
 
-        data_definition.drop_schema("catalog_name", "schema_name");
+        assert_eq!(
+            data_definition.drop_schema("catalog_name", "schema_name", DropStrategy::Restrict),
+            Ok(())
+        );
 
-        assert!(data_definition
-            .schema_exists("catalog_name", "schema_name")
-            .expect("to have catalog")
-            .1
-            .is_none());
+        assert!(matches!(
+            data_definition.schema_exists("catalog_name", "schema_name"),
+            Some((_, None))
+        ));
+    }
+
+    #[test]
+    fn restrict_drop_strategy_cant_drop_non_empty_schema() {
+        let data_definition = DataDefinition::in_memory();
+
+        data_definition.create_catalog("catalog_name");
+        data_definition.create_schema("catalog_name", "schema_name");
+        data_definition.create_table("catalog_name", "schema_name", "table_name", &[]);
+
+        assert_eq!(
+            data_definition.drop_schema("catalog_name", "schema_name", DropStrategy::Restrict),
+            Err(DropSchemaError::HasDependentObjects)
+        );
+
+        assert!(matches!(
+            data_definition.schema_exists("catalog_name", "schema_name"),
+            Some((_, Some(_)))
+        ));
+        assert!(matches!(
+            data_definition.table_exists("catalog_name", "schema_name", "table_name"),
+            Some((_, Some((_, Some(_)))))
+        ))
+    }
+
+    #[test]
+    fn cascade_drop_of_non_empty_schema() {
+        let data_definition = DataDefinition::in_memory();
+
+        data_definition.create_catalog("catalog_name");
+        data_definition.create_schema("catalog_name", "schema_name");
+        data_definition.create_table("catalog_name", "schema_name", "table_name", &[]);
+
+        assert_eq!(
+            data_definition.drop_schema("catalog_name", "schema_name", DropStrategy::Cascade),
+            Ok(())
+        );
+
+        assert!(matches!(
+            data_definition.schema_exists("catalog_name", "schema_name"),
+            Some((_, None))
+        ));
+        assert!(matches!(
+            data_definition.table_exists("catalog_name", "schema_name", "table_name"),
+            Some((_, None))
+        ));
     }
 
     #[test]
@@ -1086,13 +1445,10 @@ mod tests {
 
         data_definition.create_catalog("catalog_name");
         data_definition.create_schema("catalog_name", "schema_name");
-        assert!(data_definition
-            .table_exists("catalog_name", "schema_name", "table_name")
-            .expect("to have catalog")
-            .1
-            .expect("to have schema")
-            .1
-            .is_none());
+        assert!(matches!(
+            data_definition.table_exists("catalog_name", "schema_name", "table_name"),
+            Some((_, Some((_, None))))
+        ));
     }
 
     #[test]
@@ -1103,13 +1459,10 @@ mod tests {
         data_definition.create_schema("catalog_name", "schema_name");
         data_definition.create_table("catalog_name", "schema_name", "table_name", &[]);
 
-        assert!(data_definition
-            .table_exists("catalog_name", "schema_name", "table_name")
-            .expect("to have catalog")
-            .1
-            .expect("to have schema")
-            .1
-            .is_some());
+        assert!(matches!(
+            data_definition.table_exists("catalog_name", "schema_name", "table_name"),
+            Some((_, Some((_, Some(_)))))
+        ));
     }
 
     #[test]
@@ -1120,23 +1473,17 @@ mod tests {
         data_definition.create_schema("catalog_name", "schema_name");
         data_definition.create_table("catalog_name", "schema_name", "table_name", &[]);
 
-        assert!(data_definition
-            .table_exists("catalog_name", "schema_name", "table_name")
-            .expect("to have catalog")
-            .1
-            .expect("to have schema")
-            .1
-            .is_some());
+        assert!(matches!(
+            data_definition.table_exists("catalog_name", "schema_name", "table_name"),
+            Some((_, Some((_, Some(_)))))
+        ));
 
         data_definition.drop_table("catalog_name", "schema_name", "table_name");
 
-        assert!(data_definition
-            .table_exists("catalog_name", "schema_name", "table_name")
-            .expect("to have catalog")
-            .1
-            .expect("to have schema")
-            .1
-            .is_none());
+        assert!(matches!(
+            data_definition.table_exists("catalog_name", "schema_name", "table_name"),
+            Some((_, Some((_, None))))
+        ));
     }
 
     #[cfg(test)]
@@ -1158,20 +1505,22 @@ mod tests {
             drop(data_definition);
 
             let data_definition = DataDefinition::persistent(&path).expect("create persistent data definition");
-            assert!(data_definition.catalog_exists("catalog_name").is_some());
+            assert!(matches!(data_definition.catalog_exists("catalog_name"), Some(_)));
         }
 
         #[rstest::rstest]
         fn dropped_catalog_is_not_preserved_after_restart(storage_path: (DataDefinition, PathBuf)) {
             let (data_definition, path) = storage_path;
             data_definition.create_catalog("catalog_name");
-            assert!(data_definition.catalog_exists("catalog_name").is_some());
-            data_definition.drop_catalog("catalog_name", DropStrategy::Restrict);
-            assert!(data_definition.catalog_exists("catalog_name").is_none());
+            assert!(matches!(data_definition.catalog_exists("catalog_name"), Some(_)));
+            data_definition
+                .drop_catalog("catalog_name", DropStrategy::Restrict)
+                .expect("to catalog dropped");
+            assert!(matches!(data_definition.catalog_exists("catalog_name"), None));
             drop(data_definition);
 
             let data_definition = DataDefinition::persistent(&path).expect("create persistent data definition");
-            assert!(data_definition.catalog_exists("catalog_name").is_none());
+            assert!(matches!(data_definition.catalog_exists("catalog_name"), None));
         }
 
         #[rstest::rstest]
@@ -1182,11 +1531,10 @@ mod tests {
             drop(data_definition);
 
             let data_definition = DataDefinition::persistent(&path).expect("create persistent data definition");
-            assert!(data_definition
-                .schema_exists("catalog_name", "schema_name")
-                .expect("to have catalog")
-                .1
-                .is_some());
+            assert!(matches!(
+                data_definition.schema_exists("catalog_name", "schema_name"),
+                Some(_)
+            ));
         }
 
         #[rstest::rstest]
@@ -1200,49 +1548,41 @@ mod tests {
             data_definition.create_catalog("catalog_name_2");
             data_definition.create_schema("catalog_name_2", "schema_name_3");
             data_definition.create_schema("catalog_name_2", "schema_name_4");
-            assert!(data_definition
-                .schema_exists("catalog_name_1", "schema_name_1")
-                .expect("to have catalog")
-                .1
-                .is_some());
-            assert!(data_definition
-                .schema_exists("catalog_name_1", "schema_name_2")
-                .expect("to have catalog")
-                .1
-                .is_some());
-            assert!(data_definition
-                .schema_exists("catalog_name_2", "schema_name_3")
-                .expect("to have catalog")
-                .1
-                .is_some());
-            assert!(data_definition
-                .schema_exists("catalog_name_2", "schema_name_4")
-                .expect("to have catalog")
-                .1
-                .is_some());
+            assert!(matches!(
+                data_definition.schema_exists("catalog_name_1", "schema_name_1"),
+                Some((_, Some(_)))
+            ));
+            assert!(matches!(
+                data_definition.schema_exists("catalog_name_1", "schema_name_2"),
+                Some((_, Some(_)))
+            ));
+            assert!(matches!(
+                data_definition.schema_exists("catalog_name_2", "schema_name_3"),
+                Some((_, Some(_)))
+            ));
+            assert!(matches!(
+                data_definition.schema_exists("catalog_name_2", "schema_name_4"),
+                Some((_, Some(_)))
+            ));
             drop(data_definition);
 
             let data_definition = DataDefinition::persistent(&path).expect("create persistent data definition");
-            assert!(data_definition
-                .schema_exists("catalog_name_1", "schema_name_1")
-                .expect("to have catalog")
-                .1
-                .is_some());
-            assert!(data_definition
-                .schema_exists("catalog_name_1", "schema_name_2")
-                .expect("to have catalog")
-                .1
-                .is_some());
-            assert!(data_definition
-                .schema_exists("catalog_name_2", "schema_name_3")
-                .expect("to have catalog")
-                .1
-                .is_some());
-            assert!(data_definition
-                .schema_exists("catalog_name_2", "schema_name_4")
-                .expect("to have catalog")
-                .1
-                .is_some());
+            assert!(matches!(
+                data_definition.schema_exists("catalog_name_1", "schema_name_1"),
+                Some((_, Some(_)))
+            ));
+            assert!(matches!(
+                data_definition.schema_exists("catalog_name_1", "schema_name_2"),
+                Some((_, Some(_)))
+            ));
+            assert!(matches!(
+                data_definition.schema_exists("catalog_name_2", "schema_name_3"),
+                Some((_, Some(_)))
+            ));
+            assert!(matches!(
+                data_definition.schema_exists("catalog_name_2", "schema_name_4"),
+                Some((_, Some(_)))
+            ));
         }
 
         #[rstest::rstest]
@@ -1250,25 +1590,25 @@ mod tests {
             let (data_definition, path) = storage_path;
             data_definition.create_catalog("catalog_name");
             data_definition.create_schema("catalog_name", "schema_name");
-            assert!(data_definition
-                .schema_exists("catalog_name", "schema_name")
-                .expect("to have catalog")
-                .1
-                .is_some());
-            data_definition.drop_schema("catalog_name", "schema_name");
-            assert!(data_definition
-                .schema_exists("catalog_name", "schema_name")
-                .expect("to have catalog")
-                .1
-                .is_none());
+            assert!(matches!(
+                data_definition.schema_exists("catalog_name", "schema_name"),
+                Some((_, Some(_)))
+            ));
+            assert_eq!(
+                data_definition.drop_schema("catalog_name", "schema_name", DropStrategy::Restrict),
+                Ok(())
+            );
+            assert!(matches!(
+                data_definition.schema_exists("catalog_name", "schema_name"),
+                Some((_, None))
+            ));
             drop(data_definition);
 
             let data_definition = DataDefinition::persistent(&path).expect("create persistent data definition");
-            assert!(data_definition
-                .schema_exists("catalog_name", "schema_name")
-                .expect("to have catalog")
-                .1
-                .is_none());
+            assert!(matches!(
+                data_definition.schema_exists("catalog_name", "schema_name"),
+                Some((_, None))
+            ));
         }
 
         #[rstest::rstest]
@@ -1398,62 +1738,38 @@ mod tests {
             drop(data_definition);
 
             let data_definition = DataDefinition::persistent(&path).expect("create persistent data definition");
-            assert!(data_definition
-                .table_exists("catalog_name_1", "schema_name_1", "table_name_1")
-                .expect("to have catalog")
-                .1
-                .expect("to have schema")
-                .1
-                .is_some());
-            assert!(data_definition
-                .table_exists("catalog_name_1", "schema_name_1", "table_name_2")
-                .expect("to have catalog")
-                .1
-                .expect("to have schema")
-                .1
-                .is_some());
-            assert!(data_definition
-                .table_exists("catalog_name_1", "schema_name_2", "table_name_3")
-                .expect("to have catalog")
-                .1
-                .expect("to have schema")
-                .1
-                .is_some());
-            assert!(data_definition
-                .table_exists("catalog_name_1", "schema_name_2", "table_name_4")
-                .expect("to have catalog")
-                .1
-                .expect("to have schema")
-                .1
-                .is_some());
-            assert!(data_definition
-                .table_exists("catalog_name_2", "schema_name_3", "table_name_5")
-                .expect("to have catalog")
-                .1
-                .expect("to have schema")
-                .1
-                .is_some());
-            assert!(data_definition
-                .table_exists("catalog_name_2", "schema_name_3", "table_name_6")
-                .expect("to have catalog")
-                .1
-                .expect("to have schema")
-                .1
-                .is_some());
-            assert!(data_definition
-                .table_exists("catalog_name_2", "schema_name_4", "table_name_7")
-                .expect("to have catalog")
-                .1
-                .expect("to have schema")
-                .1
-                .is_some());
-            assert!(data_definition
-                .table_exists("catalog_name_2", "schema_name_4", "table_name_8")
-                .expect("to have catalog")
-                .1
-                .expect("to have schema")
-                .1
-                .is_some());
+            assert!(matches!(
+                data_definition.table_exists("catalog_name_1", "schema_name_1", "table_name_1"),
+                Some((_, Some((_, Some(_)))))
+            ));
+            assert!(matches!(
+                data_definition.table_exists("catalog_name_1", "schema_name_1", "table_name_2"),
+                Some((_, Some((_, Some(_)))))
+            ));
+            assert!(matches!(
+                data_definition.table_exists("catalog_name_1", "schema_name_2", "table_name_3"),
+                Some((_, Some((_, Some(_)))))
+            ));
+            assert!(matches!(
+                data_definition.table_exists("catalog_name_1", "schema_name_2", "table_name_4"),
+                Some((_, Some((_, Some(_)))))
+            ));
+            assert!(matches!(
+                data_definition.table_exists("catalog_name_2", "schema_name_3", "table_name_5"),
+                Some((_, Some((_, Some(_)))))
+            ));
+            assert!(matches!(
+                data_definition.table_exists("catalog_name_2", "schema_name_3", "table_name_6"),
+                Some((_, Some((_, Some(_)))))
+            ));
+            assert!(matches!(
+                data_definition.table_exists("catalog_name_2", "schema_name_4", "table_name_7"),
+                Some((_, Some((_, Some(_)))))
+            ));
+            assert!(matches!(
+                data_definition.table_exists("catalog_name_2", "schema_name_4", "table_name_8"),
+                Some((_, Some((_, Some(_)))))
+            ));
         }
 
         #[rstest::rstest]
@@ -1467,31 +1783,22 @@ mod tests {
                 "table_name",
                 &[ColumnDefinition::new("col_1", SqlType::Integer(0))],
             );
-            assert!(data_definition
-                .table_exists("catalog_name", "schema_name", "table_name")
-                .expect("to have catalog")
-                .1
-                .expect("to have schema")
-                .1
-                .is_some());
+            assert!(matches!(
+                data_definition.table_exists("catalog_name", "schema_name", "table_name"),
+                Some((_, Some((_, Some(_)))))
+            ));
             data_definition.drop_table("catalog_name", "schema_name", "table_name");
-            assert!(data_definition
-                .table_exists("catalog_name", "schema_name", "table_name")
-                .expect("to have catalog")
-                .1
-                .expect("to have schema")
-                .1
-                .is_none());
+            assert!(matches!(
+                data_definition.table_exists("catalog_name", "schema_name", "table_name"),
+                Some((_, Some((_, None))))
+            ));
             drop(data_definition);
 
             let data_definition = DataDefinition::persistent(&path).expect("create persistent data definition");
-            assert!(data_definition
-                .table_exists("catalog_name", "schema_name", "table_name")
-                .expect("to have catalog")
-                .1
-                .expect("to have schema")
-                .1
-                .is_none());
+            assert!(matches!(
+                data_definition.table_exists("catalog_name", "schema_name", "table_name"),
+                Some((_, Some((_, None))))
+            ));
         }
 
         #[rstest::rstest]
@@ -1761,6 +2068,113 @@ mod tests {
                     ColumnDefinition::new("col_5", SqlType::Integer(0)),
                     ColumnDefinition::new("col_6", SqlType::BigInt(0))
                 ]
+            );
+        }
+
+        #[rstest::rstest]
+        fn tables_schemas_are_not_preserved_after_cascade_catalog_drop(storage_path: (DataDefinition, PathBuf)) {
+            let (data_definition, path) = storage_path;
+            data_definition.create_catalog("catalog_name");
+            data_definition.create_schema("catalog_name", "schema_name");
+            data_definition.create_table(
+                "catalog_name",
+                "schema_name",
+                "table_name",
+                &[ColumnDefinition::new("col_1", SqlType::SmallInt(0))],
+            );
+
+            assert_eq!(
+                data_definition.drop_catalog("catalog_name", DropStrategy::Cascade),
+                Ok(())
+            );
+            assert!(matches!(data_definition.catalog_exists("catalog_name"), None));
+            assert!(matches!(
+                data_definition.schema_exists("catalog_name", "schema_name"),
+                None
+            ));
+            assert!(matches!(
+                data_definition.table_exists("catalog_name", "schema_name", "table_name"),
+                None
+            ));
+            assert_eq!(
+                data_definition.table_columns("catalog_name", "schema_name", "table_name"),
+                vec![]
+            );
+
+            drop(data_definition);
+
+            let data_definition = DataDefinition::persistent(&path).expect("create persistent data definition");
+
+            assert!(matches!(data_definition.catalog_exists("catalog_name"), None));
+            assert!(matches!(
+                data_definition.schema_exists("catalog_name", "schema_name"),
+                None
+            ));
+            assert!(matches!(
+                data_definition.table_exists("catalog_name", "schema_name", "table_name"),
+                None
+            ));
+            assert_eq!(
+                data_definition.table_columns("catalog_name", "schema_name", "table_name"),
+                vec![]
+            );
+
+            data_definition.create_catalog("catalog_name");
+            assert!(matches!(
+                data_definition.schema_exists("catalog_name", "schema_name"),
+                Some((_, None))
+            ));
+            data_definition.create_schema("catalog_name", "schema_name");
+            assert!(matches!(
+                data_definition.table_exists("catalog_name", "schema_name", "table_name"),
+                Some((_, Some((_, None))))
+            ));
+        }
+
+        #[rstest::rstest]
+        fn tables_are_not_preserved_after_cascade_schema_drop(storage_path: (DataDefinition, PathBuf)) {
+            let (data_definition, path) = storage_path;
+            data_definition.create_catalog("catalog_name");
+            data_definition.create_schema("catalog_name", "schema_name");
+            data_definition.create_table(
+                "catalog_name",
+                "schema_name",
+                "table_name",
+                &[ColumnDefinition::new("col_1", SqlType::SmallInt(0))],
+            );
+
+            assert_eq!(
+                data_definition.drop_schema("catalog_name", "schema_name", DropStrategy::Cascade),
+                Ok(())
+            );
+            assert!(matches!(
+                data_definition.schema_exists("catalog_name", "schema_name"),
+                Some((_, None))
+            ));
+            assert!(matches!(
+                data_definition.table_exists("catalog_name", "schema_name", "table_name"),
+                Some((_, None))
+            ));
+            assert_eq!(
+                data_definition.table_columns("catalog_name", "schema_name", "table_name"),
+                vec![]
+            );
+
+            drop(data_definition);
+
+            let data_definition = DataDefinition::persistent(&path).expect("create persistent data definition");
+
+            assert!(matches!(
+                data_definition.schema_exists("catalog_name", "schema_name"),
+                Some((_, None))
+            ));
+            assert!(matches!(
+                data_definition.table_exists("catalog_name", "schema_name", "table_name"),
+                Some((_, None))
+            ));
+            assert_eq!(
+                data_definition.table_columns("catalog_name", "schema_name", "table_name"),
+                vec![]
             );
         }
     }

@@ -16,7 +16,7 @@ use super::*;
 use sql_types::SqlType;
 
 #[rstest::rstest]
-fn delete_all_from_table(default_schema_name: &str, storage_with_schema: PersistentStorage) {
+fn delete_all_from_table(default_schema_name: &str, storage_with_schema: CatalogManager) {
     create_table(
         &storage_with_schema,
         default_schema_name,
@@ -54,7 +54,7 @@ fn delete_all_from_table(default_schema_name: &str, storage_with_schema: Persist
     assert_eq!(
         storage_with_schema
             .table_scan("schema_name", "table_name")
-            .map(Iterator::collect),
+            .map(|iter| iter.map(Result::unwrap).map(Result::unwrap).collect()),
         Ok(vec![])
     );
 }

@@ -24,9 +24,9 @@ fn select_from_not_existed_table(sql_engine_with_schema: (QueryExecutor, Arc<Col
 
     collector.assert_content_for_single_queries(vec![
         Ok(QueryEvent::SchemaCreated),
-        Err(QueryErrorBuilder::new()
-            .table_does_not_exist("schema_name.non_existent".to_owned())
-            .build()),
+        Ok(QueryEvent::QueryComplete),
+        Err(QueryError::table_does_not_exist("schema_name.non_existent".to_owned())),
+        Ok(QueryEvent::QueryComplete),
     ]);
 }
 
@@ -39,9 +39,9 @@ fn select_named_columns_from_non_existent_table(sql_engine_with_schema: (QueryEx
 
     collector.assert_content_for_single_queries(vec![
         Ok(QueryEvent::SchemaCreated),
-        Err(QueryErrorBuilder::new()
-            .table_does_not_exist("schema_name.non_existent".to_owned())
-            .build()),
+        Ok(QueryEvent::QueryComplete),
+        Err(QueryError::table_does_not_exist("schema_name.non_existent".to_owned())),
+        Ok(QueryEvent::QueryComplete),
     ]);
 }
 
@@ -60,8 +60,11 @@ fn select_all_from_table_with_multiple_columns(sql_engine_with_schema: (QueryExe
 
     collector.assert_content_for_single_queries(vec![
         Ok(QueryEvent::SchemaCreated),
+        Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::TableCreated),
+        Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::RecordsInserted(1)),
+        Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::RecordsSelected((
             vec![
                 ("column_1".to_owned(), PostgreSqlType::SmallInt),
@@ -70,6 +73,7 @@ fn select_all_from_table_with_multiple_columns(sql_engine_with_schema: (QueryExe
             ],
             vec![vec!["123".to_owned(), "456".to_owned(), "789".to_owned()]],
         ))),
+        Ok(QueryEvent::QueryComplete),
     ]);
 }
 
@@ -88,8 +92,11 @@ fn select_not_all_columns(sql_engine_with_schema: (QueryExecutor, Arc<Collector>
 
     collector.assert_content_for_single_queries(vec![
         Ok(QueryEvent::SchemaCreated),
+        Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::TableCreated),
+        Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::RecordsInserted(3)),
+        Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::RecordsSelected((
             vec![
                 ("column_3".to_owned(), PostgreSqlType::SmallInt),
@@ -101,6 +108,7 @@ fn select_not_all_columns(sql_engine_with_schema: (QueryExecutor, Arc<Collector>
                 vec!["9".to_owned(), "6".to_owned()],
             ],
         ))),
+        Ok(QueryEvent::QueryComplete),
     ]);
 }
 
@@ -116,13 +124,14 @@ fn select_non_existing_columns_from_table(sql_engine_with_schema: (QueryExecutor
 
     collector.assert_content_for_single_queries(vec![
         Ok(QueryEvent::SchemaCreated),
+        Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::TableCreated),
-        Err(QueryErrorBuilder::new()
-            .column_does_not_exist(vec![
-                "column_not_in_table1".to_owned(),
-                "column_not_in_table2".to_owned(),
-            ])
-            .build()),
+        Ok(QueryEvent::QueryComplete),
+        Err(QueryError::column_does_not_exist(vec![
+            "column_not_in_table1".to_owned(),
+            "column_not_in_table2".to_owned(),
+        ])),
+        Ok(QueryEvent::QueryComplete),
     ]);
 }
 
@@ -150,10 +159,15 @@ fn select_first_and_last_columns_from_table_with_multiple_columns(
 
     collector.assert_content_for_single_queries(vec![
         Ok(QueryEvent::SchemaCreated),
+        Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::TableCreated),
+        Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::RecordsInserted(1)),
+        Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::RecordsInserted(1)),
+        Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::RecordsInserted(1)),
+        Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::RecordsSelected((
             vec![
                 ("column_3".to_owned(), PostgreSqlType::SmallInt),
@@ -165,6 +179,7 @@ fn select_first_and_last_columns_from_table_with_multiple_columns(
                 vec!["9".to_owned(), "7".to_owned()],
             ],
         ))),
+        Ok(QueryEvent::QueryComplete),
     ]);
 }
 
@@ -193,10 +208,15 @@ fn select_all_columns_reordered_from_table_with_multiple_columns(
 
     collector.assert_content_for_single_queries(vec![
         Ok(QueryEvent::SchemaCreated),
+        Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::TableCreated),
+        Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::RecordsInserted(1)),
+        Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::RecordsInserted(1)),
+        Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::RecordsInserted(1)),
+        Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::RecordsSelected((
             vec![
                 ("column_3".to_owned(), PostgreSqlType::SmallInt),
@@ -209,6 +229,7 @@ fn select_all_columns_reordered_from_table_with_multiple_columns(
                 vec!["9".to_owned(), "7".to_owned(), "8".to_owned()],
             ],
         ))),
+        Ok(QueryEvent::QueryComplete),
     ]);
 }
 
@@ -234,10 +255,15 @@ fn select_with_column_name_duplication(sql_engine_with_schema: (QueryExecutor, A
 
     collector.assert_content_for_single_queries(vec![
         Ok(QueryEvent::SchemaCreated),
+        Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::TableCreated),
+        Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::RecordsInserted(1)),
+        Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::RecordsInserted(1)),
+        Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::RecordsInserted(1)),
+        Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::RecordsSelected((
             vec![
                 ("column_3".to_owned(), PostgreSqlType::SmallInt),
@@ -270,6 +296,7 @@ fn select_with_column_name_duplication(sql_engine_with_schema: (QueryExecutor, A
                 ],
             ],
         ))),
+        Ok(QueryEvent::QueryComplete),
     ]);
 }
 
@@ -297,10 +324,15 @@ fn select_different_integer_types(sql_engine_with_schema: (QueryExecutor, Arc<Co
 
     collector.assert_content_for_single_queries(vec![
         Ok(QueryEvent::SchemaCreated),
+        Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::TableCreated),
+        Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::RecordsInserted(1)),
+        Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::RecordsInserted(1)),
+        Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::RecordsInserted(1)),
+        Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::RecordsSelected((
             vec![
                 ("column_si".to_owned(), PostgreSqlType::SmallInt),
@@ -313,6 +345,7 @@ fn select_different_integer_types(sql_engine_with_schema: (QueryExecutor, Arc<Co
                 vec!["7000".to_owned(), "8000000".to_owned(), "9000000000".to_owned()],
             ],
         ))),
+        Ok(QueryEvent::QueryComplete),
     ]);
 }
 
@@ -340,10 +373,15 @@ fn select_different_character_strings_types(sql_engine_with_schema: (QueryExecut
 
     collector.assert_content_for_single_queries(vec![
         Ok(QueryEvent::SchemaCreated),
+        Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::TableCreated),
+        Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::RecordsInserted(1)),
+        Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::RecordsInserted(1)),
+        Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::RecordsInserted(1)),
+        Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::RecordsSelected((
             vec![
                 ("char_10".to_owned(), PostgreSqlType::Char),
@@ -355,5 +393,6 @@ fn select_different_character_strings_types(sql_engine_with_schema: (QueryExecut
                 vec!["12345".to_owned(), "1234567890".to_owned()],
             ],
         ))),
+        Ok(QueryEvent::QueryComplete),
     ]);
 }

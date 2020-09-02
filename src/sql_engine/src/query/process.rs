@@ -19,7 +19,8 @@ use crate::{
     query::{SchemaId, SchemaNamingError, TableId, TableNamingError},
     ColumnDefinition,
 };
-use protocol::{results::QueryErrorBuilder, Sender};
+use protocol::results::QueryError;
+use protocol::Sender;
 use sql_types::SqlType;
 use sqlparser::ast::{ColumnDef, DataType, ObjectName, ObjectType, Query, Select, SetExpr, Statement};
 use std::{convert::TryFrom, sync::Arc};
@@ -44,16 +45,14 @@ impl<'qp> QueryProcessor {
                     Ok(schema_id) => schema_id,
                     Err(SchemaNamingError(message)) => {
                         self.session
-                            .send(Err(QueryErrorBuilder::new().syntax_error(message).build()))
+                            .send(Err(QueryError::syntax_error(message)))
                             .expect("To Send Query Result to Client");
                         return Err(());
                     }
                 };
                 if self.storage.schema_exists(schema_id.name()) {
                     self.session
-                        .send(Err(QueryErrorBuilder::new()
-                            .schema_already_exists(schema_id.name().to_string())
-                            .build()))
+                        .send(Err(QueryError::schema_already_exists(schema_id.name().to_string())))
                         .expect("To Send Query Result to Client");
                     Err(())
                 } else {
@@ -62,7 +61,12 @@ impl<'qp> QueryProcessor {
                     }))
                 }
             }
-            Statement::Drop { object_type, names, .. } => self.handle_drop(&object_type, &names),
+            Statement::Drop {
+                object_type,
+                names,
+                cascade,
+                ..
+            } => self.handle_drop(&object_type, &names, cascade),
             Statement::Insert {
                 table_name,
                 columns,
@@ -75,7 +79,7 @@ impl<'qp> QueryProcessor {
                 })),
                 Err(TableNamingError(message)) => {
                     self.session
-                        .send(Err(QueryErrorBuilder::new().syntax_error(message).build()))
+                        .send(Err(QueryError::syntax_error(message)))
                         .expect("To Send Query Result to Client");
                     Err(())
                 }
@@ -101,9 +105,10 @@ impl<'qp> QueryProcessor {
                     "bigserial" => Ok(SqlType::BigInt(1)),
                     other_type => {
                         self.session
-                            .send(Err(QueryErrorBuilder::new()
-                                .feature_not_supported(format!("{} type is not supported", other_type))
-                                .build()))
+                            .send(Err(QueryError::feature_not_supported(format!(
+                                "{} type is not supported",
+                                other_type
+                            ))))
                             .expect("To Send Query Result to Client");
                         Err(())
                     }
@@ -111,9 +116,10 @@ impl<'qp> QueryProcessor {
             }
             other_type => {
                 self.session
-                    .send(Err(QueryErrorBuilder::new()
-                        .feature_not_supported(format!("{} type is not supported", other_type))
-                        .build()))
+                    .send(Err(QueryError::feature_not_supported(format!(
+                        "{} type is not supported",
+                        other_type
+                    ))))
                     .expect("To Send Query Result to Client");
                 Err(())
             }
@@ -136,7 +142,7 @@ impl<'qp> QueryProcessor {
             Ok(table_id) => table_id,
             Err(TableNamingError(message)) => {
                 self.session
-                    .send(Err(QueryErrorBuilder::new().syntax_error(message).build()))
+                    .send(Err(QueryError::syntax_error(message)))
                     .expect("To Send Query Result to Client");
                 return Err(());
             }
@@ -145,16 +151,15 @@ impl<'qp> QueryProcessor {
         let table_name = table_id.name();
         if !self.storage.schema_exists(schema_name) {
             self.session
-                .send(Err(QueryErrorBuilder::new()
-                    .schema_does_not_exist(schema_name.to_string())
-                    .build()))
+                .send(Err(QueryError::schema_does_not_exist(schema_name.to_string())))
                 .expect("To Send Query Result to Client");
             Err(())
         } else if self.storage.table_exists(schema_name, table_name) {
             self.session
-                .send(Err(QueryErrorBuilder::new()
-                    .table_already_exists(format!("{}.{}", schema_name, table_name))
-                    .build()))
+                .send(Err(QueryError::table_already_exists(format!(
+                    "{}.{}",
+                    schema_name, table_name
+                ))))
                 .expect("To Send Query Result to Client");
             Err(())
         } else {
@@ -168,7 +173,7 @@ impl<'qp> QueryProcessor {
         }
     }
 
-    fn handle_drop(&mut self, object_type: &ObjectType, names: &[ObjectName]) -> Result<Plan> {
+    fn handle_drop(&mut self, object_type: &ObjectType, names: &[ObjectName], cascade: bool) -> Result<Plan> {
         match object_type {
             ObjectType::Table => {
                 let mut table_names = Vec::with_capacity(names.len());
@@ -179,7 +184,7 @@ impl<'qp> QueryProcessor {
                         Ok(table_id) => table_id,
                         Err(TableNamingError(message)) => {
                             self.session
-                                .send(Err(QueryErrorBuilder::new().syntax_error(message).build()))
+                                .send(Err(QueryError::syntax_error(message)))
                                 .expect("To Send Query Result to Client");
                             return Err(());
                         }
@@ -188,16 +193,15 @@ impl<'qp> QueryProcessor {
                     let table_name = table_id.name();
                     if !self.storage.schema_exists(schema_name) {
                         self.session
-                            .send(Err(QueryErrorBuilder::new()
-                                .schema_does_not_exist(schema_name.to_string())
-                                .build()))
+                            .send(Err(QueryError::schema_does_not_exist(schema_name.to_string())))
                             .expect("To Send Query Result to Client");
                         return Err(());
                     } else if !self.storage.table_exists(schema_name, table_name) {
                         self.session
-                            .send(Err(QueryErrorBuilder::new()
-                                .table_does_not_exist(format!("{}.{}", schema_name, table_name))
-                                .build()))
+                            .send(Err(QueryError::table_does_not_exist(format!(
+                                "{}.{}",
+                                schema_name, table_name
+                            ))))
                             .expect("To Send Query Result to Client");
                         return Err(());
                     } else {
@@ -213,21 +217,19 @@ impl<'qp> QueryProcessor {
                         Ok(schema_id) => schema_id,
                         Err(SchemaNamingError(message)) => {
                             self.session
-                                .send(Err(QueryErrorBuilder::new().syntax_error(message).build()))
+                                .send(Err(QueryError::syntax_error(message)))
                                 .expect("To Send Query Result to Client");
                             return Err(());
                         }
                     };
                     if !self.storage.schema_exists(schema_id.name()) {
                         self.session
-                            .send(Err(QueryErrorBuilder::new()
-                                .schema_does_not_exist(schema_id.name().to_string())
-                                .build()))
+                            .send(Err(QueryError::schema_does_not_exist(schema_id.name().to_string())))
                             .expect("To Send Query Result to Client");
                         return Err(());
                     }
 
-                    schema_names.push(schema_id);
+                    schema_names.push((schema_id, cascade));
                 }
                 Ok(Plan::DropSchemas(schema_names))
             }

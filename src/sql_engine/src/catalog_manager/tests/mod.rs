@@ -17,13 +17,13 @@ use representation::Binary;
 use sql_types::SqlType;
 
 #[cfg(test)]
+mod persistence;
+#[cfg(test)]
 mod queries;
 #[cfg(test)]
 mod schema;
 #[cfg(test)]
 mod table;
-
-type PersistentStorage = CatalogManager;
 
 #[rstest::fixture]
 fn default_schema_name() -> &'static str {
@@ -31,12 +31,12 @@ fn default_schema_name() -> &'static str {
 }
 
 #[rstest::fixture]
-fn storage() -> PersistentStorage {
+fn storage() -> CatalogManager {
     CatalogManager::default()
 }
 
 #[rstest::fixture]
-fn storage_with_schema(storage: PersistentStorage, default_schema_name: &str) -> PersistentStorage {
+fn storage_with_schema(storage: CatalogManager, default_schema_name: &str) -> CatalogManager {
     create_schema(&storage, default_schema_name);
     storage
 }

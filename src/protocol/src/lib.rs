@@ -272,7 +272,7 @@ impl<RW: AsyncRead + AsyncWrite + Unpin> Receiver for RequestReceiver<RW> {
             .read_exact(&mut buffer)
             .await
             .map(|_| buffer[0])?;
-        log::debug!("tag {:?}", tag);
+        log::debug!("TAG {:?}", tag);
 
         // Parses the frame length.
         let mut buffer = [0u8; 4];
@@ -293,6 +293,7 @@ impl<RW: AsyncRead + AsyncWrite + Unpin> Receiver for RequestReceiver<RW> {
             Ok(msg) => msg,
             Err(err) => return Ok(Err(err)),
         };
+        log::debug!("MESSAGE {:?}", message);
 
         match message {
             FrontendMessage::DescribeStatement { name } => Ok(Ok(Command::DescribeStatement(name))),
@@ -347,16 +348,31 @@ impl<RW: AsyncRead + AsyncWrite + Unpin> Sender for ResponseSender<RW> {
     }
 
     fn send(&self, query_result: QueryResult) -> io::Result<()> {
+        log::debug!("Sending {:?}", query_result);
         block_on(async {
-            let messages: Vec<BackendMessage> = query_result.map_or_else(|event| event.into(), |err| err.into());
-            for message in messages {
-                log::debug!("{:?}", message);
-                self.channel
-                    .lock()
-                    .await
-                    .write_all(message.as_vec().as_slice())
-                    .await
-                    .expect("OK");
+            match query_result {
+                Ok(event) => {
+                    let messages: Vec<BackendMessage> = event.into();
+                    for message in messages {
+                        log::debug!("{:?}", message);
+                        self.channel
+                            .lock()
+                            .await
+                            .write_all(message.as_vec().as_slice())
+                            .await
+                            .expect("OK");
+                    }
+                }
+                Err(error) => {
+                    let message: BackendMessage = error.into();
+                    log::debug!("{:?}", message);
+                    self.channel
+                        .lock()
+                        .await
+                        .write_all(message.as_vec().as_slice())
+                        .await
+                        .expect("OK");
+                }
             }
             log::debug!("end of the command is sent");
         });

@@ -16,10 +16,8 @@ use crate::query::expr::{EvalScalarOp, ExpressionEvaluation};
 use crate::query::scalar::ScalarOp;
 use crate::{catalog_manager::CatalogManager, ColumnDefinition};
 use kernel::SystemResult;
-use protocol::{
-    results::{QueryErrorBuilder, QueryEvent},
-    Sender,
-};
+use protocol::results::QueryError;
+use protocol::{results::QueryEvent, Sender};
 use representation::{unpack_raw, Binary, Datum};
 use sql_types::ConstraintError;
 use sqlparser::ast::{Assignment, Expr, Ident, ObjectName, UnaryOperator, Value};
@@ -55,7 +53,7 @@ impl UpdateCommand {
 
         if !self.storage.schema_exists(&schema_name) {
             self.session
-                .send(Err(QueryErrorBuilder::new().schema_does_not_exist(schema_name).build()))
+                .send(Err(QueryError::schema_does_not_exist(schema_name)))
                 .expect("To Send Result to Client");
             return Ok(());
         }
@@ -90,9 +88,9 @@ impl UpdateCommand {
             //     }
             // }
             self.session
-                .send(Err(QueryErrorBuilder::new()
-                    .table_does_not_exist(schema_name + "." + table_name.as_str())
-                    .build()))
+                .send(Err(QueryError::table_does_not_exist(
+                    schema_name + "." + table_name.as_str(),
+                )))
                 .expect("To Send Result to Client");
             return Ok(());
         }
@@ -111,9 +109,9 @@ impl UpdateCommand {
 
         if !non_existing_columns.is_empty() {
             self.session
-                .send(Err(QueryErrorBuilder::new()
-                    .column_does_not_exist(non_existing_columns.into_iter().collect())
-                    .build()))
+                .send(Err(QueryError::column_does_not_exist(
+                    non_existing_columns.into_iter().collect(),
+                )))
                 .expect("To Send Result to Client");
             return Ok(());
         }
@@ -156,6 +154,7 @@ impl UpdateCommand {
         let to_update: Vec<Row> = match self.storage.table_scan(&schema_name, &table_name) {
             Err(error) => return Err(error),
             Ok(reads) => reads
+                .map(Result::unwrap)
                 .map(Result::unwrap)
                 .map(|(key, values)| {
                     let mut datums = unpack_raw(values.to_bytes());

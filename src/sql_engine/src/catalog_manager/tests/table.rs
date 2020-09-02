@@ -16,15 +16,12 @@ use super::*;
 use sql_types::SqlType;
 
 #[rstest::rstest]
-fn create_tables_with_different_names(default_schema_name: &str, storage_with_schema: PersistentStorage) {
+fn create_tables_with_different_names(default_schema_name: &str, storage_with_schema: CatalogManager) {
     assert_eq!(
         storage_with_schema.create_table(
             default_schema_name,
             "table_name_1",
-            &[column_definition(
-                "column_rstest::rstest",
-                SqlType::SmallInt(i16::min_value())
-            )]
+            &[column_definition("column_test", SqlType::SmallInt(i16::min_value()))]
         ),
         Ok(())
     );
@@ -32,27 +29,21 @@ fn create_tables_with_different_names(default_schema_name: &str, storage_with_sc
         storage_with_schema.create_table(
             default_schema_name,
             "table_name_2",
-            &[column_definition(
-                "column_rstest::rstest",
-                SqlType::SmallInt(i16::min_value())
-            )]
+            &[column_definition("column_test", SqlType::SmallInt(i16::min_value()))]
         ),
         Ok(())
     );
 }
 
 #[rstest::rstest]
-fn create_table_with_the_same_name_in_different_schemas(storage: PersistentStorage) {
+fn create_table_with_the_same_name_in_different_schemas(storage: CatalogManager) {
     create_schema(&storage, "schema_name_1");
     create_schema(&storage, "schema_name_2");
     assert_eq!(
         storage.create_table(
             "schema_name_1",
             "table_name",
-            &[column_definition(
-                "column_rstest::rstest",
-                SqlType::SmallInt(i16::min_value())
-            )]
+            &[column_definition("column_test", SqlType::SmallInt(i16::min_value()))]
         ),
         Ok(())
     );
@@ -60,25 +51,19 @@ fn create_table_with_the_same_name_in_different_schemas(storage: PersistentStora
         storage.create_table(
             "schema_name_2",
             "table_name",
-            &[column_definition(
-                "column_rstest::rstest",
-                SqlType::SmallInt(i16::min_value())
-            )]
+            &[column_definition("column_test", SqlType::SmallInt(i16::min_value()))]
         ),
         Ok(())
     );
 }
 
 #[rstest::rstest]
-fn drop_table(default_schema_name: &str, storage_with_schema: PersistentStorage) {
+fn drop_table(default_schema_name: &str, storage_with_schema: CatalogManager) {
     create_table(
         &storage_with_schema,
         default_schema_name,
         "table_name",
-        vec![column_definition(
-            "column_rstest::rstest",
-            SqlType::SmallInt(i16::min_value()),
-        )],
+        vec![column_definition("column_test", SqlType::SmallInt(i16::min_value()))],
     );
     assert_eq!(
         storage_with_schema.drop_table(default_schema_name, "table_name"),
@@ -88,17 +73,14 @@ fn drop_table(default_schema_name: &str, storage_with_schema: PersistentStorage)
         storage_with_schema.create_table(
             default_schema_name,
             "table_name",
-            &[column_definition(
-                "column_rstest::rstest",
-                SqlType::SmallInt(i16::min_value())
-            )]
+            &[column_definition("column_test", SqlType::SmallInt(i16::min_value()))]
         ),
         Ok(())
     );
 }
 
 #[rstest::rstest]
-fn table_columns_on_empty_table(default_schema_name: &str, storage_with_schema: PersistentStorage) {
+fn table_columns_on_empty_table(default_schema_name: &str, storage_with_schema: CatalogManager) {
     create_table(&storage_with_schema, default_schema_name, "table_name", vec![]);
 
     assert_eq!(
@@ -106,5 +88,5 @@ fn table_columns_on_empty_table(default_schema_name: &str, storage_with_schema: 
             .table_columns(default_schema_name, "table_name")
             .expect("no system errors"),
         vec![]
-    )
+    );
 }
