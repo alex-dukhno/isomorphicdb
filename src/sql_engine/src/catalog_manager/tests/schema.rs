@@ -23,32 +23,37 @@ fn create_schemas_with_different_names(storage: CatalogManager) {
 
 #[rstest::rstest]
 fn same_table_names_with_different_columns_in_different_schemas(storage: CatalogManager) {
-    create_schema(&storage, "schema_name_1");
-    create_schema(&storage, "schema_name_2");
+    storage.create_schema("schema_name_1").expect("schema is created");
+    storage.create_schema("schema_name_2").expect("schema is created");
 
-    create_table(
-        &storage,
-        "schema_name_1",
-        "table_name",
-        vec![column_definition("sn_1_column", SqlType::SmallInt(i16::min_value()))],
-    );
-    create_table(
-        &storage,
-        "schema_name_2",
-        "table_name",
-        vec![column_definition("sn_2_column", SqlType::BigInt(i64::min_value()))],
-    );
+    storage
+        .create_table(
+            "schema_name_1",
+            "table_name",
+            &[ColumnDefinition::new(
+                "sn_1_column",
+                SqlType::SmallInt(i16::min_value()),
+            )],
+        )
+        .expect("table is created");
+    storage
+        .create_table(
+            "schema_name_2",
+            "table_name",
+            &[ColumnDefinition::new("sn_2_column", SqlType::BigInt(i64::min_value()))],
+        )
+        .expect("table is created");
 
     assert_eq!(
         storage.table_columns("schema_name_1", "table_name"),
-        Ok(vec![column_definition(
+        Ok(vec![ColumnDefinition::new(
             "sn_1_column",
             SqlType::SmallInt(i16::min_value())
         )])
     );
     assert_eq!(
         storage.table_columns("schema_name_2", "table_name"),
-        Ok(vec![column_definition(
+        Ok(vec![ColumnDefinition::new(
             "sn_2_column",
             SqlType::BigInt(i64::min_value())
         )])
@@ -84,18 +89,26 @@ fn restrict_drop_schema_does_not_drop_schema_with_table(
 
 #[rstest::rstest]
 fn cascade_drop_schema_drops_tables_in_it(default_schema_name: &str, storage_with_schema: CatalogManager) {
-    create_table(
-        &storage_with_schema,
-        default_schema_name,
-        "table_name_1",
-        vec![column_definition("column_test", SqlType::SmallInt(i16::min_value()))],
-    );
-    create_table(
-        &storage_with_schema,
-        default_schema_name,
-        "table_name_2",
-        vec![column_definition("column_test", SqlType::SmallInt(i16::min_value()))],
-    );
+    storage_with_schema
+        .create_table(
+            default_schema_name,
+            "table_name_1",
+            &[ColumnDefinition::new(
+                "column_test",
+                SqlType::SmallInt(i16::min_value()),
+            )],
+        )
+        .expect("table is created");
+    storage_with_schema
+        .create_table(
+            default_schema_name,
+            "table_name_2",
+            &[ColumnDefinition::new(
+                "column_test",
+                SqlType::SmallInt(i16::min_value()),
+            )],
+        )
+        .expect("table is created");
 
     assert_eq!(
         storage_with_schema
@@ -108,7 +121,10 @@ fn cascade_drop_schema_drops_tables_in_it(default_schema_name: &str, storage_wit
         storage_with_schema.create_table(
             default_schema_name,
             "table_name_1",
-            &[column_definition("column_test", SqlType::SmallInt(i16::min_value()))]
+            &[ColumnDefinition::new(
+                "column_test",
+                SqlType::SmallInt(i16::min_value())
+            )]
         ),
         Ok(())
     );
@@ -116,7 +132,10 @@ fn cascade_drop_schema_drops_tables_in_it(default_schema_name: &str, storage_wit
         storage_with_schema.create_table(
             default_schema_name,
             "table_name_2",
-            &[column_definition("column_test", SqlType::SmallInt(i16::min_value()))]
+            &[ColumnDefinition::new(
+                "column_test",
+                SqlType::SmallInt(i16::min_value())
+            )]
         ),
         Ok(())
     );

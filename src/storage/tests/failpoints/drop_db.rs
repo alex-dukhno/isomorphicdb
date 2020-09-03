@@ -15,22 +15,20 @@
 use fail::FailScenario;
 use storage::{Database, PersistentDatabase, StorageError};
 
-#[rstest::fixture]
-fn scenario() -> FailScenario<'static> {
-    FailScenario::setup()
-}
+mod common;
+use common::{scenario, OBJECT, SCHEMA};
 
 #[rstest::fixture]
 fn database() -> PersistentDatabase {
     let root_path = tempfile::tempdir().expect("to create temporary folder");
     let storage = PersistentDatabase::new(root_path.into_path());
     storage
-        .create_schema("schema_name")
+        .create_schema(SCHEMA)
         .expect("no io error")
         .expect("no platform errors")
         .expect("to create schema");
     storage
-        .create_object("schema_name", "object_name")
+        .create_object(SCHEMA, OBJECT)
         .expect("no io error")
         .expect("no platform errors")
         .expect("to create object");
@@ -42,8 +40,8 @@ fn io_error(database: PersistentDatabase, scenario: FailScenario) {
     fail::cfg("sled-fail-to-drop-db", "return(io)").unwrap();
 
     assert_eq!(
-        database.drop_schema("schema_name").expect("no io error"),
-        Err(StorageError::CascadeIo(vec!["object_name".to_owned()]))
+        database.drop_schema(SCHEMA).expect("no io error"),
+        Err(StorageError::CascadeIo(vec![OBJECT.to_owned()]))
     );
 
     scenario.teardown();
@@ -54,7 +52,7 @@ fn corruption_error(database: PersistentDatabase, scenario: FailScenario) {
     fail::cfg("sled-fail-to-drop-db", "return(corruption)").unwrap();
 
     assert_eq!(
-        database.drop_schema("schema_name").expect("no io error"),
+        database.drop_schema(SCHEMA).expect("no io error"),
         Err(StorageError::Storage)
     );
 
@@ -66,7 +64,7 @@ fn reportable_bug(database: PersistentDatabase, scenario: FailScenario) {
     fail::cfg("sled-fail-to-drop-db", "return(bug)").unwrap();
 
     assert_eq!(
-        database.drop_schema("schema_name").expect("no io error"),
+        database.drop_schema(SCHEMA).expect("no io error"),
         Err(StorageError::Storage)
     );
 
@@ -77,7 +75,7 @@ fn reportable_bug(database: PersistentDatabase, scenario: FailScenario) {
 fn unsupported_operation_core_structure(database: PersistentDatabase, scenario: FailScenario) {
     fail::cfg("sled-fail-to-drop-db", "return(unsupported(core_structure))").unwrap();
 
-    assert_eq!(database.drop_schema("schema_name").expect("no io error"), Ok(Ok(())));
+    assert_eq!(database.drop_schema(SCHEMA).expect("no io error"), Ok(Ok(())));
 
     scenario.teardown();
 }
@@ -87,7 +85,7 @@ fn unsupported_operation(database: PersistentDatabase, scenario: FailScenario) {
     fail::cfg("sled-fail-to-drop-db", "return(unsupported)").unwrap();
 
     assert_eq!(
-        database.drop_schema("schema_name").expect("no io error"),
+        database.drop_schema(SCHEMA).expect("no io error"),
         Err(StorageError::Storage)
     );
 
@@ -99,7 +97,7 @@ fn collection_not_found(database: PersistentDatabase, scenario: FailScenario) {
     fail::cfg("sled-fail-to-drop-db", "return(collection_not_found)").unwrap();
 
     assert_eq!(
-        database.drop_schema("schema_name").expect("no io error"),
+        database.drop_schema(SCHEMA).expect("no io error"),
         Err(StorageError::Storage)
     );
 

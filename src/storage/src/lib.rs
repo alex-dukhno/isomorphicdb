@@ -46,40 +46,43 @@ pub enum DefinitionError {
     ObjectDoesNotExist,
 }
 
-pub trait Database {
-    fn create_schema(&self, schema_name: &str) -> io::Result<Result<Result<(), DefinitionError>, StorageError>>;
+pub type SchemaId<'s> = &'s str;
+pub type ObjectId<'o> = &'o str;
 
-    fn drop_schema(&self, schema_name: &str) -> io::Result<Result<Result<(), DefinitionError>, StorageError>>;
+pub trait Database {
+    fn create_schema(&self, schema_name: SchemaId) -> io::Result<Result<Result<(), DefinitionError>, StorageError>>;
+
+    fn drop_schema(&self, schema_name: SchemaId) -> io::Result<Result<Result<(), DefinitionError>, StorageError>>;
 
     fn create_object(
         &self,
-        schema_name: &str,
-        object_name: &str,
+        schema_name: SchemaId,
+        object_name: ObjectId,
     ) -> io::Result<Result<Result<(), DefinitionError>, StorageError>>;
 
     fn drop_object(
         &self,
-        schema_name: &str,
-        object_name: &str,
+        schema_name: SchemaId,
+        object_name: ObjectId,
     ) -> io::Result<Result<Result<(), DefinitionError>, StorageError>>;
 
     fn write(
         &self,
-        schema_name: &str,
-        object_name: &str,
+        schema_name: SchemaId,
+        object_name: ObjectId,
         values: Vec<Row>,
     ) -> io::Result<Result<Result<usize, DefinitionError>, StorageError>>;
 
     fn read(
         &self,
-        schema_name: &str,
-        object_name: &str,
+        schema_name: SchemaId,
+        object_name: ObjectId,
     ) -> io::Result<Result<Result<ReadCursor, DefinitionError>, StorageError>>;
 
     fn delete(
         &self,
-        schema_name: &str,
-        object_name: &str,
+        schema_name: SchemaId,
+        object_name: ObjectId,
         keys: Vec<Key>,
     ) -> io::Result<Result<Result<usize, DefinitionError>, StorageError>>;
 }

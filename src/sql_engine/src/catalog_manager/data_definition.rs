@@ -313,21 +313,20 @@ fn columns_table_types() -> [ColumnDefinition; 5] {
     ]
 }
 
-pub(crate) type Id = u64;
-#[allow(dead_code)]
-pub(crate) type CatalogId = Option<Id>;
-pub(crate) type SchemaId = Option<(Id, Option<Id>)>;
-pub(crate) type TableId = Option<(Id, Option<(Id, Option<Id>)>)>;
+type InnerId = u64;
+type InnerCatalogId = Option<InnerId>;
+type InnerFullSchemaId = Option<(InnerId, Option<InnerId>)>;
+type InnerFullTableId = Option<(InnerId, Option<(InnerId, Option<InnerId>)>)>;
 type Name = String;
 
 struct Catalog {
-    id: Id,
+    id: InnerId,
     schemas: RwLock<HashMap<Name, Arc<Schema>>>,
     schema_id_generator: AtomicU64,
 }
 
 impl Catalog {
-    fn new(id: Id) -> Catalog {
+    fn new(id: InnerId) -> Catalog {
         Catalog {
             id,
             schemas: RwLock::default(),
@@ -335,11 +334,11 @@ impl Catalog {
         }
     }
 
-    fn id(&self) -> Id {
+    fn id(&self) -> InnerId {
         self.id
     }
 
-    fn schema_exists(&self, schema_name: &str) -> Option<Id> {
+    fn schema_exists(&self, schema_name: &str) -> Option<InnerId> {
         self.schemas
             .read()
             .expect("to acquire read lock")
@@ -347,7 +346,7 @@ impl Catalog {
             .map(|schema| schema.id())
     }
 
-    fn create_schema(&self, schema_name: &str) -> Id {
+    fn create_schema(&self, schema_name: &str) -> InnerId {
         let schema_id = self.schema_id_generator.fetch_add(1, Ordering::SeqCst);
         self.schemas
             .write()
@@ -356,7 +355,7 @@ impl Catalog {
         schema_id
     }
 
-    fn add_schema(&self, schema_id: Id, schema_name: &str) -> Arc<Schema> {
+    fn add_schema(&self, schema_id: InnerId, schema_name: &str) -> Arc<Schema> {
         let schema = Arc::new(Schema::new(schema_id));
         self.schemas
             .write()
@@ -365,7 +364,7 @@ impl Catalog {
         schema
     }
 
-    fn remove_schema(&self, schema_name: &str) -> Option<Id> {
+    fn remove_schema(&self, schema_name: &str) -> Option<InnerId> {
         self.schemas
             .write()
             .expect("to acquire write lock")
@@ -396,13 +395,13 @@ impl Catalog {
 }
 
 struct Schema {
-    id: Id,
+    id: InnerId,
     tables: RwLock<HashMap<Name, Arc<Table>>>,
     table_id_generator: AtomicU64,
 }
 
 impl Schema {
-    fn new(id: Id) -> Schema {
+    fn new(id: InnerId) -> Schema {
         Schema {
             id,
             tables: RwLock::default(),
@@ -410,7 +409,7 @@ impl Schema {
         }
     }
 
-    fn id(&self) -> Id {
+    fn id(&self) -> InnerId {
         self.id
     }
 
@@ -426,10 +425,10 @@ impl Schema {
 
     fn add_table(
         &self,
-        table_id: Id,
+        table_id: InnerId,
         table_name: &str,
-        column_definitions: BTreeMap<Id, ColumnDefinition>,
-        max_id: Id,
+        column_definitions: BTreeMap<InnerId, ColumnDefinition>,
+        max_id: InnerId,
     ) {
         self.tables.write().expect("to acquire write lock").insert(
             table_name.to_owned(),
@@ -437,7 +436,7 @@ impl Schema {
         );
     }
 
-    fn table_exists(&self, table_name: &str) -> Option<Id> {
+    fn table_exists(&self, table_name: &str) -> Option<InnerId> {
         self.tables
             .read()
             .expect("to acquire read lock")
@@ -453,7 +452,7 @@ impl Schema {
             .cloned()
     }
 
-    fn remove_table(&self, table_name: &str) -> Option<Id> {
+    fn remove_table(&self, table_name: &str) -> Option<InnerId> {
         self.tables
             .write()
             .expect("to acquire lock")
@@ -476,13 +475,13 @@ impl Schema {
 }
 
 struct Table {
-    id: Id,
-    columns: RwLock<BTreeMap<Id, ColumnDefinition>>,
+    id: InnerId,
+    columns: RwLock<BTreeMap<InnerId, ColumnDefinition>>,
     column_id_generator: AtomicU64,
 }
 
 impl Table {
-    fn new(id: Id, column_definitions: &[ColumnDefinition]) -> Table {
+    fn new(id: InnerId, column_definitions: &[ColumnDefinition]) -> Table {
         let table = Table {
             id,
             columns: RwLock::default(),
@@ -494,7 +493,7 @@ impl Table {
         table
     }
 
-    fn restore(id: Id, column_definitions: BTreeMap<Id, ColumnDefinition>, max_id: Id) -> Table {
+    fn restore(id: InnerId, column_definitions: BTreeMap<InnerId, ColumnDefinition>, max_id: InnerId) -> Table {
         Table {
             id,
             columns: RwLock::new(column_definitions),
@@ -502,7 +501,7 @@ impl Table {
         }
     }
 
-    fn id(&self) -> Id {
+    fn id(&self) -> InnerId {
         self.id
     }
 
@@ -514,7 +513,7 @@ impl Table {
             .insert(column_id, column_definition);
     }
 
-    fn columns(&self) -> Vec<(Id, ColumnDefinition)> {
+    fn columns(&self) -> Vec<(InnerId, ColumnDefinition)> {
         self.columns
             .read()
             .expect("to acquire read lock")
@@ -625,7 +624,7 @@ impl DataDefinition {
     }
 
     #[allow(dead_code)]
-    pub(crate) fn catalog_exists(&self, catalog_name: &str) -> CatalogId {
+    pub(crate) fn catalog_exists(&self, catalog_name: &str) -> InnerCatalogId {
         self.catalogs
             .read()
             .expect("to acquire read lock")
@@ -769,7 +768,7 @@ impl DataDefinition {
         }
     }
 
-    pub(crate) fn schema_exists(&self, catalog_name: &str, schema_name: &str) -> SchemaId {
+    pub(crate) fn schema_exists(&self, catalog_name: &str, schema_name: &str) -> InnerFullSchemaId {
         log::debug!("checking schema existence {:?}.{:?}", catalog_name, schema_name);
         let catalog = match self.catalog(catalog_name) {
             Some(catalog) => catalog,
@@ -957,7 +956,7 @@ impl DataDefinition {
         }
     }
 
-    pub(crate) fn table_exists(&self, catalog_name: &str, schema_name: &str, table_name: &str) -> TableId {
+    pub(crate) fn table_exists(&self, catalog_name: &str, schema_name: &str, table_name: &str) -> InnerFullTableId {
         let catalog = match self.catalog(catalog_name) {
             Some(catalog) => catalog,
             None => return None,

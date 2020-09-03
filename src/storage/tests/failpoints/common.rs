@@ -12,30 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::*;
-use representation::Binary;
-
-#[cfg(test)]
-mod persistence;
-#[cfg(test)]
-mod queries;
-#[cfg(test)]
-mod schema;
-#[cfg(test)]
-mod table;
+use fail::FailScenario;
+use storage::{ObjectId, SchemaId};
 
 #[rstest::fixture]
-fn default_schema_name() -> &'static str {
-    "schema_name"
+pub fn scenario() -> FailScenario<'static> {
+    FailScenario::setup()
 }
 
-#[rstest::fixture]
-fn storage() -> CatalogManager {
-    CatalogManager::default()
-}
-
-#[rstest::fixture]
-fn storage_with_schema(storage: CatalogManager, default_schema_name: &str) -> CatalogManager {
-    storage.create_schema(default_schema_name).expect("schema is created");
-    storage
-}
+pub const SCHEMA: SchemaId = "schema_name";
+#[allow(dead_code)]
+pub const OBJECT: ObjectId = "object_name";

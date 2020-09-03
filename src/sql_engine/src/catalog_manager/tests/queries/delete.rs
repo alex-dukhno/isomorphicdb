@@ -13,47 +13,69 @@
 // limitations under the License.
 
 use super::*;
+use representation::Datum;
 use sql_types::SqlType;
 
 #[rstest::rstest]
 fn delete_all_from_table(default_schema_name: &str, storage_with_schema: CatalogManager) {
-    create_table(
-        &storage_with_schema,
-        default_schema_name,
-        "table_name",
-        vec![ColumnDefinition::new(
-            "column_test",
-            SqlType::SmallInt(i16::min_value()),
-        )],
-    );
+    storage_with_schema
+        .create_table(
+            default_schema_name,
+            "table_name",
+            &[ColumnDefinition::new(
+                "column_test",
+                SqlType::SmallInt(i16::min_value()),
+            )],
+        )
+        .expect("table is created");
 
-    insert_into(
-        &storage_with_schema,
-        default_schema_name,
-        "table_name",
-        vec![(1, vec!["123"])],
-    );
-    insert_into(
-        &storage_with_schema,
-        default_schema_name,
-        "table_name",
-        vec![(2, vec!["456"])],
-    );
-    insert_into(
-        &storage_with_schema,
-        default_schema_name,
-        "table_name",
-        vec![(3, vec!["789"])],
-    );
+    storage_with_schema
+        .write_into(
+            default_schema_name,
+            "table_name",
+            vec![(
+                Binary::pack(&[Datum::from_u64(1)]),
+                Binary::pack(&[Datum::from_i16(123)]),
+            )],
+        )
+        .expect("values are inserted");
+    storage_with_schema
+        .write_into(
+            default_schema_name,
+            "table_name",
+            vec![(
+                Binary::pack(&[Datum::from_u64(2)]),
+                Binary::pack(&[Datum::from_i16(456)]),
+            )],
+        )
+        .expect("values are inserted");
+    storage_with_schema
+        .write_into(
+            default_schema_name,
+            "table_name",
+            vec![(
+                Binary::pack(&[Datum::from_u64(3)]),
+                Binary::pack(&[Datum::from_i16(789)]),
+            )],
+        )
+        .expect("values are inserted");
 
     assert_eq!(
-        storage_with_schema.delete_all_from(default_schema_name, "table_name"),
+        storage_with_schema.delete_from(
+            default_schema_name,
+            "table_name",
+            vec![
+                Binary::pack(&[Datum::from_u64(1)]),
+                Binary::pack(&[Datum::from_u64(2)]),
+                Binary::pack(&[Datum::from_u64(3)])
+            ]
+        ),
         Ok(3)
     );
 
     assert_eq!(
         storage_with_schema
-            .table_scan("schema_name", "table_name")
+            .full_scan("schema_name", "table_name")
             .map(|iter| iter.map(Result::unwrap).map(Result::unwrap).collect()),
         Ok(vec![])
     );

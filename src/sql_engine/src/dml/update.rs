@@ -82,7 +82,7 @@ impl UpdateCommand {
             to_update.push((column.to_owned(), value))
         }
 
-        if !self.storage.schema_exists(&schema_name) {
+        if !matches!(self.storage.schema_exists(&schema_name), Some(_)) {
             self.session
                 .send(Err(QueryError::schema_does_not_exist(schema_name)))
                 .expect("To Send Result to Client");
@@ -96,7 +96,7 @@ impl UpdateCommand {
         let mut column_exists = false;
 
         // only process the rows if the table and schema exist.
-        if self.storage.table_exists(&schema_name, &table_name) {
+        if matches!(self.storage.table_exists(&schema_name, &table_name), Some((_, Some(_)))) {
             for (column_name, value) in to_update {
                 for (index, column_definition) in all_columns.iter().enumerate() {
                     if column_definition.has_name(&column_name) {
@@ -168,7 +168,7 @@ impl UpdateCommand {
             return Ok(());
         }
 
-        let to_update: Vec<Row> = match self.storage.table_scan(&schema_name, &table_name) {
+        let to_update: Vec<Row> = match self.storage.full_scan(&schema_name, &table_name) {
             Err(error) => return Err(error),
             Ok(reads) => reads
                 .map(Result::unwrap)
@@ -183,7 +183,7 @@ impl UpdateCommand {
                 .collect(),
         };
 
-        match self.storage.update_all(&schema_name, &table_name, to_update) {
+        match self.storage.write_into(&schema_name, &table_name, to_update) {
             Err(error) => Err(error),
             Ok(records_number) => {
                 self.session
