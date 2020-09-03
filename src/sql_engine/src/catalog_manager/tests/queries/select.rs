@@ -13,41 +13,50 @@
 // limitations under the License.
 
 use super::*;
-use representation::Binary;
+use representation::{Binary, Datum};
 use sql_types::SqlType;
 
 #[rstest::fixture]
 fn with_small_ints_table(default_schema_name: &str, storage_with_schema: CatalogManager) -> CatalogManager {
-    create_table(
-        &storage_with_schema,
-        default_schema_name,
-        "table_name",
-        vec![
-            column_definition("column_1", SqlType::SmallInt(i16::min_value())),
-            column_definition("column_2", SqlType::SmallInt(i16::min_value())),
-            column_definition("column_3", SqlType::SmallInt(i16::min_value())),
-        ],
-    );
+    storage_with_schema
+        .create_table(
+            default_schema_name,
+            "table_name",
+            &[
+                ColumnDefinition::new("column_1", SqlType::SmallInt(i16::min_value())),
+                ColumnDefinition::new("column_2", SqlType::SmallInt(i16::min_value())),
+                ColumnDefinition::new("column_3", SqlType::SmallInt(i16::min_value())),
+            ],
+        )
+        .expect("table is created");
     storage_with_schema
 }
 
 #[rstest::rstest]
 fn select_all_from_table_with_many_columns(default_schema_name: &str, with_small_ints_table: CatalogManager) {
-    insert_into(
-        &with_small_ints_table,
-        default_schema_name,
-        "table_name",
-        vec![(1, vec!["1", "2", "3"])],
-    );
+    with_small_ints_table
+        .write_into(
+            default_schema_name,
+            "table_name",
+            vec![(
+                Binary::pack(&[Datum::from_u64(1)]),
+                Binary::pack(&[Datum::from_i16(1), Datum::from_i16(2), Datum::from_i16(3)]),
+            )],
+        )
+        .expect("values are inserted");
 
     assert_eq!(
         with_small_ints_table
-            .table_scan(default_schema_name, "table_name")
+            .full_scan(default_schema_name, "table_name")
             .map(|read| read
                 .map(Result::unwrap)
                 .map(Result::unwrap)
                 .map(|(_key, values)| values)
                 .collect()),
-        Ok(vec![Binary::with_data(b"1|2|3".to_vec())])
+        Ok(vec![Binary::pack(&[
+            Datum::from_i16(1),
+            Datum::from_i16(2),
+            Datum::from_i16(3)
+        ])])
     );
 }

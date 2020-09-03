@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{Database, DefinitionError, InitStatus, Key, ReadCursor, Row, RowResult, StorageError};
+use crate::{Database, DefinitionError, InitStatus, Key, ObjectId, ReadCursor, Row, RowResult, SchemaId, StorageError};
 use representation::Binary;
 use sled::{Db as Schema, DiskPtr, Error as SledError, IVec, Tree};
 use std::{
@@ -35,7 +35,7 @@ impl PersistentDatabase {
         }
     }
 
-    pub fn init(&self, schema_name: &str) -> io::Result<Result<InitStatus, StorageError>> {
+    pub fn init(&self, schema_name: SchemaId) -> io::Result<Result<InitStatus, StorageError>> {
         let path_to_schema = PathBuf::from(&self.path).join(schema_name);
         log::info!("path to schema {:?}", path_to_schema);
         self.open_database(path_to_schema).map(|storage| {
@@ -55,7 +55,7 @@ impl PersistentDatabase {
         })
     }
 
-    pub fn open_object(&self, schema_name: &str, object_name: &str) {
+    pub fn open_object(&self, schema_name: SchemaId, object_name: ObjectId) {
         if let Some(schema) = self.schemas.read().expect("to acquire write lock").get(schema_name) {
             self.open_tree(schema.clone(), object_name)
                 .expect("no io error")
@@ -85,7 +85,7 @@ impl PersistentDatabase {
     fn open_tree(
         &self,
         schema: Arc<Schema>,
-        object_name: &str,
+        object_name: ObjectId,
     ) -> io::Result<Result<Result<Tree, DefinitionError>, StorageError>> {
         match self.open_tree_with_failpoint(schema, object_name) {
             Ok(tree) => Ok(Ok(Ok(tree))),
@@ -99,7 +99,7 @@ impl PersistentDatabase {
         }
     }
 
-    fn open_tree_with_failpoint(&self, schema: Arc<Schema>, object_name: &str) -> Result<Tree, SledError> {
+    fn open_tree_with_failpoint(&self, schema: Arc<Schema>, object_name: ObjectId) -> Result<Tree, SledError> {
         fail::fail_point!("sled-fail-to-open-tree", |kind| Err(sled_error(kind)));
         schema.open_tree(object_name)
     }
@@ -197,7 +197,7 @@ impl PersistentDatabase {
 }
 
 impl Database for PersistentDatabase {
-    fn create_schema(&self, schema_name: &str) -> io::Result<Result<Result<(), DefinitionError>, StorageError>> {
+    fn create_schema(&self, schema_name: SchemaId) -> io::Result<Result<Result<(), DefinitionError>, StorageError>> {
         if self
             .schemas
             .read()
@@ -220,7 +220,7 @@ impl Database for PersistentDatabase {
         }
     }
 
-    fn drop_schema(&self, schema_name: &str) -> io::Result<Result<Result<(), DefinitionError>, StorageError>> {
+    fn drop_schema(&self, schema_name: SchemaId) -> io::Result<Result<Result<(), DefinitionError>, StorageError>> {
         match self.schemas.write().expect("to acquire write lock").remove(schema_name) {
             Some(schema) => self.drop_database(schema),
             None => Ok(Ok(Err(DefinitionError::SchemaDoesNotExist))),
@@ -229,8 +229,8 @@ impl Database for PersistentDatabase {
 
     fn create_object(
         &self,
-        schema_name: &str,
-        object_name: &str,
+        schema_name: SchemaId,
+        object_name: ObjectId,
     ) -> io::Result<Result<Result<(), DefinitionError>, StorageError>> {
         match self.schemas.read().expect("to acquire read lock").get(schema_name) {
             Some(schema) => {
@@ -247,8 +247,8 @@ impl Database for PersistentDatabase {
 
     fn drop_object(
         &self,
-        schema_name: &str,
-        object_name: &str,
+        schema_name: SchemaId,
+        object_name: ObjectId,
     ) -> io::Result<Result<Result<(), DefinitionError>, StorageError>> {
         match self.schemas.read().expect("to acquire read lock").get(schema_name) {
             Some(schema) => match self.drop_tree_with_failpoint(schema.clone(), object_name.as_bytes().into()) {
@@ -268,8 +268,8 @@ impl Database for PersistentDatabase {
 
     fn write(
         &self,
-        schema_name: &str,
-        object_name: &str,
+        schema_name: SchemaId,
+        object_name: ObjectId,
         rows: Vec<Row>,
     ) -> io::Result<Result<Result<usize, DefinitionError>, StorageError>> {
         match self.schemas.read().expect("to acquire read lock").get(schema_name) {
@@ -306,8 +306,8 @@ impl Database for PersistentDatabase {
 
     fn read(
         &self,
-        schema_name: &str,
-        object_name: &str,
+        schema_name: SchemaId,
+        object_name: ObjectId,
     ) -> io::Result<Result<Result<ReadCursor, DefinitionError>, StorageError>> {
         match self.schemas.read().expect("to acquire read lock").get(schema_name) {
             Some(schema) => {
@@ -348,8 +348,8 @@ impl Database for PersistentDatabase {
 
     fn delete(
         &self,
-        schema_name: &str,
-        object_name: &str,
+        schema_name: SchemaId,
+        object_name: ObjectId,
         keys: Vec<Key>,
     ) -> io::Result<Result<Result<usize, DefinitionError>, StorageError>> {
         match self.schemas.read().expect("to acquire read lock").get(schema_name) {

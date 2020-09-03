@@ -63,14 +63,14 @@ impl<'sc> SelectCommand<'sc> {
                 }
             };
 
-            if !self.storage.schema_exists(&schema_name) {
+            if !matches!(self.storage.schema_exists(&schema_name), Some(_)) {
                 self.session
                     .send(Err(QueryError::schema_does_not_exist(schema_name)))
                     .expect("To Send Result to Client");
                 return Err(SystemError::runtime_check_failure("Schema Does Not Exist".to_owned()));
             }
 
-            if !self.storage.table_exists(&schema_name, &table_name) {
+            if !matches!(self.storage.table_exists(&schema_name, &table_name), Some((_, Some(_)))) {
                 self.session
                     .send(Err(QueryError::table_does_not_exist(
                         schema_name + "." + table_name.as_str(),
@@ -164,14 +164,14 @@ impl<'sc> SelectCommand<'sc> {
                 }
             };
 
-            if !self.storage.schema_exists(&schema_name) {
+            if !matches!(self.storage.schema_exists(&schema_name), Some(_)) {
                 self.session
                     .send(Err(QueryError::schema_does_not_exist(schema_name)))
                     .expect("To Send Result to Client");
                 return Ok(());
             }
 
-            if !self.storage.table_exists(&schema_name, &table_name) {
+            if !matches!(self.storage.table_exists(&schema_name, &table_name), Some((_, Some(_)))) {
                 self.session
                     .send(Err(QueryError::table_does_not_exist(
                         schema_name + "." + table_name.as_str(),
@@ -205,7 +205,7 @@ impl<'sc> SelectCommand<'sc> {
                 }
                 columns
             };
-            let data = self.storage.table_scan(&schema_name, &table_name);
+            let data = self.storage.full_scan(&schema_name, &table_name);
             match data {
                 Err(error) => Err(error),
                 Ok(records) => {

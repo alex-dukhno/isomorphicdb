@@ -18,7 +18,10 @@ use std::{
     path::PathBuf,
     sync::atomic::{AtomicU64, Ordering},
 };
-use storage::{Database, InMemoryDatabase, InitStatus, PersistentDatabase, ReadCursor, Row};
+use storage::{Database, InMemoryDatabase, InitStatus, Key, PersistentDatabase, ReadCursor, Row};
+
+pub type FullSchemaId = Option<u64>;
+pub type FullTableId = Option<(u64, Option<u64>)>;
 
 mod data_definition;
 
@@ -166,7 +169,7 @@ impl CatalogManager {
         }
     }
 
-    pub fn insert_into(&self, schema_name: &str, table_name: &str, values: Vec<Row>) -> SystemResult<usize> {
+    pub fn write_into(&self, schema_name: &str, table_name: &str, values: Vec<Row>) -> SystemResult<usize> {
         log::debug!("{:#?}", values);
         match self.data_storage.write(schema_name, table_name, values) {
             Ok(Ok(Ok(size))) => Ok(size),
@@ -177,7 +180,7 @@ impl CatalogManager {
         }
     }
 
-    pub fn table_scan(&self, schema_name: &str, table_name: &str) -> SystemResult<ReadCursor> {
+    pub fn full_scan(&self, schema_name: &str, table_name: &str) -> SystemResult<ReadCursor> {
         match self.data_storage.read(schema_name, table_name) {
             Ok(Ok(Ok(read))) => Ok(read),
             _ => Err(SystemError::bug_in_sql_engine(
@@ -187,9 +190,9 @@ impl CatalogManager {
         }
     }
 
-    pub fn update_all(&self, schema_name: &str, table_name: &str, rows: Vec<Row>) -> SystemResult<usize> {
-        match self.data_storage.write(schema_name, table_name, rows) {
-            Ok(Ok(Ok(size))) => Ok(size),
+    pub fn delete_from(&self, schema_name: &str, table_name: &str, keys: Vec<Key>) -> SystemResult<usize> {
+        match self.data_storage.delete(schema_name, table_name, keys) {
+            Ok(Ok(Ok(len))) => Ok(len),
             _ => Err(SystemError::bug_in_sql_engine(
                 Operation::Access,
                 Object::Table(schema_name, table_name),
@@ -197,41 +200,16 @@ impl CatalogManager {
         }
     }
 
-    pub fn delete_all_from(&self, schema_name: &str, table_name: &str) -> SystemResult<usize> {
-        match self.data_storage.read(schema_name, table_name) {
-            Ok(Ok(Ok(reads))) => {
-                let keys = reads
-                    .map(Result::unwrap)
-                    .map(Result::unwrap)
-                    .map(|(key, _)| key)
-                    .collect();
-                match self.data_storage.delete(schema_name, table_name, keys) {
-                    Ok(Ok(Ok(len))) => Ok(len),
-                    _ => unreachable!(
-                        "all errors that make code fall in here should have been handled in read operation"
-                    ),
-                }
-            }
-            _ => Err(SystemError::bug_in_sql_engine(
-                Operation::Access,
-                Object::Table(schema_name, table_name),
-            )),
-        }
+    pub fn schema_exists(&self, schema_name: &str) -> FullSchemaId {
+        self.data_definition
+            .schema_exists(DEFAULT_CATALOG, schema_name)
+            .and_then(|(_catalog, schema)| schema)
     }
 
-    pub fn schema_exists(&self, schema_name: &str) -> bool {
-        matches!(
-            self.data_definition.schema_exists(DEFAULT_CATALOG, schema_name),
-            Some((_, Some(_)))
-        )
-    }
-
-    pub fn table_exists(&self, schema_name: &str, table_name: &str) -> bool {
-        matches!(
-            self.data_definition
-                .table_exists(DEFAULT_CATALOG, schema_name, table_name),
-            Some((_, Some((_, Some(_)))))
-        )
+    pub fn table_exists(&self, schema_name: &str, table_name: &str) -> FullTableId {
+        self.data_definition
+            .table_exists(DEFAULT_CATALOG, schema_name, table_name)
+            .and_then(|(_catalog, full_table)| full_table)
     }
 }
 

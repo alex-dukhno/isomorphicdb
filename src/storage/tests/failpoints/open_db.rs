@@ -15,10 +15,8 @@
 use fail::FailScenario;
 use storage::{Database, PersistentDatabase, StorageError};
 
-#[rstest::fixture]
-fn scenario() -> FailScenario<'static> {
-    FailScenario::setup()
-}
+mod common;
+use common::{scenario, SCHEMA};
 
 #[rstest::fixture]
 fn database() -> PersistentDatabase {
@@ -30,7 +28,7 @@ fn database() -> PersistentDatabase {
 fn io_error(database: PersistentDatabase, scenario: FailScenario) {
     fail::cfg("sled-fail-to-open-db", "return(io)").unwrap();
 
-    assert!(matches!(database.create_schema("schema_name"), Err(_)));
+    assert!(matches!(database.create_schema(SCHEMA), Err(_)));
 
     scenario.teardown();
 }
@@ -40,7 +38,7 @@ fn corruption_error(database: PersistentDatabase, scenario: FailScenario) {
     fail::cfg("sled-fail-to-open-db", "return(corruption)").unwrap();
 
     assert_eq!(
-        database.create_schema("schema_name").expect("no io error"),
+        database.create_schema(SCHEMA).expect("no io error"),
         Err(StorageError::Storage)
     );
 
@@ -52,7 +50,7 @@ fn reportable_bug(database: PersistentDatabase, scenario: FailScenario) {
     fail::cfg("sled-fail-to-open-db", "return(bug)").unwrap();
 
     assert_eq!(
-        database.create_schema("schema_name").expect("no io error"),
+        database.create_schema(SCHEMA).expect("no io error"),
         Err(StorageError::Storage)
     );
 
@@ -64,7 +62,7 @@ fn unsupported_operation(database: PersistentDatabase, scenario: FailScenario) {
     fail::cfg("sled-fail-to-open-db", "return(unsupported)").unwrap();
 
     assert_eq!(
-        database.create_schema("schema_name").expect("no io error"),
+        database.create_schema(SCHEMA).expect("no io error"),
         Err(StorageError::Storage)
     );
 
@@ -76,7 +74,7 @@ fn collection_not_found(database: PersistentDatabase, scenario: FailScenario) {
     fail::cfg("sled-fail-to-open-db", "return(collection_not_found)").unwrap();
 
     assert_eq!(
-        database.create_schema("schema_name").expect("no io error"),
+        database.create_schema(SCHEMA).expect("no io error"),
         Err(StorageError::Storage)
     );
 

@@ -115,14 +115,14 @@ impl<'ic> InsertCommand<'ic> {
                     rows.push(row);
                 }
 
-                if !self.storage.schema_exists(schema_name) {
+                if !matches!(self.storage.schema_exists(schema_name), Some(_)) {
                     self.session
                         .send(Err(QueryError::schema_does_not_exist(schema_name.to_owned())))
                         .expect("To Send Result to Client");
                     return Ok(());
                 }
 
-                if !self.storage.table_exists(schema_name, table_name) {
+                if !matches!(self.storage.table_exists(&schema_name, &table_name), Some((_, Some(_)))) {
                     self.session
                         .send(Err(QueryError::table_does_not_exist(
                             schema_name.to_owned() + "." + table_name,
@@ -171,7 +171,7 @@ impl<'ic> InsertCommand<'ic> {
                 };
 
                 let mut to_write: Vec<Row> = vec![];
-                if self.storage.table_exists(&schema_name, &table_name) {
+                if matches!(self.storage.table_exists(&schema_name, &table_name), Some((_, Some(_)))) {
                     let mut errors = Vec::new();
 
                     for (row_index, row) in rows.iter().enumerate() {
@@ -237,7 +237,7 @@ impl<'ic> InsertCommand<'ic> {
                     }
                 }
 
-                match self.storage.insert_into(&schema_name, &table_name, to_write) {
+                match self.storage.write_into(&schema_name, &table_name, to_write) {
                     Err(error) => Err(error),
                     Ok(size) => {
                         self.session

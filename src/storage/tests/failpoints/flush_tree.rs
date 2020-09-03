@@ -16,22 +16,20 @@ use fail::FailScenario;
 use representation::Binary;
 use storage::{Database, DefinitionError, PersistentDatabase, StorageError};
 
-#[rstest::fixture]
-fn scenario() -> FailScenario<'static> {
-    FailScenario::setup()
-}
+mod common;
+use common::{scenario, OBJECT, SCHEMA};
 
 #[rstest::fixture]
 fn database() -> PersistentDatabase {
     let root_path = tempfile::tempdir().expect("to create temporary folder");
     let storage = PersistentDatabase::new(root_path.into_path());
     storage
-        .create_schema("schema_name")
+        .create_schema(SCHEMA)
         .expect("no io error")
         .expect("no platform errors")
         .expect("to create schema");
     storage
-        .create_object("schema_name", "object_name")
+        .create_object(SCHEMA, OBJECT)
         .expect("no io error")
         .expect("no platform errors")
         .expect("to create object");
@@ -44,8 +42,8 @@ fn io_error(database: PersistentDatabase, scenario: FailScenario) {
 
     assert!(matches!(
         database.write(
-            "schema_name",
-            "object_name",
+            SCHEMA,
+            OBJECT,
             vec![(Binary::with_data(vec![]), Binary::with_data(vec![]))]
         ),
         Err(_)
@@ -61,8 +59,8 @@ fn corruption_error(database: PersistentDatabase, scenario: FailScenario) {
     assert_eq!(
         database
             .write(
-                "schema_name",
-                "object_name",
+                SCHEMA,
+                OBJECT,
                 vec![(Binary::with_data(vec![]), Binary::with_data(vec![]))]
             )
             .expect("no io error"),
@@ -79,8 +77,8 @@ fn reportable_bug(database: PersistentDatabase, scenario: FailScenario) {
     assert_eq!(
         database
             .write(
-                "schema_name",
-                "object_name",
+                SCHEMA,
+                OBJECT,
                 vec![(Binary::with_data(vec![]), Binary::with_data(vec![]))]
             )
             .expect("no io error"),
@@ -97,8 +95,8 @@ fn unsupported_operation(database: PersistentDatabase, scenario: FailScenario) {
     assert_eq!(
         database
             .write(
-                "schema_name",
-                "object_name",
+                SCHEMA,
+                OBJECT,
                 vec![(Binary::with_data(vec![]), Binary::with_data(vec![]))]
             )
             .expect("no io error"),
@@ -115,8 +113,8 @@ fn collection_not_found(database: PersistentDatabase, scenario: FailScenario) {
     assert_eq!(
         database
             .write(
-                "schema_name",
-                "object_name",
+                SCHEMA,
+                OBJECT,
                 vec![(Binary::with_data(vec![]), Binary::with_data(vec![]))]
             )
             .expect("no io error"),

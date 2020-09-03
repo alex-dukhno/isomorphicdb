@@ -50,7 +50,7 @@ impl<'qp> QueryProcessor {
                         return Err(());
                     }
                 };
-                if self.storage.schema_exists(schema_id.name()) {
+                if matches!(self.storage.schema_exists(schema_id.name()), Some(_)) {
                     self.session
                         .send(Err(QueryError::schema_already_exists(schema_id.name().to_string())))
                         .expect("To Send Query Result to Client");
@@ -148,12 +148,12 @@ impl<'qp> QueryProcessor {
         };
         let schema_name = table_id.schema_name();
         let table_name = table_id.name();
-        if !self.storage.schema_exists(schema_name) {
+        if !matches!(self.storage.schema_exists(schema_name), Some(_)) {
             self.session
                 .send(Err(QueryError::schema_does_not_exist(schema_name.to_string())))
                 .expect("To Send Query Result to Client");
             Err(())
-        } else if self.storage.table_exists(schema_name, table_name) {
+        } else if matches!(self.storage.table_exists(&schema_name, &table_name), Some((_, Some(_)))) {
             self.session
                 .send(Err(QueryError::table_already_exists(format!(
                     "{}.{}",
@@ -190,12 +190,12 @@ impl<'qp> QueryProcessor {
                     };
                     let schema_name = table_id.schema_name();
                     let table_name = table_id.name();
-                    if !self.storage.schema_exists(schema_name) {
+                    if !matches!(self.storage.schema_exists(schema_name), Some(_)) {
                         self.session
                             .send(Err(QueryError::schema_does_not_exist(schema_name.to_string())))
                             .expect("To Send Query Result to Client");
                         return Err(());
-                    } else if !self.storage.table_exists(schema_name, table_name) {
+                    } else if !matches!(self.storage.table_exists(&schema_name, &table_name), Some((_, Some(_)))) {
                         self.session
                             .send(Err(QueryError::table_does_not_exist(format!(
                                 "{}.{}",
@@ -221,7 +221,7 @@ impl<'qp> QueryProcessor {
                             return Err(());
                         }
                     };
-                    if !self.storage.schema_exists(schema_id.name()) {
+                    if !matches!(self.storage.schema_exists(schema_id.name()), Some(_)) {
                         self.session
                             .send(Err(QueryError::schema_does_not_exist(schema_id.name().to_string())))
                             .expect("To Send Query Result to Client");

@@ -34,14 +34,14 @@ impl DeleteCommand {
         let schema_name = self.name.0[0].to_string();
         let table_name = self.name.0[1].to_string();
 
-        if !self.storage.schema_exists(&schema_name) {
+        if !matches!(self.storage.schema_exists(&schema_name), Some(_)) {
             self.session
                 .send(Err(QueryError::schema_does_not_exist(schema_name)))
                 .expect("To Send Result to Client");
             return Ok(());
         }
 
-        if !self.storage.table_exists(&schema_name, &table_name) {
+        if !matches!(self.storage.table_exists(&schema_name, &table_name), Some((_, Some(_)))) {
             self.session
                 .send(Err(QueryError::table_does_not_exist(
                     schema_name + "." + table_name.as_str(),
@@ -50,7 +50,16 @@ impl DeleteCommand {
             return Ok(());
         }
 
-        match self.storage.delete_all_from(&schema_name, &table_name) {
+        let keys = match self.storage.full_scan(&schema_name, &table_name) {
+            Ok(reads) => reads
+                .map(Result::unwrap)
+                .map(Result::unwrap)
+                .map(|(key, _)| key)
+                .collect(),
+            Err(e) => return Err(e),
+        };
+
+        match self.storage.delete_from(&schema_name, &table_name, keys) {
             Err(e) => Err(e),
             Ok(records_number) => {
                 self.session

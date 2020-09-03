@@ -35,13 +35,13 @@ fn created_schema_is_preserved_after_restart(persistent: (CatalogManager, TempDi
     catalog_manager
         .create_schema("schema_name")
         .expect("to create a schema");
-    assert!(catalog_manager.schema_exists("schema_name"));
+    assert!(matches!(catalog_manager.schema_exists("schema_name"), Some(_)));
 
     drop(catalog_manager);
 
     let catalog_manager = CatalogManager::persistent(root_path.into_path()).expect("to create catalog manager");
 
-    assert!(catalog_manager.schema_exists("schema_name"));
+    assert!(matches!(catalog_manager.schema_exists("schema_name"), Some(_)));
 }
 
 #[rstest::rstest]
@@ -57,13 +57,19 @@ fn created_table_is_preserved_after_restart(persistent: (CatalogManager, TempDir
             &[ColumnDefinition::new("col_test", SqlType::Bool)],
         )
         .expect("to create a table");
-    assert!(catalog_manager.table_exists("schema_name", "table_name"));
+    assert!(matches!(
+        catalog_manager.table_exists("schema_name", "table_name"),
+        Some((_, Some(_)))
+    ));
 
     drop(catalog_manager);
 
     let catalog_manager = CatalogManager::persistent(root_path.into_path()).expect("to create catalog manager");
 
-    assert!(catalog_manager.table_exists("schema_name", "table_name"));
+    assert!(matches!(
+        catalog_manager.table_exists("schema_name", "table_name"),
+        Some((_, Some(_)))
+    ));
     assert_eq!(
         catalog_manager
             .table_columns("schema_name", "table_name")
@@ -86,7 +92,7 @@ fn stored_data_is_preserved_after_restart(persistent: (CatalogManager, TempDir))
         )
         .expect("to create a table");
     catalog_manager
-        .insert_into(
+        .write_into(
             "schema_name",
             "table_name",
             vec![(
@@ -98,7 +104,7 @@ fn stored_data_is_preserved_after_restart(persistent: (CatalogManager, TempDir))
 
     assert_eq!(
         catalog_manager
-            .table_scan("schema_name", "table_name")
+            .full_scan("schema_name", "table_name")
             .expect("to scan a table")
             .map(|item| item.expect("no io error").expect("no platform error"))
             .collect::<Vec<Row>>(),
@@ -113,7 +119,7 @@ fn stored_data_is_preserved_after_restart(persistent: (CatalogManager, TempDir))
 
     assert_eq!(
         catalog_manager
-            .table_scan("schema_name", "table_name")
+            .full_scan("schema_name", "table_name")
             .expect("to scan a table")
             .map(|item| item.expect("no io error").expect("no platform error"))
             .collect::<Vec<Row>>(),
