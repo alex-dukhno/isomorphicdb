@@ -391,7 +391,7 @@ impl QueryError {
     }
 
     /// when the name of a column is ambiguous in a multi-table context
-    pub fn ambiguous_column(mut self, column: String) -> Self {
+    pub fn ambiguous_column(column: String) -> Self {
        QueryError {
             severity: Severity::Error,
             kind: QueryErrorKind::AmbiguousColumnName { column },
@@ -399,12 +399,11 @@ impl QueryError {
     }
 
     /// user of an undefined column
-    pub fn undefined_column(mut self, column: String) -> Self {
-        self.errors.push(QueryErrorInner {
+    pub fn undefined_column(column: String) -> Self {
+        QueryError {
             severity: Severity::Error,
             kind: QueryErrorKind::UndefinedColumn { column },
-        });
-        self
+        }
     }
 
     // These errors can be generated multiple at a time which is why they are &mut self

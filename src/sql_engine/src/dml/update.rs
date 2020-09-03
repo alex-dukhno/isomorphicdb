@@ -95,10 +95,10 @@ impl UpdateCommand {
             return Ok(());
         }
 
-        let table_definition = self.storage.table_descriptor(&schema_name, &table_name)?;
-        all_columns = table_definition.column_data();
+        let table_definition = self.storage.table_columns(&schema_name, &table_name)?;
+        all_columns = table_definition.as_slice();
 
-        let evaluation = ExpressionEvaluation::new(self.session.clone(), vec![table_definition.clone()]);
+        let evaluation = ExpressionEvaluation::new(self.session.clone(), table_definition);
 
         for item in self.assignments.iter() {
             match evaluation.eval_assignment(item) {
@@ -115,41 +115,6 @@ impl UpdateCommand {
                 .expect("To Send Result to Client");
             return Ok(());
         }
-        // if !errors.is_empty() {
-        //     let row_index = 1;
-        //     let mut builder = QueryErrorBuilder::new();
-        //     let constraint_error_mapper = |(err, column_definition): &(ConstraintError, ColumnDefinition)| match err {
-        //         ConstraintError::OutOfRange => {
-        //             builder.out_of_range(
-        //                 (&column_definition.sql_type()).into(),
-        //                 column_definition.name(),
-        //                 row_index,
-        //             );
-        //         }
-        //         ConstraintError::TypeMismatch(value) => {
-        //             builder.type_mismatch(
-        //                 value,
-        //                 (&column_definition.sql_type()).into(),
-        //                 column_definition.name(),
-        //                 row_index,
-        //             );
-        //         }
-        //         ConstraintError::ValueTooLong(len) => {
-        //             builder.string_length_mismatch(
-        //                 (&column_definition.sql_type()).into(),
-        //                 *len,
-        //                 column_definition.name(),
-        //                 row_index,
-        //             );
-        //         }
-        //     };
-        //
-        //     errors.iter().for_each(constraint_error_mapper);
-        //     self.session
-        //         .send(Err(builder.build()))
-        //         .expect("To Send Query Result to Client");
-        //     return Ok(());
-        // }
 
         let to_update: Vec<Row> = match self.storage.table_scan(&schema_name, &table_name) {
             Err(error) => return Err(error),

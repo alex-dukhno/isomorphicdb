@@ -1,6 +1,6 @@
 use crate::query::scalar::{ScalarOp};
-use crate::{ColumnDefinition, TableDefinition};
-use protocol::results::{QueryErrorBuilder, QueryResult};
+use crate::{ColumnDefinition};
+use protocol::results::{QueryError, QueryResult};
 use protocol::Sender;
 use representation::{Datum, EvalError, ScalarType};
 use sqlparser::ast::{Assignment, BinaryOperator, DataType, Expr, UnaryOperator, Value};
@@ -13,11 +13,11 @@ use kernel::SystemErrorKind::SqlEngineBug;
 
 pub(crate) struct ExpressionEvaluation {
     session: Arc<dyn Sender>,
-    table_info: Vec<TableDefinition>,
+    table_info: Vec<ColumnDefinition>,
 }
 
 impl ExpressionEvaluation {
-    pub(crate) fn new(session: Arc<dyn Sender>, table_info: Vec<TableDefinition>) -> ExpressionEvaluation {
+    pub(crate) fn new(session: Arc<dyn Sender>, table_info: Vec<ColumnDefinition>) -> ExpressionEvaluation {
         ExpressionEvaluation { session, table_info }
     }
 
@@ -34,12 +34,10 @@ impl ExpressionEvaluation {
                 (Expr::Value(Value::Boolean(val)), DataType::Boolean) => Ok(ScalarOp::Literal(Datum::from_bool(*val))),
                 _ => {
                     self.session
-                        .send(Err(QueryErrorBuilder::new()
-                            .syntax_error(format!(
+                        .send(Err(QueryError::syntax_error(format!(
                                 "Cast from {:?} to {:?} is not currently supported",
                                 expr, data_type
-                            ))
-                            .build()))
+                            ))))
                         .expect("To Send Query Result to Client");
                     return Err(());
                 }
@@ -52,19 +50,10 @@ impl ExpressionEvaluation {
                             Ok(datum) => Ok(ScalarOp::Literal(datum)),
                             Err(e) => {
                                 let err = match e {
-                                    EvalError::UnsupportedDatum(ty) => QueryErrorBuilder::new()
-                                        .feature_not_supported(format!("Data type not supported: {}", ty))
-                                        .build(),
-                                    EvalError::OutOfRangeNumeric(ty) => {
-                                        let mut builder = QueryErrorBuilder::new();
-                                        builder.out_of_range(ty.to_pg_types(), String::new(), 0);
-                                        builder.build()
-                                    }
-                                    EvalError::UnsupportedOperation => QueryErrorBuilder::new()
-                                        .feature_not_supported("Use of unsupported expression feature".to_string())
-                                        .build(),
+                                    EvalError::UnsupportedDatum(ty) => QueryError::feature_not_supported(format!("Data type not supported: {}", ty)),
+                                    EvalError::OutOfRangeNumeric(ty) => QueryError::out_of_range(ty.to_pg_types(), String::new(), 0),
+                                    EvalError::UnsupportedOperation => QueryError::feature_not_supported("Use of unsupported expression feature".to_string()),
                                 };
-
                                 self.session.send(Err(err)).expect("To Send Query Result to Client");
                                 Err(())
                             }
@@ -72,9 +61,7 @@ impl ExpressionEvaluation {
                     }
                     (op, operand) => {
                         self.session
-                            .send(Err(QueryErrorBuilder::new()
-                                .syntax_error(op.to_string() + expr.to_string().as_str())
-                                .build()))
+                            .send(Err(QueryError::syntax_error(op.to_string() + expr.to_string().as_str())))
                             .expect("To Send Query Result to Client");
                         // EvalScalarOp::eval_unary_literal_expr(op, *op, operand)?;
                         return Err(());
@@ -96,13 +83,11 @@ impl ExpressionEvaluation {
                     }
                 }
                 else {
-                    let kind = QueryErrorBuilder::new()
-                        .undefined_function(
+                    let kind = QueryError::undefined_function(
                             op.to_string(),
                             lhs.scalar_type().to_string(),
                             rhs.scalar_type().to_string(),
-                        )
-                        .build();
+                        );
                     self.session.send(Err(kind)).expect("To Senc Query Result to Client");
                     Err(())
                 }
@@ -111,17 +96,9 @@ impl ExpressionEvaluation {
                 Ok(datum) => Ok(ScalarOp::Literal(datum)),
                 Err(e) => {
                     let err = match e {
-                        EvalError::UnsupportedDatum(ty) => QueryErrorBuilder::new()
-                            .feature_not_supported(format!("Data type not supported: {}", ty))
-                            .build(),
-                        EvalError::OutOfRangeNumeric(ty) => {
-                            let mut builder = QueryErrorBuilder::new();
-                            builder.out_of_range(ty.to_pg_types(), String::new(), 0);
-                            builder.build()
-                        }
-                        EvalError::UnsupportedOperation => QueryErrorBuilder::new()
-                            .feature_not_supported("Use of unsupported expression feature".to_string())
-                            .build(),
+                        EvalError::UnsupportedDatum(ty) => QueryError::feature_not_supported(format!("Data type not supported: {}", ty)),
+                        EvalError::OutOfRangeNumeric(ty) => QueryError::out_of_range(ty.to_pg_types(), String::new(), 0),
+                        EvalError::UnsupportedOperation => QueryError::feature_not_supported("Use of unsupported expression feature".to_string()),
                     };
 
                     self.session.send(Err(err)).expect("To Send Query Result to Client");
@@ -134,22 +111,20 @@ impl ExpressionEvaluation {
                     Ok(ScalarOp::Column(idx, Self::convert_sql_type(scalar_type)))
                 } else {
                     self.session
-                        .send(Err(QueryErrorBuilder::new()
-                            .undefined_column(ident.value.clone())
-                            .build()))
+                        .send(Err(QueryError::undefined_column(ident.value.clone())))
                         .expect("To Send Query Result to Client");
                     Err(())
                 }
             }
             Expr::CompoundIdentifier(idents) => {
                 self.session
-                    .send(Err(QueryErrorBuilder::new().syntax_error(String::new()).build()))
+                    .send(Err(QueryError::syntax_error(String::new())))
                     .expect("To Send Query Result to Client");
                 Err(())
             }
             _ => {
                 self.session
-                    .send(Err(QueryErrorBuilder::new().syntax_error(expr.to_string()).build()))
+                    .send(Err(QueryError::syntax_error(expr.to_string())))
                     .expect("To Send Query Result to Client");
                 Err(())
             }
@@ -161,7 +136,7 @@ impl ExpressionEvaluation {
         let (destination, column_def) = if let Some((idx, def)) = self.find_column_by_name(id.value.as_str())? {
             (idx, def)
         } else {
-            let kind = QueryErrorBuilder::new().undefined_column(id.value.clone()).build();
+            let kind = QueryError::undefined_column(id.value.clone());
             self.session.send(Err(kind)).expect("To Send Query Result to Client");
             return Err(());
         };
@@ -176,20 +151,16 @@ impl ExpressionEvaluation {
         })
     }
 
-    pub fn find_column_by_name(&self, name: &str) -> Result<Option<(usize, ColumnDefinition)>, ()> {
-        let mut found = None;
-        for table_info in self.table_info.to_vec() {
-            if let Some((idx, column)) = table_info.column_by_name_with_index(name) {
-                if found.is_some() {
-                    let kind = QueryErrorBuilder::new().ambiguous_column(name.to_string()).build();
-                    self.session.send(Err(kind)).expect("To Send Query Result to Client");
-                    return Err(());
-                } else {
-                    found = Some((idx, column));
-                }
-            }
+    pub fn find_column_by_name(&self, name: &str) -> Result<Option<(usize, &ColumnDefinition)>, ()> {
+        let columns = self.table_info.iter().enumerate().filter(|(_, col)| col.has_name(name)).collect::<Vec<(usize, &ColumnDefinition)>>();
+        if columns.len() != 1 {
+            let kind = QueryError::ambiguous_column(name.to_string());
+            self.session.send(Err(kind)).expect("To Send Query Result to Client");
+            Err(())
         }
-        Ok(found)
+        else {
+            Ok(columns.first().map(|(idx, def)| (*idx, *def)))
+        }
     }
 
     pub fn compatible_types_for_op(&self, op: BinaryOperator, lhs_type: ScalarType, rhs_type: ScalarType) -> Option<ScalarType> {
@@ -310,9 +281,7 @@ impl EvalScalarOp {
                 BinaryOperator::BitwiseAnd => Ok(left & right),
                 BinaryOperator::BitwiseOr => Ok(left | right),
                 BinaryOperator::StringConcat => {
-                    let kind = QueryErrorBuilder::new()
-                        .undefined_function(op.to_string(), "NUMBER".to_owned(), "NUMBER".to_owned())
-                        .build();
+                    let kind = QueryError::undefined_function(op.to_string(), "NUMBER".to_owned(), "NUMBER".to_owned());
                     session.send(Err(kind)).expect("To Send Query Result to Client");
                     return Err(());
                 }
@@ -325,9 +294,7 @@ impl EvalScalarOp {
                 BinaryOperator::Multiply => Ok(left * right),
                 BinaryOperator::Divide => Ok(left / right),
                 BinaryOperator::StringConcat => {
-                    let kind = QueryErrorBuilder::new()
-                        .undefined_function(op.to_string(), "NUMBER".to_owned(), "NUMBER".to_owned())
-                        .build();
+                    let kind = QueryError::undefined_function(op.to_string(), "NUMBER".to_owned(), "NUMBER".to_owned());
                     session.send(Err(kind)).expect("To Send Query Result to Client");
                     return Err(());
                 }
@@ -340,18 +307,14 @@ impl EvalScalarOp {
                     Ok(Datum::OwnedString(value))
                 }
                 _ => {
-                    let kind = QueryErrorBuilder::new()
-                        .undefined_function(op.to_string(), "STRING".to_owned(), "STRING".to_owned())
-                        .build();
+                    let kind = QueryError::undefined_function(op.to_string(), "STRING".to_owned(), "STRING".to_owned());
                     session.send(Err(kind)).expect("To Send Query Result to Client");
                     return Err(());
                 }
             }
         } else {
             session
-                .send(Err(QueryErrorBuilder::new()
-                    .syntax_error(format!("{} {} {}", left.to_string(), op.to_string(), right.to_string()))
-                    .build()))
+                .send(Err(QueryError::syntax_error(format!("{} {} {}", left.to_string(), op.to_string(), right.to_string()))))
                 .expect("To Send Query Result to Client");
             Err(())
         }

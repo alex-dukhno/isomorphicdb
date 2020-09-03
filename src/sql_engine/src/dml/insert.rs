@@ -86,11 +86,11 @@ impl<'ic> InsertCommand<'ic> {
                     return Ok(());
                 }
 
-                let table_definition = self.storage.table_descriptor(&schema_name, &table_name)?;
+                let table_definition = self.storage.table_columns(&schema_name, &table_name)?;
                 let column_names = columns;
-                let all_columns = table_definition.column_data();
+                let all_columns = table_definition.clone();
 
-                let evaluation = ExpressionEvaluation::new(self.session.clone(), vec![table_definition.clone()]);
+                let evaluation = ExpressionEvaluation::new(self.session.clone(), table_definition);
                 let mut rows = vec![];
                 for line in values {
                     let mut row = vec![];
@@ -101,11 +101,9 @@ impl<'ic> InsertCommand<'ic> {
                                     row.push(v);
                                 } else {
                                     self.session
-                                        .send(Err(QueryErrorBuilder::new()
-                                            .feature_not_supported(
+                                        .send(Err(QueryError::feature_not_supported(
                                                 "Only expressions resulting in a literal are supported".to_string(),
-                                            )
-                                            .build()))
+                                            )))
                                         .expect("To Send Query Result to Client");
                                     return Ok(());
                                 }

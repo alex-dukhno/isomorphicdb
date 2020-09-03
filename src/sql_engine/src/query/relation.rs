@@ -62,8 +62,3 @@ pub enum RelationOp {
         output: Box<RelationOp>,
     },
 }
-
-#[derive(Debug)]
-pub enum RelationError {
-    InvalidColumnName { column: String, table: String },
-}
