@@ -236,7 +236,7 @@ impl QueryExecutor {
         for (raw_param, typ, format) in izip!(raw_params, param_types, param_formats) {
             match raw_param {
                 None => params.push(PostgreSqlValue::Null),
-                Some(bytes) => match PostgreSqlValue::decode(&format, typ, &bytes) {
+                Some(bytes) => match typ.decode(&format, &bytes) {
                     Ok(param) => params.push(param),
                     Err(msg) => {
                         self.sender

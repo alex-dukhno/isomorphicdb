@@ -41,7 +41,12 @@ mod read_query {
             let mut receiver = RequestReceiver::new((VERSION_3, vec![]), channel);
 
             let query = receiver.receive().await.expect("no io errors");
-            assert_eq!(query, Ok(Command::Query("select 1;".to_owned())));
+            assert_eq!(
+                query,
+                Ok(Command::Query {
+                    sql: "select 1;".to_owned()
+                })
+            );
         });
     }
 
