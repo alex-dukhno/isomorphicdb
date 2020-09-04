@@ -26,8 +26,11 @@ use crate::{
     session::{statement::PreparedStatement, Session},
 };
 use kernel::SystemResult;
-use protocol::results::QueryError;
-use protocol::{results::QueryEvent, sql_types::PostgreSqlType, Sender};
+use protocol::{
+    results::{QueryError, QueryEvent},
+    sql_types::PostgreSqlType,
+    Sender,
+};
 use serde::{Deserialize, Serialize};
 use sql_types::SqlType;
 use sqlparser::{

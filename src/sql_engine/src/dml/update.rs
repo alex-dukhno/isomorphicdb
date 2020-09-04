@@ -14,8 +14,10 @@
 
 use crate::{catalog_manager::CatalogManager, dml::ExpressionEvaluation};
 use kernel::SystemResult;
-use protocol::results::QueryError;
-use protocol::{results::QueryEvent, Sender};
+use protocol::{
+    results::{QueryError, QueryEvent},
+    Sender,
+};
 use representation::{unpack_raw, Binary, Datum};
 use sql_types::ConstraintError;
 use sqlparser::ast::{Assignment, Expr, Ident, ObjectName, UnaryOperator, Value};
@@ -82,115 +84,114 @@ impl UpdateCommand {
             to_update.push((column.to_owned(), value))
         }
 
-        if !matches!(self.storage.schema_exists(&schema_name), Some(_)) {
-            self.session
+        match self.storage.table_exists(&schema_name, &table_name) {
+            None => self
+                .session
                 .send(Err(QueryError::schema_does_not_exist(schema_name)))
-                .expect("To Send Result to Client");
-            return Ok(());
-        }
-
-        let all_columns = self.storage.table_columns(&schema_name, &table_name)?;
-        let mut errors = Vec::new();
-        let mut index_value_pairs = Vec::new();
-        let mut non_existing_columns = BTreeSet::new();
-        let mut column_exists = false;
-
-        // only process the rows if the table and schema exist.
-        if matches!(self.storage.table_exists(&schema_name, &table_name), Some((_, Some(_)))) {
-            for (column_name, value) in to_update {
-                for (index, column_definition) in all_columns.iter().enumerate() {
-                    if column_definition.has_name(&column_name) {
-                        let v = match value.clone() {
-                            Value::Number(v) => v.to_string(),
-                            Value::SingleQuotedString(v) => v.to_string(),
-                            Value::Boolean(v) => v.to_string(),
-                            _ => unimplemented!("other types not implemented"),
-                        };
-                        match column_definition.sql_type().constraint().validate(v.as_str()) {
-                            Ok(()) => {
-                                index_value_pairs.push((index, Datum::try_from(&value).unwrap()));
-                            }
-                            Err(e) => {
-                                errors.push((e, column_definition.clone()));
-                            }
-                        }
-
-                        column_exists = true;
-
-                        break;
-                    }
-                }
-
-                if !column_exists {
-                    non_existing_columns.insert(column_name.clone());
-                }
-            }
-        } else {
-            self.session
+                .expect("To Send Result to Client"),
+            Some((_, None)) => self
+                .session
                 .send(Err(QueryError::table_does_not_exist(
                     schema_name + "." + table_name.as_str(),
                 )))
-                .expect("To Send Result to Client");
-            return Ok(());
-        }
+                .expect("To Send Result to Client"),
+            Some((_, Some(_))) => {
+                let all_columns = self.storage.table_columns(&schema_name, &table_name)?;
+                let mut errors = Vec::new();
+                let mut index_value_pairs = Vec::new();
+                let mut non_existing_columns = BTreeSet::new();
+                let mut column_exists = false;
 
-        if !non_existing_columns.is_empty() {
-            self.session
-                .send(Err(QueryError::column_does_not_exist(
-                    non_existing_columns.into_iter().collect(),
-                )))
-                .expect("To Send Result to Client");
-            return Ok(());
-        }
-        if !errors.is_empty() {
-            for (error, column_definition) in errors {
-                let error_to_send = match error {
-                    ConstraintError::OutOfRange => {
-                        QueryError::out_of_range((&column_definition.sql_type()).into(), column_definition.name(), 1)
+                for (column_name, value) in to_update {
+                    for (index, column_definition) in all_columns.iter().enumerate() {
+                        if column_definition.has_name(&column_name) {
+                            let v = match value.clone() {
+                                Value::Number(v) => v.to_string(),
+                                Value::SingleQuotedString(v) => v.to_string(),
+                                Value::Boolean(v) => v.to_string(),
+                                _ => unimplemented!("other types not implemented"),
+                            };
+                            match column_definition.sql_type().constraint().validate(v.as_str()) {
+                                Ok(()) => {
+                                    index_value_pairs.push((index, Datum::try_from(&value).unwrap()));
+                                }
+                                Err(e) => {
+                                    errors.push((e, column_definition.clone()));
+                                }
+                            }
+
+                            column_exists = true;
+
+                            break;
+                        }
                     }
-                    ConstraintError::TypeMismatch(value) => QueryError::type_mismatch(
-                        &value,
-                        (&column_definition.sql_type()).into(),
-                        column_definition.name(),
-                        1,
-                    ),
-                    ConstraintError::ValueTooLong(len) => QueryError::string_length_mismatch(
-                        (&column_definition.sql_type()).into(),
-                        len,
-                        column_definition.name(),
-                        1,
-                    ),
+
+                    if !column_exists {
+                        non_existing_columns.insert(column_name.clone());
+                    }
+                }
+
+                if !non_existing_columns.is_empty() {
+                    self.session
+                        .send(Err(QueryError::column_does_not_exist(
+                            non_existing_columns.into_iter().collect(),
+                        )))
+                        .expect("To Send Result to Client");
+                    return Ok(());
+                }
+                if !errors.is_empty() {
+                    for (error, column_definition) in errors {
+                        let error_to_send = match error {
+                            ConstraintError::OutOfRange => QueryError::out_of_range(
+                                (&column_definition.sql_type()).into(),
+                                column_definition.name(),
+                                1,
+                            ),
+                            ConstraintError::TypeMismatch(value) => QueryError::type_mismatch(
+                                &value,
+                                (&column_definition.sql_type()).into(),
+                                column_definition.name(),
+                                1,
+                            ),
+                            ConstraintError::ValueTooLong(len) => QueryError::string_length_mismatch(
+                                (&column_definition.sql_type()).into(),
+                                len,
+                                column_definition.name(),
+                                1,
+                            ),
+                        };
+                        self.session
+                            .send(Err(error_to_send))
+                            .expect("To Send Query Result to Client");
+                    }
+                    return Ok(());
+                }
+
+                let to_update: Vec<Row> = match self.storage.full_scan(&schema_name, &table_name) {
+                    Err(error) => return Err(error),
+                    Ok(reads) => reads
+                        .map(Result::unwrap)
+                        .map(Result::unwrap)
+                        .map(|(key, values)| {
+                            let mut values = unpack_raw(values.to_bytes());
+                            for (idx, data) in index_value_pairs.as_slice() {
+                                values[*idx] = data.clone();
+                            }
+                            (key, Binary::pack(&values))
+                        })
+                        .collect(),
                 };
-                self.session
-                    .send(Err(error_to_send))
-                    .expect("To Send Query Result to Client");
-            }
-            return Ok(());
-        }
 
-        let to_update: Vec<Row> = match self.storage.full_scan(&schema_name, &table_name) {
-            Err(error) => return Err(error),
-            Ok(reads) => reads
-                .map(Result::unwrap)
-                .map(Result::unwrap)
-                .map(|(key, values)| {
-                    let mut datums = unpack_raw(values.to_bytes());
-                    for (idx, data) in index_value_pairs.as_slice() {
-                        datums[*idx] = data.clone();
+                match self.storage.write_into(&schema_name, &table_name, to_update) {
+                    Err(error) => return Err(error),
+                    Ok(records_number) => {
+                        self.session
+                            .send(Ok(QueryEvent::RecordsUpdated(records_number)))
+                            .expect("To Send Query Result to Client");
                     }
-                    (key, Binary::pack(&datums))
-                })
-                .collect(),
-        };
-
-        match self.storage.write_into(&schema_name, &table_name, to_update) {
-            Err(error) => Err(error),
-            Ok(records_number) => {
-                self.session
-                    .send(Ok(QueryEvent::RecordsUpdated(records_number)))
-                    .expect("To Send Query Result to Client");
-                Ok(())
+                }
             }
         }
+        Ok(())
     }
 }
