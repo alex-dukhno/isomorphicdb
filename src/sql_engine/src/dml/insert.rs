@@ -115,137 +115,128 @@ impl<'ic> InsertCommand<'ic> {
                     rows.push(row);
                 }
 
-                if !matches!(self.storage.schema_exists(schema_name), Some(_)) {
-                    self.session
+                match self.storage.table_exists(&schema_name, &table_name) {
+                    None => self
+                        .session
                         .send(Err(QueryError::schema_does_not_exist(schema_name.to_owned())))
-                        .expect("To Send Result to Client");
-                    return Ok(());
-                }
-
-                if !matches!(self.storage.table_exists(&schema_name, &table_name), Some((_, Some(_)))) {
-                    self.session
+                        .expect("To Send Result to Client"),
+                    Some((_, None)) => self
+                        .session
                         .send(Err(QueryError::table_does_not_exist(
                             schema_name.to_owned() + "." + table_name,
                         )))
-                        .expect("To Send Result to Client");
-                    return Ok(());
-                }
-
-                let column_names = columns;
-                let all_columns = self.storage.table_columns(&schema_name, &table_name)?;
-                let index_columns = if column_names.is_empty() {
-                    let mut index_cols = vec![];
-                    for (index, column_definition) in all_columns.iter().cloned().enumerate() {
-                        index_cols.push((index, column_definition));
-                    }
-
-                    index_cols
-                } else {
-                    let mut index_cols = vec![];
-                    let mut non_existing_cols = vec![];
-                    for column_name in column_names {
-                        let mut found = None;
-                        for (index, column_definition) in all_columns.iter().enumerate() {
-                            if column_definition.has_name(&column_name) {
-                                found = Some((index, column_definition.clone()));
-                                break;
+                        .expect("To Send Result to Client"),
+                    Some((_, Some(_))) => {
+                        let column_names = columns;
+                        let all_columns = self.storage.table_columns(&schema_name, &table_name)?;
+                        let index_columns = if column_names.is_empty() {
+                            let mut index_cols = vec![];
+                            for (index, column_definition) in all_columns.iter().cloned().enumerate() {
+                                index_cols.push((index, column_definition));
                             }
-                        }
 
-                        match found {
-                            Some(index_col) => {
-                                index_cols.push(index_col);
-                            }
-                            None => non_existing_cols.push(column_name.clone()),
-                        }
-                    }
-
-                    if !non_existing_cols.is_empty() {
-                        self.session
-                            .send(Err(QueryError::column_does_not_exist(non_existing_cols)))
-                            .expect("To Send Result to Client");
-                        return Ok(());
-                    }
-
-                    index_cols
-                };
-
-                let mut to_write: Vec<Row> = vec![];
-                if matches!(self.storage.table_exists(&schema_name, &table_name), Some((_, Some(_)))) {
-                    let mut errors = Vec::new();
-
-                    for (row_index, row) in rows.iter().enumerate() {
-                        if row.len() > all_columns.len() {
-                            // clear anything that could have been processed already.
-                            to_write.clear();
-                            self.session
-                                .send(Err(QueryError::too_many_insert_expressions()))
-                                .expect("To Send Result to Client");
-                            return Ok(());
-                        }
-
-                        let key = self.storage.next_key_id().to_be_bytes().to_vec();
-
-                        // TODO: The default value or NULL should be initialized for SQL types of all columns.
-                        let mut record = vec![Datum::from_null(); all_columns.len()];
-                        for (item, (index, column_definition)) in row.iter().zip(index_columns.iter()) {
-                            let v = match item.clone() {
-                                Value::Number(v) => v.to_string(),
-                                Value::SingleQuotedString(v) => v.to_string(),
-                                Value::Boolean(v) => v.to_string(),
-                                _ => unimplemented!("other types not implemented"),
-                            };
-                            match column_definition.sql_type().constraint().validate(v.as_str()) {
-                                Ok(()) => {
-                                    record[*index] = Datum::try_from(item).unwrap();
+                            index_cols
+                        } else {
+                            let mut index_cols = vec![];
+                            let mut non_existing_cols = vec![];
+                            for column_name in column_names {
+                                let mut found = None;
+                                for (index, column_definition) in all_columns.iter().enumerate() {
+                                    if column_definition.has_name(&column_name) {
+                                        found = Some((index, column_definition.clone()));
+                                        break;
+                                    }
                                 }
-                                Err(e) => {
-                                    errors.push((e, column_definition.clone()));
+
+                                match found {
+                                    Some(index_col) => index_cols.push(index_col),
+                                    None => non_existing_cols.push(column_name.clone()),
                                 }
                             }
-                        }
 
-                        // if there was an error then exit the loop.
-                        if !errors.is_empty() {
-                            for (error, column_definition) in errors {
-                                let error_to_send = match error {
-                                    ConstraintError::OutOfRange => QueryError::out_of_range(
-                                        (&column_definition.sql_type()).into(),
-                                        column_definition.name(),
-                                        row_index + 1,
-                                    ),
-                                    ConstraintError::TypeMismatch(value) => QueryError::type_mismatch(
-                                        &value,
-                                        (&column_definition.sql_type()).into(),
-                                        column_definition.name(),
-                                        row_index + 1,
-                                    ),
-                                    ConstraintError::ValueTooLong(len) => QueryError::string_length_mismatch(
-                                        (&column_definition.sql_type()).into(),
-                                        len,
-                                        column_definition.name(),
-                                        row_index + 1,
-                                    ),
-                                };
+                            if !non_existing_cols.is_empty() {
                                 self.session
-                                    .send(Err(error_to_send))
-                                    .expect("To Send Query Result to Client");
+                                    .send(Err(QueryError::column_does_not_exist(non_existing_cols)))
+                                    .expect("To Send Result to Client");
+                                return Ok(());
                             }
-                            return Ok(());
-                        }
-                        to_write.push((Binary::with_data(key), Binary::pack(&record)));
-                    }
-                }
 
-                match self.storage.write_into(&schema_name, &table_name, to_write) {
-                    Err(error) => Err(error),
-                    Ok(size) => {
-                        self.session
-                            .send(Ok(QueryEvent::RecordsInserted(size)))
-                            .expect("To Send Result to Client");
-                        Ok(())
+                            index_cols
+                        };
+
+                        let mut to_write: Vec<Row> = vec![];
+                        let mut errors = Vec::new();
+
+                        for (row_index, row) in rows.iter().enumerate() {
+                            if row.len() > all_columns.len() {
+                                self.session
+                                    .send(Err(QueryError::too_many_insert_expressions()))
+                                    .expect("To Send Result to Client");
+                                return Ok(());
+                            }
+
+                            let key = self.storage.next_key_id().to_be_bytes().to_vec();
+
+                            // TODO: The default value or NULL should be initialized for SQL types of all columns.
+                            let mut record = vec![Datum::from_null(); all_columns.len()];
+                            for (item, (index, column_definition)) in row.iter().zip(index_columns.iter()) {
+                                let v = match item.clone() {
+                                    Value::Number(v) => v.to_string(),
+                                    Value::SingleQuotedString(v) => v.to_string(),
+                                    Value::Boolean(v) => v.to_string(),
+                                    _ => unimplemented!("other types not implemented"),
+                                };
+                                match column_definition.sql_type().constraint().validate(v.as_str()) {
+                                    Ok(()) => {
+                                        record[*index] = Datum::try_from(item).unwrap();
+                                    }
+                                    Err(e) => {
+                                        errors.push((e, column_definition.clone()));
+                                    }
+                                }
+                            }
+
+                            // if there was an error then exit the loop.
+                            if !errors.is_empty() {
+                                for (error, column_definition) in errors {
+                                    let error_to_send = match error {
+                                        ConstraintError::OutOfRange => QueryError::out_of_range(
+                                            (&column_definition.sql_type()).into(),
+                                            column_definition.name(),
+                                            row_index + 1,
+                                        ),
+                                        ConstraintError::TypeMismatch(value) => QueryError::type_mismatch(
+                                            &value,
+                                            (&column_definition.sql_type()).into(),
+                                            column_definition.name(),
+                                            row_index + 1,
+                                        ),
+                                        ConstraintError::ValueTooLong(len) => QueryError::string_length_mismatch(
+                                            (&column_definition.sql_type()).into(),
+                                            len,
+                                            column_definition.name(),
+                                            row_index + 1,
+                                        ),
+                                    };
+                                    self.session
+                                        .send(Err(error_to_send))
+                                        .expect("To Send Query Result to Client");
+                                }
+                                return Ok(());
+                            }
+                            to_write.push((Binary::with_data(key), Binary::pack(&record)));
+                        }
+
+                        match self.storage.write_into(&schema_name, &table_name, to_write) {
+                            Err(error) => return Err(error),
+                            Ok(size) => self
+                                .session
+                                .send(Ok(QueryEvent::RecordsInserted(size)))
+                                .expect("To Send Result to Client"),
+                        }
                     }
                 }
+                Ok(())
             }
             _ => {
                 self.session

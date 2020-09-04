@@ -63,80 +63,84 @@ impl<'sc> SelectCommand<'sc> {
                 }
             };
 
-            if !matches!(self.storage.schema_exists(&schema_name), Some(_)) {
-                self.session
-                    .send(Err(QueryError::schema_does_not_exist(schema_name)))
-                    .expect("To Send Result to Client");
-                return Err(SystemError::runtime_check_failure("Schema Does Not Exist".to_owned()));
-            }
-
-            if !matches!(self.storage.table_exists(&schema_name, &table_name), Some((_, Some(_)))) {
-                self.session
-                    .send(Err(QueryError::table_does_not_exist(
-                        schema_name + "." + table_name.as_str(),
-                    )))
-                    .expect("To Send Result to Client");
-                return Err(SystemError::runtime_check_failure("Table Does Not Exist".to_owned()));
-            }
-
-            let table_columns = {
-                let projection = projection.clone();
-                let mut columns: Vec<String> = vec![];
-                for item in projection {
-                    match item {
-                        SelectItem::Wildcard => {
-                            let all_columns = self.storage.table_columns(&schema_name, &table_name)?;
-                            columns.extend(
-                                all_columns
-                                    .into_iter()
-                                    .map(|column_definition| column_definition.name())
-                                    .collect::<Vec<String>>(),
-                            )
+            match self.storage.table_exists(&schema_name, &table_name) {
+                None => {
+                    self.session
+                        .send(Err(QueryError::schema_does_not_exist(schema_name)))
+                        .expect("To Send Result to Client");
+                    return Err(SystemError::runtime_check_failure("Schema Does Not Exist".to_owned()));
+                }
+                Some((_, None)) => {
+                    self.session
+                        .send(Err(QueryError::table_does_not_exist(
+                            schema_name + "." + table_name.as_str(),
+                        )))
+                        .expect("To Send Result to Client");
+                    return Err(SystemError::runtime_check_failure("Table Does Not Exist".to_owned()));
+                }
+                Some((_, Some(_))) => {
+                    let table_columns = {
+                        let projection = projection.clone();
+                        let mut columns: Vec<String> = vec![];
+                        for item in projection {
+                            match item {
+                                SelectItem::Wildcard => {
+                                    let all_columns = self.storage.table_columns(&schema_name, &table_name)?;
+                                    columns.extend(
+                                        all_columns
+                                            .into_iter()
+                                            .map(|column_definition| column_definition.name())
+                                            .collect::<Vec<String>>(),
+                                    )
+                                }
+                                SelectItem::UnnamedExpr(Expr::Identifier(Ident { value, .. })) => {
+                                    columns.push(value.clone())
+                                }
+                                _ => {
+                                    self.session
+                                        .send(Err(QueryError::feature_not_supported(self.raw_sql_query.to_owned())))
+                                        .expect("To Send Query Result to Client");
+                                    return Err(SystemError::runtime_check_failure("Feature Not Supported".to_owned()));
+                                }
+                            }
                         }
-                        SelectItem::UnnamedExpr(Expr::Identifier(Ident { value, .. })) => columns.push(value.clone()),
-                        _ => {
-                            self.session
-                                .send(Err(QueryError::feature_not_supported(self.raw_sql_query.to_owned())))
-                                .expect("To Send Query Result to Client");
-                            return Err(SystemError::runtime_check_failure("Feature Not Supported".to_owned()));
+                        columns
+                    };
+
+                    let all_columns = self.storage.table_columns(&schema_name, &table_name)?;
+                    let mut column_definitions = vec![];
+                    let mut non_existing_columns = vec![];
+                    for column_name in table_columns {
+                        let mut found = None;
+                        for column_definition in &all_columns {
+                            if column_definition.has_name(&column_name) {
+                                found = Some(column_definition);
+                                break;
+                            }
+                        }
+
+                        if let Some(column_definition) = found {
+                            column_definitions.push(column_definition);
+                        } else {
+                            non_existing_columns.push(column_name.clone());
                         }
                     }
-                }
-                columns
-            };
 
-            let all_columns = self.storage.table_columns(&schema_name, &table_name)?;
-            let mut column_definitions = vec![];
-            let mut non_existing_columns = vec![];
-            for column_name in table_columns {
-                let mut found = None;
-                for column_definition in &all_columns {
-                    if column_definition.has_name(&column_name) {
-                        found = Some(column_definition);
-                        break;
+                    if !non_existing_columns.is_empty() {
+                        self.session
+                            .send(Err(QueryError::column_does_not_exist(non_existing_columns)))
+                            .expect("To Send Result to Client");
+                        return Err(SystemError::runtime_check_failure("Column Does Not Exist".to_owned()));
                     }
-                }
 
-                if let Some(column_definition) = found {
-                    column_definitions.push(column_definition);
-                } else {
-                    non_existing_columns.push(column_name.clone());
+                    let description = column_definitions
+                        .into_iter()
+                        .map(|column_definition| (column_definition.name(), (&column_definition.sql_type()).into()))
+                        .collect();
+
+                    Ok(description)
                 }
             }
-
-            if !non_existing_columns.is_empty() {
-                self.session
-                    .send(Err(QueryError::column_does_not_exist(non_existing_columns)))
-                    .expect("To Send Result to Client");
-                return Err(SystemError::runtime_check_failure("Column Does Not Exist".to_owned()));
-            }
-
-            let description = column_definitions
-                .into_iter()
-                .map(|column_definition| (column_definition.name(), (&column_definition.sql_type()).into()))
-                .collect();
-
-            Ok(description)
         } else {
             self.session
                 .send(Err(QueryError::feature_not_supported(self.raw_sql_query.to_owned())))
@@ -164,111 +168,111 @@ impl<'sc> SelectCommand<'sc> {
                 }
             };
 
-            if !matches!(self.storage.schema_exists(&schema_name), Some(_)) {
-                self.session
+            match self.storage.table_exists(&schema_name, &table_name) {
+                None => self
+                    .session
                     .send(Err(QueryError::schema_does_not_exist(schema_name)))
-                    .expect("To Send Result to Client");
-                return Ok(());
-            }
-
-            if !matches!(self.storage.table_exists(&schema_name, &table_name), Some((_, Some(_)))) {
-                self.session
+                    .expect("To Send Result to Client"),
+                Some((_, None)) => self
+                    .session
                     .send(Err(QueryError::table_does_not_exist(
                         schema_name + "." + table_name.as_str(),
                     )))
-                    .expect("To Send Result to Client");
-                return Ok(());
-            }
-
-            let table_columns = {
-                let projection = projection.clone();
-                let mut columns: Vec<String> = vec![];
-                for item in projection {
-                    match item {
-                        SelectItem::Wildcard => {
-                            let all_columns = self.storage.table_columns(&schema_name, &table_name)?;
-                            columns.extend(
-                                all_columns
-                                    .into_iter()
-                                    .map(|column_definition| column_definition.name())
-                                    .collect::<Vec<String>>(),
-                            )
-                        }
-                        SelectItem::UnnamedExpr(Expr::Identifier(Ident { value, .. })) => columns.push(value.clone()),
-                        _ => {
-                            self.session
-                                .send(Err(QueryError::feature_not_supported(self.raw_sql_query.to_owned())))
-                                .expect("To Send Query Result to Client");
-                            return Ok(());
-                        }
-                    }
-                }
-                columns
-            };
-            let data = self.storage.full_scan(&schema_name, &table_name);
-            match data {
-                Err(error) => Err(error),
-                Ok(records) => {
-                    let all_columns = self.storage.table_columns(&schema_name, &table_name)?;
-                    let mut description = vec![];
-                    let mut column_indexes = vec![];
-                    let mut non_existing_columns = vec![];
-                    for (i, column_name) in table_columns.iter().enumerate() {
-                        let mut found = None;
-                        for (index, column_definition) in all_columns.iter().enumerate() {
-                            if column_definition.has_name(column_name) {
-                                found = Some(((index, i), column_definition.clone()));
-                                break;
-                            }
-                        }
-
-                        if let Some((index_pair, column_definition)) = found {
-                            column_indexes.push(index_pair);
-                            description.push(column_definition);
-                        } else {
-                            non_existing_columns.push(column_name.clone());
-                        }
-                    }
-
-                    if !non_existing_columns.is_empty() {
-                        self.session
-                            .send(Err(QueryError::column_does_not_exist(non_existing_columns)))
-                            .expect("To Send Result to Client");
-                        return Ok(());
-                    }
-
-                    let values: Vec<Vec<String>> = records
-                        .map(Result::unwrap)
-                        .map(Result::unwrap)
-                        .map(|(_key, values)| {
-                            let row: Vec<String> = values.unpack().into_iter().map(|datum| datum.to_string()).collect();
-
-                            let mut values: Vec<(&usize, String)> = vec![];
-                            for (_i, (origin, ord)) in column_indexes.iter().enumerate() {
-                                for (index, value) in row.iter().enumerate() {
-                                    if index == *origin {
-                                        values.push((ord, value.clone()))
-                                    }
+                    .expect("To Send Result to Client"),
+                Some((_, Some(_))) => {
+                    let table_columns = {
+                        let projection = projection.clone();
+                        let mut columns: Vec<String> = vec![];
+                        for item in projection {
+                            match item {
+                                SelectItem::Wildcard => {
+                                    let all_columns = self.storage.table_columns(&schema_name, &table_name)?;
+                                    columns.extend(
+                                        all_columns
+                                            .into_iter()
+                                            .map(|column_definition| column_definition.name())
+                                            .collect::<Vec<String>>(),
+                                    )
+                                }
+                                SelectItem::UnnamedExpr(Expr::Identifier(Ident { value, .. })) => {
+                                    columns.push(value.clone())
+                                }
+                                _ => {
+                                    self.session
+                                        .send(Err(QueryError::feature_not_supported(self.raw_sql_query.to_owned())))
+                                        .expect("To Send Query Result to Client");
+                                    return Ok(());
                                 }
                             }
-                            log::debug!("{:#?}", values);
-                            values.into_iter().map(|(_, value)| value).collect()
-                        })
-                        .collect();
+                        }
+                        columns
+                    };
+                    match self.storage.full_scan(&schema_name, &table_name) {
+                        Err(error) => return Err(error),
+                        Ok(records) => {
+                            let all_columns = self.storage.table_columns(&schema_name, &table_name)?;
+                            let mut description = vec![];
+                            let mut column_indexes = vec![];
+                            let mut non_existing_columns = vec![];
+                            for column_name in table_columns.iter() {
+                                let mut found = None;
+                                for (index, column_definition) in all_columns.iter().enumerate() {
+                                    if column_definition.has_name(column_name) {
+                                        found = Some((index, column_definition.clone()));
+                                        break;
+                                    }
+                                }
 
-                    let projection = (
-                        description
-                            .into_iter()
-                            .map(|column_definition| (column_definition.name(), (&column_definition.sql_type()).into()))
-                            .collect(),
-                        values,
-                    );
-                    self.session
-                        .send(Ok(QueryEvent::RecordsSelected(projection)))
-                        .expect("To Send Query Result to Client");
-                    Ok(())
+                                if let Some((index, column_definition)) = found {
+                                    column_indexes.push(index);
+                                    description.push(column_definition);
+                                } else {
+                                    non_existing_columns.push(column_name.clone());
+                                }
+                            }
+
+                            if !non_existing_columns.is_empty() {
+                                self.session
+                                    .send(Err(QueryError::column_does_not_exist(non_existing_columns)))
+                                    .expect("To Send Result to Client");
+                                return Ok(());
+                            }
+
+                            let values: Vec<Vec<String>> = records
+                                .map(Result::unwrap)
+                                .map(Result::unwrap)
+                                .map(|(_key, values)| {
+                                    let row: Vec<String> =
+                                        values.unpack().into_iter().map(|datum| datum.to_string()).collect();
+
+                                    let mut values = vec![];
+                                    for origin in column_indexes.iter() {
+                                        for (index, value) in row.iter().enumerate() {
+                                            if index == *origin {
+                                                values.push(value.clone())
+                                            }
+                                        }
+                                    }
+                                    log::debug!("{:#?}", values);
+                                    values
+                                })
+                                .collect();
+
+                            let projection = (
+                                description
+                                    .into_iter()
+                                    .map(|column| (column.name(), (&column.sql_type()).into()))
+                                    .collect(),
+                                values,
+                            );
+                            self.session
+                                .send(Ok(QueryEvent::RecordsSelected(projection)))
+                                .expect("To Send Query Result to Client");
+                        }
+                    }
                 }
             }
+            Ok(())
         } else {
             self.session
                 .send(Err(QueryError::feature_not_supported(self.raw_sql_query.to_owned())))
