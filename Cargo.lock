@@ -83,9 +83,9 @@ dependencies = [
 
 [[package]]
 name = "async-io"
-version = "0.2.6"
+version = "0.2.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4f385ee83ae995a5707fbb03d04eab2241c13e145cd54be71b0540d9ca96fda6"
+checksum = "c9424bb88867b003ca32a1d99cf64595c5a310c7322891795f38aa061860d0af"
 dependencies = [
  "cfg-if",
  "concurrent-queue",
