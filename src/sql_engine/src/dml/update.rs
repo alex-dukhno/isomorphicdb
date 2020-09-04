@@ -14,8 +14,10 @@
 
 use crate::{catalog_manager::CatalogManager, dml::ExpressionEvaluation};
 use kernel::SystemResult;
-use protocol::results::QueryError;
-use protocol::{results::QueryEvent, Sender};
+use protocol::{
+    results::{QueryError, QueryEvent},
+    Sender,
+};
 use representation::{unpack_raw, Binary, Datum};
 use sql_types::ConstraintError;
 use sqlparser::ast::{Assignment, Expr, Ident, ObjectName, UnaryOperator, Value};
@@ -171,11 +173,11 @@ impl UpdateCommand {
                         .map(Result::unwrap)
                         .map(Result::unwrap)
                         .map(|(key, values)| {
-                            let mut data = unpack_raw(values.to_bytes());
+                            let mut values = unpack_raw(values.to_bytes());
                             for (idx, data) in index_value_pairs.as_slice() {
-                                data[*idx] = data.clone();
+                                values[*idx] = data.clone();
                             }
-                            (key, Binary::pack(&data))
+                            (key, Binary::pack(&values))
                         })
                         .collect(),
                 };

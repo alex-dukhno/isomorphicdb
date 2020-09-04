@@ -14,9 +14,8 @@
 
 use crate::catalog_manager::CatalogManager;
 use kernel::{SystemError, SystemResult};
-use protocol::results::QueryError;
 use protocol::{
-    results::{Description, QueryEvent},
+    results::{Description, QueryError, QueryEvent},
     Sender,
 };
 use sqlparser::ast::{Expr, Ident, Query, Select, SelectItem, SetExpr, TableFactor, TableWithJoins};
@@ -68,7 +67,7 @@ impl<'sc> SelectCommand<'sc> {
                     self.session
                         .send(Err(QueryError::schema_does_not_exist(schema_name)))
                         .expect("To Send Result to Client");
-                    return Err(SystemError::runtime_check_failure("Schema Does Not Exist".to_owned()));
+                    Err(SystemError::runtime_check_failure("Schema Does Not Exist".to_owned()))
                 }
                 Some((_, None)) => {
                     self.session
@@ -76,7 +75,7 @@ impl<'sc> SelectCommand<'sc> {
                             schema_name + "." + table_name.as_str(),
                         )))
                         .expect("To Send Result to Client");
-                    return Err(SystemError::runtime_check_failure("Table Does Not Exist".to_owned()));
+                    Err(SystemError::runtime_check_failure("Table Does Not Exist".to_owned()))
                 }
                 Some((_, Some(_))) => {
                     let table_columns = {
