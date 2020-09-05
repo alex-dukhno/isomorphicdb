@@ -14,11 +14,13 @@
 
 use crate::{catalog_manager::data_definition::DataDefinition, ColumnDefinition};
 use kernel::{Object, Operation, SystemError, SystemResult};
-use std::collections::HashMap;
-use std::sync::RwLock;
 use std::{
+    collections::HashMap,
     path::PathBuf,
-    sync::atomic::{AtomicU64, Ordering},
+    sync::{
+        atomic::{AtomicU64, Ordering},
+        RwLock,
+    },
 };
 use storage::{Database, InMemoryDatabase, InitStatus, Key, PersistentDatabase, ReadCursor, Row};
 
@@ -44,7 +46,6 @@ pub struct CatalogManager {
     data_storage: Box<dyn Database>,
     data_definition: DataDefinition,
     schemas: RwLock<HashMap<u64, String>>,
-    tables: RwLock<HashMap<(u64, u64), String>>,
 }
 
 impl Default for CatalogManager {
@@ -67,7 +68,6 @@ impl CatalogManager {
             data_storage: Box::new(InMemoryDatabase::default()),
             data_definition,
             schemas: RwLock::default(),
-            tables: RwLock::default(),
         })
     }
 
@@ -110,7 +110,6 @@ impl CatalogManager {
             data_storage: Box::new(catalog),
             data_definition,
             schemas: RwLock::default(),
-            tables: RwLock::default(),
         })
     }
 
