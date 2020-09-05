@@ -28,7 +28,7 @@ pub(crate) struct UpdateCommand {
     name: ObjectName,
     assignments: Vec<Assignment>,
     storage: Arc<CatalogManager>,
-    session: Arc<dyn Sender>,
+    sender: Arc<dyn Sender>,
 }
 
 impl UpdateCommand {
@@ -36,13 +36,13 @@ impl UpdateCommand {
         name: ObjectName,
         assignments: Vec<Assignment>,
         storage: Arc<CatalogManager>,
-        session: Arc<dyn Sender>,
+        sender: Arc<dyn Sender>,
     ) -> UpdateCommand {
         UpdateCommand {
             name,
             assignments,
             storage,
-            session,
+            sender,
         }
     }
 
@@ -51,7 +51,7 @@ impl UpdateCommand {
         let table_name = self.name.0[1].to_string();
         let mut to_update = vec![];
 
-        let mut evaluation = ExpressionEvaluation::new(self.session.clone());
+        let mut evaluation = ExpressionEvaluation::new(self.sender.clone());
 
         for item in self.assignments.iter() {
             let Assignment { id, value } = &item;
@@ -61,7 +61,7 @@ impl UpdateCommand {
                 Expr::UnaryOp { op, expr } => match (op, &**expr) {
                     (UnaryOperator::Minus, Expr::Value(Value::Number(v))) => Value::Number(-v),
                     (op, expr) => {
-                        self.session
+                        self.sender
                             .send(Err(QueryError::syntax_error(
                                 op.to_string() + expr.to_string().as_str(),
                             )))
@@ -74,7 +74,7 @@ impl UpdateCommand {
                     Err(()) => return Ok(()),
                 },
                 expr => {
-                    self.session
+                    self.sender
                         .send(Err(QueryError::syntax_error(expr.to_string())))
                         .expect("To Send Query Result to Client");
                     return Ok(());
@@ -86,11 +86,11 @@ impl UpdateCommand {
 
         match self.storage.table_exists(&schema_name, &table_name) {
             None => self
-                .session
+                .sender
                 .send(Err(QueryError::schema_does_not_exist(schema_name)))
                 .expect("To Send Result to Client"),
             Some((_, None)) => self
-                .session
+                .sender
                 .send(Err(QueryError::table_does_not_exist(
                     schema_name + "." + table_name.as_str(),
                 )))
@@ -132,7 +132,7 @@ impl UpdateCommand {
                 }
 
                 if !non_existing_columns.is_empty() {
-                    self.session
+                    self.sender
                         .send(Err(QueryError::column_does_not_exist(
                             non_existing_columns.into_iter().collect(),
                         )))
@@ -160,7 +160,7 @@ impl UpdateCommand {
                                 1,
                             ),
                         };
-                        self.session
+                        self.sender
                             .send(Err(error_to_send))
                             .expect("To Send Query Result to Client");
                     }
@@ -185,7 +185,7 @@ impl UpdateCommand {
                 match self.storage.write_into(&schema_name, &table_name, to_update) {
                     Err(error) => return Err(error),
                     Ok(records_number) => {
-                        self.session
+                        self.sender
                             .send(Ok(QueryEvent::RecordsUpdated(records_number)))
                             .expect("To Send Query Result to Client");
                     }

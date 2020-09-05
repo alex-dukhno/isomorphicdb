@@ -20,7 +20,7 @@ fn create_tables_with_different_names(catalog_manager_with_schema: CatalogManage
     let schema_id = catalog_manager_with_schema
         .schema_exists(SCHEMA)
         .expect("schema exists");
-    assert_eq!(
+    assert!(matches!(
         catalog_manager_with_schema.create_table(
             schema_id,
             "table_name_1",
@@ -29,9 +29,9 @@ fn create_tables_with_different_names(catalog_manager_with_schema: CatalogManage
                 SqlType::SmallInt(i16::min_value())
             )]
         ),
-        Ok(())
-    );
-    assert_eq!(
+        Ok(_)
+    ));
+    assert!(matches!(
         catalog_manager_with_schema.create_table(
             schema_id,
             "table_name_2",
@@ -40,17 +40,16 @@ fn create_tables_with_different_names(catalog_manager_with_schema: CatalogManage
                 SqlType::SmallInt(i16::min_value())
             )]
         ),
-        Ok(())
-    );
+        Ok(_)
+    ));
 }
 
 #[rstest::rstest]
 fn create_table_with_the_same_name_in_different_schemas(catalog_manager: CatalogManager) {
-    catalog_manager.create_schema(SCHEMA_1).expect("schema is created");
-    catalog_manager.create_schema(SCHEMA_2).expect("schema is created");
+    let schema_1_id = catalog_manager.create_schema(SCHEMA_1).expect("schema is created");
+    let schema_2_id = catalog_manager.create_schema(SCHEMA_2).expect("schema is created");
 
-    let schema_1_id = catalog_manager.schema_exists(SCHEMA_1).expect("schema exists");
-    assert_eq!(
+    assert!(matches!(
         catalog_manager.create_table(
             schema_1_id,
             "table_name",
@@ -59,11 +58,10 @@ fn create_table_with_the_same_name_in_different_schemas(catalog_manager: Catalog
                 SqlType::SmallInt(i16::min_value())
             )]
         ),
-        Ok(())
-    );
+        Ok(_)
+    ));
 
-    let schema_2_id = catalog_manager.schema_exists(SCHEMA_2).expect("schema exists");
-    assert_eq!(
+    assert!(matches!(
         catalog_manager.create_table(
             schema_2_id,
             "table_name",
@@ -72,8 +70,8 @@ fn create_table_with_the_same_name_in_different_schemas(catalog_manager: Catalog
                 SqlType::SmallInt(i16::min_value())
             )]
         ),
-        Ok(())
-    );
+        Ok(_)
+    ));
 }
 
 #[rstest::rstest]
@@ -81,7 +79,7 @@ fn drop_table(catalog_manager_with_schema: CatalogManager) {
     let schema_id = catalog_manager_with_schema
         .schema_exists(SCHEMA)
         .expect("schema exists");
-    catalog_manager_with_schema
+    let table_id = catalog_manager_with_schema
         .create_table(
             schema_id,
             "table_name",
@@ -91,8 +89,9 @@ fn drop_table(catalog_manager_with_schema: CatalogManager) {
             )],
         )
         .expect("table is created");
-    assert_eq!(catalog_manager_with_schema.drop_table(SCHEMA, "table_name"), Ok(()));
-    assert_eq!(
+
+    assert_eq!(catalog_manager_with_schema.drop_table(schema_id, table_id), Ok(()));
+    assert!(matches!(
         catalog_manager_with_schema.create_table(
             schema_id,
             "table_name",
@@ -101,8 +100,8 @@ fn drop_table(catalog_manager_with_schema: CatalogManager) {
                 SqlType::SmallInt(i16::min_value())
             )]
         ),
-        Ok(())
-    );
+        Ok(_)
+    ));
 }
 
 #[rstest::rstest]
@@ -111,15 +110,9 @@ fn table_columns_on_empty_table(catalog_manager_with_schema: CatalogManager) {
         .schema_exists(SCHEMA)
         .expect("schema exists");
     let column_names = vec![];
-    catalog_manager_with_schema
+    let table_id = catalog_manager_with_schema
         .create_table(schema_id, "table_name", column_names.as_slice())
         .expect("table is created");
-
-    let table_id = catalog_manager_with_schema
-        .table_exists(SCHEMA, "table_name")
-        .expect("schema exists")
-        .1
-        .expect("table exists");
 
     assert_eq!(
         catalog_manager_with_schema

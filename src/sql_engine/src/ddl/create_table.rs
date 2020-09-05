@@ -23,19 +23,19 @@ use std::sync::Arc;
 pub(crate) struct CreateTableCommand {
     table_info: TableCreationInfo,
     storage: Arc<CatalogManager>,
-    session: Arc<dyn Sender>,
+    sender: Arc<dyn Sender>,
 }
 
 impl CreateTableCommand {
     pub(crate) fn new(
         table_info: TableCreationInfo,
         storage: Arc<CatalogManager>,
-        session: Arc<dyn Sender>,
+        sender: Arc<dyn Sender>,
     ) -> CreateTableCommand {
         CreateTableCommand {
             table_info,
             storage,
-            session,
+            sender,
         }
     }
 
@@ -45,11 +45,11 @@ impl CreateTableCommand {
 
         match self.storage.table_exists(schema_name, table_name) {
             None => self
-                .session
+                .sender
                 .send(Err(QueryError::schema_does_not_exist(schema_name.to_owned())))
                 .expect("To Send Query Result to Client"),
             Some((_, Some(_))) => self
-                .session
+                .sender
                 .send(Err(QueryError::table_already_exists(table_name.to_owned())))
                 .expect("To Send Query Result to Client"),
             Some((schema_id, None)) => {
@@ -58,8 +58,8 @@ impl CreateTableCommand {
                     .create_table(schema_id, table_name, self.table_info.columns.as_slice())
                 {
                     Err(error) => return Err(error),
-                    Ok(()) => self
-                        .session
+                    Ok(_table_id) => self
+                        .sender
                         .send(Ok(QueryEvent::TableCreated))
                         .expect("To Send Query Result to Client"),
                 }
