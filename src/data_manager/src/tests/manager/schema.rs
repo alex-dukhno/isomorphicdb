@@ -12,8 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::*;
 use sql_types::SqlType;
+
+use super::*;
 
 #[rstest::rstest]
 fn create_schemas_with_different_names(data_manager: DataManager) {
@@ -49,14 +50,14 @@ fn same_table_names_with_different_columns_in_different_schemas(data_manager: Da
         data_manager.table_columns(schema_1_id, table_1_id),
         Ok(vec![ColumnDefinition::new(
             "sn_1_column",
-            SqlType::SmallInt(i16::min_value())
+            SqlType::SmallInt(i16::min_value()),
         )])
     );
     assert_eq!(
         data_manager.table_columns(schema_2_id, table_2_id),
         Ok(vec![ColumnDefinition::new(
             "sn_2_column",
-            SqlType::BigInt(i64::min_value())
+            SqlType::BigInt(i64::min_value()),
         )])
     );
 }

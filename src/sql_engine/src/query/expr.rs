@@ -1,15 +1,17 @@
-use crate::query::scalar::{ScalarOp};
-use protocol::results::{QueryError, QueryResult};
-use protocol::Sender;
-use representation::{Datum, EvalError, ScalarType};
-use sqlparser::ast::{Assignment, BinaryOperator, DataType, Expr, UnaryOperator, Value};
 use std::convert::TryFrom;
 use std::ops::Deref;
 use std::str::FromStr;
 use std::sync::Arc;
-use sql_types::{SqlType, ConstraintError};
-use kernel::SystemErrorKind::SqlEngineBug;
+
+use sqlparser::ast::{Assignment, BinaryOperator, DataType, Expr, UnaryOperator, Value};
+
 use data_manager::ColumnDefinition;
+use protocol::results::{QueryError};
+use protocol::Sender;
+use representation::{Datum, EvalError, ScalarType};
+use sql_types::{ConstraintError, SqlType};
+
+use crate::query::scalar::ScalarOp;
 
 pub(crate) struct ExpressionEvaluation {
     session: Arc<dyn Sender>,
@@ -26,7 +28,7 @@ impl<'a> ExprMetadata<'a> {
     pub fn new(column_definition: &'a ColumnDefinition, row_index: usize) -> Self {
         Self {
             column_definition,
-            row_index
+            row_index,
         }
     }
 
@@ -58,9 +60,9 @@ impl ExpressionEvaluation {
                 _ => {
                     self.session
                         .send(Err(QueryError::syntax_error(format!(
-                                "Cast from {:?} to {:?} is not currently supported",
-                                expr, data_type
-                            ))))
+                            "Cast from {:?} to {:?} is not currently supported",
+                            expr, data_type
+                        ))))
                         .expect("To Send Query Result to Client");
                     return Err(());
                 }
@@ -78,8 +80,7 @@ impl ExpressionEvaluation {
                                         EvalError::OutOfRangeNumeric(_) => QueryError::out_of_range(meta_data.column().sql_type().to_pg_types(), meta_data.column().name(), meta_data.index()),
                                         EvalError::UnsupportedOperation => QueryError::feature_not_supported("Use of unsupported expression feature".to_string()),
                                     }
-                                }
-                                else {
+                                } else {
                                     match e {
                                         EvalError::UnsupportedDatum(ty) => QueryError::feature_not_supported(format!("Data type not supported: {}", ty)),
                                         EvalError::OutOfRangeNumeric(ty) => QueryError::out_of_range(ty.to_pg_types(), String::new(), 0),
@@ -91,7 +92,7 @@ impl ExpressionEvaluation {
                             }
                         }
                     }
-                    (op, operand) => {
+                    (op, _operand) => {
                         self.session
                             .send(Err(QueryError::syntax_error(op.to_string() + expr.to_string().as_str())))
                             .expect("To Send Query Result to Client");
@@ -113,13 +114,12 @@ impl ExpressionEvaluation {
                             Ok(ScalarOp::Binary(op.clone(), Box::new(left), Box::new(right), ty))
                         }
                     }
-                }
-                else {
+                } else {
                     let kind = QueryError::undefined_function(
-                            op.to_string(),
-                            lhs.scalar_type().to_string(),
-                            rhs.scalar_type().to_string(),
-                        );
+                        op.to_string(),
+                        lhs.scalar_type().to_string(),
+                        rhs.scalar_type().to_string(),
+                    );
                     self.session.send(Err(kind)).expect("To Senc Query Result to Client");
                     Err(())
                 }
@@ -133,8 +133,7 @@ impl ExpressionEvaluation {
                             EvalError::OutOfRangeNumeric(_) => QueryError::out_of_range(meta_data.column().sql_type().to_pg_types(), meta_data.column().name(), meta_data.index()),
                             EvalError::UnsupportedOperation => QueryError::feature_not_supported("Use of unsupported expression feature".to_string()),
                         }
-                    }
-                    else {
+                    } else {
                         match e {
                             EvalError::UnsupportedDatum(ty) => QueryError::feature_not_supported(format!("Data type not supported: {}", ty)),
                             EvalError::OutOfRangeNumeric(ty) => QueryError::out_of_range(ty.to_pg_types(), String::new(), 0),
@@ -157,7 +156,7 @@ impl ExpressionEvaluation {
                     Err(())
                 }
             }
-            Expr::CompoundIdentifier(idents) => {
+            Expr::CompoundIdentifier(_idents) => {
                 self.session
                     .send(Err(QueryError::syntax_error(String::new())))
                     .expect("To Send Query Result to Client");
@@ -174,7 +173,7 @@ impl ExpressionEvaluation {
 
     pub fn eval_assignment(&self, assignment: &Assignment) -> Result<ScalarOp, ()> {
         let Assignment { id, value } = assignment;
-        let (destination, column_def) = if let Some((idx, def)) = self.find_column_by_name(id.value.as_str())? {
+        let (destination, _column_def) = if let Some((idx, def)) = self.find_column_by_name(id.value.as_str())? {
             (idx, def)
         } else {
             let kind = QueryError::column_does_not_exist(id.value.clone());
@@ -188,7 +187,7 @@ impl ExpressionEvaluation {
         Ok(ScalarOp::Assignment {
             destination,
             value: Box::new(value),
-            ty
+            ty,
         })
     }
 
@@ -196,13 +195,11 @@ impl ExpressionEvaluation {
         let columns = self.table_info.iter().enumerate().filter(|(_, col)| col.has_name(name)).collect::<Vec<(usize, &ColumnDefinition)>>();
         if columns.is_empty() {
             Ok(None)
-        }
-        else if columns.len() != 1 {
+        } else if columns.len() != 1 {
             let kind = QueryError::ambiguous_column(name.to_string());
             self.session.send(Err(kind)).expect("To Send Query Result to Client");
             Err(())
-        }
-        else {
+        } else {
             Ok(columns.first().map(|(idx, def)| (*idx, *def)))
         }
     }
@@ -221,8 +218,7 @@ impl ExpressionEvaluation {
                     BinaryOperator::StringConcat => Some(ScalarType::String),
                     _ => None
                 }
-            }
-            else if lhs_type.is_float() {
+            } else if lhs_type.is_float() {
                 match op {
                     BinaryOperator::Plus |
                     BinaryOperator::Minus |
@@ -230,25 +226,21 @@ impl ExpressionEvaluation {
                     BinaryOperator::Divide => Some(lhs_type),
                     _ => None,
                 }
-            }
-            else if lhs_type.is_string() {
+            } else if lhs_type.is_string() {
                 match op {
                     BinaryOperator::StringConcat => Some(ScalarType::String),
                     _ => None,
                 }
-            }
-            else {
+            } else {
                 None
             }
-        }
-        else if (lhs_type.is_string() && rhs_type.is_integer()) ||
-                (lhs_type.is_integer() && rhs_type.is_string()) {
+        } else if (lhs_type.is_string() && rhs_type.is_integer()) ||
+            (lhs_type.is_integer() && rhs_type.is_string()) {
             match op {
                 BinaryOperator::StringConcat => Some(ScalarType::String),
                 _ => None
             }
-        }
-        else {
+        } else {
             None
         }
     }
@@ -272,7 +264,6 @@ impl ExpressionEvaluation {
             SqlType::Decimal => panic!(),
         }
     }
-
 }
 
 pub struct EvalScalarOp<'a> {
@@ -291,13 +282,13 @@ impl<'a> EvalScalarOp<'a> {
             ScalarOp::Literal(datum) => Ok(datum.clone()),
             ScalarOp::Binary(op, lhs, rhs, _) => {
                 let left = self.eval(row, lhs.as_ref())?;
-                let right=self. eval(row, rhs.as_ref())?;
+                let right = self.eval(row, rhs.as_ref())?;
                 Self::eval_binary_literal_expr(self.session, op.clone(), left, right)
             }
-            ScalarOp::Unary(op, operand, _) => {
-                let operand = self.eval(row, operand.as_ref())?;
-                Self::eval_unary_literal_expr(self.session, op.clone(), operand)
-            }
+            // ScalarOp::Unary(op, operand, _) => {
+            //     let operand = self.eval(row, operand.as_ref())?;
+            //     Self::eval_unary_literal_expr(self.session, op.clone(), operand)
+            // }
             ScalarOp::Assignment { .. } => {
                 panic!("EvalScalarOp:eval should not be evaluated on a ScalarOp::Assignment")
             }
@@ -306,37 +297,37 @@ impl<'a> EvalScalarOp<'a> {
 
     pub fn eval_on_row(&self, row: &mut [Datum], eval: &ScalarOp, row_idx: usize) -> Result<(), ()> {
         match eval {
-            ScalarOp::Assignment { destination, value, ty: _} => {
+            ScalarOp::Assignment { destination, value, ty: _ } => {
                 let value = self.eval(row, value.as_ref())?;
                 let column = &self.columns[*destination];
-                match column.sql_type().constraint().validate(value.to_string().as_str()){
+                match column.sql_type().constraint().validate(value.to_string().as_str()) {
                     Ok(()) => row[*destination] = value,
                     Err(ConstraintError::OutOfRange) => {
                         self.session.send(Err(QueryError::out_of_range(
                             (&column.sql_type()).into(),
                             column.name(),
-                            row_idx + 1
+                            row_idx + 1,
                         ))).expect("To Send Query Result to client");
                         return Err(());
-                    },
+                    }
                     Err(ConstraintError::TypeMismatch(value)) => {
                         self.session.send(Err(QueryError::type_mismatch(
                             &value,
                             (&column.sql_type()).into(),
                             column.name(),
-                            row_idx + 1
+                            row_idx + 1,
                         ))).expect("To Send Query Result to client");
                         return Err(());
-                    },
+                    }
                     Err(ConstraintError::ValueTooLong(len)) => {
                         self.session.send(Err(QueryError::string_length_mismatch(
                             (&column.sql_type()).into(),
                             len,
                             column.name(),
-                            row_idx + 1
+                            row_idx + 1,
                         ))).expect("To Send Query Result to client");
                         return Err(());
-                    },
+                    }
                 }
             }
             _ => {
@@ -401,11 +392,11 @@ impl<'a> EvalScalarOp<'a> {
         }
     }
 
-    pub fn eval_unary_literal_expr<'b>(
-        session: &dyn Sender,
-        op: UnaryOperator,
-        operand: Datum,
-    ) -> Result<Datum<'b>, ()> {
-        unimplemented!()
-    }
+    // pub fn eval_unary_literal_expr<'b>(
+    //     _session: &dyn Sender,
+    //     _op: UnaryOperator,
+    //     _operand: Datum,
+    // ) -> Result<Datum<'b>, ()> {
+    //     unimplemented!()
+    // }
 }

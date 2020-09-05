@@ -12,14 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-///! Module for transforming the input Query AST into representation the engine can process.
-use crate::query::plan::{Plan, SchemaCreationInfo, TableCreationInfo, TableInserts};
-use crate::query::{SchemaId, SchemaNamingError, TableId, TableNamingError};
+use std::{convert::TryFrom, sync::Arc};
+
+use sqlparser::ast::{ColumnDef, DataType, ObjectName, ObjectType, Statement};
+
 use data_manager::{ColumnDefinition, DataManager};
 use protocol::{results::QueryError, Sender};
 use sql_types::SqlType;
-use sqlparser::ast::{ColumnDef, DataType, ObjectName, ObjectType, Query, Select, SetExpr, Statement};
-use std::{convert::TryFrom, sync::Arc};
+
+use crate::query::{SchemaId, SchemaNamingError, TableId, TableNamingError};
+///! Module for transforming the input Query AST into representation the engine can process.
+use crate::query::plan::{Plan, SchemaCreationInfo, TableCreationInfo, TableInserts};
 
 type Result<T> = std::result::Result<T, ()>;
 
@@ -241,36 +244,36 @@ impl<'qp> QueryProcessor {
         }
     }
 
-    fn handle_query(&mut self, query: Box<Query>) -> Result<Plan> {
-        let Query {
-            ctes,
-            body,
-            order_by,
-            limit,
-            offset,
-            fetch,
-        } = query.as_ref();
+    // fn handle_query(&mut self, query: Box<Query>) -> Result<Plan> {
+    //     let Query {
+    //         ctes: _,
+    //         body,
+    //         order_by: _,
+    //         limit: _,
+    //         offset: _,
+    //         fetch: _,
+    //     } = query.as_ref();
+    //
+    //     let set_expr_plan = match body {
+    //         SetExpr::Select(select) => self.handle_select(select)?,
+    //         SetExpr::Values(values) => unimplemented!(),
+    //         SetExpr::Query(query) => unimplemented!(),
+    //         SetExpr::SetOperation { .. } => unimplemented!(),
+    //     };
+    //
+    //     Ok(set_expr_plan)
+    // }
 
-        let set_expr_plan = match body {
-            SetExpr::Select(select) => self.handle_select(select)?,
-            SetExpr::Values(values) => unimplemented!(),
-            SetExpr::Query(query) => unimplemented!(),
-            SetExpr::SetOperation { .. } => unimplemented!(),
-        };
-
-        Ok(set_expr_plan)
-    }
-
-    fn handle_select(&mut self, select: &Select) -> Result<Plan> {
-        let Select {
-            distinct,
-            top,
-            projection,
-            from,
-            selection,
-            group_by,
-            having,
-        } = select;
-        Err(())
-    }
+    // fn handle_select(&mut self, select: &Select) -> Result<Plan> {
+    //     let Select {
+    //         distinct,
+    //         top,
+    //         projection,
+    //         from,
+    //         selection,
+    //         group_by,
+    //         having,
+    //     } = select;
+    //     Err(())
+    // }
 }

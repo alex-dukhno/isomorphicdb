@@ -15,6 +15,27 @@
 extern crate bigdecimal;
 extern crate log;
 
+use std::{iter, sync::Arc};
+
+use itertools::izip;
+use sqlparser::{
+    ast::Statement,
+    dialect::{Dialect, PostgreSqlDialect},
+    parser::Parser,
+};
+
+use data_manager::DataManager;
+use kernel::SystemResult;
+use protocol::{
+    results::{QueryError, QueryEvent},
+    Sender,
+    session::Session,
+    sql_formats::PostgreSqlFormat,
+    sql_types::PostgreSqlType,
+    sql_values::PostgreSqlValue,
+    statement::PreparedStatement,
+};
+
 use crate::{
     ddl::{
         create_schema::CreateSchemaCommand, create_table::CreateTableCommand, drop_schema::DropSchemaCommand,
@@ -23,24 +44,6 @@ use crate::{
     dml::{delete::DeleteCommand, insert::InsertCommand, select::SelectCommand, update::UpdateCommand},
     query::{bind::ParamBinder, plan::Plan, process::QueryProcessor},
 };
-use data_manager::DataManager;
-use itertools::izip;
-use kernel::SystemResult;
-use protocol::{
-    results::{QueryError, QueryEvent},
-    session::Session,
-    sql_formats::PostgreSqlFormat,
-    sql_types::PostgreSqlType,
-    sql_values::PostgreSqlValue,
-    statement::PreparedStatement,
-    Sender,
-};
-use sqlparser::{
-    ast::Statement,
-    dialect::{Dialect, PostgreSqlDialect},
-    parser::Parser,
-};
-use std::{iter, sync::Arc};
 
 mod ddl;
 mod dml;

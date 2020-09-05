@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use sqlparser::ast::BinaryOperator;
+
+use representation::{Datum, ScalarType};
+
 ///! Module for representing scalar level operations. Implementation of
 ///! theses operators will be defined in a sperate module.
-use super::ColumnType;
-use representation::{Binary, Datum, ScalarType};
-use sql_types::SqlType;
-use sqlparser::ast::{BinaryOperator, UnaryOperator};
 // use crate::query::relation::RelationType;
 
 /// Operation performed on the table
@@ -31,7 +31,7 @@ pub enum ScalarOp {
     /// binary operator
     Binary(BinaryOperator, Box<ScalarOp>, Box<ScalarOp>, ScalarType),
     /// unary operator
-    Unary(UnaryOperator, Box<ScalarOp>, ScalarType),
+    // Unary(UnaryOperator, Box<ScalarOp>, ScalarType),
     Assignment {
         destination: usize,
         value: Box<ScalarOp>,
@@ -59,7 +59,7 @@ impl ScalarOp {
             ScalarOp::Column(_, ty) => ty.clone(),
             ScalarOp::Literal(datum) => datum.scalar_type().unwrap(),
             ScalarOp::Binary(_, _, _, ty) => ty.clone(),
-            ScalarOp::Unary(_, _, ty) => ty.clone(),
+            // ScalarOp::Unary(_, _, ty) => ty.clone(),
             ScalarOp::Assignment {
                 ty,
                 ..

@@ -12,8 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::*;
 use crate::persistent::PersistentDatabase;
+
+use super::*;
 
 type Storage = PersistentDatabase;
 
@@ -416,8 +417,8 @@ mod operations_on_object {
                 (2u8, vec!["4", "5", "6"]),
                 (3u8, vec!["7", "8", "9"])
             ])
-            .map(|ok| ok.expect("no io error"))
-            .collect()),
+                .map(|ok| ok.expect("no io error"))
+                .collect()),
         );
     }
 }

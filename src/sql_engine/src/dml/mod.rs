@@ -12,11 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use bigdecimal::BigDecimal;
-use protocol::{results::QueryError, Sender};
-use sqlparser::ast::{BinaryOperator, Expr, Value};
-use std::{ops::Deref, sync::Arc};
-
 pub(crate) mod delete;
 pub(crate) mod insert;
 pub(crate) mod select;

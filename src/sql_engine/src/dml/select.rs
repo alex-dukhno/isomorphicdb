@@ -12,14 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::{ops::Deref, sync::Arc};
+
+use sqlparser::ast::{Expr, Ident, Query, Select, SelectItem, SetExpr, TableFactor, TableWithJoins};
+
 use data_manager::DataManager;
 use kernel::{Object, Operation, SystemError, SystemResult};
 use protocol::{
     results::{Description, QueryError, QueryEvent},
     Sender,
 };
-use sqlparser::ast::{Expr, Ident, Query, Select, SelectItem, SetExpr, TableFactor, TableWithJoins};
-use std::{ops::Deref, sync::Arc};
 
 pub(crate) struct SelectCommand<'sc> {
     raw_sql_query: &'sc str,

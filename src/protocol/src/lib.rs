@@ -16,12 +16,15 @@
 //! API for backend implementation of PostgreSQL Wire Protocol
 extern crate log;
 
-use crate::{
-    messages::{BackendMessage, Encryption, FrontendMessage},
-    results::QueryResult,
-    sql_formats::PostgreSqlFormat,
-    sql_types::PostgreSqlType,
+use std::{
+    fs::File,
+    net::SocketAddr,
+    path::PathBuf,
+    pin::Pin,
+    sync::Arc,
+    task::{Context, Poll},
 };
+
 use async_mutex::Mutex as AsyncMutex;
 use async_native_tls::TlsStream;
 use async_trait::async_trait;
@@ -32,13 +35,12 @@ use futures_lite::{
     io::{self, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, ErrorKind},
 };
 use itertools::Itertools;
-use std::{
-    fs::File,
-    net::SocketAddr,
-    path::PathBuf,
-    pin::Pin,
-    sync::Arc,
-    task::{Context, Poll},
+
+use crate::{
+    messages::{BackendMessage, Encryption, FrontendMessage},
+    results::QueryResult,
+    sql_formats::PostgreSqlFormat,
+    sql_types::PostgreSqlType,
 };
 
 /// Module contains backend messages that could be send by server implementation
@@ -160,8 +162,8 @@ pub async fn hand_shake<RW>(
     address: SocketAddr,
     config: &ProtocolConfiguration,
 ) -> io::Result<Result<(impl Receiver, impl Sender)>>
-where
-    RW: AsyncRead + AsyncWrite + Unpin,
+    where
+        RW: AsyncRead + AsyncWrite + Unpin,
 {
     log::debug!("ADDRESS {:?}", address);
 
@@ -254,8 +256,8 @@ where
 }
 
 async fn tls_channel<RW>(tcp_channel: RW, config: &ProtocolConfiguration) -> io::Result<TlsStream<RW>>
-where
-    RW: AsyncRead + AsyncWrite + Unpin,
+    where
+        RW: AsyncRead + AsyncWrite + Unpin,
 {
     match config.ssl_config() {
         Some((path, password)) => {
@@ -469,6 +471,7 @@ pub(crate) enum Channel<RW: AsyncRead + AsyncWrite + Unpin> {
 }
 
 unsafe impl<RW: AsyncRead + AsyncWrite + Unpin> Send for Channel<RW> {}
+
 unsafe impl<RW: AsyncRead + AsyncWrite + Unpin> Sync for Channel<RW> {}
 
 impl<RW: AsyncRead + AsyncWrite + Unpin> AsyncRead for Channel<RW> {

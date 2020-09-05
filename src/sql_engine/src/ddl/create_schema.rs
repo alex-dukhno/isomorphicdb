@@ -12,11 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::query::plan::SchemaCreationInfo;
+use std::sync::Arc;
+
 use data_manager::DataManager;
 use kernel::SystemResult;
 use protocol::{results::QueryEvent, Sender};
-use std::sync::Arc;
+
+use crate::query::plan::SchemaCreationInfo;
 
 pub(crate) struct CreateSchemaCommand {
     schema_info: SchemaCreationInfo,

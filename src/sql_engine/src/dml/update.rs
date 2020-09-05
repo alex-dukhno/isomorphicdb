@@ -12,18 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::query::expr::{EvalScalarOp, ExpressionEvaluation};
-use crate::query::scalar::ScalarOp;
+use std::sync::Arc;
+
+use sqlparser::ast::{Assignment, ObjectName};
+
 use data_manager::{DataManager, Row};
 use kernel::SystemResult;
 use protocol::{
     results::{QueryError, QueryEvent},
     Sender,
 };
-use representation::{unpack_raw, Binary, Datum};
-use sql_types::ConstraintError;
-use sqlparser::ast::{Assignment, Expr, Ident, ObjectName, UnaryOperator, Value};
-use std::{collections::BTreeSet, convert::TryFrom, sync::Arc};
+use representation::{Binary, unpack_raw};
+
+use crate::query::expr::{EvalScalarOp, ExpressionEvaluation};
 
 pub(crate) struct UpdateCommand {
     name: ObjectName,
@@ -78,10 +79,6 @@ impl UpdateCommand {
                 }
 
                 if has_error {
-                    return Ok(())
-                }
-
-                if has_error {
                     return Ok(());
                 }
 
@@ -100,13 +97,13 @@ impl UpdateCommand {
                             }
 
                             if has_err {
-                                return Ok(())
+                                return Ok(());
                             }
 
                             res.push((key, Binary::pack(&datums)));
                         }
                         res
-                    },
+                    }
                 };
 
                 match self.storage.write_into(schema_id, table_id, to_update) {

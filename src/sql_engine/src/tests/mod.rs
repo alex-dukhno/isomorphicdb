@@ -12,6 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::{
+    io,
+    ops::Deref,
+    sync::{Arc, Mutex},
+};
+
+use protocol::results::{QueryError, QueryResult};
+
+use crate::QueryExecutor;
+
+use super::*;
+
 #[cfg(test)]
 mod bind;
 #[cfg(test)]
@@ -36,15 +48,6 @@ mod table;
 mod type_constraints;
 #[cfg(test)]
 mod update;
-
-use super::*;
-use crate::QueryExecutor;
-use protocol::results::{QueryError, QueryResult};
-use std::{
-    io,
-    ops::Deref,
-    sync::{Arc, Mutex},
-};
 
 struct Collector(Mutex<Vec<QueryResult>>);
 

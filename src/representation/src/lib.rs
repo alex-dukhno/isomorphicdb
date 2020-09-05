@@ -12,13 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::convert::TryFrom;
+use std::ops::{Add, BitAnd, BitOr, Div, Mul, Rem, Shl, Shr, Sub};
+
 ///! Runtime cell and row representation.
 use bigdecimal::ToPrimitive;
 use ordered_float::OrderedFloat;
-use sql_types::SqlType;
 use sqlparser::ast::Value;
-use std::convert::TryFrom;
-use std::ops::{Add, BitAnd, BitOr, Div, Mul, Rem, Shl, Shr, Sub};
+
+use sql_types::SqlType;
 
 #[derive(Debug, Clone, Copy, Ord, PartialOrd, Eq, PartialEq)]
 pub enum ScalarType {
@@ -59,14 +61,14 @@ impl ScalarType {
 impl ToString for ScalarType {
     fn to_string(&self) -> String {
         match self {
-            Self::Int16     => "Int16".to_string(),
-            Self::Int32     => "Int32".to_string(),
-            Self::Int64     => "Int64".to_string(),
-            Self::UInt64    => "UInt64".to_string(),
-            Self::Float32   => "Float32".to_string(),
-            Self::Float64   => "Float64".to_string(),
-            Self::Boolean   => "Bool".to_string(),
-            Self::String    => "String".to_string(),
+            Self::Int16 => "Int16".to_string(),
+            Self::Int32 => "Int32".to_string(),
+            Self::Int64 => "Int64".to_string(),
+            Self::UInt64 => "UInt64".to_string(),
+            Self::Float32 => "Float32".to_string(),
+            Self::Float64 => "Float64".to_string(),
+            Self::Boolean => "Bool".to_string(),
+            Self::String => "String".to_string(),
         }
     }
 }

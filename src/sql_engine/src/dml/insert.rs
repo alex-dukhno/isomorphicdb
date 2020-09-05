@@ -12,7 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{query::plan::TableInserts};
+use std::sync::Arc;
+
+use sqlparser::ast::{Query, SetExpr};
+
 use data_manager::{DataManager, Row};
 use kernel::SystemResult;
 use protocol::{
@@ -21,10 +24,9 @@ use protocol::{
 };
 use representation::{Binary, Datum};
 use sql_types::ConstraintError;
-use sqlparser::ast::{DataType, Expr, Query, SetExpr, UnaryOperator, Value};
-use std::{convert::TryFrom, str::FromStr, sync::Arc};
-use protocol::messages::ColumnMetadata;
-use crate::query::expr::{ExprMetadata, ExpressionEvaluation};
+
+use crate::{query::plan::TableInserts};
+use crate::query::expr::{ExpressionEvaluation, ExprMetadata};
 
 pub(crate) struct InsertCommand<'ic> {
     raw_sql_query: &'ic str,
@@ -106,7 +108,7 @@ impl<'ic> InsertCommand<'ic> {
                                                         idx + 1,
                                                     ))).expect("To Send Query Result to client");
                                                     has_error = true;
-                                                },
+                                                }
                                                 Err(ConstraintError::TypeMismatch(value)) => {
                                                     self.sender.send(Err(QueryError::type_mismatch(
                                                         &value,
@@ -115,7 +117,7 @@ impl<'ic> InsertCommand<'ic> {
                                                         idx + 1,
                                                     ))).expect("To Send Query Result to client");
                                                     has_error = true;
-                                                },
+                                                }
                                                 Err(ConstraintError::ValueTooLong(len)) => {
                                                     self.sender.send(Err(QueryError::string_length_mismatch(
                                                         (&meta.column().sql_type()).into(),
@@ -124,7 +126,7 @@ impl<'ic> InsertCommand<'ic> {
                                                         idx + 1,
                                                     ))).expect("To Send Query Result to client");
                                                     has_error = true;
-                                                },
+                                                }
                                             }
                                         } else {
                                             self.sender
@@ -142,7 +144,7 @@ impl<'ic> InsertCommand<'ic> {
                         }
 
                         if has_error {
-                            return Ok(())
+                            return Ok(());
                         }
 
                         let index_columns = if column_names.is_empty() {
@@ -173,7 +175,7 @@ impl<'ic> InsertCommand<'ic> {
                                             .send(Err(QueryError::column_does_not_exist(column_name)))
                                             .expect("To Send Result to Client");
                                         has_error = true;
-                                    },
+                                    }
                                 }
                             }
 
@@ -185,7 +187,7 @@ impl<'ic> InsertCommand<'ic> {
                         };
 
                         let mut to_write: Vec<Row> = vec![];
-                        for (row_index, row) in rows.iter().enumerate() {
+                        for (_row_index, row) in rows.iter().enumerate() {
                             if row.len() > all_columns.len() {
                                 self.sender
                                     .send(Err(QueryError::too_many_insert_expressions()))
@@ -197,7 +199,7 @@ impl<'ic> InsertCommand<'ic> {
 
                             // TODO: The default value or NULL should be initialized for SQL types of all columns.
                             let mut record = vec![Datum::from_null(); all_columns.len()];
-                            for (item, (index, column_definition)) in row.iter().zip(index_columns.iter()) {
+                            for (item, (index, _column_definition)) in row.iter().zip(index_columns.iter()) {
                                 let datum = item.as_datum().unwrap();
                                 record[*index] = datum;
                             }

@@ -12,13 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use representation::Binary;
-use std::io::{self};
-
-use crate::data_definition::DataDefinition;
-use kernel::{Object, Operation, SystemError, SystemResult};
-use serde::{Deserialize, Serialize};
-use sql_types::SqlType;
 use std::{
     collections::HashMap,
     path::PathBuf,
@@ -27,6 +20,16 @@ use std::{
         RwLock,
     },
 };
+use std::io::{self};
+
+use serde::{Deserialize, Serialize};
+
+use kernel::{Object, Operation, SystemError, SystemResult};
+use representation::Binary;
+use sql_types::SqlType;
+
+use crate::{in_memory::InMemoryDatabase, persistent::PersistentDatabase};
+use crate::data_definition::DataDefinition;
 
 mod data_definition;
 mod in_memory;
@@ -36,9 +39,7 @@ pub type Row = (Key, Values);
 pub type Key = Binary;
 pub type Values = Binary;
 pub type RowResult = io::Result<Result<Row, StorageError>>;
-pub type ReadCursor = Box<dyn Iterator<Item = RowResult>>;
-
-use crate::{in_memory::InMemoryDatabase, persistent::PersistentDatabase};
+pub type ReadCursor = Box<dyn Iterator<Item=RowResult>>;
 
 pub enum InitStatus {
     Created,
@@ -159,6 +160,7 @@ impl Default for DataManager {
 }
 
 unsafe impl Send for DataManager {}
+
 unsafe impl Sync for DataManager {}
 
 const DEFAULT_CATALOG: &'_ str = "public";

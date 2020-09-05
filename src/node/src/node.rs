@@ -12,20 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use async_dup::Arc as AsyncArc;
-use async_io::Async;
-use data_manager::DataManager;
-use protocol::{Command, ProtocolConfiguration, Receiver};
-use sql_engine::QueryExecutor;
 use std::{
     env,
     net::TcpListener,
     path::{Path, PathBuf},
     sync::{
-        atomic::{AtomicU8, Ordering},
         Arc,
+        atomic::{AtomicU8, Ordering},
     },
 };
+
+use async_dup::Arc as AsyncArc;
+use async_io::Async;
+
+use data_manager::DataManager;
+use protocol::{Command, ProtocolConfiguration, Receiver};
+use sql_engine::QueryExecutor;
 
 const PORT: u16 = 5432;
 const HOST: [u8; 4] = [0, 0, 0, 0];
@@ -77,12 +79,12 @@ pub fn start() {
                                 return;
                             }
                             Ok(Ok(Command::Bind {
-                                portal_name,
-                                statement_name,
-                                param_formats,
-                                raw_params,
-                                result_formats,
-                            })) => {
+                                      portal_name,
+                                      statement_name,
+                                      param_formats,
+                                      raw_params,
+                                      result_formats,
+                                  })) => {
                                 match query_executor.bind_prepared_statement_to_portal(
                                     portal_name.as_str(),
                                     statement_name.as_str(),
@@ -109,10 +111,10 @@ pub fn start() {
                             }
                             Ok(Ok(Command::Flush)) => query_executor.flush(),
                             Ok(Ok(Command::Parse {
-                                statement_name,
-                                sql,
-                                param_types,
-                            })) => {
+                                      statement_name,
+                                      sql,
+                                      param_types,
+                                  })) => {
                                 match query_executor.parse_prepared_statement(
                                     statement_name.as_str(),
                                     sql.as_str(),
@@ -135,7 +137,7 @@ pub fn start() {
                         }
                     }
                 })
-                .detach();
+                    .detach();
             }
         }
     });

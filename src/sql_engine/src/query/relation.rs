@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use representation::Binary;
+
 use crate::query::scalar::ScalarOp;
 use crate::query::TableId;
-use representation::Binary;
-use sql_types::ConstraintError;
 
 ///! module for representing relation operations.
 

@@ -12,9 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::*;
-use crate::QueryExecutor;
 use protocol::{results::QueryEvent, sql_types::PostgreSqlType};
+
+use crate::QueryExecutor;
+
+use super::*;
 
 #[rstest::rstest]
 fn delete_from_nonexistent_table(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {

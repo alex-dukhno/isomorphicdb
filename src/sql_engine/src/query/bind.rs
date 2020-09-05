@@ -12,10 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use bigdecimal::BigDecimal;
-use protocol::{results::QueryError, sql_values::PostgreSqlValue, Sender};
-use sqlparser::ast::{Assignment, Expr, Ident, Query, SetExpr, Statement, Value};
 use std::sync::Arc;
+
+use bigdecimal::BigDecimal;
+use sqlparser::ast::{Assignment, Expr, Ident, Query, SetExpr, Statement, Value};
+
+use protocol::{results::QueryError, Sender, sql_values::PostgreSqlValue};
 
 type Result = std::result::Result<(), ()>;
 

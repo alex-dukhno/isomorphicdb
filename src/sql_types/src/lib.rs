@@ -12,9 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use protocol::sql_types::PostgreSqlType;
-use serde::{Deserialize, Serialize};
 use std::convert::TryInto;
+
+use serde::{Deserialize, Serialize};
+
+use protocol::sql_types::PostgreSqlType;
 
 #[derive(PartialEq, Eq, Debug, Copy, Clone, Serialize, Deserialize, Hash, Ord, PartialOrd)]
 pub enum SqlType {
@@ -393,8 +395,9 @@ mod tests {
 
     #[cfg(test)]
     mod to_postgresql_type_conversion {
-        use super::*;
         use protocol::sql_types::PostgreSqlType;
+
+        use super::*;
 
         #[test]
         fn boolean() {
@@ -826,6 +829,7 @@ mod tests {
 
     mod bool {
         use super::*;
+
         #[cfg(test)]
         mod serialization {
             use super::*;
