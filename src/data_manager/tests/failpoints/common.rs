@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use data_manager::{ObjectId, SchemaId};
 use fail::FailScenario;
-use storage::{ObjectId, SchemaId};
 
 #[rstest::fixture]
 pub fn scenario() -> FailScenario<'static> {

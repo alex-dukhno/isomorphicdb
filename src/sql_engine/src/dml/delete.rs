@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::catalog_manager::CatalogManager;
+use data_manager::DataManager;
 use kernel::SystemResult;
 use protocol::{
     results::{QueryError, QueryEvent},
@@ -23,12 +23,12 @@ use std::sync::Arc;
 
 pub(crate) struct DeleteCommand {
     name: ObjectName,
-    storage: Arc<CatalogManager>,
+    storage: Arc<DataManager>,
     sender: Arc<dyn Sender>,
 }
 
 impl DeleteCommand {
-    pub(crate) fn new(name: ObjectName, storage: Arc<CatalogManager>, sender: Arc<dyn Sender>) -> DeleteCommand {
+    pub(crate) fn new(name: ObjectName, storage: Arc<DataManager>, sender: Arc<dyn Sender>) -> DeleteCommand {
         DeleteCommand { name, storage, sender }
     }
 

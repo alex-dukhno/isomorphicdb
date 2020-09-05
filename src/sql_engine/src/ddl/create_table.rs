@@ -12,7 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{catalog_manager::CatalogManager, query::plan::TableCreationInfo};
+use crate::query::plan::TableCreationInfo;
+use data_manager::DataManager;
 use kernel::SystemResult;
 use protocol::{
     results::{QueryError, QueryEvent},
@@ -22,14 +23,14 @@ use std::sync::Arc;
 
 pub(crate) struct CreateTableCommand {
     table_info: TableCreationInfo,
-    storage: Arc<CatalogManager>,
+    storage: Arc<DataManager>,
     sender: Arc<dyn Sender>,
 }
 
 impl CreateTableCommand {
     pub(crate) fn new(
         table_info: TableCreationInfo,
-        storage: Arc<CatalogManager>,
+        storage: Arc<DataManager>,
         sender: Arc<dyn Sender>,
     ) -> CreateTableCommand {
         CreateTableCommand {

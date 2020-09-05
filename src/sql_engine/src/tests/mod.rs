@@ -38,17 +38,13 @@ mod type_constraints;
 mod update;
 
 use super::*;
-use crate::{catalog_manager::CatalogManager, QueryExecutor};
+use crate::QueryExecutor;
 use protocol::results::{QueryError, QueryResult};
 use std::{
     io,
     ops::Deref,
     sync::{Arc, Mutex},
 };
-
-fn in_memory_catalog_manager() -> Arc<CatalogManager> {
-    Arc::new(CatalogManager::default())
-}
 
 struct Collector(Mutex<Vec<QueryResult>>);
 
@@ -86,7 +82,10 @@ fn sender() -> ResultCollector {
 fn sql_engine() -> (QueryExecutor, ResultCollector) {
     let collector = Arc::new(Collector(Mutex::new(vec![])));
     (
-        QueryExecutor::new(in_memory_catalog_manager(), collector.clone()),
+        QueryExecutor::new(
+            Arc::new(DataManager::in_memory().expect("to create data manager")),
+            collector.clone(),
+        ),
         collector,
     )
 }

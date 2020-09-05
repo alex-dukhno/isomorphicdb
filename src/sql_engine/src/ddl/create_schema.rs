@@ -12,21 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{catalog_manager::CatalogManager, query::plan::SchemaCreationInfo};
+use crate::query::plan::SchemaCreationInfo;
+use data_manager::DataManager;
 use kernel::SystemResult;
 use protocol::{results::QueryEvent, Sender};
 use std::sync::Arc;
 
 pub(crate) struct CreateSchemaCommand {
     schema_info: SchemaCreationInfo,
-    storage: Arc<CatalogManager>,
+    storage: Arc<DataManager>,
     sender: Arc<dyn Sender>,
 }
 
 impl CreateSchemaCommand {
     pub(crate) fn new(
         schema_info: SchemaCreationInfo,
-        storage: Arc<CatalogManager>,
+        storage: Arc<DataManager>,
         sender: Arc<dyn Sender>,
     ) -> CreateSchemaCommand {
         CreateSchemaCommand {

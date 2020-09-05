@@ -2,4 +2,4 @@
 .idea
 .vscode
 **/__pycache__/
-database/
+root_directory/**

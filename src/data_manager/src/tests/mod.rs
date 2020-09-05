@@ -13,28 +13,8 @@
 // limitations under the License.
 
 use super::*;
-use representation::Binary;
 
 #[cfg(test)]
-mod persistence;
+mod database;
 #[cfg(test)]
-mod queries;
-#[cfg(test)]
-mod schema;
-#[cfg(test)]
-mod table;
-
-const SCHEMA: &str = "schema_name";
-const SCHEMA_1: &str = "schema_name_1";
-const SCHEMA_2: &str = "schema_name_2";
-
-#[rstest::fixture]
-fn catalog_manager() -> CatalogManager {
-    CatalogManager::default()
-}
-
-#[rstest::fixture]
-fn catalog_manager_with_schema(catalog_manager: CatalogManager) -> CatalogManager {
-    catalog_manager.create_schema(SCHEMA).expect("schema is created");
-    catalog_manager
-}
+mod manager;

@@ -397,6 +397,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "data_manager"
+version = "0.1.0"
+dependencies = [
+ "backtrace",
+ "bincode",
+ "fail",
+ "itertools",
+ "kernel",
+ "log",
+ "representation",
+ "rstest",
+ "serde",
+ "sled",
+ "sql_types",
+ "tempfile",
+]
+
+[[package]]
 name = "either"
 version = "1.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -677,6 +695,7 @@ dependencies = [
  "async-dup",
  "async-io",
  "blocking",
+ "data_manager",
  "futures-lite",
  "kernel",
  "log",
@@ -685,7 +704,6 @@ dependencies = [
  "smol",
  "sql_engine",
  "sql_types",
- "storage",
 ]
 
 [[package]]
@@ -1159,6 +1177,7 @@ version = "0.1.0"
 dependencies = [
  "bigdecimal",
  "bincode",
+ "data_manager",
  "futures-lite",
  "itertools",
  "kernel",
@@ -1166,10 +1185,8 @@ dependencies = [
  "protocol",
  "representation",
  "rstest",
- "serde",
  "sql_types",
  "sqlparser",
- "storage",
  "tempfile",
 ]
 
@@ -1198,24 +1215,6 @@ name = "static_assertions"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
-
-[[package]]
-name = "storage"
-version = "0.1.0"
-dependencies = [
- "backtrace",
- "bincode",
- "fail",
- "itertools",
- "kernel",
- "log",
- "representation",
- "rstest",
- "serde",
- "sled",
- "sql_types",
- "tempfile",
-]
 
 [[package]]
 name = "syn"

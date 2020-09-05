@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::catalog_manager::CatalogManager;
+use data_manager::DataManager;
 use kernel::{Object, Operation, SystemError, SystemResult};
 use protocol::{
     results::{Description, QueryError, QueryEvent},
@@ -24,7 +24,7 @@ use std::{ops::Deref, sync::Arc};
 pub(crate) struct SelectCommand<'sc> {
     raw_sql_query: &'sc str,
     query: Box<Query>,
-    storage: Arc<CatalogManager>,
+    storage: Arc<DataManager>,
     sender: Arc<dyn Sender>,
 }
 
@@ -32,7 +32,7 @@ impl<'sc> SelectCommand<'sc> {
     pub(crate) fn new(
         raw_sql_query: &'sc str,
         query: Box<Query>,
-        storage: Arc<CatalogManager>,
+        storage: Arc<DataManager>,
         sender: Arc<dyn Sender>,
     ) -> SelectCommand<'sc> {
         SelectCommand {

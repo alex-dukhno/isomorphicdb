@@ -16,17 +16,17 @@ use super::*;
 use sql_types::SqlType;
 
 #[rstest::rstest]
-fn create_schemas_with_different_names(catalog_manager: CatalogManager) {
-    assert!(matches!(catalog_manager.create_schema(SCHEMA_1), Ok(_)));
-    assert!(matches!(catalog_manager.create_schema(SCHEMA_2), Ok(_)));
+fn create_schemas_with_different_names(data_manager: DataManager) {
+    assert!(matches!(data_manager.create_schema(SCHEMA_1), Ok(_)));
+    assert!(matches!(data_manager.create_schema(SCHEMA_2), Ok(_)));
 }
 
 #[rstest::rstest]
-fn same_table_names_with_different_columns_in_different_schemas(catalog_manager: CatalogManager) {
-    let schema_1_id = catalog_manager.create_schema(SCHEMA_1).expect("schema is created");
-    let schema_2_id = catalog_manager.create_schema(SCHEMA_2).expect("schema is created");
+fn same_table_names_with_different_columns_in_different_schemas(data_manager: DataManager) {
+    let schema_1_id = data_manager.create_schema(SCHEMA_1).expect("schema is created");
+    let schema_2_id = data_manager.create_schema(SCHEMA_2).expect("schema is created");
 
-    let table_1_id = catalog_manager
+    let table_1_id = data_manager
         .create_table(
             schema_1_id,
             "table_name",
@@ -37,7 +37,7 @@ fn same_table_names_with_different_columns_in_different_schemas(catalog_manager:
         )
         .expect("table is created");
 
-    let table_2_id = catalog_manager
+    let table_2_id = data_manager
         .create_table(
             schema_2_id,
             "table_name",
@@ -46,14 +46,14 @@ fn same_table_names_with_different_columns_in_different_schemas(catalog_manager:
         .expect("table is created");
 
     assert_eq!(
-        catalog_manager.table_columns(schema_1_id, table_1_id),
+        data_manager.table_columns(schema_1_id, table_1_id),
         Ok(vec![ColumnDefinition::new(
             "sn_1_column",
             SqlType::SmallInt(i16::min_value())
         )])
     );
     assert_eq!(
-        catalog_manager.table_columns(schema_2_id, table_2_id),
+        data_manager.table_columns(schema_2_id, table_2_id),
         Ok(vec![ColumnDefinition::new(
             "sn_2_column",
             SqlType::BigInt(i64::min_value())
@@ -62,32 +62,26 @@ fn same_table_names_with_different_columns_in_different_schemas(catalog_manager:
 }
 
 #[rstest::rstest]
-fn drop_schema(catalog_manager_with_schema: CatalogManager) {
-    let schema_id = catalog_manager_with_schema
-        .schema_exists(SCHEMA)
-        .expect("schema exists");
+fn drop_schema(data_manager_with_schema: DataManager) {
+    let schema_id = data_manager_with_schema.schema_exists(SCHEMA).expect("schema exists");
     assert_eq!(
-        catalog_manager_with_schema
+        data_manager_with_schema
             .drop_schema(schema_id, DropStrategy::Restrict)
             .expect("no system errors"),
         Ok(())
     );
-    assert!(matches!(catalog_manager_with_schema.create_schema(SCHEMA), Ok(_)));
+    assert!(matches!(data_manager_with_schema.create_schema(SCHEMA), Ok(_)));
 }
 
 #[rstest::rstest]
-fn restrict_drop_schema_does_not_drop_schema_with_table(catalog_manager_with_schema: CatalogManager) {
-    let schema_id = catalog_manager_with_schema
-        .schema_exists(SCHEMA)
-        .expect("schema exists");
-    catalog_manager_with_schema
+fn restrict_drop_schema_does_not_drop_schema_with_table(data_manager_with_schema: DataManager) {
+    let schema_id = data_manager_with_schema.schema_exists(SCHEMA).expect("schema exists");
+    data_manager_with_schema
         .create_table(schema_id, "table_name", &[])
         .expect("no system errors");
-    let schema_id = catalog_manager_with_schema
-        .schema_exists(SCHEMA)
-        .expect("schema exists");
+    let schema_id = data_manager_with_schema.schema_exists(SCHEMA).expect("schema exists");
     assert_eq!(
-        catalog_manager_with_schema
+        data_manager_with_schema
             .drop_schema(schema_id, DropStrategy::Restrict)
             .expect("no system errors"),
         Err(DropSchemaError::HasDependentObjects)
@@ -95,11 +89,9 @@ fn restrict_drop_schema_does_not_drop_schema_with_table(catalog_manager_with_sch
 }
 
 #[rstest::rstest]
-fn cascade_drop_schema_drops_tables_in_it(catalog_manager_with_schema: CatalogManager) {
-    let schema_id = catalog_manager_with_schema
-        .schema_exists(SCHEMA)
-        .expect("schema exists");
-    catalog_manager_with_schema
+fn cascade_drop_schema_drops_tables_in_it(data_manager_with_schema: DataManager) {
+    let schema_id = data_manager_with_schema.schema_exists(SCHEMA).expect("schema exists");
+    data_manager_with_schema
         .create_table(
             schema_id,
             "table_name_1",
@@ -109,7 +101,7 @@ fn cascade_drop_schema_drops_tables_in_it(catalog_manager_with_schema: CatalogMa
             )],
         )
         .expect("table is created");
-    catalog_manager_with_schema
+    data_manager_with_schema
         .create_table(
             schema_id,
             "table_name_2",
@@ -121,16 +113,14 @@ fn cascade_drop_schema_drops_tables_in_it(catalog_manager_with_schema: CatalogMa
         .expect("table is created");
 
     assert_eq!(
-        catalog_manager_with_schema
+        data_manager_with_schema
             .drop_schema(schema_id, DropStrategy::Cascade)
             .expect("no system errors"),
         Ok(())
     );
-    let schema_id = catalog_manager_with_schema
-        .create_schema(SCHEMA)
-        .expect("schema exists");
+    let schema_id = data_manager_with_schema.create_schema(SCHEMA).expect("schema exists");
     assert!(matches!(
-        catalog_manager_with_schema.create_table(
+        data_manager_with_schema.create_table(
             schema_id,
             "table_name_1",
             &[ColumnDefinition::new(
@@ -141,7 +131,7 @@ fn cascade_drop_schema_drops_tables_in_it(catalog_manager_with_schema: CatalogMa
         Ok(_)
     ));
     assert!(matches!(
-        catalog_manager_with_schema.create_table(
+        data_manager_with_schema.create_table(
             schema_id,
             "table_name_2",
             &[ColumnDefinition::new(
