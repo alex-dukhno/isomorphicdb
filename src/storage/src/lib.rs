@@ -70,7 +70,7 @@ pub trait Database {
         &self,
         schema_name: SchemaId,
         object_name: ObjectId,
-        values: Vec<Row>,
+        values: Vec<(Key, Values)>,
     ) -> io::Result<Result<Result<usize, DefinitionError>, StorageError>>;
 
     fn read(

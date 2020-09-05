@@ -22,7 +22,7 @@ use std::{
         RwLock,
     },
 };
-use storage::{Database, InMemoryDatabase, InitStatus, Key, PersistentDatabase, ReadCursor, Row};
+use storage::{Database, InMemoryDatabase, InitStatus, Key, PersistentDatabase, ReadCursor, Values};
 
 pub type RecordId = u64;
 pub type FullSchemaId = Option<RecordId>;
@@ -43,11 +43,11 @@ pub enum DropSchemaError {
 }
 
 pub struct CatalogManager {
-    key_id_generator: AtomicU64,
     data_storage: Box<dyn Database>,
     data_definition: DataDefinition,
     schemas: RwLock<HashMap<RecordId, String>>,
     tables: RwLock<HashMap<(RecordId, RecordId), Vec<String>>>,
+    record_id_generators: RwLock<HashMap<(RecordId, RecordId), AtomicU64>>,
 }
 
 impl Default for CatalogManager {
@@ -66,11 +66,11 @@ impl CatalogManager {
         let data_definition = DataDefinition::in_memory();
         data_definition.create_catalog(DEFAULT_CATALOG);
         Ok(Self {
-            key_id_generator: AtomicU64::default(),
             data_storage: Box::new(InMemoryDatabase::default()),
             data_definition,
             schemas: RwLock::default(),
             tables: RwLock::default(),
+            record_id_generators: RwLock::default(),
         })
     }
 
@@ -120,16 +120,24 @@ impl CatalogManager {
             }
         }
         Ok(Self {
-            key_id_generator: AtomicU64::default(),
             data_storage: Box::new(catalog),
             data_definition,
             schemas,
             tables,
+            record_id_generators: RwLock::default(),
         })
     }
 
-    pub fn next_key_id(&self) -> u64 {
-        self.key_id_generator.fetch_add(1, Ordering::SeqCst)
+    pub fn next_key_id(&self, schema_id: RecordId, table_id: RecordId) -> RecordId {
+        match self
+            .record_id_generators
+            .read()
+            .expect("to acquire read lock")
+            .get(&(schema_id, table_id))
+        {
+            Some(id_generator) => id_generator.fetch_add(1, Ordering::SeqCst),
+            None => panic!(),
+        }
     }
 
     pub fn create_schema(&self, schema_name: &str) -> SystemResult<RecordId> {
@@ -158,7 +166,11 @@ impl CatalogManager {
         }
     }
 
-    pub fn drop_schema(&self, schema_id: u64, strategy: DropStrategy) -> SystemResult<Result<(), DropSchemaError>> {
+    pub fn drop_schema(
+        &self,
+        schema_id: RecordId,
+        strategy: DropStrategy,
+    ) -> SystemResult<Result<(), DropSchemaError>> {
         match self.schemas.write().expect("to acquire write lock").remove(&schema_id) {
             None => Ok(Err(DropSchemaError::DoesNotExist)),
             Some(schema_name) => {
@@ -196,6 +208,10 @@ impl CatalogManager {
                             (schema_id, table_id),
                             vec![schema_name.to_owned(), table_name.to_owned()],
                         );
+                        self.record_id_generators
+                            .write()
+                            .expect("to acquire write lock")
+                            .insert((schema_id, table_id), AtomicU64::default());
                         match self.data_storage.create_object(schema_name, table_name) {
                             Ok(Ok(Ok(()))) => Ok(table_id),
                             _ => Err(SystemError::bug_in_sql_engine(
@@ -217,7 +233,7 @@ impl CatalogManager {
         }
     }
 
-    pub fn table_columns(&self, schema_id: u64, table_id: u64) -> SystemResult<Vec<ColumnDefinition>> {
+    pub fn table_columns(&self, schema_id: RecordId, table_id: RecordId) -> SystemResult<Vec<ColumnDefinition>> {
         match self
             .tables
             .read()
@@ -264,7 +280,12 @@ impl CatalogManager {
         }
     }
 
-    pub fn write_into(&self, schema_id: RecordId, table_id: RecordId, values: Vec<Row>) -> SystemResult<usize> {
+    pub fn write_into(
+        &self,
+        schema_id: RecordId,
+        table_id: RecordId,
+        values: Vec<(Key, Values)>,
+    ) -> SystemResult<usize> {
         match self
             .tables
             .read()
