@@ -160,7 +160,7 @@ impl<'ic> InsertCommand<'ic> {
                     index_cols
                 } else {
                     let mut index_cols = vec![];
-                    let mut non_existing_cols = vec![];
+                    let mut has_error = false;
                     for column_name in column_names {
                         let mut found = None;
                         for (index, column_definition) in all_columns.iter().enumerate() {
@@ -174,14 +174,16 @@ impl<'ic> InsertCommand<'ic> {
                             Some(index_col) => {
                                 index_cols.push(index_col);
                             }
-                            None => non_existing_cols.push(column_name.clone()),
+                            None => {
+                                self.session
+                                    .send(Err(QueryError::column_does_not_exist(column_name)))
+                                    .expect("To Send Result to Client");
+                                has_error = true;
+                            },
                         }
                     }
 
-                    if !non_existing_cols.is_empty() {
-                        self.session
-                            .send(Err(QueryError::column_does_not_exist(non_existing_cols)))
-                            .expect("To Send Result to Client");
+                    if has_error {
                         return Ok(());
                     }
 

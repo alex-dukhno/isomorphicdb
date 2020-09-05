@@ -177,7 +177,7 @@ impl ExpressionEvaluation {
         let (destination, column_def) = if let Some((idx, def)) = self.find_column_by_name(id.value.as_str())? {
             (idx, def)
         } else {
-            let kind = QueryError::column_does_not_exist(vec![id.value.clone()]);
+            let kind = QueryError::column_does_not_exist(id.value.clone());
             self.session.send(Err(kind)).expect("To Send Query Result to Client");
             return Err(());
         };

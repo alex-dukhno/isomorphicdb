@@ -45,7 +45,7 @@ fn insert_value_in_non_existent_column(sql_engine_with_schema: (QueryExecutor, A
         Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::TableCreated),
         Ok(QueryEvent::QueryComplete),
-        Err(QueryError::column_does_not_exist(vec!["non_existent".to_owned()])),
+        Err(QueryError::column_does_not_exist("non_existent".to_owned())),
         Ok(QueryEvent::QueryComplete),
     ]);
 }

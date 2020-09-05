@@ -142,7 +142,7 @@ pub(crate) enum QueryErrorKind {
     SchemaDoesNotExist(String),
     SchemaHasDependentObjects(String),
     TableDoesNotExist(String),
-    ColumnDoesNotExist(Vec<String>),
+    ColumnDoesNotExist(String),
     PreparedStatementDoesNotExist(String),
     FeatureNotSupported(String),
     TooManyInsertExpressions,
@@ -210,12 +210,8 @@ impl Display for QueryErrorKind {
                 write!(f, "schema \"{}\" has dependent objects", schema_name)
             }
             Self::TableDoesNotExist(table_name) => write!(f, "table \"{}\" does not exist", table_name),
-            Self::ColumnDoesNotExist(columns) => {
-                if columns.len() > 1 {
-                    write!(f, "columns {} do not exist", columns.join(", "))
-                } else {
-                    write!(f, "column {} does not exist", columns[0])
-                }
+            Self::ColumnDoesNotExist(column) => {
+                write!(f, "column {} does not exist", column)
             }
             Self::PreparedStatementDoesNotExist(statement_name) => {
                 write!(f, "prepared statement {} does not exist", statement_name)
@@ -339,10 +335,10 @@ impl QueryError {
     }
 
     /// column does not exists error constructor
-    pub fn column_does_not_exist(non_existing_columns: Vec<String>) -> QueryError {
+    pub fn column_does_not_exist(non_existing_column: String) -> QueryError {
         QueryError {
             severity: Severity::Error,
-            kind: QueryErrorKind::ColumnDoesNotExist(non_existing_columns),
+            kind: QueryErrorKind::ColumnDoesNotExist(non_existing_column),
         }
     }
 
@@ -647,30 +643,13 @@ mod tests {
         #[test]
         fn one_column_does_not_exists() {
             let message: BackendMessage =
-                QueryError::column_does_not_exist(vec!["column_not_in_table".to_owned()]).into();
+                QueryError::column_does_not_exist("column_not_in_table".to_owned()).into();
             assert_eq!(
                 message,
                 BackendMessage::ErrorResponse(
                     Some("ERROR"),
                     Some("42703"),
                     Some("column column_not_in_table does not exist".to_owned()),
-                )
-            )
-        }
-
-        #[test]
-        fn multiple_columns_does_not_exists() {
-            let message: BackendMessage = QueryError::column_does_not_exist(vec![
-                "column_not_in_table1".to_owned(),
-                "column_not_in_table2".to_owned(),
-            ])
-            .into();
-            assert_eq!(
-                message,
-                BackendMessage::ErrorResponse(
-                    Some("ERROR"),
-                    Some("42703"),
-                    Some("columns column_not_in_table1, column_not_in_table2 do not exist".to_owned()),
                 )
             )
         }

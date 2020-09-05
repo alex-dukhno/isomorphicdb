@@ -127,10 +127,12 @@ fn select_non_existing_columns_from_table(sql_engine_with_schema: (QueryExecutor
         Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::TableCreated),
         Ok(QueryEvent::QueryComplete),
-        Err(QueryError::column_does_not_exist(vec![
+        Err(QueryError::column_does_not_exist(
             "column_not_in_table1".to_owned(),
+        )),
+        Err(QueryError::column_does_not_exist(
             "column_not_in_table2".to_owned(),
-        ])),
+        )),
         Ok(QueryEvent::QueryComplete),
     ]);
 }

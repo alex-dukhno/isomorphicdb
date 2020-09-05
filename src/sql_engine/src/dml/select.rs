@@ -107,7 +107,7 @@ impl<'sc> SelectCommand<'sc> {
 
             let all_columns = self.storage.table_columns(&schema_name, &table_name)?;
             let mut column_definitions = vec![];
-            let mut non_existing_columns = vec![];
+            let mut has_error = false;
             for column_name in table_columns {
                 let mut found = None;
                 for column_definition in &all_columns {
@@ -120,15 +120,15 @@ impl<'sc> SelectCommand<'sc> {
                 if let Some(column_definition) = found {
                     column_definitions.push(column_definition);
                 } else {
-                    non_existing_columns.push(column_name.clone());
+                    self.session
+                        .send(Err(QueryError::column_does_not_exist(column_name)))
+                        .expect("To Send Result to Client");
+                    has_error = true;
                 }
             }
 
-            if !non_existing_columns.is_empty() {
-                self.session
-                    .send(Err(QueryError::column_does_not_exist(non_existing_columns)))
-                    .expect("To Send Result to Client");
-                return Err(SystemError::runtime_check_failure("Column Does Not Exist".to_owned()));
+            if has_error {
+                return Err(SystemError::runtime_check_failure("Column Does Not Exist".to_string()));
             }
 
             let description = column_definitions
@@ -212,7 +212,7 @@ impl<'sc> SelectCommand<'sc> {
                     let all_columns = self.storage.table_columns(&schema_name, &table_name)?;
                     let mut description = vec![];
                     let mut column_indexes = vec![];
-                    let mut non_existing_columns = vec![];
+                    let mut has_error = false;
                     for (i, column_name) in table_columns.iter().enumerate() {
                         let mut found = None;
                         for (index, column_definition) in all_columns.iter().enumerate() {
@@ -226,14 +226,14 @@ impl<'sc> SelectCommand<'sc> {
                             column_indexes.push(index_pair);
                             description.push(column_definition);
                         } else {
-                            non_existing_columns.push(column_name.clone());
+                            self.session
+                                .send(Err(QueryError::column_does_not_exist(column_name.to_owned())))
+                                .expect("To Send Result to Client");
+                            has_error = true;
                         }
                     }
 
-                    if !non_existing_columns.is_empty() {
-                        self.session
-                            .send(Err(QueryError::column_does_not_exist(non_existing_columns)))
-                            .expect("To Send Result to Client");
+                    if has_error {
                         return Ok(());
                     }
 

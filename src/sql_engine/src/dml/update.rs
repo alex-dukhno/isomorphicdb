@@ -59,10 +59,6 @@ impl UpdateCommand {
         }
 
         let all_columns;
-        // let mut errors = Vec::new();
-        let mut non_existing_columns = BTreeSet::new();
-        let mut column_exists = false;
-
         // only process the rows if the table and schema exist.
         if !self.storage.table_exists(&schema_name, &table_name) {
             self.session
@@ -90,12 +86,7 @@ impl UpdateCommand {
             return Ok(())
         }
 
-        if !non_existing_columns.is_empty() {
-            self.session
-                .send(Err(QueryError::column_does_not_exist(
-                    non_existing_columns.into_iter().collect(),
-                )))
-                .expect("To Send Result to Client");
+        if has_error {
             return Ok(());
         }
 
