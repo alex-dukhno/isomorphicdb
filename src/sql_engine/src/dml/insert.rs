@@ -177,7 +177,7 @@ impl<'ic> InsertCommand<'ic> {
                                 return Ok(());
                             }
 
-                            let key = self.storage.next_key_id().to_be_bytes().to_vec();
+                            let key = self.storage.next_key_id(schema_id, table_id).to_be_bytes().to_vec();
 
                             // TODO: The default value or NULL should be initialized for SQL types of all columns.
                             let mut record = vec![Datum::from_null(); all_columns.len()];

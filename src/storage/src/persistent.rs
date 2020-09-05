@@ -12,7 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{Database, DefinitionError, InitStatus, Key, ObjectId, ReadCursor, Row, RowResult, SchemaId, StorageError};
+use crate::{
+    Database, DefinitionError, InitStatus, Key, ObjectId, ReadCursor, RowResult, SchemaId, StorageError, Values,
+};
 use representation::Binary;
 use sled::{Db as Schema, DiskPtr, Error as SledError, IVec, Tree};
 use std::{
@@ -270,7 +272,7 @@ impl Database for PersistentDatabase {
         &self,
         schema_name: SchemaId,
         object_name: ObjectId,
-        rows: Vec<Row>,
+        rows: Vec<(Key, Values)>,
     ) -> io::Result<Result<Result<usize, DefinitionError>, StorageError>> {
         match self.schemas.read().expect("to acquire read lock").get(schema_name) {
             Some(schema) => {
