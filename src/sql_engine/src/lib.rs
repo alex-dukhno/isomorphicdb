@@ -23,15 +23,16 @@ use crate::{
     },
     dml::{delete::DeleteCommand, insert::InsertCommand, select::SelectCommand, update::UpdateCommand},
     query::{bind::ParamBinder, plan::Plan, process::QueryProcessor},
-    session::{statement::PreparedStatement, Session},
 };
 use itertools::izip;
 use kernel::SystemResult;
 use protocol::{
     results::{QueryError, QueryEvent},
+    session::Session,
     sql_formats::PostgreSqlFormat,
     sql_types::PostgreSqlType,
     sql_values::PostgreSqlValue,
+    statement::PreparedStatement,
     Sender,
 };
 use serde::{Deserialize, Serialize};
@@ -47,7 +48,6 @@ pub mod catalog_manager;
 mod ddl;
 mod dml;
 mod query;
-mod session;
 
 pub type Projection = (Vec<ColumnDefinition>, Vec<Vec<String>>);
 
@@ -81,7 +81,7 @@ impl ColumnDefinition {
 pub struct QueryExecutor {
     storage: Arc<CatalogManager>,
     sender: Arc<dyn Sender>,
-    session: Session,
+    session: Session<Statement>,
     processor: QueryProcessor,
     param_binder: ParamBinder,
 }
@@ -91,7 +91,7 @@ impl QueryExecutor {
         Self {
             storage: storage.clone(),
             sender: sender.clone(),
-            session: Session::new(),
+            session: Session::default(),
             processor: QueryProcessor::new(storage, sender.clone()),
             param_binder: ParamBinder::new(sender),
         }

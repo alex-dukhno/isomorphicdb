@@ -12,47 +12,52 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-pub(crate) mod statement;
-
-use protocol::sql_formats::PostgreSqlFormat;
-use sqlparser::ast::Statement;
-use statement::{Portal, PreparedStatement};
+use crate::{
+    sql_formats::PostgreSqlFormat,
+    statement::{Portal, PreparedStatement},
+};
 use std::collections::HashMap;
 
 /// A `Session` holds SQL state that is attached to a session.
 #[derive(Clone, Debug)]
-pub struct Session {
+pub struct Session<S> {
     /// A map from statement names to parameterized statements
-    prepared_statements: HashMap<String, PreparedStatement>,
+    prepared_statements: HashMap<String, PreparedStatement<S>>,
     /// A map from statement names to bound statements
-    portals: HashMap<String, Portal>,
+    portals: HashMap<String, Portal<S>>,
 }
 
-impl Session {
-    pub fn new() -> Self {
-        Self {
-            prepared_statements: HashMap::new(),
-            portals: HashMap::new(),
+impl<S> Default for Session<S> {
+    fn default() -> Session<S> {
+        Session {
+            prepared_statements: HashMap::default(),
+            portals: HashMap::default(),
         }
     }
+}
 
-    pub fn get_prepared_statement(&self, name: &str) -> Option<&PreparedStatement> {
+impl<S> Session<S> {
+    /// get `PreparedStatement` by its name
+    pub fn get_prepared_statement(&self, name: &str) -> Option<&PreparedStatement<S>> {
         self.prepared_statements.get(name)
     }
 
-    pub fn set_prepared_statement(&mut self, name: String, statement: PreparedStatement) {
+    /// save `PreparedStatement` associated with a name
+    pub fn set_prepared_statement(&mut self, name: String, statement: PreparedStatement<S>) {
         self.prepared_statements.insert(name, statement);
     }
 
-    pub fn get_portal(&self, name: &str) -> Option<&Portal> {
+    /// get `Portal` by its name
+    pub fn get_portal(&self, name: &str) -> Option<&Portal<S>> {
         self.portals.get(name)
     }
 
+    /// save `Portal` associated with a name
     pub fn set_portal(
         &mut self,
         portal_name: String,
         statement_name: String,
-        stmt: Statement,
+        stmt: S,
         result_formats: Vec<PostgreSqlFormat>,
     ) {
         let new_portal = Portal::new(statement_name, stmt, result_formats);

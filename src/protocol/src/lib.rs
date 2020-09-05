@@ -46,12 +46,16 @@ use std::{
 pub mod messages;
 /// Module contains functionality to represent query result
 pub mod results;
+/// Module contains functionality to represent server side client session
+pub mod session;
 /// Module contains functionality to represent SQL format
 pub mod sql_formats;
 /// Module contains functionality to represent SQL type system
 pub mod sql_types;
 /// Module contains functionality to represent SQL data value
 pub mod sql_values;
+/// Module contains functionality to hold data about `PreparedStatement`
+pub mod statement;
 
 /// Protocol version
 pub type Version = i32;
