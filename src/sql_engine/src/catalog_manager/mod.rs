@@ -46,6 +46,7 @@ pub struct CatalogManager {
     data_storage: Box<dyn Database>,
     data_definition: DataDefinition,
     schemas: RwLock<HashMap<u64, String>>,
+    tables: RwLock<HashMap<(u64, u64), Vec<String>>>,
 }
 
 impl Default for CatalogManager {
@@ -68,33 +69,45 @@ impl CatalogManager {
             data_storage: Box::new(InMemoryDatabase::default()),
             data_definition,
             schemas: RwLock::default(),
+            tables: RwLock::default(),
         })
     }
 
     pub fn persistent(path: PathBuf) -> SystemResult<CatalogManager> {
         let data_definition = DataDefinition::persistent(&path)?;
         let catalog = PersistentDatabase::new(path.join(DEFAULT_CATALOG));
+        let schemas = RwLock::new(HashMap::new());
+        let tables = RwLock::new(HashMap::new());
         match data_definition.catalog_exists(DEFAULT_CATALOG) {
             Some(_id) => {
-                for schema in data_definition.schemas(DEFAULT_CATALOG) {
-                    match catalog.init(schema.as_str()) {
+                for (schema_id, schema_name) in data_definition.schemas(DEFAULT_CATALOG) {
+                    schemas
+                        .write()
+                        .expect("to acquire write lock")
+                        .insert(schema_id, schema_name.clone());
+                    match catalog.init(schema_name.as_str()) {
                         Ok(Ok(InitStatus::Loaded)) => {
-                            for table in data_definition.tables(DEFAULT_CATALOG, schema.as_str()) {
-                                catalog.open_object(schema.as_str(), table.as_str());
+                            for (table_id, table_name) in data_definition.tables(DEFAULT_CATALOG, schema_name.as_str())
+                            {
+                                tables
+                                    .write()
+                                    .expect("to acquire write lock")
+                                    .insert((schema_id, table_id), vec![schema_name.clone(), table_name.clone()]);
+                                catalog.open_object(schema_name.as_str(), table_name.as_str());
                             }
                         }
                         Ok(Ok(InitStatus::Created)) => {
-                            log::error!("Schema {:?} should have been already created", schema);
+                            log::error!("Schema {:?} should have been already created", schema_name);
                             return Err(SystemError::bug_in_sql_engine(
                                 Operation::Access,
-                                Object::Schema(schema.as_str()),
+                                Object::Schema(schema_name.as_str()),
                             ));
                         }
                         Ok(Err(error)) => {
-                            log::error!("Error during schema {:?} initialization {:?}", schema, error);
+                            log::error!("Error during schema {:?} initialization {:?}", schema_name, error);
                             return Err(SystemError::bug_in_sql_engine(
                                 Operation::Access,
-                                Object::Schema(schema.as_str()),
+                                Object::Schema(schema_name.as_str()),
                             ));
                         }
                         Err(io_error) => return Err(SystemError::io(io_error)),
@@ -109,7 +122,8 @@ impl CatalogManager {
             key_id_generator: AtomicU64::default(),
             data_storage: Box::new(catalog),
             data_definition,
-            schemas: RwLock::default(),
+            schemas,
+            tables,
         })
     }
 
@@ -120,7 +134,6 @@ impl CatalogManager {
     pub fn create_schema(&self, schema_name: &str) -> SystemResult<()> {
         match self.data_definition.create_schema(DEFAULT_CATALOG, schema_name) {
             Some((_, Some(schema_id))) => {
-                eprintln!("NEW SCHEMA ID {:?}", schema_id);
                 self.schemas
                     .write()
                     .expect("to acquire write lock")
@@ -173,13 +186,26 @@ impl CatalogManager {
     ) -> SystemResult<()> {
         match self.schemas.read().expect("to acquire read lock").get(&schema_id) {
             Some(schema_name) => {
-                self.data_definition
-                    .create_table(DEFAULT_CATALOG, schema_name, table_name, column_definitions);
-                match self.data_storage.create_object(schema_name, table_name) {
-                    Ok(Ok(Ok(()))) => Ok(()),
+                match self
+                    .data_definition
+                    .create_table(DEFAULT_CATALOG, schema_name, table_name, column_definitions)
+                {
+                    Some((_, Some((_, Some(table_id))))) => {
+                        self.tables.write().expect("to acquire write lock").insert(
+                            (schema_id, table_id),
+                            vec![schema_name.to_owned(), table_name.to_owned()],
+                        );
+                        match self.data_storage.create_object(schema_name, table_name) {
+                            Ok(Ok(Ok(()))) => Ok(()),
+                            _ => Err(SystemError::bug_in_sql_engine(
+                                Operation::Create,
+                                Object::Table(schema_name, table_name),
+                            )),
+                        }
+                    }
                     _ => Err(SystemError::bug_in_sql_engine(
                         Operation::Create,
-                        Object::Table(schema_name, table_name),
+                        Object::Table(schema_id.to_string().as_str(), table_name),
                     )),
                 }
             }
@@ -190,10 +216,23 @@ impl CatalogManager {
         }
     }
 
-    pub fn table_columns(&self, schema_name: &str, table_name: &str) -> SystemResult<Vec<ColumnDefinition>> {
-        Ok(self
-            .data_definition
-            .table_columns(DEFAULT_CATALOG, schema_name, table_name))
+    pub fn table_columns(&self, schema_id: u64, table_id: u64) -> SystemResult<Vec<ColumnDefinition>> {
+        match self
+            .tables
+            .read()
+            .expect("to acquire read lock")
+            .get(&(schema_id, table_id))
+        {
+            Some(full_name) => {
+                Ok(self
+                    .data_definition
+                    .table_columns(DEFAULT_CATALOG, full_name[0].as_str(), full_name[1].as_str()))
+            }
+            _ => Err(SystemError::bug_in_sql_engine(
+                Operation::Access,
+                Object::Table(schema_id.to_string().as_str(), table_id.to_string().as_str()),
+            )),
+        }
     }
 
     pub fn drop_table(&self, schema_name: &str, table_name: &str) -> SystemResult<()> {

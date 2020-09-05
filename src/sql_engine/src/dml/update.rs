@@ -95,8 +95,8 @@ impl UpdateCommand {
                     schema_name + "." + table_name.as_str(),
                 )))
                 .expect("To Send Result to Client"),
-            Some((_, Some(_))) => {
-                let all_columns = self.storage.table_columns(&schema_name, &table_name)?;
+            Some((schema_id, Some(table_id))) => {
+                let all_columns = self.storage.table_columns(schema_id, table_id)?;
                 let mut errors = Vec::new();
                 let mut index_value_pairs = Vec::new();
                 let mut non_existing_columns = BTreeSet::new();

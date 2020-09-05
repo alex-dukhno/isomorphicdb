@@ -115,9 +115,15 @@ fn table_columns_on_empty_table(catalog_manager_with_schema: CatalogManager) {
         .create_table(schema_id, "table_name", column_names.as_slice())
         .expect("table is created");
 
+    let table_id = catalog_manager_with_schema
+        .table_exists(SCHEMA, "table_name")
+        .expect("schema exists")
+        .1
+        .expect("table exists");
+
     assert_eq!(
         catalog_manager_with_schema
-            .table_columns(SCHEMA, "table_name")
+            .table_columns(schema_id, table_id)
             .expect("no system errors"),
         vec![]
     );

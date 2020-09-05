@@ -67,9 +67,14 @@ fn created_table_is_preserved_after_restart(persistent: (CatalogManager, TempDir
         catalog_manager.table_exists(SCHEMA, "table_name"),
         Some((_, Some(_)))
     ));
+    let table_id = catalog_manager
+        .table_exists(SCHEMA, "table_name")
+        .expect("schema exists")
+        .1
+        .expect("table exists");
     assert_eq!(
         catalog_manager
-            .table_columns(SCHEMA, "table_name")
+            .table_columns(schema_id, table_id)
             .expect("to have a columns"),
         vec![ColumnDefinition::new("col_test", SqlType::Bool)]
     )
