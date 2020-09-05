@@ -47,8 +47,8 @@ impl DeleteCommand {
                     schema_name + "." + table_name.as_str(),
                 )))
                 .expect("To Send Result to Client"),
-            Some((_, Some(_))) => {
-                match self.storage.full_scan(&schema_name, &table_name) {
+            Some((schema_id, Some(table_id))) => {
+                match self.storage.full_scan(schema_id, table_id) {
                     Err(e) => return Err(e),
                     Ok(reads) => {
                         let keys = reads
@@ -57,7 +57,7 @@ impl DeleteCommand {
                             .map(|(key, _)| key)
                             .collect();
 
-                        match self.storage.delete_from(&schema_name, &table_name, keys) {
+                        match self.storage.delete_from(schema_id, table_id, keys) {
                             Err(e) => return Err(e),
                             Ok(records_number) => self
                                 .sender

@@ -167,7 +167,7 @@ impl UpdateCommand {
                     return Ok(());
                 }
 
-                let to_update: Vec<Row> = match self.storage.full_scan(&schema_name, &table_name) {
+                let to_update: Vec<Row> = match self.storage.full_scan(schema_id, table_id) {
                     Err(error) => return Err(error),
                     Ok(reads) => reads
                         .map(Result::unwrap)
@@ -182,7 +182,7 @@ impl UpdateCommand {
                         .collect(),
                 };
 
-                match self.storage.write_into(&schema_name, &table_name, to_update) {
+                match self.storage.write_into(schema_id, table_id, to_update) {
                     Err(error) => return Err(error),
                     Ok(records_number) => {
                         self.sender

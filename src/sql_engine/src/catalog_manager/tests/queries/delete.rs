@@ -21,7 +21,7 @@ fn delete_all_from_table(catalog_manager_with_schema: CatalogManager) {
     let schema_id = catalog_manager_with_schema
         .schema_exists(SCHEMA)
         .expect("schema exists");
-    catalog_manager_with_schema
+    let table_id = catalog_manager_with_schema
         .create_table(
             schema_id,
             "table_name",
@@ -34,8 +34,8 @@ fn delete_all_from_table(catalog_manager_with_schema: CatalogManager) {
 
     catalog_manager_with_schema
         .write_into(
-            SCHEMA,
-            "table_name",
+            schema_id,
+            table_id,
             vec![(
                 Binary::pack(&[Datum::from_u64(1)]),
                 Binary::pack(&[Datum::from_i16(123)]),
@@ -44,8 +44,8 @@ fn delete_all_from_table(catalog_manager_with_schema: CatalogManager) {
         .expect("values are inserted");
     catalog_manager_with_schema
         .write_into(
-            SCHEMA,
-            "table_name",
+            schema_id,
+            table_id,
             vec![(
                 Binary::pack(&[Datum::from_u64(2)]),
                 Binary::pack(&[Datum::from_i16(456)]),
@@ -54,8 +54,8 @@ fn delete_all_from_table(catalog_manager_with_schema: CatalogManager) {
         .expect("values are inserted");
     catalog_manager_with_schema
         .write_into(
-            SCHEMA,
-            "table_name",
+            table_id,
+            schema_id,
             vec![(
                 Binary::pack(&[Datum::from_u64(3)]),
                 Binary::pack(&[Datum::from_i16(789)]),
@@ -65,8 +65,8 @@ fn delete_all_from_table(catalog_manager_with_schema: CatalogManager) {
 
     assert_eq!(
         catalog_manager_with_schema.delete_from(
-            SCHEMA,
-            "table_name",
+            schema_id,
+            table_id,
             vec![
                 Binary::pack(&[Datum::from_u64(1)]),
                 Binary::pack(&[Datum::from_u64(2)]),
@@ -78,7 +78,7 @@ fn delete_all_from_table(catalog_manager_with_schema: CatalogManager) {
 
     assert_eq!(
         catalog_manager_with_schema
-            .full_scan(SCHEMA, "table_name")
+            .full_scan(schema_id, table_id)
             .map(|iter| iter.map(Result::unwrap).map(Result::unwrap).collect()),
         Ok(vec![])
     );
