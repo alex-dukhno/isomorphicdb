@@ -25,6 +25,8 @@ use sql_types::ConstraintError;
 use sqlparser::ast::{DataType, Expr, Query, SetExpr, UnaryOperator, Value};
 use std::{convert::TryFrom, str::FromStr, sync::Arc};
 use storage::Row;
+use protocol::messages::ColumnMetadata;
+use crate::query::expr::ExprMetadata;
 
 pub(crate) struct InsertCommand<'ic> {
     raw_sql_query: &'ic str,
@@ -92,13 +94,44 @@ impl<'ic> InsertCommand<'ic> {
 
                 let evaluation = ExpressionEvaluation::new(self.session.clone(), table_definition);
                 let mut rows = vec![];
-                for line in values {
+                let mut has_error = false;
+                for line in values{
                     let mut row = vec![];
-                    for col in line {
-                        match evaluation.eval(col) {
+                    for (idx, col) in line.iter().enumerate() {
+                        let meta = ExprMetadata::new(&all_columns[idx], idx);
+                        match evaluation.eval(col, Some(meta.clone())) {
                             Ok(v) => {
                                 if v.is_literal() {
-                                    row.push(v);
+                                    let datum = v.as_datum().unwrap();
+                                    match all_columns[idx].sql_type().constraint().validate(datum.to_string().as_str()){
+                                        Ok(()) => row.push(v),
+                                        Err(ConstraintError::OutOfRange) => {
+                                            self.session.send(Err(QueryError::out_of_range(
+                                                (&meta.column().sql_type()).into(),
+                                                meta.column().name(),
+                                                idx + 1,
+                                            ))).expect("To Send Query Result to client");
+                                            has_error = true;
+                                        },
+                                        Err(ConstraintError::TypeMismatch(value)) => {
+                                            self.session.send(Err(QueryError::type_mismatch(
+                                                &value,
+                                                (&meta.column().sql_type()).into(),
+                                                meta.column().name(),
+                                                idx + 1,
+                                            ))).expect("To Send Query Result to client");
+                                            has_error = true;
+                                        },
+                                        Err(ConstraintError::ValueTooLong(len)) => {
+                                            self.session.send(Err(QueryError::string_length_mismatch(
+                                                (&meta.column().sql_type()).into(),
+                                                len,
+                                                meta.column().name(),
+                                                idx + 1,
+                                            ))).expect("To Send Query Result to client");
+                                            has_error = true;
+                                        },
+                                    }
                                 } else {
                                     self.session
                                         .send(Err(QueryError::feature_not_supported(
@@ -112,6 +145,10 @@ impl<'ic> InsertCommand<'ic> {
                         }
                     }
                     rows.push(row);
+                }
+
+                if has_error {
+                    return Ok(())
                 }
 
                 let index_columns = if column_names.is_empty() {

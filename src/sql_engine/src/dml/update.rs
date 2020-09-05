@@ -65,28 +65,6 @@ impl UpdateCommand {
 
         // only process the rows if the table and schema exist.
         if !self.storage.table_exists(&schema_name, &table_name) {
-            // for (column_name, value) in to_update {
-            //     for (index, column_definition) in all_columns.iter().enumerate() {
-            //         if column_definition.has_name(&column_name) {
-            //             let datum = value.as_datum().unwrap();
-            //             let v = datum.to_string();
-            //             match column_definition.sql_type().constraint().validate(v.as_str()) {
-            //                 Ok(()) => {
-            //                     index_value_pairs.push((index, datum));
-            //                 }
-            //                 Err(e) => {
-            //                     errors.push((e, column_definition.clone()));
-            //                 }
-            //             }
-            //             column_exists = true;
-            //             break;
-            //         }
-            //     }
-            //
-            //     if !column_exists {
-            //         non_existing_columns.insert(column_name.clone());
-            //     }
-            // }
             self.session
                 .send(Err(QueryError::table_does_not_exist(
                     schema_name + "." + table_name.as_str(),
@@ -96,15 +74,20 @@ impl UpdateCommand {
         }
 
         let table_definition = self.storage.table_columns(&schema_name, &table_name)?;
-        all_columns = table_definition.as_slice();
+        all_columns = table_definition.clone();
 
         let evaluation = ExpressionEvaluation::new(self.session.clone(), table_definition);
 
+        let mut has_error = false;
         for item in self.assignments.iter() {
             match evaluation.eval_assignment(item) {
                 Ok(assign) => to_update.push(assign),
-                Err(()) => return Ok(()),
+                Err(()) => has_error = true,
             }
+        }
+
+        if has_error {
+            return Ok(())
         }
 
         if !non_existing_columns.is_empty() {
@@ -118,20 +101,26 @@ impl UpdateCommand {
 
         let to_update: Vec<Row> = match self.storage.table_scan(&schema_name, &table_name) {
             Err(error) => return Err(error),
-            Ok(reads) => reads
-                .map(Result::unwrap)
-                .map(Result::unwrap)
-                .map(|(key, values)| {
+            Ok(reads) => {
+                let expr_eval = EvalScalarOp::new(self.session.as_ref(), all_columns.to_vec());
+                let mut res = Vec::new();
+                for (row_idx, (key, values)) in reads
+                    .map(Result::unwrap).map(Result::unwrap).into_iter().enumerate() {
                     let mut datums = unpack_raw(values.to_bytes());
 
+                    let mut has_err = false;
                     for update in to_update.as_slice() {
-                        EvalScalarOp::eval_on_row(self.session.as_ref(), &mut datums.as_mut_slice(), update)
-                            .expect("failed to eval assignment expression");
+                        has_err = expr_eval.eval_on_row(&mut datums.as_mut_slice(), update, row_idx).is_err() || has_err;
                     }
 
-                    (key, Binary::pack(&datums))
-                })
-                .collect(),
+                    if has_err {
+                        return Ok(())
+                    }
+
+                    res.push((key, Binary::pack(&datums)));
+                }
+                res
+            },
         };
 
         match self.storage.update_all(&schema_name, &table_name, to_update) {

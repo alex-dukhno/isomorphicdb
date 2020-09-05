@@ -252,6 +252,7 @@ fn update_records_in_nonexistent_table(sql_engine_with_schema: (QueryExecutor, A
 }
 
 #[rstest::rstest]
+// #[ignore]
 fn update_non_existent_columns_of_records(sql_engine_with_schema: (QueryExecutor, Arc<Collector>)) {
     let (mut engine, collector) = sql_engine_with_schema;
     engine
