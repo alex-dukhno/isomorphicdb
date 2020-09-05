@@ -47,15 +47,27 @@ fn same_table_names_with_different_columns_in_different_schemas(catalog_manager:
         )
         .expect("table is created");
 
+    let table_1_id = catalog_manager
+        .table_exists(SCHEMA_1, "table_name")
+        .expect("schema exists")
+        .1
+        .expect("table exists");
+
+    let table_2_id = catalog_manager
+        .table_exists(SCHEMA_2, "table_name")
+        .expect("schema exists")
+        .1
+        .expect("table exists");
+
     assert_eq!(
-        catalog_manager.table_columns(SCHEMA_1, "table_name"),
+        catalog_manager.table_columns(schema_1_id, table_1_id),
         Ok(vec![ColumnDefinition::new(
             "sn_1_column",
             SqlType::SmallInt(i16::min_value())
         )])
     );
     assert_eq!(
-        catalog_manager.table_columns(SCHEMA_2, "table_name"),
+        catalog_manager.table_columns(schema_2_id, table_2_id),
         Ok(vec![ColumnDefinition::new(
             "sn_2_column",
             SqlType::BigInt(i64::min_value())
@@ -101,7 +113,6 @@ fn cascade_drop_schema_drops_tables_in_it(catalog_manager_with_schema: CatalogMa
     let schema_id = catalog_manager_with_schema
         .schema_exists(SCHEMA)
         .expect("schema exists");
-    eprintln!("schema id {:?}", schema_id);
     catalog_manager_with_schema
         .create_table(
             schema_id,

@@ -380,12 +380,12 @@ impl Catalog {
             .cloned()
     }
 
-    fn schemas(&self) -> Vec<String> {
+    fn schemas(&self) -> Vec<(InnerId, String)> {
         self.schemas
             .read()
             .expect("to acquire read lock")
-            .keys()
-            .cloned()
+            .iter()
+            .map(|(name, schema)| (schema.id(), name.clone()))
             .collect()
     }
 
@@ -460,12 +460,12 @@ impl Schema {
             .map(|table| table.id())
     }
 
-    fn tables(&self) -> Vec<String> {
+    fn tables(&self) -> Vec<(InnerId, String)> {
         self.tables
             .read()
             .expect("to acquire read lock")
-            .keys()
-            .cloned()
+            .iter()
+            .map(|(name, table)| (table.id(), name.clone()))
             .collect()
     }
 
@@ -928,7 +928,7 @@ impl DataDefinition {
         }
     }
 
-    pub(crate) fn schemas(&self, catalog_name: &str) -> Vec<String> {
+    pub(crate) fn schemas(&self, catalog_name: &str) -> Vec<(InnerId, String)> {
         match self.catalog(catalog_name) {
             Some(catalog) => {
                 if let Some(system_catalog) = self.system_catalog.as_ref() {
@@ -1059,14 +1059,14 @@ impl DataDefinition {
         schema_name: &str,
         table_name: &str,
         column_definitions: &[ColumnDefinition],
-    ) {
+    ) -> InnerFullTableId {
         let catalog = match self.catalog(catalog_name) {
             Some(catalog) => catalog,
-            None => return,
+            None => return None,
         };
         let schema = match catalog.schema(schema_name) {
             Some(schema) => schema,
-            None => return,
+            None => return Some((catalog.id(), None)),
         };
         let created_table = schema.create_table(table_name, column_definitions);
         if let Some(system_catalog) = self.system_catalog.as_ref() {
@@ -1117,6 +1117,7 @@ impl DataDefinition {
                     .expect("to save column");
             }
         }
+        Some((catalog.id(), Some((schema.id(), Some(created_table.id())))))
     }
 
     pub(crate) fn drop_table(&self, catalog_name: &str, schema_name: &str, table_name: &str) {
@@ -1148,7 +1149,7 @@ impl DataDefinition {
         }
     }
 
-    pub(crate) fn tables(&self, catalog_name: &str, schema_name: &str) -> Vec<String> {
+    pub(crate) fn tables(&self, catalog_name: &str, schema_name: &str) -> Vec<(InnerId, String)> {
         let catalog = match self.catalog(catalog_name) {
             Some(catalog) => catalog,
             None => return vec![],

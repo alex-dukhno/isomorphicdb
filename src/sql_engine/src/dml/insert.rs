@@ -128,9 +128,9 @@ impl<'ic> InsertCommand<'ic> {
                             schema_name.to_owned() + "." + table_name,
                         )))
                         .expect("To Send Result to Client"),
-                    Some((_, Some(_))) => {
+                    Some((schema_id, Some(table_id))) => {
                         let column_names = columns;
-                        let all_columns = self.storage.table_columns(&schema_name, &table_name)?;
+                        let all_columns = self.storage.table_columns(schema_id, table_id)?;
                         let index_columns = if column_names.is_empty() {
                             let mut index_cols = vec![];
                             for (index, column_definition) in all_columns.iter().cloned().enumerate() {
