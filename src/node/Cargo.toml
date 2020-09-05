@@ -16,12 +16,12 @@ path = "src/bin.rs"
 kernel = { path = "../kernel" }
 sql_engine = { path = "../sql_engine" }
 sql_types = { path = "../sql_types" }
-storage = { path = "../storage" }
+data_manager = { path = "../data_manager" }
 futures-lite = "1.0.0"
 smol = "0.4.3"
-async-io = "0.2.6"
+async-io = "0.2.7"
 protocol = { path = "../protocol" }
 log = "0.4.8"
-simple_logger = { version = "1.7.0", default-features = false }
+simple_logger = { version = "1.9.0", default-features = false }
 async-dup = "1.2.1"
 blocking = "0.6.1"

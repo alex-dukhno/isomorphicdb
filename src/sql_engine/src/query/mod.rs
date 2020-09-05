@@ -12,9 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+///! Module for representing how a query will be parameters bound, executed and
+///! values represented during runtime.
 pub mod expr;
-///! Module for representing how a query will be executed and values represented
-///! during runtime.
+pub mod bind;
 pub mod plan;
 pub mod process;
 pub mod relation;

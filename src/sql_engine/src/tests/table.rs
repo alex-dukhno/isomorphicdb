@@ -19,7 +19,7 @@ mod schemaless {
     use super::*;
 
     #[rstest::rstest]
-    fn create_table_in_non_existent_schema(sql_engine: (QueryExecutor, Arc<Collector>)) {
+    fn create_table_in_non_existent_schema(sql_engine: (QueryExecutor, ResultCollector)) {
         let (mut engine, collector) = sql_engine;
 
         engine
@@ -33,7 +33,7 @@ mod schemaless {
     }
 
     #[rstest::rstest]
-    fn drop_table_from_non_existent_schema(sql_engine: (QueryExecutor, Arc<Collector>)) {
+    fn drop_table_from_non_existent_schema(sql_engine: (QueryExecutor, ResultCollector)) {
         let (mut engine, collector) = sql_engine;
         engine
             .execute("drop table schema_name.table_name;")
@@ -47,7 +47,7 @@ mod schemaless {
 }
 
 #[rstest::rstest]
-fn create_table(sql_engine_with_schema: (QueryExecutor, Arc<Collector>)) {
+fn create_table(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
     let (mut engine, collector) = sql_engine_with_schema;
 
     engine
@@ -63,7 +63,7 @@ fn create_table(sql_engine_with_schema: (QueryExecutor, Arc<Collector>)) {
 }
 
 #[rstest::rstest]
-fn create_same_table(sql_engine_with_schema: (QueryExecutor, Arc<Collector>)) {
+fn create_same_table(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
     let (mut engine, collector) = sql_engine_with_schema;
     engine
         .execute("create table schema_name.table_name (column_name smallint);")
@@ -83,7 +83,7 @@ fn create_same_table(sql_engine_with_schema: (QueryExecutor, Arc<Collector>)) {
 }
 
 #[rstest::rstest]
-fn drop_table(sql_engine_with_schema: (QueryExecutor, Arc<Collector>)) {
+fn drop_table(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
     let (mut engine, collector) = sql_engine_with_schema;
     engine
         .execute("create table schema_name.table_name (column_name smallint);")
@@ -108,7 +108,7 @@ fn drop_table(sql_engine_with_schema: (QueryExecutor, Arc<Collector>)) {
 }
 
 #[rstest::rstest]
-fn drop_non_existent_table(sql_engine_with_schema: (QueryExecutor, Arc<Collector>)) {
+fn drop_non_existent_table(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
     let (mut engine, collector) = sql_engine_with_schema;
     engine
         .execute("drop table schema_name.table_name;")
@@ -127,7 +127,7 @@ mod different_types {
     use super::*;
 
     #[rstest::rstest]
-    fn ints(sql_engine_with_schema: (QueryExecutor, Arc<Collector>)) {
+    fn ints(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
         let (mut engine, collector) = sql_engine_with_schema;
         engine
             .execute(
@@ -148,7 +148,7 @@ mod different_types {
     }
 
     #[rstest::rstest]
-    fn strings(sql_engine_with_schema: (QueryExecutor, Arc<Collector>)) {
+    fn strings(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
         let (mut engine, collector) = sql_engine_with_schema;
         engine
             .execute(
@@ -168,7 +168,7 @@ mod different_types {
     }
 
     #[rstest::rstest]
-    fn boolean(sql_engine_with_schema: (QueryExecutor, Arc<Collector>)) {
+    fn boolean(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
         let (mut engine, collector) = sql_engine_with_schema;
         engine
             .execute(
@@ -187,7 +187,7 @@ mod different_types {
     }
 
     #[rstest::rstest]
-    fn serials(sql_engine_with_schema: (QueryExecutor, Arc<Collector>)) {
+    fn serials(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
         let (mut engine, collector) = sql_engine_with_schema;
         engine
             .execute(

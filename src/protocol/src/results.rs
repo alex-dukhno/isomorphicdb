@@ -50,10 +50,12 @@ pub enum QueryEvent {
     RecordsDeleted(usize),
     /// Parameters described needed by a prepared statement
     PreparedStatementDescribed(Vec<PostgreSqlType>, Description),
-    /// Parsing the extended query is complete
-    ParseComplete,
     /// Processing of the query is complete
     QueryComplete,
+    /// Parsing the exteneded query is complete
+    ParseComplete,
+    /// Binding the exteneded query is complete
+    BindComplete,
 }
 
 impl Into<Vec<BackendMessage>> for QueryEvent {
@@ -96,11 +98,12 @@ impl Into<Vec<BackendMessage>> for QueryEvent {
                     BackendMessage::RowDescription(columns)
                 };
 
-                let type_ids = param_types.iter().map(|t| t.pg_oid()).collect();
+                let type_ids = param_types.iter().map(PostgreSqlType::pg_oid).collect();
                 vec![BackendMessage::ParameterDescription(type_ids), desc_message]
             }
             QueryEvent::QueryComplete => vec![BackendMessage::ReadyForQuery],
             QueryEvent::ParseComplete => vec![BackendMessage::ParseComplete],
+            QueryEvent::BindComplete => vec![BackendMessage::BindComplete],
         }
     }
 }
@@ -143,7 +146,10 @@ pub(crate) enum QueryErrorKind {
     SchemaHasDependentObjects(String),
     TableDoesNotExist(String),
     ColumnDoesNotExist(String),
+    InvalidParameterValue(String),
     PreparedStatementDoesNotExist(String),
+    PortalDoesNotExist(String),
+    ProtocolViolation(String),
     FeatureNotSupported(String),
     TooManyInsertExpressions,
     NumericTypeOutOfRange {
@@ -186,7 +192,10 @@ impl QueryErrorKind {
             Self::SchemaHasDependentObjects(_) => "2BP01",
             Self::TableDoesNotExist(_) => "42P01",
             Self::ColumnDoesNotExist(_) => "42703",
+            Self::InvalidParameterValue(_) => "22023",
             Self::PreparedStatementDoesNotExist(_) => "26000",
+            Self::PortalDoesNotExist(_) => "26000",
+            Self::ProtocolViolation(_) => "08P01",
             Self::FeatureNotSupported(_) => "0A000",
             Self::TooManyInsertExpressions => "42601",
             Self::NumericTypeOutOfRange { .. } => "22003",
@@ -213,9 +222,12 @@ impl Display for QueryErrorKind {
             Self::ColumnDoesNotExist(column) => {
                 write!(f, "column {} does not exist", column)
             }
+            Self::InvalidParameterValue(message) => write!(f, "{}", message),
             Self::PreparedStatementDoesNotExist(statement_name) => {
                 write!(f, "prepared statement {} does not exist", statement_name)
             }
+            Self::PortalDoesNotExist(portal_name) => write!(f, "portal {} does not exist", portal_name),
+            Self::ProtocolViolation(message) => write!(f, "{}", message),
             Self::FeatureNotSupported(raw_sql_query) => {
                 write!(f, "Currently, Query '{}' can't be executed", raw_sql_query)
             }
@@ -342,11 +354,35 @@ impl QueryError {
         }
     }
 
+    /// invalid parameter value error constructor
+    pub fn invalid_parameter_value(message: String) -> Self {
+        QueryError {
+            severity: Severity::Error,
+            kind: QueryErrorKind::InvalidParameterValue(message),
+        }
+    }
+
     /// prepared statement does not exist error constructor
     pub fn prepared_statement_does_not_exist(statement_name: String) -> QueryError {
         QueryError {
             severity: Severity::Error,
             kind: QueryErrorKind::PreparedStatementDoesNotExist(statement_name),
+        }
+    }
+
+    /// portal does not exist error constructor
+    pub fn portal_does_not_exist(portal_name: String) -> QueryError {
+        QueryError {
+            severity: Severity::Error,
+            kind: QueryErrorKind::PortalDoesNotExist(portal_name),
+        }
+    }
+
+    /// protocol violation error constructor
+    pub fn protocol_violation(message: String) -> QueryError {
+        QueryError {
+            severity: Severity::Error,
+            kind: QueryErrorKind::ProtocolViolation(message),
         }
     }
 
@@ -568,15 +604,21 @@ mod tests {
         }
 
         #[test]
+        fn complete_query() {
+            let messages: Vec<BackendMessage> = QueryEvent::QueryComplete.into();
+            assert_eq!(messages, [BackendMessage::ReadyForQuery])
+        }
+
+        #[test]
         fn complete_parse() {
             let messages: Vec<BackendMessage> = QueryEvent::ParseComplete.into();
             assert_eq!(messages, [BackendMessage::ParseComplete])
         }
 
         #[test]
-        fn complete_query() {
-            let messages: Vec<BackendMessage> = QueryEvent::QueryComplete.into();
-            assert_eq!(messages, [BackendMessage::ReadyForQuery])
+        fn complete_bind() {
+            let messages: Vec<BackendMessage> = QueryEvent::BindComplete.into();
+            assert_eq!(messages, [BackendMessage::BindComplete])
         }
     }
 
@@ -655,6 +697,16 @@ mod tests {
         }
 
         #[test]
+        fn invalid_parameter_value() {
+            let messages: BackendMessage =
+                QueryError::invalid_parameter_value("Wrong parameter value".to_owned()).into();
+            assert_eq!(
+                messages,
+                BackendMessage::ErrorResponse(Some("ERROR"), Some("22023"), Some("Wrong parameter value".to_owned()),)
+            )
+        }
+
+        #[test]
         fn prepared_statement_does_not_exists() {
             let messages: BackendMessage =
                 QueryError::prepared_statement_does_not_exist("statement_name".to_owned()).into();
@@ -665,6 +717,28 @@ mod tests {
                     Some("26000"),
                     Some("prepared statement statement_name does not exist".to_owned()),
                 )
+            )
+        }
+
+        #[test]
+        fn portal_does_not_exists() {
+            let messages: BackendMessage = QueryError::portal_does_not_exist("portal_name".to_owned()).into();
+            assert_eq!(
+                messages,
+                BackendMessage::ErrorResponse(
+                    Some("ERROR"),
+                    Some("26000"),
+                    Some("portal portal_name does not exist".to_owned()),
+                )
+            )
+        }
+
+        #[test]
+        fn protocol_violation() {
+            let messages: BackendMessage = QueryError::protocol_violation("Wrong protocol data".to_owned()).into();
+            assert_eq!(
+                messages,
+                BackendMessage::ErrorResponse(Some("ERROR"), Some("08P01"), Some("Wrong protocol data".to_owned()),)
             )
         }
 

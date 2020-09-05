@@ -14,8 +14,9 @@
 
 use async_dup::Arc as AsyncArc;
 use async_io::Async;
+use data_manager::DataManager;
 use protocol::{Command, ProtocolConfiguration, Receiver};
-use sql_engine::{catalog_manager::CatalogManager, QueryExecutor};
+use sql_engine::QueryExecutor;
 use std::{
     env,
     net::TcpListener,
@@ -37,9 +38,9 @@ pub fn start() {
     let root_path = env::var("ROOT_PATH").map(PathBuf::from).unwrap_or_default();
     smol::block_on(async {
         let storage = if persistent {
-            Arc::new(CatalogManager::persistent(root_path.join("database")).unwrap())
+            Arc::new(DataManager::persistent(root_path.join("root_directory")).unwrap())
         } else {
-            Arc::new(CatalogManager::in_memory().unwrap())
+            Arc::new(DataManager::in_memory().unwrap())
         };
         let listener = Async::<TcpListener>::bind((HOST, PORT)).expect("OK");
 
@@ -75,25 +76,53 @@ pub fn start() {
                                 state.store(STOPPED, Ordering::SeqCst);
                                 return;
                             }
+                            Ok(Ok(Command::Bind {
+                                portal_name,
+                                statement_name,
+                                param_formats,
+                                raw_params,
+                                result_formats,
+                            })) => {
+                                match query_executor.bind_prepared_statement_to_portal(
+                                    portal_name.as_str(),
+                                    statement_name.as_str(),
+                                    param_formats.as_ref(),
+                                    raw_params.as_ref(),
+                                    result_formats.as_ref(),
+                                ) {
+                                    Ok(()) => {}
+                                    Err(error) => log::error!("{:?}", error),
+                                }
+                            }
                             Ok(Ok(Command::Continue)) => {}
-                            Ok(Ok(Command::DescribeStatement(name))) => {
+                            Ok(Ok(Command::DescribeStatement { name })) => {
                                 match query_executor.describe_prepared_statement(name.as_str()) {
                                     Ok(()) => {}
                                     Err(error) => log::error!("{:?}", error),
                                 }
                             }
+                            Ok(Ok(Command::Execute { portal_name, max_rows })) => {
+                                match query_executor.execute_portal(portal_name.as_str(), max_rows) {
+                                    Ok(()) => {}
+                                    Err(error) => log::error!("{:?}", error),
+                                }
+                            }
                             Ok(Ok(Command::Flush)) => query_executor.flush(),
-                            Ok(Ok(Command::Parse(statement_name, sql_query, param_types))) => {
-                                match query_executor.parse(
+                            Ok(Ok(Command::Parse {
+                                statement_name,
+                                sql,
+                                param_types,
+                            })) => {
+                                match query_executor.parse_prepared_statement(
                                     statement_name.as_str(),
-                                    sql_query.as_str(),
+                                    sql.as_str(),
                                     param_types.as_ref(),
                                 ) {
                                     Ok(()) => {}
                                     Err(error) => log::error!("{:?}", error),
                                 }
                             }
-                            Ok(Ok(Command::Query(sql_query))) => match query_executor.execute(sql_query.as_str()) {
+                            Ok(Ok(Command::Query { sql })) => match query_executor.execute(sql.as_str()) {
                                 Ok(()) => {
                                     query_executor.flush();
                                 }

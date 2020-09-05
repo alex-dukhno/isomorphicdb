@@ -13,13 +13,19 @@
 // limitations under the License.
 
 #[cfg(test)]
+mod bind;
+#[cfg(test)]
+mod bind_prepared_statement_to_portal;
+#[cfg(test)]
 mod delete;
 #[cfg(test)]
 mod describe_prepared_statement;
 #[cfg(test)]
+mod execute_portal;
+#[cfg(test)]
 mod insert;
 #[cfg(test)]
-mod parse;
+mod parse_prepared_statement;
 #[cfg(test)]
 mod schema;
 #[cfg(test)]
@@ -32,17 +38,13 @@ mod type_constraints;
 mod update;
 
 use super::*;
-use crate::{catalog_manager::CatalogManager, QueryExecutor};
+use crate::QueryExecutor;
 use protocol::results::{QueryError, QueryResult};
 use std::{
     io,
     ops::Deref,
     sync::{Arc, Mutex},
 };
-
-fn in_memory_storage() -> Arc<CatalogManager> {
-    Arc::new(CatalogManager::default())
-}
 
 struct Collector(Mutex<Vec<QueryResult>>);
 
@@ -69,14 +71,27 @@ impl Collector {
     }
 }
 
+type ResultCollector = Arc<Collector>;
+
 #[rstest::fixture]
-fn sql_engine() -> (QueryExecutor, Arc<Collector>) {
-    let collector = Arc::new(Collector(Mutex::new(vec![])));
-    (QueryExecutor::new(in_memory_storage(), collector.clone()), collector)
+fn sender() -> ResultCollector {
+    Arc::new(Collector(Mutex::new(vec![])))
 }
 
 #[rstest::fixture]
-fn sql_engine_with_schema(sql_engine: (QueryExecutor, Arc<Collector>)) -> (QueryExecutor, Arc<Collector>) {
+fn sql_engine() -> (QueryExecutor, ResultCollector) {
+    let collector = Arc::new(Collector(Mutex::new(vec![])));
+    (
+        QueryExecutor::new(
+            Arc::new(DataManager::in_memory().expect("to create data manager")),
+            collector.clone(),
+        ),
+        collector,
+    )
+}
+
+#[rstest::fixture]
+fn sql_engine_with_schema(sql_engine: (QueryExecutor, ResultCollector)) -> (QueryExecutor, ResultCollector) {
     let (mut engine, collector) = sql_engine;
     engine.execute("create schema schema_name;").expect("no system errors");
 

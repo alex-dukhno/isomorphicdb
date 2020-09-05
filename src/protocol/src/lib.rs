@@ -19,6 +19,7 @@ extern crate log;
 use crate::{
     messages::{BackendMessage, Encryption, FrontendMessage},
     results::QueryResult,
+    sql_formats::PostgreSqlFormat,
     sql_types::PostgreSqlType,
 };
 use async_mutex::Mutex as AsyncMutex;
@@ -45,8 +46,16 @@ use std::{
 pub mod messages;
 /// Module contains functionality to represent query result
 pub mod results;
+/// Module contains functionality to represent server side client session
+pub mod session;
+/// Module contains functionality to represent SQL format
+pub mod sql_formats;
 /// Module contains functionality to represent SQL type system
 pub mod sql_types;
+/// Module contains functionality to represent SQL data value
+pub mod sql_values;
+/// Module contains functionality to hold data about `PreparedStatement`
+pub mod statement;
 
 /// Protocol version
 pub type Version = i32;
@@ -88,16 +97,55 @@ pub enum Error {
 /// Result of handling incoming bytes from a client
 #[derive(Debug, PartialEq)]
 pub enum Command {
+    /// Client commands to bind a prepared statement to a portal
+    Bind {
+        /// The destination portal. An empty string selects the unnamed
+        /// portal. The portal can later be executed with the `Execute` command.
+        portal_name: String,
+        /// The source prepared statement. An empty string selects the unnamed
+        /// prepared statement.
+        statement_name: String,
+        /// The formats used to encode the parameters.
+        param_formats: Vec<PostgreSqlFormat>,
+        /// The value of each parameter.
+        raw_params: Vec<Option<Vec<u8>>>,
+        /// The desired formats for the columns in the result set.
+        result_formats: Vec<PostgreSqlFormat>,
+    },
     /// Nothing needs to handle on client, just to receive next message
     Continue,
     /// Client commands to describe a prepared statement
-    DescribeStatement(String),
+    DescribeStatement {
+        /// The name of the prepared statement to describe.
+        name: String,
+    },
+    /// Client commands to execute a portal
+    Execute {
+        /// The name of the portal to execute.
+        portal_name: String,
+        /// The maximum number of rows to return before suspending.
+        ///
+        /// 0 or negative means infinite.
+        max_rows: i32,
+    },
     /// Client commands to flush the output stream
     Flush,
     /// Client commands to prepare a statement for execution
-    Parse(String, String, Vec<PostgreSqlType>),
+    Parse {
+        /// The name of the prepared statement to create. An empty string
+        /// specifies the unnamed prepared statement.
+        statement_name: String,
+        /// The SQL to parse.
+        sql: String,
+        /// The number of specified parameter data types can be less than the
+        /// number of parameters specified in the query.
+        param_types: Vec<PostgreSqlType>,
+    },
     /// Client commands to execute a `Query`
-    Query(String),
+    Query {
+        /// The SQL to execute.
+        sql: String,
+    },
     /// Client commands to terminate current connection
     Terminate,
 }
@@ -296,14 +344,32 @@ impl<RW: AsyncRead + AsyncWrite + Unpin> Receiver for RequestReceiver<RW> {
         log::debug!("MESSAGE {:?}", message);
 
         match message {
-            FrontendMessage::DescribeStatement { name } => Ok(Ok(Command::DescribeStatement(name))),
+            FrontendMessage::Bind {
+                portal_name,
+                statement_name,
+                param_formats,
+                raw_params,
+                result_formats,
+            } => Ok(Ok(Command::Bind {
+                portal_name,
+                statement_name,
+                param_formats,
+                raw_params,
+                result_formats,
+            })),
+            FrontendMessage::DescribeStatement { name } => Ok(Ok(Command::DescribeStatement { name })),
+            FrontendMessage::Execute { portal_name, max_rows } => Ok(Ok(Command::Execute { portal_name, max_rows })),
             FrontendMessage::Flush => Ok(Ok(Command::Flush)),
             FrontendMessage::Parse {
                 statement_name,
                 sql,
                 param_types,
-            } => Ok(Ok(Command::Parse(statement_name, sql, param_types))),
-            FrontendMessage::Query { sql } => Ok(Ok(Command::Query(sql))),
+            } => Ok(Ok(Command::Parse {
+                statement_name,
+                sql,
+                param_types,
+            })),
+            FrontendMessage::Query { sql } => Ok(Ok(Command::Query { sql })),
             FrontendMessage::Terminate => Ok(Ok(Command::Terminate)),
             _ => Ok(Ok(Command::Continue)),
         }

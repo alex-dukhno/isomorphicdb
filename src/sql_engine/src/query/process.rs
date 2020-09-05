@@ -14,13 +14,9 @@
 
 ///! Module for transforming the input Query AST into representation the engine can process.
 use crate::query::plan::{Plan, SchemaCreationInfo, TableCreationInfo, TableInserts};
-use crate::{
-    catalog_manager::CatalogManager,
-    query::{SchemaId, SchemaNamingError, TableId, TableNamingError},
-    ColumnDefinition,
-};
-use protocol::results::QueryError;
-use protocol::Sender;
+use crate::query::{SchemaId, SchemaNamingError, TableId, TableNamingError};
+use data_manager::{ColumnDefinition, DataManager};
+use protocol::{results::QueryError, Sender};
 use sql_types::SqlType;
 use sqlparser::ast::{ColumnDef, DataType, ObjectName, ObjectType, Query, Select, SetExpr, Statement};
 use std::{convert::TryFrom, sync::Arc};
@@ -28,37 +24,38 @@ use std::{convert::TryFrom, sync::Arc};
 type Result<T> = std::result::Result<T, ()>;
 
 pub(crate) struct QueryProcessor {
-    storage: Arc<CatalogManager>,
-    session: Arc<dyn Sender>,
+    storage: Arc<DataManager>,
+    sender: Arc<dyn Sender>,
 }
 
 impl<'qp> QueryProcessor {
-    pub fn new(storage: Arc<CatalogManager>, session: Arc<dyn Sender>) -> Self {
-        Self { storage, session }
+    pub fn new(storage: Arc<DataManager>, sender: Arc<dyn Sender>) -> Self {
+        Self { storage, sender }
     }
 
-    pub fn process(&mut self, stmt: Statement) -> Result<Plan> {
+    pub fn process(&self, stmt: Statement) -> Result<Plan> {
         match stmt {
             Statement::CreateTable { name, columns, .. } => self.handle_create_table(name, &columns),
             Statement::CreateSchema { schema_name, .. } => {
                 let schema_id = match SchemaId::try_from(schema_name) {
                     Ok(schema_id) => schema_id,
                     Err(SchemaNamingError(message)) => {
-                        self.session
+                        self.sender
                             .send(Err(QueryError::syntax_error(message)))
                             .expect("To Send Query Result to Client");
                         return Err(());
                     }
                 };
-                if self.storage.schema_exists(schema_id.name()) {
-                    self.session
-                        .send(Err(QueryError::schema_already_exists(schema_id.name().to_string())))
-                        .expect("To Send Query Result to Client");
-                    Err(())
-                } else {
-                    Ok(Plan::CreateSchema(SchemaCreationInfo {
+                match self.storage.schema_exists(schema_id.name()) {
+                    Some(_) => {
+                        self.sender
+                            .send(Err(QueryError::schema_already_exists(schema_id.name().to_string())))
+                            .expect("To Send Query Result to Client");
+                        Err(())
+                    }
+                    None => Ok(Plan::CreateSchema(SchemaCreationInfo {
                         schema_name: schema_id.name().to_string(),
-                    }))
+                    })),
                 }
             }
             Statement::Drop {
@@ -78,7 +75,7 @@ impl<'qp> QueryProcessor {
                     input: source,
                 })),
                 Err(TableNamingError(message)) => {
-                    self.session
+                    self.sender
                         .send(Err(QueryError::syntax_error(message)))
                         .expect("To Send Query Result to Client");
                     Err(())
@@ -104,7 +101,7 @@ impl<'qp> QueryProcessor {
                     "smallserial" => Ok(SqlType::SmallInt(1)),
                     "bigserial" => Ok(SqlType::BigInt(1)),
                     other_type => {
-                        self.session
+                        self.sender
                             .send(Err(QueryError::feature_not_supported(format!(
                                 "{} type is not supported",
                                 other_type
@@ -115,7 +112,7 @@ impl<'qp> QueryProcessor {
                 }
             }
             other_type => {
-                self.session
+                self.sender
                     .send(Err(QueryError::feature_not_supported(format!(
                         "{} type is not supported",
                         other_type
@@ -137,11 +134,11 @@ impl<'qp> QueryProcessor {
         Ok(column_defs)
     }
 
-    fn handle_create_table(&mut self, name: ObjectName, columns: &[ColumnDef]) -> Result<Plan> {
+    fn handle_create_table(&self, name: ObjectName, columns: &[ColumnDef]) -> Result<Plan> {
         let table_id = match TableId::try_from(name) {
             Ok(table_id) => table_id,
             Err(TableNamingError(message)) => {
-                self.session
+                self.sender
                     .send(Err(QueryError::syntax_error(message)))
                     .expect("To Send Query Result to Client");
                 return Err(());
@@ -149,31 +146,35 @@ impl<'qp> QueryProcessor {
         };
         let schema_name = table_id.schema_name();
         let table_name = table_id.name();
-        if !self.storage.schema_exists(schema_name) {
-            self.session
-                .send(Err(QueryError::schema_does_not_exist(schema_name.to_string())))
-                .expect("To Send Query Result to Client");
-            Err(())
-        } else if self.storage.table_exists(schema_name, table_name) {
-            self.session
-                .send(Err(QueryError::table_already_exists(format!(
-                    "{}.{}",
-                    schema_name, table_name
-                ))))
-                .expect("To Send Query Result to Client");
-            Err(())
-        } else {
-            let columns = self.resolve_column_definitions(columns)?;
-            let table_info = TableCreationInfo {
-                schema_name: schema_name.to_owned(),
-                table_name: table_name.to_owned(),
-                columns,
-            };
-            Ok(Plan::CreateTable(table_info))
+        match self.storage.table_exists(&schema_name, &table_name) {
+            None => {
+                self.sender
+                    .send(Err(QueryError::schema_does_not_exist(schema_name.to_owned())))
+                    .expect("To Send Query Result to Client");
+                Err(())
+            }
+            Some((_, Some(_))) => {
+                self.sender
+                    .send(Err(QueryError::table_already_exists(format!(
+                        "{}.{}",
+                        schema_name, table_name
+                    ))))
+                    .expect("To Send Query Result to Client");
+                Err(())
+            }
+            Some((_, None)) => {
+                let columns = self.resolve_column_definitions(columns)?;
+                let table_info = TableCreationInfo {
+                    schema_name: schema_name.to_owned(),
+                    table_name: table_name.to_owned(),
+                    columns,
+                };
+                Ok(Plan::CreateTable(table_info))
+            }
         }
     }
 
-    fn handle_drop(&mut self, object_type: &ObjectType, names: &[ObjectName], cascade: bool) -> Result<Plan> {
+    fn handle_drop(&self, object_type: &ObjectType, names: &[ObjectName], cascade: bool) -> Result<Plan> {
         match object_type {
             ObjectType::Table => {
                 let mut table_names = Vec::with_capacity(names.len());
@@ -183,7 +184,7 @@ impl<'qp> QueryProcessor {
                     let table_id = match TableId::try_from(name.clone()) {
                         Ok(table_id) => table_id,
                         Err(TableNamingError(message)) => {
-                            self.session
+                            self.sender
                                 .send(Err(QueryError::syntax_error(message)))
                                 .expect("To Send Query Result to Client");
                             return Err(());
@@ -191,21 +192,23 @@ impl<'qp> QueryProcessor {
                     };
                     let schema_name = table_id.schema_name();
                     let table_name = table_id.name();
-                    if !self.storage.schema_exists(schema_name) {
-                        self.session
-                            .send(Err(QueryError::schema_does_not_exist(schema_name.to_string())))
-                            .expect("To Send Query Result to Client");
-                        return Err(());
-                    } else if !self.storage.table_exists(schema_name, table_name) {
-                        self.session
-                            .send(Err(QueryError::table_does_not_exist(format!(
-                                "{}.{}",
-                                schema_name, table_name
-                            ))))
-                            .expect("To Send Query Result to Client");
-                        return Err(());
-                    } else {
-                        table_names.push(table_id);
+                    match self.storage.table_exists(&schema_name, &table_name) {
+                        None => {
+                            self.sender
+                                .send(Err(QueryError::schema_does_not_exist(schema_name.to_owned())))
+                                .expect("To Send Query Result to Client");
+                            return Err(());
+                        }
+                        Some((_, None)) => {
+                            self.sender
+                                .send(Err(QueryError::table_does_not_exist(format!(
+                                    "{}.{}",
+                                    schema_name, table_name
+                                ))))
+                                .expect("To Send Query Result to Client");
+                            return Err(());
+                        }
+                        Some((_, Some(_))) => table_names.push(table_id),
                     }
                 }
                 Ok(Plan::DropTables(table_names))
@@ -216,20 +219,21 @@ impl<'qp> QueryProcessor {
                     let schema_id = match SchemaId::try_from(name.clone()) {
                         Ok(schema_id) => schema_id,
                         Err(SchemaNamingError(message)) => {
-                            self.session
+                            self.sender
                                 .send(Err(QueryError::syntax_error(message)))
                                 .expect("To Send Query Result to Client");
                             return Err(());
                         }
                     };
-                    if !self.storage.schema_exists(schema_id.name()) {
-                        self.session
-                            .send(Err(QueryError::schema_does_not_exist(schema_id.name().to_string())))
-                            .expect("To Send Query Result to Client");
-                        return Err(());
+                    match self.storage.schema_exists(schema_id.name()) {
+                        None => {
+                            self.sender
+                                .send(Err(QueryError::schema_does_not_exist(schema_id.name().to_owned())))
+                                .expect("To Send Query Result to Client");
+                            return Err(());
+                        }
+                        Some(_) => schema_names.push((schema_id, cascade)),
                     }
-
-                    schema_names.push((schema_id, cascade));
                 }
                 Ok(Plan::DropSchemas(schema_names))
             }

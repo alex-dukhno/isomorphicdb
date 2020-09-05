@@ -16,7 +16,7 @@ use super::*;
 use protocol::sql_types::PostgreSqlType;
 
 #[rstest::rstest]
-fn insert_into_nonexistent_table(sql_engine_with_schema: (QueryExecutor, Arc<Collector>)) {
+fn insert_into_nonexistent_table(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
     let (mut engine, collector) = sql_engine_with_schema;
     engine
         .execute("insert into schema_name.table_name values (123);")
@@ -31,7 +31,7 @@ fn insert_into_nonexistent_table(sql_engine_with_schema: (QueryExecutor, Arc<Col
 }
 
 #[rstest::rstest]
-fn insert_value_in_non_existent_column(sql_engine_with_schema: (QueryExecutor, Arc<Collector>)) {
+fn insert_value_in_non_existent_column(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
     let (mut engine, collector) = sql_engine_with_schema;
     engine
         .execute("create table schema_name.table_name (column_test smallint);")
@@ -51,7 +51,7 @@ fn insert_value_in_non_existent_column(sql_engine_with_schema: (QueryExecutor, A
 }
 
 #[rstest::rstest]
-fn insert_and_select_single_row(sql_engine_with_schema: (QueryExecutor, Arc<Collector>)) {
+fn insert_and_select_single_row(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
     let (mut engine, collector) = sql_engine_with_schema;
     engine
         .execute("create table schema_name.table_name (column_test smallint);")
@@ -80,7 +80,7 @@ fn insert_and_select_single_row(sql_engine_with_schema: (QueryExecutor, Arc<Coll
 }
 
 #[rstest::rstest]
-fn insert_and_select_multiple_rows(sql_engine_with_schema: (QueryExecutor, Arc<Collector>)) {
+fn insert_and_select_multiple_rows(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
     let (mut engine, collector) = sql_engine_with_schema;
     engine
         .execute("create table schema_name.table_name (column_test smallint);")
@@ -122,7 +122,7 @@ fn insert_and_select_multiple_rows(sql_engine_with_schema: (QueryExecutor, Arc<C
 }
 
 #[rstest::rstest]
-fn insert_and_select_named_columns(sql_engine_with_schema: (QueryExecutor, Arc<Collector>)) {
+fn insert_and_select_named_columns(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
     let (mut engine, collector) = sql_engine_with_schema;
     engine
         .execute("create table schema_name.table_name (col1 smallint, col2 smallint, col3 smallint);")
@@ -157,7 +157,7 @@ fn insert_and_select_named_columns(sql_engine_with_schema: (QueryExecutor, Arc<C
 }
 
 #[rstest::rstest]
-fn insert_multiple_rows(sql_engine_with_schema: (QueryExecutor, Arc<Collector>)) {
+fn insert_multiple_rows(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
     let (mut engine, collector) = sql_engine_with_schema;
     engine
         .execute("create table schema_name.table_name (column_1 smallint, column_2 smallint, column_3 smallint);")
@@ -193,7 +193,7 @@ fn insert_multiple_rows(sql_engine_with_schema: (QueryExecutor, Arc<Collector>))
 }
 
 #[rstest::rstest]
-fn insert_and_select_different_integer_types(sql_engine_with_schema: (QueryExecutor, Arc<Collector>)) {
+fn insert_and_select_different_integer_types(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
     let (mut engine, collector) = sql_engine_with_schema;
     engine
         .execute("create table schema_name.table_name (column_si smallint, column_i integer, column_bi bigint, column_serial serial);")
@@ -244,7 +244,7 @@ fn insert_and_select_different_integer_types(sql_engine_with_schema: (QueryExecu
 }
 
 #[rstest::rstest]
-fn insert_and_select_different_character_types(sql_engine_with_schema: (QueryExecutor, Arc<Collector>)) {
+fn insert_and_select_different_character_types(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
     let (mut engine, collector) = sql_engine_with_schema;
     engine
         .execute("create table schema_name.table_name (column_c char(10), column_vc varchar(10));")
@@ -283,7 +283,7 @@ fn insert_and_select_different_character_types(sql_engine_with_schema: (QueryExe
 }
 
 #[rstest::rstest]
-fn insert_booleans(sql_engine_with_schema: (QueryExecutor, Arc<Collector>)) {
+fn insert_booleans(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
     let (mut engine, collector) = sql_engine_with_schema;
     engine
         .execute("create table schema_name.table_name (b boolean);")
@@ -325,7 +325,9 @@ mod operators {
             use super::*;
 
             #[rstest::fixture]
-            fn with_table(sql_engine_with_schema: (QueryExecutor, Arc<Collector>)) -> (QueryExecutor, Arc<Collector>) {
+            fn with_table(
+                sql_engine_with_schema: (QueryExecutor, ResultCollector),
+            ) -> (QueryExecutor, ResultCollector) {
                 let (mut engine, collector) = sql_engine_with_schema;
                 engine
                     .execute("create table schema_name.table_name(column_si smallint);")
@@ -335,7 +337,7 @@ mod operators {
             }
 
             #[rstest::rstest]
-            fn addition(with_table: (QueryExecutor, Arc<Collector>)) {
+            fn addition(with_table: (QueryExecutor, ResultCollector)) {
                 let (mut engine, collector) = with_table;
                 engine
                     .execute("insert into schema_name.table_name values (1 + 2);")
@@ -360,7 +362,7 @@ mod operators {
             }
 
             #[rstest::rstest]
-            fn subtraction(with_table: (QueryExecutor, Arc<Collector>)) {
+            fn subtraction(with_table: (QueryExecutor, ResultCollector)) {
                 let (mut engine, collector) = with_table;
                 engine
                     .execute("insert into schema_name.table_name values (1 - 2);")
@@ -385,7 +387,7 @@ mod operators {
             }
 
             #[rstest::rstest]
-            fn multiplication(with_table: (QueryExecutor, Arc<Collector>)) {
+            fn multiplication(with_table: (QueryExecutor, ResultCollector)) {
                 let (mut engine, collector) = with_table;
                 engine
                     .execute("insert into schema_name.table_name values (3 * 2);")
@@ -410,7 +412,7 @@ mod operators {
             }
 
             #[rstest::rstest]
-            fn division(with_table: (QueryExecutor, Arc<Collector>)) {
+            fn division(with_table: (QueryExecutor, ResultCollector)) {
                 let (mut engine, collector) = with_table;
                 engine
                     .execute("insert into schema_name.table_name values (8 / 2);")
@@ -435,7 +437,7 @@ mod operators {
             }
 
             #[rstest::rstest]
-            fn modulo(with_table: (QueryExecutor, Arc<Collector>)) {
+            fn modulo(with_table: (QueryExecutor, ResultCollector)) {
                 let (mut engine, collector) = with_table;
                 engine
                     .execute("insert into schema_name.table_name values (8 % 2);")
@@ -463,7 +465,7 @@ mod operators {
             #[ignore]
             // TODO ^ is bitwise in SQL standard
             //      # is bitwise in PostgreSQL and it does not supported in sqlparser-rs
-            fn exponentiation(with_table: (QueryExecutor, Arc<Collector>)) {
+            fn exponentiation(with_table: (QueryExecutor, ResultCollector)) {
                 let (mut engine, collector) = with_table;
                 engine
                     .execute("insert into schema_name.table_name values (8 ^ 2);")
@@ -490,7 +492,7 @@ mod operators {
             #[rstest::rstest]
             #[ignore]
             // TODO |/<n> is square root in PostgreSQL and it does not supported in sqlparser-rs
-            fn square_root(with_table: (QueryExecutor, Arc<Collector>)) {
+            fn square_root(with_table: (QueryExecutor, ResultCollector)) {
                 let (mut engine, collector) = with_table;
                 engine
                     .execute("insert into schema_name.table_name values (|/ 16);")
@@ -517,7 +519,7 @@ mod operators {
             #[rstest::rstest]
             #[ignore]
             // TODO ||/<n> is cube root in PostgreSQL and it does not supported in sqlparser-rs
-            fn cube_root(with_table: (QueryExecutor, Arc<Collector>)) {
+            fn cube_root(with_table: (QueryExecutor, ResultCollector)) {
                 let (mut engine, collector) = with_table;
                 engine
                     .execute("insert into schema_name.table_name values (||/ 8);")
@@ -544,7 +546,7 @@ mod operators {
             #[rstest::rstest]
             #[ignore]
             // TODO <n>! is factorial in PostgreSQL and it does not supported in sqlparser-rs
-            fn factorial(with_table: (QueryExecutor, Arc<Collector>)) {
+            fn factorial(with_table: (QueryExecutor, ResultCollector)) {
                 let (mut engine, collector) = with_table;
                 engine
                     .execute("insert into schema_name.table_name values (5!);")
@@ -571,7 +573,7 @@ mod operators {
             #[rstest::rstest]
             #[ignore]
             // TODO !!<n> is prefix factorial in PostgreSQL and it does not supported in sqlparser-rs
-            fn prefix_factorial(with_table: (QueryExecutor, Arc<Collector>)) {
+            fn prefix_factorial(with_table: (QueryExecutor, ResultCollector)) {
                 let (mut engine, collector) = with_table;
                 engine
                     .execute("insert into schema_name.table_name values (!!5);")
@@ -598,7 +600,7 @@ mod operators {
             #[rstest::rstest]
             #[ignore]
             // TODO @<n> is absolute value in PostgreSQL and it does not supported in sqlparser-rs
-            fn absolute_value(with_table: (QueryExecutor, Arc<Collector>)) {
+            fn absolute_value(with_table: (QueryExecutor, ResultCollector)) {
                 let (mut engine, collector) = with_table;
                 engine
                     .execute("insert into schema_name.table_name values (@-5);")
@@ -623,7 +625,7 @@ mod operators {
             }
 
             #[rstest::rstest]
-            fn bitwise_and(with_table: (QueryExecutor, Arc<Collector>)) {
+            fn bitwise_and(with_table: (QueryExecutor, ResultCollector)) {
                 let (mut engine, collector) = with_table;
                 engine
                     .execute("insert into schema_name.table_name values (5 & 1);")
@@ -648,7 +650,7 @@ mod operators {
             }
 
             #[rstest::rstest]
-            fn bitwise_or(with_table: (QueryExecutor, Arc<Collector>)) {
+            fn bitwise_or(with_table: (QueryExecutor, ResultCollector)) {
                 let (mut engine, collector) = with_table;
                 engine
                     .execute("insert into schema_name.table_name values (5 | 2);")
@@ -675,7 +677,7 @@ mod operators {
             #[rstest::rstest]
             #[ignore]
             // TODO ~ <n> is bitwise NOT in PostgreSQL and it does not supported in sqlparser-rs
-            fn bitwise_not(with_table: (QueryExecutor, Arc<Collector>)) {
+            fn bitwise_not(with_table: (QueryExecutor, ResultCollector)) {
                 let (mut engine, collector) = with_table;
                 engine
                     .execute("insert into schema_name.table_name values (~1);")
@@ -702,7 +704,7 @@ mod operators {
             #[rstest::rstest]
             #[ignore]
             // TODO <n> << <m> is bitwise SHIFT LEFT in PostgreSQL and it does not supported in sqlparser-rs
-            fn bitwise_shift_left(with_table: (QueryExecutor, Arc<Collector>)) {
+            fn bitwise_shift_left(with_table: (QueryExecutor, ResultCollector)) {
                 let (mut engine, collector) = with_table;
                 engine
                     .execute("insert into schema_name.table_name values (1 << 4);")
@@ -729,7 +731,7 @@ mod operators {
             #[rstest::rstest]
             #[ignore]
             // TODO <n> >> <m> is bitwise SHIFT RIGHT in PostgreSQL and it does not supported in sqlparser-rs
-            fn bitwise_shift_right(with_table: (QueryExecutor, Arc<Collector>)) {
+            fn bitwise_right_left(with_table: (QueryExecutor, ResultCollector)) {
                 let (mut engine, collector) = with_table;
                 engine
                     .execute("insert into schema_name.table_name values (8 >> 2);")
@@ -754,7 +756,7 @@ mod operators {
             }
 
             #[rstest::rstest]
-            fn evaluate_many_operations(with_table: (QueryExecutor, Arc<Collector>)) {
+            fn evaluate_many_operations(with_table: (QueryExecutor, ResultCollector)) {
                 let (mut engine, collector) = with_table;
                 engine
                     .execute("insert into schema_name.table_name values (5 & 13 % 10 + 1 * 20 - 40 / 4);")
@@ -785,7 +787,7 @@ mod operators {
         use super::*;
 
         #[rstest::fixture]
-        fn with_table(sql_engine_with_schema: (QueryExecutor, Arc<Collector>)) -> (QueryExecutor, Arc<Collector>) {
+        fn with_table(sql_engine_with_schema: (QueryExecutor, ResultCollector)) -> (QueryExecutor, ResultCollector) {
             let (mut engine, collector) = sql_engine_with_schema;
             engine
                 .execute("create table schema_name.table_name(strings char(5));")
@@ -795,7 +797,7 @@ mod operators {
         }
 
         #[rstest::rstest]
-        fn concatenation(with_table: (QueryExecutor, Arc<Collector>)) {
+        fn concatenation(with_table: (QueryExecutor, ResultCollector)) {
             let (mut engine, collector) = with_table;
             engine
                 .execute("insert into schema_name.table_name values ('123' || '45');")
@@ -820,7 +822,7 @@ mod operators {
         }
 
         #[rstest::rstest]
-        fn concatenation_with_number(with_table: (QueryExecutor, Arc<Collector>)) {
+        fn concatenation_with_number(with_table: (QueryExecutor, ResultCollector)) {
             let (mut engine, collector) = with_table;
             engine
                 .execute("insert into schema_name.table_name values (1 || '45');")
@@ -850,7 +852,7 @@ mod operators {
         }
 
         #[rstest::rstest]
-        fn non_string_concatenation_not_supported(with_table: (QueryExecutor, Arc<Collector>)) {
+        fn non_string_concatenation_not_supported(with_table: (QueryExecutor, ResultCollector)) {
             let (mut engine, collector) = with_table;
 
             engine

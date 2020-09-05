@@ -16,7 +16,7 @@ use super::*;
 use protocol::sql_types::PostgreSqlType;
 
 #[rstest::rstest]
-fn select_from_not_existed_table(sql_engine_with_schema: (QueryExecutor, Arc<Collector>)) {
+fn select_from_not_existed_table(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
     let (mut engine, collector) = sql_engine_with_schema;
     engine
         .execute("select * from schema_name.non_existent;")
@@ -31,7 +31,7 @@ fn select_from_not_existed_table(sql_engine_with_schema: (QueryExecutor, Arc<Col
 }
 
 #[rstest::rstest]
-fn select_named_columns_from_non_existent_table(sql_engine_with_schema: (QueryExecutor, Arc<Collector>)) {
+fn select_named_columns_from_non_existent_table(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
     let (mut engine, collector) = sql_engine_with_schema;
     engine
         .execute("select column_1 from schema_name.non_existent;")
@@ -46,7 +46,7 @@ fn select_named_columns_from_non_existent_table(sql_engine_with_schema: (QueryEx
 }
 
 #[rstest::rstest]
-fn select_all_from_table_with_multiple_columns(sql_engine_with_schema: (QueryExecutor, Arc<Collector>)) {
+fn select_all_from_table_with_multiple_columns(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
     let (mut engine, collector) = sql_engine_with_schema;
     engine
         .execute("create table schema_name.table_name (column_1 smallint, column_2 smallint, column_3 smallint);")
@@ -78,7 +78,7 @@ fn select_all_from_table_with_multiple_columns(sql_engine_with_schema: (QueryExe
 }
 
 #[rstest::rstest]
-fn select_not_all_columns(sql_engine_with_schema: (QueryExecutor, Arc<Collector>)) {
+fn select_not_all_columns(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
     let (mut engine, collector) = sql_engine_with_schema;
     engine
         .execute("create table schema_name.table_name (column_1 smallint, column_2 smallint, column_3 smallint);")
@@ -113,7 +113,7 @@ fn select_not_all_columns(sql_engine_with_schema: (QueryExecutor, Arc<Collector>
 }
 
 #[rstest::rstest]
-fn select_non_existing_columns_from_table(sql_engine_with_schema: (QueryExecutor, Arc<Collector>)) {
+fn select_non_existing_columns_from_table(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
     let (mut engine, collector) = sql_engine_with_schema;
     engine
         .execute("create table schema_name.table_name (column_in_table smallint);")
@@ -139,7 +139,7 @@ fn select_non_existing_columns_from_table(sql_engine_with_schema: (QueryExecutor
 
 #[rstest::rstest]
 fn select_first_and_last_columns_from_table_with_multiple_columns(
-    sql_engine_with_schema: (QueryExecutor, Arc<Collector>),
+    sql_engine_with_schema: (QueryExecutor, ResultCollector),
 ) {
     let (mut engine, collector) = sql_engine_with_schema;
     engine
@@ -187,7 +187,7 @@ fn select_first_and_last_columns_from_table_with_multiple_columns(
 
 #[rstest::rstest]
 fn select_all_columns_reordered_from_table_with_multiple_columns(
-    sql_engine_with_schema: (QueryExecutor, Arc<Collector>),
+    sql_engine_with_schema: (QueryExecutor, ResultCollector),
 ) {
     let (mut engine, collector) = sql_engine_with_schema;
     engine
@@ -236,7 +236,7 @@ fn select_all_columns_reordered_from_table_with_multiple_columns(
 }
 
 #[rstest::rstest]
-fn select_with_column_name_duplication(sql_engine_with_schema: (QueryExecutor, Arc<Collector>)) {
+fn select_with_column_name_duplication(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
     let (mut engine, collector) = sql_engine_with_schema;
     engine
         .execute("create table schema_name.table_name (column_1 smallint, column_2 smallint, column_3 smallint);")
@@ -303,7 +303,7 @@ fn select_with_column_name_duplication(sql_engine_with_schema: (QueryExecutor, A
 }
 
 #[rstest::rstest]
-fn select_different_integer_types(sql_engine_with_schema: (QueryExecutor, Arc<Collector>)) {
+fn select_different_integer_types(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
     let (mut engine, collector) = sql_engine_with_schema;
 
     engine
@@ -352,7 +352,7 @@ fn select_different_integer_types(sql_engine_with_schema: (QueryExecutor, Arc<Co
 }
 
 #[rstest::rstest]
-fn select_different_character_strings_types(sql_engine_with_schema: (QueryExecutor, Arc<Collector>)) {
+fn select_different_character_strings_types(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
     let (mut engine, collector) = sql_engine_with_schema;
 
     engine

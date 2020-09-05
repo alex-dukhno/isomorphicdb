@@ -12,14 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{
-    catalog_manager::CatalogManager,
-    query::{expr::ExpressionEvaluation, plan::TableInserts},
-    ColumnDefinition,
-};
+use crate::{dml::ExpressionEvaluation, query::plan::TableInserts};
+use data_manager::{DataManager, Row};
 use kernel::SystemResult;
-use protocol::results::QueryError;
-use protocol::{results::QueryEvent, Sender};
+use protocol::{
+    results::{QueryError, QueryEvent},
+    Sender,
+};
 use representation::{Binary, Datum};
 use sql_types::ConstraintError;
 use sqlparser::ast::{DataType, Expr, Query, SetExpr, UnaryOperator, Value};
@@ -31,22 +30,22 @@ use crate::query::expr::ExprMetadata;
 pub(crate) struct InsertCommand<'ic> {
     raw_sql_query: &'ic str,
     table_inserts: TableInserts,
-    storage: Arc<CatalogManager>,
-    session: Arc<dyn Sender>,
+    storage: Arc<DataManager>,
+    sender: Arc<dyn Sender>,
 }
 
 impl<'ic> InsertCommand<'ic> {
     pub(crate) fn new(
         raw_sql_query: &'ic str,
         table_inserts: TableInserts,
-        storage: Arc<CatalogManager>,
-        session: Arc<dyn Sender>,
+        storage: Arc<DataManager>,
+        sender: Arc<dyn Sender>,
     ) -> InsertCommand<'ic> {
         InsertCommand {
             raw_sql_query,
             table_inserts,
             storage,
-            session,
+            sender,
         }
     }
 
@@ -75,12 +74,9 @@ impl<'ic> InsertCommand<'ic> {
                 if !self.storage.schema_exists(schema_name) {
                     self.session
                         .send(Err(QueryError::schema_does_not_exist(schema_name.to_owned())))
-                        .expect("To Send Result to Client");
-                    return Ok(());
-                }
-
-                if !self.storage.table_exists(schema_name, table_name) {
-                    self.session
+                        .expect("To Send Result to Client"),
+                    Some((_, None)) => self
+                        .sender
                         .send(Err(QueryError::table_does_not_exist(
                             schema_name.to_owned() + "." + table_name,
                         )))
@@ -187,24 +183,21 @@ impl<'ic> InsertCommand<'ic> {
                         return Ok(());
                     }
 
-                    index_cols
-                };
+                            index_cols
+                        };
 
-                let mut to_write: Vec<Row> = vec![];
-                if self.storage.table_exists(&schema_name, &table_name) {
-                    let mut errors = Vec::new();
+                        let mut to_write: Vec<Row> = vec![];
+                        let mut errors = Vec::new();
 
-                    for (row_index, row) in rows.iter().enumerate() {
-                        if row.len() > all_columns.len() {
-                            // clear anything that could have been processed already.
-                            to_write.clear();
-                            self.session
-                                .send(Err(QueryError::too_many_insert_expressions()))
-                                .expect("To Send Result to Client");
-                            return Ok(());
-                        }
+                        for (row_index, row) in rows.iter().enumerate() {
+                            if row.len() > all_columns.len() {
+                                self.sender
+                                    .send(Err(QueryError::too_many_insert_expressions()))
+                                    .expect("To Send Result to Client");
+                                return Ok(());
+                            }
 
-                        let key = self.storage.next_key_id().to_be_bytes().to_vec();
+                            let key = self.storage.next_key_id(schema_id, table_id).to_be_bytes().to_vec();
 
                         // TODO: The default value or NULL should be initialized for SQL types of all columns.
                         let mut record = vec![Datum::from_null(); all_columns.len()];
@@ -221,50 +214,50 @@ impl<'ic> InsertCommand<'ic> {
                             }
                         }
 
-                        // if there was an error then exit the loop.
-                        if !errors.is_empty() {
-                            for (error, column_definition) in errors {
-                                let error_to_send = match error {
-                                    ConstraintError::OutOfRange => QueryError::out_of_range(
-                                        (&column_definition.sql_type()).into(),
-                                        column_definition.name(),
-                                        row_index + 1,
-                                    ),
-                                    ConstraintError::TypeMismatch(value) => QueryError::type_mismatch(
-                                        &value,
-                                        (&column_definition.sql_type()).into(),
-                                        column_definition.name(),
-                                        row_index + 1,
-                                    ),
-                                    ConstraintError::ValueTooLong(len) => QueryError::string_length_mismatch(
-                                        (&column_definition.sql_type()).into(),
-                                        len,
-                                        column_definition.name(),
-                                        row_index + 1,
-                                    ),
-                                };
-                                self.session
-                                    .send(Err(error_to_send))
-                                    .expect("To Send Query Result to Client");
+                            // if there was an error then exit the loop.
+                            if !errors.is_empty() {
+                                for (error, column_definition) in errors {
+                                    let error_to_send = match error {
+                                        ConstraintError::OutOfRange => QueryError::out_of_range(
+                                            (&column_definition.sql_type()).into(),
+                                            column_definition.name(),
+                                            row_index + 1,
+                                        ),
+                                        ConstraintError::TypeMismatch(value) => QueryError::type_mismatch(
+                                            &value,
+                                            (&column_definition.sql_type()).into(),
+                                            column_definition.name(),
+                                            row_index + 1,
+                                        ),
+                                        ConstraintError::ValueTooLong(len) => QueryError::string_length_mismatch(
+                                            (&column_definition.sql_type()).into(),
+                                            len,
+                                            column_definition.name(),
+                                            row_index + 1,
+                                        ),
+                                    };
+                                    self.sender
+                                        .send(Err(error_to_send))
+                                        .expect("To Send Query Result to Client");
+                                }
+                                return Ok(());
                             }
-                            return Ok(());
+                            to_write.push((Binary::with_data(key), Binary::pack(&record)));
                         }
-                        to_write.push((Binary::with_data(key), Binary::pack(&record)));
-                    }
-                }
 
-                match self.storage.insert_into(&schema_name, &table_name, to_write) {
-                    Err(error) => Err(error),
-                    Ok(size) => {
-                        self.session
-                            .send(Ok(QueryEvent::RecordsInserted(size)))
-                            .expect("To Send Result to Client");
-                        Ok(())
+                        match self.storage.write_into(schema_id, table_id, to_write) {
+                            Err(error) => return Err(error),
+                            Ok(size) => self
+                                .sender
+                                .send(Ok(QueryEvent::RecordsInserted(size)))
+                                .expect("To Send Result to Client"),
+                        }
                     }
                 }
+                Ok(())
             }
             _ => {
-                self.session
+                self.sender
                     .send(Err(QueryError::feature_not_supported(self.raw_sql_query.to_owned())))
                     .expect("To Send Query Result to Client");
                 Ok(())

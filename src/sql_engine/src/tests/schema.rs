@@ -15,7 +15,7 @@
 use super::*;
 
 #[rstest::rstest]
-fn create_schema(sql_engine: (QueryExecutor, Arc<Collector>)) {
+fn create_schema(sql_engine: (QueryExecutor, ResultCollector)) {
     let (mut engine, collector) = sql_engine;
     engine.execute("create schema schema_name;").expect("no system errors");
 
@@ -23,7 +23,7 @@ fn create_schema(sql_engine: (QueryExecutor, Arc<Collector>)) {
 }
 
 #[rstest::rstest]
-fn create_same_schema(sql_engine: (QueryExecutor, Arc<Collector>)) {
+fn create_same_schema(sql_engine: (QueryExecutor, ResultCollector)) {
     let (mut engine, collector) = sql_engine;
     engine.execute("create schema schema_name;").expect("no system errors");
     engine.execute("create schema schema_name;").expect("no system errors");
@@ -37,7 +37,7 @@ fn create_same_schema(sql_engine: (QueryExecutor, Arc<Collector>)) {
 }
 
 #[rstest::rstest]
-fn drop_schema(sql_engine: (QueryExecutor, Arc<Collector>)) {
+fn drop_schema(sql_engine: (QueryExecutor, ResultCollector)) {
     let (mut engine, collector) = sql_engine;
     engine.execute("create schema schema_name;").expect("no system errors");
     engine.execute("drop schema schema_name;").expect("no system errors");
@@ -51,7 +51,7 @@ fn drop_schema(sql_engine: (QueryExecutor, Arc<Collector>)) {
 }
 
 #[rstest::rstest]
-fn drop_non_existent_schema(sql_engine: (QueryExecutor, Arc<Collector>)) {
+fn drop_non_existent_schema(sql_engine: (QueryExecutor, ResultCollector)) {
     let (mut engine, collector) = sql_engine;
 
     engine.execute("drop schema non_existent;").expect("no system errors");
@@ -63,7 +63,7 @@ fn drop_non_existent_schema(sql_engine: (QueryExecutor, Arc<Collector>)) {
 }
 
 #[rstest::rstest]
-fn select_from_nonexistent_schema(sql_engine: (QueryExecutor, Arc<Collector>)) {
+fn select_from_nonexistent_schema(sql_engine: (QueryExecutor, ResultCollector)) {
     let (mut engine, collector) = sql_engine;
 
     engine
@@ -77,7 +77,7 @@ fn select_from_nonexistent_schema(sql_engine: (QueryExecutor, Arc<Collector>)) {
 }
 
 #[rstest::rstest]
-fn select_named_columns_from_nonexistent_schema(sql_engine: (QueryExecutor, Arc<Collector>)) {
+fn select_named_columns_from_nonexistent_schema(sql_engine: (QueryExecutor, ResultCollector)) {
     let (mut engine, collector) = sql_engine;
     engine
         .execute("select column_1 from schema_name.table_name;")
@@ -90,7 +90,7 @@ fn select_named_columns_from_nonexistent_schema(sql_engine: (QueryExecutor, Arc<
 }
 
 #[rstest::rstest]
-fn insert_into_table_in_nonexistent_schema(sql_engine: (QueryExecutor, Arc<Collector>)) {
+fn insert_into_table_in_nonexistent_schema(sql_engine: (QueryExecutor, ResultCollector)) {
     let (mut engine, collector) = sql_engine;
     engine
         .execute("insert into schema_name.table_name values (123);")
@@ -103,7 +103,7 @@ fn insert_into_table_in_nonexistent_schema(sql_engine: (QueryExecutor, Arc<Colle
 }
 
 #[rstest::rstest]
-fn update_records_in_table_from_non_existent_schema(sql_engine: (QueryExecutor, Arc<Collector>)) {
+fn update_records_in_table_from_non_existent_schema(sql_engine: (QueryExecutor, ResultCollector)) {
     let (mut engine, collector) = sql_engine;
     engine
         .execute("update schema_name.table_name set column_test=789;")
@@ -116,7 +116,7 @@ fn update_records_in_table_from_non_existent_schema(sql_engine: (QueryExecutor, 
 }
 
 #[rstest::rstest]
-fn delete_from_table_in_nonexistent_schema(sql_engine: (QueryExecutor, Arc<Collector>)) {
+fn delete_from_table_in_nonexistent_schema(sql_engine: (QueryExecutor, ResultCollector)) {
     let (mut engine, collector) = sql_engine;
     engine
         .execute("delete from schema_name.table_name;")

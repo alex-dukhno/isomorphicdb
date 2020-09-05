@@ -14,7 +14,7 @@
 
 ///! represents a plan to be executed by the engine.
 use crate::query::{SchemaId, TableId};
-use crate::ColumnDefinition;
+use data_manager::ColumnDefinition;
 use sqlparser::ast::{Ident, Query, Statement};
 
 #[derive(Debug, Clone)]

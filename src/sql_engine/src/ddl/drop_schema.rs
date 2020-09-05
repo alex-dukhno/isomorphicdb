@@ -12,34 +12,34 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{
-    catalog_manager::{CatalogManager, DropSchemaError, DropStrategy},
-    query::SchemaId,
-};
+use crate::query::SchemaId;
+use data_manager::{DataManager, DropSchemaError, DropStrategy};
 use kernel::SystemResult;
-use protocol::results::QueryError;
-use protocol::{results::QueryEvent, Sender};
+use protocol::{
+    results::{QueryError, QueryEvent},
+    Sender,
+};
 use std::sync::Arc;
 
 pub(crate) struct DropSchemaCommand {
     name: SchemaId,
     cascade: bool,
-    storage: Arc<CatalogManager>,
-    session: Arc<dyn Sender>,
+    storage: Arc<DataManager>,
+    sender: Arc<dyn Sender>,
 }
 
 impl DropSchemaCommand {
     pub(crate) fn new(
         name: SchemaId,
         cascade: bool,
-        storage: Arc<CatalogManager>,
-        session: Arc<dyn Sender>,
+        storage: Arc<DataManager>,
+        sender: Arc<dyn Sender>,
     ) -> DropSchemaCommand {
         DropSchemaCommand {
             name,
             cascade,
             storage,
-            session,
+            sender,
         }
     }
 
@@ -50,29 +50,39 @@ impl DropSchemaCommand {
         } else {
             DropStrategy::Restrict
         };
-        match self.storage.drop_schema(&schema_name, strategy) {
-            Err(error) => Err(error),
-            Ok(Err(DropSchemaError::CatalogDoesNotExist)) => {
-                //ignore. Catalogs are not implemented
-                Ok(())
-            }
-            Ok(Err(DropSchemaError::HasDependentObjects)) => {
-                self.session
-                    .send(Err(QueryError::schema_has_dependent_objects(schema_name)))
-                    .expect("To Send Query Result to Client");
-                Ok(())
-            }
-            Ok(Err(DropSchemaError::DoesNotExist)) => {
-                self.session
+        match self.storage.schema_exists(&schema_name) {
+            None => {
+                self.sender
                     .send(Err(QueryError::schema_does_not_exist(schema_name)))
                     .expect("To Send Query Result to Client");
                 Ok(())
             }
-            Ok(Ok(())) => {
-                self.session
-                    .send(Ok(QueryEvent::SchemaDropped))
-                    .expect("To Send Query Result to Client");
-                Ok(())
+            Some(schema_id) => {
+                match self.storage.drop_schema(schema_id, strategy) {
+                    Err(error) => Err(error),
+                    Ok(Err(DropSchemaError::CatalogDoesNotExist)) => {
+                        //ignore. Catalogs are not implemented
+                        Ok(())
+                    }
+                    Ok(Err(DropSchemaError::HasDependentObjects)) => {
+                        self.sender
+                            .send(Err(QueryError::schema_has_dependent_objects(schema_name)))
+                            .expect("To Send Query Result to Client");
+                        Ok(())
+                    }
+                    Ok(Err(DropSchemaError::DoesNotExist)) => {
+                        self.sender
+                            .send(Err(QueryError::schema_does_not_exist(schema_name)))
+                            .expect("To Send Query Result to Client");
+                        Ok(())
+                    }
+                    Ok(Ok(())) => {
+                        self.sender
+                            .send(Ok(QueryEvent::SchemaDropped))
+                            .expect("To Send Query Result to Client");
+                        Ok(())
+                    }
+                }
             }
         }
     }

@@ -16,13 +16,13 @@ use super::*;
 use protocol::sql_types::PostgreSqlType;
 
 #[rstest::rstest]
-fn describe_select_statement(sql_engine_with_schema: (QueryExecutor, Arc<Collector>)) {
+fn describe_select_statement(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
     let (mut engine, collector) = sql_engine_with_schema;
     engine
         .execute("create table schema_name.table_name (column_1 smallint, column_2 smallint);")
         .expect("no system errors");
     engine
-        .parse(
+        .parse_prepared_statement(
             "statement_name",
             "select * from schema_name.table_name where column = $1 and column_2 = $2;",
             &[PostgreSqlType::SmallInt, PostgreSqlType::SmallInt],
@@ -48,13 +48,13 @@ fn describe_select_statement(sql_engine_with_schema: (QueryExecutor, Arc<Collect
 }
 
 #[rstest::rstest]
-fn describe_update_statement(sql_engine_with_schema: (QueryExecutor, Arc<Collector>)) {
+fn describe_update_statement(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
     let (mut engine, collector) = sql_engine_with_schema;
     engine
         .execute("create table schema_name.table_name (column_1 smallint, column_2 smallint);")
         .expect("no system errors");
     engine
-        .parse(
+        .parse_prepared_statement(
             "statement_name",
             "update schema_name.table_name set column_1 = $1 where column_2 = $2;",
             &[PostgreSqlType::SmallInt, PostgreSqlType::SmallInt],
@@ -78,7 +78,7 @@ fn describe_update_statement(sql_engine_with_schema: (QueryExecutor, Arc<Collect
 }
 
 #[rstest::rstest]
-fn describe_not_existed_statement(sql_engine_with_schema: (QueryExecutor, Arc<Collector>)) {
+fn describe_not_existed_statement(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
     let (mut engine, collector) = sql_engine_with_schema;
     engine
         .describe_prepared_statement("non_existent")

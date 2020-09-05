@@ -15,34 +15,36 @@
 use crate::query::expr::{EvalScalarOp, ExpressionEvaluation};
 use crate::query::scalar::ScalarOp;
 use crate::{catalog_manager::CatalogManager, ColumnDefinition};
+use data_manager::{DataManager, Row};
 use kernel::SystemResult;
-use protocol::results::QueryError;
-use protocol::{results::QueryEvent, Sender};
+use protocol::{
+    results::{QueryError, QueryEvent},
+    Sender,
+};
 use representation::{unpack_raw, Binary, Datum};
 use sql_types::ConstraintError;
 use sqlparser::ast::{Assignment, Expr, Ident, ObjectName, UnaryOperator, Value};
 use std::{collections::BTreeSet, convert::TryFrom, sync::Arc};
-use storage::Row;
 
 pub(crate) struct UpdateCommand {
     name: ObjectName,
     assignments: Vec<Assignment>,
-    storage: Arc<CatalogManager>,
-    session: Arc<dyn Sender>,
+    storage: Arc<DataManager>,
+    sender: Arc<dyn Sender>,
 }
 
 impl UpdateCommand {
     pub(crate) fn new(
         name: ObjectName,
         assignments: Vec<Assignment>,
-        storage: Arc<CatalogManager>,
-        session: Arc<dyn Sender>,
+        storage: Arc<DataManager>,
+        sender: Arc<dyn Sender>,
     ) -> UpdateCommand {
         UpdateCommand {
             name,
             assignments,
             storage,
-            session,
+            sender,
         }
     }
 
@@ -54,6 +56,48 @@ impl UpdateCommand {
         if !self.storage.schema_exists(&schema_name) {
             self.session
                 .send(Err(QueryError::schema_does_not_exist(schema_name)))
+                .expect("To Send Result to Client"),
+            Some((_, None)) => self
+                .sender
+                .send(Err(QueryError::table_does_not_exist(
+                    schema_name + "." + table_name.as_str(),
+                )))
+                .expect("To Send Result to Client"),
+            Some((schema_id, Some(table_id))) => {
+                let all_columns = self.storage.table_columns(schema_id, table_id)?;
+                let mut errors = Vec::new();
+                let mut index_value_pairs = Vec::new();
+                let mut non_existing_columns = BTreeSet::new();
+                let mut column_exists = false;
+
+                for (column_name, value) in to_update {
+                    for (index, column_definition) in all_columns.iter().enumerate() {
+                        if column_definition.has_name(&column_name) {
+                            let v = match value.clone() {
+                                Value::Number(v) => v.to_string(),
+                                Value::SingleQuotedString(v) => v.to_string(),
+                                Value::Boolean(v) => v.to_string(),
+                                _ => unimplemented!("other types not implemented"),
+                            };
+                            match column_definition.sql_type().constraint().validate(v.as_str()) {
+                                Ok(()) => {
+                                    index_value_pairs.push((index, Datum::try_from(&value).unwrap()));
+                                }
+                                Err(e) => {
+                                    errors.push((e, column_definition.clone()));
+                                }
+                            }
+
+                            column_exists = true;
+
+                            break;
+                        }
+                    }
+
+                    if !column_exists {
+                        non_existing_columns.insert(column_name.clone());
+                    }
+                }
                 .expect("To Send Result to Client");
             return Ok(());
         }
@@ -114,14 +158,16 @@ impl UpdateCommand {
             },
         };
 
-        match self.storage.update_all(&schema_name, &table_name, to_update) {
-            Err(error) => Err(error),
-            Ok(records_number) => {
-                self.session
-                    .send(Ok(QueryEvent::RecordsUpdated(records_number)))
-                    .expect("To Send Query Result to Client");
-                Ok(())
+                match self.storage.write_into(schema_id, table_id, to_update) {
+                    Err(error) => return Err(error),
+                    Ok(records_number) => {
+                        self.sender
+                            .send(Ok(QueryEvent::RecordsUpdated(records_number)))
+                            .expect("To Send Query Result to Client");
+                    }
+                }
             }
         }
+        Ok(())
     }
 }
