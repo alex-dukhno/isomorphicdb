@@ -78,7 +78,7 @@ fn created_table_is_preserved_after_restart(persistent: (CatalogManager, TempDir
 fn stored_data_is_preserved_after_restart(persistent: (CatalogManager, TempDir)) {
     let (catalog_manager, root_path) = persistent;
     let schema_id = catalog_manager.create_schema(SCHEMA).expect("to create a schema");
-    catalog_manager
+    let table_id = catalog_manager
         .create_table(
             schema_id,
             "table_name",
@@ -87,8 +87,8 @@ fn stored_data_is_preserved_after_restart(persistent: (CatalogManager, TempDir))
         .expect("to create a table");
     catalog_manager
         .write_into(
-            SCHEMA,
-            "table_name",
+            schema_id,
+            table_id,
             vec![(
                 Binary::pack(&[Datum::from_u64(0)]),
                 Binary::pack(&[Datum::from_bool(true)]),
@@ -98,7 +98,7 @@ fn stored_data_is_preserved_after_restart(persistent: (CatalogManager, TempDir))
 
     assert_eq!(
         catalog_manager
-            .full_scan(SCHEMA, "table_name")
+            .full_scan(schema_id, table_id)
             .expect("to scan a table")
             .map(|item| item.expect("no io error").expect("no platform error"))
             .collect::<Vec<Row>>(),
@@ -113,7 +113,7 @@ fn stored_data_is_preserved_after_restart(persistent: (CatalogManager, TempDir))
 
     assert_eq!(
         catalog_manager
-            .full_scan(SCHEMA, "table_name")
+            .full_scan(schema_id, table_id)
             .expect("to scan a table")
             .map(|item| item.expect("no io error").expect("no platform error"))
             .collect::<Vec<Row>>(),

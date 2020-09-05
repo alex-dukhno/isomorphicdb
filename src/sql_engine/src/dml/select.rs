@@ -125,7 +125,7 @@ impl<'sc> SelectCommand<'sc> {
                     .expect("To Send Result to Client");
                 Err(SystemError::runtime_check_failure("Table Does Not Exist".to_owned()))
             }
-            Some((schema_id, Some(table_id))) => match self.storage.full_scan(&input.schema_name, &input.table_name) {
+            Some((schema_id, Some(table_id))) => match self.storage.full_scan(schema_id, table_id) {
                 Err(error) => Err(error),
                 Ok(records) => {
                     let all_columns = self.storage.table_columns(schema_id, table_id)?;

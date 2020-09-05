@@ -264,33 +264,74 @@ impl CatalogManager {
         }
     }
 
-    pub fn write_into(&self, schema_name: &str, table_name: &str, values: Vec<Row>) -> SystemResult<usize> {
-        log::debug!("{:#?}", values);
-        match self.data_storage.write(schema_name, table_name, values) {
-            Ok(Ok(Ok(size))) => Ok(size),
-            _ => Err(SystemError::bug_in_sql_engine(
+    pub fn write_into(&self, schema_id: RecordId, table_id: RecordId, values: Vec<Row>) -> SystemResult<usize> {
+        match self
+            .tables
+            .read()
+            .expect("to acquire read lock")
+            .get(&(schema_id, table_id))
+        {
+            Some(full_name) => {
+                log::debug!("{:#?}", values);
+                match self
+                    .data_storage
+                    .write(full_name[0].as_str(), full_name[1].as_str(), values)
+                {
+                    Ok(Ok(Ok(size))) => Ok(size),
+                    _ => Err(SystemError::bug_in_sql_engine(
+                        Operation::Access,
+                        Object::Table(schema_id.to_string().as_str(), table_id.to_string().as_str()),
+                    )),
+                }
+            }
+            None => Err(SystemError::bug_in_sql_engine(
                 Operation::Access,
-                Object::Table(schema_name, table_name),
+                Object::Table(schema_id.to_string().as_str(), table_id.to_string().as_str()),
             )),
         }
     }
 
-    pub fn full_scan(&self, schema_name: &str, table_name: &str) -> SystemResult<ReadCursor> {
-        match self.data_storage.read(schema_name, table_name) {
-            Ok(Ok(Ok(read))) => Ok(read),
-            _ => Err(SystemError::bug_in_sql_engine(
+    pub fn full_scan(&self, schema_id: RecordId, table_id: RecordId) -> SystemResult<ReadCursor> {
+        match self
+            .tables
+            .read()
+            .expect("to acquire read lock")
+            .get(&(schema_id, table_id))
+        {
+            Some(full_name) => match self.data_storage.read(full_name[0].as_str(), full_name[1].as_str()) {
+                Ok(Ok(Ok(read))) => Ok(read),
+                _ => Err(SystemError::bug_in_sql_engine(
+                    Operation::Access,
+                    Object::Table(schema_id.to_string().as_str(), table_id.to_string().as_str()),
+                )),
+            },
+            None => Err(SystemError::bug_in_sql_engine(
                 Operation::Access,
-                Object::Table(schema_name, table_name),
+                Object::Table(schema_id.to_string().as_str(), table_id.to_string().as_str()),
             )),
         }
     }
 
-    pub fn delete_from(&self, schema_name: &str, table_name: &str, keys: Vec<Key>) -> SystemResult<usize> {
-        match self.data_storage.delete(schema_name, table_name, keys) {
-            Ok(Ok(Ok(len))) => Ok(len),
-            _ => Err(SystemError::bug_in_sql_engine(
+    pub fn delete_from(&self, schema_id: RecordId, table_id: RecordId, keys: Vec<Key>) -> SystemResult<usize> {
+        match self
+            .tables
+            .read()
+            .expect("to acquire read lock")
+            .get(&(schema_id, table_id))
+        {
+            Some(full_name) => match self
+                .data_storage
+                .delete(full_name[0].as_str(), full_name[1].as_str(), keys)
+            {
+                Ok(Ok(Ok(len))) => Ok(len),
+                _ => Err(SystemError::bug_in_sql_engine(
+                    Operation::Access,
+                    Object::Table(schema_id.to_string().as_str(), table_id.to_string().as_str()),
+                )),
+            },
+            None => Err(SystemError::bug_in_sql_engine(
                 Operation::Access,
-                Object::Table(schema_name, table_name),
+                Object::Table(schema_id.to_string().as_str(), table_id.to_string().as_str()),
             )),
         }
     }

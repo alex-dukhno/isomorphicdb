@@ -229,7 +229,7 @@ impl<'ic> InsertCommand<'ic> {
                             to_write.push((Binary::with_data(key), Binary::pack(&record)));
                         }
 
-                        match self.storage.write_into(&schema_name, &table_name, to_write) {
+                        match self.storage.write_into(schema_id, table_id, to_write) {
                             Err(error) => return Err(error),
                             Ok(size) => self
                                 .sender

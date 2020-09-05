@@ -37,10 +37,15 @@ fn with_small_ints_table(catalog_manager_with_schema: CatalogManager) -> Catalog
 
 #[rstest::rstest]
 fn select_all_from_table_with_many_columns(with_small_ints_table: CatalogManager) {
+    let full_table_id = with_small_ints_table
+        .table_exists(SCHEMA, "table_name")
+        .expect("schema exists");
+    let schema_id = full_table_id.0;
+    let table_id = full_table_id.1.expect("table exist");
     with_small_ints_table
         .write_into(
-            SCHEMA,
-            "table_name",
+            schema_id,
+            table_id,
             vec![(
                 Binary::pack(&[Datum::from_u64(1)]),
                 Binary::pack(&[Datum::from_i16(1), Datum::from_i16(2), Datum::from_i16(3)]),
@@ -49,7 +54,7 @@ fn select_all_from_table_with_many_columns(with_small_ints_table: CatalogManager
         .expect("values are inserted");
 
     assert_eq!(
-        with_small_ints_table.full_scan(SCHEMA, "table_name").map(|read| read
+        with_small_ints_table.full_scan(schema_id, table_id).map(|read| read
             .map(Result::unwrap)
             .map(Result::unwrap)
             .map(|(_key, values)| values)
