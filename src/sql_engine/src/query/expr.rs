@@ -1,5 +1,4 @@
 use crate::query::scalar::{ScalarOp};
-use crate::{ColumnDefinition};
 use protocol::results::{QueryError, QueryResult};
 use protocol::Sender;
 use representation::{Datum, EvalError, ScalarType};
@@ -10,6 +9,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 use sql_types::{SqlType, ConstraintError};
 use kernel::SystemErrorKind::SqlEngineBug;
+use data_manager::ColumnDefinition;
 
 pub(crate) struct ExpressionEvaluation {
     session: Arc<dyn Sender>,

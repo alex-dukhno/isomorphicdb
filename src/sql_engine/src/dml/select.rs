@@ -67,48 +67,10 @@ impl<'sc> SelectCommand<'sc> {
                     Object::Table(&input.schema_name, &input.table_name),
                 ))
             }
-
-            let table_columns = {
-                let projection = projection.clone();
-                let mut columns: Vec<String> = vec![];
-                for item in projection {
-                    match item {
-                        SelectItem::Wildcard => {
-                            let all_columns = self.storage.table_columns(&schema_name, &table_name)?;
-                            columns.extend(
-                                all_columns
-                                    .into_iter()
-                                    .map(|column_definition| column_definition.name())
-                                    .collect::<Vec<String>>(),
-                            )
-                        }
-                        SelectItem::UnnamedExpr(Expr::Identifier(Ident { value, .. })) => columns.push(value.clone()),
-                        _ => {
-                            self.session
-                                .send(Err(QueryError::feature_not_supported(self.raw_sql_query.to_owned())))
-                                .expect("To Send Query Result to Client");
-                            return Err(SystemError::runtime_check_failure("Feature Not Supported".to_owned()));
-                        }
-                    }
-                }
-                columns
-            };
-
-            let all_columns = self.storage.table_columns(&schema_name, &table_name)?;
-            let mut column_definitions = vec![];
-            let mut has_error = false;
-            for column_name in table_columns {
-                let mut found = None;
-                for column_definition in &all_columns {
-                    if column_definition.has_name(&column_name) {
-                        found = Some(column_definition);
-                        break;
-                    }
-                }
             Some((schema_id, Some(table_id))) => {
                 let all_columns = self.storage.table_columns(schema_id, table_id)?;
                 let mut column_definitions = vec![];
-                let mut non_existing_columns = vec![];
+                let mut has_error = false;
                 for column_name in &input.selected_columns {
                     let mut found = None;
                     for column_definition in &all_columns {
@@ -118,19 +80,19 @@ impl<'sc> SelectCommand<'sc> {
                         }
                     }
 
-                if let Some(column_definition) = found {
-                    column_definitions.push(column_definition);
-                } else {
-                    self.session
-                        .send(Err(QueryError::column_does_not_exist(column_name)))
-                        .expect("To Send Result to Client");
-                    has_error = true;
+                    if let Some(column_definition) = found {
+                        column_definitions.push(column_definition);
+                    } else {
+                        self.sender
+                            .send(Err(QueryError::column_does_not_exist(column_name.to_owned())))
+                            .expect("To Send Result to Client");
+                        has_error = true;
+                    }
                 }
-            }
 
-            if has_error {
-                return Err(SystemError::runtime_check_failure("Column Does Not Exist".to_string()));
-            }
+                if has_error {
+                    return Err(SystemError::runtime_check_failure("Column Does Not Exist".to_string()));
+                }
 
                 let description = column_definitions
                     .into_iter()
@@ -169,7 +131,7 @@ impl<'sc> SelectCommand<'sc> {
                     let all_columns = self.storage.table_columns(schema_id, table_id)?;
                     let mut description = vec![];
                     let mut column_indexes = vec![];
-                    let mut non_existing_columns = vec![];
+                    let mut has_error = false;
                     for column_name in input.selected_columns.iter() {
                         let mut found = None;
                         for (index, column_definition) in all_columns.iter().enumerate() {
@@ -183,7 +145,7 @@ impl<'sc> SelectCommand<'sc> {
                             column_indexes.push(index);
                             description.push(column_definition);
                         } else {
-                            self.session
+                            self.sender
                                 .send(Err(QueryError::column_does_not_exist(column_name.to_owned())))
                                 .expect("To Send Result to Client");
                             has_error = true;
@@ -208,7 +170,6 @@ impl<'sc> SelectCommand<'sc> {
                                     }
                                 }
                             }
-                            log::debug!("{:#?}", values);
                             values
                         })
                         .collect();
