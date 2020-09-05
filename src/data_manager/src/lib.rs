@@ -12,8 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{catalog_manager::data_definition::DataDefinition, ColumnDefinition};
+use representation::Binary;
+use std::io::{self};
+
+use crate::data_definition::DataDefinition;
 use kernel::{Object, Operation, SystemError, SystemResult};
+use serde::{Deserialize, Serialize};
+use sql_types::SqlType;
 use std::{
     collections::HashMap,
     path::PathBuf,
@@ -22,13 +27,110 @@ use std::{
         RwLock,
     },
 };
-use storage::{Database, InMemoryDatabase, InitStatus, Key, PersistentDatabase, ReadCursor, Values};
+
+mod data_definition;
+mod in_memory;
+pub mod persistent;
+
+pub type Row = (Key, Values);
+pub type Key = Binary;
+pub type Values = Binary;
+pub type RowResult = io::Result<Result<Row, StorageError>>;
+pub type ReadCursor = Box<dyn Iterator<Item = RowResult>>;
+
+use crate::{in_memory::InMemoryDatabase, persistent::PersistentDatabase};
+
+pub enum InitStatus {
+    Created,
+    Loaded,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum StorageError {
+    Io,
+    CascadeIo(Vec<String>),
+    Storage,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum DefinitionError {
+    SchemaAlreadyExists,
+    SchemaDoesNotExist,
+    ObjectAlreadyExists,
+    ObjectDoesNotExist,
+}
+
+pub type SchemaId<'s> = &'s str;
+pub type ObjectId<'o> = &'o str;
+
+pub trait Database {
+    fn create_schema(&self, schema_name: SchemaId) -> io::Result<Result<Result<(), DefinitionError>, StorageError>>;
+
+    fn drop_schema(&self, schema_name: SchemaId) -> io::Result<Result<Result<(), DefinitionError>, StorageError>>;
+
+    fn create_object(
+        &self,
+        schema_name: SchemaId,
+        object_name: ObjectId,
+    ) -> io::Result<Result<Result<(), DefinitionError>, StorageError>>;
+
+    fn drop_object(
+        &self,
+        schema_name: SchemaId,
+        object_name: ObjectId,
+    ) -> io::Result<Result<Result<(), DefinitionError>, StorageError>>;
+
+    fn write(
+        &self,
+        schema_name: SchemaId,
+        object_name: ObjectId,
+        values: Vec<(Key, Values)>,
+    ) -> io::Result<Result<Result<usize, DefinitionError>, StorageError>>;
+
+    fn read(
+        &self,
+        schema_name: SchemaId,
+        object_name: ObjectId,
+    ) -> io::Result<Result<Result<ReadCursor, DefinitionError>, StorageError>>;
+
+    fn delete(
+        &self,
+        schema_name: SchemaId,
+        object_name: ObjectId,
+        keys: Vec<Key>,
+    ) -> io::Result<Result<Result<usize, DefinitionError>, StorageError>>;
+}
 
 pub type RecordId = u64;
 pub type FullSchemaId = Option<RecordId>;
 pub type FullTableId = Option<(RecordId, Option<RecordId>)>;
 
-mod data_definition;
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+pub struct ColumnDefinition {
+    name: String,
+    sql_type: SqlType,
+}
+
+impl ColumnDefinition {
+    pub fn new(name: &str, sql_type: SqlType) -> Self {
+        Self {
+            name: name.to_string(),
+            sql_type,
+        }
+    }
+
+    pub fn sql_type(&self) -> SqlType {
+        self.sql_type
+    }
+
+    pub fn has_name(&self, other_name: &str) -> bool {
+        self.name == other_name
+    }
+
+    pub fn name(&self) -> String {
+        self.name.clone()
+    }
+}
 
 pub enum DropStrategy {
     Restrict,
@@ -42,7 +144,7 @@ pub enum DropSchemaError {
     HasDependentObjects,
 }
 
-pub struct CatalogManager {
+pub struct DataManager {
     data_storage: Box<dyn Database>,
     data_definition: DataDefinition,
     schemas: RwLock<HashMap<RecordId, String>>,
@@ -50,19 +152,19 @@ pub struct CatalogManager {
     record_id_generators: RwLock<HashMap<(RecordId, RecordId), AtomicU64>>,
 }
 
-impl Default for CatalogManager {
-    fn default() -> CatalogManager {
+impl Default for DataManager {
+    fn default() -> DataManager {
         Self::in_memory().expect("no errors")
     }
 }
 
-unsafe impl Send for CatalogManager {}
-unsafe impl Sync for CatalogManager {}
+unsafe impl Send for DataManager {}
+unsafe impl Sync for DataManager {}
 
 const DEFAULT_CATALOG: &'_ str = "public";
 
-impl CatalogManager {
-    pub fn in_memory() -> SystemResult<CatalogManager> {
+impl DataManager {
+    pub fn in_memory() -> SystemResult<DataManager> {
         let data_definition = DataDefinition::in_memory();
         data_definition.create_catalog(DEFAULT_CATALOG);
         Ok(Self {
@@ -74,7 +176,7 @@ impl CatalogManager {
         })
     }
 
-    pub fn persistent(path: PathBuf) -> SystemResult<CatalogManager> {
+    pub fn persistent(path: PathBuf) -> SystemResult<DataManager> {
         let data_definition = DataDefinition::persistent(&path)?;
         let catalog = PersistentDatabase::new(path.join(DEFAULT_CATALOG));
         let schemas = RwLock::new(HashMap::new());

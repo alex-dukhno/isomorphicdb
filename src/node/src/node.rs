@@ -14,8 +14,9 @@
 
 use async_dup::Arc as AsyncArc;
 use async_io::Async;
+use data_manager::DataManager;
 use protocol::{Command, ProtocolConfiguration, Receiver};
-use sql_engine::{catalog_manager::CatalogManager, QueryExecutor};
+use sql_engine::QueryExecutor;
 use std::{
     env,
     net::TcpListener,
@@ -37,9 +38,9 @@ pub fn start() {
     let root_path = env::var("ROOT_PATH").map(PathBuf::from).unwrap_or_default();
     smol::block_on(async {
         let storage = if persistent {
-            Arc::new(CatalogManager::persistent(root_path.join("database")).unwrap())
+            Arc::new(DataManager::persistent(root_path.join("root_directory")).unwrap())
         } else {
-            Arc::new(CatalogManager::in_memory().unwrap())
+            Arc::new(DataManager::in_memory().unwrap())
         };
         let listener = Async::<TcpListener>::bind((HOST, PORT)).expect("OK");
 

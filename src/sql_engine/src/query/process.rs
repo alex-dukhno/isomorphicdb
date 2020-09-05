@@ -14,11 +14,8 @@
 
 ///! Module for transforming the input Query AST into representation the engine can process.
 use crate::query::plan::{Plan, SchemaCreationInfo, TableCreationInfo, TableInserts};
-use crate::{
-    catalog_manager::CatalogManager,
-    query::{SchemaId, SchemaNamingError, TableId, TableNamingError},
-    ColumnDefinition,
-};
+use crate::query::{SchemaId, SchemaNamingError, TableId, TableNamingError};
+use data_manager::{ColumnDefinition, DataManager};
 use protocol::{results::QueryError, Sender};
 use sql_types::SqlType;
 use sqlparser::ast::{ColumnDef, DataType, ObjectName, ObjectType, Statement};
@@ -27,12 +24,12 @@ use std::{convert::TryFrom, sync::Arc};
 type Result<T> = std::result::Result<T, ()>;
 
 pub(crate) struct QueryProcessor {
-    storage: Arc<CatalogManager>,
+    storage: Arc<DataManager>,
     sender: Arc<dyn Sender>,
 }
 
 impl<'qp> QueryProcessor {
-    pub fn new(storage: Arc<CatalogManager>, sender: Arc<dyn Sender>) -> Self {
+    pub fn new(storage: Arc<DataManager>, sender: Arc<dyn Sender>) -> Self {
         Self { storage, sender }
     }
 

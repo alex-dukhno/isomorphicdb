@@ -13,40 +13,38 @@
 // limitations under the License.
 
 use super::*;
-use crate::{catalog_manager::CatalogManager, ColumnDefinition};
 use representation::{Binary, Datum};
 use sql_types::SqlType;
 use std::path::PathBuf;
-use storage::Row;
 use tempfile::TempDir;
 
 #[rstest::fixture]
-fn persistent() -> (CatalogManager, TempDir) {
+fn persistent() -> (DataManager, TempDir) {
     let root_path = tempfile::tempdir().expect("to create temp folder");
     (
-        CatalogManager::persistent(PathBuf::from(root_path.path())).expect("to create catalog manager"),
+        DataManager::persistent(PathBuf::from(root_path.path())).expect("to create catalog manager"),
         root_path,
     )
 }
 
 #[rstest::rstest]
-fn created_schema_is_preserved_after_restart(persistent: (CatalogManager, TempDir)) {
-    let (catalog_manager, root_path) = persistent;
-    catalog_manager.create_schema(SCHEMA).expect("to create a schema");
-    assert!(matches!(catalog_manager.schema_exists(SCHEMA), Some(_)));
+fn created_schema_is_preserved_after_restart(persistent: (DataManager, TempDir)) {
+    let (data_manager, root_path) = persistent;
+    data_manager.create_schema(SCHEMA).expect("to create a schema");
+    assert!(matches!(data_manager.schema_exists(SCHEMA), Some(_)));
 
-    drop(catalog_manager);
+    drop(data_manager);
 
-    let catalog_manager = CatalogManager::persistent(root_path.into_path()).expect("to create catalog manager");
+    let data_manager = DataManager::persistent(root_path.into_path()).expect("to create catalog manager");
 
-    assert!(matches!(catalog_manager.schema_exists(SCHEMA), Some(_)));
+    assert!(matches!(data_manager.schema_exists(SCHEMA), Some(_)));
 }
 
 #[rstest::rstest]
-fn created_table_is_preserved_after_restart(persistent: (CatalogManager, TempDir)) {
-    let (catalog_manager, root_path) = persistent;
-    let schema_id = catalog_manager.create_schema(SCHEMA).expect("to create a schema");
-    let table_id = catalog_manager
+fn created_table_is_preserved_after_restart(persistent: (DataManager, TempDir)) {
+    let (data_manager, root_path) = persistent;
+    let schema_id = data_manager.create_schema(SCHEMA).expect("to create a schema");
+    let table_id = data_manager
         .create_table(
             schema_id,
             "table_name",
@@ -54,20 +52,20 @@ fn created_table_is_preserved_after_restart(persistent: (CatalogManager, TempDir
         )
         .expect("to create a table");
     assert!(matches!(
-        catalog_manager.table_exists(SCHEMA, "table_name"),
+        data_manager.table_exists(SCHEMA, "table_name"),
         Some((_, Some(_)))
     ));
 
-    drop(catalog_manager);
+    drop(data_manager);
 
-    let catalog_manager = CatalogManager::persistent(root_path.into_path()).expect("to create catalog manager");
+    let data_manager = DataManager::persistent(root_path.into_path()).expect("to create catalog manager");
 
     assert!(matches!(
-        catalog_manager.table_exists(SCHEMA, "table_name"),
+        data_manager.table_exists(SCHEMA, "table_name"),
         Some((_, Some(_)))
     ));
     assert_eq!(
-        catalog_manager
+        data_manager
             .table_columns(schema_id, table_id)
             .expect("to have a columns"),
         vec![ColumnDefinition::new("col_test", SqlType::Bool)]
@@ -75,17 +73,17 @@ fn created_table_is_preserved_after_restart(persistent: (CatalogManager, TempDir
 }
 
 #[rstest::rstest]
-fn stored_data_is_preserved_after_restart(persistent: (CatalogManager, TempDir)) {
-    let (catalog_manager, root_path) = persistent;
-    let schema_id = catalog_manager.create_schema(SCHEMA).expect("to create a schema");
-    let table_id = catalog_manager
+fn stored_data_is_preserved_after_restart(persistent: (DataManager, TempDir)) {
+    let (data_manager, root_path) = persistent;
+    let schema_id = data_manager.create_schema(SCHEMA).expect("to create a schema");
+    let table_id = data_manager
         .create_table(
             schema_id,
             "table_name",
             &[ColumnDefinition::new("col_test", SqlType::Bool)],
         )
         .expect("to create a table");
-    catalog_manager
+    data_manager
         .write_into(
             schema_id,
             table_id,
@@ -97,7 +95,7 @@ fn stored_data_is_preserved_after_restart(persistent: (CatalogManager, TempDir))
         .expect("values are inserted");
 
     assert_eq!(
-        catalog_manager
+        data_manager
             .full_scan(schema_id, table_id)
             .expect("to scan a table")
             .map(|item| item.expect("no io error").expect("no platform error"))
@@ -107,12 +105,12 @@ fn stored_data_is_preserved_after_restart(persistent: (CatalogManager, TempDir))
             Binary::pack(&[Datum::from_bool(true)]),
         )],
     );
-    drop(catalog_manager);
+    drop(data_manager);
 
-    let catalog_manager = CatalogManager::persistent(root_path.into_path()).expect("to create catalog manager");
+    let data_manager = DataManager::persistent(root_path.into_path()).expect("to create catalog manager");
 
     assert_eq!(
-        catalog_manager
+        data_manager
             .full_scan(schema_id, table_id)
             .expect("to scan a table")
             .map(|item| item.expect("no io error").expect("no platform error"))

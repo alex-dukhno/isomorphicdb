@@ -16,12 +16,10 @@ use super::*;
 use sql_types::SqlType;
 
 #[rstest::rstest]
-fn create_tables_with_different_names(catalog_manager_with_schema: CatalogManager) {
-    let schema_id = catalog_manager_with_schema
-        .schema_exists(SCHEMA)
-        .expect("schema exists");
+fn create_tables_with_different_names(data_manager_with_schema: DataManager) {
+    let schema_id = data_manager_with_schema.schema_exists(SCHEMA).expect("schema exists");
     assert!(matches!(
-        catalog_manager_with_schema.create_table(
+        data_manager_with_schema.create_table(
             schema_id,
             "table_name_1",
             &[ColumnDefinition::new(
@@ -32,7 +30,7 @@ fn create_tables_with_different_names(catalog_manager_with_schema: CatalogManage
         Ok(_)
     ));
     assert!(matches!(
-        catalog_manager_with_schema.create_table(
+        data_manager_with_schema.create_table(
             schema_id,
             "table_name_2",
             &[ColumnDefinition::new(
@@ -45,12 +43,12 @@ fn create_tables_with_different_names(catalog_manager_with_schema: CatalogManage
 }
 
 #[rstest::rstest]
-fn create_table_with_the_same_name_in_different_schemas(catalog_manager: CatalogManager) {
-    let schema_1_id = catalog_manager.create_schema(SCHEMA_1).expect("schema is created");
-    let schema_2_id = catalog_manager.create_schema(SCHEMA_2).expect("schema is created");
+fn create_table_with_the_same_name_in_different_schemas(data_manager: DataManager) {
+    let schema_1_id = data_manager.create_schema(SCHEMA_1).expect("schema is created");
+    let schema_2_id = data_manager.create_schema(SCHEMA_2).expect("schema is created");
 
     assert!(matches!(
-        catalog_manager.create_table(
+        data_manager.create_table(
             schema_1_id,
             "table_name",
             &[ColumnDefinition::new(
@@ -62,7 +60,7 @@ fn create_table_with_the_same_name_in_different_schemas(catalog_manager: Catalog
     ));
 
     assert!(matches!(
-        catalog_manager.create_table(
+        data_manager.create_table(
             schema_2_id,
             "table_name",
             &[ColumnDefinition::new(
@@ -75,11 +73,9 @@ fn create_table_with_the_same_name_in_different_schemas(catalog_manager: Catalog
 }
 
 #[rstest::rstest]
-fn drop_table(catalog_manager_with_schema: CatalogManager) {
-    let schema_id = catalog_manager_with_schema
-        .schema_exists(SCHEMA)
-        .expect("schema exists");
-    let table_id = catalog_manager_with_schema
+fn drop_table(data_manager_with_schema: DataManager) {
+    let schema_id = data_manager_with_schema.schema_exists(SCHEMA).expect("schema exists");
+    let table_id = data_manager_with_schema
         .create_table(
             schema_id,
             "table_name",
@@ -90,9 +86,9 @@ fn drop_table(catalog_manager_with_schema: CatalogManager) {
         )
         .expect("table is created");
 
-    assert_eq!(catalog_manager_with_schema.drop_table(schema_id, table_id), Ok(()));
+    assert_eq!(data_manager_with_schema.drop_table(schema_id, table_id), Ok(()));
     assert!(matches!(
-        catalog_manager_with_schema.create_table(
+        data_manager_with_schema.create_table(
             schema_id,
             "table_name",
             &[ColumnDefinition::new(
@@ -105,17 +101,15 @@ fn drop_table(catalog_manager_with_schema: CatalogManager) {
 }
 
 #[rstest::rstest]
-fn table_columns_on_empty_table(catalog_manager_with_schema: CatalogManager) {
-    let schema_id = catalog_manager_with_schema
-        .schema_exists(SCHEMA)
-        .expect("schema exists");
+fn table_columns_on_empty_table(data_manager_with_schema: DataManager) {
+    let schema_id = data_manager_with_schema.schema_exists(SCHEMA).expect("schema exists");
     let column_names = vec![];
-    let table_id = catalog_manager_with_schema
+    let table_id = data_manager_with_schema
         .create_table(schema_id, "table_name", column_names.as_slice())
         .expect("table is created");
 
     assert_eq!(
-        catalog_manager_with_schema
+        data_manager_with_schema
             .table_columns(schema_id, table_id)
             .expect("no system errors"),
         vec![]

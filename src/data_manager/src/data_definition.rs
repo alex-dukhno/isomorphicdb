@@ -12,10 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{
-    catalog_manager::{DropSchemaError, DropStrategy},
-    ColumnDefinition,
-};
+use crate::{ColumnDefinition, Database, DropSchemaError, DropStrategy, InitStatus, PersistentDatabase};
 use kernel::{SystemError, SystemResult};
 use representation::{Binary, Datum};
 use sql_types::SqlType;
@@ -27,7 +24,6 @@ use std::{
         Arc, RwLock,
     },
 };
-use storage::{Database, InitStatus, PersistentDatabase};
 
 const SYSTEM_CATALOG: &'_ str = "system";
 // CREATE SCHEMA DEFINITION_SCHEMA

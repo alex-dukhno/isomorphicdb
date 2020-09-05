@@ -16,7 +16,6 @@ extern crate bigdecimal;
 extern crate log;
 
 use crate::{
-    catalog_manager::CatalogManager,
     ddl::{
         create_schema::CreateSchemaCommand, create_table::CreateTableCommand, drop_schema::DropSchemaCommand,
         drop_table::DropTableCommand,
@@ -24,6 +23,7 @@ use crate::{
     dml::{delete::DeleteCommand, insert::InsertCommand, select::SelectCommand, update::UpdateCommand},
     query::{bind::ParamBinder, plan::Plan, process::QueryProcessor},
 };
+use data_manager::DataManager;
 use itertools::izip;
 use kernel::SystemResult;
 use protocol::{
@@ -35,8 +35,6 @@ use protocol::{
     statement::PreparedStatement,
     Sender,
 };
-use serde::{Deserialize, Serialize};
-use sql_types::SqlType;
 use sqlparser::{
     ast::Statement,
     dialect::{Dialect, PostgreSqlDialect},
@@ -44,42 +42,12 @@ use sqlparser::{
 };
 use std::{iter, sync::Arc};
 
-pub mod catalog_manager;
 mod ddl;
 mod dml;
 mod query;
 
-pub type Projection = (Vec<ColumnDefinition>, Vec<Vec<String>>);
-
-#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
-pub struct ColumnDefinition {
-    name: String,
-    sql_type: SqlType,
-}
-
-impl ColumnDefinition {
-    pub fn new(name: &str, sql_type: SqlType) -> Self {
-        Self {
-            name: name.to_string(),
-            sql_type,
-        }
-    }
-
-    pub fn sql_type(&self) -> SqlType {
-        self.sql_type
-    }
-
-    pub fn has_name(&self, other_name: &str) -> bool {
-        self.name == other_name
-    }
-
-    pub fn name(&self) -> String {
-        self.name.clone()
-    }
-}
-
 pub struct QueryExecutor {
-    storage: Arc<CatalogManager>,
+    storage: Arc<DataManager>,
     sender: Arc<dyn Sender>,
     session: Session<Statement>,
     processor: QueryProcessor,
@@ -87,7 +55,7 @@ pub struct QueryExecutor {
 }
 
 impl QueryExecutor {
-    pub fn new(storage: Arc<CatalogManager>, sender: Arc<dyn Sender>) -> Self {
+    pub fn new(storage: Arc<DataManager>, sender: Arc<dyn Sender>) -> Self {
         Self {
             storage: storage.clone(),
             sender: sender.clone(),

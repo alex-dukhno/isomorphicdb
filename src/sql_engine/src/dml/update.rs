@@ -12,7 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{catalog_manager::CatalogManager, dml::ExpressionEvaluation};
+use crate::dml::ExpressionEvaluation;
+use data_manager::{DataManager, Row};
 use kernel::SystemResult;
 use protocol::{
     results::{QueryError, QueryEvent},
@@ -22,12 +23,11 @@ use representation::{unpack_raw, Binary, Datum};
 use sql_types::ConstraintError;
 use sqlparser::ast::{Assignment, Expr, Ident, ObjectName, UnaryOperator, Value};
 use std::{collections::BTreeSet, convert::TryFrom, sync::Arc};
-use storage::Row;
 
 pub(crate) struct UpdateCommand {
     name: ObjectName,
     assignments: Vec<Assignment>,
-    storage: Arc<CatalogManager>,
+    storage: Arc<DataManager>,
     sender: Arc<dyn Sender>,
 }
 
@@ -35,7 +35,7 @@ impl UpdateCommand {
     pub(crate) fn new(
         name: ObjectName,
         assignments: Vec<Assignment>,
-        storage: Arc<CatalogManager>,
+        storage: Arc<DataManager>,
         sender: Arc<dyn Sender>,
     ) -> UpdateCommand {
         UpdateCommand {

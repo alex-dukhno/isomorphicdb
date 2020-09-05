@@ -12,7 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{catalog_manager::CatalogManager, dml::ExpressionEvaluation, query::plan::TableInserts};
+use crate::{dml::ExpressionEvaluation, query::plan::TableInserts};
+use data_manager::{DataManager, Row};
 use kernel::SystemResult;
 use protocol::{
     results::{QueryError, QueryEvent},
@@ -22,12 +23,11 @@ use representation::{Binary, Datum};
 use sql_types::ConstraintError;
 use sqlparser::ast::{DataType, Expr, Query, SetExpr, UnaryOperator, Value};
 use std::{convert::TryFrom, str::FromStr, sync::Arc};
-use storage::Row;
 
 pub(crate) struct InsertCommand<'ic> {
     raw_sql_query: &'ic str,
     table_inserts: TableInserts,
-    storage: Arc<CatalogManager>,
+    storage: Arc<DataManager>,
     sender: Arc<dyn Sender>,
 }
 
@@ -35,7 +35,7 @@ impl<'ic> InsertCommand<'ic> {
     pub(crate) fn new(
         raw_sql_query: &'ic str,
         table_inserts: TableInserts,
-        storage: Arc<CatalogManager>,
+        storage: Arc<DataManager>,
         sender: Arc<dyn Sender>,
     ) -> InsertCommand<'ic> {
         InsertCommand {

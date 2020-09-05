@@ -12,11 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use data_manager::{Database, DefinitionError, StorageError};
 use fail::FailScenario;
-use storage::{Database, PersistentDatabase, RowResult, StorageError};
+use representation::Binary;
 
 mod common;
 use common::{scenario, OBJECT, SCHEMA};
+use data_manager::persistent::PersistentDatabase;
 
 #[rstest::fixture]
 fn database() -> PersistentDatabase {
@@ -37,17 +39,15 @@ fn database() -> PersistentDatabase {
 
 #[rstest::rstest]
 fn io_error(database: PersistentDatabase, scenario: FailScenario) {
-    fail::cfg("sled-fail-iterate-over-tree", "return(io)").unwrap();
+    fail::cfg("sled-fail-to-insert-into-tree", "return(io)").unwrap();
 
     assert!(matches!(
-        database
-            .read(SCHEMA, OBJECT)
-            .expect("no io error")
-            .expect("no platform error")
-            .expect("read data from tree")
-            .collect::<Vec<RowResult>>()
-            .as_slice(),
-        &[Err(_)]
+        database.write(
+            SCHEMA,
+            OBJECT,
+            vec![(Binary::with_data(vec![]), Binary::with_data(vec![]))]
+        ),
+        Err(_)
     ));
 
     scenario.teardown();
@@ -55,72 +55,72 @@ fn io_error(database: PersistentDatabase, scenario: FailScenario) {
 
 #[rstest::rstest]
 fn corruption_error(database: PersistentDatabase, scenario: FailScenario) {
-    fail::cfg("sled-fail-iterate-over-tree", "return(corruption)").unwrap();
+    fail::cfg("sled-fail-to-insert-into-tree", "return(corruption)").unwrap();
 
-    assert!(matches!(
+    assert_eq!(
         database
-            .read(SCHEMA, OBJECT)
-            .expect("no io error")
-            .expect("no platform error")
-            .expect("read data from tree")
-            .collect::<Vec<RowResult>>()
-            .as_slice(),
-        &[Ok(Err(StorageError::Storage))]
-    ));
+            .write(
+                SCHEMA,
+                OBJECT,
+                vec![(Binary::with_data(vec![]), Binary::with_data(vec![]))]
+            )
+            .expect("no io error"),
+        Err(StorageError::Storage)
+    );
 
     scenario.teardown();
 }
 
 #[rstest::rstest]
 fn reportable_bug(database: PersistentDatabase, scenario: FailScenario) {
-    fail::cfg("sled-fail-iterate-over-tree", "return(bug)").unwrap();
+    fail::cfg("sled-fail-to-insert-into-tree", "return(bug)").unwrap();
 
-    assert!(matches!(
+    assert_eq!(
         database
-            .read(SCHEMA, OBJECT)
-            .expect("no io error")
-            .expect("no platform error")
-            .expect("read data from tree")
-            .collect::<Vec<RowResult>>()
-            .as_slice(),
-        &[Ok(Err(StorageError::Storage))]
-    ));
+            .write(
+                SCHEMA,
+                OBJECT,
+                vec![(Binary::with_data(vec![]), Binary::with_data(vec![]))]
+            )
+            .expect("no io error"),
+        Err(StorageError::Storage)
+    );
 
     scenario.teardown();
 }
 
 #[rstest::rstest]
 fn unsupported_operation(database: PersistentDatabase, scenario: FailScenario) {
-    fail::cfg("sled-fail-iterate-over-tree", "return(unsupported)").unwrap();
+    fail::cfg("sled-fail-to-insert-into-tree", "return(unsupported)").unwrap();
 
-    assert!(matches!(
+    assert_eq!(
         database
-            .read(SCHEMA, OBJECT)
-            .expect("no io error")
-            .expect("no platform error")
-            .expect("read data from tree")
-            .collect::<Vec<RowResult>>()
-            .as_slice(),
-        &[Ok(Err(StorageError::Storage))]
-    ));
+            .write(
+                SCHEMA,
+                OBJECT,
+                vec![(Binary::with_data(vec![]), Binary::with_data(vec![]))]
+            )
+            .expect("no io error"),
+        Err(StorageError::Storage)
+    );
 
     scenario.teardown();
 }
 
 #[rstest::rstest]
 fn collection_not_found(database: PersistentDatabase, scenario: FailScenario) {
-    fail::cfg("sled-fail-iterate-over-tree", "return(collection_not_found)").unwrap();
+    fail::cfg("sled-fail-to-insert-into-tree", "return(collection_not_found)").unwrap();
 
-    assert!(matches!(
+    assert_eq!(
         database
-            .read(SCHEMA, OBJECT)
-            .expect("no io error")
-            .expect("no platform error")
-            .expect("read data from tree")
-            .collect::<Vec<RowResult>>()
-            .as_slice(),
-        &[Ok(Err(StorageError::Storage))]
-    ));
+            .write(
+                SCHEMA,
+                OBJECT,
+                vec![(Binary::with_data(vec![]), Binary::with_data(vec![]))]
+            )
+            .expect("no io error"),
+        Ok(Err(DefinitionError::ObjectDoesNotExist))
+    );
 
     scenario.teardown();
 }
