@@ -17,7 +17,7 @@ use kernel::SystemError;
 use protocol::sql_types::PostgreSqlType;
 
 #[rstest::rstest]
-fn parse_select_statement(sql_engine_with_schema: (QueryExecutor, Arc<Collector>)) {
+fn parse_select_statement(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
     let (mut engine, collector) = sql_engine_with_schema;
     engine
         .execute("create table schema_name.table_name (column_1 smallint, column_2 smallint);")
@@ -40,7 +40,7 @@ fn parse_select_statement(sql_engine_with_schema: (QueryExecutor, Arc<Collector>
 }
 
 #[rstest::rstest]
-fn parse_select_statement_with_not_existed_table(sql_engine_with_schema: (QueryExecutor, Arc<Collector>)) {
+fn parse_select_statement_with_not_existed_table(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
     let (mut engine, collector) = sql_engine_with_schema;
     let error = engine
         .parse_prepared_statement(
@@ -62,7 +62,7 @@ fn parse_select_statement_with_not_existed_table(sql_engine_with_schema: (QueryE
 }
 
 #[rstest::rstest]
-fn parse_select_statement_with_not_existed_column(sql_engine_with_schema: (QueryExecutor, Arc<Collector>)) {
+fn parse_select_statement_with_not_existed_column(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
     let (mut engine, collector) = sql_engine_with_schema;
     engine
         .execute("create table schema_name.table_name (column_1 smallint, column_2 smallint);")
@@ -91,7 +91,7 @@ fn parse_select_statement_with_not_existed_column(sql_engine_with_schema: (Query
 }
 
 #[rstest::rstest]
-fn parse_update_statement(sql_engine_with_schema: (QueryExecutor, Arc<Collector>)) {
+fn parse_update_statement(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
     let (mut engine, collector) = sql_engine_with_schema;
     engine
         .execute("create table schema_name.table_name (column_1 smallint, column_2 smallint);")

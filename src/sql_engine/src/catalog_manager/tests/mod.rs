@@ -24,18 +24,17 @@ mod schema;
 #[cfg(test)]
 mod table;
 
-#[rstest::fixture]
-fn default_schema_name() -> &'static str {
-    "schema_name"
-}
+const SCHEMA: &str = "schema_name";
+const SCHEMA_1: &str = "schema_name_1";
+const SCHEMA_2: &str = "schema_name_2";
 
 #[rstest::fixture]
-fn storage() -> CatalogManager {
+fn catalog_manager() -> CatalogManager {
     CatalogManager::default()
 }
 
 #[rstest::fixture]
-fn storage_with_schema(storage: CatalogManager, default_schema_name: &str) -> CatalogManager {
-    storage.create_schema(default_schema_name).expect("schema is created");
-    storage
+fn catalog_manager_with_schema(catalog_manager: CatalogManager) -> CatalogManager {
+    catalog_manager.create_schema(SCHEMA).expect("schema is created");
+    catalog_manager
 }

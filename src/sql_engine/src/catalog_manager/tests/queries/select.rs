@@ -17,10 +17,13 @@ use representation::{Binary, Datum};
 use sql_types::SqlType;
 
 #[rstest::fixture]
-fn with_small_ints_table(default_schema_name: &str, storage_with_schema: CatalogManager) -> CatalogManager {
-    storage_with_schema
+fn with_small_ints_table(catalog_manager_with_schema: CatalogManager) -> CatalogManager {
+    let schema_id = catalog_manager_with_schema
+        .schema_exists(SCHEMA)
+        .expect("schema exists");
+    catalog_manager_with_schema
         .create_table(
-            default_schema_name,
+            schema_id,
             "table_name",
             &[
                 ColumnDefinition::new("column_1", SqlType::SmallInt(i16::min_value())),
@@ -29,14 +32,14 @@ fn with_small_ints_table(default_schema_name: &str, storage_with_schema: Catalog
             ],
         )
         .expect("table is created");
-    storage_with_schema
+    catalog_manager_with_schema
 }
 
 #[rstest::rstest]
-fn select_all_from_table_with_many_columns(default_schema_name: &str, with_small_ints_table: CatalogManager) {
+fn select_all_from_table_with_many_columns(with_small_ints_table: CatalogManager) {
     with_small_ints_table
         .write_into(
-            default_schema_name,
+            SCHEMA,
             "table_name",
             vec![(
                 Binary::pack(&[Datum::from_u64(1)]),
@@ -46,13 +49,11 @@ fn select_all_from_table_with_many_columns(default_schema_name: &str, with_small
         .expect("values are inserted");
 
     assert_eq!(
-        with_small_ints_table
-            .full_scan(default_schema_name, "table_name")
-            .map(|read| read
-                .map(Result::unwrap)
-                .map(Result::unwrap)
-                .map(|(_key, values)| values)
-                .collect()),
+        with_small_ints_table.full_scan(SCHEMA, "table_name").map(|read| read
+            .map(Result::unwrap)
+            .map(Result::unwrap)
+            .map(|(_key, values)| values)
+            .collect()),
         Ok(vec![Binary::pack(&[
             Datum::from_i16(1),
             Datum::from_i16(2),

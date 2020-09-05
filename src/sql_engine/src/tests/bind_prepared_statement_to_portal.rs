@@ -16,7 +16,7 @@ use super::*;
 use protocol::sql_types::PostgreSqlType;
 
 #[rstest::rstest]
-fn bind_insert_statement_to_portal(sql_engine_with_schema: (QueryExecutor, Arc<Collector>)) {
+fn bind_insert_statement_to_portal(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
     let (mut engine, collector) = sql_engine_with_schema;
     engine
         .execute("create table schema_name.table_name (column_1 smallint, column_2 smallint);")
@@ -49,7 +49,7 @@ fn bind_insert_statement_to_portal(sql_engine_with_schema: (QueryExecutor, Arc<C
 }
 
 #[rstest::rstest]
-fn bind_update_statement_to_portal(sql_engine_with_schema: (QueryExecutor, Arc<Collector>)) {
+fn bind_update_statement_to_portal(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
     let (mut engine, collector) = sql_engine_with_schema;
     engine
         .execute("create table schema_name.table_name (column_1 smallint, column_2 smallint);")

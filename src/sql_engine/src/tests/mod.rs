@@ -46,7 +46,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-fn in_memory_storage() -> Arc<CatalogManager> {
+fn in_memory_catalog_manager() -> Arc<CatalogManager> {
     Arc::new(CatalogManager::default())
 }
 
@@ -75,19 +75,24 @@ impl Collector {
     }
 }
 
+type ResultCollector = Arc<Collector>;
+
 #[rstest::fixture]
-fn sender() -> Arc<Collector> {
+fn sender() -> ResultCollector {
     Arc::new(Collector(Mutex::new(vec![])))
 }
 
 #[rstest::fixture]
-fn sql_engine() -> (QueryExecutor, Arc<Collector>) {
+fn sql_engine() -> (QueryExecutor, ResultCollector) {
     let collector = Arc::new(Collector(Mutex::new(vec![])));
-    (QueryExecutor::new(in_memory_storage(), collector.clone()), collector)
+    (
+        QueryExecutor::new(in_memory_catalog_manager(), collector.clone()),
+        collector,
+    )
 }
 
 #[rstest::fixture]
-fn sql_engine_with_schema(sql_engine: (QueryExecutor, Arc<Collector>)) -> (QueryExecutor, Arc<Collector>) {
+fn sql_engine_with_schema(sql_engine: (QueryExecutor, ResultCollector)) -> (QueryExecutor, ResultCollector) {
     let (mut engine, collector) = sql_engine;
     engine.execute("create schema schema_name;").expect("no system errors");
 
