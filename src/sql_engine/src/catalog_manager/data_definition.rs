@@ -746,10 +746,10 @@ impl DataDefinition {
         }
     }
 
-    pub(crate) fn create_schema(&self, catalog_name: &str, schema_name: &str) {
+    pub(crate) fn create_schema(&self, catalog_name: &str, schema_name: &str) -> InnerFullSchemaId {
         let catalog = match self.catalog(catalog_name) {
             Some(catalog) => catalog,
-            None => return,
+            None => return None,
         };
         let schema_id = catalog.create_schema(schema_name);
         if let Some(system_catalog) = self.system_catalog.as_ref() {
@@ -766,6 +766,7 @@ impl DataDefinition {
                 .expect("no platform error")
                 .expect("to save schema");
         }
+        Some((catalog.id(), Some(schema_id)))
     }
 
     pub(crate) fn schema_exists(&self, catalog_name: &str, schema_name: &str) -> InnerFullSchemaId {

@@ -49,15 +49,16 @@ impl<'qp> QueryProcessor {
                         return Err(());
                     }
                 };
-                if matches!(self.storage.schema_exists(schema_id.name()), Some(_)) {
-                    self.sender
-                        .send(Err(QueryError::schema_already_exists(schema_id.name().to_string())))
-                        .expect("To Send Query Result to Client");
-                    Err(())
-                } else {
-                    Ok(Plan::CreateSchema(SchemaCreationInfo {
+                match self.storage.schema_exists(schema_id.name()) {
+                    Some(_) => {
+                        self.sender
+                            .send(Err(QueryError::schema_already_exists(schema_id.name().to_string())))
+                            .expect("To Send Query Result to Client");
+                        Err(())
+                    }
+                    None => Ok(Plan::CreateSchema(SchemaCreationInfo {
                         schema_name: schema_id.name().to_string(),
-                    }))
+                    })),
                 }
             }
             Statement::Drop {
@@ -147,27 +148,31 @@ impl<'qp> QueryProcessor {
         };
         let schema_name = table_id.schema_name();
         let table_name = table_id.name();
-        if !matches!(self.storage.schema_exists(schema_name), Some(_)) {
-            self.sender
-                .send(Err(QueryError::schema_does_not_exist(schema_name.to_string())))
-                .expect("To Send Query Result to Client");
-            Err(())
-        } else if matches!(self.storage.table_exists(&schema_name, &table_name), Some((_, Some(_)))) {
-            self.sender
-                .send(Err(QueryError::table_already_exists(format!(
-                    "{}.{}",
-                    schema_name, table_name
-                ))))
-                .expect("To Send Query Result to Client");
-            Err(())
-        } else {
-            let columns = self.resolve_column_definitions(columns)?;
-            let table_info = TableCreationInfo {
-                schema_name: schema_name.to_owned(),
-                table_name: table_name.to_owned(),
-                columns,
-            };
-            Ok(Plan::CreateTable(table_info))
+        match self.storage.table_exists(&schema_name, &table_name) {
+            None => {
+                self.sender
+                    .send(Err(QueryError::schema_does_not_exist(schema_name.to_string())))
+                    .expect("To Send Query Result to Client");
+                Err(())
+            }
+            Some((_, Some(_))) => {
+                self.sender
+                    .send(Err(QueryError::table_already_exists(format!(
+                        "{}.{}",
+                        schema_name, table_name
+                    ))))
+                    .expect("To Send Query Result to Client");
+                Err(())
+            }
+            Some((_, None)) => {
+                let columns = self.resolve_column_definitions(columns)?;
+                let table_info = TableCreationInfo {
+                    schema_name: schema_name.to_owned(),
+                    table_name: table_name.to_owned(),
+                    columns,
+                };
+                Ok(Plan::CreateTable(table_info))
+            }
         }
     }
 
@@ -189,21 +194,23 @@ impl<'qp> QueryProcessor {
                     };
                     let schema_name = table_id.schema_name();
                     let table_name = table_id.name();
-                    if !matches!(self.storage.schema_exists(schema_name), Some(_)) {
-                        self.sender
-                            .send(Err(QueryError::schema_does_not_exist(schema_name.to_string())))
-                            .expect("To Send Query Result to Client");
-                        return Err(());
-                    } else if !matches!(self.storage.table_exists(&schema_name, &table_name), Some((_, Some(_)))) {
-                        self.sender
-                            .send(Err(QueryError::table_does_not_exist(format!(
-                                "{}.{}",
-                                schema_name, table_name
-                            ))))
-                            .expect("To Send Query Result to Client");
-                        return Err(());
-                    } else {
-                        table_names.push(table_id);
+                    match self.storage.table_exists(&schema_name, &table_name) {
+                        None => {
+                            self.sender
+                                .send(Err(QueryError::schema_does_not_exist(schema_name.to_string())))
+                                .expect("To Send Query Result to Client");
+                            return Err(());
+                        }
+                        Some((_, None)) => {
+                            self.sender
+                                .send(Err(QueryError::table_does_not_exist(format!(
+                                    "{}.{}",
+                                    schema_name, table_name
+                                ))))
+                                .expect("To Send Query Result to Client");
+                            return Err(());
+                        }
+                        Some((_, Some(_))) => table_names.push(table_id),
                     }
                 }
                 Ok(Plan::DropTables(table_names))
@@ -220,14 +227,15 @@ impl<'qp> QueryProcessor {
                             return Err(());
                         }
                     };
-                    if !matches!(self.storage.schema_exists(schema_id.name()), Some(_)) {
-                        self.sender
-                            .send(Err(QueryError::schema_does_not_exist(schema_id.name().to_string())))
-                            .expect("To Send Query Result to Client");
-                        return Err(());
+                    match self.storage.schema_exists(schema_id.name()) {
+                        None => {
+                            self.sender
+                                .send(Err(QueryError::schema_does_not_exist(schema_id.name().to_string())))
+                                .expect("To Send Query Result to Client");
+                            return Err(());
+                        }
+                        Some(_) => schema_names.push((schema_id, cascade)),
                     }
-
-                    schema_names.push((schema_id, cascade));
                 }
                 Ok(Plan::DropSchemas(schema_names))
             }

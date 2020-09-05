@@ -52,29 +52,39 @@ impl DropSchemaCommand {
         } else {
             DropStrategy::Restrict
         };
-        match self.storage.drop_schema(&schema_name, strategy) {
-            Err(error) => Err(error),
-            Ok(Err(DropSchemaError::CatalogDoesNotExist)) => {
-                //ignore. Catalogs are not implemented
-                Ok(())
-            }
-            Ok(Err(DropSchemaError::HasDependentObjects)) => {
-                self.session
-                    .send(Err(QueryError::schema_has_dependent_objects(schema_name)))
-                    .expect("To Send Query Result to Client");
-                Ok(())
-            }
-            Ok(Err(DropSchemaError::DoesNotExist)) => {
+        match self.storage.schema_exists(&schema_name) {
+            None => {
                 self.session
                     .send(Err(QueryError::schema_does_not_exist(schema_name)))
                     .expect("To Send Query Result to Client");
                 Ok(())
             }
-            Ok(Ok(())) => {
-                self.session
-                    .send(Ok(QueryEvent::SchemaDropped))
-                    .expect("To Send Query Result to Client");
-                Ok(())
+            Some(schema_id) => {
+                match self.storage.drop_schema(schema_id, strategy) {
+                    Err(error) => Err(error),
+                    Ok(Err(DropSchemaError::CatalogDoesNotExist)) => {
+                        //ignore. Catalogs are not implemented
+                        Ok(())
+                    }
+                    Ok(Err(DropSchemaError::HasDependentObjects)) => {
+                        self.session
+                            .send(Err(QueryError::schema_has_dependent_objects(schema_name)))
+                            .expect("To Send Query Result to Client");
+                        Ok(())
+                    }
+                    Ok(Err(DropSchemaError::DoesNotExist)) => {
+                        self.session
+                            .send(Err(QueryError::schema_does_not_exist(schema_name)))
+                            .expect("To Send Query Result to Client");
+                        Ok(())
+                    }
+                    Ok(Ok(())) => {
+                        self.session
+                            .send(Ok(QueryEvent::SchemaDropped))
+                            .expect("To Send Query Result to Client");
+                        Ok(())
+                    }
+                }
             }
         }
     }

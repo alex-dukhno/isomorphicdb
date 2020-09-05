@@ -62,9 +62,12 @@ fn same_table_names_with_different_columns_in_different_schemas(storage: Catalog
 
 #[rstest::rstest]
 fn drop_schema(default_schema_name: &str, storage_with_schema: CatalogManager) {
+    let schema_id = storage_with_schema
+        .schema_exists(default_schema_name)
+        .expect("schema exists");
     assert_eq!(
         storage_with_schema
-            .drop_schema(default_schema_name, DropStrategy::Restrict)
+            .drop_schema(schema_id, DropStrategy::Restrict)
             .expect("no system errors"),
         Ok(())
     );
@@ -79,9 +82,12 @@ fn restrict_drop_schema_does_not_drop_schema_with_table(
     storage_with_schema
         .create_table(default_schema_name, "table_name", &[])
         .expect("no system errors");
+    let schema_id = storage_with_schema
+        .schema_exists(default_schema_name)
+        .expect("schema exists");
     assert_eq!(
         storage_with_schema
-            .drop_schema(default_schema_name, DropStrategy::Restrict)
+            .drop_schema(schema_id, DropStrategy::Restrict)
             .expect("no system errors"),
         Err(DropSchemaError::HasDependentObjects)
     );
@@ -109,10 +115,13 @@ fn cascade_drop_schema_drops_tables_in_it(default_schema_name: &str, storage_wit
             )],
         )
         .expect("table is created");
+    let schema_id = storage_with_schema
+        .schema_exists(default_schema_name)
+        .expect("schema exists");
 
     assert_eq!(
         storage_with_schema
-            .drop_schema(default_schema_name, DropStrategy::Cascade)
+            .drop_schema(schema_id, DropStrategy::Cascade)
             .expect("no system errors"),
         Ok(())
     );

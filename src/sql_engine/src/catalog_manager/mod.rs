@@ -14,6 +14,8 @@
 
 use crate::{catalog_manager::data_definition::DataDefinition, ColumnDefinition};
 use kernel::{Object, Operation, SystemError, SystemResult};
+use std::collections::HashMap;
+use std::sync::RwLock;
 use std::{
     path::PathBuf,
     sync::atomic::{AtomicU64, Ordering},
@@ -41,6 +43,8 @@ pub struct CatalogManager {
     key_id_generator: AtomicU64,
     data_storage: Box<dyn Database>,
     data_definition: DataDefinition,
+    schemas: RwLock<HashMap<u64, String>>,
+    tables: RwLock<HashMap<(u64, u64), String>>,
 }
 
 impl Default for CatalogManager {
@@ -62,6 +66,8 @@ impl CatalogManager {
             key_id_generator: AtomicU64::default(),
             data_storage: Box::new(InMemoryDatabase::default()),
             data_definition,
+            schemas: RwLock::default(),
+            tables: RwLock::default(),
         })
     }
 
@@ -103,6 +109,8 @@ impl CatalogManager {
             key_id_generator: AtomicU64::default(),
             data_storage: Box::new(catalog),
             data_definition,
+            schemas: RwLock::default(),
+            tables: RwLock::default(),
         })
     }
 
@@ -111,26 +119,49 @@ impl CatalogManager {
     }
 
     pub fn create_schema(&self, schema_name: &str) -> SystemResult<()> {
-        self.data_definition.create_schema(DEFAULT_CATALOG, schema_name);
-        match self.data_storage.create_schema(schema_name) {
-            Ok(Ok(Ok(()))) => Ok(()),
-            _ => Err(SystemError::bug_in_sql_engine(
+        match self.data_definition.create_schema(DEFAULT_CATALOG, schema_name) {
+            Some((_, Some(schema_id))) => {
+                self.schemas
+                    .write()
+                    .expect("to acquire write lock")
+                    .insert(schema_id, schema_name.to_owned());
+                match self.data_storage.create_schema(schema_name) {
+                    Ok(Ok(Ok(()))) => Ok(()),
+                    _ => Err(SystemError::bug_in_sql_engine(
+                        Operation::Create,
+                        Object::Schema(schema_name),
+                    )),
+                }
+            }
+            Some((_, None)) => Err(SystemError::bug_in_sql_engine(
+                Operation::Create,
+                Object::Schema(schema_name),
+            )),
+            None => Err(SystemError::bug_in_sql_engine(
                 Operation::Create,
                 Object::Schema(schema_name),
             )),
         }
     }
 
-    pub fn drop_schema(&self, schema_name: &str, strategy: DropStrategy) -> SystemResult<Result<(), DropSchemaError>> {
-        match self.data_definition.drop_schema(DEFAULT_CATALOG, schema_name, strategy) {
-            Ok(()) => match self.data_storage.drop_schema(schema_name) {
-                Ok(Ok(Ok(()))) => Ok(Ok(())),
-                _ => Err(SystemError::bug_in_sql_engine(
-                    Operation::Drop,
-                    Object::Schema(schema_name),
-                )),
-            },
-            Err(error) => Ok(Err(error)),
+    pub fn drop_schema(&self, schema_id: u64, strategy: DropStrategy) -> SystemResult<Result<(), DropSchemaError>> {
+        match self.schemas.write().expect("to acquire write lock").remove(&schema_id) {
+            None => Ok(Err(DropSchemaError::DoesNotExist)),
+            Some(schema_name) => {
+                match self
+                    .data_definition
+                    .drop_schema(DEFAULT_CATALOG, schema_name.as_str(), strategy)
+                {
+                    Ok(()) => match self.data_storage.drop_schema(schema_name.as_str()) {
+                        Ok(Ok(Ok(()))) => Ok(Ok(())),
+                        _ => Err(SystemError::bug_in_sql_engine(
+                            Operation::Drop,
+                            Object::Schema(schema_name.as_str()),
+                        )),
+                    },
+                    Err(error) => Ok(Err(error)),
+                }
+            }
         }
     }
 
