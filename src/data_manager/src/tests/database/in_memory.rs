@@ -415,8 +415,8 @@ mod operations_on_object {
                 (2u8, vec!["4", "5", "6"]),
                 (3u8, vec!["7", "8", "9"])
             ])
-                .map(|ok| ok.expect("no io error"))
-                .collect()),
+            .map(|ok| ok.expect("no io error"))
+            .collect()),
         );
     }
 }

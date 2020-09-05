@@ -185,7 +185,7 @@ impl PersistentDatabase {
         tree.flush()
     }
 
-    fn iterator_over_tree_with_failpoint(&self, object: Tree) -> Box<dyn Iterator<Item=sled::Result<(IVec, IVec)>>> {
+    fn iterator_over_tree_with_failpoint(&self, object: Tree) -> Box<dyn Iterator<Item = sled::Result<(IVec, IVec)>>> {
         fail::fail_point!("sled-fail-iterate-over-tree", |kind| Box::new(
             vec![Err(sled_error(kind))].into_iter()
         ));
@@ -196,7 +196,7 @@ impl PersistentDatabase {
         object.remove(key.to_bytes())
     }
 
-    fn empty_iterator(&self) -> Box<dyn Iterator<Item=RowResult>> {
+    fn empty_iterator(&self) -> Box<dyn Iterator<Item = RowResult>> {
         Box::new(std::iter::empty())
     }
 }

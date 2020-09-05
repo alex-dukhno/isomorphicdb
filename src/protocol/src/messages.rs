@@ -16,7 +16,7 @@ use std::convert::TryFrom;
 
 use byteorder::{ByteOrder, NetworkEndian};
 
-use crate::{Error, Result, sql_formats::PostgreSqlFormat, sql_types::PostgreSqlType};
+use crate::{sql_formats::PostgreSqlFormat, sql_types::PostgreSqlType, Error, Result};
 
 const COMMAND_COMPLETE: u8 = b'C';
 const DATA_ROW: u8 = b'D';

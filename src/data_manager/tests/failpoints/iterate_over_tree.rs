@@ -14,9 +14,9 @@
 
 use fail::FailScenario;
 
-use common::{OBJECT, scenario, SCHEMA};
-use data_manager::{Database, RowResult, StorageError};
+use common::{scenario, OBJECT, SCHEMA};
 use data_manager::persistent::PersistentDatabase;
+use data_manager::{Database, RowResult, StorageError};
 
 mod common;
 

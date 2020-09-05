@@ -280,12 +280,8 @@ fn update_non_existent_columns_of_records(sql_engine_with_schema: (QueryExecutor
             vec![vec!["123".to_owned()]],
         ))),
         Ok(QueryEvent::QueryComplete),
-        Err(QueryError::column_does_not_exist(
-            "col1".to_owned(),
-        )),
-        Err(QueryError::column_does_not_exist(
-            "col2".to_owned(),
-        )),
+        Err(QueryError::column_does_not_exist("col1".to_owned())),
+        Err(QueryError::column_does_not_exist("col2".to_owned())),
         Ok(QueryEvent::QueryComplete),
     ]);
 }

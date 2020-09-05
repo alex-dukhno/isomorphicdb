@@ -162,8 +162,8 @@ pub async fn hand_shake<RW>(
     address: SocketAddr,
     config: &ProtocolConfiguration,
 ) -> io::Result<Result<(impl Receiver, impl Sender)>>
-    where
-        RW: AsyncRead + AsyncWrite + Unpin,
+where
+    RW: AsyncRead + AsyncWrite + Unpin,
 {
     log::debug!("ADDRESS {:?}", address);
 
@@ -256,8 +256,8 @@ pub async fn hand_shake<RW>(
 }
 
 async fn tls_channel<RW>(tcp_channel: RW, config: &ProtocolConfiguration) -> io::Result<TlsStream<RW>>
-    where
-        RW: AsyncRead + AsyncWrite + Unpin,
+where
+    RW: AsyncRead + AsyncWrite + Unpin,
 {
     match config.ssl_config() {
         Some((path, password)) => {

@@ -17,8 +17,8 @@ use std::{
     net::TcpListener,
     path::{Path, PathBuf},
     sync::{
-        Arc,
         atomic::{AtomicU8, Ordering},
+        Arc,
     },
 };
 
@@ -79,12 +79,12 @@ pub fn start() {
                                 return;
                             }
                             Ok(Ok(Command::Bind {
-                                      portal_name,
-                                      statement_name,
-                                      param_formats,
-                                      raw_params,
-                                      result_formats,
-                                  })) => {
+                                portal_name,
+                                statement_name,
+                                param_formats,
+                                raw_params,
+                                result_formats,
+                            })) => {
                                 match query_executor.bind_prepared_statement_to_portal(
                                     portal_name.as_str(),
                                     statement_name.as_str(),
@@ -111,10 +111,10 @@ pub fn start() {
                             }
                             Ok(Ok(Command::Flush)) => query_executor.flush(),
                             Ok(Ok(Command::Parse {
-                                      statement_name,
-                                      sql,
-                                      param_types,
-                                  })) => {
+                                statement_name,
+                                sql,
+                                param_types,
+                            })) => {
                                 match query_executor.parse_prepared_statement(
                                     statement_name.as_str(),
                                     sql.as_str(),
@@ -137,7 +137,7 @@ pub fn start() {
                         }
                     }
                 })
-                    .detach();
+                .detach();
             }
         }
     });

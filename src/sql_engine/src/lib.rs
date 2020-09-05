@@ -28,12 +28,12 @@ use data_manager::DataManager;
 use kernel::SystemResult;
 use protocol::{
     results::{QueryError, QueryEvent},
-    Sender,
     session::Session,
     sql_formats::PostgreSqlFormat,
     sql_types::PostgreSqlType,
     sql_values::PostgreSqlValue,
     statement::PreparedStatement,
+    Sender,
 };
 
 use crate::{

@@ -60,11 +60,7 @@ impl ScalarOp {
             ScalarOp::Literal(datum) => datum.scalar_type().unwrap(),
             ScalarOp::Binary(_, _, _, ty) => ty.clone(),
             // ScalarOp::Unary(_, _, ty) => ty.clone(),
-            ScalarOp::Assignment {
-                ty,
-                ..
-            } => ty.clone(),
+            ScalarOp::Assignment { ty, .. } => ty.clone(),
         }
     }
 }
-

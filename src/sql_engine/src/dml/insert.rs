@@ -25,8 +25,8 @@ use protocol::{
 use representation::{Binary, Datum};
 use sql_types::ConstraintError;
 
-use crate::{query::plan::TableInserts};
-use crate::query::expr::{ExpressionEvaluation, ExprMetadata};
+use crate::query::expr::{ExprMetadata, ExpressionEvaluation};
+use crate::query::plan::TableInserts;
 
 pub(crate) struct InsertCommand<'ic> {
     raw_sql_query: &'ic str,
@@ -99,32 +99,42 @@ impl<'ic> InsertCommand<'ic> {
                                     Ok(v) => {
                                         if v.is_literal() {
                                             let datum = v.as_datum().unwrap();
-                                            match all_columns[idx].sql_type().constraint().validate(datum.to_string().as_str()) {
+                                            match all_columns[idx]
+                                                .sql_type()
+                                                .constraint()
+                                                .validate(datum.to_string().as_str())
+                                            {
                                                 Ok(()) => row.push(v),
                                                 Err(ConstraintError::OutOfRange) => {
-                                                    self.sender.send(Err(QueryError::out_of_range(
-                                                        (&meta.column().sql_type()).into(),
-                                                        meta.column().name(),
-                                                        idx + 1,
-                                                    ))).expect("To Send Query Result to client");
+                                                    self.sender
+                                                        .send(Err(QueryError::out_of_range(
+                                                            (&meta.column().sql_type()).into(),
+                                                            meta.column().name(),
+                                                            idx + 1,
+                                                        )))
+                                                        .expect("To Send Query Result to client");
                                                     has_error = true;
                                                 }
                                                 Err(ConstraintError::TypeMismatch(value)) => {
-                                                    self.sender.send(Err(QueryError::type_mismatch(
-                                                        &value,
-                                                        (&meta.column().sql_type()).into(),
-                                                        meta.column().name(),
-                                                        idx + 1,
-                                                    ))).expect("To Send Query Result to client");
+                                                    self.sender
+                                                        .send(Err(QueryError::type_mismatch(
+                                                            &value,
+                                                            (&meta.column().sql_type()).into(),
+                                                            meta.column().name(),
+                                                            idx + 1,
+                                                        )))
+                                                        .expect("To Send Query Result to client");
                                                     has_error = true;
                                                 }
                                                 Err(ConstraintError::ValueTooLong(len)) => {
-                                                    self.sender.send(Err(QueryError::string_length_mismatch(
-                                                        (&meta.column().sql_type()).into(),
-                                                        len,
-                                                        meta.column().name(),
-                                                        idx + 1,
-                                                    ))).expect("To Send Query Result to client");
+                                                    self.sender
+                                                        .send(Err(QueryError::string_length_mismatch(
+                                                            (&meta.column().sql_type()).into(),
+                                                            len,
+                                                            meta.column().name(),
+                                                            idx + 1,
+                                                        )))
+                                                        .expect("To Send Query Result to client");
                                                     has_error = true;
                                                 }
                                             }

@@ -85,9 +85,7 @@ fn parse_select_statement_with_not_existed_column(sql_engine_with_schema: (Query
         Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::TableCreated),
         Ok(QueryEvent::QueryComplete),
-        Err(QueryError::column_does_not_exist(
-            "column_not_in_table".to_owned()
-        )),
+        Err(QueryError::column_does_not_exist("column_not_in_table".to_owned())),
     ]);
 }
 

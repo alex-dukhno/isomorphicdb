@@ -16,8 +16,8 @@ use std::{
     collections::{BTreeMap, HashMap},
     path::PathBuf,
     sync::{
-        Arc,
-        atomic::{AtomicU64, Ordering}, RwLock,
+        atomic::{AtomicU64, Ordering},
+        Arc, RwLock,
     },
 };
 

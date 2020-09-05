@@ -17,7 +17,7 @@ use std::sync::Arc;
 use async_mutex::Mutex as AsyncMutex;
 use futures_lite::future::block_on;
 
-use crate::{Channel, Command, Receiver, RequestReceiver, tests::async_io::TestCase, VERSION_3};
+use crate::{tests::async_io::TestCase, Channel, Command, Receiver, RequestReceiver, VERSION_3};
 
 #[cfg(test)]
 mod read_query {

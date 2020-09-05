@@ -22,7 +22,7 @@ use protocol::{
     results::{QueryError, QueryEvent},
     Sender,
 };
-use representation::{Binary, unpack_raw};
+use representation::{unpack_raw, Binary};
 
 use crate::query::expr::{EvalScalarOp, ExpressionEvaluation};
 
@@ -54,7 +54,8 @@ impl UpdateCommand {
         let mut to_update = vec![];
 
         match self.storage.table_exists(&schema_name, &table_name) {
-            None => self.sender
+            None => self
+                .sender
                 .send(Err(QueryError::schema_does_not_exist(schema_name)))
                 .expect("To Send Result to Client"),
             Some((_, None)) => self
@@ -87,13 +88,17 @@ impl UpdateCommand {
                     Ok(reads) => {
                         let expr_eval = EvalScalarOp::new(self.sender.as_ref(), all_columns.to_vec());
                         let mut res = Vec::new();
-                        for (row_idx, (key, values)) in reads
-                            .map(Result::unwrap).map(Result::unwrap).into_iter().enumerate() {
+                        for (row_idx, (key, values)) in
+                            reads.map(Result::unwrap).map(Result::unwrap).into_iter().enumerate()
+                        {
                             let mut datums = unpack_raw(values.to_bytes());
 
                             let mut has_err = false;
                             for update in to_update.as_slice() {
-                                has_err = expr_eval.eval_on_row(&mut datums.as_mut_slice(), update, row_idx).is_err() || has_err;
+                                has_err = expr_eval
+                                    .eval_on_row(&mut datums.as_mut_slice(), update, row_idx)
+                                    .is_err()
+                                    || has_err;
                             }
 
                             if has_err {

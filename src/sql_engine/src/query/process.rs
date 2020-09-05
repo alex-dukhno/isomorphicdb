@@ -20,9 +20,9 @@ use data_manager::{ColumnDefinition, DataManager};
 use protocol::{results::QueryError, Sender};
 use sql_types::SqlType;
 
-use crate::query::{SchemaId, SchemaNamingError, TableId, TableNamingError};
 ///! Module for transforming the input Query AST into representation the engine can process.
 use crate::query::plan::{Plan, SchemaCreationInfo, TableCreationInfo, TableInserts};
+use crate::query::{SchemaId, SchemaNamingError, TableId, TableNamingError};
 
 type Result<T> = std::result::Result<T, ()>;
 

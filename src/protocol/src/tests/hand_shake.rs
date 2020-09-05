@@ -23,11 +23,11 @@ use futures_lite::future::block_on;
 use crate::{
     hand_shake,
     messages::{BackendMessage, Encryption},
-    ProtocolConfiguration,
     tests::{
         async_io::{empty_file_named, TestCase},
         certificate_content, pg_frontend,
     },
+    ProtocolConfiguration,
 };
 
 fn path_to_temp_certificate() -> PathBuf {
@@ -50,7 +50,7 @@ fn trying_read_from_empty_stream() {
             SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 8080)),
             &config,
         )
-            .await;
+        .await;
 
         assert!(result.is_err());
     });
@@ -68,7 +68,7 @@ fn trying_read_only_length_of_ssl_message() {
             SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 8080)),
             &config,
         )
-            .await;
+        .await;
 
         assert!(result.is_err());
     });
@@ -86,7 +86,7 @@ fn sending_reject_notification_for_none_secure() {
             SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 8080)),
             &config,
         )
-            .await;
+        .await;
 
         assert!(result.is_err());
 
@@ -109,7 +109,7 @@ fn sending_accept_notification_for_ssl_only_secure() {
             SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 8080)),
             &config,
         )
-            .await;
+        .await;
 
         assert!(result.is_err());
 
@@ -131,8 +131,8 @@ fn successful_connection_handshake_for_none_secure() {
                 ("application_name", "psql"),
                 ("client_encoding", "UTF8"),
             ])
-                .as_vec()
-                .as_slice(),
+            .as_vec()
+            .as_slice(),
             pg_frontend::Message::Password("123").as_vec().as_slice(),
             &[],
         ]);
@@ -144,7 +144,7 @@ fn successful_connection_handshake_for_none_secure() {
             SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 8080)),
             &config,
         )
-            .await;
+        .await;
 
         assert!(result.is_ok());
 
@@ -185,8 +185,8 @@ fn successful_connection_handshake_for_ssl_only_secure() {
                 ("application_name", "psql"),
                 ("client_encoding", "UTF8"),
             ])
-                .as_vec()
-                .as_slice(),
+            .as_vec()
+            .as_slice(),
             pg_frontend::Message::Password("123").as_vec().as_slice(),
         ]);
 
@@ -197,7 +197,7 @@ fn successful_connection_handshake_for_ssl_only_secure() {
             SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 8080)),
             &config,
         )
-            .await;
+        .await;
 
         assert!(result.is_ok());
 

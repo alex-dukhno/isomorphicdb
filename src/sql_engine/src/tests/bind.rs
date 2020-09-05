@@ -20,9 +20,9 @@ fn bind_insert_raw_statement(sender: ResultCollector) {
         &PreparedStatementDialect {},
         "insert into schema_name.table_name values ($1, $2)",
     )
-        .unwrap()
-        .pop()
-        .unwrap();
+    .unwrap()
+    .pop()
+    .unwrap();
 
     ParamBinder::new(sender)
         .bind(
@@ -43,9 +43,9 @@ fn bind_update_raw_statement(sender: ResultCollector) {
         &PreparedStatementDialect {},
         "update schema_name.table_name set column_1 = $1, column_2 = $2",
     )
-        .unwrap()
-        .pop()
-        .unwrap();
+    .unwrap()
+    .pop()
+    .unwrap();
 
     ParamBinder::new(sender)
         .bind(

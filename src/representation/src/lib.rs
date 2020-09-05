@@ -170,8 +170,7 @@ impl<'a> Datum<'a> {
             Datum::Int64(_) => Some(ScalarType::Int64),
             Datum::Float32(_) => Some(ScalarType::Float32),
             Datum::Float64(_) => Some(ScalarType::Float64),
-            Datum::String(_) |
-            Datum::OwnedString(_) => Some(ScalarType::String),
+            Datum::String(_) | Datum::OwnedString(_) => Some(ScalarType::String),
             Datum::UInt64(_) => Some(ScalarType::UInt64),
             _ => None,
         }

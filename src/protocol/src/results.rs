@@ -220,9 +220,7 @@ impl Display for QueryErrorKind {
                 write!(f, "schema \"{}\" has dependent objects", schema_name)
             }
             Self::TableDoesNotExist(table_name) => write!(f, "table \"{}\" does not exist", table_name),
-            Self::ColumnDoesNotExist(column) => {
-                write!(f, "column {} does not exist", column)
-            }
+            Self::ColumnDoesNotExist(column) => write!(f, "column {} does not exist", column),
             Self::InvalidParameterValue(message) => write!(f, "{}", message),
             Self::PreparedStatementDoesNotExist(statement_name) => {
                 write!(f, "prepared statement {} does not exist", statement_name)
@@ -590,7 +588,7 @@ mod tests {
                 vec![PostgreSqlType::SmallInt],
                 vec![("si_column".to_owned(), PostgreSqlType::SmallInt)],
             )
-                .into();
+            .into();
             assert_eq!(
                 messages,
                 [
@@ -685,8 +683,7 @@ mod tests {
 
         #[test]
         fn one_column_does_not_exists() {
-            let message: BackendMessage =
-                QueryError::column_does_not_exist("column_not_in_table".to_owned()).into();
+            let message: BackendMessage = QueryError::column_does_not_exist("column_not_in_table".to_owned()).into();
             assert_eq!(
                 message,
                 BackendMessage::ErrorResponse(
