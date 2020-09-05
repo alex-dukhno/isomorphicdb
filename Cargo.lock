@@ -1160,6 +1160,7 @@ dependencies = [
  "bigdecimal",
  "bincode",
  "futures-lite",
+ "itertools",
  "kernel",
  "log",
  "protocol",

@@ -13,13 +13,19 @@
 // limitations under the License.
 
 #[cfg(test)]
+mod bind;
+#[cfg(test)]
+mod bind_prepared_statement_to_portal;
+#[cfg(test)]
 mod delete;
 #[cfg(test)]
 mod describe_prepared_statement;
 #[cfg(test)]
+mod execute_portal;
+#[cfg(test)]
 mod insert;
 #[cfg(test)]
-mod parse;
+mod parse_prepared_statement;
 #[cfg(test)]
 mod schema;
 #[cfg(test)]
@@ -67,6 +73,11 @@ impl Collector {
         let actual = self.0.lock().expect("locked");
         assert_eq!(actual.deref(), &expected)
     }
+}
+
+#[rstest::fixture]
+fn sender() -> Arc<Collector> {
+    Arc::new(Collector(Mutex::new(vec![])))
 }
 
 #[rstest::fixture]

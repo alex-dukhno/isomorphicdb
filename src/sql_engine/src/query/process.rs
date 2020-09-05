@@ -28,29 +28,29 @@ type Result<T> = std::result::Result<T, ()>;
 
 pub(crate) struct QueryProcessor {
     storage: Arc<CatalogManager>,
-    session: Arc<dyn Sender>,
+    sender: Arc<dyn Sender>,
 }
 
 impl<'qp> QueryProcessor {
-    pub fn new(storage: Arc<CatalogManager>, session: Arc<dyn Sender>) -> Self {
-        Self { storage, session }
+    pub fn new(storage: Arc<CatalogManager>, sender: Arc<dyn Sender>) -> Self {
+        Self { storage, sender }
     }
 
-    pub fn process(&mut self, stmt: Statement) -> Result<Plan> {
+    pub fn process(&self, stmt: Statement) -> Result<Plan> {
         match stmt {
             Statement::CreateTable { name, columns, .. } => self.handle_create_table(name, &columns),
             Statement::CreateSchema { schema_name, .. } => {
                 let schema_id = match SchemaId::try_from(schema_name) {
                     Ok(schema_id) => schema_id,
                     Err(SchemaNamingError(message)) => {
-                        self.session
+                        self.sender
                             .send(Err(QueryError::syntax_error(message)))
                             .expect("To Send Query Result to Client");
                         return Err(());
                     }
                 };
                 if matches!(self.storage.schema_exists(schema_id.name()), Some(_)) {
-                    self.session
+                    self.sender
                         .send(Err(QueryError::schema_already_exists(schema_id.name().to_string())))
                         .expect("To Send Query Result to Client");
                     Err(())
@@ -77,7 +77,7 @@ impl<'qp> QueryProcessor {
                     input: source,
                 })),
                 Err(TableNamingError(message)) => {
-                    self.session
+                    self.sender
                         .send(Err(QueryError::syntax_error(message)))
                         .expect("To Send Query Result to Client");
                     Err(())
@@ -102,7 +102,7 @@ impl<'qp> QueryProcessor {
                     "smallserial" => Ok(SqlType::SmallInt(1)),
                     "bigserial" => Ok(SqlType::BigInt(1)),
                     other_type => {
-                        self.session
+                        self.sender
                             .send(Err(QueryError::feature_not_supported(format!(
                                 "{} type is not supported",
                                 other_type
@@ -113,7 +113,7 @@ impl<'qp> QueryProcessor {
                 }
             }
             other_type => {
-                self.session
+                self.sender
                     .send(Err(QueryError::feature_not_supported(format!(
                         "{} type is not supported",
                         other_type
@@ -135,11 +135,11 @@ impl<'qp> QueryProcessor {
         Ok(column_defs)
     }
 
-    fn handle_create_table(&mut self, name: ObjectName, columns: &[ColumnDef]) -> Result<Plan> {
+    fn handle_create_table(&self, name: ObjectName, columns: &[ColumnDef]) -> Result<Plan> {
         let table_id = match TableId::try_from(name) {
             Ok(table_id) => table_id,
             Err(TableNamingError(message)) => {
-                self.session
+                self.sender
                     .send(Err(QueryError::syntax_error(message)))
                     .expect("To Send Query Result to Client");
                 return Err(());
@@ -148,12 +148,12 @@ impl<'qp> QueryProcessor {
         let schema_name = table_id.schema_name();
         let table_name = table_id.name();
         if !matches!(self.storage.schema_exists(schema_name), Some(_)) {
-            self.session
+            self.sender
                 .send(Err(QueryError::schema_does_not_exist(schema_name.to_string())))
                 .expect("To Send Query Result to Client");
             Err(())
         } else if matches!(self.storage.table_exists(&schema_name, &table_name), Some((_, Some(_)))) {
-            self.session
+            self.sender
                 .send(Err(QueryError::table_already_exists(format!(
                     "{}.{}",
                     schema_name, table_name
@@ -171,7 +171,7 @@ impl<'qp> QueryProcessor {
         }
     }
 
-    fn handle_drop(&mut self, object_type: &ObjectType, names: &[ObjectName], cascade: bool) -> Result<Plan> {
+    fn handle_drop(&self, object_type: &ObjectType, names: &[ObjectName], cascade: bool) -> Result<Plan> {
         match object_type {
             ObjectType::Table => {
                 let mut table_names = Vec::with_capacity(names.len());
@@ -181,7 +181,7 @@ impl<'qp> QueryProcessor {
                     let table_id = match TableId::try_from(name.clone()) {
                         Ok(table_id) => table_id,
                         Err(TableNamingError(message)) => {
-                            self.session
+                            self.sender
                                 .send(Err(QueryError::syntax_error(message)))
                                 .expect("To Send Query Result to Client");
                             return Err(());
@@ -190,12 +190,12 @@ impl<'qp> QueryProcessor {
                     let schema_name = table_id.schema_name();
                     let table_name = table_id.name();
                     if !matches!(self.storage.schema_exists(schema_name), Some(_)) {
-                        self.session
+                        self.sender
                             .send(Err(QueryError::schema_does_not_exist(schema_name.to_string())))
                             .expect("To Send Query Result to Client");
                         return Err(());
                     } else if !matches!(self.storage.table_exists(&schema_name, &table_name), Some((_, Some(_)))) {
-                        self.session
+                        self.sender
                             .send(Err(QueryError::table_does_not_exist(format!(
                                 "{}.{}",
                                 schema_name, table_name
@@ -214,14 +214,14 @@ impl<'qp> QueryProcessor {
                     let schema_id = match SchemaId::try_from(name.clone()) {
                         Ok(schema_id) => schema_id,
                         Err(SchemaNamingError(message)) => {
-                            self.session
+                            self.sender
                                 .send(Err(QueryError::syntax_error(message)))
                                 .expect("To Send Query Result to Client");
                             return Err(());
                         }
                     };
                     if !matches!(self.storage.schema_exists(schema_id.name()), Some(_)) {
-                        self.session
+                        self.sender
                             .send(Err(QueryError::schema_does_not_exist(schema_id.name().to_string())))
                             .expect("To Send Query Result to Client");
                         return Err(());

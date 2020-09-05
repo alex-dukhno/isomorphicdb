@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{sql_types::PostgreSqlType, Error, Result};
+use crate::{sql_formats::PostgreSqlFormat, sql_types::PostgreSqlType, Error, Result};
 use byteorder::{ByteOrder, NetworkEndian};
 use std::convert::TryFrom;
 
@@ -100,6 +100,12 @@ pub enum FrontendMessage {
         /// The source prepared statement. An empty string selects the unnamed
         /// prepared statement.
         statement_name: String,
+        /// The formats used to encode the parameters.
+        param_formats: Vec<PostgreSqlFormat>,
+        /// The value of each parameter.
+        raw_params: Vec<Option<Vec<u8>>>,
+        /// The desired formats for the columns in the result set.
+        result_formats: Vec<PostgreSqlFormat>,
     },
 
     /// Execute a bound portal.
@@ -108,6 +114,10 @@ pub enum FrontendMessage {
     Execute {
         /// The name of the portal to execute.
         portal_name: String,
+        /// The maximum number of rows to return before suspending.
+        ///
+        /// 0 or negative means infinite.
+        max_rows: i32,
     },
 
     /// Flush any pending output.
@@ -412,6 +422,15 @@ impl<'a> Cursor<'a> {
         }
     }
 
+    /// Reads the next 16-bit format code, advancing the cursor by two bytes.
+    fn read_format(&mut self) -> Result<PostgreSqlFormat> {
+        match self.read_i16()? {
+            0 => Ok(PostgreSqlFormat::Text),
+            1 => Ok(PostgreSqlFormat::Binary),
+            code => Err(Error::InvalidInput(format!("unknown format code: {}", code))),
+        }
+    }
+
     /// Reads the next 16-bit signed integer, advancing the cursor by two
     /// bytes.
     fn read_i16(&mut self) -> Result<i16> {
@@ -420,6 +439,17 @@ impl<'a> Cursor<'a> {
         }
         let val = NetworkEndian::read_i16(self.buf);
         self.advance(2);
+        Ok(val)
+    }
+
+    /// Reads the next 32-bit signed integer, advancing the cursor by four
+    /// bytes.
+    fn read_i32(&mut self) -> Result<i32> {
+        if self.buf.len() < 4 {
+            return Err(Error::InvalidInput("not enough buffer for an Int32".to_owned()));
+        }
+        let val = NetworkEndian::read_i32(self.buf);
+        self.advance(4);
         Ok(val)
     }
 
@@ -438,9 +468,38 @@ impl<'a> Cursor<'a> {
 fn decode_bind(mut cursor: Cursor) -> Result<FrontendMessage> {
     let portal_name = cursor.read_cstr()?.to_owned();
     let statement_name = cursor.read_cstr()?.to_owned();
+
+    let mut param_formats = vec![];
+    for _ in 0..cursor.read_i16()? {
+        param_formats.push(cursor.read_format()?);
+    }
+
+    let mut raw_params = vec![];
+    for _ in 0..cursor.read_i16()? {
+        let len = cursor.read_i32()?;
+        if len == -1 {
+            // As a special case, -1 indicates a NULL parameter value.
+            raw_params.push(None);
+        } else {
+            let mut value = vec![];
+            for _ in 0..len {
+                value.push(cursor.read_byte()?);
+            }
+            raw_params.push(Some(value));
+        }
+    }
+
+    let mut result_formats = vec![];
+    for _ in 0..cursor.read_i16()? {
+        result_formats.push(cursor.read_format()?);
+    }
+
     Ok(FrontendMessage::Bind {
         portal_name,
         statement_name,
+        param_formats,
+        raw_params,
+        result_formats,
     })
 }
 
@@ -472,7 +531,8 @@ fn decode_describe(mut cursor: Cursor) -> Result<FrontendMessage> {
 
 fn decode_execute(mut cursor: Cursor) -> Result<FrontendMessage> {
     let portal_name = cursor.read_cstr()?.to_owned();
-    Ok(FrontendMessage::Execute { portal_name })
+    let max_rows = cursor.read_i32()?;
+    Ok(FrontendMessage::Execute { portal_name, max_rows })
 }
 
 fn decode_flush(_cursor: Cursor) -> Result<FrontendMessage> {
@@ -533,7 +593,7 @@ mod decoding_frontend_messages {
     fn bind() {
         let buffer = [
             112, 111, 114, 116, 97, 108, 95, 110, 97, 109, 101, 0, 115, 116, 97, 116, 101, 109, 101, 110, 116, 95, 110,
-            97, 109, 101, 0,
+            97, 109, 101, 0, 0, 2, 0, 1, 0, 1, 0, 2, 0, 0, 0, 4, 0, 0, 0, 1, 0, 0, 0, 4, 0, 0, 0, 2, 0, 0,
         ];
         let message = FrontendMessage::decode(b'B', &buffer);
         assert_eq!(
@@ -541,6 +601,9 @@ mod decoding_frontend_messages {
             Ok(FrontendMessage::Bind {
                 portal_name: "portal_name".to_owned(),
                 statement_name: "statement_name".to_owned(),
+                param_formats: vec![PostgreSqlFormat::Binary, PostgreSqlFormat::Binary],
+                raw_params: vec![Some(vec![0, 0, 0, 1]), Some(vec![0, 0, 0, 2])],
+                result_formats: vec![],
             })
         );
     }
@@ -595,12 +658,13 @@ mod decoding_frontend_messages {
 
     #[test]
     fn execute() {
-        let buffer = [112, 111, 114, 116, 97, 108, 95, 110, 97, 109, 101, 0];
+        let buffer = [112, 111, 114, 116, 97, 108, 95, 110, 97, 109, 101, 0, 0, 0, 0, 0];
         let message = FrontendMessage::decode(b'E', &buffer);
         assert_eq!(
             message,
             Ok(FrontendMessage::Execute {
-                portal_name: "portal_name".to_owned()
+                portal_name: "portal_name".to_owned(),
+                max_rows: 0,
             })
         );
     }

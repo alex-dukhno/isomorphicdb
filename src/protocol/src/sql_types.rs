@@ -12,9 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::{sql_formats::PostgreSqlFormat, sql_values::PostgreSqlValue};
+use byteorder::{BigEndian, ReadBytesExt};
 use std::{
     convert::TryFrom,
     fmt::{self, Display, Formatter},
+    str,
 };
 
 /// PostgreSQL Object Identifier
@@ -109,6 +112,43 @@ impl PostgreSqlType {
             Self::Decimal => -1,
         }
     }
+
+    /// Deserializes a value of this type from `raw` using the specified `format`.
+    pub fn decode(&self, format: &PostgreSqlFormat, raw: &[u8]) -> Result<PostgreSqlValue, String> {
+        match format {
+            PostgreSqlFormat::Binary => self.decode_binary(raw),
+            PostgreSqlFormat::Text => self.decode_text(raw),
+        }
+    }
+
+    fn decode_binary(&self, raw: &[u8]) -> Result<PostgreSqlValue, String> {
+        match self {
+            Self::Bool => parse_bool_from_binary(raw),
+            Self::Char => parse_char_from_binary(raw),
+            Self::VarChar => parse_varchar_from_binary(raw),
+            Self::SmallInt => parse_smallint_from_binary(raw),
+            Self::Integer => parse_integer_from_binary(raw),
+            Self::BigInt => parse_bigint_from_binary(raw),
+            other => Err(format!("Unsupported Postgres type: {:?}", other)),
+        }
+    }
+
+    fn decode_text(&self, raw: &[u8]) -> Result<PostgreSqlValue, String> {
+        let s = match str::from_utf8(raw) {
+            Ok(s) => s,
+            Err(_) => return Err(format!("Failed to parse UTF8 from: {:?}", raw)),
+        };
+
+        match self {
+            Self::Bool => parse_bool_from_text(s),
+            Self::Char => parse_char_from_text(s),
+            Self::VarChar => parse_varchar_from_text(s),
+            Self::SmallInt => parse_smallint_from_text(s),
+            Self::Integer => parse_integer_from_text(s),
+            Self::BigInt => parse_bigint_from_text(s),
+            other => Err(format!("Unsupported Postgres type: {:?}", other)),
+        }
+    }
 }
 
 impl Display for PostgreSqlType {
@@ -129,6 +169,248 @@ impl Display for PostgreSqlType {
             Self::TimestampWithTimeZone => write!(f, "timestamp with timezone"),
             Self::Interval => write!(f, "interval"),
             Self::Decimal => write!(f, "decimal"),
+        }
+    }
+}
+
+fn parse_bigint_from_binary(mut buf: &[u8]) -> Result<PostgreSqlValue, String> {
+    let v = match buf.read_i64::<BigEndian>() {
+        Ok(v) => v,
+        Err(_) => return Err(format!("Failed to parse BigInt from: {:?}", buf)),
+    };
+
+    if !buf.is_empty() {
+        return Err("invalid buffer size".into());
+    }
+
+    Ok(PostgreSqlValue::Int64(v))
+}
+
+fn parse_bigint_from_text(s: &str) -> Result<PostgreSqlValue, String> {
+    let v: i64 = match s.trim().parse() {
+        Ok(v) => v,
+        Err(_) => return Err(format!("Failed to parse SmallInt from: {}", s)),
+    };
+
+    Ok(PostgreSqlValue::Int64(v))
+}
+
+fn parse_bool_from_binary(buf: &[u8]) -> Result<PostgreSqlValue, String> {
+    let len = buf.len();
+    if len != 1 {
+        return Err("invalid buffer size".into());
+    }
+
+    let v = if buf[0] == 0 {
+        PostgreSqlValue::False
+    } else {
+        PostgreSqlValue::True
+    };
+
+    Ok(v)
+}
+
+fn parse_bool_from_text(s: &str) -> Result<PostgreSqlValue, String> {
+    match s.trim().to_lowercase().as_str() {
+        "t" | "tr" | "tru" | "true" | "y" | "ye" | "yes" | "on" | "1" => Ok(PostgreSqlValue::True),
+        "f" | "fa" | "fal" | "fals" | "false" | "n" | "no" | "of" | "off" | "0" => Ok(PostgreSqlValue::False),
+        _ => Err(format!("Failed to parse Bool from: {}", s)),
+    }
+}
+
+fn parse_char_from_binary(buf: &[u8]) -> Result<PostgreSqlValue, String> {
+    let s = match str::from_utf8(buf) {
+        Ok(s) => s,
+        Err(_) => return Err(format!("Failed to parse UTF8 from: {:?}", buf)),
+    };
+
+    Ok(PostgreSqlValue::String(s.into()))
+}
+
+fn parse_char_from_text(s: &str) -> Result<PostgreSqlValue, String> {
+    Ok(PostgreSqlValue::String(s.into()))
+}
+
+fn parse_integer_from_binary(mut buf: &[u8]) -> Result<PostgreSqlValue, String> {
+    let v = match buf.read_i32::<BigEndian>() {
+        Ok(v) => v,
+        Err(_) => return Err(format!("Failed to parse Integer from: {:?}", buf)),
+    };
+
+    if !buf.is_empty() {
+        return Err("invalid buffer size".into());
+    }
+
+    Ok(PostgreSqlValue::Int32(v))
+}
+
+fn parse_integer_from_text(s: &str) -> Result<PostgreSqlValue, String> {
+    let v: i32 = match s.trim().parse() {
+        Ok(v) => v,
+        Err(_) => return Err(format!("Failed to parse SmallInt from: {}", s)),
+    };
+
+    Ok(PostgreSqlValue::Int32(v))
+}
+
+fn parse_smallint_from_binary(mut buf: &[u8]) -> Result<PostgreSqlValue, String> {
+    let v = match buf.read_i16::<BigEndian>() {
+        Ok(v) => v,
+        Err(_) => return Err(format!("Failed to parse SmallInt from: {:?}", buf)),
+    };
+
+    if !buf.is_empty() {
+        return Err("invalid buffer size".into());
+    }
+
+    Ok(PostgreSqlValue::Int16(v))
+}
+
+fn parse_smallint_from_text(s: &str) -> Result<PostgreSqlValue, String> {
+    let v: i16 = match s.trim().parse() {
+        Ok(v) => v,
+        Err(_) => return Err(format!("Failed to parse SmallInt from: {}", s)),
+    };
+
+    Ok(PostgreSqlValue::Int16(v))
+}
+
+fn parse_varchar_from_binary(buf: &[u8]) -> Result<PostgreSqlValue, String> {
+    let s = match str::from_utf8(buf) {
+        Ok(s) => s,
+        Err(_) => return Err(format!("Failed to parse UTF8 from: {:?}", buf)),
+    };
+
+    Ok(PostgreSqlValue::String(s.into()))
+}
+
+fn parse_varchar_from_text(s: &str) -> Result<PostgreSqlValue, String> {
+    Ok(PostgreSqlValue::String(s.into()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[cfg(test)]
+    mod binary_decoding {
+        use super::*;
+
+        #[test]
+        fn decode_true() {
+            assert_eq!(
+                PostgreSqlType::Bool.decode(&PostgreSqlFormat::Binary, &[1]),
+                Ok(PostgreSqlValue::True)
+            );
+        }
+
+        #[test]
+        fn decode_false() {
+            assert_eq!(
+                PostgreSqlType::Bool.decode(&PostgreSqlFormat::Binary, &[0]),
+                Ok(PostgreSqlValue::False)
+            );
+        }
+
+        #[test]
+        fn decode_char() {
+            assert_eq!(
+                PostgreSqlType::Char.decode(&PostgreSqlFormat::Binary, &[97, 98, 99]),
+                Ok(PostgreSqlValue::String("abc".into()))
+            );
+        }
+
+        #[test]
+        fn decode_varchar() {
+            assert_eq!(
+                PostgreSqlType::VarChar.decode(&PostgreSqlFormat::Binary, &[97, 98, 99]),
+                Ok(PostgreSqlValue::String("abc".into()))
+            );
+        }
+
+        #[test]
+        fn decode_smallint() {
+            assert_eq!(
+                PostgreSqlType::SmallInt.decode(&PostgreSqlFormat::Binary, &[0, 1]),
+                Ok(PostgreSqlValue::Int16(1))
+            );
+        }
+
+        #[test]
+        fn decode_integer() {
+            assert_eq!(
+                PostgreSqlType::Integer.decode(&PostgreSqlFormat::Binary, &[0, 0, 0, 1]),
+                Ok(PostgreSqlValue::Int32(1))
+            );
+        }
+
+        #[test]
+        fn decode_bigint() {
+            assert_eq!(
+                PostgreSqlType::BigInt.decode(&PostgreSqlFormat::Binary, &[0, 0, 0, 0, 0, 0, 0, 1]),
+                Ok(PostgreSqlValue::Int64(1))
+            );
+        }
+    }
+
+    #[cfg(test)]
+    mod text_decoding {
+        use super::*;
+
+        #[test]
+        fn decode_true() {
+            assert_eq!(
+                PostgreSqlType::Bool.decode(&PostgreSqlFormat::Text, b"true"),
+                Ok(PostgreSqlValue::True)
+            );
+        }
+
+        #[test]
+        fn decode_false() {
+            assert_eq!(
+                PostgreSqlType::Bool.decode(&PostgreSqlFormat::Text, b"0"),
+                Ok(PostgreSqlValue::False)
+            );
+        }
+
+        #[test]
+        fn decode_char() {
+            assert_eq!(
+                PostgreSqlType::Char.decode(&PostgreSqlFormat::Text, b"abc"),
+                Ok(PostgreSqlValue::String("abc".into()))
+            );
+        }
+
+        #[test]
+        fn decode_varchar() {
+            assert_eq!(
+                PostgreSqlType::VarChar.decode(&PostgreSqlFormat::Text, b"abc"),
+                Ok(PostgreSqlValue::String("abc".into()))
+            );
+        }
+
+        #[test]
+        fn decode_smallint() {
+            assert_eq!(
+                PostgreSqlType::SmallInt.decode(&PostgreSqlFormat::Text, b"1"),
+                Ok(PostgreSqlValue::Int16(1))
+            );
+        }
+
+        #[test]
+        fn decode_integer() {
+            assert_eq!(
+                PostgreSqlType::Integer.decode(&PostgreSqlFormat::Text, b"123"),
+                Ok(PostgreSqlValue::Int32(123))
+            );
+        }
+
+        #[test]
+        fn decode_bigint() {
+            assert_eq!(
+                PostgreSqlType::BigInt.decode(&PostgreSqlFormat::Text, b"123456"),
+                Ok(PostgreSqlValue::Int64(123456))
+            );
         }
     }
 }
