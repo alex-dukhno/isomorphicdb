@@ -13,12 +13,11 @@
 // limitations under the License.
 
 use super::*;
-use crate::{tests::Collector, QueryExecutor};
+use crate::QueryExecutor;
 use protocol::{results::QueryEvent, sql_types::PostgreSqlType};
-use std::sync::Arc;
 
 #[rstest::rstest]
-fn delete_from_nonexistent_table(sql_engine_with_schema: (QueryExecutor, Arc<Collector>)) {
+fn delete_from_nonexistent_table(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
     let (mut engine, collector) = sql_engine_with_schema;
     engine
         .execute("delete from schema_name.table_name;")
@@ -33,7 +32,7 @@ fn delete_from_nonexistent_table(sql_engine_with_schema: (QueryExecutor, Arc<Col
 }
 
 #[rstest::rstest]
-fn delete_all_records(sql_engine_with_schema: (QueryExecutor, Arc<Collector>)) {
+fn delete_all_records(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
     let (mut engine, collector) = sql_engine_with_schema;
     engine
         .execute("create table schema_name.table_name (column_test smallint);")

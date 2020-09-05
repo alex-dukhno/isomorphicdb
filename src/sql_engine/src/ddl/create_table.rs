@@ -14,7 +14,10 @@
 
 use crate::{catalog_manager::CatalogManager, query::plan::TableCreationInfo};
 use kernel::SystemResult;
-use protocol::{results::QueryEvent, Sender};
+use protocol::{
+    results::{QueryError, QueryEvent},
+    Sender,
+};
 use std::sync::Arc;
 
 pub(crate) struct CreateTableCommand {
@@ -40,17 +43,28 @@ impl CreateTableCommand {
         let table_name = self.table_info.table_name.as_str();
         let schema_name = self.table_info.schema_name.as_str();
 
-        match self
-            .storage
-            .create_table(schema_name, table_name, self.table_info.columns.as_slice())
-        {
-            Err(error) => Err(error),
-            Ok(()) => {
-                self.session
-                    .send(Ok(QueryEvent::TableCreated))
-                    .expect("To Send Query Result to Client");
-                Ok(())
+        match self.storage.table_exists(schema_name, table_name) {
+            None => self
+                .session
+                .send(Err(QueryError::schema_does_not_exist(schema_name.to_owned())))
+                .expect("To Send Query Result to Client"),
+            Some((_, Some(_))) => self
+                .session
+                .send(Err(QueryError::table_already_exists(table_name.to_owned())))
+                .expect("To Send Query Result to Client"),
+            Some((schema_id, None)) => {
+                match self
+                    .storage
+                    .create_table(schema_id, table_name, self.table_info.columns.as_slice())
+                {
+                    Err(error) => return Err(error),
+                    Ok(()) => self
+                        .session
+                        .send(Ok(QueryEvent::TableCreated))
+                        .expect("To Send Query Result to Client"),
+                }
             }
         }
+        Ok(())
     }
 }

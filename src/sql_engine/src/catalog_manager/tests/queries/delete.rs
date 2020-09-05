@@ -17,10 +17,13 @@ use representation::Datum;
 use sql_types::SqlType;
 
 #[rstest::rstest]
-fn delete_all_from_table(default_schema_name: &str, storage_with_schema: CatalogManager) {
-    storage_with_schema
+fn delete_all_from_table(catalog_manager_with_schema: CatalogManager) {
+    let schema_id = catalog_manager_with_schema
+        .schema_exists(SCHEMA)
+        .expect("schema exists");
+    catalog_manager_with_schema
         .create_table(
-            default_schema_name,
+            schema_id,
             "table_name",
             &[ColumnDefinition::new(
                 "column_test",
@@ -29,9 +32,9 @@ fn delete_all_from_table(default_schema_name: &str, storage_with_schema: Catalog
         )
         .expect("table is created");
 
-    storage_with_schema
+    catalog_manager_with_schema
         .write_into(
-            default_schema_name,
+            SCHEMA,
             "table_name",
             vec![(
                 Binary::pack(&[Datum::from_u64(1)]),
@@ -39,9 +42,9 @@ fn delete_all_from_table(default_schema_name: &str, storage_with_schema: Catalog
             )],
         )
         .expect("values are inserted");
-    storage_with_schema
+    catalog_manager_with_schema
         .write_into(
-            default_schema_name,
+            SCHEMA,
             "table_name",
             vec![(
                 Binary::pack(&[Datum::from_u64(2)]),
@@ -49,9 +52,9 @@ fn delete_all_from_table(default_schema_name: &str, storage_with_schema: Catalog
             )],
         )
         .expect("values are inserted");
-    storage_with_schema
+    catalog_manager_with_schema
         .write_into(
-            default_schema_name,
+            SCHEMA,
             "table_name",
             vec![(
                 Binary::pack(&[Datum::from_u64(3)]),
@@ -61,8 +64,8 @@ fn delete_all_from_table(default_schema_name: &str, storage_with_schema: Catalog
         .expect("values are inserted");
 
     assert_eq!(
-        storage_with_schema.delete_from(
-            default_schema_name,
+        catalog_manager_with_schema.delete_from(
+            SCHEMA,
             "table_name",
             vec![
                 Binary::pack(&[Datum::from_u64(1)]),
@@ -74,8 +77,8 @@ fn delete_all_from_table(default_schema_name: &str, storage_with_schema: Catalog
     );
 
     assert_eq!(
-        storage_with_schema
-            .full_scan("schema_name", "table_name")
+        catalog_manager_with_schema
+            .full_scan(SCHEMA, "table_name")
             .map(|iter| iter.map(Result::unwrap).map(Result::unwrap).collect()),
         Ok(vec![])
     );

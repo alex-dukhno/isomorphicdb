@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use super::*;
 use crate::{catalog_manager::CatalogManager, ColumnDefinition};
 use representation::{Binary, Datum};
 use sql_types::SqlType;
@@ -31,33 +32,30 @@ fn persistent() -> (CatalogManager, TempDir) {
 #[rstest::rstest]
 fn created_schema_is_preserved_after_restart(persistent: (CatalogManager, TempDir)) {
     let (catalog_manager, root_path) = persistent;
-    catalog_manager
-        .create_schema("schema_name")
-        .expect("to create a schema");
-    assert!(matches!(catalog_manager.schema_exists("schema_name"), Some(_)));
+    catalog_manager.create_schema(SCHEMA).expect("to create a schema");
+    assert!(matches!(catalog_manager.schema_exists(SCHEMA), Some(_)));
 
     drop(catalog_manager);
 
     let catalog_manager = CatalogManager::persistent(root_path.into_path()).expect("to create catalog manager");
 
-    assert!(matches!(catalog_manager.schema_exists("schema_name"), Some(_)));
+    assert!(matches!(catalog_manager.schema_exists(SCHEMA), Some(_)));
 }
 
 #[rstest::rstest]
 fn created_table_is_preserved_after_restart(persistent: (CatalogManager, TempDir)) {
     let (catalog_manager, root_path) = persistent;
-    catalog_manager
-        .create_schema("schema_name")
-        .expect("to create a schema");
+    catalog_manager.create_schema(SCHEMA).expect("to create a schema");
+    let schema_id = catalog_manager.schema_exists(SCHEMA).expect("schema exists");
     catalog_manager
         .create_table(
-            "schema_name",
+            schema_id,
             "table_name",
             &[ColumnDefinition::new("col_test", SqlType::Bool)],
         )
         .expect("to create a table");
     assert!(matches!(
-        catalog_manager.table_exists("schema_name", "table_name"),
+        catalog_manager.table_exists(SCHEMA, "table_name"),
         Some((_, Some(_)))
     ));
 
@@ -66,12 +64,12 @@ fn created_table_is_preserved_after_restart(persistent: (CatalogManager, TempDir
     let catalog_manager = CatalogManager::persistent(root_path.into_path()).expect("to create catalog manager");
 
     assert!(matches!(
-        catalog_manager.table_exists("schema_name", "table_name"),
+        catalog_manager.table_exists(SCHEMA, "table_name"),
         Some((_, Some(_)))
     ));
     assert_eq!(
         catalog_manager
-            .table_columns("schema_name", "table_name")
+            .table_columns(SCHEMA, "table_name")
             .expect("to have a columns"),
         vec![ColumnDefinition::new("col_test", SqlType::Bool)]
     )
@@ -80,19 +78,18 @@ fn created_table_is_preserved_after_restart(persistent: (CatalogManager, TempDir
 #[rstest::rstest]
 fn stored_data_is_preserved_after_restart(persistent: (CatalogManager, TempDir)) {
     let (catalog_manager, root_path) = persistent;
-    catalog_manager
-        .create_schema("schema_name")
-        .expect("to create a schema");
+    catalog_manager.create_schema(SCHEMA).expect("to create a schema");
+    let schema_id = catalog_manager.schema_exists(SCHEMA).expect("schema exists");
     catalog_manager
         .create_table(
-            "schema_name",
+            schema_id,
             "table_name",
             &[ColumnDefinition::new("col_test", SqlType::Bool)],
         )
         .expect("to create a table");
     catalog_manager
         .write_into(
-            "schema_name",
+            SCHEMA,
             "table_name",
             vec![(
                 Binary::pack(&[Datum::from_u64(0)]),
@@ -103,7 +100,7 @@ fn stored_data_is_preserved_after_restart(persistent: (CatalogManager, TempDir))
 
     assert_eq!(
         catalog_manager
-            .full_scan("schema_name", "table_name")
+            .full_scan(SCHEMA, "table_name")
             .expect("to scan a table")
             .map(|item| item.expect("no io error").expect("no platform error"))
             .collect::<Vec<Row>>(),
@@ -118,7 +115,7 @@ fn stored_data_is_preserved_after_restart(persistent: (CatalogManager, TempDir))
 
     assert_eq!(
         catalog_manager
-            .full_scan("schema_name", "table_name")
+            .full_scan(SCHEMA, "table_name")
             .expect("to scan a table")
             .map(|item| item.expect("no io error").expect("no platform error"))
             .collect::<Vec<Row>>(),

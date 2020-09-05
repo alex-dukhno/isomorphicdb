@@ -151,7 +151,7 @@ impl<'qp> QueryProcessor {
         match self.storage.table_exists(&schema_name, &table_name) {
             None => {
                 self.sender
-                    .send(Err(QueryError::schema_does_not_exist(schema_name.to_string())))
+                    .send(Err(QueryError::schema_does_not_exist(schema_name.to_owned())))
                     .expect("To Send Query Result to Client");
                 Err(())
             }
@@ -197,7 +197,7 @@ impl<'qp> QueryProcessor {
                     match self.storage.table_exists(&schema_name, &table_name) {
                         None => {
                             self.sender
-                                .send(Err(QueryError::schema_does_not_exist(schema_name.to_string())))
+                                .send(Err(QueryError::schema_does_not_exist(schema_name.to_owned())))
                                 .expect("To Send Query Result to Client");
                             return Err(());
                         }
@@ -230,7 +230,7 @@ impl<'qp> QueryProcessor {
                     match self.storage.schema_exists(schema_id.name()) {
                         None => {
                             self.sender
-                                .send(Err(QueryError::schema_does_not_exist(schema_id.name().to_string())))
+                                .send(Err(QueryError::schema_does_not_exist(schema_id.name().to_owned())))
                                 .expect("To Send Query Result to Client");
                             return Err(());
                         }

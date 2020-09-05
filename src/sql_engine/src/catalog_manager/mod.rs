@@ -120,6 +120,7 @@ impl CatalogManager {
     pub fn create_schema(&self, schema_name: &str) -> SystemResult<()> {
         match self.data_definition.create_schema(DEFAULT_CATALOG, schema_name) {
             Some((_, Some(schema_id))) => {
+                eprintln!("NEW SCHEMA ID {:?}", schema_id);
                 self.schemas
                     .write()
                     .expect("to acquire write lock")
@@ -166,17 +167,25 @@ impl CatalogManager {
 
     pub fn create_table(
         &self,
-        schema_name: &str,
+        schema_id: u64,
         table_name: &str,
         column_definitions: &[ColumnDefinition],
     ) -> SystemResult<()> {
-        self.data_definition
-            .create_table(DEFAULT_CATALOG, schema_name, table_name, column_definitions);
-        match self.data_storage.create_object(schema_name, table_name) {
-            Ok(Ok(Ok(()))) => Ok(()),
-            _ => Err(SystemError::bug_in_sql_engine(
+        match self.schemas.read().expect("to acquire read lock").get(&schema_id) {
+            Some(schema_name) => {
+                self.data_definition
+                    .create_table(DEFAULT_CATALOG, schema_name, table_name, column_definitions);
+                match self.data_storage.create_object(schema_name, table_name) {
+                    Ok(Ok(Ok(()))) => Ok(()),
+                    _ => Err(SystemError::bug_in_sql_engine(
+                        Operation::Create,
+                        Object::Table(schema_name, table_name),
+                    )),
+                }
+            }
+            None => Err(SystemError::bug_in_sql_engine(
                 Operation::Create,
-                Object::Table(schema_name, table_name),
+                Object::Table(schema_id.to_string().as_str(), table_name),
             )),
         }
     }

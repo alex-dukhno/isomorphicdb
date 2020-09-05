@@ -15,7 +15,7 @@
 use super::*;
 
 #[rstest::rstest]
-fn bind_insert_raw_statement(sender: Arc<Collector>) {
+fn bind_insert_raw_statement(sender: ResultCollector) {
     let mut statement = Parser::parse_sql(
         &PreparedStatementDialect {},
         "insert into schema_name.table_name values ($1, $2)",
@@ -38,7 +38,7 @@ fn bind_insert_raw_statement(sender: Arc<Collector>) {
 }
 
 #[rstest::rstest]
-fn bind_update_raw_statement(sender: Arc<Collector>) {
+fn bind_update_raw_statement(sender: ResultCollector) {
     let mut statement = Parser::parse_sql(
         &PreparedStatementDialect {},
         "update schema_name.table_name set column_1 = $1, column_2 = $2",

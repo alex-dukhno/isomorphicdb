@@ -16,10 +16,13 @@ use super::*;
 use sql_types::SqlType;
 
 #[rstest::rstest]
-fn create_tables_with_different_names(default_schema_name: &str, storage_with_schema: CatalogManager) {
+fn create_tables_with_different_names(catalog_manager_with_schema: CatalogManager) {
+    let schema_id = catalog_manager_with_schema
+        .schema_exists(SCHEMA)
+        .expect("schema exists");
     assert_eq!(
-        storage_with_schema.create_table(
-            default_schema_name,
+        catalog_manager_with_schema.create_table(
+            schema_id,
             "table_name_1",
             &[ColumnDefinition::new(
                 "column_test",
@@ -29,8 +32,8 @@ fn create_tables_with_different_names(default_schema_name: &str, storage_with_sc
         Ok(())
     );
     assert_eq!(
-        storage_with_schema.create_table(
-            default_schema_name,
+        catalog_manager_with_schema.create_table(
+            schema_id,
             "table_name_2",
             &[ColumnDefinition::new(
                 "column_test",
@@ -42,12 +45,14 @@ fn create_tables_with_different_names(default_schema_name: &str, storage_with_sc
 }
 
 #[rstest::rstest]
-fn create_table_with_the_same_name_in_different_schemas(storage: CatalogManager) {
-    storage.create_schema("schema_name_1").expect("schema is created");
-    storage.create_schema("schema_name_2").expect("schema is created");
+fn create_table_with_the_same_name_in_different_schemas(catalog_manager: CatalogManager) {
+    catalog_manager.create_schema(SCHEMA_1).expect("schema is created");
+    catalog_manager.create_schema(SCHEMA_2).expect("schema is created");
+
+    let schema_1_id = catalog_manager.schema_exists(SCHEMA_1).expect("schema exists");
     assert_eq!(
-        storage.create_table(
-            "schema_name_1",
+        catalog_manager.create_table(
+            schema_1_id,
             "table_name",
             &[ColumnDefinition::new(
                 "column_test",
@@ -56,9 +61,11 @@ fn create_table_with_the_same_name_in_different_schemas(storage: CatalogManager)
         ),
         Ok(())
     );
+
+    let schema_2_id = catalog_manager.schema_exists(SCHEMA_2).expect("schema exists");
     assert_eq!(
-        storage.create_table(
-            "schema_name_2",
+        catalog_manager.create_table(
+            schema_2_id,
             "table_name",
             &[ColumnDefinition::new(
                 "column_test",
@@ -70,10 +77,13 @@ fn create_table_with_the_same_name_in_different_schemas(storage: CatalogManager)
 }
 
 #[rstest::rstest]
-fn drop_table(default_schema_name: &str, storage_with_schema: CatalogManager) {
-    storage_with_schema
+fn drop_table(catalog_manager_with_schema: CatalogManager) {
+    let schema_id = catalog_manager_with_schema
+        .schema_exists(SCHEMA)
+        .expect("schema exists");
+    catalog_manager_with_schema
         .create_table(
-            default_schema_name,
+            schema_id,
             "table_name",
             &[ColumnDefinition::new(
                 "column_test",
@@ -81,13 +91,10 @@ fn drop_table(default_schema_name: &str, storage_with_schema: CatalogManager) {
             )],
         )
         .expect("table is created");
+    assert_eq!(catalog_manager_with_schema.drop_table(SCHEMA, "table_name"), Ok(()));
     assert_eq!(
-        storage_with_schema.drop_table(default_schema_name, "table_name"),
-        Ok(())
-    );
-    assert_eq!(
-        storage_with_schema.create_table(
-            default_schema_name,
+        catalog_manager_with_schema.create_table(
+            schema_id,
             "table_name",
             &[ColumnDefinition::new(
                 "column_test",
@@ -99,15 +106,18 @@ fn drop_table(default_schema_name: &str, storage_with_schema: CatalogManager) {
 }
 
 #[rstest::rstest]
-fn table_columns_on_empty_table(default_schema_name: &str, storage_with_schema: CatalogManager) {
+fn table_columns_on_empty_table(catalog_manager_with_schema: CatalogManager) {
+    let schema_id = catalog_manager_with_schema
+        .schema_exists(SCHEMA)
+        .expect("schema exists");
     let column_names = vec![];
-    storage_with_schema
-        .create_table(default_schema_name, "table_name", column_names.as_slice())
+    catalog_manager_with_schema
+        .create_table(schema_id, "table_name", column_names.as_slice())
         .expect("table is created");
 
     assert_eq!(
-        storage_with_schema
-            .table_columns(default_schema_name, "table_name")
+        catalog_manager_with_schema
+            .table_columns(SCHEMA, "table_name")
             .expect("no system errors"),
         vec![]
     );
