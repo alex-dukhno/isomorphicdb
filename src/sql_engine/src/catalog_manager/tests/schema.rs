@@ -17,17 +17,16 @@ use sql_types::SqlType;
 
 #[rstest::rstest]
 fn create_schemas_with_different_names(catalog_manager: CatalogManager) {
-    assert_eq!(catalog_manager.create_schema(SCHEMA_1), Ok(()));
-    assert_eq!(catalog_manager.create_schema(SCHEMA_2), Ok(()));
+    assert!(matches!(catalog_manager.create_schema(SCHEMA_1), Ok(_)));
+    assert!(matches!(catalog_manager.create_schema(SCHEMA_2), Ok(_)));
 }
 
 #[rstest::rstest]
 fn same_table_names_with_different_columns_in_different_schemas(catalog_manager: CatalogManager) {
-    catalog_manager.create_schema(SCHEMA_1).expect("schema is created");
-    catalog_manager.create_schema(SCHEMA_2).expect("schema is created");
+    let schema_1_id = catalog_manager.create_schema(SCHEMA_1).expect("schema is created");
+    let schema_2_id = catalog_manager.create_schema(SCHEMA_2).expect("schema is created");
 
-    let schema_1_id = catalog_manager.schema_exists(SCHEMA_1).expect("schema exists");
-    catalog_manager
+    let table_1_id = catalog_manager
         .create_table(
             schema_1_id,
             "table_name",
@@ -38,26 +37,13 @@ fn same_table_names_with_different_columns_in_different_schemas(catalog_manager:
         )
         .expect("table is created");
 
-    let schema_2_id = catalog_manager.schema_exists(SCHEMA_2).expect("schema exists");
-    catalog_manager
+    let table_2_id = catalog_manager
         .create_table(
             schema_2_id,
             "table_name",
             &[ColumnDefinition::new("sn_2_column", SqlType::BigInt(i64::min_value()))],
         )
         .expect("table is created");
-
-    let table_1_id = catalog_manager
-        .table_exists(SCHEMA_1, "table_name")
-        .expect("schema exists")
-        .1
-        .expect("table exists");
-
-    let table_2_id = catalog_manager
-        .table_exists(SCHEMA_2, "table_name")
-        .expect("schema exists")
-        .1
-        .expect("table exists");
 
     assert_eq!(
         catalog_manager.table_columns(schema_1_id, table_1_id),
@@ -86,7 +72,7 @@ fn drop_schema(catalog_manager_with_schema: CatalogManager) {
             .expect("no system errors"),
         Ok(())
     );
-    assert_eq!(catalog_manager_with_schema.create_schema(SCHEMA), Ok(()));
+    assert!(matches!(catalog_manager_with_schema.create_schema(SCHEMA), Ok(_)));
 }
 
 #[rstest::rstest]
@@ -140,11 +126,10 @@ fn cascade_drop_schema_drops_tables_in_it(catalog_manager_with_schema: CatalogMa
             .expect("no system errors"),
         Ok(())
     );
-    assert_eq!(catalog_manager_with_schema.create_schema(SCHEMA), Ok(()));
     let schema_id = catalog_manager_with_schema
-        .schema_exists(SCHEMA)
+        .create_schema(SCHEMA)
         .expect("schema exists");
-    assert_eq!(
+    assert!(matches!(
         catalog_manager_with_schema.create_table(
             schema_id,
             "table_name_1",
@@ -153,9 +138,9 @@ fn cascade_drop_schema_drops_tables_in_it(catalog_manager_with_schema: CatalogMa
                 SqlType::SmallInt(i16::min_value())
             )]
         ),
-        Ok(())
-    );
-    assert_eq!(
+        Ok(_)
+    ));
+    assert!(matches!(
         catalog_manager_with_schema.create_table(
             schema_id,
             "table_name_2",
@@ -164,6 +149,6 @@ fn cascade_drop_schema_drops_tables_in_it(catalog_manager_with_schema: CatalogMa
                 SqlType::SmallInt(i16::min_value())
             )]
         ),
-        Ok(())
-    );
+        Ok(_)
+    ));
 }

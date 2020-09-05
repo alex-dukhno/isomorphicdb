@@ -28,7 +28,7 @@ pub(crate) struct InsertCommand<'ic> {
     raw_sql_query: &'ic str,
     table_inserts: TableInserts,
     storage: Arc<CatalogManager>,
-    session: Arc<dyn Sender>,
+    sender: Arc<dyn Sender>,
 }
 
 impl<'ic> InsertCommand<'ic> {
@@ -36,13 +36,13 @@ impl<'ic> InsertCommand<'ic> {
         raw_sql_query: &'ic str,
         table_inserts: TableInserts,
         storage: Arc<CatalogManager>,
-        session: Arc<dyn Sender>,
+        sender: Arc<dyn Sender>,
     ) -> InsertCommand<'ic> {
         InsertCommand {
             raw_sql_query,
             table_inserts,
             storage,
-            session,
+            sender,
         }
     }
 
@@ -68,7 +68,7 @@ impl<'ic> InsertCommand<'ic> {
                         .collect()
                 };
 
-                let mut evaluation = ExpressionEvaluation::new(self.session.clone());
+                let mut evaluation = ExpressionEvaluation::new(self.sender.clone());
                 let mut rows = vec![];
                 for line in values {
                     let mut row = vec![];
@@ -81,7 +81,7 @@ impl<'ic> InsertCommand<'ic> {
                                     Value::Boolean(bool::from_str(v).unwrap())
                                 }
                                 _ => {
-                                    self.session
+                                    self.sender
                                         .send(Err(QueryError::syntax_error(format!(
                                             "Cast from {:?} to {:?} is not currently supported",
                                             expr, data_type
@@ -93,7 +93,7 @@ impl<'ic> InsertCommand<'ic> {
                             Expr::UnaryOp { op, expr } => match (op, &**expr) {
                                 (UnaryOperator::Minus, Expr::Value(Value::Number(v))) => Value::Number(-v),
                                 (op, expr) => {
-                                    self.session
+                                    self.sender
                                         .send(Err(QueryError::syntax_error(
                                             op.to_string() + expr.to_string().as_str(),
                                         )))
@@ -106,7 +106,7 @@ impl<'ic> InsertCommand<'ic> {
                                 Err(()) => return Ok(()),
                             },
                             expr => {
-                                self.session
+                                self.sender
                                     .send(Err(QueryError::syntax_error(expr.to_string())))
                                     .expect("To Send Query Result to Client");
                                 return Ok(());
@@ -119,11 +119,11 @@ impl<'ic> InsertCommand<'ic> {
 
                 match self.storage.table_exists(&schema_name, &table_name) {
                     None => self
-                        .session
+                        .sender
                         .send(Err(QueryError::schema_does_not_exist(schema_name.to_owned())))
                         .expect("To Send Result to Client"),
                     Some((_, None)) => self
-                        .session
+                        .sender
                         .send(Err(QueryError::table_does_not_exist(
                             schema_name.to_owned() + "." + table_name,
                         )))
@@ -157,7 +157,7 @@ impl<'ic> InsertCommand<'ic> {
                             }
 
                             if !non_existing_cols.is_empty() {
-                                self.session
+                                self.sender
                                     .send(Err(QueryError::column_does_not_exist(non_existing_cols)))
                                     .expect("To Send Result to Client");
                                 return Ok(());
@@ -171,7 +171,7 @@ impl<'ic> InsertCommand<'ic> {
 
                         for (row_index, row) in rows.iter().enumerate() {
                             if row.len() > all_columns.len() {
-                                self.session
+                                self.sender
                                     .send(Err(QueryError::too_many_insert_expressions()))
                                     .expect("To Send Result to Client");
                                 return Ok(());
@@ -220,7 +220,7 @@ impl<'ic> InsertCommand<'ic> {
                                             row_index + 1,
                                         ),
                                     };
-                                    self.session
+                                    self.sender
                                         .send(Err(error_to_send))
                                         .expect("To Send Query Result to Client");
                                 }
@@ -232,7 +232,7 @@ impl<'ic> InsertCommand<'ic> {
                         match self.storage.write_into(&schema_name, &table_name, to_write) {
                             Err(error) => return Err(error),
                             Ok(size) => self
-                                .session
+                                .sender
                                 .send(Ok(QueryEvent::RecordsInserted(size)))
                                 .expect("To Send Result to Client"),
                         }
@@ -241,7 +241,7 @@ impl<'ic> InsertCommand<'ic> {
                 Ok(())
             }
             _ => {
-                self.session
+                self.sender
                     .send(Err(QueryError::feature_not_supported(self.raw_sql_query.to_owned())))
                     .expect("To Send Query Result to Client");
                 Ok(())

@@ -20,19 +20,19 @@ use std::sync::Arc;
 pub(crate) struct CreateSchemaCommand {
     schema_info: SchemaCreationInfo,
     storage: Arc<CatalogManager>,
-    session: Arc<dyn Sender>,
+    sender: Arc<dyn Sender>,
 }
 
 impl CreateSchemaCommand {
     pub(crate) fn new(
         schema_info: SchemaCreationInfo,
         storage: Arc<CatalogManager>,
-        session: Arc<dyn Sender>,
+        sender: Arc<dyn Sender>,
     ) -> CreateSchemaCommand {
         CreateSchemaCommand {
             schema_info,
             storage,
-            session,
+            sender,
         }
     }
 
@@ -40,8 +40,8 @@ impl CreateSchemaCommand {
         let schema_name = &self.schema_info.schema_name;
         match self.storage.create_schema(schema_name) {
             Err(error) => Err(error),
-            Ok(()) => {
-                self.session
+            Ok(_schema_id) => {
+                self.sender
                     .send(Ok(QueryEvent::SchemaCreated))
                     .expect("To Send Query Result to Client");
                 Ok(())

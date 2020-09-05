@@ -24,12 +24,12 @@ use std::sync::Arc;
 pub(crate) struct DeleteCommand {
     name: ObjectName,
     storage: Arc<CatalogManager>,
-    session: Arc<dyn Sender>,
+    sender: Arc<dyn Sender>,
 }
 
 impl DeleteCommand {
-    pub(crate) fn new(name: ObjectName, storage: Arc<CatalogManager>, session: Arc<dyn Sender>) -> DeleteCommand {
-        DeleteCommand { name, storage, session }
+    pub(crate) fn new(name: ObjectName, storage: Arc<CatalogManager>, sender: Arc<dyn Sender>) -> DeleteCommand {
+        DeleteCommand { name, storage, sender }
     }
 
     pub(crate) fn execute(&mut self) -> SystemResult<()> {
@@ -38,11 +38,11 @@ impl DeleteCommand {
 
         match self.storage.table_exists(&schema_name, &table_name) {
             None => self
-                .session
+                .sender
                 .send(Err(QueryError::schema_does_not_exist(schema_name)))
                 .expect("To Send Result to Client"),
             Some((_, None)) => self
-                .session
+                .sender
                 .send(Err(QueryError::table_does_not_exist(
                     schema_name + "." + table_name.as_str(),
                 )))
@@ -60,7 +60,7 @@ impl DeleteCommand {
                         match self.storage.delete_from(&schema_name, &table_name, keys) {
                             Err(e) => return Err(e),
                             Ok(records_number) => self
-                                .session
+                                .sender
                                 .send(Ok(QueryEvent::RecordsDeleted(records_number)))
                                 .expect("To Send Query Result to Client"),
                         }

@@ -33,13 +33,13 @@ impl<'sc> SelectCommand<'sc> {
         raw_sql_query: &'sc str,
         query: Box<Query>,
         storage: Arc<CatalogManager>,
-        session: Arc<dyn Sender>,
+        sender: Arc<dyn Sender>,
     ) -> SelectCommand<'sc> {
         SelectCommand {
             raw_sql_query,
             query,
             storage,
-            sender: session,
+            sender,
         }
     }
 

@@ -45,9 +45,8 @@ fn created_schema_is_preserved_after_restart(persistent: (CatalogManager, TempDi
 #[rstest::rstest]
 fn created_table_is_preserved_after_restart(persistent: (CatalogManager, TempDir)) {
     let (catalog_manager, root_path) = persistent;
-    catalog_manager.create_schema(SCHEMA).expect("to create a schema");
-    let schema_id = catalog_manager.schema_exists(SCHEMA).expect("schema exists");
-    catalog_manager
+    let schema_id = catalog_manager.create_schema(SCHEMA).expect("to create a schema");
+    let table_id = catalog_manager
         .create_table(
             schema_id,
             "table_name",
@@ -67,11 +66,6 @@ fn created_table_is_preserved_after_restart(persistent: (CatalogManager, TempDir
         catalog_manager.table_exists(SCHEMA, "table_name"),
         Some((_, Some(_)))
     ));
-    let table_id = catalog_manager
-        .table_exists(SCHEMA, "table_name")
-        .expect("schema exists")
-        .1
-        .expect("table exists");
     assert_eq!(
         catalog_manager
             .table_columns(schema_id, table_id)
@@ -83,8 +77,7 @@ fn created_table_is_preserved_after_restart(persistent: (CatalogManager, TempDir
 #[rstest::rstest]
 fn stored_data_is_preserved_after_restart(persistent: (CatalogManager, TempDir)) {
     let (catalog_manager, root_path) = persistent;
-    catalog_manager.create_schema(SCHEMA).expect("to create a schema");
-    let schema_id = catalog_manager.schema_exists(SCHEMA).expect("schema exists");
+    let schema_id = catalog_manager.create_schema(SCHEMA).expect("to create a schema");
     catalog_manager
         .create_table(
             schema_id,

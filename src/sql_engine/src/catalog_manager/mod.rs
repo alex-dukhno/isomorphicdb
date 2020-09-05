@@ -24,8 +24,9 @@ use std::{
 };
 use storage::{Database, InMemoryDatabase, InitStatus, Key, PersistentDatabase, ReadCursor, Row};
 
-pub type FullSchemaId = Option<u64>;
-pub type FullTableId = Option<(u64, Option<u64>)>;
+pub type RecordId = u64;
+pub type FullSchemaId = Option<RecordId>;
+pub type FullTableId = Option<(RecordId, Option<RecordId>)>;
 
 mod data_definition;
 
@@ -45,8 +46,8 @@ pub struct CatalogManager {
     key_id_generator: AtomicU64,
     data_storage: Box<dyn Database>,
     data_definition: DataDefinition,
-    schemas: RwLock<HashMap<u64, String>>,
-    tables: RwLock<HashMap<(u64, u64), Vec<String>>>,
+    schemas: RwLock<HashMap<RecordId, String>>,
+    tables: RwLock<HashMap<(RecordId, RecordId), Vec<String>>>,
 }
 
 impl Default for CatalogManager {
@@ -131,7 +132,7 @@ impl CatalogManager {
         self.key_id_generator.fetch_add(1, Ordering::SeqCst)
     }
 
-    pub fn create_schema(&self, schema_name: &str) -> SystemResult<()> {
+    pub fn create_schema(&self, schema_name: &str) -> SystemResult<RecordId> {
         match self.data_definition.create_schema(DEFAULT_CATALOG, schema_name) {
             Some((_, Some(schema_id))) => {
                 self.schemas
@@ -139,7 +140,7 @@ impl CatalogManager {
                     .expect("to acquire write lock")
                     .insert(schema_id, schema_name.to_owned());
                 match self.data_storage.create_schema(schema_name) {
-                    Ok(Ok(Ok(()))) => Ok(()),
+                    Ok(Ok(Ok(()))) => Ok(schema_id),
                     _ => Err(SystemError::bug_in_sql_engine(
                         Operation::Create,
                         Object::Schema(schema_name),
@@ -180,10 +181,10 @@ impl CatalogManager {
 
     pub fn create_table(
         &self,
-        schema_id: u64,
+        schema_id: RecordId,
         table_name: &str,
         column_definitions: &[ColumnDefinition],
-    ) -> SystemResult<()> {
+    ) -> SystemResult<RecordId> {
         match self.schemas.read().expect("to acquire read lock").get(&schema_id) {
             Some(schema_name) => {
                 match self
@@ -196,7 +197,7 @@ impl CatalogManager {
                             vec![schema_name.to_owned(), table_name.to_owned()],
                         );
                         match self.data_storage.create_object(schema_name, table_name) {
-                            Ok(Ok(Ok(()))) => Ok(()),
+                            Ok(Ok(Ok(()))) => Ok(table_id),
                             _ => Err(SystemError::bug_in_sql_engine(
                                 Operation::Create,
                                 Object::Table(schema_name, table_name),
@@ -235,15 +236,31 @@ impl CatalogManager {
         }
     }
 
-    pub fn drop_table(&self, schema_name: &str, table_name: &str) -> SystemResult<()> {
-        self.data_definition
-            .drop_table(DEFAULT_CATALOG, schema_name, table_name);
-        match self.data_storage.drop_object(schema_name, table_name) {
-            Ok(Ok(Ok(()))) => Ok(()),
-            _ => Err(SystemError::bug_in_sql_engine(
+    pub fn drop_table(&self, schema_id: RecordId, table_id: RecordId) -> SystemResult<()> {
+        match self
+            .tables
+            .write()
+            .expect("to acquire write lock")
+            .remove(&(schema_id, table_id))
+        {
+            None => Err(SystemError::bug_in_sql_engine(
                 Operation::Drop,
-                Object::Table(schema_name, table_name),
+                Object::Table(schema_id.to_string().as_str(), table_id.to_string().as_str()),
             )),
+            Some(full_name) => {
+                self.data_definition
+                    .drop_table(DEFAULT_CATALOG, full_name[0].as_str(), full_name[1].as_str());
+                match self
+                    .data_storage
+                    .drop_object(full_name[0].as_str(), full_name[1].as_str())
+                {
+                    Ok(Ok(Ok(()))) => Ok(()),
+                    _ => Err(SystemError::bug_in_sql_engine(
+                        Operation::Drop,
+                        Object::Table(schema_id.to_string().as_str(), table_id.to_string().as_str()),
+                    )),
+                }
+            }
         }
     }
 

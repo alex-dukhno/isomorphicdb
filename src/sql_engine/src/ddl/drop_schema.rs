@@ -27,7 +27,7 @@ pub(crate) struct DropSchemaCommand {
     name: SchemaId,
     cascade: bool,
     storage: Arc<CatalogManager>,
-    session: Arc<dyn Sender>,
+    sender: Arc<dyn Sender>,
 }
 
 impl DropSchemaCommand {
@@ -35,13 +35,13 @@ impl DropSchemaCommand {
         name: SchemaId,
         cascade: bool,
         storage: Arc<CatalogManager>,
-        session: Arc<dyn Sender>,
+        sender: Arc<dyn Sender>,
     ) -> DropSchemaCommand {
         DropSchemaCommand {
             name,
             cascade,
             storage,
-            session,
+            sender,
         }
     }
 
@@ -54,7 +54,7 @@ impl DropSchemaCommand {
         };
         match self.storage.schema_exists(&schema_name) {
             None => {
-                self.session
+                self.sender
                     .send(Err(QueryError::schema_does_not_exist(schema_name)))
                     .expect("To Send Query Result to Client");
                 Ok(())
@@ -67,19 +67,19 @@ impl DropSchemaCommand {
                         Ok(())
                     }
                     Ok(Err(DropSchemaError::HasDependentObjects)) => {
-                        self.session
+                        self.sender
                             .send(Err(QueryError::schema_has_dependent_objects(schema_name)))
                             .expect("To Send Query Result to Client");
                         Ok(())
                     }
                     Ok(Err(DropSchemaError::DoesNotExist)) => {
-                        self.session
+                        self.sender
                             .send(Err(QueryError::schema_does_not_exist(schema_name)))
                             .expect("To Send Query Result to Client");
                         Ok(())
                     }
                     Ok(Ok(())) => {
-                        self.session
+                        self.sender
                             .send(Ok(QueryEvent::SchemaDropped))
                             .expect("To Send Query Result to Client");
                         Ok(())
