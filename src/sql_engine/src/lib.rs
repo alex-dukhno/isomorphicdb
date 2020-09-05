@@ -91,7 +91,7 @@ impl QueryExecutor {
         Self {
             storage: storage.clone(),
             sender: sender.clone(),
-            session: Session::new(),
+            session: Session::default(),
             processor: QueryProcessor::new(storage, sender.clone()),
             param_binder: ParamBinder::new(sender),
         }

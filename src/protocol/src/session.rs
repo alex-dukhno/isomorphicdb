@@ -27,15 +27,16 @@ pub struct Session<S> {
     portals: HashMap<String, Portal<S>>,
 }
 
-impl<S> Session<S> {
-    /// create new client session
-    pub fn new() -> Self {
-        Self {
-            prepared_statements: HashMap::new(),
-            portals: HashMap::new(),
+impl<S> Default for Session<S> {
+    fn default() -> Session<S> {
+        Session {
+            prepared_statements: HashMap::default(),
+            portals: HashMap::default(),
         }
     }
+}
 
+impl<S> Session<S> {
     /// get `PreparedStatement` by its name
     pub fn get_prepared_statement(&self, name: &str) -> Option<&PreparedStatement<S>> {
         self.prepared_statements.get(name)
