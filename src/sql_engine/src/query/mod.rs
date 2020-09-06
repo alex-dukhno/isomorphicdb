@@ -12,15 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::convert::TryFrom;
+
+use sqlparser::ast::ObjectName;
+
+use sql_types::SqlType;
+
 ///! Module for representing how a query will be parameters bound, executed and
 ///! values represented during runtime.
 pub mod bind;
+pub mod expr;
 pub mod plan;
 pub mod process;
-
-use sql_types::SqlType;
-use sqlparser::ast::ObjectName;
-use std::convert::TryFrom;
+pub mod relation;
+pub mod scalar;
 
 /// A type of a column
 #[derive(Debug, Clone, PartialEq, Eq)]

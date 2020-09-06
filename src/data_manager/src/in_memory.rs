@@ -12,12 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{Database, DefinitionError, Key, ObjectId, ReadCursor, RowResult, SchemaId, StorageError, Values};
 use std::{
     collections::{BTreeMap, HashMap},
     io::{self},
     sync::RwLock,
 };
+
+use crate::{Database, DefinitionError, Key, ObjectId, ReadCursor, RowResult, SchemaId, StorageError, Values};
 
 type Name = String;
 

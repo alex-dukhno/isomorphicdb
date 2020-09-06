@@ -12,11 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::fmt::{self, Display, Formatter};
+
 use crate::{
     messages::{BackendMessage, ColumnMetadata},
     sql_types::PostgreSqlType,
 };
-use std::fmt::{self, Display, Formatter};
 
 /// Represents result of SQL query execution
 pub type QueryResult = std::result::Result<QueryEvent, QueryError>;
@@ -145,7 +146,7 @@ pub(crate) enum QueryErrorKind {
     SchemaDoesNotExist(String),
     SchemaHasDependentObjects(String),
     TableDoesNotExist(String),
-    ColumnDoesNotExist(Vec<String>),
+    ColumnDoesNotExist(String),
     InvalidParameterValue(String),
     PreparedStatementDoesNotExist(String),
     PortalDoesNotExist(String),
@@ -174,6 +175,12 @@ pub(crate) enum QueryErrorKind {
         left_type: String,
         right_type: String,
     },
+    AmbiguousColumnName {
+        column: String,
+    },
+    UndefinedColumn {
+        column: String,
+    },
     SyntaxError(String),
 }
 
@@ -196,6 +203,8 @@ impl QueryErrorKind {
             Self::DataTypeMismatch { .. } => "2200G",
             Self::StringTypeLengthMismatch { .. } => "22026",
             Self::UndefinedFunction { .. } => "42883",
+            Self::AmbiguousColumnName { .. } => "42702",
+            Self::UndefinedColumn { .. } => "42883",
             Self::SyntaxError(_) => "42601",
         }
     }
@@ -211,13 +220,7 @@ impl Display for QueryErrorKind {
                 write!(f, "schema \"{}\" has dependent objects", schema_name)
             }
             Self::TableDoesNotExist(table_name) => write!(f, "table \"{}\" does not exist", table_name),
-            Self::ColumnDoesNotExist(columns) => {
-                if columns.len() > 1 {
-                    write!(f, "columns {} do not exist", columns.join(", "))
-                } else {
-                    write!(f, "column {} does not exist", columns[0])
-                }
-            }
+            Self::ColumnDoesNotExist(column) => write!(f, "column {} does not exist", column),
             Self::InvalidParameterValue(message) => write!(f, "{}", message),
             Self::PreparedStatementDoesNotExist(statement_name) => {
                 write!(f, "prepared statement {} does not exist", statement_name)
@@ -266,6 +269,8 @@ impl Display for QueryErrorKind {
                 "operator does not exist: ({} {} {})",
                 left_type, operator, right_type
             ),
+            Self::AmbiguousColumnName { column } => write!(f, "use of ambiguous column name in context: '{}'", column),
+            Self::UndefinedColumn { column } => write!(f, "use of undefined column: '{}'", column),
             Self::SyntaxError(expression) => write!(f, "syntax error in {}", expression),
         }
     }
@@ -341,15 +346,15 @@ impl QueryError {
     }
 
     /// column does not exists error constructor
-    pub fn column_does_not_exist(non_existing_columns: Vec<String>) -> QueryError {
+    pub fn column_does_not_exist(non_existing_column: String) -> QueryError {
         QueryError {
             severity: Severity::Error,
-            kind: QueryErrorKind::ColumnDoesNotExist(non_existing_columns),
+            kind: QueryErrorKind::ColumnDoesNotExist(non_existing_column),
         }
     }
 
     /// invalid parameter value error constructor
-    pub fn invalid_parameter_value(message: String) -> Self {
+    pub fn invalid_parameter_value(message: String) -> QueryError {
         QueryError {
             severity: Severity::Error,
             kind: QueryErrorKind::InvalidParameterValue(message),
@@ -413,6 +418,22 @@ impl QueryError {
                 left_type,
                 right_type,
             },
+        }
+    }
+
+    /// when the name of a column is ambiguous in a multi-table context
+    pub fn ambiguous_column(column: String) -> QueryError {
+        QueryError {
+            severity: Severity::Error,
+            kind: QueryErrorKind::AmbiguousColumnName { column },
+        }
+    }
+
+    /// user of an undefined column
+    pub fn undefined_column(column: String) -> QueryError {
+        QueryError {
+            severity: Severity::Error,
+            kind: QueryErrorKind::UndefinedColumn { column },
         }
     }
 
@@ -572,7 +593,7 @@ mod tests {
                     BackendMessage::RowDescription(vec![ColumnMetadata {
                         name: "si_column".to_owned(),
                         type_id: 21,
-                        type_size: 2
+                        type_size: 2,
                     }])
                 ]
             )
@@ -659,8 +680,7 @@ mod tests {
 
         #[test]
         fn one_column_does_not_exists() {
-            let message: BackendMessage =
-                QueryError::column_does_not_exist(vec!["column_not_in_table".to_owned()]).into();
+            let message: BackendMessage = QueryError::column_does_not_exist("column_not_in_table".to_owned()).into();
             assert_eq!(
                 message,
                 BackendMessage::ErrorResponse(
@@ -672,29 +692,12 @@ mod tests {
         }
 
         #[test]
-        fn multiple_columns_does_not_exists() {
-            let message: BackendMessage = QueryError::column_does_not_exist(vec![
-                "column_not_in_table1".to_owned(),
-                "column_not_in_table2".to_owned(),
-            ])
-            .into();
-            assert_eq!(
-                message,
-                BackendMessage::ErrorResponse(
-                    Some("ERROR"),
-                    Some("42703"),
-                    Some("columns column_not_in_table1, column_not_in_table2 do not exist".to_owned()),
-                )
-            )
-        }
-
-        #[test]
         fn invalid_parameter_value() {
             let messages: BackendMessage =
                 QueryError::invalid_parameter_value("Wrong parameter value".to_owned()).into();
             assert_eq!(
                 messages,
-                BackendMessage::ErrorResponse(Some("ERROR"), Some("22023"), Some("Wrong parameter value".to_owned()),)
+                BackendMessage::ErrorResponse(Some("ERROR"), Some("22023"), Some("Wrong parameter value".to_owned()))
             )
         }
 
@@ -730,7 +733,7 @@ mod tests {
             let messages: BackendMessage = QueryError::protocol_violation("Wrong protocol data".to_owned()).into();
             assert_eq!(
                 messages,
-                BackendMessage::ErrorResponse(Some("ERROR"), Some("08P01"), Some("Wrong protocol data".to_owned()),)
+                BackendMessage::ErrorResponse(Some("ERROR"), Some("08P01"), Some("Wrong protocol data".to_owned()))
             )
         }
 
@@ -770,7 +773,7 @@ mod tests {
                 BackendMessage::ErrorResponse(
                     Some("ERROR"),
                     Some("22003"),
-                    Some("smallint is out of range for column 'col1' at row 1".to_owned())
+                    Some("smallint is out of range for column 'col1' at row 1".to_owned()),
                 )
             )
         }
@@ -784,7 +787,7 @@ mod tests {
                 BackendMessage::ErrorResponse(
                     Some("ERROR"),
                     Some("2200G"),
-                    Some("invalid input syntax for type smallint for column 'col1' at row 1: \"abc\"".to_owned())
+                    Some("invalid input syntax for type smallint for column 'col1' at row 1: \"abc\"".to_owned()),
                 )
             )
         }
@@ -798,7 +801,7 @@ mod tests {
                 BackendMessage::ErrorResponse(
                     Some("ERROR"),
                     Some("22026"),
-                    Some("value too long for type character(5) for column 'col1' at row 1".to_owned())
+                    Some("value too long for type character(5) for column 'col1' at row 1".to_owned()),
                 )
             )
         }
@@ -812,7 +815,7 @@ mod tests {
                 BackendMessage::ErrorResponse(
                     Some("ERROR"),
                     Some("42883"),
-                    Some("operator does not exist: (NUMBER || NUMBER)".to_owned())
+                    Some("operator does not exist: (NUMBER || NUMBER)".to_owned()),
                 )
             )
         }
@@ -825,7 +828,7 @@ mod tests {
                 BackendMessage::ErrorResponse(
                     Some("ERROR"),
                     Some("42601"),
-                    Some("syntax error in expression".to_owned())
+                    Some("syntax error in expression".to_owned()),
                 )
             )
         }

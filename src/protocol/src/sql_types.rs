@@ -12,13 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{sql_formats::PostgreSqlFormat, sql_values::PostgreSqlValue};
-use byteorder::{BigEndian, ReadBytesExt};
 use std::{
     convert::TryFrom,
     fmt::{self, Display, Formatter},
     str,
 };
+
+use byteorder::{BigEndian, ReadBytesExt};
+
+use crate::{sql_formats::PostgreSqlFormat, sql_values::PostgreSqlValue};
 
 /// PostgreSQL Object Identifier
 pub type Oid = u32;

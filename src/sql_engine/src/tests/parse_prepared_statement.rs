@@ -12,9 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::*;
 use kernel::SystemError;
 use protocol::sql_types::PostgreSqlType;
+
+use super::*;
 
 #[rstest::rstest]
 fn parse_select_statement(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
@@ -84,9 +85,7 @@ fn parse_select_statement_with_not_existed_column(sql_engine_with_schema: (Query
         Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::TableCreated),
         Ok(QueryEvent::QueryComplete),
-        Err(QueryError::column_does_not_exist(
-            vec!["column_not_in_table".to_owned()],
-        )),
+        Err(QueryError::column_does_not_exist("column_not_in_table".to_owned())),
     ]);
 }
 

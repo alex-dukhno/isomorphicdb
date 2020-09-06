@@ -12,8 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::*;
 use protocol::sql_types::PostgreSqlType;
+
+use super::*;
 
 #[rstest::rstest]
 fn describe_select_statement(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {

@@ -12,8 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::*;
 use protocol::sql_types::PostgreSqlType;
+
+use super::*;
 
 #[rstest::rstest]
 fn insert_into_nonexistent_table(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
@@ -45,7 +46,7 @@ fn insert_value_in_non_existent_column(sql_engine_with_schema: (QueryExecutor, R
         Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::TableCreated),
         Ok(QueryEvent::QueryComplete),
-        Err(QueryError::column_does_not_exist(vec!["non_existent".to_owned()])),
+        Err(QueryError::column_does_not_exist("non_existent".to_owned())),
         Ok(QueryEvent::QueryComplete),
     ]);
 }

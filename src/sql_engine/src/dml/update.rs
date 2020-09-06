@@ -12,17 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::dml::ExpressionEvaluation;
+use std::sync::Arc;
+
+use sqlparser::ast::{Assignment, ObjectName};
+
 use data_manager::{DataManager, Row};
 use kernel::SystemResult;
 use protocol::{
     results::{QueryError, QueryEvent},
     Sender,
 };
-use representation::{unpack_raw, Binary, Datum};
-use sql_types::ConstraintError;
-use sqlparser::ast::{Assignment, Expr, Ident, ObjectName, UnaryOperator, Value};
-use std::{collections::BTreeSet, convert::TryFrom, sync::Arc};
+use representation::{unpack_raw, Binary};
+
+use crate::query::expr::{EvalScalarOp, ExpressionEvaluation};
 
 pub(crate) struct UpdateCommand {
     name: ObjectName,
@@ -51,39 +53,6 @@ impl UpdateCommand {
         let table_name = self.name.0[1].to_string();
         let mut to_update = vec![];
 
-        let mut evaluation = ExpressionEvaluation::new(self.sender.clone());
-
-        for item in self.assignments.iter() {
-            let Assignment { id, value } = &item;
-            let Ident { value: column, .. } = id;
-            let value = match value {
-                Expr::Value(value) => value.clone(),
-                Expr::UnaryOp { op, expr } => match (op, &**expr) {
-                    (UnaryOperator::Minus, Expr::Value(Value::Number(v))) => Value::Number(-v),
-                    (op, expr) => {
-                        self.sender
-                            .send(Err(QueryError::syntax_error(
-                                op.to_string() + expr.to_string().as_str(),
-                            )))
-                            .expect("To Send Query Result to Client");
-                        return Ok(());
-                    }
-                },
-                expr @ Expr::BinaryOp { .. } => match evaluation.eval(expr) {
-                    Ok(expr_result) => expr_result,
-                    Err(()) => return Ok(()),
-                },
-                expr => {
-                    self.sender
-                        .send(Err(QueryError::syntax_error(expr.to_string())))
-                        .expect("To Send Query Result to Client");
-                    return Ok(());
-                }
-            };
-
-            to_update.push((column.to_owned(), value))
-        }
-
         match self.storage.table_exists(&schema_name, &table_name) {
             None => self
                 .sender
@@ -92,94 +61,52 @@ impl UpdateCommand {
             Some((_, None)) => self
                 .sender
                 .send(Err(QueryError::table_does_not_exist(
-                    schema_name + "." + table_name.as_str(),
+                    schema_name.clone() + "." + table_name.as_str(),
                 )))
                 .expect("To Send Result to Client"),
             Some((schema_id, Some(table_id))) => {
-                let all_columns = self.storage.table_columns(schema_id, table_id)?;
-                let mut errors = Vec::new();
-                let mut index_value_pairs = Vec::new();
-                let mut non_existing_columns = BTreeSet::new();
-                let mut column_exists = false;
+                // only process the rows if the table and schema exist.
+                let table_definition = self.storage.table_columns(schema_id, table_id)?;
+                let all_columns = table_definition.clone();
 
-                for (column_name, value) in to_update {
-                    for (index, column_definition) in all_columns.iter().enumerate() {
-                        if column_definition.has_name(&column_name) {
-                            let v = match value.clone() {
-                                Value::Number(v) => v.to_string(),
-                                Value::SingleQuotedString(v) => v.to_string(),
-                                Value::Boolean(v) => v.to_string(),
-                                _ => unimplemented!("other types not implemented"),
-                            };
-                            match column_definition.sql_type().constraint().validate(v.as_str()) {
-                                Ok(()) => {
-                                    index_value_pairs.push((index, Datum::try_from(&value).unwrap()));
-                                }
-                                Err(e) => {
-                                    errors.push((e, column_definition.clone()));
-                                }
-                            }
+                let evaluation = ExpressionEvaluation::new(self.sender.clone(), table_definition);
 
-                            column_exists = true;
-
-                            break;
-                        }
-                    }
-
-                    if !column_exists {
-                        non_existing_columns.insert(column_name.clone());
+                let mut has_error = false;
+                for item in self.assignments.iter() {
+                    match evaluation.eval_assignment(item) {
+                        Ok(assign) => to_update.push(assign),
+                        Err(()) => has_error = true,
                     }
                 }
 
-                if !non_existing_columns.is_empty() {
-                    self.sender
-                        .send(Err(QueryError::column_does_not_exist(
-                            non_existing_columns.into_iter().collect(),
-                        )))
-                        .expect("To Send Result to Client");
-                    return Ok(());
-                }
-                if !errors.is_empty() {
-                    for (error, column_definition) in errors {
-                        let error_to_send = match error {
-                            ConstraintError::OutOfRange => QueryError::out_of_range(
-                                (&column_definition.sql_type()).into(),
-                                column_definition.name(),
-                                1,
-                            ),
-                            ConstraintError::TypeMismatch(value) => QueryError::type_mismatch(
-                                &value,
-                                (&column_definition.sql_type()).into(),
-                                column_definition.name(),
-                                1,
-                            ),
-                            ConstraintError::ValueTooLong(len) => QueryError::string_length_mismatch(
-                                (&column_definition.sql_type()).into(),
-                                len,
-                                column_definition.name(),
-                                1,
-                            ),
-                        };
-                        self.sender
-                            .send(Err(error_to_send))
-                            .expect("To Send Query Result to Client");
-                    }
+                if has_error {
                     return Ok(());
                 }
 
                 let to_update: Vec<Row> = match self.storage.full_scan(schema_id, table_id) {
                     Err(error) => return Err(error),
-                    Ok(reads) => reads
-                        .map(Result::unwrap)
-                        .map(Result::unwrap)
-                        .map(|(key, values)| {
-                            let mut values = unpack_raw(values.to_bytes());
-                            for (idx, data) in index_value_pairs.as_slice() {
-                                values[*idx] = data.clone();
+                    Ok(reads) => {
+                        let expr_eval = EvalScalarOp::new(self.sender.as_ref(), all_columns.to_vec());
+                        let mut res = Vec::new();
+                        for (row_idx, (key, values)) in reads.map(Result::unwrap).map(Result::unwrap).enumerate() {
+                            let mut datums = unpack_raw(values.to_bytes());
+
+                            let mut has_err = false;
+                            for update in to_update.as_slice() {
+                                has_err = expr_eval
+                                    .eval_on_row(&mut datums.as_mut_slice(), update, row_idx)
+                                    .is_err()
+                                    || has_err;
                             }
-                            (key, Binary::pack(&values))
-                        })
-                        .collect(),
+
+                            if has_err {
+                                return Ok(());
+                            }
+
+                            res.push((key, Binary::pack(&datums)));
+                        }
+                        res
+                    }
                 };
 
                 match self.storage.write_into(schema_id, table_id, to_update) {

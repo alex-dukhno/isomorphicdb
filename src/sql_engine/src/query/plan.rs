@@ -12,10 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use sqlparser::ast::{Ident, Query, Statement};
+
+use data_manager::ColumnDefinition;
+
 ///! represents a plan to be executed by the engine.
 use crate::query::{SchemaId, TableId};
-use data_manager::ColumnDefinition;
-use sqlparser::ast::{Ident, Query, Statement};
 
 #[derive(Debug, Clone)]
 pub struct TableCreationInfo {

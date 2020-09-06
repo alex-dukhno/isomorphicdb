@@ -12,14 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::sync::Arc;
+
+use sqlparser::ast::ObjectName;
+
 use data_manager::DataManager;
 use kernel::SystemResult;
 use protocol::{
     results::{QueryError, QueryEvent},
     Sender,
 };
-use sqlparser::ast::ObjectName;
-use std::sync::Arc;
 
 pub(crate) struct DeleteCommand {
     name: ObjectName,

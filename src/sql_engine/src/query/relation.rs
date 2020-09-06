@@ -12,10 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::query::scalar::ScalarOp;
-use crate::query::{RelationType, Row, TableId};
-use sql_types::ConstraintError;
-use storage::TableDescription;
+use representation::Binary;
+
+use crate::query::{scalar::ScalarOp, TableId};
 
 ///! module for representing relation operations.
 
@@ -32,7 +31,7 @@ use storage::TableDescription;
 #[derive(Debug, Clone)]
 pub enum RelationOp {
     // Materialize has a multiplicity for each row as well.
-    Constants(Vec<Row>),
+    Constants(Vec<Binary>),
     Projection {
         input: Vec<RelationOp>,
         outputs: Vec<usize>,
@@ -46,8 +45,6 @@ pub enum RelationOp {
         // Id the table that needs to be loaded.
         // and maybe some other information we need about it.
         table: TableId,
-        table_type: RelationType,
-        descriptor: TableDescription,
     },
 
     Join {
@@ -61,9 +58,4 @@ pub enum RelationOp {
     SubQuery {
         output: Box<RelationOp>,
     },
-}
-
-#[derive(Debug)]
-pub enum RelationError {
-    InvalidColumnName { column: String, table: String },
 }

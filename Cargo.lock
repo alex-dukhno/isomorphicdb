@@ -960,6 +960,7 @@ name = "representation"
 version = "0.1.0"
 dependencies = [
  "bigdecimal",
+ "log",
  "ordered-float",
  "sql_types",
  "sqlparser",

@@ -12,16 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{
-    Database, DefinitionError, InitStatus, Key, ObjectId, ReadCursor, RowResult, SchemaId, StorageError, Values,
-};
-use representation::Binary;
-use sled::{Db as Schema, DiskPtr, Error as SledError, IVec, Tree};
 use std::{
     collections::HashMap,
     io::{self, ErrorKind},
     path::PathBuf,
     sync::{Arc, RwLock},
+};
+
+use sled::{Db as Schema, DiskPtr, Error as SledError, IVec, Tree};
+
+use representation::Binary;
+
+use crate::{
+    Database, DefinitionError, InitStatus, Key, ObjectId, ReadCursor, RowResult, SchemaId, StorageError, Values,
 };
 
 pub struct PersistentDatabase {
@@ -289,7 +292,7 @@ impl Database for PersistentDatabase {
                                         SledError::ReportableBug(_) => return Ok(Err(StorageError::Storage)),
                                         SledError::Unsupported(_) => return Ok(Err(StorageError::Storage)),
                                         SledError::CollectionNotFound(_) => {
-                                            return Ok(Ok(Err(DefinitionError::ObjectDoesNotExist)))
+                                            return Ok(Ok(Err(DefinitionError::ObjectDoesNotExist)));
                                         }
                                     },
                                 }
@@ -369,7 +372,7 @@ impl Database for PersistentDatabase {
                                         SledError::ReportableBug(_) => return Ok(Err(StorageError::Storage)),
                                         SledError::Unsupported(_) => return Ok(Err(StorageError::Storage)),
                                         SledError::CollectionNotFound(_) => {
-                                            return Ok(Ok(Err(DefinitionError::ObjectDoesNotExist)))
+                                            return Ok(Ok(Err(DefinitionError::ObjectDoesNotExist)));
                                         }
                                     },
                                 }

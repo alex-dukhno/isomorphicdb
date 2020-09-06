@@ -12,12 +12,68 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::{
+    convert::TryFrom,
+    ops::{Add, BitAnd, BitOr, Div, Mul, Rem, Shl, Shr, Sub},
+};
+
 ///! Runtime cell and row representation.
 use bigdecimal::ToPrimitive;
 use ordered_float::OrderedFloat;
-use sql_types::SqlType;
 use sqlparser::ast::Value;
-use std::convert::TryFrom;
+
+use sql_types::SqlType;
+
+#[derive(Debug, Clone, Copy, Ord, PartialOrd, Eq, PartialEq)]
+pub enum ScalarType {
+    Int16,
+    Int32,
+    Int64,
+    UInt64,
+    Float32,
+    Float64,
+    Boolean,
+    String,
+}
+
+impl ScalarType {
+    pub fn is_integer(&self) -> bool {
+        match self {
+            Self::Int64 | Self::Int32 | Self::Int16 => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_float(&self) -> bool {
+        match self {
+            Self::Float64 | Self::Float32 => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_string(&self) -> bool {
+        *self == Self::String
+    }
+
+    pub fn is_boolean(&self) -> bool {
+        *self == Self::Boolean
+    }
+}
+
+impl ToString for ScalarType {
+    fn to_string(&self) -> String {
+        match self {
+            Self::Int16 => "Int16".to_string(),
+            Self::Int32 => "Int32".to_string(),
+            Self::Int64 => "Int64".to_string(),
+            Self::UInt64 => "UInt64".to_string(),
+            Self::Float32 => "Float32".to_string(),
+            Self::Float64 => "Float64".to_string(),
+            Self::Boolean => "Bool".to_string(),
+            Self::String => "String".to_string(),
+        }
+    }
+}
 
 /// value shared by the row.
 #[derive(Debug, Clone, PartialEq, Eq, Ord, PartialOrd, Hash)]
@@ -28,6 +84,7 @@ pub enum Datum<'a> {
     Int16(i16),
     Int32(i32),
     Int64(i64),
+    // should u16, u32 be implemented here?
     UInt64(u64),
     Float32(OrderedFloat<f32>),
     Float64(OrderedFloat<f64>),
@@ -106,6 +163,22 @@ impl<'a> Datum<'a> {
         Datum::SqlType(val)
     }
 
+    pub fn scalar_type(&self) -> Option<ScalarType> {
+        match self {
+            Datum::Null => None,
+            Datum::True | Datum::False => Some(ScalarType::Boolean),
+            Datum::Int16(_) => Some(ScalarType::Int16),
+            Datum::Int32(_) => Some(ScalarType::Int32),
+            Datum::Int64(_) => Some(ScalarType::Int64),
+            Datum::Float32(_) => Some(ScalarType::Float32),
+            Datum::Float64(_) => Some(ScalarType::Float64),
+            Datum::String(_) | Datum::OwnedString(_) => Some(ScalarType::String),
+            Datum::UInt64(_) => Some(ScalarType::UInt64),
+            _ => None,
+        }
+    }
+
+    // @TODO: Add accessor helper functions.
     pub fn as_i16(&self) -> i16 {
         match self {
             Self::Int16(val) => *val,
@@ -176,13 +249,58 @@ impl<'a> Datum<'a> {
             _ => panic!("invalid use of Datum::as_sql_type"),
         }
     }
+
+    pub fn is_integer(&self) -> bool {
+        match self {
+            Self::Int16(_) | Self::Int32(_) | Self::Int64(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_float(&self) -> bool {
+        match self {
+            Self::Float32(_) | Self::Float64(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_string(&self) -> bool {
+        match self {
+            Self::String(_) | Self::OwnedString(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_boolean(&self) -> bool {
+        match self {
+            Self::True | Self::False => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_null(&self) -> bool {
+        if let Self::Null = self {
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn is_type(&self) -> bool {
+        if let Self::SqlType(_) = self {
+            true
+        } else {
+            false
+        }
+    }
+
+    // arithmetic operations
 }
 
 #[derive(Debug, Clone)]
 pub enum EvalError {
-    InvalidExpressionInStaticContext,
     UnsupportedDatum(String),
-    OutOfRangeNumeric,
+    OutOfRangeNumeric(SqlType),
     UnsupportedOperation,
 }
 
@@ -190,18 +308,24 @@ impl<'a> TryFrom<&Value> for Datum<'a> {
     type Error = EvalError;
 
     fn try_from(other: &Value) -> Result<Self, EvalError> {
+        log::debug!("Datum::try_from({})", other);
         match other {
             Value::Number(val) => {
+                // there has to be a better way of doing this.
                 if val.is_integer() {
                     if let Some(val) = val.to_i32() {
                         Ok(Datum::from_i32(val))
                     } else if let Some(val) = val.to_i64() {
                         Ok(Datum::from_i64(val))
                     } else {
-                        Err(EvalError::OutOfRangeNumeric)
+                        Err(EvalError::OutOfRangeNumeric(SqlType::Integer(i32::min_value())))
                     }
+                } else if let Some(val) = val.to_f32() {
+                    Ok(Datum::from_f32(val))
+                } else if let Some(val) = val.to_f64() {
+                    Ok(Datum::from_f64(val))
                 } else {
-                    Err(EvalError::OutOfRangeNumeric)
+                    Err(EvalError::OutOfRangeNumeric(SqlType::DoublePrecision))
                 }
             }
             Value::SingleQuotedString(value) => Ok(Datum::from_string(value.trim().to_owned())),
@@ -286,7 +410,7 @@ fn read_tag(data: &[u8], idx: &mut usize) -> TypeTag {
     unsafe { read::<TypeTag>(data, idx) }
 }
 
-/// in-memory representation of a table row. It is unable to deserialize
+/// in-memory runtime representation of a table row. It is unable to deserialize
 /// the row without knowing the types of each column, which makes this unsafe
 /// however it is more memory efficient.
 #[derive(Debug, Clone, PartialEq, Eq, Default, PartialOrd, Ord)]
@@ -415,6 +539,70 @@ pub fn unpack_raw(data: &[u8]) -> Vec<Datum> {
     }
     res
 }
+
+macro_rules! impl_op_integral {
+    ($op:tt, $lhs:expr, $rhs:expr) => {
+        match ($lhs, $rhs) {
+            (Datum::Int16(lhs), Datum::Int16(rhs)) => Datum::Int16(lhs $op rhs),
+            (Datum::Int32(lhs), Datum::Int32(rhs)) => Datum::Int32(lhs $op rhs),
+            (Datum::Int64(lhs), Datum::Int64(rhs)) => Datum::Int64(lhs $op rhs),
+            (Datum::UInt64(lhs), Datum::UInt64(rhs)) => Datum::UInt64(lhs $op rhs),
+            (_, _) => panic!("{} can not be used for no arithmetic types", stringify!($op)),
+        }
+    }
+}
+
+macro_rules! impl_op {
+    ($op:tt, $lhs:expr, $rhs:expr) => {
+        match ($lhs, $rhs) {
+            (Datum::Int16(lhs), Datum::Int16(rhs)) => Datum::Int16(lhs $op rhs),
+            (Datum::Int32(lhs), Datum::Int32(rhs)) => Datum::Int32(lhs $op rhs),
+            (Datum::Int64(lhs), Datum::Int64(rhs)) => Datum::Int64(lhs $op rhs),
+
+            (Datum::UInt64(lhs), Datum::UInt64(rhs)) => Datum::UInt64(lhs $op rhs),
+
+            (Datum::Float32(lhs), Datum::Float32(rhs)) => Datum::Float32(lhs $op rhs),
+            (Datum::Float64(lhs), Datum::Float64(rhs)) => Datum::Float64(lhs $op rhs),
+            (_, _) => panic!("{} can not be used for no arithmetic types", stringify!($op)),
+        }
+    }
+}
+
+macro_rules! impl_trait_integral {
+    ($name:ident, $method:ident, $op:tt) => {
+        impl<'a> $name<Self> for Datum<'a> {
+            type Output = Self;
+
+            fn $method(self, rhs: Datum<'a>) -> Self::Output {
+                impl_op_integral!($op, self, rhs)
+            }
+        }
+    };
+}
+
+macro_rules! impl_trait {
+    ($name:ident, $method:ident, $op:tt) => {
+        impl<'a> $name<Self> for Datum<'a> {
+            type Output = Self;
+
+            fn $method(self, rhs: Datum<'a>) -> Self::Output {
+                impl_op!($op, self, rhs)
+            }
+        }
+    };
+}
+
+impl_trait!(Add, add, +);
+impl_trait!(Sub, sub, -);
+impl_trait!(Div, div, /);
+impl_trait!(Mul, mul, *);
+
+impl_trait_integral!(BitAnd, bitand, &);
+impl_trait_integral!(BitOr, bitor, |);
+impl_trait_integral!(Rem, rem, %);
+
+impl_trait_integral!(Shl, shl, <<);
+impl_trait_integral!(Shr, shr, >>);
 
 #[cfg(test)]
 mod tests {

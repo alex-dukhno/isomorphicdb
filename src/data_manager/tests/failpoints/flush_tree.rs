@@ -12,13 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use data_manager::{Database, DefinitionError, StorageError};
 use fail::FailScenario;
+
+use common::{scenario, OBJECT, SCHEMA};
+use data_manager::{persistent::PersistentDatabase, Database, DefinitionError, StorageError};
 use representation::Binary;
 
 mod common;
-use common::{scenario, OBJECT, SCHEMA};
-use data_manager::persistent::PersistentDatabase;
 
 #[rstest::fixture]
 fn database() -> PersistentDatabase {
@@ -62,7 +62,7 @@ fn corruption_error(database: PersistentDatabase, scenario: FailScenario) {
             .write(
                 SCHEMA,
                 OBJECT,
-                vec![(Binary::with_data(vec![]), Binary::with_data(vec![]))]
+                vec![(Binary::with_data(vec![]), Binary::with_data(vec![]))],
             )
             .expect("no io error"),
         Err(StorageError::Storage)
@@ -80,7 +80,7 @@ fn reportable_bug(database: PersistentDatabase, scenario: FailScenario) {
             .write(
                 SCHEMA,
                 OBJECT,
-                vec![(Binary::with_data(vec![]), Binary::with_data(vec![]))]
+                vec![(Binary::with_data(vec![]), Binary::with_data(vec![]))],
             )
             .expect("no io error"),
         Err(StorageError::Storage)
@@ -98,7 +98,7 @@ fn unsupported_operation(database: PersistentDatabase, scenario: FailScenario) {
             .write(
                 SCHEMA,
                 OBJECT,
-                vec![(Binary::with_data(vec![]), Binary::with_data(vec![]))]
+                vec![(Binary::with_data(vec![]), Binary::with_data(vec![]))],
             )
             .expect("no io error"),
         Err(StorageError::Storage)
@@ -116,7 +116,7 @@ fn collection_not_found(database: PersistentDatabase, scenario: FailScenario) {
             .write(
                 SCHEMA,
                 OBJECT,
-                vec![(Binary::with_data(vec![]), Binary::with_data(vec![]))]
+                vec![(Binary::with_data(vec![]), Binary::with_data(vec![]))],
             )
             .expect("no io error"),
         Ok(Err(DefinitionError::ObjectDoesNotExist))

@@ -12,8 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::*;
 use sql_types::SqlType;
+
+use super::*;
 
 #[rstest::rstest]
 fn create_tables_with_different_names(data_manager_with_schema: DataManager) {

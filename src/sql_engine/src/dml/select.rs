@@ -12,14 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::{ops::Deref, sync::Arc};
+
+use sqlparser::ast::{Expr, Ident, Query, Select, SelectItem, SetExpr, TableFactor, TableWithJoins};
+
 use data_manager::DataManager;
 use kernel::{Object, Operation, SystemError, SystemResult};
 use protocol::{
     results::{Description, QueryError, QueryEvent},
     Sender,
 };
-use sqlparser::ast::{Expr, Ident, Query, Select, SelectItem, SetExpr, TableFactor, TableWithJoins};
-use std::{ops::Deref, sync::Arc};
 
 pub(crate) struct SelectCommand<'sc> {
     raw_sql_query: &'sc str,
@@ -70,7 +72,7 @@ impl<'sc> SelectCommand<'sc> {
             Some((schema_id, Some(table_id))) => {
                 let all_columns = self.storage.table_columns(schema_id, table_id)?;
                 let mut column_definitions = vec![];
-                let mut non_existing_columns = vec![];
+                let mut has_error = false;
                 for column_name in &input.selected_columns {
                     let mut found = None;
                     for column_definition in &all_columns {
@@ -83,15 +85,15 @@ impl<'sc> SelectCommand<'sc> {
                     if let Some(column_definition) = found {
                         column_definitions.push(column_definition);
                     } else {
-                        non_existing_columns.push(column_name.clone());
+                        self.sender
+                            .send(Err(QueryError::column_does_not_exist(column_name.to_owned())))
+                            .expect("To Send Result to Client");
+                        has_error = true;
                     }
                 }
 
-                if !non_existing_columns.is_empty() {
-                    self.sender
-                        .send(Err(QueryError::column_does_not_exist(non_existing_columns)))
-                        .expect("To Send Result to Client");
-                    return Err(SystemError::runtime_check_failure("Column Does Not Exist".to_owned()));
+                if has_error {
+                    return Err(SystemError::runtime_check_failure("Column Does Not Exist".to_string()));
                 }
 
                 let description = column_definitions
@@ -131,7 +133,7 @@ impl<'sc> SelectCommand<'sc> {
                     let all_columns = self.storage.table_columns(schema_id, table_id)?;
                     let mut description = vec![];
                     let mut column_indexes = vec![];
-                    let mut non_existing_columns = vec![];
+                    let mut has_error = false;
                     for column_name in input.selected_columns.iter() {
                         let mut found = None;
                         for (index, column_definition) in all_columns.iter().enumerate() {
@@ -145,14 +147,14 @@ impl<'sc> SelectCommand<'sc> {
                             column_indexes.push(index);
                             description.push(column_definition);
                         } else {
-                            non_existing_columns.push(column_name.clone());
+                            self.sender
+                                .send(Err(QueryError::column_does_not_exist(column_name.to_owned())))
+                                .expect("To Send Result to Client");
+                            has_error = true;
                         }
                     }
 
-                    if !non_existing_columns.is_empty() {
-                        self.sender
-                            .send(Err(QueryError::column_does_not_exist(non_existing_columns)))
-                            .expect("To Send Result to Client");
+                    if has_error {
                         return Ok(());
                     }
 
@@ -170,7 +172,6 @@ impl<'sc> SelectCommand<'sc> {
                                     }
                                 }
                             }
-                            log::debug!("{:#?}", values);
                             values
                         })
                         .collect();

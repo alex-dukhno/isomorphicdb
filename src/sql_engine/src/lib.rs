@@ -15,16 +15,16 @@
 extern crate bigdecimal;
 extern crate log;
 
-use crate::{
-    ddl::{
-        create_schema::CreateSchemaCommand, create_table::CreateTableCommand, drop_schema::DropSchemaCommand,
-        drop_table::DropTableCommand,
-    },
-    dml::{delete::DeleteCommand, insert::InsertCommand, select::SelectCommand, update::UpdateCommand},
-    query::{bind::ParamBinder, plan::Plan, process::QueryProcessor},
-};
-use data_manager::DataManager;
+use std::{iter, sync::Arc};
+
 use itertools::izip;
+use sqlparser::{
+    ast::Statement,
+    dialect::{Dialect, PostgreSqlDialect},
+    parser::Parser,
+};
+
+use data_manager::DataManager;
 use kernel::SystemResult;
 use protocol::{
     results::{QueryError, QueryEvent},
@@ -35,12 +35,15 @@ use protocol::{
     statement::PreparedStatement,
     Sender,
 };
-use sqlparser::{
-    ast::Statement,
-    dialect::{Dialect, PostgreSqlDialect},
-    parser::Parser,
+
+use crate::{
+    ddl::{
+        create_schema::CreateSchemaCommand, create_table::CreateTableCommand, drop_schema::DropSchemaCommand,
+        drop_table::DropTableCommand,
+    },
+    dml::{delete::DeleteCommand, insert::InsertCommand, select::SelectCommand, update::UpdateCommand},
+    query::{bind::ParamBinder, plan::Plan, process::QueryProcessor},
 };
-use std::{iter, sync::Arc};
 
 mod ddl;
 mod dml;

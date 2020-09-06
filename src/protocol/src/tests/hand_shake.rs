@@ -12,6 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::{
+    io::Write,
+    net::{Ipv4Addr, SocketAddr, SocketAddrV4},
+    path::PathBuf,
+};
+
+use futures_lite::future::block_on;
+
 use crate::{
     hand_shake,
     messages::{BackendMessage, Encryption},
@@ -20,12 +28,6 @@ use crate::{
         certificate_content, pg_frontend,
     },
     ProtocolConfiguration,
-};
-use futures_lite::future::block_on;
-use std::{
-    io::Write,
-    net::{Ipv4Addr, SocketAddr, SocketAddrV4},
-    path::PathBuf,
 };
 
 fn path_to_temp_certificate() -> PathBuf {

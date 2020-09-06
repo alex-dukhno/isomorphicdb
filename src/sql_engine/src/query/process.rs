@@ -12,14 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-///! Module for transforming the input Query AST into representation the engine can process.
-use crate::query::plan::{Plan, SchemaCreationInfo, TableCreationInfo, TableInserts};
-use crate::query::{SchemaId, SchemaNamingError, TableId, TableNamingError};
+use std::{convert::TryFrom, sync::Arc};
+
+use sqlparser::ast::{ColumnDef, DataType, ObjectName, ObjectType, Statement};
+
 use data_manager::{ColumnDefinition, DataManager};
 use protocol::{results::QueryError, Sender};
 use sql_types::SqlType;
-use sqlparser::ast::{ColumnDef, DataType, ObjectName, ObjectType, Statement};
-use std::{convert::TryFrom, sync::Arc};
+
+///! Module for transforming the input Query AST into representation the engine can process.
+use crate::query::plan::{Plan, SchemaCreationInfo, TableCreationInfo, TableInserts};
+use crate::query::{SchemaId, SchemaNamingError, TableId, TableNamingError};
 
 type Result<T> = std::result::Result<T, ()>;
 
@@ -28,7 +31,7 @@ pub(crate) struct QueryProcessor {
     sender: Arc<dyn Sender>,
 }
 
-impl<'qp> QueryProcessor {
+impl QueryProcessor {
     pub fn new(storage: Arc<DataManager>, sender: Arc<dyn Sender>) -> Self {
         Self { storage, sender }
     }

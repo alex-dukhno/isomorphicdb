@@ -12,8 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::*;
 use crate::in_memory::InMemoryDatabase;
+
+use super::*;
 
 type Storage = InMemoryDatabase;
 
