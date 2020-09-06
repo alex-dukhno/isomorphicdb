@@ -38,24 +38,19 @@ use itertools::Itertools;
 
 use crate::{
     messages::{BackendMessage, Encryption, FrontendMessage},
+    pgsql_types::{PostgreSqlFormat, PostgreSqlType},
     results::QueryResult,
-    sql_formats::PostgreSqlFormat,
-    sql_types::PostgreSqlType,
 };
 
 /// Module contains backend messages that could be send by server implementation
 /// to a client
 pub mod messages;
+/// Module contains functionality to represent SQL type system
+pub mod pgsql_types;
 /// Module contains functionality to represent query result
 pub mod results;
 /// Module contains functionality to represent server side client session
 pub mod session;
-/// Module contains functionality to represent SQL format
-pub mod sql_formats;
-/// Module contains functionality to represent SQL type system
-pub mod sql_types;
-/// Module contains functionality to represent SQL data value
-pub mod sql_values;
 /// Module contains functionality to hold data about `PreparedStatement`
 pub mod statement;
 

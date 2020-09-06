@@ -14,13 +14,13 @@
 
 use fail::FailScenario;
 
-use data_manager::{ObjectId, SchemaId};
+use data_manager::{ObjectName, SchemaName};
 
 #[rstest::fixture]
 pub fn scenario() -> FailScenario<'static> {
     FailScenario::setup()
 }
 
-pub const SCHEMA: SchemaId = "schema_name";
+pub const SCHEMA: SchemaName = "schema_name";
 #[allow(dead_code)]
-pub const OBJECT: ObjectId = "object_name";
+pub const OBJECT: ObjectName = "object_name";

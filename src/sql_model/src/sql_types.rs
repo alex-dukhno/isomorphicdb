@@ -16,7 +16,7 @@ use std::convert::TryInto;
 
 use serde::{Deserialize, Serialize};
 
-use protocol::sql_types::PostgreSqlType;
+use protocol::pgsql_types::PostgreSqlType;
 
 #[derive(PartialEq, Eq, Debug, Copy, Clone, Serialize, Deserialize, Hash, Ord, PartialOrd)]
 pub enum SqlType {
@@ -367,7 +367,7 @@ mod tests {
 
     #[cfg(test)]
     mod to_postgresql_type_conversion {
-        use protocol::sql_types::PostgreSqlType;
+        use protocol::pgsql_types::PostgreSqlType;
 
         use super::*;
 

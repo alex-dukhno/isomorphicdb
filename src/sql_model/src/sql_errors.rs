@@ -12,15 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/// Represents PostgreSQL data values sent and received over wire
-#[allow(missing_docs)]
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum PostgreSqlValue {
-    Null,
-    True,
-    False,
-    Int16(i16),
-    Int32(i32),
-    Int64(i64),
-    String(String),
+#[derive(Debug, PartialEq)]
+pub enum DefinitionError {
+    SchemaAlreadyExists,
+    SchemaDoesNotExist,
+    ObjectAlreadyExists,
+    ObjectDoesNotExist,
 }

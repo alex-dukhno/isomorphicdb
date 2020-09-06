@@ -23,11 +23,9 @@ use sqlparser::{ast::Statement, dialect::Dialect, parser::Parser};
 use data_manager::DataManager;
 use kernel::SystemResult;
 use protocol::{
+    pgsql_types::{PostgreSqlFormat, PostgreSqlType, PostgreSqlValue},
     results::{QueryError, QueryEvent},
     session::Session,
-    sql_formats::PostgreSqlFormat,
-    sql_types::PostgreSqlType,
-    sql_values::PostgreSqlValue,
     statement::PreparedStatement,
     Sender,
 };
@@ -38,8 +36,9 @@ use crate::{
         drop_table::DropTableCommand,
     },
     dml::{delete::DeleteCommand, insert::InsertCommand, select::SelectCommand, update::UpdateCommand},
-    query::{bind::ParamBinder, plan::Plan, process::QueryProcessor},
+    query::bind::ParamBinder,
 };
+use query_planner::{plan::Plan, process::QueryProcessor};
 
 mod ddl;
 mod dml;

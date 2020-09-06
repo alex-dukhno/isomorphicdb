@@ -17,7 +17,7 @@ use sqlparser::ast::{Assignment, Ident, Query, Statement};
 use data_manager::ColumnDefinition;
 
 ///! represents a plan to be executed by the engine.
-use crate::query::{SchemaId, TableId};
+use crate::{FullTableName, SchemaName};
 
 #[derive(Debug, Clone)]
 pub struct TableCreationInfo {
@@ -33,20 +33,20 @@ pub struct SchemaCreationInfo {
 
 #[derive(Debug, Clone)]
 pub struct TableInserts {
-    pub table_id: TableId,
+    pub table_id: FullTableName,
     pub column_indices: Vec<Ident>,
     pub input: Box<Query>,
 }
 
 #[derive(Debug, Clone)]
 pub struct TableUpdates {
-    pub table_id: TableId,
+    pub table_id: FullTableName,
     pub assignments: Vec<Assignment>,
 }
 
 #[derive(Debug, Clone)]
 pub struct TableDeletes {
-    pub table_id: TableId,
+    pub table_id: FullTableName,
 }
 
 #[derive(Debug, Clone)]
@@ -60,8 +60,8 @@ pub struct SelectInput {
 pub enum Plan {
     CreateTable(TableCreationInfo),
     CreateSchema(SchemaCreationInfo),
-    DropTables(Vec<TableId>),
-    DropSchemas(Vec<(SchemaId, bool)>),
+    DropTables(Vec<FullTableName>),
+    DropSchemas(Vec<(SchemaName, bool)>),
     Select(SelectInput),
     Update(TableUpdates),
     Delete(TableDeletes),

@@ -20,12 +20,12 @@ mod in_memory;
 mod persistent;
 
 #[rstest::fixture]
-fn schema_name() -> SchemaId<'static> {
+fn schema_name() -> SchemaName<'static> {
     "schema_name"
 }
 
 #[rstest::fixture]
-fn object_name() -> ObjectId<'static> {
+fn object_name() -> ObjectName<'static> {
     "object_name"
 }
 

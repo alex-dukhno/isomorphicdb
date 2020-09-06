@@ -19,7 +19,7 @@ use sqlparser::ast::{Assignment, BinaryOperator, DataType, Expr, UnaryOperator, 
 use data_manager::ColumnDefinition;
 use protocol::{results::QueryError, Sender};
 use representation::{Datum, EvalError, ScalarType};
-use sql_types::{ConstraintError, SqlType};
+use sql_model::sql_types::{ConstraintError, SqlType};
 
 use crate::query::scalar::ScalarOp;
 

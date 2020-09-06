@@ -20,17 +20,16 @@ use protocol::{
     results::{QueryError, QueryEvent},
     Sender,
 };
-
-use crate::query::TableId;
+use query_planner::FullTableName;
 
 pub(crate) struct DropTableCommand {
-    name: TableId,
+    name: FullTableName,
     storage: Arc<DataManager>,
     sender: Arc<dyn Sender>,
 }
 
 impl DropTableCommand {
-    pub(crate) fn new(name: TableId, storage: Arc<DataManager>, sender: Arc<dyn Sender>) -> DropTableCommand {
+    pub(crate) fn new(name: FullTableName, storage: Arc<DataManager>, sender: Arc<dyn Sender>) -> DropTableCommand {
         DropTableCommand { name, storage, sender }
     }
 

@@ -20,11 +20,10 @@ use protocol::{
     results::{QueryError, QueryEvent},
     Sender,
 };
-
-use crate::query::SchemaId;
+use query_planner::SchemaName;
 
 pub(crate) struct DropSchemaCommand {
-    name: SchemaId,
+    name: SchemaName,
     cascade: bool,
     storage: Arc<DataManager>,
     sender: Arc<dyn Sender>,
@@ -32,7 +31,7 @@ pub(crate) struct DropSchemaCommand {
 
 impl DropSchemaCommand {
     pub(crate) fn new(
-        name: SchemaId,
+        name: SchemaName,
         cascade: bool,
         storage: Arc<DataManager>,
         sender: Arc<dyn Sender>,

@@ -23,12 +23,10 @@ use protocol::{
     Sender,
 };
 use representation::{Binary, Datum};
-use sql_types::ConstraintError;
+use sql_model::sql_types::ConstraintError;
 
-use crate::query::{
-    expr::{ExprMetadata, ExpressionEvaluation},
-    plan::TableInserts,
-};
+use crate::query::expr::{ExprMetadata, ExpressionEvaluation};
+use query_planner::plan::TableInserts;
 
 pub(crate) struct InsertCommand<'ic> {
     raw_sql_query: &'ic str,

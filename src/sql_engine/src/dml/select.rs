@@ -14,13 +14,13 @@
 
 use std::sync::Arc;
 
-use crate::query::plan::SelectInput;
 use data_manager::DataManager;
 use kernel::{Object, Operation, SystemError, SystemResult};
 use protocol::{
     results::{Description, QueryError, QueryEvent},
     Sender,
 };
+use query_planner::plan::SelectInput;
 
 pub(crate) struct SelectCommand {
     select_input: SelectInput,

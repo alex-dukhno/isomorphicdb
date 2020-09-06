@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use protocol::sql_types::PostgreSqlType;
+use protocol::pgsql_types::PostgreSqlType;
 
 use super::*;
 

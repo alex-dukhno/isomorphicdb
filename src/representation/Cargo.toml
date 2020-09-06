@@ -7,7 +7,7 @@ publish = false
 
 [dependencies]
 log = "0.4.8"
-sql_types = { path = "../sql_types" }
+sql_model = { path = "../sql_model" }
 ordered-float = "2.0.0"
 sqlparser = { version = "0.6.1", features = ["bigdecimal"] }
 bigdecimal = "0.1.2"
