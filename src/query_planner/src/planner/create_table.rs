@@ -12,10 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::planner::Planner;
 use crate::{
     plan::{Plan, TableCreationInfo},
     planner::Result,
-    FullTableName, TableNamingError,
+    FullTableName,
 };
 use data_manager::{ColumnDefinition, DataManager};
 use protocol::{results::QueryError, Sender};
@@ -24,40 +25,30 @@ use sqlparser::ast::{ColumnDef, ObjectName};
 use std::{convert::TryFrom, sync::Arc};
 
 pub(crate) struct CreateTablePlanner {
-    data_manager: Arc<DataManager>,
-    sender: Arc<dyn Sender>,
-    name: ObjectName,
+    full_name: ObjectName,
     columns: Vec<ColumnDef>,
 }
 
 impl CreateTablePlanner {
-    pub(crate) fn new(
-        data_manager: Arc<DataManager>,
-        sender: Arc<dyn Sender>,
-        name: ObjectName,
-        columns: Vec<ColumnDef>,
-    ) -> CreateTablePlanner {
-        CreateTablePlanner {
-            data_manager,
-            sender,
-            name,
-            columns,
-        }
+    pub(crate) fn new(full_name: ObjectName, columns: Vec<ColumnDef>) -> CreateTablePlanner {
+        CreateTablePlanner { full_name, columns }
     }
+}
 
-    pub(crate) fn plan(self) -> Result<Plan> {
-        match FullTableName::try_from(self.name) {
+impl Planner for CreateTablePlanner {
+    fn plan(self, data_manager: Arc<DataManager>, sender: Arc<dyn Sender>) -> Result<Plan> {
+        match FullTableName::try_from(self.full_name) {
             Ok(full_table_name) => {
                 let (schema_name, table_name) = full_table_name.as_tuple();
-                match self.data_manager.table_exists(&schema_name, &table_name) {
+                match data_manager.table_exists(&schema_name, &table_name) {
                     None => {
-                        self.sender
+                        sender
                             .send(Err(QueryError::schema_does_not_exist(schema_name)))
                             .expect("To Send Query Result to Client");
                         Err(())
                     }
                     Some((_, Some(_))) => {
-                        self.sender
+                        sender
                             .send(Err(QueryError::table_already_exists(full_table_name)))
                             .expect("To Send Query Result to Client");
                         Err(())
@@ -68,7 +59,7 @@ impl CreateTablePlanner {
                             let sql_type = match SqlType::try_from(&column.data_type) {
                                 Ok(sql_type) => sql_type,
                                 Err(error) => {
-                                    self.sender
+                                    sender
                                         .send(Err(QueryError::feature_not_supported(error)))
                                         .expect("To Send Result to Client");
                                     return Err(());
@@ -84,9 +75,9 @@ impl CreateTablePlanner {
                     }
                 }
             }
-            Err(TableNamingError(message)) => {
-                self.sender
-                    .send(Err(QueryError::syntax_error(message)))
+            Err(error) => {
+                sender
+                    .send(Err(QueryError::syntax_error(error)))
                     .expect("To Send Query Result to Client");
                 Err(())
             }

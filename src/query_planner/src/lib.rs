@@ -45,17 +45,26 @@ impl TryFrom<ObjectName> for SchemaName {
 
     fn try_from(object: ObjectName) -> Result<Self, Self::Error> {
         if object.0.len() != 1 {
-            Err(SchemaNamingError(format!(
-                "only unqualified schema names are supported, '{}'",
-                object
-            )))
+            Err(SchemaNamingError(object.to_string()))
         } else {
             Ok(SchemaName(object.to_string()))
         }
     }
 }
 
+impl Display for SchemaName {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
 pub struct SchemaNamingError(String);
+
+impl Display for SchemaNamingError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "only unqualified schema names are supported, '{}'", self.0)
+    }
+}
 
 pub struct FullTableId(SchemaId, Id);
 
@@ -88,15 +97,9 @@ impl TryFrom<ObjectName> for FullTableName {
 
     fn try_from(object: ObjectName) -> Result<Self, Self::Error> {
         if object.0.len() == 1 {
-            Err(TableNamingError(format!(
-                "unsupported table name '{}'. All table names must be qualified",
-                object.to_string()
-            )))
+            Err(TableNamingError::Unqualified(object.to_string()))
         } else if object.0.len() != 2 {
-            Err(TableNamingError(format!(
-                "unable to process table name '{}'",
-                object.to_string()
-            )))
+            Err(TableNamingError::NotProcessed(object.to_string()))
         } else {
             let table_name = object.0.last().unwrap().value.clone();
             let schema_name = object.0.first().unwrap().value.clone();
@@ -105,7 +108,23 @@ impl TryFrom<ObjectName> for FullTableName {
     }
 }
 
-pub struct TableNamingError(String);
+pub enum TableNamingError {
+    Unqualified(String),
+    NotProcessed(String),
+}
+
+impl Display for TableNamingError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            TableNamingError::Unqualified(table_name) => write!(
+                f,
+                "unsupported table name '{}'. All table names must be qualified",
+                table_name
+            ),
+            TableNamingError::NotProcessed(table_name) => write!(f, "unable to process table name '{}'", table_name),
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests;

@@ -16,12 +16,15 @@ use super::*;
 use crate::planner::QueryPlanner;
 use data_manager::DataManager;
 use protocol::{results::QueryResult, Sender};
+use sqlparser::ast::Ident;
 use std::{
     io,
     ops::Deref,
     sync::{Arc, Mutex},
 };
 
+#[cfg(test)]
+mod create_schema;
 #[cfg(test)]
 mod create_table;
 
@@ -56,6 +59,20 @@ fn sender() -> ResultCollector {
 fn planner_and_sender() -> (QueryPlanner, ResultCollector) {
     let collector = Arc::new(Collector(Mutex::new(vec![])));
     let manager = DataManager::in_memory().expect("to create data manager");
+    (QueryPlanner::new(Arc::new(manager), collector.clone()), collector)
+}
+
+#[rstest::fixture]
+fn planner_and_sender_with_schema() -> (QueryPlanner, ResultCollector) {
+    let collector = Arc::new(Collector(Mutex::new(vec![])));
+    let manager = DataManager::in_memory().expect("to create data manager");
     manager.create_schema("schema_name").expect("schema created");
     (QueryPlanner::new(Arc::new(manager), collector.clone()), collector)
+}
+
+fn ident<S: ToString>(name: S) -> Ident {
+    Ident {
+        value: name.to_string(),
+        quote_style: None,
+    }
 }

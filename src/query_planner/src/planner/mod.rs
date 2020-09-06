@@ -18,13 +18,19 @@ use crate::{SchemaId, TableId};
 use data_manager::{ColumnDefinition, DataManager};
 use itertools::Itertools;
 use kernel::{SystemError, SystemResult};
+mod create_schema;
 mod create_table;
+mod drop_schema;
+mod drop_tables;
 
 use sqlparser::ast::{
     ColumnDef, Expr, Ident, ObjectName, ObjectType, Query, Select, SelectItem, SetExpr, Statement, TableFactor,
     TableWithJoins,
 };
 
+use crate::planner::create_schema::CreateSchemaPlanner;
+use crate::planner::drop_schema::DropSchemaPlanner;
+use crate::planner::drop_tables::DropTablesPlanner;
 use crate::{
     planner::create_table::CreateTablePlanner, FullTableName, SchemaName, SchemaNamingError, TableNamingError,
 };
@@ -34,6 +40,10 @@ use std::convert::TryFrom;
 use std::{ops::Deref, sync::Arc};
 
 type Result<T> = std::result::Result<T, ()>;
+
+trait Planner {
+    fn plan(self, data_manager: Arc<DataManager>, sender: Arc<dyn Sender>) -> Result<Plan>;
+}
 
 pub struct QueryPlanner {
     data_manager: Arc<DataManager>,
@@ -85,26 +95,25 @@ impl QueryPlanner {
     pub fn plan(&self, stmt: Statement) -> Result<Plan> {
         match stmt {
             Statement::CreateTable { name, columns, .. } => {
-                CreateTablePlanner::new(self.data_manager.clone(), self.sender.clone(), name, columns).plan()
+                CreateTablePlanner::new(name, columns).plan(self.data_manager.clone(), self.sender.clone())
             }
             Statement::CreateSchema { schema_name, .. } => {
-                let schema_name = schema_name.0.iter().join(".");
-                match self.data_manager.schema_exists(&schema_name) {
-                    Some(_) => {
-                        self.sender
-                            .send(Err(QueryError::schema_already_exists(schema_name)))
-                            .expect("To Send Query Result to Client");
-                        Err(())
-                    }
-                    None => Ok(Plan::CreateSchema(SchemaCreationInfo { schema_name })),
-                }
+                CreateSchemaPlanner::new(schema_name).plan(self.data_manager.clone(), self.sender.clone())
             }
             Statement::Drop {
                 object_type,
                 names,
                 cascade,
                 ..
-            } => self.handle_drop(&object_type, &names, cascade),
+            } => match object_type {
+                ObjectType::Table => {
+                    DropTablesPlanner::new(&names).plan(self.data_manager.clone(), self.sender.clone())
+                }
+                ObjectType::Schema => {
+                    DropSchemaPlanner::new(&names, cascade).plan(self.data_manager.clone(), self.sender.clone())
+                }
+                _ => unimplemented!(),
+            },
             Statement::Insert {
                 table_name,
                 columns,

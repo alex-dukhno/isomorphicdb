@@ -48,6 +48,14 @@ pub struct SchemaCreationInfo {
     pub schema_name: String,
 }
 
+impl SchemaCreationInfo {
+    pub(crate) fn new<S: ToString>(schema_name: S) -> SchemaCreationInfo {
+        SchemaCreationInfo {
+            schema_name: schema_name.to_string(),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct TableInserts {
     pub full_table_name: TableId,
