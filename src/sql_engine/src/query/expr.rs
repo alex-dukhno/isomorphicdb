@@ -64,7 +64,7 @@ impl ExpressionEvaluation {
                             expr, data_type
                         ))))
                         .expect("To Send Query Result to Client");
-                    return Err(());
+                    Err(())
                 }
             },
             Expr::UnaryOp { op, expr } => {
@@ -114,7 +114,7 @@ impl ExpressionEvaluation {
                             )))
                             .expect("To Send Query Result to Client");
                         // EvalScalarOp::eval_unary_literal_expr(op, *op, operand)?;
-                        return Err(());
+                        Err(())
                     }
                 }
             }
