@@ -309,7 +309,7 @@ fn columns_table_types() -> [ColumnDefinition; 5] {
     ]
 }
 
-pub type InnerId = u64;
+type InnerId = u64;
 type InnerCatalogId = Option<InnerId>;
 type InnerFullSchemaId = Option<(InnerId, Option<InnerId>)>;
 type InnerFullTableId = Option<(InnerId, Option<(InnerId, Option<InnerId>)>)>;

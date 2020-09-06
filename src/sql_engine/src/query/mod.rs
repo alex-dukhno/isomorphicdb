@@ -18,8 +18,8 @@ pub mod bind;
 pub mod plan;
 pub mod process;
 
-use data_manager::InnerId;
 use sql_types::SqlType;
+use data_manager::RecordId;
 
 /// A type of a column
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -33,10 +33,10 @@ pub struct ColumnType {
 ///
 /// this would be a u32
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
-pub struct SchemaId(InnerId);
+pub struct SchemaId(RecordId);
 
 impl SchemaId {
-    pub fn name(&self) -> InnerId {
+    pub fn name(&self) -> RecordId{
         self.0
     }
 }
@@ -46,14 +46,14 @@ impl SchemaId {
 /// I would like this to be a single 64 bit number where the top bits are the
 /// schema id and lower bits are the table id.
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
-pub struct TableId(InnerId, InnerId);
+pub struct TableId(RecordId, RecordId);
 
 impl TableId {
     pub fn schema(&self) -> SchemaId {
         SchemaId(self.0)
     }
 
-    pub fn name(&self) -> InnerId {
+    pub fn name(&self) -> RecordId {
         self.1
     }
 }
