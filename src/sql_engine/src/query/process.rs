@@ -24,9 +24,8 @@ use data_manager::{ColumnDefinition, DataManager};
 use protocol::{results::QueryError, Sender};
 use sql_types::SqlType;
 
-use crate::query::plan::SelectInput;
 use crate::query::{
-    plan::{Plan, SchemaCreationInfo, TableCreationInfo, TableDeletes, TableInserts, TableUpdates},
+    plan::{Plan, SchemaCreationInfo, SelectInput, TableCreationInfo, TableDeletes, TableInserts, TableUpdates},
     SchemaId, SchemaNamingError, TableId, TableNamingError,
 };
 use kernel::{SystemError, SystemResult};
@@ -148,7 +147,7 @@ impl QueryProcessor {
                     self.sender
                         .send(Err(QueryError::schema_does_not_exist(schema_name)))
                         .expect("To Send Result to Client");
-                    return Err(SystemError::runtime_check_failure("Schema Does Not Exist".to_owned()));
+                    Err(SystemError::runtime_check_failure("Schema Does Not Exist".to_owned()))
                 }
                 Some((_, None)) => {
                     self.sender
@@ -156,7 +155,7 @@ impl QueryProcessor {
                             schema_name + "." + table_name.as_str(),
                         )))
                         .expect("To Send Result to Client");
-                    return Err(SystemError::runtime_check_failure("Table Does Not Exist".to_owned()));
+                    Err(SystemError::runtime_check_failure("Table Does Not Exist".to_owned()))
                 }
                 Some((schema_id, Some(table_id))) => {
                     let selected_columns = {
