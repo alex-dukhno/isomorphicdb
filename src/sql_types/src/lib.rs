@@ -114,34 +114,6 @@ impl SqlType {
             Self::Interval => PostgreSqlType::Interval,
         }
     }
-
-    pub fn is_integer(&self) -> bool {
-        match self {
-            Self::SmallInt(_) | Self::Integer(_) | Self::BigInt(_) => true,
-            _ => false,
-        }
-    }
-
-    pub fn is_float(&self) -> bool {
-        match self {
-            Self::Real | Self::DoublePrecision => true,
-            _ => false,
-        }
-    }
-
-    pub fn is_string(&self) -> bool {
-        match self {
-            Self::VarChar(_) | Self::Char(_) => true,
-            _ => false,
-        }
-    }
-
-    pub fn is_boolean(&self) -> bool {
-        match self {
-            Self::Bool => true,
-            _ => false,
-        }
-    }
 }
 
 impl Into<PostgreSqlType> for &SqlType {

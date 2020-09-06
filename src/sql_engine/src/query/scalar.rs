@@ -21,7 +21,6 @@ use representation::{Datum, ScalarType};
 // use crate::query::relation::RelationType;
 
 /// Operation performed on the table
-/// influenced by Materialized's ScalarExpr
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ScalarOp {
     /// column access
@@ -30,8 +29,6 @@ pub enum ScalarOp {
     Literal(Datum<'static>),
     /// binary operator
     Binary(BinaryOperator, Box<ScalarOp>, Box<ScalarOp>, ScalarType),
-    /// unary operator
-    // Unary(UnaryOperator, Box<ScalarOp>, ScalarType),
     Assignment {
         destination: usize,
         value: Box<ScalarOp>,
@@ -56,11 +53,10 @@ impl ScalarOp {
 
     pub fn scalar_type(&self) -> ScalarType {
         match self {
-            ScalarOp::Column(_, ty) => ty.clone(),
+            ScalarOp::Column(_, ty) => *ty,
             ScalarOp::Literal(datum) => datum.scalar_type().unwrap(),
-            ScalarOp::Binary(_, _, _, ty) => ty.clone(),
-            // ScalarOp::Unary(_, _, ty) => ty.clone(),
-            ScalarOp::Assignment { ty, .. } => ty.clone(),
+            ScalarOp::Binary(_, _, _, ty) => *ty,
+            ScalarOp::Assignment { ty, .. } => *ty,
         }
     }
 }

@@ -15,8 +15,7 @@
 use fail::FailScenario;
 
 use common::{scenario, OBJECT, SCHEMA};
-use data_manager::persistent::PersistentDatabase;
-use data_manager::{Database, DefinitionError, StorageError};
+use data_manager::{persistent::PersistentDatabase, Database, DefinitionError, StorageError};
 
 mod common;
 

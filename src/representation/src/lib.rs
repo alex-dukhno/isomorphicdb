@@ -12,8 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::convert::TryFrom;
-use std::ops::{Add, BitAnd, BitOr, Div, Mul, Rem, Shl, Shr, Sub};
+use std::{
+    convert::TryFrom,
+    ops::{Add, BitAnd, BitOr, Div, Mul, Rem, Shl, Shr, Sub},
+};
 
 ///! Runtime cell and row representation.
 use bigdecimal::ToPrimitive;

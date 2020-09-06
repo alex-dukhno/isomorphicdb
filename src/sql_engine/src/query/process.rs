@@ -31,7 +31,7 @@ pub(crate) struct QueryProcessor {
     sender: Arc<dyn Sender>,
 }
 
-impl<'qp> QueryProcessor {
+impl QueryProcessor {
     pub fn new(storage: Arc<DataManager>, sender: Arc<dyn Sender>) -> Self {
         Self { storage, sender }
     }
@@ -84,7 +84,6 @@ impl<'qp> QueryProcessor {
                     Err(())
                 }
             },
-            // Statement::Query(query) => self.handle_query(query),
             _ => Ok(Plan::NotProcessed(Box::new(stmt.clone()))),
         }
     }
@@ -243,37 +242,4 @@ impl<'qp> QueryProcessor {
             _ => unimplemented!(),
         }
     }
-
-    // fn handle_query(&mut self, query: Box<Query>) -> Result<Plan> {
-    //     let Query {
-    //         ctes: _,
-    //         body,
-    //         order_by: _,
-    //         limit: _,
-    //         offset: _,
-    //         fetch: _,
-    //     } = query.as_ref();
-    //
-    //     let set_expr_plan = match body {
-    //         SetExpr::Select(select) => self.handle_select(select)?,
-    //         SetExpr::Values(values) => unimplemented!(),
-    //         SetExpr::Query(query) => unimplemented!(),
-    //         SetExpr::SetOperation { .. } => unimplemented!(),
-    //     };
-    //
-    //     Ok(set_expr_plan)
-    // }
-
-    // fn handle_select(&mut self, select: &Select) -> Result<Plan> {
-    //     let Select {
-    //         distinct,
-    //         top,
-    //         projection,
-    //         from,
-    //         selection,
-    //         group_by,
-    //         having,
-    //     } = select;
-    //     Err(())
-    // }
 }

@@ -25,8 +25,10 @@ use protocol::{
 use representation::{Binary, Datum};
 use sql_types::ConstraintError;
 
-use crate::query::expr::{ExprMetadata, ExpressionEvaluation};
-use crate::query::plan::TableInserts;
+use crate::query::{
+    expr::{ExprMetadata, ExpressionEvaluation},
+    plan::TableInserts,
+};
 
 pub(crate) struct InsertCommand<'ic> {
     raw_sql_query: &'ic str,
@@ -95,7 +97,7 @@ impl<'ic> InsertCommand<'ic> {
                             let mut row = vec![];
                             for (idx, col) in line.iter().enumerate() {
                                 let meta = ExprMetadata::new(&all_columns[idx], idx);
-                                match evaluation.eval(col, Some(meta.clone())) {
+                                match evaluation.eval(col, Some(meta)) {
                                     Ok(v) => {
                                         if v.is_literal() {
                                             let datum = v.as_datum().unwrap();

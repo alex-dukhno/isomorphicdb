@@ -354,7 +354,7 @@ impl QueryError {
     }
 
     /// invalid parameter value error constructor
-    pub fn invalid_parameter_value(message: String) -> Self {
+    pub fn invalid_parameter_value(message: String) -> QueryError {
         QueryError {
             severity: Severity::Error,
             kind: QueryErrorKind::InvalidParameterValue(message),
@@ -422,7 +422,7 @@ impl QueryError {
     }
 
     /// when the name of a column is ambiguous in a multi-table context
-    pub fn ambiguous_column(column: String) -> Self {
+    pub fn ambiguous_column(column: String) -> QueryError {
         QueryError {
             severity: Severity::Error,
             kind: QueryErrorKind::AmbiguousColumnName { column },
@@ -430,15 +430,12 @@ impl QueryError {
     }
 
     /// user of an undefined column
-    pub fn undefined_column(column: String) -> Self {
+    pub fn undefined_column(column: String) -> QueryError {
         QueryError {
             severity: Severity::Error,
             kind: QueryErrorKind::UndefinedColumn { column },
         }
     }
-
-    // These errors can be generated multiple at a time which is why they are &mut self
-    // and the rest are mut self.
 
     /// numeric out of range constructor
     pub fn out_of_range(pg_type: PostgreSqlType, column_name: String, row_index: usize) -> QueryError {

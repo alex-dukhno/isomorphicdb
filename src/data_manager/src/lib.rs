@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::io::{self};
 use std::{
     collections::HashMap,
+    io::{self},
     path::PathBuf,
     sync::{
         atomic::{AtomicU64, Ordering},
@@ -28,8 +28,7 @@ use kernel::{Object, Operation, SystemError, SystemResult};
 use representation::Binary;
 use sql_types::SqlType;
 
-use crate::data_definition::DataDefinition;
-use crate::{in_memory::InMemoryDatabase, persistent::PersistentDatabase};
+use crate::{data_definition::DataDefinition, in_memory::InMemoryDatabase, persistent::PersistentDatabase};
 
 mod data_definition;
 mod in_memory;

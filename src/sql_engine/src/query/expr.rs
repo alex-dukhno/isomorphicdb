@@ -1,13 +1,23 @@
-use std::convert::TryFrom;
-use std::ops::Deref;
-use std::str::FromStr;
-use std::sync::Arc;
+// Copyright 2020 Alex Dukhno
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+use std::{convert::TryFrom, ops::Deref, str::FromStr, sync::Arc};
 
 use sqlparser::ast::{Assignment, BinaryOperator, DataType, Expr, UnaryOperator, Value};
 
 use data_manager::ColumnDefinition;
-use protocol::results::QueryError;
-use protocol::Sender;
+use protocol::{results::QueryError, Sender};
 use representation::{Datum, EvalError, ScalarType};
 use sql_types::{ConstraintError, SqlType};
 
@@ -67,60 +77,55 @@ impl ExpressionEvaluation {
                     Err(())
                 }
             },
-            Expr::UnaryOp { op, expr } => {
-                // let operand = self.inner_eval(expr.deref())?;
-                match (op, expr.deref()) {
-                    (UnaryOperator::Minus, Expr::Value(Value::Number(value))) => {
-                        match Datum::try_from(&Value::Number(-value)) {
-                            Ok(datum) => Ok(ScalarOp::Literal(datum)),
-                            Err(e) => {
-                                let err =
-                                    if let Some(meta_data) = expr_metadata.as_ref() {
-                                        match e {
-                                            EvalError::UnsupportedDatum(ty) => QueryError::feature_not_supported(
-                                                format!("Data type not supported: {}", ty),
-                                            ),
-                                            EvalError::OutOfRangeNumeric(_) => QueryError::out_of_range(
-                                                meta_data.column().sql_type().to_pg_types(),
-                                                meta_data.column().name(),
-                                                meta_data.index(),
-                                            ),
-                                            EvalError::UnsupportedOperation => QueryError::feature_not_supported(
-                                                "Use of unsupported expression feature".to_string(),
-                                            ),
-                                        }
-                                    } else {
-                                        match e {
-                                            EvalError::UnsupportedDatum(ty) => QueryError::feature_not_supported(
-                                                format!("Data type not supported: {}", ty),
-                                            ),
-                                            EvalError::OutOfRangeNumeric(ty) => {
-                                                QueryError::out_of_range(ty.to_pg_types(), String::new(), 0)
-                                            }
-                                            EvalError::UnsupportedOperation => QueryError::feature_not_supported(
-                                                "Use of unsupported expression feature".to_string(),
-                                            ),
-                                        }
-                                    };
-                                self.session.send(Err(err)).expect("To Send Query Result to Client");
-                                Err(())
-                            }
+            Expr::UnaryOp { op, expr } => match (op, expr.deref()) {
+                (UnaryOperator::Minus, Expr::Value(Value::Number(value))) => {
+                    match Datum::try_from(&Value::Number(-value)) {
+                        Ok(datum) => Ok(ScalarOp::Literal(datum)),
+                        Err(e) => {
+                            let err = if let Some(meta_data) = expr_metadata.as_ref() {
+                                match e {
+                                    EvalError::UnsupportedDatum(ty) => {
+                                        QueryError::feature_not_supported(format!("Data type not supported: {}", ty))
+                                    }
+                                    EvalError::OutOfRangeNumeric(_) => QueryError::out_of_range(
+                                        meta_data.column().sql_type().to_pg_types(),
+                                        meta_data.column().name(),
+                                        meta_data.index(),
+                                    ),
+                                    EvalError::UnsupportedOperation => QueryError::feature_not_supported(
+                                        "Use of unsupported expression feature".to_string(),
+                                    ),
+                                }
+                            } else {
+                                match e {
+                                    EvalError::UnsupportedDatum(ty) => {
+                                        QueryError::feature_not_supported(format!("Data type not supported: {}", ty))
+                                    }
+                                    EvalError::OutOfRangeNumeric(ty) => {
+                                        QueryError::out_of_range(ty.to_pg_types(), String::new(), 0)
+                                    }
+                                    EvalError::UnsupportedOperation => QueryError::feature_not_supported(
+                                        "Use of unsupported expression feature".to_string(),
+                                    ),
+                                }
+                            };
+                            self.session.send(Err(err)).expect("To Send Query Result to Client");
+                            Err(())
                         }
                     }
-                    (op, _operand) => {
-                        self.session
-                            .send(Err(QueryError::syntax_error(
-                                op.to_string() + expr.to_string().as_str(),
-                            )))
-                            .expect("To Send Query Result to Client");
-                        // EvalScalarOp::eval_unary_literal_expr(op, *op, operand)?;
-                        Err(())
-                    }
                 }
-            }
+                (op, _operand) => {
+                    self.session
+                        .send(Err(QueryError::syntax_error(
+                            op.to_string() + expr.to_string().as_str(),
+                        )))
+                        .expect("To Send Query Result to Client");
+                    Err(())
+                }
+            },
             Expr::BinaryOp { op, left, right } => {
-                let lhs = self.inner_eval(left.deref(), expr_metadata.clone())?;
-                let rhs = self.inner_eval(right.deref(), expr_metadata.clone())?;
+                let lhs = self.inner_eval(left.deref(), expr_metadata)?;
+                let rhs = self.inner_eval(right.deref(), expr_metadata)?;
                 if let Some(ty) = self.compatible_types_for_op(op.clone(), lhs.scalar_type(), rhs.scalar_type()) {
                     match (lhs, rhs) {
                         (ScalarOp::Literal(left), ScalarOp::Literal(right)) => {
@@ -322,10 +327,6 @@ impl<'a> EvalScalarOp<'a> {
                 let right = self.eval(row, rhs.as_ref())?;
                 Self::eval_binary_literal_expr(self.session, op.clone(), left, right)
             }
-            // ScalarOp::Unary(op, operand, _) => {
-            //     let operand = self.eval(row, operand.as_ref())?;
-            //     Self::eval_unary_literal_expr(self.session, op.clone(), operand)
-            // }
             ScalarOp::Assignment { .. } => {
                 panic!("EvalScalarOp:eval should not be evaluated on a ScalarOp::Assignment")
             }
@@ -402,7 +403,7 @@ impl<'a> EvalScalarOp<'a> {
                 BinaryOperator::StringConcat => {
                     let kind = QueryError::undefined_function(op.to_string(), "NUMBER".to_owned(), "NUMBER".to_owned());
                     session.send(Err(kind)).expect("To Send Query Result to Client");
-                    return Err(());
+                    Err(())
                 }
                 _ => panic!(),
             }
@@ -415,7 +416,7 @@ impl<'a> EvalScalarOp<'a> {
                 BinaryOperator::StringConcat => {
                     let kind = QueryError::undefined_function(op.to_string(), "NUMBER".to_owned(), "NUMBER".to_owned());
                     session.send(Err(kind)).expect("To Send Query Result to Client");
-                    return Err(());
+                    Err(())
                 }
                 _ => panic!(),
             }
@@ -428,7 +429,7 @@ impl<'a> EvalScalarOp<'a> {
                 _ => {
                     let kind = QueryError::undefined_function(op.to_string(), "STRING".to_owned(), "STRING".to_owned());
                     session.send(Err(kind)).expect("To Send Query Result to Client");
-                    return Err(());
+                    Err(())
                 }
             }
         } else {
@@ -443,12 +444,4 @@ impl<'a> EvalScalarOp<'a> {
             Err(())
         }
     }
-
-    // pub fn eval_unary_literal_expr<'b>(
-    //     _session: &dyn Sender,
-    //     _op: UnaryOperator,
-    //     _operand: Datum,
-    // ) -> Result<Datum<'b>, ()> {
-    //     unimplemented!()
-    // }
 }

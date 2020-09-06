@@ -88,9 +88,7 @@ impl UpdateCommand {
                     Ok(reads) => {
                         let expr_eval = EvalScalarOp::new(self.sender.as_ref(), all_columns.to_vec());
                         let mut res = Vec::new();
-                        for (row_idx, (key, values)) in
-                            reads.map(Result::unwrap).map(Result::unwrap).into_iter().enumerate()
-                        {
+                        for (row_idx, (key, values)) in reads.map(Result::unwrap).map(Result::unwrap).enumerate() {
                             let mut datums = unpack_raw(values.to_bytes());
 
                             let mut has_err = false;
