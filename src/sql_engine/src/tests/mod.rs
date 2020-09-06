@@ -33,6 +33,8 @@ mod delete;
 #[cfg(test)]
 mod describe_prepared_statement;
 #[cfg(test)]
+mod error_responses;
+#[cfg(test)]
 mod execute_portal;
 #[cfg(test)]
 mod insert;

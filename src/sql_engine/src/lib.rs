@@ -64,10 +64,11 @@ impl QueryExecutor {
     }
 
     pub fn execute(&mut self, raw_sql_query: &str) -> SystemResult<()> {
-        let statement = match Parser::parse_sql(&PreparedStatementDialect {}, raw_sql_query) {
+        match Parser::parse_sql(&PreparedStatementDialect {}, raw_sql_query) {
             Ok(mut statements) => {
                 log::info!("stmts: {:#?}", statements);
-                statements.pop().unwrap()
+                let statement = statements.pop().unwrap();
+                self.process_statement(raw_sql_query, statement)?;
             }
             Err(e) => {
                 log::error!("{:?} can't be parsed. Error: {:?}", raw_sql_query, e);
@@ -77,11 +78,8 @@ impl QueryExecutor {
                         raw_sql_query
                     ))))
                     .expect("To Send Query Result to Client");
-                return Ok(());
             }
         };
-
-        self.process_statement(raw_sql_query, statement)?;
 
         self.sender
             .send(Ok(QueryEvent::QueryComplete))
