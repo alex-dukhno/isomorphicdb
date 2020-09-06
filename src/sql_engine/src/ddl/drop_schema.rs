@@ -15,10 +15,7 @@
 use crate::query::SchemaId;
 use data_manager::{DataManager, DropSchemaError, DropStrategy};
 use kernel::SystemResult;
-use protocol::{
-    results::{QueryError, QueryEvent},
-    Sender,
-};
+use protocol::{results::QueryEvent, Sender};
 use std::sync::Arc;
 
 pub(crate) struct DropSchemaCommand {

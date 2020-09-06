@@ -14,14 +14,13 @@
 
 ///! Module for transforming the input Query AST into representation the engine can process.
 use crate::query::plan::{Plan, SchemaCreationInfo, TableCreationInfo, TableInserts};
-use crate::query::{SchemaId, SchemaNamingError, TableId, TableNamingError};
+use crate::query::{SchemaId, TableId};
 use data_manager::{ColumnDefinition, DataManager};
+use itertools::Itertools;
 use protocol::{results::QueryError, Sender};
 use sql_types::SqlType;
 use sqlparser::ast::{ColumnDef, DataType, ObjectName, ObjectType, Statement};
-use std::{convert::TryFrom, sync::Arc};
-use itertools::Itertools;
-use std::sync::mpsc::sync_channel;
+use std::sync::Arc;
 
 type Result<T> = std::result::Result<T, ()>;
 
@@ -43,7 +42,7 @@ impl<'qp> QueryProcessor {
                 self.sender
                     .send(Err(QueryError::schema_does_not_exist(schema_name.to_owned())))
                     .expect("To Send Query Result to Client");
-                return Err(())
+                return Err(());
             }
             Some((_, None)) => {
                 self.sender
@@ -54,7 +53,7 @@ impl<'qp> QueryProcessor {
                     .expect("To Send Query Result to Client");
                 return Err(());
             }
-            Some((schema_id, Some(table_id))) => Ok((TableId(schema_id, table_id), schema_name, table_name))
+            Some((schema_id, Some(table_id))) => Ok((TableId(schema_id, table_id), schema_name, table_name)),
         }
     }
 
@@ -68,7 +67,7 @@ impl<'qp> QueryProcessor {
                     .expect("To Send Query Result to Client");
                 return Err(());
             }
-            Some(schema_id) => Ok((SchemaId(schema_id), schema_name))
+            Some(schema_id) => Ok((SchemaId(schema_id), schema_name)),
         }
     }
 
@@ -84,9 +83,7 @@ impl<'qp> QueryProcessor {
                             .expect("To Send Query Result to Client");
                         Err(())
                     }
-                    None => Ok(Plan::CreateSchema(SchemaCreationInfo {
-                        schema_name
-                    })),
+                    None => Ok(Plan::CreateSchema(SchemaCreationInfo { schema_name })),
                 }
             }
             Statement::Drop {
@@ -100,11 +97,11 @@ impl<'qp> QueryProcessor {
                 columns,
                 source,
             } => {
-                let (table_id, schema_name, table_name) = self.resolve_table_name(&table_name)?;
+                let (table_id, _, _) = self.resolve_table_name(&table_name)?;
                 Ok(Plan::Insert(TableInserts {
                     table_id,
                     column_indices: columns,
-                    input: source
+                    input: source,
                 }))
             }
             _ => Ok(Plan::NotProcessed(Box::new(stmt.clone()))),

@@ -18,10 +18,8 @@ pub mod bind;
 pub mod plan;
 pub mod process;
 
-use sql_types::SqlType;
-use sqlparser::ast::ObjectName;
-use std::convert::TryFrom;
 use data_manager::InnerId;
+use sql_types::SqlType;
 
 /// A type of a column
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -51,7 +49,7 @@ impl SchemaId {
 pub struct TableId(InnerId, InnerId);
 
 impl TableId {
-    pub fn schema(&self) ->  SchemaId {
+    pub fn schema(&self) -> SchemaId {
         SchemaId(self.0)
     }
 
@@ -59,7 +57,3 @@ impl TableId {
         self.1
     }
 }
-
-pub struct CatalogNameingError(String);
-pub struct TableNamingError(String);
-pub struct SchemaNamingError(String);

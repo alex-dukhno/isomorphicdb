@@ -15,10 +15,7 @@
 use crate::query::TableId;
 use data_manager::DataManager;
 use kernel::SystemResult;
-use protocol::{
-    results::{QueryError, QueryEvent},
-    Sender,
-};
+use protocol::{results::QueryEvent, Sender};
 use std::sync::Arc;
 
 pub(crate) struct DropTableCommand {
@@ -38,8 +35,7 @@ impl DropTableCommand {
         match self.storage.drop_table(schema_id, table_id) {
             Err(error) => Err(error),
             Ok(()) => {
-                self
-                    .sender
+                self.sender
                     .send(Ok(QueryEvent::TableDropped))
                     .expect("To Send Query Result to Client");
                 Ok(())
