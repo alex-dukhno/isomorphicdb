@@ -30,7 +30,7 @@ impl ParamBinder {
         Self { sender }
     }
 
-    /// Replaces the paramsters of prepared statement with values.
+    /// Replaces the parameters of prepared statement with values.
     ///
     /// TODO:
     /// Only two SQL formats has been supported to bind parameters as below.

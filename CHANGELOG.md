@@ -10,6 +10,7 @@ Check https://github.com/alex-dukhno/database/commits/master for undocumented ch
 ### Changed
 
 ### Added
+ - dynamic expression evaluation in `UPDATE` queries (#258) by @AndrewBregger
 
 ### Fixed
 
