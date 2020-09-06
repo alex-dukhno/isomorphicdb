@@ -294,6 +294,9 @@ impl QueryExecutor {
             Ok(Plan::Update(table_update)) => {
                 UpdateCommand::new(table_update, self.storage.clone(), self.sender.clone()).execute()?;
             }
+            Ok(Plan::Delete(table_delete)) => {
+                DeleteCommand::new(table_delete, self.storage.clone(), self.sender.clone()).execute()?;
+            }
             Ok(Plan::NotProcessed(statement)) => match *statement {
                 Statement::StartTransaction { .. } => {
                     self.sender
@@ -312,16 +315,6 @@ impl QueryExecutor {
                 }
                 Statement::Query(query) => {
                     SelectCommand::new(raw_sql_query, query, self.storage.clone(), self.sender.clone()).execute()?;
-                }
-                // Statement::Update {
-                //     table_name,
-                //     assignments,
-                //     ..
-                // } => {
-                //     UpdateCommand::new(table_name, assignments, self.storage.clone(), self.sender.clone()).execute()?;
-                // }
-                Statement::Delete { table_name, .. } => {
-                    DeleteCommand::new(table_name, self.storage.clone(), self.sender.clone()).execute()?;
                 }
                 _ => {
                     self.sender
