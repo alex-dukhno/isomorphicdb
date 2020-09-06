@@ -12,10 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{ColumnDefinition, Database, DropSchemaError, DropStrategy, InitStatus, PersistentDatabase};
-use kernel::{SystemError, SystemResult};
-use representation::{Binary, Datum};
-use sql_types::SqlType;
 use std::{
     collections::{BTreeMap, HashMap},
     path::PathBuf,
@@ -24,6 +20,12 @@ use std::{
         Arc, RwLock,
     },
 };
+
+use kernel::{SystemError, SystemResult};
+use representation::{Binary, Datum};
+use sql_model::sql_types::SqlType;
+
+use crate::{ColumnDefinition, Database, DropSchemaError, DropStrategy, InitStatus, PersistentDatabase};
 
 const SYSTEM_CATALOG: &'_ str = "system";
 // CREATE SCHEMA DEFINITION_SCHEMA
@@ -587,7 +589,7 @@ impl DataDefinition {
             _ => {
                 return Err(SystemError::runtime_check_failure(
                     "No Path in SledDatabaseCatalog".to_owned(),
-                ))
+                ));
             }
         };
         Ok(DataDefinition {

@@ -12,9 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{sql_formats::PostgreSqlFormat, sql_types::PostgreSqlType, Error, Result};
-use byteorder::{ByteOrder, NetworkEndian};
 use std::convert::TryFrom;
+
+use byteorder::{ByteOrder, NetworkEndian};
+
+use crate::{
+    pgsql_types::{PostgreSqlFormat, PostgreSqlType},
+    Error, Result,
+};
 
 const COMMAND_COMPLETE: u8 = b'C';
 const DATA_ROW: u8 = b'D';
@@ -688,7 +693,7 @@ mod decoding_frontend_messages {
             Ok(FrontendMessage::Parse {
                 statement_name: "".to_owned(),
                 sql: "select * from schema_name.table_name where si_column = $1;".to_owned(),
-                param_types: vec![PostgreSqlType::Integer]
+                param_types: vec![PostgreSqlType::Integer],
             })
         );
     }

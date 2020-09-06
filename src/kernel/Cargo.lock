@@ -6,7 +6,7 @@ version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a49806b9dadc843c61e7c97e72490ad7f7220ae249012fbda9ad0609457c0543"
 dependencies = [
- "gimli",
+    "gimli",
 ]
 
 [[package]]
@@ -15,11 +15,11 @@ version = "0.3.48"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0df2f85c8a2abbe3b7d7e748052fdd9b76a0458fdeb16ad4223f5eca78c7c130"
 dependencies = [
- "addr2line",
- "cfg-if",
- "libc",
- "object",
- "rustc-demangle",
+    "addr2line",
+    "cfg-if",
+    "libc",
+    "object",
+    "rustc-demangle",
 ]
 
 [[package]]
@@ -32,7 +32,7 @@ checksum = "4785bdd1c96b2a846b2bd7cc02e86b6b3dbf14e7e53446c4f54c92a361040822"
 name = "core"
 version = "0.1.0"
 dependencies = [
- "backtrace",
+    "backtrace",
 ]
 
 [[package]]

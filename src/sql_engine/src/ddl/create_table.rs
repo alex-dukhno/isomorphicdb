@@ -12,14 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::query::plan::TableCreationInfo;
+use std::sync::Arc;
+
 use data_manager::DataManager;
 use kernel::SystemResult;
 use protocol::{
     results::{QueryError, QueryEvent},
     Sender,
 };
-use std::sync::Arc;
+use query_planner::plan::TableCreationInfo;
 
 pub(crate) struct CreateTableCommand {
     table_info: TableCreationInfo,

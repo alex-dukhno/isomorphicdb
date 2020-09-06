@@ -12,10 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-///! represents a plan to be executed by the engine.
-use crate::query::{SchemaId, TableId};
+use sqlparser::ast::{Assignment, Ident, Query, Statement};
+
 use data_manager::ColumnDefinition;
-use sqlparser::ast::{Ident, Query, Statement};
+
+///! represents a plan to be executed by the engine.
+use crate::{FullTableName, SchemaName};
 
 #[derive(Debug, Clone)]
 pub struct TableCreationInfo {
@@ -32,17 +34,38 @@ pub struct SchemaCreationInfo {
 
 #[derive(Debug, Clone)]
 pub struct TableInserts {
-    pub table_id: TableId,
+    pub table_id: FullTableName,
     pub column_indices: Vec<Ident>,
     pub input: Box<Query>,
+}
+
+#[derive(Debug, Clone)]
+pub struct TableUpdates {
+    pub table_id: FullTableName,
+    pub assignments: Vec<Assignment>,
+}
+
+#[derive(Debug, Clone)]
+pub struct TableDeletes {
+    pub table_id: FullTableName,
+}
+
+#[derive(Debug, Clone)]
+pub struct SelectInput {
+    pub schema_name: String,
+    pub table_name: String,
+    pub selected_columns: Vec<String>,
 }
 
 #[derive(Debug, Clone)]
 pub enum Plan {
     CreateTable(TableCreationInfo),
     CreateSchema(SchemaCreationInfo),
-    DropTables(Vec<TableId>),
-    DropSchemas(Vec<(SchemaId, bool)>),
+    DropTables(Vec<FullTableName>),
+    DropSchemas(Vec<(SchemaName, bool)>),
+    Select(SelectInput),
+    Update(TableUpdates),
+    Delete(TableDeletes),
     Insert(TableInserts),
     NotProcessed(Box<Statement>),
 }

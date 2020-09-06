@@ -12,20 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::query::TableId;
-use data_manager::DataManager;
-use kernel::SystemResult;
-use protocol::{results::QueryEvent, Sender};
 use std::sync::Arc;
 
+use data_manager::DataManager;
+use kernel::SystemResult;
+use protocol::{
+    results::{QueryError, QueryEvent},
+    Sender,
+};
+use query_planner::FullTableName;
+
 pub(crate) struct DropTableCommand {
-    name: TableId,
+    name: FullTableName,
     storage: Arc<DataManager>,
     sender: Arc<dyn Sender>,
 }
 
 impl DropTableCommand {
-    pub(crate) fn new(name: TableId, storage: Arc<DataManager>, sender: Arc<dyn Sender>) -> DropTableCommand {
+    pub(crate) fn new(name: FullTableName, storage: Arc<DataManager>, sender: Arc<dyn Sender>) -> DropTableCommand {
         DropTableCommand { name, storage, sender }
     }
 

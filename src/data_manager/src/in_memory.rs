@@ -12,12 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{Database, DefinitionError, Key, ObjectId, ReadCursor, RowResult, SchemaId, StorageError, Values};
 use std::{
     collections::{BTreeMap, HashMap},
     io::{self},
     sync::RwLock,
 };
+
+use crate::{Database, DefinitionError, Key, ObjectName, ReadCursor, RowResult, SchemaName, StorageError, Values};
 
 type Name = String;
 
@@ -37,7 +38,7 @@ pub struct InMemoryDatabase {
 }
 
 impl Database for InMemoryDatabase {
-    fn create_schema(&self, schema_name: SchemaId) -> io::Result<Result<Result<(), DefinitionError>, StorageError>> {
+    fn create_schema(&self, schema_name: SchemaName) -> io::Result<Result<Result<(), DefinitionError>, StorageError>> {
         if self
             .schemas
             .read()
@@ -54,7 +55,7 @@ impl Database for InMemoryDatabase {
         }
     }
 
-    fn drop_schema(&self, schema_name: SchemaId) -> io::Result<Result<Result<(), DefinitionError>, StorageError>> {
+    fn drop_schema(&self, schema_name: SchemaName) -> io::Result<Result<Result<(), DefinitionError>, StorageError>> {
         match self.schemas.write().expect("to acquire write lock").remove(schema_name) {
             Some(_namespace) => Ok(Ok(Ok(()))),
             None => Ok(Ok(Err(DefinitionError::SchemaDoesNotExist))),
@@ -63,8 +64,8 @@ impl Database for InMemoryDatabase {
 
     fn create_object(
         &self,
-        schema_name: SchemaId,
-        object_name: ObjectId,
+        schema_name: SchemaName,
+        object_name: ObjectName,
     ) -> io::Result<Result<Result<(), DefinitionError>, StorageError>> {
         match self
             .schemas
@@ -86,8 +87,8 @@ impl Database for InMemoryDatabase {
 
     fn drop_object(
         &self,
-        schema_name: SchemaId,
-        object_name: ObjectId,
+        schema_name: SchemaName,
+        object_name: ObjectName,
     ) -> io::Result<Result<Result<(), DefinitionError>, StorageError>> {
         match self
             .schemas
@@ -105,8 +106,8 @@ impl Database for InMemoryDatabase {
 
     fn write(
         &self,
-        schema_name: SchemaId,
-        object_name: ObjectId,
+        schema_name: SchemaName,
+        object_name: ObjectName,
         rows: Vec<(Key, Values)>,
     ) -> io::Result<Result<Result<usize, DefinitionError>, StorageError>> {
         match self
@@ -131,8 +132,8 @@ impl Database for InMemoryDatabase {
 
     fn read(
         &self,
-        schema_name: SchemaId,
-        object_name: ObjectId,
+        schema_name: SchemaName,
+        object_name: ObjectName,
     ) -> io::Result<Result<Result<ReadCursor, DefinitionError>, StorageError>> {
         match self.schemas.read().expect("to acquire read lock").get(schema_name) {
             Some(schema) => match schema.objects.get(object_name) {
@@ -153,8 +154,8 @@ impl Database for InMemoryDatabase {
 
     fn delete(
         &self,
-        schema_name: SchemaId,
-        object_name: ObjectId,
+        schema_name: SchemaName,
+        object_name: ObjectName,
         keys: Vec<Key>,
     ) -> io::Result<Result<Result<usize, DefinitionError>, StorageError>> {
         match self

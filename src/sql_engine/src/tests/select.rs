@@ -12,8 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use protocol::pgsql_types::PostgreSqlType;
+
 use super::*;
-use protocol::sql_types::PostgreSqlType;
 
 #[rstest::rstest]
 fn select_from_not_existed_table(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
@@ -127,10 +128,8 @@ fn select_non_existing_columns_from_table(sql_engine_with_schema: (QueryExecutor
         Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::TableCreated),
         Ok(QueryEvent::QueryComplete),
-        Err(QueryError::column_does_not_exist(vec![
-            "column_not_in_table1".to_owned(),
-            "column_not_in_table2".to_owned(),
-        ])),
+        Err(QueryError::column_does_not_exist("column_not_in_table1".to_owned())),
+        Err(QueryError::column_does_not_exist("column_not_in_table2".to_owned())),
         Ok(QueryEvent::QueryComplete),
     ]);
 }

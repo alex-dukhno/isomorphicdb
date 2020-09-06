@@ -12,12 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use data_manager::{Database, DefinitionError, StorageError};
 use fail::FailScenario;
 
-mod common;
 use common::{scenario, OBJECT, SCHEMA};
-use data_manager::persistent::PersistentDatabase;
+use data_manager::{persistent::PersistentDatabase, Database, StorageError};
+use sql_model::sql_errors::DefinitionError;
+
+mod common;
 
 #[rstest::fixture]
 fn database() -> PersistentDatabase {

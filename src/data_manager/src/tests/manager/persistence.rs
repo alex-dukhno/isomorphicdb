@@ -12,11 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::*;
-use representation::{Binary, Datum};
-use sql_types::SqlType;
 use std::path::PathBuf;
+
 use tempfile::TempDir;
+
+use representation::{Binary, Datum};
+use sql_model::sql_types::SqlType;
+
+use super::*;
 
 #[rstest::fixture]
 fn persistent() -> (DataManager, TempDir) {

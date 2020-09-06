@@ -12,8 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use protocol::pgsql_types::PostgreSqlType;
+
 use super::*;
-use protocol::sql_types::PostgreSqlType;
 
 #[rstest::rstest]
 fn bind_insert_statement_to_portal(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {

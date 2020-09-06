@@ -15,7 +15,7 @@ path = "src/bin.rs"
 [dependencies]
 kernel = { path = "../kernel" }
 sql_engine = { path = "../sql_engine" }
-sql_types = { path = "../sql_types" }
+sql_model = { path = "../sql_model" }
 data_manager = { path = "../data_manager" }
 futures-lite = "1.0.0"
 smol = "0.4.3"

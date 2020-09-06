@@ -16,12 +16,15 @@
 //! API for backend implementation of PostgreSQL Wire Protocol
 extern crate log;
 
-use crate::{
-    messages::{BackendMessage, Encryption, FrontendMessage},
-    results::QueryResult,
-    sql_formats::PostgreSqlFormat,
-    sql_types::PostgreSqlType,
+use std::{
+    fs::File,
+    net::SocketAddr,
+    path::PathBuf,
+    pin::Pin,
+    sync::Arc,
+    task::{Context, Poll},
 };
+
 use async_mutex::Mutex as AsyncMutex;
 use async_native_tls::TlsStream;
 use async_trait::async_trait;
@@ -32,28 +35,22 @@ use futures_lite::{
     io::{self, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, ErrorKind},
 };
 use itertools::Itertools;
-use std::{
-    fs::File,
-    net::SocketAddr,
-    path::PathBuf,
-    pin::Pin,
-    sync::Arc,
-    task::{Context, Poll},
+
+use crate::{
+    messages::{BackendMessage, Encryption, FrontendMessage},
+    pgsql_types::{PostgreSqlFormat, PostgreSqlType},
+    results::QueryResult,
 };
 
 /// Module contains backend messages that could be send by server implementation
 /// to a client
 pub mod messages;
+/// Module contains functionality to represent SQL type system
+pub mod pgsql_types;
 /// Module contains functionality to represent query result
 pub mod results;
 /// Module contains functionality to represent server side client session
 pub mod session;
-/// Module contains functionality to represent SQL format
-pub mod sql_formats;
-/// Module contains functionality to represent SQL type system
-pub mod sql_types;
-/// Module contains functionality to represent SQL data value
-pub mod sql_values;
 /// Module contains functionality to hold data about `PreparedStatement`
 pub mod statement;
 
@@ -469,6 +466,7 @@ pub(crate) enum Channel<RW: AsyncRead + AsyncWrite + Unpin> {
 }
 
 unsafe impl<RW: AsyncRead + AsyncWrite + Unpin> Send for Channel<RW> {}
+
 unsafe impl<RW: AsyncRead + AsyncWrite + Unpin> Sync for Channel<RW> {}
 
 impl<RW: AsyncRead + AsyncWrite + Unpin> AsyncRead for Channel<RW> {

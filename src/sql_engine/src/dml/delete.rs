@@ -12,39 +12,50 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::sync::Arc;
+
 use data_manager::DataManager;
 use kernel::SystemResult;
 use protocol::{
     results::{QueryError, QueryEvent},
     Sender,
 };
-use sqlparser::ast::ObjectName;
-use std::sync::Arc;
+use query_planner::plan::TableDeletes;
 
 pub(crate) struct DeleteCommand {
-    name: ObjectName,
+    table_deletes: TableDeletes,
     storage: Arc<DataManager>,
     sender: Arc<dyn Sender>,
 }
 
 impl DeleteCommand {
-    pub(crate) fn new(name: ObjectName, storage: Arc<DataManager>, sender: Arc<dyn Sender>) -> DeleteCommand {
-        DeleteCommand { name, storage, sender }
+    pub(crate) fn new(
+        table_deletes: TableDeletes,
+        storage: Arc<DataManager>,
+        sender: Arc<dyn Sender>,
+    ) -> DeleteCommand {
+        DeleteCommand {
+            table_deletes,
+            storage,
+            sender,
+        }
     }
 
     pub(crate) fn execute(&mut self) -> SystemResult<()> {
-        let schema_name = self.name.0[0].to_string();
-        let table_name = self.name.0[1].to_string();
-
-        match self.storage.table_exists(&schema_name, &table_name) {
+        match self.storage.table_exists(
+            self.table_deletes.table_id.schema_name(),
+            self.table_deletes.table_id.name(),
+        ) {
             None => self
                 .sender
-                .send(Err(QueryError::schema_does_not_exist(schema_name)))
+                .send(Err(QueryError::schema_does_not_exist(
+                    self.table_deletes.table_id.schema_name().to_owned(),
+                )))
                 .expect("To Send Result to Client"),
             Some((_, None)) => self
                 .sender
                 .send(Err(QueryError::table_does_not_exist(
-                    schema_name + "." + table_name.as_str(),
+                    self.table_deletes.table_id.schema_name().to_owned() + "." + self.table_deletes.table_id.name(),
                 )))
                 .expect("To Send Result to Client"),
             Some((schema_id, Some(table_id))) => {

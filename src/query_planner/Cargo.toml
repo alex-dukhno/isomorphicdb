@@ -1,13 +1,13 @@
 [package]
-name = "representation"
+name = "query_planner"
 version = "0.1.0"
 authors = ["Alex Dukhno <alex.dukhno@icloud.com>"]
 edition = "2018"
 publish = false
 
 [dependencies]
-log = "0.4.8"
-sql_model = { path = "../sql_model" }
-ordered-float = "2.0.0"
 sqlparser = { version = "0.6.1", features = ["bigdecimal"] }
-bigdecimal = "0.1.2"
+sql_model = { path = "../sql_model" }
+data_manager = { path = "../data_manager" }
+protocol = { path = "../protocol" }
+kernel = { path = "../kernel" }

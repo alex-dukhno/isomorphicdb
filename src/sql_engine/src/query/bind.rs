@@ -12,10 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use bigdecimal::BigDecimal;
-use protocol::{results::QueryError, sql_values::PostgreSqlValue, Sender};
-use sqlparser::ast::{Assignment, Expr, Ident, Query, SetExpr, Statement, Value};
 use std::sync::Arc;
+
+use bigdecimal::BigDecimal;
+use sqlparser::ast::{Assignment, Expr, Ident, Query, SetExpr, Statement, Value};
+
+use protocol::{pgsql_types::PostgreSqlValue, results::QueryError, Sender};
 
 type Result = std::result::Result<(), ()>;
 
@@ -28,7 +30,7 @@ impl ParamBinder {
         Self { sender }
     }
 
-    /// Replaces the paramsters of prepared statement with values.
+    /// Replaces the parameters of prepared statement with values.
     ///
     /// TODO:
     /// Only two SQL formats has been supported to bind parameters as below.

@@ -12,11 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::collections::HashMap;
+
 use crate::{
-    sql_formats::PostgreSqlFormat,
+    pgsql_types::PostgreSqlFormat,
     statement::{Portal, PreparedStatement},
 };
-use std::collections::HashMap;
 
 /// A `Session` holds SQL state that is attached to a session.
 #[derive(Clone, Debug)]

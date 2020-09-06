@@ -12,9 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::*;
 use representation::{Binary, Datum};
-use sql_types::SqlType;
+use sql_model::sql_types::SqlType;
+
+use super::*;
 
 #[rstest::rstest]
 fn delete_all_from_table(data_manager_with_schema: DataManager) {
@@ -69,7 +70,7 @@ fn delete_all_from_table(data_manager_with_schema: DataManager) {
                 Binary::pack(&[Datum::from_u64(1)]),
                 Binary::pack(&[Datum::from_u64(2)]),
                 Binary::pack(&[Datum::from_u64(3)])
-            ]
+            ],
         ),
         Ok(3)
     );

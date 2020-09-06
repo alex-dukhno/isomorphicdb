@@ -12,14 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::query::SchemaId;
-use data_manager::{DataManager, DropSchemaError, DropStrategy};
-use kernel::SystemResult;
-use protocol::{results::QueryEvent, Sender};
 use std::sync::Arc;
 
+use data_manager::{DataManager, DropSchemaError, DropStrategy};
+use kernel::SystemResult;
+use protocol::{
+    results::{QueryError, QueryEvent},
+    Sender,
+};
+use query_planner::SchemaName;
+
 pub(crate) struct DropSchemaCommand {
-    name: SchemaId,
+    name: SchemaName,
     cascade: bool,
     storage: Arc<DataManager>,
     sender: Arc<dyn Sender>,
@@ -27,7 +31,7 @@ pub(crate) struct DropSchemaCommand {
 
 impl DropSchemaCommand {
     pub(crate) fn new(
-        name: SchemaId,
+        name: SchemaName,
         cascade: bool,
         storage: Arc<DataManager>,
         sender: Arc<dyn Sender>,

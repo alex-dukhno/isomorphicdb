@@ -12,13 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{sql_formats::PostgreSqlFormat, sql_values::PostgreSqlValue};
-use byteorder::{BigEndian, ReadBytesExt};
 use std::{
     convert::TryFrom,
     fmt::{self, Display, Formatter},
     str,
 };
+
+use byteorder::{BigEndian, ReadBytesExt};
 
 /// PostgreSQL Object Identifier
 pub type Oid = u32;
@@ -286,6 +286,28 @@ fn parse_varchar_from_binary(buf: &[u8]) -> Result<PostgreSqlValue, String> {
 
 fn parse_varchar_from_text(s: &str) -> Result<PostgreSqlValue, String> {
     Ok(PostgreSqlValue::String(s.into()))
+}
+
+/// Represents PostgreSQL data values sent and received over wire
+#[allow(missing_docs)]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum PostgreSqlValue {
+    Null,
+    True,
+    False,
+    Int16(i16),
+    Int32(i32),
+    Int64(i64),
+    String(String),
+}
+
+/// Represents PostgreSQL data format
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum PostgreSqlFormat {
+    /// Text encoding.
+    Text,
+    /// Binary encoding.
+    Binary,
 }
 
 #[cfg(test)]

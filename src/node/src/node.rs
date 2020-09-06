@@ -12,11 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use async_dup::Arc as AsyncArc;
-use async_io::Async;
-use data_manager::DataManager;
-use protocol::{Command, ProtocolConfiguration, Receiver};
-use sql_engine::QueryExecutor;
 use std::{
     env,
     net::TcpListener,
@@ -26,6 +21,13 @@ use std::{
         Arc,
     },
 };
+
+use async_dup::Arc as AsyncArc;
+use async_io::Async;
+
+use data_manager::DataManager;
+use protocol::{Command, ProtocolConfiguration, Receiver};
+use sql_engine::QueryExecutor;
 
 const PORT: u16 = 5432;
 const HOST: [u8; 4] = [0, 0, 0, 0];

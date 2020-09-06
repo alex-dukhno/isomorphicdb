@@ -12,11 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/// Represents PostgreSQL data format
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum PostgreSqlFormat {
-    /// Text encoding.
-    Text,
-    /// Binary encoding.
-    Binary,
-}
+pub mod sql_errors;
+pub mod sql_types;
+
+pub type Id = u64;

@@ -15,32 +15,30 @@
 extern crate bigdecimal;
 extern crate log;
 
+use std::{iter, sync::Arc};
+
+use itertools::izip;
+use sqlparser::{ast::Statement, dialect::Dialect, parser::Parser};
+
+use data_manager::DataManager;
+use kernel::SystemResult;
+use protocol::{
+    pgsql_types::{PostgreSqlFormat, PostgreSqlType, PostgreSqlValue},
+    results::{QueryError, QueryEvent},
+    session::Session,
+    statement::PreparedStatement,
+    Sender,
+};
+
 use crate::{
     ddl::{
         create_schema::CreateSchemaCommand, create_table::CreateTableCommand, drop_schema::DropSchemaCommand,
         drop_table::DropTableCommand,
     },
     dml::{delete::DeleteCommand, insert::InsertCommand, select::SelectCommand, update::UpdateCommand},
-    query::{bind::ParamBinder, plan::Plan, process::QueryProcessor},
+    query::bind::ParamBinder,
 };
-use data_manager::DataManager;
-use itertools::izip;
-use kernel::SystemResult;
-use protocol::{
-    results::{QueryError, QueryEvent},
-    session::Session,
-    sql_formats::PostgreSqlFormat,
-    sql_types::PostgreSqlType,
-    sql_values::PostgreSqlValue,
-    statement::PreparedStatement,
-    Sender,
-};
-use sqlparser::{
-    ast::Statement,
-    dialect::{Dialect, PostgreSqlDialect},
-    parser::Parser,
-};
-use std::{iter, sync::Arc};
+use query_planner::{plan::Plan, process::QueryProcessor};
 
 mod ddl;
 mod dml;
@@ -65,9 +63,8 @@ impl QueryExecutor {
         }
     }
 
-    #[allow(clippy::match_wild_err_arm)]
     pub fn execute(&mut self, raw_sql_query: &str) -> SystemResult<()> {
-        let statement = match Parser::parse_sql(&PostgreSqlDialect {}, raw_sql_query) {
+        let statement = match Parser::parse_sql(&PreparedStatementDialect {}, raw_sql_query) {
             Ok(mut statements) => {
                 log::info!("stmts: {:#?}", statements);
                 statements.pop().unwrap()
@@ -116,10 +113,9 @@ impl QueryExecutor {
             }
         };
 
-        let description = match &statement {
-            Statement::Query(query) => {
-                SelectCommand::new(raw_sql_query, query.clone(), self.storage.clone(), self.sender.clone())
-                    .describe()?
+        let description = match self.processor.process(statement.clone()) {
+            Ok(Plan::Select(select_input)) => {
+                SelectCommand::new(select_input, self.storage.clone(), self.sender.clone()).describe()?
             }
             _ => vec![],
         };
@@ -293,6 +289,15 @@ impl QueryExecutor {
             Ok(Plan::Insert(table_insert)) => {
                 InsertCommand::new(raw_sql_query, table_insert, self.storage.clone(), self.sender.clone()).execute()?;
             }
+            Ok(Plan::Update(table_update)) => {
+                UpdateCommand::new(table_update, self.storage.clone(), self.sender.clone()).execute()?;
+            }
+            Ok(Plan::Delete(table_delete)) => {
+                DeleteCommand::new(table_delete, self.storage.clone(), self.sender.clone()).execute()?;
+            }
+            Ok(Plan::Select(select_input)) => {
+                SelectCommand::new(select_input, self.storage.clone(), self.sender.clone()).execute()?;
+            }
             Ok(Plan::NotProcessed(statement)) => match *statement {
                 Statement::StartTransaction { .. } => {
                     self.sender
@@ -308,19 +313,6 @@ impl QueryExecutor {
                     self.sender
                         .send(Err(QueryError::feature_not_supported(raw_sql_query.to_owned())))
                         .expect("To Send Query Result to Client");
-                }
-                Statement::Query(query) => {
-                    SelectCommand::new(raw_sql_query, query, self.storage.clone(), self.sender.clone()).execute()?;
-                }
-                Statement::Update {
-                    table_name,
-                    assignments,
-                    ..
-                } => {
-                    UpdateCommand::new(table_name, assignments, self.storage.clone(), self.sender.clone()).execute()?;
-                }
-                Statement::Delete { table_name, .. } => {
-                    DeleteCommand::new(table_name, self.storage.clone(), self.sender.clone()).execute()?;
                 }
                 _ => {
                     self.sender
