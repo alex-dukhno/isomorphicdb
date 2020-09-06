@@ -18,12 +18,18 @@ use crate::{SchemaId, TableId};
 use data_manager::{ColumnDefinition, DataManager};
 use itertools::Itertools;
 use kernel::{SystemError, SystemResult};
-use protocol::{results::QueryError, Sender};
-use sql_model::sql_types::SqlType;
+mod create_table;
+
 use sqlparser::ast::{
     ColumnDef, Expr, Ident, ObjectName, ObjectType, Query, Select, SelectItem, SetExpr, Statement, TableFactor,
     TableWithJoins,
 };
+
+use crate::{
+    planner::create_table::CreateTablePlanner, FullTableName, SchemaName, SchemaNamingError, TableNamingError,
+};
+use protocol::{results::QueryError, Sender};
+use sql_model::sql_types::SqlType;
 use std::convert::TryFrom;
 use std::{ops::Deref, sync::Arc};
 
@@ -78,7 +84,9 @@ impl QueryPlanner {
 
     pub fn plan(&self, stmt: Statement) -> Result<Plan> {
         match stmt {
-            Statement::CreateTable { name, columns, .. } => self.handle_create_table(name, &columns),
+            Statement::CreateTable { name, columns, .. } => {
+                CreateTablePlanner::new(self.data_manager.clone(), self.sender.clone(), name, columns).plan()
+            }
             Statement::CreateSchema { schema_name, .. } => {
                 let schema_name = schema_name.0.iter().join(".");
                 match self.data_manager.schema_exists(&schema_name) {
