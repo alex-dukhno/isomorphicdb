@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use kernel::SystemError;
-use protocol::sql_types::PostgreSqlType;
+use protocol::pgsql_types::PostgreSqlType;
 
 use super::*;
 

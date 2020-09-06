@@ -22,10 +22,8 @@ use protocol::{
 };
 use representation::{unpack_raw, Binary};
 
-use crate::query::{
-    expr::{EvalScalarOp, ExpressionEvaluation},
-    plan::TableUpdates,
-};
+use crate::query::expr::{EvalScalarOp, ExpressionEvaluation};
+use query_planner::plan::TableUpdates;
 
 pub(crate) struct UpdateCommand {
     table_update: TableUpdates,

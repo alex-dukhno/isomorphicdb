@@ -11,7 +11,8 @@ kernel = { path = "../kernel" }
 data_manager = { path = "../data_manager" }
 sqlparser = { version = "0.6.1", features = ["bigdecimal"] }
 bigdecimal = "0.1.2"
-sql_types = { path = "../sql_types" }
+sql_model = { path = "../sql_model" }
+query_planner = { path = "../query_planner" }
 protocol = { path = "../protocol" }
 futures-lite = "1.0.0"
 representation = { path = "../representation" }

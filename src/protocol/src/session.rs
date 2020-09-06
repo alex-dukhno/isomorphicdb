@@ -15,7 +15,7 @@
 use std::collections::HashMap;
 
 use crate::{
-    sql_formats::PostgreSqlFormat,
+    pgsql_types::PostgreSqlFormat,
     statement::{Portal, PreparedStatement},
 };
 

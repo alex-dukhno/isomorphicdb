@@ -22,18 +22,18 @@ use sqlparser::ast::{
 
 use data_manager::{ColumnDefinition, DataManager};
 use protocol::{results::QueryError, Sender};
-use sql_types::SqlType;
+use sql_model::sql_types::SqlType;
 
-use crate::query::{
+use crate::{
     plan::{Plan, SchemaCreationInfo, SelectInput, TableCreationInfo, TableDeletes, TableInserts, TableUpdates},
-    SchemaId, SchemaNamingError, TableId, TableNamingError,
+    FullTableName, SchemaName, SchemaNamingError, TableNamingError,
 };
 use kernel::{SystemError, SystemResult};
 use std::ops::Deref;
 
 type Result<T> = std::result::Result<T, ()>;
 
-pub(crate) struct QueryProcessor {
+pub struct QueryProcessor {
     storage: Arc<DataManager>,
     sender: Arc<dyn Sender>,
 }
@@ -47,7 +47,7 @@ impl QueryProcessor {
         match stmt {
             Statement::CreateTable { name, columns, .. } => self.handle_create_table(name, &columns),
             Statement::CreateSchema { schema_name, .. } => {
-                let schema_id = match SchemaId::try_from(schema_name) {
+                let schema_id = match SchemaName::try_from(schema_name) {
                     Ok(schema_id) => schema_id,
                     Err(SchemaNamingError(message)) => {
                         self.sender
@@ -78,7 +78,7 @@ impl QueryProcessor {
                 table_name,
                 columns,
                 source,
-            } => match TableId::try_from(table_name) {
+            } => match FullTableName::try_from(table_name) {
                 Ok(table_id) => Ok(Plan::Insert(TableInserts {
                     table_id,
                     column_indices: columns,
@@ -95,7 +95,7 @@ impl QueryProcessor {
                 table_name,
                 assignments,
                 ..
-            } => match TableId::try_from(table_name) {
+            } => match FullTableName::try_from(table_name) {
                 Ok(table_id) => Ok(Plan::Update(TableUpdates { table_id, assignments })),
                 Err(TableNamingError(message)) => {
                     self.sender
@@ -104,7 +104,7 @@ impl QueryProcessor {
                     Err(())
                 }
             },
-            Statement::Delete { table_name, .. } => match TableId::try_from(table_name) {
+            Statement::Delete { table_name, .. } => match FullTableName::try_from(table_name) {
                 Ok(table_id) => Ok(Plan::Delete(TableDeletes { table_id })),
                 Err(TableNamingError(message)) => {
                     self.sender
@@ -250,7 +250,7 @@ impl QueryProcessor {
     }
 
     fn handle_create_table(&self, name: ObjectName, columns: &[ColumnDef]) -> Result<Plan> {
-        let table_id = match TableId::try_from(name) {
+        let table_id = match FullTableName::try_from(name) {
             Ok(table_id) => table_id,
             Err(TableNamingError(message)) => {
                 self.sender
@@ -296,7 +296,7 @@ impl QueryProcessor {
                 for name in names {
                     // I like the idea of abstracting this to a resolve_table_name(name) which would do
                     // this check for us and can be reused else where. ideally this function could handle aliasing as well.
-                    let table_id = match TableId::try_from(name.clone()) {
+                    let table_id = match FullTableName::try_from(name.clone()) {
                         Ok(table_id) => table_id,
                         Err(TableNamingError(message)) => {
                             self.sender
@@ -331,7 +331,7 @@ impl QueryProcessor {
             ObjectType::Schema => {
                 let mut schema_names = Vec::with_capacity(names.len());
                 for name in names {
-                    let schema_id = match SchemaId::try_from(name.clone()) {
+                    let schema_id = match SchemaName::try_from(name.clone()) {
                         Ok(schema_id) => schema_id,
                         Err(SchemaNamingError(message)) => {
                             self.sender

@@ -17,8 +17,7 @@ use std::sync::Arc;
 use data_manager::DataManager;
 use kernel::SystemResult;
 use protocol::{results::QueryEvent, Sender};
-
-use crate::query::plan::SchemaCreationInfo;
+use query_planner::plan::SchemaCreationInfo;
 
 pub(crate) struct CreateSchemaCommand {
     schema_info: SchemaCreationInfo,

@@ -22,7 +22,7 @@ use bigdecimal::ToPrimitive;
 use ordered_float::OrderedFloat;
 use sqlparser::ast::Value;
 
-use sql_types::SqlType;
+use sql_model::sql_types::SqlType;
 
 #[derive(Debug, Clone, Copy, Ord, PartialOrd, Eq, PartialEq)]
 pub enum ScalarType {

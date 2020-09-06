@@ -16,7 +16,7 @@ use std::fmt::{self, Display, Formatter};
 
 use crate::{
     messages::{BackendMessage, ColumnMetadata},
-    sql_types::PostgreSqlType,
+    pgsql_types::PostgreSqlType,
 };
 
 /// Represents result of SQL query execution

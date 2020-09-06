@@ -14,7 +14,8 @@
 
 use representation::Binary;
 
-use crate::query::{scalar::ScalarOp, TableId};
+use crate::query::scalar::ScalarOp;
+use query_planner::FullTableName;
 
 ///! module for representing relation operations.
 
@@ -44,7 +45,7 @@ pub enum RelationOp {
     Scan {
         // Id the table that needs to be loaded.
         // and maybe some other information we need about it.
-        table: TableId,
+        table: FullTableName,
     },
 
     Join {

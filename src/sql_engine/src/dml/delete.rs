@@ -14,13 +14,13 @@
 
 use std::sync::Arc;
 
-use crate::query::plan::TableDeletes;
 use data_manager::DataManager;
 use kernel::SystemResult;
 use protocol::{
     results::{QueryError, QueryEvent},
     Sender,
 };
+use query_planner::plan::TableDeletes;
 
 pub(crate) struct DeleteCommand {
     table_deletes: TableDeletes,

@@ -20,8 +20,7 @@ use protocol::{
     results::{QueryError, QueryEvent},
     Sender,
 };
-
-use crate::query::plan::TableCreationInfo;
+use query_planner::plan::TableCreationInfo;
 
 pub(crate) struct CreateTableCommand {
     table_info: TableCreationInfo,

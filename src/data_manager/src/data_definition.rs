@@ -23,7 +23,7 @@ use std::{
 
 use kernel::{SystemError, SystemResult};
 use representation::{Binary, Datum};
-use sql_types::SqlType;
+use sql_model::sql_types::SqlType;
 
 use crate::{ColumnDefinition, Database, DropSchemaError, DropStrategy, InitStatus, PersistentDatabase};
 

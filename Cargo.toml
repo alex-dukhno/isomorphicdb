@@ -1,10 +1,11 @@
 [workspace]
 members = [
+    "src/data_manager",
     "src/kernel",
     "src/node",
     "src/protocol",
-    "src/sql_engine",
-    "src/sql_types",
-    "src/data_manager",
+    "src/query_planner",
     "src/representation",
+    "src/sql_engine",
+    "src/sql_model",
 ]

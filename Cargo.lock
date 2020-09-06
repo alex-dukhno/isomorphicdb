@@ -410,7 +410,7 @@ dependencies = [
  "rstest",
  "serde",
  "sled",
- "sql_types",
+ "sql_model",
  "tempfile",
 ]
 
@@ -703,7 +703,7 @@ dependencies = [
  "simple_logger",
  "smol",
  "sql_engine",
- "sql_types",
+ "sql_model",
 ]
 
 [[package]]
@@ -891,6 +891,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "query_planner"
+version = "0.1.0"
+dependencies = [
+ "data_manager",
+ "kernel",
+ "protocol",
+ "sql_model",
+ "sqlparser",
+]
+
+[[package]]
 name = "quote"
 version = "1.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -962,7 +973,7 @@ dependencies = [
  "bigdecimal",
  "log",
  "ordered-float",
- "sql_types",
+ "sql_model",
  "sqlparser",
 ]
 
@@ -1184,15 +1195,16 @@ dependencies = [
  "kernel",
  "log",
  "protocol",
+ "query_planner",
  "representation",
  "rstest",
- "sql_types",
+ "sql_model",
  "sqlparser",
  "tempfile",
 ]
 
 [[package]]
-name = "sql_types"
+name = "sql_model"
 version = "0.1.0"
 dependencies = [
  "lexical",

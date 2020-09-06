@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use representation::{Binary, Datum};
-use sql_types::SqlType;
+use sql_model::sql_types::SqlType;
 
 use super::*;
 

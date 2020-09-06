@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use protocol::{results::QueryEvent, sql_types::PostgreSqlType};
+use protocol::{pgsql_types::PostgreSqlType, results::QueryEvent};
 
 use crate::QueryExecutor;
 

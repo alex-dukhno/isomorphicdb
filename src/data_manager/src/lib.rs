@@ -26,9 +26,10 @@ use serde::{Deserialize, Serialize};
 
 use kernel::{Object, Operation, SystemError, SystemResult};
 use representation::Binary;
-use sql_types::SqlType;
+use sql_model::sql_types::SqlType;
 
 use crate::{data_definition::DataDefinition, in_memory::InMemoryDatabase, persistent::PersistentDatabase};
+use sql_model::{sql_errors::DefinitionError, Id};
 
 mod data_definition;
 mod in_memory;
@@ -52,56 +53,48 @@ pub enum StorageError {
     Storage,
 }
 
-#[derive(Debug, PartialEq)]
-pub enum DefinitionError {
-    SchemaAlreadyExists,
-    SchemaDoesNotExist,
-    ObjectAlreadyExists,
-    ObjectDoesNotExist,
-}
-
-pub type SchemaId<'s> = &'s str;
-pub type ObjectId<'o> = &'o str;
+pub type SchemaName<'s> = &'s str;
+pub type ObjectName<'o> = &'o str;
 
 pub trait Database {
-    fn create_schema(&self, schema_name: SchemaId) -> io::Result<Result<Result<(), DefinitionError>, StorageError>>;
+    fn create_schema(&self, schema_name: SchemaName) -> io::Result<Result<Result<(), DefinitionError>, StorageError>>;
 
-    fn drop_schema(&self, schema_name: SchemaId) -> io::Result<Result<Result<(), DefinitionError>, StorageError>>;
+    fn drop_schema(&self, schema_name: SchemaName) -> io::Result<Result<Result<(), DefinitionError>, StorageError>>;
 
     fn create_object(
         &self,
-        schema_name: SchemaId,
-        object_name: ObjectId,
+        schema_name: SchemaName,
+        object_name: ObjectName,
     ) -> io::Result<Result<Result<(), DefinitionError>, StorageError>>;
 
     fn drop_object(
         &self,
-        schema_name: SchemaId,
-        object_name: ObjectId,
+        schema_name: SchemaName,
+        object_name: ObjectName,
     ) -> io::Result<Result<Result<(), DefinitionError>, StorageError>>;
 
     fn write(
         &self,
-        schema_name: SchemaId,
-        object_name: ObjectId,
+        schema_name: SchemaName,
+        object_name: ObjectName,
         values: Vec<(Key, Values)>,
     ) -> io::Result<Result<Result<usize, DefinitionError>, StorageError>>;
 
     fn read(
         &self,
-        schema_name: SchemaId,
-        object_name: ObjectId,
+        schema_name: SchemaName,
+        object_name: ObjectName,
     ) -> io::Result<Result<Result<ReadCursor, DefinitionError>, StorageError>>;
 
     fn delete(
         &self,
-        schema_name: SchemaId,
-        object_name: ObjectId,
+        schema_name: SchemaName,
+        object_name: ObjectName,
         keys: Vec<Key>,
     ) -> io::Result<Result<Result<usize, DefinitionError>, StorageError>>;
 }
 
-pub type RecordId = u64;
+pub type RecordId = Id;
 pub type FullSchemaId = Option<RecordId>;
 pub type FullTableId = Option<(RecordId, Option<RecordId>)>;
 
