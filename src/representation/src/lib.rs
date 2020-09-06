@@ -318,14 +318,12 @@ impl<'a> TryFrom<&Value> for Datum<'a> {
                     } else {
                         Err(EvalError::OutOfRangeNumeric(SqlType::Integer(i32::min_value())))
                     }
+                } else if let Some(val) = val.to_f32() {
+                    Ok(Datum::from_f32(val))
+                } else if let Some(val) = val.to_f64() {
+                    Ok(Datum::from_f64(val))
                 } else {
-                    if let Some(val) = val.to_f32() {
-                        Ok(Datum::from_f32(val))
-                    } else if let Some(val) = val.to_f64() {
-                        Ok(Datum::from_f64(val))
-                    } else {
-                        Err(EvalError::OutOfRangeNumeric(SqlType::DoublePrecision))
-                    }
+                    Err(EvalError::OutOfRangeNumeric(SqlType::DoublePrecision))
                 }
             }
             Value::SingleQuotedString(value) => Ok(Datum::from_string(value.trim().to_owned())),
