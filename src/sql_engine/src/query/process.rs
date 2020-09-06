@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+///! Module for transforming the input Query AST into representation the engine can process.
 use std::{convert::TryFrom, sync::Arc};
 
 use sqlparser::ast::{ColumnDef, DataType, ObjectName, ObjectType, Statement};
@@ -20,9 +21,10 @@ use data_manager::{ColumnDefinition, DataManager};
 use protocol::{results::QueryError, Sender};
 use sql_types::SqlType;
 
-///! Module for transforming the input Query AST into representation the engine can process.
-use crate::query::plan::{Plan, SchemaCreationInfo, TableCreationInfo, TableInserts, TableUpdates};
-use crate::query::{SchemaId, SchemaNamingError, TableId, TableNamingError};
+use crate::query::{
+    plan::{Plan, SchemaCreationInfo, TableCreationInfo, TableDeletes, TableInserts, TableUpdates},
+    SchemaId, SchemaNamingError, TableId, TableNamingError,
+};
 
 type Result<T> = std::result::Result<T, ()>;
 
@@ -90,6 +92,15 @@ impl QueryProcessor {
                 ..
             } => match TableId::try_from(table_name) {
                 Ok(table_id) => Ok(Plan::Update(TableUpdates { table_id, assignments })),
+                Err(TableNamingError(message)) => {
+                    self.sender
+                        .send(Err(QueryError::syntax_error(message)))
+                        .expect("To Send Query Result to Client");
+                    Err(())
+                }
+            },
+            Statement::Delete { table_name, .. } => match TableId::try_from(table_name) {
+                Ok(table_id) => Ok(Plan::Delete(TableDeletes { table_id })),
                 Err(TableNamingError(message)) => {
                     self.sender
                         .send(Err(QueryError::syntax_error(message)))

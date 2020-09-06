@@ -45,12 +45,18 @@ pub struct TableUpdates {
 }
 
 #[derive(Debug, Clone)]
+pub struct TableDeletes {
+    pub table_id: TableId,
+}
+
+#[derive(Debug, Clone)]
 pub enum Plan {
     CreateTable(TableCreationInfo),
     CreateSchema(SchemaCreationInfo),
     DropTables(Vec<TableId>),
     DropSchemas(Vec<(SchemaId, bool)>),
     Update(TableUpdates),
+    Delete(TableDeletes),
     Insert(TableInserts),
     NotProcessed(Box<Statement>),
 }
