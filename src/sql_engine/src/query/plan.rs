@@ -50,11 +50,19 @@ pub struct TableDeletes {
 }
 
 #[derive(Debug, Clone)]
+pub struct SelectInput {
+    pub schema_name: String,
+    pub table_name: String,
+    pub selected_columns: Vec<String>,
+}
+
+#[derive(Debug, Clone)]
 pub enum Plan {
     CreateTable(TableCreationInfo),
     CreateSchema(SchemaCreationInfo),
     DropTables(Vec<TableId>),
     DropSchemas(Vec<(SchemaId, bool)>),
+    Select(SelectInput),
     Update(TableUpdates),
     Delete(TableDeletes),
     Insert(TableInserts),
