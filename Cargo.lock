@@ -898,6 +898,7 @@ dependencies = [
  "itertools",
  "kernel",
  "protocol",
+ "rstest",
  "sql_model",
  "sqlparser",
 ]
@@ -1212,6 +1213,7 @@ dependencies = [
  "protocol",
  "rstest",
  "serde",
+ "sqlparser",
 ]
 
 [[package]]

@@ -21,27 +21,27 @@ use query_planner::plan::TableDeletes;
 
 pub(crate) struct DeleteCommand {
     table_deletes: TableDeletes,
-    storage: Arc<DataManager>,
+    data_manager: Arc<DataManager>,
     sender: Arc<dyn Sender>,
 }
 
 impl DeleteCommand {
     pub(crate) fn new(
         table_deletes: TableDeletes,
-        storage: Arc<DataManager>,
+        data_manager: Arc<DataManager>,
         sender: Arc<dyn Sender>,
     ) -> DeleteCommand {
         DeleteCommand {
             table_deletes,
-            storage,
+            data_manager,
             sender,
         }
     }
 
     pub(crate) fn execute(&mut self) -> SystemResult<()> {
-        let schema_id = self.table_deletes.table_id.schema().name();
-        let table_id = self.table_deletes.table_id.name();
-        match self.storage.full_scan(schema_id, table_id) {
+        let schema_id = self.table_deletes.full_table_name.schema().0;
+        let table_id = self.table_deletes.full_table_name.name();
+        match self.data_manager.full_scan(schema_id, table_id) {
             Err(e) => return Err(e),
             Ok(reads) => {
                 let keys = reads
@@ -50,7 +50,7 @@ impl DeleteCommand {
                     .map(|(key, _)| key)
                     .collect();
 
-                match self.storage.delete_from(schema_id, table_id, keys) {
+                match self.data_manager.delete_from(schema_id, table_id, keys) {
                     Err(e) => return Err(e),
                     Ok(records_number) => self
                         .sender

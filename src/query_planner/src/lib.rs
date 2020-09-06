@@ -14,7 +14,9 @@
 
 use std::convert::TryFrom;
 
+use sql_model::Id;
 use sqlparser::ast::ObjectName;
+use std::fmt::{self, Display, Formatter};
 
 use data_manager::RecordId;
 use sql_model::sql_types::SqlType;
@@ -22,7 +24,40 @@ use sql_model::sql_types::SqlType;
 ///! Module for representing how a query will be parameters bound, executed and
 ///! values represented during runtime.
 pub mod plan;
-pub mod process;
+pub mod planner;
+
+/// represents a schema uniquely by its id
+#[derive(Debug, Clone)]
+pub struct SchemaId(pub Id);
+
+/// represents a schema uniquely by its name
+#[derive(Debug, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
+pub struct SchemaName(String);
+
+impl SchemaName {
+    pub fn name(&self) -> &str {
+        self.0.as_str()
+    }
+}
+
+impl TryFrom<ObjectName> for SchemaName {
+    type Error = SchemaNamingError;
+
+    fn try_from(object: ObjectName) -> Result<Self, Self::Error> {
+        if object.0.len() != 1 {
+            Err(SchemaNamingError(format!(
+                "only unqualified schema names are supported, '{}'",
+                object
+            )))
+        } else {
+            Ok(SchemaName(object.to_string()))
+        }
+    }
+}
+
+pub struct SchemaNamingError(String);
+
+pub struct FullTableId(SchemaId, Id);
 
 /// represents a table uniquely
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
@@ -35,6 +70,16 @@ impl FullTableName {
 
     pub fn name(&self) -> &str {
         self.1.as_str()
+    }
+
+    fn as_tuple(&self) -> (&str, &str) {
+        (&self.0.name(), &self.1)
+    }
+}
+
+impl Display for FullTableName {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{}.{}", self.0.name(), self.1)
     }
 }
 
@@ -62,32 +107,8 @@ impl TryFrom<ObjectName> for FullTableName {
 
 pub struct TableNamingError(String);
 
-/// represents a schema uniquely
-#[derive(Debug, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
-pub struct SchemaName(String);
-
-impl SchemaName {
-    pub fn name(&self) -> &str {
-        self.0.as_str()
-    }
-}
-
-impl TryFrom<ObjectName> for SchemaName {
-    type Error = SchemaNamingError;
-
-    fn try_from(object: ObjectName) -> Result<Self, Self::Error> {
-        if object.0.len() != 1 {
-            Err(SchemaNamingError(format!(
-                "only unqualified schema names are supported, '{}'",
-                object
-            )))
-        } else {
-            Ok(SchemaName(object.to_string()))
-        }
-    }
-}
-
-pub struct SchemaNamingError(String);
+#[cfg(test)]
+mod tests;
 
 /// A type of a column
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -95,18 +116,6 @@ pub struct ColumnType {
     #[allow(dead_code)]
     nullable: bool,
     sql_type: SqlType,
-}
-
-/// represents a schema uniquely
-///
-/// this would be a u32
-#[derive(Debug, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
-pub struct SchemaId(RecordId);
-
-impl SchemaId {
-    pub fn name(&self) -> RecordId {
-        self.0
-    }
 }
 
 /// represents a table uniquely

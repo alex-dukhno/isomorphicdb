@@ -92,9 +92,9 @@ impl ExpressionEvaluation {
                                         meta_data.column().name(),
                                         meta_data.index(),
                                     ),
-                                    EvalError::UnsupportedOperation => QueryError::feature_not_supported(
-                                        "Use of unsupported expression feature".to_string(),
-                                    ),
+                                    EvalError::UnsupportedOperation => {
+                                        QueryError::feature_not_supported("Use of unsupported expression feature")
+                                    }
                                 }
                             } else {
                                 match e {
@@ -104,9 +104,9 @@ impl ExpressionEvaluation {
                                     EvalError::OutOfRangeNumeric(ty) => {
                                         QueryError::out_of_range(ty.to_pg_types(), String::new(), 0)
                                     }
-                                    EvalError::UnsupportedOperation => QueryError::feature_not_supported(
-                                        "Use of unsupported expression feature".to_string(),
-                                    ),
+                                    EvalError::UnsupportedOperation => {
+                                        QueryError::feature_not_supported("Use of unsupported expression feature")
+                                    }
                                 }
                             };
                             self.session.send(Err(err)).expect("To Send Query Result to Client");
@@ -140,7 +140,7 @@ impl ExpressionEvaluation {
                         lhs.scalar_type().to_string(),
                         rhs.scalar_type().to_string(),
                     );
-                    self.session.send(Err(kind)).expect("To Senc Query Result to Client");
+                    self.session.send(Err(kind)).expect("To Send Query Result to Client");
                     Err(())
                 }
             }
@@ -158,7 +158,7 @@ impl ExpressionEvaluation {
                                 meta_data.index(),
                             ),
                             EvalError::UnsupportedOperation => {
-                                QueryError::feature_not_supported("Use of unsupported expression feature".to_string())
+                                QueryError::feature_not_supported("Use of unsupported expression feature")
                             }
                         }
                     } else {
@@ -170,7 +170,7 @@ impl ExpressionEvaluation {
                                 QueryError::out_of_range(ty.to_pg_types(), String::new(), 0)
                             }
                             EvalError::UnsupportedOperation => {
-                                QueryError::feature_not_supported("Use of unsupported expression feature".to_string())
+                                QueryError::feature_not_supported("Use of unsupported expression feature")
                             }
                         }
                     };
@@ -210,7 +210,7 @@ impl ExpressionEvaluation {
         let (destination, _column_def) = if let Some((idx, def)) = self.find_column_by_name(id.value.as_str())? {
             (idx, def)
         } else {
-            let kind = QueryError::column_does_not_exist(id.value.clone());
+            let kind = QueryError::column_does_not_exist(id.value.as_str());
             self.session.send(Err(kind)).expect("To Send Query Result to Client");
             return Err(());
         };
@@ -359,7 +359,7 @@ impl<'a> EvalScalarOp<'a> {
                             .send(Err(QueryError::type_mismatch(
                                 &value,
                                 (&column.sql_type()).into(),
-                                column.name(),
+                                &column.name(),
                                 row_idx + 1,
                             )))
                             .expect("To Send Query Result to client");

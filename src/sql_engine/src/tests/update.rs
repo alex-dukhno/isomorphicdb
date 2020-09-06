@@ -247,7 +247,7 @@ fn update_records_in_nonexistent_table(sql_engine_with_schema: (QueryExecutor, R
     collector.assert_content_for_single_queries(vec![
         Ok(QueryEvent::SchemaCreated),
         Ok(QueryEvent::QueryComplete),
-        Err(QueryError::table_does_not_exist("schema_name.table_name".to_owned())),
+        Err(QueryError::table_does_not_exist("schema_name.table_name")),
         Ok(QueryEvent::QueryComplete),
     ]);
 }
@@ -280,8 +280,8 @@ fn update_non_existent_columns_of_records(sql_engine_with_schema: (QueryExecutor
             vec![vec!["123".to_owned()]],
         ))),
         Ok(QueryEvent::QueryComplete),
-        Err(QueryError::column_does_not_exist("col1".to_owned())),
-        Err(QueryError::column_does_not_exist("col2".to_owned())),
+        Err(QueryError::column_does_not_exist("col1")),
+        Err(QueryError::column_does_not_exist("col2")),
         Ok(QueryEvent::QueryComplete),
     ]);
 }

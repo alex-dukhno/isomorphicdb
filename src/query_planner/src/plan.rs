@@ -12,19 +12,35 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+///! represents a plan to be executed by the engine.
 use sqlparser::ast::{Assignment, Ident, Query, Statement};
 
+use crate::{FullTableName, SchemaName};
 use data_manager::ColumnDefinition;
 
 ///! represents a plan to be executed by the engine.
 use crate::{SchemaId, TableId};
+use sql_model::Id;
 
 #[derive(Debug, Clone)]
 pub struct TableCreationInfo {
-    pub schema_id: SchemaId,
-    pub schema_name: String,
+    pub schema_id: Id,
     pub table_name: String,
-    pub columns: Vec<ColumnDefinition>, // pub table_constraints: Vec<TableConstraints> ??
+    pub columns: Vec<ColumnDefinition>,
+}
+
+impl TableCreationInfo {
+    pub(crate) fn new<S: ToString>(schema_id: Id, table_name: S, columns: Vec<ColumnDefinition>) -> TableCreationInfo {
+        TableCreationInfo {
+            schema_id,
+            table_name: table_name.to_string(),
+            columns,
+        }
+    }
+
+    pub fn as_tuple(&self) -> (Id, &str, &[ColumnDefinition]) {
+        (self.schema_id, self.table_name.as_str(), self.columns.as_slice())
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -34,20 +50,20 @@ pub struct SchemaCreationInfo {
 
 #[derive(Debug, Clone)]
 pub struct TableInserts {
-    pub table_id: TableId,
+    pub full_table_name: TableId,
     pub column_indices: Vec<Ident>,
     pub input: Box<Query>,
 }
 
 #[derive(Debug, Clone)]
 pub struct TableUpdates {
-    pub table_id: TableId,
+    pub full_table_name: TableId,
     pub assignments: Vec<Assignment>,
 }
 
 #[derive(Debug, Clone)]
 pub struct TableDeletes {
-    pub table_id: TableId,
+    pub full_table_name: TableId,
 }
 
 #[derive(Debug, Clone)]

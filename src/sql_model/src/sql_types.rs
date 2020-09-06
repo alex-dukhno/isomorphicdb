@@ -12,11 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::convert::TryInto;
+use std::convert::{TryFrom, TryInto};
 
 use serde::{Deserialize, Serialize};
 
 use protocol::pgsql_types::PostgreSqlType;
+use sqlparser::ast::DataType;
+use std::fmt::{self, Display, Formatter};
 
 #[derive(PartialEq, Eq, Debug, Copy, Clone, Serialize, Deserialize, Hash, Ord, PartialOrd)]
 pub enum SqlType {
@@ -35,6 +37,39 @@ pub enum SqlType {
     TimestampWithTimeZone,
     Date,
     Interval,
+}
+
+impl TryFrom<&DataType> for SqlType {
+    type Error = NotSupportedType;
+
+    fn try_from(data_type: &DataType) -> Result<Self, Self::Error> {
+        match data_type {
+            DataType::SmallInt => Ok(SqlType::SmallInt(i16::min_value())),
+            DataType::Int => Ok(SqlType::Integer(i32::min_value())),
+            DataType::BigInt => Ok(SqlType::BigInt(i64::min_value())),
+            DataType::Char(len) => Ok(SqlType::Char(len.unwrap_or(255))),
+            DataType::Varchar(len) => Ok(SqlType::VarChar(len.unwrap_or(255))),
+            DataType::Boolean => Ok(SqlType::Bool),
+            DataType::Custom(name) => {
+                let name = name.to_string();
+                match name.as_str() {
+                    "serial" => Ok(SqlType::Integer(1)),
+                    "smallserial" => Ok(SqlType::SmallInt(1)),
+                    "bigserial" => Ok(SqlType::BigInt(1)),
+                    _other_type => Err(NotSupportedType(data_type.clone())),
+                }
+            }
+            other_type => Err(NotSupportedType(other_type.clone())),
+        }
+    }
+}
+
+pub struct NotSupportedType(DataType);
+
+impl Display for NotSupportedType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{} type is not supported", self.0)
+    }
 }
 
 impl ToString for SqlType {

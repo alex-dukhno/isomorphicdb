@@ -21,27 +21,28 @@ use kernel::{SystemError, SystemResult};
 use protocol::{results::QueryError, Sender};
 use sql_model::sql_types::SqlType;
 use sqlparser::ast::{
-    ColumnDef, DataType, Expr, Ident, ObjectName, ObjectType, Query, Select, SelectItem, SetExpr, Statement,
-    TableFactor, TableWithJoins,
+    ColumnDef, Expr, Ident, ObjectName, ObjectType, Query, Select, SelectItem, SetExpr, Statement, TableFactor,
+    TableWithJoins,
 };
+use std::convert::TryFrom;
 use std::{ops::Deref, sync::Arc};
 
 type Result<T> = std::result::Result<T, ()>;
 
-pub struct QueryProcessor {
-    storage: Arc<DataManager>,
+pub struct QueryPlanner {
+    data_manager: Arc<DataManager>,
     sender: Arc<dyn Sender>,
 }
 
-impl QueryProcessor {
-    pub fn new(storage: Arc<DataManager>, sender: Arc<dyn Sender>) -> Self {
-        Self { storage, sender }
+impl QueryPlanner {
+    pub fn new(data_manager: Arc<DataManager>, sender: Arc<dyn Sender>) -> Self {
+        Self { data_manager, sender }
     }
 
     fn resolve_table_name(&self, name: &ObjectName) -> Result<(TableId, String, String)> {
         let schema_name = name.0.first().unwrap().value.clone();
         let table_name = name.0.iter().skip(1).join(".");
-        match self.storage.table_exists(&schema_name, &table_name) {
+        match self.data_manager.table_exists(&schema_name, &table_name) {
             None => {
                 self.sender
                     .send(Err(QueryError::schema_does_not_exist(schema_name.to_owned())))
@@ -64,7 +65,7 @@ impl QueryProcessor {
     fn resolve_schema_name(&self, name: &ObjectName) -> Result<(SchemaId, String)> {
         let schema_name = name.0.iter().join(".");
 
-        match self.storage.schema_exists(&schema_name) {
+        match self.data_manager.schema_exists(&schema_name) {
             None => {
                 self.sender
                     .send(Err(QueryError::schema_does_not_exist(schema_name)))
@@ -75,12 +76,12 @@ impl QueryProcessor {
         }
     }
 
-    pub fn process(&self, stmt: Statement) -> Result<Plan> {
+    pub fn plan(&self, stmt: Statement) -> Result<Plan> {
         match stmt {
             Statement::CreateTable { name, columns, .. } => self.handle_create_table(name, &columns),
             Statement::CreateSchema { schema_name, .. } => {
                 let schema_name = schema_name.0.iter().join(".");
-                match self.storage.schema_exists(&schema_name) {
+                match self.data_manager.schema_exists(&schema_name) {
                     Some(_) => {
                         self.sender
                             .send(Err(QueryError::schema_already_exists(schema_name)))
@@ -103,7 +104,7 @@ impl QueryProcessor {
             } => {
                 let (table_id, _, _) = self.resolve_table_name(&table_name)?;
                 Ok(Plan::Insert(TableInserts {
-                    table_id,
+                    full_table_name: table_id,
                     column_indices: columns,
                     input: source,
                 }))
@@ -114,11 +115,16 @@ impl QueryProcessor {
                 ..
             } => {
                 let (table_id, _, _) = self.resolve_table_name(&table_name)?;
-                Ok(Plan::Update(TableUpdates { table_id, assignments }))
+                Ok(Plan::Update(TableUpdates {
+                    full_table_name: table_id,
+                    assignments,
+                }))
             }
             Statement::Delete { table_name, .. } => {
                 let (table_id, _, _) = self.resolve_table_name(&table_name)?;
-                Ok(Plan::Delete(TableDeletes { table_id }))
+                Ok(Plan::Delete(TableDeletes {
+                    full_table_name: table_id,
+                }))
             }
             // TODO: ad-hock solution, duh
             Statement::Query(query) => {
@@ -142,13 +148,13 @@ impl QueryProcessor {
                 }
                 _ => {
                     self.sender
-                        .send(Err(QueryError::feature_not_supported(query.to_string())))
+                        .send(Err(QueryError::feature_not_supported(query)))
                         .expect("To Send Query Result to Client");
                     return Err(SystemError::runtime_check_failure("Feature Not Supported".to_owned()));
                 }
             };
 
-            match self.storage.table_exists(&schema_name, &table_name) {
+            match self.data_manager.table_exists(&schema_name, &table_name) {
                 None => {
                     self.sender
                         .send(Err(QueryError::schema_does_not_exist(schema_name)))
@@ -170,7 +176,7 @@ impl QueryProcessor {
                         for item in projection {
                             match item {
                                 SelectItem::Wildcard => {
-                                    let all_columns = self.storage.table_columns(schema_id, table_id)?;
+                                    let all_columns = self.data_manager.table_columns(schema_id, table_id)?;
                                     columns.extend(
                                         all_columns
                                             .into_iter()
@@ -183,7 +189,7 @@ impl QueryProcessor {
                                 }
                                 _ => {
                                     self.sender
-                                        .send(Err(QueryError::feature_not_supported(query.to_string())))
+                                        .send(Err(QueryError::feature_not_supported(query)))
                                         .expect("To Send Query Result to Client");
                                     return Err(SystemError::runtime_check_failure("Feature Not Supported".to_owned()));
                                 }
@@ -200,53 +206,16 @@ impl QueryProcessor {
             }
         } else {
             self.sender
-                .send(Err(QueryError::feature_not_supported(query.to_string())))
+                .send(Err(QueryError::feature_not_supported(query)))
                 .expect("To Send Query Result to Client");
             Err(SystemError::runtime_check_failure("Feature Not Supported".to_owned()))
-        }
-    }
-
-    fn sql_type_from_datatype(&self, datatype: &DataType) -> Result<SqlType> {
-        match datatype {
-            DataType::SmallInt => Ok(SqlType::SmallInt(i16::min_value())),
-            DataType::Int => Ok(SqlType::Integer(i32::min_value())),
-            DataType::BigInt => Ok(SqlType::BigInt(i64::min_value())),
-            DataType::Char(len) => Ok(SqlType::Char(len.unwrap_or(255))),
-            DataType::Varchar(len) => Ok(SqlType::VarChar(len.unwrap_or(255))),
-            DataType::Boolean => Ok(SqlType::Bool),
-            DataType::Custom(name) => {
-                let name = name.to_string();
-                match name.as_str() {
-                    "serial" => Ok(SqlType::Integer(1)),
-                    "smallserial" => Ok(SqlType::SmallInt(1)),
-                    "bigserial" => Ok(SqlType::BigInt(1)),
-                    other_type => {
-                        self.sender
-                            .send(Err(QueryError::feature_not_supported(format!(
-                                "{} type is not supported",
-                                other_type
-                            ))))
-                            .expect("To Send Query Result to Client");
-                        Err(())
-                    }
-                }
-            }
-            other_type => {
-                self.sender
-                    .send(Err(QueryError::feature_not_supported(format!(
-                        "{} type is not supported",
-                        other_type
-                    ))))
-                    .expect("To Send Query Result to Client");
-                Err(())
-            }
         }
     }
 
     fn resolve_column_definitions(&self, columns: &[ColumnDef]) -> Result<Vec<ColumnDefinition>> {
         let mut column_defs = Vec::new();
         for column in columns {
-            let sql_type = self.sql_type_from_datatype(&column.data_type)?;
+            let sql_type = SqlType::try_from(&column.data_type).map_err(|_| ())?;
             // maybe a different type should be used to represent this instead of the storage's representation.
             let column_definition = ColumnDefinition::new(column.name.value.as_str(), sql_type);
             column_defs.push(column_definition);
@@ -258,7 +227,7 @@ impl QueryProcessor {
         let schema_name = name.0.first().unwrap().value.clone();
         let table_name = name.0.iter().skip(1).join(".");
 
-        match self.storage.table_exists(&schema_name, &table_name) {
+        match self.data_manager.table_exists(&schema_name, &table_name) {
             None => {
                 self.sender
                     .send(Err(QueryError::schema_does_not_exist(schema_name)))
@@ -277,8 +246,7 @@ impl QueryProcessor {
             Some((schema_id, None)) => {
                 let columns = self.resolve_column_definitions(columns)?;
                 let table_info = TableCreationInfo {
-                    schema_id: SchemaId(schema_id),
-                    schema_name,
+                    schema_id,
                     table_name,
                     columns,
                 };

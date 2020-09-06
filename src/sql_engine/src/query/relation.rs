@@ -45,7 +45,7 @@ pub enum RelationOp {
     Scan {
         // Id the table that needs to be loaded.
         // and maybe some other information we need about it.
-        table: FullTableName,
+        full_table_name: FullTableName,
     },
 
     Join {

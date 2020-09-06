@@ -38,27 +38,27 @@ use crate::{
     dml::{delete::DeleteCommand, insert::InsertCommand, select::SelectCommand, update::UpdateCommand},
     query::bind::ParamBinder,
 };
-use query_planner::{plan::Plan, process::QueryProcessor};
+use query_planner::{plan::Plan, planner::QueryPlanner};
 
 mod ddl;
 mod dml;
 mod query;
 
 pub struct QueryExecutor {
-    storage: Arc<DataManager>,
+    data_manager: Arc<DataManager>,
     sender: Arc<dyn Sender>,
     session: Session<Statement>,
-    processor: QueryProcessor,
+    query_planner: QueryPlanner,
     param_binder: ParamBinder,
 }
 
 impl QueryExecutor {
-    pub fn new(storage: Arc<DataManager>, sender: Arc<dyn Sender>) -> Self {
+    pub fn new(data_manager: Arc<DataManager>, sender: Arc<dyn Sender>) -> Self {
         Self {
-            storage: storage.clone(),
+            data_manager: data_manager.clone(),
             sender: sender.clone(),
             session: Session::default(),
-            processor: QueryProcessor::new(storage, sender.clone()),
+            query_planner: QueryPlanner::new(data_manager, sender.clone()),
             param_binder: ParamBinder::new(sender),
         }
     }
@@ -111,9 +111,9 @@ impl QueryExecutor {
             }
         };
 
-        let description = match self.processor.process(statement.clone()) {
+        let description = match self.query_planner.plan(statement.clone()) {
             Ok(Plan::Select(select_input)) => {
-                SelectCommand::new(select_input, self.storage.clone(), self.sender.clone()).describe()?
+                SelectCommand::new(select_input, self.data_manager.clone(), self.sender.clone()).describe()?
             }
             _ => vec![],
         };
@@ -141,7 +141,7 @@ impl QueryExecutor {
             }
             None => {
                 self.sender
-                    .send(Err(QueryError::prepared_statement_does_not_exist(name.to_owned())))
+                    .send(Err(QueryError::prepared_statement_does_not_exist(name)))
                     .expect("To Send Error to Client");
             }
         };
@@ -161,9 +161,7 @@ impl QueryExecutor {
             Some(prepared_statement) => prepared_statement,
             None => {
                 self.sender
-                    .send(Err(QueryError::prepared_statement_does_not_exist(
-                        statement_name.to_owned(),
-                    )))
+                    .send(Err(QueryError::prepared_statement_does_not_exist(statement_name)))
                     .expect("To Send Error to Client");
                 return Ok(());
             }
@@ -245,7 +243,7 @@ impl QueryExecutor {
             Some(portal) => portal,
             None => {
                 self.sender
-                    .send(Err(QueryError::portal_does_not_exist(portal_name.to_owned())))
+                    .send(Err(QueryError::portal_does_not_exist(portal_name)))
                     .expect("To Send Error to Client");
                 return Ok(());
             }
@@ -267,34 +265,41 @@ impl QueryExecutor {
 
     fn process_statement(&self, raw_sql_query: &str, statement: Statement) -> SystemResult<()> {
         log::debug!("STATEMENT = {:?}", statement);
-        match self.processor.process(statement) {
+        match self.query_planner.plan(statement) {
             Ok(Plan::CreateSchema(creation_info)) => {
-                CreateSchemaCommand::new(creation_info, self.storage.clone(), self.sender.clone()).execute()?;
+                CreateSchemaCommand::new(creation_info, self.data_manager.clone(), self.sender.clone()).execute()?;
             }
             Ok(Plan::CreateTable(creation_info)) => {
-                CreateTableCommand::new(creation_info, self.storage.clone(), self.sender.clone()).execute()?;
+                CreateTableCommand::new(creation_info, self.data_manager.clone(), self.sender.clone()).execute()?;
             }
             Ok(Plan::DropSchemas(schemas)) => {
                 for (schema, cascade) in schemas {
-                    DropSchemaCommand::new(schema, cascade, self.storage.clone(), self.sender.clone()).execute()?;
+                    DropSchemaCommand::new(schema, cascade, self.data_manager.clone(), self.sender.clone())
+                        .execute()?;
                 }
             }
             Ok(Plan::DropTables(tables)) => {
                 for table in tables {
-                    DropTableCommand::new(table, self.storage.clone(), self.sender.clone()).execute()?;
+                    DropTableCommand::new(table, self.data_manager.clone(), self.sender.clone()).execute()?;
                 }
             }
             Ok(Plan::Insert(table_insert)) => {
-                InsertCommand::new(raw_sql_query, table_insert, self.storage.clone(), self.sender.clone()).execute()?;
+                InsertCommand::new(
+                    raw_sql_query,
+                    table_insert,
+                    self.data_manager.clone(),
+                    self.sender.clone(),
+                )
+                .execute()?;
             }
             Ok(Plan::Update(table_update)) => {
-                UpdateCommand::new(table_update, self.storage.clone(), self.sender.clone()).execute()?;
+                UpdateCommand::new(table_update, self.data_manager.clone(), self.sender.clone()).execute()?;
             }
             Ok(Plan::Delete(table_delete)) => {
-                DeleteCommand::new(table_delete, self.storage.clone(), self.sender.clone()).execute()?;
+                DeleteCommand::new(table_delete, self.data_manager.clone(), self.sender.clone()).execute()?;
             }
             Ok(Plan::Select(select_input)) => {
-                SelectCommand::new(select_input, self.storage.clone(), self.sender.clone()).execute()?;
+                SelectCommand::new(select_input, self.data_manager.clone(), self.sender.clone()).execute()?;
             }
             Ok(Plan::NotProcessed(statement)) => match *statement {
                 Statement::StartTransaction { .. } => {
@@ -309,12 +314,12 @@ impl QueryExecutor {
                 }
                 Statement::Drop { .. } => {
                     self.sender
-                        .send(Err(QueryError::feature_not_supported(raw_sql_query.to_owned())))
+                        .send(Err(QueryError::feature_not_supported(raw_sql_query)))
                         .expect("To Send Query Result to Client");
                 }
                 _ => {
                     self.sender
-                        .send(Err(QueryError::feature_not_supported(raw_sql_query.to_owned())))
+                        .send(Err(QueryError::feature_not_supported(raw_sql_query)))
                         .expect("To Send Query Result to Client");
                 }
             },

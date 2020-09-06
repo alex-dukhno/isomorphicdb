@@ -57,7 +57,7 @@ fn drop_non_existent_schema(sql_engine: (QueryExecutor, ResultCollector)) {
     engine.execute("drop schema non_existent;").expect("no system errors");
 
     collector.assert_content_for_single_queries(vec![
-        Err(QueryError::schema_does_not_exist("non_existent".to_owned())),
+        Err(QueryError::schema_does_not_exist("non_existent")),
         Ok(QueryEvent::QueryComplete),
     ]);
 }
@@ -71,7 +71,7 @@ fn select_from_nonexistent_schema(sql_engine: (QueryExecutor, ResultCollector)) 
         .expect("no system errors");
 
     collector.assert_content_for_single_queries(vec![
-        Err(QueryError::schema_does_not_exist("non_existent".to_owned())),
+        Err(QueryError::schema_does_not_exist("non_existent")),
         Ok(QueryEvent::QueryComplete),
     ]);
 }
@@ -84,7 +84,7 @@ fn select_named_columns_from_nonexistent_schema(sql_engine: (QueryExecutor, Resu
         .expect("no system errors");
 
     collector.assert_content_for_single_queries(vec![
-        Err(QueryError::schema_does_not_exist("schema_name".to_owned())),
+        Err(QueryError::schema_does_not_exist("schema_name")),
         Ok(QueryEvent::QueryComplete),
     ]);
 }
@@ -97,7 +97,7 @@ fn insert_into_table_in_nonexistent_schema(sql_engine: (QueryExecutor, ResultCol
         .expect("no system errors");
 
     collector.assert_content_for_single_queries(vec![
-        Err(QueryError::schema_does_not_exist("schema_name".to_owned())),
+        Err(QueryError::schema_does_not_exist("schema_name")),
         Ok(QueryEvent::QueryComplete),
     ]);
 }
@@ -110,7 +110,7 @@ fn update_records_in_table_from_non_existent_schema(sql_engine: (QueryExecutor, 
         .expect("no system errors");
 
     collector.assert_content_for_single_queries(vec![
-        Err(QueryError::schema_does_not_exist("schema_name".to_owned())),
+        Err(QueryError::schema_does_not_exist("schema_name")),
         Ok(QueryEvent::QueryComplete),
     ]);
 }
@@ -123,7 +123,7 @@ fn delete_from_table_in_nonexistent_schema(sql_engine: (QueryExecutor, ResultCol
         .expect("no system errors");
 
     collector.assert_content_for_single_queries(vec![
-        Err(QueryError::schema_does_not_exist("schema_name".to_owned())),
+        Err(QueryError::schema_does_not_exist("schema_name")),
         Ok(QueryEvent::QueryComplete),
     ]);
 }

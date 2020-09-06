@@ -31,7 +31,7 @@ use query_planner::plan::TableInserts;
 pub(crate) struct InsertCommand<'ic> {
     raw_sql_query: &'ic str,
     table_inserts: TableInserts,
-    storage: Arc<DataManager>,
+    data_manager: Arc<DataManager>,
     sender: Arc<dyn Sender>,
 }
 
@@ -39,13 +39,13 @@ impl<'ic> InsertCommand<'ic> {
     pub(crate) fn new(
         raw_sql_query: &'ic str,
         table_inserts: TableInserts,
-        storage: Arc<DataManager>,
+        data_manager: Arc<DataManager>,
         sender: Arc<dyn Sender>,
     ) -> InsertCommand<'ic> {
         InsertCommand {
             raw_sql_query,
             table_inserts,
-            storage,
+            data_manager,
             sender,
         }
     }
@@ -70,10 +70,10 @@ impl<'ic> InsertCommand<'ic> {
                         .collect()
                 };
 
-                let schema_id = self.table_inserts.table_id.schema().name();
-                let table_id = self.table_inserts.table_id.name();
+                let schema_id = self.table_inserts.full_table_name.schema().0;
+                let table_id = self.table_inserts.full_table_name.name();
 
-                let table_definition = self.storage.table_columns(schema_id, table_id)?;
+                let table_definition = self.data_manager.table_columns(schema_id, table_id)?;
                 let column_names = columns;
                 let all_columns = table_definition.clone();
 
@@ -109,7 +109,7 @@ impl<'ic> InsertCommand<'ic> {
                                                 .send(Err(QueryError::type_mismatch(
                                                     &value,
                                                     (&meta.column().sql_type()).into(),
-                                                    meta.column().name(),
+                                                    &meta.column().name(),
                                                     idx + 1,
                                                 )))
                                                 .expect("To Send Query Result to client");
@@ -130,7 +130,7 @@ impl<'ic> InsertCommand<'ic> {
                                 } else {
                                     self.sender
                                         .send(Err(QueryError::feature_not_supported(
-                                            "Only expressions resulting in a literal are supported".to_string(),
+                                            "Only expressions resulting in a literal are supported",
                                         )))
                                         .expect("To Send Query Result to Client");
                                     return Ok(());
@@ -192,7 +192,11 @@ impl<'ic> InsertCommand<'ic> {
                         return Ok(());
                     }
 
-                    let key = self.storage.next_key_id(schema_id, table_id).to_be_bytes().to_vec();
+                    let key = self
+                        .data_manager
+                        .next_key_id(schema_id, table_id)
+                        .to_be_bytes()
+                        .to_vec();
 
                     // TODO: The default value or NULL should be initialized for SQL types of all columns.
                     let mut record = vec![Datum::from_null(); all_columns.len()];
@@ -203,7 +207,7 @@ impl<'ic> InsertCommand<'ic> {
                     to_write.push((Binary::with_data(key), Binary::pack(&record)));
                 }
 
-                match self.storage.write_into(schema_id, table_id, to_write) {
+                match self.data_manager.write_into(schema_id, table_id, to_write) {
                     Err(error) => return Err(error),
                     Ok(size) => self
                         .sender
@@ -215,7 +219,7 @@ impl<'ic> InsertCommand<'ic> {
             }
             _ => {
                 self.sender
-                    .send(Err(QueryError::feature_not_supported(self.raw_sql_query.to_owned())))
+                    .send(Err(QueryError::feature_not_supported(self.raw_sql_query)))
                     .expect("To Send Query Result to Client");
                 Ok(())
             }

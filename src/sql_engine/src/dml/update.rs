@@ -25,25 +25,29 @@ use query_planner::plan::TableUpdates;
 
 pub(crate) struct UpdateCommand {
     table_update: TableUpdates,
-    storage: Arc<DataManager>,
+    data_manager: Arc<DataManager>,
     sender: Arc<dyn Sender>,
 }
 
 impl UpdateCommand {
-    pub(crate) fn new(table_update: TableUpdates, storage: Arc<DataManager>, sender: Arc<dyn Sender>) -> UpdateCommand {
+    pub(crate) fn new(
+        table_update: TableUpdates,
+        data_manager: Arc<DataManager>,
+        sender: Arc<dyn Sender>,
+    ) -> UpdateCommand {
         UpdateCommand {
             table_update,
-            storage,
+            data_manager,
             sender,
         }
     }
 
     pub(crate) fn execute(&mut self) -> SystemResult<()> {
-        let schema_id = self.table_update.table_id.schema().name();
-        let table_id = self.table_update.table_id.name();
+        let schema_id = self.table_update.full_table_name.schema().0;
+        let table_id = self.table_update.full_table_name.name();
 
         // only process the rows if the table and schema exist.
-        let table_definition = self.storage.table_columns(schema_id, table_id)?;
+        let table_definition = self.data_manager.table_columns(schema_id, table_id)?;
         let all_columns = table_definition.clone();
 
         let evaluation = ExpressionEvaluation::new(self.sender.clone(), table_definition);
@@ -61,7 +65,7 @@ impl UpdateCommand {
             return Ok(());
         }
 
-        let to_update: Vec<Row> = match self.storage.full_scan(schema_id, table_id) {
+        let to_update: Vec<Row> = match self.data_manager.full_scan(schema_id, table_id) {
             Err(error) => return Err(error),
             Ok(reads) => {
                 let expr_eval = EvalScalarOp::new(self.sender.as_ref(), all_columns.to_vec());
@@ -87,7 +91,7 @@ impl UpdateCommand {
             }
         };
 
-        match self.storage.write_into(schema_id, table_id, to_update) {
+        match self.data_manager.write_into(schema_id, table_id, to_update) {
             Err(error) => return Err(error),
             Ok(records_number) => {
                 self.sender

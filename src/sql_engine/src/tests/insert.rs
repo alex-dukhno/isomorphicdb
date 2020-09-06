@@ -26,7 +26,7 @@ fn insert_into_nonexistent_table(sql_engine_with_schema: (QueryExecutor, ResultC
     collector.assert_content_for_single_queries(vec![
         Ok(QueryEvent::SchemaCreated),
         Ok(QueryEvent::QueryComplete),
-        Err(QueryError::table_does_not_exist("schema_name.table_name".to_owned())),
+        Err(QueryError::table_does_not_exist("schema_name.table_name")),
         Ok(QueryEvent::QueryComplete),
     ]);
 }
@@ -46,7 +46,7 @@ fn insert_value_in_non_existent_column(sql_engine_with_schema: (QueryExecutor, R
         Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::TableCreated),
         Ok(QueryEvent::QueryComplete),
-        Err(QueryError::column_does_not_exist("non_existent".to_owned())),
+        Err(QueryError::column_does_not_exist("non_existent")),
         Ok(QueryEvent::QueryComplete),
     ]);
 }
