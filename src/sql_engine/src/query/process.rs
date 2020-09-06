@@ -15,16 +15,21 @@
 ///! Module for transforming the input Query AST into representation the engine can process.
 use std::{convert::TryFrom, sync::Arc};
 
-use sqlparser::ast::{ColumnDef, DataType, ObjectName, ObjectType, Statement};
+use sqlparser::ast::{
+    ColumnDef, DataType, Expr, Ident, ObjectName, ObjectType, Query, Select, SelectItem, SetExpr, Statement,
+    TableFactor, TableWithJoins,
+};
 
 use data_manager::{ColumnDefinition, DataManager};
 use protocol::{results::QueryError, Sender};
 use sql_types::SqlType;
 
 use crate::query::{
-    plan::{Plan, SchemaCreationInfo, TableCreationInfo, TableDeletes, TableInserts, TableUpdates},
+    plan::{Plan, SchemaCreationInfo, SelectInput, TableCreationInfo, TableDeletes, TableInserts, TableUpdates},
     SchemaId, SchemaNamingError, TableId, TableNamingError,
 };
+use kernel::{SystemError, SystemResult};
+use std::ops::Deref;
 
 type Result<T> = std::result::Result<T, ()>;
 
@@ -108,7 +113,91 @@ impl QueryProcessor {
                     Err(())
                 }
             },
+            // TODO: ad-hock solution, duh
+            Statement::Query(query) => {
+                let result = self.parse_select_input(query);
+                eprintln!("{:?}", result);
+                Ok(Plan::Select(result.map_err(|_| ())?))
+            }
             _ => Ok(Plan::NotProcessed(Box::new(stmt.clone()))),
+        }
+    }
+
+    fn parse_select_input(&self, query: Box<Query>) -> SystemResult<SelectInput> {
+        let Query { body, .. } = &*query;
+        if let SetExpr::Select(select) = body {
+            let Select { projection, from, .. } = select.deref();
+            let TableWithJoins { relation, .. } = &from[0];
+            let (schema_name, table_name) = match relation {
+                TableFactor::Table { name, .. } => {
+                    let table_name = name.0[1].to_string();
+                    let schema_name = name.0[0].to_string();
+                    (schema_name, table_name)
+                }
+                _ => {
+                    self.sender
+                        .send(Err(QueryError::feature_not_supported(query.to_string())))
+                        .expect("To Send Query Result to Client");
+                    return Err(SystemError::runtime_check_failure("Feature Not Supported".to_owned()));
+                }
+            };
+
+            match self.storage.table_exists(&schema_name, &table_name) {
+                None => {
+                    self.sender
+                        .send(Err(QueryError::schema_does_not_exist(schema_name)))
+                        .expect("To Send Result to Client");
+                    Err(SystemError::runtime_check_failure("Schema Does Not Exist".to_owned()))
+                }
+                Some((_, None)) => {
+                    self.sender
+                        .send(Err(QueryError::table_does_not_exist(
+                            schema_name + "." + table_name.as_str(),
+                        )))
+                        .expect("To Send Result to Client");
+                    Err(SystemError::runtime_check_failure("Table Does Not Exist".to_owned()))
+                }
+                Some((schema_id, Some(table_id))) => {
+                    let selected_columns = {
+                        let projection = projection.clone();
+                        let mut columns: Vec<String> = vec![];
+                        for item in projection {
+                            match item {
+                                SelectItem::Wildcard => {
+                                    let all_columns = self.storage.table_columns(schema_id, table_id)?;
+                                    columns.extend(
+                                        all_columns
+                                            .into_iter()
+                                            .map(|column_definition| column_definition.name())
+                                            .collect::<Vec<String>>(),
+                                    )
+                                }
+                                SelectItem::UnnamedExpr(Expr::Identifier(Ident { value, .. })) => {
+                                    columns.push(value.clone())
+                                }
+                                _ => {
+                                    self.sender
+                                        .send(Err(QueryError::feature_not_supported(query.to_string())))
+                                        .expect("To Send Query Result to Client");
+                                    return Err(SystemError::runtime_check_failure("Feature Not Supported".to_owned()));
+                                }
+                            }
+                        }
+                        columns
+                    };
+
+                    Ok(SelectInput {
+                        schema_name,
+                        table_name,
+                        selected_columns,
+                    })
+                }
+            }
+        } else {
+            self.sender
+                .send(Err(QueryError::feature_not_supported(query.to_string())))
+                .expect("To Send Query Result to Client");
+            Err(SystemError::runtime_check_failure("Feature Not Supported".to_owned()))
         }
     }
 

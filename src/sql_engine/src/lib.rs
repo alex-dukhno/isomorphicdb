@@ -114,10 +114,9 @@ impl QueryExecutor {
             }
         };
 
-        let description = match &statement {
-            Statement::Query(query) => {
-                SelectCommand::new(raw_sql_query, query.clone(), self.storage.clone(), self.sender.clone())
-                    .describe()?
+        let description = match self.processor.process(statement.clone()) {
+            Ok(Plan::Select(select_input)) => {
+                SelectCommand::new(select_input, self.storage.clone(), self.sender.clone()).describe()?
             }
             _ => vec![],
         };
@@ -297,6 +296,9 @@ impl QueryExecutor {
             Ok(Plan::Delete(table_delete)) => {
                 DeleteCommand::new(table_delete, self.storage.clone(), self.sender.clone()).execute()?;
             }
+            Ok(Plan::Select(select_input)) => {
+                SelectCommand::new(select_input, self.storage.clone(), self.sender.clone()).execute()?;
+            }
             Ok(Plan::NotProcessed(statement)) => match *statement {
                 Statement::StartTransaction { .. } => {
                     self.sender
@@ -312,9 +314,6 @@ impl QueryExecutor {
                     self.sender
                         .send(Err(QueryError::feature_not_supported(raw_sql_query.to_owned())))
                         .expect("To Send Query Result to Client");
-                }
-                Statement::Query(query) => {
-                    SelectCommand::new(raw_sql_query, query, self.storage.clone(), self.sender.clone()).execute()?;
                 }
                 _ => {
                     self.sender

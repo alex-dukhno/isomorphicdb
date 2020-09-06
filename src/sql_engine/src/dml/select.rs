@@ -12,10 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::{ops::Deref, sync::Arc};
+use std::sync::Arc;
 
-use sqlparser::ast::{Expr, Ident, Query, Select, SelectItem, SetExpr, TableFactor, TableWithJoins};
-
+use crate::query::plan::SelectInput;
 use data_manager::DataManager;
 use kernel::{Object, Operation, SystemError, SystemResult};
 use protocol::{
@@ -23,57 +22,53 @@ use protocol::{
     Sender,
 };
 
-pub(crate) struct SelectCommand<'sc> {
-    raw_sql_query: &'sc str,
-    query: Box<Query>,
+pub(crate) struct SelectCommand {
+    select_input: SelectInput,
     storage: Arc<DataManager>,
     sender: Arc<dyn Sender>,
 }
 
-impl<'sc> SelectCommand<'sc> {
-    pub(crate) fn new(
-        raw_sql_query: &'sc str,
-        query: Box<Query>,
-        storage: Arc<DataManager>,
-        sender: Arc<dyn Sender>,
-    ) -> SelectCommand<'sc> {
+impl SelectCommand {
+    pub(crate) fn new(select_input: SelectInput, storage: Arc<DataManager>, sender: Arc<dyn Sender>) -> SelectCommand {
         SelectCommand {
-            raw_sql_query,
-            query,
+            select_input,
             storage,
             sender,
         }
     }
 
     pub(crate) fn describe(&mut self) -> SystemResult<Description> {
-        let input = self.parse_select_input()?;
-
-        match self.storage.table_exists(&input.schema_name, &input.table_name) {
+        match self
+            .storage
+            .table_exists(&self.select_input.schema_name, &self.select_input.table_name)
+        {
             None => {
                 self.sender
-                    .send(Err(QueryError::schema_does_not_exist(input.schema_name.clone())))
+                    .send(Err(QueryError::schema_does_not_exist(
+                        self.select_input.schema_name.clone(),
+                    )))
                     .expect("To Send Result to Client");
                 Err(SystemError::bug_in_sql_engine(
                     Operation::Access,
-                    Object::Schema(&input.schema_name),
+                    Object::Schema(&self.select_input.schema_name),
                 ))
             }
             Some((_, None)) => {
                 self.sender
                     .send(Err(QueryError::table_does_not_exist(
-                        input.schema_name.clone() + "." + input.table_name.as_str(),
+                        self.select_input.schema_name.clone() + "." + self.select_input.table_name.as_str(),
                     )))
                     .expect("To Send Result to Client");
                 Err(SystemError::bug_in_sql_engine(
                     Operation::Access,
-                    Object::Table(&input.schema_name, &input.table_name),
+                    Object::Table(&self.select_input.schema_name, &self.select_input.table_name),
                 ))
             }
             Some((schema_id, Some(table_id))) => {
                 let all_columns = self.storage.table_columns(schema_id, table_id)?;
                 let mut column_definitions = vec![];
                 let mut has_error = false;
-                for column_name in &input.selected_columns {
+                for column_name in &self.select_input.selected_columns {
                     let mut found = None;
                     for column_definition in &all_columns {
                         if column_definition.has_name(&column_name) {
@@ -107,22 +102,22 @@ impl<'sc> SelectCommand<'sc> {
     }
 
     pub(crate) fn execute(&mut self) -> SystemResult<()> {
-        let input = match self.parse_select_input() {
-            Ok(input) => input,
-            Err(_) => return Ok(()),
-        };
-
-        match self.storage.table_exists(&input.schema_name, &input.table_name) {
+        match self
+            .storage
+            .table_exists(&self.select_input.schema_name, &self.select_input.table_name)
+        {
             None => {
                 self.sender
-                    .send(Err(QueryError::schema_does_not_exist(input.schema_name)))
+                    .send(Err(QueryError::schema_does_not_exist(
+                        self.select_input.schema_name.clone(),
+                    )))
                     .expect("To Send Result to Client");
                 Err(SystemError::runtime_check_failure("Schema Does Not Exist".to_owned()))
             }
             Some((_, None)) => {
                 self.sender
                     .send(Err(QueryError::table_does_not_exist(
-                        input.schema_name + "." + input.table_name.as_str(),
+                        self.select_input.schema_name.clone() + "." + self.select_input.table_name.as_str(),
                     )))
                     .expect("To Send Result to Client");
                 Err(SystemError::runtime_check_failure("Table Does Not Exist".to_owned()))
@@ -134,7 +129,7 @@ impl<'sc> SelectCommand<'sc> {
                     let mut description = vec![];
                     let mut column_indexes = vec![];
                     let mut has_error = false;
-                    for column_name in input.selected_columns.iter() {
+                    for column_name in self.select_input.selected_columns.iter() {
                         let mut found = None;
                         for (index, column_definition) in all_columns.iter().enumerate() {
                             if column_definition.has_name(column_name) {
@@ -191,88 +186,4 @@ impl<'sc> SelectCommand<'sc> {
             },
         }
     }
-
-    fn parse_select_input(&self) -> SystemResult<SelectInput> {
-        let Query { body, .. } = &*self.query;
-        if let SetExpr::Select(select) = body {
-            let Select { projection, from, .. } = select.deref();
-            let TableWithJoins { relation, .. } = &from[0];
-            let (schema_name, table_name) = match relation {
-                TableFactor::Table { name, .. } => {
-                    let table_name = name.0[1].to_string();
-                    let schema_name = name.0[0].to_string();
-                    (schema_name, table_name)
-                }
-                _ => {
-                    self.sender
-                        .send(Err(QueryError::feature_not_supported(self.raw_sql_query.to_owned())))
-                        .expect("To Send Query Result to Client");
-                    return Err(SystemError::runtime_check_failure("Feature Not Supported".to_owned()));
-                }
-            };
-
-            match self.storage.table_exists(&schema_name, &table_name) {
-                None => {
-                    self.sender
-                        .send(Err(QueryError::schema_does_not_exist(schema_name)))
-                        .expect("To Send Result to Client");
-                    Err(SystemError::runtime_check_failure("Schema Does Not Exist".to_owned()))
-                }
-                Some((_, None)) => {
-                    self.sender
-                        .send(Err(QueryError::table_does_not_exist(
-                            schema_name + "." + table_name.as_str(),
-                        )))
-                        .expect("To Send Result to Client");
-                    Err(SystemError::runtime_check_failure("Table Does Not Exist".to_owned()))
-                }
-                Some((schema_id, Some(table_id))) => {
-                    let selected_columns = {
-                        let projection = projection.clone();
-                        let mut columns: Vec<String> = vec![];
-                        for item in projection {
-                            match item {
-                                SelectItem::Wildcard => {
-                                    let all_columns = self.storage.table_columns(schema_id, table_id)?;
-                                    columns.extend(
-                                        all_columns
-                                            .into_iter()
-                                            .map(|column_definition| column_definition.name())
-                                            .collect::<Vec<String>>(),
-                                    )
-                                }
-                                SelectItem::UnnamedExpr(Expr::Identifier(Ident { value, .. })) => {
-                                    columns.push(value.clone())
-                                }
-                                _ => {
-                                    self.sender
-                                        .send(Err(QueryError::feature_not_supported(self.raw_sql_query.to_owned())))
-                                        .expect("To Send Query Result to Client");
-                                    return Err(SystemError::runtime_check_failure("Feature Not Supported".to_owned()));
-                                }
-                            }
-                        }
-                        columns
-                    };
-
-                    Ok(SelectInput {
-                        schema_name,
-                        table_name,
-                        selected_columns,
-                    })
-                }
-            }
-        } else {
-            self.sender
-                .send(Err(QueryError::feature_not_supported(self.raw_sql_query.to_owned())))
-                .expect("To Send Query Result to Client");
-            Err(SystemError::runtime_check_failure("Feature Not Supported".to_owned()))
-        }
-    }
-}
-
-struct SelectInput {
-    schema_name: String,
-    table_name: String,
-    selected_columns: Vec<String>,
 }
