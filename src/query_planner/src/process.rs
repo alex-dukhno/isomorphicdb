@@ -13,16 +13,18 @@
 // limitations under the License.
 
 ///! Module for transforming the input Query AST into representation the engine can process.
-use crate::plan::{Plan, SchemaCreationInfo, TableCreationInfo, TableInserts, SelectInput, TableDeletes, TableUpdates};
+use crate::plan::{Plan, SchemaCreationInfo, SelectInput, TableCreationInfo, TableDeletes, TableInserts, TableUpdates};
+use crate::{SchemaId, TableId};
 use data_manager::{ColumnDefinition, DataManager};
 use itertools::Itertools;
+use kernel::{SystemError, SystemResult};
 use protocol::{results::QueryError, Sender};
-use sqlparser::ast::{ColumnDef, DataType, ObjectName, ObjectType, Statement, Query, SetExpr, Select, TableWithJoins, TableFactor, Expr, SelectItem, Ident};
-use std::sync::Arc;
-use kernel::{SystemResult, SystemError};
 use sql_model::sql_types::SqlType;
-use std::ops::Deref;
-use crate::{TableId, SchemaId};
+use sqlparser::ast::{
+    ColumnDef, DataType, Expr, Ident, ObjectName, ObjectType, Query, Select, SelectItem, SetExpr, Statement,
+    TableFactor, TableWithJoins,
+};
+use std::{ops::Deref, sync::Arc};
 
 type Result<T> = std::result::Result<T, ()>;
 
@@ -44,7 +46,7 @@ impl QueryProcessor {
                 self.sender
                     .send(Err(QueryError::schema_does_not_exist(schema_name.to_owned())))
                     .expect("To Send Query Result to Client");
-                return Err(());
+                Err(())
             }
             Some((_, None)) => {
                 self.sender
@@ -53,7 +55,7 @@ impl QueryProcessor {
                         schema_name, table_name
                     ))))
                     .expect("To Send Query Result to Client");
-                return Err(());
+                Err(())
             }
             Some((schema_id, Some(table_id))) => Ok((TableId(schema_id, table_id), schema_name, table_name)),
         }
@@ -67,7 +69,7 @@ impl QueryProcessor {
                 self.sender
                     .send(Err(QueryError::schema_does_not_exist(schema_name)))
                     .expect("To Send Query Result to Client");
-                return Err(());
+                Err(())
             }
             Some(schema_id) => Ok((SchemaId(schema_id), schema_name)),
         }
@@ -109,14 +111,15 @@ impl QueryProcessor {
             Statement::Update {
                 table_name,
                 assignments,
-                .. } => {
+                ..
+            } => {
                 let (table_id, _, _) = self.resolve_table_name(&table_name)?;
                 Ok(Plan::Update(TableUpdates { table_id, assignments }))
             }
-            Statement::Delete { table_name, .. } =>  {
+            Statement::Delete { table_name, .. } => {
                 let (table_id, _, _) = self.resolve_table_name(&table_name)?;
                 Ok(Plan::Delete(TableDeletes { table_id }))
-            },
+            }
             // TODO: ad-hock solution, duh
             Statement::Query(query) => {
                 let result = self.parse_select_input(query);

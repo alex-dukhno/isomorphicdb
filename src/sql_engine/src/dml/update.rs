@@ -16,14 +16,12 @@ use std::sync::Arc;
 
 use data_manager::{DataManager, Row};
 use kernel::SystemResult;
-use protocol::{
-    Sender,
-};
+use protocol::Sender;
 use representation::{unpack_raw, Binary};
 
 use crate::query::expr::{EvalScalarOp, ExpressionEvaluation};
-use query_planner::plan::TableUpdates;
 use protocol::results::QueryEvent;
+use query_planner::plan::TableUpdates;
 
 pub(crate) struct UpdateCommand {
     table_update: TableUpdates,

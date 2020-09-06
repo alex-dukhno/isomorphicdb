@@ -172,7 +172,7 @@ impl<'ic> InsertCommand<'ic> {
                                     .send(Err(QueryError::column_does_not_exist(column_name)))
                                     .expect("To Send Result to Client");
                                 has_error = true;
-                            },
+                            }
                         }
                     }
 

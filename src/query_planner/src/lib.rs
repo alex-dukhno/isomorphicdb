@@ -89,7 +89,6 @@ impl TryFrom<ObjectName> for SchemaName {
 
 pub struct SchemaNamingError(String);
 
-
 /// A type of a column
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ColumnType {
@@ -105,7 +104,7 @@ pub struct ColumnType {
 pub struct SchemaId(RecordId);
 
 impl SchemaId {
-    pub fn name(&self) -> RecordId{
+    pub fn name(&self) -> RecordId {
         self.0
     }
 }
