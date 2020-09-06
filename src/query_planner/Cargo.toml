@@ -1,0 +1,13 @@
+[package]
+name = "query_planner"
+version = "0.1.0"
+authors = ["Alex Dukhno <alex.dukhno@icloud.com>"]
+edition = "2018"
+publish = false
+
+[dependencies]
+sqlparser = { version = "0.6.1", features = ["bigdecimal"] }
+sql_model = { path = "../sql_model" }
+data_manager = { path = "../data_manager" }
+protocol = { path = "../protocol" }
+kernel = { path = "../kernel" }
