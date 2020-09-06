@@ -33,27 +33,17 @@ impl DropTableCommand {
     }
 
     pub(crate) fn execute(&mut self) -> SystemResult<()> {
-        let table_name = self.name.name();
-        let schema_name = self.name.schema_name();
-        match self.storage.table_exists(schema_name, table_name) {
-            None => self
-                .sender
-                .send(Err(QueryError::schema_does_not_exist(schema_name.to_owned())))
-                .expect("To Send Query Result to Client"),
-            Some((_, None)) => self
-                .sender
-                .send(Err(QueryError::table_does_not_exist(
-                    schema_name.to_owned() + "." + table_name,
-                )))
-                .expect("To Send Query Result to Client"),
-            Some((schema_id, Some(table_id))) => match self.storage.drop_table(schema_id, table_id) {
-                Err(error) => return Err(error),
-                Ok(()) => self
+        let schema_id = self.name.schema().name();
+        let table_id = self.name.name();
+        match self.storage.drop_table(schema_id, table_id) {
+            Err(error) => Err(error),
+            Ok(()) => {
+                self
                     .sender
                     .send(Ok(QueryEvent::TableDropped))
-                    .expect("To Send Query Result to Client"),
-            },
+                    .expect("To Send Query Result to Client");
+                Ok(())
+            }
         }
-        Ok(())
     }
 }

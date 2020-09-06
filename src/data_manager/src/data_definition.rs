@@ -309,7 +309,7 @@ fn columns_table_types() -> [ColumnDefinition; 5] {
     ]
 }
 
-type InnerId = u64;
+pub type InnerId = u64;
 type InnerCatalogId = Option<InnerId>;
 type InnerFullSchemaId = Option<(InnerId, Option<InnerId>)>;
 type InnerFullTableId = Option<(InnerId, Option<(InnerId, Option<InnerId>)>)>;
@@ -806,7 +806,7 @@ impl DataDefinition {
             schema_id => schema_id,
         };
         let result = Some((catalog.id(), schema_id));
-        log::debug!("{:?}", result);
+        log::debug!("checking schema existence result {:?}", result);
         result
     }
 

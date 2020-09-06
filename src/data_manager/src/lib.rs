@@ -37,6 +37,7 @@ pub type Key = Binary;
 pub type Values = Binary;
 pub type RowResult = io::Result<Result<Row, StorageError>>;
 pub type ReadCursor = Box<dyn Iterator<Item = RowResult>>;
+pub use data_definition::InnerId;
 
 use crate::{in_memory::InMemoryDatabase, persistent::PersistentDatabase};
 

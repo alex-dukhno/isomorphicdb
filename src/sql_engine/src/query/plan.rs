@@ -19,6 +19,7 @@ use sqlparser::ast::{Ident, Query, Statement};
 
 #[derive(Debug, Clone)]
 pub struct TableCreationInfo {
+    pub schema_id: SchemaId,
     pub schema_name: String,
     pub table_name: String,
     pub columns: Vec<ColumnDefinition>, // pub table_constraints: Vec<TableConstraints> ??

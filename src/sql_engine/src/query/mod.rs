@@ -21,6 +21,7 @@ pub mod process;
 use sql_types::SqlType;
 use sqlparser::ast::ObjectName;
 use std::convert::TryFrom;
+use data_manager::InnerId;
 
 /// A type of a column
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -30,72 +31,35 @@ pub struct ColumnType {
     sql_type: SqlType,
 }
 
+/// represents a schema uniquely
+///
+/// this would be a u32
+#[derive(Debug, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
+pub struct SchemaId(InnerId);
+
+impl SchemaId {
+    pub fn name(&self) -> InnerId {
+        self.0
+    }
+}
+
 /// represents a table uniquely
 ///
 /// I would like this to be a single 64 bit number where the top bits are the
 /// schema id and lower bits are the table id.
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
-pub struct TableId(SchemaId, String);
+pub struct TableId(InnerId, InnerId);
 
 impl TableId {
-    pub fn schema_name(&self) -> &str {
-        self.0.name()
+    pub fn schema(&self) ->  SchemaId {
+        SchemaId(self.0)
     }
 
-    pub fn name(&self) -> &str {
-        self.1.as_str()
-    }
-}
-
-impl TryFrom<ObjectName> for TableId {
-    type Error = TableNamingError;
-
-    fn try_from(object: ObjectName) -> Result<Self, Self::Error> {
-        if object.0.len() == 1 {
-            Err(TableNamingError(format!(
-                "unsupported table name '{}'. All table names must be qualified",
-                object.to_string()
-            )))
-        } else if object.0.len() != 2 {
-            Err(TableNamingError(format!(
-                "unable to process table name '{}'",
-                object.to_string()
-            )))
-        } else {
-            let table_name = object.0.last().unwrap().value.clone();
-            let schema_name = object.0.first().unwrap().value.clone();
-            Ok(TableId(SchemaId(schema_name), table_name))
-        }
+    pub fn name(&self) -> InnerId {
+        self.1
     }
 }
 
+pub struct CatalogNameingError(String);
 pub struct TableNamingError(String);
-
-/// represents a schema uniquely
-///
-/// this would be a u32
-#[derive(Debug, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
-pub struct SchemaId(String);
-
-impl SchemaId {
-    pub fn name(&self) -> &str {
-        self.0.as_str()
-    }
-}
-
-impl TryFrom<ObjectName> for SchemaId {
-    type Error = SchemaNamingError;
-
-    fn try_from(object: ObjectName) -> Result<Self, Self::Error> {
-        if object.0.len() != 1 {
-            Err(SchemaNamingError(format!(
-                "only unqualified schema names are supported, '{}'",
-                object
-            )))
-        } else {
-            Ok(SchemaId(object.to_string()))
-        }
-    }
-}
-
 pub struct SchemaNamingError(String);

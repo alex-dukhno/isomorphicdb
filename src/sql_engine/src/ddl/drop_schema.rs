@@ -44,45 +44,36 @@ impl DropSchemaCommand {
     }
 
     pub(crate) fn execute(&mut self) -> SystemResult<()> {
-        let schema_name = self.name.name().to_string();
         let strategy = if self.cascade {
             DropStrategy::Cascade
         } else {
             DropStrategy::Restrict
         };
-        match self.storage.schema_exists(&schema_name) {
-            None => {
-                self.sender
-                    .send(Err(QueryError::schema_does_not_exist(schema_name)))
-                    .expect("To Send Query Result to Client");
+        match self.storage.drop_schema(self.name.name(), strategy) {
+            Err(error) => Err(error),
+            Ok(Err(DropSchemaError::CatalogDoesNotExist)) => {
+                //ignore. Catalogs are not implemented
                 Ok(())
             }
-            Some(schema_id) => {
-                match self.storage.drop_schema(schema_id, strategy) {
-                    Err(error) => Err(error),
-                    Ok(Err(DropSchemaError::CatalogDoesNotExist)) => {
-                        //ignore. Catalogs are not implemented
-                        Ok(())
-                    }
-                    Ok(Err(DropSchemaError::HasDependentObjects)) => {
-                        self.sender
-                            .send(Err(QueryError::schema_has_dependent_objects(schema_name)))
-                            .expect("To Send Query Result to Client");
-                        Ok(())
-                    }
-                    Ok(Err(DropSchemaError::DoesNotExist)) => {
-                        self.sender
-                            .send(Err(QueryError::schema_does_not_exist(schema_name)))
-                            .expect("To Send Query Result to Client");
-                        Ok(())
-                    }
-                    Ok(Ok(())) => {
-                        self.sender
-                            .send(Ok(QueryEvent::SchemaDropped))
-                            .expect("To Send Query Result to Client");
-                        Ok(())
-                    }
-                }
+            Ok(Err(DropSchemaError::HasDependentObjects)) => {
+                // self.sender
+                //     .send(Err(QueryError::schema_has_dependent_objects(self.name.name().to_string())))
+                //     .expect("To Send Query Result to Client");
+                // ignore. need to be able to lookup the object name from the id.
+                Ok(())
+            }
+            Ok(Err(DropSchemaError::DoesNotExist)) => {
+                // self.sender
+                //     .send(Err(QueryError::schema_does_not_exist(schema_name)))
+                //     .expect("To Send Query Result to Client");
+                // ignore. parallel query execution is not implemented
+                Ok(())
+            }
+            Ok(Ok(())) => {
+                self.sender
+                    .send(Ok(QueryEvent::SchemaDropped))
+                    .expect("To Send Query Result to Client");
+                Ok(())
             }
         }
     }
