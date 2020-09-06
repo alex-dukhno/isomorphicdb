@@ -808,7 +808,7 @@ impl DataDefinition {
             schema_id => schema_id,
         };
         let result = Some((catalog.id(), schema_id));
-        log::debug!("{:?}", result);
+        log::debug!("checking schema existence result {:?}", result);
         result
     }
 

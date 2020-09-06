@@ -16,6 +16,9 @@ use std::convert::TryFrom;
 
 use sqlparser::ast::ObjectName;
 
+use data_manager::RecordId;
+use sql_model::sql_types::SqlType;
+
 ///! Module for representing how a query will be parameters bound, executed and
 ///! values represented during runtime.
 pub mod plan;
@@ -85,3 +88,40 @@ impl TryFrom<ObjectName> for SchemaName {
 }
 
 pub struct SchemaNamingError(String);
+
+/// A type of a column
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ColumnType {
+    #[allow(dead_code)]
+    nullable: bool,
+    sql_type: SqlType,
+}
+
+/// represents a schema uniquely
+///
+/// this would be a u32
+#[derive(Debug, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
+pub struct SchemaId(RecordId);
+
+impl SchemaId {
+    pub fn name(&self) -> RecordId {
+        self.0
+    }
+}
+
+/// represents a table uniquely
+///
+/// I would like this to be a single 64 bit number where the top bits are the
+/// schema id and lower bits are the table id.
+#[derive(Debug, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
+pub struct TableId(RecordId, RecordId);
+
+impl TableId {
+    pub fn schema(&self) -> SchemaId {
+        SchemaId(self.0)
+    }
+
+    pub fn name(&self) -> RecordId {
+        self.1
+    }
+}

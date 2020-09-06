@@ -16,13 +16,11 @@ use std::sync::Arc;
 
 use data_manager::{DataManager, Row};
 use kernel::SystemResult;
-use protocol::{
-    results::{QueryError, QueryEvent},
-    Sender,
-};
+use protocol::Sender;
 use representation::{unpack_raw, Binary};
 
 use crate::query::expr::{EvalScalarOp, ExpressionEvaluation};
+use protocol::results::QueryEvent;
 use query_planner::plan::TableUpdates;
 
 pub(crate) struct UpdateCommand {
@@ -41,76 +39,60 @@ impl UpdateCommand {
     }
 
     pub(crate) fn execute(&mut self) -> SystemResult<()> {
-        match self.storage.table_exists(
-            self.table_update.table_id.schema_name(),
-            self.table_update.table_id.name(),
-        ) {
-            None => self
-                .sender
-                .send(Err(QueryError::schema_does_not_exist(
-                    self.table_update.table_id.schema_name().to_owned(),
-                )))
-                .expect("To Send Result to Client"),
-            Some((_, None)) => self
-                .sender
-                .send(Err(QueryError::table_does_not_exist(
-                    self.table_update.table_id.schema_name().to_owned() + "." + self.table_update.table_id.name(),
-                )))
-                .expect("To Send Result to Client"),
-            Some((schema_id, Some(table_id))) => {
-                // only process the rows if the table and schema exist.
-                let table_definition = self.storage.table_columns(schema_id, table_id)?;
-                let all_columns = table_definition.clone();
+        let schema_id = self.table_update.table_id.schema().name();
+        let table_id = self.table_update.table_id.name();
 
-                let evaluation = ExpressionEvaluation::new(self.sender.clone(), table_definition);
+        // only process the rows if the table and schema exist.
+        let table_definition = self.storage.table_columns(schema_id, table_id)?;
+        let all_columns = table_definition.clone();
 
-                let mut to_update = vec![];
-                let mut has_error = false;
-                for item in self.table_update.assignments.iter() {
-                    match evaluation.eval_assignment(item) {
-                        Ok(assign) => to_update.push(assign),
-                        Err(()) => has_error = true,
+        let evaluation = ExpressionEvaluation::new(self.sender.clone(), table_definition);
+
+        let mut to_update = vec![];
+        let mut has_error = false;
+        for item in self.table_update.assignments.iter() {
+            match evaluation.eval_assignment(item) {
+                Ok(assign) => to_update.push(assign),
+                Err(()) => has_error = true,
+            }
+        }
+
+        if has_error {
+            return Ok(());
+        }
+
+        let to_update: Vec<Row> = match self.storage.full_scan(schema_id, table_id) {
+            Err(error) => return Err(error),
+            Ok(reads) => {
+                let expr_eval = EvalScalarOp::new(self.sender.as_ref(), all_columns.to_vec());
+                let mut res = Vec::new();
+                for (row_idx, (key, values)) in reads.map(Result::unwrap).map(Result::unwrap).enumerate() {
+                    let mut datums = unpack_raw(values.to_bytes());
+
+                    let mut has_err = false;
+                    for update in to_update.as_slice() {
+                        has_err = expr_eval
+                            .eval_on_row(&mut datums.as_mut_slice(), update, row_idx)
+                            .is_err()
+                            || has_err;
                     }
-                }
 
-                if has_error {
-                    return Ok(());
-                }
-
-                let to_update: Vec<Row> = match self.storage.full_scan(schema_id, table_id) {
-                    Err(error) => return Err(error),
-                    Ok(reads) => {
-                        let expr_eval = EvalScalarOp::new(self.sender.as_ref(), all_columns.to_vec());
-                        let mut res = Vec::new();
-                        for (row_idx, (key, values)) in reads.map(Result::unwrap).map(Result::unwrap).enumerate() {
-                            let mut datums = unpack_raw(values.to_bytes());
-
-                            let mut has_err = false;
-                            for update in to_update.as_slice() {
-                                has_err = expr_eval
-                                    .eval_on_row(&mut datums.as_mut_slice(), update, row_idx)
-                                    .is_err()
-                                    || has_err;
-                            }
-
-                            if has_err {
-                                return Ok(());
-                            }
-
-                            res.push((key, Binary::pack(&datums)));
-                        }
-                        res
+                    if has_err {
+                        return Ok(());
                     }
-                };
 
-                match self.storage.write_into(schema_id, table_id, to_update) {
-                    Err(error) => return Err(error),
-                    Ok(records_number) => {
-                        self.sender
-                            .send(Ok(QueryEvent::RecordsUpdated(records_number)))
-                            .expect("To Send Query Result to Client");
-                    }
+                    res.push((key, Binary::pack(&datums)));
                 }
+                res
+            }
+        };
+
+        match self.storage.write_into(schema_id, table_id, to_update) {
+            Err(error) => return Err(error),
+            Ok(records_number) => {
+                self.sender
+                    .send(Ok(QueryEvent::RecordsUpdated(records_number)))
+                    .expect("To Send Query Result to Client");
             }
         }
         Ok(())

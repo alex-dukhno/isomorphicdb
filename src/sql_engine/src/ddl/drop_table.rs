@@ -16,45 +16,31 @@ use std::sync::Arc;
 
 use data_manager::DataManager;
 use kernel::SystemResult;
-use protocol::{
-    results::{QueryError, QueryEvent},
-    Sender,
-};
-use query_planner::FullTableName;
+use protocol::{results::QueryEvent, Sender};
+use query_planner::TableId;
 
 pub(crate) struct DropTableCommand {
-    name: FullTableName,
+    name: TableId,
     storage: Arc<DataManager>,
     sender: Arc<dyn Sender>,
 }
 
 impl DropTableCommand {
-    pub(crate) fn new(name: FullTableName, storage: Arc<DataManager>, sender: Arc<dyn Sender>) -> DropTableCommand {
+    pub(crate) fn new(name: TableId, storage: Arc<DataManager>, sender: Arc<dyn Sender>) -> DropTableCommand {
         DropTableCommand { name, storage, sender }
     }
 
     pub(crate) fn execute(&mut self) -> SystemResult<()> {
-        let table_name = self.name.name();
-        let schema_name = self.name.schema_name();
-        match self.storage.table_exists(schema_name, table_name) {
-            None => self
-                .sender
-                .send(Err(QueryError::schema_does_not_exist(schema_name.to_owned())))
-                .expect("To Send Query Result to Client"),
-            Some((_, None)) => self
-                .sender
-                .send(Err(QueryError::table_does_not_exist(
-                    schema_name.to_owned() + "." + table_name,
-                )))
-                .expect("To Send Query Result to Client"),
-            Some((schema_id, Some(table_id))) => match self.storage.drop_table(schema_id, table_id) {
-                Err(error) => return Err(error),
-                Ok(()) => self
-                    .sender
+        let schema_id = self.name.schema().name();
+        let table_id = self.name.name();
+        match self.storage.drop_table(schema_id, table_id) {
+            Err(error) => Err(error),
+            Ok(()) => {
+                self.sender
                     .send(Ok(QueryEvent::TableDropped))
-                    .expect("To Send Query Result to Client"),
-            },
+                    .expect("To Send Query Result to Client");
+                Ok(())
+            }
         }
-        Ok(())
     }
 }

@@ -13,23 +13,18 @@
 // limitations under the License.
 
 ///! Module for transforming the input Query AST into representation the engine can process.
-use std::{convert::TryFrom, sync::Arc};
-
+use crate::plan::{Plan, SchemaCreationInfo, SelectInput, TableCreationInfo, TableDeletes, TableInserts, TableUpdates};
+use crate::{SchemaId, TableId};
+use data_manager::{ColumnDefinition, DataManager};
+use itertools::Itertools;
+use kernel::{SystemError, SystemResult};
+use protocol::{results::QueryError, Sender};
+use sql_model::sql_types::SqlType;
 use sqlparser::ast::{
     ColumnDef, DataType, Expr, Ident, ObjectName, ObjectType, Query, Select, SelectItem, SetExpr, Statement,
     TableFactor, TableWithJoins,
 };
-
-use data_manager::{ColumnDefinition, DataManager};
-use protocol::{results::QueryError, Sender};
-use sql_model::sql_types::SqlType;
-
-use crate::{
-    plan::{Plan, SchemaCreationInfo, SelectInput, TableCreationInfo, TableDeletes, TableInserts, TableUpdates},
-    FullTableName, SchemaName, SchemaNamingError, TableNamingError,
-};
-use kernel::{SystemError, SystemResult};
-use std::ops::Deref;
+use std::{ops::Deref, sync::Arc};
 
 type Result<T> = std::result::Result<T, ()>;
 
@@ -43,29 +38,56 @@ impl QueryProcessor {
         Self { storage, sender }
     }
 
+    fn resolve_table_name(&self, name: &ObjectName) -> Result<(TableId, String, String)> {
+        let schema_name = name.0.first().unwrap().value.clone();
+        let table_name = name.0.iter().skip(1).join(".");
+        match self.storage.table_exists(&schema_name, &table_name) {
+            None => {
+                self.sender
+                    .send(Err(QueryError::schema_does_not_exist(schema_name.to_owned())))
+                    .expect("To Send Query Result to Client");
+                Err(())
+            }
+            Some((_, None)) => {
+                self.sender
+                    .send(Err(QueryError::table_does_not_exist(format!(
+                        "{}.{}",
+                        schema_name, table_name
+                    ))))
+                    .expect("To Send Query Result to Client");
+                Err(())
+            }
+            Some((schema_id, Some(table_id))) => Ok((TableId(schema_id, table_id), schema_name, table_name)),
+        }
+    }
+
+    fn resolve_schema_name(&self, name: &ObjectName) -> Result<(SchemaId, String)> {
+        let schema_name = name.0.iter().join(".");
+
+        match self.storage.schema_exists(&schema_name) {
+            None => {
+                self.sender
+                    .send(Err(QueryError::schema_does_not_exist(schema_name)))
+                    .expect("To Send Query Result to Client");
+                Err(())
+            }
+            Some(schema_id) => Ok((SchemaId(schema_id), schema_name)),
+        }
+    }
+
     pub fn process(&self, stmt: Statement) -> Result<Plan> {
         match stmt {
             Statement::CreateTable { name, columns, .. } => self.handle_create_table(name, &columns),
             Statement::CreateSchema { schema_name, .. } => {
-                let schema_id = match SchemaName::try_from(schema_name) {
-                    Ok(schema_id) => schema_id,
-                    Err(SchemaNamingError(message)) => {
-                        self.sender
-                            .send(Err(QueryError::syntax_error(message)))
-                            .expect("To Send Query Result to Client");
-                        return Err(());
-                    }
-                };
-                match self.storage.schema_exists(schema_id.name()) {
+                let schema_name = schema_name.0.iter().join(".");
+                match self.storage.schema_exists(&schema_name) {
                     Some(_) => {
                         self.sender
-                            .send(Err(QueryError::schema_already_exists(schema_id.name().to_string())))
+                            .send(Err(QueryError::schema_already_exists(schema_name)))
                             .expect("To Send Query Result to Client");
                         Err(())
                     }
-                    None => Ok(Plan::CreateSchema(SchemaCreationInfo {
-                        schema_name: schema_id.name().to_string(),
-                    })),
+                    None => Ok(Plan::CreateSchema(SchemaCreationInfo { schema_name })),
                 }
             }
             Statement::Drop {
@@ -78,45 +100,29 @@ impl QueryProcessor {
                 table_name,
                 columns,
                 source,
-            } => match FullTableName::try_from(table_name) {
-                Ok(table_id) => Ok(Plan::Insert(TableInserts {
+            } => {
+                let (table_id, _, _) = self.resolve_table_name(&table_name)?;
+                Ok(Plan::Insert(TableInserts {
                     table_id,
                     column_indices: columns,
                     input: source,
-                })),
-                Err(TableNamingError(message)) => {
-                    self.sender
-                        .send(Err(QueryError::syntax_error(message)))
-                        .expect("To Send Query Result to Client");
-                    Err(())
-                }
-            },
+                }))
+            }
             Statement::Update {
                 table_name,
                 assignments,
                 ..
-            } => match FullTableName::try_from(table_name) {
-                Ok(table_id) => Ok(Plan::Update(TableUpdates { table_id, assignments })),
-                Err(TableNamingError(message)) => {
-                    self.sender
-                        .send(Err(QueryError::syntax_error(message)))
-                        .expect("To Send Query Result to Client");
-                    Err(())
-                }
-            },
-            Statement::Delete { table_name, .. } => match FullTableName::try_from(table_name) {
-                Ok(table_id) => Ok(Plan::Delete(TableDeletes { table_id })),
-                Err(TableNamingError(message)) => {
-                    self.sender
-                        .send(Err(QueryError::syntax_error(message)))
-                        .expect("To Send Query Result to Client");
-                    Err(())
-                }
-            },
+            } => {
+                let (table_id, _, _) = self.resolve_table_name(&table_name)?;
+                Ok(Plan::Update(TableUpdates { table_id, assignments }))
+            }
+            Statement::Delete { table_name, .. } => {
+                let (table_id, _, _) = self.resolve_table_name(&table_name)?;
+                Ok(Plan::Delete(TableDeletes { table_id }))
+            }
             // TODO: ad-hock solution, duh
             Statement::Query(query) => {
                 let result = self.parse_select_input(query);
-                eprintln!("{:?}", result);
                 Ok(Plan::Select(result.map_err(|_| ())?))
             }
             _ => Ok(Plan::NotProcessed(Box::new(stmt.clone()))),
@@ -187,8 +193,7 @@ impl QueryProcessor {
                     };
 
                     Ok(SelectInput {
-                        schema_name,
-                        table_name,
+                        table_id: TableId(schema_id, table_id),
                         selected_columns,
                     })
                 }
@@ -250,21 +255,13 @@ impl QueryProcessor {
     }
 
     fn handle_create_table(&self, name: ObjectName, columns: &[ColumnDef]) -> Result<Plan> {
-        let table_id = match FullTableName::try_from(name) {
-            Ok(table_id) => table_id,
-            Err(TableNamingError(message)) => {
-                self.sender
-                    .send(Err(QueryError::syntax_error(message)))
-                    .expect("To Send Query Result to Client");
-                return Err(());
-            }
-        };
-        let schema_name = table_id.schema_name();
-        let table_name = table_id.name();
+        let schema_name = name.0.first().unwrap().value.clone();
+        let table_name = name.0.iter().skip(1).join(".");
+
         match self.storage.table_exists(&schema_name, &table_name) {
             None => {
                 self.sender
-                    .send(Err(QueryError::schema_does_not_exist(schema_name.to_owned())))
+                    .send(Err(QueryError::schema_does_not_exist(schema_name)))
                     .expect("To Send Query Result to Client");
                 Err(())
             }
@@ -277,11 +274,12 @@ impl QueryProcessor {
                     .expect("To Send Query Result to Client");
                 Err(())
             }
-            Some((_, None)) => {
+            Some((schema_id, None)) => {
                 let columns = self.resolve_column_definitions(columns)?;
                 let table_info = TableCreationInfo {
-                    schema_name: schema_name.to_owned(),
-                    table_name: table_name.to_owned(),
+                    schema_id: SchemaId(schema_id),
+                    schema_name,
+                    table_name,
                     columns,
                 };
                 Ok(Plan::CreateTable(table_info))
@@ -294,61 +292,16 @@ impl QueryProcessor {
             ObjectType::Table => {
                 let mut table_names = Vec::with_capacity(names.len());
                 for name in names {
-                    // I like the idea of abstracting this to a resolve_table_name(name) which would do
-                    // this check for us and can be reused else where. ideally this function could handle aliasing as well.
-                    let table_id = match FullTableName::try_from(name.clone()) {
-                        Ok(table_id) => table_id,
-                        Err(TableNamingError(message)) => {
-                            self.sender
-                                .send(Err(QueryError::syntax_error(message)))
-                                .expect("To Send Query Result to Client");
-                            return Err(());
-                        }
-                    };
-                    let schema_name = table_id.schema_name();
-                    let table_name = table_id.name();
-                    match self.storage.table_exists(&schema_name, &table_name) {
-                        None => {
-                            self.sender
-                                .send(Err(QueryError::schema_does_not_exist(schema_name.to_owned())))
-                                .expect("To Send Query Result to Client");
-                            return Err(());
-                        }
-                        Some((_, None)) => {
-                            self.sender
-                                .send(Err(QueryError::table_does_not_exist(format!(
-                                    "{}.{}",
-                                    schema_name, table_name
-                                ))))
-                                .expect("To Send Query Result to Client");
-                            return Err(());
-                        }
-                        Some((_, Some(_))) => table_names.push(table_id),
-                    }
+                    let (table_id, _, _) = self.resolve_table_name(name)?;
+                    table_names.push(table_id);
                 }
                 Ok(Plan::DropTables(table_names))
             }
             ObjectType::Schema => {
                 let mut schema_names = Vec::with_capacity(names.len());
                 for name in names {
-                    let schema_id = match SchemaName::try_from(name.clone()) {
-                        Ok(schema_id) => schema_id,
-                        Err(SchemaNamingError(message)) => {
-                            self.sender
-                                .send(Err(QueryError::syntax_error(message)))
-                                .expect("To Send Query Result to Client");
-                            return Err(());
-                        }
-                    };
-                    match self.storage.schema_exists(schema_id.name()) {
-                        None => {
-                            self.sender
-                                .send(Err(QueryError::schema_does_not_exist(schema_id.name().to_owned())))
-                                .expect("To Send Query Result to Client");
-                            return Err(());
-                        }
-                        Some(_) => schema_names.push((schema_id, cascade)),
-                    }
+                    let (schema_id, _) = self.resolve_schema_name(name)?;
+                    schema_names.push((schema_id, cascade));
                 }
                 Ok(Plan::DropSchemas(schema_names))
             }

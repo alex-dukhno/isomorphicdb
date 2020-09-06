@@ -16,5 +16,4 @@
 ///! values represented during runtime.
 pub mod bind;
 pub mod expr;
-pub mod relation;
 pub mod scalar;

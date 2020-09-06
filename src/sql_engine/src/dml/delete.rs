@@ -16,10 +16,7 @@ use std::sync::Arc;
 
 use data_manager::DataManager;
 use kernel::SystemResult;
-use protocol::{
-    results::{QueryError, QueryEvent},
-    Sender,
-};
+use protocol::{results::QueryEvent, Sender};
 use query_planner::plan::TableDeletes;
 
 pub(crate) struct DeleteCommand {
@@ -42,41 +39,24 @@ impl DeleteCommand {
     }
 
     pub(crate) fn execute(&mut self) -> SystemResult<()> {
-        match self.storage.table_exists(
-            self.table_deletes.table_id.schema_name(),
-            self.table_deletes.table_id.name(),
-        ) {
-            None => self
-                .sender
-                .send(Err(QueryError::schema_does_not_exist(
-                    self.table_deletes.table_id.schema_name().to_owned(),
-                )))
-                .expect("To Send Result to Client"),
-            Some((_, None)) => self
-                .sender
-                .send(Err(QueryError::table_does_not_exist(
-                    self.table_deletes.table_id.schema_name().to_owned() + "." + self.table_deletes.table_id.name(),
-                )))
-                .expect("To Send Result to Client"),
-            Some((schema_id, Some(table_id))) => {
-                match self.storage.full_scan(schema_id, table_id) {
-                    Err(e) => return Err(e),
-                    Ok(reads) => {
-                        let keys = reads
-                            .map(Result::unwrap)
-                            .map(Result::unwrap)
-                            .map(|(key, _)| key)
-                            .collect();
+        let schema_id = self.table_deletes.table_id.schema().name();
+        let table_id = self.table_deletes.table_id.name();
+        match self.storage.full_scan(schema_id, table_id) {
+            Err(e) => return Err(e),
+            Ok(reads) => {
+                let keys = reads
+                    .map(Result::unwrap)
+                    .map(Result::unwrap)
+                    .map(|(key, _)| key)
+                    .collect();
 
-                        match self.storage.delete_from(schema_id, table_id, keys) {
-                            Err(e) => return Err(e),
-                            Ok(records_number) => self
-                                .sender
-                                .send(Ok(QueryEvent::RecordsDeleted(records_number)))
-                                .expect("To Send Query Result to Client"),
-                        }
-                    }
-                };
+                match self.storage.delete_from(schema_id, table_id, keys) {
+                    Err(e) => return Err(e),
+                    Ok(records_number) => self
+                        .sender
+                        .send(Ok(QueryEvent::RecordsDeleted(records_number)))
+                        .expect("To Send Query Result to Client"),
+                }
             }
         }
         Ok(())
