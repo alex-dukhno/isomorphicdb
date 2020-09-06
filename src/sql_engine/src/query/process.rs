@@ -21,7 +21,7 @@ use protocol::{results::QueryError, Sender};
 use sql_types::SqlType;
 
 ///! Module for transforming the input Query AST into representation the engine can process.
-use crate::query::plan::{Plan, SchemaCreationInfo, TableCreationInfo, TableInserts};
+use crate::query::plan::{Plan, SchemaCreationInfo, TableCreationInfo, TableInserts, TableUpdates};
 use crate::query::{SchemaId, SchemaNamingError, TableId, TableNamingError};
 
 type Result<T> = std::result::Result<T, ()>;
@@ -77,6 +77,19 @@ impl QueryProcessor {
                     column_indices: columns,
                     input: source,
                 })),
+                Err(TableNamingError(message)) => {
+                    self.sender
+                        .send(Err(QueryError::syntax_error(message)))
+                        .expect("To Send Query Result to Client");
+                    Err(())
+                }
+            },
+            Statement::Update {
+                table_name,
+                assignments,
+                ..
+            } => match TableId::try_from(table_name) {
+                Ok(table_id) => Ok(Plan::Update(TableUpdates { table_id, assignments })),
                 Err(TableNamingError(message)) => {
                     self.sender
                         .send(Err(QueryError::syntax_error(message)))

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use sqlparser::ast::{Ident, Query, Statement};
+use sqlparser::ast::{Assignment, Ident, Query, Statement};
 
 use data_manager::ColumnDefinition;
 
@@ -39,11 +39,18 @@ pub struct TableInserts {
 }
 
 #[derive(Debug, Clone)]
+pub struct TableUpdates {
+    pub table_id: TableId,
+    pub assignments: Vec<Assignment>,
+}
+
+#[derive(Debug, Clone)]
 pub enum Plan {
     CreateTable(TableCreationInfo),
     CreateSchema(SchemaCreationInfo),
     DropTables(Vec<TableId>),
     DropSchemas(Vec<(SchemaId, bool)>),
+    Update(TableUpdates),
     Insert(TableInserts),
     NotProcessed(Box<Statement>),
 }

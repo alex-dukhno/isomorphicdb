@@ -14,8 +14,6 @@
 
 use std::sync::Arc;
 
-use sqlparser::ast::{Assignment, ObjectName};
-
 use data_manager::{DataManager, Row};
 use kernel::SystemResult;
 use protocol::{
@@ -24,44 +22,41 @@ use protocol::{
 };
 use representation::{unpack_raw, Binary};
 
-use crate::query::expr::{EvalScalarOp, ExpressionEvaluation};
+use crate::query::{
+    expr::{EvalScalarOp, ExpressionEvaluation},
+    plan::TableUpdates,
+};
 
 pub(crate) struct UpdateCommand {
-    name: ObjectName,
-    assignments: Vec<Assignment>,
+    table_update: TableUpdates,
     storage: Arc<DataManager>,
     sender: Arc<dyn Sender>,
 }
 
 impl UpdateCommand {
-    pub(crate) fn new(
-        name: ObjectName,
-        assignments: Vec<Assignment>,
-        storage: Arc<DataManager>,
-        sender: Arc<dyn Sender>,
-    ) -> UpdateCommand {
+    pub(crate) fn new(table_update: TableUpdates, storage: Arc<DataManager>, sender: Arc<dyn Sender>) -> UpdateCommand {
         UpdateCommand {
-            name,
-            assignments,
+            table_update,
             storage,
             sender,
         }
     }
 
     pub(crate) fn execute(&mut self) -> SystemResult<()> {
-        let schema_name = self.name.0[0].to_string();
-        let table_name = self.name.0[1].to_string();
-        let mut to_update = vec![];
-
-        match self.storage.table_exists(&schema_name, &table_name) {
+        match self.storage.table_exists(
+            self.table_update.table_id.schema_name(),
+            self.table_update.table_id.name(),
+        ) {
             None => self
                 .sender
-                .send(Err(QueryError::schema_does_not_exist(schema_name)))
+                .send(Err(QueryError::schema_does_not_exist(
+                    self.table_update.table_id.schema_name().to_owned(),
+                )))
                 .expect("To Send Result to Client"),
             Some((_, None)) => self
                 .sender
                 .send(Err(QueryError::table_does_not_exist(
-                    schema_name.clone() + "." + table_name.as_str(),
+                    self.table_update.table_id.schema_name().to_owned() + "." + self.table_update.table_id.name(),
                 )))
                 .expect("To Send Result to Client"),
             Some((schema_id, Some(table_id))) => {
@@ -71,8 +66,9 @@ impl UpdateCommand {
 
                 let evaluation = ExpressionEvaluation::new(self.sender.clone(), table_definition);
 
+                let mut to_update = vec![];
                 let mut has_error = false;
-                for item in self.assignments.iter() {
+                for item in self.table_update.assignments.iter() {
                     match evaluation.eval_assignment(item) {
                         Ok(assign) => to_update.push(assign),
                         Err(()) => has_error = true,
