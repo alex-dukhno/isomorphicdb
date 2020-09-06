@@ -17,19 +17,19 @@ use std::sync::Arc;
 use data_manager::DataManager;
 use kernel::SystemResult;
 use protocol::{
-    results::{QueryError, QueryEvent},
     Sender,
 };
-use query_planner::FullTableName;
+use query_planner::{TableId};
+use protocol::results::QueryEvent;
 
 pub(crate) struct DropTableCommand {
-    name: FullTableName,
+    name: TableId,
     storage: Arc<DataManager>,
     sender: Arc<dyn Sender>,
 }
 
 impl DropTableCommand {
-    pub(crate) fn new(name: FullTableName, storage: Arc<DataManager>, sender: Arc<dyn Sender>) -> DropTableCommand {
+    pub(crate) fn new(name: TableId, storage: Arc<DataManager>, sender: Arc<dyn Sender>) -> DropTableCommand {
         DropTableCommand { name, storage, sender }
     }
 

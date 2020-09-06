@@ -13,14 +13,16 @@
 // limitations under the License.
 
 ///! Module for transforming the input Query AST into representation the engine can process.
-use crate::query::plan::{Plan, SchemaCreationInfo, TableCreationInfo, TableInserts};
-use crate::query::{SchemaId, TableId};
+use crate::plan::{Plan, SchemaCreationInfo, TableCreationInfo, TableInserts, SelectInput, TableDeletes, TableUpdates};
 use data_manager::{ColumnDefinition, DataManager};
 use itertools::Itertools;
 use protocol::{results::QueryError, Sender};
-use sql_types::SqlType;
-use sqlparser::ast::{ColumnDef, DataType, ObjectName, ObjectType, Statement};
+use sqlparser::ast::{ColumnDef, DataType, ObjectName, ObjectType, Statement, Query, SetExpr, Select, TableWithJoins, TableFactor, Expr, SelectItem, Ident};
 use std::sync::Arc;
+use kernel::{SystemResult, SystemError};
+use sql_model::sql_types::SqlType;
+use std::ops::Deref;
+use crate::{TableId, SchemaId};
 
 type Result<T> = std::result::Result<T, ()>;
 
@@ -104,6 +106,22 @@ impl QueryProcessor {
                     input: source,
                 }))
             }
+            Statement::Update {
+                table_name,
+                assignments,
+                .. } => {
+                let (table_id, _, _) = self.resolve_table_name(&table_name)?;
+                Ok(Plan::Update(TableUpdates { table_id, assignments }))
+            }
+            Statement::Delete { table_name, .. } =>  {
+                let (table_id, _, _) = self.resolve_table_name(&table_name)?;
+                Ok(Plan::Delete(TableDeletes { table_id }))
+            },
+            // TODO: ad-hock solution, duh
+            Statement::Query(query) => {
+                let result = self.parse_select_input(query);
+                Ok(Plan::Select(result.map_err(|_| ())?))
+            }
             _ => Ok(Plan::NotProcessed(Box::new(stmt.clone()))),
         }
     }
@@ -172,8 +190,7 @@ impl QueryProcessor {
                     };
 
                     Ok(SelectInput {
-                        schema_name,
-                        table_name,
+                        table_id: TableId(schema_id, table_id),
                         selected_columns,
                     })
                 }
@@ -280,7 +297,6 @@ impl QueryProcessor {
             ObjectType::Schema => {
                 let mut schema_names = Vec::with_capacity(names.len());
                 for name in names {
-                    log::debug!("handling drop: {}", name.to_string());
                     let (schema_id, _) = self.resolve_schema_name(name)?;
                     schema_names.push((schema_id, cascade));
                 }

@@ -17,13 +17,13 @@ use std::sync::Arc;
 use data_manager::{DataManager, DropSchemaError, DropStrategy};
 use kernel::SystemResult;
 use protocol::{
-    results::{QueryError, QueryEvent},
     Sender,
 };
-use query_planner::SchemaName;
+use query_planner::{SchemaId};
+use protocol::results::QueryEvent;
 
 pub(crate) struct DropSchemaCommand {
-    name: SchemaName,
+    name: SchemaId,
     cascade: bool,
     storage: Arc<DataManager>,
     sender: Arc<dyn Sender>,
@@ -31,7 +31,7 @@ pub(crate) struct DropSchemaCommand {
 
 impl DropSchemaCommand {
     pub(crate) fn new(
-        name: SchemaName,
+        name: SchemaId,
         cascade: bool,
         storage: Arc<DataManager>,
         sender: Arc<dyn Sender>,

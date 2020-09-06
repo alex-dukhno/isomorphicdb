@@ -11,3 +11,4 @@ sql_model = { path = "../sql_model" }
 data_manager = { path = "../data_manager" }
 protocol = { path = "../protocol" }
 kernel = { path = "../kernel" }
+itertools = "0.9.0"
