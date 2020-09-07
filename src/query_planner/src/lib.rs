@@ -132,9 +132,6 @@ impl Display for TableNamingError {
     }
 }
 
-#[cfg(test)]
-mod tests;
-
 /// A type of a column
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ColumnType {
@@ -159,3 +156,6 @@ impl TableId {
         self.1
     }
 }
+
+#[cfg(test)]
+mod tests;

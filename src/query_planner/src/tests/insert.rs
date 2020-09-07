@@ -69,6 +69,59 @@ fn insert_into_nonexistent_table(planner_and_sender_with_schema: (QueryPlanner, 
 }
 
 #[rstest::rstest]
+fn insert_into_table_with_unqualified_name(planner_and_sender_with_schema: (QueryPlanner, ResultCollector)) {
+    let (query_planner, collector) = planner_and_sender_with_schema;
+    assert_eq!(
+        query_planner.plan(Statement::Insert {
+            table_name: ObjectName(vec![ident("only_schema_in_the_name")]),
+            columns: vec![],
+            source: Box::new(Query {
+                ctes: vec![],
+                body: SetExpr::Values(Values(vec![])),
+                order_by: vec![],
+                limit: None,
+                offset: None,
+                fetch: None
+            })
+        }),
+        Err(())
+    );
+
+    collector.assert_content(vec![Err(QueryError::syntax_error(
+        "unsupported table name 'only_schema_in_the_name'. All table names must be qualified",
+    ))])
+}
+
+#[rstest::rstest]
+fn insert_into_table_with_unsupported_name(planner_and_sender_with_schema: (QueryPlanner, ResultCollector)) {
+    let (query_planner, collector) = planner_and_sender_with_schema;
+    assert_eq!(
+        query_planner.plan(Statement::Insert {
+            table_name: ObjectName(vec![
+                ident("first_part"),
+                ident("second_part"),
+                ident("third_part"),
+                ident("fourth_part")
+            ]),
+            columns: vec![],
+            source: Box::new(Query {
+                ctes: vec![],
+                body: SetExpr::Values(Values(vec![])),
+                order_by: vec![],
+                limit: None,
+                offset: None,
+                fetch: None
+            })
+        }),
+        Err(())
+    );
+
+    collector.assert_content(vec![Err(QueryError::syntax_error(
+        "unable to process table name 'first_part.second_part.third_part.fourth_part'",
+    ))])
+}
+
+#[rstest::rstest]
 fn insert_into_table(planner_and_sender_with_table: (QueryPlanner, ResultCollector)) {
     let (query_planner, collector) = planner_and_sender_with_table;
     assert_eq!(
