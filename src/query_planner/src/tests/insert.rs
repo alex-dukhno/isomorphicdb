@@ -137,18 +137,18 @@ fn insert_into_table(planner_and_sender_with_table: (QueryPlanner, ResultCollect
                 fetch: None
             })
         }),
-        Ok(Plan::Insert(TableInserts {
-            full_table_name: TableId(0, 0),
+        Ok(Plan::Insert(Box::new(TableInserts {
+            table_id: TableId(0, 0),
             column_indices: vec![],
-            input: Box::new(Query {
+            input: Query {
                 ctes: vec![],
                 body: SetExpr::Values(Values(vec![])),
                 order_by: vec![],
                 limit: None,
                 offset: None,
                 fetch: None
-            })
-        }))
+            }
+        })))
     );
 
     collector.assert_content(vec![])

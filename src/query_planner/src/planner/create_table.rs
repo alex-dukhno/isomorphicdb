@@ -24,19 +24,22 @@ use sqlparser::ast::{ColumnDef, ObjectName};
 use std::{convert::TryFrom, sync::Arc};
 
 pub(crate) struct CreateTablePlanner<'ctp> {
-    full_name: &'ctp ObjectName,
+    full_table_name: &'ctp ObjectName,
     columns: &'ctp [ColumnDef],
 }
 
 impl<'ctp> CreateTablePlanner<'ctp> {
-    pub(crate) fn new(full_name: &'ctp ObjectName, columns: &'ctp [ColumnDef]) -> CreateTablePlanner<'ctp> {
-        CreateTablePlanner { full_name, columns }
+    pub(crate) fn new(full_table_name: &'ctp ObjectName, columns: &'ctp [ColumnDef]) -> CreateTablePlanner<'ctp> {
+        CreateTablePlanner {
+            full_table_name,
+            columns,
+        }
     }
 }
 
 impl Planner for CreateTablePlanner<'_> {
     fn plan(self, data_manager: Arc<DataManager>, sender: Arc<dyn Sender>) -> Result<Plan> {
-        match FullTableName::try_from(self.full_name) {
+        match FullTableName::try_from(self.full_table_name) {
             Ok(full_table_name) => {
                 let (schema_name, table_name) = full_table_name.as_tuple();
                 match data_manager.table_exists(&schema_name, &table_name) {

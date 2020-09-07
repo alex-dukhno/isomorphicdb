@@ -58,7 +58,7 @@ impl Planner for UpdatePlanner<'_> {
                         Err(())
                     }
                     Some((schema_id, Some(table_id))) => Ok(Plan::Update(TableUpdates {
-                        full_table_name: TableId(schema_id, table_id),
+                        table_id: TableId(schema_id, table_id),
                         assignments: self.assignments.to_vec(),
                     })),
                 }

@@ -54,20 +54,20 @@ impl SchemaCreationInfo {
 
 #[derive(PartialEq, Debug, Clone)]
 pub struct TableInserts {
-    pub full_table_name: TableId,
+    pub table_id: TableId,
     pub column_indices: Vec<Ident>,
-    pub input: Box<Query>,
+    pub input: Query,
 }
 
 #[derive(PartialEq, Debug, Clone)]
 pub struct TableUpdates {
-    pub full_table_name: TableId,
+    pub table_id: TableId,
     pub assignments: Vec<Assignment>,
 }
 
 #[derive(PartialEq, Debug, Clone)]
 pub struct TableDeletes {
-    pub full_table_name: TableId,
+    pub table_id: TableId,
 }
 
 #[derive(PartialEq, Debug, Clone)]
@@ -85,6 +85,6 @@ pub enum Plan {
     Select(SelectInput),
     Update(TableUpdates),
     Delete(TableDeletes),
-    Insert(TableInserts),
+    Insert(Box<TableInserts>),
     NotProcessed(Box<Statement>),
 }

@@ -35,8 +35,8 @@ impl DropTableCommand {
     }
 
     pub(crate) fn execute(&mut self) -> SystemResult<()> {
-        let schema_id = self.full_table_name.schema().0;
-        let table_id = self.full_table_name.name();
+        let schema_id = self.full_table_name.0;
+        let table_id = self.full_table_name.1;
         match self.data_manager.drop_table(schema_id, table_id) {
             Err(error) => Err(error),
             Ok(()) => {

@@ -79,14 +79,6 @@ pub struct FullTableId(SchemaId, Id);
 pub struct FullTableName(SchemaName, String);
 
 impl FullTableName {
-    pub fn schema_name(&self) -> &str {
-        self.0.name()
-    }
-
-    pub fn name(&self) -> &str {
-        self.1.as_str()
-    }
-
     fn as_tuple(&self) -> (&str, &str) {
         (&self.0.name(), &self.1)
     }
@@ -141,21 +133,8 @@ pub struct ColumnType {
 }
 
 /// represents a table uniquely
-///
-/// I would like this to be a single 64 bit number where the top bits are the
-/// schema id and lower bits are the table id.
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
-pub struct TableId(RecordId, RecordId);
-
-impl TableId {
-    pub fn schema(&self) -> SchemaId {
-        SchemaId(self.0)
-    }
-
-    pub fn name(&self) -> RecordId {
-        self.1
-    }
-}
+pub struct TableId(pub RecordId, pub RecordId);
 
 #[cfg(test)]
 mod tests;

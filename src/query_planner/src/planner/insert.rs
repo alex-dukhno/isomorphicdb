@@ -22,14 +22,14 @@ use protocol::{results::QueryError, Sender};
 use sqlparser::ast::{Ident, ObjectName, Query};
 use std::{convert::TryFrom, sync::Arc};
 
-pub(crate) struct InsertPlanner {
-    table_name: ObjectName,
-    columns: Vec<Ident>,
-    source: Box<Query>,
+pub(crate) struct InsertPlanner<'ip> {
+    table_name: &'ip ObjectName,
+    columns: &'ip [Ident],
+    source: &'ip Query,
 }
 
-impl InsertPlanner {
-    pub(crate) fn new(table_name: ObjectName, columns: Vec<Ident>, source: Box<Query>) -> InsertPlanner {
+impl<'ip> InsertPlanner<'ip> {
+    pub(crate) fn new(table_name: &'ip ObjectName, columns: &'ip [Ident], source: &'ip Query) -> InsertPlanner<'ip> {
         InsertPlanner {
             table_name,
             columns,
@@ -38,9 +38,9 @@ impl InsertPlanner {
     }
 }
 
-impl Planner for InsertPlanner {
+impl Planner for InsertPlanner<'_> {
     fn plan(self, data_manager: Arc<DataManager>, sender: Arc<dyn Sender>) -> Result<Plan> {
-        match FullTableName::try_from(&self.table_name) {
+        match FullTableName::try_from(self.table_name) {
             Ok(full_table_name) => {
                 let (schema_name, table_name) = full_table_name.as_tuple();
                 match data_manager.table_exists(&schema_name, &table_name) {
@@ -59,11 +59,11 @@ impl Planner for InsertPlanner {
                             .expect("To Send Query Result to Client");
                         Err(())
                     }
-                    Some((schema_id, Some(table_id))) => Ok(Plan::Insert(TableInserts {
-                        full_table_name: TableId(schema_id, table_id),
-                        column_indices: self.columns,
-                        input: self.source,
-                    })),
+                    Some((schema_id, Some(table_id))) => Ok(Plan::Insert(Box::new(TableInserts {
+                        table_id: TableId(schema_id, table_id),
+                        column_indices: self.columns.to_vec(),
+                        input: self.source.clone(),
+                    }))),
                 }
             }
             Err(error) => {

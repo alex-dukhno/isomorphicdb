@@ -286,7 +286,7 @@ impl QueryExecutor {
             Ok(Plan::Insert(table_insert)) => {
                 InsertCommand::new(
                     raw_sql_query,
-                    table_insert,
+                    *table_insert,
                     self.data_manager.clone(),
                     self.sender.clone(),
                 )
@@ -352,5 +352,5 @@ fn pad_formats(formats: &[PostgreSqlFormat], param_len: usize) -> Result<Vec<Pos
     }
 }
 
-// #[cfg(test)]
-// mod tests;
+#[cfg(test)]
+mod tests;

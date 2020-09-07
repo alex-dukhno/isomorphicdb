@@ -51,7 +51,7 @@ impl<'ic> InsertCommand<'ic> {
     }
 
     pub(crate) fn execute(&mut self) -> SystemResult<()> {
-        let Query { body, .. } = &*self.table_inserts.input;
+        let Query { body, .. } = &self.table_inserts.input;
         match &body {
             SetExpr::Values(values) => {
                 let values = &values.0;
@@ -70,8 +70,8 @@ impl<'ic> InsertCommand<'ic> {
                         .collect()
                 };
 
-                let schema_id = self.table_inserts.full_table_name.schema().0;
-                let table_id = self.table_inserts.full_table_name.name();
+                let schema_id = self.table_inserts.table_id.0;
+                let table_id = self.table_inserts.table_id.1;
 
                 let table_definition = self.data_manager.table_columns(schema_id, table_id)?;
                 let column_names = columns;

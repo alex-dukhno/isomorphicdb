@@ -80,15 +80,14 @@ impl QueryPlanner {
                 table_name,
                 columns,
                 source,
-            } => InsertPlanner::new(table_name.clone(), columns.clone(), source.clone())
-                .plan(self.data_manager.clone(), self.sender.clone()),
+            } => InsertPlanner::new(table_name, columns, source).plan(self.data_manager.clone(), self.sender.clone()),
             Statement::Update {
                 table_name,
                 assignments,
                 ..
             } => UpdatePlanner::new(table_name, assignments).plan(self.data_manager.clone(), self.sender.clone()),
             Statement::Delete { table_name, .. } => {
-                DeletePlanner::new(table_name.clone()).plan(self.data_manager.clone(), self.sender.clone())
+                DeletePlanner::new(table_name).plan(self.data_manager.clone(), self.sender.clone())
             }
             Statement::Query(query) => {
                 SelectPlanner::new(query.clone()).plan(self.data_manager.clone(), self.sender.clone())

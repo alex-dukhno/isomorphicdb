@@ -42,8 +42,8 @@ impl SelectCommand {
     }
 
     pub(crate) fn describe(&mut self) -> SystemResult<Description> {
-        let schema_id = self.select_input.table_id.schema().0;
-        let table_id = self.select_input.table_id.name();
+        let schema_id = self.select_input.table_id.0;
+        let table_id = self.select_input.table_id.1;
         let all_columns = self.data_manager.table_columns(schema_id, table_id)?;
         let mut column_definitions = vec![];
         let mut has_error = false;
@@ -79,8 +79,8 @@ impl SelectCommand {
     }
 
     pub(crate) fn execute(&mut self) -> SystemResult<()> {
-        let schema_id = self.select_input.table_id.schema().0;
-        let table_id = self.select_input.table_id.name();
+        let schema_id = self.select_input.table_id.0;
+        let table_id = self.select_input.table_id.1;
         match self.data_manager.full_scan(schema_id, table_id) {
             Err(error) => Err(error),
             Ok(records) => {

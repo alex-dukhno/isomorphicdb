@@ -98,7 +98,7 @@ fn delete_from_table(planner_and_sender_with_table: (QueryPlanner, ResultCollect
             selection: None
         }),
         Ok(Plan::Delete(TableDeletes {
-            full_table_name: TableId(0, 0)
+            table_id: TableId(0, 0)
         }))
     );
 
