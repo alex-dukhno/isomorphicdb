@@ -34,6 +34,6 @@ fn data_manager() -> DataManager {
 
 #[rstest::fixture]
 fn data_manager_with_schema(data_manager: DataManager) -> DataManager {
-    data_manager.create_schema(SCHEMA).expect("schema is created");
+    data_manager.create_schema(&SCHEMA).expect("schema is created");
     data_manager
 }

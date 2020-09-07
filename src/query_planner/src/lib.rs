@@ -40,10 +40,16 @@ impl SchemaName {
     }
 }
 
-impl TryFrom<ObjectName> for SchemaName {
+impl AsRef<str> for SchemaName {
+    fn as_ref(&self) -> &str {
+        self.0.as_str()
+    }
+}
+
+impl TryFrom<&ObjectName> for SchemaName {
     type Error = SchemaNamingError;
 
-    fn try_from(object: ObjectName) -> Result<Self, Self::Error> {
+    fn try_from(object: &ObjectName) -> Result<Self, Self::Error> {
         if object.0.len() != 1 {
             Err(SchemaNamingError(object.to_string()))
         } else {
@@ -92,10 +98,10 @@ impl Display for FullTableName {
     }
 }
 
-impl TryFrom<ObjectName> for FullTableName {
+impl TryFrom<&ObjectName> for FullTableName {
     type Error = TableNamingError;
 
-    fn try_from(object: ObjectName) -> Result<Self, Self::Error> {
+    fn try_from(object: &ObjectName) -> Result<Self, Self::Error> {
         if object.0.len() == 1 {
             Err(TableNamingError::Unqualified(object.to_string()))
         } else if object.0.len() != 2 {

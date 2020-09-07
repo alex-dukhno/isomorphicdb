@@ -27,6 +27,10 @@ use std::{
 mod create_schema;
 #[cfg(test)]
 mod create_table;
+#[cfg(test)]
+mod drop_schema;
+#[cfg(test)]
+mod drop_table;
 
 struct Collector(Mutex<Vec<QueryResult>>);
 

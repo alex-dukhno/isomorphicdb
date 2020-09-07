@@ -18,7 +18,7 @@ use super::*;
 
 #[rstest::rstest]
 fn create_tables_with_different_names(data_manager_with_schema: DataManager) {
-    let schema_id = data_manager_with_schema.schema_exists(SCHEMA).expect("schema exists");
+    let schema_id = data_manager_with_schema.schema_exists(&SCHEMA).expect("schema exists");
     assert!(matches!(
         data_manager_with_schema.create_table(
             schema_id,
@@ -75,7 +75,7 @@ fn create_table_with_the_same_name_in_different_schemas(data_manager: DataManage
 
 #[rstest::rstest]
 fn drop_table(data_manager_with_schema: DataManager) {
-    let schema_id = data_manager_with_schema.schema_exists(SCHEMA).expect("schema exists");
+    let schema_id = data_manager_with_schema.schema_exists(&SCHEMA).expect("schema exists");
     let table_id = data_manager_with_schema
         .create_table(
             schema_id,
@@ -103,7 +103,7 @@ fn drop_table(data_manager_with_schema: DataManager) {
 
 #[rstest::rstest]
 fn table_columns_on_empty_table(data_manager_with_schema: DataManager) {
-    let schema_id = data_manager_with_schema.schema_exists(SCHEMA).expect("schema exists");
+    let schema_id = data_manager_with_schema.schema_exists(&SCHEMA).expect("schema exists");
     let column_names = vec![];
     let table_id = data_manager_with_schema
         .create_table(schema_id, "table_name", column_names.as_slice())

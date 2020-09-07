@@ -74,10 +74,11 @@ impl QueryPlanner {
 
     pub fn plan(&self, stmt: Statement) -> Result<Plan> {
         match &stmt {
-            Statement::CreateTable { name, columns, .. } => CreateTablePlanner::new(name.clone(), columns.clone())
-                .plan(self.data_manager.clone(), self.sender.clone()),
+            Statement::CreateTable { name, columns, .. } => {
+                CreateTablePlanner::new(name, columns).plan(self.data_manager.clone(), self.sender.clone())
+            }
             Statement::CreateSchema { schema_name, .. } => {
-                CreateSchemaPlanner::new(schema_name.clone()).plan(self.data_manager.clone(), self.sender.clone())
+                CreateSchemaPlanner::new(schema_name).plan(self.data_manager.clone(), self.sender.clone())
             }
             Statement::Drop {
                 object_type,
@@ -85,11 +86,9 @@ impl QueryPlanner {
                 cascade,
                 ..
             } => match object_type {
-                ObjectType::Table => {
-                    DropTablesPlanner::new(&names).plan(self.data_manager.clone(), self.sender.clone())
-                }
+                ObjectType::Table => DropTablesPlanner::new(names).plan(self.data_manager.clone(), self.sender.clone()),
                 ObjectType::Schema => {
-                    DropSchemaPlanner::new(&names, *cascade).plan(self.data_manager.clone(), self.sender.clone())
+                    DropSchemaPlanner::new(names, *cascade).plan(self.data_manager.clone(), self.sender.clone())
                 }
                 _ => {
                     self.sender

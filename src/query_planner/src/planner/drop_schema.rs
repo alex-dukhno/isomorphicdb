@@ -15,7 +15,7 @@
 use crate::{
     plan::Plan,
     planner::{Planner, Result},
-    SchemaId, SchemaName, SchemaNamingError,
+    SchemaId, SchemaName,
 };
 use data_manager::DataManager;
 use protocol::{results::QueryError, Sender};
@@ -35,27 +35,26 @@ impl DropSchemaPlanner<'_> {
 
 impl Planner for DropSchemaPlanner<'_> {
     fn plan(self, data_manager: Arc<DataManager>, sender: Arc<dyn Sender>) -> Result<Plan> {
-        let mut schema_names = Vec::with_capacity(self.names.len());
+        let mut schemas = Vec::with_capacity(self.names.len());
         for name in self.names {
-            let schema_id = match SchemaName::try_from(name.clone()) {
-                Ok(schema_id) => schema_id,
-                Err(SchemaNamingError(message)) => {
+            match SchemaName::try_from(name) {
+                Ok(schema_name) => match data_manager.schema_exists(&schema_name) {
+                    None => {
+                        sender
+                            .send(Err(QueryError::schema_does_not_exist(schema_name)))
+                            .expect("To Send Query Result to Client");
+                        return Err(());
+                    }
+                    Some(schema_id) => schemas.push((SchemaId(schema_id), self.cascade)),
+                },
+                Err(error) => {
                     sender
-                        .send(Err(QueryError::syntax_error(message)))
+                        .send(Err(QueryError::syntax_error(error)))
                         .expect("To Send Query Result to Client");
                     return Err(());
                 }
-            };
-            match data_manager.schema_exists(schema_id.name()) {
-                None => {
-                    sender
-                        .send(Err(QueryError::schema_does_not_exist(schema_id.name())))
-                        .expect("To Send Query Result to Client");
-                    return Err(());
-                }
-                Some(schema_id) => schema_names.push((SchemaId(schema_id), self.cascade)),
             }
         }
-        Ok(Plan::DropSchemas(schema_names))
+        Ok(Plan::DropSchemas(schemas))
     }
 }

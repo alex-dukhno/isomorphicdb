@@ -22,20 +22,20 @@ use protocol::{results::QueryError, Sender};
 use sqlparser::ast::ObjectName;
 use std::{convert::TryFrom, sync::Arc};
 
-pub(crate) struct CreateSchemaPlanner {
-    schema_name: ObjectName,
+pub(crate) struct CreateSchemaPlanner<'csp> {
+    schema_name: &'csp ObjectName,
 }
 
-impl CreateSchemaPlanner {
-    pub(crate) fn new(schema_name: ObjectName) -> CreateSchemaPlanner {
+impl CreateSchemaPlanner<'_> {
+    pub(crate) fn new(schema_name: &ObjectName) -> CreateSchemaPlanner<'_> {
         CreateSchemaPlanner { schema_name }
     }
 }
 
-impl Planner for CreateSchemaPlanner {
+impl Planner for CreateSchemaPlanner<'_> {
     fn plan(self, data_manager: Arc<DataManager>, sender: Arc<dyn Sender>) -> Result<Plan> {
         match SchemaName::try_from(self.schema_name) {
-            Ok(schema_name) => match data_manager.schema_exists(schema_name.name()) {
+            Ok(schema_name) => match data_manager.schema_exists(&schema_name) {
                 Some(_) => {
                     sender
                         .send(Err(QueryError::schema_already_exists(schema_name)))
