@@ -12,10 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::planner::Planner;
 use crate::{
     plan::{Plan, TableCreationInfo},
-    planner::Result,
+    planner::{Planner, Result},
     FullTableName,
 };
 use data_manager::{ColumnDefinition, DataManager};

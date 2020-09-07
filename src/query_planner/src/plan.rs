@@ -13,14 +13,10 @@
 // limitations under the License.
 
 ///! represents a plan to be executed by the engine.
-use sqlparser::ast::{Assignment, Ident, Query, Statement};
-
-use crate::{FullTableName, SchemaName};
-use data_manager::ColumnDefinition;
-
-///! represents a plan to be executed by the engine.
 use crate::{SchemaId, TableId};
+use data_manager::ColumnDefinition;
 use sql_model::Id;
+use sqlparser::ast::{Assignment, Ident, Query, Statement};
 
 #[derive(Debug, Clone)]
 pub struct TableCreationInfo {

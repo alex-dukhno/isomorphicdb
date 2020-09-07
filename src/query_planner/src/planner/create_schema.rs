@@ -12,14 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::plan::{Plan, SchemaCreationInfo};
-use crate::{planner::Planner, planner::Result, SchemaName};
+use crate::{
+    plan::{Plan, SchemaCreationInfo},
+    planner::{Planner, Result},
+    SchemaName,
+};
 use data_manager::DataManager;
-use protocol::results::QueryError;
-use protocol::Sender;
+use protocol::{results::QueryError, Sender};
 use sqlparser::ast::ObjectName;
-use std::convert::TryFrom;
-use std::sync::Arc;
+use std::{convert::TryFrom, sync::Arc};
 
 pub(crate) struct CreateSchemaPlanner {
     schema_name: ObjectName,
