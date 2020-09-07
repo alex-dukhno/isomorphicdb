@@ -27,7 +27,7 @@ mod schemaless {
             .expect("no system errors");
 
         collector.assert_content_for_single_queries(vec![
-            Err(QueryError::schema_does_not_exist("schema_name".to_owned())),
+            Err(QueryError::schema_does_not_exist("schema_name")),
             Ok(QueryEvent::QueryComplete),
         ]);
     }
@@ -40,7 +40,7 @@ mod schemaless {
             .expect("no system errors");
 
         collector.assert_content_for_single_queries(vec![
-            Err(QueryError::schema_does_not_exist("schema_name".to_owned())),
+            Err(QueryError::schema_does_not_exist("schema_name")),
             Ok(QueryEvent::QueryComplete),
         ]);
     }
@@ -77,7 +77,7 @@ fn create_same_table(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
         Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::TableCreated),
         Ok(QueryEvent::QueryComplete),
-        Err(QueryError::table_already_exists("schema_name.table_name".to_owned())),
+        Err(QueryError::table_already_exists("schema_name.table_name")),
         Ok(QueryEvent::QueryComplete),
     ]);
 }
@@ -117,7 +117,7 @@ fn drop_non_existent_table(sql_engine_with_schema: (QueryExecutor, ResultCollect
     collector.assert_content_for_single_queries(vec![
         Ok(QueryEvent::SchemaCreated),
         Ok(QueryEvent::QueryComplete),
-        Err(QueryError::table_does_not_exist("schema_name.table_name".to_owned())),
+        Err(QueryError::table_does_not_exist("schema_name.table_name")),
         Ok(QueryEvent::QueryComplete),
     ]);
 }

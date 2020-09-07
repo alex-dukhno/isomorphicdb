@@ -24,23 +24,27 @@ use query_planner::plan::SelectInput;
 
 pub(crate) struct SelectCommand {
     select_input: SelectInput,
-    storage: Arc<DataManager>,
+    data_manager: Arc<DataManager>,
     sender: Arc<dyn Sender>,
 }
 
 impl SelectCommand {
-    pub(crate) fn new(select_input: SelectInput, storage: Arc<DataManager>, sender: Arc<dyn Sender>) -> SelectCommand {
+    pub(crate) fn new(
+        select_input: SelectInput,
+        data_manager: Arc<DataManager>,
+        sender: Arc<dyn Sender>,
+    ) -> SelectCommand {
         SelectCommand {
             select_input,
-            storage,
+            data_manager,
             sender,
         }
     }
 
     pub(crate) fn describe(&mut self) -> SystemResult<Description> {
-        let schema_id = self.select_input.table_id.schema().name();
+        let schema_id = self.select_input.table_id.schema().0;
         let table_id = self.select_input.table_id.name();
-        let all_columns = self.storage.table_columns(schema_id, table_id)?;
+        let all_columns = self.data_manager.table_columns(schema_id, table_id)?;
         let mut column_definitions = vec![];
         let mut has_error = false;
         for column_name in &self.select_input.selected_columns {
@@ -56,7 +60,7 @@ impl SelectCommand {
                 column_definitions.push(column_definition);
             } else {
                 self.sender
-                    .send(Err(QueryError::column_does_not_exist(column_name.to_owned())))
+                    .send(Err(QueryError::column_does_not_exist(column_name)))
                     .expect("To Send Result to Client");
                 has_error = true;
             }
@@ -75,12 +79,12 @@ impl SelectCommand {
     }
 
     pub(crate) fn execute(&mut self) -> SystemResult<()> {
-        let schema_id = self.select_input.table_id.schema().name();
+        let schema_id = self.select_input.table_id.schema().0;
         let table_id = self.select_input.table_id.name();
-        match self.storage.full_scan(schema_id, table_id) {
+        match self.data_manager.full_scan(schema_id, table_id) {
             Err(error) => Err(error),
             Ok(records) => {
-                let all_columns = self.storage.table_columns(schema_id, table_id)?;
+                let all_columns = self.data_manager.table_columns(schema_id, table_id)?;
                 let mut description = vec![];
                 let mut column_indexes = vec![];
                 let mut has_error = false;
@@ -98,7 +102,7 @@ impl SelectCommand {
                         description.push(column_definition);
                     } else {
                         self.sender
-                            .send(Err(QueryError::column_does_not_exist(column_name.to_owned())))
+                            .send(Err(QueryError::column_does_not_exist(column_name)))
                             .expect("To Send Result to Client");
                         has_error = true;
                     }

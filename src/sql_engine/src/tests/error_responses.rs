@@ -23,7 +23,7 @@ fn parse_wrong_select_syntax(sql_engine: (QueryExecutor, ResultCollector)) {
 
     collector.assert_content_for_single_queries(vec![
         Err(QueryError::syntax_error(
-            "\"selec col from schema_name.table_name\" can\'t be parsed".into(),
+            "\"selec col from schema_name.table_name\" can\'t be parsed",
         )),
         Ok(QueryEvent::QueryComplete),
     ]);

@@ -306,90 +306,90 @@ impl Into<BackendMessage> for QueryError {
 
 impl QueryError {
     /// schema already exists error constructor
-    pub fn schema_already_exists(schema_name: String) -> QueryError {
+    pub fn schema_already_exists<S: ToString>(schema_name: S) -> QueryError {
         QueryError {
             severity: Severity::Error,
-            kind: QueryErrorKind::SchemaAlreadyExists(schema_name),
+            kind: QueryErrorKind::SchemaAlreadyExists(schema_name.to_string()),
         }
     }
 
     /// schema does not exist error constructor
-    pub fn schema_does_not_exist(schema_name: String) -> QueryError {
+    pub fn schema_does_not_exist<S: ToString>(schema_name: S) -> QueryError {
         QueryError {
             severity: Severity::Error,
-            kind: QueryErrorKind::SchemaDoesNotExist(schema_name),
+            kind: QueryErrorKind::SchemaDoesNotExist(schema_name.to_string()),
         }
     }
 
     /// schema has dependent objects error constructor
-    pub fn schema_has_dependent_objects(schema_name: String) -> QueryError {
+    pub fn schema_has_dependent_objects<S: ToString>(schema_name: S) -> QueryError {
         QueryError {
             severity: Severity::Error,
-            kind: QueryErrorKind::SchemaHasDependentObjects(schema_name),
+            kind: QueryErrorKind::SchemaHasDependentObjects(schema_name.to_string()),
         }
     }
 
     /// table already exists error constructor
-    pub fn table_already_exists(table_name: String) -> QueryError {
+    pub fn table_already_exists<S: ToString>(table_name: S) -> QueryError {
         QueryError {
             severity: Severity::Error,
-            kind: QueryErrorKind::TableAlreadyExists(table_name),
+            kind: QueryErrorKind::TableAlreadyExists(table_name.to_string()),
         }
     }
 
     /// table does not exist error constructor
-    pub fn table_does_not_exist(table_name: String) -> QueryError {
+    pub fn table_does_not_exist<S: ToString>(table_name: S) -> QueryError {
         QueryError {
             severity: Severity::Error,
-            kind: QueryErrorKind::TableDoesNotExist(table_name),
+            kind: QueryErrorKind::TableDoesNotExist(table_name.to_string()),
         }
     }
 
     /// column does not exists error constructor
-    pub fn column_does_not_exist(non_existing_column: String) -> QueryError {
+    pub fn column_does_not_exist<S: ToString>(non_existing_column: S) -> QueryError {
         QueryError {
             severity: Severity::Error,
-            kind: QueryErrorKind::ColumnDoesNotExist(non_existing_column),
+            kind: QueryErrorKind::ColumnDoesNotExist(non_existing_column.to_string()),
         }
     }
 
     /// invalid parameter value error constructor
-    pub fn invalid_parameter_value(message: String) -> QueryError {
+    pub fn invalid_parameter_value<S: ToString>(message: S) -> QueryError {
         QueryError {
             severity: Severity::Error,
-            kind: QueryErrorKind::InvalidParameterValue(message),
+            kind: QueryErrorKind::InvalidParameterValue(message.to_string()),
         }
     }
 
     /// prepared statement does not exist error constructor
-    pub fn prepared_statement_does_not_exist(statement_name: String) -> QueryError {
+    pub fn prepared_statement_does_not_exist<S: ToString>(statement_name: S) -> QueryError {
         QueryError {
             severity: Severity::Error,
-            kind: QueryErrorKind::PreparedStatementDoesNotExist(statement_name),
+            kind: QueryErrorKind::PreparedStatementDoesNotExist(statement_name.to_string()),
         }
     }
 
     /// portal does not exist error constructor
-    pub fn portal_does_not_exist(portal_name: String) -> QueryError {
+    pub fn portal_does_not_exist<S: ToString>(portal_name: S) -> QueryError {
         QueryError {
             severity: Severity::Error,
-            kind: QueryErrorKind::PortalDoesNotExist(portal_name),
+            kind: QueryErrorKind::PortalDoesNotExist(portal_name.to_string()),
         }
     }
 
     /// protocol violation error constructor
-    pub fn protocol_violation(message: String) -> QueryError {
+    pub fn protocol_violation<S: ToString>(message: S) -> QueryError {
         QueryError {
             severity: Severity::Error,
-            kind: QueryErrorKind::ProtocolViolation(message),
+            kind: QueryErrorKind::ProtocolViolation(message.to_string()),
         }
     }
 
     /// not supported operation error constructor
-    pub fn feature_not_supported(feature_description: String) -> QueryError {
+    pub fn feature_not_supported<S: ToString>(feature_description: S) -> QueryError {
         QueryError {
             severity: Severity::Error,
-            kind: QueryErrorKind::FeatureNotSupported(feature_description),
+            kind: QueryErrorKind::FeatureNotSupported(feature_description.to_string()),
         }
     }
 
@@ -402,71 +402,80 @@ impl QueryError {
     }
 
     /// syntax error in the expression as part of query
-    pub fn syntax_error(expression: String) -> QueryError {
+    pub fn syntax_error<S: ToString>(expression: S) -> QueryError {
         QueryError {
             severity: Severity::Error,
-            kind: QueryErrorKind::SyntaxError(expression),
+            kind: QueryErrorKind::SyntaxError(expression.to_string()),
         }
     }
 
     /// operator or function is not found for operands
-    pub fn undefined_function(operator: String, left_type: String, right_type: String) -> QueryError {
+    pub fn undefined_function<S: ToString>(operator: S, left_type: S, right_type: S) -> QueryError {
         QueryError {
             severity: Severity::Error,
             kind: QueryErrorKind::UndefinedFunction {
-                operator,
-                left_type,
-                right_type,
+                operator: operator.to_string(),
+                left_type: left_type.to_string(),
+                right_type: right_type.to_string(),
             },
         }
     }
 
     /// when the name of a column is ambiguous in a multi-table context
-    pub fn ambiguous_column(column: String) -> QueryError {
+    pub fn ambiguous_column<S: ToString>(column: S) -> QueryError {
         QueryError {
             severity: Severity::Error,
-            kind: QueryErrorKind::AmbiguousColumnName { column },
+            kind: QueryErrorKind::AmbiguousColumnName {
+                column: column.to_string(),
+            },
         }
     }
 
     /// user of an undefined column
-    pub fn undefined_column(column: String) -> QueryError {
+    pub fn undefined_column<S: ToString>(column: S) -> QueryError {
         QueryError {
             severity: Severity::Error,
-            kind: QueryErrorKind::UndefinedColumn { column },
+            kind: QueryErrorKind::UndefinedColumn {
+                column: column.to_string(),
+            },
         }
     }
 
     /// numeric out of range constructor
-    pub fn out_of_range(pg_type: PostgreSqlType, column_name: String, row_index: usize) -> QueryError {
+    pub fn out_of_range<S: ToString>(pg_type: PostgreSqlType, column_name: S, row_index: usize) -> QueryError {
         QueryError {
             severity: Severity::Error,
             kind: QueryErrorKind::NumericTypeOutOfRange {
                 pg_type,
-                column_name,
+                column_name: column_name.to_string(),
                 row_index,
             },
         }
     }
 
     /// type mismatch constructor
-    pub fn type_mismatch(value: &str, pg_type: PostgreSqlType, column_name: String, row_index: usize) -> QueryError {
+    pub fn type_mismatch<S: ToString>(
+        value: S,
+        pg_type: PostgreSqlType,
+        column_name: S,
+        row_index: usize,
+    ) -> QueryError {
         QueryError {
             severity: Severity::Error,
             kind: QueryErrorKind::DataTypeMismatch {
                 pg_type,
-                value: value.to_owned(),
-                column_name,
+                value: value.to_string(),
+                column_name: column_name.to_string(),
                 row_index,
             },
         }
     }
 
     /// length of string types do not match constructor
-    pub fn string_length_mismatch(
+    pub fn string_length_mismatch<S: ToString>(
         pg_type: PostgreSqlType,
         len: u64,
-        column_name: String,
+        column_name: S,
         row_index: usize,
     ) -> QueryError {
         QueryError {
@@ -474,7 +483,7 @@ impl QueryError {
             kind: QueryErrorKind::StringTypeLengthMismatch {
                 pg_type,
                 len,
-                column_name,
+                column_name: column_name.to_string(),
                 row_index,
             },
         }
@@ -624,8 +633,8 @@ mod tests {
 
         #[test]
         fn schema_already_exists() {
-            let schema_name = "some_table_name".to_owned();
-            let message: BackendMessage = QueryError::schema_already_exists(schema_name.clone()).into();
+            let schema_name = "some_table_name";
+            let message: BackendMessage = QueryError::schema_already_exists(schema_name).into();
             assert_eq!(
                 message,
                 BackendMessage::ErrorResponse(
@@ -638,8 +647,8 @@ mod tests {
 
         #[test]
         fn schema_does_not_exists() {
-            let schema_name = "some_table_name".to_owned();
-            let message: BackendMessage = QueryError::schema_does_not_exist(schema_name.clone()).into();
+            let schema_name = "some_table_name";
+            let message: BackendMessage = QueryError::schema_does_not_exist(schema_name).into();
             assert_eq!(
                 message,
                 BackendMessage::ErrorResponse(
@@ -652,8 +661,8 @@ mod tests {
 
         #[test]
         fn table_already_exists() {
-            let table_name = "some_table_name".to_owned();
-            let message: BackendMessage = QueryError::table_already_exists(table_name.clone()).into();
+            let table_name = "some_table_name";
+            let message: BackendMessage = QueryError::table_already_exists(table_name).into();
             assert_eq!(
                 message,
                 BackendMessage::ErrorResponse(
@@ -666,8 +675,8 @@ mod tests {
 
         #[test]
         fn table_does_not_exists() {
-            let table_name = "some_table_name".to_owned();
-            let message: BackendMessage = QueryError::table_does_not_exist(table_name.clone()).into();
+            let table_name = "some_table_name";
+            let message: BackendMessage = QueryError::table_does_not_exist(table_name).into();
             assert_eq!(
                 message,
                 BackendMessage::ErrorResponse(
@@ -680,7 +689,7 @@ mod tests {
 
         #[test]
         fn one_column_does_not_exists() {
-            let message: BackendMessage = QueryError::column_does_not_exist("column_not_in_table".to_owned()).into();
+            let message: BackendMessage = QueryError::column_does_not_exist("column_not_in_table").into();
             assert_eq!(
                 message,
                 BackendMessage::ErrorResponse(
@@ -693,8 +702,7 @@ mod tests {
 
         #[test]
         fn invalid_parameter_value() {
-            let messages: BackendMessage =
-                QueryError::invalid_parameter_value("Wrong parameter value".to_owned()).into();
+            let messages: BackendMessage = QueryError::invalid_parameter_value("Wrong parameter value").into();
             assert_eq!(
                 messages,
                 BackendMessage::ErrorResponse(Some("ERROR"), Some("22023"), Some("Wrong parameter value".to_owned()))
@@ -703,8 +711,7 @@ mod tests {
 
         #[test]
         fn prepared_statement_does_not_exists() {
-            let messages: BackendMessage =
-                QueryError::prepared_statement_does_not_exist("statement_name".to_owned()).into();
+            let messages: BackendMessage = QueryError::prepared_statement_does_not_exist("statement_name").into();
             assert_eq!(
                 messages,
                 BackendMessage::ErrorResponse(
@@ -717,7 +724,7 @@ mod tests {
 
         #[test]
         fn portal_does_not_exists() {
-            let messages: BackendMessage = QueryError::portal_does_not_exist("portal_name".to_owned()).into();
+            let messages: BackendMessage = QueryError::portal_does_not_exist("portal_name").into();
             assert_eq!(
                 messages,
                 BackendMessage::ErrorResponse(
@@ -730,7 +737,7 @@ mod tests {
 
         #[test]
         fn protocol_violation() {
-            let messages: BackendMessage = QueryError::protocol_violation("Wrong protocol data".to_owned()).into();
+            let messages: BackendMessage = QueryError::protocol_violation("Wrong protocol data").into();
             assert_eq!(
                 messages,
                 BackendMessage::ErrorResponse(Some("ERROR"), Some("08P01"), Some("Wrong protocol data".to_owned()))
@@ -739,8 +746,8 @@ mod tests {
 
         #[test]
         fn feature_not_supported() {
-            let raw_sql_query = "some SQL query".to_owned();
-            let message: BackendMessage = QueryError::feature_not_supported(raw_sql_query.clone()).into();
+            let raw_sql_query = "some SQL query";
+            let message: BackendMessage = QueryError::feature_not_supported(raw_sql_query).into();
             assert_eq!(
                 message,
                 BackendMessage::ErrorResponse(
@@ -780,8 +787,7 @@ mod tests {
 
         #[test]
         fn type_mismatch_constraint_violation() {
-            let message: BackendMessage =
-                QueryError::type_mismatch("abc", PostgreSqlType::SmallInt, "col1".to_string(), 1).into();
+            let message: BackendMessage = QueryError::type_mismatch("abc", PostgreSqlType::SmallInt, "col1", 1).into();
             assert_eq!(
                 message,
                 BackendMessage::ErrorResponse(

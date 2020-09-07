@@ -16,57 +16,38 @@ use std::sync::Arc;
 
 use data_manager::DataManager;
 use kernel::SystemResult;
-use protocol::{
-    results::{QueryError, QueryEvent},
-    Sender,
-};
+use protocol::{results::QueryEvent, Sender};
 use query_planner::plan::TableCreationInfo;
 
 pub(crate) struct CreateTableCommand {
     table_info: TableCreationInfo,
-    storage: Arc<DataManager>,
+    data_manager: Arc<DataManager>,
     sender: Arc<dyn Sender>,
 }
 
 impl CreateTableCommand {
     pub(crate) fn new(
         table_info: TableCreationInfo,
-        storage: Arc<DataManager>,
+        data_manager: Arc<DataManager>,
         sender: Arc<dyn Sender>,
     ) -> CreateTableCommand {
         CreateTableCommand {
             table_info,
-            storage,
+            data_manager,
             sender,
         }
     }
 
     pub(crate) fn execute(&mut self) -> SystemResult<()> {
-        let table_name = self.table_info.table_name.as_str();
-        let schema_name = self.table_info.schema_name.as_str();
-
-        match self.storage.table_exists(schema_name, table_name) {
-            None => self
-                .sender
-                .send(Err(QueryError::schema_does_not_exist(schema_name.to_owned())))
-                .expect("To Send Query Result to Client"),
-            Some((_, Some(_))) => self
-                .sender
-                .send(Err(QueryError::table_already_exists(table_name.to_owned())))
-                .expect("To Send Query Result to Client"),
-            Some((schema_id, None)) => {
-                match self
-                    .storage
-                    .create_table(schema_id, table_name, self.table_info.columns.as_slice())
-                {
-                    Err(error) => return Err(error),
-                    Ok(_table_id) => self
-                        .sender
-                        .send(Ok(QueryEvent::TableCreated))
-                        .expect("To Send Query Result to Client"),
-                }
+        let (schema_id, table_name, columns) = self.table_info.as_tuple();
+        match self.data_manager.create_table(schema_id, table_name, columns) {
+            Err(error) => Err(error),
+            Ok(_table_id) => {
+                self.sender
+                    .send(Ok(QueryEvent::TableCreated))
+                    .expect("To Send Query Result to Client");
+                Ok(())
             }
         }
-        Ok(())
     }
 }

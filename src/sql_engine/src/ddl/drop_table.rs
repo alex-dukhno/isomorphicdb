@@ -20,20 +20,24 @@ use protocol::{results::QueryEvent, Sender};
 use query_planner::TableId;
 
 pub(crate) struct DropTableCommand {
-    name: TableId,
-    storage: Arc<DataManager>,
+    full_table_name: TableId,
+    data_manager: Arc<DataManager>,
     sender: Arc<dyn Sender>,
 }
 
 impl DropTableCommand {
-    pub(crate) fn new(name: TableId, storage: Arc<DataManager>, sender: Arc<dyn Sender>) -> DropTableCommand {
-        DropTableCommand { name, storage, sender }
+    pub(crate) fn new(name: TableId, data_manager: Arc<DataManager>, sender: Arc<dyn Sender>) -> DropTableCommand {
+        DropTableCommand {
+            full_table_name: name,
+            data_manager,
+            sender,
+        }
     }
 
     pub(crate) fn execute(&mut self) -> SystemResult<()> {
-        let schema_id = self.name.schema().name();
-        let table_id = self.name.name();
-        match self.storage.drop_table(schema_id, table_id) {
+        let schema_id = self.full_table_name.schema().0;
+        let table_id = self.full_table_name.name();
+        match self.data_manager.drop_table(schema_id, table_id) {
             Err(error) => Err(error),
             Ok(()) => {
                 self.sender

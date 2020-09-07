@@ -63,7 +63,7 @@ fn parse_select_statement_with_not_existed_table(sql_engine_with_schema: (QueryE
     collector.assert_content(vec![
         Ok(QueryEvent::SchemaCreated),
         Ok(QueryEvent::QueryComplete),
-        Err(QueryError::table_does_not_exist("schema_name.non_existent".to_owned())),
+        Err(QueryError::table_does_not_exist("schema_name.non_existent")),
         Ok(QueryEvent::ParseComplete), // TODO should be removed
     ]);
 }
@@ -88,7 +88,7 @@ fn parse_select_statement_with_not_existed_column(sql_engine_with_schema: (Query
         Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::TableCreated),
         Ok(QueryEvent::QueryComplete),
-        Err(QueryError::column_does_not_exist("column_not_in_table".to_owned())),
+        Err(QueryError::column_does_not_exist("column_not_in_table")),
     ]);
 }
 

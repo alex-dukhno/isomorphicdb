@@ -52,7 +52,7 @@ fn trying_read_from_empty_stream() {
         )
         .await;
 
-        assert!(result.is_err());
+        assert!(matches!(result, Err(_)));
     });
 }
 
@@ -70,7 +70,7 @@ fn trying_read_only_length_of_ssl_message() {
         )
         .await;
 
-        assert!(result.is_err());
+        assert!(matches!(result, Err(_)));
     });
 }
 
@@ -88,7 +88,7 @@ fn sending_reject_notification_for_none_secure() {
         )
         .await;
 
-        assert!(result.is_err());
+        assert!(matches!(result, Err(_)));
 
         let actual_content = test_case.read_result().await;
         let mut expected_content = Vec::new();
@@ -111,7 +111,7 @@ fn sending_accept_notification_for_ssl_only_secure() {
         )
         .await;
 
-        assert!(result.is_err());
+        assert!(matches!(result, Err(_)));
 
         let actual_content = test_case.read_result().await;
         let mut expected_content = Vec::new();
@@ -146,7 +146,7 @@ fn successful_connection_handshake_for_none_secure() {
         )
         .await;
 
-        assert!(result.is_ok());
+        assert!(matches!(result, Ok(_)));
 
         let actual_content = test_case.read_result().await;
         let mut expected_content = Vec::new();
@@ -199,7 +199,7 @@ fn successful_connection_handshake_for_ssl_only_secure() {
         )
         .await;
 
-        assert!(result.is_ok());
+        assert!(matches!(result, Ok(_)));
 
         let actual_content = test_case.read_result().await;
         let mut expected_content = Vec::new();

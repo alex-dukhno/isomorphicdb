@@ -26,7 +26,7 @@ fn select_from_not_existed_table(sql_engine_with_schema: (QueryExecutor, ResultC
     collector.assert_content_for_single_queries(vec![
         Ok(QueryEvent::SchemaCreated),
         Ok(QueryEvent::QueryComplete),
-        Err(QueryError::table_does_not_exist("schema_name.non_existent".to_owned())),
+        Err(QueryError::table_does_not_exist("schema_name.non_existent")),
         Ok(QueryEvent::QueryComplete),
     ]);
 }
@@ -41,7 +41,7 @@ fn select_named_columns_from_non_existent_table(sql_engine_with_schema: (QueryEx
     collector.assert_content_for_single_queries(vec![
         Ok(QueryEvent::SchemaCreated),
         Ok(QueryEvent::QueryComplete),
-        Err(QueryError::table_does_not_exist("schema_name.non_existent".to_owned())),
+        Err(QueryError::table_does_not_exist("schema_name.non_existent")),
         Ok(QueryEvent::QueryComplete),
     ]);
 }
@@ -128,8 +128,8 @@ fn select_non_existing_columns_from_table(sql_engine_with_schema: (QueryExecutor
         Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::TableCreated),
         Ok(QueryEvent::QueryComplete),
-        Err(QueryError::column_does_not_exist("column_not_in_table1".to_owned())),
-        Err(QueryError::column_does_not_exist("column_not_in_table2".to_owned())),
+        Err(QueryError::column_does_not_exist("column_not_in_table1")),
+        Err(QueryError::column_does_not_exist("column_not_in_table2")),
         Ok(QueryEvent::QueryComplete),
     ]);
 }

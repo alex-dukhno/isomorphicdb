@@ -21,26 +21,26 @@ use query_planner::plan::SchemaCreationInfo;
 
 pub(crate) struct CreateSchemaCommand {
     schema_info: SchemaCreationInfo,
-    storage: Arc<DataManager>,
+    data_manager: Arc<DataManager>,
     sender: Arc<dyn Sender>,
 }
 
 impl CreateSchemaCommand {
     pub(crate) fn new(
         schema_info: SchemaCreationInfo,
-        storage: Arc<DataManager>,
+        data_manager: Arc<DataManager>,
         sender: Arc<dyn Sender>,
     ) -> CreateSchemaCommand {
         CreateSchemaCommand {
             schema_info,
-            storage,
+            data_manager,
             sender,
         }
     }
 
     pub(crate) fn execute(&mut self) -> SystemResult<()> {
         let schema_name = &self.schema_info.schema_name;
-        match self.storage.create_schema(schema_name) {
+        match self.data_manager.create_schema(schema_name) {
             Err(error) => Err(error),
             Ok(_schema_id) => {
                 self.sender

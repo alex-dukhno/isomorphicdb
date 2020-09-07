@@ -88,6 +88,6 @@ fn describe_not_existed_statement(sql_engine_with_schema: (QueryExecutor, Result
     collector.assert_content(vec![
         Ok(QueryEvent::SchemaCreated),
         Ok(QueryEvent::QueryComplete),
-        Err(QueryError::prepared_statement_does_not_exist("non_existent".to_owned())),
+        Err(QueryError::prepared_statement_does_not_exist("non_existent")),
     ]);
 }

@@ -81,19 +81,14 @@ mod insert {
             Ok(QueryEvent::QueryComplete),
             Ok(QueryEvent::TableCreated),
             Ok(QueryEvent::QueryComplete),
-            Err(QueryError::type_mismatch(
-                "str",
-                PostgreSqlType::SmallInt,
-                "col".to_string(),
-                1,
-            )),
+            Err(QueryError::type_mismatch("str", PostgreSqlType::SmallInt, "col", 1)),
             Ok(QueryEvent::QueryComplete),
         ]);
     }
 
     #[rstest::rstest]
     #[ignore]
-    // currently the ExpressionEvaluator doesn't have contexual information to create the right
+    // currently the ExpressionEvaluator doesn't have contextual information to create the right
     // error messages.
     fn multiple_columns_multiple_row_violation(multiple_ints_table: (QueryExecutor, Arc<Collector>)) {
         let (mut engine, collector) = multiple_ints_table;
@@ -106,16 +101,8 @@ mod insert {
             Ok(QueryEvent::QueryComplete),
             Ok(QueryEvent::TableCreated),
             Ok(QueryEvent::QueryComplete),
-            Err(QueryError::out_of_range(
-                PostgreSqlType::SmallInt,
-                "column_si".to_owned(),
-                1,
-            )),
-            Err(QueryError::out_of_range(
-                PostgreSqlType::Integer,
-                "column_i".to_owned(),
-                1,
-            )),
+            Err(QueryError::out_of_range(PostgreSqlType::SmallInt, "column_si", 1)),
+            Err(QueryError::out_of_range(PostgreSqlType::Integer, "column_i", 1)),
             Ok(QueryEvent::QueryComplete),
         ]);
     }
@@ -213,12 +200,7 @@ mod update {
             Ok(QueryEvent::QueryComplete),
             Ok(QueryEvent::RecordsInserted(1)),
             Ok(QueryEvent::QueryComplete),
-            Err(QueryError::type_mismatch(
-                "str",
-                PostgreSqlType::SmallInt,
-                "col".to_string(),
-                1,
-            )),
+            Err(QueryError::type_mismatch("str", PostgreSqlType::SmallInt, "col", 1)),
             Ok(QueryEvent::QueryComplete),
         ]);
     }
