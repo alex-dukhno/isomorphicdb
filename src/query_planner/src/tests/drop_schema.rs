@@ -13,9 +13,11 @@
 // limitations under the License.
 
 use super::*;
-use crate::plan::Plan;
-use crate::planner::QueryPlanner;
-use crate::tests::{ident, ResultCollector};
+use crate::{
+    plan::Plan,
+    planner::QueryPlanner,
+    tests::{ident, ResultCollector},
+};
 use protocol::results::QueryError;
 use sqlparser::ast::{ObjectName, ObjectType, Statement};
 

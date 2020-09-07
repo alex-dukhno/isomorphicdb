@@ -28,9 +28,17 @@ mod create_schema;
 #[cfg(test)]
 mod create_table;
 #[cfg(test)]
+mod delete;
+#[cfg(test)]
 mod drop_schema;
 #[cfg(test)]
 mod drop_table;
+#[cfg(test)]
+mod insert;
+#[cfg(test)]
+mod select;
+#[cfg(test)]
+mod update;
 
 struct Collector(Mutex<Vec<QueryResult>>);
 

@@ -34,6 +34,25 @@ fn drop_table_from_nonexistent_schema(planner_and_sender: (QueryPlanner, ResultC
 }
 
 #[rstest::rstest]
+fn drop_nonexistent_table(planner_and_sender_with_schema: (QueryPlanner, ResultCollector)) {
+    let (query_planner, collector) = planner_and_sender_with_schema;
+    assert_eq!(
+        query_planner.plan(Statement::Drop {
+            object_type: ObjectType::Table,
+            if_exists: false,
+            names: vec![ObjectName(vec![ident(SCHEMA), ident("non_existent_table")])],
+            cascade: false,
+        }),
+        Err(())
+    );
+
+    collector.assert_content(vec![Err(QueryError::table_does_not_exist(format!(
+        "{}.{}",
+        SCHEMA, "non_existent_table"
+    )))])
+}
+
+#[rstest::rstest]
 fn drop_table_with_unqualified_name(planner_and_sender_with_schema: (QueryPlanner, ResultCollector)) {
     let (query_planner, collector) = planner_and_sender_with_schema;
     assert_eq!(
