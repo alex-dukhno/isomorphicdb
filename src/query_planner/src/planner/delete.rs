@@ -19,8 +19,7 @@ use crate::{
 };
 use data_manager::DataManager;
 use itertools::Itertools;
-use protocol::results::QueryError;
-use protocol::Sender;
+use protocol::{results::QueryError, Sender};
 use sqlparser::ast::ObjectName;
 use std::sync::Arc;
 
@@ -36,8 +35,8 @@ impl DeletePlanner {
 
 impl Planner for DeletePlanner {
     fn plan(self, data_manager: Arc<DataManager>, sender: Arc<dyn Sender>) -> Result<Plan> {
-        let schema_name = (&self.table_name).0.first().unwrap().value.clone();
-        let table_name = (&self.table_name).0.iter().skip(1).join(".");
+        let schema_name = self.table_name.0.first().unwrap().value.clone();
+        let table_name = self.table_name.0.iter().skip(1).join(".");
         let (table_id, _, _) = (match data_manager.table_exists(&schema_name, &table_name) {
             None => {
                 sender
