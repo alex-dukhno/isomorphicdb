@@ -895,7 +895,6 @@ name = "query_planner"
 version = "0.1.0"
 dependencies = [
  "data_manager",
- "itertools",
  "kernel",
  "protocol",
  "rstest",

@@ -15,48 +15,55 @@
 use crate::{
     plan::{Plan, TableDeletes},
     planner::{Planner, Result},
-    TableId,
+    FullTableName, TableId,
 };
 use data_manager::DataManager;
-use itertools::Itertools;
 use protocol::{results::QueryError, Sender};
 use sqlparser::ast::ObjectName;
-use std::sync::Arc;
+use std::{convert::TryFrom, sync::Arc};
 
-pub(crate) struct DeletePlanner {
-    table_name: ObjectName,
+pub(crate) struct DeletePlanner<'dp> {
+    table_name: &'dp ObjectName,
 }
 
-impl DeletePlanner {
-    pub(crate) fn new(table_name: ObjectName) -> DeletePlanner {
+impl DeletePlanner<'_> {
+    pub(crate) fn new(table_name: &ObjectName) -> DeletePlanner {
         DeletePlanner { table_name }
     }
 }
 
-impl Planner for DeletePlanner {
+impl Planner for DeletePlanner<'_> {
     fn plan(self, data_manager: Arc<DataManager>, sender: Arc<dyn Sender>) -> Result<Plan> {
-        let schema_name = self.table_name.0.first().unwrap().value.clone();
-        let table_name = self.table_name.0.iter().skip(1).join(".");
-        let (table_id, _, _) = (match data_manager.table_exists(&schema_name, &table_name) {
-            None => {
-                sender
-                    .send(Err(QueryError::schema_does_not_exist(schema_name.to_owned())))
-                    .expect("To Send Query Result to Client");
-                return Err(());
+        match FullTableName::try_from(self.table_name) {
+            Ok(full_table_name) => {
+                let (schema_name, table_name) = full_table_name.as_tuple();
+                match data_manager.table_exists(&schema_name, &table_name) {
+                    None => {
+                        sender
+                            .send(Err(QueryError::schema_does_not_exist(schema_name.to_owned())))
+                            .expect("To Send Query Result to Client");
+                        Err(())
+                    }
+                    Some((_, None)) => {
+                        sender
+                            .send(Err(QueryError::table_does_not_exist(format!(
+                                "{}.{}",
+                                schema_name, table_name
+                            ))))
+                            .expect("To Send Query Result to Client");
+                        Err(())
+                    }
+                    Some((schema_id, Some(table_id))) => Ok(Plan::Delete(TableDeletes {
+                        table_id: TableId(schema_id, table_id),
+                    })),
+                }
             }
-            Some((_, None)) => {
+            Err(error) => {
                 sender
-                    .send(Err(QueryError::table_does_not_exist(format!(
-                        "{}.{}",
-                        schema_name, table_name
-                    ))))
+                    .send(Err(QueryError::syntax_error(error)))
                     .expect("To Send Query Result to Client");
-                return Err(());
+                Err(())
             }
-            Some((schema_id, Some(table_id))) => Ok((TableId(schema_id, table_id), schema_name, table_name)),
-        })?;
-        Ok(Plan::Delete(TableDeletes {
-            full_table_name: table_id,
-        }))
+        }
     }
 }

@@ -18,7 +18,7 @@ use data_manager::ColumnDefinition;
 use sql_model::Id;
 use sqlparser::ast::{Assignment, Ident, Query, Statement};
 
-#[derive(Debug, Clone)]
+#[derive(PartialEq, Debug, Clone)]
 pub struct TableCreationInfo {
     pub schema_id: Id,
     pub table_name: String,
@@ -39,7 +39,7 @@ impl TableCreationInfo {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(PartialEq, Debug, Clone)]
 pub struct SchemaCreationInfo {
     pub schema_name: String,
 }
@@ -52,31 +52,31 @@ impl SchemaCreationInfo {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(PartialEq, Debug, Clone)]
 pub struct TableInserts {
-    pub full_table_name: TableId,
+    pub table_id: TableId,
     pub column_indices: Vec<Ident>,
-    pub input: Box<Query>,
+    pub input: Query,
 }
 
-#[derive(Debug, Clone)]
+#[derive(PartialEq, Debug, Clone)]
 pub struct TableUpdates {
-    pub full_table_name: TableId,
+    pub table_id: TableId,
     pub assignments: Vec<Assignment>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(PartialEq, Debug, Clone)]
 pub struct TableDeletes {
-    pub full_table_name: TableId,
+    pub table_id: TableId,
 }
 
-#[derive(Debug, Clone)]
+#[derive(PartialEq, Debug, Clone)]
 pub struct SelectInput {
     pub table_id: TableId,
     pub selected_columns: Vec<String>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(PartialEq, Debug, Clone)]
 pub enum Plan {
     CreateTable(TableCreationInfo),
     CreateSchema(SchemaCreationInfo),
@@ -85,6 +85,6 @@ pub enum Plan {
     Select(SelectInput),
     Update(TableUpdates),
     Delete(TableDeletes),
-    Insert(TableInserts),
+    Insert(Box<TableInserts>),
     NotProcessed(Box<Statement>),
 }

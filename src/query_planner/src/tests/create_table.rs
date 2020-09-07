@@ -13,61 +13,87 @@
 // limitations under the License.
 
 use super::*;
+use crate::plan::{Plan, TableCreationInfo};
+use data_manager::ColumnDefinition;
 use protocol::results::QueryError;
 use sqlparser::ast::{ColumnDef, DataType, Statement};
 
+fn column(name: &str, data_type: DataType) -> ColumnDef {
+    ColumnDef {
+        name: ident(name),
+        data_type,
+        collation: None,
+        options: vec![],
+    }
+}
+
+fn table(name: Vec<&str>, columns: Vec<ColumnDef>) -> Statement {
+    Statement::CreateTable {
+        name: ObjectName(name.into_iter().map(ident).collect()),
+        columns,
+        constraints: vec![],
+        with_options: vec![],
+        if_not_exists: false,
+        external: false,
+        file_format: None,
+        location: None,
+        query: None,
+        without_rowid: false,
+    }
+}
+
 #[rstest::rstest]
-fn create_table_with_unsupported_type(planner_and_sender_with_schema: (QueryPlanner, ResultCollector)) {
+fn create_table_with_nonexistent_schema(planner_and_sender: (QueryPlanner, ResultCollector)) {
+    let (query_planner, collector) = planner_and_sender;
+    assert_eq!(
+        query_planner.plan(table(vec!["non_existent_schema", TABLE], vec![])),
+        Err(())
+    );
+
+    collector.assert_content(vec![Err(QueryError::schema_does_not_exist("non_existent_schema"))])
+}
+
+#[rstest::rstest]
+fn create_table_with_the_same_name(planner_and_sender_with_table: (QueryPlanner, ResultCollector)) {
+    let (query_planner, collector) = planner_and_sender_with_table;
+
+    assert_eq!(query_planner.plan(table(vec![SCHEMA, TABLE], vec![])), Err(()));
+
+    collector.assert_content(vec![Err(QueryError::table_already_exists(format!(
+        "{}.{}",
+        SCHEMA, TABLE
+    )))])
+}
+
+#[rstest::rstest]
+fn create_table_with_unsupported_column_type(planner_and_sender_with_schema: (QueryPlanner, ResultCollector)) {
     let (query_planner, collector) = planner_and_sender_with_schema;
-    assert!(matches!(
-        query_planner.plan(Statement::CreateTable {
-            name: ObjectName(vec![ident("schema_name"), ident("table_name"),]),
-            columns: vec![ColumnDef {
-                name: ident("column_name"),
-                data_type: DataType::Custom(ObjectName(vec![ident("strange_type_name_whatever")])),
-                collation: None,
-                options: vec![]
-            }],
-            constraints: vec![],
-            with_options: vec![],
-            if_not_exists: false,
-            external: false,
-            file_format: None,
-            location: None,
-            query: None,
-            without_rowid: false,
-        }),
-        Err(_)
-    ));
+    assert_eq!(
+        query_planner.plan(table(
+            vec!["schema_name", "table_name"],
+            vec![column(
+                "column_name",
+                DataType::Custom(ObjectName(vec![ident("strange_type_name_whatever")]))
+            )]
+        )),
+        Err(())
+    );
 
     collector.assert_content(vec![Err(QueryError::feature_not_supported(
-        "strange_type_name_whatever type is not supported",
+        "'strange_type_name_whatever' type is not supported",
     ))])
 }
 
 #[rstest::rstest]
 fn create_table_with_unqualified_name(planner_and_sender_with_schema: (QueryPlanner, ResultCollector)) {
     let (query_planner, collector) = planner_and_sender_with_schema;
-    assert!(matches!(
-        query_planner.plan(Statement::CreateTable {
-            name: ObjectName(vec![ident("only_schema_in_the_name")]),
-            columns: vec![ColumnDef {
-                name: ident("column_name"),
-                data_type: DataType::Custom(ObjectName(vec![ident("strange_type_name_whatever")])),
-                collation: None,
-                options: vec![]
-            }],
-            constraints: vec![],
-            with_options: vec![],
-            if_not_exists: false,
-            external: false,
-            file_format: None,
-            location: None,
-            query: None,
-            without_rowid: false,
-        }),
-        Err(_)
-    ));
+    assert_eq!(
+        query_planner.plan(table(
+            vec!["only_schema_in_the_name"],
+            vec![column("column_name", DataType::SmallInt)]
+        )),
+        Err(())
+    );
 
     collector.assert_content(vec![Err(QueryError::syntax_error(
         "unsupported table name 'only_schema_in_the_name'. All table names must be qualified",
@@ -77,33 +103,36 @@ fn create_table_with_unqualified_name(planner_and_sender_with_schema: (QueryPlan
 #[rstest::rstest]
 fn create_table_with_unsupported_name(planner_and_sender_with_schema: (QueryPlanner, ResultCollector)) {
     let (query_planner, collector) = planner_and_sender_with_schema;
-    assert!(matches!(
-        query_planner.plan(Statement::CreateTable {
-            name: ObjectName(vec![
-                ident("first_part"),
-                ident("second_part"),
-                ident("third_part"),
-                ident("fourth_part")
-            ]),
-            columns: vec![ColumnDef {
-                name: ident("column_name"),
-                data_type: DataType::Custom(ObjectName(vec![ident("strange_type_name_whatever")])),
-                collation: None,
-                options: vec![]
-            }],
-            constraints: vec![],
-            with_options: vec![],
-            if_not_exists: false,
-            external: false,
-            file_format: None,
-            location: None,
-            query: None,
-            without_rowid: false,
-        }),
-        Err(_)
-    ));
+    assert_eq!(
+        query_planner.plan(table(
+            vec!["first_part", "second_part", "third_part", "fourth_part"],
+            vec![column("column_name", DataType::SmallInt)]
+        )),
+        Err(())
+    );
 
     collector.assert_content(vec![Err(QueryError::syntax_error(
         "unable to process table name 'first_part.second_part.third_part.fourth_part'",
     ))])
+}
+
+#[rstest::rstest]
+fn create_table(planner_and_sender_with_schema: (QueryPlanner, ResultCollector)) {
+    let (query_planner, collector) = planner_and_sender_with_schema;
+    assert_eq!(
+        query_planner.plan(table(
+            vec![SCHEMA, TABLE],
+            vec![column("column_name", DataType::SmallInt)]
+        )),
+        Ok(Plan::CreateTable(TableCreationInfo::new(
+            0,
+            TABLE,
+            vec![ColumnDefinition::new(
+                "column_name",
+                SqlType::SmallInt(i16::min_value())
+            )]
+        )))
+    );
+
+    collector.assert_content(vec![])
 }

@@ -64,7 +64,7 @@ fn same_table_names_with_different_columns_in_different_schemas(data_manager: Da
 
 #[rstest::rstest]
 fn drop_schema(data_manager_with_schema: DataManager) {
-    let schema_id = data_manager_with_schema.schema_exists(SCHEMA).expect("schema exists");
+    let schema_id = data_manager_with_schema.schema_exists(&SCHEMA).expect("schema exists");
     assert_eq!(
         data_manager_with_schema
             .drop_schema(schema_id, DropStrategy::Restrict)
@@ -76,11 +76,11 @@ fn drop_schema(data_manager_with_schema: DataManager) {
 
 #[rstest::rstest]
 fn restrict_drop_schema_does_not_drop_schema_with_table(data_manager_with_schema: DataManager) {
-    let schema_id = data_manager_with_schema.schema_exists(SCHEMA).expect("schema exists");
+    let schema_id = data_manager_with_schema.schema_exists(&SCHEMA).expect("schema exists");
     data_manager_with_schema
         .create_table(schema_id, "table_name", &[])
         .expect("no system errors");
-    let schema_id = data_manager_with_schema.schema_exists(SCHEMA).expect("schema exists");
+    let schema_id = data_manager_with_schema.schema_exists(&SCHEMA).expect("schema exists");
     assert_eq!(
         data_manager_with_schema
             .drop_schema(schema_id, DropStrategy::Restrict)
@@ -91,7 +91,7 @@ fn restrict_drop_schema_does_not_drop_schema_with_table(data_manager_with_schema
 
 #[rstest::rstest]
 fn cascade_drop_schema_drops_tables_in_it(data_manager_with_schema: DataManager) {
-    let schema_id = data_manager_with_schema.schema_exists(SCHEMA).expect("schema exists");
+    let schema_id = data_manager_with_schema.schema_exists(&SCHEMA).expect("schema exists");
     data_manager_with_schema
         .create_table(
             schema_id,
@@ -119,7 +119,7 @@ fn cascade_drop_schema_drops_tables_in_it(data_manager_with_schema: DataManager)
             .expect("no system errors"),
         Ok(())
     );
-    let schema_id = data_manager_with_schema.create_schema(SCHEMA).expect("schema exists");
+    let schema_id = data_manager_with_schema.create_schema(&SCHEMA).expect("schema exists");
     assert!(matches!(
         data_manager_with_schema.create_table(
             schema_id,

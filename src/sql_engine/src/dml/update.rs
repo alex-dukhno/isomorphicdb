@@ -43,8 +43,8 @@ impl UpdateCommand {
     }
 
     pub(crate) fn execute(&mut self) -> SystemResult<()> {
-        let schema_id = self.table_update.full_table_name.schema().0;
-        let table_id = self.table_update.full_table_name.name();
+        let schema_id = self.table_update.table_id.0;
+        let table_id = self.table_update.table_id.1;
 
         // only process the rows if the table and schema exist.
         let table_definition = self.data_manager.table_columns(schema_id, table_id)?;

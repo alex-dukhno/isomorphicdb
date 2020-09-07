@@ -36,7 +36,7 @@ impl Planner for DropTablesPlanner<'_> {
     fn plan(self, data_manager: Arc<DataManager>, sender: Arc<dyn Sender>) -> Result<Plan> {
         let mut table_names = Vec::with_capacity(self.names.len());
         for name in self.names {
-            match FullTableName::try_from(name.clone()) {
+            match FullTableName::try_from(name) {
                 Ok(full_table_name) => {
                     let (schema_name, table_name) = full_table_name.as_tuple();
                     match data_manager.table_exists(&schema_name, &table_name) {

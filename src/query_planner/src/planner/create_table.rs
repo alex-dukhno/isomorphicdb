@@ -23,20 +23,23 @@ use sql_model::sql_types::SqlType;
 use sqlparser::ast::{ColumnDef, ObjectName};
 use std::{convert::TryFrom, sync::Arc};
 
-pub(crate) struct CreateTablePlanner {
-    full_name: ObjectName,
-    columns: Vec<ColumnDef>,
+pub(crate) struct CreateTablePlanner<'ctp> {
+    full_table_name: &'ctp ObjectName,
+    columns: &'ctp [ColumnDef],
 }
 
-impl CreateTablePlanner {
-    pub(crate) fn new(full_name: ObjectName, columns: Vec<ColumnDef>) -> CreateTablePlanner {
-        CreateTablePlanner { full_name, columns }
+impl<'ctp> CreateTablePlanner<'ctp> {
+    pub(crate) fn new(full_table_name: &'ctp ObjectName, columns: &'ctp [ColumnDef]) -> CreateTablePlanner<'ctp> {
+        CreateTablePlanner {
+            full_table_name,
+            columns,
+        }
     }
 }
 
-impl Planner for CreateTablePlanner {
+impl Planner for CreateTablePlanner<'_> {
     fn plan(self, data_manager: Arc<DataManager>, sender: Arc<dyn Sender>) -> Result<Plan> {
-        match FullTableName::try_from(self.full_name) {
+        match FullTableName::try_from(self.full_table_name) {
             Ok(full_table_name) => {
                 let (schema_name, table_name) = full_table_name.as_tuple();
                 match data_manager.table_exists(&schema_name, &table_name) {
@@ -55,16 +58,17 @@ impl Planner for CreateTablePlanner {
                     Some((schema_id, None)) => {
                         let mut column_defs = Vec::new();
                         for column in self.columns {
-                            let sql_type = match SqlType::try_from(&column.data_type) {
-                                Ok(sql_type) => sql_type,
+                            match SqlType::try_from(&column.data_type) {
+                                Ok(sql_type) => {
+                                    column_defs.push(ColumnDefinition::new(column.name.value.as_str(), sql_type))
+                                }
                                 Err(error) => {
                                     sender
                                         .send(Err(QueryError::feature_not_supported(error)))
                                         .expect("To Send Result to Client");
                                     return Err(());
                                 }
-                            };
-                            column_defs.push(ColumnDefinition::new(column.name.value.as_str(), sql_type));
+                            }
                         }
                         Ok(Plan::CreateTable(TableCreationInfo::new(
                             schema_id,

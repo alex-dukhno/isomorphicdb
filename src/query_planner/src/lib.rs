@@ -27,7 +27,7 @@ pub mod plan;
 pub mod planner;
 
 /// represents a schema uniquely by its id
-#[derive(Debug, Clone)]
+#[derive(PartialEq, Debug, Clone)]
 pub struct SchemaId(pub Id);
 
 /// represents a schema uniquely by its name
@@ -40,10 +40,16 @@ impl SchemaName {
     }
 }
 
-impl TryFrom<ObjectName> for SchemaName {
+impl AsRef<str> for SchemaName {
+    fn as_ref(&self) -> &str {
+        self.0.as_str()
+    }
+}
+
+impl TryFrom<&ObjectName> for SchemaName {
     type Error = SchemaNamingError;
 
-    fn try_from(object: ObjectName) -> Result<Self, Self::Error> {
+    fn try_from(object: &ObjectName) -> Result<Self, Self::Error> {
         if object.0.len() != 1 {
             Err(SchemaNamingError(object.to_string()))
         } else {
@@ -73,14 +79,6 @@ pub struct FullTableId(SchemaId, Id);
 pub struct FullTableName(SchemaName, String);
 
 impl FullTableName {
-    pub fn schema_name(&self) -> &str {
-        self.0.name()
-    }
-
-    pub fn name(&self) -> &str {
-        self.1.as_str()
-    }
-
     fn as_tuple(&self) -> (&str, &str) {
         (&self.0.name(), &self.1)
     }
@@ -92,10 +90,10 @@ impl Display for FullTableName {
     }
 }
 
-impl TryFrom<ObjectName> for FullTableName {
+impl TryFrom<&ObjectName> for FullTableName {
     type Error = TableNamingError;
 
-    fn try_from(object: ObjectName) -> Result<Self, Self::Error> {
+    fn try_from(object: &ObjectName) -> Result<Self, Self::Error> {
         if object.0.len() == 1 {
             Err(TableNamingError::Unqualified(object.to_string()))
         } else if object.0.len() != 2 {
@@ -126,9 +124,6 @@ impl Display for TableNamingError {
     }
 }
 
-#[cfg(test)]
-mod tests;
-
 /// A type of a column
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ColumnType {
@@ -138,18 +133,8 @@ pub struct ColumnType {
 }
 
 /// represents a table uniquely
-///
-/// I would like this to be a single 64 bit number where the top bits are the
-/// schema id and lower bits are the table id.
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
-pub struct TableId(RecordId, RecordId);
+pub struct TableId(pub RecordId, pub RecordId);
 
-impl TableId {
-    pub fn schema(&self) -> SchemaId {
-        SchemaId(self.0)
-    }
-
-    pub fn name(&self) -> RecordId {
-        self.1
-    }
-}
+#[cfg(test)]
+mod tests;

@@ -453,15 +453,15 @@ impl DataManager {
         }
     }
 
-    pub fn schema_exists(&self, schema_name: &str) -> FullSchemaId {
+    pub fn schema_exists<S: AsRef<str>>(&self, schema_name: &S) -> FullSchemaId {
         self.data_definition
-            .schema_exists(DEFAULT_CATALOG, schema_name)
+            .schema_exists(DEFAULT_CATALOG, schema_name.as_ref())
             .and_then(|(_catalog, schema)| schema)
     }
 
-    pub fn table_exists(&self, schema_name: &str, table_name: &str) -> FullTableId {
+    pub fn table_exists<S: AsRef<str>>(&self, schema_name: &S, table_name: &S) -> FullTableId {
         self.data_definition
-            .table_exists(DEFAULT_CATALOG, schema_name, table_name)
+            .table_exists(DEFAULT_CATALOG, schema_name.as_ref(), table_name.as_ref())
             .and_then(|(_catalog, full_table)| full_table)
     }
 }

@@ -19,7 +19,7 @@ use super::*;
 
 #[rstest::rstest]
 fn delete_all_from_table(data_manager_with_schema: DataManager) {
-    let schema_id = data_manager_with_schema.schema_exists(SCHEMA).expect("schema exists");
+    let schema_id = data_manager_with_schema.schema_exists(&SCHEMA).expect("schema exists");
     let table_id = data_manager_with_schema
         .create_table(
             schema_id,
@@ -85,7 +85,7 @@ fn delete_all_from_table(data_manager_with_schema: DataManager) {
 
 #[rstest::fixture]
 fn with_small_ints_table(data_manager_with_schema: DataManager) -> DataManager {
-    let schema_id = data_manager_with_schema.schema_exists(SCHEMA).expect("schema exists");
+    let schema_id = data_manager_with_schema.schema_exists(&SCHEMA).expect("schema exists");
     data_manager_with_schema
         .create_table(
             schema_id,
@@ -103,7 +103,7 @@ fn with_small_ints_table(data_manager_with_schema: DataManager) -> DataManager {
 #[rstest::rstest]
 fn select_all_from_table_with_many_columns(with_small_ints_table: DataManager) {
     let full_table_id = with_small_ints_table
-        .table_exists(SCHEMA, "table_name")
+        .table_exists(&SCHEMA, &"table_name")
         .expect("schema exists");
     let schema_id = full_table_id.0;
     let table_id = full_table_id.1.expect("table exist");
