@@ -50,6 +50,9 @@ impl Collector {
 
 type ResultCollector = Arc<Collector>;
 
+const SCHEMA: &str = "schema_name";
+const TABLE: &str = "table_name";
+
 #[rstest::fixture]
 fn sender() -> ResultCollector {
     Arc::new(Collector(Mutex::new(vec![])))
@@ -66,7 +69,16 @@ fn planner_and_sender() -> (QueryPlanner, ResultCollector) {
 fn planner_and_sender_with_schema() -> (QueryPlanner, ResultCollector) {
     let collector = Arc::new(Collector(Mutex::new(vec![])));
     let manager = DataManager::in_memory().expect("to create data manager");
-    manager.create_schema("schema_name").expect("schema created");
+    manager.create_schema(SCHEMA).expect("schema created");
+    (QueryPlanner::new(Arc::new(manager), collector.clone()), collector)
+}
+
+#[rstest::fixture]
+fn planner_and_sender_with_table() -> (QueryPlanner, ResultCollector) {
+    let collector = Arc::new(Collector(Mutex::new(vec![])));
+    let manager = DataManager::in_memory().expect("to create data manager");
+    let schema_id = manager.create_schema(SCHEMA).expect("schema created");
+    manager.create_table(schema_id, TABLE, &[]).expect("table created");
     (QueryPlanner::new(Arc::new(manager), collector.clone()), collector)
 }
 

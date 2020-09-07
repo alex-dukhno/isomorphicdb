@@ -27,7 +27,7 @@ pub mod plan;
 pub mod planner;
 
 /// represents a schema uniquely by its id
-#[derive(Debug, Clone)]
+#[derive(PartialEq, Debug, Clone)]
 pub struct SchemaId(pub Id);
 
 /// represents a schema uniquely by its name

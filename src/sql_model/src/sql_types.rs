@@ -68,7 +68,7 @@ pub struct NotSupportedType(DataType);
 
 impl Display for NotSupportedType {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{} type is not supported", self.0)
+        write!(f, "'{}' type is not supported", self.0)
     }
 }
 
