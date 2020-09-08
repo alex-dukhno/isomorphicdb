@@ -39,12 +39,6 @@ impl AsRef<Id> for SchemaId {
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
 pub struct SchemaName(String);
 
-impl SchemaName {
-    pub fn name(&self) -> &str {
-        self.0.as_str()
-    }
-}
-
 impl AsRef<str> for SchemaName {
     fn as_ref(&self) -> &str {
         self.0.as_str()
@@ -77,21 +71,19 @@ impl Display for SchemaNamingError {
     }
 }
 
-pub struct FullTableId(SchemaId, Id);
-
 /// represents a table uniquely
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
 pub struct FullTableName(SchemaName, String);
 
 impl FullTableName {
     fn as_tuple(&self) -> (&str, &str) {
-        (&self.0.name(), &self.1)
+        (&self.0.as_ref(), &self.1)
     }
 }
 
 impl Display for FullTableName {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}.{}", self.0.name(), self.1)
+        write!(f, "{}.{}", self.0.as_ref(), self.1)
     }
 }
 
