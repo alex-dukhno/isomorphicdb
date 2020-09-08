@@ -77,7 +77,7 @@ version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d90e4baef8f76edf22f63ecdee360541ceb56236948ac03f2904329a26debd20"
 dependencies = [
- "blocking",
+ "blocking 0.6.1",
  "futures-lite",
 ]
 
@@ -143,7 +143,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "79db11f7831e0de63763ed8e3f23c2095aad16c6ca2fffa727b922a955f026b2"
 dependencies = [
  "async-io",
- "blocking",
+ "blocking 0.6.1",
  "futures-lite",
 ]
 
@@ -154,7 +154,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "23d510baf319291a41e6c3363df4408a3b196ad18fcb1305ae4e500f2eabe260"
 dependencies = [
  "async-io",
- "blocking",
+ "blocking 0.6.1",
  "cfg-if",
  "event-listener",
  "futures-lite",
@@ -288,6 +288,20 @@ name = "blocking"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3f30e08a950487f80d2de5cbb72772c8bbaed6002dc8d979722dabd034ede18d"
+dependencies = [
+ "async-channel",
+ "atomic-waker",
+ "fastrand",
+ "futures-lite",
+ "once_cell",
+ "waker-fn",
+]
+
+[[package]]
+name = "blocking"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2640778f8053e72c11f621b0a5175a0560a269282aa98ed85107773ab8e2a556"
 dependencies = [
  "async-channel",
  "atomic-waker",
@@ -694,7 +708,7 @@ version = "0.1.0"
 dependencies = [
  "async-dup",
  "async-io",
- "blocking",
+ "blocking 1.0.0",
  "data_manager",
  "futures-lite",
  "kernel",
@@ -882,7 +896,7 @@ dependencies = [
  "async-mutex",
  "async-native-tls",
  "async-trait",
- "blocking",
+ "blocking 1.0.0",
  "byteorder",
  "futures-lite",
  "itertools",
@@ -1167,7 +1181,7 @@ dependencies = [
  "async-lock",
  "async-net",
  "async-process",
- "blocking",
+ "blocking 0.6.1",
  "futures-lite",
  "once_cell",
 ]
