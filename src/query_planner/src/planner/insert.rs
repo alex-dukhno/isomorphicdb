@@ -25,15 +25,11 @@ use std::{convert::TryFrom, sync::Arc};
 pub(crate) struct InsertPlanner<'ip> {
     table_name: &'ip ObjectName,
     columns: &'ip [Ident],
-    source: &'ip Box<Query>,
+    source: &'ip Query,
 }
 
 impl<'ip> InsertPlanner<'ip> {
-    pub(crate) fn new(
-        table_name: &'ip ObjectName,
-        columns: &'ip [Ident],
-        source: &'ip Box<Query>,
-    ) -> InsertPlanner<'ip> {
+    pub(crate) fn new(table_name: &'ip ObjectName, columns: &'ip [Ident], source: &'ip Query) -> InsertPlanner<'ip> {
         InsertPlanner {
             table_name,
             columns,
@@ -64,7 +60,7 @@ impl Planner for InsertPlanner<'_> {
                         Err(())
                     }
                     Some((schema_id, Some(table_id))) => {
-                        let Query { body, .. } = &**self.source;
+                        let Query { body, .. } = &self.source;
                         match body {
                             SetExpr::Values(values) => {
                                 let values = values.0.to_vec();
