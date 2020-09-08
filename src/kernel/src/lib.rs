@@ -48,19 +48,11 @@ impl SystemError {
         }
     }
 
-    pub fn runtime_check_failure(message: String) -> SystemError {
+    pub fn runtime_check_failure<S: ToString>(message: &S) -> SystemError {
         SystemError {
-            message,
+            message: message.to_string(),
             backtrace: backtrace::Backtrace::new(),
             kind: SystemErrorKind::RuntimeCheckFailure,
-        }
-    }
-
-    pub fn unrecoverable(message: String) -> SystemError {
-        SystemError {
-            message,
-            backtrace: backtrace::Backtrace::new(),
-            kind: SystemErrorKind::Unrecoverable,
         }
     }
 
@@ -81,7 +73,6 @@ impl PartialEq for SystemError {
 
 #[derive(Debug)]
 pub enum SystemErrorKind {
-    Unrecoverable,
     RuntimeCheckFailure,
     SqlEngineBug,
     Io(std::io::Error),
@@ -112,7 +103,6 @@ impl PartialEq for SystemErrorKind {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (SystemErrorKind::Io(_), SystemErrorKind::Io(_)) => true,
-            (SystemErrorKind::Unrecoverable, SystemErrorKind::Unrecoverable) => true,
             (SystemErrorKind::RuntimeCheckFailure, SystemErrorKind::RuntimeCheckFailure) => true,
             _ => false,
         }

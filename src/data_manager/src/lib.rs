@@ -94,9 +94,8 @@ pub trait Database {
     ) -> io::Result<Result<Result<usize, DefinitionError>, StorageError>>;
 }
 
-pub type RecordId = Id;
-pub type FullSchemaId = Option<RecordId>;
-pub type FullTableId = Option<(RecordId, Option<RecordId>)>;
+pub type FullSchemaId = Option<Id>;
+pub type FullTableId = Option<(Id, Option<Id>)>;
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct ColumnDefinition {
@@ -140,9 +139,9 @@ pub enum DropSchemaError {
 pub struct DataManager {
     data_storage: Box<dyn Database>,
     data_definition: DataDefinition,
-    schemas: RwLock<HashMap<RecordId, String>>,
-    tables: RwLock<HashMap<(RecordId, RecordId), Vec<String>>>,
-    record_id_generators: RwLock<HashMap<(RecordId, RecordId), AtomicU64>>,
+    schemas: RwLock<HashMap<Id, String>>,
+    tables: RwLock<HashMap<(Id, Id), Vec<String>>>,
+    record_id_generators: RwLock<HashMap<(Id, Id), AtomicU64>>,
 }
 
 impl Default for DataManager {
@@ -224,19 +223,19 @@ impl DataManager {
         })
     }
 
-    pub fn next_key_id(&self, schema_id: RecordId, table_id: RecordId) -> RecordId {
+    pub fn next_key_id<I: AsRef<(Id, Id)>>(&self, table_id: &I) -> Id {
         match self
             .record_id_generators
             .read()
             .expect("to acquire read lock")
-            .get(&(schema_id, table_id))
+            .get(table_id.as_ref())
         {
             Some(id_generator) => id_generator.fetch_add(1, Ordering::SeqCst),
             None => panic!(),
         }
     }
 
-    pub fn create_schema(&self, schema_name: &str) -> SystemResult<RecordId> {
+    pub fn create_schema(&self, schema_name: &str) -> SystemResult<Id> {
         match self.data_definition.create_schema(DEFAULT_CATALOG, schema_name) {
             Some((_, Some(schema_id))) => {
                 self.schemas
@@ -262,12 +261,17 @@ impl DataManager {
         }
     }
 
-    pub fn drop_schema(
+    pub fn drop_schema<I: AsRef<Id>>(
         &self,
-        schema_id: RecordId,
+        schema_id: &I,
         strategy: DropStrategy,
     ) -> SystemResult<Result<(), DropSchemaError>> {
-        match self.schemas.write().expect("to acquire write lock").remove(&schema_id) {
+        match self
+            .schemas
+            .write()
+            .expect("to acquire write lock")
+            .remove(schema_id.as_ref())
+        {
             None => Ok(Err(DropSchemaError::DoesNotExist)),
             Some(schema_name) => {
                 match self
@@ -289,10 +293,10 @@ impl DataManager {
 
     pub fn create_table(
         &self,
-        schema_id: RecordId,
+        schema_id: Id,
         table_name: &str,
         column_definitions: &[ColumnDefinition],
-    ) -> SystemResult<RecordId> {
+    ) -> SystemResult<Id> {
         match self.schemas.read().expect("to acquire read lock").get(&schema_id) {
             Some(schema_name) => {
                 match self
@@ -329,36 +333,37 @@ impl DataManager {
         }
     }
 
-    pub fn table_columns(&self, schema_id: RecordId, table_id: RecordId) -> SystemResult<Vec<ColumnDefinition>> {
-        match self
-            .tables
-            .read()
-            .expect("to acquire read lock")
-            .get(&(schema_id, table_id))
-        {
+    pub fn table_columns<I: AsRef<(Id, Id)>>(&self, table_id: &I) -> SystemResult<Vec<ColumnDefinition>> {
+        match self.tables.read().expect("to acquire read lock").get(table_id.as_ref()) {
             Some(full_name) => {
                 Ok(self
                     .data_definition
                     .table_columns(DEFAULT_CATALOG, full_name[0].as_str(), full_name[1].as_str()))
             }
-            _ => Err(SystemError::bug_in_sql_engine(
-                Operation::Access,
-                Object::Table(schema_id.to_string().as_str(), table_id.to_string().as_str()),
-            )),
+            _ => {
+                let (schema_id, table_id) = table_id.as_ref();
+                Err(SystemError::bug_in_sql_engine(
+                    Operation::Access,
+                    Object::Table(schema_id.to_string().as_str(), table_id.to_string().as_str()),
+                ))
+            }
         }
     }
 
-    pub fn drop_table(&self, schema_id: RecordId, table_id: RecordId) -> SystemResult<()> {
+    pub fn drop_table<I: AsRef<(Id, Id)>>(&self, table_id: &I) -> SystemResult<()> {
         match self
             .tables
             .write()
             .expect("to acquire write lock")
-            .remove(&(schema_id, table_id))
+            .remove(table_id.as_ref())
         {
-            None => Err(SystemError::bug_in_sql_engine(
-                Operation::Drop,
-                Object::Table(schema_id.to_string().as_str(), table_id.to_string().as_str()),
-            )),
+            None => {
+                let (schema_id, table_id) = table_id.as_ref();
+                Err(SystemError::bug_in_sql_engine(
+                    Operation::Drop,
+                    Object::Table(schema_id.to_string().as_str(), table_id.to_string().as_str()),
+                ))
+            }
             Some(full_name) => {
                 self.data_definition
                     .drop_table(DEFAULT_CATALOG, full_name[0].as_str(), full_name[1].as_str());
@@ -367,27 +372,20 @@ impl DataManager {
                     .drop_object(full_name[0].as_str(), full_name[1].as_str())
                 {
                     Ok(Ok(Ok(()))) => Ok(()),
-                    _ => Err(SystemError::bug_in_sql_engine(
-                        Operation::Drop,
-                        Object::Table(schema_id.to_string().as_str(), table_id.to_string().as_str()),
-                    )),
+                    _ => {
+                        let (schema_id, table_id) = table_id.as_ref();
+                        Err(SystemError::bug_in_sql_engine(
+                            Operation::Drop,
+                            Object::Table(schema_id.to_string().as_str(), table_id.to_string().as_str()),
+                        ))
+                    }
                 }
             }
         }
     }
 
-    pub fn write_into(
-        &self,
-        schema_id: RecordId,
-        table_id: RecordId,
-        values: Vec<(Key, Values)>,
-    ) -> SystemResult<usize> {
-        match self
-            .tables
-            .read()
-            .expect("to acquire read lock")
-            .get(&(schema_id, table_id))
-        {
+    pub fn write_into<I: AsRef<(Id, Id)>>(&self, table_id: &I, values: Vec<(Key, Values)>) -> SystemResult<usize> {
+        match self.tables.read().expect("to acquire read lock").get(table_id.as_ref()) {
             Some(full_name) => {
                 log::debug!("{:#?}", values);
                 match self
@@ -395,61 +393,69 @@ impl DataManager {
                     .write(full_name[0].as_str(), full_name[1].as_str(), values)
                 {
                     Ok(Ok(Ok(size))) => Ok(size),
-                    _ => Err(SystemError::bug_in_sql_engine(
-                        Operation::Access,
-                        Object::Table(schema_id.to_string().as_str(), table_id.to_string().as_str()),
-                    )),
+                    _ => {
+                        let (schema_id, table_id) = table_id.as_ref();
+                        Err(SystemError::bug_in_sql_engine(
+                            Operation::Access,
+                            Object::Table(schema_id.to_string().as_str(), table_id.to_string().as_str()),
+                        ))
+                    }
                 }
             }
-            None => Err(SystemError::bug_in_sql_engine(
-                Operation::Access,
-                Object::Table(schema_id.to_string().as_str(), table_id.to_string().as_str()),
-            )),
-        }
-    }
-
-    pub fn full_scan(&self, schema_id: RecordId, table_id: RecordId) -> SystemResult<ReadCursor> {
-        match self
-            .tables
-            .read()
-            .expect("to acquire read lock")
-            .get(&(schema_id, table_id))
-        {
-            Some(full_name) => match self.data_storage.read(full_name[0].as_str(), full_name[1].as_str()) {
-                Ok(Ok(Ok(read))) => Ok(read),
-                _ => Err(SystemError::bug_in_sql_engine(
+            None => {
+                let (schema_id, table_id) = table_id.as_ref();
+                Err(SystemError::bug_in_sql_engine(
                     Operation::Access,
                     Object::Table(schema_id.to_string().as_str(), table_id.to_string().as_str()),
-                )),
-            },
-            None => Err(SystemError::bug_in_sql_engine(
-                Operation::Access,
-                Object::Table(schema_id.to_string().as_str(), table_id.to_string().as_str()),
-            )),
+                ))
+            }
         }
     }
 
-    pub fn delete_from(&self, schema_id: RecordId, table_id: RecordId, keys: Vec<Key>) -> SystemResult<usize> {
-        match self
-            .tables
-            .read()
-            .expect("to acquire read lock")
-            .get(&(schema_id, table_id))
-        {
+    pub fn full_scan<I: AsRef<(Id, Id)>>(&self, table_id: &I) -> SystemResult<ReadCursor> {
+        match self.tables.read().expect("to acquire read lock").get(table_id.as_ref()) {
+            Some(full_name) => match self.data_storage.read(full_name[0].as_str(), full_name[1].as_str()) {
+                Ok(Ok(Ok(read))) => Ok(read),
+                _ => {
+                    let (schema_id, table_id) = table_id.as_ref();
+                    Err(SystemError::bug_in_sql_engine(
+                        Operation::Access,
+                        Object::Table(schema_id.to_string().as_str(), table_id.to_string().as_str()),
+                    ))
+                }
+            },
+            None => {
+                let (schema_id, table_id) = table_id.as_ref();
+                Err(SystemError::bug_in_sql_engine(
+                    Operation::Access,
+                    Object::Table(schema_id.to_string().as_str(), table_id.to_string().as_str()),
+                ))
+            }
+        }
+    }
+
+    pub fn delete_from<I: AsRef<(Id, Id)>>(&self, table_id: &I, keys: Vec<Key>) -> SystemResult<usize> {
+        match self.tables.read().expect("to acquire read lock").get(table_id.as_ref()) {
             Some(full_name) => match self
                 .data_storage
                 .delete(full_name[0].as_str(), full_name[1].as_str(), keys)
             {
                 Ok(Ok(Ok(len))) => Ok(len),
-                _ => Err(SystemError::bug_in_sql_engine(
+                _ => {
+                    let (schema_id, table_id) = table_id.as_ref();
+                    Err(SystemError::bug_in_sql_engine(
+                        Operation::Access,
+                        Object::Table(schema_id.to_string().as_str(), table_id.to_string().as_str()),
+                    ))
+                }
+            },
+            None => {
+                let (schema_id, table_id) = table_id.as_ref();
+                Err(SystemError::bug_in_sql_engine(
                     Operation::Access,
                     Object::Table(schema_id.to_string().as_str(), table_id.to_string().as_str()),
-                )),
-            },
-            None => Err(SystemError::bug_in_sql_engine(
-                Operation::Access,
-                Object::Table(schema_id.to_string().as_str(), table_id.to_string().as_str()),
-            )),
+                ))
+            }
         }
     }
 

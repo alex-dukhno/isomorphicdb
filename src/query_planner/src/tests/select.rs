@@ -198,7 +198,7 @@ fn select_from_table(planner_and_sender_with_table: (QueryPlanner, ResultCollect
             fetch: None,
         }))),
         Ok(Plan::Select(SelectInput {
-            table_id: TableId(0, 0),
+            table_id: TableId((0, 0)),
             selected_columns: vec![]
         }))
     );

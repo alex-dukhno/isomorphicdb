@@ -74,15 +74,15 @@ fn parse_select_statement_with_not_existed_column(sql_engine_with_schema: (Query
     engine
         .execute("create table schema_name.table_name (column_1 smallint, column_2 smallint);")
         .expect("no system errors");
+
     assert_eq!(
         engine.parse_prepared_statement(
             "statement_name",
             "select column_not_in_table from schema_name.table_name where column_1 = $1;",
             &[],
         ),
-        Err(SystemError::runtime_check_failure("Column Does Not Exist".to_owned()))
+        Err(SystemError::runtime_check_failure(&"Column Does Not Exist"))
     );
-
     collector.assert_content(vec![
         Ok(QueryEvent::SchemaCreated),
         Ok(QueryEvent::QueryComplete),

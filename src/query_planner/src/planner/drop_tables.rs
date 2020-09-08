@@ -52,7 +52,7 @@ impl Planner for DropTablesPlanner<'_> {
                                 .expect("To Send Query Result to Client");
                             return Err(());
                         }
-                        Some((schema_id, Some(table_id))) => table_names.push(TableId(schema_id, table_id)),
+                        Some((schema_id, Some(table_id))) => table_names.push(TableId((schema_id, table_id))),
                     }
                 }
                 Err(error) => {
