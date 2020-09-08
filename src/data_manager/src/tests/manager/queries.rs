@@ -33,8 +33,7 @@ fn delete_all_from_table(data_manager_with_schema: DataManager) {
 
     data_manager_with_schema
         .write_into(
-            schema_id,
-            table_id,
+            &Box::new((schema_id, table_id)),
             vec![(
                 Binary::pack(&[Datum::from_u64(1)]),
                 Binary::pack(&[Datum::from_i16(123)]),
@@ -43,8 +42,7 @@ fn delete_all_from_table(data_manager_with_schema: DataManager) {
         .expect("values are inserted");
     data_manager_with_schema
         .write_into(
-            schema_id,
-            table_id,
+            &Box::new((schema_id, table_id)),
             vec![(
                 Binary::pack(&[Datum::from_u64(2)]),
                 Binary::pack(&[Datum::from_i16(456)]),
@@ -53,8 +51,7 @@ fn delete_all_from_table(data_manager_with_schema: DataManager) {
         .expect("values are inserted");
     data_manager_with_schema
         .write_into(
-            table_id,
-            schema_id,
+            &Box::new((schema_id, table_id)),
             vec![(
                 Binary::pack(&[Datum::from_u64(3)]),
                 Binary::pack(&[Datum::from_i16(789)]),
@@ -64,8 +61,7 @@ fn delete_all_from_table(data_manager_with_schema: DataManager) {
 
     assert_eq!(
         data_manager_with_schema.delete_from(
-            schema_id,
-            table_id,
+            &Box::new((schema_id, table_id)),
             vec![
                 Binary::pack(&[Datum::from_u64(1)]),
                 Binary::pack(&[Datum::from_u64(2)]),
@@ -77,7 +73,7 @@ fn delete_all_from_table(data_manager_with_schema: DataManager) {
 
     assert_eq!(
         data_manager_with_schema
-            .full_scan(schema_id, table_id)
+            .full_scan(&Box::new((schema_id, table_id)))
             .map(|iter| iter.map(Result::unwrap).map(Result::unwrap).collect()),
         Ok(vec![])
     );
@@ -109,8 +105,7 @@ fn select_all_from_table_with_many_columns(with_small_ints_table: DataManager) {
     let table_id = full_table_id.1.expect("table exist");
     with_small_ints_table
         .write_into(
-            schema_id,
-            table_id,
+            &Box::new((schema_id, table_id)),
             vec![(
                 Binary::pack(&[Datum::from_u64(1)]),
                 Binary::pack(&[Datum::from_i16(1), Datum::from_i16(2), Datum::from_i16(3)]),
@@ -119,11 +114,13 @@ fn select_all_from_table_with_many_columns(with_small_ints_table: DataManager) {
         .expect("values are inserted");
 
     assert_eq!(
-        with_small_ints_table.full_scan(schema_id, table_id).map(|read| read
-            .map(Result::unwrap)
-            .map(Result::unwrap)
-            .map(|(_key, values)| values)
-            .collect()),
+        with_small_ints_table
+            .full_scan(&Box::new((schema_id, table_id)))
+            .map(|read| read
+                .map(Result::unwrap)
+                .map(Result::unwrap)
+                .map(|(_key, values)| values)
+                .collect()),
         Ok(vec![Binary::pack(&[
             Datum::from_i16(1),
             Datum::from_i16(2),

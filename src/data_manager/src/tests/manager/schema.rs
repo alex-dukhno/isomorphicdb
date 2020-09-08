@@ -47,14 +47,14 @@ fn same_table_names_with_different_columns_in_different_schemas(data_manager: Da
         .expect("table is created");
 
     assert_eq!(
-        data_manager.table_columns(schema_1_id, table_1_id),
+        data_manager.table_columns(&Box::new((schema_1_id, table_1_id))),
         Ok(vec![ColumnDefinition::new(
             "sn_1_column",
             SqlType::SmallInt(i16::min_value()),
         )])
     );
     assert_eq!(
-        data_manager.table_columns(schema_2_id, table_2_id),
+        data_manager.table_columns(&Box::new((schema_2_id, table_2_id))),
         Ok(vec![ColumnDefinition::new(
             "sn_2_column",
             SqlType::BigInt(i64::min_value()),
@@ -67,7 +67,7 @@ fn drop_schema(data_manager_with_schema: DataManager) {
     let schema_id = data_manager_with_schema.schema_exists(&SCHEMA).expect("schema exists");
     assert_eq!(
         data_manager_with_schema
-            .drop_schema(schema_id, DropStrategy::Restrict)
+            .drop_schema(&Box::new(schema_id), DropStrategy::Restrict)
             .expect("no system errors"),
         Ok(())
     );
@@ -83,7 +83,7 @@ fn restrict_drop_schema_does_not_drop_schema_with_table(data_manager_with_schema
     let schema_id = data_manager_with_schema.schema_exists(&SCHEMA).expect("schema exists");
     assert_eq!(
         data_manager_with_schema
-            .drop_schema(schema_id, DropStrategy::Restrict)
+            .drop_schema(&Box::new(schema_id), DropStrategy::Restrict)
             .expect("no system errors"),
         Err(DropSchemaError::HasDependentObjects)
     );
@@ -115,7 +115,7 @@ fn cascade_drop_schema_drops_tables_in_it(data_manager_with_schema: DataManager)
 
     assert_eq!(
         data_manager_with_schema
-            .drop_schema(schema_id, DropStrategy::Cascade)
+            .drop_schema(&Box::new(schema_id), DropStrategy::Cascade)
             .expect("no system errors"),
         Ok(())
     );

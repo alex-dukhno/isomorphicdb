@@ -19,17 +19,21 @@ use crate::{
 };
 use data_manager::DataManager;
 use protocol::{results::QueryError, Sender};
-use sqlparser::ast::{Ident, ObjectName, Query};
+use sqlparser::ast::{Ident, ObjectName, Query, SetExpr};
 use std::{convert::TryFrom, sync::Arc};
 
 pub(crate) struct InsertPlanner<'ip> {
     table_name: &'ip ObjectName,
     columns: &'ip [Ident],
-    source: &'ip Query,
+    source: &'ip Box<Query>,
 }
 
 impl<'ip> InsertPlanner<'ip> {
-    pub(crate) fn new(table_name: &'ip ObjectName, columns: &'ip [Ident], source: &'ip Query) -> InsertPlanner<'ip> {
+    pub(crate) fn new(
+        table_name: &'ip ObjectName,
+        columns: &'ip [Ident],
+        source: &'ip Box<Query>,
+    ) -> InsertPlanner<'ip> {
         InsertPlanner {
             table_name,
             columns,
@@ -59,11 +63,25 @@ impl Planner for InsertPlanner<'_> {
                             .expect("To Send Query Result to Client");
                         Err(())
                     }
-                    Some((schema_id, Some(table_id))) => Ok(Plan::Insert(Box::new(TableInserts {
-                        table_id: TableId(schema_id, table_id),
-                        column_indices: self.columns.to_vec(),
-                        input: self.source.clone(),
-                    }))),
+                    Some((schema_id, Some(table_id))) => {
+                        let Query { body, .. } = &**self.source;
+                        match body {
+                            SetExpr::Values(values) => {
+                                let values = values.0.to_vec();
+                                Ok(Plan::Insert(TableInserts {
+                                    table_id: TableId((schema_id, table_id)),
+                                    column_indices: self.columns.to_vec(),
+                                    input: values,
+                                }))
+                            }
+                            set_expr => {
+                                sender
+                                    .send(Err(QueryError::syntax_error(format!("{} is not supported", set_expr))))
+                                    .expect("To Send Query Result to Client");
+                                Err(())
+                            }
+                        }
+                    }
                 }
             }
             Err(error) => {

@@ -87,7 +87,10 @@ fn drop_table(data_manager_with_schema: DataManager) {
         )
         .expect("table is created");
 
-    assert_eq!(data_manager_with_schema.drop_table(schema_id, table_id), Ok(()));
+    assert_eq!(
+        data_manager_with_schema.drop_table(&Box::new((schema_id, table_id))),
+        Ok(())
+    );
     assert!(matches!(
         data_manager_with_schema.create_table(
             schema_id,
@@ -111,7 +114,7 @@ fn table_columns_on_empty_table(data_manager_with_schema: DataManager) {
 
     assert_eq!(
         data_manager_with_schema
-            .table_columns(schema_id, table_id)
+            .table_columns(&Box::new((schema_id, table_id)))
             .expect("no system errors"),
         vec![]
     );

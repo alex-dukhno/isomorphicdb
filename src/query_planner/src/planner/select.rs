@@ -73,8 +73,9 @@ impl Planner for SelectPlanner {
                                 for item in projection {
                                     match item {
                                         SelectItem::Wildcard => {
-                                            let all_columns =
-                                                data_manager.table_columns(schema_id, table_id).map_err(|_| ())?;
+                                            let all_columns = data_manager
+                                                .table_columns(&Box::new((schema_id, table_id)))
+                                                .map_err(|_| ())?;
                                             columns.extend(
                                                 all_columns
                                                     .into_iter()
@@ -97,7 +98,7 @@ impl Planner for SelectPlanner {
                             };
 
                             Ok(SelectInput {
-                                table_id: TableId(schema_id, table_id),
+                                table_id: TableId((schema_id, table_id)),
                                 selected_columns,
                             })
                         }

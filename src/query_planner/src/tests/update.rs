@@ -112,7 +112,7 @@ fn update_table(planner_and_sender_with_table: (QueryPlanner, ResultCollector)) 
             selection: None
         }),
         Ok(Plan::Update(TableUpdates {
-            table_id: TableId(0, 0),
+            table_id: TableId((0, 0)),
             assignments: vec![Assignment {
                 id: ident(""),
                 value: Expr::Value(Value::SingleQuotedString("".to_string()))

@@ -43,11 +43,7 @@ impl UpdateCommand {
     }
 
     pub(crate) fn execute(&mut self) -> SystemResult<()> {
-        let schema_id = self.table_update.table_id.0;
-        let table_id = self.table_update.table_id.1;
-
-        // only process the rows if the table and schema exist.
-        let table_definition = self.data_manager.table_columns(schema_id, table_id)?;
+        let table_definition = self.data_manager.table_columns(&self.table_update.table_id)?;
         let all_columns = table_definition.clone();
 
         let evaluation = ExpressionEvaluation::new(self.sender.clone(), table_definition);
@@ -65,7 +61,7 @@ impl UpdateCommand {
             return Ok(());
         }
 
-        let to_update: Vec<Row> = match self.data_manager.full_scan(schema_id, table_id) {
+        let to_update: Vec<Row> = match self.data_manager.full_scan(&self.table_update.table_id) {
             Err(error) => return Err(error),
             Ok(reads) => {
                 let expr_eval = EvalScalarOp::new(self.sender.as_ref(), all_columns.to_vec());
@@ -91,7 +87,7 @@ impl UpdateCommand {
             }
         };
 
-        match self.data_manager.write_into(schema_id, table_id, to_update) {
+        match self.data_manager.write_into(&self.table_update.table_id, to_update) {
             Err(error) => return Err(error),
             Ok(records_number) => {
                 self.sender

@@ -42,9 +42,7 @@ impl SelectCommand {
     }
 
     pub(crate) fn describe(&mut self) -> SystemResult<Description> {
-        let schema_id = self.select_input.table_id.0;
-        let table_id = self.select_input.table_id.1;
-        let all_columns = self.data_manager.table_columns(schema_id, table_id)?;
+        let all_columns = self.data_manager.table_columns(&self.select_input.table_id)?;
         let mut column_definitions = vec![];
         let mut has_error = false;
         for column_name in &self.select_input.selected_columns {
@@ -67,7 +65,7 @@ impl SelectCommand {
         }
 
         if has_error {
-            return Err(SystemError::runtime_check_failure("Column Does Not Exist".to_string()));
+            return Err(SystemError::runtime_check_failure(&"Column Does Not Exist"));
         }
 
         let description = column_definitions
@@ -79,12 +77,10 @@ impl SelectCommand {
     }
 
     pub(crate) fn execute(&mut self) -> SystemResult<()> {
-        let schema_id = self.select_input.table_id.0;
-        let table_id = self.select_input.table_id.1;
-        match self.data_manager.full_scan(schema_id, table_id) {
+        match self.data_manager.full_scan(&self.select_input.table_id) {
             Err(error) => Err(error),
             Ok(records) => {
-                let all_columns = self.data_manager.table_columns(schema_id, table_id)?;
+                let all_columns = self.data_manager.table_columns(&self.select_input.table_id)?;
                 let mut description = vec![];
                 let mut column_indexes = vec![];
                 let mut has_error = false;

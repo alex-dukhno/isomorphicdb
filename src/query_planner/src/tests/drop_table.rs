@@ -103,7 +103,7 @@ fn drop_table(planner_and_sender_with_table: (QueryPlanner, ResultCollector)) {
             names: vec![ObjectName(vec![ident(SCHEMA), ident(TABLE)])],
             cascade: false
         }),
-        Ok(Plan::DropTables(vec![TableId(0, 0)]))
+        Ok(Plan::DropTables(vec![TableId((0, 0))]))
     );
 
     collector.assert_content(vec![])

@@ -54,7 +54,7 @@ impl Planner for DeletePlanner<'_> {
                         Err(())
                     }
                     Some((schema_id, Some(table_id))) => Ok(Plan::Delete(TableDeletes {
-                        table_id: TableId(schema_id, table_id),
+                        table_id: TableId((schema_id, table_id)),
                     })),
                 }
             }

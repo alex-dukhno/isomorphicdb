@@ -18,7 +18,6 @@ use sql_model::Id;
 use sqlparser::ast::ObjectName;
 use std::fmt::{self, Display, Formatter};
 
-use data_manager::RecordId;
 use sql_model::sql_types::SqlType;
 
 ///! Module for representing how a query will be parameters bound, executed and
@@ -28,7 +27,13 @@ pub mod planner;
 
 /// represents a schema uniquely by its id
 #[derive(PartialEq, Debug, Clone)]
-pub struct SchemaId(pub Id);
+pub struct SchemaId(Id);
+
+impl AsRef<Id> for SchemaId {
+    fn as_ref(&self) -> &Id {
+        &self.0
+    }
+}
 
 /// represents a schema uniquely by its name
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
@@ -134,7 +139,13 @@ pub struct ColumnType {
 
 /// represents a table uniquely
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
-pub struct TableId(pub RecordId, pub RecordId);
+pub struct TableId((Id, Id));
+
+impl AsRef<(Id, Id)> for TableId {
+    fn as_ref(&self) -> &(Id, Id) {
+        &self.0
+    }
+}
 
 #[cfg(test)]
 mod tests;

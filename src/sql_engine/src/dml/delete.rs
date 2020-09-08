@@ -39,9 +39,7 @@ impl DeleteCommand {
     }
 
     pub(crate) fn execute(&mut self) -> SystemResult<()> {
-        let schema_id = self.table_deletes.table_id.0;
-        let table_id = self.table_deletes.table_id.1;
-        match self.data_manager.full_scan(schema_id, table_id) {
+        match self.data_manager.full_scan(&self.table_deletes.table_id) {
             Err(e) => return Err(e),
             Ok(reads) => {
                 let keys = reads
@@ -50,7 +48,7 @@ impl DeleteCommand {
                     .map(|(key, _)| key)
                     .collect();
 
-                match self.data_manager.delete_from(schema_id, table_id, keys) {
+                match self.data_manager.delete_from(&self.table_deletes.table_id, keys) {
                     Err(e) => return Err(e),
                     Ok(records_number) => self
                         .sender

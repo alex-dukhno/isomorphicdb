@@ -20,7 +20,7 @@ use protocol::{results::QueryEvent, Sender};
 use query_planner::SchemaId;
 
 pub(crate) struct DropSchemaCommand {
-    name: SchemaId,
+    schema_id: SchemaId,
     cascade: bool,
     data_manager: Arc<DataManager>,
     sender: Arc<dyn Sender>,
@@ -34,7 +34,7 @@ impl DropSchemaCommand {
         sender: Arc<dyn Sender>,
     ) -> DropSchemaCommand {
         DropSchemaCommand {
-            name,
+            schema_id: name,
             cascade,
             data_manager,
             sender,
@@ -47,7 +47,7 @@ impl DropSchemaCommand {
         } else {
             DropStrategy::Restrict
         };
-        match self.data_manager.drop_schema(self.name.0, strategy) {
+        match self.data_manager.drop_schema(&self.schema_id, strategy) {
             Err(error) => Err(error),
             Ok(Err(DropSchemaError::CatalogDoesNotExist)) => {
                 //ignore. Catalogs are not implemented
