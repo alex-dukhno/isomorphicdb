@@ -445,3 +445,91 @@ impl<'a> EvalScalarOp<'a> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use protocol::results::QueryResult;
+    use std::io;
+    use std::sync::Mutex;
+
+    struct Collector(Mutex<Vec<QueryResult>>);
+
+    impl Sender for Collector {
+        fn flush(&self) -> io::Result<()> {
+            Ok(())
+        }
+
+        fn send(&self, query_result: QueryResult) -> io::Result<()> {
+            self.0.lock().expect("locked").push(query_result);
+            Ok(())
+        }
+    }
+
+    impl Collector {
+        fn assert_content(&self, expected: Vec<QueryResult>) {
+            let result = self.0.lock().expect("locked");
+            assert_eq!(result.deref(), &expected)
+        }
+    }
+
+    type ResultCollector = Arc<Collector>;
+
+    fn sender() -> ResultCollector {
+        Arc::new(Collector(Mutex::new(vec![])))
+    }
+
+    #[test]
+    fn cast_bool_true_value() {
+        let sender = sender();
+        let evaluation = ExpressionEvaluation::new(sender.clone(), vec![]);
+
+        let r = evaluation.eval(
+            &Expr::Cast {
+                expr: Box::new(Expr::Value(Value::SingleQuotedString("true".to_string()))),
+                data_type: DataType::Boolean,
+            },
+            None,
+        );
+
+        assert_eq!(r, Ok(ScalarOp::Literal(Datum::from_bool(true))));
+
+        sender.assert_content(vec![]);
+    }
+
+    #[test]
+    fn cast_bool_false_value() {
+        let sender = sender();
+        let evaluation = ExpressionEvaluation::new(sender.clone(), vec![]);
+
+        let r = evaluation.eval(
+            &Expr::Cast {
+                expr: Box::new(Expr::Value(Value::SingleQuotedString("false".to_string()))),
+                data_type: DataType::Boolean,
+            },
+            None,
+        );
+
+        assert_eq!(r, Ok(ScalarOp::Literal(Datum::from_bool(false))));
+
+        sender.assert_content(vec![]);
+    }
+
+    #[test]
+    fn cast_un_parsable_bool_value() {
+        let sender = sender();
+        let evaluation = ExpressionEvaluation::new(sender.clone(), vec![]);
+
+        let r = evaluation.eval(
+            &Expr::Cast {
+                expr: Box::new(Expr::Value(Value::SingleQuotedString("not a bool".to_string()))),
+                data_type: DataType::Boolean,
+            },
+            None,
+        );
+
+        assert_eq!(r, Err(()));
+
+        sender.assert_content(vec![]);
+    }
+}
