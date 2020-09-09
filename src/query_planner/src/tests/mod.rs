@@ -14,7 +14,7 @@
 
 use super::*;
 use crate::planner::QueryPlanner;
-use data_manager::DataManager;
+use data_manager::{ColumnDefinition, DataManager};
 use protocol::{results::QueryResult, Sender};
 use sqlparser::ast::Ident;
 use std::{
@@ -87,6 +87,25 @@ fn planner_and_sender_with_schema() -> (QueryPlanner, ResultCollector) {
 
 #[rstest::fixture]
 fn planner_and_sender_with_table() -> (QueryPlanner, ResultCollector) {
+    let collector = Arc::new(Collector(Mutex::new(vec![])));
+    let manager = DataManager::in_memory().expect("to create data manager");
+    let schema_id = manager.create_schema(SCHEMA).expect("schema created");
+    manager
+        .create_table(
+            schema_id,
+            TABLE,
+            &[
+                ColumnDefinition::new("small_int", SqlType::SmallInt(0)),
+                ColumnDefinition::new("integer", SqlType::Integer(0)),
+                ColumnDefinition::new("big_int", SqlType::BigInt(0)),
+            ],
+        )
+        .expect("table created");
+    (QueryPlanner::new(Arc::new(manager), collector.clone()), collector)
+}
+
+#[rstest::fixture]
+fn planner_and_sender_with_no_column_table() -> (QueryPlanner, ResultCollector) {
     let collector = Arc::new(Collector(Mutex::new(vec![])));
     let manager = DataManager::in_memory().expect("to create data manager");
     let schema_id = manager.create_schema(SCHEMA).expect("schema created");

@@ -63,10 +63,52 @@ impl Planner for InsertPlanner<'_> {
                         let Query { body, .. } = &self.source;
                         match body {
                             SetExpr::Values(values) => {
+                                let table_id = TableId((schema_id, table_id));
                                 let values = values.0.to_vec();
+                                let all_columns = data_manager.table_columns(&table_id).expect("Ok");
+                                let index_cols = if self.columns.is_empty() {
+                                    let mut index_cols = vec![];
+                                    for (index, column_definition) in all_columns.iter().cloned().enumerate() {
+                                        index_cols.push((index, column_definition));
+                                    }
+
+                                    index_cols
+                                } else {
+                                    let column_names = self.columns.iter().map(|id| {
+                                        let Ident { value, .. } = id;
+                                        value
+                                    });
+                                    let mut index_cols = vec![];
+                                    let mut has_error = false;
+                                    for column_name in column_names {
+                                        let mut found = None;
+                                        for (index, column_definition) in all_columns.iter().enumerate() {
+                                            if column_definition.has_name(&column_name) {
+                                                found = Some((index, column_definition.clone()));
+                                                break;
+                                            }
+                                        }
+
+                                        match found {
+                                            Some(index_col) => index_cols.push(index_col),
+                                            None => {
+                                                sender
+                                                    .send(Err(QueryError::column_does_not_exist(column_name)))
+                                                    .expect("To Send Result to Client");
+                                                has_error = true;
+                                            }
+                                        }
+                                    }
+
+                                    if has_error {
+                                        return Err(());
+                                    }
+
+                                    index_cols
+                                };
                                 Ok(Plan::Insert(TableInserts {
-                                    table_id: TableId((schema_id, table_id)),
-                                    column_indices: self.columns.to_vec(),
+                                    table_id,
+                                    column_indices: index_cols,
                                     input: values,
                                 }))
                             }

@@ -20,11 +20,15 @@ use protocol::{
     results::{QueryError, QueryEvent},
     Sender,
 };
-use representation::{Binary, Datum};
+use representation::{Binary, Datum, EvalError};
 use sql_model::sql_types::ConstraintError;
 
-use crate::query::expr::{ExprMetadata, ExpressionEvaluation};
+use bigdecimal::BigDecimal;
 use query_planner::plan::TableInserts;
+use sqlparser::ast::{BinaryOperator, DataType, Expr, UnaryOperator, Value};
+use std::convert::TryFrom;
+use std::ops::Deref;
+use std::str::FromStr;
 
 pub(crate) struct InsertCommand {
     table_inserts: TableInserts,
@@ -46,122 +50,61 @@ impl InsertCommand {
     }
 
     pub(crate) fn execute(&mut self) -> SystemResult<()> {
-        let table_definition = self.data_manager.table_columns(&self.table_inserts.table_id)?;
-        let all_columns = table_definition.clone();
-
-        let evaluation = ExpressionEvaluation::new(self.sender.clone(), table_definition);
+        let mut evaluation = InsertExpressionEvaluation::new(self.sender.clone());
         let mut rows = vec![];
-        let mut has_error = false;
-        for line in self.table_inserts.input.iter() {
+        for line in &self.table_inserts.input {
             let mut row = vec![];
-            for (idx, col) in line.iter().enumerate() {
-                let meta = ExprMetadata::new(&all_columns[idx], idx);
-                match evaluation.eval(col, Some(meta)) {
-                    Ok(v) => {
-                        if v.is_literal() {
-                            let datum = v.as_datum().unwrap();
-                            match all_columns[idx]
-                                .sql_type()
-                                .constraint()
-                                .validate(datum.to_string().as_str())
-                            {
-                                Ok(()) => row.push(v),
-                                Err(ConstraintError::OutOfRange) => {
-                                    self.sender
-                                        .send(Err(QueryError::out_of_range(
-                                            (&meta.column().sql_type()).into(),
-                                            meta.column().name(),
-                                            idx + 1,
-                                        )))
-                                        .expect("To Send Query Result to client");
-                                    has_error = true;
-                                }
-                                Err(ConstraintError::TypeMismatch(value)) => {
-                                    self.sender
-                                        .send(Err(QueryError::type_mismatch(
-                                            &value,
-                                            (&meta.column().sql_type()).into(),
-                                            &meta.column().name(),
-                                            idx + 1,
-                                        )))
-                                        .expect("To Send Query Result to client");
-                                    has_error = true;
-                                }
-                                Err(ConstraintError::ValueTooLong(len)) => {
-                                    self.sender
-                                        .send(Err(QueryError::string_length_mismatch(
-                                            (&meta.column().sql_type()).into(),
-                                            len,
-                                            meta.column().name(),
-                                            idx + 1,
-                                        )))
-                                        .expect("To Send Query Result to client");
-                                    has_error = true;
-                                }
-                            }
-                        } else {
+            for col in line {
+                let v = match col {
+                    Expr::Value(value) => value.clone(),
+                    Expr::Cast { expr, data_type } => match (&**expr, data_type) {
+                        (Expr::Value(Value::Boolean(v)), DataType::Boolean) => Value::Boolean(*v),
+                        (Expr::Value(Value::SingleQuotedString(v)), DataType::Boolean) => {
+                            Value::Boolean(bool::from_str(v).unwrap())
+                        }
+                        _ => {
                             self.sender
-                                .send(Err(QueryError::feature_not_supported(
-                                    "Only expressions resulting in a literal are supported",
+                                .send(Err(QueryError::syntax_error(format!(
+                                    "Cast from {:?} to {:?} is not currently supported",
+                                    expr, data_type
+                                ))))
+                                .expect("To Send Query Result to Client");
+                            return Ok(());
+                        }
+                    },
+                    Expr::UnaryOp { op, expr } => match (op, &**expr) {
+                        (UnaryOperator::Minus, Expr::Value(Value::Number(v))) => Value::Number(-v),
+                        (op, expr) => {
+                            self.sender
+                                .send(Err(QueryError::syntax_error(
+                                    op.to_string() + expr.to_string().as_str(),
                                 )))
                                 .expect("To Send Query Result to Client");
                             return Ok(());
                         }
+                    },
+                    expr @ Expr::BinaryOp { .. } => match evaluation.eval(expr) {
+                        Ok(expr_result) => expr_result,
+                        Err(()) => return Ok(()),
+                    },
+                    expr => {
+                        self.sender
+                            .send(Err(QueryError::syntax_error(expr.to_string())))
+                            .expect("To Send Query Result to Client");
+                        return Ok(());
                     }
-                    Err(_) => return Ok(()),
-                }
+                };
+                row.push(v);
             }
             rows.push(row);
         }
 
-        if has_error {
-            return Ok(());
-        }
-
-        let index_columns = if self.table_inserts.column_indices.is_empty() {
-            let mut index_cols = vec![];
-            for (index, column_definition) in all_columns.iter().cloned().enumerate() {
-                index_cols.push((index, column_definition));
-            }
-
-            index_cols
-        } else {
-            let column_names = self.table_inserts.column_indices.iter().map(|id| {
-                let sqlparser::ast::Ident { value, .. } = id;
-                value
-            });
-            let mut index_cols = vec![];
-            let mut has_error = false;
-            for column_name in column_names {
-                let mut found = None;
-                for (index, column_definition) in all_columns.iter().enumerate() {
-                    if column_definition.has_name(&column_name) {
-                        found = Some((index, column_definition.clone()));
-                        break;
-                    }
-                }
-
-                match found {
-                    Some(index_col) => index_cols.push(index_col),
-                    None => {
-                        self.sender
-                            .send(Err(QueryError::column_does_not_exist(column_name)))
-                            .expect("To Send Result to Client");
-                        has_error = true;
-                    }
-                }
-            }
-
-            if has_error {
-                return Ok(());
-            }
-
-            index_cols
-        };
+        let index_columns = &self.table_inserts.column_indices;
 
         let mut to_write: Vec<Row> = vec![];
+        let mut row_index = 0;
         for row in rows.iter() {
-            if row.len() > all_columns.len() {
+            if row.len() > self.table_inserts.column_indices.len() {
                 self.sender
                     .send(Err(QueryError::too_many_insert_expressions()))
                     .expect("To Send Result to Client");
@@ -175,12 +118,59 @@ impl InsertCommand {
                 .to_vec();
 
             // TODO: The default value or NULL should be initialized for SQL types of all columns.
-            let mut record = vec![Datum::from_null(); all_columns.len()];
-            for (item, (index, _column_definition)) in row.iter().zip(index_columns.iter()) {
-                let datum = item.as_datum().unwrap();
-                record[*index] = datum;
+            let mut record = vec![Datum::from_null(); self.table_inserts.column_indices.len()];
+            let mut errors = vec![];
+            for (item, (index, column_definition)) in row.iter().zip(index_columns.iter()) {
+                match Datum::try_from(item) {
+                    Ok(datum) => {
+                        match column_definition
+                            .sql_type()
+                            .constraint()
+                            .validate(datum.to_string().as_str())
+                        {
+                            Ok(()) => {
+                                record[*index] = datum;
+                            }
+                            Err(e) => {
+                                errors.push((e, column_definition.clone()));
+                            }
+                        }
+                    }
+                    Err(EvalError::OutOfRangeNumeric(_)) => {
+                        errors.push((ConstraintError::OutOfRange, column_definition.clone()))
+                    }
+                    Err(_) => panic!(),
+                }
+            }
+            if !errors.is_empty() {
+                for (error, column_definition) in errors {
+                    let error_to_send = match error {
+                        ConstraintError::OutOfRange => QueryError::out_of_range(
+                            (&column_definition.sql_type()).into(),
+                            column_definition.name(),
+                            row_index + 1,
+                        ),
+                        ConstraintError::TypeMismatch(value) => QueryError::type_mismatch(
+                            &value,
+                            (&column_definition.sql_type()).into(),
+                            &column_definition.name(),
+                            row_index + 1,
+                        ),
+                        ConstraintError::ValueTooLong(len) => QueryError::string_length_mismatch(
+                            (&column_definition.sql_type()).into(),
+                            len,
+                            &column_definition.name(),
+                            row_index + 1,
+                        ),
+                    };
+                    self.sender
+                        .send(Err(error_to_send))
+                        .expect("To Send Query Result to Client");
+                }
+                return Ok(());
             }
             to_write.push((Binary::with_data(key), Binary::pack(&record)));
+            row_index += 1;
         }
 
         match self.data_manager.write_into(&self.table_inserts.table_id, to_write) {
@@ -193,4 +183,113 @@ impl InsertCommand {
 
         Ok(())
     }
+}
+
+pub(crate) struct InsertExpressionEvaluation {
+    session: Arc<dyn Sender>,
+}
+
+impl InsertExpressionEvaluation {
+    pub(crate) fn new(session: Arc<dyn Sender>) -> InsertExpressionEvaluation {
+        InsertExpressionEvaluation { session }
+    }
+
+    pub(crate) fn eval(&mut self, expr: &Expr) -> Result<Value, ()> {
+        match self.inner_eval(expr)? {
+            ExprResult::Number(v) => Ok(Value::Number(v)),
+            ExprResult::String(v) => Ok(Value::SingleQuotedString(v)),
+        }
+    }
+
+    fn inner_eval(&mut self, expr: &Expr) -> Result<ExprResult, ()> {
+        if let Expr::BinaryOp { op, left, right } = expr {
+            let left = self.inner_eval(left.deref())?;
+            let right = self.inner_eval(right.deref())?;
+            match (left, right) {
+                (ExprResult::Number(left), ExprResult::Number(right)) => match op {
+                    BinaryOperator::Plus => Ok(ExprResult::Number(left + right)),
+                    BinaryOperator::Minus => Ok(ExprResult::Number(left - right)),
+                    BinaryOperator::Multiply => Ok(ExprResult::Number(left * right)),
+                    BinaryOperator::Divide => Ok(ExprResult::Number(left / right)),
+                    BinaryOperator::Modulus => Ok(ExprResult::Number(left % right)),
+                    BinaryOperator::BitwiseAnd => {
+                        let (left, _) = left.as_bigint_and_exponent();
+                        let (right, _) = right.as_bigint_and_exponent();
+                        Ok(ExprResult::Number(BigDecimal::from(left & &right)))
+                    }
+                    BinaryOperator::BitwiseOr => {
+                        let (left, _) = left.as_bigint_and_exponent();
+                        let (right, _) = right.as_bigint_and_exponent();
+                        Ok(ExprResult::Number(BigDecimal::from(left | &right)))
+                    }
+                    operator => {
+                        self.session
+                            .send(Err(QueryError::undefined_function(
+                                operator.to_string(),
+                                "NUMBER".to_owned(),
+                                "NUMBER".to_owned(),
+                            )))
+                            .expect("To Send Query Result to Client");
+                        Err(())
+                    }
+                },
+                (ExprResult::String(left), ExprResult::String(right)) => match op {
+                    BinaryOperator::StringConcat => Ok(ExprResult::String(left + right.as_str())),
+                    operator => {
+                        self.session
+                            .send(Err(QueryError::undefined_function(
+                                operator.to_string(),
+                                "STRING".to_owned(),
+                                "STRING".to_owned(),
+                            )))
+                            .expect("To Send Query Result to Client");
+                        Err(())
+                    }
+                },
+                (ExprResult::Number(left), ExprResult::String(right)) => match op {
+                    BinaryOperator::StringConcat => Ok(ExprResult::String(left.to_string() + right.as_str())),
+                    operator => {
+                        self.session
+                            .send(Err(QueryError::undefined_function(
+                                operator.to_string(),
+                                "NUMBER".to_owned(),
+                                "STRING".to_owned(),
+                            )))
+                            .expect("To Send Query Result to Client");
+                        Err(())
+                    }
+                },
+                (ExprResult::String(left), ExprResult::Number(right)) => match op {
+                    BinaryOperator::StringConcat => Ok(ExprResult::String(left + right.to_string().as_str())),
+                    operator => {
+                        self.session
+                            .send(Err(QueryError::undefined_function(
+                                operator.to_string(),
+                                "STRING".to_owned(),
+                                "NUMBER".to_owned(),
+                            )))
+                            .expect("To Send Query Result to Client");
+                        Err(())
+                    }
+                },
+            }
+        } else {
+            match expr {
+                Expr::Value(Value::Number(v)) => Ok(ExprResult::Number(v.clone())),
+                Expr::Value(Value::SingleQuotedString(v)) => Ok(ExprResult::String(v.clone())),
+                e => {
+                    self.session
+                        .send(Err(QueryError::syntax_error(e.to_string())))
+                        .expect("To Send Query Result to Client");
+                    Err(())
+                }
+            }
+        }
+    }
+}
+
+#[derive(Debug)]
+pub(crate) enum ExprResult {
+    Number(BigDecimal),
+    String(String),
 }

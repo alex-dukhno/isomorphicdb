@@ -16,7 +16,7 @@
 use crate::{SchemaId, TableId};
 use data_manager::ColumnDefinition;
 use sql_model::Id;
-use sqlparser::ast::{Assignment, Expr, Ident, Statement};
+use sqlparser::ast::{Assignment, Expr, Statement};
 
 #[derive(PartialEq, Debug, Clone)]
 pub struct TableCreationInfo {
@@ -55,7 +55,7 @@ impl SchemaCreationInfo {
 #[derive(PartialEq, Debug, Clone)]
 pub struct TableInserts {
     pub table_id: TableId,
-    pub column_indices: Vec<Ident>,
+    pub column_indices: Vec<(usize, ColumnDefinition)>,
     pub input: Vec<Vec<Expr>>,
 }
 

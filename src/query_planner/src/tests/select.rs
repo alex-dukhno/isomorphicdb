@@ -170,8 +170,8 @@ fn select_from_table_with_unsupported_name(planner_and_sender_with_schema: (Quer
 }
 
 #[rstest::rstest]
-fn select_from_table(planner_and_sender_with_table: (QueryPlanner, ResultCollector)) {
-    let (query_planner, collector) = planner_and_sender_with_table;
+fn select_from_table(planner_and_sender_with_no_column_table: (QueryPlanner, ResultCollector)) {
+    let (query_planner, collector) = planner_and_sender_with_no_column_table;
     assert_eq!(
         query_planner.plan(Statement::Query(Box::new(Query {
             ctes: vec![],

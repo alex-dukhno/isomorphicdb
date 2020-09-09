@@ -127,6 +127,36 @@ fn insert_into_table(planner_and_sender_with_table: (QueryPlanner, ResultCollect
     assert_eq!(
         query_planner.plan(Statement::Insert {
             table_name: ObjectName(vec![ident(SCHEMA), ident(TABLE)]),
+            columns: vec![ident("small_int"), ident("integer"), ident("big_int")],
+            source: Box::new(Query {
+                ctes: vec![],
+                body: SetExpr::Values(Values(vec![])),
+                order_by: vec![],
+                limit: None,
+                offset: None,
+                fetch: None
+            })
+        }),
+        Ok(Plan::Insert(TableInserts {
+            table_id: TableId((0, 0)),
+            column_indices: vec![
+                (0, ColumnDefinition::new("small_int", SqlType::SmallInt(0))),
+                (1, ColumnDefinition::new("integer", SqlType::Integer(0))),
+                (2, ColumnDefinition::new("big_int", SqlType::BigInt(0)))
+            ],
+            input: vec![]
+        }))
+    );
+
+    collector.assert_content(vec![])
+}
+
+#[rstest::rstest]
+fn insert_into_table_without_columns(planner_and_sender_with_table: (QueryPlanner, ResultCollector)) {
+    let (query_planner, collector) = planner_and_sender_with_table;
+    assert_eq!(
+        query_planner.plan(Statement::Insert {
+            table_name: ObjectName(vec![ident(SCHEMA), ident(TABLE)]),
             columns: vec![],
             source: Box::new(Query {
                 ctes: vec![],
@@ -139,7 +169,11 @@ fn insert_into_table(planner_and_sender_with_table: (QueryPlanner, ResultCollect
         }),
         Ok(Plan::Insert(TableInserts {
             table_id: TableId((0, 0)),
-            column_indices: vec![],
+            column_indices: vec![
+                (0, ColumnDefinition::new("small_int", SqlType::SmallInt(0))),
+                (1, ColumnDefinition::new("integer", SqlType::Integer(0))),
+                (2, ColumnDefinition::new("big_int", SqlType::BigInt(0)))
+            ],
             input: vec![]
         }))
     );
