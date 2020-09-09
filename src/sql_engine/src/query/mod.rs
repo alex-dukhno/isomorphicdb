@@ -15,5 +15,4 @@
 ///! Module for representing how a query will be parameters bound, executed and
 ///! values represented during runtime.
 pub mod bind;
-pub mod expr;
 pub mod scalar;
