@@ -17,6 +17,7 @@ use crate::{
     planner::{Planner, Result},
     FullTableName, TableId,
 };
+use ast::scalar::ScalarOp;
 use data_manager::DataManager;
 use protocol::{results::QueryError, Sender};
 use sqlparser::ast::{Ident, ObjectName, Query, SetExpr};
@@ -64,7 +65,28 @@ impl Planner for InsertPlanner<'_> {
                         match body {
                             SetExpr::Values(values) => {
                                 let table_id = TableId((schema_id, table_id));
-                                let values = values.0.to_vec();
+                                let mut input = vec![];
+                                for row in values.0.iter() {
+                                    let mut scalar_values = vec![];
+                                    for value in row {
+                                        match ScalarOp::transform(&value) {
+                                            Ok(Ok(value)) => scalar_values.push(value),
+                                            Ok(Err(error)) => {
+                                                sender
+                                                    .send(Err(QueryError::syntax_error(error)))
+                                                    .expect("To Send Result to Client");
+                                                return Err(());
+                                            }
+                                            Err(error) => {
+                                                sender
+                                                    .send(Err(QueryError::feature_not_supported(error)))
+                                                    .expect("To Send Result to Client");
+                                                return Err(());
+                                            }
+                                        }
+                                    }
+                                    input.push(scalar_values);
+                                }
                                 let all_columns = data_manager.table_columns(&table_id).expect("Ok");
                                 let index_cols = if self.columns.is_empty() {
                                     let mut index_cols = vec![];
@@ -109,7 +131,7 @@ impl Planner for InsertPlanner<'_> {
                                 Ok(Plan::Insert(TableInserts {
                                     table_id,
                                     column_indices: index_cols,
-                                    input: values,
+                                    input,
                                 }))
                             }
                             set_expr => {

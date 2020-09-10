@@ -102,34 +102,15 @@ use std::{convert::TryFrom, ops::Deref, str::FromStr};
 
 use sqlparser::ast::{Assignment, BinaryOperator, DataType, Expr, UnaryOperator, Value};
 
+use ast::{scalar::ScalarOp, Datum, EvalError, ScalarType};
 use data_manager::ColumnDefinition;
 use protocol::results::QueryError;
-use representation::{Datum, EvalError, ScalarType};
 use sql_model::sql_types::{ConstraintError, SqlType};
-
-use crate::query::scalar::ScalarOp;
 
 #[derive(Debug, Clone, Copy)]
 pub struct UpdateExprMetadata<'a> {
     column_definition: &'a ColumnDefinition,
     row_index: usize,
-}
-
-impl<'a> UpdateExprMetadata<'a> {
-    pub fn new(column_definition: &'a ColumnDefinition, row_index: usize) -> Self {
-        Self {
-            column_definition,
-            row_index,
-        }
-    }
-
-    pub fn column(&self) -> &'a ColumnDefinition {
-        self.column_definition
-    }
-
-    pub fn index(&self) -> usize {
-        self.row_index
-    }
 }
 
 pub(crate) struct UpdateExpressionEvaluation {
@@ -142,11 +123,11 @@ impl UpdateExpressionEvaluation {
         UpdateExpressionEvaluation { session, table_info }
     }
 
-    pub(crate) fn eval<'a>(&self, expr: &Expr, expr_metadata: Option<UpdateExprMetadata<'a>>) -> Result<ScalarOp, ()> {
-        self.inner_eval(expr, expr_metadata)
+    pub(crate) fn eval(&self, expr: &Expr) -> Result<ScalarOp, ()> {
+        self.inner_eval(expr)
     }
 
-    fn inner_eval<'a>(&self, expr: &Expr, expr_metadata: Option<UpdateExprMetadata<'a>>) -> Result<ScalarOp, ()> {
+    fn inner_eval(&self, expr: &Expr) -> Result<ScalarOp, ()> {
         match expr {
             Expr::Cast { expr, data_type } => match (&**expr, data_type) {
                 (Expr::Value(Value::SingleQuotedString(v)), DataType::Boolean) => {
@@ -168,32 +149,14 @@ impl UpdateExpressionEvaluation {
                     match Datum::try_from(&Value::Number(-value)) {
                         Ok(datum) => Ok(ScalarOp::Literal(datum)),
                         Err(e) => {
-                            let err = if let Some(meta_data) = expr_metadata.as_ref() {
-                                match e {
-                                    EvalError::UnsupportedDatum(ty) => {
-                                        QueryError::feature_not_supported(format!("Data type not supported: {}", ty))
-                                    }
-                                    EvalError::OutOfRangeNumeric(_) => QueryError::out_of_range(
-                                        meta_data.column().sql_type().to_pg_types(),
-                                        meta_data.column().name(),
-                                        meta_data.index(),
-                                    ),
-                                    EvalError::UnsupportedOperation => {
-                                        QueryError::feature_not_supported("Use of unsupported expression feature")
-                                    }
+                            let err = match e {
+                                EvalError::UnsupportedDatum(ty) => {
+                                    QueryError::feature_not_supported(format!("Data type not supported: {}", ty))
                                 }
-                            } else {
-                                match e {
-                                    EvalError::UnsupportedDatum(ty) => {
-                                        QueryError::feature_not_supported(format!("Data type not supported: {}", ty))
-                                    }
-                                    EvalError::OutOfRangeNumeric(ty) => {
-                                        QueryError::out_of_range(ty.to_pg_types(), String::new(), 0)
-                                    }
-                                    EvalError::UnsupportedOperation => {
-                                        QueryError::feature_not_supported("Use of unsupported expression feature")
-                                    }
+                                EvalError::OutOfRangeNumeric(ty) => {
+                                    QueryError::out_of_range(ty.to_pg_types(), String::new(), 0)
                                 }
+                                _ => QueryError::feature_not_supported("Use of unsupported expression feature"),
                             };
                             self.session.send(Err(err)).expect("To Send Query Result to Client");
                             Err(())
@@ -210,15 +173,15 @@ impl UpdateExpressionEvaluation {
                 }
             },
             Expr::BinaryOp { op, left, right } => {
-                let lhs = self.inner_eval(left.deref(), expr_metadata)?;
-                let rhs = self.inner_eval(right.deref(), expr_metadata)?;
+                let lhs = self.inner_eval(left.deref())?;
+                let rhs = self.inner_eval(right.deref())?;
                 if let Some(ty) = self.compatible_types_for_op(op.clone(), lhs.scalar_type(), rhs.scalar_type()) {
                     match (lhs, rhs) {
                         (ScalarOp::Literal(left), ScalarOp::Literal(right)) => {
                             UpdateEvalScalarOp::eval_binary_literal_expr(self.session.as_ref(), op.clone(), left, right)
                                 .map(ScalarOp::Literal)
                         }
-                        (left, right) => Ok(ScalarOp::Binary(op.clone(), Box::new(left), Box::new(right), ty)),
+                        (left, right) => Ok(ScalarOp::OldBinary(op.clone(), Box::new(left), Box::new(right), ty)),
                     }
                 } else {
                     let kind = QueryError::undefined_function(
@@ -233,31 +196,15 @@ impl UpdateExpressionEvaluation {
             Expr::Value(value) => match Datum::try_from(value) {
                 Ok(datum) => Ok(ScalarOp::Literal(datum)),
                 Err(e) => {
-                    let err = if let Some(meta_data) = expr_metadata.as_ref() {
-                        match e {
-                            EvalError::UnsupportedDatum(ty) => {
-                                QueryError::feature_not_supported(format!("Data type not supported: {}", ty))
-                            }
-                            EvalError::OutOfRangeNumeric(_) => QueryError::out_of_range(
-                                meta_data.column().sql_type().to_pg_types(),
-                                meta_data.column().name(),
-                                meta_data.index(),
-                            ),
-                            EvalError::UnsupportedOperation => {
-                                QueryError::feature_not_supported("Use of unsupported expression feature")
-                            }
+                    let err = match e {
+                        EvalError::UnsupportedDatum(ty) => {
+                            QueryError::feature_not_supported(format!("Data type not supported: {}", ty))
                         }
-                    } else {
-                        match e {
-                            EvalError::UnsupportedDatum(ty) => {
-                                QueryError::feature_not_supported(format!("Data type not supported: {}", ty))
-                            }
-                            EvalError::OutOfRangeNumeric(ty) => {
-                                QueryError::out_of_range(ty.to_pg_types(), String::new(), 0)
-                            }
-                            EvalError::UnsupportedOperation => {
-                                QueryError::feature_not_supported("Use of unsupported expression feature")
-                            }
+                        EvalError::OutOfRangeNumeric(ty) => {
+                            QueryError::out_of_range(ty.to_pg_types(), String::new(), 0)
+                        }
+                        EvalError::UnsupportedOperation => {
+                            QueryError::feature_not_supported("Use of unsupported expression feature")
                         }
                     };
 
@@ -301,7 +248,7 @@ impl UpdateExpressionEvaluation {
             return Err(());
         };
 
-        let value = self.eval(value, None)?;
+        let value = self.eval(value)?;
         let ty = value.scalar_type();
 
         Ok(ScalarOp::Assignment {
@@ -408,12 +355,12 @@ impl<'a> UpdateEvalScalarOp<'a> {
         match eval {
             ScalarOp::Column(idx, _) => Ok(row[*idx].clone()),
             ScalarOp::Literal(datum) => Ok(datum.clone()),
-            ScalarOp::Binary(op, lhs, rhs, _) => {
+            ScalarOp::OldBinary(op, lhs, rhs, _) => {
                 let left = self.eval(row, lhs.as_ref())?;
                 let right = self.eval(row, rhs.as_ref())?;
                 Self::eval_binary_literal_expr(self.session, op.clone(), left, right)
             }
-            ScalarOp::Assignment { .. } => {
+            ScalarOp::Assignment { .. } | ScalarOp::Value(_) | ScalarOp::Binary(_, _, _) => {
                 panic!("EvalScalarOp:eval should not be evaluated on a ScalarOp::Assignment")
             }
         }

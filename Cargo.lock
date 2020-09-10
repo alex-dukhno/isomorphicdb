@@ -28,6 +28,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cff77d8686867eceff3105329d4698d96c2391c176d5d03adc90c7389162b5b8"
 
 [[package]]
+name = "ast"
+version = "0.1.0"
+dependencies = [
+ "bigdecimal",
+ "log",
+ "ordered-float",
+ "sql_model",
+ "sqlparser",
+]
+
+[[package]]
 name = "async-barrier"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -400,6 +411,7 @@ dependencies = [
 name = "data_manager"
 version = "0.1.0"
 dependencies = [
+ "ast",
  "backtrace",
  "bincode",
  "fail",
@@ -894,6 +906,7 @@ dependencies = [
 name = "query_planner"
 version = "0.1.0"
 dependencies = [
+ "ast",
  "data_manager",
  "kernel",
  "protocol",
@@ -971,11 +984,8 @@ dependencies = [
 name = "representation"
 version = "0.1.0"
 dependencies = [
- "bigdecimal",
- "log",
- "ordered-float",
+ "ast",
  "sql_model",
- "sqlparser",
 ]
 
 [[package]]
@@ -1188,6 +1198,7 @@ dependencies = [
 name = "sql_engine"
 version = "0.1.0"
 dependencies = [
+ "ast",
  "bigdecimal",
  "bincode",
  "data_manager",

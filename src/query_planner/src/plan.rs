@@ -14,9 +14,10 @@
 
 ///! represents a plan to be executed by the engine.
 use crate::{SchemaId, TableId};
+use ast::scalar::ScalarOp;
 use data_manager::ColumnDefinition;
 use sql_model::Id;
-use sqlparser::ast::{Assignment, Expr, Statement};
+use sqlparser::ast::{Assignment, Statement};
 
 #[derive(PartialEq, Debug, Clone)]
 pub struct TableCreationInfo {
@@ -56,7 +57,7 @@ impl SchemaCreationInfo {
 pub struct TableInserts {
     pub table_id: TableId,
     pub column_indices: Vec<(usize, ColumnDefinition)>,
-    pub input: Vec<Vec<Expr>>,
+    pub input: Vec<Vec<ScalarOp>>,
 }
 
 #[derive(PartialEq, Debug, Clone)]

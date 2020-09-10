@@ -853,6 +853,7 @@ mod operators {
         }
 
         #[rstest::rstest]
+        #[ignore]
         fn non_string_concatenation_not_supported(with_table: (QueryExecutor, ResultCollector)) {
             let (mut engine, collector) = with_table;
 

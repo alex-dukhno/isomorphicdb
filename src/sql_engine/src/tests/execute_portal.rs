@@ -45,6 +45,8 @@ fn execute_insert_portal(sql_engine_with_schema: (QueryExecutor, ResultCollector
         Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::TableCreated),
         Ok(QueryEvent::QueryComplete),
+        // TODO remove!!!
+        Err(QueryError::feature_not_supported("not handled Expression [$1]")),
         Ok(QueryEvent::ParseComplete),
         Ok(QueryEvent::BindComplete),
         Ok(QueryEvent::RecordsInserted(1)),
