@@ -8,7 +8,7 @@ publish = false
 [dependencies]
 kernel = { path = "../kernel" }
 log = "0.4.11"
-sled = { version = "0.34.3", features = ["default"] }
+sled = { version = "0.34.4", features = ["default"] }
 sql_model = { path = "../sql_model" }
 serde = { version = "1.0.115", features = ["derive"] }
 bincode = "1.3.1"
