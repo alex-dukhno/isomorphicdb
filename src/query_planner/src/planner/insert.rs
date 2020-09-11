@@ -17,7 +17,7 @@ use crate::{
     planner::{Planner, Result},
     FullTableName, TableId,
 };
-use ast::scalar::ScalarOp;
+use ast::{scalar::ScalarOp, ScalarType};
 use data_manager::DataManager;
 use protocol::{results::QueryError, Sender};
 use sqlparser::ast::{Ident, ObjectName, Query, SetExpr};
@@ -88,31 +88,35 @@ impl Planner for InsertPlanner<'_> {
                                     input.push(scalar_values);
                                 }
                                 let all_columns = data_manager.table_columns(&table_id).expect("Ok");
-                                let index_cols = if self.columns.is_empty() {
-                                    let mut index_cols = vec![];
-                                    for (index, column_definition) in all_columns.iter().cloned().enumerate() {
-                                        index_cols.push((index, column_definition));
-                                    }
-
-                                    index_cols
+                                let column_indices = if self.columns.is_empty() {
+                                    all_columns
+                                        .iter()
+                                        .cloned()
+                                        .enumerate()
+                                        .map(|(index, col_def)| {
+                                            (index, col_def.name(), ScalarType::from(&col_def.sql_type()))
+                                        })
+                                        .collect::<Vec<_>>()
                                 } else {
-                                    let column_names = self.columns.iter().map(|id| {
-                                        let Ident { value, .. } = id;
-                                        value
-                                    });
                                     let mut index_cols = vec![];
                                     let mut has_error = false;
-                                    for column_name in column_names {
+                                    for column_name in self.columns.iter().map(|id| id.value.as_str()) {
                                         let mut found = None;
                                         for (index, column_definition) in all_columns.iter().enumerate() {
-                                            if column_definition.has_name(&column_name) {
-                                                found = Some((index, column_definition.clone()));
+                                            if column_definition.has_name(column_name) {
+                                                found = Some((
+                                                    index,
+                                                    column_name,
+                                                    ScalarType::from(&column_definition.sql_type()),
+                                                ));
                                                 break;
                                             }
                                         }
 
                                         match found {
-                                            Some(index_col) => index_cols.push(index_col),
+                                            Some((index, column_name, scalar_type)) => {
+                                                index_cols.push((index, column_name.to_owned(), scalar_type));
+                                            }
                                             None => {
                                                 sender
                                                     .send(Err(QueryError::column_does_not_exist(column_name)))
@@ -130,7 +134,7 @@ impl Planner for InsertPlanner<'_> {
                                 };
                                 Ok(Plan::Insert(TableInserts {
                                     table_id,
-                                    column_indices: index_cols,
+                                    column_indices,
                                     input,
                                 }))
                             }

@@ -14,7 +14,7 @@
 
 use std::sync::Arc;
 
-use data_manager::{DataManager, Row};
+use data_manager::{ColumnDefinition, DataManager, Row};
 use kernel::{SystemError, SystemResult};
 use protocol::{
     results::{QueryError, QueryEvent},
@@ -23,14 +23,10 @@ use protocol::{
 use representation::Binary;
 use sql_model::sql_types::ConstraintError;
 
-use ast::{
-    scalar::{Operator, ScalarOp},
-    values::ScalarValue,
-    Datum, EvalError,
-};
-use bigdecimal::BigDecimal;
+use ast::{scalar::ScalarOp, Datum, EvalError};
+use expr_eval::static_expr::StaticExpressionEvaluation;
 use query_planner::plan::TableInserts;
-use std::{convert::TryFrom, ops::Deref};
+use std::{collections::HashMap, convert::TryFrom};
 
 pub(crate) struct InsertCommand {
     table_inserts: TableInserts,
@@ -52,21 +48,43 @@ impl InsertCommand {
     }
 
     pub(crate) fn execute(&mut self) -> SystemResult<()> {
-        let mut evaluation = InsertExpressionEvaluation::new(self.sender.clone());
+        let mut evaluation = StaticExpressionEvaluation::new(self.sender.clone());
         let mut rows = vec![];
         for line in &self.table_inserts.input {
             let mut row = vec![];
             for col in line {
                 let v = match evaluation.eval(col) {
-                    Ok(v) => v,
-                    Err(()) => return Err(SystemError::runtime_check_failure(&"something going wrong ¯\\_(ツ)_/¯")),
+                    Ok(ScalarOp::Column(id)) => {
+                        return Err(SystemError::runtime_check_failure(&format!(
+                            "column name '{}' can't be used in insert statement",
+                            id
+                        )))
+                    }
+                    Ok(ScalarOp::Value(v)) => v,
+                    Ok(operation) => {
+                        return Err(SystemError::runtime_check_failure(&format!(
+                            "Operation '{:?}' can't be performed in insert statement",
+                            operation
+                        )))
+                    }
+                    Err(()) => {
+                        return Err(SystemError::runtime_check_failure(
+                            &"something is going wrong ¯\\_(ツ)_/¯",
+                        ))
+                    }
                 };
                 row.push(v);
             }
             rows.push(row);
         }
-
-        let index_columns = &self.table_inserts.column_indices;
+        let column_types = self
+            .data_manager
+            .table_columns(&self.table_inserts.table_id)
+            .expect("to have a table")
+            .into_iter()
+            .map(|col_def| (col_def.name(), col_def.sql_type()))
+            .collect::<HashMap<_, _>>();
+        eprintln!("{:?}", column_types);
 
         let mut to_write: Vec<Row> = vec![];
         for (row_index, row) in rows.iter().enumerate() {
@@ -86,24 +104,19 @@ impl InsertCommand {
             // TODO: The default value or NULL should be initialized for SQL types of all columns.
             let mut record = vec![Datum::from_null(); self.table_inserts.column_indices.len()];
             let mut errors = vec![];
-            for (item, (index, column_definition)) in row.iter().zip(index_columns.iter()) {
+            for (item, (index, name, _scalar_type)) in row.iter().zip(self.table_inserts.column_indices.iter()) {
+                let sql_type = column_types.get(name).expect("to have this column");
                 match Datum::try_from(item) {
-                    Ok(datum) => {
-                        match column_definition
-                            .sql_type()
-                            .constraint()
-                            .validate(datum.to_string().as_str())
-                        {
-                            Ok(()) => {
-                                record[*index] = datum;
-                            }
-                            Err(e) => {
-                                errors.push((e, column_definition.clone()));
-                            }
+                    Ok(datum) => match sql_type.constraint().validate(datum.to_string().as_str()) {
+                        Ok(()) => {
+                            record[*index] = datum;
                         }
-                    }
+                        Err(error) => {
+                            errors.push((error, ColumnDefinition::new(name, *sql_type)));
+                        }
+                    },
                     Err(EvalError::OutOfRangeNumeric(_)) => {
-                        errors.push((ConstraintError::OutOfRange, column_definition.clone()))
+                        errors.push((ConstraintError::OutOfRange, ColumnDefinition::new(name, *sql_type)))
                     }
                     Err(_) => panic!(),
                 }
@@ -147,104 +160,5 @@ impl InsertCommand {
         }
 
         Ok(())
-    }
-}
-
-pub(crate) struct InsertExpressionEvaluation {
-    session: Arc<dyn Sender>,
-}
-
-impl InsertExpressionEvaluation {
-    pub(crate) fn new(session: Arc<dyn Sender>) -> InsertExpressionEvaluation {
-        InsertExpressionEvaluation { session }
-    }
-
-    pub(crate) fn eval(&mut self, expr: &ScalarOp) -> Result<ScalarValue, ()> {
-        self.inner_eval(expr)
-    }
-
-    fn inner_eval(&mut self, expr: &ScalarOp) -> Result<ScalarValue, ()> {
-        match expr {
-            ScalarOp::Binary(op, left, right) => {
-                let left = self.inner_eval(left.deref())?;
-                let right = self.inner_eval(right.deref())?;
-                match (left, right) {
-                    (ScalarValue::Number(left), ScalarValue::Number(right)) => match op {
-                        Operator::Plus => Ok(ScalarValue::Number(left + right)),
-                        Operator::Minus => Ok(ScalarValue::Number(left - right)),
-                        Operator::Multiply => Ok(ScalarValue::Number(left * right)),
-                        Operator::Divide => Ok(ScalarValue::Number(left / right)),
-                        Operator::Modulus => Ok(ScalarValue::Number(left % right)),
-                        Operator::BitwiseAnd => {
-                            let (left, _) = left.as_bigint_and_exponent();
-                            let (right, _) = right.as_bigint_and_exponent();
-                            Ok(ScalarValue::Number(BigDecimal::from(left & &right)))
-                        }
-                        Operator::BitwiseOr => {
-                            let (left, _) = left.as_bigint_and_exponent();
-                            let (right, _) = right.as_bigint_and_exponent();
-                            Ok(ScalarValue::Number(BigDecimal::from(left | &right)))
-                        }
-                        operator => {
-                            self.session
-                                .send(Err(QueryError::undefined_function(
-                                    operator.to_string(),
-                                    "NUMBER".to_owned(),
-                                    "NUMBER".to_owned(),
-                                )))
-                                .expect("To Send Query Result to Client");
-                            Err(())
-                        }
-                    },
-                    (ScalarValue::String(left), ScalarValue::String(right)) => match op {
-                        Operator::StringConcat => Ok(ScalarValue::String(left + right.as_str())),
-                        operator => {
-                            self.session
-                                .send(Err(QueryError::undefined_function(
-                                    operator.to_string(),
-                                    "STRING".to_owned(),
-                                    "STRING".to_owned(),
-                                )))
-                                .expect("To Send Query Result to Client");
-                            Err(())
-                        }
-                    },
-                    (ScalarValue::Number(left), ScalarValue::String(right)) => match op {
-                        Operator::StringConcat => Ok(ScalarValue::String(left.to_string() + right.as_str())),
-                        operator => {
-                            self.session
-                                .send(Err(QueryError::undefined_function(
-                                    operator.to_string(),
-                                    "NUMBER".to_owned(),
-                                    "STRING".to_owned(),
-                                )))
-                                .expect("To Send Query Result to Client");
-                            Err(())
-                        }
-                    },
-                    (ScalarValue::String(left), ScalarValue::Number(right)) => match op {
-                        Operator::StringConcat => Ok(ScalarValue::String(left + right.to_string().as_str())),
-                        operator => {
-                            self.session
-                                .send(Err(QueryError::undefined_function(
-                                    operator.to_string(),
-                                    "STRING".to_owned(),
-                                    "NUMBER".to_owned(),
-                                )))
-                                .expect("To Send Query Result to Client");
-                            Err(())
-                        }
-                    },
-                    (_left, _right) => Err(()),
-                }
-            }
-            ScalarOp::Value(value) => Ok(value.clone()),
-            e => {
-                self.session
-                    .send(Err(QueryError::syntax_error(format!("{:?}", e))))
-                    .expect("To Send Query Result to Client");
-                Err(())
-            }
-        }
     }
 }

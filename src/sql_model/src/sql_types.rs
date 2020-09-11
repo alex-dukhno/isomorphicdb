@@ -25,18 +25,11 @@ pub enum SqlType {
     Bool,
     Char(u64),
     VarChar(u64),
-    Decimal,
     SmallInt(i16),
     Integer(i32),
     BigInt(i64),
     Real,
     DoublePrecision,
-    Time,
-    TimeWithTimeZone,
-    Timestamp,
-    TimestampWithTimeZone,
-    Date,
-    Interval,
 }
 
 impl TryFrom<&DataType> for SqlType {
@@ -88,15 +81,8 @@ impl Into<&'static str> for &SqlType {
             SqlType::SmallInt(_) => "smallint",
             SqlType::Integer(_) => "integer",
             SqlType::BigInt(_) => "bigint",
-            SqlType::Decimal => "decimal",
             SqlType::Real => "real",
             SqlType::DoublePrecision => "double precision",
-            SqlType::Time => "time",
-            SqlType::TimeWithTimeZone => "time with time zone",
-            SqlType::Timestamp => "timestamp",
-            SqlType::TimestampWithTimeZone => "timestamp with time zone",
-            SqlType::Date => "date",
-            SqlType::Interval => "interval",
         }
     }
 }
@@ -135,18 +121,11 @@ impl SqlType {
             Self::Bool => PostgreSqlType::Bool,
             Self::Char(_) => PostgreSqlType::Char,
             Self::VarChar(_) => PostgreSqlType::VarChar,
-            Self::Decimal => PostgreSqlType::Decimal,
             Self::SmallInt(_) => PostgreSqlType::SmallInt,
             Self::Integer(_) => PostgreSqlType::Integer,
             Self::BigInt(_) => PostgreSqlType::BigInt,
             Self::Real => PostgreSqlType::Real,
             Self::DoublePrecision => PostgreSqlType::DoublePrecision,
-            Self::Time => PostgreSqlType::Time,
-            Self::TimeWithTimeZone => PostgreSqlType::TimeWithTimeZone,
-            Self::Timestamp => PostgreSqlType::Timestamp,
-            Self::TimestampWithTimeZone => PostgreSqlType::TimestampWithTimeZone,
-            Self::Date => PostgreSqlType::Date,
-            Self::Interval => PostgreSqlType::Interval,
         }
     }
 }
@@ -157,18 +136,11 @@ impl Into<PostgreSqlType> for &SqlType {
             SqlType::Bool => PostgreSqlType::Bool,
             SqlType::Char(_) => PostgreSqlType::Char,
             SqlType::VarChar(_) => PostgreSqlType::VarChar,
-            SqlType::Decimal => PostgreSqlType::Decimal,
             SqlType::SmallInt(_) => PostgreSqlType::SmallInt,
             SqlType::Integer(_) => PostgreSqlType::Integer,
             SqlType::BigInt(_) => PostgreSqlType::BigInt,
             SqlType::Real => PostgreSqlType::Real,
             SqlType::DoublePrecision => PostgreSqlType::DoublePrecision,
-            SqlType::Time => PostgreSqlType::Time,
-            SqlType::TimeWithTimeZone => PostgreSqlType::TimeWithTimeZone,
-            SqlType::Timestamp => PostgreSqlType::Timestamp,
-            SqlType::TimestampWithTimeZone => PostgreSqlType::TimestampWithTimeZone,
-            SqlType::Date => PostgreSqlType::Date,
-            SqlType::Interval => PostgreSqlType::Interval,
         }
     }
 }
@@ -443,12 +415,6 @@ mod tests {
         }
 
         #[test]
-        fn decimal() {
-            let pg_type: PostgreSqlType = (&SqlType::Decimal).into();
-            assert_eq!(pg_type, PostgreSqlType::Decimal);
-        }
-
-        #[test]
         fn real() {
             let pg_type: PostgreSqlType = (&SqlType::Real).into();
             assert_eq!(pg_type, PostgreSqlType::Real);
@@ -458,42 +424,6 @@ mod tests {
         fn double_precision() {
             let pg_type: PostgreSqlType = (&SqlType::DoublePrecision).into();
             assert_eq!(pg_type, PostgreSqlType::DoublePrecision);
-        }
-
-        #[test]
-        fn time() {
-            let pg_type: PostgreSqlType = (&SqlType::Time).into();
-            assert_eq!(pg_type, PostgreSqlType::Time);
-        }
-
-        #[test]
-        fn time_with_time_zone() {
-            let pg_type: PostgreSqlType = (&SqlType::TimeWithTimeZone).into();
-            assert_eq!(pg_type, PostgreSqlType::TimeWithTimeZone);
-        }
-
-        #[test]
-        fn timestamp() {
-            let pg_type: PostgreSqlType = (&SqlType::Timestamp).into();
-            assert_eq!(pg_type, PostgreSqlType::Timestamp);
-        }
-
-        #[test]
-        fn timestamp_with_timezone() {
-            let pg_type: PostgreSqlType = (&SqlType::TimestampWithTimeZone).into();
-            assert_eq!(pg_type, PostgreSqlType::TimestampWithTimeZone);
-        }
-
-        #[test]
-        fn date() {
-            let pg_type: PostgreSqlType = (&SqlType::Date).into();
-            assert_eq!(pg_type, PostgreSqlType::Date);
-        }
-
-        #[test]
-        fn interval() {
-            let pg_type: PostgreSqlType = (&SqlType::Interval).into();
-            assert_eq!(pg_type, PostgreSqlType::Interval);
         }
     }
 

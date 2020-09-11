@@ -18,6 +18,7 @@ use crate::{
     planner::QueryPlanner,
     tests::{ident, ResultCollector, TABLE},
 };
+use ast::ScalarType;
 use protocol::results::QueryError;
 use sqlparser::ast::{ObjectName, Query, SetExpr, Statement, Values};
 
@@ -140,9 +141,9 @@ fn insert_into_table(planner_and_sender_with_table: (QueryPlanner, ResultCollect
         Ok(Plan::Insert(TableInserts {
             table_id: TableId((0, 0)),
             column_indices: vec![
-                (0, ColumnDefinition::new("small_int", SqlType::SmallInt(0))),
-                (1, ColumnDefinition::new("integer", SqlType::Integer(0))),
-                (2, ColumnDefinition::new("big_int", SqlType::BigInt(0)))
+                (0, "small_int".to_owned(), ScalarType::Int16),
+                (1, "integer".to_owned(), ScalarType::Int32),
+                (2, "big_int".to_owned(), ScalarType::Int64)
             ],
             input: vec![]
         }))
@@ -170,9 +171,9 @@ fn insert_into_table_without_columns(planner_and_sender_with_table: (QueryPlanne
         Ok(Plan::Insert(TableInserts {
             table_id: TableId((0, 0)),
             column_indices: vec![
-                (0, ColumnDefinition::new("small_int", SqlType::SmallInt(0))),
-                (1, ColumnDefinition::new("integer", SqlType::Integer(0))),
-                (2, ColumnDefinition::new("big_int", SqlType::BigInt(0)))
+                (0, "small_int".to_owned(), ScalarType::Int16),
+                (1, "integer".to_owned(), ScalarType::Int32),
+                (2, "big_int".to_owned(), ScalarType::Int64)
             ],
             input: vec![]
         }))

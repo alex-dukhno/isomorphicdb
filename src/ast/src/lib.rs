@@ -117,6 +117,20 @@ impl TryFrom<&DataType> for ScalarType {
     }
 }
 
+impl From<&SqlType> for ScalarType {
+    fn from(sql_type: &SqlType) -> Self {
+        match sql_type {
+            SqlType::Bool => ScalarType::Boolean,
+            SqlType::Char(_) | SqlType::VarChar(_) => ScalarType::String,
+            SqlType::SmallInt(_) => ScalarType::Int16,
+            SqlType::Integer(_) => ScalarType::Int32,
+            SqlType::BigInt(_) => ScalarType::Int64,
+            SqlType::Real => ScalarType::Float32,
+            SqlType::DoublePrecision => ScalarType::Float64,
+        }
+    }
+}
+
 impl ScalarType {
     pub fn is_integer(&self) -> bool {
         match self {
@@ -394,7 +408,9 @@ impl<'a> TryFrom<&ScalarValue> for Datum<'a> {
             ScalarValue::Number(val) => {
                 // there has to be a better way of doing this.
                 if val.is_integer() {
-                    if let Some(val) = val.to_i32() {
+                    if let Some(val) = val.to_i16() {
+                        Ok(Datum::from_i16(val))
+                    } else if let Some(val) = val.to_i32() {
                         Ok(Datum::from_i32(val))
                     } else if let Some(val) = val.to_i64() {
                         Ok(Datum::from_i64(val))

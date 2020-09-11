@@ -3,6 +3,7 @@ members = [
     "src/ast",
     "src/binary",
     "src/data_manager",
+    "src/expr_eval",
     "src/kernel",
     "src/node",
     "src/protocol",

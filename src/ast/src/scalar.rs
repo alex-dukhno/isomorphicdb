@@ -14,29 +14,28 @@
 
 use sqlparser::ast::{BinaryOperator, Expr};
 
-use crate::{values::ScalarValue, Datum, OperationError, ScalarError, ScalarType};
+use crate::{values::ScalarValue, OperationError, ScalarError, ScalarType};
 use std::{
     convert::TryFrom,
     fmt::{self, Display, Formatter},
 };
 
+pub struct Assign {
+    pub column_name: String,
+    pub destination: usize,
+    pub value: Box<ScalarOp>,
+    pub scalar_type: ScalarType,
+}
+
 /// Operation performed on the table
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ScalarOp {
     /// column access
-    Column(usize, ScalarType),
+    Column(String),
     /// should be used instead of `Literal`
     Value(ScalarValue),
-    /// literal value (owned) and expected type.
-    Literal(Datum<'static>),
-    Binary(Operator, Box<ScalarOp>, Box<ScalarOp>),
     /// binary operator
-    OldBinary(BinaryOperator, Box<ScalarOp>, Box<ScalarOp>, ScalarType),
-    Assignment {
-        destination: usize,
-        value: Box<ScalarOp>,
-        ty: ScalarType,
-    },
+    Binary(Operator, Box<ScalarOp>, Box<ScalarOp>),
 }
 
 impl ScalarOp {
@@ -63,6 +62,7 @@ impl ScalarOp {
                     right: Box::new(*right.clone()),
                 })),
             },
+            Expr::Identifier(id) => Ok(Ok(ScalarOp::Column(id.value.clone()))),
             _ => Err(ScalarError::NotHandled(expr.clone())),
         }
     }
@@ -126,25 +126,15 @@ impl TryFrom<&BinaryOperator> for Operator {
 impl ScalarOp {
     pub fn is_literal(&self) -> bool {
         match self {
-            ScalarOp::Literal(_) => true,
+            ScalarOp::Value(_) => true,
             _ => false,
-        }
-    }
-
-    pub fn as_datum(&self) -> Option<Datum<'static>> {
-        match self {
-            ScalarOp::Literal(datum) => Some(datum.clone()),
-            _ => None,
         }
     }
 
     pub fn scalar_type(&self) -> ScalarType {
         match self {
-            ScalarOp::Column(_, ty) => *ty,
-            ScalarOp::Literal(datum) => datum.scalar_type().unwrap(),
+            ScalarOp::Column(_) => ScalarType::String,
             ScalarOp::Binary(_, _, _) => ScalarType::String,
-            ScalarOp::OldBinary(_, _, _, ty) => *ty,
-            ScalarOp::Assignment { ty, .. } => *ty,
             ScalarOp::Value(_) => ScalarType::String,
         }
     }
