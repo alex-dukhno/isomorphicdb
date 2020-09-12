@@ -314,9 +314,9 @@ impl<'a> TryFrom<&ScalarValue> for Datum<'a> {
 impl Display for Datum<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Null => write!(f, "{}", "NULL"),
-            Self::True => write!(f, "{}", "t"),
-            Self::False => write!(f, "{}", "f"),
+            Self::Null => write!(f, "NULL"),
+            Self::True => write!(f, "t"),
+            Self::False => write!(f, "f"),
             Self::Int16(val) => write!(f, "{}", val),
             Self::Int32(val) => write!(f, "{}", val),
             Self::Int64(val) => write!(f, "{}", val),

@@ -68,14 +68,14 @@ impl Display for NotSupportedType {
 impl Display for SqlType {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            SqlType::Bool => write!(f, "{}", "bool"),
-            SqlType::Char(len) => write!(f, "{}({})", "char", len),
-            SqlType::VarChar(len) => write!(f, "{}({})", "varchar", len),
-            SqlType::SmallInt(_) => write!(f, "{}", "smallint"),
-            SqlType::Integer(_) => write!(f, "{}", "integer"),
-            SqlType::BigInt(_) => write!(f, "{}", "bigint"),
-            SqlType::Real => write!(f, "{}", "real"),
-            SqlType::DoublePrecision => write!(f, "{}", "double precision"),
+            SqlType::Bool => write!(f, "bool"),
+            SqlType::Char(len) => write!(f, "char({})", len),
+            SqlType::VarChar(len) => write!(f, "varchar({})", len),
+            SqlType::SmallInt(_) => write!(f, "smallint"),
+            SqlType::Integer(_) => write!(f, "integer"),
+            SqlType::BigInt(_) => write!(f, "bigint"),
+            SqlType::Real => write!(f, "real"),
+            SqlType::DoublePrecision => write!(f, "double precision"),
         }
     }
 }
