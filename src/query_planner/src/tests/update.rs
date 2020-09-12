@@ -116,10 +116,6 @@ fn update_table(planner_and_sender_with_table: (QueryPlanner, ResultCollector)) 
             table_id: TableId((0, 0)),
             column_indices: vec![(0, "small_int".to_owned(), SqlType::SmallInt(0))],
             input: vec![ScalarOp::Value(ScalarValue::String("".to_string()))],
-            assignments: vec![Assignment {
-                id: ident("small_int"),
-                value: Expr::Value(Value::SingleQuotedString("".to_string()))
-            }]
         }))
     );
 

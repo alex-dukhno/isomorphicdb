@@ -19,7 +19,6 @@ use kernel::SystemResult;
 use protocol::Sender;
 use representation::Binary;
 
-use ast::scalar::Assign;
 use expr_eval::{dynamic_expr::DynamicExpressionEvaluation, static_expr::StaticExpressionEvaluation};
 use protocol::results::{QueryError, QueryEvent};
 use query_planner::plan::TableUpdates;
@@ -55,7 +54,7 @@ impl UpdateCommand {
 
         let evaluation = StaticExpressionEvaluation::new(self.sender.clone());
 
-        let mut to_update = vec![];
+        let mut assigments = vec![];
         let mut has_error = false;
         for ((index, column_name, scalar_type), item) in self
             .table_update
@@ -65,12 +64,7 @@ impl UpdateCommand {
         {
             match evaluation.eval(item) {
                 Ok(value) => {
-                    to_update.push(Assign {
-                        column_name: column_name.clone(),
-                        destination: *index,
-                        value: Box::new(value),
-                        sql_type: *scalar_type,
-                    });
+                    assigments.push((column_name.clone(), *index, Box::new(value), *scalar_type));
                 }
                 Err(()) => {
                     has_error = true;
@@ -91,14 +85,9 @@ impl UpdateCommand {
                     let mut data = values.unpack();
 
                     let mut has_err = false;
-                    for update in to_update.as_slice() {
-                        let Assign {
-                            column_name,
-                            destination,
-                            value,
-                            sql_type,
-                        } = update;
-                        let value = match expr_eval.eval(data.as_mut_slice(), value.as_ref()) {
+                    for update in assigments.as_slice() {
+                        let (column_name, destination, value, sql_type) = update;
+                        let value = match expr_eval.eval(data.as_mut_slice(), value.as_ref(), *destination) {
                             Ok(value) => value,
                             Err(()) => return Ok(()),
                         };

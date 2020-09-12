@@ -26,7 +26,7 @@ use sql_model::sql_types::ConstraintError;
 use ast::{scalar::ScalarOp, Datum, EvalError};
 use expr_eval::static_expr::StaticExpressionEvaluation;
 use query_planner::plan::TableInserts;
-use std::{collections::HashMap, convert::TryFrom};
+use std::convert::TryFrom;
 
 pub(crate) struct InsertCommand {
     table_inserts: TableInserts,
@@ -52,15 +52,15 @@ impl InsertCommand {
         let mut rows = vec![];
         for line in &self.table_inserts.input {
             let mut row = vec![];
-            for col in line {
-                let v = match evaluation.eval(col) {
-                    Ok(ScalarOp::Column(id)) => {
+            for expression in line {
+                let value = match evaluation.eval(expression) {
+                    Ok(ScalarOp::Value(value)) => value,
+                    Ok(ScalarOp::Column(column_identifier)) => {
                         return Err(SystemError::runtime_check_failure(&format!(
                             "column name '{}' can't be used in insert statement",
-                            id
+                            column_identifier
                         )))
                     }
-                    Ok(ScalarOp::Value(v)) => v,
                     Ok(operation) => {
                         return Err(SystemError::runtime_check_failure(&format!(
                             "Operation '{:?}' can't be performed in insert statement",
@@ -69,17 +69,10 @@ impl InsertCommand {
                     }
                     Err(()) => return Ok(()),
                 };
-                row.push(v);
+                row.push(value);
             }
             rows.push(row);
         }
-        let column_types = self
-            .data_manager
-            .table_columns(&self.table_inserts.table_id)
-            .expect("to have a table")
-            .into_iter()
-            .map(|col_def| (col_def.name(), col_def.sql_type()))
-            .collect::<HashMap<_, _>>();
 
         let mut to_write: Vec<Row> = vec![];
         for (row_index, row) in rows.iter().enumerate() {
@@ -99,8 +92,7 @@ impl InsertCommand {
             // TODO: The default value or NULL should be initialized for SQL types of all columns.
             let mut record = vec![Datum::from_null(); self.table_inserts.column_indices.len()];
             let mut errors = vec![];
-            for (item, (index, name, _scalar_type)) in row.iter().zip(self.table_inserts.column_indices.iter()) {
-                let sql_type = column_types.get(name).expect("to have this column");
+            for (item, (index, name, sql_type)) in row.iter().zip(self.table_inserts.column_indices.iter()) {
                 match Datum::try_from(item) {
                     Ok(datum) => match sql_type.constraint().validate(datum.to_string().as_str()) {
                         Ok(()) => {

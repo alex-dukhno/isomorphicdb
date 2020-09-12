@@ -110,7 +110,6 @@ impl Planner for UpdatePlanner<'_> {
                             table_id,
                             column_indices,
                             input,
-                            assignments: self.assignments.to_vec(),
                         }))
                     }
                 }

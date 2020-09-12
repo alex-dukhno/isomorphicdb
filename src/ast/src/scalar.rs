@@ -15,18 +15,10 @@
 use sqlparser::ast::{BinaryOperator, Expr};
 
 use crate::{values::ScalarValue, OperationError, ScalarError, ScalarType};
-use sql_model::sql_types::SqlType;
 use std::{
     convert::TryFrom,
     fmt::{self, Display, Formatter},
 };
-
-pub struct Assign {
-    pub column_name: String,
-    pub destination: usize,
-    pub value: Box<ScalarOp>,
-    pub sql_type: SqlType,
-}
 
 /// Operation performed on the table
 #[derive(Debug, Clone, PartialEq, Eq)]

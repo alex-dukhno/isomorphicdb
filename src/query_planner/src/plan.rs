@@ -18,7 +18,7 @@ use ast::scalar::ScalarOp;
 use data_manager::ColumnDefinition;
 use sql_model::sql_types::SqlType;
 use sql_model::Id;
-use sqlparser::ast::{Assignment, Statement};
+use sqlparser::ast::Statement;
 
 #[derive(PartialEq, Debug, Clone)]
 pub struct TableCreationInfo {
@@ -66,7 +66,6 @@ pub struct TableUpdates {
     pub table_id: TableId,
     pub column_indices: Vec<(usize, String, SqlType)>,
     pub input: Vec<ScalarOp>,
-    pub assignments: Vec<Assignment>,
 }
 
 #[derive(PartialEq, Debug, Clone)]

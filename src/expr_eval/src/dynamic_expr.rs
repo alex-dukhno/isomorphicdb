@@ -72,15 +72,12 @@ impl<'a> DynamicExpressionEvaluation<'a> {
         &self.columns
     }
 
-    pub fn eval<'b>(&self, row: &[Datum<'b>], eval: &ScalarOp) -> Result<Datum<'b>, ()> {
+    pub fn eval<'b>(&self, row: &[Datum<'b>], eval: &ScalarOp, index: usize) -> Result<Datum<'b>, ()> {
         match eval {
-            ScalarOp::Column(col_name) => {
-                let (index, _name) = self.columns.get(col_name).expect("column exists");
-                Ok(row[*index].clone())
-            }
+            ScalarOp::Column(_column_name) => Ok(row[index].clone()),
             ScalarOp::Binary(op, lhs, rhs) => {
-                let left = self.eval(row, lhs.as_ref())?;
-                let right = self.eval(row, rhs.as_ref())?;
+                let left = self.eval(row, lhs.as_ref(), index)?;
+                let right = self.eval(row, rhs.as_ref(), index)?;
                 Self::eval_binary_literal_expr(self.session, op.clone(), left, right)
             }
             ScalarOp::Value(value) => Datum::try_from(value).map_err(|_| ()),

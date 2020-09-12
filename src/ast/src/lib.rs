@@ -312,7 +312,7 @@ impl<'a> Datum<'a> {
     pub fn as_f64(&self) -> f64 {
         match self {
             Self::Float64(val) => **val,
-            _ => panic!("invlaid use of Datum::as_f64"),
+            _ => panic!("invalid use of Datum::as_f64"),
         }
     }
 
@@ -428,45 +428,6 @@ impl<'a> TryFrom<&ScalarValue> for Datum<'a> {
             ScalarValue::String(value) => Ok(Datum::from_string(value.trim().to_owned())),
             ScalarValue::Bool(Bool(val)) => Ok(Datum::from_bool(*val)),
             ScalarValue::Null => Ok(Datum::from_null()),
-        }
-    }
-}
-
-impl<'a> TryFrom<&Value> for Datum<'a> {
-    type Error = EvalError;
-
-    fn try_from(other: &Value) -> Result<Self, EvalError> {
-        log::debug!("Datum::try_from({})", other);
-        match other {
-            Value::Number(val) => {
-                // there has to be a better way of doing this.
-                if val.is_integer() {
-                    if let Some(val) = val.to_i32() {
-                        Ok(Datum::from_i32(val))
-                    } else if let Some(val) = val.to_i64() {
-                        Ok(Datum::from_i64(val))
-                    } else {
-                        Err(EvalError::OutOfRangeNumeric(SqlType::Integer(i32::min_value())))
-                    }
-                } else if let Some(val) = val.to_f32() {
-                    Ok(Datum::from_f32(val))
-                } else if let Some(val) = val.to_f64() {
-                    Ok(Datum::from_f64(val))
-                } else {
-                    Err(EvalError::OutOfRangeNumeric(SqlType::DoublePrecision))
-                }
-            }
-            Value::SingleQuotedString(value) => Ok(Datum::from_string(value.trim().to_owned())),
-            Value::HexStringLiteral(value) => match i64::from_str_radix(value.as_str(), 16) {
-                Ok(val) => Ok(Datum::from_i64(val)),
-                Err(_) => panic!("Failed to parse hex string"),
-            },
-            Value::Boolean(val) => Ok(Datum::from_bool(*val)),
-            Value::Null => Ok(Datum::from_null()),
-            Value::Interval { .. } => Err(EvalError::UnsupportedDatum("Interval".to_string())),
-            Value::NationalStringLiteral(_value) => {
-                Err(EvalError::UnsupportedDatum("NationalStringLiteral".to_string()))
-            }
         }
     }
 }
