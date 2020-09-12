@@ -90,9 +90,7 @@ impl Planner for UpdatePlanner<'_> {
                             }
 
                             match found {
-                                Some(index_col) => {
-                                    column_indices.push(index_col);
-                                }
+                                Some(index_col) => column_indices.push(index_col),
                                 None => {
                                     sender
                                         .send(Err(QueryError::column_does_not_exist(column_name)))

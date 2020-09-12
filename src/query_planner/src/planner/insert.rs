@@ -102,15 +102,14 @@ impl Planner for InsertPlanner<'_> {
                                         let mut found = None;
                                         for (index, column_definition) in all_columns.iter().enumerate() {
                                             if column_definition.has_name(column_name) {
-                                                found = Some((index, column_name, column_definition.sql_type()));
+                                                found =
+                                                    Some((index, column_name.to_owned(), column_definition.sql_type()));
                                                 break;
                                             }
                                         }
 
                                         match found {
-                                            Some((index, column_name, sql_type)) => {
-                                                index_cols.push((index, column_name.to_owned(), sql_type));
-                                            }
+                                            Some(index_col) => index_cols.push(index_col),
                                             None => {
                                                 sender
                                                     .send(Err(QueryError::column_does_not_exist(column_name)))

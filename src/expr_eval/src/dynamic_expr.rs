@@ -58,9 +58,9 @@ impl<'a> DynamicExpressionEvaluation {
                 BinaryOp::BitwiseAnd => Ok(left & right),
                 BinaryOp::BitwiseOr => Ok(left | right),
                 _ => {
-                    let kind =
-                        QueryError::undefined_function(op.to_string(), "INTEGER".to_owned(), "INTEGER".to_owned());
-                    self.sender.send(Err(kind)).expect("To Send Query Result to Client");
+                    self.sender
+                        .send(Err(QueryError::undefined_function(op, "INTEGER", "INTEGER")))
+                        .expect("To Send Query Result to Client");
                     Err(())
                 }
             }
@@ -71,31 +71,25 @@ impl<'a> DynamicExpressionEvaluation {
                 BinaryOp::Mul => Ok(left * right),
                 BinaryOp::Div => Ok(left / right),
                 _ => {
-                    let kind = QueryError::undefined_function(op.to_string(), "FLOAT".to_owned(), "FLOAT".to_owned());
-                    self.sender.send(Err(kind)).expect("To Send Query Result to Client");
+                    self.sender
+                        .send(Err(QueryError::undefined_function(op, "FLOAT", "FLOAT")))
+                        .expect("To Send Query Result to Client");
                     Err(())
                 }
             }
         } else if left.is_string() || right.is_string() {
             match op {
-                BinaryOp::Concat => {
-                    let value = format!("{}{}", left.to_string(), right.to_string());
-                    Ok(Datum::OwnedString(value))
-                }
+                BinaryOp::Concat => Ok(Datum::OwnedString(format!("{}{}", left, right))),
                 _ => {
-                    let kind = QueryError::undefined_function(op.to_string(), "STRING".to_owned(), "STRING".to_owned());
-                    self.sender.send(Err(kind)).expect("To Send Query Result to Client");
+                    self.sender
+                        .send(Err(QueryError::undefined_function(op, "STRING", "STRING")))
+                        .expect("To Send Query Result to Client");
                     Err(())
                 }
             }
         } else {
             self.sender
-                .send(Err(QueryError::syntax_error(format!(
-                    "{} {} {}",
-                    left.to_string(),
-                    op.to_string(),
-                    right.to_string()
-                ))))
+                .send(Err(QueryError::syntax_error(format!("{} {} {}", left, op, right))))
                 .expect("To Send Query Result to Client");
             Err(())
         }

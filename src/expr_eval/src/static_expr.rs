@@ -70,9 +70,9 @@ impl StaticExpressionEvaluation {
                                     Ok(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(left | &right))))
                                 }
                             }
-                            operator => {
+                            _ => {
                                 self.sender
-                                    .send(Err(QueryError::undefined_function(operator, "NUMBER", "NUMBER")))
+                                    .send(Err(QueryError::undefined_function(op, "NUMBER", "NUMBER")))
                                     .expect("To Send Query Result to Client");
                                 Err(())
                             }
@@ -83,11 +83,7 @@ impl StaticExpressionEvaluation {
                             BinaryOp::Concat => Ok(ScalarOp::Value(ScalarValue::String(left + right.as_str()))),
                             operator => {
                                 self.sender
-                                    .send(Err(QueryError::undefined_function(
-                                        operator.to_string(),
-                                        "STRING".to_owned(),
-                                        "STRING".to_owned(),
-                                    )))
+                                    .send(Err(QueryError::undefined_function(operator, "STRING", "STRING")))
                                     .expect("To Send Query Result to Client");
                                 Err(())
                             }
@@ -95,16 +91,10 @@ impl StaticExpressionEvaluation {
                     }
                     (ScalarOp::Value(ScalarValue::Number(left)), ScalarOp::Value(ScalarValue::String(right))) => {
                         match op {
-                            BinaryOp::Concat => {
-                                Ok(ScalarOp::Value(ScalarValue::String(left.to_string() + right.as_str())))
-                            }
-                            operator => {
+                            BinaryOp::Concat => Ok(ScalarOp::Value(ScalarValue::String(format!("{}{}", left, right)))),
+                            _ => {
                                 self.sender
-                                    .send(Err(QueryError::undefined_function(
-                                        operator.to_string(),
-                                        "NUMBER".to_owned(),
-                                        "STRING".to_owned(),
-                                    )))
+                                    .send(Err(QueryError::undefined_function(op, "NUMBER", "STRING")))
                                     .expect("To Send Query Result to Client");
                                 Err(())
                             }
@@ -112,16 +102,10 @@ impl StaticExpressionEvaluation {
                     }
                     (ScalarOp::Value(ScalarValue::String(left)), ScalarOp::Value(ScalarValue::Number(right))) => {
                         match op {
-                            BinaryOp::Concat => {
-                                Ok(ScalarOp::Value(ScalarValue::String(left + right.to_string().as_str())))
-                            }
-                            operator => {
+                            BinaryOp::Concat => Ok(ScalarOp::Value(ScalarValue::String(format!("{}{}", left, right)))),
+                            _ => {
                                 self.sender
-                                    .send(Err(QueryError::undefined_function(
-                                        operator.to_string(),
-                                        "STRING".to_owned(),
-                                        "NUMBER".to_owned(),
-                                    )))
+                                    .send(Err(QueryError::undefined_function(op, "STRING", "NUMBER")))
                                     .expect("To Send Query Result to Client");
                                 Err(())
                             }

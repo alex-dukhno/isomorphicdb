@@ -311,21 +311,21 @@ impl<'a> TryFrom<&ScalarValue> for Datum<'a> {
     }
 }
 
-impl ToString for Datum<'_> {
-    fn to_string(&self) -> String {
+impl Display for Datum<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Null => "NULL".to_string(),
-            Self::True => "t".to_string(),
-            Self::False => "f".to_string(),
-            Self::Int16(val) => val.to_string(),
-            Self::Int32(val) => val.to_string(),
-            Self::Int64(val) => val.to_string(),
-            Self::UInt64(val) => val.to_string(),
-            Self::Float32(val) => val.into_inner().to_string(),
-            Self::Float64(val) => val.into_inner().to_string(),
-            Self::String(val) => val.to_string(),
-            Self::OwnedString(val) => val.clone(),
-            Self::SqlType(val) => val.to_string(),
+            Self::Null => write!(f, "{}", "NULL"),
+            Self::True => write!(f, "{}", "t"),
+            Self::False => write!(f, "{}", "f"),
+            Self::Int16(val) => write!(f, "{}", val),
+            Self::Int32(val) => write!(f, "{}", val),
+            Self::Int64(val) => write!(f, "{}", val),
+            Self::UInt64(val) => write!(f, "{}", val),
+            Self::Float32(val) => write!(f, "{}", val.into_inner()),
+            Self::Float64(val) => write!(f, "{}", val.into_inner()),
+            Self::String(val) => write!(f, "{}", val),
+            Self::OwnedString(val) => write!(f, "{}", val),
+            Self::SqlType(val) => write!(f, "{}", val),
         }
     }
 }

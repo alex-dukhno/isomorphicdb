@@ -65,24 +65,17 @@ impl Display for NotSupportedType {
     }
 }
 
-impl ToString for SqlType {
-    fn to_string(&self) -> String {
-        let string: &'static str = self.into();
-        string.to_owned()
-    }
-}
-
-impl Into<&'static str> for &SqlType {
-    fn into(self) -> &'static str {
+impl Display for SqlType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            SqlType::Bool => "bool",
-            SqlType::Char(_) => "char",
-            SqlType::VarChar(_) => "varchar",
-            SqlType::SmallInt(_) => "smallint",
-            SqlType::Integer(_) => "integer",
-            SqlType::BigInt(_) => "bigint",
-            SqlType::Real => "real",
-            SqlType::DoublePrecision => "double precision",
+            SqlType::Bool => write!(f, "{}", "bool"),
+            SqlType::Char(len) => write!(f, "{}({})", "char", len),
+            SqlType::VarChar(len) => write!(f, "{}({})", "varchar", len),
+            SqlType::SmallInt(_) => write!(f, "{}", "smallint"),
+            SqlType::Integer(_) => write!(f, "{}", "integer"),
+            SqlType::BigInt(_) => write!(f, "{}", "bigint"),
+            SqlType::Real => write!(f, "{}", "real"),
+            SqlType::DoublePrecision => write!(f, "{}", "double precision"),
         }
     }
 }
