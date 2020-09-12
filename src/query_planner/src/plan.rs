@@ -14,7 +14,7 @@
 
 ///! represents a plan to be executed by the engine.
 use crate::{SchemaId, TableId};
-use ast::scalar::ScalarOp;
+use ast::operations::ScalarOp;
 use data_manager::ColumnDefinition;
 use sql_model::sql_types::SqlType;
 use sql_model::Id;

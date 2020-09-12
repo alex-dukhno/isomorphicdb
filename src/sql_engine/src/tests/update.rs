@@ -286,6 +286,86 @@ fn update_non_existent_columns_of_records(sql_engine_with_schema: (QueryExecutor
     ]);
 }
 
+#[rstest::rstest]
+fn test_update_with_dynamic_expression(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
+    let (engine, collector) = sql_engine_with_schema;
+    engine
+        .execute(
+            "create table schema_name.table_name (\
+            si_column_1 smallint, \
+            si_column_2 smallint, \
+            si_column_3 smallint);",
+        )
+        .expect("no system errors");
+    engine
+        .execute("insert into schema_name.table_name values (1, 2, 3), (4, 5, 6), (7, 8, 9);")
+        .expect("no system errors");
+    engine
+        .execute("select * from schema_name.table_name;")
+        .expect("no system errors");
+    engine
+        .execute(
+            "update schema_name.table_name \
+        set \
+            si_column_1 = 2 * si_column_1, \
+            si_column_2 = 2 * (si_column_1 + si_column_2), \
+            si_column_3 = (si_column_3 + (2 * (si_column_1 + si_column_2)));",
+        )
+        .expect("no system errors");
+    engine
+        .execute("select * from schema_name.table_name;")
+        .expect("no system errors");
+
+    collector.assert_content_for_single_queries(vec![
+        Ok(QueryEvent::SchemaCreated),
+        Ok(QueryEvent::QueryComplete),
+        Ok(QueryEvent::TableCreated),
+        Ok(QueryEvent::QueryComplete),
+        Ok(QueryEvent::RecordsInserted(3)),
+        Ok(QueryEvent::QueryComplete),
+        Ok(QueryEvent::RecordsSelected((
+            vec![
+                ("si_column_1".to_owned(), PostgreSqlType::SmallInt),
+                ("si_column_2".to_owned(), PostgreSqlType::SmallInt),
+                ("si_column_3".to_owned(), PostgreSqlType::SmallInt),
+            ],
+            vec![
+                vec!["1".to_owned(), "2".to_owned(), "3".to_owned()],
+                vec!["4".to_owned(), "5".to_owned(), "6".to_owned()],
+                vec!["7".to_owned(), "8".to_owned(), "9".to_owned()],
+            ],
+        ))),
+        Ok(QueryEvent::QueryComplete),
+        Ok(QueryEvent::RecordsUpdated(3)),
+        Ok(QueryEvent::QueryComplete),
+        Ok(QueryEvent::RecordsSelected((
+            vec![
+                ("si_column_1".to_owned(), PostgreSqlType::SmallInt),
+                ("si_column_2".to_owned(), PostgreSqlType::SmallInt),
+                ("si_column_3".to_owned(), PostgreSqlType::SmallInt),
+            ],
+            vec![
+                vec![
+                    (2 * 1).to_string(),
+                    (2 * (1 + 2)).to_string(),
+                    (3 + (2 * (1 + 2))).to_string(),
+                ],
+                vec![
+                    (2 * 4).to_string(),
+                    (2 * (4 + 5)).to_string(),
+                    (6 + (2 * (4 + 5))).to_string(),
+                ],
+                vec![
+                    (2 * 7).to_string(),
+                    (2 * (7 + 8)).to_string(),
+                    (9 + (2 * (7 + 8))).to_string(),
+                ],
+            ],
+        ))),
+        Ok(QueryEvent::QueryComplete),
+    ]);
+}
+
 #[cfg(test)]
 mod operators {
     use super::*;

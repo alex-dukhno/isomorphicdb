@@ -168,7 +168,6 @@ def test_insert_with_named_columns(create_drop_test_schema_fixture: cursor):
     assert r == [(3, 1, 2,), (6, 4, 5,), (9, 7, 8,)]
 
 
-@pytest.mark.xfail
 def test_update_with_dynamic_expression(create_drop_test_schema_fixture: cursor):
     cur = create_drop_test_schema_fixture
     cur.execute('''create table schema_name.table_name
@@ -190,6 +189,6 @@ def test_update_with_dynamic_expression(create_drop_test_schema_fixture: cursor)
     r = cur.fetchmany(3)
     assert r == [
         (2 * 1, 2 * (1 + 2), (3 + (2 * (1 + 2))),),
-        (2 * 1, 2 * (1 + 2), (3 + (2 * (1 + 2))),),
-        (2 * 1, 2 * (1 + 2), (3 + (2 * (1 + 2))),),
+        (2 * 4, 2 * (4 + 5), (6 + (2 * (4 + 5))),),
+        (2 * 7, 2 * (7 + 8), (9 + (2 * (7 + 8))),),
     ]

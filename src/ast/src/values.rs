@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{Operation, OperationError, ScalarError, ScalarType};
+use crate::{NotHandled, Operation, OperationError};
 use bigdecimal::BigDecimal;
 use sqlparser::ast::{DataType, Expr, UnaryOperator, Value};
-use std::{convert::TryFrom, str::FromStr};
+use std::str::FromStr;
 
 #[derive(PartialEq, Debug, Copy, Clone, Eq)]
 pub struct Bool(pub bool);
@@ -44,29 +44,29 @@ pub enum ScalarValue {
 }
 
 impl ScalarValue {
-    pub fn transform(value: &Expr) -> Result<Result<ScalarValue, OperationError>, ScalarError> {
+    pub fn transform(value: &Expr) -> Result<Result<ScalarValue, OperationError>, NotHandled> {
         match &*value {
             Expr::Value(Value::Null) => Ok(Ok(ScalarValue::Null)),
             Expr::Value(Value::Number(number)) => Ok(Ok(ScalarValue::Number(number.clone()))),
             Expr::Value(Value::SingleQuotedString(string)) => Ok(Ok(ScalarValue::String(string.clone()))),
             Expr::Value(Value::Boolean(bool)) => Ok(Ok(ScalarValue::Bool(Bool(*bool)))),
-            Expr::Value(value) => Err(ScalarError::NotSupportedValue(value.clone())),
+            Expr::Value(value) => Err(NotHandled(Expr::Value(value.clone()))),
             Expr::Cast { expr, data_type } => match (&**expr, data_type) {
                 (Expr::Value(Value::SingleQuotedString(string)), DataType::Boolean) => {
                     match Bool::from_str(string.as_str()) {
                         Ok(Bool(boolean)) => Ok(Ok(ScalarValue::Bool(Bool(boolean)))),
                         Err(error) => Ok(Err(OperationError(
-                            Operation::Cast(Value::SingleQuotedString(string.clone()), ScalarType::Boolean),
+                            Operation::Cast(Value::SingleQuotedString(string.clone()), DataType::Boolean),
                             Some(error.0),
                         ))),
                     }
                 }
                 (Expr::Value(Value::Boolean(boolean)), DataType::Boolean) => Ok(Ok(ScalarValue::Bool(Bool(*boolean)))),
-                (Expr::Value(value), data_type) => match ScalarType::try_from(data_type) {
-                    Ok(scalar_type) => Ok(Err(OperationError(Operation::Cast(value.clone(), scalar_type), None))),
-                    Err(()) => Err(ScalarError::NotSupportedType(data_type.clone())),
-                },
-                _ => Err(ScalarError::NotHandled(Expr::Cast {
+                (Expr::Value(value), data_type) => Ok(Err(OperationError(
+                    Operation::Cast(value.clone(), data_type.clone()),
+                    None,
+                ))),
+                _ => Err(NotHandled(Expr::Cast {
                     expr: Box::new(*expr.clone()),
                     data_type: data_type.clone(),
                 })),
@@ -79,12 +79,12 @@ impl ScalarValue {
                 (UnaryOperator::Not, Expr::Value(Value::Number(_number))) => {
                     Ok(Err(OperationError(Operation::Not, None)))
                 }
-                _ => Err(ScalarError::NotHandled(Expr::UnaryOp {
+                _ => Err(NotHandled(Expr::UnaryOp {
                     op: op.clone(),
                     expr: expr.clone(),
                 })),
             },
-            expr => Err(ScalarError::NotHandled(expr.clone())),
+            expr => Err(NotHandled(expr.clone())),
         }
     }
 }
@@ -176,7 +176,7 @@ mod tests {
                 Ok(Err(OperationError(
                     Operation::Cast(
                         Value::SingleQuotedString("not a boolean".to_string()),
-                        ScalarType::Boolean
+                        DataType::Boolean
                     ),
                     Some("not a boolean".to_string())
                 )))

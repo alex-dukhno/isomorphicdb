@@ -346,5 +346,5 @@ fn pad_formats(formats: &[PostgreSqlFormat], param_len: usize) -> Result<Vec<Pos
     }
 }
 
-// #[cfg(test)]
-// mod tests;
+#[cfg(test)]
+mod tests;

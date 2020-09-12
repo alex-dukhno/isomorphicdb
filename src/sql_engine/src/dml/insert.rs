@@ -23,7 +23,7 @@ use protocol::{
 use representation::Binary;
 use sql_model::sql_types::ConstraintError;
 
-use ast::{scalar::ScalarOp, Datum, EvalError};
+use ast::{operations::ScalarOp, Datum, EvalError};
 use expr_eval::static_expr::StaticExpressionEvaluation;
 use query_planner::plan::TableInserts;
 use std::convert::TryFrom;

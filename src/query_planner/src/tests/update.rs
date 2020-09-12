@@ -18,7 +18,7 @@ use crate::{
     planner::QueryPlanner,
     tests::{ident, ResultCollector, TABLE},
 };
-use ast::{scalar::ScalarOp, values::ScalarValue};
+use ast::{operations::ScalarOp, values::ScalarValue};
 use protocol::results::QueryError;
 use sqlparser::ast::{Assignment, Expr, ObjectName, Statement, Value};
 

@@ -14,3 +14,5 @@
 
 pub mod dynamic_expr;
 pub mod static_expr;
+#[cfg(test)]
+mod tests;

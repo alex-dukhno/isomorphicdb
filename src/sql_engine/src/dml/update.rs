@@ -14,7 +14,7 @@
 
 use std::sync::Arc;
 
-use data_manager::{DataManager, Row};
+use data_manager::DataManager;
 use kernel::SystemResult;
 use protocol::Sender;
 use representation::Binary;
@@ -49,12 +49,12 @@ impl UpdateCommand {
         let all_columns = table_definition
             .iter()
             .enumerate()
-            .map(|(index, col_def)| (col_def.name(), (index, col_def.sql_type())))
+            .map(|(index, col_def)| (col_def.name(), index))
             .collect::<HashMap<_, _>>();
 
         let evaluation = StaticExpressionEvaluation::new(self.sender.clone());
 
-        let mut assigments = vec![];
+        let mut assignments = vec![];
         let mut has_error = false;
         for ((index, column_name, scalar_type), item) in self
             .table_update
@@ -64,7 +64,7 @@ impl UpdateCommand {
         {
             match evaluation.eval(item) {
                 Ok(value) => {
-                    assigments.push((column_name.clone(), *index, Box::new(value), *scalar_type));
+                    assignments.push((column_name.clone(), *index, Box::new(value), *scalar_type));
                 }
                 Err(()) => {
                     has_error = true;
@@ -76,23 +76,31 @@ impl UpdateCommand {
             return Ok(());
         }
 
-        let to_update: Vec<Row> = match self.data_manager.full_scan(&self.table_update.table_id) {
-            Err(error) => return Err(error),
+        match self.data_manager.full_scan(&self.table_update.table_id) {
+            Err(error) => {
+                self.sender
+                    .send(Err(QueryError::syntax_error(
+                        "something went wrong when read data from table",
+                    )))
+                    .expect("To Send Result to Client");
+                return Err(error);
+            }
             Ok(reads) => {
-                let expr_eval = DynamicExpressionEvaluation::new(self.sender.as_ref(), all_columns);
-                let mut res = Vec::new();
+                let expr_eval = DynamicExpressionEvaluation::new(self.sender.clone(), all_columns.clone());
+                let mut to_update = Vec::new();
                 for (row_idx, (key, values)) in reads.map(Result::unwrap).map(Result::unwrap).enumerate() {
-                    let mut data = values.unpack();
+                    let data = values.unpack();
+                    let mut updated = values.unpack();
 
                     let mut has_err = false;
-                    for update in assigments.as_slice() {
+                    for update in assignments.as_slice() {
                         let (column_name, destination, value, sql_type) = update;
-                        let value = match expr_eval.eval(data.as_mut_slice(), value.as_ref(), *destination) {
+                        let value = match expr_eval.eval(data.as_slice(), value.as_ref()) {
                             Ok(value) => value,
                             Err(()) => return Ok(()),
                         };
                         match sql_type.constraint().validate(value.to_string().as_str()) {
-                            Ok(()) => data[*destination] = value,
+                            Ok(()) => updated[*destination] = value,
                             Err(ConstraintError::OutOfRange) => {
                                 self.sender
                                     .send(Err(QueryError::out_of_range(sql_type.into(), column_name, row_idx + 1)))
@@ -128,20 +136,25 @@ impl UpdateCommand {
                         return Ok(());
                     }
 
-                    res.push((key, Binary::pack(&data)));
+                    to_update.push((key, Binary::pack(&updated)));
                 }
-                res
+                match self.data_manager.write_into(&self.table_update.table_id, to_update) {
+                    Err(error) => {
+                        self.sender
+                            .send(Err(QueryError::syntax_error(
+                                "something went wrong when write data to table",
+                            )))
+                            .expect("To Send Result to Client");
+                        return Err(error);
+                    }
+                    Ok(records_number) => {
+                        self.sender
+                            .send(Ok(QueryEvent::RecordsUpdated(records_number)))
+                            .expect("To Send Query Result to Client");
+                    }
+                }
             }
         };
-
-        match self.data_manager.write_into(&self.table_update.table_id, to_update) {
-            Err(error) => return Err(error),
-            Ok(records_number) => {
-                self.sender
-                    .send(Ok(QueryEvent::RecordsUpdated(records_number)))
-                    .expect("To Send Query Result to Client");
-            }
-        }
         Ok(())
     }
 }

@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use ast::{
-    scalar::{Operator, ScalarOp},
+    operations::{BinaryOp, ScalarOp},
     values::ScalarValue,
 };
 use bigdecimal::BigDecimal;
@@ -21,12 +21,12 @@ use protocol::{results::QueryError, Sender};
 use std::sync::Arc;
 
 pub struct StaticExpressionEvaluation {
-    session: Arc<dyn Sender>,
+    sender: Arc<dyn Sender>,
 }
 
 impl StaticExpressionEvaluation {
     pub fn new(session: Arc<dyn Sender>) -> StaticExpressionEvaluation {
-        StaticExpressionEvaluation { session }
+        StaticExpressionEvaluation { sender: session }
     }
 
     pub fn eval(&self, expr: &ScalarOp) -> Result<ScalarOp, ()> {
@@ -41,28 +41,38 @@ impl StaticExpressionEvaluation {
                 match (left, right) {
                     (ScalarOp::Value(ScalarValue::Number(left)), ScalarOp::Value(ScalarValue::Number(right))) => {
                         match op {
-                            Operator::Plus => Ok(ScalarOp::Value(ScalarValue::Number(left + right))),
-                            Operator::Minus => Ok(ScalarOp::Value(ScalarValue::Number(left - right))),
-                            Operator::Multiply => Ok(ScalarOp::Value(ScalarValue::Number(left * right))),
-                            Operator::Divide => Ok(ScalarOp::Value(ScalarValue::Number(left / right))),
-                            Operator::Modulus => Ok(ScalarOp::Value(ScalarValue::Number(left % right))),
-                            Operator::BitwiseAnd => {
-                                let (left, _) = left.as_bigint_and_exponent();
-                                let (right, _) = right.as_bigint_and_exponent();
-                                Ok(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(left & &right))))
+                            BinaryOp::Add => Ok(ScalarOp::Value(ScalarValue::Number(left + right))),
+                            BinaryOp::Sub => Ok(ScalarOp::Value(ScalarValue::Number(left - right))),
+                            BinaryOp::Mul => Ok(ScalarOp::Value(ScalarValue::Number(left * right))),
+                            BinaryOp::Div => Ok(ScalarOp::Value(ScalarValue::Number(left / right))),
+                            BinaryOp::BitwiseAnd => {
+                                let (left, left_exp) = left.as_bigint_and_exponent();
+                                let (right, right_exp) = right.as_bigint_and_exponent();
+                                if left_exp != 0 && right_exp != 0 {
+                                    self.sender
+                                        .send(Err(QueryError::undefined_function(op, "FLOAT", "FLOAT")))
+                                        .expect("To Send Result to Client");
+                                    Err(())
+                                } else {
+                                    Ok(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(left & &right))))
+                                }
                             }
-                            Operator::BitwiseOr => {
-                                let (left, _) = left.as_bigint_and_exponent();
-                                let (right, _) = right.as_bigint_and_exponent();
-                                Ok(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(left | &right))))
+                            BinaryOp::Mod => Ok(ScalarOp::Value(ScalarValue::Number(left % right))),
+                            BinaryOp::BitwiseOr => {
+                                let (left, left_exp) = left.as_bigint_and_exponent();
+                                let (right, right_exp) = right.as_bigint_and_exponent();
+                                if left_exp != 0 && right_exp != 0 {
+                                    self.sender
+                                        .send(Err(QueryError::undefined_function(op, "FLOAT", "FLOAT")))
+                                        .expect("To Send Result to Client");
+                                    Err(())
+                                } else {
+                                    Ok(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(left | &right))))
+                                }
                             }
                             operator => {
-                                self.session
-                                    .send(Err(QueryError::undefined_function(
-                                        operator.to_string(),
-                                        "NUMBER".to_owned(),
-                                        "NUMBER".to_owned(),
-                                    )))
+                                self.sender
+                                    .send(Err(QueryError::undefined_function(operator, "NUMBER", "NUMBER")))
                                     .expect("To Send Query Result to Client");
                                 Err(())
                             }
@@ -70,9 +80,9 @@ impl StaticExpressionEvaluation {
                     }
                     (ScalarOp::Value(ScalarValue::String(left)), ScalarOp::Value(ScalarValue::String(right))) => {
                         match op {
-                            Operator::StringConcat => Ok(ScalarOp::Value(ScalarValue::String(left + right.as_str()))),
+                            BinaryOp::Concat => Ok(ScalarOp::Value(ScalarValue::String(left + right.as_str()))),
                             operator => {
-                                self.session
+                                self.sender
                                     .send(Err(QueryError::undefined_function(
                                         operator.to_string(),
                                         "STRING".to_owned(),
@@ -85,11 +95,11 @@ impl StaticExpressionEvaluation {
                     }
                     (ScalarOp::Value(ScalarValue::Number(left)), ScalarOp::Value(ScalarValue::String(right))) => {
                         match op {
-                            Operator::StringConcat => {
+                            BinaryOp::Concat => {
                                 Ok(ScalarOp::Value(ScalarValue::String(left.to_string() + right.as_str())))
                             }
                             operator => {
-                                self.session
+                                self.sender
                                     .send(Err(QueryError::undefined_function(
                                         operator.to_string(),
                                         "NUMBER".to_owned(),
@@ -102,11 +112,11 @@ impl StaticExpressionEvaluation {
                     }
                     (ScalarOp::Value(ScalarValue::String(left)), ScalarOp::Value(ScalarValue::Number(right))) => {
                         match op {
-                            Operator::StringConcat => {
+                            BinaryOp::Concat => {
                                 Ok(ScalarOp::Value(ScalarValue::String(left + right.to_string().as_str())))
                             }
                             operator => {
-                                self.session
+                                self.sender
                                     .send(Err(QueryError::undefined_function(
                                         operator.to_string(),
                                         "STRING".to_owned(),
@@ -117,7 +127,7 @@ impl StaticExpressionEvaluation {
                             }
                         }
                     }
-                    (_left, _right) => Err(()),
+                    (left, right) => Ok(ScalarOp::Binary(op.clone(), Box::new(left), Box::new(right))),
                 }
             }
             ScalarOp::Value(value) => Ok(ScalarOp::Value(value.clone())),

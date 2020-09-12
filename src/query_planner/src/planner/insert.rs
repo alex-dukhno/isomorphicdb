@@ -17,7 +17,7 @@ use crate::{
     planner::{Planner, Result},
     FullTableName, TableId,
 };
-use ast::scalar::ScalarOp;
+use ast::operations::ScalarOp;
 use data_manager::DataManager;
 use protocol::{results::QueryError, Sender};
 use sqlparser::ast::{Ident, ObjectName, Query, SetExpr};

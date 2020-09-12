@@ -24,23 +24,15 @@ use sql_model::sql_types::SqlType;
 use sqlparser::ast::{DataType, Expr, Value};
 use std::fmt::{self, Display, Formatter};
 
-pub mod scalar;
+pub mod operations;
 pub mod values;
 
 #[derive(Debug, PartialEq)]
-pub enum ScalarError {
-    NotSupportedType(DataType),
-    NotSupportedValue(Value),
-    NotHandled(Expr),
-}
+pub struct NotHandled(Expr);
 
-impl Display for ScalarError {
+impl Display for NotHandled {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        match self {
-            ScalarError::NotSupportedType(data_type) => write!(f, "not supported type '{}'", data_type),
-            ScalarError::NotSupportedValue(value) => write!(f, "not supported value '{}'", value),
-            ScalarError::NotHandled(expr) => write!(f, "not handled Expression [{}]", expr),
-        }
+        write!(f, "not handled Expression [{}]", self.0)
     }
 }
 
@@ -55,7 +47,7 @@ impl Display for OperationError {
 
 #[derive(Debug, PartialEq)]
 pub enum Operation {
-    Cast(Value, ScalarType),
+    Cast(Value, DataType),
     Minus,
     Plus,
     Not,
@@ -68,104 +60,6 @@ impl Display for Operation {
             Operation::Minus => write!(f, "unary minus"),
             Operation::Plus => write!(f, "unary plus"),
             Operation::Not => write!(f, "logical not"),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, Ord, PartialOrd, Eq, PartialEq)]
-pub enum ScalarType {
-    Int16,
-    Int32,
-    Int64,
-    UInt64,
-    Float32,
-    Float64,
-    Boolean,
-    String,
-}
-
-impl TryFrom<&DataType> for ScalarType {
-    type Error = ();
-
-    fn try_from(value: &DataType) -> Result<Self, Self::Error> {
-        match value {
-            DataType::Char(_) => Ok(ScalarType::String),
-            DataType::Varchar(_) => Ok(ScalarType::String),
-            DataType::Uuid => Err(()),
-            DataType::Clob(_) => Err(()),
-            DataType::Binary(_) => Err(()),
-            DataType::Varbinary(_) => Err(()),
-            DataType::Blob(_) => Err(()),
-            DataType::Decimal(_, _) => Err(()),
-            DataType::Float(_) => Err(()),
-            DataType::SmallInt => Ok(ScalarType::Int16),
-            DataType::Int => Ok(ScalarType::Int32),
-            DataType::BigInt => Ok(ScalarType::Int64),
-            DataType::Real => Ok(ScalarType::Float32),
-            DataType::Double => Ok(ScalarType::Float64),
-            DataType::Boolean => Ok(ScalarType::Boolean),
-            DataType::Date => Err(()),
-            DataType::Time => Err(()),
-            DataType::Timestamp => Err(()),
-            DataType::Interval => Err(()),
-            DataType::Regclass => Err(()),
-            DataType::Text => Err(()),
-            DataType::Bytea => Err(()),
-            DataType::Custom(_) => Err(()),
-            DataType::Array(_) => Err(()),
-        }
-    }
-}
-
-impl From<&SqlType> for ScalarType {
-    fn from(sql_type: &SqlType) -> Self {
-        match sql_type {
-            SqlType::Bool => ScalarType::Boolean,
-            SqlType::Char(_) | SqlType::VarChar(_) => ScalarType::String,
-            SqlType::SmallInt(_) => ScalarType::Int16,
-            SqlType::Integer(_) => ScalarType::Int32,
-            SqlType::BigInt(_) => ScalarType::Int64,
-            SqlType::Real => ScalarType::Float32,
-            SqlType::DoublePrecision => ScalarType::Float64,
-        }
-    }
-}
-
-impl ScalarType {
-    pub fn is_integer(&self) -> bool {
-        match self {
-            Self::Int64 | Self::Int32 | Self::Int16 => true,
-            _ => false,
-        }
-    }
-
-    pub fn is_float(&self) -> bool {
-        match self {
-            Self::Float64 | Self::Float32 => true,
-            _ => false,
-        }
-    }
-
-    pub fn is_string(&self) -> bool {
-        *self == Self::String
-    }
-
-    pub fn is_boolean(&self) -> bool {
-        *self == Self::Boolean
-    }
-}
-
-impl Display for ScalarType {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Int16 => write!(f, "Int16"),
-            Self::Int32 => write!(f, "Int32"),
-            Self::Int64 => write!(f, "Int64"),
-            Self::UInt64 => write!(f, "UInt64"),
-            Self::Float32 => write!(f, "Float32"),
-            Self::Float64 => write!(f, "Float64"),
-            Self::Boolean => write!(f, "Bool"),
-            Self::String => write!(f, "String"),
         }
     }
 }
@@ -256,21 +150,6 @@ impl<'a> Datum<'a> {
 
     pub fn from_sql_type(val: SqlType) -> Datum<'static> {
         Datum::SqlType(val)
-    }
-
-    pub fn scalar_type(&self) -> Option<ScalarType> {
-        match self {
-            Datum::Null => None,
-            Datum::True | Datum::False => Some(ScalarType::Boolean),
-            Datum::Int16(_) => Some(ScalarType::Int16),
-            Datum::Int32(_) => Some(ScalarType::Int32),
-            Datum::Int64(_) => Some(ScalarType::Int64),
-            Datum::Float32(_) => Some(ScalarType::Float32),
-            Datum::Float64(_) => Some(ScalarType::Float64),
-            Datum::String(_) | Datum::OwnedString(_) => Some(ScalarType::String),
-            Datum::UInt64(_) => Some(ScalarType::UInt64),
-            _ => None,
-        }
     }
 
     // @TODO: Add accessor helper functions.
