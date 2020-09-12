@@ -20,7 +20,7 @@ use super::*;
 
 #[rstest::rstest]
 fn delete_from_nonexistent_table(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
-    let (mut engine, collector) = sql_engine_with_schema;
+    let (engine, collector) = sql_engine_with_schema;
     engine
         .execute("delete from schema_name.table_name;")
         .expect("no system errors");
@@ -35,7 +35,7 @@ fn delete_from_nonexistent_table(sql_engine_with_schema: (QueryExecutor, ResultC
 
 #[rstest::rstest]
 fn delete_all_records(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
-    let (mut engine, collector) = sql_engine_with_schema;
+    let (engine, collector) = sql_engine_with_schema;
     engine
         .execute("create table schema_name.table_name (column_test smallint);")
         .expect("no system errors");

@@ -16,7 +16,7 @@ use super::*;
 
 #[rstest::rstest]
 fn create_schema(sql_engine: (QueryExecutor, ResultCollector)) {
-    let (mut engine, collector) = sql_engine;
+    let (engine, collector) = sql_engine;
     engine.execute("create schema schema_name;").expect("no system errors");
 
     collector.assert_content_for_single_queries(vec![Ok(QueryEvent::SchemaCreated), Ok(QueryEvent::QueryComplete)]);
@@ -24,7 +24,7 @@ fn create_schema(sql_engine: (QueryExecutor, ResultCollector)) {
 
 #[rstest::rstest]
 fn create_same_schema(sql_engine: (QueryExecutor, ResultCollector)) {
-    let (mut engine, collector) = sql_engine;
+    let (engine, collector) = sql_engine;
     engine.execute("create schema schema_name;").expect("no system errors");
     engine.execute("create schema schema_name;").expect("no system errors");
 
@@ -38,7 +38,7 @@ fn create_same_schema(sql_engine: (QueryExecutor, ResultCollector)) {
 
 #[rstest::rstest]
 fn drop_schema(sql_engine: (QueryExecutor, ResultCollector)) {
-    let (mut engine, collector) = sql_engine;
+    let (engine, collector) = sql_engine;
     engine.execute("create schema schema_name;").expect("no system errors");
     engine.execute("drop schema schema_name;").expect("no system errors");
 
@@ -52,7 +52,7 @@ fn drop_schema(sql_engine: (QueryExecutor, ResultCollector)) {
 
 #[rstest::rstest]
 fn drop_non_existent_schema(sql_engine: (QueryExecutor, ResultCollector)) {
-    let (mut engine, collector) = sql_engine;
+    let (engine, collector) = sql_engine;
 
     engine.execute("drop schema non_existent;").expect("no system errors");
 
@@ -64,7 +64,7 @@ fn drop_non_existent_schema(sql_engine: (QueryExecutor, ResultCollector)) {
 
 #[rstest::rstest]
 fn select_from_nonexistent_schema(sql_engine: (QueryExecutor, ResultCollector)) {
-    let (mut engine, collector) = sql_engine;
+    let (engine, collector) = sql_engine;
 
     engine
         .execute("select * from non_existent.some_table;")
@@ -78,7 +78,7 @@ fn select_from_nonexistent_schema(sql_engine: (QueryExecutor, ResultCollector)) 
 
 #[rstest::rstest]
 fn select_named_columns_from_nonexistent_schema(sql_engine: (QueryExecutor, ResultCollector)) {
-    let (mut engine, collector) = sql_engine;
+    let (engine, collector) = sql_engine;
     engine
         .execute("select column_1 from schema_name.table_name;")
         .expect("no system errors");
@@ -91,7 +91,7 @@ fn select_named_columns_from_nonexistent_schema(sql_engine: (QueryExecutor, Resu
 
 #[rstest::rstest]
 fn insert_into_table_in_nonexistent_schema(sql_engine: (QueryExecutor, ResultCollector)) {
-    let (mut engine, collector) = sql_engine;
+    let (engine, collector) = sql_engine;
     engine
         .execute("insert into schema_name.table_name values (123);")
         .expect("no system errors");
@@ -104,7 +104,7 @@ fn insert_into_table_in_nonexistent_schema(sql_engine: (QueryExecutor, ResultCol
 
 #[rstest::rstest]
 fn update_records_in_table_from_non_existent_schema(sql_engine: (QueryExecutor, ResultCollector)) {
-    let (mut engine, collector) = sql_engine;
+    let (engine, collector) = sql_engine;
     engine
         .execute("update schema_name.table_name set column_test=789;")
         .expect("no system errors");
@@ -117,7 +117,7 @@ fn update_records_in_table_from_non_existent_schema(sql_engine: (QueryExecutor, 
 
 #[rstest::rstest]
 fn delete_from_table_in_nonexistent_schema(sql_engine: (QueryExecutor, ResultCollector)) {
-    let (mut engine, collector) = sql_engine;
+    let (engine, collector) = sql_engine;
     engine
         .execute("delete from schema_name.table_name;")
         .expect("no system errors");

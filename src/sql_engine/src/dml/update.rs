@@ -17,7 +17,7 @@ use std::sync::Arc;
 use data_manager::{DataManager, Row};
 use kernel::SystemResult;
 use protocol::Sender;
-use representation::{unpack_raw, Binary};
+use representation::Binary;
 
 use ast::scalar::Assign;
 use expr_eval::{dynamic_expr::DynamicExpressionEvaluation, static_expr::StaticExpressionEvaluation};
@@ -45,7 +45,7 @@ impl UpdateCommand {
         }
     }
 
-    pub(crate) fn execute(&mut self) -> SystemResult<()> {
+    pub(crate) fn execute(&self) -> SystemResult<()> {
         let table_definition = self.data_manager.table_columns(&self.table_update.table_id)?;
         let all_columns = table_definition
             .iter()
@@ -53,7 +53,7 @@ impl UpdateCommand {
             .map(|(index, col_def)| (col_def.name(), (index, col_def.sql_type())))
             .collect::<HashMap<_, _>>();
 
-        let mut evaluation = StaticExpressionEvaluation::new(self.sender.clone());
+        let evaluation = StaticExpressionEvaluation::new(self.sender.clone());
 
         let mut to_update = vec![];
         let mut has_error = false;
@@ -69,7 +69,7 @@ impl UpdateCommand {
                         column_name: column_name.clone(),
                         destination: *index,
                         value: Box::new(value),
-                        scalar_type: *scalar_type,
+                        sql_type: *scalar_type,
                     });
                 }
                 Err(()) => {
@@ -88,7 +88,7 @@ impl UpdateCommand {
                 let expr_eval = DynamicExpressionEvaluation::new(self.sender.as_ref(), all_columns);
                 let mut res = Vec::new();
                 for (row_idx, (key, values)) in reads.map(Result::unwrap).map(Result::unwrap).enumerate() {
-                    let mut datums = unpack_raw(values.to_bytes());
+                    let mut data = values.unpack();
 
                     let mut has_err = false;
                     for update in to_update.as_slice() {
@@ -96,15 +96,14 @@ impl UpdateCommand {
                             column_name,
                             destination,
                             value,
-                            scalar_type: _ty,
+                            sql_type,
                         } = update;
-                        let value = match expr_eval.eval(datums.as_mut_slice(), value.as_ref()) {
+                        let value = match expr_eval.eval(data.as_mut_slice(), value.as_ref()) {
                             Ok(value) => value,
                             Err(()) => return Ok(()),
                         };
-                        let (_index, sql_type) = &expr_eval.columns()[column_name];
                         match sql_type.constraint().validate(value.to_string().as_str()) {
-                            Ok(()) => datums[*destination] = value,
+                            Ok(()) => data[*destination] = value,
                             Err(ConstraintError::OutOfRange) => {
                                 self.sender
                                     .send(Err(QueryError::out_of_range(sql_type.into(), column_name, row_idx + 1)))
@@ -140,7 +139,7 @@ impl UpdateCommand {
                         return Ok(());
                     }
 
-                    res.push((key, Binary::pack(&datums)));
+                    res.push((key, Binary::pack(&data)));
                 }
                 res
             }

@@ -18,7 +18,7 @@ use ast::{
 };
 use bigdecimal::BigDecimal;
 use protocol::{results::QueryError, Sender};
-use std::{ops::Deref, sync::Arc};
+use std::sync::Arc;
 
 pub struct StaticExpressionEvaluation {
     session: Arc<dyn Sender>,
@@ -29,15 +29,15 @@ impl StaticExpressionEvaluation {
         StaticExpressionEvaluation { session }
     }
 
-    pub fn eval(&mut self, expr: &ScalarOp) -> Result<ScalarOp, ()> {
+    pub fn eval(&self, expr: &ScalarOp) -> Result<ScalarOp, ()> {
         self.inner_eval(expr)
     }
 
-    fn inner_eval(&mut self, expr: &ScalarOp) -> Result<ScalarOp, ()> {
+    fn inner_eval(&self, expr: &ScalarOp) -> Result<ScalarOp, ()> {
         match expr {
             ScalarOp::Binary(op, left, right) => {
-                let left = self.inner_eval(left.deref())?;
-                let right = self.inner_eval(right.deref())?;
+                let left = self.inner_eval(&*left)?;
+                let right = self.inner_eval(&*right)?;
                 match (left, right) {
                     (ScalarOp::Value(ScalarValue::Number(left)), ScalarOp::Value(ScalarValue::Number(right))) => {
                         match op {

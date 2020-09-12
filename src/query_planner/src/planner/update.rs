@@ -17,7 +17,7 @@ use crate::{
     planner::{Planner, Result},
     FullTableName, TableId,
 };
-use ast::{scalar::ScalarOp, ScalarType};
+use ast::scalar::ScalarOp;
 use data_manager::DataManager;
 use protocol::{results::QueryError, Sender};
 use sqlparser::ast::{Assignment, ObjectName};
@@ -84,11 +84,7 @@ impl Planner for UpdatePlanner<'_> {
                                                 .expect("To Send Result to Client");
                                         }
                                     }
-                                    found = Some((
-                                        index,
-                                        column_definition.name(),
-                                        ScalarType::from(&column_definition.sql_type()),
-                                    ));
+                                    found = Some((index, column_definition.name(), column_definition.sql_type()));
                                     break;
                                 }
                             }

@@ -47,8 +47,8 @@ impl InsertCommand {
         }
     }
 
-    pub(crate) fn execute(&mut self) -> SystemResult<()> {
-        let mut evaluation = StaticExpressionEvaluation::new(self.sender.clone());
+    pub(crate) fn execute(&self) -> SystemResult<()> {
+        let evaluation = StaticExpressionEvaluation::new(self.sender.clone());
         let mut rows = vec![];
         for line in &self.table_inserts.input {
             let mut row = vec![];
@@ -67,11 +67,7 @@ impl InsertCommand {
                             operation
                         )))
                     }
-                    Err(()) => {
-                        return Err(SystemError::runtime_check_failure(
-                            &"something is going wrong ¯\\_(ツ)_/¯",
-                        ))
-                    }
+                    Err(()) => return Ok(()),
                 };
                 row.push(v);
             }
@@ -84,7 +80,6 @@ impl InsertCommand {
             .into_iter()
             .map(|col_def| (col_def.name(), col_def.sql_type()))
             .collect::<HashMap<_, _>>();
-        eprintln!("{:?}", column_types);
 
         let mut to_write: Vec<Row> = vec![];
         for (row_index, row) in rows.iter().enumerate() {

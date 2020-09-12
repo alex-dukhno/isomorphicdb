@@ -18,7 +18,7 @@ use super::*;
 
 #[rstest::rstest]
 fn select_from_not_existed_table(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
-    let (mut engine, collector) = sql_engine_with_schema;
+    let (engine, collector) = sql_engine_with_schema;
     engine
         .execute("select * from schema_name.non_existent;")
         .expect("no system errors");
@@ -33,7 +33,7 @@ fn select_from_not_existed_table(sql_engine_with_schema: (QueryExecutor, ResultC
 
 #[rstest::rstest]
 fn select_named_columns_from_non_existent_table(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
-    let (mut engine, collector) = sql_engine_with_schema;
+    let (engine, collector) = sql_engine_with_schema;
     engine
         .execute("select column_1 from schema_name.non_existent;")
         .expect("no system errors");
@@ -48,7 +48,7 @@ fn select_named_columns_from_non_existent_table(sql_engine_with_schema: (QueryEx
 
 #[rstest::rstest]
 fn select_all_from_table_with_multiple_columns(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
-    let (mut engine, collector) = sql_engine_with_schema;
+    let (engine, collector) = sql_engine_with_schema;
     engine
         .execute("create table schema_name.table_name (column_1 smallint, column_2 smallint, column_3 smallint);")
         .expect("no system errors");
@@ -80,7 +80,7 @@ fn select_all_from_table_with_multiple_columns(sql_engine_with_schema: (QueryExe
 
 #[rstest::rstest]
 fn select_not_all_columns(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
-    let (mut engine, collector) = sql_engine_with_schema;
+    let (engine, collector) = sql_engine_with_schema;
     engine
         .execute("create table schema_name.table_name (column_1 smallint, column_2 smallint, column_3 smallint);")
         .expect("no system errors");
@@ -115,7 +115,7 @@ fn select_not_all_columns(sql_engine_with_schema: (QueryExecutor, ResultCollecto
 
 #[rstest::rstest]
 fn select_non_existing_columns_from_table(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
-    let (mut engine, collector) = sql_engine_with_schema;
+    let (engine, collector) = sql_engine_with_schema;
     engine
         .execute("create table schema_name.table_name (column_in_table smallint);")
         .expect("no system errors");
@@ -138,7 +138,7 @@ fn select_non_existing_columns_from_table(sql_engine_with_schema: (QueryExecutor
 fn select_first_and_last_columns_from_table_with_multiple_columns(
     sql_engine_with_schema: (QueryExecutor, ResultCollector),
 ) {
-    let (mut engine, collector) = sql_engine_with_schema;
+    let (engine, collector) = sql_engine_with_schema;
     engine
         .execute("create table schema_name.table_name (column_1 smallint, column_2 smallint, column_3 smallint);")
         .expect("no system errors");
@@ -186,7 +186,7 @@ fn select_first_and_last_columns_from_table_with_multiple_columns(
 fn select_all_columns_reordered_from_table_with_multiple_columns(
     sql_engine_with_schema: (QueryExecutor, ResultCollector),
 ) {
-    let (mut engine, collector) = sql_engine_with_schema;
+    let (engine, collector) = sql_engine_with_schema;
     engine
         .execute("create table schema_name.table_name (column_1 smallint, column_2 smallint, column_3 smallint);")
         .expect("no system errors");
@@ -234,7 +234,7 @@ fn select_all_columns_reordered_from_table_with_multiple_columns(
 
 #[rstest::rstest]
 fn select_with_column_name_duplication(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
-    let (mut engine, collector) = sql_engine_with_schema;
+    let (engine, collector) = sql_engine_with_schema;
     engine
         .execute("create table schema_name.table_name (column_1 smallint, column_2 smallint, column_3 smallint);")
         .expect("no system errors");
@@ -301,7 +301,7 @@ fn select_with_column_name_duplication(sql_engine_with_schema: (QueryExecutor, R
 
 #[rstest::rstest]
 fn select_different_integer_types(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
-    let (mut engine, collector) = sql_engine_with_schema;
+    let (engine, collector) = sql_engine_with_schema;
 
     engine
         .execute("create table schema_name.table_name (column_si smallint, column_i integer, column_bi bigint);")
@@ -350,7 +350,7 @@ fn select_different_integer_types(sql_engine_with_schema: (QueryExecutor, Result
 
 #[rstest::rstest]
 fn select_different_character_strings_types(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
-    let (mut engine, collector) = sql_engine_with_schema;
+    let (engine, collector) = sql_engine_with_schema;
 
     engine
         .execute("create table schema_name.table_name (char_10 char(10), var_char_20 varchar(20));")

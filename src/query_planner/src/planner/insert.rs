@@ -17,7 +17,7 @@ use crate::{
     planner::{Planner, Result},
     FullTableName, TableId,
 };
-use ast::{scalar::ScalarOp, ScalarType};
+use ast::scalar::ScalarOp;
 use data_manager::DataManager;
 use protocol::{results::QueryError, Sender};
 use sqlparser::ast::{Ident, ObjectName, Query, SetExpr};
@@ -93,9 +93,7 @@ impl Planner for InsertPlanner<'_> {
                                         .iter()
                                         .cloned()
                                         .enumerate()
-                                        .map(|(index, col_def)| {
-                                            (index, col_def.name(), ScalarType::from(&col_def.sql_type()))
-                                        })
+                                        .map(|(index, col_def)| (index, col_def.name(), col_def.sql_type()))
                                         .collect::<Vec<_>>()
                                 } else {
                                     let mut index_cols = vec![];
@@ -104,18 +102,14 @@ impl Planner for InsertPlanner<'_> {
                                         let mut found = None;
                                         for (index, column_definition) in all_columns.iter().enumerate() {
                                             if column_definition.has_name(column_name) {
-                                                found = Some((
-                                                    index,
-                                                    column_name,
-                                                    ScalarType::from(&column_definition.sql_type()),
-                                                ));
+                                                found = Some((index, column_name, column_definition.sql_type()));
                                                 break;
                                             }
                                         }
 
                                         match found {
-                                            Some((index, column_name, scalar_type)) => {
-                                                index_cols.push((index, column_name.to_owned(), scalar_type));
+                                            Some((index, column_name, sql_type)) => {
+                                                index_cols.push((index, column_name.to_owned(), sql_type));
                                             }
                                             None => {
                                                 sender

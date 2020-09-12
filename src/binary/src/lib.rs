@@ -146,7 +146,7 @@ impl Binary {
     }
 }
 
-pub fn unpack_raw(data: &[u8]) -> Vec<Datum> {
+fn unpack_raw(data: &[u8]) -> Vec<Datum> {
     let mut index = 0;
     let mut res = Vec::new();
     while index < data.len() {

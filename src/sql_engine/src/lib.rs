@@ -63,7 +63,7 @@ impl QueryExecutor {
         }
     }
 
-    pub fn execute(&mut self, raw_sql_query: &str) -> SystemResult<()> {
+    pub fn execute(&self, raw_sql_query: &str) -> SystemResult<()> {
         match Parser::parse_sql(&PreparedStatementDialect {}, raw_sql_query) {
             Ok(mut statements) => {
                 log::info!("stmts: {:#?}", statements);
@@ -129,7 +129,7 @@ impl QueryExecutor {
         Ok(())
     }
 
-    pub fn describe_prepared_statement(&mut self, name: &str) -> SystemResult<()> {
+    pub fn describe_prepared_statement(&self, name: &str) -> SystemResult<()> {
         match self.session.get_prepared_statement(name) {
             Some(stmt) => {
                 self.sender
@@ -238,7 +238,7 @@ impl QueryExecutor {
     }
 
     // TODO: Parameter `max_rows` should be handled.
-    pub fn execute_portal(&mut self, portal_name: &str, _max_rows: i32) -> SystemResult<()> {
+    pub fn execute_portal(&self, portal_name: &str, _max_rows: i32) -> SystemResult<()> {
         let portal = match self.session.get_portal(portal_name) {
             Some(portal) => portal,
             None => {

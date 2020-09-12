@@ -38,7 +38,7 @@ impl DeleteCommand {
         }
     }
 
-    pub(crate) fn execute(&mut self) -> SystemResult<()> {
+    pub(crate) fn execute(&self) -> SystemResult<()> {
         match self.data_manager.full_scan(&self.table_deletes.table_id) {
             Err(e) => return Err(e),
             Ok(reads) => {

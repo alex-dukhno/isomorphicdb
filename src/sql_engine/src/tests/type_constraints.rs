@@ -18,7 +18,7 @@ use super::*;
 
 #[rstest::fixture]
 fn int_table(sql_engine_with_schema: (QueryExecutor, ResultCollector)) -> (QueryExecutor, ResultCollector) {
-    let (mut engine, collector) = sql_engine_with_schema;
+    let (engine, collector) = sql_engine_with_schema;
     engine
         .execute("create table schema_name.table_name(col smallint);")
         .expect("no system errors");
@@ -28,7 +28,7 @@ fn int_table(sql_engine_with_schema: (QueryExecutor, ResultCollector)) -> (Query
 
 #[rstest::fixture]
 fn multiple_ints_table(sql_engine_with_schema: (QueryExecutor, ResultCollector)) -> (QueryExecutor, ResultCollector) {
-    let (mut engine, collector) = sql_engine_with_schema;
+    let (engine, collector) = sql_engine_with_schema;
     engine
         .execute("create table schema_name.table_name(column_si smallint, column_i integer, column_bi bigint);")
         .expect("no system errors");
@@ -38,7 +38,7 @@ fn multiple_ints_table(sql_engine_with_schema: (QueryExecutor, ResultCollector))
 
 #[rstest::fixture]
 fn str_table(sql_engine_with_schema: (QueryExecutor, ResultCollector)) -> (QueryExecutor, ResultCollector) {
-    let (mut engine, collector) = sql_engine_with_schema;
+    let (engine, collector) = sql_engine_with_schema;
     engine
         .execute("create table schema_name.table_name(col varchar(5));")
         .expect("no system errors");
@@ -52,7 +52,7 @@ mod insert {
 
     #[rstest::rstest]
     fn out_of_range(int_table: (QueryExecutor, ResultCollector)) {
-        let (mut engine, collector) = int_table;
+        let (engine, collector) = int_table;
 
         engine
             .execute("insert into schema_name.table_name values (32768);")
@@ -70,7 +70,7 @@ mod insert {
 
     #[rstest::rstest]
     fn type_mismatch(int_table: (QueryExecutor, ResultCollector)) {
-        let (mut engine, collector) = int_table;
+        let (engine, collector) = int_table;
 
         engine
             .execute("insert into schema_name.table_name values ('str');")
@@ -87,11 +87,8 @@ mod insert {
     }
 
     #[rstest::rstest]
-    #[ignore]
-    // currently the ExpressionEvaluator doesn't have contextual information to create the right
-    // error messages.
     fn multiple_columns_multiple_row_violation(multiple_ints_table: (QueryExecutor, Arc<Collector>)) {
-        let (mut engine, collector) = multiple_ints_table;
+        let (engine, collector) = multiple_ints_table;
         engine
             .execute("insert into schema_name.table_name values (-32769, -2147483649, 100), (100, -2147483649, -9223372036854775809);")
             .expect("no system errors");
@@ -109,7 +106,7 @@ mod insert {
 
     #[rstest::rstest]
     fn violation_in_the_second_row(multiple_ints_table: (QueryExecutor, ResultCollector)) {
-        let (mut engine, collector) = multiple_ints_table;
+        let (engine, collector) = multiple_ints_table;
         engine
             .execute("insert into schema_name.table_name values (-32768, -2147483648, 100), (100, -2147483649, -9223372036854775809);")
             .expect("no system errors");
@@ -135,7 +132,7 @@ mod insert {
 
     #[rstest::rstest]
     fn value_too_long(str_table: (QueryExecutor, ResultCollector)) {
-        let (mut engine, collector) = str_table;
+        let (engine, collector) = str_table;
         engine
             .execute("insert into schema_name.table_name values ('123457890');")
             .expect("no system errors");
@@ -162,7 +159,7 @@ mod update {
 
     #[rstest::rstest]
     fn out_of_range(int_table: (QueryExecutor, ResultCollector)) {
-        let (mut engine, collector) = int_table;
+        let (engine, collector) = int_table;
 
         engine
             .execute("insert into schema_name.table_name values (32767);")
@@ -185,7 +182,7 @@ mod update {
 
     #[rstest::rstest]
     fn type_mismatch(int_table: (QueryExecutor, ResultCollector)) {
-        let (mut engine, collector) = int_table;
+        let (engine, collector) = int_table;
         engine
             .execute("insert into schema_name.table_name values (32767);")
             .expect("no system errors");
@@ -207,7 +204,7 @@ mod update {
 
     #[rstest::rstest]
     fn value_too_long(str_table: (QueryExecutor, ResultCollector)) {
-        let (mut engine, collector) = str_table;
+        let (engine, collector) = str_table;
 
         engine
             .execute("insert into schema_name.table_name values ('str');")
@@ -235,7 +232,7 @@ mod update {
 
     #[rstest::rstest]
     fn multiple_columns_violation(multiple_ints_table: (QueryExecutor, ResultCollector)) {
-        let (mut engine, collector) = multiple_ints_table;
+        let (engine, collector) = multiple_ints_table;
 
         engine
             .execute("insert into schema_name.table_name values (100, 100, 100), (100, 100, 100);")
