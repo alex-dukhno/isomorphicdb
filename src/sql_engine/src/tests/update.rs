@@ -287,6 +287,7 @@ fn update_non_existent_columns_of_records(sql_engine_with_schema: (QueryExecutor
 }
 
 #[rstest::rstest]
+#[allow(clippy::identity_op)]
 fn test_update_with_dynamic_expression(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
     let (engine, collector) = sql_engine_with_schema;
     engine

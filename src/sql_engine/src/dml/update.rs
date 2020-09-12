@@ -86,7 +86,7 @@ impl UpdateCommand {
                 return Err(error);
             }
             Ok(reads) => {
-                let expr_eval = DynamicExpressionEvaluation::new(self.sender.clone(), all_columns.clone());
+                let expr_eval = DynamicExpressionEvaluation::new(self.sender.clone(), all_columns);
                 let mut to_update = Vec::new();
                 for (row_idx, (key, values)) in reads.map(Result::unwrap).map(Result::unwrap).enumerate() {
                     let data = values.unpack();

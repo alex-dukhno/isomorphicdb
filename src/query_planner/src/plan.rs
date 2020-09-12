@@ -16,8 +16,7 @@
 use crate::{SchemaId, TableId};
 use ast::operations::ScalarOp;
 use data_manager::ColumnDefinition;
-use sql_model::sql_types::SqlType;
-use sql_model::Id;
+use sql_model::{sql_types::SqlType, Id};
 use sqlparser::ast::Statement;
 
 #[derive(PartialEq, Debug, Clone)]

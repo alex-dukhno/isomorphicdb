@@ -19,7 +19,7 @@ use std::collections::HashMap;
 fn eval(sender: ResultCollector) -> DynamicExpressionEvaluation {
     let mut columns = HashMap::new();
     columns.insert("name".to_owned(), 0);
-    DynamicExpressionEvaluation::new(sender.clone(), columns)
+    DynamicExpressionEvaluation::new(sender, columns)
 }
 
 #[test]
@@ -405,6 +405,8 @@ mod binary_operation {
                 ),
                 Ok(Datum::from_string(format!("{}{}", "str-1", "str-2")))
             );
+
+            sender.assert_content(vec![]);
         }
 
         #[test]

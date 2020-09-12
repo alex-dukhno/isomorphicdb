@@ -13,13 +13,11 @@
 // limitations under the License.
 
 use super::*;
-use crate::static_expr::StaticExpressionEvaluation;
-use crate::tests::ResultCollector;
-use ast::operations::ScalarOp;
-use ast::values::ScalarValue;
+use crate::{static_expr::StaticExpressionEvaluation, tests::ResultCollector};
+use ast::{operations::ScalarOp, values::ScalarValue};
 
 fn eval(sender: ResultCollector) -> StaticExpressionEvaluation {
-    StaticExpressionEvaluation::new(sender.clone())
+    StaticExpressionEvaluation::new(sender)
 }
 
 #[test]
@@ -361,6 +359,8 @@ mod binary_operation {
                 )),
                 Ok(ScalarOp::Value(ScalarValue::String(format!("{}{}", "str-1", "str-2"))))
             );
+
+            sender.assert_content(vec![]);
         }
 
         #[test]

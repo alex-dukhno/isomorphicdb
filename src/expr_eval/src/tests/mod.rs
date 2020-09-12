@@ -17,16 +17,20 @@ mod dynamic_expressions;
 #[cfg(test)]
 mod static_expressions;
 
-use ast::operations::BinaryOp;
-use ast::operations::ScalarOp;
-use ast::values::ScalarValue;
-use ast::Datum;
+use ast::{
+    operations::{BinaryOp, ScalarOp},
+    values::ScalarValue,
+    Datum,
+};
 use bigdecimal::BigDecimal;
-use protocol::results::QueryError;
-use protocol::results::QueryResult;
-use protocol::Sender;
-use std::io;
-use std::sync::{Arc, Mutex};
+use protocol::{
+    results::{QueryError, QueryResult},
+    Sender,
+};
+use std::{
+    io,
+    sync::{Arc, Mutex},
+};
 
 struct Collector(Mutex<Vec<QueryResult>>);
 

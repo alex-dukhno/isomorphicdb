@@ -19,8 +19,7 @@ use ast::{
     Datum,
 };
 use protocol::{results::QueryError, Sender};
-use std::collections::HashMap;
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 pub struct DynamicExpressionEvaluation {
     sender: Arc<dyn Sender>,
