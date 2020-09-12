@@ -1,17 +1,13 @@
 [package]
-name = "query_planner"
+name = "ast"
 version = "0.1.0"
 authors = ["Alex Dukhno <alex.dukhno@icloud.com>"]
 edition = "2018"
 publish = false
 
 [dependencies]
-ast = { path = "../ast" }
 sqlparser = { version = "0.6.1", features = ["bigdecimal"] }
+log = "0.4.11"
 sql_model = { path = "../sql_model" }
-data_manager = { path = "../data_manager" }
-protocol = { path = "../protocol" }
-kernel = { path = "../kernel" }
-
-[dev-dependencies]
-rstest = "0.6.4"
+ordered-float = "2.0.0"
+bigdecimal = "0.1.2"

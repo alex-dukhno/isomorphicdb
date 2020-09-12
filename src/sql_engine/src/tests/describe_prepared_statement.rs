@@ -80,7 +80,7 @@ fn describe_update_statement(sql_engine_with_schema: (QueryExecutor, ResultColle
 
 #[rstest::rstest]
 fn describe_not_existed_statement(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
-    let (mut engine, collector) = sql_engine_with_schema;
+    let (engine, collector) = sql_engine_with_schema;
     engine
         .describe_prepared_statement("non_existent")
         .expect("no system errors");

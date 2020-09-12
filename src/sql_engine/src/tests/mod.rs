@@ -97,7 +97,7 @@ fn sql_engine() -> (QueryExecutor, ResultCollector) {
 
 #[rstest::fixture]
 fn sql_engine_with_schema(sql_engine: (QueryExecutor, ResultCollector)) -> (QueryExecutor, ResultCollector) {
-    let (mut engine, collector) = sql_engine;
+    let (engine, collector) = sql_engine;
     engine.execute("create schema schema_name;").expect("no system errors");
 
     (engine, collector)

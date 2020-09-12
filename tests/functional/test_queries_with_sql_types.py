@@ -77,8 +77,8 @@ def test_boolean_types(create_drop_test_schema_fixture):
         # "'0'": False,
         "TRUE::boolean": True,
         "FALSE::boolean": False,
-        # "'yes'::boolean": True,
-        # "'no'::boolean": False,
+        "'yes'::boolean": True,
+        "'no'::boolean": False,
     }
 
     for (w, outcome) in word_to_value.items():

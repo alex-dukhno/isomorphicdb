@@ -271,7 +271,7 @@ impl Display for QueryErrorKind {
             ),
             Self::AmbiguousColumnName { column } => write!(f, "use of ambiguous column name in context: '{}'", column),
             Self::UndefinedColumn { column } => write!(f, "use of undefined column: '{}'", column),
-            Self::SyntaxError(expression) => write!(f, "syntax error in {}", expression),
+            Self::SyntaxError(expression) => write!(f, "syntax error: {}", expression),
         }
     }
 }
@@ -410,7 +410,7 @@ impl QueryError {
     }
 
     /// operator or function is not found for operands
-    pub fn undefined_function<S: ToString>(operator: S, left_type: S, right_type: S) -> QueryError {
+    pub fn undefined_function<O: ToString, S: ToString>(operator: O, left_type: S, right_type: S) -> QueryError {
         QueryError {
             severity: Severity::Error,
             kind: QueryErrorKind::UndefinedFunction {
@@ -828,13 +828,13 @@ mod tests {
 
         #[test]
         fn syntax_error() {
-            let messages: BackendMessage = QueryError::syntax_error("expression".to_owned()).into();
+            let messages: BackendMessage = QueryError::syntax_error("expression").into();
             assert_eq!(
                 messages,
                 BackendMessage::ErrorResponse(
                     Some("ERROR"),
                     Some("42601"),
-                    Some("syntax error in expression".to_owned()),
+                    Some("syntax error: expression".to_owned()),
                 )
             )
         }

@@ -17,6 +17,7 @@ use crate::{
     planner::{Planner, Result},
     FullTableName, TableId,
 };
+use ast::operations::ScalarOp;
 use data_manager::DataManager;
 use protocol::{results::QueryError, Sender};
 use sqlparser::ast::{Assignment, ObjectName};
@@ -57,10 +58,58 @@ impl Planner for UpdatePlanner<'_> {
                             .expect("To Send Query Result to Client");
                         Err(())
                     }
-                    Some((schema_id, Some(table_id))) => Ok(Plan::Update(TableUpdates {
-                        table_id: TableId((schema_id, table_id)),
-                        assignments: self.assignments.to_vec(),
-                    })),
+                    Some((schema_id, Some(table_id))) => {
+                        let table_id = TableId((schema_id, table_id));
+                        let all_columns = data_manager.table_columns(&table_id).expect("Ok");
+                        let mut column_indices = vec![];
+                        let mut input = vec![];
+                        let mut has_error = false;
+                        for Assignment { id, value } in self.assignments.iter() {
+                            let mut found = None;
+                            let column_name = id.to_string();
+                            for (index, column_definition) in all_columns.iter().enumerate() {
+                                if column_definition.has_name(&column_name) {
+                                    match ScalarOp::transform(&value) {
+                                        Ok(Ok(value)) => input.push(value),
+                                        Ok(Err(error)) => {
+                                            has_error = true;
+                                            sender
+                                                .send(Err(QueryError::syntax_error(error)))
+                                                .expect("To Send Result to Client");
+                                        }
+                                        Err(error) => {
+                                            has_error = true;
+                                            sender
+                                                .send(Err(QueryError::feature_not_supported(error)))
+                                                .expect("To Send Result to Client");
+                                        }
+                                    }
+                                    found = Some((index, column_definition.name(), column_definition.sql_type()));
+                                    break;
+                                }
+                            }
+
+                            match found {
+                                Some(index_col) => column_indices.push(index_col),
+                                None => {
+                                    sender
+                                        .send(Err(QueryError::column_does_not_exist(column_name)))
+                                        .expect("To Send Result to Client");
+                                    has_error = true;
+                                }
+                            }
+                        }
+
+                        if has_error {
+                            return Err(());
+                        }
+
+                        Ok(Plan::Update(TableUpdates {
+                            table_id,
+                            column_indices,
+                            input,
+                        }))
+                    }
                 }
             }
             Err(error) => {

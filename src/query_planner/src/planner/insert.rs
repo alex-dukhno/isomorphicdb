@@ -17,6 +17,7 @@ use crate::{
     planner::{Planner, Result},
     FullTableName, TableId,
 };
+use ast::operations::ScalarOp;
 use data_manager::DataManager;
 use protocol::{results::QueryError, Sender};
 use sqlparser::ast::{Ident, ObjectName, Query, SetExpr};
@@ -63,11 +64,71 @@ impl Planner for InsertPlanner<'_> {
                         let Query { body, .. } = &self.source;
                         match body {
                             SetExpr::Values(values) => {
-                                let values = values.0.to_vec();
+                                let table_id = TableId((schema_id, table_id));
+                                let mut input = vec![];
+                                for row in values.0.iter() {
+                                    let mut scalar_values = vec![];
+                                    for value in row {
+                                        match ScalarOp::transform(&value) {
+                                            Ok(Ok(value)) => scalar_values.push(value),
+                                            Ok(Err(error)) => {
+                                                sender
+                                                    .send(Err(QueryError::syntax_error(error)))
+                                                    .expect("To Send Result to Client");
+                                                return Err(());
+                                            }
+                                            Err(error) => {
+                                                sender
+                                                    .send(Err(QueryError::feature_not_supported(error)))
+                                                    .expect("To Send Result to Client");
+                                                return Err(());
+                                            }
+                                        }
+                                    }
+                                    input.push(scalar_values);
+                                }
+                                let all_columns = data_manager.table_columns(&table_id).expect("Ok");
+                                let column_indices = if self.columns.is_empty() {
+                                    all_columns
+                                        .iter()
+                                        .cloned()
+                                        .enumerate()
+                                        .map(|(index, col_def)| (index, col_def.name(), col_def.sql_type()))
+                                        .collect::<Vec<_>>()
+                                } else {
+                                    let mut index_cols = vec![];
+                                    let mut has_error = false;
+                                    for column_name in self.columns.iter().map(|id| id.value.as_str()) {
+                                        let mut found = None;
+                                        for (index, column_definition) in all_columns.iter().enumerate() {
+                                            if column_definition.has_name(column_name) {
+                                                found =
+                                                    Some((index, column_name.to_owned(), column_definition.sql_type()));
+                                                break;
+                                            }
+                                        }
+
+                                        match found {
+                                            Some(index_col) => index_cols.push(index_col),
+                                            None => {
+                                                sender
+                                                    .send(Err(QueryError::column_does_not_exist(column_name)))
+                                                    .expect("To Send Result to Client");
+                                                has_error = true;
+                                            }
+                                        }
+                                    }
+
+                                    if has_error {
+                                        return Err(());
+                                    }
+
+                                    index_cols
+                                };
                                 Ok(Plan::Insert(TableInserts {
-                                    table_id: TableId((schema_id, table_id)),
-                                    column_indices: self.columns.to_vec(),
-                                    input: values,
+                                    table_id,
+                                    column_indices,
+                                    input,
                                 }))
                             }
                             set_expr => {

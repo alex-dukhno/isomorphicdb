@@ -41,7 +41,7 @@ impl SelectCommand {
         }
     }
 
-    pub(crate) fn describe(&mut self) -> SystemResult<Description> {
+    pub(crate) fn describe(&self) -> SystemResult<Description> {
         let all_columns = self.data_manager.table_columns(&self.select_input.table_id)?;
         let mut column_definitions = vec![];
         let mut has_error = false;

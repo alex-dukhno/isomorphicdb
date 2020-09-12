@@ -24,8 +24,8 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
+use binary::Binary;
 use kernel::{Object, Operation, SystemError, SystemResult};
-use representation::Binary;
 use sql_model::sql_types::SqlType;
 
 use crate::{data_definition::DataDefinition, in_memory::InMemoryDatabase, persistent::PersistentDatabase};

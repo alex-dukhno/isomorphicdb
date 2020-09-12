@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-///! Module for representing how a query will be parameters bound, executed and
-///! values represented during runtime.
-pub mod bind;
+pub mod dynamic_expr;
+pub mod static_expr;
+#[cfg(test)]
+mod tests;

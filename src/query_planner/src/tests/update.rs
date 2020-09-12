@@ -18,6 +18,7 @@ use crate::{
     planner::QueryPlanner,
     tests::{ident, ResultCollector, TABLE},
 };
+use ast::{operations::ScalarOp, values::ScalarValue};
 use protocol::results::QueryError;
 use sqlparser::ast::{Assignment, Expr, ObjectName, Statement, Value};
 
@@ -106,17 +107,15 @@ fn update_table(planner_and_sender_with_table: (QueryPlanner, ResultCollector)) 
         query_planner.plan(Statement::Update {
             table_name: ObjectName(vec![ident(SCHEMA), ident(TABLE)]),
             assignments: vec![Assignment {
-                id: ident(""),
+                id: ident("small_int"),
                 value: Expr::Value(Value::SingleQuotedString("".to_string()))
             }],
             selection: None
         }),
         Ok(Plan::Update(TableUpdates {
             table_id: TableId((0, 0)),
-            assignments: vec![Assignment {
-                id: ident(""),
-                value: Expr::Value(Value::SingleQuotedString("".to_string()))
-            }]
+            column_indices: vec![(0, "small_int".to_owned(), SqlType::SmallInt(0))],
+            input: vec![ScalarOp::Value(ScalarValue::String("".to_string()))],
         }))
     );
 

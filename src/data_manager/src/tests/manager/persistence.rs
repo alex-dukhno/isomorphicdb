@@ -16,7 +16,8 @@ use std::path::PathBuf;
 
 use tempfile::TempDir;
 
-use representation::{Binary, Datum};
+use ast::Datum;
+use binary::Binary;
 use sql_model::sql_types::SqlType;
 
 use super::*;

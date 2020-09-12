@@ -16,7 +16,7 @@ use super::*;
 
 #[rstest::rstest]
 fn parse_wrong_select_syntax(sql_engine: (QueryExecutor, ResultCollector)) {
-    let (mut engine, collector) = sql_engine;
+    let (engine, collector) = sql_engine;
     engine
         .execute("selec col from schema_name.table_name")
         .expect("no system errors");
