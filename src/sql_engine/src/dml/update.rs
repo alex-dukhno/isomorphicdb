@@ -14,10 +14,10 @@
 
 use std::sync::Arc;
 
+use binary::Binary;
 use data_manager::DataManager;
 use kernel::SystemResult;
 use protocol::Sender;
-use representation::Binary;
 
 use expr_eval::{dynamic_expr::DynamicExpressionEvaluation, static_expr::StaticExpressionEvaluation};
 use protocol::results::{QueryError, QueryEvent};

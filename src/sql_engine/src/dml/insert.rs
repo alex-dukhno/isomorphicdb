@@ -14,13 +14,13 @@
 
 use std::sync::Arc;
 
+use binary::Binary;
 use data_manager::{ColumnDefinition, DataManager, Row};
 use kernel::{SystemError, SystemResult};
 use protocol::{
     results::{QueryError, QueryEvent},
     Sender,
 };
-use representation::Binary;
 use sql_model::sql_types::ConstraintError;
 
 use ast::{operations::ScalarOp, Datum, EvalError};

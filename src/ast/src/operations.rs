@@ -25,7 +25,7 @@ use std::{
 pub enum ScalarOp {
     /// column access
     Column(String),
-    /// should be used instead of `Literal`
+    /// literal value
     Value(ScalarValue),
     /// binary operator
     Binary(BinaryOp, Box<ScalarOp>, Box<ScalarOp>),

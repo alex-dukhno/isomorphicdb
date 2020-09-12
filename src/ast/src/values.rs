@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{NotHandled, Operation, OperationError};
+use crate::{NotHandled, NotSupportedOperation, OperationError};
 use bigdecimal::BigDecimal;
 use sqlparser::ast::{DataType, Expr, UnaryOperator, Value};
 use std::str::FromStr;
@@ -56,14 +56,14 @@ impl ScalarValue {
                     match Bool::from_str(string.as_str()) {
                         Ok(Bool(boolean)) => Ok(Ok(ScalarValue::Bool(Bool(boolean)))),
                         Err(error) => Ok(Err(OperationError(
-                            Operation::Cast(Value::SingleQuotedString(string.clone()), DataType::Boolean),
+                            NotSupportedOperation::Cast(Value::SingleQuotedString(string.clone()), DataType::Boolean),
                             Some(error.0),
                         ))),
                     }
                 }
                 (Expr::Value(Value::Boolean(boolean)), DataType::Boolean) => Ok(Ok(ScalarValue::Bool(Bool(*boolean)))),
                 (Expr::Value(value), data_type) => Ok(Err(OperationError(
-                    Operation::Cast(value.clone(), data_type.clone()),
+                    NotSupportedOperation::Cast(value.clone(), data_type.clone()),
                     None,
                 ))),
                 _ => Err(NotHandled(Expr::Cast {
@@ -77,7 +77,7 @@ impl ScalarValue {
                     Ok(Ok(ScalarValue::Number(number.clone())))
                 }
                 (UnaryOperator::Not, Expr::Value(Value::Number(_number))) => {
-                    Ok(Err(OperationError(Operation::Not, None)))
+                    Ok(Err(OperationError(NotSupportedOperation::Not, None)))
                 }
                 _ => Err(NotHandled(Expr::UnaryOp {
                     op: op.clone(),
@@ -174,7 +174,7 @@ mod tests {
                     data_type: DataType::Boolean
                 }),
                 Ok(Err(OperationError(
-                    Operation::Cast(
+                    NotSupportedOperation::Cast(
                         Value::SingleQuotedString("not a boolean".to_string()),
                         DataType::Boolean
                     ),
@@ -231,7 +231,7 @@ mod tests {
                     op: UnaryOperator::Not,
                     expr: Box::new(Expr::Value(Value::Number(BigDecimal::from(0u64))))
                 }),
-                Ok(Err(OperationError(Operation::Not, None)))
+                Ok(Err(OperationError(NotSupportedOperation::Not, None)))
             )
         }
     }

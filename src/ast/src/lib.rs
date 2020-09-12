@@ -37,7 +37,7 @@ impl Display for NotHandled {
 }
 
 #[derive(Debug, PartialEq)]
-pub struct OperationError(Operation, Option<String>);
+pub struct OperationError(NotSupportedOperation, Option<String>);
 
 impl Display for OperationError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
@@ -46,20 +46,20 @@ impl Display for OperationError {
 }
 
 #[derive(Debug, PartialEq)]
-pub enum Operation {
+pub enum NotSupportedOperation {
     Cast(Value, DataType),
     Minus,
     Plus,
     Not,
 }
 
-impl Display for Operation {
+impl Display for NotSupportedOperation {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            Operation::Cast(val, scalar_type) => write!(f, "casting value {} to {} type", val, scalar_type),
-            Operation::Minus => write!(f, "unary minus"),
-            Operation::Plus => write!(f, "unary plus"),
-            Operation::Not => write!(f, "logical not"),
+            NotSupportedOperation::Cast(val, scalar_type) => write!(f, "casting value {} to {} type", val, scalar_type),
+            NotSupportedOperation::Minus => write!(f, "unary minus"),
+            NotSupportedOperation::Plus => write!(f, "unary plus"),
+            NotSupportedOperation::Not => write!(f, "logical not"),
         }
     }
 }

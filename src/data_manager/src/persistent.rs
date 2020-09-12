@@ -21,7 +21,7 @@ use std::{
 
 use sled::{Db as Schema, DiskPtr, Error as SledError, IVec, Tree};
 
-use representation::Binary;
+use binary::Binary;
 
 use crate::{
     Database, DefinitionError, InitStatus, Key, ObjectName, ReadCursor, RowResult, SchemaName, StorageError, Values,

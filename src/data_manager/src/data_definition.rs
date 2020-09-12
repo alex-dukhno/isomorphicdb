@@ -22,8 +22,8 @@ use std::{
 };
 
 use ast::Datum;
+use binary::Binary;
 use kernel::{SystemError, SystemResult};
-use representation::Binary;
 use sql_model::sql_types::SqlType;
 
 use crate::{ColumnDefinition, Database, DropSchemaError, DropStrategy, InitStatus, PersistentDatabase};
