@@ -18,6 +18,7 @@ use crate::{
     FullTableName, TableId,
 };
 use ast::operations::ScalarOp;
+use constraints::TypeConstraint;
 use data_manager::DataManager;
 use protocol::{results::QueryError, Sender};
 use sqlparser::ast::{Assignment, ObjectName};
@@ -95,7 +96,12 @@ impl Planner for UpdatePlanner<'_> {
                                             .expect("To Send Result to Client");
                                     }
                                     columns.insert(column_name.clone());
-                                    found = Some((index, column_definition.name(), column_definition.sql_type()));
+                                    found = Some((
+                                        index,
+                                        column_definition.name(),
+                                        column_definition.sql_type(),
+                                        TypeConstraint::from(&column_definition.sql_type()),
+                                    ));
                                     break;
                                 }
                             }

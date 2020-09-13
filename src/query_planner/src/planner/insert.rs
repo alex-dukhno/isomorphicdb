@@ -18,6 +18,7 @@ use crate::{
     FullTableName, TableId,
 };
 use ast::operations::ScalarOp;
+use constraints::TypeConstraint;
 use data_manager::DataManager;
 use protocol::{results::QueryError, Sender};
 use sqlparser::ast::{Ident, ObjectName, Query, SetExpr};
@@ -93,7 +94,14 @@ impl Planner for InsertPlanner<'_> {
                                         .iter()
                                         .cloned()
                                         .enumerate()
-                                        .map(|(index, col_def)| (index, col_def.name(), col_def.sql_type()))
+                                        .map(|(index, col_def)| {
+                                            (
+                                                index,
+                                                col_def.name(),
+                                                col_def.sql_type(),
+                                                TypeConstraint::from(&col_def.sql_type()),
+                                            )
+                                        })
                                         .collect::<Vec<_>>()
                                 } else {
                                     let mut columns = HashSet::new();
@@ -110,8 +118,12 @@ impl Planner for InsertPlanner<'_> {
                                                     has_error = true;
                                                 }
                                                 columns.insert(column_name.to_owned());
-                                                found =
-                                                    Some((index, column_name.to_owned(), column_definition.sql_type()));
+                                                found = Some((
+                                                    index,
+                                                    column_name.to_owned(),
+                                                    column_definition.sql_type(),
+                                                    TypeConstraint::from(&column_definition.sql_type()),
+                                                ));
                                                 break;
                                             }
                                         }

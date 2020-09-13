@@ -8,7 +8,6 @@ publish = false
 [dependencies]
 ast = { path = "../ast" }
 sql_model = { path = "../sql_model" }
-lexical = "5.2.0"
 bigdecimal = "0.1.2"
 num-bigint = "0.2"
 

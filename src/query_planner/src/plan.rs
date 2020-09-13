@@ -15,6 +15,7 @@
 ///! represents a plan to be executed by the engine.
 use crate::{SchemaId, TableId};
 use ast::operations::ScalarOp;
+use constraints::TypeConstraint;
 use data_manager::ColumnDefinition;
 use sql_model::{sql_types::SqlType, Id};
 use sqlparser::ast::Statement;
@@ -56,14 +57,14 @@ impl SchemaCreationInfo {
 #[derive(PartialEq, Debug, Clone)]
 pub struct TableInserts {
     pub table_id: TableId,
-    pub column_indices: Vec<(usize, String, SqlType)>,
+    pub column_indices: Vec<(usize, String, SqlType, TypeConstraint)>,
     pub input: Vec<Vec<ScalarOp>>,
 }
 
 #[derive(PartialEq, Debug, Clone)]
 pub struct TableUpdates {
     pub table_id: TableId,
-    pub column_indices: Vec<(usize, String, SqlType)>,
+    pub column_indices: Vec<(usize, String, SqlType, TypeConstraint)>,
     pub input: Vec<ScalarOp>,
 }
 

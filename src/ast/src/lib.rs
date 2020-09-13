@@ -141,11 +141,11 @@ impl<'a> Datum<'a> {
     }
 
     pub fn from_f32(val: f32) -> Datum<'static> {
-        Datum::Float32(val.into())
+        Datum::Float32(OrderedFloat(val))
     }
 
     pub fn from_f64(val: f64) -> Datum<'static> {
-        Datum::Float64(val.into())
+        Datum::Float64(OrderedFloat(val))
     }
 
     #[allow(clippy::should_implement_trait)]
