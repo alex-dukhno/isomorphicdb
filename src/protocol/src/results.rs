@@ -186,6 +186,7 @@ pub(crate) enum QueryErrorKind {
         pg_type: PostgreSqlType,
         value: String,
     },
+    DuplicateColumn(String),
 }
 
 impl QueryErrorKind {
@@ -211,6 +212,7 @@ impl QueryErrorKind {
             Self::UndefinedColumn { .. } => "42883",
             Self::SyntaxError(_) => "42601",
             Self::InvalidTextRepresentation { .. } => "22P02",
+            Self::DuplicateColumn(_) => "42701",
         }
     }
 }
@@ -280,6 +282,7 @@ impl Display for QueryErrorKind {
             Self::InvalidTextRepresentation { pg_type, value } => {
                 write!(f, "invalid input syntax for type {}: \"{}\"", pg_type, value)
             }
+            Self::DuplicateColumn(name) => write!(f, "column \"{}\" specified more than once", name),
         }
     }
 }
@@ -505,6 +508,14 @@ impl QueryError {
                 pg_type,
                 value: value.to_string(),
             },
+        }
+    }
+
+    /// duplicate column
+    pub fn duplicate_column<S: ToString>(column: S) -> QueryError {
+        QueryError {
+            severity: Severity::Error,
+            kind: QueryErrorKind::DuplicateColumn(column.to_string()),
         }
     }
 }
@@ -854,6 +865,19 @@ mod tests {
                     Some("ERROR"),
                     Some("42601"),
                     Some("syntax error: expression".to_owned()),
+                )
+            )
+        }
+
+        #[test]
+        fn duplicate_column() {
+            let messages: BackendMessage = QueryError::duplicate_column("col").into();
+            assert_eq!(
+                messages,
+                BackendMessage::ErrorResponse(
+                    Some("ERROR"),
+                    Some("42701"),
+                    Some("column \"col\" specified more than once".to_owned()),
                 )
             )
         }
