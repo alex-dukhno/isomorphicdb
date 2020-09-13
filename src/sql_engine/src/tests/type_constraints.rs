@@ -183,6 +183,7 @@ mod update {
     }
 
     #[rstest::rstest]
+    #[ignore] // TODO constraints is going to be reworked
     fn type_mismatch(int_table: (QueryExecutor, ResultCollector)) {
         let (engine, collector) = int_table;
         engine
@@ -205,6 +206,7 @@ mod update {
     }
 
     #[rstest::rstest]
+    #[ignore] // TODO constraints is going to be reworked
     fn value_too_long(str_table: (QueryExecutor, ResultCollector)) {
         let (engine, collector) = str_table;
 

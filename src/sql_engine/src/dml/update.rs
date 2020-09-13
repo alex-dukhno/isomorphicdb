@@ -101,6 +101,15 @@ impl UpdateCommand {
                             Ok(_) => return Ok(()),
                             Err(()) => return Ok(()),
                         };
+                        let value = match value.cast(&sql_type) {
+                            Ok(value) => value,
+                            Err(_err) => {
+                                self.sender
+                                    .send(Err(QueryError::invalid_text_representation(sql_type.into(), value)))
+                                    .expect("To Send Result to User");
+                                return Ok(());
+                            }
+                        };
                         match sql_type.constraint().validate(value.to_string().as_str()) {
                             Ok(()) => updated[*destination] = Datum::try_from(&value).expect("ok"),
                             Err(ConstraintError::OutOfRange) => {
