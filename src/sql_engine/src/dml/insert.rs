@@ -15,13 +15,13 @@
 use std::sync::Arc;
 
 use binary::Binary;
+use constraints::{Constraint, ConstraintError, TypeConstraint};
 use data_manager::{ColumnDefinition, DataManager, Row};
 use kernel::{SystemError, SystemResult};
 use protocol::{
     results::{QueryError, QueryEvent},
     Sender,
 };
-use sql_model::sql_types::ConstraintError;
 
 use ast::{operations::ScalarOp, Datum, EvalError};
 use expr_eval::static_expr::StaticExpressionEvaluation;
@@ -95,7 +95,7 @@ impl InsertCommand {
             for (item, (index, name, sql_type)) in row.iter().zip(self.table_inserts.column_indices.iter()) {
                 match item.cast(sql_type) {
                     Ok(item) => match Datum::try_from(&item) {
-                        Ok(datum) => match sql_type.constraint().validate(datum.to_string().as_str()) {
+                        Ok(datum) => match TypeConstraint::from(sql_type).validate(&item) {
                             Ok(()) => {
                                 record[*index] = datum;
                             }

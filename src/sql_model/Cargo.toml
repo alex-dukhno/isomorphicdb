@@ -6,7 +6,6 @@ edition = "2018"
 publish = false
 
 [dependencies]
-lexical = "5.2.0"
 serde = { version = "1.0.115", features = ["derive"] }
 protocol = { path = "../protocol" }
 sqlparser = { version = "0.6.1", features = ["bigdecimal"] }

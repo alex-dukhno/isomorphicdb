@@ -1,0 +1,16 @@
+[package]
+name = "constraints"
+version = "0.1.0"
+authors = ["Alex Dukhno <alex.dukhno@icloud.com>"]
+edition = "2018"
+publish = false
+
+[dependencies]
+ast = { path = "../ast" }
+sql_model = { path = "../sql_model" }
+lexical = "5.2.0"
+bigdecimal = "0.1.2"
+num-bigint = "0.2"
+
+[dev-dependencies]
+rstest = "0.6.4"

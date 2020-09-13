@@ -20,10 +20,10 @@ use kernel::SystemResult;
 use protocol::Sender;
 
 use ast::{operations::ScalarOp, Datum};
+use constraints::{Constraint, ConstraintError, TypeConstraint};
 use expr_eval::{dynamic_expr::DynamicExpressionEvaluation, static_expr::StaticExpressionEvaluation};
 use protocol::results::{QueryError, QueryEvent};
 use query_planner::plan::TableUpdates;
-use sql_model::sql_types::ConstraintError;
 use std::{collections::HashMap, convert::TryFrom};
 
 pub(crate) struct UpdateCommand {
@@ -110,7 +110,7 @@ impl UpdateCommand {
                                 return Ok(());
                             }
                         };
-                        match sql_type.constraint().validate(value.to_string().as_str()) {
+                        match TypeConstraint::from(sql_type).validate(&value) {
                             Ok(()) => updated[*destination] = Datum::try_from(&value).expect("ok"),
                             Err(ConstraintError::OutOfRange) => {
                                 self.sender
