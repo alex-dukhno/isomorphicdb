@@ -28,8 +28,30 @@ fn column() {
     let eval = eval(sender.clone());
 
     assert_eq!(
+        eval.eval(
+            &[Datum::from_i16(10)],
+            &ScalarOp::Binary(
+                BinaryOp::Add,
+                Box::new(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(20)))),
+                Box::new(ScalarOp::Column("name".to_owned()))
+            )
+        ),
+        Ok(ScalarOp::Value(ScalarValue::Number(
+            BigDecimal::from(10i16) + BigDecimal::from(20)
+        )))
+    );
+
+    sender.assert_content(vec![]);
+}
+
+#[test]
+fn column_inside_binary_operation() {
+    let sender = sender();
+    let eval = eval(sender.clone());
+
+    assert_eq!(
         eval.eval(&[Datum::from_i16(10)], &ScalarOp::Column("name".to_owned())),
-        Ok(Datum::from_i16(10))
+        Ok(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(10i16))))
     );
 
     sender.assert_content(vec![]);
@@ -45,7 +67,7 @@ fn value() {
             &[Datum::from_i16(10)],
             &ScalarOp::Value(ScalarValue::Number(BigDecimal::from(100i16))),
         ),
-        Ok(Datum::from_i16(100))
+        Ok(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(100i16))))
     );
 
     sender.assert_content(vec![]);
@@ -76,7 +98,7 @@ mod binary_operation {
                 Err(())
             );
 
-            sender.assert_content(vec![Err(QueryError::undefined_function("||", "INTEGER", "INTEGER"))]);
+            sender.assert_content(vec![Err(QueryError::undefined_function("||", "NUMBER", "NUMBER"))]);
         }
 
         #[test]
@@ -93,7 +115,7 @@ mod binary_operation {
                         Box::new(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(5))))
                     ),
                 ),
-                Ok(Datum::from_i16(20 + 5))
+                Ok(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(20 + 5))))
             );
 
             sender.assert_content(vec![]);
@@ -113,7 +135,7 @@ mod binary_operation {
                         Box::new(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(5))))
                     ),
                 ),
-                Ok(Datum::from_i16(20 - 5))
+                Ok(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(20 - 5))))
             );
 
             sender.assert_content(vec![]);
@@ -133,7 +155,7 @@ mod binary_operation {
                         Box::new(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(5))))
                     ),
                 ),
-                Ok(Datum::from_i16(20 * 5))
+                Ok(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(20 * 5))))
             );
 
             sender.assert_content(vec![]);
@@ -153,7 +175,7 @@ mod binary_operation {
                         Box::new(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(5))))
                     ),
                 ),
-                Ok(Datum::from_i16(20 / 5))
+                Ok(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(20 / 5))))
             );
 
             sender.assert_content(vec![]);
@@ -173,7 +195,7 @@ mod binary_operation {
                         Box::new(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(3))))
                     ),
                 ),
-                Ok(Datum::from_i16(20 % 3))
+                Ok(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(20 % 3))))
             );
 
             sender.assert_content(vec![]);
@@ -193,7 +215,7 @@ mod binary_operation {
                         Box::new(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(5))))
                     ),
                 ),
-                Ok(Datum::from_i16(20 & 4))
+                Ok(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(20 & 4))))
             );
 
             sender.assert_content(vec![]);
@@ -213,7 +235,7 @@ mod binary_operation {
                         Box::new(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(5))))
                     ),
                 ),
-                Ok(Datum::from_i16(20 | 5))
+                Ok(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(20 | 5))))
             );
 
             sender.assert_content(vec![]);
@@ -241,7 +263,7 @@ mod binary_operation {
                 Err(())
             );
 
-            sender.assert_content(vec![Err(QueryError::undefined_function("||", "FLOAT", "FLOAT"))]);
+            sender.assert_content(vec![Err(QueryError::undefined_function("||", "NUMBER", "NUMBER"))]);
         }
 
         #[test]
@@ -258,7 +280,7 @@ mod binary_operation {
                         Box::new(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(5.2))))
                     ),
                 ),
-                Ok(Datum::from_f32(20.1 + 5.2))
+                Ok(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(20.1 + 5.2))))
             );
 
             sender.assert_content(vec![]);
@@ -278,7 +300,7 @@ mod binary_operation {
                         Box::new(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(5.2))))
                     ),
                 ),
-                Ok(Datum::from_f32(20.1 - 5.2))
+                Ok(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(20.1 - 5.2))))
             );
 
             sender.assert_content(vec![]);
@@ -298,7 +320,7 @@ mod binary_operation {
                         Box::new(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(5.2))))
                     ),
                 ),
-                Ok(Datum::from_f32(20.1 * 5.2))
+                Ok(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(20.1 * 5.2))))
             );
 
             sender.assert_content(vec![]);
@@ -318,7 +340,9 @@ mod binary_operation {
                         Box::new(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(5.2))))
                     ),
                 ),
-                Ok(Datum::from_f32(20.1 / 5.2))
+                Ok(ScalarOp::Value(ScalarValue::Number(
+                    BigDecimal::from(20.1) / BigDecimal::from(5.2)
+                )))
             );
 
             sender.assert_content(vec![]);
@@ -338,10 +362,12 @@ mod binary_operation {
                         Box::new(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(5.2))))
                     ),
                 ),
-                Err(())
+                Ok(ScalarOp::Value(ScalarValue::Number(
+                    BigDecimal::from(20.1) % BigDecimal::from(5.2)
+                )))
             );
 
-            sender.assert_content(vec![Err(QueryError::undefined_function("%", "FLOAT", "FLOAT"))]);
+            sender.assert_content(vec![]);
         }
 
         #[test]
@@ -403,7 +429,7 @@ mod binary_operation {
                         Box::new(ScalarOp::Value(ScalarValue::String("str-2".to_owned())))
                     ),
                 ),
-                Ok(Datum::from_string(format!("{}{}", "str-1", "str-2")))
+                Ok(ScalarOp::Value(ScalarValue::String(format!("{}{}", "str-1", "str-2"))))
             );
 
             sender.assert_content(vec![]);

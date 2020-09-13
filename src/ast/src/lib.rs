@@ -18,11 +18,14 @@ use std::{
 };
 
 use crate::values::{Bool, ScalarValue};
-use bigdecimal::ToPrimitive;
+use bigdecimal::{BigDecimal, ToPrimitive};
 use ordered_float::OrderedFloat;
 use sql_model::sql_types::SqlType;
 use sqlparser::ast::{DataType, Expr, Value};
-use std::fmt::{self, Display, Formatter};
+use std::{
+    convert::{From, TryInto},
+    fmt::{self, Display, Formatter},
+};
 
 pub mod operations;
 pub mod values;
@@ -282,6 +285,27 @@ pub enum EvalError {
     UnsupportedDatum(String),
     OutOfRangeNumeric(SqlType),
     UnsupportedOperation,
+}
+
+impl<'a> TryInto<ScalarValue> for &Datum<'a> {
+    type Error = ();
+
+    fn try_into(self) -> Result<ScalarValue, Self::Error> {
+        match self {
+            Datum::Null => Ok(ScalarValue::Null),
+            Datum::True => Ok(ScalarValue::Bool(Bool(true))),
+            Datum::False => Ok(ScalarValue::Bool(Bool(false))),
+            Datum::Int16(num) => Ok(ScalarValue::Number(BigDecimal::from(*num))),
+            Datum::Int32(num) => Ok(ScalarValue::Number(BigDecimal::from(*num))),
+            Datum::Int64(num) => Ok(ScalarValue::Number(BigDecimal::from(*num))),
+            Datum::UInt64(num) => Ok(ScalarValue::Number(BigDecimal::from(*num))),
+            Datum::Float32(num) => Ok(ScalarValue::Number(BigDecimal::from(**num))),
+            Datum::Float64(num) => Ok(ScalarValue::Number(BigDecimal::from(**num))),
+            Datum::String(str) => Ok(ScalarValue::String(str.to_string())),
+            Datum::OwnedString(str) => Ok(ScalarValue::String(str.to_owned())),
+            Datum::SqlType(_) => Err(()),
+        }
+    }
 }
 
 impl<'a> TryFrom<&ScalarValue> for Datum<'a> {
