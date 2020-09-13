@@ -21,8 +21,7 @@ use ast::operations::ScalarOp;
 use data_manager::DataManager;
 use protocol::{results::QueryError, Sender};
 use sqlparser::ast::{Assignment, ObjectName};
-use std::collections::HashSet;
-use std::{convert::TryFrom, sync::Arc};
+use std::{collections::HashSet, convert::TryFrom, sync::Arc};
 
 pub(crate) struct UpdatePlanner<'up> {
     table_name: &'up ObjectName,

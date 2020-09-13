@@ -21,8 +21,7 @@ use ast::operations::ScalarOp;
 use data_manager::DataManager;
 use protocol::{results::QueryError, Sender};
 use sqlparser::ast::{Ident, ObjectName, Query, SetExpr};
-use std::collections::HashSet;
-use std::{convert::TryFrom, sync::Arc};
+use std::{collections::HashSet, convert::TryFrom, sync::Arc};
 
 pub(crate) struct InsertPlanner<'ip> {
     table_name: &'ip ObjectName,
