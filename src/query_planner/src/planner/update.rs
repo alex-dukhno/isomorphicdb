@@ -21,7 +21,7 @@ use ast::operations::ScalarOp;
 use data_manager::DataManager;
 use protocol::{results::QueryError, Sender};
 use sqlparser::ast::{Assignment, ObjectName};
-use std::{convert::TryFrom, sync::Arc};
+use std::{collections::HashSet, convert::TryFrom, sync::Arc};
 
 pub(crate) struct UpdatePlanner<'up> {
     table_name: &'up ObjectName,
@@ -64,6 +64,7 @@ impl Planner for UpdatePlanner<'_> {
                         let mut column_indices = vec![];
                         let mut input = vec![];
                         let mut has_error = false;
+                        let mut columns = HashSet::new();
                         for Assignment { id, value } in self.assignments.iter() {
                             let mut found = None;
                             let column_name = id.to_string();
@@ -84,6 +85,16 @@ impl Planner for UpdatePlanner<'_> {
                                                 .expect("To Send Result to Client");
                                         }
                                     }
+                                    if columns.contains(&column_name) {
+                                        has_error = true;
+                                        sender
+                                            .send(Err(QueryError::syntax_error(format!(
+                                                "multiple assignments to same column \"{}\"",
+                                                column_name
+                                            ))))
+                                            .expect("To Send Result to Client");
+                                    }
+                                    columns.insert(column_name.clone());
                                     found = Some((index, column_definition.name(), column_definition.sql_type()));
                                     break;
                                 }

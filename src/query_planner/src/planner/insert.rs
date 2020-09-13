@@ -21,7 +21,7 @@ use ast::operations::ScalarOp;
 use data_manager::DataManager;
 use protocol::{results::QueryError, Sender};
 use sqlparser::ast::{Ident, ObjectName, Query, SetExpr};
-use std::{convert::TryFrom, sync::Arc};
+use std::{collections::HashSet, convert::TryFrom, sync::Arc};
 
 pub(crate) struct InsertPlanner<'ip> {
     table_name: &'ip ObjectName,
@@ -96,12 +96,20 @@ impl Planner for InsertPlanner<'_> {
                                         .map(|(index, col_def)| (index, col_def.name(), col_def.sql_type()))
                                         .collect::<Vec<_>>()
                                 } else {
+                                    let mut columns = HashSet::new();
                                     let mut index_cols = vec![];
                                     let mut has_error = false;
                                     for column_name in self.columns.iter().map(|id| id.value.as_str()) {
                                         let mut found = None;
                                         for (index, column_definition) in all_columns.iter().enumerate() {
                                             if column_definition.has_name(column_name) {
+                                                if columns.contains(column_name) {
+                                                    sender
+                                                        .send(Err(QueryError::duplicate_column(column_name)))
+                                                        .expect("To Send Result to Client");
+                                                    has_error = true;
+                                                }
+                                                columns.insert(column_name.to_owned());
                                                 found =
                                                     Some((index, column_name.to_owned(), column_definition.sql_type()));
                                                 break;
