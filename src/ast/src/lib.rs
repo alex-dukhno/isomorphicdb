@@ -22,8 +22,10 @@ use bigdecimal::{BigDecimal, ToPrimitive};
 use ordered_float::OrderedFloat;
 use sql_model::sql_types::SqlType;
 use sqlparser::ast::{DataType, Expr, Value};
-use std::convert::{From, TryInto};
-use std::fmt::{self, Display, Formatter};
+use std::{
+    convert::{From, TryInto},
+    fmt::{self, Display, Formatter},
+};
 
 pub mod operations;
 pub mod values;

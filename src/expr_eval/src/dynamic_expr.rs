@@ -12,15 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use ast::values::ScalarValue;
 use ast::{
     operations::{BinaryOp, ScalarOp},
+    values::ScalarValue,
     Datum,
 };
 use bigdecimal::BigDecimal;
 use protocol::{results::QueryError, Sender};
-use std::convert::{From, TryInto};
-use std::{collections::HashMap, sync::Arc};
+use std::{
+    collections::HashMap,
+    convert::{From, TryInto},
+    sync::Arc,
+};
 
 pub struct DynamicExpressionEvaluation {
     sender: Arc<dyn Sender>,
@@ -120,7 +123,7 @@ impl<'a> DynamicExpressionEvaluation {
                     Err(())
                 }
             },
-            (left, right) => Ok(ScalarOp::Binary(op.clone(), Box::new(left), Box::new(right))),
+            (left, right) => Ok(ScalarOp::Binary(op, Box::new(left), Box::new(right))),
         }
     }
 }

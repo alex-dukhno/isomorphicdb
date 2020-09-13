@@ -24,8 +24,7 @@ use expr_eval::{dynamic_expr::DynamicExpressionEvaluation, static_expr::StaticEx
 use protocol::results::{QueryError, QueryEvent};
 use query_planner::plan::TableUpdates;
 use sql_model::sql_types::ConstraintError;
-use std::collections::HashMap;
-use std::convert::TryFrom;
+use std::{collections::HashMap, convert::TryFrom};
 
 pub(crate) struct UpdateCommand {
     table_update: TableUpdates,
