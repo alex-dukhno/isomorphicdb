@@ -15,18 +15,17 @@
 use std::sync::Arc;
 
 use binary::Binary;
+use constraints::{Constraint, ConstraintError};
 use data_manager::{ColumnDefinition, DataManager, Row};
 use kernel::{SystemError, SystemResult};
 use protocol::{
     results::{QueryError, QueryEvent},
     Sender,
 };
-use sql_model::sql_types::ConstraintError;
 
-use ast::{operations::ScalarOp, Datum, EvalError};
+use ast::{operations::ScalarOp, Datum};
 use expr_eval::static_expr::StaticExpressionEvaluation;
 use query_planner::plan::TableInserts;
-use std::convert::TryFrom;
 
 pub(crate) struct InsertCommand {
     table_inserts: TableInserts,
@@ -92,21 +91,17 @@ impl InsertCommand {
             // TODO: The default value or NULL should be initialized for SQL types of all columns.
             let mut record = vec![Datum::from_null(); self.table_inserts.column_indices.len()];
             let mut errors = vec![];
-            for (item, (index, name, sql_type)) in row.iter().zip(self.table_inserts.column_indices.iter()) {
+            for (item, (index, name, sql_type, type_constraint)) in
+                row.iter().zip(self.table_inserts.column_indices.iter())
+            {
                 match item.cast(sql_type) {
-                    Ok(item) => match Datum::try_from(&item) {
-                        Ok(datum) => match sql_type.constraint().validate(datum.to_string().as_str()) {
-                            Ok(()) => {
-                                record[*index] = datum;
-                            }
-                            Err(error) => {
-                                errors.push((error, ColumnDefinition::new(name, *sql_type)));
-                            }
-                        },
-                        Err(EvalError::OutOfRangeNumeric(_)) => {
-                            errors.push((ConstraintError::OutOfRange, ColumnDefinition::new(name, *sql_type)))
+                    Ok(item) => match type_constraint.validate(item) {
+                        Ok(datum) => {
+                            record[*index] = datum;
                         }
-                        Err(_) => return Ok(()),
+                        Err(error) => {
+                            errors.push((error, ColumnDefinition::new(name, *sql_type)));
+                        }
                     },
                     Err(_err) => {
                         self.sender

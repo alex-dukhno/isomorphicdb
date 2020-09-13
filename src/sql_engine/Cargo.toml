@@ -7,6 +7,7 @@ publish = false
 
 [dependencies]
 ast = { path = "../ast" }
+constraints = { path = "../constraints" }
 data_manager = { path = "../data_manager" }
 expr_eval = { path = "../expr_eval" }
 log = "0.4.11"

@@ -2,6 +2,7 @@
 members = [
     "src/ast",
     "src/binary",
+    "src/constraints",
     "src/data_manager",
     "src/expr_eval",
     "src/kernel",

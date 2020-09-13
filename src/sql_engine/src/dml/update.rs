@@ -19,12 +19,12 @@ use data_manager::DataManager;
 use kernel::SystemResult;
 use protocol::Sender;
 
-use ast::{operations::ScalarOp, Datum};
+use ast::operations::ScalarOp;
+use constraints::{Constraint, ConstraintError};
 use expr_eval::{dynamic_expr::DynamicExpressionEvaluation, static_expr::StaticExpressionEvaluation};
 use protocol::results::{QueryError, QueryEvent};
 use query_planner::plan::TableUpdates;
-use sql_model::sql_types::ConstraintError;
-use std::{collections::HashMap, convert::TryFrom};
+use std::collections::HashMap;
 
 pub(crate) struct UpdateCommand {
     table_update: TableUpdates,
@@ -57,7 +57,7 @@ impl UpdateCommand {
 
         let mut assignments = vec![];
         let mut has_error = false;
-        for ((index, column_name, scalar_type), item) in self
+        for ((index, column_name, sql_type, type_constraint), item) in self
             .table_update
             .column_indices
             .iter()
@@ -65,7 +65,13 @@ impl UpdateCommand {
         {
             match evaluation.eval(item) {
                 Ok(value) => {
-                    assignments.push((column_name.clone(), *index, Box::new(value), *scalar_type));
+                    assignments.push((
+                        column_name.clone(),
+                        *index,
+                        Box::new(value),
+                        *sql_type,
+                        *type_constraint,
+                    ));
                 }
                 Err(()) => {
                     has_error = true;
@@ -95,7 +101,7 @@ impl UpdateCommand {
 
                     let mut has_err = false;
                     for update in assignments.as_slice() {
-                        let (column_name, destination, value, sql_type) = update;
+                        let (column_name, destination, value, sql_type, type_constraint) = update;
                         let value = match expr_eval.eval(data.as_slice(), value.as_ref()) {
                             Ok(ScalarOp::Value(value)) => value,
                             Ok(_) => return Ok(()),
@@ -110,8 +116,8 @@ impl UpdateCommand {
                                 return Ok(());
                             }
                         };
-                        match sql_type.constraint().validate(value.to_string().as_str()) {
-                            Ok(()) => updated[*destination] = Datum::try_from(&value).expect("ok"),
+                        match type_constraint.validate(value) {
+                            Ok(datum) => updated[*destination] = datum,
                             Err(ConstraintError::OutOfRange) => {
                                 self.sender
                                     .send(Err(QueryError::out_of_range(sql_type.into(), column_name, row_idx + 1)))
