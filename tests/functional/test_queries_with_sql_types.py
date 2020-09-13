@@ -104,3 +104,23 @@ def test_math_operations_in_insert(create_drop_test_schema_fixture: cursor):
     r = cur.fetchall()
 
     assert r == [(8,), (-2,), (15, ), (3,)]
+
+
+def test_update_with_different_number_types(create_drop_test_schema_fixture: cursor):
+    cur = create_drop_test_schema_fixture
+    cur.execute('create table schema_name.table_name(si_col smallint, i_col integer);')
+    args = [(10000, 50000,),
+            (1000, 500000)]
+    cur.executemany('insert into schema_name.table_name values (%s, %s)', args)
+
+    cur.execute('select * from schema_name.table_name;')
+    r = cur.fetchall()
+
+    assert r == [(10000, 50000,), (1000, 500000)]
+
+    cur.execute('update schema_name.table_name set i_col = 2 * si_col + i_col;')
+
+    cur.execute('select * from schema_name.table_name;')
+    r = cur.fetchall()
+
+    assert r == [(10000, 70000,), (1000, 502000)]
