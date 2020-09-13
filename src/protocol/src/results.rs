@@ -182,6 +182,10 @@ pub(crate) enum QueryErrorKind {
         column: String,
     },
     SyntaxError(String),
+    InvalidTextRepresentation {
+        pg_type: PostgreSqlType,
+        value: String,
+    },
 }
 
 impl QueryErrorKind {
@@ -206,6 +210,7 @@ impl QueryErrorKind {
             Self::AmbiguousColumnName { .. } => "42702",
             Self::UndefinedColumn { .. } => "42883",
             Self::SyntaxError(_) => "42601",
+            Self::InvalidTextRepresentation { .. } => "22P02",
         }
     }
 }
@@ -272,6 +277,9 @@ impl Display for QueryErrorKind {
             Self::AmbiguousColumnName { column } => write!(f, "use of ambiguous column name in context: '{}'", column),
             Self::UndefinedColumn { column } => write!(f, "use of undefined column: '{}'", column),
             Self::SyntaxError(expression) => write!(f, "syntax error: {}", expression),
+            Self::InvalidTextRepresentation { pg_type, value } => {
+                write!(f, "invalid input syntax for type {}: \"{}\"", pg_type, value)
+            }
         }
     }
 }
@@ -485,6 +493,17 @@ impl QueryError {
                 len,
                 column_name: column_name.to_string(),
                 row_index,
+            },
+        }
+    }
+
+    /// invalid text representation
+    pub fn invalid_text_representation<S: ToString>(pg_type: PostgreSqlType, value: S) -> QueryError {
+        QueryError {
+            severity: Severity::Error,
+            kind: QueryErrorKind::InvalidTextRepresentation {
+                pg_type,
+                value: value.to_string(),
             },
         }
     }

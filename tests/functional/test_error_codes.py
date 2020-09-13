@@ -2,7 +2,7 @@ import pytest
 
 from psycopg2._psycopg import cursor
 
-from psycopg2.errors import (NumericValueOutOfRange, NullValueNotAllowed, MostSpecificTypeMismatch, DivisionByZero)
+from psycopg2.errors import (NumericValueOutOfRange, NullValueNotAllowed, MostSpecificTypeMismatch, DivisionByZero, InvalidTextRepresentation)
 # all imports from errors are OK if you can find such exception class in docs
 # >>> https://www.psycopg.org/docs/errors.html
 
@@ -51,9 +51,9 @@ def test_most_specific_type_mismatch(create_drop_test_schema_fixture: cursor):
     cur = create_drop_test_schema_fixture
     cur.execute('create table schema_name.table_name(id integer, test integer)')
 
-    with pytest.raises(MostSpecificTypeMismatch) as e:
+    with pytest.raises(InvalidTextRepresentation) as e:
         cur.execute("insert into schema_name.table_name (id, test) values (%s, %s)", (1, 'test_string_not_int'))
-    assert e.value.pgcode == MOST_SPECIFIC_TYPE_MISMATCH
+    assert e.value.pgcode == INVALID_TEXT_REPRESENTATION
 
 
 @pytest.mark.skip
