@@ -161,54 +161,10 @@ impl<'a> Datum<'a> {
         Datum::SqlType(val)
     }
 
-    // @TODO: Add accessor helper functions.
-    pub fn as_i16(&self) -> i16 {
-        match self {
-            Self::Int16(val) => *val,
-            _ => panic!("invalid use of Datum::as_i16"),
-        }
-    }
-
-    pub fn as_i32(&self) -> i32 {
-        match self {
-            Self::Int32(val) => *val,
-            _ => panic!("invalid use of Datum::as_i32"),
-        }
-    }
-
-    pub fn as_i64(&self) -> i64 {
-        match self {
-            Self::Int64(val) => *val,
-            _ => panic!("invalid use of Datum::as_i64"),
-        }
-    }
-
     pub fn as_u64(&self) -> u64 {
         match self {
             Self::UInt64(val) => *val,
             _ => panic!("invalid use of Datum::as_u64"),
-        }
-    }
-
-    pub fn as_f32(&self) -> f32 {
-        match self {
-            Self::Float32(val) => **val,
-            _ => panic!("invalid use of Datum::as_f32"),
-        }
-    }
-
-    pub fn as_f64(&self) -> f64 {
-        match self {
-            Self::Float64(val) => **val,
-            _ => panic!("invalid use of Datum::as_f64"),
-        }
-    }
-
-    pub fn as_bool(&self) -> bool {
-        match self {
-            Self::True => true,
-            Self::False => false,
-            _ => panic!("invalid use of Datum::as_bool"),
         }
     }
 
@@ -219,65 +175,12 @@ impl<'a> Datum<'a> {
         }
     }
 
-    pub fn as_string(&self) -> &str {
-        match self {
-            Self::OwnedString(s) => s,
-            _ => panic!("invalid use of Datum::as_string"),
-        }
-    }
-
     pub fn as_sql_type(&self) -> SqlType {
         match self {
             Self::SqlType(sql_type) => *sql_type,
             _ => panic!("invalid use of Datum::as_sql_type"),
         }
     }
-
-    pub fn is_integer(&self) -> bool {
-        match self {
-            Self::Int16(_) | Self::Int32(_) | Self::Int64(_) => true,
-            _ => false,
-        }
-    }
-
-    pub fn is_float(&self) -> bool {
-        match self {
-            Self::Float32(_) | Self::Float64(_) => true,
-            _ => false,
-        }
-    }
-
-    pub fn is_string(&self) -> bool {
-        match self {
-            Self::String(_) | Self::OwnedString(_) => true,
-            _ => false,
-        }
-    }
-
-    pub fn is_boolean(&self) -> bool {
-        match self {
-            Self::True | Self::False => true,
-            _ => false,
-        }
-    }
-
-    pub fn is_null(&self) -> bool {
-        if let Self::Null = self {
-            true
-        } else {
-            false
-        }
-    }
-
-    pub fn is_type(&self) -> bool {
-        if let Self::SqlType(_) = self {
-            true
-        } else {
-            false
-        }
-    }
-
-    // arithmetic operations
 }
 
 #[derive(Debug, Clone)]
