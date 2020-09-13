@@ -93,19 +93,27 @@ impl InsertCommand {
             let mut record = vec![Datum::from_null(); self.table_inserts.column_indices.len()];
             let mut errors = vec![];
             for (item, (index, name, sql_type)) in row.iter().zip(self.table_inserts.column_indices.iter()) {
-                match Datum::try_from(item) {
-                    Ok(datum) => match sql_type.constraint().validate(datum.to_string().as_str()) {
-                        Ok(()) => {
-                            record[*index] = datum;
+                match item.cast(sql_type) {
+                    Ok(item) => match Datum::try_from(&item) {
+                        Ok(datum) => match sql_type.constraint().validate(datum.to_string().as_str()) {
+                            Ok(()) => {
+                                record[*index] = datum;
+                            }
+                            Err(error) => {
+                                errors.push((error, ColumnDefinition::new(name, *sql_type)));
+                            }
+                        },
+                        Err(EvalError::OutOfRangeNumeric(_)) => {
+                            errors.push((ConstraintError::OutOfRange, ColumnDefinition::new(name, *sql_type)))
                         }
-                        Err(error) => {
-                            errors.push((error, ColumnDefinition::new(name, *sql_type)));
-                        }
+                        Err(_) => return Ok(()),
                     },
-                    Err(EvalError::OutOfRangeNumeric(_)) => {
-                        errors.push((ConstraintError::OutOfRange, ColumnDefinition::new(name, *sql_type)))
+                    Err(_err) => {
+                        self.sender
+                            .send(Err(QueryError::invalid_text_representation(sql_type.into(), item)))
+                            .expect("To Send Result to User");
+                        return Ok(());
                     }
-                    Err(_) => panic!(),
                 }
             }
             if !errors.is_empty() {
