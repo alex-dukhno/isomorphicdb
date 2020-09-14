@@ -12,13 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::{
-    convert::TryFrom,
-    ops::{Add, BitAnd, BitOr, Div, Mul, Rem, Shl, Shr, Sub},
-};
+use std::ops::{Add, BitAnd, BitOr, Div, Mul, Rem, Shl, Shr, Sub};
 
 use crate::values::{Bool, ScalarValue};
-use bigdecimal::{BigDecimal, ToPrimitive};
+use bigdecimal::BigDecimal;
 use ordered_float::OrderedFloat;
 use sql_model::sql_types::SqlType;
 use sqlparser::ast::{DataType, Expr, Value};
@@ -207,39 +204,6 @@ impl<'a> TryInto<ScalarValue> for &Datum<'a> {
             Datum::String(str) => Ok(ScalarValue::String(str.to_string())),
             Datum::OwnedString(str) => Ok(ScalarValue::String(str.to_owned())),
             Datum::SqlType(_) => Err(()),
-        }
-    }
-}
-
-impl<'a> TryFrom<&ScalarValue> for Datum<'a> {
-    type Error = EvalError;
-
-    fn try_from(other: &ScalarValue) -> Result<Self, EvalError> {
-        log::debug!("Datum::try_from({:?})", other);
-        match other {
-            ScalarValue::Number(val) => {
-                // there has to be a better way of doing this.
-                if val.is_integer() {
-                    if let Some(val) = val.to_i16() {
-                        Ok(Datum::from_i16(val))
-                    } else if let Some(val) = val.to_i32() {
-                        Ok(Datum::from_i32(val))
-                    } else if let Some(val) = val.to_i64() {
-                        Ok(Datum::from_i64(val))
-                    } else {
-                        Err(EvalError::OutOfRangeNumeric(SqlType::Integer(i32::min_value())))
-                    }
-                } else if let Some(val) = val.to_f32() {
-                    Ok(Datum::from_f32(val))
-                } else if let Some(val) = val.to_f64() {
-                    Ok(Datum::from_f64(val))
-                } else {
-                    Err(EvalError::OutOfRangeNumeric(SqlType::DoublePrecision))
-                }
-            }
-            ScalarValue::String(value) => Ok(Datum::from_string(value.trim().to_owned())),
-            ScalarValue::Bool(Bool(val)) => Ok(Datum::from_bool(*val)),
-            ScalarValue::Null => Ok(Datum::from_null()),
         }
     }
 }
