@@ -1,0 +1,40 @@
+import org.gradle.api.tasks.testing.logging.TestExceptionFormat
+import org.gradle.api.tasks.testing.logging.TestLogEvent
+
+subprojects {
+  apply plugin: 'groovy'
+
+  repositories {
+    mavenCentral()
+
+    maven { url "https://repo.maven.apache.org/maven2" }
+  }
+
+  dependencies {
+    implementation group: 'org.codehaus.groovy', name: 'groovy-all', version: '2.5.13', ext: 'pom'
+    implementation group: 'org.postgresql', name: 'postgresql', version: '42.2.16'
+
+    testImplementation group: 'org.spockframework', name: 'spock-core', version: '1.2-groovy-2.5'
+
+    testImplementation group: 'org.slf4j', name: 'slf4j-simple', version: '1.7.30'
+
+    testImplementation group: 'org.postgresql', name: 'postgresql', version: '42.2.16'
+
+    testImplementation group: 'org.testcontainers', name: 'spock', version: '1.14.3'
+    testImplementation group: 'org.testcontainers', name: 'postgresql', version: '1.14.3'
+  }
+
+  tasks.withType(Test) {
+    testLogging {
+      events TestLogEvent.FAILED,
+          TestLogEvent.PASSED,
+          TestLogEvent.SKIPPED,
+          TestLogEvent.STANDARD_OUT
+      exceptionFormat TestExceptionFormat.FULL
+      showExceptions true
+      showCauses true
+      showStackTraces true
+      showStandardStreams true
+    }
+  }
+}

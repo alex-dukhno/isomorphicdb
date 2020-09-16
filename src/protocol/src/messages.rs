@@ -183,7 +183,7 @@ impl FrontendMessage {
 
             // Invalid.
             _ => {
-                log::debug!("Unsupport frontend message tag {}", tag);
+                log::debug!("unsupported frontend message tag {}", tag);
                 Err(Error::UnsupportedFrontendMessage)
             }
         }

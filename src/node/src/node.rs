@@ -51,93 +51,94 @@ pub fn start() {
 
         while let Ok((tcp_stream, address)) = listener.accept().await {
             let tcp_stream = AsyncArc::new(tcp_stream);
-            if let Ok((mut receiver, sender)) = protocol::hand_shake(tcp_stream, address, &config)
-                .await
-                .expect("no io errors")
-            {
-                if state.load(Ordering::SeqCst) == STOPPED {
-                    return;
-                }
-                let state = state.clone();
-                let storage = storage.clone();
-                let sender = Arc::new(sender);
-                let s = sender.clone();
-                let mut query_executor = QueryExecutor::new(storage.clone(), s);
-                log::debug!("ready to handle query");
+            match protocol::hand_shake(tcp_stream, address, &config).await {
+                Err(io_error) => log::error!("IO error {:?}", io_error),
+                Ok(Err(protocol_error)) => log::error!("protocol error {:?}", protocol_error),
+                Ok(Ok((mut receiver, sender))) => {
+                    if state.load(Ordering::SeqCst) == STOPPED {
+                        return;
+                    }
+                    let state = state.clone();
+                    let storage = storage.clone();
+                    let sender = Arc::new(sender);
+                    let s = sender.clone();
+                    let mut query_executor = QueryExecutor::new(storage.clone(), s);
+                    log::debug!("ready to handle query");
 
-                smol::spawn(async move {
-                    loop {
-                        match receiver.receive().await {
-                            Err(e) => {
-                                log::error!("UNEXPECTED ERROR: {:?}", e);
-                                state.store(STOPPED, Ordering::SeqCst);
-                                return;
-                            }
-                            Ok(Err(e)) => {
-                                log::error!("UNEXPECTED ERROR: {:?}", e);
-                                state.store(STOPPED, Ordering::SeqCst);
-                                return;
-                            }
-                            Ok(Ok(Command::Bind {
-                                portal_name,
-                                statement_name,
-                                param_formats,
-                                raw_params,
-                                result_formats,
-                            })) => {
-                                match query_executor.bind_prepared_statement_to_portal(
-                                    portal_name.as_str(),
-                                    statement_name.as_str(),
-                                    param_formats.as_ref(),
-                                    raw_params.as_ref(),
-                                    result_formats.as_ref(),
-                                ) {
-                                    Ok(()) => {}
+                    smol::spawn(async move {
+                        loop {
+                            match receiver.receive().await {
+                                Err(e) => {
+                                    log::error!("UNEXPECTED ERROR: {:?}", e);
+                                    state.store(STOPPED, Ordering::SeqCst);
+                                    return;
+                                }
+                                Ok(Err(e)) => {
+                                    log::error!("UNEXPECTED ERROR: {:?}", e);
+                                    state.store(STOPPED, Ordering::SeqCst);
+                                    return;
+                                }
+                                Ok(Ok(Command::Bind {
+                                    portal_name,
+                                    statement_name,
+                                    param_formats,
+                                    raw_params,
+                                    result_formats,
+                                })) => {
+                                    match query_executor.bind_prepared_statement_to_portal(
+                                        portal_name.as_str(),
+                                        statement_name.as_str(),
+                                        param_formats.as_ref(),
+                                        raw_params.as_ref(),
+                                        result_formats.as_ref(),
+                                    ) {
+                                        Ok(()) => {}
+                                        Err(error) => log::error!("{:?}", error),
+                                    }
+                                }
+                                Ok(Ok(Command::Continue)) => { receiver.ready_for_query().await.expect("Ok"); }
+                                Ok(Ok(Command::DescribeStatement { name })) => {
+                                    match query_executor.describe_prepared_statement(name.as_str()) {
+                                        Ok(()) => {}
+                                        Err(error) => log::error!("{:?}", error),
+                                    }
+                                }
+                                Ok(Ok(Command::Execute { portal_name, max_rows })) => {
+                                    match query_executor.execute_portal(portal_name.as_str(), max_rows) {
+                                        Ok(()) => {}
+                                        Err(error) => log::error!("{:?}", error),
+                                    }
+                                }
+                                Ok(Ok(Command::Flush)) => query_executor.flush(),
+                                Ok(Ok(Command::Parse {
+                                    statement_name,
+                                    sql,
+                                    param_types,
+                                })) => {
+                                    match query_executor.parse_prepared_statement(
+                                        statement_name.as_str(),
+                                        sql.as_str(),
+                                        param_types.as_ref(),
+                                    ) {
+                                        Ok(()) => {}
+                                        Err(error) => log::error!("{:?}", error),
+                                    }
+                                }
+                                Ok(Ok(Command::Query { sql })) => match query_executor.execute(sql.as_str()) {
+                                    Ok(()) => {
+                                        query_executor.flush();
+                                    }
                                     Err(error) => log::error!("{:?}", error),
+                                },
+                                Ok(Ok(Command::Terminate)) => {
+                                    log::debug!("closing connection with client");
+                                    break;
                                 }
-                            }
-                            Ok(Ok(Command::Continue)) => {}
-                            Ok(Ok(Command::DescribeStatement { name })) => {
-                                match query_executor.describe_prepared_statement(name.as_str()) {
-                                    Ok(()) => {}
-                                    Err(error) => log::error!("{:?}", error),
-                                }
-                            }
-                            Ok(Ok(Command::Execute { portal_name, max_rows })) => {
-                                match query_executor.execute_portal(portal_name.as_str(), max_rows) {
-                                    Ok(()) => {}
-                                    Err(error) => log::error!("{:?}", error),
-                                }
-                            }
-                            Ok(Ok(Command::Flush)) => query_executor.flush(),
-                            Ok(Ok(Command::Parse {
-                                statement_name,
-                                sql,
-                                param_types,
-                            })) => {
-                                match query_executor.parse_prepared_statement(
-                                    statement_name.as_str(),
-                                    sql.as_str(),
-                                    param_types.as_ref(),
-                                ) {
-                                    Ok(()) => {}
-                                    Err(error) => log::error!("{:?}", error),
-                                }
-                            }
-                            Ok(Ok(Command::Query { sql })) => match query_executor.execute(sql.as_str()) {
-                                Ok(()) => {
-                                    query_executor.flush();
-                                }
-                                Err(error) => log::error!("{:?}", error),
-                            },
-                            Ok(Ok(Command::Terminate)) => {
-                                log::debug!("Closing connection with client");
-                                break;
                             }
                         }
-                    }
-                })
-                .detach();
+                    })
+                    .detach();
+                }
             }
         }
     });

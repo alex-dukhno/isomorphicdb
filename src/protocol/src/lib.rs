@@ -160,7 +160,7 @@ pub async fn hand_shake<RW>(
 where
     RW: AsyncRead + AsyncWrite + Unpin,
 {
-    log::debug!("ADDRESS {:?}", address);
+    log::debug!("address {:?}", address);
 
     let mut channel = Channel::Plain(stream);
     loop {
@@ -173,7 +173,7 @@ where
         let mut buffer = Vec::with_capacity(len);
         buffer.resize(len, b'0');
         let message = channel.read_exact(&mut buffer).await.map(|_| buffer)?;
-        log::debug!("MESSAGE FOR TEST = {:#?}", message);
+        log::trace!("message for test = {:#?}", message);
 
         match decode_startup(message) {
             Ok(ClientHandshake::Startup(version, params)) => {
@@ -221,7 +221,15 @@ where
                     )
                     .await?;
 
-                log::debug!("Send ready_for_query message");
+                channel
+                    .write_all(
+                        BackendMessage::ParameterStatus("server_version".to_owned(), "12.4".to_owned())
+                            .as_vec()
+                            .as_slice(),
+                    )
+                    .await?;
+
+                log::debug!("send ready_for_query message");
                 channel
                     .write_all(BackendMessage::ReadyForQuery.as_vec().as_slice())
                     .await?;
@@ -267,12 +275,19 @@ where
 
 fn decode_startup(message: Vec<u8>) -> Result<ClientHandshake> {
     let version = NetworkEndian::read_i32(&message);
-    log::debug!("VERSION FOR TEST = {:#?}", version);
+    log::trace!("raw connection version {:?}", version);
 
     match version {
-        VERSION_1 => Err(Error::UnsupportedVersion),
-        VERSION_2 => Err(Error::UnsupportedVersion),
+        VERSION_1 => {
+            log::debug!("client is trying to connect with version 1");
+            Err(Error::UnsupportedVersion)
+        },
+        VERSION_2 => {
+            log::debug!("client is trying to connect with version 2");
+            Err(Error::UnsupportedVersion)
+        },
         VERSION_3 => {
+            log::debug!("client is trying to connect with version 3");
             let params = message[4..]
                 .split(|b| *b == 0)
                 .filter(|b| !b.is_empty())
@@ -281,10 +296,22 @@ fn decode_startup(message: Vec<u8>) -> Result<ClientHandshake> {
                 .collect::<Params>();
             Ok(ClientHandshake::Startup(version, params))
         }
-        VERSION_CANCEL => Err(Error::UnsupportedVersion),
-        VERSION_GSSENC => Ok(ClientHandshake::GssEncryptRequest),
-        VERSION_SSL => Ok(ClientHandshake::SslRequest),
-        _ => Err(Error::UnrecognizedVersion),
+        VERSION_CANCEL => {
+            log::debug!("client is trying to connect cancel request");
+            Err(Error::UnsupportedVersion)
+        },
+        VERSION_GSSENC => {
+            log::debug!("client is trying to connect with GSS Encryption");
+            Ok(ClientHandshake::GssEncryptRequest)
+        },
+        VERSION_SSL => {
+            log::debug!("client is trying to connect with SSL");
+            Ok(ClientHandshake::SslRequest)
+        },
+        _ => {
+            log::debug!("client is trying to connect with unrecognized protocol version");
+            Err(Error::UnrecognizedVersion)
+        },
     }
 }
 
@@ -317,7 +344,7 @@ impl<RW: AsyncRead + AsyncWrite + Unpin> Receiver for RequestReceiver<RW> {
             .read_exact(&mut buffer)
             .await
             .map(|_| buffer[0])?;
-        log::debug!("TAG {:?}", tag);
+        log::debug!("client request message tag {:?}", tag);
 
         // Parses the frame length.
         let mut buffer = [0u8; 4];
@@ -338,7 +365,7 @@ impl<RW: AsyncRead + AsyncWrite + Unpin> Receiver for RequestReceiver<RW> {
             Ok(msg) => msg,
             Err(err) => return Ok(Err(err)),
         };
-        log::debug!("MESSAGE {:?}", message);
+        log::debug!("client request message {:?}", message);
 
         match message {
             FrontendMessage::Bind {
@@ -368,8 +395,21 @@ impl<RW: AsyncRead + AsyncWrite + Unpin> Receiver for RequestReceiver<RW> {
             })),
             FrontendMessage::Query { sql } => Ok(Ok(Command::Query { sql })),
             FrontendMessage::Terminate => Ok(Ok(Command::Terminate)),
-            _ => Ok(Ok(Command::Continue)),
+            FrontendMessage::Sync => Ok(Ok(Command::Continue)),
+            FrontendMessage::DescribePortal { name: _ } => Ok(Ok(Command::Continue)),
+            FrontendMessage::CloseStatement { name: _ } => Ok(Ok(Command::Continue)),
+            FrontendMessage::ClosePortal { name: _ } => Ok(Ok(Command::Continue)),
         }
+    }
+
+    async fn ready_for_query(&self) -> io::Result<()> {
+        self
+            .channel
+            .lock()
+            .await
+            .write_all(BackendMessage::ReadyForQuery.as_vec().as_slice())
+            .await?;
+        Ok(())
     }
 }
 
@@ -378,6 +418,9 @@ impl<RW: AsyncRead + AsyncWrite + Unpin> Receiver for RequestReceiver<RW> {
 pub trait Receiver: Send + Sync {
     /// receives and decodes a command from remote client
     async fn receive(&mut self) -> io::Result<Result<Command>>;
+
+    /// sends ReadyForQuery message to a client
+    async fn ready_for_query(&self) -> io::Result<()>;
 }
 
 struct ResponseSender<RW: AsyncRead + AsyncWrite + Unpin> {
@@ -411,13 +454,13 @@ impl<RW: AsyncRead + AsyncWrite + Unpin> Sender for ResponseSender<RW> {
     }
 
     fn send(&self, query_result: QueryResult) -> io::Result<()> {
-        log::debug!("Sending {:?}", query_result);
+        log::debug!("[{:?}] query result sent to client", query_result);
         block_on(async {
             match query_result {
                 Ok(event) => {
                     let messages: Vec<BackendMessage> = event.into();
                     for message in messages {
-                        log::debug!("{:?}", message);
+                        log::debug!("response message {:?}", message);
                         self.channel
                             .lock()
                             .await
@@ -428,7 +471,7 @@ impl<RW: AsyncRead + AsyncWrite + Unpin> Sender for ResponseSender<RW> {
                 }
                 Err(error) => {
                     let message: BackendMessage = error.into();
-                    log::debug!("{:?}", message);
+                    log::debug!("response message {:?}", message);
                     self.channel
                         .lock()
                         .await

@@ -1,4 +1,4 @@
-FROM rust:1.44.1 as build
+FROM rust as build
 
 COPY ./ ./
 
