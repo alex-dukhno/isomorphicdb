@@ -281,11 +281,11 @@ fn decode_startup(message: Vec<u8>) -> Result<ClientHandshake> {
         VERSION_1 => {
             log::debug!("client is trying to connect with version 1");
             Err(Error::UnsupportedVersion)
-        },
+        }
         VERSION_2 => {
             log::debug!("client is trying to connect with version 2");
             Err(Error::UnsupportedVersion)
-        },
+        }
         VERSION_3 => {
             log::debug!("client is trying to connect with version 3");
             let params = message[4..]
@@ -299,19 +299,19 @@ fn decode_startup(message: Vec<u8>) -> Result<ClientHandshake> {
         VERSION_CANCEL => {
             log::debug!("client is trying to connect cancel request");
             Err(Error::UnsupportedVersion)
-        },
+        }
         VERSION_GSSENC => {
             log::debug!("client is trying to connect with GSS Encryption");
             Ok(ClientHandshake::GssEncryptRequest)
-        },
+        }
         VERSION_SSL => {
             log::debug!("client is trying to connect with SSL");
             Ok(ClientHandshake::SslRequest)
-        },
+        }
         _ => {
             log::debug!("client is trying to connect with unrecognized protocol version");
             Err(Error::UnrecognizedVersion)
-        },
+        }
     }
 }
 
@@ -403,8 +403,7 @@ impl<RW: AsyncRead + AsyncWrite + Unpin> Receiver for RequestReceiver<RW> {
     }
 
     async fn ready_for_query(&self) -> io::Result<()> {
-        self
-            .channel
+        self.channel
             .lock()
             .await
             .write_all(BackendMessage::ReadyForQuery.as_vec().as_slice())

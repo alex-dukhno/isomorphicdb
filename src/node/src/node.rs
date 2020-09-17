@@ -96,7 +96,9 @@ pub fn start() {
                                         Err(error) => log::error!("{:?}", error),
                                     }
                                 }
-                                Ok(Ok(Command::Continue)) => { receiver.ready_for_query().await.expect("Ok"); }
+                                Ok(Ok(Command::Continue)) => {
+                                    receiver.ready_for_query().await.expect("Ok");
+                                }
                                 Ok(Ok(Command::DescribeStatement { name })) => {
                                     match query_executor.describe_prepared_statement(name.as_str()) {
                                         Ok(()) => {}

@@ -15,7 +15,7 @@
 use std::sync::Arc;
 
 use bigdecimal::BigDecimal;
-use sqlparser::ast::{Assignment, Expr, Ident, Query, SetExpr, Statement, Value, ObjectType};
+use sqlparser::ast::{Assignment, Expr, Ident, ObjectType, Query, SetExpr, Statement, Value};
 
 use protocol::{pgsql_types::PostgreSqlValue, results::QueryError, Sender};
 
