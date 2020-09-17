@@ -1,5 +1,6 @@
 package io.database
 
+import groovy.sql.Sql
 import org.testcontainers.containers.GenericContainer
 import org.testcontainers.containers.PostgreSQLContainer
 import org.testcontainers.images.builder.ImageFromDockerfile
@@ -27,5 +28,37 @@ class ContainersSpecification extends Specification {
             .withDockerfile(Paths.get('../../Dockerfile')))
         .withExposedPorts(5432)
     DATABASE.start()
+  }
+
+  static Map<String, String> pgConf() {
+    [
+        url: POSTGRE_SQL.jdbcUrl,
+        user: USER,
+        password: PASSWORD,
+        driver: DRIVER_CLASS
+    ]
+  }
+
+  static Map<String, String> dbConf() {
+    [
+        url: "jdbc:postgresql://localhost:${DATABASE.getFirstMappedPort()}/test?gssEncMode=disable&sslmode=disable",
+        user: USER,
+        password: PASSWORD,
+        driver: DRIVER_CLASS,
+    ]
+  }
+
+  static pgExecute(String query) {
+    execute(pgConf(), query)
+  }
+
+  static dbExecute(String query) {
+    execute(dbConf(), query)
+  }
+
+  private static execute(Map<String, String> conf, String query) {
+    Sql.withInstance(conf) {
+      Sql sql -> sql.execute query
+    }
   }
 }

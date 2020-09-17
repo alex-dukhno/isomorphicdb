@@ -1,45 +1,15 @@
 package io.database
 
-import groovy.sql.Sql
-
 import java.sql.SQLException
 
 class WorkingWithSchemas extends ContainersSpecification {
-  private Sql pg
-  private Sql db
-
-  def setup() {
-    pg = Sql.newInstance([
-        url: POSTGRE_SQL.jdbcUrl,
-        user: USER,
-        password: PASSWORD,
-        driver: DRIVER_CLASS
-    ])
-
-    db = Sql.newInstance([
-        url: "jdbc:postgresql://localhost:${DATABASE.getFirstMappedPort()}/test?gssEncMode=disable&sslmode=disable",
-        user: USER,
-        password: PASSWORD,
-        driver: DRIVER_CLASS,
-    ])
-  }
-
-  def cleanup() {
-    if (pg != null) {
-      pg.close()
-    }
-    if (db != null) {
-      db.close()
-    }
-  }
-
   def 'create schema'() {
     given:
       String createSchemaQuery = 'create schema CREATE_SCHEMA_TEST'
     when:
-      boolean pgResult = pg.execute createSchemaQuery
+      boolean pgResult = pgExecute createSchemaQuery
     and:
-      boolean dbResult = db.execute createSchemaQuery
+      boolean dbResult = dbExecute createSchemaQuery
     then:
       pgResult == dbResult
   }
@@ -48,9 +18,9 @@ class WorkingWithSchemas extends ContainersSpecification {
     given:
       String createSchemaQuery = 'create schema if not exists CREATE_SCHEMA_IF_NOT_EXIST'
     when:
-      boolean pgResult = pg.execute createSchemaQuery
+      boolean pgResult = pgExecute createSchemaQuery
     and:
-      boolean dbResult = db.execute createSchemaQuery
+      boolean dbResult = dbExecute createSchemaQuery
     then:
       pgResult == dbResult
   }
@@ -59,25 +29,23 @@ class WorkingWithSchemas extends ContainersSpecification {
     given:
       String createSchemaQuery = 'create schema WITH_THE_SAME_NAME'
     when:
-      SQLException pgResult
+      SQLException pgError
       try {
-        pg.execute createSchemaQuery
+        pgExecute createSchemaQuery
+        pgExecute createSchemaQuery
       } catch (SQLException e) {
-        pgResult = e
+        pgError = e
       }
     and:
-      SQLException dbResult
+      SQLException dbError
       try {
-        pg.execute createSchemaQuery
+        dbExecute createSchemaQuery
+        dbExecute createSchemaQuery
       } catch (SQLException e) {
-        dbResult = e
+        dbError = e
       }
     then:
-      pgResult != null
-    and:
-      dbResult != null
-    and:
-      pgResult.getErrorCode() == dbResult.getErrorCode()
+      pgError.getErrorCode() == dbError.getErrorCode()
   }
 
   def 'drop schema'() {
@@ -85,12 +53,12 @@ class WorkingWithSchemas extends ContainersSpecification {
       String createSchemaQuery = 'create schema CREATE_SCHEMA_TO_DROP'
       String dropSchemaQuery = 'drop schema CREATE_SCHEMA_TO_DROP'
     and:
-      pg.execute createSchemaQuery
-      db.execute createSchemaQuery
+      pgExecute createSchemaQuery
+      dbExecute createSchemaQuery
     when:
-      boolean pgResult = pg.execute dropSchemaQuery
+      boolean pgResult = pgExecute dropSchemaQuery
     and:
-      boolean dbResult = db.execute dropSchemaQuery
+      boolean dbResult = dbExecute dropSchemaQuery
     then:
       pgResult == dbResult
   }
@@ -99,9 +67,9 @@ class WorkingWithSchemas extends ContainersSpecification {
     given:
       String dropSchemaIfExistsQuery = 'drop schema if exists DROP_SCHEMA_IF_EXISTS'
     when:
-      boolean pgResult = pg.execute dropSchemaIfExistsQuery
+      boolean pgResult = pgExecute dropSchemaIfExistsQuery
     and:
-      boolean dbResult = pg.execute dropSchemaIfExistsQuery
+      boolean dbResult = dbExecute dropSchemaIfExistsQuery
     then:
       pgResult == dbResult
   }
@@ -110,24 +78,20 @@ class WorkingWithSchemas extends ContainersSpecification {
     given:
       String dropNonExistentSchema = 'drop schema NON_EXISTENT_SCHEMA'
     when:
-      SQLException pgResult
+      SQLException pgError
       try {
-        pg.execute dropNonExistentSchema
+        pgExecute dropNonExistentSchema
       } catch (SQLException e) {
-        pgResult = e
+        pgError = e
       }
     and:
-      SQLException dbResult
+      SQLException dbError
       try {
-        pg.execute dropNonExistentSchema
+        dbExecute dropNonExistentSchema
       } catch (SQLException e) {
-        dbResult = e
+        dbError = e
       }
     then:
-      pgResult != null
-    and:
-      dbResult != null
-    and:
-      pgResult.getErrorCode() == dbResult.getErrorCode()
+      pgError.errorCode == dbError.errorCode
   }
 }
