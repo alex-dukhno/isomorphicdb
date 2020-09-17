@@ -1,0 +1,23 @@
+name: compatibility tests
+on:
+  schedule:
+    - cron:  '0 0 * * 1' # every Monday
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v2
+      - name: install java
+        uses: actions/setup-java@v1
+        with:
+          java-version: 8
+      - name: run-tests
+        uses: eskatos/gradle-command-action@v1
+          with:
+            arguments: test

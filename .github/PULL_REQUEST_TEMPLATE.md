@@ -3,6 +3,10 @@ Closes #(issue number)
 #### Description
 short description what was changed
 
+#### Is it a feature?
+Please add compatibility tests or provide possible sql queries that we can add
+to our compatibility test suite. Thank you!
+
 #### Client output
 
 e.g. for `psql`

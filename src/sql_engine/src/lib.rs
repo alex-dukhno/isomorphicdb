@@ -264,7 +264,7 @@ impl QueryExecutor {
     }
 
     fn process_statement(&self, raw_sql_query: &str, statement: Statement) -> SystemResult<()> {
-        log::debug!("STATEMENT = {:?}", statement);
+        log::trace!("query statement = {:?}", statement);
         match self.query_planner.plan(statement) {
             Ok(Plan::CreateSchema(creation_info)) => {
                 CreateSchemaCommand::new(creation_info, self.data_manager.clone(), self.sender.clone()).execute()?;

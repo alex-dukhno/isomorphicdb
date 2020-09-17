@@ -387,7 +387,7 @@ impl DataManager {
     pub fn write_into<I: AsRef<(Id, Id)>>(&self, table_id: &I, values: Vec<(Key, Values)>) -> SystemResult<usize> {
         match self.tables.read().expect("to acquire read lock").get(table_id.as_ref()) {
             Some(full_name) => {
-                log::debug!("{:#?}", values);
+                log::trace!("values to write {:#?}", values);
                 match self
                     .data_storage
                     .write(full_name[0].as_str(), full_name[1].as_str(), values)

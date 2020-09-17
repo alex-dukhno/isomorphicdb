@@ -1043,9 +1043,7 @@ impl DataDefinition {
             }
             table_id => table_id,
         };
-        let result = Some((catalog.id(), Some((schema.id(), table_id))));
-        log::debug!("{:?}", result);
-        result
+        Some((catalog.id(), Some((schema.id(), table_id))))
     }
 
     pub(crate) fn create_table(

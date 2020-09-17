@@ -2,4 +2,10 @@
 .idea
 .vscode
 **/__pycache__/
-root_directory/**
+**/root_directory/**
+
+# Ignore Gradle project-specific cache directory
+.gradle
+
+# Ignore Gradle build output directory
+build

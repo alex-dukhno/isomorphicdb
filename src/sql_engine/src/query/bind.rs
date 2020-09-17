@@ -15,7 +15,7 @@
 use std::sync::Arc;
 
 use bigdecimal::BigDecimal;
-use sqlparser::ast::{Assignment, Expr, Ident, Query, SetExpr, Statement, Value};
+use sqlparser::ast::{Assignment, Expr, Ident, ObjectType, Query, SetExpr, Statement, Value};
 
 use protocol::{pgsql_types::PostgreSqlValue, results::QueryError, Sender};
 
@@ -42,6 +42,11 @@ impl ParamBinder {
         match stmt {
             Statement::Insert { .. } => bind_insert(stmt, params),
             Statement::Update { .. } => bind_update(stmt, params),
+            Statement::SetVariable { .. } => Ok(()),
+            Statement::CreateSchema { .. } => Ok(()),
+            Statement::CreateTable { .. } => Ok(()),
+            Statement::Drop { object_type, .. } if *object_type == ObjectType::Schema => Ok(()),
+            Statement::Drop { object_type, .. } if *object_type == ObjectType::Table => Ok(()),
             _ => {
                 self.sender
                     .send(Err(QueryError::feature_not_supported(format!(
@@ -74,7 +79,7 @@ fn bind_insert(stmt: &mut Statement, params: &[PostgreSqlValue]) -> Result {
         }
     }
 
-    log::debug!("Bound Insert SQL: {}", stmt);
+    log::debug!("bound insert SQL: {}", stmt);
     Ok(())
 }
 
@@ -89,7 +94,7 @@ fn bind_update(stmt: &mut Statement, params: &[PostgreSqlValue]) -> Result {
         replace_expr_with_params(value, params);
     }
 
-    log::debug!("Bound Insert SQL: {}", stmt);
+    log::debug!("bound update SQL: {}", stmt);
     Ok(())
 }
 
