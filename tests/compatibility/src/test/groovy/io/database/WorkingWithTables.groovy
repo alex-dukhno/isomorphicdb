@@ -106,7 +106,7 @@ class WorkingWithTables extends ContainersSpecification {
   def 'drop table'() {
     given:
       String createTableToDropQuery = 'create table SCHEMA_NAME.TABLE_TO_DROP ()'
-      String dropTableQuery = 'drop table SCHEMA_NAME.TABLE_TO_DROP ()'
+      String dropTableQuery = 'drop table SCHEMA_NAME.TABLE_TO_DROP'
     when:
       pgExecute createTableToDropQuery
       boolean pgResult = pgExecute dropTableQuery
@@ -119,7 +119,7 @@ class WorkingWithTables extends ContainersSpecification {
 
   def 'drop table if exists'() {
     given:
-      String createTableIfNotExistsQuery = 'drop table if exists SCHEMA_NAME.TABLE_IF_EXISTS ()'
+      String createTableIfNotExistsQuery = 'drop table if exists SCHEMA_NAME.TABLE_IF_EXISTS'
     when:
       boolean pgResult = pgExecute createTableIfNotExistsQuery
     and:
