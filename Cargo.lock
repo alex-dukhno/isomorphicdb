@@ -88,24 +88,20 @@ dependencies = [
 
 [[package]]
 name = "async-io"
-version = "1.0.2"
+version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c59a2cdfa8ad60643ec249f7cdbd6a9b0163c07cbd3f2b79e07d2c267ac81a70"
+checksum = "64c629684e697f58c0e99e5e2d84a840e3b336afbcfdbac7b44c3b1e222c2fd8"
 dependencies = [
- "cfg-if",
  "concurrent-queue",
  "fastrand",
  "futures-lite",
- "libc",
  "log",
+ "nb-connect",
  "once_cell",
  "parking",
  "polling",
- "socket2",
  "vec-arena",
  "waker-fn",
- "wepoll-sys-stjepang",
- "winapi",
 ]
 
 [[package]]
@@ -695,6 +691,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "nb-connect"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e847c76b390f44529c2071ef06d0b52fbb4bdb04cc8987a5cfa63954c000abca"
+dependencies = [
+ "libc",
+ "winapi",
+]
+
+[[package]]
 name = "node"
 version = "0.1.0"
 dependencies = [
@@ -1193,18 +1199,6 @@ dependencies = [
  "blocking",
  "futures-lite",
  "once_cell",
-]
-
-[[package]]
-name = "socket2"
-version = "0.3.15"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b1fa70dc5c8104ec096f4fe7ede7a221d35ae13dcd19ba1ad9a81d2cab9a1c44"
-dependencies = [
- "cfg-if",
- "libc",
- "redox_syscall",
- "winapi",
 ]
 
 [[package]]
