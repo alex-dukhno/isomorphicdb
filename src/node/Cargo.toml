@@ -18,7 +18,7 @@ sql_engine = { path = "../sql_engine" }
 sql_model = { path = "../sql_model" }
 data_manager = { path = "../data_manager" }
 futures-lite = "1.7.0"
-smol = "1.0.0"
+smol = "1.0.1"
 async-io = "1.1.2"
 protocol = { path = "../protocol" }
 log = "0.4.8"
