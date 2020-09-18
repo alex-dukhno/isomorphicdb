@@ -18,7 +18,7 @@ use std::{
     path::{Path, PathBuf},
     sync::{
         atomic::{AtomicU8, Ordering},
-        Arc,
+        Arc, Mutex,
     },
 };
 
@@ -27,10 +27,13 @@ use async_io::Async;
 
 use crate::query_engine::QueryEngine;
 use data_manager::DataManager;
-use protocol::{ProtocolConfiguration, Receiver};
+use protocol::{ConnSupervisor, Error, ProtocolConfiguration, Receiver};
 
 const PORT: u16 = 5432;
 const HOST: [u8; 4] = [0, 0, 0, 0];
+
+const MIN_CONN_ID: i32 = 1;
+const MAX_CONN_ID: i32 = 1 << 16;
 
 pub const RUNNING: u8 = 0;
 pub const STOPPED: u8 = 1;
@@ -48,11 +51,16 @@ pub fn start() {
 
         let state = Arc::new(AtomicU8::new(RUNNING));
         let config = protocol_configuration();
+        let conn_supervisor = Arc::new(Mutex::new(ConnSupervisor::new(MIN_CONN_ID, MAX_CONN_ID)));
 
         while let Ok((tcp_stream, address)) = listener.accept().await {
             let tcp_stream = AsyncArc::new(tcp_stream);
-            match protocol::hand_shake(tcp_stream, address, &config).await {
+            match protocol::hand_shake(tcp_stream, address, &config, conn_supervisor.clone()).await {
                 Err(io_error) => log::error!("IO error {:?}", io_error),
+                Ok(Err(Error::CancelRequest(conn_id))) => {
+                    // TODO: Needs to handle Cancel Request here.
+                    log::debug!("cancel request of connection-{}", conn_id);
+                }
                 Ok(Err(protocol_error)) => log::error!("protocol error {:?}", protocol_error),
                 Ok(Ok((mut receiver, sender))) => {
                     if state.load(Ordering::SeqCst) == STOPPED {

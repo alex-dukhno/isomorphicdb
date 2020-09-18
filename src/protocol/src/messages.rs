@@ -30,6 +30,7 @@ const MESSAGE: u8 = b'M';
 const EMPTY_QUERY_RESPONSE: u8 = b'I';
 const NOTICE_RESPONSE: u8 = b'N';
 const AUTHENTICATION: u8 = b'R';
+const BACKEND_KEY_DATA: u8 = b'K';
 const PARAMETER_STATUS: u8 = b'S';
 const ROW_DESCRIPTION: u8 = b'T';
 const READY_FOR_QUERY: u8 = b'Z';
@@ -214,6 +215,9 @@ pub enum BackendMessage {
     AuthenticationMD5Password,
     /// The authentication exchange is successfully completed.
     AuthenticationOk,
+    /// Identifies as cancellation key data. The frontend must save these values
+    /// if it wishes to be able to issue CancelRequest messages later.
+    BackendKeyData(i32, i32),
     /// Start-up is completed. The frontend can now issue commands.
     ReadyForQuery,
     /// One of the set of rows returned by a SELECT, FETCH, etc query.
@@ -260,6 +264,12 @@ impl BackendMessage {
             BackendMessage::AuthenticationCleartextPassword => vec![AUTHENTICATION, 0, 0, 0, 8, 0, 0, 0, 3],
             BackendMessage::AuthenticationMD5Password => vec![AUTHENTICATION, 0, 0, 0, 12, 0, 0, 0, 5, 1, 1, 1, 1],
             BackendMessage::AuthenticationOk => vec![AUTHENTICATION, 0, 0, 0, 8, 0, 0, 0, 0],
+            BackendMessage::BackendKeyData(conn_id, secret_key) => {
+                let mut buff = vec![BACKEND_KEY_DATA, 0, 0, 0, 12];
+                buff.extend_from_slice(&conn_id.to_be_bytes());
+                buff.extend_from_slice(&secret_key.to_be_bytes());
+                buff
+            }
             BackendMessage::ReadyForQuery => vec![READY_FOR_QUERY, 0, 0, 0, 5, EMPTY_QUERY_RESPONSE],
             BackendMessage::DataRow(row) => {
                 let mut row_buff = Vec::new();
@@ -748,6 +758,14 @@ mod serializing_backend_messages {
         assert_eq!(
             BackendMessage::AuthenticationOk.as_vec(),
             vec![AUTHENTICATION, 0, 0, 0, 8, 0, 0, 0, 0]
+        )
+    }
+
+    #[test]
+    fn backend_ket_data() {
+        assert_eq!(
+            BackendMessage::BackendKeyData(1, 2).as_vec(),
+            vec![BACKEND_KEY_DATA, 0, 0, 0, 12, 0, 0, 0, 1, 0, 0, 0, 2]
         )
     }
 

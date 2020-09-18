@@ -17,11 +17,12 @@
 extern crate log;
 
 use std::{
+    collections::{HashMap, VecDeque},
     fs::File,
     net::SocketAddr,
     path::PathBuf,
     pin::Pin,
-    sync::Arc,
+    sync::{Arc, Mutex},
     task::{Context, Poll},
 };
 
@@ -35,6 +36,7 @@ use futures_lite::{
     io::{self, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, ErrorKind},
 };
 use itertools::Itertools;
+use rand::Rng;
 
 use crate::{
     messages::{BackendMessage, Encryption, FrontendMessage},
@@ -54,6 +56,10 @@ pub mod session;
 /// Module contains functionality to hold data about `PreparedStatement`
 pub mod statement;
 
+/// Connection ID
+pub type ConnId = i32;
+/// Connection secret key
+pub type ConnSecretKey = i32;
 /// Protocol version
 pub type Version = i32;
 /// Connection key-value params
@@ -77,6 +83,10 @@ pub const VERSION_GSSENC: Version = (1234 << 16) + 5680;
 /// `Error` type in protocol `Result`. Indicates that something went not well
 #[derive(Debug, PartialEq)]
 pub enum Error {
+    /// Notifies that the specified connection ID needs to be cancelled
+    CancelRequest(i32),
+    /// Indicates that the current count of active connections is full
+    ConnectionIdExhausted,
     /// Indicates that incoming data is invalid
     InvalidInput(String),
     /// Indicates that incoming data can't be parsed as UTF-8 string
@@ -89,6 +99,8 @@ pub enum Error {
     UnsupportedRequest,
     /// Indicates that during handshake client sent unrecognized protocol version
     UnrecognizedVersion,
+    /// Indicates that connection verification is failed
+    VerificationFailed,
 }
 
 /// Result of handling incoming bytes from a client
@@ -147,6 +159,64 @@ pub enum Command {
     Terminate,
 }
 
+/// Manages allocation of Connection IDs and secret keys.
+pub struct ConnSupervisor {
+    next_id: i32,
+    max_id: i32,
+    free_ids: VecDeque<i32>,
+    current_mapping: HashMap<i32, i32>,
+}
+
+impl ConnSupervisor {
+    /// Creates a new Connection Supervisor.
+    pub fn new(min_id: i32, max_id: i32) -> Self {
+        Self {
+            next_id: min_id,
+            max_id,
+            free_ids: VecDeque::new(),
+            current_mapping: HashMap::new(),
+        }
+    }
+
+    /// Allocates a new Connection ID and secret key.
+    fn alloc(&mut self) -> Result<(i32, i32)> {
+        let conn_id = self.generate_conn_id()?;
+        let secret_key = rand::thread_rng().gen();
+        self.current_mapping.insert(conn_id, secret_key);
+        Ok((conn_id, secret_key))
+    }
+
+    /// Releases a Connection ID back to the pool.
+    fn free(&mut self, conn_id: i32) {
+        if self.current_mapping.remove(&conn_id).is_some() {
+            self.free_ids.push_back(conn_id);
+        }
+    }
+
+    /// Validates whether the secret key matches the specified Connection ID.
+    fn verify(&self, conn_id: i32, secret_key: i32) -> bool {
+        match self.current_mapping.get(&conn_id) {
+            Some(s) => *s == secret_key,
+            None => false,
+        }
+    }
+
+    fn generate_conn_id(&mut self) -> Result<i32> {
+        match self.free_ids.pop_front() {
+            Some(id) => Ok(id),
+            None => {
+                let id = self.next_id;
+                if id > self.max_id {
+                    return Err(Error::ConnectionIdExhausted);
+                }
+
+                self.next_id += 1;
+                Ok(id)
+            }
+        }
+    }
+}
+
 /// Perform `PostgreSql` wire protocol hand shake to establish connection with
 /// a client based on `config` parameters and using `stream` as a medium to
 /// communicate
@@ -156,6 +226,7 @@ pub async fn hand_shake<RW>(
     stream: RW,
     address: SocketAddr,
     config: &ProtocolConfiguration,
+    conn_supervisor: Arc<Mutex<ConnSupervisor>>,
 ) -> io::Result<Result<(impl Receiver, impl Sender)>>
 where
     RW: AsyncRead + AsyncWrite + Unpin,
@@ -229,6 +300,16 @@ where
                     )
                     .await?;
 
+                let (conn_id, secret_key) = match conn_supervisor.lock().unwrap().alloc() {
+                    Ok((c, s)) => (c, s),
+                    Err(e) => return Ok(Err(e)),
+                };
+
+                log::debug!("start service on connection-{}", conn_id);
+                channel
+                    .write_all(BackendMessage::BackendKeyData(conn_id, secret_key).as_vec().as_slice())
+                    .await?;
+
                 log::debug!("send ready_for_query message");
                 channel
                     .write_all(BackendMessage::ReadyForQuery.as_vec().as_slice())
@@ -236,7 +317,7 @@ where
 
                 let channel = Arc::new(AsyncMutex::new(channel));
                 return Ok(Ok((
-                    RequestReceiver::new((version, params.clone()), channel.clone()),
+                    RequestReceiver::new(conn_id, (version, params.clone()), channel.clone(), conn_supervisor),
                     ResponseSender::new((version, params), channel),
                 )));
             }
@@ -253,7 +334,15 @@ where
                 };
             }
             Ok(ClientHandshake::GssEncryptRequest) => return Ok(Err(Error::UnsupportedRequest)),
-            Err(error) => return Ok(Err(error)),
+            Ok(ClientHandshake::CancelRequest(conn_id, secret_key)) => {
+                if conn_supervisor.lock().unwrap().verify(conn_id, secret_key) {
+                    return Ok(Err(Error::CancelRequest(conn_id)));
+                }
+                return Ok(Err(Error::VerificationFailed));
+            }
+            Err(error) => {
+                return Ok(Err(error));
+            }
         }
     }
 }
@@ -298,7 +387,9 @@ fn decode_startup(message: Vec<u8>) -> Result<ClientHandshake> {
         }
         VERSION_CANCEL => {
             log::debug!("client is trying to connect cancel request");
-            Err(Error::UnsupportedVersion)
+            let conn_id = NetworkEndian::read_i32(&message[4..]);
+            let secret_key = NetworkEndian::read_i32(&message[8..]);
+            Ok(ClientHandshake::CancelRequest(conn_id, secret_key))
         }
         VERSION_GSSENC => {
             log::debug!("client is trying to connect with GSS Encryption");
@@ -316,14 +407,26 @@ fn decode_startup(message: Vec<u8>) -> Result<ClientHandshake> {
 }
 
 struct RequestReceiver<RW: AsyncRead + AsyncWrite + Unpin> {
+    conn_id: i32,
     properties: (Version, Params),
     channel: Arc<AsyncMutex<Channel<RW>>>,
+    conn_supervisor: Arc<Mutex<ConnSupervisor>>,
 }
 
 impl<RW: AsyncRead + AsyncWrite + Unpin> RequestReceiver<RW> {
-    /// Creates new Connection with properties and read-write socket
-    pub(crate) fn new(properties: (Version, Params), channel: Arc<AsyncMutex<Channel<RW>>>) -> RequestReceiver<RW> {
-        RequestReceiver { properties, channel }
+    /// Creates a new connection
+    pub(crate) fn new(
+        conn_id: i32,
+        properties: (Version, Params),
+        channel: Arc<AsyncMutex<Channel<RW>>>,
+        conn_supervisor: Arc<Mutex<ConnSupervisor>>,
+    ) -> RequestReceiver<RW> {
+        RequestReceiver {
+            conn_id,
+            properties,
+            channel,
+            conn_supervisor,
+        }
     }
 
     /// connection properties tuple
@@ -400,6 +503,13 @@ impl<RW: AsyncRead + AsyncWrite + Unpin> Receiver for RequestReceiver<RW> {
             FrontendMessage::CloseStatement { name: _ } => Ok(Ok(Command::Continue)),
             FrontendMessage::ClosePortal { name: _ } => Ok(Ok(Command::Continue)),
         }
+    }
+}
+
+impl<RW: AsyncRead + AsyncWrite + Unpin> Drop for RequestReceiver<RW> {
+    fn drop(&mut self) {
+        self.conn_supervisor.lock().unwrap().free(self.conn_id);
+        log::debug!("stop service of connection-{}", self.conn_id);
     }
 }
 
@@ -552,9 +662,17 @@ impl ProtocolConfiguration {
 }
 
 enum ClientHandshake {
-    SslRequest,
-    GssEncryptRequest,
+    /// Begin a connection.
     Startup(Version, Params),
+
+    /// Request SSL encryption for the connection.
+    SslRequest,
+
+    /// Request GSSAPI encryption for the connection.
+    GssEncryptRequest,
+
+    /// Cancel a query that is running on another connection.
+    CancelRequest(ConnId, ConnSecretKey),
 }
 
 #[cfg(test)]

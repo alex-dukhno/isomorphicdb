@@ -22,6 +22,7 @@ pub enum Message {
     SslDisabled,
     SslRequired,
     Password(&'static str),
+    CancelRequest(i32, i32),
 }
 
 impl Message {
@@ -70,6 +71,14 @@ impl Message {
                 with_len.extend_from_slice(&(buff.len() as u32 + 4).to_be_bytes());
                 with_len.extend_from_slice(&buff);
                 with_len
+            }
+            Message::CancelRequest(conn_id, secret_key) => {
+                let mut buff = Vec::new();
+                buff.extend_from_slice(&16u32.to_be_bytes());
+                buff.extend_from_slice(&80_877_102u32.to_be_bytes());
+                buff.extend_from_slice(&conn_id.to_be_bytes());
+                buff.extend_from_slice(&secret_key.to_be_bytes());
+                buff
             }
         }
     }
