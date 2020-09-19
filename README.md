@@ -8,11 +8,17 @@ The project doesn't have any name so let it be `database` for now.
 
 ## Play around with project
 
-See [docs](./docs/)
+See [docs](./docs/.)
 
 ## Project structure
 
- * `docs/` - project documentation 
+ * `docs/` - project documentation
+ * `local/` - helper scripts to fix `rustfmt` and `clippy` errors
+ * `src/ast/` - abstract syntax tree transformed from `sqlparser::ast` that can be evaluated by database engine
+ * `src/binary/` - binary representation of data to store/read it on/from disk
+ * `src/constraints/` - mechanics to ensure data validity that are going to store
+ * `src/data_manager/` - module that manages how to, where store/read data and metadata
+ * `src/expr_eval/` - module that evaluates static and dynamic expression in transformed `ast`
  * `src/kernel/` - core concept of the system. All modules (except `protocol`) depends on it.
                    It should provide conceptual abstraction for other modules. Good examples
                    are `SystemResult` and `SystemError`. Other part of system uses them to
@@ -28,14 +34,12 @@ See [docs](./docs/)
                     dependencies on other crates because it is intended to move out of the project
                     into completely separate crate. Right now it is in the project because of ease
                     of testing, prototyping and development.
+ * `src/query_planner/` - module uses `sqlparser::ast` to generate a plan how to execute query
  * `src/sql_engine/` - module to execute incoming `SQL` queries. That is it.
- * `src/sql_types/` - module contains code to support different `SQL` types and incoming data validation
- * `src/storage/` - module to persist and retrieve execution results of `SQL` queries. It is split
-                    into two major parts: `FrontendStorage` and `BackendStorage`.
-                    `FrontendStorage` is responsible to provide high level `relational` API like `CREATE SCHEMA`,
-                    `CREAT TABLE` and `CREATE INDEX`. `BackendStorage` is responsible to hide actual on-disk
-                    storage implementation and provide low level API for `FrontendStorage` like create a namespace,
-                    create an object, read/write data in binary format from/to disk.
+ * `src/sql_model/` - module contains code to support different `SQL` types other `SQL`
+ * `tests/compatibility` - groovy based tests to check compatibility with [PostgreSQL](https://www.postgresql.org/)
+ * `tests/fixtures` - files needed to set up non-default local testing
+ * `tests/functional` - python based tests to check database functionality (eventually should be merged with compatibility tests)
 
 ## Development
 
@@ -61,6 +65,19 @@ on a local machine and queries result has to be checked visually.
     1. enter any password
 1. Run `sql` scripts from `compatibility` folder
 
+### Compute code coverage locally
+
+1. Install `grcov`
+1. Run `./local/code_coverage.sh`
+1. Open `./target/debug/coverage/index.html` in your browser
+
+### Running Compatibility tests locally
+
+1. Install `java` version `8` or `11`(that were tested)
+1. (Optional) Install `gradle` version `6` (that were tested)
+1. Run `PERSISTENT=1 RUST_LOG=debug cargo run` from project folder in separate terminal window
+1. Run `./local/compatibility.sh`
+
 ### Running Functional tests
 
 We use PyTest for functional tests. To run tests locally you need to set up
@@ -84,8 +101,8 @@ For windows, you can easily install `python` from [official site](https://www.py
     pytest -v tests/functional/<test_file>.py
     ```
 
-`pip3` and `python3` OR `pip` and `python` - depends on your system and your 
+`pip3` with `python3` OR `pip` with `python` - depends on your system and your 
 preferences.
 
-For system with both `python` 2 and 3 - use `python3` and `pip3` to run tests 
+For system with both `python` 2 and 3 - use `python3` and `pip3` to run tests
 with the 3rd version of `python`.

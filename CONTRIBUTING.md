@@ -27,7 +27,7 @@ All you need is to run following commands and see that there are no errors:
 ```shell script
 ./local/rustfmt.sh
 ./local/clippy.sh
-cargo test --lib --all
+cargo test
 ```
 
 One of the sub-goal of the project is to develop general 

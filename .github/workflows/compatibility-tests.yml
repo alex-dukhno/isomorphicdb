@@ -19,5 +19,5 @@ jobs:
           java-version: 8
       - name: run-tests
         uses: eskatos/gradle-command-action@v1
-          with:
-            arguments: test
+        with:
+          arguments: test
