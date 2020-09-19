@@ -1,4 +1,4 @@
-name: compatibility tests
+name: Compatibility Tests
 on:
   schedule:
     - cron:  '0 0 * * 1' # every Monday
