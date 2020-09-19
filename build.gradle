@@ -36,5 +36,7 @@ subprojects {
       showStackTraces true
       showStandardStreams true
     }
+
+    systemProperty 'ci', System.getProperty('ci', 'true')
   }
 }

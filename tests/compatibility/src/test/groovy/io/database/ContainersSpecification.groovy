@@ -23,14 +23,19 @@ class ContainersSpecification extends Specification {
         .withPassword(PASSWORD)
     POSTGRE_SQL.start()
 
-    DATABASE = new GenericContainer(
-        new ImageFromDockerfile()
-            .withDockerfile(Paths.get('../../Dockerfile')))
-        .withExposedPorts(5432)
-    DATABASE.start()
+    if (Boolean.parseBoolean(System.getProperty("ci", "true"))) {
+      DATABASE = new GenericContainer(
+          new ImageFromDockerfile()
+              .withDockerfile(Paths.get('../../Dockerfile')))
+          .withExposedPorts(5432)
+      DATABASE.start()
+    } else {
+      println("Make sure that you are running database locally")
+      DATABASE = null
+    }
   }
 
-  static Map<String, String> pgConf() {
+  private static Map<String, String> pgConf() {
     [
         url: POSTGRE_SQL.jdbcUrl,
         user: USER,
@@ -39,13 +44,21 @@ class ContainersSpecification extends Specification {
     ]
   }
 
-  static Map<String, String> dbConf() {
+  private static Map<String, String> dbConf() {
     [
-        url: "jdbc:postgresql://localhost:${DATABASE.getFirstMappedPort()}/test?gssEncMode=disable&sslmode=disable",
+        url: "jdbc:postgresql://localhost:${dbPort()}/test?gssEncMode=disable&sslmode=disable",
         user: USER,
         password: PASSWORD,
         driver: DRIVER_CLASS,
     ]
+  }
+
+  private static int dbPort() {
+    if (DATABASE != null) {
+      DATABASE.getFirstMappedPort()
+    } else {
+      5432
+    }
   }
 
   static pgExecute(String query) {
