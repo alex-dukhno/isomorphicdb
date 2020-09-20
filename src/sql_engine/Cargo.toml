@@ -8,6 +8,7 @@ publish = false
 [dependencies]
 ast = { path = "../ast" }
 constraints = { path = "../constraints" }
+rxrust = "0.9.1"
 data_manager = { path = "../data_manager" }
 expr_eval = { path = "../expr_eval" }
 log = "0.4.11"

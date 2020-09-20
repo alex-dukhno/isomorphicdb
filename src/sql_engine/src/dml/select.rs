@@ -14,7 +14,8 @@
 
 use std::sync::Arc;
 
-use data_manager::DataManager;
+use ast::Datum;
+use data_manager::{DataManager, ReadCursor};
 use kernel::{SystemError, SystemResult};
 use protocol::{
     messages::ColumnMetadata,
@@ -22,6 +23,7 @@ use protocol::{
     Sender,
 };
 use query_planner::plan::SelectInput;
+use rxrust::prelude::*;
 
 pub(crate) struct SelectCommand {
     select_input: SelectInput,
@@ -120,9 +122,16 @@ impl SelectCommand {
 
                 let mut index = 0;
 
-                records
+                // currently only `select col1, col2, col3 from table_name` is supported
+                // those this is how we create `source` vertex in query result streaming
+                observable::from_iter(records)
+                    // then we have to handle possible layers of errors IO -> storage -> model definition
+                    // should it be different operations? -  ¯\_(ツ)_/¯
+                    // yes, for now - calling `map` is represents it
                     .map(Result::unwrap)
                     .map(Result::unwrap)
+                    // now we do projection operator it is hidden by calling `map` but what we do is to
+                    // try find out under what column index we have to create tuple and send it to a client
                     .map(|(_key, values)| {
                         let row: Vec<String> = values.unpack().into_iter().map(|datum| datum.to_string()).collect();
 
@@ -136,12 +145,36 @@ impl SelectCommand {
                         }
                         values
                     })
-                    .for_each(|value| {
+                    // we send data in subscribe operation
+                    .subscribe(|value| {
                         self.sender
                             .send(Ok(QueryEvent::DataRow(value)))
                             .expect("To Send Query Result to Client");
                         index += 1;
                     });
+
+                // records
+                //     .map(Result::unwrap)
+                //     .map(Result::unwrap)
+                //     .map(|(_key, values)| {
+                //         let row: Vec<String> = values.unpack().into_iter().map(|datum| datum.to_string()).collect();
+                //
+                //         let mut values = vec![];
+                //         for origin in column_indexes.iter() {
+                //             for (index, value) in row.iter().enumerate() {
+                //                 if index == *origin {
+                //                     values.push(value.clone())
+                //                 }
+                //             }
+                //         }
+                //         values
+                //     })
+                //     .for_each(|value| {
+                //         self.sender
+                //             .send(Ok(QueryEvent::DataRow(value)))
+                //             .expect("To Send Query Result to Client");
+                //         index += 1;
+                //     });
 
                 self.sender
                     .send(Ok(QueryEvent::RecordsSelected(index)))
