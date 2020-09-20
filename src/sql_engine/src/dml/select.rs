@@ -153,29 +153,6 @@ impl SelectCommand {
                         index += 1;
                     });
 
-                // records
-                //     .map(Result::unwrap)
-                //     .map(Result::unwrap)
-                //     .map(|(_key, values)| {
-                //         let row: Vec<String> = values.unpack().into_iter().map(|datum| datum.to_string()).collect();
-                //
-                //         let mut values = vec![];
-                //         for origin in column_indexes.iter() {
-                //             for (index, value) in row.iter().enumerate() {
-                //                 if index == *origin {
-                //                     values.push(value.clone())
-                //                 }
-                //             }
-                //         }
-                //         values
-                //     })
-                //     .for_each(|value| {
-                //         self.sender
-                //             .send(Ok(QueryEvent::DataRow(value)))
-                //             .expect("To Send Query Result to Client");
-                //         index += 1;
-                //     });
-
                 self.sender
                     .send(Ok(QueryEvent::RecordsSelected(index)))
                     .expect("To Send Query Result to Client");
