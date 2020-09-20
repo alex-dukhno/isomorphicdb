@@ -15,6 +15,7 @@
 use protocol::pgsql_types::PostgreSqlType;
 
 use super::*;
+use protocol::messages::ColumnMetadata;
 
 #[rstest::rstest]
 fn insert_into_nonexistent_table(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
@@ -23,12 +24,7 @@ fn insert_into_nonexistent_table(sql_engine_with_schema: (QueryExecutor, ResultC
         .execute("insert into schema_name.table_name values (123);")
         .expect("no system errors");
 
-    collector.assert_content_for_single_queries(vec![
-        Ok(QueryEvent::SchemaCreated),
-        Ok(QueryEvent::QueryComplete),
-        Err(QueryError::table_does_not_exist("schema_name.table_name")),
-        Ok(QueryEvent::QueryComplete),
-    ]);
+    collector.assert_receive_single(Err(QueryError::table_does_not_exist("schema_name.table_name")));
 }
 
 #[rstest::rstest]
@@ -37,18 +33,12 @@ fn insert_value_in_non_existent_column(sql_engine_with_schema: (QueryExecutor, R
     engine
         .execute("create table schema_name.table_name (column_test smallint);")
         .expect("no system errors");
+    collector.assert_receive_single(Ok(QueryEvent::TableCreated));
+
     engine
         .execute("insert into schema_name.table_name (non_existent) values (123);")
         .expect("no system errors");
-
-    collector.assert_content_for_single_queries(vec![
-        Ok(QueryEvent::SchemaCreated),
-        Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::TableCreated),
-        Ok(QueryEvent::QueryComplete),
-        Err(QueryError::column_does_not_exist("non_existent")),
-        Ok(QueryEvent::QueryComplete),
-    ]);
+    collector.assert_receive_single(Err(QueryError::column_does_not_exist("non_existent")));
 }
 
 #[rstest::rstest]
@@ -57,26 +47,23 @@ fn insert_and_select_single_row(sql_engine_with_schema: (QueryExecutor, ResultCo
     engine
         .execute("create table schema_name.table_name (column_test smallint);")
         .expect("no system errors");
+    collector.assert_receive_single(Ok(QueryEvent::TableCreated));
 
     engine
         .execute("insert into schema_name.table_name values (123);")
         .expect("no system errors");
+    collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+
     engine
         .execute("select * from schema_name.table_name;")
         .expect("no system errors");
-
-    collector.assert_content_for_single_queries(vec![
-        Ok(QueryEvent::SchemaCreated),
-        Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::TableCreated),
-        Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::RecordsInserted(1)),
-        Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::RecordsSelected((
-            vec![("column_test".to_owned(), PostgreSqlType::SmallInt)],
-            vec![vec!["123".to_owned()]],
-        ))),
-        Ok(QueryEvent::QueryComplete),
+    collector.assert_receive_many(vec![
+        Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
+            "column_test",
+            PostgreSqlType::SmallInt,
+        )])),
+        Ok(QueryEvent::DataRow(vec!["123".to_owned()])),
+        Ok(QueryEvent::RecordsSelected(1)),
     ]);
 }
 
@@ -86,39 +73,29 @@ fn insert_and_select_multiple_rows(sql_engine_with_schema: (QueryExecutor, Resul
     engine
         .execute("create table schema_name.table_name (column_test smallint);")
         .expect("no system errors");
+    collector.assert_receive_single(Ok(QueryEvent::TableCreated));
+
     engine
         .execute("insert into schema_name.table_name values (123);")
         .expect("no system errors");
-    engine
-        .execute("select * from schema_name.table_name;")
-        .expect("no system errors");
+    collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
     engine
         .execute("insert into schema_name.table_name values (456);")
         .expect("no system errors");
+    collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+
     engine
         .execute("select * from schema_name.table_name;")
         .expect("no system errors");
-
-    collector.assert_content_for_single_queries(vec![
-        Ok(QueryEvent::SchemaCreated),
-        Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::TableCreated),
-        Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::RecordsInserted(1)),
-        Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::RecordsSelected((
-            vec![("column_test".to_owned(), PostgreSqlType::SmallInt)],
-            vec![vec!["123".to_owned()]],
-        ))),
-        Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::RecordsInserted(1)),
-        Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::RecordsSelected((
-            vec![("column_test".to_owned(), PostgreSqlType::SmallInt)],
-            vec![vec!["123".to_owned()], vec!["456".to_owned()]],
-        ))),
-        Ok(QueryEvent::QueryComplete),
+    collector.assert_receive_many(vec![
+        Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
+            "column_test",
+            PostgreSqlType::SmallInt,
+        )])),
+        Ok(QueryEvent::DataRow(vec!["123".to_owned()])),
+        Ok(QueryEvent::DataRow(vec!["456".to_owned()])),
+        Ok(QueryEvent::RecordsSelected(2)),
     ]);
 }
 
@@ -128,32 +105,33 @@ fn insert_and_select_named_columns(sql_engine_with_schema: (QueryExecutor, Resul
     engine
         .execute("create table schema_name.table_name (col1 smallint, col2 smallint, col3 smallint);")
         .expect("no system errors");
+    collector.assert_receive_single(Ok(QueryEvent::TableCreated));
+
     engine
         .execute("insert into schema_name.table_name (col2, col3, col1) values (1, 2, 3), (4, 5, 6);")
         .expect("no system errors");
+    collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(2)));
+
     engine
         .execute("select * from schema_name.table_name;")
         .expect("no system errors");
-
-    collector.assert_content_for_single_queries(vec![
-        Ok(QueryEvent::SchemaCreated),
-        Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::TableCreated),
-        Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::RecordsInserted(2)),
-        Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::RecordsSelected((
-            vec![
-                ("col1".to_owned(), PostgreSqlType::SmallInt),
-                ("col2".to_owned(), PostgreSqlType::SmallInt),
-                ("col3".to_owned(), PostgreSqlType::SmallInt),
-            ],
-            vec![
-                vec!["3".to_owned(), "1".to_owned(), "2".to_owned()],
-                vec!["6".to_owned(), "4".to_owned(), "5".to_owned()],
-            ],
-        ))),
-        Ok(QueryEvent::QueryComplete),
+    collector.assert_receive_many(vec![
+        Ok(QueryEvent::RowDescription(vec![
+            ColumnMetadata::new("col1", PostgreSqlType::SmallInt),
+            ColumnMetadata::new("col2", PostgreSqlType::SmallInt),
+            ColumnMetadata::new("col3", PostgreSqlType::SmallInt),
+        ])),
+        Ok(QueryEvent::DataRow(vec![
+            "3".to_owned(),
+            "1".to_owned(),
+            "2".to_owned(),
+        ])),
+        Ok(QueryEvent::DataRow(vec![
+            "6".to_owned(),
+            "4".to_owned(),
+            "5".to_owned(),
+        ])),
+        Ok(QueryEvent::RecordsSelected(2)),
     ]);
 }
 
@@ -163,33 +141,39 @@ fn insert_multiple_rows(sql_engine_with_schema: (QueryExecutor, ResultCollector)
     engine
         .execute("create table schema_name.table_name (column_1 smallint, column_2 smallint, column_3 smallint);")
         .expect("no system errors");
+    collector.assert_receive_single(Ok(QueryEvent::TableCreated));
+
     engine
         .execute("insert into schema_name.table_name values (1, 4, 7), (2, 5, 8), (3, 6, 9);")
         .expect("no system errors");
+    collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(3)));
+
     engine
         .execute("select * from schema_name.table_name;")
         .expect("no system errors");
 
-    collector.assert_content_for_single_queries(vec![
-        Ok(QueryEvent::SchemaCreated),
-        Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::TableCreated),
-        Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::RecordsInserted(3)),
-        Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::RecordsSelected((
-            vec![
-                ("column_1".to_owned(), PostgreSqlType::SmallInt),
-                ("column_2".to_owned(), PostgreSqlType::SmallInt),
-                ("column_3".to_owned(), PostgreSqlType::SmallInt),
-            ],
-            vec![
-                vec!["1".to_owned(), "4".to_owned(), "7".to_owned()],
-                vec!["2".to_owned(), "5".to_owned(), "8".to_owned()],
-                vec!["3".to_owned(), "6".to_owned(), "9".to_owned()],
-            ],
-        ))),
-        Ok(QueryEvent::QueryComplete),
+    collector.assert_receive_many(vec![
+        Ok(QueryEvent::RowDescription(vec![
+            ColumnMetadata::new("column_1", PostgreSqlType::SmallInt),
+            ColumnMetadata::new("column_2", PostgreSqlType::SmallInt),
+            ColumnMetadata::new("column_3", PostgreSqlType::SmallInt),
+        ])),
+        Ok(QueryEvent::DataRow(vec![
+            "1".to_owned(),
+            "4".to_owned(),
+            "7".to_owned(),
+        ])),
+        Ok(QueryEvent::DataRow(vec![
+            "2".to_owned(),
+            "5".to_owned(),
+            "8".to_owned(),
+        ])),
+        Ok(QueryEvent::DataRow(vec![
+            "3".to_owned(),
+            "6".to_owned(),
+            "9".to_owned(),
+        ])),
+        Ok(QueryEvent::RecordsSelected(3)),
     ]);
 }
 
@@ -199,48 +183,41 @@ fn insert_and_select_different_integer_types(sql_engine_with_schema: (QueryExecu
     engine
         .execute("create table schema_name.table_name (column_si smallint, column_i integer, column_bi bigint, column_serial serial);")
         .expect("no system errors");
+    collector.assert_receive_single(Ok(QueryEvent::TableCreated));
+
     engine
         .execute("insert into schema_name.table_name values(-32768, -2147483648, -9223372036854775808, 1);")
         .expect("no system errors");
+    collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+
     engine
         .execute("insert into schema_name.table_name values(32767, 2147483647, 9223372036854775807, 1);")
         .expect("no system errors");
+    collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+
     engine
         .execute("select * from schema_name.table_name;")
         .expect("no system errors");
-
-    collector.assert_content_for_single_queries(vec![
-        Ok(QueryEvent::SchemaCreated),
-        Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::TableCreated),
-        Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::RecordsInserted(1)),
-        Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::RecordsInserted(1)),
-        Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::RecordsSelected((
-            vec![
-                ("column_si".to_owned(), PostgreSqlType::SmallInt),
-                ("column_i".to_owned(), PostgreSqlType::Integer),
-                ("column_bi".to_owned(), PostgreSqlType::BigInt),
-                ("column_serial".to_owned(), PostgreSqlType::Integer),
-            ],
-            vec![
-                vec![
-                    "-32768".to_owned(),
-                    "-2147483648".to_owned(),
-                    "-9223372036854775808".to_owned(),
-                    "1".to_owned(),
-                ],
-                vec![
-                    "32767".to_owned(),
-                    "2147483647".to_owned(),
-                    "9223372036854775807".to_owned(),
-                    "1".to_owned(),
-                ],
-            ],
-        ))),
-        Ok(QueryEvent::QueryComplete),
+    collector.assert_receive_many(vec![
+        Ok(QueryEvent::RowDescription(vec![
+            ColumnMetadata::new("column_si", PostgreSqlType::SmallInt),
+            ColumnMetadata::new("column_i", PostgreSqlType::Integer),
+            ColumnMetadata::new("column_bi", PostgreSqlType::BigInt),
+            ColumnMetadata::new("column_serial", PostgreSqlType::Integer),
+        ])),
+        Ok(QueryEvent::DataRow(vec![
+            "-32768".to_owned(),
+            "-2147483648".to_owned(),
+            "-9223372036854775808".to_owned(),
+            "1".to_owned(),
+        ])),
+        Ok(QueryEvent::DataRow(vec![
+            "32767".to_owned(),
+            "2147483647".to_owned(),
+            "9223372036854775807".to_owned(),
+            "1".to_owned(),
+        ])),
+        Ok(QueryEvent::RecordsSelected(2)),
     ]);
 }
 
@@ -250,36 +227,32 @@ fn insert_and_select_different_character_types(sql_engine_with_schema: (QueryExe
     engine
         .execute("create table schema_name.table_name (column_c char(10), column_vc varchar(10));")
         .expect("no system errors");
+    collector.assert_receive_single(Ok(QueryEvent::TableCreated));
+
     engine
         .execute("insert into schema_name.table_name values('12345abcde', '12345abcde');")
         .expect("no system errors");
+    collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+
     engine
         .execute("insert into schema_name.table_name values('12345abcde', 'abcde');")
         .expect("no system errors");
+    collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+
     engine
         .execute("select * from schema_name.table_name;")
         .expect("no system errors");
-
-    collector.assert_content_for_single_queries(vec![
-        Ok(QueryEvent::SchemaCreated),
-        Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::TableCreated),
-        Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::RecordsInserted(1)),
-        Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::RecordsInserted(1)),
-        Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::RecordsSelected((
-            vec![
-                ("column_c".to_owned(), PostgreSqlType::Char),
-                ("column_vc".to_owned(), PostgreSqlType::VarChar),
-            ],
-            vec![
-                vec!["12345abcde".to_owned(), "12345abcde".to_owned()],
-                vec!["12345abcde".to_owned(), "abcde".to_owned()],
-            ],
-        ))),
-        Ok(QueryEvent::QueryComplete),
+    collector.assert_receive_many(vec![
+        Ok(QueryEvent::RowDescription(vec![
+            ColumnMetadata::new("column_c", PostgreSqlType::Char),
+            ColumnMetadata::new("column_vc", PostgreSqlType::VarChar),
+        ])),
+        Ok(QueryEvent::DataRow(vec![
+            "12345abcde".to_owned(),
+            "12345abcde".to_owned(),
+        ])),
+        Ok(QueryEvent::DataRow(vec!["12345abcde".to_owned(), "abcde".to_owned()])),
+        Ok(QueryEvent::RecordsSelected(2)),
     ]);
 }
 
@@ -289,28 +262,22 @@ fn insert_booleans(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
     engine
         .execute("create table schema_name.table_name (b boolean);")
         .expect("no system errors");
+    collector.assert_receive_single(Ok(QueryEvent::TableCreated));
+
     engine
         .execute("insert into schema_name.table_name values(true);")
         .expect("no system errors");
+    collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+
     engine
         .execute("insert into schema_name.table_name values(TRUE::boolean);")
         .expect("no system errors");
+    collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+
     engine
         .execute("insert into schema_name.table_name values('true'::boolean);")
         .expect("no system errors");
-
-    collector.assert_content_for_single_queries(vec![
-        Ok(QueryEvent::SchemaCreated),
-        Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::TableCreated),
-        Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::RecordsInserted(1)),
-        Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::RecordsInserted(1)),
-        Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::RecordsInserted(1)),
-        Ok(QueryEvent::QueryComplete),
-    ]);
+    collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 }
 
 #[cfg(test)]
@@ -333,6 +300,8 @@ mod operators {
                 engine
                     .execute("create table schema_name.table_name(column_si smallint);")
                     .expect("no system errors");
+                collector
+                    .assert_receive_till_this_moment(vec![Ok(QueryEvent::TableCreated), Ok(QueryEvent::QueryComplete)]);
 
                 (engine, collector)
             }
@@ -343,22 +312,19 @@ mod operators {
                 engine
                     .execute("insert into schema_name.table_name values (1 + 2);")
                     .expect("no system errors");
+                collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+
                 engine
                     .execute("select * from schema_name.table_name;")
                     .expect("no system errors");
 
-                collector.assert_content_for_single_queries(vec![
-                    Ok(QueryEvent::SchemaCreated),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::TableCreated),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsInserted(1)),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsSelected((
-                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
-                        vec![vec!["3".to_owned()]],
-                    ))),
-                    Ok(QueryEvent::QueryComplete),
+                collector.assert_receive_many(vec![
+                    Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
+                        "column_si",
+                        PostgreSqlType::SmallInt,
+                    )])),
+                    Ok(QueryEvent::DataRow(vec!["3".to_owned()])),
+                    Ok(QueryEvent::RecordsSelected(1)),
                 ]);
             }
 
@@ -368,22 +334,19 @@ mod operators {
                 engine
                     .execute("insert into schema_name.table_name values (1 - 2);")
                     .expect("no system errors");
+                collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+
                 engine
                     .execute("select * from schema_name.table_name;")
                     .expect("no system errors");
 
-                collector.assert_content_for_single_queries(vec![
-                    Ok(QueryEvent::SchemaCreated),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::TableCreated),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsInserted(1)),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsSelected((
-                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
-                        vec![vec!["-1".to_owned()]],
-                    ))),
-                    Ok(QueryEvent::QueryComplete),
+                collector.assert_receive_many(vec![
+                    Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
+                        "column_si",
+                        PostgreSqlType::SmallInt,
+                    )])),
+                    Ok(QueryEvent::DataRow(vec!["-1".to_owned()])),
+                    Ok(QueryEvent::RecordsSelected(1)),
                 ]);
             }
 
@@ -393,22 +356,19 @@ mod operators {
                 engine
                     .execute("insert into schema_name.table_name values (3 * 2);")
                     .expect("no system errors");
+                collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+
                 engine
                     .execute("select * from schema_name.table_name;")
                     .expect("no system errors");
 
-                collector.assert_content_for_single_queries(vec![
-                    Ok(QueryEvent::SchemaCreated),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::TableCreated),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsInserted(1)),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsSelected((
-                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
-                        vec![vec!["6".to_owned()]],
-                    ))),
-                    Ok(QueryEvent::QueryComplete),
+                collector.assert_receive_many(vec![
+                    Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
+                        "column_si",
+                        PostgreSqlType::SmallInt,
+                    )])),
+                    Ok(QueryEvent::DataRow(vec!["6".to_owned()])),
+                    Ok(QueryEvent::RecordsSelected(1)),
                 ]);
             }
 
@@ -418,22 +378,19 @@ mod operators {
                 engine
                     .execute("insert into schema_name.table_name values (8 / 2);")
                     .expect("no system errors");
+                collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+
                 engine
                     .execute("select * from schema_name.table_name;")
                     .expect("no system errors");
 
-                collector.assert_content_for_single_queries(vec![
-                    Ok(QueryEvent::SchemaCreated),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::TableCreated),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsInserted(1)),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsSelected((
-                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
-                        vec![vec!["4".to_owned()]],
-                    ))),
-                    Ok(QueryEvent::QueryComplete),
+                collector.assert_receive_many(vec![
+                    Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
+                        "column_si",
+                        PostgreSqlType::SmallInt,
+                    )])),
+                    Ok(QueryEvent::DataRow(vec!["4".to_owned()])),
+                    Ok(QueryEvent::RecordsSelected(1)),
                 ]);
             }
 
@@ -443,22 +400,19 @@ mod operators {
                 engine
                     .execute("insert into schema_name.table_name values (8 % 2);")
                     .expect("no system errors");
+                collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+
                 engine
                     .execute("select * from schema_name.table_name;")
                     .expect("no system errors");
 
-                collector.assert_content_for_single_queries(vec![
-                    Ok(QueryEvent::SchemaCreated),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::TableCreated),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsInserted(1)),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsSelected((
-                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
-                        vec![vec!["0".to_owned()]],
-                    ))),
-                    Ok(QueryEvent::QueryComplete),
+                collector.assert_receive_many(vec![
+                    Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
+                        "column_si",
+                        PostgreSqlType::SmallInt,
+                    )])),
+                    Ok(QueryEvent::DataRow(vec!["0".to_owned()])),
+                    Ok(QueryEvent::RecordsSelected(1)),
                 ]);
             }
 
@@ -471,22 +425,19 @@ mod operators {
                 engine
                     .execute("insert into schema_name.table_name values (8 ^ 2);")
                     .expect("no system errors");
+                collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+
                 engine
                     .execute("select * from schema_name.table_name;")
                     .expect("no system errors");
 
-                collector.assert_content_for_single_queries(vec![
-                    Ok(QueryEvent::SchemaCreated),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::TableCreated),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsInserted(1)),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsSelected((
-                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
-                        vec![vec!["64".to_owned()]],
-                    ))),
-                    Ok(QueryEvent::QueryComplete),
+                collector.assert_receive_many(vec![
+                    Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
+                        "column_si",
+                        PostgreSqlType::SmallInt,
+                    )])),
+                    Ok(QueryEvent::DataRow(vec!["64".to_owned()])),
+                    Ok(QueryEvent::RecordsSelected(1)),
                 ]);
             }
 
@@ -498,22 +449,19 @@ mod operators {
                 engine
                     .execute("insert into schema_name.table_name values (|/ 16);")
                     .expect("no system errors");
+                collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+
                 engine
                     .execute("select * from schema_name.table_name;")
                     .expect("no system errors");
 
-                collector.assert_content_for_single_queries(vec![
-                    Ok(QueryEvent::SchemaCreated),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::TableCreated),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsInserted(1)),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsSelected((
-                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
-                        vec![vec!["4".to_owned()]],
-                    ))),
-                    Ok(QueryEvent::QueryComplete),
+                collector.assert_receive_many(vec![
+                    Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
+                        "column_si",
+                        PostgreSqlType::SmallInt,
+                    )])),
+                    Ok(QueryEvent::DataRow(vec!["4".to_owned()])),
+                    Ok(QueryEvent::RecordsSelected(1)),
                 ]);
             }
 
@@ -525,22 +473,19 @@ mod operators {
                 engine
                     .execute("insert into schema_name.table_name values (||/ 8);")
                     .expect("no system errors");
+                collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+
                 engine
                     .execute("select * from schema_name.table_name;")
                     .expect("no system errors");
 
-                collector.assert_content_for_single_queries(vec![
-                    Ok(QueryEvent::SchemaCreated),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::TableCreated),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsInserted(1)),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsSelected((
-                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
-                        vec![vec!["2".to_owned()]],
-                    ))),
-                    Ok(QueryEvent::QueryComplete),
+                collector.assert_receive_many(vec![
+                    Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
+                        "column_si",
+                        PostgreSqlType::SmallInt,
+                    )])),
+                    Ok(QueryEvent::DataRow(vec!["2".to_owned()])),
+                    Ok(QueryEvent::RecordsSelected(1)),
                 ]);
             }
 
@@ -552,22 +497,19 @@ mod operators {
                 engine
                     .execute("insert into schema_name.table_name values (5!);")
                     .expect("no system errors");
+                collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+
                 engine
                     .execute("select * from schema_name.table_name;")
                     .expect("no system errors");
 
-                collector.assert_content_for_single_queries(vec![
-                    Ok(QueryEvent::SchemaCreated),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::TableCreated),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsInserted(1)),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsSelected((
-                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
-                        vec![vec!["120".to_owned()]],
-                    ))),
-                    Ok(QueryEvent::QueryComplete),
+                collector.assert_receive_many(vec![
+                    Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
+                        "column_si",
+                        PostgreSqlType::SmallInt,
+                    )])),
+                    Ok(QueryEvent::DataRow(vec!["120".to_owned()])),
+                    Ok(QueryEvent::RecordsSelected(1)),
                 ]);
             }
 
@@ -579,22 +521,19 @@ mod operators {
                 engine
                     .execute("insert into schema_name.table_name values (!!5);")
                     .expect("no system errors");
+                collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+
                 engine
                     .execute("select * from schema_name.table_name;")
                     .expect("no system errors");
 
-                collector.assert_content_for_single_queries(vec![
-                    Ok(QueryEvent::SchemaCreated),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::TableCreated),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsInserted(1)),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsSelected((
-                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
-                        vec![vec!["120".to_owned()]],
-                    ))),
-                    Ok(QueryEvent::QueryComplete),
+                collector.assert_receive_many(vec![
+                    Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
+                        "column_si",
+                        PostgreSqlType::SmallInt,
+                    )])),
+                    Ok(QueryEvent::DataRow(vec!["120".to_owned()])),
+                    Ok(QueryEvent::RecordsSelected(1)),
                 ]);
             }
 
@@ -606,22 +545,19 @@ mod operators {
                 engine
                     .execute("insert into schema_name.table_name values (@-5);")
                     .expect("no system errors");
+                collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+
                 engine
                     .execute("select * from schema_name.table_name;")
                     .expect("no system errors");
 
-                collector.assert_content_for_single_queries(vec![
-                    Ok(QueryEvent::SchemaCreated),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::TableCreated),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsInserted(1)),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsSelected((
-                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
-                        vec![vec!["5".to_owned()]],
-                    ))),
-                    Ok(QueryEvent::QueryComplete),
+                collector.assert_receive_many(vec![
+                    Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
+                        "column_si",
+                        PostgreSqlType::SmallInt,
+                    )])),
+                    Ok(QueryEvent::DataRow(vec!["5".to_owned()])),
+                    Ok(QueryEvent::RecordsSelected(1)),
                 ]);
             }
 
@@ -631,22 +567,19 @@ mod operators {
                 engine
                     .execute("insert into schema_name.table_name values (5 & 1);")
                     .expect("no system errors");
+                collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+
                 engine
                     .execute("select * from schema_name.table_name;")
                     .expect("no system errors");
 
-                collector.assert_content_for_single_queries(vec![
-                    Ok(QueryEvent::SchemaCreated),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::TableCreated),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsInserted(1)),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsSelected((
-                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
-                        vec![vec!["1".to_owned()]],
-                    ))),
-                    Ok(QueryEvent::QueryComplete),
+                collector.assert_receive_many(vec![
+                    Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
+                        "column_si",
+                        PostgreSqlType::SmallInt,
+                    )])),
+                    Ok(QueryEvent::DataRow(vec!["1".to_owned()])),
+                    Ok(QueryEvent::RecordsSelected(1)),
                 ]);
             }
 
@@ -656,22 +589,19 @@ mod operators {
                 engine
                     .execute("insert into schema_name.table_name values (5 | 2);")
                     .expect("no system errors");
+                collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+
                 engine
                     .execute("select * from schema_name.table_name;")
                     .expect("no system errors");
 
-                collector.assert_content_for_single_queries(vec![
-                    Ok(QueryEvent::SchemaCreated),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::TableCreated),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsInserted(1)),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsSelected((
-                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
-                        vec![vec!["7".to_owned()]],
-                    ))),
-                    Ok(QueryEvent::QueryComplete),
+                collector.assert_receive_many(vec![
+                    Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
+                        "column_si",
+                        PostgreSqlType::SmallInt,
+                    )])),
+                    Ok(QueryEvent::DataRow(vec!["7".to_owned()])),
+                    Ok(QueryEvent::RecordsSelected(1)),
                 ]);
             }
 
@@ -683,22 +613,19 @@ mod operators {
                 engine
                     .execute("insert into schema_name.table_name values (~1);")
                     .expect("no system errors");
+                collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+
                 engine
                     .execute("select * from schema_name.table_name;")
                     .expect("no system errors");
 
-                collector.assert_content_for_single_queries(vec![
-                    Ok(QueryEvent::SchemaCreated),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::TableCreated),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsInserted(1)),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsSelected((
-                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
-                        vec![vec!["-2".to_owned()]],
-                    ))),
-                    Ok(QueryEvent::QueryComplete),
+                collector.assert_receive_many(vec![
+                    Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
+                        "column_si",
+                        PostgreSqlType::SmallInt,
+                    )])),
+                    Ok(QueryEvent::DataRow(vec!["-2".to_owned()])),
+                    Ok(QueryEvent::RecordsSelected(1)),
                 ]);
             }
 
@@ -710,22 +637,19 @@ mod operators {
                 engine
                     .execute("insert into schema_name.table_name values (1 << 4);")
                     .expect("no system errors");
+                collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+
                 engine
                     .execute("select * from schema_name.table_name;")
                     .expect("no system errors");
 
-                collector.assert_content_for_single_queries(vec![
-                    Ok(QueryEvent::SchemaCreated),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::TableCreated),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsInserted(1)),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsSelected((
-                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
-                        vec![vec!["16".to_owned()]],
-                    ))),
-                    Ok(QueryEvent::QueryComplete),
+                collector.assert_receive_many(vec![
+                    Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
+                        "column_si",
+                        PostgreSqlType::SmallInt,
+                    )])),
+                    Ok(QueryEvent::DataRow(vec!["16".to_owned()])),
+                    Ok(QueryEvent::RecordsSelected(1)),
                 ]);
             }
 
@@ -737,22 +661,19 @@ mod operators {
                 engine
                     .execute("insert into schema_name.table_name values (8 >> 2);")
                     .expect("no system errors");
+                collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+
                 engine
                     .execute("select * from schema_name.table_name;")
                     .expect("no system errors");
 
-                collector.assert_content_for_single_queries(vec![
-                    Ok(QueryEvent::SchemaCreated),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::TableCreated),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsInserted(1)),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsSelected((
-                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
-                        vec![vec!["2".to_owned()]],
-                    ))),
-                    Ok(QueryEvent::QueryComplete),
+                collector.assert_receive_many(vec![
+                    Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
+                        "column_si",
+                        PostgreSqlType::SmallInt,
+                    )])),
+                    Ok(QueryEvent::DataRow(vec!["2".to_owned()])),
+                    Ok(QueryEvent::RecordsSelected(1)),
                 ]);
             }
 
@@ -762,22 +683,19 @@ mod operators {
                 engine
                     .execute("insert into schema_name.table_name values (5 & 13 % 10 + 1 * 20 - 40 / 4);")
                     .expect("no system errors");
+                collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+
                 engine
                     .execute("select * from schema_name.table_name;")
                     .expect("no system errors");
 
-                collector.assert_content_for_single_queries(vec![
-                    Ok(QueryEvent::SchemaCreated),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::TableCreated),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsInserted(1)),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsSelected((
-                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
-                        vec![vec!["5".to_owned()]],
-                    ))),
-                    Ok(QueryEvent::QueryComplete),
+                collector.assert_receive_many(vec![
+                    Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
+                        "column_si",
+                        PostgreSqlType::SmallInt,
+                    )])),
+                    Ok(QueryEvent::DataRow(vec!["5".to_owned()])),
+                    Ok(QueryEvent::RecordsSelected(1)),
                 ]);
             }
         }
@@ -793,6 +711,8 @@ mod operators {
             engine
                 .execute("create table schema_name.table_name(strings char(5));")
                 .expect("no system errors");
+            collector
+                .assert_receive_till_this_moment(vec![Ok(QueryEvent::TableCreated), Ok(QueryEvent::QueryComplete)]);
 
             (engine, collector)
         }
@@ -803,22 +723,19 @@ mod operators {
             engine
                 .execute("insert into schema_name.table_name values ('123' || '45');")
                 .expect("no system errors");
+            collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+
             engine
                 .execute("select * from schema_name.table_name;")
                 .expect("no system errors");
 
-            collector.assert_content_for_single_queries(vec![
-                Ok(QueryEvent::SchemaCreated),
-                Ok(QueryEvent::QueryComplete),
-                Ok(QueryEvent::TableCreated),
-                Ok(QueryEvent::QueryComplete),
-                Ok(QueryEvent::RecordsInserted(1)),
-                Ok(QueryEvent::QueryComplete),
-                Ok(QueryEvent::RecordsSelected((
-                    vec![("strings".to_owned(), PostgreSqlType::Char)],
-                    vec![vec!["12345".to_owned()]],
-                ))),
-                Ok(QueryEvent::QueryComplete),
+            collector.assert_receive_many(vec![
+                Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
+                    "strings",
+                    PostgreSqlType::Char,
+                )])),
+                Ok(QueryEvent::DataRow(vec!["12345".to_owned()])),
+                Ok(QueryEvent::RecordsSelected(1)),
             ]);
         }
 
@@ -828,50 +745,40 @@ mod operators {
             engine
                 .execute("insert into schema_name.table_name values (1 || '45');")
                 .expect("no system errors");
+            collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+
             engine
                 .execute("insert into schema_name.table_name values ('45' || 1);")
                 .expect("no system errors");
+            collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+
             engine
                 .execute("select * from schema_name.table_name;")
                 .expect("no system errors");
 
-            collector.assert_content_for_single_queries(vec![
-                Ok(QueryEvent::SchemaCreated),
-                Ok(QueryEvent::QueryComplete),
-                Ok(QueryEvent::TableCreated),
-                Ok(QueryEvent::QueryComplete),
-                Ok(QueryEvent::RecordsInserted(1)),
-                Ok(QueryEvent::QueryComplete),
-                Ok(QueryEvent::RecordsInserted(1)),
-                Ok(QueryEvent::QueryComplete),
-                Ok(QueryEvent::RecordsSelected((
-                    vec![("strings".to_owned(), PostgreSqlType::Char)],
-                    vec![vec!["145".to_owned()], vec!["451".to_owned()]],
-                ))),
-                Ok(QueryEvent::QueryComplete),
+            collector.assert_receive_many(vec![
+                Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
+                    "strings",
+                    PostgreSqlType::Char,
+                )])),
+                Ok(QueryEvent::DataRow(vec!["145".to_owned()])),
+                Ok(QueryEvent::DataRow(vec!["451".to_owned()])),
+                Ok(QueryEvent::RecordsSelected(2)),
             ]);
         }
 
         #[rstest::rstest]
         fn non_string_concatenation_not_supported(with_table: (QueryExecutor, ResultCollector)) {
             let (engine, collector) = with_table;
-
             engine
                 .execute("insert into schema_name.table_name values (1 || 2);")
                 .expect("no system errors");
 
-            collector.assert_content_for_single_queries(vec![
-                Ok(QueryEvent::SchemaCreated),
-                Ok(QueryEvent::QueryComplete),
-                Ok(QueryEvent::TableCreated),
-                Ok(QueryEvent::QueryComplete),
-                Err(QueryError::undefined_function(
-                    "||".to_owned(),
-                    "NUMBER".to_owned(),
-                    "NUMBER".to_owned(),
-                )),
-                Ok(QueryEvent::QueryComplete),
-            ]);
+            collector.assert_receive_single(Err(QueryError::undefined_function(
+                "||".to_owned(),
+                "NUMBER".to_owned(),
+                "NUMBER".to_owned(),
+            )));
         }
     }
 }

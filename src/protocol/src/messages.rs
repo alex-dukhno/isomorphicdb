@@ -17,7 +17,7 @@ use std::convert::TryFrom;
 use byteorder::{ByteOrder, NetworkEndian};
 
 use crate::{
-    pgsql_types::{PostgreSqlFormat, PostgreSqlType},
+    pgsql_types::{Oid, PostgreSqlFormat, PostgreSqlType},
     Error, Result,
 };
 
@@ -365,19 +365,26 @@ pub struct ColumnMetadata {
     /// name of the column that was specified in query
     pub name: String,
     /// PostgreSQL data type id
-    pub type_id: u32,
+    pub type_id: Oid,
     /// PostgreSQL data type size
     pub type_size: i16,
 }
 
 impl ColumnMetadata {
     /// Creates new column metadata
-    pub fn new(name: String, type_id: u32, type_size: i16) -> Self {
+    pub fn new<S: ToString>(name: S, pg_type: PostgreSqlType) -> ColumnMetadata {
         Self {
-            name,
-            type_id,
-            type_size,
+            name: name.to_string(),
+            type_id: pg_type.pg_oid(),
+            type_size: pg_type.pg_len(),
         }
+    }
+}
+
+impl<S: ToString> From<(S, PostgreSqlType)> for ColumnMetadata {
+    fn from(input: (S, PostgreSqlType)) -> ColumnMetadata {
+        let (name, pg_type) = input;
+        ColumnMetadata::new(name, pg_type)
     }
 }
 
@@ -798,7 +805,7 @@ mod serializing_backend_messages {
     #[test]
     fn row_description() {
         assert_eq!(
-            BackendMessage::RowDescription(vec![ColumnMetadata::new("c1".to_owned(), 23, 4)]).as_vec(),
+            BackendMessage::RowDescription(vec![ColumnMetadata::new("c1", PostgreSqlType::Integer)]).as_vec(),
             vec![
                 ROW_DESCRIPTION,
                 0,

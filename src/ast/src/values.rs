@@ -125,8 +125,8 @@ impl ScalarValue {
                 }
             }
             (ScalarValue::Null, _) => Ok(ScalarValue::Null),
-            (ScalarValue::String(str), SqlType::Char(len)) | (ScalarValue::String(str), SqlType::VarChar(len)) => {
-                Ok(ScalarValue::String(str.chars().take(*len as usize).collect()))
+            (ScalarValue::String(str), SqlType::Char(_)) | (ScalarValue::String(str), SqlType::VarChar(_)) => {
+                Ok(ScalarValue::String(str.trim().to_owned()))
             }
             (ScalarValue::Number(number), SqlType::SmallInt(_))
             | (ScalarValue::Number(number), SqlType::Integer(_))
@@ -429,11 +429,19 @@ mod tests {
         fn string_to_string() {
             assert_eq!(
                 ScalarValue::String("123".to_owned()).cast(&SqlType::Char(1)),
-                Ok(ScalarValue::String("1".to_string()))
+                Ok(ScalarValue::String("123".to_string()))
             );
             assert_eq!(
                 ScalarValue::String("123".to_owned()).cast(&SqlType::VarChar(4)),
                 Ok(ScalarValue::String("123".to_string()))
+            );
+            assert_eq!(
+                ScalarValue::String("123      ".to_owned()).cast(&SqlType::VarChar(4)),
+                Ok(ScalarValue::String("123".to_string()))
+            );
+            assert_eq!(
+                ScalarValue::String("12345678".to_owned()).cast(&SqlType::VarChar(4)),
+                Ok(ScalarValue::String("12345678".to_string()))
             );
         }
 

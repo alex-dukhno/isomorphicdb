@@ -19,9 +19,12 @@ use super::*;
 #[rstest::rstest]
 fn describe_select_statement(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
     let (mut engine, collector) = sql_engine_with_schema;
+
     engine
         .execute("create table schema_name.table_name (column_1 smallint, column_2 smallint);")
         .expect("no system errors");
+    collector.assert_receive_single(Ok(QueryEvent::TableCreated));
+
     engine
         .parse_prepared_statement(
             "statement_name",
@@ -29,31 +32,30 @@ fn describe_select_statement(sql_engine_with_schema: (QueryExecutor, ResultColle
             &[PostgreSqlType::SmallInt, PostgreSqlType::SmallInt],
         )
         .expect("no system errors");
+    collector.assert_receive_intermediate(Ok(QueryEvent::ParseComplete));
+
     engine
         .describe_prepared_statement("statement_name")
         .expect("no system errors");
-    collector.assert_content(vec![
-        Ok(QueryEvent::SchemaCreated),
-        Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::TableCreated),
-        Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::ParseComplete),
-        Ok(QueryEvent::PreparedStatementDescribed(
-            vec![PostgreSqlType::SmallInt, PostgreSqlType::SmallInt],
-            vec![
-                ("column_1".to_owned(), PostgreSqlType::SmallInt),
-                ("column_2".to_owned(), PostgreSqlType::SmallInt),
-            ],
-        )),
-    ]);
+    collector.assert_receive_intermediate(Ok(QueryEvent::StatementDescription(vec![
+        ("column_1".to_owned(), PostgreSqlType::SmallInt),
+        ("column_2".to_owned(), PostgreSqlType::SmallInt),
+    ])));
+    collector.assert_receive_intermediate(Ok(QueryEvent::StatementParameters(vec![
+        PostgreSqlType::SmallInt,
+        PostgreSqlType::SmallInt,
+    ])));
 }
 
 #[rstest::rstest]
 fn describe_update_statement(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
     let (mut engine, collector) = sql_engine_with_schema;
+
     engine
         .execute("create table schema_name.table_name (column_1 smallint, column_2 smallint);")
         .expect("no system errors");
+    collector.assert_receive_single(Ok(QueryEvent::TableCreated));
+
     engine
         .parse_prepared_statement(
             "statement_name",
@@ -61,33 +63,24 @@ fn describe_update_statement(sql_engine_with_schema: (QueryExecutor, ResultColle
             &[PostgreSqlType::SmallInt, PostgreSqlType::SmallInt],
         )
         .expect("no system errors");
+    collector.assert_receive_intermediate(Ok(QueryEvent::ParseComplete));
+
     engine
         .describe_prepared_statement("statement_name")
         .expect("no system errors");
-
-    collector.assert_content(vec![
-        Ok(QueryEvent::SchemaCreated),
-        Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::TableCreated),
-        Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::ParseComplete),
-        Ok(QueryEvent::PreparedStatementDescribed(
-            vec![PostgreSqlType::SmallInt, PostgreSqlType::SmallInt],
-            vec![],
-        )),
-    ]);
+    collector.assert_receive_intermediate(Ok(QueryEvent::StatementDescription(vec![])));
+    collector.assert_receive_intermediate(Ok(QueryEvent::StatementParameters(vec![
+        PostgreSqlType::SmallInt,
+        PostgreSqlType::SmallInt,
+    ])));
 }
 
 #[rstest::rstest]
 fn describe_not_existed_statement(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
     let (engine, collector) = sql_engine_with_schema;
+
     engine
         .describe_prepared_statement("non_existent")
         .expect("no system errors");
-
-    collector.assert_content(vec![
-        Ok(QueryEvent::SchemaCreated),
-        Ok(QueryEvent::QueryComplete),
-        Err(QueryError::prepared_statement_does_not_exist("non_existent")),
-    ]);
+    collector.assert_receive_intermediate(Err(QueryError::prepared_statement_does_not_exist("non_existent")));
 }

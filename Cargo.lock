@@ -399,7 +399,6 @@ dependencies = [
  "binary",
  "bincode",
  "fail",
- "itertools",
  "kernel",
  "log",
  "rstest",

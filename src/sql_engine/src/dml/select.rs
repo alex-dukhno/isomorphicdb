@@ -17,6 +17,7 @@ use std::sync::Arc;
 use data_manager::DataManager;
 use kernel::{SystemError, SystemResult};
 use protocol::{
+    messages::ColumnMetadata,
     results::{Description, QueryError, QueryEvent},
     Sender,
 };
@@ -77,38 +78,49 @@ impl SelectCommand {
     }
 
     pub(crate) fn execute(&mut self) -> SystemResult<()> {
+        let all_columns = self.data_manager.table_columns(&self.select_input.table_id)?;
+        let mut description = vec![];
+        let mut column_indexes = vec![];
+        let mut has_error = false;
+        for column_name in self.select_input.selected_columns.iter() {
+            let mut found = None;
+            for (index, column_definition) in all_columns.iter().enumerate() {
+                if column_definition.has_name(column_name) {
+                    found = Some((index, column_definition.clone()));
+                    break;
+                }
+            }
+
+            if let Some((index, column_definition)) = found {
+                column_indexes.push(index);
+                description.push(column_definition);
+            } else {
+                self.sender
+                    .send(Err(QueryError::column_does_not_exist(column_name)))
+                    .expect("To Send Result to Client");
+                has_error = true;
+            }
+        }
+
+        if has_error {
+            return Ok(());
+        }
+
         match self.data_manager.full_scan(&self.select_input.table_id) {
             Err(error) => Err(error),
             Ok(records) => {
-                let all_columns = self.data_manager.table_columns(&self.select_input.table_id)?;
-                let mut description = vec![];
-                let mut column_indexes = vec![];
-                let mut has_error = false;
-                for column_name in self.select_input.selected_columns.iter() {
-                    let mut found = None;
-                    for (index, column_definition) in all_columns.iter().enumerate() {
-                        if column_definition.has_name(column_name) {
-                            found = Some((index, column_definition.clone()));
-                            break;
-                        }
-                    }
+                self.sender
+                    .send(Ok(QueryEvent::RowDescription(
+                        description
+                            .into_iter()
+                            .map(|column| ColumnMetadata::new(column.name(), (&column.sql_type()).into()))
+                            .collect(),
+                    )))
+                    .expect("To Send Query Result to Client");
 
-                    if let Some((index, column_definition)) = found {
-                        column_indexes.push(index);
-                        description.push(column_definition);
-                    } else {
-                        self.sender
-                            .send(Err(QueryError::column_does_not_exist(column_name)))
-                            .expect("To Send Result to Client");
-                        has_error = true;
-                    }
-                }
+                let mut index = 0;
 
-                if has_error {
-                    return Ok(());
-                }
-
-                let values: Vec<Vec<String>> = records
+                records
                     .map(Result::unwrap)
                     .map(Result::unwrap)
                     .map(|(_key, values)| {
@@ -124,18 +136,17 @@ impl SelectCommand {
                         }
                         values
                     })
-                    .collect();
+                    .for_each(|value| {
+                        self.sender
+                            .send(Ok(QueryEvent::DataRow(value)))
+                            .expect("To Send Query Result to Client");
+                        index += 1;
+                    });
 
-                let projection = (
-                    description
-                        .into_iter()
-                        .map(|column| (column.name(), (&column.sql_type()).into()))
-                        .collect(),
-                    values,
-                );
                 self.sender
-                    .send(Ok(QueryEvent::RecordsSelected(projection)))
+                    .send(Ok(QueryEvent::RecordsSelected(index)))
                     .expect("To Send Query Result to Client");
+
                 Ok(())
             }
         }

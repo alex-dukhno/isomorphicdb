@@ -23,8 +23,6 @@ use crate::{
 pub type QueryResult = std::result::Result<QueryEvent, QueryError>;
 /// Represents selected columns from tables
 pub type Description = Vec<(String, PostgreSqlType)>;
-/// Represents selected data from tables
-pub type Projection = (Description, Vec<Vec<String>>);
 
 /// Represents successful events that can happen in server backend
 #[derive(Clone, Debug, PartialEq)]
@@ -43,68 +41,65 @@ pub enum QueryEvent {
     TransactionStarted,
     /// Number of records inserted into a table
     RecordsInserted(usize),
+    /// Row description information
+    RowDescription(Vec<ColumnMetadata>),
+    /// Row data
+    DataRow(Vec<String>),
     /// Records selected from database
-    RecordsSelected(Projection),
+    RecordsSelected(usize),
     /// Number of records updated into a table
     RecordsUpdated(usize),
     /// Number of records deleted into a table
     RecordsDeleted(usize),
-    /// Parameters described needed by a prepared statement
-    PreparedStatementDescribed(Vec<PostgreSqlType>, Description),
+    /// Prepared statement parameters
+    StatementParameters(Vec<PostgreSqlType>),
+    /// Prepare statement description
+    StatementDescription(Description),
     /// Processing of the query is complete
     QueryComplete,
-    /// Parsing the exteneded query is complete
+    /// Parsing the extended query is complete
     ParseComplete,
-    /// Binding the exteneded query is complete
+    /// Binding the extended query is complete
     BindComplete,
 }
 
-impl Into<Vec<BackendMessage>> for QueryEvent {
-    fn into(self) -> Vec<BackendMessage> {
+impl Into<BackendMessage> for QueryResult {
+    fn into(self) -> BackendMessage {
         match self {
-            QueryEvent::SchemaCreated => vec![BackendMessage::CommandComplete("CREATE SCHEMA".to_owned())],
-            QueryEvent::SchemaDropped => vec![BackendMessage::CommandComplete("DROP SCHEMA".to_owned())],
-            QueryEvent::TableCreated => vec![BackendMessage::CommandComplete("CREATE TABLE".to_owned())],
-            QueryEvent::TableDropped => vec![BackendMessage::CommandComplete("DROP TABLE".to_owned())],
-            QueryEvent::VariableSet => vec![BackendMessage::CommandComplete("SET".to_owned())],
-            QueryEvent::TransactionStarted => vec![BackendMessage::CommandComplete("BEGIN".to_owned())],
-            QueryEvent::RecordsInserted(records) => {
-                vec![BackendMessage::CommandComplete(format!("INSERT 0 {}", records))]
+            Ok(event) => event.into(),
+            Err(error) => error.into(),
+        }
+    }
+}
+
+impl Into<BackendMessage> for QueryEvent {
+    fn into(self) -> BackendMessage {
+        match self {
+            QueryEvent::SchemaCreated => BackendMessage::CommandComplete("CREATE SCHEMA".to_owned()),
+            QueryEvent::SchemaDropped => BackendMessage::CommandComplete("DROP SCHEMA".to_owned()),
+            QueryEvent::TableCreated => BackendMessage::CommandComplete("CREATE TABLE".to_owned()),
+            QueryEvent::TableDropped => BackendMessage::CommandComplete("DROP TABLE".to_owned()),
+            QueryEvent::VariableSet => BackendMessage::CommandComplete("SET".to_owned()),
+            QueryEvent::TransactionStarted => BackendMessage::CommandComplete("BEGIN".to_owned()),
+            QueryEvent::RecordsInserted(records) => BackendMessage::CommandComplete(format!("INSERT 0 {}", records)),
+            QueryEvent::RowDescription(description) => BackendMessage::RowDescription(description),
+            QueryEvent::DataRow(data) => BackendMessage::DataRow(data),
+            QueryEvent::RecordsSelected(records) => BackendMessage::CommandComplete(format!("SELECT {}", records)),
+            QueryEvent::RecordsUpdated(records) => BackendMessage::CommandComplete(format!("UPDATE {}", records)),
+            QueryEvent::RecordsDeleted(records) => BackendMessage::CommandComplete(format!("DELETE {}", records)),
+            QueryEvent::StatementParameters(param_types) => {
+                BackendMessage::ParameterDescription(param_types.iter().map(PostgreSqlType::pg_oid).collect())
             }
-            QueryEvent::RecordsSelected(projection) => {
-                let definition = projection.0;
-                let description: Vec<ColumnMetadata> = definition
-                    .into_iter()
-                    .map(|(name, sql_type)| ColumnMetadata::new(name, sql_type.pg_oid(), sql_type.pg_len()))
-                    .collect();
-                let records = projection.1;
-                let len = records.len();
-                let mut messages = vec![BackendMessage::RowDescription(description)];
-                for record in records {
-                    messages.push(BackendMessage::DataRow(record));
-                }
-                messages.push(BackendMessage::CommandComplete(format!("SELECT {}", len)));
-                messages
-            }
-            QueryEvent::RecordsUpdated(records) => vec![BackendMessage::CommandComplete(format!("UPDATE {}", records))],
-            QueryEvent::RecordsDeleted(records) => vec![BackendMessage::CommandComplete(format!("DELETE {}", records))],
-            QueryEvent::PreparedStatementDescribed(param_types, description) => {
-                let desc_message = if description.is_empty() {
+            QueryEvent::StatementDescription(description) => {
+                if description.is_empty() {
                     BackendMessage::NoData
                 } else {
-                    let columns: Vec<ColumnMetadata> = description
-                        .into_iter()
-                        .map(|(name, sql_type)| ColumnMetadata::new(name, sql_type.pg_oid(), sql_type.pg_len()))
-                        .collect();
-                    BackendMessage::RowDescription(columns)
-                };
-
-                let type_ids = param_types.iter().map(PostgreSqlType::pg_oid).collect();
-                vec![BackendMessage::ParameterDescription(type_ids), desc_message]
+                    BackendMessage::RowDescription(description.into_iter().map(ColumnMetadata::from).collect())
+                }
             }
-            QueryEvent::QueryComplete => vec![BackendMessage::ReadyForQuery],
-            QueryEvent::ParseComplete => vec![BackendMessage::ParseComplete],
-            QueryEvent::BindComplete => vec![BackendMessage::BindComplete],
+            QueryEvent::QueryComplete => BackendMessage::ReadyForQuery,
+            QueryEvent::ParseComplete => BackendMessage::ParseComplete,
+            QueryEvent::BindComplete => BackendMessage::BindComplete,
         }
     }
 }
@@ -530,130 +525,119 @@ mod tests {
 
         #[test]
         fn create_schema() {
-            let messages: Vec<BackendMessage> = QueryEvent::SchemaCreated.into();
-            assert_eq!(
-                messages,
-                vec![BackendMessage::CommandComplete("CREATE SCHEMA".to_owned())]
-            )
+            let message: BackendMessage = QueryEvent::SchemaCreated.into();
+            assert_eq!(message, BackendMessage::CommandComplete("CREATE SCHEMA".to_owned()))
         }
 
         #[test]
         fn drop_schema() {
-            let messages: Vec<BackendMessage> = QueryEvent::SchemaDropped.into();
-            assert_eq!(
-                messages,
-                vec![BackendMessage::CommandComplete("DROP SCHEMA".to_owned())]
-            )
+            let message: BackendMessage = QueryEvent::SchemaDropped.into();
+            assert_eq!(message, BackendMessage::CommandComplete("DROP SCHEMA".to_owned()))
         }
 
         #[test]
         fn create_table() {
-            let messages: Vec<BackendMessage> = QueryEvent::TableCreated.into();
-            assert_eq!(
-                messages,
-                vec![BackendMessage::CommandComplete("CREATE TABLE".to_owned())]
-            );
+            let message: BackendMessage = QueryEvent::TableCreated.into();
+            assert_eq!(message, BackendMessage::CommandComplete("CREATE TABLE".to_owned()));
         }
 
         #[test]
         fn drop_table() {
-            let messages: Vec<BackendMessage> = QueryEvent::TableDropped.into();
-            assert_eq!(messages, vec![BackendMessage::CommandComplete("DROP TABLE".to_owned())]);
+            let message: BackendMessage = QueryEvent::TableDropped.into();
+            assert_eq!(message, BackendMessage::CommandComplete("DROP TABLE".to_owned()));
         }
 
         #[test]
         fn insert_record() {
             let records_number = 3;
-            let messages: Vec<BackendMessage> = QueryEvent::RecordsInserted(records_number).into();
+            let message: BackendMessage = QueryEvent::RecordsInserted(records_number).into();
             assert_eq!(
-                messages,
-                vec![BackendMessage::CommandComplete(format!("INSERT 0 {}", records_number))]
+                message,
+                BackendMessage::CommandComplete(format!("INSERT 0 {}", records_number))
             )
         }
 
         #[test]
-        fn select_records() {
-            let projection = (
-                vec![
-                    ("column_name_1".to_owned(), PostgreSqlType::SmallInt),
-                    ("column_name_2".to_owned(), PostgreSqlType::SmallInt),
-                ],
-                vec![
-                    vec!["1".to_owned(), "2".to_owned()],
-                    vec!["3".to_owned(), "4".to_owned()],
-                ],
-            );
-            let messages: Vec<BackendMessage> = QueryEvent::RecordsSelected(projection).into();
+        fn row_description() {
+            let message: BackendMessage = QueryEvent::RowDescription(vec![
+                ColumnMetadata::new("column_name_1", PostgreSqlType::SmallInt),
+                ColumnMetadata::new("column_name_2", PostgreSqlType::SmallInt),
+            ])
+            .into();
+
             assert_eq!(
-                messages,
-                vec![
-                    BackendMessage::RowDescription(vec![
-                        ColumnMetadata::new("column_name_1".to_owned(), 21, 2),
-                        ColumnMetadata::new("column_name_2".to_owned(), 21, 2)
-                    ]),
-                    BackendMessage::DataRow(vec!["1".to_owned(), "2".to_owned()]),
-                    BackendMessage::DataRow(vec!["3".to_owned(), "4".to_owned()]),
-                    BackendMessage::CommandComplete("SELECT 2".to_owned())
-                ]
-            );
+                message,
+                BackendMessage::RowDescription(vec![
+                    ColumnMetadata::new("column_name_1", PostgreSqlType::SmallInt),
+                    ColumnMetadata::new("column_name_2", PostgreSqlType::SmallInt)
+                ])
+            )
+        }
+
+        #[test]
+        fn data_row() {
+            let message: BackendMessage = QueryEvent::DataRow(vec!["1".to_owned(), "2".to_owned()]).into();
+            assert_eq!(message, BackendMessage::DataRow(vec!["1".to_owned(), "2".to_owned()]))
+        }
+
+        #[test]
+        fn select_records() {
+            let message: BackendMessage = QueryEvent::RecordsSelected(2).into();
+            assert_eq!(message, BackendMessage::CommandComplete("SELECT 2".to_owned()));
         }
 
         #[test]
         fn update_records() {
             let records_number = 3;
-            let messages: Vec<BackendMessage> = QueryEvent::RecordsUpdated(records_number).into();
+            let message: BackendMessage = QueryEvent::RecordsUpdated(records_number).into();
             assert_eq!(
-                messages,
-                vec![BackendMessage::CommandComplete(format!("UPDATE {}", records_number))]
+                message,
+                BackendMessage::CommandComplete(format!("UPDATE {}", records_number))
             );
         }
 
         #[test]
         fn delete_records() {
             let records_number = 3;
-            let messages: Vec<BackendMessage> = QueryEvent::RecordsDeleted(records_number).into();
+            let message: BackendMessage = QueryEvent::RecordsDeleted(records_number).into();
             assert_eq!(
-                messages,
-                vec![BackendMessage::CommandComplete(format!("DELETE {}", records_number))]
+                message,
+                BackendMessage::CommandComplete(format!("DELETE {}", records_number))
             )
         }
 
         #[test]
-        fn describe_prepared_statement() {
-            let messages: Vec<BackendMessage> = QueryEvent::PreparedStatementDescribed(
-                vec![PostgreSqlType::SmallInt],
-                vec![("si_column".to_owned(), PostgreSqlType::SmallInt)],
-            )
-            .into();
+        fn statement_description() {
+            let message: BackendMessage =
+                QueryEvent::StatementDescription(vec![("si_column".to_owned(), PostgreSqlType::SmallInt)]).into();
             assert_eq!(
-                messages,
-                [
-                    BackendMessage::ParameterDescription(vec![21]),
-                    BackendMessage::RowDescription(vec![ColumnMetadata {
-                        name: "si_column".to_owned(),
-                        type_id: 21,
-                        type_size: 2,
-                    }])
-                ]
+                message,
+                BackendMessage::RowDescription(vec![ColumnMetadata::new("si_column", PostgreSqlType::SmallInt)])
             )
+        }
+
+        #[test]
+        fn statement_parameters() {
+            let message: BackendMessage = QueryEvent::StatementParameters(vec![PostgreSqlType::SmallInt]).into();
+            assert_eq!(message, BackendMessage::ParameterDescription(vec![21]))
         }
 
         #[test]
         fn complete_query() {
-            let messages: Vec<BackendMessage> = QueryEvent::QueryComplete.into();
-            assert_eq!(messages, [BackendMessage::ReadyForQuery])
+            let message: BackendMessage = QueryEvent::QueryComplete.into();
+            assert_eq!(message, BackendMessage::ReadyForQuery)
         }
 
         #[test]
         fn complete_parse() {
-            let messages: Vec<BackendMessage> = QueryEvent::ParseComplete.into();
-            assert_eq!(messages, [BackendMessage::ParseComplete])
+            let message: BackendMessage = QueryEvent::ParseComplete.into();
+            assert_eq!(message, BackendMessage::ParseComplete)
         }
 
         #[test]
         fn complete_bind() {
-            let messages: Vec<BackendMessage> = QueryEvent::BindComplete.into();
-            assert_eq!(messages, [BackendMessage::BindComplete])
+            let message: BackendMessage = QueryEvent::BindComplete.into();
+            assert_eq!(message, BackendMessage::BindComplete)
         }
     }
 
@@ -732,18 +716,18 @@ mod tests {
 
         #[test]
         fn invalid_parameter_value() {
-            let messages: BackendMessage = QueryError::invalid_parameter_value("Wrong parameter value").into();
+            let message: BackendMessage = QueryError::invalid_parameter_value("Wrong parameter value").into();
             assert_eq!(
-                messages,
+                message,
                 BackendMessage::ErrorResponse(Some("ERROR"), Some("22023"), Some("Wrong parameter value".to_owned()))
             )
         }
 
         #[test]
         fn prepared_statement_does_not_exists() {
-            let messages: BackendMessage = QueryError::prepared_statement_does_not_exist("statement_name").into();
+            let message: BackendMessage = QueryError::prepared_statement_does_not_exist("statement_name").into();
             assert_eq!(
-                messages,
+                message,
                 BackendMessage::ErrorResponse(
                     Some("ERROR"),
                     Some("26000"),
@@ -754,9 +738,9 @@ mod tests {
 
         #[test]
         fn portal_does_not_exists() {
-            let messages: BackendMessage = QueryError::portal_does_not_exist("portal_name").into();
+            let message: BackendMessage = QueryError::portal_does_not_exist("portal_name").into();
             assert_eq!(
-                messages,
+                message,
                 BackendMessage::ErrorResponse(
                     Some("ERROR"),
                     Some("26000"),
@@ -767,9 +751,9 @@ mod tests {
 
         #[test]
         fn protocol_violation() {
-            let messages: BackendMessage = QueryError::protocol_violation("Wrong protocol data").into();
+            let message: BackendMessage = QueryError::protocol_violation("Wrong protocol data").into();
             assert_eq!(
-                messages,
+                message,
                 BackendMessage::ErrorResponse(Some("ERROR"), Some("08P01"), Some("Wrong protocol data".to_owned()))
             )
         }
@@ -858,9 +842,9 @@ mod tests {
 
         #[test]
         fn syntax_error() {
-            let messages: BackendMessage = QueryError::syntax_error("expression").into();
+            let message: BackendMessage = QueryError::syntax_error("expression").into();
             assert_eq!(
-                messages,
+                message,
                 BackendMessage::ErrorResponse(
                     Some("ERROR"),
                     Some("42601"),
@@ -871,9 +855,9 @@ mod tests {
 
         #[test]
         fn duplicate_column() {
-            let messages: BackendMessage = QueryError::duplicate_column("col").into();
+            let message: BackendMessage = QueryError::duplicate_column("col").into();
             assert_eq!(
-                messages,
+                message,
                 BackendMessage::ErrorResponse(
                     Some("ERROR"),
                     Some("42701"),

@@ -17,64 +17,63 @@ use protocol::{pgsql_types::PostgreSqlType, results::QueryEvent};
 use crate::QueryExecutor;
 
 use super::*;
+use protocol::messages::ColumnMetadata;
 
 #[rstest::rstest]
 fn delete_from_nonexistent_table(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
     let (engine, collector) = sql_engine_with_schema;
+
     engine
         .execute("delete from schema_name.table_name;")
         .expect("no system errors");
-
-    collector.assert_content_for_single_queries(vec![
-        Ok(QueryEvent::SchemaCreated),
-        Ok(QueryEvent::QueryComplete),
-        Err(QueryError::table_does_not_exist("schema_name.table_name")),
-        Ok(QueryEvent::QueryComplete),
-    ]);
+    collector.assert_receive_single(Err(QueryError::table_does_not_exist("schema_name.table_name")));
 }
 
 #[rstest::rstest]
 fn delete_all_records(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
     let (engine, collector) = sql_engine_with_schema;
+
     engine
         .execute("create table schema_name.table_name (column_test smallint);")
         .expect("no system errors");
+    collector.assert_receive_single(Ok(QueryEvent::TableCreated));
+
     engine
         .execute("insert into schema_name.table_name values (123);")
         .expect("no system errors");
+    collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+
     engine
         .execute("insert into schema_name.table_name values (456);")
         .expect("no system errors");
+    collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+
     engine
         .execute("select * from schema_name.table_name;")
         .expect("no system errors");
+    collector.assert_receive_many(vec![
+        Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
+            "column_test",
+            PostgreSqlType::SmallInt,
+        )])),
+        Ok(QueryEvent::DataRow(vec!["123".to_owned()])),
+        Ok(QueryEvent::DataRow(vec!["456".to_owned()])),
+        Ok(QueryEvent::RecordsSelected(2)),
+    ]);
+
     engine
         .execute("delete from schema_name.table_name;")
         .expect("no system errors");
+    collector.assert_receive_single(Ok(QueryEvent::RecordsDeleted(2)));
+
     engine
         .execute("select * from schema_name.table_name;")
         .expect("no system errors");
-
-    collector.assert_content_for_single_queries(vec![
-        Ok(QueryEvent::SchemaCreated),
-        Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::TableCreated),
-        Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::RecordsInserted(1)),
-        Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::RecordsInserted(1)),
-        Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::RecordsSelected((
-            vec![("column_test".to_owned(), PostgreSqlType::SmallInt)],
-            vec![vec!["123".to_owned()], vec!["456".to_owned()]],
-        ))),
-        Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::RecordsDeleted(2)),
-        Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::RecordsSelected((
-            vec![("column_test".to_owned(), PostgreSqlType::SmallInt)],
-            vec![],
-        ))),
-        Ok(QueryEvent::QueryComplete),
-    ])
+    collector.assert_receive_many(vec![
+        Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
+            "column_test",
+            PostgreSqlType::SmallInt,
+        )])),
+        Ok(QueryEvent::RecordsSelected(0)),
+    ]);
 }
