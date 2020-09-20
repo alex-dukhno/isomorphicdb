@@ -251,7 +251,13 @@ impl QueryExecutor {
 
         let statement = portal.stmt();
         let raw_sql_query = format!("{}", statement);
-        self.process_statement(&raw_sql_query, statement.clone())
+        self.process_statement(&raw_sql_query, statement.clone())?;
+
+        self.sender
+            .send(Ok(QueryEvent::QueryComplete))
+            .expect("To Send Query Complete Event to Client");
+
+        Ok(())
     }
 
     pub fn flush(&self) {

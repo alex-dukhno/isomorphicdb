@@ -21,15 +21,10 @@ mod schemaless {
     #[rstest::rstest]
     fn create_table_in_non_existent_schema(sql_engine: (QueryExecutor, ResultCollector)) {
         let (engine, collector) = sql_engine;
-
         engine
             .execute("create table schema_name.table_name (column_name smallint);")
             .expect("no system errors");
-
-        collector.assert_content_for_single_queries(vec![
-            Err(QueryError::schema_does_not_exist("schema_name")),
-            Ok(QueryEvent::QueryComplete),
-        ]);
+        collector.assert_receive_single(Err(QueryError::schema_does_not_exist("schema_name")));
     }
 
     #[rstest::rstest]
@@ -38,28 +33,17 @@ mod schemaless {
         engine
             .execute("drop table schema_name.table_name;")
             .expect("no system errors");
-
-        collector.assert_content_for_single_queries(vec![
-            Err(QueryError::schema_does_not_exist("schema_name")),
-            Ok(QueryEvent::QueryComplete),
-        ]);
+        collector.assert_receive_single(Err(QueryError::schema_does_not_exist("schema_name")));
     }
 }
 
 #[rstest::rstest]
 fn create_table(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
     let (engine, collector) = sql_engine_with_schema;
-
     engine
         .execute("create table schema_name.table_name (column_name smallint);")
         .expect("no system errors");
-
-    collector.assert_content_for_single_queries(vec![
-        Ok(QueryEvent::SchemaCreated),
-        Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::TableCreated),
-        Ok(QueryEvent::QueryComplete),
-    ]);
+    collector.assert_receive_single(Ok(QueryEvent::TableCreated));
 }
 
 #[rstest::rstest]
@@ -68,18 +52,12 @@ fn create_same_table(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
     engine
         .execute("create table schema_name.table_name (column_name smallint);")
         .expect("no system errors");
+    collector.assert_receive_single(Ok(QueryEvent::TableCreated));
+
     engine
         .execute("create table schema_name.table_name (column_name smallint);")
         .expect("no system errors");
-
-    collector.assert_content_for_single_queries(vec![
-        Ok(QueryEvent::SchemaCreated),
-        Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::TableCreated),
-        Ok(QueryEvent::QueryComplete),
-        Err(QueryError::table_already_exists("schema_name.table_name")),
-        Ok(QueryEvent::QueryComplete),
-    ]);
+    collector.assert_receive_single(Err(QueryError::table_already_exists("schema_name.table_name")));
 }
 
 #[rstest::rstest]
@@ -88,23 +66,17 @@ fn drop_table(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
     engine
         .execute("create table schema_name.table_name (column_name smallint);")
         .expect("no system errors");
+    collector.assert_receive_single(Ok(QueryEvent::TableCreated));
+
     engine
         .execute("drop table schema_name.table_name;")
         .expect("no system errors");
+    collector.assert_receive_single(Ok(QueryEvent::TableDropped));
+
     engine
         .execute("create table schema_name.table_name (column_name smallint);")
         .expect("no system errors");
-
-    collector.assert_content_for_single_queries(vec![
-        Ok(QueryEvent::SchemaCreated),
-        Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::TableCreated),
-        Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::TableDropped),
-        Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::TableCreated),
-        Ok(QueryEvent::QueryComplete),
-    ]);
+    collector.assert_receive_single(Ok(QueryEvent::TableCreated));
 }
 
 #[rstest::rstest]
@@ -113,13 +85,7 @@ fn drop_non_existent_table(sql_engine_with_schema: (QueryExecutor, ResultCollect
     engine
         .execute("drop table schema_name.table_name;")
         .expect("no system errors");
-
-    collector.assert_content_for_single_queries(vec![
-        Ok(QueryEvent::SchemaCreated),
-        Ok(QueryEvent::QueryComplete),
-        Err(QueryError::table_does_not_exist("schema_name.table_name")),
-        Ok(QueryEvent::QueryComplete),
-    ]);
+    collector.assert_receive_single(Err(QueryError::table_does_not_exist("schema_name.table_name")));
 }
 
 #[cfg(test)]
@@ -139,12 +105,7 @@ mod different_types {
             )
             .expect("no system errors");
 
-        collector.assert_content_for_single_queries(vec![
-            Ok(QueryEvent::SchemaCreated),
-            Ok(QueryEvent::QueryComplete),
-            Ok(QueryEvent::TableCreated),
-            Ok(QueryEvent::QueryComplete),
-        ]);
+        collector.assert_receive_single(Ok(QueryEvent::TableCreated));
     }
 
     #[rstest::rstest]
@@ -159,12 +120,7 @@ mod different_types {
             )
             .expect("no system errors");
 
-        collector.assert_content_for_single_queries(vec![
-            Ok(QueryEvent::SchemaCreated),
-            Ok(QueryEvent::QueryComplete),
-            Ok(QueryEvent::TableCreated),
-            Ok(QueryEvent::QueryComplete),
-        ]);
+        collector.assert_receive_single(Ok(QueryEvent::TableCreated));
     }
 
     #[rstest::rstest]
@@ -178,12 +134,7 @@ mod different_types {
             )
             .expect("no system errors");
 
-        collector.assert_content_for_single_queries(vec![
-            Ok(QueryEvent::SchemaCreated),
-            Ok(QueryEvent::QueryComplete),
-            Ok(QueryEvent::TableCreated),
-            Ok(QueryEvent::QueryComplete),
-        ]);
+        collector.assert_receive_single(Ok(QueryEvent::TableCreated));
     }
 
     #[rstest::rstest]
@@ -199,11 +150,6 @@ mod different_types {
             )
             .expect("no system errors");
 
-        collector.assert_content_for_single_queries(vec![
-            Ok(QueryEvent::SchemaCreated),
-            Ok(QueryEvent::QueryComplete),
-            Ok(QueryEvent::TableCreated),
-            Ok(QueryEvent::QueryComplete),
-        ]);
+        collector.assert_receive_single(Ok(QueryEvent::TableCreated));
     }
 }

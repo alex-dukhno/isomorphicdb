@@ -14,7 +14,6 @@
 
 use std::{
     io,
-    ops::Deref,
     sync::{Arc, Mutex},
 };
 
@@ -23,6 +22,7 @@ use protocol::results::{QueryError, QueryResult};
 use crate::QueryExecutor;
 
 use super::*;
+use std::ops::DerefMut;
 
 #[cfg(test)]
 mod bind;
@@ -65,14 +65,36 @@ impl Sender for Collector {
 }
 
 impl Collector {
-    fn assert_content(&self, expected: Vec<QueryResult>) {
-        let result = self.0.lock().expect("locked");
-        assert_eq!(result.deref(), &expected)
+    fn assert_receive_till_this_moment(&self, expected: Vec<QueryResult>) {
+        let result = self.0.lock().expect("locked").drain(0..).collect::<Vec<_>>();
+        assert_eq!(result, expected)
     }
 
-    fn assert_content_for_single_queries(&self, expected: Vec<QueryResult>) {
-        let actual = self.0.lock().expect("locked");
-        assert_eq!(actual.deref(), &expected)
+    fn assert_receive_intermediate(&self, expected: QueryResult) {
+        let mut actual = self.0.lock().expect("locked");
+        assert_eq!(actual.deref_mut().pop(), Some(expected));
+    }
+
+    fn assert_receive_single(&self, expected: QueryResult) {
+        self.assert_query_complete();
+        let mut actual = self.0.lock().expect("locked");
+        assert_eq!(actual.deref_mut().pop(), Some(expected));
+    }
+
+    fn assert_query_complete(&self) {
+        let mut actual = self.0.lock().expect("locked");
+        assert_eq!(actual.deref_mut().pop(), Some(Ok(QueryEvent::QueryComplete)));
+    }
+
+    fn assert_receive_many(&self, expected: Vec<QueryResult>) {
+        let actual = self
+            .0
+            .lock()
+            .expect("locked")
+            .drain(0..expected.len())
+            .collect::<Vec<_>>();
+        assert_eq!(actual, expected);
+        self.assert_query_complete();
     }
 }
 
@@ -99,6 +121,7 @@ fn sql_engine() -> (QueryExecutor, ResultCollector) {
 fn sql_engine_with_schema(sql_engine: (QueryExecutor, ResultCollector)) -> (QueryExecutor, ResultCollector) {
     let (engine, collector) = sql_engine;
     engine.execute("create schema schema_name;").expect("no system errors");
+    collector.assert_receive_single(Ok(QueryEvent::SchemaCreated));
 
     (engine, collector)
 }

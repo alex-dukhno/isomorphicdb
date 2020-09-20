@@ -21,10 +21,7 @@ fn parse_wrong_select_syntax(sql_engine: (QueryExecutor, ResultCollector)) {
         .execute("selec col from schema_name.table_name")
         .expect("no system errors");
 
-    collector.assert_content_for_single_queries(vec![
-        Err(QueryError::syntax_error(
-            "\"selec col from schema_name.table_name\" can\'t be parsed",
-        )),
-        Ok(QueryEvent::QueryComplete),
-    ]);
+    collector.assert_receive_single(Err(QueryError::syntax_error(
+        "\"selec col from schema_name.table_name\" can\'t be parsed",
+    )));
 }

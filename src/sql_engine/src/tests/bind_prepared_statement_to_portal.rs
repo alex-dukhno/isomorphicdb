@@ -19,9 +19,12 @@ use super::*;
 #[rstest::rstest]
 fn bind_insert_statement_to_portal(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
     let (mut engine, collector) = sql_engine_with_schema;
+
     engine
         .execute("create table schema_name.table_name (column_1 smallint, column_2 smallint);")
         .expect("no system errors");
+    collector.assert_receive_single(Ok(QueryEvent::TableCreated));
+
     engine
         .parse_prepared_statement(
             "statement_name",
@@ -29,6 +32,8 @@ fn bind_insert_statement_to_portal(sql_engine_with_schema: (QueryExecutor, Resul
             &[PostgreSqlType::SmallInt, PostgreSqlType::SmallInt],
         )
         .expect("no system errors");
+    collector.assert_receive_intermediate(Ok(QueryEvent::ParseComplete));
+
     engine
         .bind_prepared_statement_to_portal(
             "portal_name",
@@ -38,26 +43,23 @@ fn bind_insert_statement_to_portal(sql_engine_with_schema: (QueryExecutor, Resul
             &[],
         )
         .expect("no system errors");
-
-    collector.assert_content(vec![
-        Ok(QueryEvent::SchemaCreated),
-        Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::TableCreated),
-        Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::ParseComplete),
-        Ok(QueryEvent::BindComplete),
-    ]);
+    collector.assert_receive_intermediate(Ok(QueryEvent::BindComplete));
 }
 
 #[rstest::rstest]
 fn bind_update_statement_to_portal(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
     let (mut engine, collector) = sql_engine_with_schema;
+
     engine
         .execute("create table schema_name.table_name (column_1 smallint, column_2 smallint);")
         .expect("no system errors");
+    collector.assert_receive_single(Ok(QueryEvent::TableCreated));
+
     engine
         .execute("insert into schema_name.table_name values (1, 2);")
         .expect("no system errors");
+    collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+
     engine
         .parse_prepared_statement(
             "statement_name",
@@ -65,6 +67,8 @@ fn bind_update_statement_to_portal(sql_engine_with_schema: (QueryExecutor, Resul
             &[PostgreSqlType::SmallInt, PostgreSqlType::SmallInt],
         )
         .expect("no system errors");
+    collector.assert_receive_intermediate(Ok(QueryEvent::ParseComplete));
+
     engine
         .bind_prepared_statement_to_portal(
             "portal_name",
@@ -74,15 +78,5 @@ fn bind_update_statement_to_portal(sql_engine_with_schema: (QueryExecutor, Resul
             &[],
         )
         .expect("no system errors");
-
-    collector.assert_content(vec![
-        Ok(QueryEvent::SchemaCreated),
-        Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::TableCreated),
-        Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::RecordsInserted(1)),
-        Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::ParseComplete),
-        Ok(QueryEvent::BindComplete),
-    ]);
+    collector.assert_receive_intermediate(Ok(QueryEvent::BindComplete));
 }

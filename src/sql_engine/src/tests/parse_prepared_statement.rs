@@ -23,6 +23,8 @@ fn parse_select_statement(sql_engine_with_schema: (QueryExecutor, ResultCollecto
     engine
         .execute("create table schema_name.table_name (column_1 smallint, column_2 smallint);")
         .expect("no system errors");
+    collector.assert_receive_single(Ok(QueryEvent::TableCreated));
+
     engine
         .parse_prepared_statement(
             "statement_name",
@@ -30,14 +32,7 @@ fn parse_select_statement(sql_engine_with_schema: (QueryExecutor, ResultCollecto
             &[PostgreSqlType::SmallInt, PostgreSqlType::SmallInt],
         )
         .expect("no system errors");
-
-    collector.assert_content(vec![
-        Ok(QueryEvent::SchemaCreated),
-        Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::TableCreated),
-        Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::ParseComplete),
-    ]);
+    collector.assert_receive_intermediate(Ok(QueryEvent::ParseComplete));
 }
 
 #[rstest::rstest]
@@ -57,12 +52,10 @@ fn parse_select_statement_with_not_existed_table(sql_engine_with_schema: (QueryE
     //         "select * from schema_name.non_existent where column_1 = $1;",
     //         &[],
     //     ),
-    //     Err(SystemError::runtime_check_failure("Table Does Not Exist".to_owned()))
+    //     Err(SystemError::runtime_check_failure(&"Table Does Not Exist"))
     // );
 
-    collector.assert_content(vec![
-        Ok(QueryEvent::SchemaCreated),
-        Ok(QueryEvent::QueryComplete),
+    collector.assert_receive_till_this_moment(vec![
         Err(QueryError::table_does_not_exist("schema_name.non_existent")),
         Ok(QueryEvent::ParseComplete), // TODO should be removed
     ]);
@@ -74,6 +67,7 @@ fn parse_select_statement_with_not_existed_column(sql_engine_with_schema: (Query
     engine
         .execute("create table schema_name.table_name (column_1 smallint, column_2 smallint);")
         .expect("no system errors");
+    collector.assert_receive_single(Ok(QueryEvent::TableCreated));
 
     assert_eq!(
         engine.parse_prepared_statement(
@@ -83,13 +77,7 @@ fn parse_select_statement_with_not_existed_column(sql_engine_with_schema: (Query
         ),
         Err(SystemError::runtime_check_failure(&"Column Does Not Exist"))
     );
-    collector.assert_content(vec![
-        Ok(QueryEvent::SchemaCreated),
-        Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::TableCreated),
-        Ok(QueryEvent::QueryComplete),
-        Err(QueryError::column_does_not_exist("column_not_in_table")),
-    ]);
+    collector.assert_receive_intermediate(Err(QueryError::column_does_not_exist("column_not_in_table")));
 }
 
 #[rstest::rstest]
@@ -98,6 +86,8 @@ fn parse_update_statement(sql_engine_with_schema: (QueryExecutor, ResultCollecto
     engine
         .execute("create table schema_name.table_name (column_1 smallint, column_2 smallint);")
         .expect("no system errors");
+    collector.assert_receive_single(Ok(QueryEvent::TableCreated));
+
     engine
         .parse_prepared_statement(
             "statement_name",
@@ -105,12 +95,5 @@ fn parse_update_statement(sql_engine_with_schema: (QueryExecutor, ResultCollecto
             &[PostgreSqlType::SmallInt, PostgreSqlType::SmallInt],
         )
         .expect("no system errors");
-
-    collector.assert_content(vec![
-        Ok(QueryEvent::SchemaCreated),
-        Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::TableCreated),
-        Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::ParseComplete),
-    ]);
+    collector.assert_receive_intermediate(Ok(QueryEvent::ParseComplete));
 }

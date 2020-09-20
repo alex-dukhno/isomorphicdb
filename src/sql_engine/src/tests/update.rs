@@ -23,31 +23,17 @@ fn update_all_records(sql_engine_with_schema: (QueryExecutor, ResultCollector)) 
     engine
         .execute("create table schema_name.table_name (column_test smallint);")
         .expect("no system errors");
-    engine
-        .execute("insert into schema_name.table_name values (123);")
-        .expect("no system errors");
-    engine
-        .execute("insert into schema_name.table_name values (456);")
-        .expect("no system errors");
-    engine
-        .execute("select * from schema_name.table_name;")
-        .expect("no system errors");
-    engine
-        .execute("update schema_name.table_name set column_test=789;")
-        .expect("no system errors");
-    engine
-        .execute("select * from schema_name.table_name;")
-        .expect("no system errors");
+    collector.assert_receive_single(Ok(QueryEvent::TableCreated));
 
-    collector.assert_content_for_single_queries(vec![
-        Ok(QueryEvent::SchemaCreated),
-        Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::TableCreated),
-        Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::RecordsInserted(1)),
-        Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::RecordsInserted(1)),
-        Ok(QueryEvent::QueryComplete),
+    engine
+        .execute("insert into schema_name.table_name values (123), (456);")
+        .expect("no system errors");
+    collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(2)));
+
+    engine
+        .execute("select * from schema_name.table_name;")
+        .expect("no system errors");
+    collector.assert_receive_many(vec![
         Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
             "column_test",
             PostgreSqlType::SmallInt,
@@ -55,9 +41,17 @@ fn update_all_records(sql_engine_with_schema: (QueryExecutor, ResultCollector)) 
         Ok(QueryEvent::DataRow(vec!["123".to_owned()])),
         Ok(QueryEvent::DataRow(vec!["456".to_owned()])),
         Ok(QueryEvent::RecordsSelected(2)),
-        Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::RecordsUpdated(2)),
-        Ok(QueryEvent::QueryComplete),
+    ]);
+
+    engine
+        .execute("update schema_name.table_name set column_test=789;")
+        .expect("no system errors");
+    collector.assert_receive_single(Ok(QueryEvent::RecordsUpdated(2)));
+
+    engine
+        .execute("select * from schema_name.table_name;")
+        .expect("no system errors");
+    collector.assert_receive_many(vec![
         Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
             "column_test",
             PostgreSqlType::SmallInt,
@@ -65,7 +59,6 @@ fn update_all_records(sql_engine_with_schema: (QueryExecutor, ResultCollector)) 
         Ok(QueryEvent::DataRow(vec!["789".to_owned()])),
         Ok(QueryEvent::DataRow(vec!["789".to_owned()])),
         Ok(QueryEvent::RecordsSelected(2)),
-        Ok(QueryEvent::QueryComplete),
     ]);
 }
 
@@ -75,31 +68,17 @@ fn update_single_column_of_all_records(sql_engine_with_schema: (QueryExecutor, R
     engine
         .execute("create table schema_name.table_name (col1 smallint, col2 smallint);")
         .expect("no system errors");
-    engine
-        .execute("insert into schema_name.table_name values (123, 789);")
-        .expect("no system errors");
-    engine
-        .execute("insert into schema_name.table_name values (456, 789);")
-        .expect("no system errors");
-    engine
-        .execute("select * from schema_name.table_name;")
-        .expect("no system errors");
-    engine
-        .execute("update schema_name.table_name set col2=357;")
-        .expect("no system errors");
-    engine
-        .execute("select * from schema_name.table_name;")
-        .expect("no system errors");
+    collector.assert_receive_single(Ok(QueryEvent::TableCreated));
 
-    collector.assert_content_for_single_queries(vec![
-        Ok(QueryEvent::SchemaCreated),
-        Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::TableCreated),
-        Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::RecordsInserted(1)),
-        Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::RecordsInserted(1)),
-        Ok(QueryEvent::QueryComplete),
+    engine
+        .execute("insert into schema_name.table_name values (123, 789), (456, 789);")
+        .expect("no system errors");
+    collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(2)));
+
+    engine
+        .execute("select * from schema_name.table_name;")
+        .expect("no system errors");
+    collector.assert_receive_many(vec![
         Ok(QueryEvent::RowDescription(vec![
             ColumnMetadata::new("col1", PostgreSqlType::SmallInt),
             ColumnMetadata::new("col2", PostgreSqlType::SmallInt),
@@ -107,9 +86,17 @@ fn update_single_column_of_all_records(sql_engine_with_schema: (QueryExecutor, R
         Ok(QueryEvent::DataRow(vec!["123".to_owned(), "789".to_owned()])),
         Ok(QueryEvent::DataRow(vec!["456".to_owned(), "789".to_owned()])),
         Ok(QueryEvent::RecordsSelected(2)),
-        Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::RecordsUpdated(2)),
-        Ok(QueryEvent::QueryComplete),
+    ]);
+
+    engine
+        .execute("update schema_name.table_name set col2=357;")
+        .expect("no system errors");
+    collector.assert_receive_single(Ok(QueryEvent::RecordsUpdated(2)));
+
+    engine
+        .execute("select * from schema_name.table_name;")
+        .expect("no system errors");
+    collector.assert_receive_many(vec![
         Ok(QueryEvent::RowDescription(vec![
             ColumnMetadata::new("col1", PostgreSqlType::SmallInt),
             ColumnMetadata::new("col2", PostgreSqlType::SmallInt),
@@ -117,7 +104,6 @@ fn update_single_column_of_all_records(sql_engine_with_schema: (QueryExecutor, R
         Ok(QueryEvent::DataRow(vec!["123".to_owned(), "357".to_owned()])),
         Ok(QueryEvent::DataRow(vec!["456".to_owned(), "357".to_owned()])),
         Ok(QueryEvent::RecordsSelected(2)),
-        Ok(QueryEvent::QueryComplete),
     ]);
 }
 
@@ -127,31 +113,17 @@ fn update_multiple_columns_of_all_records(sql_engine_with_schema: (QueryExecutor
     engine
         .execute("create table schema_name.table_name (col1 smallint, col2 smallint, col3 smallint);")
         .expect("no system errors");
-    engine
-        .execute("insert into schema_name.table_name values (111, 222, 333);")
-        .expect("no system errors");
-    engine
-        .execute("insert into schema_name.table_name values (444, 555, 666);")
-        .expect("no system errors");
-    engine
-        .execute("select * from schema_name.table_name;")
-        .expect("no system errors");
-    engine
-        .execute("update schema_name.table_name set col3=777, col1=999;")
-        .expect("no system errors");
-    engine
-        .execute("select * from schema_name.table_name;")
-        .expect("no system errors");
+    collector.assert_receive_single(Ok(QueryEvent::TableCreated));
 
-    collector.assert_content_for_single_queries(vec![
-        Ok(QueryEvent::SchemaCreated),
-        Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::TableCreated),
-        Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::RecordsInserted(1)),
-        Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::RecordsInserted(1)),
-        Ok(QueryEvent::QueryComplete),
+    engine
+        .execute("insert into schema_name.table_name values (111, 222, 333), (444, 555, 666);")
+        .expect("no system errors");
+    collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(2)));
+
+    engine
+        .execute("select * from schema_name.table_name;")
+        .expect("no system errors");
+    collector.assert_receive_many(vec![
         Ok(QueryEvent::RowDescription(vec![
             ColumnMetadata::new("col1", PostgreSqlType::SmallInt),
             ColumnMetadata::new("col2", PostgreSqlType::SmallInt),
@@ -168,9 +140,18 @@ fn update_multiple_columns_of_all_records(sql_engine_with_schema: (QueryExecutor
             "666".to_owned(),
         ])),
         Ok(QueryEvent::RecordsSelected(2)),
-        Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::RecordsUpdated(2)),
-        Ok(QueryEvent::QueryComplete),
+    ]);
+
+    engine
+        .execute("update schema_name.table_name set col3=777, col1=999;")
+        .expect("no system errors");
+    collector.assert_receive_single(Ok(QueryEvent::RecordsUpdated(2)));
+
+    engine
+        .execute("select * from schema_name.table_name;")
+        .expect("no system errors");
+
+    collector.assert_receive_many(vec![
         Ok(QueryEvent::RowDescription(vec![
             ColumnMetadata::new("col1", PostgreSqlType::SmallInt),
             ColumnMetadata::new("col2", PostgreSqlType::SmallInt),
@@ -187,7 +168,6 @@ fn update_multiple_columns_of_all_records(sql_engine_with_schema: (QueryExecutor
             "777".to_owned(),
         ])),
         Ok(QueryEvent::RecordsSelected(2)),
-        Ok(QueryEvent::QueryComplete),
     ]);
 }
 
@@ -197,26 +177,17 @@ fn update_all_records_in_multiple_columns(sql_engine_with_schema: (QueryExecutor
     engine
         .execute("create table schema_name.table_name (column_1 smallint, column_2 smallint, column_3 smallint);")
         .expect("no system errors");
+    collector.assert_receive_single(Ok(QueryEvent::TableCreated));
+
     engine
         .execute("insert into schema_name.table_name values (1, 2, 3), (4, 5, 6), (7, 8, 9);")
         .expect("no system errors");
-    engine
-        .execute("select * from schema_name.table_name;")
-        .expect("no system errors");
-    engine
-        .execute("update schema_name.table_name set column_1=10, column_2=-20, column_3=30;")
-        .expect("no system errors");
-    engine
-        .execute("select * from schema_name.table_name;")
-        .expect("no system errors");
+    collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(3)));
 
-    collector.assert_content_for_single_queries(vec![
-        Ok(QueryEvent::SchemaCreated),
-        Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::TableCreated),
-        Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::RecordsInserted(3)),
-        Ok(QueryEvent::QueryComplete),
+    engine
+        .execute("select * from schema_name.table_name;")
+        .expect("no system errors");
+    collector.assert_receive_many(vec![
         Ok(QueryEvent::RowDescription(vec![
             ColumnMetadata::new("column_1", PostgreSqlType::SmallInt),
             ColumnMetadata::new("column_2", PostgreSqlType::SmallInt),
@@ -238,9 +209,18 @@ fn update_all_records_in_multiple_columns(sql_engine_with_schema: (QueryExecutor
             "9".to_owned(),
         ])),
         Ok(QueryEvent::RecordsSelected(3)),
-        Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::RecordsUpdated(3)),
-        Ok(QueryEvent::QueryComplete),
+    ]);
+
+    engine
+        .execute("update schema_name.table_name set column_1=10, column_2=-20, column_3=30;")
+        .expect("no system errors");
+    collector.assert_receive_single(Ok(QueryEvent::RecordsUpdated(3)));
+
+    engine
+        .execute("select * from schema_name.table_name;")
+        .expect("no system errors");
+
+    collector.assert_receive_many(vec![
         Ok(QueryEvent::RowDescription(vec![
             ColumnMetadata::new("column_1", PostgreSqlType::SmallInt),
             ColumnMetadata::new("column_2", PostgreSqlType::SmallInt),
@@ -262,7 +242,6 @@ fn update_all_records_in_multiple_columns(sql_engine_with_schema: (QueryExecutor
             "30".to_owned(),
         ])),
         Ok(QueryEvent::RecordsSelected(3)),
-        Ok(QueryEvent::QueryComplete),
     ]);
 }
 
@@ -272,13 +251,7 @@ fn update_records_in_nonexistent_table(sql_engine_with_schema: (QueryExecutor, R
     engine
         .execute("update schema_name.table_name set column_test=789;")
         .expect("no system errors");
-
-    collector.assert_content_for_single_queries(vec![
-        Ok(QueryEvent::SchemaCreated),
-        Ok(QueryEvent::QueryComplete),
-        Err(QueryError::table_does_not_exist("schema_name.table_name")),
-        Ok(QueryEvent::QueryComplete),
-    ]);
+    collector.assert_receive_single(Err(QueryError::table_does_not_exist("schema_name.table_name")));
 }
 
 #[rstest::rstest]
@@ -287,33 +260,31 @@ fn update_non_existent_columns_of_records(sql_engine_with_schema: (QueryExecutor
     engine
         .execute("create table schema_name.table_name (column_test smallint);")
         .expect("no system errors");
+    collector.assert_receive_single(Ok(QueryEvent::TableCreated));
+
     engine
         .execute("insert into schema_name.table_name values (123);")
         .expect("no system errors");
+    collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+
     engine
         .execute("select * from schema_name.table_name;")
         .expect("no system errors");
-    engine
-        .execute("update schema_name.table_name set col1=456, col2=789;")
-        .expect("no system errors");
-
-    collector.assert_content_for_single_queries(vec![
-        Ok(QueryEvent::SchemaCreated),
-        Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::TableCreated),
-        Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::RecordsInserted(1)),
-        Ok(QueryEvent::QueryComplete),
+    collector.assert_receive_many(vec![
         Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
             "column_test",
             PostgreSqlType::SmallInt,
         )])),
         Ok(QueryEvent::DataRow(vec!["123".to_owned()])),
         Ok(QueryEvent::RecordsSelected(1)),
-        Ok(QueryEvent::QueryComplete),
+    ]);
+
+    engine
+        .execute("update schema_name.table_name set col1=456, col2=789;")
+        .expect("no system errors");
+    collector.assert_receive_many(vec![
         Err(QueryError::column_does_not_exist("col1")),
         Err(QueryError::column_does_not_exist("col2")),
-        Ok(QueryEvent::QueryComplete),
     ]);
 }
 
@@ -329,32 +300,17 @@ fn test_update_with_dynamic_expression(sql_engine_with_schema: (QueryExecutor, R
             si_column_3 smallint);",
         )
         .expect("no system errors");
+    collector.assert_receive_single(Ok(QueryEvent::TableCreated));
+
     engine
         .execute("insert into schema_name.table_name values (1, 2, 3), (4, 5, 6), (7, 8, 9);")
         .expect("no system errors");
-    engine
-        .execute("select * from schema_name.table_name;")
-        .expect("no system errors");
-    engine
-        .execute(
-            "update schema_name.table_name \
-        set \
-            si_column_1 = 2 * si_column_1, \
-            si_column_2 = 2 * (si_column_1 + si_column_2), \
-            si_column_3 = (si_column_3 + (2 * (si_column_1 + si_column_2)));",
-        )
-        .expect("no system errors");
-    engine
-        .execute("select * from schema_name.table_name;")
-        .expect("no system errors");
+    collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(3)));
 
-    collector.assert_content_for_single_queries(vec![
-        Ok(QueryEvent::SchemaCreated),
-        Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::TableCreated),
-        Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::RecordsInserted(3)),
-        Ok(QueryEvent::QueryComplete),
+    engine
+        .execute("select * from schema_name.table_name;")
+        .expect("no system errors");
+    collector.assert_receive_many(vec![
         Ok(QueryEvent::RowDescription(vec![
             ColumnMetadata::new("si_column_1", PostgreSqlType::SmallInt),
             ColumnMetadata::new("si_column_2", PostgreSqlType::SmallInt),
@@ -376,9 +332,23 @@ fn test_update_with_dynamic_expression(sql_engine_with_schema: (QueryExecutor, R
             "9".to_owned(),
         ])),
         Ok(QueryEvent::RecordsSelected(3)),
-        Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::RecordsUpdated(3)),
-        Ok(QueryEvent::QueryComplete),
+    ]);
+
+    engine
+        .execute(
+            "update schema_name.table_name \
+        set \
+            si_column_1 = 2 * si_column_1, \
+            si_column_2 = 2 * (si_column_1 + si_column_2), \
+            si_column_3 = (si_column_3 + (2 * (si_column_1 + si_column_2)));",
+        )
+        .expect("no system errors");
+    collector.assert_receive_single(Ok(QueryEvent::RecordsUpdated(3)));
+
+    engine
+        .execute("select * from schema_name.table_name;")
+        .expect("no system errors");
+    collector.assert_receive_many(vec![
         Ok(QueryEvent::RowDescription(vec![
             ColumnMetadata::new("si_column_1", PostgreSqlType::SmallInt),
             ColumnMetadata::new("si_column_2", PostgreSqlType::SmallInt),
@@ -400,7 +370,6 @@ fn test_update_with_dynamic_expression(sql_engine_with_schema: (QueryExecutor, R
             (9 + (2 * (7 + 8))).to_string(),
         ])),
         Ok(QueryEvent::RecordsSelected(3)),
-        Ok(QueryEvent::QueryComplete),
     ]);
 }
 
@@ -424,10 +393,15 @@ mod operators {
                 engine
                     .execute("create table schema_name.table_name(column_si smallint);")
                     .expect("no system errors");
-
                 engine
                     .execute("insert into schema_name.table_name values (2);")
                     .expect("no system errors");
+                collector.assert_receive_till_this_moment(vec![
+                    Ok(QueryEvent::TableCreated),
+                    Ok(QueryEvent::QueryComplete),
+                    Ok(QueryEvent::RecordsInserted(1)),
+                    Ok(QueryEvent::QueryComplete),
+                ]);
 
                 (engine, collector)
             }
@@ -438,26 +412,18 @@ mod operators {
                 engine
                     .execute("update schema_name.table_name set column_si = 1 + 2;")
                     .expect("no system errors");
+                collector.assert_receive_single(Ok(QueryEvent::RecordsUpdated(1)));
+
                 engine
                     .execute("select * from schema_name.table_name;")
                     .expect("no system errors");
-
-                collector.assert_content_for_single_queries(vec![
-                    Ok(QueryEvent::SchemaCreated),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::TableCreated),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsInserted(1)),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsUpdated(1)),
-                    Ok(QueryEvent::QueryComplete),
+                collector.assert_receive_many(vec![
                     Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
                         "column_si",
                         PostgreSqlType::SmallInt,
                     )])),
                     Ok(QueryEvent::DataRow(vec!["3".to_owned()])),
                     Ok(QueryEvent::RecordsSelected(1)),
-                    Ok(QueryEvent::QueryComplete),
                 ]);
             }
 
@@ -467,26 +433,19 @@ mod operators {
                 engine
                     .execute("update schema_name.table_name set column_si = 1 - 2;")
                     .expect("no system errors");
+                collector.assert_receive_single(Ok(QueryEvent::RecordsUpdated(1)));
+
                 engine
                     .execute("select * from schema_name.table_name;")
                     .expect("no system errors");
 
-                collector.assert_content_for_single_queries(vec![
-                    Ok(QueryEvent::SchemaCreated),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::TableCreated),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsInserted(1)),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsUpdated(1)),
-                    Ok(QueryEvent::QueryComplete),
+                collector.assert_receive_many(vec![
                     Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
                         "column_si",
                         PostgreSqlType::SmallInt,
                     )])),
                     Ok(QueryEvent::DataRow(vec!["-1".to_owned()])),
                     Ok(QueryEvent::RecordsSelected(1)),
-                    Ok(QueryEvent::QueryComplete),
                 ]);
             }
 
@@ -496,26 +455,19 @@ mod operators {
                 engine
                     .execute("update schema_name.table_name set column_si = 3 * 2;")
                     .expect("no system errors");
+                collector.assert_receive_single(Ok(QueryEvent::RecordsUpdated(1)));
+
                 engine
                     .execute("select * from schema_name.table_name;")
                     .expect("no system errors");
 
-                collector.assert_content_for_single_queries(vec![
-                    Ok(QueryEvent::SchemaCreated),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::TableCreated),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsInserted(1)),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsUpdated(1)),
-                    Ok(QueryEvent::QueryComplete),
+                collector.assert_receive_many(vec![
                     Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
                         "column_si",
                         PostgreSqlType::SmallInt,
                     )])),
                     Ok(QueryEvent::DataRow(vec!["6".to_owned()])),
                     Ok(QueryEvent::RecordsSelected(1)),
-                    Ok(QueryEvent::QueryComplete),
                 ]);
             }
 
@@ -525,26 +477,18 @@ mod operators {
                 engine
                     .execute("update schema_name.table_name set column_si = 8 / 2;")
                     .expect("no system errors");
+                collector.assert_receive_single(Ok(QueryEvent::RecordsUpdated(1)));
+
                 engine
                     .execute("select * from schema_name.table_name;")
                     .expect("no system errors");
-
-                collector.assert_content_for_single_queries(vec![
-                    Ok(QueryEvent::SchemaCreated),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::TableCreated),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsInserted(1)),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsUpdated(1)),
-                    Ok(QueryEvent::QueryComplete),
+                collector.assert_receive_many(vec![
                     Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
                         "column_si",
                         PostgreSqlType::SmallInt,
                     )])),
                     Ok(QueryEvent::DataRow(vec!["4".to_owned()])),
                     Ok(QueryEvent::RecordsSelected(1)),
-                    Ok(QueryEvent::QueryComplete),
                 ]);
             }
 
@@ -554,26 +498,19 @@ mod operators {
                 engine
                     .execute("update schema_name.table_name set column_si = 8 % 2;")
                     .expect("no system errors");
+                collector.assert_receive_single(Ok(QueryEvent::RecordsUpdated(1)));
+
                 engine
                     .execute("select * from schema_name.table_name;")
                     .expect("no system errors");
 
-                collector.assert_content_for_single_queries(vec![
-                    Ok(QueryEvent::SchemaCreated),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::TableCreated),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsInserted(1)),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsUpdated(1)),
-                    Ok(QueryEvent::QueryComplete),
+                collector.assert_receive_many(vec![
                     Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
                         "column_si",
                         PostgreSqlType::SmallInt,
                     )])),
                     Ok(QueryEvent::DataRow(vec!["0".to_owned()])),
                     Ok(QueryEvent::RecordsSelected(1)),
-                    Ok(QueryEvent::QueryComplete),
                 ]);
             }
 
@@ -586,26 +523,18 @@ mod operators {
                 engine
                     .execute("update schema_name.table_name set column_si = 8 ^ 2;")
                     .expect("no system errors");
+                collector.assert_receive_single(Ok(QueryEvent::RecordsUpdated(1)));
+
                 engine
                     .execute("select * from schema_name.table_name;")
                     .expect("no system errors");
-
-                collector.assert_content_for_single_queries(vec![
-                    Ok(QueryEvent::SchemaCreated),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::TableCreated),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsInserted(1)),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsUpdated(1)),
-                    Ok(QueryEvent::QueryComplete),
+                collector.assert_receive_many(vec![
                     Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
                         "column_si",
                         PostgreSqlType::SmallInt,
                     )])),
                     Ok(QueryEvent::DataRow(vec!["64".to_owned()])),
                     Ok(QueryEvent::RecordsSelected(1)),
-                    Ok(QueryEvent::QueryComplete),
                 ]);
             }
 
@@ -617,26 +546,18 @@ mod operators {
                 engine
                     .execute("update schema_name.table_name set column_si = |/ 16;")
                     .expect("no system errors");
+                collector.assert_receive_single(Ok(QueryEvent::RecordsUpdated(1)));
+
                 engine
                     .execute("select * from schema_name.table_name;")
                     .expect("no system errors");
-
-                collector.assert_content_for_single_queries(vec![
-                    Ok(QueryEvent::SchemaCreated),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::TableCreated),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsInserted(1)),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsUpdated(1)),
-                    Ok(QueryEvent::QueryComplete),
+                collector.assert_receive_many(vec![
                     Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
                         "column_si",
                         PostgreSqlType::SmallInt,
                     )])),
                     Ok(QueryEvent::DataRow(vec!["4".to_owned()])),
                     Ok(QueryEvent::RecordsSelected(1)),
-                    Ok(QueryEvent::QueryComplete),
                 ]);
             }
 
@@ -648,26 +569,18 @@ mod operators {
                 engine
                     .execute("update schema_name.table_name set column_si = ||/ 8;")
                     .expect("no system errors");
+                collector.assert_receive_single(Ok(QueryEvent::RecordsUpdated(1)));
+
                 engine
                     .execute("select * from schema_name.table_name;")
                     .expect("no system errors");
-
-                collector.assert_content_for_single_queries(vec![
-                    Ok(QueryEvent::SchemaCreated),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::TableCreated),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsInserted(1)),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsUpdated(1)),
-                    Ok(QueryEvent::QueryComplete),
+                collector.assert_receive_many(vec![
                     Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
                         "column_si",
                         PostgreSqlType::SmallInt,
                     )])),
                     Ok(QueryEvent::DataRow(vec!["2".to_owned()])),
                     Ok(QueryEvent::RecordsSelected(1)),
-                    Ok(QueryEvent::QueryComplete),
                 ]);
             }
 
@@ -679,26 +592,18 @@ mod operators {
                 engine
                     .execute("update schema_name.table_name set column_si = 5!;")
                     .expect("no system errors");
+                collector.assert_receive_single(Ok(QueryEvent::RecordsUpdated(1)));
+
                 engine
                     .execute("select * from schema_name.table_name;")
                     .expect("no system errors");
-
-                collector.assert_content_for_single_queries(vec![
-                    Ok(QueryEvent::SchemaCreated),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::TableCreated),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsInserted(1)),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsUpdated(1)),
-                    Ok(QueryEvent::QueryComplete),
+                collector.assert_receive_many(vec![
                     Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
                         "column_si",
                         PostgreSqlType::SmallInt,
                     )])),
                     Ok(QueryEvent::DataRow(vec!["120".to_owned()])),
                     Ok(QueryEvent::RecordsSelected(1)),
-                    Ok(QueryEvent::QueryComplete),
                 ]);
             }
 
@@ -710,26 +615,18 @@ mod operators {
                 engine
                     .execute("update schema_name.table_name set column_si = !!5;")
                     .expect("no system errors");
+                collector.assert_receive_single(Ok(QueryEvent::RecordsUpdated(1)));
+
                 engine
                     .execute("select * from schema_name.table_name;")
                     .expect("no system errors");
-
-                collector.assert_content_for_single_queries(vec![
-                    Ok(QueryEvent::SchemaCreated),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::TableCreated),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsInserted(1)),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsUpdated(1)),
-                    Ok(QueryEvent::QueryComplete),
+                collector.assert_receive_many(vec![
                     Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
                         "column_si",
                         PostgreSqlType::SmallInt,
                     )])),
                     Ok(QueryEvent::DataRow(vec!["120".to_owned()])),
                     Ok(QueryEvent::RecordsSelected(1)),
-                    Ok(QueryEvent::QueryComplete),
                 ]);
             }
 
@@ -741,26 +638,18 @@ mod operators {
                 engine
                     .execute("update schema_name.table_name set column_si = @-5;")
                     .expect("no system errors");
+                collector.assert_receive_single(Ok(QueryEvent::RecordsUpdated(1)));
+
                 engine
                     .execute("select * from schema_name.table_name;")
                     .expect("no system errors");
-
-                collector.assert_content_for_single_queries(vec![
-                    Ok(QueryEvent::SchemaCreated),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::TableCreated),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsInserted(1)),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsUpdated(1)),
-                    Ok(QueryEvent::QueryComplete),
+                collector.assert_receive_many(vec![
                     Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
                         "column_si",
                         PostgreSqlType::SmallInt,
                     )])),
                     Ok(QueryEvent::DataRow(vec!["5".to_owned()])),
                     Ok(QueryEvent::RecordsSelected(1)),
-                    Ok(QueryEvent::QueryComplete),
                 ]);
             }
 
@@ -770,26 +659,18 @@ mod operators {
                 engine
                     .execute("update schema_name.table_name set column_si = 5 & 1;")
                     .expect("no system errors");
+                collector.assert_receive_single(Ok(QueryEvent::RecordsUpdated(1)));
+
                 engine
                     .execute("select * from schema_name.table_name;")
                     .expect("no system errors");
-
-                collector.assert_content_for_single_queries(vec![
-                    Ok(QueryEvent::SchemaCreated),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::TableCreated),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsInserted(1)),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsUpdated(1)),
-                    Ok(QueryEvent::QueryComplete),
+                collector.assert_receive_many(vec![
                     Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
                         "column_si",
                         PostgreSqlType::SmallInt,
                     )])),
                     Ok(QueryEvent::DataRow(vec!["1".to_owned()])),
                     Ok(QueryEvent::RecordsSelected(1)),
-                    Ok(QueryEvent::QueryComplete),
                 ]);
             }
 
@@ -799,26 +680,18 @@ mod operators {
                 engine
                     .execute("update schema_name.table_name set column_si = 5 | 2;")
                     .expect("no system errors");
+                collector.assert_receive_single(Ok(QueryEvent::RecordsUpdated(1)));
+
                 engine
                     .execute("select * from schema_name.table_name;")
                     .expect("no system errors");
-
-                collector.assert_content_for_single_queries(vec![
-                    Ok(QueryEvent::SchemaCreated),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::TableCreated),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsInserted(1)),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsUpdated(1)),
-                    Ok(QueryEvent::QueryComplete),
+                collector.assert_receive_many(vec![
                     Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
                         "column_si",
                         PostgreSqlType::SmallInt,
                     )])),
                     Ok(QueryEvent::DataRow(vec!["7".to_owned()])),
                     Ok(QueryEvent::RecordsSelected(1)),
-                    Ok(QueryEvent::QueryComplete),
                 ]);
             }
 
@@ -830,26 +703,18 @@ mod operators {
                 engine
                     .execute("update schema_name.table_name set column_si = ~1;")
                     .expect("no system errors");
+                collector.assert_receive_single(Ok(QueryEvent::RecordsUpdated(1)));
+
                 engine
                     .execute("select * from schema_name.table_name;")
                     .expect("no system errors");
-
-                collector.assert_content_for_single_queries(vec![
-                    Ok(QueryEvent::SchemaCreated),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::TableCreated),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsInserted(1)),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsUpdated(1)),
-                    Ok(QueryEvent::QueryComplete),
+                collector.assert_receive_many(vec![
                     Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
                         "column_si",
                         PostgreSqlType::SmallInt,
                     )])),
                     Ok(QueryEvent::DataRow(vec!["-2".to_owned()])),
                     Ok(QueryEvent::RecordsSelected(1)),
-                    Ok(QueryEvent::QueryComplete),
                 ]);
             }
 
@@ -861,26 +726,18 @@ mod operators {
                 engine
                     .execute("update schema_name.table_name set column_si = 1 << 4;")
                     .expect("no system errors");
+                collector.assert_receive_single(Ok(QueryEvent::RecordsUpdated(1)));
+
                 engine
                     .execute("select * from schema_name.table_name;")
                     .expect("no system errors");
-
-                collector.assert_content_for_single_queries(vec![
-                    Ok(QueryEvent::SchemaCreated),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::TableCreated),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsInserted(1)),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsUpdated(1)),
-                    Ok(QueryEvent::QueryComplete),
+                collector.assert_receive_many(vec![
                     Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
                         "column_si",
                         PostgreSqlType::SmallInt,
                     )])),
                     Ok(QueryEvent::DataRow(vec!["16".to_owned()])),
                     Ok(QueryEvent::RecordsSelected(1)),
-                    Ok(QueryEvent::QueryComplete),
                 ]);
             }
 
@@ -892,26 +749,18 @@ mod operators {
                 engine
                     .execute("update schema_name.table_name set column_si = 8 >> 2;")
                     .expect("no system errors");
+                collector.assert_receive_single(Ok(QueryEvent::RecordsUpdated(1)));
+
                 engine
                     .execute("select * from schema_name.table_name;")
                     .expect("no system errors");
-
-                collector.assert_content_for_single_queries(vec![
-                    Ok(QueryEvent::SchemaCreated),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::TableCreated),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsInserted(1)),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsUpdated(1)),
-                    Ok(QueryEvent::QueryComplete),
+                collector.assert_receive_many(vec![
                     Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
                         "column_si",
                         PostgreSqlType::SmallInt,
                     )])),
                     Ok(QueryEvent::DataRow(vec!["2".to_owned()])),
                     Ok(QueryEvent::RecordsSelected(1)),
-                    Ok(QueryEvent::QueryComplete),
                 ]);
             }
 
@@ -921,26 +770,18 @@ mod operators {
                 engine
                     .execute("update schema_name.table_name set column_si = 5 & 13 % 10 + 1 * 20 - 40 / 4;")
                     .expect("no system errors");
+                collector.assert_receive_single(Ok(QueryEvent::RecordsUpdated(1)));
+
                 engine
                     .execute("select * from schema_name.table_name;")
                     .expect("no system errors");
-
-                collector.assert_content_for_single_queries(vec![
-                    Ok(QueryEvent::SchemaCreated),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::TableCreated),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsInserted(1)),
-                    Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsUpdated(1)),
-                    Ok(QueryEvent::QueryComplete),
+                collector.assert_receive_many(vec![
                     Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
                         "column_si",
                         PostgreSqlType::SmallInt,
                     )])),
                     Ok(QueryEvent::DataRow(vec!["5".to_owned()])),
                     Ok(QueryEvent::RecordsSelected(1)),
-                    Ok(QueryEvent::QueryComplete),
                 ]);
             }
         }
@@ -956,10 +797,15 @@ mod operators {
             engine
                 .execute("create table schema_name.table_name(strings char(5));")
                 .expect("no system errors");
-
             engine
                 .execute("insert into schema_name.table_name values ('x');")
                 .expect("no system errors");
+            collector.assert_receive_till_this_moment(vec![
+                Ok(QueryEvent::TableCreated),
+                Ok(QueryEvent::QueryComplete),
+                Ok(QueryEvent::RecordsInserted(1)),
+                Ok(QueryEvent::QueryComplete),
+            ]);
 
             (engine, collector)
         }
@@ -970,26 +816,18 @@ mod operators {
             engine
                 .execute("update schema_name.table_name set strings = '123' || '45';")
                 .expect("no system errors");
+            collector.assert_receive_single(Ok(QueryEvent::RecordsUpdated(1)));
+
             engine
                 .execute("select * from schema_name.table_name;")
                 .expect("no system errors");
-
-            collector.assert_content_for_single_queries(vec![
-                Ok(QueryEvent::SchemaCreated),
-                Ok(QueryEvent::QueryComplete),
-                Ok(QueryEvent::TableCreated),
-                Ok(QueryEvent::QueryComplete),
-                Ok(QueryEvent::RecordsInserted(1)),
-                Ok(QueryEvent::QueryComplete),
-                Ok(QueryEvent::RecordsUpdated(1)),
-                Ok(QueryEvent::QueryComplete),
+            collector.assert_receive_many(vec![
                 Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
                     "strings",
                     PostgreSqlType::Char,
                 )])),
                 Ok(QueryEvent::DataRow(vec!["12345".to_owned()])),
                 Ok(QueryEvent::RecordsSelected(1)),
-                Ok(QueryEvent::QueryComplete),
             ]);
         }
 
@@ -999,41 +837,35 @@ mod operators {
             engine
                 .execute("update schema_name.table_name set strings = 1 || '45';")
                 .expect("no system errors");
-            engine
-                .execute("select * from schema_name.table_name;")
-                .expect("no system errors");
-            engine
-                .execute("update schema_name.table_name set strings = '45' || 1;")
-                .expect("no system errors");
-            engine
-                .execute("select * from schema_name.table_name;")
-                .expect("no system errors");
+            collector.assert_receive_single(Ok(QueryEvent::RecordsUpdated(1)));
 
-            collector.assert_content_for_single_queries(vec![
-                Ok(QueryEvent::SchemaCreated),
-                Ok(QueryEvent::QueryComplete),
-                Ok(QueryEvent::TableCreated),
-                Ok(QueryEvent::QueryComplete),
-                Ok(QueryEvent::RecordsInserted(1)),
-                Ok(QueryEvent::QueryComplete),
-                Ok(QueryEvent::RecordsUpdated(1)),
-                Ok(QueryEvent::QueryComplete),
+            engine
+                .execute("select * from schema_name.table_name;")
+                .expect("no system errors");
+            collector.assert_receive_many(vec![
                 Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
                     "strings",
                     PostgreSqlType::Char,
                 )])),
                 Ok(QueryEvent::DataRow(vec!["145".to_owned()])),
                 Ok(QueryEvent::RecordsSelected(1)),
-                Ok(QueryEvent::QueryComplete),
-                Ok(QueryEvent::RecordsUpdated(1)),
-                Ok(QueryEvent::QueryComplete),
+            ]);
+
+            engine
+                .execute("update schema_name.table_name set strings = '45' || 1;")
+                .expect("no system errors");
+            collector.assert_receive_single(Ok(QueryEvent::RecordsUpdated(1)));
+
+            engine
+                .execute("select * from schema_name.table_name;")
+                .expect("no system errors");
+            collector.assert_receive_many(vec![
                 Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
                     "strings",
                     PostgreSqlType::Char,
                 )])),
                 Ok(QueryEvent::DataRow(vec!["451".to_owned()])),
                 Ok(QueryEvent::RecordsSelected(1)),
-                Ok(QueryEvent::QueryComplete),
             ]);
         }
 
@@ -1043,21 +875,11 @@ mod operators {
             engine
                 .execute("update schema_name.table_name set strings = 1 || 2;")
                 .expect("no system errors");
-
-            collector.assert_content_for_single_queries(vec![
-                Ok(QueryEvent::SchemaCreated),
-                Ok(QueryEvent::QueryComplete),
-                Ok(QueryEvent::TableCreated),
-                Ok(QueryEvent::QueryComplete),
-                Ok(QueryEvent::RecordsInserted(1)),
-                Ok(QueryEvent::QueryComplete),
-                Err(QueryError::undefined_function(
-                    "||".to_owned(),
-                    "NUMBER".to_owned(),
-                    "NUMBER".to_owned(),
-                )),
-                Ok(QueryEvent::QueryComplete),
-            ]);
+            collector.assert_receive_single(Err(QueryError::undefined_function(
+                "||".to_owned(),
+                "NUMBER".to_owned(),
+                "NUMBER".to_owned(),
+            )));
         }
     }
 }
