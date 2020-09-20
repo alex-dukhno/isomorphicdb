@@ -15,7 +15,7 @@
 use std::sync::Arc;
 
 use ast::Datum;
-use data_manager::{DataManager, ReadCursor};
+use data_manager::DataManager;
 use kernel::{SystemError, SystemResult};
 use protocol::{
     messages::ColumnMetadata,
