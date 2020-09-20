@@ -38,13 +38,14 @@ fn describe_select_statement(sql_engine_with_schema: (QueryExecutor, ResultColle
         Ok(QueryEvent::TableCreated),
         Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::ParseComplete),
-        Ok(QueryEvent::PreparedStatementDescribed(
-            vec![PostgreSqlType::SmallInt, PostgreSqlType::SmallInt],
-            vec![
-                ("column_1".to_owned(), PostgreSqlType::SmallInt),
-                ("column_2".to_owned(), PostgreSqlType::SmallInt),
-            ],
-        )),
+        Ok(QueryEvent::StatementParameters(vec![
+            PostgreSqlType::SmallInt,
+            PostgreSqlType::SmallInt,
+        ])),
+        Ok(QueryEvent::StatementDescription(vec![
+            ("column_1".to_owned(), PostgreSqlType::SmallInt),
+            ("column_2".to_owned(), PostgreSqlType::SmallInt),
+        ])),
     ]);
 }
 
@@ -71,10 +72,11 @@ fn describe_update_statement(sql_engine_with_schema: (QueryExecutor, ResultColle
         Ok(QueryEvent::TableCreated),
         Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::ParseComplete),
-        Ok(QueryEvent::PreparedStatementDescribed(
-            vec![PostgreSqlType::SmallInt, PostgreSqlType::SmallInt],
-            vec![],
-        )),
+        Ok(QueryEvent::StatementParameters(vec![
+            PostgreSqlType::SmallInt,
+            PostgreSqlType::SmallInt,
+        ])),
+        Ok(QueryEvent::StatementDescription(vec![])),
     ]);
 }
 

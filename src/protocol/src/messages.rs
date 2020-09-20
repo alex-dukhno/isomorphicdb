@@ -372,12 +372,19 @@ pub struct ColumnMetadata {
 
 impl ColumnMetadata {
     /// Creates new column metadata
-    pub fn new<S: ToString>(name: S, pg_type: PostgreSqlType) -> Self {
+    pub fn new<S: ToString>(name: S, pg_type: PostgreSqlType) -> ColumnMetadata {
         Self {
             name: name.to_string(),
             type_id: pg_type.pg_oid(),
             type_size: pg_type.pg_len(),
         }
+    }
+}
+
+impl<S: ToString> From<(S, PostgreSqlType)> for ColumnMetadata {
+    fn from(input: (S, PostgreSqlType)) -> ColumnMetadata {
+        let (name, pg_type) = input;
+        ColumnMetadata::new(name, pg_type)
     }
 }
 

@@ -133,11 +133,11 @@ impl QueryExecutor {
         match self.session.get_prepared_statement(name) {
             Some(stmt) => {
                 self.sender
-                    .send(Ok(QueryEvent::PreparedStatementDescribed(
-                        stmt.param_types().to_vec(),
-                        stmt.description().to_vec(),
-                    )))
-                    .expect("To Send ParametersDescribed Event");
+                    .send(Ok(QueryEvent::StatementParameters(stmt.param_types().to_vec())))
+                    .expect("To Send Statement Parameters to Client");
+                self.sender
+                    .send(Ok(QueryEvent::StatementDescription(stmt.description().to_vec())))
+                    .expect("To Send Statement Description to Client");
             }
             None => {
                 self.sender
