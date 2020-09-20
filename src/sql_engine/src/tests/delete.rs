@@ -17,6 +17,7 @@ use protocol::{pgsql_types::PostgreSqlType, results::QueryEvent};
 use crate::QueryExecutor;
 
 use super::*;
+use protocol::messages::ColumnMetadata;
 
 #[rstest::rstest]
 fn delete_from_nonexistent_table(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
@@ -64,17 +65,21 @@ fn delete_all_records(sql_engine_with_schema: (QueryExecutor, ResultCollector)) 
         Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::RecordsInserted(1)),
         Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::RecordsSelected((
-            vec![("column_test".to_owned(), PostgreSqlType::SmallInt)],
-            vec![vec!["123".to_owned()], vec!["456".to_owned()]],
-        ))),
+        Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
+            "column_test",
+            PostgreSqlType::SmallInt,
+        )])),
+        Ok(QueryEvent::DataRow(vec!["123".to_owned()])),
+        Ok(QueryEvent::DataRow(vec!["456".to_owned()])),
+        Ok(QueryEvent::RecordsSelected(2)),
         Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::RecordsDeleted(2)),
         Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::RecordsSelected((
-            vec![("column_test".to_owned(), PostgreSqlType::SmallInt)],
-            vec![],
-        ))),
+        Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
+            "column_test",
+            PostgreSqlType::SmallInt,
+        )])),
+        Ok(QueryEvent::RecordsSelected(0)),
         Ok(QueryEvent::QueryComplete),
     ])
 }

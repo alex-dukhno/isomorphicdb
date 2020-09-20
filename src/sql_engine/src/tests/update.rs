@@ -15,6 +15,7 @@
 use protocol::pgsql_types::PostgreSqlType;
 
 use super::*;
+use protocol::messages::ColumnMetadata;
 
 #[rstest::rstest]
 fn update_all_records(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
@@ -47,17 +48,23 @@ fn update_all_records(sql_engine_with_schema: (QueryExecutor, ResultCollector)) 
         Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::RecordsInserted(1)),
         Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::RecordsSelected((
-            vec![("column_test".to_owned(), PostgreSqlType::SmallInt)],
-            vec![vec!["123".to_owned()], vec!["456".to_owned()]],
-        ))),
+        Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
+            "column_test",
+            PostgreSqlType::SmallInt,
+        )])),
+        Ok(QueryEvent::DataRow(vec!["123".to_owned()])),
+        Ok(QueryEvent::DataRow(vec!["456".to_owned()])),
+        Ok(QueryEvent::RecordsSelected(2)),
         Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::RecordsUpdated(2)),
         Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::RecordsSelected((
-            vec![("column_test".to_owned(), PostgreSqlType::SmallInt)],
-            vec![vec!["789".to_owned()], vec!["789".to_owned()]],
-        ))),
+        Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
+            "column_test",
+            PostgreSqlType::SmallInt,
+        )])),
+        Ok(QueryEvent::DataRow(vec!["789".to_owned()])),
+        Ok(QueryEvent::DataRow(vec!["789".to_owned()])),
+        Ok(QueryEvent::RecordsSelected(2)),
         Ok(QueryEvent::QueryComplete),
     ]);
 }
@@ -93,29 +100,23 @@ fn update_single_column_of_all_records(sql_engine_with_schema: (QueryExecutor, R
         Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::RecordsInserted(1)),
         Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::RecordsSelected((
-            vec![
-                ("col1".to_owned(), PostgreSqlType::SmallInt),
-                ("col2".to_owned(), PostgreSqlType::SmallInt),
-            ],
-            vec![
-                vec!["123".to_owned(), "789".to_owned()],
-                vec!["456".to_owned(), "789".to_owned()],
-            ],
-        ))),
+        Ok(QueryEvent::RowDescription(vec![
+            ColumnMetadata::new("col1", PostgreSqlType::SmallInt),
+            ColumnMetadata::new("col2", PostgreSqlType::SmallInt),
+        ])),
+        Ok(QueryEvent::DataRow(vec!["123".to_owned(), "789".to_owned()])),
+        Ok(QueryEvent::DataRow(vec!["456".to_owned(), "789".to_owned()])),
+        Ok(QueryEvent::RecordsSelected(2)),
         Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::RecordsUpdated(2)),
         Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::RecordsSelected((
-            vec![
-                ("col1".to_owned(), PostgreSqlType::SmallInt),
-                ("col2".to_owned(), PostgreSqlType::SmallInt),
-            ],
-            vec![
-                vec!["123".to_owned(), "357".to_owned()],
-                vec!["456".to_owned(), "357".to_owned()],
-            ],
-        ))),
+        Ok(QueryEvent::RowDescription(vec![
+            ColumnMetadata::new("col1", PostgreSqlType::SmallInt),
+            ColumnMetadata::new("col2", PostgreSqlType::SmallInt),
+        ])),
+        Ok(QueryEvent::DataRow(vec!["123".to_owned(), "357".to_owned()])),
+        Ok(QueryEvent::DataRow(vec!["456".to_owned(), "357".to_owned()])),
+        Ok(QueryEvent::RecordsSelected(2)),
         Ok(QueryEvent::QueryComplete),
     ]);
 }
@@ -151,31 +152,41 @@ fn update_multiple_columns_of_all_records(sql_engine_with_schema: (QueryExecutor
         Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::RecordsInserted(1)),
         Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::RecordsSelected((
-            vec![
-                ("col1".to_owned(), PostgreSqlType::SmallInt),
-                ("col2".to_owned(), PostgreSqlType::SmallInt),
-                ("col3".to_owned(), PostgreSqlType::SmallInt),
-            ],
-            vec![
-                vec!["111".to_owned(), "222".to_owned(), "333".to_owned()],
-                vec!["444".to_owned(), "555".to_owned(), "666".to_owned()],
-            ],
-        ))),
+        Ok(QueryEvent::RowDescription(vec![
+            ColumnMetadata::new("col1", PostgreSqlType::SmallInt),
+            ColumnMetadata::new("col2", PostgreSqlType::SmallInt),
+            ColumnMetadata::new("col3", PostgreSqlType::SmallInt),
+        ])),
+        Ok(QueryEvent::DataRow(vec![
+            "111".to_owned(),
+            "222".to_owned(),
+            "333".to_owned(),
+        ])),
+        Ok(QueryEvent::DataRow(vec![
+            "444".to_owned(),
+            "555".to_owned(),
+            "666".to_owned(),
+        ])),
+        Ok(QueryEvent::RecordsSelected(2)),
         Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::RecordsUpdated(2)),
         Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::RecordsSelected((
-            vec![
-                ("col1".to_owned(), PostgreSqlType::SmallInt),
-                ("col2".to_owned(), PostgreSqlType::SmallInt),
-                ("col3".to_owned(), PostgreSqlType::SmallInt),
-            ],
-            vec![
-                vec!["999".to_owned(), "222".to_owned(), "777".to_owned()],
-                vec!["999".to_owned(), "555".to_owned(), "777".to_owned()],
-            ],
-        ))),
+        Ok(QueryEvent::RowDescription(vec![
+            ColumnMetadata::new("col1", PostgreSqlType::SmallInt),
+            ColumnMetadata::new("col2", PostgreSqlType::SmallInt),
+            ColumnMetadata::new("col3", PostgreSqlType::SmallInt),
+        ])),
+        Ok(QueryEvent::DataRow(vec![
+            "999".to_owned(),
+            "222".to_owned(),
+            "777".to_owned(),
+        ])),
+        Ok(QueryEvent::DataRow(vec![
+            "999".to_owned(),
+            "555".to_owned(),
+            "777".to_owned(),
+        ])),
+        Ok(QueryEvent::RecordsSelected(2)),
         Ok(QueryEvent::QueryComplete),
     ]);
 }
@@ -206,33 +217,51 @@ fn update_all_records_in_multiple_columns(sql_engine_with_schema: (QueryExecutor
         Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::RecordsInserted(3)),
         Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::RecordsSelected((
-            vec![
-                ("column_1".to_owned(), PostgreSqlType::SmallInt),
-                ("column_2".to_owned(), PostgreSqlType::SmallInt),
-                ("column_3".to_owned(), PostgreSqlType::SmallInt),
-            ],
-            vec![
-                vec!["1".to_owned(), "2".to_owned(), "3".to_owned()],
-                vec!["4".to_owned(), "5".to_owned(), "6".to_owned()],
-                vec!["7".to_owned(), "8".to_owned(), "9".to_owned()],
-            ],
-        ))),
+        Ok(QueryEvent::RowDescription(vec![
+            ColumnMetadata::new("column_1", PostgreSqlType::SmallInt),
+            ColumnMetadata::new("column_2", PostgreSqlType::SmallInt),
+            ColumnMetadata::new("column_3", PostgreSqlType::SmallInt),
+        ])),
+        Ok(QueryEvent::DataRow(vec![
+            "1".to_owned(),
+            "2".to_owned(),
+            "3".to_owned(),
+        ])),
+        Ok(QueryEvent::DataRow(vec![
+            "4".to_owned(),
+            "5".to_owned(),
+            "6".to_owned(),
+        ])),
+        Ok(QueryEvent::DataRow(vec![
+            "7".to_owned(),
+            "8".to_owned(),
+            "9".to_owned(),
+        ])),
+        Ok(QueryEvent::RecordsSelected(3)),
         Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::RecordsUpdated(3)),
         Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::RecordsSelected((
-            vec![
-                ("column_1".to_owned(), PostgreSqlType::SmallInt),
-                ("column_2".to_owned(), PostgreSqlType::SmallInt),
-                ("column_3".to_owned(), PostgreSqlType::SmallInt),
-            ],
-            vec![
-                vec!["10".to_owned(), "-20".to_owned(), "30".to_owned()],
-                vec!["10".to_owned(), "-20".to_owned(), "30".to_owned()],
-                vec!["10".to_owned(), "-20".to_owned(), "30".to_owned()],
-            ],
-        ))),
+        Ok(QueryEvent::RowDescription(vec![
+            ColumnMetadata::new("column_1", PostgreSqlType::SmallInt),
+            ColumnMetadata::new("column_2", PostgreSqlType::SmallInt),
+            ColumnMetadata::new("column_3", PostgreSqlType::SmallInt),
+        ])),
+        Ok(QueryEvent::DataRow(vec![
+            "10".to_owned(),
+            "-20".to_owned(),
+            "30".to_owned(),
+        ])),
+        Ok(QueryEvent::DataRow(vec![
+            "10".to_owned(),
+            "-20".to_owned(),
+            "30".to_owned(),
+        ])),
+        Ok(QueryEvent::DataRow(vec![
+            "10".to_owned(),
+            "-20".to_owned(),
+            "30".to_owned(),
+        ])),
+        Ok(QueryEvent::RecordsSelected(3)),
         Ok(QueryEvent::QueryComplete),
     ]);
 }
@@ -275,10 +304,12 @@ fn update_non_existent_columns_of_records(sql_engine_with_schema: (QueryExecutor
         Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::RecordsInserted(1)),
         Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::RecordsSelected((
-            vec![("column_test".to_owned(), PostgreSqlType::SmallInt)],
-            vec![vec!["123".to_owned()]],
-        ))),
+        Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
+            "column_test",
+            PostgreSqlType::SmallInt,
+        )])),
+        Ok(QueryEvent::DataRow(vec!["123".to_owned()])),
+        Ok(QueryEvent::RecordsSelected(1)),
         Ok(QueryEvent::QueryComplete),
         Err(QueryError::column_does_not_exist("col1")),
         Err(QueryError::column_does_not_exist("col2")),
@@ -324,45 +355,51 @@ fn test_update_with_dynamic_expression(sql_engine_with_schema: (QueryExecutor, R
         Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::RecordsInserted(3)),
         Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::RecordsSelected((
-            vec![
-                ("si_column_1".to_owned(), PostgreSqlType::SmallInt),
-                ("si_column_2".to_owned(), PostgreSqlType::SmallInt),
-                ("si_column_3".to_owned(), PostgreSqlType::SmallInt),
-            ],
-            vec![
-                vec!["1".to_owned(), "2".to_owned(), "3".to_owned()],
-                vec!["4".to_owned(), "5".to_owned(), "6".to_owned()],
-                vec!["7".to_owned(), "8".to_owned(), "9".to_owned()],
-            ],
-        ))),
+        Ok(QueryEvent::RowDescription(vec![
+            ColumnMetadata::new("si_column_1", PostgreSqlType::SmallInt),
+            ColumnMetadata::new("si_column_2", PostgreSqlType::SmallInt),
+            ColumnMetadata::new("si_column_3", PostgreSqlType::SmallInt),
+        ])),
+        Ok(QueryEvent::DataRow(vec![
+            "1".to_owned(),
+            "2".to_owned(),
+            "3".to_owned(),
+        ])),
+        Ok(QueryEvent::DataRow(vec![
+            "4".to_owned(),
+            "5".to_owned(),
+            "6".to_owned(),
+        ])),
+        Ok(QueryEvent::DataRow(vec![
+            "7".to_owned(),
+            "8".to_owned(),
+            "9".to_owned(),
+        ])),
+        Ok(QueryEvent::RecordsSelected(3)),
         Ok(QueryEvent::QueryComplete),
         Ok(QueryEvent::RecordsUpdated(3)),
         Ok(QueryEvent::QueryComplete),
-        Ok(QueryEvent::RecordsSelected((
-            vec![
-                ("si_column_1".to_owned(), PostgreSqlType::SmallInt),
-                ("si_column_2".to_owned(), PostgreSqlType::SmallInt),
-                ("si_column_3".to_owned(), PostgreSqlType::SmallInt),
-            ],
-            vec![
-                vec![
-                    (2 * 1).to_string(),
-                    (2 * (1 + 2)).to_string(),
-                    (3 + (2 * (1 + 2))).to_string(),
-                ],
-                vec![
-                    (2 * 4).to_string(),
-                    (2 * (4 + 5)).to_string(),
-                    (6 + (2 * (4 + 5))).to_string(),
-                ],
-                vec![
-                    (2 * 7).to_string(),
-                    (2 * (7 + 8)).to_string(),
-                    (9 + (2 * (7 + 8))).to_string(),
-                ],
-            ],
-        ))),
+        Ok(QueryEvent::RowDescription(vec![
+            ColumnMetadata::new("si_column_1", PostgreSqlType::SmallInt),
+            ColumnMetadata::new("si_column_2", PostgreSqlType::SmallInt),
+            ColumnMetadata::new("si_column_3", PostgreSqlType::SmallInt),
+        ])),
+        Ok(QueryEvent::DataRow(vec![
+            (2 * 1).to_string(),
+            (2 * (1 + 2)).to_string(),
+            (3 + (2 * (1 + 2))).to_string(),
+        ])),
+        Ok(QueryEvent::DataRow(vec![
+            (2 * 4).to_string(),
+            (2 * (4 + 5)).to_string(),
+            (6 + (2 * (4 + 5))).to_string(),
+        ])),
+        Ok(QueryEvent::DataRow(vec![
+            (2 * 7).to_string(),
+            (2 * (7 + 8)).to_string(),
+            (9 + (2 * (7 + 8))).to_string(),
+        ])),
+        Ok(QueryEvent::RecordsSelected(3)),
         Ok(QueryEvent::QueryComplete),
     ]);
 }
@@ -414,10 +451,12 @@ mod operators {
                     Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::RecordsUpdated(1)),
                     Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsSelected((
-                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
-                        vec![vec!["3".to_owned()]],
-                    ))),
+                    Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
+                        "column_si",
+                        PostgreSqlType::SmallInt,
+                    )])),
+                    Ok(QueryEvent::DataRow(vec!["3".to_owned()])),
+                    Ok(QueryEvent::RecordsSelected(1)),
                     Ok(QueryEvent::QueryComplete),
                 ]);
             }
@@ -441,10 +480,12 @@ mod operators {
                     Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::RecordsUpdated(1)),
                     Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsSelected((
-                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
-                        vec![vec!["-1".to_owned()]],
-                    ))),
+                    Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
+                        "column_si",
+                        PostgreSqlType::SmallInt,
+                    )])),
+                    Ok(QueryEvent::DataRow(vec!["-1".to_owned()])),
+                    Ok(QueryEvent::RecordsSelected(1)),
                     Ok(QueryEvent::QueryComplete),
                 ]);
             }
@@ -468,10 +509,12 @@ mod operators {
                     Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::RecordsUpdated(1)),
                     Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsSelected((
-                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
-                        vec![vec!["6".to_owned()]],
-                    ))),
+                    Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
+                        "column_si",
+                        PostgreSqlType::SmallInt,
+                    )])),
+                    Ok(QueryEvent::DataRow(vec!["6".to_owned()])),
+                    Ok(QueryEvent::RecordsSelected(1)),
                     Ok(QueryEvent::QueryComplete),
                 ]);
             }
@@ -495,10 +538,12 @@ mod operators {
                     Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::RecordsUpdated(1)),
                     Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsSelected((
-                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
-                        vec![vec!["4".to_owned()]],
-                    ))),
+                    Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
+                        "column_si",
+                        PostgreSqlType::SmallInt,
+                    )])),
+                    Ok(QueryEvent::DataRow(vec!["4".to_owned()])),
+                    Ok(QueryEvent::RecordsSelected(1)),
                     Ok(QueryEvent::QueryComplete),
                 ]);
             }
@@ -522,10 +567,12 @@ mod operators {
                     Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::RecordsUpdated(1)),
                     Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsSelected((
-                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
-                        vec![vec!["0".to_owned()]],
-                    ))),
+                    Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
+                        "column_si",
+                        PostgreSqlType::SmallInt,
+                    )])),
+                    Ok(QueryEvent::DataRow(vec!["0".to_owned()])),
+                    Ok(QueryEvent::RecordsSelected(1)),
                     Ok(QueryEvent::QueryComplete),
                 ]);
             }
@@ -552,10 +599,12 @@ mod operators {
                     Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::RecordsUpdated(1)),
                     Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsSelected((
-                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
-                        vec![vec!["64".to_owned()]],
-                    ))),
+                    Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
+                        "column_si",
+                        PostgreSqlType::SmallInt,
+                    )])),
+                    Ok(QueryEvent::DataRow(vec!["64".to_owned()])),
+                    Ok(QueryEvent::RecordsSelected(1)),
                     Ok(QueryEvent::QueryComplete),
                 ]);
             }
@@ -581,10 +630,12 @@ mod operators {
                     Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::RecordsUpdated(1)),
                     Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsSelected((
-                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
-                        vec![vec!["4".to_owned()]],
-                    ))),
+                    Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
+                        "column_si",
+                        PostgreSqlType::SmallInt,
+                    )])),
+                    Ok(QueryEvent::DataRow(vec!["4".to_owned()])),
+                    Ok(QueryEvent::RecordsSelected(1)),
                     Ok(QueryEvent::QueryComplete),
                 ]);
             }
@@ -610,10 +661,12 @@ mod operators {
                     Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::RecordsUpdated(1)),
                     Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsSelected((
-                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
-                        vec![vec!["2".to_owned()]],
-                    ))),
+                    Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
+                        "column_si",
+                        PostgreSqlType::SmallInt,
+                    )])),
+                    Ok(QueryEvent::DataRow(vec!["2".to_owned()])),
+                    Ok(QueryEvent::RecordsSelected(1)),
                     Ok(QueryEvent::QueryComplete),
                 ]);
             }
@@ -639,10 +692,12 @@ mod operators {
                     Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::RecordsUpdated(1)),
                     Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsSelected((
-                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
-                        vec![vec!["120".to_owned()]],
-                    ))),
+                    Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
+                        "column_si",
+                        PostgreSqlType::SmallInt,
+                    )])),
+                    Ok(QueryEvent::DataRow(vec!["120".to_owned()])),
+                    Ok(QueryEvent::RecordsSelected(1)),
                     Ok(QueryEvent::QueryComplete),
                 ]);
             }
@@ -668,10 +723,12 @@ mod operators {
                     Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::RecordsUpdated(1)),
                     Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsSelected((
-                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
-                        vec![vec!["120".to_owned()]],
-                    ))),
+                    Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
+                        "column_si",
+                        PostgreSqlType::SmallInt,
+                    )])),
+                    Ok(QueryEvent::DataRow(vec!["120".to_owned()])),
+                    Ok(QueryEvent::RecordsSelected(1)),
                     Ok(QueryEvent::QueryComplete),
                 ]);
             }
@@ -697,10 +754,12 @@ mod operators {
                     Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::RecordsUpdated(1)),
                     Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsSelected((
-                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
-                        vec![vec!["5".to_owned()]],
-                    ))),
+                    Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
+                        "column_si",
+                        PostgreSqlType::SmallInt,
+                    )])),
+                    Ok(QueryEvent::DataRow(vec!["5".to_owned()])),
+                    Ok(QueryEvent::RecordsSelected(1)),
                     Ok(QueryEvent::QueryComplete),
                 ]);
             }
@@ -724,10 +783,12 @@ mod operators {
                     Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::RecordsUpdated(1)),
                     Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsSelected((
-                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
-                        vec![vec!["1".to_owned()]],
-                    ))),
+                    Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
+                        "column_si",
+                        PostgreSqlType::SmallInt,
+                    )])),
+                    Ok(QueryEvent::DataRow(vec!["1".to_owned()])),
+                    Ok(QueryEvent::RecordsSelected(1)),
                     Ok(QueryEvent::QueryComplete),
                 ]);
             }
@@ -751,10 +812,12 @@ mod operators {
                     Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::RecordsUpdated(1)),
                     Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsSelected((
-                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
-                        vec![vec!["7".to_owned()]],
-                    ))),
+                    Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
+                        "column_si",
+                        PostgreSqlType::SmallInt,
+                    )])),
+                    Ok(QueryEvent::DataRow(vec!["7".to_owned()])),
+                    Ok(QueryEvent::RecordsSelected(1)),
                     Ok(QueryEvent::QueryComplete),
                 ]);
             }
@@ -780,10 +843,12 @@ mod operators {
                     Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::RecordsUpdated(1)),
                     Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsSelected((
-                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
-                        vec![vec!["-2".to_owned()]],
-                    ))),
+                    Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
+                        "column_si",
+                        PostgreSqlType::SmallInt,
+                    )])),
+                    Ok(QueryEvent::DataRow(vec!["-2".to_owned()])),
+                    Ok(QueryEvent::RecordsSelected(1)),
                     Ok(QueryEvent::QueryComplete),
                 ]);
             }
@@ -809,10 +874,12 @@ mod operators {
                     Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::RecordsUpdated(1)),
                     Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsSelected((
-                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
-                        vec![vec!["16".to_owned()]],
-                    ))),
+                    Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
+                        "column_si",
+                        PostgreSqlType::SmallInt,
+                    )])),
+                    Ok(QueryEvent::DataRow(vec!["16".to_owned()])),
+                    Ok(QueryEvent::RecordsSelected(1)),
                     Ok(QueryEvent::QueryComplete),
                 ]);
             }
@@ -838,10 +905,12 @@ mod operators {
                     Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::RecordsUpdated(1)),
                     Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsSelected((
-                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
-                        vec![vec!["2".to_owned()]],
-                    ))),
+                    Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
+                        "column_si",
+                        PostgreSqlType::SmallInt,
+                    )])),
+                    Ok(QueryEvent::DataRow(vec!["2".to_owned()])),
+                    Ok(QueryEvent::RecordsSelected(1)),
                     Ok(QueryEvent::QueryComplete),
                 ]);
             }
@@ -865,10 +934,12 @@ mod operators {
                     Ok(QueryEvent::QueryComplete),
                     Ok(QueryEvent::RecordsUpdated(1)),
                     Ok(QueryEvent::QueryComplete),
-                    Ok(QueryEvent::RecordsSelected((
-                        vec![("column_si".to_owned(), PostgreSqlType::SmallInt)],
-                        vec![vec!["5".to_owned()]],
-                    ))),
+                    Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
+                        "column_si",
+                        PostgreSqlType::SmallInt,
+                    )])),
+                    Ok(QueryEvent::DataRow(vec!["5".to_owned()])),
+                    Ok(QueryEvent::RecordsSelected(1)),
                     Ok(QueryEvent::QueryComplete),
                 ]);
             }
@@ -912,10 +983,12 @@ mod operators {
                 Ok(QueryEvent::QueryComplete),
                 Ok(QueryEvent::RecordsUpdated(1)),
                 Ok(QueryEvent::QueryComplete),
-                Ok(QueryEvent::RecordsSelected((
-                    vec![("strings".to_owned(), PostgreSqlType::Char)],
-                    vec![vec!["12345".to_owned()]],
-                ))),
+                Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
+                    "strings",
+                    PostgreSqlType::Char,
+                )])),
+                Ok(QueryEvent::DataRow(vec!["12345".to_owned()])),
+                Ok(QueryEvent::RecordsSelected(1)),
                 Ok(QueryEvent::QueryComplete),
             ]);
         }
@@ -945,17 +1018,21 @@ mod operators {
                 Ok(QueryEvent::QueryComplete),
                 Ok(QueryEvent::RecordsUpdated(1)),
                 Ok(QueryEvent::QueryComplete),
-                Ok(QueryEvent::RecordsSelected((
-                    vec![("strings".to_owned(), PostgreSqlType::Char)],
-                    vec![vec!["145".to_owned()]],
-                ))),
+                Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
+                    "strings",
+                    PostgreSqlType::Char,
+                )])),
+                Ok(QueryEvent::DataRow(vec!["145".to_owned()])),
+                Ok(QueryEvent::RecordsSelected(1)),
                 Ok(QueryEvent::QueryComplete),
                 Ok(QueryEvent::RecordsUpdated(1)),
                 Ok(QueryEvent::QueryComplete),
-                Ok(QueryEvent::RecordsSelected((
-                    vec![("strings".to_owned(), PostgreSqlType::Char)],
-                    vec![vec!["451".to_owned()]],
-                ))),
+                Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
+                    "strings",
+                    PostgreSqlType::Char,
+                )])),
+                Ok(QueryEvent::DataRow(vec!["451".to_owned()])),
+                Ok(QueryEvent::RecordsSelected(1)),
                 Ok(QueryEvent::QueryComplete),
             ]);
         }

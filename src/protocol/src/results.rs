@@ -23,8 +23,6 @@ use crate::{
 pub type QueryResult = std::result::Result<QueryEvent, QueryError>;
 /// Represents selected columns from tables
 pub type Description = Vec<(String, PostgreSqlType)>;
-/// Represents selected data from tables
-pub type Projection = (Description, Vec<Vec<String>>);
 
 /// Represents successful events that can happen in server backend
 #[derive(Clone, Debug, PartialEq)]
@@ -43,8 +41,12 @@ pub enum QueryEvent {
     TransactionStarted,
     /// Number of records inserted into a table
     RecordsInserted(usize),
+    /// Row description information
+    RowDescription(Vec<ColumnMetadata>),
+    /// Row data
+    DataRow(Vec<String>),
     /// Records selected from database
-    RecordsSelected(Projection),
+    RecordsSelected(usize),
     /// Number of records updated into a table
     RecordsUpdated(usize),
     /// Number of records deleted into a table
@@ -53,9 +55,9 @@ pub enum QueryEvent {
     PreparedStatementDescribed(Vec<PostgreSqlType>, Description),
     /// Processing of the query is complete
     QueryComplete,
-    /// Parsing the exteneded query is complete
+    /// Parsing the extended query is complete
     ParseComplete,
-    /// Binding the exteneded query is complete
+    /// Binding the extended query is complete
     BindComplete,
 }
 
@@ -71,20 +73,10 @@ impl Into<Vec<BackendMessage>> for QueryEvent {
             QueryEvent::RecordsInserted(records) => {
                 vec![BackendMessage::CommandComplete(format!("INSERT 0 {}", records))]
             }
-            QueryEvent::RecordsSelected(projection) => {
-                let definition = projection.0;
-                let description: Vec<ColumnMetadata> = definition
-                    .into_iter()
-                    .map(|(name, sql_type)| ColumnMetadata::new(name, sql_type.pg_oid(), sql_type.pg_len()))
-                    .collect();
-                let records = projection.1;
-                let len = records.len();
-                let mut messages = vec![BackendMessage::RowDescription(description)];
-                for record in records {
-                    messages.push(BackendMessage::DataRow(record));
-                }
-                messages.push(BackendMessage::CommandComplete(format!("SELECT {}", len)));
-                messages
+            QueryEvent::RowDescription(description) => vec![BackendMessage::RowDescription(description)],
+            QueryEvent::DataRow(data) => vec![BackendMessage::DataRow(data)],
+            QueryEvent::RecordsSelected(records) => {
+                vec![BackendMessage::CommandComplete(format!("SELECT {}", records))]
             }
             QueryEvent::RecordsUpdated(records) => vec![BackendMessage::CommandComplete(format!("UPDATE {}", records))],
             QueryEvent::RecordsDeleted(records) => vec![BackendMessage::CommandComplete(format!("DELETE {}", records))],
@@ -94,7 +86,7 @@ impl Into<Vec<BackendMessage>> for QueryEvent {
                 } else {
                     let columns: Vec<ColumnMetadata> = description
                         .into_iter()
-                        .map(|(name, sql_type)| ColumnMetadata::new(name, sql_type.pg_oid(), sql_type.pg_len()))
+                        .map(|(name, sql_type)| ColumnMetadata::new(name, sql_type))
                         .collect();
                     BackendMessage::RowDescription(columns)
                 };
@@ -572,30 +564,35 @@ mod tests {
         }
 
         #[test]
-        fn select_records() {
-            let projection = (
-                vec![
-                    ("column_name_1".to_owned(), PostgreSqlType::SmallInt),
-                    ("column_name_2".to_owned(), PostgreSqlType::SmallInt),
-                ],
-                vec![
-                    vec!["1".to_owned(), "2".to_owned()],
-                    vec!["3".to_owned(), "4".to_owned()],
-                ],
-            );
-            let messages: Vec<BackendMessage> = QueryEvent::RecordsSelected(projection).into();
+        fn row_description() {
+            let messages: Vec<BackendMessage> = QueryEvent::RowDescription(vec![
+                ColumnMetadata::new("column_name_1", PostgreSqlType::SmallInt),
+                ColumnMetadata::new("column_name_2", PostgreSqlType::SmallInt),
+            ])
+            .into();
+
             assert_eq!(
                 messages,
-                vec![
-                    BackendMessage::RowDescription(vec![
-                        ColumnMetadata::new("column_name_1".to_owned(), 21, 2),
-                        ColumnMetadata::new("column_name_2".to_owned(), 21, 2)
-                    ]),
-                    BackendMessage::DataRow(vec!["1".to_owned(), "2".to_owned()]),
-                    BackendMessage::DataRow(vec!["3".to_owned(), "4".to_owned()]),
-                    BackendMessage::CommandComplete("SELECT 2".to_owned())
-                ]
-            );
+                vec![BackendMessage::RowDescription(vec![
+                    ColumnMetadata::new("column_name_1", PostgreSqlType::SmallInt),
+                    ColumnMetadata::new("column_name_2", PostgreSqlType::SmallInt)
+                ])]
+            )
+        }
+
+        #[test]
+        fn data_row() {
+            let messages: Vec<BackendMessage> = QueryEvent::DataRow(vec!["1".to_owned(), "2".to_owned()]).into();
+            assert_eq!(
+                messages,
+                vec![BackendMessage::DataRow(vec!["1".to_owned(), "2".to_owned()])]
+            )
+        }
+
+        #[test]
+        fn select_records() {
+            let messages: Vec<BackendMessage> = QueryEvent::RecordsSelected(2).into();
+            assert_eq!(messages, vec![BackendMessage::CommandComplete("SELECT 2".to_owned())]);
         }
 
         #[test]
