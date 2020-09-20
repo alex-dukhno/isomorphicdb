@@ -3,7 +3,7 @@ Closes #(issue number)
 #### Description
 short description what was changed
 
-#### Is it a feature?
+#### Is it a feature that change user experience?
 Please add compatibility tests or provide possible sql queries that we can add
 to our compatibility test suite. Thank you!
 
