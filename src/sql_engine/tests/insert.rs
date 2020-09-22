@@ -14,49 +14,64 @@
 
 use protocol::pgsql_types::PostgreSqlType;
 
-use super::*;
+mod common;
+use common::{database_with_schema, ResultCollector};
+use parser::QueryParser;
 use protocol::messages::ColumnMetadata;
+use protocol::results::{QueryError, QueryEvent};
+use sql_engine::QueryExecutor;
 
 #[rstest::rstest]
-fn insert_into_nonexistent_table(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
-    let (engine, collector) = sql_engine_with_schema;
-    engine
-        .execute("insert into schema_name.table_name values (123);")
-        .expect("no system errors");
+fn insert_into_nonexistent_table(database_with_schema: (QueryExecutor, QueryParser, ResultCollector)) {
+    let (engine, parser, collector) = database_with_schema;
+
+    engine.execute(
+        &parser
+            .parse("insert into schema_name.table_name values (123);")
+            .expect("parsed"),
+    );
 
     collector.assert_receive_single(Err(QueryError::table_does_not_exist("schema_name.table_name")));
 }
 
 #[rstest::rstest]
-fn insert_value_in_non_existent_column(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
-    let (engine, collector) = sql_engine_with_schema;
-    engine
-        .execute("create table schema_name.table_name (column_test smallint);")
-        .expect("no system errors");
+fn insert_value_in_non_existent_column(database_with_schema: (QueryExecutor, QueryParser, ResultCollector)) {
+    let (engine, parser, collector) = database_with_schema;
+
+    engine.execute(
+        &parser
+            .parse("create table schema_name.table_name (column_test smallint);")
+            .expect("parsed"),
+    );
     collector.assert_receive_single(Ok(QueryEvent::TableCreated));
 
-    engine
-        .execute("insert into schema_name.table_name (non_existent) values (123);")
-        .expect("no system errors");
+    engine.execute(
+        &parser
+            .parse("insert into schema_name.table_name (non_existent) values (123);")
+            .expect("parsed"),
+    );
     collector.assert_receive_single(Err(QueryError::column_does_not_exist("non_existent")));
 }
 
 #[rstest::rstest]
-fn insert_and_select_single_row(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
-    let (engine, collector) = sql_engine_with_schema;
-    engine
-        .execute("create table schema_name.table_name (column_test smallint);")
-        .expect("no system errors");
+fn insert_and_select_single_row(database_with_schema: (QueryExecutor, QueryParser, ResultCollector)) {
+    let (engine, parser, collector) = database_with_schema;
+
+    engine.execute(
+        &parser
+            .parse("create table schema_name.table_name (column_test smallint);")
+            .expect("parsed"),
+    );
     collector.assert_receive_single(Ok(QueryEvent::TableCreated));
 
-    engine
-        .execute("insert into schema_name.table_name values (123);")
-        .expect("no system errors");
+    engine.execute(
+        &parser
+            .parse("insert into schema_name.table_name values (123);")
+            .expect("parsed"),
+    );
     collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
-    engine
-        .execute("select * from schema_name.table_name;")
-        .expect("no system errors");
+    engine.execute(&parser.parse("select * from schema_name.table_name;").expect("parsed"));
     collector.assert_receive_many(vec![
         Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
             "column_test",
@@ -68,26 +83,31 @@ fn insert_and_select_single_row(sql_engine_with_schema: (QueryExecutor, ResultCo
 }
 
 #[rstest::rstest]
-fn insert_and_select_multiple_rows(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
-    let (engine, collector) = sql_engine_with_schema;
-    engine
-        .execute("create table schema_name.table_name (column_test smallint);")
-        .expect("no system errors");
+fn insert_and_select_multiple_rows(database_with_schema: (QueryExecutor, QueryParser, ResultCollector)) {
+    let (engine, parser, collector) = database_with_schema;
+
+    engine.execute(
+        &parser
+            .parse("create table schema_name.table_name (column_test smallint);")
+            .expect("parsed"),
+    );
     collector.assert_receive_single(Ok(QueryEvent::TableCreated));
 
-    engine
-        .execute("insert into schema_name.table_name values (123);")
-        .expect("no system errors");
+    engine.execute(
+        &parser
+            .parse("insert into schema_name.table_name values (123);")
+            .expect("parsed"),
+    );
     collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
-    engine
-        .execute("insert into schema_name.table_name values (456);")
-        .expect("no system errors");
+    engine.execute(
+        &parser
+            .parse("insert into schema_name.table_name values (456);")
+            .expect("parsed"),
+    );
     collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
-    engine
-        .execute("select * from schema_name.table_name;")
-        .expect("no system errors");
+    engine.execute(&parser.parse("select * from schema_name.table_name;").expect("parsed"));
     collector.assert_receive_many(vec![
         Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
             "column_test",
@@ -100,21 +120,24 @@ fn insert_and_select_multiple_rows(sql_engine_with_schema: (QueryExecutor, Resul
 }
 
 #[rstest::rstest]
-fn insert_and_select_named_columns(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
-    let (engine, collector) = sql_engine_with_schema;
-    engine
-        .execute("create table schema_name.table_name (col1 smallint, col2 smallint, col3 smallint);")
-        .expect("no system errors");
+fn insert_and_select_named_columns(database_with_schema: (QueryExecutor, QueryParser, ResultCollector)) {
+    let (engine, parser, collector) = database_with_schema;
+
+    engine.execute(
+        &parser
+            .parse("create table schema_name.table_name (col1 smallint, col2 smallint, col3 smallint);")
+            .expect("parsed"),
+    );
     collector.assert_receive_single(Ok(QueryEvent::TableCreated));
 
-    engine
-        .execute("insert into schema_name.table_name (col2, col3, col1) values (1, 2, 3), (4, 5, 6);")
-        .expect("no system errors");
+    engine.execute(
+        &parser
+            .parse("insert into schema_name.table_name (col2, col3, col1) values (1, 2, 3), (4, 5, 6);")
+            .expect("parsed"),
+    );
     collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(2)));
 
-    engine
-        .execute("select * from schema_name.table_name;")
-        .expect("no system errors");
+    engine.execute(&parser.parse("select * from schema_name.table_name;").expect("parsed"));
     collector.assert_receive_many(vec![
         Ok(QueryEvent::RowDescription(vec![
             ColumnMetadata::new("col1", PostgreSqlType::SmallInt),
@@ -136,21 +159,24 @@ fn insert_and_select_named_columns(sql_engine_with_schema: (QueryExecutor, Resul
 }
 
 #[rstest::rstest]
-fn insert_multiple_rows(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
-    let (engine, collector) = sql_engine_with_schema;
-    engine
-        .execute("create table schema_name.table_name (column_1 smallint, column_2 smallint, column_3 smallint);")
-        .expect("no system errors");
+fn insert_multiple_rows(database_with_schema: (QueryExecutor, QueryParser, ResultCollector)) {
+    let (engine, parser, collector) = database_with_schema;
+
+    engine.execute(
+        &parser
+            .parse("create table schema_name.table_name (column_1 smallint, column_2 smallint, column_3 smallint);")
+            .expect("parsed"),
+    );
     collector.assert_receive_single(Ok(QueryEvent::TableCreated));
 
-    engine
-        .execute("insert into schema_name.table_name values (1, 4, 7), (2, 5, 8), (3, 6, 9);")
-        .expect("no system errors");
+    engine.execute(
+        &parser
+            .parse("insert into schema_name.table_name values (1, 4, 7), (2, 5, 8), (3, 6, 9);")
+            .expect("parsed"),
+    );
     collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(3)));
 
-    engine
-        .execute("select * from schema_name.table_name;")
-        .expect("no system errors");
+    engine.execute(&parser.parse("select * from schema_name.table_name;").expect("parsed"));
 
     collector.assert_receive_many(vec![
         Ok(QueryEvent::RowDescription(vec![
@@ -178,26 +204,27 @@ fn insert_multiple_rows(sql_engine_with_schema: (QueryExecutor, ResultCollector)
 }
 
 #[rstest::rstest]
-fn insert_and_select_different_integer_types(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
-    let (engine, collector) = sql_engine_with_schema;
+fn insert_and_select_different_integer_types(database_with_schema: (QueryExecutor, QueryParser, ResultCollector)) {
+    let (engine, parser, collector) = database_with_schema;
     engine
-        .execute("create table schema_name.table_name (column_si smallint, column_i integer, column_bi bigint, column_serial serial);")
-        .expect("no system errors");
+        .execute(&parser.parse("create table schema_name.table_name (column_si smallint, column_i integer, column_bi bigint, column_serial serial);").expect("parsed"));
     collector.assert_receive_single(Ok(QueryEvent::TableCreated));
 
-    engine
-        .execute("insert into schema_name.table_name values(-32768, -2147483648, -9223372036854775808, 1);")
-        .expect("no system errors");
+    engine.execute(
+        &parser
+            .parse("insert into schema_name.table_name values(-32768, -2147483648, -9223372036854775808, 1);")
+            .expect("parsed"),
+    );
     collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
-    engine
-        .execute("insert into schema_name.table_name values(32767, 2147483647, 9223372036854775807, 1);")
-        .expect("no system errors");
+    engine.execute(
+        &parser
+            .parse("insert into schema_name.table_name values(32767, 2147483647, 9223372036854775807, 1);")
+            .expect("parsed"),
+    );
     collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
-    engine
-        .execute("select * from schema_name.table_name;")
-        .expect("no system errors");
+    engine.execute(&parser.parse("select * from schema_name.table_name;").expect("parsed"));
     collector.assert_receive_many(vec![
         Ok(QueryEvent::RowDescription(vec![
             ColumnMetadata::new("column_si", PostgreSqlType::SmallInt),
@@ -222,26 +249,30 @@ fn insert_and_select_different_integer_types(sql_engine_with_schema: (QueryExecu
 }
 
 #[rstest::rstest]
-fn insert_and_select_different_character_types(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
-    let (engine, collector) = sql_engine_with_schema;
-    engine
-        .execute("create table schema_name.table_name (column_c char(10), column_vc varchar(10));")
-        .expect("no system errors");
+fn insert_and_select_different_character_types(database_with_schema: (QueryExecutor, QueryParser, ResultCollector)) {
+    let (engine, parser, collector) = database_with_schema;
+    engine.execute(
+        &parser
+            .parse("create table schema_name.table_name (column_c char(10), column_vc varchar(10));")
+            .expect("parsed"),
+    );
     collector.assert_receive_single(Ok(QueryEvent::TableCreated));
 
-    engine
-        .execute("insert into schema_name.table_name values('12345abcde', '12345abcde');")
-        .expect("no system errors");
+    engine.execute(
+        &parser
+            .parse("insert into schema_name.table_name values('12345abcde', '12345abcde');")
+            .expect("parsed"),
+    );
     collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
-    engine
-        .execute("insert into schema_name.table_name values('12345abcde', 'abcde');")
-        .expect("no system errors");
+    engine.execute(
+        &parser
+            .parse("insert into schema_name.table_name values('12345abcde', 'abcde');")
+            .expect("parsed"),
+    );
     collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
-    engine
-        .execute("select * from schema_name.table_name;")
-        .expect("no system errors");
+    engine.execute(&parser.parse("select * from schema_name.table_name;").expect("parsed"));
     collector.assert_receive_many(vec![
         Ok(QueryEvent::RowDescription(vec![
             ColumnMetadata::new("column_c", PostgreSqlType::Char),
@@ -257,26 +288,34 @@ fn insert_and_select_different_character_types(sql_engine_with_schema: (QueryExe
 }
 
 #[rstest::rstest]
-fn insert_booleans(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
-    let (engine, collector) = sql_engine_with_schema;
-    engine
-        .execute("create table schema_name.table_name (b boolean);")
-        .expect("no system errors");
+fn insert_booleans(database_with_schema: (QueryExecutor, QueryParser, ResultCollector)) {
+    let (engine, parser, collector) = database_with_schema;
+    engine.execute(
+        &parser
+            .parse("create table schema_name.table_name (b boolean);")
+            .expect("parsed"),
+    );
     collector.assert_receive_single(Ok(QueryEvent::TableCreated));
 
-    engine
-        .execute("insert into schema_name.table_name values(true);")
-        .expect("no system errors");
+    engine.execute(
+        &parser
+            .parse("insert into schema_name.table_name values(true);")
+            .expect("parsed"),
+    );
     collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
-    engine
-        .execute("insert into schema_name.table_name values(TRUE::boolean);")
-        .expect("no system errors");
+    engine.execute(
+        &parser
+            .parse("insert into schema_name.table_name values(TRUE::boolean);")
+            .expect("parsed"),
+    );
     collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
-    engine
-        .execute("insert into schema_name.table_name values('true'::boolean);")
-        .expect("no system errors");
+    engine.execute(
+        &parser
+            .parse("insert into schema_name.table_name values('true'::boolean);")
+            .expect("parsed"),
+    );
     collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 }
 
@@ -294,30 +333,33 @@ mod operators {
 
             #[rstest::fixture]
             fn with_table(
-                sql_engine_with_schema: (QueryExecutor, ResultCollector),
-            ) -> (QueryExecutor, ResultCollector) {
-                let (engine, collector) = sql_engine_with_schema;
-                engine
-                    .execute("create table schema_name.table_name(column_si smallint);")
-                    .expect("no system errors");
+                database_with_schema: (QueryExecutor, QueryParser, ResultCollector),
+            ) -> (QueryExecutor, QueryParser, ResultCollector) {
+                let (engine, parser, collector) = database_with_schema;
+
+                engine.execute(
+                    &parser
+                        .parse("create table schema_name.table_name(column_si smallint);")
+                        .expect("parsed"),
+                );
                 collector
                     .assert_receive_till_this_moment(vec![Ok(QueryEvent::TableCreated), Ok(QueryEvent::QueryComplete)]);
 
-                (engine, collector)
+                (engine, parser, collector)
             }
 
             #[rstest::rstest]
-            fn addition(with_table: (QueryExecutor, ResultCollector)) {
-                let (engine, collector) = with_table;
-                engine
-                    .execute("insert into schema_name.table_name values (1 + 2);")
-                    .expect("no system errors");
+            fn addition(with_table: (QueryExecutor, QueryParser, ResultCollector)) {
+                let (engine, parser, collector) = with_table;
+
+                engine.execute(
+                    &parser
+                        .parse("insert into schema_name.table_name values (1 + 2);")
+                        .expect("parsed"),
+                );
                 collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
-                engine
-                    .execute("select * from schema_name.table_name;")
-                    .expect("no system errors");
-
+                engine.execute(&parser.parse("select * from schema_name.table_name;").expect("parsed"));
                 collector.assert_receive_many(vec![
                     Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
                         "column_si",
@@ -329,17 +371,17 @@ mod operators {
             }
 
             #[rstest::rstest]
-            fn subtraction(with_table: (QueryExecutor, ResultCollector)) {
-                let (engine, collector) = with_table;
-                engine
-                    .execute("insert into schema_name.table_name values (1 - 2);")
-                    .expect("no system errors");
+            fn subtraction(with_table: (QueryExecutor, QueryParser, ResultCollector)) {
+                let (engine, parser, collector) = with_table;
+
+                engine.execute(
+                    &parser
+                        .parse("insert into schema_name.table_name values (1 - 2);")
+                        .expect("parsed"),
+                );
                 collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
-                engine
-                    .execute("select * from schema_name.table_name;")
-                    .expect("no system errors");
-
+                engine.execute(&parser.parse("select * from schema_name.table_name;").expect("parsed"));
                 collector.assert_receive_many(vec![
                     Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
                         "column_si",
@@ -351,17 +393,17 @@ mod operators {
             }
 
             #[rstest::rstest]
-            fn multiplication(with_table: (QueryExecutor, ResultCollector)) {
-                let (engine, collector) = with_table;
-                engine
-                    .execute("insert into schema_name.table_name values (3 * 2);")
-                    .expect("no system errors");
+            fn multiplication(with_table: (QueryExecutor, QueryParser, ResultCollector)) {
+                let (engine, parser, collector) = with_table;
+
+                engine.execute(
+                    &parser
+                        .parse("insert into schema_name.table_name values (3 * 2);")
+                        .expect("parsed"),
+                );
                 collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
-                engine
-                    .execute("select * from schema_name.table_name;")
-                    .expect("no system errors");
-
+                engine.execute(&parser.parse("select * from schema_name.table_name;").expect("parsed"));
                 collector.assert_receive_many(vec![
                     Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
                         "column_si",
@@ -373,17 +415,17 @@ mod operators {
             }
 
             #[rstest::rstest]
-            fn division(with_table: (QueryExecutor, ResultCollector)) {
-                let (engine, collector) = with_table;
-                engine
-                    .execute("insert into schema_name.table_name values (8 / 2);")
-                    .expect("no system errors");
+            fn division(with_table: (QueryExecutor, QueryParser, ResultCollector)) {
+                let (engine, parser, collector) = with_table;
+
+                engine.execute(
+                    &parser
+                        .parse("insert into schema_name.table_name values (8 / 2);")
+                        .expect("parsed"),
+                );
                 collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
-                engine
-                    .execute("select * from schema_name.table_name;")
-                    .expect("no system errors");
-
+                engine.execute(&parser.parse("select * from schema_name.table_name;").expect("parsed"));
                 collector.assert_receive_many(vec![
                     Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
                         "column_si",
@@ -395,17 +437,17 @@ mod operators {
             }
 
             #[rstest::rstest]
-            fn modulo(with_table: (QueryExecutor, ResultCollector)) {
-                let (engine, collector) = with_table;
-                engine
-                    .execute("insert into schema_name.table_name values (8 % 2);")
-                    .expect("no system errors");
+            fn modulo(with_table: (QueryExecutor, QueryParser, ResultCollector)) {
+                let (engine, parser, collector) = with_table;
+
+                engine.execute(
+                    &parser
+                        .parse("insert into schema_name.table_name values (8 % 2);")
+                        .expect("parsed"),
+                );
                 collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
-                engine
-                    .execute("select * from schema_name.table_name;")
-                    .expect("no system errors");
-
+                engine.execute(&parser.parse("select * from schema_name.table_name;").expect("parsed"));
                 collector.assert_receive_many(vec![
                     Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
                         "column_si",
@@ -420,17 +462,17 @@ mod operators {
             #[ignore]
             // TODO ^ is bitwise in SQL standard
             //      # is bitwise in PostgreSQL and it does not supported in sqlparser-rs
-            fn exponentiation(with_table: (QueryExecutor, ResultCollector)) {
-                let (engine, collector) = with_table;
-                engine
-                    .execute("insert into schema_name.table_name values (8 ^ 2);")
-                    .expect("no system errors");
+            fn exponentiation(with_table: (QueryExecutor, QueryParser, ResultCollector)) {
+                let (engine, parser, collector) = with_table;
+
+                engine.execute(
+                    &parser
+                        .parse("insert into schema_name.table_name values (8 ^ 2);")
+                        .expect("parsed"),
+                );
                 collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
-                engine
-                    .execute("select * from schema_name.table_name;")
-                    .expect("no system errors");
-
+                engine.execute(&parser.parse("select * from schema_name.table_name;").expect("parsed"));
                 collector.assert_receive_many(vec![
                     Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
                         "column_si",
@@ -444,17 +486,17 @@ mod operators {
             #[rstest::rstest]
             #[ignore]
             // TODO |/<n> is square root in PostgreSQL and it does not supported in sqlparser-rs
-            fn square_root(with_table: (QueryExecutor, ResultCollector)) {
-                let (engine, collector) = with_table;
-                engine
-                    .execute("insert into schema_name.table_name values (|/ 16);")
-                    .expect("no system errors");
+            fn square_root(with_table: (QueryExecutor, QueryParser, ResultCollector)) {
+                let (engine, parser, collector) = with_table;
+
+                engine.execute(
+                    &parser
+                        .parse("insert into schema_name.table_name values (|/ 16);")
+                        .expect("parsed"),
+                );
                 collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
-                engine
-                    .execute("select * from schema_name.table_name;")
-                    .expect("no system errors");
-
+                engine.execute(&parser.parse("select * from schema_name.table_name;").expect("parsed"));
                 collector.assert_receive_many(vec![
                     Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
                         "column_si",
@@ -468,17 +510,17 @@ mod operators {
             #[rstest::rstest]
             #[ignore]
             // TODO ||/<n> is cube root in PostgreSQL and it does not supported in sqlparser-rs
-            fn cube_root(with_table: (QueryExecutor, ResultCollector)) {
-                let (engine, collector) = with_table;
-                engine
-                    .execute("insert into schema_name.table_name values (||/ 8);")
-                    .expect("no system errors");
+            fn cube_root(with_table: (QueryExecutor, QueryParser, ResultCollector)) {
+                let (engine, parser, collector) = with_table;
+
+                engine.execute(
+                    &parser
+                        .parse("insert into schema_name.table_name values (||/ 8);")
+                        .expect("parsed"),
+                );
                 collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
-                engine
-                    .execute("select * from schema_name.table_name;")
-                    .expect("no system errors");
-
+                engine.execute(&parser.parse("select * from schema_name.table_name;").expect("parsed"));
                 collector.assert_receive_many(vec![
                     Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
                         "column_si",
@@ -492,17 +534,17 @@ mod operators {
             #[rstest::rstest]
             #[ignore]
             // TODO <n>! is factorial in PostgreSQL and it does not supported in sqlparser-rs
-            fn factorial(with_table: (QueryExecutor, ResultCollector)) {
-                let (engine, collector) = with_table;
-                engine
-                    .execute("insert into schema_name.table_name values (5!);")
-                    .expect("no system errors");
+            fn factorial(with_table: (QueryExecutor, QueryParser, ResultCollector)) {
+                let (engine, parser, collector) = with_table;
+
+                engine.execute(
+                    &parser
+                        .parse("insert into schema_name.table_name values (5!);")
+                        .expect("parsed"),
+                );
                 collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
-                engine
-                    .execute("select * from schema_name.table_name;")
-                    .expect("no system errors");
-
+                engine.execute(&parser.parse("select * from schema_name.table_name;").expect("parsed"));
                 collector.assert_receive_many(vec![
                     Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
                         "column_si",
@@ -516,17 +558,17 @@ mod operators {
             #[rstest::rstest]
             #[ignore]
             // TODO !!<n> is prefix factorial in PostgreSQL and it does not supported in sqlparser-rs
-            fn prefix_factorial(with_table: (QueryExecutor, ResultCollector)) {
-                let (engine, collector) = with_table;
-                engine
-                    .execute("insert into schema_name.table_name values (!!5);")
-                    .expect("no system errors");
+            fn prefix_factorial(with_table: (QueryExecutor, QueryParser, ResultCollector)) {
+                let (engine, parser, collector) = with_table;
+
+                engine.execute(
+                    &parser
+                        .parse("insert into schema_name.table_name values (!!5);")
+                        .expect("parsed"),
+                );
                 collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
-                engine
-                    .execute("select * from schema_name.table_name;")
-                    .expect("no system errors");
-
+                engine.execute(&parser.parse("select * from schema_name.table_name;").expect("parsed"));
                 collector.assert_receive_many(vec![
                     Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
                         "column_si",
@@ -540,17 +582,17 @@ mod operators {
             #[rstest::rstest]
             #[ignore]
             // TODO @<n> is absolute value in PostgreSQL and it does not supported in sqlparser-rs
-            fn absolute_value(with_table: (QueryExecutor, ResultCollector)) {
-                let (engine, collector) = with_table;
-                engine
-                    .execute("insert into schema_name.table_name values (@-5);")
-                    .expect("no system errors");
+            fn absolute_value(with_table: (QueryExecutor, QueryParser, ResultCollector)) {
+                let (engine, parser, collector) = with_table;
+
+                engine.execute(
+                    &parser
+                        .parse("insert into schema_name.table_name values (@-5);")
+                        .expect("parsed"),
+                );
                 collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
-                engine
-                    .execute("select * from schema_name.table_name;")
-                    .expect("no system errors");
-
+                engine.execute(&parser.parse("select * from schema_name.table_name;").expect("parsed"));
                 collector.assert_receive_many(vec![
                     Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
                         "column_si",
@@ -562,17 +604,17 @@ mod operators {
             }
 
             #[rstest::rstest]
-            fn bitwise_and(with_table: (QueryExecutor, ResultCollector)) {
-                let (engine, collector) = with_table;
-                engine
-                    .execute("insert into schema_name.table_name values (5 & 1);")
-                    .expect("no system errors");
+            fn bitwise_and(with_table: (QueryExecutor, QueryParser, ResultCollector)) {
+                let (engine, parser, collector) = with_table;
+
+                engine.execute(
+                    &parser
+                        .parse("insert into schema_name.table_name values (5 & 1);")
+                        .expect("parsed"),
+                );
                 collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
-                engine
-                    .execute("select * from schema_name.table_name;")
-                    .expect("no system errors");
-
+                engine.execute(&parser.parse("select * from schema_name.table_name;").expect("parsed"));
                 collector.assert_receive_many(vec![
                     Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
                         "column_si",
@@ -584,17 +626,17 @@ mod operators {
             }
 
             #[rstest::rstest]
-            fn bitwise_or(with_table: (QueryExecutor, ResultCollector)) {
-                let (engine, collector) = with_table;
-                engine
-                    .execute("insert into schema_name.table_name values (5 | 2);")
-                    .expect("no system errors");
+            fn bitwise_or(with_table: (QueryExecutor, QueryParser, ResultCollector)) {
+                let (engine, parser, collector) = with_table;
+
+                engine.execute(
+                    &parser
+                        .parse("insert into schema_name.table_name values (5 | 2);")
+                        .expect("parsed"),
+                );
                 collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
-                engine
-                    .execute("select * from schema_name.table_name;")
-                    .expect("no system errors");
-
+                engine.execute(&parser.parse("select * from schema_name.table_name;").expect("parsed"));
                 collector.assert_receive_many(vec![
                     Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
                         "column_si",
@@ -608,17 +650,17 @@ mod operators {
             #[rstest::rstest]
             #[ignore]
             // TODO ~ <n> is bitwise NOT in PostgreSQL and it does not supported in sqlparser-rs
-            fn bitwise_not(with_table: (QueryExecutor, ResultCollector)) {
-                let (engine, collector) = with_table;
-                engine
-                    .execute("insert into schema_name.table_name values (~1);")
-                    .expect("no system errors");
+            fn bitwise_not(with_table: (QueryExecutor, QueryParser, ResultCollector)) {
+                let (engine, parser, collector) = with_table;
+
+                engine.execute(
+                    &parser
+                        .parse("insert into schema_name.table_name values (~1);")
+                        .expect("parsed"),
+                );
                 collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
-                engine
-                    .execute("select * from schema_name.table_name;")
-                    .expect("no system errors");
-
+                engine.execute(&parser.parse("select * from schema_name.table_name;").expect("parsed"));
                 collector.assert_receive_many(vec![
                     Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
                         "column_si",
@@ -632,17 +674,17 @@ mod operators {
             #[rstest::rstest]
             #[ignore]
             // TODO <n> << <m> is bitwise SHIFT LEFT in PostgreSQL and it does not supported in sqlparser-rs
-            fn bitwise_shift_left(with_table: (QueryExecutor, ResultCollector)) {
-                let (engine, collector) = with_table;
-                engine
-                    .execute("insert into schema_name.table_name values (1 << 4);")
-                    .expect("no system errors");
+            fn bitwise_shift_left(with_table: (QueryExecutor, QueryParser, ResultCollector)) {
+                let (engine, parser, collector) = with_table;
+
+                engine.execute(
+                    &parser
+                        .parse("insert into schema_name.table_name values (1 << 4);")
+                        .expect("parsed"),
+                );
                 collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
-                engine
-                    .execute("select * from schema_name.table_name;")
-                    .expect("no system errors");
-
+                engine.execute(&parser.parse("select * from schema_name.table_name;").expect("parsed"));
                 collector.assert_receive_many(vec![
                     Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
                         "column_si",
@@ -656,17 +698,17 @@ mod operators {
             #[rstest::rstest]
             #[ignore]
             // TODO <n> >> <m> is bitwise SHIFT RIGHT in PostgreSQL and it does not supported in sqlparser-rs
-            fn bitwise_right_left(with_table: (QueryExecutor, ResultCollector)) {
-                let (engine, collector) = with_table;
-                engine
-                    .execute("insert into schema_name.table_name values (8 >> 2);")
-                    .expect("no system errors");
+            fn bitwise_right_left(with_table: (QueryExecutor, QueryParser, ResultCollector)) {
+                let (engine, parser, collector) = with_table;
+
+                engine.execute(
+                    &parser
+                        .parse("insert into schema_name.table_name values (8 >> 2);")
+                        .expect("parsed"),
+                );
                 collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
-                engine
-                    .execute("select * from schema_name.table_name;")
-                    .expect("no system errors");
-
+                engine.execute(&parser.parse("select * from schema_name.table_name;").expect("parsed"));
                 collector.assert_receive_many(vec![
                     Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
                         "column_si",
@@ -678,17 +720,17 @@ mod operators {
             }
 
             #[rstest::rstest]
-            fn evaluate_many_operations(with_table: (QueryExecutor, ResultCollector)) {
-                let (engine, collector) = with_table;
-                engine
-                    .execute("insert into schema_name.table_name values (5 & 13 % 10 + 1 * 20 - 40 / 4);")
-                    .expect("no system errors");
+            fn evaluate_many_operations(with_table: (QueryExecutor, QueryParser, ResultCollector)) {
+                let (engine, parser, collector) = with_table;
+
+                engine.execute(
+                    &parser
+                        .parse("insert into schema_name.table_name values (5 & 13 % 10 + 1 * 20 - 40 / 4);")
+                        .expect("parsed"),
+                );
                 collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
-                engine
-                    .execute("select * from schema_name.table_name;")
-                    .expect("no system errors");
-
+                engine.execute(&parser.parse("select * from schema_name.table_name;").expect("parsed"));
                 collector.assert_receive_many(vec![
                     Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
                         "column_si",
@@ -706,29 +748,34 @@ mod operators {
         use super::*;
 
         #[rstest::fixture]
-        fn with_table(sql_engine_with_schema: (QueryExecutor, ResultCollector)) -> (QueryExecutor, ResultCollector) {
-            let (engine, collector) = sql_engine_with_schema;
-            engine
-                .execute("create table schema_name.table_name(strings char(5));")
-                .expect("no system errors");
+        fn with_table(
+            database_with_schema: (QueryExecutor, QueryParser, ResultCollector),
+        ) -> (QueryExecutor, QueryParser, ResultCollector) {
+            let (engine, parser, collector) = database_with_schema;
+
+            engine.execute(
+                &parser
+                    .parse("create table schema_name.table_name(strings char(5));")
+                    .expect("parsed"),
+            );
             collector
                 .assert_receive_till_this_moment(vec![Ok(QueryEvent::TableCreated), Ok(QueryEvent::QueryComplete)]);
 
-            (engine, collector)
+            (engine, parser, collector)
         }
 
         #[rstest::rstest]
-        fn concatenation(with_table: (QueryExecutor, ResultCollector)) {
-            let (engine, collector) = with_table;
-            engine
-                .execute("insert into schema_name.table_name values ('123' || '45');")
-                .expect("no system errors");
+        fn concatenation(with_table: (QueryExecutor, QueryParser, ResultCollector)) {
+            let (engine, parser, collector) = with_table;
+
+            engine.execute(
+                &parser
+                    .parse("insert into schema_name.table_name values ('123' || '45');")
+                    .expect("parsed"),
+            );
             collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
-            engine
-                .execute("select * from schema_name.table_name;")
-                .expect("no system errors");
-
+            engine.execute(&parser.parse("select * from schema_name.table_name;").expect("parsed"));
             collector.assert_receive_many(vec![
                 Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
                     "strings",
@@ -740,22 +787,24 @@ mod operators {
         }
 
         #[rstest::rstest]
-        fn concatenation_with_number(with_table: (QueryExecutor, ResultCollector)) {
-            let (engine, collector) = with_table;
-            engine
-                .execute("insert into schema_name.table_name values (1 || '45');")
-                .expect("no system errors");
+        fn concatenation_with_number(with_table: (QueryExecutor, QueryParser, ResultCollector)) {
+            let (engine, parser, collector) = with_table;
+
+            engine.execute(
+                &parser
+                    .parse("insert into schema_name.table_name values (1 || '45');")
+                    .expect("parsed"),
+            );
             collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
-            engine
-                .execute("insert into schema_name.table_name values ('45' || 1);")
-                .expect("no system errors");
+            engine.execute(
+                &parser
+                    .parse("insert into schema_name.table_name values ('45' || 1);")
+                    .expect("parsed"),
+            );
             collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
-            engine
-                .execute("select * from schema_name.table_name;")
-                .expect("no system errors");
-
+            engine.execute(&parser.parse("select * from schema_name.table_name;").expect("parsed"));
             collector.assert_receive_many(vec![
                 Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
                     "strings",
@@ -768,12 +817,14 @@ mod operators {
         }
 
         #[rstest::rstest]
-        fn non_string_concatenation_not_supported(with_table: (QueryExecutor, ResultCollector)) {
-            let (engine, collector) = with_table;
-            engine
-                .execute("insert into schema_name.table_name values (1 || 2);")
-                .expect("no system errors");
+        fn non_string_concatenation_not_supported(with_table: (QueryExecutor, QueryParser, ResultCollector)) {
+            let (engine, parser, collector) = with_table;
 
+            engine.execute(
+                &parser
+                    .parse("insert into schema_name.table_name values (1 || 2);")
+                    .expect("parsed"),
+            );
             collector.assert_receive_single(Err(QueryError::undefined_function(
                 "||".to_owned(),
                 "NUMBER".to_owned(),

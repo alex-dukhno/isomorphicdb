@@ -17,7 +17,7 @@ use std::sync::Arc;
 use binary::Binary;
 use constraints::{Constraint, ConstraintError};
 use data_manager::{ColumnDefinition, DataManager, Row};
-use kernel::{SystemError, SystemResult};
+use kernel::SystemError;
 use protocol::{
     results::{QueryError, QueryEvent},
     Sender,
@@ -46,7 +46,7 @@ impl InsertCommand {
         }
     }
 
-    pub(crate) fn execute(&self) -> SystemResult<()> {
+    pub(crate) fn execute(&self) {
         let evaluation = StaticExpressionEvaluation::new(self.sender.clone());
         let mut rows = vec![];
         for line in &self.table_inserts.input {
@@ -55,18 +55,26 @@ impl InsertCommand {
                 let value = match evaluation.eval(expression) {
                     Ok(ScalarOp::Value(value)) => value,
                     Ok(ScalarOp::Column(column_identifier)) => {
-                        return Err(SystemError::runtime_check_failure(&format!(
-                            "column name '{}' can't be used in insert statement",
-                            column_identifier
-                        )))
+                        log::error!(
+                            "{:?}",
+                            SystemError::runtime_check_failure(&format!(
+                                "column name '{}' can't be used in insert statement",
+                                column_identifier
+                            ))
+                        );
+                        return;
                     }
                     Ok(operation) => {
-                        return Err(SystemError::runtime_check_failure(&format!(
-                            "Operation '{:?}' can't be performed in insert statement",
-                            operation
-                        )))
+                        log::error!(
+                            "{:?}",
+                            SystemError::runtime_check_failure(&format!(
+                                "Operation '{:?}' can't be performed in insert statement",
+                                operation
+                            ))
+                        );
+                        return;
                     }
-                    Err(()) => return Ok(()),
+                    Err(()) => return,
                 };
                 row.push(value);
             }
@@ -79,7 +87,7 @@ impl InsertCommand {
                 self.sender
                     .send(Err(QueryError::too_many_insert_expressions()))
                     .expect("To Send Result to Client");
-                return Ok(());
+                return;
             }
 
             let key = self
@@ -107,7 +115,7 @@ impl InsertCommand {
                         self.sender
                             .send(Err(QueryError::invalid_text_representation(sql_type.into(), item)))
                             .expect("To Send Result to User");
-                        return Ok(());
+                        return;
                     }
                 }
             }
@@ -136,19 +144,20 @@ impl InsertCommand {
                         .send(Err(error_to_send))
                         .expect("To Send Query Result to Client");
                 }
-                return Ok(());
+                return;
             }
             to_write.push((Binary::with_data(key), Binary::pack(&record)));
         }
 
-        match self.data_manager.write_into(&self.table_inserts.table_id, to_write) {
-            Err(error) => return Err(error),
-            Ok(size) => self
-                .sender
-                .send(Ok(QueryEvent::RecordsInserted(size)))
-                .expect("To Send Result to Client"),
-        }
-
-        Ok(())
+        let size = match self.data_manager.write_into(&self.table_inserts.table_id, to_write) {
+            Ok(size) => size,
+            Err(()) => {
+                log::error!("Error while writing into {:?}", self.table_inserts.table_id);
+                return;
+            }
+        };
+        self.sender
+            .send(Ok(QueryEvent::RecordsInserted(size)))
+            .expect("To Send Result to Client");
     }
 }

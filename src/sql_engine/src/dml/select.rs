@@ -15,7 +15,6 @@
 use std::sync::Arc;
 
 use data_manager::DataManager;
-use kernel::{SystemError, SystemResult};
 use protocol::{
     messages::ColumnMetadata,
     results::{Description, QueryError, QueryEvent},
@@ -42,7 +41,7 @@ impl SelectCommand {
         }
     }
 
-    pub(crate) fn describe(&self) -> SystemResult<Description> {
+    pub(crate) fn describe(&self) -> Result<Description, ()> {
         let all_columns = self.data_manager.table_columns(&self.select_input.table_id)?;
         let mut column_definitions = vec![];
         let mut has_error = false;
@@ -66,7 +65,7 @@ impl SelectCommand {
         }
 
         if has_error {
-            return Err(SystemError::runtime_check_failure(&"Column Does Not Exist"));
+            return Err(());
         }
 
         let description = column_definitions
@@ -77,8 +76,17 @@ impl SelectCommand {
         Ok(description)
     }
 
-    pub(crate) fn execute(&mut self) -> SystemResult<()> {
-        let all_columns = self.data_manager.table_columns(&self.select_input.table_id)?;
+    pub(crate) fn execute(&mut self) {
+        let all_columns = match self.data_manager.table_columns(&self.select_input.table_id) {
+            Err(()) => {
+                log::error!(
+                    "Error while accessing table columns with id {:?}",
+                    self.select_input.table_id
+                );
+                return;
+            }
+            Ok(all_columns) => all_columns,
+        };
         let mut description = vec![];
         let mut column_indexes = vec![];
         let mut has_error = false;
@@ -103,52 +111,52 @@ impl SelectCommand {
         }
 
         if has_error {
-            return Ok(());
+            return;
         }
 
-        match self.data_manager.full_scan(&self.select_input.table_id) {
-            Err(error) => Err(error),
-            Ok(records) => {
-                self.sender
-                    .send(Ok(QueryEvent::RowDescription(
-                        description
-                            .into_iter()
-                            .map(|column| ColumnMetadata::new(column.name(), (&column.sql_type()).into()))
-                            .collect(),
-                    )))
-                    .expect("To Send Query Result to Client");
-
-                let mut index = 0;
-
-                records
-                    .map(Result::unwrap)
-                    .map(Result::unwrap)
-                    .map(|(_key, values)| {
-                        let row: Vec<String> = values.unpack().into_iter().map(|datum| datum.to_string()).collect();
-
-                        let mut values = vec![];
-                        for origin in column_indexes.iter() {
-                            for (index, value) in row.iter().enumerate() {
-                                if index == *origin {
-                                    values.push(value.clone())
-                                }
-                            }
-                        }
-                        values
-                    })
-                    .for_each(|value| {
-                        self.sender
-                            .send(Ok(QueryEvent::DataRow(value)))
-                            .expect("To Send Query Result to Client");
-                        index += 1;
-                    });
-
-                self.sender
-                    .send(Ok(QueryEvent::RecordsSelected(index)))
-                    .expect("To Send Query Result to Client");
-
-                Ok(())
+        let records = match self.data_manager.full_scan(&self.select_input.table_id) {
+            Err(()) => {
+                log::error!("Error while scanning table {:?}", self.select_input.table_id);
+                return;
             }
-        }
+            Ok(records) => records,
+        };
+        self.sender
+            .send(Ok(QueryEvent::RowDescription(
+                description
+                    .into_iter()
+                    .map(|column| ColumnMetadata::new(column.name(), (&column.sql_type()).into()))
+                    .collect(),
+            )))
+            .expect("To Send Query Result to Client");
+
+        let mut index = 0;
+
+        records
+            .map(Result::unwrap)
+            .map(Result::unwrap)
+            .map(|(_key, values)| {
+                let row: Vec<String> = values.unpack().into_iter().map(|datum| datum.to_string()).collect();
+
+                let mut values = vec![];
+                for origin in column_indexes.iter() {
+                    for (index, value) in row.iter().enumerate() {
+                        if index == *origin {
+                            values.push(value.clone())
+                        }
+                    }
+                }
+                values
+            })
+            .for_each(|value| {
+                self.sender
+                    .send(Ok(QueryEvent::DataRow(value)))
+                    .expect("To Send Query Result to Client");
+                index += 1;
+            });
+
+        self.sender
+            .send(Ok(QueryEvent::RecordsSelected(index)))
+            .expect("To Send Query Result to Client");
     }
 }

@@ -27,7 +27,7 @@ use sqlparser::ast::{Assignment, Expr, ObjectName, Statement, Value};
 fn update_table_that_in_nonexistent_schema(planner_and_sender: (QueryPlanner, ResultCollector)) {
     let (query_planner, collector) = planner_and_sender;
     assert_eq!(
-        query_planner.plan(Statement::Update {
+        query_planner.plan(&Statement::Update {
             table_name: ObjectName(vec![ident("non_existent_schema"), ident(TABLE)]),
             assignments: vec![],
             selection: None
@@ -42,7 +42,7 @@ fn update_table_that_in_nonexistent_schema(planner_and_sender: (QueryPlanner, Re
 fn update_nonexistent_table(planner_and_sender_with_schema: (QueryPlanner, ResultCollector)) {
     let (query_planner, collector) = planner_and_sender_with_schema;
     assert_eq!(
-        query_planner.plan(Statement::Update {
+        query_planner.plan(&Statement::Update {
             table_name: ObjectName(vec![ident(SCHEMA), ident("non_existent_table")]),
             assignments: vec![],
             selection: None
@@ -60,7 +60,7 @@ fn update_nonexistent_table(planner_and_sender_with_schema: (QueryPlanner, Resul
 fn update_table_with_unqualified_name(planner_and_sender_with_schema: (QueryPlanner, ResultCollector)) {
     let (query_planner, collector) = planner_and_sender_with_schema;
     assert_eq!(
-        query_planner.plan(Statement::Update {
+        query_planner.plan(&Statement::Update {
             table_name: ObjectName(vec![ident("only_schema_in_the_name")]),
             assignments: vec![Assignment {
                 id: ident(""),
@@ -80,7 +80,7 @@ fn update_table_with_unqualified_name(planner_and_sender_with_schema: (QueryPlan
 fn update_table_with_unsupported_name(planner_and_sender_with_schema: (QueryPlanner, ResultCollector)) {
     let (query_planner, collector) = planner_and_sender_with_schema;
     assert_eq!(
-        query_planner.plan(Statement::Update {
+        query_planner.plan(&Statement::Update {
             table_name: ObjectName(vec![
                 ident("first_part"),
                 ident("second_part"),
@@ -105,7 +105,7 @@ fn update_table_with_unsupported_name(planner_and_sender_with_schema: (QueryPlan
 fn update_table(planner_and_sender_with_table: (QueryPlanner, ResultCollector)) {
     let (query_planner, collector) = planner_and_sender_with_table;
     assert_eq!(
-        query_planner.plan(Statement::Update {
+        query_planner.plan(&Statement::Update {
             table_name: ObjectName(vec![ident(SCHEMA), ident(TABLE)]),
             assignments: vec![Assignment {
                 id: ident("small_int"),

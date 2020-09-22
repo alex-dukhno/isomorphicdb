@@ -13,26 +13,31 @@
 // limitations under the License.
 
 use protocol::pgsql_types::PostgreSqlType;
-
-use super::*;
+mod common;
+use common::{database_with_schema, ResultCollector};
+use parser::QueryParser;
 use protocol::messages::ColumnMetadata;
+use protocol::results::{QueryError, QueryEvent};
+use sql_engine::QueryExecutor;
 
 #[rstest::rstest]
-fn update_all_records(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
-    let (engine, collector) = sql_engine_with_schema;
-    engine
-        .execute("create table schema_name.table_name (column_test smallint);")
-        .expect("no system errors");
+fn update_all_records(database_with_schema: (QueryExecutor, QueryParser, ResultCollector)) {
+    let (engine, parser, collector) = database_with_schema;
+    engine.execute(
+        &parser
+            .parse("create table schema_name.table_name (column_test smallint);")
+            .expect("parsed"),
+    );
     collector.assert_receive_single(Ok(QueryEvent::TableCreated));
 
-    engine
-        .execute("insert into schema_name.table_name values (123), (456);")
-        .expect("no system errors");
+    engine.execute(
+        &parser
+            .parse("insert into schema_name.table_name values (123), (456);")
+            .expect("parsed"),
+    );
     collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(2)));
 
-    engine
-        .execute("select * from schema_name.table_name;")
-        .expect("no system errors");
+    engine.execute(&parser.parse("select * from schema_name.table_name;").expect("parsed"));
     collector.assert_receive_many(vec![
         Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
             "column_test",
@@ -43,14 +48,14 @@ fn update_all_records(sql_engine_with_schema: (QueryExecutor, ResultCollector)) 
         Ok(QueryEvent::RecordsSelected(2)),
     ]);
 
-    engine
-        .execute("update schema_name.table_name set column_test=789;")
-        .expect("no system errors");
+    engine.execute(
+        &parser
+            .parse("update schema_name.table_name set column_test=789;")
+            .expect("parsed"),
+    );
     collector.assert_receive_single(Ok(QueryEvent::RecordsUpdated(2)));
 
-    engine
-        .execute("select * from schema_name.table_name;")
-        .expect("no system errors");
+    engine.execute(&parser.parse("select * from schema_name.table_name;").expect("parsed"));
     collector.assert_receive_many(vec![
         Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
             "column_test",
@@ -63,21 +68,23 @@ fn update_all_records(sql_engine_with_schema: (QueryExecutor, ResultCollector)) 
 }
 
 #[rstest::rstest]
-fn update_single_column_of_all_records(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
-    let (engine, collector) = sql_engine_with_schema;
-    engine
-        .execute("create table schema_name.table_name (col1 smallint, col2 smallint);")
-        .expect("no system errors");
+fn update_single_column_of_all_records(database_with_schema: (QueryExecutor, QueryParser, ResultCollector)) {
+    let (engine, parser, collector) = database_with_schema;
+    engine.execute(
+        &parser
+            .parse("create table schema_name.table_name (col1 smallint, col2 smallint);")
+            .expect("parsed"),
+    );
     collector.assert_receive_single(Ok(QueryEvent::TableCreated));
 
-    engine
-        .execute("insert into schema_name.table_name values (123, 789), (456, 789);")
-        .expect("no system errors");
+    engine.execute(
+        &parser
+            .parse("insert into schema_name.table_name values (123, 789), (456, 789);")
+            .expect("parsed"),
+    );
     collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(2)));
 
-    engine
-        .execute("select * from schema_name.table_name;")
-        .expect("no system errors");
+    engine.execute(&parser.parse("select * from schema_name.table_name;").expect("parsed"));
     collector.assert_receive_many(vec![
         Ok(QueryEvent::RowDescription(vec![
             ColumnMetadata::new("col1", PostgreSqlType::SmallInt),
@@ -88,14 +95,14 @@ fn update_single_column_of_all_records(sql_engine_with_schema: (QueryExecutor, R
         Ok(QueryEvent::RecordsSelected(2)),
     ]);
 
-    engine
-        .execute("update schema_name.table_name set col2=357;")
-        .expect("no system errors");
+    engine.execute(
+        &parser
+            .parse("update schema_name.table_name set col2=357;")
+            .expect("parsed"),
+    );
     collector.assert_receive_single(Ok(QueryEvent::RecordsUpdated(2)));
 
-    engine
-        .execute("select * from schema_name.table_name;")
-        .expect("no system errors");
+    engine.execute(&parser.parse("select * from schema_name.table_name;").expect("parsed"));
     collector.assert_receive_many(vec![
         Ok(QueryEvent::RowDescription(vec![
             ColumnMetadata::new("col1", PostgreSqlType::SmallInt),
@@ -108,21 +115,23 @@ fn update_single_column_of_all_records(sql_engine_with_schema: (QueryExecutor, R
 }
 
 #[rstest::rstest]
-fn update_multiple_columns_of_all_records(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
-    let (engine, collector) = sql_engine_with_schema;
-    engine
-        .execute("create table schema_name.table_name (col1 smallint, col2 smallint, col3 smallint);")
-        .expect("no system errors");
+fn update_multiple_columns_of_all_records(database_with_schema: (QueryExecutor, QueryParser, ResultCollector)) {
+    let (engine, parser, collector) = database_with_schema;
+    engine.execute(
+        &parser
+            .parse("create table schema_name.table_name (col1 smallint, col2 smallint, col3 smallint);")
+            .expect("parsed"),
+    );
     collector.assert_receive_single(Ok(QueryEvent::TableCreated));
 
-    engine
-        .execute("insert into schema_name.table_name values (111, 222, 333), (444, 555, 666);")
-        .expect("no system errors");
+    engine.execute(
+        &parser
+            .parse("insert into schema_name.table_name values (111, 222, 333), (444, 555, 666);")
+            .expect("parsed"),
+    );
     collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(2)));
 
-    engine
-        .execute("select * from schema_name.table_name;")
-        .expect("no system errors");
+    engine.execute(&parser.parse("select * from schema_name.table_name;").expect("parsed"));
     collector.assert_receive_many(vec![
         Ok(QueryEvent::RowDescription(vec![
             ColumnMetadata::new("col1", PostgreSqlType::SmallInt),
@@ -142,14 +151,14 @@ fn update_multiple_columns_of_all_records(sql_engine_with_schema: (QueryExecutor
         Ok(QueryEvent::RecordsSelected(2)),
     ]);
 
-    engine
-        .execute("update schema_name.table_name set col3=777, col1=999;")
-        .expect("no system errors");
+    engine.execute(
+        &parser
+            .parse("update schema_name.table_name set col3=777, col1=999;")
+            .expect("parsed"),
+    );
     collector.assert_receive_single(Ok(QueryEvent::RecordsUpdated(2)));
 
-    engine
-        .execute("select * from schema_name.table_name;")
-        .expect("no system errors");
+    engine.execute(&parser.parse("select * from schema_name.table_name;").expect("parsed"));
 
     collector.assert_receive_many(vec![
         Ok(QueryEvent::RowDescription(vec![
@@ -172,21 +181,23 @@ fn update_multiple_columns_of_all_records(sql_engine_with_schema: (QueryExecutor
 }
 
 #[rstest::rstest]
-fn update_all_records_in_multiple_columns(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
-    let (engine, collector) = sql_engine_with_schema;
-    engine
-        .execute("create table schema_name.table_name (column_1 smallint, column_2 smallint, column_3 smallint);")
-        .expect("no system errors");
+fn update_all_records_in_multiple_columns(database_with_schema: (QueryExecutor, QueryParser, ResultCollector)) {
+    let (engine, parser, collector) = database_with_schema;
+    engine.execute(
+        &parser
+            .parse("create table schema_name.table_name (column_1 smallint, column_2 smallint, column_3 smallint);")
+            .expect("parsed"),
+    );
     collector.assert_receive_single(Ok(QueryEvent::TableCreated));
 
-    engine
-        .execute("insert into schema_name.table_name values (1, 2, 3), (4, 5, 6), (7, 8, 9);")
-        .expect("no system errors");
+    engine.execute(
+        &parser
+            .parse("insert into schema_name.table_name values (1, 2, 3), (4, 5, 6), (7, 8, 9);")
+            .expect("parsed"),
+    );
     collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(3)));
 
-    engine
-        .execute("select * from schema_name.table_name;")
-        .expect("no system errors");
+    engine.execute(&parser.parse("select * from schema_name.table_name;").expect("parsed"));
     collector.assert_receive_many(vec![
         Ok(QueryEvent::RowDescription(vec![
             ColumnMetadata::new("column_1", PostgreSqlType::SmallInt),
@@ -211,14 +222,14 @@ fn update_all_records_in_multiple_columns(sql_engine_with_schema: (QueryExecutor
         Ok(QueryEvent::RecordsSelected(3)),
     ]);
 
-    engine
-        .execute("update schema_name.table_name set column_1=10, column_2=-20, column_3=30;")
-        .expect("no system errors");
+    engine.execute(
+        &parser
+            .parse("update schema_name.table_name set column_1=10, column_2=-20, column_3=30;")
+            .expect("parsed"),
+    );
     collector.assert_receive_single(Ok(QueryEvent::RecordsUpdated(3)));
 
-    engine
-        .execute("select * from schema_name.table_name;")
-        .expect("no system errors");
+    engine.execute(&parser.parse("select * from schema_name.table_name;").expect("parsed"));
 
     collector.assert_receive_many(vec![
         Ok(QueryEvent::RowDescription(vec![
@@ -246,30 +257,34 @@ fn update_all_records_in_multiple_columns(sql_engine_with_schema: (QueryExecutor
 }
 
 #[rstest::rstest]
-fn update_records_in_nonexistent_table(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
-    let (engine, collector) = sql_engine_with_schema;
-    engine
-        .execute("update schema_name.table_name set column_test=789;")
-        .expect("no system errors");
+fn update_records_in_nonexistent_table(database_with_schema: (QueryExecutor, QueryParser, ResultCollector)) {
+    let (engine, parser, collector) = database_with_schema;
+    engine.execute(
+        &parser
+            .parse("update schema_name.table_name set column_test=789;")
+            .expect("parsed"),
+    );
     collector.assert_receive_single(Err(QueryError::table_does_not_exist("schema_name.table_name")));
 }
 
 #[rstest::rstest]
-fn update_non_existent_columns_of_records(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
-    let (engine, collector) = sql_engine_with_schema;
-    engine
-        .execute("create table schema_name.table_name (column_test smallint);")
-        .expect("no system errors");
+fn update_non_existent_columns_of_records(database_with_schema: (QueryExecutor, QueryParser, ResultCollector)) {
+    let (engine, parser, collector) = database_with_schema;
+    engine.execute(
+        &parser
+            .parse("create table schema_name.table_name (column_test smallint);")
+            .expect("parsed"),
+    );
     collector.assert_receive_single(Ok(QueryEvent::TableCreated));
 
-    engine
-        .execute("insert into schema_name.table_name values (123);")
-        .expect("no system errors");
+    engine.execute(
+        &parser
+            .parse("insert into schema_name.table_name values (123);")
+            .expect("parsed"),
+    );
     collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
-    engine
-        .execute("select * from schema_name.table_name;")
-        .expect("no system errors");
+    engine.execute(&parser.parse("select * from schema_name.table_name;").expect("parsed"));
     collector.assert_receive_many(vec![
         Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
             "column_test",
@@ -279,9 +294,11 @@ fn update_non_existent_columns_of_records(sql_engine_with_schema: (QueryExecutor
         Ok(QueryEvent::RecordsSelected(1)),
     ]);
 
-    engine
-        .execute("update schema_name.table_name set col1=456, col2=789;")
-        .expect("no system errors");
+    engine.execute(
+        &parser
+            .parse("update schema_name.table_name set col1=456, col2=789;")
+            .expect("parsed"),
+    );
     collector.assert_receive_many(vec![
         Err(QueryError::column_does_not_exist("col1")),
         Err(QueryError::column_does_not_exist("col2")),
@@ -290,26 +307,28 @@ fn update_non_existent_columns_of_records(sql_engine_with_schema: (QueryExecutor
 
 #[rstest::rstest]
 #[allow(clippy::identity_op)]
-fn test_update_with_dynamic_expression(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
-    let (engine, collector) = sql_engine_with_schema;
-    engine
-        .execute(
-            "create table schema_name.table_name (\
+fn test_update_with_dynamic_expression(database_with_schema: (QueryExecutor, QueryParser, ResultCollector)) {
+    let (engine, parser, collector) = database_with_schema;
+    engine.execute(
+        &parser
+            .parse(
+                "create table schema_name.table_name (\
             si_column_1 smallint, \
             si_column_2 smallint, \
             si_column_3 smallint);",
-        )
-        .expect("no system errors");
+            )
+            .expect("parsed"),
+    );
     collector.assert_receive_single(Ok(QueryEvent::TableCreated));
 
-    engine
-        .execute("insert into schema_name.table_name values (1, 2, 3), (4, 5, 6), (7, 8, 9);")
-        .expect("no system errors");
+    engine.execute(
+        &parser
+            .parse("insert into schema_name.table_name values (1, 2, 3), (4, 5, 6), (7, 8, 9);")
+            .expect("parsed"),
+    );
     collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(3)));
 
-    engine
-        .execute("select * from schema_name.table_name;")
-        .expect("no system errors");
+    engine.execute(&parser.parse("select * from schema_name.table_name;").expect("parsed"));
     collector.assert_receive_many(vec![
         Ok(QueryEvent::RowDescription(vec![
             ColumnMetadata::new("si_column_1", PostgreSqlType::SmallInt),
@@ -334,20 +353,20 @@ fn test_update_with_dynamic_expression(sql_engine_with_schema: (QueryExecutor, R
         Ok(QueryEvent::RecordsSelected(3)),
     ]);
 
-    engine
-        .execute(
-            "update schema_name.table_name \
+    engine.execute(
+        &parser
+            .parse(
+                "update schema_name.table_name \
         set \
             si_column_1 = 2 * si_column_1, \
             si_column_2 = 2 * (si_column_1 + si_column_2), \
             si_column_3 = (si_column_3 + (2 * (si_column_1 + si_column_2)));",
-        )
-        .expect("no system errors");
+            )
+            .expect("parsed"),
+    );
     collector.assert_receive_single(Ok(QueryEvent::RecordsUpdated(3)));
 
-    engine
-        .execute("select * from schema_name.table_name;")
-        .expect("no system errors");
+    engine.execute(&parser.parse("select * from schema_name.table_name;").expect("parsed"));
     collector.assert_receive_many(vec![
         Ok(QueryEvent::RowDescription(vec![
             ColumnMetadata::new("si_column_1", PostgreSqlType::SmallInt),
@@ -387,15 +406,19 @@ mod operators {
 
             #[rstest::fixture]
             fn with_table(
-                sql_engine_with_schema: (QueryExecutor, ResultCollector),
-            ) -> (QueryExecutor, ResultCollector) {
-                let (engine, collector) = sql_engine_with_schema;
-                engine
-                    .execute("create table schema_name.table_name(column_si smallint);")
-                    .expect("no system errors");
-                engine
-                    .execute("insert into schema_name.table_name values (2);")
-                    .expect("no system errors");
+                database_with_schema: (QueryExecutor, QueryParser, ResultCollector),
+            ) -> (QueryExecutor, QueryParser, ResultCollector) {
+                let (engine, parser, collector) = database_with_schema;
+                engine.execute(
+                    &parser
+                        .parse("create table schema_name.table_name(column_si smallint);")
+                        .expect("parsed"),
+                );
+                engine.execute(
+                    &parser
+                        .parse("insert into schema_name.table_name values (2);")
+                        .expect("parsed"),
+                );
                 collector.assert_receive_till_this_moment(vec![
                     Ok(QueryEvent::TableCreated),
                     Ok(QueryEvent::QueryComplete),
@@ -403,20 +426,20 @@ mod operators {
                     Ok(QueryEvent::QueryComplete),
                 ]);
 
-                (engine, collector)
+                (engine, parser, collector)
             }
 
             #[rstest::rstest]
-            fn addition(with_table: (QueryExecutor, ResultCollector)) {
-                let (engine, collector) = with_table;
-                engine
-                    .execute("update schema_name.table_name set column_si = 1 + 2;")
-                    .expect("no system errors");
+            fn addition(with_table: (QueryExecutor, QueryParser, ResultCollector)) {
+                let (engine, parser, collector) = with_table;
+                engine.execute(
+                    &parser
+                        .parse("update schema_name.table_name set column_si = 1 + 2;")
+                        .expect("parsed"),
+                );
                 collector.assert_receive_single(Ok(QueryEvent::RecordsUpdated(1)));
 
-                engine
-                    .execute("select * from schema_name.table_name;")
-                    .expect("no system errors");
+                engine.execute(&parser.parse("select * from schema_name.table_name;").expect("parsed"));
                 collector.assert_receive_many(vec![
                     Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
                         "column_si",
@@ -428,16 +451,16 @@ mod operators {
             }
 
             #[rstest::rstest]
-            fn subtraction(with_table: (QueryExecutor, ResultCollector)) {
-                let (engine, collector) = with_table;
-                engine
-                    .execute("update schema_name.table_name set column_si = 1 - 2;")
-                    .expect("no system errors");
+            fn subtraction(with_table: (QueryExecutor, QueryParser, ResultCollector)) {
+                let (engine, parser, collector) = with_table;
+                engine.execute(
+                    &parser
+                        .parse("update schema_name.table_name set column_si = 1 - 2;")
+                        .expect("parsed"),
+                );
                 collector.assert_receive_single(Ok(QueryEvent::RecordsUpdated(1)));
 
-                engine
-                    .execute("select * from schema_name.table_name;")
-                    .expect("no system errors");
+                engine.execute(&parser.parse("select * from schema_name.table_name;").expect("parsed"));
 
                 collector.assert_receive_many(vec![
                     Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
@@ -450,16 +473,16 @@ mod operators {
             }
 
             #[rstest::rstest]
-            fn multiplication(with_table: (QueryExecutor, ResultCollector)) {
-                let (engine, collector) = with_table;
-                engine
-                    .execute("update schema_name.table_name set column_si = 3 * 2;")
-                    .expect("no system errors");
+            fn multiplication(with_table: (QueryExecutor, QueryParser, ResultCollector)) {
+                let (engine, parser, collector) = with_table;
+                engine.execute(
+                    &parser
+                        .parse("update schema_name.table_name set column_si = 3 * 2;")
+                        .expect("parsed"),
+                );
                 collector.assert_receive_single(Ok(QueryEvent::RecordsUpdated(1)));
 
-                engine
-                    .execute("select * from schema_name.table_name;")
-                    .expect("no system errors");
+                engine.execute(&parser.parse("select * from schema_name.table_name;").expect("parsed"));
 
                 collector.assert_receive_many(vec![
                     Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
@@ -472,16 +495,16 @@ mod operators {
             }
 
             #[rstest::rstest]
-            fn division(with_table: (QueryExecutor, ResultCollector)) {
-                let (engine, collector) = with_table;
-                engine
-                    .execute("update schema_name.table_name set column_si = 8 / 2;")
-                    .expect("no system errors");
+            fn division(with_table: (QueryExecutor, QueryParser, ResultCollector)) {
+                let (engine, parser, collector) = with_table;
+                engine.execute(
+                    &parser
+                        .parse("update schema_name.table_name set column_si = 8 / 2;")
+                        .expect("parsed"),
+                );
                 collector.assert_receive_single(Ok(QueryEvent::RecordsUpdated(1)));
 
-                engine
-                    .execute("select * from schema_name.table_name;")
-                    .expect("no system errors");
+                engine.execute(&parser.parse("select * from schema_name.table_name;").expect("parsed"));
                 collector.assert_receive_many(vec![
                     Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
                         "column_si",
@@ -493,17 +516,16 @@ mod operators {
             }
 
             #[rstest::rstest]
-            fn modulo(with_table: (QueryExecutor, ResultCollector)) {
-                let (engine, collector) = with_table;
-                engine
-                    .execute("update schema_name.table_name set column_si = 8 % 2;")
-                    .expect("no system errors");
+            fn modulo(with_table: (QueryExecutor, QueryParser, ResultCollector)) {
+                let (engine, parser, collector) = with_table;
+                engine.execute(
+                    &parser
+                        .parse("update schema_name.table_name set column_si = 8 % 2;")
+                        .expect("parsed"),
+                );
                 collector.assert_receive_single(Ok(QueryEvent::RecordsUpdated(1)));
 
-                engine
-                    .execute("select * from schema_name.table_name;")
-                    .expect("no system errors");
-
+                engine.execute(&parser.parse("select * from schema_name.table_name;").expect("parsed"));
                 collector.assert_receive_many(vec![
                     Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
                         "column_si",
@@ -518,16 +540,16 @@ mod operators {
             #[ignore]
             // TODO ^ is bitwise in SQL standard
             //      # is bitwise in PostgreSQL and it does not supported in sqlparser-rs
-            fn exponentiation(with_table: (QueryExecutor, ResultCollector)) {
-                let (engine, collector) = with_table;
-                engine
-                    .execute("update schema_name.table_name set column_si = 8 ^ 2;")
-                    .expect("no system errors");
+            fn exponentiation(with_table: (QueryExecutor, QueryParser, ResultCollector)) {
+                let (engine, parser, collector) = with_table;
+                engine.execute(
+                    &parser
+                        .parse("update schema_name.table_name set column_si = 8 ^ 2;")
+                        .expect("parsed"),
+                );
                 collector.assert_receive_single(Ok(QueryEvent::RecordsUpdated(1)));
 
-                engine
-                    .execute("select * from schema_name.table_name;")
-                    .expect("no system errors");
+                engine.execute(&parser.parse("select * from schema_name.table_name;").expect("parsed"));
                 collector.assert_receive_many(vec![
                     Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
                         "column_si",
@@ -541,16 +563,16 @@ mod operators {
             #[rstest::rstest]
             #[ignore]
             // TODO |/<n> is square root in PostgreSQL and it does not supported in sqlparser-rs
-            fn square_root(with_table: (QueryExecutor, ResultCollector)) {
-                let (engine, collector) = with_table;
-                engine
-                    .execute("update schema_name.table_name set column_si = |/ 16;")
-                    .expect("no system errors");
+            fn square_root(with_table: (QueryExecutor, QueryParser, ResultCollector)) {
+                let (engine, parser, collector) = with_table;
+                engine.execute(
+                    &parser
+                        .parse("update schema_name.table_name set column_si = |/ 16;")
+                        .expect("parsed"),
+                );
                 collector.assert_receive_single(Ok(QueryEvent::RecordsUpdated(1)));
 
-                engine
-                    .execute("select * from schema_name.table_name;")
-                    .expect("no system errors");
+                engine.execute(&parser.parse("select * from schema_name.table_name;").expect("parsed"));
                 collector.assert_receive_many(vec![
                     Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
                         "column_si",
@@ -564,16 +586,16 @@ mod operators {
             #[rstest::rstest]
             #[ignore]
             // TODO ||/<n> is cube root in PostgreSQL and it does not supported in sqlparser-rs
-            fn cube_root(with_table: (QueryExecutor, ResultCollector)) {
-                let (engine, collector) = with_table;
-                engine
-                    .execute("update schema_name.table_name set column_si = ||/ 8;")
-                    .expect("no system errors");
+            fn cube_root(with_table: (QueryExecutor, QueryParser, ResultCollector)) {
+                let (engine, parser, collector) = with_table;
+                engine.execute(
+                    &parser
+                        .parse("update schema_name.table_name set column_si = ||/ 8;")
+                        .expect("parsed"),
+                );
                 collector.assert_receive_single(Ok(QueryEvent::RecordsUpdated(1)));
 
-                engine
-                    .execute("select * from schema_name.table_name;")
-                    .expect("no system errors");
+                engine.execute(&parser.parse("select * from schema_name.table_name;").expect("parsed"));
                 collector.assert_receive_many(vec![
                     Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
                         "column_si",
@@ -587,16 +609,16 @@ mod operators {
             #[rstest::rstest]
             #[ignore]
             // TODO <n>! is factorial in PostgreSQL and it does not supported in sqlparser-rs
-            fn factorial(with_table: (QueryExecutor, ResultCollector)) {
-                let (engine, collector) = with_table;
-                engine
-                    .execute("update schema_name.table_name set column_si = 5!;")
-                    .expect("no system errors");
+            fn factorial(with_table: (QueryExecutor, QueryParser, ResultCollector)) {
+                let (engine, parser, collector) = with_table;
+                engine.execute(
+                    &parser
+                        .parse("update schema_name.table_name set column_si = 5!;")
+                        .expect("parsed"),
+                );
                 collector.assert_receive_single(Ok(QueryEvent::RecordsUpdated(1)));
 
-                engine
-                    .execute("select * from schema_name.table_name;")
-                    .expect("no system errors");
+                engine.execute(&parser.parse("select * from schema_name.table_name;").expect("parsed"));
                 collector.assert_receive_many(vec![
                     Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
                         "column_si",
@@ -610,16 +632,16 @@ mod operators {
             #[rstest::rstest]
             #[ignore]
             // TODO !!<n> is prefix factorial in PostgreSQL and it does not supported in sqlparser-rs
-            fn prefix_factorial(with_table: (QueryExecutor, ResultCollector)) {
-                let (engine, collector) = with_table;
-                engine
-                    .execute("update schema_name.table_name set column_si = !!5;")
-                    .expect("no system errors");
+            fn prefix_factorial(with_table: (QueryExecutor, QueryParser, ResultCollector)) {
+                let (engine, parser, collector) = with_table;
+                engine.execute(
+                    &parser
+                        .parse("update schema_name.table_name set column_si = !!5;")
+                        .expect("parsed"),
+                );
                 collector.assert_receive_single(Ok(QueryEvent::RecordsUpdated(1)));
 
-                engine
-                    .execute("select * from schema_name.table_name;")
-                    .expect("no system errors");
+                engine.execute(&parser.parse("select * from schema_name.table_name;").expect("parsed"));
                 collector.assert_receive_many(vec![
                     Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
                         "column_si",
@@ -633,16 +655,16 @@ mod operators {
             #[rstest::rstest]
             #[ignore]
             // TODO @<n> is absolute value in PostgreSQL and it does not supported in sqlparser-rs
-            fn absolute_value(with_table: (QueryExecutor, ResultCollector)) {
-                let (engine, collector) = with_table;
-                engine
-                    .execute("update schema_name.table_name set column_si = @-5;")
-                    .expect("no system errors");
+            fn absolute_value(with_table: (QueryExecutor, QueryParser, ResultCollector)) {
+                let (engine, parser, collector) = with_table;
+                engine.execute(
+                    &parser
+                        .parse("update schema_name.table_name set column_si = @-5;")
+                        .expect("parsed"),
+                );
                 collector.assert_receive_single(Ok(QueryEvent::RecordsUpdated(1)));
 
-                engine
-                    .execute("select * from schema_name.table_name;")
-                    .expect("no system errors");
+                engine.execute(&parser.parse("select * from schema_name.table_name;").expect("parsed"));
                 collector.assert_receive_many(vec![
                     Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
                         "column_si",
@@ -654,16 +676,16 @@ mod operators {
             }
 
             #[rstest::rstest]
-            fn bitwise_and(with_table: (QueryExecutor, ResultCollector)) {
-                let (engine, collector) = with_table;
-                engine
-                    .execute("update schema_name.table_name set column_si = 5 & 1;")
-                    .expect("no system errors");
+            fn bitwise_and(with_table: (QueryExecutor, QueryParser, ResultCollector)) {
+                let (engine, parser, collector) = with_table;
+                engine.execute(
+                    &parser
+                        .parse("update schema_name.table_name set column_si = 5 & 1;")
+                        .expect("parsed"),
+                );
                 collector.assert_receive_single(Ok(QueryEvent::RecordsUpdated(1)));
 
-                engine
-                    .execute("select * from schema_name.table_name;")
-                    .expect("no system errors");
+                engine.execute(&parser.parse("select * from schema_name.table_name;").expect("parsed"));
                 collector.assert_receive_many(vec![
                     Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
                         "column_si",
@@ -675,16 +697,16 @@ mod operators {
             }
 
             #[rstest::rstest]
-            fn bitwise_or(with_table: (QueryExecutor, ResultCollector)) {
-                let (engine, collector) = with_table;
-                engine
-                    .execute("update schema_name.table_name set column_si = 5 | 2;")
-                    .expect("no system errors");
+            fn bitwise_or(with_table: (QueryExecutor, QueryParser, ResultCollector)) {
+                let (engine, parser, collector) = with_table;
+                engine.execute(
+                    &parser
+                        .parse("update schema_name.table_name set column_si = 5 | 2;")
+                        .expect("parsed"),
+                );
                 collector.assert_receive_single(Ok(QueryEvent::RecordsUpdated(1)));
 
-                engine
-                    .execute("select * from schema_name.table_name;")
-                    .expect("no system errors");
+                engine.execute(&parser.parse("select * from schema_name.table_name;").expect("parsed"));
                 collector.assert_receive_many(vec![
                     Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
                         "column_si",
@@ -698,16 +720,16 @@ mod operators {
             #[rstest::rstest]
             #[ignore]
             // TODO ~ <n> is bitwise NOT in PostgreSQL and it does not supported in sqlparser-rs
-            fn bitwise_not(with_table: (QueryExecutor, ResultCollector)) {
-                let (engine, collector) = with_table;
-                engine
-                    .execute("update schema_name.table_name set column_si = ~1;")
-                    .expect("no system errors");
+            fn bitwise_not(with_table: (QueryExecutor, QueryParser, ResultCollector)) {
+                let (engine, parser, collector) = with_table;
+                engine.execute(
+                    &parser
+                        .parse("update schema_name.table_name set column_si = ~1;")
+                        .expect("parsed"),
+                );
                 collector.assert_receive_single(Ok(QueryEvent::RecordsUpdated(1)));
 
-                engine
-                    .execute("select * from schema_name.table_name;")
-                    .expect("no system errors");
+                engine.execute(&parser.parse("select * from schema_name.table_name;").expect("parsed"));
                 collector.assert_receive_many(vec![
                     Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
                         "column_si",
@@ -721,16 +743,16 @@ mod operators {
             #[rstest::rstest]
             #[ignore]
             // TODO <n> << <m> is bitwise SHIFT LEFT in PostgreSQL and it does not supported in sqlparser-rs
-            fn bitwise_shift_left(with_table: (QueryExecutor, ResultCollector)) {
-                let (engine, collector) = with_table;
-                engine
-                    .execute("update schema_name.table_name set column_si = 1 << 4;")
-                    .expect("no system errors");
+            fn bitwise_shift_left(with_table: (QueryExecutor, QueryParser, ResultCollector)) {
+                let (engine, parser, collector) = with_table;
+                engine.execute(
+                    &parser
+                        .parse("update schema_name.table_name set column_si = 1 << 4;")
+                        .expect("parsed"),
+                );
                 collector.assert_receive_single(Ok(QueryEvent::RecordsUpdated(1)));
 
-                engine
-                    .execute("select * from schema_name.table_name;")
-                    .expect("no system errors");
+                engine.execute(&parser.parse("select * from schema_name.table_name;").expect("parsed"));
                 collector.assert_receive_many(vec![
                     Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
                         "column_si",
@@ -744,16 +766,16 @@ mod operators {
             #[rstest::rstest]
             #[ignore]
             // TODO <n> >> <m> is bitwise SHIFT RIGHT in PostgreSQL and it does not supported in sqlparser-rs
-            fn bitwise_right_left(with_table: (QueryExecutor, ResultCollector)) {
-                let (engine, collector) = with_table;
-                engine
-                    .execute("update schema_name.table_name set column_si = 8 >> 2;")
-                    .expect("no system errors");
+            fn bitwise_right_left(with_table: (QueryExecutor, QueryParser, ResultCollector)) {
+                let (engine, parser, collector) = with_table;
+                engine.execute(
+                    &parser
+                        .parse("update schema_name.table_name set column_si = 8 >> 2;")
+                        .expect("parsed"),
+                );
                 collector.assert_receive_single(Ok(QueryEvent::RecordsUpdated(1)));
 
-                engine
-                    .execute("select * from schema_name.table_name;")
-                    .expect("no system errors");
+                engine.execute(&parser.parse("select * from schema_name.table_name;").expect("parsed"));
                 collector.assert_receive_many(vec![
                     Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
                         "column_si",
@@ -765,16 +787,16 @@ mod operators {
             }
 
             #[rstest::rstest]
-            fn evaluate_many_operations(with_table: (QueryExecutor, ResultCollector)) {
-                let (engine, collector) = with_table;
-                engine
-                    .execute("update schema_name.table_name set column_si = 5 & 13 % 10 + 1 * 20 - 40 / 4;")
-                    .expect("no system errors");
+            fn evaluate_many_operations(with_table: (QueryExecutor, QueryParser, ResultCollector)) {
+                let (engine, parser, collector) = with_table;
+                engine.execute(
+                    &parser
+                        .parse("update schema_name.table_name set column_si = 5 & 13 % 10 + 1 * 20 - 40 / 4;")
+                        .expect("parsed"),
+                );
                 collector.assert_receive_single(Ok(QueryEvent::RecordsUpdated(1)));
 
-                engine
-                    .execute("select * from schema_name.table_name;")
-                    .expect("no system errors");
+                engine.execute(&parser.parse("select * from schema_name.table_name;").expect("parsed"));
                 collector.assert_receive_many(vec![
                     Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
                         "column_si",
@@ -792,14 +814,20 @@ mod operators {
         use super::*;
 
         #[rstest::fixture]
-        fn with_table(sql_engine_with_schema: (QueryExecutor, ResultCollector)) -> (QueryExecutor, ResultCollector) {
-            let (engine, collector) = sql_engine_with_schema;
-            engine
-                .execute("create table schema_name.table_name(strings char(5));")
-                .expect("no system errors");
-            engine
-                .execute("insert into schema_name.table_name values ('x');")
-                .expect("no system errors");
+        fn with_table(
+            database_with_schema: (QueryExecutor, QueryParser, ResultCollector),
+        ) -> (QueryExecutor, QueryParser, ResultCollector) {
+            let (engine, parser, collector) = database_with_schema;
+            engine.execute(
+                &parser
+                    .parse("create table schema_name.table_name(strings char(5));")
+                    .expect("parsed"),
+            );
+            engine.execute(
+                &parser
+                    .parse("insert into schema_name.table_name values ('x');")
+                    .expect("parsed"),
+            );
             collector.assert_receive_till_this_moment(vec![
                 Ok(QueryEvent::TableCreated),
                 Ok(QueryEvent::QueryComplete),
@@ -807,20 +835,20 @@ mod operators {
                 Ok(QueryEvent::QueryComplete),
             ]);
 
-            (engine, collector)
+            (engine, parser, collector)
         }
 
         #[rstest::rstest]
-        fn concatenation(with_table: (QueryExecutor, ResultCollector)) {
-            let (engine, collector) = with_table;
-            engine
-                .execute("update schema_name.table_name set strings = '123' || '45';")
-                .expect("no system errors");
+        fn concatenation(with_table: (QueryExecutor, QueryParser, ResultCollector)) {
+            let (engine, parser, collector) = with_table;
+            engine.execute(
+                &parser
+                    .parse("update schema_name.table_name set strings = '123' || '45';")
+                    .expect("parsed"),
+            );
             collector.assert_receive_single(Ok(QueryEvent::RecordsUpdated(1)));
 
-            engine
-                .execute("select * from schema_name.table_name;")
-                .expect("no system errors");
+            engine.execute(&parser.parse("select * from schema_name.table_name;").expect("parsed"));
             collector.assert_receive_many(vec![
                 Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
                     "strings",
@@ -832,16 +860,16 @@ mod operators {
         }
 
         #[rstest::rstest]
-        fn concatenation_with_number(with_table: (QueryExecutor, ResultCollector)) {
-            let (engine, collector) = with_table;
-            engine
-                .execute("update schema_name.table_name set strings = 1 || '45';")
-                .expect("no system errors");
+        fn concatenation_with_number(with_table: (QueryExecutor, QueryParser, ResultCollector)) {
+            let (engine, parser, collector) = with_table;
+            engine.execute(
+                &parser
+                    .parse("update schema_name.table_name set strings = 1 || '45';")
+                    .expect("parsed"),
+            );
             collector.assert_receive_single(Ok(QueryEvent::RecordsUpdated(1)));
 
-            engine
-                .execute("select * from schema_name.table_name;")
-                .expect("no system errors");
+            engine.execute(&parser.parse("select * from schema_name.table_name;").expect("parsed"));
             collector.assert_receive_many(vec![
                 Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
                     "strings",
@@ -851,14 +879,14 @@ mod operators {
                 Ok(QueryEvent::RecordsSelected(1)),
             ]);
 
-            engine
-                .execute("update schema_name.table_name set strings = '45' || 1;")
-                .expect("no system errors");
+            engine.execute(
+                &parser
+                    .parse("update schema_name.table_name set strings = '45' || 1;")
+                    .expect("parsed"),
+            );
             collector.assert_receive_single(Ok(QueryEvent::RecordsUpdated(1)));
 
-            engine
-                .execute("select * from schema_name.table_name;")
-                .expect("no system errors");
+            engine.execute(&parser.parse("select * from schema_name.table_name;").expect("parsed"));
             collector.assert_receive_many(vec![
                 Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
                     "strings",
@@ -870,11 +898,13 @@ mod operators {
         }
 
         #[rstest::rstest]
-        fn non_string_concatenation_not_supported(with_table: (QueryExecutor, ResultCollector)) {
-            let (engine, collector) = with_table;
-            engine
-                .execute("update schema_name.table_name set strings = 1 || 2;")
-                .expect("no system errors");
+        fn non_string_concatenation_not_supported(with_table: (QueryExecutor, QueryParser, ResultCollector)) {
+            let (engine, parser, collector) = with_table;
+            engine.execute(
+                &parser
+                    .parse("update schema_name.table_name set strings = 1 || 2;")
+                    .expect("parsed"),
+            );
             collector.assert_receive_single(Err(QueryError::undefined_function(
                 "||".to_owned(),
                 "NUMBER".to_owned(),

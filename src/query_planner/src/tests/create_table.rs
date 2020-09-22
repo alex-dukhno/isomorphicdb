@@ -46,7 +46,7 @@ fn table(name: Vec<&str>, columns: Vec<ColumnDef>) -> Statement {
 fn create_table_with_nonexistent_schema(planner_and_sender: (QueryPlanner, ResultCollector)) {
     let (query_planner, collector) = planner_and_sender;
     assert_eq!(
-        query_planner.plan(table(vec!["non_existent_schema", TABLE], vec![])),
+        query_planner.plan(&table(vec!["non_existent_schema", TABLE], vec![])),
         Err(())
     );
 
@@ -57,7 +57,7 @@ fn create_table_with_nonexistent_schema(planner_and_sender: (QueryPlanner, Resul
 fn create_table_with_the_same_name(planner_and_sender_with_table: (QueryPlanner, ResultCollector)) {
     let (query_planner, collector) = planner_and_sender_with_table;
 
-    assert_eq!(query_planner.plan(table(vec![SCHEMA, TABLE], vec![])), Err(()));
+    assert_eq!(query_planner.plan(&table(vec![SCHEMA, TABLE], vec![])), Err(()));
 
     collector.assert_content(vec![Err(QueryError::table_already_exists(format!(
         "{}.{}",
@@ -69,7 +69,7 @@ fn create_table_with_the_same_name(planner_and_sender_with_table: (QueryPlanner,
 fn create_table_with_unsupported_column_type(planner_and_sender_with_schema: (QueryPlanner, ResultCollector)) {
     let (query_planner, collector) = planner_and_sender_with_schema;
     assert_eq!(
-        query_planner.plan(table(
+        query_planner.plan(&table(
             vec!["schema_name", "table_name"],
             vec![column(
                 "column_name",
@@ -88,7 +88,7 @@ fn create_table_with_unsupported_column_type(planner_and_sender_with_schema: (Qu
 fn create_table_with_unqualified_name(planner_and_sender_with_schema: (QueryPlanner, ResultCollector)) {
     let (query_planner, collector) = planner_and_sender_with_schema;
     assert_eq!(
-        query_planner.plan(table(
+        query_planner.plan(&table(
             vec!["only_schema_in_the_name"],
             vec![column("column_name", DataType::SmallInt)]
         )),
@@ -104,7 +104,7 @@ fn create_table_with_unqualified_name(planner_and_sender_with_schema: (QueryPlan
 fn create_table_with_unsupported_name(planner_and_sender_with_schema: (QueryPlanner, ResultCollector)) {
     let (query_planner, collector) = planner_and_sender_with_schema;
     assert_eq!(
-        query_planner.plan(table(
+        query_planner.plan(&table(
             vec!["first_part", "second_part", "third_part", "fourth_part"],
             vec![column("column_name", DataType::SmallInt)]
         )),
@@ -120,7 +120,7 @@ fn create_table_with_unsupported_name(planner_and_sender_with_schema: (QueryPlan
 fn create_table(planner_and_sender_with_schema: (QueryPlanner, ResultCollector)) {
     let (query_planner, collector) = planner_and_sender_with_schema;
     assert_eq!(
-        query_planner.plan(table(
+        query_planner.plan(&table(
             vec![SCHEMA, TABLE],
             vec![column("column_name", DataType::SmallInt)]
         )),

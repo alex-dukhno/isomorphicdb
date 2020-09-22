@@ -13,15 +13,17 @@ name = "database"
 path = "src/bin.rs"
 
 [dependencies]
+data_manager = { path = "../data_manager" }
 kernel = { path = "../kernel" }
+parser = { path = "../parser" }
+protocol = { path = "../protocol" }
 sql_engine = { path = "../sql_engine" }
 sql_model = { path = "../sql_model" }
-data_manager = { path = "../data_manager" }
-futures-lite = "1.7.0"
-smol = "1.0.0"
+
+async-dup = "1.2.1"
 async-io = "1.1.2"
-protocol = { path = "../protocol" }
+blocking = "1.0.0"
+futures-lite = "1.7.0"
 log = "0.4.8"
 simple_logger = { version = "1.9.0", default-features = false }
-async-dup = "1.2.1"
-blocking = "1.0.0"
+smol = "1.0.0"

@@ -16,7 +16,6 @@ use std::sync::Arc;
 
 use binary::Binary;
 use data_manager::DataManager;
-use kernel::SystemResult;
 use protocol::Sender;
 
 use ast::operations::ScalarOp;
@@ -45,8 +44,17 @@ impl UpdateCommand {
         }
     }
 
-    pub(crate) fn execute(&self) -> SystemResult<()> {
-        let table_definition = self.data_manager.table_columns(&self.table_update.table_id)?;
+    pub(crate) fn execute(&self) {
+        let table_definition = match self.data_manager.table_columns(&self.table_update.table_id) {
+            Err(()) => {
+                log::error!(
+                    "Error while accessing table columns with id {:?}",
+                    self.table_update.table_id
+                );
+                return;
+            }
+            Ok(table_definition) => table_definition,
+        };
         let all_columns = table_definition
             .iter()
             .enumerate()
@@ -56,7 +64,6 @@ impl UpdateCommand {
         let evaluation = StaticExpressionEvaluation::new(self.sender.clone());
 
         let mut assignments = vec![];
-        let mut has_error = false;
         for ((index, column_name, sql_type, type_constraint), item) in self
             .table_update
             .column_indices
@@ -73,105 +80,88 @@ impl UpdateCommand {
                         *type_constraint,
                     ));
                 }
-                Err(()) => {
-                    has_error = true;
-                }
+                Err(()) => return,
             }
         }
 
-        if has_error {
-            return Ok(());
-        }
-
-        match self.data_manager.full_scan(&self.table_update.table_id) {
-            Err(error) => {
-                self.sender
-                    .send(Err(QueryError::syntax_error(
-                        "something went wrong when read data from table",
-                    )))
-                    .expect("To Send Result to Client");
-                return Err(error);
+        let reads = match self.data_manager.full_scan(&self.table_update.table_id) {
+            Err(()) => {
+                log::error!("Error while scanning {:?}", self.table_update.table_id);
+                return;
             }
-            Ok(reads) => {
-                let expr_eval = DynamicExpressionEvaluation::new(self.sender.clone(), all_columns);
-                let mut to_update = Vec::new();
-                for (row_idx, (key, values)) in reads.map(Result::unwrap).map(Result::unwrap).enumerate() {
-                    let data = values.unpack();
-                    let mut updated = values.unpack();
-
-                    let mut has_err = false;
-                    for update in assignments.as_slice() {
-                        let (column_name, destination, value, sql_type, type_constraint) = update;
-                        let value = match expr_eval.eval(data.as_slice(), value.as_ref()) {
-                            Ok(ScalarOp::Value(value)) => value,
-                            Ok(_) => return Ok(()),
-                            Err(()) => return Ok(()),
-                        };
-                        let value = match value.cast(&sql_type) {
-                            Ok(value) => value,
-                            Err(_err) => {
-                                self.sender
-                                    .send(Err(QueryError::invalid_text_representation(sql_type.into(), value)))
-                                    .expect("To Send Result to User");
-                                return Ok(());
-                            }
-                        };
-                        match type_constraint.validate(value) {
-                            Ok(datum) => updated[*destination] = datum,
-                            Err(ConstraintError::OutOfRange) => {
-                                self.sender
-                                    .send(Err(QueryError::out_of_range(sql_type.into(), column_name, row_idx + 1)))
-                                    .expect("To Send Query Result to client");
-                                has_err = true;
-                            }
-                            Err(ConstraintError::TypeMismatch(value)) => {
-                                self.sender
-                                    .send(Err(QueryError::type_mismatch(
-                                        &value,
-                                        sql_type.into(),
-                                        column_name,
-                                        row_idx + 1,
-                                    )))
-                                    .expect("To Send Query Result to client");
-                                has_err = true;
-                            }
-                            Err(ConstraintError::ValueTooLong(len)) => {
-                                self.sender
-                                    .send(Err(QueryError::string_length_mismatch(
-                                        sql_type.into(),
-                                        len,
-                                        column_name,
-                                        row_idx + 1,
-                                    )))
-                                    .expect("To Send Query Result to client");
-                                has_err = true;
-                            }
-                        }
-                    }
-
-                    if has_err {
-                        return Ok(());
-                    }
-
-                    to_update.push((key, Binary::pack(&updated)));
-                }
-                match self.data_manager.write_into(&self.table_update.table_id, to_update) {
-                    Err(error) => {
-                        self.sender
-                            .send(Err(QueryError::syntax_error(
-                                "something went wrong when write data to table",
-                            )))
-                            .expect("To Send Result to Client");
-                        return Err(error);
-                    }
-                    Ok(records_number) => {
-                        self.sender
-                            .send(Ok(QueryEvent::RecordsUpdated(records_number)))
-                            .expect("To Send Query Result to Client");
-                    }
-                }
-            }
+            Ok(reads) => reads,
         };
-        Ok(())
+        let expr_eval = DynamicExpressionEvaluation::new(self.sender.clone(), all_columns);
+        let mut to_update = Vec::new();
+        for (row_idx, (key, values)) in reads.map(Result::unwrap).map(Result::unwrap).enumerate() {
+            let data = values.unpack();
+            let mut updated = values.unpack();
+
+            let mut has_err = false;
+            for update in assignments.as_slice() {
+                let (column_name, destination, value, sql_type, type_constraint) = update;
+                let value = match expr_eval.eval(data.as_slice(), value.as_ref()) {
+                    Ok(ScalarOp::Value(value)) => value,
+                    Ok(_) => return,
+                    Err(()) => return,
+                };
+                let value = match value.cast(&sql_type) {
+                    Ok(value) => value,
+                    Err(_err) => {
+                        self.sender
+                            .send(Err(QueryError::invalid_text_representation(sql_type.into(), value)))
+                            .expect("To Send Result to User");
+                        return;
+                    }
+                };
+                match type_constraint.validate(value) {
+                    Ok(datum) => updated[*destination] = datum,
+                    Err(ConstraintError::OutOfRange) => {
+                        self.sender
+                            .send(Err(QueryError::out_of_range(sql_type.into(), column_name, row_idx + 1)))
+                            .expect("To Send Query Result to client");
+                        has_err = true;
+                    }
+                    Err(ConstraintError::TypeMismatch(value)) => {
+                        self.sender
+                            .send(Err(QueryError::type_mismatch(
+                                &value,
+                                sql_type.into(),
+                                column_name,
+                                row_idx + 1,
+                            )))
+                            .expect("To Send Query Result to client");
+                        has_err = true;
+                    }
+                    Err(ConstraintError::ValueTooLong(len)) => {
+                        self.sender
+                            .send(Err(QueryError::string_length_mismatch(
+                                sql_type.into(),
+                                len,
+                                column_name,
+                                row_idx + 1,
+                            )))
+                            .expect("To Send Query Result to client");
+                        has_err = true;
+                    }
+                }
+            }
+
+            if has_err {
+                return;
+            }
+
+            to_update.push((key, Binary::pack(&updated)));
+        }
+        let size = match self.data_manager.write_into(&self.table_update.table_id, to_update) {
+            Err(()) => {
+                log::error!("Error while writing into {:?}", self.table_update.table_id);
+                return;
+            }
+            Ok(size) => size,
+        };
+        self.sender
+            .send(Ok(QueryEvent::RecordsUpdated(size)))
+            .expect("To Send Query Result to Client");
     }
 }

@@ -12,13 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-extern crate bigdecimal;
-extern crate log;
-
 use std::{iter, sync::Arc};
 
 use itertools::izip;
-use sqlparser::{ast::Statement, dialect::Dialect, parser::Parser};
+use sqlparser::ast::Statement;
 
 use data_manager::DataManager;
 use kernel::SystemResult;
@@ -38,11 +35,12 @@ use crate::{
     dml::{delete::DeleteCommand, insert::InsertCommand, select::SelectCommand, update::UpdateCommand},
     query::bind::ParamBinder,
 };
+use parser::QueryParser;
 use query_planner::{plan::Plan, planner::QueryPlanner};
 
 mod ddl;
 mod dml;
-mod query;
+pub mod query;
 
 pub struct QueryExecutor {
     data_manager: Arc<DataManager>,
@@ -50,6 +48,7 @@ pub struct QueryExecutor {
     session: Session<Statement>,
     query_planner: QueryPlanner,
     param_binder: ParamBinder,
+    query_parser: QueryParser,
 }
 
 impl QueryExecutor {
@@ -58,34 +57,17 @@ impl QueryExecutor {
             data_manager: data_manager.clone(),
             sender: sender.clone(),
             session: Session::default(),
-            query_planner: QueryPlanner::new(data_manager, sender.clone()),
-            param_binder: ParamBinder::new(sender),
+            query_planner: QueryPlanner::new(data_manager.clone(), sender.clone()),
+            param_binder: ParamBinder::new(sender.clone()),
+            query_parser: QueryParser::new(sender, data_manager),
         }
     }
 
-    pub fn execute(&self, raw_sql_query: &str) -> SystemResult<()> {
-        match Parser::parse_sql(&PreparedStatementDialect {}, raw_sql_query) {
-            Ok(mut statements) => {
-                log::info!("stmts: {:#?}", statements);
-                let statement = statements.pop().unwrap();
-                self.process_statement(raw_sql_query, statement)?;
-            }
-            Err(e) => {
-                log::error!("{:?} can't be parsed. Error: {:?}", raw_sql_query, e);
-                self.sender
-                    .send(Err(QueryError::syntax_error(format!(
-                        "{:?} can't be parsed",
-                        raw_sql_query
-                    ))))
-                    .expect("To Send Query Result to Client");
-            }
-        };
-
+    pub fn execute(&self, statement: &Statement) {
+        self.process_statement(&statement);
         self.sender
             .send(Ok(QueryEvent::QueryComplete))
             .expect("To Send Query Complete Event to Client");
-
-        Ok(())
     }
 
     pub fn parse_prepared_statement(
@@ -93,25 +75,10 @@ impl QueryExecutor {
         statement_name: &str,
         raw_sql_query: &str,
         param_types: &[PostgreSqlType],
-    ) -> SystemResult<()> {
-        let statement = match Parser::parse_sql(&PreparedStatementDialect {}, raw_sql_query) {
-            Ok(mut statements) => {
-                log::info!("stmts: {:#?}", statements);
-                statements.pop().unwrap()
-            }
-            Err(e) => {
-                log::error!("{:?} can't be parsed. Error: {:?}", raw_sql_query, e);
-                self.sender
-                    .send(Err(QueryError::syntax_error(format!(
-                        "{:?} can't be parsed",
-                        raw_sql_query
-                    ))))
-                    .expect("To Send Query Result to Client");
-                return Ok(());
-            }
-        };
+    ) -> Result<(), ()> {
+        let statement = self.query_parser.parse(raw_sql_query)?;
 
-        let description = match self.query_planner.plan(statement.clone()) {
+        let description = match self.query_planner.plan(&statement) {
             Ok(Plan::Select(select_input)) => {
                 SelectCommand::new(select_input, self.data_manager.clone(), self.sender.clone()).describe()?
             }
@@ -151,36 +118,35 @@ impl QueryExecutor {
 
     pub fn bind_prepared_statement_to_portal(
         &mut self,
-        portal_name: &str,
-        statement_name: &str,
+        prepared_statement: &PreparedStatement<Statement>,
         param_formats: &[PostgreSqlFormat],
         raw_params: &[Option<Vec<u8>>],
         result_formats: &[PostgreSqlFormat],
-    ) -> SystemResult<()> {
-        let prepared_statement = match self.session.get_prepared_statement(statement_name) {
-            Some(prepared_statement) => prepared_statement,
-            None => {
-                self.sender
-                    .send(Err(QueryError::prepared_statement_does_not_exist(statement_name)))
-                    .expect("To Send Error to Client");
-                return Ok(());
-            }
-        };
+    ) -> Result<(Statement, Vec<PostgreSqlFormat>), ()> {
+        // let prepared_statement = match self.session.get_prepared_statement(statement_name) {
+        //     Some(prepared_statement) => prepared_statement,
+        //     None => {
+        //         self.sender
+        //             .send(Err(QueryError::prepared_statement_does_not_exist(statement_name)))
+        //             .expect("To Send Error to Client");
+        //         return Ok(());
+        //     }
+        // };
 
-        let param_types = prepared_statement.param_types();
-        if param_types.len() != raw_params.len() {
-            let message = format!(
-                "Bind message supplies {actual} parameters, \
-                 but prepared statement \"{name}\" requires {expected}",
-                name = statement_name,
-                actual = raw_params.len(),
-                expected = param_types.len()
-            );
-            self.sender
-                .send(Err(QueryError::protocol_violation(message)))
-                .expect("To Send Error to Client");
-            return Ok(());
-        }
+        // let param_types = prepared_statement.param_types();
+        // if param_types.len() != raw_params.len() {
+        //     let message = format!(
+        //         "Bind message supplies {actual} parameters, \
+        //          but prepared statement \"{name}\" requires {expected}",
+        //         name = statement_name,
+        //         actual = raw_params.len(),
+        //         expected = param_types.len()
+        //     );
+        //     self.sender
+        //         .send(Err(QueryError::protocol_violation(message)))
+        //         .expect("To Send Error to Client");
+        //     return Err(());
+        // }
 
         let param_formats = match pad_formats(param_formats, raw_params.len()) {
             Ok(param_formats) => param_formats,
@@ -188,12 +154,12 @@ impl QueryExecutor {
                 self.sender
                     .send(Err(QueryError::protocol_violation(msg)))
                     .expect("To Send Error to Client");
-                return Ok(());
+                return Err(());
             }
         };
 
         let mut params: Vec<PostgreSqlValue> = vec![];
-        for (raw_param, typ, format) in izip!(raw_params, param_types, param_formats) {
+        for (raw_param, typ, format) in izip!(raw_params, prepared_statement.param_types(), param_formats) {
             match raw_param {
                 None => params.push(PostgreSqlValue::Null),
                 Some(bytes) => match typ.decode(&format, &bytes) {
@@ -202,7 +168,7 @@ impl QueryExecutor {
                         self.sender
                             .send(Err(QueryError::invalid_parameter_value(msg)))
                             .expect("To Send Error to Client");
-                        return Ok(());
+                        return Err(());
                     }
                 },
             }
@@ -210,7 +176,7 @@ impl QueryExecutor {
 
         let mut new_stmt = prepared_statement.stmt().clone();
         if self.param_binder.bind(&mut new_stmt, &params).is_err() {
-            return Ok(());
+            return Err(());
         }
 
         let result_formats = match pad_formats(result_formats, prepared_statement.description().len()) {
@@ -219,26 +185,26 @@ impl QueryExecutor {
                 self.sender
                     .send(Err(QueryError::protocol_violation(msg)))
                     .expect("To Send Error to Client");
-                return Ok(());
+                return Err(());
             }
         };
 
-        self.session.set_portal(
-            portal_name.to_owned(),
-            statement_name.to_owned(),
-            new_stmt,
-            result_formats,
-        );
+        // self.session.set_portal(
+        //     portal_name.to_owned(),
+        //     statement_name.to_owned(),
+        //     new_stmt,
+        //     result_formats,
+        // );
 
         self.sender
             .send(Ok(QueryEvent::BindComplete))
             .expect("To Send BindComplete Event");
 
-        Ok(())
+        Ok((new_stmt, result_formats))
     }
 
     // TODO: Parameter `max_rows` should be handled.
-    pub fn execute_portal(&self, portal_name: &str, _max_rows: i32) -> SystemResult<()> {
+    pub fn execute_portal(&self, portal_name: &str, _max_rows: i32) -> Result<(), ()> {
         let portal = match self.session.get_portal(portal_name) {
             Some(portal) => portal,
             None => {
@@ -249,9 +215,7 @@ impl QueryExecutor {
             }
         };
 
-        let statement = portal.stmt();
-        let raw_sql_query = format!("{}", statement);
-        self.process_statement(&raw_sql_query, statement.clone())?;
+        self.process_statement(portal.stmt());
 
         self.sender
             .send(Ok(QueryEvent::QueryComplete))
@@ -269,37 +233,36 @@ impl QueryExecutor {
         };
     }
 
-    fn process_statement(&self, raw_sql_query: &str, statement: Statement) -> SystemResult<()> {
-        log::trace!("query statement = {:?}", statement);
+    fn process_statement(&self, statement: &Statement) {
+        log::trace!("query statement = {}", statement);
         match self.query_planner.plan(statement) {
             Ok(Plan::CreateSchema(creation_info)) => {
-                CreateSchemaCommand::new(creation_info, self.data_manager.clone(), self.sender.clone()).execute()?;
+                CreateSchemaCommand::new(creation_info, self.data_manager.clone(), self.sender.clone()).execute()
             }
             Ok(Plan::CreateTable(creation_info)) => {
-                CreateTableCommand::new(creation_info, self.data_manager.clone(), self.sender.clone()).execute()?;
+                CreateTableCommand::new(creation_info, self.data_manager.clone(), self.sender.clone()).execute()
             }
             Ok(Plan::DropSchemas(schemas)) => {
                 for (schema, cascade) in schemas {
-                    DropSchemaCommand::new(schema, cascade, self.data_manager.clone(), self.sender.clone())
-                        .execute()?;
+                    DropSchemaCommand::new(schema, cascade, self.data_manager.clone(), self.sender.clone()).execute();
                 }
             }
             Ok(Plan::DropTables(tables)) => {
                 for table in tables {
-                    DropTableCommand::new(table, self.data_manager.clone(), self.sender.clone()).execute()?;
+                    DropTableCommand::new(table, self.data_manager.clone(), self.sender.clone()).execute();
                 }
             }
             Ok(Plan::Insert(table_insert)) => {
-                InsertCommand::new(table_insert, self.data_manager.clone(), self.sender.clone()).execute()?;
+                InsertCommand::new(table_insert, self.data_manager.clone(), self.sender.clone()).execute()
             }
             Ok(Plan::Update(table_update)) => {
-                UpdateCommand::new(table_update, self.data_manager.clone(), self.sender.clone()).execute()?;
+                UpdateCommand::new(table_update, self.data_manager.clone(), self.sender.clone()).execute()
             }
             Ok(Plan::Delete(table_delete)) => {
-                DeleteCommand::new(table_delete, self.data_manager.clone(), self.sender.clone()).execute()?;
+                DeleteCommand::new(table_delete, self.data_manager.clone(), self.sender.clone()).execute()
             }
             Ok(Plan::Select(select_input)) => {
-                SelectCommand::new(select_input, self.data_manager.clone(), self.sender.clone()).execute()?;
+                SelectCommand::new(select_input, self.data_manager.clone(), self.sender.clone()).execute()
             }
             Ok(Plan::NotProcessed(statement)) => match *statement {
                 Statement::StartTransaction { .. } => {
@@ -314,32 +277,17 @@ impl QueryExecutor {
                 }
                 Statement::Drop { .. } => {
                     self.sender
-                        .send(Err(QueryError::feature_not_supported(raw_sql_query)))
+                        .send(Err(QueryError::feature_not_supported(statement)))
                         .expect("To Send Query Result to Client");
                 }
                 _ => {
                     self.sender
-                        .send(Err(QueryError::feature_not_supported(raw_sql_query)))
+                        .send(Err(QueryError::feature_not_supported(statement)))
                         .expect("To Send Query Result to Client");
                 }
             },
             Err(()) => {}
-        };
-
-        Ok(())
-    }
-}
-
-#[derive(Debug)]
-struct PreparedStatementDialect {}
-
-impl Dialect for PreparedStatementDialect {
-    fn is_identifier_start(&self, ch: char) -> bool {
-        (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || ch == '$' || ch == '_'
-    }
-
-    fn is_identifier_part(&self, ch: char) -> bool {
-        (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9') || ch == '$' || ch == '_'
+        }
     }
 }
 
@@ -351,6 +299,3 @@ fn pad_formats(formats: &[PostgreSqlFormat], param_len: usize) -> Result<Vec<Pos
         (m, n) => Err(format!("expected {} field format specifiers, but got {}", m, n)),
     }
 }
-
-#[cfg(test)]
-mod tests;

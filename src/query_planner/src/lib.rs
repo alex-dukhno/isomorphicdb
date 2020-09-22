@@ -76,7 +76,7 @@ impl Display for SchemaNamingError {
 pub struct FullTableName(SchemaName, String);
 
 impl FullTableName {
-    fn as_tuple(&self) -> (&str, &str) {
+    pub fn as_tuple(&self) -> (&str, &str) {
         (&self.0.as_ref(), &self.1)
     }
 }

@@ -12,17 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::*;
+mod common;
+use common::{sender, ResultCollector};
+use data_manager::DataManager;
+use parser::QueryParser;
+use protocol::pgsql_types::PostgreSqlValue;
+use sql_engine::query::bind::ParamBinder;
+use std::sync::Arc;
 
 #[rstest::rstest]
 fn bind_insert_raw_statement(sender: ResultCollector) {
-    let mut statement = Parser::parse_sql(
-        &PreparedStatementDialect {},
-        "insert into schema_name.table_name values ($1, $2)",
-    )
-    .unwrap()
-    .pop()
-    .unwrap();
+    let query_parser = QueryParser::new(
+        sender.clone(),
+        Arc::new(DataManager::in_memory().expect("create data manager")),
+    );
+    let mut statement = query_parser
+        .parse("insert into schema_name.table_name values ($1, $2)")
+        .expect("query parsed");
 
     ParamBinder::new(sender)
         .bind(
@@ -39,13 +45,13 @@ fn bind_insert_raw_statement(sender: ResultCollector) {
 
 #[rstest::rstest]
 fn bind_update_raw_statement(sender: ResultCollector) {
-    let mut statement = Parser::parse_sql(
-        &PreparedStatementDialect {},
-        "update schema_name.table_name set column_1 = $1, column_2 = $2",
-    )
-    .unwrap()
-    .pop()
-    .unwrap();
+    let query_parser = QueryParser::new(
+        sender.clone(),
+        Arc::new(DataManager::in_memory().expect("create data manager")),
+    );
+    let mut statement = query_parser
+        .parse("update schema_name.table_name set column_1 = $1, column_2 = $2")
+        .expect("query parsed");
 
     ParamBinder::new(sender)
         .bind(

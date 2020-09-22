@@ -14,43 +14,48 @@
 
 use protocol::{pgsql_types::PostgreSqlType, results::QueryEvent};
 
-use crate::QueryExecutor;
+use sql_engine::QueryExecutor;
 
-use super::*;
+use common::{database_with_schema, ResultCollector};
+use parser::QueryParser;
 use protocol::messages::ColumnMetadata;
+use protocol::results::QueryError;
+mod common;
 
 #[rstest::rstest]
-fn delete_from_nonexistent_table(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
-    let (engine, collector) = sql_engine_with_schema;
+fn delete_from_nonexistent_table(database_with_schema: (QueryExecutor, QueryParser, ResultCollector)) {
+    let (engine, parser, collector) = database_with_schema;
 
-    engine
-        .execute("delete from schema_name.table_name;")
-        .expect("no system errors");
+    engine.execute(&parser.parse("delete from schema_name.table_name;").expect("parsed"));
     collector.assert_receive_single(Err(QueryError::table_does_not_exist("schema_name.table_name")));
 }
 
 #[rstest::rstest]
-fn delete_all_records(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
-    let (engine, collector) = sql_engine_with_schema;
+fn delete_all_records(database_with_schema: (QueryExecutor, QueryParser, ResultCollector)) {
+    let (engine, parser, collector) = database_with_schema;
 
-    engine
-        .execute("create table schema_name.table_name (column_test smallint);")
-        .expect("no system errors");
+    engine.execute(
+        &parser
+            .parse("create table schema_name.table_name (column_test smallint);")
+            .expect("parsed"),
+    );
     collector.assert_receive_single(Ok(QueryEvent::TableCreated));
 
-    engine
-        .execute("insert into schema_name.table_name values (123);")
-        .expect("no system errors");
+    engine.execute(
+        &parser
+            .parse("insert into schema_name.table_name values (123);")
+            .expect("parsed"),
+    );
     collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
-    engine
-        .execute("insert into schema_name.table_name values (456);")
-        .expect("no system errors");
+    engine.execute(
+        &parser
+            .parse("insert into schema_name.table_name values (456);")
+            .expect("parsed"),
+    );
     collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
-    engine
-        .execute("select * from schema_name.table_name;")
-        .expect("no system errors");
+    engine.execute(&parser.parse("select * from schema_name.table_name;").expect("parsed"));
     collector.assert_receive_many(vec![
         Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
             "column_test",
@@ -61,14 +66,10 @@ fn delete_all_records(sql_engine_with_schema: (QueryExecutor, ResultCollector)) 
         Ok(QueryEvent::RecordsSelected(2)),
     ]);
 
-    engine
-        .execute("delete from schema_name.table_name;")
-        .expect("no system errors");
+    engine.execute(&parser.parse("delete from schema_name.table_name;").expect("parsed"));
     collector.assert_receive_single(Ok(QueryEvent::RecordsDeleted(2)));
 
-    engine
-        .execute("select * from schema_name.table_name;")
-        .expect("no system errors");
+    engine.execute(&parser.parse("select * from schema_name.table_name;").expect("parsed"));
     collector.assert_receive_many(vec![
         Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
             "column_test",

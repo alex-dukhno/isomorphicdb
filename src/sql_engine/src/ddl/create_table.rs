@@ -15,7 +15,6 @@
 use std::sync::Arc;
 
 use data_manager::DataManager;
-use kernel::SystemResult;
 use protocol::{results::QueryEvent, Sender};
 use query_planner::plan::TableCreationInfo;
 
@@ -38,16 +37,13 @@ impl CreateTableCommand {
         }
     }
 
-    pub(crate) fn execute(&mut self) -> SystemResult<()> {
+    pub(crate) fn execute(&mut self) {
         let (schema_id, table_name, columns) = self.table_info.as_tuple();
-        match self.data_manager.create_table(schema_id, table_name, columns) {
-            Err(error) => Err(error),
-            Ok(_table_id) => {
-                self.sender
-                    .send(Ok(QueryEvent::TableCreated))
-                    .expect("To Send Query Result to Client");
-                Ok(())
-            }
+        if let Err(()) = self.data_manager.create_table(schema_id, table_name, columns) {
+            log::error!("Error while creating a table {}.{}", schema_id, table_name);
         }
+        self.sender
+            .send(Ok(QueryEvent::TableCreated))
+            .expect("To Send Query Result to Client");
     }
 }

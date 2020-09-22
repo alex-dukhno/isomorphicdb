@@ -15,7 +15,6 @@
 use std::sync::Arc;
 
 use data_manager::DataManager;
-use kernel::SystemResult;
 use protocol::{results::QueryEvent, Sender};
 use query_planner::plan::TableDeletes;
 
@@ -38,25 +37,29 @@ impl DeleteCommand {
         }
     }
 
-    pub(crate) fn execute(&self) -> SystemResult<()> {
-        match self.data_manager.full_scan(&self.table_deletes.table_id) {
-            Err(e) => return Err(e),
-            Ok(reads) => {
-                let keys = reads
-                    .map(Result::unwrap)
-                    .map(Result::unwrap)
-                    .map(|(key, _)| key)
-                    .collect();
-
-                match self.data_manager.delete_from(&self.table_deletes.table_id, keys) {
-                    Err(e) => return Err(e),
-                    Ok(records_number) => self
-                        .sender
-                        .send(Ok(QueryEvent::RecordsDeleted(records_number)))
-                        .expect("To Send Query Result to Client"),
-                }
+    pub(crate) fn execute(&self) {
+        let reads = match self.data_manager.full_scan(&self.table_deletes.table_id) {
+            Err(()) => {
+                log::error!("Error while scanning {:?}", self.table_deletes.table_id);
+                return;
             }
-        }
-        Ok(())
+            Ok(reads) => reads,
+        };
+        let keys = reads
+            .map(Result::unwrap)
+            .map(Result::unwrap)
+            .map(|(key, _)| key)
+            .collect();
+
+        let size = match self.data_manager.delete_from(&self.table_deletes.table_id, keys) {
+            Err(()) => {
+                log::error!("Error while deleting from {:?}", self.table_deletes.table_id);
+                return;
+            }
+            Ok(size) => size,
+        };
+        self.sender
+            .send(Ok(QueryEvent::RecordsDeleted(size)))
+            .expect("To Send Query Result to Client");
     }
 }

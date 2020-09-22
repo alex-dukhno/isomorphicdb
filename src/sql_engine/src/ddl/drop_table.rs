@@ -15,7 +15,6 @@
 use std::sync::Arc;
 
 use data_manager::DataManager;
-use kernel::SystemResult;
 use protocol::{results::QueryEvent, Sender};
 use query_planner::TableId;
 
@@ -34,15 +33,12 @@ impl DropTableCommand {
         }
     }
 
-    pub(crate) fn execute(&mut self) -> SystemResult<()> {
-        match self.data_manager.drop_table(&self.table_id) {
-            Err(error) => Err(error),
-            Ok(()) => {
-                self.sender
-                    .send(Ok(QueryEvent::TableDropped))
-                    .expect("To Send Query Result to Client");
-                Ok(())
-            }
+    pub(crate) fn execute(&mut self) {
+        if let Err(()) = self.data_manager.drop_table(&self.table_id) {
+            log::error!("Error while dropping table {:?}", self.table_id);
         }
+        self.sender
+            .send(Ok(QueryEvent::TableDropped))
+            .expect("To Send Query Result to Client");
     }
 }

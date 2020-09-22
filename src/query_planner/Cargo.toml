@@ -8,11 +8,12 @@ publish = false
 [dependencies]
 ast = { path = "../ast" }
 constraints = { path = "../constraints" }
-sqlparser = { version = "0.6.1", features = ["bigdecimal"] }
-sql_model = { path = "../sql_model" }
 data_manager = { path = "../data_manager" }
-protocol = { path = "../protocol" }
+sql_model = { path = "../sql_model" }
 kernel = { path = "../kernel" }
+protocol = { path = "../protocol" }
+
+sqlparser = { version = "0.6.1", features = ["bigdecimal"] }
 
 [dev-dependencies]
 rstest = "0.6.4"

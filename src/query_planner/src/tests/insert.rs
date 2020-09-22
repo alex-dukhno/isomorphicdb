@@ -26,7 +26,7 @@ use sqlparser::ast::{ObjectName, Query, SetExpr, Statement, Values};
 fn insert_into_table_that_in_nonexistent_schema(planner_and_sender: (QueryPlanner, ResultCollector)) {
     let (query_planner, collector) = planner_and_sender;
     assert_eq!(
-        query_planner.plan(Statement::Insert {
+        query_planner.plan(&Statement::Insert {
             table_name: ObjectName(vec![ident("non_existent_schema"), ident(TABLE)]),
             columns: vec![],
             source: Box::new(Query {
@@ -48,7 +48,7 @@ fn insert_into_table_that_in_nonexistent_schema(planner_and_sender: (QueryPlanne
 fn insert_into_nonexistent_table(planner_and_sender_with_schema: (QueryPlanner, ResultCollector)) {
     let (query_planner, collector) = planner_and_sender_with_schema;
     assert_eq!(
-        query_planner.plan(Statement::Insert {
+        query_planner.plan(&Statement::Insert {
             table_name: ObjectName(vec![ident(SCHEMA), ident("non_existent_table")]),
             columns: vec![],
             source: Box::new(Query {
@@ -73,7 +73,7 @@ fn insert_into_nonexistent_table(planner_and_sender_with_schema: (QueryPlanner, 
 fn insert_into_table_with_unqualified_name(planner_and_sender_with_schema: (QueryPlanner, ResultCollector)) {
     let (query_planner, collector) = planner_and_sender_with_schema;
     assert_eq!(
-        query_planner.plan(Statement::Insert {
+        query_planner.plan(&Statement::Insert {
             table_name: ObjectName(vec![ident("only_schema_in_the_name")]),
             columns: vec![],
             source: Box::new(Query {
@@ -97,7 +97,7 @@ fn insert_into_table_with_unqualified_name(planner_and_sender_with_schema: (Quer
 fn insert_into_table_with_unsupported_name(planner_and_sender_with_schema: (QueryPlanner, ResultCollector)) {
     let (query_planner, collector) = planner_and_sender_with_schema;
     assert_eq!(
-        query_planner.plan(Statement::Insert {
+        query_planner.plan(&Statement::Insert {
             table_name: ObjectName(vec![
                 ident("first_part"),
                 ident("second_part"),
@@ -126,7 +126,7 @@ fn insert_into_table_with_unsupported_name(planner_and_sender_with_schema: (Quer
 fn insert_into_table(planner_and_sender_with_table: (QueryPlanner, ResultCollector)) {
     let (query_planner, collector) = planner_and_sender_with_table;
     assert_eq!(
-        query_planner.plan(Statement::Insert {
+        query_planner.plan(&Statement::Insert {
             table_name: ObjectName(vec![ident(SCHEMA), ident(TABLE)]),
             columns: vec![ident("small_int"), ident("integer"), ident("big_int")],
             source: Box::new(Query {
@@ -161,7 +161,7 @@ fn insert_into_table(planner_and_sender_with_table: (QueryPlanner, ResultCollect
 fn insert_into_table_without_columns(planner_and_sender_with_table: (QueryPlanner, ResultCollector)) {
     let (query_planner, collector) = planner_and_sender_with_table;
     assert_eq!(
-        query_planner.plan(Statement::Insert {
+        query_planner.plan(&Statement::Insert {
             table_name: ObjectName(vec![ident(SCHEMA), ident(TABLE)]),
             columns: vec![],
             source: Box::new(Query {

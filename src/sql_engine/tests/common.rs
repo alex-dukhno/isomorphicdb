@@ -17,41 +17,15 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use protocol::results::{QueryError, QueryResult};
+use protocol::results::{QueryEvent, QueryResult};
 
-use crate::QueryExecutor;
-
-use super::*;
+use data_manager::DataManager;
+use parser::QueryParser;
+use protocol::Sender;
+use sql_engine::QueryExecutor;
 use std::ops::DerefMut;
 
-#[cfg(test)]
-mod bind;
-#[cfg(test)]
-mod bind_prepared_statement_to_portal;
-#[cfg(test)]
-mod delete;
-#[cfg(test)]
-mod describe_prepared_statement;
-#[cfg(test)]
-mod error_responses;
-#[cfg(test)]
-mod execute_portal;
-#[cfg(test)]
-mod insert;
-#[cfg(test)]
-mod parse_prepared_statement;
-#[cfg(test)]
-mod schema;
-#[cfg(test)]
-mod select;
-#[cfg(test)]
-mod table;
-#[cfg(test)]
-mod type_constraints;
-#[cfg(test)]
-mod update;
-
-struct Collector(Mutex<Vec<QueryResult>>);
+pub struct Collector(Mutex<Vec<QueryResult>>);
 
 impl Sender for Collector {
     fn flush(&self) -> io::Result<()> {
@@ -65,28 +39,23 @@ impl Sender for Collector {
 }
 
 impl Collector {
-    fn assert_receive_till_this_moment(&self, expected: Vec<QueryResult>) {
+    pub fn assert_receive_till_this_moment(&self, expected: Vec<QueryResult>) {
         let result = self.0.lock().expect("locked").drain(0..).collect::<Vec<_>>();
         assert_eq!(result, expected)
     }
 
-    fn assert_receive_intermediate(&self, expected: QueryResult) {
+    pub fn assert_receive_intermediate(&self, expected: QueryResult) {
         let mut actual = self.0.lock().expect("locked");
         assert_eq!(actual.deref_mut().pop(), Some(expected));
     }
 
-    fn assert_receive_single(&self, expected: QueryResult) {
+    pub fn assert_receive_single(&self, expected: QueryResult) {
         self.assert_query_complete();
         let mut actual = self.0.lock().expect("locked");
         assert_eq!(actual.deref_mut().pop(), Some(expected));
     }
 
-    fn assert_query_complete(&self) {
-        let mut actual = self.0.lock().expect("locked");
-        assert_eq!(actual.deref_mut().pop(), Some(Ok(QueryEvent::QueryComplete)));
-    }
-
-    fn assert_receive_many(&self, expected: Vec<QueryResult>) {
+    pub fn assert_receive_many(&self, expected: Vec<QueryResult>) {
         let actual = self
             .0
             .lock()
@@ -96,32 +65,38 @@ impl Collector {
         assert_eq!(actual, expected);
         self.assert_query_complete();
     }
+
+    fn assert_query_complete(&self) {
+        let mut actual = self.0.lock().expect("locked");
+        assert_eq!(actual.deref_mut().pop(), Some(Ok(QueryEvent::QueryComplete)));
+    }
 }
 
-type ResultCollector = Arc<Collector>;
+pub type ResultCollector = Arc<Collector>;
 
 #[rstest::fixture]
-fn sender() -> ResultCollector {
+pub fn sender() -> ResultCollector {
     Arc::new(Collector(Mutex::new(vec![])))
 }
 
 #[rstest::fixture]
-fn sql_engine() -> (QueryExecutor, ResultCollector) {
+pub fn empty_database() -> (QueryExecutor, QueryParser, ResultCollector) {
     let collector = Arc::new(Collector(Mutex::new(vec![])));
+    let data_manager = Arc::new(DataManager::in_memory().expect("to create data manager"));
     (
-        QueryExecutor::new(
-            Arc::new(DataManager::in_memory().expect("to create data manager")),
-            collector.clone(),
-        ),
+        QueryExecutor::new(data_manager.clone(), collector.clone()),
+        QueryParser::new(collector.clone(), data_manager),
         collector,
     )
 }
 
 #[rstest::fixture]
-fn sql_engine_with_schema(sql_engine: (QueryExecutor, ResultCollector)) -> (QueryExecutor, ResultCollector) {
-    let (engine, collector) = sql_engine;
-    engine.execute("create schema schema_name;").expect("no system errors");
+pub fn database_with_schema(
+    empty_database: (QueryExecutor, QueryParser, ResultCollector),
+) -> (QueryExecutor, QueryParser, ResultCollector) {
+    let (engine, parser, collector) = empty_database;
+    engine.execute(&parser.parse("create schema schema_name;").expect("query parsed"));
     collector.assert_receive_single(Ok(QueryEvent::SchemaCreated));
 
-    (engine, collector)
+    (engine, parser, collector)
 }

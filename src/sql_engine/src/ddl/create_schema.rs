@@ -15,7 +15,6 @@
 use std::sync::Arc;
 
 use data_manager::DataManager;
-use kernel::SystemResult;
 use protocol::{results::QueryEvent, Sender};
 use query_planner::plan::SchemaCreationInfo;
 
@@ -38,16 +37,13 @@ impl CreateSchemaCommand {
         }
     }
 
-    pub(crate) fn execute(&mut self) -> SystemResult<()> {
+    pub(crate) fn execute(&mut self) {
         let schema_name = &self.schema_info.schema_name;
-        match self.data_manager.create_schema(schema_name) {
-            Err(error) => Err(error),
-            Ok(_schema_id) => {
-                self.sender
-                    .send(Ok(QueryEvent::SchemaCreated))
-                    .expect("To Send Query Result to Client");
-                Ok(())
-            }
+        if let Err(()) = self.data_manager.create_schema(schema_name) {
+            log::error!("Error while creating schema {}", schema_name);
         }
+        self.sender
+            .send(Ok(QueryEvent::SchemaCreated))
+            .expect("To Send Query Result to Client");
     }
 }

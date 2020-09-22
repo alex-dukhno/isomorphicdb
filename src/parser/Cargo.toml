@@ -1,15 +1,16 @@
 [package]
-name = "sql_model"
+name = "parser"
 version = "0.1.0"
 authors = ["Alex Dukhno <alex.dukhno@icloud.com>"]
 edition = "2018"
 publish = false
 
 [dependencies]
+ast = { path = "../ast" }
+query_planner = { path = "../query_planner" }
+data_manager = { path = "../data_manager" }
 protocol = { path = "../protocol" }
+sql_model = { path = "../sql_model" }
 
-serde = { version = "1.0.115", features = ["derive"] }
+log = "0.4.11"
 sqlparser = { version = "0.6.1", features = ["bigdecimal"] }
-
-[dev-dependencies]
-rstest = "0.6.4"

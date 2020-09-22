@@ -14,43 +14,50 @@
 
 use protocol::pgsql_types::PostgreSqlType;
 
-use super::*;
+use common::{database_with_schema, ResultCollector};
+use parser::QueryParser;
 use protocol::messages::ColumnMetadata;
+use protocol::results::{QueryError, QueryEvent};
+use sql_engine::QueryExecutor;
+
+mod common;
 
 #[rstest::rstest]
-fn select_from_not_existed_table(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
-    let (engine, collector) = sql_engine_with_schema;
-    engine
-        .execute("select * from schema_name.non_existent;")
-        .expect("no system errors");
+fn select_from_not_existed_table(database_with_schema: (QueryExecutor, QueryParser, ResultCollector)) {
+    let (engine, parser, collector) = database_with_schema;
+    engine.execute(&parser.parse("select * from schema_name.non_existent;").expect("parsed"));
     collector.assert_receive_single(Err(QueryError::table_does_not_exist("schema_name.non_existent")));
 }
 
 #[rstest::rstest]
-fn select_named_columns_from_non_existent_table(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
-    let (engine, collector) = sql_engine_with_schema;
-    engine
-        .execute("select column_1 from schema_name.non_existent;")
-        .expect("no system errors");
+fn select_named_columns_from_non_existent_table(database_with_schema: (QueryExecutor, QueryParser, ResultCollector)) {
+    let (engine, parser, collector) = database_with_schema;
+    engine.execute(
+        &parser
+            .parse("select column_1 from schema_name.non_existent;")
+            .expect("parsed"),
+    );
     collector.assert_receive_single(Err(QueryError::table_does_not_exist("schema_name.non_existent")));
 }
 
 #[rstest::rstest]
-fn select_all_from_table_with_multiple_columns(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
-    let (engine, collector) = sql_engine_with_schema;
-    engine
-        .execute("create table schema_name.table_name (column_1 smallint, column_2 smallint, column_3 smallint);")
-        .expect("no system errors");
+fn select_all_from_table_with_multiple_columns(database_with_schema: (QueryExecutor, QueryParser, ResultCollector)) {
+    let (engine, parser, collector) = database_with_schema;
+    engine.execute(
+        &parser
+            .parse("create table schema_name.table_name (column_1 smallint, column_2 smallint, column_3 smallint);")
+            .expect("parsed"),
+    );
     collector.assert_receive_single(Ok(QueryEvent::TableCreated));
 
-    engine
-        .execute("insert into schema_name.table_name values (123, 456, 789);")
-        .expect("no system errors");
+    engine.execute(
+        &parser
+            .parse("insert into schema_name.table_name values (123, 456, 789);")
+            .expect("parsed"),
+    );
     collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
-    engine
-        .execute("select * from schema_name.table_name;")
-        .expect("no system errors");
+    engine.execute(&parser.parse("select * from schema_name.table_name;").expect("parsed"));
     collector.assert_receive_many(vec![
         Ok(QueryEvent::RowDescription(vec![
             ColumnMetadata::new("column_1", PostgreSqlType::SmallInt),
@@ -67,21 +74,27 @@ fn select_all_from_table_with_multiple_columns(sql_engine_with_schema: (QueryExe
 }
 
 #[rstest::rstest]
-fn select_not_all_columns(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
-    let (engine, collector) = sql_engine_with_schema;
-    engine
-        .execute("create table schema_name.table_name (column_1 smallint, column_2 smallint, column_3 smallint);")
-        .expect("no system errors");
+fn select_not_all_columns(database_with_schema: (QueryExecutor, QueryParser, ResultCollector)) {
+    let (engine, parser, collector) = database_with_schema;
+    engine.execute(
+        &parser
+            .parse("create table schema_name.table_name (column_1 smallint, column_2 smallint, column_3 smallint);")
+            .expect("parsed"),
+    );
     collector.assert_receive_single(Ok(QueryEvent::TableCreated));
 
-    engine
-        .execute("insert into schema_name.table_name values (1, 4, 7), (2, 5, 8), (3, 6, 9);")
-        .expect("no system errors");
+    engine.execute(
+        &parser
+            .parse("insert into schema_name.table_name values (1, 4, 7), (2, 5, 8), (3, 6, 9);")
+            .expect("parsed"),
+    );
     collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(3)));
 
-    engine
-        .execute("select column_3, column_2 from schema_name.table_name;")
-        .expect("no system errors");
+    engine.execute(
+        &parser
+            .parse("select column_3, column_2 from schema_name.table_name;")
+            .expect("parsed"),
+    );
     collector.assert_receive_many(vec![
         Ok(QueryEvent::RowDescription(vec![
             ColumnMetadata::new("column_3", PostgreSqlType::SmallInt),
@@ -95,16 +108,20 @@ fn select_not_all_columns(sql_engine_with_schema: (QueryExecutor, ResultCollecto
 }
 
 #[rstest::rstest]
-fn select_non_existing_columns_from_table(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
-    let (engine, collector) = sql_engine_with_schema;
-    engine
-        .execute("create table schema_name.table_name (column_in_table smallint);")
-        .expect("no system errors");
+fn select_non_existing_columns_from_table(database_with_schema: (QueryExecutor, QueryParser, ResultCollector)) {
+    let (engine, parser, collector) = database_with_schema;
+    engine.execute(
+        &parser
+            .parse("create table schema_name.table_name (column_in_table smallint);")
+            .expect("parsed"),
+    );
     collector.assert_receive_single(Ok(QueryEvent::TableCreated));
 
-    engine
-        .execute("select column_not_in_table1, column_not_in_table2 from schema_name.table_name;")
-        .expect("no system errors");
+    engine.execute(
+        &parser
+            .parse("select column_not_in_table1, column_not_in_table2 from schema_name.table_name;")
+            .expect("parsed"),
+    );
     collector.assert_receive_many(vec![
         Err(QueryError::column_does_not_exist("column_not_in_table1")),
         Err(QueryError::column_does_not_exist("column_not_in_table2")),
@@ -113,22 +130,28 @@ fn select_non_existing_columns_from_table(sql_engine_with_schema: (QueryExecutor
 
 #[rstest::rstest]
 fn select_first_and_last_columns_from_table_with_multiple_columns(
-    sql_engine_with_schema: (QueryExecutor, ResultCollector),
+    database_with_schema: (QueryExecutor, QueryParser, ResultCollector),
 ) {
-    let (engine, collector) = sql_engine_with_schema;
-    engine
-        .execute("create table schema_name.table_name (column_1 smallint, column_2 smallint, column_3 smallint);")
-        .expect("no system errors");
+    let (engine, parser, collector) = database_with_schema;
+    engine.execute(
+        &parser
+            .parse("create table schema_name.table_name (column_1 smallint, column_2 smallint, column_3 smallint);")
+            .expect("parsed"),
+    );
     collector.assert_receive_single(Ok(QueryEvent::TableCreated));
 
-    engine
-        .execute("insert into schema_name.table_name values (1, 2, 3), (4, 5, 6), (7, 8, 9);")
-        .expect("no system errors");
+    engine.execute(
+        &parser
+            .parse("insert into schema_name.table_name values (1, 2, 3), (4, 5, 6), (7, 8, 9);")
+            .expect("parsed"),
+    );
     collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(3)));
 
-    engine
-        .execute("select column_3, column_1 from schema_name.table_name")
-        .expect("no system errors");
+    engine.execute(
+        &parser
+            .parse("select column_3, column_1 from schema_name.table_name;")
+            .expect("parsed"),
+    );
     collector.assert_receive_many(vec![
         Ok(QueryEvent::RowDescription(vec![
             ColumnMetadata::new("column_3", PostgreSqlType::SmallInt),
@@ -143,22 +166,28 @@ fn select_first_and_last_columns_from_table_with_multiple_columns(
 
 #[rstest::rstest]
 fn select_all_columns_reordered_from_table_with_multiple_columns(
-    sql_engine_with_schema: (QueryExecutor, ResultCollector),
+    database_with_schema: (QueryExecutor, QueryParser, ResultCollector),
 ) {
-    let (engine, collector) = sql_engine_with_schema;
-    engine
-        .execute("create table schema_name.table_name (column_1 smallint, column_2 smallint, column_3 smallint);")
-        .expect("no system errors");
+    let (engine, parser, collector) = database_with_schema;
+    engine.execute(
+        &parser
+            .parse("create table schema_name.table_name (column_1 smallint, column_2 smallint, column_3 smallint);")
+            .expect("parsed"),
+    );
     collector.assert_receive_single(Ok(QueryEvent::TableCreated));
 
-    engine
-        .execute("insert into schema_name.table_name values (1, 2, 3), (4, 5, 6), (7, 8, 9);")
-        .expect("no system errors");
+    engine.execute(
+        &parser
+            .parse("insert into schema_name.table_name values (1, 2, 3), (4, 5, 6), (7, 8, 9);")
+            .expect("parsed"),
+    );
     collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(3)));
 
-    engine
-        .execute("select column_3, column_1, column_2 from schema_name.table_name;")
-        .expect("no system errors");
+    engine.execute(
+        &parser
+            .parse("select column_3, column_1, column_2 from schema_name.table_name;")
+            .expect("parsed"),
+    );
     collector.assert_receive_many(vec![
         Ok(QueryEvent::RowDescription(vec![
             ColumnMetadata::new("column_3", PostgreSqlType::SmallInt),
@@ -185,22 +214,27 @@ fn select_all_columns_reordered_from_table_with_multiple_columns(
 }
 
 #[rstest::rstest]
-fn select_with_column_name_duplication(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
-    let (engine, collector) = sql_engine_with_schema;
-    engine
-        .execute("create table schema_name.table_name (column_1 smallint, column_2 smallint, column_3 smallint);")
-        .expect("no system errors");
+fn select_with_column_name_duplication(database_with_schema: (QueryExecutor, QueryParser, ResultCollector)) {
+    let (engine, parser, collector) = database_with_schema;
+    engine.execute(
+        &parser
+            .parse("create table schema_name.table_name (column_1 smallint, column_2 smallint, column_3 smallint);")
+            .expect("parsed"),
+    );
     collector.assert_receive_single(Ok(QueryEvent::TableCreated));
 
-    engine
-        .execute("insert into schema_name.table_name values (1, 2, 3), (4, 5, 6), (7, 8, 9);")
-        .expect("no system errors");
+    engine.execute(
+        &parser
+            .parse("insert into schema_name.table_name values (1, 2, 3), (4, 5, 6), (7, 8, 9);")
+            .expect("parsed"),
+    );
     collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(3)));
 
-    engine
-        .execute("select column_3, column_2, column_1, column_3, column_2 from schema_name.table_name;")
-        .expect("no system errors");
-
+    engine.execute(
+        &parser
+            .parse("select column_3, column_2, column_1, column_3, column_2 from schema_name.table_name;")
+            .expect("parsed"),
+    );
     collector.assert_receive_many(vec![
         Ok(QueryEvent::RowDescription(vec![
             ColumnMetadata::new("column_3", PostgreSqlType::SmallInt),
@@ -235,21 +269,20 @@ fn select_with_column_name_duplication(sql_engine_with_schema: (QueryExecutor, R
 }
 
 #[rstest::rstest]
-fn select_different_integer_types(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
-    let (engine, collector) = sql_engine_with_schema;
-    engine
-        .execute("create table schema_name.table_name (column_si smallint, column_i integer, column_bi bigint);")
-        .expect("no system errors");
+fn select_different_integer_types(database_with_schema: (QueryExecutor, QueryParser, ResultCollector)) {
+    let (engine, parser, collector) = database_with_schema;
+    engine.execute(
+        &parser
+            .parse("create table schema_name.table_name (column_si smallint, column_i integer, column_bi bigint);")
+            .expect("parsed"),
+    );
     collector.assert_receive_single(Ok(QueryEvent::TableCreated));
 
     engine
-        .execute("insert into schema_name.table_name values (1000, 2000000, 3000000000), (4000, 5000000, 6000000000), (7000, 8000000, 9000000000);")
-        .expect("no system errors");
+        .execute(&parser.parse("insert into schema_name.table_name values (1000, 2000000, 3000000000), (4000, 5000000, 6000000000), (7000, 8000000, 9000000000);").expect("parsed"));
     collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(3)));
 
-    engine
-        .execute("select * from schema_name.table_name;")
-        .expect("no system errors");
+    engine.execute(&parser.parse("select * from schema_name.table_name;").expect("parsed"));
     collector.assert_receive_many(vec![
         Ok(QueryEvent::RowDescription(vec![
             ColumnMetadata::new("column_si", PostgreSqlType::SmallInt),
@@ -276,21 +309,20 @@ fn select_different_integer_types(sql_engine_with_schema: (QueryExecutor, Result
 }
 
 #[rstest::rstest]
-fn select_different_character_strings_types(sql_engine_with_schema: (QueryExecutor, ResultCollector)) {
-    let (engine, collector) = sql_engine_with_schema;
-    engine
-        .execute("create table schema_name.table_name (char_10 char(10), var_char_20 varchar(20));")
-        .expect("no system errors");
+fn select_different_character_strings_types(database_with_schema: (QueryExecutor, QueryParser, ResultCollector)) {
+    let (engine, parser, collector) = database_with_schema;
+    engine.execute(
+        &parser
+            .parse("create table schema_name.table_name (char_10 char(10), var_char_20 varchar(20));")
+            .expect("parsed"),
+    );
     collector.assert_receive_single(Ok(QueryEvent::TableCreated));
 
     engine
-        .execute("insert into schema_name.table_name values ('1234567890', '12345678901234567890'), ('12345', '1234567890'), ('12345', '1234567890     ');")
-        .expect("no system errors");
+        .execute(&parser.parse("insert into schema_name.table_name values ('1234567890', '12345678901234567890'), ('12345', '1234567890'), ('12345', '1234567890     ');").expect("parsed"));
     collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(3)));
 
-    engine
-        .execute("select * from schema_name.table_name;")
-        .expect("no system errors");
+    engine.execute(&parser.parse("select * from schema_name.table_name;").expect("parsed"));
     collector.assert_receive_many(vec![
         Ok(QueryEvent::RowDescription(vec![
             ColumnMetadata::new("char_10", PostgreSqlType::Char),

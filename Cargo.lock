@@ -267,6 +267,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "binder"
+version = "0.1.0"
+
+[[package]]
 name = "bitflags"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -710,6 +714,7 @@ dependencies = [
  "futures-lite",
  "kernel",
  "log",
+ "parser",
  "protocol",
  "simple_logger",
  "smol",
@@ -831,6 +836,19 @@ dependencies = [
  "redox_syscall",
  "smallvec",
  "winapi",
+]
+
+[[package]]
+name = "parser"
+version = "0.1.0"
+dependencies = [
+ "ast",
+ "data_manager",
+ "log",
+ "protocol",
+ "query_planner",
+ "sql_model",
+ "sqlparser",
 ]
 
 [[package]]
@@ -1215,6 +1233,7 @@ dependencies = [
  "itertools",
  "kernel",
  "log",
+ "parser",
  "protocol",
  "query_planner",
  "rstest",

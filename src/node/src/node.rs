@@ -26,7 +26,10 @@ use async_dup::Arc as AsyncArc;
 use async_io::Async;
 
 use data_manager::DataManager;
-use protocol::{Command, ProtocolConfiguration, Receiver};
+use parser::QueryParser;
+use protocol::results::QueryError;
+use protocol::session::Session;
+use protocol::{Command, ProtocolConfiguration, Receiver, Sender};
 use sql_engine::QueryExecutor;
 
 const PORT: u16 = 5432;
@@ -61,11 +64,13 @@ pub fn start() {
                     let state = state.clone();
                     let storage = storage.clone();
                     let sender = Arc::new(sender);
-                    let s = sender.clone();
-                    let mut query_executor = QueryExecutor::new(storage.clone(), s);
+                    let mut query_executor = QueryExecutor::new(storage.clone(), sender.clone());
+                    let mut query_parser = QueryParser::new(sender.clone(), storage.clone());
                     log::debug!("ready to handle query");
 
+                    let sender_clone = sender.clone();
                     smol::spawn(async move {
+                        let mut session = Session::default();
                         loop {
                             match receiver.receive().await {
                                 Err(e) => {
@@ -85,15 +90,42 @@ pub fn start() {
                                     raw_params,
                                     result_formats,
                                 })) => {
-                                    match query_executor.bind_prepared_statement_to_portal(
-                                        portal_name.as_str(),
-                                        statement_name.as_str(),
-                                        param_formats.as_ref(),
-                                        raw_params.as_ref(),
-                                        result_formats.as_ref(),
-                                    ) {
-                                        Ok(()) => {}
-                                        Err(error) => log::error!("{:?}", error),
+                                    match session.get_prepared_statement(&statement_name) {
+                                        Some(prepared_statement) => {
+                                            let param_types = prepared_statement.param_types();
+                                            if param_types.len() != raw_params.len() {
+                                                let message = format!(
+                                                    "Bind message supplies {actual} parameters, but prepared statement \"{name}\" requires {expected}",
+                                                    name = statement_name,
+                                                    actual = raw_params.len(),
+                                                    expected = param_types.len()
+                                                );
+                                                sender_clone.send(Err(QueryError::protocol_violation(message))).expect("To Send Error to Client");
+                                            }
+                                            match query_executor.bind_prepared_statement_to_portal(
+                                                &prepared_statement,
+                                                param_formats.as_ref(),
+                                                raw_params.as_ref(),
+                                                result_formats.as_ref(),
+                                            ) {
+                                                Ok((new_stmt, result_formats)) => {
+                                                    session.set_portal(
+                                                        portal_name.to_owned(),
+                                                        statement_name.to_owned(),
+                                                        new_stmt,
+                                                        result_formats,
+                                                    );
+                                                }
+                                                Err(error) => log::error!("{:?}", error),
+                                            }
+                                        },
+                                        None => {
+                                            sender_clone
+                                                .send(Err(QueryError::prepared_statement_does_not_exist(
+                                                    statement_name,
+                                                )))
+                                                .expect("To Send Error to Client");
+                                        }
                                     }
                                 }
                                 Ok(Ok(Command::Continue)) => {
@@ -117,21 +149,19 @@ pub fn start() {
                                     sql,
                                     param_types,
                                 })) => {
-                                    match query_executor.parse_prepared_statement(
-                                        statement_name.as_str(),
-                                        sql.as_str(),
-                                        param_types.as_ref(),
-                                    ) {
-                                        Ok(()) => {}
+                                    match query_parser.parse_prepared_statement(sql.as_str(), param_types.as_ref()) {
+                                        Ok(statement) => {
+                                            session.set_prepared_statement(statement_name, statement);
+                                        }
                                         Err(error) => log::error!("{:?}", error),
                                     }
                                 }
-                                Ok(Ok(Command::Query { sql })) => match query_executor.execute(sql.as_str()) {
-                                    Ok(()) => {
+                                Ok(Ok(Command::Query { sql })) => {
+                                    if let Ok(statement) = query_parser.parse(sql.as_str()) {
+                                        query_executor.execute(&statement);
                                         query_executor.flush();
                                     }
-                                    Err(error) => log::error!("{:?}", error),
-                                },
+                                }
                                 Ok(Ok(Command::Terminate)) => {
                                     log::debug!("closing connection with client");
                                     break;

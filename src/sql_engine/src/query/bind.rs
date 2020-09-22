@@ -19,9 +19,9 @@ use sqlparser::ast::{Assignment, Expr, Ident, ObjectType, Query, SetExpr, Statem
 
 use protocol::{pgsql_types::PostgreSqlValue, results::QueryError, Sender};
 
-type Result = std::result::Result<(), ()>;
+pub type Result = std::result::Result<(), ()>;
 
-pub(crate) struct ParamBinder {
+pub struct ParamBinder {
     sender: Arc<dyn Sender>,
 }
 
