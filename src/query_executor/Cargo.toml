@@ -1,5 +1,5 @@
 [package]
-name = "sql_engine"
+name = "query_executor"
 version = "0.1.0"
 authors = ["Alex Dukhno <alex.dukhno@icloud.com>"]
 edition = "2018"
@@ -8,6 +8,7 @@ publish = false
 [dependencies]
 ast = { path = "../ast" }
 binary = { path = "../binary" }
+binder = { path = "../binder" }
 constraints = { path = "../constraints" }
 data_manager = { path = "../data_manager" }
 expr_eval = { path = "../expr_eval" }

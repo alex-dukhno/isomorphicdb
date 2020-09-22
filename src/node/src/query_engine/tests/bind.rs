@@ -12,35 +12,31 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-mod common;
-use common::{sender, ResultCollector};
+use super::*;
 use data_manager::DataManager;
 use parser::QueryParser;
-use protocol::pgsql_types::PostgreSqlValue;
-use sql_engine::query::bind::ParamBinder;
+use protocol::pgsql_types::{PostgreSqlFormat, PostgreSqlType, PostgreSqlValue};
+use query_executor::query::bind::ParamBinder;
 use std::sync::Arc;
 
 #[rstest::rstest]
-fn bind_insert_raw_statement(sender: ResultCollector) {
-    let query_parser = QueryParser::new(
-        sender.clone(),
-        Arc::new(DataManager::in_memory().expect("create data manager")),
-    );
-    let mut statement = query_parser
-        .parse("insert into schema_name.table_name values ($1, $2)")
-        .expect("query parsed");
+fn bind_insert_raw_statement(empty_database: (QueryEngine, ResultCollector)) -> Result<(), ()> {
+    let (mut executor, collector) = empty_database;
+    executor.execute(Command::Parse {
+        statement_name: "statement_name".to_owned(),
+        sql: "insert into schema_name.table_name values ($1, $2)".to_owned(),
+        param_types: vec![PostgreSqlType::Integer, PostgreSqlType::VarChar],
+    })?;
 
-    ParamBinder::new(sender)
-        .bind(
-            &mut statement,
-            &[PostgreSqlValue::Int16(1), PostgreSqlValue::String("abc".into())],
-        )
-        .unwrap();
+    executor.execute(Command::Bind {
+        portal_name: "portal_name".to_owned(),
+        statement_name: "statement_name".to_owned(),
+        param_formats: vec![PostgreSqlFormat::Binary, PostgreSqlFormat::Text],
+        raw_params: vec![Some(vec![0, 1]), Some(b"2".to_vec())],
+        result_formats: vec![],
+    })?;
 
-    assert_eq!(
-        statement.to_string(),
-        "INSERT INTO schema_name.table_name VALUES (1, 'abc')"
-    );
+    Ok(())
 }
 
 #[rstest::rstest]

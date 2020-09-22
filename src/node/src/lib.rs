@@ -18,3 +18,4 @@ extern crate log;
 extern crate protocol;
 
 pub mod node;
+mod query_engine;

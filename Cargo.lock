@@ -269,6 +269,13 @@ dependencies = [
 [[package]]
 name = "binder"
 version = "0.1.0"
+dependencies = [
+ "bigdecimal",
+ "log",
+ "protocol",
+ "rstest",
+ "sqlparser",
+]
 
 [[package]]
 name = "bitflags"
@@ -709,6 +716,7 @@ version = "0.1.0"
 dependencies = [
  "async-dup",
  "async-io",
+ "binder",
  "blocking",
  "data_manager",
  "futures-lite",
@@ -716,10 +724,13 @@ dependencies = [
  "log",
  "parser",
  "protocol",
+ "query_executor",
+ "query_planner",
+ "rstest",
  "simple_logger",
  "smol",
- "sql_engine",
  "sql_model",
+ "sqlparser",
 ]
 
 [[package]]
@@ -948,6 +959,31 @@ dependencies = [
  "futures-lite",
  "itertools",
  "log",
+ "tempfile",
+]
+
+[[package]]
+name = "query_executor"
+version = "0.1.0"
+dependencies = [
+ "ast",
+ "bigdecimal",
+ "binary",
+ "bincode",
+ "binder",
+ "constraints",
+ "data_manager",
+ "expr_eval",
+ "futures-lite",
+ "itertools",
+ "kernel",
+ "log",
+ "parser",
+ "protocol",
+ "query_planner",
+ "rstest",
+ "sql_model",
+ "sqlparser",
  "tempfile",
 ]
 
@@ -1216,30 +1252,6 @@ dependencies = [
  "blocking",
  "futures-lite",
  "once_cell",
-]
-
-[[package]]
-name = "sql_engine"
-version = "0.1.0"
-dependencies = [
- "ast",
- "bigdecimal",
- "binary",
- "bincode",
- "constraints",
- "data_manager",
- "expr_eval",
- "futures-lite",
- "itertools",
- "kernel",
- "log",
- "parser",
- "protocol",
- "query_planner",
- "rstest",
- "sql_model",
- "sqlparser",
- "tempfile",
 ]
 
 [[package]]

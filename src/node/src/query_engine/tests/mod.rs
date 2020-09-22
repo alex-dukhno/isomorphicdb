@@ -12,17 +12,38 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#[cfg(test)]
+mod bind;
+#[cfg(test)]
+mod bind_prepared_statement_to_portal;
+#[cfg(test)]
+mod delete;
+#[cfg(test)]
+mod describe_prepared_statement;
+#[cfg(test)]
+mod execute_portal;
+#[cfg(test)]
+mod insert;
+#[cfg(test)]
+mod parse_prepared_statement;
+#[cfg(test)]
+mod schema;
+#[cfg(test)]
+mod select;
+#[cfg(test)]
+mod table;
+#[cfg(test)]
+mod type_constraints;
+#[cfg(test)]
+mod update;
+
 use std::{
     io,
     sync::{Arc, Mutex},
 };
 
+use super::*;
 use protocol::results::{QueryEvent, QueryResult};
-
-use data_manager::DataManager;
-use parser::QueryParser;
-use protocol::Sender;
-use sql_engine::QueryExecutor;
 use std::ops::DerefMut;
 
 pub struct Collector(Mutex<Vec<QueryResult>>);
@@ -80,23 +101,24 @@ pub fn sender() -> ResultCollector {
 }
 
 #[rstest::fixture]
-pub fn empty_database() -> (QueryExecutor, QueryParser, ResultCollector) {
+pub fn empty_database() -> (QueryEngine, ResultCollector) {
     let collector = Arc::new(Collector(Mutex::new(vec![])));
-    let data_manager = Arc::new(DataManager::in_memory().expect("to create data manager"));
     (
-        QueryExecutor::new(data_manager.clone(), collector.clone()),
-        QueryParser::new(collector.clone(), data_manager),
+        QueryEngine::new(
+            collector.clone(),
+            Arc::new(DataManager::in_memory().expect("to create data manager")),
+        ),
         collector,
     )
 }
 
 #[rstest::fixture]
-pub fn database_with_schema(
-    empty_database: (QueryExecutor, QueryParser, ResultCollector),
-) -> (QueryExecutor, QueryParser, ResultCollector) {
-    let (engine, parser, collector) = empty_database;
-    engine.execute(&parser.parse("create schema schema_name;").expect("query parsed"));
+pub fn database_with_schema(empty_database: (QueryEngine, ResultCollector)) -> (QueryEngine, ResultCollector) {
+    let (mut executor, collector) = empty_database;
+    executor.execute(Command::Query {
+        sql: "create schema schema_name;".to_string(),
+    });
     collector.assert_receive_single(Ok(QueryEvent::SchemaCreated));
 
-    (engine, parser, collector)
+    (executor, collector)
 }

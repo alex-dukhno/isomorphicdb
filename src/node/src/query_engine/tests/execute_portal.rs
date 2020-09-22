@@ -14,11 +14,8 @@
 
 use protocol::pgsql_types::{PostgreSqlFormat, PostgreSqlType};
 
-mod common;
-use common::{database_with_schema, ResultCollector};
 use parser::QueryParser;
 use protocol::results::QueryEvent;
-use sql_engine::QueryExecutor;
 
 // #[rstest::rstest]
 // fn execute_insert_portal(database_with_schema: (QueryExecutor, QueryParser, ResultCollector)) {
