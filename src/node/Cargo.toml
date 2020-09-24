@@ -23,7 +23,7 @@ query_planner = { path = "../query_planner" }
 sql_model = { path = "../sql_model" }
 
 async-dup = "1.2.1"
-async-io = "1.1.2"
+async-io = "1.1.3"
 blocking = "1.0.0"
 futures-lite = "1.7.0"
 itertools = "0.9.0"
