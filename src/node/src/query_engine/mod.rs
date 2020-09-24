@@ -128,6 +128,9 @@ impl QueryEngine {
             } => {
                 match self.query_parser.parse_prepared_statement(&sql, &param_types) {
                     Ok(statement) => {
+                        self.sender
+                            .send(Ok(QueryEvent::ParseComplete))
+                            .expect("To Send ParseComplete Event");
                         self.session.set_prepared_statement(statement_name, statement);
                     }
                     Err(error) => log::error!("{:?}", error),

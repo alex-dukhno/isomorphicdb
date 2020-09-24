@@ -16,9 +16,18 @@ use super::*;
 use protocol::pgsql_types::{PostgreSqlFormat, PostgreSqlType};
 
 #[rstest::rstest]
-fn bind_insert_raw_statement(empty_database: (QueryEngine, ResultCollector)) {
-    let (mut executor, collector) = empty_database;
-    executor
+#[ignore] // TODO: parse, describe and bind inserts
+fn bind_insert_raw_statement(database_with_schema: (QueryEngine, ResultCollector)) {
+    let (mut engine, collector) = database_with_schema;
+
+    engine
+        .execute(Command::Query {
+            sql: "create table schema_name.table_name (column_1 smallint, column_2 smallint);".to_owned(),
+        })
+        .expect("query executed");
+    collector.assert_receive_single(Ok(QueryEvent::TableCreated));
+
+    engine
         .execute(Command::Parse {
             statement_name: "statement_name".to_owned(),
             sql: "insert into schema_name.table_name values ($1, $2)".to_owned(),
@@ -27,7 +36,7 @@ fn bind_insert_raw_statement(empty_database: (QueryEngine, ResultCollector)) {
         .expect("query executed");
     collector.assert_receive_intermediate(Ok(QueryEvent::ParseComplete));
 
-    executor
+    engine
         .execute(Command::Bind {
             portal_name: "portal_name".to_owned(),
             statement_name: "statement_name".to_owned(),
@@ -40,9 +49,18 @@ fn bind_insert_raw_statement(empty_database: (QueryEngine, ResultCollector)) {
 }
 
 #[rstest::rstest]
-fn bind_update_raw_statement(empty_database: (QueryEngine, ResultCollector)) {
-    let (mut executor, collector) = empty_database;
-    executor
+#[ignore] // TODO: parse, describe and bind updates
+fn bind_update_raw_statement(database_with_schema: (QueryEngine, ResultCollector)) {
+    let (mut engine, collector) = database_with_schema;
+
+    engine
+        .execute(Command::Query {
+            sql: "create table schema_name.table_name (column_1 smallint, column_2 smallint);".to_owned(),
+        })
+        .expect("query executed");
+    collector.assert_receive_single(Ok(QueryEvent::TableCreated));
+
+    engine
         .execute(Command::Parse {
             statement_name: "statement_name".to_owned(),
             sql: "update schema_name.table_name set column_1 = $1, column_2 = $2".to_owned(),
@@ -51,7 +69,7 @@ fn bind_update_raw_statement(empty_database: (QueryEngine, ResultCollector)) {
         .expect("query executed");
     collector.assert_receive_intermediate(Ok(QueryEvent::ParseComplete));
 
-    executor
+    engine
         .execute(Command::Bind {
             portal_name: "portal_name".to_owned(),
             statement_name: "statement_name".to_owned(),

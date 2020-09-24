@@ -8,12 +8,10 @@ publish = false
 [dependencies]
 ast = { path = "../ast" }
 binary = { path = "../binary" }
-binder = { path = "../binder" }
 constraints = { path = "../constraints" }
 data_manager = { path = "../data_manager" }
 expr_eval = { path = "../expr_eval" }
 kernel = { path = "../kernel" }
-parser = { path = "../parser" }
 protocol = { path = "../protocol" }
 query_planner = { path = "../query_planner" }
 sql_model = { path = "../sql_model" }

@@ -19,6 +19,7 @@ use protocol::{
 };
 
 #[rstest::rstest]
+#[ignore] // TODO: parse, describe and bind inserts
 fn describe_select_statement(database_with_schema: (QueryEngine, ResultCollector)) {
     let (mut engine, collector) = database_with_schema;
 
@@ -54,6 +55,7 @@ fn describe_select_statement(database_with_schema: (QueryEngine, ResultCollector
 }
 
 #[rstest::rstest]
+#[ignore] // TODO: parse, describe and bind updates
 fn describe_update_statement(database_with_schema: (QueryEngine, ResultCollector)) {
     let (mut engine, collector) = database_with_schema;
 

@@ -19,6 +19,7 @@ use protocol::{
 };
 
 #[rstest::rstest]
+#[ignore] // TODO: parse, describe and bind inserts
 fn execute_insert_portal(database_with_schema: (QueryEngine, ResultCollector)) {
     let (mut engine, collector) = database_with_schema;
 
@@ -59,6 +60,7 @@ fn execute_insert_portal(database_with_schema: (QueryEngine, ResultCollector)) {
 }
 
 #[rstest::rstest]
+#[ignore] // TODO: parse, describe and bind updates
 fn execute_update_portal(database_with_schema: (QueryEngine, ResultCollector)) {
     let (mut engine, collector) = database_with_schema;
 

@@ -17,7 +17,7 @@ use std::sync::Arc;
 use data_manager::DataManager;
 use protocol::{
     messages::ColumnMetadata,
-    results::{Description, QueryError, QueryEvent},
+    results::{QueryError, QueryEvent},
     Sender,
 };
 use query_planner::plan::SelectInput;
@@ -39,41 +39,6 @@ impl SelectCommand {
             data_manager,
             sender,
         }
-    }
-
-    pub(crate) fn describe(&self) -> Result<Description, ()> {
-        let all_columns = self.data_manager.table_columns(&self.select_input.table_id)?;
-        let mut column_definitions = vec![];
-        let mut has_error = false;
-        for column_name in &self.select_input.selected_columns {
-            let mut found = None;
-            for column_definition in &all_columns {
-                if column_definition.has_name(&column_name) {
-                    found = Some(column_definition);
-                    break;
-                }
-            }
-
-            if let Some(column_definition) = found {
-                column_definitions.push(column_definition);
-            } else {
-                self.sender
-                    .send(Err(QueryError::column_does_not_exist(column_name)))
-                    .expect("To Send Result to Client");
-                has_error = true;
-            }
-        }
-
-        if has_error {
-            return Err(());
-        }
-
-        let description = column_definitions
-            .into_iter()
-            .map(|column_definition| (column_definition.name(), (&column_definition.sql_type()).into()))
-            .collect();
-
-        Ok(description)
     }
 
     pub(crate) fn execute(&mut self) {

@@ -15,7 +15,7 @@
 use data_manager::DataManager;
 use protocol::{
     pgsql_types::PostgreSqlType,
-    results::{Description, QueryError, QueryEvent},
+    results::{Description, QueryError},
     statement::PreparedStatement,
     Sender,
 };
@@ -66,14 +66,10 @@ impl QueryParser {
 
         let description = match self.plan(&statement) {
             Ok(select_input) => self.describe(select_input)?,
-            _ => vec![],
+            _ => return Err(()),
         };
 
         let prepared_statement = PreparedStatement::new(statement, param_types.to_vec(), description);
-
-        self.sender
-            .send(Ok(QueryEvent::ParseComplete))
-            .expect("To Send ParseComplete Event");
 
         Ok(prepared_statement)
     }

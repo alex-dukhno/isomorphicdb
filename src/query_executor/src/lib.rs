@@ -12,19 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::sync::Arc;
-
-use sqlparser::ast::Statement;
-
-use data_manager::DataManager;
-use protocol::{
-    pgsql_types::PostgreSqlType,
-    results::{QueryError, QueryEvent},
-    session::Session,
-    statement::PreparedStatement,
-    Sender,
-};
-
 use crate::{
     ddl::{
         create_schema::CreateSchemaCommand, create_table::CreateTableCommand, drop_schema::DropSchemaCommand,
@@ -32,8 +19,14 @@ use crate::{
     },
     dml::{delete::DeleteCommand, insert::InsertCommand, select::SelectCommand, update::UpdateCommand},
 };
-use parser::QueryParser;
+use data_manager::DataManager;
+use protocol::{
+    results::{QueryError, QueryEvent},
+    Sender,
+};
 use query_planner::{plan::Plan, planner::QueryPlanner};
+use sqlparser::ast::Statement;
+use std::sync::Arc;
 
 mod ddl;
 mod dml;
@@ -41,9 +34,7 @@ mod dml;
 pub struct QueryExecutor {
     data_manager: Arc<DataManager>,
     sender: Arc<dyn Sender>,
-    session: Session<Statement>,
     query_planner: QueryPlanner,
-    query_parser: QueryParser,
 }
 
 impl QueryExecutor {
@@ -51,9 +42,7 @@ impl QueryExecutor {
         Self {
             data_manager: data_manager.clone(),
             sender: sender.clone(),
-            session: Session::default(),
-            query_planner: QueryPlanner::new(data_manager.clone(), sender.clone()),
-            query_parser: QueryParser::new(sender, data_manager),
+            query_planner: QueryPlanner::new(data_manager, sender),
         }
     }
 
