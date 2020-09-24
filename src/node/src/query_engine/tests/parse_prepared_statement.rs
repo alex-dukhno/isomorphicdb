@@ -48,20 +48,7 @@ fn parse_select_statement_with_not_existed_table(database_with_schema: (QueryEng
             param_types: vec![],
         })
         .expect("query executed");
-    // TODO check for error
-    // assert_eq!(
-    //     engine.parse_prepared_statement(
-    //         "statement_name",
-    //         "select * from schema_name.non_existent where column_1 = $1;",
-    //         &[],
-    //     ),
-    //     Err(SystemError::runtime_check_failure(&"Table Does Not Exist"))
-    // );
-
-    collector.assert_receive_till_this_moment(vec![
-        Err(QueryError::table_does_not_exist("schema_name.non_existent")),
-        Ok(QueryEvent::ParseComplete), // TODO should be removed
-    ]);
+    collector.assert_receive_single(Err(QueryError::table_does_not_exist("schema_name.non_existent")));
 }
 
 #[rstest::rstest]

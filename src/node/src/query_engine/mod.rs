@@ -155,31 +155,6 @@ impl QueryEngine {
         raw_params: &[Option<Vec<u8>>],
         result_formats: &[PostgreSqlFormat],
     ) -> Result<(Statement, Vec<PostgreSqlFormat>), ()> {
-        // let prepared_statement = match self.session.get_prepared_statement(statement_name) {
-        //     Some(prepared_statement) => prepared_statement,
-        //     None => {
-        //         self.sender
-        //             .send(Err(QueryError::prepared_statement_does_not_exist(statement_name)))
-        //             .expect("To Send Error to Client");
-        //         return Ok(());
-        //     }
-        // };
-
-        // let param_types = prepared_statement.param_types();
-        // if param_types.len() != raw_params.len() {
-        //     let message = format!(
-        //         "Bind message supplies {actual} parameters, \
-        //          but prepared statement \"{name}\" requires {expected}",
-        //         name = statement_name,
-        //         actual = raw_params.len(),
-        //         expected = param_types.len()
-        //     );
-        //     self.sender
-        //         .send(Err(QueryError::protocol_violation(message)))
-        //         .expect("To Send Error to Client");
-        //     return Err(());
-        // }
-
         let param_formats = match pad_formats(param_formats, raw_params.len()) {
             Ok(param_formats) => param_formats,
             Err(msg) => {

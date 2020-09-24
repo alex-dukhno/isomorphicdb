@@ -77,9 +77,7 @@ pub fn start() {
                                     return;
                                 }
                                 Ok(Ok(command)) => match query_engine.execute(command) {
-                                    Ok(()) => {
-                                        // receiver.ready_for_query().await.expect("Ok");
-                                    }
+                                    Ok(()) => {}
                                     Err(()) => {
                                         break;
                                     }

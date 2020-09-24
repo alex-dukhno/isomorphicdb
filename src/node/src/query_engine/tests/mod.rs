@@ -60,23 +60,23 @@ impl Sender for Collector {
 }
 
 impl Collector {
-    pub fn assert_receive_till_this_moment(&self, expected: Vec<QueryResult>) {
+    fn assert_receive_till_this_moment(&self, expected: Vec<QueryResult>) {
         let result = self.0.lock().expect("locked").drain(0..).collect::<Vec<_>>();
         assert_eq!(result, expected)
     }
 
-    pub fn assert_receive_intermediate(&self, expected: QueryResult) {
+    fn assert_receive_intermediate(&self, expected: QueryResult) {
         let mut actual = self.0.lock().expect("locked");
         assert_eq!(actual.deref_mut().pop(), Some(expected));
     }
 
-    pub fn assert_receive_single(&self, expected: QueryResult) {
+    fn assert_receive_single(&self, expected: QueryResult) {
         self.assert_query_complete();
         let mut actual = self.0.lock().expect("locked");
         assert_eq!(actual.deref_mut().pop(), Some(expected));
     }
 
-    pub fn assert_receive_many(&self, expected: Vec<QueryResult>) {
+    fn assert_receive_many(&self, expected: Vec<QueryResult>) {
         let actual = self
             .0
             .lock()
@@ -114,13 +114,13 @@ fn empty_database() -> (QueryEngine, ResultCollector) {
 
 #[rstest::fixture]
 fn database_with_schema(empty_database: (QueryEngine, ResultCollector)) -> (QueryEngine, ResultCollector) {
-    let (mut executor, collector) = empty_database;
-    executor
+    let (mut engine, collector) = empty_database;
+    engine
         .execute(Command::Query {
             sql: "create schema schema_name;".to_string(),
         })
         .expect("query expected");
     collector.assert_receive_single(Ok(QueryEvent::SchemaCreated));
 
-    (executor, collector)
+    (engine, collector)
 }

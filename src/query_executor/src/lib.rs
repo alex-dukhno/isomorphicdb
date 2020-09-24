@@ -116,30 +116,4 @@ impl QueryExecutor {
             .send(Ok(QueryEvent::QueryComplete))
             .expect("To Send Query Complete Event to Client");
     }
-
-    pub fn parse_prepared_statement(
-        &mut self,
-        statement_name: &str,
-        raw_sql_query: &str,
-        param_types: &[PostgreSqlType],
-    ) -> Result<(), ()> {
-        let statement = self.query_parser.parse(raw_sql_query)?;
-
-        let description = match self.query_planner.plan(&statement) {
-            Ok(Plan::Select(select_input)) => {
-                SelectCommand::new(select_input, self.data_manager.clone(), self.sender.clone()).describe()?
-            }
-            _ => vec![],
-        };
-
-        let prepared_statement = PreparedStatement::new(statement, param_types.to_vec(), description);
-        self.session
-            .set_prepared_statement(statement_name.to_owned(), prepared_statement);
-
-        self.sender
-            .send(Ok(QueryEvent::ParseComplete))
-            .expect("To Send ParseComplete Event");
-
-        Ok(())
-    }
 }

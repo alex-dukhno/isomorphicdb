@@ -181,13 +181,6 @@ mod tests {
             ],
             selection: None,
         };
-        // let mut statement = Parser::parse_sql(
-        //     &PreparedStatementDialect {},
-        //     "update schema_name.table_name set column_1 = $1, column_2 = $2",
-        // )
-        // .unwrap()
-        // .pop()
-        // .unwrap();
 
         ParamBinder.bind(
             &mut statement,

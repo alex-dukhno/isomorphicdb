@@ -7,8 +7,8 @@ publish = false
 
 [dependencies]
 ast = { path = "../ast" }
-query_planner = { path = "../query_planner" }
 data_manager = { path = "../data_manager" }
+query_planner = { path = "../query_planner" }
 protocol = { path = "../protocol" }
 sql_model = { path = "../sql_model" }
 
