@@ -40,7 +40,7 @@ use crate::{
 };
 
 /// A prepared statement.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct PreparedStatement<S> {
     /// The raw prepared SQL statement will be bound to a portal.
     stmt: S,

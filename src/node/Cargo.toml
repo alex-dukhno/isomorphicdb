@@ -13,15 +13,24 @@ name = "database"
 path = "src/bin.rs"
 
 [dependencies]
-kernel = { path = "../kernel" }
-sql_engine = { path = "../sql_engine" }
-sql_model = { path = "../sql_model" }
+binder = { path = "../binder" }
 data_manager = { path = "../data_manager" }
-futures-lite = "1.7.0"
-smol = "1.0.0"
-async-io = "1.1.2"
+kernel = { path = "../kernel" }
+parser = { path = "../parser" }
 protocol = { path = "../protocol" }
+query_executor = { path = "../query_executor" }
+query_planner = { path = "../query_planner" }
+sql_model = { path = "../sql_model" }
+
+async-dup = "1.2.1"
+async-io = "1.1.2"
+blocking = "1.0.0"
+futures-lite = "1.7.0"
+itertools = "0.9.0"
 log = "0.4.8"
 simple_logger = { version = "1.9.0", default-features = false }
-async-dup = "1.2.1"
-blocking = "1.0.0"
+smol = "1.0.0"
+sqlparser = { version = "0.6.1", features = ["bigdecimal"] }
+
+[dev-dependencies]
+rstest = "0.6.4"

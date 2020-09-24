@@ -180,8 +180,8 @@ def test_update_with_dynamic_expression(create_drop_test_schema_fixture: cursor)
     r = cur.fetchmany(3)
     assert r == [(1, 2, 3,), (4, 5, 6,), (7, 8, 9,)]
 
-    cur.execute('''update schema_name.table_name 
-                    set si_column_1 = 2 * si_column_1, 
+    cur.execute('''update schema_name.table_name
+                    set si_column_1 = 2 * si_column_1,
                         si_column_2 = 2 * (si_column_1 + si_column_2),
                          si_column_3 = (si_column_3 + (2 * (si_column_1 + si_column_2)));''')
 

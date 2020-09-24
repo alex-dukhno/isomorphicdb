@@ -34,8 +34,8 @@ See [docs](./docs/.)
                     dependencies on other crates because it is intended to move out of the project
                     into completely separate crate. Right now it is in the project because of ease
                     of testing, prototyping and development.
+ * `src/query_exeuctor/` - module to execute incoming `SQL` queries. That is it.
  * `src/query_planner/` - module uses `sqlparser::ast` to generate a plan how to execute query
- * `src/sql_engine/` - module to execute incoming `SQL` queries. That is it.
  * `src/sql_model/` - module contains code to support different `SQL` types other `SQL`
  * `tests/compatibility` - groovy based tests to check compatibility with [PostgreSQL](https://www.postgresql.org/)
  * `tests/fixtures` - files needed to set up non-default local testing

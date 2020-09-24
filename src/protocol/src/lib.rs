@@ -401,15 +401,6 @@ impl<RW: AsyncRead + AsyncWrite + Unpin> Receiver for RequestReceiver<RW> {
             FrontendMessage::ClosePortal { name: _ } => Ok(Ok(Command::Continue)),
         }
     }
-
-    async fn ready_for_query(&self) -> io::Result<()> {
-        self.channel
-            .lock()
-            .await
-            .write_all(BackendMessage::ReadyForQuery.as_vec().as_slice())
-            .await?;
-        Ok(())
-    }
 }
 
 /// Trait to handle client to server commands for PostgreSQL Wire Protocol connection
@@ -417,9 +408,6 @@ impl<RW: AsyncRead + AsyncWrite + Unpin> Receiver for RequestReceiver<RW> {
 pub trait Receiver: Send + Sync {
     /// receives and decodes a command from remote client
     async fn receive(&mut self) -> io::Result<Result<Command>>;
-
-    /// sends ReadyForQuery message to a client
-    async fn ready_for_query(&self) -> io::Result<()>;
 }
 
 struct ResponseSender<RW: AsyncRead + AsyncWrite + Unpin> {

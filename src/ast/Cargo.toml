@@ -6,8 +6,9 @@ edition = "2018"
 publish = false
 
 [dependencies]
-sqlparser = { version = "0.6.1", features = ["bigdecimal"] }
-log = "0.4.11"
 sql_model = { path = "../sql_model" }
-ordered-float = "2.0.0"
+
 bigdecimal = "0.1.2"
+log = "0.4.11"
+ordered-float = "2.0.0"
+sqlparser = { version = "0.6.1", features = ["bigdecimal"] }

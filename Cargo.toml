@@ -2,13 +2,15 @@
 members = [
     "src/ast",
     "src/binary",
+    "src/binder",
     "src/constraints",
     "src/data_manager",
     "src/expr_eval",
     "src/kernel",
     "src/node",
     "src/protocol",
+    "src/parser",
     "src/query_planner",
-    "src/sql_engine",
+    "src/query_executor",
     "src/sql_model",
 ]

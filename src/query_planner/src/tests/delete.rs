@@ -25,7 +25,7 @@ use sqlparser::ast::{ObjectName, Statement};
 fn delete_from_table_that_in_nonexistent_schema(planner_and_sender: (QueryPlanner, ResultCollector)) {
     let (query_planner, collector) = planner_and_sender;
     assert_eq!(
-        query_planner.plan(Statement::Delete {
+        query_planner.plan(&Statement::Delete {
             table_name: ObjectName(vec![ident("non_existent_schema"), ident(TABLE)]),
             selection: None
         }),
@@ -39,7 +39,7 @@ fn delete_from_table_that_in_nonexistent_schema(planner_and_sender: (QueryPlanne
 fn delete_from_nonexistent_table(planner_and_sender_with_schema: (QueryPlanner, ResultCollector)) {
     let (query_planner, collector) = planner_and_sender_with_schema;
     assert_eq!(
-        query_planner.plan(Statement::Delete {
+        query_planner.plan(&Statement::Delete {
             table_name: ObjectName(vec![ident(SCHEMA), ident("non_existent_table")]),
             selection: None
         }),
@@ -56,7 +56,7 @@ fn delete_from_nonexistent_table(planner_and_sender_with_schema: (QueryPlanner, 
 fn delete_from_table_with_unqualified_name(planner_and_sender_with_schema: (QueryPlanner, ResultCollector)) {
     let (query_planner, collector) = planner_and_sender_with_schema;
     assert_eq!(
-        query_planner.plan(Statement::Delete {
+        query_planner.plan(&Statement::Delete {
             table_name: ObjectName(vec![ident("only_schema_in_the_name")]),
             selection: None
         }),
@@ -72,7 +72,7 @@ fn delete_from_table_with_unqualified_name(planner_and_sender_with_schema: (Quer
 fn c_table_with_unsupported_name(planner_and_sender_with_schema: (QueryPlanner, ResultCollector)) {
     let (query_planner, collector) = planner_and_sender_with_schema;
     assert_eq!(
-        query_planner.plan(Statement::Delete {
+        query_planner.plan(&Statement::Delete {
             table_name: ObjectName(vec![
                 ident("first_part"),
                 ident("second_part"),
@@ -93,7 +93,7 @@ fn c_table_with_unsupported_name(planner_and_sender_with_schema: (QueryPlanner, 
 fn delete_from_table(planner_and_sender_with_table: (QueryPlanner, ResultCollector)) {
     let (query_planner, collector) = planner_and_sender_with_table;
     assert_eq!(
-        query_planner.plan(Statement::Delete {
+        query_planner.plan(&Statement::Delete {
             table_name: ObjectName(vec![ident(SCHEMA), ident(TABLE)]),
             selection: None
         }),

@@ -25,7 +25,7 @@ use sqlparser::ast::{ObjectName, ObjectType, Statement};
 fn drop_non_existent_schema(planner_and_sender: (QueryPlanner, ResultCollector)) {
     let (query_planner, collector) = planner_and_sender;
     assert_eq!(
-        query_planner.plan(Statement::Drop {
+        query_planner.plan(&Statement::Drop {
             object_type: ObjectType::Schema,
             if_exists: false,
             names: vec![ObjectName(vec![ident("non_existent")])],
@@ -41,7 +41,7 @@ fn drop_non_existent_schema(planner_and_sender: (QueryPlanner, ResultCollector))
 fn drop_schema_with_unqualified_name(planner_and_sender: (QueryPlanner, ResultCollector)) {
     let (query_planner, collector) = planner_and_sender;
     assert!(matches!(
-        query_planner.plan(Statement::Drop {
+        query_planner.plan(&Statement::Drop {
             object_type: ObjectType::Schema,
             if_exists: false,
             names: vec![ObjectName(vec![
@@ -64,7 +64,7 @@ fn drop_schema_with_unqualified_name(planner_and_sender: (QueryPlanner, ResultCo
 fn drop_schema(planner_and_sender_with_schema: (QueryPlanner, ResultCollector)) {
     let (query_planner, collector) = planner_and_sender_with_schema;
     assert_eq!(
-        query_planner.plan(Statement::Drop {
+        query_planner.plan(&Statement::Drop {
             object_type: ObjectType::Schema,
             if_exists: false,
             names: vec![ObjectName(vec![ident(SCHEMA)])],

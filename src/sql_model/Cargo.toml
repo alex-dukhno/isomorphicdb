@@ -6,8 +6,9 @@ edition = "2018"
 publish = false
 
 [dependencies]
-serde = { version = "1.0.115", features = ["derive"] }
 protocol = { path = "../protocol" }
+
+serde = { version = "1.0.115", features = ["derive"] }
 sqlparser = { version = "0.6.1", features = ["bigdecimal"] }
 
 [dev-dependencies]

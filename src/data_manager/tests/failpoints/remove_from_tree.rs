@@ -15,10 +15,8 @@
 use fail::FailScenario;
 
 use binary::Binary;
-use common::{scenario, SCHEMA};
+use common::{scenario, OBJECT, SCHEMA};
 use data_manager::{persistent::PersistentDatabase, Database, StorageError};
-
-use crate::common::OBJECT;
 use sql_model::sql_errors::DefinitionError;
 
 mod common;

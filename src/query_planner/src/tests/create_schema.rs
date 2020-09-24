@@ -21,7 +21,7 @@ use sqlparser::ast::Statement;
 fn create_new_schema(planner_and_sender: (QueryPlanner, ResultCollector)) {
     let (query_planner, collector) = planner_and_sender;
     assert_eq!(
-        query_planner.plan(Statement::CreateSchema {
+        query_planner.plan(&Statement::CreateSchema {
             schema_name: ObjectName(vec![ident(SCHEMA)])
         }),
         Ok(Plan::CreateSchema(SchemaCreationInfo::new(SCHEMA)))
@@ -34,7 +34,7 @@ fn create_new_schema(planner_and_sender: (QueryPlanner, ResultCollector)) {
 fn create_schema_with_the_same_name(planner_and_sender_with_schema: (QueryPlanner, ResultCollector)) {
     let (query_planner, collector) = planner_and_sender_with_schema;
     assert_eq!(
-        query_planner.plan(Statement::CreateSchema {
+        query_planner.plan(&Statement::CreateSchema {
             schema_name: ObjectName(vec![ident(SCHEMA)])
         }),
         Err(())
@@ -47,7 +47,7 @@ fn create_schema_with_the_same_name(planner_and_sender_with_schema: (QueryPlanne
 fn create_schema_with_unqualified_name(planner_and_sender: (QueryPlanner, ResultCollector)) {
     let (query_planner, collector) = planner_and_sender;
     assert!(matches!(
-        query_planner.plan(Statement::CreateSchema {
+        query_planner.plan(&Statement::CreateSchema {
             schema_name: ObjectName(vec![
                 ident("first_part"),
                 ident("second_part"),

@@ -51,8 +51,8 @@ impl QueryPlanner {
         Self { data_manager, sender }
     }
 
-    pub fn plan(&self, stmt: Statement) -> Result<Plan> {
-        match &stmt {
+    pub fn plan(&self, statement: &Statement) -> Result<Plan> {
+        match statement {
             Statement::CreateTable { name, columns, .. } => {
                 CreateTablePlanner::new(name, columns).plan(self.data_manager.clone(), self.sender.clone())
             }
@@ -71,7 +71,7 @@ impl QueryPlanner {
                 }
                 _ => {
                     self.sender
-                        .send(Err(QueryError::syntax_error(stmt)))
+                        .send(Err(QueryError::syntax_error(statement)))
                         .expect("To Send Result to Client");
                     Err(())
                 }
@@ -92,7 +92,7 @@ impl QueryPlanner {
             Statement::Query(query) => {
                 SelectPlanner::new(query.clone()).plan(self.data_manager.clone(), self.sender.clone())
             }
-            _ => Ok(Plan::NotProcessed(Box::new(stmt))),
+            _ => Ok(Plan::NotProcessed(Box::new(statement.clone()))),
         }
     }
 }
