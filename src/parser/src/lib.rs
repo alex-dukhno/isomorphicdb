@@ -13,18 +13,20 @@
 // limitations under the License.
 
 use data_manager::DataManager;
-use protocol::pgsql_types::PostgreSqlType;
-use protocol::results::{Description, QueryEvent};
-use protocol::statement::PreparedStatement;
-use protocol::{results::QueryError, Sender};
+use protocol::{
+    pgsql_types::PostgreSqlType,
+    results::{Description, QueryError, QueryEvent},
+    statement::PreparedStatement,
+    Sender,
+};
 use query_planner::FullTableName;
 use sql_model::Id;
-use sqlparser::ast::{Expr, Ident, Query, Select, SelectItem, SetExpr, Statement, TableFactor, TableWithJoins};
-use sqlparser::dialect::Dialect;
-use sqlparser::parser::Parser;
-use std::convert::TryFrom;
-use std::ops::Deref;
-use std::sync::Arc;
+use sqlparser::{
+    ast::{Expr, Ident, Query, Select, SelectItem, SetExpr, Statement, TableFactor, TableWithJoins},
+    dialect::Dialect,
+    parser::Parser,
+};
+use std::{convert::TryFrom, ops::Deref, sync::Arc};
 
 pub struct QueryParser {
     sender: Arc<dyn Sender>,
@@ -79,7 +81,7 @@ impl QueryParser {
     pub(crate) fn plan(&self, statement: &Statement) -> Result<SelectInput, ()> {
         if let Statement::Query(query) = statement {
             let Query { body, .. } = query.deref();
-            let result = if let SetExpr::Select(select) = body {
+            if let SetExpr::Select(select) = body {
                 let Select { projection, from, .. } = select.deref();
                 let TableWithJoins { relation, .. } = &from[0];
                 let name = match relation {
@@ -100,7 +102,7 @@ impl QueryParser {
                                 self.sender
                                     .send(Err(QueryError::schema_does_not_exist(schema_name)))
                                     .expect("To Send Result to Client");
-                                return Err(());
+                                Err(())
                             }
                             Some((_, None)) => {
                                 self.sender
@@ -108,7 +110,7 @@ impl QueryParser {
                                         schema_name.to_owned() + "." + table_name,
                                     )))
                                     .expect("To Send Result to Client");
-                                return Err(());
+                                Err(())
                             }
                             Some((schema_id, Some(table_id))) => {
                                 let selected_columns = {
@@ -153,16 +155,15 @@ impl QueryParser {
                         self.sender
                             .send(Err(QueryError::syntax_error(error)))
                             .expect("To Send Query Result to Client");
-                        return Err(());
+                        Err(())
                     }
                 }
             } else {
                 self.sender
                     .send(Err(QueryError::feature_not_supported(&*statement)))
                     .expect("To Send Query Result to Client");
-                return Err(());
-            };
-            result
+                Err(())
+            }
         } else {
             Err(())
         }
@@ -237,8 +238,7 @@ impl Dialect for PreparedStatementDialect {
 mod tests {
     use super::*;
     use protocol::results::QueryResult;
-    use std::io;
-    use std::sync::Mutex;
+    use std::{io, sync::Mutex};
 
     struct Collector(Mutex<Vec<QueryResult>>);
 

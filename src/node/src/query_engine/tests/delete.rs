@@ -12,50 +12,55 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use protocol::{pgsql_types::PostgreSqlType, results::QueryEvent};
-
-use sql_engine::QueryExecutor;
-
-use common::{database_with_schema, ResultCollector};
-use parser::QueryParser;
-use protocol::messages::ColumnMetadata;
-use protocol::results::QueryError;
-mod common;
+use super::*;
+use protocol::{
+    messages::ColumnMetadata,
+    pgsql_types::PostgreSqlType,
+    results::{QueryError, QueryEvent},
+};
 
 #[rstest::rstest]
-fn delete_from_nonexistent_table(database_with_schema: (QueryExecutor, QueryParser, ResultCollector)) {
-    let (engine, parser, collector) = database_with_schema;
+fn delete_from_nonexistent_table(database_with_schema: (QueryEngine, ResultCollector)) {
+    let (mut engine, collector) = database_with_schema;
 
-    engine.execute(&parser.parse("delete from schema_name.table_name;").expect("parsed"));
+    engine
+        .execute(Command::Query {
+            sql: "delete from schema_name.table_name;".to_owned(),
+        })
+        .expect("query executed");
     collector.assert_receive_single(Err(QueryError::table_does_not_exist("schema_name.table_name")));
 }
 
 #[rstest::rstest]
-fn delete_all_records(database_with_schema: (QueryExecutor, QueryParser, ResultCollector)) {
-    let (engine, parser, collector) = database_with_schema;
+fn delete_all_records(database_with_schema: (QueryEngine, ResultCollector)) {
+    let (mut engine, collector) = database_with_schema;
 
-    engine.execute(
-        &parser
-            .parse("create table schema_name.table_name (column_test smallint);")
-            .expect("parsed"),
-    );
+    engine
+        .execute(Command::Query {
+            sql: "create table schema_name.table_name (column_test smallint);".to_owned(),
+        })
+        .expect("query executed");
     collector.assert_receive_single(Ok(QueryEvent::TableCreated));
 
-    engine.execute(
-        &parser
-            .parse("insert into schema_name.table_name values (123);")
-            .expect("parsed"),
-    );
+    engine
+        .execute(Command::Query {
+            sql: "insert into schema_name.table_name values (123);".to_owned(),
+        })
+        .expect("query executed");
     collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
-    engine.execute(
-        &parser
-            .parse("insert into schema_name.table_name values (456);")
-            .expect("parsed"),
-    );
+    engine
+        .execute(Command::Query {
+            sql: "insert into schema_name.table_name values (456);".to_owned(),
+        })
+        .expect("query executed");
     collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
-    engine.execute(&parser.parse("select * from schema_name.table_name;").expect("parsed"));
+    engine
+        .execute(Command::Query {
+            sql: "select * from schema_name.table_name;".to_owned(),
+        })
+        .expect("query executed");
     collector.assert_receive_many(vec![
         Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
             "column_test",
@@ -66,10 +71,18 @@ fn delete_all_records(database_with_schema: (QueryExecutor, QueryParser, ResultC
         Ok(QueryEvent::RecordsSelected(2)),
     ]);
 
-    engine.execute(&parser.parse("delete from schema_name.table_name;").expect("parsed"));
+    engine
+        .execute(Command::Query {
+            sql: "delete from schema_name.table_name;".to_owned(),
+        })
+        .expect("query executed");
     collector.assert_receive_single(Ok(QueryEvent::RecordsDeleted(2)));
 
-    engine.execute(&parser.parse("select * from schema_name.table_name;").expect("parsed"));
+    engine
+        .execute(Command::Query {
+            sql: "select * from schema_name.table_name;".to_owned(),
+        })
+        .expect("query executed");
     collector.assert_receive_many(vec![
         Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
             "column_test",

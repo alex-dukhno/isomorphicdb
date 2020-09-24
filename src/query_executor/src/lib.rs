@@ -12,16 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::{iter, sync::Arc};
+use std::sync::Arc;
 
-use itertools::izip;
 use sqlparser::ast::Statement;
 
-use binder::ParamBinder;
 use data_manager::DataManager;
-use kernel::SystemResult;
 use protocol::{
-    pgsql_types::{PostgreSqlFormat, PostgreSqlType, PostgreSqlValue},
+    pgsql_types::PostgreSqlType,
     results::{QueryError, QueryEvent},
     session::Session,
     statement::PreparedStatement,
@@ -46,7 +43,6 @@ pub struct QueryExecutor {
     sender: Arc<dyn Sender>,
     session: Session<Statement>,
     query_planner: QueryPlanner,
-    param_binder: ParamBinder,
     query_parser: QueryParser,
 }
 
@@ -57,7 +53,6 @@ impl QueryExecutor {
             sender: sender.clone(),
             session: Session::default(),
             query_planner: QueryPlanner::new(data_manager.clone(), sender.clone()),
-            param_binder: ParamBinder,
             query_parser: QueryParser::new(sender, data_manager),
         }
     }
@@ -146,34 +141,5 @@ impl QueryExecutor {
             .expect("To Send ParseComplete Event");
 
         Ok(())
-    }
-
-    // pub fn execute_portal(&self, portal_name: &str, _max_rows: i32) -> Result<(), ()> {
-    //     let portal = match self.session.get_portal(portal_name) {
-    //         Some(portal) => portal,
-    //         None => {
-    //             self.sender
-    //                 .send(Err(QueryError::portal_does_not_exist(portal_name)))
-    //                 .expect("To Send Error to Client");
-    //             return Ok(());
-    //         }
-    //     };
-    //
-    //     self.process_statement(portal.stmt());
-    //
-    //     self.sender
-    //         .send(Ok(QueryEvent::QueryComplete))
-    //         .expect("To Send Query Complete Event to Client");
-    //
-    //     Ok(())
-    // }
-}
-
-fn pad_formats(formats: &[PostgreSqlFormat], param_len: usize) -> Result<Vec<PostgreSqlFormat>, String> {
-    match (formats.len(), param_len) {
-        (0, n) => Ok(vec![PostgreSqlFormat::Text; n]),
-        (1, n) => Ok(iter::repeat(formats[0]).take(n).collect()),
-        (m, n) if m == n => Ok(formats.to_vec()),
-        (m, n) => Err(format!("expected {} field format specifiers, but got {}", m, n)),
     }
 }

@@ -27,7 +27,7 @@ use async_io::Async;
 
 use crate::query_engine::QueryEngine;
 use data_manager::DataManager;
-use protocol::{ProtocolConfiguration, Receiver, Sender};
+use protocol::{ProtocolConfiguration, Receiver};
 
 const PORT: u16 = 5432;
 const HOST: [u8; 4] = [0, 0, 0, 0];
@@ -78,7 +78,7 @@ pub fn start() {
                                 }
                                 Ok(Ok(command)) => match query_engine.execute(command) {
                                     Ok(()) => {
-                                        receiver.ready_for_query().await.expect("Ok");
+                                        // receiver.ready_for_query().await.expect("Ok");
                                     }
                                     Err(()) => {
                                         break;

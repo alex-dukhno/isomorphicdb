@@ -12,89 +12,98 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-mod common;
-use common::{empty_database, database_with_schema, ResultCollector};
-use parser::QueryParser;
+use super::*;
 use protocol::results::{QueryError, QueryEvent};
-use sql_engine::QueryExecutor;
 
 #[cfg(test)]
 mod schemaless {
     use super::*;
 
     #[rstest::rstest]
-    fn create_table_in_non_existent_schema(empty_database: (QueryExecutor, QueryParser, ResultCollector)) {
-        let (engine, parser, collector) = empty_database;
-        engine.execute(
-            &parser
-                .parse("create table schema_name.table_name (column_name smallint);")
-                .expect("parsed"),
-        );
+    fn create_table_in_non_existent_schema(empty_database: (QueryEngine, ResultCollector)) {
+        let (mut engine, collector) = empty_database;
+        engine
+            .execute(Command::Query {
+                sql: "create table schema_name.table_name (column_name smallint);".to_owned(),
+            })
+            .expect("query executed");
         collector.assert_receive_single(Err(QueryError::schema_does_not_exist("schema_name")));
     }
 
     #[rstest::rstest]
-    fn drop_table_from_non_existent_schema(empty_database: (QueryExecutor, QueryParser, ResultCollector)) {
-        let (engine, parser, collector) = empty_database;
-        engine.execute(&parser.parse("drop table schema_name.table_name;").expect("parsed"));
+    fn drop_table_from_non_existent_schema(empty_database: (QueryEngine, ResultCollector)) {
+        let (mut engine, collector) = empty_database;
+        engine
+            .execute(Command::Query {
+                sql: "drop table schema_name.table_name;".to_owned(),
+            })
+            .expect("query executed");
         collector.assert_receive_single(Err(QueryError::schema_does_not_exist("schema_name")));
     }
 }
 
 #[rstest::rstest]
-fn create_table(database_with_schema: (QueryExecutor, QueryParser, ResultCollector)) {
-    let (engine, parser, collector) = database_with_schema;
-    engine.execute(
-        &parser
-            .parse("create table schema_name.table_name (column_name smallint);")
-            .expect("parsed"),
-    );
+fn create_table(database_with_schema: (QueryEngine, ResultCollector)) {
+    let (mut engine, collector) = database_with_schema;
+    engine
+        .execute(Command::Query {
+            sql: "create table schema_name.table_name (column_name smallint);".to_owned(),
+        })
+        .expect("query executed");
     collector.assert_receive_single(Ok(QueryEvent::TableCreated));
 }
 
 #[rstest::rstest]
-fn create_same_table(database_with_schema: (QueryExecutor, QueryParser, ResultCollector)) {
-    let (engine, parser, collector) = database_with_schema;
-    engine.execute(
-        &parser
-            .parse("create table schema_name.table_name (column_name smallint);")
-            .expect("parsed"),
-    );
+fn create_same_table(database_with_schema: (QueryEngine, ResultCollector)) {
+    let (mut engine, collector) = database_with_schema;
+    engine
+        .execute(Command::Query {
+            sql: "create table schema_name.table_name (column_name smallint);".to_owned(),
+        })
+        .expect("query executed");
     collector.assert_receive_single(Ok(QueryEvent::TableCreated));
 
-    engine.execute(
-        &parser
-            .parse("create table schema_name.table_name (column_name smallint);")
-            .expect("parsed"),
-    );
+    engine
+        .execute(Command::Query {
+            sql: "create table schema_name.table_name (column_name smallint);".to_owned(),
+        })
+        .expect("query executed");
     collector.assert_receive_single(Err(QueryError::table_already_exists("schema_name.table_name")));
 }
 
 #[rstest::rstest]
-fn drop_table(database_with_schema: (QueryExecutor, QueryParser, ResultCollector)) {
-    let (engine, parser, collector) = database_with_schema;
-    engine.execute(
-        &parser
-            .parse("create table schema_name.table_name (column_name smallint);")
-            .expect("parsed"),
-    );
+fn drop_table(database_with_schema: (QueryEngine, ResultCollector)) {
+    let (mut engine, collector) = database_with_schema;
+    engine
+        .execute(Command::Query {
+            sql: "create table schema_name.table_name (column_name smallint);".to_owned(),
+        })
+        .expect("query executed");
     collector.assert_receive_single(Ok(QueryEvent::TableCreated));
 
-    engine.execute(&parser.parse("drop table schema_name.table_name;").expect("parsed"));
+    engine
+        .execute(Command::Query {
+            sql: "drop table schema_name.table_name;".to_owned(),
+        })
+        .expect("query executed");
     collector.assert_receive_single(Ok(QueryEvent::TableDropped));
 
-    engine.execute(
-        &parser
-            .parse("create table schema_name.table_name (column_name smallint);")
-            .expect("parsed"),
-    );
+    engine
+        .execute(Command::Query {
+            sql: "create table schema_name.table_name (column_name smallint);".to_owned(),
+        })
+        .expect("query executed");
     collector.assert_receive_single(Ok(QueryEvent::TableCreated));
 }
 
 #[rstest::rstest]
-fn drop_non_existent_table(database_with_schema: (QueryExecutor, QueryParser, ResultCollector)) {
-    let (engine, parser, collector) = database_with_schema;
-    engine.execute(&parser.parse("drop table schema_name.table_name;").expect("parsed"));
+fn drop_non_existent_table(database_with_schema: (QueryEngine, ResultCollector)) {
+    let (mut engine, collector) = database_with_schema;
+    engine
+        .execute(Command::Query {
+            sql: "drop table schema_name.table_name;".to_owned(),
+        })
+        .expect("query executed");
     collector.assert_receive_single(Err(QueryError::table_does_not_exist("schema_name.table_name")));
 }
 
@@ -103,70 +112,66 @@ mod different_types {
     use super::*;
 
     #[rstest::rstest]
-    fn ints(database_with_schema: (QueryExecutor, QueryParser, ResultCollector)) {
-        let (engine, parser, collector) = database_with_schema;
-        engine.execute(
-            &parser
-                .parse(
-                    "create table schema_name.table_name (\
+    fn ints(database_with_schema: (QueryEngine, ResultCollector)) {
+        let (mut engine, collector) = database_with_schema;
+        engine
+            .execute(Command::Query {
+                sql: "create table schema_name.table_name (\
             column_si smallint,\
             column_i integer,\
             column_bi bigint
-            );",
-                )
-                .expect("parsed"),
-        );
+            );"
+                .to_owned(),
+            })
+            .expect("query executed");
 
         collector.assert_receive_single(Ok(QueryEvent::TableCreated));
     }
 
     #[rstest::rstest]
-    fn strings(database_with_schema: (QueryExecutor, QueryParser, ResultCollector)) {
-        let (engine, parser, collector) = database_with_schema;
-        engine.execute(
-            &parser
-                .parse(
-                    "create table schema_name.table_name (\
+    fn strings(database_with_schema: (QueryEngine, ResultCollector)) {
+        let (mut engine, collector) = database_with_schema;
+        engine
+            .execute(Command::Query {
+                sql: "create table schema_name.table_name (\
             column_c char(10),\
             column_vc varchar(10)\
-            );",
-                )
-                .expect("parsed"),
-        );
+            );"
+                .to_owned(),
+            })
+            .expect("query executed");
 
         collector.assert_receive_single(Ok(QueryEvent::TableCreated));
     }
 
     #[rstest::rstest]
-    fn boolean(database_with_schema: (QueryExecutor, QueryParser, ResultCollector)) {
-        let (engine, parser, collector) = database_with_schema;
-        engine.execute(
-            &parser
-                .parse(
-                    "create table schema_name.table_name (\
+    fn boolean(database_with_schema: (QueryEngine, ResultCollector)) {
+        let (mut engine, collector) = database_with_schema;
+        engine
+            .execute(Command::Query {
+                sql: "create table schema_name.table_name (\
             column_b boolean\
-            );",
-                )
-                .expect("parsed"),
-        );
+            );"
+                .to_owned(),
+            })
+            .expect("query executed");
 
         collector.assert_receive_single(Ok(QueryEvent::TableCreated));
     }
 
     #[rstest::rstest]
-    fn serials(database_with_schema: (QueryExecutor, QueryParser, ResultCollector)) {
-        let (engine, parser, collector) = database_with_schema;
-        engine.execute(
-            &parser
-                .parse(
-                    "create table schema_name.table_name (\
+    fn serials(database_with_schema: (QueryEngine, ResultCollector)) {
+        let (mut engine, collector) = database_with_schema;
+        engine
+            .execute(Command::Query {
+                sql: "create table schema_name.table_name (\
             column_smalls smallserial,\
             column_s serial,\
             column_bigs bigserial\
-            );",
-                )
-                .expect("parsed"),
-        );
+            );"
+                .to_owned(),
+            })
+            .expect("query executed");
 
         collector.assert_receive_single(Ok(QueryEvent::TableCreated));
     }

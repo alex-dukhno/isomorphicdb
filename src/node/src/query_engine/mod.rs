@@ -14,23 +14,23 @@
 
 use binder::ParamBinder;
 use data_manager::DataManager;
+use itertools::izip;
 use parser::QueryParser;
-use protocol::pgsql_types::{PostgreSqlFormat, PostgreSqlValue};
-use protocol::results::{QueryError, QueryEvent};
-use protocol::session::Session;
-use protocol::statement::PreparedStatement;
-use protocol::{Command, Sender};
+use protocol::{
+    pgsql_types::{PostgreSqlFormat, PostgreSqlValue},
+    results::{QueryError, QueryEvent},
+    session::Session,
+    statement::PreparedStatement,
+    Command, Sender,
+};
 use query_executor::QueryExecutor;
-use query_planner::planner::QueryPlanner;
 use sqlparser::ast::Statement;
-use std::sync::Arc;
+use std::{iter, sync::Arc};
 
 pub(crate) struct QueryEngine {
     session: Session<Statement>,
     sender: Arc<dyn Sender>,
-    data_manager: Arc<DataManager>,
     query_executor: QueryExecutor,
-    query_planner: QueryPlanner,
     param_binder: ParamBinder,
     query_parser: QueryParser,
 }
@@ -40,11 +40,9 @@ impl QueryEngine {
         QueryEngine {
             session: Session::default(),
             sender: sender.clone(),
-            data_manager: data_manager.clone(),
             query_executor: QueryExecutor::new(data_manager.clone(), sender.clone()),
-            query_planner: QueryPlanner::new(data_manager.clone(), sender.clone()),
             param_binder: ParamBinder,
-            query_parser: QueryParser::new(sender.clone(), data_manager.clone()),
+            query_parser: QueryParser::new(sender.clone(), data_manager),
         }
     }
 
@@ -79,11 +77,14 @@ impl QueryEngine {
                         ) {
                             Ok((new_stmt, result_formats)) => {
                                 self.session.set_portal(
-                                    portal_name.to_owned(),
+                                    portal_name,
                                     statement_name.to_owned(),
                                     new_stmt,
                                     result_formats,
                                 );
+                                self.sender
+                                    .send(Ok(QueryEvent::BindComplete))
+                                    .expect("To Send BindComplete Event");
                             }
                             Err(error) => log::error!("{:?}", error),
                         }
@@ -98,10 +99,7 @@ impl QueryEngine {
             }
             Command::Continue => Ok(()),
             Command::DescribeStatement { name } => {
-                match self.describe_prepared_statement(name.as_str()) {
-                    Ok(()) => {}
-                    Err(error) => log::error!("{:?}", error),
-                }
+                self.describe_prepared_statement(name.as_str());
                 Ok(())
             }
             // TODO: Parameter `max_rows` should be handled.
@@ -223,17 +221,6 @@ impl QueryEngine {
             }
         };
 
-        // self.session.set_portal(
-        //     portal_name.to_owned(),
-        //     statement_name.to_owned(),
-        //     new_stmt,
-        //     result_formats,
-        // );
-
-        self.sender
-            .send(Ok(QueryEvent::BindComplete))
-            .expect("To Send BindComplete Event");
-
         Ok((new_stmt, result_formats))
     }
 
@@ -253,6 +240,15 @@ impl QueryEngine {
                     .expect("To Send Error to Client");
             }
         }
+    }
+}
+
+fn pad_formats(formats: &[PostgreSqlFormat], param_len: usize) -> Result<Vec<PostgreSqlFormat>, String> {
+    match (formats.len(), param_len) {
+        (0, n) => Ok(vec![PostgreSqlFormat::Text; n]),
+        (1, n) => Ok(iter::repeat(formats[0]).take(n).collect()),
+        (m, n) if m == n => Ok(formats.to_vec()),
+        (m, n) => Err(format!("expected {} field format specifiers, but got {}", m, n)),
     }
 }
 

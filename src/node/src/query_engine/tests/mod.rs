@@ -93,15 +93,15 @@ impl Collector {
     }
 }
 
-pub type ResultCollector = Arc<Collector>;
+type ResultCollector = Arc<Collector>;
 
 #[rstest::fixture]
-pub fn sender() -> ResultCollector {
+fn sender() -> ResultCollector {
     Arc::new(Collector(Mutex::new(vec![])))
 }
 
 #[rstest::fixture]
-pub fn empty_database() -> (QueryEngine, ResultCollector) {
+fn empty_database() -> (QueryEngine, ResultCollector) {
     let collector = Arc::new(Collector(Mutex::new(vec![])));
     (
         QueryEngine::new(
@@ -113,11 +113,13 @@ pub fn empty_database() -> (QueryEngine, ResultCollector) {
 }
 
 #[rstest::fixture]
-pub fn database_with_schema(empty_database: (QueryEngine, ResultCollector)) -> (QueryEngine, ResultCollector) {
+fn database_with_schema(empty_database: (QueryEngine, ResultCollector)) -> (QueryEngine, ResultCollector) {
     let (mut executor, collector) = empty_database;
-    executor.execute(Command::Query {
-        sql: "create schema schema_name;".to_string(),
-    });
+    executor
+        .execute(Command::Query {
+            sql: "create schema schema_name;".to_string(),
+        })
+        .expect("query expected");
     collector.assert_receive_single(Ok(QueryEvent::SchemaCreated));
 
     (executor, collector)

@@ -13,51 +13,52 @@
 // limitations under the License.
 
 use super::*;
-use data_manager::DataManager;
-use parser::QueryParser;
-use protocol::pgsql_types::{PostgreSqlFormat, PostgreSqlType, PostgreSqlValue};
-use query_executor::query::bind::ParamBinder;
-use std::sync::Arc;
+use protocol::pgsql_types::{PostgreSqlFormat, PostgreSqlType};
 
 #[rstest::rstest]
-fn bind_insert_raw_statement(empty_database: (QueryEngine, ResultCollector)) -> Result<(), ()> {
+fn bind_insert_raw_statement(empty_database: (QueryEngine, ResultCollector)) {
     let (mut executor, collector) = empty_database;
-    executor.execute(Command::Parse {
-        statement_name: "statement_name".to_owned(),
-        sql: "insert into schema_name.table_name values ($1, $2)".to_owned(),
-        param_types: vec![PostgreSqlType::Integer, PostgreSqlType::VarChar],
-    })?;
+    executor
+        .execute(Command::Parse {
+            statement_name: "statement_name".to_owned(),
+            sql: "insert into schema_name.table_name values ($1, $2)".to_owned(),
+            param_types: vec![PostgreSqlType::Integer, PostgreSqlType::VarChar],
+        })
+        .expect("query executed");
+    collector.assert_receive_intermediate(Ok(QueryEvent::ParseComplete));
 
-    executor.execute(Command::Bind {
-        portal_name: "portal_name".to_owned(),
-        statement_name: "statement_name".to_owned(),
-        param_formats: vec![PostgreSqlFormat::Binary, PostgreSqlFormat::Text],
-        raw_params: vec![Some(vec![0, 1]), Some(b"2".to_vec())],
-        result_formats: vec![],
-    })?;
-
-    Ok(())
+    executor
+        .execute(Command::Bind {
+            portal_name: "portal_name".to_owned(),
+            statement_name: "statement_name".to_owned(),
+            param_formats: vec![PostgreSqlFormat::Binary, PostgreSqlFormat::Text],
+            raw_params: vec![Some(vec![0, 0, 0, 1]), Some(b"2".to_vec())],
+            result_formats: vec![],
+        })
+        .expect("query executed");
+    collector.assert_receive_intermediate(Ok(QueryEvent::BindComplete));
 }
 
 #[rstest::rstest]
-fn bind_update_raw_statement(sender: ResultCollector) {
-    let query_parser = QueryParser::new(
-        sender.clone(),
-        Arc::new(DataManager::in_memory().expect("create data manager")),
-    );
-    let mut statement = query_parser
-        .parse("update schema_name.table_name set column_1 = $1, column_2 = $2")
-        .expect("query parsed");
+fn bind_update_raw_statement(empty_database: (QueryEngine, ResultCollector)) {
+    let (mut executor, collector) = empty_database;
+    executor
+        .execute(Command::Parse {
+            statement_name: "statement_name".to_owned(),
+            sql: "update schema_name.table_name set column_1 = $1, column_2 = $2".to_owned(),
+            param_types: vec![PostgreSqlType::Integer, PostgreSqlType::VarChar],
+        })
+        .expect("query executed");
+    collector.assert_receive_intermediate(Ok(QueryEvent::ParseComplete));
 
-    ParamBinder::new(sender)
-        .bind(
-            &mut statement,
-            &[PostgreSqlValue::Int16(1), PostgreSqlValue::String("abc".into())],
-        )
-        .unwrap();
-
-    assert_eq!(
-        statement.to_string(),
-        "UPDATE schema_name.table_name SET column_1 = 1, column_2 = 'abc'"
-    );
+    executor
+        .execute(Command::Bind {
+            portal_name: "portal_name".to_owned(),
+            statement_name: "statement_name".to_owned(),
+            param_formats: vec![PostgreSqlFormat::Binary, PostgreSqlFormat::Text],
+            raw_params: vec![Some(vec![0, 0, 0, 1]), Some(b"2".to_vec())],
+            result_formats: vec![],
+        })
+        .expect("query executed");
+    collector.assert_receive_intermediate(Ok(QueryEvent::BindComplete));
 }
