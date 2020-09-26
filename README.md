@@ -6,6 +6,28 @@
 
 The project doesn't have any name so let it be `database` for now.
 
+## TODO List
+
+* [ ] PostgreSQL compatibility
+    * [ ] PostgreSQL wire protocol
+    * [ ] Data types
+    * [ ] Data definition language
+        * [ ] Create/Drop/Alter table
+        * [ ] Create/Drop index
+        * [ ] Primary/Foreign keys
+        * [ ] Check constraints
+    * [ ] Data manipulation language
+* [ ] Reactive Dataflow query execution
+    * [ ] With RSocket for inter node communication
+* [ ] Query compilation
+* [ ] HTAP (Hybrid transactional/analytical processing)
+* [ ] Raft replication
+* [ ] Operability
+    * [ ] Smooth version upgrade
+    * [ ] Ease of adding/removing node from the cluster (including quick replication)
+    * [ ] Self-driving
+* [ ] High ingestion rate with support Kafka compatible persistent queues as an external WAL
+
 ## Play around with project
 
 See [docs](./docs/.)
