@@ -26,6 +26,7 @@ The project doesn't have any name so let it be `database` for now.
     * [ ] Smooth version upgrade
     * [ ] Ease of adding/removing node from the cluster (including quick replication)
     * [ ] Self-driving
+* [ ] High ingestion rate with support Kafka compatible persistent queues as an external WAL
 
 ## Play around with project
 
