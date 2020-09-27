@@ -13,19 +13,11 @@
 // limitations under the License.
 
 #[cfg(test)]
-mod bind;
-#[cfg(test)]
-mod bind_prepared_statement_to_portal;
-#[cfg(test)]
 mod delete;
 #[cfg(test)]
-mod describe_prepared_statement;
-#[cfg(test)]
-mod execute_portal;
+mod extended_query_flow;
 #[cfg(test)]
 mod insert;
-#[cfg(test)]
-mod parse_prepared_statement;
 #[cfg(test)]
 mod schema;
 #[cfg(test)]

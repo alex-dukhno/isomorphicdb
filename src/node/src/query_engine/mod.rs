@@ -164,6 +164,20 @@ impl QueryEngine {
                                     }
                                     Err(()) => {}
                                 },
+                                Plan::Insert(_insert_table) => {
+                                    let statement = PreparedStatement::new(statement, param_types.to_vec(), vec![]);
+                                    self.sender
+                                        .send(Ok(QueryEvent::ParseComplete))
+                                        .expect("To Send ParseComplete Event");
+                                    self.session.set_prepared_statement(statement_name, statement);
+                                }
+                                Plan::Update(_table_updates) => {
+                                    let statement = PreparedStatement::new(statement, param_types.to_vec(), vec![]);
+                                    self.sender
+                                        .send(Ok(QueryEvent::ParseComplete))
+                                        .expect("To Send ParseComplete Event");
+                                    self.session.set_prepared_statement(statement_name, statement);
+                                }
                                 Plan::NotProcessed(statement) => match statement.deref() {
                                     stmt @ Statement::SetVariable { .. } => {
                                         let statement =
