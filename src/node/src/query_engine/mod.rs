@@ -16,20 +16,20 @@ use binder::ParamBinder;
 use data_manager::DataManager;
 use itertools::izip;
 use parser::QueryParser;
-use protocol::results::Description;
 use protocol::{
     pgsql_types::{PostgreSqlFormat, PostgreSqlValue},
-    results::{QueryError, QueryEvent},
+    results::{Description, QueryError, QueryEvent},
     session::Session,
     statement::PreparedStatement,
     Command, Sender,
 };
 use query_executor::QueryExecutor;
-use query_planner::plan::{Plan, SelectInput};
-use query_planner::planner::QueryPlanner;
+use query_planner::{
+    plan::{Plan, SelectInput},
+    planner::QueryPlanner,
+};
 use sqlparser::ast::Statement;
-use std::ops::Deref;
-use std::{iter, sync::Arc};
+use std::{iter, ops::Deref, sync::Arc};
 
 pub(crate) struct QueryEngine {
     session: Session<Statement>,
