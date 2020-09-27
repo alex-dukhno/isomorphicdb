@@ -854,12 +854,8 @@ dependencies = [
 name = "parser"
 version = "0.1.0"
 dependencies = [
- "ast",
- "data_manager",
  "log",
  "protocol",
- "query_planner",
- "sql_model",
  "sqlparser",
 ]
 

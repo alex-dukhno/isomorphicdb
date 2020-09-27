@@ -6,11 +6,7 @@ edition = "2018"
 publish = false
 
 [dependencies]
-ast = { path = "../ast" }
-data_manager = { path = "../data_manager" }
-query_planner = { path = "../query_planner" }
 protocol = { path = "../protocol" }
-sql_model = { path = "../sql_model" }
 
 log = "0.4.11"
 sqlparser = { version = "0.6.1", features = ["bigdecimal"] }

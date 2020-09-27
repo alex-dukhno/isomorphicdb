@@ -2,7 +2,7 @@ package io.database
 
 import java.sql.SQLException
 
-class WorkingWithTables extends ContainersSpecification {
+class WorkingWithTablesSpec extends ContainersSpecification {
   private static final String CREATE_SCHEMA = 'create schema SCHEMA_NAME'
   private static final String DROP_SCHEMA = 'drop schema SCHEMA_NAME cascade'
 
