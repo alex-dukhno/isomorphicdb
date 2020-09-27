@@ -38,10 +38,7 @@ pub struct QueryExecutor {
 
 impl QueryExecutor {
     pub fn new(data_manager: Arc<DataManager>, sender: Arc<dyn Sender>) -> Self {
-        Self {
-            data_manager: data_manager.clone(),
-            sender: sender.clone(),
-        }
+        Self { data_manager, sender }
     }
 
     pub fn execute(&self, plan: Plan) {

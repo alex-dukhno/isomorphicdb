@@ -128,10 +128,11 @@ impl QueryEngine {
                 max_rows: _max_rows,
             } => {
                 match self.session.get_portal(&portal_name) {
-                    Some(portal) => match self.query_planner.plan(portal.stmt()) {
-                        Ok(plan) => self.query_executor.execute(plan),
-                        Err(_) => {}
-                    },
+                    Some(portal) => {
+                        if let Ok(plan) = self.query_planner.plan(portal.stmt()) {
+                            self.query_executor.execute(plan);
+                        }
+                    }
                     None => {
                         self.sender
                             .send(Err(QueryError::portal_does_not_exist(portal_name)))
@@ -212,9 +213,8 @@ impl QueryEngine {
             Command::Query { sql } => {
                 if let Ok(mut statements) = self.query_parser.parse(sql.as_str()) {
                     let statement = statements.pop().expect("single query");
-                    match self.query_planner.plan(&statement) {
-                        Ok(plan) => self.query_executor.execute(plan),
-                        Err(_) => {}
+                    if let Ok(plan) = self.query_planner.plan(&statement) {
+                        self.query_executor.execute(plan);
                     }
                 }
                 self.sender
