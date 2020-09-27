@@ -9,9 +9,10 @@ publish = false
 ast = { path = "../ast" }
 constraints = { path = "../constraints" }
 data_manager = { path = "../data_manager" }
-sql_model = { path = "../sql_model" }
 kernel = { path = "../kernel" }
+plan = { path = "../plan" }
 protocol = { path = "../protocol" }
+sql_model = { path = "../sql_model" }
 
 sqlparser = { version = "0.6.1", features = ["bigdecimal"] }
 

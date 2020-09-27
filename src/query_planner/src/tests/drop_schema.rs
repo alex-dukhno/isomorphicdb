@@ -13,11 +13,7 @@
 // limitations under the License.
 
 use super::*;
-use crate::{
-    plan::Plan,
-    planner::QueryPlanner,
-    tests::{ident, ResultCollector},
-};
+use plan::SchemaId;
 use protocol::results::QueryError;
 use sqlparser::ast::{ObjectName, ObjectType, Statement};
 
@@ -70,7 +66,7 @@ fn drop_schema(planner_and_sender_with_schema: (QueryPlanner, ResultCollector)) 
             names: vec![ObjectName(vec![ident(SCHEMA)])],
             cascade: false,
         }),
-        Ok(Plan::DropSchemas(vec![(SchemaId(0), false)]))
+        Ok(Plan::DropSchemas(vec![(SchemaId::from(0), false)]))
     );
 
     collector.assert_content(vec![]);

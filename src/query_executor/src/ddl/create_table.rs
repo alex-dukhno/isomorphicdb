@@ -15,8 +15,8 @@
 use std::sync::Arc;
 
 use data_manager::DataManager;
+use plan::TableCreationInfo;
 use protocol::{results::QueryEvent, Sender};
-use query_planner::plan::TableCreationInfo;
 
 pub(crate) struct CreateTableCommand {
     table_info: TableCreationInfo,

@@ -12,14 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{
-    plan::{Plan, TableUpdates},
-    planner::{Planner, Result},
-    FullTableName, TableId,
-};
+use crate::{Planner, Result};
 use ast::operations::ScalarOp;
 use constraints::TypeConstraint;
 use data_manager::DataManager;
+use plan::{FullTableName, Plan, TableId, TableUpdates};
 use protocol::{results::QueryError, Sender};
 use sqlparser::ast::{Assignment, ObjectName};
 use std::{collections::HashSet, convert::TryFrom, sync::Arc};
@@ -60,7 +57,7 @@ impl Planner for UpdatePlanner<'_> {
                         Err(())
                     }
                     Some((schema_id, Some(table_id))) => {
-                        let table_id = TableId((schema_id, table_id));
+                        let table_id = TableId::from((schema_id, table_id));
                         let all_columns = data_manager.table_columns(&table_id).expect("Ok");
                         let mut column_indices = vec![];
                         let mut input = vec![];

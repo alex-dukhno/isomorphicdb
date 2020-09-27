@@ -16,6 +16,7 @@ use binder::ParamBinder;
 use data_manager::DataManager;
 use itertools::izip;
 use parser::QueryParser;
+use plan::{Plan, SelectInput};
 use protocol::{
     pgsql_types::{PostgreSqlFormat, PostgreSqlValue},
     results::{Description, QueryError, QueryEvent},
@@ -24,10 +25,7 @@ use protocol::{
     Command, Sender,
 };
 use query_executor::QueryExecutor;
-use query_planner::{
-    plan::{Plan, SelectInput},
-    planner::QueryPlanner,
-};
+use query_planner::QueryPlanner;
 use sqlparser::ast::Statement;
 use std::{iter, ops::Deref, sync::Arc};
 
@@ -130,13 +128,19 @@ impl QueryEngine {
                 max_rows: _max_rows,
             } => {
                 match self.session.get_portal(&portal_name) {
-                    Some(portal) => self.query_executor.execute(portal.stmt()),
+                    Some(portal) => match self.query_planner.plan(portal.stmt()) {
+                        Ok(plan) => self.query_executor.execute(plan),
+                        Err(_) => {}
+                    },
                     None => {
                         self.sender
                             .send(Err(QueryError::portal_does_not_exist(portal_name)))
                             .expect("To Send Error to Client");
                     }
                 }
+                self.sender
+                    .send(Ok(QueryEvent::QueryComplete))
+                    .expect("To Send Error to Client");
                 Ok(())
             }
             Command::Flush => {
@@ -208,8 +212,14 @@ impl QueryEngine {
             Command::Query { sql } => {
                 if let Ok(mut statements) = self.query_parser.parse(sql.as_str()) {
                     let statement = statements.pop().expect("single query");
-                    self.query_executor.execute(&statement);
+                    match self.query_planner.plan(&statement) {
+                        Ok(plan) => self.query_executor.execute(plan),
+                        Err(_) => {}
+                    }
                 }
+                self.sender
+                    .send(Ok(QueryEvent::QueryComplete))
+                    .expect("To Send Error to Client");
                 Ok(())
             }
             Command::Terminate => {

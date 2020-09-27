@@ -13,14 +13,11 @@
 // limitations under the License.
 
 use super::*;
-use crate::{
-    plan::{Plan, TableUpdates},
-    planner::QueryPlanner,
-    tests::{ident, ResultCollector, TABLE},
-};
 use ast::{operations::ScalarOp, values::ScalarValue};
 use constraints::TypeConstraint;
+use plan::{Plan, TableId, TableUpdates};
 use protocol::results::QueryError;
+use sql_model::sql_types::SqlType;
 use sqlparser::ast::{Assignment, Expr, ObjectName, Statement, Value};
 
 #[rstest::rstest]
@@ -114,7 +111,7 @@ fn update_table(planner_and_sender_with_table: (QueryPlanner, ResultCollector)) 
             selection: None
         }),
         Ok(Plan::Update(TableUpdates {
-            table_id: TableId((0, 0)),
+            table_id: TableId::from((0, 0)),
             column_indices: vec![(
                 0,
                 "small_int".to_owned(),

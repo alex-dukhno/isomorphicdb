@@ -13,10 +13,11 @@
 // limitations under the License.
 
 use super::*;
-use crate::plan::{Plan, TableCreationInfo};
 use data_manager::ColumnDefinition;
+use plan::TableCreationInfo;
 use protocol::results::QueryError;
-use sqlparser::ast::{ColumnDef, DataType, Statement};
+use sql_model::sql_types::SqlType;
+use sqlparser::ast::{ColumnDef, DataType, ObjectName, Statement};
 
 fn column(name: &str, data_type: DataType) -> ColumnDef {
     ColumnDef {

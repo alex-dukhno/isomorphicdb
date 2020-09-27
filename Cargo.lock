@@ -724,6 +724,7 @@ dependencies = [
  "kernel",
  "log",
  "parser",
+ "plan",
  "protocol",
  "query_executor",
  "query_planner",
@@ -904,6 +905,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d36492546b6af1463394d46f0c834346f31548646f6ba10849802c9c9a27ac33"
 
 [[package]]
+name = "plan"
+version = "0.1.0"
+dependencies = [
+ "ast",
+ "constraints",
+ "data_manager",
+ "sql_model",
+ "sqlparser",
+]
+
+[[package]]
 name = "polling"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -973,8 +985,8 @@ dependencies = [
  "futures-lite",
  "kernel",
  "log",
+ "plan",
  "protocol",
- "query_planner",
  "rstest",
  "sql_model",
  "sqlparser",
@@ -989,6 +1001,7 @@ dependencies = [
  "constraints",
  "data_manager",
  "kernel",
+ "plan",
  "protocol",
  "rstest",
  "sql_model",

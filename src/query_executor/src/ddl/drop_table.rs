@@ -15,8 +15,8 @@
 use std::sync::Arc;
 
 use data_manager::DataManager;
+use plan::TableId;
 use protocol::{results::QueryEvent, Sender};
-use query_planner::TableId;
 
 pub(crate) struct DropTableCommand {
     table_id: TableId,

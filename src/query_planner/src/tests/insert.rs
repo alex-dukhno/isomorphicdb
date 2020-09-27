@@ -13,13 +13,10 @@
 // limitations under the License.
 
 use super::*;
-use crate::{
-    plan::{Plan, TableInserts},
-    planner::QueryPlanner,
-    tests::{ident, ResultCollector, TABLE},
-};
 use constraints::TypeConstraint;
+use plan::{TableId, TableInserts};
 use protocol::results::QueryError;
+use sql_model::sql_types::SqlType;
 use sqlparser::ast::{ObjectName, Query, SetExpr, Statement, Values};
 
 #[rstest::rstest]
@@ -139,7 +136,7 @@ fn insert_into_table(planner_and_sender_with_table: (QueryPlanner, ResultCollect
             })
         }),
         Ok(Plan::Insert(TableInserts {
-            table_id: TableId((0, 0)),
+            table_id: TableId::from((0, 0)),
             column_indices: vec![
                 (
                     0,
@@ -174,7 +171,7 @@ fn insert_into_table_without_columns(planner_and_sender_with_table: (QueryPlanne
             })
         }),
         Ok(Plan::Insert(TableInserts {
-            table_id: TableId((0, 0)),
+            table_id: TableId::from((0, 0)),
             column_indices: vec![
                 (
                     0,

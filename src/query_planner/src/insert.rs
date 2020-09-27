@@ -12,14 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{
-    plan::{Plan, TableInserts},
-    planner::{Planner, Result},
-    FullTableName, TableId,
-};
+use crate::{Planner, Result};
 use ast::operations::ScalarOp;
 use constraints::TypeConstraint;
 use data_manager::DataManager;
+use plan::{FullTableName, Plan, TableId, TableInserts};
 use protocol::{results::QueryError, Sender};
 use sqlparser::ast::{Ident, ObjectName, Query, SetExpr};
 use std::{collections::HashSet, convert::TryFrom, sync::Arc};
@@ -65,7 +62,7 @@ impl Planner for InsertPlanner<'_> {
                         let Query { body, .. } = &self.source;
                         match body {
                             SetExpr::Values(values) => {
-                                let table_id = TableId((schema_id, table_id));
+                                let table_id = TableId::from((schema_id, table_id));
                                 let mut input = vec![];
                                 for row in values.0.iter() {
                                     let mut scalar_values = vec![];

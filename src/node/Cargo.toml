@@ -17,6 +17,7 @@ binder = { path = "../binder" }
 data_manager = { path = "../data_manager" }
 kernel = { path = "../kernel" }
 parser = { path = "../parser" }
+plan = { path = "../plan" }
 protocol = { path = "../protocol" }
 query_executor = { path = "../query_executor" }
 query_planner = { path = "../query_planner" }

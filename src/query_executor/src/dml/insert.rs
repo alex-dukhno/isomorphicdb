@@ -25,7 +25,7 @@ use protocol::{
 
 use ast::{operations::ScalarOp, Datum};
 use expr_eval::static_expr::StaticExpressionEvaluation;
-use query_planner::plan::TableInserts;
+use plan::TableInserts;
 
 pub(crate) struct InsertCommand {
     table_inserts: TableInserts,

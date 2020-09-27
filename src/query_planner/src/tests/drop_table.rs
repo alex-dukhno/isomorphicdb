@@ -13,9 +13,9 @@
 // limitations under the License.
 
 use super::*;
-use crate::plan::Plan;
+use plan::TableId;
 use protocol::results::QueryError;
-use sqlparser::ast::{ObjectType, Statement};
+use sqlparser::ast::{ObjectName, ObjectType, Statement};
 
 #[rstest::rstest]
 fn drop_table_from_nonexistent_schema(planner_and_sender: (QueryPlanner, ResultCollector)) {
@@ -103,7 +103,7 @@ fn drop_table(planner_and_sender_with_table: (QueryPlanner, ResultCollector)) {
             names: vec![ObjectName(vec![ident(SCHEMA), ident(TABLE)])],
             cascade: false
         }),
-        Ok(Plan::DropTables(vec![TableId((0, 0))]))
+        Ok(Plan::DropTables(vec![TableId::from((0, 0))]))
     );
 
     collector.assert_content(vec![])
