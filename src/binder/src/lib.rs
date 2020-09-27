@@ -32,6 +32,7 @@ impl ParamBinder {
         match stmt {
             Statement::Insert { .. } => bind_insert(stmt, params),
             Statement::Update { .. } => bind_update(stmt, params),
+            Statement::Query(_) => Ok(()),
             Statement::SetVariable { .. } => Ok(()),
             Statement::CreateSchema { .. } => Ok(()),
             Statement::CreateTable { .. } => Ok(()),

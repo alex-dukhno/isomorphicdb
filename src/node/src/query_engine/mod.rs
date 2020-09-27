@@ -18,21 +18,27 @@ use itertools::izip;
 use parser::QueryParser;
 use protocol::{
     pgsql_types::{PostgreSqlFormat, PostgreSqlValue},
-    results::{QueryError, QueryEvent},
+    results::{Description, QueryError, QueryEvent},
     session::Session,
     statement::PreparedStatement,
     Command, Sender,
 };
 use query_executor::QueryExecutor;
+use query_planner::{
+    plan::{Plan, SelectInput},
+    planner::QueryPlanner,
+};
 use sqlparser::ast::Statement;
-use std::{iter, sync::Arc};
+use std::{iter, ops::Deref, sync::Arc};
 
 pub(crate) struct QueryEngine {
     session: Session<Statement>,
     sender: Arc<dyn Sender>,
-    query_executor: QueryExecutor,
-    param_binder: ParamBinder,
+    data_manager: Arc<DataManager>,
     query_parser: QueryParser,
+    param_binder: ParamBinder,
+    query_planner: QueryPlanner,
+    query_executor: QueryExecutor,
 }
 
 impl QueryEngine {
@@ -40,9 +46,11 @@ impl QueryEngine {
         QueryEngine {
             session: Session::default(),
             sender: sender.clone(),
-            query_executor: QueryExecutor::new(data_manager.clone(), sender.clone()),
+            data_manager: data_manager.clone(),
+            query_parser: QueryParser::default(),
             param_binder: ParamBinder,
-            query_parser: QueryParser::new(sender.clone(), data_manager),
+            query_planner: QueryPlanner::new(data_manager.clone(), sender.clone()),
+            query_executor: QueryExecutor::new(data_manager, sender),
         }
     }
 
@@ -99,7 +107,21 @@ impl QueryEngine {
             }
             Command::Continue => Ok(()),
             Command::DescribeStatement { name } => {
-                self.describe_prepared_statement(name.as_str());
+                match self.session.get_prepared_statement(&name) {
+                    Some(stmt) => {
+                        self.sender
+                            .send(Ok(QueryEvent::StatementParameters(stmt.param_types().to_vec())))
+                            .expect("To Send Statement Parameters to Client");
+                        self.sender
+                            .send(Ok(QueryEvent::StatementDescription(stmt.description().to_vec())))
+                            .expect("To Send Statement Description to Client");
+                    }
+                    None => {
+                        self.sender
+                            .send(Err(QueryError::prepared_statement_does_not_exist(name)))
+                            .expect("To Send Error to Client");
+                    }
+                }
                 Ok(())
             }
             // TODO: Parameter `max_rows` should be handled.
@@ -126,21 +148,67 @@ impl QueryEngine {
                 sql,
                 param_types,
             } => {
-                match self.query_parser.parse_prepared_statement(&sql, &param_types) {
-                    Ok(statement) => {
-                        self.sender
-                            .send(Ok(QueryEvent::ParseComplete))
-                            .expect("To Send ParseComplete Event");
-                        self.session.set_prepared_statement(statement_name, statement);
+                match self.query_parser.parse(&sql) {
+                    Ok(mut statements) => {
+                        let statement = statements.pop().expect("single statement");
+                        match self.query_planner.plan(&statement) {
+                            Ok(plan) => match plan {
+                                Plan::Select(select_input) => match self.describe(select_input) {
+                                    Ok(description) => {
+                                        let statement =
+                                            PreparedStatement::new(statement, param_types.to_vec(), description);
+                                        self.sender
+                                            .send(Ok(QueryEvent::ParseComplete))
+                                            .expect("To Send ParseComplete Event");
+                                        self.session.set_prepared_statement(statement_name, statement);
+                                    }
+                                    Err(()) => {}
+                                },
+                                Plan::Insert(_insert_table) => {
+                                    let statement = PreparedStatement::new(statement, param_types.to_vec(), vec![]);
+                                    self.sender
+                                        .send(Ok(QueryEvent::ParseComplete))
+                                        .expect("To Send ParseComplete Event");
+                                    self.session.set_prepared_statement(statement_name, statement);
+                                }
+                                Plan::Update(_table_updates) => {
+                                    let statement = PreparedStatement::new(statement, param_types.to_vec(), vec![]);
+                                    self.sender
+                                        .send(Ok(QueryEvent::ParseComplete))
+                                        .expect("To Send ParseComplete Event");
+                                    self.session.set_prepared_statement(statement_name, statement);
+                                }
+                                Plan::NotProcessed(statement) => match statement.deref() {
+                                    stmt @ Statement::SetVariable { .. } => {
+                                        let statement =
+                                            PreparedStatement::new(stmt.clone(), param_types.to_vec(), vec![]);
+                                        self.sender
+                                            .send(Ok(QueryEvent::ParseComplete))
+                                            .expect("To Send ParseComplete Event");
+                                        self.session.set_prepared_statement(statement_name, statement)
+                                    }
+                                    stmt => log::error!(
+                                        "Error while describing not supported extended query for {:?}",
+                                        stmt
+                                    ),
+                                },
+                                plan => log::error!("Error while planning not supported extended query for {:?}", plan),
+                            },
+                            Err(()) => {}
+                        }
                     }
-                    Err(error) => log::error!("{:?}", error),
+                    Err(syntax_error) => {
+                        self.sender
+                            .send(Err(syntax_error))
+                            .expect("To Send ParseComplete Event");
+                    }
                 }
                 Ok(())
             }
             Command::Query { sql } => {
-                if let Ok(statement) = self.query_parser.parse(sql.as_str()) {
+                if let Ok(mut statements) = self.query_parser.parse(sql.as_str()) {
+                    let statement = statements.pop().expect("single query");
                     self.query_executor.execute(&statement);
-                    self.sender.flush().expect("Send All Buffered Messages to Client");
                 }
                 Ok(())
             }
@@ -202,22 +270,39 @@ impl QueryEngine {
         Ok((new_stmt, result_formats))
     }
 
-    fn describe_prepared_statement(&self, name: &str) {
-        match self.session.get_prepared_statement(name) {
-            Some(stmt) => {
-                self.sender
-                    .send(Ok(QueryEvent::StatementParameters(stmt.param_types().to_vec())))
-                    .expect("To Send Statement Parameters to Client");
-                self.sender
-                    .send(Ok(QueryEvent::StatementDescription(stmt.description().to_vec())))
-                    .expect("To Send Statement Description to Client");
+    pub(crate) fn describe(&self, select_input: SelectInput) -> Result<Description, ()> {
+        let all_columns = self.data_manager.table_columns(&select_input.table_id)?;
+        let mut column_definitions = vec![];
+        let mut has_error = false;
+        for column_name in &select_input.selected_columns {
+            let mut found = None;
+            for column_definition in &all_columns {
+                if column_definition.has_name(&column_name) {
+                    found = Some(column_definition);
+                    break;
+                }
             }
-            None => {
+
+            if let Some(column_definition) = found {
+                column_definitions.push(column_definition);
+            } else {
                 self.sender
-                    .send(Err(QueryError::prepared_statement_does_not_exist(name)))
-                    .expect("To Send Error to Client");
+                    .send(Err(QueryError::column_does_not_exist(column_name)))
+                    .expect("To Send Result to Client");
+                has_error = true;
             }
         }
+
+        if has_error {
+            return Err(());
+        }
+
+        let description = column_definitions
+            .into_iter()
+            .map(|column_definition| (column_definition.name(), (&column_definition.sql_type()).into()))
+            .collect();
+
+        Ok(description)
     }
 }
 

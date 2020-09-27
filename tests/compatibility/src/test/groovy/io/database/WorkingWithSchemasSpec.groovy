@@ -2,7 +2,7 @@ package io.database
 
 import java.sql.SQLException
 
-class WorkingWithSchemas extends ContainersSpecification {
+class WorkingWithSchemasSpec extends ContainersSpecification {
   def 'create schema'() {
     given:
       String createSchemaQuery = 'create schema CREATE_SCHEMA_TEST'
