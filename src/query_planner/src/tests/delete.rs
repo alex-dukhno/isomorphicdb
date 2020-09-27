@@ -13,11 +13,7 @@
 // limitations under the License.
 
 use super::*;
-use crate::{
-    plan::{Plan, TableDeletes},
-    planner::QueryPlanner,
-    tests::{ident, ResultCollector, TABLE},
-};
+use plan::{TableDeletes, TableId};
 use protocol::results::QueryError;
 use sqlparser::ast::{ObjectName, Statement};
 
@@ -98,7 +94,7 @@ fn delete_from_table(planner_and_sender_with_table: (QueryPlanner, ResultCollect
             selection: None
         }),
         Ok(Plan::Delete(TableDeletes {
-            table_id: TableId((0, 0))
+            table_id: TableId::from((0, 0))
         }))
     );
 

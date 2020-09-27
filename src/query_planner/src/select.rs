@@ -12,12 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{
-    plan::{Plan, SelectInput},
-    planner::{Planner, Result},
-    FullTableName, TableId,
-};
+use crate::{Planner, Result};
 use data_manager::DataManager;
+use plan::{FullTableName, Plan, SelectInput, TableId};
 use protocol::{results::QueryError, Sender};
 use sqlparser::ast::{Expr, Ident, Query, Select, SelectItem, SetExpr, TableFactor, TableWithJoins};
 use std::{convert::TryFrom, ops::Deref, sync::Arc};
@@ -98,7 +95,7 @@ impl Planner for SelectPlanner {
                             };
 
                             Ok(SelectInput {
-                                table_id: TableId((schema_id, table_id)),
+                                table_id: TableId::from((schema_id, table_id)),
                                 selected_columns,
                             })
                         }

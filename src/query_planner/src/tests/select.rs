@@ -13,11 +13,7 @@
 // limitations under the License.
 
 use super::*;
-use crate::{
-    plan::{Plan, SelectInput},
-    planner::QueryPlanner,
-    tests::{ident, ResultCollector, TABLE},
-};
+use plan::{SelectInput, TableId};
 use protocol::results::QueryError;
 use sqlparser::ast::{ObjectName, Query, Select, SelectItem, SetExpr, Statement, TableFactor, TableWithJoins};
 
@@ -198,7 +194,7 @@ fn select_from_table(planner_and_sender_with_no_column_table: (QueryPlanner, Res
             fetch: None,
         }))),
         Ok(Plan::Select(SelectInput {
-            table_id: TableId((0, 0)),
+            table_id: TableId::from((0, 0)),
             selected_columns: vec![]
         }))
     );

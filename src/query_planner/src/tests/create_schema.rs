@@ -13,9 +13,9 @@
 // limitations under the License.
 
 use super::*;
-use crate::plan::{Plan, SchemaCreationInfo};
+use plan::SchemaCreationInfo;
 use protocol::results::QueryError;
-use sqlparser::ast::Statement;
+use sqlparser::ast::{ObjectName, Statement};
 
 #[rstest::rstest]
 fn create_new_schema(planner_and_sender: (QueryPlanner, ResultCollector)) {

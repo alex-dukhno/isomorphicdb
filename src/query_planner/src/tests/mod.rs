@@ -13,9 +13,9 @@
 // limitations under the License.
 
 use super::*;
-use crate::planner::QueryPlanner;
 use data_manager::{ColumnDefinition, DataManager};
 use protocol::{results::QueryResult, Sender};
+use sql_model::sql_types::SqlType;
 use sqlparser::ast::Ident;
 use std::{
     io,

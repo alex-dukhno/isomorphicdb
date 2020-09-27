@@ -12,12 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{
-    plan::Plan,
-    planner::{Planner, Result},
-    FullTableName, TableId,
-};
+use crate::{Planner, Result};
 use data_manager::DataManager;
+use plan::{FullTableName, Plan, TableId};
 use protocol::{results::QueryError, Sender};
 use sqlparser::ast::ObjectName;
 use std::{convert::TryFrom, sync::Arc};
@@ -52,7 +49,7 @@ impl Planner for DropTablesPlanner<'_> {
                                 .expect("To Send Query Result to Client");
                             return Err(());
                         }
-                        Some((schema_id, Some(table_id))) => table_names.push(TableId((schema_id, table_id))),
+                        Some((schema_id, Some(table_id))) => table_names.push(TableId::from((schema_id, table_id))),
                     }
                 }
                 Err(error) => {

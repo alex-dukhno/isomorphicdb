@@ -12,12 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{
-    plan::{Plan, TableCreationInfo},
-    planner::{Planner, Result},
-    FullTableName,
-};
+use crate::{Planner, Result};
 use data_manager::{ColumnDefinition, DataManager};
+use plan::{FullTableName, Plan, TableCreationInfo};
 use protocol::{results::QueryError, Sender};
 use sql_model::sql_types::SqlType;
 use sqlparser::ast::{ColumnDef, ObjectName};

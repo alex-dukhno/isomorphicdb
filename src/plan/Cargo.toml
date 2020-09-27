@@ -1,5 +1,5 @@
 [package]
-name = "query_planner"
+name = "plan"
 version = "0.1.0"
 authors = ["Alex Dukhno <alex.dukhno@icloud.com>"]
 edition = "2018"
@@ -9,12 +9,6 @@ publish = false
 ast = { path = "../ast" }
 constraints = { path = "../constraints" }
 data_manager = { path = "../data_manager" }
-kernel = { path = "../kernel" }
-plan = { path = "../plan" }
-protocol = { path = "../protocol" }
 sql_model = { path = "../sql_model" }
 
 sqlparser = { version = "0.6.1", features = ["bigdecimal"] }
-
-[dev-dependencies]
-rstest = "0.6.4"

@@ -15,12 +15,12 @@
 use std::sync::Arc;
 
 use data_manager::DataManager;
+use plan::SelectInput;
 use protocol::{
     messages::ColumnMetadata,
     results::{QueryError, QueryEvent},
     Sender,
 };
-use query_planner::plan::SelectInput;
 
 pub(crate) struct SelectCommand {
     select_input: SelectInput,

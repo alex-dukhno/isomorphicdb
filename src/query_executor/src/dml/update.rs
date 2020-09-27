@@ -21,8 +21,8 @@ use protocol::Sender;
 use ast::operations::ScalarOp;
 use constraints::{Constraint, ConstraintError};
 use expr_eval::{dynamic_expr::DynamicExpressionEvaluation, static_expr::StaticExpressionEvaluation};
+use plan::TableUpdates;
 use protocol::results::{QueryError, QueryEvent};
-use query_planner::plan::TableUpdates;
 use std::collections::HashMap;
 
 pub(crate) struct UpdateCommand {

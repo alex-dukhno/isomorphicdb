@@ -12,12 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{
-    plan::{Plan, SchemaCreationInfo},
-    planner::{Planner, Result},
-    SchemaName,
-};
+use crate::{Planner, Result};
 use data_manager::DataManager;
+use plan::{Plan, SchemaCreationInfo, SchemaName};
 use protocol::{results::QueryError, Sender};
 use sqlparser::ast::ObjectName;
 use std::{convert::TryFrom, sync::Arc};

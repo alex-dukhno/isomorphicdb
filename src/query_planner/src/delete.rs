@@ -12,12 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{
-    plan::{Plan, TableDeletes},
-    planner::{Planner, Result},
-    FullTableName, TableId,
-};
+use crate::{Planner, Result};
 use data_manager::DataManager;
+use plan::{FullTableName, Plan, TableDeletes, TableId};
 use protocol::{results::QueryError, Sender};
 use sqlparser::ast::ObjectName;
 use std::{convert::TryFrom, sync::Arc};
@@ -54,7 +51,7 @@ impl Planner for DeletePlanner<'_> {
                         Err(())
                     }
                     Some((schema_id, Some(table_id))) => Ok(Plan::Delete(TableDeletes {
-                        table_id: TableId((schema_id, table_id)),
+                        table_id: TableId::from((schema_id, table_id)),
                     })),
                 }
             }

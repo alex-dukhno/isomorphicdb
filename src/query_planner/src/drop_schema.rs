@@ -12,12 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{
-    plan::Plan,
-    planner::{Planner, Result},
-    SchemaId, SchemaName,
-};
+use crate::{Planner, Result};
 use data_manager::DataManager;
+use plan::{Plan, SchemaId, SchemaName};
 use protocol::{results::QueryError, Sender};
 use sqlparser::ast::ObjectName;
 use std::{convert::TryFrom, sync::Arc};
@@ -45,7 +42,7 @@ impl Planner for DropSchemaPlanner<'_> {
                             .expect("To Send Query Result to Client");
                         return Err(());
                     }
-                    Some(schema_id) => schemas.push((SchemaId(schema_id), self.cascade)),
+                    Some(schema_id) => schemas.push((SchemaId::from(schema_id), self.cascade)),
                 },
                 Err(error) => {
                     sender

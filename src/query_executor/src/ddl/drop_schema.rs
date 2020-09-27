@@ -15,8 +15,8 @@
 use std::sync::Arc;
 
 use data_manager::{DataManager, DropSchemaError, DropStrategy};
+use plan::SchemaId;
 use protocol::{results::QueryEvent, Sender};
-use query_planner::SchemaId;
 
 pub(crate) struct DropSchemaCommand {
     schema_id: SchemaId,

@@ -20,11 +20,11 @@ use crate::{
     dml::{delete::DeleteCommand, insert::InsertCommand, select::SelectCommand, update::UpdateCommand},
 };
 use data_manager::DataManager;
+use plan::Plan;
 use protocol::{
     results::{QueryError, QueryEvent},
     Sender,
 };
-use query_planner::{plan::Plan, planner::QueryPlanner};
 use sqlparser::ast::Statement;
 use std::sync::Arc;
 
@@ -34,50 +34,44 @@ mod dml;
 pub struct QueryExecutor {
     data_manager: Arc<DataManager>,
     sender: Arc<dyn Sender>,
-    query_planner: QueryPlanner,
 }
 
 impl QueryExecutor {
     pub fn new(data_manager: Arc<DataManager>, sender: Arc<dyn Sender>) -> Self {
-        Self {
-            data_manager: data_manager.clone(),
-            sender: sender.clone(),
-            query_planner: QueryPlanner::new(data_manager, sender),
-        }
+        Self { data_manager, sender }
     }
 
-    pub fn execute(&self, statement: &Statement) {
-        log::trace!("query statement = {}", statement);
-        match self.query_planner.plan(statement) {
-            Ok(Plan::CreateSchema(creation_info)) => {
+    pub fn execute(&self, plan: Plan) {
+        match plan {
+            Plan::CreateSchema(creation_info) => {
                 CreateSchemaCommand::new(creation_info, self.data_manager.clone(), self.sender.clone()).execute()
             }
-            Ok(Plan::CreateTable(creation_info)) => {
+            Plan::CreateTable(creation_info) => {
                 CreateTableCommand::new(creation_info, self.data_manager.clone(), self.sender.clone()).execute()
             }
-            Ok(Plan::DropSchemas(schemas)) => {
+            Plan::DropSchemas(schemas) => {
                 for (schema, cascade) in schemas {
                     DropSchemaCommand::new(schema, cascade, self.data_manager.clone(), self.sender.clone()).execute();
                 }
             }
-            Ok(Plan::DropTables(tables)) => {
+            Plan::DropTables(tables) => {
                 for table in tables {
                     DropTableCommand::new(table, self.data_manager.clone(), self.sender.clone()).execute();
                 }
             }
-            Ok(Plan::Insert(table_insert)) => {
+            Plan::Insert(table_insert) => {
                 InsertCommand::new(table_insert, self.data_manager.clone(), self.sender.clone()).execute()
             }
-            Ok(Plan::Update(table_update)) => {
+            Plan::Update(table_update) => {
                 UpdateCommand::new(table_update, self.data_manager.clone(), self.sender.clone()).execute()
             }
-            Ok(Plan::Delete(table_delete)) => {
+            Plan::Delete(table_delete) => {
                 DeleteCommand::new(table_delete, self.data_manager.clone(), self.sender.clone()).execute()
             }
-            Ok(Plan::Select(select_input)) => {
+            Plan::Select(select_input) => {
                 SelectCommand::new(select_input, self.data_manager.clone(), self.sender.clone()).execute()
             }
-            Ok(Plan::NotProcessed(statement)) => match *statement {
+            Plan::NotProcessed(statement) => match *statement {
                 Statement::StartTransaction { .. } => {
                     self.sender
                         .send(Ok(QueryEvent::TransactionStarted))
@@ -99,10 +93,9 @@ impl QueryExecutor {
                         .expect("To Send Query Result to Client");
                 }
             },
-            Err(()) => {}
         }
-        self.sender
-            .send(Ok(QueryEvent::QueryComplete))
-            .expect("To Send Query Complete Event to Client");
+        // self.sender
+        //     .send(Ok(QueryEvent::QueryComplete))
+        //     .expect("To Send Query Complete Event to Client");
     }
 }
