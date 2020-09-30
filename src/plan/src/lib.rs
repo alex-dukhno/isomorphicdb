@@ -204,7 +204,7 @@ pub struct TableDeletes {
 #[derive(PartialEq, Debug, Clone)]
 pub struct SelectInput {
     pub table_id: TableId,
-    pub selected_columns: Vec<String>,
+    pub selected_columns: Vec<Id>,
 }
 
 #[derive(PartialEq, Debug, Clone)]

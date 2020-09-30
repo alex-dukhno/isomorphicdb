@@ -15,7 +15,7 @@
 use std::sync::Arc;
 
 use binary::Binary;
-use data_manager::DataManager;
+use data_manager::{DataManager, MetadataView};
 use protocol::Sender;
 
 use ast::operations::ScalarOp;

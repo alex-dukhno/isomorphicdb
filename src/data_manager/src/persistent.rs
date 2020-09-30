@@ -12,44 +12,38 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::{
-    collections::HashMap,
-    io::{self, ErrorKind},
-    path::PathBuf,
-    sync::{Arc, RwLock},
-};
-
-use sled::{Db as Schema, DiskPtr, Error as SledError, IVec, Tree};
-
-use binary::Binary;
-
 use crate::{
     Database, DefinitionError, InitStatus, Key, ObjectName, ReadCursor, RowResult, SchemaName, StorageError, Values,
+};
+use binary::Binary;
+use chashmap::CHashMap;
+use sled::{Db as Schema, DiskPtr, Error as SledError, IVec, Tree};
+use std::{
+    io::{self, ErrorKind},
+    path::PathBuf,
+    sync::Arc,
 };
 
 pub struct PersistentDatabase {
     path: PathBuf,
-    schemas: RwLock<HashMap<String, Arc<Schema>>>,
+    schemas: CHashMap<String, Arc<Schema>>,
 }
 
 impl PersistentDatabase {
     pub fn new(path: PathBuf) -> PersistentDatabase {
         PersistentDatabase {
             path,
-            schemas: RwLock::default(),
+            schemas: CHashMap::default(),
         }
     }
 
     pub fn init(&self, schema_name: SchemaName) -> io::Result<Result<InitStatus, StorageError>> {
         let path_to_schema = PathBuf::from(&self.path).join(schema_name);
         log::info!("path to schema {:?}", path_to_schema);
-        self.open_database(path_to_schema).map(|storage| {
+        self.open_schema(path_to_schema).map(|storage| {
             storage.map(|schema| {
                 let recovered = schema.was_recovered();
-                self.schemas
-                    .write()
-                    .expect("to acquire write lock")
-                    .insert(schema_name.to_owned(), Arc::new(schema));
+                self.schemas.insert(schema_name.to_owned(), Arc::new(schema));
                 log::debug!("schemas after initialization {:?}", self.schemas);
                 if recovered {
                     InitStatus::Loaded
@@ -61,7 +55,7 @@ impl PersistentDatabase {
     }
 
     pub fn open_object(&self, schema_name: SchemaName, object_name: ObjectName) {
-        if let Some(schema) = self.schemas.read().expect("to acquire write lock").get(schema_name) {
+        if let Some(schema) = self.schemas.get(schema_name) {
             self.open_tree(schema.clone(), object_name)
                 .expect("no io error")
                 .expect("no platform error")
@@ -69,8 +63,8 @@ impl PersistentDatabase {
         }
     }
 
-    fn open_database(&self, path_to_schema: PathBuf) -> io::Result<Result<Schema, StorageError>> {
-        match self.open_database_with_failpoint(path_to_schema) {
+    fn open_schema(&self, path_to_schema: PathBuf) -> io::Result<Result<Schema, StorageError>> {
+        match self.open_schema_with_failpoint(path_to_schema) {
             Ok(schema) => Ok(Ok(schema)),
             Err(error) => match error {
                 SledError::Io(io_error) => Err(io_error),
@@ -82,7 +76,7 @@ impl PersistentDatabase {
         }
     }
 
-    fn open_database_with_failpoint(&self, path_to_schema: PathBuf) -> Result<Schema, SledError> {
+    fn open_schema_with_failpoint(&self, path_to_schema: PathBuf) -> Result<Schema, SledError> {
         fail::fail_point!("sled-fail-to-open-db", |kind| Err(sled_error(kind)));
         sled::open(path_to_schema)
     }
@@ -203,22 +197,14 @@ impl PersistentDatabase {
 
 impl Database for PersistentDatabase {
     fn create_schema(&self, schema_name: SchemaName) -> io::Result<Result<Result<(), DefinitionError>, StorageError>> {
-        if self
-            .schemas
-            .read()
-            .expect("to acquire read lock")
-            .contains_key(schema_name)
-        {
+        if self.schemas.contains_key(schema_name) {
             Ok(Ok(Err(DefinitionError::SchemaAlreadyExists)))
         } else {
             let path_to_schema = PathBuf::from(&self.path).join(schema_name);
             log::info!("path to schema {:?}", path_to_schema);
-            self.open_database(path_to_schema).map(|storage| {
+            self.open_schema(path_to_schema).map(|storage| {
                 storage.map(|schema| {
-                    self.schemas
-                        .write()
-                        .expect("to acquire write lock")
-                        .insert(schema_name.to_owned(), Arc::new(schema));
+                    self.schemas.insert(schema_name.to_owned(), Arc::new(schema));
                     Ok(())
                 })
             })
@@ -226,7 +212,7 @@ impl Database for PersistentDatabase {
     }
 
     fn drop_schema(&self, schema_name: SchemaName) -> io::Result<Result<Result<(), DefinitionError>, StorageError>> {
-        match self.schemas.write().expect("to acquire write lock").remove(schema_name) {
+        match self.schemas.remove(schema_name) {
             Some(schema) => self.drop_database(schema),
             None => Ok(Ok(Err(DefinitionError::SchemaDoesNotExist))),
         }
@@ -237,7 +223,7 @@ impl Database for PersistentDatabase {
         schema_name: SchemaName,
         object_name: ObjectName,
     ) -> io::Result<Result<Result<(), DefinitionError>, StorageError>> {
-        match self.schemas.read().expect("to acquire read lock").get(schema_name) {
+        match self.schemas.get(schema_name) {
             Some(schema) => {
                 if schema.tree_names().contains(&(object_name.into())) {
                     Ok(Ok(Err(DefinitionError::ObjectAlreadyExists)))
@@ -255,7 +241,7 @@ impl Database for PersistentDatabase {
         schema_name: SchemaName,
         object_name: ObjectName,
     ) -> io::Result<Result<Result<(), DefinitionError>, StorageError>> {
-        match self.schemas.read().expect("to acquire read lock").get(schema_name) {
+        match self.schemas.get(schema_name) {
             Some(schema) => match self.drop_tree_with_failpoint(schema.clone(), object_name.as_bytes().into()) {
                 Ok(true) => Ok(Ok(Ok(()))),
                 Ok(false) => Ok(Ok(Err(DefinitionError::ObjectDoesNotExist))),
@@ -277,7 +263,7 @@ impl Database for PersistentDatabase {
         object_name: ObjectName,
         rows: Vec<(Key, Values)>,
     ) -> io::Result<Result<Result<usize, DefinitionError>, StorageError>> {
-        match self.schemas.read().expect("to acquire read lock").get(schema_name) {
+        match self.schemas.get(schema_name) {
             Some(schema) => {
                 if schema.tree_names().contains(&(object_name.into())) {
                     match self.open_tree(schema.clone(), object_name) {
@@ -314,7 +300,7 @@ impl Database for PersistentDatabase {
         schema_name: SchemaName,
         object_name: ObjectName,
     ) -> io::Result<Result<Result<ReadCursor, DefinitionError>, StorageError>> {
-        match self.schemas.read().expect("to acquire read lock").get(schema_name) {
+        match self.schemas.get(schema_name) {
             Some(schema) => {
                 if schema.tree_names().contains(&(object_name.into())) {
                     match self.open_tree(schema.clone(), object_name) {
@@ -357,7 +343,7 @@ impl Database for PersistentDatabase {
         object_name: ObjectName,
         keys: Vec<Key>,
     ) -> io::Result<Result<Result<usize, DefinitionError>, StorageError>> {
-        match self.schemas.read().expect("to acquire read lock").get(schema_name) {
+        match self.schemas.get(schema_name) {
             Some(schema) => {
                 if schema.tree_names().contains(&(object_name.into())) {
                     match self.open_tree(schema.clone(), object_name) {

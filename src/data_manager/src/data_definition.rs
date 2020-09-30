@@ -12,22 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::{ColumnDefinition, Database, DropSchemaError, DropStrategy, InitStatus, PersistentDatabase};
+use ast::Datum;
+use binary::Binary;
+use chashmap::CHashMap;
+use kernel::{SystemError, SystemResult};
+use sql_model::{sql_types::SqlType, Id};
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::BTreeMap,
     path::PathBuf,
     sync::{
         atomic::{AtomicU64, Ordering},
         Arc, RwLock,
     },
 };
-
-use ast::Datum;
-use binary::Binary;
-use kernel::{SystemError, SystemResult};
-use sql_model::sql_types::SqlType;
-
-use crate::{ColumnDefinition, Database, DropSchemaError, DropStrategy, InitStatus, PersistentDatabase};
-use sql_model::Id;
 
 const SYSTEM_CATALOG: &'_ str = "system";
 // CREATE SCHEMA DEFINITION_SCHEMA
@@ -320,7 +318,7 @@ type Name = String;
 
 struct Catalog {
     id: Id,
-    schemas: RwLock<HashMap<Name, Arc<Schema>>>,
+    schemas: CHashMap<Name, Arc<Schema>>,
     schema_id_generator: AtomicU64,
 }
 
@@ -328,7 +326,7 @@ impl Catalog {
     fn new(id: Id) -> Catalog {
         Catalog {
             id,
-            schemas: RwLock::default(),
+            schemas: CHashMap::default(),
             schema_id_generator: AtomicU64::default(),
         }
     }
@@ -338,64 +336,46 @@ impl Catalog {
     }
 
     fn schema_exists(&self, schema_name: &str) -> Option<Id> {
-        self.schemas
-            .read()
-            .expect("to acquire read lock")
-            .get(schema_name)
-            .map(|schema| schema.id())
+        self.schemas.get(schema_name).map(|schema| schema.id())
     }
 
     fn create_schema(&self, schema_name: &str) -> Id {
         let schema_id = self.schema_id_generator.fetch_add(1, Ordering::SeqCst);
         self.schemas
-            .write()
-            .expect("to acquire write lock")
             .insert(schema_name.to_owned(), Arc::new(Schema::new(schema_id)));
         schema_id
     }
 
     fn add_schema(&self, schema_id: Id, schema_name: &str) -> Arc<Schema> {
         let schema = Arc::new(Schema::new(schema_id));
-        self.schemas
-            .write()
-            .expect("to acquire write lock")
-            .insert(schema_name.to_owned(), schema.clone());
+        self.schemas.insert(schema_name.to_owned(), schema.clone());
         schema
     }
 
     fn remove_schema(&self, schema_name: &str) -> Option<Id> {
-        self.schemas
-            .write()
-            .expect("to acquire write lock")
-            .remove(schema_name)
-            .map(|schema| schema.id())
+        self.schemas.remove(schema_name).map(|schema| schema.id())
     }
 
     fn schema(&self, schema_name: &str) -> Option<Arc<Schema>> {
-        self.schemas
-            .read()
-            .expect("to acquire read lock")
-            .get(schema_name)
-            .cloned()
+        self.schemas.get(schema_name).map(|schema| (*schema).clone())
     }
 
     fn schemas(&self) -> Vec<(Id, String)> {
         self.schemas
-            .read()
-            .expect("to acquire read lock")
-            .iter()
-            .map(|(name, schema)| (schema.id(), name.clone()))
+            .clone()
+            .into_iter()
+            .map(|(name, schema)| (schema.id(), name))
             .collect()
     }
 
     fn empty(&self) -> bool {
-        self.schemas.read().expect("to acquire read lock").is_empty()
+        self.schemas.is_empty()
     }
 }
 
 struct Schema {
     id: Id,
-    tables: RwLock<HashMap<Name, Arc<Table>>>,
+    tables: CHashMap<Name, Arc<Table>>,
     table_id_generator: AtomicU64,
 }
 
@@ -403,7 +383,7 @@ impl Schema {
     fn new(id: Id) -> Schema {
         Schema {
             id,
-            tables: RwLock::default(),
+            tables: CHashMap::default(),
             table_id_generator: AtomicU64::default(),
         }
     }
@@ -415,10 +395,7 @@ impl Schema {
     fn create_table(&self, table_name: &str, column_definitions: &[ColumnDefinition]) -> Arc<Table> {
         let table_id = self.table_id_generator.fetch_add(1, Ordering::SeqCst);
         let table = Arc::new(Table::new(table_id, column_definitions));
-        self.tables
-            .write()
-            .expect("to acquire write lock")
-            .insert(table_name.to_owned(), table.clone());
+        self.tables.insert(table_name.to_owned(), table.clone());
         table
     }
 
@@ -429,47 +406,34 @@ impl Schema {
         column_definitions: BTreeMap<Id, ColumnDefinition>,
         max_id: Id,
     ) {
-        self.tables.write().expect("to acquire write lock").insert(
+        self.tables.insert(
             table_name.to_owned(),
             Arc::new(Table::restore(table_id, column_definitions, max_id)),
         );
     }
 
     fn table_exists(&self, table_name: &str) -> Option<Id> {
-        self.tables
-            .read()
-            .expect("to acquire read lock")
-            .get(table_name)
-            .map(|table| table.id())
+        self.tables.get(table_name).map(|table| table.id())
     }
 
     fn table(&self, table_name: &str) -> Option<Arc<Table>> {
-        self.tables
-            .read()
-            .expect("to acquire read lock")
-            .get(table_name)
-            .cloned()
+        self.tables.get(table_name).map(|table| (*table).clone())
     }
 
     fn remove_table(&self, table_name: &str) -> Option<Id> {
-        self.tables
-            .write()
-            .expect("to acquire lock")
-            .remove(table_name)
-            .map(|table| table.id())
+        self.tables.remove(table_name).map(|table| table.id())
     }
 
     fn tables(&self) -> Vec<(Id, String)> {
         self.tables
-            .read()
-            .expect("to acquire read lock")
-            .iter()
-            .map(|(name, table)| (table.id(), name.clone()))
+            .clone()
+            .into_iter()
+            .map(|(name, table)| (table.id(), name))
             .collect()
     }
 
     fn empty(&self) -> bool {
-        self.tables.read().expect("to acquire read lock").is_empty()
+        self.tables.is_empty()
     }
 }
 
@@ -530,7 +494,7 @@ pub(crate) enum DropCatalogError {
 
 pub(crate) struct DataDefinition {
     catalog_ids: AtomicU64,
-    catalogs: RwLock<HashMap<Name, Arc<Catalog>>>,
+    catalogs: CHashMap<Name, Arc<Catalog>>,
     system_catalog: Option<Box<dyn Database>>,
 }
 
@@ -538,7 +502,7 @@ impl DataDefinition {
     pub(crate) fn in_memory() -> DataDefinition {
         DataDefinition {
             catalog_ids: AtomicU64::default(),
-            catalogs: RwLock::default(),
+            catalogs: CHashMap::default(),
             system_catalog: None,
         }
     }
@@ -561,7 +525,7 @@ impl DataDefinition {
                         let catalog_name = name.unpack()[0].as_str().to_owned();
                         (catalog_name, Arc::new(Catalog::new(catalog_id)))
                     })
-                    .collect::<HashMap<_, _>>();
+                    .collect::<CHashMap<_, _>>();
                 (catalogs, max_id)
             }
             Ok(Ok(InitStatus::Created)) => {
@@ -585,7 +549,7 @@ impl DataDefinition {
                     .expect("no io error")
                     .expect("no platform error")
                     .expect("table COLUMNS is created");
-                (HashMap::new(), 0)
+                (CHashMap::new(), 0)
             }
             _ => {
                 return Err(SystemError::runtime_check_failure(&"No Path in SledDatabaseCatalog"));
@@ -593,7 +557,7 @@ impl DataDefinition {
         };
         Ok(DataDefinition {
             catalog_ids: AtomicU64::new(catalog_ids),
-            catalogs: RwLock::new(catalogs),
+            catalogs,
             system_catalog: Some(Box::new(system_catalog)),
         })
     }
@@ -601,8 +565,6 @@ impl DataDefinition {
     pub(crate) fn create_catalog(&self, catalog_name: &str) {
         let catalog_id = self.catalog_ids.fetch_add(1, Ordering::SeqCst);
         self.catalogs
-            .write()
-            .expect("to acquire write lock")
             .insert(catalog_name.to_owned(), Arc::new(Catalog::new(catalog_id)));
         if let Some(system_catalog) = self.system_catalog.as_ref() {
             system_catalog
@@ -622,11 +584,7 @@ impl DataDefinition {
 
     #[allow(dead_code)]
     pub(crate) fn catalog_exists(&self, catalog_name: &str) -> InnerCatalogId {
-        self.catalogs
-            .read()
-            .expect("to acquire read lock")
-            .get(catalog_name)
-            .map(|catalog| catalog.id())
+        self.catalogs.get(catalog_name).map(|catalog| catalog.id())
     }
 
     #[allow(dead_code)]
@@ -635,12 +593,7 @@ impl DataDefinition {
             match strategy {
                 DropStrategy::Restrict => {
                     if catalog.empty() {
-                        if let Some(catalog) = self
-                            .catalogs
-                            .write()
-                            .expect("to acquire write lock")
-                            .remove(catalog_name)
-                        {
+                        if let Some(catalog) = self.catalogs.remove(catalog_name) {
                             if let Some(system_catalog) = self.system_catalog.as_ref() {
                                 system_catalog
                                     .delete(
@@ -659,12 +612,7 @@ impl DataDefinition {
                     }
                 }
                 DropStrategy::Cascade => {
-                    if let Some(catalog) = self
-                        .catalogs
-                        .write()
-                        .expect("to acquire write lock")
-                        .remove(catalog_name)
-                    {
+                    if let Some(catalog) = self.catalogs.remove(catalog_name) {
                         if let Some(system_catalog) = self.system_catalog.as_ref() {
                             system_catalog
                                 .delete(
@@ -1224,12 +1172,64 @@ impl DataDefinition {
         }
     }
 
+    pub(crate) fn table_id_columns(
+        &self,
+        catalog_name: &str,
+        schema_name: &str,
+        table_name: &str,
+    ) -> Vec<(Id, ColumnDefinition)> {
+        match self.table_exists(catalog_name, schema_name, table_name) {
+            Some((_, Some((_, Some(_))))) => {
+                let catalog = match self.catalog(catalog_name) {
+                    Some(catalog) => catalog,
+                    None => return vec![],
+                };
+                let schema = match catalog.schema(schema_name) {
+                    Some(schema) => schema,
+                    None => return vec![],
+                };
+                let table = match schema.table(table_name) {
+                    Some(table) => table,
+                    None => return vec![],
+                };
+                table.columns()
+            }
+            _ => vec![],
+        }
+    }
+
+    pub(crate) fn table_column_names_ids(
+        &self,
+        catalog_name: &str,
+        schema_name: &str,
+        table_name: &str,
+    ) -> Vec<(Name, Id)> {
+        match self.table_exists(catalog_name, schema_name, table_name) {
+            Some((_, Some((_, Some(_))))) => {
+                let catalog = match self.catalog(catalog_name) {
+                    Some(catalog) => catalog,
+                    None => return vec![],
+                };
+                let schema = match catalog.schema(schema_name) {
+                    Some(schema) => schema,
+                    None => return vec![],
+                };
+                let table = match schema.table(table_name) {
+                    Some(table) => table,
+                    None => return vec![],
+                };
+                table
+                    .columns()
+                    .into_iter()
+                    .map(|(id, column)| (column.name(), id))
+                    .collect()
+            }
+            _ => vec![],
+        }
+    }
+
     fn catalog(&self, catalog_name: &str) -> Option<Arc<Catalog>> {
-        self.catalogs
-            .read()
-            .expect("to acquire read lock")
-            .get(catalog_name)
-            .cloned()
+        self.catalogs.get(catalog_name).map(|catalog| (*catalog).clone())
     }
 }
 

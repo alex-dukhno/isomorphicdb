@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use crate::{Planner, Result};
-use data_manager::{ColumnDefinition, DataManager};
+use data_manager::{ColumnDefinition, DataManager, MetadataView};
 use plan::{FullTableName, Plan, TableCreationInfo};
 use protocol::{results::QueryError, Sender};
 use sql_model::sql_types::SqlType;

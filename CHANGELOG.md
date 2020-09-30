@@ -11,6 +11,9 @@ Check https://github.com/alex-dukhno/database/commits/master for undocumented ch
 
 ### Added
  - dynamic expression evaluation in `UPDATE` queries (#258) by @AndrewBregger
+ - support approximate types constraints (#316)
+ - implicit type casting (#312)
+ - support for extended query PostgreSQL Wire Protocol (#274) by @silathdiir
 
 ### Fixed
 
