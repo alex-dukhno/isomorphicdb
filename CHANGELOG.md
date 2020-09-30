@@ -13,7 +13,7 @@ Check https://github.com/alex-dukhno/database/commits/master for undocumented ch
 
 ### Fixed
 
-## [0.1.4]
+## [0.1.4] - 2020-09-30
 
 ### Added
  - dynamic expression evaluation in `UPDATE` queries (#258) by @AndrewBregger
@@ -21,7 +21,7 @@ Check https://github.com/alex-dukhno/database/commits/master for undocumented ch
  - implicit type casting (#312)
  - support for extended query PostgreSQL Wire Protocol (#274) by @silathdiir
 
-## [0.1.3] - 2020-07-22
+## [0.1.3] - 2020-08-29
 
 ### Added
  - database can run in a persistent mode, your data will survive a restart (#247) 
