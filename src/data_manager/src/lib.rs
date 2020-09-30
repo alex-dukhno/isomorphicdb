@@ -16,10 +16,9 @@ use crate::{data_definition::DataDefinition, in_memory::InMemoryDatabase, persis
 use binary::Binary;
 use chashmap::CHashMap;
 use kernel::{Object, Operation, SystemError, SystemResult};
-use sql_model::sql_types::SqlType;
-use sql_model::{sql_errors::DefinitionError, Id};
-use std::collections::HashMap;
+use sql_model::{sql_errors::DefinitionError, sql_types::SqlType, Id};
 use std::{
+    collections::HashMap,
     io::{self},
     path::PathBuf,
     sync::atomic::{AtomicU64, Ordering},

@@ -17,8 +17,7 @@ use ast::Datum;
 use binary::Binary;
 use chashmap::CHashMap;
 use kernel::{SystemError, SystemResult};
-use sql_model::sql_types::SqlType;
-use sql_model::Id;
+use sql_model::{sql_types::SqlType, Id};
 use std::{
     collections::BTreeMap,
     path::PathBuf,
@@ -429,7 +428,7 @@ impl Schema {
         self.tables
             .clone()
             .into_iter()
-            .map(|(name, table)| (table.clone().id(), name.clone()))
+            .map(|(name, table)| (table.id(), name))
             .collect()
     }
 
