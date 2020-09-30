@@ -8,7 +8,6 @@ publish = false
 [dependencies]
 protocol = { path = "../protocol" }
 
-serde = { version = "1.0.115", features = ["derive"] }
 sqlparser = { version = "0.6.1", features = ["bigdecimal"] }
 
 [dev-dependencies]

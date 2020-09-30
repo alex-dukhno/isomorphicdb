@@ -12,24 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::{
-    collections::HashMap,
-    io::{self},
-    path::PathBuf,
-    sync::{
-        atomic::{AtomicU64, Ordering},
-        RwLock,
-    },
-};
-
-use serde::{Deserialize, Serialize};
-
+use crate::{data_definition::DataDefinition, in_memory::InMemoryDatabase, persistent::PersistentDatabase};
 use binary::Binary;
+use chashmap::CHashMap;
 use kernel::{Object, Operation, SystemError, SystemResult};
 use sql_model::sql_types::SqlType;
-
-use crate::{data_definition::DataDefinition, in_memory::InMemoryDatabase, persistent::PersistentDatabase};
 use sql_model::{sql_errors::DefinitionError, Id};
+use std::collections::HashMap;
+use std::{
+    io::{self},
+    path::PathBuf,
+    sync::atomic::{AtomicU64, Ordering},
+};
 
 mod data_definition;
 mod in_memory;
@@ -40,6 +34,11 @@ pub type Key = Binary;
 pub type Values = Binary;
 pub type RowResult = io::Result<Result<Row, StorageError>>;
 pub type ReadCursor = Box<dyn Iterator<Item = RowResult>>;
+
+pub type FullSchemaId = Option<Id>;
+pub type FullTableId = Option<(Id, Option<Id>)>;
+pub type SchemaName<'s> = &'s str;
+pub type ObjectName<'o> = &'o str;
 
 pub enum InitStatus {
     Created,
@@ -53,8 +52,21 @@ pub enum StorageError {
     Storage,
 }
 
-pub type SchemaName<'s> = &'s str;
-pub type ObjectName<'o> = &'o str;
+pub trait MetadataView {
+    fn schema_exists<S: AsRef<str>>(&self, schema_name: &S) -> FullSchemaId;
+
+    fn table_exists<S: AsRef<str>, T: AsRef<str>>(&self, schema_name: &S, table_name: &T) -> FullTableId;
+
+    fn table_columns<I: AsRef<(Id, Id)>>(&self, table_id: &I) -> Result<Vec<ColumnDefinition>, ()>;
+
+    fn column_ids<I: AsRef<(Id, Id)>, N: AsRef<str> + PartialEq<N>>(
+        &self,
+        table_id: &I,
+        names: &[N],
+    ) -> Result<(Vec<Id>, Vec<String>), ()>;
+
+    fn column_defs<I: AsRef<(Id, Id)>>(&self, table_id: &I, ids: &[Id]) -> Vec<ColumnDefinition>;
+}
 
 pub trait Database {
     fn create_schema(&self, schema_name: SchemaName) -> io::Result<Result<Result<(), DefinitionError>, StorageError>>;
@@ -94,10 +106,7 @@ pub trait Database {
     ) -> io::Result<Result<Result<usize, DefinitionError>, StorageError>>;
 }
 
-pub type FullSchemaId = Option<Id>;
-pub type FullTableId = Option<(Id, Option<Id>)>;
-
-#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct ColumnDefinition {
     name: String,
     sql_type: SqlType,
@@ -139,14 +148,14 @@ pub enum DropSchemaError {
 pub struct DataManager {
     data_storage: Box<dyn Database>,
     data_definition: DataDefinition,
-    schemas: RwLock<HashMap<Id, String>>,
-    tables: RwLock<HashMap<(Id, Id), Vec<String>>>,
-    record_id_generators: RwLock<HashMap<(Id, Id), AtomicU64>>,
+    schemas: CHashMap<Id, String>,
+    tables: CHashMap<(Id, Id), Vec<String>>,
+    record_id_generators: CHashMap<(Id, Id), AtomicU64>,
 }
 
 impl Default for DataManager {
     fn default() -> DataManager {
-        Self::in_memory().expect("no errors")
+        DataManager::in_memory().expect("no errors")
     }
 }
 
@@ -160,35 +169,29 @@ impl DataManager {
     pub fn in_memory() -> SystemResult<DataManager> {
         let data_definition = DataDefinition::in_memory();
         data_definition.create_catalog(DEFAULT_CATALOG);
-        Ok(Self {
+        Ok(DataManager {
             data_storage: Box::new(InMemoryDatabase::default()),
             data_definition,
-            schemas: RwLock::default(),
-            tables: RwLock::default(),
-            record_id_generators: RwLock::default(),
+            schemas: CHashMap::default(),
+            tables: CHashMap::default(),
+            record_id_generators: CHashMap::default(),
         })
     }
 
     pub fn persistent(path: PathBuf) -> SystemResult<DataManager> {
         let data_definition = DataDefinition::persistent(&path)?;
         let catalog = PersistentDatabase::new(path.join(DEFAULT_CATALOG));
-        let schemas = RwLock::new(HashMap::new());
-        let tables = RwLock::new(HashMap::new());
+        let schemas = CHashMap::new();
+        let tables = CHashMap::new();
         match data_definition.catalog_exists(DEFAULT_CATALOG) {
             Some(_id) => {
                 for (schema_id, schema_name) in data_definition.schemas(DEFAULT_CATALOG) {
-                    schemas
-                        .write()
-                        .expect("to acquire write lock")
-                        .insert(schema_id, schema_name.clone());
+                    schemas.insert(schema_id, schema_name.clone());
                     match catalog.init(schema_name.as_str()) {
                         Ok(Ok(InitStatus::Loaded)) => {
                             for (table_id, table_name) in data_definition.tables(DEFAULT_CATALOG, schema_name.as_str())
                             {
-                                tables
-                                    .write()
-                                    .expect("to acquire write lock")
-                                    .insert((schema_id, table_id), vec![schema_name.clone(), table_name.clone()]);
+                                tables.insert((schema_id, table_id), vec![schema_name.clone(), table_name.clone()]);
                                 catalog.open_object(schema_name.as_str(), table_name.as_str());
                             }
                         }
@@ -214,22 +217,17 @@ impl DataManager {
                 data_definition.create_catalog(DEFAULT_CATALOG);
             }
         }
-        Ok(Self {
+        Ok(DataManager {
             data_storage: Box::new(catalog),
             data_definition,
             schemas,
             tables,
-            record_id_generators: RwLock::default(),
+            record_id_generators: CHashMap::default(),
         })
     }
 
     pub fn next_key_id<I: AsRef<(Id, Id)>>(&self, table_id: &I) -> Id {
-        match self
-            .record_id_generators
-            .read()
-            .expect("to acquire read lock")
-            .get(table_id.as_ref())
-        {
+        match self.record_id_generators.get(table_id.as_ref()) {
             Some(id_generator) => id_generator.fetch_add(1, Ordering::SeqCst),
             None => panic!(),
         }
@@ -238,10 +236,7 @@ impl DataManager {
     pub fn create_schema(&self, schema_name: &str) -> Result<Id, ()> {
         match self.data_definition.create_schema(DEFAULT_CATALOG, schema_name) {
             Some((_, Some(schema_id))) => {
-                self.schemas
-                    .write()
-                    .expect("to acquire write lock")
-                    .insert(schema_id, schema_name.to_owned());
+                self.schemas.insert(schema_id, schema_name.to_owned());
                 match self.data_storage.create_schema(schema_name) {
                     Ok(Ok(Ok(()))) => Ok(schema_id),
                     _ => {
@@ -275,12 +270,7 @@ impl DataManager {
         schema_id: &I,
         strategy: DropStrategy,
     ) -> Result<Result<(), DropSchemaError>, ()> {
-        match self
-            .schemas
-            .write()
-            .expect("to acquire write lock")
-            .remove(schema_id.as_ref())
-        {
+        match self.schemas.remove(schema_id.as_ref()) {
             None => Ok(Err(DropSchemaError::DoesNotExist)),
             Some(schema_name) => {
                 match self
@@ -309,29 +299,27 @@ impl DataManager {
         table_name: &str,
         column_definitions: &[ColumnDefinition],
     ) -> Result<Id, ()> {
-        match self.schemas.read().expect("to acquire read lock").get(&schema_id) {
+        match self.schemas.get(&schema_id) {
             Some(schema_name) => {
                 match self
                     .data_definition
-                    .create_table(DEFAULT_CATALOG, schema_name, table_name, column_definitions)
+                    .create_table(DEFAULT_CATALOG, &*schema_name, table_name, column_definitions)
                 {
                     Some((_, Some((_, Some(table_id))))) => {
-                        self.tables.write().expect("to acquire write lock").insert(
+                        self.tables.insert(
                             (schema_id, table_id),
-                            vec![schema_name.to_owned(), table_name.to_owned()],
+                            vec![(*schema_name).clone(), table_name.to_owned()],
                         );
                         self.record_id_generators
-                            .write()
-                            .expect("to acquire write lock")
                             .insert((schema_id, table_id), AtomicU64::default());
-                        match self.data_storage.create_object(schema_name, table_name) {
+                        match self.data_storage.create_object(&*schema_name, table_name) {
                             Ok(Ok(Ok(()))) => Ok(table_id),
                             _ => {
                                 log::error!(
                                     "{:?}",
                                     SystemError::bug_in_sql_engine(
                                         Operation::Create,
-                                        Object::Table(schema_name, table_name),
+                                        Object::Table(&*schema_name, table_name),
                                     )
                                 );
                                 Err(())
@@ -363,34 +351,8 @@ impl DataManager {
         }
     }
 
-    pub fn table_columns<I: AsRef<(Id, Id)>>(&self, table_id: &I) -> Result<Vec<ColumnDefinition>, ()> {
-        match self.tables.read().expect("to acquire read lock").get(table_id.as_ref()) {
-            Some(full_name) => {
-                Ok(self
-                    .data_definition
-                    .table_columns(DEFAULT_CATALOG, full_name[0].as_str(), full_name[1].as_str()))
-            }
-            _ => {
-                let (schema_id, table_id) = table_id.as_ref();
-                log::error!(
-                    "{:?}",
-                    SystemError::bug_in_sql_engine(
-                        Operation::Access,
-                        Object::Table(schema_id.to_string().as_str(), table_id.to_string().as_str()),
-                    )
-                );
-                Err(())
-            }
-        }
-    }
-
     pub fn drop_table<I: AsRef<(Id, Id)>>(&self, table_id: &I) -> Result<(), ()> {
-        match self
-            .tables
-            .write()
-            .expect("to acquire write lock")
-            .remove(table_id.as_ref())
-        {
+        match self.tables.remove(table_id.as_ref()) {
             None => {
                 let (schema_id, table_id) = table_id.as_ref();
                 log::error!(
@@ -427,7 +389,7 @@ impl DataManager {
     }
 
     pub fn write_into<I: AsRef<(Id, Id)>>(&self, table_id: &I, values: Vec<(Key, Values)>) -> Result<usize, ()> {
-        match self.tables.read().expect("to acquire read lock").get(table_id.as_ref()) {
+        match self.tables.get(table_id.as_ref()) {
             Some(full_name) => {
                 log::trace!("values to write {:#?}", values);
                 match self
@@ -463,7 +425,7 @@ impl DataManager {
     }
 
     pub fn full_scan<I: AsRef<(Id, Id)>>(&self, table_id: &I) -> Result<ReadCursor, ()> {
-        match self.tables.read().expect("to acquire read lock").get(table_id.as_ref()) {
+        match self.tables.get(table_id.as_ref()) {
             Some(full_name) => match self.data_storage.read(full_name[0].as_str(), full_name[1].as_str()) {
                 Ok(Ok(Ok(read))) => Ok(read),
                 _ => {
@@ -493,7 +455,7 @@ impl DataManager {
     }
 
     pub fn delete_from<I: AsRef<(Id, Id)>>(&self, table_id: &I, keys: Vec<Key>) -> Result<usize, ()> {
-        match self.tables.read().expect("to acquire read lock").get(table_id.as_ref()) {
+        match self.tables.get(table_id.as_ref()) {
             Some(full_name) => match self
                 .data_storage
                 .delete(full_name[0].as_str(), full_name[1].as_str(), keys)
@@ -524,17 +486,108 @@ impl DataManager {
             }
         }
     }
+}
 
-    pub fn schema_exists<S: AsRef<str>>(&self, schema_name: &S) -> FullSchemaId {
+impl MetadataView for DataManager {
+    fn schema_exists<S: AsRef<str>>(&self, schema_name: &S) -> FullSchemaId {
         self.data_definition
             .schema_exists(DEFAULT_CATALOG, schema_name.as_ref())
             .and_then(|(_catalog, schema)| schema)
     }
 
-    pub fn table_exists<S: AsRef<str>>(&self, schema_name: &S, table_name: &S) -> FullTableId {
+    fn table_exists<S: AsRef<str>, T: AsRef<str>>(&self, schema_name: &S, table_name: &T) -> FullTableId {
         self.data_definition
             .table_exists(DEFAULT_CATALOG, schema_name.as_ref(), table_name.as_ref())
             .and_then(|(_catalog, full_table)| full_table)
+    }
+
+    fn table_columns<I: AsRef<(Id, Id)>>(&self, table_id: &I) -> Result<Vec<ColumnDefinition>, ()> {
+        match self.tables.get(table_id.as_ref()) {
+            Some(full_name) => {
+                Ok(self
+                    .data_definition
+                    .table_columns(DEFAULT_CATALOG, full_name[0].as_str(), full_name[1].as_str()))
+            }
+            _ => {
+                let (schema_id, table_id) = table_id.as_ref();
+                log::error!(
+                    "{:?}",
+                    SystemError::bug_in_sql_engine(
+                        Operation::Access,
+                        Object::Table(schema_id.to_string().as_str(), table_id.to_string().as_str()),
+                    )
+                );
+                Err(())
+            }
+        }
+    }
+
+    fn column_ids<I: AsRef<(Id, Id)>, N: AsRef<str> + PartialEq<N>>(
+        &self,
+        table_id: &I,
+        names: &[N],
+    ) -> Result<(Vec<Id>, Vec<String>), ()> {
+        match self.tables.get(table_id.as_ref()) {
+            Some(full_name) => {
+                let columns = self
+                    .data_definition
+                    .table_column_names_ids(DEFAULT_CATALOG, full_name[0].as_str(), full_name[1].as_str())
+                    .into_iter()
+                    .collect::<HashMap<_, _>>();
+                let mut ids = vec![];
+                let mut not_found = vec![];
+                for name in names {
+                    match columns.get(name.as_ref()) {
+                        Some(id) => ids.push(*id),
+                        None => not_found.push(name.as_ref().to_owned()),
+                    }
+                }
+                Ok((ids, not_found))
+            }
+            _ => {
+                let (schema_id, table_id) = table_id.as_ref();
+                log::error!(
+                    "{:?}",
+                    SystemError::bug_in_sql_engine(
+                        Operation::Access,
+                        Object::Table(schema_id.to_string().as_str(), table_id.to_string().as_str()),
+                    )
+                );
+                Err(())
+            }
+        }
+    }
+
+    fn column_defs<I: AsRef<(Id, Id)>>(&self, table_id: &I, ids: &[Id]) -> Vec<ColumnDefinition> {
+        match self.tables.get(table_id.as_ref()) {
+            Some(full_name) => {
+                let columns = self.data_definition.table_id_columns(
+                    DEFAULT_CATALOG,
+                    full_name[0].as_str(),
+                    full_name[1].as_str(),
+                );
+                let mut ret = vec![];
+                for id in ids {
+                    for (i, column) in &columns {
+                        if id == i {
+                            ret.push(column.clone());
+                        }
+                    }
+                }
+                ret
+            }
+            _ => {
+                let (schema_id, table_id) = table_id.as_ref();
+                log::error!(
+                    "{:?}",
+                    SystemError::bug_in_sql_engine(
+                        Operation::Access,
+                        Object::Table(schema_id.to_string().as_str(), table_id.to_string().as_str()),
+                    )
+                );
+                vec![]
+            }
+        }
     }
 }
 

@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use crate::{Planner, Result};
-use data_manager::DataManager;
+use data_manager::{DataManager, MetadataView};
 use plan::{FullTableName, Plan, SelectInput, TableId};
 use protocol::{results::QueryError, Sender};
 use sqlparser::ast::{Expr, Ident, Query, Select, SelectItem, SetExpr, TableFactor, TableWithJoins};
@@ -65,7 +65,6 @@ impl Planner for SelectPlanner {
                         }
                         Some((schema_id, Some(table_id))) => {
                             let selected_columns = {
-                                let projection = projection.clone();
                                 let mut columns: Vec<String> = vec![];
                                 for item in projection {
                                     match item {
@@ -90,6 +89,14 @@ impl Planner for SelectPlanner {
                                             return Err(());
                                         }
                                     }
+                                }
+                                let (columns, not_found) = data_manager
+                                    .column_ids(&Box::new((schema_id, table_id)), &columns)
+                                    .expect("all needed column found");
+                                for column_name in not_found {
+                                    sender
+                                        .send(Err(QueryError::column_does_not_exist(column_name)))
+                                        .expect("To Send Result to Client");
                                 }
                                 columns
                             };

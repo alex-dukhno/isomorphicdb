@@ -15,7 +15,7 @@
 use crate::{Planner, Result};
 use ast::operations::ScalarOp;
 use constraints::TypeConstraint;
-use data_manager::DataManager;
+use data_manager::{DataManager, MetadataView};
 use plan::{FullTableName, Plan, TableId, TableInserts};
 use protocol::{results::QueryError, Sender};
 use sqlparser::ast::{Ident, ObjectName, Query, SetExpr};

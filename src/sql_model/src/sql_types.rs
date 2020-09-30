@@ -14,13 +14,11 @@
 
 use std::convert::TryFrom;
 
-use serde::{Deserialize, Serialize};
-
 use protocol::pgsql_types::PostgreSqlType;
 use sqlparser::ast::DataType;
 use std::fmt::{self, Display, Formatter};
 
-#[derive(PartialEq, Eq, Debug, Copy, Clone, Serialize, Deserialize, Hash, Ord, PartialOrd)]
+#[derive(PartialEq, Eq, Debug, Copy, Clone, Hash, Ord, PartialOrd)]
 pub enum SqlType {
     Bool,
     Char(u64),

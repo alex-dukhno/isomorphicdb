@@ -109,7 +109,7 @@ fn table_columns_on_empty_table(data_manager_with_schema: DataManager) {
     let schema_id = data_manager_with_schema.schema_exists(&SCHEMA).expect("schema exists");
     let column_names = vec![];
     let table_id = data_manager_with_schema
-        .create_table(schema_id, "table_name", column_names.as_slice())
+        .create_table(schema_id, "table_name", &column_names)
         .expect("table is created");
 
     assert_eq!(
@@ -117,5 +117,45 @@ fn table_columns_on_empty_table(data_manager_with_schema: DataManager) {
             .table_columns(&Box::new((schema_id, table_id)))
             .expect("no system errors"),
         vec![]
+    );
+}
+
+#[rstest::rstest]
+fn table_ids_for_existing_columns(data_manager_with_schema: DataManager) {
+    let schema_id = data_manager_with_schema.schema_exists(&SCHEMA).expect("schema exists");
+    let table_id = data_manager_with_schema
+        .create_table(
+            schema_id,
+            "table_name",
+            &[ColumnDefinition::new(
+                "column_test",
+                SqlType::SmallInt(i16::min_value()),
+            )],
+        )
+        .expect("table is created");
+
+    assert_eq!(
+        data_manager_with_schema.column_ids(&Box::new((schema_id, table_id)), &["column_test"]),
+        Ok((vec![0], vec![]))
+    );
+}
+
+#[rstest::rstest]
+fn table_ids_for_non_existing_columns(data_manager_with_schema: DataManager) {
+    let schema_id = data_manager_with_schema.schema_exists(&SCHEMA).expect("schema exists");
+    let table_id = data_manager_with_schema
+        .create_table(
+            schema_id,
+            "table_name",
+            &[ColumnDefinition::new(
+                "column_test",
+                SqlType::SmallInt(i16::min_value()),
+            )],
+        )
+        .expect("table is created");
+
+    assert_eq!(
+        data_manager_with_schema.column_ids(&Box::new((schema_id, table_id)), &["non_existent"]),
+        Ok((vec![], vec!["non_existent".to_owned()]))
     );
 }

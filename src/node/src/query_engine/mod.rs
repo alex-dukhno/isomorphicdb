@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use binder::ParamBinder;
-use data_manager::DataManager;
+use data_manager::{DataManager, MetadataView};
 use itertools::izip;
 use parser::QueryParser;
 use plan::{Plan, SelectInput};
@@ -281,33 +281,35 @@ impl QueryEngine {
     }
 
     pub(crate) fn describe(&self, select_input: SelectInput) -> Result<Description, ()> {
-        let all_columns = self.data_manager.table_columns(&select_input.table_id)?;
-        let mut column_definitions = vec![];
-        let mut has_error = false;
-        for column_name in &select_input.selected_columns {
-            let mut found = None;
-            for column_definition in &all_columns {
-                if column_definition.has_name(&column_name) {
-                    found = Some(column_definition);
-                    break;
-                }
-            }
+        // let all_columns = self.data_manager.table_columns(&select_input.table_id)?;
+        // let mut column_definitions = vec![];
+        // let mut has_error = false;
+        // for column_name in &select_input.selected_columns {
+        //     let mut found = None;
+        //     for column_definition in &all_columns {
+        //         if column_definition.has_name(&column_name) {
+        //             found = Some(column_definition);
+        //             break;
+        //         }
+        //     }
+        //
+        //     if let Some(column_definition) = found {
+        //         column_definitions.push(column_definition);
+        //     } else {
+        //         self.sender
+        //             .send(Err(QueryError::column_does_not_exist(column_name)))
+        //             .expect("To Send Result to Client");
+        //         has_error = true;
+        //     }
+        // }
+        //
+        // if has_error {
+        //     return Err(());
+        // }
 
-            if let Some(column_definition) = found {
-                column_definitions.push(column_definition);
-            } else {
-                self.sender
-                    .send(Err(QueryError::column_does_not_exist(column_name)))
-                    .expect("To Send Result to Client");
-                has_error = true;
-            }
-        }
-
-        if has_error {
-            return Err(());
-        }
-
-        let description = column_definitions
+        let description = self
+            .data_manager
+            .column_defs(&select_input.table_id, &select_input.selected_columns)
             .into_iter()
             .map(|column_definition| (column_definition.name(), (&column_definition.sql_type()).into()))
             .collect();

@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use crate::{Planner, Result};
-use data_manager::DataManager;
+use data_manager::{DataManager, MetadataView};
 use plan::{FullTableName, Plan, TableId};
 use protocol::{results::QueryError, Sender};
 use sqlparser::ast::ObjectName;

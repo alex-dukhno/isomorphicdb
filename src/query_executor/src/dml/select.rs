@@ -14,13 +14,9 @@
 
 use std::sync::Arc;
 
-use data_manager::DataManager;
+use data_manager::{DataManager, MetadataView};
 use plan::SelectInput;
-use protocol::{
-    messages::ColumnMetadata,
-    results::{QueryError, QueryEvent},
-    Sender,
-};
+use protocol::{messages::ColumnMetadata, results::QueryEvent, Sender};
 
 pub(crate) struct SelectCommand {
     select_input: SelectInput,
@@ -42,43 +38,6 @@ impl SelectCommand {
     }
 
     pub(crate) fn execute(&mut self) {
-        let all_columns = match self.data_manager.table_columns(&self.select_input.table_id) {
-            Err(()) => {
-                log::error!(
-                    "Error while accessing table columns with id {:?}",
-                    self.select_input.table_id
-                );
-                return;
-            }
-            Ok(all_columns) => all_columns,
-        };
-        let mut description = vec![];
-        let mut column_indexes = vec![];
-        let mut has_error = false;
-        for column_name in self.select_input.selected_columns.iter() {
-            let mut found = None;
-            for (index, column_definition) in all_columns.iter().enumerate() {
-                if column_definition.has_name(column_name) {
-                    found = Some((index, column_definition.clone()));
-                    break;
-                }
-            }
-
-            if let Some((index, column_definition)) = found {
-                column_indexes.push(index);
-                description.push(column_definition);
-            } else {
-                self.sender
-                    .send(Err(QueryError::column_does_not_exist(column_name)))
-                    .expect("To Send Result to Client");
-                has_error = true;
-            }
-        }
-
-        if has_error {
-            return;
-        }
-
         let records = match self.data_manager.full_scan(&self.select_input.table_id) {
             Err(()) => {
                 log::error!("Error while scanning table {:?}", self.select_input.table_id);
@@ -88,7 +47,8 @@ impl SelectCommand {
         };
         self.sender
             .send(Ok(QueryEvent::RowDescription(
-                description
+                self.data_manager
+                    .column_defs(&self.select_input.table_id, &self.select_input.selected_columns)
                     .into_iter()
                     .map(|column| ColumnMetadata::new(column.name(), (&column.sql_type()).into()))
                     .collect(),
@@ -104,9 +64,9 @@ impl SelectCommand {
                 let row: Vec<String> = values.unpack().into_iter().map(|datum| datum.to_string()).collect();
 
                 let mut values = vec![];
-                for origin in column_indexes.iter() {
+                for origin in self.select_input.selected_columns.iter() {
                     for (index, value) in row.iter().enumerate() {
-                        if index == *origin {
+                        if (index as u64) == *origin {
                             values.push(value.clone())
                         }
                     }
