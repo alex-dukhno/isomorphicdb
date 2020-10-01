@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use ast::operations::ScalarOp;
+use ast::predicates::{PredicateOp, PredicateValue};
 use constraints::TypeConstraint;
 use data_manager::ColumnDefinition;
 use sql_model::{sql_types::SqlType, Id};
@@ -205,6 +206,7 @@ pub struct TableDeletes {
 pub struct SelectInput {
     pub table_id: TableId,
     pub selected_columns: Vec<Id>,
+    pub predicate: Option<(PredicateValue, PredicateOp, PredicateValue)>,
 }
 
 #[derive(PartialEq, Debug, Clone)]

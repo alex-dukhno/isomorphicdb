@@ -39,6 +39,8 @@ mod insert;
 mod select;
 #[cfg(test)]
 mod update;
+#[cfg(test)]
+mod where_clause;
 
 struct Collector(Mutex<Vec<QueryResult>>);
 

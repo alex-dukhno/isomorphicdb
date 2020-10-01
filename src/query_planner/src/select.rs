@@ -13,10 +13,13 @@
 // limitations under the License.
 
 use crate::{Planner, Result};
+use ast::predicates::{PredicateOp, PredicateValue};
 use data_manager::{DataManager, MetadataView};
 use plan::{FullTableName, Plan, SelectInput, TableId};
 use protocol::{results::QueryError, Sender};
-use sqlparser::ast::{Expr, Ident, Query, Select, SelectItem, SetExpr, TableFactor, TableWithJoins};
+use sqlparser::ast::{
+    BinaryOperator, Expr, Ident, Query, Select, SelectItem, SetExpr, TableFactor, TableWithJoins, Value,
+};
 use std::{convert::TryFrom, ops::Deref, sync::Arc};
 
 pub(crate) struct SelectPlanner {
@@ -32,8 +35,13 @@ impl SelectPlanner {
 impl Planner for SelectPlanner {
     fn plan(self, data_manager: Arc<DataManager>, sender: Arc<dyn Sender>) -> Result<Plan> {
         let Query { body, .. } = &*self.query;
-        let result = if let SetExpr::Select(select) = body {
-            let Select { projection, from, .. } = select.deref();
+        let result = if let SetExpr::Select(query) = body {
+            let Select {
+                projection,
+                from,
+                selection,
+                ..
+            } = query.deref();
             let TableWithJoins { relation, .. } = &from[0];
             let name = match relation {
                 TableFactor::Table { name, .. } => name,
@@ -101,10 +109,35 @@ impl Planner for SelectPlanner {
                                 columns
                             };
 
-                            Ok(SelectInput {
+                            let predicate = match selection {
+                                Some(Expr::BinaryOp { left, op, right }) => {
+                                    let l = match left.deref() {
+                                        Expr::Identifier(ident) => {
+                                            let (columns, _not_found) = data_manager
+                                                .column_ids(&Box::new((schema_id, table_id)), &[ident.to_string()])
+                                                .expect("all needed column found");
+                                            PredicateValue::Column(columns[0])
+                                        }
+                                        _ => panic!(),
+                                    };
+                                    let o = match op {
+                                        BinaryOperator::Eq => PredicateOp::Eq,
+                                        _ => panic!(),
+                                    };
+                                    let r = match right.deref() {
+                                        Expr::Value(Value::Number(num)) => PredicateValue::Number(num.clone()),
+                                        _ => panic!(),
+                                    };
+                                    Some((l, o, r))
+                                }
+                                _ => None,
+                            };
+
+                            SelectInput {
                                 table_id: TableId::from((schema_id, table_id)),
                                 selected_columns,
-                            })
+                                predicate,
+                            }
                         }
                     }
                 }
@@ -121,6 +154,6 @@ impl Planner for SelectPlanner {
                 .expect("To Send Query Result to Client");
             return Err(());
         };
-        Ok(Plan::Select(result?))
+        Ok(Plan::Select(result))
     }
 }

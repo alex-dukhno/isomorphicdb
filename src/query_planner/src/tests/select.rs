@@ -195,7 +195,8 @@ fn select_from_table(planner_and_sender_with_no_column_table: (QueryPlanner, Res
         }))),
         Ok(Plan::Select(SelectInput {
             table_id: TableId::from((0, 0)),
-            selected_columns: vec![]
+            selected_columns: vec![],
+            predicate: None
         }))
     );
 

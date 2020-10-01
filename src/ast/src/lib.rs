@@ -25,6 +25,7 @@ use std::{
 };
 
 pub mod operations;
+pub mod predicates;
 pub mod values;
 
 #[derive(Debug, PartialEq)]

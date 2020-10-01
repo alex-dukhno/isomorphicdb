@@ -28,6 +28,8 @@ mod table;
 mod type_constraints;
 #[cfg(test)]
 mod update;
+#[cfg(test)]
+mod where_clause;
 
 use std::{
     io,

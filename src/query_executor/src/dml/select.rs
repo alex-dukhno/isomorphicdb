@@ -12,11 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use binary::Binary;
+use ast::predicates::{PredicateOp, PredicateValue};
+use ast::values::ScalarValue;
 use data_manager::{DataManager, MetadataView, ReadCursor};
 use plan::{SelectInput, TableId};
 use protocol::{messages::ColumnMetadata, results::QueryEvent, Sender};
 use sql_model::Id;
+use std::convert::TryInto;
 use std::sync::Arc;
 
 struct Source {
@@ -36,62 +38,91 @@ impl Source {
 }
 
 impl Iterator for Source {
-    type Item = Binary;
+    type Item = Vec<ScalarValue>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.cursor.is_none() {
-            self.cursor = Some(self.data_manager.full_scan(&self.table_id).expect("no errors"));
+            self.cursor = self.data_manager.full_scan(&self.table_id).ok();
         }
         if let Some(cursor) = self.cursor.as_mut() {
-            cursor
-                .next()
-                .map(Result::unwrap)
-                .map(Result::unwrap)
-                .map(|(_key, values)| values)
-        } else {
-            None
-        }
-    }
-}
-
-struct Projection<I: Iterator<Item = Binary>> {
-    selected_columns: Vec<Id>,
-    input: Option<I>,
-    consumed: usize,
-}
-
-impl<I: Iterator<Item = Binary>> Projection<I> {
-    fn new(selected_columns: Vec<Id>) -> Projection<I> {
-        Projection {
-            selected_columns,
-            input: None,
-            consumed: 0,
-        }
-    }
-
-    fn connect(&mut self, input: I) {
-        self.input = Some(input)
-    }
-}
-
-impl<'p, I: Iterator<Item = Binary>> Iterator for &'p mut Projection<I> {
-    type Item = Vec<String>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if let Some(input) = self.input.as_mut() {
-            if let Some(values) = input.next() {
-                let data = values.unpack();
-                let mut values = vec![];
-                for origin in self.selected_columns.iter() {
-                    values.push(data[*origin as usize].to_string());
-                }
-                self.consumed += 1;
-                Some(values)
+            if let Some((_key, value)) = cursor.next().map(Result::unwrap).map(Result::unwrap) {
+                Some(
+                    value
+                        .unpack()
+                        .iter()
+                        .map(|d| d.try_into().unwrap())
+                        .collect::<Vec<ScalarValue>>(),
+                )
             } else {
                 None
             }
         } else {
             None
+        }
+    }
+}
+
+struct Projection {
+    selected_columns: Vec<Id>,
+    input: Box<dyn Iterator<Item = Vec<ScalarValue>>>,
+    consumed: usize,
+}
+
+impl Projection {
+    fn new(selected_columns: Vec<Id>, input: Box<dyn Iterator<Item = Vec<ScalarValue>>>) -> Projection {
+        Projection {
+            selected_columns,
+            input,
+            consumed: 0,
+        }
+    }
+}
+
+impl<'p> Iterator for &'p mut Projection {
+    type Item = Vec<String>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(data) = self.input.next() {
+            let mut values = vec![];
+            for origin in self.selected_columns.iter() {
+                values.push(data[*origin as usize].to_string());
+            }
+            self.consumed += 1;
+            Some(values)
+        } else {
+            None
+        }
+    }
+}
+
+struct Filter {
+    iter: Box<dyn Iterator<Item = Vec<ScalarValue>>>,
+    predicate: (PredicateValue, PredicateOp, PredicateValue),
+}
+
+impl Filter {
+    fn new(
+        iter: Box<dyn Iterator<Item = Vec<ScalarValue>>>,
+        predicate: (PredicateValue, PredicateOp, PredicateValue),
+    ) -> Filter {
+        Filter { iter, predicate }
+    }
+}
+
+impl Iterator for Filter {
+    type Item = Vec<ScalarValue>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match &self.predicate {
+            (PredicateValue::Column(col_index), PredicateOp::Eq, PredicateValue::Number(num)) => {
+                while let Some(tuple) = self.iter.next() {
+                    if ScalarValue::Number(num.clone()) == tuple[*col_index as usize] {
+                        return Some(tuple);
+                    }
+                }
+                None
+            }
+            _ => panic!(),
         }
     }
 }
@@ -127,8 +158,13 @@ impl SelectCommand {
             .expect("To Send Query Result to Client");
 
         let source = Source::new(self.select_input.table_id, self.data_manager.clone());
-        let mut projection = Projection::new(self.select_input.selected_columns);
-        projection.connect(source);
+        let mut projection = match self.select_input.predicate {
+            None => Projection::new(self.select_input.selected_columns, Box::new(source)),
+            Some(predicate) => {
+                let predicate = Filter::new(Box::new(source), predicate);
+                Projection::new(self.select_input.selected_columns, Box::new(predicate))
+            }
+        };
 
         for tuple in &mut projection {
             self.sender
