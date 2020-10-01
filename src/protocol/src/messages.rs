@@ -762,7 +762,7 @@ mod serializing_backend_messages {
     }
 
     #[test]
-    fn backend_ket_data() {
+    fn backend_key_data() {
         assert_eq!(
             BackendMessage::BackendKeyData(1, 2).as_vec(),
             vec![BACKEND_KEY_DATA, 0, 0, 0, 12, 0, 0, 0, 1, 0, 0, 0, 2]
