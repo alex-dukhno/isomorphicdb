@@ -8,9 +8,9 @@ publish = false
 [dependencies]
 protocol = { path = "../protocol" }
 
-bigdecimal = "0.1.2"
+bigdecimal = { version = "0.2.0", features = ["string-only"] }
 log = "0.4.11"
-sqlparser = { version = "0.6.1", features = ["bigdecimal"] }
+sqlparser = { git = "https://github.com/alex-dukhno/sqlparser-rs.git", branch = "create-drop-schema-conditionally", features = ["bigdecimal"]  }
 
 [dev-dependencies]
 rstest = "0.6.4"

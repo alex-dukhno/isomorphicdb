@@ -9,7 +9,7 @@ publish = false
 ast = { path = "../ast" }
 sql_model = { path = "../sql_model" }
 
-bigdecimal = "0.1.2"
+bigdecimal = { version = "0.2.0", features = ["string-only"] }
 num-bigint = "0.3"
 
 [dev-dependencies]
