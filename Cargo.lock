@@ -129,7 +129,7 @@ dependencies = [
 [[package]]
 name = "async-native-tls"
 version = "0.3.3"
-source = "git+https://github.com/alex-dukhno/async-native-tls.git?branch=new-native-tls#9251f254a0e8cc6585269d272cd72c2bca1c1fc7"
+source = "git+https://github.com/alex-dukhno/async-native-tls.git?branch=new-native-tls#a959a677b3f052f587cff1c51d103ba3334d0f7a"
 dependencies = [
  "futures-util",
  "native-tls",
@@ -697,7 +697,7 @@ dependencies = [
 [[package]]
 name = "native-tls"
 version = "0.2.4"
-source = "git+https://github.com/sfackler/rust-native-tls.git#9a9e79825cde4705bad1b2192962066e29d365b5"
+source = "git+https://github.com/alex-dukhno/rust-native-tls.git?branch=update-dependecies#04ccdf311f7705d3aee0ad8082f3541bad7d89fd"
 dependencies = [
  "lazy_static",
  "libc",
