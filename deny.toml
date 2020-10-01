@@ -28,5 +28,5 @@ unknown-git = "deny"
 unknown-registry = "deny"
 allow-git = [
     "https://github.com/alex-dukhno/async-native-tls.git",
-    "https://github.com/alex-dukhno/rust-native-tls.git"
+    "https://github.com/sfackler/rust-native-tls.git"
 ]

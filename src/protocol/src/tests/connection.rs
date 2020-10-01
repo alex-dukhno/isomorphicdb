@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use async_mutex::Mutex as AsyncMutex;
 use futures_lite::future::block_on;
 
-use crate::{tests::async_io::TestCase, Channel, Command, Receiver, RequestReceiver, VERSION_3};
+use crate::{tests::async_io::TestCase, Channel, Command, ConnSupervisor, Receiver, RequestReceiver, VERSION_3};
 
 #[cfg(test)]
 mod read_query {
@@ -28,7 +28,9 @@ mod read_query {
         block_on(async {
             let test_case = TestCase::with_content(vec![&[88], &[0, 0, 0, 4]]);
             let channel = Arc::new(AsyncMutex::new(Channel::Plain(test_case)));
-            let mut receiver = RequestReceiver::new((VERSION_3, vec![]), channel);
+            let conn_supervisor = Arc::new(Mutex::new(ConnSupervisor::new(1, 2)));
+            let (conn_id, _) = conn_supervisor.lock().unwrap().alloc().unwrap();
+            let mut receiver = RequestReceiver::new(conn_id, (VERSION_3, vec![]), channel, conn_supervisor);
 
             let query = receiver.receive().await.expect("no io errors");
             assert_eq!(query, Ok(Command::Terminate));
@@ -40,7 +42,9 @@ mod read_query {
         block_on(async {
             let test_case = TestCase::with_content(vec![&[81], &[0, 0, 0, 14], b"select 1;\0"]);
             let channel = Arc::new(AsyncMutex::new(Channel::Plain(test_case.clone())));
-            let mut receiver = RequestReceiver::new((VERSION_3, vec![]), channel);
+            let conn_supervisor = Arc::new(Mutex::new(ConnSupervisor::new(1, 2)));
+            let (conn_id, _) = conn_supervisor.lock().unwrap().alloc().unwrap();
+            let mut receiver = RequestReceiver::new(conn_id, (VERSION_3, vec![]), channel, conn_supervisor);
 
             let query = receiver.receive().await.expect("no io errors");
             assert_eq!(
@@ -57,7 +61,9 @@ mod read_query {
         block_on(async {
             let test_case = TestCase::with_content(vec![]);
             let channel = Arc::new(AsyncMutex::new(Channel::Plain(test_case)));
-            let mut connection = RequestReceiver::new((VERSION_3, vec![]), channel);
+            let conn_supervisor = Arc::new(Mutex::new(ConnSupervisor::new(1, 2)));
+            let (conn_id, _) = conn_supervisor.lock().unwrap().alloc().unwrap();
+            let mut connection = RequestReceiver::new(conn_id, (VERSION_3, vec![]), channel, conn_supervisor);
 
             let query = connection.receive().await;
             assert!(query.is_err());
@@ -69,7 +75,9 @@ mod read_query {
         block_on(async {
             let test_case = TestCase::with_content(vec![&[81]]);
             let channel = Arc::new(AsyncMutex::new(Channel::Plain(test_case)));
-            let mut connection = RequestReceiver::new((VERSION_3, vec![]), channel);
+            let conn_supervisor = Arc::new(Mutex::new(ConnSupervisor::new(1, 2)));
+            let (conn_id, _) = conn_supervisor.lock().unwrap().alloc().unwrap();
+            let mut connection = RequestReceiver::new(conn_id, (VERSION_3, vec![]), channel, conn_supervisor);
 
             let query = connection.receive().await;
             assert!(query.is_err());
@@ -81,7 +89,9 @@ mod read_query {
         block_on(async {
             let test_case = TestCase::with_content(vec![&[81], &[0, 0, 0, 14], b"sel;\0"]);
             let channel = Arc::new(AsyncMutex::new(Channel::Plain(test_case)));
-            let mut connection = RequestReceiver::new((VERSION_3, vec![]), channel);
+            let conn_supervisor = Arc::new(Mutex::new(ConnSupervisor::new(1, 2)));
+            let (conn_id, _) = conn_supervisor.lock().unwrap().alloc().unwrap();
+            let mut connection = RequestReceiver::new(conn_id, (VERSION_3, vec![]), channel, conn_supervisor);
 
             let query = connection.receive().await;
             assert!(query.is_err());
