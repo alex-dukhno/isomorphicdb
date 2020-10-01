@@ -1010,7 +1010,7 @@ dependencies = [
  "futures-lite",
  "itertools",
  "log",
- "rand",
+ "rand 0.7.3",
  "tempfile",
 ]
 

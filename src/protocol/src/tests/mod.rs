@@ -12,11 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#[cfg(test)]
+mod accept_client_request;
 mod async_io;
 #[cfg(test)]
 mod connection;
-#[cfg(test)]
-mod hand_shake;
 #[cfg(test)]
 mod pg_frontend;
 

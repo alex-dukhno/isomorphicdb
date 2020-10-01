@@ -27,7 +27,7 @@ use async_io::Async;
 
 use crate::query_engine::QueryEngine;
 use data_manager::DataManager;
-use protocol::{ConnSupervisor, Error, ProtocolConfiguration, Receiver};
+use protocol::{ClientRequest, ConnSupervisor, ProtocolConfiguration};
 
 const PORT: u16 = 5432;
 const HOST: [u8; 4] = [0, 0, 0, 0];
@@ -55,21 +55,15 @@ pub fn start() {
 
         while let Ok((tcp_stream, address)) = listener.accept().await {
             let tcp_stream = AsyncArc::new(tcp_stream);
-            match protocol::hand_shake(tcp_stream, address, &config, conn_supervisor.clone()).await {
+            match protocol::accept_client_request(tcp_stream, address, &config, conn_supervisor.clone()).await {
                 Err(io_error) => log::error!("IO error {:?}", io_error),
-                Ok(Err(Error::CancelRequest(conn_id))) => {
-                    // TODO: Needs to handle Cancel Request here.
-                    log::debug!("cancel request of connection-{}", conn_id);
-                }
                 Ok(Err(protocol_error)) => log::error!("protocol error {:?}", protocol_error),
-                Ok(Ok((mut receiver, sender))) => {
+                Ok(Ok(ClientRequest::Connection(mut receiver, sender))) => {
                     if state.load(Ordering::SeqCst) == STOPPED {
                         return;
                     }
                     let state = state.clone();
-                    let storage = storage.clone();
-                    let sender = Arc::new(sender);
-                    let mut query_engine = QueryEngine::new(sender.clone(), storage.clone());
+                    let mut query_engine = QueryEngine::new(sender, storage.clone());
                     log::debug!("ready to handle query");
                     smol::spawn(async move {
                         loop {
@@ -94,6 +88,10 @@ pub fn start() {
                         }
                     })
                     .detach();
+                }
+                Ok(Ok(ClientRequest::QueryCancellation(conn_id))) => {
+                    // TODO: Needs to handle Cancel Request here.
+                    log::debug!("cancel request of connection-{}", conn_id);
                 }
             }
         }

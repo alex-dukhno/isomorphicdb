@@ -80,11 +80,17 @@ pub const VERSION_SSL: Version = (1234 << 16) + 5679;
 /// Client initiate `gss` encrypted connection
 pub const VERSION_GSSENC: Version = (1234 << 16) + 5680;
 
+/// Client request accepted from a client
+pub enum ClientRequest {
+    /// Connection to perform queries
+    Connection(Box<dyn Receiver>, Arc<dyn Sender>),
+    /// Connection to cancel queries of another client
+    QueryCancellation(ConnId),
+}
+
 /// `Error` type in protocol `Result`. Indicates that something went not well
 #[derive(Debug, PartialEq)]
 pub enum Error {
-    /// Notifies that the specified connection ID needs to be cancelled
-    CancelRequest(i32),
     /// Indicates that the current count of active connections is full
     ConnectionIdExhausted,
     /// Indicates that incoming data is invalid
@@ -161,15 +167,15 @@ pub enum Command {
 
 /// Manages allocation of Connection IDs and secret keys.
 pub struct ConnSupervisor {
-    next_id: i32,
-    max_id: i32,
-    free_ids: VecDeque<i32>,
-    current_mapping: HashMap<i32, i32>,
+    next_id: ConnId,
+    max_id: ConnId,
+    free_ids: VecDeque<ConnId>,
+    current_mapping: HashMap<ConnId, ConnSecretKey>,
 }
 
 impl ConnSupervisor {
     /// Creates a new Connection Supervisor.
-    pub fn new(min_id: i32, max_id: i32) -> Self {
+    pub fn new(min_id: ConnId, max_id: ConnId) -> Self {
         Self {
             next_id: min_id,
             max_id,
@@ -179,7 +185,7 @@ impl ConnSupervisor {
     }
 
     /// Allocates a new Connection ID and secret key.
-    fn alloc(&mut self) -> Result<(i32, i32)> {
+    fn alloc(&mut self) -> Result<(ConnId, ConnSecretKey)> {
         let conn_id = self.generate_conn_id()?;
         let secret_key = rand::thread_rng().gen();
         self.current_mapping.insert(conn_id, secret_key);
@@ -187,21 +193,21 @@ impl ConnSupervisor {
     }
 
     /// Releases a Connection ID back to the pool.
-    fn free(&mut self, conn_id: i32) {
+    fn free(&mut self, conn_id: ConnId) {
         if self.current_mapping.remove(&conn_id).is_some() {
             self.free_ids.push_back(conn_id);
         }
     }
 
     /// Validates whether the secret key matches the specified Connection ID.
-    fn verify(&self, conn_id: i32, secret_key: i32) -> bool {
+    fn verify(&self, conn_id: ConnId, secret_key: ConnSecretKey) -> bool {
         match self.current_mapping.get(&conn_id) {
             Some(s) => *s == secret_key,
             None => false,
         }
     }
 
-    fn generate_conn_id(&mut self) -> Result<i32> {
+    fn generate_conn_id(&mut self) -> Result<ConnId> {
         match self.free_ids.pop_front() {
             Some(id) => Ok(id),
             None => {
@@ -217,17 +223,17 @@ impl ConnSupervisor {
     }
 }
 
-/// Perform `PostgreSql` wire protocol hand shake to establish connection with
-/// a client based on `config` parameters and using `stream` as a medium to
-/// communicate
+/// Perform `PostgreSql` wire protocol to accept request and establish
+/// connection with a client based on `config` parameters and using `stream` as
+/// a medium to communicate
 /// As a result of operation returns tuple of `Receiver` and `Sender`
 /// that have to be used to communicate with the client on performing commands
-pub async fn hand_shake<RW>(
+pub async fn accept_client_request<RW: 'static>(
     stream: RW,
     address: SocketAddr,
     config: &ProtocolConfiguration,
     conn_supervisor: Arc<Mutex<ConnSupervisor>>,
-) -> io::Result<Result<(impl Receiver, impl Sender)>>
+) -> io::Result<Result<ClientRequest>>
 where
     RW: AsyncRead + AsyncWrite + Unpin,
 {
@@ -316,9 +322,14 @@ where
                     .await?;
 
                 let channel = Arc::new(AsyncMutex::new(channel));
-                return Ok(Ok((
-                    RequestReceiver::new(conn_id, (version, params.clone()), channel.clone(), conn_supervisor),
-                    ResponseSender::new((version, params), channel),
+                return Ok(Ok(ClientRequest::Connection(
+                    Box::new(RequestReceiver::new(
+                        conn_id,
+                        (version, params.clone()),
+                        channel.clone(),
+                        conn_supervisor,
+                    )),
+                    Arc::new(ResponseSender::new((version, params), channel)),
                 )));
             }
             Ok(ClientHandshake::SslRequest) => {
@@ -336,7 +347,7 @@ where
             Ok(ClientHandshake::GssEncryptRequest) => return Ok(Err(Error::UnsupportedRequest)),
             Ok(ClientHandshake::CancelRequest(conn_id, secret_key)) => {
                 if conn_supervisor.lock().unwrap().verify(conn_id, secret_key) {
-                    return Ok(Err(Error::CancelRequest(conn_id)));
+                    return Ok(Ok(ClientRequest::QueryCancellation(conn_id)));
                 }
                 return Ok(Err(Error::VerificationFailed));
             }
@@ -407,7 +418,7 @@ fn decode_startup(message: Vec<u8>) -> Result<ClientHandshake> {
 }
 
 struct RequestReceiver<RW: AsyncRead + AsyncWrite + Unpin> {
-    conn_id: i32,
+    conn_id: ConnId,
     properties: (Version, Params),
     channel: Arc<AsyncMutex<Channel<RW>>>,
     conn_supervisor: Arc<Mutex<ConnSupervisor>>,
@@ -416,7 +427,7 @@ struct RequestReceiver<RW: AsyncRead + AsyncWrite + Unpin> {
 impl<RW: AsyncRead + AsyncWrite + Unpin> RequestReceiver<RW> {
     /// Creates a new connection
     pub(crate) fn new(
-        conn_id: i32,
+        conn_id: ConnId,
         properties: (Version, Params),
         channel: Arc<AsyncMutex<Channel<RW>>>,
         conn_supervisor: Arc<Mutex<ConnSupervisor>>,

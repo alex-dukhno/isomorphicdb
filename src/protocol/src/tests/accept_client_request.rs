@@ -22,13 +22,13 @@ use std::{
 use futures_lite::future::block_on;
 
 use crate::{
-    hand_shake,
+    accept_client_request,
     messages::{BackendMessage, Encryption},
     tests::{
         async_io::{empty_file_named, TestCase},
         certificate_content, pg_frontend,
     },
-    ConnSupervisor, Error, ProtocolConfiguration,
+    ClientRequest, ConnSupervisor, Error, ProtocolConfiguration,
 };
 
 fn path_to_temp_certificate() -> PathBuf {
@@ -47,7 +47,7 @@ fn trying_read_from_empty_stream() {
         let config = ProtocolConfiguration::none();
         let conn_supervisor = Arc::new(Mutex::new(ConnSupervisor::new(1, 2)));
 
-        let result = hand_shake(
+        let result = accept_client_request(
             test_case,
             SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 8080)),
             &config,
@@ -67,7 +67,7 @@ fn trying_read_only_length_of_ssl_message() {
         let config = ProtocolConfiguration::none();
         let conn_supervisor = Arc::new(Mutex::new(ConnSupervisor::new(1, 2)));
 
-        let result = hand_shake(
+        let result = accept_client_request(
             test_case,
             SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 8080)),
             &config,
@@ -87,7 +87,7 @@ fn sending_reject_notification_for_none_secure() {
         let config = ProtocolConfiguration::none();
         let conn_supervisor = Arc::new(Mutex::new(ConnSupervisor::new(1, 2)));
 
-        let result = hand_shake(
+        let result = accept_client_request(
             test_case.clone(),
             SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 8080)),
             &config,
@@ -112,7 +112,7 @@ fn sending_accept_notification_for_ssl_only_secure() {
         let config = ProtocolConfiguration::with_ssl(path_to_temp_certificate(), "password".to_owned());
         let conn_supervisor = Arc::new(Mutex::new(ConnSupervisor::new(1, 2)));
 
-        let result = hand_shake(
+        let result = accept_client_request(
             test_case.clone(),
             SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 8080)),
             &config,
@@ -149,7 +149,7 @@ fn successful_connection_handshake_for_none_secure() {
         let config = ProtocolConfiguration::none();
         let conn_supervisor = Arc::new(Mutex::new(ConnSupervisor::new(1, 2)));
 
-        let result = hand_shake(
+        let result = accept_client_request(
             test_case.clone(),
             SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 8080)),
             &config,
@@ -219,7 +219,7 @@ fn successful_connection_handshake_for_ssl_only_secure() {
         let config = ProtocolConfiguration::with_ssl(path_to_temp_certificate(), "password".to_owned());
         let conn_supervisor = Arc::new(Mutex::new(ConnSupervisor::new(1, 2)));
 
-        let result = hand_shake(
+        let result = accept_client_request(
             test_case.clone(),
             SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 8080)),
             &config,
@@ -259,7 +259,7 @@ fn successful_cancel_request_connection() {
             .as_vec()
             .as_slice()]);
 
-        let result = hand_shake(
+        let result = accept_client_request(
             test_case.clone(),
             SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 8080)),
             &config,
@@ -267,7 +267,7 @@ fn successful_cancel_request_connection() {
         )
         .await;
 
-        assert!(matches!(result, Ok(Err(Error::CancelRequest(_)))));
+        assert!(matches!(result, Ok(Ok(ClientRequest::QueryCancellation(_)))));
     });
 }
 
@@ -282,7 +282,7 @@ fn verification_failed_cancel_request_connection() {
             .as_vec()
             .as_slice()]);
 
-        let result = hand_shake(
+        let result = accept_client_request(
             test_case.clone(),
             SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 8080)),
             &config,

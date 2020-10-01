@@ -18,7 +18,7 @@ use byteorder::{ByteOrder, NetworkEndian};
 
 use crate::{
     pgsql_types::{Oid, PostgreSqlFormat, PostgreSqlType},
-    Error, Result,
+    ConnId, ConnSecretKey, Error, Result,
 };
 
 const COMMAND_COMPLETE: u8 = b'C';
@@ -217,7 +217,7 @@ pub enum BackendMessage {
     AuthenticationOk,
     /// Identifies as cancellation key data. The frontend must save these values
     /// if it wishes to be able to issue CancelRequest messages later.
-    BackendKeyData(i32, i32),
+    BackendKeyData(ConnId, ConnSecretKey),
     /// Start-up is completed. The frontend can now issue commands.
     ReadyForQuery,
     /// One of the set of rows returned by a SELECT, FETCH, etc query.
