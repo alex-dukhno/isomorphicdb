@@ -953,6 +953,7 @@ dependencies = [
  "ast",
  "constraints",
  "data_manager",
+ "protocol",
  "sql_model",
  "sqlparser",
 ]
@@ -1040,6 +1041,7 @@ name = "query_planner"
 version = "0.1.0"
 dependencies = [
  "ast",
+ "bigdecimal",
  "constraints",
  "data_manager",
  "kernel",

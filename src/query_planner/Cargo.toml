@@ -14,6 +14,7 @@ plan = { path = "../plan" }
 protocol = { path = "../protocol" }
 sql_model = { path = "../sql_model" }
 
+bigdecimal = "0.1.2"
 sqlparser = { version = "0.6.1", features = ["bigdecimal"] }
 
 [dev-dependencies]
