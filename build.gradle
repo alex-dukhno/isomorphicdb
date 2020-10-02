@@ -20,8 +20,8 @@ subprojects {
 
     testImplementation group: 'org.postgresql', name: 'postgresql', version: '42.2.16'
 
-    testImplementation group: 'org.testcontainers', name: 'spock', version: '1.14.3'
-    testImplementation group: 'org.testcontainers', name: 'postgresql', version: '1.14.3'
+    testImplementation group: 'org.testcontainers', name: 'spock', version: '1.15.0-rc2'
+    testImplementation group: 'org.testcontainers', name: 'postgresql', version: '1.15.0-rc2'
   }
 
   tasks.withType(Test) {

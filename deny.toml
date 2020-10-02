@@ -29,5 +29,5 @@ unknown-registry = "deny"
 allow-git = [
     "https://github.com/alex-dukhno/async-native-tls.git",
     "https://github.com/sfackler/rust-native-tls.git",
-    "https://github.com/alex-dukhno/sqlparser-rs.git",
+    "https://github.com/ballista-compute/sqlparser-rs.git",
 ]

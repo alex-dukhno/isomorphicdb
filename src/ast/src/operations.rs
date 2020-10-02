@@ -113,6 +113,9 @@ impl TryFrom<&BinaryOperator> for BinaryOp {
             BinaryOperator::Like => Err(()),
             BinaryOperator::NotLike => Err(()),
             BinaryOperator::BitwiseXor => Err(()),
+            BinaryOperator::PGBitwiseXor => Err(()),
+            BinaryOperator::PGBitwiseShiftLeft => Err(()),
+            BinaryOperator::PGBitwiseShiftRight => Err(()),
         }
     }
 }

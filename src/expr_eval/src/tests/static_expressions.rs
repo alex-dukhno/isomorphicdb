@@ -194,6 +194,7 @@ mod binary_operation {
     #[cfg(test)]
     mod floats {
         use super::*;
+        use std::convert::TryFrom;
 
         #[test]
         fn number_concatenation() {
@@ -203,8 +204,10 @@ mod binary_operation {
             assert_eq!(
                 eval.eval(&ScalarOp::Binary(
                     BinaryOp::Concat,
-                    Box::new(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(20.1)))),
-                    Box::new(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(5.2))))
+                    Box::new(ScalarOp::Value(ScalarValue::Number(
+                        BigDecimal::try_from(20.1).unwrap()
+                    ))),
+                    Box::new(ScalarOp::Value(ScalarValue::Number(BigDecimal::try_from(5.2).unwrap())))
                 )),
                 Err(())
             );
@@ -220,11 +223,13 @@ mod binary_operation {
             assert_eq!(
                 eval.eval(&ScalarOp::Binary(
                     BinaryOp::Add,
-                    Box::new(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(20.1)))),
-                    Box::new(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(5.2))))
+                    Box::new(ScalarOp::Value(ScalarValue::Number(
+                        BigDecimal::try_from(20.1).unwrap()
+                    ))),
+                    Box::new(ScalarOp::Value(ScalarValue::Number(BigDecimal::try_from(5.2).unwrap())))
                 )),
                 Ok(ScalarOp::Value(ScalarValue::Number(
-                    BigDecimal::from(20.1) + BigDecimal::from(5.2)
+                    BigDecimal::try_from(20.1).unwrap() + BigDecimal::try_from(5.2).unwrap()
                 )))
             );
 
@@ -239,11 +244,13 @@ mod binary_operation {
             assert_eq!(
                 eval.eval(&ScalarOp::Binary(
                     BinaryOp::Sub,
-                    Box::new(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(20.1)))),
-                    Box::new(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(5.2))))
+                    Box::new(ScalarOp::Value(ScalarValue::Number(
+                        BigDecimal::try_from(20.1).unwrap()
+                    ))),
+                    Box::new(ScalarOp::Value(ScalarValue::Number(BigDecimal::try_from(5.2).unwrap())))
                 )),
                 Ok(ScalarOp::Value(ScalarValue::Number(
-                    BigDecimal::from(20.1) - BigDecimal::from(5.2)
+                    BigDecimal::try_from(20.1).unwrap() - BigDecimal::try_from(5.2).unwrap()
                 )))
             );
 
@@ -258,11 +265,13 @@ mod binary_operation {
             assert_eq!(
                 eval.eval(&ScalarOp::Binary(
                     BinaryOp::Mul,
-                    Box::new(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(20.1)))),
-                    Box::new(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(5.2))))
+                    Box::new(ScalarOp::Value(ScalarValue::Number(
+                        BigDecimal::try_from(20.1).unwrap()
+                    ))),
+                    Box::new(ScalarOp::Value(ScalarValue::Number(BigDecimal::try_from(5.2).unwrap())))
                 )),
                 Ok(ScalarOp::Value(ScalarValue::Number(
-                    BigDecimal::from(20.1) * BigDecimal::from(5.2)
+                    BigDecimal::try_from(20.1).unwrap() * BigDecimal::try_from(5.2).unwrap()
                 )))
             );
 
@@ -277,11 +286,13 @@ mod binary_operation {
             assert_eq!(
                 eval.eval(&ScalarOp::Binary(
                     BinaryOp::Div,
-                    Box::new(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(20.1)))),
-                    Box::new(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(5.2))))
+                    Box::new(ScalarOp::Value(ScalarValue::Number(
+                        BigDecimal::try_from(20.1).unwrap()
+                    ))),
+                    Box::new(ScalarOp::Value(ScalarValue::Number(BigDecimal::try_from(5.2).unwrap())))
                 )),
                 Ok(ScalarOp::Value(ScalarValue::Number(
-                    BigDecimal::from(20.1) / BigDecimal::from(5.2)
+                    BigDecimal::try_from(20.1).unwrap() / BigDecimal::try_from(5.2).unwrap()
                 )))
             );
 
@@ -296,11 +307,13 @@ mod binary_operation {
             assert_eq!(
                 eval.eval(&ScalarOp::Binary(
                     BinaryOp::Mod,
-                    Box::new(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(20.1)))),
-                    Box::new(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(5.2))))
+                    Box::new(ScalarOp::Value(ScalarValue::Number(
+                        BigDecimal::try_from(20.1).unwrap()
+                    ))),
+                    Box::new(ScalarOp::Value(ScalarValue::Number(BigDecimal::try_from(5.2).unwrap())))
                 )),
                 Ok(ScalarOp::Value(ScalarValue::Number(
-                    BigDecimal::from(20.1) % BigDecimal::from(5.2)
+                    BigDecimal::try_from(20.1).unwrap() % BigDecimal::try_from(5.2).unwrap()
                 )))
             );
 
@@ -315,8 +328,10 @@ mod binary_operation {
             assert_eq!(
                 eval.eval(&ScalarOp::Binary(
                     BinaryOp::BitwiseAnd,
-                    Box::new(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(20.1)))),
-                    Box::new(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(5.2))))
+                    Box::new(ScalarOp::Value(ScalarValue::Number(
+                        BigDecimal::try_from(20.1).unwrap()
+                    ))),
+                    Box::new(ScalarOp::Value(ScalarValue::Number(BigDecimal::try_from(5.2).unwrap())))
                 )),
                 Err(())
             );
@@ -332,8 +347,10 @@ mod binary_operation {
             assert_eq!(
                 eval.eval(&ScalarOp::Binary(
                     BinaryOp::BitwiseOr,
-                    Box::new(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(20.1)))),
-                    Box::new(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(5.2))))
+                    Box::new(ScalarOp::Value(ScalarValue::Number(
+                        BigDecimal::try_from(20.1).unwrap()
+                    ))),
+                    Box::new(ScalarOp::Value(ScalarValue::Number(BigDecimal::try_from(5.2).unwrap())))
                 )),
                 Err(())
             );

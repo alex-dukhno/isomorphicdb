@@ -15,7 +15,7 @@ protocol = { path = "../protocol" }
 sql_model = { path = "../sql_model" }
 
 bigdecimal = "0.1.2"
-sqlparser = { git = "https://github.com/alex-dukhno/sqlparser-rs.git", branch = "create-drop-schema-conditionally", features = ["bigdecimal"]  }
+sqlparser = { git = "https://github.com/ballista-compute/sqlparser-rs.git", branch = "main", features = ["bigdecimal"] }
 
 [dev-dependencies]
 rstest = "0.6.4"

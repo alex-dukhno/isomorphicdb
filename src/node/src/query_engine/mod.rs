@@ -211,10 +211,17 @@ impl QueryEngine {
                 Ok(())
             }
             Command::Query { sql } => {
-                if let Ok(mut statements) = self.query_parser.parse(sql.as_str()) {
-                    let statement = statements.pop().expect("single query");
-                    if let Ok(plan) = self.query_planner.plan(&statement) {
-                        self.query_executor.execute(plan);
+                match self.query_parser.parse(sql.as_str()) {
+                    Ok(mut statements) => {
+                        let statement = statements.pop().expect("single query");
+                        if let Ok(plan) = self.query_planner.plan(&statement) {
+                            self.query_executor.execute(plan);
+                        }
+                    }
+                    Err(syntax_error) => {
+                        self.sender
+                            .send(Err(syntax_error))
+                            .expect("To Send ParseComplete Event");
                     }
                 }
                 self.sender

@@ -61,12 +61,13 @@ impl QueryPlanner {
                 object_type,
                 names,
                 cascade,
-                ..
+                if_exists,
             } => match object_type {
-                ObjectType::Table => DropTablesPlanner::new(names).plan(self.data_manager.clone(), self.sender.clone()),
-                ObjectType::Schema => {
-                    DropSchemaPlanner::new(names, *cascade).plan(self.data_manager.clone(), self.sender.clone())
+                ObjectType::Table => {
+                    DropTablesPlanner::new(names, *if_exists).plan(self.data_manager.clone(), self.sender.clone())
                 }
+                ObjectType::Schema => DropSchemaPlanner::new(names, *cascade, *if_exists)
+                    .plan(self.data_manager.clone(), self.sender.clone()),
                 _ => {
                     self.sender
                         .send(Err(QueryError::syntax_error(statement)))

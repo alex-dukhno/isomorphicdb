@@ -89,9 +89,9 @@ dependencies = [
 
 [[package]]
 name = "async-io"
-version = "1.1.5"
+version = "1.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6e727cebd055ab2861a854f79def078c4b99ea722d54c6800a0e274389882d4c"
+checksum = "b5bfd63f6fc8fd2925473a147d3f4d252c712291efdde0d7057b25146563402c"
 dependencies = [
  "concurrent-queue",
  "fastrand",
@@ -1371,7 +1371,7 @@ dependencies = [
 [[package]]
 name = "sqlparser"
 version = "0.6.1"
-source = "git+https://github.com/alex-dukhno/sqlparser-rs.git?branch=create-drop-schema-conditionally#eb01545ce277cdb9035e49319e6506f2147cc0ef"
+source = "git+https://github.com/ballista-compute/sqlparser-rs.git?branch=main#1ac208307cedcb16b148068c789409449724c19f"
 dependencies = [
  "bigdecimal 0.2.0",
  "log",

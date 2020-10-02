@@ -101,10 +101,22 @@ fn drop_non_existent_table(database_with_schema: (QueryEngine, ResultCollector))
     let (mut engine, collector) = database_with_schema;
     engine
         .execute(Command::Query {
-            sql: "drop table schema_name.table_name;".to_owned(),
+            sql: "drop table schema_name.non_existent;".to_owned(),
         })
         .expect("query executed");
-    collector.assert_receive_single(Err(QueryError::table_does_not_exist("schema_name.table_name")));
+    collector.assert_receive_single(Err(QueryError::table_does_not_exist("schema_name.non_existent")));
+}
+
+#[rstest::rstest]
+fn drop_if_exists_non_existent_table(database_with_schema: (QueryEngine, ResultCollector)) {
+    let (mut engine, collector) = database_with_schema;
+
+    engine
+        .execute(Command::Query {
+            sql: "drop table if exists schema_name.non_existent;".to_owned(),
+        })
+        .expect("query executed");
+    collector.assert_receive_single(Ok(QueryEvent::QueryComplete));
 }
 
 #[cfg(test)]

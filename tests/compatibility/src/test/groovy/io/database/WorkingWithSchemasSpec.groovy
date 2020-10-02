@@ -3,6 +3,12 @@ package io.database
 import java.sql.SQLException
 
 class WorkingWithSchemasSpec extends ContainersSpecification {
+  def cleanupSpec() {
+    dbExecute 'drop schema if exists CREATE_SCHEMA_TEST'
+    dbExecute 'drop schema if exists CREATE_SCHEMA_IF_NOT_EXIST'
+    dbExecute 'drop schema if exists WITH_THE_SAME_NAME'
+  }
+
   def 'create schema'() {
     given:
       String createSchemaQuery = 'create schema CREATE_SCHEMA_TEST'

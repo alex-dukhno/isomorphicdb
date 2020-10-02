@@ -46,7 +46,7 @@ class ContainersSpecification extends Specification {
 
   private static Map<String, String> dbConf() {
     [
-        url: "jdbc:postgresql://localhost:${dbPort()}/test?gssEncMode=disable&sslmode=disable",
+        url: "jdbc:postgresql://localhost:${dbPort()}/test?gssEncMode=disable&sslmode=disable&preferQueryMode=simple",
         user: USER,
         password: PASSWORD,
         driver: DRIVER_CLASS,

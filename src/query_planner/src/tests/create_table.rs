@@ -30,6 +30,7 @@ fn column(name: &str, data_type: DataType) -> ColumnDef {
 
 fn table(name: Vec<&str>, columns: Vec<ColumnDef>) -> Statement {
     Statement::CreateTable {
+        or_replace: false,
         name: ObjectName(name.into_iter().map(ident).collect()),
         columns,
         constraints: vec![],

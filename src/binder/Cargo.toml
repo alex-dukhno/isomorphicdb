@@ -10,7 +10,7 @@ protocol = { path = "../protocol" }
 
 bigdecimal = { version = "0.2.0", features = ["string-only"] }
 log = "0.4.11"
-sqlparser = { git = "https://github.com/alex-dukhno/sqlparser-rs.git", branch = "create-drop-schema-conditionally", features = ["bigdecimal"]  }
+sqlparser = { git = "https://github.com/ballista-compute/sqlparser-rs.git", branch = "main", features = ["bigdecimal"] }
 
 [dev-dependencies]
 rstest = "0.6.4"

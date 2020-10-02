@@ -75,6 +75,18 @@ fn drop_non_existent_schema(empty_database: (QueryEngine, ResultCollector)) {
 }
 
 #[rstest::rstest]
+fn drop_if_exists_non_existent_schema(empty_database: (QueryEngine, ResultCollector)) {
+    let (mut engine, collector) = empty_database;
+
+    engine
+        .execute(Command::Query {
+            sql: "drop schema if exists non_existent;".to_owned(),
+        })
+        .expect("query executed");
+    collector.assert_receive_single(Ok(QueryEvent::QueryComplete));
+}
+
+#[rstest::rstest]
 fn select_from_nonexistent_schema(empty_database: (QueryEngine, ResultCollector)) {
     let (mut engine, collector) = empty_database;
 

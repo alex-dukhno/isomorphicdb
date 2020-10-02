@@ -19,6 +19,7 @@ use bigdecimal::BigDecimal;
 use ordered_float::OrderedFloat;
 use sql_model::sql_types::SqlType;
 use sqlparser::ast::{DataType, Expr, Value};
+use std::convert::TryFrom;
 use std::{
     convert::{From, TryInto},
     fmt::{self, Display, Formatter},
@@ -200,8 +201,8 @@ impl<'a> TryInto<ScalarValue> for &Datum<'a> {
             Datum::Int32(num) => Ok(ScalarValue::Number(BigDecimal::from(*num))),
             Datum::Int64(num) => Ok(ScalarValue::Number(BigDecimal::from(*num))),
             Datum::UInt64(num) => Ok(ScalarValue::Number(BigDecimal::from(*num))),
-            Datum::Float32(num) => Ok(ScalarValue::Number(BigDecimal::from(**num))),
-            Datum::Float64(num) => Ok(ScalarValue::Number(BigDecimal::from(**num))),
+            Datum::Float32(num) => Ok(ScalarValue::Number(BigDecimal::try_from(**num).unwrap())),
+            Datum::Float64(num) => Ok(ScalarValue::Number(BigDecimal::try_from(**num).unwrap())),
             Datum::String(str) => Ok(ScalarValue::String(str.to_string())),
             Datum::OwnedString(str) => Ok(ScalarValue::String(str.to_owned())),
             Datum::SqlType(_) => Err(()),

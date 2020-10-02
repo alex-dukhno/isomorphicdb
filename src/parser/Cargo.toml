@@ -9,4 +9,4 @@ publish = false
 protocol = { path = "../protocol" }
 
 log = "0.4.11"
-sqlparser = { git = "https://github.com/alex-dukhno/sqlparser-rs.git", branch = "create-drop-schema-conditionally", features = ["bigdecimal"]  }
+sqlparser = { git = "https://github.com/ballista-compute/sqlparser-rs.git", branch = "main", features = ["bigdecimal"] }

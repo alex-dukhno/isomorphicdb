@@ -22,7 +22,8 @@ fn create_new_schema(planner_and_sender: (QueryPlanner, ResultCollector)) {
     let (query_planner, collector) = planner_and_sender;
     assert_eq!(
         query_planner.plan(&Statement::CreateSchema {
-            schema_name: ObjectName(vec![ident(SCHEMA)])
+            schema_name: ObjectName(vec![ident(SCHEMA)]),
+            if_not_exists: false
         }),
         Ok(Plan::CreateSchema(SchemaCreationInfo::new(SCHEMA)))
     );
@@ -35,7 +36,8 @@ fn create_schema_with_the_same_name(planner_and_sender_with_schema: (QueryPlanne
     let (query_planner, collector) = planner_and_sender_with_schema;
     assert_eq!(
         query_planner.plan(&Statement::CreateSchema {
-            schema_name: ObjectName(vec![ident(SCHEMA)])
+            schema_name: ObjectName(vec![ident(SCHEMA)]),
+            if_not_exists: false
         }),
         Err(())
     );
@@ -53,7 +55,8 @@ fn create_schema_with_unqualified_name(planner_and_sender: (QueryPlanner, Result
                 ident("second_part"),
                 ident("third_part"),
                 ident("fourth_part")
-            ])
+            ]),
+            if_not_exists: false
         }),
         Err(_)
     ));
