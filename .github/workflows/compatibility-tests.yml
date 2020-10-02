@@ -1,7 +1,7 @@
 name: Compatibility Tests
 on:
   schedule:
-    - cron:  '0 0 * * 1' # every Monday
+    - cron:  '0 0 * * *' # everyday
 
 defaults:
   run:
