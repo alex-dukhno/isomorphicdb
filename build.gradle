@@ -38,5 +38,6 @@ subprojects {
     }
 
     systemProperty 'ci', System.getProperty('ci', 'false')
+    systemProperty 'protocol', System.getProperty('protocol', 'simple')
   }
 }

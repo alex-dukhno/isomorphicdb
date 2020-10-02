@@ -9,6 +9,11 @@ defaults:
 
 jobs:
   tests:
+    strategy:
+      matrix:
+        protocol:
+          - simple
+          - extended
     runs-on: ubuntu-latest
     steps:
       - name: checkout
@@ -20,4 +25,4 @@ jobs:
       - name: run-tests
         uses: eskatos/gradle-command-action@v1
         with:
-          arguments: test -Dci=true
+          arguments: test -Dci=true -Dprotocol=${{ matrix.protocol }}

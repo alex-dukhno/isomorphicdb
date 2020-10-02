@@ -23,7 +23,7 @@ class ContainersSpecification extends Specification {
         .withPassword(PASSWORD)
     POSTGRE_SQL.start()
 
-    if (Boolean.parseBoolean(System.getProperty("ci", "true"))) {
+    if (Boolean.parseBoolean(System.getProperty("ci"))) {
       DATABASE = new GenericContainer(
           new ImageFromDockerfile()
               .withDockerfile(Paths.get('../../Dockerfile')))
@@ -46,7 +46,7 @@ class ContainersSpecification extends Specification {
 
   private static Map<String, String> dbConf() {
     [
-        url: "jdbc:postgresql://localhost:${dbPort()}/test?gssEncMode=disable&sslmode=disable&preferQueryMode=simple",
+        url: "jdbc:postgresql://localhost:${dbPort()}/test?gssEncMode=disable&sslmode=disable&preferQueryMode=${System.getProperty("protocol")}",
         user: USER,
         password: PASSWORD,
         driver: DRIVER_CLASS,
