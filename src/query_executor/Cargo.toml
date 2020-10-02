@@ -16,7 +16,7 @@ plan = { path = "../plan" }
 protocol = { path = "../protocol" }
 sql_model = { path = "../sql_model" }
 
-bigdecimal = "0.1.2"
+bigdecimal = "0.2.0"
 futures-lite = "1.7.0"
 log = "0.4.11"
 sqlparser = { version = "0.6.1", features = ["bigdecimal"] }

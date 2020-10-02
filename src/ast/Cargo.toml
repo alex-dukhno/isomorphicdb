@@ -8,7 +8,7 @@ publish = false
 [dependencies]
 sql_model = { path = "../sql_model" }
 
-bigdecimal = { version = "0.1.2", features = ["string-only"] }
+bigdecimal = { version = "0.2.0", features = ["string-only"] }
 log = "0.4.11"
 ordered-float = "2.0.0"
 sqlparser = { version = "0.6.1", features = ["bigdecimal"] }

@@ -25,7 +25,7 @@ checksum = "4d25d88fd6b8041580a654f9d0c581a047baee2b3efee13275f2fc392fc75034"
 name = "ast"
 version = "0.1.0"
 dependencies = [
- "bigdecimal",
+ "bigdecimal 0.2.0",
  "log",
  "ordered-float",
  "sql_model",
@@ -244,10 +244,21 @@ version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1374191e2dd25f9ae02e3aa95041ed5d747fc77b3c102b49fe2dd9a8117a6244"
 dependencies = [
- "num-bigint",
+ "num-bigint 0.2.6",
  "num-integer",
  "num-traits",
  "serde",
+]
+
+[[package]]
+name = "bigdecimal"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cc403c26e6b03005522e6e8053384c4e881dfe5b2bf041c0c2c49be33d64a539"
+dependencies = [
+ "num-bigint 0.3.0",
+ "num-integer",
+ "num-traits",
 ]
 
 [[package]]
@@ -262,7 +273,7 @@ dependencies = [
 name = "binder"
 version = "0.1.0"
 dependencies = [
- "bigdecimal",
+ "bigdecimal 0.2.0",
  "log",
  "protocol",
  "rstest",
@@ -346,8 +357,8 @@ name = "constraints"
 version = "0.1.0"
 dependencies = [
  "ast",
- "bigdecimal",
- "num-bigint",
+ "bigdecimal 0.2.0",
+ "num-bigint 0.2.6",
  "rstest",
  "sql_model",
 ]
@@ -437,7 +448,7 @@ name = "expr_eval"
 version = "0.1.0"
 dependencies = [
  "ast",
- "bigdecimal",
+ "bigdecimal 0.2.0",
  "protocol",
  "sql_model",
 ]
@@ -758,6 +769,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "num-bigint"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b7f3fc75e3697059fb1bc465e3d8cca6cf92f56854f201158b3f9c77d5a3cfa0"
+dependencies = [
+ "autocfg",
+ "num-integer",
+ "num-traits",
+]
+
+[[package]]
 name = "num-integer"
 version = "0.1.43"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1020,7 +1042,7 @@ name = "query_executor"
 version = "0.1.0"
 dependencies = [
  "ast",
- "bigdecimal",
+ "bigdecimal 0.2.0",
  "binary",
  "constraints",
  "data_manager",
@@ -1041,7 +1063,7 @@ name = "query_planner"
 version = "0.1.0"
 dependencies = [
  "ast",
- "bigdecimal",
+ "bigdecimal 0.2.0",
  "constraints",
  "data_manager",
  "kernel",
@@ -1352,7 +1374,7 @@ version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "53fa7478852b3ea28f0d21a42b2d7dade24ba4aa72e22bf66982e4b587a7f608"
 dependencies = [
- "bigdecimal",
+ "bigdecimal 0.1.2",
  "log",
 ]
 
