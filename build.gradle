@@ -37,6 +37,6 @@ subprojects {
       showStandardStreams true
     }
 
-    systemProperty 'ci', System.getProperty('ci', 'true')
+    systemProperty 'ci', System.getProperty('ci', 'false')
   }
 }

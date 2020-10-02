@@ -20,4 +20,4 @@ jobs:
       - name: run-tests
         uses: eskatos/gradle-command-action@v1
         with:
-          arguments: test
+          arguments: test -Dci=true
