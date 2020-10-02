@@ -15,6 +15,7 @@
 use crate::{Planner, Result};
 use data_manager::{DataManager, MetadataView};
 use plan::{Plan, SchemaId, SchemaName};
+use protocol::results::QueryEvent;
 use protocol::{results::QueryError, Sender};
 use sqlparser::ast::ObjectName;
 use std::{convert::TryFrom, sync::Arc};
@@ -22,11 +23,16 @@ use std::{convert::TryFrom, sync::Arc};
 pub(crate) struct DropSchemaPlanner<'dsp> {
     names: &'dsp [ObjectName],
     cascade: bool,
+    if_exists: bool,
 }
 
 impl DropSchemaPlanner<'_> {
-    pub(crate) fn new(names: &[ObjectName], cascade: bool) -> DropSchemaPlanner<'_> {
-        DropSchemaPlanner { names, cascade }
+    pub(crate) fn new(names: &[ObjectName], cascade: bool, if_exists: bool) -> DropSchemaPlanner<'_> {
+        DropSchemaPlanner {
+            names,
+            cascade,
+            if_exists,
+        }
     }
 }
 
@@ -37,9 +43,15 @@ impl Planner for DropSchemaPlanner<'_> {
             match SchemaName::try_from(name) {
                 Ok(schema_name) => match data_manager.schema_exists(&schema_name) {
                     None => {
-                        sender
-                            .send(Err(QueryError::schema_does_not_exist(schema_name)))
-                            .expect("To Send Query Result to Client");
+                        if self.if_exists {
+                            sender
+                                .send(Ok(QueryEvent::QueryComplete))
+                                .expect("To Send Query Result to Client");
+                        } else {
+                            sender
+                                .send(Err(QueryError::schema_does_not_exist(schema_name)))
+                                .expect("To Send Query Result to Client");
+                        }
                         return Err(());
                     }
                     Some(schema_id) => schemas.push((SchemaId::from(schema_id), self.cascade)),

@@ -19,6 +19,7 @@ use ast::{
 use bigdecimal::{BigDecimal, ToPrimitive};
 use num_bigint::BigInt;
 use sql_model::sql_types::SqlType;
+use std::convert::TryFrom;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ConstraintError {
@@ -128,7 +129,9 @@ impl Constraint for TypeConstraint {
             },
             TypeConstraint::Real => match &in_value {
                 ScalarValue::Number(value) => {
-                    if BigDecimal::from(f32::MIN) <= *value && *value <= BigDecimal::from(f32::MAX) {
+                    if BigDecimal::try_from(f32::MIN).unwrap() <= *value
+                        && *value <= BigDecimal::try_from(f32::MAX).unwrap()
+                    {
                         Ok(Datum::from_f32(value.to_f32().unwrap()))
                     } else {
                         Err(ConstraintError::OutOfRange)
@@ -138,7 +141,9 @@ impl Constraint for TypeConstraint {
             },
             TypeConstraint::DoublePrecision => match &in_value {
                 ScalarValue::Number(value) => {
-                    if BigDecimal::from(f64::MIN) <= *value && *value <= BigDecimal::from(f64::MAX) {
+                    if BigDecimal::try_from(f64::MIN).unwrap() <= *value
+                        && *value <= BigDecimal::try_from(f64::MAX).unwrap()
+                    {
                         Ok(Datum::from_f64(value.to_f64().unwrap()))
                     } else {
                         Err(ConstraintError::OutOfRange)
@@ -520,15 +525,15 @@ mod tests {
                     );
                     //TODO investigate floating point conversion
                     assert_eq!(
-                        constraint.validate(ScalarValue::Number(BigDecimal::from(
-                            f32::MAX - 50000000000000000000000000000000.0
-                        ))),
+                        constraint.validate(ScalarValue::Number(
+                            BigDecimal::try_from(f32::MAX - 50000000000000000000000000000000.0).unwrap()
+                        )),
                         Ok(Datum::from_f32(f32::MAX - 50000000000000000000000000000000.0))
                     );
                     assert_eq!(
-                        constraint.validate(ScalarValue::Number(BigDecimal::from(
-                            f32::MIN + 50000000000000000000000000000000.0
-                        ))),
+                        constraint.validate(ScalarValue::Number(
+                            BigDecimal::try_from(f32::MIN + 50000000000000000000000000000000.0).unwrap()
+                        )),
                         Ok(Datum::from_f32(f32::MIN + 50000000000000000000000000000000.0))
                     );
                 }

@@ -1,3 +1,3 @@
 #!/bin/bash
 
-./gradlew test -Dci=false
+./gradlew clean test

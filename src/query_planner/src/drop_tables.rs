@@ -15,17 +15,19 @@
 use crate::{Planner, Result};
 use data_manager::{DataManager, MetadataView};
 use plan::{FullTableName, Plan, TableId};
+use protocol::results::QueryEvent;
 use protocol::{results::QueryError, Sender};
 use sqlparser::ast::ObjectName;
 use std::{convert::TryFrom, sync::Arc};
 
 pub(crate) struct DropTablesPlanner<'dtp> {
     names: &'dtp [ObjectName],
+    if_exists: bool,
 }
 
 impl DropTablesPlanner<'_> {
-    pub(crate) fn new(names: &[ObjectName]) -> DropTablesPlanner {
-        DropTablesPlanner { names }
+    pub(crate) fn new(names: &[ObjectName], if_exists: bool) -> DropTablesPlanner {
+        DropTablesPlanner { names, if_exists }
     }
 }
 
@@ -44,9 +46,15 @@ impl Planner for DropTablesPlanner<'_> {
                             return Err(());
                         }
                         Some((_, None)) => {
-                            sender
-                                .send(Err(QueryError::table_does_not_exist(full_table_name)))
-                                .expect("To Send Query Result to Client");
+                            if self.if_exists {
+                                sender
+                                    .send(Ok(QueryEvent::QueryComplete))
+                                    .expect("To Send Query Result to Client");
+                            } else {
+                                sender
+                                    .send(Err(QueryError::table_does_not_exist(full_table_name)))
+                                    .expect("To Send Query Result to Client");
+                            }
                             return Err(());
                         }
                         Some((schema_id, Some(table_id))) => table_names.push(TableId::from((schema_id, table_id))),

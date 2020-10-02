@@ -8,7 +8,7 @@ publish = false
 [dependencies]
 protocol = { path = "../protocol" }
 
-sqlparser = { version = "0.6.1", features = ["bigdecimal"] }
+sqlparser = { git = "https://github.com/ballista-compute/sqlparser-rs.git", branch = "main", features = ["bigdecimal"] }
 
 [dev-dependencies]
 rstest = "0.6.4"

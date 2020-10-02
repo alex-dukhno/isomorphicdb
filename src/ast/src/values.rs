@@ -293,6 +293,7 @@ mod tests {
     #[cfg(test)]
     mod type_casting {
         use super::*;
+        use std::convert::TryFrom;
 
         #[test]
         fn number_to_boolean() {
@@ -506,7 +507,7 @@ mod tests {
             );
             assert_eq!(
                 ScalarValue::Number(BigDecimal::from_str("123").unwrap()).cast(&SqlType::Real),
-                Ok(ScalarValue::Number(BigDecimal::from(123.0f32)))
+                Ok(ScalarValue::Number(BigDecimal::try_from(123.0f32).unwrap()))
             );
             assert_eq!(
                 ScalarValue::Number(
@@ -525,7 +526,7 @@ mod tests {
             );
             assert_eq!(
                 ScalarValue::Number(BigDecimal::from_str("123").unwrap()).cast(&SqlType::DoublePrecision),
-                Ok(ScalarValue::Number(BigDecimal::from(123.0f64)))
+                Ok(ScalarValue::Number(BigDecimal::try_from(123.0f64).unwrap()))
             );
             assert_eq!(
                 ScalarValue::Number(
