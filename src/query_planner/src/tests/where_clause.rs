@@ -19,6 +19,7 @@ use plan::{SelectInput, TableId};
 use sqlparser::ast::{
     BinaryOperator, Expr, ObjectName, Query, Select, SelectItem, SetExpr, Statement, TableFactor, TableWithJoins, Value,
 };
+use std::convert::TryFrom;
 
 #[rstest::rstest]
 fn select_from_table(planner_and_sender_with_table: (QueryPlanner, ResultCollector)) {
@@ -42,7 +43,7 @@ fn select_from_table(planner_and_sender_with_table: (QueryPlanner, ResultCollect
                 selection: Some(Expr::BinaryOp {
                     left: Box::new(Expr::Identifier(ident("small_int"))),
                     op: BinaryOperator::Eq,
-                    right: Box::new(Expr::Value(Value::Number(BigDecimal::from(0))))
+                    right: Box::new(Expr::Value(Value::Number(BigDecimal::try_from(0).unwrap())))
                 }),
                 group_by: vec![],
                 having: None,
@@ -58,7 +59,7 @@ fn select_from_table(planner_and_sender_with_table: (QueryPlanner, ResultCollect
             predicate: Some((
                 PredicateValue::Column(0),
                 PredicateOp::Eq,
-                PredicateValue::Number(BigDecimal::from(0))
+                PredicateValue::Number(BigDecimal::try_from(0).unwrap())
             ))
         }))
     );
