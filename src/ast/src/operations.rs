@@ -56,7 +56,7 @@ impl ScalarOp {
                 })),
             },
             Expr::Nested(expr) => ScalarOp::transform(expr),
-            Expr::Identifier(id) => Ok(Ok(ScalarOp::Column(id.value.clone()))),
+            Expr::Identifier(id) => Ok(Ok(ScalarOp::Column(id.value.to_lowercase()))),
             _ => Err(NotHandled(expr.clone())),
         }
     }

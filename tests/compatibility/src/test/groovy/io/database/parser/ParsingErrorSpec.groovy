@@ -1,8 +1,10 @@
-package io.database
+package io.database.parser
+
+import io.database.SetupEnvironment
 
 import java.sql.SQLException
 
-class ParsingErrorSpec extends SetupEnvironmentSpecification {
+class ParsingErrorSpec extends SetupEnvironment {
   def 'parsing rubbish'() {
     given:
       String nonSqlString = 'can you please parse this rubbish?'

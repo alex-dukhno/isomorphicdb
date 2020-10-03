@@ -3,7 +3,7 @@ package io.database.simple
 import groovy.sql.GroovyRowResult
 import io.database.ThreeSmallIntColumnTable
 
-class BasicQueryOperations extends ThreeSmallIntColumnTable {
+class BasicQueryOperationsSpec extends ThreeSmallIntColumnTable {
   def 'insert select{all}'() {
     given:
       String insertQuery = 'insert into SCHEMA_NAME.TABLE_NAME values (1, 2, 3), (4, 5, 6), (7, 8, 9)'

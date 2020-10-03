@@ -4,7 +4,7 @@ import groovy.sql.GroovyRowResult
 import io.database.ThreeSmallIntColumnTable
 import spock.lang.Ignore
 
-class BasicQueryOperations extends ThreeSmallIntColumnTable {
+class BasicQueryOperationsSpec extends ThreeSmallIntColumnTable {
   private static String INSERT_QUERY = 'insert into SCHEMA_NAME.TABLE_NAME values (?, ?, ?), (?, ?, ?), (?, ?, ?)'
 
   private int pgInserts

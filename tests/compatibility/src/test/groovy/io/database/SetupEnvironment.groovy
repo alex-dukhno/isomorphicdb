@@ -5,7 +5,7 @@ import org.testcontainers.containers.JdbcDatabaseContainer
 import org.testcontainers.containers.PostgreSQLContainer
 import spock.lang.Specification
 
-class SetupEnvironmentSpecification extends Specification {
+class SetupEnvironment extends Specification {
   private static final boolean CI = Boolean.parseBoolean(System.getProperty("ci"))
   static final String VERSION = '12.4'
   static final String USER = 'postgres'

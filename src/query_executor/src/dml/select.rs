@@ -88,6 +88,7 @@ impl<'p> Iterator for &'p mut Projection {
                 values.push(data[*origin as usize].to_string());
             }
             self.consumed += 1;
+            log::info!("TUPLE: {:?}", values);
             Some(values)
         } else {
             None
