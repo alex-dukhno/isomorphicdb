@@ -65,7 +65,7 @@ impl Planner for UpdatePlanner<'_> {
                         let mut columns = HashSet::new();
                         for Assignment { id, value } in self.assignments.iter() {
                             let mut found = None;
-                            let column_name = id.to_string();
+                            let column_name = id.to_string().to_lowercase();
                             for (index, column_definition) in all_columns.iter().enumerate() {
                                 if column_definition.has_name(&column_name) {
                                     match ScalarOp::transform(&value) {

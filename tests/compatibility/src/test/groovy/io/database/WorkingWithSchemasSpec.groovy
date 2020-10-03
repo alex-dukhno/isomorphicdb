@@ -2,7 +2,7 @@ package io.database
 
 import java.sql.SQLException
 
-class WorkingWithSchemasSpec extends ContainersSpecification {
+class WorkingWithSchemasSpec extends SetupEnvironmentSpecification {
   def cleanupSpec() {
     dbExecute 'drop schema if exists CREATE_SCHEMA_TEST'
     dbExecute 'drop schema if exists CREATE_SCHEMA_IF_NOT_EXIST'

@@ -104,20 +104,21 @@ impl Planner for InsertPlanner<'_> {
                                     let mut columns = HashSet::new();
                                     let mut index_cols = vec![];
                                     let mut has_error = false;
-                                    for column_name in self.columns.iter().map(|id| id.value.as_str()) {
+                                    for col_name in self.columns.iter().map(|id| id.value.as_str()) {
+                                        let column_name = col_name.to_lowercase();
                                         let mut found = None;
                                         for (index, column_definition) in all_columns.iter().enumerate() {
-                                            if column_definition.has_name(column_name) {
-                                                if columns.contains(column_name) {
+                                            if column_definition.has_name(&column_name) {
+                                                if columns.contains(&column_name) {
                                                     sender
-                                                        .send(Err(QueryError::duplicate_column(column_name)))
+                                                        .send(Err(QueryError::duplicate_column(&column_name)))
                                                         .expect("To Send Result to Client");
                                                     has_error = true;
                                                 }
-                                                columns.insert(column_name.to_owned());
+                                                columns.insert(column_name.clone());
                                                 found = Some((
                                                     index,
-                                                    column_name.to_owned(),
+                                                    column_name.clone(),
                                                     column_definition.sql_type(),
                                                     TypeConstraint::from(&column_definition.sql_type()),
                                                 ));
@@ -129,7 +130,7 @@ impl Planner for InsertPlanner<'_> {
                                             Some(index_col) => index_cols.push(index_col),
                                             None => {
                                                 sender
-                                                    .send(Err(QueryError::column_does_not_exist(column_name)))
+                                                    .send(Err(QueryError::column_does_not_exist(column_name.clone())))
                                                     .expect("To Send Result to Client");
                                                 has_error = true;
                                             }

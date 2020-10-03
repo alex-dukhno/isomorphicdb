@@ -56,7 +56,7 @@ impl TryFrom<&ObjectName> for SchemaName {
         if object.0.len() != 1 {
             Err(SchemaNamingError(object.to_string()))
         } else {
-            Ok(SchemaName(object.to_string()))
+            Ok(SchemaName(object.to_string().to_lowercase()))
         }
     }
 }
@@ -102,7 +102,10 @@ impl TryFrom<&ObjectName> for FullTableName {
         } else {
             let table_name = object.0.last().unwrap().value.clone();
             let schema_name = object.0.first().unwrap().value.clone();
-            Ok(FullTableName(SchemaName(schema_name), table_name))
+            Ok(FullTableName(
+                SchemaName(schema_name.to_lowercase()),
+                table_name.to_lowercase(),
+            ))
         }
     }
 }
