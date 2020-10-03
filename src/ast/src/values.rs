@@ -143,7 +143,8 @@ impl Display for ScalarValue {
         match self {
             ScalarValue::String(s) => write!(f, "{}", s),
             ScalarValue::Number(n) => write!(f, "{}", n),
-            ScalarValue::Bool(Bool(b)) => write!(f, "{}", b),
+            ScalarValue::Bool(Bool(true)) => write!(f, "t"),
+            ScalarValue::Bool(Bool(false)) => write!(f, "f"),
             ScalarValue::Null => write!(f, "NULL"),
         }
     }

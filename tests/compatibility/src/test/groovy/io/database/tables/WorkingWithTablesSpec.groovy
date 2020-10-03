@@ -1,8 +1,10 @@
-package io.database
+package io.database.tables
+
+import io.database.SetupEnvironment
 
 import java.sql.SQLException
 
-class WorkingWithTablesSpec extends SetupEnvironmentSpecification {
+class WorkingWithTablesSpec extends SetupEnvironment {
   private static final String CREATE_SCHEMA = 'create schema SCHEMA_NAME'
   private static final String DROP_SCHEMA = 'drop schema SCHEMA_NAME cascade'
 

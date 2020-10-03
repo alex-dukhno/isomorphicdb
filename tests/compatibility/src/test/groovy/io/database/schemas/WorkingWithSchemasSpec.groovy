@@ -1,8 +1,10 @@
-package io.database
+package io.database.schemas
+
+import io.database.SetupEnvironment
 
 import java.sql.SQLException
 
-class WorkingWithSchemasSpec extends SetupEnvironmentSpecification {
+class WorkingWithSchemasSpec extends SetupEnvironment {
   def cleanupSpec() {
     dbExecute 'drop schema if exists CREATE_SCHEMA_TEST'
     dbExecute 'drop schema if exists CREATE_SCHEMA_IF_NOT_EXIST'

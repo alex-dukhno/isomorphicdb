@@ -2,7 +2,7 @@ package io.database
 
 import groovy.sql.Sql
 
-class ThreeSmallIntColumnTable extends SetupEnvironmentSpecification {
+class ThreeSmallIntColumnTable extends SetupEnvironment {
   private static final String CREATE_SCHEMA = 'create schema SCHEMA_NAME'
   private static final String CREATE_TABLE =
       """

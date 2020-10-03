@@ -4,7 +4,7 @@ import groovy.sql.GroovyRowResult
 import io.database.ThreeSmallIntColumnTable
 import spock.lang.Ignore
 
-class SelectiveAttributesQueryOperations extends ThreeSmallIntColumnTable {
+class SelectiveAttributesQueryOperationsSpec extends ThreeSmallIntColumnTable {
   private static final String INSERT_QUERY = '''
     insert into SCHEMA_NAME.TABLE_NAME (COL2, COL3, COL1)
     values  (2, 3, 1),
