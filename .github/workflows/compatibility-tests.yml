@@ -9,13 +9,28 @@ defaults:
 
 jobs:
   tests:
-    strategy:
-      matrix:
-        protocol:
-          - simple
-          - extended
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:12.4
+        env:
+          POSTGRES_PASSWORD: postgres
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5433:5432
     steps:
+      - name: docker-login
+        run: echo ${{secrets.GITHUB_TOKEN}} | docker login docker.pkg.github.com -u $GITHUB_ACTOR --password-stdin
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+      - name: pull-docker-image
+        run: docker pull "docker.pkg.github.com/alex-dukhno/database/database:latest"
+      - name:
+        run: docker run -it -d -p 5432:5432 docker.pkg.github.com/alex-dukhno/database/database:latest
       - name: checkout
         uses: actions/checkout@v2
       - name: install java
@@ -25,4 +40,4 @@ jobs:
       - name: run-tests
         uses: eskatos/gradle-command-action@v1
         with:
-          arguments: test -Dci=true -Dprotocol=${{ matrix.protocol }}
+          arguments: test -Dci=true
