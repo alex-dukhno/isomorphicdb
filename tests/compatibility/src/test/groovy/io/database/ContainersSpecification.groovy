@@ -1,43 +1,38 @@
 package io.database
 
 import groovy.sql.Sql
-import org.testcontainers.containers.GenericContainer
+import org.testcontainers.containers.JdbcDatabaseContainer
 import org.testcontainers.containers.PostgreSQLContainer
-import org.testcontainers.images.builder.ImageFromDockerfile
 import spock.lang.Specification
 
-import java.nio.file.Paths
-
 class ContainersSpecification extends Specification {
+  private static final boolean CI = Boolean.parseBoolean(System.getProperty("ci"))
   static final String VERSION = '12.4'
   static final String USER = 'postgres'
   static final String PASSWORD = 'postgres'
   static final String DRIVER_CLASS = 'org.postgresql.Driver'
-  static final PostgreSQLContainer POSTGRE_SQL
-  static final GenericContainer DATABASE
+  static final JdbcDatabaseContainer<PostgreSQLContainer> POSTGRE_SQL
 
   static {
     Class.forName(DRIVER_CLASS);
-    POSTGRE_SQL = new PostgreSQLContainer("postgres:$VERSION")
-        .withUsername(USER)
-        .withPassword(PASSWORD)
-    POSTGRE_SQL.start()
 
-    if (Boolean.parseBoolean(System.getProperty("ci"))) {
-      DATABASE = new GenericContainer(
-          new ImageFromDockerfile()
-              .withDockerfile(Paths.get('../../Dockerfile')))
-          .withExposedPorts(5432)
-      DATABASE.start()
-    } else {
+    if (!CI) {
       println("Make sure that you are running database locally")
-      DATABASE = null
+      POSTGRE_SQL = new PostgreSQLContainer("postgres:$VERSION")
+          .withUsername(USER)
+          .withPassword(PASSWORD)
+          .withUrlParam('gssEncMode', 'disable')
+          .withUrlParam('sslmode', 'disable')
+          .withUrlParam('preferQueryMode', 'extendedForPrepared')
+      POSTGRE_SQL.start()
+    } else {
+      POSTGRE_SQL = null
     }
   }
 
   private static Map<String, String> pgConf() {
     [
-        url: POSTGRE_SQL.jdbcUrl,
+        url: pgUrl(),
         user: USER,
         password: PASSWORD,
         driver: DRIVER_CLASS
@@ -46,18 +41,19 @@ class ContainersSpecification extends Specification {
 
   private static Map<String, String> dbConf() {
     [
-        url: "jdbc:postgresql://localhost:${dbPort()}/test?gssEncMode=disable&sslmode=disable&preferQueryMode=${System.getProperty("protocol")}",
+        url: "jdbc:postgresql://localhost:5432/test?gssEncMode=disable&sslmode=disable&preferQueryMode=extendedForPrepared",
         user: USER,
         password: PASSWORD,
         driver: DRIVER_CLASS,
     ]
   }
 
-  private static int dbPort() {
-    if (DATABASE != null) {
-      DATABASE.getFirstMappedPort()
+
+  private static String pgUrl() {
+    if (CI) {
+      "jdbc:postgresql://localhost:5433/test?gssEncMode=disable&sslmode=disable&preferQueryMode=extendedForPrepared"
     } else {
-      5432
+      POSTGRE_SQL.jdbcUrl
     }
   }
 
