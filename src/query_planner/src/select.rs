@@ -88,7 +88,7 @@ impl Planner for SelectPlanner {
                                             )
                                         }
                                         SelectItem::UnnamedExpr(Expr::Identifier(Ident { value, .. })) => {
-                                            columns.push(value.clone())
+                                            columns.push(value.to_lowercase())
                                         }
                                         _ => {
                                             sender

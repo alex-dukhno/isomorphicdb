@@ -114,7 +114,7 @@ pub struct ColumnDefinition {
 impl ColumnDefinition {
     pub fn new(name: &str, sql_type: SqlType) -> Self {
         Self {
-            name: name.to_string(),
+            name: name.to_lowercase(),
             sql_type,
         }
     }

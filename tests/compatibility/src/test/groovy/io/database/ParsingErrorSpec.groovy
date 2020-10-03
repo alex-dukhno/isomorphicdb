@@ -2,7 +2,7 @@ package io.database
 
 import java.sql.SQLException
 
-class ParsingErrorSpec extends ContainersSpecification {
+class ParsingErrorSpec extends SetupEnvironmentSpecification {
   def 'parsing rubbish'() {
     given:
       String nonSqlString = 'can you please parse this rubbish?'
