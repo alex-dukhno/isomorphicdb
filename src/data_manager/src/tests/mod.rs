@@ -15,6 +15,4 @@
 use super::*;
 
 #[cfg(test)]
-mod database;
-#[cfg(test)]
 mod manager;

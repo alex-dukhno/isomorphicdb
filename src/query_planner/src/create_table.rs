@@ -13,12 +13,13 @@
 // limitations under the License.
 
 use crate::{Planner, Result};
-use data_manager::{ColumnDefinition, DataManager, Database, MetadataView};
+use data_manager::{ColumnDefinition, DataManager, MetadataView};
 use plan::{FullTableName, Plan, TableCreationInfo};
 use protocol::{results::QueryError, Sender};
 use sql_model::sql_types::SqlType;
 use sqlparser::ast::{ColumnDef, ObjectName};
 use std::{convert::TryFrom, sync::Arc};
+use storage::Database;
 
 pub(crate) struct CreateTablePlanner<'ctp> {
     full_table_name: &'ctp ObjectName,

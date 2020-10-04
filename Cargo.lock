@@ -27,7 +27,7 @@ version = "0.1.0"
 dependencies = [
  "bigdecimal",
  "log",
- "ordered-float",
+ "repr",
  "sql_model",
  "sqlparser",
 ]
@@ -256,7 +256,7 @@ dependencies = [
 name = "binary"
 version = "0.1.0"
 dependencies = [
- "ast",
+ "repr",
  "sql_model",
 ]
 
@@ -374,6 +374,7 @@ dependencies = [
  "ast",
  "bigdecimal",
  "num-bigint",
+ "repr",
  "rstest",
  "sql_model",
 ]
@@ -433,16 +434,17 @@ dependencies = [
 name = "data_manager"
 version = "0.1.0"
 dependencies = [
- "ast",
  "backtrace",
  "binary",
  "chashmap",
  "fail",
  "kernel",
  "log",
+ "repr",
  "rstest",
  "sled",
  "sql_model",
+ "storage",
  "tempfile",
 ]
 
@@ -473,6 +475,7 @@ dependencies = [
  "ast",
  "bigdecimal",
  "protocol",
+ "repr",
  "sql_model",
 ]
 
@@ -778,6 +781,7 @@ dependencies = [
  "smol",
  "sql_model",
  "sqlparser",
+ "storage",
 ]
 
 [[package]]
@@ -1057,6 +1061,7 @@ dependencies = [
  "description",
  "sql_model",
  "sqlparser",
+ "storage",
 ]
 
 [[package]]
@@ -1074,9 +1079,11 @@ dependencies = [
  "log",
  "plan",
  "protocol",
+ "repr",
  "rstest",
  "sql_model",
  "sqlparser",
+ "storage",
  "tempfile",
 ]
 
@@ -1094,6 +1101,7 @@ dependencies = [
  "rstest",
  "sql_model",
  "sqlparser",
+ "storage",
 ]
 
 [[package]]
@@ -1196,6 +1204,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3acd125665422973a33ac9d3dd2df85edad0f4ae9b00dafb1a05e43a9f5ef8e7"
 dependencies = [
  "winapi",
+]
+
+[[package]]
+name = "repr"
+version = "0.1.0"
+dependencies = [
+ "ordered-float",
+ "sql_model",
 ]
 
 [[package]]
@@ -1406,6 +1422,21 @@ name = "stable_deref_trait"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
+
+[[package]]
+name = "storage"
+version = "0.1.0"
+dependencies = [
+ "backtrace",
+ "binary",
+ "chashmap",
+ "fail",
+ "log",
+ "rstest",
+ "sled",
+ "sql_model",
+ "tempfile",
+]
 
 [[package]]
 name = "syn"

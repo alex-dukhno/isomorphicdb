@@ -12,8 +12,10 @@ members = [
     "src/protocol",
     "src/parser",
     "src/plan",
+    "src/repr",
     "src/query_analyzer",
     "src/query_planner",
     "src/query_executor",
     "src/sql_model",
+    "src/storage",
 ]

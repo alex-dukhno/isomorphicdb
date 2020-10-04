@@ -12,6 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::query_engine::QueryEngine;
+use async_dup::Arc as AsyncArc;
+use async_io::Async;
+use data_manager::DataManager;
+use protocol::{ClientRequest, ConnSupervisor, ProtocolConfiguration};
 use std::{
     env,
     net::TcpListener,
@@ -21,14 +26,7 @@ use std::{
         Arc, Mutex,
     },
 };
-
-use async_dup::Arc as AsyncArc;
-use async_io::Async;
-
-use crate::query_engine::QueryEngine;
-use data_manager::persistent::PersistentDatabase;
-use data_manager::DataManager;
-use protocol::{ClientRequest, ConnSupervisor, ProtocolConfiguration};
+use storage::PersistentDatabase;
 
 const PORT: u16 = 5432;
 const HOST: [u8; 4] = [0, 0, 0, 0];

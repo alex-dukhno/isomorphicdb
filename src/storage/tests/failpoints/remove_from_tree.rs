@@ -12,12 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use fail::FailScenario;
-
 use binary::Binary;
 use common::{scenario, OBJECT, SCHEMA};
-use data_manager::{persistent::PersistentDatabase, Database, StorageError};
+use fail::FailScenario;
 use sql_model::sql_errors::DefinitionError;
+use storage::{Database, PersistentDatabase, StorageError};
 
 mod common;
 

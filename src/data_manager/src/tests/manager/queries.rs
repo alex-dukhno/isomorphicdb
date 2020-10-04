@@ -12,11 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use binary::Binary;
-use sql_model::sql_types::SqlType;
-
 use super::*;
-use ast::Datum;
+use binary::Binary;
+use repr::Datum;
+use sql_model::sql_types::SqlType;
 
 #[rstest::rstest]
 fn delete_all_from_table(data_manager_with_schema: InMemory) {

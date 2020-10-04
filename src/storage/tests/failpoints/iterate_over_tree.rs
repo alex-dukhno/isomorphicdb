@@ -12,10 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use fail::FailScenario;
-
 use common::{scenario, OBJECT, SCHEMA};
-use data_manager::{persistent::PersistentDatabase, Database, RowResult, StorageError};
+use fail::FailScenario;
+use storage::{Database, PersistentDatabase, RowResult, StorageError};
 
 mod common;
 

@@ -12,12 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{
-    Database, DefinitionError, InitStatus, Key, ObjectName, ReadCursor, RowResult, SchemaName, StorageError, Values,
-};
+use crate::{Database, InitStatus, Key, ObjectName, ReadCursor, RowResult, SchemaName, StorageError, Values};
 use binary::Binary;
 use chashmap::CHashMap;
 use sled::{Db as Schema, DiskPtr, Error as SledError, IVec, Tree};
+use sql_model::sql_errors::DefinitionError;
 use std::{
     io::{self, ErrorKind},
     path::PathBuf,

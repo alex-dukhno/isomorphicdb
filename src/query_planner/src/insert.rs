@@ -15,11 +15,12 @@
 use crate::{Planner, Result};
 use ast::operations::ScalarOp;
 use constraints::TypeConstraint;
-use data_manager::{DataManager, Database, MetadataView};
+use data_manager::{DataManager, MetadataView};
 use plan::{FullTableName, Plan, TableId, TableInserts};
 use protocol::{results::QueryError, Sender};
 use sqlparser::ast::{Ident, ObjectName, Query, SetExpr};
 use std::{collections::HashSet, convert::TryFrom, sync::Arc};
+use storage::Database;
 
 pub(crate) struct InsertPlanner<'ip> {
     table_name: &'ip ObjectName,

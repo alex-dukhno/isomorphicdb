@@ -13,12 +13,13 @@
 // limitations under the License.
 
 use crate::{Planner, Result};
-use data_manager::{DataManager, Database, MetadataView};
+use data_manager::{DataManager, MetadataView};
 use plan::{FullTableName, Plan, TableId};
 use protocol::results::QueryEvent;
 use protocol::{results::QueryError, Sender};
 use sqlparser::ast::ObjectName;
 use std::{convert::TryFrom, sync::Arc};
+use storage::Database;
 
 pub(crate) struct DropTablesPlanner<'dtp> {
     names: &'dtp [ObjectName],

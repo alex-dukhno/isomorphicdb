@@ -12,20 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::sync::Arc;
-
+use ast::operations::ScalarOp;
 use binary::Binary;
 use constraints::{Constraint, ConstraintError};
-use data_manager::{ColumnDefinition, DataManager, Database, Row};
+use data_manager::{ColumnDefinition, DataManager};
+use expr_eval::static_expr::StaticExpressionEvaluation;
 use kernel::SystemError;
+use plan::TableInserts;
 use protocol::{
     results::{QueryError, QueryEvent},
     Sender,
 };
-
-use ast::{operations::ScalarOp, Datum};
-use expr_eval::static_expr::StaticExpressionEvaluation;
-use plan::TableInserts;
+use repr::Datum;
+use std::sync::Arc;
+use storage::{Database, Row};
 
 pub(crate) struct InsertCommand<D: Database> {
     table_inserts: TableInserts,

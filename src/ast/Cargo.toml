@@ -7,8 +7,8 @@ publish = false
 
 [dependencies]
 sql_model = { path = "../sql_model" }
+repr = { path = "../repr" }
 
 bigdecimal = { version = "0.2.0", features = ["string-only"] }
 log = "0.4.11"
-ordered-float = "2.0.0"
 sqlparser = { git = "https://github.com/ballista-compute/sqlparser-rs.git", branch = "main", features = ["bigdecimal"] }

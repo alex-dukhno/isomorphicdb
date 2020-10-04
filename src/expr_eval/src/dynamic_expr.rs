@@ -15,10 +15,10 @@
 use ast::{
     operations::{BinaryOp, ScalarOp},
     values::ScalarValue,
-    Datum,
 };
 use bigdecimal::BigDecimal;
 use protocol::{results::QueryError, Sender};
+use repr::Datum;
 use std::{
     collections::HashMap,
     convert::{From, TryInto},

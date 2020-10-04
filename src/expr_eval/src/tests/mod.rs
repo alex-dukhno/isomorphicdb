@@ -20,13 +20,13 @@ mod static_expressions;
 use ast::{
     operations::{BinaryOp, ScalarOp},
     values::ScalarValue,
-    Datum,
 };
 use bigdecimal::BigDecimal;
 use protocol::{
     results::{QueryError, QueryResult},
     Sender,
 };
+use repr::Datum;
 use std::{
     io,
     sync::{Arc, Mutex},

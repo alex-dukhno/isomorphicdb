@@ -27,11 +27,12 @@ use crate::{
     drop_schema::DropSchemaPlanner, drop_tables::DropTablesPlanner, insert::InsertPlanner, select::SelectPlanner,
     update::UpdatePlanner,
 };
-use data_manager::{DataManager, Database};
+use data_manager::DataManager;
 use plan::Plan;
 use protocol::{results::QueryError, Sender};
 use sqlparser::ast::{ObjectType, Statement};
 use std::sync::Arc;
+use storage::Database;
 
 type Result<T> = std::result::Result<T, ()>;
 

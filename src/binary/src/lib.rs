@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use ast::Datum;
+use repr::Datum;
 use sql_model::sql_types::SqlType;
 
 #[repr(u8)]

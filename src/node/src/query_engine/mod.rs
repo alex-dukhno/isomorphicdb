@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use binder::ParamBinder;
-use data_manager::{DataManager, Database, MetadataView};
+use data_manager::{DataManager, MetadataView};
 use itertools::izip;
 use parser::QueryParser;
 use plan::{Plan, SelectInput};
@@ -28,6 +28,7 @@ use query_executor::QueryExecutor;
 use query_planner::QueryPlanner;
 use sqlparser::ast::Statement;
 use std::{iter, ops::Deref, sync::Arc};
+use storage::Database;
 
 pub(crate) struct QueryEngine<D: Database> {
     session: Session<Statement>,

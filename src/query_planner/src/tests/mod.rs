@@ -13,7 +13,6 @@
 // limitations under the License.
 
 use super::*;
-use data_manager::in_memory::InMemoryDatabase;
 use data_manager::{ColumnDefinition, DataManager};
 use protocol::{results::QueryResult, Sender};
 use sql_model::sql_types::SqlType;
@@ -23,6 +22,7 @@ use std::{
     ops::Deref,
     sync::{Arc, Mutex},
 };
+use storage::InMemoryDatabase;
 
 #[cfg(test)]
 mod create_schema;
@@ -78,14 +78,14 @@ fn sender() -> ResultCollector {
 #[rstest::fixture]
 fn planner_and_sender() -> (InMemory, ResultCollector) {
     let collector = Arc::new(Collector(Mutex::new(vec![])));
-    let manager = DataManager::<InMemoryDatabase>::in_memory().expect("to create data manager");
+    let manager = DataManager::default();
     (InMemory::new(Arc::new(manager), collector.clone()), collector)
 }
 
 #[rstest::fixture]
 fn planner_and_sender_with_schema() -> (InMemory, ResultCollector) {
     let collector = Arc::new(Collector(Mutex::new(vec![])));
-    let manager = DataManager::<InMemoryDatabase>::in_memory().expect("to create data manager");
+    let manager = DataManager::default();
     manager.create_schema(SCHEMA).expect("schema created");
     (InMemory::new(Arc::new(manager), collector.clone()), collector)
 }
@@ -93,7 +93,7 @@ fn planner_and_sender_with_schema() -> (InMemory, ResultCollector) {
 #[rstest::fixture]
 fn planner_and_sender_with_table() -> (InMemory, ResultCollector) {
     let collector = Arc::new(Collector(Mutex::new(vec![])));
-    let manager = DataManager::<InMemoryDatabase>::in_memory().expect("to create data manager");
+    let manager = DataManager::default();
     let schema_id = manager.create_schema(SCHEMA).expect("schema created");
     manager
         .create_table(
@@ -112,7 +112,7 @@ fn planner_and_sender_with_table() -> (InMemory, ResultCollector) {
 #[rstest::fixture]
 fn planner_and_sender_with_no_column_table() -> (InMemory, ResultCollector) {
     let collector = Arc::new(Collector(Mutex::new(vec![])));
-    let manager = DataManager::<InMemoryDatabase>::in_memory().expect("to create data manager");
+    let manager = DataManager::default();
     let schema_id = manager.create_schema(SCHEMA).expect("schema created");
     manager.create_table(schema_id, TABLE, &[]).expect("table created");
     (InMemory::new(Arc::new(manager), collector.clone()), collector)

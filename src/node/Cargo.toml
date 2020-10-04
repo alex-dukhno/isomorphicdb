@@ -22,6 +22,7 @@ protocol = { path = "../protocol" }
 query_executor = { path = "../query_executor" }
 query_planner = { path = "../query_planner" }
 sql_model = { path = "../sql_model" }
+storage = { path = "../storage" }
 
 async-dup = "1.2.1"
 async-io = "1.1.9"

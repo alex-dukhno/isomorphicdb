@@ -14,9 +14,10 @@
 
 use std::sync::Arc;
 
-use data_manager::{DataManager, Database};
+use data_manager::DataManager;
 use plan::TableDeletes;
 use protocol::{results::QueryEvent, Sender};
+use storage::Database;
 
 pub(crate) struct DeleteCommand<D: Database> {
     table_deletes: TableDeletes,

@@ -8,6 +8,7 @@ publish = false
 [dependencies]
 ast = { path = "../ast" }
 protocol = { path = "../protocol" }
+repr = { path = "../repr" }
 sql_model = { path = "../sql_model" }
 
 bigdecimal = { version = "0.2.0", features = ["string-only"] }

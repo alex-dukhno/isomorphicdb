@@ -12,8 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{Database, DefinitionError, Key, ObjectName, ReadCursor, RowResult, SchemaName, StorageError, Values};
+use crate::{Database, Key, ObjectName, ReadCursor, RowResult, SchemaName, StorageError, Values};
 use chashmap::CHashMap;
+use sql_model::sql_errors::DefinitionError;
 use std::{
     collections::BTreeMap,
     io::{self},

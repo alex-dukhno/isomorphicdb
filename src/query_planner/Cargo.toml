@@ -13,6 +13,7 @@ kernel = { path = "../kernel" }
 plan = { path = "../plan" }
 protocol = { path = "../protocol" }
 sql_model = { path = "../sql_model" }
+storage = { path = "../storage" }
 
 bigdecimal = "0.2.0"
 sqlparser = { git = "https://github.com/ballista-compute/sqlparser-rs.git", branch = "main", features = ["bigdecimal"] }

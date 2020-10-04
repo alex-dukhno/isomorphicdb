@@ -12,44 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{data_definition::DataDefinition, in_memory::InMemoryDatabase, persistent::PersistentDatabase};
-use binary::Binary;
+use crate::data_definition::DataDefinition;
 use chashmap::CHashMap;
 use kernel::{Object, Operation, SystemError, SystemResult};
-use sql_model::{sql_errors::DefinitionError, sql_types::SqlType, Id};
+use sql_model::{sql_types::SqlType, Id};
 use std::{
     collections::HashMap,
-    io::{self},
     path::PathBuf,
     sync::atomic::{AtomicU64, Ordering},
 };
+use storage::InMemoryDatabase;
+use storage::PersistentDatabase;
+use storage::{Database, FullSchemaId, FullTableId, InitStatus, Key, ReadCursor, Values};
 
 mod data_definition;
-pub mod in_memory;
-pub mod persistent;
-
-pub type Row = (Key, Values);
-pub type Key = Binary;
-pub type Values = Binary;
-pub type RowResult = io::Result<Result<Row, StorageError>>;
-pub type ReadCursor = Box<dyn Iterator<Item = RowResult>>;
-
-pub type FullSchemaId = Option<Id>;
-pub type FullTableId = Option<(Id, Option<Id>)>;
-pub type SchemaName<'s> = &'s str;
-pub type ObjectName<'o> = &'o str;
-
-pub enum InitStatus {
-    Created,
-    Loaded,
-}
-
-#[derive(Debug, PartialEq)]
-pub enum StorageError {
-    Io,
-    CascadeIo(Vec<String>),
-    Storage,
-}
 
 pub trait MetadataView {
     fn schema_exists<S: AsRef<str>>(&self, schema_name: &S) -> FullSchemaId;
@@ -65,44 +41,6 @@ pub trait MetadataView {
     ) -> Result<(Vec<Id>, Vec<String>), ()>;
 
     fn column_defs<I: AsRef<(Id, Id)>>(&self, table_id: &I, ids: &[Id]) -> Vec<ColumnDefinition>;
-}
-
-pub trait Database {
-    fn create_schema(&self, schema_name: SchemaName) -> io::Result<Result<Result<(), DefinitionError>, StorageError>>;
-
-    fn drop_schema(&self, schema_name: SchemaName) -> io::Result<Result<Result<(), DefinitionError>, StorageError>>;
-
-    fn create_object(
-        &self,
-        schema_name: SchemaName,
-        object_name: ObjectName,
-    ) -> io::Result<Result<Result<(), DefinitionError>, StorageError>>;
-
-    fn drop_object(
-        &self,
-        schema_name: SchemaName,
-        object_name: ObjectName,
-    ) -> io::Result<Result<Result<(), DefinitionError>, StorageError>>;
-
-    fn write(
-        &self,
-        schema_name: SchemaName,
-        object_name: ObjectName,
-        values: Vec<(Key, Values)>,
-    ) -> io::Result<Result<Result<usize, DefinitionError>, StorageError>>;
-
-    fn read(
-        &self,
-        schema_name: SchemaName,
-        object_name: ObjectName,
-    ) -> io::Result<Result<Result<ReadCursor, DefinitionError>, StorageError>>;
-
-    fn delete(
-        &self,
-        schema_name: SchemaName,
-        object_name: ObjectName,
-        keys: Vec<Key>,
-    ) -> io::Result<Result<Result<usize, DefinitionError>, StorageError>>;
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -154,7 +92,7 @@ pub struct DataManager<D: Database> {
 
 impl Default for DataManager<InMemoryDatabase> {
     fn default() -> DataManager<InMemoryDatabase> {
-        DataManager::<InMemoryDatabase>::in_memory().expect("no errors")
+        DataManager::<InMemoryDatabase>::in_memory()
     }
 }
 
@@ -166,23 +104,24 @@ const DEFAULT_CATALOG: &'_ str = "public";
 const SYSTEM_CATALOG: &'_ str = "system";
 
 impl<D: Database> DataManager<D> {
-    pub fn in_memory() -> SystemResult<DataManager<InMemoryDatabase>> {
+    pub fn in_memory() -> DataManager<InMemoryDatabase> {
         let data_definition = DataDefinition::in_memory();
         data_definition.create_catalog(DEFAULT_CATALOG);
         let databases = CHashMap::default();
         databases.insert(DEFAULT_CATALOG.to_lowercase(), InMemoryDatabase::default());
         databases.insert(SYSTEM_CATALOG.to_lowercase(), InMemoryDatabase::default());
-        Ok(DataManager {
+        DataManager {
             databases,
             data_definition,
             schemas: CHashMap::default(),
             tables: CHashMap::default(),
             record_id_generators: CHashMap::default(),
-        })
+        }
     }
 
     pub fn persistent(path: PathBuf) -> SystemResult<DataManager<PersistentDatabase>> {
         let data_definition = DataDefinition::persistent(&path)?;
+        // let system_catalog = PersistentDatabase::new(path.join(SYSTEM_CATALOG));
         let catalog = PersistentDatabase::new(path.join(DEFAULT_CATALOG));
         let schemas = CHashMap::new();
         let tables = CHashMap::new();

@@ -12,11 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use fail::FailScenario;
-
 use common::{scenario, OBJECT, SCHEMA};
-use data_manager::{persistent::PersistentDatabase, Database, StorageError};
-use sql_model::sql_errors::DefinitionError;
+use fail::FailScenario;
+use storage::{Database, PersistentDatabase, StorageError};
 
 mod common;
 
@@ -30,23 +28,31 @@ fn database() -> PersistentDatabase {
         .expect("no platform errors")
         .expect("to create schema");
     storage
+        .create_object(SCHEMA, OBJECT)
+        .expect("no io error")
+        .expect("no platform errors")
+        .expect("to create object");
+    storage
 }
 
 #[rstest::rstest]
 fn io_error(database: PersistentDatabase, scenario: FailScenario) {
-    fail::cfg("sled-fail-to-open-tree", "return(io)").unwrap();
+    fail::cfg("sled-fail-to-drop-db", "return(io)").unwrap();
 
-    assert!(matches!(database.create_object(SCHEMA, OBJECT), Err(_)));
+    assert_eq!(
+        database.drop_schema(SCHEMA).expect("no io error"),
+        Err(StorageError::CascadeIo(vec![OBJECT.to_owned()]))
+    );
 
     scenario.teardown();
 }
 
 #[rstest::rstest]
 fn corruption_error(database: PersistentDatabase, scenario: FailScenario) {
-    fail::cfg("sled-fail-to-open-tree", "return(corruption)").unwrap();
+    fail::cfg("sled-fail-to-drop-db", "return(corruption)").unwrap();
 
     assert_eq!(
-        database.create_object(SCHEMA, OBJECT).expect("no io error"),
+        database.drop_schema(SCHEMA).expect("no io error"),
         Err(StorageError::Storage)
     );
 
@@ -55,10 +61,10 @@ fn corruption_error(database: PersistentDatabase, scenario: FailScenario) {
 
 #[rstest::rstest]
 fn reportable_bug(database: PersistentDatabase, scenario: FailScenario) {
-    fail::cfg("sled-fail-to-open-tree", "return(bug)").unwrap();
+    fail::cfg("sled-fail-to-drop-db", "return(bug)").unwrap();
 
     assert_eq!(
-        database.create_object(SCHEMA, OBJECT).expect("no io error"),
+        database.drop_schema(SCHEMA).expect("no io error"),
         Err(StorageError::Storage)
     );
 
@@ -66,11 +72,20 @@ fn reportable_bug(database: PersistentDatabase, scenario: FailScenario) {
 }
 
 #[rstest::rstest]
+fn unsupported_operation_core_structure(database: PersistentDatabase, scenario: FailScenario) {
+    fail::cfg("sled-fail-to-drop-db", "return(unsupported(core_structure))").unwrap();
+
+    assert_eq!(database.drop_schema(SCHEMA).expect("no io error"), Ok(Ok(())));
+
+    scenario.teardown();
+}
+
+#[rstest::rstest]
 fn unsupported_operation(database: PersistentDatabase, scenario: FailScenario) {
-    fail::cfg("sled-fail-to-open-tree", "return(unsupported)").unwrap();
+    fail::cfg("sled-fail-to-drop-db", "return(unsupported)").unwrap();
 
     assert_eq!(
-        database.create_object(SCHEMA, OBJECT).expect("no io error"),
+        database.drop_schema(SCHEMA).expect("no io error"),
         Err(StorageError::Storage)
     );
 
@@ -79,11 +94,11 @@ fn unsupported_operation(database: PersistentDatabase, scenario: FailScenario) {
 
 #[rstest::rstest]
 fn collection_not_found(database: PersistentDatabase, scenario: FailScenario) {
-    fail::cfg("sled-fail-to-open-tree", "return(collection_not_found)").unwrap();
+    fail::cfg("sled-fail-to-drop-db", "return(collection_not_found)").unwrap();
 
     assert_eq!(
-        database.create_object(SCHEMA, OBJECT).expect("no io error"),
-        Ok(Err(DefinitionError::ObjectDoesNotExist))
+        database.drop_schema(SCHEMA).expect("no io error"),
+        Err(StorageError::Storage)
     );
 
     scenario.teardown();

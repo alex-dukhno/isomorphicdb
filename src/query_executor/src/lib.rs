@@ -19,7 +19,7 @@ use crate::{
     },
     dml::{delete::DeleteCommand, insert::InsertCommand, select::SelectCommand, update::UpdateCommand},
 };
-use data_manager::{DataManager, Database};
+use data_manager::DataManager;
 use plan::Plan;
 use protocol::{
     results::{QueryError, QueryEvent},
@@ -27,6 +27,7 @@ use protocol::{
 };
 use sqlparser::ast::Statement;
 use std::sync::Arc;
+use storage::Database;
 
 mod ddl;
 mod dml;

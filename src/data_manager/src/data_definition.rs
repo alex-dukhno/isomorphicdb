@@ -13,10 +13,10 @@
 // limitations under the License.
 
 use crate::{ColumnDefinition, Database, DropSchemaError, DropStrategy, InitStatus, PersistentDatabase};
-use ast::Datum;
 use binary::Binary;
 use chashmap::CHashMap;
 use kernel::{SystemError, SystemResult};
+use repr::Datum;
 use sql_model::{sql_types::SqlType, Id};
 use std::{
     collections::BTreeMap,

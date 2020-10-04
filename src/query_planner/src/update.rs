@@ -15,11 +15,12 @@
 use crate::{Planner, Result};
 use ast::operations::ScalarOp;
 use constraints::TypeConstraint;
-use data_manager::{DataManager, Database, MetadataView};
+use data_manager::{DataManager, MetadataView};
 use plan::{FullTableName, Plan, TableId, TableUpdates};
 use protocol::{results::QueryError, Sender};
 use sqlparser::ast::{Assignment, ObjectName};
 use std::{collections::HashSet, convert::TryFrom, sync::Arc};
+use storage::Database;
 
 pub(crate) struct UpdatePlanner<'up> {
     table_name: &'up ObjectName,

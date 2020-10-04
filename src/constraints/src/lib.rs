@@ -12,12 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use ast::{
-    values::{Bool, ScalarValue},
-    Datum,
-};
+use ast::values::{Bool, ScalarValue};
 use bigdecimal::{BigDecimal, ToPrimitive};
 use num_bigint::BigInt;
+use repr::Datum;
 use sql_model::sql_types::SqlType;
 use std::convert::TryFrom;
 

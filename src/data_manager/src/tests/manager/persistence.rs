@@ -12,15 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::path::PathBuf;
-
-use tempfile::TempDir;
-
-use ast::Datum;
-use binary::Binary;
-use sql_model::sql_types::SqlType;
-
 use super::*;
+use binary::Binary;
+use repr::Datum;
+use sql_model::sql_types::SqlType;
+use std::path::PathBuf;
+use storage::Row;
+use tempfile::TempDir;
 
 type Persistent = DataManager<PersistentDatabase>;
 

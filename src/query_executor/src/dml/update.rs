@@ -14,16 +14,16 @@
 
 use std::sync::Arc;
 
-use binary::Binary;
-use data_manager::{DataManager, Database, MetadataView};
-use protocol::Sender;
-
 use ast::operations::ScalarOp;
+use binary::Binary;
 use constraints::{Constraint, ConstraintError};
+use data_manager::{DataManager, MetadataView};
 use expr_eval::{dynamic_expr::DynamicExpressionEvaluation, static_expr::StaticExpressionEvaluation};
 use plan::TableUpdates;
 use protocol::results::{QueryError, QueryEvent};
+use protocol::Sender;
 use std::collections::HashMap;
+use storage::Database;
 
 pub(crate) struct UpdateCommand<D: Database> {
     table_update: TableUpdates,

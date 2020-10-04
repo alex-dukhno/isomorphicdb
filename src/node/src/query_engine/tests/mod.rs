@@ -12,6 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use super::*;
+use protocol::results::{QueryEvent, QueryResult};
+use std::ops::DerefMut;
+use std::{
+    io,
+    sync::{Arc, Mutex},
+};
+use storage::InMemoryDatabase;
+
 #[cfg(test)]
 mod delete;
 #[cfg(test)]
@@ -30,15 +39,6 @@ mod type_constraints;
 mod update;
 #[cfg(test)]
 mod where_clause;
-
-use super::*;
-use data_manager::in_memory::InMemoryDatabase;
-use protocol::results::{QueryEvent, QueryResult};
-use std::ops::DerefMut;
-use std::{
-    io,
-    sync::{Arc, Mutex},
-};
 
 type InMemory = QueryEngine<InMemoryDatabase>;
 
@@ -100,10 +100,7 @@ fn sender() -> ResultCollector {
 fn empty_database() -> (InMemory, ResultCollector) {
     let collector = Arc::new(Collector(Mutex::new(vec![])));
     (
-        InMemory::new(
-            collector.clone(),
-            Arc::new(DataManager::<InMemoryDatabase>::in_memory().expect("to create data manager")),
-        ),
+        InMemory::new(collector.clone(), Arc::new(DataManager::default())),
         collector,
     )
 }

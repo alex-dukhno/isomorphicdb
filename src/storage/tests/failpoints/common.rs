@@ -13,8 +13,7 @@
 // limitations under the License.
 
 use fail::FailScenario;
-
-use data_manager::{ObjectName, SchemaName};
+use storage::{ObjectName, SchemaName};
 
 #[rstest::fixture]
 pub fn scenario() -> FailScenario<'static> {

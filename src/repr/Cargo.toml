@@ -1,10 +1,11 @@
 [package]
-name = "binary"
+name = "repr"
 version = "0.1.0"
 authors = ["Alex Dukhno <alex.dukhno@icloud.com>"]
 edition = "2018"
 publish = false
 
 [dependencies]
-repr = { path = "../repr" }
 sql_model = { path = "../sql_model" }
+
+ordered-float = "2.0.0"

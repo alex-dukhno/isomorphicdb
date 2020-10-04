@@ -6,10 +6,11 @@ edition = "2018"
 publish = false
 
 [dependencies]
-ast = { path = "../ast" }
 binary = { path = "../binary" }
 kernel = { path = "../kernel" }
+repr = { path = "../repr" }
 sql_model = { path = "../sql_model" }
+storage = { path = "../storage" }
 
 chashmap = "2.2.2"
 fail = { version = "0.4.0", features = ["failpoints"] }
@@ -20,43 +21,3 @@ sled = { version = "0.34.4", features = ["default"] }
 backtrace = "0.3.50"
 rstest = "0.6.4"
 tempfile = "3.1.0"
-
-[[test]]
-name = "sled_fails_to_open_db"
-path = "tests/failpoints/open_db.rs"
-required-features = ["fail/failpoints"]
-
-[[test]]
-name = "sled_fails_to_open_tree"
-path = "tests/failpoints/open_tree.rs"
-required-features = ["fail/failpoints"]
-
-[[test]]
-name = "sled_fails_to_drop_db"
-path = "tests/failpoints/drop_db.rs"
-required-features = ["fail/failpoints"]
-
-[[test]]
-name = "sled_fails_to_drop_tree"
-path = "tests/failpoints/drop_tree.rs"
-required-features = ["fail/failpoints"]
-
-[[test]]
-name = "sled_fails_to_insert_into_tree"
-path = "tests/failpoints/insert_into_tree.rs"
-required-features = ["fail/failpoints"]
-
-[[test]]
-name = "sled_fails_to_flush_tree"
-path = "tests/failpoints/flush_tree.rs"
-required-features = ["fail/failpoints"]
-
-[[test]]
-name = "sled_fails_to_iterate_over_tree"
-path = "tests/failpoints/iterate_over_tree.rs"
-required-features = ["fail/failpoints"]
-
-[[test]]
-name = "sled_fails_to_remove_from_tree"
-path = "tests/failpoints/remove_from_tree.rs"
-required-features = ["fail/failpoints"]

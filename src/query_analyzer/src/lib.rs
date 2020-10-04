@@ -12,11 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use data_manager::{DataManager, Database, MetadataView};
+use data_manager::{DataManager, MetadataView};
 use description::{Description, FullTableName, InsertStatement, TableId};
 use sqlparser::ast::Statement;
 use std::convert::TryFrom;
 use std::sync::Arc;
+use storage::Database;
 
 pub struct Analyzer<D: Database> {
     metadata: Arc<DataManager<D>>,
@@ -47,7 +48,6 @@ impl<D: Database> Analyzer<D> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use data_manager::in_memory::InMemoryDatabase;
     use description::TableId;
     use sqlparser::ast::{Ident, ObjectName, Query, SetExpr, Values};
     use std::sync::Arc;
@@ -64,7 +64,7 @@ mod tests {
 
     #[test]
     fn insert_into_existing_empty_table() {
-        let data_manager = Arc::new(DataManager::<InMemoryDatabase>::in_memory().expect("ok"));
+        let data_manager = Arc::new(DataManager::default());
         let schema_id = data_manager.create_schema(SCHEMA).expect("ok");
         data_manager.create_table(schema_id, TABLE, &[]).expect("ok");
         let analyzer = Analyzer::new(data_manager);

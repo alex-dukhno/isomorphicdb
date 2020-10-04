@@ -14,7 +14,9 @@ expr_eval = { path = "../expr_eval" }
 kernel = { path = "../kernel" }
 plan = { path = "../plan" }
 protocol = { path = "../protocol" }
+repr = { path = "../repr" }
 sql_model = { path = "../sql_model" }
+storage = { path = "../storage" }
 
 bigdecimal = { version = "0.2.0", features = ["string-only"] }
 futures-lite = "1.10.0"

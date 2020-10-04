@@ -14,12 +14,13 @@
 
 use ast::predicates::{PredicateOp, PredicateValue};
 use ast::values::ScalarValue;
-use data_manager::{DataManager, Database, MetadataView, ReadCursor};
+use data_manager::{DataManager, MetadataView};
 use plan::{SelectInput, TableId};
 use protocol::{messages::ColumnMetadata, results::QueryEvent, Sender};
 use sql_model::Id;
 use std::convert::TryInto;
 use std::sync::Arc;
+use storage::{Database, ReadCursor};
 
 struct Source<D: Database> {
     table_id: TableId,

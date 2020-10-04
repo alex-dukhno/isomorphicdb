@@ -16,3 +16,7 @@ pub mod sql_errors;
 pub mod sql_types;
 
 pub type Id = u64;
+pub type RecordId = Id;
+pub type CatalogId = Id;
+pub type SchemaId = Id;
+pub type TableId = (Id, Id);
