@@ -19,7 +19,7 @@ use super::*;
 use ast::Datum;
 
 #[rstest::rstest]
-fn delete_all_from_table(data_manager_with_schema: DataManager) {
+fn delete_all_from_table(data_manager_with_schema: InMemory) {
     let schema_id = data_manager_with_schema.schema_exists(&SCHEMA).expect("schema exists");
     let table_id = data_manager_with_schema
         .create_table(
@@ -81,7 +81,7 @@ fn delete_all_from_table(data_manager_with_schema: DataManager) {
 }
 
 #[rstest::fixture]
-fn with_small_ints_table(data_manager_with_schema: DataManager) -> DataManager {
+fn with_small_ints_table(data_manager_with_schema: InMemory) -> InMemory {
     let schema_id = data_manager_with_schema.schema_exists(&SCHEMA).expect("schema exists");
     data_manager_with_schema
         .create_table(
@@ -98,7 +98,7 @@ fn with_small_ints_table(data_manager_with_schema: DataManager) -> DataManager {
 }
 
 #[rstest::rstest]
-fn select_all_from_table_with_many_columns(with_small_ints_table: DataManager) {
+fn select_all_from_table_with_many_columns(with_small_ints_table: InMemory) {
     let full_table_id = with_small_ints_table
         .table_exists(&SCHEMA, &"table_name")
         .expect("schema exists");

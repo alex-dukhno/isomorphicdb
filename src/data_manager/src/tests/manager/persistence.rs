@@ -22,30 +22,32 @@ use sql_model::sql_types::SqlType;
 
 use super::*;
 
+type Persistent = DataManager<PersistentDatabase>;
+
 #[rstest::fixture]
-fn persistent() -> (DataManager, TempDir) {
+fn persistent() -> (Persistent, TempDir) {
     let root_path = tempfile::tempdir().expect("to create temp folder");
     (
-        DataManager::persistent(PathBuf::from(root_path.path())).expect("to create catalog manager"),
+        Persistent::persistent(PathBuf::from(root_path.path())).expect("to create catalog manager"),
         root_path,
     )
 }
 
 #[rstest::rstest]
-fn created_schema_is_preserved_after_restart(persistent: (DataManager, TempDir)) {
+fn created_schema_is_preserved_after_restart(persistent: (Persistent, TempDir)) {
     let (data_manager, root_path) = persistent;
     data_manager.create_schema(SCHEMA).expect("to create a schema");
     assert!(matches!(data_manager.schema_exists(&SCHEMA), Some(_)));
 
     drop(data_manager);
 
-    let data_manager = DataManager::persistent(root_path.into_path()).expect("to create catalog manager");
+    let data_manager = Persistent::persistent(root_path.into_path()).expect("to create catalog manager");
 
     assert!(matches!(data_manager.schema_exists(&SCHEMA), Some(_)));
 }
 
 #[rstest::rstest]
-fn created_table_is_preserved_after_restart(persistent: (DataManager, TempDir)) {
+fn created_table_is_preserved_after_restart(persistent: (Persistent, TempDir)) {
     let (data_manager, root_path) = persistent;
     let schema_id = data_manager.create_schema(&SCHEMA).expect("to create a schema");
     let table_id = data_manager
@@ -62,7 +64,7 @@ fn created_table_is_preserved_after_restart(persistent: (DataManager, TempDir)) 
 
     drop(data_manager);
 
-    let data_manager = DataManager::persistent(root_path.into_path()).expect("to create catalog manager");
+    let data_manager = Persistent::persistent(root_path.into_path()).expect("to create catalog manager");
 
     assert!(matches!(
         data_manager.table_exists(&SCHEMA, &"table_name"),
@@ -77,7 +79,7 @@ fn created_table_is_preserved_after_restart(persistent: (DataManager, TempDir)) 
 }
 
 #[rstest::rstest]
-fn stored_data_is_preserved_after_restart(persistent: (DataManager, TempDir)) {
+fn stored_data_is_preserved_after_restart(persistent: (Persistent, TempDir)) {
     let (data_manager, root_path) = persistent;
     let schema_id = data_manager.create_schema(SCHEMA).expect("to create a schema");
     let table_id = data_manager
@@ -110,7 +112,7 @@ fn stored_data_is_preserved_after_restart(persistent: (DataManager, TempDir)) {
     );
     drop(data_manager);
 
-    let data_manager = DataManager::persistent(root_path.into_path()).expect("to create catalog manager");
+    let data_manager = Persistent::persistent(root_path.into_path()).expect("to create catalog manager");
 
     assert_eq!(
         data_manager

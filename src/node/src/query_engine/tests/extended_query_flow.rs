@@ -16,7 +16,7 @@ use super::*;
 use protocol::pgsql_types::{PostgreSqlFormat, PostgreSqlType};
 
 #[rstest::fixture]
-fn database_with_table(database_with_schema: (QueryEngine, ResultCollector)) -> (QueryEngine, ResultCollector) {
+fn database_with_table(database_with_schema: (InMemory, ResultCollector)) -> (InMemory, ResultCollector) {
     let (mut engine, collector) = database_with_schema;
 
     engine
@@ -34,7 +34,7 @@ mod statement_description {
     use super::*;
 
     #[rstest::rstest]
-    fn statement_description(database_with_table: (QueryEngine, ResultCollector)) {
+    fn statement_description(database_with_table: (InMemory, ResultCollector)) {
         let (mut engine, collector) = database_with_table;
 
         engine
@@ -59,7 +59,7 @@ mod statement_description {
     }
 
     #[rstest::rstest]
-    fn statement_parameters(database_with_table: (QueryEngine, ResultCollector)) {
+    fn statement_parameters(database_with_table: (InMemory, ResultCollector)) {
         let (mut engine, collector) = database_with_table;
 
         engine
@@ -84,7 +84,7 @@ mod statement_description {
     }
 
     #[rstest::rstest]
-    fn unsuccessful_statement_description(database_with_table: (QueryEngine, ResultCollector)) {
+    fn unsuccessful_statement_description(database_with_table: (InMemory, ResultCollector)) {
         let (mut engine, collector) = database_with_table;
 
         engine
@@ -105,7 +105,7 @@ mod parse_bind_execute {
         use super::*;
 
         #[rstest::rstest]
-        fn insert(database_with_table: (QueryEngine, ResultCollector)) {
+        fn insert(database_with_table: (InMemory, ResultCollector)) {
             let (mut engine, collector) = database_with_table;
 
             engine
@@ -138,7 +138,7 @@ mod parse_bind_execute {
         }
 
         #[rstest::rstest]
-        fn update(database_with_table: (QueryEngine, ResultCollector)) {
+        fn update(database_with_table: (InMemory, ResultCollector)) {
             let (mut engine, collector) = database_with_table;
 
             engine
@@ -178,7 +178,7 @@ mod parse_bind_execute {
         }
 
         #[rstest::rstest]
-        fn select(database_with_table: (QueryEngine, ResultCollector)) {
+        fn select(database_with_table: (InMemory, ResultCollector)) {
             let (mut engine, collector) = database_with_table;
 
             engine

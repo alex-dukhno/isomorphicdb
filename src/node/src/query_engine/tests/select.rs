@@ -21,7 +21,7 @@ use protocol::{
 };
 
 #[rstest::rstest]
-fn select_from_not_existed_table(database_with_schema: (QueryEngine, ResultCollector)) {
+fn select_from_not_existed_table(database_with_schema: (InMemory, ResultCollector)) {
     let (mut engine, collector) = database_with_schema;
     engine
         .execute(Command::Query {
@@ -32,7 +32,7 @@ fn select_from_not_existed_table(database_with_schema: (QueryEngine, ResultColle
 }
 
 #[rstest::rstest]
-fn select_named_columns_from_non_existent_table(database_with_schema: (QueryEngine, ResultCollector)) {
+fn select_named_columns_from_non_existent_table(database_with_schema: (InMemory, ResultCollector)) {
     let (mut engine, collector) = database_with_schema;
     engine
         .execute(Command::Query {
@@ -43,7 +43,7 @@ fn select_named_columns_from_non_existent_table(database_with_schema: (QueryEngi
 }
 
 #[rstest::rstest]
-fn select_all_from_table_with_multiple_columns(database_with_schema: (QueryEngine, ResultCollector)) {
+fn select_all_from_table_with_multiple_columns(database_with_schema: (InMemory, ResultCollector)) {
     let (mut engine, collector) = database_with_schema;
     engine
         .execute(Command::Query {
@@ -81,7 +81,7 @@ fn select_all_from_table_with_multiple_columns(database_with_schema: (QueryEngin
 }
 
 #[rstest::rstest]
-fn select_not_all_columns(database_with_schema: (QueryEngine, ResultCollector)) {
+fn select_not_all_columns(database_with_schema: (InMemory, ResultCollector)) {
     let (mut engine, collector) = database_with_schema;
     engine
         .execute(Command::Query {
@@ -116,7 +116,7 @@ fn select_not_all_columns(database_with_schema: (QueryEngine, ResultCollector)) 
 }
 
 #[rstest::rstest]
-fn select_non_existing_columns_from_table(database_with_schema: (QueryEngine, ResultCollector)) {
+fn select_non_existing_columns_from_table(database_with_schema: (InMemory, ResultCollector)) {
     let (mut engine, collector) = database_with_schema;
     engine
         .execute(Command::Query {
@@ -137,9 +137,7 @@ fn select_non_existing_columns_from_table(database_with_schema: (QueryEngine, Re
 }
 
 #[rstest::rstest]
-fn select_first_and_last_columns_from_table_with_multiple_columns(
-    database_with_schema: (QueryEngine, ResultCollector),
-) {
+fn select_first_and_last_columns_from_table_with_multiple_columns(database_with_schema: (InMemory, ResultCollector)) {
     let (mut engine, collector) = database_with_schema;
     engine
         .execute(Command::Query {
@@ -174,7 +172,7 @@ fn select_first_and_last_columns_from_table_with_multiple_columns(
 }
 
 #[rstest::rstest]
-fn select_all_columns_reordered_from_table_with_multiple_columns(database_with_schema: (QueryEngine, ResultCollector)) {
+fn select_all_columns_reordered_from_table_with_multiple_columns(database_with_schema: (InMemory, ResultCollector)) {
     let (mut engine, collector) = database_with_schema;
     engine
         .execute(Command::Query {
@@ -222,7 +220,7 @@ fn select_all_columns_reordered_from_table_with_multiple_columns(database_with_s
 }
 
 #[rstest::rstest]
-fn select_with_column_name_duplication(database_with_schema: (QueryEngine, ResultCollector)) {
+fn select_with_column_name_duplication(database_with_schema: (InMemory, ResultCollector)) {
     let (mut engine, collector) = database_with_schema;
     engine
         .execute(Command::Query {
@@ -278,7 +276,7 @@ fn select_with_column_name_duplication(database_with_schema: (QueryEngine, Resul
 }
 
 #[rstest::rstest]
-fn select_different_integer_types(database_with_schema: (QueryEngine, ResultCollector)) {
+fn select_different_integer_types(database_with_schema: (InMemory, ResultCollector)) {
     let (mut engine, collector) = database_with_schema;
     engine
         .execute(Command::Query {
@@ -323,7 +321,7 @@ fn select_different_integer_types(database_with_schema: (QueryEngine, ResultColl
 }
 
 #[rstest::rstest]
-fn select_different_character_strings_types(database_with_schema: (QueryEngine, ResultCollector)) {
+fn select_different_character_strings_types(database_with_schema: (InMemory, ResultCollector)) {
     let (mut engine, collector) = database_with_schema;
     engine
         .execute(Command::Query {

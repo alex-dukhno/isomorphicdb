@@ -15,7 +15,7 @@
 use crate::{Planner, Result};
 use ast::operations::ScalarOp;
 use constraints::TypeConstraint;
-use data_manager::{DataManager, MetadataView};
+use data_manager::{DataManager, Database, MetadataView};
 use plan::{FullTableName, Plan, TableId, TableUpdates};
 use protocol::{results::QueryError, Sender};
 use sqlparser::ast::{Assignment, ObjectName};
@@ -35,8 +35,8 @@ impl<'up> UpdatePlanner<'up> {
     }
 }
 
-impl Planner for UpdatePlanner<'_> {
-    fn plan(self, data_manager: Arc<DataManager>, sender: Arc<dyn Sender>) -> Result<Plan> {
+impl<D: Database> Planner<D> for UpdatePlanner<'_> {
+    fn plan(self, data_manager: Arc<DataManager<D>>, sender: Arc<dyn Sender>) -> Result<Plan> {
         match FullTableName::try_from(self.table_name) {
             Ok(full_table_name) => {
                 let (schema_name, table_name) = full_table_name.as_tuple();

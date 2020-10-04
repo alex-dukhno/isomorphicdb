@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use crate::{Planner, Result};
-use data_manager::{DataManager, MetadataView};
+use data_manager::{DataManager, Database, MetadataView};
 use plan::{FullTableName, Plan, TableDeletes, TableId};
 use protocol::{results::QueryError, Sender};
 use sqlparser::ast::ObjectName;
@@ -29,8 +29,8 @@ impl DeletePlanner<'_> {
     }
 }
 
-impl Planner for DeletePlanner<'_> {
-    fn plan(self, data_manager: Arc<DataManager>, sender: Arc<dyn Sender>) -> Result<Plan> {
+impl<D: Database> Planner<D> for DeletePlanner<'_> {
+    fn plan(self, data_manager: Arc<DataManager<D>>, sender: Arc<dyn Sender>) -> Result<Plan> {
         match FullTableName::try_from(self.table_name) {
             Ok(full_table_name) => {
                 let (schema_name, table_name) = full_table_name.as_tuple();

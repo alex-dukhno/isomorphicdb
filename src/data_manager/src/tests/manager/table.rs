@@ -17,7 +17,7 @@ use sql_model::sql_types::SqlType;
 use super::*;
 
 #[rstest::rstest]
-fn create_tables_with_different_names(data_manager_with_schema: DataManager) {
+fn create_tables_with_different_names(data_manager_with_schema: InMemory) {
     let schema_id = data_manager_with_schema.schema_exists(&SCHEMA).expect("schema exists");
     assert!(matches!(
         data_manager_with_schema.create_table(
@@ -44,7 +44,7 @@ fn create_tables_with_different_names(data_manager_with_schema: DataManager) {
 }
 
 #[rstest::rstest]
-fn create_table_with_the_same_name_in_different_schemas(data_manager: DataManager) {
+fn create_table_with_the_same_name_in_different_schemas(data_manager: InMemory) {
     let schema_1_id = data_manager.create_schema(SCHEMA_1).expect("schema is created");
     let schema_2_id = data_manager.create_schema(SCHEMA_2).expect("schema is created");
 
@@ -74,7 +74,7 @@ fn create_table_with_the_same_name_in_different_schemas(data_manager: DataManage
 }
 
 #[rstest::rstest]
-fn drop_table(data_manager_with_schema: DataManager) {
+fn drop_table(data_manager_with_schema: InMemory) {
     let schema_id = data_manager_with_schema.schema_exists(&SCHEMA).expect("schema exists");
     let table_id = data_manager_with_schema
         .create_table(
@@ -105,7 +105,7 @@ fn drop_table(data_manager_with_schema: DataManager) {
 }
 
 #[rstest::rstest]
-fn table_columns_on_empty_table(data_manager_with_schema: DataManager) {
+fn table_columns_on_empty_table(data_manager_with_schema: InMemory) {
     let schema_id = data_manager_with_schema.schema_exists(&SCHEMA).expect("schema exists");
     let column_names = vec![];
     let table_id = data_manager_with_schema
@@ -121,7 +121,7 @@ fn table_columns_on_empty_table(data_manager_with_schema: DataManager) {
 }
 
 #[rstest::rstest]
-fn table_ids_for_existing_columns(data_manager_with_schema: DataManager) {
+fn table_ids_for_existing_columns(data_manager_with_schema: InMemory) {
     let schema_id = data_manager_with_schema.schema_exists(&SCHEMA).expect("schema exists");
     let table_id = data_manager_with_schema
         .create_table(
@@ -141,7 +141,7 @@ fn table_ids_for_existing_columns(data_manager_with_schema: DataManager) {
 }
 
 #[rstest::rstest]
-fn table_ids_for_non_existing_columns(data_manager_with_schema: DataManager) {
+fn table_ids_for_non_existing_columns(data_manager_with_schema: InMemory) {
     let schema_id = data_manager_with_schema.schema_exists(&SCHEMA).expect("schema exists");
     let table_id = data_manager_with_schema
         .create_table(

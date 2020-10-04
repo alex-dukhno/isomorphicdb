@@ -16,7 +16,7 @@ use std::sync::Arc;
 
 use binary::Binary;
 use constraints::{Constraint, ConstraintError};
-use data_manager::{ColumnDefinition, DataManager, Row};
+use data_manager::{ColumnDefinition, DataManager, Database, Row};
 use kernel::SystemError;
 use protocol::{
     results::{QueryError, QueryEvent},
@@ -27,18 +27,18 @@ use ast::{operations::ScalarOp, Datum};
 use expr_eval::static_expr::StaticExpressionEvaluation;
 use plan::TableInserts;
 
-pub(crate) struct InsertCommand {
+pub(crate) struct InsertCommand<D: Database> {
     table_inserts: TableInserts,
-    data_manager: Arc<DataManager>,
+    data_manager: Arc<DataManager<D>>,
     sender: Arc<dyn Sender>,
 }
 
-impl InsertCommand {
+impl<D: Database> InsertCommand<D> {
     pub(crate) fn new(
         table_inserts: TableInserts,
-        data_manager: Arc<DataManager>,
+        data_manager: Arc<DataManager<D>>,
         sender: Arc<dyn Sender>,
-    ) -> InsertCommand {
+    ) -> InsertCommand<D> {
         InsertCommand {
             table_inserts,
             data_manager,

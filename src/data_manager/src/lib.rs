@@ -25,7 +25,7 @@ use std::{
 };
 
 mod data_definition;
-mod in_memory;
+pub mod in_memory;
 pub mod persistent;
 
 pub type Row = (Key, Values);
@@ -144,32 +144,36 @@ pub enum DropSchemaError {
     HasDependentObjects,
 }
 
-pub struct DataManager {
-    data_storage: Box<dyn Database>,
+pub struct DataManager<D: Database> {
+    databases: CHashMap<String, D>,
     data_definition: DataDefinition,
     schemas: CHashMap<Id, String>,
     tables: CHashMap<(Id, Id), Vec<String>>,
     record_id_generators: CHashMap<(Id, Id), AtomicU64>,
 }
 
-impl Default for DataManager {
-    fn default() -> DataManager {
-        DataManager::in_memory().expect("no errors")
+impl Default for DataManager<InMemoryDatabase> {
+    fn default() -> DataManager<InMemoryDatabase> {
+        DataManager::<InMemoryDatabase>::in_memory().expect("no errors")
     }
 }
 
-unsafe impl Send for DataManager {}
+unsafe impl<D: Database> Send for DataManager<D> {}
 
-unsafe impl Sync for DataManager {}
+unsafe impl<D: Database> Sync for DataManager<D> {}
 
 const DEFAULT_CATALOG: &'_ str = "public";
+const SYSTEM_CATALOG: &'_ str = "system";
 
-impl DataManager {
-    pub fn in_memory() -> SystemResult<DataManager> {
+impl<D: Database> DataManager<D> {
+    pub fn in_memory() -> SystemResult<DataManager<InMemoryDatabase>> {
         let data_definition = DataDefinition::in_memory();
         data_definition.create_catalog(DEFAULT_CATALOG);
+        let databases = CHashMap::default();
+        databases.insert(DEFAULT_CATALOG.to_lowercase(), InMemoryDatabase::default());
+        databases.insert(SYSTEM_CATALOG.to_lowercase(), InMemoryDatabase::default());
         Ok(DataManager {
-            data_storage: Box::new(InMemoryDatabase::default()),
+            databases,
             data_definition,
             schemas: CHashMap::default(),
             tables: CHashMap::default(),
@@ -177,7 +181,7 @@ impl DataManager {
         })
     }
 
-    pub fn persistent(path: PathBuf) -> SystemResult<DataManager> {
+    pub fn persistent(path: PathBuf) -> SystemResult<DataManager<PersistentDatabase>> {
         let data_definition = DataDefinition::persistent(&path)?;
         let catalog = PersistentDatabase::new(path.join(DEFAULT_CATALOG));
         let schemas = CHashMap::new();
@@ -216,8 +220,14 @@ impl DataManager {
                 data_definition.create_catalog(DEFAULT_CATALOG);
             }
         }
+        let databases = CHashMap::default();
+        databases.insert(DEFAULT_CATALOG.to_lowercase(), catalog);
+        databases.insert(
+            SYSTEM_CATALOG.to_lowercase(),
+            PersistentDatabase::new(path.join(SYSTEM_CATALOG)),
+        );
         Ok(DataManager {
-            data_storage: Box::new(catalog),
+            databases,
             data_definition,
             schemas,
             tables,
@@ -236,7 +246,7 @@ impl DataManager {
         match self.data_definition.create_schema(DEFAULT_CATALOG, schema_name) {
             Some((_, Some(schema_id))) => {
                 self.schemas.insert(schema_id, schema_name.to_owned());
-                match self.data_storage.create_schema(schema_name) {
+                match self.databases.get(DEFAULT_CATALOG).unwrap().create_schema(schema_name) {
                     Ok(Ok(Ok(()))) => Ok(schema_id),
                     _ => {
                         log::error!(
@@ -276,7 +286,12 @@ impl DataManager {
                     .data_definition
                     .drop_schema(DEFAULT_CATALOG, schema_name.as_str(), strategy)
                 {
-                    Ok(()) => match self.data_storage.drop_schema(schema_name.as_str()) {
+                    Ok(()) => match self
+                        .databases
+                        .get(DEFAULT_CATALOG)
+                        .unwrap()
+                        .drop_schema(schema_name.as_str())
+                    {
                         Ok(Ok(Ok(()))) => Ok(Ok(())),
                         _ => {
                             log::error!(
@@ -311,7 +326,12 @@ impl DataManager {
                         );
                         self.record_id_generators
                             .insert((schema_id, table_id), AtomicU64::default());
-                        match self.data_storage.create_object(&*schema_name, table_name) {
+                        match self
+                            .databases
+                            .get(DEFAULT_CATALOG)
+                            .unwrap()
+                            .create_object(&*schema_name, table_name)
+                        {
                             Ok(Ok(Ok(()))) => Ok(table_id),
                             _ => {
                                 log::error!(
@@ -367,7 +387,9 @@ impl DataManager {
                 self.data_definition
                     .drop_table(DEFAULT_CATALOG, full_name[0].as_str(), full_name[1].as_str());
                 match self
-                    .data_storage
+                    .databases
+                    .get(DEFAULT_CATALOG)
+                    .unwrap()
                     .drop_object(full_name[0].as_str(), full_name[1].as_str())
                 {
                     Ok(Ok(Ok(()))) => Ok(()),
@@ -391,10 +413,11 @@ impl DataManager {
         match self.tables.get(table_id.as_ref()) {
             Some(full_name) => {
                 log::trace!("values to write {:#?}", values);
-                match self
-                    .data_storage
-                    .write(full_name[0].as_str(), full_name[1].as_str(), values)
-                {
+                match self.databases.get(DEFAULT_CATALOG).unwrap().write(
+                    full_name[0].as_str(),
+                    full_name[1].as_str(),
+                    values,
+                ) {
                     Ok(Ok(Ok(size))) => Ok(size),
                     _ => {
                         let (schema_id, table_id) = table_id.as_ref();
@@ -425,7 +448,12 @@ impl DataManager {
 
     pub fn full_scan<I: AsRef<(Id, Id)>>(&self, table_id: &I) -> Result<ReadCursor, ()> {
         match self.tables.get(table_id.as_ref()) {
-            Some(full_name) => match self.data_storage.read(full_name[0].as_str(), full_name[1].as_str()) {
+            Some(full_name) => match self
+                .databases
+                .get(DEFAULT_CATALOG)
+                .unwrap()
+                .read(full_name[0].as_str(), full_name[1].as_str())
+            {
                 Ok(Ok(Ok(read))) => Ok(read),
                 _ => {
                     let (schema_id, table_id) = table_id.as_ref();
@@ -455,10 +483,11 @@ impl DataManager {
 
     pub fn delete_from<I: AsRef<(Id, Id)>>(&self, table_id: &I, keys: Vec<Key>) -> Result<usize, ()> {
         match self.tables.get(table_id.as_ref()) {
-            Some(full_name) => match self
-                .data_storage
-                .delete(full_name[0].as_str(), full_name[1].as_str(), keys)
-            {
+            Some(full_name) => match self.databases.get(DEFAULT_CATALOG).unwrap().delete(
+                full_name[0].as_str(),
+                full_name[1].as_str(),
+                keys,
+            ) {
                 Ok(Ok(Ok(len))) => Ok(len),
                 _ => {
                     let (schema_id, table_id) = table_id.as_ref();
@@ -487,7 +516,7 @@ impl DataManager {
     }
 }
 
-impl MetadataView for DataManager {
+impl<D: Database> MetadataView for DataManager<D> {
     fn schema_exists<S: AsRef<str>>(&self, schema_name: &S) -> FullSchemaId {
         self.data_definition
             .schema_exists(DEFAULT_CATALOG, schema_name.as_ref())

@@ -15,7 +15,7 @@
 use std::sync::Arc;
 
 use binary::Binary;
-use data_manager::{DataManager, MetadataView};
+use data_manager::{DataManager, Database, MetadataView};
 use protocol::Sender;
 
 use ast::operations::ScalarOp;
@@ -25,18 +25,18 @@ use plan::TableUpdates;
 use protocol::results::{QueryError, QueryEvent};
 use std::collections::HashMap;
 
-pub(crate) struct UpdateCommand {
+pub(crate) struct UpdateCommand<D: Database> {
     table_update: TableUpdates,
-    data_manager: Arc<DataManager>,
+    data_manager: Arc<DataManager<D>>,
     sender: Arc<dyn Sender>,
 }
 
-impl UpdateCommand {
+impl<D: Database> UpdateCommand<D> {
     pub(crate) fn new(
         table_update: TableUpdates,
-        data_manager: Arc<DataManager>,
+        data_manager: Arc<DataManager<D>>,
         sender: Arc<dyn Sender>,
-    ) -> UpdateCommand {
+    ) -> UpdateCommand<D> {
         UpdateCommand {
             table_update,
             data_manager,

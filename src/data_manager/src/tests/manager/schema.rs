@@ -17,13 +17,13 @@ use sql_model::sql_types::SqlType;
 use super::*;
 
 #[rstest::rstest]
-fn create_schemas_with_different_names(data_manager: DataManager) {
+fn create_schemas_with_different_names(data_manager: InMemory) {
     assert!(matches!(data_manager.create_schema(SCHEMA_1), Ok(_)));
     assert!(matches!(data_manager.create_schema(SCHEMA_2), Ok(_)));
 }
 
 #[rstest::rstest]
-fn same_table_names_with_different_columns_in_different_schemas(data_manager: DataManager) {
+fn same_table_names_with_different_columns_in_different_schemas(data_manager: InMemory) {
     let schema_1_id = data_manager.create_schema(SCHEMA_1).expect("schema is created");
     let schema_2_id = data_manager.create_schema(SCHEMA_2).expect("schema is created");
 
@@ -63,7 +63,7 @@ fn same_table_names_with_different_columns_in_different_schemas(data_manager: Da
 }
 
 #[rstest::rstest]
-fn drop_schema(data_manager_with_schema: DataManager) {
+fn drop_schema(data_manager_with_schema: InMemory) {
     let schema_id = data_manager_with_schema.schema_exists(&SCHEMA).expect("schema exists");
     assert_eq!(
         data_manager_with_schema
@@ -75,7 +75,7 @@ fn drop_schema(data_manager_with_schema: DataManager) {
 }
 
 #[rstest::rstest]
-fn restrict_drop_schema_does_not_drop_schema_with_table(data_manager_with_schema: DataManager) {
+fn restrict_drop_schema_does_not_drop_schema_with_table(data_manager_with_schema: InMemory) {
     let schema_id = data_manager_with_schema.schema_exists(&SCHEMA).expect("schema exists");
     data_manager_with_schema
         .create_table(schema_id, "table_name", &[])
@@ -90,7 +90,7 @@ fn restrict_drop_schema_does_not_drop_schema_with_table(data_manager_with_schema
 }
 
 #[rstest::rstest]
-fn cascade_drop_schema_drops_tables_in_it(data_manager_with_schema: DataManager) {
+fn cascade_drop_schema_drops_tables_in_it(data_manager_with_schema: InMemory) {
     let schema_id = data_manager_with_schema.schema_exists(&SCHEMA).expect("schema exists");
     data_manager_with_schema
         .create_table(

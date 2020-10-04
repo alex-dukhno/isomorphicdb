@@ -26,6 +26,7 @@ use async_dup::Arc as AsyncArc;
 use async_io::Async;
 
 use crate::query_engine::QueryEngine;
+use data_manager::persistent::PersistentDatabase;
 use data_manager::DataManager;
 use protocol::{ClientRequest, ConnSupervisor, ProtocolConfiguration};
 
@@ -39,14 +40,10 @@ pub const RUNNING: u8 = 0;
 pub const STOPPED: u8 = 1;
 
 pub fn start() {
-    let persistent = env::var("PERSISTENT").is_ok();
     let root_path = env::var("ROOT_PATH").map(PathBuf::from).unwrap_or_default();
     smol::block_on(async {
-        let storage = if persistent {
-            Arc::new(DataManager::persistent(root_path.join("root_directory")).unwrap())
-        } else {
-            Arc::new(DataManager::in_memory().unwrap())
-        };
+        let storage =
+            Arc::new(DataManager::<PersistentDatabase>::persistent(root_path.join("root_directory")).unwrap());
         let listener = Async::<TcpListener>::bind((HOST, PORT)).expect("OK");
 
         let state = Arc::new(AtomicU8::new(RUNNING));

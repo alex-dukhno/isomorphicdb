@@ -14,7 +14,7 @@
 
 use crate::{Planner, Result};
 use ast::predicates::{PredicateOp, PredicateValue};
-use data_manager::{DataManager, MetadataView};
+use data_manager::{DataManager, Database, MetadataView};
 use plan::{FullTableName, Plan, SelectInput, TableId};
 use protocol::{results::QueryError, Sender};
 use sqlparser::ast::{
@@ -32,8 +32,8 @@ impl SelectPlanner {
     }
 }
 
-impl Planner for SelectPlanner {
-    fn plan(self, data_manager: Arc<DataManager>, sender: Arc<dyn Sender>) -> Result<Plan> {
+impl<D: Database> Planner<D> for SelectPlanner {
+    fn plan(self, data_manager: Arc<DataManager<D>>, sender: Arc<dyn Sender>) -> Result<Plan> {
         let Query { body, .. } = &*self.query;
         let result = if let SetExpr::Select(query) = body {
             let Select {

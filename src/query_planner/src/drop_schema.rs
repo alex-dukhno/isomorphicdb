@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use crate::{Planner, Result};
-use data_manager::{DataManager, MetadataView};
+use data_manager::{DataManager, Database, MetadataView};
 use plan::{Plan, SchemaId, SchemaName};
 use protocol::results::QueryEvent;
 use protocol::{results::QueryError, Sender};
@@ -36,8 +36,8 @@ impl DropSchemaPlanner<'_> {
     }
 }
 
-impl Planner for DropSchemaPlanner<'_> {
-    fn plan(self, data_manager: Arc<DataManager>, sender: Arc<dyn Sender>) -> Result<Plan> {
+impl<D: Database> Planner<D> for DropSchemaPlanner<'_> {
+    fn plan(self, data_manager: Arc<DataManager<D>>, sender: Arc<dyn Sender>) -> Result<Plan> {
         let mut schemas = Vec::with_capacity(self.names.len());
         for name in self.names {
             match SchemaName::try_from(name) {

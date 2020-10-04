@@ -14,22 +14,22 @@
 
 use std::sync::Arc;
 
-use data_manager::DataManager;
+use data_manager::{DataManager, Database};
 use plan::TableCreationInfo;
 use protocol::{results::QueryEvent, Sender};
 
-pub(crate) struct CreateTableCommand {
+pub(crate) struct CreateTableCommand<D: Database> {
     table_info: TableCreationInfo,
-    data_manager: Arc<DataManager>,
+    data_manager: Arc<DataManager<D>>,
     sender: Arc<dyn Sender>,
 }
 
-impl CreateTableCommand {
+impl<D: Database> CreateTableCommand<D> {
     pub(crate) fn new(
         table_info: TableCreationInfo,
-        data_manager: Arc<DataManager>,
+        data_manager: Arc<DataManager<D>>,
         sender: Arc<dyn Sender>,
-    ) -> CreateTableCommand {
+    ) -> CreateTableCommand<D> {
         CreateTableCommand {
             table_info,
             data_manager,

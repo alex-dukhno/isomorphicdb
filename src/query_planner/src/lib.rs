@@ -27,7 +27,7 @@ use crate::{
     drop_schema::DropSchemaPlanner, drop_tables::DropTablesPlanner, insert::InsertPlanner, select::SelectPlanner,
     update::UpdatePlanner,
 };
-use data_manager::DataManager;
+use data_manager::{DataManager, Database};
 use plan::Plan;
 use protocol::{results::QueryError, Sender};
 use sqlparser::ast::{ObjectType, Statement};
@@ -35,17 +35,17 @@ use std::sync::Arc;
 
 type Result<T> = std::result::Result<T, ()>;
 
-trait Planner {
-    fn plan(self, data_manager: Arc<DataManager>, sender: Arc<dyn Sender>) -> Result<Plan>;
+trait Planner<D: Database> {
+    fn plan(self, data_manager: Arc<DataManager<D>>, sender: Arc<dyn Sender>) -> Result<Plan>;
 }
 
-pub struct QueryPlanner {
-    data_manager: Arc<DataManager>,
+pub struct QueryPlanner<D: Database> {
+    data_manager: Arc<DataManager<D>>,
     sender: Arc<dyn Sender>,
 }
 
-impl QueryPlanner {
-    pub fn new(data_manager: Arc<DataManager>, sender: Arc<dyn Sender>) -> Self {
+impl<D: Database> QueryPlanner<D> {
+    pub fn new(data_manager: Arc<DataManager<D>>, sender: Arc<dyn Sender>) -> Self {
         Self { data_manager, sender }
     }
 

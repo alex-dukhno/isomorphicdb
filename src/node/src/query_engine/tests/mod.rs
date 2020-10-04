@@ -31,14 +31,16 @@ mod update;
 #[cfg(test)]
 mod where_clause;
 
+use super::*;
+use data_manager::in_memory::InMemoryDatabase;
+use protocol::results::{QueryEvent, QueryResult};
+use std::ops::DerefMut;
 use std::{
     io,
     sync::{Arc, Mutex},
 };
 
-use super::*;
-use protocol::results::{QueryEvent, QueryResult};
-use std::ops::DerefMut;
+type InMemory = QueryEngine<InMemoryDatabase>;
 
 pub struct Collector(Mutex<Vec<QueryResult>>);
 
@@ -95,19 +97,19 @@ fn sender() -> ResultCollector {
 }
 
 #[rstest::fixture]
-fn empty_database() -> (QueryEngine, ResultCollector) {
+fn empty_database() -> (InMemory, ResultCollector) {
     let collector = Arc::new(Collector(Mutex::new(vec![])));
     (
-        QueryEngine::new(
+        InMemory::new(
             collector.clone(),
-            Arc::new(DataManager::in_memory().expect("to create data manager")),
+            Arc::new(DataManager::<InMemoryDatabase>::in_memory().expect("to create data manager")),
         ),
         collector,
     )
 }
 
 #[rstest::fixture]
-fn database_with_schema(empty_database: (QueryEngine, ResultCollector)) -> (QueryEngine, ResultCollector) {
+fn database_with_schema(empty_database: (InMemory, ResultCollector)) -> (InMemory, ResultCollector) {
     let (mut engine, collector) = empty_database;
     engine
         .execute(Command::Query {

@@ -14,24 +14,24 @@
 
 use std::sync::Arc;
 
-use data_manager::{DataManager, DropSchemaError, DropStrategy};
+use data_manager::{DataManager, Database, DropSchemaError, DropStrategy};
 use plan::SchemaId;
 use protocol::{results::QueryEvent, Sender};
 
-pub(crate) struct DropSchemaCommand {
+pub(crate) struct DropSchemaCommand<D: Database> {
     schema_id: SchemaId,
     cascade: bool,
-    data_manager: Arc<DataManager>,
+    data_manager: Arc<DataManager<D>>,
     sender: Arc<dyn Sender>,
 }
 
-impl DropSchemaCommand {
+impl<D: Database> DropSchemaCommand<D> {
     pub(crate) fn new(
         schema_id: SchemaId,
         cascade: bool,
-        data_manager: Arc<DataManager>,
+        data_manager: Arc<DataManager<D>>,
         sender: Arc<dyn Sender>,
-    ) -> DropSchemaCommand {
+    ) -> DropSchemaCommand<D> {
         DropSchemaCommand {
             schema_id,
             cascade,

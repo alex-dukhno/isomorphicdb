@@ -21,7 +21,7 @@ use sql_model::sql_types::SqlType;
 use sqlparser::ast::{Assignment, Expr, ObjectName, Statement, Value};
 
 #[rstest::rstest]
-fn update_table_that_in_nonexistent_schema(planner_and_sender: (QueryPlanner, ResultCollector)) {
+fn update_table_that_in_nonexistent_schema(planner_and_sender: (InMemory, ResultCollector)) {
     let (query_planner, collector) = planner_and_sender;
     assert_eq!(
         query_planner.plan(&Statement::Update {
@@ -36,7 +36,7 @@ fn update_table_that_in_nonexistent_schema(planner_and_sender: (QueryPlanner, Re
 }
 
 #[rstest::rstest]
-fn update_nonexistent_table(planner_and_sender_with_schema: (QueryPlanner, ResultCollector)) {
+fn update_nonexistent_table(planner_and_sender_with_schema: (InMemory, ResultCollector)) {
     let (query_planner, collector) = planner_and_sender_with_schema;
     assert_eq!(
         query_planner.plan(&Statement::Update {
@@ -54,7 +54,7 @@ fn update_nonexistent_table(planner_and_sender_with_schema: (QueryPlanner, Resul
 }
 
 #[rstest::rstest]
-fn update_table_with_unqualified_name(planner_and_sender_with_schema: (QueryPlanner, ResultCollector)) {
+fn update_table_with_unqualified_name(planner_and_sender_with_schema: (InMemory, ResultCollector)) {
     let (query_planner, collector) = planner_and_sender_with_schema;
     assert_eq!(
         query_planner.plan(&Statement::Update {
@@ -74,7 +74,7 @@ fn update_table_with_unqualified_name(planner_and_sender_with_schema: (QueryPlan
 }
 
 #[rstest::rstest]
-fn update_table_with_unsupported_name(planner_and_sender_with_schema: (QueryPlanner, ResultCollector)) {
+fn update_table_with_unsupported_name(planner_and_sender_with_schema: (InMemory, ResultCollector)) {
     let (query_planner, collector) = planner_and_sender_with_schema;
     assert_eq!(
         query_planner.plan(&Statement::Update {
@@ -99,7 +99,7 @@ fn update_table_with_unsupported_name(planner_and_sender_with_schema: (QueryPlan
 }
 
 #[rstest::rstest]
-fn update_table(planner_and_sender_with_table: (QueryPlanner, ResultCollector)) {
+fn update_table(planner_and_sender_with_table: (InMemory, ResultCollector)) {
     let (query_planner, collector) = planner_and_sender_with_table;
     assert_eq!(
         query_planner.plan(&Statement::Update {

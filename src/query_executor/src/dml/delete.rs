@@ -14,22 +14,22 @@
 
 use std::sync::Arc;
 
-use data_manager::DataManager;
+use data_manager::{DataManager, Database};
 use plan::TableDeletes;
 use protocol::{results::QueryEvent, Sender};
 
-pub(crate) struct DeleteCommand {
+pub(crate) struct DeleteCommand<D: Database> {
     table_deletes: TableDeletes,
-    data_manager: Arc<DataManager>,
+    data_manager: Arc<DataManager<D>>,
     sender: Arc<dyn Sender>,
 }
 
-impl DeleteCommand {
+impl<D: Database> DeleteCommand<D> {
     pub(crate) fn new(
         table_deletes: TableDeletes,
-        data_manager: Arc<DataManager>,
+        data_manager: Arc<DataManager<D>>,
         sender: Arc<dyn Sender>,
-    ) -> DeleteCommand {
+    ) -> DeleteCommand<D> {
         DeleteCommand {
             table_deletes,
             data_manager,

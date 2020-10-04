@@ -1,0 +1,12 @@
+[package]
+name = "query_analyzer"
+version = "0.1.0"
+authors = ["Alex Dukhno <alex.dukhno@icloud.com>"]
+edition = "2018"
+
+[dependencies]
+data_manager = { path = "../data_manager" }
+description = { path = "../description" }
+sql_model = { path = "../sql_model" }
+
+sqlparser = { git = "https://github.com/ballista-compute/sqlparser-rs.git", branch = "main", features = ["bigdecimal"] }

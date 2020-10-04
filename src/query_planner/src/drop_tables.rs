@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use crate::{Planner, Result};
-use data_manager::{DataManager, MetadataView};
+use data_manager::{DataManager, Database, MetadataView};
 use plan::{FullTableName, Plan, TableId};
 use protocol::results::QueryEvent;
 use protocol::{results::QueryError, Sender};
@@ -31,8 +31,8 @@ impl DropTablesPlanner<'_> {
     }
 }
 
-impl Planner for DropTablesPlanner<'_> {
-    fn plan(self, data_manager: Arc<DataManager>, sender: Arc<dyn Sender>) -> Result<Plan> {
+impl<D: Database> Planner<D> for DropTablesPlanner<'_> {
+    fn plan(self, data_manager: Arc<DataManager<D>>, sender: Arc<dyn Sender>) -> Result<Plan> {
         let mut table_names = Vec::with_capacity(self.names.len());
         for name in self.names {
             match FullTableName::try_from(name) {

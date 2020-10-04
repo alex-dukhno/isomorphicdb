@@ -14,21 +14,21 @@
 
 use ast::predicates::{PredicateOp, PredicateValue};
 use ast::values::ScalarValue;
-use data_manager::{DataManager, MetadataView, ReadCursor};
+use data_manager::{DataManager, Database, MetadataView, ReadCursor};
 use plan::{SelectInput, TableId};
 use protocol::{messages::ColumnMetadata, results::QueryEvent, Sender};
 use sql_model::Id;
 use std::convert::TryInto;
 use std::sync::Arc;
 
-struct Source {
+struct Source<D: Database> {
     table_id: TableId,
     cursor: Option<ReadCursor>,
-    data_manager: Arc<DataManager>,
+    data_manager: Arc<DataManager<D>>,
 }
 
-impl Source {
-    fn new(table_id: TableId, data_manager: Arc<DataManager>) -> Source {
+impl<'s, D: Database + 's> Source<D> {
+    fn new(table_id: TableId, data_manager: Arc<DataManager<D>>) -> Source<D> {
         Source {
             table_id,
             cursor: None,
@@ -37,7 +37,7 @@ impl Source {
     }
 }
 
-impl Iterator for Source {
+impl<'s, D: Database + 's> Iterator for Source<D> {
     type Item = Vec<ScalarValue>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -62,14 +62,14 @@ impl Iterator for Source {
     }
 }
 
-struct Projection {
+struct Projection<'p> {
     selected_columns: Vec<Id>,
-    input: Box<dyn Iterator<Item = Vec<ScalarValue>>>,
+    input: Box<dyn Iterator<Item = Vec<ScalarValue>> + 'p>,
     consumed: usize,
 }
 
-impl Projection {
-    fn new(selected_columns: Vec<Id>, input: Box<dyn Iterator<Item = Vec<ScalarValue>>>) -> Projection {
+impl<'p> Projection<'p> {
+    fn new(selected_columns: Vec<Id>, input: Box<dyn Iterator<Item = Vec<ScalarValue>> + 'p>) -> Projection<'p> {
         Projection {
             selected_columns,
             input,
@@ -78,7 +78,7 @@ impl Projection {
     }
 }
 
-impl<'p> Iterator for &'p mut Projection {
+impl<'p, 'i> Iterator for &'i mut Projection<'p> {
     type Item = Vec<String>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -96,21 +96,21 @@ impl<'p> Iterator for &'p mut Projection {
     }
 }
 
-struct Filter {
-    iter: Box<dyn Iterator<Item = Vec<ScalarValue>>>,
+struct Filter<'f> {
+    iter: Box<dyn Iterator<Item = Vec<ScalarValue>> + 'f>,
     predicate: (PredicateValue, PredicateOp, PredicateValue),
 }
 
-impl Filter {
+impl<'f> Filter<'f> {
     fn new(
-        iter: Box<dyn Iterator<Item = Vec<ScalarValue>>>,
+        iter: Box<dyn Iterator<Item = Vec<ScalarValue>> + 'f>,
         predicate: (PredicateValue, PredicateOp, PredicateValue),
     ) -> Filter {
         Filter { iter, predicate }
     }
 }
 
-impl Iterator for Filter {
+impl<'f> Iterator for Filter<'f> {
     type Item = Vec<ScalarValue>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -128,18 +128,18 @@ impl Iterator for Filter {
     }
 }
 
-pub(crate) struct SelectCommand {
+pub(crate) struct SelectCommand<D: Database> {
     select_input: SelectInput,
-    data_manager: Arc<DataManager>,
+    data_manager: Arc<DataManager<D>>,
     sender: Arc<dyn Sender>,
 }
 
-impl SelectCommand {
+impl<D: Database> SelectCommand<D> {
     pub(crate) fn new(
         select_input: SelectInput,
-        data_manager: Arc<DataManager>,
+        data_manager: Arc<DataManager<D>>,
         sender: Arc<dyn Sender>,
-    ) -> SelectCommand {
+    ) -> SelectCommand<D> {
         SelectCommand {
             select_input,
             data_manager,

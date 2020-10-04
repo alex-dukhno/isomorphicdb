@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use crate::{Planner, Result};
-use data_manager::{DataManager, MetadataView};
+use data_manager::{DataManager, Database, MetadataView};
 use plan::{Plan, SchemaCreationInfo, SchemaName};
 use protocol::{results::QueryError, Sender};
 use sqlparser::ast::ObjectName;
@@ -29,8 +29,8 @@ impl CreateSchemaPlanner<'_> {
     }
 }
 
-impl Planner for CreateSchemaPlanner<'_> {
-    fn plan(self, data_manager: Arc<DataManager>, sender: Arc<dyn Sender>) -> Result<Plan> {
+impl<D: Database> Planner<D> for CreateSchemaPlanner<'_> {
+    fn plan(self, data_manager: Arc<DataManager<D>>, sender: Arc<dyn Sender>) -> Result<Plan> {
         match SchemaName::try_from(self.schema_name) {
             Ok(schema_name) => match data_manager.schema_exists(&schema_name) {
                 Some(_) => {

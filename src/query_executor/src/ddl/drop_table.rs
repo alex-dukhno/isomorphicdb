@@ -14,18 +14,22 @@
 
 use std::sync::Arc;
 
-use data_manager::DataManager;
+use data_manager::{DataManager, Database};
 use plan::TableId;
 use protocol::{results::QueryEvent, Sender};
 
-pub(crate) struct DropTableCommand {
+pub(crate) struct DropTableCommand<D: Database> {
     table_id: TableId,
-    data_manager: Arc<DataManager>,
+    data_manager: Arc<DataManager<D>>,
     sender: Arc<dyn Sender>,
 }
 
-impl DropTableCommand {
-    pub(crate) fn new(table_id: TableId, data_manager: Arc<DataManager>, sender: Arc<dyn Sender>) -> DropTableCommand {
+impl<D: Database> DropTableCommand<D> {
+    pub(crate) fn new(
+        table_id: TableId,
+        data_manager: Arc<DataManager<D>>,
+        sender: Arc<dyn Sender>,
+    ) -> DropTableCommand<D> {
         DropTableCommand {
             table_id,
             data_manager,

@@ -18,7 +18,7 @@ use protocol::pgsql_types::PostgreSqlType;
 use protocol::{messages::ColumnMetadata, results::QueryEvent};
 
 #[rstest::rstest]
-fn select_row_by_column_equality_predicate(database_with_schema: (QueryEngine, ResultCollector)) {
+fn select_row_by_column_equality_predicate(database_with_schema: (InMemory, ResultCollector)) {
     let (mut engine, collector) = database_with_schema;
     engine
         .execute(Command::Query {

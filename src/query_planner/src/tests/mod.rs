@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use super::*;
+use data_manager::in_memory::InMemoryDatabase;
 use data_manager::{ColumnDefinition, DataManager};
 use protocol::{results::QueryResult, Sender};
 use sql_model::sql_types::SqlType;
@@ -41,6 +42,8 @@ mod select;
 mod update;
 #[cfg(test)]
 mod where_clause;
+
+type InMemory = QueryPlanner<InMemoryDatabase>;
 
 struct Collector(Mutex<Vec<QueryResult>>);
 
@@ -73,24 +76,24 @@ fn sender() -> ResultCollector {
 }
 
 #[rstest::fixture]
-fn planner_and_sender() -> (QueryPlanner, ResultCollector) {
+fn planner_and_sender() -> (InMemory, ResultCollector) {
     let collector = Arc::new(Collector(Mutex::new(vec![])));
-    let manager = DataManager::in_memory().expect("to create data manager");
-    (QueryPlanner::new(Arc::new(manager), collector.clone()), collector)
+    let manager = DataManager::<InMemoryDatabase>::in_memory().expect("to create data manager");
+    (InMemory::new(Arc::new(manager), collector.clone()), collector)
 }
 
 #[rstest::fixture]
-fn planner_and_sender_with_schema() -> (QueryPlanner, ResultCollector) {
+fn planner_and_sender_with_schema() -> (InMemory, ResultCollector) {
     let collector = Arc::new(Collector(Mutex::new(vec![])));
-    let manager = DataManager::in_memory().expect("to create data manager");
+    let manager = DataManager::<InMemoryDatabase>::in_memory().expect("to create data manager");
     manager.create_schema(SCHEMA).expect("schema created");
-    (QueryPlanner::new(Arc::new(manager), collector.clone()), collector)
+    (InMemory::new(Arc::new(manager), collector.clone()), collector)
 }
 
 #[rstest::fixture]
-fn planner_and_sender_with_table() -> (QueryPlanner, ResultCollector) {
+fn planner_and_sender_with_table() -> (InMemory, ResultCollector) {
     let collector = Arc::new(Collector(Mutex::new(vec![])));
-    let manager = DataManager::in_memory().expect("to create data manager");
+    let manager = DataManager::<InMemoryDatabase>::in_memory().expect("to create data manager");
     let schema_id = manager.create_schema(SCHEMA).expect("schema created");
     manager
         .create_table(
@@ -103,16 +106,16 @@ fn planner_and_sender_with_table() -> (QueryPlanner, ResultCollector) {
             ],
         )
         .expect("table created");
-    (QueryPlanner::new(Arc::new(manager), collector.clone()), collector)
+    (InMemory::new(Arc::new(manager), collector.clone()), collector)
 }
 
 #[rstest::fixture]
-fn planner_and_sender_with_no_column_table() -> (QueryPlanner, ResultCollector) {
+fn planner_and_sender_with_no_column_table() -> (InMemory, ResultCollector) {
     let collector = Arc::new(Collector(Mutex::new(vec![])));
-    let manager = DataManager::in_memory().expect("to create data manager");
+    let manager = DataManager::<InMemoryDatabase>::in_memory().expect("to create data manager");
     let schema_id = manager.create_schema(SCHEMA).expect("schema created");
     manager.create_table(schema_id, TABLE, &[]).expect("table created");
-    (QueryPlanner::new(Arc::new(manager), collector.clone()), collector)
+    (InMemory::new(Arc::new(manager), collector.clone()), collector)
 }
 
 fn ident<S: ToString>(name: S) -> Ident {

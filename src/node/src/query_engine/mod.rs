@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use binder::ParamBinder;
-use data_manager::{DataManager, MetadataView};
+use data_manager::{DataManager, Database, MetadataView};
 use itertools::izip;
 use parser::QueryParser;
 use plan::{Plan, SelectInput};
@@ -29,18 +29,18 @@ use query_planner::QueryPlanner;
 use sqlparser::ast::Statement;
 use std::{iter, ops::Deref, sync::Arc};
 
-pub(crate) struct QueryEngine {
+pub(crate) struct QueryEngine<D: Database> {
     session: Session<Statement>,
     sender: Arc<dyn Sender>,
-    data_manager: Arc<DataManager>,
+    data_manager: Arc<DataManager<D>>,
     query_parser: QueryParser,
     param_binder: ParamBinder,
-    query_planner: QueryPlanner,
-    query_executor: QueryExecutor,
+    query_planner: QueryPlanner<D>,
+    query_executor: QueryExecutor<D>,
 }
 
-impl QueryEngine {
-    pub(crate) fn new(sender: Arc<dyn Sender>, data_manager: Arc<DataManager>) -> QueryEngine {
+impl<D: Database> QueryEngine<D> {
+    pub(crate) fn new(sender: Arc<dyn Sender>, data_manager: Arc<DataManager<D>>) -> QueryEngine<D> {
         QueryEngine {
             session: Session::default(),
             sender: sender.clone(),

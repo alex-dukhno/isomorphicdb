@@ -159,11 +159,7 @@ pub enum FrontendMessage {
 impl FrontendMessage {
     /// decodes buffer data to a frontend message
     pub fn decode(tag: u8, buffer: &[u8]) -> Result<Self> {
-        log::debug!(
-            "Receives frontend tag = {:?}, buffer = {:?}",
-            std::char::from_u32(tag as u32).unwrap(),
-            buffer
-        );
+        log::debug!("Receives frontend tag = {:?}, buffer = {:?}", char::from(tag), buffer);
 
         let cursor = Cursor::new(buffer);
         match tag {
@@ -546,7 +542,7 @@ fn decode_describe(mut cursor: Cursor) -> Result<FrontendMessage> {
         b'S' => Ok(FrontendMessage::DescribeStatement { name }),
         other => Err(Error::InvalidInput(format!(
             "invalid type byte in Describe frontend message: {:?}",
-            std::char::from_u32(other as u32).unwrap(),
+            char::from(other),
         ))),
     }
 }
@@ -568,8 +564,11 @@ fn decode_parse(mut cursor: Cursor) -> Result<FrontendMessage> {
     let mut param_types = vec![];
     for _ in 0..cursor.read_i16()? {
         let oid = cursor.read_u32()?;
-        let sql_type = PostgreSqlType::try_from(oid).unwrap();
-        param_types.push(sql_type);
+        log::trace!("OID {:?}", oid);
+        match PostgreSqlType::try_from(oid) {
+            Ok(sql_type) => param_types.push(sql_type),
+            Err(_) => {}
+        }
     }
 
     Ok(FrontendMessage::Parse {

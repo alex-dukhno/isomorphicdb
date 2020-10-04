@@ -19,7 +19,7 @@ use crate::{
     },
     dml::{delete::DeleteCommand, insert::InsertCommand, select::SelectCommand, update::UpdateCommand},
 };
-use data_manager::DataManager;
+use data_manager::{DataManager, Database};
 use plan::Plan;
 use protocol::{
     results::{QueryError, QueryEvent},
@@ -31,13 +31,13 @@ use std::sync::Arc;
 mod ddl;
 mod dml;
 
-pub struct QueryExecutor {
-    data_manager: Arc<DataManager>,
+pub struct QueryExecutor<D: Database> {
+    data_manager: Arc<DataManager<D>>,
     sender: Arc<dyn Sender>,
 }
 
-impl QueryExecutor {
-    pub fn new(data_manager: Arc<DataManager>, sender: Arc<dyn Sender>) -> Self {
+impl<D: Database> QueryExecutor<D> {
+    pub fn new(data_manager: Arc<DataManager<D>>, sender: Arc<dyn Sender>) -> Self {
         Self { data_manager, sender }
     }
 

@@ -20,7 +20,7 @@ mod schemaless {
     use super::*;
 
     #[rstest::rstest]
-    fn create_table_in_non_existent_schema(empty_database: (QueryEngine, ResultCollector)) {
+    fn create_table_in_non_existent_schema(empty_database: (InMemory, ResultCollector)) {
         let (mut engine, collector) = empty_database;
         engine
             .execute(Command::Query {
@@ -31,7 +31,7 @@ mod schemaless {
     }
 
     #[rstest::rstest]
-    fn drop_table_from_non_existent_schema(empty_database: (QueryEngine, ResultCollector)) {
+    fn drop_table_from_non_existent_schema(empty_database: (InMemory, ResultCollector)) {
         let (mut engine, collector) = empty_database;
         engine
             .execute(Command::Query {
@@ -43,7 +43,7 @@ mod schemaless {
 }
 
 #[rstest::rstest]
-fn create_table(database_with_schema: (QueryEngine, ResultCollector)) {
+fn create_table(database_with_schema: (InMemory, ResultCollector)) {
     let (mut engine, collector) = database_with_schema;
     engine
         .execute(Command::Query {
@@ -54,7 +54,7 @@ fn create_table(database_with_schema: (QueryEngine, ResultCollector)) {
 }
 
 #[rstest::rstest]
-fn create_same_table(database_with_schema: (QueryEngine, ResultCollector)) {
+fn create_same_table(database_with_schema: (InMemory, ResultCollector)) {
     let (mut engine, collector) = database_with_schema;
     engine
         .execute(Command::Query {
@@ -72,7 +72,7 @@ fn create_same_table(database_with_schema: (QueryEngine, ResultCollector)) {
 }
 
 #[rstest::rstest]
-fn drop_table(database_with_schema: (QueryEngine, ResultCollector)) {
+fn drop_table(database_with_schema: (InMemory, ResultCollector)) {
     let (mut engine, collector) = database_with_schema;
     engine
         .execute(Command::Query {
@@ -97,7 +97,7 @@ fn drop_table(database_with_schema: (QueryEngine, ResultCollector)) {
 }
 
 #[rstest::rstest]
-fn drop_non_existent_table(database_with_schema: (QueryEngine, ResultCollector)) {
+fn drop_non_existent_table(database_with_schema: (InMemory, ResultCollector)) {
     let (mut engine, collector) = database_with_schema;
     engine
         .execute(Command::Query {
@@ -108,7 +108,7 @@ fn drop_non_existent_table(database_with_schema: (QueryEngine, ResultCollector))
 }
 
 #[rstest::rstest]
-fn drop_if_exists_non_existent_table(database_with_schema: (QueryEngine, ResultCollector)) {
+fn drop_if_exists_non_existent_table(database_with_schema: (InMemory, ResultCollector)) {
     let (mut engine, collector) = database_with_schema;
 
     engine
@@ -124,7 +124,7 @@ mod different_types {
     use super::*;
 
     #[rstest::rstest]
-    fn ints(database_with_schema: (QueryEngine, ResultCollector)) {
+    fn ints(database_with_schema: (InMemory, ResultCollector)) {
         let (mut engine, collector) = database_with_schema;
         engine
             .execute(Command::Query {
@@ -141,7 +141,7 @@ mod different_types {
     }
 
     #[rstest::rstest]
-    fn strings(database_with_schema: (QueryEngine, ResultCollector)) {
+    fn strings(database_with_schema: (InMemory, ResultCollector)) {
         let (mut engine, collector) = database_with_schema;
         engine
             .execute(Command::Query {
@@ -157,7 +157,7 @@ mod different_types {
     }
 
     #[rstest::rstest]
-    fn boolean(database_with_schema: (QueryEngine, ResultCollector)) {
+    fn boolean(database_with_schema: (InMemory, ResultCollector)) {
         let (mut engine, collector) = database_with_schema;
         engine
             .execute(Command::Query {
@@ -172,7 +172,7 @@ mod different_types {
     }
 
     #[rstest::rstest]
-    fn serials(database_with_schema: (QueryEngine, ResultCollector)) {
+    fn serials(database_with_schema: (InMemory, ResultCollector)) {
         let (mut engine, collector) = database_with_schema;
         engine
             .execute(Command::Query {

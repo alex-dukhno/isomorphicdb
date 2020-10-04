@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use crate::{Planner, Result};
-use data_manager::{ColumnDefinition, DataManager, MetadataView};
+use data_manager::{ColumnDefinition, DataManager, Database, MetadataView};
 use plan::{FullTableName, Plan, TableCreationInfo};
 use protocol::{results::QueryError, Sender};
 use sql_model::sql_types::SqlType;
@@ -34,8 +34,8 @@ impl<'ctp> CreateTablePlanner<'ctp> {
     }
 }
 
-impl Planner for CreateTablePlanner<'_> {
-    fn plan(self, data_manager: Arc<DataManager>, sender: Arc<dyn Sender>) -> Result<Plan> {
+impl<D: Database> Planner<D> for CreateTablePlanner<'_> {
+    fn plan(self, data_manager: Arc<DataManager<D>>, sender: Arc<dyn Sender>) -> Result<Plan> {
         match FullTableName::try_from(self.full_table_name) {
             Ok(full_table_name) => {
                 let (schema_name, table_name) = full_table_name.as_tuple();
