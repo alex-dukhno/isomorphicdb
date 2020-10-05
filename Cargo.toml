@@ -8,6 +8,8 @@ members = [
     "src/description",
     "src/expr_eval",
     "src/kernel",
+    "src/meta_def",
+    "src/metadata",
     "src/node",
     "src/protocol",
     "src/parser",

@@ -12,23 +12,31 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-pub mod sql_errors;
-pub mod sql_types;
+use sql_model::sql_types::SqlType;
 
-pub type Id = u64;
-pub type RecordId = Id;
-pub type CatalogId = Id;
-pub type SchemaId = Id;
-pub type TableId = (Id, Id);
-
-pub enum DropStrategy {
-    Restrict,
-    Cascade,
+#[derive(Debug, PartialEq, Clone)]
+pub struct ColumnDefinition {
+    name: String,
+    sql_type: SqlType,
 }
 
-#[derive(Debug, PartialEq)]
-pub enum DropSchemaError {
-    CatalogDoesNotExist,
-    DoesNotExist,
-    HasDependentObjects,
+impl ColumnDefinition {
+    pub fn new(name: &str, sql_type: SqlType) -> Self {
+        Self {
+            name: name.to_lowercase(),
+            sql_type,
+        }
+    }
+
+    pub fn sql_type(&self) -> SqlType {
+        self.sql_type
+    }
+
+    pub fn has_name(&self, other_name: &str) -> bool {
+        self.name == other_name
+    }
+
+    pub fn name(&self) -> String {
+        self.name.clone()
+    }
 }

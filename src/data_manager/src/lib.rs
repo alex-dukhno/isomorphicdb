@@ -12,10 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::data_definition::DataDefinition;
 use chashmap::CHashMap;
 use kernel::{Object, Operation, SystemError, SystemResult};
-use sql_model::{sql_types::SqlType, Id};
+use meta_def::ColumnDefinition;
+use metadata::DataDefinition;
+use sql_model::{DropSchemaError, DropStrategy, Id};
 use std::{
     collections::HashMap,
     path::PathBuf,
@@ -24,8 +25,6 @@ use std::{
 use storage::InMemoryDatabase;
 use storage::PersistentDatabase;
 use storage::{Database, FullSchemaId, FullTableId, InitStatus, Key, ReadCursor, Values};
-
-mod data_definition;
 
 pub trait MetadataView {
     fn schema_exists<S: AsRef<str>>(&self, schema_name: &S) -> FullSchemaId;
@@ -41,45 +40,6 @@ pub trait MetadataView {
     ) -> Result<(Vec<Id>, Vec<String>), ()>;
 
     fn column_defs<I: AsRef<(Id, Id)>>(&self, table_id: &I, ids: &[Id]) -> Vec<ColumnDefinition>;
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct ColumnDefinition {
-    name: String,
-    sql_type: SqlType,
-}
-
-impl ColumnDefinition {
-    pub fn new(name: &str, sql_type: SqlType) -> Self {
-        Self {
-            name: name.to_lowercase(),
-            sql_type,
-        }
-    }
-
-    pub fn sql_type(&self) -> SqlType {
-        self.sql_type
-    }
-
-    pub fn has_name(&self, other_name: &str) -> bool {
-        self.name == other_name
-    }
-
-    pub fn name(&self) -> String {
-        self.name.clone()
-    }
-}
-
-pub enum DropStrategy {
-    Restrict,
-    Cascade,
-}
-
-#[derive(Debug, PartialEq)]
-pub enum DropSchemaError {
-    CatalogDoesNotExist,
-    DoesNotExist,
-    HasDependentObjects,
 }
 
 pub struct DataManager<D: Database> {

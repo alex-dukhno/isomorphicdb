@@ -12,6 +12,7 @@ constraints = { path = "../constraints" }
 data_manager = { path = "../data_manager" }
 expr_eval = { path = "../expr_eval" }
 kernel = { path = "../kernel" }
+meta_def = { path = "../meta_def" }
 plan = { path = "../plan" }
 protocol = { path = "../protocol" }
 repr = { path = "../repr" }

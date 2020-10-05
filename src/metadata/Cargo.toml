@@ -1,5 +1,5 @@
 [package]
-name = "data_manager"
+name = "metadata"
 version = "0.1.0"
 authors = ["Alex Dukhno <alex.dukhno@icloud.com>"]
 edition = "2018"
@@ -9,15 +9,12 @@ publish = false
 binary = { path = "../binary" }
 kernel = { path = "../kernel" }
 meta_def = { path = "../meta_def" }
-metadata = { path = "../metadata" }
 repr = { path = "../repr" }
 sql_model = { path = "../sql_model" }
 storage = { path = "../storage" }
 
 chashmap = "2.2.2"
-fail = { version = "0.4.0", features = ["failpoints"] }
 log = "0.4.11"
-sled = { version = "0.34.4", features = ["default"] }
 
 [dev-dependencies]
 backtrace = "0.3.50"

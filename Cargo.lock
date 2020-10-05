@@ -440,6 +440,8 @@ dependencies = [
  "fail",
  "kernel",
  "log",
+ "meta_def",
+ "metadata",
  "repr",
  "rstest",
  "sled",
@@ -722,6 +724,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "meta_def"
+version = "0.1.0"
+dependencies = [
+ "sql_model",
+]
+
+[[package]]
+name = "metadata"
+version = "0.1.0"
+dependencies = [
+ "backtrace",
+ "binary",
+ "chashmap",
+ "kernel",
+ "log",
+ "meta_def",
+ "repr",
+ "rstest",
+ "sql_model",
+ "storage",
+ "tempfile",
+]
+
+[[package]]
 name = "miniz_oxide"
 version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -991,6 +1017,7 @@ dependencies = [
  "ast",
  "constraints",
  "data_manager",
+ "meta_def",
  "protocol",
  "sql_model",
  "sqlparser",
@@ -1077,6 +1104,7 @@ dependencies = [
  "futures-lite",
  "kernel",
  "log",
+ "meta_def",
  "plan",
  "protocol",
  "repr",
@@ -1096,6 +1124,7 @@ dependencies = [
  "constraints",
  "data_manager",
  "kernel",
+ "meta_def",
  "plan",
  "protocol",
  "rstest",

@@ -15,9 +15,10 @@
 use ast::operations::ScalarOp;
 use binary::Binary;
 use constraints::{Constraint, ConstraintError};
-use data_manager::{ColumnDefinition, DataManager};
+use data_manager::DataManager;
 use expr_eval::static_expr::StaticExpressionEvaluation;
 use kernel::SystemError;
+use meta_def::ColumnDefinition;
 use plan::TableInserts;
 use protocol::{
     results::{QueryError, QueryEvent},

@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use super::*;
-use data_manager::ColumnDefinition;
+use meta_def::ColumnDefinition;
 use plan::TableCreationInfo;
 use protocol::results::QueryError;
 use sql_model::sql_types::SqlType;

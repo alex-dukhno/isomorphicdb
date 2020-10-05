@@ -15,7 +15,7 @@
 use ast::operations::ScalarOp;
 use ast::predicates::{PredicateOp, PredicateValue};
 use constraints::TypeConstraint;
-use data_manager::ColumnDefinition;
+use meta_def::ColumnDefinition;
 use sql_model::{sql_types::SqlType, Id};
 use sqlparser::ast::{ObjectName, Statement};
 use std::{

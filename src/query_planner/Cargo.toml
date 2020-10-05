@@ -10,6 +10,7 @@ ast = { path = "../ast" }
 constraints = { path = "../constraints" }
 data_manager = { path = "../data_manager" }
 kernel = { path = "../kernel" }
+meta_def = { path = "../meta_def" }
 plan = { path = "../plan" }
 protocol = { path = "../protocol" }
 sql_model = { path = "../sql_model" }

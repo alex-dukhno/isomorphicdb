@@ -13,7 +13,8 @@
 // limitations under the License.
 
 use super::*;
-use data_manager::{ColumnDefinition, DataManager};
+use data_manager::DataManager;
+use meta_def::ColumnDefinition;
 use protocol::{results::QueryResult, Sender};
 use sql_model::sql_types::SqlType;
 use sqlparser::ast::Ident;
