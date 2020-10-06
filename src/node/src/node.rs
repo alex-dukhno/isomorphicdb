@@ -16,6 +16,7 @@ use crate::query_engine::QueryEngine;
 use async_dup::Arc as AsyncArc;
 use async_io::Async;
 use data_manager::DataManager;
+use metadata::DataDefinition;
 use protocol::{ClientRequest, ConnSupervisor, ProtocolConfiguration};
 use std::{
     env,
@@ -40,8 +41,11 @@ pub const STOPPED: u8 = 1;
 pub fn start() {
     let root_path = env::var("ROOT_PATH").map(PathBuf::from).unwrap_or_default();
     smol::block_on(async {
-        let storage =
-            Arc::new(DataManager::<PersistentDatabase>::persistent(root_path.join("root_directory")).unwrap());
+        let metadata =
+            Arc::new(DataDefinition::persistent(&root_path.join("root_directory")).expect("no system error"));
+        let storage = Arc::new(
+            DataManager::<PersistentDatabase>::persistent(metadata.clone(), root_path.join("root_directory")).unwrap(),
+        );
         let listener = Async::<TcpListener>::bind((HOST, PORT)).expect("OK");
 
         let state = Arc::new(AtomicU8::new(RUNNING));
@@ -58,7 +62,7 @@ pub fn start() {
                         return;
                     }
                     let state = state.clone();
-                    let mut query_engine = QueryEngine::new(sender, storage.clone());
+                    let mut query_engine = QueryEngine::new(sender, metadata.clone(), storage.clone());
                     log::debug!("ready to handle query");
                     smol::spawn(async move {
                         loop {

@@ -41,6 +41,7 @@ mod update;
 mod where_clause;
 
 type InMemory = QueryEngine<InMemoryDatabase>;
+type ResultCollector = Arc<Collector>;
 
 pub struct Collector(Mutex<Vec<QueryResult>>);
 
@@ -56,6 +57,10 @@ impl Sender for Collector {
 }
 
 impl Collector {
+    fn new() -> ResultCollector {
+        Arc::new(Collector(Mutex::new(vec![])))
+    }
+
     fn assert_receive_till_this_moment(&self, expected: Vec<QueryResult>) {
         let result = self.0.lock().expect("locked").drain(0..).collect::<Vec<_>>();
         assert_eq!(result, expected)
@@ -89,18 +94,16 @@ impl Collector {
     }
 }
 
-type ResultCollector = Arc<Collector>;
-
-#[rstest::fixture]
-fn sender() -> ResultCollector {
-    Arc::new(Collector(Mutex::new(vec![])))
-}
-
 #[rstest::fixture]
 fn empty_database() -> (InMemory, ResultCollector) {
-    let collector = Arc::new(Collector(Mutex::new(vec![])));
+    let collector = Collector::new();
+    let metadata = Arc::new(DataDefinition::in_memory());
     (
-        InMemory::new(collector.clone(), Arc::new(DataManager::default())),
+        InMemory::new(
+            collector.clone(),
+            metadata.clone(),
+            Arc::new(DataManager::<InMemoryDatabase>::in_memory(metadata)),
+        ),
         collector,
     )
 }

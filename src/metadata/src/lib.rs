@@ -27,7 +27,7 @@ use std::{
         Arc, RwLock,
     },
 };
-use storage::{Database, InitStatus, PersistentDatabase};
+use storage::{Database, InMemoryDatabase, InitStatus, PersistentDatabase};
 
 const SYSTEM_CATALOG: &'_ str = "system";
 // CREATE SCHEMA DEFINITION_SCHEMA
@@ -494,18 +494,48 @@ pub(crate) enum DropCatalogError {
     HasDependentObjects,
 }
 
+unsafe impl Send for DataDefinition {}
+
+unsafe impl Sync for DataDefinition {}
+
 pub struct DataDefinition {
     catalog_ids: AtomicU64,
     catalogs: CHashMap<Name, Arc<Catalog>>,
-    system_catalog: Option<Box<dyn Database>>,
+    system_catalog: Box<dyn Database>,
 }
 
 impl DataDefinition {
     pub fn in_memory() -> DataDefinition {
+        let system_catalog = InMemoryDatabase::default();
+        system_catalog
+            .create_schema(DEFINITION_SCHEMA)
+            .expect("no io error")
+            .expect("no platform error")
+            .expect("table CATALOG_NAMES is created");
+        system_catalog
+            .create_object(DEFINITION_SCHEMA, CATALOG_NAMES_TABLE)
+            .expect("no io error")
+            .expect("no platform error")
+            .expect("table CATALOG_NAMES is created");
+        system_catalog
+            .create_object(DEFINITION_SCHEMA, SCHEMATA_TABLE)
+            .expect("no io error")
+            .expect("no platform error")
+            .expect("table SCHEMATA is created");
+        system_catalog
+            .create_object(DEFINITION_SCHEMA, TABLES_TABLE)
+            .expect("no io error")
+            .expect("no platform error")
+            .expect("table TABLES is created");
+        system_catalog
+            .create_object(DEFINITION_SCHEMA, COLUMNS_TABLE)
+            .expect("no io error")
+            .expect("no platform error")
+            .expect("table COLUMNS is created");
         DataDefinition {
             catalog_ids: AtomicU64::default(),
             catalogs: CHashMap::default(),
-            system_catalog: None,
+            system_catalog: Box::new(system_catalog),
         }
     }
 
@@ -560,7 +590,7 @@ impl DataDefinition {
         Ok(DataDefinition {
             catalog_ids: AtomicU64::new(catalog_ids),
             catalogs,
-            system_catalog: Some(Box::new(system_catalog)),
+            system_catalog: Box::new(system_catalog),
         })
     }
 
@@ -568,20 +598,18 @@ impl DataDefinition {
         let catalog_id = self.catalog_ids.fetch_add(1, Ordering::SeqCst);
         self.catalogs
             .insert(catalog_name.to_owned(), Arc::new(Catalog::new(catalog_id)));
-        if let Some(system_catalog) = self.system_catalog.as_ref() {
-            system_catalog
-                .write(
-                    DEFINITION_SCHEMA,
-                    CATALOG_NAMES_TABLE,
-                    vec![(
-                        Binary::pack(&[Datum::from_u64(catalog_id)]),
-                        Binary::pack(&[Datum::from_str(catalog_name)]),
-                    )],
-                )
-                .expect("no io error")
-                .expect("no platform error")
-                .expect("to save catalog");
-        }
+        self.system_catalog
+            .write(
+                DEFINITION_SCHEMA,
+                CATALOG_NAMES_TABLE,
+                vec![(
+                    Binary::pack(&[Datum::from_u64(catalog_id)]),
+                    Binary::pack(&[Datum::from_str(catalog_name)]),
+                )],
+            )
+            .expect("no io error")
+            .expect("no platform error")
+            .expect("to save catalog");
     }
 
     pub fn catalog_exists(&self, catalog_name: &str) -> InnerCatalogId {
@@ -595,27 +623,7 @@ impl DataDefinition {
                 DropStrategy::Restrict => {
                     if catalog.empty() {
                         if let Some(catalog) = self.catalogs.remove(catalog_name) {
-                            if let Some(system_catalog) = self.system_catalog.as_ref() {
-                                system_catalog
-                                    .delete(
-                                        DEFINITION_SCHEMA,
-                                        CATALOG_NAMES_TABLE,
-                                        vec![Binary::pack(&[Datum::from_u64(catalog.id())])],
-                                    )
-                                    .expect("no io error")
-                                    .expect("no platform error")
-                                    .expect("to remove catalog");
-                            }
-                        }
-                        Ok(())
-                    } else {
-                        Err(DropCatalogError::HasDependentObjects)
-                    }
-                }
-                DropStrategy::Cascade => {
-                    if let Some(catalog) = self.catalogs.remove(catalog_name) {
-                        if let Some(system_catalog) = self.system_catalog.as_ref() {
-                            system_catalog
+                            self.system_catalog
                                 .delete(
                                     DEFINITION_SCHEMA,
                                     CATALOG_NAMES_TABLE,
@@ -624,65 +632,84 @@ impl DataDefinition {
                                 .expect("no io error")
                                 .expect("no platform error")
                                 .expect("to remove catalog");
-                            let schema_record_ids = system_catalog
-                                .read(DEFINITION_SCHEMA, SCHEMATA_TABLE)
-                                .expect("no io error")
-                                .expect("no platform error")
-                                .expect("to have SCHEMATA table")
-                                .map(Result::unwrap)
-                                .map(Result::unwrap)
-                                .map(|(record_id, _columns)| {
-                                    let catalog_id = record_id.unpack()[0].as_u64();
-                                    (catalog_id, record_id)
-                                })
-                                .filter(|(catalog_id, _record_id)| *catalog_id == catalog.id())
-                                .map(|(_catalog_id, record_id)| record_id)
-                                .collect();
-                            system_catalog
-                                .delete(DEFINITION_SCHEMA, SCHEMATA_TABLE, schema_record_ids)
-                                .expect("no io error")
-                                .expect("no platform error")
-                                .expect("to remove schemas under catalog");
-                            let table_record_ids = system_catalog
-                                .read(DEFINITION_SCHEMA, TABLES_TABLE)
-                                .expect("no io error")
-                                .expect("no platform error")
-                                .expect("to have TABLES table")
-                                .map(Result::unwrap)
-                                .map(Result::unwrap)
-                                .map(|(record_id, _columns)| {
-                                    let catalog_id = record_id.unpack()[0].as_u64();
-                                    (catalog_id, record_id)
-                                })
-                                .filter(|(catalog_id, _record_id)| *catalog_id == catalog.id())
-                                .map(|(_catalog_id, record_id)| record_id)
-                                .collect();
-                            system_catalog
-                                .delete(DEFINITION_SCHEMA, TABLES_TABLE, table_record_ids)
-                                .expect("no io error")
-                                .expect("no platform error")
-                                .expect("to remove tables under catalog");
-                            let table_column_record_ids = system_catalog
-                                .read(DEFINITION_SCHEMA, COLUMNS_TABLE)
-                                .expect("no io error")
-                                .expect("no platform error")
-                                .expect("to have COLUMNS table")
-                                .map(Result::unwrap)
-                                .map(Result::unwrap)
-                                .map(|(record_id, _data)| {
-                                    let record = record_id.unpack();
-                                    let catalog = record[0].as_u64();
-                                    (record_id, catalog)
-                                })
-                                .filter(|(_record_id, catalog_id)| *catalog_id == catalog.id())
-                                .map(|(record_id, _catalog)| record_id)
-                                .collect();
-                            system_catalog
-                                .delete(DEFINITION_SCHEMA, COLUMNS_TABLE, table_column_record_ids)
-                                .expect("no io error")
-                                .expect("no platform error")
-                                .expect("to have remove tables columns under catalog");
                         }
+                        Ok(())
+                    } else {
+                        Err(DropCatalogError::HasDependentObjects)
+                    }
+                }
+                DropStrategy::Cascade => {
+                    if let Some(catalog) = self.catalogs.remove(catalog_name) {
+                        self.system_catalog
+                            .delete(
+                                DEFINITION_SCHEMA,
+                                CATALOG_NAMES_TABLE,
+                                vec![Binary::pack(&[Datum::from_u64(catalog.id())])],
+                            )
+                            .expect("no io error")
+                            .expect("no platform error")
+                            .expect("to remove catalog");
+                        let schema_record_ids = self
+                            .system_catalog
+                            .read(DEFINITION_SCHEMA, SCHEMATA_TABLE)
+                            .expect("no io error")
+                            .expect("no platform error")
+                            .expect("to have SCHEMATA table")
+                            .map(Result::unwrap)
+                            .map(Result::unwrap)
+                            .map(|(record_id, _columns)| {
+                                let catalog_id = record_id.unpack()[0].as_u64();
+                                (catalog_id, record_id)
+                            })
+                            .filter(|(catalog_id, _record_id)| *catalog_id == catalog.id())
+                            .map(|(_catalog_id, record_id)| record_id)
+                            .collect();
+                        self.system_catalog
+                            .delete(DEFINITION_SCHEMA, SCHEMATA_TABLE, schema_record_ids)
+                            .expect("no io error")
+                            .expect("no platform error")
+                            .expect("to remove schemas under catalog");
+                        let table_record_ids = self
+                            .system_catalog
+                            .read(DEFINITION_SCHEMA, TABLES_TABLE)
+                            .expect("no io error")
+                            .expect("no platform error")
+                            .expect("to have TABLES table")
+                            .map(Result::unwrap)
+                            .map(Result::unwrap)
+                            .map(|(record_id, _columns)| {
+                                let catalog_id = record_id.unpack()[0].as_u64();
+                                (catalog_id, record_id)
+                            })
+                            .filter(|(catalog_id, _record_id)| *catalog_id == catalog.id())
+                            .map(|(_catalog_id, record_id)| record_id)
+                            .collect();
+                        self.system_catalog
+                            .delete(DEFINITION_SCHEMA, TABLES_TABLE, table_record_ids)
+                            .expect("no io error")
+                            .expect("no platform error")
+                            .expect("to remove tables under catalog");
+                        let table_column_record_ids = self
+                            .system_catalog
+                            .read(DEFINITION_SCHEMA, COLUMNS_TABLE)
+                            .expect("no io error")
+                            .expect("no platform error")
+                            .expect("to have COLUMNS table")
+                            .map(Result::unwrap)
+                            .map(Result::unwrap)
+                            .map(|(record_id, _data)| {
+                                let record = record_id.unpack();
+                                let catalog = record[0].as_u64();
+                                (record_id, catalog)
+                            })
+                            .filter(|(_record_id, catalog_id)| *catalog_id == catalog.id())
+                            .map(|(record_id, _catalog)| record_id)
+                            .collect();
+                        self.system_catalog
+                            .delete(DEFINITION_SCHEMA, COLUMNS_TABLE, table_column_record_ids)
+                            .expect("no io error")
+                            .expect("no platform error")
+                            .expect("to have remove tables columns under catalog");
                     }
                     Ok(())
                 }
@@ -698,20 +725,18 @@ impl DataDefinition {
             None => return None,
         };
         let schema_id = catalog.create_schema(schema_name);
-        if let Some(system_catalog) = self.system_catalog.as_ref() {
-            system_catalog
-                .write(
-                    DEFINITION_SCHEMA,
-                    SCHEMATA_TABLE,
-                    vec![(
-                        Binary::pack(&[Datum::from_u64(catalog.id()), Datum::from_u64(schema_id)]),
-                        Binary::pack(&[Datum::from_str(catalog_name), Datum::from_str(schema_name)]),
-                    )],
-                )
-                .expect("no io error")
-                .expect("no platform error")
-                .expect("to save schema");
-        }
+        self.system_catalog
+            .write(
+                DEFINITION_SCHEMA,
+                SCHEMATA_TABLE,
+                vec![(
+                    Binary::pack(&[Datum::from_u64(catalog.id()), Datum::from_u64(schema_id)]),
+                    Binary::pack(&[Datum::from_str(catalog_name), Datum::from_str(schema_name)]),
+                )],
+            )
+            .expect("no io error")
+            .expect("no platform error")
+            .expect("to save schema");
         Some((catalog.id(), Some(schema_id)))
     }
 
@@ -723,34 +748,31 @@ impl DataDefinition {
         };
         let schema_id = match catalog.schema_exists(schema_name) {
             None => {
-                if let Some(system_catalog) = self.system_catalog.as_ref() {
-                    let schema_id = system_catalog
-                        .read(DEFINITION_SCHEMA, SCHEMATA_TABLE)
-                        .expect("no io error")
-                        .expect("no platform error")
-                        .expect("to have SCHEMATA_TABLE table")
-                        .map(Result::unwrap)
-                        .map(Result::unwrap)
-                        .map(|(record_id, columns)| {
-                            let _catalog_id = record_id.unpack()[0].as_u64();
-                            let id = record_id.unpack()[1].as_u64();
-                            let columns = columns.unpack();
-                            let catalog = columns[0].as_str().to_owned();
-                            let schema = columns[1].as_str().to_owned();
-                            (id, catalog, schema)
-                        })
-                        .filter(|(_id, catalog, schema)| catalog == catalog_name && schema == schema_name)
-                        .map(|(id, _catalog, _schema)| id)
-                        .next();
-                    match schema_id {
-                        Some(schema_id) => {
-                            catalog.add_schema(schema_id, schema_name);
-                            Some(schema_id)
-                        }
-                        None => None,
+                let schema_id = self
+                    .system_catalog
+                    .read(DEFINITION_SCHEMA, SCHEMATA_TABLE)
+                    .expect("no io error")
+                    .expect("no platform error")
+                    .expect("to have SCHEMATA_TABLE table")
+                    .map(Result::unwrap)
+                    .map(Result::unwrap)
+                    .map(|(record_id, columns)| {
+                        let _catalog_id = record_id.unpack()[0].as_u64();
+                        let id = record_id.unpack()[1].as_u64();
+                        let columns = columns.unpack();
+                        let catalog = columns[0].as_str().to_owned();
+                        let schema = columns[1].as_str().to_owned();
+                        (id, catalog, schema)
+                    })
+                    .filter(|(_id, catalog, schema)| catalog == catalog_name && schema == schema_name)
+                    .map(|(id, _catalog, _schema)| id)
+                    .next();
+                match schema_id {
+                    Some(schema_id) => {
+                        catalog.add_schema(schema_id, schema_name);
+                        Some(schema_id)
                     }
-                } else {
-                    None
+                    None => None,
                 }
             }
             schema_id => schema_id,
@@ -779,20 +801,18 @@ impl DataDefinition {
                     match schema_id {
                         None => Err(DropSchemaError::DoesNotExist),
                         Some(schema_id) => {
-                            if let Some(system_catalog) = self.system_catalog.as_ref() {
-                                system_catalog
-                                    .delete(
-                                        DEFINITION_SCHEMA,
-                                        SCHEMATA_TABLE,
-                                        vec![Binary::pack(&[
-                                            Datum::from_u64(catalog.id()),
-                                            Datum::from_u64(schema_id),
-                                        ])],
-                                    )
-                                    .expect("no io error")
-                                    .expect("no platform error")
-                                    .expect("to remove schema");
-                            }
+                            self.system_catalog
+                                .delete(
+                                    DEFINITION_SCHEMA,
+                                    SCHEMATA_TABLE,
+                                    vec![Binary::pack(&[
+                                        Datum::from_u64(catalog.id()),
+                                        Datum::from_u64(schema_id),
+                                    ])],
+                                )
+                                .expect("no io error")
+                                .expect("no platform error")
+                                .expect("to remove schema");
                             Ok(())
                         }
                     }
@@ -805,66 +825,66 @@ impl DataDefinition {
                 match schema_id {
                     None => Err(DropSchemaError::DoesNotExist),
                     Some(schema_id) => {
-                        if let Some(system_catalog) = self.system_catalog.as_ref() {
-                            system_catalog
-                                .delete(
-                                    DEFINITION_SCHEMA,
-                                    SCHEMATA_TABLE,
-                                    vec![Binary::pack(&[
-                                        Datum::from_u64(catalog.id()),
-                                        Datum::from_u64(schema_id),
-                                    ])],
-                                )
-                                .expect("no io error")
-                                .expect("no platform error")
-                                .expect("to remove schema");
-                            let table_record_ids = system_catalog
-                                .read(DEFINITION_SCHEMA, TABLES_TABLE)
-                                .expect("no io error")
-                                .expect("no platform error")
-                                .expect("to have TABLES table")
-                                .map(Result::unwrap)
-                                .map(Result::unwrap)
-                                .map(|(record_id, _columns)| {
-                                    let ids = record_id.unpack();
-                                    let catalog_id = ids[0].as_u64();
-                                    let schema_id = ids[1].as_u64();
-                                    (catalog_id, schema_id, record_id)
-                                })
-                                .filter(|(catalog_id, schema, _record_id)| {
-                                    *catalog_id == catalog.id() && *schema == schema_id
-                                })
-                                .map(|(_catalog_id, _schema, record_id)| record_id)
-                                .collect();
-                            system_catalog
-                                .delete(DEFINITION_SCHEMA, TABLES_TABLE, table_record_ids)
-                                .expect("no io error")
-                                .expect("no platform error")
-                                .expect("to remove tables under catalog");
-                            let table_column_record_ids = system_catalog
-                                .read(DEFINITION_SCHEMA, COLUMNS_TABLE)
-                                .expect("no io error")
-                                .expect("no platform error")
-                                .expect("to have COLUMNS table")
-                                .map(Result::unwrap)
-                                .map(Result::unwrap)
-                                .map(|(record_id, _data)| {
-                                    let record = record_id.unpack();
-                                    let catalog = record[0].as_u64();
-                                    let schema = record[1].as_u64();
-                                    (record_id, catalog, schema)
-                                })
-                                .filter(|(_record_id, catalog_id, schema)| {
-                                    *catalog_id == catalog.id() && *schema == schema_id
-                                })
-                                .map(|(record_id, _catalog, _schema)| record_id)
-                                .collect();
-                            system_catalog
-                                .delete(DEFINITION_SCHEMA, COLUMNS_TABLE, table_column_record_ids)
-                                .expect("no io error")
-                                .expect("no platform error")
-                                .expect("to have remove tables columns under catalog");
-                        }
+                        self.system_catalog
+                            .delete(
+                                DEFINITION_SCHEMA,
+                                SCHEMATA_TABLE,
+                                vec![Binary::pack(&[
+                                    Datum::from_u64(catalog.id()),
+                                    Datum::from_u64(schema_id),
+                                ])],
+                            )
+                            .expect("no io error")
+                            .expect("no platform error")
+                            .expect("to remove schema");
+                        let table_record_ids = self
+                            .system_catalog
+                            .read(DEFINITION_SCHEMA, TABLES_TABLE)
+                            .expect("no io error")
+                            .expect("no platform error")
+                            .expect("to have TABLES table")
+                            .map(Result::unwrap)
+                            .map(Result::unwrap)
+                            .map(|(record_id, _columns)| {
+                                let ids = record_id.unpack();
+                                let catalog_id = ids[0].as_u64();
+                                let schema_id = ids[1].as_u64();
+                                (catalog_id, schema_id, record_id)
+                            })
+                            .filter(|(catalog_id, schema, _record_id)| {
+                                *catalog_id == catalog.id() && *schema == schema_id
+                            })
+                            .map(|(_catalog_id, _schema, record_id)| record_id)
+                            .collect();
+                        self.system_catalog
+                            .delete(DEFINITION_SCHEMA, TABLES_TABLE, table_record_ids)
+                            .expect("no io error")
+                            .expect("no platform error")
+                            .expect("to remove tables under catalog");
+                        let table_column_record_ids = self
+                            .system_catalog
+                            .read(DEFINITION_SCHEMA, COLUMNS_TABLE)
+                            .expect("no io error")
+                            .expect("no platform error")
+                            .expect("to have COLUMNS table")
+                            .map(Result::unwrap)
+                            .map(Result::unwrap)
+                            .map(|(record_id, _data)| {
+                                let record = record_id.unpack();
+                                let catalog = record[0].as_u64();
+                                let schema = record[1].as_u64();
+                                (record_id, catalog, schema)
+                            })
+                            .filter(|(_record_id, catalog_id, schema)| {
+                                *catalog_id == catalog.id() && *schema == schema_id
+                            })
+                            .map(|(record_id, _catalog, _schema)| record_id)
+                            .collect();
+                        self.system_catalog
+                            .delete(DEFINITION_SCHEMA, COLUMNS_TABLE, table_column_record_ids)
+                            .expect("no io error")
+                            .expect("no platform error")
+                            .expect("to have remove tables columns under catalog");
                         Ok(())
                     }
                 }
@@ -875,25 +895,24 @@ impl DataDefinition {
     pub fn schemas(&self, catalog_name: &str) -> Vec<(Id, String)> {
         match self.catalog(catalog_name) {
             Some(catalog) => {
-                if let Some(system_catalog) = self.system_catalog.as_ref() {
-                    for (id, _catalog, schema) in system_catalog
-                        .read(DEFINITION_SCHEMA, SCHEMATA_TABLE)
-                        .expect("no io error")
-                        .expect("no platform error")
-                        .expect("to have SCHEMATA_TABLE table")
-                        .map(Result::unwrap)
-                        .map(Result::unwrap)
-                        .map(|(record_id, columns)| {
-                            let id = record_id.unpack()[1].as_u64();
-                            let columns = columns.unpack();
-                            let catalog = columns[0].as_str().to_owned();
-                            let schema = columns[1].as_str().to_owned();
-                            (id, catalog, schema)
-                        })
-                        .filter(|(_id, catalog, _schema)| catalog == catalog_name)
-                    {
-                        catalog.add_schema(id, schema.as_str());
-                    }
+                for (id, _catalog, schema) in self
+                    .system_catalog
+                    .read(DEFINITION_SCHEMA, SCHEMATA_TABLE)
+                    .expect("no io error")
+                    .expect("no platform error")
+                    .expect("to have SCHEMATA_TABLE table")
+                    .map(Result::unwrap)
+                    .map(Result::unwrap)
+                    .map(|(record_id, columns)| {
+                        let id = record_id.unpack()[1].as_u64();
+                        let columns = columns.unpack();
+                        let catalog = columns[0].as_str().to_owned();
+                        let schema = columns[1].as_str().to_owned();
+                        (id, catalog, schema)
+                    })
+                    .filter(|(_id, catalog, _schema)| catalog == catalog_name)
+                {
+                    catalog.add_schema(id, schema.as_str());
                 }
                 catalog.schemas()
             }
@@ -909,85 +928,80 @@ impl DataDefinition {
         let schema = match catalog.schema(schema_name) {
             Some(schema) => schema,
             None => {
-                if let Some(system_catalog) = self.system_catalog.as_ref() {
-                    let schema_id = system_catalog
-                        .read(DEFINITION_SCHEMA, SCHEMATA_TABLE)
-                        .expect("no io error")
-                        .expect("no platform error")
-                        .expect("to have SCHEMATA_TABLE table")
-                        .map(Result::unwrap)
-                        .map(Result::unwrap)
-                        .map(|(record_id, columns)| {
-                            let id = record_id.unpack()[0].as_u64();
-                            let name = columns.unpack()[1].as_str().to_owned();
-                            (id, name)
-                        })
-                        .filter(|(_id, name)| name == schema_name)
-                        .map(|(id, _name)| id)
-                        .next();
-                    match schema_id {
-                        Some(schema_id) => catalog.add_schema(schema_id, schema_name),
-                        None => return Some((catalog.id(), None)),
-                    }
-                } else {
-                    return Some((catalog.id(), None));
+                let schema_id = self
+                    .system_catalog
+                    .read(DEFINITION_SCHEMA, SCHEMATA_TABLE)
+                    .expect("no io error")
+                    .expect("no platform error")
+                    .expect("to have SCHEMATA_TABLE table")
+                    .map(Result::unwrap)
+                    .map(Result::unwrap)
+                    .map(|(record_id, columns)| {
+                        let id = record_id.unpack()[0].as_u64();
+                        let name = columns.unpack()[1].as_str().to_owned();
+                        (id, name)
+                    })
+                    .filter(|(_id, name)| name == schema_name)
+                    .map(|(id, _name)| id)
+                    .next();
+                match schema_id {
+                    Some(schema_id) => catalog.add_schema(schema_id, schema_name),
+                    None => return Some((catalog.id(), None)),
                 }
             }
         };
         let table_id = match schema.table_exists(table_name) {
             None => {
-                if let Some(system_catalog) = self.system_catalog.as_ref() {
-                    let table_info = system_catalog
-                        .read(DEFINITION_SCHEMA, TABLES_TABLE)
-                        .expect("no io error")
-                        .expect("no platform error")
-                        .expect("to have TABLES table")
-                        .map(Result::unwrap)
-                        .map(Result::unwrap)
-                        .map(|(record_id, data)| {
-                            let id = record_id.unpack()[0].as_u64();
-                            let data = data.unpack();
-                            let schema = data[1].as_str().to_owned();
-                            let table = data[2].as_str().to_owned();
-                            (id, schema, table)
-                        })
-                        .filter(|(_id, schema, table)| schema == schema_name && table == table_name)
-                        .map(|(id, _schema, _table)| id)
-                        .next();
-                    match table_info {
-                        Some(table_id) => {
-                            let mut max_id: u64 = 0;
-                            let table_columns = system_catalog
-                                .read(DEFINITION_SCHEMA, COLUMNS_TABLE)
-                                .expect("no io error")
-                                .expect("no platform error")
-                                .expect("to have COLUMNS table")
-                                .map(Result::unwrap)
-                                .map(Result::unwrap)
-                                .map(|(record_id, data)| {
-                                    let id = record_id.unpack()[3].as_u64();
-                                    let data = data.unpack();
-                                    let schema = data[1].as_str().to_owned();
-                                    let table = data[2].as_str().to_owned();
-                                    let column = data[3].as_str().to_owned();
-                                    let sql_type = data[4].as_sql_type();
-                                    max_id = max_id.max(id);
-                                    (id, schema, table, column, sql_type)
-                                })
-                                .filter(|(_id, schema, table, _column, _sql_type)| {
-                                    schema == schema_name && table == table_name
-                                })
-                                .map(|(id, _schema, _table, column, sql_type)| {
-                                    (id, ColumnDefinition::new(column.as_str(), sql_type))
-                                })
-                                .collect::<BTreeMap<_, _>>();
-                            schema.add_table(table_id, table_name, table_columns, max_id);
-                            Some(table_id)
-                        }
-                        None => None,
+                let table_info = self
+                    .system_catalog
+                    .read(DEFINITION_SCHEMA, TABLES_TABLE)
+                    .expect("no io error")
+                    .expect("no platform error")
+                    .expect("to have TABLES table")
+                    .map(Result::unwrap)
+                    .map(Result::unwrap)
+                    .map(|(record_id, data)| {
+                        let id = record_id.unpack()[0].as_u64();
+                        let data = data.unpack();
+                        let schema = data[1].as_str().to_owned();
+                        let table = data[2].as_str().to_owned();
+                        (id, schema, table)
+                    })
+                    .filter(|(_id, schema, table)| schema == schema_name && table == table_name)
+                    .map(|(id, _schema, _table)| id)
+                    .next();
+                match table_info {
+                    Some(table_id) => {
+                        let mut max_id: u64 = 0;
+                        let table_columns = self
+                            .system_catalog
+                            .read(DEFINITION_SCHEMA, COLUMNS_TABLE)
+                            .expect("no io error")
+                            .expect("no platform error")
+                            .expect("to have COLUMNS table")
+                            .map(Result::unwrap)
+                            .map(Result::unwrap)
+                            .map(|(record_id, data)| {
+                                let id = record_id.unpack()[3].as_u64();
+                                let data = data.unpack();
+                                let schema = data[1].as_str().to_owned();
+                                let table = data[2].as_str().to_owned();
+                                let column = data[3].as_str().to_owned();
+                                let sql_type = data[4].as_sql_type();
+                                max_id = max_id.max(id);
+                                (id, schema, table, column, sql_type)
+                            })
+                            .filter(|(_id, schema, table, _column, _sql_type)| {
+                                schema == schema_name && table == table_name
+                            })
+                            .map(|(id, _schema, _table, column, sql_type)| {
+                                (id, ColumnDefinition::new(column.as_str(), sql_type))
+                            })
+                            .collect::<BTreeMap<_, _>>();
+                        schema.add_table(table_id, table_name, table_columns, max_id);
+                        Some(table_id)
                     }
-                } else {
-                    None
+                    None => None,
                 }
             }
             table_id => table_id,
@@ -1011,53 +1025,51 @@ impl DataDefinition {
             None => return Some((catalog.id(), None)),
         };
         let created_table = schema.create_table(table_name, column_definitions);
-        if let Some(system_catalog) = self.system_catalog.as_ref() {
-            system_catalog
+        self.system_catalog
+            .write(
+                DEFINITION_SCHEMA,
+                TABLES_TABLE,
+                vec![(
+                    Binary::pack(&[
+                        Datum::from_u64(catalog.id()),
+                        Datum::from_u64(schema.id()),
+                        Datum::from_u64(created_table.id()),
+                    ]),
+                    Binary::pack(&[
+                        Datum::from_str(catalog_name),
+                        Datum::from_str(schema_name),
+                        Datum::from_str(table_name),
+                    ]),
+                )],
+            )
+            .expect("no io error")
+            .expect("no platform error")
+            .expect("to save table info");
+        for (id, column) in created_table.columns() {
+            self.system_catalog
                 .write(
                     DEFINITION_SCHEMA,
-                    TABLES_TABLE,
+                    COLUMNS_TABLE,
                     vec![(
                         Binary::pack(&[
                             Datum::from_u64(catalog.id()),
                             Datum::from_u64(schema.id()),
                             Datum::from_u64(created_table.id()),
+                            Datum::from_u64(id),
                         ]),
                         Binary::pack(&[
                             Datum::from_str(catalog_name),
                             Datum::from_str(schema_name),
                             Datum::from_str(table_name),
+                            Datum::from_str(column.name().as_str()),
+                            Datum::from_sql_type(column.sql_type()),
+                            Datum::UInt64(id),
                         ]),
                     )],
                 )
                 .expect("no io error")
                 .expect("no platform error")
-                .expect("to save table info");
-            for (id, column) in created_table.columns() {
-                system_catalog
-                    .write(
-                        DEFINITION_SCHEMA,
-                        COLUMNS_TABLE,
-                        vec![(
-                            Binary::pack(&[
-                                Datum::from_u64(catalog.id()),
-                                Datum::from_u64(schema.id()),
-                                Datum::from_u64(created_table.id()),
-                                Datum::from_u64(id),
-                            ]),
-                            Binary::pack(&[
-                                Datum::from_str(catalog_name),
-                                Datum::from_str(schema_name),
-                                Datum::from_str(table_name),
-                                Datum::from_str(column.name().as_str()),
-                                Datum::from_sql_type(column.sql_type()),
-                                Datum::UInt64(id),
-                            ]),
-                        )],
-                    )
-                    .expect("no io error")
-                    .expect("no platform error")
-                    .expect("to save column");
-            }
+                .expect("to save column");
         }
         Some((catalog.id(), Some((schema.id(), Some(created_table.id())))))
     }
@@ -1072,22 +1084,20 @@ impl DataDefinition {
             None => return,
         };
         let table_id = schema.remove_table(table_name);
-        if let Some(system_catalog) = self.system_catalog.as_ref() {
-            if let Some(table_id) = table_id {
-                system_catalog
-                    .delete(
-                        DEFINITION_SCHEMA,
-                        TABLES_TABLE,
-                        vec![Binary::pack(&[
-                            Datum::from_u64(catalog.id()),
-                            Datum::from_u64(schema.id()),
-                            Datum::from_u64(table_id),
-                        ])],
-                    )
-                    .expect("no io error")
-                    .expect("no platform error")
-                    .expect("to remove table");
-            }
+        if let Some(table_id) = table_id {
+            self.system_catalog
+                .delete(
+                    DEFINITION_SCHEMA,
+                    TABLES_TABLE,
+                    vec![Binary::pack(&[
+                        Datum::from_u64(catalog.id()),
+                        Datum::from_u64(schema.id()),
+                        Datum::from_u64(table_id),
+                    ])],
+                )
+                .expect("no io error")
+                .expect("no platform error")
+                .expect("to remove table");
         }
     }
 
@@ -1100,49 +1110,47 @@ impl DataDefinition {
             Some(schema) => schema,
             None => return vec![],
         };
-        if let Some(system_catalog) = self.system_catalog.as_ref() {
-            for (table_id, _catalog, _schema, table) in system_catalog
-                .read(DEFINITION_SCHEMA, TABLES_TABLE)
+        for (table_id, _catalog, _schema, table) in self
+            .system_catalog
+            .read(DEFINITION_SCHEMA, TABLES_TABLE)
+            .expect("no io error")
+            .expect("no platform error")
+            .expect("to have SCHEMATA_TABLE table")
+            .map(Result::unwrap)
+            .map(Result::unwrap)
+            .map(|(record_id, columns)| {
+                let id = record_id.unpack()[1].as_u64();
+                let columns = columns.unpack();
+                let catalog = columns[0].as_str().to_owned();
+                let schema = columns[1].as_str().to_owned();
+                let table = columns[2].as_str().to_owned();
+                (id, catalog, schema, table)
+            })
+            .filter(|(_id, catalog, schema, _table)| catalog == catalog_name && schema == schema_name)
+        {
+            let mut max_id = 0;
+            let table_columns = self
+                .system_catalog
+                .read(DEFINITION_SCHEMA, COLUMNS_TABLE)
                 .expect("no io error")
                 .expect("no platform error")
-                .expect("to have SCHEMATA_TABLE table")
+                .expect("to have COLUMNS table")
                 .map(Result::unwrap)
                 .map(Result::unwrap)
-                .map(|(record_id, columns)| {
-                    let id = record_id.unpack()[1].as_u64();
-                    let columns = columns.unpack();
-                    let catalog = columns[0].as_str().to_owned();
-                    let schema = columns[1].as_str().to_owned();
-                    let table = columns[2].as_str().to_owned();
-                    (id, catalog, schema, table)
+                .map(|(record_id, data)| {
+                    let id = record_id.unpack()[3].as_u64();
+                    let data = data.unpack();
+                    let schema = data[1].as_str().to_owned();
+                    let table = data[2].as_str().to_owned();
+                    let column = data[3].as_str().to_owned();
+                    let sql_type = data[4].as_sql_type();
+                    max_id = max_id.max(id);
+                    (id, schema, table, column, sql_type)
                 })
-                .filter(|(_id, catalog, schema, _table)| catalog == catalog_name && schema == schema_name)
-            {
-                let mut max_id = 0;
-                let table_columns = system_catalog
-                    .read(DEFINITION_SCHEMA, COLUMNS_TABLE)
-                    .expect("no io error")
-                    .expect("no platform error")
-                    .expect("to have COLUMNS table")
-                    .map(Result::unwrap)
-                    .map(Result::unwrap)
-                    .map(|(record_id, data)| {
-                        let id = record_id.unpack()[3].as_u64();
-                        let data = data.unpack();
-                        let schema = data[1].as_str().to_owned();
-                        let table = data[2].as_str().to_owned();
-                        let column = data[3].as_str().to_owned();
-                        let sql_type = data[4].as_sql_type();
-                        max_id = max_id.max(id);
-                        (id, schema, table, column, sql_type)
-                    })
-                    .filter(|(_id, schema, _table, _column, _sql_type)| schema == schema_name)
-                    .map(|(id, _schema, _table, column, sql_type)| {
-                        (id, ColumnDefinition::new(column.as_str(), sql_type))
-                    })
-                    .collect::<BTreeMap<_, _>>();
-                schema.add_table(table_id, table.as_str(), table_columns, max_id);
-            }
+                .filter(|(_id, schema, _table, _column, _sql_type)| schema == schema_name)
+                .map(|(id, _schema, _table, column, sql_type)| (id, ColumnDefinition::new(column.as_str(), sql_type)))
+                .collect::<BTreeMap<_, _>>();
+            schema.add_table(table_id, table.as_str(), table_columns, max_id);
         }
         schema.tables()
     }

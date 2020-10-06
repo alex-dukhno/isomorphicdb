@@ -16,6 +16,7 @@ path = "src/bin.rs"
 binder = { path = "../binder" }
 data_manager = { path = "../data_manager" }
 kernel = { path = "../kernel" }
+metadata = { path = "../metadata" }
 parser = { path = "../parser" }
 plan = { path = "../plan" }
 protocol = { path = "../protocol" }

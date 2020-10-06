@@ -17,6 +17,7 @@ use kernel::{Object, Operation, SystemError, SystemResult};
 use meta_def::ColumnDefinition;
 use metadata::DataDefinition;
 use sql_model::{DropSchemaError, DropStrategy, Id};
+use std::sync::Arc;
 use std::{
     collections::HashMap,
     path::PathBuf,
@@ -44,7 +45,7 @@ pub trait MetadataView {
 
 pub struct DataManager<D: Database> {
     databases: CHashMap<String, D>,
-    data_definition: DataDefinition,
+    data_definition: Arc<DataDefinition>,
     schemas: CHashMap<Id, String>,
     tables: CHashMap<(Id, Id), Vec<String>>,
     record_id_generators: CHashMap<(Id, Id), AtomicU64>,
@@ -52,7 +53,7 @@ pub struct DataManager<D: Database> {
 
 impl Default for DataManager<InMemoryDatabase> {
     fn default() -> DataManager<InMemoryDatabase> {
-        DataManager::<InMemoryDatabase>::in_memory()
+        DataManager::<InMemoryDatabase>::in_memory(Arc::new(DataDefinition::in_memory()))
     }
 }
 
@@ -60,16 +61,13 @@ unsafe impl<D: Database> Send for DataManager<D> {}
 
 unsafe impl<D: Database> Sync for DataManager<D> {}
 
-const DEFAULT_CATALOG: &'_ str = "public";
-const SYSTEM_CATALOG: &'_ str = "system";
+pub const DEFAULT_CATALOG: &'_ str = "public";
 
 impl<D: Database> DataManager<D> {
-    pub fn in_memory() -> DataManager<InMemoryDatabase> {
-        let data_definition = DataDefinition::in_memory();
+    pub fn in_memory(data_definition: Arc<DataDefinition>) -> DataManager<InMemoryDatabase> {
         data_definition.create_catalog(DEFAULT_CATALOG);
         let databases = CHashMap::default();
         databases.insert(DEFAULT_CATALOG.to_lowercase(), InMemoryDatabase::default());
-        databases.insert(SYSTEM_CATALOG.to_lowercase(), InMemoryDatabase::default());
         DataManager {
             databases,
             data_definition,
@@ -79,9 +77,11 @@ impl<D: Database> DataManager<D> {
         }
     }
 
-    pub fn persistent(path: PathBuf) -> SystemResult<DataManager<PersistentDatabase>> {
-        let data_definition = DataDefinition::persistent(&path)?;
-        // let system_catalog = PersistentDatabase::new(path.join(SYSTEM_CATALOG));
+    pub fn persistent(
+        data_definition: Arc<DataDefinition>,
+        path: PathBuf,
+    ) -> SystemResult<DataManager<PersistentDatabase>> {
+        // let data_definition = DataDefinition::persistent(&path)?;
         let catalog = PersistentDatabase::new(path.join(DEFAULT_CATALOG));
         let schemas = CHashMap::new();
         let tables = CHashMap::new();
@@ -121,10 +121,6 @@ impl<D: Database> DataManager<D> {
         }
         let databases = CHashMap::default();
         databases.insert(DEFAULT_CATALOG.to_lowercase(), catalog);
-        databases.insert(
-            SYSTEM_CATALOG.to_lowercase(),
-            PersistentDatabase::new(path.join(SYSTEM_CATALOG)),
-        );
         Ok(DataManager {
             databases,
             data_definition,

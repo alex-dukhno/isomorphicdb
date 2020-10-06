@@ -13,13 +13,13 @@
 // limitations under the License.
 
 use crate::{Planner, Result};
-use data_manager::{DataManager, MetadataView};
+use metadata::DataDefinition;
 use plan::{Plan, SchemaId, SchemaName};
 use protocol::results::QueryEvent;
 use protocol::{results::QueryError, Sender};
+use sql_model::DEFAULT_CATALOG;
 use sqlparser::ast::ObjectName;
 use std::{convert::TryFrom, sync::Arc};
-use storage::Database;
 
 pub(crate) struct DropSchemaPlanner<'dsp> {
     names: &'dsp [ObjectName],
@@ -37,13 +37,14 @@ impl DropSchemaPlanner<'_> {
     }
 }
 
-impl<D: Database> Planner<D> for DropSchemaPlanner<'_> {
-    fn plan(self, data_manager: Arc<DataManager<D>>, sender: Arc<dyn Sender>) -> Result<Plan> {
+impl Planner for DropSchemaPlanner<'_> {
+    fn plan(self, metadata: Arc<DataDefinition>, sender: Arc<dyn Sender>) -> Result<Plan> {
         let mut schemas = Vec::with_capacity(self.names.len());
         for name in self.names {
             match SchemaName::try_from(name) {
-                Ok(schema_name) => match data_manager.schema_exists(&schema_name) {
-                    None => {
+                Ok(schema_name) => match metadata.schema_exists(DEFAULT_CATALOG, schema_name.as_ref()) {
+                    None => return Err(()), // TODO catalog does not exists
+                    Some((_, None)) => {
                         if self.if_exists {
                             sender
                                 .send(Ok(QueryEvent::QueryComplete))
@@ -55,7 +56,7 @@ impl<D: Database> Planner<D> for DropSchemaPlanner<'_> {
                         }
                         return Err(());
                     }
-                    Some(schema_id) => schemas.push((SchemaId::from(schema_id), self.cascade)),
+                    Some((_, Some(schema_id))) => schemas.push((SchemaId::from(schema_id), self.cascade)),
                 },
                 Err(error) => {
                     sender

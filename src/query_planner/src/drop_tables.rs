@@ -13,13 +13,13 @@
 // limitations under the License.
 
 use crate::{Planner, Result};
-use data_manager::{DataManager, MetadataView};
+use metadata::DataDefinition;
 use plan::{FullTableName, Plan, TableId};
 use protocol::results::QueryEvent;
 use protocol::{results::QueryError, Sender};
+use sql_model::DEFAULT_CATALOG;
 use sqlparser::ast::ObjectName;
 use std::{convert::TryFrom, sync::Arc};
-use storage::Database;
 
 pub(crate) struct DropTablesPlanner<'dtp> {
     names: &'dtp [ObjectName],
@@ -32,21 +32,22 @@ impl DropTablesPlanner<'_> {
     }
 }
 
-impl<D: Database> Planner<D> for DropTablesPlanner<'_> {
-    fn plan(self, data_manager: Arc<DataManager<D>>, sender: Arc<dyn Sender>) -> Result<Plan> {
+impl Planner for DropTablesPlanner<'_> {
+    fn plan(self, metadata: Arc<DataDefinition>, sender: Arc<dyn Sender>) -> Result<Plan> {
         let mut table_names = Vec::with_capacity(self.names.len());
         for name in self.names {
             match FullTableName::try_from(name) {
                 Ok(full_table_name) => {
                     let (schema_name, table_name) = full_table_name.as_tuple();
-                    match data_manager.table_exists(&schema_name, &table_name) {
-                        None => {
+                    match metadata.table_exists(DEFAULT_CATALOG, &schema_name, &table_name) {
+                        None => return Err(()), // TODO catalog does not exists
+                        Some((_, None)) => {
                             sender
                                 .send(Err(QueryError::schema_does_not_exist(schema_name)))
                                 .expect("To Send Query Result to Client");
                             return Err(());
                         }
-                        Some((_, None)) => {
+                        Some((_, Some((_, None)))) => {
                             if self.if_exists {
                                 sender
                                     .send(Ok(QueryEvent::QueryComplete))
@@ -58,7 +59,9 @@ impl<D: Database> Planner<D> for DropTablesPlanner<'_> {
                             }
                             return Err(());
                         }
-                        Some((schema_id, Some(table_id))) => table_names.push(TableId::from((schema_id, table_id))),
+                        Some((_, Some((schema_id, Some(table_id))))) => {
+                            table_names.push(TableId::from((schema_id, table_id)))
+                        }
                     }
                 }
                 Err(error) => {

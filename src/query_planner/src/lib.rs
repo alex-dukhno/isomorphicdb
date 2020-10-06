@@ -27,36 +27,35 @@ use crate::{
     drop_schema::DropSchemaPlanner, drop_tables::DropTablesPlanner, insert::InsertPlanner, select::SelectPlanner,
     update::UpdatePlanner,
 };
-use data_manager::DataManager;
+use metadata::DataDefinition;
 use plan::Plan;
 use protocol::{results::QueryError, Sender};
 use sqlparser::ast::{ObjectType, Statement};
 use std::sync::Arc;
-use storage::Database;
 
 type Result<T> = std::result::Result<T, ()>;
 
-trait Planner<D: Database> {
-    fn plan(self, data_manager: Arc<DataManager<D>>, sender: Arc<dyn Sender>) -> Result<Plan>;
+trait Planner {
+    fn plan(self, data_manager: Arc<DataDefinition>, sender: Arc<dyn Sender>) -> Result<Plan>;
 }
 
-pub struct QueryPlanner<D: Database> {
-    data_manager: Arc<DataManager<D>>,
+pub struct QueryPlanner {
+    metadata: Arc<DataDefinition>,
     sender: Arc<dyn Sender>,
 }
 
-impl<D: Database> QueryPlanner<D> {
-    pub fn new(data_manager: Arc<DataManager<D>>, sender: Arc<dyn Sender>) -> Self {
-        Self { data_manager, sender }
+impl QueryPlanner {
+    pub fn new(metadata: Arc<DataDefinition>, sender: Arc<dyn Sender>) -> Self {
+        Self { metadata, sender }
     }
 
     pub fn plan(&self, statement: &Statement) -> Result<Plan> {
         match statement {
             Statement::CreateTable { name, columns, .. } => {
-                CreateTablePlanner::new(name, columns).plan(self.data_manager.clone(), self.sender.clone())
+                CreateTablePlanner::new(name, columns).plan(self.metadata.clone(), self.sender.clone())
             }
             Statement::CreateSchema { schema_name, .. } => {
-                CreateSchemaPlanner::new(schema_name).plan(self.data_manager.clone(), self.sender.clone())
+                CreateSchemaPlanner::new(schema_name).plan(self.metadata.clone(), self.sender.clone())
             }
             Statement::Drop {
                 object_type,
@@ -65,10 +64,11 @@ impl<D: Database> QueryPlanner<D> {
                 if_exists,
             } => match object_type {
                 ObjectType::Table => {
-                    DropTablesPlanner::new(names, *if_exists).plan(self.data_manager.clone(), self.sender.clone())
+                    DropTablesPlanner::new(names, *if_exists).plan(self.metadata.clone(), self.sender.clone())
                 }
-                ObjectType::Schema => DropSchemaPlanner::new(names, *cascade, *if_exists)
-                    .plan(self.data_manager.clone(), self.sender.clone()),
+                ObjectType::Schema => {
+                    DropSchemaPlanner::new(names, *cascade, *if_exists).plan(self.metadata.clone(), self.sender.clone())
+                }
                 _ => {
                     self.sender
                         .send(Err(QueryError::syntax_error(statement)))
@@ -80,17 +80,17 @@ impl<D: Database> QueryPlanner<D> {
                 table_name,
                 columns,
                 source,
-            } => InsertPlanner::new(table_name, columns, source).plan(self.data_manager.clone(), self.sender.clone()),
+            } => InsertPlanner::new(table_name, columns, source).plan(self.metadata.clone(), self.sender.clone()),
             Statement::Update {
                 table_name,
                 assignments,
                 ..
-            } => UpdatePlanner::new(table_name, assignments).plan(self.data_manager.clone(), self.sender.clone()),
+            } => UpdatePlanner::new(table_name, assignments).plan(self.metadata.clone(), self.sender.clone()),
             Statement::Delete { table_name, .. } => {
-                DeletePlanner::new(table_name).plan(self.data_manager.clone(), self.sender.clone())
+                DeletePlanner::new(table_name).plan(self.metadata.clone(), self.sender.clone())
             }
             Statement::Query(query) => {
-                SelectPlanner::new(query.clone()).plan(self.data_manager.clone(), self.sender.clone())
+                SelectPlanner::new(query.clone()).plan(self.metadata.clone(), self.sender.clone())
             }
             _ => Ok(Plan::NotProcessed(Box::new(statement.clone()))),
         }

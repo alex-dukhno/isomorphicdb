@@ -13,12 +13,12 @@
 // limitations under the License.
 
 use crate::{Planner, Result};
-use data_manager::{DataManager, MetadataView};
+use metadata::DataDefinition;
 use plan::{Plan, SchemaCreationInfo, SchemaName};
 use protocol::{results::QueryError, Sender};
+use sql_model::DEFAULT_CATALOG;
 use sqlparser::ast::ObjectName;
 use std::{convert::TryFrom, sync::Arc};
-use storage::Database;
 
 pub(crate) struct CreateSchemaPlanner<'csp> {
     schema_name: &'csp ObjectName,
@@ -30,17 +30,18 @@ impl CreateSchemaPlanner<'_> {
     }
 }
 
-impl<D: Database> Planner<D> for CreateSchemaPlanner<'_> {
-    fn plan(self, data_manager: Arc<DataManager<D>>, sender: Arc<dyn Sender>) -> Result<Plan> {
+impl Planner for CreateSchemaPlanner<'_> {
+    fn plan(self, metadata: Arc<DataDefinition>, sender: Arc<dyn Sender>) -> Result<Plan> {
         match SchemaName::try_from(self.schema_name) {
-            Ok(schema_name) => match data_manager.schema_exists(&schema_name) {
-                Some(_) => {
+            Ok(schema_name) => match metadata.schema_exists(DEFAULT_CATALOG, schema_name.as_ref()) {
+                None => return Err(()), // TODO catalog does not exists
+                Some((_, Some(_))) => {
                     sender
                         .send(Err(QueryError::schema_already_exists(schema_name)))
                         .expect("To Send Query Result to Client");
                     Err(())
                 }
-                None => Ok(Plan::CreateSchema(SchemaCreationInfo::new(schema_name))),
+                Some((_, None)) => Ok(Plan::CreateSchema(SchemaCreationInfo::new(schema_name))),
             },
             Err(error) => {
                 sender

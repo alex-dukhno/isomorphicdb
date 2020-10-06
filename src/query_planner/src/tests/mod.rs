@@ -13,17 +13,16 @@
 // limitations under the License.
 
 use super::*;
-use data_manager::DataManager;
 use meta_def::ColumnDefinition;
 use protocol::{results::QueryResult, Sender};
 use sql_model::sql_types::SqlType;
+use sql_model::DEFAULT_CATALOG;
 use sqlparser::ast::Ident;
 use std::{
     io,
     ops::Deref,
     sync::{Arc, Mutex},
 };
-use storage::InMemoryDatabase;
 
 #[cfg(test)]
 mod create_schema;
@@ -44,7 +43,7 @@ mod update;
 #[cfg(test)]
 mod where_clause;
 
-type InMemory = QueryPlanner<InMemoryDatabase>;
+type InMemory = QueryPlanner;
 
 struct Collector(Mutex<Vec<QueryResult>>);
 
@@ -79,26 +78,30 @@ fn sender() -> ResultCollector {
 #[rstest::fixture]
 fn planner_and_sender() -> (InMemory, ResultCollector) {
     let collector = Arc::new(Collector(Mutex::new(vec![])));
-    let manager = DataManager::default();
+    let manager = DataDefinition::in_memory();
+    manager.create_catalog(DEFAULT_CATALOG);
     (InMemory::new(Arc::new(manager), collector.clone()), collector)
 }
 
 #[rstest::fixture]
 fn planner_and_sender_with_schema() -> (InMemory, ResultCollector) {
     let collector = Arc::new(Collector(Mutex::new(vec![])));
-    let manager = DataManager::default();
-    manager.create_schema(SCHEMA).expect("schema created");
+    let manager = DataDefinition::in_memory();
+    manager.create_catalog(DEFAULT_CATALOG);
+    manager.create_schema(DEFAULT_CATALOG, SCHEMA).expect("schema created");
     (InMemory::new(Arc::new(manager), collector.clone()), collector)
 }
 
 #[rstest::fixture]
 fn planner_and_sender_with_table() -> (InMemory, ResultCollector) {
     let collector = Arc::new(Collector(Mutex::new(vec![])));
-    let manager = DataManager::default();
-    let schema_id = manager.create_schema(SCHEMA).expect("schema created");
+    let manager = DataDefinition::in_memory();
+    manager.create_catalog(DEFAULT_CATALOG);
+    let schema_id = manager.create_schema(DEFAULT_CATALOG, SCHEMA).expect("schema created");
     manager
         .create_table(
-            schema_id,
+            DEFAULT_CATALOG,
+            SCHEMA,
             TABLE,
             &[
                 ColumnDefinition::new("small_int", SqlType::SmallInt(0)),
@@ -113,9 +116,12 @@ fn planner_and_sender_with_table() -> (InMemory, ResultCollector) {
 #[rstest::fixture]
 fn planner_and_sender_with_no_column_table() -> (InMemory, ResultCollector) {
     let collector = Arc::new(Collector(Mutex::new(vec![])));
-    let manager = DataManager::default();
-    let schema_id = manager.create_schema(SCHEMA).expect("schema created");
-    manager.create_table(schema_id, TABLE, &[]).expect("table created");
+    let manager = DataDefinition::in_memory();
+    manager.create_catalog(DEFAULT_CATALOG);
+    let schema_id = manager.create_schema(DEFAULT_CATALOG, SCHEMA).expect("schema created");
+    manager
+        .create_table(DEFAULT_CATALOG, SCHEMA, TABLE, &[])
+        .expect("table created");
     (InMemory::new(Arc::new(manager), collector.clone()), collector)
 }
 

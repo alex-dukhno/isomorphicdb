@@ -797,6 +797,7 @@ dependencies = [
  "itertools",
  "kernel",
  "log",
+ "metadata",
  "parser",
  "plan",
  "protocol",
@@ -1122,15 +1123,14 @@ dependencies = [
  "ast",
  "bigdecimal",
  "constraints",
- "data_manager",
  "kernel",
  "meta_def",
+ "metadata",
  "plan",
  "protocol",
  "rstest",
  "sql_model",
  "sqlparser",
- "storage",
 ]
 
 [[package]]

@@ -21,6 +21,9 @@ pub type CatalogId = Id;
 pub type SchemaId = Id;
 pub type TableId = (Id, Id);
 
+pub const DEFAULT_CATALOG: &'static str = "public";
+pub const SYSTEM_CATALOG: &'static str = "system";
+
 pub enum DropStrategy {
     Restrict,
     Cascade,

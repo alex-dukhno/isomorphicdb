@@ -15,4 +15,27 @@
 use super::*;
 
 #[cfg(test)]
-mod manager;
+mod persistence;
+#[cfg(test)]
+mod queries;
+#[cfg(test)]
+mod schema;
+#[cfg(test)]
+mod table;
+
+const SCHEMA: &str = "schema_name";
+const SCHEMA_1: &str = "schema_name_1";
+const SCHEMA_2: &str = "schema_name_2";
+
+type InMemory = DataManager<InMemoryDatabase>;
+
+#[rstest::fixture]
+fn data_manager() -> InMemory {
+    DataManager::default()
+}
+
+#[rstest::fixture]
+fn data_manager_with_schema(data_manager: InMemory) -> InMemory {
+    data_manager.create_schema(&SCHEMA).expect("schema is created");
+    data_manager
+}
