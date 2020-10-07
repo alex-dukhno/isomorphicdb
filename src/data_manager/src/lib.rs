@@ -12,141 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{data_definition::DataDefinition, in_memory::InMemoryDatabase, persistent::PersistentDatabase};
-use binary::Binary;
+use binary::{Key, ReadCursor, Values};
 use chashmap::CHashMap;
 use kernel::{Object, Operation, SystemError, SystemResult};
-use sql_model::{sql_errors::DefinitionError, sql_types::SqlType, Id};
+use meta_def::ColumnDefinition;
+use metadata::{DataDefinition, MetadataView};
+use sql_model::{DropSchemaError, DropStrategy, Id};
 use std::{
     collections::HashMap,
-    io::{self},
     path::PathBuf,
-    sync::atomic::{AtomicU64, Ordering},
+    sync::{
+        atomic::{AtomicU64, Ordering},
+        Arc,
+    },
 };
-
-mod data_definition;
-mod in_memory;
-pub mod persistent;
-
-pub type Row = (Key, Values);
-pub type Key = Binary;
-pub type Values = Binary;
-pub type RowResult = io::Result<Result<Row, StorageError>>;
-pub type ReadCursor = Box<dyn Iterator<Item = RowResult>>;
-
-pub type FullSchemaId = Option<Id>;
-pub type FullTableId = Option<(Id, Option<Id>)>;
-pub type SchemaName<'s> = &'s str;
-pub type ObjectName<'o> = &'o str;
-
-pub enum InitStatus {
-    Created,
-    Loaded,
-}
-
-#[derive(Debug, PartialEq)]
-pub enum StorageError {
-    Io,
-    CascadeIo(Vec<String>),
-    Storage,
-}
-
-pub trait MetadataView {
-    fn schema_exists<S: AsRef<str>>(&self, schema_name: &S) -> FullSchemaId;
-
-    fn table_exists<S: AsRef<str>, T: AsRef<str>>(&self, schema_name: &S, table_name: &T) -> FullTableId;
-
-    fn table_columns<I: AsRef<(Id, Id)>>(&self, table_id: &I) -> Result<Vec<ColumnDefinition>, ()>;
-
-    fn column_ids<I: AsRef<(Id, Id)>, N: AsRef<str> + PartialEq<N>>(
-        &self,
-        table_id: &I,
-        names: &[N],
-    ) -> Result<(Vec<Id>, Vec<String>), ()>;
-
-    fn column_defs<I: AsRef<(Id, Id)>>(&self, table_id: &I, ids: &[Id]) -> Vec<ColumnDefinition>;
-}
-
-pub trait Database {
-    fn create_schema(&self, schema_name: SchemaName) -> io::Result<Result<Result<(), DefinitionError>, StorageError>>;
-
-    fn drop_schema(&self, schema_name: SchemaName) -> io::Result<Result<Result<(), DefinitionError>, StorageError>>;
-
-    fn create_object(
-        &self,
-        schema_name: SchemaName,
-        object_name: ObjectName,
-    ) -> io::Result<Result<Result<(), DefinitionError>, StorageError>>;
-
-    fn drop_object(
-        &self,
-        schema_name: SchemaName,
-        object_name: ObjectName,
-    ) -> io::Result<Result<Result<(), DefinitionError>, StorageError>>;
-
-    fn write(
-        &self,
-        schema_name: SchemaName,
-        object_name: ObjectName,
-        values: Vec<(Key, Values)>,
-    ) -> io::Result<Result<Result<usize, DefinitionError>, StorageError>>;
-
-    fn read(
-        &self,
-        schema_name: SchemaName,
-        object_name: ObjectName,
-    ) -> io::Result<Result<Result<ReadCursor, DefinitionError>, StorageError>>;
-
-    fn delete(
-        &self,
-        schema_name: SchemaName,
-        object_name: ObjectName,
-        keys: Vec<Key>,
-    ) -> io::Result<Result<Result<usize, DefinitionError>, StorageError>>;
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct ColumnDefinition {
-    name: String,
-    sql_type: SqlType,
-}
-
-impl ColumnDefinition {
-    pub fn new(name: &str, sql_type: SqlType) -> Self {
-        Self {
-            name: name.to_lowercase(),
-            sql_type,
-        }
-    }
-
-    pub fn sql_type(&self) -> SqlType {
-        self.sql_type
-    }
-
-    pub fn has_name(&self, other_name: &str) -> bool {
-        self.name == other_name
-    }
-
-    pub fn name(&self) -> String {
-        self.name.clone()
-    }
-}
-
-pub enum DropStrategy {
-    Restrict,
-    Cascade,
-}
-
-#[derive(Debug, PartialEq)]
-pub enum DropSchemaError {
-    CatalogDoesNotExist,
-    DoesNotExist,
-    HasDependentObjects,
-}
+use storage::{Database, FullSchemaId, FullTableId, InMemoryDatabase, InitStatus, PersistentDatabase};
 
 pub struct DataManager {
-    data_storage: Box<dyn Database>,
-    data_definition: DataDefinition,
+    databases: CHashMap<String, Box<dyn Database>>,
+    data_definition: Arc<DataDefinition>,
     schemas: CHashMap<Id, String>,
     tables: CHashMap<(Id, Id), Vec<String>>,
     record_id_generators: CHashMap<(Id, Id), AtomicU64>,
@@ -154,7 +38,7 @@ pub struct DataManager {
 
 impl Default for DataManager {
     fn default() -> DataManager {
-        DataManager::in_memory().expect("no errors")
+        DataManager::in_memory(Arc::new(DataDefinition::in_memory()))
     }
 }
 
@@ -162,23 +46,23 @@ unsafe impl Send for DataManager {}
 
 unsafe impl Sync for DataManager {}
 
-const DEFAULT_CATALOG: &'_ str = "public";
+pub const DEFAULT_CATALOG: &'_ str = "public";
 
 impl DataManager {
-    pub fn in_memory() -> SystemResult<DataManager> {
-        let data_definition = DataDefinition::in_memory();
+    pub fn in_memory(data_definition: Arc<DataDefinition>) -> DataManager {
         data_definition.create_catalog(DEFAULT_CATALOG);
-        Ok(DataManager {
-            data_storage: Box::new(InMemoryDatabase::default()),
+        let databases: CHashMap<String, Box<dyn Database>> = CHashMap::default();
+        databases.insert(DEFAULT_CATALOG.to_lowercase(), Box::new(InMemoryDatabase::default()));
+        DataManager {
+            databases,
             data_definition,
             schemas: CHashMap::default(),
             tables: CHashMap::default(),
             record_id_generators: CHashMap::default(),
-        })
+        }
     }
 
-    pub fn persistent(path: PathBuf) -> SystemResult<DataManager> {
-        let data_definition = DataDefinition::persistent(&path)?;
+    pub fn persistent(data_definition: Arc<DataDefinition>, path: PathBuf) -> SystemResult<DataManager> {
         let catalog = PersistentDatabase::new(path.join(DEFAULT_CATALOG));
         let schemas = CHashMap::new();
         let tables = CHashMap::new();
@@ -216,8 +100,10 @@ impl DataManager {
                 data_definition.create_catalog(DEFAULT_CATALOG);
             }
         }
+        let databases: CHashMap<String, Box<dyn Database>> = CHashMap::default();
+        databases.insert(DEFAULT_CATALOG.to_lowercase(), Box::new(catalog));
         Ok(DataManager {
-            data_storage: Box::new(catalog),
+            databases,
             data_definition,
             schemas,
             tables,
@@ -236,7 +122,7 @@ impl DataManager {
         match self.data_definition.create_schema(DEFAULT_CATALOG, schema_name) {
             Some((_, Some(schema_id))) => {
                 self.schemas.insert(schema_id, schema_name.to_owned());
-                match self.data_storage.create_schema(schema_name) {
+                match self.databases.get(DEFAULT_CATALOG).unwrap().create_schema(schema_name) {
                     Ok(Ok(Ok(()))) => Ok(schema_id),
                     _ => {
                         log::error!(
@@ -276,7 +162,12 @@ impl DataManager {
                     .data_definition
                     .drop_schema(DEFAULT_CATALOG, schema_name.as_str(), strategy)
                 {
-                    Ok(()) => match self.data_storage.drop_schema(schema_name.as_str()) {
+                    Ok(()) => match self
+                        .databases
+                        .get(DEFAULT_CATALOG)
+                        .unwrap()
+                        .drop_schema(schema_name.as_str())
+                    {
                         Ok(Ok(Ok(()))) => Ok(Ok(())),
                         _ => {
                             log::error!(
@@ -311,7 +202,12 @@ impl DataManager {
                         );
                         self.record_id_generators
                             .insert((schema_id, table_id), AtomicU64::default());
-                        match self.data_storage.create_object(&*schema_name, table_name) {
+                        match self
+                            .databases
+                            .get(DEFAULT_CATALOG)
+                            .unwrap()
+                            .create_object(&*schema_name, table_name)
+                        {
                             Ok(Ok(Ok(()))) => Ok(table_id),
                             _ => {
                                 log::error!(
@@ -367,7 +263,9 @@ impl DataManager {
                 self.data_definition
                     .drop_table(DEFAULT_CATALOG, full_name[0].as_str(), full_name[1].as_str());
                 match self
-                    .data_storage
+                    .databases
+                    .get(DEFAULT_CATALOG)
+                    .unwrap()
                     .drop_object(full_name[0].as_str(), full_name[1].as_str())
                 {
                     Ok(Ok(Ok(()))) => Ok(()),
@@ -391,10 +289,11 @@ impl DataManager {
         match self.tables.get(table_id.as_ref()) {
             Some(full_name) => {
                 log::trace!("values to write {:#?}", values);
-                match self
-                    .data_storage
-                    .write(full_name[0].as_str(), full_name[1].as_str(), values)
-                {
+                match self.databases.get(DEFAULT_CATALOG).unwrap().write(
+                    full_name[0].as_str(),
+                    full_name[1].as_str(),
+                    values,
+                ) {
                     Ok(Ok(Ok(size))) => Ok(size),
                     _ => {
                         let (schema_id, table_id) = table_id.as_ref();
@@ -425,7 +324,12 @@ impl DataManager {
 
     pub fn full_scan<I: AsRef<(Id, Id)>>(&self, table_id: &I) -> Result<ReadCursor, ()> {
         match self.tables.get(table_id.as_ref()) {
-            Some(full_name) => match self.data_storage.read(full_name[0].as_str(), full_name[1].as_str()) {
+            Some(full_name) => match self
+                .databases
+                .get(DEFAULT_CATALOG)
+                .unwrap()
+                .read(full_name[0].as_str(), full_name[1].as_str())
+            {
                 Ok(Ok(Ok(read))) => Ok(read),
                 _ => {
                     let (schema_id, table_id) = table_id.as_ref();
@@ -455,10 +359,11 @@ impl DataManager {
 
     pub fn delete_from<I: AsRef<(Id, Id)>>(&self, table_id: &I, keys: Vec<Key>) -> Result<usize, ()> {
         match self.tables.get(table_id.as_ref()) {
-            Some(full_name) => match self
-                .data_storage
-                .delete(full_name[0].as_str(), full_name[1].as_str(), keys)
-            {
+            Some(full_name) => match self.databases.get(DEFAULT_CATALOG).unwrap().delete(
+                full_name[0].as_str(),
+                full_name[1].as_str(),
+                keys,
+            ) {
                 Ok(Ok(Ok(len))) => Ok(len),
                 _ => {
                     let (schema_id, table_id) = table_id.as_ref();

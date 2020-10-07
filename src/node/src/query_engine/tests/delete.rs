@@ -20,7 +20,7 @@ use protocol::{
 };
 
 #[rstest::rstest]
-fn delete_from_nonexistent_table(database_with_schema: (QueryEngine, ResultCollector)) {
+fn delete_from_nonexistent_table(database_with_schema: (InMemory, ResultCollector)) {
     let (mut engine, collector) = database_with_schema;
 
     engine
@@ -32,7 +32,7 @@ fn delete_from_nonexistent_table(database_with_schema: (QueryEngine, ResultColle
 }
 
 #[rstest::rstest]
-fn delete_all_records(database_with_schema: (QueryEngine, ResultCollector)) {
+fn delete_all_records(database_with_schema: (InMemory, ResultCollector)) {
     let (mut engine, collector) = database_with_schema;
 
     engine

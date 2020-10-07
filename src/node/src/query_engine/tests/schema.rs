@@ -16,7 +16,7 @@ use super::*;
 use protocol::results::{QueryError, QueryEvent};
 
 #[rstest::rstest]
-fn create_schema(empty_database: (QueryEngine, ResultCollector)) {
+fn create_schema(empty_database: (InMemory, ResultCollector)) {
     let (mut engine, collector) = empty_database;
     engine
         .execute(Command::Query {
@@ -27,7 +27,7 @@ fn create_schema(empty_database: (QueryEngine, ResultCollector)) {
 }
 
 #[rstest::rstest]
-fn create_same_schema(empty_database: (QueryEngine, ResultCollector)) {
+fn create_same_schema(empty_database: (InMemory, ResultCollector)) {
     let (mut engine, collector) = empty_database;
     engine
         .execute(Command::Query {
@@ -45,7 +45,7 @@ fn create_same_schema(empty_database: (QueryEngine, ResultCollector)) {
 }
 
 #[rstest::rstest]
-fn drop_schema(empty_database: (QueryEngine, ResultCollector)) {
+fn drop_schema(empty_database: (InMemory, ResultCollector)) {
     let (mut engine, collector) = empty_database;
     engine
         .execute(Command::Query {
@@ -63,7 +63,7 @@ fn drop_schema(empty_database: (QueryEngine, ResultCollector)) {
 }
 
 #[rstest::rstest]
-fn drop_non_existent_schema(empty_database: (QueryEngine, ResultCollector)) {
+fn drop_non_existent_schema(empty_database: (InMemory, ResultCollector)) {
     let (mut engine, collector) = empty_database;
 
     engine
@@ -75,7 +75,7 @@ fn drop_non_existent_schema(empty_database: (QueryEngine, ResultCollector)) {
 }
 
 #[rstest::rstest]
-fn drop_if_exists_non_existent_schema(empty_database: (QueryEngine, ResultCollector)) {
+fn drop_if_exists_non_existent_schema(empty_database: (InMemory, ResultCollector)) {
     let (mut engine, collector) = empty_database;
 
     engine
@@ -87,7 +87,7 @@ fn drop_if_exists_non_existent_schema(empty_database: (QueryEngine, ResultCollec
 }
 
 #[rstest::rstest]
-fn select_from_nonexistent_schema(empty_database: (QueryEngine, ResultCollector)) {
+fn select_from_nonexistent_schema(empty_database: (InMemory, ResultCollector)) {
     let (mut engine, collector) = empty_database;
 
     engine
@@ -99,7 +99,7 @@ fn select_from_nonexistent_schema(empty_database: (QueryEngine, ResultCollector)
 }
 
 #[rstest::rstest]
-fn select_named_columns_from_nonexistent_schema(empty_database: (QueryEngine, ResultCollector)) {
+fn select_named_columns_from_nonexistent_schema(empty_database: (InMemory, ResultCollector)) {
     let (mut engine, collector) = empty_database;
     engine
         .execute(Command::Query {
@@ -111,7 +111,7 @@ fn select_named_columns_from_nonexistent_schema(empty_database: (QueryEngine, Re
 }
 
 #[rstest::rstest]
-fn insert_into_table_in_nonexistent_schema(empty_database: (QueryEngine, ResultCollector)) {
+fn insert_into_table_in_nonexistent_schema(empty_database: (InMemory, ResultCollector)) {
     let (mut engine, collector) = empty_database;
     engine
         .execute(Command::Query {
@@ -123,7 +123,7 @@ fn insert_into_table_in_nonexistent_schema(empty_database: (QueryEngine, ResultC
 }
 
 #[rstest::rstest]
-fn update_records_in_table_from_non_existent_schema(empty_database: (QueryEngine, ResultCollector)) {
+fn update_records_in_table_from_non_existent_schema(empty_database: (InMemory, ResultCollector)) {
     let (mut engine, collector) = empty_database;
     engine
         .execute(Command::Query {
@@ -135,7 +135,7 @@ fn update_records_in_table_from_non_existent_schema(empty_database: (QueryEngine
 }
 
 #[rstest::rstest]
-fn delete_from_table_in_nonexistent_schema(empty_database: (QueryEngine, ResultCollector)) {
+fn delete_from_table_in_nonexistent_schema(empty_database: (InMemory, ResultCollector)) {
     let (mut engine, collector) = empty_database;
     engine
         .execute(Command::Query {

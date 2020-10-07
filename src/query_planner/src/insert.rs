@@ -15,9 +15,10 @@
 use crate::{Planner, Result};
 use ast::operations::ScalarOp;
 use constraints::TypeConstraint;
-use data_manager::{DataManager, MetadataView};
+use metadata::DataDefinition;
 use plan::{FullTableName, Plan, TableId, TableInserts};
 use protocol::{results::QueryError, Sender};
+use sql_model::DEFAULT_CATALOG;
 use sqlparser::ast::{Ident, ObjectName, Query, SetExpr};
 use std::{collections::HashSet, convert::TryFrom, sync::Arc};
 
@@ -38,18 +39,19 @@ impl<'ip> InsertPlanner<'ip> {
 }
 
 impl Planner for InsertPlanner<'_> {
-    fn plan(self, data_manager: Arc<DataManager>, sender: Arc<dyn Sender>) -> Result<Plan> {
+    fn plan(self, metadata: Arc<DataDefinition>, sender: Arc<dyn Sender>) -> Result<Plan> {
         match FullTableName::try_from(self.table_name) {
             Ok(full_table_name) => {
                 let (schema_name, table_name) = full_table_name.as_tuple();
-                match data_manager.table_exists(&schema_name, &table_name) {
-                    None => {
+                match metadata.table_exists(DEFAULT_CATALOG, &schema_name, &table_name) {
+                    None => Err(()), // TODO catalog does not exists
+                    Some((_, None)) => {
                         sender
                             .send(Err(QueryError::schema_does_not_exist(schema_name.to_owned())))
                             .expect("To Send Query Result to Client");
                         Err(())
                     }
-                    Some((_, None)) => {
+                    Some((_, Some((_, None)))) => {
                         sender
                             .send(Err(QueryError::table_does_not_exist(format!(
                                 "{}.{}",
@@ -58,7 +60,7 @@ impl Planner for InsertPlanner<'_> {
                             .expect("To Send Query Result to Client");
                         Err(())
                     }
-                    Some((schema_id, Some(table_id))) => {
+                    Some((_, Some((schema_id, Some(table_id))))) => {
                         let Query { body, .. } = &self.source;
                         match body {
                             SetExpr::Values(values) => {
@@ -85,7 +87,7 @@ impl Planner for InsertPlanner<'_> {
                                     }
                                     input.push(scalar_values);
                                 }
-                                let all_columns = data_manager.table_columns(&table_id).expect("Ok");
+                                let all_columns = metadata.table_columns(DEFAULT_CATALOG, schema_name, table_name);
                                 let column_indices = if self.columns.is_empty() {
                                     all_columns
                                         .iter()

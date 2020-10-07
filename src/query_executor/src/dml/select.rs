@@ -12,14 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use ast::predicates::{PredicateOp, PredicateValue};
-use ast::values::ScalarValue;
-use data_manager::{DataManager, MetadataView, ReadCursor};
+use ast::{
+    predicates::{PredicateOp, PredicateValue},
+    values::ScalarValue,
+};
+use binary::ReadCursor;
+use data_manager::DataManager;
+use metadata::MetadataView;
 use plan::{SelectInput, TableId};
 use protocol::{messages::ColumnMetadata, results::QueryEvent, Sender};
 use sql_model::Id;
-use std::convert::TryInto;
-use std::sync::Arc;
+use std::{convert::TryInto, sync::Arc};
 
 struct Source {
     table_id: TableId,
@@ -62,14 +65,14 @@ impl Iterator for Source {
     }
 }
 
-struct Projection {
+struct Projection<'p> {
     selected_columns: Vec<Id>,
-    input: Box<dyn Iterator<Item = Vec<ScalarValue>>>,
+    input: Box<dyn Iterator<Item = Vec<ScalarValue>> + 'p>,
     consumed: usize,
 }
 
-impl Projection {
-    fn new(selected_columns: Vec<Id>, input: Box<dyn Iterator<Item = Vec<ScalarValue>>>) -> Projection {
+impl<'p> Projection<'p> {
+    fn new(selected_columns: Vec<Id>, input: Box<dyn Iterator<Item = Vec<ScalarValue>> + 'p>) -> Projection<'p> {
         Projection {
             selected_columns,
             input,
@@ -78,7 +81,7 @@ impl Projection {
     }
 }
 
-impl<'p> Iterator for &'p mut Projection {
+impl<'p, 'i> Iterator for &'i mut Projection<'p> {
     type Item = Vec<String>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -96,21 +99,21 @@ impl<'p> Iterator for &'p mut Projection {
     }
 }
 
-struct Filter {
-    iter: Box<dyn Iterator<Item = Vec<ScalarValue>>>,
+struct Filter<'f> {
+    iter: Box<dyn Iterator<Item = Vec<ScalarValue>> + 'f>,
     predicate: (PredicateValue, PredicateOp, PredicateValue),
 }
 
-impl Filter {
+impl<'f> Filter<'f> {
     fn new(
-        iter: Box<dyn Iterator<Item = Vec<ScalarValue>>>,
+        iter: Box<dyn Iterator<Item = Vec<ScalarValue>> + 'f>,
         predicate: (PredicateValue, PredicateOp, PredicateValue),
     ) -> Filter {
         Filter { iter, predicate }
     }
 }
 
-impl Iterator for Filter {
+impl<'f> Iterator for Filter<'f> {
     type Item = Vec<ScalarValue>;
 
     fn next(&mut self) -> Option<Self::Item> {

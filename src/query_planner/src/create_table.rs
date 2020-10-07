@@ -13,10 +13,11 @@
 // limitations under the License.
 
 use crate::{Planner, Result};
-use data_manager::{ColumnDefinition, DataManager, MetadataView};
+use meta_def::ColumnDefinition;
+use metadata::DataDefinition;
 use plan::{FullTableName, Plan, TableCreationInfo};
 use protocol::{results::QueryError, Sender};
-use sql_model::sql_types::SqlType;
+use sql_model::{sql_types::SqlType, DEFAULT_CATALOG};
 use sqlparser::ast::{ColumnDef, ObjectName};
 use std::{convert::TryFrom, sync::Arc};
 
@@ -35,24 +36,25 @@ impl<'ctp> CreateTablePlanner<'ctp> {
 }
 
 impl Planner for CreateTablePlanner<'_> {
-    fn plan(self, data_manager: Arc<DataManager>, sender: Arc<dyn Sender>) -> Result<Plan> {
+    fn plan(self, metadata: Arc<DataDefinition>, sender: Arc<dyn Sender>) -> Result<Plan> {
         match FullTableName::try_from(self.full_table_name) {
             Ok(full_table_name) => {
                 let (schema_name, table_name) = full_table_name.as_tuple();
-                match data_manager.table_exists(&schema_name, &table_name) {
-                    None => {
+                match metadata.table_exists(DEFAULT_CATALOG, &schema_name, &table_name) {
+                    None => Err(()), // TODO catalog does not exists
+                    Some((_, None)) => {
                         sender
                             .send(Err(QueryError::schema_does_not_exist(schema_name)))
                             .expect("To Send Query Result to Client");
                         Err(())
                     }
-                    Some((_, Some(_))) => {
+                    Some((_, Some((_, Some(_))))) => {
                         sender
                             .send(Err(QueryError::table_already_exists(full_table_name)))
                             .expect("To Send Query Result to Client");
                         Err(())
                     }
-                    Some((schema_id, None)) => {
+                    Some((_, Some((schema_id, None)))) => {
                         let mut column_defs = Vec::new();
                         for column in self.columns {
                             match SqlType::try_from(&column.data_type) {

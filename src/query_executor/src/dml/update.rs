@@ -12,18 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::sync::Arc;
-
-use binary::Binary;
-use data_manager::{DataManager, MetadataView};
-use protocol::Sender;
-
 use ast::operations::ScalarOp;
+use binary::Binary;
 use constraints::{Constraint, ConstraintError};
+use data_manager::DataManager;
 use expr_eval::{dynamic_expr::DynamicExpressionEvaluation, static_expr::StaticExpressionEvaluation};
+use metadata::MetadataView;
 use plan::TableUpdates;
-use protocol::results::{QueryError, QueryEvent};
-use std::collections::HashMap;
+use protocol::{
+    results::{QueryError, QueryEvent},
+    Sender,
+};
+use std::{collections::HashMap, sync::Arc};
 
 pub(crate) struct UpdateCommand {
     table_update: TableUpdates,

@@ -27,7 +27,7 @@ version = "0.1.0"
 dependencies = [
  "bigdecimal",
  "log",
- "ordered-float",
+ "repr",
  "sql_model",
  "sqlparser",
 ]
@@ -256,7 +256,7 @@ dependencies = [
 name = "binary"
 version = "0.1.0"
 dependencies = [
- "ast",
+ "repr",
  "sql_model",
 ]
 
@@ -326,12 +326,36 @@ dependencies = [
 ]
 
 [[package]]
+name = "chrono"
+version = "0.4.19"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "670ad68c9088c2a963aaa298cb369688cf3f9465ce5e2d4ca10e6e0098a1ce73"
+dependencies = [
+ "libc",
+ "num-integer",
+ "num-traits",
+ "time",
+ "winapi",
+]
+
+[[package]]
 name = "cloudabi"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4344512281c643ae7638bbabc3af17a11307803ec8f0fcad9fae512a8bf36467"
 dependencies = [
  "bitflags",
+]
+
+[[package]]
+name = "colored"
+version = "1.9.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f4ffc801dacf156c5854b9df4f425a626539c3a6ef7893cc0c5084a23f0b6c59"
+dependencies = [
+ "atty",
+ "lazy_static",
+ "winapi",
 ]
 
 [[package]]
@@ -350,6 +374,7 @@ dependencies = [
  "ast",
  "bigdecimal",
  "num-bigint",
+ "repr",
  "rstest",
  "sql_model",
 ]
@@ -409,17 +434,26 @@ dependencies = [
 name = "data_manager"
 version = "0.1.0"
 dependencies = [
- "ast",
  "backtrace",
  "binary",
  "chashmap",
- "fail",
  "kernel",
  "log",
+ "meta_def",
+ "metadata",
+ "repr",
  "rstest",
- "sled",
  "sql_model",
+ "storage",
  "tempfile",
+]
+
+[[package]]
+name = "description"
+version = "0.1.0"
+dependencies = [
+ "sql_model",
+ "sqlparser",
 ]
 
 [[package]]
@@ -441,6 +475,7 @@ dependencies = [
  "ast",
  "bigdecimal",
  "protocol",
+ "repr",
  "sql_model",
 ]
 
@@ -575,7 +610,7 @@ checksum = "fc587bc0ec293155d5bfa6b9891ec18a1e330c234f896ea47fbada4cadbe47e6"
 dependencies = [
  "cfg-if",
  "libc",
- "wasi",
+ "wasi 0.9.0+wasi-snapshot-preview1",
 ]
 
 [[package]]
@@ -687,6 +722,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "meta_def"
+version = "0.1.0"
+dependencies = [
+ "sql_model",
+]
+
+[[package]]
+name = "metadata"
+version = "0.1.0"
+dependencies = [
+ "backtrace",
+ "binary",
+ "chashmap",
+ "kernel",
+ "log",
+ "meta_def",
+ "repr",
+ "rstest",
+ "sql_model",
+ "storage",
+ "tempfile",
+]
+
+[[package]]
 name = "miniz_oxide"
 version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -736,6 +795,7 @@ dependencies = [
  "itertools",
  "kernel",
  "log",
+ "metadata",
  "parser",
  "plan",
  "protocol",
@@ -954,7 +1014,7 @@ version = "0.1.0"
 dependencies = [
  "ast",
  "constraints",
- "data_manager",
+ "meta_def",
  "protocol",
  "sql_model",
  "sqlparser",
@@ -1018,6 +1078,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "query_analyzer"
+version = "0.1.0"
+dependencies = [
+ "description",
+ "metadata",
+ "sql_model",
+ "sqlparser",
+]
+
+[[package]]
 name = "query_executor"
 version = "0.1.0"
 dependencies = [
@@ -1030,8 +1100,11 @@ dependencies = [
  "futures-lite",
  "kernel",
  "log",
+ "meta_def",
+ "metadata",
  "plan",
  "protocol",
+ "repr",
  "rstest",
  "sql_model",
  "sqlparser",
@@ -1045,8 +1118,9 @@ dependencies = [
  "ast",
  "bigdecimal",
  "constraints",
- "data_manager",
  "kernel",
+ "meta_def",
+ "metadata",
  "plan",
  "protocol",
  "rstest",
@@ -1154,6 +1228,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3acd125665422973a33ac9d3dd2df85edad0f4ae9b00dafb1a05e43a9f5ef8e7"
 dependencies = [
  "winapi",
+]
+
+[[package]]
+name = "repr"
+version = "0.1.0"
+dependencies = [
+ "ordered-float",
+ "sql_model",
 ]
 
 [[package]]
@@ -1280,6 +1362,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b36ca4371e647131759047d7a0ac5e41e11fd540e0a49c9e158b1b94193081a1"
 dependencies = [
  "atty",
+ "chrono",
+ "colored",
  "log",
  "winapi",
 ]
@@ -1364,6 +1448,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
 
 [[package]]
+name = "storage"
+version = "0.1.0"
+dependencies = [
+ "backtrace",
+ "binary",
+ "chashmap",
+ "fail",
+ "log",
+ "rstest",
+ "sled",
+ "sql_model",
+ "tempfile",
+]
+
+[[package]]
 name = "syn"
 version = "1.0.42"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1406,6 +1505,17 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "time"
+version = "0.1.44"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6db9e6914ab8b1ae1c260a4ae7a49b6c5611b40328a735b21862567685e73255"
+dependencies = [
+ "libc",
+ "wasi 0.10.0+wasi-snapshot-preview1",
+ "winapi",
 ]
 
 [[package]]
@@ -1472,6 +1582,12 @@ name = "wasi"
 version = "0.9.0+wasi-snapshot-preview1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cccddf32554fecc6acb585f82a32a72e28b48f8c4c1883ddfeeeaa96f7d8e519"
+
+[[package]]
+name = "wasi"
+version = "0.10.0+wasi-snapshot-preview1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1a143597ca7c7793eff794def352d41792a93c481eb1042423ff7ff72ba2c31f"
 
 [[package]]
 name = "wepoll-sys"

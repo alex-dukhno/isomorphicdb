@@ -12,6 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use super::*;
+use protocol::results::{QueryEvent, QueryResult};
+use std::{
+    io,
+    ops::DerefMut,
+    sync::{Arc, Mutex},
+};
+
 #[cfg(test)]
 mod delete;
 #[cfg(test)]
@@ -31,14 +39,8 @@ mod update;
 #[cfg(test)]
 mod where_clause;
 
-use std::{
-    io,
-    sync::{Arc, Mutex},
-};
-
-use super::*;
-use protocol::results::{QueryEvent, QueryResult};
-use std::ops::DerefMut;
+type InMemory = QueryEngine;
+type ResultCollector = Arc<Collector>;
 
 pub struct Collector(Mutex<Vec<QueryResult>>);
 
@@ -54,6 +56,10 @@ impl Sender for Collector {
 }
 
 impl Collector {
+    fn new() -> ResultCollector {
+        Arc::new(Collector(Mutex::new(vec![])))
+    }
+
     fn assert_receive_till_this_moment(&self, expected: Vec<QueryResult>) {
         let result = self.0.lock().expect("locked").drain(0..).collect::<Vec<_>>();
         assert_eq!(result, expected)
@@ -87,27 +93,22 @@ impl Collector {
     }
 }
 
-type ResultCollector = Arc<Collector>;
-
 #[rstest::fixture]
-fn sender() -> ResultCollector {
-    Arc::new(Collector(Mutex::new(vec![])))
-}
-
-#[rstest::fixture]
-fn empty_database() -> (QueryEngine, ResultCollector) {
-    let collector = Arc::new(Collector(Mutex::new(vec![])));
+fn empty_database() -> (InMemory, ResultCollector) {
+    let collector = Collector::new();
+    let metadata = Arc::new(DataDefinition::in_memory());
     (
-        QueryEngine::new(
+        InMemory::new(
             collector.clone(),
-            Arc::new(DataManager::in_memory().expect("to create data manager")),
+            metadata.clone(),
+            Arc::new(DataManager::in_memory(metadata)),
         ),
         collector,
     )
 }
 
 #[rstest::fixture]
-fn database_with_schema(empty_database: (QueryEngine, ResultCollector)) -> (QueryEngine, ResultCollector) {
+fn database_with_schema(empty_database: (InMemory, ResultCollector)) -> (InMemory, ResultCollector) {
     let (mut engine, collector) = empty_database;
     engine
         .execute(Command::Query {

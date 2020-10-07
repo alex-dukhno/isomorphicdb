@@ -16,3 +16,22 @@ pub mod sql_errors;
 pub mod sql_types;
 
 pub type Id = u64;
+pub type RecordId = Id;
+pub type CatalogId = Id;
+pub type SchemaId = Id;
+pub type TableId = (Id, Id);
+
+pub const DEFAULT_CATALOG: &str = "public";
+pub const SYSTEM_CATALOG: &str = "system";
+
+pub enum DropStrategy {
+    Restrict,
+    Cascade,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum DropSchemaError {
+    CatalogDoesNotExist,
+    DoesNotExist,
+    HasDependentObjects,
+}

@@ -20,7 +20,7 @@ use sql_model::sql_types::SqlType;
 use sqlparser::ast::{ObjectName, Query, SetExpr, Statement, Values};
 
 #[rstest::rstest]
-fn insert_into_table_that_in_nonexistent_schema(planner_and_sender: (QueryPlanner, ResultCollector)) {
+fn insert_into_table_that_in_nonexistent_schema(planner_and_sender: (InMemory, ResultCollector)) {
     let (query_planner, collector) = planner_and_sender;
     assert_eq!(
         query_planner.plan(&Statement::Insert {
@@ -42,7 +42,7 @@ fn insert_into_table_that_in_nonexistent_schema(planner_and_sender: (QueryPlanne
 }
 
 #[rstest::rstest]
-fn insert_into_nonexistent_table(planner_and_sender_with_schema: (QueryPlanner, ResultCollector)) {
+fn insert_into_nonexistent_table(planner_and_sender_with_schema: (InMemory, ResultCollector)) {
     let (query_planner, collector) = planner_and_sender_with_schema;
     assert_eq!(
         query_planner.plan(&Statement::Insert {
@@ -67,7 +67,7 @@ fn insert_into_nonexistent_table(planner_and_sender_with_schema: (QueryPlanner, 
 }
 
 #[rstest::rstest]
-fn insert_into_table_with_unqualified_name(planner_and_sender_with_schema: (QueryPlanner, ResultCollector)) {
+fn insert_into_table_with_unqualified_name(planner_and_sender_with_schema: (InMemory, ResultCollector)) {
     let (query_planner, collector) = planner_and_sender_with_schema;
     assert_eq!(
         query_planner.plan(&Statement::Insert {
@@ -91,7 +91,7 @@ fn insert_into_table_with_unqualified_name(planner_and_sender_with_schema: (Quer
 }
 
 #[rstest::rstest]
-fn insert_into_table_with_unsupported_name(planner_and_sender_with_schema: (QueryPlanner, ResultCollector)) {
+fn insert_into_table_with_unsupported_name(planner_and_sender_with_schema: (InMemory, ResultCollector)) {
     let (query_planner, collector) = planner_and_sender_with_schema;
     assert_eq!(
         query_planner.plan(&Statement::Insert {
@@ -120,7 +120,7 @@ fn insert_into_table_with_unsupported_name(planner_and_sender_with_schema: (Quer
 }
 
 #[rstest::rstest]
-fn insert_into_table(planner_and_sender_with_table: (QueryPlanner, ResultCollector)) {
+fn insert_into_table(planner_and_sender_with_table: (InMemory, ResultCollector)) {
     let (query_planner, collector) = planner_and_sender_with_table;
     assert_eq!(
         query_planner.plan(&Statement::Insert {
@@ -155,7 +155,7 @@ fn insert_into_table(planner_and_sender_with_table: (QueryPlanner, ResultCollect
 }
 
 #[rstest::rstest]
-fn insert_into_table_without_columns(planner_and_sender_with_table: (QueryPlanner, ResultCollector)) {
+fn insert_into_table_without_columns(planner_and_sender_with_table: (InMemory, ResultCollector)) {
     let (query_planner, collector) = planner_and_sender_with_table;
     assert_eq!(
         query_planner.plan(&Statement::Insert {

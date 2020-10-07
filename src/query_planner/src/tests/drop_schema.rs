@@ -18,7 +18,7 @@ use protocol::results::QueryError;
 use sqlparser::ast::{ObjectName, ObjectType, Statement};
 
 #[rstest::rstest]
-fn drop_non_existent_schema(planner_and_sender: (QueryPlanner, ResultCollector)) {
+fn drop_non_existent_schema(planner_and_sender: (InMemory, ResultCollector)) {
     let (query_planner, collector) = planner_and_sender;
     assert_eq!(
         query_planner.plan(&Statement::Drop {
@@ -34,7 +34,7 @@ fn drop_non_existent_schema(planner_and_sender: (QueryPlanner, ResultCollector))
 }
 
 #[rstest::rstest]
-fn drop_schema_with_unqualified_name(planner_and_sender: (QueryPlanner, ResultCollector)) {
+fn drop_schema_with_unqualified_name(planner_and_sender: (InMemory, ResultCollector)) {
     let (query_planner, collector) = planner_and_sender;
     assert!(matches!(
         query_planner.plan(&Statement::Drop {
@@ -57,7 +57,7 @@ fn drop_schema_with_unqualified_name(planner_and_sender: (QueryPlanner, ResultCo
 }
 
 #[rstest::rstest]
-fn drop_schema(planner_and_sender_with_schema: (QueryPlanner, ResultCollector)) {
+fn drop_schema(planner_and_sender_with_schema: (InMemory, ResultCollector)) {
     let (query_planner, collector) = planner_and_sender_with_schema;
     assert_eq!(
         query_planner.plan(&Statement::Drop {

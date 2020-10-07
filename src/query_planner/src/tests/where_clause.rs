@@ -22,7 +22,7 @@ use sqlparser::ast::{
 use std::convert::TryFrom;
 
 #[rstest::rstest]
-fn select_from_table(planner_and_sender_with_table: (QueryPlanner, ResultCollector)) {
+fn select_from_table(planner_and_sender_with_table: (InMemory, ResultCollector)) {
     let (query_planner, collector) = planner_and_sender_with_table;
     assert_eq!(
         query_planner.plan(&Statement::Query(Box::new(Query {

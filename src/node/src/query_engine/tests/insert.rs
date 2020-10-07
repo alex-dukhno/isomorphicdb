@@ -20,7 +20,7 @@ use protocol::{
 };
 
 #[rstest::rstest]
-fn insert_into_nonexistent_table(database_with_schema: (QueryEngine, ResultCollector)) {
+fn insert_into_nonexistent_table(database_with_schema: (InMemory, ResultCollector)) {
     let (mut engine, collector) = database_with_schema;
 
     engine
@@ -33,7 +33,7 @@ fn insert_into_nonexistent_table(database_with_schema: (QueryEngine, ResultColle
 }
 
 #[rstest::rstest]
-fn insert_value_in_non_existent_column(database_with_schema: (QueryEngine, ResultCollector)) {
+fn insert_value_in_non_existent_column(database_with_schema: (InMemory, ResultCollector)) {
     let (mut engine, collector) = database_with_schema;
 
     engine
@@ -52,7 +52,7 @@ fn insert_value_in_non_existent_column(database_with_schema: (QueryEngine, Resul
 }
 
 #[rstest::rstest]
-fn insert_and_select_single_row(database_with_schema: (QueryEngine, ResultCollector)) {
+fn insert_and_select_single_row(database_with_schema: (InMemory, ResultCollector)) {
     let (mut engine, collector) = database_with_schema;
 
     engine
@@ -85,7 +85,7 @@ fn insert_and_select_single_row(database_with_schema: (QueryEngine, ResultCollec
 }
 
 #[rstest::rstest]
-fn insert_and_select_multiple_rows(database_with_schema: (QueryEngine, ResultCollector)) {
+fn insert_and_select_multiple_rows(database_with_schema: (InMemory, ResultCollector)) {
     let (mut engine, collector) = database_with_schema;
 
     engine
@@ -126,7 +126,7 @@ fn insert_and_select_multiple_rows(database_with_schema: (QueryEngine, ResultCol
 }
 
 #[rstest::rstest]
-fn insert_and_select_named_columns(database_with_schema: (QueryEngine, ResultCollector)) {
+fn insert_and_select_named_columns(database_with_schema: (InMemory, ResultCollector)) {
     let (mut engine, collector) = database_with_schema;
 
     engine
@@ -169,7 +169,7 @@ fn insert_and_select_named_columns(database_with_schema: (QueryEngine, ResultCol
 }
 
 #[rstest::rstest]
-fn insert_multiple_rows(database_with_schema: (QueryEngine, ResultCollector)) {
+fn insert_multiple_rows(database_with_schema: (InMemory, ResultCollector)) {
     let (mut engine, collector) = database_with_schema;
 
     engine
@@ -219,7 +219,7 @@ fn insert_multiple_rows(database_with_schema: (QueryEngine, ResultCollector)) {
 }
 
 #[rstest::rstest]
-fn insert_and_select_different_integer_types(database_with_schema: (QueryEngine, ResultCollector)) {
+fn insert_and_select_different_integer_types(database_with_schema: (InMemory, ResultCollector)) {
     let (mut engine, collector) = database_with_schema;
     engine
         .execute(Command::Query {
@@ -270,7 +270,7 @@ fn insert_and_select_different_integer_types(database_with_schema: (QueryEngine,
 }
 
 #[rstest::rstest]
-fn insert_and_select_different_character_types(database_with_schema: (QueryEngine, ResultCollector)) {
+fn insert_and_select_different_character_types(database_with_schema: (InMemory, ResultCollector)) {
     let (mut engine, collector) = database_with_schema;
     engine
         .execute(Command::Query {
@@ -313,7 +313,7 @@ fn insert_and_select_different_character_types(database_with_schema: (QueryEngin
 }
 
 #[rstest::rstest]
-fn insert_booleans(database_with_schema: (QueryEngine, ResultCollector)) {
+fn insert_booleans(database_with_schema: (InMemory, ResultCollector)) {
     let (mut engine, collector) = database_with_schema;
     engine
         .execute(Command::Query {
@@ -357,7 +357,7 @@ mod operators {
             use super::*;
 
             #[rstest::fixture]
-            fn with_table(database_with_schema: (QueryEngine, ResultCollector)) -> (QueryEngine, ResultCollector) {
+            fn with_table(database_with_schema: (InMemory, ResultCollector)) -> (InMemory, ResultCollector) {
                 let (mut engine, collector) = database_with_schema;
 
                 engine
@@ -372,7 +372,7 @@ mod operators {
             }
 
             #[rstest::rstest]
-            fn addition(with_table: (QueryEngine, ResultCollector)) {
+            fn addition(with_table: (InMemory, ResultCollector)) {
                 let (mut engine, collector) = with_table;
 
                 engine
@@ -398,7 +398,7 @@ mod operators {
             }
 
             #[rstest::rstest]
-            fn subtraction(with_table: (QueryEngine, ResultCollector)) {
+            fn subtraction(with_table: (InMemory, ResultCollector)) {
                 let (mut engine, collector) = with_table;
 
                 engine
@@ -424,7 +424,7 @@ mod operators {
             }
 
             #[rstest::rstest]
-            fn multiplication(with_table: (QueryEngine, ResultCollector)) {
+            fn multiplication(with_table: (InMemory, ResultCollector)) {
                 let (mut engine, collector) = with_table;
 
                 engine
@@ -450,7 +450,7 @@ mod operators {
             }
 
             #[rstest::rstest]
-            fn division(with_table: (QueryEngine, ResultCollector)) {
+            fn division(with_table: (InMemory, ResultCollector)) {
                 let (mut engine, collector) = with_table;
 
                 engine
@@ -476,7 +476,7 @@ mod operators {
             }
 
             #[rstest::rstest]
-            fn modulo(with_table: (QueryEngine, ResultCollector)) {
+            fn modulo(with_table: (InMemory, ResultCollector)) {
                 let (mut engine, collector) = with_table;
 
                 engine
@@ -505,7 +505,7 @@ mod operators {
             #[ignore]
             // TODO ^ is bitwise in SQL standard
             //      # is bitwise in PostgreSQL and it does not supported in sqlparser-rs
-            fn exponentiation(with_table: (QueryEngine, ResultCollector)) {
+            fn exponentiation(with_table: (InMemory, ResultCollector)) {
                 let (mut engine, collector) = with_table;
 
                 engine
@@ -533,7 +533,7 @@ mod operators {
             #[rstest::rstest]
             #[ignore]
             // TODO |/<n> is square root in PostgreSQL and it does not supported in sqlparser-rs
-            fn square_root(with_table: (QueryEngine, ResultCollector)) {
+            fn square_root(with_table: (InMemory, ResultCollector)) {
                 let (mut engine, collector) = with_table;
 
                 engine
@@ -561,7 +561,7 @@ mod operators {
             #[rstest::rstest]
             #[ignore]
             // TODO ||/<n> is cube root in PostgreSQL and it does not supported in sqlparser-rs
-            fn cube_root(with_table: (QueryEngine, ResultCollector)) {
+            fn cube_root(with_table: (InMemory, ResultCollector)) {
                 let (mut engine, collector) = with_table;
 
                 engine
@@ -589,7 +589,7 @@ mod operators {
             #[rstest::rstest]
             #[ignore]
             // TODO <n>! is factorial in PostgreSQL and it does not supported in sqlparser-rs
-            fn factorial(with_table: (QueryEngine, ResultCollector)) {
+            fn factorial(with_table: (InMemory, ResultCollector)) {
                 let (mut engine, collector) = with_table;
 
                 engine
@@ -617,7 +617,7 @@ mod operators {
             #[rstest::rstest]
             #[ignore]
             // TODO !!<n> is prefix factorial in PostgreSQL and it does not supported in sqlparser-rs
-            fn prefix_factorial(with_table: (QueryEngine, ResultCollector)) {
+            fn prefix_factorial(with_table: (InMemory, ResultCollector)) {
                 let (mut engine, collector) = with_table;
 
                 engine
@@ -645,7 +645,7 @@ mod operators {
             #[rstest::rstest]
             #[ignore]
             // TODO @<n> is absolute value in PostgreSQL and it does not supported in sqlparser-rs
-            fn absolute_value(with_table: (QueryEngine, ResultCollector)) {
+            fn absolute_value(with_table: (InMemory, ResultCollector)) {
                 let (mut engine, collector) = with_table;
 
                 engine
@@ -671,7 +671,7 @@ mod operators {
             }
 
             #[rstest::rstest]
-            fn bitwise_and(with_table: (QueryEngine, ResultCollector)) {
+            fn bitwise_and(with_table: (InMemory, ResultCollector)) {
                 let (mut engine, collector) = with_table;
 
                 engine
@@ -697,7 +697,7 @@ mod operators {
             }
 
             #[rstest::rstest]
-            fn bitwise_or(with_table: (QueryEngine, ResultCollector)) {
+            fn bitwise_or(with_table: (InMemory, ResultCollector)) {
                 let (mut engine, collector) = with_table;
 
                 engine
@@ -725,7 +725,7 @@ mod operators {
             #[rstest::rstest]
             #[ignore]
             // TODO ~ <n> is bitwise NOT in PostgreSQL and it does not supported in sqlparser-rs
-            fn bitwise_not(with_table: (QueryEngine, ResultCollector)) {
+            fn bitwise_not(with_table: (InMemory, ResultCollector)) {
                 let (mut engine, collector) = with_table;
 
                 engine
@@ -753,7 +753,7 @@ mod operators {
             #[rstest::rstest]
             #[ignore]
             // TODO <n> << <m> is bitwise SHIFT LEFT in PostgreSQL and it does not supported in sqlparser-rs
-            fn bitwise_shift_left(with_table: (QueryEngine, ResultCollector)) {
+            fn bitwise_shift_left(with_table: (InMemory, ResultCollector)) {
                 let (mut engine, collector) = with_table;
 
                 engine
@@ -781,7 +781,7 @@ mod operators {
             #[rstest::rstest]
             #[ignore]
             // TODO <n> >> <m> is bitwise SHIFT RIGHT in PostgreSQL and it does not supported in sqlparser-rs
-            fn bitwise_right_left(with_table: (QueryEngine, ResultCollector)) {
+            fn bitwise_right_left(with_table: (InMemory, ResultCollector)) {
                 let (mut engine, collector) = with_table;
 
                 engine
@@ -807,7 +807,7 @@ mod operators {
             }
 
             #[rstest::rstest]
-            fn evaluate_many_operations(with_table: (QueryEngine, ResultCollector)) {
+            fn evaluate_many_operations(with_table: (InMemory, ResultCollector)) {
                 let (mut engine, collector) = with_table;
 
                 engine
@@ -839,7 +839,7 @@ mod operators {
         use super::*;
 
         #[rstest::fixture]
-        fn with_table(database_with_schema: (QueryEngine, ResultCollector)) -> (QueryEngine, ResultCollector) {
+        fn with_table(database_with_schema: (InMemory, ResultCollector)) -> (InMemory, ResultCollector) {
             let (mut engine, collector) = database_with_schema;
 
             engine
@@ -854,7 +854,7 @@ mod operators {
         }
 
         #[rstest::rstest]
-        fn concatenation(with_table: (QueryEngine, ResultCollector)) {
+        fn concatenation(with_table: (InMemory, ResultCollector)) {
             let (mut engine, collector) = with_table;
 
             engine
@@ -880,7 +880,7 @@ mod operators {
         }
 
         #[rstest::rstest]
-        fn concatenation_with_number(with_table: (QueryEngine, ResultCollector)) {
+        fn concatenation_with_number(with_table: (InMemory, ResultCollector)) {
             let (mut engine, collector) = with_table;
 
             engine
@@ -914,7 +914,7 @@ mod operators {
         }
 
         #[rstest::rstest]
-        fn non_string_concatenation_not_supported(with_table: (QueryEngine, ResultCollector)) {
+        fn non_string_concatenation_not_supported(with_table: (InMemory, ResultCollector)) {
             let (mut engine, collector) = with_table;
 
             engine

@@ -12,11 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::sync::Arc;
-
 use data_manager::DataManager;
 use plan::SchemaCreationInfo;
 use protocol::{results::QueryEvent, Sender};
+use std::sync::Arc;
 
 pub(crate) struct CreateSchemaCommand {
     schema_info: SchemaCreationInfo,

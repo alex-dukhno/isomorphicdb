@@ -12,6 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::query_engine::QueryEngine;
+use async_dup::Arc as AsyncArc;
+use async_io::Async;
+use data_manager::DataManager;
+use metadata::DataDefinition;
+use protocol::{ClientRequest, ConnSupervisor, ProtocolConfiguration};
 use std::{
     env,
     net::TcpListener,
@@ -21,13 +27,6 @@ use std::{
         Arc, Mutex,
     },
 };
-
-use async_dup::Arc as AsyncArc;
-use async_io::Async;
-
-use crate::query_engine::QueryEngine;
-use data_manager::DataManager;
-use protocol::{ClientRequest, ConnSupervisor, ProtocolConfiguration};
 
 const PORT: u16 = 5432;
 const HOST: [u8; 4] = [0, 0, 0, 0];
@@ -39,14 +38,11 @@ pub const RUNNING: u8 = 0;
 pub const STOPPED: u8 = 1;
 
 pub fn start() {
-    let persistent = env::var("PERSISTENT").is_ok();
     let root_path = env::var("ROOT_PATH").map(PathBuf::from).unwrap_or_default();
     smol::block_on(async {
-        let storage = if persistent {
-            Arc::new(DataManager::persistent(root_path.join("root_directory")).unwrap())
-        } else {
-            Arc::new(DataManager::in_memory().unwrap())
-        };
+        let metadata =
+            Arc::new(DataDefinition::persistent(&root_path.join("root_directory")).expect("no system error"));
+        let storage = Arc::new(DataManager::persistent(metadata.clone(), root_path.join("root_directory")).unwrap());
         let listener = Async::<TcpListener>::bind((HOST, PORT)).expect("OK");
 
         let state = Arc::new(AtomicU8::new(RUNNING));
@@ -63,7 +59,7 @@ pub fn start() {
                         return;
                     }
                     let state = state.clone();
-                    let mut query_engine = QueryEngine::new(sender, storage.clone());
+                    let mut query_engine = QueryEngine::new(sender, metadata.clone(), storage.clone());
                     log::debug!("ready to handle query");
                     smol::spawn(async move {
                         loop {

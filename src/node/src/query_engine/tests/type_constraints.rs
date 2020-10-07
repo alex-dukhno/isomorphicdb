@@ -19,7 +19,7 @@ use protocol::{
 };
 
 #[rstest::fixture]
-fn int_table(database_with_schema: (QueryEngine, ResultCollector)) -> (QueryEngine, ResultCollector) {
+fn int_table(database_with_schema: (InMemory, ResultCollector)) -> (InMemory, ResultCollector) {
     let (mut engine, collector) = database_with_schema;
     engine
         .execute(Command::Query {
@@ -32,7 +32,7 @@ fn int_table(database_with_schema: (QueryEngine, ResultCollector)) -> (QueryEngi
 }
 
 #[rstest::fixture]
-fn multiple_ints_table(database_with_schema: (QueryEngine, ResultCollector)) -> (QueryEngine, ResultCollector) {
+fn multiple_ints_table(database_with_schema: (InMemory, ResultCollector)) -> (InMemory, ResultCollector) {
     let (mut engine, collector) = database_with_schema;
     engine
         .execute(Command::Query {
@@ -46,7 +46,7 @@ fn multiple_ints_table(database_with_schema: (QueryEngine, ResultCollector)) -> 
 }
 
 #[rstest::fixture]
-fn str_table(database_with_schema: (QueryEngine, ResultCollector)) -> (QueryEngine, ResultCollector) {
+fn str_table(database_with_schema: (InMemory, ResultCollector)) -> (InMemory, ResultCollector) {
     let (mut engine, collector) = database_with_schema;
     engine
         .execute(Command::Query {
@@ -63,7 +63,7 @@ mod insert {
     use super::*;
 
     #[rstest::rstest]
-    fn out_of_range(int_table: (QueryEngine, ResultCollector)) {
+    fn out_of_range(int_table: (InMemory, ResultCollector)) {
         let (mut engine, collector) = int_table;
 
         engine
@@ -79,7 +79,7 @@ mod insert {
     }
 
     #[rstest::rstest]
-    fn type_mismatch(int_table: (QueryEngine, ResultCollector)) {
+    fn type_mismatch(int_table: (InMemory, ResultCollector)) {
         let (mut engine, collector) = int_table;
 
         engine
@@ -94,7 +94,7 @@ mod insert {
     }
 
     #[rstest::rstest]
-    fn multiple_columns_multiple_row_violation(multiple_ints_table: (QueryEngine, ResultCollector)) {
+    fn multiple_columns_multiple_row_violation(multiple_ints_table: (InMemory, ResultCollector)) {
         let (mut engine, collector) = multiple_ints_table;
         engine
             .execute(Command::Query { sql: "insert into schema_name.table_name values (-32769, -2147483649, 100), (100, -2147483649, -9223372036854775809);".to_owned()}).expect("query executed");
@@ -105,7 +105,7 @@ mod insert {
     }
 
     #[rstest::rstest]
-    fn violation_in_the_second_row(multiple_ints_table: (QueryEngine, ResultCollector)) {
+    fn violation_in_the_second_row(multiple_ints_table: (InMemory, ResultCollector)) {
         let (mut engine, collector) = multiple_ints_table;
         engine
             .execute(Command::Query { sql: "insert into schema_name.table_name values (-32768, -2147483648, 100), (100, -2147483649, -9223372036854775809);".to_owned()}).expect("query executed");
@@ -125,7 +125,7 @@ mod insert {
 
     #[rstest::rstest]
     // #[ignore] // TODO constraints is going to be reworked
-    fn value_too_long(str_table: (QueryEngine, ResultCollector)) {
+    fn value_too_long(str_table: (InMemory, ResultCollector)) {
         let (mut engine, collector) = str_table;
         engine
             .execute(Command::Query {
@@ -146,7 +146,7 @@ mod update {
     use super::*;
 
     #[rstest::rstest]
-    fn out_of_range(int_table: (QueryEngine, ResultCollector)) {
+    fn out_of_range(int_table: (InMemory, ResultCollector)) {
         let (mut engine, collector) = int_table;
         engine
             .execute(Command::Query {
@@ -169,7 +169,7 @@ mod update {
     }
 
     #[rstest::rstest]
-    fn type_mismatch(int_table: (QueryEngine, ResultCollector)) {
+    fn type_mismatch(int_table: (InMemory, ResultCollector)) {
         let (mut engine, collector) = int_table;
         engine
             .execute(Command::Query {
@@ -191,7 +191,7 @@ mod update {
     }
 
     #[rstest::rstest]
-    fn value_too_long(str_table: (QueryEngine, ResultCollector)) {
+    fn value_too_long(str_table: (InMemory, ResultCollector)) {
         let (mut engine, collector) = str_table;
 
         engine
@@ -215,7 +215,7 @@ mod update {
     }
 
     #[rstest::rstest]
-    fn multiple_columns_violation(multiple_ints_table: (QueryEngine, ResultCollector)) {
+    fn multiple_columns_violation(multiple_ints_table: (InMemory, ResultCollector)) {
         let (mut engine, collector) = multiple_ints_table;
 
         engine

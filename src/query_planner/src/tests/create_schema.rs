@@ -18,7 +18,7 @@ use protocol::results::QueryError;
 use sqlparser::ast::{ObjectName, Statement};
 
 #[rstest::rstest]
-fn create_new_schema(planner_and_sender: (QueryPlanner, ResultCollector)) {
+fn create_new_schema(planner_and_sender: (InMemory, ResultCollector)) {
     let (query_planner, collector) = planner_and_sender;
     assert_eq!(
         query_planner.plan(&Statement::CreateSchema {
@@ -32,7 +32,7 @@ fn create_new_schema(planner_and_sender: (QueryPlanner, ResultCollector)) {
 }
 
 #[rstest::rstest]
-fn create_schema_with_the_same_name(planner_and_sender_with_schema: (QueryPlanner, ResultCollector)) {
+fn create_schema_with_the_same_name(planner_and_sender_with_schema: (InMemory, ResultCollector)) {
     let (query_planner, collector) = planner_and_sender_with_schema;
     assert_eq!(
         query_planner.plan(&Statement::CreateSchema {
@@ -46,7 +46,7 @@ fn create_schema_with_the_same_name(planner_and_sender_with_schema: (QueryPlanne
 }
 
 #[rstest::rstest]
-fn create_schema_with_unqualified_name(planner_and_sender: (QueryPlanner, ResultCollector)) {
+fn create_schema_with_unqualified_name(planner_and_sender: (InMemory, ResultCollector)) {
     let (query_planner, collector) = planner_and_sender;
     assert!(matches!(
         query_planner.plan(&Statement::CreateSchema {

@@ -1,0 +1,22 @@
+[package]
+name = "metadata"
+version = "0.1.0"
+authors = ["Alex Dukhno <alex.dukhno@icloud.com>"]
+edition = "2018"
+publish = false
+
+[dependencies]
+binary = { path = "../binary" }
+kernel = { path = "../kernel" }
+meta_def = { path = "../meta_def" }
+repr = { path = "../repr" }
+sql_model = { path = "../sql_model" }
+storage = { path = "../storage" }
+
+chashmap = "2.2.2"
+log = "0.4.11"
+
+[dev-dependencies]
+backtrace = "0.3.50"
+rstest = "0.6.4"
+tempfile = "3.1.0"

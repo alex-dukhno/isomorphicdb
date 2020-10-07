@@ -18,7 +18,7 @@ use protocol::results::QueryError;
 use sqlparser::ast::{ObjectName, Statement};
 
 #[rstest::rstest]
-fn delete_from_table_that_in_nonexistent_schema(planner_and_sender: (QueryPlanner, ResultCollector)) {
+fn delete_from_table_that_in_nonexistent_schema(planner_and_sender: (InMemory, ResultCollector)) {
     let (query_planner, collector) = planner_and_sender;
     assert_eq!(
         query_planner.plan(&Statement::Delete {
@@ -32,7 +32,7 @@ fn delete_from_table_that_in_nonexistent_schema(planner_and_sender: (QueryPlanne
 }
 
 #[rstest::rstest]
-fn delete_from_nonexistent_table(planner_and_sender_with_schema: (QueryPlanner, ResultCollector)) {
+fn delete_from_nonexistent_table(planner_and_sender_with_schema: (InMemory, ResultCollector)) {
     let (query_planner, collector) = planner_and_sender_with_schema;
     assert_eq!(
         query_planner.plan(&Statement::Delete {
@@ -49,7 +49,7 @@ fn delete_from_nonexistent_table(planner_and_sender_with_schema: (QueryPlanner, 
 }
 
 #[rstest::rstest]
-fn delete_from_table_with_unqualified_name(planner_and_sender_with_schema: (QueryPlanner, ResultCollector)) {
+fn delete_from_table_with_unqualified_name(planner_and_sender_with_schema: (InMemory, ResultCollector)) {
     let (query_planner, collector) = planner_and_sender_with_schema;
     assert_eq!(
         query_planner.plan(&Statement::Delete {
@@ -65,7 +65,7 @@ fn delete_from_table_with_unqualified_name(planner_and_sender_with_schema: (Quer
 }
 
 #[rstest::rstest]
-fn c_table_with_unsupported_name(planner_and_sender_with_schema: (QueryPlanner, ResultCollector)) {
+fn c_table_with_unsupported_name(planner_and_sender_with_schema: (InMemory, ResultCollector)) {
     let (query_planner, collector) = planner_and_sender_with_schema;
     assert_eq!(
         query_planner.plan(&Statement::Delete {
@@ -86,7 +86,7 @@ fn c_table_with_unsupported_name(planner_and_sender_with_schema: (QueryPlanner, 
 }
 
 #[rstest::rstest]
-fn delete_from_table(planner_and_sender_with_table: (QueryPlanner, ResultCollector)) {
+fn delete_from_table(planner_and_sender_with_table: (InMemory, ResultCollector)) {
     let (query_planner, collector) = planner_and_sender_with_table;
     assert_eq!(
         query_planner.plan(&Statement::Delete {

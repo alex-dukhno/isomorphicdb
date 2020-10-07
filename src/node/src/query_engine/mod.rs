@@ -13,8 +13,9 @@
 // limitations under the License.
 
 use binder::ParamBinder;
-use data_manager::{DataManager, MetadataView};
+use data_manager::DataManager;
 use itertools::izip;
+use metadata::{DataDefinition, MetadataView};
 use parser::QueryParser;
 use plan::{Plan, SelectInput};
 use protocol::{
@@ -40,14 +41,18 @@ pub(crate) struct QueryEngine {
 }
 
 impl QueryEngine {
-    pub(crate) fn new(sender: Arc<dyn Sender>, data_manager: Arc<DataManager>) -> QueryEngine {
+    pub(crate) fn new(
+        sender: Arc<dyn Sender>,
+        metadata: Arc<DataDefinition>,
+        data_manager: Arc<DataManager>,
+    ) -> QueryEngine {
         QueryEngine {
             session: Session::default(),
             sender: sender.clone(),
             data_manager: data_manager.clone(),
             query_parser: QueryParser::default(),
             param_binder: ParamBinder,
-            query_planner: QueryPlanner::new(data_manager.clone(), sender.clone()),
+            query_planner: QueryPlanner::new(metadata, sender.clone()),
             query_executor: QueryExecutor::new(data_manager, sender),
         }
     }

@@ -27,7 +27,7 @@ use crate::{
     drop_schema::DropSchemaPlanner, drop_tables::DropTablesPlanner, insert::InsertPlanner, select::SelectPlanner,
     update::UpdatePlanner,
 };
-use data_manager::DataManager;
+use metadata::DataDefinition;
 use plan::Plan;
 use protocol::{results::QueryError, Sender};
 use sqlparser::ast::{ObjectType, Statement};
@@ -36,26 +36,26 @@ use std::sync::Arc;
 type Result<T> = std::result::Result<T, ()>;
 
 trait Planner {
-    fn plan(self, data_manager: Arc<DataManager>, sender: Arc<dyn Sender>) -> Result<Plan>;
+    fn plan(self, data_manager: Arc<DataDefinition>, sender: Arc<dyn Sender>) -> Result<Plan>;
 }
 
 pub struct QueryPlanner {
-    data_manager: Arc<DataManager>,
+    metadata: Arc<DataDefinition>,
     sender: Arc<dyn Sender>,
 }
 
 impl QueryPlanner {
-    pub fn new(data_manager: Arc<DataManager>, sender: Arc<dyn Sender>) -> Self {
-        Self { data_manager, sender }
+    pub fn new(metadata: Arc<DataDefinition>, sender: Arc<dyn Sender>) -> Self {
+        Self { metadata, sender }
     }
 
     pub fn plan(&self, statement: &Statement) -> Result<Plan> {
         match statement {
             Statement::CreateTable { name, columns, .. } => {
-                CreateTablePlanner::new(name, columns).plan(self.data_manager.clone(), self.sender.clone())
+                CreateTablePlanner::new(name, columns).plan(self.metadata.clone(), self.sender.clone())
             }
             Statement::CreateSchema { schema_name, .. } => {
-                CreateSchemaPlanner::new(schema_name).plan(self.data_manager.clone(), self.sender.clone())
+                CreateSchemaPlanner::new(schema_name).plan(self.metadata.clone(), self.sender.clone())
             }
             Statement::Drop {
                 object_type,
@@ -64,10 +64,11 @@ impl QueryPlanner {
                 if_exists,
             } => match object_type {
                 ObjectType::Table => {
-                    DropTablesPlanner::new(names, *if_exists).plan(self.data_manager.clone(), self.sender.clone())
+                    DropTablesPlanner::new(names, *if_exists).plan(self.metadata.clone(), self.sender.clone())
                 }
-                ObjectType::Schema => DropSchemaPlanner::new(names, *cascade, *if_exists)
-                    .plan(self.data_manager.clone(), self.sender.clone()),
+                ObjectType::Schema => {
+                    DropSchemaPlanner::new(names, *cascade, *if_exists).plan(self.metadata.clone(), self.sender.clone())
+                }
                 _ => {
                     self.sender
                         .send(Err(QueryError::syntax_error(statement)))
@@ -79,17 +80,17 @@ impl QueryPlanner {
                 table_name,
                 columns,
                 source,
-            } => InsertPlanner::new(table_name, columns, source).plan(self.data_manager.clone(), self.sender.clone()),
+            } => InsertPlanner::new(table_name, columns, source).plan(self.metadata.clone(), self.sender.clone()),
             Statement::Update {
                 table_name,
                 assignments,
                 ..
-            } => UpdatePlanner::new(table_name, assignments).plan(self.data_manager.clone(), self.sender.clone()),
+            } => UpdatePlanner::new(table_name, assignments).plan(self.metadata.clone(), self.sender.clone()),
             Statement::Delete { table_name, .. } => {
-                DeletePlanner::new(table_name).plan(self.data_manager.clone(), self.sender.clone())
+                DeletePlanner::new(table_name).plan(self.metadata.clone(), self.sender.clone())
             }
             Statement::Query(query) => {
-                SelectPlanner::new(query.clone()).plan(self.data_manager.clone(), self.sender.clone())
+                SelectPlanner::new(query.clone()).plan(self.metadata.clone(), self.sender.clone())
             }
             _ => Ok(Plan::NotProcessed(Box::new(statement.clone()))),
         }
