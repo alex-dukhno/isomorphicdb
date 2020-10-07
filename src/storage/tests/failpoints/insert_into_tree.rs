@@ -13,10 +13,11 @@
 // limitations under the License.
 
 use binary::Binary;
+use binary::StorageError;
 use common::{scenario, OBJECT, SCHEMA};
 use fail::FailScenario;
 use sql_model::sql_errors::DefinitionError;
-use storage::{Database, PersistentDatabase, StorageError};
+use storage::{Database, PersistentDatabase};
 
 mod common;
 

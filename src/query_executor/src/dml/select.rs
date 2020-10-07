@@ -14,6 +14,7 @@
 
 use ast::predicates::{PredicateOp, PredicateValue};
 use ast::values::ScalarValue;
+use binary::ReadCursor;
 use data_manager::DataManager;
 use metadata::MetadataView;
 use plan::{SelectInput, TableId};
@@ -21,16 +22,15 @@ use protocol::{messages::ColumnMetadata, results::QueryEvent, Sender};
 use sql_model::Id;
 use std::convert::TryInto;
 use std::sync::Arc;
-use storage::{Database, ReadCursor};
 
-struct Source<D: Database> {
+struct Source {
     table_id: TableId,
     cursor: Option<ReadCursor>,
-    data_manager: Arc<DataManager<D>>,
+    data_manager: Arc<DataManager>,
 }
 
-impl<'s, D: Database + 's> Source<D> {
-    fn new(table_id: TableId, data_manager: Arc<DataManager<D>>) -> Source<D> {
+impl Source {
+    fn new(table_id: TableId, data_manager: Arc<DataManager>) -> Source {
         Source {
             table_id,
             cursor: None,
@@ -39,7 +39,7 @@ impl<'s, D: Database + 's> Source<D> {
     }
 }
 
-impl<'s, D: Database + 's> Iterator for Source<D> {
+impl Iterator for Source {
     type Item = Vec<ScalarValue>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -130,18 +130,18 @@ impl<'f> Iterator for Filter<'f> {
     }
 }
 
-pub(crate) struct SelectCommand<D: Database> {
+pub(crate) struct SelectCommand {
     select_input: SelectInput,
-    data_manager: Arc<DataManager<D>>,
+    data_manager: Arc<DataManager>,
     sender: Arc<dyn Sender>,
 }
 
-impl<D: Database> SelectCommand<D> {
+impl SelectCommand {
     pub(crate) fn new(
         select_input: SelectInput,
-        data_manager: Arc<DataManager<D>>,
+        data_manager: Arc<DataManager>,
         sender: Arc<dyn Sender>,
-    ) -> SelectCommand<D> {
+    ) -> SelectCommand {
         SelectCommand {
             select_input,
             data_manager,

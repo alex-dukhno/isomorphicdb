@@ -12,9 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use binary::{RowResult, StorageError};
 use common::{scenario, OBJECT, SCHEMA};
 use fail::FailScenario;
-use storage::{Database, PersistentDatabase, RowResult, StorageError};
+use storage::{Database, PersistentDatabase};
 
 mod common;
 

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use binary::Binary;
+use binary::{Key, ReadCursor, StorageError, Values};
 use sql_model::sql_errors::DefinitionError;
 use sql_model::Id;
 use std::io;
@@ -23,12 +23,6 @@ pub use persistent::PersistentDatabase;
 mod in_memory;
 mod persistent;
 
-pub type Row = (Key, Values);
-pub type Key = Binary;
-pub type Values = Binary;
-pub type RowResult = io::Result<Result<Row, StorageError>>;
-pub type ReadCursor = Box<dyn Iterator<Item = RowResult>>;
-
 pub type FullSchemaId = Option<Id>;
 pub type FullTableId = Option<(Id, Option<Id>)>;
 pub type SchemaName<'s> = &'s str;
@@ -37,13 +31,6 @@ pub type ObjectName<'o> = &'o str;
 pub enum InitStatus {
     Created,
     Loaded,
-}
-
-#[derive(Debug, PartialEq)]
-pub enum StorageError {
-    Io,
-    CascadeIo(Vec<String>),
-    Storage,
 }
 
 pub trait Database {

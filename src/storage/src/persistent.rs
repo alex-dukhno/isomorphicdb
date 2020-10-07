@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{Database, InitStatus, Key, ObjectName, ReadCursor, RowResult, SchemaName, StorageError, Values};
-use binary::Binary;
+use crate::{Database, InitStatus, Key, ObjectName, ReadCursor, SchemaName, StorageError, Values};
+use binary::{Binary, RowResult};
 use chashmap::CHashMap;
 use sled::{Db as Schema, DiskPtr, Error as SledError, IVec, Tree};
 use sql_model::sql_errors::DefinitionError;

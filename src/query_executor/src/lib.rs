@@ -27,18 +27,17 @@ use protocol::{
 };
 use sqlparser::ast::Statement;
 use std::sync::Arc;
-use storage::Database;
 
 mod ddl;
 mod dml;
 
-pub struct QueryExecutor<D: Database> {
-    data_manager: Arc<DataManager<D>>,
+pub struct QueryExecutor {
+    data_manager: Arc<DataManager>,
     sender: Arc<dyn Sender>,
 }
 
-impl<D: Database> QueryExecutor<D> {
-    pub fn new(data_manager: Arc<DataManager<D>>, sender: Arc<dyn Sender>) -> Self {
+impl QueryExecutor {
+    pub fn new(data_manager: Arc<DataManager>, sender: Arc<dyn Sender>) -> Self {
         Self { data_manager, sender }
     }
 

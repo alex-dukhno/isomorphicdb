@@ -16,20 +16,19 @@ use data_manager::DataManager;
 use plan::TableCreationInfo;
 use protocol::{results::QueryEvent, Sender};
 use std::sync::Arc;
-use storage::Database;
 
-pub(crate) struct CreateTableCommand<D: Database> {
+pub(crate) struct CreateTableCommand {
     table_info: TableCreationInfo,
-    data_manager: Arc<DataManager<D>>,
+    data_manager: Arc<DataManager>,
     sender: Arc<dyn Sender>,
 }
 
-impl<D: Database> CreateTableCommand<D> {
+impl CreateTableCommand {
     pub(crate) fn new(
         table_info: TableCreationInfo,
-        data_manager: Arc<DataManager<D>>,
+        data_manager: Arc<DataManager>,
         sender: Arc<dyn Sender>,
-    ) -> CreateTableCommand<D> {
+    ) -> CreateTableCommand {
         CreateTableCommand {
             table_info,
             data_manager,

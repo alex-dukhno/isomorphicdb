@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use ast::operations::ScalarOp;
-use binary::Binary;
+use binary::{Binary, Row};
 use constraints::{Constraint, ConstraintError};
 use data_manager::DataManager;
 use expr_eval::static_expr::StaticExpressionEvaluation;
@@ -26,20 +26,19 @@ use protocol::{
 };
 use repr::Datum;
 use std::sync::Arc;
-use storage::{Database, Row};
 
-pub(crate) struct InsertCommand<D: Database> {
+pub(crate) struct InsertCommand {
     table_inserts: TableInserts,
-    data_manager: Arc<DataManager<D>>,
+    data_manager: Arc<DataManager>,
     sender: Arc<dyn Sender>,
 }
 
-impl<D: Database> InsertCommand<D> {
+impl InsertCommand {
     pub(crate) fn new(
         table_inserts: TableInserts,
-        data_manager: Arc<DataManager<D>>,
+        data_manager: Arc<DataManager>,
         sender: Arc<dyn Sender>,
-    ) -> InsertCommand<D> {
+    ) -> InsertCommand {
         InsertCommand {
             table_inserts,
             data_manager,

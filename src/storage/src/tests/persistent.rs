@@ -12,9 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::persistent::PersistentDatabase;
-
 use super::*;
+use crate::PersistentDatabase;
 
 type Storage = PersistentDatabase;
 

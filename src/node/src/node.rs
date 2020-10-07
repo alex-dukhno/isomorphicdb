@@ -27,7 +27,6 @@ use std::{
         Arc, Mutex,
     },
 };
-use storage::PersistentDatabase;
 
 const PORT: u16 = 5432;
 const HOST: [u8; 4] = [0, 0, 0, 0];
@@ -43,9 +42,7 @@ pub fn start() {
     smol::block_on(async {
         let metadata =
             Arc::new(DataDefinition::persistent(&root_path.join("root_directory")).expect("no system error"));
-        let storage = Arc::new(
-            DataManager::<PersistentDatabase>::persistent(metadata.clone(), root_path.join("root_directory")).unwrap(),
-        );
+        let storage = Arc::new(DataManager::persistent(metadata.clone(), root_path.join("root_directory")).unwrap());
         let listener = Async::<TcpListener>::bind((HOST, PORT)).expect("OK");
 
         let state = Arc::new(AtomicU8::new(RUNNING));

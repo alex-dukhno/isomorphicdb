@@ -16,20 +16,19 @@ use data_manager::DataManager;
 use plan::SchemaCreationInfo;
 use protocol::{results::QueryEvent, Sender};
 use std::sync::Arc;
-use storage::Database;
 
-pub(crate) struct CreateSchemaCommand<D: Database> {
+pub(crate) struct CreateSchemaCommand {
     schema_info: SchemaCreationInfo,
-    data_manager: Arc<DataManager<D>>,
+    data_manager: Arc<DataManager>,
     sender: Arc<dyn Sender>,
 }
 
-impl<D: Database> CreateSchemaCommand<D> {
+impl CreateSchemaCommand {
     pub(crate) fn new(
         schema_info: SchemaCreationInfo,
-        data_manager: Arc<DataManager<D>>,
+        data_manager: Arc<DataManager>,
         sender: Arc<dyn Sender>,
-    ) -> CreateSchemaCommand<D> {
+    ) -> CreateSchemaCommand {
         CreateSchemaCommand {
             schema_info,
             data_manager,

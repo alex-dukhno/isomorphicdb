@@ -29,24 +29,23 @@ use query_executor::QueryExecutor;
 use query_planner::QueryPlanner;
 use sqlparser::ast::Statement;
 use std::{iter, ops::Deref, sync::Arc};
-use storage::Database;
 
-pub(crate) struct QueryEngine<D: Database> {
+pub(crate) struct QueryEngine {
     session: Session<Statement>,
     sender: Arc<dyn Sender>,
-    data_manager: Arc<DataManager<D>>,
+    data_manager: Arc<DataManager>,
     query_parser: QueryParser,
     param_binder: ParamBinder,
     query_planner: QueryPlanner,
-    query_executor: QueryExecutor<D>,
+    query_executor: QueryExecutor,
 }
 
-impl<D: Database> QueryEngine<D> {
+impl QueryEngine {
     pub(crate) fn new(
         sender: Arc<dyn Sender>,
         metadata: Arc<DataDefinition>,
-        data_manager: Arc<DataManager<D>>,
-    ) -> QueryEngine<D> {
+        data_manager: Arc<DataManager>,
+    ) -> QueryEngine {
         QueryEngine {
             session: Session::default(),
             sender: sender.clone(),

@@ -19,7 +19,6 @@ use std::{
     io,
     sync::{Arc, Mutex},
 };
-use storage::InMemoryDatabase;
 
 #[cfg(test)]
 mod delete;
@@ -40,7 +39,7 @@ mod update;
 #[cfg(test)]
 mod where_clause;
 
-type InMemory = QueryEngine<InMemoryDatabase>;
+type InMemory = QueryEngine;
 type ResultCollector = Arc<Collector>;
 
 pub struct Collector(Mutex<Vec<QueryResult>>);
@@ -102,7 +101,7 @@ fn empty_database() -> (InMemory, ResultCollector) {
         InMemory::new(
             collector.clone(),
             metadata.clone(),
-            Arc::new(DataManager::<InMemoryDatabase>::in_memory(metadata)),
+            Arc::new(DataManager::in_memory(metadata)),
         ),
         collector,
     )

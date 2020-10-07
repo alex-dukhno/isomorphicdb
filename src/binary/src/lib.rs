@@ -14,6 +14,20 @@
 
 use repr::Datum;
 use sql_model::sql_types::SqlType;
+use std::io;
+
+pub type Row = (Key, Values);
+pub type Key = Binary;
+pub type Values = Binary;
+pub type RowResult = io::Result<Result<Row, StorageError>>;
+pub type ReadCursor = Box<dyn Iterator<Item = RowResult>>;
+
+#[derive(Debug, PartialEq)]
+pub enum StorageError {
+    Io,
+    CascadeIo(Vec<String>),
+    Storage,
+}
 
 #[repr(u8)]
 enum TypeTag {

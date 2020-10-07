@@ -14,13 +14,13 @@
 
 use super::*;
 use binary::Binary;
+use binary::Row;
 use repr::Datum;
 use sql_model::sql_types::SqlType;
 use std::path::PathBuf;
-use storage::Row;
 use tempfile::TempDir;
 
-type Persistent = DataManager<PersistentDatabase>;
+type Persistent = DataManager;
 
 #[rstest::fixture]
 fn persistent() -> (Persistent, TempDir) {

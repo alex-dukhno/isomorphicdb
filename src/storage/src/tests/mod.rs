@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use super::*;
+use binary::{Binary, Row};
 
 #[cfg(test)]
 mod in_memory;

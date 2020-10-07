@@ -808,7 +808,6 @@ dependencies = [
  "smol",
  "sql_model",
  "sqlparser",
- "storage",
 ]
 
 [[package]]
@@ -1111,7 +1110,6 @@ dependencies = [
  "rstest",
  "sql_model",
  "sqlparser",
- "storage",
  "tempfile",
 ]
 

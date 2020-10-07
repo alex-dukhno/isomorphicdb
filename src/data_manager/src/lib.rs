@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use binary::{Key, ReadCursor, Values};
 use chashmap::CHashMap;
 use kernel::{Object, Operation, SystemError, SystemResult};
 use meta_def::ColumnDefinition;
@@ -25,33 +26,33 @@ use std::{
 };
 use storage::InMemoryDatabase;
 use storage::PersistentDatabase;
-use storage::{Database, FullSchemaId, FullTableId, InitStatus, Key, ReadCursor, Values};
+use storage::{Database, FullSchemaId, FullTableId, InitStatus};
 
-pub struct DataManager<D: Database> {
-    databases: CHashMap<String, D>,
+pub struct DataManager {
+    databases: CHashMap<String, Box<dyn Database>>,
     data_definition: Arc<DataDefinition>,
     schemas: CHashMap<Id, String>,
     tables: CHashMap<(Id, Id), Vec<String>>,
     record_id_generators: CHashMap<(Id, Id), AtomicU64>,
 }
 
-impl Default for DataManager<InMemoryDatabase> {
-    fn default() -> DataManager<InMemoryDatabase> {
-        DataManager::<InMemoryDatabase>::in_memory(Arc::new(DataDefinition::in_memory()))
+impl Default for DataManager {
+    fn default() -> DataManager {
+        DataManager::in_memory(Arc::new(DataDefinition::in_memory()))
     }
 }
 
-unsafe impl<D: Database> Send for DataManager<D> {}
+unsafe impl Send for DataManager {}
 
-unsafe impl<D: Database> Sync for DataManager<D> {}
+unsafe impl Sync for DataManager {}
 
 pub const DEFAULT_CATALOG: &'_ str = "public";
 
-impl<D: Database> DataManager<D> {
-    pub fn in_memory(data_definition: Arc<DataDefinition>) -> DataManager<InMemoryDatabase> {
+impl DataManager {
+    pub fn in_memory(data_definition: Arc<DataDefinition>) -> DataManager {
         data_definition.create_catalog(DEFAULT_CATALOG);
-        let databases = CHashMap::default();
-        databases.insert(DEFAULT_CATALOG.to_lowercase(), InMemoryDatabase::default());
+        let databases: CHashMap<String, Box<dyn Database>> = CHashMap::default();
+        databases.insert(DEFAULT_CATALOG.to_lowercase(), Box::new(InMemoryDatabase::default()));
         DataManager {
             databases,
             data_definition,
@@ -61,11 +62,7 @@ impl<D: Database> DataManager<D> {
         }
     }
 
-    pub fn persistent(
-        data_definition: Arc<DataDefinition>,
-        path: PathBuf,
-    ) -> SystemResult<DataManager<PersistentDatabase>> {
-        // let data_definition = DataDefinition::persistent(&path)?;
+    pub fn persistent(data_definition: Arc<DataDefinition>, path: PathBuf) -> SystemResult<DataManager> {
         let catalog = PersistentDatabase::new(path.join(DEFAULT_CATALOG));
         let schemas = CHashMap::new();
         let tables = CHashMap::new();
@@ -103,8 +100,8 @@ impl<D: Database> DataManager<D> {
                 data_definition.create_catalog(DEFAULT_CATALOG);
             }
         }
-        let databases = CHashMap::default();
-        databases.insert(DEFAULT_CATALOG.to_lowercase(), catalog);
+        let databases: CHashMap<String, Box<dyn Database>> = CHashMap::default();
+        databases.insert(DEFAULT_CATALOG.to_lowercase(), Box::new(catalog));
         Ok(DataManager {
             databases,
             data_definition,
@@ -395,7 +392,7 @@ impl<D: Database> DataManager<D> {
     }
 }
 
-impl<D: Database> MetadataView for DataManager<D> {
+impl MetadataView for DataManager {
     fn schema_exists<S: AsRef<str>>(&self, schema_name: &S) -> FullSchemaId {
         self.data_definition
             .schema_exists(DEFAULT_CATALOG, schema_name.as_ref())

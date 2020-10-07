@@ -17,22 +17,21 @@ use plan::SchemaId;
 use protocol::{results::QueryEvent, Sender};
 use sql_model::{DropSchemaError, DropStrategy};
 use std::sync::Arc;
-use storage::Database;
 
-pub(crate) struct DropSchemaCommand<D: Database> {
+pub(crate) struct DropSchemaCommand {
     schema_id: SchemaId,
     cascade: bool,
-    data_manager: Arc<DataManager<D>>,
+    data_manager: Arc<DataManager>,
     sender: Arc<dyn Sender>,
 }
 
-impl<D: Database> DropSchemaCommand<D> {
+impl DropSchemaCommand {
     pub(crate) fn new(
         schema_id: SchemaId,
         cascade: bool,
-        data_manager: Arc<DataManager<D>>,
+        data_manager: Arc<DataManager>,
         sender: Arc<dyn Sender>,
-    ) -> DropSchemaCommand<D> {
+    ) -> DropSchemaCommand {
         DropSchemaCommand {
             schema_id,
             cascade,

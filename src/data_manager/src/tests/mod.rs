@@ -27,7 +27,7 @@ const SCHEMA: &str = "schema_name";
 const SCHEMA_1: &str = "schema_name_1";
 const SCHEMA_2: &str = "schema_name_2";
 
-type InMemory = DataManager<InMemoryDatabase>;
+type InMemory = DataManager;
 
 #[rstest::fixture]
 fn data_manager() -> InMemory {

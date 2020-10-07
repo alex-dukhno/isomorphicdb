@@ -23,20 +23,19 @@ use protocol::results::{QueryError, QueryEvent};
 use protocol::Sender;
 use std::collections::HashMap;
 use std::sync::Arc;
-use storage::Database;
 
-pub(crate) struct UpdateCommand<D: Database> {
+pub(crate) struct UpdateCommand {
     table_update: TableUpdates,
-    data_manager: Arc<DataManager<D>>,
+    data_manager: Arc<DataManager>,
     sender: Arc<dyn Sender>,
 }
 
-impl<D: Database> UpdateCommand<D> {
+impl UpdateCommand {
     pub(crate) fn new(
         table_update: TableUpdates,
-        data_manager: Arc<DataManager<D>>,
+        data_manager: Arc<DataManager>,
         sender: Arc<dyn Sender>,
-    ) -> UpdateCommand<D> {
+    ) -> UpdateCommand {
         UpdateCommand {
             table_update,
             data_manager,
