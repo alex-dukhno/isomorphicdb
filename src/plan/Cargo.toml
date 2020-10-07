@@ -8,7 +8,6 @@ publish = false
 [dependencies]
 ast = { path = "../ast" }
 constraints = { path = "../constraints" }
-data_manager = { path = "../data_manager" }
 meta_def = { path = "../meta_def" }
 protocol = { path = "../protocol" }
 sql_model = { path = "../sql_model" }

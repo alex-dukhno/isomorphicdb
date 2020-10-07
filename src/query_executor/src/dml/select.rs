@@ -14,7 +14,8 @@
 
 use ast::predicates::{PredicateOp, PredicateValue};
 use ast::values::ScalarValue;
-use data_manager::{DataManager, MetadataView};
+use data_manager::DataManager;
+use metadata::MetadataView;
 use plan::{SelectInput, TableId};
 use protocol::{messages::ColumnMetadata, results::QueryEvent, Sender};
 use sql_model::Id;

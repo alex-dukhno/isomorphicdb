@@ -15,7 +15,7 @@
 use chashmap::CHashMap;
 use kernel::{Object, Operation, SystemError, SystemResult};
 use meta_def::ColumnDefinition;
-use metadata::DataDefinition;
+use metadata::{DataDefinition, MetadataView};
 use sql_model::{DropSchemaError, DropStrategy, Id};
 use std::sync::Arc;
 use std::{
@@ -26,22 +26,6 @@ use std::{
 use storage::InMemoryDatabase;
 use storage::PersistentDatabase;
 use storage::{Database, FullSchemaId, FullTableId, InitStatus, Key, ReadCursor, Values};
-
-pub trait MetadataView {
-    fn schema_exists<S: AsRef<str>>(&self, schema_name: &S) -> FullSchemaId;
-
-    fn table_exists<S: AsRef<str>, T: AsRef<str>>(&self, schema_name: &S, table_name: &T) -> FullTableId;
-
-    fn table_columns<I: AsRef<(Id, Id)>>(&self, table_id: &I) -> Result<Vec<ColumnDefinition>, ()>;
-
-    fn column_ids<I: AsRef<(Id, Id)>, N: AsRef<str> + PartialEq<N>>(
-        &self,
-        table_id: &I,
-        names: &[N],
-    ) -> Result<(Vec<Id>, Vec<String>), ()>;
-
-    fn column_defs<I: AsRef<(Id, Id)>>(&self, table_id: &I, ids: &[Id]) -> Vec<ColumnDefinition>;
-}
 
 pub struct DataManager<D: Database> {
     databases: CHashMap<String, D>,

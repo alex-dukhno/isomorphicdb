@@ -1017,7 +1017,6 @@ version = "0.1.0"
 dependencies = [
  "ast",
  "constraints",
- "data_manager",
  "meta_def",
  "protocol",
  "sql_model",
@@ -1085,11 +1084,10 @@ dependencies = [
 name = "query_analyzer"
 version = "0.1.0"
 dependencies = [
- "data_manager",
  "description",
+ "metadata",
  "sql_model",
  "sqlparser",
- "storage",
 ]
 
 [[package]]
@@ -1106,6 +1104,7 @@ dependencies = [
  "kernel",
  "log",
  "meta_def",
+ "metadata",
  "plan",
  "protocol",
  "repr",

@@ -97,7 +97,7 @@ fn planner_and_sender_with_table() -> (InMemory, ResultCollector) {
     let collector = Arc::new(Collector(Mutex::new(vec![])));
     let manager = DataDefinition::in_memory();
     manager.create_catalog(DEFAULT_CATALOG);
-    let schema_id = manager.create_schema(DEFAULT_CATALOG, SCHEMA).expect("schema created");
+    let _schema_id = manager.create_schema(DEFAULT_CATALOG, SCHEMA).expect("schema created");
     manager
         .create_table(
             DEFAULT_CATALOG,
@@ -118,7 +118,7 @@ fn planner_and_sender_with_no_column_table() -> (InMemory, ResultCollector) {
     let collector = Arc::new(Collector(Mutex::new(vec![])));
     let manager = DataDefinition::in_memory();
     manager.create_catalog(DEFAULT_CATALOG);
-    let schema_id = manager.create_schema(DEFAULT_CATALOG, SCHEMA).expect("schema created");
+    let _schema_id = manager.create_schema(DEFAULT_CATALOG, SCHEMA).expect("schema created");
     manager
         .create_table(DEFAULT_CATALOG, SCHEMA, TABLE, &[])
         .expect("table created");

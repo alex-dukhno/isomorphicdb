@@ -12,19 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use data_manager::{DataManager, MetadataView};
 use description::{Description, FullTableName, InsertStatement, TableId};
+use metadata::DataDefinition;
+use sql_model::DEFAULT_CATALOG;
 use sqlparser::ast::Statement;
 use std::convert::TryFrom;
 use std::sync::Arc;
-use storage::Database;
 
-pub struct Analyzer<D: Database> {
-    metadata: Arc<DataManager<D>>,
+pub struct Analyzer {
+    metadata: Arc<DataDefinition>,
 }
 
-impl<D: Database> Analyzer<D> {
-    pub fn new(metadata: Arc<DataManager<D>>) -> Analyzer<D> {
+impl Analyzer {
+    pub fn new(metadata: Arc<DataDefinition>) -> Analyzer {
         Analyzer { metadata }
     }
 
@@ -33,8 +33,8 @@ impl<D: Database> Analyzer<D> {
             Statement::Insert { table_name, .. } => {
                 let full_table_name = FullTableName::try_from(table_name).unwrap();
                 let (schema_name, table_name) = full_table_name.as_tuple();
-                match self.metadata.table_exists(schema_name, table_name) {
-                    Some((schema_id, Some(table_id))) => Description::Insert(InsertStatement {
+                match self.metadata.table_exists(DEFAULT_CATALOG, schema_name, table_name) {
+                    Some((_, Some((schema_id, Some(table_id))))) => Description::Insert(InsertStatement {
                         table_id: TableId::from((schema_id, table_id)),
                     }),
                     _ => unimplemented!(),
@@ -64,9 +64,12 @@ mod tests {
 
     #[test]
     fn insert_into_existing_empty_table() {
-        let data_manager = Arc::new(DataManager::default());
-        let schema_id = data_manager.create_schema(SCHEMA).expect("ok");
-        data_manager.create_table(schema_id, TABLE, &[]).expect("ok");
+        let data_manager = Arc::new(DataDefinition::in_memory());
+        data_manager.create_catalog(DEFAULT_CATALOG);
+        let _schema_id = data_manager.create_schema(DEFAULT_CATALOG, SCHEMA).expect("ok");
+        data_manager
+            .create_table(DEFAULT_CATALOG, SCHEMA, TABLE, &[])
+            .expect("ok");
         let analyzer = Analyzer::new(data_manager);
         let description = analyzer.describe(&Statement::Insert {
             table_name: ObjectName(vec![ident(SCHEMA), ident(TABLE)]),

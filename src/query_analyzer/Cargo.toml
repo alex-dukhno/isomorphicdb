@@ -6,9 +6,8 @@ edition = "2018"
 publish = false
 
 [dependencies]
-data_manager = { path = "../data_manager" }
 description = { path = "../description" }
+metadata = { path = "../metadata" }
 sql_model = { path = "../sql_model" }
-storage = { path = "../storage" }
 
 sqlparser = { git = "https://github.com/ballista-compute/sqlparser-rs.git", branch = "main", features = ["bigdecimal"] }

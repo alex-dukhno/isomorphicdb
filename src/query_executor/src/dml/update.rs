@@ -12,17 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::sync::Arc;
-
 use ast::operations::ScalarOp;
 use binary::Binary;
 use constraints::{Constraint, ConstraintError};
-use data_manager::{DataManager, MetadataView};
+use data_manager::DataManager;
 use expr_eval::{dynamic_expr::DynamicExpressionEvaluation, static_expr::StaticExpressionEvaluation};
+use metadata::MetadataView;
 use plan::TableUpdates;
 use protocol::results::{QueryError, QueryEvent};
 use protocol::Sender;
 use std::collections::HashMap;
+use std::sync::Arc;
 use storage::Database;
 
 pub(crate) struct UpdateCommand<D: Database> {
