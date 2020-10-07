@@ -17,9 +17,8 @@ use bigdecimal::BigDecimal;
 use repr::Datum;
 use sql_model::sql_types::SqlType;
 use sqlparser::ast::{DataType, Expr, Value};
-use std::convert::TryFrom;
 use std::{
-    convert::{From, TryInto},
+    convert::{From, TryFrom, TryInto},
     fmt::{self, Display, Formatter},
 };
 

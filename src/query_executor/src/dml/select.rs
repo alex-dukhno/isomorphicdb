@@ -12,16 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use ast::predicates::{PredicateOp, PredicateValue};
-use ast::values::ScalarValue;
+use ast::{
+    predicates::{PredicateOp, PredicateValue},
+    values::ScalarValue,
+};
 use binary::ReadCursor;
 use data_manager::DataManager;
 use metadata::MetadataView;
 use plan::{SelectInput, TableId};
 use protocol::{messages::ColumnMetadata, results::QueryEvent, Sender};
 use sql_model::Id;
-use std::convert::TryInto;
-use std::sync::Arc;
+use std::{convert::TryInto, sync::Arc};
 
 struct Source {
     table_id: TableId,

@@ -16,8 +16,7 @@ use description::{Description, FullTableName, InsertStatement, TableId};
 use metadata::DataDefinition;
 use sql_model::DEFAULT_CATALOG;
 use sqlparser::ast::Statement;
-use std::convert::TryFrom;
-use std::sync::Arc;
+use std::{convert::TryFrom, sync::Arc};
 
 pub struct Analyzer {
     metadata: Arc<DataDefinition>,

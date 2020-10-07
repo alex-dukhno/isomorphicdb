@@ -18,15 +18,15 @@ use kernel::{Object, Operation, SystemError, SystemResult};
 use meta_def::ColumnDefinition;
 use metadata::{DataDefinition, MetadataView};
 use sql_model::{DropSchemaError, DropStrategy, Id};
-use std::sync::Arc;
 use std::{
     collections::HashMap,
     path::PathBuf,
-    sync::atomic::{AtomicU64, Ordering},
+    sync::{
+        atomic::{AtomicU64, Ordering},
+        Arc,
+    },
 };
-use storage::InMemoryDatabase;
-use storage::PersistentDatabase;
-use storage::{Database, FullSchemaId, FullTableId, InitStatus};
+use storage::{Database, FullSchemaId, FullTableId, InMemoryDatabase, InitStatus, PersistentDatabase};
 
 pub struct DataManager {
     databases: CHashMap<String, Box<dyn Database>>,

@@ -13,8 +13,7 @@
 // limitations under the License.
 
 use binary::{Key, ReadCursor, StorageError, Values};
-use sql_model::sql_errors::DefinitionError;
-use sql_model::Id;
+use sql_model::{sql_errors::DefinitionError, Id};
 use std::io;
 
 pub use in_memory::InMemoryDatabase;

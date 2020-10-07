@@ -14,8 +14,10 @@
 
 use sql_model::Id;
 use sqlparser::ast::ObjectName;
-use std::convert::TryFrom;
-use std::fmt::{self, Display, Formatter};
+use std::{
+    convert::TryFrom,
+    fmt::{self, Display, Formatter},
+};
 
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
 pub struct TableId((Id, Id));

@@ -15,8 +15,7 @@
 use super::*;
 use meta_def::ColumnDefinition;
 use protocol::{results::QueryResult, Sender};
-use sql_model::sql_types::SqlType;
-use sql_model::DEFAULT_CATALOG;
+use sql_model::{sql_types::SqlType, DEFAULT_CATALOG};
 use sqlparser::ast::Ident;
 use std::{
     io,

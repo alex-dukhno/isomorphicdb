@@ -12,8 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use ast::operations::ScalarOp;
-use ast::predicates::{PredicateOp, PredicateValue};
+use ast::{
+    operations::ScalarOp,
+    predicates::{PredicateOp, PredicateValue},
+};
 use constraints::TypeConstraint;
 use meta_def::ColumnDefinition;
 use sql_model::{sql_types::SqlType, Id};

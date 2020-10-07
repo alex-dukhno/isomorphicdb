@@ -34,7 +34,7 @@ impl Planner for CreateSchemaPlanner<'_> {
     fn plan(self, metadata: Arc<DataDefinition>, sender: Arc<dyn Sender>) -> Result<Plan> {
         match SchemaName::try_from(self.schema_name) {
             Ok(schema_name) => match metadata.schema_exists(DEFAULT_CATALOG, schema_name.as_ref()) {
-                None => return Err(()), // TODO catalog does not exists
+                None => Err(()), // TODO catalog does not exists
                 Some((_, Some(_))) => {
                     sender
                         .send(Err(QueryError::schema_already_exists(schema_name)))

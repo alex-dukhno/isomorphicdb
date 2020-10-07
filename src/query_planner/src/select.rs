@@ -21,8 +21,7 @@ use sql_model::DEFAULT_CATALOG;
 use sqlparser::ast::{
     BinaryOperator, Expr, Ident, Query, Select, SelectItem, SetExpr, TableFactor, TableWithJoins, Value,
 };
-use std::collections::HashMap;
-use std::{convert::TryFrom, ops::Deref, sync::Arc};
+use std::{collections::HashMap, convert::TryFrom, ops::Deref, sync::Arc};
 
 pub(crate) struct SelectPlanner {
     query: Box<Query>,

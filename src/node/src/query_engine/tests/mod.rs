@@ -14,9 +14,9 @@
 
 use super::*;
 use protocol::results::{QueryEvent, QueryResult};
-use std::ops::DerefMut;
 use std::{
     io,
+    ops::DerefMut,
     sync::{Arc, Mutex},
 };
 

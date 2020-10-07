@@ -13,8 +13,7 @@
 // limitations under the License.
 
 use super::*;
-use binary::Binary;
-use binary::Row;
+use binary::{Binary, Row};
 use repr::Datum;
 use sql_model::sql_types::SqlType;
 use std::path::PathBuf;

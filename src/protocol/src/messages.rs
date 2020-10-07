@@ -565,9 +565,8 @@ fn decode_parse(mut cursor: Cursor) -> Result<FrontendMessage> {
     for _ in 0..cursor.read_i16()? {
         let oid = cursor.read_u32()?;
         log::trace!("OID {:?}", oid);
-        match PostgreSqlType::try_from(oid) {
-            Ok(sql_type) => param_types.push(sql_type),
-            Err(_) => {}
+        if let Ok(sql_type) = PostgreSqlType::try_from(oid) {
+            param_types.push(sql_type);
         }
     }
 

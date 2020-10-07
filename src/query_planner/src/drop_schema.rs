@@ -15,8 +15,10 @@
 use crate::{Planner, Result};
 use metadata::DataDefinition;
 use plan::{Plan, SchemaId, SchemaName};
-use protocol::results::QueryEvent;
-use protocol::{results::QueryError, Sender};
+use protocol::{
+    results::{QueryError, QueryEvent},
+    Sender,
+};
 use sql_model::DEFAULT_CATALOG;
 use sqlparser::ast::ObjectName;
 use std::{convert::TryFrom, sync::Arc};
