@@ -4,6 +4,9 @@ skip-tree = [
     # sled -> parking_lot
     # chashmap -> parking_lot
     { name = "parking_lot" },
+    # node -> simple_logger -> chrono -> time -> wasi
+    # protocol -> rand -> wasi
+    { name = "wasi" },
 ]
 
 [licenses]
@@ -20,7 +23,8 @@ allow = [
 ]
 exceptions = [
     # smol use wepoll
-    { allow = ["MPL-2.0"], name = "wepoll-sys-stjepang" },
+    { allow = ["MPL-2.0"], name = "wepoll-sys" },
+    { allow = ["MPL-2.0"], name = "colored" },
 ]
 
 [sources]
