@@ -444,11 +444,8 @@ impl<RW: AsyncRead + AsyncWrite + Unpin> RequestReceiver<RW> {
     pub fn properties(&self) -> &(Version, Params) {
         &(self.properties)
     }
-}
 
-#[async_trait]
-impl<RW: AsyncRead + AsyncWrite + Unpin> Receiver for RequestReceiver<RW> {
-    async fn receive(&mut self) -> io::Result<Result<Command>> {
+    async fn read_frontend_message(&self) -> io::Result<Result<FrontendMessage>> {
         // Parses the one-byte tag.
         let mut buffer = [0u8; 1];
         let tag = self
@@ -475,9 +472,27 @@ impl<RW: AsyncRead + AsyncWrite + Unpin> Receiver for RequestReceiver<RW> {
         buffer.resize(len as usize - 4, b'0');
         self.channel.lock().await.read_exact(&mut buffer).await?;
 
-        let message = match FrontendMessage::decode(tag, &buffer) {
-            Ok(msg) => msg,
-            Err(err) => return Ok(Err(err)),
+        match FrontendMessage::decode(tag, &buffer) {
+            Ok(msg) => Ok(Ok(msg)),
+            Err(err) => Ok(Err(err)),
+        }
+    }
+}
+
+#[async_trait]
+impl<RW: AsyncRead + AsyncWrite + Unpin> Receiver for RequestReceiver<RW> {
+    async fn receive(&mut self) -> io::Result<Result<Command>> {
+        let message = match self.read_frontend_message().await {
+            Ok(Ok(message)) => message,
+            Ok(Err(err)) => return Ok(Err(err)),
+            Err(err) if err.kind() == io::ErrorKind::UnexpectedEof => {
+                // Client disconnected the socket immediately without sending a
+                // Terminate message. Considers it as a client Terminate to save
+                // resource and exit smoothly.
+                log::debug!("client disconnected immediately");
+                FrontendMessage::Terminate
+            }
+            Err(err) => return Err(err),
         };
         log::debug!("client request message {:?}", message);
 

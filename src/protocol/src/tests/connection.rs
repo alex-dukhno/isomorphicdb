@@ -57,44 +57,16 @@ mod read_query {
     }
 
     #[test]
-    fn unexpected_eof_when_read_type_code_of_query_request() {
+    fn client_disconnected_immediately() {
         block_on(async {
             let test_case = TestCase::with_content(vec![]);
             let channel = Arc::new(AsyncMutex::new(Channel::Plain(test_case)));
             let conn_supervisor = Arc::new(Mutex::new(ConnSupervisor::new(1, 2)));
             let (conn_id, _) = conn_supervisor.lock().unwrap().alloc().unwrap();
-            let mut connection = RequestReceiver::new(conn_id, (VERSION_3, vec![]), channel, conn_supervisor);
+            let mut receiver = RequestReceiver::new(conn_id, (VERSION_3, vec![]), channel, conn_supervisor);
 
-            let query = connection.receive().await;
-            assert!(query.is_err());
-        });
-    }
-
-    #[test]
-    fn unexpected_eof_when_read_length_of_query() {
-        block_on(async {
-            let test_case = TestCase::with_content(vec![&[81]]);
-            let channel = Arc::new(AsyncMutex::new(Channel::Plain(test_case)));
-            let conn_supervisor = Arc::new(Mutex::new(ConnSupervisor::new(1, 2)));
-            let (conn_id, _) = conn_supervisor.lock().unwrap().alloc().unwrap();
-            let mut connection = RequestReceiver::new(conn_id, (VERSION_3, vec![]), channel, conn_supervisor);
-
-            let query = connection.receive().await;
-            assert!(query.is_err());
-        });
-    }
-
-    #[test]
-    fn unexpected_eof_when_query_string() {
-        block_on(async {
-            let test_case = TestCase::with_content(vec![&[81], &[0, 0, 0, 14], b"sel;\0"]);
-            let channel = Arc::new(AsyncMutex::new(Channel::Plain(test_case)));
-            let conn_supervisor = Arc::new(Mutex::new(ConnSupervisor::new(1, 2)));
-            let (conn_id, _) = conn_supervisor.lock().unwrap().alloc().unwrap();
-            let mut connection = RequestReceiver::new(conn_id, (VERSION_3, vec![]), channel, conn_supervisor);
-
-            let query = connection.receive().await;
-            assert!(query.is_err());
+            let query = receiver.receive().await.expect("no io errors");
+            assert_eq!(query, Ok(Command::Terminate));
         });
     }
 }
