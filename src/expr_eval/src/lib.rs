@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-pub mod dynamic_expr;
-pub mod static_expr;
+mod dynamic_expr;
+mod static_expr;
 
 pub use dynamic_expr::DynamicExpressionEvaluation;
 pub use static_expr::StaticExpressionEvaluation;
