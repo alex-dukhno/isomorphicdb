@@ -13,37 +13,27 @@
 // limitations under the License.
 
 use super::*;
-use crate::{static_expr::StaticExpressionEvaluation, tests::ResultCollector};
 use ast::{operations::ScalarOp, values::ScalarValue};
 
-fn eval(sender: ResultCollector) -> StaticExpressionEvaluation {
-    StaticExpressionEvaluation::new(sender)
+#[rstest::fixture]
+fn static_expression_evaluation() -> StaticExpressionEvaluation {
+    StaticExpressionEvaluation::new()
 }
 
-#[test]
-fn column() {
-    let sender = sender();
-    let eval = eval(sender.clone());
-
+#[rstest::rstest]
+fn column(static_expression_evaluation: StaticExpressionEvaluation) {
     assert_eq!(
-        eval.eval(&ScalarOp::Column("name".to_owned())),
+        static_expression_evaluation.eval(&ScalarOp::Column("name".to_owned())),
         Ok(ScalarOp::Column("name".to_owned()))
     );
-
-    sender.assert_content(vec![]);
 }
 
-#[test]
-fn value() {
-    let sender = sender();
-    let eval = eval(sender.clone());
-
+#[rstest::rstest]
+fn value(static_expression_evaluation: StaticExpressionEvaluation) {
     assert_eq!(
-        eval.eval(&ScalarOp::Value(ScalarValue::Number(BigDecimal::from(100i16))),),
+        static_expression_evaluation.eval(&ScalarOp::Value(ScalarValue::Number(BigDecimal::from(100i16))),),
         Ok(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(100i16))))
     );
-
-    sender.assert_content(vec![]);
 }
 
 #[cfg(test)]
@@ -54,140 +44,100 @@ mod binary_operation {
     mod integers {
         use super::*;
 
-        #[test]
-        fn number_concatenation() {
-            let sender = sender();
-            let eval = eval(sender.clone());
-
+        #[rstest::rstest]
+        fn number_concatenation(static_expression_evaluation: StaticExpressionEvaluation) {
             assert_eq!(
-                eval.eval(&ScalarOp::Binary(
+                static_expression_evaluation.eval(&ScalarOp::Binary(
                     BinaryOp::Concat,
                     Box::new(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(10)))),
                     Box::new(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(10))))
                 )),
-                Err(())
+                Err(EvalError::undefined_function(&"||", &"NUMBER", &"NUMBER"))
             );
-
-            sender.assert_content(vec![Err(QueryError::undefined_function("||", "NUMBER", "NUMBER"))]);
         }
 
-        #[test]
-        fn addition() {
-            let sender = sender();
-            let eval = eval(sender.clone());
-
+        #[rstest::rstest]
+        fn addition(static_expression_evaluation: StaticExpressionEvaluation) {
             assert_eq!(
-                eval.eval(&ScalarOp::Binary(
+                static_expression_evaluation.eval(&ScalarOp::Binary(
                     BinaryOp::Add,
                     Box::new(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(20)))),
                     Box::new(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(5))))
                 )),
                 Ok(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(20 + 5))))
             );
-
-            sender.assert_content(vec![]);
         }
 
-        #[test]
-        fn subtraction() {
-            let sender = sender();
-            let eval = eval(sender.clone());
-
+        #[rstest::rstest]
+        fn subtraction(static_expression_evaluation: StaticExpressionEvaluation) {
             assert_eq!(
-                eval.eval(&ScalarOp::Binary(
+                static_expression_evaluation.eval(&ScalarOp::Binary(
                     BinaryOp::Sub,
                     Box::new(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(20)))),
                     Box::new(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(5))))
                 )),
                 Ok(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(20 - 5))))
             );
-
-            sender.assert_content(vec![]);
         }
 
-        #[test]
-        fn multiplication() {
-            let sender = sender();
-            let eval = eval(sender.clone());
-
+        #[rstest::rstest]
+        fn multiplication(static_expression_evaluation: StaticExpressionEvaluation) {
             assert_eq!(
-                eval.eval(&ScalarOp::Binary(
+                static_expression_evaluation.eval(&ScalarOp::Binary(
                     BinaryOp::Mul,
                     Box::new(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(20)))),
                     Box::new(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(5))))
                 )),
                 Ok(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(20 * 5))))
             );
-
-            sender.assert_content(vec![]);
         }
 
-        #[test]
-        fn division() {
-            let sender = sender();
-            let eval = eval(sender.clone());
-
+        #[rstest::rstest]
+        fn division(static_expression_evaluation: StaticExpressionEvaluation) {
             assert_eq!(
-                eval.eval(&ScalarOp::Binary(
+                static_expression_evaluation.eval(&ScalarOp::Binary(
                     BinaryOp::Div,
                     Box::new(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(20)))),
                     Box::new(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(5))))
                 )),
                 Ok(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(20 / 5))))
             );
-
-            sender.assert_content(vec![]);
         }
 
-        #[test]
-        fn modulo() {
-            let sender = sender();
-            let eval = eval(sender.clone());
-
+        #[rstest::rstest]
+        fn modulo(static_expression_evaluation: StaticExpressionEvaluation) {
             assert_eq!(
-                eval.eval(&ScalarOp::Binary(
+                static_expression_evaluation.eval(&ScalarOp::Binary(
                     BinaryOp::Mod,
                     Box::new(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(20)))),
                     Box::new(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(3))))
                 )),
                 Ok(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(20 % 3))))
             );
-
-            sender.assert_content(vec![]);
         }
 
-        #[test]
-        fn bitwise_and() {
-            let sender = sender();
-            let eval = eval(sender.clone());
-
+        #[rstest::rstest]
+        fn bitwise_and(static_expression_evaluation: StaticExpressionEvaluation) {
             assert_eq!(
-                eval.eval(&ScalarOp::Binary(
+                static_expression_evaluation.eval(&ScalarOp::Binary(
                     BinaryOp::BitwiseAnd,
                     Box::new(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(20)))),
                     Box::new(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(5))))
                 )),
                 Ok(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(20 & 4))))
             );
-
-            sender.assert_content(vec![]);
         }
 
-        #[test]
-        fn bitwise_or() {
-            let sender = sender();
-            let eval = eval(sender.clone());
-
+        #[rstest::rstest]
+        fn bitwise_or(static_expression_evaluation: StaticExpressionEvaluation) {
             assert_eq!(
-                eval.eval(&ScalarOp::Binary(
+                static_expression_evaluation.eval(&ScalarOp::Binary(
                     BinaryOp::BitwiseOr,
                     Box::new(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(20)))),
                     Box::new(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(5))))
                 )),
                 Ok(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(20 | 5))))
             );
-
-            sender.assert_content(vec![]);
         }
     }
 
@@ -196,32 +146,24 @@ mod binary_operation {
         use super::*;
         use std::convert::TryFrom;
 
-        #[test]
-        fn number_concatenation() {
-            let sender = sender();
-            let eval = eval(sender.clone());
-
+        #[rstest::rstest]
+        fn number_concatenation(static_expression_evaluation: StaticExpressionEvaluation) {
             assert_eq!(
-                eval.eval(&ScalarOp::Binary(
+                static_expression_evaluation.eval(&ScalarOp::Binary(
                     BinaryOp::Concat,
                     Box::new(ScalarOp::Value(ScalarValue::Number(
                         BigDecimal::try_from(20.1).unwrap()
                     ))),
                     Box::new(ScalarOp::Value(ScalarValue::Number(BigDecimal::try_from(5.2).unwrap())))
                 )),
-                Err(())
+                Err(EvalError::undefined_function(&"||", &"NUMBER", &"NUMBER"))
             );
-
-            sender.assert_content(vec![Err(QueryError::undefined_function("||", "NUMBER", "NUMBER"))]);
         }
 
-        #[test]
-        fn addition() {
-            let sender = sender();
-            let eval = eval(sender.clone());
-
+        #[rstest::rstest]
+        fn addition(static_expression_evaluation: StaticExpressionEvaluation) {
             assert_eq!(
-                eval.eval(&ScalarOp::Binary(
+                static_expression_evaluation.eval(&ScalarOp::Binary(
                     BinaryOp::Add,
                     Box::new(ScalarOp::Value(ScalarValue::Number(
                         BigDecimal::try_from(20.1).unwrap()
@@ -232,17 +174,12 @@ mod binary_operation {
                     BigDecimal::try_from(20.1).unwrap() + BigDecimal::try_from(5.2).unwrap()
                 )))
             );
-
-            sender.assert_content(vec![]);
         }
 
-        #[test]
-        fn subtraction() {
-            let sender = sender();
-            let eval = eval(sender.clone());
-
+        #[rstest::rstest]
+        fn subtraction(static_expression_evaluation: StaticExpressionEvaluation) {
             assert_eq!(
-                eval.eval(&ScalarOp::Binary(
+                static_expression_evaluation.eval(&ScalarOp::Binary(
                     BinaryOp::Sub,
                     Box::new(ScalarOp::Value(ScalarValue::Number(
                         BigDecimal::try_from(20.1).unwrap()
@@ -253,17 +190,12 @@ mod binary_operation {
                     BigDecimal::try_from(20.1).unwrap() - BigDecimal::try_from(5.2).unwrap()
                 )))
             );
-
-            sender.assert_content(vec![]);
         }
 
-        #[test]
-        fn multiplication() {
-            let sender = sender();
-            let eval = eval(sender.clone());
-
+        #[rstest::rstest]
+        fn multiplication(static_expression_evaluation: StaticExpressionEvaluation) {
             assert_eq!(
-                eval.eval(&ScalarOp::Binary(
+                static_expression_evaluation.eval(&ScalarOp::Binary(
                     BinaryOp::Mul,
                     Box::new(ScalarOp::Value(ScalarValue::Number(
                         BigDecimal::try_from(20.1).unwrap()
@@ -274,17 +206,12 @@ mod binary_operation {
                     BigDecimal::try_from(20.1).unwrap() * BigDecimal::try_from(5.2).unwrap()
                 )))
             );
-
-            sender.assert_content(vec![]);
         }
 
-        #[test]
-        fn division() {
-            let sender = sender();
-            let eval = eval(sender.clone());
-
+        #[rstest::rstest]
+        fn division(static_expression_evaluation: StaticExpressionEvaluation) {
             assert_eq!(
-                eval.eval(&ScalarOp::Binary(
+                static_expression_evaluation.eval(&ScalarOp::Binary(
                     BinaryOp::Div,
                     Box::new(ScalarOp::Value(ScalarValue::Number(
                         BigDecimal::try_from(20.1).unwrap()
@@ -295,17 +222,12 @@ mod binary_operation {
                     BigDecimal::try_from(20.1).unwrap() / BigDecimal::try_from(5.2).unwrap()
                 )))
             );
-
-            sender.assert_content(vec![]);
         }
 
-        #[test]
-        fn modulo() {
-            let sender = sender();
-            let eval = eval(sender.clone());
-
+        #[rstest::rstest]
+        fn modulo(static_expression_evaluation: StaticExpressionEvaluation) {
             assert_eq!(
-                eval.eval(&ScalarOp::Binary(
+                static_expression_evaluation.eval(&ScalarOp::Binary(
                     BinaryOp::Mod,
                     Box::new(ScalarOp::Value(ScalarValue::Number(
                         BigDecimal::try_from(20.1).unwrap()
@@ -316,46 +238,34 @@ mod binary_operation {
                     BigDecimal::try_from(20.1).unwrap() % BigDecimal::try_from(5.2).unwrap()
                 )))
             );
-
-            sender.assert_content(vec![]);
         }
 
-        #[test]
-        fn bitwise_and() {
-            let sender = sender();
-            let eval = eval(sender.clone());
-
+        #[rstest::rstest]
+        fn bitwise_and(static_expression_evaluation: StaticExpressionEvaluation) {
             assert_eq!(
-                eval.eval(&ScalarOp::Binary(
+                static_expression_evaluation.eval(&ScalarOp::Binary(
                     BinaryOp::BitwiseAnd,
                     Box::new(ScalarOp::Value(ScalarValue::Number(
                         BigDecimal::try_from(20.1).unwrap()
                     ))),
                     Box::new(ScalarOp::Value(ScalarValue::Number(BigDecimal::try_from(5.2).unwrap())))
                 )),
-                Err(())
+                Err(EvalError::undefined_function(&"&", &"FLOAT", &"FLOAT"))
             );
-
-            sender.assert_content(vec![Err(QueryError::undefined_function("&", "FLOAT", "FLOAT"))]);
         }
 
-        #[test]
-        fn bitwise_or() {
-            let sender = sender();
-            let eval = eval(sender.clone());
-
+        #[rstest::rstest]
+        fn bitwise_or(static_expression_evaluation: StaticExpressionEvaluation) {
             assert_eq!(
-                eval.eval(&ScalarOp::Binary(
+                static_expression_evaluation.eval(&ScalarOp::Binary(
                     BinaryOp::BitwiseOr,
                     Box::new(ScalarOp::Value(ScalarValue::Number(
                         BigDecimal::try_from(20.1).unwrap()
                     ))),
                     Box::new(ScalarOp::Value(ScalarValue::Number(BigDecimal::try_from(5.2).unwrap())))
                 )),
-                Err(())
+                Err(EvalError::undefined_function(&"|", &"FLOAT", &"FLOAT"))
             );
-
-            sender.assert_content(vec![Err(QueryError::undefined_function("|", "FLOAT", "FLOAT"))]);
         }
     }
 
@@ -363,140 +273,100 @@ mod binary_operation {
     mod strings {
         use super::*;
 
-        #[test]
-        fn concatenation() {
-            let sender = sender();
-            let eval = eval(sender.clone());
-
+        #[rstest::rstest]
+        fn concatenation(static_expression_evaluation: StaticExpressionEvaluation) {
             assert_eq!(
-                eval.eval(&ScalarOp::Binary(
+                static_expression_evaluation.eval(&ScalarOp::Binary(
                     BinaryOp::Concat,
                     Box::new(ScalarOp::Value(ScalarValue::String("str-1".to_owned()))),
                     Box::new(ScalarOp::Value(ScalarValue::String("str-2".to_owned())))
                 )),
                 Ok(ScalarOp::Value(ScalarValue::String(format!("{}{}", "str-1", "str-2"))))
             );
-
-            sender.assert_content(vec![]);
         }
 
-        #[test]
-        fn addition() {
-            let sender = sender();
-            let eval = eval(sender.clone());
-
+        #[rstest::rstest]
+        fn addition(static_expression_evaluation: StaticExpressionEvaluation) {
             assert_eq!(
-                eval.eval(&ScalarOp::Binary(
+                static_expression_evaluation.eval(&ScalarOp::Binary(
                     BinaryOp::Add,
                     Box::new(ScalarOp::Value(ScalarValue::String("str-1".to_owned()))),
                     Box::new(ScalarOp::Value(ScalarValue::String("str-2".to_owned())))
                 )),
-                Err(())
+                Err(EvalError::undefined_function(&"+", &"STRING", &"STRING"))
             );
-
-            sender.assert_content(vec![Err(QueryError::undefined_function("+", "STRING", "STRING"))]);
         }
 
-        #[test]
-        fn subtraction() {
-            let sender = sender();
-            let eval = eval(sender.clone());
-
+        #[rstest::rstest]
+        fn subtraction(static_expression_evaluation: StaticExpressionEvaluation) {
             assert_eq!(
-                eval.eval(&ScalarOp::Binary(
+                static_expression_evaluation.eval(&ScalarOp::Binary(
                     BinaryOp::Sub,
                     Box::new(ScalarOp::Value(ScalarValue::String("str-1".to_owned()))),
                     Box::new(ScalarOp::Value(ScalarValue::String("str-2".to_owned())))
                 )),
-                Err(())
+                Err(EvalError::undefined_function(&"-", &"STRING", &"STRING"))
             );
-
-            sender.assert_content(vec![Err(QueryError::undefined_function("-", "STRING", "STRING"))]);
         }
 
-        #[test]
-        fn multiplication() {
-            let sender = sender();
-            let eval = eval(sender.clone());
-
+        #[rstest::rstest]
+        fn multiplication(static_expression_evaluation: StaticExpressionEvaluation) {
             assert_eq!(
-                eval.eval(&ScalarOp::Binary(
+                static_expression_evaluation.eval(&ScalarOp::Binary(
                     BinaryOp::Mul,
                     Box::new(ScalarOp::Value(ScalarValue::String("str-1".to_owned()))),
                     Box::new(ScalarOp::Value(ScalarValue::String("str-2".to_owned())))
                 )),
-                Err(())
+                Err(EvalError::undefined_function(&"*", &"STRING", &"STRING"))
             );
-
-            sender.assert_content(vec![Err(QueryError::undefined_function("*", "STRING", "STRING"))]);
         }
 
-        #[test]
-        fn division() {
-            let sender = sender();
-            let eval = eval(sender.clone());
-
+        #[rstest::rstest]
+        fn division(static_expression_evaluation: StaticExpressionEvaluation) {
             assert_eq!(
-                eval.eval(&ScalarOp::Binary(
+                static_expression_evaluation.eval(&ScalarOp::Binary(
                     BinaryOp::Div,
                     Box::new(ScalarOp::Value(ScalarValue::String("str-1".to_owned()))),
                     Box::new(ScalarOp::Value(ScalarValue::String("str-2".to_owned())))
                 )),
-                Err(())
+                Err(EvalError::undefined_function(&"/", &"STRING", &"STRING"))
             );
-
-            sender.assert_content(vec![Err(QueryError::undefined_function("/", "STRING", "STRING"))]);
         }
 
-        #[test]
-        fn modulo() {
-            let sender = sender();
-            let eval = eval(sender.clone());
-
+        #[rstest::rstest]
+        fn modulo(static_expression_evaluation: StaticExpressionEvaluation) {
             assert_eq!(
-                eval.eval(&ScalarOp::Binary(
+                static_expression_evaluation.eval(&ScalarOp::Binary(
                     BinaryOp::Mod,
                     Box::new(ScalarOp::Value(ScalarValue::String("str-1".to_owned()))),
                     Box::new(ScalarOp::Value(ScalarValue::String("str-2".to_owned())))
                 )),
-                Err(())
+                Err(EvalError::undefined_function(&"%", &"STRING", &"STRING"))
             );
-
-            sender.assert_content(vec![Err(QueryError::undefined_function("%", "STRING", "STRING"))]);
         }
 
-        #[test]
-        fn bitwise_and() {
-            let sender = sender();
-            let eval = eval(sender.clone());
-
+        #[rstest::rstest]
+        fn bitwise_and(static_expression_evaluation: StaticExpressionEvaluation) {
             assert_eq!(
-                eval.eval(&ScalarOp::Binary(
+                static_expression_evaluation.eval(&ScalarOp::Binary(
                     BinaryOp::BitwiseAnd,
                     Box::new(ScalarOp::Value(ScalarValue::String("str-1".to_owned()))),
                     Box::new(ScalarOp::Value(ScalarValue::String("str-2".to_owned())))
                 )),
-                Err(())
+                Err(EvalError::undefined_function(&"&", &"STRING", &"STRING"))
             );
-
-            sender.assert_content(vec![Err(QueryError::undefined_function("&", "STRING", "STRING"))]);
         }
 
-        #[test]
-        fn bitwise_or() {
-            let sender = sender();
-            let eval = eval(sender.clone());
-
+        #[rstest::rstest]
+        fn bitwise_or(static_expression_evaluation: StaticExpressionEvaluation) {
             assert_eq!(
-                eval.eval(&ScalarOp::Binary(
+                static_expression_evaluation.eval(&ScalarOp::Binary(
                     BinaryOp::BitwiseOr,
                     Box::new(ScalarOp::Value(ScalarValue::String("str-1".to_owned()))),
                     Box::new(ScalarOp::Value(ScalarValue::String("str-2".to_owned())))
                 )),
-                Err(())
+                Err(EvalError::undefined_function(&"|", &"STRING", &"STRING"))
             );
-
-            sender.assert_content(vec![Err(QueryError::undefined_function("|", "STRING", "STRING"))]);
         }
     }
 
@@ -504,140 +374,100 @@ mod binary_operation {
     mod string_number {
         use super::*;
 
-        #[test]
-        fn concatenation() {
-            let sender = sender();
-            let eval = eval(sender.clone());
-
+        #[rstest::rstest]
+        fn concatenation(static_expression_evaluation: StaticExpressionEvaluation) {
             assert_eq!(
-                eval.eval(&ScalarOp::Binary(
+                static_expression_evaluation.eval(&ScalarOp::Binary(
                     BinaryOp::Concat,
                     Box::new(ScalarOp::Value(ScalarValue::String("str".to_owned()))),
                     Box::new(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(10))))
                 )),
                 Ok(ScalarOp::Value(ScalarValue::String("str10".to_owned())))
             );
-
-            sender.assert_content(vec![]);
         }
 
-        #[test]
-        fn addition() {
-            let sender = sender();
-            let eval = eval(sender.clone());
-
+        #[rstest::rstest]
+        fn addition(static_expression_evaluation: StaticExpressionEvaluation) {
             assert_eq!(
-                eval.eval(&ScalarOp::Binary(
+                static_expression_evaluation.eval(&ScalarOp::Binary(
                     BinaryOp::Add,
                     Box::new(ScalarOp::Value(ScalarValue::String("str".to_owned()))),
                     Box::new(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(5))))
                 )),
-                Err(())
+                Err(EvalError::undefined_function(&"+", &"STRING", &"NUMBER"))
             );
-
-            sender.assert_content(vec![Err(QueryError::undefined_function("+", "STRING", "NUMBER"))]);
         }
 
-        #[test]
-        fn subtraction() {
-            let sender = sender();
-            let eval = eval(sender.clone());
-
+        #[rstest::rstest]
+        fn subtraction(static_expression_evaluation: StaticExpressionEvaluation) {
             assert_eq!(
-                eval.eval(&ScalarOp::Binary(
+                static_expression_evaluation.eval(&ScalarOp::Binary(
                     BinaryOp::Sub,
                     Box::new(ScalarOp::Value(ScalarValue::String("str".to_owned()))),
                     Box::new(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(5))))
                 )),
-                Err(())
+                Err(EvalError::undefined_function(&"-", &"STRING", &"NUMBER"))
             );
-
-            sender.assert_content(vec![Err(QueryError::undefined_function("-", "STRING", "NUMBER"))]);
         }
 
-        #[test]
-        fn multiplication() {
-            let sender = sender();
-            let eval = eval(sender.clone());
-
+        #[rstest::rstest]
+        fn multiplication(static_expression_evaluation: StaticExpressionEvaluation) {
             assert_eq!(
-                eval.eval(&ScalarOp::Binary(
+                static_expression_evaluation.eval(&ScalarOp::Binary(
                     BinaryOp::Mul,
                     Box::new(ScalarOp::Value(ScalarValue::String("str".to_owned()))),
                     Box::new(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(5))))
                 )),
-                Err(())
+                Err(EvalError::undefined_function(&"*", &"STRING", &"NUMBER"))
             );
-
-            sender.assert_content(vec![Err(QueryError::undefined_function("*", "STRING", "NUMBER"))]);
         }
 
-        #[test]
-        fn division() {
-            let sender = sender();
-            let eval = eval(sender.clone());
-
+        #[rstest::rstest]
+        fn division(static_expression_evaluation: StaticExpressionEvaluation) {
             assert_eq!(
-                eval.eval(&ScalarOp::Binary(
+                static_expression_evaluation.eval(&ScalarOp::Binary(
                     BinaryOp::Div,
                     Box::new(ScalarOp::Value(ScalarValue::String("str".to_owned()))),
                     Box::new(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(5))))
                 )),
-                Err(())
+                Err(EvalError::undefined_function(&"/", &"STRING", &"NUMBER"))
             );
-
-            sender.assert_content(vec![Err(QueryError::undefined_function("/", "STRING", "NUMBER"))]);
         }
 
-        #[test]
-        fn modulo() {
-            let sender = sender();
-            let eval = eval(sender.clone());
-
+        #[rstest::rstest]
+        fn modulo(static_expression_evaluation: StaticExpressionEvaluation) {
             assert_eq!(
-                eval.eval(&ScalarOp::Binary(
+                static_expression_evaluation.eval(&ScalarOp::Binary(
                     BinaryOp::Mod,
                     Box::new(ScalarOp::Value(ScalarValue::String("str".to_owned()))),
                     Box::new(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(3))))
                 )),
-                Err(())
+                Err(EvalError::undefined_function(&"%", &"STRING", &"NUMBER"))
             );
-
-            sender.assert_content(vec![Err(QueryError::undefined_function("%", "STRING", "NUMBER"))]);
         }
 
-        #[test]
-        fn bitwise_and() {
-            let sender = sender();
-            let eval = eval(sender.clone());
-
+        #[rstest::rstest]
+        fn bitwise_and(static_expression_evaluation: StaticExpressionEvaluation) {
             assert_eq!(
-                eval.eval(&ScalarOp::Binary(
+                static_expression_evaluation.eval(&ScalarOp::Binary(
                     BinaryOp::BitwiseAnd,
                     Box::new(ScalarOp::Value(ScalarValue::String("str".to_owned()))),
                     Box::new(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(5))))
                 )),
-                Err(())
+                Err(EvalError::undefined_function(&"&", &"STRING", &"NUMBER"))
             );
-
-            sender.assert_content(vec![Err(QueryError::undefined_function("&", "STRING", "NUMBER"))]);
         }
 
-        #[test]
-        fn bitwise_or() {
-            let sender = sender();
-            let eval = eval(sender.clone());
-
+        #[rstest::rstest]
+        fn bitwise_or(static_expression_evaluation: StaticExpressionEvaluation) {
             assert_eq!(
-                eval.eval(&ScalarOp::Binary(
+                static_expression_evaluation.eval(&ScalarOp::Binary(
                     BinaryOp::BitwiseOr,
                     Box::new(ScalarOp::Value(ScalarValue::String("str".to_owned()))),
                     Box::new(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(5))))
                 )),
-                Err(())
+                Err(EvalError::undefined_function(&"|", &"STRING", &"NUMBER"))
             );
-
-            sender.assert_content(vec![Err(QueryError::undefined_function("|", "STRING", "NUMBER"))]);
         }
     }
 
@@ -645,140 +475,100 @@ mod binary_operation {
     mod number_string {
         use super::*;
 
-        #[test]
-        fn concatenation() {
-            let sender = sender();
-            let eval = eval(sender.clone());
-
+        #[rstest::rstest]
+        fn concatenation(static_expression_evaluation: StaticExpressionEvaluation) {
             assert_eq!(
-                eval.eval(&ScalarOp::Binary(
+                static_expression_evaluation.eval(&ScalarOp::Binary(
                     BinaryOp::Concat,
                     Box::new(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(10)))),
                     Box::new(ScalarOp::Value(ScalarValue::String("str".to_string())))
                 )),
                 Ok(ScalarOp::Value(ScalarValue::String("10str".to_owned())))
             );
-
-            sender.assert_content(vec![]);
         }
 
-        #[test]
-        fn addition() {
-            let sender = sender();
-            let eval = eval(sender.clone());
-
+        #[rstest::rstest]
+        fn addition(static_expression_evaluation: StaticExpressionEvaluation) {
             assert_eq!(
-                eval.eval(&ScalarOp::Binary(
+                static_expression_evaluation.eval(&ScalarOp::Binary(
                     BinaryOp::Add,
                     Box::new(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(20)))),
                     Box::new(ScalarOp::Value(ScalarValue::String("str".to_string())))
                 )),
-                Err(())
+                Err(EvalError::undefined_function(&"+", &"NUMBER", &"STRING"))
             );
-
-            sender.assert_content(vec![Err(QueryError::undefined_function("+", "NUMBER", "STRING"))]);
         }
 
-        #[test]
-        fn subtraction() {
-            let sender = sender();
-            let eval = eval(sender.clone());
-
+        #[rstest::rstest]
+        fn subtraction(static_expression_evaluation: StaticExpressionEvaluation) {
             assert_eq!(
-                eval.eval(&ScalarOp::Binary(
+                static_expression_evaluation.eval(&ScalarOp::Binary(
                     BinaryOp::Sub,
                     Box::new(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(20)))),
                     Box::new(ScalarOp::Value(ScalarValue::String("str".to_string())))
                 )),
-                Err(())
+                Err(EvalError::undefined_function(&"-", &"NUMBER", &"STRING"))
             );
-
-            sender.assert_content(vec![Err(QueryError::undefined_function("-", "NUMBER", "STRING"))]);
         }
 
-        #[test]
-        fn multiplication() {
-            let sender = sender();
-            let eval = eval(sender.clone());
-
+        #[rstest::rstest]
+        fn multiplication(static_expression_evaluation: StaticExpressionEvaluation) {
             assert_eq!(
-                eval.eval(&ScalarOp::Binary(
+                static_expression_evaluation.eval(&ScalarOp::Binary(
                     BinaryOp::Mul,
                     Box::new(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(20)))),
                     Box::new(ScalarOp::Value(ScalarValue::String("str".to_string())))
                 )),
-                Err(())
+                Err(EvalError::undefined_function(&"*", &"NUMBER", &"STRING"))
             );
-
-            sender.assert_content(vec![Err(QueryError::undefined_function("*", "NUMBER", "STRING"))]);
         }
 
-        #[test]
-        fn division() {
-            let sender = sender();
-            let eval = eval(sender.clone());
-
+        #[rstest::rstest]
+        fn division(static_expression_evaluation: StaticExpressionEvaluation) {
             assert_eq!(
-                eval.eval(&ScalarOp::Binary(
+                static_expression_evaluation.eval(&ScalarOp::Binary(
                     BinaryOp::Div,
                     Box::new(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(20)))),
                     Box::new(ScalarOp::Value(ScalarValue::String("str".to_string())))
                 )),
-                Err(())
+                Err(EvalError::undefined_function(&"/", &"NUMBER", &"STRING"))
             );
-
-            sender.assert_content(vec![Err(QueryError::undefined_function("/", "NUMBER", "STRING"))]);
         }
 
-        #[test]
-        fn modulo() {
-            let sender = sender();
-            let eval = eval(sender.clone());
-
+        #[rstest::rstest]
+        fn modulo(static_expression_evaluation: StaticExpressionEvaluation) {
             assert_eq!(
-                eval.eval(&ScalarOp::Binary(
+                static_expression_evaluation.eval(&ScalarOp::Binary(
                     BinaryOp::Mod,
                     Box::new(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(20)))),
                     Box::new(ScalarOp::Value(ScalarValue::String("str".to_string())))
                 )),
-                Err(())
+                Err(EvalError::undefined_function(&"%", &"NUMBER", &"STRING"))
             );
-
-            sender.assert_content(vec![Err(QueryError::undefined_function("%", "NUMBER", "STRING"))]);
         }
 
-        #[test]
-        fn bitwise_and() {
-            let sender = sender();
-            let eval = eval(sender.clone());
-
+        #[rstest::rstest]
+        fn bitwise_and(static_expression_evaluation: StaticExpressionEvaluation) {
             assert_eq!(
-                eval.eval(&ScalarOp::Binary(
+                static_expression_evaluation.eval(&ScalarOp::Binary(
                     BinaryOp::BitwiseAnd,
                     Box::new(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(20)))),
                     Box::new(ScalarOp::Value(ScalarValue::String("str".to_string())))
                 )),
-                Err(())
+                Err(EvalError::undefined_function(&"&", &"NUMBER", &"STRING"))
             );
-
-            sender.assert_content(vec![Err(QueryError::undefined_function("&", "NUMBER", "STRING"))]);
         }
 
-        #[test]
-        fn bitwise_or() {
-            let sender = sender();
-            let eval = eval(sender.clone());
-
+        #[rstest::rstest]
+        fn bitwise_or(static_expression_evaluation: StaticExpressionEvaluation) {
             assert_eq!(
-                eval.eval(&ScalarOp::Binary(
+                static_expression_evaluation.eval(&ScalarOp::Binary(
                     BinaryOp::BitwiseOr,
                     Box::new(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(20)))),
                     Box::new(ScalarOp::Value(ScalarValue::String("str".to_string())))
                 )),
-                Err(())
+                Err(EvalError::undefined_function(&"|", &"NUMBER", &"STRING"))
             );
-
-            sender.assert_content(vec![Err(QueryError::undefined_function("|", "NUMBER", "STRING"))]);
         }
     }
 }

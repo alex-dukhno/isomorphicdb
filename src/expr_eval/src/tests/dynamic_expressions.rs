@@ -13,64 +13,51 @@
 // limitations under the License.
 
 use super::*;
-use crate::dynamic_expr::DynamicExpressionEvaluation;
 use std::collections::HashMap;
 
-fn eval(sender: ResultCollector) -> DynamicExpressionEvaluation {
+const COLUMN: &str = "name";
+
+#[rstest::fixture]
+fn dynamic_expression_evaluation() -> DynamicExpressionEvaluation {
     let mut columns = HashMap::new();
-    columns.insert("name".to_owned(), 0);
-    DynamicExpressionEvaluation::new(sender, columns)
+    columns.insert(COLUMN.to_owned(), 0);
+    DynamicExpressionEvaluation::new(columns)
 }
 
-#[test]
-fn column() {
-    let sender = sender();
-    let eval = eval(sender.clone());
-
+#[rstest::rstest]
+fn column(dynamic_expression_evaluation: DynamicExpressionEvaluation) {
     assert_eq!(
-        eval.eval(
+        dynamic_expression_evaluation.eval(
             &[Datum::from_i16(10)],
             &ScalarOp::Binary(
                 BinaryOp::Add,
                 Box::new(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(20)))),
-                Box::new(ScalarOp::Column("name".to_owned()))
+                Box::new(ScalarOp::Column(COLUMN.to_owned()))
             )
         ),
         Ok(ScalarOp::Value(ScalarValue::Number(
             BigDecimal::from(10i16) + BigDecimal::from(20)
         )))
     );
-
-    sender.assert_content(vec![]);
 }
 
-#[test]
-fn column_inside_binary_operation() {
-    let sender = sender();
-    let eval = eval(sender.clone());
-
+#[rstest::rstest]
+fn column_inside_binary_operation(dynamic_expression_evaluation: DynamicExpressionEvaluation) {
     assert_eq!(
-        eval.eval(&[Datum::from_i16(10)], &ScalarOp::Column("name".to_owned())),
+        dynamic_expression_evaluation.eval(&[Datum::from_i16(10)], &ScalarOp::Column(COLUMN.to_owned())),
         Ok(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(10i16))))
     );
-
-    sender.assert_content(vec![]);
 }
 
-#[test]
-fn value() {
-    let sender = sender();
-    let eval = eval(sender.clone());
-
+#[rstest::rstest]
+fn value(dynamic_expression_evaluation: DynamicExpressionEvaluation) {
     assert_eq!(
-        eval.eval(
+        dynamic_expression_evaluation.eval(
             &[Datum::from_i16(10)],
             &ScalarOp::Value(ScalarValue::Number(BigDecimal::from(100i16))),
         ),
         Ok(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(100i16))))
     );
-
-    sender.assert_content(vec![]);
 }
 
 #[cfg(test)]
@@ -81,13 +68,10 @@ mod binary_operation {
     mod integers {
         use super::*;
 
-        #[test]
-        fn number_concatenation() {
-            let sender = sender();
-            let eval = eval(sender.clone());
-
+        #[rstest::rstest]
+        fn number_concatenation(dynamic_expression_evaluation: DynamicExpressionEvaluation) {
             assert_eq!(
-                eval.eval(
+                dynamic_expression_evaluation.eval(
                     &[Datum::from_i16(10)],
                     &ScalarOp::Binary(
                         BinaryOp::Concat,
@@ -95,19 +79,14 @@ mod binary_operation {
                         Box::new(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(10))))
                     ),
                 ),
-                Err(())
+                Err(EvalError::undefined_function(&"||", &"NUMBER", &"NUMBER"))
             );
-
-            sender.assert_content(vec![Err(QueryError::undefined_function("||", "NUMBER", "NUMBER"))]);
         }
 
-        #[test]
-        fn addition() {
-            let sender = sender();
-            let eval = eval(sender.clone());
-
+        #[rstest::rstest]
+        fn addition(dynamic_expression_evaluation: DynamicExpressionEvaluation) {
             assert_eq!(
-                eval.eval(
+                dynamic_expression_evaluation.eval(
                     &[Datum::from_i16(10)],
                     &ScalarOp::Binary(
                         BinaryOp::Add,
@@ -117,17 +96,12 @@ mod binary_operation {
                 ),
                 Ok(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(20 + 5))))
             );
-
-            sender.assert_content(vec![]);
         }
 
-        #[test]
-        fn subtraction() {
-            let sender = sender();
-            let eval = eval(sender.clone());
-
+        #[rstest::rstest]
+        fn subtraction(dynamic_expression_evaluation: DynamicExpressionEvaluation) {
             assert_eq!(
-                eval.eval(
+                dynamic_expression_evaluation.eval(
                     &[Datum::from_i16(10)],
                     &ScalarOp::Binary(
                         BinaryOp::Sub,
@@ -137,17 +111,12 @@ mod binary_operation {
                 ),
                 Ok(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(20 - 5))))
             );
-
-            sender.assert_content(vec![]);
         }
 
-        #[test]
-        fn multiplication() {
-            let sender = sender();
-            let eval = eval(sender.clone());
-
+        #[rstest::rstest]
+        fn multiplication(dynamic_expression_evaluation: DynamicExpressionEvaluation) {
             assert_eq!(
-                eval.eval(
+                dynamic_expression_evaluation.eval(
                     &[Datum::from_i16(10)],
                     &ScalarOp::Binary(
                         BinaryOp::Mul,
@@ -157,17 +126,12 @@ mod binary_operation {
                 ),
                 Ok(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(20 * 5))))
             );
-
-            sender.assert_content(vec![]);
         }
 
-        #[test]
-        fn division() {
-            let sender = sender();
-            let eval = eval(sender.clone());
-
+        #[rstest::rstest]
+        fn division(dynamic_expression_evaluation: DynamicExpressionEvaluation) {
             assert_eq!(
-                eval.eval(
+                dynamic_expression_evaluation.eval(
                     &[Datum::from_i16(10)],
                     &ScalarOp::Binary(
                         BinaryOp::Div,
@@ -177,17 +141,12 @@ mod binary_operation {
                 ),
                 Ok(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(20 / 5))))
             );
-
-            sender.assert_content(vec![]);
         }
 
-        #[test]
-        fn modulo() {
-            let sender = sender();
-            let eval = eval(sender.clone());
-
+        #[rstest::rstest]
+        fn modulo(dynamic_expression_evaluation: DynamicExpressionEvaluation) {
             assert_eq!(
-                eval.eval(
+                dynamic_expression_evaluation.eval(
                     &[Datum::from_i16(10)],
                     &ScalarOp::Binary(
                         BinaryOp::Mod,
@@ -197,17 +156,12 @@ mod binary_operation {
                 ),
                 Ok(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(20 % 3))))
             );
-
-            sender.assert_content(vec![]);
         }
 
-        #[test]
-        fn bitwise_and() {
-            let sender = sender();
-            let eval = eval(sender.clone());
-
+        #[rstest::rstest]
+        fn bitwise_and(dynamic_expression_evaluation: DynamicExpressionEvaluation) {
             assert_eq!(
-                eval.eval(
+                dynamic_expression_evaluation.eval(
                     &[Datum::from_i16(10)],
                     &ScalarOp::Binary(
                         BinaryOp::BitwiseAnd,
@@ -217,17 +171,12 @@ mod binary_operation {
                 ),
                 Ok(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(20 & 4))))
             );
-
-            sender.assert_content(vec![]);
         }
 
-        #[test]
-        fn bitwise_or() {
-            let sender = sender();
-            let eval = eval(sender.clone());
-
+        #[rstest::rstest]
+        fn bitwise_or(dynamic_expression_evaluation: DynamicExpressionEvaluation) {
             assert_eq!(
-                eval.eval(
+                dynamic_expression_evaluation.eval(
                     &[Datum::from_i16(10)],
                     &ScalarOp::Binary(
                         BinaryOp::BitwiseOr,
@@ -237,8 +186,6 @@ mod binary_operation {
                 ),
                 Ok(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(20 | 5))))
             );
-
-            sender.assert_content(vec![]);
         }
     }
 
@@ -247,13 +194,10 @@ mod binary_operation {
         use super::*;
         use std::convert::TryFrom;
 
-        #[test]
-        fn number_concatenation() {
-            let sender = sender();
-            let eval = eval(sender.clone());
-
+        #[rstest::rstest]
+        fn number_concatenation(dynamic_expression_evaluation: DynamicExpressionEvaluation) {
             assert_eq!(
-                eval.eval(
+                dynamic_expression_evaluation.eval(
                     &[Datum::from_i16(10)],
                     &ScalarOp::Binary(
                         BinaryOp::Concat,
@@ -263,19 +207,14 @@ mod binary_operation {
                         Box::new(ScalarOp::Value(ScalarValue::Number(BigDecimal::try_from(5.2).unwrap())))
                     ),
                 ),
-                Err(())
+                Err(EvalError::undefined_function(&"||", &"NUMBER", &"NUMBER"))
             );
-
-            sender.assert_content(vec![Err(QueryError::undefined_function("||", "NUMBER", "NUMBER"))]);
         }
 
-        #[test]
-        fn addition() {
-            let sender = sender();
-            let eval = eval(sender.clone());
-
+        #[rstest::rstest]
+        fn addition(dynamic_expression_evaluation: DynamicExpressionEvaluation) {
             assert_eq!(
-                eval.eval(
+                dynamic_expression_evaluation.eval(
                     &[Datum::from_i16(10)],
                     &ScalarOp::Binary(
                         BinaryOp::Add,
@@ -289,17 +228,12 @@ mod binary_operation {
                     BigDecimal::try_from(20.1 + 5.2).unwrap()
                 )))
             );
-
-            sender.assert_content(vec![]);
         }
 
-        #[test]
-        fn subtraction() {
-            let sender = sender();
-            let eval = eval(sender.clone());
-
+        #[rstest::rstest]
+        fn subtraction(dynamic_expression_evaluation: DynamicExpressionEvaluation) {
             assert_eq!(
-                eval.eval(
+                dynamic_expression_evaluation.eval(
                     &[Datum::from_i16(10)],
                     &ScalarOp::Binary(
                         BinaryOp::Sub,
@@ -313,17 +247,12 @@ mod binary_operation {
                     BigDecimal::try_from(20.1 - 5.2).unwrap()
                 )))
             );
-
-            sender.assert_content(vec![]);
         }
 
-        #[test]
-        fn multiplication() {
-            let sender = sender();
-            let eval = eval(sender.clone());
-
+        #[rstest::rstest]
+        fn multiplication(dynamic_expression_evaluation: DynamicExpressionEvaluation) {
             assert_eq!(
-                eval.eval(
+                dynamic_expression_evaluation.eval(
                     &[Datum::from_i16(10)],
                     &ScalarOp::Binary(
                         BinaryOp::Mul,
@@ -337,17 +266,12 @@ mod binary_operation {
                     BigDecimal::try_from(20.1 * 5.2).unwrap()
                 )))
             );
-
-            sender.assert_content(vec![]);
         }
 
-        #[test]
-        fn division() {
-            let sender = sender();
-            let eval = eval(sender.clone());
-
+        #[rstest::rstest]
+        fn division(dynamic_expression_evaluation: DynamicExpressionEvaluation) {
             assert_eq!(
-                eval.eval(
+                dynamic_expression_evaluation.eval(
                     &[Datum::from_i16(10)],
                     &ScalarOp::Binary(
                         BinaryOp::Div,
@@ -361,17 +285,12 @@ mod binary_operation {
                     BigDecimal::try_from(20.1).unwrap() / BigDecimal::try_from(5.2).unwrap()
                 )))
             );
-
-            sender.assert_content(vec![]);
         }
 
-        #[test]
-        fn modulo() {
-            let sender = sender();
-            let eval = eval(sender.clone());
-
+        #[rstest::rstest]
+        fn modulo(dynamic_expression_evaluation: DynamicExpressionEvaluation) {
             assert_eq!(
-                eval.eval(
+                dynamic_expression_evaluation.eval(
                     &[Datum::from_i16(10)],
                     &ScalarOp::Binary(
                         BinaryOp::Mod,
@@ -385,17 +304,12 @@ mod binary_operation {
                     BigDecimal::try_from(20.1).unwrap() % BigDecimal::try_from(5.2).unwrap()
                 )))
             );
-
-            sender.assert_content(vec![]);
         }
 
-        #[test]
-        fn bitwise_and() {
-            let sender = sender();
-            let eval = eval(sender.clone());
-
+        #[rstest::rstest]
+        fn bitwise_and(dynamic_expression_evaluation: DynamicExpressionEvaluation) {
             assert_eq!(
-                eval.eval(
+                dynamic_expression_evaluation.eval(
                     &[Datum::from_i16(10)],
                     &ScalarOp::Binary(
                         BinaryOp::BitwiseAnd,
@@ -405,19 +319,14 @@ mod binary_operation {
                         Box::new(ScalarOp::Value(ScalarValue::Number(BigDecimal::try_from(5.2).unwrap())))
                     ),
                 ),
-                Err(())
+                Err(EvalError::undefined_function(&"&", &"FLOAT", &"FLOAT"))
             );
-
-            sender.assert_content(vec![Err(QueryError::undefined_function("&", "FLOAT", "FLOAT"))]);
         }
 
-        #[test]
-        fn bitwise_or() {
-            let sender = sender();
-            let eval = eval(sender.clone());
-
+        #[rstest::rstest]
+        fn bitwise_or(dynamic_expression_evaluation: DynamicExpressionEvaluation) {
             assert_eq!(
-                eval.eval(
+                dynamic_expression_evaluation.eval(
                     &[Datum::from_i16(10)],
                     &ScalarOp::Binary(
                         BinaryOp::BitwiseOr,
@@ -427,10 +336,8 @@ mod binary_operation {
                         Box::new(ScalarOp::Value(ScalarValue::Number(BigDecimal::try_from(5.2).unwrap())))
                     ),
                 ),
-                Err(())
+                Err(EvalError::undefined_function(&"|", &"FLOAT", &"FLOAT"))
             );
-
-            sender.assert_content(vec![Err(QueryError::undefined_function("|", "FLOAT", "FLOAT"))]);
         }
     }
 
@@ -438,13 +345,10 @@ mod binary_operation {
     mod strings {
         use super::*;
 
-        #[test]
-        fn concatenation() {
-            let sender = sender();
-            let eval = eval(sender.clone());
-
+        #[rstest::rstest]
+        fn concatenation(dynamic_expression_evaluation: DynamicExpressionEvaluation) {
             assert_eq!(
-                eval.eval(
+                dynamic_expression_evaluation.eval(
                     &[Datum::from_i16(10)],
                     &ScalarOp::Binary(
                         BinaryOp::Concat,
@@ -454,17 +358,12 @@ mod binary_operation {
                 ),
                 Ok(ScalarOp::Value(ScalarValue::String(format!("{}{}", "str-1", "str-2"))))
             );
-
-            sender.assert_content(vec![]);
         }
 
-        #[test]
-        fn addition() {
-            let sender = sender();
-            let eval = eval(sender.clone());
-
+        #[rstest::rstest]
+        fn addition(dynamic_expression_evaluation: DynamicExpressionEvaluation) {
             assert_eq!(
-                eval.eval(
+                dynamic_expression_evaluation.eval(
                     &[Datum::from_i16(10)],
                     &ScalarOp::Binary(
                         BinaryOp::Add,
@@ -472,19 +371,14 @@ mod binary_operation {
                         Box::new(ScalarOp::Value(ScalarValue::String("str-2".to_owned())))
                     ),
                 ),
-                Err(())
+                Err(EvalError::undefined_function(&"+", &"STRING", &"STRING"))
             );
-
-            sender.assert_content(vec![Err(QueryError::undefined_function("+", "STRING", "STRING"))]);
         }
 
-        #[test]
-        fn subtraction() {
-            let sender = sender();
-            let eval = eval(sender.clone());
-
+        #[rstest::rstest]
+        fn subtraction(dynamic_expression_evaluation: DynamicExpressionEvaluation) {
             assert_eq!(
-                eval.eval(
+                dynamic_expression_evaluation.eval(
                     &[Datum::from_i16(10)],
                     &ScalarOp::Binary(
                         BinaryOp::Sub,
@@ -492,19 +386,14 @@ mod binary_operation {
                         Box::new(ScalarOp::Value(ScalarValue::String("str-2".to_owned())))
                     ),
                 ),
-                Err(())
+                Err(EvalError::undefined_function(&"-", &"STRING", &"STRING"))
             );
-
-            sender.assert_content(vec![Err(QueryError::undefined_function("-", "STRING", "STRING"))]);
         }
 
-        #[test]
-        fn multiplication() {
-            let sender = sender();
-            let eval = eval(sender.clone());
-
+        #[rstest::rstest]
+        fn multiplication(dynamic_expression_evaluation: DynamicExpressionEvaluation) {
             assert_eq!(
-                eval.eval(
+                dynamic_expression_evaluation.eval(
                     &[Datum::from_i16(10)],
                     &ScalarOp::Binary(
                         BinaryOp::Mul,
@@ -512,19 +401,14 @@ mod binary_operation {
                         Box::new(ScalarOp::Value(ScalarValue::String("str-2".to_owned())))
                     ),
                 ),
-                Err(())
+                Err(EvalError::undefined_function(&"*", &"STRING", &"STRING"))
             );
-
-            sender.assert_content(vec![Err(QueryError::undefined_function("*", "STRING", "STRING"))]);
         }
 
-        #[test]
-        fn division() {
-            let sender = sender();
-            let eval = eval(sender.clone());
-
+        #[rstest::rstest]
+        fn division(dynamic_expression_evaluation: DynamicExpressionEvaluation) {
             assert_eq!(
-                eval.eval(
+                dynamic_expression_evaluation.eval(
                     &[Datum::from_i16(10)],
                     &ScalarOp::Binary(
                         BinaryOp::Div,
@@ -532,19 +416,14 @@ mod binary_operation {
                         Box::new(ScalarOp::Value(ScalarValue::String("str-2".to_owned())))
                     ),
                 ),
-                Err(())
+                Err(EvalError::undefined_function(&"/", &"STRING", &"STRING"))
             );
-
-            sender.assert_content(vec![Err(QueryError::undefined_function("/", "STRING", "STRING"))]);
         }
 
-        #[test]
-        fn modulo() {
-            let sender = sender();
-            let eval = eval(sender.clone());
-
+        #[rstest::rstest]
+        fn modulo(dynamic_expression_evaluation: DynamicExpressionEvaluation) {
             assert_eq!(
-                eval.eval(
+                dynamic_expression_evaluation.eval(
                     &[Datum::from_i16(10)],
                     &ScalarOp::Binary(
                         BinaryOp::Mod,
@@ -552,19 +431,14 @@ mod binary_operation {
                         Box::new(ScalarOp::Value(ScalarValue::String("str-2".to_owned())))
                     ),
                 ),
-                Err(())
+                Err(EvalError::undefined_function(&"%", &"STRING", &"STRING"))
             );
-
-            sender.assert_content(vec![Err(QueryError::undefined_function("%", "STRING", "STRING"))]);
         }
 
-        #[test]
-        fn bitwise_and() {
-            let sender = sender();
-            let eval = eval(sender.clone());
-
+        #[rstest::rstest]
+        fn bitwise_and(dynamic_expression_evaluation: DynamicExpressionEvaluation) {
             assert_eq!(
-                eval.eval(
+                dynamic_expression_evaluation.eval(
                     &[Datum::from_i16(10)],
                     &ScalarOp::Binary(
                         BinaryOp::BitwiseAnd,
@@ -572,19 +446,14 @@ mod binary_operation {
                         Box::new(ScalarOp::Value(ScalarValue::String("str-2".to_owned())))
                     ),
                 ),
-                Err(())
+                Err(EvalError::undefined_function(&"&", &"STRING", &"STRING"))
             );
-
-            sender.assert_content(vec![Err(QueryError::undefined_function("&", "STRING", "STRING"))]);
         }
 
-        #[test]
-        fn bitwise_or() {
-            let sender = sender();
-            let eval = eval(sender.clone());
-
+        #[rstest::rstest]
+        fn bitwise_or(dynamic_expression_evaluation: DynamicExpressionEvaluation) {
             assert_eq!(
-                eval.eval(
+                dynamic_expression_evaluation.eval(
                     &[Datum::from_i16(10)],
                     &ScalarOp::Binary(
                         BinaryOp::BitwiseOr,
@@ -592,10 +461,8 @@ mod binary_operation {
                         Box::new(ScalarOp::Value(ScalarValue::String("str-2".to_owned())))
                     ),
                 ),
-                Err(())
+                Err(EvalError::undefined_function(&"|", &"STRING", &"STRING"))
             );
-
-            sender.assert_content(vec![Err(QueryError::undefined_function("|", "STRING", "STRING"))]);
         }
     }
 }
