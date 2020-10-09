@@ -6,4 +6,4 @@ edition = "2018"
 publish = false
 
 [dependencies]
-backtrace = "0.3.50"
+backtrace = "0.3.52"
