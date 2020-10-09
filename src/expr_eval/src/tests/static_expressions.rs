@@ -17,7 +17,7 @@ use ast::{operations::ScalarOp, values::ScalarValue};
 
 #[rstest::fixture]
 fn static_expression_evaluation() -> StaticExpressionEvaluation {
-    StaticExpressionEvaluation::new()
+    StaticExpressionEvaluation::default()
 }
 
 #[rstest::rstest]

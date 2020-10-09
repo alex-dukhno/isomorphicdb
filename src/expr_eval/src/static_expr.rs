@@ -19,13 +19,10 @@ use ast::{
 };
 use bigdecimal::BigDecimal;
 
+#[derive(Default)]
 pub struct StaticExpressionEvaluation;
 
 impl StaticExpressionEvaluation {
-    pub fn new() -> StaticExpressionEvaluation {
-        StaticExpressionEvaluation
-    }
-
     pub fn eval(&self, expr: &ScalarOp) -> Result<ScalarOp, EvalError> {
         self.inner_eval(expr)
     }

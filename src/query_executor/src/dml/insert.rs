@@ -16,8 +16,7 @@ use ast::operations::ScalarOp;
 use binary::{Binary, Row};
 use constraints::{Constraint, ConstraintError};
 use data_manager::DataManager;
-use expr_eval::static_expr::StaticExpressionEvaluation;
-use expr_eval::EvalError;
+use expr_eval::{EvalError, StaticExpressionEvaluation};
 use kernel::SystemError;
 use meta_def::ColumnDefinition;
 use plan::TableInserts;
@@ -48,7 +47,7 @@ impl InsertCommand {
     }
 
     pub(crate) fn execute(&self) {
-        let evaluation = StaticExpressionEvaluation::new();
+        let evaluation = StaticExpressionEvaluation::default();
         let mut rows = vec![];
         for line in &self.table_inserts.input {
             let mut row = vec![];

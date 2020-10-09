@@ -16,7 +16,7 @@ use ast::operations::ScalarOp;
 use binary::Binary;
 use constraints::{Constraint, ConstraintError};
 use data_manager::DataManager;
-use expr_eval::{dynamic_expr::DynamicExpressionEvaluation, static_expr::StaticExpressionEvaluation, EvalError};
+use expr_eval::{DynamicExpressionEvaluation, EvalError, StaticExpressionEvaluation};
 use metadata::MetadataView;
 use plan::TableUpdates;
 use protocol::{
@@ -61,7 +61,7 @@ impl UpdateCommand {
             .map(|(index, col_def)| (col_def.name(), index))
             .collect::<HashMap<_, _>>();
 
-        let evaluation = StaticExpressionEvaluation::new();
+        let evaluation = StaticExpressionEvaluation::default();
 
         let mut assignments = vec![];
         for ((index, column_name, sql_type, type_constraint), item) in self
