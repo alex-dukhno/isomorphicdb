@@ -30,7 +30,7 @@ blocking = "1.0.0"
 futures-lite = "1.10.0"
 itertools = "0.9.0"
 log = "0.4.8"
-simple_logger = { version = "1.10.0" }
+simple_logger = { version = "1.11.0" }
 smol = "1.2.3"
 sqlparser = { git = "https://github.com/ballista-compute/sqlparser-rs.git", branch = "main", features = ["bigdecimal"] }
 
