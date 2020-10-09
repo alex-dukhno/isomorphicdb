@@ -80,6 +80,7 @@ fn trying_read_only_length_of_ssl_message() {
 }
 
 #[test]
+#[ignore]
 fn sending_reject_notification_for_none_secure() {
     block_on(async {
         let test_case = TestCase::with_content(vec![pg_frontend::Message::SslRequired.as_vec().as_slice(), &[]]);
@@ -105,6 +106,7 @@ fn sending_reject_notification_for_none_secure() {
 }
 
 #[test]
+#[ignore]
 fn sending_accept_notification_for_ssl_only_secure() {
     block_on(async {
         let test_case = TestCase::with_content(vec![pg_frontend::Message::SslRequired.as_vec().as_slice(), &[]]);

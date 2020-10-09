@@ -16,7 +16,7 @@ use ast::operations::ScalarOp;
 use binary::{Binary, Row};
 use constraints::{Constraint, ConstraintError};
 use data_manager::DataManager;
-use expr_eval::static_expr::StaticExpressionEvaluation;
+use expr_eval::{EvalError, StaticExpressionEvaluation};
 use kernel::SystemError;
 use meta_def::ColumnDefinition;
 use plan::TableInserts;
@@ -47,7 +47,7 @@ impl InsertCommand {
     }
 
     pub(crate) fn execute(&self) {
-        let evaluation = StaticExpressionEvaluation::new(self.sender.clone());
+        let evaluation = StaticExpressionEvaluation::default();
         let mut rows = vec![];
         for line in &self.table_inserts.input {
             let mut row = vec![];
@@ -74,7 +74,16 @@ impl InsertCommand {
                         );
                         return;
                     }
-                    Err(()) => return,
+                    Err(EvalError::UndefinedFunction(op, left_type, right_type)) => {
+                        self.sender
+                            .send(Err(QueryError::undefined_function(op, left_type, right_type)))
+                            .expect("To Send Query Result to Client");
+                        return;
+                    }
+                    Err(EvalError::NonValue(not_a_value)) => {
+                        log::error!("not a value {} was accessed during expression evaluation", not_a_value);
+                        return;
+                    }
                 };
                 row.push(value);
             }

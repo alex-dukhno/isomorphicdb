@@ -17,43 +17,10 @@ mod dynamic_expressions;
 #[cfg(test)]
 mod static_expressions;
 
+use super::*;
 use ast::{
     operations::{BinaryOp, ScalarOp},
     values::ScalarValue,
 };
 use bigdecimal::BigDecimal;
-use protocol::{
-    results::{QueryError, QueryResult},
-    Sender,
-};
 use repr::Datum;
-use std::{
-    io,
-    sync::{Arc, Mutex},
-};
-
-struct Collector(Mutex<Vec<QueryResult>>);
-
-impl Sender for Collector {
-    fn flush(&self) -> io::Result<()> {
-        Ok(())
-    }
-
-    fn send(&self, query_result: QueryResult) -> io::Result<()> {
-        self.0.lock().expect("locked").push(query_result);
-        Ok(())
-    }
-}
-
-impl Collector {
-    fn assert_content(&self, expected: Vec<QueryResult>) {
-        let result = self.0.lock().expect("locked");
-        assert_eq!(&*result, &expected)
-    }
-}
-
-type ResultCollector = Arc<Collector>;
-
-fn sender() -> ResultCollector {
-    Arc::new(Collector(Mutex::new(vec![])))
-}

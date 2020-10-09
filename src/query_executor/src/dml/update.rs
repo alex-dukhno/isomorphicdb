@@ -16,7 +16,7 @@ use ast::operations::ScalarOp;
 use binary::Binary;
 use constraints::{Constraint, ConstraintError};
 use data_manager::DataManager;
-use expr_eval::{dynamic_expr::DynamicExpressionEvaluation, static_expr::StaticExpressionEvaluation};
+use expr_eval::{DynamicExpressionEvaluation, EvalError, StaticExpressionEvaluation};
 use metadata::MetadataView;
 use plan::TableUpdates;
 use protocol::{
@@ -61,7 +61,7 @@ impl UpdateCommand {
             .map(|(index, col_def)| (col_def.name(), index))
             .collect::<HashMap<_, _>>();
 
-        let evaluation = StaticExpressionEvaluation::new(self.sender.clone());
+        let evaluation = StaticExpressionEvaluation::default();
 
         let mut assignments = vec![];
         for ((index, column_name, sql_type, type_constraint), item) in self
@@ -80,7 +80,16 @@ impl UpdateCommand {
                         *type_constraint,
                     ));
                 }
-                Err(()) => return,
+                Err(EvalError::UndefinedFunction(op, left_type, right_type)) => {
+                    self.sender
+                        .send(Err(QueryError::undefined_function(op, left_type, right_type)))
+                        .expect("To Send Query Result to Client");
+                    return;
+                }
+                Err(EvalError::NonValue(not_a_value)) => {
+                    log::error!("not a value {} was accessed during expression evaluation", not_a_value);
+                    return;
+                }
             }
         }
 
@@ -91,7 +100,7 @@ impl UpdateCommand {
             }
             Ok(reads) => reads,
         };
-        let expr_eval = DynamicExpressionEvaluation::new(self.sender.clone(), all_columns);
+        let expr_eval = DynamicExpressionEvaluation::new(all_columns);
         let mut to_update = Vec::new();
         for (row_idx, (key, values)) in reads.map(Result::unwrap).map(Result::unwrap).enumerate() {
             let data = values.unpack();
@@ -103,7 +112,16 @@ impl UpdateCommand {
                 let value = match expr_eval.eval(data.as_slice(), value.as_ref()) {
                     Ok(ScalarOp::Value(value)) => value,
                     Ok(_) => return,
-                    Err(()) => return,
+                    Err(EvalError::UndefinedFunction(op, left_type, right_type)) => {
+                        self.sender
+                            .send(Err(QueryError::undefined_function(op, left_type, right_type)))
+                            .expect("To Send Query Result to Client");
+                        return;
+                    }
+                    Err(EvalError::NonValue(not_a_value)) => {
+                        log::error!("not a value {} was accessed during expression evaluation", not_a_value);
+                        return;
+                    }
                 };
                 let value = match value.cast(&sql_type) {
                     Ok(value) => value,

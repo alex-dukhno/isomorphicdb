@@ -12,28 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::EvalError;
 use ast::{
     operations::{BinaryOp, ScalarOp},
     values::ScalarValue,
 };
 use bigdecimal::BigDecimal;
-use protocol::{results::QueryError, Sender};
-use std::sync::Arc;
 
-pub struct StaticExpressionEvaluation {
-    sender: Arc<dyn Sender>,
-}
+#[derive(Default)]
+pub struct StaticExpressionEvaluation;
 
 impl StaticExpressionEvaluation {
-    pub fn new(session: Arc<dyn Sender>) -> StaticExpressionEvaluation {
-        StaticExpressionEvaluation { sender: session }
-    }
-
-    pub fn eval(&self, expr: &ScalarOp) -> Result<ScalarOp, ()> {
+    pub fn eval(&self, expr: &ScalarOp) -> Result<ScalarOp, EvalError> {
         self.inner_eval(expr)
     }
 
-    fn inner_eval(&self, expr: &ScalarOp) -> Result<ScalarOp, ()> {
+    fn inner_eval(&self, expr: &ScalarOp) -> Result<ScalarOp, EvalError> {
         match expr {
             ScalarOp::Binary(op, left, right) => {
                 let left = self.inner_eval(&*left)?;
@@ -49,10 +43,7 @@ impl StaticExpressionEvaluation {
                                 let (left, left_exp) = left.as_bigint_and_exponent();
                                 let (right, right_exp) = right.as_bigint_and_exponent();
                                 if left_exp != 0 && right_exp != 0 {
-                                    self.sender
-                                        .send(Err(QueryError::undefined_function(op, "FLOAT", "FLOAT")))
-                                        .expect("To Send Result to Client");
-                                    Err(())
+                                    Err(EvalError::undefined_function(&op, &"FLOAT", &"FLOAT"))
                                 } else {
                                     Ok(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(left & &right))))
                                 }
@@ -62,53 +53,30 @@ impl StaticExpressionEvaluation {
                                 let (left, left_exp) = left.as_bigint_and_exponent();
                                 let (right, right_exp) = right.as_bigint_and_exponent();
                                 if left_exp != 0 && right_exp != 0 {
-                                    self.sender
-                                        .send(Err(QueryError::undefined_function(op, "FLOAT", "FLOAT")))
-                                        .expect("To Send Result to Client");
-                                    Err(())
+                                    Err(EvalError::undefined_function(&op, &"FLOAT", &"FLOAT"))
                                 } else {
                                     Ok(ScalarOp::Value(ScalarValue::Number(BigDecimal::from(left | &right))))
                                 }
                             }
-                            _ => {
-                                self.sender
-                                    .send(Err(QueryError::undefined_function(op, "NUMBER", "NUMBER")))
-                                    .expect("To Send Query Result to Client");
-                                Err(())
-                            }
+                            _ => Err(EvalError::undefined_function(&op, &"NUMBER", &"NUMBER")),
                         }
                     }
                     (ScalarOp::Value(ScalarValue::String(left)), ScalarOp::Value(ScalarValue::String(right))) => {
                         match op {
                             BinaryOp::Concat => Ok(ScalarOp::Value(ScalarValue::String(left + right.as_str()))),
-                            operator => {
-                                self.sender
-                                    .send(Err(QueryError::undefined_function(operator, "STRING", "STRING")))
-                                    .expect("To Send Query Result to Client");
-                                Err(())
-                            }
+                            operator => Err(EvalError::undefined_function(&operator, &"STRING", &"STRING")),
                         }
                     }
                     (ScalarOp::Value(ScalarValue::Number(left)), ScalarOp::Value(ScalarValue::String(right))) => {
                         match op {
                             BinaryOp::Concat => Ok(ScalarOp::Value(ScalarValue::String(format!("{}{}", left, right)))),
-                            _ => {
-                                self.sender
-                                    .send(Err(QueryError::undefined_function(op, "NUMBER", "STRING")))
-                                    .expect("To Send Query Result to Client");
-                                Err(())
-                            }
+                            _ => Err(EvalError::undefined_function(&op, &"NUMBER", &"STRING")),
                         }
                     }
                     (ScalarOp::Value(ScalarValue::String(left)), ScalarOp::Value(ScalarValue::Number(right))) => {
                         match op {
                             BinaryOp::Concat => Ok(ScalarOp::Value(ScalarValue::String(format!("{}{}", left, right)))),
-                            _ => {
-                                self.sender
-                                    .send(Err(QueryError::undefined_function(op, "STRING", "NUMBER")))
-                                    .expect("To Send Query Result to Client");
-                                Err(())
-                            }
+                            _ => Err(EvalError::undefined_function(&op, &"STRING", &"NUMBER")),
                         }
                     }
                     (left, right) => Ok(ScalarOp::Binary(op.clone(), Box::new(left), Box::new(right))),

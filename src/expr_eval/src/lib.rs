@@ -12,7 +12,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-pub mod dynamic_expr;
-pub mod static_expr;
+mod dynamic_expr;
+mod static_expr;
+
+pub use dynamic_expr::DynamicExpressionEvaluation;
+pub use static_expr::StaticExpressionEvaluation;
+
+#[derive(Debug, PartialEq)]
+pub enum EvalError {
+    UndefinedFunction(String, String, String),
+    NonValue(String),
+}
+
+impl EvalError {
+    fn undefined_function<O: ToString, S: ToString>(op: &O, left_type: &S, right_type: &S) -> EvalError {
+        EvalError::UndefinedFunction(op.to_string(), left_type.to_string(), right_type.to_string())
+    }
+
+    fn not_a_value<V: ToString>(v: &V) -> EvalError {
+        EvalError::NonValue(v.to_string())
+    }
+}
+
 #[cfg(test)]
 mod tests;
