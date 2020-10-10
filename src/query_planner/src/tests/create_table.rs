@@ -15,7 +15,6 @@
 use super::*;
 use meta_def::ColumnDefinition;
 use plan::TableCreationInfo;
-use protocol::results::QueryError;
 use sql_model::sql_types::SqlType;
 use sqlparser::ast::{ColumnDef, DataType, ObjectName, Statement};
 
@@ -45,84 +44,67 @@ fn table(name: Vec<&str>, columns: Vec<ColumnDef>) -> Statement {
 }
 
 #[rstest::rstest]
-fn create_table_with_nonexistent_schema(planner_and_sender: (InMemory, ResultCollector)) {
-    let (query_planner, collector) = planner_and_sender;
+fn create_table_with_nonexistent_schema(planner: QueryPlanner) {
     assert_eq!(
-        query_planner.plan(&table(vec!["non_existent_schema", TABLE], vec![])),
-        Err(())
+        planner.plan(&table(vec!["non_existent_schema", TABLE], vec![])),
+        Err(vec![PlanError::schema_does_not_exist(&"non_existent_schema")])
     );
-
-    collector.assert_content(vec![Err(QueryError::schema_does_not_exist("non_existent_schema"))])
 }
 
 #[rstest::rstest]
-fn create_table_with_the_same_name(planner_and_sender_with_table: (InMemory, ResultCollector)) {
-    let (query_planner, collector) = planner_and_sender_with_table;
-
-    assert_eq!(query_planner.plan(&table(vec![SCHEMA, TABLE], vec![])), Err(()));
-
-    collector.assert_content(vec![Err(QueryError::table_already_exists(format!(
-        "{}.{}",
-        SCHEMA, TABLE
-    )))])
-}
-
-#[rstest::rstest]
-fn create_table_with_unsupported_column_type(planner_and_sender_with_schema: (InMemory, ResultCollector)) {
-    let (query_planner, collector) = planner_and_sender_with_schema;
+fn create_table_with_the_same_name(planner_with_table: QueryPlanner) {
     assert_eq!(
-        query_planner.plan(&table(
+        planner_with_table.plan(&table(vec![SCHEMA, TABLE], vec![])),
+        Err(vec![PlanError::table_already_exists(&format!("{}.{}", SCHEMA, TABLE))])
+    );
+}
+
+#[rstest::rstest]
+fn create_table_with_unsupported_column_type(planner_with_schema: QueryPlanner) {
+    assert_eq!(
+        planner_with_schema.plan(&table(
             vec!["schema_name", "table_name"],
             vec![column(
                 "column_name",
                 DataType::Custom(ObjectName(vec![ident("strange_type_name_whatever")]))
             )]
         )),
-        Err(())
+        Err(vec![PlanError::feature_not_supported(
+            "'strange_type_name_whatever' type is not supported",
+        )])
     );
-
-    collector.assert_content(vec![Err(QueryError::feature_not_supported(
-        "'strange_type_name_whatever' type is not supported",
-    ))])
 }
 
 #[rstest::rstest]
-fn create_table_with_unqualified_name(planner_and_sender_with_schema: (InMemory, ResultCollector)) {
-    let (query_planner, collector) = planner_and_sender_with_schema;
+fn create_table_with_unqualified_name(planner_with_schema: QueryPlanner) {
     assert_eq!(
-        query_planner.plan(&table(
+        planner_with_schema.plan(&table(
             vec!["only_schema_in_the_name"],
             vec![column("column_name", DataType::SmallInt)]
         )),
-        Err(())
+        Err(vec![PlanError::syntax_error(
+            &"unsupported table name 'only_schema_in_the_name'. All table names must be qualified",
+        )])
     );
-
-    collector.assert_content(vec![Err(QueryError::syntax_error(
-        "unsupported table name 'only_schema_in_the_name'. All table names must be qualified",
-    ))])
 }
 
 #[rstest::rstest]
-fn create_table_with_unsupported_name(planner_and_sender_with_schema: (InMemory, ResultCollector)) {
-    let (query_planner, collector) = planner_and_sender_with_schema;
+fn create_table_with_unsupported_name(planner_with_schema: QueryPlanner) {
     assert_eq!(
-        query_planner.plan(&table(
+        planner_with_schema.plan(&table(
             vec!["first_part", "second_part", "third_part", "fourth_part"],
             vec![column("column_name", DataType::SmallInt)]
         )),
-        Err(())
+        Err(vec![PlanError::syntax_error(
+            &"unable to process table name 'first_part.second_part.third_part.fourth_part'",
+        )])
     );
-
-    collector.assert_content(vec![Err(QueryError::syntax_error(
-        "unable to process table name 'first_part.second_part.third_part.fourth_part'",
-    ))])
 }
 
 #[rstest::rstest]
-fn create_table(planner_and_sender_with_schema: (InMemory, ResultCollector)) {
-    let (query_planner, collector) = planner_and_sender_with_schema;
+fn create_table(planner_with_schema: QueryPlanner) {
     assert_eq!(
-        query_planner.plan(&table(
+        planner_with_schema.plan(&table(
             vec![SCHEMA, TABLE],
             vec![column("column_name", DataType::SmallInt)]
         )),
@@ -135,6 +117,4 @@ fn create_table(planner_and_sender_with_schema: (InMemory, ResultCollector)) {
             )]
         )))
     );
-
-    collector.assert_content(vec![])
 }

@@ -15,15 +15,13 @@
 use super::*;
 use constraints::TypeConstraint;
 use plan::{TableId, TableInserts};
-use protocol::results::QueryError;
 use sql_model::sql_types::SqlType;
 use sqlparser::ast::{ObjectName, Query, SetExpr, Statement, Values};
 
 #[rstest::rstest]
-fn insert_into_table_that_in_nonexistent_schema(planner_and_sender: (InMemory, ResultCollector)) {
-    let (query_planner, collector) = planner_and_sender;
+fn insert_into_table_that_in_nonexistent_schema(planner: QueryPlanner) {
     assert_eq!(
-        query_planner.plan(&Statement::Insert {
+        planner.plan(&Statement::Insert {
             table_name: ObjectName(vec![ident("non_existent_schema"), ident(TABLE)]),
             columns: vec![],
             source: Box::new(Query {
@@ -35,17 +33,14 @@ fn insert_into_table_that_in_nonexistent_schema(planner_and_sender: (InMemory, R
                 fetch: None
             })
         }),
-        Err(())
+        Err(vec![PlanError::schema_does_not_exist(&"non_existent_schema")])
     );
-
-    collector.assert_content(vec![Err(QueryError::schema_does_not_exist("non_existent_schema"))])
 }
 
 #[rstest::rstest]
-fn insert_into_nonexistent_table(planner_and_sender_with_schema: (InMemory, ResultCollector)) {
-    let (query_planner, collector) = planner_and_sender_with_schema;
+fn insert_into_nonexistent_table(planner_with_schema: QueryPlanner) {
     assert_eq!(
-        query_planner.plan(&Statement::Insert {
+        planner_with_schema.plan(&Statement::Insert {
             table_name: ObjectName(vec![ident(SCHEMA), ident("non_existent_table")]),
             columns: vec![],
             source: Box::new(Query {
@@ -57,20 +52,17 @@ fn insert_into_nonexistent_table(planner_and_sender_with_schema: (InMemory, Resu
                 fetch: None
             })
         }),
-        Err(())
+        Err(vec![PlanError::table_does_not_exist(&format!(
+            "{}.{}",
+            SCHEMA, "non_existent_table"
+        ))])
     );
-
-    collector.assert_content(vec![Err(QueryError::table_does_not_exist(format!(
-        "{}.{}",
-        SCHEMA, "non_existent_table"
-    )))])
 }
 
 #[rstest::rstest]
-fn insert_into_table_with_unqualified_name(planner_and_sender_with_schema: (InMemory, ResultCollector)) {
-    let (query_planner, collector) = planner_and_sender_with_schema;
+fn insert_into_table_with_unqualified_name(planner_with_schema: QueryPlanner) {
     assert_eq!(
-        query_planner.plan(&Statement::Insert {
+        planner_with_schema.plan(&Statement::Insert {
             table_name: ObjectName(vec![ident("only_schema_in_the_name")]),
             columns: vec![],
             source: Box::new(Query {
@@ -82,19 +74,16 @@ fn insert_into_table_with_unqualified_name(planner_and_sender_with_schema: (InMe
                 fetch: None
             })
         }),
-        Err(())
+        Err(vec![PlanError::syntax_error(
+            &"unsupported table name 'only_schema_in_the_name'. All table names must be qualified",
+        )])
     );
-
-    collector.assert_content(vec![Err(QueryError::syntax_error(
-        "unsupported table name 'only_schema_in_the_name'. All table names must be qualified",
-    ))])
 }
 
 #[rstest::rstest]
-fn insert_into_table_with_unsupported_name(planner_and_sender_with_schema: (InMemory, ResultCollector)) {
-    let (query_planner, collector) = planner_and_sender_with_schema;
+fn insert_into_table_with_unsupported_name(planner_with_schema: QueryPlanner) {
     assert_eq!(
-        query_planner.plan(&Statement::Insert {
+        planner_with_schema.plan(&Statement::Insert {
             table_name: ObjectName(vec![
                 ident("first_part"),
                 ident("second_part"),
@@ -111,19 +100,16 @@ fn insert_into_table_with_unsupported_name(planner_and_sender_with_schema: (InMe
                 fetch: None
             })
         }),
-        Err(())
+        Err(vec![PlanError::syntax_error(
+            &"unable to process table name 'first_part.second_part.third_part.fourth_part'",
+        )])
     );
-
-    collector.assert_content(vec![Err(QueryError::syntax_error(
-        "unable to process table name 'first_part.second_part.third_part.fourth_part'",
-    ))])
 }
 
 #[rstest::rstest]
-fn insert_into_table(planner_and_sender_with_table: (InMemory, ResultCollector)) {
-    let (query_planner, collector) = planner_and_sender_with_table;
+fn insert_into_table(planner_with_table: QueryPlanner) {
     assert_eq!(
-        query_planner.plan(&Statement::Insert {
+        planner_with_table.plan(&Statement::Insert {
             table_name: ObjectName(vec![ident(SCHEMA), ident(TABLE)]),
             columns: vec![ident("small_int"), ident("integer"), ident("big_int")],
             source: Box::new(Query {
@@ -150,15 +136,12 @@ fn insert_into_table(planner_and_sender_with_table: (InMemory, ResultCollector))
             input: vec![]
         }))
     );
-
-    collector.assert_content(vec![])
 }
 
 #[rstest::rstest]
-fn insert_into_table_without_columns(planner_and_sender_with_table: (InMemory, ResultCollector)) {
-    let (query_planner, collector) = planner_and_sender_with_table;
+fn insert_into_table_without_columns(planner_with_table: QueryPlanner) {
     assert_eq!(
-        query_planner.plan(&Statement::Insert {
+        planner_with_table.plan(&Statement::Insert {
             table_name: ObjectName(vec![ident(SCHEMA), ident(TABLE)]),
             columns: vec![],
             source: Box::new(Query {
@@ -185,6 +168,4 @@ fn insert_into_table_without_columns(planner_and_sender_with_table: (InMemory, R
             input: vec![]
         }))
     );
-
-    collector.assert_content(vec![])
 }

@@ -12,11 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{Planner, Result};
+use crate::{PlanError, Planner, Result};
 use meta_def::ColumnDefinition;
 use metadata::DataDefinition;
 use plan::{FullTableName, Plan, TableCreationInfo};
-use protocol::{results::QueryError, Sender};
 use sql_model::{sql_types::SqlType, DEFAULT_CATALOG};
 use sqlparser::ast::{ColumnDef, ObjectName};
 use std::{convert::TryFrom, sync::Arc};
@@ -36,24 +35,14 @@ impl<'ctp> CreateTablePlanner<'ctp> {
 }
 
 impl Planner for CreateTablePlanner<'_> {
-    fn plan(self, metadata: Arc<DataDefinition>, sender: Arc<dyn Sender>) -> Result<Plan> {
+    fn plan(self, metadata: Arc<DataDefinition>) -> Result<Plan> {
         match FullTableName::try_from(self.full_table_name) {
             Ok(full_table_name) => {
                 let (schema_name, table_name) = full_table_name.as_tuple();
                 match metadata.table_exists(DEFAULT_CATALOG, &schema_name, &table_name) {
-                    None => Err(()), // TODO catalog does not exists
-                    Some((_, None)) => {
-                        sender
-                            .send(Err(QueryError::schema_does_not_exist(schema_name)))
-                            .expect("To Send Query Result to Client");
-                        Err(())
-                    }
-                    Some((_, Some((_, Some(_))))) => {
-                        sender
-                            .send(Err(QueryError::table_already_exists(full_table_name)))
-                            .expect("To Send Query Result to Client");
-                        Err(())
-                    }
+                    None => Err(vec![]), // TODO catalog does not exists
+                    Some((_, None)) => Err(vec![PlanError::schema_does_not_exist(&schema_name)]),
+                    Some((_, Some((_, Some(_))))) => Err(vec![PlanError::table_already_exists(&full_table_name)]),
                     Some((_, Some((schema_id, None)))) => {
                         let mut column_defs = Vec::new();
                         for column in self.columns {
@@ -62,10 +51,7 @@ impl Planner for CreateTablePlanner<'_> {
                                     column_defs.push(ColumnDefinition::new(column.name.value.as_str(), sql_type))
                                 }
                                 Err(error) => {
-                                    sender
-                                        .send(Err(QueryError::feature_not_supported(error)))
-                                        .expect("To Send Result to Client");
-                                    return Err(());
+                                    return Err(vec![PlanError::feature_not_supported(&error)]);
                                 }
                             }
                         }
@@ -77,12 +63,7 @@ impl Planner for CreateTablePlanner<'_> {
                     }
                 }
             }
-            Err(error) => {
-                sender
-                    .send(Err(QueryError::syntax_error(error)))
-                    .expect("To Send Query Result to Client");
-                Err(())
-            }
+            Err(error) => Err(vec![PlanError::syntax_error(&error)]),
         }
     }
 }

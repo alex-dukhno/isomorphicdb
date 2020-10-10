@@ -29,33 +29,77 @@ use crate::{
 };
 use metadata::DataDefinition;
 use plan::Plan;
-use protocol::{results::QueryError, Sender};
 use sqlparser::ast::{ObjectType, Statement};
 use std::sync::Arc;
 
-type Result<T> = std::result::Result<T, ()>;
+type Result<T> = std::result::Result<T, Vec<PlanError>>;
+
+#[derive(Debug, PartialEq)]
+pub enum PlanError {
+    SchemaAlreadyExists(String),
+    SchemaDoesNotExist(String),
+    TableAlreadyExists(String),
+    TableDoesNotExist(String),
+    DuplicateColumn(String),
+    ColumnDoesNotExist(String),
+    SyntaxError(String),
+    FeatureNotSupported(String),
+}
+
+impl PlanError {
+    fn schema_already_exists<S: ToString>(schema: &S) -> PlanError {
+        PlanError::SchemaAlreadyExists(schema.to_string())
+    }
+
+    fn schema_does_not_exist<S: ToString>(schema: &S) -> PlanError {
+        PlanError::SchemaDoesNotExist(schema.to_string())
+    }
+
+    fn table_already_exists<T: ToString>(table: &T) -> PlanError {
+        PlanError::TableAlreadyExists(table.to_string())
+    }
+
+    fn table_does_not_exist<T: ToString>(table: &T) -> PlanError {
+        PlanError::TableDoesNotExist(table.to_string())
+    }
+
+    fn duplicate_column<C: ToString>(column: &C) -> PlanError {
+        PlanError::DuplicateColumn(column.to_string())
+    }
+
+    fn column_does_not_exist<C: ToString>(column: &C) -> PlanError {
+        PlanError::ColumnDoesNotExist(column.to_string())
+    }
+
+    fn feature_not_supported<FD: ToString>(feature_desc: FD) -> PlanError {
+        PlanError::FeatureNotSupported(feature_desc.to_string())
+    }
+
+    fn syntax_error<S: ToString>(expr: &S) -> PlanError {
+        PlanError::SyntaxError(expr.to_string())
+    }
+}
 
 trait Planner {
-    fn plan(self, data_manager: Arc<DataDefinition>, sender: Arc<dyn Sender>) -> Result<Plan>;
+    fn plan(self, data_manager: Arc<DataDefinition>) -> Result<Plan>;
 }
 
 pub struct QueryPlanner {
     metadata: Arc<DataDefinition>,
-    sender: Arc<dyn Sender>,
 }
 
 impl QueryPlanner {
-    pub fn new(metadata: Arc<DataDefinition>, sender: Arc<dyn Sender>) -> Self {
-        Self { metadata, sender }
+    pub fn new(metadata: Arc<DataDefinition>) -> Self {
+        Self { metadata }
     }
 
     pub fn plan(&self, statement: &Statement) -> Result<Plan> {
         match statement {
             Statement::CreateTable { name, columns, .. } => {
-                CreateTablePlanner::new(name, columns).plan(self.metadata.clone(), self.sender.clone())
+                CreateTablePlanner::new(name, columns).plan(self.metadata.clone())
             }
             Statement::CreateSchema { schema_name, .. } => {
-                CreateSchemaPlanner::new(schema_name).plan(self.metadata.clone(), self.sender.clone())
+                CreateSchemaPlanner::new(schema_name).plan(self.metadata.clone())
             }
             Statement::Drop {
                 object_type,
@@ -63,35 +107,22 @@ impl QueryPlanner {
                 cascade,
                 if_exists,
             } => match object_type {
-                ObjectType::Table => {
-                    DropTablesPlanner::new(names, *if_exists).plan(self.metadata.clone(), self.sender.clone())
-                }
-                ObjectType::Schema => {
-                    DropSchemaPlanner::new(names, *cascade, *if_exists).plan(self.metadata.clone(), self.sender.clone())
-                }
-                _ => {
-                    self.sender
-                        .send(Err(QueryError::syntax_error(statement)))
-                        .expect("To Send Result to Client");
-                    Err(())
-                }
+                ObjectType::Table => DropTablesPlanner::new(names, *if_exists).plan(self.metadata.clone()),
+                ObjectType::Schema => DropSchemaPlanner::new(names, *cascade, *if_exists).plan(self.metadata.clone()),
+                _ => Err(vec![PlanError::syntax_error(&statement)]),
             },
             Statement::Insert {
                 table_name,
                 columns,
                 source,
-            } => InsertPlanner::new(table_name, columns, source).plan(self.metadata.clone(), self.sender.clone()),
+            } => InsertPlanner::new(table_name, columns, source).plan(self.metadata.clone()),
             Statement::Update {
                 table_name,
                 assignments,
                 ..
-            } => UpdatePlanner::new(table_name, assignments).plan(self.metadata.clone(), self.sender.clone()),
-            Statement::Delete { table_name, .. } => {
-                DeletePlanner::new(table_name).plan(self.metadata.clone(), self.sender.clone())
-            }
-            Statement::Query(query) => {
-                SelectPlanner::new(query.clone()).plan(self.metadata.clone(), self.sender.clone())
-            }
+            } => UpdatePlanner::new(table_name, assignments).plan(self.metadata.clone()),
+            Statement::Delete { table_name, .. } => DeletePlanner::new(table_name).plan(self.metadata.clone()),
+            Statement::Query(query) => SelectPlanner::new(query.clone()).plan(self.metadata.clone()),
             _ => Ok(Plan::NotProcessed(Box::new(statement.clone()))),
         }
     }

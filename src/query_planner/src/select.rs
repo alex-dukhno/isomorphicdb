@@ -12,11 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{Planner, Result};
+use crate::{PlanError, Planner, Result};
 use ast::predicates::{PredicateOp, PredicateValue};
 use metadata::DataDefinition;
 use plan::{FullTableName, Plan, SelectInput, TableId};
-use protocol::{results::QueryError, Sender};
 use sql_model::DEFAULT_CATALOG;
 use sqlparser::ast::{
     BinaryOperator, Expr, Ident, Query, Select, SelectItem, SetExpr, TableFactor, TableWithJoins, Value,
@@ -34,7 +33,7 @@ impl SelectPlanner {
 }
 
 impl Planner for SelectPlanner {
-    fn plan(self, metadata: Arc<DataDefinition>, sender: Arc<dyn Sender>) -> Result<Plan> {
+    fn plan(self, metadata: Arc<DataDefinition>) -> Result<Plan> {
         let Query { body, .. } = &*self.query;
         let result = if let SetExpr::Select(query) = body {
             let Select {
@@ -47,10 +46,7 @@ impl Planner for SelectPlanner {
             let name = match relation {
                 TableFactor::Table { name, .. } => name,
                 _ => {
-                    sender
-                        .send(Err(QueryError::feature_not_supported(&*self.query)))
-                        .expect("To Send Query Result to Client");
-                    return Err(());
+                    return Err(vec![PlanError::feature_not_supported(&*self.query)]);
                 }
             };
 
@@ -58,20 +54,12 @@ impl Planner for SelectPlanner {
                 Ok(full_table_name) => {
                     let (schema_name, table_name) = full_table_name.as_tuple();
                     match metadata.table_exists(DEFAULT_CATALOG, &schema_name, &table_name) {
-                        None => return Err(()), // TODO catalog does not exists
+                        None => return Err(vec![]), // TODO catalog does not exists
                         Some((_, None)) => {
-                            sender
-                                .send(Err(QueryError::schema_does_not_exist(schema_name)))
-                                .expect("To Send Result to Client");
-                            return Err(());
+                            return Err(vec![PlanError::schema_does_not_exist(&schema_name)]);
                         }
                         Some((_, Some((_, None)))) => {
-                            sender
-                                .send(Err(QueryError::table_does_not_exist(
-                                    schema_name.to_owned() + "." + table_name,
-                                )))
-                                .expect("To Send Result to Client");
-                            return Err(());
+                            return Err(vec![PlanError::table_does_not_exist(&full_table_name)]);
                         }
                         Some((_, Some((schema_id, Some(table_id))))) => {
                             let selected_columns = {
@@ -92,10 +80,7 @@ impl Planner for SelectPlanner {
                                             names.push(value.to_lowercase())
                                         }
                                         _ => {
-                                            sender
-                                                .send(Err(QueryError::feature_not_supported(&*self.query)))
-                                                .expect("To Send Query Result to Client");
-                                            return Err(());
+                                            return Err(vec![PlanError::feature_not_supported(&*self.query)]);
                                         }
                                     }
                                 }
@@ -108,17 +93,12 @@ impl Planner for SelectPlanner {
                                 for name in names {
                                     match columns.get(&name) {
                                         Some(id) => ids.push(*id),
-                                        None => not_found.push(name),
+                                        None => not_found.push(PlanError::column_does_not_exist(&name)),
                                     }
                                 }
 
-                                // let (columns, not_found) = metadata
-                                //     .column_ids(&Box::new((schema_id, table_id)), &columns)
-                                //     .expect("all needed column found");
-                                for column_name in not_found {
-                                    sender
-                                        .send(Err(QueryError::column_does_not_exist(column_name)))
-                                        .expect("To Send Result to Client");
+                                if !not_found.is_empty() {
+                                    return Err(not_found);
                                 }
                                 ids
                             };
@@ -163,17 +143,11 @@ impl Planner for SelectPlanner {
                     }
                 }
                 Err(error) => {
-                    sender
-                        .send(Err(QueryError::syntax_error(error)))
-                        .expect("To Send Query Result to Client");
-                    return Err(());
+                    return Err(vec![PlanError::syntax_error(&error)]);
                 }
             }
         } else {
-            sender
-                .send(Err(QueryError::feature_not_supported(&*self.query)))
-                .expect("To Send Query Result to Client");
-            return Err(());
+            return Err(vec![PlanError::feature_not_supported(&*self.query)]);
         };
         Ok(Plan::Select(result))
     }

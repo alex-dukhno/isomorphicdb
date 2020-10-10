@@ -26,7 +26,7 @@ use protocol::{
     Command, Sender,
 };
 use query_executor::QueryExecutor;
-use query_planner::QueryPlanner;
+use query_planner::{PlanError, QueryPlanner};
 use sqlparser::ast::Statement;
 use std::{iter, ops::Deref, sync::Arc};
 
@@ -52,7 +52,7 @@ impl QueryEngine {
             data_manager: data_manager.clone(),
             query_parser: QueryParser::default(),
             param_binder: ParamBinder,
-            query_planner: QueryPlanner::new(metadata, sender.clone()),
+            query_planner: QueryPlanner::new(metadata),
             query_executor: QueryExecutor::new(data_manager, sender),
         }
     }
@@ -204,34 +204,79 @@ impl QueryEngine {
                                 },
                                 plan => log::error!("Error while planning not supported extended query for {:?}", plan),
                             },
-                            Err(()) => {}
+                            Err(errors) => {
+                                for error in errors {
+                                    let query_error = match error {
+                                        PlanError::SchemaAlreadyExists(schema) => {
+                                            QueryError::schema_already_exists(schema)
+                                        }
+                                        PlanError::SchemaDoesNotExist(schema) => {
+                                            QueryError::schema_does_not_exist(schema)
+                                        }
+                                        PlanError::TableAlreadyExists(table) => QueryError::table_already_exists(table),
+                                        PlanError::TableDoesNotExist(table) => QueryError::table_does_not_exist(table),
+                                        PlanError::DuplicateColumn(column) => QueryError::duplicate_column(column),
+                                        PlanError::ColumnDoesNotExist(column) => {
+                                            QueryError::column_does_not_exist(column)
+                                        }
+                                        PlanError::SyntaxError(syntax_error) => QueryError::syntax_error(syntax_error),
+                                        PlanError::FeatureNotSupported(feature_desc) => {
+                                            QueryError::feature_not_supported(feature_desc)
+                                        }
+                                    };
+                                    self.sender.send(Err(query_error)).expect("To Send Error to Client");
+                                }
+                            }
                         }
                     }
-                    Err(syntax_error) => {
+                    Err(parser_error) => {
                         self.sender
-                            .send(Err(syntax_error))
+                            .send(Err(QueryError::syntax_error(parser_error)))
                             .expect("To Send ParseComplete Event");
                     }
                 }
                 Ok(())
             }
             Command::Query { sql } => {
-                match self.query_parser.parse(sql.as_str()) {
+                match self.query_parser.parse(&sql) {
                     Ok(mut statements) => {
                         let statement = statements.pop().expect("single query");
-                        if let Ok(plan) = self.query_planner.plan(&statement) {
-                            self.query_executor.execute(plan);
+                        match self.query_planner.plan(&statement) {
+                            Ok(plan) => self.query_executor.execute(plan),
+                            Err(errors) => {
+                                for error in errors {
+                                    let query_error = match error {
+                                        PlanError::SchemaAlreadyExists(schema) => {
+                                            QueryError::schema_already_exists(schema)
+                                        }
+                                        PlanError::SchemaDoesNotExist(schema) => {
+                                            QueryError::schema_does_not_exist(schema)
+                                        }
+                                        PlanError::TableAlreadyExists(table) => QueryError::table_already_exists(table),
+                                        PlanError::TableDoesNotExist(table) => QueryError::table_does_not_exist(table),
+                                        PlanError::DuplicateColumn(column) => QueryError::duplicate_column(column),
+                                        PlanError::ColumnDoesNotExist(column) => {
+                                            QueryError::column_does_not_exist(column)
+                                        }
+                                        PlanError::SyntaxError(syntax_error) => QueryError::syntax_error(syntax_error),
+                                        PlanError::FeatureNotSupported(feature_desc) => {
+                                            QueryError::feature_not_supported(feature_desc)
+                                        }
+                                    };
+                                    self.sender.send(Err(query_error)).expect("To Send Error to Client");
+                                }
+                            }
                         }
                     }
-                    Err(syntax_error) => {
+                    Err(parser_error) => {
                         self.sender
-                            .send(Err(syntax_error))
+                            .send(Err(QueryError::syntax_error(parser_error)))
                             .expect("To Send ParseComplete Event");
                     }
                 }
                 self.sender
                     .send(Ok(QueryEvent::QueryComplete))
-                    .expect("To Send Error to Client");
+                    .expect("To Send Query Result to Client");
                 Ok(())
             }
             Command::Terminate => {

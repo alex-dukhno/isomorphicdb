@@ -12,8 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use protocol::results::QueryError;
 use sqlparser::{ast::Statement, dialect::Dialect, parser::Parser};
+use std::fmt::{self, Display, Formatter};
+
+#[derive(Debug, PartialEq)]
+pub struct ParserError(String);
+
+impl From<&str> for ParserError {
+    fn from(query: &str) -> Self {
+        ParserError(query.to_owned())
+    }
+}
+
+impl Display for ParserError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{:?} can't be parsed", self.0)
+    }
+}
 
 #[derive(Default)]
 pub struct QueryParser {
@@ -21,7 +36,7 @@ pub struct QueryParser {
 }
 
 impl QueryParser {
-    pub fn parse(&self, query: &str) -> Result<Vec<Statement>, QueryError> {
+    pub fn parse(&self, query: &str) -> Result<Vec<Statement>, ParserError> {
         match Parser::parse_sql(&self.dialect, query) {
             Ok(statements) => {
                 log::trace!("stmts: {:#?}", statements);
@@ -29,7 +44,7 @@ impl QueryParser {
             }
             Err(e) => {
                 log::error!("{:?} can't be parsed. Error: {:?}", query, e);
-                Err(QueryError::syntax_error(format!("{:?} can't be parsed", query)))
+                Err(query.into())
             }
         }
     }
@@ -56,9 +71,7 @@ mod parsing_errors {
     fn parse_wrong_select_syntax() {
         assert_eq!(
             QueryParser::default().parse("selec col from schema_name.table_name"),
-            Err(QueryError::syntax_error(
-                "\"selec col from schema_name.table_name\" can\'t be parsed"
-            ))
+            Err(ParserError::from("selec col from schema_name.table_name"))
         );
     }
 }

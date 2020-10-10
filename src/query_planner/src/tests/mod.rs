@@ -14,14 +14,9 @@
 
 use super::*;
 use meta_def::ColumnDefinition;
-use protocol::{results::QueryResult, Sender};
 use sql_model::{sql_types::SqlType, DEFAULT_CATALOG};
 use sqlparser::ast::Ident;
-use std::{
-    io,
-    ops::Deref,
-    sync::{Arc, Mutex},
-};
+use std::sync::Arc;
 
 #[cfg(test)]
 mod create_schema;
@@ -42,58 +37,26 @@ mod update;
 #[cfg(test)]
 mod where_clause;
 
-type InMemory = QueryPlanner;
-
-struct Collector(Mutex<Vec<QueryResult>>);
-
-impl Sender for Collector {
-    fn flush(&self) -> io::Result<()> {
-        Ok(())
-    }
-
-    fn send(&self, query_result: QueryResult) -> io::Result<()> {
-        self.0.lock().expect("locked").push(query_result);
-        Ok(())
-    }
-}
-
-impl Collector {
-    fn assert_content(&self, expected: Vec<QueryResult>) {
-        let result = self.0.lock().expect("locked");
-        assert_eq!(result.deref(), &expected)
-    }
-}
-
-type ResultCollector = Arc<Collector>;
-
 const SCHEMA: &str = "schema_name";
 const TABLE: &str = "table_name";
 
 #[rstest::fixture]
-fn sender() -> ResultCollector {
-    Arc::new(Collector(Mutex::new(vec![])))
-}
-
-#[rstest::fixture]
-fn planner_and_sender() -> (InMemory, ResultCollector) {
-    let collector = Arc::new(Collector(Mutex::new(vec![])));
+fn planner() -> QueryPlanner {
     let manager = DataDefinition::in_memory();
     manager.create_catalog(DEFAULT_CATALOG);
-    (InMemory::new(Arc::new(manager), collector.clone()), collector)
+    QueryPlanner::new(Arc::new(manager))
 }
 
 #[rstest::fixture]
-fn planner_and_sender_with_schema() -> (InMemory, ResultCollector) {
-    let collector = Arc::new(Collector(Mutex::new(vec![])));
+fn planner_with_schema() -> QueryPlanner {
     let manager = DataDefinition::in_memory();
     manager.create_catalog(DEFAULT_CATALOG);
     manager.create_schema(DEFAULT_CATALOG, SCHEMA).expect("schema created");
-    (InMemory::new(Arc::new(manager), collector.clone()), collector)
+    QueryPlanner::new(Arc::new(manager))
 }
 
 #[rstest::fixture]
-fn planner_and_sender_with_table() -> (InMemory, ResultCollector) {
-    let collector = Arc::new(Collector(Mutex::new(vec![])));
+fn planner_with_table() -> QueryPlanner {
     let manager = DataDefinition::in_memory();
     manager.create_catalog(DEFAULT_CATALOG);
     let _schema_id = manager.create_schema(DEFAULT_CATALOG, SCHEMA).expect("schema created");
@@ -109,19 +72,18 @@ fn planner_and_sender_with_table() -> (InMemory, ResultCollector) {
             ],
         )
         .expect("table created");
-    (InMemory::new(Arc::new(manager), collector.clone()), collector)
+    QueryPlanner::new(Arc::new(manager))
 }
 
 #[rstest::fixture]
-fn planner_and_sender_with_no_column_table() -> (InMemory, ResultCollector) {
-    let collector = Arc::new(Collector(Mutex::new(vec![])));
+fn planner_with_no_column_table() -> QueryPlanner {
     let manager = DataDefinition::in_memory();
     manager.create_catalog(DEFAULT_CATALOG);
     let _schema_id = manager.create_schema(DEFAULT_CATALOG, SCHEMA).expect("schema created");
     manager
         .create_table(DEFAULT_CATALOG, SCHEMA, TABLE, &[])
         .expect("table created");
-    (InMemory::new(Arc::new(manager), collector.clone()), collector)
+    QueryPlanner::new(Arc::new(manager))
 }
 
 fn ident<S: ToString>(name: S) -> Ident {

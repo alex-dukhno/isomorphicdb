@@ -547,17 +547,9 @@ pub trait Receiver: Send + Sync {
 }
 
 struct ResponseSender<RW: AsyncRead + AsyncWrite + Unpin> {
+    #[allow(dead_code)]
     properties: (Version, Params),
     channel: Arc<AsyncMutex<Channel<RW>>>,
-}
-
-impl<RW: AsyncRead + AsyncWrite + Unpin> Clone for ResponseSender<RW> {
-    fn clone(&self) -> Self {
-        Self {
-            properties: (self.properties.0, self.properties.1.clone()),
-            channel: self.channel.clone(),
-        }
-    }
 }
 
 impl<RW: AsyncRead + AsyncWrite + Unpin> ResponseSender<RW> {

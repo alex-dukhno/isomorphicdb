@@ -99,8 +99,6 @@ mod tests {
 
     #[cfg(test)]
     mod to_postgresql_type_conversion {
-        use protocol::pgsql_types::PostgreSqlType;
-
         use super::*;
 
         #[test]

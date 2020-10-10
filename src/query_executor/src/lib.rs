@@ -43,6 +43,10 @@ impl QueryExecutor {
 
     pub fn execute(&self, plan: Plan) {
         match plan {
+            Plan::NothingToExecute => self
+                .sender
+                .send(Ok(QueryEvent::QueryComplete))
+                .expect("To Send Query Result to Client"),
             Plan::CreateSchema(creation_info) => {
                 CreateSchemaCommand::new(creation_info, self.data_manager.clone(), self.sender.clone()).execute()
             }
@@ -94,8 +98,5 @@ impl QueryExecutor {
                 }
             },
         }
-        // self.sender
-        //     .send(Ok(QueryEvent::QueryComplete))
-        //     .expect("To Send Query Complete Event to Client");
     }
 }

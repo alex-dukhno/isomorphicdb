@@ -8,11 +8,9 @@ publish = false
 [dependencies]
 ast = { path = "../ast" }
 constraints = { path = "../constraints" }
-kernel = { path = "../kernel" }
 meta_def = { path = "../meta_def" }
 metadata = { path = "../metadata" }
 plan = { path = "../plan" }
-protocol = { path = "../protocol" }
 sql_model = { path = "../sql_model" }
 
 bigdecimal = "0.2.0"
