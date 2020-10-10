@@ -14,13 +14,12 @@
 
 use crate::{PlanError, Planner, Result};
 use ast::predicates::{PredicateOp, PredicateValue};
-use metadata::DataDefinition;
-use plan::{FullTableName, Plan, SelectInput, TableId};
-use sql_model::DEFAULT_CATALOG;
+use metadata::{DataDefinition, MetadataView};
+use plan::{FullTableId, FullTableName, Plan, SelectInput};
 use sqlparser::ast::{
     BinaryOperator, Expr, Ident, Query, Select, SelectItem, SetExpr, TableFactor, TableWithJoins, Value,
 };
-use std::{collections::HashMap, convert::TryFrom, ops::Deref, sync::Arc};
+use std::{convert::TryFrom, ops::Deref, sync::Arc};
 
 pub(crate) struct SelectPlanner {
     query: Box<Query>,
@@ -53,22 +52,22 @@ impl Planner for SelectPlanner {
             match FullTableName::try_from(name) {
                 Ok(full_table_name) => {
                     let (schema_name, table_name) = full_table_name.as_tuple();
-                    match metadata.table_exists(DEFAULT_CATALOG, &schema_name, &table_name) {
-                        None => return Err(vec![]), // TODO catalog does not exists
-                        Some((_, None)) => {
+                    match metadata.table_exists(&schema_name, &table_name) {
+                        None => {
                             return Err(vec![PlanError::schema_does_not_exist(&schema_name)]);
                         }
-                        Some((_, Some((_, None)))) => {
+                        Some((_, None)) => {
                             return Err(vec![PlanError::table_does_not_exist(&full_table_name)]);
                         }
-                        Some((_, Some((schema_id, Some(table_id))))) => {
+                        Some((schema_id, Some(table_id))) => {
+                            let full_table_id = FullTableId::from((schema_id, table_id));
                             let selected_columns = {
                                 let mut names: Vec<String> = vec![];
                                 for item in projection {
                                     match item {
                                         SelectItem::Wildcard => {
                                             let all_columns =
-                                                metadata.table_columns(DEFAULT_CATALOG, schema_name, table_name);
+                                                metadata.table_columns(&full_table_id).expect("table exists");
                                             names.extend(
                                                 all_columns
                                                     .into_iter()
@@ -84,21 +83,14 @@ impl Planner for SelectPlanner {
                                         }
                                     }
                                 }
-                                let columns = metadata
-                                    .table_column_names_ids(DEFAULT_CATALOG, schema_name, table_name)
-                                    .into_iter()
-                                    .collect::<HashMap<_, _>>();
-                                let mut ids = vec![];
-                                let mut not_found = vec![];
-                                for name in names {
-                                    match columns.get(&name) {
-                                        Some(id) => ids.push(*id),
-                                        None => not_found.push(PlanError::column_does_not_exist(&name)),
-                                    }
-                                }
+                                let (ids, not_found) =
+                                    metadata.column_ids(&full_table_id, &names).expect("table exists");
 
                                 if !not_found.is_empty() {
-                                    return Err(not_found);
+                                    return Err(not_found
+                                        .into_iter()
+                                        .map(|name| PlanError::column_does_not_exist(&name))
+                                        .collect());
                                 }
                                 ids
                             };
@@ -107,16 +99,9 @@ impl Planner for SelectPlanner {
                                 Some(Expr::BinaryOp { left, op, right }) => {
                                     let l = match left.deref() {
                                         Expr::Identifier(ident) => {
-                                            let columns = metadata
-                                                .table_column_names_ids(DEFAULT_CATALOG, schema_name, table_name)
-                                                .into_iter()
-                                                .collect::<HashMap<_, _>>();
-                                            let mut ids = vec![];
-                                            let mut not_found = vec![];
-                                            match columns.get(&ident.to_string()) {
-                                                Some(id) => ids.push(*id),
-                                                None => not_found.push(ident.to_string()),
-                                            }
+                                            let (ids, _not_found) = metadata
+                                                .column_ids(&full_table_id, &[ident.to_string()])
+                                                .expect("table exists");
                                             PredicateValue::Column(ids[0])
                                         }
                                         _ => panic!(),
@@ -135,7 +120,7 @@ impl Planner for SelectPlanner {
                             };
 
                             SelectInput {
-                                table_id: TableId::from((schema_id, table_id)),
+                                table_id: FullTableId::from((schema_id, table_id)),
                                 selected_columns,
                                 predicate,
                             }

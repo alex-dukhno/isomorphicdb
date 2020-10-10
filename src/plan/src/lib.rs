@@ -140,15 +140,15 @@ pub struct ColumnType {
 
 /// represents a table uniquely
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
-pub struct TableId((Id, Id));
+pub struct FullTableId((Id, Id));
 
-impl From<(Id, Id)> for TableId {
-    fn from(tuple: (Id, Id)) -> TableId {
-        TableId(tuple)
+impl From<(Id, Id)> for FullTableId {
+    fn from(tuple: (Id, Id)) -> FullTableId {
+        FullTableId(tuple)
     }
 }
 
-impl AsRef<(Id, Id)> for TableId {
+impl AsRef<(Id, Id)> for FullTableId {
     fn as_ref(&self) -> &(Id, Id) {
         &self.0
     }
@@ -190,26 +190,26 @@ impl SchemaCreationInfo {
 
 #[derive(PartialEq, Debug, Clone)]
 pub struct TableInserts {
-    pub table_id: TableId,
+    pub table_id: FullTableId,
     pub column_indices: Vec<(usize, String, SqlType, TypeConstraint)>,
     pub input: Vec<Vec<ScalarOp>>,
 }
 
 #[derive(PartialEq, Debug, Clone)]
 pub struct TableUpdates {
-    pub table_id: TableId,
+    pub table_id: FullTableId,
     pub column_indices: Vec<(usize, String, SqlType, TypeConstraint)>,
     pub input: Vec<ScalarOp>,
 }
 
 #[derive(PartialEq, Debug, Clone)]
 pub struct TableDeletes {
-    pub table_id: TableId,
+    pub table_id: FullTableId,
 }
 
 #[derive(PartialEq, Debug, Clone)]
 pub struct SelectInput {
-    pub table_id: TableId,
+    pub table_id: FullTableId,
     pub selected_columns: Vec<Id>,
     pub predicate: Option<(PredicateValue, PredicateOp, PredicateValue)>,
 }
@@ -218,7 +218,7 @@ pub struct SelectInput {
 pub enum Plan {
     CreateTable(TableCreationInfo),
     CreateSchema(SchemaCreationInfo),
-    DropTables(Vec<TableId>),
+    DropTables(Vec<FullTableId>),
     DropSchemas(Vec<(SchemaId, bool)>),
     Select(SelectInput),
     Update(TableUpdates),

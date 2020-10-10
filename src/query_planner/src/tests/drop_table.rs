@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use super::*;
-use plan::TableId;
+use plan::FullTableId;
 use sqlparser::ast::{ObjectName, ObjectType, Statement};
 
 #[rstest::rstest]
@@ -89,6 +89,6 @@ fn drop_table(planner_with_table: QueryPlanner) {
             names: vec![ObjectName(vec![ident(SCHEMA), ident(TABLE)])],
             cascade: false
         }),
-        Ok(Plan::DropTables(vec![TableId::from((0, 0))]))
+        Ok(Plan::DropTables(vec![FullTableId::from((0, 0))]))
     );
 }

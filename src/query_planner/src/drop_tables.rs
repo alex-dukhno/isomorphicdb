@@ -13,9 +13,8 @@
 // limitations under the License.
 
 use crate::{PlanError, Planner, Result};
-use metadata::DataDefinition;
-use plan::{FullTableName, Plan, TableId};
-use sql_model::DEFAULT_CATALOG;
+use metadata::{DataDefinition, MetadataView};
+use plan::{FullTableId, FullTableName, Plan};
 use sqlparser::ast::ObjectName;
 use std::{convert::TryFrom, sync::Arc};
 
@@ -37,21 +36,18 @@ impl Planner for DropTablesPlanner<'_> {
             match FullTableName::try_from(name) {
                 Ok(full_table_name) => {
                     let (schema_name, table_name) = full_table_name.as_tuple();
-                    match metadata.table_exists(DEFAULT_CATALOG, &schema_name, &table_name) {
-                        None => return Err(vec![]), // TODO catalog does not exists
-                        Some((_, None)) => {
+                    match metadata.table_exists(&schema_name, &table_name) {
+                        None => {
                             return Err(vec![PlanError::schema_does_not_exist(&schema_name)]);
                         }
-                        Some((_, Some((_, None)))) => {
+                        Some((_, None)) => {
                             return if self.if_exists {
                                 Ok(Plan::NothingToExecute)
                             } else {
                                 Err(vec![PlanError::table_does_not_exist(&full_table_name)])
                             }
                         }
-                        Some((_, Some((schema_id, Some(table_id))))) => {
-                            table_names.push(TableId::from((schema_id, table_id)))
-                        }
+                        Some((schema_id, Some(table_id))) => table_names.push(FullTableId::from((schema_id, table_id))),
                     }
                 }
                 Err(error) => {

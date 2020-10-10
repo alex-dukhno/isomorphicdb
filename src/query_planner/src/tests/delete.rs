@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use super::*;
-use plan::{TableDeletes, TableId};
+use plan::{FullTableId, TableDeletes};
 use sqlparser::ast::{ObjectName, Statement};
 
 #[rstest::rstest]
@@ -80,7 +80,7 @@ fn delete_from_table(planner_with_table: QueryPlanner) {
             selection: None
         }),
         Ok(Plan::Delete(TableDeletes {
-            table_id: TableId::from((0, 0))
+            table_id: FullTableId::from((0, 0))
         }))
     );
 }

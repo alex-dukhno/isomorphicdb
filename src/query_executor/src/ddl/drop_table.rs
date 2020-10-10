@@ -13,18 +13,22 @@
 // limitations under the License.
 
 use data_manager::DataManager;
-use plan::TableId;
+use plan::FullTableId;
 use protocol::{results::QueryEvent, Sender};
 use std::sync::Arc;
 
 pub(crate) struct DropTableCommand {
-    table_id: TableId,
+    table_id: FullTableId,
     data_manager: Arc<DataManager>,
     sender: Arc<dyn Sender>,
 }
 
 impl DropTableCommand {
-    pub(crate) fn new(table_id: TableId, data_manager: Arc<DataManager>, sender: Arc<dyn Sender>) -> DropTableCommand {
+    pub(crate) fn new(
+        table_id: FullTableId,
+        data_manager: Arc<DataManager>,
+        sender: Arc<dyn Sender>,
+    ) -> DropTableCommand {
         DropTableCommand {
             table_id,
             data_manager,

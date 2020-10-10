@@ -13,8 +13,7 @@
 // limitations under the License.
 
 use description::{Description, FullTableName, InsertStatement, TableId};
-use metadata::DataDefinition;
-use sql_model::DEFAULT_CATALOG;
+use metadata::{DataDefinition, MetadataView};
 use sqlparser::ast::Statement;
 use std::{convert::TryFrom, sync::Arc};
 
@@ -32,8 +31,8 @@ impl Analyzer {
             Statement::Insert { table_name, .. } => {
                 let full_table_name = FullTableName::try_from(table_name).unwrap();
                 let (schema_name, table_name) = full_table_name.as_tuple();
-                match self.metadata.table_exists(DEFAULT_CATALOG, schema_name, table_name) {
-                    Some((_, Some((schema_id, Some(table_id))))) => Description::Insert(InsertStatement {
+                match self.metadata.table_exists(schema_name, table_name) {
+                    Some((schema_id, Some(table_id))) => Description::Insert(InsertStatement {
                         table_id: TableId::from((schema_id, table_id)),
                     }),
                     _ => unimplemented!(),
@@ -48,6 +47,7 @@ impl Analyzer {
 mod tests {
     use super::*;
     use description::TableId;
+    use sql_model::DEFAULT_CATALOG;
     use sqlparser::ast::{Ident, ObjectName, Query, SetExpr, Values};
     use std::sync::Arc;
 

@@ -14,7 +14,7 @@
 
 use super::*;
 use constraints::TypeConstraint;
-use plan::{TableId, TableInserts};
+use plan::{FullTableId, TableInserts};
 use sql_model::sql_types::SqlType;
 use sqlparser::ast::{ObjectName, Query, SetExpr, Statement, Values};
 
@@ -122,7 +122,7 @@ fn insert_into_table(planner_with_table: QueryPlanner) {
             })
         }),
         Ok(Plan::Insert(TableInserts {
-            table_id: TableId::from((0, 0)),
+            table_id: FullTableId::from((0, 0)),
             column_indices: vec![
                 (
                     0,
@@ -154,7 +154,7 @@ fn insert_into_table_without_columns(planner_with_table: QueryPlanner) {
             })
         }),
         Ok(Plan::Insert(TableInserts {
-            table_id: TableId::from((0, 0)),
+            table_id: FullTableId::from((0, 0)),
             column_indices: vec![
                 (
                     0,

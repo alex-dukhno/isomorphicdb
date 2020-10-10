@@ -13,9 +13,8 @@
 // limitations under the License.
 
 use crate::{PlanError, Planner, Result};
-use metadata::DataDefinition;
-use plan::{FullTableName, Plan, TableDeletes, TableId};
-use sql_model::DEFAULT_CATALOG;
+use metadata::{DataDefinition, MetadataView};
+use plan::{FullTableId, FullTableName, Plan, TableDeletes};
 use sqlparser::ast::ObjectName;
 use std::{convert::TryFrom, sync::Arc};
 
@@ -34,12 +33,11 @@ impl Planner for DeletePlanner<'_> {
         match FullTableName::try_from(self.table_name) {
             Ok(full_table_name) => {
                 let (schema_name, table_name) = full_table_name.as_tuple();
-                match metadata.table_exists(DEFAULT_CATALOG, &schema_name, &table_name) {
-                    None => Err(vec![]), // TODO catalog does not exists
-                    Some((_, None)) => Err(vec![PlanError::schema_does_not_exist(&schema_name)]),
-                    Some((_, Some((_, None)))) => Err(vec![PlanError::table_does_not_exist(&full_table_name)]),
-                    Some((_catalog_id, Some((schema_id, Some(table_id))))) => Ok(Plan::Delete(TableDeletes {
-                        table_id: TableId::from((schema_id, table_id)),
+                match metadata.table_exists(&schema_name, &table_name) {
+                    None => Err(vec![PlanError::schema_does_not_exist(&schema_name)]),
+                    Some((_, None)) => Err(vec![PlanError::table_does_not_exist(&full_table_name)]),
+                    Some((schema_id, Some(table_id))) => Ok(Plan::Delete(TableDeletes {
+                        table_id: FullTableId::from((schema_id, table_id)),
                     })),
                 }
             }

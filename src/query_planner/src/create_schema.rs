@@ -13,9 +13,8 @@
 // limitations under the License.
 
 use crate::{PlanError, Planner, Result};
-use metadata::DataDefinition;
+use metadata::{DataDefinition, MetadataView};
 use plan::{Plan, SchemaCreationInfo, SchemaName};
-use sql_model::DEFAULT_CATALOG;
 use sqlparser::ast::ObjectName;
 use std::{convert::TryFrom, sync::Arc};
 
@@ -32,10 +31,9 @@ impl CreateSchemaPlanner<'_> {
 impl Planner for CreateSchemaPlanner<'_> {
     fn plan(self, metadata: Arc<DataDefinition>) -> Result<Plan> {
         match SchemaName::try_from(self.schema_name) {
-            Ok(schema_name) => match metadata.schema_exists(DEFAULT_CATALOG, schema_name.as_ref()) {
-                None => Err(vec![]), // TODO catalog does not exists
-                Some((_, Some(_))) => Err(vec![PlanError::schema_already_exists(&schema_name)]),
-                Some((_, None)) => Ok(Plan::CreateSchema(SchemaCreationInfo::new(schema_name))),
+            Ok(schema_name) => match metadata.schema_exists(&schema_name) {
+                Some(_) => Err(vec![PlanError::schema_already_exists(&schema_name)]),
+                None => Ok(Plan::CreateSchema(SchemaCreationInfo::new(schema_name))),
             },
             Err(error) => Err(vec![PlanError::syntax_error(&error)]),
         }

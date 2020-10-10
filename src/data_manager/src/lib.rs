@@ -19,7 +19,6 @@ use meta_def::ColumnDefinition;
 use metadata::{DataDefinition, MetadataView};
 use sql_model::{DropSchemaError, DropStrategy, Id};
 use std::{
-    collections::HashMap,
     path::PathBuf,
     sync::{
         atomic::{AtomicU64, Ordering},
@@ -394,36 +393,15 @@ impl DataManager {
 
 impl MetadataView for DataManager {
     fn schema_exists<S: AsRef<str>>(&self, schema_name: &S) -> FullSchemaId {
-        self.data_definition
-            .schema_exists(DEFAULT_CATALOG, schema_name.as_ref())
-            .and_then(|(_catalog, schema)| schema)
+        self.data_definition.schema_exists(schema_name)
     }
 
     fn table_exists<S: AsRef<str>, T: AsRef<str>>(&self, schema_name: &S, table_name: &T) -> FullTableId {
-        self.data_definition
-            .table_exists(DEFAULT_CATALOG, schema_name.as_ref(), table_name.as_ref())
-            .and_then(|(_catalog, full_table)| full_table)
+        self.data_definition.table_exists(schema_name, table_name)
     }
 
     fn table_columns<I: AsRef<(Id, Id)>>(&self, table_id: &I) -> Result<Vec<ColumnDefinition>, ()> {
-        match self.tables.get(table_id.as_ref()) {
-            Some(full_name) => {
-                Ok(self
-                    .data_definition
-                    .table_columns(DEFAULT_CATALOG, full_name[0].as_str(), full_name[1].as_str()))
-            }
-            _ => {
-                let (schema_id, table_id) = table_id.as_ref();
-                log::error!(
-                    "{:?}",
-                    SystemError::bug_in_sql_engine(
-                        Operation::Access,
-                        Object::Table(schema_id.to_string().as_str(), table_id.to_string().as_str()),
-                    )
-                );
-                Err(())
-            }
-        }
+        self.data_definition.table_columns(table_id)
     }
 
     fn column_ids<I: AsRef<(Id, Id)>, N: AsRef<str> + PartialEq<N>>(
@@ -431,67 +409,11 @@ impl MetadataView for DataManager {
         table_id: &I,
         names: &[N],
     ) -> Result<(Vec<Id>, Vec<String>), ()> {
-        match self.tables.get(table_id.as_ref()) {
-            Some(full_name) => {
-                let columns = self
-                    .data_definition
-                    .table_column_names_ids(DEFAULT_CATALOG, full_name[0].as_str(), full_name[1].as_str())
-                    .into_iter()
-                    .collect::<HashMap<_, _>>();
-                let mut ids = vec![];
-                let mut not_found = vec![];
-                for name in names {
-                    match columns.get(name.as_ref()) {
-                        Some(id) => ids.push(*id),
-                        None => not_found.push(name.as_ref().to_owned()),
-                    }
-                }
-                Ok((ids, not_found))
-            }
-            _ => {
-                let (schema_id, table_id) = table_id.as_ref();
-                log::error!(
-                    "{:?}",
-                    SystemError::bug_in_sql_engine(
-                        Operation::Access,
-                        Object::Table(schema_id.to_string().as_str(), table_id.to_string().as_str()),
-                    )
-                );
-                Err(())
-            }
-        }
+        self.data_definition.column_ids(table_id, names)
     }
 
     fn column_defs<I: AsRef<(Id, Id)>>(&self, table_id: &I, ids: &[Id]) -> Vec<ColumnDefinition> {
-        match self.tables.get(table_id.as_ref()) {
-            Some(full_name) => {
-                let columns = self.data_definition.table_id_columns(
-                    DEFAULT_CATALOG,
-                    full_name[0].as_str(),
-                    full_name[1].as_str(),
-                );
-                let mut ret = vec![];
-                for id in ids {
-                    for (i, column) in &columns {
-                        if id == i {
-                            ret.push(column.clone());
-                        }
-                    }
-                }
-                ret
-            }
-            _ => {
-                let (schema_id, table_id) = table_id.as_ref();
-                log::error!(
-                    "{:?}",
-                    SystemError::bug_in_sql_engine(
-                        Operation::Access,
-                        Object::Table(schema_id.to_string().as_str(), table_id.to_string().as_str()),
-                    )
-                );
-                vec![]
-            }
-        }
+        self.data_definition.column_defs(table_id, ids)
     }
 }
 

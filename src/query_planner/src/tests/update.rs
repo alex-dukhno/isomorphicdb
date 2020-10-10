@@ -15,7 +15,7 @@
 use super::*;
 use ast::{operations::ScalarOp, values::ScalarValue};
 use constraints::TypeConstraint;
-use plan::{Plan, TableId, TableUpdates};
+use plan::{FullTableId, Plan, TableUpdates};
 use sql_model::sql_types::SqlType;
 use sqlparser::ast::{Assignment, Expr, ObjectName, Statement, Value};
 
@@ -97,7 +97,7 @@ fn update_table(planner_with_table: QueryPlanner) {
             selection: None
         }),
         Ok(Plan::Update(TableUpdates {
-            table_id: TableId::from((0, 0)),
+            table_id: FullTableId::from((0, 0)),
             column_indices: vec![(
                 0,
                 "small_int".to_owned(),

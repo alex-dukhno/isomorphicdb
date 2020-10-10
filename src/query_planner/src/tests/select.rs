@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use super::*;
-use plan::{SelectInput, TableId};
+use plan::{FullTableId, SelectInput};
 use sqlparser::ast::{ObjectName, Query, Select, SelectItem, SetExpr, Statement, TableFactor, TableWithJoins};
 
 #[rstest::rstest]
@@ -180,7 +180,7 @@ fn select_from_table(planner_with_no_column_table: QueryPlanner) {
             fetch: None,
         }))),
         Ok(Plan::Select(SelectInput {
-            table_id: TableId::from((0, 0)),
+            table_id: FullTableId::from((0, 0)),
             selected_columns: vec![],
             predicate: None
         }))
