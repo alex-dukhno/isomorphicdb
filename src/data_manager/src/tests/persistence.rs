@@ -24,8 +24,11 @@ type Persistent = DataManager;
 #[rstest::fixture]
 fn persistent() -> (Persistent, TempDir) {
     let root_path = tempfile::tempdir().expect("to create temp folder");
-    let data_definition =
-        Arc::new(DataDefinition::persistent(&PathBuf::from(root_path.path())).expect("no system errors"));
+    let data_definition = Arc::new(
+        DataDefinition::persistent(&PathBuf::from(root_path.path()))
+            .expect("no io errors")
+            .expect("no storage errors"),
+    );
     (
         Persistent::persistent(data_definition, PathBuf::from(root_path.path())).expect("to create catalog manager"),
         root_path,
@@ -40,8 +43,11 @@ fn created_schema_is_preserved_after_restart(persistent: (Persistent, TempDir)) 
 
     drop(data_manager);
 
-    let data_definition =
-        Arc::new(DataDefinition::persistent(&PathBuf::from(root_path.path())).expect("no system errors"));
+    let data_definition = Arc::new(
+        DataDefinition::persistent(&PathBuf::from(root_path.path()))
+            .expect("no io errors")
+            .expect("no storage errors"),
+    );
     let data_manager =
         Persistent::persistent(data_definition, root_path.into_path()).expect("to create catalog manager");
 
@@ -66,8 +72,11 @@ fn created_table_is_preserved_after_restart(persistent: (Persistent, TempDir)) {
 
     drop(data_manager);
 
-    let data_definition =
-        Arc::new(DataDefinition::persistent(&PathBuf::from(root_path.path())).expect("no system errors"));
+    let data_definition = Arc::new(
+        DataDefinition::persistent(&PathBuf::from(root_path.path()))
+            .expect("no io errors")
+            .expect("no storage errors"),
+    );
     let data_manager =
         Persistent::persistent(data_definition, root_path.into_path()).expect("to create catalog manager");
 
@@ -117,8 +126,11 @@ fn stored_data_is_preserved_after_restart(persistent: (Persistent, TempDir)) {
     );
     drop(data_manager);
 
-    let data_definition =
-        Arc::new(DataDefinition::persistent(&PathBuf::from(root_path.path())).expect("no system errors"));
+    let data_definition = Arc::new(
+        DataDefinition::persistent(&PathBuf::from(root_path.path()))
+            .expect("no io errors")
+            .expect("no storage errors"),
+    );
     let data_manager =
         Persistent::persistent(data_definition, root_path.into_path()).expect("to create catalog manager");
 

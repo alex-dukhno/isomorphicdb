@@ -706,7 +706,6 @@ dependencies = [
  "backtrace",
  "binary",
  "chashmap",
- "kernel",
  "log",
  "meta_def",
  "repr",

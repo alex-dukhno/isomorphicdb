@@ -15,7 +15,7 @@
 use super::*;
 use ast::predicates::{PredicateOp, PredicateValue};
 use bigdecimal::BigDecimal;
-use plan::{SelectInput, TableId};
+use plan::{FullTableId, SelectInput};
 use sqlparser::ast::{
     BinaryOperator, Expr, ObjectName, Query, Select, SelectItem, SetExpr, Statement, TableFactor, TableWithJoins, Value,
 };
@@ -53,7 +53,7 @@ fn select_from_table(planner_with_table: QueryPlanner) {
             fetch: None,
         }))),
         Ok(Plan::Select(SelectInput {
-            table_id: TableId::from((0, 0)),
+            table_id: FullTableId::from((0, 0)),
             selected_columns: vec![0, 1, 2],
             predicate: Some((
                 PredicateValue::Column(0),

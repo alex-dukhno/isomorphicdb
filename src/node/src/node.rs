@@ -40,8 +40,11 @@ pub const STOPPED: u8 = 1;
 pub fn start() {
     let root_path = env::var("ROOT_PATH").map(PathBuf::from).unwrap_or_default();
     smol::block_on(async {
-        let metadata =
-            Arc::new(DataDefinition::persistent(&root_path.join("root_directory")).expect("no system error"));
+        let metadata = Arc::new(
+            DataDefinition::persistent(&root_path.join("root_directory"))
+                .expect("no io errors")
+                .expect("no storage errors"),
+        );
         let storage = Arc::new(DataManager::persistent(metadata.clone(), root_path.join("root_directory")).unwrap());
         let listener = Async::<TcpListener>::bind((HOST, PORT)).expect("OK");
 

@@ -19,19 +19,19 @@ use ast::{
 use binary::ReadCursor;
 use data_manager::DataManager;
 use metadata::MetadataView;
-use plan::{SelectInput, TableId};
+use plan::{FullTableId, SelectInput};
 use protocol::{messages::ColumnMetadata, results::QueryEvent, Sender};
 use sql_model::Id;
 use std::{convert::TryInto, sync::Arc};
 
 struct Source {
-    table_id: TableId,
+    table_id: FullTableId,
     cursor: Option<ReadCursor>,
     data_manager: Arc<DataManager>,
 }
 
 impl Source {
-    fn new(table_id: TableId, data_manager: Arc<DataManager>) -> Source {
+    fn new(table_id: FullTableId, data_manager: Arc<DataManager>) -> Source {
         Source {
             table_id,
             cursor: None,

@@ -15,9 +15,8 @@
 use crate::{PlanError, Planner, Result};
 use ast::operations::ScalarOp;
 use constraints::TypeConstraint;
-use metadata::DataDefinition;
-use plan::{FullTableName, Plan, TableId, TableUpdates};
-use sql_model::DEFAULT_CATALOG;
+use metadata::{DataDefinition, MetadataView};
+use plan::{FullTableId, FullTableName, Plan, TableUpdates};
 use sqlparser::ast::{Assignment, ObjectName};
 use std::{collections::HashSet, convert::TryFrom, sync::Arc};
 
@@ -36,17 +35,16 @@ impl<'up> UpdatePlanner<'up> {
 }
 
 impl Planner for UpdatePlanner<'_> {
-    fn plan(self, data_manager: Arc<DataDefinition>) -> Result<Plan> {
+    fn plan(self, metadata: Arc<DataDefinition>) -> Result<Plan> {
         match FullTableName::try_from(self.table_name) {
             Ok(full_table_name) => {
                 let (schema_name, table_name) = full_table_name.as_tuple();
-                match data_manager.table_exists(DEFAULT_CATALOG, &schema_name, &table_name) {
-                    None => Err(vec![]), // TODO catalog does not exists
-                    Some((_, None)) => Err(vec![PlanError::schema_does_not_exist(&schema_name)]),
-                    Some((_, Some((_, None)))) => Err(vec![PlanError::table_does_not_exist(&full_table_name)]),
-                    Some((_, Some((schema_id, Some(table_id))))) => {
-                        let table_id = TableId::from((schema_id, table_id));
-                        let all_columns = data_manager.table_columns(DEFAULT_CATALOG, schema_name, table_name);
+                match metadata.table_exists(&schema_name, &table_name) {
+                    None => Err(vec![PlanError::schema_does_not_exist(&schema_name)]),
+                    Some((_, None)) => Err(vec![PlanError::table_does_not_exist(&full_table_name)]),
+                    Some((schema_id, Some(table_id))) => {
+                        let full_table_id = FullTableId::from((schema_id, table_id));
+                        let all_columns = metadata.table_columns(&full_table_id).expect("table exists");
                         let mut column_indices = vec![];
                         let mut input = vec![];
                         let mut columns = HashSet::new();
@@ -95,7 +93,7 @@ impl Planner for UpdatePlanner<'_> {
                         }
 
                         Ok(Plan::Update(TableUpdates {
-                            table_id,
+                            table_id: full_table_id,
                             column_indices,
                             input,
                         }))

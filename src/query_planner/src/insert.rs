@@ -15,9 +15,8 @@
 use crate::{PlanError, Planner, Result};
 use ast::operations::ScalarOp;
 use constraints::TypeConstraint;
-use metadata::DataDefinition;
-use plan::{FullTableName, Plan, TableId, TableInserts};
-use sql_model::DEFAULT_CATALOG;
+use metadata::{DataDefinition, MetadataView};
+use plan::{FullTableId, FullTableName, Plan, TableInserts};
 use sqlparser::ast::{Ident, ObjectName, Query, SetExpr};
 use std::{collections::HashSet, convert::TryFrom, sync::Arc};
 
@@ -42,15 +41,14 @@ impl Planner for InsertPlanner<'_> {
         match FullTableName::try_from(self.table_name) {
             Ok(full_table_name) => {
                 let (schema_name, table_name) = full_table_name.as_tuple();
-                match metadata.table_exists(DEFAULT_CATALOG, &schema_name, &table_name) {
-                    None => Err(vec![]), // TODO catalog does not exists
-                    Some((_, None)) => Err(vec![PlanError::schema_does_not_exist(&schema_name)]),
-                    Some((_, Some((_, None)))) => Err(vec![PlanError::table_does_not_exist(&full_table_name)]),
-                    Some((_, Some((schema_id, Some(table_id))))) => {
+                match metadata.table_exists(&schema_name, &table_name) {
+                    None => Err(vec![PlanError::schema_does_not_exist(&schema_name)]),
+                    Some((_, None)) => Err(vec![PlanError::table_does_not_exist(&full_table_name)]),
+                    Some((schema_id, Some(table_id))) => {
                         let Query { body, .. } = &self.source;
                         match body {
                             SetExpr::Values(values) => {
-                                let table_id = TableId::from((schema_id, table_id));
+                                let table_id = FullTableId::from((schema_id, table_id));
                                 let mut input = vec![];
                                 for row in values.0.iter() {
                                     let mut scalar_values = vec![];
@@ -67,7 +65,7 @@ impl Planner for InsertPlanner<'_> {
                                     }
                                     input.push(scalar_values);
                                 }
-                                let all_columns = metadata.table_columns(DEFAULT_CATALOG, schema_name, table_name);
+                                let all_columns = metadata.table_columns(&table_id).expect("table exists");
                                 let column_indices = if self.columns.is_empty() {
                                     all_columns
                                         .iter()

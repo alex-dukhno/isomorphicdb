@@ -14,9 +14,9 @@
 
 use crate::{PlanError, Planner, Result};
 use meta_def::ColumnDefinition;
-use metadata::DataDefinition;
+use metadata::{DataDefinition, MetadataView};
 use plan::{FullTableName, Plan, TableCreationInfo};
-use sql_model::{sql_types::SqlType, DEFAULT_CATALOG};
+use sql_model::sql_types::SqlType;
 use sqlparser::ast::{ColumnDef, ObjectName};
 use std::{convert::TryFrom, sync::Arc};
 
@@ -39,11 +39,10 @@ impl Planner for CreateTablePlanner<'_> {
         match FullTableName::try_from(self.full_table_name) {
             Ok(full_table_name) => {
                 let (schema_name, table_name) = full_table_name.as_tuple();
-                match metadata.table_exists(DEFAULT_CATALOG, &schema_name, &table_name) {
-                    None => Err(vec![]), // TODO catalog does not exists
-                    Some((_, None)) => Err(vec![PlanError::schema_does_not_exist(&schema_name)]),
-                    Some((_, Some((_, Some(_))))) => Err(vec![PlanError::table_already_exists(&full_table_name)]),
-                    Some((_, Some((schema_id, None)))) => {
+                match metadata.table_exists(&schema_name, &table_name) {
+                    None => Err(vec![PlanError::schema_does_not_exist(&schema_name)]),
+                    Some((_, Some(_))) => Err(vec![PlanError::table_already_exists(&full_table_name)]),
+                    Some((schema_id, None)) => {
                         let mut column_defs = Vec::new();
                         for column in self.columns {
                             match SqlType::try_from(&column.data_type) {
