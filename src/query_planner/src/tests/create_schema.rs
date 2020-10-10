@@ -14,42 +14,34 @@
 
 use super::*;
 use plan::SchemaCreationInfo;
-use protocol::results::QueryError;
 use sqlparser::ast::{ObjectName, Statement};
 
 #[rstest::rstest]
-fn create_new_schema(planner_and_sender: (InMemory, ResultCollector)) {
-    let (query_planner, collector) = planner_and_sender;
+fn create_new_schema(planner: QueryPlanner) {
     assert_eq!(
-        query_planner.plan(&Statement::CreateSchema {
+        planner.plan(&Statement::CreateSchema {
             schema_name: ObjectName(vec![ident(SCHEMA)]),
             if_not_exists: false
         }),
         Ok(Plan::CreateSchema(SchemaCreationInfo::new(SCHEMA)))
     );
-
-    collector.assert_content(vec![]);
 }
 
 #[rstest::rstest]
-fn create_schema_with_the_same_name(planner_and_sender_with_schema: (InMemory, ResultCollector)) {
-    let (query_planner, collector) = planner_and_sender_with_schema;
+fn create_schema_with_the_same_name(planner_with_schema: QueryPlanner) {
     assert_eq!(
-        query_planner.plan(&Statement::CreateSchema {
+        planner_with_schema.plan(&Statement::CreateSchema {
             schema_name: ObjectName(vec![ident(SCHEMA)]),
             if_not_exists: false
         }),
-        Err(())
+        Err(vec![PlanError::schema_already_exists(&SCHEMA)])
     );
-
-    collector.assert_content(vec![Err(QueryError::schema_already_exists(SCHEMA))])
 }
 
 #[rstest::rstest]
-fn create_schema_with_unqualified_name(planner_and_sender: (InMemory, ResultCollector)) {
-    let (query_planner, collector) = planner_and_sender;
+fn create_schema_with_unqualified_name(planner: QueryPlanner) {
     assert!(matches!(
-        query_planner.plan(&Statement::CreateSchema {
+        planner.plan(&Statement::CreateSchema {
             schema_name: ObjectName(vec![
                 ident("first_part"),
                 ident("second_part"),
@@ -60,8 +52,4 @@ fn create_schema_with_unqualified_name(planner_and_sender: (InMemory, ResultColl
         }),
         Err(_)
     ));
-
-    collector.assert_content(vec![Err(QueryError::syntax_error(
-        "only unqualified schema names are supported, 'first_part.second_part.third_part.fourth_part'",
-    ))])
 }

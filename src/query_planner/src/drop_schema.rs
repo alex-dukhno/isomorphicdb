@@ -12,13 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{Planner, Result};
+use crate::{PlanError, Planner, Result};
 use metadata::DataDefinition;
 use plan::{Plan, SchemaId, SchemaName};
-use protocol::{
-    results::{QueryError, QueryEvent},
-    Sender,
-};
 use sql_model::DEFAULT_CATALOG;
 use sqlparser::ast::ObjectName;
 use std::{convert::TryFrom, sync::Arc};
@@ -40,31 +36,23 @@ impl DropSchemaPlanner<'_> {
 }
 
 impl Planner for DropSchemaPlanner<'_> {
-    fn plan(self, metadata: Arc<DataDefinition>, sender: Arc<dyn Sender>) -> Result<Plan> {
+    fn plan(self, metadata: Arc<DataDefinition>) -> Result<Plan> {
         let mut schemas = Vec::with_capacity(self.names.len());
         for name in self.names {
             match SchemaName::try_from(name) {
                 Ok(schema_name) => match metadata.schema_exists(DEFAULT_CATALOG, schema_name.as_ref()) {
-                    None => return Err(()), // TODO catalog does not exists
+                    None => return Err(vec![]), // TODO catalog does not exists
                     Some((_, None)) => {
-                        if self.if_exists {
-                            sender
-                                .send(Ok(QueryEvent::QueryComplete))
-                                .expect("To Send Query Result to Client");
+                        return if self.if_exists {
+                            Ok(Plan::NothingToExecute)
                         } else {
-                            sender
-                                .send(Err(QueryError::schema_does_not_exist(schema_name)))
-                                .expect("To Send Query Result to Client");
+                            Err(vec![PlanError::schema_does_not_exist(&schema_name)])
                         }
-                        return Err(());
                     }
                     Some((_, Some(schema_id))) => schemas.push((SchemaId::from(schema_id), self.cascade)),
                 },
                 Err(error) => {
-                    sender
-                        .send(Err(QueryError::syntax_error(error)))
-                        .expect("To Send Query Result to Client");
-                    return Err(());
+                    return Err(vec![PlanError::syntax_error(&error)]);
                 }
             }
         }

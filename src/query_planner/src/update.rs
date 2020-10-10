@@ -12,12 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{Planner, Result};
+use crate::{PlanError, Planner, Result};
 use ast::operations::ScalarOp;
 use constraints::TypeConstraint;
 use metadata::DataDefinition;
 use plan::{FullTableName, Plan, TableId, TableUpdates};
-use protocol::{results::QueryError, Sender};
 use sql_model::DEFAULT_CATALOG;
 use sqlparser::ast::{Assignment, ObjectName};
 use std::{collections::HashSet, convert::TryFrom, sync::Arc};
@@ -37,34 +36,21 @@ impl<'up> UpdatePlanner<'up> {
 }
 
 impl Planner for UpdatePlanner<'_> {
-    fn plan(self, data_manager: Arc<DataDefinition>, sender: Arc<dyn Sender>) -> Result<Plan> {
+    fn plan(self, data_manager: Arc<DataDefinition>) -> Result<Plan> {
         match FullTableName::try_from(self.table_name) {
             Ok(full_table_name) => {
                 let (schema_name, table_name) = full_table_name.as_tuple();
                 match data_manager.table_exists(DEFAULT_CATALOG, &schema_name, &table_name) {
-                    None => Err(()), // TODO catalog does not exists
-                    Some((_, None)) => {
-                        sender
-                            .send(Err(QueryError::schema_does_not_exist(schema_name)))
-                            .expect("To Send Query Result to Client");
-                        Err(())
-                    }
-                    Some((_, Some((_, None)))) => {
-                        sender
-                            .send(Err(QueryError::table_does_not_exist(format!(
-                                "{}.{}",
-                                schema_name, table_name
-                            ))))
-                            .expect("To Send Query Result to Client");
-                        Err(())
-                    }
+                    None => Err(vec![]), // TODO catalog does not exists
+                    Some((_, None)) => Err(vec![PlanError::schema_does_not_exist(&schema_name)]),
+                    Some((_, Some((_, None)))) => Err(vec![PlanError::table_does_not_exist(&full_table_name)]),
                     Some((_, Some((schema_id, Some(table_id))))) => {
                         let table_id = TableId::from((schema_id, table_id));
                         let all_columns = data_manager.table_columns(DEFAULT_CATALOG, schema_name, table_name);
                         let mut column_indices = vec![];
                         let mut input = vec![];
-                        let mut has_error = false;
                         let mut columns = HashSet::new();
+                        let mut errors = vec![];
                         for Assignment { id, value } in self.assignments.iter() {
                             let mut found = None;
                             let column_name = id.to_string().to_lowercase();
@@ -73,26 +59,17 @@ impl Planner for UpdatePlanner<'_> {
                                     match ScalarOp::transform(&value) {
                                         Ok(Ok(value)) => input.push(value),
                                         Ok(Err(error)) => {
-                                            has_error = true;
-                                            sender
-                                                .send(Err(QueryError::syntax_error(error)))
-                                                .expect("To Send Result to Client");
+                                            errors.push(PlanError::syntax_error(&error));
                                         }
                                         Err(error) => {
-                                            has_error = true;
-                                            sender
-                                                .send(Err(QueryError::feature_not_supported(error)))
-                                                .expect("To Send Result to Client");
+                                            errors.push(PlanError::feature_not_supported(&error));
                                         }
                                     }
                                     if columns.contains(&column_name) {
-                                        has_error = true;
-                                        sender
-                                            .send(Err(QueryError::syntax_error(format!(
-                                                "multiple assignments to same column \"{}\"",
-                                                column_name
-                                            ))))
-                                            .expect("To Send Result to Client");
+                                        errors.push(PlanError::syntax_error(&format!(
+                                            "multiple assignments to same column \"{}\"",
+                                            column_name
+                                        )));
                                     }
                                     columns.insert(column_name.clone());
                                     found = Some((
@@ -108,16 +85,13 @@ impl Planner for UpdatePlanner<'_> {
                             match found {
                                 Some(index_col) => column_indices.push(index_col),
                                 None => {
-                                    sender
-                                        .send(Err(QueryError::column_does_not_exist(column_name)))
-                                        .expect("To Send Result to Client");
-                                    has_error = true;
+                                    errors.push(PlanError::column_does_not_exist(&column_name));
                                 }
                             }
                         }
 
-                        if has_error {
-                            return Err(());
+                        if !errors.is_empty() {
+                            return Err(errors);
                         }
 
                         Ok(Plan::Update(TableUpdates {
@@ -128,12 +102,7 @@ impl Planner for UpdatePlanner<'_> {
                     }
                 }
             }
-            Err(error) => {
-                sender
-                    .send(Err(QueryError::syntax_error(error)))
-                    .expect("To Send Query Result to Client");
-                Err(())
-            }
+            Err(error) => Err(vec![PlanError::syntax_error(&error)]),
         }
     }
 }

@@ -12,10 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{Planner, Result};
+use crate::{PlanError, Planner, Result};
 use metadata::DataDefinition;
 use plan::{Plan, SchemaCreationInfo, SchemaName};
-use protocol::{results::QueryError, Sender};
 use sql_model::DEFAULT_CATALOG;
 use sqlparser::ast::ObjectName;
 use std::{convert::TryFrom, sync::Arc};
@@ -31,24 +30,14 @@ impl CreateSchemaPlanner<'_> {
 }
 
 impl Planner for CreateSchemaPlanner<'_> {
-    fn plan(self, metadata: Arc<DataDefinition>, sender: Arc<dyn Sender>) -> Result<Plan> {
+    fn plan(self, metadata: Arc<DataDefinition>) -> Result<Plan> {
         match SchemaName::try_from(self.schema_name) {
             Ok(schema_name) => match metadata.schema_exists(DEFAULT_CATALOG, schema_name.as_ref()) {
-                None => Err(()), // TODO catalog does not exists
-                Some((_, Some(_))) => {
-                    sender
-                        .send(Err(QueryError::schema_already_exists(schema_name)))
-                        .expect("To Send Query Result to Client");
-                    Err(())
-                }
+                None => Err(vec![]), // TODO catalog does not exists
+                Some((_, Some(_))) => Err(vec![PlanError::schema_already_exists(&schema_name)]),
                 Some((_, None)) => Ok(Plan::CreateSchema(SchemaCreationInfo::new(schema_name))),
             },
-            Err(error) => {
-                sender
-                    .send(Err(QueryError::syntax_error(error)))
-                    .expect("To Send Query Result to Client");
-                Err(())
-            }
+            Err(error) => Err(vec![PlanError::syntax_error(&error)]),
         }
     }
 }

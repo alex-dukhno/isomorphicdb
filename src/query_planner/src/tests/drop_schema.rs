@@ -14,30 +14,25 @@
 
 use super::*;
 use plan::SchemaId;
-use protocol::results::QueryError;
 use sqlparser::ast::{ObjectName, ObjectType, Statement};
 
 #[rstest::rstest]
-fn drop_non_existent_schema(planner_and_sender: (InMemory, ResultCollector)) {
-    let (query_planner, collector) = planner_and_sender;
+fn drop_non_existent_schema(planner: QueryPlanner) {
     assert_eq!(
-        query_planner.plan(&Statement::Drop {
+        planner.plan(&Statement::Drop {
             object_type: ObjectType::Schema,
             if_exists: false,
             names: vec![ObjectName(vec![ident("non_existent")])],
             cascade: false,
         }),
-        Err(())
+        Err(vec![PlanError::schema_does_not_exist(&"non_existent")])
     );
-
-    collector.assert_content(vec![Err(QueryError::schema_does_not_exist("non_existent"))]);
 }
 
 #[rstest::rstest]
-fn drop_schema_with_unqualified_name(planner_and_sender: (InMemory, ResultCollector)) {
-    let (query_planner, collector) = planner_and_sender;
+fn drop_schema_with_unqualified_name(planner: QueryPlanner) {
     assert!(matches!(
-        query_planner.plan(&Statement::Drop {
+        planner.plan(&Statement::Drop {
             object_type: ObjectType::Schema,
             if_exists: false,
             names: vec![ObjectName(vec![
@@ -50,17 +45,12 @@ fn drop_schema_with_unqualified_name(planner_and_sender: (InMemory, ResultCollec
         }),
         Err(_)
     ));
-
-    collector.assert_content(vec![Err(QueryError::syntax_error(
-        "only unqualified schema names are supported, 'first_part.second_part.third_part.fourth_part'",
-    ))])
 }
 
 #[rstest::rstest]
-fn drop_schema(planner_and_sender_with_schema: (InMemory, ResultCollector)) {
-    let (query_planner, collector) = planner_and_sender_with_schema;
+fn drop_schema(planner_with_schema: QueryPlanner) {
     assert_eq!(
-        query_planner.plan(&Statement::Drop {
+        planner_with_schema.plan(&Statement::Drop {
             object_type: ObjectType::Schema,
             if_exists: false,
             names: vec![ObjectName(vec![ident(SCHEMA)])],
@@ -68,6 +58,4 @@ fn drop_schema(planner_and_sender_with_schema: (InMemory, ResultCollector)) {
         }),
         Ok(Plan::DropSchemas(vec![(SchemaId::from(0), false)]))
     );
-
-    collector.assert_content(vec![]);
 }

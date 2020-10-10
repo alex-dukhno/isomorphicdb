@@ -22,10 +22,9 @@ use sqlparser::ast::{
 use std::convert::TryFrom;
 
 #[rstest::rstest]
-fn select_from_table(planner_and_sender_with_table: (InMemory, ResultCollector)) {
-    let (query_planner, collector) = planner_and_sender_with_table;
+fn select_from_table(planner_with_table: QueryPlanner) {
     assert_eq!(
-        query_planner.plan(&Statement::Query(Box::new(Query {
+        planner_with_table.plan(&Statement::Query(Box::new(Query {
             ctes: vec![],
             body: SetExpr::Select(Box::new(Select {
                 distinct: false,
@@ -63,6 +62,4 @@ fn select_from_table(planner_and_sender_with_table: (InMemory, ResultCollector))
             ))
         }))
     );
-
-    collector.assert_content(vec![])
 }

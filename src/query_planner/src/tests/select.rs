@@ -14,14 +14,12 @@
 
 use super::*;
 use plan::{SelectInput, TableId};
-use protocol::results::QueryError;
 use sqlparser::ast::{ObjectName, Query, Select, SelectItem, SetExpr, Statement, TableFactor, TableWithJoins};
 
 #[rstest::rstest]
-fn select_from_table_that_in_nonexistent_schema(planner_and_sender: (InMemory, ResultCollector)) {
-    let (query_planner, collector) = planner_and_sender;
+fn select_from_table_that_in_nonexistent_schema(planner: QueryPlanner) {
     assert_eq!(
-        query_planner.plan(&Statement::Query(Box::new(Query {
+        planner.plan(&Statement::Query(Box::new(Query {
             ctes: vec![],
             body: SetExpr::Select(Box::new(Select {
                 distinct: false,
@@ -45,17 +43,14 @@ fn select_from_table_that_in_nonexistent_schema(planner_and_sender: (InMemory, R
             offset: None,
             fetch: None,
         }))),
-        Err(())
+        Err(vec![PlanError::schema_does_not_exist(&"non_existent_schema")])
     );
-
-    collector.assert_content(vec![Err(QueryError::schema_does_not_exist("non_existent_schema"))])
 }
 
 #[rstest::rstest]
-fn select_from_nonexistent_table(planner_and_sender_with_schema: (InMemory, ResultCollector)) {
-    let (query_planner, collector) = planner_and_sender_with_schema;
+fn select_from_nonexistent_table(planner_with_schema: QueryPlanner) {
     assert_eq!(
-        query_planner.plan(&Statement::Query(Box::new(Query {
+        planner_with_schema.plan(&Statement::Query(Box::new(Query {
             ctes: vec![],
             body: SetExpr::Select(Box::new(Select {
                 distinct: false,
@@ -79,20 +74,17 @@ fn select_from_nonexistent_table(planner_and_sender_with_schema: (InMemory, Resu
             offset: None,
             fetch: None,
         }))),
-        Err(())
+        Err(vec![PlanError::table_does_not_exist(&format!(
+            "{}.{}",
+            SCHEMA, "non_existent_table"
+        ))])
     );
-
-    collector.assert_content(vec![Err(QueryError::table_does_not_exist(format!(
-        "{}.{}",
-        SCHEMA, "non_existent_table"
-    )))])
 }
 
 #[rstest::rstest]
-fn select_from_table_with_unqualified_name(planner_and_sender_with_schema: (InMemory, ResultCollector)) {
-    let (query_planner, collector) = planner_and_sender_with_schema;
+fn select_from_table_with_unqualified_name(planner_with_schema: QueryPlanner) {
     assert_eq!(
-        query_planner.plan(&Statement::Query(Box::new(Query {
+        planner_with_schema.plan(&Statement::Query(Box::new(Query {
             ctes: vec![],
             body: SetExpr::Select(Box::new(Select {
                 distinct: false,
@@ -116,19 +108,16 @@ fn select_from_table_with_unqualified_name(planner_and_sender_with_schema: (InMe
             offset: None,
             fetch: None,
         }))),
-        Err(())
+        Err(vec![PlanError::syntax_error(
+            &"unsupported table name 'only_schema_in_the_name'. All table names must be qualified",
+        )])
     );
-
-    collector.assert_content(vec![Err(QueryError::syntax_error(
-        "unsupported table name 'only_schema_in_the_name'. All table names must be qualified",
-    ))])
 }
 
 #[rstest::rstest]
-fn select_from_table_with_unsupported_name(planner_and_sender_with_schema: (InMemory, ResultCollector)) {
-    let (query_planner, collector) = planner_and_sender_with_schema;
+fn select_from_table_with_unsupported_name(planner_with_schema: QueryPlanner) {
     assert_eq!(
-        query_planner.plan(&Statement::Query(Box::new(Query {
+        planner_with_schema.plan(&Statement::Query(Box::new(Query {
             ctes: vec![],
             body: SetExpr::Select(Box::new(Select {
                 distinct: false,
@@ -157,19 +146,16 @@ fn select_from_table_with_unsupported_name(planner_and_sender_with_schema: (InMe
             offset: None,
             fetch: None,
         }))),
-        Err(())
+        Err(vec![PlanError::syntax_error(
+            &"unable to process table name 'first_part.second_part.third_part.fourth_part'",
+        )])
     );
-
-    collector.assert_content(vec![Err(QueryError::syntax_error(
-        "unable to process table name 'first_part.second_part.third_part.fourth_part'",
-    ))])
 }
 
 #[rstest::rstest]
-fn select_from_table(planner_and_sender_with_no_column_table: (InMemory, ResultCollector)) {
-    let (query_planner, collector) = planner_and_sender_with_no_column_table;
+fn select_from_table(planner_with_no_column_table: QueryPlanner) {
     assert_eq!(
-        query_planner.plan(&Statement::Query(Box::new(Query {
+        planner_with_no_column_table.plan(&Statement::Query(Box::new(Query {
             ctes: vec![],
             body: SetExpr::Select(Box::new(Select {
                 distinct: false,
@@ -199,6 +185,4 @@ fn select_from_table(planner_and_sender_with_no_column_table: (InMemory, ResultC
             predicate: None
         }))
     );
-
-    collector.assert_content(vec![])
 }

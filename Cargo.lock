@@ -931,7 +931,6 @@ name = "parser"
 version = "0.1.0"
 dependencies = [
  "log",
- "protocol",
  "sqlparser",
 ]
 
@@ -1089,11 +1088,9 @@ dependencies = [
  "ast",
  "bigdecimal",
  "constraints",
- "kernel",
  "meta_def",
  "metadata",
  "plan",
- "protocol",
  "rstest",
  "sql_model",
  "sqlparser",
