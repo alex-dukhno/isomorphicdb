@@ -729,7 +729,7 @@ dependencies = [
 [[package]]
 name = "native-tls"
 version = "0.2.4"
-source = "git+https://github.com/sfackler/rust-native-tls.git#9a9e79825cde4705bad1b2192962066e29d365b5"
+source = "git+https://github.com/sfackler/rust-native-tls.git#?branch=master9a9e79825cde4705bad1b2192962066e29d365b5"
 dependencies = [
  "lazy_static",
  "libc",
