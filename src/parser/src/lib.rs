@@ -74,4 +74,9 @@ mod parsing_errors {
             Err(ParserError::from("selec col from schema_name.table_name"))
         );
     }
+
+    #[test]
+    fn debug() {
+        eprintln!("{:#?}", QueryParser::default().parse("insert into table values ($1);"))
+    }
 }

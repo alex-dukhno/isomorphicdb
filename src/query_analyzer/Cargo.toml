@@ -11,3 +11,8 @@ metadata = { path = "../metadata" }
 sql_model = { path = "../sql_model" }
 
 sqlparser = { git = "https://github.com/ballista-compute/sqlparser-rs.git", branch = "main", features = ["bigdecimal"] }
+
+[dev-dependencies]
+meta_def = { path = "../meta_def" }
+
+bigdecimal = { version = "0.2.0", features = ["string-only"] }

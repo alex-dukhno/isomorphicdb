@@ -19,3 +19,9 @@ pub enum DefinitionError {
     ObjectAlreadyExists,
     ObjectDoesNotExist,
 }
+
+#[derive(Debug, PartialEq)]
+pub enum NotFoundError {
+    Schema,
+    Object,
+}

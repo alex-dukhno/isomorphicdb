@@ -14,7 +14,7 @@
 
 use crate::{Database, InitStatus, Key, ObjectName, ReadCursor, SchemaName, StorageError, Values};
 use binary::{Binary, RowResult};
-use chashmap::CHashMap;
+use dashmap::DashMap;
 use sled::{Db as Schema, DiskPtr, Error as SledError, IVec, Tree};
 use sql_model::sql_errors::DefinitionError;
 use std::{
@@ -25,14 +25,14 @@ use std::{
 
 pub struct PersistentDatabase {
     path: PathBuf,
-    schemas: CHashMap<String, Arc<Schema>>,
+    schemas: DashMap<String, Arc<Schema>>,
 }
 
 impl PersistentDatabase {
     pub fn new(path: PathBuf) -> PersistentDatabase {
         PersistentDatabase {
             path,
-            schemas: CHashMap::default(),
+            schemas: DashMap::default(),
         }
     }
 
@@ -212,7 +212,7 @@ impl Database for PersistentDatabase {
 
     fn drop_schema(&self, schema_name: SchemaName) -> io::Result<Result<Result<(), DefinitionError>, StorageError>> {
         match self.schemas.remove(schema_name) {
-            Some(schema) => self.drop_database(schema),
+            Some((_, schema)) => self.drop_database(schema),
             None => Ok(Ok(Err(DefinitionError::SchemaDoesNotExist))),
         }
     }
