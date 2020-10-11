@@ -55,14 +55,13 @@ class BasicQueryOperationsSpec extends ThreeSmallIntColumnTable {
   def 'insert update{all} select{all}'() {
     given:
       String updateQuery = 'update SCHEMA_NAME.TABLE_NAME set col1 = ?, col2 = ?, col3 = ?'
-      String selectQuery = 'select * from SCHEMA_NAME.TABLE_NAME'
 
     when:
       int pgUpdates = pg.executeUpdate updateQuery, [10, 11, 12]
       int dbUpdates = db.executeUpdate updateQuery, [10, 11, 12]
     and:
-      List<GroovyRowResult> pgSelect = pg.rows selectQuery
-      List<GroovyRowResult> dbSelect =db.rows selectQuery
+      List<GroovyRowResult> pgSelect = pg.rows SELECT_ALL_QUERY
+      List<GroovyRowResult> dbSelect = db.rows SELECT_ALL_QUERY
 
     then:
       println "UPDATED: ${pgUpdates.inspect()}"
@@ -76,14 +75,13 @@ class BasicQueryOperationsSpec extends ThreeSmallIntColumnTable {
   def 'insert delete{all} select{all}'() {
     given:
       String deleteQuery = 'delete from SCHEMA_NAME.TABLE_NAME'
-      String selectQuery = 'select * from SCHEMA_NAME.TABLE_NAME'
 
     when:
       int pgDeletes = pg.executeUpdate deleteQuery
       int dbDeletes = db.executeUpdate deleteQuery
     and:
-      List<GroovyRowResult> pgSelect = pg.rows selectQuery
-      List<GroovyRowResult> dbSelect = db.rows selectQuery
+      List<GroovyRowResult> pgSelect = pg.rows SELECT_ALL_QUERY
+      List<GroovyRowResult> dbSelect = db.rows SELECT_ALL_QUERY
 
     then:
       println "DELETED: ${pgDeletes.inspect()}"
