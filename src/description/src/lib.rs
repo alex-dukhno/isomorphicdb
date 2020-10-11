@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use sql_model::sql_types::SqlType;
 use sql_model::Id;
 use sqlparser::ast::ObjectName;
 use std::{
@@ -20,11 +21,11 @@ use std::{
 };
 
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
-pub struct TableId((Id, Id));
+pub struct FullTableId((Id, Id));
 
-impl From<(Id, Id)> for TableId {
-    fn from(tuple: (Id, Id)) -> TableId {
-        TableId(tuple)
+impl From<(Id, Id)> for FullTableId {
+    fn from(tuple: (Id, Id)) -> FullTableId {
+        FullTableId(tuple)
     }
 }
 
@@ -33,7 +34,13 @@ impl From<(Id, Id)> for TableId {
 pub struct FullTableName<S: AsRef<str>>((S, S));
 
 impl<S: AsRef<str>> FullTableName<S> {
-    pub fn as_tuple(&self) -> (&S, &S) {
+    pub fn schema(&self) -> &S {
+        &(self.0).0
+    }
+}
+
+impl<'f, S: AsRef<str>> Into<(&'f S, &'f S)> for &'f FullTableName<S> {
+    fn into(self) -> (&'f S, &'f S) {
         (&(self.0).0, &(self.0).1)
     }
 }
@@ -68,10 +75,27 @@ pub enum TableNamingError {
 
 #[derive(PartialEq, Debug)]
 pub struct InsertStatement {
-    pub table_id: TableId,
+    pub table_id: FullTableId,
+    pub sql_types: Vec<SqlType>,
 }
 
 #[derive(PartialEq, Debug)]
 pub enum Description {
     Insert(InsertStatement),
+}
+
+#[derive(PartialEq, Debug)]
+pub enum DescriptionError {
+    TableDoesNotExist(String),
+    SchemaDoesNotExist(String),
+}
+
+impl DescriptionError {
+    pub fn table_does_not_exist<T: ToString>(table: &T) -> DescriptionError {
+        DescriptionError::TableDoesNotExist(table.to_string())
+    }
+
+    pub fn schema_does_not_exist<S: ToString>(schema: &S) -> DescriptionError {
+        DescriptionError::SchemaDoesNotExist(schema.to_string())
+    }
 }

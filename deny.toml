@@ -1,12 +1,26 @@
 [bans]
 multiple-versions = "deny"
 skip-tree = [
-    # sled -> parking_lot
-    # chashmap -> parking_lot
-    { name = "parking_lot" },
     # node -> simple_logger -> chrono -> time -> wasi
     # protocol -> rand -> wasi
     { name = "wasi" },
+    # getrandom v0.1.15
+    #     ├── rand v0.7.3
+    #     │   ├── fail v0.4.0
+    #     │   │   └── storage
+    #     │   ├── protocol v0.1.0
+    #     │   └── tempfile v3.1.0
+    #     └── rand_core v0.5.1
+    #         └── rand v0.7.3 (*)
+    #
+    # getrandom v0.2.0
+    #     └── const-random-macro v0.1.11
+    #         └── const-random v0.1.11
+    #             └── ahash v0.3.8
+    #                 └── dashmap v3.11.10
+    #                     ├── data_manager v0.1.0
+    # protocol -> rand -> wasi
+    { name = "getrandom" },
 ]
 
 [licenses]
@@ -19,7 +33,6 @@ allow = [
     "BSD-3-Clause",
     "MIT",
     "Zlib",
-    "ISC",
 ]
 exceptions = [
     # smol use wepoll

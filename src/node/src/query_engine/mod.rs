@@ -14,17 +14,19 @@
 
 use binder::ParamBinder;
 use data_manager::DataManager;
+use description::{Description, DescriptionError, InsertStatement};
 use itertools::izip;
 use metadata::{DataDefinition, MetadataView};
 use parser::QueryParser;
 use plan::{Plan, SelectInput};
 use protocol::{
     pgsql_types::{PostgreSqlFormat, PostgreSqlValue},
-    results::{Description, QueryError, QueryEvent},
+    results::{QueryError, QueryEvent},
     session::Session,
     statement::PreparedStatement,
     Command, Sender,
 };
+use query_analyzer::Analyzer;
 use query_executor::QueryExecutor;
 use query_planner::{PlanError, QueryPlanner};
 use sqlparser::ast::Statement;
@@ -34,8 +36,9 @@ pub(crate) struct QueryEngine {
     session: Session<Statement>,
     sender: Arc<dyn Sender>,
     data_manager: Arc<DataManager>,
-    query_parser: QueryParser,
     param_binder: ParamBinder,
+    query_analyzer: Analyzer,
+    query_parser: QueryParser,
     query_planner: QueryPlanner,
     query_executor: QueryExecutor,
 }
@@ -50,8 +53,9 @@ impl QueryEngine {
             session: Session::default(),
             sender: sender.clone(),
             data_manager: data_manager.clone(),
-            query_parser: QueryParser::default(),
             param_binder: ParamBinder,
+            query_analyzer: Analyzer::new(metadata.clone()),
+            query_parser: QueryParser::default(),
             query_planner: QueryPlanner::new(metadata),
             query_executor: QueryExecutor::new(data_manager, sender),
         }
@@ -108,7 +112,12 @@ impl QueryEngine {
                 }
                 Ok(())
             }
-            Command::Continue => Ok(()),
+            Command::Continue => {
+                self.sender
+                    .send(Ok(QueryEvent::QueryComplete))
+                    .expect("To Send Response to Client");
+                Ok(())
+            }
             Command::DescribeStatement { name } => {
                 match self.session.get_prepared_statement(&name) {
                     Some(stmt) => {
@@ -174,13 +183,29 @@ impl QueryEngine {
                                     }
                                     Err(()) => {}
                                 },
-                                Plan::Insert(_insert_table) => {
-                                    let statement = PreparedStatement::new(statement, param_types.to_vec(), vec![]);
-                                    self.sender
-                                        .send(Ok(QueryEvent::ParseComplete))
-                                        .expect("To Send ParseComplete Event");
-                                    self.session.set_prepared_statement(statement_name, statement);
-                                }
+                                Plan::Insert(_insert_table) => match self.query_analyzer.describe(&statement) {
+                                    Ok(Description::Insert(InsertStatement { sql_types, .. })) => {
+                                        let statement = PreparedStatement::new(
+                                            statement,
+                                            sql_types.into_iter().map(|sql| (&sql).into()).collect(),
+                                            vec![],
+                                        );
+                                        self.sender
+                                            .send(Ok(QueryEvent::ParseComplete))
+                                            .expect("To Send ParseComplete Event");
+                                        self.session.set_prepared_statement(statement_name, statement);
+                                    }
+                                    Err(DescriptionError::TableDoesNotExist(table_name)) => {
+                                        self.sender
+                                            .send(Err(QueryError::table_does_not_exist(table_name)))
+                                            .expect("To Send Error to Client");
+                                    }
+                                    Err(DescriptionError::SchemaDoesNotExist(schema_name)) => {
+                                        self.sender
+                                            .send(Err(QueryError::table_does_not_exist(schema_name)))
+                                            .expect("To Send Error to Client");
+                                    }
+                                },
                                 Plan::Update(_table_updates) => {
                                     let statement = PreparedStatement::new(statement, param_types.to_vec(), vec![]);
                                     self.sender
@@ -293,6 +318,7 @@ impl QueryEngine {
         raw_params: &[Option<Vec<u8>>],
         result_formats: &[PostgreSqlFormat],
     ) -> Result<(Statement, Vec<PostgreSqlFormat>), ()> {
+        log::debug!("prepared statement -  {:#?}", prepared_statement);
         let param_formats = match pad_formats(param_formats, raw_params.len()) {
             Ok(param_formats) => param_formats,
             Err(msg) => {
@@ -307,15 +333,18 @@ impl QueryEngine {
         for (raw_param, typ, format) in izip!(raw_params, prepared_statement.param_types(), param_formats) {
             match raw_param {
                 None => params.push(PostgreSqlValue::Null),
-                Some(bytes) => match typ.decode(&format, &bytes) {
-                    Ok(param) => params.push(param),
-                    Err(msg) => {
-                        self.sender
-                            .send(Err(QueryError::invalid_parameter_value(msg)))
-                            .expect("To Send Error to Client");
-                        return Err(());
+                Some(bytes) => {
+                    log::debug!("PG Type {:?}", typ);
+                    match typ.decode(&format, &bytes) {
+                        Ok(param) => params.push(param),
+                        Err(msg) => {
+                            self.sender
+                                .send(Err(QueryError::invalid_parameter_value(msg)))
+                                .expect("To Send Error to Client");
+                            return Err(());
+                        }
                     }
-                },
+                }
             }
         }
 
@@ -334,10 +363,11 @@ impl QueryEngine {
             }
         };
 
+        log::debug!("statement - {:?}, formats - {:?}", new_stmt, result_formats);
         Ok((new_stmt, result_formats))
     }
 
-    pub(crate) fn describe(&self, select_input: SelectInput) -> Result<Description, ()> {
+    pub(crate) fn describe(&self, select_input: SelectInput) -> Result<protocol::results::Description, ()> {
         Ok(self
             .data_manager
             .column_defs(&select_input.table_id, &select_input.selected_columns)

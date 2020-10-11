@@ -13,9 +13,10 @@
 // limitations under the License.
 
 use binary::{Binary, StorageError};
-use chashmap::CHashMap;
-use meta_def::ColumnDefinition;
+use dashmap::DashMap;
+use meta_def::{ColumnDefinition, TableDefinition};
 use repr::Datum;
+use sql_model::sql_errors::NotFoundError;
 use sql_model::{sql_types::SqlType, DropSchemaError, DropStrategy, Id, DEFAULT_CATALOG};
 use std::{
     collections::{BTreeMap, HashMap},
@@ -30,6 +31,27 @@ use storage::{Database, FullSchemaId, FullTableId, InMemoryDatabase, InitStatus,
 
 pub trait MetadataView {
     fn schema_exists<S: AsRef<str>>(&self, schema_name: &S) -> FullSchemaId;
+
+    fn table_exists_tuple<S: AsRef<str>, T: AsRef<str>>(&self, full_table_name: (&S, &T)) -> FullTableId {
+        let (schema_name, table_name) = full_table_name;
+        self.table_exists(schema_name, table_name)
+    }
+
+    fn table_desc<S: AsRef<str>, T: AsRef<str>>(
+        &self,
+        full_table_name: (&S, &T),
+    ) -> Result<TableDefinition, NotFoundError> {
+        match self.table_exists_tuple(full_table_name) {
+            None => Err(NotFoundError::Schema),
+            Some((_, None)) => Err(NotFoundError::Object),
+            Some((schema_id, Some(table_id))) => {
+                let columns = self
+                    .table_columns(&Box::new((schema_id, table_id)))
+                    .expect("table exists");
+                Ok(TableDefinition::new(schema_id, table_id, columns))
+            }
+        }
+    }
 
     fn table_exists<S: AsRef<str>, T: AsRef<str>>(&self, schema_name: &S, table_name: &T) -> FullTableId;
 
@@ -335,7 +357,7 @@ type Name = String;
 
 struct Catalog {
     id: Id,
-    schemas: CHashMap<Name, Arc<Schema>>,
+    schemas: DashMap<Name, Arc<Schema>>,
     schema_id_generator: AtomicU64,
 }
 
@@ -343,7 +365,7 @@ impl Catalog {
     fn new(id: Id) -> Catalog {
         Catalog {
             id,
-            schemas: CHashMap::default(),
+            schemas: DashMap::default(),
             schema_id_generator: AtomicU64::default(),
         }
     }
@@ -366,7 +388,7 @@ impl Catalog {
     }
 
     fn remove_schema(&self, schema_name: &str) -> Option<Id> {
-        self.schemas.remove(schema_name).map(|schema| schema.id())
+        self.schemas.remove(schema_name).map(|(_, schema)| schema.id())
     }
 
     fn schema(&self, schema_name: &str) -> Option<Arc<Schema>> {
@@ -388,7 +410,7 @@ impl Catalog {
 
 struct Schema {
     id: Id,
-    tables: CHashMap<Name, Arc<Table>>,
+    tables: DashMap<Name, Arc<Table>>,
     table_id_generator: AtomicU64,
 }
 
@@ -396,7 +418,7 @@ impl Schema {
     fn new(id: Id) -> Schema {
         Schema {
             id,
-            tables: CHashMap::default(),
+            tables: DashMap::default(),
             table_id_generator: AtomicU64::default(),
         }
     }
@@ -426,7 +448,7 @@ impl Schema {
     }
 
     fn remove_table(&self, table_name: &str) -> Option<Id> {
-        self.tables.remove(table_name).map(|table| table.id())
+        self.tables.remove(table_name).map(|(_, table)| table.id())
     }
 
     fn tables(&self) -> Vec<(Id, String)> {
@@ -503,7 +525,7 @@ unsafe impl Sync for DataDefinition {}
 
 pub struct DataDefinition {
     catalog_ids: AtomicU64,
-    catalogs: CHashMap<Name, Arc<Catalog>>,
+    catalogs: DashMap<Name, Arc<Catalog>>,
     system_catalog: Box<dyn Database>,
 }
 
@@ -537,7 +559,7 @@ impl DataDefinition {
             .expect("table COLUMNS is created");
         DataDefinition {
             catalog_ids: AtomicU64::default(),
-            catalogs: CHashMap::default(),
+            catalogs: DashMap::default(),
             system_catalog: Box::new(system_catalog),
         }
     }
@@ -560,7 +582,7 @@ impl DataDefinition {
                         let catalog_name = name.unpack()[0].as_str().to_owned();
                         (catalog_name, Arc::new(Catalog::new(catalog_id)))
                     })
-                    .collect::<CHashMap<_, _>>();
+                    .collect::<DashMap<_, _>>();
                 (catalogs, max_id)
             }
             Ok(InitStatus::Created) => {
@@ -584,7 +606,7 @@ impl DataDefinition {
                     .expect("no io error")
                     .expect("no platform error")
                     .expect("table COLUMNS is created");
-                (CHashMap::new(), 0)
+                (DashMap::new(), 0)
             }
             Err(storage_error) => return Ok(Err(storage_error)),
         };
@@ -623,7 +645,7 @@ impl DataDefinition {
             match strategy {
                 DropStrategy::Restrict => {
                     if catalog.empty() {
-                        if let Some(catalog) = self.catalogs.remove(catalog_name) {
+                        if let Some((_, catalog)) = self.catalogs.remove(catalog_name) {
                             self.system_catalog
                                 .delete(
                                     DEFINITION_SCHEMA,
@@ -640,7 +662,7 @@ impl DataDefinition {
                     }
                 }
                 DropStrategy::Cascade => {
-                    if let Some(catalog) = self.catalogs.remove(catalog_name) {
+                    if let Some((_, catalog)) = self.catalogs.remove(catalog_name) {
                         self.system_catalog
                             .delete(
                                 DEFINITION_SCHEMA,

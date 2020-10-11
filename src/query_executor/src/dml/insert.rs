@@ -90,6 +90,8 @@ impl InsertCommand {
             rows.push(row);
         }
 
+        log::debug!("rows {:?}", rows);
+
         let mut to_write: Vec<Row> = vec![];
         for (row_index, row) in rows.iter().enumerate() {
             if row.len() > self.table_inserts.column_indices.len() {
@@ -159,7 +161,10 @@ impl InsertCommand {
         }
 
         let size = match self.data_manager.write_into(&self.table_inserts.table_id, to_write) {
-            Ok(size) => size,
+            Ok(size) => {
+                log::debug!("written records {:?}", size);
+                size
+            }
             Err(()) => {
                 log::error!("Error while writing into {:?}", self.table_inserts.table_id);
                 return;

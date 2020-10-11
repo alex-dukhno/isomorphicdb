@@ -12,8 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use description::{Description, FullTableName, InsertStatement, TableId};
+use description::{Description, DescriptionError, FullTableId, FullTableName, InsertStatement};
 use metadata::{DataDefinition, MetadataView};
+use sql_model::sql_errors::NotFoundError;
 use sqlparser::ast::Statement;
 use std::{convert::TryFrom, sync::Arc};
 
@@ -26,16 +27,19 @@ impl Analyzer {
         Analyzer { metadata }
     }
 
-    pub fn describe(&self, statement: &Statement) -> Description {
+    pub fn describe(&self, statement: &Statement) -> Result<Description, DescriptionError> {
         match statement {
             Statement::Insert { table_name, .. } => {
                 let full_table_name = FullTableName::try_from(table_name).unwrap();
-                let (schema_name, table_name) = full_table_name.as_tuple();
-                match self.metadata.table_exists(schema_name, table_name) {
-                    Some((schema_id, Some(table_id))) => Description::Insert(InsertStatement {
-                        table_id: TableId::from((schema_id, table_id)),
-                    }),
-                    _ => unimplemented!(),
+                match self.metadata.table_desc((&full_table_name).into()) {
+                    Ok(table_def) => Ok(Description::Insert(InsertStatement {
+                        table_id: FullTableId::from(table_def.full_table_id()),
+                        sql_types: table_def.column_types(),
+                    })),
+                    Err(NotFoundError::Object) => Err(DescriptionError::table_does_not_exist(&full_table_name)),
+                    Err(NotFoundError::Schema) => {
+                        Err(DescriptionError::schema_does_not_exist(full_table_name.schema()))
+                    }
                 }
             }
             _ => unimplemented!(),
@@ -46,9 +50,10 @@ impl Analyzer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use description::TableId;
+    use meta_def::ColumnDefinition;
+    use sql_model::sql_types::SqlType;
     use sql_model::DEFAULT_CATALOG;
-    use sqlparser::ast::{Ident, ObjectName, Query, SetExpr, Values};
+    use sqlparser::ast::{Expr, Ident, ObjectName, Query, SetExpr, Value, Values};
     use std::sync::Arc;
 
     const SCHEMA: &str = "schema_name";
@@ -61,33 +66,108 @@ mod tests {
         }
     }
 
-    #[test]
-    fn insert_into_existing_empty_table() {
-        let data_manager = Arc::new(DataDefinition::in_memory());
-        data_manager.create_catalog(DEFAULT_CATALOG);
-        let _schema_id = data_manager.create_schema(DEFAULT_CATALOG, SCHEMA).expect("ok");
-        data_manager
-            .create_table(DEFAULT_CATALOG, SCHEMA, TABLE, &[])
-            .expect("ok");
-        let analyzer = Analyzer::new(data_manager);
-        let description = analyzer.describe(&Statement::Insert {
-            table_name: ObjectName(vec![ident(SCHEMA), ident(TABLE)]),
+    fn insert_stmt_with_values<S: ToString>(schema: S, table: S, values: Vec<&'static str>) -> Statement {
+        Statement::Insert {
+            table_name: ObjectName(vec![ident(schema), ident(table)]),
             columns: vec![],
             source: Box::new(Query {
                 ctes: vec![],
-                body: SetExpr::Values(Values(vec![])),
+                body: SetExpr::Values(Values(vec![values
+                    .into_iter()
+                    .map(|s| Expr::Value(Value::Number(s.parse().unwrap())))
+                    .collect()])),
                 order_by: vec![],
                 limit: None,
                 offset: None,
                 fetch: None,
             }),
-        });
+        }
+    }
+
+    fn insert_statement<S: ToString>(schema: S, table: S) -> Statement {
+        insert_stmt_with_values(schema, table, vec![])
+    }
+
+    #[test]
+    fn insert_into_table_under_non_existing_schema() {
+        let metadata = Arc::new(DataDefinition::in_memory());
+        metadata.create_catalog(DEFAULT_CATALOG);
+        let analyzer = Analyzer::new(metadata);
+        let description = analyzer.describe(&insert_statement("non_existent_schema", "non_existent_table"));
 
         assert_eq!(
             description,
-            Description::Insert(InsertStatement {
-                table_id: TableId::from((0, 0))
-            })
+            Err(DescriptionError::schema_does_not_exist(&"non_existent_schema"))
+        )
+    }
+
+    #[test]
+    fn insert_into_non_existing_table() {
+        let metadata = Arc::new(DataDefinition::in_memory());
+        metadata.create_catalog(DEFAULT_CATALOG);
+        metadata.create_schema(DEFAULT_CATALOG, SCHEMA);
+        let analyzer = Analyzer::new(metadata);
+        let description = analyzer.describe(&insert_statement(SCHEMA, "non_existent"));
+
+        assert_eq!(
+            description,
+            Err(DescriptionError::table_does_not_exist(&format!(
+                "{}.{}",
+                SCHEMA, "non_existent"
+            )))
+        );
+    }
+
+    #[test]
+    fn insert_into_existing_table_without_columns() {
+        let metadata = Arc::new(DataDefinition::in_memory());
+        metadata.create_catalog(DEFAULT_CATALOG);
+        let schema_id = match metadata.create_schema(DEFAULT_CATALOG, SCHEMA) {
+            Some((_, Some(schema_id))) => schema_id,
+            _ => panic!(),
+        };
+        let table_id = match metadata.create_table(DEFAULT_CATALOG, SCHEMA, TABLE, &[]) {
+            Some((_, Some((_, Some(table_id))))) => table_id,
+            _ => panic!(),
+        };
+        let analyzer = Analyzer::new(metadata);
+        let description = analyzer.describe(&insert_statement(SCHEMA, TABLE));
+
+        assert_eq!(
+            description,
+            Ok(Description::Insert(InsertStatement {
+                table_id: FullTableId::from((schema_id, table_id)),
+                sql_types: vec![]
+            }))
+        );
+    }
+
+    #[test]
+    fn insert_into_existing_table_with_column() {
+        let metadata = Arc::new(DataDefinition::in_memory());
+        metadata.create_catalog(DEFAULT_CATALOG);
+        let schema_id = match metadata.create_schema(DEFAULT_CATALOG, SCHEMA) {
+            Some((_, Some(schema_id))) => schema_id,
+            _ => panic!(),
+        };
+        let table_id = match metadata.create_table(
+            DEFAULT_CATALOG,
+            SCHEMA,
+            TABLE,
+            &[ColumnDefinition::new("col", SqlType::SmallInt(i16::min_value()))],
+        ) {
+            Some((_, Some((_, Some(table_id))))) => table_id,
+            _ => panic!(),
+        };
+        let analyzer = Analyzer::new(metadata);
+        let description = analyzer.describe(&insert_stmt_with_values(SCHEMA, TABLE, vec!["1"]));
+
+        assert_eq!(
+            description,
+            Ok(Description::Insert(InsertStatement {
+                table_id: FullTableId::from((schema_id, table_id)),
+                sql_types: vec![SqlType::SmallInt(i16::min_value())]
+            }))
         );
     }
 }

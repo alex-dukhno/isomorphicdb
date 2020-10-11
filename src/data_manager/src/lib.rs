@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use binary::{Key, ReadCursor, Values};
-use chashmap::CHashMap;
+use dashmap::DashMap;
 use kernel::{Object, Operation, SystemError, SystemResult};
 use meta_def::ColumnDefinition;
 use metadata::{DataDefinition, MetadataView};
@@ -28,11 +28,11 @@ use std::{
 use storage::{Database, FullSchemaId, FullTableId, InMemoryDatabase, InitStatus, PersistentDatabase};
 
 pub struct DataManager {
-    databases: CHashMap<String, Box<dyn Database>>,
+    databases: DashMap<String, Box<dyn Database>>,
     data_definition: Arc<DataDefinition>,
-    schemas: CHashMap<Id, String>,
-    tables: CHashMap<(Id, Id), Vec<String>>,
-    record_id_generators: CHashMap<(Id, Id), AtomicU64>,
+    schemas: DashMap<Id, String>,
+    tables: DashMap<(Id, Id), Vec<String>>,
+    record_id_generators: DashMap<(Id, Id), AtomicU64>,
 }
 
 impl Default for DataManager {
@@ -50,26 +50,26 @@ pub const DEFAULT_CATALOG: &'_ str = "public";
 impl DataManager {
     pub fn in_memory(data_definition: Arc<DataDefinition>) -> DataManager {
         data_definition.create_catalog(DEFAULT_CATALOG);
-        let databases: CHashMap<String, Box<dyn Database>> = CHashMap::default();
+        let databases: DashMap<String, Box<dyn Database>> = DashMap::default();
         databases.insert(DEFAULT_CATALOG.to_lowercase(), Box::new(InMemoryDatabase::default()));
         DataManager {
             databases,
             data_definition,
-            schemas: CHashMap::default(),
-            tables: CHashMap::default(),
-            record_id_generators: CHashMap::default(),
+            schemas: DashMap::default(),
+            tables: DashMap::default(),
+            record_id_generators: DashMap::default(),
         }
     }
 
     pub fn persistent(data_definition: Arc<DataDefinition>, path: PathBuf) -> SystemResult<DataManager> {
         let catalog = PersistentDatabase::new(path.join(DEFAULT_CATALOG));
-        let schemas = CHashMap::new();
-        let tables = CHashMap::new();
+        let schemas = DashMap::new();
+        let tables = DashMap::new();
         match data_definition.catalog_exists(DEFAULT_CATALOG) {
             Some(_id) => {
                 for (schema_id, schema_name) in data_definition.schemas(DEFAULT_CATALOG) {
                     schemas.insert(schema_id, schema_name.clone());
-                    match catalog.init(schema_name.as_str()) {
+                    match catalog.init(&schema_name) {
                         Ok(Ok(InitStatus::Loaded)) => {
                             for (table_id, table_name) in data_definition.tables(DEFAULT_CATALOG, schema_name.as_str())
                             {
@@ -99,14 +99,14 @@ impl DataManager {
                 data_definition.create_catalog(DEFAULT_CATALOG);
             }
         }
-        let databases: CHashMap<String, Box<dyn Database>> = CHashMap::default();
+        let databases: DashMap<String, Box<dyn Database>> = DashMap::default();
         databases.insert(DEFAULT_CATALOG.to_lowercase(), Box::new(catalog));
         Ok(DataManager {
             databases,
             data_definition,
             schemas,
             tables,
-            record_id_generators: CHashMap::default(),
+            record_id_generators: DashMap::default(),
         })
     }
 
@@ -125,8 +125,8 @@ impl DataManager {
                     Ok(Ok(Ok(()))) => Ok(schema_id),
                     _ => {
                         log::error!(
-                            "{:?}",
-                            SystemError::bug_in_sql_engine(Operation::Create, Object::Schema(schema_name))
+                            "SQL Engine does not check '{}' existence of SCHEMA before creating one",
+                            schema_name
                         );
                         Err(())
                     }
@@ -134,15 +134,15 @@ impl DataManager {
             }
             Some((_, None)) => {
                 log::error!(
-                    "{:?}",
-                    SystemError::bug_in_sql_engine(Operation::Create, Object::Schema(schema_name))
+                    "SQL Engine does not check '{}' existence of SCHEMA before creating one",
+                    schema_name
                 );
                 Err(())
             }
             None => {
                 log::error!(
-                    "{:?}",
-                    SystemError::bug_in_sql_engine(Operation::Create, Object::Schema(schema_name))
+                    "SQL Engine does not check '{}' existence of SCHEMA before creating one",
+                    schema_name
                 );
                 Err(())
             }
@@ -156,7 +156,7 @@ impl DataManager {
     ) -> Result<Result<(), DropSchemaError>, ()> {
         match self.schemas.remove(schema_id.as_ref()) {
             None => Ok(Err(DropSchemaError::DoesNotExist)),
-            Some(schema_name) => {
+            Some((_, schema_name)) => {
                 match self
                     .data_definition
                     .drop_schema(DEFAULT_CATALOG, schema_name.as_str(), strategy)
@@ -170,8 +170,8 @@ impl DataManager {
                         Ok(Ok(Ok(()))) => Ok(Ok(())),
                         _ => {
                             log::error!(
-                                "{:?}",
-                                SystemError::bug_in_sql_engine(Operation::Drop, Object::Schema(schema_name.as_str()),)
+                                "SQL Engine does not check '{}' existence of SCHEMA before dropping one",
+                                schema_name
                             );
                             Err(())
                         }
@@ -210,11 +210,9 @@ impl DataManager {
                             Ok(Ok(Ok(()))) => Ok(table_id),
                             _ => {
                                 log::error!(
-                                    "{:?}",
-                                    SystemError::bug_in_sql_engine(
-                                        Operation::Create,
-                                        Object::Table(&*schema_name, table_name),
-                                    )
+                                    "SQL Engine does not check '{}.{}' existence of TABLE before creating one",
+                                    &*schema_name,
+                                    table_name
                                 );
                                 Err(())
                             }
@@ -222,11 +220,9 @@ impl DataManager {
                     }
                     _ => {
                         log::error!(
-                            "{:?}",
-                            SystemError::bug_in_sql_engine(
-                                Operation::Create,
-                                Object::Table(schema_id.to_string().as_str(), table_name),
-                            )
+                            "SQL Engine does not check '{}.{}' existence of TABLE before creating one",
+                            &*schema_name,
+                            table_name
                         );
                         Err(())
                     }
@@ -234,11 +230,8 @@ impl DataManager {
             }
             None => {
                 log::error!(
-                    "{:?}",
-                    SystemError::bug_in_sql_engine(
-                        Operation::Create,
-                        Object::Table(schema_id.to_string().as_str(), table_name),
-                    )
+                    "SQL Engine does not check '{}' existence of SCHEMA before creating TABLE in it",
+                    schema_id,
                 );
                 Err(())
             }
@@ -258,7 +251,7 @@ impl DataManager {
                 );
                 Err(())
             }
-            Some(full_name) => {
+            Some((_, full_name)) => {
                 self.data_definition
                     .drop_table(DEFAULT_CATALOG, full_name[0].as_str(), full_name[1].as_str());
                 match self

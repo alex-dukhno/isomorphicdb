@@ -115,6 +115,7 @@ impl PostgreSqlType {
 
     /// Deserializes a value of this type from `raw` using the specified `format`.
     pub fn decode(&self, format: &PostgreSqlFormat, raw: &[u8]) -> Result<PostgreSqlValue, String> {
+        log::debug!("raw data - {:#?}", raw);
         match format {
             PostgreSqlFormat::Binary => self.decode_binary(raw),
             PostgreSqlFormat::Text => self.decode_text(raw),
@@ -254,14 +255,17 @@ fn parse_integer_from_text(s: &str) -> Result<PostgreSqlValue, String> {
 }
 
 fn parse_smallint_from_binary(mut buf: &[u8]) -> Result<PostgreSqlValue, String> {
-    let v = match buf.read_i16::<BigEndian>() {
-        Ok(v) => v,
+    log::debug!("parsing SmallInt");
+    let v = match buf.read_i32::<BigEndian>() {
+        Ok(v) => v as i16,
         Err(_) => return Err(format!("Failed to parse SmallInt from: {:?}", buf)),
     };
 
-    if !buf.is_empty() {
-        return Err("invalid buffer size".into());
-    }
+    log::debug!("Value to insert {:?}", v);
+
+    // if !buf.is_empty() {
+    //     return Err("invalid buffer size".into());
+    // }
 
     Ok(PostgreSqlValue::Int16(v))
 }
@@ -353,7 +357,7 @@ mod tests {
         #[test]
         fn decode_smallint() {
             assert_eq!(
-                PostgreSqlType::SmallInt.decode(&PostgreSqlFormat::Binary, &[0, 1]),
+                PostgreSqlType::SmallInt.decode(&PostgreSqlFormat::Binary, &[0, 0, 0, 1]),
                 Ok(PostgreSqlValue::Int16(1))
             );
         }

@@ -14,7 +14,7 @@
 
 use crate::{Database, Key, ObjectName, ReadCursor, SchemaName, StorageError, Values};
 use binary::RowResult;
-use chashmap::CHashMap;
+use dashmap::DashMap;
 use sql_model::sql_errors::DefinitionError;
 use std::{
     collections::BTreeMap,
@@ -30,12 +30,12 @@ struct StorageObject {
 
 #[derive(Default, Debug)]
 struct Schema {
-    pub objects: CHashMap<Name, StorageObject>,
+    pub objects: DashMap<Name, StorageObject>,
 }
 
 #[derive(Default)]
 pub struct InMemoryDatabase {
-    schemas: CHashMap<Name, Schema>,
+    schemas: DashMap<Name, Schema>,
 }
 
 impl Database for InMemoryDatabase {
