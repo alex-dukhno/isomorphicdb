@@ -357,7 +357,7 @@ mod tests {
         #[test]
         fn decode_smallint() {
             assert_eq!(
-                PostgreSqlType::SmallInt.decode(&PostgreSqlFormat::Binary, &[0, 1]),
+                PostgreSqlType::SmallInt.decode(&PostgreSqlFormat::Binary, &[0, 0, 0, 1]),
                 Ok(PostgreSqlValue::Int16(1))
             );
         }

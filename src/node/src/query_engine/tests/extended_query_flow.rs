@@ -122,7 +122,7 @@ mod parse_bind_execute {
                     statement_name: "statement_name".to_owned(),
                     portal_name: "portal_name".to_owned(),
                     param_formats: vec![PostgreSqlFormat::Binary, PostgreSqlFormat::Text],
-                    raw_params: vec![Some(vec![0, 1]), Some(b"2".to_vec())],
+                    raw_params: vec![Some(vec![0, 0, 0, 1]), Some(b"2".to_vec())],
                     result_formats: vec![],
                 })
                 .expect("statement bound to portal");
