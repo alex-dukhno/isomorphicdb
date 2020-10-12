@@ -763,7 +763,7 @@ dependencies = [
 [[package]]
 name = "native-tls"
 version = "0.2.4"
-source = "git+https://github.com/sfackler/rust-native-tls.git?branch=master#9a9e79825cde4705bad1b2192962066e29d365b5"
+source = "git+https://github.com/sfackler/rust-native-tls.git#9a9e79825cde4705bad1b2192962066e29d365b5"
 dependencies = [
  "lazy_static",
  "libc",
@@ -1374,7 +1374,7 @@ dependencies = [
 [[package]]
 name = "sqlparser"
 version = "0.6.1"
-source = "git+https://github.com/ballista-compute/sqlparser-rs.git?branch=main#54be3912a9cc0046ad8bd375b6f54023e85a7038"
+source = "git+https://github.com/ballista-compute/sqlparser-rs.git?branch=main#9f772f03b0ce17fb8993ddf20c3daf53ad37cff4"
 dependencies = [
  "bigdecimal",
  "log",
