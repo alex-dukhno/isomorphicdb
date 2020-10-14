@@ -12,10 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use bigdecimal::BigDecimal;
-use sqlparser::ast::{Assignment, Expr, Ident, ObjectType, Query, SetExpr, Statement, Value};
-
-use protocol::pgsql_types::PostgreSqlValue;
+use sqlparser::ast::{Assignment, Expr, Ident, ObjectType, Query, SetExpr, Statement};
 
 pub struct ParamBinder;
 
@@ -28,7 +25,7 @@ impl ParamBinder {
     ///     `update schema_name.table_name set col1 = $1, col2 = $2`
     /// Needs to support other statements (as `select` and `delete`) and other
     /// expressions in SQL (as `BinaryOp` and `UnaryOp` in `where` statement).
-    pub fn bind(&self, stmt: &mut Statement, params: &[PostgreSqlValue]) -> Result<(), ()> {
+    pub fn bind(&self, stmt: &mut Statement, params: &[Expr]) -> Result<(), ()> {
         match stmt {
             Statement::Insert { .. } => bind_insert(stmt, params),
             Statement::Update { .. } => bind_update(stmt, params),
@@ -43,7 +40,7 @@ impl ParamBinder {
     }
 }
 
-fn bind_insert(stmt: &mut Statement, params: &[PostgreSqlValue]) -> Result<(), ()> {
+fn bind_insert(stmt: &mut Statement, params: &[Expr]) -> Result<(), ()> {
     let mut body = match stmt {
         Statement::Insert { source, .. } => {
             let source: &mut Query = source;
@@ -66,7 +63,7 @@ fn bind_insert(stmt: &mut Statement, params: &[PostgreSqlValue]) -> Result<(), (
     Ok(())
 }
 
-fn bind_update(stmt: &mut Statement, params: &[PostgreSqlValue]) -> Result<(), ()> {
+fn bind_update(stmt: &mut Statement, params: &[Expr]) -> Result<(), ()> {
     let assignments = match stmt {
         Statement::Update { assignments, .. } => assignments,
         _ => return Err(()),
@@ -95,19 +92,7 @@ fn parse_param_index(value: &str) -> Option<usize> {
     Some(index - 1)
 }
 
-fn pg_value_to_expr(value: &PostgreSqlValue) -> Expr {
-    match value {
-        PostgreSqlValue::Null => Expr::Value(Value::Null),
-        PostgreSqlValue::True => Expr::Value(Value::Boolean(true)),
-        PostgreSqlValue::False => Expr::Value(Value::Boolean(false)),
-        PostgreSqlValue::Int16(i) => Expr::Value(Value::Number(BigDecimal::from(*i))),
-        PostgreSqlValue::Int32(i) => Expr::Value(Value::Number(BigDecimal::from(*i))),
-        PostgreSqlValue::Int64(i) => Expr::Value(Value::Number(BigDecimal::from(*i))),
-        PostgreSqlValue::String(s) => Expr::Value(Value::SingleQuotedString(s.into())),
-    }
-}
-
-fn replace_expr_with_params(expr: &mut Expr, params: &[PostgreSqlValue]) {
+fn replace_expr_with_params(expr: &mut Expr, params: &[Expr]) {
     let value = match expr {
         Expr::Identifier(Ident { value, .. }) => value,
         _ => return,
@@ -119,14 +104,15 @@ fn replace_expr_with_params(expr: &mut Expr, params: &[PostgreSqlValue]) {
     };
 
     if index < params.len() {
-        *expr = pg_value_to_expr(&params[index]);
+        *expr = params[index].clone();
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sqlparser::ast::{Expr, Ident, ObjectName, Query, SetExpr, Statement, Values};
+    use bigdecimal::BigDecimal;
+    use sqlparser::ast::{ObjectName, Value, Values};
 
     fn ident<S: ToString>(name: S) -> Ident {
         Ident {
@@ -155,7 +141,10 @@ mod tests {
 
         ParamBinder.bind(
             &mut statement,
-            &[PostgreSqlValue::Int16(1), PostgreSqlValue::String("abc".into())],
+            &[
+                Expr::Value(Value::Number(BigDecimal::from(1))),
+                Expr::Value(Value::SingleQuotedString("abc".into())),
+            ],
         )?;
 
         assert_eq!(
@@ -185,7 +174,10 @@ mod tests {
 
         ParamBinder.bind(
             &mut statement,
-            &[PostgreSqlValue::Int16(1), PostgreSqlValue::String("abc".into())],
+            &[
+                Expr::Value(Value::Number(BigDecimal::from(1))),
+                Expr::Value(Value::SingleQuotedString("abc".into())),
+            ],
         )?;
 
         assert_eq!(

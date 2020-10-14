@@ -48,6 +48,11 @@ impl<S> Session<S> {
         self.prepared_statements.insert(name, statement);
     }
 
+    /// remove `PreparedStatement` by its name
+    pub fn remove_prepared_statement(&mut self, name: &str) {
+        self.prepared_statements.remove(name);
+    }
+
     /// get `Portal` by its name
     pub fn get_portal(&self, name: &str) -> Option<&Portal<S>> {
         self.portals.get(name)

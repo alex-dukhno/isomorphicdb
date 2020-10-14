@@ -13,12 +13,14 @@
 // limitations under the License.
 
 use std::{
-    convert::TryFrom,
+    convert::{TryFrom, TryInto},
     fmt::{self, Display, Formatter},
     str,
 };
 
+use bigdecimal::BigDecimal;
 use byteorder::{BigEndian, ReadBytesExt};
+use sqlparser::ast::{DataType, Expr, Value};
 
 /// PostgreSQL Object Identifier
 pub type Oid = u32;
@@ -44,8 +46,41 @@ pub enum PostgreSqlType {
     Interval,
 }
 
+/// Not supported data type of sqlparser
+pub struct NotSupportedDataType(DataType);
+
+/// Not supported OID
+pub struct NotSupportedOid(Oid);
+
+impl TryFrom<&DataType> for PostgreSqlType {
+    type Error = NotSupportedDataType;
+
+    /// Returns the type corresponding to the provided data type, if the data
+    /// type is known.
+    fn try_from(data_type: &DataType) -> Result<Self, Self::Error> {
+        match data_type {
+            DataType::SmallInt => Ok(PostgreSqlType::SmallInt),
+            DataType::Int => Ok(PostgreSqlType::Integer),
+            DataType::BigInt => Ok(PostgreSqlType::BigInt),
+            DataType::Char(_) => Ok(PostgreSqlType::Char),
+            DataType::Varchar(_) => Ok(PostgreSqlType::VarChar),
+            DataType::Boolean => Ok(PostgreSqlType::Bool),
+            DataType::Custom(name) => {
+                let name = name.to_string();
+                match name.as_str() {
+                    "serial" => Ok(PostgreSqlType::Integer),
+                    "smallserial" => Ok(PostgreSqlType::SmallInt),
+                    "bigserial" => Ok(PostgreSqlType::BigInt),
+                    _other_type => Err(NotSupportedDataType(data_type.clone())),
+                }
+            }
+            other_type => Err(NotSupportedDataType(other_type.clone())),
+        }
+    }
+}
+
 impl TryFrom<Oid> for PostgreSqlType {
-    type Error = ();
+    type Error = NotSupportedOid;
 
     /// Returns the type corresponding to the provided OID, if the OID is known.
     fn try_from(oid: Oid) -> Result<Self, Self::Error> {
@@ -65,7 +100,7 @@ impl TryFrom<Oid> for PostgreSqlType {
             1186 => Ok(PostgreSqlType::Interval),
             1266 => Ok(PostgreSqlType::TimeWithTimeZone),
             1700 => Ok(PostgreSqlType::Decimal),
-            _ => Err(()),
+            _ => Err(NotSupportedOid(oid)),
         }
     }
 }
@@ -303,6 +338,22 @@ pub enum PostgreSqlValue {
     Int32(i32),
     Int64(i64),
     String(String),
+}
+
+impl TryInto<Expr> for PostgreSqlValue {
+    type Error = ();
+
+    fn try_into(self) -> Result<Expr, Self::Error> {
+        match self {
+            Self::Null => Ok(Expr::Value(Value::Null)),
+            Self::True => Ok(Expr::Value(Value::Boolean(true))),
+            Self::False => Ok(Expr::Value(Value::Boolean(false))),
+            Self::Int16(i) => Ok(Expr::Value(Value::Number(BigDecimal::from(i)))),
+            Self::Int32(i) => Ok(Expr::Value(Value::Number(BigDecimal::from(i)))),
+            Self::Int64(i) => Ok(Expr::Value(Value::Number(BigDecimal::from(i)))),
+            Self::String(s) => Ok(Expr::Value(Value::SingleQuotedString(s))),
+        }
+    }
 }
 
 /// Represents PostgreSQL data format

@@ -999,11 +999,13 @@ dependencies = [
  "async-mutex",
  "async-native-tls",
  "async-trait",
+ "bigdecimal",
  "blocking",
  "byteorder",
  "futures-lite",
  "log",
  "rand",
+ "sqlparser",
  "tempfile",
 ]
 

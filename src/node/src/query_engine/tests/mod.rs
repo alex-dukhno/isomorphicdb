@@ -31,6 +31,8 @@ mod schema;
 #[cfg(test)]
 mod select;
 #[cfg(test)]
+mod simple_prepared_statement;
+#[cfg(test)]
 mod table;
 #[cfg(test)]
 mod type_constraints;
