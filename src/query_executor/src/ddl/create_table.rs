@@ -14,25 +14,18 @@
 
 use data_manager::DataManager;
 use plan::TableCreationInfo;
-use protocol::{results::QueryEvent, Sender};
 use std::sync::Arc;
 
 pub(crate) struct CreateTableCommand {
     table_info: TableCreationInfo,
     data_manager: Arc<DataManager>,
-    sender: Arc<dyn Sender>,
 }
 
 impl CreateTableCommand {
-    pub(crate) fn new(
-        table_info: TableCreationInfo,
-        data_manager: Arc<DataManager>,
-        sender: Arc<dyn Sender>,
-    ) -> CreateTableCommand {
+    pub(crate) fn new(table_info: TableCreationInfo, data_manager: Arc<DataManager>) -> CreateTableCommand {
         CreateTableCommand {
             table_info,
             data_manager,
-            sender,
         }
     }
 
@@ -41,8 +34,5 @@ impl CreateTableCommand {
         if let Err(()) = self.data_manager.create_table(schema_id, table_name, columns) {
             log::error!("Error while creating a table {}.{}", schema_id, table_name);
         }
-        self.sender
-            .send(Ok(QueryEvent::TableCreated))
-            .expect("To Send Query Result to Client");
     }
 }

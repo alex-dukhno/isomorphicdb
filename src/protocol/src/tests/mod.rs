@@ -18,6 +18,8 @@ mod async_io;
 #[cfg(test)]
 mod connection;
 #[cfg(test)]
+mod connector;
+#[cfg(test)]
 mod pg_frontend;
 
 // tests/fixtures/identity.pfx dumped and stored here for tests

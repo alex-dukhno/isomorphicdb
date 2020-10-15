@@ -14,34 +14,21 @@
 
 use data_manager::DataManager;
 use plan::FullTableId;
-use protocol::{results::QueryEvent, Sender};
 use std::sync::Arc;
 
 pub(crate) struct DropTableCommand {
     table_id: FullTableId,
     data_manager: Arc<DataManager>,
-    sender: Arc<dyn Sender>,
 }
 
 impl DropTableCommand {
-    pub(crate) fn new(
-        table_id: FullTableId,
-        data_manager: Arc<DataManager>,
-        sender: Arc<dyn Sender>,
-    ) -> DropTableCommand {
-        DropTableCommand {
-            table_id,
-            data_manager,
-            sender,
-        }
+    pub(crate) fn new(table_id: FullTableId, data_manager: Arc<DataManager>) -> DropTableCommand {
+        DropTableCommand { table_id, data_manager }
     }
 
     pub(crate) fn execute(&mut self) {
         if let Err(()) = self.data_manager.drop_table(&self.table_id) {
             log::error!("Error while dropping table {:?}", self.table_id);
         }
-        self.sender
-            .send(Ok(QueryEvent::TableDropped))
-            .expect("To Send Query Result to Client");
     }
 }

@@ -12,20 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![deny(missing_docs)]
+#![warn(missing_docs)]
 //! API for backend implementation of PostgreSQL Wire Protocol
 extern crate log;
 
-use std::{
-    collections::{HashMap, VecDeque},
-    fs::File,
-    net::SocketAddr,
-    path::PathBuf,
-    pin::Pin,
-    sync::{Arc, Mutex},
-    task::{Context, Poll},
+use crate::{
+    messages::{BackendMessage, Encryption, FrontendMessage},
+    pgsql_types::{PostgreSqlFormat, PostgreSqlType},
+    results::QueryResult,
 };
-
 use async_mutex::Mutex as AsyncMutex;
 use async_native_tls::TlsStream;
 use async_trait::async_trait;
@@ -37,11 +32,14 @@ use futures_lite::{
 };
 use itertools::Itertools;
 use rand::Rng;
-
-use crate::{
-    messages::{BackendMessage, Encryption, FrontendMessage},
-    pgsql_types::{PostgreSqlFormat, PostgreSqlType},
-    results::QueryResult,
+use std::{
+    collections::{HashMap, VecDeque},
+    fs::File,
+    net::SocketAddr,
+    path::PathBuf,
+    pin::Pin,
+    sync::{Arc, Mutex},
+    task::{Context, Poll},
 };
 
 /// Module contains backend messages that could be send by server implementation
@@ -68,17 +66,17 @@ pub type Params = Vec<(String, String)>;
 pub type Result<T> = std::result::Result<T, Error>;
 
 /// Version 1 of the protocol
-pub const VERSION_1: Version = 0x10000;
+pub const VERSION_1_CODE: Version = 0x00_01_00_00;
 /// Version 2 of the protocol
-pub const VERSION_2: Version = 0x20000;
+pub const VERSION_2_CODE: Version = 0x00_02_00_00;
 /// Version 3 of the protocol
-pub const VERSION_3: Version = 0x30000;
+pub const VERSION_3_CODE: Version = 0x00_03_00_00;
 /// Client initiate cancel of a command
-pub const VERSION_CANCEL: Version = (1234 << 16) + 5678;
+pub const CANCEL_REQUEST_CODE: Version = (1234 << 16) + 5678;
 /// Client initiate `ssl` connection
-pub const VERSION_SSL: Version = (1234 << 16) + 5679;
+pub const SSL_REQUEST_CODE: Version = (1234 << 16) + 5679;
 /// Client initiate `gss` encrypted connection
-pub const VERSION_GSSENC: Version = (1234 << 16) + 5680;
+pub const GSSENC_REQUEST_CODE: Version = (1234 << 16) + 5680;
 
 /// Client request accepted from a client
 pub enum ClientRequest {
@@ -233,6 +231,7 @@ pub async fn accept_client_request<RW: 'static>(
     address: SocketAddr,
     config: &ProtocolConfiguration,
     conn_supervisor: Arc<Mutex<ConnSupervisor>>,
+    // to_execution_engine: std::sync::mpsc::Sender<Command>,
 ) -> io::Result<Result<ClientRequest>>
 where
     RW: AsyncRead + AsyncWrite + Unpin,
@@ -378,15 +377,15 @@ fn decode_startup(message: Vec<u8>) -> Result<ClientHandshake> {
     log::trace!("raw connection version {:?}", version);
 
     match version {
-        VERSION_1 => {
+        VERSION_1_CODE => {
             log::debug!("client is trying to connect with version 1");
             Err(Error::UnsupportedVersion)
         }
-        VERSION_2 => {
+        VERSION_2_CODE => {
             log::debug!("client is trying to connect with version 2");
             Err(Error::UnsupportedVersion)
         }
-        VERSION_3 => {
+        VERSION_3_CODE => {
             log::debug!("client is trying to connect with version 3");
             let params = message[4..]
                 .split(|b| *b == 0)
@@ -396,17 +395,17 @@ fn decode_startup(message: Vec<u8>) -> Result<ClientHandshake> {
                 .collect::<Params>();
             Ok(ClientHandshake::Startup(version, params))
         }
-        VERSION_CANCEL => {
+        CANCEL_REQUEST_CODE => {
             log::debug!("client is trying to connect cancel request");
             let conn_id = NetworkEndian::read_i32(&message[4..]);
             let secret_key = NetworkEndian::read_i32(&message[8..]);
             Ok(ClientHandshake::CancelRequest(conn_id, secret_key))
         }
-        VERSION_GSSENC => {
+        GSSENC_REQUEST_CODE => {
             log::debug!("client is trying to connect with GSS Encryption");
             Ok(ClientHandshake::GssEncryptRequest)
         }
-        VERSION_SSL => {
+        SSL_REQUEST_CODE => {
             log::debug!("client is trying to connect with SSL");
             Ok(ClientHandshake::SslRequest)
         }

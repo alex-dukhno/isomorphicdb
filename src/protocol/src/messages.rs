@@ -40,6 +40,16 @@ const PARSE_COMPLETE: u8 = b'1';
 const BIND_COMPLETE: u8 = b'2';
 const CLOSE_COMPLETE: u8 = b'3';
 
+const QUERY: u8 = b'Q';
+const BIND: u8 = b'B';
+const CLOSE: u8 = b'C';
+const DESCRIBE: u8 = b'D';
+const EXECUTE: u8 = b'E';
+const FLUSH: u8 = b'H';
+const PARSE: u8 = b'P';
+const SYNC: u8 = b'S';
+const TERMINATE: u8 = b'X';
+
 pub(crate) enum Encryption {
     AcceptSsl,
     RejectSsl,
@@ -164,19 +174,19 @@ impl FrontendMessage {
         let cursor = Cursor::new(buffer);
         match tag {
             // Simple query flow.
-            b'Q' => decode_query(cursor),
+            QUERY => decode_query(cursor),
 
             // Extended query flow.
-            b'B' => decode_bind(cursor),
-            b'C' => decode_close(cursor),
-            b'D' => decode_describe(cursor),
-            b'E' => decode_execute(cursor),
-            b'H' => decode_flush(cursor),
-            b'P' => decode_parse(cursor),
-            b'S' => decode_sync(cursor),
+            BIND => decode_bind(cursor),
+            CLOSE => decode_close(cursor),
+            DESCRIBE => decode_describe(cursor),
+            EXECUTE => decode_execute(cursor),
+            FLUSH => decode_flush(cursor),
+            PARSE => decode_parse(cursor),
+            SYNC => decode_sync(cursor),
 
             // Termination.
-            b'X' => decode_terminate(cursor),
+            TERMINATE => decode_terminate(cursor),
 
             // Invalid.
             _ => {
