@@ -68,6 +68,15 @@ impl Into<&'_ [u8]> for Encryption {
 /// see https://www.postgresql.org/docs/12/protocol-flow.html
 #[derive(Debug, PartialEq)]
 pub enum FrontendMessage {
+    /// Client requested GSSENC Request
+    GssencRequest,
+    /// Client requested SSL connection
+    SslRequest,
+    /// Connection setup message
+    Setup {
+        /// client parameters
+        params: Vec<(String, String)>,
+    },
     /// Execute the specified SQL.
     ///
     /// This is issued as part of the simple query flow.
@@ -406,8 +415,20 @@ impl<S: ToString> From<(S, PostgreSqlType)> for ColumnMetadata {
 
 /// Decodes data within messages.
 #[derive(Debug)]
-struct Cursor<'a> {
+pub struct Cursor<'a> {
     buf: &'a [u8],
+}
+
+impl<'c> From<&'c [u8]> for Cursor<'c> {
+    fn from(buf: &'c [u8]) -> Self {
+        Cursor { buf }
+    }
+}
+
+impl<'c> Into<Vec<u8>> for Cursor<'c> {
+    fn into(self) -> Vec<u8> {
+        self.buf.to_vec()
+    }
 }
 
 impl<'a> Cursor<'a> {
@@ -423,7 +444,7 @@ impl<'a> Cursor<'a> {
     }
 
     /// Returns the next byte without advancing the cursor.
-    fn peek_byte(&self) -> Result<u8> {
+    pub fn peek_byte(&self) -> Result<u8> {
         self.buf
             .get(0)
             .copied()
@@ -440,7 +461,7 @@ impl<'a> Cursor<'a> {
     /// Returns the next null-terminated string. The null character is not
     /// included the returned string. The cursor is advanced past the null-
     /// terminated string.
-    fn read_cstr(&mut self) -> Result<&'a str> {
+    pub fn read_cstr(&mut self) -> Result<&'a str> {
         if let Some(pos) = self.buf.iter().position(|b| *b == 0) {
             let val = std::str::from_utf8(&self.buf[..pos]).map_err(|_e| Error::InvalidUtfString)?;
             self.advance(pos + 1);
@@ -472,7 +493,7 @@ impl<'a> Cursor<'a> {
 
     /// Reads the next 32-bit signed integer, advancing the cursor by four
     /// bytes.
-    fn read_i32(&mut self) -> Result<i32> {
+    pub fn read_i32(&mut self) -> Result<i32> {
         if self.buf.len() < 4 {
             return Err(Error::InvalidInput("not enough buffer for an Int32".to_owned()));
         }
