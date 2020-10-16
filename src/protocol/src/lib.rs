@@ -16,10 +16,9 @@
 //! API for backend implementation of PostgreSQL Wire Protocol
 extern crate log;
 
-use crate::hand_shake::{Cancel, Done, HandShake, HandShakeState, Intermediate, MessageLen, ReadSetupMessage};
-use crate::messages::Encryption;
 use crate::{
-    messages::{BackendMessage, FrontendMessage},
+    hand_shake::{Cancel, Done, HandShake, HandShakeState, Intermediate, MessageLen, ReadSetupMessage},
+    messages::{BackendMessage, Encryption, FrontendMessage},
     pgsql_types::{PostgreSqlFormat, PostgreSqlType},
     results::QueryResult,
 };
@@ -32,11 +31,10 @@ use futures_lite::{
     future::block_on,
     io::{self, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, ErrorKind},
 };
-use itertools::Itertools;
 use rand::Rng;
-use std::fmt::{self, Debug, Display, Formatter};
 use std::{
     collections::{HashMap, VecDeque},
+    fmt::{self, Debug, Display, Formatter},
     fs::File,
     net::SocketAddr,
     path::PathBuf,
@@ -90,6 +88,7 @@ pub enum ClientRequest {
     QueryCancellation(ConnId),
 }
 
+/// Client Request Code
 #[derive(Debug, PartialEq)]
 pub struct Code(pub(crate) i32);
 
@@ -297,7 +296,7 @@ where
     log::debug!("address {:?}", address);
 
     let mut channel = Channel::Plain(stream);
-    let mut hand_shake = hand_shake::Factory::new();
+    let mut hand_shake = hand_shake::Factory::create();
     log::debug!("HandShake {:?}", hand_shake);
     let mut current = vec![];
     loop {
@@ -451,50 +450,6 @@ where
             }
         }
         None => Err(io::Error::from(io::ErrorKind::ConnectionAborted)),
-    }
-}
-
-fn decode_startup(message: Vec<u8>) -> Result<ClientHandshake> {
-    let version = NetworkEndian::read_i32(&message);
-    log::trace!("raw connection version {:?}", version);
-
-    match version {
-        VERSION_1_CODE => {
-            log::debug!("client is trying to connect with version 1");
-            Err(Error::UnsupportedVersion)
-        }
-        VERSION_2_CODE => {
-            log::debug!("client is trying to connect with version 2");
-            Err(Error::UnsupportedVersion)
-        }
-        VERSION_3_CODE => {
-            log::debug!("client is trying to connect with version 3");
-            let params = message[4..]
-                .split(|b| *b == 0)
-                .filter(|b| !b.is_empty())
-                .map(|b| std::str::from_utf8(b).unwrap().to_owned())
-                .tuples()
-                .collect::<Params>();
-            Ok(ClientHandshake::Startup(version, params))
-        }
-        CANCEL_REQUEST_CODE => {
-            log::debug!("client is trying to connect cancel request");
-            let conn_id = NetworkEndian::read_i32(&message[4..]);
-            let secret_key = NetworkEndian::read_i32(&message[8..]);
-            Ok(ClientHandshake::CancelRequest(conn_id, secret_key))
-        }
-        GSSENC_REQUEST_CODE => {
-            log::debug!("client is trying to connect with GSS Encryption");
-            Ok(ClientHandshake::GssEncryptRequest)
-        }
-        SSL_REQUEST_CODE => {
-            log::debug!("client is trying to connect with SSL");
-            Ok(ClientHandshake::SslRequest)
-        }
-        _ => {
-            log::debug!("client is trying to connect with unrecognized protocol version");
-            Err(Error::UnrecognizedVersion)
-        }
     }
 }
 
@@ -761,20 +716,6 @@ impl ProtocolConfiguration {
     fn gssenc_support(&self) -> bool {
         false
     }
-}
-
-enum ClientHandshake {
-    /// Begin a connection.
-    Startup(Version, Params),
-
-    /// Request SSL encryption for the connection.
-    SslRequest,
-
-    /// Request GSSAPI encryption for the connection.
-    GssEncryptRequest,
-
-    /// Cancel a query that is running on another connection.
-    CancelRequest(ConnId, ConnSecretKey),
 }
 
 #[cfg(test)]

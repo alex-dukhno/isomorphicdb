@@ -1002,7 +1002,6 @@ dependencies = [
  "blocking",
  "byteorder",
  "futures-lite",
- "itertools",
  "log",
  "rand",
  "tempfile",

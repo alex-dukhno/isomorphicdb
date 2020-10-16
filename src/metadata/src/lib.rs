@@ -16,8 +16,7 @@ use binary::{Binary, StorageError};
 use dashmap::DashMap;
 use meta_def::{ColumnDefinition, TableDefinition};
 use repr::Datum;
-use sql_model::sql_errors::NotFoundError;
-use sql_model::{sql_types::SqlType, DropSchemaError, DropStrategy, Id, DEFAULT_CATALOG};
+use sql_model::{sql_errors::NotFoundError, sql_types::SqlType, DropSchemaError, DropStrategy, Id, DEFAULT_CATALOG};
 use std::{
     collections::{BTreeMap, HashMap},
     io,

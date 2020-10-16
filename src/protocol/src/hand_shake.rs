@@ -24,7 +24,7 @@ trait ConnectionTransition<C> {
 pub struct Factory;
 
 impl Factory {
-    pub fn new() -> HandShakeState {
+    pub fn create() -> HandShakeState {
         HandShakeState::Created(HandShake::new(Created))
     }
 }
@@ -142,7 +142,7 @@ mod connection_state_machine {
 
     #[test]
     fn created_state() {
-        let hand_shake = Factory::new();
+        let hand_shake = Factory::create();
 
         assert_eq!(hand_shake, HandShakeState::Created(HandShake::new(Created)));
         assert_eq!(
@@ -153,7 +153,7 @@ mod connection_state_machine {
 
     #[test]
     fn read_setup_message_length() {
-        let mut hand_shake = Factory::new();
+        let mut hand_shake = Factory::create();
         hand_shake = hand_shake.try_step(vec![]).expect("connection state transition");
 
         assert_eq!(
@@ -164,7 +164,7 @@ mod connection_state_machine {
 
     #[test]
     fn non_recognizable_protocol_code() {
-        let mut hand_shake = Factory::new();
+        let mut hand_shake = Factory::create();
         hand_shake = hand_shake.try_step(vec![]).expect("connection state transition");
 
         hand_shake = hand_shake
@@ -179,7 +179,7 @@ mod connection_state_machine {
 
     #[test]
     fn version_one_is_not_supported() {
-        let mut hand_shake = Factory::new();
+        let mut hand_shake = Factory::create();
         hand_shake = hand_shake.try_step(vec![]).expect("connection state transition");
 
         hand_shake = hand_shake
@@ -194,7 +194,7 @@ mod connection_state_machine {
 
     #[test]
     fn version_two_is_not_supported() {
-        let mut hand_shake = Factory::new();
+        let mut hand_shake = Factory::create();
         hand_shake = hand_shake.try_step(vec![]).expect("connection state transition");
 
         hand_shake = hand_shake
@@ -209,7 +209,7 @@ mod connection_state_machine {
 
     #[test]
     fn setup_version_three_connection() {
-        let mut hand_shake = Factory::new();
+        let mut hand_shake = Factory::create();
         hand_shake = hand_shake.try_step(vec![]).expect("connection state transition");
 
         assert_eq!(
@@ -220,7 +220,7 @@ mod connection_state_machine {
 
     #[test]
     fn setup_version_three_with_client_params() {
-        let mut hand_shake = Factory::new();
+        let mut hand_shake = Factory::create();
         hand_shake = hand_shake.try_step(vec![]).expect("connection state transition");
 
         hand_shake = hand_shake
@@ -248,7 +248,7 @@ mod connection_state_machine {
 
     #[test]
     fn connection_established_with_ssl_request() {
-        let mut hand_shake = Factory::new();
+        let mut hand_shake = Factory::create();
         hand_shake = hand_shake.try_step(vec![]).expect("connection state transition");
 
         hand_shake = hand_shake
@@ -290,7 +290,7 @@ mod connection_state_machine {
 
     #[test]
     fn connection_established_with_gssenc_request() {
-        let mut hand_shake = Factory::new();
+        let mut hand_shake = Factory::create();
         hand_shake = hand_shake.try_step(vec![]).expect("connection state transition");
 
         hand_shake = hand_shake
@@ -335,7 +335,7 @@ mod connection_state_machine {
     fn cancel_query_request() {
         let conn_id: ConnId = 1;
         let secret_key: ConnSecretKey = 2;
-        let mut hand_shake = Factory::new();
+        let mut hand_shake = Factory::create();
         hand_shake = hand_shake.try_step(vec![]).expect("connection state transition");
 
         hand_shake = hand_shake

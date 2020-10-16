@@ -12,8 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use sql_model::sql_types::SqlType;
-use sql_model::Id;
+use sql_model::{sql_types::SqlType, Id};
 use sqlparser::ast::ObjectName;
 use std::{
     convert::TryFrom,
