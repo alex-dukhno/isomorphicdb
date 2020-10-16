@@ -48,19 +48,31 @@ impl QueryExecutor {
                 .send(Ok(QueryEvent::QueryComplete))
                 .expect("To Send Query Result to Client"),
             Plan::CreateSchema(creation_info) => {
-                CreateSchemaCommand::new(creation_info, self.data_manager.clone(), self.sender.clone()).execute()
+                CreateSchemaCommand::new(creation_info, self.data_manager.clone()).execute();
+                self.sender
+                    .send(Ok(QueryEvent::SchemaCreated))
+                    .expect("To Send Query Result to Client");
             }
             Plan::CreateTable(creation_info) => {
-                CreateTableCommand::new(creation_info, self.data_manager.clone(), self.sender.clone()).execute()
+                CreateTableCommand::new(creation_info, self.data_manager.clone()).execute();
+                self.sender
+                    .send(Ok(QueryEvent::TableCreated))
+                    .expect("To Send Query Result to Client");
             }
             Plan::DropSchemas(schemas) => {
                 for (schema, cascade) in schemas {
-                    DropSchemaCommand::new(schema, cascade, self.data_manager.clone(), self.sender.clone()).execute();
+                    DropSchemaCommand::new(schema, cascade, self.data_manager.clone()).execute();
+                    self.sender
+                        .send(Ok(QueryEvent::SchemaDropped))
+                        .expect("To Send Query Result to Client");
                 }
             }
             Plan::DropTables(tables) => {
                 for table in tables {
-                    DropTableCommand::new(table, self.data_manager.clone(), self.sender.clone()).execute();
+                    DropTableCommand::new(table, self.data_manager.clone()).execute();
+                    self.sender
+                        .send(Ok(QueryEvent::TableDropped))
+                        .expect("To Send Query Result to Client");
                 }
             }
             Plan::Insert(table_insert) => {

@@ -12,20 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![deny(missing_docs)]
+#![warn(missing_docs)]
 //! API for backend implementation of PostgreSQL Wire Protocol
 extern crate log;
 
-use std::{
-    collections::{HashMap, VecDeque},
-    fs::File,
-    net::SocketAddr,
-    path::PathBuf,
-    pin::Pin,
-    sync::{Arc, Mutex},
-    task::{Context, Poll},
+use crate::{
+    hand_shake::{Cancel, Done, HandShake, HandShakeState, Intermediate, MessageLen, ReadSetupMessage},
+    messages::{BackendMessage, Encryption, FrontendMessage},
+    pgsql_types::{PostgreSqlFormat, PostgreSqlType},
+    results::QueryResult,
 };
-
 use async_mutex::Mutex as AsyncMutex;
 use async_native_tls::TlsStream;
 use async_trait::async_trait;
@@ -35,15 +31,19 @@ use futures_lite::{
     future::block_on,
     io::{self, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, ErrorKind},
 };
-use itertools::Itertools;
 use rand::Rng;
-
-use crate::{
-    messages::{BackendMessage, Encryption, FrontendMessage},
-    pgsql_types::{PostgreSqlFormat, PostgreSqlType},
-    results::QueryResult,
+use std::{
+    collections::{HashMap, VecDeque},
+    fmt::{self, Debug, Display, Formatter},
+    fs::File,
+    net::SocketAddr,
+    path::PathBuf,
+    pin::Pin,
+    sync::{Arc, Mutex},
+    task::{Context, Poll},
 };
 
+mod hand_shake;
 /// Module contains backend messages that could be send by server implementation
 /// to a client
 pub mod messages;
@@ -68,17 +68,17 @@ pub type Params = Vec<(String, String)>;
 pub type Result<T> = std::result::Result<T, Error>;
 
 /// Version 1 of the protocol
-pub const VERSION_1: Version = 0x10000;
+pub(crate) const VERSION_1_CODE: Version = 0x00_01_00_00;
 /// Version 2 of the protocol
-pub const VERSION_2: Version = 0x20000;
+pub(crate) const VERSION_2_CODE: Version = 0x00_02_00_00;
 /// Version 3 of the protocol
-pub const VERSION_3: Version = 0x30000;
+pub(crate) const VERSION_3_CODE: Version = 0x00_03_00_00;
 /// Client initiate cancel of a command
-pub const VERSION_CANCEL: Version = (1234 << 16) + 5678;
+pub(crate) const CANCEL_REQUEST_CODE: Version = (1234 << 16) + 5678;
 /// Client initiate `ssl` connection
-pub const VERSION_SSL: Version = (1234 << 16) + 5679;
+pub(crate) const SSL_REQUEST_CODE: Version = (1234 << 16) + 5679;
 /// Client initiate `gss` encrypted connection
-pub const VERSION_GSSENC: Version = (1234 << 16) + 5680;
+pub(crate) const GSSENC_REQUEST_CODE: Version = (1234 << 16) + 5680;
 
 /// Client request accepted from a client
 pub enum ClientRequest {
@@ -86,6 +86,61 @@ pub enum ClientRequest {
     Connection(Box<dyn Receiver>, Arc<dyn Sender>),
     /// Connection to cancel queries of another client
     QueryCancellation(ConnId),
+}
+
+/// Client Request Code
+#[derive(Debug, PartialEq)]
+pub struct Code(pub(crate) i32);
+
+impl Display for Code {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self.0 {
+            CANCEL_REQUEST_CODE => write!(f, "Cancel Request"),
+            SSL_REQUEST_CODE => write!(f, "SSL Request"),
+            GSSENC_REQUEST_CODE => write!(f, "GSSENC Request"),
+            _ => write!(
+                f,
+                "Version {}.{} Request",
+                (self.0 >> 16) as i16,
+                (self.0 & 0x00_00_FF_FF) as i16
+            ),
+        }
+    }
+}
+
+#[cfg(test)]
+mod code_display_tests {
+    use super::*;
+
+    #[test]
+    fn version_one_request() {
+        assert_eq!(Code(VERSION_1_CODE).to_string(), "Version 1.0 Request");
+    }
+
+    #[test]
+    fn version_two_request() {
+        assert_eq!(Code(VERSION_2_CODE).to_string(), "Version 2.0 Request");
+    }
+
+    #[test]
+    fn version_three_request() {
+        assert_eq!(Code(VERSION_3_CODE).to_string(), "Version 3.0 Request");
+    }
+
+    #[test]
+    fn cancel_request() {
+        assert_eq!(Code(CANCEL_REQUEST_CODE).to_string(), "Cancel Request")
+    }
+
+    #[test]
+    fn ssl_request() {
+        assert_eq!(Code(SSL_REQUEST_CODE).to_string(), "SSL Request")
+    }
+
+    #[test]
+    fn gssenc_request() {
+        assert_eq!(Code(GSSENC_REQUEST_CODE).to_string(), "GSSENC Request")
+    }
 }
 
 /// `Error` type in protocol `Result`. Indicates that something went not well
@@ -233,6 +288,7 @@ pub async fn accept_client_request<RW: 'static>(
     address: SocketAddr,
     config: &ProtocolConfiguration,
     conn_supervisor: Arc<Mutex<ConnSupervisor>>,
+    // to_execution_engine: std::sync::mpsc::Sender<Command>,
 ) -> io::Result<Result<ClientRequest>>
 where
     RW: AsyncRead + AsyncWrite + Unpin,
@@ -240,36 +296,80 @@ where
     log::debug!("address {:?}", address);
 
     let mut channel = Channel::Plain(stream);
+    let mut hand_shake = hand_shake::Factory::create();
+    log::debug!("HandShake {:?}", hand_shake);
+    let mut current = vec![];
     loop {
-        let mut buffer = [0u8; 4];
-        let len = channel
-            .read_exact(&mut buffer)
-            .await
-            .map(|_| NetworkEndian::read_u32(&buffer) as usize)?;
-        let len = len - 4;
-        let mut buffer = Vec::with_capacity(len);
-        buffer.resize(len, b'0');
-        let message = channel.read_exact(&mut buffer).await.map(|_| buffer)?;
-        log::trace!("message for test = {:#?}", message);
+        // TODO: try to use std::mem::swap
+        //       instead of invoking .to_vec
+        hand_shake = match hand_shake.try_step(current) {
+            Ok(hand_shake) => hand_shake,
+            Err(error) => return Ok(Err(error)),
+        };
+        log::debug!("HandShake {:?}", hand_shake);
 
-        match decode_startup(message) {
-            Ok(ClientHandshake::Startup(version, params)) => {
+        let buf = match hand_shake {
+            HandShakeState::Created(_) => return Ok(Err(Error::VerificationFailed)),
+            HandShakeState::MessageLen(HandShake { state: MessageLen(len) }) => {
+                let mut local = Vec::with_capacity(len);
+                local.resize(len, b'0');
+                channel.read_exact(&mut local).await.map(|_| local)?
+            }
+            HandShakeState::ParseSetup(HandShake {
+                state: ReadSetupMessage(len),
+            }) => {
+                let mut local = Vec::with_capacity(len);
+                local.resize(len, b'0');
+                channel.read_exact(&mut local).await.map(|_| local)?
+            }
+            HandShakeState::Intermediate(HandShake {
+                state: Intermediate(ref code, _),
+            }) => match code {
+                Code(SSL_REQUEST_CODE) => {
+                    channel = match channel {
+                        Channel::Plain(mut channel) if config.ssl_support() => {
+                            channel.write_all(Encryption::AcceptSsl.into()).await?;
+                            Channel::Secure(tls_channel(channel, config).await?)
+                        }
+                        _ => {
+                            channel.write_all(Encryption::RejectSsl.into()).await?;
+                            channel
+                        }
+                    };
+                    vec![]
+                }
+                Code(CANCEL_REQUEST_CODE) => vec![],
+                Code(VERSION_3_CODE) => vec![],
+                _ => return Ok(Err(Error::VerificationFailed)),
+            },
+            HandShakeState::Cancel(HandShake {
+                state: Cancel(conn_id, secret_key),
+            }) => {
+                if conn_supervisor.lock().unwrap().verify(conn_id, secret_key) {
+                    return Ok(Ok(ClientRequest::QueryCancellation(conn_id)));
+                }
+                return Ok(Err(Error::VerificationFailed));
+            }
+            HandShakeState::Established(HandShake { state: Done(props) }) => {
+                log::debug!("here 1");
                 channel
                     .write_all(BackendMessage::AuthenticationCleartextPassword.as_vec().as_slice())
                     .await?;
-                let mut buffer = [0u8; 1];
-                let tag = channel.read_exact(&mut buffer).await.map(|_| buffer[0]);
+                channel.flush().await?;
+                let mut tag_buffer = [0u8; 1];
+                log::debug!("here 2");
+                let tag = channel.read_exact(&mut tag_buffer).await.map(|_| tag_buffer[0]);
                 log::debug!("client message response tag {:?}", tag);
                 log::debug!("waiting for authentication response");
-                let mut buffer = [0u8; 4];
+                let mut len_buffer = [0u8; 4];
                 let len = channel
-                    .read_exact(&mut buffer)
+                    .read_exact(&mut len_buffer)
                     .await
-                    .map(|_| NetworkEndian::read_u32(&buffer) as usize)?;
+                    .map(|_| NetworkEndian::read_u32(&len_buffer) as usize)?;
                 let len = len - 4;
-                let mut buffer = Vec::with_capacity(len);
-                buffer.resize(len, b'0');
-                let _message = channel.read_exact(&mut buffer).await.map(|_| buffer)?;
+                let mut message_buffer = Vec::with_capacity(len);
+                message_buffer.resize(len, b'0');
+                let _message = channel.read_exact(&mut message_buffer).await.map(|_| message_buffer)?;
                 channel
                     .write_all(BackendMessage::AuthenticationOk.as_vec().as_slice())
                     .await?;
@@ -325,36 +425,16 @@ where
                 return Ok(Ok(ClientRequest::Connection(
                     Box::new(RequestReceiver::new(
                         conn_id,
-                        (version, params.clone()),
+                        (VERSION_3_CODE, props.clone()),
                         channel.clone(),
                         conn_supervisor,
                     )),
-                    Arc::new(ResponseSender::new((version, params), channel)),
+                    Arc::new(ResponseSender::new((VERSION_3_CODE, props), channel)),
                 )));
             }
-            Ok(ClientHandshake::SslRequest) => {
-                channel = match channel {
-                    Channel::Plain(mut channel) if config.ssl_support() => {
-                        channel.write_all(Encryption::AcceptSsl.into()).await?;
-                        Channel::Secure(tls_channel(channel, config).await?)
-                    }
-                    _ => {
-                        channel.write_all(Encryption::RejectSsl.into()).await?;
-                        channel
-                    }
-                };
-            }
-            Ok(ClientHandshake::GssEncryptRequest) => return Ok(Err(Error::UnsupportedRequest)),
-            Ok(ClientHandshake::CancelRequest(conn_id, secret_key)) => {
-                if conn_supervisor.lock().unwrap().verify(conn_id, secret_key) {
-                    return Ok(Ok(ClientRequest::QueryCancellation(conn_id)));
-                }
-                return Ok(Err(Error::VerificationFailed));
-            }
-            Err(error) => {
-                return Ok(Err(error));
-            }
-        }
+        };
+
+        current = buf;
     }
 }
 
@@ -370,50 +450,6 @@ where
             }
         }
         None => Err(io::Error::from(io::ErrorKind::ConnectionAborted)),
-    }
-}
-
-fn decode_startup(message: Vec<u8>) -> Result<ClientHandshake> {
-    let version = NetworkEndian::read_i32(&message);
-    log::trace!("raw connection version {:?}", version);
-
-    match version {
-        VERSION_1 => {
-            log::debug!("client is trying to connect with version 1");
-            Err(Error::UnsupportedVersion)
-        }
-        VERSION_2 => {
-            log::debug!("client is trying to connect with version 2");
-            Err(Error::UnsupportedVersion)
-        }
-        VERSION_3 => {
-            log::debug!("client is trying to connect with version 3");
-            let params = message[4..]
-                .split(|b| *b == 0)
-                .filter(|b| !b.is_empty())
-                .map(|b| std::str::from_utf8(b).unwrap().to_owned())
-                .tuples()
-                .collect::<Params>();
-            Ok(ClientHandshake::Startup(version, params))
-        }
-        VERSION_CANCEL => {
-            log::debug!("client is trying to connect cancel request");
-            let conn_id = NetworkEndian::read_i32(&message[4..]);
-            let secret_key = NetworkEndian::read_i32(&message[8..]);
-            Ok(ClientHandshake::CancelRequest(conn_id, secret_key))
-        }
-        VERSION_GSSENC => {
-            log::debug!("client is trying to connect with GSS Encryption");
-            Ok(ClientHandshake::GssEncryptRequest)
-        }
-        VERSION_SSL => {
-            log::debug!("client is trying to connect with SSL");
-            Ok(ClientHandshake::SslRequest)
-        }
-        _ => {
-            log::debug!("client is trying to connect with unrecognized protocol version");
-            Err(Error::UnrecognizedVersion)
-        }
     }
 }
 
@@ -528,6 +564,9 @@ impl<RW: AsyncRead + AsyncWrite + Unpin> Receiver for RequestReceiver<RW> {
             FrontendMessage::DescribePortal { name: _ } => Ok(Ok(Command::Continue)),
             FrontendMessage::CloseStatement { name: _ } => Ok(Ok(Command::Continue)),
             FrontendMessage::ClosePortal { name: _ } => Ok(Ok(Command::Continue)),
+            FrontendMessage::Setup { .. } => Ok(Ok(Command::Continue)),
+            FrontendMessage::SslRequest => Ok(Ok(Command::Continue)),
+            FrontendMessage::GssencRequest => Ok(Ok(Command::Continue)),
         }
     }
 }
@@ -677,20 +716,6 @@ impl ProtocolConfiguration {
     fn gssenc_support(&self) -> bool {
         false
     }
-}
-
-enum ClientHandshake {
-    /// Begin a connection.
-    Startup(Version, Params),
-
-    /// Request SSL encryption for the connection.
-    SslRequest,
-
-    /// Request GSSAPI encryption for the connection.
-    GssEncryptRequest,
-
-    /// Cancel a query that is running on another connection.
-    CancelRequest(ConnId, ConnSecretKey),
 }
 
 #[cfg(test)]

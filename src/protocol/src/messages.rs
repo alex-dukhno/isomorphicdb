@@ -40,6 +40,16 @@ const PARSE_COMPLETE: u8 = b'1';
 const BIND_COMPLETE: u8 = b'2';
 const CLOSE_COMPLETE: u8 = b'3';
 
+const QUERY: u8 = b'Q';
+const BIND: u8 = b'B';
+const CLOSE: u8 = b'C';
+const DESCRIBE: u8 = b'D';
+const EXECUTE: u8 = b'E';
+const FLUSH: u8 = b'H';
+const PARSE: u8 = b'P';
+const SYNC: u8 = b'S';
+const TERMINATE: u8 = b'X';
+
 pub(crate) enum Encryption {
     AcceptSsl,
     RejectSsl,
@@ -58,6 +68,15 @@ impl Into<&'_ [u8]> for Encryption {
 /// see https://www.postgresql.org/docs/12/protocol-flow.html
 #[derive(Debug, PartialEq)]
 pub enum FrontendMessage {
+    /// Client requested GSSENC Request
+    GssencRequest,
+    /// Client requested SSL connection
+    SslRequest,
+    /// Connection setup message
+    Setup {
+        /// client parameters
+        params: Vec<(String, String)>,
+    },
     /// Execute the specified SQL.
     ///
     /// This is issued as part of the simple query flow.
@@ -164,19 +183,19 @@ impl FrontendMessage {
         let cursor = Cursor::new(buffer);
         match tag {
             // Simple query flow.
-            b'Q' => decode_query(cursor),
+            QUERY => decode_query(cursor),
 
             // Extended query flow.
-            b'B' => decode_bind(cursor),
-            b'C' => decode_close(cursor),
-            b'D' => decode_describe(cursor),
-            b'E' => decode_execute(cursor),
-            b'H' => decode_flush(cursor),
-            b'P' => decode_parse(cursor),
-            b'S' => decode_sync(cursor),
+            BIND => decode_bind(cursor),
+            CLOSE => decode_close(cursor),
+            DESCRIBE => decode_describe(cursor),
+            EXECUTE => decode_execute(cursor),
+            FLUSH => decode_flush(cursor),
+            PARSE => decode_parse(cursor),
+            SYNC => decode_sync(cursor),
 
             // Termination.
-            b'X' => decode_terminate(cursor),
+            TERMINATE => decode_terminate(cursor),
 
             // Invalid.
             _ => {
@@ -396,8 +415,20 @@ impl<S: ToString> From<(S, PostgreSqlType)> for ColumnMetadata {
 
 /// Decodes data within messages.
 #[derive(Debug)]
-struct Cursor<'a> {
+pub struct Cursor<'a> {
     buf: &'a [u8],
+}
+
+impl<'c> From<&'c [u8]> for Cursor<'c> {
+    fn from(buf: &'c [u8]) -> Self {
+        Cursor { buf }
+    }
+}
+
+impl<'c> Into<Vec<u8>> for Cursor<'c> {
+    fn into(self) -> Vec<u8> {
+        self.buf.to_vec()
+    }
 }
 
 impl<'a> Cursor<'a> {
@@ -413,7 +444,7 @@ impl<'a> Cursor<'a> {
     }
 
     /// Returns the next byte without advancing the cursor.
-    fn peek_byte(&self) -> Result<u8> {
+    pub fn peek_byte(&self) -> Result<u8> {
         self.buf
             .get(0)
             .copied()
@@ -430,7 +461,7 @@ impl<'a> Cursor<'a> {
     /// Returns the next null-terminated string. The null character is not
     /// included the returned string. The cursor is advanced past the null-
     /// terminated string.
-    fn read_cstr(&mut self) -> Result<&'a str> {
+    pub fn read_cstr(&mut self) -> Result<&'a str> {
         if let Some(pos) = self.buf.iter().position(|b| *b == 0) {
             let val = std::str::from_utf8(&self.buf[..pos]).map_err(|_e| Error::InvalidUtfString)?;
             self.advance(pos + 1);
@@ -462,7 +493,7 @@ impl<'a> Cursor<'a> {
 
     /// Reads the next 32-bit signed integer, advancing the cursor by four
     /// bytes.
-    fn read_i32(&mut self) -> Result<i32> {
+    pub fn read_i32(&mut self) -> Result<i32> {
         if self.buf.len() < 4 {
             return Err(Error::InvalidInput("not enough buffer for an Int32".to_owned()));
         }

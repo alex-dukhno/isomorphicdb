@@ -14,25 +14,18 @@
 
 use data_manager::DataManager;
 use plan::SchemaCreationInfo;
-use protocol::{results::QueryEvent, Sender};
 use std::sync::Arc;
 
 pub(crate) struct CreateSchemaCommand {
     schema_info: SchemaCreationInfo,
     data_manager: Arc<DataManager>,
-    sender: Arc<dyn Sender>,
 }
 
 impl CreateSchemaCommand {
-    pub(crate) fn new(
-        schema_info: SchemaCreationInfo,
-        data_manager: Arc<DataManager>,
-        sender: Arc<dyn Sender>,
-    ) -> CreateSchemaCommand {
+    pub(crate) fn new(schema_info: SchemaCreationInfo, data_manager: Arc<DataManager>) -> CreateSchemaCommand {
         CreateSchemaCommand {
             schema_info,
             data_manager,
-            sender,
         }
     }
 
@@ -41,8 +34,5 @@ impl CreateSchemaCommand {
         if let Err(()) = self.data_manager.create_schema(schema_name) {
             log::error!("Error while creating schema {}", schema_name);
         }
-        self.sender
-            .send(Ok(QueryEvent::SchemaCreated))
-            .expect("To Send Query Result to Client");
     }
 }

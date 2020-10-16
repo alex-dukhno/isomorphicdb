@@ -14,29 +14,21 @@
 
 use data_manager::DataManager;
 use plan::SchemaId;
-use protocol::{results::QueryEvent, Sender};
-use sql_model::{DropSchemaError, DropStrategy};
+use sql_model::DropStrategy;
 use std::sync::Arc;
 
 pub(crate) struct DropSchemaCommand {
     schema_id: SchemaId,
     cascade: bool,
     data_manager: Arc<DataManager>,
-    sender: Arc<dyn Sender>,
 }
 
 impl DropSchemaCommand {
-    pub(crate) fn new(
-        schema_id: SchemaId,
-        cascade: bool,
-        data_manager: Arc<DataManager>,
-        sender: Arc<dyn Sender>,
-    ) -> DropSchemaCommand {
+    pub(crate) fn new(schema_id: SchemaId, cascade: bool, data_manager: Arc<DataManager>) -> DropSchemaCommand {
         DropSchemaCommand {
             schema_id,
             cascade,
             data_manager,
-            sender,
         }
     }
 
@@ -46,28 +38,9 @@ impl DropSchemaCommand {
         } else {
             DropStrategy::Restrict
         };
-        match self.data_manager.drop_schema(&self.schema_id, strategy) {
-            Err(()) => log::error!("Error while dropping schema {:?}", self.schema_id),
-            Ok(Err(DropSchemaError::CatalogDoesNotExist)) => {
-                //ignore. Catalogs are not implemented
-            }
-            Ok(Err(DropSchemaError::HasDependentObjects)) => {
-                // self.sender
-                //     .send(Err(QueryError::schema_has_dependent_objects(self.name.name().to_string())))
-                //     .expect("To Send Query Result to Client");
-                // ignore. need to be able to lookup the object name from the id.
-            }
-            Ok(Err(DropSchemaError::DoesNotExist)) => {
-                // self.sender
-                //     .send(Err(QueryError::schema_does_not_exist(schema_name)))
-                //     .expect("To Send Query Result to Client");
-                // ignore. parallel query execution is not implemented
-            }
-            Ok(Ok(())) => {
-                self.sender
-                    .send(Ok(QueryEvent::SchemaDropped))
-                    .expect("To Send Query Result to Client");
-            }
-        }
+        self.data_manager
+            .drop_schema(&self.schema_id, strategy)
+            .expect("schema dropped")
+            .expect("no storage error")
     }
 }

@@ -26,6 +26,7 @@ query_executor = { path = "../query_executor" }
 query_planner = { path = "../query_planner" }
 sql_model = { path = "../sql_model" }
 
+async-executor = "1.3.0"
 async-dup = "1.2.1"
 async-io = "1.1.9"
 blocking = "1.0.0"
@@ -33,7 +34,6 @@ futures-lite = "1.10.0"
 itertools = "0.9.0"
 log = "0.4.8"
 simple_logger = { version = "1.10.0" }
-smol = "1.2.3"
 sqlparser = { git = "https://github.com/ballista-compute/sqlparser-rs.git", branch = "main", features = ["bigdecimal"] }
 
 [dev-dependencies]

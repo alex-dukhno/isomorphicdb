@@ -19,5 +19,5 @@ fn main() {
     simple_logger::SimpleLogger::from_env()
         .init()
         .expect("to initialize logger");
-    node::node::start();
+    node::start();
 }
