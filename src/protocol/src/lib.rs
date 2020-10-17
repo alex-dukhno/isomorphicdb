@@ -300,7 +300,7 @@ where
     loop {
         // TODO: try to use std::mem::swap
         //       instead of invoking .to_vec
-        match process.next_stage(current.as_ref().map(|v| v.as_slice())) {
+        match process.next_stage(current.as_deref()) {
             Ok(Status::Requesting(Request::Buffer(len))) => {
                 let mut local = Vec::with_capacity(len);
                 local.resize(len, b'0');
