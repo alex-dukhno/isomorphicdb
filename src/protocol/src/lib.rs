@@ -17,7 +17,7 @@
 extern crate log;
 
 use crate::{
-    hand_shake::{Cancel, Done, HandShake, HandShakeState, Intermediate, MessageLen, ReadSetupMessage},
+    hand_shake::{Process, Request, Status},
     messages::{BackendMessage, Encryption, FrontendMessage},
     pgsql_types::{PostgreSqlFormat, PostgreSqlType},
     results::QueryResult,
@@ -89,7 +89,7 @@ pub enum ClientRequest {
 }
 
 /// Client Request Code
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Copy, Clone)]
 pub struct Code(pub(crate) i32);
 
 impl Display for Code {
@@ -288,7 +288,6 @@ pub async fn accept_client_request<RW: 'static>(
     address: SocketAddr,
     config: &ProtocolConfiguration,
     conn_supervisor: Arc<Mutex<ConnSupervisor>>,
-    // to_execution_engine: std::sync::mpsc::Sender<Command>,
 ) -> io::Result<Result<ClientRequest>>
 where
     RW: AsyncRead + AsyncWrite + Unpin,
@@ -296,68 +295,43 @@ where
     log::debug!("address {:?}", address);
 
     let mut channel = Channel::Plain(stream);
-    let mut hand_shake = hand_shake::Factory::create();
-    log::debug!("HandShake {:?}", hand_shake);
-    let mut current = vec![];
+    let mut process = Process::start();
+    let mut current: Option<Vec<u8>> = None;
     loop {
         // TODO: try to use std::mem::swap
         //       instead of invoking .to_vec
-        hand_shake = match hand_shake.try_step(current) {
-            Ok(hand_shake) => hand_shake,
-            Err(error) => return Ok(Err(error)),
-        };
-        log::debug!("HandShake {:?}", hand_shake);
-
-        let buf = match hand_shake {
-            HandShakeState::Created(_) => return Ok(Err(Error::VerificationFailed)),
-            HandShakeState::MessageLen(HandShake { state: MessageLen(len) }) => {
+        match process.next_stage(current.as_deref()) {
+            Ok(Status::Requesting(Request::Buffer(len))) => {
                 let mut local = Vec::with_capacity(len);
                 local.resize(len, b'0');
-                channel.read_exact(&mut local).await.map(|_| local)?
+                local = channel.read_exact(&mut local).await.map(|_| local)?;
+                current = Some(local);
             }
-            HandShakeState::ParseSetup(HandShake {
-                state: ReadSetupMessage(len),
-            }) => {
-                let mut local = Vec::with_capacity(len);
-                local.resize(len, b'0');
-                channel.read_exact(&mut local).await.map(|_| local)?
-            }
-            HandShakeState::Intermediate(HandShake {
-                state: Intermediate(ref code, _),
-            }) => match code {
-                Code(SSL_REQUEST_CODE) => {
-                    channel = match channel {
-                        Channel::Plain(mut channel) if config.ssl_support() => {
-                            channel.write_all(Encryption::AcceptSsl.into()).await?;
-                            Channel::Secure(tls_channel(channel, config).await?)
-                        }
-                        _ => {
-                            channel.write_all(Encryption::RejectSsl.into()).await?;
-                            channel
-                        }
-                    };
-                    vec![]
+            Ok(Status::Requesting(Request::UpgradeToSsl)) => {
+                channel = match channel {
+                    Channel::Plain(mut channel) if config.ssl_support() => {
+                        channel.write_all(Encryption::AcceptSsl.into()).await?;
+                        Channel::Secure(tls_channel(channel, config).await?)
+                    }
+                    _ => {
+                        channel.write_all(Encryption::RejectSsl.into()).await?;
+                        channel
+                    }
                 }
-                Code(CANCEL_REQUEST_CODE) => vec![],
-                Code(VERSION_3_CODE) => vec![],
-                _ => return Ok(Err(Error::VerificationFailed)),
-            },
-            HandShakeState::Cancel(HandShake {
-                state: Cancel(conn_id, secret_key),
-            }) => {
-                if conn_supervisor.lock().unwrap().verify(conn_id, secret_key) {
-                    return Ok(Ok(ClientRequest::QueryCancellation(conn_id)));
-                }
-                return Ok(Err(Error::VerificationFailed));
             }
-            HandShakeState::Established(HandShake { state: Done(props) }) => {
-                log::debug!("here 1");
+            Ok(Status::Cancel(conn_id, secret_key)) => {
+                return if conn_supervisor.lock().unwrap().verify(conn_id, secret_key) {
+                    Ok(Ok(ClientRequest::QueryCancellation(conn_id)))
+                } else {
+                    Ok(Err(Error::VerificationFailed))
+                }
+            }
+            Ok(Status::Done(props)) => {
                 channel
                     .write_all(BackendMessage::AuthenticationCleartextPassword.as_vec().as_slice())
                     .await?;
                 channel.flush().await?;
                 let mut tag_buffer = [0u8; 1];
-                log::debug!("here 2");
                 let tag = channel.read_exact(&mut tag_buffer).await.map(|_| tag_buffer[0]);
                 log::debug!("client message response tag {:?}", tag);
                 log::debug!("waiting for authentication response");
@@ -432,9 +406,8 @@ where
                     Arc::new(ResponseSender::new((VERSION_3_CODE, props), channel)),
                 )));
             }
-        };
-
-        current = buf;
+            Err(error) => return Ok(Err(error)),
+        }
     }
 }
 
