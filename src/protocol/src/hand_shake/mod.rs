@@ -103,7 +103,7 @@ mod perform_hand_shake_loop {
         process.next_stage(Some(&[0, 0, 0, 33]))?;
 
         let mut payload = vec![];
-        payload.extend_from_slice(Vec::from(VERSION_3_CODE).as_slice());
+        payload.extend_from_slice(&Vec::from(VERSION_3_CODE));
         payload.extend_from_slice(b"key1\0");
         payload.extend_from_slice(b"value1\0");
         payload.extend_from_slice(b"key2\0");
@@ -129,7 +129,7 @@ mod perform_hand_shake_loop {
         process.next_stage(Some(&[0, 0, 0, 8]))?;
 
         assert_eq!(
-            process.next_stage(Some(Vec::from(SSL_REQUEST_CODE).as_slice()))?,
+            process.next_stage(Some(&Vec::from(SSL_REQUEST_CODE)))?,
             Status::Requesting(Request::UpgradeToSsl)
         );
 
@@ -137,7 +137,7 @@ mod perform_hand_shake_loop {
         process.next_stage(Some(&[0, 0, 0, 33]))?;
 
         let mut payload = vec![];
-        payload.extend_from_slice(Vec::from(VERSION_3_CODE).as_slice());
+        payload.extend_from_slice(&Vec::from(VERSION_3_CODE));
         payload.extend_from_slice(b"key1\0");
         payload.extend_from_slice(b"value1\0");
         payload.extend_from_slice(b"key2\0");
@@ -166,7 +166,7 @@ mod perform_hand_shake_loop {
         process.next_stage(Some(&[0, 0, 0, 16]))?;
 
         let mut payload = vec![];
-        payload.extend_from_slice(Vec::from(CANCEL_REQUEST_CODE).as_slice());
+        payload.extend_from_slice(&Vec::from(CANCEL_REQUEST_CODE));
         payload.extend_from_slice(&conn_id.to_be_bytes());
         payload.extend_from_slice(&secret_key.to_be_bytes());
 

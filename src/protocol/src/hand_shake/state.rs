@@ -172,7 +172,7 @@ mod connection_state_machine {
         hand_shake = hand_shake.try_step(&[0, 0, 0, 33])?;
 
         let mut payload = vec![];
-        payload.extend_from_slice(Vec::from(VERSION_3_CODE).as_slice());
+        payload.extend_from_slice(&Vec::from(VERSION_3_CODE));
         payload.extend_from_slice(b"key1\0");
         payload.extend_from_slice(b"value1\0");
         payload.extend_from_slice(b"key2\0");
@@ -243,7 +243,7 @@ mod connection_state_machine {
         hand_shake = hand_shake.try_step(&[0, 0, 0, 33])?;
 
         let mut payload = vec![];
-        payload.extend_from_slice(Vec::from(CANCEL_REQUEST_CODE).as_slice());
+        payload.extend_from_slice(&Vec::from(CANCEL_REQUEST_CODE));
         payload.extend_from_slice(&conn_id.to_be_bytes());
         payload.extend_from_slice(&secret_key.to_be_bytes());
 
