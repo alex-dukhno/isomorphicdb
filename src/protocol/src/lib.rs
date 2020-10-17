@@ -68,36 +68,29 @@ pub type Params = Vec<(String, String)>;
 pub type Result<T> = std::result::Result<T, Error>;
 
 /// Version 1 of the protocol
-pub(crate) const VERSION_1_CODE: Version = 0x00_01_00_00;
+pub(crate) const VERSION_1_CODE: Code = Code(0x00_01_00_00);
 /// Version 2 of the protocol
-pub(crate) const VERSION_2_CODE: Version = 0x00_02_00_00;
+pub(crate) const VERSION_2_CODE: Code = Code(0x00_02_00_00);
 /// Version 3 of the protocol
-pub(crate) const VERSION_3_CODE: Version = 0x00_03_00_00;
+pub(crate) const VERSION_3_CODE: Code = Code(0x00_03_00_00);
 /// Client initiate cancel of a command
-pub(crate) const CANCEL_REQUEST_CODE: Version = (1234 << 16) + 5678;
+pub(crate) const CANCEL_REQUEST_CODE: Code = Code(8087_7102);
 /// Client initiate `ssl` connection
-pub(crate) const SSL_REQUEST_CODE: Version = (1234 << 16) + 5679;
+pub(crate) const SSL_REQUEST_CODE: Code = Code(8087_7103);
 /// Client initiate `gss` encrypted connection
-pub(crate) const GSSENC_REQUEST_CODE: Version = (1234 << 16) + 5680;
-
-/// Client request accepted from a client
-pub enum ClientRequest {
-    /// Connection to perform queries
-    Connection(Box<dyn Receiver>, Arc<dyn Sender>),
-    /// Connection to cancel queries of another client
-    QueryCancellation(ConnId),
-}
+#[allow(dead_code)]
+pub(crate) const GSSENC_REQUEST_CODE: Code = Code(8087_7104);
 
 /// Client Request Code
-#[derive(Debug, PartialEq, Copy, Clone)]
-pub struct Code(pub(crate) i32);
+#[derive(Debug, PartialEq, Eq, Copy, Clone)]
+pub struct Code(i32);
 
 impl Display for Code {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self.0 {
-            CANCEL_REQUEST_CODE => write!(f, "Cancel Request"),
-            SSL_REQUEST_CODE => write!(f, "SSL Request"),
-            GSSENC_REQUEST_CODE => write!(f, "GSSENC Request"),
+            8087_7102 => write!(f, "Cancel Request"),
+            8087_7103 => write!(f, "SSL Request"),
+            8087_7104 => write!(f, "GSSENC Request"),
             _ => write!(
                 f,
                 "Version {}.{} Request",
@@ -108,39 +101,53 @@ impl Display for Code {
     }
 }
 
+impl From<Code> for Vec<u8> {
+    fn from(code: Code) -> Vec<u8> {
+        code.0.to_be_bytes().to_vec()
+    }
+}
+
 #[cfg(test)]
 mod code_display_tests {
     use super::*;
 
     #[test]
     fn version_one_request() {
-        assert_eq!(Code(VERSION_1_CODE).to_string(), "Version 1.0 Request");
+        assert_eq!(VERSION_1_CODE.to_string(), "Version 1.0 Request");
     }
 
     #[test]
     fn version_two_request() {
-        assert_eq!(Code(VERSION_2_CODE).to_string(), "Version 2.0 Request");
+        assert_eq!(VERSION_2_CODE.to_string(), "Version 2.0 Request");
     }
 
     #[test]
     fn version_three_request() {
-        assert_eq!(Code(VERSION_3_CODE).to_string(), "Version 3.0 Request");
+        assert_eq!(VERSION_3_CODE.to_string(), "Version 3.0 Request");
     }
 
     #[test]
     fn cancel_request() {
-        assert_eq!(Code(CANCEL_REQUEST_CODE).to_string(), "Cancel Request")
+        assert_eq!(CANCEL_REQUEST_CODE.to_string(), "Cancel Request")
     }
 
     #[test]
     fn ssl_request() {
-        assert_eq!(Code(SSL_REQUEST_CODE).to_string(), "SSL Request")
+        assert_eq!(SSL_REQUEST_CODE.to_string(), "SSL Request")
     }
 
     #[test]
     fn gssenc_request() {
-        assert_eq!(Code(GSSENC_REQUEST_CODE).to_string(), "GSSENC Request")
+        assert_eq!(GSSENC_REQUEST_CODE.to_string(), "GSSENC Request")
     }
+}
+
+/// Client request accepted from a client
+pub enum ClientRequest {
+    /// Connection to perform queries
+    Connection(Box<dyn Receiver>, Arc<dyn Sender>),
+    /// Connection to cancel queries of another client
+    QueryCancellation(ConnId),
 }
 
 /// `Error` type in protocol `Result`. Indicates that something went not well
@@ -298,8 +305,6 @@ where
     let mut process = Process::start();
     let mut current: Option<Vec<u8>> = None;
     loop {
-        // TODO: try to use std::mem::swap
-        //       instead of invoking .to_vec
         match process.next_stage(current.as_deref()) {
             Ok(Status::Requesting(Request::Buffer(len))) => {
                 let mut local = Vec::with_capacity(len);
@@ -317,7 +322,8 @@ where
                         channel.write_all(Encryption::RejectSsl.into()).await?;
                         channel
                     }
-                }
+                };
+                current = None
             }
             Ok(Status::Cancel(conn_id, secret_key)) => {
                 return if conn_supervisor.lock().unwrap().verify(conn_id, secret_key) {
@@ -399,11 +405,11 @@ where
                 return Ok(Ok(ClientRequest::Connection(
                     Box::new(RequestReceiver::new(
                         conn_id,
-                        (VERSION_3_CODE, props.clone()),
+                        props.clone(),
                         channel.clone(),
                         conn_supervisor,
                     )),
-                    Arc::new(ResponseSender::new((VERSION_3_CODE, props), channel)),
+                    Arc::new(ResponseSender::new((VERSION_3_CODE.0, props), channel)),
                 )));
             }
             Err(error) => return Ok(Err(error)),
@@ -428,7 +434,7 @@ where
 
 struct RequestReceiver<RW: AsyncRead + AsyncWrite + Unpin> {
     conn_id: ConnId,
-    properties: (Version, Params),
+    properties: Params,
     channel: Arc<AsyncMutex<Channel<RW>>>,
     conn_supervisor: Arc<Mutex<ConnSupervisor>>,
 }
@@ -437,7 +443,7 @@ impl<RW: AsyncRead + AsyncWrite + Unpin> RequestReceiver<RW> {
     /// Creates a new connection
     pub(crate) fn new(
         conn_id: ConnId,
-        properties: (Version, Params),
+        properties: Params,
         channel: Arc<AsyncMutex<Channel<RW>>>,
         conn_supervisor: Arc<Mutex<ConnSupervisor>>,
     ) -> RequestReceiver<RW> {
@@ -450,8 +456,8 @@ impl<RW: AsyncRead + AsyncWrite + Unpin> RequestReceiver<RW> {
     }
 
     /// connection properties tuple
-    pub fn properties(&self) -> &(Version, Params) {
-        &(self.properties)
+    pub fn properties(&self) -> &Params {
+        &self.properties
     }
 
     async fn read_frontend_message(&self) -> io::Result<Result<FrontendMessage>> {

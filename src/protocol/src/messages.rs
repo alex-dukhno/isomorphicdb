@@ -425,12 +425,6 @@ impl<'c> From<&'c [u8]> for Cursor<'c> {
     }
 }
 
-impl<'c> Into<Vec<u8>> for Cursor<'c> {
-    fn into(self) -> Vec<u8> {
-        self.buf.to_vec()
-    }
-}
-
 impl<'a> Cursor<'a> {
     /// Constructs a new `Cursor` from a byte slice. The cursor will begin
     /// decoding from the beginning of the slice.
