@@ -14,40 +14,44 @@
 
 mod state;
 
-use crate::{ConnId, ConnSecretKey, Error, Result};
-use state::*;
+use crate::{ConnId, ConnSecretKey, Result};
+use state::{MessageLen, ReadSetupMessage, SetupParsed, State};
 
 #[derive(Debug, PartialEq)]
 pub struct Process {
-    state: InnerState,
+    state: Option<State>,
 }
 
 impl Process {
     pub fn start() -> Process {
-        Process {
-            state: InnerState::new(),
-        }
+        Process { state: None }
     }
 
     pub fn next_stage(&mut self, payload: Option<&[u8]>) -> Result<Status> {
-        if let Some(bytes) = payload {
-            self.state = self.state.clone().try_step(bytes.to_vec())?;
-            if let InnerState::Intermediate(Intermediate(_, Some(_))) = self.state {
-                self.state = self.state.clone().try_step(vec![])?;
+        match self.state.take() {
+            None => {
+                self.state = Some(State::new());
+                Ok(Status::Requesting(Request::Buffer(4)))
             }
-            if let InnerState::Intermediate(Intermediate(_, None)) = self.state {
-                return Ok(Status::Requesting(Request::UpgradeToSsl));
+            Some(state) => {
+                if let Some(bytes) = payload {
+                    let new_state = state.try_step(bytes)?;
+                    let result = match new_state.clone() {
+                        State::ParseSetup(ReadSetupMessage(len)) => Ok(Status::Requesting(Request::Buffer(len))),
+                        State::MessageLen(MessageLen(len)) => Ok(Status::Requesting(Request::Buffer(len))),
+                        State::SetupParsed(SetupParsed::Established(props)) => Ok(Status::Done(props)),
+                        State::SetupParsed(SetupParsed::Secure) => Ok(Status::Requesting(Request::UpgradeToSsl)),
+                        State::SetupParsed(SetupParsed::Cancel(conn_id, secret_key)) => {
+                            Ok(Status::Cancel(conn_id, secret_key))
+                        }
+                    };
+                    self.state = Some(new_state);
+                    result
+                } else {
+                    self.state = Some(state.try_step(&[])?);
+                    Ok(Status::Requesting(Request::Buffer(4)))
+                }
             }
-            match &self.state {
-                InnerState::ParseSetup(ReadSetupMessage(len)) => Ok(Status::Requesting(Request::Buffer(*len))),
-                InnerState::Established(Done(props)) => Ok(Status::Done(props.clone())),
-                InnerState::MessageLen(MessageLen(len)) => Ok(Status::Requesting(Request::Buffer(*len))),
-                InnerState::Cancel(Cancel(conn_id, secret_key)) => Ok(Status::Cancel(*conn_id, *secret_key)),
-                _ => Err(Error::VerificationFailed),
-            }
-        } else {
-            self.state = self.state.clone().try_step(vec![])?;
-            Ok(Status::Requesting(Request::Buffer(4)))
         }
     }
 }
@@ -99,7 +103,7 @@ mod perform_hand_shake_loop {
         process.next_stage(Some(&[0, 0, 0, 33]))?;
 
         let mut payload = vec![];
-        payload.extend_from_slice(&VERSION_3_CODE.to_be_bytes());
+        payload.extend_from_slice(Vec::from(VERSION_3_CODE).as_slice());
         payload.extend_from_slice(b"key1\0");
         payload.extend_from_slice(b"value1\0");
         payload.extend_from_slice(b"key2\0");
@@ -125,7 +129,7 @@ mod perform_hand_shake_loop {
         process.next_stage(Some(&[0, 0, 0, 8]))?;
 
         assert_eq!(
-            process.next_stage(Some(&SSL_REQUEST_CODE.to_be_bytes()))?,
+            process.next_stage(Some(Vec::from(SSL_REQUEST_CODE).as_slice()))?,
             Status::Requesting(Request::UpgradeToSsl)
         );
 
@@ -133,7 +137,7 @@ mod perform_hand_shake_loop {
         process.next_stage(Some(&[0, 0, 0, 33]))?;
 
         let mut payload = vec![];
-        payload.extend_from_slice(&VERSION_3_CODE.to_be_bytes());
+        payload.extend_from_slice(Vec::from(VERSION_3_CODE).as_slice());
         payload.extend_from_slice(b"key1\0");
         payload.extend_from_slice(b"value1\0");
         payload.extend_from_slice(b"key2\0");
@@ -162,7 +166,7 @@ mod perform_hand_shake_loop {
         process.next_stage(Some(&[0, 0, 0, 16]))?;
 
         let mut payload = vec![];
-        payload.extend_from_slice(&CANCEL_REQUEST_CODE.to_be_bytes());
+        payload.extend_from_slice(Vec::from(CANCEL_REQUEST_CODE).as_slice());
         payload.extend_from_slice(&conn_id.to_be_bytes());
         payload.extend_from_slice(&secret_key.to_be_bytes());
 

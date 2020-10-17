@@ -61,7 +61,7 @@ impl Message {
             Message::SslRequired => {
                 let mut buff = Vec::new();
                 buff.extend_from_slice(&8u32.to_be_bytes());
-                buff.extend_from_slice(&SSL_REQUEST_CODE.to_be_bytes());
+                buff.extend_from_slice(Vec::from(SSL_REQUEST_CODE).as_slice());
                 buff
             }
             Message::Password(password) => {

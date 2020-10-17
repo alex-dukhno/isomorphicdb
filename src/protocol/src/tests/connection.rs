@@ -17,7 +17,7 @@ use std::sync::{Arc, Mutex};
 use async_mutex::Mutex as AsyncMutex;
 use futures_lite::future::block_on;
 
-use crate::{tests::async_io::TestCase, Channel, Command, ConnSupervisor, Receiver, RequestReceiver, VERSION_3_CODE};
+use crate::{tests::async_io::TestCase, Channel, Command, ConnSupervisor, Receiver, RequestReceiver};
 
 #[cfg(test)]
 mod read_query {
@@ -30,7 +30,7 @@ mod read_query {
             let channel = Arc::new(AsyncMutex::new(Channel::Plain(test_case)));
             let conn_supervisor = Arc::new(Mutex::new(ConnSupervisor::new(1, 2)));
             let (conn_id, _) = conn_supervisor.lock().unwrap().alloc().unwrap();
-            let mut receiver = RequestReceiver::new(conn_id, (VERSION_3_CODE, vec![]), channel, conn_supervisor);
+            let mut receiver = RequestReceiver::new(conn_id, vec![], channel, conn_supervisor);
 
             let query = receiver.receive().await.expect("no io errors");
             assert_eq!(query, Ok(Command::Terminate));
@@ -44,7 +44,7 @@ mod read_query {
             let channel = Arc::new(AsyncMutex::new(Channel::Plain(test_case.clone())));
             let conn_supervisor = Arc::new(Mutex::new(ConnSupervisor::new(1, 2)));
             let (conn_id, _) = conn_supervisor.lock().unwrap().alloc().unwrap();
-            let mut receiver = RequestReceiver::new(conn_id, (VERSION_3_CODE, vec![]), channel, conn_supervisor);
+            let mut receiver = RequestReceiver::new(conn_id, vec![], channel, conn_supervisor);
 
             let query = receiver.receive().await.expect("no io errors");
             assert_eq!(
@@ -63,7 +63,7 @@ mod read_query {
             let channel = Arc::new(AsyncMutex::new(Channel::Plain(test_case)));
             let conn_supervisor = Arc::new(Mutex::new(ConnSupervisor::new(1, 2)));
             let (conn_id, _) = conn_supervisor.lock().unwrap().alloc().unwrap();
-            let mut receiver = RequestReceiver::new(conn_id, (VERSION_3_CODE, vec![]), channel, conn_supervisor);
+            let mut receiver = RequestReceiver::new(conn_id, vec![], channel, conn_supervisor);
 
             let query = receiver.receive().await.expect("no io errors");
             assert_eq!(query, Ok(Command::Terminate));
