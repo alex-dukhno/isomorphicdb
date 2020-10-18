@@ -18,7 +18,7 @@ trait Transform<C> {
     fn transform(self, buf: &mut Cursor) -> Result<C>;
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq)]
 pub(crate) struct Created;
 
 impl<'c> Transform<RequestingTag> for &'c Created {
@@ -27,7 +27,7 @@ impl<'c> Transform<RequestingTag> for &'c Created {
     }
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq)]
 pub(crate) struct RequestingTag;
 
 impl<'rt> Transform<Tag> for &'rt RequestingTag {
@@ -36,7 +36,7 @@ impl<'rt> Transform<Tag> for &'rt RequestingTag {
     }
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq)]
 pub(crate) struct Tag(pub(crate) u8);
 
 impl<'t> Transform<WaitingForPayload> for &'t Tag {
@@ -45,7 +45,7 @@ impl<'t> Transform<WaitingForPayload> for &'t Tag {
     }
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq)]
 pub(crate) struct WaitingForPayload;
 
 impl<'w> Transform<Payload> for &'w WaitingForPayload {
@@ -54,7 +54,7 @@ impl<'w> Transform<Payload> for &'w WaitingForPayload {
     }
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq)]
 pub(crate) struct Payload(pub(crate) Vec<u8>);
 
 impl<'p> Transform<Created> for &'p Payload {
@@ -63,7 +63,7 @@ impl<'p> Transform<Created> for &'p Payload {
     }
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq)]
 pub(crate) enum State {
     Created(Created),
     RequestingTag(RequestingTag),

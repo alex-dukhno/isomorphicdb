@@ -47,7 +47,7 @@ impl MessageDecoder {
         std::mem::swap(&mut state, &mut self.state);
         let (new_state, prev) = state.try_step(payload)?;
         self.state = new_state;
-        let result = match prev {
+        match prev {
             State::Created(_) => Ok(Status::Requesting(1)),
             State::RequestingTag(_) => Ok(Status::Requesting(4)),
             State::Tag(Tag(tag)) => {
@@ -59,8 +59,7 @@ impl MessageDecoder {
                 let message = FrontendMessage::decode(self.tag, &data)?;
                 Ok(Status::Done(message))
             }
-        };
-        result
+        }
     }
 }
 
