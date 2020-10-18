@@ -12,11 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::convert::TryFrom;
-
-use protocol::pgsql_types::PostgreSqlType;
+use pg_model::pg_types::PostgreSqlType;
 use sqlparser::ast::DataType;
-use std::fmt::{self, Display, Formatter};
+use std::{
+    convert::TryFrom,
+    fmt::{self, Display, Formatter},
+};
 
 #[derive(PartialEq, Eq, Debug, Copy, Clone, Hash, Ord, PartialOrd)]
 pub enum SqlType {

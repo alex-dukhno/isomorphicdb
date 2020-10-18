@@ -6,6 +6,8 @@ edition = "2018"
 publish = false
 
 [dependencies]
+pg_model = { path = "../pg_model" }
+
 async-dup = "1.2.1"
 async-mutex = "1.4.0"
 #TODO temporal to have ability to run ./local/code_coverage.sh

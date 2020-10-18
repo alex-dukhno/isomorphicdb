@@ -750,6 +750,7 @@ dependencies = [
  "log",
  "metadata",
  "parser",
+ "pg_model",
  "plan",
  "protocol",
  "query_analyzer",
@@ -902,6 +903,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d4fd5641d01c8f18a23da7b6fe29298ff4b55afcccdf78973b24cf3175fee32e"
 
 [[package]]
+name = "pg_model"
+version = "0.1.0"
+dependencies = [
+ "bigdecimal",
+ "byteorder",
+ "rstest",
+ "sqlparser",
+]
+
+[[package]]
 name = "pin-project"
 version = "0.4.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1003,6 +1014,7 @@ dependencies = [
  "byteorder",
  "futures-lite",
  "log",
+ "pg_model",
  "rand",
  "tempfile",
 ]
@@ -1273,7 +1285,7 @@ checksum = "fbee7696b84bbf3d89a1c2eccff0850e3047ed46bfcd2e92c29a2d074d57e252"
 name = "sql_model"
 version = "0.1.0"
 dependencies = [
- "protocol",
+ "pg_model",
  "rstest",
  "sqlparser",
 ]

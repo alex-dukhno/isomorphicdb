@@ -13,8 +13,7 @@
 // limitations under the License.
 
 use super::*;
-use protocol::pgsql_types::PostgreSqlType;
-
+use pg_model::pg_types::PostgreSqlType;
 use protocol::{messages::ColumnMetadata, results::QueryEvent};
 
 #[rstest::rstest]

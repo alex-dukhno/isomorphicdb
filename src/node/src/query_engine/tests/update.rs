@@ -13,9 +13,9 @@
 // limitations under the License.
 
 use super::*;
+use pg_model::pg_types::PostgreSqlType;
 use protocol::{
     messages::ColumnMetadata,
-    pgsql_types::PostgreSqlType,
     results::{QueryError, QueryEvent},
 };
 

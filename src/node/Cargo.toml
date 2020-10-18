@@ -19,6 +19,7 @@ data_manager = { path = "../data_manager" }
 kernel = { path = "../kernel" }
 metadata = { path = "../metadata" }
 parser = { path = "../parser" }
+pg_model = { path = "../pg_model" }
 plan = { path = "../plan" }
 protocol = { path = "../protocol" }
 query_analyzer = { path = "../query_analyzer" }

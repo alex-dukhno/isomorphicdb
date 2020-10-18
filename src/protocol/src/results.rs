@@ -12,12 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::messages::{BackendMessage, ColumnMetadata};
+use pg_model::pg_types::PostgreSqlType;
 use std::fmt::{self, Display, Formatter};
-
-use crate::{
-    messages::{BackendMessage, ColumnMetadata},
-    pgsql_types::PostgreSqlType,
-};
 
 /// Represents result of SQL query execution
 pub type QueryResult = std::result::Result<QueryEvent, QueryError>;
@@ -51,6 +48,10 @@ pub enum QueryEvent {
     RecordsUpdated(usize),
     /// Number of records deleted into a table
     RecordsDeleted(usize),
+    /// Prepared statement successfully prepared for execution
+    StatementPrepared,
+    /// Prepared statement successfully deallocated
+    StatementDeallocated,
     /// Prepared statement parameters
     StatementParameters(Vec<PostgreSqlType>),
     /// Prepare statement description
@@ -87,6 +88,8 @@ impl Into<BackendMessage> for QueryEvent {
             QueryEvent::RecordsSelected(records) => BackendMessage::CommandComplete(format!("SELECT {}", records)),
             QueryEvent::RecordsUpdated(records) => BackendMessage::CommandComplete(format!("UPDATE {}", records)),
             QueryEvent::RecordsDeleted(records) => BackendMessage::CommandComplete(format!("DELETE {}", records)),
+            QueryEvent::StatementPrepared => BackendMessage::CommandComplete("PREPARE".to_owned()),
+            QueryEvent::StatementDeallocated => BackendMessage::CommandComplete("DEALLOCATE".to_owned()),
             QueryEvent::StatementParameters(param_types) => {
                 BackendMessage::ParameterDescription(param_types.iter().map(PostgreSqlType::pg_oid).collect())
             }
@@ -145,6 +148,7 @@ pub(crate) enum QueryErrorKind {
     InvalidParameterValue(String),
     PreparedStatementDoesNotExist(String),
     PortalDoesNotExist(String),
+    TypeDoesNotExist(String),
     ProtocolViolation(String),
     FeatureNotSupported(String),
     TooManyInsertExpressions,
@@ -196,6 +200,7 @@ impl QueryErrorKind {
             Self::InvalidParameterValue(_) => "22023",
             Self::PreparedStatementDoesNotExist(_) => "26000",
             Self::PortalDoesNotExist(_) => "26000",
+            Self::TypeDoesNotExist(_) => "42704",
             Self::ProtocolViolation(_) => "08P01",
             Self::FeatureNotSupported(_) => "0A000",
             Self::TooManyInsertExpressions => "42601",
@@ -228,6 +233,7 @@ impl Display for QueryErrorKind {
                 write!(f, "prepared statement {} does not exist", statement_name)
             }
             Self::PortalDoesNotExist(portal_name) => write!(f, "portal {} does not exist", portal_name),
+            Self::TypeDoesNotExist(type_name) => write!(f, "type \"{}\" does not exist", type_name),
             Self::ProtocolViolation(message) => write!(f, "{}", message),
             Self::FeatureNotSupported(raw_sql_query) => {
                 write!(f, "Currently, Query '{}' can't be executed", raw_sql_query)
@@ -380,6 +386,14 @@ impl QueryError {
         QueryError {
             severity: Severity::Error,
             kind: QueryErrorKind::PortalDoesNotExist(portal_name.to_string()),
+        }
+    }
+
+    /// type does not exist error constructor
+    pub fn type_does_not_exist<S: ToString>(type_name: S) -> QueryError {
+        QueryError {
+            severity: Severity::Error,
+            kind: QueryErrorKind::TypeDoesNotExist(type_name.to_string()),
         }
     }
 
@@ -607,6 +621,18 @@ mod tests {
         }
 
         #[test]
+        fn prepare_statement() {
+            let message: BackendMessage = QueryEvent::StatementPrepared.into();
+            assert_eq!(message, BackendMessage::CommandComplete("PREPARE".to_owned()))
+        }
+
+        #[test]
+        fn deallocate_statement() {
+            let message: BackendMessage = QueryEvent::StatementDeallocated.into();
+            assert_eq!(message, BackendMessage::CommandComplete("DEALLOCATE".to_owned()))
+        }
+
+        #[test]
         fn statement_description() {
             let message: BackendMessage =
                 QueryEvent::StatementDescription(vec![("si_column".to_owned(), PostgreSqlType::SmallInt)]).into();
@@ -745,6 +771,19 @@ mod tests {
                     Some("ERROR"),
                     Some("26000"),
                     Some("portal portal_name does not exist".to_owned()),
+                )
+            )
+        }
+
+        #[test]
+        fn type_does_not_exists() {
+            let message: BackendMessage = QueryError::type_does_not_exist("type_name").into();
+            assert_eq!(
+                message,
+                BackendMessage::ErrorResponse(
+                    Some("ERROR"),
+                    Some("42704"),
+                    Some("type \"type_name\" does not exist".to_owned()),
                 )
             )
         }

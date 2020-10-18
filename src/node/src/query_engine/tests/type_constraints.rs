@@ -13,10 +13,8 @@
 // limitations under the License.
 
 use super::*;
-use protocol::{
-    pgsql_types::PostgreSqlType,
-    results::{QueryError, QueryEvent},
-};
+use pg_model::pg_types::PostgreSqlType;
+use protocol::results::{QueryError, QueryEvent};
 
 #[rstest::fixture]
 fn int_table(database_with_schema: (InMemory, ResultCollector)) -> (InMemory, ResultCollector) {
