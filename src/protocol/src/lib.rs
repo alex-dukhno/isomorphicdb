@@ -19,7 +19,6 @@ extern crate log;
 use crate::{
     hand_shake::{Process, Request, Status},
     messages::{BackendMessage, Encryption, FrontendMessage},
-    pgsql_types::{PostgreSqlFormat, PostgreSqlType},
     results::QueryResult,
 };
 use async_mutex::Mutex as AsyncMutex;
@@ -31,6 +30,7 @@ use futures_lite::{
     future::block_on,
     io::{self, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, ErrorKind},
 };
+use pg_model::pg_types::{PostgreSqlFormat, PostgreSqlType};
 use rand::Rng;
 use std::{
     collections::{HashMap, VecDeque},
@@ -47,8 +47,6 @@ mod hand_shake;
 /// Module contains backend messages that could be send by server implementation
 /// to a client
 pub mod messages;
-/// Module contains functionality to represent SQL type system
-pub mod pgsql_types;
 /// Module contains functionality to represent query result
 pub mod results;
 /// Module contains functionality to represent server side client session

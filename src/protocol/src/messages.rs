@@ -12,14 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::convert::TryFrom;
-
+use crate::{ConnId, ConnSecretKey, Error, Result};
 use byteorder::{ByteOrder, NetworkEndian};
-
-use crate::{
-    pgsql_types::{Oid, PostgreSqlFormat, PostgreSqlType},
-    ConnId, ConnSecretKey, Error, Result,
-};
+use pg_model::pg_types::{Oid, PostgreSqlFormat, PostgreSqlType};
+use std::convert::TryFrom;
 
 const COMMAND_COMPLETE: u8 = b'C';
 const DATA_ROW: u8 = b'D';

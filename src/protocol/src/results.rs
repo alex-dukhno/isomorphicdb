@@ -12,12 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::messages::{BackendMessage, ColumnMetadata};
+use pg_model::pg_types::PostgreSqlType;
 use std::fmt::{self, Display, Formatter};
-
-use crate::{
-    messages::{BackendMessage, ColumnMetadata},
-    pgsql_types::PostgreSqlType,
-};
 
 /// Represents result of SQL query execution
 pub type QueryResult = std::result::Result<QueryEvent, QueryError>;

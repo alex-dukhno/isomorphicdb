@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use super::*;
-use protocol::pgsql_types::{PostgreSqlFormat, PostgreSqlType};
+use pg_model::pg_types::{PostgreSqlFormat, PostgreSqlType};
 
 #[rstest::fixture]
 fn database_with_table(database_with_schema: (InMemory, ResultCollector)) -> (InMemory, ResultCollector) {

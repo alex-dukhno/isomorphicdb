@@ -18,9 +18,9 @@ use description::{Description, DescriptionError};
 use itertools::izip;
 use metadata::{DataDefinition, MetadataView};
 use parser::QueryParser;
+use pg_model::pg_types::{PostgreSqlFormat, PostgreSqlType};
 use plan::{Plan, SelectInput};
 use protocol::{
-    pgsql_types::{PostgreSqlFormat, PostgreSqlType},
     results::{QueryError, QueryEvent},
     session::Session,
     statement::PreparedStatement,
