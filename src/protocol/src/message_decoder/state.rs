@@ -12,8 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::messages::Cursor;
-use crate::Result;
+use crate::{messages::Cursor, Result};
 
 trait Transform<C> {
     fn transform(self, buf: &mut Cursor) -> Result<C>;
@@ -95,7 +94,7 @@ mod tests {
     use super::*;
     use crate::messages::QUERY;
 
-    const QUERY_STRING: &[u8] = "select * from t".as_bytes();
+    const QUERY_STRING: &[u8] = b"select * from t";
 
     #[test]
     fn created() {

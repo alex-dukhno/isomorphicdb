@@ -16,9 +16,9 @@
 //! API for backend implementation of PostgreSQL Wire Protocol
 extern crate log;
 
-use crate::message_decoder::MessageDecoder;
 use crate::{
     hand_shake::{Process, Request, Status},
+    message_decoder::MessageDecoder,
     messages::{BackendMessage, Encryption, FrontendMessage},
     results::QueryResult,
 };
@@ -466,12 +466,11 @@ impl<RW: AsyncRead + AsyncWrite + Unpin> RequestReceiver<RW> {
     async fn read_frontend_message(&mut self) -> io::Result<Result<FrontendMessage>> {
         let mut current: Option<Vec<u8>> = None;
         loop {
-            log::info!("{:?}", current);
+            log::debug!("{:?}", current);
             match self.message_decoder.next_stage(current.take().as_deref()) {
                 Ok(message_decoder::Status::Requesting(len)) => {
                     let mut buffer = vec![b'0'; len];
                     self.channel.lock().await.read_exact(&mut buffer).await?;
-                    log::info!("{:?}", buffer);
                     current = Some(buffer);
                 }
                 Ok(message_decoder::Status::Decoding) => {}
@@ -479,37 +478,6 @@ impl<RW: AsyncRead + AsyncWrite + Unpin> RequestReceiver<RW> {
                 Err(error) => return Ok(Err(error)),
             }
         }
-
-        // Parses the one-byte tag.
-        // let mut buffer = [0u8; 1];
-        // let tag = self
-        //     .channel
-        //     .lock()
-        //     .await
-        //     .read_exact(&mut buffer)
-        //     .await
-        //     .map(|_| buffer[0])?;
-        // log::debug!("client request message tag {:?}", tag);
-        //
-        // // Parses the frame length.
-        // let mut buffer = [0u8; 4];
-        // let len = self
-        //     .channel
-        //     .lock()
-        //     .await
-        //     .read_exact(&mut buffer)
-        //     .await
-        //     .map(|_| NetworkEndian::read_u32(&buffer))?;
-        //
-        // // Parses the frame data.
-        // let mut buffer = Vec::with_capacity(len as usize - 4);
-        // buffer.resize(len as usize - 4, b'0');
-        // self.channel.lock().await.read_exact(&mut buffer).await?;
-        //
-        // match FrontendMessage::decode(tag, &buffer) {
-        //     Ok(msg) => Ok(Ok(msg)),
-        //     Err(err) => Ok(Err(err)),
-        // }
     }
 }
 

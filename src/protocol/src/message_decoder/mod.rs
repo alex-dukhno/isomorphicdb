@@ -13,8 +13,8 @@
 // limitations under the License.
 
 mod state;
-use crate::message_decoder::state::{Payload, Tag};
 use crate::{
+    message_decoder::state::{Payload, Tag},
     messages::{Cursor, FrontendMessage},
     Result,
 };
