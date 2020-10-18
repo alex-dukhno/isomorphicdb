@@ -19,6 +19,7 @@ use crate::{
     Result,
 };
 use state::State;
+use std::mem::MaybeUninit;
 
 #[derive(Debug, PartialEq)]
 pub enum Status {
@@ -41,25 +42,23 @@ impl MessageDecoder {
     }
 
     pub fn next_stage(&mut self, payload: Option<&[u8]>) -> Result<Status> {
-        let result = match &self.state {
+        let payload = if let Some(payload) = payload { payload } else { &[] };
+        let mut state = unsafe { MaybeUninit::zeroed().assume_init() };
+        std::mem::swap(&mut state, &mut self.state);
+        let (new_state, prev) = state.try_step(payload)?;
+        self.state = new_state;
+        let result = match prev {
             State::Created(_) => Ok(Status::Requesting(1)),
             State::RequestingTag(_) => Ok(Status::Requesting(4)),
             State::Tag(Tag(tag)) => {
-                self.tag = *tag;
-                Ok(Status::Requesting(
-                    (Cursor::from(payload.unwrap()).read_i32()? - 4) as usize,
-                ))
+                self.tag = tag;
+                Ok(Status::Requesting((Cursor::from(payload).read_i32()? - 4) as usize))
             }
             State::WaitingForPayload(_) => Ok(Status::Decoding),
             State::Payload(Payload(data)) => {
                 let message = FrontendMessage::decode(self.tag, &data)?;
                 Ok(Status::Done(message))
             }
-        };
-        self.state = if let Some(payload) = payload {
-            self.state.clone().try_step(payload)?
-        } else {
-            self.state.clone().try_step(&[])?
         };
         result
     }
