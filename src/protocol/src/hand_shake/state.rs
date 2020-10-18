@@ -18,33 +18,24 @@ use crate::{
 };
 
 trait ConnectionTransition<C> {
-    fn transit(self, cursor: Cursor) -> Result<C>;
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub(crate) struct Created;
-
-impl ConnectionTransition<MessageLen> for Created {
-    fn transit(self, _cursor: Cursor) -> Result<MessageLen> {
-        Ok(MessageLen(4))
-    }
+    fn transit(self, cursor: &mut Cursor) -> Result<C>;
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub(crate) struct MessageLen(pub(crate) usize);
 
 impl ConnectionTransition<ReadSetupMessage> for MessageLen {
-    fn transit(self, mut cursor: Cursor) -> Result<ReadSetupMessage> {
+    fn transit(self, cursor: &mut Cursor) -> Result<ReadSetupMessage> {
         let len = cursor.read_i32()?;
         Ok(ReadSetupMessage((len - 4) as usize))
     }
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub(crate) struct ReadSetupMessage(pub usize);
+pub(crate) struct ReadSetupMessage(pub(crate) usize);
 
 impl ConnectionTransition<SetupParsed> for ReadSetupMessage {
-    fn transit(self, mut cursor: Cursor) -> Result<SetupParsed> {
+    fn transit(self, cursor: &mut Cursor) -> Result<SetupParsed> {
         let code = Code(cursor.read_i32()?);
         log::info!("Connection Code: {}", code);
         match code {
@@ -93,10 +84,10 @@ impl State {
     }
 
     pub(crate) fn try_step(self, buf: &[u8]) -> Result<State> {
-        let buffer = Cursor::from(buf);
+        let mut buffer = Cursor::from(buf);
         match self {
-            State::MessageLen(hand_shake) => Ok(State::ParseSetup(hand_shake.transit(buffer)?)),
-            State::ParseSetup(hand_shake) => Ok(State::SetupParsed(hand_shake.transit(buffer)?)),
+            State::MessageLen(hand_shake) => Ok(State::ParseSetup(hand_shake.transit(&mut buffer)?)),
+            State::ParseSetup(hand_shake) => Ok(State::SetupParsed(hand_shake.transit(&mut buffer)?)),
             State::SetupParsed(hand_shake) => match hand_shake {
                 SetupParsed::Secure => Ok(State::MessageLen(MessageLen(4))),
                 _ => Err(Error::VerificationFailed),
@@ -131,9 +122,7 @@ mod connection_state_machine {
     fn non_recognizable_protocol_code() {
         let mut hand_shake = State::new();
 
-        hand_shake = hand_shake
-            .try_step(&[0, 0, 0, 25])
-            .expect("connection state transition");
+        hand_shake = hand_shake.try_step(&[0, 0, 0, 25]).expect("proceed to the next step");
 
         assert_eq!(
             hand_shake.try_step(b"non_recognizable_code"),
@@ -145,7 +134,7 @@ mod connection_state_machine {
     fn version_one_is_not_supported() {
         let mut hand_shake = State::new();
 
-        hand_shake = hand_shake.try_step(&[0, 0, 0, 8]).expect("connection state transition");
+        hand_shake = hand_shake.try_step(&[0, 0, 0, 8]).expect("proceed to the next step");
 
         assert_eq!(
             hand_shake.try_step(&Vec::from(VERSION_1_CODE)),
@@ -157,7 +146,7 @@ mod connection_state_machine {
     fn version_two_is_not_supported() {
         let mut hand_shake = State::new();
 
-        hand_shake = hand_shake.try_step(&[0, 0, 0, 8]).expect("connection state transition");
+        hand_shake = hand_shake.try_step(&[0, 0, 0, 8]).expect("proceed to the next step");
 
         assert_eq!(
             hand_shake.try_step(&Vec::from(VERSION_2_CODE)),
@@ -166,10 +155,10 @@ mod connection_state_machine {
     }
 
     #[test]
-    fn setup_version_three_with_client_params() -> Result<()> {
+    fn setup_version_three_with_client_params() {
         let mut hand_shake = State::new();
 
-        hand_shake = hand_shake.try_step(&[0, 0, 0, 33])?;
+        hand_shake = hand_shake.try_step(&[0, 0, 0, 33]).expect("proceed to the next step");
 
         let mut payload = vec![];
         payload.extend_from_slice(&Vec::from(VERSION_3_CODE));
@@ -180,28 +169,28 @@ mod connection_state_machine {
         payload.extend_from_slice(&[0]);
 
         assert_eq!(
-            hand_shake.try_step(&payload)?,
-            State::SetupParsed(SetupParsed::Established(vec![
+            hand_shake.try_step(&payload),
+            Ok(State::SetupParsed(SetupParsed::Established(vec![
                 ("key1".to_owned(), "value1".to_owned()),
                 ("key2".to_owned(), "value2".to_owned())
-            ]))
+            ])))
         );
-
-        Ok(())
     }
 
     #[test]
-    fn connection_established_with_ssl_request() -> Result<()> {
+    fn connection_established_with_ssl_request() {
         let mut hand_shake = State::new();
 
-        hand_shake = hand_shake.try_step(&[0, 0, 0, 8])?;
+        hand_shake = hand_shake.try_step(&[0, 0, 0, 8]).expect("proceed to the next step");
 
-        hand_shake = hand_shake.try_step(&Vec::from(SSL_REQUEST_CODE))?;
+        hand_shake = hand_shake
+            .try_step(&Vec::from(SSL_REQUEST_CODE))
+            .expect("proceed to the next step");
         assert_eq!(hand_shake, State::SetupParsed(SetupParsed::Secure));
 
-        hand_shake = hand_shake.try_step(&[])?;
+        hand_shake = hand_shake.try_step(&[]).expect("proceed to the next step");
 
-        hand_shake = hand_shake.try_step(&[0, 0, 0, 33])?;
+        hand_shake = hand_shake.try_step(&[0, 0, 0, 33]).expect("proceed to the next step");
 
         let mut payload = vec![];
         payload.extend_from_slice(&Vec::from(VERSION_3_CODE));
@@ -212,21 +201,19 @@ mod connection_state_machine {
         payload.extend_from_slice(&[0]);
 
         assert_eq!(
-            hand_shake.try_step(&payload)?,
-            State::SetupParsed(SetupParsed::Established(vec![
+            hand_shake.try_step(&payload),
+            Ok(State::SetupParsed(SetupParsed::Established(vec![
                 ("key1".to_owned(), "value1".to_owned()),
                 ("key2".to_owned(), "value2".to_owned())
-            ]))
+            ])))
         );
-
-        Ok(())
     }
 
     #[test]
     fn connection_established_with_gssenc_request() {
         let mut hand_shake = State::new();
 
-        hand_shake = hand_shake.try_step(&[0, 0, 0, 8]).expect("connection state transition");
+        hand_shake = hand_shake.try_step(&[0, 0, 0, 8]).expect("proceed to the next step");
 
         assert_eq!(
             hand_shake.try_step(&Vec::from(GSSENC_REQUEST_CODE)),
@@ -235,12 +222,12 @@ mod connection_state_machine {
     }
 
     #[test]
-    fn cancel_query_request() -> Result<()> {
+    fn cancel_query_request() {
         let conn_id: ConnId = 1;
         let secret_key: ConnSecretKey = 2;
         let mut hand_shake = State::new();
 
-        hand_shake = hand_shake.try_step(&[0, 0, 0, 33])?;
+        hand_shake = hand_shake.try_step(&[0, 0, 0, 33]).expect("proceed to the next step");
 
         let mut payload = vec![];
         payload.extend_from_slice(&Vec::from(CANCEL_REQUEST_CODE));
@@ -248,10 +235,8 @@ mod connection_state_machine {
         payload.extend_from_slice(&secret_key.to_be_bytes());
 
         assert_eq!(
-            hand_shake.try_step(&payload)?,
-            State::SetupParsed(SetupParsed::Cancel(conn_id, secret_key))
+            hand_shake.try_step(&payload),
+            Ok(State::SetupParsed(SetupParsed::Cancel(conn_id, secret_key)))
         );
-
-        Ok(())
     }
 }

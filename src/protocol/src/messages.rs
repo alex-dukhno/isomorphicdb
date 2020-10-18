@@ -36,7 +36,7 @@ const PARSE_COMPLETE: u8 = b'1';
 const BIND_COMPLETE: u8 = b'2';
 const CLOSE_COMPLETE: u8 = b'3';
 
-const QUERY: u8 = b'Q';
+pub(crate) const QUERY: u8 = b'Q';
 const BIND: u8 = b'B';
 const CLOSE: u8 = b'C';
 const DESCRIBE: u8 = b'D';
@@ -421,6 +421,12 @@ impl<'c> From<&'c [u8]> for Cursor<'c> {
     }
 }
 
+impl<'c> From<&'c Cursor<'c>> for Vec<u8> {
+    fn from(cur: &'c Cursor<'c>) -> Vec<u8> {
+        cur.buf.to_vec()
+    }
+}
+
 impl<'a> Cursor<'a> {
     /// Constructs a new `Cursor` from a byte slice. The cursor will begin
     /// decoding from the beginning of the slice.
@@ -442,7 +448,7 @@ impl<'a> Cursor<'a> {
     }
 
     /// Returns the next byte, advancing the cursor by one byte.
-    fn read_byte(&mut self) -> Result<u8> {
+    pub(crate) fn read_byte(&mut self) -> Result<u8> {
         let byte = self.peek_byte()?;
         self.advance(1);
         Ok(byte)
@@ -457,7 +463,7 @@ impl<'a> Cursor<'a> {
             self.advance(pos + 1);
             Ok(val)
         } else {
-            Err(Error::InvalidUtfString)
+            Err(Error::ZeroByteNotFound)
         }
     }
 
