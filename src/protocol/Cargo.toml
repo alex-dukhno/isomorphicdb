@@ -15,7 +15,7 @@ async-native-tls = { git = "https://github.com/alex-dukhno/async-native-tls.git"
 async-trait = "0.1.40"
 blocking = "1.0.0"
 byteorder = "1.3.4"
-futures-lite = "1.10.0"
+futures-lite = "1.11.1"
 log = "0.4.11"
 rand = "0.7"
 

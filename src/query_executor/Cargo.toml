@@ -20,7 +20,7 @@ repr = { path = "../repr" }
 sql_model = { path = "../sql_model" }
 
 bigdecimal = { version = "0.2.0", features = ["string-only"] }
-futures-lite = "1.10.0"
+futures-lite = "1.11.1"
 log = "0.4.11"
 sqlparser = { git = "https://github.com/ballista-compute/sqlparser-rs.git", branch = "main", features = ["bigdecimal"] }
 
