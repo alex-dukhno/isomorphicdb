@@ -13,10 +13,10 @@
 // limitations under the License.
 
 use super::*;
-use pg_model::pg_types::PostgreSqlType;
-use protocol::{
-    messages::ColumnMetadata,
+use pg_model::{
+    pg_types::PostgreSqlType,
     results::{QueryError, QueryEvent},
+    Command,
 };
 
 #[rstest::rstest]
@@ -59,9 +59,9 @@ fn prepare_execute_and_deallocate(database_with_schema: (InMemory, ResultCollect
         .expect("query executed");
     collector.assert_receive_many(vec![
         Ok(QueryEvent::RowDescription(vec![
-            ColumnMetadata::new("column_1", PostgreSqlType::SmallInt),
-            ColumnMetadata::new("column_2", PostgreSqlType::SmallInt),
-            ColumnMetadata::new("column_3", PostgreSqlType::SmallInt),
+            PostgreSqlType::SmallInt.as_column_metadata("column_1"),
+            PostgreSqlType::SmallInt.as_column_metadata("column_2"),
+            PostgreSqlType::SmallInt.as_column_metadata("column_3"),
         ])),
         Ok(QueryEvent::DataRow(vec![
             "123".to_owned(),

@@ -18,14 +18,14 @@ use description::{Description, DescriptionError};
 use itertools::izip;
 use metadata::{DataDefinition, MetadataView};
 use parser::QueryParser;
-use pg_model::pg_types::{PostgreSqlFormat, PostgreSqlType};
-use plan::{Plan, SelectInput};
-use protocol::{
+use pg_model::{
+    pg_types::{PostgreSqlFormat, PostgreSqlType},
     results::{QueryError, QueryEvent},
     session::Session,
     statement::PreparedStatement,
     Command, Sender,
 };
+use plan::{Plan, SelectInput};
 use query_analyzer::Analyzer;
 use query_executor::QueryExecutor;
 use query_planner::{PlanError, QueryPlanner};
@@ -368,7 +368,7 @@ impl QueryEngine {
         }
     }
 
-    fn describe(&self, select_input: SelectInput) -> protocol::results::Description {
+    fn describe(&self, select_input: SelectInput) -> pg_model::results::Description {
         self.data_manager
             .column_defs(&select_input.table_id, &select_input.selected_columns)
             .into_iter()

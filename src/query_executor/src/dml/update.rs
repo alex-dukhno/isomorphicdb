@@ -18,11 +18,11 @@ use constraints::{Constraint, ConstraintError};
 use data_manager::DataManager;
 use expr_eval::{DynamicExpressionEvaluation, EvalError, StaticExpressionEvaluation};
 use metadata::MetadataView;
-use plan::TableUpdates;
-use protocol::{
+use pg_model::{
     results::{QueryError, QueryEvent},
     Sender,
 };
+use plan::TableUpdates;
 use std::{collections::HashMap, sync::Arc};
 
 pub(crate) struct UpdateCommand {

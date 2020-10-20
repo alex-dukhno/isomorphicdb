@@ -13,7 +13,11 @@
 // limitations under the License.
 
 use super::*;
-use pg_model::pg_types::{PostgreSqlFormat, PostgreSqlType};
+use pg_model::{
+    pg_types::{PostgreSqlFormat, PostgreSqlType},
+    results::QueryEvent,
+    Command,
+};
 
 #[rstest::fixture]
 fn database_with_table(database_with_schema: (InMemory, ResultCollector)) -> (InMemory, ResultCollector) {
@@ -32,6 +36,7 @@ fn database_with_table(database_with_schema: (InMemory, ResultCollector)) -> (In
 #[cfg(test)]
 mod statement_description {
     use super::*;
+    use pg_model::results::QueryError;
 
     #[rstest::rstest]
     fn statement_description(database_with_table: (InMemory, ResultCollector)) {

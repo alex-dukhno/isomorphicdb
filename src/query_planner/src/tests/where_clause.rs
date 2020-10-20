@@ -25,7 +25,7 @@ use std::convert::TryFrom;
 fn select_from_table(planner_with_table: QueryPlanner) {
     assert_eq!(
         planner_with_table.plan(&Statement::Query(Box::new(Query {
-            ctes: vec![],
+            with: None,
             body: SetExpr::Select(Box::new(Select {
                 distinct: false,
                 top: None,

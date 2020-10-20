@@ -13,10 +13,10 @@
 // limitations under the License.
 
 use super::*;
-use pg_model::pg_types::PostgreSqlType;
-use protocol::{
-    messages::ColumnMetadata,
+use pg_model::{
+    pg_types::PostgreSqlType,
     results::{QueryError, QueryEvent},
+    Command,
 };
 
 #[rstest::rstest]
@@ -75,10 +75,9 @@ fn insert_and_select_single_row(database_with_schema: (InMemory, ResultCollector
         })
         .expect("query executed");
     collector.assert_receive_many(vec![
-        Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
-            "column_test",
-            PostgreSqlType::SmallInt,
-        )])),
+        Ok(QueryEvent::RowDescription(vec![
+            PostgreSqlType::SmallInt.as_column_metadata("column_test")
+        ])),
         Ok(QueryEvent::DataRow(vec!["123".to_owned()])),
         Ok(QueryEvent::RecordsSelected(1)),
     ]);
@@ -115,10 +114,9 @@ fn insert_and_select_multiple_rows(database_with_schema: (InMemory, ResultCollec
         })
         .expect("query executed");
     collector.assert_receive_many(vec![
-        Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
-            "column_test",
-            PostgreSqlType::SmallInt,
-        )])),
+        Ok(QueryEvent::RowDescription(vec![
+            PostgreSqlType::SmallInt.as_column_metadata("column_test")
+        ])),
         Ok(QueryEvent::DataRow(vec!["123".to_owned()])),
         Ok(QueryEvent::DataRow(vec!["456".to_owned()])),
         Ok(QueryEvent::RecordsSelected(2)),
@@ -150,9 +148,9 @@ fn insert_and_select_named_columns(database_with_schema: (InMemory, ResultCollec
         .expect("query executed");
     collector.assert_receive_many(vec![
         Ok(QueryEvent::RowDescription(vec![
-            ColumnMetadata::new("col1", PostgreSqlType::SmallInt),
-            ColumnMetadata::new("col2", PostgreSqlType::SmallInt),
-            ColumnMetadata::new("col3", PostgreSqlType::SmallInt),
+            PostgreSqlType::SmallInt.as_column_metadata("col1"),
+            PostgreSqlType::SmallInt.as_column_metadata("col2"),
+            PostgreSqlType::SmallInt.as_column_metadata("col3"),
         ])),
         Ok(QueryEvent::DataRow(vec![
             "3".to_owned(),
@@ -195,9 +193,9 @@ fn insert_multiple_rows(database_with_schema: (InMemory, ResultCollector)) {
 
     collector.assert_receive_many(vec![
         Ok(QueryEvent::RowDescription(vec![
-            ColumnMetadata::new("column_1", PostgreSqlType::SmallInt),
-            ColumnMetadata::new("column_2", PostgreSqlType::SmallInt),
-            ColumnMetadata::new("column_3", PostgreSqlType::SmallInt),
+            PostgreSqlType::SmallInt.as_column_metadata("column_1"),
+            PostgreSqlType::SmallInt.as_column_metadata("column_2"),
+            PostgreSqlType::SmallInt.as_column_metadata("column_3"),
         ])),
         Ok(QueryEvent::DataRow(vec![
             "1".to_owned(),
@@ -248,10 +246,10 @@ fn insert_and_select_different_integer_types(database_with_schema: (InMemory, Re
         .expect("query executed");
     collector.assert_receive_many(vec![
         Ok(QueryEvent::RowDescription(vec![
-            ColumnMetadata::new("column_si", PostgreSqlType::SmallInt),
-            ColumnMetadata::new("column_i", PostgreSqlType::Integer),
-            ColumnMetadata::new("column_bi", PostgreSqlType::BigInt),
-            ColumnMetadata::new("column_serial", PostgreSqlType::Integer),
+            PostgreSqlType::SmallInt.as_column_metadata("column_si"),
+            PostgreSqlType::Integer.as_column_metadata("column_i"),
+            PostgreSqlType::BigInt.as_column_metadata("column_bi"),
+            PostgreSqlType::Integer.as_column_metadata("column_serial"),
         ])),
         Ok(QueryEvent::DataRow(vec![
             "-32768".to_owned(),
@@ -300,8 +298,8 @@ fn insert_and_select_different_character_types(database_with_schema: (InMemory, 
         .expect("query executed");
     collector.assert_receive_many(vec![
         Ok(QueryEvent::RowDescription(vec![
-            ColumnMetadata::new("column_c", PostgreSqlType::Char),
-            ColumnMetadata::new("column_vc", PostgreSqlType::VarChar),
+            PostgreSqlType::Char.as_column_metadata("column_c"),
+            PostgreSqlType::VarChar.as_column_metadata("column_vc"),
         ])),
         Ok(QueryEvent::DataRow(vec![
             "12345abcde".to_owned(),
@@ -388,10 +386,9 @@ mod operators {
                     })
                     .expect("query executed");
                 collector.assert_receive_many(vec![
-                    Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
-                        "column_si",
-                        PostgreSqlType::SmallInt,
-                    )])),
+                    Ok(QueryEvent::RowDescription(vec![
+                        PostgreSqlType::SmallInt.as_column_metadata("column_si")
+                    ])),
                     Ok(QueryEvent::DataRow(vec!["3".to_owned()])),
                     Ok(QueryEvent::RecordsSelected(1)),
                 ]);
@@ -414,10 +411,9 @@ mod operators {
                     })
                     .expect("query executed");
                 collector.assert_receive_many(vec![
-                    Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
-                        "column_si",
-                        PostgreSqlType::SmallInt,
-                    )])),
+                    Ok(QueryEvent::RowDescription(vec![
+                        PostgreSqlType::SmallInt.as_column_metadata("column_si")
+                    ])),
                     Ok(QueryEvent::DataRow(vec!["-1".to_owned()])),
                     Ok(QueryEvent::RecordsSelected(1)),
                 ]);
@@ -440,10 +436,9 @@ mod operators {
                     })
                     .expect("query executed");
                 collector.assert_receive_many(vec![
-                    Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
-                        "column_si",
-                        PostgreSqlType::SmallInt,
-                    )])),
+                    Ok(QueryEvent::RowDescription(vec![
+                        PostgreSqlType::SmallInt.as_column_metadata("column_si")
+                    ])),
                     Ok(QueryEvent::DataRow(vec!["6".to_owned()])),
                     Ok(QueryEvent::RecordsSelected(1)),
                 ]);
@@ -466,10 +461,9 @@ mod operators {
                     })
                     .expect("query executed");
                 collector.assert_receive_many(vec![
-                    Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
-                        "column_si",
-                        PostgreSqlType::SmallInt,
-                    )])),
+                    Ok(QueryEvent::RowDescription(vec![
+                        PostgreSqlType::SmallInt.as_column_metadata("column_si")
+                    ])),
                     Ok(QueryEvent::DataRow(vec!["4".to_owned()])),
                     Ok(QueryEvent::RecordsSelected(1)),
                 ]);
@@ -492,10 +486,9 @@ mod operators {
                     })
                     .expect("query executed");
                 collector.assert_receive_many(vec![
-                    Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
-                        "column_si",
-                        PostgreSqlType::SmallInt,
-                    )])),
+                    Ok(QueryEvent::RowDescription(vec![
+                        PostgreSqlType::SmallInt.as_column_metadata("column_si")
+                    ])),
                     Ok(QueryEvent::DataRow(vec!["0".to_owned()])),
                     Ok(QueryEvent::RecordsSelected(1)),
                 ]);
@@ -521,10 +514,9 @@ mod operators {
                     })
                     .expect("query executed");
                 collector.assert_receive_many(vec![
-                    Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
-                        "column_si",
-                        PostgreSqlType::SmallInt,
-                    )])),
+                    Ok(QueryEvent::RowDescription(vec![
+                        PostgreSqlType::SmallInt.as_column_metadata("column_si")
+                    ])),
                     Ok(QueryEvent::DataRow(vec!["64".to_owned()])),
                     Ok(QueryEvent::RecordsSelected(1)),
                 ]);
@@ -549,10 +541,9 @@ mod operators {
                     })
                     .expect("query executed");
                 collector.assert_receive_many(vec![
-                    Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
-                        "column_si",
-                        PostgreSqlType::SmallInt,
-                    )])),
+                    Ok(QueryEvent::RowDescription(vec![
+                        PostgreSqlType::SmallInt.as_column_metadata("column_si")
+                    ])),
                     Ok(QueryEvent::DataRow(vec!["4".to_owned()])),
                     Ok(QueryEvent::RecordsSelected(1)),
                 ]);
@@ -577,10 +568,9 @@ mod operators {
                     })
                     .expect("query executed");
                 collector.assert_receive_many(vec![
-                    Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
-                        "column_si",
-                        PostgreSqlType::SmallInt,
-                    )])),
+                    Ok(QueryEvent::RowDescription(vec![
+                        PostgreSqlType::SmallInt.as_column_metadata("column_si")
+                    ])),
                     Ok(QueryEvent::DataRow(vec!["2".to_owned()])),
                     Ok(QueryEvent::RecordsSelected(1)),
                 ]);
@@ -605,10 +595,9 @@ mod operators {
                     })
                     .expect("query executed");
                 collector.assert_receive_many(vec![
-                    Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
-                        "column_si",
-                        PostgreSqlType::SmallInt,
-                    )])),
+                    Ok(QueryEvent::RowDescription(vec![
+                        PostgreSqlType::SmallInt.as_column_metadata("column_si")
+                    ])),
                     Ok(QueryEvent::DataRow(vec!["120".to_owned()])),
                     Ok(QueryEvent::RecordsSelected(1)),
                 ]);
@@ -633,10 +622,9 @@ mod operators {
                     })
                     .expect("query executed");
                 collector.assert_receive_many(vec![
-                    Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
-                        "column_si",
-                        PostgreSqlType::SmallInt,
-                    )])),
+                    Ok(QueryEvent::RowDescription(vec![
+                        PostgreSqlType::SmallInt.as_column_metadata("column_si")
+                    ])),
                     Ok(QueryEvent::DataRow(vec!["120".to_owned()])),
                     Ok(QueryEvent::RecordsSelected(1)),
                 ]);
@@ -661,10 +649,9 @@ mod operators {
                     })
                     .expect("query executed");
                 collector.assert_receive_many(vec![
-                    Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
-                        "column_si",
-                        PostgreSqlType::SmallInt,
-                    )])),
+                    Ok(QueryEvent::RowDescription(vec![
+                        PostgreSqlType::SmallInt.as_column_metadata("column_si")
+                    ])),
                     Ok(QueryEvent::DataRow(vec!["5".to_owned()])),
                     Ok(QueryEvent::RecordsSelected(1)),
                 ]);
@@ -687,10 +674,9 @@ mod operators {
                     })
                     .expect("query executed");
                 collector.assert_receive_many(vec![
-                    Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
-                        "column_si",
-                        PostgreSqlType::SmallInt,
-                    )])),
+                    Ok(QueryEvent::RowDescription(vec![
+                        PostgreSqlType::SmallInt.as_column_metadata("column_si")
+                    ])),
                     Ok(QueryEvent::DataRow(vec!["1".to_owned()])),
                     Ok(QueryEvent::RecordsSelected(1)),
                 ]);
@@ -713,10 +699,9 @@ mod operators {
                     })
                     .expect("query executed");
                 collector.assert_receive_many(vec![
-                    Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
-                        "column_si",
-                        PostgreSqlType::SmallInt,
-                    )])),
+                    Ok(QueryEvent::RowDescription(vec![
+                        PostgreSqlType::SmallInt.as_column_metadata("column_si")
+                    ])),
                     Ok(QueryEvent::DataRow(vec!["7".to_owned()])),
                     Ok(QueryEvent::RecordsSelected(1)),
                 ]);
@@ -741,10 +726,9 @@ mod operators {
                     })
                     .expect("query executed");
                 collector.assert_receive_many(vec![
-                    Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
-                        "column_si",
-                        PostgreSqlType::SmallInt,
-                    )])),
+                    Ok(QueryEvent::RowDescription(vec![
+                        PostgreSqlType::SmallInt.as_column_metadata("column_si")
+                    ])),
                     Ok(QueryEvent::DataRow(vec!["-2".to_owned()])),
                     Ok(QueryEvent::RecordsSelected(1)),
                 ]);
@@ -769,10 +753,9 @@ mod operators {
                     })
                     .expect("query executed");
                 collector.assert_receive_many(vec![
-                    Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
-                        "column_si",
-                        PostgreSqlType::SmallInt,
-                    )])),
+                    Ok(QueryEvent::RowDescription(vec![
+                        PostgreSqlType::SmallInt.as_column_metadata("column_si")
+                    ])),
                     Ok(QueryEvent::DataRow(vec!["16".to_owned()])),
                     Ok(QueryEvent::RecordsSelected(1)),
                 ]);
@@ -797,10 +780,9 @@ mod operators {
                     })
                     .expect("query executed");
                 collector.assert_receive_many(vec![
-                    Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
-                        "column_si",
-                        PostgreSqlType::SmallInt,
-                    )])),
+                    Ok(QueryEvent::RowDescription(vec![
+                        PostgreSqlType::SmallInt.as_column_metadata("column_si")
+                    ])),
                     Ok(QueryEvent::DataRow(vec!["2".to_owned()])),
                     Ok(QueryEvent::RecordsSelected(1)),
                 ]);
@@ -823,10 +805,9 @@ mod operators {
                     })
                     .expect("query executed");
                 collector.assert_receive_many(vec![
-                    Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
-                        "column_si",
-                        PostgreSqlType::SmallInt,
-                    )])),
+                    Ok(QueryEvent::RowDescription(vec![
+                        PostgreSqlType::SmallInt.as_column_metadata("column_si")
+                    ])),
                     Ok(QueryEvent::DataRow(vec!["5".to_owned()])),
                     Ok(QueryEvent::RecordsSelected(1)),
                 ]);
@@ -870,10 +851,9 @@ mod operators {
                 })
                 .expect("query executed");
             collector.assert_receive_many(vec![
-                Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
-                    "strings",
-                    PostgreSqlType::Char,
-                )])),
+                Ok(QueryEvent::RowDescription(vec![
+                    PostgreSqlType::Char.as_column_metadata("strings")
+                ])),
                 Ok(QueryEvent::DataRow(vec!["12345".to_owned()])),
                 Ok(QueryEvent::RecordsSelected(1)),
             ]);
@@ -903,10 +883,9 @@ mod operators {
                 })
                 .expect("query executed");
             collector.assert_receive_many(vec![
-                Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
-                    "strings",
-                    PostgreSqlType::Char,
-                )])),
+                Ok(QueryEvent::RowDescription(vec![
+                    PostgreSqlType::Char.as_column_metadata("strings")
+                ])),
                 Ok(QueryEvent::DataRow(vec!["145".to_owned()])),
                 Ok(QueryEvent::DataRow(vec!["451".to_owned()])),
                 Ok(QueryEvent::RecordsSelected(2)),

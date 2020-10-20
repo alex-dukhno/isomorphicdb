@@ -13,10 +13,10 @@
 // limitations under the License.
 
 use super::*;
-use pg_model::pg_types::PostgreSqlType;
-use protocol::{
-    messages::ColumnMetadata,
+use pg_model::{
+    pg_types::PostgreSqlType,
     results::{QueryError, QueryEvent},
+    Command,
 };
 
 #[rstest::rstest]
@@ -62,10 +62,9 @@ fn delete_all_records(database_with_schema: (InMemory, ResultCollector)) {
         })
         .expect("query executed");
     collector.assert_receive_many(vec![
-        Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
-            "column_test",
-            PostgreSqlType::SmallInt,
-        )])),
+        Ok(QueryEvent::RowDescription(vec![
+            PostgreSqlType::SmallInt.as_column_metadata("column_test")
+        ])),
         Ok(QueryEvent::DataRow(vec!["123".to_owned()])),
         Ok(QueryEvent::DataRow(vec!["456".to_owned()])),
         Ok(QueryEvent::RecordsSelected(2)),
@@ -84,10 +83,9 @@ fn delete_all_records(database_with_schema: (InMemory, ResultCollector)) {
         })
         .expect("query executed");
     collector.assert_receive_many(vec![
-        Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
-            "column_test",
-            PostgreSqlType::SmallInt,
-        )])),
+        Ok(QueryEvent::RowDescription(vec![
+            PostgreSqlType::SmallInt.as_column_metadata("column_test")
+        ])),
         Ok(QueryEvent::RecordsSelected(0)),
     ]);
 }

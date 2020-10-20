@@ -14,20 +14,23 @@
 
 mod state;
 
-use crate::{ConnId, ConnSecretKey, Result};
+use crate::{ConnId, ConnSecretKey, ProtocolResult};
 use state::{MessageLen, ReadSetupMessage, SetupParsed, State};
 
+/// Encapsulate protocol hand shake process
 #[derive(Debug, PartialEq)]
 pub struct Process {
     state: Option<State>,
 }
 
 impl Process {
+    /// Creates new process to make client <-> server hand shake
     pub fn start() -> Process {
         Process { state: None }
     }
 
-    pub fn next_stage(&mut self, payload: Option<&[u8]>) -> Result<Status> {
+    /// Proceed to the next stage of client <-> server hand shake
+    pub fn next_stage(&mut self, payload: Option<&[u8]>) -> ProtocolResult<Status> {
         match self.state.take() {
             None => {
                 self.state = Some(State::new());
@@ -56,16 +59,23 @@ impl Process {
     }
 }
 
+/// Represents status of the [Process] stages
 #[derive(Debug, PartialEq)]
 pub enum Status {
+    /// Hand shake process requesting additional data or action to proceed further
     Requesting(Request),
+    /// Hand shake is finished. Contains client runtime settings, e.g. database, username
     Done(Vec<(String, String)>),
+    /// Hand shake is for canceling request that is executed on `ConnId`
     Cancel(ConnId, ConnSecretKey),
 }
 
+/// Hand shake request to a server process
 #[derive(Debug, PartialEq)]
 pub enum Request {
+    /// Server should provide `Process` with buffer of request size
     Buffer(usize),
+    /// Server should use SSL protocol over current connection stream
     UpgradeToSsl,
 }
 

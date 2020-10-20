@@ -19,8 +19,8 @@ use ast::{
 use binary::ReadCursor;
 use data_manager::DataManager;
 use metadata::MetadataView;
+use pg_model::{pg_types::PostgreSqlType, results::QueryEvent, Sender};
 use plan::{FullTableId, SelectInput};
-use protocol::{messages::ColumnMetadata, results::QueryEvent, Sender};
 use sql_model::Id;
 use std::{convert::TryInto, sync::Arc};
 
@@ -156,7 +156,10 @@ impl SelectCommand {
                 self.data_manager
                     .column_defs(&self.select_input.table_id, &self.select_input.selected_columns)
                     .into_iter()
-                    .map(|column| ColumnMetadata::new(column.name(), (&column.sql_type()).into()))
+                    .map(|column| {
+                        let pg_type: PostgreSqlType = (&column.sql_type()).into();
+                        pg_type.as_column_metadata(column.name())
+                    })
                     .collect(),
             )))
             .expect("To Send Query Result to Client");

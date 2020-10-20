@@ -13,19 +13,19 @@
 // limitations under the License.
 
 use crate::{
-    messages::Cursor, Code, ConnId, ConnSecretKey, Error, Result, CANCEL_REQUEST_CODE, SSL_REQUEST_CODE,
+    messages::Cursor, Code, ConnId, ConnSecretKey, Error, ProtocolResult, CANCEL_REQUEST_CODE, SSL_REQUEST_CODE,
     VERSION_1_CODE, VERSION_2_CODE, VERSION_3_CODE,
 };
 
 trait ConnectionTransition<C> {
-    fn transit(self, cursor: &mut Cursor) -> Result<C>;
+    fn transit(self, cursor: &mut Cursor) -> ProtocolResult<C>;
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub(crate) struct MessageLen(pub(crate) usize);
 
 impl ConnectionTransition<ReadSetupMessage> for MessageLen {
-    fn transit(self, cursor: &mut Cursor) -> Result<ReadSetupMessage> {
+    fn transit(self, cursor: &mut Cursor) -> ProtocolResult<ReadSetupMessage> {
         let len = cursor.read_i32()?;
         Ok(ReadSetupMessage((len - 4) as usize))
     }
@@ -35,7 +35,7 @@ impl ConnectionTransition<ReadSetupMessage> for MessageLen {
 pub(crate) struct ReadSetupMessage(pub(crate) usize);
 
 impl ConnectionTransition<SetupParsed> for ReadSetupMessage {
-    fn transit(self, cursor: &mut Cursor) -> Result<SetupParsed> {
+    fn transit(self, cursor: &mut Cursor) -> ProtocolResult<SetupParsed> {
         let code = Code(cursor.read_i32()?);
         log::info!("Connection Code: {}", code);
         match code {
@@ -83,7 +83,7 @@ impl State {
         State::MessageLen(MessageLen(4))
     }
 
-    pub(crate) fn try_step(self, buf: &[u8]) -> Result<State> {
+    pub(crate) fn try_step(self, buf: &[u8]) -> ProtocolResult<State> {
         let mut buffer = Cursor::from(buf);
         match self {
             State::MessageLen(hand_shake) => Ok(State::ParseSetup(hand_shake.transit(&mut buffer)?)),

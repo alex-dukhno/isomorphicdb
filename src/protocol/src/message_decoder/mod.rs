@@ -16,24 +16,37 @@ mod state;
 use crate::{
     message_decoder::state::{Payload, Tag},
     messages::{Cursor, FrontendMessage},
-    Result,
+    ProtocolResult,
 };
 use state::State;
 use std::mem::MaybeUninit;
 
+/// Represents a status of a `MessageDecoder` stage
 #[derive(Debug, PartialEq)]
 pub enum Status {
+    /// `MessageDecoder` requests buffer with specified size
     Requesting(usize),
+    /// `MessageDecoder` is in a process of decoding and decoded front message will be available
+    /// after the next stage
     Decoding,
+    /// `MessageDecoder` has decoded a message and returns it content
     Done(FrontendMessage),
 }
 
+/// Decodes messages from client
 pub struct MessageDecoder {
     state: State,
     tag: u8,
 }
 
+impl Default for MessageDecoder {
+    fn default() -> MessageDecoder {
+        MessageDecoder::new()
+    }
+}
+
 impl MessageDecoder {
+    /// Creates new `MessageDecoder`
     pub fn new() -> MessageDecoder {
         MessageDecoder {
             state: State::new(),
@@ -41,7 +54,8 @@ impl MessageDecoder {
         }
     }
 
-    pub fn next_stage(&mut self, payload: Option<&[u8]>) -> Result<Status> {
+    /// Proceed to the next stage of decoding received message
+    pub fn next_stage(&mut self, payload: Option<&[u8]>) -> ProtocolResult<Status> {
         let payload = if let Some(payload) = payload { payload } else { &[] };
         let mut state = unsafe { MaybeUninit::zeroed().assume_init() };
         std::mem::swap(&mut state, &mut self.state);

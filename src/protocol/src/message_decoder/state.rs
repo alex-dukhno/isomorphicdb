@@ -12,17 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{messages::Cursor, Result};
+use crate::{messages::Cursor, ProtocolResult};
 
 trait Transform<C> {
-    fn transform(self, buf: &mut Cursor) -> Result<C>;
+    fn transform(self, buf: &mut Cursor) -> ProtocolResult<C>;
 }
 
 #[derive(Debug, PartialEq)]
 pub(crate) struct Created;
 
 impl<'c> Transform<RequestingTag> for &'c Created {
-    fn transform(self, _buf: &mut Cursor) -> Result<RequestingTag> {
+    fn transform(self, _buf: &mut Cursor) -> ProtocolResult<RequestingTag> {
         Ok(RequestingTag)
     }
 }
@@ -31,7 +31,7 @@ impl<'c> Transform<RequestingTag> for &'c Created {
 pub(crate) struct RequestingTag;
 
 impl<'rt> Transform<Tag> for &'rt RequestingTag {
-    fn transform(self, buf: &mut Cursor) -> Result<Tag> {
+    fn transform(self, buf: &mut Cursor) -> ProtocolResult<Tag> {
         Ok(Tag(buf.read_byte()?))
     }
 }
@@ -40,7 +40,7 @@ impl<'rt> Transform<Tag> for &'rt RequestingTag {
 pub(crate) struct Tag(pub(crate) u8);
 
 impl<'t> Transform<WaitingForPayload> for &'t Tag {
-    fn transform(self, _buf: &mut Cursor) -> Result<WaitingForPayload> {
+    fn transform(self, _buf: &mut Cursor) -> ProtocolResult<WaitingForPayload> {
         Ok(WaitingForPayload)
     }
 }
@@ -49,7 +49,7 @@ impl<'t> Transform<WaitingForPayload> for &'t Tag {
 pub(crate) struct WaitingForPayload;
 
 impl<'w> Transform<Payload> for &'w WaitingForPayload {
-    fn transform(self, buf: &mut Cursor) -> Result<Payload> {
+    fn transform(self, buf: &mut Cursor) -> ProtocolResult<Payload> {
         Ok(Payload(Vec::from(&*buf)))
     }
 }
@@ -58,7 +58,7 @@ impl<'w> Transform<Payload> for &'w WaitingForPayload {
 pub(crate) struct Payload(pub(crate) Vec<u8>);
 
 impl<'p> Transform<Created> for &'p Payload {
-    fn transform(self, _buf: &mut Cursor) -> Result<Created> {
+    fn transform(self, _buf: &mut Cursor) -> ProtocolResult<Created> {
         Ok(Created)
     }
 }
@@ -77,7 +77,7 @@ impl State {
         State::Created(Created)
     }
 
-    pub(crate) fn try_step(self, buf: &[u8]) -> Result<(State, State)> {
+    pub(crate) fn try_step(self, buf: &[u8]) -> ProtocolResult<(State, State)> {
         let mut cursor = Cursor::from(buf);
         match &self {
             State::Created(created) => Ok((State::RequestingTag(created.transform(&mut cursor)?), self)),

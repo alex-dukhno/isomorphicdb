@@ -13,7 +13,10 @@
 // limitations under the License.
 
 use super::*;
-use protocol::results::{QueryEvent, QueryResult};
+use pg_model::{
+    results::{QueryEvent, QueryResult},
+    Command, Sender,
+};
 use std::{
     io,
     ops::DerefMut,

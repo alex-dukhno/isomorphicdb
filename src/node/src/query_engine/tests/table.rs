@@ -13,7 +13,10 @@
 // limitations under the License.
 
 use super::*;
-use protocol::results::{QueryError, QueryEvent};
+use pg_model::{
+    results::{QueryError, QueryEvent},
+    Command,
+};
 
 #[cfg(test)]
 mod schemaless {

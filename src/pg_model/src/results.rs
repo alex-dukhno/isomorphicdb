@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::messages::{BackendMessage, ColumnMetadata};
-use pg_model::pg_types::PostgreSqlType;
+use crate::pg_types::PostgreSqlType;
+use protocol::{BackendMessage, ColumnMetadata};
 use std::fmt::{self, Display, Formatter};
 
 /// Represents result of SQL query execution
@@ -64,15 +64,6 @@ pub enum QueryEvent {
     BindComplete,
 }
 
-impl Into<BackendMessage> for QueryResult {
-    fn into(self) -> BackendMessage {
-        match self {
-            Ok(event) => event.into(),
-            Err(error) => error.into(),
-        }
-    }
-}
-
 impl Into<BackendMessage> for QueryEvent {
     fn into(self) -> BackendMessage {
         match self {
@@ -97,7 +88,12 @@ impl Into<BackendMessage> for QueryEvent {
                 if description.is_empty() {
                     BackendMessage::NoData
                 } else {
-                    BackendMessage::RowDescription(description.into_iter().map(ColumnMetadata::from).collect())
+                    BackendMessage::RowDescription(
+                        description
+                            .into_iter()
+                            .map(|(name, pg_type)| pg_type.as_column_metadata(name))
+                            .collect(),
+                    )
                 }
             }
             QueryEvent::QueryComplete => BackendMessage::ReadyForQuery,
@@ -574,16 +570,16 @@ mod tests {
         #[test]
         fn row_description() {
             let message: BackendMessage = QueryEvent::RowDescription(vec![
-                ColumnMetadata::new("column_name_1", PostgreSqlType::SmallInt),
-                ColumnMetadata::new("column_name_2", PostgreSqlType::SmallInt),
+                PostgreSqlType::SmallInt.as_column_metadata("column_name_1"),
+                PostgreSqlType::SmallInt.as_column_metadata("column_name_2"),
             ])
             .into();
 
             assert_eq!(
                 message,
                 BackendMessage::RowDescription(vec![
-                    ColumnMetadata::new("column_name_1", PostgreSqlType::SmallInt),
-                    ColumnMetadata::new("column_name_2", PostgreSqlType::SmallInt)
+                    PostgreSqlType::SmallInt.as_column_metadata("column_name_1"),
+                    PostgreSqlType::SmallInt.as_column_metadata("column_name_2"),
                 ])
             )
         }
@@ -638,7 +634,7 @@ mod tests {
                 QueryEvent::StatementDescription(vec![("si_column".to_owned(), PostgreSqlType::SmallInt)]).into();
             assert_eq!(
                 message,
-                BackendMessage::RowDescription(vec![ColumnMetadata::new("si_column", PostgreSqlType::SmallInt)])
+                BackendMessage::RowDescription(vec![PostgreSqlType::SmallInt.as_column_metadata("si_column")])
             )
         }
 
