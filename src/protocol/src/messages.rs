@@ -12,8 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{ConnId, ConnSecretKey, Error, Oid, PgFormat, ProtocolResult};
-use byteorder::{ByteOrder, NetworkEndian};
+use crate::{ConnId, ConnSecretKey, Error, Oid, PgFormat, ProtocolResult, UnrecognizedFormat};
 use std::convert::TryFrom;
 
 const COMMAND_COMPLETE: u8 = b'C';
@@ -442,22 +441,13 @@ impl<'a> Cursor<'a> {
         }
     }
 
-    /// Reads the next 16-bit format code, advancing the cursor by two bytes.
-    fn read_format(&mut self) -> ProtocolResult<i16> {
-        match self.read_i16()? {
-            0 => Ok(0),
-            1 => Ok(1),
-            code => Err(Error::InvalidInput(format!("unknown format code: {}", code))),
-        }
-    }
-
     /// Reads the next 16-bit signed integer, advancing the cursor by two
     /// bytes.
     fn read_i16(&mut self) -> ProtocolResult<i16> {
         if self.buf.len() < 2 {
-            return Err(Error::InvalidInput("not enough buffer for an Int16".to_owned()));
+            return Err(Error::InvalidInput("not enough buffer to read 16bit Int".to_owned()));
         }
-        let val = NetworkEndian::read_i16(self.buf);
+        let val = i16::from_be_bytes([self.buf[0], self.buf[1]]);
         self.advance(2);
         Ok(val)
     }
@@ -466,9 +456,9 @@ impl<'a> Cursor<'a> {
     /// bytes.
     pub fn read_i32(&mut self) -> ProtocolResult<i32> {
         if self.buf.len() < 4 {
-            return Err(Error::InvalidInput("not enough buffer for an Int32".to_owned()));
+            return Err(Error::InvalidInput("not enough buffer to read 32bit Int".to_owned()));
         }
-        let val = NetworkEndian::read_i32(self.buf);
+        let val = i32::from_be_bytes([self.buf[0], self.buf[1], self.buf[2], self.buf[3]]);
         self.advance(4);
         Ok(val)
     }
@@ -476,12 +466,7 @@ impl<'a> Cursor<'a> {
     /// Reads the next 32-bit unsigned integer, advancing the cursor by four
     /// bytes.
     fn read_u32(&mut self) -> ProtocolResult<u32> {
-        if self.buf.len() < 4 {
-            return Err(Error::InvalidInput("not enough buffer for an Int32".to_owned()));
-        }
-        let val = NetworkEndian::read_u32(self.buf);
-        self.advance(4);
-        Ok(val)
+        self.read_i32().map(|val| val as u32)
     }
 }
 
@@ -491,9 +476,9 @@ fn decode_bind(mut cursor: Cursor) -> ProtocolResult<FrontendMessage> {
 
     let mut param_formats = vec![];
     for _ in 0..cursor.read_i16()? {
-        match PgFormat::try_from(cursor.read_format()?) {
+        match PgFormat::try_from(cursor.read_i16()?) {
             Ok(format) => param_formats.push(format),
-            Err(error) => return Err(Error::InvalidInput(format!("{:?}", error))),
+            Err(UnrecognizedFormat(code)) => return Err(Error::InvalidInput(format!("unknown format code: {}", code))),
         }
     }
 
@@ -514,9 +499,9 @@ fn decode_bind(mut cursor: Cursor) -> ProtocolResult<FrontendMessage> {
 
     let mut result_formats = vec![];
     for _ in 0..cursor.read_i16()? {
-        match PgFormat::try_from(cursor.read_format()?) {
+        match PgFormat::try_from(cursor.read_i16()?) {
             Ok(format) => result_formats.push(format),
-            Err(error) => return Err(Error::InvalidInput(format!("{:?}", error))),
+            Err(UnrecognizedFormat(code)) => return Err(Error::InvalidInput(format!("unknown format code: {}", code))),
         }
     }
 
