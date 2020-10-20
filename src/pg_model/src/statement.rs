@@ -34,8 +34,10 @@
 //! 4. The client issues an `Execute` message with the name of a portal, causing
 //!    that portal to actually start scanning and returning results.
 
-use crate::results::Description;
-use pg_model::pg_types::{PostgreSqlFormat, PostgreSqlType};
+use crate::{
+    pg_types::{PostgreSqlFormat, PostgreSqlType},
+    results::Description,
+};
 
 /// A prepared statement.
 #[derive(Clone, Debug, PartialEq)]

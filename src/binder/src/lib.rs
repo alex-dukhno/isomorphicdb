@@ -127,7 +127,7 @@ mod tests {
             table_name: ObjectName(vec![ident("schema_name"), ident("table_name")]),
             columns: vec![],
             source: Box::new(Query {
-                ctes: vec![],
+                with: None,
                 body: SetExpr::Values(Values(vec![vec![
                     Expr::Identifier(ident("$1")),
                     Expr::Identifier(ident("$2")),

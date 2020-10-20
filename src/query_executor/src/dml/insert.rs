@@ -19,11 +19,11 @@ use data_manager::DataManager;
 use expr_eval::{EvalError, StaticExpressionEvaluation};
 use kernel::SystemError;
 use meta_def::ColumnDefinition;
-use plan::TableInserts;
-use protocol::{
+use pg_model::{
     results::{QueryError, QueryEvent},
     Sender,
 };
+use plan::TableInserts;
 use repr::Datum;
 use std::sync::Arc;
 

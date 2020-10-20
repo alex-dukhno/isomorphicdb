@@ -1,9 +1,6 @@
 [bans]
 multiple-versions = "deny"
 skip-tree = [
-    # node -> simple_logger -> chrono -> time -> wasi
-    # protocol -> rand -> wasi
-    { name = "wasi" },
     # getrandom v0.1.15
     #     ├── rand v0.7.3
     #     │   ├── fail v0.4.0

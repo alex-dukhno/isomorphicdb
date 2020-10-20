@@ -25,7 +25,7 @@ fn insert_into_table_that_in_nonexistent_schema(planner: QueryPlanner) {
             table_name: ObjectName(vec![ident("non_existent_schema"), ident(TABLE)]),
             columns: vec![],
             source: Box::new(Query {
-                ctes: vec![],
+                with: None,
                 body: SetExpr::Values(Values(vec![])),
                 order_by: vec![],
                 limit: None,
@@ -44,7 +44,7 @@ fn insert_into_nonexistent_table(planner_with_schema: QueryPlanner) {
             table_name: ObjectName(vec![ident(SCHEMA), ident("non_existent_table")]),
             columns: vec![],
             source: Box::new(Query {
-                ctes: vec![],
+                with: None,
                 body: SetExpr::Values(Values(vec![])),
                 order_by: vec![],
                 limit: None,
@@ -66,7 +66,7 @@ fn insert_into_table_with_unqualified_name(planner_with_schema: QueryPlanner) {
             table_name: ObjectName(vec![ident("only_schema_in_the_name")]),
             columns: vec![],
             source: Box::new(Query {
-                ctes: vec![],
+                with: None,
                 body: SetExpr::Values(Values(vec![])),
                 order_by: vec![],
                 limit: None,
@@ -92,7 +92,7 @@ fn insert_into_table_with_unsupported_name(planner_with_schema: QueryPlanner) {
             ]),
             columns: vec![],
             source: Box::new(Query {
-                ctes: vec![],
+                with: None,
                 body: SetExpr::Values(Values(vec![])),
                 order_by: vec![],
                 limit: None,
@@ -113,7 +113,7 @@ fn insert_into_table(planner_with_table: QueryPlanner) {
             table_name: ObjectName(vec![ident(SCHEMA), ident(TABLE)]),
             columns: vec![ident("small_int"), ident("integer"), ident("big_int")],
             source: Box::new(Query {
-                ctes: vec![],
+                with: None,
                 body: SetExpr::Values(Values(vec![])),
                 order_by: vec![],
                 limit: None,
@@ -145,7 +145,7 @@ fn insert_into_table_without_columns(planner_with_table: QueryPlanner) {
             table_name: ObjectName(vec![ident(SCHEMA), ident(TABLE)]),
             columns: vec![],
             source: Box::new(Query {
-                ctes: vec![],
+                with: None,
                 body: SetExpr::Values(Values(vec![])),
                 order_by: vec![],
                 limit: None,

@@ -14,6 +14,7 @@
 
 use bigdecimal::BigDecimal;
 use byteorder::{BigEndian, ReadBytesExt};
+use protocol::{ColumnMetadata, PgFormat};
 use sqlparser::ast::{DataType, Expr, Value};
 use std::{
     convert::{TryFrom, TryInto},
@@ -49,7 +50,7 @@ pub enum PostgreSqlType {
 pub struct NotSupportedDataType(DataType);
 
 /// Not supported OID
-pub struct NotSupportedOid(Oid);
+pub struct NotSupportedOid(pub(crate) Oid);
 
 impl TryFrom<&DataType> for PostgreSqlType {
     type Error = NotSupportedDataType;
@@ -144,6 +145,14 @@ impl PostgreSqlType {
             Self::Interval => 16,
             Self::TimeWithTimeZone => 12,
             Self::Decimal => -1,
+        }
+    }
+
+    pub fn as_column_metadata<S: ToString>(&self, name: S) -> ColumnMetadata {
+        ColumnMetadata {
+            name: name.to_string(),
+            type_id: self.pg_oid(),
+            type_size: self.pg_len(),
         }
     }
 
@@ -354,6 +363,15 @@ pub enum PostgreSqlFormat {
     Text,
     /// Binary encoding.
     Binary,
+}
+
+impl From<PgFormat> for PostgreSqlFormat {
+    fn from(pg_format: PgFormat) -> Self {
+        match pg_format {
+            PgFormat::Text => PostgreSqlFormat::Text,
+            PgFormat::Binary => PostgreSqlFormat::Binary,
+        }
+    }
 }
 
 #[cfg(test)]

@@ -12,23 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use super::async_io::{empty_file_named, TestCase};
+use super::{certificate_content, pg_frontend};
+use crate::{accept_client_request, ClientRequest, ConnSupervisor, Encryption, Error, ProtocolConfiguration};
+use futures_lite::future::block_on;
+use protocol::BackendMessage;
 use std::{
     io::Write,
     net::{Ipv4Addr, SocketAddr, SocketAddrV4},
     path::PathBuf,
     sync::{Arc, Mutex},
-};
-
-use futures_lite::future::block_on;
-
-use crate::{
-    accept_client_request,
-    messages::{BackendMessage, Encryption},
-    tests::{
-        async_io::{empty_file_named, TestCase},
-        certificate_content, pg_frontend,
-    },
-    ClientRequest, ConnSupervisor, Error, ProtocolConfiguration,
 };
 
 fn path_to_temp_certificate() -> PathBuf {

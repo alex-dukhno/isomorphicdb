@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::SSL_REQUEST_CODE;
-
 const QUERY: u8 = b'Q';
 const TERMINATE: u8 = b'X';
 
@@ -61,7 +59,7 @@ impl Message {
             Message::SslRequired => {
                 let mut buff = Vec::new();
                 buff.extend_from_slice(&8u32.to_be_bytes());
-                buff.extend_from_slice(&Vec::from(SSL_REQUEST_CODE));
+                buff.extend_from_slice(&8087_7103u32.to_be_bytes());
                 buff
             }
             Message::Password(password) => {

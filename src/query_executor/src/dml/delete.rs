@@ -13,8 +13,8 @@
 // limitations under the License.
 
 use data_manager::DataManager;
+use pg_model::{results::QueryEvent, Sender};
 use plan::TableDeletes;
-use protocol::{results::QueryEvent, Sender};
 use std::sync::Arc;
 
 pub(crate) struct DeleteCommand {

@@ -15,6 +15,7 @@ kernel = { path = "../kernel" }
 meta_def = { path = "../meta_def" }
 metadata = { path = "../metadata" }
 plan = { path = "../plan" }
+pg_model = { path = "../pg_model" }
 protocol = { path = "../protocol" }
 repr = { path = "../repr" }
 sql_model = { path = "../sql_model" }

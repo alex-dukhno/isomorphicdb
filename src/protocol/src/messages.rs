@@ -12,9 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{ConnId, ConnSecretKey, Error, Result};
-use byteorder::{ByteOrder, NetworkEndian};
-use pg_model::pg_types::{Oid, PostgreSqlFormat, PostgreSqlType};
+use crate::{ConnId, ConnSecretKey, Error, Oid, PgFormat, ProtocolResult, UnrecognizedFormat};
 use std::convert::TryFrom;
 
 const COMMAND_COMPLETE: u8 = b'C';
@@ -45,20 +43,6 @@ const FLUSH: u8 = b'H';
 const PARSE: u8 = b'P';
 const SYNC: u8 = b'S';
 const TERMINATE: u8 = b'X';
-
-pub(crate) enum Encryption {
-    AcceptSsl,
-    RejectSsl,
-}
-
-impl Into<&'_ [u8]> for Encryption {
-    fn into(self) -> &'static [u8] {
-        match self {
-            Self::AcceptSsl => &[b'S'],
-            Self::RejectSsl => &[b'N'],
-        }
-    }
-}
 
 /// Frontend PostgreSQL Wire Protocol messages
 /// see https://www.postgresql.org/docs/12/protocol-flow.html
@@ -92,7 +76,7 @@ pub enum FrontendMessage {
         sql: String,
         /// The number of specified parameter data types can be less than the
         /// number of parameters specified in the query.
-        param_types: Vec<PostgreSqlType>,
+        param_types: Vec<u32>,
     },
 
     /// Describe an existing prepared statement.
@@ -122,11 +106,11 @@ pub enum FrontendMessage {
         /// prepared statement.
         statement_name: String,
         /// The formats used to encode the parameters.
-        param_formats: Vec<PostgreSqlFormat>,
+        param_formats: Vec<PgFormat>,
         /// The value of each parameter.
         raw_params: Vec<Option<Vec<u8>>>,
         /// The desired formats for the columns in the result set.
-        result_formats: Vec<PostgreSqlFormat>,
+        result_formats: Vec<PgFormat>,
     },
 
     /// Execute a bound portal.
@@ -173,7 +157,7 @@ pub enum FrontendMessage {
 
 impl FrontendMessage {
     /// decodes buffer data to a frontend message
-    pub fn decode(tag: u8, buffer: &[u8]) -> Result<Self> {
+    pub fn decode(tag: u8, buffer: &[u8]) -> ProtocolResult<Self> {
         log::debug!("Receives frontend tag = {:?}, buffer = {:?}", char::from(tag), buffer);
 
         let cursor = Cursor::new(buffer);
@@ -190,7 +174,6 @@ impl FrontendMessage {
             PARSE => decode_parse(cursor),
             SYNC => decode_sync(cursor),
 
-            // Termination.
             TERMINATE => decode_terminate(cursor),
 
             // Invalid.
@@ -222,7 +205,6 @@ pub enum BackendMessage {
     /// can be computed in SQL as concat('md5', md5(concat(md5(concat(password,
     /// username)), random-salt))). (Keep in mind the md5() function returns its
     /// result as a hex string.)
-    #[allow(dead_code)]
     AuthenticationMD5Password,
     /// The authentication exchange is successfully completed.
     AuthenticationOk,
@@ -241,7 +223,6 @@ pub enum BackendMessage {
     /// An SQL command completed normally.
     CommandComplete(String),
     /// An empty query string was recognized.
-    #[allow(dead_code)]
     EmptyQueryResponse,
     /// An error has occurred. Contains (`Severity`, `Error Code`, `Error Message`)
     /// all of them are optional
@@ -253,7 +234,7 @@ pub enum BackendMessage {
     /// 3rd and 4th paragraph
     ParameterStatus(String, String),
     /// Indicates that parameters are needed by a prepared statement.
-    ParameterDescription(Vec<u32>),
+    ParameterDescription(Vec<Oid>),
     /// Indicates that the statement will not return rows.
     NoData,
     /// This message informs the frontend about the previous `Parse` frontend
@@ -386,26 +367,19 @@ pub struct ColumnMetadata {
     /// name of the column that was specified in query
     pub name: String,
     /// PostgreSQL data type id
-    pub type_id: Oid,
+    pub type_id: u32,
     /// PostgreSQL data type size
     pub type_size: i16,
 }
 
 impl ColumnMetadata {
     /// Creates new column metadata
-    pub fn new<S: ToString>(name: S, pg_type: PostgreSqlType) -> ColumnMetadata {
+    pub fn new<S: ToString>(name: S, type_id: u32, type_size: i16) -> ColumnMetadata {
         Self {
             name: name.to_string(),
-            type_id: pg_type.pg_oid(),
-            type_size: pg_type.pg_len(),
+            type_id,
+            type_size,
         }
-    }
-}
-
-impl<S: ToString> From<(S, PostgreSqlType)> for ColumnMetadata {
-    fn from(input: (S, PostgreSqlType)) -> ColumnMetadata {
-        let (name, pg_type) = input;
-        ColumnMetadata::new(name, pg_type)
     }
 }
 
@@ -440,7 +414,7 @@ impl<'a> Cursor<'a> {
     }
 
     /// Returns the next byte without advancing the cursor.
-    pub fn peek_byte(&self) -> Result<u8> {
+    pub fn peek_byte(&self) -> ProtocolResult<u8> {
         self.buf
             .get(0)
             .copied()
@@ -448,7 +422,7 @@ impl<'a> Cursor<'a> {
     }
 
     /// Returns the next byte, advancing the cursor by one byte.
-    pub(crate) fn read_byte(&mut self) -> Result<u8> {
+    pub(crate) fn read_byte(&mut self) -> ProtocolResult<u8> {
         let byte = self.peek_byte()?;
         self.advance(1);
         Ok(byte)
@@ -457,7 +431,7 @@ impl<'a> Cursor<'a> {
     /// Returns the next null-terminated string. The null character is not
     /// included the returned string. The cursor is advanced past the null-
     /// terminated string.
-    pub fn read_cstr(&mut self) -> Result<&'a str> {
+    pub fn read_cstr(&mut self) -> ProtocolResult<&'a str> {
         if let Some(pos) = self.buf.iter().position(|b| *b == 0) {
             let val = std::str::from_utf8(&self.buf[..pos]).map_err(|_e| Error::InvalidUtfString)?;
             self.advance(pos + 1);
@@ -467,56 +441,45 @@ impl<'a> Cursor<'a> {
         }
     }
 
-    /// Reads the next 16-bit format code, advancing the cursor by two bytes.
-    fn read_format(&mut self) -> Result<PostgreSqlFormat> {
-        match self.read_i16()? {
-            0 => Ok(PostgreSqlFormat::Text),
-            1 => Ok(PostgreSqlFormat::Binary),
-            code => Err(Error::InvalidInput(format!("unknown format code: {}", code))),
-        }
-    }
-
     /// Reads the next 16-bit signed integer, advancing the cursor by two
     /// bytes.
-    fn read_i16(&mut self) -> Result<i16> {
+    fn read_i16(&mut self) -> ProtocolResult<i16> {
         if self.buf.len() < 2 {
-            return Err(Error::InvalidInput("not enough buffer for an Int16".to_owned()));
+            return Err(Error::InvalidInput("not enough buffer to read 16bit Int".to_owned()));
         }
-        let val = NetworkEndian::read_i16(self.buf);
+        let val = i16::from_be_bytes([self.buf[0], self.buf[1]]);
         self.advance(2);
         Ok(val)
     }
 
     /// Reads the next 32-bit signed integer, advancing the cursor by four
     /// bytes.
-    pub fn read_i32(&mut self) -> Result<i32> {
+    pub fn read_i32(&mut self) -> ProtocolResult<i32> {
         if self.buf.len() < 4 {
-            return Err(Error::InvalidInput("not enough buffer for an Int32".to_owned()));
+            return Err(Error::InvalidInput("not enough buffer to read 32bit Int".to_owned()));
         }
-        let val = NetworkEndian::read_i32(self.buf);
+        let val = i32::from_be_bytes([self.buf[0], self.buf[1], self.buf[2], self.buf[3]]);
         self.advance(4);
         Ok(val)
     }
 
     /// Reads the next 32-bit unsigned integer, advancing the cursor by four
     /// bytes.
-    fn read_u32(&mut self) -> Result<u32> {
-        if self.buf.len() < 4 {
-            return Err(Error::InvalidInput("not enough buffer for an Int32".to_owned()));
-        }
-        let val = NetworkEndian::read_u32(self.buf);
-        self.advance(4);
-        Ok(val)
+    fn read_u32(&mut self) -> ProtocolResult<u32> {
+        self.read_i32().map(|val| val as u32)
     }
 }
 
-fn decode_bind(mut cursor: Cursor) -> Result<FrontendMessage> {
+fn decode_bind(mut cursor: Cursor) -> ProtocolResult<FrontendMessage> {
     let portal_name = cursor.read_cstr()?.to_owned();
     let statement_name = cursor.read_cstr()?.to_owned();
 
     let mut param_formats = vec![];
     for _ in 0..cursor.read_i16()? {
-        param_formats.push(cursor.read_format()?);
+        match PgFormat::try_from(cursor.read_i16()?) {
+            Ok(format) => param_formats.push(format),
+            Err(UnrecognizedFormat(code)) => return Err(Error::InvalidInput(format!("unknown format code: {}", code))),
+        }
     }
 
     let mut raw_params = vec![];
@@ -536,7 +499,10 @@ fn decode_bind(mut cursor: Cursor) -> Result<FrontendMessage> {
 
     let mut result_formats = vec![];
     for _ in 0..cursor.read_i16()? {
-        result_formats.push(cursor.read_format()?);
+        match PgFormat::try_from(cursor.read_i16()?) {
+            Ok(format) => result_formats.push(format),
+            Err(UnrecognizedFormat(code)) => return Err(Error::InvalidInput(format!("unknown format code: {}", code))),
+        }
     }
 
     Ok(FrontendMessage::Bind {
@@ -548,7 +514,7 @@ fn decode_bind(mut cursor: Cursor) -> Result<FrontendMessage> {
     })
 }
 
-fn decode_close(mut cursor: Cursor) -> Result<FrontendMessage> {
+fn decode_close(mut cursor: Cursor) -> ProtocolResult<FrontendMessage> {
     let first_char = cursor.read_byte()?;
     let name = cursor.read_cstr()?.to_owned();
     match first_char {
@@ -561,7 +527,7 @@ fn decode_close(mut cursor: Cursor) -> Result<FrontendMessage> {
     }
 }
 
-fn decode_describe(mut cursor: Cursor) -> Result<FrontendMessage> {
+fn decode_describe(mut cursor: Cursor) -> ProtocolResult<FrontendMessage> {
     let first_char = cursor.read_byte()?;
     let name = cursor.read_cstr()?.to_owned();
     match first_char {
@@ -574,17 +540,17 @@ fn decode_describe(mut cursor: Cursor) -> Result<FrontendMessage> {
     }
 }
 
-fn decode_execute(mut cursor: Cursor) -> Result<FrontendMessage> {
+fn decode_execute(mut cursor: Cursor) -> ProtocolResult<FrontendMessage> {
     let portal_name = cursor.read_cstr()?.to_owned();
     let max_rows = cursor.read_i32()?;
     Ok(FrontendMessage::Execute { portal_name, max_rows })
 }
 
-fn decode_flush(_cursor: Cursor) -> Result<FrontendMessage> {
+fn decode_flush(_cursor: Cursor) -> ProtocolResult<FrontendMessage> {
     Ok(FrontendMessage::Flush)
 }
 
-fn decode_parse(mut cursor: Cursor) -> Result<FrontendMessage> {
+fn decode_parse(mut cursor: Cursor) -> ProtocolResult<FrontendMessage> {
     let statement_name = cursor.read_cstr()?.to_owned();
     let sql = cursor.read_cstr()?.to_owned();
 
@@ -592,9 +558,7 @@ fn decode_parse(mut cursor: Cursor) -> Result<FrontendMessage> {
     for _ in 0..cursor.read_i16()? {
         let oid = cursor.read_u32()?;
         log::trace!("OID {:?}", oid);
-        if let Ok(sql_type) = PostgreSqlType::try_from(oid) {
-            param_types.push(sql_type);
-        }
+        param_types.push(oid);
     }
 
     Ok(FrontendMessage::Parse {
@@ -604,16 +568,16 @@ fn decode_parse(mut cursor: Cursor) -> Result<FrontendMessage> {
     })
 }
 
-fn decode_sync(_cursor: Cursor) -> Result<FrontendMessage> {
+fn decode_sync(_cursor: Cursor) -> ProtocolResult<FrontendMessage> {
     Ok(FrontendMessage::Sync)
 }
 
-fn decode_query(mut cursor: Cursor) -> Result<FrontendMessage> {
+fn decode_query(mut cursor: Cursor) -> ProtocolResult<FrontendMessage> {
     let sql = cursor.read_cstr()?.to_owned();
     Ok(FrontendMessage::Query { sql })
 }
 
-fn decode_terminate(_cursor: Cursor) -> Result<FrontendMessage> {
+fn decode_terminate(_cursor: Cursor) -> ProtocolResult<FrontendMessage> {
     Ok(FrontendMessage::Terminate)
 }
 
@@ -648,7 +612,7 @@ mod decoding_frontend_messages {
             Ok(FrontendMessage::Bind {
                 portal_name: "portal_name".to_owned(),
                 statement_name: "statement_name".to_owned(),
-                param_formats: vec![PostgreSqlFormat::Binary, PostgreSqlFormat::Binary],
+                param_formats: vec![PgFormat::Binary, PgFormat::Binary],
                 raw_params: vec![Some(vec![0, 0, 0, 1]), Some(vec![0, 0, 0, 2])],
                 result_formats: vec![],
             })
@@ -656,7 +620,7 @@ mod decoding_frontend_messages {
     }
 
     #[test]
-    fn close_protal() {
+    fn close_portal() {
         let buffer = [80, 112, 111, 114, 116, 97, 108, 95, 110, 97, 109, 101, 0];
         let message = FrontendMessage::decode(b'C', &buffer);
         assert_eq!(
@@ -735,7 +699,7 @@ mod decoding_frontend_messages {
             Ok(FrontendMessage::Parse {
                 statement_name: "".to_owned(),
                 sql: "select * from schema_name.table_name where si_column = $1;".to_owned(),
-                param_types: vec![PostgreSqlType::Integer],
+                param_types: vec![23],
             })
         );
     }
@@ -848,7 +812,7 @@ mod serializing_backend_messages {
     #[test]
     fn row_description() {
         assert_eq!(
-            BackendMessage::RowDescription(vec![ColumnMetadata::new("c1", PostgreSqlType::Integer)]).as_vec(),
+            BackendMessage::RowDescription(vec![ColumnMetadata::new("c1".to_owned(), 23, 4)]).as_vec(),
             vec![
                 ROW_DESCRIPTION,
                 0,

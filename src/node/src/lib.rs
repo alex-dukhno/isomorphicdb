@@ -25,7 +25,7 @@ use async_executor::Executor;
 use async_io::Async;
 use data_manager::DataManager;
 use metadata::DataDefinition;
-use protocol::{ClientRequest, ConnSupervisor, ProtocolConfiguration};
+use pg_model::{ClientRequest, ConnSupervisor, ProtocolConfiguration};
 use std::{
     env,
     net::TcpListener,
@@ -65,7 +65,7 @@ pub fn start() {
 
         while let Ok((tcp_stream, address)) = listener.accept().await {
             let tcp_stream = AsyncArc::new(tcp_stream);
-            match protocol::accept_client_request(tcp_stream, address, &config, conn_supervisor.clone()).await {
+            match pg_model::accept_client_request(tcp_stream, address, &config, conn_supervisor.clone()).await {
                 Err(io_error) => log::error!("IO error {:?}", io_error),
                 Ok(Err(protocol_error)) => log::error!("protocol error {:?}", protocol_error),
                 Ok(Ok(ClientRequest::Connection(mut receiver, sender))) => {

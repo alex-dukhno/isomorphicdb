@@ -70,7 +70,7 @@ mod tests {
             table_name: ObjectName(vec![ident(schema), ident(table)]),
             columns: vec![],
             source: Box::new(Query {
-                ctes: vec![],
+                with: None,
                 body: SetExpr::Values(Values(vec![values
                     .into_iter()
                     .map(|s| Expr::Value(Value::Number(s.parse().unwrap())))
