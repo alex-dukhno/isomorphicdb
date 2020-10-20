@@ -19,8 +19,7 @@ use std::{
     task::{Context, Poll},
 };
 
-use async_dup::Arc;
-use async_mutex::Mutex;
+use async_dup::{Arc, Mutex};
 use blocking::Unblock;
 use futures_lite::io::{AsyncRead, AsyncReadExt, AsyncSeekExt, AsyncWrite};
 use tempfile::NamedTempFile;
@@ -42,8 +41,8 @@ fn file_with(content: Vec<&[u8]>) -> (File, NamedTempFile) {
 
 #[derive(Debug)]
 pub struct TestCase {
-    request: Mutex<Unblock<File>>,
-    response: Mutex<Unblock<File>>,
+    request: Arc<Mutex<Unblock<File>>>,
+    response: Arc<Mutex<Unblock<File>>>,
     request_path: Arc<NamedTempFile>,
     response_path: Arc<NamedTempFile>,
 }
@@ -51,8 +50,8 @@ pub struct TestCase {
 impl Clone for TestCase {
     fn clone(&self) -> Self {
         TestCase {
-            request: Mutex::new(Unblock::new(self.request_path.reopen().expect("reopen file"))),
-            response: Mutex::new(Unblock::new(self.response_path.reopen().expect("reopen file"))),
+            request: self.request.clone(),
+            response: self.response.clone(),
             request_path: self.request_path.clone(),
             response_path: self.response_path.clone(),
         }
@@ -68,10 +67,10 @@ impl TestCase {
         let (request, request_path) = req;
         let temp = NamedTempFile::new().expect("Failed to create tempfile");
         let response = temp.reopen().expect("file with content");
-        let result = Mutex::new(Unblock::new(response));
+        let result = Arc::new(Mutex::new(Unblock::new(response)));
 
         TestCase {
-            request: Mutex::new(Unblock::new(request)),
+            request: Arc::new(Mutex::new(Unblock::new(request))),
             response: result,
             request_path: Arc::new(request_path),
             response_path: Arc::new(temp),
@@ -80,7 +79,7 @@ impl TestCase {
 
     pub async fn read_result(&self) -> Vec<u8> {
         let mut result = Vec::new();
-        let file = &mut *(self.response.lock()).await;
+        let mut file = self.response.lock();
         file.seek(SeekFrom::Start(0))
             .await
             .expect("start at the beginning of the file");
@@ -92,20 +91,20 @@ impl TestCase {
 
 impl AsyncRead for TestCase {
     fn poll_read(self: Pin<&mut Self>, cx: &mut Context, buf: &mut [u8]) -> Poll<io::Result<usize>> {
-        Pin::new((&mut self.get_mut().request).get_mut()).poll_read(cx, buf)
+        Pin::new(&mut *self.request.lock()).poll_read(cx, buf)
     }
 }
 
 impl AsyncWrite for TestCase {
     fn poll_write(self: Pin<&mut Self>, cx: &mut Context, buf: &[u8]) -> Poll<io::Result<usize>> {
-        Pin::new((&mut self.get_mut().response).get_mut()).poll_write(cx, buf)
+        Pin::new(&mut *self.response.lock()).poll_write(cx, buf)
     }
 
     fn poll_flush(self: Pin<&mut Self>, cx: &mut Context) -> Poll<io::Result<()>> {
-        Pin::new((&mut self.get_mut().response).get_mut()).poll_flush(cx)
+        Pin::new(&mut *self.response.lock()).poll_flush(cx)
     }
 
     fn poll_close(self: Pin<&mut Self>, cx: &mut Context) -> Poll<io::Result<()>> {
-        Pin::new((&mut self.get_mut().response).get_mut()).poll_close(cx)
+        Pin::new(&mut *self.response.lock()).poll_close(cx)
     }
 }
