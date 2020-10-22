@@ -17,6 +17,7 @@ use super::{certificate_content, pg_frontend};
 use crate::{accept_client_request, ClientRequest, ConnSupervisor, Encryption, Error, ProtocolConfiguration};
 use futures_lite::future::block_on;
 use protocol::BackendMessage;
+
 use std::{
     io::Write,
     net::{Ipv4Addr, SocketAddr, SocketAddrV4},

@@ -288,6 +288,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "connection"
+version = "0.1.0"
+dependencies = [
+ "async-dup",
+ "async-mutex",
+ "async-native-tls",
+ "async-trait",
+ "bigdecimal",
+ "blocking",
+ "byteorder",
+ "futures-lite",
+ "log",
+ "pg_model",
+ "protocol",
+ "rand",
+ "sqlparser",
+ "tempfile",
+]
+
+[[package]]
 name = "const-random"
 version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -748,6 +768,7 @@ dependencies = [
  "async-io",
  "binder",
  "blocking",
+ "connection",
  "data_manager",
  "description",
  "futures-lite",
@@ -912,20 +933,12 @@ checksum = "d4fd5641d01c8f18a23da7b6fe29298ff4b55afcccdf78973b24cf3175fee32e"
 name = "pg_model"
 version = "0.1.0"
 dependencies = [
- "async-dup",
- "async-mutex",
- "async-native-tls",
- "async-trait",
  "bigdecimal",
- "blocking",
  "byteorder",
- "futures-lite",
- "log",
  "protocol",
  "rand",
  "rstest",
  "sqlparser",
- "tempfile",
 ]
 
 [[package]]
@@ -1044,6 +1057,7 @@ dependencies = [
  "ast",
  "bigdecimal",
  "binary",
+ "connection",
  "constraints",
  "data_manager",
  "expr_eval",

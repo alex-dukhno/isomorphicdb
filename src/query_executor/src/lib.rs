@@ -19,11 +19,9 @@ use crate::{
     },
     dml::{delete::DeleteCommand, insert::InsertCommand, select::SelectCommand, update::UpdateCommand},
 };
+use connection::Sender;
 use data_manager::DataManager;
-use pg_model::{
-    results::{QueryError, QueryEvent},
-    Sender,
-};
+use pg_model::results::{QueryError, QueryEvent};
 use plan::Plan;
 use sqlparser::ast::Statement;
 use std::sync::Arc;

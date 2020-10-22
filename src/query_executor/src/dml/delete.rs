@@ -12,8 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use connection::Sender;
 use data_manager::DataManager;
-use pg_model::{results::QueryEvent, Sender};
+use pg_model::results::QueryEvent;
 use plan::TableDeletes;
 use std::sync::Arc;
 
