@@ -14,7 +14,6 @@ members = [
     "src/parser",
     "src/pg_model",
     "src/plan",
-    "src/protocol",
     "src/repr",
     "src/query_analyzer",
     "src/query_planner",

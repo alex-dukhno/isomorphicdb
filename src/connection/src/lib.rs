@@ -22,9 +22,9 @@ use pg_model::pg_types::PostgreSqlFormat;
 use pg_model::pg_types::PostgreSqlType;
 use pg_model::results::QueryResult;
 use pg_model::{Command, ConnId, ConnSupervisor, Encryption, ProtocolConfiguration};
-use protocol::{
+use pg_wire::{
     BackendMessage, Error, FrontendMessage, HandShakeProcess, HandShakeRequest, HandShakeStatus, MessageDecoder,
-    MessageDecoderStatus, ProtocolResult,
+    MessageDecoderStatus, Result,
 };
 use std::convert::TryFrom;
 use std::fs::File;
@@ -56,7 +56,7 @@ pub async fn accept_client_request<RW: 'static>(
     address: SocketAddr,
     config: &ProtocolConfiguration,
     conn_supervisor: Arc<Mutex<ConnSupervisor>>,
-) -> io::Result<ProtocolResult<ClientRequest>>
+) -> io::Result<Result<ClientRequest>>
 where
     RW: AsyncRead + AsyncWrite + Unpin,
 {
@@ -222,7 +222,7 @@ impl<RW: AsyncRead + AsyncWrite + Unpin> RequestReceiver<RW> {
         &self.properties
     }
 
-    async fn read_frontend_message(&mut self) -> io::Result<ProtocolResult<FrontendMessage>> {
+    async fn read_frontend_message(&mut self) -> io::Result<Result<FrontendMessage>> {
         let mut current: Option<Vec<u8>> = None;
         loop {
             log::debug!("{:?}", current);
@@ -243,7 +243,7 @@ impl<RW: AsyncRead + AsyncWrite + Unpin> RequestReceiver<RW> {
 #[async_trait::async_trait]
 impl<RW: AsyncRead + AsyncWrite + Unpin> Receiver for RequestReceiver<RW> {
     // TODO: currently it uses protocol::Result
-    async fn receive(&mut self) -> io::Result<ProtocolResult<Command>> {
+    async fn receive(&mut self) -> io::Result<Result<Command>> {
         let message = match self.read_frontend_message().await {
             Ok(Ok(message)) => message,
             Ok(Err(err)) => return Ok(Err(err)),
@@ -317,7 +317,7 @@ impl<RW: AsyncRead + AsyncWrite + Unpin> Drop for RequestReceiver<RW> {
 #[async_trait::async_trait]
 pub trait Receiver: Send + Sync {
     /// receives and decodes a command from remote client
-    async fn receive(&mut self) -> io::Result<ProtocolResult<Command>>;
+    async fn receive(&mut self) -> io::Result<Result<Command>>;
 }
 
 struct ResponseSender<RW: AsyncRead + AsyncWrite + Unpin> {

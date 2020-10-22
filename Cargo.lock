@@ -190,7 +190,7 @@ version = "0.1.0"
 dependencies = [
  "bigdecimal",
  "log",
- "protocol",
+ "pg_wire",
  "rstest",
  "sqlparser",
 ]
@@ -301,7 +301,7 @@ dependencies = [
  "futures-lite",
  "log",
  "pg_model",
- "protocol",
+ "pg_wire",
  "rand",
  "sqlparser",
  "tempfile",
@@ -778,8 +778,8 @@ dependencies = [
  "metadata",
  "parser",
  "pg_model",
+ "pg_wire",
  "plan",
- "protocol",
  "query_analyzer",
  "query_executor",
  "query_planner",
@@ -935,10 +935,19 @@ version = "0.1.0"
 dependencies = [
  "bigdecimal",
  "byteorder",
- "protocol",
+ "pg_wire",
  "rand",
  "rstest",
  "sqlparser",
+]
+
+[[package]]
+name = "pg_wire"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9578b1792e1843ae7da516033229c9af81ba01d799f9dd39fd7044da86edc65f"
+dependencies = [
+ "log",
 ]
 
 [[package]]
@@ -986,7 +995,7 @@ dependencies = [
  "ast",
  "constraints",
  "meta_def",
- "protocol",
+ "pg_wire",
  "sql_model",
  "sqlparser",
 ]
@@ -1032,13 +1041,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "protocol"
-version = "0.1.0"
-dependencies = [
- "log",
-]
-
-[[package]]
 name = "query_analyzer"
 version = "0.1.0"
 dependencies = [
@@ -1067,8 +1069,8 @@ dependencies = [
  "meta_def",
  "metadata",
  "pg_model",
+ "pg_wire",
  "plan",
- "protocol",
  "repr",
  "rstest",
  "sql_model",

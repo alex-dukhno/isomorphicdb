@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use crate::pg_types::{PostgreSqlFormat, PostgreSqlType};
-use protocol::{Error, ProtocolResult};
+use pg_wire::{Error, Result};
 use rand::Rng;
 use std::{
     collections::{HashMap, VecDeque},
@@ -54,7 +54,7 @@ impl ConnSupervisor {
     }
 
     /// Allocates a new Connection ID and secret key.
-    pub fn alloc(&mut self) -> ProtocolResult<(ConnId, ConnSecretKey)> {
+    pub fn alloc(&mut self) -> Result<(ConnId, ConnSecretKey)> {
         let conn_id = self.generate_conn_id()?;
         let secret_key = rand::thread_rng().gen();
         self.current_mapping.insert(conn_id, secret_key);
@@ -76,7 +76,7 @@ impl ConnSupervisor {
         }
     }
 
-    pub fn generate_conn_id(&mut self) -> ProtocolResult<ConnId> {
+    pub fn generate_conn_id(&mut self) -> Result<ConnId> {
         match self.free_ids.pop_front() {
             Some(id) => Ok(id),
             None => {

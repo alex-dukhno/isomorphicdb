@@ -6,7 +6,7 @@ edition = "2018"
 publish = false
 
 [dependencies]
-protocol = { path = "../protocol" }
+pg_wire = "0.1.0"
 pg_model = { path = "../pg_model" }
 
 async-dup = "1.2.1"
