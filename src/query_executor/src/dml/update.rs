@@ -14,14 +14,12 @@
 
 use ast::operations::ScalarOp;
 use binary::Binary;
+use connection::Sender;
 use constraints::{Constraint, ConstraintError};
 use data_manager::DataManager;
 use expr_eval::{DynamicExpressionEvaluation, EvalError, StaticExpressionEvaluation};
 use metadata::MetadataView;
-use pg_model::{
-    results::{QueryError, QueryEvent},
-    Sender,
-};
+use pg_model::results::{QueryError, QueryEvent};
 use plan::TableUpdates;
 use std::{collections::HashMap, sync::Arc};
 

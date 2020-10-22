@@ -14,15 +14,13 @@
 
 use ast::operations::ScalarOp;
 use binary::{Binary, Row};
+use connection::Sender;
 use constraints::{Constraint, ConstraintError};
 use data_manager::DataManager;
 use expr_eval::{EvalError, StaticExpressionEvaluation};
 use kernel::SystemError;
 use meta_def::ColumnDefinition;
-use pg_model::{
-    results::{QueryError, QueryEvent},
-    Sender,
-};
+use pg_model::results::{QueryError, QueryEvent};
 use plan::TableInserts;
 use repr::Datum;
 use std::sync::Arc;

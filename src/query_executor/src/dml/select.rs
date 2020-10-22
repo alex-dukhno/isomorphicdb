@@ -17,9 +17,10 @@ use ast::{
     values::ScalarValue,
 };
 use binary::ReadCursor;
+use connection::Sender;
 use data_manager::DataManager;
 use metadata::MetadataView;
-use pg_model::{pg_types::PostgreSqlType, results::QueryEvent, Sender};
+use pg_model::{pg_types::PostgreSqlType, results::QueryEvent};
 use plan::{FullTableId, SelectInput};
 use sql_model::Id;
 use std::{convert::TryInto, sync::Arc};

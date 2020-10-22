@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use binder::ParamBinder;
+use connection::Sender;
 use data_manager::DataManager;
 use description::{Description, DescriptionError};
 use itertools::izip;
@@ -23,7 +24,7 @@ use pg_model::{
     results::{QueryError, QueryEvent},
     session::Session,
     statement::PreparedStatement,
-    Command, Sender,
+    Command,
 };
 use plan::{Plan, SelectInput};
 use query_analyzer::Analyzer;

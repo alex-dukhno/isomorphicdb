@@ -12,11 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::async_io::{empty_file_named, TestCase};
-use super::{certificate_content, pg_frontend};
+use super::{
+    async_io::{empty_file_named, TestCase},
+    certificate_content, pg_frontend,
+};
 use crate::{accept_client_request, ClientRequest, ConnSupervisor, Encryption, Error, ProtocolConfiguration};
 use futures_lite::future::block_on;
-use protocol::BackendMessage;
+use pg_wire::BackendMessage;
+
 use std::{
     io::Write,
     net::{Ipv4Addr, SocketAddr, SocketAddrV4},

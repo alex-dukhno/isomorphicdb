@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use crate::pg_types::PostgreSqlType;
-use protocol::{BackendMessage, ColumnMetadata};
+use pg_wire::{BackendMessage, ColumnMetadata};
 use std::fmt::{self, Display, Formatter};
 
 /// Represents result of SQL query execution

@@ -190,7 +190,7 @@ version = "0.1.0"
 dependencies = [
  "bigdecimal",
  "log",
- "protocol",
+ "pg_wire",
  "rstest",
  "sqlparser",
 ]
@@ -285,6 +285,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "30ed07550be01594c6026cff2a1d7fe9c8f683caa798e12b68694ac9e88286a3"
 dependencies = [
  "cache-padded",
+]
+
+[[package]]
+name = "connection"
+version = "0.1.0"
+dependencies = [
+ "async-dup",
+ "async-mutex",
+ "async-native-tls",
+ "async-trait",
+ "bigdecimal",
+ "blocking",
+ "byteorder",
+ "futures-lite",
+ "log",
+ "pg_model",
+ "pg_wire",
+ "rand",
+ "sqlparser",
+ "tempfile",
 ]
 
 [[package]]
@@ -748,6 +768,7 @@ dependencies = [
  "async-io",
  "binder",
  "blocking",
+ "connection",
  "data_manager",
  "description",
  "futures-lite",
@@ -757,8 +778,8 @@ dependencies = [
  "metadata",
  "parser",
  "pg_model",
+ "pg_wire",
  "plan",
- "protocol",
  "query_analyzer",
  "query_executor",
  "query_planner",
@@ -912,20 +933,21 @@ checksum = "d4fd5641d01c8f18a23da7b6fe29298ff4b55afcccdf78973b24cf3175fee32e"
 name = "pg_model"
 version = "0.1.0"
 dependencies = [
- "async-dup",
- "async-mutex",
- "async-native-tls",
- "async-trait",
  "bigdecimal",
- "blocking",
  "byteorder",
- "futures-lite",
- "log",
- "protocol",
+ "pg_wire",
  "rand",
  "rstest",
  "sqlparser",
- "tempfile",
+]
+
+[[package]]
+name = "pg_wire"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9578b1792e1843ae7da516033229c9af81ba01d799f9dd39fd7044da86edc65f"
+dependencies = [
+ "log",
 ]
 
 [[package]]
@@ -973,7 +995,7 @@ dependencies = [
  "ast",
  "constraints",
  "meta_def",
- "protocol",
+ "pg_wire",
  "sql_model",
  "sqlparser",
 ]
@@ -1019,13 +1041,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "protocol"
-version = "0.1.0"
-dependencies = [
- "log",
-]
-
-[[package]]
 name = "query_analyzer"
 version = "0.1.0"
 dependencies = [
@@ -1044,6 +1059,7 @@ dependencies = [
  "ast",
  "bigdecimal",
  "binary",
+ "connection",
  "constraints",
  "data_manager",
  "expr_eval",
@@ -1053,8 +1069,8 @@ dependencies = [
  "meta_def",
  "metadata",
  "pg_model",
+ "pg_wire",
  "plan",
- "protocol",
  "repr",
  "rstest",
  "sql_model",

@@ -15,7 +15,7 @@
 use super::*;
 use pg_model::{
     results::{QueryEvent, QueryResult},
-    Command, Sender,
+    Command,
 };
 use std::{
     io,

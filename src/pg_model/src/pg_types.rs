@@ -14,7 +14,7 @@
 
 use bigdecimal::BigDecimal;
 use byteorder::{BigEndian, ReadBytesExt};
-use protocol::{ColumnMetadata, PgFormat};
+use pg_wire::{ColumnMetadata, PgFormat};
 use sqlparser::ast::{DataType, Expr, Value};
 use std::{
     convert::{TryFrom, TryInto},

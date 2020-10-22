@@ -9,7 +9,7 @@ publish = false
 ast = { path = "../ast" }
 constraints = { path = "../constraints" }
 meta_def = { path = "../meta_def" }
-protocol = { path = "../protocol" }
+pg_wire = "0.1.0"
 sql_model = { path = "../sql_model" }
 
 sqlparser = { git = "https://github.com/ballista-compute/sqlparser-rs.git", branch = "main", features = ["bigdecimal"] }

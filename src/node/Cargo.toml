@@ -14,6 +14,7 @@ path = "src/bin.rs"
 
 [dependencies]
 binder = { path = "../binder" }
+connection = { path = "../connection" }
 description = { path = "../description" }
 data_manager = { path = "../data_manager" }
 kernel = { path = "../kernel" }
@@ -21,7 +22,7 @@ metadata = { path = "../metadata" }
 parser = { path = "../parser" }
 pg_model = { path = "../pg_model" }
 plan = { path = "../plan" }
-protocol = { path = "../protocol" }
+pg_wire = "0.1.0"
 query_analyzer = { path = "../query_analyzer" }
 query_executor = { path = "../query_executor" }
 query_planner = { path = "../query_planner" }
