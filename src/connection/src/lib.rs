@@ -16,24 +16,24 @@ use async_mutex::Mutex as AsyncMutex;
 use async_native_tls::TlsStream;
 use blocking::Unblock;
 use byteorder::{ByteOrder, NetworkEndian};
-use futures_lite::future::block_on;
-use futures_lite::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-use pg_model::pg_types::PostgreSqlFormat;
-use pg_model::pg_types::PostgreSqlType;
-use pg_model::results::QueryResult;
-use pg_model::{Command, ConnId, ConnSupervisor, Encryption, ProtocolConfiguration};
+use futures_lite::{future::block_on, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+use pg_model::{
+    pg_types::{PostgreSqlFormat, PostgreSqlType},
+    results::QueryResult,
+    Command, ConnId, ConnSupervisor, Encryption, ProtocolConfiguration,
+};
 use pg_wire::{
     BackendMessage, Error, FrontendMessage, HandShakeProcess, HandShakeRequest, HandShakeStatus, MessageDecoder,
     MessageDecoderStatus, Result,
 };
-use std::convert::TryFrom;
-use std::fs::File;
-use std::net::SocketAddr;
-use std::pin::Pin;
-use std::task::{Context, Poll};
 use std::{
+    convert::TryFrom,
+    fs::File,
     io,
+    net::SocketAddr,
+    pin::Pin,
     sync::{Arc, Mutex},
+    task::{Context, Poll},
 };
 
 type Props = Vec<(String, String)>;
