@@ -102,9 +102,9 @@ impl ScalarValue {
             (ScalarValue::String(str), SqlType::Bool) => Bool::from_str(str)
                 .map(ScalarValue::Bool)
                 .map_err(|_err| OperationError(NotSupportedOperation::ImplicitCast(self.clone(), *to_type))),
-            (ScalarValue::String(str), SqlType::SmallInt(_))
-            | (ScalarValue::String(str), SqlType::Integer(_))
-            | (ScalarValue::String(str), SqlType::BigInt(_))
+            (ScalarValue::String(str), SqlType::SmallInt)
+            | (ScalarValue::String(str), SqlType::Integer)
+            | (ScalarValue::String(str), SqlType::BigInt)
             | (ScalarValue::String(str), SqlType::Real)
             | (ScalarValue::String(str), SqlType::DoublePrecision) => BigDecimal::from_str(str)
                 .map(ScalarValue::Number)
@@ -113,9 +113,9 @@ impl ScalarValue {
             | (ScalarValue::Bool(Bool(boolean)), SqlType::VarChar(len)) => Ok(ScalarValue::String(
                 boolean.to_string().chars().take(*len as usize).collect(),
             )),
-            (ScalarValue::Bool(Bool(boolean)), SqlType::SmallInt(_))
-            | (ScalarValue::Bool(Bool(boolean)), SqlType::Integer(_))
-            | (ScalarValue::Bool(Bool(boolean)), SqlType::BigInt(_))
+            (ScalarValue::Bool(Bool(boolean)), SqlType::SmallInt)
+            | (ScalarValue::Bool(Bool(boolean)), SqlType::Integer)
+            | (ScalarValue::Bool(Bool(boolean)), SqlType::BigInt)
             | (ScalarValue::Bool(Bool(boolean)), SqlType::Real)
             | (ScalarValue::Bool(Bool(boolean)), SqlType::DoublePrecision) => {
                 if *boolean {
@@ -128,9 +128,9 @@ impl ScalarValue {
             (ScalarValue::String(str), SqlType::Char(_)) | (ScalarValue::String(str), SqlType::VarChar(_)) => {
                 Ok(ScalarValue::String(str.trim().to_owned()))
             }
-            (ScalarValue::Number(number), SqlType::SmallInt(_))
-            | (ScalarValue::Number(number), SqlType::Integer(_))
-            | (ScalarValue::Number(number), SqlType::BigInt(_))
+            (ScalarValue::Number(number), SqlType::SmallInt)
+            | (ScalarValue::Number(number), SqlType::Integer)
+            | (ScalarValue::Number(number), SqlType::BigInt)
             | (ScalarValue::Number(number), SqlType::Real)
             | (ScalarValue::Number(number), SqlType::DoublePrecision) => Ok(ScalarValue::Number(number.clone())),
             (ScalarValue::Bool(Bool(boolean)), SqlType::Bool) => Ok(ScalarValue::Bool(Bool(*boolean))),
@@ -326,15 +326,15 @@ mod tests {
         #[test]
         fn string_to_number() {
             assert_eq!(
-                ScalarValue::String("123".to_owned()).cast(&SqlType::SmallInt(i16::min_value())),
+                ScalarValue::String("123".to_owned()).cast(&SqlType::SmallInt),
                 Ok(ScalarValue::Number(BigDecimal::from(123i32)))
             );
             assert_eq!(
-                ScalarValue::String("123".to_owned()).cast(&SqlType::Integer(i32::min_value())),
+                ScalarValue::String("123".to_owned()).cast(&SqlType::Integer),
                 Ok(ScalarValue::Number(BigDecimal::from(123i32)))
             );
             assert_eq!(
-                ScalarValue::String("123".to_owned()).cast(&SqlType::BigInt(i64::min_value())),
+                ScalarValue::String("123".to_owned()).cast(&SqlType::BigInt),
                 Ok(ScalarValue::Number(BigDecimal::from(123i32)))
             );
             assert_eq!(
@@ -350,10 +350,10 @@ mod tests {
         #[test]
         fn not_supported_string_to_number() {
             assert_eq!(
-                ScalarValue::String("not a number".to_owned()).cast(&SqlType::Integer(i32::min_value())),
+                ScalarValue::String("not a number".to_owned()).cast(&SqlType::Integer),
                 Err(OperationError(NotSupportedOperation::ImplicitCast(
                     ScalarValue::String("not a number".to_owned()),
-                    SqlType::Integer(i32::min_value())
+                    SqlType::Integer
                 )))
             );
         }
@@ -385,15 +385,15 @@ mod tests {
         #[test]
         fn bool_to_number() {
             assert_eq!(
-                ScalarValue::Bool(Bool(true)).cast(&SqlType::SmallInt(i16::min_value())),
+                ScalarValue::Bool(Bool(true)).cast(&SqlType::SmallInt),
                 Ok(ScalarValue::Number(BigDecimal::from(1)))
             );
             assert_eq!(
-                ScalarValue::Bool(Bool(false)).cast(&SqlType::Integer(i32::min_value())),
+                ScalarValue::Bool(Bool(false)).cast(&SqlType::Integer),
                 Ok(ScalarValue::Number(BigDecimal::from(0)))
             );
             assert_eq!(
-                ScalarValue::Bool(Bool(true)).cast(&SqlType::BigInt(i64::min_value())),
+                ScalarValue::Bool(Bool(true)).cast(&SqlType::BigInt),
                 Ok(ScalarValue::Number(BigDecimal::from(1)))
             );
             assert_eq!(
@@ -408,18 +408,9 @@ mod tests {
 
         #[test]
         fn null_is_always_null() {
-            assert_eq!(
-                ScalarValue::Null.cast(&SqlType::SmallInt(i16::min_value())),
-                Ok(ScalarValue::Null)
-            );
-            assert_eq!(
-                ScalarValue::Null.cast(&SqlType::Integer(i32::min_value())),
-                Ok(ScalarValue::Null)
-            );
-            assert_eq!(
-                ScalarValue::Null.cast(&SqlType::BigInt(i64::min_value())),
-                Ok(ScalarValue::Null)
-            );
+            assert_eq!(ScalarValue::Null.cast(&SqlType::SmallInt), Ok(ScalarValue::Null));
+            assert_eq!(ScalarValue::Null.cast(&SqlType::Integer), Ok(ScalarValue::Null));
+            assert_eq!(ScalarValue::Null.cast(&SqlType::BigInt), Ok(ScalarValue::Null));
             assert_eq!(ScalarValue::Null.cast(&SqlType::Real), Ok(ScalarValue::Null));
             assert_eq!(ScalarValue::Null.cast(&SqlType::DoublePrecision), Ok(ScalarValue::Null));
             assert_eq!(ScalarValue::Null.cast(&SqlType::Char(1)), Ok(ScalarValue::Null));
@@ -450,7 +441,7 @@ mod tests {
         #[test]
         fn number_to_number() {
             assert_eq!(
-                ScalarValue::Number(BigDecimal::from_str("123").unwrap()).cast(&SqlType::SmallInt(i16::min_value())),
+                ScalarValue::Number(BigDecimal::from_str("123").unwrap()).cast(&SqlType::SmallInt),
                 Ok(ScalarValue::Number(BigDecimal::from(123)))
             );
             assert_eq!(
@@ -460,7 +451,7 @@ mod tests {
                     )
                     .unwrap()
                 )
-                .cast(&SqlType::SmallInt(i16::min_value())),
+                .cast(&SqlType::SmallInt),
                 Ok(ScalarValue::Number(
                     BigDecimal::from_str(
                         "12345678901234567890123456789012345678901234567890123456789012345678901234567890"
@@ -469,7 +460,7 @@ mod tests {
                 ))
             );
             assert_eq!(
-                ScalarValue::Number(BigDecimal::from_str("123").unwrap()).cast(&SqlType::Integer(i32::min_value())),
+                ScalarValue::Number(BigDecimal::from_str("123").unwrap()).cast(&SqlType::Integer),
                 Ok(ScalarValue::Number(BigDecimal::from(123)))
             );
             assert_eq!(
@@ -479,7 +470,7 @@ mod tests {
                     )
                     .unwrap()
                 )
-                .cast(&SqlType::Integer(i32::min_value())),
+                .cast(&SqlType::Integer),
                 Ok(ScalarValue::Number(
                     BigDecimal::from_str(
                         "12345678901234567890123456789012345678901234567890123456789012345678901234567890"
@@ -488,7 +479,7 @@ mod tests {
                 ))
             );
             assert_eq!(
-                ScalarValue::Number(BigDecimal::from_str("123").unwrap()).cast(&SqlType::BigInt(i64::min_value())),
+                ScalarValue::Number(BigDecimal::from_str("123").unwrap()).cast(&SqlType::BigInt),
                 Ok(ScalarValue::Number(BigDecimal::from(123)))
             );
             assert_eq!(
@@ -498,7 +489,7 @@ mod tests {
                     )
                     .unwrap()
                 )
-                .cast(&SqlType::BigInt(i64::min_value())),
+                .cast(&SqlType::BigInt),
                 Ok(ScalarValue::Number(
                     BigDecimal::from_str(
                         "12345678901234567890123456789012345678901234567890123456789012345678901234567890"

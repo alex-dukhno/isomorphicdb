@@ -111,10 +111,7 @@ fn create_table(planner_with_schema: QueryPlanner) {
         Ok(Plan::CreateTable(TableCreationInfo::new(
             0,
             TABLE,
-            vec![ColumnDefinition::new(
-                "column_name",
-                SqlType::SmallInt(i16::min_value())
-            )]
+            vec![ColumnDefinition::new("column_name", SqlType::SmallInt)]
         )))
     );
 }

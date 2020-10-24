@@ -337,7 +337,7 @@ fn tables_table_types() -> [ColumnDefinition; 3] {
 /// TABLE_SCHEMA        varchar(255)
 /// TABLE_NAME          varchar(255)
 /// COLUMN_NAME         varchar(255)
-/// ORDINAL_POSITION    integer > 0
+/// ORDINAL_POSITION    integer check (ORDINAL_POSITION > 0)
 #[allow(dead_code)]
 fn columns_table_types() -> [ColumnDefinition; 5] {
     [
@@ -345,7 +345,7 @@ fn columns_table_types() -> [ColumnDefinition; 5] {
         ColumnDefinition::new("TABLE_SCHEMA", SqlType::VarChar(255)),
         ColumnDefinition::new("TABLE_NAME", SqlType::VarChar(255)),
         ColumnDefinition::new("COLUMN_NAME", SqlType::VarChar(255)),
-        ColumnDefinition::new("ORDINAL_POSITION", SqlType::Integer(1)),
+        ColumnDefinition::new("ORDINAL_POSITION", SqlType::Integer),
     ]
 }
 
@@ -1333,11 +1333,11 @@ mod tests {
                 DEFAULT_CATALOG,
                 "schema_name",
                 "table_name",
-                &[ColumnDefinition::new("col1", SqlType::Integer(0))],
+                &[ColumnDefinition::new("col1", SqlType::Integer)],
             ) {
                 Some((_, Some((schema_id, Some(table_id))))) => assert_eq!(
                     data_definition.table_columns(&Box::new((schema_id, table_id))),
-                    Ok(vec![ColumnDefinition::new("col1", SqlType::Integer(0))])
+                    Ok(vec![ColumnDefinition::new("col1", SqlType::Integer)])
                 ),
                 _ => panic!(),
             }
@@ -1377,7 +1377,7 @@ mod tests {
                 DEFAULT_CATALOG,
                 "schema_name",
                 "table_name",
-                &[ColumnDefinition::new("col1", SqlType::Integer(0))],
+                &[ColumnDefinition::new("col1", SqlType::Integer)],
             ) {
                 Some((_, Some((schema_id, Some(table_id))))) => assert_eq!(
                     data_definition.column_ids(&Box::new((schema_id, table_id)), &["col1".to_owned()]),
@@ -1421,11 +1421,11 @@ mod tests {
                 DEFAULT_CATALOG,
                 "schema_name",
                 "table_name",
-                &[ColumnDefinition::new("col1", SqlType::Integer(0))],
+                &[ColumnDefinition::new("col1", SqlType::Integer)],
             ) {
                 Some((_, Some((schema_id, Some(table_id))))) => assert_eq!(
                     data_definition.column_defs(&Box::new((schema_id, table_id)), &[0]),
-                    vec![ColumnDefinition::new("col1", SqlType::Integer(0))]
+                    vec![ColumnDefinition::new("col1", SqlType::Integer)]
                 ),
                 _ => panic!(),
             }
@@ -1441,7 +1441,7 @@ mod tests {
                 DEFAULT_CATALOG,
                 "schema_name",
                 "table_name",
-                &[ColumnDefinition::new("col1", SqlType::Integer(0))],
+                &[ColumnDefinition::new("col1", SqlType::Integer)],
             ) {
                 Some((_, Some((schema_id, Some(table_id))))) => assert_eq!(
                     data_definition.column_defs(&Box::new((schema_id, table_id)), &[1]),
@@ -1783,7 +1783,7 @@ mod tests {
                     DEFAULT_CATALOG,
                     "schema_name",
                     "table_name",
-                    &[ColumnDefinition::new("col_1", SqlType::Integer(0))],
+                    &[ColumnDefinition::new("col_1", SqlType::Integer)],
                 );
                 drop(data_definition);
 
@@ -1807,7 +1807,7 @@ mod tests {
                     DEFAULT_CATALOG,
                     "schema_name_1",
                     "table_name",
-                    &[ColumnDefinition::new("col_1", SqlType::Integer(0))],
+                    &[ColumnDefinition::new("col_1", SqlType::Integer)],
                 ) {
                     Some((_, Some((schema_id, Some(table_id))))) => Box::new((schema_id, table_id)),
                     _ => panic!(),
@@ -1817,18 +1817,18 @@ mod tests {
                     DEFAULT_CATALOG,
                     "schema_name_2",
                     "table_name",
-                    &[ColumnDefinition::new("col_1", SqlType::SmallInt(0))],
+                    &[ColumnDefinition::new("col_1", SqlType::SmallInt)],
                 ) {
                     Some((_, Some((schema_id, Some(table_id))))) => Box::new((schema_id, table_id)),
                     _ => panic!(),
                 };
                 assert_eq!(
                     data_definition.table_columns(&full_table_1_id),
-                    Ok(vec![ColumnDefinition::new("col_1", SqlType::Integer(0))])
+                    Ok(vec![ColumnDefinition::new("col_1", SqlType::Integer)])
                 );
                 assert_eq!(
                     data_definition.table_columns(&full_table_2_id),
-                    Ok(vec![ColumnDefinition::new("col_1", SqlType::SmallInt(0))])
+                    Ok(vec![ColumnDefinition::new("col_1", SqlType::SmallInt)])
                 );
                 drop(data_definition);
 
@@ -1838,11 +1838,11 @@ mod tests {
 
                 assert_eq!(
                     data_definition.table_columns(&full_table_1_id),
-                    Ok(vec![ColumnDefinition::new("col_1", SqlType::Integer(0))])
+                    Ok(vec![ColumnDefinition::new("col_1", SqlType::Integer)])
                 );
                 assert_eq!(
                     data_definition.table_columns(&full_table_2_id),
-                    Ok(vec![ColumnDefinition::new("col_1", SqlType::SmallInt(0))])
+                    Ok(vec![ColumnDefinition::new("col_1", SqlType::SmallInt)])
                 );
             }
 
@@ -1855,7 +1855,7 @@ mod tests {
                     DEFAULT_CATALOG,
                     "schema_name",
                     "table_name",
-                    &[ColumnDefinition::new("col_1", SqlType::Integer(0))],
+                    &[ColumnDefinition::new("col_1", SqlType::Integer)],
                 );
                 assert!(matches!(
                     data_definition.table_exists(&"schema_name", &"table_name"),
@@ -1887,9 +1887,9 @@ mod tests {
                     "schema_name",
                     "table_name",
                     &[
-                        ColumnDefinition::new("col_1", SqlType::SmallInt(0)),
-                        ColumnDefinition::new("col_2", SqlType::Integer(0)),
-                        ColumnDefinition::new("col_3", SqlType::BigInt(0)),
+                        ColumnDefinition::new("col_1", SqlType::SmallInt),
+                        ColumnDefinition::new("col_2", SqlType::Integer),
+                        ColumnDefinition::new("col_3", SqlType::BigInt),
                     ],
                 ) {
                     Some((_, Some((schema_id, Some(table_id))))) => Box::new((schema_id, table_id)),
@@ -1898,9 +1898,9 @@ mod tests {
                 assert_eq!(
                     data_definition.table_columns(&full_table_id),
                     Ok(vec![
-                        ColumnDefinition::new("col_1", SqlType::SmallInt(0)),
-                        ColumnDefinition::new("col_2", SqlType::Integer(0)),
-                        ColumnDefinition::new("col_3", SqlType::BigInt(0))
+                        ColumnDefinition::new("col_1", SqlType::SmallInt),
+                        ColumnDefinition::new("col_2", SqlType::Integer),
+                        ColumnDefinition::new("col_3", SqlType::BigInt)
                     ])
                 );
                 drop(data_definition);
@@ -1911,9 +1911,9 @@ mod tests {
                 assert_eq!(
                     data_definition.table_columns(&full_table_id),
                     Ok(vec![
-                        ColumnDefinition::new("col_1", SqlType::SmallInt(0)),
-                        ColumnDefinition::new("col_2", SqlType::Integer(0)),
-                        ColumnDefinition::new("col_3", SqlType::BigInt(0))
+                        ColumnDefinition::new("col_1", SqlType::SmallInt),
+                        ColumnDefinition::new("col_2", SqlType::Integer),
+                        ColumnDefinition::new("col_3", SqlType::BigInt)
                     ])
                 );
             }
@@ -1927,7 +1927,7 @@ mod tests {
                     DEFAULT_CATALOG,
                     "schema_name",
                     "table_name",
-                    &[ColumnDefinition::new("col_1", SqlType::SmallInt(0))],
+                    &[ColumnDefinition::new("col_1", SqlType::SmallInt)],
                 ) {
                     Some((_, Some((schema_id, Some(table_id))))) => Box::new((schema_id, table_id)),
                     _ => panic!(),
@@ -1977,7 +1977,7 @@ mod tests {
                     DEFAULT_CATALOG,
                     "schema_name",
                     "table_name",
-                    &[ColumnDefinition::new("col_1", SqlType::SmallInt(0))],
+                    &[ColumnDefinition::new("col_1", SqlType::SmallInt)],
                 ) {
                     Some((_, Some((schema_id, Some(table_id))))) => Box::new((schema_id, table_id)),
                     _ => panic!(),

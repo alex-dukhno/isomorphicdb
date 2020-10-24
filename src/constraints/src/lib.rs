@@ -35,9 +35,9 @@ pub enum TypeConstraint {
     Bool,
     Char(u64),
     VarChar(u64),
-    SmallInt(i16),
-    Integer(i32),
-    BigInt(i64),
+    SmallInt,
+    Integer,
+    BigInt,
     Real,
     DoublePrecision,
 }
@@ -48,9 +48,9 @@ impl From<&SqlType> for TypeConstraint {
             SqlType::Bool => TypeConstraint::Bool,
             SqlType::Char(len) => TypeConstraint::Char(*len),
             SqlType::VarChar(len) => TypeConstraint::VarChar(*len),
-            SqlType::SmallInt(min) => TypeConstraint::SmallInt(*min),
-            SqlType::Integer(min) => TypeConstraint::Integer(*min),
-            SqlType::BigInt(min) => TypeConstraint::BigInt(*min),
+            SqlType::SmallInt => TypeConstraint::SmallInt,
+            SqlType::Integer => TypeConstraint::Integer,
+            SqlType::BigInt => TypeConstraint::BigInt,
             SqlType::Real => TypeConstraint::Real,
             SqlType::DoublePrecision => TypeConstraint::DoublePrecision,
         }
@@ -60,12 +60,12 @@ impl From<&SqlType> for TypeConstraint {
 impl Constraint for TypeConstraint {
     fn validate(&self, in_value: ScalarValue) -> Result<Datum, ConstraintError> {
         match self {
-            TypeConstraint::SmallInt(min) => match &in_value {
+            TypeConstraint::SmallInt => match &in_value {
                 ScalarValue::Number(value) => {
                     let (int, exp) = value.as_bigint_and_exponent();
                     if exp != 0 {
                         Err(ConstraintError::TypeMismatch(in_value.to_string()))
-                    } else if BigInt::from(*min) <= int && int <= BigInt::from(i16::max_value()) {
+                    } else if BigInt::from(i16::min_value()) <= int && int <= BigInt::from(i16::max_value()) {
                         Ok(Datum::Int16(int.to_i16().unwrap()))
                     } else {
                         Err(ConstraintError::OutOfRange)
@@ -73,12 +73,12 @@ impl Constraint for TypeConstraint {
                 }
                 _ => Err(ConstraintError::TypeMismatch(in_value.to_string())),
             },
-            TypeConstraint::Integer(min) => match &in_value {
+            TypeConstraint::Integer => match &in_value {
                 ScalarValue::Number(value) => {
                     let (int, exp) = value.as_bigint_and_exponent();
                     if exp != 0 {
                         Err(ConstraintError::TypeMismatch(in_value.to_string()))
-                    } else if BigInt::from(*min) <= int && int <= BigInt::from(i32::max_value()) {
+                    } else if BigInt::from(i32::min_value()) <= int && int <= BigInt::from(i32::max_value()) {
                         Ok(Datum::Int32(int.to_i32().unwrap()))
                     } else {
                         Err(ConstraintError::OutOfRange)
@@ -86,12 +86,12 @@ impl Constraint for TypeConstraint {
                 }
                 _ => Err(ConstraintError::TypeMismatch(in_value.to_string())),
             },
-            TypeConstraint::BigInt(min) => match &in_value {
+            TypeConstraint::BigInt => match &in_value {
                 ScalarValue::Number(value) => {
                     let (int, exp) = value.as_bigint_and_exponent();
                     if exp != 0 {
                         Err(ConstraintError::TypeMismatch(in_value.to_string()))
-                    } else if BigInt::from(*min) <= int && int <= BigInt::from(i64::max_value()) {
+                    } else if BigInt::from(i64::min_value()) <= int && int <= BigInt::from(i64::max_value()) {
                         Ok(Datum::Int64(int.to_i64().unwrap()))
                     } else {
                         Err(ConstraintError::OutOfRange)
@@ -174,7 +174,7 @@ mod tests {
 
                 #[rstest::fixture]
                 fn constraint() -> TypeConstraint {
-                    TypeConstraint::SmallInt(i16::min_value())
+                    TypeConstraint::SmallInt
                 }
 
                 #[rstest::rstest]
@@ -224,16 +224,6 @@ mod tests {
                         Err(ConstraintError::TypeMismatch("str".to_owned()))
                     )
                 }
-
-                #[test]
-                fn min_bound() {
-                    let constraint = TypeConstraint::SmallInt(0);
-
-                    assert_eq!(
-                        constraint.validate(ScalarValue::Number(BigDecimal::from_str("-1").unwrap())),
-                        Err(ConstraintError::OutOfRange)
-                    )
-                }
             }
         }
 
@@ -247,7 +237,7 @@ mod tests {
 
                 #[rstest::fixture]
                 fn constraint() -> TypeConstraint {
-                    TypeConstraint::Integer(i32::min_value())
+                    TypeConstraint::Integer
                 }
 
                 #[rstest::rstest]
@@ -297,16 +287,6 @@ mod tests {
                         Err(ConstraintError::TypeMismatch("str".to_owned()))
                     )
                 }
-
-                #[test]
-                fn min_bound() {
-                    let constraint = TypeConstraint::Integer(0);
-
-                    assert_eq!(
-                        constraint.validate(ScalarValue::Number(BigDecimal::from_str("-1").unwrap())),
-                        Err(ConstraintError::OutOfRange)
-                    )
-                }
             }
         }
 
@@ -320,7 +300,7 @@ mod tests {
 
                 #[rstest::fixture]
                 fn constraint() -> TypeConstraint {
-                    TypeConstraint::BigInt(i64::min_value())
+                    TypeConstraint::BigInt
                 }
 
                 #[rstest::rstest]
@@ -376,16 +356,6 @@ mod tests {
                     assert_eq!(
                         constraint.validate(ScalarValue::String("str".to_owned())),
                         Err(ConstraintError::TypeMismatch("str".to_owned()))
-                    )
-                }
-
-                #[test]
-                fn min_bound() {
-                    let constraint = TypeConstraint::BigInt(0);
-
-                    assert_eq!(
-                        constraint.validate(ScalarValue::Number(BigDecimal::from_str("-1").unwrap())),
-                        Err(ConstraintError::OutOfRange)
                     )
                 }
             }

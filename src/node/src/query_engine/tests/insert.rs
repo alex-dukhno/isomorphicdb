@@ -221,20 +221,22 @@ fn insert_and_select_different_integer_types(database_with_schema: (InMemory, Re
     let (mut engine, collector) = database_with_schema;
     engine
         .execute(Command::Query {
-    sql: "create table schema_name.table_name (column_si smallint, column_i integer, column_bi bigint, column_serial serial);".to_owned()
-        }).expect("query executed");
+            sql: "create table schema_name.table_name (column_si smallint, column_i integer, column_bi bigint);"
+                .to_owned(),
+        })
+        .expect("query executed");
     collector.assert_receive_single(Ok(QueryEvent::TableCreated));
 
     engine
         .execute(Command::Query {
-            sql: "insert into schema_name.table_name values(-32768, -2147483648, -9223372036854775808, 1);".to_owned(),
+            sql: "insert into schema_name.table_name values(-32768, -2147483648, -9223372036854775808);".to_owned(),
         })
         .expect("query executed");
     collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
     engine
         .execute(Command::Query {
-            sql: "insert into schema_name.table_name values(32767, 2147483647, 9223372036854775807, 1);".to_owned(),
+            sql: "insert into schema_name.table_name values(32767, 2147483647, 9223372036854775807);".to_owned(),
         })
         .expect("query executed");
     collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
@@ -249,19 +251,16 @@ fn insert_and_select_different_integer_types(database_with_schema: (InMemory, Re
             PostgreSqlType::SmallInt.as_column_metadata("column_si"),
             PostgreSqlType::Integer.as_column_metadata("column_i"),
             PostgreSqlType::BigInt.as_column_metadata("column_bi"),
-            PostgreSqlType::Integer.as_column_metadata("column_serial"),
         ])),
         Ok(QueryEvent::DataRow(vec![
             "-32768".to_owned(),
             "-2147483648".to_owned(),
             "-9223372036854775808".to_owned(),
-            "1".to_owned(),
         ])),
         Ok(QueryEvent::DataRow(vec![
             "32767".to_owned(),
             "2147483647".to_owned(),
             "9223372036854775807".to_owned(),
-            "1".to_owned(),
         ])),
         Ok(QueryEvent::RecordsSelected(2)),
     ]);

@@ -84,8 +84,8 @@ fn read_tag(data: &[u8], idx: &mut usize) -> TypeTag {
 pub struct Binary(Vec<u8>);
 
 impl Binary {
-    pub fn new() -> Self {
-        Self::default()
+    pub fn new() -> Binary {
+        Binary::default()
     }
 
     #[allow(clippy::wrong_self_convention)]
@@ -93,15 +93,14 @@ impl Binary {
         self.0.as_slice()
     }
 
-    pub fn with_data(data: Vec<u8>) -> Self {
-        Self(data)
+    pub fn with_data(data: Vec<u8>) -> Binary {
+        Binary(data)
     }
 
-    pub fn pack<'a>(other: &[Datum<'a>]) -> Self {
+    pub fn pack<'a>(other: &[Datum<'a>]) -> Binary {
         use std::ops::Deref;
-        let size = other.iter().fold(0usize, |acc, datum| acc + datum.size());
+        let size = other.iter().map(Datum::size).sum();
         let mut data = Vec::with_capacity(size);
-        // this is not a very smart way of doing this, this just to get it working.
         for datum in other {
             match datum {
                 Datum::<'a>::True => {

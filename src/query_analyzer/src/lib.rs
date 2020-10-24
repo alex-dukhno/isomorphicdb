@@ -153,7 +153,7 @@ mod tests {
             DEFAULT_CATALOG,
             SCHEMA,
             TABLE,
-            &[ColumnDefinition::new("col", SqlType::SmallInt(i16::min_value()))],
+            &[ColumnDefinition::new("col", SqlType::SmallInt)],
         ) {
             Some((_, Some((_, Some(table_id))))) => table_id,
             _ => panic!(),
@@ -165,7 +165,7 @@ mod tests {
             description,
             Ok(Description::Insert(InsertStatement {
                 table_id: FullTableId::from((schema_id, table_id)),
-                sql_types: vec![SqlType::SmallInt(i16::min_value())]
+                sql_types: vec![SqlType::SmallInt]
             }))
         );
     }
