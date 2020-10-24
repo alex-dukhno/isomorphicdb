@@ -66,9 +66,9 @@ fn planner_with_table() -> QueryPlanner {
             SCHEMA,
             TABLE,
             &[
-                ColumnDefinition::new("small_int", SqlType::SmallInt(0)),
-                ColumnDefinition::new("integer", SqlType::Integer(0)),
-                ColumnDefinition::new("big_int", SqlType::BigInt(0)),
+                ColumnDefinition::new("small_int", SqlType::SmallInt),
+                ColumnDefinition::new("integer", SqlType::Integer),
+                ColumnDefinition::new("big_int", SqlType::BigInt),
             ],
         )
         .expect("table created");

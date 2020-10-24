@@ -98,12 +98,7 @@ fn update_table(planner_with_table: QueryPlanner) {
         }),
         Ok(Plan::Update(TableUpdates {
             table_id: FullTableId::from((0, 0)),
-            column_indices: vec![(
-                0,
-                "small_int".to_owned(),
-                SqlType::SmallInt(0),
-                TypeConstraint::SmallInt(0)
-            )],
+            column_indices: vec![(0, "small_int".to_owned(), SqlType::SmallInt, TypeConstraint::SmallInt)],
             input: vec![ScalarOp::Value(ScalarValue::String("".to_string()))],
         }))
     );

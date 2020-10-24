@@ -22,10 +22,7 @@ fn create_tables_with_different_names(data_manager_with_schema: InMemory) {
         data_manager_with_schema.create_table(
             schema_id,
             "table_name_1",
-            &[ColumnDefinition::new(
-                "column_test",
-                SqlType::SmallInt(i16::min_value())
-            )]
+            &[ColumnDefinition::new("column_test", SqlType::SmallInt)]
         ),
         Ok(_)
     ));
@@ -33,10 +30,7 @@ fn create_tables_with_different_names(data_manager_with_schema: InMemory) {
         data_manager_with_schema.create_table(
             schema_id,
             "table_name_2",
-            &[ColumnDefinition::new(
-                "column_test",
-                SqlType::SmallInt(i16::min_value())
-            )]
+            &[ColumnDefinition::new("column_test", SqlType::SmallInt)]
         ),
         Ok(_)
     ));
@@ -51,10 +45,7 @@ fn create_table_with_the_same_name_in_different_schemas(data_manager: InMemory) 
         data_manager.create_table(
             schema_1_id,
             "table_name",
-            &[ColumnDefinition::new(
-                "column_test",
-                SqlType::SmallInt(i16::min_value())
-            )]
+            &[ColumnDefinition::new("column_test", SqlType::SmallInt)]
         ),
         Ok(_)
     ));
@@ -63,10 +54,7 @@ fn create_table_with_the_same_name_in_different_schemas(data_manager: InMemory) 
         data_manager.create_table(
             schema_2_id,
             "table_name",
-            &[ColumnDefinition::new(
-                "column_test",
-                SqlType::SmallInt(i16::min_value())
-            )]
+            &[ColumnDefinition::new("column_test", SqlType::SmallInt)]
         ),
         Ok(_)
     ));
@@ -79,10 +67,7 @@ fn drop_table(data_manager_with_schema: InMemory) {
         .create_table(
             schema_id,
             "table_name",
-            &[ColumnDefinition::new(
-                "column_test",
-                SqlType::SmallInt(i16::min_value()),
-            )],
+            &[ColumnDefinition::new("column_test", SqlType::SmallInt)],
         )
         .expect("table is created");
 
@@ -94,10 +79,7 @@ fn drop_table(data_manager_with_schema: InMemory) {
         data_manager_with_schema.create_table(
             schema_id,
             "table_name",
-            &[ColumnDefinition::new(
-                "column_test",
-                SqlType::SmallInt(i16::min_value())
-            )]
+            &[ColumnDefinition::new("column_test", SqlType::SmallInt)]
         ),
         Ok(_)
     ));
@@ -126,10 +108,7 @@ fn table_ids_for_existing_columns(data_manager_with_schema: InMemory) {
         .create_table(
             schema_id,
             "table_name",
-            &[ColumnDefinition::new(
-                "column_test",
-                SqlType::SmallInt(i16::min_value()),
-            )],
+            &[ColumnDefinition::new("column_test", SqlType::SmallInt)],
         )
         .expect("table is created");
 
@@ -146,10 +125,7 @@ fn table_ids_for_non_existing_columns(data_manager_with_schema: InMemory) {
         .create_table(
             schema_id,
             "table_name",
-            &[ColumnDefinition::new(
-                "column_test",
-                SqlType::SmallInt(i16::min_value()),
-            )],
+            &[ColumnDefinition::new("column_test", SqlType::SmallInt)],
         )
         .expect("table is created");
 

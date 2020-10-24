@@ -24,10 +24,7 @@ fn delete_all_from_table(data_manager_with_schema: InMemory) {
         .create_table(
             schema_id,
             "table_name",
-            &[ColumnDefinition::new(
-                "column_test",
-                SqlType::SmallInt(i16::min_value()),
-            )],
+            &[ColumnDefinition::new("column_test", SqlType::SmallInt)],
         )
         .expect("table is created");
 
@@ -87,9 +84,9 @@ fn with_small_ints_table(data_manager_with_schema: InMemory) -> InMemory {
             schema_id,
             "table_name",
             &[
-                ColumnDefinition::new("column_1", SqlType::SmallInt(i16::min_value())),
-                ColumnDefinition::new("column_2", SqlType::SmallInt(i16::min_value())),
-                ColumnDefinition::new("column_3", SqlType::SmallInt(i16::min_value())),
+                ColumnDefinition::new("column_1", SqlType::SmallInt),
+                ColumnDefinition::new("column_2", SqlType::SmallInt),
+                ColumnDefinition::new("column_3", SqlType::SmallInt),
             ],
         )
         .expect("table is created");

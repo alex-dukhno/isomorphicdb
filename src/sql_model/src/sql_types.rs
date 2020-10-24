@@ -24,9 +24,9 @@ pub enum SqlType {
     Bool,
     Char(u64),
     VarChar(u64),
-    SmallInt(i16),
-    Integer(i32),
-    BigInt(i64),
+    SmallInt,
+    Integer,
+    BigInt,
     Real,
     DoublePrecision,
 }
@@ -36,21 +36,12 @@ impl TryFrom<&DataType> for SqlType {
 
     fn try_from(data_type: &DataType) -> Result<Self, Self::Error> {
         match data_type {
-            DataType::SmallInt => Ok(SqlType::SmallInt(i16::min_value())),
-            DataType::Int => Ok(SqlType::Integer(i32::min_value())),
-            DataType::BigInt => Ok(SqlType::BigInt(i64::min_value())),
+            DataType::SmallInt => Ok(SqlType::SmallInt),
+            DataType::Int => Ok(SqlType::Integer),
+            DataType::BigInt => Ok(SqlType::BigInt),
             DataType::Char(len) => Ok(SqlType::Char(len.unwrap_or(255))),
             DataType::Varchar(len) => Ok(SqlType::VarChar(len.unwrap_or(255))),
             DataType::Boolean => Ok(SqlType::Bool),
-            DataType::Custom(name) => {
-                let name = name.to_string();
-                match name.as_str() {
-                    "serial" => Ok(SqlType::Integer(1)),
-                    "smallserial" => Ok(SqlType::SmallInt(1)),
-                    "bigserial" => Ok(SqlType::BigInt(1)),
-                    _other_type => Err(NotSupportedType(data_type.clone())),
-                }
-            }
             other_type => Err(NotSupportedType(other_type.clone())),
         }
     }
@@ -70,9 +61,9 @@ impl Display for SqlType {
             SqlType::Bool => write!(f, "bool"),
             SqlType::Char(len) => write!(f, "char({})", len),
             SqlType::VarChar(len) => write!(f, "varchar({})", len),
-            SqlType::SmallInt(_) => write!(f, "smallint"),
-            SqlType::Integer(_) => write!(f, "integer"),
-            SqlType::BigInt(_) => write!(f, "bigint"),
+            SqlType::SmallInt => write!(f, "smallint"),
+            SqlType::Integer => write!(f, "integer"),
+            SqlType::BigInt => write!(f, "bigint"),
             SqlType::Real => write!(f, "real"),
             SqlType::DoublePrecision => write!(f, "double precision"),
         }
@@ -85,9 +76,9 @@ impl Into<PostgreSqlType> for &SqlType {
             SqlType::Bool => PostgreSqlType::Bool,
             SqlType::Char(_) => PostgreSqlType::Char,
             SqlType::VarChar(_) => PostgreSqlType::VarChar,
-            SqlType::SmallInt(_) => PostgreSqlType::SmallInt,
-            SqlType::Integer(_) => PostgreSqlType::Integer,
-            SqlType::BigInt(_) => PostgreSqlType::BigInt,
+            SqlType::SmallInt => PostgreSqlType::SmallInt,
+            SqlType::Integer => PostgreSqlType::Integer,
+            SqlType::BigInt => PostgreSqlType::BigInt,
             SqlType::Real => PostgreSqlType::Real,
             SqlType::DoublePrecision => PostgreSqlType::DoublePrecision,
         }
@@ -110,19 +101,19 @@ mod tests {
 
         #[test]
         fn small_int() {
-            let pg_type: PostgreSqlType = (&SqlType::SmallInt(i16::min_value())).into();
+            let pg_type: PostgreSqlType = (&SqlType::SmallInt).into();
             assert_eq!(pg_type, PostgreSqlType::SmallInt);
         }
 
         #[test]
         fn integer() {
-            let pg_type: PostgreSqlType = (&SqlType::Integer(i32::min_value())).into();
+            let pg_type: PostgreSqlType = (&SqlType::Integer).into();
             assert_eq!(pg_type, PostgreSqlType::Integer);
         }
 
         #[test]
         fn big_int() {
-            let pg_type: PostgreSqlType = (&SqlType::BigInt(i64::min_value())).into();
+            let pg_type: PostgreSqlType = (&SqlType::BigInt).into();
             assert_eq!(pg_type, PostgreSqlType::BigInt);
         }
 

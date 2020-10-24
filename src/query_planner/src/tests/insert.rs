@@ -124,14 +124,9 @@ fn insert_into_table(planner_with_table: QueryPlanner) {
         Ok(Plan::Insert(TableInserts {
             table_id: FullTableId::from((0, 0)),
             column_indices: vec![
-                (
-                    0,
-                    "small_int".to_owned(),
-                    SqlType::SmallInt(0),
-                    TypeConstraint::SmallInt(0)
-                ),
-                (1, "integer".to_owned(), SqlType::Integer(0), TypeConstraint::Integer(0)),
-                (2, "big_int".to_owned(), SqlType::BigInt(0), TypeConstraint::BigInt(0))
+                (0, "small_int".to_owned(), SqlType::SmallInt, TypeConstraint::SmallInt),
+                (1, "integer".to_owned(), SqlType::Integer, TypeConstraint::Integer),
+                (2, "big_int".to_owned(), SqlType::BigInt, TypeConstraint::BigInt)
             ],
             input: vec![]
         }))
@@ -156,14 +151,9 @@ fn insert_into_table_without_columns(planner_with_table: QueryPlanner) {
         Ok(Plan::Insert(TableInserts {
             table_id: FullTableId::from((0, 0)),
             column_indices: vec![
-                (
-                    0,
-                    "small_int".to_owned(),
-                    SqlType::SmallInt(0),
-                    TypeConstraint::SmallInt(0)
-                ),
-                (1, "integer".to_owned(), SqlType::Integer(0), TypeConstraint::Integer(0)),
-                (2, "big_int".to_owned(), SqlType::BigInt(0), TypeConstraint::BigInt(0))
+                (0, "small_int".to_owned(), SqlType::SmallInt, TypeConstraint::SmallInt),
+                (1, "integer".to_owned(), SqlType::Integer, TypeConstraint::Integer),
+                (2, "big_int".to_owned(), SqlType::BigInt, TypeConstraint::BigInt)
             ],
             input: vec![]
         }))

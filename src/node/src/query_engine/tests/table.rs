@@ -173,21 +173,4 @@ mod different_types {
 
         collector.assert_receive_single(Ok(QueryEvent::TableCreated));
     }
-
-    #[rstest::rstest]
-    fn serials(database_with_schema: (InMemory, ResultCollector)) {
-        let (mut engine, collector) = database_with_schema;
-        engine
-            .execute(Command::Query {
-                sql: "create table schema_name.table_name (\
-            column_smalls smallserial,\
-            column_s serial,\
-            column_bigs bigserial\
-            );"
-                .to_owned(),
-            })
-            .expect("query executed");
-
-        collector.assert_receive_single(Ok(QueryEvent::TableCreated));
-    }
 }
