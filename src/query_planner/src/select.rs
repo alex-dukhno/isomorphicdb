@@ -112,6 +112,9 @@ impl Planner for SelectPlanner {
                                     };
                                     let r = match right.deref() {
                                         Expr::Value(Value::Number(num)) => PredicateValue::Number(num.clone()),
+                                        Expr::Identifier(Ident { value, .. }) if value.starts_with('$') => {
+                                            PredicateValue::Parameter(value[1..].to_string())
+                                        }
                                         _ => panic!(),
                                     };
                                     Some((l, o, r))

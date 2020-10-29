@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use bigdecimal::BigDecimal;
-use sql_model::Id;
+use sql_model::{Id, ParameterName};
 
 #[derive(PartialEq, Clone, Debug)]
 pub enum PredicateOp {
@@ -24,4 +24,5 @@ pub enum PredicateOp {
 pub enum PredicateValue {
     Column(Id),
     Number(BigDecimal),
+    Parameter(ParameterName),
 }

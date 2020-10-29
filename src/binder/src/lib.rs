@@ -12,24 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use sqlparser::ast::{Assignment, Expr, Ident, ObjectType, Query, SetExpr, Statement};
+use sqlparser::ast::{Assignment, Expr, Ident, ObjectType, Query, Select, SetExpr, Statement};
 
 pub struct ParamBinder;
 
 impl ParamBinder {
     /// Replaces the parameters of prepared statement with values.
-    ///
-    /// TODO:
-    /// Only two SQL formats has been supported to bind parameters as below.
-    ///     `insert into schema_name.table_name values ($1, 1), ($2, 2)`
-    ///     `update schema_name.table_name set col1 = $1, col2 = $2`
-    /// Needs to support other statements (as `select` and `delete`) and other
-    /// expressions in SQL (as `BinaryOp` and `UnaryOp` in `where` statement).
     pub fn bind(&self, stmt: &mut Statement, params: &[Expr]) -> Result<(), ()> {
         match stmt {
             Statement::Insert { .. } => bind_insert(stmt, params),
             Statement::Update { .. } => bind_update(stmt, params),
-            Statement::Query(_) => Ok(()),
+            Statement::Query(_) => bind_select(stmt, params),
             Statement::SetVariable { .. } => Ok(()),
             Statement::CreateSchema { .. } => Ok(()),
             Statement::CreateTable { .. } => Ok(()),
@@ -60,6 +53,34 @@ fn bind_insert(stmt: &mut Statement, params: &[Expr]) -> Result<(), ()> {
     }
 
     log::debug!("bound insert SQL: {}", stmt);
+    Ok(())
+}
+
+fn bind_select(stmt: &mut Statement, params: &[Expr]) -> Result<(), ()> {
+    let mut body = match stmt {
+        Statement::Query(query) => {
+            let query: &mut Query = query;
+            let Query { body, .. } = query;
+            body
+        }
+        _ => return Err(()),
+    };
+
+    let selection = match &mut body {
+        SetExpr::Select(select) => {
+            let select: &mut Select = select;
+            let Select { selection, .. } = select;
+            selection
+        }
+        _ => return Ok(()),
+    };
+
+    if let Some(Expr::BinaryOp { right, .. }) = selection {
+        let right: &mut Expr = right;
+        replace_expr_with_params(right, params);
+    }
+
+    log::debug!("bound select SQL: {}", stmt);
     Ok(())
 }
 
@@ -112,7 +133,7 @@ fn replace_expr_with_params(expr: &mut Expr, params: &[Expr]) {
 mod tests {
     use super::*;
     use bigdecimal::BigDecimal;
-    use sqlparser::ast::{ObjectName, Value, Values};
+    use sqlparser::ast::{BinaryOperator, ObjectName, SelectItem, TableFactor, TableWithJoins, Value, Values};
 
     fn ident<S: ToString>(name: S) -> Ident {
         Ident {
@@ -122,7 +143,7 @@ mod tests {
     }
 
     #[test]
-    fn bind_insert_raw_statement() -> Result<(), ()> {
+    fn bind_insert_statement() {
         let mut statement = Statement::Insert {
             table_name: ObjectName(vec![ident("schema_name"), ident("table_name")]),
             columns: vec![],
@@ -139,24 +160,80 @@ mod tests {
             }),
         };
 
-        ParamBinder.bind(
-            &mut statement,
-            &[
-                Expr::Value(Value::Number(BigDecimal::from(1))),
-                Expr::Value(Value::SingleQuotedString("abc".into())),
-            ],
-        )?;
+        ParamBinder
+            .bind(
+                &mut statement,
+                &[
+                    Expr::Value(Value::Number(BigDecimal::from(1))),
+                    Expr::Value(Value::SingleQuotedString("abc".into())),
+                ],
+            )
+            .unwrap();
 
         assert_eq!(
             statement.to_string(),
             "INSERT INTO schema_name.table_name VALUES (1, 'abc')"
         );
-
-        Ok(())
     }
 
     #[test]
-    fn bind_update_raw_statement() -> Result<(), ()> {
+    fn bind_select_statement() {
+        let mut statement = Statement::Query(Box::new(Query {
+            with: None,
+            body: SetExpr::Select(Box::new(Select {
+                distinct: false,
+                top: None,
+                projection: vec![SelectItem::Wildcard],
+                from: vec![TableWithJoins {
+                    relation: TableFactor::Table {
+                        name: ObjectName(vec![
+                            Ident {
+                                value: "schema_name".to_owned(),
+                                quote_style: None,
+                            },
+                            Ident {
+                                value: "table_name".to_owned(),
+                                quote_style: None,
+                            },
+                        ]),
+                        alias: None,
+                        args: vec![],
+                        with_hints: vec![],
+                    },
+                    joins: vec![],
+                }],
+                selection: Some(Expr::BinaryOp {
+                    left: Box::new(Expr::Identifier(Ident {
+                        value: "column_1".to_owned(),
+                        quote_style: None,
+                    })),
+                    op: BinaryOperator::Eq,
+                    right: Box::new(Expr::Identifier(Ident {
+                        value: "$1".to_owned(),
+                        quote_style: None,
+                    })),
+                }),
+                group_by: vec![],
+                having: None,
+            })),
+            order_by: vec![],
+            limit: None,
+            offset: None,
+            fetch: None,
+        }));
+
+        ParamBinder
+            .bind(&mut statement, &[Expr::Value(Value::Number(BigDecimal::from(123)))])
+            .unwrap();
+
+        assert_eq!(
+            statement.to_string(),
+            "SELECT * FROM schema_name.table_name WHERE column_1 = 123"
+        );
+    }
+
+    #[test]
+    fn bind_update_statement() {
         let mut statement = Statement::Update {
             table_name: ObjectName(vec![ident("schema_name"), ident("table_name")]),
             assignments: vec![
@@ -172,19 +249,19 @@ mod tests {
             selection: None,
         };
 
-        ParamBinder.bind(
-            &mut statement,
-            &[
-                Expr::Value(Value::Number(BigDecimal::from(1))),
-                Expr::Value(Value::SingleQuotedString("abc".into())),
-            ],
-        )?;
+        ParamBinder
+            .bind(
+                &mut statement,
+                &[
+                    Expr::Value(Value::Number(BigDecimal::from(1))),
+                    Expr::Value(Value::SingleQuotedString("abc".into())),
+                ],
+            )
+            .unwrap();
 
         assert_eq!(
             statement.to_string(),
             "UPDATE schema_name.table_name SET column_1 = 1, column_2 = 'abc'"
         );
-
-        Ok(())
     }
 }
