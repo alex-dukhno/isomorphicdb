@@ -28,7 +28,7 @@ pub type Oid = u32;
 /// Represents PostgreSQL data type and methods to send over wire
 #[allow(missing_docs)]
 #[derive(PartialEq, Debug, Copy, Clone, PartialOrd, Eq)]
-pub enum PostgreSqlType {
+pub enum PgType {
     Bool,
     Char,
     VarChar,
@@ -52,60 +52,51 @@ pub struct NotSupportedDataType(DataType);
 /// Not supported OID
 pub struct NotSupportedOid(pub(crate) Oid);
 
-impl TryFrom<&DataType> for PostgreSqlType {
+impl TryFrom<&DataType> for PgType {
     type Error = NotSupportedDataType;
 
     /// Returns the type corresponding to the provided data type, if the data
     /// type is known.
     fn try_from(data_type: &DataType) -> Result<Self, Self::Error> {
         match data_type {
-            DataType::SmallInt => Ok(PostgreSqlType::SmallInt),
-            DataType::Int => Ok(PostgreSqlType::Integer),
-            DataType::BigInt => Ok(PostgreSqlType::BigInt),
-            DataType::Char(_) => Ok(PostgreSqlType::Char),
-            DataType::Varchar(_) => Ok(PostgreSqlType::VarChar),
-            DataType::Boolean => Ok(PostgreSqlType::Bool),
-            DataType::Custom(name) => {
-                let name = name.to_string();
-                match name.as_str() {
-                    "serial" => Ok(PostgreSqlType::Integer),
-                    "smallserial" => Ok(PostgreSqlType::SmallInt),
-                    "bigserial" => Ok(PostgreSqlType::BigInt),
-                    _other_type => Err(NotSupportedDataType(data_type.clone())),
-                }
-            }
+            DataType::SmallInt => Ok(PgType::SmallInt),
+            DataType::Int => Ok(PgType::Integer),
+            DataType::BigInt => Ok(PgType::BigInt),
+            DataType::Char(_) => Ok(PgType::Char),
+            DataType::Varchar(_) => Ok(PgType::VarChar),
+            DataType::Boolean => Ok(PgType::Bool),
             other_type => Err(NotSupportedDataType(other_type.clone())),
         }
     }
 }
 
-impl TryFrom<Oid> for PostgreSqlType {
+impl TryFrom<Oid> for PgType {
     type Error = NotSupportedOid;
 
     /// Returns the type corresponding to the provided OID, if the OID is known.
     fn try_from(oid: Oid) -> Result<Self, Self::Error> {
         match oid {
-            16 => Ok(PostgreSqlType::Bool),
-            18 => Ok(PostgreSqlType::Char),
-            20 => Ok(PostgreSqlType::BigInt),
-            21 => Ok(PostgreSqlType::SmallInt),
-            23 => Ok(PostgreSqlType::Integer),
-            700 => Ok(PostgreSqlType::Real),
-            701 => Ok(PostgreSqlType::DoublePrecision),
-            1043 => Ok(PostgreSqlType::VarChar),
-            1082 => Ok(PostgreSqlType::Date),
-            1083 => Ok(PostgreSqlType::Time),
-            1114 => Ok(PostgreSqlType::Timestamp),
-            1184 => Ok(PostgreSqlType::TimestampWithTimeZone),
-            1186 => Ok(PostgreSqlType::Interval),
-            1266 => Ok(PostgreSqlType::TimeWithTimeZone),
-            1700 => Ok(PostgreSqlType::Decimal),
+            16 => Ok(PgType::Bool),
+            18 => Ok(PgType::Char),
+            20 => Ok(PgType::BigInt),
+            21 => Ok(PgType::SmallInt),
+            23 => Ok(PgType::Integer),
+            700 => Ok(PgType::Real),
+            701 => Ok(PgType::DoublePrecision),
+            1043 => Ok(PgType::VarChar),
+            1082 => Ok(PgType::Date),
+            1083 => Ok(PgType::Time),
+            1114 => Ok(PgType::Timestamp),
+            1184 => Ok(PgType::TimestampWithTimeZone),
+            1186 => Ok(PgType::Interval),
+            1266 => Ok(PgType::TimeWithTimeZone),
+            1700 => Ok(PgType::Decimal),
             _ => Err(NotSupportedOid(oid)),
         }
     }
 }
 
-impl PostgreSqlType {
+impl PgType {
     /// PostgreSQL type OID
     pub fn pg_oid(&self) -> Oid {
         match self {
@@ -194,7 +185,7 @@ impl PostgreSqlType {
     }
 }
 
-impl Display for PostgreSqlType {
+impl Display for PgType {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             Self::Bool => write!(f, "bool"),
@@ -385,7 +376,7 @@ mod tests {
         #[test]
         fn decode_true() {
             assert_eq!(
-                PostgreSqlType::Bool.decode(&PostgreSqlFormat::Binary, &[1]),
+                PgType::Bool.decode(&PostgreSqlFormat::Binary, &[1]),
                 Ok(PostgreSqlValue::True)
             );
         }
@@ -393,7 +384,7 @@ mod tests {
         #[test]
         fn decode_false() {
             assert_eq!(
-                PostgreSqlType::Bool.decode(&PostgreSqlFormat::Binary, &[0]),
+                PgType::Bool.decode(&PostgreSqlFormat::Binary, &[0]),
                 Ok(PostgreSqlValue::False)
             );
         }
@@ -401,7 +392,7 @@ mod tests {
         #[test]
         fn decode_char() {
             assert_eq!(
-                PostgreSqlType::Char.decode(&PostgreSqlFormat::Binary, &[97, 98, 99]),
+                PgType::Char.decode(&PostgreSqlFormat::Binary, &[97, 98, 99]),
                 Ok(PostgreSqlValue::String("abc".into()))
             );
         }
@@ -409,7 +400,7 @@ mod tests {
         #[test]
         fn decode_varchar() {
             assert_eq!(
-                PostgreSqlType::VarChar.decode(&PostgreSqlFormat::Binary, &[97, 98, 99]),
+                PgType::VarChar.decode(&PostgreSqlFormat::Binary, &[97, 98, 99]),
                 Ok(PostgreSqlValue::String("abc".into()))
             );
         }
@@ -417,7 +408,7 @@ mod tests {
         #[test]
         fn decode_smallint() {
             assert_eq!(
-                PostgreSqlType::SmallInt.decode(&PostgreSqlFormat::Binary, &[0, 0, 0, 1]),
+                PgType::SmallInt.decode(&PostgreSqlFormat::Binary, &[0, 0, 0, 1]),
                 Ok(PostgreSqlValue::Int16(1))
             );
         }
@@ -425,7 +416,7 @@ mod tests {
         #[test]
         fn decode_integer() {
             assert_eq!(
-                PostgreSqlType::Integer.decode(&PostgreSqlFormat::Binary, &[0, 0, 0, 1]),
+                PgType::Integer.decode(&PostgreSqlFormat::Binary, &[0, 0, 0, 1]),
                 Ok(PostgreSqlValue::Int32(1))
             );
         }
@@ -433,7 +424,7 @@ mod tests {
         #[test]
         fn decode_bigint() {
             assert_eq!(
-                PostgreSqlType::BigInt.decode(&PostgreSqlFormat::Binary, &[0, 0, 0, 0, 0, 0, 0, 1]),
+                PgType::BigInt.decode(&PostgreSqlFormat::Binary, &[0, 0, 0, 0, 0, 0, 0, 1]),
                 Ok(PostgreSqlValue::Int64(1))
             );
         }
@@ -446,7 +437,7 @@ mod tests {
         #[test]
         fn decode_true() {
             assert_eq!(
-                PostgreSqlType::Bool.decode(&PostgreSqlFormat::Text, b"true"),
+                PgType::Bool.decode(&PostgreSqlFormat::Text, b"true"),
                 Ok(PostgreSqlValue::True)
             );
         }
@@ -454,7 +445,7 @@ mod tests {
         #[test]
         fn decode_false() {
             assert_eq!(
-                PostgreSqlType::Bool.decode(&PostgreSqlFormat::Text, b"0"),
+                PgType::Bool.decode(&PostgreSqlFormat::Text, b"0"),
                 Ok(PostgreSqlValue::False)
             );
         }
@@ -462,7 +453,7 @@ mod tests {
         #[test]
         fn decode_char() {
             assert_eq!(
-                PostgreSqlType::Char.decode(&PostgreSqlFormat::Text, b"abc"),
+                PgType::Char.decode(&PostgreSqlFormat::Text, b"abc"),
                 Ok(PostgreSqlValue::String("abc".into()))
             );
         }
@@ -470,7 +461,7 @@ mod tests {
         #[test]
         fn decode_varchar() {
             assert_eq!(
-                PostgreSqlType::VarChar.decode(&PostgreSqlFormat::Text, b"abc"),
+                PgType::VarChar.decode(&PostgreSqlFormat::Text, b"abc"),
                 Ok(PostgreSqlValue::String("abc".into()))
             );
         }
@@ -478,7 +469,7 @@ mod tests {
         #[test]
         fn decode_smallint() {
             assert_eq!(
-                PostgreSqlType::SmallInt.decode(&PostgreSqlFormat::Text, b"1"),
+                PgType::SmallInt.decode(&PostgreSqlFormat::Text, b"1"),
                 Ok(PostgreSqlValue::Int16(1))
             );
         }
@@ -486,7 +477,7 @@ mod tests {
         #[test]
         fn decode_integer() {
             assert_eq!(
-                PostgreSqlType::Integer.decode(&PostgreSqlFormat::Text, b"123"),
+                PgType::Integer.decode(&PostgreSqlFormat::Text, b"123"),
                 Ok(PostgreSqlValue::Int32(123))
             );
         }
@@ -494,7 +485,7 @@ mod tests {
         #[test]
         fn decode_bigint() {
             assert_eq!(
-                PostgreSqlType::BigInt.decode(&PostgreSqlFormat::Text, b"123456"),
+                PgType::BigInt.decode(&PostgreSqlFormat::Text, b"123456"),
                 Ok(PostgreSqlValue::Int64(123456))
             );
         }

@@ -14,7 +14,7 @@
 
 use super::*;
 use pg_model::{
-    pg_types::{PostgreSqlFormat, PostgreSqlType},
+    pg_types::{PgType, PostgreSqlFormat},
     results::QueryEvent,
     Command,
 };
@@ -57,8 +57,8 @@ mod statement_description {
             })
             .expect("statement described");
         collector.assert_receive_intermediate(Ok(QueryEvent::StatementDescription(vec![
-            ("column_1".to_owned(), PostgreSqlType::SmallInt),
-            ("column_2".to_owned(), PostgreSqlType::SmallInt),
+            ("column_1".to_owned(), PgType::SmallInt),
+            ("column_2".to_owned(), PgType::SmallInt),
         ])));
         collector.assert_receive_intermediate(Ok(QueryEvent::StatementParameters(vec![])));
     }
@@ -71,7 +71,7 @@ mod statement_description {
             .execute(Command::Parse {
                 statement_name: "statement_name".to_owned(),
                 sql: "update schema_name.table_name set column_1 = $1 where column_2 = $2;".to_owned(),
-                param_types: vec![PostgreSqlType::SmallInt, PostgreSqlType::SmallInt],
+                param_types: vec![PgType::SmallInt, PgType::SmallInt],
             })
             .expect("statement parsed");
         collector.assert_receive_intermediate(Ok(QueryEvent::ParseComplete));
@@ -83,8 +83,8 @@ mod statement_description {
             .expect("statement described");
         collector.assert_receive_intermediate(Ok(QueryEvent::StatementDescription(vec![])));
         collector.assert_receive_intermediate(Ok(QueryEvent::StatementParameters(vec![
-            PostgreSqlType::SmallInt,
-            PostgreSqlType::SmallInt,
+            PgType::SmallInt,
+            PgType::SmallInt,
         ])));
     }
 
@@ -117,7 +117,7 @@ mod parse_bind_execute {
                 .execute(Command::Parse {
                     statement_name: "statement_name".to_owned(),
                     sql: "insert into schema_name.table_name values ($1, $2);".to_owned(),
-                    param_types: vec![PostgreSqlType::SmallInt, PostgreSqlType::SmallInt],
+                    param_types: vec![PgType::SmallInt, PgType::SmallInt],
                 })
                 .expect("statement parsed");
             collector.assert_receive_intermediate(Ok(QueryEvent::ParseComplete));
@@ -157,7 +157,7 @@ mod parse_bind_execute {
                 .execute(Command::Parse {
                     statement_name: "statement_name".to_owned(),
                     sql: "update schema_name.table_name set column_1 = $1, column_2 = $2".to_owned(),
-                    param_types: vec![PostgreSqlType::Integer, PostgreSqlType::VarChar],
+                    param_types: vec![PgType::Integer, PgType::VarChar],
                 })
                 .expect("query parsed");
             collector.assert_receive_intermediate(Ok(QueryEvent::ParseComplete));

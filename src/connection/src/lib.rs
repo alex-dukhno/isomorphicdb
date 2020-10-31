@@ -18,7 +18,7 @@ use blocking::Unblock;
 use byteorder::{ByteOrder, NetworkEndian};
 use futures_lite::{future::block_on, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use pg_model::{
-    pg_types::{PostgreSqlFormat, PostgreSqlType},
+    pg_types::{PgType, PostgreSqlFormat},
     results::QueryResult,
     Command, ConnId, ConnSupervisor, Encryption, ProtocolConfiguration,
 };
@@ -282,7 +282,7 @@ impl<RW: AsyncRead + AsyncWrite + Unpin> Receiver for RequestReceiver<RW> {
             } => {
                 let mut parameter_types = vec![];
                 for param_type in param_types {
-                    match PostgreSqlType::try_from(param_type) {
+                    match PgType::try_from(param_type) {
                         Ok(pg_type) => parameter_types.push(pg_type),
                         Err(_error) => return Ok(Err(Error::VerificationFailed)),
                     }

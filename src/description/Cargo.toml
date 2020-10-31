@@ -7,5 +7,6 @@ publish = false
 
 [dependencies]
 sql_model = { path = "../sql_model" }
+pg_model = { path = "../pg_model" }
 
 sqlparser = { git = "https://github.com/ballista-compute/sqlparser-rs.git", branch = "main", features = ["bigdecimal"] }

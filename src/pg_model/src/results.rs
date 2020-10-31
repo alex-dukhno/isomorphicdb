@@ -12,14 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::pg_types::PostgreSqlType;
+use crate::pg_types::PgType;
 use pg_wire::{BackendMessage, ColumnMetadata};
 use std::fmt::{self, Display, Formatter};
 
 /// Represents result of SQL query execution
 pub type QueryResult = std::result::Result<QueryEvent, QueryError>;
 /// Represents selected columns from tables
-pub type Description = Vec<(String, PostgreSqlType)>;
+pub type Description = Vec<(String, PgType)>;
 
 /// Represents successful events that can happen in server backend
 #[derive(Clone, Debug, PartialEq)]
@@ -53,7 +53,7 @@ pub enum QueryEvent {
     /// Prepared statement successfully deallocated
     StatementDeallocated,
     /// Prepared statement parameters
-    StatementParameters(Vec<PostgreSqlType>),
+    StatementParameters(Vec<PgType>),
     /// Prepare statement description
     StatementDescription(Description),
     /// Processing of the query is complete
@@ -82,7 +82,7 @@ impl Into<BackendMessage> for QueryEvent {
             QueryEvent::StatementPrepared => BackendMessage::CommandComplete("PREPARE".to_owned()),
             QueryEvent::StatementDeallocated => BackendMessage::CommandComplete("DEALLOCATE".to_owned()),
             QueryEvent::StatementParameters(param_types) => {
-                BackendMessage::ParameterDescription(param_types.iter().map(PostgreSqlType::pg_oid).collect())
+                BackendMessage::ParameterDescription(param_types.iter().map(PgType::pg_oid).collect())
             }
             QueryEvent::StatementDescription(description) => {
                 if description.is_empty() {
@@ -149,18 +149,18 @@ pub(crate) enum QueryErrorKind {
     FeatureNotSupported(String),
     TooManyInsertExpressions,
     NumericTypeOutOfRange {
-        pg_type: PostgreSqlType,
+        pg_type: PgType,
         column_name: String,
         row_index: usize, // TODO make it optional - does not make sense for update query
     },
     DataTypeMismatch {
-        pg_type: PostgreSqlType,
+        pg_type: PgType,
         value: String,
         column_name: String,
         row_index: usize, // TODO make it optional - does not make sense for update query
     },
     StringTypeLengthMismatch {
-        pg_type: PostgreSqlType,
+        pg_type: PgType,
         len: u64,
         column_name: String,
         row_index: usize, // TODO make it optional - does not make sense for update query
@@ -178,7 +178,7 @@ pub(crate) enum QueryErrorKind {
     },
     SyntaxError(String),
     InvalidTextRepresentation {
-        pg_type: PostgreSqlType,
+        pg_type: PgType,
         value: String,
     },
     DuplicateColumn(String),
@@ -458,7 +458,7 @@ impl QueryError {
     }
 
     /// numeric out of range constructor
-    pub fn out_of_range<S: ToString>(pg_type: PostgreSqlType, column_name: S, row_index: usize) -> QueryError {
+    pub fn out_of_range<S: ToString>(pg_type: PgType, column_name: S, row_index: usize) -> QueryError {
         QueryError {
             severity: Severity::Error,
             kind: QueryErrorKind::NumericTypeOutOfRange {
@@ -470,12 +470,7 @@ impl QueryError {
     }
 
     /// type mismatch constructor
-    pub fn type_mismatch<S: ToString>(
-        value: S,
-        pg_type: PostgreSqlType,
-        column_name: S,
-        row_index: usize,
-    ) -> QueryError {
+    pub fn type_mismatch<S: ToString>(value: S, pg_type: PgType, column_name: S, row_index: usize) -> QueryError {
         QueryError {
             severity: Severity::Error,
             kind: QueryErrorKind::DataTypeMismatch {
@@ -489,7 +484,7 @@ impl QueryError {
 
     /// length of string types do not match constructor
     pub fn string_length_mismatch<S: ToString>(
-        pg_type: PostgreSqlType,
+        pg_type: PgType,
         len: u64,
         column_name: S,
         row_index: usize,
@@ -506,7 +501,7 @@ impl QueryError {
     }
 
     /// invalid text representation
-    pub fn invalid_text_representation<S: ToString>(pg_type: PostgreSqlType, value: S) -> QueryError {
+    pub fn invalid_text_representation<S: ToString>(pg_type: PgType, value: S) -> QueryError {
         QueryError {
             severity: Severity::Error,
             kind: QueryErrorKind::InvalidTextRepresentation {
@@ -570,16 +565,16 @@ mod tests {
         #[test]
         fn row_description() {
             let message: BackendMessage = QueryEvent::RowDescription(vec![
-                PostgreSqlType::SmallInt.as_column_metadata("column_name_1"),
-                PostgreSqlType::SmallInt.as_column_metadata("column_name_2"),
+                PgType::SmallInt.as_column_metadata("column_name_1"),
+                PgType::SmallInt.as_column_metadata("column_name_2"),
             ])
             .into();
 
             assert_eq!(
                 message,
                 BackendMessage::RowDescription(vec![
-                    PostgreSqlType::SmallInt.as_column_metadata("column_name_1"),
-                    PostgreSqlType::SmallInt.as_column_metadata("column_name_2"),
+                    PgType::SmallInt.as_column_metadata("column_name_1"),
+                    PgType::SmallInt.as_column_metadata("column_name_2"),
                 ])
             )
         }
@@ -631,16 +626,16 @@ mod tests {
         #[test]
         fn statement_description() {
             let message: BackendMessage =
-                QueryEvent::StatementDescription(vec![("si_column".to_owned(), PostgreSqlType::SmallInt)]).into();
+                QueryEvent::StatementDescription(vec![("si_column".to_owned(), PgType::SmallInt)]).into();
             assert_eq!(
                 message,
-                BackendMessage::RowDescription(vec![PostgreSqlType::SmallInt.as_column_metadata("si_column")])
+                BackendMessage::RowDescription(vec![PgType::SmallInt.as_column_metadata("si_column")])
             )
         }
 
         #[test]
         fn statement_parameters() {
-            let message: BackendMessage = QueryEvent::StatementParameters(vec![PostgreSqlType::SmallInt]).into();
+            let message: BackendMessage = QueryEvent::StatementParameters(vec![PgType::SmallInt]).into();
             assert_eq!(message, BackendMessage::ParameterDescription(vec![21]))
         }
 
@@ -822,8 +817,7 @@ mod tests {
 
         #[test]
         fn out_of_range_constraint_violation() {
-            let message: BackendMessage =
-                QueryError::out_of_range(PostgreSqlType::SmallInt, "col1".to_string(), 1).into();
+            let message: BackendMessage = QueryError::out_of_range(PgType::SmallInt, "col1".to_string(), 1).into();
             assert_eq!(
                 message,
                 BackendMessage::ErrorResponse(
@@ -836,7 +830,7 @@ mod tests {
 
         #[test]
         fn type_mismatch_constraint_violation() {
-            let message: BackendMessage = QueryError::type_mismatch("abc", PostgreSqlType::SmallInt, "col1", 1).into();
+            let message: BackendMessage = QueryError::type_mismatch("abc", PgType::SmallInt, "col1", 1).into();
             assert_eq!(
                 message,
                 BackendMessage::ErrorResponse(
@@ -850,7 +844,7 @@ mod tests {
         #[test]
         fn string_length_mismatch_constraint_violation() {
             let message: BackendMessage =
-                QueryError::string_length_mismatch(PostgreSqlType::Char, 5, "col1".to_string(), 1).into();
+                QueryError::string_length_mismatch(PgType::Char, 5, "col1".to_string(), 1).into();
             assert_eq!(
                 message,
                 BackendMessage::ErrorResponse(

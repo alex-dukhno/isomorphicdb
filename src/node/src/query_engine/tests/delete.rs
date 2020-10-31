@@ -14,7 +14,7 @@
 
 use super::*;
 use pg_model::{
-    pg_types::PostgreSqlType,
+    pg_types::PgType,
     results::{QueryError, QueryEvent},
     Command,
 };
@@ -63,7 +63,7 @@ fn delete_all_records(database_with_schema: (InMemory, ResultCollector)) {
         .expect("query executed");
     collector.assert_receive_many(vec![
         Ok(QueryEvent::RowDescription(vec![
-            PostgreSqlType::SmallInt.as_column_metadata("column_test")
+            PgType::SmallInt.as_column_metadata("column_test")
         ])),
         Ok(QueryEvent::DataRow(vec!["123".to_owned()])),
         Ok(QueryEvent::DataRow(vec!["456".to_owned()])),
@@ -84,7 +84,7 @@ fn delete_all_records(database_with_schema: (InMemory, ResultCollector)) {
         .expect("query executed");
     collector.assert_receive_many(vec![
         Ok(QueryEvent::RowDescription(vec![
-            PostgreSqlType::SmallInt.as_column_metadata("column_test")
+            PgType::SmallInt.as_column_metadata("column_test")
         ])),
         Ok(QueryEvent::RecordsSelected(0)),
     ]);
