@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use description::{Description, DescriptionError, FullTableId, FullTableName, InsertStatement, TableNamingError};
+use description::{Description, DescriptionError, FullTableId, FullTableName, InsertStatement};
 use metadata::{DataDefinition, MetadataView};
 use sql_model::sql_errors::NotFoundError;
 use sqlparser::ast::Statement;
