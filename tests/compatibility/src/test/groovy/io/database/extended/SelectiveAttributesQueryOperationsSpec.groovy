@@ -17,6 +17,51 @@ class SelectiveAttributesQueryOperationsSpec extends ThreeSmallIntColumnTable {
     db.executeUpdate INSERT_QUERY
   }
 
+  @Ignore('Failed to Parse prepared statement with parameter type of OID zero, needs to analyze the SQL to inspect the real parameter type.')
+  def 'select{where specified column > ?}'() {
+    given:
+      String selectQuery = 'select * from SCHEMA_NAME.TABLE_NAME where COL1 > ?'
+
+    when:
+      List<GroovyRowResult> pgSelect = pg.rows selectQuery, [6]
+      List<GroovyRowResult> dbSelect = db.rows selectQuery, [6]
+
+    then:
+      println "SELECTION: ${pgSelect.inspect()}"
+    and:
+      pgSelect == dbSelect
+  }
+
+  @Ignore('Failed to Parse prepared statement with parameter type of OID zero, needs to analyze the SQL to inspect the real parameter type.')
+  def 'select{where specified ? > column}'() {
+    given:
+      String selectQuery = 'select * from SCHEMA_NAME.TABLE_NAME where ? > COL1'
+
+    when:
+      List<GroovyRowResult> pgSelect = pg.rows selectQuery, [4]
+      List<GroovyRowResult> dbSelect = db.rows selectQuery, [4]
+
+    then:
+      println "SELECTION: ${pgSelect.inspect()}"
+    and:
+      pgSelect == dbSelect
+  }
+
+  @Ignore('Failed to Parse prepared statement with parameter type of OID zero, needs to analyze the SQL to inspect the real parameter type.')
+  def 'select{where specified ? > ?}'() {
+    given:
+      String selectQuery = 'select * from SCHEMA_NAME.TABLE_NAME where ? > ?'
+
+    when:
+      List<GroovyRowResult> pgSelect = pg.rows selectQuery, [1, 0]
+      List<GroovyRowResult> dbSelect = db.rows selectQuery, [1, 0]
+
+    then:
+      println "SELECTION: ${pgSelect.inspect()}"
+    and:
+      pgSelect == dbSelect
+  }
+
   @Ignore("[Failed to execute: insert into SCHEMA_NAME.TABLE_NAME values (?, ?, ?), (?, ?, ?), (?, ?, ?) because: This connection has been closed.] happens when database executes insert")
   def 'update {specified column}'() {
     given:

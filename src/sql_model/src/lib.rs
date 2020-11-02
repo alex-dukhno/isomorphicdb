@@ -20,6 +20,7 @@ pub type RecordId = Id;
 pub type CatalogId = Id;
 pub type SchemaId = Id;
 pub type TableId = (Id, Id);
+pub type ParameterName = String;
 
 pub const DEFAULT_CATALOG: &str = "public";
 pub const SYSTEM_CATALOG: &str = "system";
