@@ -75,7 +75,9 @@ fn bind_select(stmt: &mut Statement, params: &[Expr]) -> Result<(), ()> {
         _ => return Ok(()),
     };
 
-    if let Some(Expr::BinaryOp { right, .. }) = selection {
+    if let Some(Expr::BinaryOp { left, right, .. }) = selection {
+        let left: &mut Expr = left;
+        replace_expr_with_params(left, params);
         let right: &mut Expr = right;
         replace_expr_with_params(right, params);
     }
@@ -177,7 +179,125 @@ mod tests {
     }
 
     #[test]
-    fn bind_select_statement() {
+    fn bind_select_statement_with_both_parameters_of_binary_op() {
+        let mut statement = Statement::Query(Box::new(Query {
+            with: None,
+            body: SetExpr::Select(Box::new(Select {
+                distinct: false,
+                top: None,
+                projection: vec![SelectItem::Wildcard],
+                from: vec![TableWithJoins {
+                    relation: TableFactor::Table {
+                        name: ObjectName(vec![
+                            Ident {
+                                value: "schema_name".to_owned(),
+                                quote_style: None,
+                            },
+                            Ident {
+                                value: "table_name".to_owned(),
+                                quote_style: None,
+                            },
+                        ]),
+                        alias: None,
+                        args: vec![],
+                        with_hints: vec![],
+                    },
+                    joins: vec![],
+                }],
+                selection: Some(Expr::BinaryOp {
+                    left: Box::new(Expr::Identifier(Ident {
+                        value: "$2".to_owned(),
+                        quote_style: None,
+                    })),
+                    op: BinaryOperator::Gt,
+                    right: Box::new(Expr::Identifier(Ident {
+                        value: "$1".to_owned(),
+                        quote_style: None,
+                    })),
+                }),
+                group_by: vec![],
+                having: None,
+            })),
+            order_by: vec![],
+            limit: None,
+            offset: None,
+            fetch: None,
+        }));
+
+        ParamBinder
+            .bind(
+                &mut statement,
+                &[
+                    Expr::Value(Value::Number(BigDecimal::from(123))),
+                    Expr::Value(Value::Number(BigDecimal::from(456))),
+                ],
+            )
+            .unwrap();
+
+        assert_eq!(
+            statement.to_string(),
+            "SELECT * FROM schema_name.table_name WHERE 456 > 123"
+        );
+    }
+
+    #[test]
+    fn bind_select_statement_with_left_parameter_of_binary_op() {
+        let mut statement = Statement::Query(Box::new(Query {
+            with: None,
+            body: SetExpr::Select(Box::new(Select {
+                distinct: false,
+                top: None,
+                projection: vec![SelectItem::Wildcard],
+                from: vec![TableWithJoins {
+                    relation: TableFactor::Table {
+                        name: ObjectName(vec![
+                            Ident {
+                                value: "schema_name".to_owned(),
+                                quote_style: None,
+                            },
+                            Ident {
+                                value: "table_name".to_owned(),
+                                quote_style: None,
+                            },
+                        ]),
+                        alias: None,
+                        args: vec![],
+                        with_hints: vec![],
+                    },
+                    joins: vec![],
+                }],
+                selection: Some(Expr::BinaryOp {
+                    left: Box::new(Expr::Identifier(Ident {
+                        value: "$1".to_owned(),
+                        quote_style: None,
+                    })),
+                    op: BinaryOperator::Gt,
+                    right: Box::new(Expr::Identifier(Ident {
+                        value: "column_1".to_owned(),
+                        quote_style: None,
+                    })),
+                }),
+                group_by: vec![],
+                having: None,
+            })),
+            order_by: vec![],
+            limit: None,
+            offset: None,
+            fetch: None,
+        }));
+
+        ParamBinder
+            .bind(&mut statement, &[Expr::Value(Value::Number(BigDecimal::from(123)))])
+            .unwrap();
+
+        assert_eq!(
+            statement.to_string(),
+            "SELECT * FROM schema_name.table_name WHERE 123 > column_1"
+        );
+    }
+
+    #[test]
+    fn bind_select_statement_with_right_parameter_of_binary_op() {
         let mut statement = Statement::Query(Box::new(Query {
             with: None,
             body: SetExpr::Select(Box::new(Select {
@@ -207,7 +327,7 @@ mod tests {
                         value: "column_1".to_owned(),
                         quote_style: None,
                     })),
-                    op: BinaryOperator::Eq,
+                    op: BinaryOperator::Gt,
                     right: Box::new(Expr::Identifier(Ident {
                         value: "$1".to_owned(),
                         quote_style: None,
@@ -228,7 +348,7 @@ mod tests {
 
         assert_eq!(
             statement.to_string(),
-            "SELECT * FROM schema_name.table_name WHERE column_1 = 123"
+            "SELECT * FROM schema_name.table_name WHERE column_1 > 123"
         );
     }
 
