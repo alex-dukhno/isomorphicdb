@@ -15,7 +15,7 @@ log = "0.4.11"
 sled = { version = "0.34.4", features = ["default"] }
 
 [dev-dependencies]
-backtrace = "0.3.50"
+backtrace = "0.3.54"
 rstest = "0.6.4"
 tempfile = "3.1.0"
 
