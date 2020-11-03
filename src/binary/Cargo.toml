@@ -7,4 +7,3 @@ publish = false
 
 [dependencies]
 repr = { path = "../repr" }
-sql_model = { path = "../sql_model" }

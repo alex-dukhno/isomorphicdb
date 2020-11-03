@@ -14,7 +14,7 @@
 
 use super::*;
 use pg_model::{
-    pg_types::PostgreSqlType,
+    pg_types::PgType,
     results::{QueryError, QueryEvent},
     Command,
 };
@@ -72,11 +72,7 @@ mod insert {
                 sql: "insert into schema_name.table_name values (32768);".to_owned(),
             })
             .expect("query executed");
-        collector.assert_receive_single(Err(QueryError::out_of_range(
-            PostgreSqlType::SmallInt,
-            "col".to_string(),
-            1,
-        )));
+        collector.assert_receive_single(Err(QueryError::out_of_range(PgType::SmallInt, "col".to_string(), 1)));
     }
 
     #[rstest::rstest]
@@ -88,10 +84,7 @@ mod insert {
                 sql: "insert into schema_name.table_name values ('str');".to_owned(),
             })
             .expect("query executed");
-        collector.assert_receive_single(Err(QueryError::invalid_text_representation(
-            PostgreSqlType::SmallInt,
-            "str",
-        )));
+        collector.assert_receive_single(Err(QueryError::invalid_text_representation(PgType::SmallInt, "str")));
     }
 
     #[rstest::rstest]
@@ -100,8 +93,8 @@ mod insert {
         engine
             .execute(Command::Query { sql: "insert into schema_name.table_name values (-32769, -2147483649, 100), (100, -2147483649, -9223372036854775809);".to_owned()}).expect("query executed");
         collector.assert_receive_many(vec![
-            Err(QueryError::out_of_range(PostgreSqlType::SmallInt, "column_si", 1)),
-            Err(QueryError::out_of_range(PostgreSqlType::Integer, "column_i", 1)),
+            Err(QueryError::out_of_range(PgType::SmallInt, "column_si", 1)),
+            Err(QueryError::out_of_range(PgType::Integer, "column_i", 1)),
         ]);
     }
 
@@ -111,16 +104,8 @@ mod insert {
         engine
             .execute(Command::Query { sql: "insert into schema_name.table_name values (-32768, -2147483648, 100), (100, -2147483649, -9223372036854775809);".to_owned()}).expect("query executed");
         collector.assert_receive_many(vec![
-            Err(QueryError::out_of_range(
-                PostgreSqlType::Integer,
-                "column_i".to_owned(),
-                2,
-            )),
-            Err(QueryError::out_of_range(
-                PostgreSqlType::BigInt,
-                "column_bi".to_owned(),
-                2,
-            )),
+            Err(QueryError::out_of_range(PgType::Integer, "column_i".to_owned(), 2)),
+            Err(QueryError::out_of_range(PgType::BigInt, "column_bi".to_owned(), 2)),
         ]);
     }
 
@@ -134,7 +119,7 @@ mod insert {
             })
             .expect("query executed");
         collector.assert_receive_single(Err(QueryError::string_length_mismatch(
-            PostgreSqlType::VarChar,
+            PgType::VarChar,
             5,
             "col".to_string(),
             1,
@@ -162,11 +147,7 @@ mod update {
             })
             .expect("query executed");
 
-        collector.assert_receive_single(Err(QueryError::out_of_range(
-            PostgreSqlType::SmallInt,
-            "col".to_string(),
-            1,
-        )));
+        collector.assert_receive_single(Err(QueryError::out_of_range(PgType::SmallInt, "col".to_string(), 1)));
     }
 
     #[rstest::rstest]
@@ -185,10 +166,7 @@ mod update {
             })
             .expect("query executed");
 
-        collector.assert_receive_single(Err(QueryError::invalid_text_representation(
-            PostgreSqlType::SmallInt,
-            "str",
-        )));
+        collector.assert_receive_single(Err(QueryError::invalid_text_representation(PgType::SmallInt, "str")));
     }
 
     #[rstest::rstest]
@@ -208,7 +186,7 @@ mod update {
             })
             .expect("query executed");
         collector.assert_receive_single(Err(QueryError::string_length_mismatch(
-            PostgreSqlType::VarChar,
+            PgType::VarChar,
             5,
             "col".to_string(),
             1,
@@ -233,16 +211,8 @@ mod update {
             })
             .expect("query executed");
         collector.assert_receive_many(vec![
-            Err(QueryError::out_of_range(
-                PostgreSqlType::SmallInt,
-                "column_si".to_owned(),
-                1,
-            )),
-            Err(QueryError::out_of_range(
-                PostgreSqlType::Integer,
-                "column_i".to_owned(),
-                1,
-            )),
+            Err(QueryError::out_of_range(PgType::SmallInt, "column_si".to_owned(), 1)),
+            Err(QueryError::out_of_range(PgType::Integer, "column_i".to_owned(), 1)),
         ]);
     }
 }

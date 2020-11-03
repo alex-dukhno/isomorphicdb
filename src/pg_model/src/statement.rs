@@ -35,7 +35,7 @@
 //!    that portal to actually start scanning and returning results.
 
 use crate::{
-    pg_types::{PostgreSqlFormat, PostgreSqlType},
+    pg_types::{PgType, PostgreSqlFormat},
     results::Description,
 };
 
@@ -45,14 +45,14 @@ pub struct PreparedStatement<S> {
     /// The raw prepared SQL statement will be bound to a portal.
     stmt: S,
     /// The types of any bound parameters.
-    param_types: Vec<PostgreSqlType>,
+    param_types: Vec<PgType>,
     /// The type of the rows that will be returned.
     description: Description,
 }
 
 impl<S> PreparedStatement<S> {
     /// Constructs a new `PreparedStatement`.
-    pub fn new(stmt: S, param_types: Vec<PostgreSqlType>, description: Description) -> PreparedStatement<S> {
+    pub fn new(stmt: S, param_types: Vec<PgType>, description: Description) -> PreparedStatement<S> {
         PreparedStatement {
             stmt,
             param_types,
@@ -66,12 +66,12 @@ impl<S> PreparedStatement<S> {
     }
 
     /// Returns the types of any bound parameters.
-    pub fn param_types(&self) -> &[PostgreSqlType] {
+    pub fn param_types(&self) -> &[PgType] {
         &self.param_types
     }
 
     /// Returns the type of the rows that will be returned.
-    pub fn description(&self) -> &[(String, PostgreSqlType)] {
+    pub fn description(&self) -> &[(String, PgType)] {
         self.description.as_ref()
     }
 }

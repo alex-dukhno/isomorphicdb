@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use pg_model::pg_types::PostgreSqlType;
+use pg_model::pg_types::PgType;
 use sqlparser::ast::DataType;
 use std::{
     convert::TryFrom,
@@ -29,6 +29,35 @@ pub enum SqlType {
     BigInt,
     Real,
     DoublePrecision,
+}
+
+impl SqlType {
+    pub fn type_id(&self) -> u64 {
+        match self {
+            SqlType::Bool => 0,
+            SqlType::Char(_) => 1,
+            SqlType::VarChar(_) => 2,
+            SqlType::SmallInt => 3,
+            SqlType::Integer => 4,
+            SqlType::BigInt => 5,
+            SqlType::Real => 6,
+            SqlType::DoublePrecision => 7,
+        }
+    }
+
+    pub fn from_type_id(type_id: u64, chars_len: u64) -> SqlType {
+        match type_id {
+            0 => SqlType::Bool,
+            1 => SqlType::Char(chars_len),
+            2 => SqlType::VarChar(chars_len),
+            3 => SqlType::SmallInt,
+            4 => SqlType::Integer,
+            5 => SqlType::BigInt,
+            6 => SqlType::Real,
+            7 => SqlType::DoublePrecision,
+            _ => unreachable!(),
+        }
+    }
 }
 
 impl TryFrom<&DataType> for SqlType {
@@ -70,17 +99,17 @@ impl Display for SqlType {
     }
 }
 
-impl Into<PostgreSqlType> for &SqlType {
-    fn into(self) -> PostgreSqlType {
+impl Into<PgType> for &SqlType {
+    fn into(self) -> PgType {
         match self {
-            SqlType::Bool => PostgreSqlType::Bool,
-            SqlType::Char(_) => PostgreSqlType::Char,
-            SqlType::VarChar(_) => PostgreSqlType::VarChar,
-            SqlType::SmallInt => PostgreSqlType::SmallInt,
-            SqlType::Integer => PostgreSqlType::Integer,
-            SqlType::BigInt => PostgreSqlType::BigInt,
-            SqlType::Real => PostgreSqlType::Real,
-            SqlType::DoublePrecision => PostgreSqlType::DoublePrecision,
+            SqlType::Bool => PgType::Bool,
+            SqlType::Char(_) => PgType::Char,
+            SqlType::VarChar(_) => PgType::VarChar,
+            SqlType::SmallInt => PgType::SmallInt,
+            SqlType::Integer => PgType::Integer,
+            SqlType::BigInt => PgType::BigInt,
+            SqlType::Real => PgType::Real,
+            SqlType::DoublePrecision => PgType::DoublePrecision,
         }
     }
 }
@@ -95,50 +124,50 @@ mod tests {
 
         #[test]
         fn boolean() {
-            let pg_type: PostgreSqlType = (&SqlType::Bool).into();
-            assert_eq!(pg_type, PostgreSqlType::Bool);
+            let pg_type: PgType = (&SqlType::Bool).into();
+            assert_eq!(pg_type, PgType::Bool);
         }
 
         #[test]
         fn small_int() {
-            let pg_type: PostgreSqlType = (&SqlType::SmallInt).into();
-            assert_eq!(pg_type, PostgreSqlType::SmallInt);
+            let pg_type: PgType = (&SqlType::SmallInt).into();
+            assert_eq!(pg_type, PgType::SmallInt);
         }
 
         #[test]
         fn integer() {
-            let pg_type: PostgreSqlType = (&SqlType::Integer).into();
-            assert_eq!(pg_type, PostgreSqlType::Integer);
+            let pg_type: PgType = (&SqlType::Integer).into();
+            assert_eq!(pg_type, PgType::Integer);
         }
 
         #[test]
         fn big_int() {
-            let pg_type: PostgreSqlType = (&SqlType::BigInt).into();
-            assert_eq!(pg_type, PostgreSqlType::BigInt);
+            let pg_type: PgType = (&SqlType::BigInt).into();
+            assert_eq!(pg_type, PgType::BigInt);
         }
 
         #[test]
         fn char() {
-            let pg_type: PostgreSqlType = (&SqlType::Char(0)).into();
-            assert_eq!(pg_type, PostgreSqlType::Char);
+            let pg_type: PgType = (&SqlType::Char(0)).into();
+            assert_eq!(pg_type, PgType::Char);
         }
 
         #[test]
         fn var_char() {
-            let pg_type: PostgreSqlType = (&SqlType::VarChar(0)).into();
-            assert_eq!(pg_type, PostgreSqlType::VarChar);
+            let pg_type: PgType = (&SqlType::VarChar(0)).into();
+            assert_eq!(pg_type, PgType::VarChar);
         }
 
         #[test]
         fn real() {
-            let pg_type: PostgreSqlType = (&SqlType::Real).into();
-            assert_eq!(pg_type, PostgreSqlType::Real);
+            let pg_type: PgType = (&SqlType::Real).into();
+            assert_eq!(pg_type, PgType::Real);
         }
 
         #[test]
         fn double_precision() {
-            let pg_type: PostgreSqlType = (&SqlType::DoublePrecision).into();
-            assert_eq!(pg_type, PostgreSqlType::DoublePrecision);
+            let pg_type: PgType = (&SqlType::DoublePrecision).into();
+            assert_eq!(pg_type, PgType::DoublePrecision);
         }
     }
 }

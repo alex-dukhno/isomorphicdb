@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use pg_model::pg_types::PgType;
 use sql_model::{sql_types::SqlType, Id};
 use sqlparser::ast::ObjectName;
 use std::{
@@ -72,6 +73,19 @@ pub enum TableNamingError {
     NotProcessed(String),
 }
 
+impl Display for TableNamingError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            TableNamingError::Unqualified(table_name) => write!(
+                f,
+                "Unsupported table name '{}'. All table names must be qualified",
+                table_name
+            ),
+            TableNamingError::NotProcessed(table_name) => write!(f, "unable to process table name '{}'", table_name),
+        }
+    }
+}
+
 #[derive(PartialEq, Debug)]
 pub struct InsertStatement {
     pub table_id: FullTableId,
@@ -79,19 +93,43 @@ pub struct InsertStatement {
 }
 
 #[derive(PartialEq, Debug)]
+pub struct ColumnDesc {
+    pub name: String,
+    pub pg_type: PgType,
+}
+
+#[derive(PartialEq, Debug)]
+pub struct TableCreationInfo {
+    pub schema_id: Id,
+    pub table_name: String,
+    pub columns: Vec<ColumnDesc>,
+}
+
+#[derive(PartialEq, Debug)]
 pub enum Description {
+    CreateTable(TableCreationInfo),
     Insert(InsertStatement),
 }
 
 #[derive(PartialEq, Debug)]
 pub enum DescriptionError {
+    SyntaxError(String),
     TableDoesNotExist(String),
+    TableAlreadyExists(String),
     SchemaDoesNotExist(String),
 }
 
 impl DescriptionError {
+    pub fn syntax_error<M: ToString>(message: &M) -> DescriptionError {
+        DescriptionError::SyntaxError(message.to_string())
+    }
+
     pub fn table_does_not_exist<T: ToString>(table: &T) -> DescriptionError {
         DescriptionError::TableDoesNotExist(table.to_string())
+    }
+
+    pub fn table_already_exists<T: ToString>(table: &T) -> DescriptionError {
+        DescriptionError::TableAlreadyExists(table.to_string())
     }
 
     pub fn schema_does_not_exist<S: ToString>(schema: &S) -> DescriptionError {

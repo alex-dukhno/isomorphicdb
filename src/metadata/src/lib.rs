@@ -66,288 +66,30 @@ pub trait MetadataView {
 }
 
 const SYSTEM_CATALOG: &'_ str = "system";
-// CREATE SCHEMA DEFINITION_SCHEMA
-//      AUTHORIZATION DEFINITION_SCHEMA
+
 const DEFINITION_SCHEMA: &'_ str = "DEFINITION_SCHEMA";
-//CREATE TABLE CATALOG_NAMES (
-//     CATALOG_NAME    INFORMATION_SCHEMA.SQL_IDENTIFIER,
-//                     CONSTRAINT CATALOG_NAMES_PRIMARY_KEY
-//                         PRIMARY KEY (CATALOG_NAME)
-// )
+/// **CATALOG_NAMES** sql types definition
+/// CATALOG_NAME    varchar(255)
 const CATALOG_NAMES_TABLE: &'_ str = "CATALOG_NAMES";
-// CREATE TABLE SCHEMATA (
-//     CATALOG_NAME                    INFORMATION_SCHEMA.SQL_IDENTIFIER,
-//     SCHEMA_NAME                     INFORMATION_SCHEMA.SQL_IDENTIFIER,
-//     SCHEMA_OWNER                    INFORMATION_SCHEMA.SQL_IDENTIFIER
-//                                     CONSTRAINT
-//                                         SCHEMA_OWNER_NOT_NULL NOT NULL,
-//     DEFAULT_CHARACTER_SET_CATALOG   INFORMATION_SCHEMA.SQL_IDENTIFIER
-//                                     CONSTRAINT
-//                                         DEFAULT_CHARACTER_SET_CATALOG_NOT_NULL NOT NULL,
-//     DEFAULT_CHARACTER_SET_SCHEMA    INFORMATION_SCHEMA.SQL_IDENTIFIER
-//                                     CONSTRAINT
-//                                         DEFAULT_CHARACTER_SET_SCHEMA_NOT_NULL NOT NULL,
-//     DEFAULT_CHARACTER_SET_NAME      INFORMATION_SCHEMA.SQL_IDENTIFIER
-//                                     CONSTRAINT
-//                                         DEFAULT_CHARACTER_SET_NAME_NOT_NULL NOT NULL,
-//     SQL_PATH                        INFORMATION_SCHEMA.CHARACTER_DATA,
-//
-//     CONSTRAINT SCHEMATA_PRIMARY_KEY
-//         PRIMARY KEY (CATALOG_NAME, SCHEMA_NAME),
-//
-//     CONSTRAINT SCHEMATA_FOREIGN_KEY_AUTHORIZATIONS
-//         FOREIGN KEY (SCHEMA_OWNER)
-//         REFERENCES AUTHORIZATIONS,
-//
-//     CONSTRAINT SCHEMATA_FOREIGN_KEY_CATALOG_NAMES
-//         FOREIGN KEY (CATALOG_NAME)
-//         REFERENCES CATALOG_NAMES
-// )
-const SCHEMATA_TABLE: &'_ str = "SCHEMATA";
-// CREATE TABLE TABLES (
-//     TABLE_CATALOG                               INFORMATION_SCHEMA.SQL_IDENTIFIER,
-//     TABLE_SCHEMA                                INFORMATION_SCHEMA.SQL_IDENTIFIER,
-//     TABLE_NAME                                  INFORMATION_SCHEMA.SQL_IDENTIFIER,
-//     TABLE_TYPE                                  INFORMATION_SCHEMA.CHARACTER_DATA
-//                                                 CONSTRAINT
-//                                                     TABLE_TYPE_NOT_NULL NOT NULL
-//                                                 CONSTRAINT
-//                                                     TABLE_TYPE_CHECK CHECK (
-//                                                         TABLE_TYPE IN ('BASE TABLE', 'VIEW', 'GLOBAL TEMPORARY', 'LOCAL TEMPORARY')
-//                                                     ),
-//     SELF_REFERENCING_COLUMN_NAME                INFORMATION_SCHEMA.SQL_IDENTIFIER,
-//     REFERENCE_GENERATION                        INFORMATION_SCHEMA.CHARACTER_DATA
-//                                                 CONSTRAINT
-//                                                     REFERENCE_GENERATION_CHECK CHECK (
-//                                                         REFERENCE_GENERATION IN ('SYSTEM GENERATED', 'USER GENERATED', 'DERIVED')
-//                                                     ),
-//     USER_DEFINED_TYPE_CATALOG                   INFORMATION_SCHEMA.SQL_IDENTIFIER,
-//     USER_DEFINED_TYPE_SCHEMA                    INFORMATION_SCHEMA.SQL_IDENTIFIER,
-//     USER_DEFINED_TYPE_NAME                      INFORMATION_SCHEMA.SQL_IDENTIFIER,
-//     IS_INSERTABLE_INTO                          INFORMATION_SCHEMA.CHARACTER_DATA
-//                                                 CONSTRAINT
-//                                                     IS_INSERTABLE_INTO_NOT_NULL NOT NULL
-//                                                 CONSTRAINT
-//                                                     IS_INSERTABLE_INTO_CHECK CHECK (
-//                                                         IS_INSERTABLE_INTO IN ('YES', 'NO')
-//                                                     )
-//     IS_TYPED                                    INFORMATION_SCHEMA.CHARACTER_DATA
-//                                                 CONSTRAINT
-//                                                     IS_TYPED_NOT_NULL NOT NULL
-//                                                 CONSTRAINT
-//                                                     IS_TYPED_CHECK CHECK (IS_TYPED IN ('YES', 'NO'))
-//     COMMIT_ACTION                               INFORMATION_SCHEMA.CHARACTER_DATA
-//                                                 CONSTRAINT
-//                                                     COMMIT_ACTIONCHECK CHECK (
-//                                                         COMMIT_ACTION IN ('DELETE', 'PRESERVE')
-//                                                     ),
-//
-//     CONSTRAINT TABLES_PRIMARY_KEY
-//         PRIMARY KEY (TABLE_CATALOG, TABLE_SCHEMA, TABLE_NAME),
-//
-//     CONSTRAINT TABLES_FOREIGN_KEY_SCHEMATA
-//         FOREIGN KEY (TABLE_CATALOG, TABLE_SCHEMA)
-//         REFERENCES SCHEMATA,
-//
-//     CONSTRAINT TABLES_CHECK_TABLE_IN_COLUMNS
-//         CHECK (
-//             (TABLE_CATALOG, TABLE_SCHEMA, TABLE_NAME) IN (SELECT TABLE_CATALOG, TABLE_SCHEMA, TABLE_NAME FROM COLUMNS)
-//         ),
-//
-//     CONSTRAINT TABLES_FOREIGN_KEY_USER_DEFINED_TYPES
-//         FOREIGN KEY (USER_DEFINED_TYPE_CATALOG, USER_DEFINED_TYPE_SCHEMA, USER_DEFINED_TYPE_NAME)
-//         REFERENCES USER_DEFINED_TYPES MATCH FULL,
-//
-//     CONSTRAINT TABLES_TYPED_TABLE_CHECK CHECK (
-//         (
-//             IS_TYPED = 'YES'
-//             AND (
-//                 (USER_DEFINED_TYPE_CATALOG,
-//                     USER_DEFINED_TYPE_SCHEMA,
-//                     USER_DEFINED_TYPE_NAME,
-//                     SELF_REFERENCING_COLUMN_NAME,
-//                     REFERENCE_GENERATION) IS NOT NULL
-//                 AND
-//                 (TABLE_CATALOG, TABLE_SCHEMA, TABLE_NAME, SELF_REFERENCING_COLUMN_NAME) IN
-//                     (SELECT TABLE_CATALOG, TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME FROM COLUMNS WHERE IS_SELF_REFERENCING = 'YES')
-//             )
-//         ) OR (
-//             IS_TYPED = 'NO'
-//             AND (
-//                 USER_DEFINED_TYPE_CATALOG,
-//                 USER_DEFINED_TYPE_SCHEMA,
-//                 USER_DEFINED_TYPE_NAME,
-//                 SELF_REFERENCING_COLUMN_NAME,
-//                 REFERENCE_GENERATION ) IS NULL
-//         )
-//     ),
-//
-//     CONSTRAINT TABLES_SELF_REFERENCING_COLUMN_CHECK
-//         CHECK (
-//             (SELF_REFERENCING_COLUMN_NAME, REFERENCE_GENERATION) IS NULL
-//             OR (SELF_REFERENCING_COLUMN_NAME, REFERENCE_GENERATION) IS NOT NULL
-//         ),
-//
-//     CONSTRAINT TABLES_TEMPORARY_TABLE_CHECK
-//         CHECK (
-//             (TABLE_TYPE IN ('GLOBAL TEMPORARY', 'LOCAL TEMPORARY')) = (COMMIT_ACTION IS NOT NULL)
-//         ),
-//
-//     CONSTRAINT TABLES_CHECK_NOT_VIEW
-//         CHECK (
-//             NOT EXISTS (
-//                 SELECT  TABLE_CATALOG, TABLE_SCHEMA, TABLE_NAME
-//                 FROM    TABLES
-//                 WHERE   TABLE_TYPE = 'VIEW'
-//                 EXCEPT
-//                 SELECT  TABLE_CATALOG, TABLE_SCHEMA, TABLE_NAME
-//                 FROM    VIEWS
-//             )
-//         )
-// )
-const TABLES_TABLE: &'_ str = "TABLES";
-// CREATE TABLE COLUMNS (
-//     TABLE_CATALOG           INFORMATION_SCHEMA.SQL_IDENTIFIER,
-//     TABLE_SCHEMA            INFORMATION_SCHEMA.SQL_IDENTIFIER,
-//     TABLE_NAME              INFORMATION_SCHEMA.SQL_IDENTIFIER,
-//     COLUMN_NAME             INFORMATION_SCHEMA.SQL_IDENTIFIER,
-//     ORDINAL_POSITION        INFORMATION_SCHEMA.CARDINAL_NUMBER
-//                             CONSTRAINT
-//                                 COLUMNS_ORDINAL_POSITION_NOT_NULL NOT NULL
-//                             CONSTRAINT
-//                                 COLUMNS_ORDINAL_POSITION_GREATER_THAN_ZERO_CHECK
-//                                 CHECK (ORDINAL_POSITION > 0)
-//                             CONSTRAINT COLUMNS_ORDINAL_POSITION_CONTIGUOUS_CHECK
-//                                 CHECK (0 = ALL(
-//                                     SELECT      MAX(ORDINAL_POSITION) - COUNT(*)
-//                                     FROM        COLUMNS
-//                                     GROUP BY    TABLE_CATALOG, TABLE_SCHEMA, TABLE_NAME
-//                                     )),
-//     DTD_IDENTIFIER          INFORMATION_SCHEMA.SQL_IDENTIFIER,
-//     DOMAIN_CATALOG          INFORMATION_SCHEMA.SQL_IDENTIFIER,
-//     DOMAIN_SCHEMA           INFORMATION_SCHEMA.SQL_IDENTIFIER,
-//     DOMAIN_NAME             INFORMATION_SCHEMA.SQL_IDENTIFIER,
-//     COLUMN_DEFAULT          INFORMATION_SCHEMA.CHARACTER_DATA,
-//     IS_NULLABLE             INFORMATION_SCHEMA.CHARACTER_DATA
-//                             CONSTRAINT
-//                                 COLUMNS_IS_NULLABLE_NOT_NULL NOT NULL
-//                             CONSTRAINT
-//                                 COLUMNS_IS_NULLABLE_CHECK
-//                                 CHECK (IS_NULLABLE IN ('YES', 'NO')),
-//     IS_SELF_REFERENCING     INFORMATION_SCHEMA.CHARACTER_DATA
-//                             CONSTRAINT
-//                                 COLUMNS_IS_SELF_REFERENCING_NOT_NULL NOT NULL
-//                             CONSTRAINT
-//                                 COLUMNS_IS_SELF_REFERENCING_CHECK
-//                                 CHECK (IS_SELF_REFERENCING IN ('YES', 'NO')),
-//     IS_IDENTITY             INFORMATION_SCHEMA.CHARACTER_DATA
-//                             CONSTRAINT COLUMNS_IS_IDENTITY_NOT_NULL NOT NULL
-//                             CONSTRAINT COLUMNS_IS_IDENTITY_CHECK
-//                                 CHECK (IS_IDENTITY IN ('YES', 'NO')),
-//     IDENTITY_GENERATION     INFORMATION_SCHEMA.CHARACTER_DATA,
-//     IDENTITY_START          INFORMATION_SCHEMA.CHARACTER_DATA,
-//     IDENTITY_INCREMENT      INFORMATION_SCHEMA.CHARACTER_DATA,
-//     IDENTITY_MAXIMUM        INFORMATION_SCHEMA.CHARACTER_DATA,
-//     IDENTITY_MINIMUM        INFORMATION_SCHEMA.CHARACTER_DATA,
-//     IDENTITY_CYCLE          INFORMATION_SCHEMA.CHARACTER_DATA
-//                             CONSTRAINT
-//                                 COLUMNS_IDENTITY_CYCLE_CHECK
-//                                 CHECK (IDENTITY_CYCLE IN ('YES', 'NO')),
-//     IS_GENERATED            INFORMATION_SCHEMA.CHARACTER_DATA,
-//     GENERATION_EXPRESSION   INFORMATION_SCHEMA.CHARACTER_DATA,
-//     IS_UPDATABLE            INFORMATION_SCHEMA.CHARACTER_DATA
-//                             CONSTRAINT COLUMNS_IS_UPDATABLE_NOT_NULL NOT NULL
-//                             CONSTRAINT COLUMNS_IS_UPDATABLE_CHECK
-//                                 CHECK (IS_UPDATABLE IN ('YES', 'NO')),
-//
-//     CONSTRAINT COLUMNS_PRIMARY_KEY
-//         PRIMARY KEY (TABLE_CATALOG, TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME),
-//
-//     CONSTRAINT COLUMNS_UNIQUE
-//         UNIQUE (TABLE_CATALOG, TABLE_SCHEMA, TABLE_NAME, ORDINAL_POSITION),
-//
-//     CONSTRAINT COLUMNS_FOREIGN_KEY_TABLES
-//         FOREIGN KEY (TABLE_CATALOG, TABLE_SCHEMA, TABLE_NAME)
-//         REFERENCES TABLES,
-//
-//     CONSTRAINT COLUMNS_CHECK_REFERENCES_DOMAIN
-//         CHECK (
-//             DOMAIN_CATALOG NOT IN (SELECT CATALOG_NAME FROM SCHEMATA)
-//             OR (DOMAIN_CATALOG, DOMAIN_SCHEMA, DOMAIN_NAME)
-//                 IN (SELECT DOMAIN_CATALOG, DOMAIN_SCHEMA, DOMAIN_NAME FROM DOMAINS)
-//         ),
-//
-//     CONSTRAINT COLUMNS_CHECK_IDENTITY_COMBINATIONS
-//         CHECK (
-//             (IS_IDENTITY = 'NO') =
-//             ((IDENTITY_GENERATION, IDENTITY_START, IDENTITY_INCREMENT, IDENTITY_MAXIMUM, IDENTITY_MINIMUM, IDENTITY_CYCLE) IS NULL)
-//         ),
-//
-//     CONSTRAINT COLUMNS_CHECK_DATA_TYPE
-//         CHECK (
-//             DOMAIN_CATALOG NOT IN (SELECT CATALOG_NAME FROM SCHEMATA)
-//             OR (
-//                 (DOMAIN_CATALOG, DOMAIN_SCHEMA, DOMAIN_NAME) IS NOT NULL
-//                 AND
-//                 (TABLE_CATALOG, TABLE_SCHEMA, TABLE_NAME, 'TABLE', DTD_IDENTIFIER)
-//                     NOT IN (SELECT OBJECT_CATALOG, OBJECT_SCHEMA, OBJECT_NAME, OBJECT_TYPE, DTD_IDENTIFIER FROM DATA_TYPE_DESCRIPTOR))
-//             OR (
-//                 (
-//                     (DOMAIN_CATALOG, DOMAIN_SCHEMA, DOMAIN_NAME) IS NULL
-//                     AND
-//                     (TABLE_CATALOG, TABLE_SCHEMA, TABLE_NAME, 'TABLE', DTD_IDENTIFIER)
-//                         IN (SELECT OBJECT_CATALOG, OBJECT_SCHEMA, OBJECT_NAME, OBJECT_TYPE, DTD_IDENTIFIER FROM DATA_TYPE_DESCRIPTOR)
-//                 )
-//             )
-//         )
-// )
-const COLUMNS_TABLE: &'_ str = "COLUMNS";
-
-#[allow(dead_code)]
-fn catalog_names_types() -> [ColumnDefinition; 1] {
-    [ColumnDefinition::new("CATALOG_NAME", SqlType::VarChar(255))]
-}
-
-/// **SCHEMATA_TABLE** sql types definition
+/// **SCHEMATA** sql types definition
 /// CATALOG_NAME    varchar(255)
 /// SCHEMA_NAME     varchar(255)
-#[allow(dead_code)]
-fn schemata_table_types() -> [ColumnDefinition; 2] {
-    [
-        ColumnDefinition::new("CATALOG_NAME", SqlType::VarChar(255)),
-        ColumnDefinition::new("SCHEMA_NAME", SqlType::VarChar(255)),
-    ]
-}
-
-/// **TABLES_TABLE** sql types definition
+const SCHEMATA_TABLE: &'_ str = "SCHEMATA";
+/// **TABLES** sql types definition
 /// TABLE_CATALOG   varchar(255)
 /// TABLE_SCHEMA    varchar(255)
 /// TABLE_NAME      varchar(255)
-#[allow(dead_code)]
-fn tables_table_types() -> [ColumnDefinition; 3] {
-    [
-        ColumnDefinition::new("TABLE_CATALOG", SqlType::VarChar(255)),
-        ColumnDefinition::new("TABLE_SCHEMA", SqlType::VarChar(255)),
-        ColumnDefinition::new("TABLE_NAME", SqlType::VarChar(255)),
-    ]
-}
-
-/// **COLUMNS_TABLE** sql type definition
-/// TABLE_CATALOG       varchar(255)
-/// TABLE_SCHEMA        varchar(255)
-/// TABLE_NAME          varchar(255)
-/// COLUMN_NAME         varchar(255)
-/// ORDINAL_POSITION    integer check (ORDINAL_POSITION > 0)
-#[allow(dead_code)]
-fn columns_table_types() -> [ColumnDefinition; 5] {
-    [
-        ColumnDefinition::new("TABLE_CATALOG", SqlType::VarChar(255)),
-        ColumnDefinition::new("TABLE_SCHEMA", SqlType::VarChar(255)),
-        ColumnDefinition::new("TABLE_NAME", SqlType::VarChar(255)),
-        ColumnDefinition::new("COLUMN_NAME", SqlType::VarChar(255)),
-        ColumnDefinition::new("ORDINAL_POSITION", SqlType::Integer),
-    ]
-}
+const TABLES_TABLE: &'_ str = "TABLES";
+/// **COLUMNS** sql type definition
+/// TABLE_CATALOG               varchar(255)
+/// TABLE_SCHEMA                varchar(255)
+/// TABLE_NAME                  varchar(255)
+/// COLUMN_NAME                 varchar(255)
+/// ORDINAL_POSITION            integer CHECK (ORDINAL_POSITION > 0)
+/// DATA_TYPE_OID               integer
+/// CHARACTER_MAXIMUM_LENGTH    integer CHECK (VALUE >= 0),
+/// NUMERIC_PRECISION           integer CHECK (VALUE >= 0),
+const COLUMNS_TABLE: &'_ str = "COLUMNS";
 
 type InnerCatalogId = Option<Id>;
 type InnerFullSchemaId = Option<(Id, Option<Id>)>;
@@ -939,6 +681,10 @@ impl DataDefinition {
             .expect("no platform error")
             .expect("to save table info");
         for (id, column) in created_table.columns() {
+            let chars_len = match column.sql_type() {
+                SqlType::Char(len) | SqlType::VarChar(len) => Datum::from_u64(len),
+                _ => Datum::from_null(),
+            };
             self.system_catalog
                 .write(
                     DEFINITION_SCHEMA,
@@ -954,9 +700,10 @@ impl DataDefinition {
                             Datum::from_str(catalog_name),
                             Datum::from_str(schema_name),
                             Datum::from_str(table_name),
+                            Datum::from_u64(id),
                             Datum::from_str(column.name().as_str()),
-                            Datum::from_sql_type(column.sql_type()),
-                            Datum::UInt64(id),
+                            Datum::from_u64(column.sql_type().type_id()),
+                            chars_len,
                         ]),
                     )],
                 )
@@ -1035,10 +782,14 @@ impl DataDefinition {
                     let data = data.unpack();
                     let schema = data[1].as_str().to_owned();
                     let table = data[2].as_str().to_owned();
-                    let column = data[3].as_str().to_owned();
-                    let sql_type = data[4].as_sql_type();
+                    let column = data[4].as_str().to_owned();
+                    let type_id = data[5].as_u64();
+                    let chars_len = match data[6] {
+                        Datum::Int64(val) => val as u64,
+                        _ => 0,
+                    };
                     max_id = max_id.max(id);
-                    (id, schema, table, column, sql_type)
+                    (id, schema, table, column, SqlType::from_type_id(type_id, chars_len))
                 })
                 .filter(|(_id, schema, _table, _column, _sql_type)| schema == schema_name)
                 .map(|(id, _schema, _table, column, sql_type)| (id, ColumnDefinition::new(column.as_str(), sql_type)))
@@ -1134,8 +885,13 @@ impl MetadataView for DataDefinition {
                 let schema_id = record[1].as_u64();
                 let table_id = record[2].as_u64();
                 let columns = columns.unpack();
-                let name = columns[3].as_str().to_owned();
-                let sql_type = columns[4].as_sql_type();
+                let name = columns[4].as_str().to_owned();
+                let type_id = columns[5].as_u64();
+                let chars_len = match columns[6] {
+                    Datum::Int64(val) => val as u64,
+                    _ => 0,
+                };
+                let sql_type = SqlType::from_type_id(type_id, chars_len);
                 ((schema_id, table_id), name, sql_type)
             })
             .filter(|(full_table_id, _name, _sql_type)| full_table_id == table_id.as_ref())
@@ -1182,7 +938,7 @@ impl MetadataView for DataDefinition {
                 let schema_id = record[1].as_u64();
                 let table_id = record[2].as_u64();
                 let columns = columns.unpack();
-                let name = columns[3].as_str().to_owned();
+                let name = columns[4].as_str().to_owned();
                 ((schema_id, table_id), name)
             })
             .filter(|(full_table_id, _name)| full_table_id == table_id.as_ref())
@@ -1234,8 +990,13 @@ impl MetadataView for DataDefinition {
                 let table_id = record[2].as_u64();
                 let column_id = record[3].as_u64();
                 let columns = columns.unpack();
-                let name = columns[3].as_str().to_owned();
-                let sql_type = columns[4].as_sql_type().to_owned();
+                let name = columns[4].as_str().to_owned();
+                let type_id = columns[5].as_u64();
+                let chars_len = match columns[6] {
+                    Datum::Int64(val) => val as u64,
+                    _ => 0,
+                };
+                let sql_type = SqlType::from_type_id(type_id, chars_len);
                 ((schema_id, table_id), column_id, name, sql_type)
             })
             .filter(|(full_table_id, _column_id, _name, _sql_type)| full_table_id == table_id.as_ref())

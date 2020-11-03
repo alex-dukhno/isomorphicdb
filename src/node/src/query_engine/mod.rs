@@ -20,7 +20,7 @@ use itertools::izip;
 use metadata::{DataDefinition, MetadataView};
 use parser::QueryParser;
 use pg_model::{
-    pg_types::{PostgreSqlFormat, PostgreSqlType},
+    pg_types::{PgType, PostgreSqlFormat},
     results::{QueryError, QueryEvent},
     session::Session,
     statement::PreparedStatement,
@@ -309,7 +309,7 @@ impl QueryEngine {
         &mut self,
         statement_name: String,
         statement: Statement,
-        param_types: Vec<PostgreSqlType>,
+        param_types: Vec<PgType>,
     ) -> Result<(), Vec<QueryError>> {
         match self.query_planner.plan(&statement) {
             Ok(plan) => match plan {
@@ -331,6 +331,7 @@ impl QueryEngine {
                     Err(DescriptionError::SchemaDoesNotExist(schema_name)) => {
                         Err(vec![QueryError::table_does_not_exist(schema_name)])
                     }
+                    _ => unreachable!("this should not be reached during insertions"),
                 },
                 Plan::Update(_table_updates) => {
                     let statement = PreparedStatement::new(statement, param_types.to_vec(), vec![]);
@@ -389,7 +390,7 @@ impl QueryEngine {
                 let Ident { value: name, .. } = name;
                 let mut pg_types = vec![];
                 for t in data_types {
-                    match PostgreSqlType::try_from(t) {
+                    match PgType::try_from(t) {
                         Ok(pg_type) => pg_types.push(pg_type),
                         Err(_) => {
                             self.sender

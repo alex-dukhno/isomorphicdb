@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::pg_types::{PostgreSqlFormat, PostgreSqlType};
+use crate::pg_types::{PgType, PostgreSqlFormat};
 use pg_wire::{Error, Result};
 use rand::Rng;
 use std::{
@@ -137,7 +137,7 @@ pub enum Command {
         sql: String,
         /// The number of specified parameter data types can be less than the
         /// number of parameters specified in the query.
-        param_types: Vec<PostgreSqlType>,
+        param_types: Vec<PgType>,
     },
     /// Client commands to execute a `Query`
     Query {

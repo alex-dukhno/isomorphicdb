@@ -8,6 +8,7 @@ publish = false
 [dependencies]
 binary = { path = "../binary" }
 meta_def = { path = "../meta_def" }
+pg_model = { path = "../pg_model" }
 repr = { path = "../repr" }
 sql_model = { path = "../sql_model" }
 storage = { path = "../storage" }

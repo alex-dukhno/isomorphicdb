@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use super::*;
-use pg_model::{pg_types::PostgreSqlType, results::QueryEvent, Command};
+use pg_model::{pg_types::PgType, results::QueryEvent, Command};
 
 #[rstest::rstest]
 fn select_row_by_column_equality_predicate(database_with_schema: (InMemory, ResultCollector)) {
@@ -40,9 +40,9 @@ fn select_row_by_column_equality_predicate(database_with_schema: (InMemory, Resu
         .expect("query executed");
     collector.assert_receive_many(vec![
         Ok(QueryEvent::RowDescription(vec![
-            PostgreSqlType::SmallInt.as_column_metadata("column_1"),
-            PostgreSqlType::SmallInt.as_column_metadata("column_2"),
-            PostgreSqlType::SmallInt.as_column_metadata("column_3"),
+            PgType::SmallInt.as_column_metadata("column_1"),
+            PgType::SmallInt.as_column_metadata("column_2"),
+            PgType::SmallInt.as_column_metadata("column_3"),
         ])),
         Ok(QueryEvent::DataRow(vec![
             "1".to_owned(),

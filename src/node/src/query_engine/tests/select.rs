@@ -14,7 +14,7 @@
 
 use super::*;
 use pg_model::{
-    pg_types::PostgreSqlType,
+    pg_types::PgType,
     results::{QueryError, QueryEvent},
     Command,
 };
@@ -66,9 +66,9 @@ fn select_all_from_table_with_multiple_columns(database_with_schema: (InMemory, 
         .expect("query executed");
     collector.assert_receive_many(vec![
         Ok(QueryEvent::RowDescription(vec![
-            PostgreSqlType::SmallInt.as_column_metadata("column_1"),
-            PostgreSqlType::SmallInt.as_column_metadata("column_2"),
-            PostgreSqlType::SmallInt.as_column_metadata("column_3"),
+            PgType::SmallInt.as_column_metadata("column_1"),
+            PgType::SmallInt.as_column_metadata("column_2"),
+            PgType::SmallInt.as_column_metadata("column_3"),
         ])),
         Ok(QueryEvent::DataRow(vec![
             "123".to_owned(),
@@ -104,8 +104,8 @@ fn select_not_all_columns(database_with_schema: (InMemory, ResultCollector)) {
         .expect("query executed");
     collector.assert_receive_many(vec![
         Ok(QueryEvent::RowDescription(vec![
-            PostgreSqlType::SmallInt.as_column_metadata("column_3"),
-            PostgreSqlType::SmallInt.as_column_metadata("column_2"),
+            PgType::SmallInt.as_column_metadata("column_3"),
+            PgType::SmallInt.as_column_metadata("column_2"),
         ])),
         Ok(QueryEvent::DataRow(vec!["7".to_owned(), "4".to_owned()])),
         Ok(QueryEvent::DataRow(vec!["8".to_owned(), "5".to_owned()])),
@@ -160,8 +160,8 @@ fn select_first_and_last_columns_from_table_with_multiple_columns(database_with_
         .expect("query executed");
     collector.assert_receive_many(vec![
         Ok(QueryEvent::RowDescription(vec![
-            PostgreSqlType::SmallInt.as_column_metadata("column_3"),
-            PostgreSqlType::SmallInt.as_column_metadata("column_1"),
+            PgType::SmallInt.as_column_metadata("column_3"),
+            PgType::SmallInt.as_column_metadata("column_1"),
         ])),
         Ok(QueryEvent::DataRow(vec!["3".to_owned(), "1".to_owned()])),
         Ok(QueryEvent::DataRow(vec!["6".to_owned(), "4".to_owned()])),
@@ -195,9 +195,9 @@ fn select_all_columns_reordered_from_table_with_multiple_columns(database_with_s
         .expect("query executed");
     collector.assert_receive_many(vec![
         Ok(QueryEvent::RowDescription(vec![
-            PostgreSqlType::SmallInt.as_column_metadata("column_3"),
-            PostgreSqlType::SmallInt.as_column_metadata("column_1"),
-            PostgreSqlType::SmallInt.as_column_metadata("column_2"),
+            PgType::SmallInt.as_column_metadata("column_3"),
+            PgType::SmallInt.as_column_metadata("column_1"),
+            PgType::SmallInt.as_column_metadata("column_2"),
         ])),
         Ok(QueryEvent::DataRow(vec![
             "3".to_owned(),
@@ -243,11 +243,11 @@ fn select_with_column_name_duplication(database_with_schema: (InMemory, ResultCo
         .expect("query executed");
     collector.assert_receive_many(vec![
         Ok(QueryEvent::RowDescription(vec![
-            PostgreSqlType::SmallInt.as_column_metadata("column_3"),
-            PostgreSqlType::SmallInt.as_column_metadata("column_2"),
-            PostgreSqlType::SmallInt.as_column_metadata("column_1"),
-            PostgreSqlType::SmallInt.as_column_metadata("column_3"),
-            PostgreSqlType::SmallInt.as_column_metadata("column_2"),
+            PgType::SmallInt.as_column_metadata("column_3"),
+            PgType::SmallInt.as_column_metadata("column_2"),
+            PgType::SmallInt.as_column_metadata("column_1"),
+            PgType::SmallInt.as_column_metadata("column_3"),
+            PgType::SmallInt.as_column_metadata("column_2"),
         ])),
         Ok(QueryEvent::DataRow(vec![
             "3".to_owned(),
@@ -296,9 +296,9 @@ fn select_different_integer_types(database_with_schema: (InMemory, ResultCollect
         .expect("query executed");
     collector.assert_receive_many(vec![
         Ok(QueryEvent::RowDescription(vec![
-            PostgreSqlType::SmallInt.as_column_metadata("column_si"),
-            PostgreSqlType::Integer.as_column_metadata("column_i"),
-            PostgreSqlType::BigInt.as_column_metadata("column_bi"),
+            PgType::SmallInt.as_column_metadata("column_si"),
+            PgType::Integer.as_column_metadata("column_i"),
+            PgType::BigInt.as_column_metadata("column_bi"),
         ])),
         Ok(QueryEvent::DataRow(vec![
             "1000".to_owned(),
@@ -340,8 +340,8 @@ fn select_different_character_strings_types(database_with_schema: (InMemory, Res
         .expect("query executed");
     collector.assert_receive_many(vec![
         Ok(QueryEvent::RowDescription(vec![
-            PostgreSqlType::Char.as_column_metadata("char_10"),
-            PostgreSqlType::VarChar.as_column_metadata("var_char_20"),
+            PgType::Char.as_column_metadata("char_10"),
+            PgType::VarChar.as_column_metadata("var_char_20"),
         ])),
         Ok(QueryEvent::DataRow(vec![
             "1234567890".to_owned(),

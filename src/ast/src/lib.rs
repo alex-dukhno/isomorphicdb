@@ -80,12 +80,10 @@ impl<'a> TryInto<ScalarValue> for &Datum<'a> {
             Datum::Int16(num) => Ok(ScalarValue::Number(BigDecimal::from(*num))),
             Datum::Int32(num) => Ok(ScalarValue::Number(BigDecimal::from(*num))),
             Datum::Int64(num) => Ok(ScalarValue::Number(BigDecimal::from(*num))),
-            Datum::UInt64(num) => Ok(ScalarValue::Number(BigDecimal::from(*num))),
             Datum::Float32(num) => Ok(ScalarValue::Number(BigDecimal::try_from(**num).unwrap())),
             Datum::Float64(num) => Ok(ScalarValue::Number(BigDecimal::try_from(**num).unwrap())),
             Datum::String(str) => Ok(ScalarValue::String(str.to_string())),
             Datum::OwnedString(str) => Ok(ScalarValue::String(str.to_owned())),
-            Datum::SqlType(_) => Err(()),
         }
     }
 }
