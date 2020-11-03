@@ -181,7 +181,6 @@ name = "binary"
 version = "0.1.0"
 dependencies = [
  "repr",
- "sql_model",
 ]
 
 [[package]]
@@ -716,6 +715,7 @@ dependencies = [
  "dashmap",
  "log",
  "meta_def",
+ "pg_model",
  "repr",
  "rstest",
  "sql_model",
@@ -1164,7 +1164,6 @@ name = "repr"
 version = "0.1.0"
 dependencies = [
  "ordered-float",
- "sql_model",
 ]
 
 [[package]]

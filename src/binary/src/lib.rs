@@ -13,7 +13,6 @@
 // limitations under the License.
 
 use repr::Datum;
-use sql_model::sql_types::SqlType;
 use std::io;
 
 pub type Row = (Key, Values);
@@ -37,12 +36,9 @@ enum TypeTag {
     I16,
     I32,
     I64,
-    U64,
     F32,
     F64,
     Str,
-    SqlType,
-    // fill in the rest of the types.
 }
 
 fn assert_copy<T: Copy>(_t: T) {}
@@ -121,10 +117,6 @@ impl Binary {
                     push_tag(&mut data, TypeTag::I64);
                     push_copy!(&mut data, *val, i64);
                 }
-                Datum::<'a>::UInt64(val) => {
-                    push_tag(&mut data, TypeTag::U64);
-                    push_copy!(&mut data, *val, u64);
-                }
                 Datum::<'a>::Float32(val) => {
                     push_tag(&mut data, TypeTag::F32);
                     push_copy!(&mut data, *val.deref(), f32)
@@ -144,10 +136,6 @@ impl Binary {
                     data.extend_from_slice(val.as_bytes());
                 }
                 Datum::<'a>::Null => push_tag(&mut data, TypeTag::Null),
-                Datum::<'a>::SqlType(sql_type) => {
-                    push_tag(&mut data, TypeTag::SqlType);
-                    push_copy!(&mut data, *sql_type, SqlType);
-                }
             }
         }
 
@@ -184,10 +172,6 @@ fn unpack_raw(data: &[u8]) -> Vec<Datum> {
                 let val = unsafe { read::<i64>(data, &mut index) };
                 Datum::from_i64(val)
             }
-            TypeTag::U64 => {
-                let val = unsafe { read::<u64>(data, &mut index) };
-                Datum::from_u64(val)
-            }
             TypeTag::F32 => {
                 let val = unsafe { read::<f32>(data, &mut index) };
                 Datum::from_f32(val)
@@ -195,10 +179,6 @@ fn unpack_raw(data: &[u8]) -> Vec<Datum> {
             TypeTag::F64 => {
                 let val = unsafe { read::<f64>(data, &mut index) };
                 Datum::from_f64(val)
-            }
-            TypeTag::SqlType => {
-                let val = unsafe { read::<SqlType>(data, &mut index) };
-                Datum::from_sql_type(val)
             }
         };
         res.push(datum)
@@ -254,13 +234,6 @@ mod tests {
             let data = vec![Datum::from_string("string".to_owned()), Datum::from_str("hello")];
             let row = Binary::pack(&data);
             assert_eq!(vec![Datum::from_str("string"), Datum::from_str("hello")], row.unpack());
-        }
-
-        #[test]
-        fn sql_type() {
-            let data = vec![Datum::from_sql_type(SqlType::VarChar(32))];
-            let row = Binary::pack(&data);
-            assert_eq!(data, row.unpack());
         }
     }
 }

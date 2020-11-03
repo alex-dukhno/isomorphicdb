@@ -31,6 +31,35 @@ pub enum SqlType {
     DoublePrecision,
 }
 
+impl SqlType {
+    pub fn type_id(&self) -> u64 {
+        match self {
+            SqlType::Bool => 0,
+            SqlType::Char(_) => 1,
+            SqlType::VarChar(_) => 2,
+            SqlType::SmallInt => 3,
+            SqlType::Integer => 4,
+            SqlType::BigInt => 5,
+            SqlType::Real => 6,
+            SqlType::DoublePrecision => 7,
+        }
+    }
+
+    pub fn from_type_id(type_id: u64, chars_len: u64) -> SqlType {
+        match type_id {
+            0 => SqlType::Bool,
+            1 => SqlType::Char(chars_len),
+            2 => SqlType::VarChar(chars_len),
+            3 => SqlType::SmallInt,
+            4 => SqlType::Integer,
+            5 => SqlType::BigInt,
+            6 => SqlType::Real,
+            7 => SqlType::DoublePrecision,
+            _ => unreachable!(),
+        }
+    }
+}
+
 impl TryFrom<&DataType> for SqlType {
     type Error = NotSupportedType;
 

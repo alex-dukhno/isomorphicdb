@@ -68,79 +68,28 @@ pub trait MetadataView {
 const SYSTEM_CATALOG: &'_ str = "system";
 
 const DEFINITION_SCHEMA: &'_ str = "DEFINITION_SCHEMA";
-
+/// **CATALOG_NAMES** sql types definition
+/// CATALOG_NAME    varchar(255)
 const CATALOG_NAMES_TABLE: &'_ str = "CATALOG_NAMES";
-const SCHEMATA_TABLE: &'_ str = "SCHEMATA";
-const TABLES_TABLE: &'_ str = "TABLES";
-const COLUMNS_TABLE: &'_ str = "COLUMNS";
-const DATA_TYPE_DESCRIPTOR_TABLE: &'_ str = "DATA_TYPE_DESCRIPTOR";
-
-#[allow(dead_code)]
-fn catalog_names_types() -> [ColumnDefinition; 1] {
-    [ColumnDefinition::new("CATALOG_NAME", SqlType::VarChar(255))]
-}
-
 /// **SCHEMATA** sql types definition
 /// CATALOG_NAME    varchar(255)
 /// SCHEMA_NAME     varchar(255)
-#[allow(dead_code)]
-fn schemata_table_types() -> [ColumnDefinition; 2] {
-    [
-        ColumnDefinition::new("CATALOG_NAME", SqlType::VarChar(255)),
-        ColumnDefinition::new("SCHEMA_NAME", SqlType::VarChar(255)),
-    ]
-}
-
+const SCHEMATA_TABLE: &'_ str = "SCHEMATA";
 /// **TABLES** sql types definition
 /// TABLE_CATALOG   varchar(255)
 /// TABLE_SCHEMA    varchar(255)
 /// TABLE_NAME      varchar(255)
-#[allow(dead_code)]
-fn tables_table_types() -> [ColumnDefinition; 3] {
-    [
-        ColumnDefinition::new("TABLE_CATALOG", SqlType::VarChar(255)),
-        ColumnDefinition::new("TABLE_SCHEMA", SqlType::VarChar(255)),
-        ColumnDefinition::new("TABLE_NAME", SqlType::VarChar(255)),
-    ]
-}
-
+const TABLES_TABLE: &'_ str = "TABLES";
 /// **COLUMNS** sql type definition
-/// TABLE_CATALOG       varchar(255)
-/// TABLE_SCHEMA        varchar(255)
-/// TABLE_NAME          varchar(255)
-/// COLUMN_NAME         varchar(255)
-/// ORDINAL_POSITION    integer check (ORDINAL_POSITION > 0)
-#[allow(dead_code)]
-fn columns_table_types() -> [ColumnDefinition; 5] {
-    [
-        ColumnDefinition::new("TABLE_CATALOG", SqlType::VarChar(255)),
-        ColumnDefinition::new("TABLE_SCHEMA", SqlType::VarChar(255)),
-        ColumnDefinition::new("TABLE_NAME", SqlType::VarChar(255)),
-        ColumnDefinition::new("COLUMN_NAME", SqlType::VarChar(255)),
-        ColumnDefinition::new("ORDINAL_POSITION", SqlType::Integer),
-    ]
-}
-
-/// **DATA_TYPE_DESCRIPTOR** sql type definition
-/// OBJECT_CATALOG              varchar(255)
-/// OBJECT_SCHEMA               varchar(255)
-/// OBJECT_NAME                 varchar(255)
-/// OBJECT_TYPE                 varchar(255)
-/// DATA_TYPE                   varchar(255)
+/// TABLE_CATALOG               varchar(255)
+/// TABLE_SCHEMA                varchar(255)
+/// TABLE_NAME                  varchar(255)
+/// COLUMN_NAME                 varchar(255)
+/// ORDINAL_POSITION            integer CHECK (ORDINAL_POSITION > 0)
+/// DATA_TYPE_OID               integer
 /// CHARACTER_MAXIMUM_LENGTH    integer CHECK (VALUE >= 0),
 /// NUMERIC_PRECISION           integer CHECK (VALUE >= 0),
-#[allow(dead_code)]
-fn data_type_descriptor() -> [ColumnDefinition; 7] {
-    [
-        ColumnDefinition::new("OBJECT_CATALOG", SqlType::VarChar(255)),
-        ColumnDefinition::new("OBJECT_SCHEMA", SqlType::VarChar(255)),
-        ColumnDefinition::new("OBJECT_NAME", SqlType::VarChar(255)),
-        ColumnDefinition::new("OBJECT_TYPE", SqlType::VarChar(255)),
-        ColumnDefinition::new("DATA_TYPE", SqlType::VarChar(255)),
-        ColumnDefinition::new("CHARACTER_MAXIMUM_LENGTH", SqlType::Integer),
-        ColumnDefinition::new("NUMERIC_PRECISION", SqlType::Integer),
-    ]
-}
+const COLUMNS_TABLE: &'_ str = "COLUMNS";
 
 type InnerCatalogId = Option<Id>;
 type InnerFullSchemaId = Option<(Id, Option<Id>)>;
@@ -349,11 +298,6 @@ impl DataDefinition {
             .expect("no io error")
             .expect("no platform error")
             .expect("table COLUMNS is created");
-        system_catalog
-            .create_object(DEFINITION_SCHEMA, DATA_TYPE_DESCRIPTOR_TABLE)
-            .expect("no io error")
-            .expect("no platform error")
-            .expect("table DATA_TYPE_DESCRIPTOR created");
         DataDefinition {
             catalog_ids: AtomicU64::default(),
             catalogs: DashMap::default(),
@@ -403,11 +347,6 @@ impl DataDefinition {
                     .expect("no io error")
                     .expect("no platform error")
                     .expect("table COLUMNS is created");
-                system_catalog
-                    .create_object(DEFINITION_SCHEMA, DATA_TYPE_DESCRIPTOR_TABLE)
-                    .expect("no io error")
-                    .expect("no platform error")
-                    .expect("table DATA_TYPE_DESCRIPTOR created");
                 (DashMap::new(), 0)
             }
             Err(storage_error) => return Ok(Err(storage_error)),
@@ -742,6 +681,10 @@ impl DataDefinition {
             .expect("no platform error")
             .expect("to save table info");
         for (id, column) in created_table.columns() {
+            let chars_len = match column.sql_type() {
+                SqlType::Char(len) | SqlType::VarChar(len) => Datum::from_u64(len),
+                _ => Datum::from_null(),
+            };
             self.system_catalog
                 .write(
                     DEFINITION_SCHEMA,
@@ -757,9 +700,10 @@ impl DataDefinition {
                             Datum::from_str(catalog_name),
                             Datum::from_str(schema_name),
                             Datum::from_str(table_name),
+                            Datum::from_u64(id),
                             Datum::from_str(column.name().as_str()),
-                            Datum::from_sql_type(column.sql_type()),
-                            Datum::UInt64(id),
+                            Datum::from_u64(column.sql_type().type_id()),
+                            chars_len,
                         ]),
                     )],
                 )
@@ -838,10 +782,14 @@ impl DataDefinition {
                     let data = data.unpack();
                     let schema = data[1].as_str().to_owned();
                     let table = data[2].as_str().to_owned();
-                    let column = data[3].as_str().to_owned();
-                    let sql_type = data[4].as_sql_type();
+                    let column = data[4].as_str().to_owned();
+                    let type_id = data[5].as_u64();
+                    let chars_len = match data[6] {
+                        Datum::Int64(val) => val as u64,
+                        _ => 0,
+                    };
                     max_id = max_id.max(id);
-                    (id, schema, table, column, sql_type)
+                    (id, schema, table, column, SqlType::from_type_id(type_id, chars_len))
                 })
                 .filter(|(_id, schema, _table, _column, _sql_type)| schema == schema_name)
                 .map(|(id, _schema, _table, column, sql_type)| (id, ColumnDefinition::new(column.as_str(), sql_type)))
@@ -937,8 +885,13 @@ impl MetadataView for DataDefinition {
                 let schema_id = record[1].as_u64();
                 let table_id = record[2].as_u64();
                 let columns = columns.unpack();
-                let name = columns[3].as_str().to_owned();
-                let sql_type = columns[4].as_sql_type();
+                let name = columns[4].as_str().to_owned();
+                let type_id = columns[5].as_u64();
+                let chars_len = match columns[6] {
+                    Datum::Int64(val) => val as u64,
+                    _ => 0,
+                };
+                let sql_type = SqlType::from_type_id(type_id, chars_len);
                 ((schema_id, table_id), name, sql_type)
             })
             .filter(|(full_table_id, _name, _sql_type)| full_table_id == table_id.as_ref())
@@ -985,7 +938,7 @@ impl MetadataView for DataDefinition {
                 let schema_id = record[1].as_u64();
                 let table_id = record[2].as_u64();
                 let columns = columns.unpack();
-                let name = columns[3].as_str().to_owned();
+                let name = columns[4].as_str().to_owned();
                 ((schema_id, table_id), name)
             })
             .filter(|(full_table_id, _name)| full_table_id == table_id.as_ref())
@@ -1037,8 +990,13 @@ impl MetadataView for DataDefinition {
                 let table_id = record[2].as_u64();
                 let column_id = record[3].as_u64();
                 let columns = columns.unpack();
-                let name = columns[3].as_str().to_owned();
-                let sql_type = columns[4].as_sql_type().to_owned();
+                let name = columns[4].as_str().to_owned();
+                let type_id = columns[5].as_u64();
+                let chars_len = match columns[6] {
+                    Datum::Int64(val) => val as u64,
+                    _ => 0,
+                };
+                let sql_type = SqlType::from_type_id(type_id, chars_len);
                 ((schema_id, table_id), column_id, name, sql_type)
             })
             .filter(|(full_table_id, _column_id, _name, _sql_type)| full_table_id == table_id.as_ref())

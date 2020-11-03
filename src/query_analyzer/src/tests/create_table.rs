@@ -15,6 +15,7 @@
 use super::*;
 use sqlparser::ast::{ColumnDef, DataType};
 
+#[allow(dead_code)]
 fn column(name: &str, data_type: DataType) -> ColumnDef {
     ColumnDef {
         name: ident(name),
