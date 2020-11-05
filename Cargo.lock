@@ -189,7 +189,7 @@ version = "0.1.0"
 dependencies = [
  "bigdecimal",
  "log",
- "pg_wire",
+ "pg_wire 0.3.1",
  "rstest",
  "sqlparser",
 ]
@@ -300,7 +300,7 @@ dependencies = [
  "futures-lite",
  "log",
  "pg_model",
- "pg_wire",
+ "pg_wire 0.1.0",
  "rand",
  "sqlparser",
  "tempfile",
@@ -779,7 +779,7 @@ dependencies = [
  "metadata",
  "parser",
  "pg_model",
- "pg_wire",
+ "pg_wire 0.3.1",
  "plan",
  "query_analyzer",
  "query_executor",
@@ -936,7 +936,7 @@ version = "0.1.0"
 dependencies = [
  "bigdecimal",
  "byteorder",
- "pg_wire",
+ "pg_wire 0.3.1",
  "rand",
  "rstest",
  "sqlparser",
@@ -947,6 +947,15 @@ name = "pg_wire"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9578b1792e1843ae7da516033229c9af81ba01d799f9dd39fd7044da86edc65f"
+dependencies = [
+ "log",
+]
+
+[[package]]
+name = "pg_wire"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d7e86295b29ff79816e8531ea1c66606bcf931c89dbeb4d1d1e35b9040756790"
 dependencies = [
  "log",
 ]
@@ -996,7 +1005,7 @@ dependencies = [
  "ast",
  "constraints",
  "meta_def",
- "pg_wire",
+ "pg_wire 0.3.1",
  "sql_model",
  "sqlparser",
 ]
@@ -1070,7 +1079,7 @@ dependencies = [
  "meta_def",
  "metadata",
  "pg_model",
- "pg_wire",
+ "pg_wire 0.3.1",
  "plan",
  "repr",
  "rstest",
