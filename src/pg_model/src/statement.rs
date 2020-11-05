@@ -34,10 +34,8 @@
 //! 4. The client issues an `Execute` message with the name of a portal, causing
 //!    that portal to actually start scanning and returning results.
 
-use crate::{
-    pg_types::{PgType, PostgreSqlFormat},
-    results::Description,
-};
+use crate::results::Description;
+use pg_wire::{PgFormat, PgType};
 
 /// A prepared statement.
 #[derive(Clone, Debug, PartialEq)]
@@ -72,7 +70,7 @@ impl<S> PreparedStatement<S> {
 
     /// Returns the type of the rows that will be returned.
     pub fn description(&self) -> &[(String, PgType)] {
-        self.description.as_ref()
+        self.description.as_slice()
     }
 }
 
@@ -84,12 +82,12 @@ pub struct Portal<S> {
     /// The bound SQL statement from the prepared statement.
     stmt: S,
     /// The desired output format for each column in the result set.
-    result_formats: Vec<PostgreSqlFormat>,
+    result_formats: Vec<PgFormat>,
 }
 
 impl<S> Portal<S> {
     /// Constructs a new `Portal`.
-    pub fn new(statement_name: String, stmt: S, result_formats: Vec<PostgreSqlFormat>) -> Self {
+    pub fn new(statement_name: String, stmt: S, result_formats: Vec<PgFormat>) -> Self {
         Self {
             statement_name,
             stmt,

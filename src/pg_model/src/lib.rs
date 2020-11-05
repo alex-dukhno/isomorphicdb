@@ -12,16 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::pg_types::{PgType, PostgreSqlFormat};
-use pg_wire::{Error, Result};
+use pg_wire::{Error, PgFormat, PgType, Result};
 use rand::Rng;
 use std::{
     collections::{HashMap, VecDeque},
     path::PathBuf,
 };
 
-/// Module contains functionality to represent PostgreSQL types
-pub mod pg_types;
 /// Module contains functionality to represent query result
 pub mod results;
 /// Module contains functionality to represent server side client session
@@ -104,11 +101,11 @@ pub enum Command {
         /// prepared statement.
         statement_name: String,
         /// The formats used to encode the parameters.
-        param_formats: Vec<PostgreSqlFormat>,
+        param_formats: Vec<PgFormat>,
         /// The value of each parameter.
         raw_params: Vec<Option<Vec<u8>>>,
         /// The desired formats for the columns in the result set.
-        result_formats: Vec<PostgreSqlFormat>,
+        result_formats: Vec<PgFormat>,
     },
     /// Nothing needs to handle on client, just to receive next message
     Continue,

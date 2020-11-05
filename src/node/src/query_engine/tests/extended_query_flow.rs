@@ -13,11 +13,7 @@
 // limitations under the License.
 
 use super::*;
-use pg_model::{
-    pg_types::{PgType, PostgreSqlFormat},
-    results::QueryEvent,
-    Command,
-};
+use pg_model::{results::QueryEvent, Command};
 
 #[rstest::fixture]
 fn database_with_table(database_with_schema: (InMemory, ResultCollector)) -> (InMemory, ResultCollector) {
@@ -126,7 +122,7 @@ mod parse_bind_execute {
                 .execute(Command::Bind {
                     statement_name: "statement_name".to_owned(),
                     portal_name: "portal_name".to_owned(),
-                    param_formats: vec![PostgreSqlFormat::Binary, PostgreSqlFormat::Text],
+                    param_formats: vec![PgFormat::Binary, PgFormat::Text],
                     raw_params: vec![Some(vec![0, 0, 0, 1]), Some(b"2".to_vec())],
                     result_formats: vec![],
                 })
@@ -166,7 +162,7 @@ mod parse_bind_execute {
                 .execute(Command::Bind {
                     portal_name: "portal_name".to_owned(),
                     statement_name: "statement_name".to_owned(),
-                    param_formats: vec![PostgreSqlFormat::Binary, PostgreSqlFormat::Text],
+                    param_formats: vec![PgFormat::Binary, PgFormat::Text],
                     raw_params: vec![Some(vec![0, 0, 0, 1]), Some(b"2".to_vec())],
                     result_formats: vec![],
                 })

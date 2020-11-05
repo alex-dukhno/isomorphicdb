@@ -12,8 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::pg_types::PgType;
-use pg_wire::{BackendMessage, ColumnMetadata};
+use pg_wire::{BackendMessage, ColumnMetadata, PgType};
 use std::fmt::{self, Display, Formatter};
 
 /// Represents result of SQL query execution
@@ -81,9 +80,7 @@ impl Into<BackendMessage> for QueryEvent {
             QueryEvent::RecordsDeleted(records) => BackendMessage::CommandComplete(format!("DELETE {}", records)),
             QueryEvent::StatementPrepared => BackendMessage::CommandComplete("PREPARE".to_owned()),
             QueryEvent::StatementDeallocated => BackendMessage::CommandComplete("DEALLOCATE".to_owned()),
-            QueryEvent::StatementParameters(param_types) => {
-                BackendMessage::ParameterDescription(param_types.iter().map(PgType::pg_oid).collect())
-            }
+            QueryEvent::StatementParameters(param_types) => BackendMessage::ParameterDescription(param_types),
             QueryEvent::StatementDescription(description) => {
                 if description.is_empty() {
                     BackendMessage::NoData
@@ -91,7 +88,7 @@ impl Into<BackendMessage> for QueryEvent {
                     BackendMessage::RowDescription(
                         description
                             .into_iter()
-                            .map(|(name, pg_type)| pg_type.as_column_metadata(name))
+                            .map(|(name, pg_type)| ColumnMetadata::new(name, pg_type))
                             .collect(),
                     )
                 }
@@ -565,16 +562,16 @@ mod tests {
         #[test]
         fn row_description() {
             let message: BackendMessage = QueryEvent::RowDescription(vec![
-                PgType::SmallInt.as_column_metadata("column_name_1"),
-                PgType::SmallInt.as_column_metadata("column_name_2"),
+                ColumnMetadata::new("column_name_1", PgType::SmallInt),
+                ColumnMetadata::new("column_name_2", PgType::SmallInt),
             ])
             .into();
 
             assert_eq!(
                 message,
                 BackendMessage::RowDescription(vec![
-                    PgType::SmallInt.as_column_metadata("column_name_1"),
-                    PgType::SmallInt.as_column_metadata("column_name_2"),
+                    ColumnMetadata::new("column_name_1", PgType::SmallInt),
+                    ColumnMetadata::new("column_name_2", PgType::SmallInt),
                 ])
             )
         }
@@ -629,14 +626,14 @@ mod tests {
                 QueryEvent::StatementDescription(vec![("si_column".to_owned(), PgType::SmallInt)]).into();
             assert_eq!(
                 message,
-                BackendMessage::RowDescription(vec![PgType::SmallInt.as_column_metadata("si_column")])
+                BackendMessage::RowDescription(vec![ColumnMetadata::new("si_column", PgType::SmallInt)])
             )
         }
 
         #[test]
         fn statement_parameters() {
             let message: BackendMessage = QueryEvent::StatementParameters(vec![PgType::SmallInt]).into();
-            assert_eq!(message, BackendMessage::ParameterDescription(vec![21]))
+            assert_eq!(message, BackendMessage::ParameterDescription(vec![PgType::SmallInt]))
         }
 
         #[test]

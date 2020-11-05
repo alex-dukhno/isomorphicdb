@@ -17,17 +17,12 @@ use async_native_tls::TlsStream;
 use blocking::Unblock;
 use byteorder::{ByteOrder, NetworkEndian};
 use futures_lite::{future::block_on, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-use pg_model::{
-    pg_types::{PgType, PostgreSqlFormat},
-    results::QueryResult,
-    Command, ConnId, ConnSupervisor, Encryption, ProtocolConfiguration,
-};
+use pg_model::{results::QueryResult, Command, ConnSupervisor, Encryption, ProtocolConfiguration};
 use pg_wire::{
-    BackendMessage, Error, FrontendMessage, HandShakeProcess, HandShakeRequest, HandShakeStatus, MessageDecoder,
-    MessageDecoderStatus, Result,
+    BackendMessage, ConnId, Error, FrontendMessage, HandShakeProcess, HandShakeRequest, HandShakeStatus,
+    MessageDecoder, MessageDecoderStatus, Result,
 };
 use std::{
-    convert::TryFrom,
     fs::File,
     io,
     net::SocketAddr,
@@ -268,9 +263,9 @@ impl<RW: AsyncRead + AsyncWrite + Unpin> Receiver for RequestReceiver<RW> {
             } => Ok(Ok(Command::Bind {
                 portal_name,
                 statement_name,
-                param_formats: param_formats.iter().map(|f| PostgreSqlFormat::from(*f)).collect(),
+                param_formats,
                 raw_params,
-                result_formats: result_formats.iter().map(|f| PostgreSqlFormat::from(*f)).collect(),
+                result_formats,
             })),
             FrontendMessage::DescribeStatement { name } => Ok(Ok(Command::DescribeStatement { name })),
             FrontendMessage::Execute { portal_name, max_rows } => Ok(Ok(Command::Execute { portal_name, max_rows })),
@@ -279,20 +274,11 @@ impl<RW: AsyncRead + AsyncWrite + Unpin> Receiver for RequestReceiver<RW> {
                 statement_name,
                 sql,
                 param_types,
-            } => {
-                let mut parameter_types = vec![];
-                for param_type in param_types {
-                    match PgType::try_from(param_type) {
-                        Ok(pg_type) => parameter_types.push(pg_type),
-                        Err(_error) => return Ok(Err(Error::VerificationFailed)),
-                    }
-                }
-                Ok(Ok(Command::Parse {
-                    statement_name,
-                    sql,
-                    param_types: parameter_types,
-                }))
-            }
+            } => Ok(Ok(Command::Parse {
+                statement_name,
+                sql,
+                param_types,
+            })),
             FrontendMessage::Query { sql } => Ok(Ok(Command::Query { sql })),
             FrontendMessage::Terminate => Ok(Ok(Command::Terminate)),
             FrontendMessage::Sync => Ok(Ok(Command::Continue)),

@@ -12,10 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{
-    pg_types::PostgreSqlFormat,
-    statement::{Portal, PreparedStatement},
-};
+use crate::statement::{Portal, PreparedStatement};
+use pg_wire::PgFormat;
 use std::collections::HashMap;
 
 /// A `Session` holds SQL state that is attached to a session.
@@ -58,13 +56,7 @@ impl<S> Session<S> {
     }
 
     /// save `Portal` associated with a name
-    pub fn set_portal(
-        &mut self,
-        portal_name: String,
-        statement_name: String,
-        stmt: S,
-        result_formats: Vec<PostgreSqlFormat>,
-    ) {
+    pub fn set_portal(&mut self, portal_name: String, statement_name: String, stmt: S, result_formats: Vec<PgFormat>) {
         let new_portal = Portal::new(statement_name, stmt, result_formats);
         self.portals.insert(portal_name, new_portal);
     }

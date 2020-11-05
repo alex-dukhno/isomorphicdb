@@ -423,6 +423,7 @@ name = "description"
 version = "0.1.0"
 dependencies = [
  "pg_model",
+ "pg_wire",
  "sql_model",
  "sqlparser",
 ]
@@ -767,6 +768,7 @@ dependencies = [
  "async-dup",
  "async-executor",
  "async-io",
+ "bigdecimal",
  "binder",
  "blocking",
  "connection",
@@ -792,9 +794,9 @@ dependencies = [
 
 [[package]]
 name = "num-bigint"
-version = "0.3.0"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b7f3fc75e3697059fb1bc465e3d8cca6cf92f56854f201158b3f9c77d5a3cfa0"
+checksum = "5e9a41747ae4633fce5adffb4d2e81ffc5e89593cb19917f8fb2cc5ff76507bf"
 dependencies = [
  "autocfg",
  "num-integer",
@@ -944,9 +946,9 @@ dependencies = [
 
 [[package]]
 name = "pg_wire"
-version = "0.1.0"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9578b1792e1843ae7da516033229c9af81ba01d799f9dd39fd7044da86edc65f"
+checksum = "8edbaf1f30384ba7b1aace6bcc7f88e610dbd649f373b3ce0945fc9312100915"
 dependencies = [
  "log",
 ]
@@ -1016,9 +1018,9 @@ dependencies = [
 
 [[package]]
 name = "ppv-lite86"
-version = "0.2.9"
+version = "0.2.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c36fa947111f5c62a733b652544dd0016a43ce89619538a8ef92724a6f501a20"
+checksum = "ac74c624d6b2d21f425f752262f42188365d7b8ff1aff74c82e45136510a4857"
 
 [[package]]
 name = "proc-macro-hack"
@@ -1309,6 +1311,7 @@ name = "sql_model"
 version = "0.1.0"
 dependencies = [
  "pg_model",
+ "pg_wire",
  "rstest",
  "sqlparser",
 ]
@@ -1364,18 +1367,18 @@ dependencies = [
 
 [[package]]
 name = "thiserror"
-version = "1.0.21"
+version = "1.0.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "318234ffa22e0920fe9a40d7b8369b5f649d490980cf7aadcf1eb91594869b42"
+checksum = "0e9ae34b84616eedaaf1e9dd6026dbe00dcafa92aa0c8077cb69df1fcfe5e53e"
 dependencies = [
  "thiserror-impl",
 ]
 
 [[package]]
 name = "thiserror-impl"
-version = "1.0.21"
+version = "1.0.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cae2447b6282786c3493999f40a9be2a6ad20cb8bd268b0a0dbf5a065535c0ab"
+checksum = "9ba20f23e85b10754cd195504aebf6a27e2e6cbe28c17778a0c930724628dd56"
 dependencies = [
  "proc-macro2",
  "quote",

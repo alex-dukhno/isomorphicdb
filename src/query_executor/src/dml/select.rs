@@ -20,7 +20,8 @@ use binary::ReadCursor;
 use connection::Sender;
 use data_manager::DataManager;
 use metadata::MetadataView;
-use pg_model::{pg_types::PgType, results::QueryEvent};
+use pg_model::results::QueryEvent;
+use pg_wire::{ColumnMetadata, PgType};
 use plan::{FullTableId, SelectInput};
 use sql_model::Id;
 use std::{convert::TryInto, sync::Arc};
@@ -159,7 +160,7 @@ impl SelectCommand {
                     .into_iter()
                     .map(|column| {
                         let pg_type: PgType = (&column.sql_type()).into();
-                        pg_type.as_column_metadata(column.name())
+                        ColumnMetadata::new(column.name(), pg_type)
                     })
                     .collect(),
             )))
