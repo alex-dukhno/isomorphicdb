@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use pg_model::pg_types::PgType;
+use pg_wire::PgType;
 use sql_model::{sql_types::SqlType, Id};
 use sqlparser::ast::ObjectName;
 use std::{

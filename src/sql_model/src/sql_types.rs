@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use pg_model::pg_types::PgType;
+use pg_wire::PgType;
 use sqlparser::ast::DataType;
 use std::{
     convert::TryFrom,
@@ -108,8 +108,7 @@ impl Into<PgType> for &SqlType {
             SqlType::SmallInt => PgType::SmallInt,
             SqlType::Integer => PgType::Integer,
             SqlType::BigInt => PgType::BigInt,
-            SqlType::Real => PgType::Real,
-            SqlType::DoublePrecision => PgType::DoublePrecision,
+            SqlType::Real | SqlType::DoublePrecision => unreachable!(),
         }
     }
 }
@@ -156,18 +155,6 @@ mod tests {
         fn var_char() {
             let pg_type: PgType = (&SqlType::VarChar(0)).into();
             assert_eq!(pg_type, PgType::VarChar);
-        }
-
-        #[test]
-        fn real() {
-            let pg_type: PgType = (&SqlType::Real).into();
-            assert_eq!(pg_type, PgType::Real);
-        }
-
-        #[test]
-        fn double_precision() {
-            let pg_type: PgType = (&SqlType::DoublePrecision).into();
-            assert_eq!(pg_type, PgType::DoublePrecision);
         }
     }
 }

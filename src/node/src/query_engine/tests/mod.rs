@@ -17,6 +17,7 @@ use pg_model::{
     results::{QueryEvent, QueryResult},
     Command,
 };
+use pg_wire::ColumnMetadata;
 use std::{
     io,
     ops::DerefMut,

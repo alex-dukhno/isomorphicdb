@@ -14,7 +14,6 @@
 
 use super::*;
 use pg_model::{
-    pg_types::PgType,
     results::{QueryError, QueryEvent},
     Command,
 };
@@ -59,9 +58,9 @@ fn prepare_execute_and_deallocate(database_with_schema: (InMemory, ResultCollect
         .expect("query executed");
     collector.assert_receive_many(vec![
         Ok(QueryEvent::RowDescription(vec![
-            PgType::SmallInt.as_column_metadata("column_1"),
-            PgType::SmallInt.as_column_metadata("column_2"),
-            PgType::SmallInt.as_column_metadata("column_3"),
+            ColumnMetadata::new("column_1", PgType::SmallInt),
+            ColumnMetadata::new("column_2", PgType::SmallInt),
+            ColumnMetadata::new("column_3", PgType::SmallInt),
         ])),
         Ok(QueryEvent::DataRow(vec![
             "123".to_owned(),

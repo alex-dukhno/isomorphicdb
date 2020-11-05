@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use bigdecimal::BigDecimal;
 use binder::ParamBinder;
 use connection::Sender;
 use data_manager::DataManager;
@@ -20,23 +21,19 @@ use itertools::izip;
 use metadata::{DataDefinition, MetadataView};
 use parser::QueryParser;
 use pg_model::{
-    pg_types::{PgType, PostgreSqlFormat},
     results::{QueryError, QueryEvent},
     session::Session,
     statement::PreparedStatement,
     Command,
 };
+use pg_wire::{PgFormat, PgType};
 use plan::{Plan, SelectInput};
 use query_analyzer::Analyzer;
 use query_executor::QueryExecutor;
 use query_planner::{PlanError, QueryPlanner};
+use sql_model::sql_types::SqlType;
 use sqlparser::ast::{Expr, Ident, Statement, Value};
-use std::{
-    convert::{TryFrom, TryInto},
-    iter,
-    ops::Deref,
-    sync::Arc,
-};
+use std::{convert::TryFrom, iter, ops::Deref, sync::Arc};
 
 pub(crate) struct QueryEngine {
     session: Session<Statement>,
@@ -252,10 +249,10 @@ impl QueryEngine {
     fn bind_prepared_statement(
         &self,
         prepared_statement: &PreparedStatement<Statement>,
-        param_formats: &[PostgreSqlFormat],
+        param_formats: &[PgFormat],
         raw_params: &[Option<Vec<u8>>],
-        result_formats: &[PostgreSqlFormat],
-    ) -> Result<(Statement, Vec<PostgreSqlFormat>), ()> {
+        result_formats: &[PgFormat],
+    ) -> Result<(Statement, Vec<PgFormat>), ()> {
         log::debug!("prepared statement -  {:#?}", prepared_statement);
         let param_formats = match pad_formats(param_formats, raw_params.len()) {
             Ok(param_formats) => param_formats,
@@ -274,7 +271,8 @@ impl QueryEngine {
                 Some(bytes) => {
                     log::debug!("PG Type {:?}", typ);
                     match typ.decode(&format, &bytes) {
-                        Ok(param) => params.push(param.try_into().unwrap()),
+                        // write transformer from pg_wire::Value into sqlparser::Expr
+                        Ok(param) => params.push(value_to_expr(param)),
                         Err(msg) => {
                             self.sender
                                 .send(Err(QueryError::invalid_parameter_value(msg)))
@@ -390,8 +388,8 @@ impl QueryEngine {
                 let Ident { value: name, .. } = name;
                 let mut pg_types = vec![];
                 for t in data_types {
-                    match PgType::try_from(t) {
-                        Ok(pg_type) => pg_types.push(pg_type),
+                    match SqlType::try_from(t) {
+                        Ok(sql_type) => pg_types.push((&sql_type).into()),
                         Err(_) => {
                             self.sender
                                 .send(Err(QueryError::type_does_not_exist(t)))
@@ -456,12 +454,24 @@ impl QueryEngine {
     }
 }
 
-fn pad_formats(formats: &[PostgreSqlFormat], param_len: usize) -> Result<Vec<PostgreSqlFormat>, String> {
+fn pad_formats(formats: &[PgFormat], param_len: usize) -> Result<Vec<PgFormat>, String> {
     match (formats.len(), param_len) {
-        (0, n) => Ok(vec![PostgreSqlFormat::Text; n]),
+        (0, n) => Ok(vec![PgFormat::Text; n]),
         (1, n) => Ok(iter::repeat(formats[0]).take(n).collect()),
         (m, n) if m == n => Ok(formats.to_vec()),
         (m, n) => Err(format!("expected {} field format specifiers, but got {}", m, n)),
+    }
+}
+
+fn value_to_expr(value: pg_wire::Value) -> Expr {
+    match value {
+        pg_wire::Value::Null => Expr::Value(Value::Null),
+        pg_wire::Value::True => Expr::Value(Value::Boolean(true)),
+        pg_wire::Value::False => Expr::Value(Value::Boolean(false)),
+        pg_wire::Value::Int16(i) => Expr::Value(Value::Number(BigDecimal::from(i))),
+        pg_wire::Value::Int32(i) => Expr::Value(Value::Number(BigDecimal::from(i))),
+        pg_wire::Value::Int64(i) => Expr::Value(Value::Number(BigDecimal::from(i))),
+        pg_wire::Value::String(s) => Expr::Value(Value::SingleQuotedString(s)),
     }
 }
 

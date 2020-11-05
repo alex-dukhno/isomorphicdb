@@ -14,7 +14,6 @@
 
 use super::*;
 use pg_model::{
-    pg_types::PgType,
     results::{QueryError, QueryEvent},
     Command,
 };

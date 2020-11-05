@@ -17,7 +17,7 @@ meta_def = { path = "../meta_def" }
 metadata = { path = "../metadata" }
 plan = { path = "../plan" }
 pg_model = { path = "../pg_model" }
-pg_wire = "0.1.0"
+pg_wire = "0.4.0"
 repr = { path = "../repr" }
 sql_model = { path = "../sql_model" }
 
