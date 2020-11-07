@@ -114,6 +114,11 @@ pub enum Command {
         /// The name of the prepared statement to describe.
         name: String,
     },
+    /// Client commands to describe a prepared statement
+    DescribePortal {
+        /// The name of the prepared statement to describe.
+        name: String,
+    },
     /// Client commands to execute a portal
     Execute {
         /// The name of the portal to execute.
@@ -134,7 +139,7 @@ pub enum Command {
         sql: String,
         /// The number of specified parameter data types can be less than the
         /// number of parameters specified in the query.
-        param_types: Vec<PgType>,
+        param_types: Vec<Option<PgType>>,
     },
     /// Client commands to execute a `Query`
     Query {

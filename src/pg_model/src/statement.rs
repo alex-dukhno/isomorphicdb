@@ -99,4 +99,8 @@ impl<S> Portal<S> {
     pub fn stmt(&self) -> &S {
         &self.stmt
     }
+
+    pub fn stmt_name(&self) -> &str {
+        self.statement_name.as_str()
+    }
 }

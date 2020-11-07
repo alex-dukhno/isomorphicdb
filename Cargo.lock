@@ -486,6 +486,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "00b0228411908ca8685dba7fc2cdd70ec9990a6e753e89b6ac91a84c40fbaf4b"
 
 [[package]]
+name = "form_urlencoded"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ece68d15c92e84fa4f19d3780f1294e5ca82a78a6d515f1efaabcc144688be00"
+dependencies = [
+ "matches",
+ "percent-encoding",
+]
+
+[[package]]
 name = "fs2"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -736,8 +746,8 @@ dependencies = [
 
 [[package]]
 name = "native-tls"
-version = "0.2.4"
-source = "git+https://github.com/sfackler/rust-native-tls.git?branch=master#9a9e79825cde4705bad1b2192962066e29d365b5"
+version = "0.2.5"
+source = "git+https://github.com/sfackler/rust-native-tls.git?branch=master#c1b9333e594dd8e5a351f1ab74a4d1b01fc7f81a"
 dependencies = [
  "lazy_static",
  "libc",
@@ -946,9 +956,9 @@ dependencies = [
 
 [[package]]
 name = "pg_wire"
-version = "0.4.0"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8edbaf1f30384ba7b1aace6bcc7f88e610dbd649f373b3ce0945fc9312100915"
+checksum = "1371d4fae551ab2d57f2fd82919e82d12b1032e12ad80ef1d9a8cd7ba2806a8d"
 dependencies = [
  "log",
 ]
@@ -1428,10 +1438,11 @@ checksum = "f7fe0bb3479651439c9112f72b6c505038574c9fbb575ed1bf3b797fa39dd564"
 
 [[package]]
 name = "url"
-version = "2.1.1"
+version = "2.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "829d4a8476c35c9bf0bbce5a3b23f4106f79728039b726d292bb93bc106787cb"
+checksum = "5909f2b0817350449ed73e8bcd81c8c3c8d9a7a5d8acba4b27db277f1868976e"
 dependencies = [
+ "form_urlencoded",
  "idna",
  "matches",
  "percent-encoding",

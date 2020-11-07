@@ -139,6 +139,23 @@ impl QueryEngine {
                 }
                 Ok(())
             }
+            Command::DescribePortal { name } => {
+                match self.session.get_portal(&name) {
+                    None => {
+                        self.sender
+                            .send(Err(QueryError::portal_does_not_exist(name)))
+                            .expect("To Send Error to Client");
+                    }
+                    Some(_portal) => {
+                        log::debug!("DESCRIBING PORTAL START");
+                        self.sender
+                            .send(Ok(QueryEvent::StatementDescription(vec![])))
+                            .expect("To Send Statement Description to Client");
+                        log::debug!("DESCRIBING PORTAL END");
+                    }
+                }
+                Ok(())
+            }
             // TODO: Parameter `max_rows` should be handled.
             Command::Execute {
                 portal_name,
@@ -156,9 +173,6 @@ impl QueryEngine {
                             .expect("To Send Error to Client");
                     }
                 }
-                self.sender
-                    .send(Ok(QueryEvent::QueryComplete))
-                    .expect("To Send Query Complete to Client");
                 Ok(())
             }
             Command::Flush => {
@@ -271,7 +285,6 @@ impl QueryEngine {
                 Some(bytes) => {
                     log::debug!("PG Type {:?}", typ);
                     match typ.decode(&format, &bytes) {
-                        // write transformer from pg_wire::Value into sqlparser::Expr
                         Ok(param) => params.push(value_to_expr(param)),
                         Err(msg) => {
                             self.sender
@@ -307,19 +320,29 @@ impl QueryEngine {
         &mut self,
         statement_name: String,
         statement: Statement,
-        param_types: Vec<PgType>,
+        param_types: Vec<Option<PgType>>,
     ) -> Result<(), Vec<QueryError>> {
         match self.query_planner.plan(&statement) {
             Ok(plan) => match plan {
                 Plan::Select(select_input) => {
                     let description = self.describe(select_input);
-                    let statement = PreparedStatement::new(statement, param_types.to_vec(), description);
+                    let statement = PreparedStatement::new(
+                        statement,
+                        param_types.iter().filter(|o| o.is_some()).map(|o| o.unwrap()).collect(),
+                        description,
+                    );
                     self.session.set_prepared_statement(statement_name, statement);
                     Ok(())
                 }
                 Plan::Insert(_insert_table) => match self.query_analyzer.describe(&statement) {
-                    Ok(Description::Insert(_insert_statement)) => {
-                        let statement = PreparedStatement::new(statement, param_types.to_vec(), vec![]);
+                    Ok(Description::Insert(insert_statement)) => {
+                        let statement = PreparedStatement::new(
+                            statement,
+                            // TODO: how to check `param_types` and description of the table
+                            //       when prepare statement has less `$#` parameters than table columns
+                            insert_statement.sql_types.iter().map(|s| s.into()).collect(),
+                            vec![],
+                        );
                         self.session.set_prepared_statement(statement_name, statement);
                         Ok(())
                     }
@@ -332,13 +355,21 @@ impl QueryEngine {
                     _ => unreachable!("this should not be reached during insertions"),
                 },
                 Plan::Update(_table_updates) => {
-                    let statement = PreparedStatement::new(statement, param_types.to_vec(), vec![]);
+                    let statement = PreparedStatement::new(
+                        statement,
+                        param_types.iter().filter(|o| o.is_some()).map(|o| o.unwrap()).collect(),
+                        vec![],
+                    );
                     self.session.set_prepared_statement(statement_name, statement);
                     Ok(())
                 }
                 Plan::NotProcessed(statement) => match statement.deref() {
                     stmt @ Statement::SetVariable { .. } => {
-                        let statement = PreparedStatement::new(stmt.clone(), param_types.to_vec(), vec![]);
+                        let statement = PreparedStatement::new(
+                            stmt.clone(),
+                            param_types.iter().filter(|o| o.is_some()).map(|o| o.unwrap()).collect(),
+                            vec![],
+                        );
                         self.session.set_prepared_statement(statement_name, statement);
                         Ok(())
                     }
@@ -389,7 +420,7 @@ impl QueryEngine {
                 let mut pg_types = vec![];
                 for t in data_types {
                     match SqlType::try_from(t) {
-                        Ok(sql_type) => pg_types.push((&sql_type).into()),
+                        Ok(sql_type) => pg_types.push(Some((&sql_type).into())),
                         Err(_) => {
                             self.sender
                                 .send(Err(QueryError::type_does_not_exist(t)))

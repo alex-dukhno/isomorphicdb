@@ -20,7 +20,6 @@ class BasicQueryOperationsSpec extends ThreeSmallIntColumnTable {
     dbInserts += db.executeUpdate INSERT_QUERY, [7, 8, 9]
   }
 
-  @Ignore("WARNING: Failed to execute: select * from SCHEMA_NAME.TABLE_NAME because: No results were returned by the query.")
   def 'insert select{all}'() {
     when:
       List<GroovyRowResult> pgSelect = pg.rows SELECT_ALL_QUERY
@@ -34,7 +33,6 @@ class BasicQueryOperationsSpec extends ThreeSmallIntColumnTable {
       pgSelect == dbSelect
   }
 
-  @Ignore("WARNING: Failed to execute: select col1, col2, col3 from SCHEMA_NAME.TABLE_NAME because: No results were returned by the query.")
   def 'insert select{listed column}'() {
     given:
       String selectQuery = 'select col1, col2, col3 from SCHEMA_NAME.TABLE_NAME'
@@ -51,7 +49,6 @@ class BasicQueryOperationsSpec extends ThreeSmallIntColumnTable {
       pgSelect == dbSelect
   }
 
-  @Ignore("Throws java.util.NoSuchElementException")
   def 'insert update{all} select{all}'() {
     given:
       String updateQuery = 'update SCHEMA_NAME.TABLE_NAME set col1 = ?, col2 = ?, col3 = ?'
@@ -71,7 +68,6 @@ class BasicQueryOperationsSpec extends ThreeSmallIntColumnTable {
       pgSelect == dbSelect
   }
 
-  @Ignore("WARNING: Failed to execute: select * from SCHEMA_NAME.TABLE_NAME because: No results were returned by the query.")
   def 'insert delete{all} select{all}'() {
     given:
       String deleteQuery = 'delete from SCHEMA_NAME.TABLE_NAME'
