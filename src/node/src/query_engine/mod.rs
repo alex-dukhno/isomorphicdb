@@ -338,6 +338,8 @@ impl QueryEngine {
                     Ok(Description::Insert(insert_statement)) => {
                         let statement = PreparedStatement::new(
                             statement,
+                            // TODO: how to check `param_types` and description of the table
+                            //       when prepare statement has less `$#` parameters than table columns
                             insert_statement.sql_types.iter().map(|s| s.into()).collect(),
                             vec![],
                         );

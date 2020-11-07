@@ -135,7 +135,7 @@ mod parse_bind_execute {
                     max_rows: 0,
                 })
                 .expect("portal executed");
-            collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+            collector.assert_receive_intermediate(Ok(QueryEvent::RecordsInserted(1)));
         }
 
         #[rstest::rstest]
@@ -175,7 +175,7 @@ mod parse_bind_execute {
                     max_rows: 0,
                 })
                 .expect("portal executed");
-            collector.assert_receive_single(Ok(QueryEvent::RecordsUpdated(1)));
+            collector.assert_receive_intermediate(Ok(QueryEvent::RecordsUpdated(1)));
         }
 
         #[rstest::rstest]
@@ -215,7 +215,7 @@ mod parse_bind_execute {
                     max_rows: 0,
                 })
                 .expect("portal executed");
-            collector.assert_receive_single(Ok(QueryEvent::RecordsSelected(1)));
+            collector.assert_receive_intermediate(Ok(QueryEvent::RecordsSelected(1)));
         }
     }
 }

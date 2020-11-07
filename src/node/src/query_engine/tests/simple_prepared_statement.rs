@@ -19,6 +19,7 @@ use pg_model::{
 };
 
 #[rstest::rstest]
+#[ignore]
 fn prepare_execute_and_deallocate(database_with_schema: (InMemory, ResultCollector)) {
     let (mut engine, collector) = database_with_schema;
     engine
