@@ -67,7 +67,7 @@ mod statement_description {
             .execute(Command::Parse {
                 statement_name: "statement_name".to_owned(),
                 sql: "update schema_name.table_name set column_1 = $1 where column_2 = $2;".to_owned(),
-                param_types: vec![PgType::SmallInt, PgType::SmallInt],
+                param_types: vec![Some(PgType::SmallInt), Some(PgType::SmallInt)],
             })
             .expect("statement parsed");
         collector.assert_receive_intermediate(Ok(QueryEvent::ParseComplete));
@@ -113,7 +113,7 @@ mod parse_bind_execute {
                 .execute(Command::Parse {
                     statement_name: "statement_name".to_owned(),
                     sql: "insert into schema_name.table_name values ($1, $2);".to_owned(),
-                    param_types: vec![PgType::SmallInt, PgType::SmallInt],
+                    param_types: vec![Some(PgType::SmallInt), Some(PgType::SmallInt)],
                 })
                 .expect("statement parsed");
             collector.assert_receive_intermediate(Ok(QueryEvent::ParseComplete));
@@ -153,7 +153,7 @@ mod parse_bind_execute {
                 .execute(Command::Parse {
                     statement_name: "statement_name".to_owned(),
                     sql: "update schema_name.table_name set column_1 = $1, column_2 = $2".to_owned(),
-                    param_types: vec![PgType::Integer, PgType::VarChar],
+                    param_types: vec![Some(PgType::Integer), Some(PgType::VarChar)],
                 })
                 .expect("query parsed");
             collector.assert_receive_intermediate(Ok(QueryEvent::ParseComplete));
