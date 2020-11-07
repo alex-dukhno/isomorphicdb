@@ -17,7 +17,7 @@ class SelectiveAttributesQueryOperationsSpec extends ThreeSmallIntColumnTable {
     db.executeUpdate INSERT_QUERY
   }
 
-  @Ignore('Failed to Parse prepared statement with parameter type of OID zero, needs to analyze the SQL to inspect the real parameter type.')
+  @Ignore('org.postgresql.util.PSQLException: This connection has been closed.')
   def 'select{where specified column > ?}'() {
     given:
       String selectQuery = 'select * from SCHEMA_NAME.TABLE_NAME where COL1 > ?'
@@ -32,7 +32,7 @@ class SelectiveAttributesQueryOperationsSpec extends ThreeSmallIntColumnTable {
       pgSelect == dbSelect
   }
 
-  @Ignore('Failed to Parse prepared statement with parameter type of OID zero, needs to analyze the SQL to inspect the real parameter type.')
+  @Ignore('org.postgresql.util.PSQLException: This connection has been closed.')
   def 'select{where specified ? > column}'() {
     given:
       String selectQuery = 'select * from SCHEMA_NAME.TABLE_NAME where ? > COL1'
@@ -47,7 +47,7 @@ class SelectiveAttributesQueryOperationsSpec extends ThreeSmallIntColumnTable {
       pgSelect == dbSelect
   }
 
-  @Ignore('Failed to Parse prepared statement with parameter type of OID zero, needs to analyze the SQL to inspect the real parameter type.')
+  @Ignore('org.postgresql.util.PSQLException: This connection has been closed.')
   def 'select{where specified ? > ?}'() {
     given:
       String selectQuery = 'select * from SCHEMA_NAME.TABLE_NAME where ? > ?'
@@ -62,7 +62,6 @@ class SelectiveAttributesQueryOperationsSpec extends ThreeSmallIntColumnTable {
       pgSelect == dbSelect
   }
 
-  @Ignore("[Failed to execute: insert into SCHEMA_NAME.TABLE_NAME values (?, ?, ?), (?, ?, ?), (?, ?, ?) because: This connection has been closed.] happens when database executes insert")
   def 'update {specified column}'() {
     given:
       String updateQuery = 'update SCHEMA_NAME.TABLE_NAME set COL2 = ?'

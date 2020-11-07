@@ -220,7 +220,7 @@ impl<RW: AsyncRead + AsyncWrite + Unpin> RequestReceiver<RW> {
     async fn read_frontend_message(&mut self) -> io::Result<Result<FrontendMessage>> {
         let mut current: Option<Vec<u8>> = None;
         loop {
-            log::debug!("{:?}", current);
+            log::debug!("Read bytes from connection {:?}", current);
             match self.message_decoder.next_stage(current.take().as_deref()) {
                 Ok(MessageDecoderStatus::Requesting(len)) => {
                     let mut buffer = vec![b'0'; len];
@@ -282,7 +282,7 @@ impl<RW: AsyncRead + AsyncWrite + Unpin> Receiver for RequestReceiver<RW> {
             FrontendMessage::Query { sql } => Ok(Ok(Command::Query { sql })),
             FrontendMessage::Terminate => Ok(Ok(Command::Terminate)),
             FrontendMessage::Sync => Ok(Ok(Command::Continue)),
-            FrontendMessage::DescribePortal { name: _ } => Ok(Ok(Command::Continue)),
+            FrontendMessage::DescribePortal { name } => Ok(Ok(Command::DescribePortal { name })),
             FrontendMessage::CloseStatement { name: _ } => Ok(Ok(Command::Continue)),
             FrontendMessage::ClosePortal { name: _ } => Ok(Ok(Command::Continue)),
             FrontendMessage::Setup { .. } => Ok(Ok(Command::Continue)),
@@ -329,7 +329,6 @@ impl<RW: AsyncRead + AsyncWrite + Unpin> Sender for ResponseSender<RW> {
     }
 
     fn send(&self, query_result: QueryResult) -> io::Result<()> {
-        log::debug!("[{:?}] query result sent to client", query_result);
         block_on(async {
             let message: BackendMessage = match query_result {
                 Ok(event) => event.into(),
@@ -342,7 +341,7 @@ impl<RW: AsyncRead + AsyncWrite + Unpin> Sender for ResponseSender<RW> {
                 .write_all(message.as_vec().as_slice())
                 .await
                 .expect("OK");
-            log::debug!("end of the command is sent");
+            log::trace!("end of the command is sent");
         });
         Ok(())
     }
