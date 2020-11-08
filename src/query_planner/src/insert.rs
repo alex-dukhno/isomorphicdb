@@ -118,7 +118,7 @@ impl Planner for InsertPlanner<'_> {
                                     input,
                                 }))
                             }
-                            set_expr => Err(PlanError::syntax_error(&set_expr)),
+                            set_expr => Err(PlanError::feature_not_supported(&set_expr)),
                         }
                     }
                 }
