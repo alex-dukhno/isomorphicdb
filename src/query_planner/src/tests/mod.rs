@@ -18,10 +18,6 @@ use sql_model::{sql_types::SqlType, DEFAULT_CATALOG};
 use sqlparser::ast::Ident;
 use std::sync::Arc;
 
-#[cfg(test)]
-mod create_schema;
-#[cfg(test)]
-mod create_table;
 mod ddl;
 #[cfg(test)]
 mod delete;

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::*;
+use crate::tests::*;
 use meta_def::ColumnDefinition;
 use plan::TableCreationInfo;
 use sql_model::sql_types::SqlType;
