@@ -1,5 +1,6 @@
 package io.database.schemas
 
+import groovy.sql.Sql
 import io.database.SetupEnvironment
 
 import java.sql.SQLException
@@ -100,6 +101,35 @@ class WorkingWithSchemasSpec extends SetupEnvironment {
         dbError = e
       }
     then:
+      pgError.errorCode == dbError.errorCode
+  }
+
+  def 'drop multiple schemas if exists'() {
+    given:
+      String createSchemaQuery = 'create schema SCHEMA_TO_DROP'
+      String dropSchemasIfExistsQuery = 'drop schema if exists DROP_SCHEMA_IF_EXISTS, SCHEMA_TO_DROP'
+    and:
+      pgExecute createSchemaQuery
+      dbExecute createSchemaQuery
+    when:
+      boolean pgResult = pgExecute dropSchemasIfExistsQuery
+      boolean dbResult = dbExecute dropSchemasIfExistsQuery
+    and:
+      SQLException pgError
+      try {
+        pgExecute 'drop schema SCHEMA_TO_DROP'
+      } catch (SQLException e) {
+        pgError = e
+      }
+      SQLException dbError
+      try {
+        dbExecute 'drop schema SCHEMA_TO_DROP'
+      } catch (SQLException e) {
+        dbError = e
+      }
+    then:
+      pgResult == dbResult
+    and:
       pgError.errorCode == dbError.errorCode
   }
 }

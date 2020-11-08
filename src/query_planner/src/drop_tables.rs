@@ -41,10 +41,9 @@ impl Planner for DropTablesPlanner<'_> {
                             return Err(PlanError::schema_does_not_exist(&schema_name));
                         }
                         Some((_, None)) => {
-                            return if self.if_exists {
-                                Ok(Plan::NothingToExecute)
+                            if self.if_exists {
                             } else {
-                                Err(PlanError::table_does_not_exist(&full_table_name))
+                                return Err(PlanError::table_does_not_exist(&full_table_name));
                             }
                         }
                         Some((schema_id, Some(table_id))) => table_names.push(FullTableId::from((schema_id, table_id))),

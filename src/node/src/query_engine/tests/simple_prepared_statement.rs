@@ -73,8 +73,8 @@ fn prepare_execute_and_deallocate(database_with_schema: (InMemory, ResultCollect
 }
 
 #[rstest::rstest]
-fn prepare_with_wrong_type(database_with_schema: (InMemory, ResultCollector)) {
-    let (mut engine, collector) = database_with_schema;
+fn prepare_with_wrong_type(database_with_table: (InMemory, ResultCollector)) {
+    let (mut engine, collector) = database_with_table;
     engine
         .execute(Command::Query {
             sql: "prepare fooplan (i, j, k) as insert into schema_name.table_name values ($1, $2, $3)".to_owned(),

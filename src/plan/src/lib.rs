@@ -224,6 +224,5 @@ pub enum Plan {
     Update(TableUpdates),
     Delete(TableDeletes),
     Insert(TableInserts),
-    NothingToExecute,
     NotProcessed(Box<Statement>),
 }
