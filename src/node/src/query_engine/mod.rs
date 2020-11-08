@@ -228,7 +228,7 @@ impl QueryEngine {
                                         }
                                     }
                                 }
-                                match self.create_prepared_statement(name.to_owned(), *statement.clone(), pg_types) {
+                                match self.create_prepared_statement(name, *statement, pg_types) {
                                     Ok(()) => {
                                         self.sender
                                             .send(Ok(QueryEvent::StatementPrepared))
