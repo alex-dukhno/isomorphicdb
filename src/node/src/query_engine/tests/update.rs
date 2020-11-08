@@ -334,10 +334,7 @@ fn update_non_existent_columns_of_records(database_with_schema: (InMemory, Resul
             sql: "update schema_name.table_name set col1=456, col2=789;".to_owned(),
         })
         .expect("query executed");
-    collector.assert_receive_many(vec![
-        Err(QueryError::column_does_not_exist("col1")),
-        Err(QueryError::column_does_not_exist("col2")),
-    ]);
+    collector.assert_receive_many(vec![Err(QueryError::column_does_not_exist("col1"))]);
 }
 
 #[rstest::rstest]

@@ -44,13 +44,13 @@ impl Planner for DropSchemaPlanner<'_> {
                         return if self.if_exists {
                             Ok(Plan::NothingToExecute)
                         } else {
-                            Err(vec![PlanError::schema_does_not_exist(&schema_name)])
+                            Err(PlanError::schema_does_not_exist(&schema_name))
                         }
                     }
                     Some(schema_id) => schemas.push((SchemaId::from(schema_id), self.cascade)),
                 },
                 Err(error) => {
-                    return Err(vec![PlanError::syntax_error(&error)]);
+                    return Err(PlanError::syntax_error(&error));
                 }
             }
         }

@@ -40,8 +40,8 @@ impl Planner for CreateTablePlanner<'_> {
             Ok(full_table_name) => {
                 let (schema_name, table_name) = full_table_name.as_tuple();
                 match metadata.table_exists(&schema_name, &table_name) {
-                    None => Err(vec![PlanError::schema_does_not_exist(&schema_name)]),
-                    Some((_, Some(_))) => Err(vec![PlanError::table_already_exists(&full_table_name)]),
+                    None => Err(PlanError::schema_does_not_exist(&schema_name)),
+                    Some((_, Some(_))) => Err(PlanError::table_already_exists(&full_table_name)),
                     Some((schema_id, None)) => {
                         let mut column_defs = Vec::new();
                         for column in self.columns {
@@ -50,7 +50,7 @@ impl Planner for CreateTablePlanner<'_> {
                                     column_defs.push(ColumnDefinition::new(column.name.value.as_str(), sql_type))
                                 }
                                 Err(error) => {
-                                    return Err(vec![PlanError::feature_not_supported(&error)]);
+                                    return Err(PlanError::feature_not_supported(&error));
                                 }
                             }
                         }
@@ -62,7 +62,7 @@ impl Planner for CreateTablePlanner<'_> {
                     }
                 }
             }
-            Err(error) => Err(vec![PlanError::syntax_error(&error)]),
+            Err(error) => Err(PlanError::syntax_error(&error)),
         }
     }
 }

@@ -42,8 +42,8 @@ impl Planner for InsertPlanner<'_> {
             Ok(full_table_name) => {
                 let (schema_name, table_name) = full_table_name.as_tuple();
                 match metadata.table_exists(&schema_name, &table_name) {
-                    None => Err(vec![PlanError::schema_does_not_exist(&schema_name)]),
-                    Some((_, None)) => Err(vec![PlanError::table_does_not_exist(&full_table_name)]),
+                    None => Err(PlanError::schema_does_not_exist(&schema_name)),
+                    Some((_, None)) => Err(PlanError::table_does_not_exist(&full_table_name)),
                     Some((schema_id, Some(table_id))) => {
                         let Query { body, .. } = &self.source;
                         match body {
@@ -56,10 +56,10 @@ impl Planner for InsertPlanner<'_> {
                                         match ScalarOp::transform(&value) {
                                             Ok(Ok(value)) => scalar_values.push(value),
                                             Ok(Err(error)) => {
-                                                return Err(vec![PlanError::syntax_error(&error)]);
+                                                return Err(PlanError::syntax_error(&error));
                                             }
                                             Err(error) => {
-                                                return Err(vec![PlanError::feature_not_supported(&error)]);
+                                                return Err(PlanError::feature_not_supported(&error));
                                             }
                                         }
                                     }
@@ -83,14 +83,13 @@ impl Planner for InsertPlanner<'_> {
                                 } else {
                                     let mut columns = HashSet::new();
                                     let mut index_cols = vec![];
-                                    let mut errors = vec![];
                                     for col_name in self.columns.iter().map(|id| id.value.as_str()) {
                                         let column_name = col_name.to_lowercase();
                                         let mut found = None;
                                         for (index, column_definition) in all_columns.iter().enumerate() {
                                             if column_definition.has_name(&column_name) {
                                                 if columns.contains(&column_name) {
-                                                    errors.push(PlanError::duplicate_column(&column_name));
+                                                    return Err(PlanError::duplicate_column(&column_name));
                                                 }
                                                 columns.insert(column_name.clone());
                                                 found = Some((
@@ -106,13 +105,9 @@ impl Planner for InsertPlanner<'_> {
                                         match found {
                                             Some(index_col) => index_cols.push(index_col),
                                             None => {
-                                                errors.push(PlanError::column_does_not_exist(&column_name));
+                                                return Err(PlanError::column_does_not_exist(&column_name));
                                             }
                                         }
-                                    }
-
-                                    if !errors.is_empty() {
-                                        return Err(errors);
                                     }
 
                                     index_cols
@@ -123,12 +118,12 @@ impl Planner for InsertPlanner<'_> {
                                     input,
                                 }))
                             }
-                            set_expr => Err(vec![PlanError::syntax_error(&set_expr)]),
+                            set_expr => Err(PlanError::feature_not_supported(&set_expr)),
                         }
                     }
                 }
             }
-            Err(error) => Err(vec![PlanError::syntax_error(&error)]),
+            Err(error) => Err(PlanError::syntax_error(&error)),
         }
     }
 }

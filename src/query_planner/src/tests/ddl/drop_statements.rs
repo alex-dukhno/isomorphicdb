@@ -13,9 +13,59 @@
 // limitations under the License.
 
 use super::*;
-use plan::FullTableId;
+use crate::tests::ident;
+use plan::{FullTableId, SchemaId};
 use sqlparser::ast::{ObjectName, ObjectType, Statement};
 
+fn unqualified_names_statement(object_type: ObjectType) -> Statement {
+    Statement::Drop {
+        object_type,
+        if_exists: false,
+        names: vec![ObjectName(vec![
+            ident("first_part"),
+            ident("second_part"),
+            ident("third_part"),
+            ident("fourth_part"),
+        ])],
+        cascade: false,
+    }
+}
+
+#[rstest::rstest]
+fn drop_non_existent_schema(planner: QueryPlanner) {
+    assert_eq!(
+        planner.plan(&Statement::Drop {
+            object_type: ObjectType::Schema,
+            if_exists: false,
+            names: vec![ObjectName(vec![ident("non_existent")])],
+            cascade: false,
+        }),
+        Err(PlanError::schema_does_not_exist(&"non_existent"))
+    );
+}
+
+#[rstest::rstest]
+fn drop_schema_with_unqualified_name(planner: QueryPlanner) {
+    assert_eq!(
+        planner.plan(&unqualified_names_statement(ObjectType::Schema)),
+        Err(PlanError::syntax_error(
+            &"only unqualified schema names are supported, 'first_part.second_part.third_part.fourth_part'"
+        ))
+    );
+}
+
+#[rstest::rstest]
+fn drop_schema(planner_with_schema: QueryPlanner) {
+    assert_eq!(
+        planner_with_schema.plan(&Statement::Drop {
+            object_type: ObjectType::Schema,
+            if_exists: false,
+            names: vec![ObjectName(vec![ident(SCHEMA)])],
+            cascade: false,
+        }),
+        Ok(Plan::DropSchemas(vec![(SchemaId::from(0), false)]))
+    );
+}
 #[rstest::rstest]
 fn drop_table_from_nonexistent_schema(planner: QueryPlanner) {
     assert_eq!(
@@ -25,7 +75,7 @@ fn drop_table_from_nonexistent_schema(planner: QueryPlanner) {
             names: vec![ObjectName(vec![ident("non_existent_schema"), ident(TABLE)])],
             cascade: false,
         }),
-        Err(vec![PlanError::schema_does_not_exist(&"non_existent_schema")])
+        Err(PlanError::schema_does_not_exist(&"non_existent_schema"))
     );
 }
 
@@ -38,10 +88,10 @@ fn drop_nonexistent_table(planner_with_schema: QueryPlanner) {
             names: vec![ObjectName(vec![ident(SCHEMA), ident("non_existent_table")])],
             cascade: false,
         }),
-        Err(vec![PlanError::table_does_not_exist(&format!(
+        Err(PlanError::table_does_not_exist(&format!(
             "{}.{}",
             SCHEMA, "non_existent_table"
-        ))])
+        )))
     );
 }
 
@@ -54,29 +104,19 @@ fn drop_table_with_unqualified_name(planner_with_schema: QueryPlanner) {
             names: vec![ObjectName(vec![ident("only_schema_in_the_name")])],
             cascade: false,
         }),
-        Err(vec![PlanError::syntax_error(
+        Err(PlanError::syntax_error(
             &"unsupported table name 'only_schema_in_the_name'. All table names must be qualified",
-        )])
+        ))
     );
 }
 
 #[rstest::rstest]
 fn drop_table_with_unsupported_name(planner_with_schema: QueryPlanner) {
     assert_eq!(
-        planner_with_schema.plan(&Statement::Drop {
-            object_type: ObjectType::Table,
-            if_exists: false,
-            names: vec![ObjectName(vec![
-                ident("first_part"),
-                ident("second_part"),
-                ident("third_part"),
-                ident("fourth_part")
-            ])],
-            cascade: false,
-        }),
-        Err(vec![PlanError::syntax_error(
+        planner_with_schema.plan(&unqualified_names_statement(ObjectType::Table)),
+        Err(PlanError::syntax_error(
             &"unable to process table name 'first_part.second_part.third_part.fourth_part'",
-        )])
+        ))
     );
 }
 

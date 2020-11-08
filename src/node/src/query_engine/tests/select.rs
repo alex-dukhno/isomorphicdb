@@ -128,10 +128,7 @@ fn select_non_existing_columns_from_table(database_with_schema: (InMemory, Resul
             sql: "select column_not_in_table1, column_not_in_table2 from schema_name.table_name;".to_owned(),
         })
         .expect("query executed");
-    collector.assert_receive_many(vec![
-        Err(QueryError::column_does_not_exist("column_not_in_table1")),
-        Err(QueryError::column_does_not_exist("column_not_in_table2")),
-    ]);
+    collector.assert_receive_many(vec![Err(QueryError::column_does_not_exist("column_not_in_table1"))]);
 }
 
 #[rstest::rstest]
