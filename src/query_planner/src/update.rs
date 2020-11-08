@@ -40,15 +40,14 @@ impl Planner for UpdatePlanner<'_> {
             Ok(full_table_name) => {
                 let (schema_name, table_name) = full_table_name.as_tuple();
                 match metadata.table_exists(&schema_name, &table_name) {
-                    None => Err(vec![PlanError::schema_does_not_exist(&schema_name)]),
-                    Some((_, None)) => Err(vec![PlanError::table_does_not_exist(&full_table_name)]),
+                    None => Err(PlanError::schema_does_not_exist(&schema_name)),
+                    Some((_, None)) => Err(PlanError::table_does_not_exist(&full_table_name)),
                     Some((schema_id, Some(table_id))) => {
                         let full_table_id = FullTableId::from((schema_id, table_id));
                         let all_columns = metadata.table_columns(&full_table_id).expect("table exists");
                         let mut column_indices = vec![];
                         let mut input = vec![];
                         let mut columns = HashSet::new();
-                        let mut errors = vec![];
                         for Assignment { id, value } in self.assignments.iter() {
                             let mut found = None;
                             let column_name = id.to_string().to_lowercase();
@@ -57,14 +56,14 @@ impl Planner for UpdatePlanner<'_> {
                                     match ScalarOp::transform(&value) {
                                         Ok(Ok(value)) => input.push(value),
                                         Ok(Err(error)) => {
-                                            errors.push(PlanError::syntax_error(&error));
+                                            return Err(PlanError::syntax_error(&error));
                                         }
                                         Err(error) => {
-                                            errors.push(PlanError::feature_not_supported(&error));
+                                            return Err(PlanError::feature_not_supported(&error));
                                         }
                                     }
                                     if columns.contains(&column_name) {
-                                        errors.push(PlanError::syntax_error(&format!(
+                                        return Err(PlanError::syntax_error(&format!(
                                             "multiple assignments to same column \"{}\"",
                                             column_name
                                         )));
@@ -83,13 +82,9 @@ impl Planner for UpdatePlanner<'_> {
                             match found {
                                 Some(index_col) => column_indices.push(index_col),
                                 None => {
-                                    errors.push(PlanError::column_does_not_exist(&column_name));
+                                    return Err(PlanError::column_does_not_exist(&column_name));
                                 }
                             }
-                        }
-
-                        if !errors.is_empty() {
-                            return Err(errors);
                         }
 
                         Ok(Plan::Update(TableUpdates {
@@ -100,7 +95,7 @@ impl Planner for UpdatePlanner<'_> {
                     }
                 }
             }
-            Err(error) => Err(vec![PlanError::syntax_error(&error)]),
+            Err(error) => Err(PlanError::syntax_error(&error)),
         }
     }
 }

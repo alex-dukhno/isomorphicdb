@@ -32,7 +32,7 @@ use plan::Plan;
 use sqlparser::ast::{ObjectType, Statement};
 use std::sync::Arc;
 
-type Result<T> = std::result::Result<T, Vec<PlanError>>;
+type Result<T> = std::result::Result<T, PlanError>;
 
 #[derive(Debug, PartialEq)]
 pub enum PlanError {
@@ -109,7 +109,7 @@ impl QueryPlanner {
             } => match object_type {
                 ObjectType::Table => DropTablesPlanner::new(names, *if_exists).plan(self.metadata.clone()),
                 ObjectType::Schema => DropSchemaPlanner::new(names, *cascade, *if_exists).plan(self.metadata.clone()),
-                _ => Err(vec![PlanError::syntax_error(&statement)]),
+                _ => Err(PlanError::syntax_error(&statement)),
             },
             Statement::Insert {
                 table_name,

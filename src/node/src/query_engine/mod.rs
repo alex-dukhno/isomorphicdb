@@ -187,13 +187,12 @@ impl QueryEngine {
                 match self.query_parser.parse(&sql) {
                     Ok(mut statements) => {
                         let statement = statements.pop().expect("single statement");
-                        self.create_prepared_statement(statement_name, statement, param_types)
-                            .map_or_else(
-                                |query_errors| query_errors.into_iter().map(Err).collect(),
-                                |_| vec![Ok(QueryEvent::ParseComplete)],
-                            )
-                            .into_iter()
-                            .for_each(|query_result| self.sender.send(query_result).expect("To Send Result"));
+                        match self.create_prepared_statement(statement_name, statement, param_types) {
+                            Ok(()) => {
+                                self.sender.send(Ok(QueryEvent::ParseComplete)).expect("To Send Result");
+                            }
+                            Err(error) => self.sender.send(Err(error)).expect("To Send Result"),
+                        }
                     }
                     Err(parser_error) => {
                         self.sender
@@ -210,34 +209,26 @@ impl QueryEngine {
                         if !self.handle_prepared_statement_commands(&statement) {
                             match self.query_planner.plan(&statement) {
                                 Ok(plan) => self.query_executor.execute(plan),
-                                Err(errors) => {
-                                    for error in errors {
-                                        let query_error = match error {
-                                            PlanError::SchemaAlreadyExists(schema) => {
-                                                QueryError::schema_already_exists(schema)
-                                            }
-                                            PlanError::SchemaDoesNotExist(schema) => {
-                                                QueryError::schema_does_not_exist(schema)
-                                            }
-                                            PlanError::TableAlreadyExists(table) => {
-                                                QueryError::table_already_exists(table)
-                                            }
-                                            PlanError::TableDoesNotExist(table) => {
-                                                QueryError::table_does_not_exist(table)
-                                            }
-                                            PlanError::DuplicateColumn(column) => QueryError::duplicate_column(column),
-                                            PlanError::ColumnDoesNotExist(column) => {
-                                                QueryError::column_does_not_exist(column)
-                                            }
-                                            PlanError::SyntaxError(syntax_error) => {
-                                                QueryError::syntax_error(syntax_error)
-                                            }
-                                            PlanError::FeatureNotSupported(feature_desc) => {
-                                                QueryError::feature_not_supported(feature_desc)
-                                            }
-                                        };
-                                        self.sender.send(Err(query_error)).expect("To Send Error to Client");
-                                    }
+                                Err(error) => {
+                                    let query_error = match error {
+                                        PlanError::SchemaAlreadyExists(schema) => {
+                                            QueryError::schema_already_exists(schema)
+                                        }
+                                        PlanError::SchemaDoesNotExist(schema) => {
+                                            QueryError::schema_does_not_exist(schema)
+                                        }
+                                        PlanError::TableAlreadyExists(table) => QueryError::table_already_exists(table),
+                                        PlanError::TableDoesNotExist(table) => QueryError::table_does_not_exist(table),
+                                        PlanError::DuplicateColumn(column) => QueryError::duplicate_column(column),
+                                        PlanError::ColumnDoesNotExist(column) => {
+                                            QueryError::column_does_not_exist(column)
+                                        }
+                                        PlanError::SyntaxError(syntax_error) => QueryError::syntax_error(syntax_error),
+                                        PlanError::FeatureNotSupported(feature_desc) => {
+                                            QueryError::feature_not_supported(feature_desc)
+                                        }
+                                    };
+                                    self.sender.send(Err(query_error)).expect("To Send Error to Client");
                                 }
                             }
                         }
@@ -321,7 +312,7 @@ impl QueryEngine {
         statement_name: String,
         statement: Statement,
         param_types: Vec<Option<PgType>>,
-    ) -> Result<(), Vec<QueryError>> {
+    ) -> Result<(), QueryError> {
         match self.query_planner.plan(&statement) {
             Ok(plan) => match plan {
                 Plan::Select(select_input) => {
@@ -347,10 +338,10 @@ impl QueryEngine {
                         Ok(())
                     }
                     Err(DescriptionError::TableDoesNotExist(table_name)) => {
-                        Err(vec![QueryError::table_does_not_exist(table_name)])
+                        Err(QueryError::table_does_not_exist(table_name))
                     }
                     Err(DescriptionError::SchemaDoesNotExist(schema_name)) => {
-                        Err(vec![QueryError::table_does_not_exist(schema_name)])
+                        Err(QueryError::table_does_not_exist(schema_name))
                     }
                     _ => unreachable!("this should not be reached during insertions"),
                 },
@@ -383,19 +374,16 @@ impl QueryEngine {
                     Ok(())
                 }
             },
-            Err(errors) => Err(errors
-                .iter()
-                .map(|e| match e {
-                    PlanError::SchemaAlreadyExists(schema) => QueryError::schema_already_exists(schema),
-                    PlanError::SchemaDoesNotExist(schema) => QueryError::schema_does_not_exist(schema),
-                    PlanError::TableAlreadyExists(table) => QueryError::table_already_exists(table),
-                    PlanError::TableDoesNotExist(table) => QueryError::table_does_not_exist(table),
-                    PlanError::DuplicateColumn(column) => QueryError::duplicate_column(column),
-                    PlanError::ColumnDoesNotExist(column) => QueryError::column_does_not_exist(column),
-                    PlanError::SyntaxError(syntax_error) => QueryError::syntax_error(syntax_error),
-                    PlanError::FeatureNotSupported(feature_desc) => QueryError::feature_not_supported(feature_desc),
-                })
-                .collect()),
+            Err(error) => match error {
+                PlanError::SchemaAlreadyExists(schema) => Err(QueryError::schema_already_exists(schema)),
+                PlanError::SchemaDoesNotExist(schema) => Err(QueryError::schema_does_not_exist(schema)),
+                PlanError::TableAlreadyExists(table) => Err(QueryError::table_already_exists(table)),
+                PlanError::TableDoesNotExist(table) => Err(QueryError::table_does_not_exist(table)),
+                PlanError::DuplicateColumn(column) => Err(QueryError::duplicate_column(column)),
+                PlanError::ColumnDoesNotExist(column) => Err(QueryError::column_does_not_exist(column)),
+                PlanError::SyntaxError(syntax_error) => Err(QueryError::syntax_error(syntax_error)),
+                PlanError::FeatureNotSupported(feature_desc) => Err(QueryError::feature_not_supported(feature_desc)),
+            },
         }
     }
 
@@ -429,13 +417,14 @@ impl QueryEngine {
                         }
                     }
                 }
-                self.create_prepared_statement(name.to_owned(), *statement.clone(), pg_types)
-                    .map_or_else(
-                        |query_errors| query_errors.into_iter().map(Err).collect(),
-                        |_| vec![Ok(QueryEvent::StatementPrepared)],
-                    )
-                    .into_iter()
-                    .for_each(|query_result| self.sender.send(query_result).expect("To Send Result"));
+                match self.create_prepared_statement(name.to_owned(), *statement.clone(), pg_types) {
+                    Ok(()) => {
+                        self.sender
+                            .send(Ok(QueryEvent::StatementPrepared))
+                            .expect("To Send Result");
+                    }
+                    Err(error) => self.sender.send(Err(error)).expect("To Send Result"),
+                }
                 true
             }
             Statement::Execute { name, parameters } => {

@@ -38,20 +38,20 @@ impl Planner for DropTablesPlanner<'_> {
                     let (schema_name, table_name) = full_table_name.as_tuple();
                     match metadata.table_exists(&schema_name, &table_name) {
                         None => {
-                            return Err(vec![PlanError::schema_does_not_exist(&schema_name)]);
+                            return Err(PlanError::schema_does_not_exist(&schema_name));
                         }
                         Some((_, None)) => {
                             return if self.if_exists {
                                 Ok(Plan::NothingToExecute)
                             } else {
-                                Err(vec![PlanError::table_does_not_exist(&full_table_name)])
+                                Err(PlanError::table_does_not_exist(&full_table_name))
                             }
                         }
                         Some((schema_id, Some(table_id))) => table_names.push(FullTableId::from((schema_id, table_id))),
                     }
                 }
                 Err(error) => {
-                    return Err(vec![PlanError::syntax_error(&error)]);
+                    return Err(PlanError::syntax_error(&error));
                 }
             }
         }

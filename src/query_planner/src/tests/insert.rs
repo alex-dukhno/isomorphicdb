@@ -33,7 +33,7 @@ fn insert_into_table_that_in_nonexistent_schema(planner: QueryPlanner) {
                 fetch: None
             })
         }),
-        Err(vec![PlanError::schema_does_not_exist(&"non_existent_schema")])
+        Err(PlanError::schema_does_not_exist(&"non_existent_schema"))
     );
 }
 
@@ -52,10 +52,10 @@ fn insert_into_nonexistent_table(planner_with_schema: QueryPlanner) {
                 fetch: None
             })
         }),
-        Err(vec![PlanError::table_does_not_exist(&format!(
+        Err(PlanError::table_does_not_exist(&format!(
             "{}.{}",
             SCHEMA, "non_existent_table"
-        ))])
+        )))
     );
 }
 
@@ -74,9 +74,9 @@ fn insert_into_table_with_unqualified_name(planner_with_schema: QueryPlanner) {
                 fetch: None
             })
         }),
-        Err(vec![PlanError::syntax_error(
+        Err(PlanError::syntax_error(
             &"unsupported table name 'only_schema_in_the_name'. All table names must be qualified",
-        )])
+        ))
     );
 }
 
@@ -100,9 +100,9 @@ fn insert_into_table_with_unsupported_name(planner_with_schema: QueryPlanner) {
                 fetch: None
             })
         }),
-        Err(vec![PlanError::syntax_error(
+        Err(PlanError::syntax_error(
             &"unable to process table name 'first_part.second_part.third_part.fourth_part'",
-        )])
+        ))
     );
 }
 

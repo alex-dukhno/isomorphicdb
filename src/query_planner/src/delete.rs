@@ -34,14 +34,14 @@ impl Planner for DeletePlanner<'_> {
             Ok(full_table_name) => {
                 let (schema_name, table_name) = full_table_name.as_tuple();
                 match metadata.table_exists(&schema_name, &table_name) {
-                    None => Err(vec![PlanError::schema_does_not_exist(&schema_name)]),
-                    Some((_, None)) => Err(vec![PlanError::table_does_not_exist(&full_table_name)]),
+                    None => Err(PlanError::schema_does_not_exist(&schema_name)),
+                    Some((_, None)) => Err(PlanError::table_does_not_exist(&full_table_name)),
                     Some((schema_id, Some(table_id))) => Ok(Plan::Delete(TableDeletes {
                         table_id: FullTableId::from((schema_id, table_id)),
                     })),
                 }
             }
-            Err(error) => Err(vec![PlanError::syntax_error(&error)]),
+            Err(error) => Err(PlanError::syntax_error(&error)),
         }
     }
 }

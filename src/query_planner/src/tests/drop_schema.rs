@@ -25,13 +25,13 @@ fn drop_non_existent_schema(planner: QueryPlanner) {
             names: vec![ObjectName(vec![ident("non_existent")])],
             cascade: false,
         }),
-        Err(vec![PlanError::schema_does_not_exist(&"non_existent")])
+        Err(PlanError::schema_does_not_exist(&"non_existent"))
     );
 }
 
 #[rstest::rstest]
 fn drop_schema_with_unqualified_name(planner: QueryPlanner) {
-    assert!(matches!(
+    assert_eq!(
         planner.plan(&Statement::Drop {
             object_type: ObjectType::Schema,
             if_exists: false,
@@ -43,8 +43,10 @@ fn drop_schema_with_unqualified_name(planner: QueryPlanner) {
             ])],
             cascade: false,
         }),
-        Err(_)
-    ));
+        Err(PlanError::syntax_error(
+            &"only unqualified schema names are supported, 'first_part.second_part.third_part.fourth_part'"
+        ))
+    );
 }
 
 #[rstest::rstest]

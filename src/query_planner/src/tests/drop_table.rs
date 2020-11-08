@@ -25,7 +25,7 @@ fn drop_table_from_nonexistent_schema(planner: QueryPlanner) {
             names: vec![ObjectName(vec![ident("non_existent_schema"), ident(TABLE)])],
             cascade: false,
         }),
-        Err(vec![PlanError::schema_does_not_exist(&"non_existent_schema")])
+        Err(PlanError::schema_does_not_exist(&"non_existent_schema"))
     );
 }
 
@@ -38,10 +38,10 @@ fn drop_nonexistent_table(planner_with_schema: QueryPlanner) {
             names: vec![ObjectName(vec![ident(SCHEMA), ident("non_existent_table")])],
             cascade: false,
         }),
-        Err(vec![PlanError::table_does_not_exist(&format!(
+        Err(PlanError::table_does_not_exist(&format!(
             "{}.{}",
             SCHEMA, "non_existent_table"
-        ))])
+        )))
     );
 }
 
@@ -54,9 +54,9 @@ fn drop_table_with_unqualified_name(planner_with_schema: QueryPlanner) {
             names: vec![ObjectName(vec![ident("only_schema_in_the_name")])],
             cascade: false,
         }),
-        Err(vec![PlanError::syntax_error(
+        Err(PlanError::syntax_error(
             &"unsupported table name 'only_schema_in_the_name'. All table names must be qualified",
-        )])
+        ))
     );
 }
 
@@ -74,9 +74,9 @@ fn drop_table_with_unsupported_name(planner_with_schema: QueryPlanner) {
             ])],
             cascade: false,
         }),
-        Err(vec![PlanError::syntax_error(
+        Err(PlanError::syntax_error(
             &"unable to process table name 'first_part.second_part.third_part.fourth_part'",
-        )])
+        ))
     );
 }
 

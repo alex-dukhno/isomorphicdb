@@ -32,10 +32,10 @@ impl Planner for CreateSchemaPlanner<'_> {
     fn plan(self, metadata: Arc<DataDefinition>) -> Result<Plan> {
         match SchemaName::try_from(self.schema_name) {
             Ok(schema_name) => match metadata.schema_exists(&schema_name) {
-                Some(_) => Err(vec![PlanError::schema_already_exists(&schema_name)]),
+                Some(_) => Err(PlanError::schema_already_exists(&schema_name)),
                 None => Ok(Plan::CreateSchema(SchemaCreationInfo::new(schema_name))),
             },
-            Err(error) => Err(vec![PlanError::syntax_error(&error)]),
+            Err(error) => Err(PlanError::syntax_error(&error)),
         }
     }
 }

@@ -47,7 +47,7 @@ fn table(name: Vec<&str>, columns: Vec<ColumnDef>) -> Statement {
 fn create_table_with_nonexistent_schema(planner: QueryPlanner) {
     assert_eq!(
         planner.plan(&table(vec!["non_existent_schema", TABLE], vec![])),
-        Err(vec![PlanError::schema_does_not_exist(&"non_existent_schema")])
+        Err(PlanError::schema_does_not_exist(&"non_existent_schema"))
     );
 }
 
@@ -55,7 +55,7 @@ fn create_table_with_nonexistent_schema(planner: QueryPlanner) {
 fn create_table_with_the_same_name(planner_with_table: QueryPlanner) {
     assert_eq!(
         planner_with_table.plan(&table(vec![SCHEMA, TABLE], vec![])),
-        Err(vec![PlanError::table_already_exists(&format!("{}.{}", SCHEMA, TABLE))])
+        Err(PlanError::table_already_exists(&format!("{}.{}", SCHEMA, TABLE)))
     );
 }
 
@@ -69,9 +69,9 @@ fn create_table_with_unsupported_column_type(planner_with_schema: QueryPlanner) 
                 DataType::Custom(ObjectName(vec![ident("strange_type_name_whatever")]))
             )]
         )),
-        Err(vec![PlanError::feature_not_supported(
+        Err(PlanError::feature_not_supported(
             "'strange_type_name_whatever' type is not supported",
-        )])
+        ))
     );
 }
 
@@ -82,9 +82,9 @@ fn create_table_with_unqualified_name(planner_with_schema: QueryPlanner) {
             vec!["only_schema_in_the_name"],
             vec![column("column_name", DataType::SmallInt)]
         )),
-        Err(vec![PlanError::syntax_error(
+        Err(PlanError::syntax_error(
             &"unsupported table name 'only_schema_in_the_name'. All table names must be qualified",
-        )])
+        ))
     );
 }
 
@@ -95,9 +95,9 @@ fn create_table_with_unsupported_name(planner_with_schema: QueryPlanner) {
             vec!["first_part", "second_part", "third_part", "fourth_part"],
             vec![column("column_name", DataType::SmallInt)]
         )),
-        Err(vec![PlanError::syntax_error(
+        Err(PlanError::syntax_error(
             &"unable to process table name 'first_part.second_part.third_part.fourth_part'",
-        )])
+        ))
     );
 }
 

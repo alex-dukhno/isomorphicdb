@@ -45,7 +45,7 @@ impl Planner for SelectPlanner {
             let name = match relation {
                 TableFactor::Table { name, .. } => name,
                 _ => {
-                    return Err(vec![PlanError::feature_not_supported(&*self.query)]);
+                    return Err(PlanError::feature_not_supported(&*self.query));
                 }
             };
 
@@ -54,10 +54,10 @@ impl Planner for SelectPlanner {
                     let (schema_name, table_name) = full_table_name.as_tuple();
                     match metadata.table_exists(&schema_name, &table_name) {
                         None => {
-                            return Err(vec![PlanError::schema_does_not_exist(&schema_name)]);
+                            return Err(PlanError::schema_does_not_exist(&schema_name));
                         }
                         Some((_, None)) => {
-                            return Err(vec![PlanError::table_does_not_exist(&full_table_name)]);
+                            return Err(PlanError::table_does_not_exist(&full_table_name));
                         }
                         Some((schema_id, Some(table_id))) => {
                             let full_table_id = FullTableId::from((schema_id, table_id));
@@ -79,7 +79,7 @@ impl Planner for SelectPlanner {
                                             names.push(value.to_lowercase())
                                         }
                                         _ => {
-                                            return Err(vec![PlanError::feature_not_supported(&*self.query)]);
+                                            return Err(PlanError::feature_not_supported(&*self.query));
                                         }
                                     }
                                 }
@@ -87,10 +87,7 @@ impl Planner for SelectPlanner {
                                     metadata.column_ids(&full_table_id, &names).expect("table exists");
 
                                 if !not_found.is_empty() {
-                                    return Err(not_found
-                                        .into_iter()
-                                        .map(|name| PlanError::column_does_not_exist(&name))
-                                        .collect());
+                                    return Err(PlanError::column_does_not_exist(&not_found[0]));
                                 }
                                 ids
                             };
@@ -131,11 +128,11 @@ impl Planner for SelectPlanner {
                     }
                 }
                 Err(error) => {
-                    return Err(vec![PlanError::syntax_error(&error)]);
+                    return Err(PlanError::syntax_error(&error));
                 }
             }
         } else {
-            return Err(vec![PlanError::feature_not_supported(&*self.query)]);
+            return Err(PlanError::feature_not_supported(&*self.query));
         };
         Ok(Plan::Select(result))
     }

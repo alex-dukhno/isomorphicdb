@@ -34,13 +34,13 @@ fn create_schema_with_the_same_name(planner_with_schema: QueryPlanner) {
             schema_name: ObjectName(vec![ident(SCHEMA)]),
             if_not_exists: false
         }),
-        Err(vec![PlanError::schema_already_exists(&SCHEMA)])
+        Err(PlanError::schema_already_exists(&SCHEMA))
     );
 }
 
 #[rstest::rstest]
 fn create_schema_with_unqualified_name(planner: QueryPlanner) {
-    assert!(matches!(
+    assert_eq!(
         planner.plan(&Statement::CreateSchema {
             schema_name: ObjectName(vec![
                 ident("first_part"),
@@ -50,6 +50,8 @@ fn create_schema_with_unqualified_name(planner: QueryPlanner) {
             ]),
             if_not_exists: false
         }),
-        Err(_)
-    ));
+        Err(PlanError::syntax_error(
+            &"only unqualified schema names are supported, 'first_part.second_part.third_part.fourth_part'"
+        ))
+    );
 }
