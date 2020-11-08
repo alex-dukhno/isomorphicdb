@@ -129,4 +129,33 @@ class WorkingWithTablesSpec extends SetupEnvironment {
     then:
       pgResult == dbResult
   }
+
+  def 'drop multiple tables if exists'() {
+    given:
+      String createTableQuery = 'create table SCHEMA_NAME.TABLE_TO_DROP ()'
+      String dropTablesIfExistsQuery = 'drop table if exists SCHEMA_NAME.TABLE_IF_EXISTS, SCHEMA_NAME.TABLE_TO_DROP'
+    and:
+      pgExecute createTableQuery
+      dbExecute createTableQuery
+    when:
+      boolean pgResult = pgExecute dropTablesIfExistsQuery
+      boolean dbResult = dbExecute dropTablesIfExistsQuery
+    and:
+      SQLException pgError
+      try {
+        pgExecute 'drop table SCHEMA_NAME.TABLE_TO_DROP'
+      } catch (SQLException e) {
+        pgError = e
+      }
+      SQLException dbError
+      try {
+        dbExecute 'drop table SCHEMA_NAME.TABLE_TO_DROP'
+      } catch (SQLException e) {
+        dbError = e
+      }
+    then:
+      pgResult == dbResult
+    and:
+      pgError.errorCode == dbError.errorCode
+  }
 }

@@ -206,9 +206,83 @@ impl QueryEngine {
                 match self.query_parser.parse(&sql) {
                     Ok(mut statements) => {
                         let statement = statements.pop().expect("single query");
-                        if !self.handle_prepared_statement_commands(&statement) {
-                            match self.query_planner.plan(&statement) {
-                                Ok(plan) => self.query_executor.execute(plan),
+                        match statement {
+                            Statement::Prepare {
+                                name,
+                                data_types,
+                                statement,
+                            } => {
+                                let Ident { value: name, .. } = name;
+                                let mut pg_types = vec![];
+                                for data_type in data_types {
+                                    match SqlType::try_from(&data_type) {
+                                        Ok(sql_type) => pg_types.push(Some((&sql_type).into())),
+                                        Err(_) => {
+                                            self.sender
+                                                .send(Err(QueryError::type_does_not_exist(data_type)))
+                                                .expect("To Send Error to Client");
+                                            self.sender
+                                                .send(Ok(QueryEvent::QueryComplete))
+                                                .expect("To Send Error to Client");
+                                            return Ok(());
+                                        }
+                                    }
+                                }
+                                match self.create_prepared_statement(name.to_owned(), *statement.clone(), pg_types) {
+                                    Ok(()) => {
+                                        self.sender
+                                            .send(Ok(QueryEvent::StatementPrepared))
+                                            .expect("To Send Result");
+                                    }
+                                    Err(error) => {
+                                        self.sender.send(Err(error)).expect("To Send Result");
+                                        return Ok(());
+                                    }
+                                }
+                            }
+                            Statement::Execute { name, parameters } => {
+                                let Ident { value: name, .. } = name;
+                                match self.session.get_prepared_statement(&name) {
+                                    Some(prepared_statement) => {
+                                        let param_types = prepared_statement.param_types();
+                                        if param_types.len() != parameters.len() {
+                                            let message = format!(
+                                            "Bind message supplies {actual} parameters, but prepared statement \"{name}\" requires {expected}",
+                                            name = name,
+                                            actual = parameters.len(),
+                                            expected = param_types.len()
+                                        );
+                                            self.sender
+                                                .send(Err(QueryError::protocol_violation(message)))
+                                                .expect("To Send Error to Client");
+                                        }
+                                        let mut new_stmt = prepared_statement.stmt().clone();
+                                        if let Err(error) = self.param_binder.bind(&mut new_stmt, &parameters) {
+                                            log::error!("{:?}", error);
+                                        }
+                                        match self.query_planner.plan(&new_stmt) {
+                                            Ok(plan) => self.query_executor.execute(plan),
+                                            Err(error) => log::error!("{:?}", error),
+                                        }
+                                    }
+                                    None => {
+                                        self.sender
+                                            .send(Err(QueryError::prepared_statement_does_not_exist(name)))
+                                            .expect("To Send Error to Client");
+                                    }
+                                }
+                            }
+                            Statement::Deallocate { name, .. } => {
+                                let Ident { value: name, .. } = name;
+                                self.session.remove_prepared_statement(&name);
+                                self.sender
+                                    .send(Ok(QueryEvent::StatementDeallocated))
+                                    .expect("To Send Statement Deallocated Event");
+                            }
+                            _ => match self.query_planner.plan(&statement) {
+                                Ok(plan) => {
+                                    self.query_executor.execute(plan);
+                                }
                                 Err(error) => {
                                     let query_error = match error {
                                         PlanError::SchemaAlreadyExists(schema) => {
@@ -230,7 +304,7 @@ impl QueryEngine {
                                     };
                                     self.sender.send(Err(query_error)).expect("To Send Error to Client");
                                 }
-                            }
+                            },
                         }
                     }
                     Err(parser_error) => {
@@ -393,84 +467,6 @@ impl QueryEngine {
             .into_iter()
             .map(|column_definition| (column_definition.name(), (&column_definition.sql_type()).into()))
             .collect()
-    }
-
-    // Returns true if the statement is handled as a prepared statement command,
-    // otherwise false.
-    fn handle_prepared_statement_commands(&mut self, statement: &Statement) -> bool {
-        match statement {
-            Statement::Prepare {
-                name,
-                data_types,
-                statement,
-            } => {
-                let Ident { value: name, .. } = name;
-                let mut pg_types = vec![];
-                for t in data_types {
-                    match SqlType::try_from(t) {
-                        Ok(sql_type) => pg_types.push(Some((&sql_type).into())),
-                        Err(_) => {
-                            self.sender
-                                .send(Err(QueryError::type_does_not_exist(t)))
-                                .expect("To Send Error to Client");
-                            return true;
-                        }
-                    }
-                }
-                match self.create_prepared_statement(name.to_owned(), *statement.clone(), pg_types) {
-                    Ok(()) => {
-                        self.sender
-                            .send(Ok(QueryEvent::StatementPrepared))
-                            .expect("To Send Result");
-                    }
-                    Err(error) => self.sender.send(Err(error)).expect("To Send Result"),
-                }
-                true
-            }
-            Statement::Execute { name, parameters } => {
-                let Ident { value: name, .. } = name;
-                match self.session.get_prepared_statement(&name) {
-                    Some(prepared_statement) => {
-                        let param_types = prepared_statement.param_types();
-                        if param_types.len() != parameters.len() {
-                            let message = format!(
-                                "Bind message supplies {actual} parameters, but prepared statement \"{name}\" requires {expected}",
-                                name = name,
-                                actual = parameters.len(),
-                                expected = param_types.len()
-                            );
-                            self.sender
-                                .send(Err(QueryError::protocol_violation(message)))
-                                .expect("To Send Error to Client");
-                        }
-                        let mut new_stmt = prepared_statement.stmt().clone();
-                        if let Err(error) = self.param_binder.bind(&mut new_stmt, parameters) {
-                            log::error!("{:?}", error);
-                            return true;
-                        }
-                        match self.query_planner.plan(&new_stmt) {
-                            Ok(plan) => self.query_executor.execute(plan),
-                            Err(error) => log::error!("{:?}", error),
-                        }
-                    }
-                    None => {
-                        self.sender
-                            .send(Err(QueryError::prepared_statement_does_not_exist(name)))
-                            .expect("To Send Error to Client");
-                    }
-                }
-                true
-            }
-            Statement::Deallocate { name, .. } => {
-                let Ident { value: name, .. } = name;
-                self.session.remove_prepared_statement(name);
-                self.sender
-                    .send(Ok(QueryEvent::StatementDeallocated))
-                    .expect("To Send Statement Deallocated Event");
-                true
-            }
-            _ => false,
-        }
     }
 }
 

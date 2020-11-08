@@ -125,3 +125,16 @@ fn database_with_schema(empty_database: (InMemory, ResultCollector)) -> (InMemor
 
     (engine, collector)
 }
+
+#[rstest::fixture]
+fn database_with_table(database_with_schema: (InMemory, ResultCollector)) -> (InMemory, ResultCollector) {
+    let (mut engine, collector) = database_with_schema;
+    engine
+        .execute(Command::Query {
+            sql: "create table schema_name.table_name (col1 smallint, col2 smallint, col3 smallint);".to_string(),
+        })
+        .expect("query expected");
+    collector.assert_receive_single(Ok(QueryEvent::TableCreated));
+
+    (engine, collector)
+}

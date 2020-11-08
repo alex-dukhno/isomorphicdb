@@ -109,7 +109,7 @@ impl QueryPlanner {
             } => match object_type {
                 ObjectType::Table => DropTablesPlanner::new(names, *if_exists).plan(self.metadata.clone()),
                 ObjectType::Schema => DropSchemaPlanner::new(names, *cascade, *if_exists).plan(self.metadata.clone()),
-                _ => Err(PlanError::syntax_error(&statement)),
+                _ => Err(PlanError::feature_not_supported(&statement)),
             },
             Statement::Insert {
                 table_name,

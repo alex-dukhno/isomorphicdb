@@ -41,10 +41,9 @@ impl Planner for DropSchemaPlanner<'_> {
             match SchemaName::try_from(name) {
                 Ok(schema_name) => match metadata.schema_exists(&schema_name) {
                     None => {
-                        return if self.if_exists {
-                            Ok(Plan::NothingToExecute)
+                        if self.if_exists {
                         } else {
-                            Err(PlanError::schema_does_not_exist(&schema_name))
+                            return Err(PlanError::schema_does_not_exist(&schema_name));
                         }
                     }
                     Some(schema_id) => schemas.push((SchemaId::from(schema_id), self.cascade)),
