@@ -22,12 +22,9 @@ use std::sync::Arc;
 mod create_schema;
 #[cfg(test)]
 mod create_table;
+mod ddl;
 #[cfg(test)]
 mod delete;
-#[cfg(test)]
-mod drop_schema;
-#[cfg(test)]
-mod drop_table;
 #[cfg(test)]
 mod insert;
 #[cfg(test)]
