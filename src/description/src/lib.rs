@@ -47,7 +47,7 @@ impl<'f, S: AsRef<str>> Into<(&'f S, &'f S)> for &'f FullTableName<S> {
 
 impl<S: AsRef<str> + Display> Display for FullTableName<S> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}.{}", self.0.0, self.0.1)
+        write!(f, "{}.{}", self.0 .0, self.0 .1)
     }
 }
 
