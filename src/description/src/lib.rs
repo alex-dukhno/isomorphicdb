@@ -47,7 +47,7 @@ impl<'f, S: AsRef<str>> Into<(&'f S, &'f S)> for &'f FullTableName<S> {
 
 impl<S: AsRef<str> + Display> Display for FullTableName<S> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}.{}", self.0.0, self.0.1)
+        write!(f, "{}.{}", self.0 .0, self.0 .1)
     }
 }
 
@@ -117,6 +117,7 @@ pub enum DescriptionError {
     TableDoesNotExist(String),
     TableAlreadyExists(String),
     SchemaDoesNotExist(String),
+    FeatureNotSupported(String),
 }
 
 impl DescriptionError {
@@ -134,5 +135,9 @@ impl DescriptionError {
 
     pub fn schema_does_not_exist<S: ToString>(schema: &S) -> DescriptionError {
         DescriptionError::SchemaDoesNotExist(schema.to_string())
+    }
+
+    pub fn feature_not_supported<M: ToString>(message: &M) -> DescriptionError {
+        DescriptionError::FeatureNotSupported(message.to_string())
     }
 }

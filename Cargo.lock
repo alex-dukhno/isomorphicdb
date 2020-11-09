@@ -1061,6 +1061,7 @@ dependencies = [
  "description",
  "meta_def",
  "metadata",
+ "pg_wire",
  "sql_model",
  "sqlparser",
 ]
