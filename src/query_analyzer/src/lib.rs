@@ -13,7 +13,8 @@
 // limitations under the License.
 
 use description::{
-    ColumnDesc, Description, DescriptionError, FullTableId, FullTableName, InsertStatement, TableCreationInfo,
+    ColumnDesc, Description, DescriptionError, FullTableId, FullTableName, InsertStatement, SchemaCreationInfo,
+    SchemaName, TableCreationInfo,
 };
 use metadata::{DataDefinition, MetadataView};
 use sql_model::{sql_errors::NotFoundError, sql_types::SqlType};
@@ -71,6 +72,15 @@ impl Analyzer {
                         }
                     }
                 }
+                Err(error) => Err(DescriptionError::syntax_error(&error)),
+            },
+            Statement::CreateSchema { schema_name, .. } => match SchemaName::try_from(schema_name) {
+                Ok(schema_name) => match self.metadata.schema_exists(&schema_name) {
+                    Some(_) => Err(DescriptionError::schema_already_exists(&schema_name)),
+                    None => Ok(Description::CreateSchema(SchemaCreationInfo {
+                        schema_name: schema_name.to_string(),
+                    })),
+                },
                 Err(error) => Err(DescriptionError::syntax_error(&error)),
             },
             _ => unimplemented!(),

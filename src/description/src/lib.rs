@@ -86,6 +86,41 @@ impl Display for TableNamingError {
     }
 }
 
+#[derive(Debug, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
+pub struct SchemaName(String);
+
+impl AsRef<str> for SchemaName {
+    fn as_ref(&self) -> &str {
+        self.0.as_str()
+    }
+}
+
+impl TryFrom<&ObjectName> for SchemaName {
+    type Error = SchemaNamingError;
+
+    fn try_from(object: &ObjectName) -> Result<Self, Self::Error> {
+        if object.0.len() != 1 {
+            Err(SchemaNamingError(object.to_string()))
+        } else {
+            Ok(SchemaName(object.to_string().to_lowercase()))
+        }
+    }
+}
+
+impl Display for SchemaName {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+pub struct SchemaNamingError(String);
+
+impl Display for SchemaNamingError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "only unqualified schema names are supported, '{}'", self.0)
+    }
+}
+
 #[derive(PartialEq, Debug)]
 pub struct InsertStatement {
     pub table_id: FullTableId,
@@ -106,7 +141,13 @@ pub struct TableCreationInfo {
 }
 
 #[derive(PartialEq, Debug)]
+pub struct SchemaCreationInfo {
+    pub schema_name: String,
+}
+
+#[derive(PartialEq, Debug)]
 pub enum Description {
+    CreateSchema(SchemaCreationInfo),
     CreateTable(TableCreationInfo),
     Insert(InsertStatement),
 }
@@ -117,6 +158,7 @@ pub enum DescriptionError {
     TableDoesNotExist(String),
     TableAlreadyExists(String),
     SchemaDoesNotExist(String),
+    SchemaAlreadyExists(String),
     FeatureNotSupported(String),
 }
 
@@ -135,6 +177,10 @@ impl DescriptionError {
 
     pub fn schema_does_not_exist<S: ToString>(schema: &S) -> DescriptionError {
         DescriptionError::SchemaDoesNotExist(schema.to_string())
+    }
+
+    pub fn schema_already_exists<S: ToString>(schema: &S) -> DescriptionError {
+        DescriptionError::SchemaAlreadyExists(schema.to_string())
     }
 
     pub fn feature_not_supported<M: ToString>(message: &M) -> DescriptionError {
