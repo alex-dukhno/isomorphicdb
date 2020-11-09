@@ -12,21 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-mod ddl;
-mod insert;
-
 use super::*;
-use meta_def::ColumnDefinition;
-use sql_model::{sql_types::SqlType, DEFAULT_CATALOG};
-use sqlparser::ast::{Expr, Ident, ObjectName, Query, SetExpr, Value, Values};
-use std::sync::Arc;
 
-const SCHEMA: &str = "schema_name";
-const TABLE: &str = "table_name";
-
-fn ident<S: ToString>(name: S) -> Ident {
-    Ident {
-        value: name.to_string(),
-        quote_style: None,
-    }
-}
+mod create_table;

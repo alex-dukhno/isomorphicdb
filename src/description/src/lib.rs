@@ -117,6 +117,7 @@ pub enum DescriptionError {
     TableDoesNotExist(String),
     TableAlreadyExists(String),
     SchemaDoesNotExist(String),
+    FeatureNotSupported(String),
 }
 
 impl DescriptionError {
@@ -134,5 +135,9 @@ impl DescriptionError {
 
     pub fn schema_does_not_exist<S: ToString>(schema: &S) -> DescriptionError {
         DescriptionError::SchemaDoesNotExist(schema.to_string())
+    }
+
+    pub fn feature_not_supported<M: ToString>(message: &M) -> DescriptionError {
+        DescriptionError::FeatureNotSupported(message.to_string())
     }
 }

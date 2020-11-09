@@ -12,9 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use description::{Description, DescriptionError, FullTableId, FullTableName, InsertStatement};
+use description::{
+    ColumnDesc, Description, DescriptionError, FullTableId, FullTableName, InsertStatement, TableCreationInfo,
+};
 use metadata::{DataDefinition, MetadataView};
-use sql_model::sql_errors::NotFoundError;
+use sql_model::{sql_errors::NotFoundError, sql_types::SqlType};
 use sqlparser::ast::Statement;
 use std::{convert::TryFrom, sync::Arc};
 
@@ -42,7 +44,35 @@ impl Analyzer {
                 },
                 Err(error) => Err(DescriptionError::syntax_error(&error)),
             },
-            Statement::CreateTable { name, .. } => Err(DescriptionError::schema_does_not_exist(&name.0[0])),
+            Statement::CreateTable { name, columns, .. } => match FullTableName::try_from(name) {
+                Ok(full_table_name) => {
+                    let (schema_name, table_name) = (&full_table_name).into();
+                    match self.metadata.table_exists(schema_name, table_name) {
+                        Some((_, Some(_))) => Err(DescriptionError::table_already_exists(&full_table_name)),
+                        None => Err(DescriptionError::schema_does_not_exist(full_table_name.schema())),
+                        Some((schema_id, None)) => {
+                            let mut column_defs = Vec::new();
+                            for column in columns {
+                                match SqlType::try_from(&column.data_type) {
+                                    Ok(sql_type) => column_defs.push(ColumnDesc {
+                                        name: column.name.value.as_str().to_owned(),
+                                        pg_type: (&sql_type).into(),
+                                    }),
+                                    Err(error) => {
+                                        return Err(DescriptionError::feature_not_supported(&error));
+                                    }
+                                }
+                            }
+                            Ok(Description::CreateTable(TableCreationInfo {
+                                schema_id,
+                                table_name: table_name.to_owned(),
+                                columns: column_defs,
+                            }))
+                        }
+                    }
+                }
+                Err(error) => Err(DescriptionError::syntax_error(&error)),
+            },
             _ => unimplemented!(),
         }
     }
