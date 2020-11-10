@@ -14,11 +14,11 @@
 
 use description::{
     ColumnDesc, Description, DescriptionError, DropSchemasInfo, DropTablesInfo, FullTableId, FullTableName,
-    InsertStatement, SchemaCreationInfo, SchemaId, SchemaName, TableCreationInfo,
+    InsertStatement, ParamTypes, SchemaCreationInfo, SchemaId, SchemaName, TableCreationInfo,
 };
 use metadata::{DataDefinition, MetadataView};
 use sql_model::{sql_errors::NotFoundError, sql_types::SqlType};
-use sqlparser::ast::{ObjectType, Statement};
+use sqlparser::ast::{Expr, Ident, ObjectType, Query, SetExpr, Statement};
 use std::{convert::TryFrom, sync::Arc};
 
 pub struct Analyzer {
@@ -32,12 +32,21 @@ impl Analyzer {
 
     pub fn describe(&self, statement: &Statement) -> Result<Description, DescriptionError> {
         match statement {
-            Statement::Insert { table_name, .. } => match FullTableName::try_from(table_name) {
+            Statement::Insert { source, table_name, .. } => match FullTableName::try_from(table_name) {
                 Ok(full_table_name) => match self.metadata.table_desc((&full_table_name).into()) {
-                    Ok(table_def) => Ok(Description::Insert(InsertStatement {
-                        table_id: FullTableId::from(table_def.full_table_id()),
-                        sql_types: table_def.column_types(),
-                    })),
+                    Ok(table_def) => {
+                        let source: &Query = source;
+                        let Query { body, .. } = source;
+                        let column_types = table_def.column_types();
+                        let param_types = parse_assign_param_types(body, &column_types)?;
+                        let param_count = param_types.keys().max().map_or(0, |max_index| max_index + 1);
+                        Ok(Description::Insert(InsertStatement {
+                            table_id: FullTableId::from(table_def.full_table_id()),
+                            column_types,
+                            param_count,
+                            param_types,
+                        }))
+                    }
                     Err(NotFoundError::Object) => Err(DescriptionError::table_does_not_exist(&full_table_name)),
                     Err(NotFoundError::Schema) => {
                         Err(DescriptionError::schema_does_not_exist(full_table_name.schema()))
@@ -133,6 +142,52 @@ impl Analyzer {
             _ => unimplemented!(),
         }
     }
+}
+
+fn parse_assign_param_types(body: &SetExpr, column_types: &[SqlType]) -> Result<ParamTypes, DescriptionError> {
+    let rows = match body {
+        SetExpr::Values(values) => &values.0,
+        _ => return Ok(ParamTypes::new()),
+    };
+
+    let mut param_types = ParamTypes::new();
+    for row in rows {
+        for (col_index, col) in row.iter().enumerate() {
+            if let Expr::Identifier(Ident { value, .. }) = col {
+                if let Some(param_index) = parse_param_index(value) {
+                    match param_types.get(&param_index) {
+                        Some(col_type) => {
+                            if col_type != &column_types[col_index] {
+                                return Err(DescriptionError::syntax_error(&format!(
+                                    "Parameter ${} cannot be bound to different SQL types",
+                                    param_index
+                                )));
+                            }
+                        }
+                        None => {
+                            param_types.insert(param_index, column_types[col_index]);
+                        }
+                    };
+                }
+            }
+        }
+    }
+
+    Ok(param_types)
+}
+
+fn parse_param_index(value: &str) -> Option<usize> {
+    let mut chars = value.chars();
+    if chars.next() != Some('$') || !chars.all(|c| c.is_digit(10)) {
+        return None;
+    }
+
+    let index: usize = (&value[1..]).parse().unwrap();
+    if index == 0 {
+        return None;
+    }
+
+    Some(index - 1)
 }
 
 #[cfg(test)]

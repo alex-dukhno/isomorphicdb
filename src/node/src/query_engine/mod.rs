@@ -236,6 +236,9 @@ impl QueryEngine {
                                     }
                                     Err(error) => {
                                         self.sender.send(Err(error)).expect("To Send Result");
+                                        self.sender
+                                            .send(Ok(QueryEvent::QueryComplete))
+                                            .expect("To Send Error to Client");
                                         return Ok(());
                                     }
                                 }
@@ -401,13 +404,24 @@ impl QueryEngine {
                 }
                 Plan::Insert(_insert_table) => match self.query_analyzer.describe(&statement) {
                     Ok(Description::Insert(insert_statement)) => {
-                        let statement = PreparedStatement::new(
-                            statement,
-                            // TODO: how to check `param_types` and description of the table
-                            //       when prepare statement has less `$#` parameters than table columns
-                            insert_statement.sql_types.iter().map(|s| s.into()).collect(),
-                            vec![],
-                        );
+                        let mut new_param_types = vec![];
+                        for index in 0..insert_statement.param_count {
+                            let param_type = match param_types.get(index) {
+                                Some(t) => *t,
+                                None => None,
+                            };
+
+                            let param_type = match param_type {
+                                Some(t) => t,
+                                None => match insert_statement.param_types.get(&index) {
+                                    Some(sql_type) => sql_type.into(),
+                                    None => return Err(QueryError::indeterminate_parameter_data_type(index)),
+                                },
+                            };
+                            new_param_types.push(param_type);
+                        }
+
+                        let statement = PreparedStatement::new(statement, new_param_types, vec![]);
                         self.session.set_prepared_statement(statement_name, statement);
                         Ok(())
                     }
