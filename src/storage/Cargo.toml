@@ -12,7 +12,7 @@ sql_model = { path = "../sql_model" }
 dashmap = "3.11.10"
 fail = { version = "0.4.0", features = ["failpoints"] }
 log = "0.4.11"
-sled = { version = "0.34.4", features = ["default"] }
+sled = { version = "0.34.5", features = ["default"] }
 
 [dev-dependencies]
 backtrace = "0.3.50"
