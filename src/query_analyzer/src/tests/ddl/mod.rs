@@ -16,3 +16,4 @@ use super::*;
 
 mod create_schema;
 mod create_table;
+mod drop_statements;

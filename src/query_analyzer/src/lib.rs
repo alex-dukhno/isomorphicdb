@@ -13,12 +13,12 @@
 // limitations under the License.
 
 use description::{
-    ColumnDesc, Description, DescriptionError, FullTableId, FullTableName, InsertStatement, SchemaCreationInfo,
-    SchemaName, TableCreationInfo,
+    ColumnDesc, Description, DescriptionError, DropSchemasInfo, DropTablesInfo, FullTableId, FullTableName,
+    InsertStatement, SchemaCreationInfo, SchemaId, SchemaName, TableCreationInfo,
 };
 use metadata::{DataDefinition, MetadataView};
 use sql_model::{sql_errors::NotFoundError, sql_types::SqlType};
-use sqlparser::ast::Statement;
+use sqlparser::ast::{ObjectType, Statement};
 use std::{convert::TryFrom, sync::Arc};
 
 pub struct Analyzer {
@@ -82,6 +82,53 @@ impl Analyzer {
                     })),
                 },
                 Err(error) => Err(DescriptionError::syntax_error(&error)),
+            },
+            Statement::Drop {
+                names,
+                object_type,
+                cascade,
+                if_exists,
+            } => match object_type {
+                ObjectType::Schema => {
+                    let mut schema_ids = vec![];
+                    for name in names {
+                        match SchemaName::try_from(name) {
+                            Ok(schema_name) => match self.metadata.schema_exists(&schema_name) {
+                                None => return Err(DescriptionError::schema_does_not_exist(&schema_name)),
+                                Some(schema_id) => schema_ids.push(SchemaId::from(schema_id)),
+                            },
+                            Err(error) => return Err(DescriptionError::syntax_error(&error)),
+                        }
+                    }
+                    Ok(Description::DropSchemas(DropSchemasInfo {
+                        schema_ids,
+                        cascade: *cascade,
+                        if_exists: *if_exists,
+                    }))
+                }
+                ObjectType::Table => {
+                    let mut full_table_ids = vec![];
+                    for name in names {
+                        match FullTableName::try_from(name) {
+                            Ok(full_table_name) => match self.metadata.table_exists_tuple((&full_table_name).into()) {
+                                None => return Err(DescriptionError::schema_does_not_exist(full_table_name.schema())),
+                                Some((_, None)) => {
+                                    return Err(DescriptionError::table_does_not_exist(&full_table_name))
+                                }
+                                Some((schema_id, Some(table_id))) => {
+                                    full_table_ids.push(FullTableId::from((schema_id, table_id)))
+                                }
+                            },
+                            Err(error) => return Err(DescriptionError::syntax_error(&error)),
+                        }
+                    }
+                    Ok(Description::DropTables(DropTablesInfo {
+                        full_table_ids,
+                        cascade: *cascade,
+                        if_exists: *if_exists,
+                    }))
+                }
+                _ => unimplemented!(),
             },
             _ => unimplemented!(),
         }

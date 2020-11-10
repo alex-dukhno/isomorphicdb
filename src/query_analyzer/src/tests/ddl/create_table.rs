@@ -123,7 +123,7 @@ fn create_table_with_unsupported_name() {
     assert_eq!(
         description,
         Err(DescriptionError::syntax_error(
-            &"unable to process table name 'first_part.second_part.third_part.fourth_part'",
+            &"Unable to process table name 'first_part.second_part.third_part.fourth_part'",
         ))
     );
 }

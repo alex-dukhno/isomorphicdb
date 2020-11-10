@@ -61,7 +61,7 @@ fn create_schema_with_unqualified_name() {
     assert_eq!(
         description,
         Err(DescriptionError::syntax_error(
-            &"only unqualified schema names are supported, 'first_part.second_part.third_part.fourth_part'"
+            &"Only unqualified schema names are supported, 'first_part.second_part.third_part.fourth_part'"
         ))
     );
 }
