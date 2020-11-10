@@ -81,7 +81,7 @@ impl Display for TableNamingError {
                 "Unsupported table name '{}'. All table names must be qualified",
                 table_name
             ),
-            TableNamingError::NotProcessed(table_name) => write!(f, "unable to process table name '{}'", table_name),
+            TableNamingError::NotProcessed(table_name) => write!(f, "Unable to process table name '{}'", table_name),
         }
     }
 }
@@ -117,7 +117,22 @@ pub struct SchemaNamingError(String);
 
 impl Display for SchemaNamingError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "only unqualified schema names are supported, '{}'", self.0)
+        write!(f, "Only unqualified schema names are supported, '{}'", self.0)
+    }
+}
+
+#[derive(PartialEq, Debug)]
+pub struct SchemaId(Id);
+
+impl From<Id> for SchemaId {
+    fn from(id: Id) -> Self {
+        SchemaId(id)
+    }
+}
+
+impl AsRef<Id> for SchemaId {
+    fn as_ref(&self) -> &Id {
+        &self.0
     }
 }
 
@@ -146,9 +161,25 @@ pub struct SchemaCreationInfo {
 }
 
 #[derive(PartialEq, Debug)]
+pub struct DropSchemasInfo {
+    pub schema_ids: Vec<SchemaId>,
+    pub cascade: bool,
+    pub if_exists: bool,
+}
+
+#[derive(PartialEq, Debug)]
+pub struct DropTablesInfo {
+    pub full_table_ids: Vec<FullTableId>,
+    pub cascade: bool,
+    pub if_exists: bool,
+}
+
+#[derive(PartialEq, Debug)]
 pub enum Description {
     CreateSchema(SchemaCreationInfo),
     CreateTable(TableCreationInfo),
+    DropSchemas(DropSchemasInfo),
+    DropTables(DropTablesInfo),
     Insert(InsertStatement),
 }
 
