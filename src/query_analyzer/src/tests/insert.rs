@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use super::*;
+use description::ParamIndex;
 
 fn insert_stmt_with_values<S: ToString>(schema: S, table: S, values: Vec<&'static str>) -> Statement {
     Statement::Insert {
@@ -34,6 +35,29 @@ fn insert_stmt_with_values<S: ToString>(schema: S, table: S, values: Vec<&'stati
 
 fn insert_statement<S: ToString>(schema: S, table: S) -> Statement {
     insert_stmt_with_values(schema, table, vec![])
+}
+
+fn insert_stmt_with_parameters<S: ToString>(schema: S, table: S, param_indexes: Vec<ParamIndex>) -> Statement {
+    Statement::Insert {
+        table_name: ObjectName(vec![ident(schema), ident(table)]),
+        columns: vec![],
+        source: Box::new(Query {
+            with: None,
+            body: SetExpr::Values(Values(vec![param_indexes
+                .into_iter()
+                .map(|i| {
+                    Expr::Identifier(Ident {
+                        value: format!("${}", i + 1),
+                        quote_style: None,
+                    })
+                })
+                .collect()])),
+            order_by: vec![],
+            limit: None,
+            offset: None,
+            fetch: None,
+        }),
+    }
 }
 
 #[test]
@@ -85,7 +109,9 @@ fn insert_into_existing_table_without_columns() {
         description,
         Ok(Description::Insert(InsertStatement {
             table_id: FullTableId::from((schema_id, table_id)),
-            sql_types: vec![]
+            column_types: vec![],
+            param_count: 0,
+            param_types: ParamTypes::new(),
         }))
     );
 }
@@ -114,7 +140,46 @@ fn insert_into_existing_table_with_column() {
         description,
         Ok(Description::Insert(InsertStatement {
             table_id: FullTableId::from((schema_id, table_id)),
-            sql_types: vec![SqlType::SmallInt]
+            column_types: vec![SqlType::SmallInt],
+            param_count: 0,
+            param_types: ParamTypes::new(),
+        }))
+    );
+}
+
+#[test]
+fn insert_into_table_with_parameters() {
+    let metadata = Arc::new(DataDefinition::in_memory());
+    metadata.create_catalog(DEFAULT_CATALOG);
+    let schema_id = match metadata.create_schema(DEFAULT_CATALOG, SCHEMA) {
+        Some((_, Some(schema_id))) => schema_id,
+        _ => panic!(),
+    };
+    let table_id = match metadata.create_table(
+        DEFAULT_CATALOG,
+        SCHEMA,
+        TABLE,
+        &[
+            ColumnDefinition::new("col_1", SqlType::SmallInt),
+            ColumnDefinition::new("col_2", SqlType::SmallInt),
+        ],
+    ) {
+        Some((_, Some((_, Some(table_id))))) => table_id,
+        _ => panic!(),
+    };
+    let analyzer = Analyzer::new(metadata);
+    let description = analyzer.describe(&insert_stmt_with_parameters(SCHEMA, TABLE, vec![0, 9]));
+    let mut param_types = ParamTypes::new();
+    param_types.insert(0, SqlType::SmallInt);
+    param_types.insert(9, SqlType::SmallInt);
+
+    assert_eq!(
+        description,
+        Ok(Description::Insert(InsertStatement {
+            table_id: FullTableId::from((schema_id, table_id)),
+            column_types: vec![SqlType::SmallInt, SqlType::SmallInt],
+            param_count: 10,
+            param_types,
         }))
     );
 }

@@ -16,9 +16,13 @@ use pg_wire::PgType;
 use sql_model::{sql_types::SqlType, Id};
 use sqlparser::ast::ObjectName;
 use std::{
+    collections::HashMap,
     convert::TryFrom,
     fmt::{self, Display, Formatter},
 };
+
+pub type ParamIndex = usize;
+pub type ParamTypes = HashMap<ParamIndex, SqlType>;
 
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
 pub struct FullTableId((Id, Id));
@@ -139,7 +143,9 @@ impl AsRef<Id> for SchemaId {
 #[derive(PartialEq, Debug)]
 pub struct InsertStatement {
     pub table_id: FullTableId,
-    pub sql_types: Vec<SqlType>,
+    pub column_types: Vec<SqlType>,
+    pub param_count: usize,
+    pub param_types: ParamTypes,
 }
 
 #[derive(PartialEq, Debug)]
@@ -186,6 +192,7 @@ pub enum Description {
 #[derive(PartialEq, Debug)]
 pub enum DescriptionError {
     SyntaxError(String),
+    ColumnDoesNotExist(String),
     TableDoesNotExist(String),
     TableAlreadyExists(String),
     SchemaDoesNotExist(String),
@@ -196,6 +203,10 @@ pub enum DescriptionError {
 impl DescriptionError {
     pub fn syntax_error<M: ToString>(message: &M) -> DescriptionError {
         DescriptionError::SyntaxError(message.to_string())
+    }
+
+    pub fn column_does_not_exist<T: ToString>(column: &T) -> DescriptionError {
+        DescriptionError::ColumnDoesNotExist(column.to_string())
     }
 
     pub fn table_does_not_exist<T: ToString>(table: &T) -> DescriptionError {

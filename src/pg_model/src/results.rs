@@ -138,6 +138,9 @@ pub(crate) enum QueryErrorKind {
     SchemaHasDependentObjects(String),
     TableDoesNotExist(String),
     ColumnDoesNotExist(String),
+    IndeterminateParameterDataType {
+        param_index: usize,
+    },
     InvalidParameterValue(String),
     PreparedStatementDoesNotExist(String),
     PortalDoesNotExist(String),
@@ -190,6 +193,7 @@ impl QueryErrorKind {
             Self::SchemaHasDependentObjects(_) => "2BP01",
             Self::TableDoesNotExist(_) => "42P01",
             Self::ColumnDoesNotExist(_) => "42703",
+            Self::IndeterminateParameterDataType { .. } => "42P18",
             Self::InvalidParameterValue(_) => "22023",
             Self::PreparedStatementDoesNotExist(_) => "26000",
             Self::PortalDoesNotExist(_) => "26000",
@@ -221,6 +225,9 @@ impl Display for QueryErrorKind {
             }
             Self::TableDoesNotExist(table_name) => write!(f, "table \"{}\" does not exist", table_name),
             Self::ColumnDoesNotExist(column) => write!(f, "column {} does not exist", column),
+            Self::IndeterminateParameterDataType { param_index } => {
+                write!(f, "could not determine data type of parameter ${}", param_index + 1)
+            }
             Self::InvalidParameterValue(message) => write!(f, "{}", message),
             Self::PreparedStatementDoesNotExist(statement_name) => {
                 write!(f, "prepared statement {} does not exist", statement_name)
@@ -355,6 +362,14 @@ impl QueryError {
         QueryError {
             severity: Severity::Error,
             kind: QueryErrorKind::ColumnDoesNotExist(non_existing_column.to_string()),
+        }
+    }
+
+    /// indeterminate parameter data type constructor
+    pub fn indeterminate_parameter_data_type(param_index: usize) -> QueryError {
+        QueryError {
+            severity: Severity::Error,
+            kind: QueryErrorKind::IndeterminateParameterDataType { param_index },
         }
     }
 
@@ -725,6 +740,19 @@ mod tests {
                     Some("42703"),
                     Some("column column_not_in_table does not exist".to_owned()),
                 )
+            )
+        }
+
+        #[test]
+        fn indeterminate_parameter_data_type() {
+            let message: BackendMessage = QueryError::indeterminate_parameter_data_type(8).into();
+            assert_eq!(
+                message,
+                BackendMessage::ErrorResponse(
+                    Some("ERROR"),
+                    Some("42P18"),
+                    Some("could not determine data type of parameter $9".to_owned())
+                ),
             )
         }
 

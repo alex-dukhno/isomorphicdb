@@ -19,7 +19,6 @@ use pg_model::{
 };
 
 #[rstest::rstest]
-#[ignore]
 fn prepare_execute_and_deallocate(database_with_schema: (InMemory, ResultCollector)) {
     let (mut engine, collector) = database_with_schema;
     engine
@@ -73,17 +72,6 @@ fn prepare_execute_and_deallocate(database_with_schema: (InMemory, ResultCollect
 }
 
 #[rstest::rstest]
-fn prepare_with_wrong_type(database_with_table: (InMemory, ResultCollector)) {
-    let (mut engine, collector) = database_with_table;
-    engine
-        .execute(Command::Query {
-            sql: "prepare fooplan (i, j, k) as insert into schema_name.table_name values ($1, $2, $3)".to_owned(),
-        })
-        .expect("query executed");
-    collector.assert_receive_single(Err(QueryError::type_does_not_exist("i")));
-}
-
-#[rstest::rstest]
 fn execute_deallocated_prepared_statement(database_with_schema: (InMemory, ResultCollector)) {
     let (mut engine, collector) = database_with_schema;
     engine
@@ -113,4 +101,115 @@ fn execute_deallocated_prepared_statement(database_with_schema: (InMemory, Resul
         })
         .expect("query executed");
     collector.assert_receive_single(Err(QueryError::prepared_statement_does_not_exist("fooplan")));
+}
+
+#[rstest::rstest]
+fn prepare_with_wrong_type(database_with_table: (InMemory, ResultCollector)) {
+    let (mut engine, collector) = database_with_table;
+    engine
+        .execute(Command::Query {
+            sql: "prepare fooplan (i, j, k) as insert into schema_name.table_name values ($1, $2, $3)".to_owned(),
+        })
+        .expect("query executed");
+    collector.assert_receive_single(Err(QueryError::type_does_not_exist("i")));
+}
+
+#[rstest::rstest]
+fn prepare_with_indeterminate_type(database_with_table: (InMemory, ResultCollector)) {
+    let (mut engine, collector) = database_with_table;
+    engine
+        .execute(Command::Query {
+            sql: "prepare fooplan (smallint, smallint) as insert into schema_name.table_name values (1, $9)".to_owned(),
+        })
+        .expect("query executed");
+    collector.assert_receive_single(Err(QueryError::indeterminate_parameter_data_type(2)));
+}
+
+#[rstest::rstest]
+fn prepare_assign_operation_for_all_columns_analysis(database_with_table: (InMemory, ResultCollector)) {
+    let (mut engine, collector) = database_with_table;
+    engine
+        .execute(Command::Query {
+            sql: "prepare fooplan as insert into schema_name.table_name values ($2, $3, $1)".to_owned(),
+        })
+        .expect("query executed");
+    collector.assert_receive_single(Ok(QueryEvent::StatementPrepared));
+
+    engine
+        .execute(Command::Query {
+            sql: "execute fooplan(123, 456, 789)".to_owned(),
+        })
+        .expect("query executed");
+    collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+
+    engine
+        .execute(Command::Query {
+            sql: "deallocate fooplan".to_owned(),
+        })
+        .expect("query executed");
+    collector.assert_receive_single(Ok(QueryEvent::StatementDeallocated));
+
+    engine
+        .execute(Command::Query {
+            sql: "select * from schema_name.table_name".to_owned(),
+        })
+        .expect("query executed");
+    collector.assert_receive_many(vec![
+        Ok(QueryEvent::RowDescription(vec![
+            ColumnMetadata::new("col1", PgType::SmallInt),
+            ColumnMetadata::new("col2", PgType::SmallInt),
+            ColumnMetadata::new("col3", PgType::SmallInt),
+        ])),
+        Ok(QueryEvent::DataRow(vec![
+            "456".to_owned(),
+            "789".to_owned(),
+            "123".to_owned(),
+        ])),
+        Ok(QueryEvent::RecordsSelected(1)),
+    ]);
+}
+
+#[rstest::rstest]
+fn prepare_assign_operation_for_specified_columns_analysis(database_with_table: (InMemory, ResultCollector)) {
+    let (mut engine, collector) = database_with_table;
+    engine
+        .execute(Command::Query {
+            sql: "prepare fooplan as insert into schema_name.table_name (COL3, COL2, col1) values ($1, $2, $3)"
+                .to_owned(),
+        })
+        .expect("query executed");
+    collector.assert_receive_single(Ok(QueryEvent::StatementPrepared));
+
+    engine
+        .execute(Command::Query {
+            sql: "execute fooplan(123, 456, 789)".to_owned(),
+        })
+        .expect("query executed");
+    collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+
+    engine
+        .execute(Command::Query {
+            sql: "deallocate fooplan".to_owned(),
+        })
+        .expect("query executed");
+    collector.assert_receive_single(Ok(QueryEvent::StatementDeallocated));
+
+    engine
+        .execute(Command::Query {
+            sql: "select * from schema_name.table_name".to_owned(),
+        })
+        .expect("query executed");
+    collector.assert_receive_many(vec![
+        Ok(QueryEvent::RowDescription(vec![
+            ColumnMetadata::new("col1", PgType::SmallInt),
+            ColumnMetadata::new("col2", PgType::SmallInt),
+            ColumnMetadata::new("col3", PgType::SmallInt),
+        ])),
+        Ok(QueryEvent::DataRow(vec![
+            "789".to_owned(),
+            "456".to_owned(),
+            "123".to_owned(),
+        ])),
+        Ok(QueryEvent::RecordsSelected(1)),
+    ]);
 }
