@@ -192,6 +192,7 @@ pub enum Description {
 #[derive(PartialEq, Debug)]
 pub enum DescriptionError {
     SyntaxError(String),
+    ColumnDoesNotExist(String),
     TableDoesNotExist(String),
     TableAlreadyExists(String),
     SchemaDoesNotExist(String),
@@ -202,6 +203,10 @@ pub enum DescriptionError {
 impl DescriptionError {
     pub fn syntax_error<M: ToString>(message: &M) -> DescriptionError {
         DescriptionError::SyntaxError(message.to_string())
+    }
+
+    pub fn column_does_not_exist<T: ToString>(column: &T) -> DescriptionError {
+        DescriptionError::ColumnDoesNotExist(column.to_string())
     }
 
     pub fn table_does_not_exist<T: ToString>(table: &T) -> DescriptionError {

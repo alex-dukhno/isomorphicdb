@@ -37,6 +37,10 @@ impl TableDefinition {
     pub fn column_types(&self) -> Vec<SqlType> {
         self.columns.iter().map(|col_def| col_def.sql_type()).collect()
     }
+
+    pub fn columns(&self) -> &[ColumnDefinition] {
+        &self.columns
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]

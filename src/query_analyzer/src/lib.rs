@@ -32,12 +32,31 @@ impl Analyzer {
 
     pub fn describe(&self, statement: &Statement) -> Result<Description, DescriptionError> {
         match statement {
-            Statement::Insert { source, table_name, .. } => match FullTableName::try_from(table_name) {
+            Statement::Insert {
+                columns,
+                source,
+                table_name,
+                ..
+            } => match FullTableName::try_from(table_name) {
                 Ok(full_table_name) => match self.metadata.table_desc((&full_table_name).into()) {
                     Ok(table_def) => {
                         let source: &Query = source;
                         let Query { body, .. } = source;
-                        let column_types = table_def.column_types();
+                        let column_types = if columns.is_empty() {
+                            table_def.column_types()
+                        } else {
+                            let table_cols = table_def.columns();
+                            let mut col_types = vec![];
+                            for col in columns {
+                                let Ident { value, .. } = col;
+                                let col_name = value.to_lowercase();
+                                match table_cols.iter().find(|col_def| col_def.has_name(&col_name)) {
+                                    Some(col_def) => col_types.push(col_def.sql_type()),
+                                    None => return Err(DescriptionError::column_does_not_exist(&col_name)),
+                                }
+                            }
+                            col_types
+                        };
                         let param_types = parse_assign_param_types(body, &column_types)?;
                         let param_count = param_types.keys().max().map_or(0, |max_index| max_index + 1);
                         Ok(Description::Insert(InsertStatement {
