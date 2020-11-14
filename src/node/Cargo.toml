@@ -17,7 +17,6 @@ binder = { path = "../binder" }
 connection = { path = "../connection" }
 description = { path = "../description" }
 data_manager = { path = "../data_manager" }
-kernel = { path = "../kernel" }
 metadata = { path = "../metadata" }
 parser = { path = "../parser" }
 pg_model = { path = "../pg_model" }

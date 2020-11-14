@@ -18,7 +18,6 @@ use connection::Sender;
 use constraints::{Constraint, ConstraintError};
 use data_manager::DataManager;
 use expr_eval::{EvalError, StaticExpressionEvaluation};
-use kernel::SystemError;
 use meta_def::ColumnDefinition;
 use pg_model::results::{QueryError, QueryEvent};
 use plan::TableInserts;
@@ -53,23 +52,11 @@ impl InsertCommand {
                 let value = match evaluation.eval(expression) {
                     Ok(ScalarOp::Value(value)) => value,
                     Ok(ScalarOp::Column(column_identifier)) => {
-                        log::error!(
-                            "{:?}",
-                            SystemError::runtime_check_failure(&format!(
-                                "column name '{}' can't be used in insert statement",
-                                column_identifier
-                            ))
-                        );
+                        log::error!("column name '{}' can't be used as value to insert", column_identifier);
                         return;
                     }
                     Ok(operation) => {
-                        log::error!(
-                            "{:?}",
-                            SystemError::runtime_check_failure(&format!(
-                                "Operation '{:?}' can't be performed in insert statement",
-                                operation
-                            ))
-                        );
+                        log::error!("Operation '{:?}' can't be used as value to insert", operation);
                         return;
                     }
                     Err(EvalError::UndefinedFunction(op, left_type, right_type)) => {
