@@ -22,8 +22,7 @@ use sql_model::{sql_errors::NotFoundError, sql_types::SqlType};
 use sqlparser::ast::{
     Expr, Ident, ObjectType, Query, Select, SelectItem, SetExpr, Statement, TableFactor, TableWithJoins,
 };
-use std::ops::Deref;
-use std::{convert::TryFrom, sync::Arc};
+use std::{convert::TryFrom, ops::Deref, sync::Arc};
 
 pub struct Analyzer {
     metadata: Arc<DataDefinition>,
