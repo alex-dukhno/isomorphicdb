@@ -46,7 +46,10 @@ pub trait MetadataView {
             Some((schema_id, Some(table_id))) => {
                 let columns = self
                     .table_columns(&Box::new((schema_id, table_id)))
-                    .expect("table exists");
+                    .expect("table exists")
+                    .into_iter()
+                    .map(|(_column_id, column)| column)
+                    .collect::<Vec<ColumnDefinition>>();
                 Ok(TableDefinition::new(schema_id, table_id, columns))
             }
         }
@@ -54,7 +57,7 @@ pub trait MetadataView {
 
     fn table_exists<S: AsRef<str>, T: AsRef<str>>(&self, schema_name: &S, table_name: &T) -> FullTableId;
 
-    fn table_columns<I: AsRef<(Id, Id)>>(&self, table_id: &I) -> Result<Vec<ColumnDefinition>, ()>;
+    fn table_columns<I: AsRef<(Id, Id)>>(&self, table_id: &I) -> Result<Vec<(Id, ColumnDefinition)>, ()>;
 
     fn column_ids<I: AsRef<(Id, Id)>, N: AsRef<str> + PartialEq<N>>(
         &self,
@@ -852,7 +855,7 @@ impl MetadataView for DataDefinition {
         }
     }
 
-    fn table_columns<I: AsRef<(Id, Id)>>(&self, table_id: &I) -> Result<Vec<ColumnDefinition>, ()> {
+    fn table_columns<I: AsRef<(Id, Id)>>(&self, table_id: &I) -> Result<Vec<(Id, ColumnDefinition)>, ()> {
         match self
             .system_catalog
             .read(DEFINITION_SCHEMA, TABLES_TABLE)
@@ -884,6 +887,7 @@ impl MetadataView for DataDefinition {
                 let record = record_id.unpack();
                 let schema_id = record[1].as_u64();
                 let table_id = record[2].as_u64();
+                let column_id = record[3].as_u64();
                 let columns = columns.unpack();
                 let name = columns[4].as_str().to_owned();
                 let type_id = columns[5].as_u64();
@@ -892,10 +896,10 @@ impl MetadataView for DataDefinition {
                     _ => 0,
                 };
                 let sql_type = SqlType::from_type_id(type_id, chars_len);
-                ((schema_id, table_id), name, sql_type)
+                ((schema_id, table_id), column_id, name, sql_type)
             })
-            .filter(|(full_table_id, _name, _sql_type)| full_table_id == table_id.as_ref())
-            .map(|(_full_table_id, name, sql_type)| ColumnDefinition::new(&name, sql_type))
+            .filter(|(full_table_id, _column_id, _name, _sql_type)| full_table_id == table_id.as_ref())
+            .map(|(_full_table_id, column_id, name, sql_type)| (column_id, ColumnDefinition::new(&name, sql_type)))
             .collect())
     }
 
@@ -1098,7 +1102,7 @@ mod tests {
             ) {
                 Some((_, Some((schema_id, Some(table_id))))) => assert_eq!(
                     data_definition.table_columns(&Box::new((schema_id, table_id))),
-                    Ok(vec![ColumnDefinition::new("col1", SqlType::Integer)])
+                    Ok(vec![(0, ColumnDefinition::new("col1", SqlType::Integer))])
                 ),
                 _ => panic!(),
             }
@@ -1585,11 +1589,11 @@ mod tests {
                 };
                 assert_eq!(
                     data_definition.table_columns(&full_table_1_id),
-                    Ok(vec![ColumnDefinition::new("col_1", SqlType::Integer)])
+                    Ok(vec![(0, ColumnDefinition::new("col_1", SqlType::Integer))])
                 );
                 assert_eq!(
                     data_definition.table_columns(&full_table_2_id),
-                    Ok(vec![ColumnDefinition::new("col_1", SqlType::SmallInt)])
+                    Ok(vec![(0, ColumnDefinition::new("col_1", SqlType::SmallInt))])
                 );
                 drop(data_definition);
 
@@ -1599,11 +1603,11 @@ mod tests {
 
                 assert_eq!(
                     data_definition.table_columns(&full_table_1_id),
-                    Ok(vec![ColumnDefinition::new("col_1", SqlType::Integer)])
+                    Ok(vec![(0, ColumnDefinition::new("col_1", SqlType::Integer))])
                 );
                 assert_eq!(
                     data_definition.table_columns(&full_table_2_id),
-                    Ok(vec![ColumnDefinition::new("col_1", SqlType::SmallInt)])
+                    Ok(vec![(0, ColumnDefinition::new("col_1", SqlType::SmallInt))])
                 );
             }
 
@@ -1659,9 +1663,9 @@ mod tests {
                 assert_eq!(
                     data_definition.table_columns(&full_table_id),
                     Ok(vec![
-                        ColumnDefinition::new("col_1", SqlType::SmallInt),
-                        ColumnDefinition::new("col_2", SqlType::Integer),
-                        ColumnDefinition::new("col_3", SqlType::BigInt)
+                        (0, ColumnDefinition::new("col_1", SqlType::SmallInt)),
+                        (1, ColumnDefinition::new("col_2", SqlType::Integer)),
+                        (2, ColumnDefinition::new("col_3", SqlType::BigInt))
                     ])
                 );
                 drop(data_definition);
@@ -1672,9 +1676,9 @@ mod tests {
                 assert_eq!(
                     data_definition.table_columns(&full_table_id),
                     Ok(vec![
-                        ColumnDefinition::new("col_1", SqlType::SmallInt),
-                        ColumnDefinition::new("col_2", SqlType::Integer),
-                        ColumnDefinition::new("col_3", SqlType::BigInt)
+                        (0, ColumnDefinition::new("col_1", SqlType::SmallInt)),
+                        (1, ColumnDefinition::new("col_2", SqlType::Integer)),
+                        (2, ColumnDefinition::new("col_3", SqlType::BigInt))
                     ])
                 );
             }

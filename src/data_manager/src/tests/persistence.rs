@@ -88,7 +88,7 @@ fn created_table_is_preserved_after_restart(persistent: (Persistent, TempDir)) {
         data_manager
             .table_columns(&Box::new((schema_id, table_id)))
             .expect("to have a columns"),
-        vec![ColumnDefinition::new("col_test", SqlType::Bool)]
+        vec![(0, ColumnDefinition::new("col_test", SqlType::Bool))]
     )
 }
 

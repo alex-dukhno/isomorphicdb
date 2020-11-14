@@ -14,6 +14,7 @@
 
 mod ddl;
 mod insert;
+mod select;
 
 use super::*;
 use meta_def::ColumnDefinition;

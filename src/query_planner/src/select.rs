@@ -71,7 +71,7 @@ impl Planner for SelectPlanner {
                                             names.extend(
                                                 all_columns
                                                     .into_iter()
-                                                    .map(|column_definition| column_definition.name())
+                                                    .map(|(_col_id, column_definition)| column_definition.name())
                                                     .collect::<Vec<String>>(),
                                             )
                                         }
