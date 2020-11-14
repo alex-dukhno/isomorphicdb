@@ -8,7 +8,6 @@ members = [
     "src/data_manager",
     "src/description",
     "src/expr_eval",
-    "src/kernel",
     "src/meta_def",
     "src/metadata",
     "src/node",
@@ -17,8 +16,8 @@ members = [
     "src/plan",
     "src/repr",
     "src/query_analyzer",
-    "src/query_planner",
     "src/query_executor",
+    "src/query_planner",
     "src/sql_model",
     "src/storage",
 ]

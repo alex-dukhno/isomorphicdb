@@ -14,11 +14,12 @@
 
 use binary::{Key, ReadCursor, Values};
 use dashmap::DashMap;
-use kernel::{Object, Operation, SystemError, SystemResult};
 use meta_def::ColumnDefinition;
 use metadata::{DataDefinition, MetadataView};
 use sql_model::{DropSchemaError, DropStrategy, Id};
+use std::fmt::{Display, Formatter};
 use std::{
+    fmt,
     path::PathBuf,
     sync::{
         atomic::{AtomicU64, Ordering},
@@ -61,7 +62,7 @@ impl DataManager {
         }
     }
 
-    pub fn persistent(data_definition: Arc<DataDefinition>, path: PathBuf) -> SystemResult<DataManager> {
+    pub fn persistent(data_definition: Arc<DataDefinition>, path: PathBuf) -> Result<DataManager, ()> {
         let catalog = PersistentDatabase::new(path.join(DEFAULT_CATALOG));
         let schemas = DashMap::new();
         let tables = DashMap::new();
@@ -79,19 +80,16 @@ impl DataManager {
                         }
                         Ok(Ok(InitStatus::Created)) => {
                             log::error!("Schema {:?} should have been already created", schema_name);
-                            return Err(SystemError::bug_in_sql_engine(
-                                Operation::Access,
-                                Object::Schema(schema_name.as_str()),
-                            ));
+                            return Err(());
                         }
                         Ok(Err(error)) => {
                             log::error!("Error during schema {:?} initialization {:?}", schema_name, error);
-                            return Err(SystemError::bug_in_sql_engine(
-                                Operation::Access,
-                                Object::Schema(schema_name.as_str()),
-                            ));
+                            return Err(());
                         }
-                        Err(io_error) => return Err(SystemError::io(io_error)),
+                        Err(io_error) => {
+                            log::error!("IO Error during schema {:?} initialization {:?}", schema_name, io_error);
+                            return Err(());
+                        }
                     }
                 }
             }
@@ -229,10 +227,7 @@ impl DataManager {
                 }
             }
             None => {
-                log::error!(
-                    "SQL Engine does not check '{}' existence of SCHEMA before creating TABLE in it",
-                    schema_id,
-                );
+                engine_bug_reporter(Operation::Create, Object::Schema(schema_id));
                 Err(())
             }
         }
@@ -242,13 +237,7 @@ impl DataManager {
         match self.tables.remove(table_id.as_ref()) {
             None => {
                 let (schema_id, table_id) = table_id.as_ref();
-                log::error!(
-                    "{:?}",
-                    SystemError::bug_in_sql_engine(
-                        Operation::Drop,
-                        Object::Table(schema_id.to_string().as_str(), table_id.to_string().as_str()),
-                    )
-                );
+                engine_bug_reporter(Operation::Drop, Object::Table(*schema_id, *table_id));
                 Err(())
             }
             Some((_, full_name)) => {
@@ -263,13 +252,7 @@ impl DataManager {
                     Ok(Ok(Ok(()))) => Ok(()),
                     _ => {
                         let (schema_id, table_id) = table_id.as_ref();
-                        log::error!(
-                            "{:?}",
-                            SystemError::bug_in_sql_engine(
-                                Operation::Drop,
-                                Object::Table(schema_id.to_string().as_str(), table_id.to_string().as_str()),
-                            )
-                        );
+                        engine_bug_reporter(Operation::Drop, Object::Table(*schema_id, *table_id));
                         Err(())
                     }
                 }
@@ -289,26 +272,14 @@ impl DataManager {
                     Ok(Ok(Ok(size))) => Ok(size),
                     _ => {
                         let (schema_id, table_id) = table_id.as_ref();
-                        log::error!(
-                            "{:?}",
-                            SystemError::bug_in_sql_engine(
-                                Operation::Access,
-                                Object::Table(schema_id.to_string().as_str(), table_id.to_string().as_str()),
-                            )
-                        );
+                        engine_bug_reporter(Operation::Access, Object::Table(*schema_id, *table_id));
                         Err(())
                     }
                 }
             }
             None => {
                 let (schema_id, table_id) = table_id.as_ref();
-                log::error!(
-                    "{:?}",
-                    SystemError::bug_in_sql_engine(
-                        Operation::Access,
-                        Object::Table(schema_id.to_string().as_str(), table_id.to_string().as_str()),
-                    )
-                );
+                engine_bug_reporter(Operation::Access, Object::Table(*schema_id, *table_id));
                 Err(())
             }
         }
@@ -325,25 +296,13 @@ impl DataManager {
                 Ok(Ok(Ok(read))) => Ok(read),
                 _ => {
                     let (schema_id, table_id) = table_id.as_ref();
-                    log::error!(
-                        "{:?}",
-                        SystemError::bug_in_sql_engine(
-                            Operation::Access,
-                            Object::Table(schema_id.to_string().as_str(), table_id.to_string().as_str()),
-                        )
-                    );
+                    engine_bug_reporter(Operation::Access, Object::Table(*schema_id, *table_id));
                     Err(())
                 }
             },
             None => {
                 let (schema_id, table_id) = table_id.as_ref();
-                log::error!(
-                    "{:?}",
-                    SystemError::bug_in_sql_engine(
-                        Operation::Access,
-                        Object::Table(schema_id.to_string().as_str(), table_id.to_string().as_str()),
-                    )
-                );
+                engine_bug_reporter(Operation::Access, Object::Table(*schema_id, *table_id));
                 Err(())
             }
         }
@@ -359,25 +318,13 @@ impl DataManager {
                 Ok(Ok(Ok(len))) => Ok(len),
                 _ => {
                     let (schema_id, table_id) = table_id.as_ref();
-                    log::error!(
-                        "{:?}",
-                        SystemError::bug_in_sql_engine(
-                            Operation::Access,
-                            Object::Table(schema_id.to_string().as_str(), table_id.to_string().as_str()),
-                        )
-                    );
+                    engine_bug_reporter(Operation::Access, Object::Table(*schema_id, *table_id));
                     Err(())
                 }
             },
             None => {
                 let (schema_id, table_id) = table_id.as_ref();
-                log::error!(
-                    "{:?}",
-                    SystemError::bug_in_sql_engine(
-                        Operation::Access,
-                        Object::Table(schema_id.to_string().as_str(), table_id.to_string().as_str()),
-                    )
-                );
+                engine_bug_reporter(Operation::Access, Object::Table(*schema_id, *table_id));
                 Err(())
             }
         }
@@ -407,6 +354,44 @@ impl MetadataView for DataManager {
 
     fn column_defs<I: AsRef<(Id, Id)>>(&self, table_id: &I, ids: &[Id]) -> Vec<ColumnDefinition> {
         self.data_definition.column_defs(table_id, ids)
+    }
+}
+
+fn engine_bug_reporter(operation: Operation, object: Object) {
+    log::error!(
+        "This is most possibly a 🐛[BUG] in sql engine. It does not check existence of {} before {} one",
+        object,
+        operation
+    )
+}
+
+enum Operation {
+    Create,
+    Drop,
+    Access,
+}
+
+impl Display for Operation {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Operation::Create => write!(f, "creating"),
+            Operation::Drop => write!(f, "dropping"),
+            Operation::Access => write!(f, "accessing"),
+        }
+    }
+}
+
+enum Object {
+    Table(Id, Id),
+    Schema(Id),
+}
+
+impl Display for Object {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Object::Table(schema_id, table_id) => write!(f, "TABLE [{}.{}]", schema_id, table_id),
+            Object::Schema(schema_id) => write!(f, "SCHEMA [{}]", schema_id),
+        }
     }
 }
 

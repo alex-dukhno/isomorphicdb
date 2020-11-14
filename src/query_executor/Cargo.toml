@@ -12,7 +12,6 @@ connection = { path = "../connection" }
 constraints = { path = "../constraints" }
 data_manager = { path = "../data_manager" }
 expr_eval = { path = "../expr_eval" }
-kernel = { path = "../kernel" }
 meta_def = { path = "../meta_def" }
 metadata = { path = "../metadata" }
 plan = { path = "../plan" }
