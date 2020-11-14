@@ -44,11 +44,11 @@ fn same_table_names_with_different_columns_in_different_schemas(data_manager: In
 
     assert_eq!(
         data_manager.table_columns(&Box::new((schema_1_id, table_1_id))),
-        Ok(vec![ColumnDefinition::new("sn_1_column", SqlType::SmallInt,)])
+        Ok(vec![(0, ColumnDefinition::new("sn_1_column", SqlType::SmallInt))])
     );
     assert_eq!(
         data_manager.table_columns(&Box::new((schema_2_id, table_2_id))),
-        Ok(vec![ColumnDefinition::new("sn_2_column", SqlType::BigInt,)])
+        Ok(vec![(0, ColumnDefinition::new("sn_2_column", SqlType::BigInt))])
     );
 }
 

@@ -71,7 +71,7 @@ impl Planner for InsertPlanner<'_> {
                                         .iter()
                                         .cloned()
                                         .enumerate()
-                                        .map(|(index, col_def)| {
+                                        .map(|(index, (_col_id, col_def))| {
                                             (
                                                 index,
                                                 col_def.name(),
@@ -86,7 +86,7 @@ impl Planner for InsertPlanner<'_> {
                                     for col_name in self.columns.iter().map(|id| id.value.as_str()) {
                                         let column_name = col_name.to_lowercase();
                                         let mut found = None;
-                                        for (index, column_definition) in all_columns.iter().enumerate() {
+                                        for (index, (_col_id, column_definition)) in all_columns.iter().enumerate() {
                                             if column_definition.has_name(&column_name) {
                                                 if columns.contains(&column_name) {
                                                     return Err(PlanError::duplicate_column(&column_name));

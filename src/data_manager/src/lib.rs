@@ -393,7 +393,7 @@ impl MetadataView for DataManager {
         self.data_definition.table_exists(schema_name, table_name)
     }
 
-    fn table_columns<I: AsRef<(Id, Id)>>(&self, table_id: &I) -> Result<Vec<ColumnDefinition>, ()> {
+    fn table_columns<I: AsRef<(Id, Id)>>(&self, table_id: &I) -> Result<Vec<(Id, ColumnDefinition)>, ()> {
         self.data_definition.table_columns(table_id)
     }
 

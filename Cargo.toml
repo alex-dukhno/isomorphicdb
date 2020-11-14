@@ -4,6 +4,7 @@ members = [
     "src/binary",
     "src/binder",
     "src/constraints",
+    "src/connection",
     "src/data_manager",
     "src/description",
     "src/expr_eval",

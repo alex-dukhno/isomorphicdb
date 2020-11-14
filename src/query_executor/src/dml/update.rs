@@ -56,7 +56,7 @@ impl UpdateCommand {
         let all_columns = table_definition
             .iter()
             .enumerate()
-            .map(|(index, col_def)| (col_def.name(), index))
+            .map(|(index, (_col_id, col_def))| (col_def.name(), index))
             .collect::<HashMap<_, _>>();
 
         let evaluation = StaticExpressionEvaluation::default();

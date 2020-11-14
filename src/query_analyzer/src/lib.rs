@@ -14,11 +14,15 @@
 
 use description::{
     ColumnDesc, Description, DescriptionError, DropSchemasInfo, DropTablesInfo, FullTableId, FullTableName,
-    InsertStatement, ParamTypes, SchemaCreationInfo, SchemaId, SchemaName, TableCreationInfo,
+    InsertStatement, ParamTypes, ProjectionItem, SchemaCreationInfo, SchemaId, SchemaName, SelectStatement,
+    TableCreationInfo,
 };
 use metadata::{DataDefinition, MetadataView};
 use sql_model::{sql_errors::NotFoundError, sql_types::SqlType};
-use sqlparser::ast::{Expr, Ident, ObjectType, Query, SetExpr, Statement};
+use sqlparser::ast::{
+    Expr, Ident, ObjectType, Query, Select, SelectItem, SetExpr, Statement, TableFactor, TableWithJoins,
+};
+use std::ops::Deref;
 use std::{convert::TryFrom, sync::Arc};
 
 pub struct Analyzer {
@@ -73,6 +77,81 @@ impl Analyzer {
                 },
                 Err(error) => Err(DescriptionError::syntax_error(&error)),
             },
+            Statement::Query(query) => {
+                let Query { body, .. } = &**query;
+                match body {
+                    SetExpr::Select(query) => {
+                        let Select { projection, from, .. } = query.deref();
+                        let TableWithJoins { relation, .. } = &from[0];
+                        match relation {
+                            TableFactor::Table { name, .. } => match FullTableName::try_from(name) {
+                                Ok(full_table_name) => {
+                                    match self.metadata.table_exists_tuple((&full_table_name).into()) {
+                                        None => Err(DescriptionError::schema_does_not_exist(full_table_name.schema())),
+                                        Some((_, None)) => {
+                                            Err(DescriptionError::table_does_not_exist(&full_table_name))
+                                        }
+                                        Some((schema_id, Some(table_id))) => {
+                                            let full_table_id = FullTableId::from((schema_id, table_id));
+                                            let projection_items = {
+                                                let mut names: Vec<String> = vec![];
+                                                for item in projection {
+                                                    match item {
+                                                        SelectItem::UnnamedExpr(Expr::Identifier(Ident {
+                                                            value,
+                                                            ..
+                                                        })) => names.push(value.to_lowercase()),
+                                                        SelectItem::Wildcard => {
+                                                            for (_col_id, col_def) in self
+                                                                .metadata
+                                                                .table_columns(&full_table_id)
+                                                                .expect("table exists")
+                                                            {
+                                                                names.push(col_def.name());
+                                                            }
+                                                        }
+                                                        _ => unimplemented!(),
+                                                    }
+                                                }
+                                                let columns =
+                                                    self.metadata.table_columns(&full_table_id).expect("table exists");
+
+                                                let mut projection_items = vec![];
+                                                for name in &names {
+                                                    let mut found = None;
+                                                    for (column_id, column) in &columns {
+                                                        if column.has_name(name) {
+                                                            found = Some((*column_id, column.sql_type()));
+                                                        }
+                                                    }
+                                                    match found {
+                                                        None => {
+                                                            return Err(DescriptionError::column_does_not_exist(name))
+                                                        }
+                                                        Some((column_id, sql_type)) => projection_items
+                                                            .push(ProjectionItem::Column(column_id, sql_type)),
+                                                    }
+                                                }
+                                                projection_items
+                                            };
+                                            Ok(Description::Select(SelectStatement {
+                                                full_table_id,
+                                                projection_items,
+                                            }))
+                                        }
+                                    }
+                                }
+                                Err(error) => Err(DescriptionError::syntax_error(&error)),
+                            },
+                            _ => {
+                                // Err(DescriptionError::feature_not_supported(&*query))
+                                unimplemented!()
+                            }
+                        }
+                    }
+                    _ => unimplemented!(),
+                }
+            }
             Statement::CreateTable { name, columns, .. } => match FullTableName::try_from(name) {
                 Ok(full_table_name) => {
                     let (schema_name, table_name) = (&full_table_name).into();

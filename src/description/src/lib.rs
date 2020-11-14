@@ -33,6 +33,12 @@ impl From<(Id, Id)> for FullTableId {
     }
 }
 
+impl AsRef<(Id, Id)> for FullTableId {
+    fn as_ref(&self) -> &(Id, Id) {
+        &self.0
+    }
+}
+
 /// represents a table uniquely
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
 pub struct FullTableName<S: AsRef<str>>((S, S));
@@ -181,12 +187,25 @@ pub struct DropTablesInfo {
 }
 
 #[derive(PartialEq, Debug)]
+pub struct SelectStatement {
+    pub full_table_id: FullTableId,
+    pub projection_items: Vec<ProjectionItem>,
+}
+
+#[derive(PartialEq, Debug)]
+pub enum ProjectionItem {
+    Column(Id, SqlType),
+    Const(u64),
+}
+
+#[derive(PartialEq, Debug)]
 pub enum Description {
     CreateSchema(SchemaCreationInfo),
     CreateTable(TableCreationInfo),
     DropSchemas(DropSchemasInfo),
     DropTables(DropTablesInfo),
     Insert(InsertStatement),
+    Select(SelectStatement),
 }
 
 #[derive(PartialEq, Debug)]
