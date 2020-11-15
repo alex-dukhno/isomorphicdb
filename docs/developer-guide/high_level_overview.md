@@ -56,8 +56,24 @@ As with other type of queries in the end server sends **CommandCompete** message
 
 ### Extended Query Protocol
 
-Statement Flow
+Extended Query separated into three phases: `prepare`, `execute` and `deallocate`.
+In `prepare` phase a client sends query to a server that could be parsed and analyzed.
+Query looks like as the following:
+```SQL
+select * from foo where bar > $1
+```
 
+`$1` denotes a parameter that could vary and should be bound before execution.
+Server sends back a description of a statement:
+
+* what data types of columns to insert
+* what data types of returning data
+
+From our example, server has to send **ParameterDescription** message for `$1`
+and **RowDescription** message with all columns from `foo` table. Server sends
+**NoData** message if query execution does not have result to return.
+
+Prepare Phase has the following state machine:
 ```
                  +-------+
                  | Parse |
@@ -72,7 +88,6 @@ Statement Flow
                +----------+
                | Describe |
                +----------+
-                     |
                      |
                      v
          +----------------------+
@@ -95,8 +110,8 @@ Statement Flow
             +---------------+
 ```
 
-Portal Flow
-
+**NOTE:** !!! This part of the section could be changed in the future
+Execution Phase has the following state machine:
 ```
                  +-------+
                  | Parse |
