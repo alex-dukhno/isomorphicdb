@@ -1,5 +1,9 @@
 # High Level Overview
 
+This document is by no mean complete ... specially Postgres Wire Protocol Message flow.
+It will be changed in accordance to what we figure out about database system while 
+developing it.
+
 ## Postgres Wire Protocol State Machine
 
 Postgres Wire Protocol can work in two modes: Simple Query and Extended Query.
@@ -10,7 +14,8 @@ I will use state names as a
 
 ### Simple Query Protocol
 
-Simple Query State Machine contains the following states: **Query**, **RowDescription**, **ErrorResponse**, **CommandComplete**, **DataRow** and **ReadyForQuery**.
+Simple Query State Machine contains the following states: **Query**, **RowDescription**, **ErrorResponse**, 
+**CommandComplete**, **DataRow** and **ReadyForQuery**.
 In Simple Mode client sends *Query* message to start query execution.
 
 * During query execution server may send **ErrorResponse** if any of stages encounter an error.
@@ -107,13 +112,7 @@ Portal Flow
                | Describe |
                +----------+
                      |
-                     |
-                     |
-                     |
      +---------------+-------------+
-     |                             |
-     |                             |
-     |                             |
      |                             |
      v                             v
 +--------+                +----------------+
@@ -128,3 +127,8 @@ Portal Flow
             | ReadyForQuery |
             +---------------+
 ```
+
+
+## Query Execution
+
+
