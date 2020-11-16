@@ -75,75 +75,110 @@ and **RowDescription** message with all columns from `foo` table. Server sends
 
 Prepare Phase has the following state machine:
 ```
-                 +-------+
-                 | Parse |
-                 +-------+
-                     |
-                     v
-             +---------------+
-             | ParseComplete |
-             +---------------+
-                     |
-                     v
-               +----------+
-               | Describe |
-               +----------+
-                     |
-                     v
-         +----------------------+
-         | ParameterDescription |
-         +----------------------+
-                     |
-     +---------------+-------------+
-     |                             |
-     v                             v
-+--------+                +----------------+
-| NoData |                | RowDescription |
-+--------+                +----------------+
-     |          +------+           |
-     +--------->| Sync |<----------+
-                +------+
-                    |
-                    v
-            +---------------+
-            | ReadyForQuery |
-            +---------------+
+            +-------+            
+            | Parse |            
+            +-------+            
+                |                
+                v                
+        +---------------+        
+        | ParseComplete |        
+        +---------------+        
+                |                
+                v                
+          +----------+           
+          | Describe |           
+          +----------+           
+                |                
+                v                
+    +----------------------+     
+    | ParameterDescription |     
+    +----------------------+     
+                |                
+     +----------+-------+        
+     |                  |        
+     v                  v        
++--------+     +----------------+
+| NoData |     | RowDescription |
++--------+     +----------------+
+     |     +------+     |        
+     +---->| Sync |<----+        
+           +------+              
+               |                 
+               v                 
+       +---------------+         
+       | ReadyForQuery |         
+       +---------------+         
 ```
 
+* First, a client sends **Parse** message with a query
+* Server responds with **ParseComplete** if it successful
+* Then the client asks for data types info by sending **Describe** method (in this case it is has `S` flag that stands for Statement)
+* First, server answers with **ParameterDescription** message to describe data types for `$#` parameters
+* Then, if it is `select` statement server sends **RowDescription** message, otherwise **NoData**
+* Then the client sends **Sync** message to synchronise with server
+* And the server responds with **ReadyForQuery**
+
+------------------
 **NOTE:** !!! This part of the section could be changed in the future
 Execution Phase has the following state machine:
 ```
-                 +-------+
-                 | Parse |
-                 +-------+
-                     |
-                     v
-             +---------------+
-             | ParseComplete |
-             +---------------+
-                     |
-                     v
-               +----------+
-               | Describe |
-               +----------+
-                     |
-     +---------------+-------------+
-     |                             |
-     v                             v
-+--------+                +----------------+
-| NoData |                | RowDescription |
-+--------+                +----------------+
-     |          +------+           |
-     +--------->| Sync |<----------+
-                +------+
-                    |
-                    v
-            +---------------+
-            | ReadyForQuery |
-            +---------------+
+          +-------+             
+          | Parse |             
+          +-------+             
+              |                 
+              v                 
+      +---------------+         
+      | ParseComplete |         
+      +---------------+         
+              |                 
+              v                 
+          +------+              
+          | Bind |              
+          +------+              
+              |                 
+              v                 
+      +--------------+          
+      | BindComplete |          
+      +--------------+          
+              |                 
+              v                 
+        +----------+            
+        | Describe |            
+        +----------+            
+              |                 
+     +--------+--------+        
+     |                 |        
+     v                 v        
++--------+    +----------------+
+| NoData |    | RowDescription |
++--------+    +----------------+
+     |                 |        
+     |    +------+     |        
+     +--->| Sync |<----+        
+          +------+              
+              |                 
+              v                 
+      +---------------+         
+      | ReadyForQuery |         
+      +---------------+         
 ```
 
+* First, a client sends **Parse** message with a query
+* Server responds with **ParseComplete** if it successful
+* Then the client sends **Bind** message with `$#` parameter values
+* Then the client asks for data types info by sending **Describe** method (in this case it is has `P` flag that stands for Portal)
+* Then, if it is `select` statement server sends **RowDescription** message, otherwise **NoData**
+* Then the client sends **Sync** message to synchronise with server
+* And the server responds with **ReadyForQuery**
 
-## Query Execution
+## Query Execution without optimizations
 
+Having a look at queries:
 
+* `select`s: `select col1, col2 + 2, 1 = 2 from foo where bar = baz + 2`
+* `insert`s: `insert into foo values (1, 2 * 8)` or `insert into foo select col_1, col_2 foo2 where col_2 > 1`
+* `update`s: `update foo set col1 = 2 * col1 where col2 > 3`
+* `delete`s: `delete from foo where bar > 3`
+
+Every position with expression: return columns value, insert values, set values, predicates in `where` clause - can be seen as operators
+tree. These trees should be instantiated in runtime and executed to gain needed computation results.
