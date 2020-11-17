@@ -14,13 +14,14 @@
 
 use description::{
     ColumnDesc, Description, DescriptionError, DropSchemasInfo, DropTablesInfo, FullTableId, FullTableName,
-    InsertStatement, ParamTypes, ProjectionItem, SchemaCreationInfo, SchemaId, SchemaName, SelectStatement,
-    TableCreationInfo,
+    InsertStatement, ParamIndex, ParamTypes, ProjectionItem, SchemaCreationInfo, SchemaId, SchemaName, SelectStatement,
+    TableCreationInfo, UpdateStatement,
 };
+use meta_def::ColumnDefinition;
 use metadata::{DataDefinition, MetadataView};
 use sql_model::{sql_errors::NotFoundError, sql_types::SqlType};
 use sqlparser::ast::{
-    Expr, Ident, ObjectType, Query, Select, SelectItem, SetExpr, Statement, TableFactor, TableWithJoins,
+    Assignment, Expr, Ident, ObjectType, Query, Select, SelectItem, SetExpr, Statement, TableFactor, TableWithJoins,
 };
 use std::{convert::TryFrom, ops::Deref, sync::Arc};
 
@@ -64,7 +65,6 @@ impl Analyzer {
                         let param_count = param_types.keys().max().map_or(0, |max_index| max_index + 1);
                         Ok(Description::Insert(InsertStatement {
                             table_id: FullTableId::from(table_def.full_table_id()),
-                            column_types,
                             param_count,
                             param_types,
                         }))
@@ -151,6 +151,57 @@ impl Analyzer {
                     _ => unimplemented!(),
                 }
             }
+            Statement::Update {
+                assignments,
+                selection,
+                table_name,
+                ..
+            } => match FullTableName::try_from(table_name) {
+                Ok(full_table_name) => match self.metadata.table_desc((&full_table_name).into()) {
+                    Ok(table_def) => {
+                        let table_cols = table_def.columns();
+                        let mut param_types = ParamTypes::new();
+                        for assignment in assignments {
+                            let Assignment { id, value } = assignment;
+                            if let Expr::Identifier(Ident { value, .. }) = value {
+                                if let Some(param_index) = parse_param_index(value) {
+                                    let Ident { value, .. } = id;
+                                    parse_param_type_by_column(&mut param_types, table_cols, param_index, value)?;
+                                }
+                            }
+                        }
+                        if let Some(Expr::BinaryOp { left, right, .. }) = selection {
+                            if let (
+                                Expr::Identifier(Ident { value: left_val, .. }),
+                                Expr::Identifier(Ident { value: right_val, .. }),
+                            ) = (left.deref(), right.deref())
+                            {
+                                let pair = if let Some(param_index) = parse_param_index(left_val) {
+                                    Some((param_index, right_val))
+                                } else if let Some(param_index) = parse_param_index(right_val) {
+                                    Some((param_index, left_val))
+                                } else {
+                                    None
+                                };
+                                if let Some((param_index, col_name)) = pair {
+                                    parse_param_type_by_column(&mut param_types, table_cols, param_index, col_name)?;
+                                }
+                            }
+                        }
+                        let param_count = param_types.keys().max().map_or(0, |max_index| max_index + 1);
+                        Ok(Description::Update(UpdateStatement {
+                            table_id: FullTableId::from(table_def.full_table_id()),
+                            param_count,
+                            param_types,
+                        }))
+                    }
+                    Err(NotFoundError::Object) => Err(DescriptionError::table_does_not_exist(&full_table_name)),
+                    Err(NotFoundError::Schema) => {
+                        Err(DescriptionError::schema_does_not_exist(full_table_name.schema()))
+                    }
+                },
+                Err(error) => Err(DescriptionError::syntax_error(&error)),
+            },
             Statement::CreateTable { name, columns, .. } => match FullTableName::try_from(name) {
                 Ok(full_table_name) => {
                     let (schema_name, table_name) = (&full_table_name).into();
@@ -285,6 +336,33 @@ fn parse_param_index(value: &str) -> Option<usize> {
     }
 
     Some(index - 1)
+}
+
+fn parse_param_type_by_column(
+    param_types: &mut ParamTypes,
+    columns: &[ColumnDefinition],
+    param_index: ParamIndex,
+    col_name: &str,
+) -> Result<(), DescriptionError> {
+    let col_name = col_name.to_lowercase();
+    let col_type = match columns.iter().find(|col_def| col_def.has_name(&col_name)) {
+        Some(col_def) => col_def.sql_type(),
+        None => return Err(DescriptionError::column_does_not_exist(&col_name)),
+    };
+    match param_types.get(&param_index) {
+        Some(param_type) => {
+            if param_type != &col_type {
+                return Err(DescriptionError::syntax_error(&format!(
+                    "Parameter ${} cannot be bound to different SQL types",
+                    param_index
+                )));
+            }
+        }
+        None => {
+            param_types.insert(param_index, col_type);
+        }
+    };
+    Ok(())
 }
 
 #[cfg(test)]

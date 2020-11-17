@@ -7,6 +7,7 @@ publish = false
 
 [dependencies]
 description = { path = "../description" }
+meta_def = { path = "../meta_def" }
 metadata = { path = "../metadata" }
 sql_model = { path = "../sql_model" }
 

@@ -213,3 +213,121 @@ fn prepare_assign_operation_for_specified_columns_analysis(database_with_table: 
         Ok(QueryEvent::RecordsSelected(1)),
     ]);
 }
+
+#[rstest::rstest]
+fn prepare_reassign_operation_for_all_rows(database_with_table: (InMemory, ResultCollector)) {
+    let (mut engine, collector) = database_with_table;
+
+    engine
+        .execute(Command::Query {
+            sql: "insert into schema_name.table_name values (1, 2, 3), (4, 5, 6)".to_owned(),
+        })
+        .expect("query executed");
+    collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(2)));
+
+    engine
+        .execute(Command::Query {
+            sql: "prepare fooplan as update schema_name.table_name set col3 = $1, COL1 = $2".to_owned(),
+        })
+        .expect("query executed");
+    collector.assert_receive_single(Ok(QueryEvent::StatementPrepared));
+
+    engine
+        .execute(Command::Query {
+            sql: "execute fooplan(777, 999)".to_owned(),
+        })
+        .expect("query executed");
+    collector.assert_receive_single(Ok(QueryEvent::RecordsUpdated(2)));
+
+    engine
+        .execute(Command::Query {
+            sql: "deallocate fooplan".to_owned(),
+        })
+        .expect("query executed");
+    collector.assert_receive_single(Ok(QueryEvent::StatementDeallocated));
+
+    engine
+        .execute(Command::Query {
+            sql: "select * from schema_name.table_name".to_owned(),
+        })
+        .expect("query executed");
+    collector.assert_receive_many(vec![
+        Ok(QueryEvent::RowDescription(vec![
+            ColumnMetadata::new("col1", PgType::SmallInt),
+            ColumnMetadata::new("col2", PgType::SmallInt),
+            ColumnMetadata::new("col3", PgType::SmallInt),
+        ])),
+        Ok(QueryEvent::DataRow(vec![
+            "999".to_owned(),
+            "2".to_owned(),
+            "777".to_owned(),
+        ])),
+        Ok(QueryEvent::DataRow(vec![
+            "999".to_owned(),
+            "5".to_owned(),
+            "777".to_owned(),
+        ])),
+        Ok(QueryEvent::RecordsSelected(2)),
+    ]);
+}
+
+#[rstest::rstest]
+fn prepare_reassign_operation_for_specified_rows(database_with_table: (InMemory, ResultCollector)) {
+    let (mut engine, collector) = database_with_table;
+
+    engine
+        .execute(Command::Query {
+            sql: "insert into schema_name.table_name values (1, 2, 3), (4, 5, 6)".to_owned(),
+        })
+        .expect("query executed");
+    collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(2)));
+
+    engine
+        .execute(Command::Query {
+            sql: "prepare fooplan as update schema_name.table_name set col2 = $1 where COL3 = $2".to_owned(),
+        })
+        .expect("query executed");
+    collector.assert_receive_single(Ok(QueryEvent::StatementPrepared));
+
+    engine
+        .execute(Command::Query {
+            sql: "execute fooplan(999, 6)".to_owned(),
+        })
+        .expect("query executed");
+
+    // TODO: `where` clause needs to be handled in `query_planner`.
+    collector.assert_receive_single(Ok(QueryEvent::RecordsUpdated(2)));
+
+    engine
+        .execute(Command::Query {
+            sql: "deallocate fooplan".to_owned(),
+        })
+        .expect("query executed");
+    collector.assert_receive_single(Ok(QueryEvent::StatementDeallocated));
+
+    engine
+        .execute(Command::Query {
+            sql: "select * from schema_name.table_name".to_owned(),
+        })
+        .expect("query executed");
+
+    // TODO: `where` clause needs to be handled in `query_planner`.
+    collector.assert_receive_many(vec![
+        Ok(QueryEvent::RowDescription(vec![
+            ColumnMetadata::new("col1", PgType::SmallInt),
+            ColumnMetadata::new("col2", PgType::SmallInt),
+            ColumnMetadata::new("col3", PgType::SmallInt),
+        ])),
+        Ok(QueryEvent::DataRow(vec![
+            "1".to_owned(),
+            "999".to_owned(),
+            "3".to_owned(),
+        ])),
+        Ok(QueryEvent::DataRow(vec![
+            "4".to_owned(),
+            "999".to_owned(),
+            "6".to_owned(),
+        ])),
+        Ok(QueryEvent::RecordsSelected(2)),
+    ]);
+}
