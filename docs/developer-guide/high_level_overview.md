@@ -180,5 +180,27 @@ Having a look at queries:
 * `update`s: `update foo set col1 = 2 * col1 where col2 > 3`
 * `delete`s: `delete from foo where bar > 3`
 
-Every position with expression: return columns value, insert values, set values, predicates in `where` clause - can be seen as operators
-tree. These trees should be instantiated in runtime and executed to gain needed computation results.
+Every position with expression: return columns value, insert values, set values, predicates in `where` clause - can be seen as `operator
+tree`s. These trees should be instantiated in runtime and executed to gain needed computation results.
+
+Query execution has the following stages:
+* **Parsing**
+* **Analyzing**
+* **Planing**
+* **Executing**
+
+Taking into account differences of Simple and Extended Query protocols, extended part has additional **Binding** stage
+
+### Simple Query Protocol
+
+During Simple Query Protocol message flow SQL statement goes through all stages **Parsing** -> **Analyzing** -> **Planing** -> **Executing**
+
+### Extended Query Protocol
+
+When server received **Parse** message from a client that contains a query, SQL statement goes through **Parsing** -> **Analyzing** stages.
+After **Analyzing** stage client session should contain statement name mapped to internal structure that has built `operator tree`s and knows
+what accepting or resulting type of `operator tree`s are.
+
+When server received **Describe** message it should be able to send all needed information about types to a client.
+
+When server received **Bind** and **Execute** messages server plans and execute query and sends result back to a client.
