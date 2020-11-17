@@ -433,15 +433,37 @@ impl QueryEngine {
                     }
                     _ => unreachable!("this should not be reached during insertions"),
                 },
-                Plan::Update(_table_updates) => {
-                    let statement = PreparedStatement::new(
-                        statement,
-                        param_types.iter().filter(|o| o.is_some()).map(|o| o.unwrap()).collect(),
-                        vec![],
-                    );
-                    self.session.set_prepared_statement(statement_name, statement);
-                    Ok(())
-                }
+                Plan::Update(_update_table) => match self.query_analyzer.describe(&statement) {
+                    Ok(Description::Update(update_statement)) => {
+                        let mut new_param_types = vec![];
+                        for index in 0..update_statement.param_count {
+                            let param_type = match param_types.get(index) {
+                                Some(t) => *t,
+                                None => None,
+                            };
+
+                            let param_type = match param_type {
+                                Some(t) => t,
+                                None => match update_statement.param_types.get(&index) {
+                                    Some(sql_type) => sql_type.into(),
+                                    None => return Err(QueryError::indeterminate_parameter_data_type(index)),
+                                },
+                            };
+                            new_param_types.push(param_type);
+                        }
+
+                        let statement = PreparedStatement::new(statement, new_param_types, vec![]);
+                        self.session.set_prepared_statement(statement_name, statement);
+                        Ok(())
+                    }
+                    Err(DescriptionError::TableDoesNotExist(table_name)) => {
+                        Err(QueryError::table_does_not_exist(table_name))
+                    }
+                    Err(DescriptionError::SchemaDoesNotExist(schema_name)) => {
+                        Err(QueryError::table_does_not_exist(schema_name))
+                    }
+                    _ => unreachable!("this should not be reached during insertions"),
+                },
                 Plan::NotProcessed(statement) => match statement.deref() {
                     stmt @ Statement::SetVariable { .. } => {
                         let statement = PreparedStatement::new(

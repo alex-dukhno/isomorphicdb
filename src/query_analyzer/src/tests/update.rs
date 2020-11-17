@@ -13,59 +13,45 @@
 // limitations under the License.
 
 use super::*;
-use description::ParamIndex;
+use bigdecimal::BigDecimal;
+use sqlparser::ast::BinaryOperator;
 
-fn insert_stmt_with_values<S: ToString>(schema: S, table: S, values: Vec<&'static str>) -> Statement {
-    Statement::Insert {
+fn update_stmt<S: ToString>(schema: S, table: S) -> Statement {
+    Statement::Update {
         table_name: ObjectName(vec![ident(schema), ident(table)]),
-        columns: vec![],
-        source: Box::new(Query {
-            with: None,
-            body: SetExpr::Values(Values(vec![values
-                .into_iter()
-                .map(|s| Expr::Value(Value::Number(s.parse().unwrap())))
-                .collect()])),
-            order_by: vec![],
-            limit: None,
-            offset: None,
-            fetch: None,
+        assignments: vec![Assignment {
+            id: ident("col_1"),
+            value: Expr::Value(Value::Number(BigDecimal::from(1))),
+        }],
+        selection: Some(Expr::BinaryOp {
+            left: Box::new(Expr::Identifier(ident("col_2"))),
+            op: BinaryOperator::Eq,
+            right: Box::new(Expr::Value(Value::Number(BigDecimal::from(2)))),
         }),
     }
 }
 
-fn insert_statement<S: ToString>(schema: S, table: S) -> Statement {
-    insert_stmt_with_values(schema, table, vec![])
-}
-
-fn insert_stmt_with_parameters<S: ToString>(schema: S, table: S, param_indexes: Vec<ParamIndex>) -> Statement {
-    Statement::Insert {
+fn update_stmt_with_parameters<S: ToString>(schema: S, table: S) -> Statement {
+    Statement::Update {
         table_name: ObjectName(vec![ident(schema), ident(table)]),
-        columns: vec![],
-        source: Box::new(Query {
-            with: None,
-            body: SetExpr::Values(Values(vec![param_indexes
-                .into_iter()
-                .map(|i| {
-                    Expr::Identifier(Ident {
-                        value: format!("${}", i + 1),
-                        quote_style: None,
-                    })
-                })
-                .collect()])),
-            order_by: vec![],
-            limit: None,
-            offset: None,
-            fetch: None,
+        assignments: vec![Assignment {
+            id: ident("col_1"),
+            value: Expr::Identifier(ident("$1")),
+        }],
+        selection: Some(Expr::BinaryOp {
+            left: Box::new(Expr::Identifier(ident("col_2"))),
+            op: BinaryOperator::Eq,
+            right: Box::new(Expr::Identifier(ident("$2"))),
         }),
     }
 }
 
 #[test]
-fn insert_into_table_under_non_existing_schema() {
+fn update_table_under_non_existing_schema() {
     let metadata = Arc::new(DataDefinition::in_memory());
     metadata.create_catalog(DEFAULT_CATALOG);
     let analyzer = Analyzer::new(metadata);
-    let description = analyzer.describe(&insert_statement("non_existent_schema", "non_existent_table"));
+    let description = analyzer.describe(&update_stmt("non_existent_schema", "non_existent_table"));
 
     assert_eq!(
         description,
@@ -74,12 +60,12 @@ fn insert_into_table_under_non_existing_schema() {
 }
 
 #[test]
-fn insert_into_non_existing_table() {
+fn update_non_existing_table() {
     let metadata = Arc::new(DataDefinition::in_memory());
     metadata.create_catalog(DEFAULT_CATALOG);
     metadata.create_schema(DEFAULT_CATALOG, SCHEMA);
     let analyzer = Analyzer::new(metadata);
-    let description = analyzer.describe(&insert_statement(SCHEMA, "non_existent"));
+    let description = analyzer.describe(&update_stmt(SCHEMA, "non_existent"));
 
     assert_eq!(
         description,
@@ -91,7 +77,7 @@ fn insert_into_non_existing_table() {
 }
 
 #[test]
-fn insert_into_existing_table_without_columns() {
+fn update_table_with_non_existing_columns() {
     let metadata = Arc::new(DataDefinition::in_memory());
     metadata.create_catalog(DEFAULT_CATALOG);
     let schema_id = match metadata.create_schema(DEFAULT_CATALOG, SCHEMA) {
@@ -103,11 +89,11 @@ fn insert_into_existing_table_without_columns() {
         _ => panic!(),
     };
     let analyzer = Analyzer::new(metadata);
-    let description = analyzer.describe(&insert_statement(SCHEMA, TABLE));
+    let description = analyzer.describe(&update_stmt(SCHEMA, TABLE));
 
     assert_eq!(
         description,
-        Ok(Description::Insert(InsertStatement {
+        Ok(Description::Update(UpdateStatement {
             table_id: FullTableId::from((schema_id, table_id)),
             param_count: 0,
             param_types: ParamTypes::new(),
@@ -116,7 +102,7 @@ fn insert_into_existing_table_without_columns() {
 }
 
 #[test]
-fn insert_into_existing_table_with_column() {
+fn update_table_with_specified_columns() {
     let metadata = Arc::new(DataDefinition::in_memory());
     metadata.create_catalog(DEFAULT_CATALOG);
     let schema_id = match metadata.create_schema(DEFAULT_CATALOG, SCHEMA) {
@@ -133,11 +119,11 @@ fn insert_into_existing_table_with_column() {
         _ => panic!(),
     };
     let analyzer = Analyzer::new(metadata);
-    let description = analyzer.describe(&insert_stmt_with_values(SCHEMA, TABLE, vec!["1"]));
+    let description = analyzer.describe(&update_stmt(SCHEMA, TABLE));
 
     assert_eq!(
         description,
-        Ok(Description::Insert(InsertStatement {
+        Ok(Description::Update(UpdateStatement {
             table_id: FullTableId::from((schema_id, table_id)),
             param_count: 0,
             param_types: ParamTypes::new(),
@@ -146,7 +132,7 @@ fn insert_into_existing_table_with_column() {
 }
 
 #[test]
-fn insert_into_table_with_parameters() {
+fn update_table_with_parameters() {
     let metadata = Arc::new(DataDefinition::in_memory());
     metadata.create_catalog(DEFAULT_CATALOG);
     let schema_id = match metadata.create_schema(DEFAULT_CATALOG, SCHEMA) {
@@ -166,16 +152,16 @@ fn insert_into_table_with_parameters() {
         _ => panic!(),
     };
     let analyzer = Analyzer::new(metadata);
-    let description = analyzer.describe(&insert_stmt_with_parameters(SCHEMA, TABLE, vec![0, 9]));
+    let description = analyzer.describe(&update_stmt_with_parameters(SCHEMA, TABLE));
     let mut param_types = ParamTypes::new();
     param_types.insert(0, SqlType::SmallInt);
-    param_types.insert(9, SqlType::SmallInt);
+    param_types.insert(1, SqlType::SmallInt);
 
     assert_eq!(
         description,
-        Ok(Description::Insert(InsertStatement {
+        Ok(Description::Update(UpdateStatement {
             table_id: FullTableId::from((schema_id, table_id)),
-            param_count: 10,
+            param_count: 2,
             param_types,
         }))
     );

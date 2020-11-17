@@ -231,7 +231,7 @@ mod parse_bind_execute {
             engine
                 .execute(Command::Parse {
                     statement_name: "statement_name".to_owned(),
-                    sql: "insert into schema_name.table_name values ($3, $2, $1);".to_owned(),
+                    sql: "insert into schema_name.table_name values ($3, $2, $1)".to_owned(),
                     param_types: vec![None],
                 })
                 .expect("statement parsed");
@@ -264,7 +264,7 @@ mod parse_bind_execute {
             engine
                 .execute(Command::Parse {
                     statement_name: "statement_name".to_owned(),
-                    sql: "insert into schema_name.table_name (col3, COL2, COL1) values ($1, $2, $3);".to_owned(),
+                    sql: "insert into schema_name.table_name (col3, COL2, COL1) values ($1, $2, $3)".to_owned(),
                     param_types: vec![None],
                 })
                 .expect("statement parsed");
@@ -288,6 +288,107 @@ mod parse_bind_execute {
                 })
                 .expect("portal executed");
             collector.assert_receive_intermediate(Ok(QueryEvent::RecordsInserted(1)));
+        }
+    }
+
+    #[cfg(test)]
+    mod reassign_operation_queries {
+        use super::*;
+
+        #[rstest::rstest]
+        fn update_with_indeterminate_type(database_with_table: (InMemory, ResultCollector)) {
+            let (mut engine, collector) = database_with_table;
+
+            engine
+                .execute(Command::Parse {
+                    statement_name: "statement_name".to_owned(),
+                    sql: "update schema_name.table_name set COL2 = $9".to_owned(),
+                    param_types: vec![Some(PgType::SmallInt); 4],
+                })
+                .expect("statement parsed");
+            collector.assert_receive_intermediate(Err(QueryError::indeterminate_parameter_data_type(4)));
+        }
+
+        #[rstest::rstest]
+        fn update_for_all_rows(database_with_table: (InMemory, ResultCollector)) {
+            let (mut engine, collector) = database_with_table;
+
+            engine
+                .execute(Command::Query {
+                    sql: "insert into schema_name.table_name values (1, 2, 3), (4, 5, 6), (4, 8, 9)".to_owned(),
+                })
+                .expect("query executed");
+            collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(3)));
+
+            engine
+                .execute(Command::Parse {
+                    statement_name: "statement_name".to_owned(),
+                    sql: "update schema_name.table_name set col3 = $1, COL1 = $2".to_owned(),
+                    param_types: vec![None],
+                })
+                .expect("statement parsed");
+            collector.assert_receive_intermediate(Ok(QueryEvent::ParseComplete));
+
+            engine
+                .execute(Command::Bind {
+                    statement_name: "statement_name".to_owned(),
+                    portal_name: "portal_name".to_owned(),
+                    param_formats: vec![PgFormat::Text; 2],
+                    raw_params: vec![Some(b"10".to_vec()); 2],
+                    result_formats: vec![],
+                })
+                .expect("statement bound to portal");
+            collector.assert_receive_intermediate(Ok(QueryEvent::BindComplete));
+
+            engine
+                .execute(Command::Execute {
+                    portal_name: "portal_name".to_owned(),
+                    max_rows: 0,
+                })
+                .expect("portal executed");
+            collector.assert_receive_intermediate(Ok(QueryEvent::RecordsUpdated(3)));
+        }
+
+        #[rstest::rstest]
+        fn update_for_specified_rows(database_with_table: (InMemory, ResultCollector)) {
+            let (mut engine, collector) = database_with_table;
+
+            engine
+                .execute(Command::Query {
+                    sql: "insert into schema_name.table_name values (1, 2, 3), (4, 5, 6), (4, 8, 9)".to_owned(),
+                })
+                .expect("query executed");
+            collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(3)));
+
+            engine
+                .execute(Command::Parse {
+                    statement_name: "statement_name".to_owned(),
+                    sql: "update schema_name.table_name set col2 = $1, col3 = $2 where COL1 = $3".to_owned(),
+                    param_types: vec![None],
+                })
+                .expect("statement parsed");
+            collector.assert_receive_intermediate(Ok(QueryEvent::ParseComplete));
+
+            engine
+                .execute(Command::Bind {
+                    statement_name: "statement_name".to_owned(),
+                    portal_name: "portal_name".to_owned(),
+                    param_formats: vec![PgFormat::Text; 3],
+                    raw_params: vec![Some(b"100".to_vec()), Some(b"200".to_vec()), Some(b"40".to_vec())],
+                    result_formats: vec![],
+                })
+                .expect("statement bound to portal");
+            collector.assert_receive_intermediate(Ok(QueryEvent::BindComplete));
+
+            engine
+                .execute(Command::Execute {
+                    portal_name: "portal_name".to_owned(),
+                    max_rows: 0,
+                })
+                .expect("portal executed");
+
+            // TODO: `where` clause needs to be handled in `query_planner`.
+            collector.assert_receive_intermediate(Ok(QueryEvent::RecordsUpdated(3)));
         }
     }
 }

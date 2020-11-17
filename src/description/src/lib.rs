@@ -149,7 +149,13 @@ impl AsRef<Id> for SchemaId {
 #[derive(PartialEq, Debug)]
 pub struct InsertStatement {
     pub table_id: FullTableId,
-    pub column_types: Vec<SqlType>,
+    pub param_count: usize,
+    pub param_types: ParamTypes,
+}
+
+#[derive(PartialEq, Debug)]
+pub struct UpdateStatement {
+    pub table_id: FullTableId,
     pub param_count: usize,
     pub param_types: ParamTypes,
 }
@@ -206,6 +212,7 @@ pub enum Description {
     DropTables(DropTablesInfo),
     Insert(InsertStatement),
     Select(SelectStatement),
+    Update(UpdateStatement),
 }
 
 #[derive(PartialEq, Debug)]
