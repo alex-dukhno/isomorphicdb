@@ -10,4 +10,4 @@
 rootProject.name = 'database'
 
 include 'compatibility'
-project(':compatibility').projectDir = file('tests/compatibility')
+project(':compatibility').projectDir = file('tests/java_compatibility')

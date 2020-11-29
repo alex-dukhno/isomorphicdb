@@ -83,25 +83,37 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-  erlang-client-compatibility:
+  compatibility-tests:
     needs:
       - cargo-deny
       - rustfmt
       - clippy
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:12.4
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_DB: test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5433:5432
     steps:
       - name: set-up-rust
         uses: hecrj/setup-rust-action@v1
         with:
           rust-version: stable
-      - name: set-up-erlang
-        uses: gleam-lang/setup-erlang@v1.1.0
-        with:
-            otp-version: 23.1
       - name: checkout
         uses: actions/checkout@v2
-      - name: run-tests
-        run: ./ci/erlang_client.sh
+      - name: install java
+        uses: actions/setup-java@v1
+        with:
+          java-version: 8
 
   ci-success:
     name: ci

@@ -23,7 +23,7 @@ jobs:
           repository: alex-dukhno/database/database
           tags: latest
 
-  compatibility-tests:
+  java-compatibility-tests:
     needs:
       - publish-docker
     runs-on: ubuntu-latest
@@ -61,9 +61,46 @@ jobs:
         with:
           arguments: test -Dci=true
 
+  erlang-compatibility-tests:
+    needs:
+      - publish-docker
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:12.4
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_DB: test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5433:5432
+    steps:
+      - name: docker-login
+        run: echo ${{secrets.GITHUB_TOKEN}} | docker login docker.pkg.github.com -u $GITHUB_ACTOR --password-stdin
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+      - name: pull-docker-image
+        run: docker pull "docker.pkg.github.com/alex-dukhno/database/database:latest"
+      - name:
+        run: docker run -it -d -p 5432:5432 docker.pkg.github.com/alex-dukhno/database/database:latest
+      - name: checkout
+        uses: actions/checkout@v2
+      - name: install erlang
+        uses: gleam-lang/setup-erlang@v1.1.0
+        with:
+            otp-version: 23.1
+      - name: run-tests
+        run: rebar3 ct --dir tests/erlang_compatibility/ --logdir erlang_compatibility_logs/ -v
+
   coverage:
     needs:
-      - compatibility-tests
+      - erlang-compatibility-tests
+      - java-compatibility-tests
     runs-on: ubuntu-latest
     steps:
       - name: checkout
