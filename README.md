@@ -102,6 +102,14 @@ on a local machine and queries result has to be checked visually.
 1. Run `PERSISTENT=1 RUST_LOG=debug cargo run` from project folder in separate terminal window
 1. Run `./local/compatibility.sh`
 
+### Running Erlang Client Compatibility tests locally
+
+1. Install `Erlang` version `23.1` (which is tested on CI now). You could
+install specified version of Erlang via [asdf](https://github.com/asdf-vm/asdf).
+1. Install [rebar3](https://github.com/erlang/rebar3) to run Erlang Common Test.
+1. Run `./ci/erlang_client.sh`.
+1. Kill `database` process manually for running the tests again.
+
 ### Running Functional tests
 
 We use PyTest for functional tests. To run tests locally you need to set up
