@@ -6,4 +6,4 @@ edition = "2018"
 publish = false
 
 [dependencies]
-ordered-float = "2.0.0"
+ordered-float = "2.0.1"
