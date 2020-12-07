@@ -83,6 +83,26 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
+  erlang-client-compatibility:
+    needs:
+      - cargo-deny
+      - rustfmt
+      - clippy
+    runs-on: ubuntu-latest
+    steps:
+      - name: set-up-rust
+        uses: hecrj/setup-rust-action@v1
+        with:
+          rust-version: stable
+      - name: set-up-erlang
+        uses: gleam-lang/setup-erlang@v1.1.0
+        with:
+            otp-version: 23.1
+      - name: checkout
+        uses: actions/checkout@v2
+      - name: run-tests
+        run: ./ci/erlang_client.sh
+
   ci-success:
     name: ci
     if: github.event_name == 'push' && success()
