@@ -114,6 +114,12 @@ jobs:
         uses: actions/setup-java@v1
         with:
           java-version: 8
+      - name: start-database
+        run: cargo run & cargo build && sleep 1
+      - name: run-tests
+        uses: eskatos/gradle-command-action@v1
+        with:
+          arguments: test -Dci=true
 
   ci-success:
     name: ci
