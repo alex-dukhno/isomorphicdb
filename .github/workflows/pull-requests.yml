@@ -83,7 +83,7 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-  java-compatibility:
+  compatibility-test:
     needs:
       - cargo-deny
       - rustfmt
