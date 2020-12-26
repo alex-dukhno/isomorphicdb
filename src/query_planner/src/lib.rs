@@ -13,32 +13,22 @@
 // limitations under the License.
 
 ///! Module for transforming the input Query AST into representation the engine can process.
-mod create_schema;
-mod create_table;
 mod delete;
-mod drop_schema;
-mod drop_tables;
 mod insert;
 mod select;
 mod update;
 
-use crate::{
-    create_schema::CreateSchemaPlanner, create_table::CreateTablePlanner, delete::DeletePlanner,
-    drop_schema::DropSchemaPlanner, drop_tables::DropTablesPlanner, insert::InsertPlanner, select::SelectPlanner,
-    update::UpdatePlanner,
-};
+use crate::{delete::DeletePlanner, insert::InsertPlanner, select::SelectPlanner, update::UpdatePlanner};
 use data_definition::DataDefReader;
 use plan::Plan;
-use sqlparser::ast::{ObjectType, Statement};
+use sqlparser::ast::Statement;
 use std::sync::Arc;
 
 type Result<T> = std::result::Result<T, PlanError>;
 
 #[derive(Debug, PartialEq)]
 pub enum PlanError {
-    SchemaAlreadyExists(String),
     SchemaDoesNotExist(String),
-    TableAlreadyExists(String),
     TableDoesNotExist(String),
     DuplicateColumn(String),
     ColumnDoesNotExist(String),
@@ -47,16 +37,8 @@ pub enum PlanError {
 }
 
 impl PlanError {
-    fn schema_already_exists<S: ToString>(schema: &S) -> PlanError {
-        PlanError::SchemaAlreadyExists(schema.to_string())
-    }
-
     fn schema_does_not_exist<S: ToString>(schema: &S) -> PlanError {
         PlanError::SchemaDoesNotExist(schema.to_string())
-    }
-
-    fn table_already_exists<T: ToString>(table: &T) -> PlanError {
-        PlanError::TableAlreadyExists(table.to_string())
     }
 
     fn table_does_not_exist<T: ToString>(table: &T) -> PlanError {
@@ -95,22 +77,6 @@ impl QueryPlanner {
 
     pub fn plan(&self, statement: &Statement) -> Result<Plan> {
         match statement {
-            Statement::CreateTable { name, columns, .. } => {
-                CreateTablePlanner::new(name, columns).plan(self.metadata.clone())
-            }
-            Statement::CreateSchema { schema_name, .. } => {
-                CreateSchemaPlanner::new(schema_name).plan(self.metadata.clone())
-            }
-            Statement::Drop {
-                object_type,
-                names,
-                cascade,
-                if_exists,
-            } => match object_type {
-                ObjectType::Table => DropTablesPlanner::new(names, *if_exists).plan(self.metadata.clone()),
-                ObjectType::Schema => DropSchemaPlanner::new(names, *cascade, *if_exists).plan(self.metadata.clone()),
-                _ => Err(PlanError::feature_not_supported(&statement)),
-            },
             Statement::Insert {
                 table_name,
                 columns,

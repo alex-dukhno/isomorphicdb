@@ -327,9 +327,7 @@ impl QueryEngine {
                             }
                             Err(error) => {
                                 let query_error = match error {
-                                    PlanError::SchemaAlreadyExists(schema) => QueryError::schema_already_exists(schema),
                                     PlanError::SchemaDoesNotExist(schema) => QueryError::schema_does_not_exist(schema),
-                                    PlanError::TableAlreadyExists(table) => QueryError::table_already_exists(table),
                                     PlanError::TableDoesNotExist(table) => QueryError::table_does_not_exist(table),
                                     PlanError::DuplicateColumn(column) => QueryError::duplicate_column(column),
                                     PlanError::ColumnDoesNotExist(column) => QueryError::column_does_not_exist(column),
@@ -515,9 +513,7 @@ impl QueryEngine {
                 }
             },
             Err(error) => match error {
-                PlanError::SchemaAlreadyExists(schema) => Err(QueryError::schema_already_exists(schema)),
                 PlanError::SchemaDoesNotExist(schema) => Err(QueryError::schema_does_not_exist(schema)),
-                PlanError::TableAlreadyExists(table) => Err(QueryError::table_already_exists(table)),
                 PlanError::TableDoesNotExist(table) => Err(QueryError::table_does_not_exist(table)),
                 PlanError::DuplicateColumn(column) => Err(QueryError::duplicate_column(column)),
                 PlanError::ColumnDoesNotExist(column) => Err(QueryError::column_does_not_exist(column)),

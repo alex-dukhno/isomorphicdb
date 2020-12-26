@@ -19,7 +19,6 @@ use sqlparser::ast::Ident;
 use std::sync::Arc;
 use types::SqlType;
 
-mod ddl;
 #[cfg(test)]
 mod delete;
 #[cfg(test)]
