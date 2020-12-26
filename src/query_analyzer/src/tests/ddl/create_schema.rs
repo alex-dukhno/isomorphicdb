@@ -13,54 +13,76 @@
 // limitations under the License.
 
 use super::*;
-use description::SchemaCreationInfo;
-use sqlparser::ast::{ObjectName, Statement};
 
-fn create_schema(schema_name: ObjectName) -> Statement {
-    Statement::CreateSchema {
-        schema_name,
-        if_not_exists: false,
+fn create_schema(schema_name: Vec<&'static str>) -> ast::Statement {
+    create_schema_if_not_exists(schema_name, false)
+}
+
+fn create_schema_if_not_exists(schema_name: Vec<&'static str>, if_not_exists: bool) -> ast::Statement {
+    ast::Statement::CreateSchema {
+        schema_name: ast::ObjectName(schema_name.into_iter().map(ident).collect()),
+        if_not_exists,
     }
 }
 
 #[test]
 fn create_new_schema() {
-    let metadata = Arc::new(DataDefinition::in_memory());
-    metadata.create_catalog(DEFAULT_CATALOG);
-    let analyzer = Analyzer::new(metadata);
-    let description = analyzer.describe(&create_schema(ObjectName(vec![ident(SCHEMA)])));
+    let data_definition = Arc::new(DataManager::in_memory());
+    let analyzer = Analyzer::new(data_definition);
     assert_eq!(
-        description,
-        Ok(Description::CreateSchema(SchemaCreationInfo {
-            schema_name: SCHEMA.to_owned()
-        }))
+        analyzer.analyze(create_schema(vec![SCHEMA])),
+        Ok(QueryAnalysis::DataDefinition(SchemaChange::CreateSchema(
+            CreateSchemaQuery {
+                schema_name: SchemaName::from(&SCHEMA),
+                if_not_exists: false,
+            }
+        )))
+    );
+}
+
+#[test]
+fn create_new_schema_if_not_exists() {
+    let data_definition = Arc::new(DataManager::in_memory());
+    let analyzer = Analyzer::new(data_definition);
+    assert_eq!(
+        analyzer.analyze(create_schema_if_not_exists(vec![SCHEMA], true)),
+        Ok(QueryAnalysis::DataDefinition(SchemaChange::CreateSchema(
+            CreateSchemaQuery {
+                schema_name: SchemaName::from(&SCHEMA),
+                if_not_exists: true,
+            }
+        )))
     );
 }
 
 #[test]
 fn create_schema_with_the_same_name() {
-    let metadata = Arc::new(DataDefinition::in_memory());
-    metadata.create_catalog(DEFAULT_CATALOG);
-    metadata.create_schema(DEFAULT_CATALOG, SCHEMA);
-    let analyzer = Analyzer::new(metadata);
-    let description = analyzer.describe(&create_schema(ObjectName(vec![ident(SCHEMA)])));
-    assert_eq!(description, Err(DescriptionError::schema_already_exists(&SCHEMA)));
+    let data_definition = Arc::new(DataManager::in_memory());
+    data_definition.create_schema(SCHEMA).expect("schema created");
+    let analyzer = Analyzer::new(data_definition);
+    assert_eq!(
+        analyzer.analyze(create_schema(vec![SCHEMA])),
+        Ok(QueryAnalysis::DataDefinition(SchemaChange::CreateSchema(
+            CreateSchemaQuery {
+                schema_name: SchemaName::from(&SCHEMA),
+                if_not_exists: false,
+            }
+        )))
+    );
 }
 
 #[test]
 fn create_schema_with_unqualified_name() {
-    let metadata = Arc::new(DataDefinition::in_memory());
-    metadata.create_catalog(DEFAULT_CATALOG);
-    let analyzer = Analyzer::new(metadata);
-    let description = analyzer.describe(&create_schema(ObjectName(vec![
-        ident("first_part"),
-        ident("second_part"),
-        ident("third_part"),
-        ident("fourth_part"),
-    ])));
+    let data_definition = Arc::new(DataManager::in_memory());
+    let analyzer = Analyzer::new(data_definition);
     assert_eq!(
-        description,
-        Err(DescriptionError::syntax_error(
+        analyzer.analyze(create_schema(vec![
+            "first_part",
+            "second_part",
+            "third_part",
+            "fourth_part",
+        ])),
+        Err(AnalysisError::schema_naming_error(
             &"Only unqualified schema names are supported, 'first_part.second_part.third_part.fourth_part'"
         ))
     );

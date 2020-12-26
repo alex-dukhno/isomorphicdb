@@ -12,316 +12,325 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use description::{
-    ColumnDesc, Description, DescriptionError, DropSchemasInfo, DropTablesInfo, FullTableId, FullTableName,
-    InsertStatement, ParamIndex, ParamTypes, ProjectionItem, SchemaCreationInfo, SchemaId, SchemaName, SelectStatement,
-    TableCreationInfo, UpdateStatement,
+use crate::{
+    insert_tree_builder::InsertTreeBuilder, projection_tree_builder::ProjectionTreeBuilder,
+    update_tree_builder::UpdateTreeBuilder,
 };
-use meta_def::ColumnDefinition;
-use metadata::{DataDefinition, MetadataView};
-use sql_model::{sql_errors::NotFoundError, sql_types::SqlType};
-use sqlparser::ast::{
-    Assignment, Expr, Ident, ObjectType, Query, Select, SelectItem, SetExpr, Statement, TableFactor, TableWithJoins,
+use analysis::{
+    AnalysisError, ColumnDesc, CreateSchemaQuery, CreateTableQuery, DeleteQuery, DropSchemasQuery, DropTablesQuery,
+    Feature, FullTableId, FullTableName, InsertQuery, ProjectionTreeNode, QueryAnalysis, SchemaChange, SchemaName,
+    SelectQuery, TableInfo, UpdateQuery, Write,
 };
-use std::{convert::TryFrom, ops::Deref, sync::Arc};
+use data_definition::DataDefReader;
+use expr_operators::Operator;
+use sqlparser::ast;
+use std::{convert::TryFrom, sync::Arc};
+use types::SqlType;
+
+mod insert_tree_builder;
+mod operation_mapper;
+mod projection_tree_builder;
+mod update_tree_builder;
 
 pub struct Analyzer {
-    metadata: Arc<DataDefinition>,
+    data_definition: Arc<dyn DataDefReader>,
 }
 
 impl Analyzer {
-    pub fn new(metadata: Arc<DataDefinition>) -> Analyzer {
-        Analyzer { metadata }
+    pub fn new(data_definition: Arc<dyn DataDefReader>) -> Analyzer {
+        Analyzer { data_definition }
     }
 
-    pub fn describe(&self, statement: &Statement) -> Result<Description, DescriptionError> {
-        match statement {
-            Statement::Insert {
-                columns,
-                source,
-                table_name,
-                ..
-            } => match FullTableName::try_from(table_name) {
-                Ok(full_table_name) => match self.metadata.table_desc((&full_table_name).into()) {
-                    Ok(table_def) => {
-                        let source: &Query = source;
-                        let Query { body, .. } = source;
-                        let column_types = if columns.is_empty() {
-                            table_def.column_types()
-                        } else {
-                            let table_cols = table_def.columns();
-                            let mut col_types = vec![];
-                            for col in columns {
-                                let Ident { value, .. } = col;
-                                let col_name = value.to_lowercase();
-                                match table_cols.iter().find(|col_def| col_def.has_name(&col_name)) {
-                                    Some(col_def) => col_types.push(col_def.sql_type()),
-                                    None => return Err(DescriptionError::column_does_not_exist(&col_name)),
+    pub fn analyze(&self, statement: ast::Statement) -> Result<QueryAnalysis, AnalysisError> {
+        match statement.clone() {
+            ast::Statement::Insert { table_name, source, .. } => match FullTableName::try_from(table_name) {
+                Err(error) => Err(AnalysisError::table_naming_error(error)),
+                Ok(full_table_name) => match self.data_definition.table_desc((&full_table_name).into()) {
+                    None => Err(AnalysisError::schema_does_not_exist(full_table_name.schema())),
+                    Some((_schema_id, None)) => Err(AnalysisError::table_does_not_exist(full_table_name)),
+                    Some((schema_id, Some((table_id, table_columns)))) => {
+                        let column_types: Vec<SqlType> = table_columns.into_iter().map(|col| col.sql_type()).collect();
+                        let source: ast::Query = *source;
+                        let ast::Query { body, .. } = source;
+                        let values = match body {
+                            ast::SetExpr::Values(ast::Values(insert_rows)) => {
+                                let mut values = vec![];
+                                for insert_row in insert_rows {
+                                    let mut row = vec![];
+                                    for (index, value) in insert_row.iter().enumerate() {
+                                        let sql_type = column_types[index];
+                                        row.push(InsertTreeBuilder::build_from(
+                                            value,
+                                            &statement,
+                                            &sql_type.general_type(),
+                                            &sql_type,
+                                        )?);
+                                    }
+                                    values.push(row)
                                 }
+                                values
                             }
-                            col_types
+                            ast::SetExpr::Query(_) | ast::SetExpr::Select(_) => {
+                                return Err(AnalysisError::FeatureNotSupported(Feature::InsertIntoSelect))
+                            }
+                            ast::SetExpr::SetOperation { .. } => {
+                                return Err(AnalysisError::FeatureNotSupported(Feature::SetOperations))
+                            }
                         };
-                        let param_types = parse_assign_param_types(body, &column_types)?;
-                        let param_count = param_types.keys().max().map_or(0, |max_index| max_index + 1);
-                        Ok(Description::Insert(InsertStatement {
-                            table_id: FullTableId::from(table_def.full_table_id()),
-                            param_count,
-                            param_types,
-                        }))
-                    }
-                    Err(NotFoundError::Object) => Err(DescriptionError::table_does_not_exist(&full_table_name)),
-                    Err(NotFoundError::Schema) => {
-                        Err(DescriptionError::schema_does_not_exist(full_table_name.schema()))
+                        Ok(QueryAnalysis::Write(Write::Insert(InsertQuery {
+                            full_table_id: FullTableId::from((schema_id, table_id)),
+                            column_types,
+                            values,
+                        })))
                     }
                 },
-                Err(error) => Err(DescriptionError::syntax_error(&error)),
             },
-            Statement::Query(query) => {
-                let Query { body, .. } = &**query;
-                match body {
-                    SetExpr::Select(query) => {
-                        let Select { projection, from, .. } = query.deref();
-                        let TableWithJoins { relation, .. } = &from[0];
-                        match relation {
-                            TableFactor::Table { name, .. } => match FullTableName::try_from(name) {
-                                Ok(full_table_name) => {
-                                    match self.metadata.table_exists_tuple((&full_table_name).into()) {
-                                        None => Err(DescriptionError::schema_does_not_exist(full_table_name.schema())),
-                                        Some((_, None)) => {
-                                            Err(DescriptionError::table_does_not_exist(&full_table_name))
-                                        }
-                                        Some((schema_id, Some(table_id))) => {
-                                            let full_table_id = FullTableId::from((schema_id, table_id));
-                                            let projection_items = {
-                                                let mut names: Vec<String> = vec![];
-                                                for item in projection {
-                                                    match item {
-                                                        SelectItem::UnnamedExpr(Expr::Identifier(Ident {
-                                                            value,
-                                                            ..
-                                                        })) => names.push(value.to_lowercase()),
-                                                        SelectItem::Wildcard => {
-                                                            for (_col_id, col_def) in self
-                                                                .metadata
-                                                                .table_columns(&full_table_id)
-                                                                .expect("table exists")
-                                                            {
-                                                                names.push(col_def.name());
-                                                            }
-                                                        }
-                                                        _ => unimplemented!(),
-                                                    }
-                                                }
-                                                let columns =
-                                                    self.metadata.table_columns(&full_table_id).expect("table exists");
-
-                                                let mut projection_items = vec![];
-                                                for name in &names {
-                                                    let mut found = None;
-                                                    for (column_id, column) in &columns {
-                                                        if column.has_name(name) {
-                                                            found = Some((*column_id, column.sql_type()));
-                                                        }
-                                                    }
-                                                    match found {
-                                                        None => {
-                                                            return Err(DescriptionError::column_does_not_exist(name))
-                                                        }
-                                                        Some((column_id, sql_type)) => projection_items
-                                                            .push(ProjectionItem::Column(column_id, sql_type)),
-                                                    }
-                                                }
-                                                projection_items
-                                            };
-                                            Ok(Description::Select(SelectStatement {
-                                                full_table_id,
-                                                projection_items,
-                                            }))
-                                        }
-                                    }
+            ast::Statement::Update {
+                table_name,
+                assignments: stmt_assignments,
+                ..
+            } => match FullTableName::try_from(table_name) {
+                Err(error) => Err(AnalysisError::table_naming_error(error)),
+                Ok(full_table_name) => match self.data_definition.table_desc((&full_table_name).into()) {
+                    None => Err(AnalysisError::schema_does_not_exist(full_table_name.schema())),
+                    Some((_schema_id, None)) => Err(AnalysisError::table_does_not_exist(full_table_name)),
+                    Some((schema_id, Some((table_id, table_columns)))) => {
+                        let mut sql_types = vec![];
+                        let mut assignments = vec![];
+                        for assignment in stmt_assignments {
+                            let ast::Assignment { id, value } = assignment;
+                            let name = id.to_string();
+                            let mut found = None;
+                            for table_column in &table_columns {
+                                if table_column.has_name(&name) {
+                                    found = Some(table_column.sql_type());
+                                    break;
                                 }
-                                Err(error) => Err(DescriptionError::syntax_error(&error)),
-                            },
-                            _ => {
-                                // Err(DescriptionError::feature_not_supported(&*query))
-                                unimplemented!()
+                            }
+                            match found {
+                                None => unimplemented!("Column not found is not covered yet"),
+                                Some(sql_type) => {
+                                    assignments.push(UpdateTreeBuilder::build_from(
+                                        &value,
+                                        &statement,
+                                        &sql_type.general_type(),
+                                        &sql_type,
+                                        &table_columns,
+                                    )?);
+                                    sql_types.push(sql_type);
+                                }
                             }
                         }
+                        Ok(QueryAnalysis::Write(Write::Update(UpdateQuery {
+                            full_table_id: FullTableId::from((schema_id, table_id)),
+                            sql_types,
+                            assignments,
+                        })))
                     }
-                    _ => unimplemented!(),
+                },
+            },
+            ast::Statement::Query(query) => {
+                let ast::Query { body, .. } = &*query;
+                match body {
+                    ast::SetExpr::Query(_) => Err(AnalysisError::feature_not_supported(Feature::SubQueries)),
+                    ast::SetExpr::SetOperation { .. } => {
+                        Err(AnalysisError::feature_not_supported(Feature::SetOperations))
+                    }
+                    value_expr @ ast::SetExpr::Values(_) => Err(AnalysisError::syntax_error(format!(
+                        "Syntax error in {}\naround {}",
+                        statement, value_expr
+                    ))),
+                    ast::SetExpr::Select(select) => {
+                        let ast::Select { projection, from, .. } = &**select;
+                        if from.len() > 1 {
+                            return Err(AnalysisError::feature_not_supported(Feature::Joins));
+                        }
+                        let ast::TableWithJoins { relation, .. } = &from[0];
+                        let name = match relation {
+                            ast::TableFactor::Table { name, .. } => name,
+                            ast::TableFactor::Derived { .. } => {
+                                return Err(AnalysisError::feature_not_supported(Feature::FromSubQuery))
+                            }
+                            ast::TableFactor::TableFunction { .. } => {
+                                return Err(AnalysisError::feature_not_supported(Feature::TableFunctions))
+                            }
+                            ast::TableFactor::NestedJoin(_) => {
+                                return Err(AnalysisError::feature_not_supported(Feature::NestedJoin))
+                            }
+                        };
+                        match FullTableName::try_from(name.clone()) {
+                            Ok(full_table_name) => match self.data_definition.table_desc((&full_table_name).into()) {
+                                None => Err(AnalysisError::schema_does_not_exist(full_table_name.schema())),
+                                Some((_schema_id, None)) => Err(AnalysisError::table_does_not_exist(&full_table_name)),
+                                Some((schema_id, Some((table_id, table_columns)))) => {
+                                    let full_table_id = FullTableId::from((schema_id, table_id));
+                                    let mut projection_items = vec![];
+                                    for item in projection {
+                                        match item {
+                                            ast::SelectItem::Wildcard => {
+                                                for (index, table_column) in table_columns.iter().enumerate() {
+                                                    projection_items.push(ProjectionTreeNode::Item(Operator::Column {
+                                                        index,
+                                                        sql_type: table_column.sql_type(),
+                                                    }));
+                                                }
+                                            }
+                                            ast::SelectItem::UnnamedExpr(expr) => {
+                                                projection_items.push(ProjectionTreeBuilder::build_from(
+                                                    &expr,
+                                                    &statement,
+                                                    &SqlType::SmallInt,
+                                                    &table_columns,
+                                                )?)
+                                            }
+                                            ast::SelectItem::ExprWithAlias { .. } => {
+                                                return Err(AnalysisError::feature_not_supported(Feature::Aliases))
+                                            }
+                                            ast::SelectItem::QualifiedWildcard(_) => {
+                                                return Err(AnalysisError::feature_not_supported(
+                                                    Feature::QualifiedAliases,
+                                                ))
+                                            }
+                                        }
+                                    }
+                                    Ok(QueryAnalysis::Read(SelectQuery {
+                                        full_table_id,
+                                        projection_items,
+                                    }))
+                                }
+                            },
+                            Err(error) => Err(AnalysisError::table_naming_error(&error)),
+                        }
+                    }
                 }
             }
-            Statement::Update {
-                assignments,
-                selection,
-                table_name,
+            ast::Statement::Delete { table_name, .. } => match FullTableName::try_from(table_name) {
+                Ok(full_table_name) => match self.data_definition.table_exists_tuple((&full_table_name).into()) {
+                    None => Err(AnalysisError::schema_does_not_exist(full_table_name.schema())),
+                    Some((_schema_id, None)) => Err(AnalysisError::table_does_not_exist(&full_table_name)),
+                    Some((schema_id, Some(table_id))) => Ok(QueryAnalysis::Write(Write::Delete(DeleteQuery {
+                        full_table_id: FullTableId::from((schema_id, table_id)),
+                    }))),
+                },
+                Err(error) => Err(AnalysisError::table_naming_error(error)),
+            },
+            ast::Statement::CreateTable {
+                name,
+                columns,
+                if_not_exists,
                 ..
-            } => match FullTableName::try_from(table_name) {
-                Ok(full_table_name) => match self.metadata.table_desc((&full_table_name).into()) {
-                    Ok(table_def) => {
-                        let table_cols = table_def.columns();
-                        let mut param_types = ParamTypes::new();
-                        for assignment in assignments {
-                            let Assignment { id, value } = assignment;
-                            if let Expr::Identifier(Ident { value, .. }) = value {
-                                if let Some(param_index) = parse_param_index(value) {
-                                    let Ident { value, .. } = id;
-                                    parse_param_type_by_column(&mut param_types, table_cols, param_index, value)?;
+            } => match FullTableName::try_from(name) {
+                Ok(full_table_name) => match self.data_definition.schema_exists(full_table_name.schema()) {
+                    None => Err(AnalysisError::schema_does_not_exist(full_table_name.schema())),
+                    Some(schema_id) => {
+                        let mut column_defs = Vec::new();
+                        for column in columns {
+                            match SqlType::try_from(&column.data_type) {
+                                Ok(sql_type) => column_defs.push(ColumnDesc {
+                                    name: column.name.value.as_str().to_owned(),
+                                    sql_type,
+                                }),
+                                Err(_not_supported_type_error) => {
+                                    return Err(AnalysisError::type_is_not_supported(&column.data_type));
                                 }
                             }
                         }
-                        if let Some(Expr::BinaryOp { left, right, .. }) = selection {
-                            if let (
-                                Expr::Identifier(Ident { value: left_val, .. }),
-                                Expr::Identifier(Ident { value: right_val, .. }),
-                            ) = (left.deref(), right.deref())
-                            {
-                                let pair = if let Some(param_index) = parse_param_index(left_val) {
-                                    Some((param_index, right_val))
-                                } else if let Some(param_index) = parse_param_index(right_val) {
-                                    Some((param_index, left_val))
-                                } else {
-                                    None
-                                };
-                                if let Some((param_index, col_name)) = pair {
-                                    parse_param_type_by_column(&mut param_types, table_cols, param_index, col_name)?;
-                                }
-                            }
-                        }
-                        let param_count = param_types.keys().max().map_or(0, |max_index| max_index + 1);
-                        Ok(Description::Update(UpdateStatement {
-                            table_id: FullTableId::from(table_def.full_table_id()),
-                            param_count,
-                            param_types,
-                        }))
-                    }
-                    Err(NotFoundError::Object) => Err(DescriptionError::table_does_not_exist(&full_table_name)),
-                    Err(NotFoundError::Schema) => {
-                        Err(DescriptionError::schema_does_not_exist(full_table_name.schema()))
+                        Ok(QueryAnalysis::DataDefinition(SchemaChange::CreateTable(
+                            CreateTableQuery {
+                                table_info: TableInfo::new(
+                                    schema_id,
+                                    &full_table_name.schema(),
+                                    &full_table_name.table(),
+                                ),
+                                column_defs,
+                                if_not_exists,
+                            },
+                        )))
                     }
                 },
-                Err(error) => Err(DescriptionError::syntax_error(&error)),
+                Err(error) => Err(AnalysisError::table_naming_error(&error)),
             },
-            Statement::CreateTable { name, columns, .. } => match FullTableName::try_from(name) {
-                Ok(full_table_name) => {
-                    let (schema_name, table_name) = (&full_table_name).into();
-                    match self.metadata.table_exists(schema_name, table_name) {
-                        Some((_, Some(_))) => Err(DescriptionError::table_already_exists(&full_table_name)),
-                        None => Err(DescriptionError::schema_does_not_exist(full_table_name.schema())),
-                        Some((schema_id, None)) => {
-                            let mut column_defs = Vec::new();
-                            for column in columns {
-                                match SqlType::try_from(&column.data_type) {
-                                    Ok(sql_type) => column_defs.push(ColumnDesc {
-                                        name: column.name.value.as_str().to_owned(),
-                                        pg_type: (&sql_type).into(),
-                                    }),
-                                    Err(error) => {
-                                        return Err(DescriptionError::feature_not_supported(&error));
-                                    }
-                                }
-                            }
-                            Ok(Description::CreateTable(TableCreationInfo {
-                                schema_id,
-                                table_name: table_name.to_owned(),
-                                columns: column_defs,
-                            }))
-                        }
-                    }
-                }
-                Err(error) => Err(DescriptionError::syntax_error(&error)),
+            ast::Statement::CreateSchema {
+                schema_name,
+                if_not_exists,
+                ..
+            } => match SchemaName::try_from(schema_name) {
+                Ok(schema_name) => Ok(QueryAnalysis::DataDefinition(SchemaChange::CreateSchema(
+                    CreateSchemaQuery {
+                        schema_name,
+                        if_not_exists,
+                    },
+                ))),
+                Err(error) => Err(AnalysisError::schema_naming_error(&error)),
             },
-            Statement::CreateSchema { schema_name, .. } => match SchemaName::try_from(schema_name) {
-                Ok(schema_name) => match self.metadata.schema_exists(&schema_name) {
-                    Some(_) => Err(DescriptionError::schema_already_exists(&schema_name)),
-                    None => Ok(Description::CreateSchema(SchemaCreationInfo {
-                        schema_name: schema_name.to_string(),
-                    })),
-                },
-                Err(error) => Err(DescriptionError::syntax_error(&error)),
-            },
-            Statement::Drop {
+            ast::Statement::Drop {
                 names,
                 object_type,
                 cascade,
                 if_exists,
             } => match object_type {
-                ObjectType::Schema => {
-                    let mut schema_ids = vec![];
+                ast::ObjectType::Schema => {
+                    let mut schema_names = vec![];
                     for name in names {
                         match SchemaName::try_from(name) {
-                            Ok(schema_name) => match self.metadata.schema_exists(&schema_name) {
-                                None => return Err(DescriptionError::schema_does_not_exist(&schema_name)),
-                                Some(schema_id) => schema_ids.push(SchemaId::from(schema_id)),
-                            },
-                            Err(error) => return Err(DescriptionError::syntax_error(&error)),
+                            Ok(schema_name) => schema_names.push(schema_name),
+                            Err(error) => return Err(AnalysisError::schema_naming_error(&error)),
                         }
                     }
-                    Ok(Description::DropSchemas(DropSchemasInfo {
-                        schema_ids,
-                        cascade: *cascade,
-                        if_exists: *if_exists,
-                    }))
+                    Ok(QueryAnalysis::DataDefinition(SchemaChange::DropSchemas(
+                        DropSchemasQuery {
+                            schema_names,
+                            cascade,
+                            if_exists,
+                        },
+                    )))
                 }
-                ObjectType::Table => {
-                    let mut full_table_ids = vec![];
+                ast::ObjectType::Table => {
+                    let mut table_infos = vec![];
                     for name in names {
                         match FullTableName::try_from(name) {
-                            Ok(full_table_name) => match self.metadata.table_exists_tuple((&full_table_name).into()) {
-                                None => return Err(DescriptionError::schema_does_not_exist(full_table_name.schema())),
-                                Some((_, None)) => {
-                                    return Err(DescriptionError::table_does_not_exist(&full_table_name))
+                            Ok(full_table_name) => {
+                                match self.data_definition.table_exists_tuple((&full_table_name).into()) {
+                                    None => return Err(AnalysisError::schema_does_not_exist(full_table_name.schema())),
+                                    Some((schema_id, _)) => table_infos.push(TableInfo::new(
+                                        schema_id,
+                                        &full_table_name.schema(),
+                                        &full_table_name.table(),
+                                    )),
                                 }
-                                Some((schema_id, Some(table_id))) => {
-                                    full_table_ids.push(FullTableId::from((schema_id, table_id)))
-                                }
-                            },
-                            Err(error) => return Err(DescriptionError::syntax_error(&error)),
+                            }
+                            Err(error) => return Err(AnalysisError::table_naming_error(&error)),
                         }
                     }
-                    Ok(Description::DropTables(DropTablesInfo {
-                        full_table_ids,
-                        cascade: *cascade,
-                        if_exists: *if_exists,
-                    }))
+                    Ok(QueryAnalysis::DataDefinition(SchemaChange::DropTables(
+                        DropTablesQuery {
+                            table_infos,
+                            cascade,
+                            if_exists,
+                        },
+                    )))
                 }
-                _ => unimplemented!(),
+                ast::ObjectType::View => unimplemented!("VIEWs are not implemented yet"),
+                ast::ObjectType::Index => unimplemented!("INDEXes are not implemented yet"),
             },
-            _ => unimplemented!(),
+            ast::Statement::Copy { .. } => unimplemented!(),
+            ast::Statement::CreateView { .. } => unimplemented!(),
+            ast::Statement::CreateVirtualTable { .. } => unimplemented!(),
+            ast::Statement::CreateIndex { .. } => unimplemented!(),
+            ast::Statement::AlterTable { .. } => unimplemented!(),
+            ast::Statement::SetVariable { .. } => unimplemented!(),
+            ast::Statement::ShowVariable { .. } => unimplemented!(),
+            ast::Statement::ShowColumns { .. } => unimplemented!(),
+            ast::Statement::StartTransaction { .. } => unimplemented!(),
+            ast::Statement::SetTransaction { .. } => unimplemented!(),
+            ast::Statement::Commit { .. } => unimplemented!(),
+            ast::Statement::Rollback { .. } => unimplemented!(),
+            ast::Statement::Assert { .. } => unimplemented!(),
+            ast::Statement::Deallocate { .. } => unimplemented!(),
+            ast::Statement::Execute { .. } => unimplemented!(),
+            ast::Statement::Prepare { .. } => unimplemented!(),
         }
     }
-}
-
-fn parse_assign_param_types(body: &SetExpr, column_types: &[SqlType]) -> Result<ParamTypes, DescriptionError> {
-    let rows = match body {
-        SetExpr::Values(values) => &values.0,
-        _ => return Ok(ParamTypes::new()),
-    };
-
-    let mut param_types = ParamTypes::new();
-    for row in rows {
-        for (col_index, col) in row.iter().enumerate() {
-            if let Expr::Identifier(Ident { value, .. }) = col {
-                if let Some(param_index) = parse_param_index(value) {
-                    match param_types.get(&param_index) {
-                        Some(col_type) => {
-                            if col_type != &column_types[col_index] {
-                                return Err(DescriptionError::syntax_error(&format!(
-                                    "Parameter ${} cannot be bound to different SQL types",
-                                    param_index
-                                )));
-                            }
-                        }
-                        None => {
-                            param_types.insert(param_index, column_types[col_index]);
-                        }
-                    };
-                }
-            }
-        }
-    }
-
-    Ok(param_types)
 }
 
 fn parse_param_index(value: &str) -> Option<usize> {
@@ -336,33 +345,6 @@ fn parse_param_index(value: &str) -> Option<usize> {
     }
 
     Some(index - 1)
-}
-
-fn parse_param_type_by_column(
-    param_types: &mut ParamTypes,
-    columns: &[ColumnDefinition],
-    param_index: ParamIndex,
-    col_name: &str,
-) -> Result<(), DescriptionError> {
-    let col_name = col_name.to_lowercase();
-    let col_type = match columns.iter().find(|col_def| col_def.has_name(&col_name)) {
-        Some(col_def) => col_def.sql_type(),
-        None => return Err(DescriptionError::column_does_not_exist(&col_name)),
-    };
-    match param_types.get(&param_index) {
-        Some(param_type) => {
-            if param_type != &col_type {
-                return Err(DescriptionError::syntax_error(&format!(
-                    "Parameter ${} cannot be bound to different SQL types",
-                    param_index
-                )));
-            }
-        }
-        None => {
-            param_types.insert(param_index, col_type);
-        }
-    };
-    Ok(())
 }
 
 #[cfg(test)]

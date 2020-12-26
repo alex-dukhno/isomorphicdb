@@ -15,22 +15,17 @@
 use super::*;
 use binary::{Binary, Row};
 use repr::Datum;
-use sql_model::sql_types::SqlType;
 use std::path::PathBuf;
 use tempfile::TempDir;
+use types::SqlType;
 
 type Persistent = DataManager;
 
 #[rstest::fixture]
 fn persistent() -> (Persistent, TempDir) {
     let root_path = tempfile::tempdir().expect("to create temp folder");
-    let data_definition = Arc::new(
-        DataDefinition::persistent(&PathBuf::from(root_path.path()))
-            .expect("no io errors")
-            .expect("no storage errors"),
-    );
     (
-        Persistent::persistent(data_definition, PathBuf::from(root_path.path())).expect("to create catalog manager"),
+        Persistent::persistent(PathBuf::from(root_path.path())).expect("to create catalog manager"),
         root_path,
     )
 }
@@ -38,55 +33,47 @@ fn persistent() -> (Persistent, TempDir) {
 #[rstest::rstest]
 fn created_schema_is_preserved_after_restart(persistent: (Persistent, TempDir)) {
     let (data_manager, root_path) = persistent;
-    data_manager.create_schema(SCHEMA).expect("to create a schema");
-    assert!(matches!(data_manager.schema_exists(&SCHEMA), Some(_)));
+    for op in create_schema_ops(SCHEMA) {
+        if data_manager.execute(&op).is_ok() {}
+    }
+    assert!(matches!(data_manager.schema_exists(SCHEMA), Some(_)));
 
     drop(data_manager);
 
-    let data_definition = Arc::new(
-        DataDefinition::persistent(&PathBuf::from(root_path.path()))
-            .expect("no io errors")
-            .expect("no storage errors"),
-    );
-    let data_manager =
-        Persistent::persistent(data_definition, root_path.into_path()).expect("to create catalog manager");
+    let data_manager = Persistent::persistent(root_path.path().into()).expect("to create catalog manager");
 
-    assert!(matches!(data_manager.schema_exists(&SCHEMA), Some(_)));
+    assert!(matches!(data_manager.schema_exists(SCHEMA), Some(_)));
 }
 
 #[rstest::rstest]
 fn created_table_is_preserved_after_restart(persistent: (Persistent, TempDir)) {
     let (data_manager, root_path) = persistent;
-    let schema_id = data_manager.create_schema(&SCHEMA).expect("to create a schema");
-    let table_id = data_manager
-        .create_table(
-            schema_id,
-            "table_name",
-            &[ColumnDefinition::new("col_test", SqlType::Bool)],
-        )
-        .expect("to create a table");
-    assert!(matches!(
-        data_manager.table_exists(&SCHEMA, &"table_name"),
-        Some((_, Some(_)))
-    ));
+
+    for op in create_schema_ops(SCHEMA) {
+        if data_manager.execute(&op).is_ok() {}
+    }
+
+    let schema_id = data_manager.schema_exists(SCHEMA).expect("to create a schema");
+
+    for op in create_table_ops(SCHEMA, TABLE, "col_test", SqlType::Bool) {
+        if data_manager.execute(&op).is_ok() {}
+    }
+
+    let table_id = match data_manager.table_exists(SCHEMA, TABLE) {
+        Some((_, Some(table_id))) => table_id,
+        _ => panic!(),
+    };
+
+    assert!(matches!(data_manager.table_exists(SCHEMA, TABLE), Some((_, Some(_)))));
 
     drop(data_manager);
 
-    let data_definition = Arc::new(
-        DataDefinition::persistent(&PathBuf::from(root_path.path()))
-            .expect("no io errors")
-            .expect("no storage errors"),
-    );
-    let data_manager =
-        Persistent::persistent(data_definition, root_path.into_path()).expect("to create catalog manager");
+    let data_manager = Persistent::persistent(root_path.path().into()).expect("to create catalog manager");
 
-    assert!(matches!(
-        data_manager.table_exists(&SCHEMA, &"table_name"),
-        Some((_, Some(_)))
-    ));
+    assert!(matches!(data_manager.table_exists(SCHEMA, TABLE), Some((_, Some(_)))));
     assert_eq!(
         data_manager
-            .table_columns(&Box::new((schema_id, table_id)))
+            .table_columns(&(schema_id, table_id))
             .expect("to have a columns"),
         vec![(0, ColumnDefinition::new("col_test", SqlType::Bool))]
     )
@@ -95,17 +82,25 @@ fn created_table_is_preserved_after_restart(persistent: (Persistent, TempDir)) {
 #[rstest::rstest]
 fn stored_data_is_preserved_after_restart(persistent: (Persistent, TempDir)) {
     let (data_manager, root_path) = persistent;
-    let schema_id = data_manager.create_schema(SCHEMA).expect("to create a schema");
-    let table_id = data_manager
-        .create_table(
-            schema_id,
-            "table_name",
-            &[ColumnDefinition::new("col_test", SqlType::Bool)],
-        )
-        .expect("to create a table");
+
+    for op in create_schema_ops(SCHEMA) {
+        if data_manager.execute(&op).is_ok() {}
+    }
+
+    let schema_id = data_manager.schema_exists(SCHEMA).expect("to create a schema");
+
+    for op in create_table_ops(SCHEMA, TABLE, "col_test", SqlType::Bool) {
+        if data_manager.execute(&op).is_ok() {}
+    }
+
+    let table_id = match data_manager.table_exists(SCHEMA, TABLE) {
+        Some((_, Some(table_id))) => table_id,
+        _ => panic!(),
+    };
+
     data_manager
         .write_into(
-            &Box::new((schema_id, table_id)),
+            &(schema_id, table_id),
             vec![(
                 Binary::pack(&[Datum::from_u64(0)]),
                 Binary::pack(&[Datum::from_bool(true)]),
@@ -115,7 +110,7 @@ fn stored_data_is_preserved_after_restart(persistent: (Persistent, TempDir)) {
 
     assert_eq!(
         data_manager
-            .full_scan(&Box::new((schema_id, table_id)))
+            .full_scan(&(schema_id, table_id))
             .expect("to scan a table")
             .map(|item| item.expect("no io error").expect("no platform error"))
             .collect::<Vec<Row>>(),
@@ -124,19 +119,14 @@ fn stored_data_is_preserved_after_restart(persistent: (Persistent, TempDir)) {
             Binary::pack(&[Datum::from_bool(true)]),
         )],
     );
+
     drop(data_manager);
 
-    let data_definition = Arc::new(
-        DataDefinition::persistent(&PathBuf::from(root_path.path()))
-            .expect("no io errors")
-            .expect("no storage errors"),
-    );
-    let data_manager =
-        Persistent::persistent(data_definition, root_path.into_path()).expect("to create catalog manager");
+    let data_manager = Persistent::persistent(root_path.into_path()).expect("to create catalog manager");
 
     assert_eq!(
         data_manager
-            .full_scan(&Box::new((schema_id, table_id)))
+            .full_scan(&(schema_id, table_id))
             .expect("to scan a table")
             .map(|item| item.expect("no io error").expect("no platform error"))
             .collect::<Vec<Row>>(),

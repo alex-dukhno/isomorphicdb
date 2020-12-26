@@ -13,12 +13,12 @@
 // limitations under the License.
 
 use crate::{PlanError, Planner, Result};
+use data_definition::DataDefReader;
 use meta_def::ColumnDefinition;
-use metadata::{DataDefinition, MetadataView};
 use plan::{FullTableName, Plan, TableCreationInfo};
-use sql_model::sql_types::SqlType;
 use sqlparser::ast::{ColumnDef, ObjectName};
 use std::{convert::TryFrom, sync::Arc};
+use types::SqlType;
 
 pub(crate) struct CreateTablePlanner<'ctp> {
     full_table_name: &'ctp ObjectName,
@@ -35,7 +35,7 @@ impl<'ctp> CreateTablePlanner<'ctp> {
 }
 
 impl Planner for CreateTablePlanner<'_> {
-    fn plan(self, metadata: Arc<DataDefinition>) -> Result<Plan> {
+    fn plan(self, metadata: Arc<dyn DataDefReader>) -> Result<Plan> {
         match FullTableName::try_from(self.full_table_name) {
             Ok(full_table_name) => {
                 let (schema_name, table_name) = full_table_name.as_tuple();
@@ -49,8 +49,11 @@ impl Planner for CreateTablePlanner<'_> {
                                 Ok(sql_type) => {
                                     column_defs.push(ColumnDefinition::new(column.name.value.as_str(), sql_type))
                                 }
-                                Err(error) => {
-                                    return Err(PlanError::feature_not_supported(&error));
+                                Err(_error) => {
+                                    return Err(PlanError::feature_not_supported(format!(
+                                        "'{}' type is not supported",
+                                        &column.data_type
+                                    )));
                                 }
                             }
                         }

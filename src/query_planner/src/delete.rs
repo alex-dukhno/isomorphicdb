@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use crate::{PlanError, Planner, Result};
-use metadata::{DataDefinition, MetadataView};
+use data_definition::DataDefReader;
 use plan::{FullTableId, FullTableName, Plan, TableDeletes};
 use sqlparser::ast::ObjectName;
 use std::{convert::TryFrom, sync::Arc};
@@ -29,7 +29,7 @@ impl DeletePlanner<'_> {
 }
 
 impl Planner for DeletePlanner<'_> {
-    fn plan(self, metadata: Arc<DataDefinition>) -> Result<Plan> {
+    fn plan(self, metadata: Arc<dyn DataDefReader>) -> Result<Plan> {
         match FullTableName::try_from(self.table_name) {
             Ok(full_table_name) => {
                 let (schema_name, table_name) = full_table_name.as_tuple();

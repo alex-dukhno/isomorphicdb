@@ -27,7 +27,7 @@ use crate::{
     drop_schema::DropSchemaPlanner, drop_tables::DropTablesPlanner, insert::InsertPlanner, select::SelectPlanner,
     update::UpdatePlanner,
 };
-use metadata::DataDefinition;
+use data_definition::DataDefReader;
 use plan::Plan;
 use sqlparser::ast::{ObjectType, Statement};
 use std::sync::Arc;
@@ -81,15 +81,15 @@ impl PlanError {
 }
 
 trait Planner {
-    fn plan(self, data_manager: Arc<DataDefinition>) -> Result<Plan>;
+    fn plan(self, data_manager: Arc<dyn DataDefReader>) -> Result<Plan>;
 }
 
 pub struct QueryPlanner {
-    metadata: Arc<DataDefinition>,
+    metadata: Arc<dyn DataDefReader>,
 }
 
 impl QueryPlanner {
-    pub fn new(metadata: Arc<DataDefinition>) -> Self {
+    pub fn new(metadata: Arc<dyn DataDefReader>) -> Self {
         Self { metadata }
     }
 

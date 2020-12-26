@@ -13,10 +13,11 @@
 // limitations under the License.
 
 use super::*;
+use data_manager::DataManager;
 use meta_def::ColumnDefinition;
-use sql_model::{sql_types::SqlType, DEFAULT_CATALOG};
 use sqlparser::ast::Ident;
 use std::sync::Arc;
+use types::SqlType;
 
 mod ddl;
 #[cfg(test)]
@@ -35,28 +36,24 @@ const TABLE: &str = "table_name";
 
 #[rstest::fixture]
 fn planner() -> QueryPlanner {
-    let manager = DataDefinition::in_memory();
-    manager.create_catalog(DEFAULT_CATALOG);
+    let manager = DataManager::in_memory();
     QueryPlanner::new(Arc::new(manager))
 }
 
 #[rstest::fixture]
 fn planner_with_schema() -> QueryPlanner {
-    let manager = DataDefinition::in_memory();
-    manager.create_catalog(DEFAULT_CATALOG);
-    manager.create_schema(DEFAULT_CATALOG, SCHEMA).expect("schema created");
+    let manager = DataManager::in_memory();
+    manager.create_schema(SCHEMA).expect("schema created");
     QueryPlanner::new(Arc::new(manager))
 }
 
 #[rstest::fixture]
 fn planner_with_table() -> QueryPlanner {
-    let manager = DataDefinition::in_memory();
-    manager.create_catalog(DEFAULT_CATALOG);
-    let _schema_id = manager.create_schema(DEFAULT_CATALOG, SCHEMA).expect("schema created");
+    let manager = DataManager::in_memory();
+    let schema_id = manager.create_schema(SCHEMA).expect("schema created");
     manager
         .create_table(
-            DEFAULT_CATALOG,
-            SCHEMA,
+            schema_id,
             TABLE,
             &[
                 ColumnDefinition::new("small_int", SqlType::SmallInt),
@@ -70,12 +67,9 @@ fn planner_with_table() -> QueryPlanner {
 
 #[rstest::fixture]
 fn planner_with_no_column_table() -> QueryPlanner {
-    let manager = DataDefinition::in_memory();
-    manager.create_catalog(DEFAULT_CATALOG);
-    let _schema_id = manager.create_schema(DEFAULT_CATALOG, SCHEMA).expect("schema created");
-    manager
-        .create_table(DEFAULT_CATALOG, SCHEMA, TABLE, &[])
-        .expect("table created");
+    let manager = DataManager::in_memory();
+    let schema_id = manager.create_schema(SCHEMA).expect("schema created");
+    manager.create_table(schema_id, TABLE, &[]).expect("table created");
     QueryPlanner::new(Arc::new(manager))
 }
 

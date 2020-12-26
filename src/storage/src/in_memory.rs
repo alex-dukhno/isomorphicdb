@@ -12,16 +12,49 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{Database, Key, ObjectName, ReadCursor, SchemaName, StorageError, Values};
+use crate::{Database, Key, Name, ObjectName, ReadCursor, SchemaName, Sequence, StorageError, Values};
 use binary::RowResult;
 use dashmap::DashMap;
 use sql_model::sql_errors::DefinitionError;
 use std::{
     collections::BTreeMap,
+    convert::TryFrom,
     io::{self},
+    num::NonZeroU64,
+    sync::{
+        atomic::{AtomicU64, Ordering},
+        Arc,
+    },
 };
 
-type Name = String;
+#[derive(Debug)]
+pub struct InMemorySequence {
+    name: Name,
+    counter: AtomicU64,
+    step: u64,
+}
+
+impl InMemorySequence {
+    pub(crate) fn with_step(name: Name, step: u64) -> InMemorySequence {
+        InMemorySequence {
+            name,
+            counter: AtomicU64::default(),
+            step,
+        }
+    }
+}
+
+impl PartialEq for InMemorySequence {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name
+    }
+}
+
+impl Sequence for InMemorySequence {
+    fn next(&self) -> u64 {
+        self.counter.fetch_add(self.step, Ordering::SeqCst)
+    }
+}
 
 #[derive(Default, Debug)]
 struct StorageObject {
@@ -31,6 +64,7 @@ struct StorageObject {
 #[derive(Default, Debug)]
 struct Schema {
     pub objects: DashMap<Name, StorageObject>,
+    pub sequences: DashMap<Name, Arc<InMemorySequence>>,
 }
 
 #[derive(Default)]
@@ -39,6 +73,45 @@ pub struct InMemoryDatabase {
 }
 
 impl Database for InMemoryDatabase {
+    fn create_sequence_with_step(
+        &self,
+        schema_name: &str,
+        sequence_name: &str,
+        step: u64,
+    ) -> Result<Arc<dyn Sequence>, DefinitionError> {
+        match self.schemas.get(schema_name) {
+            Some(schema) => match NonZeroU64::try_from(step) {
+                Ok(step) => {
+                    let sequence = Arc::new(InMemorySequence::with_step(sequence_name.to_owned(), step.get()));
+                    schema.sequences.insert(sequence_name.to_owned(), sequence.clone());
+                    Ok(sequence)
+                }
+                Err(_) => Err(DefinitionError::ZeroStepSequence),
+            },
+            None => Err(DefinitionError::SchemaDoesNotExist),
+        }
+    }
+
+    fn drop_sequence(&self, schema_name: &str, sequence_name: &str) -> Result<(), DefinitionError> {
+        match self.schemas.get(schema_name) {
+            None => Err(DefinitionError::SchemaDoesNotExist),
+            Some(schema) => match schema.sequences.remove(sequence_name) {
+                Some(_) => Ok(()),
+                None => Err(DefinitionError::ObjectDoesNotExist),
+            },
+        }
+    }
+
+    fn get_sequence(&self, schema_name: &str, sequence_name: &str) -> Result<Arc<dyn Sequence>, DefinitionError> {
+        match self.schemas.get(schema_name) {
+            None => Err(DefinitionError::SchemaDoesNotExist),
+            Some(schema) => match schema.sequences.get(sequence_name) {
+                None => Err(DefinitionError::ObjectDoesNotExist),
+                Some(sequence) => Ok(sequence.clone()),
+            },
+        }
+    }
+
     fn create_schema(&self, schema_name: SchemaName) -> io::Result<Result<Result<(), DefinitionError>, StorageError>> {
         if self.schemas.contains_key(schema_name) {
             Ok(Ok(Err(DefinitionError::SchemaAlreadyExists)))

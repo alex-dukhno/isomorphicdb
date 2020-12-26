@@ -16,8 +16,8 @@ use ast::values::{Bool, ScalarValue};
 use bigdecimal::{BigDecimal, ToPrimitive};
 use num_bigint::BigInt;
 use repr::Datum;
-use sql_model::sql_types::SqlType;
 use std::convert::TryFrom;
+use types::SqlType;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ConstraintError {

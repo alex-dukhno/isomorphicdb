@@ -69,11 +69,11 @@ impl<'a> Datum<'a> {
         Datum::from_i32(val as i32)
     }
 
-    pub fn from_i64(val: i64) -> Datum<'static> {
+    pub const fn from_i64(val: i64) -> Datum<'static> {
         Datum::Int64(val)
     }
 
-    pub fn from_u64(val: u64) -> Datum<'static> {
+    pub const fn from_u64(val: u64) -> Datum<'static> {
         Datum::from_i64(val as i64)
     }
 

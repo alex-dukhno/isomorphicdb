@@ -15,12 +15,12 @@
 use crate::values::{Bool, ScalarValue};
 use bigdecimal::BigDecimal;
 use repr::Datum;
-use sql_model::sql_types::SqlType;
 use sqlparser::ast::{DataType, Expr, Value};
 use std::{
     convert::{From, TryFrom, TryInto},
     fmt::{self, Display, Formatter},
 };
+use types::SqlType;
 
 pub mod operations;
 pub mod predicates;

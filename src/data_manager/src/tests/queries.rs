@@ -15,22 +15,39 @@
 use super::*;
 use binary::Binary;
 use repr::Datum;
-use sql_model::sql_types::SqlType;
+use types::SqlType;
+
+#[rstest::fixture]
+fn with_small_ints_table(data_manager_with_schema: InMemory) -> InMemory {
+    for op in create_table(
+        SCHEMA,
+        TABLE,
+        &[
+            ("column_1", SqlType::SmallInt),
+            ("column_2", SqlType::SmallInt),
+            ("column_3", SqlType::SmallInt),
+        ],
+    ) {
+        if data_manager_with_schema.execute(&op).is_ok() {}
+    }
+    data_manager_with_schema
+}
 
 #[rstest::rstest]
 fn delete_all_from_table(data_manager_with_schema: InMemory) {
-    let schema_id = data_manager_with_schema.schema_exists(&SCHEMA).expect("schema exists");
-    let table_id = data_manager_with_schema
-        .create_table(
-            schema_id,
-            "table_name",
-            &[ColumnDefinition::new("column_test", SqlType::SmallInt)],
-        )
-        .expect("table is created");
+    let schema_id = data_manager_with_schema.schema_exists(SCHEMA).expect("schema exists");
+    for op in create_table(SCHEMA, TABLE, &[("column_test", SqlType::SmallInt)]) {
+        if data_manager_with_schema.execute(&op).is_ok() {}
+    }
+
+    let table_id = match data_manager_with_schema.table_exists(SCHEMA, TABLE) {
+        Some((_, Some(table_id))) => table_id,
+        _ => panic!(),
+    };
 
     data_manager_with_schema
         .write_into(
-            &Box::new((schema_id, table_id)),
+            &(schema_id, table_id),
             vec![(
                 Binary::pack(&[Datum::from_u64(1)]),
                 Binary::pack(&[Datum::from_i16(123)]),
@@ -39,7 +56,7 @@ fn delete_all_from_table(data_manager_with_schema: InMemory) {
         .expect("values are inserted");
     data_manager_with_schema
         .write_into(
-            &Box::new((schema_id, table_id)),
+            &(schema_id, table_id),
             vec![(
                 Binary::pack(&[Datum::from_u64(2)]),
                 Binary::pack(&[Datum::from_i16(456)]),
@@ -48,7 +65,7 @@ fn delete_all_from_table(data_manager_with_schema: InMemory) {
         .expect("values are inserted");
     data_manager_with_schema
         .write_into(
-            &Box::new((schema_id, table_id)),
+            &(schema_id, table_id),
             vec![(
                 Binary::pack(&[Datum::from_u64(3)]),
                 Binary::pack(&[Datum::from_i16(789)]),
@@ -58,7 +75,7 @@ fn delete_all_from_table(data_manager_with_schema: InMemory) {
 
     assert_eq!(
         data_manager_with_schema.delete_from(
-            &Box::new((schema_id, table_id)),
+            &(schema_id, table_id),
             vec![
                 Binary::pack(&[Datum::from_u64(1)]),
                 Binary::pack(&[Datum::from_u64(2)]),
@@ -70,39 +87,21 @@ fn delete_all_from_table(data_manager_with_schema: InMemory) {
 
     assert_eq!(
         data_manager_with_schema
-            .full_scan(&Box::new((schema_id, table_id)))
+            .full_scan(&(schema_id, table_id))
             .map(|iter| iter.map(Result::unwrap).map(Result::unwrap).collect()),
         Ok(vec![])
     );
 }
 
-#[rstest::fixture]
-fn with_small_ints_table(data_manager_with_schema: InMemory) -> InMemory {
-    let schema_id = data_manager_with_schema.schema_exists(&SCHEMA).expect("schema exists");
-    data_manager_with_schema
-        .create_table(
-            schema_id,
-            "table_name",
-            &[
-                ColumnDefinition::new("column_1", SqlType::SmallInt),
-                ColumnDefinition::new("column_2", SqlType::SmallInt),
-                ColumnDefinition::new("column_3", SqlType::SmallInt),
-            ],
-        )
-        .expect("table is created");
-    data_manager_with_schema
-}
-
 #[rstest::rstest]
 fn select_all_from_table_with_many_columns(with_small_ints_table: InMemory) {
-    let full_table_id = with_small_ints_table
-        .table_exists(&SCHEMA, &"table_name")
-        .expect("schema exists");
-    let schema_id = full_table_id.0;
-    let table_id = full_table_id.1.expect("table exist");
+    let (schema_id, table_id) = match with_small_ints_table.table_exists(SCHEMA, "table_name") {
+        Some((schema_id, Some(table_id))) => (schema_id, table_id),
+        _ => panic!(),
+    };
     with_small_ints_table
         .write_into(
-            &Box::new((schema_id, table_id)),
+            &(schema_id, table_id),
             vec![(
                 Binary::pack(&[Datum::from_u64(1)]),
                 Binary::pack(&[Datum::from_i16(1), Datum::from_i16(2), Datum::from_i16(3)]),
@@ -111,13 +110,11 @@ fn select_all_from_table_with_many_columns(with_small_ints_table: InMemory) {
         .expect("values are inserted");
 
     assert_eq!(
-        with_small_ints_table
-            .full_scan(&Box::new((schema_id, table_id)))
-            .map(|read| read
-                .map(Result::unwrap)
-                .map(Result::unwrap)
-                .map(|(_key, values)| values)
-                .collect()),
+        with_small_ints_table.full_scan(&(schema_id, table_id)).map(|read| read
+            .map(Result::unwrap)
+            .map(Result::unwrap)
+            .map(|(_key, values)| values)
+            .collect()),
         Ok(vec![Binary::pack(&[
             Datum::from_i16(1),
             Datum::from_i16(2),

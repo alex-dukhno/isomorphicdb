@@ -13,161 +13,261 @@
 // limitations under the License.
 
 use super::*;
-use crate::tests::ident;
-use description::{DropSchemasInfo, DropTablesInfo, SchemaId};
-use sqlparser::ast::{ObjectName, ObjectType, Statement};
 
-fn drop(names: Vec<ObjectName>, object_type: ObjectType) -> Statement {
-    Statement::Drop {
+fn inner_drop(
+    names: Vec<Vec<&'static str>>,
+    object_type: ast::ObjectType,
+    if_exists: bool,
+    cascade: bool,
+) -> ast::Statement {
+    ast::Statement::Drop {
         object_type,
-        if_exists: false,
-        names,
-        cascade: false,
+        if_exists,
+        names: names
+            .into_iter()
+            .map(|name| ast::ObjectName(name.into_iter().map(ident).collect()))
+            .collect(),
+        cascade,
     }
 }
 
-#[test]
-fn drop_non_existent_schema() {
-    let metadata = Arc::new(DataDefinition::in_memory());
-    metadata.create_catalog(DEFAULT_CATALOG);
-    let analyzer = Analyzer::new(metadata);
-    let description = analyzer.describe(&drop(vec![ObjectName(vec![ident("non_existent")])], ObjectType::Schema));
-    assert_eq!(
-        description,
-        Err(DescriptionError::schema_does_not_exist(&"non_existent"))
-    );
+fn drop_statement(names: Vec<Vec<&'static str>>, object_type: ast::ObjectType) -> ast::Statement {
+    inner_drop(names, object_type, false, false)
 }
 
-#[test]
-fn drop_schema_with_unqualified_name() {
-    let metadata = Arc::new(DataDefinition::in_memory());
-    metadata.create_catalog(DEFAULT_CATALOG);
-    let analyzer = Analyzer::new(metadata);
-    let description = analyzer.describe(&drop(
-        vec![ObjectName(vec![
-            ident("first_part"),
-            ident("second_part"),
-            ident("third_part"),
-            ident("fourth_part"),
-        ])],
-        ObjectType::Schema,
-    ));
-    assert_eq!(
-        description,
-        Err(DescriptionError::syntax_error(
-            &"Only unqualified schema names are supported, 'first_part.second_part.third_part.fourth_part'"
-        ))
-    );
+fn drop_if_exists(names: Vec<Vec<&'static str>>, object_type: ast::ObjectType) -> ast::Statement {
+    inner_drop(names, object_type, true, false)
 }
 
-#[test]
-fn drop_schema() {
-    let metadata = Arc::new(DataDefinition::in_memory());
-    metadata.create_catalog(DEFAULT_CATALOG);
-    metadata.create_schema(DEFAULT_CATALOG, SCHEMA);
-    let analyzer = Analyzer::new(metadata);
-    let description = analyzer.describe(&drop(vec![ObjectName(vec![ident(SCHEMA)])], ObjectType::Schema));
-    assert_eq!(
-        description,
-        Ok(Description::DropSchemas(DropSchemasInfo {
-            schema_ids: vec![SchemaId::from(0)],
-            cascade: false,
-            if_exists: false,
-        }))
-    );
+fn drop_cascade(names: Vec<Vec<&'static str>>, object_type: ast::ObjectType) -> ast::Statement {
+    inner_drop(names, object_type, false, true)
 }
 
-#[test]
-fn drop_table_from_nonexistent_schema() {
-    let metadata = Arc::new(DataDefinition::in_memory());
-    metadata.create_catalog(DEFAULT_CATALOG);
-    let analyzer = Analyzer::new(metadata);
-    let description = analyzer.describe(&drop(
-        vec![ObjectName(vec![ident("non_existent_schema"), ident(TABLE)])],
-        ObjectType::Table,
-    ));
-    assert_eq!(
-        description,
-        Err(DescriptionError::schema_does_not_exist(&"non_existent_schema"))
-    );
+#[cfg(test)]
+mod schema {
+    use super::*;
+
+    const SCHEMA_TYPE: ast::ObjectType = ast::ObjectType::Schema;
+
+    #[test]
+    fn drop_non_existent_schema() {
+        let data_definition = Arc::new(DataManager::in_memory());
+        let analyzer = Analyzer::new(data_definition);
+        assert_eq!(
+            analyzer.analyze(drop_statement(vec![vec!["non_existent"]], SCHEMA_TYPE)),
+            Ok(QueryAnalysis::DataDefinition(SchemaChange::DropSchemas(
+                DropSchemasQuery {
+                    schema_names: vec![SchemaName::from(&"non_existent")],
+                    cascade: false,
+                    if_exists: false,
+                }
+            )))
+        );
+    }
+
+    #[test]
+    fn drop_schema_with_unqualified_name() {
+        let data_definition = Arc::new(DataManager::in_memory());
+        let analyzer = Analyzer::new(data_definition);
+        assert_eq!(
+            analyzer.analyze(drop_statement(
+                vec![vec!["first_part", "second_part", "third_part", "fourth_part"]],
+                SCHEMA_TYPE,
+            )),
+            Err(AnalysisError::schema_naming_error(
+                &"Only unqualified schema names are supported, 'first_part.second_part.third_part.fourth_part'"
+            ))
+        );
+    }
+
+    #[test]
+    fn drop_schema() {
+        let data_definition = Arc::new(DataManager::in_memory());
+        data_definition.create_schema(SCHEMA).expect("schema created");
+        let analyzer = Analyzer::new(data_definition);
+        assert_eq!(
+            analyzer.analyze(drop_statement(vec![vec![SCHEMA]], SCHEMA_TYPE)),
+            Ok(QueryAnalysis::DataDefinition(SchemaChange::DropSchemas(
+                DropSchemasQuery {
+                    schema_names: vec![SchemaName::from(&SCHEMA)],
+                    cascade: false,
+                    if_exists: false,
+                }
+            )))
+        );
+    }
+
+    #[test]
+    fn drop_schema_cascade() {
+        let data_definition = Arc::new(DataManager::in_memory());
+        data_definition.create_schema(SCHEMA).expect("schema created");
+        let analyzer = Analyzer::new(data_definition);
+        assert_eq!(
+            analyzer.analyze(drop_cascade(vec![vec![SCHEMA]], SCHEMA_TYPE)),
+            Ok(QueryAnalysis::DataDefinition(SchemaChange::DropSchemas(
+                DropSchemasQuery {
+                    schema_names: vec![SchemaName::from(&SCHEMA)],
+                    cascade: true,
+                    if_exists: false,
+                }
+            )))
+        );
+    }
+
+    #[test]
+    fn drop_schema_if_exists() {
+        let data_definition = Arc::new(DataManager::in_memory());
+        data_definition.create_schema(SCHEMA).expect("schema created");
+        let analyzer = Analyzer::new(data_definition);
+        assert_eq!(
+            analyzer.analyze(drop_if_exists(vec![vec![SCHEMA], vec!["schema_1"]], SCHEMA_TYPE)),
+            Ok(QueryAnalysis::DataDefinition(SchemaChange::DropSchemas(
+                DropSchemasQuery {
+                    schema_names: vec![SchemaName::from(&SCHEMA), SchemaName::from(&"schema_1")],
+                    cascade: false,
+                    if_exists: true,
+                }
+            )))
+        );
+    }
 }
 
-#[test]
-fn drop_nonexistent_table() {
-    let metadata = Arc::new(DataDefinition::in_memory());
-    metadata.create_catalog(DEFAULT_CATALOG);
-    metadata.create_schema(DEFAULT_CATALOG, SCHEMA);
-    let analyzer = Analyzer::new(metadata);
-    let description = analyzer.describe(&drop(
-        vec![ObjectName(vec![ident(SCHEMA), ident("non_existent_table")])],
-        ObjectType::Table,
-    ));
-    assert_eq!(
-        description,
-        Err(DescriptionError::table_does_not_exist(&format!(
-            "{}.{}",
-            SCHEMA, "non_existent_table"
-        )))
-    );
-}
+#[cfg(test)]
+mod table {
+    use super::*;
 
-#[test]
-fn drop_table_with_unqualified_name() {
-    let metadata = Arc::new(DataDefinition::in_memory());
-    metadata.create_catalog(DEFAULT_CATALOG);
-    metadata.create_schema(DEFAULT_CATALOG, SCHEMA);
-    let analyzer = Analyzer::new(metadata);
-    let description = analyzer.describe(&drop(
-        vec![ObjectName(vec![ident("only_schema_in_the_name")])],
-        ObjectType::Table,
-    ));
-    assert_eq!(
-        description,
-        Err(DescriptionError::syntax_error(
-            &"Unsupported table name 'only_schema_in_the_name'. All table names must be qualified",
-        ))
-    );
-}
+    const TABLE_TYPE: ast::ObjectType = ast::ObjectType::Table;
 
-#[test]
-fn drop_table_with_unsupported_name() {
-    let metadata = Arc::new(DataDefinition::in_memory());
-    metadata.create_catalog(DEFAULT_CATALOG);
-    let analyzer = Analyzer::new(metadata);
-    let description = analyzer.describe(&drop(
-        vec![ObjectName(vec![
-            ident("first_part"),
-            ident("second_part"),
-            ident("third_part"),
-            ident("fourth_part"),
-        ])],
-        ObjectType::Table,
-    ));
-    assert_eq!(
-        description,
-        Err(DescriptionError::syntax_error(
-            &"Unable to process table name 'first_part.second_part.third_part.fourth_part'",
-        ))
-    );
-}
+    #[test]
+    fn drop_table_from_nonexistent_schema() {
+        let data_definition = Arc::new(DataManager::in_memory());
+        let analyzer = Analyzer::new(data_definition);
+        assert_eq!(
+            analyzer.analyze(drop_statement(vec![vec!["non_existent_schema", TABLE]], TABLE_TYPE)),
+            Err(AnalysisError::schema_does_not_exist(&"non_existent_schema"))
+        );
+    }
 
-#[test]
-fn drop_table() {
-    let metadata = Arc::new(DataDefinition::in_memory());
-    metadata.create_catalog(DEFAULT_CATALOG);
-    metadata.create_schema(DEFAULT_CATALOG, SCHEMA);
-    metadata.create_table(DEFAULT_CATALOG, SCHEMA, TABLE, &[]);
-    let analyzer = Analyzer::new(metadata);
-    let description = analyzer.describe(&drop(
-        vec![ObjectName(vec![ident(SCHEMA), ident(TABLE)])],
-        ObjectType::Table,
-    ));
-    assert_eq!(
-        description,
-        Ok(Description::DropTables(DropTablesInfo {
-            full_table_ids: vec![FullTableId::from((0, 0))],
-            cascade: false,
-            if_exists: false
-        }))
-    );
+    #[test]
+    fn drop_table_with_unqualified_name() {
+        let data_definition = Arc::new(DataManager::in_memory());
+        data_definition.create_schema(SCHEMA).expect("schema created");
+        let analyzer = Analyzer::new(data_definition);
+        assert_eq!(
+            analyzer.analyze(drop_statement(vec![vec!["only_schema_in_the_name"]], TABLE_TYPE)),
+            Err(AnalysisError::table_naming_error(
+                &"Unsupported table name 'only_schema_in_the_name'. All table names must be qualified",
+            ))
+        );
+    }
+
+    #[test]
+    fn drop_table_with_unsupported_name() {
+        let data_definition = Arc::new(DataManager::in_memory());
+        let analyzer = Analyzer::new(data_definition);
+        assert_eq!(
+            analyzer.analyze(drop_statement(
+                vec![vec!["first_part", "second_part", "third_part", "fourth_part"]],
+                TABLE_TYPE,
+            )),
+            Err(AnalysisError::table_naming_error(
+                &"Unable to process table name 'first_part.second_part.third_part.fourth_part'",
+            ))
+        );
+    }
+
+    #[test]
+    fn drop_table() {
+        let data_definition = Arc::new(DataManager::in_memory());
+        let schema_id = data_definition.create_schema(SCHEMA).expect("schema created");
+        data_definition
+            .create_table(schema_id, TABLE, &[])
+            .expect("table created");
+        let analyzer = Analyzer::new(data_definition);
+        assert_eq!(
+            analyzer.analyze(drop_statement(vec![vec![SCHEMA, TABLE]], TABLE_TYPE)),
+            Ok(QueryAnalysis::DataDefinition(SchemaChange::DropTables(
+                DropTablesQuery {
+                    table_infos: vec![TableInfo::new(0, &SCHEMA, &TABLE)],
+                    cascade: false,
+                    if_exists: false
+                }
+            )))
+        );
+    }
+
+    #[test]
+    fn drop_nonexistent_table() {
+        let data_definition = Arc::new(DataManager::in_memory());
+        data_definition.create_schema(SCHEMA).expect("schema created");
+        let analyzer = Analyzer::new(data_definition);
+        assert_eq!(
+            analyzer.analyze(drop_statement(vec![vec![SCHEMA, "non_existent_table"]], TABLE_TYPE)),
+            Ok(QueryAnalysis::DataDefinition(SchemaChange::DropTables(
+                DropTablesQuery {
+                    table_infos: vec![TableInfo::new(0, &SCHEMA, &"non_existent_table")],
+                    cascade: false,
+                    if_exists: false
+                }
+            )))
+        );
+    }
+
+    #[test]
+    fn drop_table_if_exists() {
+        let data_definition = Arc::new(DataManager::in_memory());
+        let schema_id = data_definition.create_schema(SCHEMA).expect("schema created");
+        data_definition
+            .create_table(schema_id, TABLE, &[])
+            .expect("table created");
+        data_definition
+            .create_table(schema_id, "table_1", &[])
+            .expect("table created");
+        let analyzer = Analyzer::new(data_definition);
+        assert_eq!(
+            analyzer.analyze(drop_if_exists(
+                vec![vec![SCHEMA, TABLE], vec![SCHEMA, "table_1"]],
+                TABLE_TYPE,
+            )),
+            Ok(QueryAnalysis::DataDefinition(SchemaChange::DropTables(
+                DropTablesQuery {
+                    table_infos: vec![
+                        TableInfo::new(schema_id, &SCHEMA, &TABLE),
+                        TableInfo::new(schema_id, &SCHEMA, &"table_1")
+                    ],
+                    cascade: false,
+                    if_exists: true
+                }
+            )))
+        );
+    }
+
+    #[test]
+    fn drop_table_cascade() {
+        let data_definition = Arc::new(DataManager::in_memory());
+        let schema_id = data_definition.create_schema(SCHEMA).expect("schema created");
+        data_definition
+            .create_table(schema_id, TABLE, &[])
+            .expect("table created");
+        data_definition
+            .create_table(schema_id, "table_1", &[])
+            .expect("table created");
+        let analyzer = Analyzer::new(data_definition);
+        assert_eq!(
+            analyzer.analyze(drop_cascade(
+                vec![vec![SCHEMA, TABLE], vec![SCHEMA, "table_1"]],
+                TABLE_TYPE,
+            )),
+            Ok(QueryAnalysis::DataDefinition(SchemaChange::DropTables(
+                DropTablesQuery {
+                    table_infos: vec![
+                        TableInfo::new(schema_id, &SCHEMA, &TABLE),
+                        TableInfo::new(schema_id, &SCHEMA, &"table_1")
+                    ],
+                    cascade: true,
+                    if_exists: false
+                }
+            )))
+        );
+    }
 }

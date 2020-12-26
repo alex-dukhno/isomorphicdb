@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use crate::{PlanError, Planner, Result};
-use metadata::{DataDefinition, MetadataView};
+use data_definition::DataDefReader;
 use plan::{Plan, SchemaId, SchemaName};
 use sqlparser::ast::ObjectName;
 use std::{convert::TryFrom, sync::Arc};
@@ -35,7 +35,7 @@ impl DropSchemaPlanner<'_> {
 }
 
 impl Planner for DropSchemaPlanner<'_> {
-    fn plan(self, metadata: Arc<DataDefinition>) -> Result<Plan> {
+    fn plan(self, metadata: Arc<dyn DataDefReader>) -> Result<Plan> {
         let mut schemas = Vec::with_capacity(self.names.len());
         for name in self.names {
             match SchemaName::try_from(name) {

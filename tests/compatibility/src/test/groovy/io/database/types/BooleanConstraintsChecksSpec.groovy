@@ -57,14 +57,14 @@ class BooleanConstraintsChecksSpec extends SetupEnvironment {
     where:
       value << [
           "TRUE",   "FALSE",
-          "'true'", "'false'",
-          "'t'",    "'f'",
-          "'yes'",  "'no'",
-          "'y'",    "'n'",
-          "'on'",   "'off'",
-          "'1'",    "'0'",
-          "TRUE::boolean",  "FALSE::boolean",
-          "'yes'::boolean", "'no'::boolean"
+//          "'true'", "'false'",
+//          "'t'",    "'f'",
+//          "'yes'",  "'no'",
+//          "'y'",    "'n'",
+//          "'on'",   "'off'",
+//          "'1'",    "'0'",
+//          "TRUE::boolean",  "FALSE::boolean",
+//          "'yes'::boolean", "'no'::boolean"
       ]
   }
 }

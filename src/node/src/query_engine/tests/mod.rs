@@ -102,13 +102,8 @@ impl Collector {
 #[rstest::fixture]
 fn empty_database() -> (InMemory, ResultCollector) {
     let collector = Collector::new();
-    let metadata = Arc::new(DataDefinition::in_memory());
     (
-        InMemory::new(
-            collector.clone(),
-            metadata.clone(),
-            Arc::new(DataManager::in_memory(metadata)),
-        ),
+        InMemory::new(collector.clone(), Arc::new(DataManager::in_memory())),
         collector,
     )
 }

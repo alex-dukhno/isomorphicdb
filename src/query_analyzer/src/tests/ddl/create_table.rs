@@ -13,13 +13,9 @@
 // limitations under the License.
 
 use super::*;
-use description::ColumnDesc;
-use pg_wire::PgType;
-use sqlparser::ast::{ColumnDef, DataType};
 
-#[allow(dead_code)]
-fn column(name: &str, data_type: DataType) -> ColumnDef {
-    ColumnDef {
+fn column(name: &str, data_type: ast::DataType) -> ast::ColumnDef {
+    ast::ColumnDef {
         name: ident(name),
         data_type,
         collation: None,
@@ -27,14 +23,14 @@ fn column(name: &str, data_type: DataType) -> ColumnDef {
     }
 }
 
-fn create_table(name: Vec<&str>, columns: Vec<ColumnDef>) -> Statement {
-    Statement::CreateTable {
+fn create_table_if_not_exists(name: Vec<&str>, columns: Vec<ast::ColumnDef>, if_not_exists: bool) -> ast::Statement {
+    ast::Statement::CreateTable {
         or_replace: false,
-        name: ObjectName(name.into_iter().map(ident).collect()),
+        name: ast::ObjectName(name.into_iter().map(ident).collect()),
         columns,
         constraints: vec![],
         with_options: vec![],
-        if_not_exists: false,
+        if_not_exists,
         external: false,
         file_format: None,
         location: None,
@@ -43,68 +39,29 @@ fn create_table(name: Vec<&str>, columns: Vec<ColumnDef>) -> Statement {
     }
 }
 
+fn create_table(name: Vec<&str>, columns: Vec<ast::ColumnDef>) -> ast::Statement {
+    create_table_if_not_exists(name, columns, false)
+}
+
 #[test]
 fn create_table_with_nonexistent_schema() {
-    let metadata = Arc::new(DataDefinition::in_memory());
-    metadata.create_catalog(DEFAULT_CATALOG);
-    let analyzer = Analyzer::new(metadata);
-    let description = analyzer.describe(&create_table(vec!["non_existent_schema", "non_existent_table"], vec![]));
+    let data_definition = Arc::new(DataManager::in_memory());
+    let analyzer = Analyzer::new(data_definition);
 
     assert_eq!(
-        description,
-        Err(DescriptionError::schema_does_not_exist(&"non_existent_schema"))
-    );
-}
-
-#[test]
-fn create_table_with_the_same_name() {
-    let metadata = Arc::new(DataDefinition::in_memory());
-    metadata.create_catalog(DEFAULT_CATALOG);
-    metadata.create_schema(DEFAULT_CATALOG, SCHEMA);
-    metadata.create_table(DEFAULT_CATALOG, SCHEMA, TABLE, &[]);
-    let analyzer = Analyzer::new(metadata);
-    let description = analyzer.describe(&create_table(vec![SCHEMA, TABLE], vec![]));
-
-    assert_eq!(
-        description,
-        Err(DescriptionError::table_already_exists(&format!("{}.{}", SCHEMA, TABLE)))
-    );
-}
-
-#[test]
-fn create_table_with_unsupported_column_type() {
-    let metadata = Arc::new(DataDefinition::in_memory());
-    metadata.create_catalog(DEFAULT_CATALOG);
-    metadata.create_schema(DEFAULT_CATALOG, SCHEMA);
-    let analyzer = Analyzer::new(metadata);
-    let description = analyzer.describe(&create_table(
-        vec![SCHEMA, TABLE],
-        vec![column(
-            "column_name",
-            DataType::Custom(ObjectName(vec![ident("strange_type_name_whatever")])),
-        )],
-    ));
-    assert_eq!(
-        description,
-        Err(DescriptionError::feature_not_supported(
-            &"'strange_type_name_whatever' type is not supported",
-        ))
+        analyzer.analyze(create_table(vec!["non_existent_schema", "non_existent_table"], vec![])),
+        Err(AnalysisError::schema_does_not_exist(&"non_existent_schema"))
     );
 }
 
 #[test]
 fn create_table_with_unqualified_name() {
-    let metadata = Arc::new(DataDefinition::in_memory());
-    metadata.create_catalog(DEFAULT_CATALOG);
-    metadata.create_schema(DEFAULT_CATALOG, SCHEMA);
-    let analyzer = Analyzer::new(metadata);
-    let description = analyzer.describe(&create_table(
-        vec!["only_schema_in_the_name"],
-        vec![column("column_name", DataType::SmallInt)],
-    ));
+    let data_definition = Arc::new(DataManager::in_memory());
+    data_definition.create_schema(SCHEMA).expect("schema created");
+    let analyzer = Analyzer::new(data_definition);
     assert_eq!(
-        description,
-        Err(DescriptionError::syntax_error(
+        analyzer.analyze(create_table(vec!["only_schema_in_the_name"], vec![])),
+        Err(AnalysisError::table_naming_error(
             &"Unsupported table name 'only_schema_in_the_name'. All table names must be qualified",
         ))
     );
@@ -112,41 +69,101 @@ fn create_table_with_unqualified_name() {
 
 #[test]
 fn create_table_with_unsupported_name() {
-    let metadata = Arc::new(DataDefinition::in_memory());
-    metadata.create_catalog(DEFAULT_CATALOG);
-    metadata.create_schema(DEFAULT_CATALOG, SCHEMA);
-    let analyzer = Analyzer::new(metadata);
-    let description = analyzer.describe(&create_table(
-        vec!["first_part", "second_part", "third_part", "fourth_part"],
-        vec![column("column_name", DataType::SmallInt)],
-    ));
+    let data_definition = Arc::new(DataManager::in_memory());
+    data_definition.create_schema(SCHEMA).expect("schema created");
+    let analyzer = Analyzer::new(data_definition);
     assert_eq!(
-        description,
-        Err(DescriptionError::syntax_error(
-            &"Unable to process table name 'first_part.second_part.third_part.fourth_part'",
+        analyzer.analyze(create_table(
+            vec!["first_part", "second_part", "third_part", "fourth_part"],
+            vec![],
+        )),
+        Err(AnalysisError::table_naming_error(
+            &"Unable to process table name 'first_part.second_part.third_part.fourth_part'"
         ))
     );
 }
 
 #[test]
-fn successfully_create_table() {
-    let metadata = Arc::new(DataDefinition::in_memory());
-    metadata.create_catalog(DEFAULT_CATALOG);
-    metadata.create_schema(DEFAULT_CATALOG, SCHEMA);
-    let analyzer = Analyzer::new(metadata);
-    let description = analyzer.describe(&create_table(
-        vec![SCHEMA, TABLE],
-        vec![column("column_name", DataType::SmallInt)],
-    ));
+fn create_table_with_unsupported_column_type() {
+    let data_definition = Arc::new(DataManager::in_memory());
+    data_definition.create_schema(SCHEMA).expect("schema created");
+    let analyzer = Analyzer::new(data_definition);
     assert_eq!(
-        description,
-        Ok(Description::CreateTable(TableCreationInfo {
-            schema_id: 0,
-            table_name: TABLE.to_owned(),
-            columns: vec![ColumnDesc {
-                name: "column_name".to_owned(),
-                pg_type: PgType::SmallInt
-            }]
-        }))
+        analyzer.analyze(create_table(
+            vec![SCHEMA, TABLE],
+            vec![column(
+                "column_name",
+                ast::DataType::Custom(ast::ObjectName(vec![ident("strange_type_name_whatever")])),
+            )],
+        )),
+        Err(AnalysisError::type_is_not_supported(&"strange_type_name_whatever"))
+    );
+}
+
+#[test]
+fn create_table_with_the_same_name() {
+    let data_definition = Arc::new(DataManager::in_memory());
+    let schema_id = data_definition.create_schema(SCHEMA).expect("schema created");
+    data_definition
+        .create_table(schema_id, TABLE, &[])
+        .expect("table created");
+    let analyzer = Analyzer::new(data_definition);
+
+    assert_eq!(
+        analyzer.analyze(create_table(vec![SCHEMA, TABLE], vec![])),
+        Ok(QueryAnalysis::DataDefinition(SchemaChange::CreateTable(
+            CreateTableQuery {
+                table_info: TableInfo::new(0, &SCHEMA, &TABLE),
+                column_defs: vec![],
+                if_not_exists: false,
+            }
+        )))
+    );
+}
+
+#[test]
+fn create_new_table_if_not_exist() {
+    let data_definition = Arc::new(DataManager::in_memory());
+    data_definition.create_schema(SCHEMA).expect("schema created");
+    let analyzer = Analyzer::new(data_definition);
+    assert_eq!(
+        analyzer.analyze(create_table_if_not_exists(
+            vec![SCHEMA, TABLE],
+            vec![column("column_name", ast::DataType::SmallInt)],
+            true
+        )),
+        Ok(QueryAnalysis::DataDefinition(SchemaChange::CreateTable(
+            CreateTableQuery {
+                table_info: TableInfo::new(0, &SCHEMA, &TABLE),
+                column_defs: vec![ColumnDesc {
+                    name: "column_name".to_owned(),
+                    sql_type: SqlType::SmallInt
+                }],
+                if_not_exists: true,
+            }
+        )))
+    );
+}
+
+#[test]
+fn successfully_create_table() {
+    let data_definition = Arc::new(DataManager::in_memory());
+    data_definition.create_schema(SCHEMA).expect("schema created");
+    let analyzer = Analyzer::new(data_definition);
+    assert_eq!(
+        analyzer.analyze(create_table(
+            vec![SCHEMA, TABLE],
+            vec![column("column_name", ast::DataType::SmallInt)],
+        )),
+        Ok(QueryAnalysis::DataDefinition(SchemaChange::CreateTable(
+            CreateTableQuery {
+                table_info: TableInfo::new(0, &SCHEMA, &TABLE),
+                column_defs: vec![ColumnDesc {
+                    name: "column_name".to_owned(),
+                    sql_type: SqlType::SmallInt
+                }],
+                if_not_exists: false,
+            }
+        )))
     );
 }

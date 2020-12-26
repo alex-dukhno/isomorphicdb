@@ -12,11 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::tests::*;
+use super::*;
 use meta_def::ColumnDefinition;
 use plan::TableCreationInfo;
-use sql_model::sql_types::SqlType;
 use sqlparser::ast::{ColumnDef, DataType, ObjectName, Statement};
+use types::SqlType;
 
 fn column(name: &str, data_type: DataType) -> ColumnDef {
     ColumnDef {

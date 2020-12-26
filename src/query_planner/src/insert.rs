@@ -15,7 +15,7 @@
 use crate::{PlanError, Planner, Result};
 use ast::operations::ScalarOp;
 use constraints::TypeConstraint;
-use metadata::{DataDefinition, MetadataView};
+use data_definition::DataDefReader;
 use plan::{FullTableId, FullTableName, Plan, TableInserts};
 use sqlparser::ast::{Ident, ObjectName, Query, SetExpr};
 use std::{collections::HashSet, convert::TryFrom, sync::Arc};
@@ -37,7 +37,7 @@ impl<'ip> InsertPlanner<'ip> {
 }
 
 impl Planner for InsertPlanner<'_> {
-    fn plan(self, metadata: Arc<DataDefinition>) -> Result<Plan> {
+    fn plan(self, metadata: Arc<dyn DataDefReader>) -> Result<Plan> {
         match FullTableName::try_from(self.table_name) {
             Ok(full_table_name) => {
                 let (schema_name, table_name) = full_table_name.as_tuple();
@@ -66,6 +66,7 @@ impl Planner for InsertPlanner<'_> {
                                     input.push(scalar_values);
                                 }
                                 let all_columns = metadata.table_columns(&table_id).expect("table exists");
+                                log::debug!("TABLE COLUMNS {:?}", all_columns);
                                 let column_indices = if self.columns.is_empty() {
                                     all_columns
                                         .iter()

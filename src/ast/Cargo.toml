@@ -6,8 +6,9 @@ edition = "2018"
 publish = false
 
 [dependencies]
-sql_model = { path = "../sql_model" }
+meta_def = { path = "../meta_def" }
 repr = { path = "../repr" }
+types = { path = "../types" }
 
 bigdecimal = { version = "0.2.0", features = ["string-only"] }
 log = "0.4.11"

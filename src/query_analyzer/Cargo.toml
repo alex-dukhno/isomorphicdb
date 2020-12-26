@@ -6,15 +6,14 @@ edition = "2018"
 publish = false
 
 [dependencies]
-description = { path = "../description" }
+analysis = { path = "../analysis" }
+expr_operators = { path = "../expr_operators" }
 meta_def = { path = "../meta_def" }
-metadata = { path = "../metadata" }
-sql_model = { path = "../sql_model" }
+data_definition = { path = "../data_definition" }
+types = { path = "../types" }
 
-pg_wire = "0.5.0"
+bigdecimal = { version = "0.2.0", features = ["string-only"] }
 sqlparser = { git = "https://github.com/ballista-compute/sqlparser-rs.git", branch = "main", features = ["bigdecimal"] }
 
 [dev-dependencies]
-meta_def = { path = "../meta_def" }
-
-bigdecimal = { version = "0.2.0", features = ["string-only"] }
+data_manager = { path = "../data_manager" }

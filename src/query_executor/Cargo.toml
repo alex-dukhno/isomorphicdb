@@ -13,7 +13,7 @@ constraints = { path = "../constraints" }
 data_manager = { path = "../data_manager" }
 expr_eval = { path = "../expr_eval" }
 meta_def = { path = "../meta_def" }
-metadata = { path = "../metadata" }
+data_definition = { path = "../data_definition" }
 plan = { path = "../plan" }
 pg_model = { path = "../pg_model" }
 pg_wire = "0.5.0"

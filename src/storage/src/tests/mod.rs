@@ -15,6 +15,13 @@
 use super::*;
 use binary::{Binary, Row};
 
+const SCHEMA_1: &str = "schema_name_1";
+const SCHEMA_2: &str = "schema_name_2";
+const OBJECT: &str = "object_name";
+const OBJECT_1: &str = "object_name_1";
+const OBJECT_2: &str = "object_name_2";
+const DOES_NOT_EXIST: &str = "does_not_exist";
+
 #[cfg(test)]
 mod in_memory;
 #[cfg(test)]

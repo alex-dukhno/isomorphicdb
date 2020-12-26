@@ -13,7 +13,6 @@
 // limitations under the License.
 
 use super::*;
-use crate::tests::ident;
 use plan::{FullTableId, SchemaId};
 use sqlparser::ast::{ObjectName, ObjectType, Statement};
 
