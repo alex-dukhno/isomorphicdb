@@ -240,10 +240,6 @@ pub struct SelectInput {
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum Plan {
-    CreateTable(TableCreationInfo),
-    CreateSchema(SchemaCreationInfo),
-    DropTables(Vec<FullTableId>),
-    DropSchemas(Vec<(SchemaId, bool)>),
     Select(SelectInput),
     Update(TableUpdates),
     Delete(TableDeletes),

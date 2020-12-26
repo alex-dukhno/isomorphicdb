@@ -12,13 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{
-    ddl::{
-        create_schema::CreateSchemaCommand, create_table::CreateTableCommand, drop_schema::DropSchemaCommand,
-        drop_table::DropTableCommand,
-    },
-    dml::{delete::DeleteCommand, insert::InsertCommand, select::SelectCommand, update::UpdateCommand},
-};
+use crate::dml::{delete::DeleteCommand, insert::InsertCommand, select::SelectCommand, update::UpdateCommand};
 use connection::Sender;
 use data_manager::DataManager;
 use pg_model::results::{QueryError, QueryEvent};
@@ -26,7 +20,6 @@ use plan::Plan;
 use sqlparser::ast::Statement;
 use std::sync::Arc;
 
-mod ddl;
 mod dml;
 
 pub struct QueryExecutor {
@@ -41,46 +34,6 @@ impl QueryExecutor {
 
     pub fn execute(&self, plan: Plan) {
         match plan {
-            Plan::CreateSchema(creation_info) => {
-                CreateSchemaCommand::new(creation_info, self.data_manager.clone()).execute();
-                self.sender
-                    .send(Ok(QueryEvent::SchemaCreated))
-                    .expect("To Send Query Result to Client");
-            }
-            Plan::CreateTable(creation_info) => {
-                CreateTableCommand::new(creation_info, self.data_manager.clone()).execute();
-                self.sender
-                    .send(Ok(QueryEvent::TableCreated))
-                    .expect("To Send Query Result to Client");
-            }
-            Plan::DropSchemas(schemas) => {
-                if schemas.is_empty() {
-                    self.sender
-                        .send(Ok(QueryEvent::QueryComplete))
-                        .expect("To Send Query Complete to Client");
-                } else {
-                    for (schema, cascade) in schemas {
-                        DropSchemaCommand::new(schema, cascade, self.data_manager.clone()).execute();
-                        self.sender
-                            .send(Ok(QueryEvent::SchemaDropped))
-                            .expect("To Send Query Result to Client");
-                    }
-                }
-            }
-            Plan::DropTables(tables) => {
-                if tables.is_empty() {
-                    self.sender
-                        .send(Ok(QueryEvent::QueryComplete))
-                        .expect("To Send Query Complete to Client");
-                } else {
-                    for table in tables {
-                        DropTableCommand::new(table, self.data_manager.clone()).execute();
-                        self.sender
-                            .send(Ok(QueryEvent::TableDropped))
-                            .expect("To Send Query Result to Client");
-                    }
-                }
-            }
             Plan::Insert(table_insert) => {
                 InsertCommand::new(table_insert, self.data_manager.clone(), self.sender.clone()).execute()
             }
