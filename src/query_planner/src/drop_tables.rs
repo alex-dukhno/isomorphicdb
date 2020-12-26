@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use crate::{PlanError, Planner, Result};
-use metadata::{DataDefinition, MetadataView};
+use data_definition::DataDefReader;
 use plan::{FullTableId, FullTableName, Plan};
 use sqlparser::ast::ObjectName;
 use std::{convert::TryFrom, sync::Arc};
@@ -30,7 +30,7 @@ impl DropTablesPlanner<'_> {
 }
 
 impl Planner for DropTablesPlanner<'_> {
-    fn plan(self, metadata: Arc<DataDefinition>) -> Result<Plan> {
+    fn plan(self, metadata: Arc<dyn DataDefReader>) -> Result<Plan> {
         let mut table_names = Vec::with_capacity(self.names.len());
         for name in self.names {
             match FullTableName::try_from(name) {

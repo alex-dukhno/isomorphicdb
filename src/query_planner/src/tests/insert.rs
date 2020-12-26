@@ -16,11 +16,11 @@ use super::*;
 use bigdecimal::BigDecimal;
 use constraints::TypeConstraint;
 use plan::{FullTableId, TableInserts};
-use sql_model::sql_types::SqlType;
 use sqlparser::ast::{
     Expr, ObjectName, Query, Select, SelectItem, SetExpr, Statement, TableFactor, TableWithJoins, UnaryOperator, Value,
     Values,
 };
+use types::SqlType;
 
 fn insert_into_with_columns(table_name: ObjectName, columns: Vec<Ident>, body: SetExpr) -> Statement {
     Statement::Insert {

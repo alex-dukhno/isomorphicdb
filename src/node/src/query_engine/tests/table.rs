@@ -119,7 +119,7 @@ fn drop_if_exists_non_existent_table(database_with_schema: (InMemory, ResultColl
             sql: "drop table if exists schema_name.non_existent;".to_owned(),
         })
         .expect("query executed");
-    collector.assert_receive_single(Ok(QueryEvent::QueryComplete));
+    collector.assert_receive_single(Ok(QueryEvent::TableDropped));
 }
 
 #[cfg(test)]

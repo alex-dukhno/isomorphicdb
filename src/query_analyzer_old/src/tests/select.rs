@@ -50,8 +50,7 @@ fn select(name: ObjectName) -> Statement {
 
 #[test]
 fn select_from_table_that_in_nonexistent_schema() {
-    let metadata = Arc::new(DataDefinition::in_memory());
-    metadata.create_catalog(DEFAULT_CATALOG);
+    let metadata = Arc::new(DataManager::in_memory());
     let analyzer = Analyzer::new(metadata);
     let description = analyzer.describe(&select(ObjectName(vec![ident("non_existent_schema"), ident(TABLE)])));
     assert_eq!(
@@ -62,9 +61,8 @@ fn select_from_table_that_in_nonexistent_schema() {
 
 #[test]
 fn select_from_nonexistent_table() {
-    let metadata = Arc::new(DataDefinition::in_memory());
-    metadata.create_catalog(DEFAULT_CATALOG);
-    metadata.create_schema(DEFAULT_CATALOG, SCHEMA);
+    let metadata = Arc::new(DataManager::in_memory());
+    metadata.create_schema(SCHEMA).expect("schema created");
     let analyzer = Analyzer::new(metadata);
     let description = analyzer.describe(&select(ObjectName(vec![ident(SCHEMA), ident("non_existent_table")])));
     assert_eq!(
@@ -78,9 +76,8 @@ fn select_from_nonexistent_table() {
 
 #[test]
 fn select_from_table_with_unqualified_name() {
-    let metadata = Arc::new(DataDefinition::in_memory());
-    metadata.create_catalog(DEFAULT_CATALOG);
-    metadata.create_schema(DEFAULT_CATALOG, SCHEMA);
+    let metadata = Arc::new(DataManager::in_memory());
+    metadata.create_schema(SCHEMA).expect("schema created");
     let analyzer = Analyzer::new(metadata);
     let description = analyzer.describe(&select(ObjectName(vec![ident("only_schema_in_the_name")])));
     assert_eq!(
@@ -93,9 +90,8 @@ fn select_from_table_with_unqualified_name() {
 
 #[test]
 fn select_from_table_with_unsupported_name() {
-    let metadata = Arc::new(DataDefinition::in_memory());
-    metadata.create_catalog(DEFAULT_CATALOG);
-    metadata.create_schema(DEFAULT_CATALOG, SCHEMA);
+    let metadata = Arc::new(DataManager::in_memory());
+    metadata.create_schema(SCHEMA).expect("schema created");
     let analyzer = Analyzer::new(metadata);
     let description = analyzer.describe(&select(ObjectName(vec![
         ident("first_part"),
@@ -113,10 +109,9 @@ fn select_from_table_with_unsupported_name() {
 
 #[test]
 fn select_from_table() {
-    let metadata = Arc::new(DataDefinition::in_memory());
-    metadata.create_catalog(DEFAULT_CATALOG);
-    metadata.create_schema(DEFAULT_CATALOG, SCHEMA);
-    metadata.create_table(DEFAULT_CATALOG, SCHEMA, TABLE, &[]);
+    let metadata = Arc::new(DataManager::in_memory());
+    let schema_id = metadata.create_schema(SCHEMA).expect("schema created");
+    metadata.create_table(schema_id, TABLE, &[]).expect("table created");
     let analyzer = Analyzer::new(metadata);
     let description = analyzer.describe(&select(ObjectName(vec![ident(SCHEMA), ident(TABLE)])));
     assert_eq!(
@@ -130,15 +125,11 @@ fn select_from_table() {
 
 #[test]
 fn select_from_table_with_column() {
-    let metadata = Arc::new(DataDefinition::in_memory());
-    metadata.create_catalog(DEFAULT_CATALOG);
-    metadata.create_schema(DEFAULT_CATALOG, SCHEMA);
-    metadata.create_table(
-        DEFAULT_CATALOG,
-        SCHEMA,
-        TABLE,
-        &[ColumnDefinition::new("col1", SqlType::Integer)],
-    );
+    let metadata = Arc::new(DataManager::in_memory());
+    let schema_id = metadata.create_schema(SCHEMA).expect("schema created");
+    metadata
+        .create_table(schema_id, TABLE, &[ColumnDefinition::new("col1", SqlType::Integer)])
+        .expect("table created");
     let analyzer = Analyzer::new(metadata);
     let description = analyzer.describe(&select_with_columns(
         ObjectName(vec![ident(SCHEMA), ident(TABLE)]),
@@ -156,15 +147,11 @@ fn select_from_table_with_column() {
 #[test]
 #[ignore]
 fn select_from_table_with_constant() {
-    let metadata = Arc::new(DataDefinition::in_memory());
-    metadata.create_catalog(DEFAULT_CATALOG);
-    metadata.create_schema(DEFAULT_CATALOG, SCHEMA);
-    metadata.create_table(
-        DEFAULT_CATALOG,
-        SCHEMA,
-        TABLE,
-        &[ColumnDefinition::new("col1", SqlType::Integer)],
-    );
+    let metadata = Arc::new(DataManager::in_memory());
+    let schema_id = metadata.create_schema(SCHEMA).expect("schema created");
+    metadata
+        .create_table(schema_id, TABLE, &[ColumnDefinition::new("col1", SqlType::Integer)])
+        .expect("schema created");
     let analyzer = Analyzer::new(metadata);
     let description = analyzer.describe(&select_with_columns(
         ObjectName(vec![ident(SCHEMA), ident(TABLE)]),

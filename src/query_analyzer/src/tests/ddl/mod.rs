@@ -14,6 +14,9 @@
 
 use super::*;
 
+#[cfg(test)]
 mod create_schema;
+#[cfg(test)]
 mod create_table;
+#[cfg(test)]
 mod drop_statements;

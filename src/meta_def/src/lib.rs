@@ -12,36 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use sql_model::{sql_types::SqlType, Id};
+use types::SqlType;
 
-#[derive(Debug, PartialEq)]
-pub struct TableDefinition {
-    schema_id: Id,
-    table_id: Id,
-    columns: Vec<ColumnDefinition>,
-}
-
-impl TableDefinition {
-    pub fn new(schema_id: Id, table_id: Id, columns: Vec<ColumnDefinition>) -> TableDefinition {
-        TableDefinition {
-            schema_id,
-            table_id,
-            columns,
-        }
-    }
-
-    pub fn full_table_id(&self) -> (Id, Id) {
-        (self.schema_id, self.table_id)
-    }
-
-    pub fn column_types(&self) -> Vec<SqlType> {
-        self.columns.iter().map(|col_def| col_def.sql_type()).collect()
-    }
-
-    pub fn columns(&self) -> &[ColumnDefinition] {
-        &self.columns
-    }
-}
+pub type Id = u64;
+pub type ParameterName = String;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct ColumnDefinition {

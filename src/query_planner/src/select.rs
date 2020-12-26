@@ -14,7 +14,7 @@
 
 use crate::{PlanError, Planner, Result};
 use ast::predicates::{PredicateOp, PredicateValue};
-use metadata::{DataDefinition, MetadataView};
+use data_definition::DataDefReader;
 use plan::{FullTableId, FullTableName, Plan, SelectInput};
 use sqlparser::ast::{
     BinaryOperator, Expr, Ident, Query, Select, SelectItem, SetExpr, TableFactor, TableWithJoins, Value,
@@ -32,7 +32,7 @@ impl SelectPlanner {
 }
 
 impl Planner for SelectPlanner {
-    fn plan(self, metadata: Arc<DataDefinition>) -> Result<Plan> {
+    fn plan(self, metadata: Arc<dyn DataDefReader>) -> Result<Plan> {
         let Query { body, .. } = &*self.query;
         let result = if let SetExpr::Select(query) = body {
             let Select {

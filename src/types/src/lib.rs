@@ -19,6 +19,13 @@ use std::{
     fmt::{self, Display, Formatter},
 };
 
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum GeneralType {
+    String,
+    Number,
+    Bool,
+}
+
 #[derive(PartialEq, Eq, Debug, Copy, Clone, Hash, Ord, PartialOrd)]
 pub enum SqlType {
     Bool,
@@ -42,6 +49,16 @@ impl SqlType {
             SqlType::BigInt => 5,
             SqlType::Real => 6,
             SqlType::DoublePrecision => 7,
+        }
+    }
+
+    pub fn general_type(&self) -> GeneralType {
+        match self {
+            SqlType::Bool => GeneralType::Bool,
+            SqlType::Char(_) | SqlType::VarChar(_) => GeneralType::String,
+            SqlType::SmallInt | SqlType::Integer | SqlType::BigInt | SqlType::Real | SqlType::DoublePrecision => {
+                GeneralType::Number
+            }
         }
     }
 
@@ -71,18 +88,12 @@ impl TryFrom<&DataType> for SqlType {
             DataType::Char(len) => Ok(SqlType::Char(len.unwrap_or(255))),
             DataType::Varchar(len) => Ok(SqlType::VarChar(len.unwrap_or(255))),
             DataType::Boolean => Ok(SqlType::Bool),
-            other_type => Err(NotSupportedType(other_type.clone())),
+            _other_type => Err(NotSupportedType),
         }
     }
 }
 
-pub struct NotSupportedType(DataType);
-
-impl Display for NotSupportedType {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "'{}' type is not supported", self.0)
-    }
-}
+pub struct NotSupportedType;
 
 impl Display for SqlType {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {

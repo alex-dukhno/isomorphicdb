@@ -25,14 +25,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "analysis"
+version = "0.1.0"
+dependencies = [
+ "expr_operators",
+ "meta_def",
+ "sqlparser",
+ "types",
+]
+
+[[package]]
 name = "ast"
 version = "0.1.0"
 dependencies = [
  "bigdecimal",
  "log",
+ "meta_def",
  "repr",
- "sql_model",
  "sqlparser",
+ "types",
 ]
 
 [[package]]
@@ -341,7 +352,7 @@ dependencies = [
  "num-bigint",
  "repr",
  "rstest",
- "sql_model",
+ "types",
 ]
 
 [[package]]
@@ -407,30 +418,54 @@ dependencies = [
 ]
 
 [[package]]
+name = "data_definition"
+version = "0.1.0"
+dependencies = [
+ "backtrace",
+ "dashmap",
+ "definition_operations",
+ "log",
+ "meta_def",
+ "rstest",
+ "tempfile",
+ "types",
+]
+
+[[package]]
 name = "data_manager"
 version = "0.1.0"
 dependencies = [
  "backtrace",
  "binary",
  "dashmap",
+ "data_definition",
+ "definition_operations",
  "log",
  "meta_def",
- "metadata",
  "repr",
  "rstest",
  "sql_model",
  "storage",
  "tempfile",
+ "types",
+]
+
+[[package]]
+name = "definition_operations"
+version = "0.1.0"
+dependencies = [
+ "types",
 ]
 
 [[package]]
 name = "description"
 version = "0.1.0"
 dependencies = [
+ "meta_def",
  "pg_model",
  "pg_wire",
- "sql_model",
  "sqlparser",
+ "types",
 ]
 
 [[package]]
@@ -453,6 +488,14 @@ dependencies = [
  "bigdecimal",
  "repr",
  "rstest",
+]
+
+[[package]]
+name = "expr_operators"
+version = "0.1.0"
+dependencies = [
+ "bigdecimal",
+ "types",
 ]
 
 [[package]]
@@ -706,24 +749,7 @@ dependencies = [
 name = "meta_def"
 version = "0.1.0"
 dependencies = [
- "sql_model",
-]
-
-[[package]]
-name = "metadata"
-version = "0.1.0"
-dependencies = [
- "backtrace",
- "binary",
- "dashmap",
- "log",
- "meta_def",
- "pg_model",
- "repr",
- "rstest",
- "sql_model",
- "storage",
- "tempfile",
+ "types",
 ]
 
 [[package]]
@@ -767,6 +793,7 @@ dependencies = [
 name = "node"
 version = "0.1.0"
 dependencies = [
+ "analysis",
  "async-dup",
  "async-executor",
  "async-io",
@@ -774,23 +801,27 @@ dependencies = [
  "binder",
  "blocking",
  "connection",
+ "data_definition",
  "data_manager",
  "description",
  "futures-lite",
  "itertools",
  "log",
- "metadata",
  "parser",
  "pg_model",
  "pg_wire",
  "plan",
  "query_analyzer",
+ "query_analyzer_old",
  "query_executor",
  "query_planner",
  "rstest",
+ "schema_executor",
+ "schema_planner",
  "simple_logger",
  "sql_model",
  "sqlparser",
+ "types",
 ]
 
 [[package]]
@@ -1002,6 +1033,7 @@ dependencies = [
  "pg_wire",
  "sql_model",
  "sqlparser",
+ "types",
 ]
 
 [[package]]
@@ -1048,13 +1080,28 @@ dependencies = [
 name = "query_analyzer"
 version = "0.1.0"
 dependencies = [
+ "analysis",
  "bigdecimal",
+ "data_definition",
+ "data_manager",
+ "expr_operators",
+ "meta_def",
+ "sqlparser",
+ "types",
+]
+
+[[package]]
+name = "query_analyzer_old"
+version = "0.1.0"
+dependencies = [
+ "bigdecimal",
+ "data_definition",
+ "data_manager",
  "description",
  "meta_def",
- "metadata",
  "pg_wire",
- "sql_model",
  "sqlparser",
+ "types",
 ]
 
 [[package]]
@@ -1066,12 +1113,12 @@ dependencies = [
  "binary",
  "connection",
  "constraints",
+ "data_definition",
  "data_manager",
  "expr_eval",
  "futures-lite",
  "log",
  "meta_def",
- "metadata",
  "pg_model",
  "pg_wire",
  "plan",
@@ -1089,12 +1136,14 @@ dependencies = [
  "ast",
  "bigdecimal",
  "constraints",
+ "data_definition",
+ "data_manager",
+ "log",
  "meta_def",
- "metadata",
  "plan",
  "rstest",
- "sql_model",
  "sqlparser",
+ "types",
 ]
 
 [[package]]
@@ -1205,6 +1254,26 @@ checksum = "8f05ba609c234e60bee0d547fe94a4c7e9da733d1c962cf6e59efa4cd9c8bc75"
 dependencies = [
  "lazy_static",
  "winapi",
+]
+
+[[package]]
+name = "schema_executor"
+version = "0.1.0"
+dependencies = [
+ "analysis",
+ "data_definition",
+ "data_manager",
+ "definition_operations",
+]
+
+[[package]]
+name = "schema_planner"
+version = "0.1.0"
+dependencies = [
+ "analysis",
+ "data_manager",
+ "definition_operations",
+ "types",
 ]
 
 [[package]]
@@ -1402,6 +1471,15 @@ name = "tinyvec"
 version = "0.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "238ce071d267c5710f9d31451efec16c5ee22de34df17cc05e56cbc92e967117"
+
+[[package]]
+name = "types"
+version = "0.1.0"
+dependencies = [
+ "pg_wire",
+ "rstest",
+ "sqlparser",
+]
 
 [[package]]
 name = "unicode-bidi"

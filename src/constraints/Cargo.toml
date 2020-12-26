@@ -8,7 +8,7 @@ publish = false
 [dependencies]
 ast = { path = "../ast" }
 repr = { path = "../repr" }
-sql_model = { path = "../sql_model" }
+types = { path = "../types" }
 
 bigdecimal = { version = "0.2.0", features = ["string-only"] }
 num-bigint = "0.3"

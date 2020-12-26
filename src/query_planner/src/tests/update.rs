@@ -16,8 +16,8 @@ use super::*;
 use ast::{operations::ScalarOp, values::ScalarValue};
 use constraints::TypeConstraint;
 use plan::{FullTableId, Plan, TableUpdates};
-use sql_model::sql_types::SqlType;
 use sqlparser::ast::{Assignment, Expr, ObjectName, Statement, Value};
+use types::SqlType;
 
 #[rstest::rstest]
 fn update_table_that_in_nonexistent_schema(planner: QueryPlanner) {

@@ -12,20 +12,59 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{Database, InitStatus, Key, ObjectName, ReadCursor, SchemaName, StorageError, Values};
+use crate::{Database, InitStatus, Key, Name, ObjectName, ReadCursor, SchemaName, Sequence, StorageError, Values};
 use binary::{Binary, RowResult};
 use dashmap::DashMap;
 use sled::{Db as Schema, DiskPtr, Error as SledError, IVec, Tree};
 use sql_model::sql_errors::DefinitionError;
 use std::{
+    convert::{TryFrom, TryInto},
     io::{self, ErrorKind},
+    num::NonZeroU64,
     path::PathBuf,
     sync::Arc,
 };
 
+#[derive(Debug)]
+pub struct PersistentSequence {
+    name: IVec,
+    source: Tree,
+    step: u64,
+}
+
+impl PartialEq for PersistentSequence {
+    fn eq(&self, other: &Self) -> bool {
+        String::from_utf8(self.name.to_vec()) == String::from_utf8(other.name.to_vec())
+    }
+}
+
+impl PersistentSequence {
+    pub(crate) fn with_step(name: IVec, source: Tree, step: u64) -> PersistentSequence {
+        PersistentSequence { name, source, step }
+    }
+}
+
+impl Sequence for PersistentSequence {
+    fn next(&self) -> u64 {
+        let current = match self.source.get(self.name.clone()) {
+            Ok(Some(value)) => u64::from_be_bytes(value[0..8].try_into().unwrap()),
+            Ok(None) => 0,
+            Err(_) => unimplemented!(),
+        };
+        let result = self.source.insert(
+            self.name.clone(),
+            IVec::from(&(current.overflowing_add(self.step).0).to_be_bytes()),
+        );
+        match result {
+            Ok(_) => current,
+            Err(_) => unimplemented!(),
+        }
+    }
+}
+
 pub struct PersistentDatabase {
     path: PathBuf,
-    schemas: DashMap<String, Arc<Schema>>,
+    schemas: DashMap<Name, Arc<Schema>>,
 }
 
 impl PersistentDatabase {
@@ -37,18 +76,14 @@ impl PersistentDatabase {
     }
 
     pub fn init(&self, schema_name: SchemaName) -> io::Result<Result<InitStatus, StorageError>> {
-        let path_to_schema = PathBuf::from(&self.path).join(schema_name);
+        let path_to_schema = PathBuf::from(&self.path).join(&schema_name);
         log::info!("path to schema {:?}", path_to_schema);
-        self.open_schema(path_to_schema).map(|storage| {
-            storage.map(|schema| {
-                let recovered = schema.was_recovered();
-                self.schemas.insert(schema_name.to_owned(), Arc::new(schema));
+        self.open_schema(path_to_schema).map(|schema| {
+            schema.map(|sled_db| {
+                let recovered = sled_db.was_recovered();
+                self.schemas.insert(schema_name.to_owned(), Arc::new(sled_db));
                 log::debug!("schemas after initialization {:?}", self.schemas);
-                if recovered {
-                    InitStatus::Loaded
-                } else {
-                    InitStatus::Created
-                }
+                InitStatus::from(recovered)
             })
         })
     }
@@ -105,6 +140,7 @@ impl PersistentDatabase {
     fn drop_database(&self, schema: Arc<Schema>) -> io::Result<Result<Result<(), DefinitionError>, StorageError>> {
         let mut io_errors = vec![];
         for tree_name in schema.tree_names() {
+            log::warn!("tree name: {:?}", tree_name);
             let name = tree_name.clone();
             match self.drop_database_cascade_with_failpoint(schema.clone(), tree_name) {
                 Ok(true) => log::info!("{:?} was dropped", name),
@@ -195,6 +231,60 @@ impl PersistentDatabase {
 }
 
 impl Database for PersistentDatabase {
+    fn create_sequence_with_step(
+        &self,
+        schema_name: &str,
+        sequence_name: &str,
+        step: u64,
+    ) -> Result<Arc<dyn Sequence>, DefinitionError> {
+        match self.schemas.get(schema_name) {
+            Some(schema) => match NonZeroU64::try_from(step) {
+                Ok(_) => {
+                    let tree = schema.open_tree("sequences").unwrap();
+                    tree.insert(sequence_name.to_owned() + ".step", IVec::from(&step.to_be_bytes()))
+                        .unwrap();
+                    Ok(Arc::new(PersistentSequence::with_step(
+                        IVec::from(sequence_name),
+                        tree,
+                        step,
+                    )))
+                }
+                Err(_) => Err(DefinitionError::ZeroStepSequence),
+            },
+            None => Err(DefinitionError::SchemaDoesNotExist),
+        }
+    }
+
+    fn drop_sequence(&self, schema_name: &str, sequence_name: &str) -> Result<(), DefinitionError> {
+        match self.schemas.get(schema_name) {
+            Some(schema) => {
+                let tree = schema.open_tree("sequences").unwrap();
+                match tree.remove(IVec::from(sequence_name)) {
+                    Ok(_) => Ok(()),
+                    Err(_) => Err(DefinitionError::ObjectDoesNotExist),
+                }
+            }
+            None => Err(DefinitionError::SchemaDoesNotExist),
+        }
+    }
+
+    fn get_sequence(&self, schema_name: &str, sequence_name: &str) -> Result<Arc<dyn Sequence>, DefinitionError> {
+        match self.schemas.get(schema_name) {
+            Some(schema) => {
+                let tree = schema.open_tree("sequences").unwrap();
+                Ok(Arc::new(PersistentSequence::with_step(
+                    IVec::from(sequence_name),
+                    tree.clone(),
+                    tree.get(sequence_name.to_owned() + ".step")
+                        .unwrap()
+                        .map(|value| u64::from_be_bytes(value[0..8].try_into().unwrap()))
+                        .unwrap_or(1),
+                )))
+            }
+            None => Err(DefinitionError::SchemaDoesNotExist),
+        }
+    }
+
     fn create_schema(&self, schema_name: SchemaName) -> io::Result<Result<Result<(), DefinitionError>, StorageError>> {
         if self.schemas.contains_key(schema_name) {
             Ok(Ok(Err(DefinitionError::SchemaAlreadyExists)))
@@ -241,7 +331,7 @@ impl Database for PersistentDatabase {
         object_name: ObjectName,
     ) -> io::Result<Result<Result<(), DefinitionError>, StorageError>> {
         match self.schemas.get(schema_name) {
-            Some(schema) => match self.drop_tree_with_failpoint(schema.clone(), object_name.as_bytes().into()) {
+            Some(schema) => match self.drop_tree_with_failpoint(schema.clone(), object_name.into()) {
                 Ok(true) => Ok(Ok(Ok(()))),
                 Ok(false) => Ok(Ok(Err(DefinitionError::ObjectDoesNotExist))),
                 Err(error) => match error {

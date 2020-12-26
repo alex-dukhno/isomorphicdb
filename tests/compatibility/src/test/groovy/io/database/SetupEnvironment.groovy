@@ -54,6 +54,7 @@ class SetupEnvironment extends Specification {
       "jdbc:postgresql://localhost:5433/test?gssEncMode=disable&sslmode=disable&preferQueryMode=extendedForPrepared"
     } else {
       POSTGRE_SQL.jdbcUrl
+//      "jdbc:postgresql://192.168.56.101:5432/postgres"
     }
   }
 

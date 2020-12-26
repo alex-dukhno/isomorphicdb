@@ -1,17 +1,14 @@
 [package]
-name = "metadata"
+name = "data_definition"
 version = "0.1.0"
 authors = ["Alex Dukhno <alex.dukhno@icloud.com>"]
 edition = "2018"
 publish = false
 
 [dependencies]
-binary = { path = "../binary" }
+definition_operations = { path = "../definition_operations" }
 meta_def = { path = "../meta_def" }
-pg_model = { path = "../pg_model" }
-repr = { path = "../repr" }
-sql_model = { path = "../sql_model" }
-storage = { path = "../storage" }
+types = { path = "../types" }
 
 dashmap = "3.11.10"
 log = "0.4.11"

@@ -1,23 +1,30 @@
 [workspace]
 members = [
-    "src/ast",
+    "src/analysis",
+    "src/ast", # TODO: should be removed after operation tree rewrite
     "src/binary",
     "src/binder",
     "src/constraints",
     "src/connection",
+    "src/data_definition",
     "src/data_manager",
-    "src/description",
-    "src/expr_eval",
+    "src/definition_operations",
+    "src/description", # TODO: should be removed after operation tree rewrite
+    "src/expr_eval", # TODO: should be removed after operation tree rewrite
+    "src/expr_operators",
     "src/meta_def",
-    "src/metadata",
     "src/node",
     "src/parser",
     "src/pg_model",
     "src/plan",
-    "src/repr",
     "src/query_analyzer",
+    "src/query_analyzer_old", # TODO: should be removed after operation tree rewrite
     "src/query_executor",
     "src/query_planner",
-    "src/sql_model",
+    "src/repr",
+    "src/schema_executor",
+    "src/schema_planner",
+    "src/sql_model", # TODO: should be removed after operation tree rewrite
     "src/storage",
+    "src/types",
 ]

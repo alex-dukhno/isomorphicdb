@@ -62,8 +62,7 @@ fn insert_stmt_with_parameters<S: ToString>(schema: S, table: S, param_indexes: 
 
 #[test]
 fn insert_into_table_under_non_existing_schema() {
-    let metadata = Arc::new(DataDefinition::in_memory());
-    metadata.create_catalog(DEFAULT_CATALOG);
+    let metadata = Arc::new(DataManager::in_memory());
     let analyzer = Analyzer::new(metadata);
     let description = analyzer.describe(&insert_statement("non_existent_schema", "non_existent_table"));
 
@@ -75,9 +74,8 @@ fn insert_into_table_under_non_existing_schema() {
 
 #[test]
 fn insert_into_non_existing_table() {
-    let metadata = Arc::new(DataDefinition::in_memory());
-    metadata.create_catalog(DEFAULT_CATALOG);
-    metadata.create_schema(DEFAULT_CATALOG, SCHEMA);
+    let metadata = Arc::new(DataManager::in_memory());
+    metadata.create_schema(SCHEMA).expect("schema created");
     let analyzer = Analyzer::new(metadata);
     let description = analyzer.describe(&insert_statement(SCHEMA, "non_existent"));
 
@@ -92,16 +90,9 @@ fn insert_into_non_existing_table() {
 
 #[test]
 fn insert_into_existing_table_without_columns() {
-    let metadata = Arc::new(DataDefinition::in_memory());
-    metadata.create_catalog(DEFAULT_CATALOG);
-    let schema_id = match metadata.create_schema(DEFAULT_CATALOG, SCHEMA) {
-        Some((_, Some(schema_id))) => schema_id,
-        _ => panic!(),
-    };
-    let table_id = match metadata.create_table(DEFAULT_CATALOG, SCHEMA, TABLE, &[]) {
-        Some((_, Some((_, Some(table_id))))) => table_id,
-        _ => panic!(),
-    };
+    let metadata = Arc::new(DataManager::in_memory());
+    let schema_id = metadata.create_schema(SCHEMA).expect("schema created");
+    let table_id = metadata.create_table(schema_id, TABLE, &[]).expect("table created");
     let analyzer = Analyzer::new(metadata);
     let description = analyzer.describe(&insert_statement(SCHEMA, TABLE));
 
@@ -117,21 +108,11 @@ fn insert_into_existing_table_without_columns() {
 
 #[test]
 fn insert_into_existing_table_with_column() {
-    let metadata = Arc::new(DataDefinition::in_memory());
-    metadata.create_catalog(DEFAULT_CATALOG);
-    let schema_id = match metadata.create_schema(DEFAULT_CATALOG, SCHEMA) {
-        Some((_, Some(schema_id))) => schema_id,
-        _ => panic!(),
-    };
-    let table_id = match metadata.create_table(
-        DEFAULT_CATALOG,
-        SCHEMA,
-        TABLE,
-        &[ColumnDefinition::new("col", SqlType::SmallInt)],
-    ) {
-        Some((_, Some((_, Some(table_id))))) => table_id,
-        _ => panic!(),
-    };
+    let metadata = Arc::new(DataManager::in_memory());
+    let schema_id = metadata.create_schema(SCHEMA).expect("schema created");
+    let table_id = metadata
+        .create_table(schema_id, TABLE, &[ColumnDefinition::new("col", SqlType::SmallInt)])
+        .expect("table created");
     let analyzer = Analyzer::new(metadata);
     let description = analyzer.describe(&insert_stmt_with_values(SCHEMA, TABLE, vec!["1"]));
 
@@ -147,24 +128,18 @@ fn insert_into_existing_table_with_column() {
 
 #[test]
 fn insert_into_table_with_parameters() {
-    let metadata = Arc::new(DataDefinition::in_memory());
-    metadata.create_catalog(DEFAULT_CATALOG);
-    let schema_id = match metadata.create_schema(DEFAULT_CATALOG, SCHEMA) {
-        Some((_, Some(schema_id))) => schema_id,
-        _ => panic!(),
-    };
-    let table_id = match metadata.create_table(
-        DEFAULT_CATALOG,
-        SCHEMA,
-        TABLE,
-        &[
-            ColumnDefinition::new("col_1", SqlType::SmallInt),
-            ColumnDefinition::new("col_2", SqlType::SmallInt),
-        ],
-    ) {
-        Some((_, Some((_, Some(table_id))))) => table_id,
-        _ => panic!(),
-    };
+    let metadata = Arc::new(DataManager::in_memory());
+    let schema_id = metadata.create_schema(SCHEMA).expect("schema created");
+    let table_id = metadata
+        .create_table(
+            schema_id,
+            TABLE,
+            &[
+                ColumnDefinition::new("col_1", SqlType::SmallInt),
+                ColumnDefinition::new("col_2", SqlType::SmallInt),
+            ],
+        )
+        .expect("table created");
     let analyzer = Analyzer::new(metadata);
     let description = analyzer.describe(&insert_stmt_with_parameters(SCHEMA, TABLE, vec![0, 9]));
     let mut param_types = ParamTypes::new();

@@ -47,7 +47,7 @@ See [docs](./docs/.)
                         on client request of `Describe` message
  * `src/expr_eval/` - module that evaluates static and dynamic expression in transformed `ast`
  * `src/meta_def/` - database structure definitions (table, columns etc)
- * `src/metadata/` - module responsible for managing on disk data about data
+ * `src/data_definition/` - module responsible for managing on disk data about data
  * `src/node/` - database node (member, server, instance) code. Handles network communication
                  with clients and process management of incoming queries. It also contains
                  concrete `trait` implementations from `src/protocol/` module.

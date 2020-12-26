@@ -12,23 +12,59 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#[cfg(test)]
 mod ddl;
-mod insert;
-mod select;
-mod update;
+#[cfg(test)]
+mod delete;
+#[cfg(test)]
+mod insertions;
+#[cfg(test)]
+mod operation_mapping;
+#[cfg(test)]
+mod selects;
+#[cfg(test)]
+mod updates;
 
 use super::*;
-use meta_def::ColumnDefinition;
-use sql_model::{sql_types::SqlType, DEFAULT_CATALOG};
-use sqlparser::ast::{Expr, Ident, ObjectName, Query, SetExpr, Value, Values};
-use std::sync::Arc;
+use analysis::{InsertTreeNode, UpdateTreeNode};
+use bigdecimal::BigDecimal;
+use data_manager::DataManager;
+use expr_operators::{
+    Arithmetic, Bitwise, Bool, Comparison, Logical, Operation, Operator, PatternMatching, ScalarValue, StringOp,
+};
+use meta_def::{ColumnDefinition, Id};
 
 const SCHEMA: &str = "schema_name";
 const TABLE: &str = "table_name";
 
-fn ident<S: ToString>(name: S) -> Ident {
-    Ident {
+fn ident<S: ToString>(name: S) -> ast::Ident {
+    ast::Ident {
         value: name.to_string(),
         quote_style: None,
     }
+}
+
+fn string(value: &'static str) -> ast::Expr {
+    ast::Expr::Value(ast::Value::SingleQuotedString(value.to_owned()))
+}
+
+fn null() -> ast::Expr {
+    ast::Expr::Value(ast::Value::Null)
+}
+
+fn boolean(value: bool) -> ast::Expr {
+    ast::Expr::Value(ast::Value::Boolean(value))
+}
+
+fn number(value: i16) -> ast::Value {
+    ast::Value::Number(BigDecimal::from(value))
+}
+
+fn with_table(columns: &[ColumnDefinition]) -> (Arc<DataManager>, Id, Id) {
+    let data_manager = Arc::new(DataManager::in_memory());
+    let schema_id = data_manager.create_schema(SCHEMA).expect("schema created");
+    let table_id = data_manager
+        .create_table(schema_id, TABLE, columns)
+        .expect("table created");
+    (data_manager, schema_id, table_id)
 }

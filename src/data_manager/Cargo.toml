@@ -8,10 +8,12 @@ publish = false
 [dependencies]
 binary = { path = "../binary" }
 meta_def = { path = "../meta_def" }
-metadata = { path = "../metadata" }
+data_definition = { path = "../data_definition" }
+definition_operations = { path = "../definition_operations" }
 repr = { path = "../repr" }
 sql_model = { path = "../sql_model" }
 storage = { path = "../storage" }
+types = { path = "../types" }
 
 dashmap = "3.11.10"
 log = "0.4.11"

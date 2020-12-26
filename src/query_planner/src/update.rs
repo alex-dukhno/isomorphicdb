@@ -15,7 +15,7 @@
 use crate::{PlanError, Planner, Result};
 use ast::operations::ScalarOp;
 use constraints::TypeConstraint;
-use metadata::{DataDefinition, MetadataView};
+use data_definition::DataDefReader;
 use plan::{FullTableId, FullTableName, Plan, TableUpdates};
 use sqlparser::ast::{Assignment, ObjectName};
 use std::{collections::HashSet, convert::TryFrom, sync::Arc};
@@ -35,7 +35,7 @@ impl<'up> UpdatePlanner<'up> {
 }
 
 impl Planner for UpdatePlanner<'_> {
-    fn plan(self, metadata: Arc<DataDefinition>) -> Result<Plan> {
+    fn plan(self, metadata: Arc<dyn DataDefReader>) -> Result<Plan> {
         match FullTableName::try_from(self.table_name) {
             Ok(full_table_name) => {
                 let (schema_name, table_name) = full_table_name.as_tuple();

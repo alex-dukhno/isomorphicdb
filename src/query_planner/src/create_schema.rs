@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use crate::{PlanError, Planner, Result};
-use metadata::{DataDefinition, MetadataView};
+use data_definition::DataDefReader;
 use plan::{Plan, SchemaCreationInfo, SchemaName};
 use sqlparser::ast::ObjectName;
 use std::{convert::TryFrom, sync::Arc};
@@ -29,7 +29,7 @@ impl CreateSchemaPlanner<'_> {
 }
 
 impl Planner for CreateSchemaPlanner<'_> {
-    fn plan(self, metadata: Arc<DataDefinition>) -> Result<Plan> {
+    fn plan(self, metadata: Arc<dyn DataDefReader>) -> Result<Plan> {
         match SchemaName::try_from(self.schema_name) {
             Ok(schema_name) => match metadata.schema_exists(&schema_name) {
                 Some(_) => Err(PlanError::schema_already_exists(&schema_name)),

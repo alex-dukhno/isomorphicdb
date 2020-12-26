@@ -12,14 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use meta_def::Id;
 use pg_wire::PgType;
-use sql_model::{sql_types::SqlType, Id};
 use sqlparser::ast::ObjectName;
 use std::{
     collections::HashMap,
     convert::TryFrom,
     fmt::{self, Display, Formatter},
+    ops::Deref,
 };
+use types::SqlType;
 
 pub type ParamIndex = usize;
 pub type ParamTypes = HashMap<ParamIndex, SqlType>;
@@ -33,6 +35,14 @@ impl From<(Id, Id)> for FullTableId {
     }
 }
 
+impl Deref for FullTableId {
+    type Target = (Id, Id);
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
 impl AsRef<(Id, Id)> for FullTableId {
     fn as_ref(&self) -> &(Id, Id) {
         &self.0
@@ -41,27 +51,27 @@ impl AsRef<(Id, Id)> for FullTableId {
 
 /// represents a table uniquely
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
-pub struct FullTableName<S: AsRef<str>>((S, S));
+pub struct FullTableName((String, String));
 
-impl<S: AsRef<str>> FullTableName<S> {
-    pub fn schema(&self) -> &S {
+impl FullTableName {
+    pub fn schema(&self) -> &str {
         &(self.0).0
     }
 }
 
-impl<'f, S: AsRef<str>> Into<(&'f S, &'f S)> for &'f FullTableName<S> {
-    fn into(self) -> (&'f S, &'f S) {
+impl<'f> Into<(&'f str, &'f str)> for &'f FullTableName {
+    fn into(self) -> (&'f str, &'f str) {
         (&(self.0).0, &(self.0).1)
     }
 }
 
-impl<S: AsRef<str> + Display> Display for FullTableName<S> {
+impl Display for FullTableName {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "{}.{}", self.0 .0, self.0 .1)
     }
 }
 
-impl TryFrom<&ObjectName> for FullTableName<String> {
+impl TryFrom<&ObjectName> for FullTableName {
     type Error = TableNamingError;
 
     fn try_from(object: &ObjectName) -> Result<Self, Self::Error> {
@@ -102,6 +112,14 @@ pub struct SchemaName(String);
 impl AsRef<str> for SchemaName {
     fn as_ref(&self) -> &str {
         self.0.as_str()
+    }
+}
+
+impl Deref for SchemaName {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 

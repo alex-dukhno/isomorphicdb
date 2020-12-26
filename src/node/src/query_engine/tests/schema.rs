@@ -86,7 +86,7 @@ fn drop_if_exists_non_existent_schema(empty_database: (InMemory, ResultCollector
             sql: "drop schema if exists non_existent;".to_owned(),
         })
         .expect("query executed");
-    collector.assert_receive_single(Ok(QueryEvent::QueryComplete));
+    collector.assert_receive_single(Ok(QueryEvent::SchemaDropped));
 }
 
 #[rstest::rstest]

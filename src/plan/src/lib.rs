@@ -17,13 +17,19 @@ use ast::{
     predicates::{PredicateOp, PredicateValue},
 };
 use constraints::TypeConstraint;
-use meta_def::ColumnDefinition;
-use sql_model::{sql_types::SqlType, Id};
+use meta_def::{ColumnDefinition, Id};
 use sqlparser::ast::{ObjectName, Statement};
 use std::{
     convert::TryFrom,
     fmt::{self, Display, Formatter},
+    ops::Deref,
 };
+use types::SqlType;
+
+#[derive(Debug, PartialEq)]
+pub enum QueryPlan {
+    CreateSchema,
+}
 
 /// represents a schema uniquely by its id
 #[derive(PartialEq, Debug, Clone)]
@@ -32,6 +38,14 @@ pub struct SchemaId(Id);
 impl From<Id> for SchemaId {
     fn from(id: Id) -> Self {
         SchemaId(id)
+    }
+}
+
+impl Deref for SchemaId {
+    type Target = Id;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 
@@ -48,6 +62,14 @@ pub struct SchemaName(String);
 impl AsRef<str> for SchemaName {
     fn as_ref(&self) -> &str {
         self.0.as_str()
+    }
+}
+
+impl Deref for SchemaName {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 
@@ -148,8 +170,10 @@ impl From<(Id, Id)> for FullTableId {
     }
 }
 
-impl AsRef<(Id, Id)> for FullTableId {
-    fn as_ref(&self) -> &(Id, Id) {
+impl Deref for FullTableId {
+    type Target = (Id, Id);
+
+    fn deref(&self) -> &Self::Target {
         &self.0
     }
 }

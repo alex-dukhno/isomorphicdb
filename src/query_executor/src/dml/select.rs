@@ -18,12 +18,12 @@ use ast::{
 };
 use binary::ReadCursor;
 use connection::Sender;
+use data_definition::DataDefReader;
 use data_manager::DataManager;
-use metadata::MetadataView;
+use meta_def::Id;
 use pg_model::results::QueryEvent;
 use pg_wire::{ColumnMetadata, PgType};
 use plan::{FullTableId, SelectInput};
-use sql_model::Id;
 use std::{convert::TryInto, sync::Arc};
 
 struct Source {

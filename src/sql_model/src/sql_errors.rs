@@ -18,10 +18,5 @@ pub enum DefinitionError {
     SchemaDoesNotExist,
     ObjectAlreadyExists,
     ObjectDoesNotExist,
-}
-
-#[derive(Debug, PartialEq)]
-pub enum NotFoundError {
-    Schema,
-    Object,
+    ZeroStepSequence,
 }

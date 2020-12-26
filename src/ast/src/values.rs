@@ -14,12 +14,12 @@
 
 use crate::{NotHandled, NotSupportedOperation, OperationError};
 use bigdecimal::BigDecimal;
-use sql_model::sql_types::SqlType;
 use sqlparser::ast::{DataType, Expr, UnaryOperator, Value};
 use std::{
     fmt::{self, Display, Formatter},
     str::FromStr,
 };
+use types::SqlType;
 
 #[derive(PartialEq, Debug, Copy, Clone, Eq)]
 pub struct Bool(pub bool);
