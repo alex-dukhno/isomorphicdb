@@ -26,8 +26,7 @@ fn database() -> PersistentDatabase {
     storage
         .create_schema(SCHEMA)
         .expect("no io error")
-        .expect("no platform errors")
-        .expect("to create schema");
+        .expect("no platform errors");
     storage
         .create_object(SCHEMA, OBJECT)
         .expect("no io error")
@@ -76,7 +75,7 @@ fn reportable_bug(database: PersistentDatabase, scenario: FailScenario) {
 fn unsupported_operation_core_structure(database: PersistentDatabase, scenario: FailScenario) {
     fail::cfg("sled-fail-to-drop-db", "return(unsupported(core_structure))").unwrap();
 
-    assert_eq!(database.drop_schema(SCHEMA).expect("no io error"), Ok(Ok(())));
+    assert_eq!(database.drop_schema(SCHEMA).expect("no io error"), Ok(true));
 
     scenario.teardown();
 }

@@ -12,11 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{Database, InitStatus, Key, Name, ObjectName, ReadCursor, SchemaName, Sequence, StorageError, Values};
+use crate::{
+    Database, InitStatus, Key, Name, ObjectName, ReadCursor, Schema, SchemaName, Sequence, StorageError, Values,
+};
 use binary::{Binary, RowResult};
 use dashmap::DashMap;
-use sled::{Db as Schema, DiskPtr, Error as SledError, IVec, Tree};
+use sled::{DiskPtr, Error as SledError, IVec, Tree};
 use sql_model::sql_errors::DefinitionError;
+use std::ops::Deref;
 use std::{
     convert::{TryFrom, TryInto},
     io::{self, ErrorKind},
@@ -62,9 +65,30 @@ impl Sequence for PersistentSequence {
     }
 }
 
+#[derive(Debug)]
+pub struct PersistentSchema {
+    sled_db: sled::Db,
+}
+
+impl PersistentSchema {
+    fn new(sled_db: sled::Db) -> Arc<PersistentSchema> {
+        Arc::new(PersistentSchema { sled_db })
+    }
+}
+
+impl Deref for PersistentSchema {
+    type Target = sled::Db;
+
+    fn deref(&self) -> &Self::Target {
+        &self.sled_db
+    }
+}
+
+impl Schema for PersistentSchema {}
+
 pub struct PersistentDatabase {
     path: PathBuf,
-    schemas: DashMap<Name, Arc<Schema>>,
+    schemas: DashMap<Name, Arc<PersistentSchema>>,
 }
 
 impl PersistentDatabase {
@@ -79,9 +103,9 @@ impl PersistentDatabase {
         let path_to_schema = PathBuf::from(&self.path).join(&schema_name);
         log::info!("path to schema {:?}", path_to_schema);
         self.open_schema(path_to_schema).map(|schema| {
-            schema.map(|sled_db| {
-                let recovered = sled_db.was_recovered();
-                self.schemas.insert(schema_name.to_owned(), Arc::new(sled_db));
+            schema.map(|schema| {
+                let recovered = schema.was_recovered();
+                self.schemas.insert(schema_name.to_owned(), schema);
                 log::debug!("schemas after initialization {:?}", self.schemas);
                 InitStatus::from(recovered)
             })
@@ -97,7 +121,7 @@ impl PersistentDatabase {
         }
     }
 
-    fn open_schema(&self, path_to_schema: PathBuf) -> io::Result<Result<Schema, StorageError>> {
+    fn open_schema(&self, path_to_schema: PathBuf) -> io::Result<Result<Arc<PersistentSchema>, StorageError>> {
         match self.open_schema_with_failpoint(path_to_schema) {
             Ok(schema) => Ok(Ok(schema)),
             Err(error) => match error {
@@ -110,14 +134,14 @@ impl PersistentDatabase {
         }
     }
 
-    fn open_schema_with_failpoint(&self, path_to_schema: PathBuf) -> Result<Schema, SledError> {
+    fn open_schema_with_failpoint(&self, path_to_schema: PathBuf) -> Result<Arc<PersistentSchema>, SledError> {
         fail::fail_point!("sled-fail-to-open-db", |kind| Err(sled_error(kind)));
-        sled::open(path_to_schema)
+        sled::open(path_to_schema).map(|sled_db| PersistentSchema::new(sled_db))
     }
 
     fn open_tree(
         &self,
-        schema: Arc<Schema>,
+        schema: Arc<PersistentSchema>,
         object_name: ObjectName,
     ) -> io::Result<Result<Result<Tree, DefinitionError>, StorageError>> {
         match self.open_tree_with_failpoint(schema, object_name) {
@@ -132,12 +156,16 @@ impl PersistentDatabase {
         }
     }
 
-    fn open_tree_with_failpoint(&self, schema: Arc<Schema>, object_name: ObjectName) -> Result<Tree, SledError> {
+    fn open_tree_with_failpoint(
+        &self,
+        schema: Arc<PersistentSchema>,
+        object_name: ObjectName,
+    ) -> Result<Tree, SledError> {
         fail::fail_point!("sled-fail-to-open-tree", |kind| Err(sled_error(kind)));
         schema.open_tree(object_name)
     }
 
-    fn drop_database(&self, schema: Arc<Schema>) -> io::Result<Result<Result<(), DefinitionError>, StorageError>> {
+    fn drop_database(&self, schema: Arc<PersistentSchema>) -> io::Result<Result<bool, StorageError>> {
         let mut io_errors = vec![];
         for tree_name in schema.tree_names() {
             log::warn!("tree name: {:?}", tree_name);
@@ -157,13 +185,17 @@ impl PersistentDatabase {
             }
         }
         if io_errors.is_empty() {
-            Ok(Ok(Ok(())))
+            Ok(Ok(true))
         } else {
             Ok(Err(StorageError::CascadeIo(io_errors)))
         }
     }
 
-    fn drop_database_cascade_with_failpoint(&self, schema: Arc<Schema>, tree: IVec) -> Result<bool, SledError> {
+    fn drop_database_cascade_with_failpoint(
+        &self,
+        schema: Arc<PersistentSchema>,
+        tree: IVec,
+    ) -> Result<bool, SledError> {
         fail::fail_point!("sled-fail-to-drop-db", |kind| {
             if tree == b"__sled__default" {
                 Err(SledError::Unsupported("cannot remove the core structures".into()))
@@ -174,7 +206,7 @@ impl PersistentDatabase {
         schema.drop_tree(tree)
     }
 
-    fn drop_tree_with_failpoint(&self, schema: Arc<Schema>, tree: IVec) -> Result<bool, SledError> {
+    fn drop_tree_with_failpoint(&self, schema: Arc<PersistentSchema>, tree: IVec) -> Result<bool, SledError> {
         fail::fail_point!("sled-fail-to-drop-tree", |kind| Err(sled_error(kind)));
         schema.drop_tree(tree)
     }
@@ -228,6 +260,14 @@ impl PersistentDatabase {
     fn empty_iterator(&self) -> Box<dyn Iterator<Item = RowResult>> {
         Box::new(std::iter::empty())
     }
+
+    fn schema_exists(&self, schema_name: SchemaName) -> bool {
+        self.path_to_schema(schema_name).exists()
+    }
+
+    fn path_to_schema(&self, schema_name: SchemaName) -> PathBuf {
+        PathBuf::from(&self.path).join(schema_name)
+    }
 }
 
 impl Database for PersistentDatabase {
@@ -237,73 +277,156 @@ impl Database for PersistentDatabase {
         sequence_name: &str,
         step: u64,
     ) -> Result<Arc<dyn Sequence>, DefinitionError> {
-        match self.schemas.get(schema_name) {
-            Some(schema) => match NonZeroU64::try_from(step) {
-                Ok(_) => {
-                    let tree = schema.open_tree("sequences").unwrap();
-                    tree.insert(sequence_name.to_owned() + ".step", IVec::from(&step.to_be_bytes()))
-                        .unwrap();
-                    Ok(Arc::new(PersistentSequence::with_step(
-                        IVec::from(sequence_name),
-                        tree,
-                        step,
-                    )))
-                }
-                Err(_) => Err(DefinitionError::ZeroStepSequence),
-            },
-            None => Err(DefinitionError::SchemaDoesNotExist),
+        if self.schema_exists(schema_name) {
+            match self.schemas.get(schema_name) {
+                None => match self.open_schema(self.path_to_schema(schema_name)) {
+                    Ok(Ok(schema)) => match NonZeroU64::try_from(step) {
+                        Ok(_) => {
+                            let tree = schema.open_tree("sequences").unwrap();
+                            tree.insert(sequence_name.to_owned() + ".step", IVec::from(&step.to_be_bytes()))
+                                .unwrap();
+                            Ok(Arc::new(PersistentSequence::with_step(
+                                IVec::from(sequence_name),
+                                tree,
+                                step,
+                            )))
+                        }
+                        Err(_) => Err(DefinitionError::ZeroStepSequence),
+                    },
+                    _ => Err(DefinitionError::SchemaDoesNotExist),
+                },
+                Some(schema) => match NonZeroU64::try_from(step) {
+                    Ok(_) => {
+                        let tree = schema.open_tree("sequences").unwrap();
+                        tree.insert(sequence_name.to_owned() + ".step", IVec::from(&step.to_be_bytes()))
+                            .unwrap();
+                        Ok(Arc::new(PersistentSequence::with_step(
+                            IVec::from(sequence_name),
+                            tree,
+                            step,
+                        )))
+                    }
+                    Err(_) => Err(DefinitionError::ZeroStepSequence),
+                },
+            }
+        } else {
+            Err(DefinitionError::SchemaDoesNotExist)
         }
     }
 
     fn drop_sequence(&self, schema_name: &str, sequence_name: &str) -> Result<(), DefinitionError> {
-        match self.schemas.get(schema_name) {
-            Some(schema) => {
-                let tree = schema.open_tree("sequences").unwrap();
-                match tree.remove(IVec::from(sequence_name)) {
-                    Ok(_) => Ok(()),
-                    Err(_) => Err(DefinitionError::ObjectDoesNotExist),
+        if self.schema_exists(schema_name) {
+            match self.schemas.get(schema_name) {
+                None => match self.open_schema(self.path_to_schema(schema_name)) {
+                    Ok(Ok(schema)) => {
+                        let tree = schema.open_tree("sequences").unwrap();
+                        match tree.remove(IVec::from(sequence_name)) {
+                            Ok(_) => Ok(()),
+                            Err(_) => Err(DefinitionError::ObjectDoesNotExist),
+                        }
+                    }
+                    _ => Err(DefinitionError::SchemaDoesNotExist),
+                },
+                Some(schema) => {
+                    let tree = schema.open_tree("sequences").unwrap();
+                    match tree.remove(IVec::from(sequence_name)) {
+                        Ok(_) => Ok(()),
+                        Err(_) => Err(DefinitionError::ObjectDoesNotExist),
+                    }
                 }
             }
-            None => Err(DefinitionError::SchemaDoesNotExist),
+        } else {
+            Err(DefinitionError::SchemaDoesNotExist)
         }
     }
 
     fn get_sequence(&self, schema_name: &str, sequence_name: &str) -> Result<Arc<dyn Sequence>, DefinitionError> {
-        match self.schemas.get(schema_name) {
-            Some(schema) => {
-                let tree = schema.open_tree("sequences").unwrap();
-                Ok(Arc::new(PersistentSequence::with_step(
-                    IVec::from(sequence_name),
-                    tree.clone(),
-                    tree.get(sequence_name.to_owned() + ".step")
-                        .unwrap()
-                        .map(|value| u64::from_be_bytes(value[0..8].try_into().unwrap()))
-                        .unwrap_or(1),
-                )))
+        if self.schema_exists(schema_name) {
+            match self.schemas.get(schema_name) {
+                None => match self.open_schema(self.path_to_schema(schema_name)) {
+                    Ok(Ok(schema)) => {
+                        let tree = schema.open_tree("sequences").unwrap();
+                        Ok(Arc::new(PersistentSequence::with_step(
+                            IVec::from(sequence_name),
+                            tree.clone(),
+                            tree.get(sequence_name.to_owned() + ".step")
+                                .unwrap()
+                                .map(|value| u64::from_be_bytes(value[0..8].try_into().unwrap()))
+                                .unwrap_or(1),
+                        )))
+                    }
+                    e => {
+                        log::error!("{:?}", e);
+                        Err(DefinitionError::SchemaDoesNotExist)
+                    }
+                },
+                Some(schema) => {
+                    let tree = schema.open_tree("sequences").unwrap();
+                    Ok(Arc::new(PersistentSequence::with_step(
+                        IVec::from(sequence_name),
+                        tree.clone(),
+                        tree.get(sequence_name.to_owned() + ".step")
+                            .unwrap()
+                            .map(|value| u64::from_be_bytes(value[0..8].try_into().unwrap()))
+                            .unwrap_or(1),
+                    )))
+                }
             }
-            None => Err(DefinitionError::SchemaDoesNotExist),
+        } else {
+            Err(DefinitionError::SchemaDoesNotExist)
         }
     }
 
-    fn create_schema(&self, schema_name: SchemaName) -> io::Result<Result<Result<(), DefinitionError>, StorageError>> {
-        if self.schemas.contains_key(schema_name) {
-            Ok(Ok(Err(DefinitionError::SchemaAlreadyExists)))
+    fn create_schema(&self, schema_name: SchemaName) -> io::Result<Result<bool, StorageError>> {
+        if self.schema_exists(schema_name) {
+            Ok(Ok(false))
         } else {
             let path_to_schema = PathBuf::from(&self.path).join(schema_name);
             log::info!("path to schema {:?}", path_to_schema);
             self.open_schema(path_to_schema).map(|storage| {
                 storage.map(|schema| {
-                    self.schemas.insert(schema_name.to_owned(), Arc::new(schema));
-                    Ok(())
+                    self.schemas.insert(schema_name.to_owned(), schema);
+                    true
                 })
             })
         }
     }
 
-    fn drop_schema(&self, schema_name: SchemaName) -> io::Result<Result<Result<(), DefinitionError>, StorageError>> {
-        match self.schemas.remove(schema_name) {
-            Some((_, schema)) => self.drop_database(schema),
-            None => Ok(Ok(Err(DefinitionError::SchemaDoesNotExist))),
+    fn drop_schema(&self, schema_name: SchemaName) -> io::Result<Result<bool, StorageError>> {
+        if self.schema_exists(schema_name) {
+            match self.schemas.remove(schema_name) {
+                Some((_, schema)) => match self.drop_database(schema) {
+                    Ok(Ok(true)) => {
+                        std::fs::remove_dir_all(self.path_to_schema(schema_name))?;
+                        Ok(Ok(true))
+                    }
+                    e => e,
+                },
+                None => match self.open_schema(self.path_to_schema(schema_name)) {
+                    Ok(Ok(schema)) => match self.drop_database(schema) {
+                        Ok(Ok(true)) => {
+                            std::fs::remove_dir_all(self.path_to_schema(schema_name))?;
+                            Ok(Ok(true))
+                        }
+                        e => e,
+                    },
+                    Ok(Err(e)) => Ok(Err(e)),
+                    Err(e) => Err(e),
+                },
+            }
+        } else {
+            Ok(Ok(false))
+        }
+    }
+
+    fn lookup_schema(&self, schema_name: SchemaName) -> io::Result<Result<Option<Arc<dyn Schema>>, StorageError>> {
+        if self.schema_exists(schema_name) {
+            match self.schemas.get(schema_name) {
+                None => Ok(Ok(None)),
+                Some(schema) => Ok(Ok(Some(schema.clone()))),
+            }
+        } else {
+            Ok(Ok(None))
         }
     }
 
@@ -312,16 +435,33 @@ impl Database for PersistentDatabase {
         schema_name: SchemaName,
         object_name: ObjectName,
     ) -> io::Result<Result<Result<(), DefinitionError>, StorageError>> {
-        match self.schemas.get(schema_name) {
-            Some(schema) => {
-                if schema.tree_names().contains(&(object_name.into())) {
-                    Ok(Ok(Err(DefinitionError::ObjectAlreadyExists)))
-                } else {
-                    self.open_tree(schema.clone(), object_name)
-                        .map(|io| io.map(|storage| storage.map(|_object| ())))
+        if self.schema_exists(schema_name) {
+            match self.schemas.get(schema_name) {
+                None => match self.open_schema(self.path_to_schema(schema_name)) {
+                    Ok(Ok(schema)) => {
+                        if schema.tree_names().contains(&(object_name.into())) {
+                            Ok(Ok(Err(DefinitionError::ObjectAlreadyExists)))
+                        } else {
+                            self.open_tree(schema.clone(), object_name)
+                                .map(|io| io.map(|storage| storage.map(|_object| ())))
+                        }
+                    }
+                    e => {
+                        log::error!("{:?}", e);
+                        Ok(Ok(Err(DefinitionError::SchemaDoesNotExist)))
+                    }
+                },
+                Some(schema) => {
+                    if schema.tree_names().contains(&(object_name.into())) {
+                        Ok(Ok(Err(DefinitionError::ObjectAlreadyExists)))
+                    } else {
+                        self.open_tree(schema.clone(), object_name)
+                            .map(|io| io.map(|storage| storage.map(|_object| ())))
+                    }
                 }
             }
-            None => Ok(Ok(Err(DefinitionError::SchemaDoesNotExist))),
+        } else {
+            Ok(Ok(Err(DefinitionError::SchemaDoesNotExist)))
         }
     }
 
@@ -330,19 +470,39 @@ impl Database for PersistentDatabase {
         schema_name: SchemaName,
         object_name: ObjectName,
     ) -> io::Result<Result<Result<(), DefinitionError>, StorageError>> {
-        match self.schemas.get(schema_name) {
-            Some(schema) => match self.drop_tree_with_failpoint(schema.clone(), object_name.into()) {
-                Ok(true) => Ok(Ok(Ok(()))),
-                Ok(false) => Ok(Ok(Err(DefinitionError::ObjectDoesNotExist))),
-                Err(error) => match error {
-                    SledError::Io(io_error) => Err(io_error),
-                    SledError::Corruption { .. } => Ok(Err(StorageError::Storage)),
-                    SledError::ReportableBug(_) => Ok(Err(StorageError::Storage)),
-                    SledError::Unsupported(_) => Ok(Err(StorageError::Storage)),
-                    SledError::CollectionNotFound(_) => Ok(Ok(Err(DefinitionError::ObjectDoesNotExist))),
+        if self.schema_exists(schema_name) {
+            match self.schemas.get(schema_name) {
+                None => match self.open_schema(self.path_to_schema(schema_name)) {
+                    Ok(Ok(schema)) => match self.drop_tree_with_failpoint(schema.clone(), object_name.into()) {
+                        Ok(true) => Ok(Ok(Ok(()))),
+                        Ok(false) => Ok(Ok(Err(DefinitionError::ObjectDoesNotExist))),
+                        Err(error) => match error {
+                            SledError::Io(io_error) => Err(io_error),
+                            SledError::Corruption { .. } => Ok(Err(StorageError::Storage)),
+                            SledError::ReportableBug(_) => Ok(Err(StorageError::Storage)),
+                            SledError::Unsupported(_) => Ok(Err(StorageError::Storage)),
+                            SledError::CollectionNotFound(_) => Ok(Ok(Err(DefinitionError::ObjectDoesNotExist))),
+                        },
+                    },
+                    e => {
+                        log::error!("{:?}", e);
+                        Ok(Ok(Err(DefinitionError::SchemaDoesNotExist)))
+                    }
                 },
-            },
-            None => Ok(Ok(Err(DefinitionError::SchemaDoesNotExist))),
+                Some(schema) => match self.drop_tree_with_failpoint(schema.clone(), object_name.into()) {
+                    Ok(true) => Ok(Ok(Ok(()))),
+                    Ok(false) => Ok(Ok(Err(DefinitionError::ObjectDoesNotExist))),
+                    Err(error) => match error {
+                        SledError::Io(io_error) => Err(io_error),
+                        SledError::Corruption { .. } => Ok(Err(StorageError::Storage)),
+                        SledError::ReportableBug(_) => Ok(Err(StorageError::Storage)),
+                        SledError::Unsupported(_) => Ok(Err(StorageError::Storage)),
+                        SledError::CollectionNotFound(_) => Ok(Ok(Err(DefinitionError::ObjectDoesNotExist))),
+                    },
+                },
+            }
+        } else {
+            Ok(Ok(Err(DefinitionError::SchemaDoesNotExist)))
         }
     }
 
@@ -352,35 +512,68 @@ impl Database for PersistentDatabase {
         object_name: ObjectName,
         rows: Vec<(Key, Values)>,
     ) -> io::Result<Result<Result<usize, DefinitionError>, StorageError>> {
-        match self.schemas.get(schema_name) {
-            Some(schema) => {
-                if schema.tree_names().contains(&(object_name.into())) {
-                    match self.open_tree(schema.clone(), object_name) {
-                        Ok(Ok(Ok(object))) => {
-                            let mut written_rows = 0;
-                            for (key, values) in rows.iter() {
-                                match self.insert_into_tree_with_failpoint(&object, key, values) {
-                                    Ok(_) => written_rows += 1,
-                                    Err(error) => match error {
-                                        SledError::Io(io_error) => return Err(io_error),
-                                        SledError::Corruption { .. } => return Ok(Err(StorageError::Storage)),
-                                        SledError::ReportableBug(_) => return Ok(Err(StorageError::Storage)),
-                                        SledError::Unsupported(_) => return Ok(Err(StorageError::Storage)),
-                                        SledError::CollectionNotFound(_) => {
-                                            return Ok(Ok(Err(DefinitionError::ObjectDoesNotExist)));
+        if self.schema_exists(schema_name) {
+            match self.schemas.get(schema_name) {
+                None => match self.open_schema(self.path_to_schema(schema_name)) {
+                    Ok(Ok(schema)) => {
+                        if schema.tree_names().contains(&(object_name.into())) {
+                            match self.open_tree(schema.clone(), object_name) {
+                                Ok(Ok(Ok(object))) => {
+                                    let mut written_rows = 0;
+                                    for (key, values) in rows.iter() {
+                                        match self.insert_into_tree_with_failpoint(&object, key, values) {
+                                            Ok(_) => written_rows += 1,
+                                            Err(error) => match error {
+                                                SledError::Io(io_error) => return Err(io_error),
+                                                SledError::Corruption { .. } => return Ok(Err(StorageError::Storage)),
+                                                SledError::ReportableBug(_) => return Ok(Err(StorageError::Storage)),
+                                                SledError::Unsupported(_) => return Ok(Err(StorageError::Storage)),
+                                                SledError::CollectionNotFound(_) => {
+                                                    return Ok(Ok(Err(DefinitionError::ObjectDoesNotExist)));
+                                                }
+                                            },
                                         }
-                                    },
+                                    }
+                                    self.tree_flush(object, written_rows)
                                 }
+                                otherwise => otherwise.map(|io| io.map(|storage| storage.map(|_object| 0))),
                             }
-                            self.tree_flush(object, written_rows)
+                        } else {
+                            Ok(Ok(Err(DefinitionError::ObjectDoesNotExist)))
                         }
-                        otherwise => otherwise.map(|io| io.map(|storage| storage.map(|_object| 0))),
                     }
-                } else {
-                    Ok(Ok(Err(DefinitionError::ObjectDoesNotExist)))
+                    _ => Ok(Ok(Err(DefinitionError::SchemaDoesNotExist))),
+                },
+                Some(schema) => {
+                    if schema.tree_names().contains(&(object_name.into())) {
+                        match self.open_tree(schema.clone(), object_name) {
+                            Ok(Ok(Ok(object))) => {
+                                let mut written_rows = 0;
+                                for (key, values) in rows.iter() {
+                                    match self.insert_into_tree_with_failpoint(&object, key, values) {
+                                        Ok(_) => written_rows += 1,
+                                        Err(error) => match error {
+                                            SledError::Io(io_error) => return Err(io_error),
+                                            SledError::Corruption { .. } => return Ok(Err(StorageError::Storage)),
+                                            SledError::ReportableBug(_) => return Ok(Err(StorageError::Storage)),
+                                            SledError::Unsupported(_) => return Ok(Err(StorageError::Storage)),
+                                            SledError::CollectionNotFound(_) => {
+                                                return Ok(Ok(Err(DefinitionError::ObjectDoesNotExist)));
+                                            }
+                                        },
+                                    }
+                                }
+                                self.tree_flush(object, written_rows)
+                            }
+                            otherwise => otherwise.map(|io| io.map(|storage| storage.map(|_object| 0))),
+                        }
+                    } else {
+                        Ok(Ok(Err(DefinitionError::ObjectDoesNotExist)))
+                    }
                 }
             }
-            None => Ok(Ok(Err(DefinitionError::SchemaDoesNotExist))),
+        } else {
+            Ok(Ok(Err(DefinitionError::SchemaDoesNotExist)))
         }
     }
 
@@ -389,40 +582,79 @@ impl Database for PersistentDatabase {
         schema_name: SchemaName,
         object_name: ObjectName,
     ) -> io::Result<Result<Result<ReadCursor, DefinitionError>, StorageError>> {
-        match self.schemas.get(schema_name) {
-            Some(schema) => {
-                if schema.tree_names().contains(&(object_name.into())) {
-                    match self.open_tree(schema.clone(), object_name) {
-                        Ok(Ok(Ok(object))) => Ok(Ok(Ok(Box::new(self.iterator_over_tree_with_failpoint(object).map(
-                            |item| match item {
-                                Ok((key, values)) => Ok(Ok((
-                                    Binary::with_data(key.to_vec()),
-                                    Binary::with_data(values.to_vec()),
-                                ))),
-                                Err(error) => match error {
-                                    SledError::Io(io_error) => Err(io_error),
-                                    SledError::Corruption { .. } => Ok(Err(StorageError::Storage)),
-                                    SledError::ReportableBug(_) => Ok(Err(StorageError::Storage)),
-                                    SledError::Unsupported(_) => Ok(Err(StorageError::Storage)),
-                                    SledError::CollectionNotFound(_) => Ok(Err(StorageError::Storage)),
-                                },
-                            },
-                        ))))),
-                        otherwise => otherwise.map(|io| io.map(|storage| storage.map(|_object| self.empty_iterator()))),
+        if self.schema_exists(schema_name) {
+            match self.schemas.get(schema_name) {
+                None => match self.open_schema(self.path_to_schema(schema_name)) {
+                    Ok(Ok(schema)) => {
+                        if schema.tree_names().contains(&(object_name.into())) {
+                            match self.open_tree(schema.clone(), object_name) {
+                                Ok(Ok(Ok(object))) => Ok(Ok(Ok(Box::new(
+                                    self.iterator_over_tree_with_failpoint(object).map(|item| match item {
+                                        Ok((key, values)) => Ok(Ok((
+                                            Binary::with_data(key.to_vec()),
+                                            Binary::with_data(values.to_vec()),
+                                        ))),
+                                        Err(error) => match error {
+                                            SledError::Io(io_error) => Err(io_error),
+                                            SledError::Corruption { .. } => Ok(Err(StorageError::Storage)),
+                                            SledError::ReportableBug(_) => Ok(Err(StorageError::Storage)),
+                                            SledError::Unsupported(_) => Ok(Err(StorageError::Storage)),
+                                            SledError::CollectionNotFound(_) => Ok(Err(StorageError::Storage)),
+                                        },
+                                    }),
+                                )))),
+                                otherwise => {
+                                    otherwise.map(|io| io.map(|storage| storage.map(|_object| self.empty_iterator())))
+                                }
+                            }
+                        } else {
+                            log::error!(
+                                "No namespace with {:?} doesn't contain {:?} object",
+                                schema_name,
+                                object_name
+                            );
+                            Ok(Ok(Err(DefinitionError::ObjectDoesNotExist)))
+                        }
                     }
-                } else {
-                    log::error!(
-                        "No namespace with {:?} doesn't contain {:?} object",
-                        schema_name,
-                        object_name
-                    );
-                    Ok(Ok(Err(DefinitionError::ObjectDoesNotExist)))
+                    _ => {
+                        log::error!("No schema with {:?} name found", schema_name);
+                        Ok(Ok(Err(DefinitionError::SchemaDoesNotExist)))
+                    }
+                },
+                Some(schema) => {
+                    if schema.tree_names().contains(&(object_name.into())) {
+                        match self.open_tree(schema.clone(), object_name) {
+                            Ok(Ok(Ok(object))) => Ok(Ok(Ok(Box::new(
+                                self.iterator_over_tree_with_failpoint(object).map(|item| match item {
+                                    Ok((key, values)) => Ok(Ok((
+                                        Binary::with_data(key.to_vec()),
+                                        Binary::with_data(values.to_vec()),
+                                    ))),
+                                    Err(error) => match error {
+                                        SledError::Io(io_error) => Err(io_error),
+                                        SledError::Corruption { .. } => Ok(Err(StorageError::Storage)),
+                                        SledError::ReportableBug(_) => Ok(Err(StorageError::Storage)),
+                                        SledError::Unsupported(_) => Ok(Err(StorageError::Storage)),
+                                        SledError::CollectionNotFound(_) => Ok(Err(StorageError::Storage)),
+                                    },
+                                }),
+                            )))),
+                            otherwise => {
+                                otherwise.map(|io| io.map(|storage| storage.map(|_object| self.empty_iterator())))
+                            }
+                        }
+                    } else {
+                        log::error!(
+                            "No namespace with {:?} doesn't contain {:?} object",
+                            schema_name,
+                            object_name
+                        );
+                        Ok(Ok(Err(DefinitionError::ObjectDoesNotExist)))
+                    }
                 }
             }
-            None => {
-                log::error!("No schema with {:?} name found", schema_name);
-                Ok(Ok(Err(DefinitionError::SchemaDoesNotExist)))
-            }
+        } else {
+            Ok(Ok(Err(DefinitionError::SchemaDoesNotExist)))
         }
     }
 
@@ -432,35 +664,68 @@ impl Database for PersistentDatabase {
         object_name: ObjectName,
         keys: Vec<Key>,
     ) -> io::Result<Result<Result<usize, DefinitionError>, StorageError>> {
-        match self.schemas.get(schema_name) {
-            Some(schema) => {
-                if schema.tree_names().contains(&(object_name.into())) {
-                    match self.open_tree(schema.clone(), object_name) {
-                        Ok(Ok(Ok(object))) => {
-                            let mut deleted = 0;
-                            for key in keys {
-                                match self.remove_fro_tree_with_failpoint(&object, key) {
-                                    Ok(_) => deleted += 1,
-                                    Err(error) => match error {
-                                        SledError::Io(io_error) => return Err(io_error),
-                                        SledError::Corruption { .. } => return Ok(Err(StorageError::Storage)),
-                                        SledError::ReportableBug(_) => return Ok(Err(StorageError::Storage)),
-                                        SledError::Unsupported(_) => return Ok(Err(StorageError::Storage)),
-                                        SledError::CollectionNotFound(_) => {
-                                            return Ok(Ok(Err(DefinitionError::ObjectDoesNotExist)));
+        if self.schema_exists(schema_name) {
+            match self.schemas.get(schema_name) {
+                None => match self.open_schema(self.path_to_schema(schema_name)) {
+                    Ok(Ok(schema)) => {
+                        if schema.tree_names().contains(&(object_name.into())) {
+                            match self.open_tree(schema.clone(), object_name) {
+                                Ok(Ok(Ok(object))) => {
+                                    let mut deleted = 0;
+                                    for key in keys {
+                                        match self.remove_fro_tree_with_failpoint(&object, key) {
+                                            Ok(_) => deleted += 1,
+                                            Err(error) => match error {
+                                                SledError::Io(io_error) => return Err(io_error),
+                                                SledError::Corruption { .. } => return Ok(Err(StorageError::Storage)),
+                                                SledError::ReportableBug(_) => return Ok(Err(StorageError::Storage)),
+                                                SledError::Unsupported(_) => return Ok(Err(StorageError::Storage)),
+                                                SledError::CollectionNotFound(_) => {
+                                                    return Ok(Ok(Err(DefinitionError::ObjectDoesNotExist)));
+                                                }
+                                            },
                                         }
-                                    },
+                                    }
+                                    self.tree_flush(object, deleted)
                                 }
+                                otherwise => otherwise.map(|io| io.map(|storage| storage.map(|_object| 0))),
                             }
-                            self.tree_flush(object, deleted)
+                        } else {
+                            Ok(Ok(Err(DefinitionError::ObjectDoesNotExist)))
                         }
-                        otherwise => otherwise.map(|io| io.map(|storage| storage.map(|_object| 0))),
                     }
-                } else {
-                    Ok(Ok(Err(DefinitionError::ObjectDoesNotExist)))
+                    _ => Ok(Ok(Err(DefinitionError::SchemaDoesNotExist))),
+                },
+                Some(schema) => {
+                    if schema.tree_names().contains(&(object_name.into())) {
+                        match self.open_tree(schema.clone(), object_name) {
+                            Ok(Ok(Ok(object))) => {
+                                let mut deleted = 0;
+                                for key in keys {
+                                    match self.remove_fro_tree_with_failpoint(&object, key) {
+                                        Ok(_) => deleted += 1,
+                                        Err(error) => match error {
+                                            SledError::Io(io_error) => return Err(io_error),
+                                            SledError::Corruption { .. } => return Ok(Err(StorageError::Storage)),
+                                            SledError::ReportableBug(_) => return Ok(Err(StorageError::Storage)),
+                                            SledError::Unsupported(_) => return Ok(Err(StorageError::Storage)),
+                                            SledError::CollectionNotFound(_) => {
+                                                return Ok(Ok(Err(DefinitionError::ObjectDoesNotExist)));
+                                            }
+                                        },
+                                    }
+                                }
+                                self.tree_flush(object, deleted)
+                            }
+                            otherwise => otherwise.map(|io| io.map(|storage| storage.map(|_object| 0))),
+                        }
+                    } else {
+                        Ok(Ok(Err(DefinitionError::ObjectDoesNotExist)))
+                    }
                 }
             }
-            None => Ok(Ok(Err(DefinitionError::SchemaDoesNotExist))),
+        } else {
+            Ok(Ok(Err(DefinitionError::SchemaDoesNotExist)))
         }
     }
 }

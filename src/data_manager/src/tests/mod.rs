@@ -29,7 +29,7 @@ const TABLE: &str = "table_name";
 const TABLE_1: &str = "table_name_1";
 const TABLE_2: &str = "table_name_2";
 
-type InMemory = DataManager;
+type InMemory = DatabaseHandle;
 
 fn create_table(schema_name: &str, table_name: &str, columns: &[(&str, SqlType)]) -> Vec<SystemOperation> {
     let mut all = vec![
@@ -139,7 +139,7 @@ fn create_table_ops(
 
 #[rstest::fixture]
 fn data_manager() -> InMemory {
-    DataManager::in_memory()
+    DatabaseHandle::in_memory()
 }
 
 #[rstest::fixture]

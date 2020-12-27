@@ -14,16 +14,16 @@
 
 use analysis::{CreateTableQuery, DropSchemasQuery, DropTablesQuery, SchemaChange, TableInfo};
 use data_definition::DataDefOperationExecutor;
-use data_manager::DataManager;
+use data_manager::DatabaseHandle;
 use definition_operations::{SystemObject, SystemOperation};
 use std::sync::Arc;
 
 pub struct SystemSchemaExecutor {
-    data_manager: Arc<DataManager>,
+    data_manager: Arc<DatabaseHandle>,
 }
 
 impl SystemSchemaExecutor {
-    pub fn new(data_manager: Arc<DataManager>) -> SystemSchemaExecutor {
+    pub fn new(data_manager: Arc<DatabaseHandle>) -> SystemSchemaExecutor {
         SystemSchemaExecutor { data_manager }
     }
 
@@ -158,7 +158,7 @@ mod tests {
 
     #[test]
     fn create_same_schema() {
-        let data_manager = Arc::new(DataManager::in_memory());
+        let data_manager = Arc::new(DatabaseHandle::in_memory());
         let executor = SystemSchemaExecutor::new(data_manager);
         assert_eq!(
             executor.execute(
@@ -217,7 +217,7 @@ mod tests {
 
     #[test]
     fn drop_nonexistent_schema() {
-        let data_manager = Arc::new(DataManager::in_memory());
+        let data_manager = Arc::new(DatabaseHandle::in_memory());
         let executor = SystemSchemaExecutor::new(data_manager);
 
         assert_eq!(
@@ -255,7 +255,7 @@ mod tests {
 
     #[test]
     fn create_table_where_schema_not_found() {
-        let data_manager = Arc::new(DataManager::in_memory());
+        let data_manager = Arc::new(DatabaseHandle::in_memory());
         let executor = SystemSchemaExecutor::new(data_manager);
 
         assert_eq!(
@@ -295,7 +295,7 @@ mod tests {
 
     #[test]
     fn create_same_table() {
-        let data_manager = Arc::new(DataManager::in_memory());
+        let data_manager = Arc::new(DatabaseHandle::in_memory());
         let executor = SystemSchemaExecutor::new(data_manager);
 
         if executor
@@ -396,7 +396,7 @@ mod tests {
 
     #[test]
     fn drop_table_where_schema_not_found() {
-        let data_manager = Arc::new(DataManager::in_memory());
+        let data_manager = Arc::new(DatabaseHandle::in_memory());
         let executor = SystemSchemaExecutor::new(data_manager);
 
         assert_eq!(
@@ -444,7 +444,7 @@ mod tests {
 
     #[test]
     fn drop_nonexistent_table() {
-        let data_manager = Arc::new(DataManager::in_memory());
+        let data_manager = Arc::new(DatabaseHandle::in_memory());
         let executor = SystemSchemaExecutor::new(data_manager);
 
         if executor

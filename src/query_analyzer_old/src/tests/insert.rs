@@ -62,7 +62,7 @@ fn insert_stmt_with_parameters<S: ToString>(schema: S, table: S, param_indexes: 
 
 #[test]
 fn insert_into_table_under_non_existing_schema() {
-    let metadata = Arc::new(DataManager::in_memory());
+    let metadata = Arc::new(DatabaseHandle::in_memory());
     let analyzer = Analyzer::new(metadata);
     let description = analyzer.describe(&insert_statement("non_existent_schema", "non_existent_table"));
 
@@ -74,7 +74,7 @@ fn insert_into_table_under_non_existing_schema() {
 
 #[test]
 fn insert_into_non_existing_table() {
-    let metadata = Arc::new(DataManager::in_memory());
+    let metadata = Arc::new(DatabaseHandle::in_memory());
     metadata.create_schema(SCHEMA).expect("schema created");
     let analyzer = Analyzer::new(metadata);
     let description = analyzer.describe(&insert_statement(SCHEMA, "non_existent"));
@@ -90,7 +90,7 @@ fn insert_into_non_existing_table() {
 
 #[test]
 fn insert_into_existing_table_without_columns() {
-    let metadata = Arc::new(DataManager::in_memory());
+    let metadata = Arc::new(DatabaseHandle::in_memory());
     let schema_id = metadata.create_schema(SCHEMA).expect("schema created");
     let table_id = metadata.create_table(schema_id, TABLE, &[]).expect("table created");
     let analyzer = Analyzer::new(metadata);
@@ -108,7 +108,7 @@ fn insert_into_existing_table_without_columns() {
 
 #[test]
 fn insert_into_existing_table_with_column() {
-    let metadata = Arc::new(DataManager::in_memory());
+    let metadata = Arc::new(DatabaseHandle::in_memory());
     let schema_id = metadata.create_schema(SCHEMA).expect("schema created");
     let table_id = metadata
         .create_table(schema_id, TABLE, &[ColumnDefinition::new("col", SqlType::SmallInt)])
@@ -128,7 +128,7 @@ fn insert_into_existing_table_with_column() {
 
 #[test]
 fn insert_into_table_with_parameters() {
-    let metadata = Arc::new(DataManager::in_memory());
+    let metadata = Arc::new(DatabaseHandle::in_memory());
     let schema_id = metadata.create_schema(SCHEMA).expect("schema created");
     let table_id = metadata
         .create_table(

@@ -45,7 +45,7 @@ fn create_table(name: Vec<&str>, columns: Vec<ast::ColumnDef>) -> ast::Statement
 
 #[test]
 fn create_table_with_nonexistent_schema() {
-    let data_definition = Arc::new(DataManager::in_memory());
+    let data_definition = Arc::new(DatabaseHandle::in_memory());
     let analyzer = Analyzer::new(data_definition);
 
     assert_eq!(
@@ -56,7 +56,7 @@ fn create_table_with_nonexistent_schema() {
 
 #[test]
 fn create_table_with_unqualified_name() {
-    let data_definition = Arc::new(DataManager::in_memory());
+    let data_definition = Arc::new(DatabaseHandle::in_memory());
     data_definition.create_schema(SCHEMA).expect("schema created");
     let analyzer = Analyzer::new(data_definition);
     assert_eq!(
@@ -69,7 +69,7 @@ fn create_table_with_unqualified_name() {
 
 #[test]
 fn create_table_with_unsupported_name() {
-    let data_definition = Arc::new(DataManager::in_memory());
+    let data_definition = Arc::new(DatabaseHandle::in_memory());
     data_definition.create_schema(SCHEMA).expect("schema created");
     let analyzer = Analyzer::new(data_definition);
     assert_eq!(
@@ -85,7 +85,7 @@ fn create_table_with_unsupported_name() {
 
 #[test]
 fn create_table_with_unsupported_column_type() {
-    let data_definition = Arc::new(DataManager::in_memory());
+    let data_definition = Arc::new(DatabaseHandle::in_memory());
     data_definition.create_schema(SCHEMA).expect("schema created");
     let analyzer = Analyzer::new(data_definition);
     assert_eq!(
@@ -102,7 +102,7 @@ fn create_table_with_unsupported_column_type() {
 
 #[test]
 fn create_table_with_the_same_name() {
-    let data_definition = Arc::new(DataManager::in_memory());
+    let data_definition = Arc::new(DatabaseHandle::in_memory());
     let schema_id = data_definition.create_schema(SCHEMA).expect("schema created");
     data_definition
         .create_table(schema_id, TABLE, &[])
@@ -123,7 +123,7 @@ fn create_table_with_the_same_name() {
 
 #[test]
 fn create_new_table_if_not_exist() {
-    let data_definition = Arc::new(DataManager::in_memory());
+    let data_definition = Arc::new(DatabaseHandle::in_memory());
     data_definition.create_schema(SCHEMA).expect("schema created");
     let analyzer = Analyzer::new(data_definition);
     assert_eq!(
@@ -147,7 +147,7 @@ fn create_new_table_if_not_exist() {
 
 #[test]
 fn successfully_create_table() {
-    let data_definition = Arc::new(DataManager::in_memory());
+    let data_definition = Arc::new(DatabaseHandle::in_memory());
     data_definition.create_schema(SCHEMA).expect("schema created");
     let analyzer = Analyzer::new(data_definition);
     assert_eq!(

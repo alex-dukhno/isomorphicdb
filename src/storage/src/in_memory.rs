@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{Database, Key, Name, ObjectName, ReadCursor, SchemaName, Sequence, StorageError, Values};
+use crate::{Database, Key, Name, ObjectName, ReadCursor, Schema, SchemaName, Sequence, StorageError, Values};
 use binary::RowResult;
 use dashmap::DashMap;
 use sql_model::sql_errors::DefinitionError;
@@ -62,14 +62,16 @@ struct StorageObject {
 }
 
 #[derive(Default, Debug)]
-struct Schema {
+struct InMemorySchema {
     pub objects: DashMap<Name, StorageObject>,
     pub sequences: DashMap<Name, Arc<InMemorySequence>>,
 }
 
+impl Schema for InMemorySchema {}
+
 #[derive(Default)]
 pub struct InMemoryDatabase {
-    schemas: DashMap<Name, Schema>,
+    schemas: DashMap<Name, Arc<InMemorySchema>>,
 }
 
 impl Database for InMemoryDatabase {
@@ -112,19 +114,27 @@ impl Database for InMemoryDatabase {
         }
     }
 
-    fn create_schema(&self, schema_name: SchemaName) -> io::Result<Result<Result<(), DefinitionError>, StorageError>> {
+    fn create_schema(&self, schema_name: SchemaName) -> io::Result<Result<bool, StorageError>> {
         if self.schemas.contains_key(schema_name) {
-            Ok(Ok(Err(DefinitionError::SchemaAlreadyExists)))
+            Ok(Ok(false))
         } else {
-            self.schemas.insert(schema_name.to_owned(), Schema::default());
-            Ok(Ok(Ok(())))
+            self.schemas
+                .insert(schema_name.to_owned(), Arc::new(InMemorySchema::default()));
+            Ok(Ok(true))
         }
     }
 
-    fn drop_schema(&self, schema_name: SchemaName) -> io::Result<Result<Result<(), DefinitionError>, StorageError>> {
+    fn drop_schema(&self, schema_name: SchemaName) -> io::Result<Result<bool, StorageError>> {
         match self.schemas.remove(schema_name) {
-            Some(_namespace) => Ok(Ok(Ok(()))),
-            None => Ok(Ok(Err(DefinitionError::SchemaDoesNotExist))),
+            Some(_schema) => Ok(Ok(true)),
+            None => Ok(Ok(false)),
+        }
+    }
+
+    fn lookup_schema(&self, schema_name: SchemaName) -> io::Result<Result<Option<Arc<dyn Schema>>, StorageError>> {
+        match self.schemas.get(schema_name) {
+            None => Ok(Ok(None)),
+            Some(schema) => Ok(Ok(Some(schema.clone()))),
         }
     }
 

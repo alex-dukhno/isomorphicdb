@@ -18,7 +18,7 @@ mod select;
 mod update;
 
 use super::*;
-use data_manager::DataManager;
+use data_manager::DatabaseHandle;
 use meta_def::ColumnDefinition;
 use sqlparser::ast::{Expr, Ident, ObjectName, Query, SetExpr, Value, Values};
 use std::sync::Arc;

@@ -46,7 +46,51 @@ pub trait Sequence {
     fn next(&self) -> Identifier;
 }
 
+pub trait Schema {}
+
+pub const DEFINITION_SCHEMA: &'_ str = "DEFINITION_SCHEMA";
+/// **SCHEMATA** sql types definition
+/// CATALOG_NAME    varchar(255)
+/// SCHEMA_NAME     varchar(255)
+pub const SCHEMATA_TABLE: &'_ str = "SCHEMATA";
+/// **TABLES** sql types definition
+/// TABLE_CATALOG   varchar(255)
+/// TABLE_SCHEMA    varchar(255)
+/// TABLE_NAME      varchar(255)
+pub const TABLES_TABLE: &'_ str = "TABLES";
+/// **COLUMNS** sql type definition
+/// TABLE_CATALOG               varchar(255)
+/// TABLE_SCHEMA                varchar(255)
+/// TABLE_NAME                  varchar(255)
+/// COLUMN_NAME                 varchar(255)
+/// ORDINAL_POSITION            integer CHECK (ORDINAL_POSITION > 0)
+/// DATA_TYPE_OID               integer
+/// CHARACTER_MAXIMUM_LENGTH    integer CHECK (VALUE >= 0),
+/// NUMERIC_PRECISION           integer CHECK (VALUE >= 0),
+pub const COLUMNS_TABLE: &'_ str = "COLUMNS";
+
 pub trait Database {
+    fn bootstrap(&self) {
+        self.create_object(DEFINITION_SCHEMA, SCHEMATA_TABLE)
+            .expect("no io error")
+            .expect("no platform error")
+            .expect("table SCHEMATA is created");
+        self.create_sequence(DEFINITION_SCHEMA, &(SCHEMATA_TABLE.to_owned() + ".records"))
+            .expect("to create sequence");
+        self.create_object(DEFINITION_SCHEMA, TABLES_TABLE)
+            .expect("no io error")
+            .expect("no platform error")
+            .expect("table TABLES is created");
+        self.create_sequence(DEFINITION_SCHEMA, &(TABLES_TABLE.to_owned() + ".records"))
+            .expect("to create sequence");
+        self.create_object(DEFINITION_SCHEMA, COLUMNS_TABLE)
+            .expect("no io error")
+            .expect("no platform error")
+            .expect("table COLUMNS is created");
+        self.create_sequence(DEFINITION_SCHEMA, &(COLUMNS_TABLE.to_owned() + ".records"))
+            .expect("to create sequence");
+    }
+
     fn create_sequence(&self, schema_name: &str, sequence_name: &str) -> Result<Arc<dyn Sequence>, DefinitionError> {
         self.create_sequence_with_step(schema_name, sequence_name, 1)
     }
@@ -62,9 +106,11 @@ pub trait Database {
 
     fn get_sequence(&self, schema_name: &str, sequence_name: &str) -> Result<Arc<dyn Sequence>, DefinitionError>;
 
-    fn create_schema(&self, schema_name: SchemaName) -> io::Result<Result<Result<(), DefinitionError>, StorageError>>;
+    fn create_schema(&self, schema_name: SchemaName) -> io::Result<Result<bool, StorageError>>;
 
-    fn drop_schema(&self, schema_name: SchemaName) -> io::Result<Result<Result<(), DefinitionError>, StorageError>>;
+    fn drop_schema(&self, schema_name: SchemaName) -> io::Result<Result<bool, StorageError>>;
+
+    fn lookup_schema(&self, schema_name: SchemaName) -> io::Result<Result<Option<Arc<dyn Schema>>, StorageError>>;
 
     fn create_object(
         &self,

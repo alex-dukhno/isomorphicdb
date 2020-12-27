@@ -103,7 +103,7 @@ impl Collector {
 fn empty_database() -> (InMemory, ResultCollector) {
     let collector = Collector::new();
     (
-        InMemory::new(collector.clone(), Arc::new(DataManager::in_memory())),
+        InMemory::new(collector.clone(), Arc::new(DatabaseHandle::in_memory())),
         collector,
     )
 }

@@ -17,7 +17,7 @@ use bigdecimal::BigDecimal;
 use binder::ParamBinder;
 use connection::Sender;
 use data_definition::DataDefReader;
-use data_manager::DataManager;
+use data_manager::DatabaseHandle;
 use description::{Description, DescriptionError};
 use itertools::izip;
 use parser::QueryParser;
@@ -46,7 +46,7 @@ unsafe impl Sync for QueryEngine {}
 pub(crate) struct QueryEngine {
     session: Session<Statement>,
     sender: Arc<dyn Sender>,
-    data_manager: Arc<DataManager>,
+    data_manager: Arc<DatabaseHandle>,
     param_binder: ParamBinder,
     query_analyzer: Analyzer,
     system_planner: SystemSchemaPlanner,
@@ -58,7 +58,7 @@ pub(crate) struct QueryEngine {
 }
 
 impl QueryEngine {
-    pub(crate) fn new(sender: Arc<dyn Sender>, data_manager: Arc<DataManager>) -> QueryEngine {
+    pub(crate) fn new(sender: Arc<dyn Sender>, data_manager: Arc<DatabaseHandle>) -> QueryEngine {
         QueryEngine {
             session: Session::default(),
             sender: sender.clone(),

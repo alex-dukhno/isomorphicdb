@@ -27,8 +27,7 @@ fn database() -> PersistentDatabase {
     storage
         .create_schema(SCHEMA)
         .expect("no io error")
-        .expect("no platform errors")
-        .expect("to create schema");
+        .expect("no platform errors");
     storage
         .create_object(SCHEMA, OBJECT)
         .expect("no io error")

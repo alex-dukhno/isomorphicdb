@@ -27,7 +27,7 @@ fn create_schema_if_not_exists(schema_name: Vec<&'static str>, if_not_exists: bo
 
 #[test]
 fn create_new_schema() {
-    let data_definition = Arc::new(DataManager::in_memory());
+    let data_definition = Arc::new(DatabaseHandle::in_memory());
     let analyzer = Analyzer::new(data_definition);
     assert_eq!(
         analyzer.analyze(create_schema(vec![SCHEMA])),
@@ -42,7 +42,7 @@ fn create_new_schema() {
 
 #[test]
 fn create_new_schema_if_not_exists() {
-    let data_definition = Arc::new(DataManager::in_memory());
+    let data_definition = Arc::new(DatabaseHandle::in_memory());
     let analyzer = Analyzer::new(data_definition);
     assert_eq!(
         analyzer.analyze(create_schema_if_not_exists(vec![SCHEMA], true)),
@@ -57,7 +57,7 @@ fn create_new_schema_if_not_exists() {
 
 #[test]
 fn create_schema_with_the_same_name() {
-    let data_definition = Arc::new(DataManager::in_memory());
+    let data_definition = Arc::new(DatabaseHandle::in_memory());
     data_definition.create_schema(SCHEMA).expect("schema created");
     let analyzer = Analyzer::new(data_definition);
     assert_eq!(
@@ -73,7 +73,7 @@ fn create_schema_with_the_same_name() {
 
 #[test]
 fn create_schema_with_unqualified_name() {
-    let data_definition = Arc::new(DataManager::in_memory());
+    let data_definition = Arc::new(DatabaseHandle::in_memory());
     let analyzer = Analyzer::new(data_definition);
     assert_eq!(
         analyzer.analyze(create_schema(vec![

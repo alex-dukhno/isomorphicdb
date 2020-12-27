@@ -28,7 +28,7 @@ fn drop(names: Vec<ObjectName>, object_type: ObjectType) -> Statement {
 
 #[test]
 fn drop_non_existent_schema() {
-    let metadata = Arc::new(DataManager::in_memory());
+    let metadata = Arc::new(DatabaseHandle::in_memory());
     let analyzer = Analyzer::new(metadata);
     let description = analyzer.describe(&drop(vec![ObjectName(vec![ident("non_existent")])], ObjectType::Schema));
     assert_eq!(
@@ -39,7 +39,7 @@ fn drop_non_existent_schema() {
 
 #[test]
 fn drop_schema_with_unqualified_name() {
-    let metadata = Arc::new(DataManager::in_memory());
+    let metadata = Arc::new(DatabaseHandle::in_memory());
     let analyzer = Analyzer::new(metadata);
     let description = analyzer.describe(&drop(
         vec![ObjectName(vec![
@@ -60,7 +60,7 @@ fn drop_schema_with_unqualified_name() {
 
 #[test]
 fn drop_schema() {
-    let metadata = Arc::new(DataManager::in_memory());
+    let metadata = Arc::new(DatabaseHandle::in_memory());
     metadata.create_schema(SCHEMA).expect("schema created");
     let analyzer = Analyzer::new(metadata);
     let description = analyzer.describe(&drop(vec![ObjectName(vec![ident(SCHEMA)])], ObjectType::Schema));
@@ -76,7 +76,7 @@ fn drop_schema() {
 
 #[test]
 fn drop_table_from_nonexistent_schema() {
-    let metadata = Arc::new(DataManager::in_memory());
+    let metadata = Arc::new(DatabaseHandle::in_memory());
     let analyzer = Analyzer::new(metadata);
     let description = analyzer.describe(&drop(
         vec![ObjectName(vec![ident("non_existent_schema"), ident(TABLE)])],
@@ -90,7 +90,7 @@ fn drop_table_from_nonexistent_schema() {
 
 #[test]
 fn drop_nonexistent_table() {
-    let metadata = Arc::new(DataManager::in_memory());
+    let metadata = Arc::new(DatabaseHandle::in_memory());
     metadata.create_schema(SCHEMA).expect("schema created");
     let analyzer = Analyzer::new(metadata);
     let description = analyzer.describe(&drop(
@@ -108,7 +108,7 @@ fn drop_nonexistent_table() {
 
 #[test]
 fn drop_table_with_unqualified_name() {
-    let metadata = Arc::new(DataManager::in_memory());
+    let metadata = Arc::new(DatabaseHandle::in_memory());
     metadata.create_schema(SCHEMA).expect("schema created");
     let analyzer = Analyzer::new(metadata);
     let description = analyzer.describe(&drop(
@@ -125,7 +125,7 @@ fn drop_table_with_unqualified_name() {
 
 #[test]
 fn drop_table_with_unsupported_name() {
-    let metadata = Arc::new(DataManager::in_memory());
+    let metadata = Arc::new(DatabaseHandle::in_memory());
     let analyzer = Analyzer::new(metadata);
     let description = analyzer.describe(&drop(
         vec![ObjectName(vec![
@@ -146,7 +146,7 @@ fn drop_table_with_unsupported_name() {
 
 #[test]
 fn drop_table() {
-    let metadata = Arc::new(DataManager::in_memory());
+    let metadata = Arc::new(DatabaseHandle::in_memory());
     let schema_id = metadata.create_schema(SCHEMA).expect("schema created");
     metadata.create_table(schema_id, TABLE, &[]).expect("table created");
     let analyzer = Analyzer::new(metadata);

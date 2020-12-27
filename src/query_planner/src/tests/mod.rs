@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use super::*;
-use data_manager::DataManager;
+use data_manager::DatabaseHandle;
 use meta_def::ColumnDefinition;
 use sqlparser::ast::Ident;
 use std::sync::Arc;
@@ -35,20 +35,20 @@ const TABLE: &str = "table_name";
 
 #[rstest::fixture]
 fn planner() -> QueryPlanner {
-    let manager = DataManager::in_memory();
+    let manager = DatabaseHandle::in_memory();
     QueryPlanner::new(Arc::new(manager))
 }
 
 #[rstest::fixture]
 fn planner_with_schema() -> QueryPlanner {
-    let manager = DataManager::in_memory();
+    let manager = DatabaseHandle::in_memory();
     manager.create_schema(SCHEMA).expect("schema created");
     QueryPlanner::new(Arc::new(manager))
 }
 
 #[rstest::fixture]
 fn planner_with_table() -> QueryPlanner {
-    let manager = DataManager::in_memory();
+    let manager = DatabaseHandle::in_memory();
     let schema_id = manager.create_schema(SCHEMA).expect("schema created");
     manager
         .create_table(
@@ -66,7 +66,7 @@ fn planner_with_table() -> QueryPlanner {
 
 #[rstest::fixture]
 fn planner_with_no_column_table() -> QueryPlanner {
-    let manager = DataManager::in_memory();
+    let manager = DatabaseHandle::in_memory();
     let schema_id = manager.create_schema(SCHEMA).expect("schema created");
     manager.create_table(schema_id, TABLE, &[]).expect("table created");
     QueryPlanner::new(Arc::new(manager))
