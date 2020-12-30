@@ -7,9 +7,10 @@ publish = false
 
 [dependencies]
 binary = { path = "../binary" }
-meta_def = { path = "../meta_def" }
+catalog = { path = "../catalog" }
 data_definition = { path = "../data_definition" }
 definition_operations = { path = "../definition_operations" }
+meta_def = { path = "../meta_def" }
 repr = { path = "../repr" }
 sql_model = { path = "../sql_model" }
 storage = { path = "../storage" }

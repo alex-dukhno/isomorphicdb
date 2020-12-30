@@ -7,6 +7,7 @@ publish = false
 
 [dependencies]
 analysis = { path = "../analysis" }
+catalog = { path = "../catalog" }
 data_definition = { path = "../data_definition" }
 data_manager = { path = "../data_manager" }
 definition_operations = { path = "../definition_operations" }

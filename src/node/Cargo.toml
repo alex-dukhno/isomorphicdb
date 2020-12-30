@@ -15,6 +15,7 @@ path = "src/bin.rs"
 [dependencies]
 analysis = { path = "../analysis" }
 binder = { path = "../binder" }
+catalog = { path = "../catalog" }
 connection = { path = "../connection" }
 description = { path = "../description" }
 data_manager = { path = "../data_manager" }

@@ -1,0 +1,20 @@
+[package]
+name = "catalog"
+version = "0.1.0"
+authors = ["Alex Dukhno <alex.dukhno@icloud.com>"]
+edition = "2018"
+publish = false
+
+[dependencies]
+binary = { path = "../binary" }
+sql_model = { path = "../sql_model" }
+repr = { path = "../repr" }
+
+dashmap = "3.11.10"
+log = "0.4.11"
+sled = { version = "0.34.6", features = ["default"] }
+
+[dev-dependencies]
+backtrace = "0.3.55"
+rstest = "0.6.4"
+tempfile = "3.1.0"

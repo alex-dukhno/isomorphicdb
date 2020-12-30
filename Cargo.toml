@@ -4,6 +4,7 @@ members = [
     "src/ast", # TODO: should be removed after operation tree rewrite
     "src/binary",
     "src/binder",
+    "src/catalog",
     "src/constraints",
     "src/connection",
     "src/data_definition",

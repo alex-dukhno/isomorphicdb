@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use binary::{Binary, Key, ReadCursor, Values};
+use catalog::{InMemoryCatalogHandle, OnDiskCatalogHandle};
 use data_definition::{DataDefOperationExecutor, DataDefReader, OptionalSchemaId, OptionalTableId};
 use definition_operations::{Record, SystemObject, SystemOperation};
 use meta_def::{ColumnDefinition, Id};

@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use super::*;
+use catalog::InMemoryDatabase;
 use pg_model::{
     results::{QueryEvent, QueryResult},
     Command,
@@ -103,7 +104,11 @@ impl Collector {
 fn empty_database() -> (InMemory, ResultCollector) {
     let collector = Collector::new();
     (
-        InMemory::new(collector.clone(), Arc::new(DatabaseHandle::in_memory())),
+        InMemory::new(
+            collector.clone(),
+            Arc::new(DatabaseHandle::in_memory()),
+            DatabaseHandleNew::in_memory(),
+        ),
         collector,
     )
 }

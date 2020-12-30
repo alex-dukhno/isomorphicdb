@@ -15,6 +15,7 @@
 use analysis::{AnalysisError, QueryAnalysis};
 use bigdecimal::BigDecimal;
 use binder::ParamBinder;
+use catalog::DatabaseHandleNew;
 use connection::Sender;
 use data_definition::DataDefReader;
 use data_manager::DatabaseHandle;
@@ -46,6 +47,7 @@ unsafe impl Sync for QueryEngine {}
 pub(crate) struct QueryEngine {
     session: Session<Statement>,
     sender: Arc<dyn Sender>,
+    database: DatabaseHandleNew,
     data_manager: Arc<DatabaseHandle>,
     param_binder: ParamBinder,
     query_analyzer: Analyzer,
@@ -58,16 +60,21 @@ pub(crate) struct QueryEngine {
 }
 
 impl QueryEngine {
-    pub(crate) fn new(sender: Arc<dyn Sender>, data_manager: Arc<DatabaseHandle>) -> QueryEngine {
+    pub(crate) fn new(
+        sender: Arc<dyn Sender>,
+        data_manager: Arc<DatabaseHandle>,
+        database: DatabaseHandleNew,
+    ) -> QueryEngine {
         QueryEngine {
             session: Session::default(),
             sender: sender.clone(),
+            database: database.clone(),
             data_manager: data_manager.clone(),
             param_binder: ParamBinder,
             old_query_analyzer: OldAnalyzer::new(data_manager.clone()),
             query_analyzer: Analyzer::new(data_manager.clone()),
             system_planner: SystemSchemaPlanner::new(),
-            schema_executor: SystemSchemaExecutor::new(data_manager.clone()),
+            schema_executor: SystemSchemaExecutor::new(data_manager.clone(), database),
             query_parser: QueryParser::default(),
             query_planner: QueryPlanner::new(data_manager.clone()),
             query_executor: QueryExecutor::new(data_manager, sender),

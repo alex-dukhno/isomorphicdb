@@ -252,6 +252,7 @@ impl PersistentDatabase {
         ));
         Box::new(object.iter())
     }
+
     fn remove_fro_tree_with_failpoint(&self, object: &Tree, key: Binary) -> Result<Option<IVec>, SledError> {
         fail::fail_point!("sled-fail-to-remove-from-tree", |kind| Err(sled_error(kind)));
         object.remove(key.to_bytes())
