@@ -9,7 +9,7 @@ publish = false
 binary = { path = "../binary" }
 sql_model = { path = "../sql_model" }
 
-dashmap = "3.11.10"
+dashmap = "4.0.1"
 fail = { version = "0.4.0", features = ["failpoints"] }
 log = "0.4.11"
 sled = { version = "0.34.6", features = ["default"] }
