@@ -46,7 +46,7 @@ mod update;
 #[cfg(test)]
 mod where_clause;
 
-type InMemory = QueryEngine;
+type InMemory = QueryEngine<InMemoryDatabase>;
 type ResultCollector = Arc<Collector>;
 
 pub struct Collector(Mutex<Vec<QueryResult>>);
@@ -107,7 +107,7 @@ fn empty_database() -> (InMemory, ResultCollector) {
         InMemory::new(
             collector.clone(),
             Arc::new(DatabaseHandle::in_memory()),
-            DatabaseHandleNew::in_memory(),
+            InMemoryDatabase::new(),
         ),
         collector,
     )

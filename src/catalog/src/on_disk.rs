@@ -73,7 +73,7 @@ impl DataTable for OnDiskTableHandle {
             self.data
                 .iter()
                 .map(Result::unwrap)
-                .map(|(key, value)| Ok(Ok((Binary::with_data(key.to_vec()), Binary::with_data(value.to_vec()))))),
+                .map(|(key, value)| (Binary::with_data(key.to_vec()), Binary::with_data(value.to_vec()))),
         )
     }
 
@@ -551,7 +551,6 @@ mod general_cases {
                     .work_with(SCHEMA, |schema| schema.work_with(TABLE, |table| table.scan()))
                     .unwrap()
                     .unwrap()
-                    .map(|row| row.unwrap().unwrap())
                     .collect::<Vec<(Key, Value)>>(),
                 vec![(Binary::pack(&[Datum::from_u64(0)]), Binary::pack(&[Datum::from_u64(1)]))]
             );
@@ -580,7 +579,6 @@ mod general_cases {
                     .work_with(SCHEMA, |schema| schema.work_with(TABLE, |table| table.scan()))
                     .unwrap()
                     .unwrap()
-                    .map(|row| row.unwrap().unwrap())
                     .collect::<Vec<(Key, Value)>>(),
                 vec![
                     (Binary::pack(&[Datum::from_u64(0)]), Binary::pack(&[Datum::from_u64(1)])),
@@ -641,7 +639,6 @@ mod general_cases {
                     .work_with(SCHEMA, |schema| schema.work_with(TABLE, |table| table.scan()))
                     .unwrap()
                     .unwrap()
-                    .map(|row| row.unwrap().unwrap())
                     .collect::<Vec<(Key, Value)>>(),
                 vec![(Binary::pack(&[Datum::from_u64(0)]), Binary::pack(&[Datum::from_u64(1)])),]
             );
@@ -701,7 +698,6 @@ mod general_cases {
                     .work_with(SCHEMA, |schema| schema.work_with(TABLE, |table| table.scan()))
                     .unwrap()
                     .unwrap()
-                    .map(|row| row.unwrap().unwrap())
                     .collect::<Vec<(Key, Value)>>(),
                 vec![
                     (Binary::pack(&[Datum::from_u64(0)]), Binary::pack(&[Datum::from_u64(1)])),

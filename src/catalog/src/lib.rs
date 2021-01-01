@@ -14,25 +14,32 @@
 
 mod in_memory;
 mod on_disk;
+mod sql;
 
 use binary::Binary;
 use std::fmt::{self, Debug, Formatter};
 use std::io;
 use std::iter::FromIterator;
 
+use definition_operations::{ExecutionError, ExecutionOutcome, SystemOperation};
 pub use in_memory::InMemoryCatalogHandle;
 pub use on_disk::OnDiskCatalogHandle;
-use std::ops::Deref;
-use std::sync::Arc;
+pub use sql::in_memory::InMemoryDatabase;
+pub use sql::on_disk::OnDiskDatabase;
 
 pub type Key = Binary;
 pub type Value = Binary;
+
+const DEFINITION_SCHEMA: &str = "DEFINITION_SCHEMA";
+const SCHEMATA_TABLE: &str = "SCHEMATA";
+const TABLES_TABLE: &str = "TABLES";
+const COLUMNS_TABLE: &str = "COLUMNS";
 
 #[derive(Debug, PartialEq)]
 pub struct StorageError;
 
 pub struct Cursor {
-    source: Box<dyn Iterator<Item = io::Result<Result<(Binary, Binary), StorageError>>>>,
+    source: Box<dyn Iterator<Item = (Binary, Binary)>>,
 }
 
 impl Debug for Cursor {
@@ -41,33 +48,16 @@ impl Debug for Cursor {
     }
 }
 
-impl FromIterator<io::Result<Result<(Binary, Binary), StorageError>>> for Cursor {
-    fn from_iter<T: IntoIterator<Item = io::Result<Result<(Binary, Binary), StorageError>>>>(iter: T) -> Self {
-        Self {
-            source: Box::new(
-                iter.into_iter()
-                    .collect::<Vec<io::Result<Result<(Binary, Binary), StorageError>>>>()
-                    .into_iter(),
-            ),
-        }
-    }
-}
-
 impl FromIterator<(Binary, Binary)> for Cursor {
     fn from_iter<T: IntoIterator<Item = (Binary, Binary)>>(iter: T) -> Self {
         Self {
-            source: Box::new(
-                iter.into_iter()
-                    .map(|item| Ok(Ok(item)))
-                    .collect::<Vec<io::Result<Result<(Binary, Binary), StorageError>>>>()
-                    .into_iter(),
-            ),
+            source: Box::new(iter.into_iter().collect::<Vec<(Binary, Binary)>>().into_iter()),
         }
     }
 }
 
 impl Iterator for Cursor {
-    type Item = io::Result<Result<(Binary, Binary), StorageError>>;
+    type Item = (Binary, Binary);
 
     fn next(&mut self) -> Option<Self::Item> {
         self.source.next()
@@ -95,56 +85,13 @@ pub trait DataCatalog {
     fn work_with<T, F: Fn(&Self::Schema) -> T>(&self, schema_name: &str, operation: F) -> Option<T>;
 }
 
+pub trait SqlTable {}
+
+pub trait SqlSchema {}
+
 pub trait Database {
-    type Table;
-    type Schema;
+    type Schema: SqlSchema;
+    type Table: SqlTable;
 
-    fn new(name: &str) -> Arc<Self>;
-}
-
-pub struct OnDiskDatabase;
-
-impl Database for OnDiskDatabase {
-    type Table = ();
-    type Schema = ();
-
-    fn new(name: &str) -> Arc<Self> {
-        Arc::new(OnDiskDatabase)
-    }
-}
-
-pub struct InMemoryDatabase;
-
-impl Database for InMemoryDatabase {
-    type Table = ();
-    type Schema = ();
-
-    fn new(name: &str) -> Arc<Self> {
-        Arc::new(InMemoryDatabase)
-    }
-}
-
-#[derive(Clone)]
-pub struct DatabaseHandleNew {
-    inner: DatabaseHandleInner,
-}
-
-#[derive(Clone)]
-enum DatabaseHandleInner {
-    InMemory(Arc<InMemoryDatabase>),
-    OnDisk(Arc<OnDiskDatabase>),
-}
-
-impl DatabaseHandleNew {
-    pub fn in_memory() -> DatabaseHandleNew {
-        DatabaseHandleNew {
-            inner: DatabaseHandleInner::InMemory(InMemoryDatabase::new("in-memory")),
-        }
-    }
-
-    pub fn persistent(path_to_database: &str) -> DatabaseHandleNew {
-        DatabaseHandleNew {
-            inner: DatabaseHandleInner::OnDisk(OnDiskDatabase::new(path_to_database)),
-        }
-    }
+    fn execute(&self, operation: &[SystemOperation]) -> Result<ExecutionOutcome, ExecutionError>;
 }

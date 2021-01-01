@@ -15,10 +15,11 @@
 use analysis::{AnalysisError, QueryAnalysis};
 use bigdecimal::BigDecimal;
 use binder::ParamBinder;
-use catalog::DatabaseHandleNew;
+use catalog::Database;
 use connection::Sender;
 use data_definition::DataDefReader;
 use data_manager::DatabaseHandle;
+use definition_operations::{ExecutionError, ExecutionOutcome};
 use description::{Description, DescriptionError};
 use itertools::izip;
 use parser::QueryParser;
@@ -34,47 +35,40 @@ use query_analyzer::Analyzer;
 use query_analyzer_old::Analyzer as OldAnalyzer;
 use query_executor::QueryExecutor;
 use query_planner::{PlanError, QueryPlanner};
-use schema_executor::{ExecutionError, ExecutionOutcome, SystemSchemaExecutor};
 use schema_planner::SystemSchemaPlanner;
 use sqlparser::ast::{Expr, Ident, Statement, Value};
 use std::{convert::TryFrom, iter, ops::Deref, sync::Arc};
 use types::SqlType;
 
-unsafe impl Send for QueryEngine {}
+unsafe impl<D: Database> Send for QueryEngine<D> {}
 
-unsafe impl Sync for QueryEngine {}
+unsafe impl<D: Database> Sync for QueryEngine<D> {}
 
-pub(crate) struct QueryEngine {
+pub(crate) struct QueryEngine<D: Database> {
     session: Session<Statement>,
     sender: Arc<dyn Sender>,
-    database: DatabaseHandleNew,
+    database: Arc<D>,
     data_manager: Arc<DatabaseHandle>,
     param_binder: ParamBinder,
     query_analyzer: Analyzer,
     system_planner: SystemSchemaPlanner,
-    schema_executor: SystemSchemaExecutor,
     old_query_analyzer: OldAnalyzer,
     query_parser: QueryParser,
     query_planner: QueryPlanner,
     query_executor: QueryExecutor,
 }
 
-impl QueryEngine {
-    pub(crate) fn new(
-        sender: Arc<dyn Sender>,
-        data_manager: Arc<DatabaseHandle>,
-        database: DatabaseHandleNew,
-    ) -> QueryEngine {
+impl<D: Database> QueryEngine<D> {
+    pub(crate) fn new(sender: Arc<dyn Sender>, data_manager: Arc<DatabaseHandle>, database: Arc<D>) -> QueryEngine<D> {
         QueryEngine {
             session: Session::default(),
             sender: sender.clone(),
-            database: database.clone(),
+            database,
             data_manager: data_manager.clone(),
             param_binder: ParamBinder,
             old_query_analyzer: OldAnalyzer::new(data_manager.clone()),
             query_analyzer: Analyzer::new(data_manager.clone()),
             system_planner: SystemSchemaPlanner::new(),
-            schema_executor: SystemSchemaExecutor::new(data_manager.clone(), database),
             query_parser: QueryParser::default(),
             query_planner: QueryPlanner::new(data_manager.clone()),
             query_executor: QueryExecutor::new(data_manager, sender),
@@ -302,7 +296,7 @@ impl QueryEngine {
                         | statement @ Statement::Drop { .. } => match self.query_analyzer.analyze(statement) {
                             Ok(QueryAnalysis::DataDefinition(schema_change)) => {
                                 let operations = self.system_planner.schema_change_plan(&schema_change);
-                                let query_result = match self.schema_executor.execute(&schema_change, operations) {
+                                let query_result = match self.database.execute(&operations) {
                                     Ok(ExecutionOutcome::SchemaCreated) => Ok(QueryEvent::SchemaCreated),
                                     Ok(ExecutionOutcome::SchemaDropped) => Ok(QueryEvent::SchemaDropped),
                                     Ok(ExecutionOutcome::TableCreated) => Ok(QueryEvent::TableCreated),

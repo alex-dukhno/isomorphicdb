@@ -23,7 +23,6 @@ members = [
     "src/query_executor",
     "src/query_planner",
     "src/repr",
-    "src/schema_executor",
     "src/schema_planner",
     "src/sql_model", # TODO: should be removed after operation tree rewrite
     "src/storage",

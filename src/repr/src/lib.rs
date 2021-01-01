@@ -86,7 +86,7 @@ impl<'a> Datum<'a> {
     }
 
     #[allow(clippy::should_implement_trait)]
-    pub fn from_str(val: &'a str) -> Datum<'a> {
+    pub const fn from_str(val: &'a str) -> Datum<'a> {
         Datum::String(val)
     }
 

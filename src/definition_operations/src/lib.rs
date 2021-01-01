@@ -93,3 +93,19 @@ pub enum Record {
         sql_type: SqlType,
     },
 }
+
+#[derive(Debug, PartialEq)]
+pub enum ExecutionOutcome {
+    SchemaCreated,
+    SchemaDropped,
+    TableCreated,
+    TableDropped,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum ExecutionError {
+    SchemaAlreadyExists(String),
+    SchemaDoesNotExist(String),
+    TableAlreadyExists(String, String),
+    TableDoesNotExists(String, String),
+}

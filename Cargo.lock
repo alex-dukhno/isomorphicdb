@@ -244,6 +244,7 @@ dependencies = [
  "backtrace",
  "binary",
  "dashmap 3.11.10",
+ "definition_operations",
  "log",
  "repr",
  "rstest",
@@ -838,6 +839,7 @@ dependencies = [
  "connection",
  "data_definition",
  "data_manager",
+ "definition_operations",
  "description",
  "futures-lite",
  "itertools",
@@ -851,7 +853,6 @@ dependencies = [
  "query_executor",
  "query_planner",
  "rstest",
- "schema_executor",
  "schema_planner",
  "simple_logger",
  "sql_model",
@@ -1289,17 +1290,6 @@ checksum = "8f05ba609c234e60bee0d547fe94a4c7e9da733d1c962cf6e59efa4cd9c8bc75"
 dependencies = [
  "lazy_static",
  "winapi",
-]
-
-[[package]]
-name = "schema_executor"
-version = "0.1.0"
-dependencies = [
- "analysis",
- "catalog",
- "data_definition",
- "data_manager",
- "definition_operations",
 ]
 
 [[package]]
