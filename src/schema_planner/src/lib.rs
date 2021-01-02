@@ -34,7 +34,7 @@ impl SystemSchemaPlanner {
                 let mut steps = vec![];
                 steps.push(Step::CheckExistence {
                     system_object: SystemObject::Schema,
-                    object_name: schema_name.as_ref().to_string(),
+                    object_name: vec![schema_name.as_ref().to_string()],
                 });
                 steps.push(Step::CreateFolder {
                     name: schema_name.as_ref().to_string(),
@@ -67,17 +67,17 @@ impl SystemSchemaPlanner {
                     let mut for_schema = vec![];
                     for_schema.push(Step::CheckExistence {
                         system_object: SystemObject::Schema,
-                        object_name: schema_name.as_ref().to_string(),
+                        object_name: vec![schema_name.as_ref().to_string()],
                     });
                     if *cascade {
                         for_schema.push(Step::RemoveDependants {
                             system_object: SystemObject::Schema,
-                            object_name: schema_name.as_ref().to_string(),
+                            object_name: vec![schema_name.as_ref().to_string()],
                         });
                     } else {
                         for_schema.push(Step::CheckDependants {
                             system_object: SystemObject::Schema,
-                            object_name: schema_name.as_ref().to_string(),
+                            object_name: vec![schema_name.as_ref().to_string()],
                         });
                     }
                     for_schema.push(Step::RemoveRecord {
@@ -112,11 +112,11 @@ impl SystemSchemaPlanner {
                 let mut steps = vec![];
                 steps.push(Step::CheckExistence {
                     system_object: SystemObject::Schema,
-                    object_name: schema_name.clone(),
+                    object_name: vec![schema_name.clone()],
                 });
                 steps.push(Step::CheckExistence {
                     system_object: SystemObject::Table,
-                    object_name: table_name.clone(),
+                    object_name: vec![schema_name.clone(), table_name.clone()],
                 });
                 steps.push(Step::CreateFile {
                     folder_name: schema_name.clone(),
@@ -167,11 +167,11 @@ impl SystemSchemaPlanner {
                     let mut for_table = vec![];
                     for_table.push(Step::CheckExistence {
                         system_object: SystemObject::Schema,
-                        object_name: schema_name.clone(),
+                        object_name: vec![schema_name.clone()],
                     });
                     for_table.push(Step::CheckExistence {
                         system_object: SystemObject::Table,
-                        object_name: table_name.clone(),
+                        object_name: vec![schema_name.clone(), table_name.clone()],
                     });
                     for_table.push(Step::RemoveColumns {
                         schema_name: schema_name.to_owned(),
@@ -232,7 +232,7 @@ mod tests {
                     steps: vec![vec![
                         Step::CheckExistence {
                             system_object: SystemObject::Schema,
-                            object_name: SCHEMA.to_owned(),
+                            object_name: vec![SCHEMA.to_owned()],
                         },
                         Step::CreateFolder {
                             name: SCHEMA.to_owned()
@@ -263,7 +263,7 @@ mod tests {
                     steps: vec![vec![
                         Step::CheckExistence {
                             system_object: SystemObject::Schema,
-                            object_name: SCHEMA.to_owned(),
+                            object_name: vec![SCHEMA.to_owned()],
                         },
                         Step::CreateFolder {
                             name: SCHEMA.to_owned()
@@ -295,11 +295,11 @@ mod tests {
                     steps: vec![vec![
                         Step::CheckExistence {
                             system_object: SystemObject::Schema,
-                            object_name: SCHEMA.to_owned(),
+                            object_name: vec![SCHEMA.to_owned()],
                         },
                         Step::CheckDependants {
                             system_object: SystemObject::Schema,
-                            object_name: SCHEMA.to_owned()
+                            object_name: vec![SCHEMA.to_owned()],
                         },
                         Step::RemoveRecord {
                             system_schema: DEFINITION_SCHEMA.to_owned(),
@@ -332,11 +332,11 @@ mod tests {
                         vec![
                             Step::CheckExistence {
                                 system_object: SystemObject::Schema,
-                                object_name: SCHEMA.to_owned(),
+                                object_name: vec![SCHEMA.to_owned()],
                             },
                             Step::CheckDependants {
                                 system_object: SystemObject::Schema,
-                                object_name: SCHEMA.to_owned()
+                                object_name: vec![SCHEMA.to_owned()],
                             },
                             Step::RemoveRecord {
                                 system_schema: DEFINITION_SCHEMA.to_owned(),
@@ -353,11 +353,11 @@ mod tests {
                         vec![
                             Step::CheckExistence {
                                 system_object: SystemObject::Schema,
-                                object_name: OTHER_SCHEMA.to_owned(),
+                                object_name: vec![OTHER_SCHEMA.to_owned()],
                             },
                             Step::CheckDependants {
                                 system_object: SystemObject::Schema,
-                                object_name: OTHER_SCHEMA.to_owned()
+                                object_name: vec![OTHER_SCHEMA.to_owned()]
                             },
                             Step::RemoveRecord {
                                 system_schema: DEFINITION_SCHEMA.to_owned(),
@@ -391,11 +391,11 @@ mod tests {
                         vec![
                             Step::CheckExistence {
                                 system_object: SystemObject::Schema,
-                                object_name: SCHEMA.to_owned(),
+                                object_name: vec![SCHEMA.to_owned()],
                             },
                             Step::RemoveDependants {
                                 system_object: SystemObject::Schema,
-                                object_name: SCHEMA.to_owned()
+                                object_name: vec![SCHEMA.to_owned()]
                             },
                             Step::RemoveRecord {
                                 system_schema: DEFINITION_SCHEMA.to_owned(),
@@ -412,11 +412,11 @@ mod tests {
                         vec![
                             Step::CheckExistence {
                                 system_object: SystemObject::Schema,
-                                object_name: OTHER_SCHEMA.to_owned(),
+                                object_name: vec![OTHER_SCHEMA.to_owned()],
                             },
                             Step::RemoveDependants {
                                 system_object: SystemObject::Schema,
-                                object_name: OTHER_SCHEMA.to_owned()
+                                object_name: vec![OTHER_SCHEMA.to_owned()],
                             },
                             Step::RemoveRecord {
                                 system_schema: DEFINITION_SCHEMA.to_owned(),
@@ -450,11 +450,11 @@ mod tests {
                         vec![
                             Step::CheckExistence {
                                 system_object: SystemObject::Schema,
-                                object_name: SCHEMA.to_owned(),
+                                object_name: vec![SCHEMA.to_owned()],
                             },
                             Step::CheckDependants {
                                 system_object: SystemObject::Schema,
-                                object_name: SCHEMA.to_owned()
+                                object_name: vec![SCHEMA.to_owned()],
                             },
                             Step::RemoveRecord {
                                 system_schema: DEFINITION_SCHEMA.to_owned(),
@@ -471,11 +471,11 @@ mod tests {
                         vec![
                             Step::CheckExistence {
                                 system_object: SystemObject::Schema,
-                                object_name: OTHER_SCHEMA.to_owned(),
+                                object_name: vec![OTHER_SCHEMA.to_owned()],
                             },
                             Step::CheckDependants {
                                 system_object: SystemObject::Schema,
-                                object_name: OTHER_SCHEMA.to_owned()
+                                object_name: vec![OTHER_SCHEMA.to_owned()],
                             },
                             Step::RemoveRecord {
                                 system_schema: DEFINITION_SCHEMA.to_owned(),
@@ -513,11 +513,11 @@ mod tests {
                     steps: vec![vec![
                         Step::CheckExistence {
                             system_object: SystemObject::Schema,
-                            object_name: SCHEMA.to_owned(),
+                            object_name: vec![SCHEMA.to_owned()],
                         },
                         Step::CheckExistence {
                             system_object: SystemObject::Table,
-                            object_name: TABLE.to_owned(),
+                            object_name: vec![SCHEMA.to_owned(), TABLE.to_owned()],
                         },
                         Step::CreateFile {
                             folder_name: SCHEMA.to_owned(),
@@ -551,11 +551,11 @@ mod tests {
                     steps: vec![vec![
                         Step::CheckExistence {
                             system_object: SystemObject::Schema,
-                            object_name: SCHEMA.to_owned(),
+                            object_name: vec![SCHEMA.to_owned()],
                         },
                         Step::CheckExistence {
                             system_object: SystemObject::Table,
-                            object_name: TABLE.to_owned(),
+                            object_name: vec![SCHEMA.to_owned(), TABLE.to_owned()],
                         },
                         Step::CreateFile {
                             folder_name: SCHEMA.to_owned(),
@@ -598,11 +598,11 @@ mod tests {
                     steps: vec![vec![
                         Step::CheckExistence {
                             system_object: SystemObject::Schema,
-                            object_name: SCHEMA.to_owned(),
+                            object_name: vec![SCHEMA.to_owned()],
                         },
                         Step::CheckExistence {
                             system_object: SystemObject::Table,
-                            object_name: TABLE.to_owned(),
+                            object_name: vec![SCHEMA.to_owned(), TABLE.to_owned()],
                         },
                         Step::CreateFile {
                             folder_name: SCHEMA.to_owned(),
@@ -662,11 +662,11 @@ mod tests {
                         vec![
                             Step::CheckExistence {
                                 system_object: SystemObject::Schema,
-                                object_name: SCHEMA.to_owned(),
+                                object_name: vec![SCHEMA.to_owned()],
                             },
                             Step::CheckExistence {
                                 system_object: SystemObject::Table,
-                                object_name: TABLE.to_owned(),
+                                object_name: vec![SCHEMA.to_owned(), TABLE.to_owned()],
                             },
                             Step::RemoveColumns {
                                 schema_name: SCHEMA.to_owned(),
@@ -689,11 +689,11 @@ mod tests {
                         vec![
                             Step::CheckExistence {
                                 system_object: SystemObject::Schema,
-                                object_name: SCHEMA.to_owned(),
+                                object_name: vec![SCHEMA.to_owned()],
                             },
                             Step::CheckExistence {
                                 system_object: SystemObject::Table,
-                                object_name: OTHER_TABLE.to_owned(),
+                                object_name: vec![SCHEMA.to_owned(), OTHER_TABLE.to_owned()],
                             },
                             Step::RemoveColumns {
                                 schema_name: SCHEMA.to_owned(),
@@ -736,11 +736,11 @@ mod tests {
                         vec![
                             Step::CheckExistence {
                                 system_object: SystemObject::Schema,
-                                object_name: SCHEMA.to_owned(),
+                                object_name: vec![SCHEMA.to_owned()],
                             },
                             Step::CheckExistence {
                                 system_object: SystemObject::Table,
-                                object_name: TABLE.to_owned(),
+                                object_name: vec![SCHEMA.to_owned(), TABLE.to_owned()],
                             },
                             Step::RemoveColumns {
                                 schema_name: SCHEMA.to_owned(),
@@ -763,11 +763,11 @@ mod tests {
                         vec![
                             Step::CheckExistence {
                                 system_object: SystemObject::Schema,
-                                object_name: SCHEMA.to_owned(),
+                                object_name: vec![SCHEMA.to_owned()],
                             },
                             Step::CheckExistence {
                                 system_object: SystemObject::Table,
-                                object_name: OTHER_TABLE.to_owned(),
+                                object_name: vec![SCHEMA.to_owned(), OTHER_TABLE.to_owned()],
                             },
                             Step::RemoveColumns {
                                 schema_name: SCHEMA.to_owned(),
@@ -810,11 +810,11 @@ mod tests {
                         vec![
                             Step::CheckExistence {
                                 system_object: SystemObject::Schema,
-                                object_name: SCHEMA.to_owned(),
+                                object_name: vec![SCHEMA.to_owned()],
                             },
                             Step::CheckExistence {
                                 system_object: SystemObject::Table,
-                                object_name: TABLE.to_owned(),
+                                object_name: vec![SCHEMA.to_owned(), TABLE.to_owned()],
                             },
                             Step::RemoveColumns {
                                 schema_name: SCHEMA.to_owned(),
@@ -837,11 +837,11 @@ mod tests {
                         vec![
                             Step::CheckExistence {
                                 system_object: SystemObject::Schema,
-                                object_name: SCHEMA.to_owned(),
+                                object_name: vec![SCHEMA.to_owned()],
                             },
                             Step::CheckExistence {
                                 system_object: SystemObject::Table,
-                                object_name: OTHER_TABLE.to_owned(),
+                                object_name: vec![SCHEMA.to_owned(), OTHER_TABLE.to_owned()],
                             },
                             Step::RemoveColumns {
                                 schema_name: SCHEMA.to_owned(),

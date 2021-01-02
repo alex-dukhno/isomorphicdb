@@ -8,8 +8,8 @@ publish = false
 [dependencies]
 binary = { path = "../binary" }
 definition_operations = { path = "../definition_operations" }
-sql_model = { path = "../sql_model" }
 repr = { path = "../repr" }
+types = { path = "../types" }
 
 dashmap = "3.11.10"
 log = "0.4.11"

@@ -249,8 +249,8 @@ dependencies = [
  "repr",
  "rstest",
  "sled",
- "sql_model",
  "tempfile",
+ "types",
 ]
 
 [[package]]

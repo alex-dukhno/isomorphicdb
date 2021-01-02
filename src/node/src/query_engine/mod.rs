@@ -296,7 +296,7 @@ impl<D: Database> QueryEngine<D> {
                         | statement @ Statement::Drop { .. } => match self.query_analyzer.analyze(statement) {
                             Ok(QueryAnalysis::DataDefinition(schema_change)) => {
                                 let operations = self.system_planner.schema_change_plan(&schema_change);
-                                let query_result = match self.database.execute(&operations) {
+                                let query_result = match self.database.execute(operations) {
                                     Ok(ExecutionOutcome::SchemaCreated) => Ok(QueryEvent::SchemaCreated),
                                     Ok(ExecutionOutcome::SchemaDropped) => Ok(QueryEvent::SchemaDropped),
                                     Ok(ExecutionOutcome::TableCreated) => Ok(QueryEvent::TableCreated),
@@ -310,9 +310,12 @@ impl<D: Database> QueryEngine<D> {
                                     Err(ExecutionError::TableAlreadyExists(schema_name, table_name)) => Err(
                                         QueryError::table_already_exists(format!("{}.{}", schema_name, table_name)),
                                     ),
-                                    Err(ExecutionError::TableDoesNotExists(schema_name, table_name)) => Err(
+                                    Err(ExecutionError::TableDoesNotExist(schema_name, table_name)) => Err(
                                         QueryError::table_does_not_exist(format!("{}.{}", schema_name, table_name)),
                                     ),
+                                    Err(ExecutionError::SchemaHasDependentObjects(schema_name)) => {
+                                        Err(QueryError::schema_has_dependent_objects(schema_name))
+                                    }
                                 };
                                 self.sender.send(query_result).expect("To Send Result to Client");
                             }

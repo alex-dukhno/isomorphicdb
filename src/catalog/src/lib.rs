@@ -65,7 +65,7 @@ impl Iterator for Cursor {
 }
 
 pub trait DataTable {
-    fn read(&self) -> Cursor;
+    fn select(&self) -> Cursor;
     fn insert(&self, data: Vec<Value>) -> usize;
     fn update(&self, data: Vec<(Key, Value)>) -> usize;
     fn delete(&self, data: Vec<Key>) -> usize;

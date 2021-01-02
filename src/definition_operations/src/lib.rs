@@ -31,15 +31,15 @@ pub enum Kind {
 pub enum Step {
     CheckExistence {
         system_object: SystemObject,
-        object_name: String,
+        object_name: Vec<String>,
     },
     CheckDependants {
         system_object: SystemObject,
-        object_name: String,
+        object_name: Vec<String>,
     },
     RemoveDependants {
         system_object: SystemObject,
-        object_name: String,
+        object_name: Vec<String>,
     },
     RemoveColumns {
         schema_name: String,
@@ -116,6 +116,6 @@ pub enum ExecutionError {
     SchemaAlreadyExists(String),
     SchemaDoesNotExist(String),
     TableAlreadyExists(String, String),
-    TableDoesNotExists(String, String),
+    TableDoesNotExist(String, String),
     SchemaHasDependentObjects(String),
 }

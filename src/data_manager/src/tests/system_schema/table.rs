@@ -84,17 +84,17 @@ fn drop_table(data_manager_with_schema: InMemory) -> Result<(), ()> {
     if data_manager_with_schema
         .execute(&Step::CheckExistence {
             system_object: SystemObject::Schema,
-            object_name: SCHEMA.to_owned(),
+            object_name: vec![SCHEMA.to_owned()],
         })
         .is_ok()
     {};
     data_manager_with_schema.execute(&Step::CheckExistence {
         system_object: SystemObject::Table,
-        object_name: TABLE.to_owned(),
+        object_name: vec![TABLE.to_owned()],
     })?;
     data_manager_with_schema.execute(&Step::CheckDependants {
         system_object: SystemObject::Table,
-        object_name: TABLE.to_owned(),
+        object_name: vec![TABLE.to_owned()],
     })?;
     data_manager_with_schema.execute(&Step::RemoveColumns {
         schema_name: SCHEMA.to_owned(),

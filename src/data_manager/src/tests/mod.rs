@@ -35,11 +35,11 @@ fn create_table(schema_name: &str, table_name: &str, columns: &[(&str, SqlType)]
     let mut all = vec![
         Step::CheckExistence {
             system_object: SystemObject::Schema,
-            object_name: schema_name.to_owned(),
+            object_name: vec![schema_name.to_owned()],
         },
         Step::CheckExistence {
             system_object: SystemObject::Table,
-            object_name: table_name.to_owned(),
+            object_name: vec![table_name.to_owned()],
         },
         Step::CreateFile {
             folder_name: schema_name.to_owned(),
@@ -79,7 +79,7 @@ fn create_schema_ops(schema_name: &str) -> Vec<Step> {
     vec![
         Step::CheckExistence {
             system_object: SystemObject::Schema,
-            object_name: schema_name.to_owned(),
+            object_name: vec![schema_name.to_owned()],
         },
         Step::CreateFolder {
             name: schema_name.to_owned(),
@@ -99,11 +99,11 @@ fn create_table_ops(schema_name: &str, table_name: &str, column_name: &str, colu
     vec![
         Step::CheckExistence {
             system_object: SystemObject::Schema,
-            object_name: schema_name.to_owned(),
+            object_name: vec![schema_name.to_owned()],
         },
         Step::CheckExistence {
             system_object: SystemObject::Table,
-            object_name: table_name.to_owned(),
+            object_name: vec![table_name.to_owned()],
         },
         Step::CreateFile {
             folder_name: schema_name.to_owned(),

@@ -648,7 +648,7 @@ impl DataDefOperationExecutor for DatabaseHandle {
                         .map(Result::unwrap)
                         .map(Result::unwrap)
                         .map(|(_record_id, columns)| columns.unpack()[1].as_str().to_owned())
-                        .any(|name| &name == object_name);
+                        .any(|name| name == object_name[0]);
                     if schema_exists {
                         Ok(())
                     } else {
@@ -665,7 +665,7 @@ impl DataDefOperationExecutor for DatabaseHandle {
                         .map(Result::unwrap)
                         .map(Result::unwrap)
                         .map(|(_record_id, columns)| columns.unpack()[2].as_str().to_owned())
-                        .any(|name| &name == object_name);
+                        .any(|name| name == object_name[0]);
                     if table_exists {
                         Ok(())
                     } else {
@@ -687,7 +687,7 @@ impl DataDefOperationExecutor for DatabaseHandle {
                         .map(Result::unwrap)
                         .map(Result::unwrap)
                         .map(|(_record_id, columns)| columns.unpack()[1].as_str().to_owned())
-                        .any(|name| &name == object_name);
+                        .any(|name| name == object_name[0]);
                     if has_dependants {
                         Err(())
                     } else {
@@ -714,7 +714,7 @@ impl DataDefOperationExecutor for DatabaseHandle {
                             let schema = columns.unpack()[1].as_str().to_owned();
                             (schema_id, schema)
                         })
-                        .find(|(_schema_id, schema)| schema == object_name)
+                        .find(|(_schema_id, schema)| schema == &object_name[0])
                         .map(|(schema_id, _schema)| schema_id)
                         .unwrap();
                     let mut table_records = vec![];

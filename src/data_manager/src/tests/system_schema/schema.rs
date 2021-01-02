@@ -70,11 +70,11 @@ fn same_table_names_with_different_columns_in_different_schemas(data_manager: In
 fn drop_schema(data_manager_with_schema: InMemory) -> Result<(), ()> {
     data_manager_with_schema.execute(&Step::CheckExistence {
         system_object: SystemObject::Schema,
-        object_name: SCHEMA.to_owned(),
+        object_name: vec![SCHEMA.to_owned()],
     })?;
     data_manager_with_schema.execute(&Step::RemoveDependants {
         system_object: SystemObject::Schema,
-        object_name: SCHEMA.to_owned(),
+        object_name: vec![SCHEMA.to_owned()],
     })?;
     data_manager_with_schema.execute(&Step::RemoveRecord {
         system_schema: DEFINITION_SCHEMA.to_owned(),
@@ -101,12 +101,12 @@ fn restrict_drop_schema_does_not_drop_schema_with_table(data_manager_with_schema
 
     data_manager_with_schema.execute(&Step::CheckExistence {
         system_object: SystemObject::Schema,
-        object_name: SCHEMA.to_owned(),
+        object_name: vec![SCHEMA.to_owned()],
     })?;
     assert_eq!(
         data_manager_with_schema.execute(&Step::CheckDependants {
             system_object: SystemObject::Schema,
-            object_name: SCHEMA.to_owned(),
+            object_name: vec![SCHEMA.to_owned()],
         }),
         Err(())
     );
@@ -127,13 +127,13 @@ fn cascade_drop_schema_drops_tables_in_it(data_manager_with_schema: InMemory) ->
     if data_manager_with_schema
         .execute(&Step::CheckExistence {
             system_object: SystemObject::Schema,
-            object_name: SCHEMA.to_owned(),
+            object_name: vec![SCHEMA.to_owned()],
         })
         .is_ok()
     {}
     data_manager_with_schema.execute(&Step::RemoveDependants {
         system_object: SystemObject::Schema,
-        object_name: SCHEMA.to_owned(),
+        object_name: vec![SCHEMA.to_owned()],
     })?;
     data_manager_with_schema.execute(&Step::RemoveRecord {
         system_schema: DEFINITION_SCHEMA.to_owned(),
