@@ -637,7 +637,6 @@ impl DataDefOperationExecutor for DatabaseHandle {
             Step::CheckExistence {
                 system_object,
                 object_name,
-                skip_if,
             } => match system_object {
                 SystemObject::Schema => {
                     let schema_exists = self

@@ -56,7 +56,11 @@ impl Database for InMemoryDatabase {
     type Table = InMemoryTable;
 
     fn execute(&self, operation: SystemOperation) -> Result<ExecutionOutcome, ExecutionError> {
-        let SystemOperation { kind, steps } = operation;
+        let SystemOperation {
+            kind,
+            skip_steps_if,
+            steps,
+        } = operation;
         let end = steps.len();
         let mut index = 0;
         while index < end {
@@ -68,7 +72,6 @@ impl Database for InMemoryDatabase {
                     Step::CheckExistence {
                         system_object,
                         object_name,
-                        skip_if,
                     } => match system_object {
                         SystemObject::Schema => {
                             let result = self.catalog.work_with(DEFINITION_SCHEMA, |schema| {
@@ -78,7 +81,7 @@ impl Database for InMemoryDatabase {
                                     })
                                 })
                             });
-                            match skip_if {
+                            match skip_steps_if {
                                 None => {
                                     if let (&Kind::Create(SystemObject::Schema), Some(Some(true))) = (&kind, result) {
                                         return Err(ExecutionError::SchemaAlreadyExists(object_name.to_owned()));
@@ -221,13 +224,21 @@ mod test {
     }
 
     fn create_schema_ops(schema_name: &str) -> SystemOperation {
+        create_schema_inner(schema_name, false)
+    }
+
+    fn create_schema_if_not_exists_ops(schema_name: &str) -> SystemOperation {
+        create_schema_inner(schema_name, true)
+    }
+
+    fn create_schema_inner(schema_name: &str, if_exists: bool) -> SystemOperation {
         SystemOperation {
             kind: Kind::Create(SystemObject::Schema),
+            skip_steps_if: if if_exists { Some(ObjectState::Exists) } else { None },
             steps: vec![vec![
                 Step::CheckExistence {
                     system_object: SystemObject::Schema,
                     object_name: schema_name.to_owned(),
-                    skip_if: None,
                 },
                 Step::CreateFolder {
                     name: schema_name.to_owned(),
@@ -244,24 +255,63 @@ mod test {
         }
     }
 
-    fn create_schema_if_not_exists_ops(schema_name: &str) -> SystemOperation {
+    fn drop_schemas_ops(schema_names: Vec<&str>) -> SystemOperation {
+        let steps = schema_names.into_iter().map(drop_schema_op).collect::<Vec<Vec<Step>>>();
         SystemOperation {
-            kind: Kind::Create(SystemObject::Schema),
+            kind: Kind::Drop(SystemObject::Schema),
+            skip_steps_if: None,
+            steps,
+        }
+    }
+
+    fn drop_schema_op(schema_name: &str) -> Vec<Step> {
+        vec![
+            Step::CheckExistence {
+                system_object: SystemObject::Schema,
+                object_name: schema_name.to_owned(),
+            },
+            Step::CheckDependants {
+                system_object: SystemObject::Schema,
+                object_name: schema_name.to_owned(),
+            },
+            Step::RemoveRecord {
+                system_schema: DEFINITION_SCHEMA.to_owned(),
+                system_table: SCHEMATA_TABLE.to_owned(),
+                record: Record::Schema {
+                    catalog_name: DEFAULT_CATALOG.to_owned(),
+                    schema_name: schema_name.to_owned(),
+                },
+            },
+            Step::RemoveFolder {
+                name: schema_name.to_owned(),
+            },
+        ]
+    }
+
+    fn create_table_ops(schema_name: &str, table_name: &str) -> SystemOperation {
+        SystemOperation {
+            kind: Kind::Create(SystemObject::Table),
+            skip_steps_if: None,
             steps: vec![vec![
                 Step::CheckExistence {
                     system_object: SystemObject::Schema,
                     object_name: schema_name.to_owned(),
-                    skip_if: Some(ObjectState::Exists),
                 },
-                Step::CreateFolder {
-                    name: schema_name.to_owned(),
+                Step::CheckExistence {
+                    system_object: SystemObject::Table,
+                    object_name: table_name.to_owned(),
+                },
+                Step::CreateFile {
+                    folder_name: schema_name.to_owned(),
+                    name: table_name.to_owned(),
                 },
                 Step::CreateRecord {
                     system_schema: DEFINITION_SCHEMA.to_owned(),
-                    system_table: SCHEMATA_TABLE.to_owned(),
-                    record: Record::Schema {
+                    system_table: TABLES_TABLE.to_owned(),
+                    record: Record::Table {
                         catalog_name: DEFAULT_CATALOG.to_owned(),
                         schema_name: schema_name.to_owned(),
+                        table_name: table_name.to_owned(),
                     },
                 },
             ]],
@@ -286,52 +336,12 @@ mod test {
             let executor = executor();
 
             assert_eq!(
-                executor.execute(SystemOperation {
-                    kind: Kind::Create(SystemObject::Schema),
-                    steps: vec![vec![
-                        Step::CheckExistence {
-                            system_object: SystemObject::Schema,
-                            object_name: SCHEMA.to_owned(),
-                            skip_if: Some(ObjectState::Exists)
-                        },
-                        Step::CreateFolder {
-                            name: SCHEMA.to_owned()
-                        },
-                        Step::CreateRecord {
-                            system_schema: DEFINITION_SCHEMA.to_owned(),
-                            system_table: SCHEMATA_TABLE.to_owned(),
-                            record: Record::Schema {
-                                catalog_name: DEFAULT_CATALOG.to_owned(),
-                                schema_name: SCHEMA.to_owned()
-                            }
-                        }
-                    ]]
-                }),
+                executor.execute(create_schema_if_not_exists_ops(SCHEMA)),
                 Ok(ExecutionOutcome::SchemaCreated)
             );
 
             assert_eq!(
-                executor.execute(SystemOperation {
-                    kind: Kind::Create(SystemObject::Schema),
-                    steps: vec![vec![
-                        Step::CheckExistence {
-                            system_object: SystemObject::Schema,
-                            object_name: SCHEMA.to_owned(),
-                            skip_if: Some(ObjectState::Exists),
-                        },
-                        Step::CreateFolder {
-                            name: SCHEMA.to_owned()
-                        },
-                        Step::CreateRecord {
-                            system_schema: DEFINITION_SCHEMA.to_owned(),
-                            system_table: SCHEMATA_TABLE.to_owned(),
-                            record: Record::Schema {
-                                catalog_name: DEFAULT_CATALOG.to_owned(),
-                                schema_name: SCHEMA.to_owned()
-                            }
-                        }
-                    ]]
-                }),
+                executor.execute(create_schema_if_not_exists_ops(SCHEMA)),
                 Ok(ExecutionOutcome::SchemaCreated)
             );
         }
@@ -355,31 +365,7 @@ mod test {
             let executor = executor();
 
             assert_eq!(
-                executor.execute(SystemOperation {
-                    kind: Kind::Drop(SystemObject::Schema),
-                    steps: vec![vec![
-                        Step::CheckExistence {
-                            system_object: SystemObject::Schema,
-                            object_name: SCHEMA.to_owned(),
-                            skip_if: None,
-                        },
-                        Step::CheckDependants {
-                            system_object: SystemObject::Schema,
-                            object_name: SCHEMA.to_owned()
-                        },
-                        Step::RemoveRecord {
-                            system_schema: DEFINITION_SCHEMA.to_owned(),
-                            system_table: SCHEMATA_TABLE.to_owned(),
-                            record: Record::Schema {
-                                catalog_name: DEFAULT_CATALOG.to_owned(),
-                                schema_name: SCHEMA.to_owned()
-                            }
-                        },
-                        Step::RemoveFolder {
-                            name: SCHEMA.to_owned()
-                        }
-                    ]]
-                }),
+                executor.execute(drop_schemas_ops(vec![SCHEMA])),
                 Err(ExecutionError::SchemaDoesNotExist(SCHEMA.to_owned()))
             );
         }
@@ -394,31 +380,7 @@ mod test {
             );
 
             assert_eq!(
-                executor.execute(SystemOperation {
-                    kind: Kind::Drop(SystemObject::Schema),
-                    steps: vec![vec![
-                        Step::CheckExistence {
-                            system_object: SystemObject::Schema,
-                            object_name: SCHEMA.to_owned(),
-                            skip_if: None,
-                        },
-                        Step::CheckDependants {
-                            system_object: SystemObject::Schema,
-                            object_name: SCHEMA.to_owned()
-                        },
-                        Step::RemoveRecord {
-                            system_schema: DEFINITION_SCHEMA.to_owned(),
-                            system_table: SCHEMATA_TABLE.to_owned(),
-                            record: Record::Schema {
-                                catalog_name: DEFAULT_CATALOG.to_owned(),
-                                schema_name: SCHEMA.to_owned()
-                            }
-                        },
-                        Step::RemoveFolder {
-                            name: SCHEMA.to_owned()
-                        }
-                    ]]
-                }),
+                executor.execute(drop_schemas_ops(vec![SCHEMA])),
                 Ok(ExecutionOutcome::SchemaDropped)
             );
         }
@@ -437,55 +399,7 @@ mod test {
             );
 
             assert_eq!(
-                executor.execute(SystemOperation {
-                    kind: Kind::Drop(SystemObject::Schema),
-                    steps: vec![
-                        vec![
-                            Step::CheckExistence {
-                                system_object: SystemObject::Schema,
-                                object_name: SCHEMA.to_owned(),
-                                skip_if: None,
-                            },
-                            Step::CheckDependants {
-                                system_object: SystemObject::Schema,
-                                object_name: SCHEMA.to_owned()
-                            },
-                            Step::RemoveRecord {
-                                system_schema: DEFINITION_SCHEMA.to_owned(),
-                                system_table: SCHEMATA_TABLE.to_owned(),
-                                record: Record::Schema {
-                                    catalog_name: DEFAULT_CATALOG.to_owned(),
-                                    schema_name: SCHEMA.to_owned()
-                                }
-                            },
-                            Step::RemoveFolder {
-                                name: SCHEMA.to_owned()
-                            }
-                        ],
-                        vec![
-                            Step::CheckExistence {
-                                system_object: SystemObject::Schema,
-                                object_name: OTHER_SCHEMA.to_owned(),
-                                skip_if: None,
-                            },
-                            Step::CheckDependants {
-                                system_object: SystemObject::Schema,
-                                object_name: OTHER_SCHEMA.to_owned()
-                            },
-                            Step::RemoveRecord {
-                                system_schema: DEFINITION_SCHEMA.to_owned(),
-                                system_table: SCHEMATA_TABLE.to_owned(),
-                                record: Record::Schema {
-                                    catalog_name: DEFAULT_CATALOG.to_owned(),
-                                    schema_name: OTHER_SCHEMA.to_owned()
-                                }
-                            },
-                            Step::RemoveFolder {
-                                name: OTHER_SCHEMA.to_owned()
-                            }
-                        ]
-                    ]
-                }),
+                executor.execute(drop_schemas_ops(vec![SCHEMA, OTHER_SCHEMA])),
                 Ok(ExecutionOutcome::SchemaDropped)
             );
         }
@@ -499,63 +413,12 @@ mod test {
                 Ok(ExecutionOutcome::SchemaCreated)
             );
             assert_eq!(
-                executor.execute(SystemOperation {
-                    kind: Kind::Create(SystemObject::Table),
-                    steps: vec![vec![
-                        Step::CheckExistence {
-                            system_object: SystemObject::Schema,
-                            object_name: SCHEMA.to_owned(),
-                            skip_if: None,
-                        },
-                        Step::CheckExistence {
-                            system_object: SystemObject::Table,
-                            object_name: TABLE.to_owned(),
-                            skip_if: None,
-                        },
-                        Step::CreateFile {
-                            folder_name: SCHEMA.to_owned(),
-                            name: TABLE.to_owned()
-                        },
-                        Step::CreateRecord {
-                            system_schema: DEFINITION_SCHEMA.to_owned(),
-                            system_table: TABLES_TABLE.to_owned(),
-                            record: Record::Table {
-                                catalog_name: DEFAULT_CATALOG.to_owned(),
-                                schema_name: SCHEMA.to_owned(),
-                                table_name: TABLE.to_owned(),
-                            }
-                        }
-                    ]]
-                }),
+                executor.execute(create_table_ops(SCHEMA, TABLE)),
                 Ok(ExecutionOutcome::TableCreated)
             );
 
             assert_eq!(
-                executor.execute(SystemOperation {
-                    kind: Kind::Drop(SystemObject::Schema),
-                    steps: vec![vec![
-                        Step::CheckExistence {
-                            system_object: SystemObject::Schema,
-                            object_name: SCHEMA.to_owned(),
-                            skip_if: None,
-                        },
-                        Step::CheckDependants {
-                            system_object: SystemObject::Schema,
-                            object_name: SCHEMA.to_owned()
-                        },
-                        Step::RemoveRecord {
-                            system_schema: DEFINITION_SCHEMA.to_owned(),
-                            system_table: SCHEMATA_TABLE.to_owned(),
-                            record: Record::Schema {
-                                catalog_name: DEFAULT_CATALOG.to_owned(),
-                                schema_name: SCHEMA.to_owned()
-                            }
-                        },
-                        Step::RemoveFolder {
-                            name: SCHEMA.to_owned()
-                        }
-                    ]]
-                }),
+                executor.execute(drop_schemas_ops(vec![SCHEMA])),
                 Err(ExecutionError::SchemaHasDependentObjects(SCHEMA.to_owned()))
             );
         }
@@ -574,55 +437,7 @@ mod test {
             );
 
             assert_eq!(
-                executor.execute(SystemOperation {
-                    kind: Kind::Drop(SystemObject::Schema),
-                    steps: vec![
-                        vec![
-                            Step::CheckExistence {
-                                system_object: SystemObject::Schema,
-                                object_name: SCHEMA.to_owned(),
-                                skip_if: None,
-                            },
-                            Step::RemoveDependants {
-                                system_object: SystemObject::Schema,
-                                object_name: SCHEMA.to_owned()
-                            },
-                            Step::RemoveRecord {
-                                system_schema: DEFINITION_SCHEMA.to_owned(),
-                                system_table: SCHEMATA_TABLE.to_owned(),
-                                record: Record::Schema {
-                                    catalog_name: DEFAULT_CATALOG.to_owned(),
-                                    schema_name: SCHEMA.to_owned()
-                                }
-                            },
-                            Step::RemoveFolder {
-                                name: SCHEMA.to_owned()
-                            }
-                        ],
-                        vec![
-                            Step::CheckExistence {
-                                system_object: SystemObject::Schema,
-                                object_name: OTHER_SCHEMA.to_owned(),
-                                skip_if: None,
-                            },
-                            Step::RemoveDependants {
-                                system_object: SystemObject::Schema,
-                                object_name: OTHER_SCHEMA.to_owned()
-                            },
-                            Step::RemoveRecord {
-                                system_schema: DEFINITION_SCHEMA.to_owned(),
-                                system_table: SCHEMATA_TABLE.to_owned(),
-                                record: Record::Schema {
-                                    catalog_name: DEFAULT_CATALOG.to_owned(),
-                                    schema_name: OTHER_SCHEMA.to_owned()
-                                }
-                            },
-                            Step::RemoveFolder {
-                                name: OTHER_SCHEMA.to_owned()
-                            }
-                        ]
-                    ]
-                }),
+                executor.execute(drop_schemas_ops(vec![SCHEMA, OTHER_SCHEMA])),
                 Ok(ExecutionOutcome::SchemaDropped)
             );
         }
@@ -639,12 +454,12 @@ mod test {
             assert_eq!(
                 executor.execute(SystemOperation {
                     kind: Kind::Drop(SystemObject::Schema),
+                    skip_steps_if: Some(ObjectState::NotExists),
                     steps: vec![
                         vec![
                             Step::CheckExistence {
                                 system_object: SystemObject::Schema,
                                 object_name: SCHEMA.to_owned(),
-                                skip_if: Some(ObjectState::NotExists),
                             },
                             Step::CheckDependants {
                                 system_object: SystemObject::Schema,
@@ -666,7 +481,6 @@ mod test {
                             Step::CheckExistence {
                                 system_object: SystemObject::Schema,
                                 object_name: OTHER_SCHEMA.to_owned(),
-                                skip_if: Some(ObjectState::NotExists),
                             },
                             Step::CheckDependants {
                                 system_object: SystemObject::Schema,
@@ -702,12 +516,12 @@ mod test {
             assert_eq!(
                 executor.execute(SystemOperation {
                     kind: Kind::Drop(SystemObject::Schema),
+                    skip_steps_if: Some(ObjectState::NotExists),
                     steps: vec![
                         vec![
                             Step::CheckExistence {
                                 system_object: SystemObject::Schema,
                                 object_name: SCHEMA.to_owned(),
-                                skip_if: Some(ObjectState::NotExists),
                             },
                             Step::CheckDependants {
                                 system_object: SystemObject::Schema,
@@ -729,7 +543,6 @@ mod test {
                             Step::CheckExistence {
                                 system_object: SystemObject::Schema,
                                 object_name: OTHER_SCHEMA.to_owned(),
-                                skip_if: Some(ObjectState::NotExists),
                             },
                             Step::CheckDependants {
                                 system_object: SystemObject::Schema,

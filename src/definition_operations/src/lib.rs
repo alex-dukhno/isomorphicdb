@@ -17,6 +17,7 @@ use types::SqlType;
 #[derive(Debug, PartialEq)]
 pub struct SystemOperation {
     pub kind: Kind,
+    pub skip_steps_if: Option<ObjectState>,
     pub steps: Vec<Vec<Step>>,
 }
 
@@ -31,7 +32,6 @@ pub enum Step {
     CheckExistence {
         system_object: SystemObject,
         object_name: String,
-        skip_if: Option<ObjectState>,
     },
     CheckDependants {
         system_object: SystemObject,

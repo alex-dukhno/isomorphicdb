@@ -35,11 +35,6 @@ impl SystemSchemaPlanner {
                 steps.push(Step::CheckExistence {
                     system_object: SystemObject::Schema,
                     object_name: schema_name.as_ref().to_string(),
-                    skip_if: if *if_not_exists {
-                        Some(ObjectState::Exists)
-                    } else {
-                        None
-                    },
                 });
                 steps.push(Step::CreateFolder {
                     name: schema_name.as_ref().to_string(),
@@ -54,6 +49,11 @@ impl SystemSchemaPlanner {
                 });
                 SystemOperation {
                     kind: Kind::Create(SystemObject::Schema),
+                    skip_steps_if: if *if_not_exists {
+                        Some(ObjectState::Exists)
+                    } else {
+                        None
+                    },
                     steps: vec![steps],
                 }
             }
@@ -68,7 +68,6 @@ impl SystemSchemaPlanner {
                     for_schema.push(Step::CheckExistence {
                         system_object: SystemObject::Schema,
                         object_name: schema_name.as_ref().to_string(),
-                        skip_if: if *if_exists { Some(ObjectState::NotExists) } else { None },
                     });
                     if *cascade {
                         for_schema.push(Step::RemoveDependants {
@@ -96,6 +95,7 @@ impl SystemSchemaPlanner {
                 }
                 SystemOperation {
                     kind: Kind::Drop(SystemObject::Schema),
+                    skip_steps_if: if *if_exists { Some(ObjectState::NotExists) } else { None },
                     steps,
                 }
             }
@@ -113,16 +113,10 @@ impl SystemSchemaPlanner {
                 steps.push(Step::CheckExistence {
                     system_object: SystemObject::Schema,
                     object_name: schema_name.clone(),
-                    skip_if: None,
                 });
                 steps.push(Step::CheckExistence {
                     system_object: SystemObject::Table,
                     object_name: table_name.clone(),
-                    skip_if: if *if_not_exists {
-                        Some(ObjectState::Exists)
-                    } else {
-                        None
-                    },
                 });
                 steps.push(Step::CreateFile {
                     folder_name: schema_name.clone(),
@@ -152,6 +146,11 @@ impl SystemSchemaPlanner {
                 }
                 SystemOperation {
                     kind: Kind::Create(SystemObject::Table),
+                    skip_steps_if: if *if_not_exists {
+                        Some(ObjectState::Exists)
+                    } else {
+                        None
+                    },
                     steps: vec![steps],
                 }
             }
@@ -169,12 +168,10 @@ impl SystemSchemaPlanner {
                     for_table.push(Step::CheckExistence {
                         system_object: SystemObject::Schema,
                         object_name: schema_name.clone(),
-                        skip_if: None,
                     });
                     for_table.push(Step::CheckExistence {
                         system_object: SystemObject::Table,
                         object_name: table_name.clone(),
-                        skip_if: if *if_exists { Some(ObjectState::NotExists) } else { None },
                     });
                     for_table.push(Step::RemoveColumns {
                         schema_name: schema_name.to_owned(),
@@ -197,6 +194,7 @@ impl SystemSchemaPlanner {
                 }
                 SystemOperation {
                     kind: Kind::Drop(SystemObject::Table),
+                    skip_steps_if: if *if_exists { Some(ObjectState::NotExists) } else { None },
                     steps,
                 }
             }
@@ -230,11 +228,11 @@ mod tests {
                 })),
                 SystemOperation {
                     kind: Kind::Create(SystemObject::Schema),
+                    skip_steps_if: None,
                     steps: vec![vec![
                         Step::CheckExistence {
                             system_object: SystemObject::Schema,
                             object_name: SCHEMA.to_owned(),
-                            skip_if: None,
                         },
                         Step::CreateFolder {
                             name: SCHEMA.to_owned()
@@ -261,11 +259,11 @@ mod tests {
                 })),
                 SystemOperation {
                     kind: Kind::Create(SystemObject::Schema),
+                    skip_steps_if: Some(ObjectState::Exists),
                     steps: vec![vec![
                         Step::CheckExistence {
                             system_object: SystemObject::Schema,
                             object_name: SCHEMA.to_owned(),
-                            skip_if: Some(ObjectState::Exists),
                         },
                         Step::CreateFolder {
                             name: SCHEMA.to_owned()
@@ -293,11 +291,11 @@ mod tests {
                 })),
                 SystemOperation {
                     kind: Kind::Drop(SystemObject::Schema),
+                    skip_steps_if: None,
                     steps: vec![vec![
                         Step::CheckExistence {
                             system_object: SystemObject::Schema,
                             object_name: SCHEMA.to_owned(),
-                            skip_if: None,
                         },
                         Step::CheckDependants {
                             system_object: SystemObject::Schema,
@@ -329,12 +327,12 @@ mod tests {
                 })),
                 SystemOperation {
                     kind: Kind::Drop(SystemObject::Schema),
+                    skip_steps_if: None,
                     steps: vec![
                         vec![
                             Step::CheckExistence {
                                 system_object: SystemObject::Schema,
                                 object_name: SCHEMA.to_owned(),
-                                skip_if: None,
                             },
                             Step::CheckDependants {
                                 system_object: SystemObject::Schema,
@@ -356,7 +354,6 @@ mod tests {
                             Step::CheckExistence {
                                 system_object: SystemObject::Schema,
                                 object_name: OTHER_SCHEMA.to_owned(),
-                                skip_if: None,
                             },
                             Step::CheckDependants {
                                 system_object: SystemObject::Schema,
@@ -389,12 +386,12 @@ mod tests {
                 })),
                 SystemOperation {
                     kind: Kind::Drop(SystemObject::Schema),
+                    skip_steps_if: None,
                     steps: vec![
                         vec![
                             Step::CheckExistence {
                                 system_object: SystemObject::Schema,
                                 object_name: SCHEMA.to_owned(),
-                                skip_if: None,
                             },
                             Step::RemoveDependants {
                                 system_object: SystemObject::Schema,
@@ -416,7 +413,6 @@ mod tests {
                             Step::CheckExistence {
                                 system_object: SystemObject::Schema,
                                 object_name: OTHER_SCHEMA.to_owned(),
-                                skip_if: None,
                             },
                             Step::RemoveDependants {
                                 system_object: SystemObject::Schema,
@@ -449,12 +445,12 @@ mod tests {
                 })),
                 SystemOperation {
                     kind: Kind::Drop(SystemObject::Schema),
+                    skip_steps_if: Some(ObjectState::NotExists),
                     steps: vec![
                         vec![
                             Step::CheckExistence {
                                 system_object: SystemObject::Schema,
                                 object_name: SCHEMA.to_owned(),
-                                skip_if: Some(ObjectState::NotExists),
                             },
                             Step::CheckDependants {
                                 system_object: SystemObject::Schema,
@@ -476,7 +472,6 @@ mod tests {
                             Step::CheckExistence {
                                 system_object: SystemObject::Schema,
                                 object_name: OTHER_SCHEMA.to_owned(),
-                                skip_if: Some(ObjectState::NotExists),
                             },
                             Step::CheckDependants {
                                 system_object: SystemObject::Schema,
@@ -514,16 +509,15 @@ mod tests {
                 })),
                 SystemOperation {
                     kind: Kind::Create(SystemObject::Table),
+                    skip_steps_if: None,
                     steps: vec![vec![
                         Step::CheckExistence {
                             system_object: SystemObject::Schema,
                             object_name: SCHEMA.to_owned(),
-                            skip_if: None,
                         },
                         Step::CheckExistence {
                             system_object: SystemObject::Table,
                             object_name: TABLE.to_owned(),
-                            skip_if: None,
                         },
                         Step::CreateFile {
                             folder_name: SCHEMA.to_owned(),
@@ -553,16 +547,15 @@ mod tests {
                 })),
                 SystemOperation {
                     kind: Kind::Create(SystemObject::Table),
+                    skip_steps_if: Some(ObjectState::Exists),
                     steps: vec![vec![
                         Step::CheckExistence {
                             system_object: SystemObject::Schema,
                             object_name: SCHEMA.to_owned(),
-                            skip_if: None,
                         },
                         Step::CheckExistence {
                             system_object: SystemObject::Table,
                             object_name: TABLE.to_owned(),
-                            skip_if: Some(ObjectState::Exists),
                         },
                         Step::CreateFile {
                             folder_name: SCHEMA.to_owned(),
@@ -601,16 +594,15 @@ mod tests {
                 })),
                 SystemOperation {
                     kind: Kind::Create(SystemObject::Table),
+                    skip_steps_if: None,
                     steps: vec![vec![
                         Step::CheckExistence {
                             system_object: SystemObject::Schema,
                             object_name: SCHEMA.to_owned(),
-                            skip_if: None,
                         },
                         Step::CheckExistence {
                             system_object: SystemObject::Table,
                             object_name: TABLE.to_owned(),
-                            skip_if: None,
                         },
                         Step::CreateFile {
                             folder_name: SCHEMA.to_owned(),
@@ -665,17 +657,16 @@ mod tests {
                 })),
                 SystemOperation {
                     kind: Kind::Drop(SystemObject::Table),
+                    skip_steps_if: None,
                     steps: vec![
                         vec![
                             Step::CheckExistence {
                                 system_object: SystemObject::Schema,
                                 object_name: SCHEMA.to_owned(),
-                                skip_if: None,
                             },
                             Step::CheckExistence {
                                 system_object: SystemObject::Table,
                                 object_name: TABLE.to_owned(),
-                                skip_if: None,
                             },
                             Step::RemoveColumns {
                                 schema_name: SCHEMA.to_owned(),
@@ -699,12 +690,10 @@ mod tests {
                             Step::CheckExistence {
                                 system_object: SystemObject::Schema,
                                 object_name: SCHEMA.to_owned(),
-                                skip_if: None,
                             },
                             Step::CheckExistence {
                                 system_object: SystemObject::Table,
                                 object_name: OTHER_TABLE.to_owned(),
-                                skip_if: None,
                             },
                             Step::RemoveColumns {
                                 schema_name: SCHEMA.to_owned(),
@@ -742,17 +731,16 @@ mod tests {
                 })),
                 SystemOperation {
                     kind: Kind::Drop(SystemObject::Table),
+                    skip_steps_if: None,
                     steps: vec![
                         vec![
                             Step::CheckExistence {
                                 system_object: SystemObject::Schema,
                                 object_name: SCHEMA.to_owned(),
-                                skip_if: None,
                             },
                             Step::CheckExistence {
                                 system_object: SystemObject::Table,
                                 object_name: TABLE.to_owned(),
-                                skip_if: None,
                             },
                             Step::RemoveColumns {
                                 schema_name: SCHEMA.to_owned(),
@@ -776,12 +764,10 @@ mod tests {
                             Step::CheckExistence {
                                 system_object: SystemObject::Schema,
                                 object_name: SCHEMA.to_owned(),
-                                skip_if: None,
                             },
                             Step::CheckExistence {
                                 system_object: SystemObject::Table,
                                 object_name: OTHER_TABLE.to_owned(),
-                                skip_if: None,
                             },
                             Step::RemoveColumns {
                                 schema_name: SCHEMA.to_owned(),
@@ -819,17 +805,16 @@ mod tests {
                 })),
                 SystemOperation {
                     kind: Kind::Drop(SystemObject::Table),
+                    skip_steps_if: Some(ObjectState::NotExists),
                     steps: vec![
                         vec![
                             Step::CheckExistence {
                                 system_object: SystemObject::Schema,
                                 object_name: SCHEMA.to_owned(),
-                                skip_if: None,
                             },
                             Step::CheckExistence {
                                 system_object: SystemObject::Table,
                                 object_name: TABLE.to_owned(),
-                                skip_if: Some(ObjectState::NotExists),
                             },
                             Step::RemoveColumns {
                                 schema_name: SCHEMA.to_owned(),
@@ -853,12 +838,10 @@ mod tests {
                             Step::CheckExistence {
                                 system_object: SystemObject::Schema,
                                 object_name: SCHEMA.to_owned(),
-                                skip_if: None,
                             },
                             Step::CheckExistence {
                                 system_object: SystemObject::Table,
                                 object_name: OTHER_TABLE.to_owned(),
-                                skip_if: Some(ObjectState::NotExists),
                             },
                             Step::RemoveColumns {
                                 schema_name: SCHEMA.to_owned(),
