@@ -15,10 +15,23 @@
 use types::SqlType;
 
 #[derive(Debug, PartialEq)]
-pub enum SystemOperation {
+pub struct SystemOperation {
+    pub kind: Kind,
+    pub steps: Vec<Vec<Step>>,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum Kind {
+    Create(SystemObject),
+    Drop(SystemObject),
+}
+
+#[derive(Debug, PartialEq)]
+pub enum Step {
     CheckExistence {
         system_object: SystemObject,
         object_name: String,
+        skip_if: Option<ObjectState>,
     },
     CheckDependants {
         system_object: SystemObject,
@@ -31,10 +44,6 @@ pub enum SystemOperation {
     RemoveColumns {
         schema_name: String,
         table_name: String,
-    },
-    SkipIf {
-        object_state: ObjectState,
-        object_name: String,
     },
     CreateFolder {
         name: String,
@@ -108,4 +117,5 @@ pub enum ExecutionError {
     SchemaDoesNotExist(String),
     TableAlreadyExists(String, String),
     TableDoesNotExists(String, String),
+    SchemaHasDependentObjects(String),
 }

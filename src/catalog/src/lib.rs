@@ -65,7 +65,7 @@ impl Iterator for Cursor {
 }
 
 pub trait DataTable {
-    fn scan(&self) -> Cursor;
+    fn read(&self) -> Cursor;
     fn insert(&self, data: Vec<Value>) -> usize;
     fn update(&self, data: Vec<(Key, Value)>) -> usize;
     fn delete(&self, data: Vec<Key>) -> usize;
@@ -93,5 +93,5 @@ pub trait Database {
     type Schema: SqlSchema;
     type Table: SqlTable;
 
-    fn execute(&self, operation: &[SystemOperation]) -> Result<ExecutionOutcome, ExecutionError>;
+    fn execute(&self, operation: SystemOperation) -> Result<ExecutionOutcome, ExecutionError>;
 }

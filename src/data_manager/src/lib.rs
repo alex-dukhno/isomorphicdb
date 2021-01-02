@@ -15,7 +15,7 @@
 use binary::{Binary, Key, ReadCursor, Values};
 use catalog::{InMemoryCatalogHandle, OnDiskCatalogHandle};
 use data_definition::{DataDefOperationExecutor, DataDefReader, OptionalSchemaId, OptionalTableId};
-use definition_operations::{Record, SystemObject, SystemOperation};
+use definition_operations::{Record, Step, SystemObject};
 use meta_def::{ColumnDefinition, Id};
 use repr::Datum;
 use sql_model::{DropSchemaError, DropStrategy};
@@ -632,11 +632,12 @@ impl DatabaseHandle {
 }
 
 impl DataDefOperationExecutor for DatabaseHandle {
-    fn execute(&self, operation: &SystemOperation) -> Result<(), ()> {
+    fn execute(&self, operation: &Step) -> Result<(), ()> {
         match operation {
-            SystemOperation::CheckExistence {
+            Step::CheckExistence {
                 system_object,
                 object_name,
+                skip_if,
             } => match system_object {
                 SystemObject::Schema => {
                     let schema_exists = self
@@ -673,7 +674,7 @@ impl DataDefOperationExecutor for DatabaseHandle {
                     }
                 }
             },
-            SystemOperation::CheckDependants {
+            Step::CheckDependants {
                 system_object,
                 object_name,
             } => match system_object {
@@ -696,7 +697,7 @@ impl DataDefOperationExecutor for DatabaseHandle {
                 }
                 SystemObject::Table => Ok(()),
             },
-            SystemOperation::RemoveDependants {
+            Step::RemoveDependants {
                 system_object,
                 object_name,
             } => match system_object {
@@ -772,7 +773,7 @@ impl DataDefOperationExecutor for DatabaseHandle {
                 }
                 SystemObject::Table => unimplemented!(),
             },
-            SystemOperation::RemoveColumns {
+            Step::RemoveColumns {
                 schema_name,
                 table_name,
             } => {
@@ -820,30 +821,29 @@ impl DataDefOperationExecutor for DatabaseHandle {
                     .unwrap();
                 Ok(())
             }
-            SystemOperation::SkipIf { .. } => Ok(()),
-            SystemOperation::CreateFolder { name } => {
+            Step::CreateFolder { name } => {
                 self.inner.create_schema(&name).unwrap().unwrap();
                 Ok(())
             }
-            SystemOperation::RemoveFolder { name } => {
+            Step::RemoveFolder { name } => {
                 self.inner.drop_schema(&name).unwrap().unwrap();
                 Ok(())
             }
-            SystemOperation::CreateFile { folder_name, name } => {
+            Step::CreateFile { folder_name, name } => {
                 self.inner.create_object(&folder_name, &name).unwrap().unwrap().unwrap();
                 self.inner
                     .create_sequence(&folder_name, &(name.to_owned() + ".records"))
                     .unwrap();
                 Ok(())
             }
-            SystemOperation::RemoveFile { folder_name, name } => {
+            Step::RemoveFile { folder_name, name } => {
                 self.inner.drop_object(&folder_name, &name).unwrap().unwrap().unwrap();
                 self.inner
                     .drop_sequence(&folder_name, &(name.to_owned() + ".records"))
                     .unwrap();
                 Ok(())
             }
-            SystemOperation::RemoveRecord {
+            Step::RemoveRecord {
                 system_schema,
                 system_table,
                 record,
@@ -902,7 +902,7 @@ impl DataDefOperationExecutor for DatabaseHandle {
                     .expect("to remove object");
                 Ok(())
             }
-            SystemOperation::CreateRecord {
+            Step::CreateRecord {
                 system_schema,
                 system_table,
                 record,

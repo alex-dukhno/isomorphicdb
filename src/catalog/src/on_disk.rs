@@ -68,7 +68,7 @@ impl OnDiskTableHandle {
 }
 
 impl DataTable for OnDiskTableHandle {
-    fn scan(&self) -> Cursor {
+    fn read(&self) -> Cursor {
         Cursor::from_iter(
             self.data
                 .iter()
@@ -492,7 +492,7 @@ mod general_cases {
             let catalog_handle = catalog();
 
             assert!(matches!(
-                catalog_handle.work_with(DOES_NOT_EXIST, |schema| schema.work_with(TABLE, |table| table.scan())),
+                catalog_handle.work_with(DOES_NOT_EXIST, |schema| schema.work_with(TABLE, |table| table.read())),
                 None
             ));
         }
@@ -503,7 +503,7 @@ mod general_cases {
 
             assert_eq!(catalog_handle.create_schema(SCHEMA), true);
             assert!(matches!(
-                catalog_handle.work_with(SCHEMA, |schema| schema.work_with(DOES_NOT_EXIST, |table| table.scan())),
+                catalog_handle.work_with(SCHEMA, |schema| schema.work_with(DOES_NOT_EXIST, |table| table.read())),
                 Some(None)
             ));
         }
@@ -548,7 +548,7 @@ mod general_cases {
 
             assert_eq!(
                 catalog_handle
-                    .work_with(SCHEMA, |schema| schema.work_with(TABLE, |table| table.scan()))
+                    .work_with(SCHEMA, |schema| schema.work_with(TABLE, |table| table.read()))
                     .unwrap()
                     .unwrap()
                     .collect::<Vec<(Key, Value)>>(),
@@ -576,7 +576,7 @@ mod general_cases {
 
             assert_eq!(
                 catalog_handle
-                    .work_with(SCHEMA, |schema| schema.work_with(TABLE, |table| table.scan()))
+                    .work_with(SCHEMA, |schema| schema.work_with(TABLE, |table| table.read()))
                     .unwrap()
                     .unwrap()
                     .collect::<Vec<(Key, Value)>>(),
@@ -636,7 +636,7 @@ mod general_cases {
 
             assert_eq!(
                 catalog_handle
-                    .work_with(SCHEMA, |schema| schema.work_with(TABLE, |table| table.scan()))
+                    .work_with(SCHEMA, |schema| schema.work_with(TABLE, |table| table.read()))
                     .unwrap()
                     .unwrap()
                     .collect::<Vec<(Key, Value)>>(),
@@ -695,7 +695,7 @@ mod general_cases {
 
             assert_eq!(
                 catalog_handle
-                    .work_with(SCHEMA, |schema| schema.work_with(TABLE, |table| table.scan()))
+                    .work_with(SCHEMA, |schema| schema.work_with(TABLE, |table| table.read()))
                     .unwrap()
                     .unwrap()
                     .collect::<Vec<(Key, Value)>>(),

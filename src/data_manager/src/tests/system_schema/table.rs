@@ -82,25 +82,25 @@ fn drop_table(data_manager_with_schema: InMemory) -> Result<(), ()> {
     }
 
     if data_manager_with_schema
-        .execute(&SystemOperation::CheckExistence {
+        .execute(&Step::CheckExistence {
             system_object: SystemObject::Schema,
             object_name: SCHEMA.to_owned(),
         })
         .is_ok()
     {};
-    data_manager_with_schema.execute(&SystemOperation::CheckExistence {
+    data_manager_with_schema.execute(&Step::CheckExistence {
         system_object: SystemObject::Table,
         object_name: TABLE.to_owned(),
     })?;
-    data_manager_with_schema.execute(&SystemOperation::CheckDependants {
+    data_manager_with_schema.execute(&Step::CheckDependants {
         system_object: SystemObject::Table,
         object_name: TABLE.to_owned(),
     })?;
-    data_manager_with_schema.execute(&SystemOperation::RemoveColumns {
+    data_manager_with_schema.execute(&Step::RemoveColumns {
         schema_name: SCHEMA.to_owned(),
         table_name: TABLE.to_owned(),
     })?;
-    data_manager_with_schema.execute(&SystemOperation::RemoveRecord {
+    data_manager_with_schema.execute(&Step::RemoveRecord {
         system_schema: DEFINITION_SCHEMA.to_owned(),
         system_table: TABLES_TABLE.to_owned(),
         record: Record::Table {
@@ -109,7 +109,7 @@ fn drop_table(data_manager_with_schema: InMemory) -> Result<(), ()> {
             table_name: TABLE.to_owned(),
         },
     })?;
-    data_manager_with_schema.execute(&SystemOperation::RemoveFile {
+    data_manager_with_schema.execute(&Step::RemoveFile {
         folder_name: SCHEMA.to_owned(),
         name: TABLE.to_owned(),
     })?;
