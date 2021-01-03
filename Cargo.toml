@@ -1,31 +1,32 @@
 [workspace]
 members = [
-    "src/analysis",
-    "src/ast", # TODO: should be removed after operation tree rewrite
-    "src/binary",
-    "src/binder",
-    "src/catalog",
-    "src/constraints",
-    "src/connection",
-    "src/data_definition",
-    "src/data_manager",
-    "src/definition_operations",
-    "src/description", # TODO: should be removed after operation tree rewrite
-    "src/expr_eval", # TODO: should be removed after operation tree rewrite
-    "src/expr_operators",
-    "src/meta_def",
-    "src/node",
-    "src/parser",
-    "src/pg_model",
-    "src/plan",
-    "src/query_analyzer",
-    "src/query_analyzer_old", # TODO: should be removed after operation tree rewrite
-    "src/query_executor",
-    "src/query_planner",
-    "src/repr",
-    "src/schema_executor",
-    "src/schema_planner",
-    "src/sql_model", # TODO: should be removed after operation tree rewrite
-    "src/storage",
-    "src/types",
+    "ast", # TODO: should be removed after operation tree rewrite
+    "binary",
+    "binder",
+    "catalog",
+    "constraints",
+    "connection",
+    "data_definition",
+    "data_manager",
+    "definition_operations",
+    "description", # TODO: should be removed after operation tree rewrite
+    "expr_eval", # TODO: should be removed after operation tree rewrite
+    "meta_def",
+    "node",
+    "pg_model",
+    "plan",
+    "analysis/expr_operators",
+    "analysis/query_analyzer",
+    "analysis/query_analyzer_old", # TODO: should be removed after operation tree rewrite
+    "analysis/tree",
+    "query_executor",
+    "query_planner",
+    "repr",
+    "schema_executor",
+    "schema_planner",
+    "sql_model", # TODO: should be removed after operation tree rewrite
+    "storage",
+    "types",
+    "parsing/sql-ast",
+    "parsing/parser",
 ]

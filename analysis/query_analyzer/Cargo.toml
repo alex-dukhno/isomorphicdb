@@ -1,0 +1,19 @@
+[package]
+name = "query_analyzer"
+version = "0.1.0"
+authors = ["Alex Dukhno <alex.dukhno@icloud.com>"]
+edition = "2018"
+publish = false
+
+[dependencies]
+analysis_tree = { path = "../tree" }
+expr_operators = { path = "../expr_operators" }
+meta_def = { path = "../../meta_def" }
+data_definition = { path = "../../data_definition" }
+types = { path = "../../types" }
+sql_ast = { path = "../../parsing/sql-ast" }
+
+bigdecimal = { version = "0.2.0", features = ["string-only"] }
+
+[dev-dependencies]
+data_manager = { path = "../../data_manager" }

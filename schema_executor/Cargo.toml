@@ -1,0 +1,12 @@
+[package]
+name = "schema_executor"
+version = "0.1.0"
+authors = ["Alex Dukhno <alex.dukhno@icloud.com>"]
+edition = "2018"
+publish = false
+
+[dependencies]
+analysis_tree = { path = "../analysis/tree" }
+data_definition = { path = "../data_definition" }
+data_manager = { path = "../data_manager" }
+definition_operations = { path = "../definition_operations" }

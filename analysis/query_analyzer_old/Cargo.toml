@@ -1,0 +1,20 @@
+[package]
+name = "query_analyzer_old"
+version = "0.1.0"
+authors = ["Alex Dukhno <alex.dukhno@icloud.com>"]
+edition = "2018"
+publish = false
+
+[dependencies]
+description = { path = "../../description" }
+meta_def = { path = "../../meta_def" }
+data_definition = { path = "../../data_definition" }
+types = { path = "../../types" }
+
+pg_wire = "0.5.0"
+sql_ast = { path = "../../parsing/sql-ast" }
+
+[dev-dependencies]
+data_manager = { path = "../../data_manager" }
+
+bigdecimal = { version = "0.2.0", features = ["string-only"] }
