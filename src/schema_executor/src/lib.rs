@@ -33,8 +33,8 @@ impl SystemSchemaExecutor {
         operation: &SystemOperation,
     ) -> Result<ExecutionOutcome, ExecutionError> {
         let SystemOperation {
-            kind,
-            skip_steps_if,
+            kind: _kind,
+            skip_steps_if: _skip_steps_if,
             steps,
         } = operation;
         let operations = steps;

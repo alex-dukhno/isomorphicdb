@@ -18,7 +18,6 @@ use dashmap::DashMap;
 use repr::Datum;
 use std::{
     collections::BTreeMap,
-    iter::FromIterator,
     sync::{
         atomic::{AtomicU64, Ordering},
         RwLock,
@@ -33,13 +32,12 @@ pub struct InMemoryTableHandle {
 
 impl DataTable for InMemoryTableHandle {
     fn select(&self) -> Cursor {
-        Cursor::from_iter(
-            self.records
-                .read()
-                .unwrap()
-                .iter()
-                .map(|(key, value)| (key.clone(), value.clone())),
-        )
+        self.records
+            .read()
+            .unwrap()
+            .iter()
+            .map(|(key, value)| (key.clone(), value.clone()))
+            .collect::<Cursor>()
     }
 
     fn insert(&self, data: Vec<Value>) -> usize {

@@ -136,7 +136,7 @@ impl PersistentDatabase {
 
     fn open_schema_with_failpoint(&self, path_to_schema: PathBuf) -> Result<Arc<PersistentSchema>, SledError> {
         fail::fail_point!("sled-fail-to-open-db", |kind| Err(sled_error(kind)));
-        sled::open(path_to_schema).map(|sled_db| PersistentSchema::new(sled_db))
+        sled::open(path_to_schema).map(PersistentSchema::new)
     }
 
     fn open_tree(
@@ -443,7 +443,7 @@ impl Database for PersistentDatabase {
                         if schema.tree_names().contains(&(object_name.into())) {
                             Ok(Ok(Err(DefinitionError::ObjectAlreadyExists)))
                         } else {
-                            self.open_tree(schema.clone(), object_name)
+                            self.open_tree(schema, object_name)
                                 .map(|io| io.map(|storage| storage.map(|_object| ())))
                         }
                     }
@@ -474,7 +474,7 @@ impl Database for PersistentDatabase {
         if self.schema_exists(schema_name) {
             match self.schemas.get(schema_name) {
                 None => match self.open_schema(self.path_to_schema(schema_name)) {
-                    Ok(Ok(schema)) => match self.drop_tree_with_failpoint(schema.clone(), object_name.into()) {
+                    Ok(Ok(schema)) => match self.drop_tree_with_failpoint(schema, object_name.into()) {
                         Ok(true) => Ok(Ok(Ok(()))),
                         Ok(false) => Ok(Ok(Err(DefinitionError::ObjectDoesNotExist))),
                         Err(error) => match error {
@@ -518,7 +518,7 @@ impl Database for PersistentDatabase {
                 None => match self.open_schema(self.path_to_schema(schema_name)) {
                     Ok(Ok(schema)) => {
                         if schema.tree_names().contains(&(object_name.into())) {
-                            match self.open_tree(schema.clone(), object_name) {
+                            match self.open_tree(schema, object_name) {
                                 Ok(Ok(Ok(object))) => {
                                     let mut written_rows = 0;
                                     for (key, values) in rows.iter() {
@@ -588,7 +588,7 @@ impl Database for PersistentDatabase {
                 None => match self.open_schema(self.path_to_schema(schema_name)) {
                     Ok(Ok(schema)) => {
                         if schema.tree_names().contains(&(object_name.into())) {
-                            match self.open_tree(schema.clone(), object_name) {
+                            match self.open_tree(schema, object_name) {
                                 Ok(Ok(Ok(object))) => Ok(Ok(Ok(Box::new(
                                     self.iterator_over_tree_with_failpoint(object).map(|item| match item {
                                         Ok((key, values)) => Ok(Ok((
@@ -670,7 +670,7 @@ impl Database for PersistentDatabase {
                 None => match self.open_schema(self.path_to_schema(schema_name)) {
                     Ok(Ok(schema)) => {
                         if schema.tree_names().contains(&(object_name.into())) {
-                            match self.open_tree(schema.clone(), object_name) {
+                            match self.open_tree(schema, object_name) {
                                 Ok(Ok(Ok(object))) => {
                                     let mut deleted = 0;
                                     for key in keys {

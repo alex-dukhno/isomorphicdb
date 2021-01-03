@@ -20,7 +20,7 @@ use crate::query_engine::QueryEngine;
 use async_dup::Arc as AsyncArc;
 use async_executor::Executor;
 use async_io::Async;
-use catalog::{InMemoryDatabase, OnDiskDatabase};
+use catalog::InMemoryDatabase;
 use connection::ClientRequest;
 use data_manager::DatabaseHandle;
 use pg_model::{ConnSupervisor, ProtocolConfiguration};

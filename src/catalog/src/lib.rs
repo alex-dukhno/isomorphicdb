@@ -19,7 +19,6 @@ mod sql;
 use binary::Binary;
 use std::{
     fmt::{self, Debug, Formatter},
-    io,
     iter::FromIterator,
 };
 

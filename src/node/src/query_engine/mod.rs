@@ -321,7 +321,7 @@ impl<D: Database> QueryEngine<D> {
                                     }
                                 };
                                 if query_result.is_ok() {
-                                    self.schema_executor.execute(&schema_change, &operations);
+                                    self.schema_executor.execute(&schema_change, &operations).unwrap();
                                 }
                                 self.sender.send(query_result).expect("To Send Result to Client");
                             }

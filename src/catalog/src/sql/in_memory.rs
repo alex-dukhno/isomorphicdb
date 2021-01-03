@@ -163,12 +163,12 @@ impl Database for InMemoryDatabase {
                     Step::CreateFile { .. } => {}
                     Step::RemoveFile { .. } => {}
                     Step::RemoveRecord {
-                        system_schema,
-                        system_table,
+                        system_schema: _system_schema,
+                        system_table: _system_table,
                         record,
                     } => match record {
                         Record::Schema {
-                            catalog_name,
+                            catalog_name: _catalog_name,
                             schema_name,
                         } => {
                             let full_schema_name = Binary::pack(&[CATALOG, Datum::from_str(&schema_name)]);
@@ -190,7 +190,7 @@ impl Database for InMemoryDatabase {
                             });
                         }
                         Record::Table {
-                            catalog_name,
+                            catalog_name: _catalog_name,
                             schema_name,
                             table_name,
                         } => {
@@ -200,8 +200,8 @@ impl Database for InMemoryDatabase {
                                 schema.work_with(TABLES_TABLE, |table| {
                                     let table_id = table
                                         .select()
-                                        .find(|(key, value)| value == &full_table_name)
-                                        .map(|(key, value)| key);
+                                        .find(|(_key, value)| value == &full_table_name)
+                                        .map(|(key, _value)| key);
                                     debug_assert!(
                                         matches!(table_id, Some(_)),
                                         "record for {:?}.{:?} table had to be found in {:?} system table",
@@ -214,8 +214,8 @@ impl Database for InMemoryDatabase {
                                     table.delete(vec![table_id]);
                                     let table_id = table
                                         .select()
-                                        .find(|(key, value)| value == &full_table_name)
-                                        .map(|(key, value)| key);
+                                        .find(|(_key, value)| value == &full_table_name)
+                                        .map(|(key, _value)| key);
                                     println!("TABLE ID AFTER DROP - {:?}", table_id);
                                 });
                             });
@@ -223,12 +223,12 @@ impl Database for InMemoryDatabase {
                         Record::Column { .. } => unimplemented!(),
                     },
                     Step::CreateRecord {
-                        system_schema,
-                        system_table,
+                        system_schema: _system_schema,
+                        system_table: _system_table,
                         record,
                     } => match record {
                         Record::Schema {
-                            catalog_name,
+                            catalog_name: _catalog_name,
                             schema_name,
                         } => {
                             self.catalog.work_with(DEFINITION_SCHEMA, |schema| {
@@ -239,7 +239,7 @@ impl Database for InMemoryDatabase {
                             return Ok(ExecutionOutcome::SchemaCreated);
                         }
                         Record::Table {
-                            catalog_name,
+                            catalog_name: _catalog_name,
                             schema_name,
                             table_name,
                         } => {
@@ -254,8 +254,8 @@ impl Database for InMemoryDatabase {
                                     ])]);
                                     let table_id = table
                                         .select()
-                                        .find(|(key, value)| value == &full_table_name)
-                                        .map(|(key, value)| key);
+                                        .find(|(_key, value)| value == &full_table_name)
+                                        .map(|(key, _value)| key);
                                     println!("GENERATED TABLE ID - {:?}", table_id);
                                 })
                             });

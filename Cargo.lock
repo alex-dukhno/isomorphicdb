@@ -423,7 +423,6 @@ version = "0.1.0"
 dependencies = [
  "backtrace",
  "binary",
- "catalog",
  "dashmap",
  "data_definition",
  "definition_operations",

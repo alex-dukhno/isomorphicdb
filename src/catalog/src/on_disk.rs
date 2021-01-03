@@ -16,8 +16,7 @@ use crate::{Cursor, DataCatalog, DataTable, Key, SchemaHandle, Value};
 use binary::Binary;
 use dashmap::DashMap;
 use repr::Datum;
-use sled;
-use std::{convert::TryInto, iter::FromIterator, path::PathBuf};
+use std::{convert::TryInto, path::PathBuf};
 
 const TABLE_RECORD_IDS_KEY: &str = "__record_counter";
 const STARTING_RECORD_ID: [u8; 8] = 0u64.to_be_bytes();
@@ -60,29 +59,31 @@ impl OnDiskTableHandle {
             }
         };
         self.metadata
-            .insert(TABLE_RECORD_IDS_KEY, &((current + 1).to_be_bytes()));
+            .insert(TABLE_RECORD_IDS_KEY, &((current + 1).to_be_bytes()))
+            .unwrap();
         current
     }
 }
 
 impl DataTable for OnDiskTableHandle {
     fn select(&self) -> Cursor {
-        Cursor::from_iter(
-            self.data
-                .iter()
-                .map(Result::unwrap)
-                .map(|(key, value)| (Binary::with_data(key.to_vec()), Binary::with_data(value.to_vec()))),
-        )
+        self.data
+            .iter()
+            .map(Result::unwrap)
+            .map(|(key, value)| (Binary::with_data(key.to_vec()), Binary::with_data(value.to_vec())))
+            .collect::<Cursor>()
     }
 
     fn insert(&self, data: Vec<Value>) -> usize {
-        let len = data.len();
+        let mut size = 0;
         for value in data {
             let record_id = self.next_id();
             let key = Binary::pack(&[Datum::from_u64(record_id)]);
-            self.data.insert(key.to_bytes(), value.to_bytes());
+            if self.data.insert(key.to_bytes(), value.to_bytes()).is_ok() {
+                size += 1;
+            }
         }
-        len
+        size
     }
 
     fn update(&self, data: Vec<(Key, Value)>) -> usize {
@@ -103,11 +104,12 @@ impl DataTable for OnDiskTableHandle {
             .iter()
             .map(Result::unwrap)
             .filter(|(_key, value)| data.contains(&Binary::with_data(value.to_vec())))
-            .map(|(key, _value)| key.clone())
+            .map(|(key, _value)| key)
             .collect::<Vec<sled::IVec>>();
         for key in keys.iter() {
-            self.data.remove(key);
-            size += 1;
+            if self.data.remove(key).is_ok() {
+                size += 1;
+            }
         }
         size
     }
@@ -134,21 +136,17 @@ impl SchemaHandle for OnDiskSchemaHandle {
     type Table = OnDiskTableHandle;
 
     fn create_table(&self, table_name: &str) -> bool {
-        if self.tables.contains_key(table_name) {
+        if self.tables.contains_key(table_name) || self.sled_db.tree_names().contains(&sled::IVec::from(table_name)) {
             false
         } else {
-            if self.sled_db.tree_names().contains(&sled::IVec::from(table_name)) {
-                false
-            } else {
-                let data_tree = self.sled_db.open_tree(table_name).unwrap();
-                let metadata_tree = self
-                    .sled_db
-                    .open_tree("__system_metadata_".to_owned() + table_name)
-                    .unwrap();
-                self.tables
-                    .insert(table_name.to_owned(), OnDiskTableHandle::new(metadata_tree, data_tree));
-                true
-            }
+            let data_tree = self.sled_db.open_tree(table_name).unwrap();
+            let metadata_tree = self
+                .sled_db
+                .open_tree("__system_metadata_".to_owned() + table_name)
+                .unwrap();
+            self.tables
+                .insert(table_name.to_owned(), OnDiskTableHandle::new(metadata_tree, data_tree));
+            true
         }
     }
 

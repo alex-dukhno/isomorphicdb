@@ -13,13 +13,13 @@
 // limitations under the License.
 
 use crate::{Database, SqlSchema, SqlTable};
-use definition_operations::{ExecutionError, ExecutionOutcome, Step, SystemOperation};
+use definition_operations::{ExecutionError, ExecutionOutcome, SystemOperation};
 use std::sync::Arc;
 
 pub struct OnDiskDatabase;
 
 impl OnDiskDatabase {
-    pub fn new(name: &str) -> Arc<OnDiskDatabase> {
+    pub fn new(_name: &str) -> Arc<OnDiskDatabase> {
         Arc::new(OnDiskDatabase)
     }
 }
@@ -28,7 +28,7 @@ impl Database for OnDiskDatabase {
     type Schema = OnDiskSchema;
     type Table = OnDiskTable;
 
-    fn execute(&self, operation: SystemOperation) -> Result<ExecutionOutcome, ExecutionError> {
+    fn execute(&self, _operation: SystemOperation) -> Result<ExecutionOutcome, ExecutionError> {
         unimplemented!()
     }
 }
