@@ -45,13 +45,16 @@ pub trait DataDefReader {
 
     fn table_exists(&self, schema_name: &str, table_name: &str) -> OptionalTableId;
 
+    #[allow(clippy::result_unit_err)]
     fn table_columns(&self, table_id: &(Id, Id)) -> Result<Vec<(Id, ColumnDefinition)>, ()>;
 
+    #[allow(clippy::result_unit_err)]
     fn column_ids(&self, table_id: &(Id, Id), names: &[String]) -> Result<(Vec<Id>, Vec<String>), ()>;
 
     fn column_defs(&self, table_id: &(Id, Id), ids: &[Id]) -> Vec<ColumnDefinition>;
 }
 
 pub trait DataDefOperationExecutor {
+    #[allow(clippy::result_unit_err)]
     fn execute(&self, operation: &SystemOperation) -> Result<(), ()>;
 }

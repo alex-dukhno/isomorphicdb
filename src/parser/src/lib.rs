@@ -55,11 +55,11 @@ struct PreparedStatementDialect;
 
 impl Dialect for PreparedStatementDialect {
     fn is_identifier_start(&self, ch: char) -> bool {
-        (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || ch == '$' || ch == '_'
+        ('a'..='z').contains(&ch) || ('A'..='Z').contains(&ch) || ch == '$' || ch == '_'
     }
 
     fn is_identifier_part(&self, ch: char) -> bool {
-        (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9') || ch == '$' || ch == '_'
+        ('a'..='z').contains(&ch) || ('A'..='Z').contains(&ch) || ('0'..='9').contains(&ch) || ch == '$' || ch == '_'
     }
 }
 

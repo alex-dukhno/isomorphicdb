@@ -97,6 +97,7 @@ impl DataManager {
         }
     }
 
+    #[allow(clippy::result_unit_err)]
     pub fn persistent(path: PathBuf) -> Result<DataManager, ()> {
         let database_instance = PersistentDatabase::new(path.join(DEFAULT_CATALOG));
         let catalog_exist = match database_instance.init(DEFINITION_SCHEMA).expect("no io errors") {
@@ -238,6 +239,7 @@ impl DataManager {
             .next()
     }
 
+    #[allow(clippy::result_unit_err)]
     pub fn create_schema(&self, schema_name: &str) -> Result<Id, ()> {
         let schema_id = self
             .database_instance
@@ -268,6 +270,7 @@ impl DataManager {
         }
     }
 
+    #[allow(clippy::result_unit_err)]
     pub fn drop_schema(&self, schema_id: &Id, strategy: DropStrategy) -> Result<Result<(), DropSchemaError>, ()> {
         let schema_name = self
             .database_instance
@@ -421,6 +424,7 @@ impl DataManager {
         }
     }
 
+    #[allow(clippy::result_unit_err)]
     pub fn create_table(
         &self,
         schema_id: Id,
@@ -529,6 +533,7 @@ impl DataManager {
         }
     }
 
+    #[allow(clippy::result_unit_err)]
     pub fn drop_table(&self, full_table_id: &(Id, Id)) -> Result<(), ()> {
         let full_table_name = self
             .database_instance
@@ -585,6 +590,7 @@ impl DataManager {
         }
     }
 
+    #[allow(clippy::result_unit_err)]
     pub fn write_into(&self, full_table_id: &(Id, Id), values: Vec<(Key, Values)>) -> Result<usize, ()> {
         let full_table_name = self
             .database_instance
@@ -628,6 +634,7 @@ impl DataManager {
         }
     }
 
+    #[allow(clippy::result_unit_err)]
     pub fn full_scan(&self, full_table_id: &(Id, Id)) -> Result<ReadCursor, ()> {
         let full_table_name = self
             .database_instance
@@ -665,6 +672,7 @@ impl DataManager {
         }
     }
 
+    #[allow(clippy::result_unit_err)]
     pub fn delete_from(&self, full_table_id: &(Id, Id), keys: Vec<Key>) -> Result<usize, ()> {
         let full_table_name = self
             .database_instance
