@@ -69,7 +69,7 @@ impl DataTable for InMemoryTableHandle {
         let mut size = 0;
         let keys = rw
             .iter()
-            .filter(|(_key, value)| data.contains(value))
+            .filter(|(key, _value)| data.contains(key))
             .map(|(key, _value)| key.clone())
             .collect::<Vec<Binary>>();
         for key in keys.iter() {
@@ -481,7 +481,7 @@ mod general_cases {
 
             assert_eq!(
                 catalog_handle.work_with(SCHEMA, |schema| schema
-                    .work_with(TABLE, |table| table.delete(vec![Binary::pack(&[Datum::from_u64(2)])]))),
+                    .work_with(TABLE, |table| table.delete(vec![Binary::pack(&[Datum::from_u64(1)])]))),
                 Some(Some(1))
             );
 
@@ -491,7 +491,7 @@ mod general_cases {
                     .unwrap()
                     .unwrap()
                     .collect::<Vec<(Key, Value)>>(),
-                vec![(Binary::pack(&[Datum::from_u64(0)]), Binary::pack(&[Datum::from_u64(1)])),]
+                vec![(Binary::pack(&[Datum::from_u64(0)]), Binary::pack(&[Datum::from_u64(1)]))]
             );
         }
 

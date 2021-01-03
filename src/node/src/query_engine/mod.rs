@@ -35,6 +35,7 @@ use query_analyzer::Analyzer;
 use query_analyzer_old::Analyzer as OldAnalyzer;
 use query_executor::QueryExecutor;
 use query_planner::{PlanError, QueryPlanner};
+use schema_executor::SystemSchemaExecutor;
 use schema_planner::SystemSchemaPlanner;
 use sqlparser::ast::{Expr, Ident, Statement, Value};
 use std::{convert::TryFrom, iter, ops::Deref, sync::Arc};
@@ -52,6 +53,7 @@ pub(crate) struct QueryEngine<D: Database> {
     param_binder: ParamBinder,
     query_analyzer: Analyzer,
     system_planner: SystemSchemaPlanner,
+    schema_executor: SystemSchemaExecutor,
     old_query_analyzer: OldAnalyzer,
     query_parser: QueryParser,
     query_planner: QueryPlanner,
@@ -69,6 +71,7 @@ impl<D: Database> QueryEngine<D> {
             old_query_analyzer: OldAnalyzer::new(data_manager.clone()),
             query_analyzer: Analyzer::new(data_manager.clone()),
             system_planner: SystemSchemaPlanner::new(),
+            schema_executor: SystemSchemaExecutor::new(data_manager.clone()),
             query_parser: QueryParser::default(),
             query_planner: QueryPlanner::new(data_manager.clone()),
             query_executor: QueryExecutor::new(data_manager, sender),
@@ -296,7 +299,7 @@ impl<D: Database> QueryEngine<D> {
                         | statement @ Statement::Drop { .. } => match self.query_analyzer.analyze(statement) {
                             Ok(QueryAnalysis::DataDefinition(schema_change)) => {
                                 let operations = self.system_planner.schema_change_plan(&schema_change);
-                                let query_result = match self.database.execute(operations) {
+                                let query_result = match self.database.execute(operations.clone()) {
                                     Ok(ExecutionOutcome::SchemaCreated) => Ok(QueryEvent::SchemaCreated),
                                     Ok(ExecutionOutcome::SchemaDropped) => Ok(QueryEvent::SchemaDropped),
                                     Ok(ExecutionOutcome::TableCreated) => Ok(QueryEvent::TableCreated),
@@ -317,6 +320,9 @@ impl<D: Database> QueryEngine<D> {
                                         Err(QueryError::schema_has_dependent_objects(schema_name))
                                     }
                                 };
+                                if query_result.is_ok() {
+                                    self.schema_executor.execute(&schema_change, &operations);
+                                }
                                 self.sender.send(query_result).expect("To Send Result to Client");
                             }
                             Err(AnalysisError::SchemaDoesNotExist(schema_name)) => self

@@ -194,13 +194,13 @@ impl Database for InMemoryDatabase {
                             schema_name,
                             table_name,
                         } => {
-                            let fill_table_name =
+                            let full_table_name =
                                 Binary::pack(&[CATALOG, Datum::from_str(schema_name), Datum::from_str(table_name)]);
                             self.catalog.work_with(DEFINITION_SCHEMA, |schema| {
                                 schema.work_with(TABLES_TABLE, |table| {
                                     let table_id = table
                                         .select()
-                                        .find(|(key, value)| value == &fill_table_name)
+                                        .find(|(key, value)| value == &full_table_name)
                                         .map(|(key, value)| key);
                                     debug_assert!(
                                         matches!(table_id, Some(_)),
@@ -209,8 +209,14 @@ impl Database for InMemoryDatabase {
                                         table_name,
                                         TABLES_TABLE
                                     );
+                                    println!("FOUND TABLE ID - {:?}", table_id);
                                     let table_id = table_id.unwrap();
                                     table.delete(vec![table_id]);
+                                    let table_id = table
+                                        .select()
+                                        .find(|(key, value)| value == &full_table_name)
+                                        .map(|(key, value)| key);
+                                    println!("TABLE ID AFTER DROP - {:?}", table_id);
                                 });
                             });
                         }
@@ -237,13 +243,20 @@ impl Database for InMemoryDatabase {
                             schema_name,
                             table_name,
                         } => {
+                            let full_table_name =
+                                Binary::pack(&[CATALOG, Datum::from_str(&schema_name), Datum::from_str(&table_name)]);
                             self.catalog.work_with(DEFINITION_SCHEMA, |schema| {
                                 schema.work_with(TABLES_TABLE, |table| {
                                     table.insert(vec![Binary::pack(&[
                                         CATALOG,
                                         Datum::from_str(&schema_name),
                                         Datum::from_str(&table_name),
-                                    ])])
+                                    ])]);
+                                    let table_id = table
+                                        .select()
+                                        .find(|(key, value)| value == &full_table_name)
+                                        .map(|(key, value)| key);
+                                    println!("GENERATED TABLE ID - {:?}", table_id);
                                 })
                             });
                             return Ok(ExecutionOutcome::TableCreated);

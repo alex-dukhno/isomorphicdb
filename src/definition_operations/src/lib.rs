@@ -14,20 +14,20 @@
 
 use types::SqlType;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct SystemOperation {
     pub kind: Kind,
     pub skip_steps_if: Option<ObjectState>,
     pub steps: Vec<Vec<Step>>,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Kind {
     Create(SystemObject),
     Drop(SystemObject),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Step {
     CheckExistence {
         system_object: SystemObject,
@@ -71,19 +71,19 @@ pub enum Step {
     },
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum SystemObject {
     Schema,
     Table,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum ObjectState {
     Exists,
     NotExists,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Record {
     Schema {
         catalog_name: String,

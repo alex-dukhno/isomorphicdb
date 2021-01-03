@@ -15,6 +15,7 @@
 use expr_operators::{Operation, Operator};
 use meta_def::Id;
 use sqlparser::ast;
+use std::str::FromStr;
 use std::{
     convert::TryFrom,
     fmt::{self, Display, Formatter},
@@ -80,10 +81,10 @@ impl Display for FullTableName {
     }
 }
 
-impl TryFrom<ast::ObjectName> for FullTableName {
+impl<'o> TryFrom<&'o ast::ObjectName> for FullTableName {
     type Error = TableNamingError;
 
-    fn try_from(object: ast::ObjectName) -> Result<Self, Self::Error> {
+    fn try_from(object: &'o ast::ObjectName) -> Result<Self, Self::Error> {
         if object.0.len() == 1 {
             Err(TableNamingError::Unqualified(object.to_string()))
         } else if object.0.len() != 2 {
@@ -124,21 +125,21 @@ impl AsRef<str> for SchemaName {
     }
 }
 
-impl<S: ToString> From<&S> for SchemaName {
-    fn from(schema_name: &S) -> SchemaName {
-        SchemaName(schema_name.to_string())
-    }
-}
-
-impl TryFrom<ast::ObjectName> for SchemaName {
+impl<'o> TryFrom<&'o ast::ObjectName> for SchemaName {
     type Error = SchemaNamingError;
 
-    fn try_from(object: ast::ObjectName) -> Result<Self, Self::Error> {
+    fn try_from(object: &'o ast::ObjectName) -> Result<Self, Self::Error> {
         if object.0.len() != 1 {
             Err(SchemaNamingError(object.to_string()))
         } else {
             Ok(SchemaName(object.to_string().to_lowercase()))
         }
+    }
+}
+
+impl SchemaName {
+    pub fn from<S: ToString>(schema_name: &S) -> SchemaName {
+        SchemaName(schema_name.to_string())
     }
 }
 

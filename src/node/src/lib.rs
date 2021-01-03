@@ -20,7 +20,7 @@ use crate::query_engine::QueryEngine;
 use async_dup::Arc as AsyncArc;
 use async_executor::Executor;
 use async_io::Async;
-use catalog::OnDiskDatabase;
+use catalog::{InMemoryDatabase, OnDiskDatabase};
 use connection::ClientRequest;
 use data_manager::DatabaseHandle;
 use pg_model::{ConnSupervisor, ProtocolConfiguration};
@@ -62,8 +62,7 @@ pub fn start() {
                 Err(io_error) => log::error!("IO error {:?}", io_error),
                 Ok(Err(protocol_error)) => log::error!("protocol error {:?}", protocol_error),
                 Ok(Ok(ClientRequest::Connection(mut receiver, sender))) => {
-                    let mut query_engine =
-                        QueryEngine::new(sender, storage.clone(), OnDiskDatabase::new("root_directory"));
+                    let mut query_engine = QueryEngine::new(sender, storage.clone(), InMemoryDatabase::new());
                     log::debug!("ready to handle query");
                     GLOBAL
                         .spawn(async move {

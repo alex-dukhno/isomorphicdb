@@ -42,7 +42,7 @@ impl Analyzer {
     }
 
     pub fn analyze(&self, statement: ast::Statement) -> Result<QueryAnalysis, AnalysisError> {
-        match statement.clone() {
+        match &statement {
             ast::Statement::Insert { table_name, source, .. } => match FullTableName::try_from(table_name) {
                 Err(error) => Err(AnalysisError::table_naming_error(error)),
                 Ok(full_table_name) => match self.data_definition.table_desc((&full_table_name).into()) {
@@ -50,8 +50,7 @@ impl Analyzer {
                     Some((_schema_id, None)) => Err(AnalysisError::table_does_not_exist(full_table_name)),
                     Some((schema_id, Some((table_id, table_columns)))) => {
                         let column_types: Vec<SqlType> = table_columns.into_iter().map(|col| col.sql_type()).collect();
-                        let source: ast::Query = *source;
-                        let ast::Query { body, .. } = source;
+                        let ast::Query { body, .. } = &**source;
                         let values = match body {
                             ast::SetExpr::Values(ast::Values(insert_rows)) => {
                                 let mut values = vec![];
@@ -130,7 +129,7 @@ impl Analyzer {
                 },
             },
             ast::Statement::Query(query) => {
-                let ast::Query { body, .. } = &*query;
+                let ast::Query { body, .. } = &**query;
                 match body {
                     ast::SetExpr::Query(_) => Err(AnalysisError::feature_not_supported(Feature::SubQueries)),
                     ast::SetExpr::SetOperation { .. } => {
@@ -158,7 +157,7 @@ impl Analyzer {
                                 return Err(AnalysisError::feature_not_supported(Feature::NestedJoin))
                             }
                         };
-                        match FullTableName::try_from(name.clone()) {
+                        match FullTableName::try_from(name) {
                             Ok(full_table_name) => match self.data_definition.table_desc((&full_table_name).into()) {
                                 None => Err(AnalysisError::schema_does_not_exist(full_table_name.schema())),
                                 Some((_schema_id, None)) => Err(AnalysisError::table_does_not_exist(&full_table_name)),
@@ -243,7 +242,7 @@ impl Analyzer {
                                     &full_table_name.table(),
                                 ),
                                 column_defs,
-                                if_not_exists,
+                                if_not_exists: *if_not_exists,
                             },
                         )))
                     }
@@ -258,7 +257,7 @@ impl Analyzer {
                 Ok(schema_name) => Ok(QueryAnalysis::DataDefinition(SchemaChange::CreateSchema(
                     CreateSchemaQuery {
                         schema_name,
-                        if_not_exists,
+                        if_not_exists: *if_not_exists,
                     },
                 ))),
                 Err(error) => Err(AnalysisError::schema_naming_error(&error)),
@@ -280,8 +279,8 @@ impl Analyzer {
                     Ok(QueryAnalysis::DataDefinition(SchemaChange::DropSchemas(
                         DropSchemasQuery {
                             schema_names,
-                            cascade,
-                            if_exists,
+                            cascade: *cascade,
+                            if_exists: *if_exists,
                         },
                     )))
                 }
@@ -305,8 +304,8 @@ impl Analyzer {
                     Ok(QueryAnalysis::DataDefinition(SchemaChange::DropTables(
                         DropTablesQuery {
                             table_infos,
-                            cascade,
-                            if_exists,
+                            cascade: *cascade,
+                            if_exists: *if_exists,
                         },
                     )))
                 }

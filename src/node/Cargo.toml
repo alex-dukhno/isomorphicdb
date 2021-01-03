@@ -30,6 +30,7 @@ query_analyzer = { path = "../query_analyzer" }
 query_analyzer_old = { path = "../query_analyzer_old" }
 query_executor = { path = "../query_executor" }
 query_planner = { path = "../query_planner" }
+schema_executor = { path = "../schema_executor" }
 sql_model = { path = "../sql_model" }
 types = { path = "../types" }
 
