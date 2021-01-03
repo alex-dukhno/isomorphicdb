@@ -27,8 +27,7 @@ fn with_schema(storage: Storage, schema_name: SchemaName) -> Storage {
     storage
         .create_schema(schema_name)
         .expect("no io error")
-        .expect("no platform errors")
-        .expect("schema created");
+        .expect("no platform errors");
     storage
 }
 
@@ -112,14 +111,17 @@ mod schemas {
 
     #[rstest::rstest]
     fn create_schemas_with_different_names(storage: Storage) {
-        assert_eq!(storage.create_schema(SCHEMA_1).expect("no io error"), Ok(Ok(())));
-        assert_eq!(storage.create_schema(SCHEMA_2).expect("no io error"), Ok(Ok(())));
+        assert_eq!(storage.create_schema(SCHEMA_1).expect("no io error"), Ok(true));
+        assert!(matches!(storage.lookup_schema(SCHEMA_1), Ok(Ok(Some(_)))));
+        assert_eq!(storage.create_schema(SCHEMA_2).expect("no io error"), Ok(true));
+        assert!(matches!(storage.lookup_schema(SCHEMA_2), Ok(Ok(Some(_)))));
     }
 
     #[rstest::rstest]
     fn drop_schema(with_schema: Storage, schema_name: SchemaName) {
-        assert_eq!(with_schema.drop_schema(schema_name).expect("no io error"), Ok(Ok(())));
-        assert_eq!(with_schema.create_schema(schema_name).expect("no io error"), Ok(Ok(())));
+        assert_eq!(with_schema.drop_schema(schema_name).expect("no io error"), Ok(true));
+        assert!(matches!(with_schema.lookup_schema(schema_name), Ok(Ok(None))));
+        assert_eq!(with_schema.create_schema(schema_name).expect("no io error"), Ok(true));
     }
 
     #[rstest::rstest]
@@ -135,8 +137,8 @@ mod schemas {
             .expect("no storage error")
             .expect("object created");
 
-        assert_eq!(with_schema.drop_schema(schema_name).expect("no io error"), Ok(Ok(())));
-        assert_eq!(with_schema.create_schema(schema_name).expect("no io error"), Ok(Ok(())));
+        assert_eq!(with_schema.drop_schema(schema_name).expect("no io error"), Ok(true));
+        assert_eq!(with_schema.create_schema(schema_name).expect("no io error"), Ok(true));
         assert_eq!(
             with_schema.create_object(schema_name, OBJECT_1).expect("no io error"),
             Ok(Ok(()))
@@ -149,18 +151,12 @@ mod schemas {
 
     #[rstest::rstest]
     fn create_schema_with_the_same_name(with_schema: Storage, schema_name: SchemaName) {
-        assert_eq!(
-            with_schema.create_schema(schema_name).expect("no io error"),
-            Ok(Err(DefinitionError::SchemaAlreadyExists))
-        )
+        assert_eq!(with_schema.create_schema(schema_name).expect("no io error"), Ok(false))
     }
 
     #[rstest::rstest]
     fn drop_schema_that_does_not_exist(storage: Storage, schema_name: SchemaName) {
-        assert_eq!(
-            storage.drop_schema(schema_name).expect("no io error"),
-            Ok(Err(DefinitionError::SchemaDoesNotExist))
-        )
+        assert_eq!(storage.drop_schema(schema_name).expect("no io error"), Ok(false))
     }
 }
 
@@ -207,13 +203,11 @@ mod create_object {
         storage
             .create_schema(SCHEMA_1)
             .expect("no io error")
-            .expect("no platform errors")
-            .expect("schema created");
+            .expect("no platform errors");
         storage
             .create_schema(SCHEMA_2)
             .expect("no io error")
-            .expect("no platform errors")
-            .expect("schema created");
+            .expect("no platform errors");
         assert_eq!(
             storage.create_object(SCHEMA_1, OBJECT).expect("no io error"),
             Ok(Ok(()))

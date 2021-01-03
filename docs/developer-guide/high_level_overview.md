@@ -19,7 +19,8 @@ Simple Query State Machine contains the following states: **Query**, **RowDescri
 In Simple Mode client sends *Query* message to start query execution.
 
 * During query execution server may send **ErrorResponse** if any of stages encounter an error.
-* If client sends an `insert`, an `update` or a `delete` query on successful execution server sends **CommandCompete** message.
+* If client sends an `insert`, an `update` or a `delete` query on successful execution server sends **CommandCompete** 
+  message.
 * If client sends a `select` query - server sends **RowDescription** message.
 It contains all needed info for a client how to represent a data that is coming next.
 For each selected row server sends **DataRow** message.
@@ -111,12 +112,13 @@ Prepare Phase has the following state machine:
 ```
 
 * First, a client sends **Parse** message with a query
-* Server responds with **ParseComplete** if it successful
-* Then the client asks for data types info by sending **Describe** method (in this case it is has `S` flag that stands for Statement)
+* Server responds with **ParseComplete** if it is successful
+* Then the client asks for data types info by sending **Describe** method (in this case it is has `S` flag that stands 
+  for Statement)
 * First, server answers with **ParameterDescription** message to describe data types for `$#` parameters
 * Then, if it is `select` statement server sends **RowDescription** message, otherwise **NoData**
 * Then the client sends **Sync** message to synchronise with server
-* And the server responds with **ReadyForQuery**
+* In the end the server responds with **ReadyForQuery**
 
 ------------------
 **NOTE:** !!! This part of the section could be changed in the future
@@ -164,12 +166,13 @@ Execution Phase has the following state machine:
 ```
 
 * First, a client sends **Parse** message with a query
-* Server responds with **ParseComplete** if it successful
+* Server responds with **ParseComplete** if it is successful
 * Then the client sends **Bind** message with `$#` parameter values
-* Then the client asks for data types info by sending **Describe** method (in this case it is has `P` flag that stands for Portal)
+* Then the client asks for data types info by sending **Describe** method (in this case it is has `P` flag that stands 
+  for Portal)
 * Then, if it is `select` statement server sends **RowDescription** message, otherwise **NoData**
 * Then the client sends **Sync** message to synchronise with server
-* And the server responds with **ReadyForQuery**
+* In the end the server responds with **ReadyForQuery**
 
 ## Query Execution without optimizations
 
@@ -180,8 +183,8 @@ Having a look at queries:
 * `update`s: `update foo set col1 = 2 * col1 where col2 > 3`
 * `delete`s: `delete from foo where bar > 3`
 
-Every position with expression: return columns value, insert values, set values, predicates in `where` clause - can be seen as `operator
-tree`s. These trees should be instantiated in runtime and executed to gain needed computation results.
+Every position with expression: return columns value, insert values, set values, predicates in `where` clause - can be 
+seen as `operator tree`s. These trees should be instantiated in runtime and executed to gain needed computation results.
 
 Query execution has the following stages:
 * **Parsing**
@@ -193,14 +196,15 @@ Taking into account differences of Simple and Extended Query protocols, extended
 
 ### Simple Query Protocol
 
-During Simple Query Protocol message flow SQL statement goes through all stages **Parsing** -> **Analyzing** -> **Planing** -> **Executing**
+During Simple Query Protocol message flow SQL statement goes through all stages **Parsing** -> **Analyzing** ->
+**Planing** -> **Executing**
 
 ### Extended Query Protocol
 
-When server received **Parse** message from a client that contains a query, SQL statement goes through **Parsing** -> **Analyzing** stages.
-After **Analyzing** stage client session should contain statement name mapped to internal structure that has built `operator tree`s and knows
-what accepting or resulting type of `operator tree`s are.
+When server received **Parse** message from a client that contains a query, SQL statement goes through **Parsing** -> 
+**Analyzing** stages. After **Analyzing** stage client session should contain statement name mapped to internal 
+structure that has built `operator tree`s and knows what accepting or resulting type of `operator tree`s are.
 
 When server received **Describe** message it should be able to send all needed information about types to a client.
 
-When server received **Bind** and **Execute** messages server plans and execute query and sends result back to a client.
+When server received **Bind** and **Execute** messages server plans and execute the query and sends result back to a client.

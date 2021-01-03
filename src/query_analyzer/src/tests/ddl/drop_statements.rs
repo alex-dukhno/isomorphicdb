@@ -51,7 +51,7 @@ mod schema {
 
     #[test]
     fn drop_non_existent_schema() {
-        let data_definition = Arc::new(DataManager::in_memory());
+        let data_definition = Arc::new(DatabaseHandle::in_memory());
         let analyzer = Analyzer::new(data_definition);
         assert_eq!(
             analyzer.analyze(drop_statement(vec![vec!["non_existent"]], SCHEMA_TYPE)),
@@ -67,7 +67,7 @@ mod schema {
 
     #[test]
     fn drop_schema_with_unqualified_name() {
-        let data_definition = Arc::new(DataManager::in_memory());
+        let data_definition = Arc::new(DatabaseHandle::in_memory());
         let analyzer = Analyzer::new(data_definition);
         assert_eq!(
             analyzer.analyze(drop_statement(
@@ -82,7 +82,7 @@ mod schema {
 
     #[test]
     fn drop_schema() {
-        let data_definition = Arc::new(DataManager::in_memory());
+        let data_definition = Arc::new(DatabaseHandle::in_memory());
         data_definition.create_schema(SCHEMA).expect("schema created");
         let analyzer = Analyzer::new(data_definition);
         assert_eq!(
@@ -99,7 +99,7 @@ mod schema {
 
     #[test]
     fn drop_schema_cascade() {
-        let data_definition = Arc::new(DataManager::in_memory());
+        let data_definition = Arc::new(DatabaseHandle::in_memory());
         data_definition.create_schema(SCHEMA).expect("schema created");
         let analyzer = Analyzer::new(data_definition);
         assert_eq!(
@@ -116,7 +116,7 @@ mod schema {
 
     #[test]
     fn drop_schema_if_exists() {
-        let data_definition = Arc::new(DataManager::in_memory());
+        let data_definition = Arc::new(DatabaseHandle::in_memory());
         data_definition.create_schema(SCHEMA).expect("schema created");
         let analyzer = Analyzer::new(data_definition);
         assert_eq!(
@@ -140,7 +140,7 @@ mod table {
 
     #[test]
     fn drop_table_from_nonexistent_schema() {
-        let data_definition = Arc::new(DataManager::in_memory());
+        let data_definition = Arc::new(DatabaseHandle::in_memory());
         let analyzer = Analyzer::new(data_definition);
         assert_eq!(
             analyzer.analyze(drop_statement(vec![vec!["non_existent_schema", TABLE]], TABLE_TYPE)),
@@ -150,7 +150,7 @@ mod table {
 
     #[test]
     fn drop_table_with_unqualified_name() {
-        let data_definition = Arc::new(DataManager::in_memory());
+        let data_definition = Arc::new(DatabaseHandle::in_memory());
         data_definition.create_schema(SCHEMA).expect("schema created");
         let analyzer = Analyzer::new(data_definition);
         assert_eq!(
@@ -163,7 +163,7 @@ mod table {
 
     #[test]
     fn drop_table_with_unsupported_name() {
-        let data_definition = Arc::new(DataManager::in_memory());
+        let data_definition = Arc::new(DatabaseHandle::in_memory());
         let analyzer = Analyzer::new(data_definition);
         assert_eq!(
             analyzer.analyze(drop_statement(
@@ -178,7 +178,7 @@ mod table {
 
     #[test]
     fn drop_table() {
-        let data_definition = Arc::new(DataManager::in_memory());
+        let data_definition = Arc::new(DatabaseHandle::in_memory());
         let schema_id = data_definition.create_schema(SCHEMA).expect("schema created");
         data_definition
             .create_table(schema_id, TABLE, &[])
@@ -198,7 +198,7 @@ mod table {
 
     #[test]
     fn drop_nonexistent_table() {
-        let data_definition = Arc::new(DataManager::in_memory());
+        let data_definition = Arc::new(DatabaseHandle::in_memory());
         data_definition.create_schema(SCHEMA).expect("schema created");
         let analyzer = Analyzer::new(data_definition);
         assert_eq!(
@@ -215,7 +215,7 @@ mod table {
 
     #[test]
     fn drop_table_if_exists() {
-        let data_definition = Arc::new(DataManager::in_memory());
+        let data_definition = Arc::new(DatabaseHandle::in_memory());
         let schema_id = data_definition.create_schema(SCHEMA).expect("schema created");
         data_definition
             .create_table(schema_id, TABLE, &[])
@@ -244,7 +244,7 @@ mod table {
 
     #[test]
     fn drop_table_cascade() {
-        let data_definition = Arc::new(DataManager::in_memory());
+        let data_definition = Arc::new(DatabaseHandle::in_memory());
         let schema_id = data_definition.create_schema(SCHEMA).expect("schema created");
         data_definition
             .create_table(schema_id, TABLE, &[])

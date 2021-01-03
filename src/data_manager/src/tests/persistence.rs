@@ -19,7 +19,7 @@ use std::path::PathBuf;
 use tempfile::TempDir;
 use types::SqlType;
 
-type Persistent = DataManager;
+type Persistent = DatabaseHandle;
 
 #[rstest::fixture]
 fn persistent() -> (Persistent, TempDir) {

@@ -15,20 +15,22 @@ path = "src/bin.rs"
 [dependencies]
 analysis = { path = "../analysis" }
 binder = { path = "../binder" }
+catalog = { path = "../catalog" }
 connection = { path = "../connection" }
-description = { path = "../description" }
 data_manager = { path = "../data_manager" }
 data_definition = { path = "../data_definition" }
+definition_operations = { path = "../definition_operations" }
+description = { path = "../description" }
 parser = { path = "../parser" }
 pg_model = { path = "../pg_model" }
 plan = { path = "../plan" }
 pg_wire = "0.5.0"
 schema_planner = { path = "../schema_planner" }
-schema_executor = { path = "../schema_executor" }
 query_analyzer = { path = "../query_analyzer" }
 query_analyzer_old = { path = "../query_analyzer_old" }
 query_executor = { path = "../query_executor" }
 query_planner = { path = "../query_planner" }
+schema_executor = { path = "../schema_executor" }
 sql_model = { path = "../sql_model" }
 types = { path = "../types" }
 

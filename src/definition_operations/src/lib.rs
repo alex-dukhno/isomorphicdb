@@ -14,27 +14,36 @@
 
 use types::SqlType;
 
-#[derive(Debug, PartialEq)]
-pub enum SystemOperation {
+#[derive(Debug, PartialEq, Clone)]
+pub struct SystemOperation {
+    pub kind: Kind,
+    pub skip_steps_if: Option<ObjectState>,
+    pub steps: Vec<Vec<Step>>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum Kind {
+    Create(SystemObject),
+    Drop(SystemObject),
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum Step {
     CheckExistence {
         system_object: SystemObject,
-        object_name: String,
+        object_name: Vec<String>,
     },
     CheckDependants {
         system_object: SystemObject,
-        object_name: String,
+        object_name: Vec<String>,
     },
     RemoveDependants {
         system_object: SystemObject,
-        object_name: String,
+        object_name: Vec<String>,
     },
     RemoveColumns {
         schema_name: String,
         table_name: String,
-    },
-    SkipIf {
-        object_state: ObjectState,
-        object_name: String,
     },
     CreateFolder {
         name: String,
@@ -62,19 +71,19 @@ pub enum SystemOperation {
     },
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum SystemObject {
     Schema,
     Table,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum ObjectState {
     Exists,
     NotExists,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Record {
     Schema {
         catalog_name: String,
@@ -92,4 +101,21 @@ pub enum Record {
         column_name: String,
         sql_type: SqlType,
     },
+}
+
+#[derive(Debug, PartialEq)]
+pub enum ExecutionOutcome {
+    SchemaCreated,
+    SchemaDropped,
+    TableCreated,
+    TableDropped,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum ExecutionError {
+    SchemaAlreadyExists(String),
+    SchemaDoesNotExist(String),
+    TableAlreadyExists(String, String),
+    TableDoesNotExist(String, String),
+    SchemaHasDependentObjects(String),
 }

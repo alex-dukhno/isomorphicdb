@@ -15,9 +15,11 @@
 use analysis::{AnalysisError, QueryAnalysis};
 use bigdecimal::BigDecimal;
 use binder::ParamBinder;
+use catalog::Database;
 use connection::Sender;
 use data_definition::DataDefReader;
-use data_manager::DataManager;
+use data_manager::DatabaseHandle;
+use definition_operations::{ExecutionError, ExecutionOutcome};
 use description::{Description, DescriptionError};
 use itertools::izip;
 use parser::QueryParser;
@@ -33,20 +35,21 @@ use query_analyzer::Analyzer;
 use query_analyzer_old::Analyzer as OldAnalyzer;
 use query_executor::QueryExecutor;
 use query_planner::{PlanError, QueryPlanner};
-use schema_executor::{ExecutionError, ExecutionOutcome, SystemSchemaExecutor};
+use schema_executor::SystemSchemaExecutor;
 use schema_planner::SystemSchemaPlanner;
 use sqlparser::ast::{Expr, Ident, Statement, Value};
 use std::{convert::TryFrom, iter, ops::Deref, sync::Arc};
 use types::SqlType;
 
-unsafe impl Send for QueryEngine {}
+unsafe impl<D: Database> Send for QueryEngine<D> {}
 
-unsafe impl Sync for QueryEngine {}
+unsafe impl<D: Database> Sync for QueryEngine<D> {}
 
-pub(crate) struct QueryEngine {
+pub(crate) struct QueryEngine<D: Database> {
     session: Session<Statement>,
     sender: Arc<dyn Sender>,
-    data_manager: Arc<DataManager>,
+    database: Arc<D>,
+    data_manager: Arc<DatabaseHandle>,
     param_binder: ParamBinder,
     query_analyzer: Analyzer,
     system_planner: SystemSchemaPlanner,
@@ -57,11 +60,12 @@ pub(crate) struct QueryEngine {
     query_executor: QueryExecutor,
 }
 
-impl QueryEngine {
-    pub(crate) fn new(sender: Arc<dyn Sender>, data_manager: Arc<DataManager>) -> QueryEngine {
+impl<D: Database> QueryEngine<D> {
+    pub(crate) fn new(sender: Arc<dyn Sender>, data_manager: Arc<DatabaseHandle>, database: Arc<D>) -> QueryEngine<D> {
         QueryEngine {
             session: Session::default(),
             sender: sender.clone(),
+            database,
             data_manager: data_manager.clone(),
             param_binder: ParamBinder,
             old_query_analyzer: OldAnalyzer::new(data_manager.clone()),
@@ -295,7 +299,7 @@ impl QueryEngine {
                         | statement @ Statement::Drop { .. } => match self.query_analyzer.analyze(statement) {
                             Ok(QueryAnalysis::DataDefinition(schema_change)) => {
                                 let operations = self.system_planner.schema_change_plan(&schema_change);
-                                let query_result = match self.schema_executor.execute(&schema_change, operations) {
+                                let query_result = match self.database.execute(operations.clone()) {
                                     Ok(ExecutionOutcome::SchemaCreated) => Ok(QueryEvent::SchemaCreated),
                                     Ok(ExecutionOutcome::SchemaDropped) => Ok(QueryEvent::SchemaDropped),
                                     Ok(ExecutionOutcome::TableCreated) => Ok(QueryEvent::TableCreated),
@@ -309,10 +313,16 @@ impl QueryEngine {
                                     Err(ExecutionError::TableAlreadyExists(schema_name, table_name)) => Err(
                                         QueryError::table_already_exists(format!("{}.{}", schema_name, table_name)),
                                     ),
-                                    Err(ExecutionError::TableDoesNotExists(schema_name, table_name)) => Err(
+                                    Err(ExecutionError::TableDoesNotExist(schema_name, table_name)) => Err(
                                         QueryError::table_does_not_exist(format!("{}.{}", schema_name, table_name)),
                                     ),
+                                    Err(ExecutionError::SchemaHasDependentObjects(schema_name)) => {
+                                        Err(QueryError::schema_has_dependent_objects(schema_name))
+                                    }
                                 };
+                                if query_result.is_ok() {
+                                    self.schema_executor.execute(&schema_change, &operations).unwrap();
+                                }
                                 self.sender.send(query_result).expect("To Send Result to Client");
                             }
                             Err(AnalysisError::SchemaDoesNotExist(schema_name)) => self

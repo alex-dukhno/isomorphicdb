@@ -45,7 +45,7 @@ fn create_table(name: Vec<&str>, columns: Vec<ColumnDef>) -> Statement {
 
 #[test]
 fn create_table_with_nonexistent_schema() {
-    let metadata = Arc::new(DataManager::in_memory());
+    let metadata = Arc::new(DatabaseHandle::in_memory());
     let analyzer = Analyzer::new(metadata);
     let description = analyzer.describe(&create_table(vec!["non_existent_schema", "non_existent_table"], vec![]));
 
@@ -57,7 +57,7 @@ fn create_table_with_nonexistent_schema() {
 
 #[test]
 fn create_table_with_the_same_name() {
-    let metadata = Arc::new(DataManager::in_memory());
+    let metadata = Arc::new(DatabaseHandle::in_memory());
     let schema_id = metadata.create_schema(SCHEMA).expect("schema created");
     metadata.create_table(schema_id, TABLE, &[]).expect("table created");
     let analyzer = Analyzer::new(metadata);
@@ -71,7 +71,7 @@ fn create_table_with_the_same_name() {
 
 #[test]
 fn create_table_with_unsupported_column_type() {
-    let metadata = Arc::new(DataManager::in_memory());
+    let metadata = Arc::new(DatabaseHandle::in_memory());
     metadata.create_schema(SCHEMA).expect("schema created");
     let analyzer = Analyzer::new(metadata);
     let description = analyzer.describe(&create_table(
@@ -91,7 +91,7 @@ fn create_table_with_unsupported_column_type() {
 
 #[test]
 fn create_table_with_unqualified_name() {
-    let metadata = Arc::new(DataManager::in_memory());
+    let metadata = Arc::new(DatabaseHandle::in_memory());
     metadata.create_schema(SCHEMA).expect("schema created");
     let analyzer = Analyzer::new(metadata);
     let description = analyzer.describe(&create_table(
@@ -108,7 +108,7 @@ fn create_table_with_unqualified_name() {
 
 #[test]
 fn create_table_with_unsupported_name() {
-    let metadata = Arc::new(DataManager::in_memory());
+    let metadata = Arc::new(DatabaseHandle::in_memory());
     metadata.create_schema(SCHEMA).expect("schema created");
     let analyzer = Analyzer::new(metadata);
     let description = analyzer.describe(&create_table(
@@ -125,7 +125,7 @@ fn create_table_with_unsupported_name() {
 
 #[test]
 fn successfully_create_table() {
-    let metadata = Arc::new(DataManager::in_memory());
+    let metadata = Arc::new(DatabaseHandle::in_memory());
     metadata.create_schema(SCHEMA).expect("schema created");
     let analyzer = Analyzer::new(metadata);
     let description = analyzer.describe(&create_table(

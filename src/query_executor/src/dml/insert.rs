@@ -16,7 +16,7 @@ use ast::operations::ScalarOp;
 use binary::{Binary, Row};
 use connection::Sender;
 use constraints::{Constraint, ConstraintError};
-use data_manager::DataManager;
+use data_manager::DatabaseHandle;
 use expr_eval::{EvalError, StaticExpressionEvaluation};
 use meta_def::ColumnDefinition;
 use pg_model::results::{QueryError, QueryEvent};
@@ -26,14 +26,14 @@ use std::sync::Arc;
 
 pub(crate) struct InsertCommand {
     table_inserts: TableInserts,
-    data_manager: Arc<DataManager>,
+    data_manager: Arc<DatabaseHandle>,
     sender: Arc<dyn Sender>,
 }
 
 impl InsertCommand {
     pub(crate) fn new(
         table_inserts: TableInserts,
-        data_manager: Arc<DataManager>,
+        data_manager: Arc<DatabaseHandle>,
         sender: Arc<dyn Sender>,
     ) -> InsertCommand {
         InsertCommand {

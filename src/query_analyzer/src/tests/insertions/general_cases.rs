@@ -20,7 +20,7 @@ fn insert_statement(full_name: Vec<&'static str>) -> ast::Statement {
 
 #[test]
 fn schema_does_not_exist() {
-    let analyzer = Analyzer::new(Arc::new(DataManager::in_memory()));
+    let analyzer = Analyzer::new(Arc::new(DatabaseHandle::in_memory()));
 
     assert_eq!(
         analyzer.analyze(insert_statement(vec![SCHEMA, TABLE])),
@@ -30,7 +30,7 @@ fn schema_does_not_exist() {
 
 #[test]
 fn table_does_not_exist() {
-    let data_definition = DataManager::in_memory();
+    let data_definition = DatabaseHandle::in_memory();
     data_definition.create_schema(SCHEMA).expect("schema created");
     let analyzer = Analyzer::new(Arc::new(data_definition));
 
@@ -42,7 +42,7 @@ fn table_does_not_exist() {
 
 #[test]
 fn table_with_unqualified_name() {
-    let data_definition = Arc::new(DataManager::in_memory());
+    let data_definition = Arc::new(DatabaseHandle::in_memory());
     let analyzer = Analyzer::new(data_definition);
     assert_eq!(
         analyzer.analyze(insert_statement(vec!["only_schema_in_the_name"])),
@@ -54,7 +54,7 @@ fn table_with_unqualified_name() {
 
 #[test]
 fn table_with_unsupported_name() {
-    let analyzer = Analyzer::new(Arc::new(DataManager::in_memory()));
+    let analyzer = Analyzer::new(Arc::new(DatabaseHandle::in_memory()));
     assert_eq!(
         analyzer.analyze(insert_statement(vec![
             "first_part",

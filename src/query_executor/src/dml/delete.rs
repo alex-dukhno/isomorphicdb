@@ -13,21 +13,21 @@
 // limitations under the License.
 
 use connection::Sender;
-use data_manager::DataManager;
+use data_manager::DatabaseHandle;
 use pg_model::results::QueryEvent;
 use plan::TableDeletes;
 use std::sync::Arc;
 
 pub(crate) struct DeleteCommand {
     table_deletes: TableDeletes,
-    data_manager: Arc<DataManager>,
+    data_manager: Arc<DatabaseHandle>,
     sender: Arc<dyn Sender>,
 }
 
 impl DeleteCommand {
     pub(crate) fn new(
         table_deletes: TableDeletes,
-        data_manager: Arc<DataManager>,
+        data_manager: Arc<DatabaseHandle>,
         sender: Arc<dyn Sender>,
     ) -> DeleteCommand {
         DeleteCommand {

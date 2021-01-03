@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use super::*;
+use catalog::InMemoryDatabase;
 use pg_model::{
     results::{QueryEvent, QueryResult},
     Command,
@@ -45,7 +46,7 @@ mod update;
 #[cfg(test)]
 mod where_clause;
 
-type InMemory = QueryEngine;
+type InMemory = QueryEngine<InMemoryDatabase>;
 type ResultCollector = Arc<Collector>;
 
 pub struct Collector(Mutex<Vec<QueryResult>>);
@@ -103,7 +104,11 @@ impl Collector {
 fn empty_database() -> (InMemory, ResultCollector) {
     let collector = Collector::new();
     (
-        InMemory::new(collector.clone(), Arc::new(DataManager::in_memory())),
+        InMemory::new(
+            collector.clone(),
+            Arc::new(DatabaseHandle::in_memory()),
+            InMemoryDatabase::new(),
+        ),
         collector,
     )
 }

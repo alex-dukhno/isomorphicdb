@@ -14,111 +14,119 @@
 
 use analysis::{CreateTableQuery, DropSchemasQuery, DropTablesQuery, SchemaChange, TableInfo};
 use data_definition::DataDefOperationExecutor;
-use data_manager::DataManager;
-use definition_operations::{SystemObject, SystemOperation};
+use data_manager::DatabaseHandle;
+use definition_operations::{Step, SystemObject, SystemOperation};
 use std::sync::Arc;
 
 pub struct SystemSchemaExecutor {
-    data_manager: Arc<DataManager>,
+    data_manager: Arc<DatabaseHandle>,
 }
 
 impl SystemSchemaExecutor {
-    pub fn new(data_manager: Arc<DataManager>) -> SystemSchemaExecutor {
+    pub fn new(data_manager: Arc<DatabaseHandle>) -> SystemSchemaExecutor {
         SystemSchemaExecutor { data_manager }
     }
 
     pub fn execute(
         &self,
         change: &SchemaChange,
-        operations: Vec<SystemOperation>,
+        operation: &SystemOperation,
     ) -> Result<ExecutionOutcome, ExecutionError> {
+        let SystemOperation {
+            kind: _kind,
+            skip_steps_if: _skip_steps_if,
+            steps,
+        } = operation;
+        let operations = steps;
         for operation in operations {
-            let result = self.data_manager.execute(&operation);
-            match (change, operation, result) {
-                (SchemaChange::CreateSchema(_), SystemOperation::CheckExistence { object_name, .. }, Ok(())) => {
-                    return Err(ExecutionError::SchemaAlreadyExists(object_name))
+            for operation in operation {
+                let result = self.data_manager.execute(operation);
+                match (change, operation, result) {
+                    (SchemaChange::CreateSchema(_), Step::CheckExistence { object_name, .. }, Ok(())) => {
+                        return Err(ExecutionError::SchemaAlreadyExists(object_name[0].to_owned()))
+                    }
+                    (SchemaChange::CreateSchema(_), _, _) => {}
+                    (
+                        SchemaChange::DropSchemas(DropSchemasQuery { if_exists: true, .. }),
+                        Step::CheckExistence { .. },
+                        Err(()),
+                    ) => break,
+                    (
+                        SchemaChange::DropSchemas(DropSchemasQuery { if_exists: false, .. }),
+                        Step::CheckExistence { object_name, .. },
+                        Err(()),
+                    ) => return Err(ExecutionError::SchemaDoesNotExist(object_name[0].to_owned())),
+                    (SchemaChange::DropSchemas(_), _, _) => {}
+                    (
+                        SchemaChange::CreateTable(CreateTableQuery {
+                            table_info:
+                                TableInfo {
+                                    schema_name,
+                                    table_name,
+                                    ..
+                                },
+                            ..
+                        }),
+                        Step::CheckExistence {
+                            system_object: SystemObject::Table,
+                            ..
+                        },
+                        Ok(()),
+                    ) => {
+                        return Err(ExecutionError::TableAlreadyExists(
+                            schema_name.to_owned(),
+                            table_name.to_owned(),
+                        ))
+                    }
+                    (
+                        SchemaChange::CreateTable(CreateTableQuery {
+                            table_info: TableInfo { schema_name, .. },
+                            ..
+                        }),
+                        Step::CheckExistence {
+                            system_object: SystemObject::Schema,
+                            ..
+                        },
+                        Err(()),
+                    ) => return Err(ExecutionError::SchemaDoesNotExist(schema_name.to_owned())),
+                    (SchemaChange::CreateTable(_), _, _) => {}
+                    (
+                        SchemaChange::DropTables(DropTablesQuery { if_exists: false, .. }),
+                        Step::CheckExistence {
+                            system_object: SystemObject::Schema,
+                            object_name,
+                        },
+                        Err(()),
+                    ) => return Err(ExecutionError::SchemaDoesNotExist(object_name[0].to_owned())),
+                    (
+                        SchemaChange::DropTables(DropTablesQuery {
+                            table_infos,
+                            if_exists: false,
+                            ..
+                        }),
+                        Step::CheckExistence {
+                            system_object: SystemObject::Table,
+                            ..
+                        },
+                        Err(()),
+                    ) => {
+                        return Err(ExecutionError::TableDoesNotExists(
+                            table_infos[0].schema_name.to_string(),
+                            table_infos[0].table_name.to_string(),
+                        ))
+                    }
+                    (
+                        SchemaChange::DropTables(DropTablesQuery { if_exists: true, .. }),
+                        Step::CheckExistence {
+                            system_object: SystemObject::Table,
+                            ..
+                        },
+                        Err(()),
+                    ) => {
+                        break;
+                    }
+                    (SchemaChange::DropTables(_), _, _) => {}
                 }
-                (SchemaChange::CreateSchema(_), _, _) => {}
-                (
-                    SchemaChange::DropSchemas(DropSchemasQuery { if_exists: true, .. }),
-                    SystemOperation::CheckExistence { .. },
-                    Err(()),
-                ) => break,
-                (
-                    SchemaChange::DropSchemas(DropSchemasQuery { if_exists: false, .. }),
-                    SystemOperation::CheckExistence { object_name, .. },
-                    Err(()),
-                ) => return Err(ExecutionError::SchemaDoesNotExist(object_name)),
-                (SchemaChange::DropSchemas(_), _, _) => {}
-                (
-                    SchemaChange::CreateTable(CreateTableQuery {
-                        table_info:
-                            TableInfo {
-                                schema_name,
-                                table_name,
-                                ..
-                            },
-                        ..
-                    }),
-                    SystemOperation::CheckExistence {
-                        system_object: SystemObject::Table,
-                        ..
-                    },
-                    Ok(()),
-                ) => {
-                    return Err(ExecutionError::TableAlreadyExists(
-                        schema_name.to_owned(),
-                        table_name.to_owned(),
-                    ))
-                }
-                (
-                    SchemaChange::CreateTable(CreateTableQuery {
-                        table_info: TableInfo { schema_name, .. },
-                        ..
-                    }),
-                    SystemOperation::CheckExistence {
-                        system_object: SystemObject::Schema,
-                        ..
-                    },
-                    Err(()),
-                ) => return Err(ExecutionError::SchemaDoesNotExist(schema_name.to_owned())),
-                (SchemaChange::CreateTable(_), _, _) => {}
-                (
-                    SchemaChange::DropTables(DropTablesQuery { if_exists: false, .. }),
-                    SystemOperation::CheckExistence {
-                        system_object: SystemObject::Schema,
-                        object_name,
-                    },
-                    Err(()),
-                ) => return Err(ExecutionError::SchemaDoesNotExist(object_name)),
-                (
-                    SchemaChange::DropTables(DropTablesQuery {
-                        table_infos,
-                        if_exists: false,
-                        ..
-                    }),
-                    SystemOperation::CheckExistence {
-                        system_object: SystemObject::Table,
-                        ..
-                    },
-                    Err(()),
-                ) => {
-                    return Err(ExecutionError::TableDoesNotExists(
-                        table_infos[0].schema_name.to_string(),
-                        table_infos[0].table_name.to_string(),
-                    ))
-                }
-                (
-                    SchemaChange::DropTables(DropTablesQuery { if_exists: true, .. }),
-                    SystemOperation::CheckExistence {
-                        system_object: SystemObject::Table,
-                        ..
-                    },
-                    Err(()),
-                ) => {
-                    break;
-                }
-                (SchemaChange::DropTables(_), _, _) => {}
             }
         }
         match change {
@@ -151,14 +159,14 @@ mod tests {
     use super::*;
     use analysis::{CreateSchemaQuery, CreateTableQuery, DropSchemasQuery, DropTablesQuery, SchemaName, TableInfo};
     use data_manager::{DEFAULT_CATALOG, DEFINITION_SCHEMA, SCHEMATA_TABLE, TABLES_TABLE};
-    use definition_operations::{Record, SystemObject};
+    use definition_operations::{Kind, Record, Step, SystemObject};
 
     const SCHEMA: &str = "schema_name";
     const TABLE: &str = "table_name";
 
     #[test]
     fn create_same_schema() {
-        let data_manager = Arc::new(DataManager::in_memory());
+        let data_manager = Arc::new(DatabaseHandle::in_memory());
         let executor = SystemSchemaExecutor::new(data_manager);
         assert_eq!(
             executor.execute(
@@ -166,23 +174,27 @@ mod tests {
                     schema_name: SchemaName::from(&SCHEMA),
                     if_not_exists: false,
                 }),
-                vec![
-                    SystemOperation::CheckExistence {
-                        system_object: SystemObject::Schema,
-                        object_name: SCHEMA.to_owned(),
-                    },
-                    SystemOperation::CreateFolder {
-                        name: SCHEMA.to_owned(),
-                    },
-                    SystemOperation::CreateRecord {
-                        system_schema: DEFINITION_SCHEMA.to_owned(),
-                        system_table: SCHEMATA_TABLE.to_owned(),
-                        record: Record::Schema {
-                            catalog_name: DEFAULT_CATALOG.to_owned(),
-                            schema_name: SCHEMA.to_owned(),
+                &SystemOperation {
+                    kind: Kind::Create(SystemObject::Schema),
+                    skip_steps_if: None,
+                    steps: vec![vec![
+                        Step::CheckExistence {
+                            system_object: SystemObject::Schema,
+                            object_name: vec![SCHEMA.to_owned()],
                         },
-                    },
-                ]
+                        Step::CreateFolder {
+                            name: SCHEMA.to_owned(),
+                        },
+                        Step::CreateRecord {
+                            system_schema: DEFINITION_SCHEMA.to_owned(),
+                            system_table: SCHEMATA_TABLE.to_owned(),
+                            record: Record::Schema {
+                                catalog_name: DEFAULT_CATALOG.to_owned(),
+                                schema_name: SCHEMA.to_owned(),
+                            },
+                        },
+                    ]]
+                }
             ),
             Ok(ExecutionOutcome::SchemaCreated)
         );
@@ -193,23 +205,27 @@ mod tests {
                     schema_name: SchemaName::from(&SCHEMA),
                     if_not_exists: false,
                 }),
-                vec![
-                    SystemOperation::CheckExistence {
-                        system_object: SystemObject::Schema,
-                        object_name: SCHEMA.to_owned(),
-                    },
-                    SystemOperation::CreateFolder {
-                        name: SCHEMA.to_owned(),
-                    },
-                    SystemOperation::CreateRecord {
-                        system_schema: DEFINITION_SCHEMA.to_owned(),
-                        system_table: SCHEMATA_TABLE.to_owned(),
-                        record: Record::Schema {
-                            catalog_name: DEFAULT_CATALOG.to_owned(),
-                            schema_name: SCHEMA.to_owned(),
+                &SystemOperation {
+                    kind: Kind::Create(SystemObject::Schema),
+                    skip_steps_if: None,
+                    steps: vec![vec![
+                        Step::CheckExistence {
+                            system_object: SystemObject::Schema,
+                            object_name: vec![SCHEMA.to_owned()],
                         },
-                    },
-                ]
+                        Step::CreateFolder {
+                            name: SCHEMA.to_owned(),
+                        },
+                        Step::CreateRecord {
+                            system_schema: DEFINITION_SCHEMA.to_owned(),
+                            system_table: SCHEMATA_TABLE.to_owned(),
+                            record: Record::Schema {
+                                catalog_name: DEFAULT_CATALOG.to_owned(),
+                                schema_name: SCHEMA.to_owned(),
+                            },
+                        },
+                    ]]
+                }
             ),
             Err(ExecutionError::SchemaAlreadyExists(SCHEMA.to_owned()))
         );
@@ -217,7 +233,7 @@ mod tests {
 
     #[test]
     fn drop_nonexistent_schema() {
-        let data_manager = Arc::new(DataManager::in_memory());
+        let data_manager = Arc::new(DatabaseHandle::in_memory());
         let executor = SystemSchemaExecutor::new(data_manager);
 
         assert_eq!(
@@ -227,27 +243,31 @@ mod tests {
                     cascade: false,
                     if_exists: false
                 }),
-                vec![
-                    SystemOperation::CheckExistence {
-                        system_object: SystemObject::Schema,
-                        object_name: SCHEMA.to_owned()
-                    },
-                    SystemOperation::CheckDependants {
-                        system_object: SystemObject::Schema,
-                        object_name: SCHEMA.to_owned()
-                    },
-                    SystemOperation::RemoveRecord {
-                        system_schema: DEFINITION_SCHEMA.to_owned(),
-                        system_table: SCHEMATA_TABLE.to_owned(),
-                        record: Record::Schema {
-                            catalog_name: DEFAULT_CATALOG.to_owned(),
-                            schema_name: SCHEMA.to_owned()
+                &SystemOperation {
+                    kind: Kind::Create(SystemObject::Schema),
+                    skip_steps_if: None,
+                    steps: vec![vec![
+                        Step::CheckExistence {
+                            system_object: SystemObject::Schema,
+                            object_name: vec![SCHEMA.to_owned()],
+                        },
+                        Step::CheckDependants {
+                            system_object: SystemObject::Schema,
+                            object_name: vec![SCHEMA.to_owned()],
+                        },
+                        Step::RemoveRecord {
+                            system_schema: DEFINITION_SCHEMA.to_owned(),
+                            system_table: SCHEMATA_TABLE.to_owned(),
+                            record: Record::Schema {
+                                catalog_name: DEFAULT_CATALOG.to_owned(),
+                                schema_name: SCHEMA.to_owned()
+                            }
+                        },
+                        Step::RemoveFolder {
+                            name: SCHEMA.to_owned()
                         }
-                    },
-                    SystemOperation::RemoveFolder {
-                        name: SCHEMA.to_owned()
-                    }
-                ]
+                    ]]
+                }
             ),
             Err(ExecutionError::SchemaDoesNotExist(SCHEMA.to_owned()))
         );
@@ -255,7 +275,7 @@ mod tests {
 
     #[test]
     fn create_table_where_schema_not_found() {
-        let data_manager = Arc::new(DataManager::in_memory());
+        let data_manager = Arc::new(DatabaseHandle::in_memory());
         let executor = SystemSchemaExecutor::new(data_manager);
 
         assert_eq!(
@@ -265,29 +285,33 @@ mod tests {
                     column_defs: vec![],
                     if_not_exists: false,
                 }),
-                vec![
-                    SystemOperation::CheckExistence {
-                        system_object: SystemObject::Schema,
-                        object_name: SCHEMA.to_owned()
-                    },
-                    SystemOperation::CheckExistence {
-                        system_object: SystemObject::Table,
-                        object_name: TABLE.to_owned()
-                    },
-                    SystemOperation::CreateFile {
-                        folder_name: SCHEMA.to_owned(),
-                        name: TABLE.to_owned()
-                    },
-                    SystemOperation::CreateRecord {
-                        system_schema: DEFINITION_SCHEMA.to_owned(),
-                        system_table: TABLES_TABLE.to_owned(),
-                        record: Record::Table {
-                            catalog_name: DEFAULT_CATALOG.to_owned(),
-                            schema_name: SCHEMA.to_owned(),
-                            table_name: TABLE.to_owned(),
+                &SystemOperation {
+                    kind: Kind::Create(SystemObject::Schema),
+                    skip_steps_if: None,
+                    steps: vec![vec![
+                        Step::CheckExistence {
+                            system_object: SystemObject::Schema,
+                            object_name: vec![SCHEMA.to_owned()],
+                        },
+                        Step::CheckExistence {
+                            system_object: SystemObject::Table,
+                            object_name: vec![TABLE.to_owned()],
+                        },
+                        Step::CreateFile {
+                            folder_name: SCHEMA.to_owned(),
+                            name: TABLE.to_owned()
+                        },
+                        Step::CreateRecord {
+                            system_schema: DEFINITION_SCHEMA.to_owned(),
+                            system_table: TABLES_TABLE.to_owned(),
+                            record: Record::Table {
+                                catalog_name: DEFAULT_CATALOG.to_owned(),
+                                schema_name: SCHEMA.to_owned(),
+                                table_name: TABLE.to_owned(),
+                            }
                         }
-                    }
-                ]
+                    ]]
+                }
             ),
             Err(ExecutionError::SchemaDoesNotExist(SCHEMA.to_owned()))
         );
@@ -295,7 +319,7 @@ mod tests {
 
     #[test]
     fn create_same_table() {
-        let data_manager = Arc::new(DataManager::in_memory());
+        let data_manager = Arc::new(DatabaseHandle::in_memory());
         let executor = SystemSchemaExecutor::new(data_manager);
 
         if executor
@@ -304,23 +328,27 @@ mod tests {
                     schema_name: SchemaName::from(&SCHEMA),
                     if_not_exists: false,
                 }),
-                vec![
-                    SystemOperation::CheckExistence {
-                        system_object: SystemObject::Schema,
-                        object_name: SCHEMA.to_owned(),
-                    },
-                    SystemOperation::CreateFolder {
-                        name: SCHEMA.to_owned(),
-                    },
-                    SystemOperation::CreateRecord {
-                        system_schema: DEFINITION_SCHEMA.to_owned(),
-                        system_table: SCHEMATA_TABLE.to_owned(),
-                        record: Record::Schema {
-                            catalog_name: DEFAULT_CATALOG.to_owned(),
-                            schema_name: SCHEMA.to_owned(),
+                &SystemOperation {
+                    kind: Kind::Create(SystemObject::Schema),
+                    skip_steps_if: None,
+                    steps: vec![vec![
+                        Step::CheckExistence {
+                            system_object: SystemObject::Schema,
+                            object_name: vec![SCHEMA.to_owned()],
                         },
-                    },
-                ],
+                        Step::CreateFolder {
+                            name: SCHEMA.to_owned(),
+                        },
+                        Step::CreateRecord {
+                            system_schema: DEFINITION_SCHEMA.to_owned(),
+                            system_table: SCHEMATA_TABLE.to_owned(),
+                            record: Record::Schema {
+                                catalog_name: DEFAULT_CATALOG.to_owned(),
+                                schema_name: SCHEMA.to_owned(),
+                            },
+                        },
+                    ]],
+                },
             )
             .is_ok()
         {}
@@ -332,29 +360,33 @@ mod tests {
                     column_defs: vec![],
                     if_not_exists: false,
                 }),
-                vec![
-                    SystemOperation::CheckExistence {
-                        system_object: SystemObject::Schema,
-                        object_name: SCHEMA.to_owned()
-                    },
-                    SystemOperation::CheckExistence {
-                        system_object: SystemObject::Table,
-                        object_name: TABLE.to_owned()
-                    },
-                    SystemOperation::CreateFile {
-                        folder_name: SCHEMA.to_owned(),
-                        name: TABLE.to_owned()
-                    },
-                    SystemOperation::CreateRecord {
-                        system_schema: DEFINITION_SCHEMA.to_owned(),
-                        system_table: TABLES_TABLE.to_owned(),
-                        record: Record::Table {
-                            catalog_name: DEFAULT_CATALOG.to_owned(),
-                            schema_name: SCHEMA.to_owned(),
-                            table_name: TABLE.to_owned(),
+                &SystemOperation {
+                    kind: Kind::Create(SystemObject::Schema),
+                    skip_steps_if: None,
+                    steps: vec![vec![
+                        Step::CheckExistence {
+                            system_object: SystemObject::Schema,
+                            object_name: vec![SCHEMA.to_owned()],
+                        },
+                        Step::CheckExistence {
+                            system_object: SystemObject::Table,
+                            object_name: vec![TABLE.to_owned()],
+                        },
+                        Step::CreateFile {
+                            folder_name: SCHEMA.to_owned(),
+                            name: TABLE.to_owned()
+                        },
+                        Step::CreateRecord {
+                            system_schema: DEFINITION_SCHEMA.to_owned(),
+                            system_table: TABLES_TABLE.to_owned(),
+                            record: Record::Table {
+                                catalog_name: DEFAULT_CATALOG.to_owned(),
+                                schema_name: SCHEMA.to_owned(),
+                                table_name: TABLE.to_owned(),
+                            }
                         }
-                    }
-                ]
+                    ]]
+                }
             ),
             Ok(ExecutionOutcome::TableCreated)
         );
@@ -366,29 +398,33 @@ mod tests {
                     column_defs: vec![],
                     if_not_exists: false,
                 }),
-                vec![
-                    SystemOperation::CheckExistence {
-                        system_object: SystemObject::Schema,
-                        object_name: SCHEMA.to_owned()
-                    },
-                    SystemOperation::CheckExistence {
-                        system_object: SystemObject::Table,
-                        object_name: TABLE.to_owned()
-                    },
-                    SystemOperation::CreateFile {
-                        folder_name: SCHEMA.to_owned(),
-                        name: TABLE.to_owned()
-                    },
-                    SystemOperation::CreateRecord {
-                        system_schema: DEFINITION_SCHEMA.to_owned(),
-                        system_table: TABLES_TABLE.to_owned(),
-                        record: Record::Table {
-                            catalog_name: DEFAULT_CATALOG.to_owned(),
-                            schema_name: SCHEMA.to_owned(),
-                            table_name: TABLE.to_owned(),
+                &SystemOperation {
+                    kind: Kind::Create(SystemObject::Schema),
+                    skip_steps_if: None,
+                    steps: vec![vec![
+                        Step::CheckExistence {
+                            system_object: SystemObject::Schema,
+                            object_name: vec![SCHEMA.to_owned()],
+                        },
+                        Step::CheckExistence {
+                            system_object: SystemObject::Table,
+                            object_name: vec![TABLE.to_owned()],
+                        },
+                        Step::CreateFile {
+                            folder_name: SCHEMA.to_owned(),
+                            name: TABLE.to_owned()
+                        },
+                        Step::CreateRecord {
+                            system_schema: DEFINITION_SCHEMA.to_owned(),
+                            system_table: TABLES_TABLE.to_owned(),
+                            record: Record::Table {
+                                catalog_name: DEFAULT_CATALOG.to_owned(),
+                                schema_name: SCHEMA.to_owned(),
+                                table_name: TABLE.to_owned(),
+                            }
                         }
-                    }
-                ]
+                    ]]
+                }
             ),
             Err(ExecutionError::TableAlreadyExists(SCHEMA.to_owned(), TABLE.to_owned()))
         );
@@ -396,7 +432,7 @@ mod tests {
 
     #[test]
     fn drop_table_where_schema_not_found() {
-        let data_manager = Arc::new(DataManager::in_memory());
+        let data_manager = Arc::new(DatabaseHandle::in_memory());
         let executor = SystemSchemaExecutor::new(data_manager);
 
         assert_eq!(
@@ -406,37 +442,41 @@ mod tests {
                     cascade: false,
                     if_exists: false
                 }),
-                vec![
-                    SystemOperation::CheckExistence {
-                        system_object: SystemObject::Schema,
-                        object_name: SCHEMA.to_owned()
-                    },
-                    SystemOperation::CheckExistence {
-                        system_object: SystemObject::Table,
-                        object_name: TABLE.to_owned()
-                    },
-                    SystemOperation::CheckDependants {
-                        system_object: SystemObject::Table,
-                        object_name: TABLE.to_owned()
-                    },
-                    SystemOperation::RemoveColumns {
-                        schema_name: SCHEMA.to_owned(),
-                        table_name: TABLE.to_owned()
-                    },
-                    SystemOperation::RemoveRecord {
-                        system_schema: DEFINITION_SCHEMA.to_owned(),
-                        system_table: TABLES_TABLE.to_owned(),
-                        record: Record::Table {
-                            catalog_name: DEFAULT_CATALOG.to_owned(),
+                &SystemOperation {
+                    kind: Kind::Create(SystemObject::Schema),
+                    skip_steps_if: None,
+                    steps: vec![vec![
+                        Step::CheckExistence {
+                            system_object: SystemObject::Schema,
+                            object_name: vec![SCHEMA.to_owned()],
+                        },
+                        Step::CheckExistence {
+                            system_object: SystemObject::Table,
+                            object_name: vec![TABLE.to_owned()],
+                        },
+                        Step::CheckDependants {
+                            system_object: SystemObject::Table,
+                            object_name: vec![TABLE.to_owned()],
+                        },
+                        Step::RemoveColumns {
                             schema_name: SCHEMA.to_owned(),
-                            table_name: TABLE.to_owned(),
-                        }
-                    },
-                    SystemOperation::RemoveFile {
-                        folder_name: SCHEMA.to_owned(),
-                        name: TABLE.to_owned()
-                    },
-                ]
+                            table_name: TABLE.to_owned()
+                        },
+                        Step::RemoveRecord {
+                            system_schema: DEFINITION_SCHEMA.to_owned(),
+                            system_table: TABLES_TABLE.to_owned(),
+                            record: Record::Table {
+                                catalog_name: DEFAULT_CATALOG.to_owned(),
+                                schema_name: SCHEMA.to_owned(),
+                                table_name: TABLE.to_owned(),
+                            }
+                        },
+                        Step::RemoveFile {
+                            folder_name: SCHEMA.to_owned(),
+                            name: TABLE.to_owned()
+                        },
+                    ]]
+                }
             ),
             Err(ExecutionError::SchemaDoesNotExist(SCHEMA.to_owned()))
         );
@@ -444,7 +484,7 @@ mod tests {
 
     #[test]
     fn drop_nonexistent_table() {
-        let data_manager = Arc::new(DataManager::in_memory());
+        let data_manager = Arc::new(DatabaseHandle::in_memory());
         let executor = SystemSchemaExecutor::new(data_manager);
 
         if executor
@@ -453,23 +493,27 @@ mod tests {
                     schema_name: SchemaName::from(&SCHEMA),
                     if_not_exists: false,
                 }),
-                vec![
-                    SystemOperation::CheckExistence {
-                        system_object: SystemObject::Schema,
-                        object_name: SCHEMA.to_owned(),
-                    },
-                    SystemOperation::CreateFolder {
-                        name: SCHEMA.to_owned(),
-                    },
-                    SystemOperation::CreateRecord {
-                        system_schema: DEFINITION_SCHEMA.to_owned(),
-                        system_table: SCHEMATA_TABLE.to_owned(),
-                        record: Record::Schema {
-                            catalog_name: DEFAULT_CATALOG.to_owned(),
-                            schema_name: SCHEMA.to_owned(),
+                &SystemOperation {
+                    kind: Kind::Create(SystemObject::Schema),
+                    skip_steps_if: None,
+                    steps: vec![vec![
+                        Step::CheckExistence {
+                            system_object: SystemObject::Schema,
+                            object_name: vec![SCHEMA.to_owned()],
                         },
-                    },
-                ],
+                        Step::CreateFolder {
+                            name: SCHEMA.to_owned(),
+                        },
+                        Step::CreateRecord {
+                            system_schema: DEFINITION_SCHEMA.to_owned(),
+                            system_table: SCHEMATA_TABLE.to_owned(),
+                            record: Record::Schema {
+                                catalog_name: DEFAULT_CATALOG.to_owned(),
+                                schema_name: SCHEMA.to_owned(),
+                            },
+                        },
+                    ]],
+                },
             )
             .is_ok()
         {}
@@ -481,37 +525,41 @@ mod tests {
                     cascade: false,
                     if_exists: false
                 }),
-                vec![
-                    SystemOperation::CheckExistence {
-                        system_object: SystemObject::Schema,
-                        object_name: SCHEMA.to_owned()
-                    },
-                    SystemOperation::CheckExistence {
-                        system_object: SystemObject::Table,
-                        object_name: TABLE.to_owned()
-                    },
-                    SystemOperation::CheckDependants {
-                        system_object: SystemObject::Table,
-                        object_name: TABLE.to_owned()
-                    },
-                    SystemOperation::RemoveColumns {
-                        schema_name: SCHEMA.to_owned(),
-                        table_name: TABLE.to_owned()
-                    },
-                    SystemOperation::RemoveRecord {
-                        system_schema: DEFINITION_SCHEMA.to_owned(),
-                        system_table: TABLES_TABLE.to_owned(),
-                        record: Record::Table {
-                            catalog_name: DEFAULT_CATALOG.to_owned(),
+                &SystemOperation {
+                    kind: Kind::Create(SystemObject::Schema),
+                    skip_steps_if: None,
+                    steps: vec![vec![
+                        Step::CheckExistence {
+                            system_object: SystemObject::Schema,
+                            object_name: vec![SCHEMA.to_owned()],
+                        },
+                        Step::CheckExistence {
+                            system_object: SystemObject::Table,
+                            object_name: vec![TABLE.to_owned()],
+                        },
+                        Step::CheckDependants {
+                            system_object: SystemObject::Table,
+                            object_name: vec![TABLE.to_owned()],
+                        },
+                        Step::RemoveColumns {
                             schema_name: SCHEMA.to_owned(),
-                            table_name: TABLE.to_owned(),
-                        }
-                    },
-                    SystemOperation::RemoveFile {
-                        folder_name: SCHEMA.to_owned(),
-                        name: TABLE.to_owned()
-                    },
-                ]
+                            table_name: TABLE.to_owned()
+                        },
+                        Step::RemoveRecord {
+                            system_schema: DEFINITION_SCHEMA.to_owned(),
+                            system_table: TABLES_TABLE.to_owned(),
+                            record: Record::Table {
+                                catalog_name: DEFAULT_CATALOG.to_owned(),
+                                schema_name: SCHEMA.to_owned(),
+                                table_name: TABLE.to_owned(),
+                            }
+                        },
+                        Step::RemoveFile {
+                            folder_name: SCHEMA.to_owned(),
+                            name: TABLE.to_owned()
+                        },
+                    ]]
+                }
             ),
             Err(ExecutionError::TableDoesNotExists(SCHEMA.to_owned(), TABLE.to_owned()))
         );

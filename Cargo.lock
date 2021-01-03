@@ -229,6 +229,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "631ae5198c9be5e753e5cc215e1bd73c2b466a3565173db433f52bb9d3e66dba"
 
 [[package]]
+name = "catalog"
+version = "0.1.0"
+dependencies = [
+ "backtrace",
+ "binary",
+ "dashmap",
+ "definition_operations",
+ "log",
+ "repr",
+ "rstest",
+ "sled",
+ "tempfile",
+ "types",
+]
+
+[[package]]
 name = "cc"
 version = "1.0.61"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -759,9 +775,11 @@ dependencies = [
  "bigdecimal",
  "binder",
  "blocking",
+ "catalog",
  "connection",
  "data_definition",
  "data_manager",
+ "definition_operations",
  "description",
  "futures-lite",
  "itertools",

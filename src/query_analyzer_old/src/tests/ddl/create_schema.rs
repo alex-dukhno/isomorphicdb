@@ -25,7 +25,7 @@ fn create_schema(schema_name: ObjectName) -> Statement {
 
 #[test]
 fn create_new_schema() {
-    let metadata = Arc::new(DataManager::in_memory());
+    let metadata = Arc::new(DatabaseHandle::in_memory());
     let analyzer = Analyzer::new(metadata);
     let description = analyzer.describe(&create_schema(ObjectName(vec![ident(SCHEMA)])));
     assert_eq!(
@@ -38,7 +38,7 @@ fn create_new_schema() {
 
 #[test]
 fn create_schema_with_the_same_name() {
-    let metadata = Arc::new(DataManager::in_memory());
+    let metadata = Arc::new(DatabaseHandle::in_memory());
     metadata.create_schema(SCHEMA).expect("schema created");
     let analyzer = Analyzer::new(metadata);
     let description = analyzer.describe(&create_schema(ObjectName(vec![ident(SCHEMA)])));
@@ -47,7 +47,7 @@ fn create_schema_with_the_same_name() {
 
 #[test]
 fn create_schema_with_unqualified_name() {
-    let metadata = Arc::new(DataManager::in_memory());
+    let metadata = Arc::new(DatabaseHandle::in_memory());
     let analyzer = Analyzer::new(metadata);
     let description = analyzer.describe(&create_schema(ObjectName(vec![
         ident("first_part"),

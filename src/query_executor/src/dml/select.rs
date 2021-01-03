@@ -19,7 +19,7 @@ use ast::{
 use binary::ReadCursor;
 use connection::Sender;
 use data_definition::DataDefReader;
-use data_manager::DataManager;
+use data_manager::DatabaseHandle;
 use meta_def::Id;
 use pg_model::results::QueryEvent;
 use pg_wire::{ColumnMetadata, PgType};
@@ -29,11 +29,11 @@ use std::{convert::TryInto, sync::Arc};
 struct Source {
     table_id: FullTableId,
     cursor: Option<ReadCursor>,
-    data_manager: Arc<DataManager>,
+    data_manager: Arc<DatabaseHandle>,
 }
 
 impl Source {
-    fn new(table_id: FullTableId, data_manager: Arc<DataManager>) -> Source {
+    fn new(table_id: FullTableId, data_manager: Arc<DatabaseHandle>) -> Source {
         Source {
             table_id,
             cursor: None,
@@ -135,14 +135,14 @@ impl<'f> Iterator for Filter<'f> {
 
 pub(crate) struct SelectCommand {
     select_input: SelectInput,
-    data_manager: Arc<DataManager>,
+    data_manager: Arc<DatabaseHandle>,
     sender: Arc<dyn Sender>,
 }
 
 impl SelectCommand {
     pub(crate) fn new(
         select_input: SelectInput,
-        data_manager: Arc<DataManager>,
+        data_manager: Arc<DatabaseHandle>,
         sender: Arc<dyn Sender>,
     ) -> SelectCommand {
         SelectCommand {

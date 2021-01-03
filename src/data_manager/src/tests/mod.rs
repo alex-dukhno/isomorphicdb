@@ -29,23 +29,23 @@ const TABLE: &str = "table_name";
 const TABLE_1: &str = "table_name_1";
 const TABLE_2: &str = "table_name_2";
 
-type InMemory = DataManager;
+type InMemory = DatabaseHandle;
 
-fn create_table(schema_name: &str, table_name: &str, columns: &[(&str, SqlType)]) -> Vec<SystemOperation> {
+fn create_table(schema_name: &str, table_name: &str, columns: &[(&str, SqlType)]) -> Vec<Step> {
     let mut all = vec![
-        SystemOperation::CheckExistence {
+        Step::CheckExistence {
             system_object: SystemObject::Schema,
-            object_name: schema_name.to_owned(),
+            object_name: vec![schema_name.to_owned()],
         },
-        SystemOperation::CheckExistence {
+        Step::CheckExistence {
             system_object: SystemObject::Table,
-            object_name: table_name.to_owned(),
+            object_name: vec![table_name.to_owned()],
         },
-        SystemOperation::CreateFile {
+        Step::CreateFile {
             folder_name: schema_name.to_owned(),
             name: table_name.to_owned(),
         },
-        SystemOperation::CreateRecord {
+        Step::CreateRecord {
             system_schema: DEFINITION_SCHEMA.to_owned(),
             system_table: TABLES_TABLE.to_owned(),
             record: Record::Table {
@@ -58,7 +58,7 @@ fn create_table(schema_name: &str, table_name: &str, columns: &[(&str, SqlType)]
 
     let columns_ops = columns
         .iter()
-        .map(|(column_name, column_type)| SystemOperation::CreateRecord {
+        .map(|(column_name, column_type)| Step::CreateRecord {
             system_schema: DEFINITION_SCHEMA.to_owned(),
             system_table: COLUMNS_TABLE.to_owned(),
             record: Record::Column {
@@ -69,22 +69,22 @@ fn create_table(schema_name: &str, table_name: &str, columns: &[(&str, SqlType)]
                 sql_type: *column_type,
             },
         })
-        .collect::<Vec<SystemOperation>>();
+        .collect::<Vec<Step>>();
 
     all.extend(columns_ops);
     all
 }
 
-fn create_schema_ops(schema_name: &str) -> Vec<SystemOperation> {
+fn create_schema_ops(schema_name: &str) -> Vec<Step> {
     vec![
-        SystemOperation::CheckExistence {
+        Step::CheckExistence {
             system_object: SystemObject::Schema,
-            object_name: schema_name.to_owned(),
+            object_name: vec![schema_name.to_owned()],
         },
-        SystemOperation::CreateFolder {
+        Step::CreateFolder {
             name: schema_name.to_owned(),
         },
-        SystemOperation::CreateRecord {
+        Step::CreateRecord {
             system_schema: DEFINITION_SCHEMA.to_owned(),
             system_table: SCHEMATA_TABLE.to_owned(),
             record: Record::Schema {
@@ -95,26 +95,21 @@ fn create_schema_ops(schema_name: &str) -> Vec<SystemOperation> {
     ]
 }
 
-fn create_table_ops(
-    schema_name: &str,
-    table_name: &str,
-    column_name: &str,
-    column_type: SqlType,
-) -> Vec<SystemOperation> {
+fn create_table_ops(schema_name: &str, table_name: &str, column_name: &str, column_type: SqlType) -> Vec<Step> {
     vec![
-        SystemOperation::CheckExistence {
+        Step::CheckExistence {
             system_object: SystemObject::Schema,
-            object_name: schema_name.to_owned(),
+            object_name: vec![schema_name.to_owned()],
         },
-        SystemOperation::CheckExistence {
+        Step::CheckExistence {
             system_object: SystemObject::Table,
-            object_name: table_name.to_owned(),
+            object_name: vec![table_name.to_owned()],
         },
-        SystemOperation::CreateFile {
+        Step::CreateFile {
             folder_name: schema_name.to_owned(),
             name: table_name.to_owned(),
         },
-        SystemOperation::CreateRecord {
+        Step::CreateRecord {
             system_schema: DEFINITION_SCHEMA.to_owned(),
             system_table: TABLES_TABLE.to_owned(),
             record: Record::Table {
@@ -123,7 +118,7 @@ fn create_table_ops(
                 table_name: table_name.to_owned(),
             },
         },
-        SystemOperation::CreateRecord {
+        Step::CreateRecord {
             system_schema: DEFINITION_SCHEMA.to_owned(),
             system_table: COLUMNS_TABLE.to_owned(),
             record: Record::Column {
@@ -139,7 +134,7 @@ fn create_table_ops(
 
 #[rstest::fixture]
 fn data_manager() -> InMemory {
-    DataManager::in_memory()
+    DatabaseHandle::in_memory()
 }
 
 #[rstest::fixture]

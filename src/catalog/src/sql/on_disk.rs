@@ -12,23 +12,31 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-mod ddl;
-mod insert;
-mod select;
-mod update;
-
-use super::*;
-use data_manager::DatabaseHandle;
-use meta_def::ColumnDefinition;
-use sqlparser::ast::{Expr, Ident, ObjectName, Query, SetExpr, Value, Values};
+use crate::{Database, SqlSchema, SqlTable};
+use definition_operations::{ExecutionError, ExecutionOutcome, SystemOperation};
 use std::sync::Arc;
 
-const SCHEMA: &str = "schema_name";
-const TABLE: &str = "table_name";
+pub struct OnDiskDatabase;
 
-fn ident<S: ToString>(name: S) -> Ident {
-    Ident {
-        value: name.to_string(),
-        quote_style: None,
+impl OnDiskDatabase {
+    pub fn new(_name: &str) -> Arc<OnDiskDatabase> {
+        Arc::new(OnDiskDatabase)
     }
 }
+
+impl Database for OnDiskDatabase {
+    type Schema = OnDiskSchema;
+    type Table = OnDiskTable;
+
+    fn execute(&self, _operation: SystemOperation) -> Result<ExecutionOutcome, ExecutionError> {
+        unimplemented!()
+    }
+}
+
+pub struct OnDiskSchema;
+
+impl SqlSchema for OnDiskSchema {}
+
+pub struct OnDiskTable;
+
+impl SqlTable for OnDiskTable {}

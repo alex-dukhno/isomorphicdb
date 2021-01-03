@@ -20,8 +20,9 @@ use crate::query_engine::QueryEngine;
 use async_dup::Arc as AsyncArc;
 use async_executor::Executor;
 use async_io::Async;
+use catalog::InMemoryDatabase;
 use connection::ClientRequest;
-use data_manager::DataManager;
+use data_manager::DatabaseHandle;
 use pg_model::{ConnSupervisor, ProtocolConfiguration};
 use std::{
     env,
@@ -49,7 +50,7 @@ pub fn start() {
         .expect("cannot spawn executor thread");
 
     async_io::block_on(async {
-        let storage = Arc::new(DataManager::persistent(root_path.join("root_directory")).unwrap());
+        let storage = Arc::new(DatabaseHandle::persistent(root_path.join("root_directory")).unwrap());
         let listener = Async::<TcpListener>::bind((HOST, PORT)).expect("OK");
 
         let config = protocol_configuration();
@@ -61,7 +62,7 @@ pub fn start() {
                 Err(io_error) => log::error!("IO error {:?}", io_error),
                 Ok(Err(protocol_error)) => log::error!("protocol error {:?}", protocol_error),
                 Ok(Ok(ClientRequest::Connection(mut receiver, sender))) => {
-                    let mut query_engine = QueryEngine::new(sender, storage.clone());
+                    let mut query_engine = QueryEngine::new(sender, storage.clone(), InMemoryDatabase::new());
                     log::debug!("ready to handle query");
                     GLOBAL
                         .spawn(async move {

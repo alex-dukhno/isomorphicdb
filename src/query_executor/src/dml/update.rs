@@ -17,7 +17,7 @@ use binary::Binary;
 use connection::Sender;
 use constraints::{Constraint, ConstraintError};
 use data_definition::DataDefReader;
-use data_manager::DataManager;
+use data_manager::DatabaseHandle;
 use expr_eval::{DynamicExpressionEvaluation, EvalError, StaticExpressionEvaluation};
 use pg_model::results::{QueryError, QueryEvent};
 use plan::TableUpdates;
@@ -25,14 +25,14 @@ use std::{collections::HashMap, sync::Arc};
 
 pub(crate) struct UpdateCommand {
     table_update: TableUpdates,
-    data_manager: Arc<DataManager>,
+    data_manager: Arc<DatabaseHandle>,
     sender: Arc<dyn Sender>,
 }
 
 impl UpdateCommand {
     pub(crate) fn new(
         table_update: TableUpdates,
-        data_manager: Arc<DataManager>,
+        data_manager: Arc<DatabaseHandle>,
         sender: Arc<dyn Sender>,
     ) -> UpdateCommand {
         UpdateCommand {

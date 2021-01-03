@@ -13,9 +13,8 @@
 // limitations under the License.
 
 use binary::{Binary, Key, ReadCursor, Values};
-use dashmap::DashMap;
 use data_definition::{DataDefOperationExecutor, DataDefReader, OptionalSchemaId, OptionalTableId};
-use definition_operations::{Record, SystemObject, SystemOperation};
+use definition_operations::{Record, Step, SystemObject};
 use meta_def::{ColumnDefinition, Id};
 use repr::Datum;
 use sql_model::{DropSchemaError, DropStrategy};
@@ -23,7 +22,9 @@ use std::{
     collections::HashMap,
     fmt,
     fmt::{Display, Formatter},
+    ops::Deref,
     path::PathBuf,
+    sync::Arc,
 };
 use storage::{Database, InMemoryDatabase, InitStatus, PersistentDatabase};
 use types::SqlType;
@@ -52,145 +53,69 @@ pub const TABLES_TABLE: &'_ str = "TABLES";
 /// NUMERIC_PRECISION           integer CHECK (VALUE >= 0),
 pub const COLUMNS_TABLE: &'_ str = "COLUMNS";
 
-pub struct DataManager {
-    database_instance: Box<dyn Database>,
+pub struct DatabaseHandle {
+    inner: DatabaseHandleInner,
 }
 
-unsafe impl Send for DataManager {}
+enum DatabaseHandleInner {
+    InMemory(Arc<InMemoryDatabase>),
+    Persistent(Arc<PersistentDatabase>),
+}
 
-unsafe impl Sync for DataManager {}
+impl Deref for DatabaseHandleInner {
+    type Target = dyn Database;
 
-impl DataManager {
-    pub fn in_memory() -> DataManager {
+    fn deref(&self) -> &Self::Target {
+        match self {
+            DatabaseHandleInner::InMemory(db) => &**db,
+            DatabaseHandleInner::Persistent(db) => &**db,
+        }
+    }
+}
+
+impl DatabaseHandle {
+    pub fn in_memory() -> DatabaseHandle {
         let database_instance = InMemoryDatabase::default();
-        database_instance
+        debug_assert!(database_instance
             .create_schema(DEFINITION_SCHEMA)
             .expect("no io error")
-            .expect("no platform error")
-            .expect("table CATALOG_NAMES is created");
-        database_instance
-            .create_object(DEFINITION_SCHEMA, SCHEMATA_TABLE)
-            .expect("no io error")
-            .expect("no platform error")
-            .expect("table SCHEMATA is created");
-        database_instance
-            .create_sequence(DEFINITION_SCHEMA, &(SCHEMATA_TABLE.to_owned() + ".records"))
-            .expect("to create sequence");
-        database_instance
-            .create_object(DEFINITION_SCHEMA, TABLES_TABLE)
-            .expect("no io error")
-            .expect("no platform error")
-            .expect("table TABLES is created");
-        database_instance
-            .create_sequence(DEFINITION_SCHEMA, &(TABLES_TABLE.to_owned() + ".records"))
-            .expect("to create sequence");
-        database_instance
-            .create_object(DEFINITION_SCHEMA, COLUMNS_TABLE)
-            .expect("no io error")
-            .expect("no platform error")
-            .expect("table COLUMNS is created");
-        database_instance
-            .create_sequence(DEFINITION_SCHEMA, &(COLUMNS_TABLE.to_owned() + ".records"))
-            .expect("to create sequence");
-        DataManager {
-            database_instance: Box::new(database_instance),
+            .expect("no platform error"));
+        database_instance.bootstrap();
+        DatabaseHandle {
+            inner: DatabaseHandleInner::InMemory(Arc::new(database_instance)),
         }
     }
 
     #[allow(clippy::result_unit_err)]
-    pub fn persistent(path: PathBuf) -> Result<DataManager, ()> {
+    pub fn persistent(path: PathBuf) -> Result<DatabaseHandle, ()> {
         let database_instance = PersistentDatabase::new(path.join(DEFAULT_CATALOG));
         let catalog_exist = match database_instance.init(DEFINITION_SCHEMA).expect("no io errors") {
             Ok(InitStatus::Loaded) => true,
             Ok(InitStatus::Created) => {
-                database_instance
-                    .create_object(DEFINITION_SCHEMA, SCHEMATA_TABLE)
-                    .expect("no io error")
-                    .expect("no platform error")
-                    .expect("table SCHEMATA is created");
-                database_instance
-                    .create_sequence(DEFINITION_SCHEMA, &(SCHEMATA_TABLE.to_owned() + ".records"))
-                    .expect("to create sequence");
-                database_instance
-                    .create_object(DEFINITION_SCHEMA, TABLES_TABLE)
-                    .expect("no io error")
-                    .expect("no platform error")
-                    .expect("table TABLES is created");
-                database_instance
-                    .create_sequence(DEFINITION_SCHEMA, &(TABLES_TABLE.to_owned() + ".records"))
-                    .expect("to create sequence");
-                database_instance
-                    .create_object(DEFINITION_SCHEMA, COLUMNS_TABLE)
-                    .expect("no io error")
-                    .expect("no platform error")
-                    .expect("table COLUMNS is created");
-                database_instance
-                    .create_sequence(DEFINITION_SCHEMA, &(COLUMNS_TABLE.to_owned() + ".records"))
-                    .expect("to create sequence");
+                database_instance.bootstrap();
                 false
             }
             Err(_storage_error) => return Err(()),
         };
-        let schemas = DashMap::new();
-        let tables = DashMap::new();
         if catalog_exist {
-            let schemas_inner = {
-                let mut schemas = vec![];
-                let catalog_name = DEFAULT_CATALOG;
-                for (id, _catalog, schema) in database_instance
-                    .read(DEFINITION_SCHEMA, SCHEMATA_TABLE)
-                    .expect("no io error")
-                    .expect("no platform error")
-                    .expect("to have SCHEMATA_TABLE table")
-                    .map(Result::unwrap)
-                    .map(Result::unwrap)
-                    .map(|(record_id, columns)| {
-                        let id = record_id.unpack()[1].as_u64();
-                        let columns = columns.unpack();
-                        let catalog = columns[0].as_str().to_owned();
-                        let schema = columns[1].as_str().to_owned();
-                        (id, catalog, schema)
-                    })
-                    .filter(|(_id, catalog, _schema)| catalog == catalog_name)
-                {
-                    schemas.push((id, schema));
-                }
-                schemas
-            };
-            for (schema_id, schema_name) in schemas_inner {
-                schemas.insert(schema_id, schema_name.clone());
+            let schema_names = database_instance
+                .read(DEFINITION_SCHEMA, SCHEMATA_TABLE)
+                .expect("no io error")
+                .expect("no platform error")
+                .expect("to have SCHEMATA_TABLE table")
+                .map(Result::unwrap)
+                .map(Result::unwrap)
+                .map(|(record_id, columns)| {
+                    let catalog_id = Datum::from_u64(record_id.unpack()[0].as_u64());
+                    let schema = columns.unpack()[1].as_str().to_owned();
+                    (catalog_id, schema)
+                })
+                .filter(|(catalog_id, _schema)| catalog_id == &DEFAULT_CATALOG_ID)
+                .map(|(_catalog_id, schema)| schema)
+                .collect::<Vec<String>>();
+            for schema_name in schema_names {
                 match database_instance.init(&schema_name) {
-                    Ok(Ok(InitStatus::Loaded)) => {
-                        let tables_inner = {
-                            let mut tables = vec![];
-                            for (table_id, _catalog, _schema, table) in database_instance
-                                .read(DEFINITION_SCHEMA, TABLES_TABLE)
-                                .expect("no io error")
-                                .expect("no platform error")
-                                .expect("to have SCHEMATA_TABLE table")
-                                .map(Result::unwrap)
-                                .map(Result::unwrap)
-                                .map(|(record_id, columns)| {
-                                    let id = record_id.unpack()[1].as_u64();
-                                    let columns = columns.unpack();
-                                    let catalog = columns[0].as_str().to_owned();
-                                    let schema = columns[1].as_str().to_owned();
-                                    let table = columns[2].as_str().to_owned();
-                                    (id, catalog, schema, table)
-                                })
-                                .filter(|(_id, catalog, schema, _table)| {
-                                    catalog == DEFAULT_CATALOG && schema == &schema_name
-                                })
-                            {
-                                tables.push((table_id, table));
-                            }
-                            tables
-                        };
-                        for (table_id, table_name) in tables_inner {
-                            tables.insert((schema_id, table_id), vec![schema_name.clone(), table_name.clone()]);
-                            database_instance.open_object(schema_name.as_str(), &table_name);
-                        }
-                    }
+                    Ok(Ok(InitStatus::Loaded)) => {}
                     Ok(Ok(InitStatus::Created)) => {
                         log::error!("Schema {:?} should have been already created", schema_name);
                         return Err(());
@@ -206,14 +131,14 @@ impl DataManager {
                 }
             }
         }
-        Ok(DataManager {
-            database_instance: Box::new(database_instance),
+        Ok(DatabaseHandle {
+            inner: DatabaseHandleInner::Persistent(Arc::new(database_instance)),
         })
     }
 
     pub fn next_key_id(&self, full_table_id: &(Id, Id)) -> Id {
         let (schema_name, table_name) = self
-            .database_instance
+            .inner
             .read(DEFINITION_SCHEMA, TABLES_TABLE)
             .expect("no io error")
             .expect("no platform error")
@@ -233,7 +158,7 @@ impl DataManager {
             .map(|(_schema_id, _table_id, schema_name, table_name)| (schema_name, table_name))
             .unwrap();
 
-        self.database_instance
+        self.inner
             .get_sequence(&schema_name, &(table_name + ".records"))
             .unwrap()
             .next()
@@ -242,11 +167,11 @@ impl DataManager {
     #[allow(clippy::result_unit_err)]
     pub fn create_schema(&self, schema_name: &str) -> Result<Id, ()> {
         let schema_id = self
-            .database_instance
+            .inner
             .get_sequence(DEFINITION_SCHEMA, &(SCHEMATA_TABLE.to_owned() + ".records"))
             .unwrap()
             .next();
-        self.database_instance
+        self.inner
             .write(
                 DEFINITION_SCHEMA,
                 SCHEMATA_TABLE,
@@ -258,8 +183,8 @@ impl DataManager {
             .expect("no io error")
             .expect("no platform error")
             .expect("to save schema");
-        match self.database_instance.create_schema(schema_name) {
-            Ok(Ok(Ok(()))) => Ok(schema_id),
+        match self.inner.create_schema(schema_name) {
+            Ok(Ok(true)) => Ok(schema_id),
             _ => {
                 log::error!(
                     "SQL Engine does not check '{}' existence of SCHEMA before creating one",
@@ -273,7 +198,7 @@ impl DataManager {
     #[allow(clippy::result_unit_err)]
     pub fn drop_schema(&self, schema_id: &Id, strategy: DropStrategy) -> Result<Result<(), DropSchemaError>, ()> {
         let schema_name = self
-            .database_instance
+            .inner
             .read(DEFINITION_SCHEMA, SCHEMATA_TABLE)
             .expect("no io error")
             .expect("no platform error")
@@ -290,8 +215,8 @@ impl DataManager {
         match schema_name {
             None => Ok(Err(DropSchemaError::DoesNotExist)),
             Some(schema_name) => match self.drop_schema_inner(&schema_name, *schema_id, strategy) {
-                Ok(()) => match self.database_instance.drop_schema(&schema_name) {
-                    Ok(Ok(Ok(()))) => Ok(Ok(())),
+                Ok(()) => match self.inner.drop_schema(&schema_name) {
+                    Ok(Ok(true)) => Ok(Ok(())),
                     _ => {
                         log::error!(
                             "SQL Engine does not check '{}' existence of SCHEMA before dropping one",
@@ -314,7 +239,7 @@ impl DataManager {
         match strategy {
             DropStrategy::Restrict => {
                 let is_schema_empty = self
-                    .database_instance
+                    .inner
                     .read(DEFINITION_SCHEMA, TABLES_TABLE)
                     .expect("no io error")
                     .expect("no platform error")
@@ -326,7 +251,7 @@ impl DataManager {
                     .is_none();
                 if is_schema_empty {
                     let schema_record_id = self
-                        .database_instance
+                        .inner
                         .read(DEFINITION_SCHEMA, SCHEMATA_TABLE)
                         .expect("no io error")
                         .expect("no platform error")
@@ -342,7 +267,7 @@ impl DataManager {
                     match schema_record_id {
                         None => Err(DropSchemaError::DoesNotExist),
                         Some(schema_record_id) => {
-                            self.database_instance
+                            self.inner
                                 .delete(DEFINITION_SCHEMA, SCHEMATA_TABLE, vec![schema_record_id])
                                 .expect("no io error")
                                 .expect("no platform error")
@@ -356,7 +281,7 @@ impl DataManager {
             }
             DropStrategy::Cascade => {
                 let schema_record_id = self
-                    .database_instance
+                    .inner
                     .read(DEFINITION_SCHEMA, SCHEMATA_TABLE)
                     .expect("no io error")
                     .expect("no platform error")
@@ -372,13 +297,13 @@ impl DataManager {
                 match schema_record_id {
                     None => Err(DropSchemaError::DoesNotExist),
                     Some(schema_record_id) => {
-                        self.database_instance
+                        self.inner
                             .delete(DEFINITION_SCHEMA, SCHEMATA_TABLE, vec![schema_record_id])
                             .expect("no io error")
                             .expect("no platform error")
                             .expect("to remove schema");
                         let table_record_ids = self
-                            .database_instance
+                            .inner
                             .read(DEFINITION_SCHEMA, TABLES_TABLE)
                             .expect("no io error")
                             .expect("no platform error")
@@ -392,13 +317,13 @@ impl DataManager {
                             .filter(|(schema, _record_id)| *schema == schema_id)
                             .map(|(_schema, record_id)| record_id)
                             .collect();
-                        self.database_instance
+                        self.inner
                             .delete(DEFINITION_SCHEMA, TABLES_TABLE, table_record_ids)
                             .expect("no io error")
                             .expect("no platform error")
                             .expect("to remove tables under catalog");
                         let table_column_record_ids = self
-                            .database_instance
+                            .inner
                             .read(DEFINITION_SCHEMA, COLUMNS_TABLE)
                             .expect("no io error")
                             .expect("no platform error")
@@ -412,7 +337,7 @@ impl DataManager {
                             .filter(|(_record_id, schema)| *schema == schema_id)
                             .map(|(record_id, _schema)| record_id)
                             .collect();
-                        self.database_instance
+                        self.inner
                             .delete(DEFINITION_SCHEMA, COLUMNS_TABLE, table_column_record_ids)
                             .expect("no io error")
                             .expect("no platform error")
@@ -432,7 +357,7 @@ impl DataManager {
         column_definitions: &[ColumnDefinition],
     ) -> Result<Id, ()> {
         let schema = self
-            .database_instance
+            .inner
             .read(DEFINITION_SCHEMA, SCHEMATA_TABLE)
             .expect("no io error")
             .expect("no platform error")
@@ -450,11 +375,11 @@ impl DataManager {
             None => unimplemented!(),
             Some(schema_name) => {
                 let table_id = self
-                    .database_instance
+                    .inner
                     .get_sequence(DEFINITION_SCHEMA, &(TABLES_TABLE.to_owned() + ".records"))
                     .unwrap()
                     .next();
-                self.database_instance
+                self.inner
                     .write(
                         DEFINITION_SCHEMA,
                         TABLES_TABLE,
@@ -475,7 +400,7 @@ impl DataManager {
                     .expect("no platform error")
                     .expect("to save table info");
                 let column_ids_sequence = self
-                    .database_instance
+                    .inner
                     .create_sequence(
                         DEFINITION_SCHEMA,
                         &(schema_name.to_owned() + "." + table_name + ".columns.id"),
@@ -487,7 +412,7 @@ impl DataManager {
                         _ => Datum::from_null(),
                     };
                     let id = column_ids_sequence.next();
-                    self.database_instance
+                    self.inner
                         .write(
                             DEFINITION_SCHEMA,
                             COLUMNS_TABLE,
@@ -513,13 +438,13 @@ impl DataManager {
                         .expect("no platform error")
                         .expect("to save column");
                 }
-                self.database_instance
+                self.inner
                     .create_sequence(
                         DEFINITION_SCHEMA,
                         &(schema_name.to_owned() + "." + table_name + ".records"),
                     )
                     .unwrap();
-                match self.database_instance.create_object(&*schema_name, table_name) {
+                match self.inner.create_object(&*schema_name, table_name) {
                     Ok(Ok(Ok(()))) => Ok(table_id),
                     _ => {
                         println!(
@@ -536,7 +461,7 @@ impl DataManager {
     #[allow(clippy::result_unit_err)]
     pub fn drop_table(&self, full_table_id: &(Id, Id)) -> Result<(), ()> {
         let full_table_name = self
-            .database_instance
+            .inner
             .read(DEFINITION_SCHEMA, TABLES_TABLE)
             .expect("no io error")
             .expect("no platform error")
@@ -562,7 +487,7 @@ impl DataManager {
             }
             Some(full_name) => {
                 let (schema_id, table_id) = full_table_id;
-                self.database_instance
+                self.inner
                     .delete(
                         DEFINITION_SCHEMA,
                         TABLES_TABLE,
@@ -575,10 +500,7 @@ impl DataManager {
                     .expect("no io error")
                     .expect("no platform error")
                     .expect("to remove table");
-                match self
-                    .database_instance
-                    .drop_object(full_name.0.as_str(), full_name.1.as_str())
-                {
+                match self.inner.drop_object(full_name.0.as_str(), full_name.1.as_str()) {
                     Ok(Ok(Ok(()))) => Ok(()),
                     _ => {
                         let (schema_id, table_id) = full_table_id;
@@ -593,7 +515,7 @@ impl DataManager {
     #[allow(clippy::result_unit_err)]
     pub fn write_into(&self, full_table_id: &(Id, Id), values: Vec<(Key, Values)>) -> Result<usize, ()> {
         let full_table_name = self
-            .database_instance
+            .inner
             .read(DEFINITION_SCHEMA, TABLES_TABLE)
             .expect("no io error")
             .expect("no platform error")
@@ -614,10 +536,7 @@ impl DataManager {
         match full_table_name {
             Some(full_name) => {
                 log::trace!("values to write {:#?}", values);
-                match self
-                    .database_instance
-                    .write(full_name.0.as_str(), full_name.1.as_str(), values)
-                {
+                match self.inner.write(full_name.0.as_str(), full_name.1.as_str(), values) {
                     Ok(Ok(Ok(size))) => Ok(size),
                     _ => {
                         let (schema_id, table_id) = full_table_id;
@@ -637,7 +556,7 @@ impl DataManager {
     #[allow(clippy::result_unit_err)]
     pub fn full_scan(&self, full_table_id: &(Id, Id)) -> Result<ReadCursor, ()> {
         let full_table_name = self
-            .database_instance
+            .inner
             .read(DEFINITION_SCHEMA, TABLES_TABLE)
             .expect("no io error")
             .expect("no platform error")
@@ -656,7 +575,7 @@ impl DataManager {
             .find(|(schema_id, table_id, _schema_name, _table_name)| full_table_id == &(*schema_id, *table_id))
             .map(|(_schema_id, _table_id, schema_name, table_name)| (schema_name, table_name));
         match full_table_name {
-            Some(full_name) => match self.database_instance.read(full_name.0.as_str(), full_name.1.as_str()) {
+            Some(full_name) => match self.inner.read(full_name.0.as_str(), full_name.1.as_str()) {
                 Ok(Ok(Ok(read))) => Ok(read),
                 _ => {
                     let (schema_id, table_id) = full_table_id;
@@ -675,7 +594,7 @@ impl DataManager {
     #[allow(clippy::result_unit_err)]
     pub fn delete_from(&self, full_table_id: &(Id, Id), keys: Vec<Key>) -> Result<usize, ()> {
         let full_table_name = self
-            .database_instance
+            .inner
             .read(DEFINITION_SCHEMA, TABLES_TABLE)
             .expect("no io error")
             .expect("no platform error")
@@ -694,10 +613,7 @@ impl DataManager {
             .find(|(schema_id, table_id, _schema_name, _table_name)| full_table_id == &(*schema_id, *table_id))
             .map(|(_schema_id, _table_id, schema_name, table_name)| (schema_name, table_name));
         match full_table_name {
-            Some(full_name) => match self
-                .database_instance
-                .delete(full_name.0.as_str(), full_name.1.as_str(), keys)
-            {
+            Some(full_name) => match self.inner.delete(full_name.0.as_str(), full_name.1.as_str(), keys) {
                 Ok(Ok(Ok(len))) => Ok(len),
                 _ => {
                     let (schema_id, table_id) = full_table_id;
@@ -714,16 +630,16 @@ impl DataManager {
     }
 }
 
-impl DataDefOperationExecutor for DataManager {
-    fn execute(&self, operation: &SystemOperation) -> Result<(), ()> {
+impl DataDefOperationExecutor for DatabaseHandle {
+    fn execute(&self, operation: &Step) -> Result<(), ()> {
         match operation {
-            SystemOperation::CheckExistence {
+            Step::CheckExistence {
                 system_object,
                 object_name,
             } => match system_object {
                 SystemObject::Schema => {
                     let schema_exists = self
-                        .database_instance
+                        .inner
                         .read(DEFINITION_SCHEMA, SCHEMATA_TABLE)
                         .expect("no io error")
                         .expect("no platform error")
@@ -731,7 +647,7 @@ impl DataDefOperationExecutor for DataManager {
                         .map(Result::unwrap)
                         .map(Result::unwrap)
                         .map(|(_record_id, columns)| columns.unpack()[1].as_str().to_owned())
-                        .any(|name| &name == object_name);
+                        .any(|name| name == object_name[0]);
                     if schema_exists {
                         Ok(())
                     } else {
@@ -740,7 +656,7 @@ impl DataDefOperationExecutor for DataManager {
                 }
                 SystemObject::Table => {
                     let table_exists = self
-                        .database_instance
+                        .inner
                         .read(DEFINITION_SCHEMA, TABLES_TABLE)
                         .expect("no io error")
                         .expect("no platform error")
@@ -748,7 +664,7 @@ impl DataDefOperationExecutor for DataManager {
                         .map(Result::unwrap)
                         .map(Result::unwrap)
                         .map(|(_record_id, columns)| columns.unpack()[2].as_str().to_owned())
-                        .any(|name| &name == object_name);
+                        .any(|name| name == object_name[0]);
                     if table_exists {
                         Ok(())
                     } else {
@@ -756,13 +672,13 @@ impl DataDefOperationExecutor for DataManager {
                     }
                 }
             },
-            SystemOperation::CheckDependants {
+            Step::CheckDependants {
                 system_object,
                 object_name,
             } => match system_object {
                 SystemObject::Schema => {
                     let has_dependants = self
-                        .database_instance
+                        .inner
                         .read(DEFINITION_SCHEMA, TABLES_TABLE)
                         .expect("no io error")
                         .expect("no platform error")
@@ -770,7 +686,7 @@ impl DataDefOperationExecutor for DataManager {
                         .map(Result::unwrap)
                         .map(Result::unwrap)
                         .map(|(_record_id, columns)| columns.unpack()[1].as_str().to_owned())
-                        .any(|name| &name == object_name);
+                        .any(|name| name == object_name[0]);
                     if has_dependants {
                         Err(())
                     } else {
@@ -779,13 +695,13 @@ impl DataDefOperationExecutor for DataManager {
                 }
                 SystemObject::Table => Ok(()),
             },
-            SystemOperation::RemoveDependants {
+            Step::RemoveDependants {
                 system_object,
                 object_name,
             } => match system_object {
                 SystemObject::Schema => {
                     let schema = self
-                        .database_instance
+                        .inner
                         .read(DEFINITION_SCHEMA, SCHEMATA_TABLE)
                         .expect("no io error")
                         .expect("no platform error")
@@ -797,13 +713,13 @@ impl DataDefOperationExecutor for DataManager {
                             let schema = columns.unpack()[1].as_str().to_owned();
                             (schema_id, schema)
                         })
-                        .find(|(_schema_id, schema)| schema == object_name)
+                        .find(|(_schema_id, schema)| schema == &object_name[0])
                         .map(|(schema_id, _schema)| schema_id)
                         .unwrap();
                     let mut table_records = vec![];
                     let mut schema_table = vec![];
                     for (record_id, schema_id, table_id) in self
-                        .database_instance
+                        .inner
                         .read(DEFINITION_SCHEMA, TABLES_TABLE)
                         .expect("no io error")
                         .expect("no platform error")
@@ -823,7 +739,7 @@ impl DataDefOperationExecutor for DataManager {
                     }
 
                     let columns_records = self
-                        .database_instance
+                        .inner
                         .read(DEFINITION_SCHEMA, COLUMNS_TABLE)
                         .expect("no io error")
                         .expect("no platform error")
@@ -840,13 +756,13 @@ impl DataDefOperationExecutor for DataManager {
                         .map(|(record_id, _schema_id, _table_id)| record_id)
                         .collect();
 
-                    self.database_instance
+                    self.inner
                         .delete(DEFINITION_SCHEMA, COLUMNS_TABLE, columns_records)
                         .unwrap()
                         .unwrap()
                         .unwrap();
 
-                    self.database_instance
+                    self.inner
                         .delete(DEFINITION_SCHEMA, TABLES_TABLE, table_records)
                         .unwrap()
                         .unwrap()
@@ -855,12 +771,12 @@ impl DataDefOperationExecutor for DataManager {
                 }
                 SystemObject::Table => unimplemented!(),
             },
-            SystemOperation::RemoveColumns {
+            Step::RemoveColumns {
                 schema_name,
                 table_name,
             } => {
                 let (schema, table) = self
-                    .database_instance
+                    .inner
                     .read(DEFINITION_SCHEMA, TABLES_TABLE)
                     .expect("no io error")
                     .expect("no platform error")
@@ -880,7 +796,7 @@ impl DataDefOperationExecutor for DataManager {
                     .map(|(schema_id, table_id, _schema, _table)| (schema_id, table_id))
                     .unwrap();
                 let column_records = self
-                    .database_instance
+                    .inner
                     .read(DEFINITION_SCHEMA, COLUMNS_TABLE)
                     .expect("no io error")
                     .expect("no platform error")
@@ -896,45 +812,36 @@ impl DataDefOperationExecutor for DataManager {
                     .filter(|(_record_id, schema_id, table_id)| &schema == schema_id && &table == table_id)
                     .map(|(record_id, _schema_id, _table_id)| record_id)
                     .collect();
-                self.database_instance
+                self.inner
                     .delete(DEFINITION_SCHEMA, COLUMNS_TABLE, column_records)
                     .unwrap()
                     .unwrap()
                     .unwrap();
                 Ok(())
             }
-            SystemOperation::SkipIf { .. } => Ok(()),
-            SystemOperation::CreateFolder { name } => {
-                self.database_instance.create_schema(&name).unwrap().unwrap().unwrap();
+            Step::CreateFolder { name } => {
+                self.inner.create_schema(&name).unwrap().unwrap();
                 Ok(())
             }
-            SystemOperation::RemoveFolder { name } => {
-                self.database_instance.drop_schema(&name).unwrap().unwrap().unwrap();
+            Step::RemoveFolder { name } => {
+                self.inner.drop_schema(&name).unwrap().unwrap();
                 Ok(())
             }
-            SystemOperation::CreateFile { folder_name, name } => {
-                self.database_instance
-                    .create_object(&folder_name, &name)
-                    .unwrap()
-                    .unwrap()
-                    .unwrap();
-                self.database_instance
+            Step::CreateFile { folder_name, name } => {
+                self.inner.create_object(&folder_name, &name).unwrap().unwrap().unwrap();
+                self.inner
                     .create_sequence(&folder_name, &(name.to_owned() + ".records"))
                     .unwrap();
                 Ok(())
             }
-            SystemOperation::RemoveFile { folder_name, name } => {
-                self.database_instance
-                    .drop_object(&folder_name, &name)
-                    .unwrap()
-                    .unwrap()
-                    .unwrap();
-                self.database_instance
+            Step::RemoveFile { folder_name, name } => {
+                self.inner.drop_object(&folder_name, &name).unwrap().unwrap().unwrap();
+                self.inner
                     .drop_sequence(&folder_name, &(name.to_owned() + ".records"))
                     .unwrap();
                 Ok(())
             }
-            SystemOperation::RemoveRecord {
+            Step::RemoveRecord {
                 system_schema,
                 system_table,
                 record,
@@ -944,7 +851,7 @@ impl DataDefOperationExecutor for DataManager {
                         catalog_name,
                         schema_name,
                     } => self
-                        .database_instance
+                        .inner
                         .read(DEFINITION_SCHEMA, SCHEMATA_TABLE)
                         .expect("no io error")
                         .expect("no platform error")
@@ -965,7 +872,7 @@ impl DataDefOperationExecutor for DataManager {
                         schema_name,
                         table_name,
                     } => self
-                        .database_instance
+                        .inner
                         .read(DEFINITION_SCHEMA, TABLES_TABLE)
                         .expect("no io error")
                         .expect("no platform error")
@@ -986,14 +893,14 @@ impl DataDefOperationExecutor for DataManager {
                         .unwrap(),
                     Record::Column { .. } => unreachable!(),
                 };
-                self.database_instance
+                self.inner
                     .delete(&system_schema, &system_table, vec![binary_record])
                     .expect("no io error")
                     .expect("no platform error")
                     .expect("to remove object");
                 Ok(())
             }
-            SystemOperation::CreateRecord {
+            Step::CreateRecord {
                 system_schema,
                 system_table,
                 record,
@@ -1005,7 +912,7 @@ impl DataDefOperationExecutor for DataManager {
                         schema_name,
                     } => {
                         let schema_id = self
-                            .database_instance
+                            .inner
                             .get_sequence(DEFINITION_SCHEMA, &(SCHEMATA_TABLE.to_owned() + ".records"))
                             .unwrap()
                             .next();
@@ -1020,7 +927,7 @@ impl DataDefOperationExecutor for DataManager {
                         table_name,
                     } => {
                         let schema = self
-                            .database_instance
+                            .inner
                             .read(DEFINITION_SCHEMA, SCHEMATA_TABLE)
                             .expect("no io error")
                             .expect("no platform error")
@@ -1039,11 +946,11 @@ impl DataDefOperationExecutor for DataManager {
                             None => return Err(()),
                         };
                         let table_id = self
-                            .database_instance
+                            .inner
                             .get_sequence(DEFINITION_SCHEMA, &(TABLES_TABLE.to_owned() + ".records"))
                             .unwrap()
                             .next();
-                        self.database_instance
+                        self.inner
                             .create_sequence(
                                 DEFINITION_SCHEMA,
                                 &(TABLES_TABLE.to_owned()
@@ -1072,7 +979,7 @@ impl DataDefOperationExecutor for DataManager {
                         sql_type,
                     } => {
                         let full_table_id = self
-                            .database_instance
+                            .inner
                             .read(DEFINITION_SCHEMA, TABLES_TABLE)
                             .expect("no io error")
                             .expect("no platform error")
@@ -1095,7 +1002,7 @@ impl DataDefOperationExecutor for DataManager {
                             None => return Err(()),
                         };
                         let column_id = self
-                            .database_instance
+                            .inner
                             .get_sequence(
                                 DEFINITION_SCHEMA,
                                 &(TABLES_TABLE.to_owned()
@@ -1127,7 +1034,7 @@ impl DataDefOperationExecutor for DataManager {
                         )]
                     }
                 };
-                self.database_instance
+                self.inner
                     .write(&system_schema, &system_table, binary_record)
                     .expect("no io error")
                     .expect("no platform error")
@@ -1138,9 +1045,9 @@ impl DataDefOperationExecutor for DataManager {
     }
 }
 
-impl DataDefReader for DataManager {
+impl DataDefReader for DatabaseHandle {
     fn schema_exists(&self, schema_name: &str) -> OptionalSchemaId {
-        self.database_instance
+        self.inner
             .read(DEFINITION_SCHEMA, SCHEMATA_TABLE)
             .expect("no io error")
             .expect("no platform error")
@@ -1164,7 +1071,7 @@ impl DataDefReader for DataManager {
             None => None,
             Some(schema_id) => Some((
                 schema_id,
-                self.database_instance
+                self.inner
                     .read(DEFINITION_SCHEMA, TABLES_TABLE)
                     .expect("no io error")
                     .expect("no platform error")
@@ -1189,7 +1096,7 @@ impl DataDefReader for DataManager {
     fn table_columns(&self, table_id: &(Id, Id)) -> Result<Vec<(Id, ColumnDefinition)>, ()> {
         log::debug!("FULL TABLE ID {:?}", table_id);
         match self
-            .database_instance
+            .inner
             .read(DEFINITION_SCHEMA, TABLES_TABLE)
             .expect("no io error")
             .expect("no platform error")
@@ -1208,7 +1115,7 @@ impl DataDefReader for DataManager {
             None => return Err(()),
         }
         Ok(self
-            .database_instance
+            .inner
             .read(DEFINITION_SCHEMA, COLUMNS_TABLE)
             .expect("no io error")
             .expect("no platform error")
@@ -1238,7 +1145,7 @@ impl DataDefReader for DataManager {
 
     fn column_ids(&self, table_id: &(Id, Id), names: &[String]) -> Result<(Vec<Id>, Vec<String>), ()> {
         match self
-            .database_instance
+            .inner
             .read(DEFINITION_SCHEMA, TABLES_TABLE)
             .expect("no io error")
             .expect("no platform error")
@@ -1259,7 +1166,7 @@ impl DataDefReader for DataManager {
         let mut idx = vec![];
         let mut not_found = vec![];
         let columns = self
-            .database_instance
+            .inner
             .read(DEFINITION_SCHEMA, COLUMNS_TABLE)
             .expect("no io error")
             .expect("no platform error")
@@ -1291,7 +1198,7 @@ impl DataDefReader for DataManager {
 
     fn column_defs(&self, table_id: &(Id, Id), ids: &[Id]) -> Vec<ColumnDefinition> {
         match self
-            .database_instance
+            .inner
             .read(DEFINITION_SCHEMA, TABLES_TABLE)
             .expect("no io error")
             .expect("no platform error")
@@ -1314,7 +1221,7 @@ impl DataDefReader for DataManager {
         }
         let mut defs = vec![];
         let columns = self
-            .database_instance
+            .inner
             .read(DEFINITION_SCHEMA, COLUMNS_TABLE)
             .expect("no io error")
             .expect("no platform error")

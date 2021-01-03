@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use definition_operations::SystemOperation;
+use definition_operations::Step;
 use meta_def::{ColumnDefinition, Id};
 
 pub type OptionalSchemaId = Option<Id>;
@@ -56,5 +56,5 @@ pub trait DataDefReader {
 
 pub trait DataDefOperationExecutor {
     #[allow(clippy::result_unit_err)]
-    fn execute(&self, operation: &SystemOperation) -> Result<(), ()>;
+    fn execute(&self, operation: &Step) -> Result<(), ()>;
 }

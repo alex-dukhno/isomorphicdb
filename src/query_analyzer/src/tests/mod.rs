@@ -28,7 +28,7 @@ mod updates;
 use super::*;
 use analysis::{InsertTreeNode, UpdateTreeNode};
 use bigdecimal::BigDecimal;
-use data_manager::DataManager;
+use data_manager::DatabaseHandle;
 use expr_operators::{
     Arithmetic, Bitwise, Bool, Comparison, Logical, Operation, Operator, PatternMatching, ScalarValue, StringOp,
 };
@@ -60,8 +60,8 @@ fn number(value: i16) -> ast::Value {
     ast::Value::Number(BigDecimal::from(value))
 }
 
-fn with_table(columns: &[ColumnDefinition]) -> (Arc<DataManager>, Id, Id) {
-    let data_manager = Arc::new(DataManager::in_memory());
+fn with_table(columns: &[ColumnDefinition]) -> (Arc<DatabaseHandle>, Id, Id) {
+    let data_manager = Arc::new(DatabaseHandle::in_memory());
     let schema_id = data_manager.create_schema(SCHEMA).expect("schema created");
     let table_id = data_manager
         .create_table(schema_id, TABLE, columns)

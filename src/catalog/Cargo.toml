@@ -1,5 +1,5 @@
 [package]
-name = "data_manager"
+name = "catalog"
 version = "0.1.0"
 authors = ["Alex Dukhno <alex.dukhno@icloud.com>"]
 edition = "2018"
@@ -7,16 +7,13 @@ publish = false
 
 [dependencies]
 binary = { path = "../binary" }
-data_definition = { path = "../data_definition" }
 definition_operations = { path = "../definition_operations" }
-meta_def = { path = "../meta_def" }
 repr = { path = "../repr" }
-sql_model = { path = "../sql_model" }
-storage = { path = "../storage" }
 types = { path = "../types" }
 
 dashmap = "4.0.1"
 log = "0.4.11"
+sled = { version = "0.34.6", features = ["default"] }
 
 [dev-dependencies]
 backtrace = "0.3.55"

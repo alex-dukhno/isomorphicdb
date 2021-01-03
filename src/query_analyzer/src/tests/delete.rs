@@ -23,7 +23,7 @@ fn delete_statement(table_name: Vec<&'static str>) -> ast::Statement {
 
 #[test]
 fn delete_from_table_that_in_nonexistent_schema() {
-    let analyzer = Analyzer::new(Arc::new(DataManager::in_memory()));
+    let analyzer = Analyzer::new(Arc::new(DatabaseHandle::in_memory()));
 
     assert_eq!(
         analyzer.analyze(delete_statement(vec!["non_existent_schema", TABLE])),
@@ -33,7 +33,7 @@ fn delete_from_table_that_in_nonexistent_schema() {
 
 #[test]
 fn delete_from_nonexistent_table() {
-    let data_definition = Arc::new(DataManager::in_memory());
+    let data_definition = Arc::new(DatabaseHandle::in_memory());
     data_definition.create_schema(SCHEMA).expect("schema created");
     let analyzer = Analyzer::new(data_definition);
 
@@ -48,7 +48,7 @@ fn delete_from_nonexistent_table() {
 
 #[test]
 fn delete_from_table_with_unqualified_name() {
-    let analyzer = Analyzer::new(Arc::new(DataManager::in_memory()));
+    let analyzer = Analyzer::new(Arc::new(DatabaseHandle::in_memory()));
     assert_eq!(
         analyzer.analyze(delete_statement(vec!["only_schema_in_the_name"])),
         Err(AnalysisError::table_naming_error(
@@ -59,7 +59,7 @@ fn delete_from_table_with_unqualified_name() {
 
 #[test]
 fn delete_from_table_with_unsupported_name() {
-    let analyzer = Analyzer::new(Arc::new(DataManager::in_memory()));
+    let analyzer = Analyzer::new(Arc::new(DatabaseHandle::in_memory()));
     assert_eq!(
         analyzer.analyze(delete_statement(vec![
             "first_part",

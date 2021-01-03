@@ -14,7 +14,7 @@
 
 use crate::dml::{delete::DeleteCommand, insert::InsertCommand, select::SelectCommand, update::UpdateCommand};
 use connection::Sender;
-use data_manager::DataManager;
+use data_manager::DatabaseHandle;
 use pg_model::results::{QueryError, QueryEvent};
 use plan::Plan;
 use sqlparser::ast::Statement;
@@ -23,12 +23,12 @@ use std::sync::Arc;
 mod dml;
 
 pub struct QueryExecutor {
-    data_manager: Arc<DataManager>,
+    data_manager: Arc<DatabaseHandle>,
     sender: Arc<dyn Sender>,
 }
 
 impl QueryExecutor {
-    pub fn new(data_manager: Arc<DataManager>, sender: Arc<dyn Sender>) -> Self {
+    pub fn new(data_manager: Arc<DatabaseHandle>, sender: Arc<dyn Sender>) -> Self {
         Self { data_manager, sender }
     }
 

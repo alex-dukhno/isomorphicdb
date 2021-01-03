@@ -145,6 +145,10 @@ impl Binary {
     pub fn unpack(&self) -> Vec<Datum> {
         unpack_raw(self.0.as_slice())
     }
+
+    pub fn start_with(&self, other: &Binary) -> bool {
+        self.0.starts_with(&other.0)
+    }
 }
 
 fn unpack_raw(data: &[u8]) -> Vec<Datum> {
