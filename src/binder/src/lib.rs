@@ -18,6 +18,7 @@ pub struct ParamBinder;
 
 impl ParamBinder {
     /// Replaces the parameters of prepared statement with values.
+    #[allow(clippy::result_unit_err)]
     pub fn bind(&self, stmt: &mut Statement, params: &[Expr]) -> Result<(), ()> {
         match stmt {
             Statement::Insert { .. } => bind_insert(stmt, params),
