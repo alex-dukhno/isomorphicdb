@@ -19,13 +19,13 @@ use definition_operations::{Record, Step, SystemObject};
 use meta_def::{ColumnDefinition, Id};
 use repr::Datum;
 use sql_model::{DropSchemaError, DropStrategy};
-use std::ops::Deref;
-use std::sync::Arc;
 use std::{
     collections::HashMap,
     fmt,
     fmt::{Display, Formatter},
+    ops::Deref,
     path::PathBuf,
+    sync::Arc,
 };
 use storage::{Database, InMemoryDatabase, InitStatus, PersistentDatabase};
 use types::SqlType;

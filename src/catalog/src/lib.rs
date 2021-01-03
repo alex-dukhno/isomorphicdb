@@ -17,15 +17,16 @@ mod on_disk;
 mod sql;
 
 use binary::Binary;
-use std::fmt::{self, Debug, Formatter};
-use std::io;
-use std::iter::FromIterator;
+use std::{
+    fmt::{self, Debug, Formatter},
+    io,
+    iter::FromIterator,
+};
 
 use definition_operations::{ExecutionError, ExecutionOutcome, SystemOperation};
 pub use in_memory::InMemoryCatalogHandle;
 pub use on_disk::OnDiskCatalogHandle;
-pub use sql::in_memory::InMemoryDatabase;
-pub use sql::on_disk::OnDiskDatabase;
+pub use sql::{in_memory::InMemoryDatabase, on_disk::OnDiskDatabase};
 
 pub type Key = Binary;
 pub type Value = Binary;

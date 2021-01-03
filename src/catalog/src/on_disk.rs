@@ -17,9 +17,7 @@ use binary::Binary;
 use dashmap::DashMap;
 use repr::Datum;
 use sled;
-use std::convert::TryInto;
-use std::iter::FromIterator;
-use std::path::PathBuf;
+use std::{convert::TryInto, iter::FromIterator, path::PathBuf};
 
 const TABLE_RECORD_IDS_KEY: &str = "__record_counter";
 const STARTING_RECORD_ID: [u8; 8] = 0u64.to_be_bytes();

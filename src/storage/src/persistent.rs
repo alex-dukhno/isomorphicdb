@@ -19,11 +19,11 @@ use binary::{Binary, RowResult};
 use dashmap::DashMap;
 use sled::{DiskPtr, Error as SledError, IVec, Tree};
 use sql_model::sql_errors::DefinitionError;
-use std::ops::Deref;
 use std::{
     convert::{TryFrom, TryInto},
     io::{self, ErrorKind},
     num::NonZeroU64,
+    ops::Deref,
     path::PathBuf,
     sync::Arc,
 };

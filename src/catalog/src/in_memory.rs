@@ -16,10 +16,14 @@ use crate::{Cursor, DataCatalog, DataTable, Key, SchemaHandle, Value};
 use binary::Binary;
 use dashmap::DashMap;
 use repr::Datum;
-use std::collections::BTreeMap;
-use std::iter::FromIterator;
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::RwLock;
+use std::{
+    collections::BTreeMap,
+    iter::FromIterator,
+    sync::{
+        atomic::{AtomicU64, Ordering},
+        RwLock,
+    },
+};
 
 #[derive(Default, Debug)]
 pub struct InMemoryTableHandle {

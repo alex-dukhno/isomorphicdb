@@ -15,7 +15,6 @@
 use expr_operators::{Operation, Operator};
 use meta_def::Id;
 use sqlparser::ast;
-use std::str::FromStr;
 use std::{
     convert::TryFrom,
     fmt::{self, Display, Formatter},
