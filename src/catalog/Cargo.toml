@@ -11,7 +11,7 @@ definition_operations = { path = "../definition_operations" }
 repr = { path = "../repr" }
 types = { path = "../types" }
 
-dashmap = "3.11.10"
+dashmap = "4.0.1"
 log = "0.4.11"
 sled = { version = "0.34.6", features = ["default"] }
 
