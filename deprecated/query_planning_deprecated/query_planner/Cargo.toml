@@ -1,0 +1,22 @@
+[package]
+name = "query_planner"
+version = "0.1.0"
+authors = ["Alex Dukhno <alex.dukhno@icloud.com>"]
+edition = "2018"
+publish = false
+
+[dependencies]
+ast = { path = "../../ast" }
+constraints = { path = "../../constraints_deprecated" }
+meta_def = { path = "../../../meta_def" }
+data_manager = { path = "../../catalog_deprecated/data_manager" }
+plan = { path = "../plan" }
+types = { path = "../../../types" }
+sql_ast = { path = "../../../query_parsing/sql-ast" }
+
+bigdecimal = { version = "0.2.0", features = ["string-only"] }
+log = "0.4.11"
+
+[dev-dependencies]
+
+rstest = "0.6.4"

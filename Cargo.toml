@@ -1,32 +1,31 @@
 [workspace]
 members = [
-    "ast", # TODO: should be removed after operation tree rewrite
-    "binary",
-    "binder",
-    "catalog",
-    "constraints",
-    "connection",
-    "data_definition",
-    "data_manager",
-    "definition_operations",
-    "description", # TODO: should be removed after operation tree rewrite
-    "expr_eval", # TODO: should be removed after operation tree rewrite
+    "deprecated/ast", # TODO: should be removed after operation tree rewrite
+    "data_definition/binary",
+    "deprecated/binder_deprecated",
+    "data_definition/catalog",
+    "deprecated/constraints_deprecated",
+    "server/connection",
+    "deprecated/catalog_deprecated/data_manager",
+    "data_definition/definition_operations",
+    "deprecated/query_analysis_deprecated/description", # TODO: should be removed after operation tree rewrite
+    "deprecated/query_execution_deprecated/expr_eval", # TODO: should be removed after operation tree rewrite
     "meta_def",
-    "node",
-    "pg_model",
-    "plan",
-    "analysis/expr_operators",
-    "analysis/query_analyzer",
-    "analysis/query_analyzer_old", # TODO: should be removed after operation tree rewrite
-    "analysis/tree",
-    "query_executor",
-    "query_planner",
+    "server/node",
+    "server/pg_model",
+    "deprecated/query_planning_deprecated/plan",
+    "query_analysis/expr_operators",
+    "query_analysis/query_analyzer",
+    "deprecated/query_analysis_deprecated/query_analyzer_old", # TODO: should be removed after operation tree rewrite
+    "query_analysis/tree",
+    "deprecated/query_execution_deprecated/query_executor",
+    "deprecated/query_planning_deprecated/query_planner",
     "repr",
-    "schema_executor",
-    "schema_planner",
-    "sql_model", # TODO: should be removed after operation tree rewrite
-    "storage",
+    "data_definition/schema_executor",
+    "data_definition/schema_planner",
+    "deprecated/sql_model", # TODO: should be removed after operation tree rewrite
+    "deprecated/catalog_deprecated/storage",
     "types",
-    "parsing/sql-ast",
-    "parsing/parser",
+    "query_parsing/sql-ast",
+    "query_parsing/parser",
 ]

@@ -1,13 +1,9 @@
 [package]
-name = "types"
+name = "definition_operations"
 version = "0.1.0"
 authors = ["Alex Dukhno <alex.dukhno@icloud.com>"]
 edition = "2018"
 publish = false
 
 [dependencies]
-pg_wire = "0.5.0"
-sql_ast = { path = "../query_parsing/sql-ast" }
-
-[dev-dependencies]
-rstest = "0.6.4"
+types = { path = "../../types" }

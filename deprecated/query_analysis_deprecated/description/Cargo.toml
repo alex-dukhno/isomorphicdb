@@ -1,0 +1,13 @@
+[package]
+name = "description"
+version = "0.1.0"
+authors = ["Alex Dukhno <alex.dukhno@icloud.com>"]
+edition = "2018"
+publish = false
+
+[dependencies]
+meta_def = { path = "../../../meta_def" }
+types = { path = "../../../types" }
+pg_wire = "0.5.0"
+
+sql_ast = { path = "../../../query_parsing/sql-ast" }

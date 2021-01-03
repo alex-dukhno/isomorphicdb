@@ -193,7 +193,7 @@ dependencies = [
  "log",
  "pg_wire",
  "rstest",
- "sqlparser",
+ "sql_ast",
 ]
 
 [[package]]
@@ -311,7 +311,6 @@ dependencies = [
  "pg_model",
  "pg_wire",
  "rand",
- "sqlparser",
  "tempfile",
 ]
 
@@ -394,27 +393,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "data_definition"
-version = "0.1.0"
-dependencies = [
- "backtrace",
- "dashmap",
- "definition_operations",
- "log",
- "meta_def",
- "rstest",
- "tempfile",
- "types",
-]
-
-[[package]]
 name = "data_manager"
 version = "0.1.0"
 dependencies = [
  "backtrace",
  "binary",
  "dashmap",
- "data_definition",
  "definition_operations",
  "log",
  "meta_def",
@@ -438,9 +422,8 @@ name = "description"
 version = "0.1.0"
 dependencies = [
  "meta_def",
- "pg_model",
  "pg_wire",
- "sqlparser",
+ "sql_ast",
  "types",
 ]
 
@@ -767,7 +750,6 @@ dependencies = [
  "blocking",
  "catalog",
  "connection",
- "data_definition",
  "data_manager",
  "definition_operations",
  "description",
@@ -787,8 +769,6 @@ dependencies = [
  "schema_planner",
  "simple_logger",
  "sql_ast",
- "sql_model",
- "sqlparser",
  "types",
 ]
 
@@ -939,7 +919,6 @@ dependencies = [
  "pg_wire",
  "rand",
  "rstest",
- "sqlparser",
 ]
 
 [[package]]
@@ -997,8 +976,8 @@ dependencies = [
  "constraints",
  "meta_def",
  "pg_wire",
+ "sql_ast",
  "sql_model",
- "sqlparser",
  "types",
 ]
 
@@ -1048,7 +1027,6 @@ version = "0.1.0"
 dependencies = [
  "analysis_tree",
  "bigdecimal",
- "data_definition",
  "data_manager",
  "expr_operators",
  "meta_def",
@@ -1061,7 +1039,6 @@ name = "query_analyzer_old"
 version = "0.1.0"
 dependencies = [
  "bigdecimal",
- "data_definition",
  "data_manager",
  "description",
  "meta_def",
@@ -1079,7 +1056,6 @@ dependencies = [
  "binary",
  "connection",
  "constraints",
- "data_definition",
  "data_manager",
  "expr_eval",
  "futures-lite",
@@ -1090,8 +1066,8 @@ dependencies = [
  "plan",
  "repr",
  "rstest",
+ "sql_ast",
  "sql_model",
- "sqlparser",
  "tempfile",
 ]
 
@@ -1102,13 +1078,12 @@ dependencies = [
  "ast",
  "bigdecimal",
  "constraints",
- "data_definition",
  "data_manager",
  "log",
  "meta_def",
  "plan",
  "rstest",
- "sqlparser",
+ "sql_ast",
  "types",
 ]
 
@@ -1227,7 +1202,6 @@ name = "schema_executor"
 version = "0.1.0"
 dependencies = [
  "analysis_tree",
- "data_definition",
  "data_manager",
  "definition_operations",
 ]
@@ -1356,7 +1330,7 @@ dependencies = [
  "pg_model",
  "pg_wire",
  "rstest",
- "sqlparser",
+ "sql_ast",
 ]
 
 [[package]]
