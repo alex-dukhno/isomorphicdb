@@ -6,7 +6,7 @@ edition = "2018"
 publish = false
 
 [dependencies]
-binary = { path = "../../../data_definition/binary" }
+binary = { path = "../../../data/binary" }
 sql_model = { path = "../../sql_model" }
 
 dashmap = "4.0.1"

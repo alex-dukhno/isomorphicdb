@@ -7,7 +7,7 @@ publish = false
 
 [dependencies]
 analysis_tree = { path = "../../query_analysis/tree" }
-definition_operations = { path = "../../data_definition/definition_operations" }
+definition_operations = { path = "../../data/definition_operations" }
 
 # deprecated module
 data_manager = { path = "../catalog_deprecated/data_manager" }

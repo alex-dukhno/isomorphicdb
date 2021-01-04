@@ -35,35 +35,35 @@ See [docs](./docs/.)
 
 ## Project structure
 
- * `docs/` - project documentation
- * `local/` - helper scripts to fix `rustfmt` and `clippy` errors
- * `src/ast/` - abstract syntax tree transformed from `sqlparser::ast` that can be evaluated by database engine
- * `src/binary/` - binary representation of data to store/read it on/from disk
- * `src/binder/` - module responsible for executing `Bind` message from client from extended query PostgreSQL protocol
- * `src/constraints/` - mechanics to ensure data validity that are going to store
- * `src/connection/` - mechanics to establish connection between clients and server
- * `src/data_manager/` - module that manages how to, where store/read data and metadata
- * `src/description/` - building blocks of statement description, the info per statement is used to send statement description
-                        on client request of `Describe` message
- * `src/expr_eval/` - module that evaluates static and dynamic expression in transformed `ast`
- * `src/meta_def/` - database structure definitions (table, columns etc)
- * `src/data_definition/` - module responsible for managing on disk data about data
- * `src/node/` - database node (member, server, instance) code. Handles network communication
-                 with clients and process management of incoming queries. It also contains
-                 concrete `trait` implementations from `src/protocol/` module.
- * `src/parser/` - wrapper around `sqlparaser-rs` crate
- * `src/pg_model/` - intermediate code between [pg_wire](https://github.com/alex-dukhno/pg_wire) and other
-                     database management system parts. Most probably code will be moved to `pg_wire` in incremental steps.
- * `src/plan/` - building blocks for execution query plans
- * `src/repr/` - building blocks to how transform binary representation into values
- * `src/query_analyzer/` - module responsible for query analysis/description
- * `src/query_exeuctor/` - module to execute incoming `SQL` queries. That is it.
- * `src/query_planner/` - module uses `sqlparser::ast` to generate a plan how to execute query
- * `src/sql_model/` - module contains code to support different `SQL` types other `SQL`
- * `src/storage/` - module abstracts work with `schema`s, `table`s and other on disk structures
- * `tests/compatibility` - groovy based tests to check compatibility with [PostgreSQL](https://www.postgresql.org/)
- * `tests/fixtures` - files needed to set up non-default local testing
- * `tests/functional` - python based tests to check database functionality (eventually should be merged with compatibility tests)
+* `ci/` - script helpers to run commands on `GitHub Actions`
+* `data/` - group of modules responsible for manipulating data, database structure
+    * `data/binary/` - representing primitive types as a raw binary vector
+    * `data/catalog/` - API for accessing data and its definition
+    * `data/definition_operations` - data structures responsible for representing 
+    operations of `Data Definition Language` part of `SQL`
+    * `data/schema_planner` - module that transform `Data Definition Language` queries
+    analysis into `definition_operations`
+* `deprecated/` - modules that should be removed once new version will be developed
+* `docs/` - project documentation
+* `gradle/` - gradle wrapper to run `tests/compatibility` tests
+* `local/` - helper scripts to fix `rustfmt` and `clippy` errors
+* `meta_def/` - columns definition
+* `query_analysis/` - modules responsible for *Analysis* phase in query execution pipeline
+    * `query_analysis/expr_operators/` - expression operators of analysis tree
+    * `query_analysis/query_analyzer/` - API to analyse parsed SQL query
+    * `query_analysis/tree/` - structured representation of analyzed SQL query
+* `query_parsing/` - modules responsible for *Parsing* phase in query execution pipeline
+    * `query_parsing/parser/` - query parser
+    * `query_parsing/sql-ast/` - structured representation of parsed SQL query
+* `repr/` - building blocks to how transform binary representation into values
+* `server/` - database server
+    * `server/node/` - entry point that starts database application
+    * `server/connection/` - mechanics to establish connection between clients and server
+    * `server/pg_model/` - data structure that is used to transform database query results into PG representation
+* `tests/compatibility` - groovy based tests to check compatibility with [PostgreSQL](https://www.postgresql.org/)
+* `tests/erlang_client` - erlang based tests
+* `tests/fixtures` - files needed to set up non-default local testing
+* `types/` - SQL types
 
 ## Development
 

@@ -14,14 +14,14 @@ path = "src/bin.rs"
 
 [dependencies]
 analysis_tree = { path = "../../query_analysis/tree" }
-catalog = { path = "../../data_definition/catalog" }
+catalog = { path = "../../data/catalog" }
 connection = { path = "../connection" }
-definition_operations = { path = "../../data_definition/definition_operations" }
+definition_operations = { path = "../../data/definition_operations" }
 parser = { path = "../../query_parsing/parser" }
 pg_model = { path = "../pg_model" }
 pg_wire = "0.5.0"
 query_analyzer = { path = "../../query_analysis/query_analyzer" }
-schema_planner = { path = "../../data_definition/schema_planner" }
+schema_planner = { path = "../../data/schema_planner" }
 sql_ast = { path = "../../query_parsing/sql-ast" }
 types = { path = "../../types" }
 

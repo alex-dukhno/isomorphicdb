@@ -7,7 +7,7 @@ publish = false
 
 [dependencies]
 ast = { path = "../../ast" }
-binary = { path = "../../../data_definition/binary" }
+binary = { path = "../../../data/binary" }
 connection = { path = "../../../server/connection" }
 constraints = { path = "../../constraints_deprecated" }
 data_manager = { path = "../../catalog_deprecated/data_manager" }
