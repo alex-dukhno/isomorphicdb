@@ -1,4 +1,4 @@
-// Copyright 2020 Alex Dukhno
+// Copyright 2020 - present Alex Dukhno
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
 // limitations under the License.
 
 use expr_operators::{Arithmetic, Bitwise, Comparison, Logical, Operation, PatternMatching, StringOp};
-use sql_ast;
 
 pub(crate) struct OperationMapper;
 

@@ -1,4 +1,4 @@
-// Copyright 2020 Alex Dukhno
+// Copyright 2020 - present Alex Dukhno
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,8 +17,7 @@ use bigdecimal::BigDecimal;
 use binder::ParamBinder;
 use catalog::Database;
 use connection::Sender;
-use data_manager::DataDefReader;
-use data_manager::DatabaseHandle;
+use data_manager::{DataDefReader, DatabaseHandle};
 use definition_operations::{ExecutionError, ExecutionOutcome};
 use description::{Description, DescriptionError};
 use itertools::izip;

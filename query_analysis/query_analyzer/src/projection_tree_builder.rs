@@ -1,4 +1,4 @@
-// Copyright 2020 Alex Dukhno
+// Copyright 2020 - present Alex Dukhno
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@ use crate::{operation_mapper::OperationMapper, parse_param_index};
 use analysis_tree::{AnalysisError, AnalysisResult, Feature, ProjectionTreeNode};
 use expr_operators::{Bool, Operator, ScalarValue};
 use meta_def::ColumnDefinition;
-use sql_ast;
 use types::SqlType;
 
 pub(crate) struct ProjectionTreeBuilder;

@@ -26,7 +26,6 @@ unlicensed = "deny"
 confidence-threshold = 0.93
 allow = [
     "Apache-2.0",
-    "BSD-2-Clause",
     "BSD-3-Clause",
     "MIT",
     "Zlib",
