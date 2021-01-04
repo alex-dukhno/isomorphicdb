@@ -1,0 +1,25 @@
+[package]
+name = "connection"
+version = "0.1.0"
+authors = ["Alex Dukhno <alex.dukhno@icloud.com>"]
+edition = "2018"
+publish = false
+
+[dependencies]
+pg_wire = "0.5.0"
+pg_model = { path = "../pg_model" }
+
+async-dup = "1.2.1"
+async-mutex = "1.4.0"
+#TODO temporal to have ability to run ./local/code_coverage.sh
+async-native-tls = { git = "https://github.com/alex-dukhno/async-native-tls.git", branch = "new-native-tls" }
+async-trait = "0.1.42"
+blocking = "1.0.0"
+bigdecimal = { version = "0.2.0", features = ["string-only"] }
+byteorder = "1.3.4"
+futures-lite = "1.11.3"
+log = "0.4.11"
+rand = "0.7"
+
+[dev-dependencies]
+tempfile = "3.1.0"

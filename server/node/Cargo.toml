@@ -1,0 +1,49 @@
+[package]
+name = "node"
+version = "0.1.0"
+authors = ["Alex Dukhno <alex.dukhno@icloud.com>"]
+edition = "2018"
+publish = false
+
+[lib]
+name = "node"
+
+[[bin]]
+name = "database"
+path = "src/bin.rs"
+
+[dependencies]
+analysis_tree = { path = "../../query_analysis/tree" }
+catalog = { path = "../../data/catalog" }
+connection = { path = "../connection" }
+definition_operations = { path = "../../data/definition_operations" }
+parser = { path = "../../query_parsing/parser" }
+pg_model = { path = "../pg_model" }
+pg_wire = "0.5.0"
+query_analyzer = { path = "../../query_analysis/query_analyzer" }
+schema_planner = { path = "../../data/schema_planner" }
+sql_ast = { path = "../../query_parsing/sql-ast" }
+types = { path = "../../types" }
+
+# deprecated modules
+binder = { path = "../../deprecated/binder_deprecated" }
+data_manager = { path = "../../deprecated/catalog_deprecated/data_manager" }
+description = { path = "../../deprecated/query_analysis_deprecated/description" }
+plan = { path = "../../deprecated/query_planning_deprecated/plan" }
+query_analyzer_old = { path = "../../deprecated/query_analysis_deprecated/query_analyzer_old" }
+query_executor = { path = "../../deprecated/query_execution_deprecated/query_executor" }
+query_planner = { path = "../../deprecated/query_planning_deprecated/query_planner" }
+schema_executor = { path = "../../deprecated/schema_executor" }
+
+async-executor = "1.4.0"
+async-dup = "1.2.1"
+async-io = "1.3.1"
+blocking = "1.0.0"
+bigdecimal = { version = "0.2.0", features = ["string-only"] }
+futures-lite = "1.11.3"
+itertools = "0.10.0"
+log = "0.4.8"
+simple_logger = { version = "1.10.0" }
+
+[dev-dependencies]
+rstest = "0.6.4"

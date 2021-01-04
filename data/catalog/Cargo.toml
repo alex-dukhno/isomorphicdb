@@ -1,0 +1,21 @@
+[package]
+name = "catalog"
+version = "0.1.0"
+authors = ["Alex Dukhno <alex.dukhno@icloud.com>"]
+edition = "2018"
+publish = false
+
+[dependencies]
+binary = { path = "../binary" }
+definition_operations = { path = "../definition_operations" }
+repr = { path = "../../repr" }
+types = { path = "../../types" }
+
+dashmap = "4.0.1"
+log = "0.4.11"
+sled = { version = "0.34.6", features = ["default"] }
+
+[dev-dependencies]
+backtrace = "0.3.55"
+rstest = "0.6.4"
+tempfile = "3.1.0"
