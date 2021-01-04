@@ -9,9 +9,11 @@ publish = false
 analysis_tree = { path = "../tree" }
 expr_operators = { path = "../expr_operators" }
 meta_def = { path = "../../meta_def" }
-data_manager = { path = "../../deprecated/catalog_deprecated/data_manager" }
 types = { path = "../../types" }
 sql_ast = { path = "../../query_parsing/sql-ast" }
+
+# deprecated module
+data_manager = { path = "../../deprecated/catalog_deprecated/data_manager" }
 
 bigdecimal = { version = "0.2.0", features = ["string-only"] }
 

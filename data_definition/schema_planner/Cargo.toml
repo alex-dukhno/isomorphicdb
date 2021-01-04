@@ -8,6 +8,8 @@ publish = false
 [dependencies]
 analysis_tree = { path = "../../query_analysis/tree" }
 definition_operations = { path = "../definition_operations" }
+
+# deprecated module
 data_manager = { path = "../../deprecated/catalog_deprecated/data_manager" }
 
 [dev-dependencies]

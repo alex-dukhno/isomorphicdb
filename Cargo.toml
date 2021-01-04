@@ -21,7 +21,7 @@ members = [
     "deprecated/query_execution_deprecated/query_executor",
     "deprecated/query_planning_deprecated/query_planner",
     "repr",
-    "data_definition/schema_executor",
+    "deprecated/schema_executor",
     "data_definition/schema_planner",
     "deprecated/sql_model", # TODO: should be removed after operation tree rewrite
     "deprecated/catalog_deprecated/storage",

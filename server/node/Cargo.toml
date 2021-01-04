@@ -13,25 +13,27 @@ name = "database"
 path = "src/bin.rs"
 
 [dependencies]
-sql_ast = { path = "../../query_parsing/sql-ast" }
 analysis_tree = { path = "../../query_analysis/tree" }
-binder = { path = "../../deprecated/binder_deprecated" }
 catalog = { path = "../../data_definition/catalog" }
 connection = { path = "../connection" }
-data_manager = { path = "../../deprecated/catalog_deprecated/data_manager" }
 definition_operations = { path = "../../data_definition/definition_operations" }
-description = { path = "../../deprecated/query_analysis_deprecated/description" }
 parser = { path = "../../query_parsing/parser" }
 pg_model = { path = "../pg_model" }
-plan = { path = "../../deprecated/query_planning_deprecated/plan" }
 pg_wire = "0.5.0"
-schema_planner = { path = "../../data_definition/schema_planner" }
 query_analyzer = { path = "../../query_analysis/query_analyzer" }
+schema_planner = { path = "../../data_definition/schema_planner" }
+sql_ast = { path = "../../query_parsing/sql-ast" }
+types = { path = "../../types" }
+
+# deprecated modules
+binder = { path = "../../deprecated/binder_deprecated" }
+data_manager = { path = "../../deprecated/catalog_deprecated/data_manager" }
+description = { path = "../../deprecated/query_analysis_deprecated/description" }
+plan = { path = "../../deprecated/query_planning_deprecated/plan" }
 query_analyzer_old = { path = "../../deprecated/query_analysis_deprecated/query_analyzer_old" }
 query_executor = { path = "../../deprecated/query_execution_deprecated/query_executor" }
 query_planner = { path = "../../deprecated/query_planning_deprecated/query_planner" }
-schema_executor = { path = "../../data_definition/schema_executor" }
-types = { path = "../../types" }
+schema_executor = { path = "../../deprecated/schema_executor" }
 
 async-executor = "1.4.0"
 async-dup = "1.2.1"
