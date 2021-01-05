@@ -22,6 +22,7 @@ use std::{
     iter::FromIterator,
 };
 
+use definition::{FullTableName, TableDef};
 use definition_operations::{ExecutionError, ExecutionOutcome, SystemOperation};
 pub use in_memory::InMemoryCatalogHandle;
 pub use on_disk::OnDiskCatalogHandle;
@@ -98,36 +99,6 @@ pub trait Database {
     fn execute(&self, operation: SystemOperation) -> Result<ExecutionOutcome, ExecutionError>;
 }
 
-#[derive(Debug)]
-pub struct ColumnInfo {
-    name: String,
-    sql_type: SqlType,
-    ord_num: usize,
-}
-
-impl ColumnInfo {
-    pub fn sql_type(&self) -> SqlType {
-        self.sql_type
-    }
-}
-
-#[derive(Debug)]
-pub struct TableInfo {
-    schema: String,
-    name: String,
-    columns: Vec<ColumnInfo>,
-}
-
-impl TableInfo {
-    pub fn columns(&self) -> &[ColumnInfo] {
-        &self.columns
-    }
-
-    pub fn has_column(&self, column_name: &str) -> bool {
-        self.columns.iter().any(|col| col.name == column_name)
-    }
-}
-
 pub trait CatalogDefinition {
-    fn table_info(&self, table_full_name: (&str, &str)) -> Option<Option<TableInfo>>;
+    fn table_definition(&self, table_full_name: &FullTableName) -> Option<Option<TableDef>>;
 }

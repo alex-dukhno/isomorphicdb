@@ -39,9 +39,9 @@ use sql_ast::{Expr, Ident, Statement, Value};
 use std::{convert::TryFrom, iter, ops::Deref, sync::Arc};
 use types::SqlType;
 
-unsafe impl<D: Database> Send for QueryEngine<D> {}
+unsafe impl<D: Database + CatalogDefinition> Send for QueryEngine<D> {}
 
-unsafe impl<D: Database> Sync for QueryEngine<D> {}
+unsafe impl<D: Database + CatalogDefinition> Sync for QueryEngine<D> {}
 
 pub(crate) struct QueryEngine<D: Database + CatalogDefinition> {
     session: Session<Statement>,
@@ -57,7 +57,7 @@ pub(crate) struct QueryEngine<D: Database + CatalogDefinition> {
     query_executor: QueryExecutor,
 }
 
-impl<D: Database> QueryEngine<D> {
+impl<D: Database + CatalogDefinition> QueryEngine<D> {
     pub(crate) fn new(sender: Arc<dyn Sender>, data_manager: Arc<DatabaseHandle>, database: Arc<D>) -> QueryEngine<D> {
         QueryEngine {
             session: Session::default(),

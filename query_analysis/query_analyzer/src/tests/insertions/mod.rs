@@ -20,10 +20,6 @@ use definition_operations::{Kind, ObjectState, Record, Step, SystemObject, Syste
 mod expressions;
 #[cfg(test)]
 mod general_cases;
-#[cfg(test)]
-mod invalid_expressions;
-#[cfg(test)]
-mod parameters;
 
 fn small_int(value: i16) -> sql_ast::Expr {
     sql_ast::Expr::Value(number(value))

@@ -11,3 +11,6 @@ definition_operations = { path = "../../data/definition_operations" }
 
 # deprecated module
 data_manager = { path = "../catalog_deprecated/data_manager" }
+
+[dev-dependencies]
+definition = { path = "../../entities/definition" }

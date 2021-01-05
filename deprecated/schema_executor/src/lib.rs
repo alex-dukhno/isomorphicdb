@@ -156,10 +156,9 @@ pub enum ExecutionError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use analysis_tree::{
-        CreateSchemaQuery, CreateTableQuery, DropSchemasQuery, DropTablesQuery, SchemaName, TableInfo,
-    };
+    use analysis_tree::{CreateSchemaQuery, CreateTableQuery, DropSchemasQuery, DropTablesQuery, TableInfo};
     use data_manager::{DEFAULT_CATALOG, DEFINITION_SCHEMA, SCHEMATA_TABLE, TABLES_TABLE};
+    use definition::SchemaName;
     use definition_operations::{Kind, Record, Step, SystemObject};
 
     const SCHEMA: &str = "schema_name";

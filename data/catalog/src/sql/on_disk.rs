@@ -12,7 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{CatalogDefinition, Database, SqlSchema, SqlTable, TableInfo};
+use crate::{CatalogDefinition, Database, SqlSchema, SqlTable};
+use definition::{FullTableName, TableDef};
 use definition_operations::{ExecutionError, ExecutionOutcome, SystemOperation};
 use std::sync::Arc;
 use types::SqlType;
@@ -26,7 +27,7 @@ impl OnDiskDatabase {
 }
 
 impl CatalogDefinition for OnDiskDatabase {
-    fn table_info(&self, table_full_name: (&str, &str)) -> Option<Option<TableInfo>> {
+    fn table_definition(&self, table_full_name: &FullTableName) -> Option<Option<TableDef>> {
         unimplemented!()
     }
 }

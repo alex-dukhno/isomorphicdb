@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use definition::{FullTableName, SchemaName};
 use expr_operators::{Operation, Operator};
 use meta_def::Id;
 use std::ops::Deref;
@@ -52,123 +53,6 @@ impl TableInfo {
             schema_name: schema_name.to_string(),
             table_name: table_name.to_string(),
         }
-    }
-}
-
-#[derive(Debug, PartialEq)]
-pub struct FullTableName((String, String));
-
-impl FullTableName {
-    pub fn schema(&self) -> &str {
-        &(self.0).0
-    }
-
-    pub fn table(&self) -> &str {
-        &(self.0).1
-    }
-}
-
-impl<'f> Into<(&'f str, &'f str)> for &'f FullTableName {
-    fn into(self) -> (&'f str, &'f str) {
-        (&(self.0).0, &(self.0).1)
-    }
-}
-
-impl<S: ToString> From<(&S, &S)> for FullTableName {
-    fn from(tuple: (&S, &S)) -> Self {
-        let (schema, table) = tuple;
-        FullTableName((schema.to_string(), table.to_string()))
-    }
-}
-
-impl Display for FullTableName {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}.{}", self.0 .0, self.0 .1)
-    }
-}
-
-impl<'o> TryFrom<&'o sql_ast::ObjectName> for FullTableName {
-    type Error = TableNamingError;
-
-    fn try_from(object: &'o sql_ast::ObjectName) -> Result<Self, Self::Error> {
-        if object.0.len() == 1 {
-            Err(TableNamingError::Unqualified(object.to_string()))
-        } else if object.0.len() != 2 {
-            Err(TableNamingError::NotProcessed(object.to_string()))
-        } else {
-            let table_name = object.0.last().unwrap().value.clone();
-            let schema_name = object.0.first().unwrap().value.clone();
-            Ok(FullTableName((schema_name.to_lowercase(), table_name.to_lowercase())))
-        }
-    }
-}
-
-#[derive(Debug, PartialEq)]
-pub enum TableNamingError {
-    Unqualified(String),
-    NotProcessed(String),
-}
-
-impl Display for TableNamingError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        match self {
-            TableNamingError::Unqualified(table_name) => write!(
-                f,
-                "Unsupported table name '{}'. All table names must be qualified",
-                table_name
-            ),
-            TableNamingError::NotProcessed(table_name) => write!(f, "Unable to process table name '{}'", table_name),
-        }
-    }
-}
-
-#[derive(Debug, PartialEq)]
-pub struct SchemaName(String);
-
-impl AsRef<str> for SchemaName {
-    fn as_ref(&self) -> &str {
-        self.0.as_str()
-    }
-}
-
-impl<'o> TryFrom<&'o sql_ast::ObjectName> for SchemaName {
-    type Error = SchemaNamingError;
-
-    fn try_from(object: &'o sql_ast::ObjectName) -> Result<Self, Self::Error> {
-        if object.0.len() != 1 {
-            Err(SchemaNamingError(object.to_string()))
-        } else {
-            Ok(SchemaName(object.to_string().to_lowercase()))
-        }
-    }
-}
-
-impl SchemaName {
-    pub fn from<S: ToString>(schema_name: &S) -> SchemaName {
-        SchemaName(schema_name.to_string())
-    }
-}
-
-pub struct SchemaNamingError(String);
-
-impl Display for SchemaNamingError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "Only unqualified schema names are supported, '{}'", self.0)
-    }
-}
-
-#[derive(Debug, PartialEq)]
-pub struct SchemaId(Id);
-
-impl From<Id> for SchemaId {
-    fn from(id: Id) -> Self {
-        SchemaId(id)
-    }
-}
-
-impl AsRef<Id> for SchemaId {
-    fn as_ref(&self) -> &Id {
-        &self.0
     }
 }
 

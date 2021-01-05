@@ -16,7 +16,7 @@ meta_def = { path = "../../../meta_def" }
 plan = { path = "../../query_planning_deprecated/plan" }
 pg_model = { path = "../../../server/pg_model" }
 pg_wire = "0.5.0"
-repr = { path = "../../../repr" }
+repr = { path = "../../../entities/repr" }
 sql_model = { path = "../../sql_model" }
 
 bigdecimal = { version = "0.2.0", features = ["string-only"] }

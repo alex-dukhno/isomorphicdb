@@ -18,11 +18,12 @@ use crate::{
 };
 use analysis_tree::{
     AnalysisError, ColumnDesc, ColumnInfo, CreateSchemaQuery, CreateTableQuery, DeleteQuery, DropSchemasQuery,
-    DropTablesQuery, Feature, FullTableId, FullTableName, InsertQuery, ProjectionTreeNode, QueryAnalysis, SchemaChange,
-    SchemaName, SelectQuery, TableInfo, UpdateQuery, Write,
+    DropTablesQuery, Feature, FullTableId, InsertQuery, ProjectionTreeNode, QueryAnalysis, SchemaChange, SelectQuery,
+    TableInfo, UpdateQuery, Write,
 };
 use catalog::{CatalogDefinition, Database};
 use data_manager::DataDefReader;
+use definition::{FullTableName, SchemaName};
 use expr_operators::Operator;
 use std::{convert::TryFrom, sync::Arc};
 use types::SqlType;
@@ -53,54 +54,50 @@ impl<CD: CatalogDefinition> Analyzer<CD> {
                 columns,
             } => match FullTableName::try_from(table_name) {
                 Err(error) => Err(AnalysisError::table_naming_error(error)),
-                Ok(full_table_name) => {
-                    let table_info = self.database.table_info((&full_table_name).into());
-                    println!("{:?}", table_info);
-                    match table_info {
-                        None => Err(AnalysisError::schema_does_not_exist(full_table_name.schema())),
-                        Some(None) => Err(AnalysisError::table_does_not_exist(full_table_name)),
-                        Some(Some(table_info)) => {
-                            for column in columns.iter() {
-                                if !table_info.has_column(&column.to_string()) {
-                                    return Err(AnalysisError::column_not_found(column));
-                                }
+                Ok(full_table_name) => match self.database.table_definition(&full_table_name) {
+                    None => Err(AnalysisError::schema_does_not_exist(full_table_name.schema())),
+                    Some(None) => Err(AnalysisError::table_does_not_exist(full_table_name)),
+                    Some(Some(table_info)) => {
+                        for column in columns.iter() {
+                            if !table_info.has_column(&column.to_string()) {
+                                return Err(AnalysisError::column_not_found(column));
                             }
-                            let column_types: Vec<SqlType> =
-                                table_info.columns().iter().map(|col| col.sql_type()).collect();
-                            let sql_ast::Query { body, .. } = &**source;
-                            let values = match body {
-                                sql_ast::SetExpr::Values(sql_ast::Values(insert_rows)) => {
-                                    let mut values = vec![];
-                                    for insert_row in insert_rows {
-                                        let mut row = vec![];
-                                        for (index, value) in insert_row.iter().enumerate() {
-                                            let sql_type = column_types[index];
-                                            row.push(InsertTreeBuilder::build_from(
-                                                value,
-                                                &statement,
-                                                &sql_type.general_type(),
-                                                &sql_type,
-                                            )?);
-                                        }
-                                        values.push(row)
-                                    }
-                                    values
-                                }
-                                sql_ast::SetExpr::Query(_) | sql_ast::SetExpr::Select(_) => {
-                                    return Err(AnalysisError::FeatureNotSupported(Feature::InsertIntoSelect))
-                                }
-                                sql_ast::SetExpr::SetOperation { .. } => {
-                                    return Err(AnalysisError::FeatureNotSupported(Feature::SetOperations))
-                                }
-                            };
-                            Ok(QueryAnalysis::Write(Write::Insert(InsertQuery {
-                                full_table_name,
-                                column_types,
-                                values,
-                            })))
                         }
+                        let column_types: Vec<SqlType> =
+                            table_info.columns().iter().map(|col| col.sql_type()).collect();
+                        let sql_ast::Query { body, .. } = &**source;
+                        let values = match body {
+                            sql_ast::SetExpr::Values(sql_ast::Values(insert_rows)) => {
+                                let mut values = vec![];
+                                for insert_row in insert_rows {
+                                    let mut row = vec![];
+                                    for (index, value) in insert_row.iter().enumerate() {
+                                        let sql_type = column_types[index];
+                                        row.push(InsertTreeBuilder::build_from(
+                                            value,
+                                            &statement,
+                                            &sql_type.general_type(),
+                                            &sql_type,
+                                        )?);
+                                    }
+                                    values.push(row)
+                                }
+                                values
+                            }
+                            sql_ast::SetExpr::Query(_) | sql_ast::SetExpr::Select(_) => {
+                                return Err(AnalysisError::FeatureNotSupported(Feature::InsertIntoSelect))
+                            }
+                            sql_ast::SetExpr::SetOperation { .. } => {
+                                return Err(AnalysisError::FeatureNotSupported(Feature::SetOperations))
+                            }
+                        };
+                        Ok(QueryAnalysis::Write(Write::Insert(InsertQuery {
+                            full_table_name,
+                            column_types,
+                            values,
+                        })))
                     }
-                }
+                },
             },
             sql_ast::Statement::Update {
                 table_name,

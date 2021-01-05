@@ -13,10 +13,11 @@
 // limitations under the License.
 
 use crate::{
-    CatalogDefinition, ColumnInfo, DataCatalog, DataTable, Database, InMemoryCatalogHandle, SchemaHandle, SqlSchema,
-    SqlTable, TableInfo, COLUMNS_TABLE, DEFINITION_SCHEMA, SCHEMATA_TABLE, TABLES_TABLE,
+    CatalogDefinition, DataCatalog, DataTable, Database, InMemoryCatalogHandle, SchemaHandle, SqlSchema, SqlTable,
+    COLUMNS_TABLE, DEFINITION_SCHEMA, SCHEMATA_TABLE, TABLES_TABLE,
 };
 use binary::Binary;
+use definition::{ColumnDef, FullTableName, TableDef};
 use definition_operations::{
     ExecutionError, ExecutionOutcome, Kind, ObjectState, Record, Step, SystemObject, SystemOperation,
 };
@@ -86,8 +87,8 @@ impl InMemoryDatabase {
         schema == Some(Some(true))
     }
 
-    fn table_exists(&self, schema_name: &str, table_name: &str) -> bool {
-        let full_table_name = Binary::pack(&[CATALOG, Datum::from_str(schema_name), Datum::from_str(table_name)]);
+    fn table_exists(&self, full_table_name: &FullTableName) -> bool {
+        let full_table_name = Binary::pack(&full_table_name.raw(CATALOG));
         let table = self.catalog.work_with(DEFINITION_SCHEMA, |schema| {
             schema.work_with(TABLES_TABLE, |table| {
                 table.select().any(|(_key, value)| value == full_table_name)
@@ -95,45 +96,40 @@ impl InMemoryDatabase {
         });
         table == Some(Some(true))
     }
+
+    fn table_columns(&self, full_table_name: &FullTableName) -> Vec<ColumnDef> {
+        let full_table_name = Binary::pack(&full_table_name.raw(CATALOG));
+        self.catalog
+            .work_with(DEFINITION_SCHEMA, |schema| {
+                schema.work_with(COLUMNS_TABLE, |table| {
+                    table
+                        .select()
+                        .filter(|(_key, value)| value.start_with(&full_table_name))
+                        .map(|(_key, value)| {
+                            let row = value.unpack();
+                            let name = row[3].as_str().to_owned();
+                            let sql_type = SqlType::from_type_id(row[4].as_u64(), row[5].as_u64());
+                            let ord_num = row[6].as_u64() as usize;
+                            ColumnDef::new(name, sql_type, ord_num)
+                        })
+                        .collect()
+                })
+            })
+            .unwrap()
+            .unwrap()
+    }
 }
 
 impl CatalogDefinition for InMemoryDatabase {
-    fn table_info(&self, table_full_name: (&str, &str)) -> Option<Option<TableInfo>> {
-        let (schema_name, table_name) = table_full_name;
-        if self.schema_exists(schema_name) {
-            if self.table_exists(schema_name, table_name) {
-                let full_table_name =
-                    Binary::pack(&[CATALOG, Datum::from_str(schema_name), Datum::from_str(table_name)]);
-                self.catalog.work_with(DEFINITION_SCHEMA, |schema| {
-                    schema.work_with(COLUMNS_TABLE, |table| {
-                        let column_info = table
-                            .select()
-                            .filter(|(_key, value)| value.start_with(&full_table_name))
-                            .map(|(_key, value)| {
-                                let row = value.unpack();
-                                let name = row[3].as_str().to_owned();
-                                let sql_type = SqlType::from_type_id(row[4].as_u64(), row[5].as_u64());
-                                let ord_num = row[6].as_u64() as usize;
-                                ColumnInfo {
-                                    name,
-                                    sql_type,
-                                    ord_num,
-                                }
-                            })
-                            .collect();
-                        TableInfo {
-                            schema: schema_name.to_owned(),
-                            name: table_name.to_owned(),
-                            columns: column_info,
-                        }
-                    })
-                })
-            } else {
-                Some(None)
-            }
-        } else {
-            None
+    fn table_definition(&self, full_table_name: &FullTableName) -> Option<Option<TableDef>> {
+        if !(self.schema_exists(full_table_name.schema())) {
+            return None;
         }
+        if !(self.table_exists(full_table_name)) {
+            return Some(None);
+        }
+        let column_info = self.table_columns(full_table_name);
+        Some(Some(TableDef::new(full_table_name, column_info)))
     }
 }
 

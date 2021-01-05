@@ -7,8 +7,8 @@ publish = false
 
 [dependencies]
 ast = { path = "../ast" }
-repr = { path = "../../repr" }
-types = { path = "../../types" }
+repr = { path = "../../entities/repr" }
+types = { path = "../../entities/types" }
 
 bigdecimal = { version = "0.2.0", features = ["string-only"] }
 num-bigint = "0.3"

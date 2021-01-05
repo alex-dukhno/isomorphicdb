@@ -32,15 +32,16 @@ impl<D: Database> Executor<D> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use analysis_tree::{FullTableId, InsertQuery, Write};
+    use analysis_tree::{InsertQuery, Write};
     use catalog::InMemoryDatabase;
+    use definition::FullTableName;
 
     #[test]
     fn it_works() {
         let executor = Executor::new(InMemoryDatabase::new());
 
         executor.execute(Write::Insert(InsertQuery {
-            full_table_name: FullTableId::from((0, 0)),
+            full_table_name: FullTableName::from((&"schema", &"table")),
             column_types: vec![],
             values: vec![],
         }))

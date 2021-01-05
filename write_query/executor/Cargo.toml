@@ -8,3 +8,6 @@ publish = false
 [dependencies]
 analysis_tree = {path = "../../query_analysis/tree" }
 catalog = { path = "../../data/catalog" }
+
+[dev-dependencies]
+definition = { path = "../../entities/definition" }

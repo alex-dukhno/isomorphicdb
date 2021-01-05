@@ -6,6 +6,6 @@ edition = "2018"
 publish = false
 
 [dependencies]
-types = { path = "../../types" }
+types = { path = "../../entities/types" }
 
 bigdecimal = { version = "0.2.0", features = ["string-only"] }

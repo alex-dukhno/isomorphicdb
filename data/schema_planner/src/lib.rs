@@ -205,7 +205,7 @@ impl SystemSchemaPlanner {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use analysis_tree::SchemaName;
+    use definition::SchemaName;
     use types::SqlType;
 
     const SCHEMA: &str = "schema";
