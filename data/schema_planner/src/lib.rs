@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use analysis_tree::{
-    ColumnDesc, CreateSchemaQuery, CreateTableQuery, DropSchemasQuery, DropTablesQuery, SchemaChange, TableInfo,
+    ColumnInfo, CreateSchemaQuery, CreateTableQuery, DropSchemasQuery, DropTablesQuery, SchemaChange, TableInfo,
 };
 use data_manager::{COLUMNS_TABLE, DEFAULT_CATALOG, DEFINITION_SCHEMA, SCHEMATA_TABLE, TABLES_TABLE};
 use definition_operations::{Kind, ObjectState, Record, Step, SystemObject, SystemOperation};
@@ -131,7 +131,7 @@ impl SystemSchemaPlanner {
                         table_name: table_name.clone(),
                     },
                 });
-                for ColumnDesc { name, sql_type } in column_defs {
+                for ColumnInfo { name, sql_type } in column_defs {
                     steps.push(Step::CreateRecord {
                         system_schema: DEFINITION_SCHEMA.to_owned(),
                         system_table: COLUMNS_TABLE.to_owned(),
@@ -581,11 +581,11 @@ mod tests {
                 QUERY_PLANNER.schema_change_plan(&SchemaChange::CreateTable(CreateTableQuery {
                     table_info: TableInfo::new(0, &SCHEMA, &TABLE),
                     column_defs: vec![
-                        ColumnDesc {
+                        ColumnInfo {
                             name: "col_1".to_owned(),
                             sql_type: SqlType::SmallInt
                         },
-                        ColumnDesc {
+                        ColumnInfo {
                             name: "col_2".to_owned(),
                             sql_type: SqlType::BigInt
                         }

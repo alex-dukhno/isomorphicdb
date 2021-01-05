@@ -17,7 +17,7 @@ use super::*;
 #[test]
 fn insert_identifier() {
     let (data_definition, _schema_id, _table_id) = with_table(&[ColumnDefinition::new("col", SqlType::SmallInt)]);
-    let analyzer = Analyzer::new(data_definition);
+    let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
 
     assert_eq!(
         analyzer.analyze(insert_with_values(
@@ -35,7 +35,7 @@ mod implicit_cast {
     #[test]
     fn string_to_boolean() {
         let (data_definition, _schema_id, _table_id) = with_table(&[ColumnDefinition::new("col", SqlType::Bool)]);
-        let analyzer = Analyzer::new(data_definition);
+        let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
 
         assert_eq!(
             analyzer.analyze(insert_with_values(
@@ -51,7 +51,7 @@ mod implicit_cast {
     #[test]
     fn boolean_to_number() {
         let (data_definition, _schema_id, _table_id) = with_table(&[ColumnDefinition::new("col", SqlType::SmallInt)]);
-        let analyzer = Analyzer::new(data_definition);
+        let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
 
         assert_eq!(
             analyzer.analyze(insert_with_values(
@@ -65,7 +65,7 @@ mod implicit_cast {
     #[test]
     fn string_to_number() {
         let (data_definition, _schema_id, _table_id) = with_table(&[ColumnDefinition::new("col", SqlType::SmallInt)]);
-        let analyzer = Analyzer::new(data_definition);
+        let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
 
         assert_eq!(
             analyzer.analyze(insert_with_values(

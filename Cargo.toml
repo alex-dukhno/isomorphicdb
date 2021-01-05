@@ -28,4 +28,5 @@ members = [
     "server/pg_model",
     "server/node",
     "types",
+    "write_query/executor",
 ]

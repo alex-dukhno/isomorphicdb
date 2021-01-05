@@ -14,6 +14,7 @@
 
 use expr_operators::{Operation, Operator};
 use meta_def::Id;
+use std::ops::Deref;
 use std::{
     convert::TryFrom,
     fmt::{self, Display, Formatter},
@@ -70,6 +71,13 @@ impl FullTableName {
 impl<'f> Into<(&'f str, &'f str)> for &'f FullTableName {
     fn into(self) -> (&'f str, &'f str) {
         (&(self.0).0, &(self.0).1)
+    }
+}
+
+impl<S: ToString> From<(&S, &S)> for FullTableName {
+    fn from(tuple: (&S, &S)) -> Self {
+        let (schema, table) = tuple;
+        FullTableName((schema.to_string(), table.to_string()))
     }
 }
 
@@ -178,7 +186,7 @@ pub struct DropSchemasQuery {
 }
 
 #[derive(Debug, PartialEq)]
-pub struct ColumnDesc {
+pub struct ColumnInfo {
     pub name: String,
     pub sql_type: SqlType,
 }
@@ -186,7 +194,7 @@ pub struct ColumnDesc {
 #[derive(Debug, PartialEq)]
 pub struct CreateTableQuery {
     pub table_info: TableInfo,
-    pub column_defs: Vec<ColumnDesc>,
+    pub column_defs: Vec<ColumnInfo>,
     pub if_not_exists: bool,
 }
 
@@ -199,9 +207,27 @@ pub struct DropTablesQuery {
 
 #[derive(Debug, PartialEq)]
 pub struct InsertQuery {
-    pub full_table_id: FullTableId,
+    pub full_table_name: FullTableName,
     pub column_types: Vec<SqlType>,
     pub values: Vec<Vec<InsertTreeNode>>,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct ColumnDesc {
+    pub name: String,
+    pub sql_type: SqlType,
+    pub ord_num: usize,
+}
+
+impl From<(String, SqlType, usize)> for ColumnDesc {
+    fn from(tuple: (String, SqlType, usize)) -> ColumnDesc {
+        let (name, sql_type, ord_num) = tuple;
+        ColumnDesc {
+            name,
+            sql_type,
+            ord_num,
+        }
+    }
 }
 
 #[derive(Debug, PartialEq)]

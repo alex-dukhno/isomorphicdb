@@ -26,6 +26,7 @@ use definition_operations::{ExecutionError, ExecutionOutcome, SystemOperation};
 pub use in_memory::InMemoryCatalogHandle;
 pub use on_disk::OnDiskCatalogHandle;
 pub use sql::{in_memory::InMemoryDatabase, on_disk::OnDiskDatabase};
+use types::SqlType;
 
 pub type Key = Binary;
 pub type Value = Binary;
@@ -69,6 +70,7 @@ pub trait DataTable {
     fn insert(&self, data: Vec<Value>) -> usize;
     fn update(&self, data: Vec<(Key, Value)>) -> usize;
     fn delete(&self, data: Vec<Key>) -> usize;
+    fn next_column_ord(&self) -> u64;
 }
 
 pub trait SchemaHandle {
@@ -94,4 +96,38 @@ pub trait Database {
     type Table: SqlTable;
 
     fn execute(&self, operation: SystemOperation) -> Result<ExecutionOutcome, ExecutionError>;
+}
+
+#[derive(Debug)]
+pub struct ColumnInfo {
+    name: String,
+    sql_type: SqlType,
+    ord_num: usize,
+}
+
+impl ColumnInfo {
+    pub fn sql_type(&self) -> SqlType {
+        self.sql_type
+    }
+}
+
+#[derive(Debug)]
+pub struct TableInfo {
+    schema: String,
+    name: String,
+    columns: Vec<ColumnInfo>,
+}
+
+impl TableInfo {
+    pub fn columns(&self) -> &[ColumnInfo] {
+        &self.columns
+    }
+
+    pub fn has_column(&self, column_name: &str) -> bool {
+        self.columns.iter().any(|col| col.name == column_name)
+    }
+}
+
+pub trait CatalogDefinition {
+    fn table_info(&self, table_full_name: (&str, &str)) -> Option<Option<TableInfo>>;
 }

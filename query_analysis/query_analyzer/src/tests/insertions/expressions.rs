@@ -14,19 +14,15 @@
 
 use super::*;
 
-fn small_int(value: i16) -> sql_ast::Expr {
-    sql_ast::Expr::Value(number(value))
-}
-
 #[test]
 fn insert_number() {
     let (data_definition, schema_id, table_id) = with_table(&[ColumnDefinition::new("col", SqlType::SmallInt)]);
-    let analyzer = Analyzer::new(data_definition);
+    let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
 
     assert_eq!(
         analyzer.analyze(insert_with_values(vec![SCHEMA, TABLE], vec![vec![small_int(1)]])),
         Ok(QueryAnalysis::Write(Write::Insert(InsertQuery {
-            full_table_id: FullTableId::from((schema_id, table_id)),
+            full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             column_types: vec![SqlType::SmallInt],
             values: vec![vec![InsertTreeNode::Item(Operator::Const(ScalarValue::Number(
                 BigDecimal::from(1)
@@ -38,12 +34,12 @@ fn insert_number() {
 #[test]
 fn insert_string() {
     let (data_definition, schema_id, table_id) = with_table(&[ColumnDefinition::new("col", SqlType::Char(5))]);
-    let analyzer = Analyzer::new(data_definition);
+    let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
 
     assert_eq!(
         analyzer.analyze(insert_with_values(vec![SCHEMA, TABLE], vec![vec![string("str")]])),
         Ok(QueryAnalysis::Write(Write::Insert(InsertQuery {
-            full_table_id: FullTableId::from((schema_id, table_id)),
+            full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             column_types: vec![SqlType::Char(5)],
             values: vec![vec![InsertTreeNode::Item(Operator::Const(ScalarValue::String(
                 "str".to_owned()
@@ -55,12 +51,12 @@ fn insert_string() {
 #[test]
 fn insert_boolean() {
     let (data_definition, schema_id, table_id) = with_table(&[ColumnDefinition::new("col", SqlType::Bool)]);
-    let analyzer = Analyzer::new(data_definition);
+    let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
 
     assert_eq!(
         analyzer.analyze(insert_with_values(vec![SCHEMA, TABLE], vec![vec![boolean(true)]])),
         Ok(QueryAnalysis::Write(Write::Insert(InsertQuery {
-            full_table_id: FullTableId::from((schema_id, table_id)),
+            full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             column_types: vec![SqlType::Bool],
             values: vec![vec![InsertTreeNode::Item(Operator::Const(ScalarValue::Bool(Bool(
                 true
@@ -72,12 +68,12 @@ fn insert_boolean() {
 #[test]
 fn insert_null() {
     let (data_definition, schema_id, table_id) = with_table(&[ColumnDefinition::new("col", SqlType::Bool)]);
-    let analyzer = Analyzer::new(data_definition);
+    let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
 
     assert_eq!(
         analyzer.analyze(insert_with_values(vec![SCHEMA, TABLE], vec![vec![null()]])),
         Ok(QueryAnalysis::Write(Write::Insert(InsertQuery {
-            full_table_id: FullTableId::from((schema_id, table_id)),
+            full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             column_types: vec![SqlType::Bool],
             values: vec![vec![InsertTreeNode::Item(Operator::Const(ScalarValue::Null))]],
         })))
@@ -91,7 +87,7 @@ mod implicit_cast {
     #[test]
     fn string_to_boolean() {
         let (data_definition, schema_id, table_id) = with_table(&[ColumnDefinition::new("col", SqlType::Bool)]);
-        let analyzer = Analyzer::new(data_definition);
+        let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
 
         assert_eq!(
             analyzer.analyze(insert_with_values(
@@ -101,7 +97,7 @@ mod implicit_cast {
                 ))]]
             )),
             Ok(QueryAnalysis::Write(Write::Insert(InsertQuery {
-                full_table_id: FullTableId::from((schema_id, table_id)),
+                full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 column_types: vec![SqlType::Bool],
                 values: vec![vec![InsertTreeNode::Item(Operator::Const(ScalarValue::Bool(Bool(
                     true
@@ -113,7 +109,7 @@ mod implicit_cast {
     #[test]
     fn boolean_to_string() {
         let (data_definition, schema_id, table_id) = with_table(&[ColumnDefinition::new("col", SqlType::VarChar(5))]);
-        let analyzer = Analyzer::new(data_definition);
+        let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
 
         assert_eq!(
             analyzer.analyze(insert_with_values(
@@ -121,7 +117,7 @@ mod implicit_cast {
                 vec![vec![sql_ast::Expr::Value(sql_ast::Value::Boolean(true))]]
             )),
             Ok(QueryAnalysis::Write(Write::Insert(InsertQuery {
-                full_table_id: FullTableId::from((schema_id, table_id)),
+                full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 column_types: vec![SqlType::VarChar(5)],
                 values: vec![vec![InsertTreeNode::Item(Operator::Const(ScalarValue::String(
                     "true".to_string()
@@ -133,7 +129,7 @@ mod implicit_cast {
     #[test]
     fn boolean_to_string_not_enough_length() {
         let (data_definition, schema_id, table_id) = with_table(&[ColumnDefinition::new("col", SqlType::Char(1))]);
-        let analyzer = Analyzer::new(data_definition);
+        let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
 
         assert_eq!(
             analyzer.analyze(insert_with_values(
@@ -141,7 +137,7 @@ mod implicit_cast {
                 vec![vec![sql_ast::Expr::Value(sql_ast::Value::Boolean(true))]]
             )),
             Ok(QueryAnalysis::Write(Write::Insert(InsertQuery {
-                full_table_id: FullTableId::from((schema_id, table_id)),
+                full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 column_types: vec![SqlType::Char(1)],
                 values: vec![vec![InsertTreeNode::Item(Operator::Const(ScalarValue::String(
                     "true".to_owned()
@@ -153,7 +149,7 @@ mod implicit_cast {
     #[test]
     fn string_to_number() {
         let (data_definition, schema_id, table_id) = with_table(&[ColumnDefinition::new("col", SqlType::SmallInt)]);
-        let analyzer = Analyzer::new(data_definition);
+        let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
 
         assert_eq!(
             analyzer.analyze(insert_with_values(
@@ -163,7 +159,7 @@ mod implicit_cast {
                 ))]]
             )),
             Ok(QueryAnalysis::Write(Write::Insert(InsertQuery {
-                full_table_id: FullTableId::from((schema_id, table_id)),
+                full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 column_types: vec![SqlType::SmallInt],
                 values: vec![vec![InsertTreeNode::Item(Operator::Const(ScalarValue::Number(
                     BigDecimal::from(100)
@@ -175,7 +171,7 @@ mod implicit_cast {
     #[test]
     fn number_to_string_not_enough_length() {
         let (data_definition, schema_id, table_id) = with_table(&[ColumnDefinition::new("col", SqlType::Char(1))]);
-        let analyzer = Analyzer::new(data_definition);
+        let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
 
         assert_eq!(
             analyzer.analyze(insert_with_values(
@@ -185,7 +181,7 @@ mod implicit_cast {
                 )))]]
             )),
             Ok(QueryAnalysis::Write(Write::Insert(InsertQuery {
-                full_table_id: FullTableId::from((schema_id, table_id)),
+                full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 column_types: vec![SqlType::Char(1)],
                 values: vec![vec![InsertTreeNode::Item(Operator::Const(ScalarValue::String(
                     "123".to_owned()
@@ -197,7 +193,7 @@ mod implicit_cast {
     #[test]
     fn number_to_boolean() {
         let (data_definition, schema_id, table_id) = with_table(&[ColumnDefinition::new("col", SqlType::Bool)]);
-        let analyzer = Analyzer::new(data_definition);
+        let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
 
         assert_eq!(
             analyzer.analyze(insert_with_values(
@@ -205,7 +201,7 @@ mod implicit_cast {
                 vec![vec![sql_ast::Expr::Value(sql_ast::Value::Number(BigDecimal::from(0)))]]
             )),
             Ok(QueryAnalysis::Write(Write::Insert(InsertQuery {
-                full_table_id: FullTableId::from((schema_id, table_id)),
+                full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 column_types: vec![SqlType::Bool],
                 values: vec![vec![InsertTreeNode::Item(Operator::Const(ScalarValue::Bool(Bool(
                     false
@@ -237,7 +233,7 @@ mod multiple_values {
     #[test]
     fn arithmetic() {
         let (data_definition, schema_id, table_id) = with_table(&[ColumnDefinition::new("col", SqlType::SmallInt)]);
-        let analyzer = Analyzer::new(data_definition);
+        let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
 
         assert_eq!(
             analyzer.analyze(insert_value_as_expression_with_operation(
@@ -246,7 +242,7 @@ mod multiple_values {
                 sql_ast::Expr::Value(number(1))
             )),
             Ok(QueryAnalysis::Write(Write::Insert(InsertQuery {
-                full_table_id: FullTableId::from((schema_id, table_id)),
+                full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 column_types: vec![SqlType::SmallInt],
                 values: vec![vec![InsertTreeNode::Operation {
                     left: Box::new(InsertTreeNode::Item(Operator::Const(ScalarValue::Number(
@@ -264,7 +260,7 @@ mod multiple_values {
     #[test]
     fn string_operation() {
         let (data_definition, schema_id, table_id) = with_table(&[ColumnDefinition::new("col", SqlType::VarChar(255))]);
-        let analyzer = Analyzer::new(data_definition);
+        let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
 
         assert_eq!(
             analyzer.analyze(insert_value_as_expression_with_operation(
@@ -273,7 +269,7 @@ mod multiple_values {
                 string("str")
             )),
             Ok(QueryAnalysis::Write(Write::Insert(InsertQuery {
-                full_table_id: FullTableId::from((schema_id, table_id)),
+                full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 column_types: vec![SqlType::VarChar(255)],
                 values: vec![vec![InsertTreeNode::Operation {
                     left: Box::new(InsertTreeNode::Item(Operator::Const(ScalarValue::String(
@@ -291,7 +287,7 @@ mod multiple_values {
     #[test]
     fn comparison() {
         let (data_definition, schema_id, table_id) = with_table(&[ColumnDefinition::new("col", SqlType::Bool)]);
-        let analyzer = Analyzer::new(data_definition);
+        let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
 
         assert_eq!(
             analyzer.analyze(insert_value_as_expression_with_operation(
@@ -300,7 +296,7 @@ mod multiple_values {
                 sql_ast::Expr::Value(number(1))
             )),
             Ok(QueryAnalysis::Write(Write::Insert(InsertQuery {
-                full_table_id: FullTableId::from((schema_id, table_id)),
+                full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 column_types: vec![SqlType::Bool],
                 values: vec![vec![InsertTreeNode::Operation {
                     left: Box::new(InsertTreeNode::Item(Operator::Const(ScalarValue::Number(
@@ -318,7 +314,7 @@ mod multiple_values {
     #[test]
     fn logical() {
         let (data_definition, schema_id, table_id) = with_table(&[ColumnDefinition::new("col", SqlType::Bool)]);
-        let analyzer = Analyzer::new(data_definition);
+        let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
 
         assert_eq!(
             analyzer.analyze(insert_value_as_expression_with_operation(
@@ -327,7 +323,7 @@ mod multiple_values {
                 sql_ast::Expr::Value(sql_ast::Value::Boolean(true)),
             )),
             Ok(QueryAnalysis::Write(Write::Insert(InsertQuery {
-                full_table_id: FullTableId::from((schema_id, table_id)),
+                full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 column_types: vec![SqlType::Bool],
                 values: vec![vec![InsertTreeNode::Operation {
                     left: Box::new(InsertTreeNode::Item(Operator::Const(ScalarValue::Bool(Bool(true))))),
@@ -341,7 +337,7 @@ mod multiple_values {
     #[test]
     fn bitwise() {
         let (data_definition, schema_id, table_id) = with_table(&[ColumnDefinition::new("col", SqlType::SmallInt)]);
-        let analyzer = Analyzer::new(data_definition);
+        let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
 
         assert_eq!(
             analyzer.analyze(insert_value_as_expression_with_operation(
@@ -350,7 +346,7 @@ mod multiple_values {
                 sql_ast::Expr::Value(number(1))
             )),
             Ok(QueryAnalysis::Write(Write::Insert(InsertQuery {
-                full_table_id: FullTableId::from((schema_id, table_id)),
+                full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 column_types: vec![SqlType::SmallInt],
                 values: vec![vec![InsertTreeNode::Operation {
                     left: Box::new(InsertTreeNode::Item(Operator::Const(ScalarValue::Number(
@@ -368,7 +364,7 @@ mod multiple_values {
     #[test]
     fn pattern_matching() {
         let (data_definition, schema_id, table_id) = with_table(&[ColumnDefinition::new("col", SqlType::Bool)]);
-        let analyzer = Analyzer::new(data_definition);
+        let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
 
         assert_eq!(
             analyzer.analyze(insert_value_as_expression_with_operation(
@@ -377,7 +373,7 @@ mod multiple_values {
                 string("str")
             )),
             Ok(QueryAnalysis::Write(Write::Insert(InsertQuery {
-                full_table_id: FullTableId::from((schema_id, table_id)),
+                full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 column_types: vec![SqlType::Bool],
                 values: vec![vec![InsertTreeNode::Operation {
                     left: Box::new(InsertTreeNode::Item(Operator::Const(ScalarValue::String(
@@ -400,7 +396,7 @@ mod not_supported_values {
     #[test]
     fn national_strings() {
         let (data_definition, _schema_id, _table_id) = with_table(&[ColumnDefinition::new("col", SqlType::SmallInt)]);
-        let analyzer = Analyzer::new(data_definition);
+        let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
 
         assert_eq!(
             analyzer.analyze(insert_with_values(
@@ -416,7 +412,7 @@ mod not_supported_values {
     #[test]
     fn hex_strings() {
         let (data_definition, _schema_id, _table_id) = with_table(&[ColumnDefinition::new("col", SqlType::SmallInt)]);
-        let analyzer = Analyzer::new(data_definition);
+        let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
 
         assert_eq!(
             analyzer.analyze(insert_with_values(
@@ -432,7 +428,7 @@ mod not_supported_values {
     #[test]
     fn time_intervals() {
         let (data_definition, _schema_id, _table_id) = with_table(&[ColumnDefinition::new("col", SqlType::SmallInt)]);
-        let analyzer = Analyzer::new(data_definition);
+        let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
 
         assert_eq!(
             analyzer.analyze(insert_with_values(

@@ -13,8 +13,8 @@
 // limitations under the License.
 
 use crate::{
-    DataCatalog, DataTable, Database, InMemoryCatalogHandle, SchemaHandle, SqlSchema, SqlTable, COLUMNS_TABLE,
-    DEFINITION_SCHEMA, SCHEMATA_TABLE, TABLES_TABLE,
+    CatalogDefinition, ColumnInfo, DataCatalog, DataTable, Database, InMemoryCatalogHandle, SchemaHandle, SqlSchema,
+    SqlTable, TableInfo, COLUMNS_TABLE, DEFINITION_SCHEMA, SCHEMATA_TABLE, TABLES_TABLE,
 };
 use binary::Binary;
 use definition_operations::{
@@ -22,8 +22,33 @@ use definition_operations::{
 };
 use repr::Datum;
 use std::sync::Arc;
+use types::SqlType;
 
 const CATALOG: Datum = Datum::from_str("IN_MEMORY");
+
+fn create_public_schema() -> SystemOperation {
+    SystemOperation {
+        kind: Kind::Create(SystemObject::Schema),
+        skip_steps_if: None,
+        steps: vec![vec![
+            Step::CheckExistence {
+                system_object: SystemObject::Schema,
+                object_name: vec!["public".to_owned()],
+            },
+            Step::CreateFolder {
+                name: "public".to_owned(),
+            },
+            Step::CreateRecord {
+                system_schema: DEFINITION_SCHEMA.to_owned(),
+                system_table: SCHEMATA_TABLE.to_owned(),
+                record: Record::Schema {
+                    catalog_name: "".to_owned(),
+                    schema_name: "public".to_owned(),
+                },
+            },
+        ]],
+    }
+}
 
 pub struct InMemoryDatabase {
     catalog: InMemoryCatalogHandle,
@@ -47,7 +72,68 @@ impl InMemoryDatabase {
             schema.create_table(TABLES_TABLE);
             schema.create_table(COLUMNS_TABLE);
         });
+        self.execute(create_public_schema());
         self
+    }
+
+    fn schema_exists(&self, schema_name: &str) -> bool {
+        let full_schema_name = Binary::pack(&[CATALOG, Datum::from_str(schema_name)]);
+        let schema = self.catalog.work_with(DEFINITION_SCHEMA, |schema| {
+            schema.work_with(SCHEMATA_TABLE, |table| {
+                table.select().any(|(_key, value)| value == full_schema_name)
+            })
+        });
+        schema == Some(Some(true))
+    }
+
+    fn table_exists(&self, schema_name: &str, table_name: &str) -> bool {
+        let full_table_name = Binary::pack(&[CATALOG, Datum::from_str(schema_name), Datum::from_str(table_name)]);
+        let table = self.catalog.work_with(DEFINITION_SCHEMA, |schema| {
+            schema.work_with(TABLES_TABLE, |table| {
+                table.select().any(|(_key, value)| value == full_table_name)
+            })
+        });
+        table == Some(Some(true))
+    }
+}
+
+impl CatalogDefinition for InMemoryDatabase {
+    fn table_info(&self, table_full_name: (&str, &str)) -> Option<Option<TableInfo>> {
+        let (schema_name, table_name) = table_full_name;
+        if self.schema_exists(schema_name) {
+            if self.table_exists(schema_name, table_name) {
+                let full_table_name =
+                    Binary::pack(&[CATALOG, Datum::from_str(schema_name), Datum::from_str(table_name)]);
+                self.catalog.work_with(DEFINITION_SCHEMA, |schema| {
+                    schema.work_with(COLUMNS_TABLE, |table| {
+                        let column_info = table
+                            .select()
+                            .filter(|(_key, value)| value.start_with(&full_table_name))
+                            .map(|(_key, value)| {
+                                let row = value.unpack();
+                                let name = row[3].as_str().to_owned();
+                                let sql_type = SqlType::from_type_id(row[4].as_u64(), row[5].as_u64());
+                                let ord_num = row[6].as_u64() as usize;
+                                ColumnInfo {
+                                    name,
+                                    sql_type,
+                                    ord_num,
+                                }
+                            })
+                            .collect();
+                        TableInfo {
+                            schema: schema_name.to_owned(),
+                            name: table_name.to_owned(),
+                            columns: column_info,
+                        }
+                    })
+                })
+            } else {
+                Some(None)
+            }
+        } else {
+            None
+        }
     }
 }
 
@@ -160,7 +246,9 @@ impl Database for InMemoryDatabase {
                         self.catalog.drop_schema(&name);
                         return Ok(ExecutionOutcome::SchemaDropped);
                     }
-                    Step::CreateFile { .. } => {}
+                    Step::CreateFile { folder_name, name } => {
+                        self.catalog.work_with(folder_name, |schema| schema.create_table(name));
+                    }
                     Step::RemoveFile { .. } => {}
                     Step::RemoveRecord {
                         system_schema: _system_schema,
@@ -259,9 +347,40 @@ impl Database for InMemoryDatabase {
                                     println!("GENERATED TABLE ID - {:?}", table_id);
                                 })
                             });
-                            return Ok(ExecutionOutcome::TableCreated);
                         }
-                        Record::Column { .. } => {}
+                        Record::Column {
+                            catalog_name,
+                            schema_name,
+                            table_name,
+                            column_name,
+                            sql_type,
+                        } => {
+                            let ord_num = self.catalog.work_with(schema_name, |schema| {
+                                schema.work_with(table_name, |table| table.next_column_ord())
+                            });
+                            debug_assert!(
+                                matches!(ord_num, Some(Some(_))),
+                                "column ord num has to be generated for {:?}.{:?} but value was {:?}",
+                                schema_name,
+                                table_name,
+                                ord_num
+                            );
+                            let ord_num = ord_num.unwrap().unwrap();
+
+                            let row = Binary::pack(&[
+                                CATALOG,
+                                Datum::from_str(&schema_name),
+                                Datum::from_str(&table_name),
+                                Datum::from_str(&column_name),
+                                Datum::from_u64(sql_type.type_id()),
+                                Datum::from_optional_u64(sql_type.chars_len()),
+                                Datum::from_u64(ord_num),
+                            ]);
+
+                            self.catalog.work_with(DEFINITION_SCHEMA, |schema| {
+                                schema.work_with(COLUMNS_TABLE, |table| table.insert(vec![row.clone()]))
+                            });
+                        }
                     },
                 }
             }

@@ -52,7 +52,7 @@ mod schema {
     #[test]
     fn drop_non_existent_schema() {
         let data_definition = Arc::new(DatabaseHandle::in_memory());
-        let analyzer = Analyzer::new(data_definition);
+        let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
         assert_eq!(
             analyzer.analyze(drop_statement(vec![vec!["non_existent"]], SCHEMA_TYPE)),
             Ok(QueryAnalysis::DataDefinition(SchemaChange::DropSchemas(
@@ -68,7 +68,7 @@ mod schema {
     #[test]
     fn drop_schema_with_unqualified_name() {
         let data_definition = Arc::new(DatabaseHandle::in_memory());
-        let analyzer = Analyzer::new(data_definition);
+        let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
         assert_eq!(
             analyzer.analyze(drop_statement(
                 vec![vec!["first_part", "second_part", "third_part", "fourth_part"]],
@@ -84,7 +84,7 @@ mod schema {
     fn drop_schema() {
         let data_definition = Arc::new(DatabaseHandle::in_memory());
         data_definition.create_schema(SCHEMA).expect("schema created");
-        let analyzer = Analyzer::new(data_definition);
+        let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
         assert_eq!(
             analyzer.analyze(drop_statement(vec![vec![SCHEMA]], SCHEMA_TYPE)),
             Ok(QueryAnalysis::DataDefinition(SchemaChange::DropSchemas(
@@ -101,7 +101,7 @@ mod schema {
     fn drop_schema_cascade() {
         let data_definition = Arc::new(DatabaseHandle::in_memory());
         data_definition.create_schema(SCHEMA).expect("schema created");
-        let analyzer = Analyzer::new(data_definition);
+        let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
         assert_eq!(
             analyzer.analyze(drop_cascade(vec![vec![SCHEMA]], SCHEMA_TYPE)),
             Ok(QueryAnalysis::DataDefinition(SchemaChange::DropSchemas(
@@ -118,7 +118,7 @@ mod schema {
     fn drop_schema_if_exists() {
         let data_definition = Arc::new(DatabaseHandle::in_memory());
         data_definition.create_schema(SCHEMA).expect("schema created");
-        let analyzer = Analyzer::new(data_definition);
+        let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
         assert_eq!(
             analyzer.analyze(drop_if_exists(vec![vec![SCHEMA], vec!["schema_1"]], SCHEMA_TYPE)),
             Ok(QueryAnalysis::DataDefinition(SchemaChange::DropSchemas(
@@ -141,7 +141,7 @@ mod table {
     #[test]
     fn drop_table_from_nonexistent_schema() {
         let data_definition = Arc::new(DatabaseHandle::in_memory());
-        let analyzer = Analyzer::new(data_definition);
+        let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
         assert_eq!(
             analyzer.analyze(drop_statement(vec![vec!["non_existent_schema", TABLE]], TABLE_TYPE)),
             Err(AnalysisError::schema_does_not_exist(&"non_existent_schema"))
@@ -152,7 +152,7 @@ mod table {
     fn drop_table_with_unqualified_name() {
         let data_definition = Arc::new(DatabaseHandle::in_memory());
         data_definition.create_schema(SCHEMA).expect("schema created");
-        let analyzer = Analyzer::new(data_definition);
+        let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
         assert_eq!(
             analyzer.analyze(drop_statement(vec![vec!["only_schema_in_the_name"]], TABLE_TYPE)),
             Err(AnalysisError::table_naming_error(
@@ -164,7 +164,7 @@ mod table {
     #[test]
     fn drop_table_with_unsupported_name() {
         let data_definition = Arc::new(DatabaseHandle::in_memory());
-        let analyzer = Analyzer::new(data_definition);
+        let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
         assert_eq!(
             analyzer.analyze(drop_statement(
                 vec![vec!["first_part", "second_part", "third_part", "fourth_part"]],
@@ -183,7 +183,7 @@ mod table {
         data_definition
             .create_table(schema_id, TABLE, &[])
             .expect("table created");
-        let analyzer = Analyzer::new(data_definition);
+        let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
         assert_eq!(
             analyzer.analyze(drop_statement(vec![vec![SCHEMA, TABLE]], TABLE_TYPE)),
             Ok(QueryAnalysis::DataDefinition(SchemaChange::DropTables(
@@ -200,7 +200,7 @@ mod table {
     fn drop_nonexistent_table() {
         let data_definition = Arc::new(DatabaseHandle::in_memory());
         data_definition.create_schema(SCHEMA).expect("schema created");
-        let analyzer = Analyzer::new(data_definition);
+        let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
         assert_eq!(
             analyzer.analyze(drop_statement(vec![vec![SCHEMA, "non_existent_table"]], TABLE_TYPE)),
             Ok(QueryAnalysis::DataDefinition(SchemaChange::DropTables(
@@ -223,7 +223,7 @@ mod table {
         data_definition
             .create_table(schema_id, "table_1", &[])
             .expect("table created");
-        let analyzer = Analyzer::new(data_definition);
+        let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
         assert_eq!(
             analyzer.analyze(drop_if_exists(
                 vec![vec![SCHEMA, TABLE], vec![SCHEMA, "table_1"]],
@@ -252,7 +252,7 @@ mod table {
         data_definition
             .create_table(schema_id, "table_1", &[])
             .expect("table created");
-        let analyzer = Analyzer::new(data_definition);
+        let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
         assert_eq!(
             analyzer.analyze(drop_cascade(
                 vec![vec![SCHEMA, TABLE], vec![SCHEMA, "table_1"]],

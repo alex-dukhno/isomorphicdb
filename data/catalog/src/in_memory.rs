@@ -28,6 +28,7 @@ use std::{
 pub struct InMemoryTableHandle {
     records: RwLock<BTreeMap<Binary, Binary>>,
     record_ids: AtomicU64,
+    column_ords: AtomicU64,
 }
 
 impl DataTable for InMemoryTableHandle {
@@ -79,6 +80,10 @@ impl DataTable for InMemoryTableHandle {
             size += 1;
         }
         size
+    }
+
+    fn next_column_ord(&self) -> u64 {
+        self.column_ords.fetch_add(1, Ordering::SeqCst)
     }
 }
 

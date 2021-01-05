@@ -15,7 +15,7 @@
 use analysis_tree::{AnalysisError, QueryAnalysis};
 use bigdecimal::BigDecimal;
 use binder::ParamBinder;
-use catalog::Database;
+use catalog::{CatalogDefinition, Database};
 use connection::Sender;
 use data_manager::{DataDefReader, DatabaseHandle};
 use definition_operations::{ExecutionError, ExecutionOutcome};
@@ -43,13 +43,13 @@ unsafe impl<D: Database> Send for QueryEngine<D> {}
 
 unsafe impl<D: Database> Sync for QueryEngine<D> {}
 
-pub(crate) struct QueryEngine<D: Database> {
+pub(crate) struct QueryEngine<D: Database + CatalogDefinition> {
     session: Session<Statement>,
     sender: Arc<dyn Sender>,
     database: Arc<D>,
     data_manager: Arc<DatabaseHandle>,
     param_binder: ParamBinder,
-    query_analyzer: Analyzer,
+    query_analyzer: Analyzer<D>,
     system_planner: SystemSchemaPlanner,
     schema_executor: SystemSchemaExecutor,
     old_query_analyzer: OldAnalyzer,
@@ -62,11 +62,11 @@ impl<D: Database> QueryEngine<D> {
         QueryEngine {
             session: Session::default(),
             sender: sender.clone(),
-            database,
+            database: database.clone(),
             data_manager: data_manager.clone(),
             param_binder: ParamBinder,
             old_query_analyzer: OldAnalyzer::new(data_manager.clone()),
-            query_analyzer: Analyzer::new(data_manager.clone()),
+            query_analyzer: Analyzer::new(data_manager.clone(), database),
             system_planner: SystemSchemaPlanner::new(),
             schema_executor: SystemSchemaExecutor::new(data_manager.clone()),
             query_planner: QueryPlanner::new(data_manager.clone()),

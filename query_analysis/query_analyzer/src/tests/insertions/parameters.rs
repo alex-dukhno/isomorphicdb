@@ -31,12 +31,12 @@ fn insert_into_table_with_parameters() {
         ColumnDefinition::new("col_1", SqlType::SmallInt),
         ColumnDefinition::new("col_2", SqlType::SmallInt),
     ]);
-    let analyzer = Analyzer::new(data_definition);
+    let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
 
     assert_eq!(
         analyzer.analyze(insert_with_parameters(vec![SCHEMA, TABLE], vec!["$1", "$2"])),
         Ok(QueryAnalysis::Write(Write::Insert(InsertQuery {
-            full_table_id: FullTableId::from((schema_id, table_id)),
+            full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             column_types: vec![SqlType::SmallInt, SqlType::SmallInt],
             values: vec![vec![
                 InsertTreeNode::Item(Operator::Param(0)),
@@ -52,7 +52,7 @@ fn insert_into_table_with_parameters_and_values() {
         ColumnDefinition::new("col_1", SqlType::SmallInt),
         ColumnDefinition::new("col_2", SqlType::SmallInt),
     ]);
-    let analyzer = Analyzer::new(data_definition);
+    let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
 
     assert_eq!(
         analyzer.analyze(insert_with_values(
@@ -63,7 +63,7 @@ fn insert_into_table_with_parameters_and_values() {
             ]]
         )),
         Ok(QueryAnalysis::Write(Write::Insert(InsertQuery {
-            full_table_id: FullTableId::from((schema_id, table_id)),
+            full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             column_types: vec![SqlType::SmallInt, SqlType::SmallInt],
             values: vec![vec![
                 InsertTreeNode::Item(Operator::Param(0)),

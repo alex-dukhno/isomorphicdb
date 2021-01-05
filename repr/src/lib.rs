@@ -77,6 +77,14 @@ impl<'a> Datum<'a> {
         Datum::from_i64(val as i64)
     }
 
+    pub fn from_optional_u64(val: Option<u64>) -> Datum<'static> {
+        match val {
+            // TODO: None should be translated into NULL but 0 for now
+            None => Datum::from_u64(0),
+            Some(val) => Datum::from_u64(val),
+        }
+    }
+
     pub fn from_f32(val: f32) -> Datum<'static> {
         Datum::Float32(OrderedFloat(val))
     }
