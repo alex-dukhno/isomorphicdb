@@ -73,7 +73,12 @@ impl InMemoryDatabase {
             schema.create_table(TABLES_TABLE);
             schema.create_table(COLUMNS_TABLE);
         });
-        self.execute(create_public_schema());
+        let public_schema = self.execute(create_public_schema());
+        debug_assert!(
+            matches!(public_schema, Ok(_)),
+            "Default `public` schema has to be created, but failed due to {:?}",
+            public_schema
+        );
         self
     }
 
@@ -345,7 +350,7 @@ impl Database for InMemoryDatabase {
                             });
                         }
                         Record::Column {
-                            catalog_name,
+                            catalog_name: _catalog_name,
                             schema_name,
                             table_name,
                             column_name,

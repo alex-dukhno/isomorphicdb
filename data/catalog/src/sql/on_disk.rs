@@ -16,7 +16,6 @@ use crate::{CatalogDefinition, Database, SqlSchema, SqlTable};
 use definition::{FullTableName, TableDef};
 use definition_operations::{ExecutionError, ExecutionOutcome, SystemOperation};
 use std::sync::Arc;
-use types::SqlType;
 
 pub struct OnDiskDatabase;
 
@@ -27,7 +26,7 @@ impl OnDiskDatabase {
 }
 
 impl CatalogDefinition for OnDiskDatabase {
-    fn table_definition(&self, table_full_name: &FullTableName) -> Option<Option<TableDef>> {
+    fn table_definition(&self, _table_full_name: &FullTableName) -> Option<Option<TableDef>> {
         unimplemented!()
     }
 }

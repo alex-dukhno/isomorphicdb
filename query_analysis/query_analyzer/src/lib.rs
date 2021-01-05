@@ -17,11 +17,11 @@ use crate::{
     update_tree_builder::UpdateTreeBuilder,
 };
 use analysis_tree::{
-    AnalysisError, ColumnDesc, ColumnInfo, CreateSchemaQuery, CreateTableQuery, DeleteQuery, DropSchemasQuery,
-    DropTablesQuery, Feature, FullTableId, InsertQuery, ProjectionTreeNode, QueryAnalysis, SchemaChange, SelectQuery,
-    TableInfo, UpdateQuery, Write,
+    AnalysisError, ColumnInfo, CreateSchemaQuery, CreateTableQuery, DeleteQuery, DropSchemasQuery, DropTablesQuery,
+    Feature, FullTableId, InsertQuery, ProjectionTreeNode, QueryAnalysis, SchemaChange, SelectQuery, TableInfo,
+    UpdateQuery, Write,
 };
-use catalog::{CatalogDefinition, Database};
+use catalog::CatalogDefinition;
 use data_manager::DataDefReader;
 use definition::{FullTableName, SchemaName};
 use expr_operators::Operator;
@@ -73,12 +73,7 @@ impl<CD: CatalogDefinition> Analyzer<CD> {
                                     let mut row = vec![];
                                     for (index, value) in insert_row.iter().enumerate() {
                                         let sql_type = column_types[index];
-                                        row.push(InsertTreeBuilder::build_from(
-                                            value,
-                                            &statement,
-                                            &sql_type.general_type(),
-                                            &sql_type,
-                                        )?);
+                                        row.push(InsertTreeBuilder::build_from(value, &statement, &sql_type)?);
                                     }
                                     values.push(row)
                                 }

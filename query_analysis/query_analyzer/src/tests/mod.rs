@@ -28,7 +28,7 @@ mod updates;
 use super::*;
 use analysis_tree::{InsertTreeNode, UpdateTreeNode};
 use bigdecimal::BigDecimal;
-use catalog::InMemoryDatabase;
+use catalog::{Database, InMemoryDatabase};
 use data_manager::DatabaseHandle;
 use expr_operators::{
     Arithmetic, Bitwise, Bool, Comparison, Logical, Operation, Operator, PatternMatching, ScalarValue, StringOp,

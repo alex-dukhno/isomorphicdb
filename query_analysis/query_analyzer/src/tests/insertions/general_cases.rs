@@ -31,7 +31,7 @@ fn schema_does_not_exist() {
 #[test]
 fn table_does_not_exist() {
     let database = InMemoryDatabase::new();
-    database.execute(create_schema(SCHEMA));
+    database.execute(create_schema(SCHEMA)).unwrap();
     let analyzer = Analyzer::new(Arc::new(DatabaseHandle::in_memory()), database);
 
     assert_eq!(
@@ -69,11 +69,12 @@ fn table_with_unsupported_name() {
 
 #[test]
 fn with_column_names() {
-    let (data_definition, schema_id, table_id) = with_table(&[ColumnDefinition::new("col", SqlType::SmallInt)]);
     let database = InMemoryDatabase::new();
-    database.execute(create_schema(SCHEMA));
-    database.execute(create_table(SCHEMA, TABLE, vec![("col", SqlType::SmallInt)]));
-    let analyzer = Analyzer::new(data_definition, database);
+    database.execute(create_schema(SCHEMA)).unwrap();
+    database
+        .execute(create_table(SCHEMA, TABLE, vec![("col", SqlType::SmallInt)]))
+        .unwrap();
+    let analyzer = Analyzer::new(Arc::new(DatabaseHandle::in_memory()), database);
 
     assert_eq!(
         analyzer.analyze(inner_insert(vec![SCHEMA, TABLE], vec![vec![small_int(1)]], vec!["col"])),
@@ -89,11 +90,12 @@ fn with_column_names() {
 
 #[test]
 fn column_not_found() {
-    let (data_definition, _schema_id, _table_id) = with_table(&[ColumnDefinition::new("col", SqlType::SmallInt)]);
     let database = InMemoryDatabase::new();
-    database.execute(create_schema(SCHEMA));
-    database.execute(create_table(SCHEMA, TABLE, vec![("col", SqlType::SmallInt)]));
-    let analyzer = Analyzer::new(data_definition, database);
+    database.execute(create_schema(SCHEMA)).unwrap();
+    database
+        .execute(create_table(SCHEMA, TABLE, vec![("col", SqlType::SmallInt)]))
+        .unwrap();
+    let analyzer = Analyzer::new(Arc::new(DatabaseHandle::in_memory()), database);
 
     assert_eq!(
         analyzer.analyze(inner_insert(

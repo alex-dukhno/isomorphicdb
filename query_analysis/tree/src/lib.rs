@@ -15,11 +15,6 @@
 use definition::{FullTableName, SchemaName};
 use expr_operators::{Operation, Operator};
 use meta_def::Id;
-use std::ops::Deref;
-use std::{
-    convert::TryFrom,
-    fmt::{self, Display, Formatter},
-};
 use types::SqlType;
 
 pub type AnalysisResult<A> = Result<A, AnalysisError>;

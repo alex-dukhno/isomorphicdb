@@ -14,7 +14,7 @@
 
 use super::*;
 use data_manager::DEFAULT_CATALOG;
-use definition_operations::{Kind, ObjectState, Record, Step, SystemObject, SystemOperation};
+use definition_operations::{Kind, Record, Step, SystemObject, SystemOperation};
 
 #[cfg(test)]
 mod expressions;

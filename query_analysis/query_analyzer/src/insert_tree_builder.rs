@@ -14,10 +14,8 @@
 
 use crate::{operation_mapper::OperationMapper, parse_param_index};
 use analysis_tree::{AnalysisError, AnalysisResult, Feature, InsertTreeNode};
-use bigdecimal::{BigDecimal, Zero};
 use expr_operators::{Bool, Operator, ScalarValue};
-use std::str::FromStr;
-use types::{GeneralType, SqlType};
+use types::SqlType;
 
 pub(crate) struct InsertTreeBuilder;
 
@@ -25,16 +23,14 @@ impl InsertTreeBuilder {
     pub(crate) fn build_from(
         root_expr: &sql_ast::Expr,
         original: &sql_ast::Statement,
-        target_type: &GeneralType,
         column_type: &SqlType,
     ) -> AnalysisResult<InsertTreeNode> {
-        Self::inner_build(root_expr, original, target_type, column_type)
+        Self::inner_build(root_expr, original, column_type)
     }
 
     fn inner_build(
         root_expr: &sql_ast::Expr,
         original: &sql_ast::Statement,
-        target_type: &GeneralType,
         column_type: &SqlType,
     ) -> AnalysisResult<InsertTreeNode> {
         match root_expr {
@@ -56,16 +52,11 @@ impl InsertTreeBuilder {
         column_type: &SqlType,
     ) -> AnalysisResult<InsertTreeNode> {
         let operation = OperationMapper::binary_operation(op);
-        let acceptable_types = operation.acceptable_operand_types();
-        let mut results = vec![];
-        for (left_type, right_type) in acceptable_types {
-            results.push((
-                Self::inner_build(left, original, &left_type, column_type),
-                Self::inner_build(right, original, &right_type, column_type),
-            ));
-        }
-        match results.into_iter().find(|(left, right)| left.is_ok() && right.is_ok()) {
-            Some((Ok(left_item), Ok(right_item))) => Ok(InsertTreeNode::Operation {
+        match (
+            Self::inner_build(left, original, column_type),
+            Self::inner_build(right, original, column_type),
+        ) {
+            (Ok(left_item), Ok(right_item)) => Ok(InsertTreeNode::Operation {
                 left: Box::new(left_item),
                 op: operation,
                 right: Box::new(right_item),
