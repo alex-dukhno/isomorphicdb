@@ -23,7 +23,7 @@ pg_wire = "0.5.0"
 query_analyzer = { path = "../../query_analysis/query_analyzer" }
 schema_planner = { path = "../../data/schema_planner" }
 sql_ast = { path = "../../query_parsing/sql-ast" }
-types = { path = "../../types" }
+types = { path = "../../entities/types" }
 
 # deprecated modules
 binder = { path = "../../deprecated/binder_deprecated" }

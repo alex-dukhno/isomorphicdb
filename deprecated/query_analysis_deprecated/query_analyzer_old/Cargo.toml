@@ -9,7 +9,7 @@ publish = false
 description = { path = "../description" }
 meta_def = { path = "../../../meta_def" }
 data_manager = { path = "../../catalog_deprecated/data_manager" }
-types = { path = "../../../types" }
+types = { path = "../../../entities/types" }
 
 pg_wire = "0.5.0"
 sql_ast = { path = "../../../query_parsing/sql-ast" }

@@ -15,7 +15,7 @@
 use analysis_tree::{AnalysisError, QueryAnalysis};
 use bigdecimal::BigDecimal;
 use binder::ParamBinder;
-use catalog::Database;
+use catalog::{CatalogDefinition, Database};
 use connection::Sender;
 use data_manager::{DataDefReader, DatabaseHandle};
 use definition_operations::{ExecutionError, ExecutionOutcome};
@@ -39,17 +39,17 @@ use sql_ast::{Expr, Ident, Statement, Value};
 use std::{convert::TryFrom, iter, ops::Deref, sync::Arc};
 use types::SqlType;
 
-unsafe impl<D: Database> Send for QueryEngine<D> {}
+unsafe impl<D: Database + CatalogDefinition> Send for QueryEngine<D> {}
 
-unsafe impl<D: Database> Sync for QueryEngine<D> {}
+unsafe impl<D: Database + CatalogDefinition> Sync for QueryEngine<D> {}
 
-pub(crate) struct QueryEngine<D: Database> {
+pub(crate) struct QueryEngine<D: Database + CatalogDefinition> {
     session: Session<Statement>,
     sender: Arc<dyn Sender>,
     database: Arc<D>,
     data_manager: Arc<DatabaseHandle>,
     param_binder: ParamBinder,
-    query_analyzer: Analyzer,
+    query_analyzer: Analyzer<D>,
     system_planner: SystemSchemaPlanner,
     schema_executor: SystemSchemaExecutor,
     old_query_analyzer: OldAnalyzer,
@@ -57,16 +57,16 @@ pub(crate) struct QueryEngine<D: Database> {
     query_executor: QueryExecutor,
 }
 
-impl<D: Database> QueryEngine<D> {
+impl<D: Database + CatalogDefinition> QueryEngine<D> {
     pub(crate) fn new(sender: Arc<dyn Sender>, data_manager: Arc<DatabaseHandle>, database: Arc<D>) -> QueryEngine<D> {
         QueryEngine {
             session: Session::default(),
             sender: sender.clone(),
-            database,
+            database: database.clone(),
             data_manager: data_manager.clone(),
             param_binder: ParamBinder,
             old_query_analyzer: OldAnalyzer::new(data_manager.clone()),
-            query_analyzer: Analyzer::new(data_manager.clone()),
+            query_analyzer: Analyzer::new(data_manager.clone(), database),
             system_planner: SystemSchemaPlanner::new(),
             schema_executor: SystemSchemaExecutor::new(data_manager.clone()),
             query_planner: QueryPlanner::new(data_manager.clone()),

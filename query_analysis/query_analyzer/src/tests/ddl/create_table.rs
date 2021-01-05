@@ -50,7 +50,7 @@ fn create_table(name: Vec<&str>, columns: Vec<sql_ast::ColumnDef>) -> sql_ast::S
 #[test]
 fn create_table_with_nonexistent_schema() {
     let data_definition = Arc::new(DatabaseHandle::in_memory());
-    let analyzer = Analyzer::new(data_definition);
+    let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
 
     assert_eq!(
         analyzer.analyze(create_table(vec!["non_existent_schema", "non_existent_table"], vec![])),
@@ -62,7 +62,7 @@ fn create_table_with_nonexistent_schema() {
 fn create_table_with_unqualified_name() {
     let data_definition = Arc::new(DatabaseHandle::in_memory());
     data_definition.create_schema(SCHEMA).expect("schema created");
-    let analyzer = Analyzer::new(data_definition);
+    let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
     assert_eq!(
         analyzer.analyze(create_table(vec!["only_schema_in_the_name"], vec![])),
         Err(AnalysisError::table_naming_error(
@@ -75,7 +75,7 @@ fn create_table_with_unqualified_name() {
 fn create_table_with_unsupported_name() {
     let data_definition = Arc::new(DatabaseHandle::in_memory());
     data_definition.create_schema(SCHEMA).expect("schema created");
-    let analyzer = Analyzer::new(data_definition);
+    let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
     assert_eq!(
         analyzer.analyze(create_table(
             vec!["first_part", "second_part", "third_part", "fourth_part"],
@@ -91,7 +91,7 @@ fn create_table_with_unsupported_name() {
 fn create_table_with_unsupported_column_type() {
     let data_definition = Arc::new(DatabaseHandle::in_memory());
     data_definition.create_schema(SCHEMA).expect("schema created");
-    let analyzer = Analyzer::new(data_definition);
+    let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
     assert_eq!(
         analyzer.analyze(create_table(
             vec![SCHEMA, TABLE],
@@ -111,7 +111,7 @@ fn create_table_with_the_same_name() {
     data_definition
         .create_table(schema_id, TABLE, &[])
         .expect("table created");
-    let analyzer = Analyzer::new(data_definition);
+    let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
 
     assert_eq!(
         analyzer.analyze(create_table(vec![SCHEMA, TABLE], vec![])),
@@ -129,7 +129,7 @@ fn create_table_with_the_same_name() {
 fn create_new_table_if_not_exist() {
     let data_definition = Arc::new(DatabaseHandle::in_memory());
     data_definition.create_schema(SCHEMA).expect("schema created");
-    let analyzer = Analyzer::new(data_definition);
+    let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
     assert_eq!(
         analyzer.analyze(create_table_if_not_exists(
             vec![SCHEMA, TABLE],
@@ -139,7 +139,7 @@ fn create_new_table_if_not_exist() {
         Ok(QueryAnalysis::DataDefinition(SchemaChange::CreateTable(
             CreateTableQuery {
                 table_info: TableInfo::new(0, &SCHEMA, &TABLE),
-                column_defs: vec![ColumnDesc {
+                column_defs: vec![ColumnInfo {
                     name: "column_name".to_owned(),
                     sql_type: SqlType::SmallInt
                 }],
@@ -153,7 +153,7 @@ fn create_new_table_if_not_exist() {
 fn successfully_create_table() {
     let data_definition = Arc::new(DatabaseHandle::in_memory());
     data_definition.create_schema(SCHEMA).expect("schema created");
-    let analyzer = Analyzer::new(data_definition);
+    let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
     assert_eq!(
         analyzer.analyze(create_table(
             vec![SCHEMA, TABLE],
@@ -162,7 +162,7 @@ fn successfully_create_table() {
         Ok(QueryAnalysis::DataDefinition(SchemaChange::CreateTable(
             CreateTableQuery {
                 table_info: TableInfo::new(0, &SCHEMA, &TABLE),
-                column_defs: vec![ColumnDesc {
+                column_defs: vec![ColumnInfo {
                     name: "column_name".to_owned(),
                     sql_type: SqlType::SmallInt
                 }],

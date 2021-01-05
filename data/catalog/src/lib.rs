@@ -22,6 +22,7 @@ use std::{
     iter::FromIterator,
 };
 
+use definition::{FullTableName, TableDef};
 use definition_operations::{ExecutionError, ExecutionOutcome, SystemOperation};
 pub use in_memory::InMemoryCatalogHandle;
 pub use on_disk::OnDiskCatalogHandle;
@@ -69,6 +70,7 @@ pub trait DataTable {
     fn insert(&self, data: Vec<Value>) -> usize;
     fn update(&self, data: Vec<(Key, Value)>) -> usize;
     fn delete(&self, data: Vec<Key>) -> usize;
+    fn next_column_ord(&self) -> u64;
 }
 
 pub trait SchemaHandle {
@@ -94,4 +96,8 @@ pub trait Database {
     type Table: SqlTable;
 
     fn execute(&self, operation: SystemOperation) -> Result<ExecutionOutcome, ExecutionError>;
+}
+
+pub trait CatalogDefinition {
+    fn table_definition(&self, table_full_name: &FullTableName) -> Option<Option<TableDef>>;
 }

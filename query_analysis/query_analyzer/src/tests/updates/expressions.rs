@@ -17,7 +17,7 @@ use super::*;
 #[test]
 fn update_number() {
     let (data_definition, schema_id, table_id) = with_table(&[ColumnDefinition::new("col", SqlType::SmallInt)]);
-    let analyzer = Analyzer::new(data_definition);
+    let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
 
     assert_eq!(
         analyzer.analyze(update_statement(
@@ -37,7 +37,7 @@ fn update_number() {
 #[test]
 fn update_string() {
     let (data_definition, schema_id, table_id) = with_table(&[ColumnDefinition::new("col", SqlType::Char(5))]);
-    let analyzer = Analyzer::new(data_definition);
+    let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
 
     assert_eq!(
         analyzer.analyze(update_statement(vec![SCHEMA, TABLE], vec![("col", string("str"))])),
@@ -54,7 +54,7 @@ fn update_string() {
 #[test]
 fn update_boolean() {
     let (data_definition, schema_id, table_id) = with_table(&[ColumnDefinition::new("col", SqlType::Bool)]);
-    let analyzer = Analyzer::new(data_definition);
+    let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
 
     assert_eq!(
         analyzer.analyze(update_statement(vec![SCHEMA, TABLE], vec![("col", boolean(true))])),
@@ -69,7 +69,7 @@ fn update_boolean() {
 #[test]
 fn update_null() {
     let (data_definition, schema_id, table_id) = with_table(&[ColumnDefinition::new("col", SqlType::Bool)]);
-    let analyzer = Analyzer::new(data_definition);
+    let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
 
     assert_eq!(
         analyzer.analyze(update_statement(vec![SCHEMA, TABLE], vec![("col", null())])),
@@ -87,7 +87,7 @@ fn update_with_column_value() {
         ColumnDefinition::new("col_1", SqlType::SmallInt),
         ColumnDefinition::new("col_2", SqlType::SmallInt),
     ]);
-    let analyzer = Analyzer::new(data_definition);
+    let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
 
     assert_eq!(
         analyzer.analyze(update_statement(
@@ -111,7 +111,7 @@ fn update_with_column_value_that_does_not_exists() {
         ColumnDefinition::new("col_1", SqlType::SmallInt),
         ColumnDefinition::new("col_2", SqlType::SmallInt),
     ]);
-    let analyzer = Analyzer::new(data_definition);
+    let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
 
     assert_eq!(
         analyzer.analyze(update_statement(
@@ -129,7 +129,7 @@ mod implicit_cast {
     #[test]
     fn string_to_boolean() {
         let (data_definition, schema_id, table_id) = with_table(&[ColumnDefinition::new("col", SqlType::Bool)]);
-        let analyzer = Analyzer::new(data_definition);
+        let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
 
         assert_eq!(
             analyzer.analyze(update_statement(
@@ -150,7 +150,7 @@ mod implicit_cast {
     #[test]
     fn boolean_to_string() {
         let (data_definition, schema_id, table_id) = with_table(&[ColumnDefinition::new("col", SqlType::VarChar(5))]);
-        let analyzer = Analyzer::new(data_definition);
+        let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
 
         assert_eq!(
             analyzer.analyze(update_statement(
@@ -170,7 +170,7 @@ mod implicit_cast {
     #[test]
     fn boolean_to_string_not_enough_length() {
         let (data_definition, schema_id, table_id) = with_table(&[ColumnDefinition::new("col", SqlType::Char(1))]);
-        let analyzer = Analyzer::new(data_definition);
+        let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
 
         assert_eq!(
             analyzer.analyze(update_statement(
@@ -190,7 +190,7 @@ mod implicit_cast {
     #[test]
     fn string_to_number() {
         let (data_definition, schema_id, table_id) = with_table(&[ColumnDefinition::new("col", SqlType::SmallInt)]);
-        let analyzer = Analyzer::new(data_definition);
+        let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
 
         assert_eq!(
             analyzer.analyze(update_statement(
@@ -213,7 +213,7 @@ mod implicit_cast {
     #[test]
     fn number_to_string_not_enough_length() {
         let (data_definition, schema_id, table_id) = with_table(&[ColumnDefinition::new("col", SqlType::Char(1))]);
-        let analyzer = Analyzer::new(data_definition);
+        let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
 
         assert_eq!(
             analyzer.analyze(update_statement(
@@ -259,7 +259,7 @@ mod multiple_values {
     #[test]
     fn arithmetic() {
         let (data_definition, schema_id, table_id) = with_table(&[ColumnDefinition::new("col", SqlType::SmallInt)]);
-        let analyzer = Analyzer::new(data_definition);
+        let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
 
         assert_eq!(
             analyzer.analyze(update_value_as_expression_with_operation(
@@ -286,7 +286,7 @@ mod multiple_values {
     #[test]
     fn string_operation() {
         let (data_definition, schema_id, table_id) = with_table(&[ColumnDefinition::new("col", SqlType::VarChar(255))]);
-        let analyzer = Analyzer::new(data_definition);
+        let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
 
         assert_eq!(
             analyzer.analyze(update_value_as_expression_with_operation(
@@ -313,7 +313,7 @@ mod multiple_values {
     #[test]
     fn comparison() {
         let (data_definition, schema_id, table_id) = with_table(&[ColumnDefinition::new("col", SqlType::Bool)]);
-        let analyzer = Analyzer::new(data_definition);
+        let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
 
         assert_eq!(
             analyzer.analyze(update_value_as_expression_with_operation(
@@ -340,7 +340,7 @@ mod multiple_values {
     #[test]
     fn logical() {
         let (data_definition, schema_id, table_id) = with_table(&[ColumnDefinition::new("col", SqlType::Bool)]);
-        let analyzer = Analyzer::new(data_definition);
+        let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
 
         assert_eq!(
             analyzer.analyze(update_value_as_expression_with_operation(
@@ -363,7 +363,7 @@ mod multiple_values {
     #[test]
     fn bitwise() {
         let (data_definition, schema_id, table_id) = with_table(&[ColumnDefinition::new("col", SqlType::SmallInt)]);
-        let analyzer = Analyzer::new(data_definition);
+        let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
 
         assert_eq!(
             analyzer.analyze(update_value_as_expression_with_operation(
@@ -390,7 +390,7 @@ mod multiple_values {
     #[test]
     fn pattern_matching() {
         let (data_definition, schema_id, table_id) = with_table(&[ColumnDefinition::new("col", SqlType::Bool)]);
-        let analyzer = Analyzer::new(data_definition);
+        let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
 
         assert_eq!(
             analyzer.analyze(update_value_as_expression_with_operation(
@@ -422,7 +422,7 @@ mod not_supported_values {
     #[test]
     fn national_strings() {
         let (data_definition, _schema_id, _table_id) = with_table(&[ColumnDefinition::new("col", SqlType::SmallInt)]);
-        let analyzer = Analyzer::new(data_definition);
+        let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
 
         assert_eq!(
             analyzer.analyze(update_statement(
@@ -439,7 +439,7 @@ mod not_supported_values {
     #[test]
     fn hex_strings() {
         let (data_definition, _schema_id, _table_id) = with_table(&[ColumnDefinition::new("col", SqlType::SmallInt)]);
-        let analyzer = Analyzer::new(data_definition);
+        let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
 
         assert_eq!(
             analyzer.analyze(update_statement(
@@ -456,7 +456,7 @@ mod not_supported_values {
     #[test]
     fn time_intervals() {
         let (data_definition, _schema_id, _table_id) = with_table(&[ColumnDefinition::new("col", SqlType::SmallInt)]);
-        let analyzer = Analyzer::new(data_definition);
+        let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
 
         assert_eq!(
             analyzer.analyze(update_statement(

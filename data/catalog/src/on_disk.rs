@@ -113,6 +113,10 @@ impl DataTable for OnDiskTableHandle {
         }
         size
     }
+
+    fn next_column_ord(&self) -> u64 {
+        unimplemented!()
+    }
 }
 
 #[derive(Debug)]

@@ -9,10 +9,10 @@ publish = false
 binary = { path = "../../../data/binary" }
 definition_operations = { path = "../../../data/definition_operations" }
 meta_def = { path = "../../../meta_def" }
-repr = { path = "../../../repr" }
+repr = { path = "../../../entities/repr" }
 sql_model = { path = "../../sql_model" }
 storage = { path = "../storage" }
-types = { path = "../../../types" }
+types = { path = "../../../entities/types" }
 
 dashmap = "4.0.1"
 log = "0.4.11"

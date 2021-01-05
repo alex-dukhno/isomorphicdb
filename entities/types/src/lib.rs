@@ -75,6 +75,13 @@ impl SqlType {
             _ => unreachable!(),
         }
     }
+
+    pub fn chars_len(&self) -> Option<u64> {
+        match self {
+            SqlType::Char(len) | SqlType::VarChar(len) => Some(*len),
+            _ => None,
+        }
+    }
 }
 
 impl TryFrom<&DataType> for SqlType {

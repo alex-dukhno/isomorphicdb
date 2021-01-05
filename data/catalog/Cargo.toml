@@ -8,8 +8,9 @@ publish = false
 [dependencies]
 binary = { path = "../binary" }
 definition_operations = { path = "../definition_operations" }
-repr = { path = "../../repr" }
-types = { path = "../../types" }
+definition = { path = "../../entities/definition" }
+repr = { path = "../../entities/repr" }
+types = { path = "../../entities/types" }
 
 dashmap = "4.0.1"
 log = "0.4.11"

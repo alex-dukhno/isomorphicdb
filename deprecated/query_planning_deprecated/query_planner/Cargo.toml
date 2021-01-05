@@ -11,7 +11,7 @@ constraints = { path = "../../constraints_deprecated" }
 meta_def = { path = "../../../meta_def" }
 data_manager = { path = "../../catalog_deprecated/data_manager" }
 plan = { path = "../plan" }
-types = { path = "../../../types" }
+types = { path = "../../../entities/types" }
 sql_ast = { path = "../../../query_parsing/sql-ast" }
 
 bigdecimal = { version = "0.2.0", features = ["string-only"] }

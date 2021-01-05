@@ -12,7 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{Database, SqlSchema, SqlTable};
+use crate::{CatalogDefinition, Database, SqlSchema, SqlTable};
+use definition::{FullTableName, TableDef};
 use definition_operations::{ExecutionError, ExecutionOutcome, SystemOperation};
 use std::sync::Arc;
 
@@ -21,6 +22,12 @@ pub struct OnDiskDatabase;
 impl OnDiskDatabase {
     pub fn new(_name: &str) -> Arc<OnDiskDatabase> {
         Arc::new(OnDiskDatabase)
+    }
+}
+
+impl CatalogDefinition for OnDiskDatabase {
+    fn table_definition(&self, _table_full_name: &FullTableName) -> Option<Option<TableDef>> {
+        unimplemented!()
     }
 }
 

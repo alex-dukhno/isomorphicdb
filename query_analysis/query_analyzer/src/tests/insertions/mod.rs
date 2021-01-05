@@ -13,15 +13,87 @@
 // limitations under the License.
 
 use super::*;
+use data_manager::DEFAULT_CATALOG;
+use definition_operations::{Kind, Record, Step, SystemObject, SystemOperation};
 
 #[cfg(test)]
 mod expressions;
 #[cfg(test)]
 mod general_cases;
-#[cfg(test)]
-mod invalid_expressions;
-#[cfg(test)]
-mod parameters;
+
+fn small_int(value: i16) -> sql_ast::Expr {
+    sql_ast::Expr::Value(number(value))
+}
+
+fn create_schema(schema_name: &str) -> SystemOperation {
+    SystemOperation {
+        kind: Kind::Create(SystemObject::Schema),
+        skip_steps_if: None,
+        steps: vec![vec![
+            Step::CheckExistence {
+                system_object: SystemObject::Schema,
+                object_name: vec![schema_name.to_owned()],
+            },
+            Step::CreateFolder {
+                name: schema_name.to_owned(),
+            },
+            Step::CreateRecord {
+                system_schema: "".to_owned(),
+                system_table: "".to_owned(),
+                record: Record::Schema {
+                    catalog_name: "".to_owned(),
+                    schema_name: schema_name.to_owned(),
+                },
+            },
+        ]],
+    }
+}
+
+fn create_table(schema_name: &str, table_name: &str, columns: Vec<(&str, SqlType)>) -> SystemOperation {
+    let columns_steps = columns
+        .into_iter()
+        .map(|(name, sql_type)| Step::CreateRecord {
+            system_schema: "".to_owned(),
+            system_table: "".to_owned(),
+            record: Record::Column {
+                catalog_name: DEFAULT_CATALOG.to_owned(),
+                schema_name: schema_name.to_owned(),
+                table_name: table_name.to_owned(),
+                column_name: name.to_owned(),
+                sql_type,
+            },
+        })
+        .collect::<Vec<Step>>();
+    let mut general_steps = vec![
+        Step::CheckExistence {
+            system_object: SystemObject::Schema,
+            object_name: vec![schema_name.to_owned()],
+        },
+        Step::CheckExistence {
+            system_object: SystemObject::Table,
+            object_name: vec![schema_name.to_owned(), table_name.to_owned()],
+        },
+        Step::CreateFile {
+            folder_name: schema_name.to_owned(),
+            name: table_name.to_owned(),
+        },
+        Step::CreateRecord {
+            system_schema: "".to_owned(),
+            system_table: "".to_owned(),
+            record: Record::Table {
+                catalog_name: DEFAULT_CATALOG.to_owned(),
+                schema_name: schema_name.to_owned(),
+                table_name: table_name.to_owned(),
+            },
+        },
+    ];
+    general_steps.extend(columns_steps);
+    SystemOperation {
+        kind: Kind::Create(SystemObject::Table),
+        skip_steps_if: None,
+        steps: vec![general_steps],
+    }
+}
 
 fn inner_insert(
     full_name: Vec<&'static str>,

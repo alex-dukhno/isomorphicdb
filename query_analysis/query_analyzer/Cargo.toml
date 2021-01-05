@@ -7,9 +7,11 @@ publish = false
 
 [dependencies]
 analysis_tree = { path = "../tree" }
+catalog = { path = "../../data/catalog" }
 expr_operators = { path = "../expr_operators" }
 meta_def = { path = "../../meta_def" }
-types = { path = "../../types" }
+definition = { path = "../../entities/definition" }
+types = { path = "../../entities/types" }
 sql_ast = { path = "../../query_parsing/sql-ast" }
 
 # deprecated module
@@ -18,3 +20,4 @@ data_manager = { path = "../../deprecated/catalog_deprecated/data_manager" }
 bigdecimal = { version = "0.2.0", features = ["string-only"] }
 
 [dev-dependencies]
+definition_operations = { path = "../../data/definition_operations" }

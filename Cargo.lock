@@ -19,6 +19,7 @@ checksum = "ee2a4ec343196209d6594e19543ae87a39f96d5534d7174822a3ad825dd6ed7e"
 name = "analysis_tree"
 version = "0.1.0"
 dependencies = [
+ "definition",
  "expr_operators",
  "meta_def",
  "sql_ast",
@@ -235,6 +236,7 @@ dependencies = [
  "backtrace",
  "binary",
  "dashmap",
+ "definition",
  "definition_operations",
  "log",
  "repr",
@@ -411,6 +413,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "definition"
+version = "0.1.0"
+dependencies = [
+ "repr",
+ "sql_ast",
+ "types",
+]
+
+[[package]]
 name = "definition_operations"
 version = "0.1.0"
 dependencies = [
@@ -438,6 +449,15 @@ name = "event-listener"
 version = "2.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f7531096570974c3a9dcf9e4b8e1cede1ec26cf5046219fb3b9d897503b9be59"
+
+[[package]]
+name = "executor"
+version = "0.1.0"
+dependencies = [
+ "analysis_tree",
+ "catalog",
+ "definition",
+]
 
 [[package]]
 name = "expr_eval"
@@ -1027,7 +1047,10 @@ version = "0.1.0"
 dependencies = [
  "analysis_tree",
  "bigdecimal",
+ "catalog",
  "data_manager",
+ "definition",
+ "definition_operations",
  "expr_operators",
  "meta_def",
  "sql_ast",
@@ -1203,6 +1226,7 @@ version = "0.1.0"
 dependencies = [
  "analysis_tree",
  "data_manager",
+ "definition",
  "definition_operations",
 ]
 
@@ -1212,6 +1236,7 @@ version = "0.1.0"
 dependencies = [
  "analysis_tree",
  "data_manager",
+ "definition",
  "definition_operations",
  "types",
 ]

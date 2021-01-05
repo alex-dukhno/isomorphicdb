@@ -20,7 +20,7 @@ fn update_table_with_parameters() {
         ColumnDefinition::new("col_1", SqlType::SmallInt),
         ColumnDefinition::new("col_2", SqlType::Integer),
     ]);
-    let analyzer = Analyzer::new(data_definition);
+    let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
 
     assert_eq!(
         analyzer.analyze(update_stmt_with_parameters(vec![SCHEMA, TABLE])),
