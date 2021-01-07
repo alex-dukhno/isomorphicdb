@@ -452,7 +452,7 @@ impl DatabaseHandle {
                     .unwrap();
                 for (index, column) in column_definitions.iter().enumerate() {
                     let chars_len = match column.sql_type() {
-                        SqlType::Char(len) | SqlType::VarChar(len) => Datum::from_u64(len),
+                        SqlType::Str { len, .. } => Datum::from_u64(len),
                         _ => Datum::from_null(),
                     };
                     let id = column_ids_sequence.next();
@@ -1056,7 +1056,7 @@ impl DataDefOperationExecutor for DatabaseHandle {
                             .unwrap()
                             .next();
                         let chars_len = match sql_type {
-                            SqlType::Char(len) | SqlType::VarChar(len) => Datum::from_u64(*len),
+                            SqlType::Str { len, .. } => Datum::from_u64(*len),
                             _ => Datum::from_null(),
                         };
                         vec![(

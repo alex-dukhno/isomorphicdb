@@ -17,7 +17,7 @@ use types::SqlType;
 
 #[rstest::rstest]
 fn create_tables_with_different_names(data_manager_with_schema: InMemory) -> Result<(), ()> {
-    for op in create_table_ops(SCHEMA, TABLE_1, "column_test", SqlType::SmallInt) {
+    for op in create_table_ops(SCHEMA, TABLE_1, "column_test", SqlType::small_int()) {
         if data_manager_with_schema.execute(&op).is_ok() {}
     }
 
@@ -26,7 +26,7 @@ fn create_tables_with_different_names(data_manager_with_schema: InMemory) -> Res
         Some((_, Some(_)))
     ));
 
-    for op in create_table_ops(SCHEMA, TABLE_2, "column_test", SqlType::SmallInt) {
+    for op in create_table_ops(SCHEMA, TABLE_2, "column_test", SqlType::small_int()) {
         if data_manager_with_schema.execute(&op).is_ok() {}
     }
 
@@ -44,7 +44,7 @@ fn create_table_with_the_same_name_in_different_schemas(data_manager: InMemory) 
 
     let schema_2_id = create_schema(&data_manager, SCHEMA_2)?;
 
-    for op in create_table_ops(SCHEMA_1, TABLE, "column_test", SqlType::SmallInt) {
+    for op in create_table_ops(SCHEMA_1, TABLE, "column_test", SqlType::small_int()) {
         if data_manager.execute(&op).is_ok() {}
     }
 
@@ -53,7 +53,7 @@ fn create_table_with_the_same_name_in_different_schemas(data_manager: InMemory) 
         _ => panic!(),
     };
 
-    for op in create_table_ops(SCHEMA_2, TABLE, "column_test", SqlType::SmallInt) {
+    for op in create_table_ops(SCHEMA_2, TABLE, "column_test", SqlType::small_int()) {
         if data_manager.execute(&op).is_ok() {}
     }
 
@@ -64,12 +64,12 @@ fn create_table_with_the_same_name_in_different_schemas(data_manager: InMemory) 
 
     assert_eq!(
         data_manager.table_columns(&(schema_1_id, table_1_id)),
-        Ok(vec![(0, ColumnDefinition::new("column_test", SqlType::SmallInt))])
+        Ok(vec![(0, ColumnDefinition::new("column_test", SqlType::small_int()))])
     );
 
     assert_eq!(
         data_manager.table_columns(&(schema_2_id, table_2_id)),
-        Ok(vec![(0, ColumnDefinition::new("column_test", SqlType::SmallInt))])
+        Ok(vec![(0, ColumnDefinition::new("column_test", SqlType::small_int()))])
     );
 
     Ok(())
@@ -77,7 +77,7 @@ fn create_table_with_the_same_name_in_different_schemas(data_manager: InMemory) 
 
 #[rstest::rstest]
 fn drop_table(data_manager_with_schema: InMemory) -> Result<(), ()> {
-    for op in create_table_ops(SCHEMA, TABLE, "column_test", SqlType::SmallInt) {
+    for op in create_table_ops(SCHEMA, TABLE, "column_test", SqlType::small_int()) {
         if data_manager_with_schema.execute(&op).is_ok() {}
     }
 
@@ -119,7 +119,7 @@ fn drop_table(data_manager_with_schema: InMemory) -> Result<(), ()> {
         Some((_, None))
     ));
 
-    for op in create_table_ops(SCHEMA, TABLE, "column_test", SqlType::SmallInt) {
+    for op in create_table_ops(SCHEMA, TABLE, "column_test", SqlType::small_int()) {
         if data_manager_with_schema.execute(&op).is_ok() {}
     }
 
@@ -130,7 +130,7 @@ fn drop_table(data_manager_with_schema: InMemory) -> Result<(), ()> {
 fn table_ids_for_existing_columns(data_manager_with_schema: InMemory) -> Result<(), ()> {
     let schema_id = data_manager_with_schema.schema_exists(SCHEMA).expect("schema exists");
 
-    for op in create_table_ops(SCHEMA, TABLE, "column_test", SqlType::SmallInt) {
+    for op in create_table_ops(SCHEMA, TABLE, "column_test", SqlType::small_int()) {
         if data_manager_with_schema.execute(&op).is_ok() {}
     }
 
@@ -151,7 +151,7 @@ fn table_ids_for_existing_columns(data_manager_with_schema: InMemory) -> Result<
 fn table_ids_for_non_existing_columns(data_manager_with_schema: InMemory) -> Result<(), ()> {
     let schema_id = data_manager_with_schema.schema_exists(SCHEMA).expect("schema exists");
 
-    for op in create_table_ops(SCHEMA, TABLE, "column_test", SqlType::SmallInt) {
+    for op in create_table_ops(SCHEMA, TABLE, "column_test", SqlType::small_int()) {
         if data_manager_with_schema.execute(&op).is_ok() {}
     }
 

@@ -15,19 +15,9 @@
 use super::*;
 
 #[test]
-fn update_table_with_parameters() {
-    let (data_definition, schema_id, table_id) = with_table(&[
-        ColumnDefinition::new("col_1", SqlType::SmallInt),
-        ColumnDefinition::new("col_2", SqlType::Integer),
-    ]);
-    let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
-
+fn arithmetic() {
     assert_eq!(
-        analyzer.analyze(update_stmt_with_parameters(vec![SCHEMA, TABLE])),
-        Ok(QueryAnalysis::Write(Write::Update(UpdateQuery {
-            full_table_id: FullTableId::from((schema_id, table_id)),
-            sql_types: vec![SqlType::Integer],
-            assignments: vec![UpdateTreeNode::Item(Operator::Param(0))]
-        })))
+        Operation::Arithmetic(Arithmetic::Add).validate_operands(SqlType::small_int(), SqlType::small_int()),
+        Ok(())
     );
 }

@@ -97,7 +97,7 @@ fn update_table_with_specified_columns() {
     let metadata = Arc::new(DatabaseHandle::in_memory());
     let schema_id = metadata.create_schema(SCHEMA).expect("schema created");
     let table_id = metadata
-        .create_table(schema_id, TABLE, &[ColumnDefinition::new("col", SqlType::SmallInt)])
+        .create_table(schema_id, TABLE, &[ColumnDefinition::new("col", SqlType::small_int())])
         .expect("table created");
     let analyzer = Analyzer::new(metadata);
     let description = analyzer.describe(&update_stmt(SCHEMA, TABLE));
@@ -121,16 +121,16 @@ fn update_table_with_parameters() {
             schema_id,
             TABLE,
             &[
-                ColumnDefinition::new("col_1", SqlType::SmallInt),
-                ColumnDefinition::new("col_2", SqlType::SmallInt),
+                ColumnDefinition::new("col_1", SqlType::small_int()),
+                ColumnDefinition::new("col_2", SqlType::small_int()),
             ],
         )
         .expect("table created");
     let analyzer = Analyzer::new(metadata);
     let description = analyzer.describe(&update_stmt_with_parameters(SCHEMA, TABLE));
     let mut param_types = ParamTypes::new();
-    param_types.insert(0, SqlType::SmallInt);
-    param_types.insert(1, SqlType::SmallInt);
+    param_types.insert(0, SqlType::small_int());
+    param_types.insert(1, SqlType::small_int());
 
     assert_eq!(
         description,

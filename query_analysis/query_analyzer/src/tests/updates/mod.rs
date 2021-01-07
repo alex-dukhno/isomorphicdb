@@ -18,8 +18,6 @@ use super::*;
 mod expressions;
 #[cfg(test)]
 mod general_cases;
-#[cfg(test)]
-mod parameters;
 
 fn update_statement(
     table_name: Vec<&'static str>,

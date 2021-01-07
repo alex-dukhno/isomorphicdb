@@ -583,11 +583,11 @@ mod tests {
                     column_defs: vec![
                         ColumnInfo {
                             name: "col_1".to_owned(),
-                            sql_type: SqlType::SmallInt
+                            sql_type: SqlType::small_int()
                         },
                         ColumnInfo {
                             name: "col_2".to_owned(),
-                            sql_type: SqlType::BigInt
+                            sql_type: SqlType::big_int()
                         }
                     ],
                     if_not_exists: false,
@@ -625,7 +625,7 @@ mod tests {
                                 schema_name: SCHEMA.to_string(),
                                 table_name: TABLE.to_string(),
                                 column_name: "col_1".to_string(),
-                                sql_type: SqlType::SmallInt
+                                sql_type: SqlType::small_int()
                             }
                         },
                         Step::CreateRecord {
@@ -636,7 +636,7 @@ mod tests {
                                 schema_name: SCHEMA.to_string(),
                                 table_name: TABLE.to_string(),
                                 column_name: "col_2".to_string(),
-                                sql_type: SqlType::BigInt
+                                sql_type: SqlType::big_int()
                             }
                         }
                     ]]

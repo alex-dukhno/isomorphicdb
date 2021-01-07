@@ -128,7 +128,7 @@ fn select_from_table_with_column() {
     let metadata = Arc::new(DatabaseHandle::in_memory());
     let schema_id = metadata.create_schema(SCHEMA).expect("schema created");
     metadata
-        .create_table(schema_id, TABLE, &[ColumnDefinition::new("col1", SqlType::Integer)])
+        .create_table(schema_id, TABLE, &[ColumnDefinition::new("col1", SqlType::integer())])
         .expect("table created");
     let analyzer = Analyzer::new(metadata);
     let description = analyzer.describe(&select_with_columns(
@@ -139,7 +139,7 @@ fn select_from_table_with_column() {
         description,
         Ok(Description::Select(SelectStatement {
             full_table_id: FullTableId::from((0, 0)),
-            projection_items: vec![ProjectionItem::Column(0, SqlType::Integer)],
+            projection_items: vec![ProjectionItem::Column(0, SqlType::integer())],
         }))
     );
 }
@@ -150,7 +150,7 @@ fn select_from_table_with_constant() {
     let metadata = Arc::new(DatabaseHandle::in_memory());
     let schema_id = metadata.create_schema(SCHEMA).expect("schema created");
     metadata
-        .create_table(schema_id, TABLE, &[ColumnDefinition::new("col1", SqlType::Integer)])
+        .create_table(schema_id, TABLE, &[ColumnDefinition::new("col1", SqlType::integer())])
         .expect("schema created");
     let analyzer = Analyzer::new(metadata);
     let description = analyzer.describe(&select_with_columns(

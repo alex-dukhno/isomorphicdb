@@ -122,7 +122,6 @@ impl<CD: CatalogDefinition> Analyzer<CD> {
                                     assignments.push(UpdateTreeBuilder::build_from(
                                         &value,
                                         &statement,
-                                        &sql_type.general_type(),
                                         &sql_type,
                                         &table_columns,
                                     )?);
@@ -188,7 +187,7 @@ impl<CD: CatalogDefinition> Analyzer<CD> {
                                                 projection_items.push(ProjectionTreeBuilder::build_from(
                                                     &expr,
                                                     &statement,
-                                                    &SqlType::SmallInt,
+                                                    &SqlType::small_int(),
                                                     &table_columns,
                                                 )?)
                                             }

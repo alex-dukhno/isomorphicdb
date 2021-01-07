@@ -18,7 +18,7 @@ use bigdecimal::{BigDecimal, Zero};
 use expr_operators::{Bool, Operator, ScalarValue};
 use meta_def::ColumnDefinition;
 use std::str::FromStr;
-use types::{GeneralType, SqlType};
+use types::SqlType;
 
 pub(crate) struct UpdateTreeBuilder;
 
@@ -26,34 +26,24 @@ impl UpdateTreeBuilder {
     pub(crate) fn build_from(
         root_expr: &sql_ast::Expr,
         original: &sql_ast::Statement,
-        target_type: &GeneralType,
         column_type: &SqlType,
         table_columns: &[ColumnDefinition],
     ) -> AnalysisResult<UpdateTreeNode> {
-        Self::inner_build(root_expr, original, target_type, column_type, 0, table_columns)
+        Self::inner_build(root_expr, original, column_type, table_columns)
     }
 
     fn inner_build(
         root_expr: &sql_ast::Expr,
         original: &sql_ast::Statement,
-        target_type: &GeneralType,
         column_type: &SqlType,
-        level: usize,
         table_columns: &[ColumnDefinition],
     ) -> AnalysisResult<UpdateTreeNode> {
         match root_expr {
-            sql_ast::Expr::Value(value) => Self::value(value, target_type, column_type, level),
+            sql_ast::Expr::Value(value) => Self::value(value),
             sql_ast::Expr::Identifier(ident) => Self::ident(ident, table_columns),
-            sql_ast::Expr::BinaryOp { left, op, right } => Self::op(
-                op,
-                &**left,
-                &**right,
-                original,
-                target_type,
-                column_type,
-                level,
-                table_columns,
-            ),
+            sql_ast::Expr::BinaryOp { left, op, right } => {
+                Self::op(op, &**left, &**right, original, column_type, table_columns)
+            }
             expr => Err(AnalysisError::syntax_error(format!(
                 "Syntax error in {}\naround {}",
                 original, expr
@@ -67,32 +57,20 @@ impl UpdateTreeBuilder {
         left: &sql_ast::Expr,
         right: &sql_ast::Expr,
         original: &sql_ast::Statement,
-        target_type: &GeneralType,
         column_type: &SqlType,
-        level: usize,
         table_columns: &[ColumnDefinition],
     ) -> AnalysisResult<UpdateTreeNode> {
         let operation = OperationMapper::binary_operation(op);
-        let operation_result_type = operation.result_type();
-        if &operation_result_type != target_type {
-            unimplemented!()
-        } else {
-            let acceptable_types = operation.acceptable_operand_types();
-            let mut results = vec![];
-            for (left_type, right_type) in acceptable_types {
-                results.push((
-                    Self::inner_build(left, original, &left_type, column_type, level + 1, table_columns),
-                    Self::inner_build(right, original, &right_type, column_type, level + 1, table_columns),
-                ));
-            }
-            match results.into_iter().find(|(left, right)| left.is_ok() && right.is_ok()) {
-                Some((Ok(left_item), Ok(right_item))) => Ok(UpdateTreeNode::Operation {
-                    left: Box::new(left_item),
-                    op: operation,
-                    right: Box::new(right_item),
-                }),
-                _ => Err(AnalysisError::UndefinedFunction(operation)),
-            }
+        match (
+            Self::inner_build(left, original, column_type, table_columns),
+            Self::inner_build(right, original, column_type, table_columns),
+        ) {
+            (Ok(left_item), Ok(right_item)) => Ok(UpdateTreeNode::Operation {
+                left: Box::new(left_item),
+                op: operation,
+                right: Box::new(right_item),
+            }),
+            _ => Err(AnalysisError::UndefinedFunction(operation)),
         }
     }
 
@@ -114,72 +92,21 @@ impl UpdateTreeBuilder {
         }
     }
 
-    fn value(
-        value: &sql_ast::Value,
-        target_type: &GeneralType,
-        column_type: &SqlType,
-        level: usize,
-    ) -> AnalysisResult<UpdateTreeNode> {
-        if level == 0 {
-            match value {
-                sql_ast::Value::Number(num) => match target_type {
-                    GeneralType::String => Ok(UpdateTreeNode::Item(Operator::Const(ScalarValue::String(
-                        num.to_string(),
-                    )))),
-                    GeneralType::Number => Ok(UpdateTreeNode::Item(Operator::Const(ScalarValue::Number(num.clone())))),
-                    GeneralType::Bool => Ok(UpdateTreeNode::Item(Operator::Const(ScalarValue::Bool(Bool(
-                        !num.is_zero(),
-                    ))))),
-                },
-                sql_ast::Value::SingleQuotedString(string) => match target_type {
-                    GeneralType::Bool => match Bool::from_str(string.as_str()) {
-                        Ok(boolean) => Ok(UpdateTreeNode::Item(Operator::Const(ScalarValue::Bool(boolean)))),
-                        Err(_error) => Err(AnalysisError::invalid_input_syntax_for_type(*column_type, string)),
-                    },
-                    GeneralType::String => Ok(UpdateTreeNode::Item(Operator::Const(ScalarValue::String(
-                        string.clone(),
-                    )))),
-                    GeneralType::Number => match BigDecimal::from_str(string.as_str()) {
-                        Ok(number) => Ok(UpdateTreeNode::Item(Operator::Const(ScalarValue::Number(number)))),
-                        Err(_error) => Err(AnalysisError::invalid_input_syntax_for_type(*column_type, string)),
-                    },
-                },
-                sql_ast::Value::NationalStringLiteral(_) => {
-                    Err(AnalysisError::feature_not_supported(Feature::NationalStringLiteral))
-                }
-                sql_ast::Value::HexStringLiteral(_) => {
-                    Err(AnalysisError::feature_not_supported(Feature::HexStringLiteral))
-                }
-                sql_ast::Value::Boolean(boolean) => match target_type {
-                    GeneralType::String => Ok(UpdateTreeNode::Item(Operator::Const(ScalarValue::String(
-                        boolean.to_string(),
-                    )))),
-                    GeneralType::Number => Err(AnalysisError::datatype_mismatch(*column_type, SqlType::Bool)),
-                    GeneralType::Bool => Ok(UpdateTreeNode::Item(Operator::Const(ScalarValue::Bool(Bool(*boolean))))),
-                },
-                sql_ast::Value::Interval { .. } => Err(AnalysisError::feature_not_supported(Feature::TimeInterval)),
-                sql_ast::Value::Null => Ok(UpdateTreeNode::Item(Operator::Const(ScalarValue::Null))),
+    fn value(value: &sql_ast::Value) -> AnalysisResult<UpdateTreeNode> {
+        match value {
+            sql_ast::Value::Number(num) => Ok(UpdateTreeNode::Item(Operator::Const(ScalarValue::Number(num.clone())))),
+            sql_ast::Value::SingleQuotedString(string) => Ok(UpdateTreeNode::Item(Operator::Const(
+                ScalarValue::String(string.clone()),
+            ))),
+            sql_ast::Value::NationalStringLiteral(_) => {
+                Err(AnalysisError::feature_not_supported(Feature::NationalStringLiteral))
             }
-        } else {
-            match value {
-                sql_ast::Value::Number(num) => {
-                    Ok(UpdateTreeNode::Item(Operator::Const(ScalarValue::Number(num.clone()))))
-                }
-                sql_ast::Value::SingleQuotedString(string) => Ok(UpdateTreeNode::Item(Operator::Const(
-                    ScalarValue::String(string.clone()),
-                ))),
-                sql_ast::Value::NationalStringLiteral(_) => {
-                    Err(AnalysisError::feature_not_supported(Feature::NationalStringLiteral))
-                }
-                sql_ast::Value::HexStringLiteral(_) => {
-                    Err(AnalysisError::feature_not_supported(Feature::HexStringLiteral))
-                }
-                sql_ast::Value::Boolean(boolean) => {
-                    Ok(UpdateTreeNode::Item(Operator::Const(ScalarValue::Bool(Bool(*boolean)))))
-                }
-                sql_ast::Value::Interval { .. } => Err(AnalysisError::feature_not_supported(Feature::TimeInterval)),
-                sql_ast::Value::Null => Ok(UpdateTreeNode::Item(Operator::Const(ScalarValue::Null))),
+            sql_ast::Value::HexStringLiteral(_) => Err(AnalysisError::feature_not_supported(Feature::HexStringLiteral)),
+            sql_ast::Value::Boolean(boolean) => {
+                Ok(UpdateTreeNode::Item(Operator::Const(ScalarValue::Bool(Bool(*boolean)))))
             }
+            sql_ast::Value::Interval { .. } => Err(AnalysisError::feature_not_supported(Feature::TimeInterval)),
+            sql_ast::Value::Null => Ok(UpdateTreeNode::Item(Operator::Const(ScalarValue::Null))),
         }
     }
 }

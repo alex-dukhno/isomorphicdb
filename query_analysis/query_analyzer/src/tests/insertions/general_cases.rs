@@ -72,7 +72,7 @@ fn with_column_names() {
     let database = InMemoryDatabase::new();
     database.execute(create_schema(SCHEMA)).unwrap();
     database
-        .execute(create_table(SCHEMA, TABLE, vec![("col", SqlType::SmallInt)]))
+        .execute(create_table(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
         .unwrap();
     let analyzer = Analyzer::new(Arc::new(DatabaseHandle::in_memory()), database);
 
@@ -80,7 +80,7 @@ fn with_column_names() {
         analyzer.analyze(inner_insert(vec![SCHEMA, TABLE], vec![vec![small_int(1)]], vec!["col"])),
         Ok(QueryAnalysis::Write(Write::Insert(InsertQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-            column_types: vec![SqlType::SmallInt],
+            column_types: vec![SqlType::small_int()],
             values: vec![vec![InsertTreeNode::Item(InsertOperator::Const(ScalarValue::Number(
                 BigDecimal::from(1)
             )))]],
@@ -93,7 +93,7 @@ fn column_not_found() {
     let database = InMemoryDatabase::new();
     database.execute(create_schema(SCHEMA)).unwrap();
     database
-        .execute(create_table(SCHEMA, TABLE, vec![("col", SqlType::SmallInt)]))
+        .execute(create_table(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
         .unwrap();
     let analyzer = Analyzer::new(Arc::new(DatabaseHandle::in_memory()), database);
 

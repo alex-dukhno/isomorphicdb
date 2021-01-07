@@ -16,7 +16,7 @@ use super::*;
 
 #[test]
 fn select_all_columns_from_table() {
-    let (data_definition, schema_id, table_id) = with_table(&[ColumnDefinition::new("col1", SqlType::Integer)]);
+    let (data_definition, schema_id, table_id) = with_table(&[ColumnDefinition::new("col1", SqlType::integer())]);
     let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
 
     assert_eq!(
@@ -25,7 +25,7 @@ fn select_all_columns_from_table() {
             full_table_id: FullTableId::from((schema_id, table_id)),
             projection_items: vec![ProjectionTreeNode::Item(Operator::Column {
                 index: 0,
-                sql_type: SqlType::Integer
+                sql_type: SqlType::integer()
             })],
         }))
     );
@@ -33,7 +33,7 @@ fn select_all_columns_from_table() {
 
 #[test]
 fn select_specified_column_from_table() {
-    let (data_definition, schema_id, table_id) = with_table(&[ColumnDefinition::new("col1", SqlType::Integer)]);
+    let (data_definition, schema_id, table_id) = with_table(&[ColumnDefinition::new("col1", SqlType::integer())]);
     let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
 
     assert_eq!(
@@ -47,7 +47,7 @@ fn select_specified_column_from_table() {
             full_table_id: FullTableId::from((schema_id, table_id)),
             projection_items: vec![ProjectionTreeNode::Item(Operator::Column {
                 index: 0,
-                sql_type: SqlType::Integer
+                sql_type: SqlType::integer()
             })],
         }))
     );
@@ -55,7 +55,7 @@ fn select_specified_column_from_table() {
 
 #[test]
 fn select_column_that_is_not_in_table() {
-    let (data_definition, _schema_id, _table_id) = with_table(&[ColumnDefinition::new("col1", SqlType::Integer)]);
+    let (data_definition, _schema_id, _table_id) = with_table(&[ColumnDefinition::new("col1", SqlType::integer())]);
     let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
 
     assert_eq!(
@@ -71,7 +71,7 @@ fn select_column_that_is_not_in_table() {
 
 #[test]
 fn select_from_table_with_constant() {
-    let (data_definition, schema_id, table_id) = with_table(&[ColumnDefinition::new("col1", SqlType::Integer)]);
+    let (data_definition, schema_id, table_id) = with_table(&[ColumnDefinition::new("col1", SqlType::integer())]);
     let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
 
     assert_eq!(
@@ -90,7 +90,7 @@ fn select_from_table_with_constant() {
 
 #[test]
 fn select_parameters_from_a_table() {
-    let (data_definition, schema_id, table_id) = with_table(&[ColumnDefinition::new("col1", SqlType::Integer)]);
+    let (data_definition, schema_id, table_id) = with_table(&[ColumnDefinition::new("col1", SqlType::integer())]);
     let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
 
     assert_eq!(
@@ -126,7 +126,7 @@ mod multiple_values {
 
     #[test]
     fn arithmetic() {
-        let (data_definition, schema_id, table_id) = with_table(&[ColumnDefinition::new("col", SqlType::SmallInt)]);
+        let (data_definition, schema_id, table_id) = with_table(&[ColumnDefinition::new("col", SqlType::small_int())]);
         let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
 
         assert_eq!(
@@ -152,7 +152,8 @@ mod multiple_values {
 
     #[test]
     fn string_operation() {
-        let (data_definition, schema_id, table_id) = with_table(&[ColumnDefinition::new("col", SqlType::VarChar(255))]);
+        let (data_definition, schema_id, table_id) =
+            with_table(&[ColumnDefinition::new("col", SqlType::var_char(255))]);
         let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
 
         assert_eq!(
@@ -178,7 +179,7 @@ mod multiple_values {
 
     #[test]
     fn comparison() {
-        let (data_definition, schema_id, table_id) = with_table(&[ColumnDefinition::new("col", SqlType::Bool)]);
+        let (data_definition, schema_id, table_id) = with_table(&[ColumnDefinition::new("col", SqlType::bool())]);
         let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
 
         assert_eq!(
@@ -204,7 +205,7 @@ mod multiple_values {
 
     #[test]
     fn logical() {
-        let (data_definition, schema_id, table_id) = with_table(&[ColumnDefinition::new("col", SqlType::Bool)]);
+        let (data_definition, schema_id, table_id) = with_table(&[ColumnDefinition::new("col", SqlType::bool())]);
         let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
 
         assert_eq!(
@@ -226,7 +227,7 @@ mod multiple_values {
 
     #[test]
     fn bitwise() {
-        let (data_definition, schema_id, table_id) = with_table(&[ColumnDefinition::new("col", SqlType::SmallInt)]);
+        let (data_definition, schema_id, table_id) = with_table(&[ColumnDefinition::new("col", SqlType::small_int())]);
         let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
 
         assert_eq!(
@@ -252,7 +253,7 @@ mod multiple_values {
 
     #[test]
     fn pattern_matching() {
-        let (data_definition, schema_id, table_id) = with_table(&[ColumnDefinition::new("col", SqlType::Bool)]);
+        let (data_definition, schema_id, table_id) = with_table(&[ColumnDefinition::new("col", SqlType::bool())]);
         let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
 
         assert_eq!(

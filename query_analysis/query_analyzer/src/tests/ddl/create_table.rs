@@ -141,7 +141,7 @@ fn create_new_table_if_not_exist() {
                 table_info: TableInfo::new(0, &SCHEMA, &TABLE),
                 column_defs: vec![ColumnInfo {
                     name: "column_name".to_owned(),
-                    sql_type: SqlType::SmallInt
+                    sql_type: SqlType::small_int()
                 }],
                 if_not_exists: true,
             }
@@ -164,7 +164,7 @@ fn successfully_create_table() {
                 table_info: TableInfo::new(0, &SCHEMA, &TABLE),
                 column_defs: vec![ColumnInfo {
                     name: "column_name".to_owned(),
-                    sql_type: SqlType::SmallInt
+                    sql_type: SqlType::small_int()
                 }],
                 if_not_exists: false,
             }

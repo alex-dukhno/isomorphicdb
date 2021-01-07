@@ -30,7 +30,7 @@ fn insert_number() {
     let database = InMemoryDatabase::new();
     database.execute(create_schema(SCHEMA)).unwrap();
     database
-        .execute(create_table(SCHEMA, TABLE, vec![("col", SqlType::SmallInt)]))
+        .execute(create_table(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
         .unwrap();
     let analyzer = Analyzer::new(Arc::new(DatabaseHandle::in_memory()), database);
 
@@ -38,7 +38,7 @@ fn insert_number() {
         analyzer.analyze(insert_with_values(vec![SCHEMA, TABLE], vec![vec![small_int(1)]])),
         Ok(QueryAnalysis::Write(Write::Insert(InsertQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-            column_types: vec![SqlType::SmallInt],
+            column_types: vec![SqlType::small_int()],
             values: vec![vec![InsertTreeNode::Item(InsertOperator::Const(ScalarValue::Number(
                 BigDecimal::from(1)
             )))]],
@@ -51,7 +51,7 @@ fn insert_string() {
     let database = InMemoryDatabase::new();
     database.execute(create_schema(SCHEMA)).unwrap();
     database
-        .execute(create_table(SCHEMA, TABLE, vec![("col", SqlType::Char(5))]))
+        .execute(create_table(SCHEMA, TABLE, vec![("col", SqlType::char(5))]))
         .unwrap();
     let analyzer = Analyzer::new(Arc::new(DatabaseHandle::in_memory()), database);
 
@@ -59,7 +59,7 @@ fn insert_string() {
         analyzer.analyze(insert_with_values(vec![SCHEMA, TABLE], vec![vec![string("str")]])),
         Ok(QueryAnalysis::Write(Write::Insert(InsertQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-            column_types: vec![SqlType::Char(5)],
+            column_types: vec![SqlType::char(5)],
             values: vec![vec![InsertTreeNode::Item(InsertOperator::Const(ScalarValue::String(
                 "str".to_owned()
             )))]],
@@ -72,7 +72,7 @@ fn insert_boolean() {
     let database = InMemoryDatabase::new();
     database.execute(create_schema(SCHEMA)).unwrap();
     database
-        .execute(create_table(SCHEMA, TABLE, vec![("col", SqlType::Bool)]))
+        .execute(create_table(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
         .unwrap();
     let analyzer = Analyzer::new(Arc::new(DatabaseHandle::in_memory()), database);
 
@@ -80,7 +80,7 @@ fn insert_boolean() {
         analyzer.analyze(insert_with_values(vec![SCHEMA, TABLE], vec![vec![boolean(true)]])),
         Ok(QueryAnalysis::Write(Write::Insert(InsertQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-            column_types: vec![SqlType::Bool],
+            column_types: vec![SqlType::bool()],
             values: vec![vec![InsertTreeNode::Item(InsertOperator::Const(ScalarValue::Bool(
                 Bool(true)
             )))]],
@@ -93,7 +93,7 @@ fn insert_null() {
     let database = InMemoryDatabase::new();
     database.execute(create_schema(SCHEMA)).unwrap();
     database
-        .execute(create_table(SCHEMA, TABLE, vec![("col", SqlType::Bool)]))
+        .execute(create_table(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
         .unwrap();
     let analyzer = Analyzer::new(Arc::new(DatabaseHandle::in_memory()), database);
 
@@ -101,7 +101,7 @@ fn insert_null() {
         analyzer.analyze(insert_with_values(vec![SCHEMA, TABLE], vec![vec![null()]])),
         Ok(QueryAnalysis::Write(Write::Insert(InsertQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-            column_types: vec![SqlType::Bool],
+            column_types: vec![SqlType::bool()],
             values: vec![vec![InsertTreeNode::Item(InsertOperator::Const(ScalarValue::Null))]],
         })))
     );
@@ -112,7 +112,7 @@ fn insert_identifier() {
     let database = InMemoryDatabase::new();
     database.execute(create_schema(SCHEMA)).unwrap();
     database
-        .execute(create_table(SCHEMA, TABLE, vec![("col", SqlType::SmallInt)]))
+        .execute(create_table(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
         .unwrap();
     let analyzer = Analyzer::new(Arc::new(DatabaseHandle::in_memory()), database);
 
@@ -133,7 +133,7 @@ fn insert_into_table_with_parameters() {
         .execute(create_table(
             SCHEMA,
             TABLE,
-            vec![("col_1", SqlType::SmallInt), ("col_2", SqlType::SmallInt)],
+            vec![("col_1", SqlType::small_int()), ("col_2", SqlType::small_int())],
         ))
         .unwrap();
     let analyzer = Analyzer::new(Arc::new(DatabaseHandle::in_memory()), database);
@@ -142,7 +142,7 @@ fn insert_into_table_with_parameters() {
         analyzer.analyze(insert_with_parameters(vec![SCHEMA, TABLE], vec!["$1", "$2"])),
         Ok(QueryAnalysis::Write(Write::Insert(InsertQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-            column_types: vec![SqlType::SmallInt, SqlType::SmallInt],
+            column_types: vec![SqlType::small_int(), SqlType::small_int()],
             values: vec![vec![
                 InsertTreeNode::Item(InsertOperator::Param(0)),
                 InsertTreeNode::Item(InsertOperator::Param(1))
@@ -159,7 +159,7 @@ fn insert_into_table_with_parameters_and_values() {
         .execute(create_table(
             SCHEMA,
             TABLE,
-            vec![("col_1", SqlType::SmallInt), ("col_2", SqlType::SmallInt)],
+            vec![("col_1", SqlType::small_int()), ("col_2", SqlType::small_int())],
         ))
         .unwrap();
     let analyzer = Analyzer::new(Arc::new(DatabaseHandle::in_memory()), database);
@@ -174,7 +174,7 @@ fn insert_into_table_with_parameters_and_values() {
         )),
         Ok(QueryAnalysis::Write(Write::Insert(InsertQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-            column_types: vec![SqlType::SmallInt, SqlType::SmallInt],
+            column_types: vec![SqlType::small_int(), SqlType::small_int()],
             values: vec![vec![
                 InsertTreeNode::Item(InsertOperator::Param(0)),
                 InsertTreeNode::Item(InsertOperator::Const(ScalarValue::Number(BigDecimal::from(1))))
@@ -207,7 +207,7 @@ mod multiple_values {
         let database = InMemoryDatabase::new();
         database.execute(create_schema(SCHEMA)).unwrap();
         database
-            .execute(create_table(SCHEMA, TABLE, vec![("col", SqlType::SmallInt)]))
+            .execute(create_table(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
             .unwrap();
         let analyzer = Analyzer::new(Arc::new(DatabaseHandle::in_memory()), database);
 
@@ -219,7 +219,7 @@ mod multiple_values {
             )),
             Ok(QueryAnalysis::Write(Write::Insert(InsertQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                column_types: vec![SqlType::SmallInt],
+                column_types: vec![SqlType::small_int()],
                 values: vec![vec![InsertTreeNode::Operation {
                     left: Box::new(InsertTreeNode::Item(InsertOperator::Const(ScalarValue::Number(
                         BigDecimal::from(1)
@@ -238,7 +238,7 @@ mod multiple_values {
         let database = InMemoryDatabase::new();
         database.execute(create_schema(SCHEMA)).unwrap();
         database
-            .execute(create_table(SCHEMA, TABLE, vec![("col", SqlType::VarChar(255))]))
+            .execute(create_table(SCHEMA, TABLE, vec![("col", SqlType::var_char(255))]))
             .unwrap();
         let analyzer = Analyzer::new(Arc::new(DatabaseHandle::in_memory()), database);
 
@@ -250,7 +250,7 @@ mod multiple_values {
             )),
             Ok(QueryAnalysis::Write(Write::Insert(InsertQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                column_types: vec![SqlType::VarChar(255)],
+                column_types: vec![SqlType::var_char(255)],
                 values: vec![vec![InsertTreeNode::Operation {
                     left: Box::new(InsertTreeNode::Item(InsertOperator::Const(ScalarValue::String(
                         "str".to_owned()
@@ -269,7 +269,7 @@ mod multiple_values {
         let database = InMemoryDatabase::new();
         database.execute(create_schema(SCHEMA)).unwrap();
         database
-            .execute(create_table(SCHEMA, TABLE, vec![("col", SqlType::Bool)]))
+            .execute(create_table(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
             .unwrap();
         let analyzer = Analyzer::new(Arc::new(DatabaseHandle::in_memory()), database);
 
@@ -281,7 +281,7 @@ mod multiple_values {
             )),
             Ok(QueryAnalysis::Write(Write::Insert(InsertQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                column_types: vec![SqlType::Bool],
+                column_types: vec![SqlType::bool()],
                 values: vec![vec![InsertTreeNode::Operation {
                     left: Box::new(InsertTreeNode::Item(InsertOperator::Const(ScalarValue::Number(
                         BigDecimal::from(1)
@@ -300,7 +300,7 @@ mod multiple_values {
         let database = InMemoryDatabase::new();
         database.execute(create_schema(SCHEMA)).unwrap();
         database
-            .execute(create_table(SCHEMA, TABLE, vec![("col", SqlType::Bool)]))
+            .execute(create_table(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
             .unwrap();
         let analyzer = Analyzer::new(Arc::new(DatabaseHandle::in_memory()), database);
 
@@ -312,7 +312,7 @@ mod multiple_values {
             )),
             Ok(QueryAnalysis::Write(Write::Insert(InsertQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                column_types: vec![SqlType::Bool],
+                column_types: vec![SqlType::bool()],
                 values: vec![vec![InsertTreeNode::Operation {
                     left: Box::new(InsertTreeNode::Item(InsertOperator::Const(ScalarValue::Bool(Bool(
                         true
@@ -331,7 +331,7 @@ mod multiple_values {
         let database = InMemoryDatabase::new();
         database.execute(create_schema(SCHEMA)).unwrap();
         database
-            .execute(create_table(SCHEMA, TABLE, vec![("col", SqlType::SmallInt)]))
+            .execute(create_table(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
             .unwrap();
         let analyzer = Analyzer::new(Arc::new(DatabaseHandle::in_memory()), database);
 
@@ -343,7 +343,7 @@ mod multiple_values {
             )),
             Ok(QueryAnalysis::Write(Write::Insert(InsertQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                column_types: vec![SqlType::SmallInt],
+                column_types: vec![SqlType::small_int()],
                 values: vec![vec![InsertTreeNode::Operation {
                     left: Box::new(InsertTreeNode::Item(InsertOperator::Const(ScalarValue::Number(
                         BigDecimal::from(1)
@@ -362,7 +362,7 @@ mod multiple_values {
         let database = InMemoryDatabase::new();
         database.execute(create_schema(SCHEMA)).unwrap();
         database
-            .execute(create_table(SCHEMA, TABLE, vec![("col", SqlType::Bool)]))
+            .execute(create_table(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
             .unwrap();
         let analyzer = Analyzer::new(Arc::new(DatabaseHandle::in_memory()), database);
 
@@ -374,7 +374,7 @@ mod multiple_values {
             )),
             Ok(QueryAnalysis::Write(Write::Insert(InsertQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                column_types: vec![SqlType::Bool],
+                column_types: vec![SqlType::bool()],
                 values: vec![vec![InsertTreeNode::Operation {
                     left: Box::new(InsertTreeNode::Item(InsertOperator::Const(ScalarValue::String(
                         "s".to_owned()
@@ -398,7 +398,7 @@ mod not_supported_values {
         let database = InMemoryDatabase::new();
         database.execute(create_schema(SCHEMA)).unwrap();
         database
-            .execute(create_table(SCHEMA, TABLE, vec![("col", SqlType::SmallInt)]))
+            .execute(create_table(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
             .unwrap();
         let analyzer = Analyzer::new(Arc::new(DatabaseHandle::in_memory()), database);
 
@@ -418,7 +418,7 @@ mod not_supported_values {
         let database = InMemoryDatabase::new();
         database.execute(create_schema(SCHEMA)).unwrap();
         database
-            .execute(create_table(SCHEMA, TABLE, vec![("col", SqlType::SmallInt)]))
+            .execute(create_table(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
             .unwrap();
         let analyzer = Analyzer::new(Arc::new(DatabaseHandle::in_memory()), database);
 
@@ -438,7 +438,7 @@ mod not_supported_values {
         let database = InMemoryDatabase::new();
         database.execute(create_schema(SCHEMA)).unwrap();
         database
-            .execute(create_table(SCHEMA, TABLE, vec![("col", SqlType::SmallInt)]))
+            .execute(create_table(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
             .unwrap();
         let analyzer = Analyzer::new(Arc::new(DatabaseHandle::in_memory()), database);
 

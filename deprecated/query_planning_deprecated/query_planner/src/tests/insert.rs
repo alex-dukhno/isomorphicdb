@@ -124,9 +124,14 @@ fn insert_into_table(planner_with_table: QueryPlanner) {
         Ok(Plan::Insert(TableInserts {
             table_id: FullTableId::from((0, 0)),
             column_indices: vec![
-                (0, "small_int".to_owned(), SqlType::SmallInt, TypeConstraint::SmallInt),
-                (1, "integer".to_owned(), SqlType::Integer, TypeConstraint::Integer),
-                (2, "big_int".to_owned(), SqlType::BigInt, TypeConstraint::BigInt)
+                (
+                    0,
+                    "small_int".to_owned(),
+                    SqlType::small_int(),
+                    TypeConstraint::SmallInt
+                ),
+                (1, "integer".to_owned(), SqlType::integer(), TypeConstraint::Integer),
+                (2, "big_int".to_owned(), SqlType::big_int(), TypeConstraint::BigInt)
             ],
             input: vec![]
         }))

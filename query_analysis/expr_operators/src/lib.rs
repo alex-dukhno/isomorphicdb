@@ -17,7 +17,7 @@ use std::{
     fmt::{self, Display, Formatter},
     str::FromStr,
 };
-use types::{GeneralType, SqlType};
+use types::{Num, SqlType, Str};
 
 #[derive(Debug, PartialEq)]
 pub enum Arithmetic {
@@ -76,32 +76,15 @@ pub enum Operation {
 }
 
 impl Operation {
-    pub fn acceptable_operand_types(&self) -> Vec<(GeneralType, GeneralType)> {
-        match self {
-            Operation::Logical(_) => vec![(GeneralType::Bool, GeneralType::Bool)],
-            Operation::Comparison(_) => vec![
-                (GeneralType::Bool, GeneralType::Bool),
-                (GeneralType::Number, GeneralType::Number),
-                (GeneralType::String, GeneralType::String),
-            ],
-            Operation::Arithmetic(_) | Operation::Bitwise(_) => vec![(GeneralType::Number, GeneralType::Number)],
-            Operation::StringOp(_) | Operation::PatternMatching(_) => vec![(GeneralType::String, GeneralType::String)],
-        }
-    }
-
-    pub fn result_type(&self) -> GeneralType {
-        match self {
-            Operation::StringOp(_) => GeneralType::String,
-            Operation::Arithmetic(_) | Operation::Bitwise(_) => GeneralType::Number,
-            Operation::Comparison(_) | Operation::Logical(_) | Operation::PatternMatching(_) => GeneralType::Bool,
-        }
-    }
-
     pub fn validate_operands(&self, left: SqlType, right: SqlType) -> Result<(), OperationError> {
-        Ok(())
+        match (left, right) {
+            (SqlType::Num(_), SqlType::Num(_)) => Ok(()),
+            (_, _) => unimplemented!(),
+        }
     }
 }
 
+#[derive(Debug, PartialEq)]
 pub struct OperationError;
 
 #[derive(Debug, PartialEq)]
@@ -182,7 +165,7 @@ impl ScalarValue {
         match self {
             ScalarValue::Bool(boolean) => match target_type {
                 SqlType::Bool => Ok(ScalarValue::Bool(*boolean)),
-                SqlType::Char(len) | SqlType::VarChar(len) => {
+                SqlType::Str { len, .. } => {
                     let r = boolean.0.to_string();
                     if r.len() as u64 > len {
                         Err(ImplicitCastError::string_data_right_truncation(target_type))
@@ -190,9 +173,7 @@ impl ScalarValue {
                         Ok(ScalarValue::String(r))
                     }
                 }
-                SqlType::SmallInt | SqlType::Integer | SqlType::BigInt | SqlType::Real | SqlType::DoublePrecision => {
-                    Err(ImplicitCastError::datatype_mismatch(target_type, SqlType::Bool))
-                }
+                SqlType::Num(_) => Err(ImplicitCastError::datatype_mismatch(target_type, SqlType::bool())),
             },
             ScalarValue::String(string) => match target_type {
                 SqlType::Bool => match Bool::from_str(&string) {
@@ -202,24 +183,22 @@ impl ScalarValue {
                         Err(ImplicitCastError::invalid_input_syntax_for_type(target_type, string))
                     }
                 },
-                SqlType::Char(_) | SqlType::VarChar(_) => Ok(ScalarValue::String(string.clone())),
-                SqlType::SmallInt | SqlType::Integer | SqlType::BigInt | SqlType::Real | SqlType::DoublePrecision => {
-                    match BigDecimal::from_str(&string) {
-                        Ok(num) => Ok(ScalarValue::Number(num)),
-                        Err(parse_error) => {
-                            log::debug!("Could not cast {:?} to bool due to {:?}", string, parse_error);
-                            Err(ImplicitCastError::invalid_input_syntax_for_type(target_type, string))
-                        }
+                SqlType::Str { .. } => Ok(ScalarValue::String(string.clone())),
+                SqlType::Num(_) => match BigDecimal::from_str(&string) {
+                    Ok(num) => Ok(ScalarValue::Number(num)),
+                    Err(parse_error) => {
+                        log::debug!("Could not cast {:?} to bool due to {:?}", string, parse_error);
+                        Err(ImplicitCastError::invalid_input_syntax_for_type(target_type, string))
                     }
-                }
+                },
             },
             ScalarValue::Number(num) => match target_type {
                 SqlType::Bool => {
                     if num.is_integer() {
                         if &BigDecimal::from(i32::MIN) <= num && num <= &BigDecimal::from(i32::MAX) {
-                            Err(ImplicitCastError::datatype_mismatch(target_type, SqlType::Integer))
+                            Err(ImplicitCastError::datatype_mismatch(target_type, SqlType::integer()))
                         } else if &BigDecimal::from(i64::MIN) <= num && num <= &BigDecimal::from(i64::MAX) {
-                            Err(ImplicitCastError::datatype_mismatch(target_type, SqlType::BigInt))
+                            Err(ImplicitCastError::datatype_mismatch(target_type, SqlType::big_int()))
                         } else {
                             unimplemented!("NUMERIC types are not implemented")
                         }
@@ -227,20 +206,20 @@ impl ScalarValue {
                         if &BigDecimal::from_str(&f32::MIN.to_string()).unwrap() <= num
                             && num <= &BigDecimal::from_str(&f32::MAX.to_string()).unwrap()
                         {
-                            Err(ImplicitCastError::datatype_mismatch(target_type, SqlType::Real))
+                            Err(ImplicitCastError::datatype_mismatch(target_type, SqlType::real()))
                         } else if &BigDecimal::from_str(&f64::MIN.to_string()).unwrap() <= num
                             && num <= &BigDecimal::from_str(&f64::MAX.to_string()).unwrap()
                         {
                             Err(ImplicitCastError::datatype_mismatch(
                                 target_type,
-                                SqlType::DoublePrecision,
+                                SqlType::double_precision(),
                             ))
                         } else {
                             unimplemented!("NUMERIC types are not implemented")
                         }
                     }
                 }
-                SqlType::Char(len) | SqlType::VarChar(len) => {
+                SqlType::Str { len, .. } => {
                     let r = num.to_string();
                     if r.len() as u64 <= len {
                         Ok(ScalarValue::String(r))
@@ -248,9 +227,7 @@ impl ScalarValue {
                         Err(ImplicitCastError::string_data_right_truncation(target_type))
                     }
                 }
-                SqlType::SmallInt | SqlType::Integer | SqlType::BigInt | SqlType::Real | SqlType::DoublePrecision => {
-                    Ok(ScalarValue::Number(num.clone()))
-                }
+                SqlType::Num(_) => Ok(ScalarValue::Number(num.clone())),
             },
             ScalarValue::Null => Ok(ScalarValue::Null),
         }

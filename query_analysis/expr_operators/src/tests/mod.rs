@@ -15,10 +15,8 @@
 use super::*;
 
 #[cfg(test)]
-mod acceptable_types;
-#[cfg(test)]
 mod bool_parser;
 #[cfg(test)]
 mod implicit_type_casting;
 #[cfg(test)]
-mod result_types;
+mod validate_operands;

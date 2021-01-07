@@ -533,7 +533,7 @@ mod test {
                         schema_name: schema_name.to_owned(),
                         table_name: table_name.to_owned(),
                         column_name: "col_1".to_owned(),
-                        sql_type: SqlType::SmallInt,
+                        sql_type: SqlType::small_int(),
                     },
                 },
                 Step::CreateRecord {
@@ -544,7 +544,7 @@ mod test {
                         schema_name: schema_name.to_owned(),
                         table_name: table_name.to_owned(),
                         column_name: "col_2".to_owned(),
-                        sql_type: SqlType::BigInt,
+                        sql_type: SqlType::big_int(),
                     },
                 },
             ]],
