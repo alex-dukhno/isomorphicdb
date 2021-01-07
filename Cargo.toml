@@ -25,6 +25,7 @@ members = [
     "query_analysis/tree",
     "query_parsing/parser",
     "query_parsing/sql-ast",
+    "query_validation/validator",
     "entities/repr",
     "server/connection",
     "server/pg_model",

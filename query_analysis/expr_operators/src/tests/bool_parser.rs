@@ -36,5 +36,8 @@ fn false_values() {
 
 #[test]
 fn not_a_boolean_value() {
-    assert_eq!(Bool::from_str("not a boolean"), Err(ParseBoolError))
+    assert_eq!(
+        Bool::from_str("not a boolean"),
+        Err(ParseBoolError("not a boolean".to_lowercase()))
+    )
 }

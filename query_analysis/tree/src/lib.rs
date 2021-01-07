@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use definition::{FullTableName, SchemaName};
-use expr_operators::{Operation, Operator};
+use expr_operators::{InsertOperator, Operation, Operator};
 use meta_def::Id;
 use types::SqlType;
 
@@ -116,7 +116,7 @@ pub enum InsertTreeNode {
         op: Operation,
         right: Box<InsertTreeNode>,
     },
-    Item(Operator),
+    Item(InsertOperator),
 }
 
 #[derive(Debug, PartialEq)]

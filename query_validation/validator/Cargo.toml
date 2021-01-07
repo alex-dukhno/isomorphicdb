@@ -1,11 +1,13 @@
 [package]
-name = "expr_operators"
+name = "validator"
 version = "0.1.0"
 authors = ["Alex Dukhno <alex.dukhno@icloud.com>"]
 edition = "2018"
 publish = false
 
 [dependencies]
+analysis_tree = { path = "../../query_analysis/tree" }
+expr_operators = { path = "../../query_analysis/expr_operators" }
 types = { path = "../../entities/types" }
 
 bigdecimal = { version = "0.2.0", features = ["string-only"] }

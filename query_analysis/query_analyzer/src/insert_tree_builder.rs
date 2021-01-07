@@ -14,7 +14,7 @@
 
 use crate::{operation_mapper::OperationMapper, parse_param_index};
 use analysis_tree::{AnalysisError, AnalysisResult, Feature, InsertTreeNode};
-use expr_operators::{Bool, Operator, ScalarValue};
+use expr_operators::{Bool, InsertOperator, Operator, ScalarValue};
 use types::SqlType;
 
 pub(crate) struct InsertTreeBuilder;
@@ -68,26 +68,28 @@ impl InsertTreeBuilder {
     fn ident(ident: &sql_ast::Ident) -> AnalysisResult<InsertTreeNode> {
         let sql_ast::Ident { value, .. } = ident;
         match parse_param_index(value.as_str()) {
-            Some(index) => Ok(InsertTreeNode::Item(Operator::Param(index))),
+            Some(index) => Ok(InsertTreeNode::Item(InsertOperator::Param(index))),
             None => Err(AnalysisError::column_cant_be_referenced(value)),
         }
     }
 
     fn value(value: &sql_ast::Value) -> AnalysisResult<InsertTreeNode> {
         match value {
-            sql_ast::Value::Number(num) => Ok(InsertTreeNode::Item(Operator::Const(ScalarValue::Number(num.clone())))),
-            sql_ast::Value::SingleQuotedString(string) => Ok(InsertTreeNode::Item(Operator::Const(
+            sql_ast::Value::Number(num) => Ok(InsertTreeNode::Item(InsertOperator::Const(ScalarValue::Number(
+                num.clone(),
+            )))),
+            sql_ast::Value::SingleQuotedString(string) => Ok(InsertTreeNode::Item(InsertOperator::Const(
                 ScalarValue::String(string.clone()),
             ))),
             sql_ast::Value::NationalStringLiteral(_) => {
                 Err(AnalysisError::feature_not_supported(Feature::NationalStringLiteral))
             }
             sql_ast::Value::HexStringLiteral(_) => Err(AnalysisError::feature_not_supported(Feature::HexStringLiteral)),
-            sql_ast::Value::Boolean(boolean) => {
-                Ok(InsertTreeNode::Item(Operator::Const(ScalarValue::Bool(Bool(*boolean)))))
-            }
+            sql_ast::Value::Boolean(boolean) => Ok(InsertTreeNode::Item(InsertOperator::Const(ScalarValue::Bool(
+                Bool(*boolean),
+            )))),
             sql_ast::Value::Interval { .. } => Err(AnalysisError::feature_not_supported(Feature::TimeInterval)),
-            sql_ast::Value::Null => Ok(InsertTreeNode::Item(Operator::Const(ScalarValue::Null))),
+            sql_ast::Value::Null => Ok(InsertTreeNode::Item(InsertOperator::Const(ScalarValue::Null))),
         }
     }
 }
