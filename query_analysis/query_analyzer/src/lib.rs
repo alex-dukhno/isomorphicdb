@@ -24,7 +24,7 @@ use analysis_tree::{
 use catalog::CatalogDefinition;
 use data_manager::DataDefReader;
 use definition::{FullTableName, SchemaName};
-use expr_operators::Operator;
+use expr_operators::Operand;
 use std::{convert::TryFrom, sync::Arc};
 use types::SqlType;
 
@@ -177,7 +177,7 @@ impl<CD: CatalogDefinition> Analyzer<CD> {
                                         match item {
                                             sql_ast::SelectItem::Wildcard => {
                                                 for (index, table_column) in table_columns.iter().enumerate() {
-                                                    projection_items.push(ProjectionTreeNode::Item(Operator::Column {
+                                                    projection_items.push(ProjectionTreeNode::Item(Operand::Column {
                                                         index,
                                                         sql_type: table_column.sql_type(),
                                                     }));

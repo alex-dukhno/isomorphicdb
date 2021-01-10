@@ -17,7 +17,7 @@ use std::{
     fmt::{self, Display, Formatter},
     str::FromStr,
 };
-use types::{Num, SqlType, Str};
+use types::{Num, SqlFamilyType, SqlType, Str};
 
 #[derive(Debug, PartialEq)]
 pub enum Arithmetic {
@@ -76,10 +76,30 @@ pub enum Operation {
 }
 
 impl Operation {
-    pub fn validate_operands(&self, left: SqlType, right: SqlType) -> Result<(), OperationError> {
-        match (left, right) {
-            (SqlType::Num(_), SqlType::Num(_)) => Ok(()),
-            (_, _) => unimplemented!(),
+    pub fn resulted_type(&self) -> Vec<SqlFamilyType> {
+        match self {
+            Operation::Arithmetic(_) => vec![SqlFamilyType::Integer, SqlFamilyType::Float],
+            Operation::Comparison(_) => vec![SqlFamilyType::Bool],
+            Operation::Bitwise(_) => vec![SqlFamilyType::Integer],
+            Operation::Logical(_) => vec![SqlFamilyType::Bool],
+            Operation::PatternMatching(_) => vec![SqlFamilyType::Bool],
+            Operation::StringOp(_) => vec![SqlFamilyType::Bool],
+        }
+    }
+
+    pub fn supported_type_family(&self, left: SqlFamilyType, right: SqlFamilyType) -> bool {
+        match self {
+            Operation::Arithmetic(_) => {
+                left == SqlFamilyType::Integer && right == SqlFamilyType::Integer
+                    || left == SqlFamilyType::Float && right == SqlFamilyType::Integer
+                    || left == SqlFamilyType::Integer && right == SqlFamilyType::Float
+                    || left == SqlFamilyType::Float && right == SqlFamilyType::Float
+            }
+            Operation::Comparison(_) => left == right,
+            Operation::Bitwise(_) => left == SqlFamilyType::Integer && right == SqlFamilyType::Integer,
+            Operation::Logical(_) => left == SqlFamilyType::Bool && right == SqlFamilyType::Bool,
+            Operation::PatternMatching(_) => left == SqlFamilyType::String && right == SqlFamilyType::String,
+            Operation::StringOp(_) => left == SqlFamilyType::String && right == SqlFamilyType::String,
         }
     }
 }
@@ -88,13 +108,13 @@ impl Operation {
 pub struct OperationError;
 
 #[derive(Debug, PartialEq)]
-pub enum InsertOperator {
+pub enum InsertItem {
     Const(ScalarValue),
     Param(usize),
 }
 
 #[derive(Debug, PartialEq)]
-pub enum Operator {
+pub enum Operand {
     Const(ScalarValue),
     Param(usize),
     Column { sql_type: SqlType, index: usize },
@@ -161,6 +181,16 @@ pub enum ScalarValue {
 }
 
 impl ScalarValue {
+    pub fn kind(&self) -> Option<SqlFamilyType> {
+        match self {
+            ScalarValue::String(_) => Some(SqlFamilyType::String),
+            ScalarValue::Number(num) if num.is_integer() => Some(SqlFamilyType::Integer),
+            ScalarValue::Number(_) => Some(SqlFamilyType::Float),
+            ScalarValue::Bool(_) => Some(SqlFamilyType::Bool),
+            ScalarValue::Null => None,
+        }
+    }
+
     pub fn implicit_cast_to(&self, target_type: SqlType) -> Result<ScalarValue, ImplicitCastError> {
         match self {
             ScalarValue::Bool(boolean) => match target_type {

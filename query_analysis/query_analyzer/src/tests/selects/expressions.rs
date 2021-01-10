@@ -23,7 +23,7 @@ fn select_all_columns_from_table() {
         analyzer.analyze(select(vec![SCHEMA, TABLE])),
         Ok(QueryAnalysis::Read(SelectQuery {
             full_table_id: FullTableId::from((schema_id, table_id)),
-            projection_items: vec![ProjectionTreeNode::Item(Operator::Column {
+            projection_items: vec![ProjectionTreeNode::Item(Operand::Column {
                 index: 0,
                 sql_type: SqlType::integer()
             })],
@@ -45,7 +45,7 @@ fn select_specified_column_from_table() {
         )),
         Ok(QueryAnalysis::Read(SelectQuery {
             full_table_id: FullTableId::from((schema_id, table_id)),
-            projection_items: vec![ProjectionTreeNode::Item(Operator::Column {
+            projection_items: vec![ProjectionTreeNode::Item(Operand::Column {
                 index: 0,
                 sql_type: SqlType::integer()
             })],
@@ -81,7 +81,7 @@ fn select_from_table_with_constant() {
         )),
         Ok(QueryAnalysis::Read(SelectQuery {
             full_table_id: FullTableId::from((schema_id, table_id)),
-            projection_items: vec![ProjectionTreeNode::Item(Operator::Const(ScalarValue::Number(
+            projection_items: vec![ProjectionTreeNode::Item(Operand::Const(ScalarValue::Number(
                 BigDecimal::from(1)
             )))],
         }))
@@ -100,7 +100,7 @@ fn select_parameters_from_a_table() {
         )),
         Ok(QueryAnalysis::Read(SelectQuery {
             full_table_id: FullTableId::from((schema_id, table_id)),
-            projection_items: vec![ProjectionTreeNode::Item(Operator::Param(0))],
+            projection_items: vec![ProjectionTreeNode::Item(Operand::Param(0))],
         }))
     );
 }
@@ -138,11 +138,11 @@ mod multiple_values {
             Ok(QueryAnalysis::Read(SelectQuery {
                 full_table_id: FullTableId::from((schema_id, table_id)),
                 projection_items: vec![ProjectionTreeNode::Operation {
-                    left: Box::new(ProjectionTreeNode::Item(Operator::Const(ScalarValue::String(
+                    left: Box::new(ProjectionTreeNode::Item(Operand::Const(ScalarValue::String(
                         "1".to_owned()
                     )))),
                     op: Operation::Arithmetic(Arithmetic::Add),
-                    right: Box::new(ProjectionTreeNode::Item(Operator::Const(ScalarValue::Number(
+                    right: Box::new(ProjectionTreeNode::Item(Operand::Const(ScalarValue::Number(
                         BigDecimal::from(1)
                     ))))
                 }],
@@ -165,11 +165,11 @@ mod multiple_values {
             Ok(QueryAnalysis::Read(SelectQuery {
                 full_table_id: FullTableId::from((schema_id, table_id)),
                 projection_items: vec![ProjectionTreeNode::Operation {
-                    left: Box::new(ProjectionTreeNode::Item(Operator::Const(ScalarValue::String(
+                    left: Box::new(ProjectionTreeNode::Item(Operand::Const(ScalarValue::String(
                         "str".to_owned()
                     )))),
                     op: Operation::StringOp(StringOp::Concat),
-                    right: Box::new(ProjectionTreeNode::Item(Operator::Const(ScalarValue::String(
+                    right: Box::new(ProjectionTreeNode::Item(Operand::Const(ScalarValue::String(
                         "str".to_owned()
                     ))))
                 }],
@@ -191,11 +191,11 @@ mod multiple_values {
             Ok(QueryAnalysis::Read(SelectQuery {
                 full_table_id: FullTableId::from((schema_id, table_id)),
                 projection_items: vec![ProjectionTreeNode::Operation {
-                    left: Box::new(ProjectionTreeNode::Item(Operator::Const(ScalarValue::String(
+                    left: Box::new(ProjectionTreeNode::Item(Operand::Const(ScalarValue::String(
                         "1".to_owned()
                     )))),
                     op: Operation::Comparison(Comparison::Gt),
-                    right: Box::new(ProjectionTreeNode::Item(Operator::Const(ScalarValue::Number(
+                    right: Box::new(ProjectionTreeNode::Item(Operand::Const(ScalarValue::Number(
                         BigDecimal::from(1)
                     ))))
                 }],
@@ -217,9 +217,9 @@ mod multiple_values {
             Ok(QueryAnalysis::Read(SelectQuery {
                 full_table_id: FullTableId::from((schema_id, table_id)),
                 projection_items: vec![ProjectionTreeNode::Operation {
-                    left: Box::new(ProjectionTreeNode::Item(Operator::Const(ScalarValue::Bool(Bool(true))))),
+                    left: Box::new(ProjectionTreeNode::Item(Operand::Const(ScalarValue::Bool(Bool(true))))),
                     op: Operation::Logical(Logical::And),
-                    right: Box::new(ProjectionTreeNode::Item(Operator::Const(ScalarValue::Bool(Bool(true))))),
+                    right: Box::new(ProjectionTreeNode::Item(Operand::Const(ScalarValue::Bool(Bool(true))))),
                 }],
             }))
         );
@@ -239,11 +239,11 @@ mod multiple_values {
             Ok(QueryAnalysis::Read(SelectQuery {
                 full_table_id: FullTableId::from((schema_id, table_id)),
                 projection_items: vec![ProjectionTreeNode::Operation {
-                    left: Box::new(ProjectionTreeNode::Item(Operator::Const(ScalarValue::Number(
+                    left: Box::new(ProjectionTreeNode::Item(Operand::Const(ScalarValue::Number(
                         BigDecimal::from(1)
                     )))),
                     op: Operation::Bitwise(Bitwise::Or),
-                    right: Box::new(ProjectionTreeNode::Item(Operator::Const(ScalarValue::Number(
+                    right: Box::new(ProjectionTreeNode::Item(Operand::Const(ScalarValue::Number(
                         BigDecimal::from(1)
                     ))))
                 }],
@@ -265,11 +265,11 @@ mod multiple_values {
             Ok(QueryAnalysis::Read(SelectQuery {
                 full_table_id: FullTableId::from((schema_id, table_id)),
                 projection_items: vec![ProjectionTreeNode::Operation {
-                    left: Box::new(ProjectionTreeNode::Item(Operator::Const(ScalarValue::String(
+                    left: Box::new(ProjectionTreeNode::Item(Operand::Const(ScalarValue::String(
                         "s".to_owned()
                     )))),
                     op: Operation::PatternMatching(PatternMatching::Like),
-                    right: Box::new(ProjectionTreeNode::Item(Operator::Const(ScalarValue::String(
+                    right: Box::new(ProjectionTreeNode::Item(Operand::Const(ScalarValue::String(
                         "str".to_owned()
                     ))))
                 }],

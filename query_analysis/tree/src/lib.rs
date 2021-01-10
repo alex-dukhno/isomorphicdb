@@ -13,9 +13,9 @@
 // limitations under the License.
 
 use definition::{FullTableName, SchemaName};
-use expr_operators::{InsertOperator, Operation, Operator};
+use expr_operators::{InsertItem, Operand, Operation};
 use meta_def::Id;
-use types::SqlType;
+use types::{SqlFamilyType, SqlType};
 
 pub type AnalysisResult<A> = Result<A, AnalysisError>;
 
@@ -116,7 +116,17 @@ pub enum InsertTreeNode {
         op: Operation,
         right: Box<InsertTreeNode>,
     },
-    Item(InsertOperator),
+    Item(InsertItem),
+}
+
+impl InsertTreeNode {
+    pub fn kind(&self) -> Option<SqlFamilyType> {
+        match self {
+            InsertTreeNode::Operation { .. } => None,
+            InsertTreeNode::Item(InsertItem::Const(value)) => value.kind(),
+            InsertTreeNode::Item(InsertItem::Param(_)) => None,
+        }
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -133,7 +143,7 @@ pub enum UpdateTreeNode {
         op: Operation,
         right: Box<UpdateTreeNode>,
     },
-    Item(Operator),
+    Item(Operand),
 }
 
 #[derive(Debug, PartialEq)]
@@ -149,7 +159,7 @@ pub enum ProjectionTreeNode {
         op: Operation,
         right: Box<ProjectionTreeNode>,
     },
-    Item(Operator),
+    Item(Operand),
 }
 
 #[derive(Debug, PartialEq)]

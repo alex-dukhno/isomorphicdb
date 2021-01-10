@@ -19,6 +19,14 @@ use std::{
     fmt::{self, Display, Formatter},
 };
 
+#[derive(Debug, PartialEq, Copy, Clone)]
+pub enum SqlFamilyType {
+    Bool,
+    String,
+    Integer,
+    Float,
+}
+
 #[derive(PartialEq, Eq, Debug, Copy, Clone, Hash, Ord, PartialOrd)]
 pub enum SqlType {
     Bool,
@@ -42,6 +50,17 @@ pub enum Str {
 }
 
 impl SqlType {
+    pub fn family(&self) -> SqlFamilyType {
+        match self {
+            SqlType::Bool => SqlFamilyType::Bool,
+            SqlType::Str { .. } => SqlFamilyType::String,
+            SqlType::Num(Num::SmallInt) | SqlType::Num(Num::Integer) | SqlType::Num(Num::BigInt) => {
+                SqlFamilyType::Integer
+            }
+            SqlType::Num(Num::Real) | SqlType::Num(Num::DoublePrecision) => SqlFamilyType::Float,
+        }
+    }
+
     pub fn small_int() -> SqlType {
         SqlType::Num(Num::SmallInt)
     }
@@ -103,7 +122,7 @@ impl SqlType {
 
     pub fn chars_len(&self) -> Option<u64> {
         match self {
-            SqlType::Str { len, .. } | SqlType::Str { len, .. } => Some(*len),
+            SqlType::Str { len, .. } => Some(*len),
             _ => None,
         }
     }

@@ -15,7 +15,7 @@
 use analysis_tree::InsertTreeNode;
 use bigdecimal::BigDecimal;
 use expr_operators::{Arithmetic, Operation};
-use expr_operators::{Bool, ImplicitCastError, InsertOperator, ScalarValue};
+use expr_operators::{Bool, ImplicitCastError, InsertItem, ScalarValue};
 use std::collections::HashMap;
 use types::SqlType;
 
@@ -86,19 +86,38 @@ impl InsertValueValidator {
         target_type: SqlType,
     ) -> Result<HashMap<usize, SqlType>, ValidationError> {
         let mut params = HashMap::new();
+        self.validate_inner(tree, target_type, &mut params)?;
+        Ok(params)
+    }
+
+    fn validate_inner(
+        &self,
+        tree: &mut InsertTreeNode,
+        target_type: SqlType,
+        params: &mut HashMap<usize, SqlType>,
+    ) -> Result<(), ValidationError> {
         match tree {
-            InsertTreeNode::Item(InsertOperator::Const(constant)) => match (&constant).implicit_cast_to(target_type) {
+            InsertTreeNode::Item(InsertItem::Const(constant)) => match (&constant).implicit_cast_to(target_type) {
                 Ok(casted) => {
                     *constant = casted;
-                    Ok(params)
+                    Ok(())
                 }
                 Err(error) => Err(error.into()),
             },
-            InsertTreeNode::Item(InsertOperator::Param(index)) => {
+            InsertTreeNode::Item(InsertItem::Param(index)) => {
                 params.insert(*index, target_type);
-                Ok(params)
+                Ok(())
             }
-            InsertTreeNode::Operation { left, op, right } => Ok(params),
+            InsertTreeNode::Operation { left, op, right } => {
+                if op.supported_type_family(
+                    left.kind().unwrap_or(target_type.family()),
+                    right.kind().unwrap_or(target_type.family()),
+                ) {
+                    Ok(())
+                } else {
+                    unimplemented!()
+                }
+            }
         }
     }
 }
@@ -117,7 +136,7 @@ mod tests {
 
             assert_eq!(
                 validator.validate(
-                    &mut InsertTreeNode::Item(InsertOperator::Const(ScalarValue::Bool(Bool(true)))),
+                    &mut InsertTreeNode::Item(InsertItem::Const(ScalarValue::Bool(Bool(true)))),
                     SqlType::Bool
                 ),
                 Ok(HashMap::new())
@@ -130,7 +149,7 @@ mod tests {
 
             assert_eq!(
                 validator.validate(
-                    &mut InsertTreeNode::Item(InsertOperator::Const(ScalarValue::Number(BigDecimal::from(0)))),
+                    &mut InsertTreeNode::Item(InsertItem::Const(ScalarValue::Number(BigDecimal::from(0)))),
                     SqlType::small_int()
                 ),
                 Ok(HashMap::new())
@@ -143,7 +162,7 @@ mod tests {
 
             assert_eq!(
                 validator.validate(
-                    &mut InsertTreeNode::Item(InsertOperator::Const(ScalarValue::String("string".to_owned()))),
+                    &mut InsertTreeNode::Item(InsertItem::Const(ScalarValue::String("string".to_owned()))),
                     SqlType::var_char(255)
                 ),
                 Ok(HashMap::new())
@@ -159,13 +178,13 @@ mod tests {
         fn string_to_bool_successful_cast() {
             let validator = InsertValueValidator;
 
-            let mut tree = InsertTreeNode::Item(InsertOperator::Const(ScalarValue::String("t".to_owned())));
+            let mut tree = InsertTreeNode::Item(InsertItem::Const(ScalarValue::String("t".to_owned())));
 
             assert_eq!(validator.validate(&mut tree, SqlType::Bool), Ok(HashMap::new()));
 
             assert_eq!(
                 tree,
-                InsertTreeNode::Item(InsertOperator::Const(ScalarValue::Bool(Bool(true))))
+                InsertTreeNode::Item(InsertItem::Const(ScalarValue::Bool(Bool(true))))
             );
         }
 
@@ -175,7 +194,7 @@ mod tests {
 
             assert_eq!(
                 validator.validate(
-                    &mut InsertTreeNode::Item(InsertOperator::Const(ScalarValue::String("abc".to_owned()))),
+                    &mut InsertTreeNode::Item(InsertItem::Const(ScalarValue::String("abc".to_owned()))),
                     SqlType::Bool
                 ),
                 Err(ValidationError::invalid_input_syntax_for_type(SqlType::Bool, &"abc"))
@@ -186,7 +205,7 @@ mod tests {
         fn num_to_bool() {
             let validator = InsertValueValidator;
 
-            let mut tree = InsertTreeNode::Item(InsertOperator::Const(ScalarValue::Number(BigDecimal::from(0))));
+            let mut tree = InsertTreeNode::Item(InsertItem::Const(ScalarValue::Number(BigDecimal::from(0))));
 
             assert_eq!(
                 validator.validate(&mut tree, SqlType::Bool),
@@ -198,13 +217,13 @@ mod tests {
         fn string_to_num() {
             let validator = InsertValueValidator;
 
-            let mut tree = InsertTreeNode::Item(InsertOperator::Const(ScalarValue::String("123".to_owned())));
+            let mut tree = InsertTreeNode::Item(InsertItem::Const(ScalarValue::String("123".to_owned())));
 
             assert_eq!(validator.validate(&mut tree, SqlType::small_int()), Ok(HashMap::new()));
 
             assert_eq!(
                 tree,
-                InsertTreeNode::Item(InsertOperator::Const(ScalarValue::Number(BigDecimal::from(123))))
+                InsertTreeNode::Item(InsertItem::Const(ScalarValue::Number(BigDecimal::from(123))))
             );
         }
 
@@ -212,7 +231,7 @@ mod tests {
         fn boolean_to_number() {
             let validator = InsertValueValidator;
 
-            let mut tree = InsertTreeNode::Item(InsertOperator::Const(ScalarValue::Bool(Bool(true))));
+            let mut tree = InsertTreeNode::Item(InsertItem::Const(ScalarValue::Bool(Bool(true))));
 
             assert_eq!(
                 validator.validate(&mut tree, SqlType::small_int()),
@@ -225,7 +244,7 @@ mod tests {
     fn parameter() {
         let validator = InsertValueValidator;
 
-        let mut tree = InsertTreeNode::Item(InsertOperator::Param(0));
+        let mut tree = InsertTreeNode::Item(InsertItem::Param(0));
 
         let mut params = HashMap::new();
         params.insert(0, SqlType::small_int());
@@ -246,11 +265,11 @@ mod tests {
                 let validator = InsertValueValidator;
 
                 let mut tree = InsertTreeNode::Operation {
-                    left: Box::new(InsertTreeNode::Item(InsertOperator::Const(ScalarValue::Number(
+                    left: Box::new(InsertTreeNode::Item(InsertItem::Const(ScalarValue::Number(
                         BigDecimal::from(1),
                     )))),
                     op: Operation::Arithmetic(Arithmetic::Add),
-                    right: Box::new(InsertTreeNode::Item(InsertOperator::Const(ScalarValue::Number(
+                    right: Box::new(InsertTreeNode::Item(InsertItem::Const(ScalarValue::Number(
                         BigDecimal::from(1),
                     )))),
                 };
@@ -258,19 +277,14 @@ mod tests {
                 assert_eq!(validator.validate(&mut tree, SqlType::small_int()), Ok(HashMap::new()));
             }
 
-            #[ignore]
             #[test]
             fn booleans() {
                 let validator = InsertValueValidator;
 
                 let mut tree = InsertTreeNode::Operation {
-                    left: Box::new(InsertTreeNode::Item(InsertOperator::Const(ScalarValue::Bool(Bool(
-                        true,
-                    ))))),
+                    left: Box::new(InsertTreeNode::Item(InsertItem::Const(ScalarValue::Bool(Bool(true))))),
                     op: Operation::Arithmetic(Arithmetic::Add),
-                    right: Box::new(InsertTreeNode::Item(InsertOperator::Const(ScalarValue::Bool(Bool(
-                        false,
-                    ))))),
+                    right: Box::new(InsertTreeNode::Item(InsertItem::Const(ScalarValue::Bool(Bool(false))))),
                 };
 
                 assert_eq!(

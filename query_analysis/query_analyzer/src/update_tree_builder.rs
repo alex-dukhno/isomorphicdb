@@ -15,7 +15,7 @@
 use crate::{operation_mapper::OperationMapper, parse_param_index};
 use analysis_tree::{AnalysisError, AnalysisResult, Feature, UpdateTreeNode};
 use bigdecimal::{BigDecimal, Zero};
-use expr_operators::{Bool, Operator, ScalarValue};
+use expr_operators::{Bool, Operand, ScalarValue};
 use meta_def::ColumnDefinition;
 use std::str::FromStr;
 use types::SqlType;
@@ -77,11 +77,11 @@ impl UpdateTreeBuilder {
     fn ident(ident: &sql_ast::Ident, table_columns: &[ColumnDefinition]) -> AnalysisResult<UpdateTreeNode> {
         let sql_ast::Ident { value, .. } = ident;
         match parse_param_index(value.as_str()) {
-            Some(index) => Ok(UpdateTreeNode::Item(Operator::Param(index))),
+            Some(index) => Ok(UpdateTreeNode::Item(Operand::Param(index))),
             None => {
                 for (index, table_column) in table_columns.iter().enumerate() {
                     if table_column.has_name(value.as_str()) {
-                        return Ok(UpdateTreeNode::Item(Operator::Column {
+                        return Ok(UpdateTreeNode::Item(Operand::Column {
                             sql_type: table_column.sql_type(),
                             index,
                         }));
@@ -94,8 +94,8 @@ impl UpdateTreeBuilder {
 
     fn value(value: &sql_ast::Value) -> AnalysisResult<UpdateTreeNode> {
         match value {
-            sql_ast::Value::Number(num) => Ok(UpdateTreeNode::Item(Operator::Const(ScalarValue::Number(num.clone())))),
-            sql_ast::Value::SingleQuotedString(string) => Ok(UpdateTreeNode::Item(Operator::Const(
+            sql_ast::Value::Number(num) => Ok(UpdateTreeNode::Item(Operand::Const(ScalarValue::Number(num.clone())))),
+            sql_ast::Value::SingleQuotedString(string) => Ok(UpdateTreeNode::Item(Operand::Const(
                 ScalarValue::String(string.clone()),
             ))),
             sql_ast::Value::NationalStringLiteral(_) => {
@@ -103,10 +103,10 @@ impl UpdateTreeBuilder {
             }
             sql_ast::Value::HexStringLiteral(_) => Err(AnalysisError::feature_not_supported(Feature::HexStringLiteral)),
             sql_ast::Value::Boolean(boolean) => {
-                Ok(UpdateTreeNode::Item(Operator::Const(ScalarValue::Bool(Bool(*boolean)))))
+                Ok(UpdateTreeNode::Item(Operand::Const(ScalarValue::Bool(Bool(*boolean)))))
             }
             sql_ast::Value::Interval { .. } => Err(AnalysisError::feature_not_supported(Feature::TimeInterval)),
-            sql_ast::Value::Null => Ok(UpdateTreeNode::Item(Operator::Const(ScalarValue::Null))),
+            sql_ast::Value::Null => Ok(UpdateTreeNode::Item(Operand::Const(ScalarValue::Null))),
         }
     }
 }

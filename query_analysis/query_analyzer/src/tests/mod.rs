@@ -31,7 +31,7 @@ use bigdecimal::BigDecimal;
 use catalog::{Database, InMemoryDatabase};
 use data_manager::DatabaseHandle;
 use expr_operators::{
-    Arithmetic, Bitwise, Bool, Comparison, InsertOperator, Logical, Operation, Operator, PatternMatching, ScalarValue,
+    Arithmetic, Bitwise, Bool, Comparison, InsertItem, Logical, Operand, Operation, PatternMatching, ScalarValue,
     StringOp,
 };
 use meta_def::{ColumnDefinition, Id};

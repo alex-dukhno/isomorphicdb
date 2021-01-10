@@ -14,7 +14,7 @@
 
 use crate::{operation_mapper::OperationMapper, parse_param_index};
 use analysis_tree::{AnalysisError, AnalysisResult, Feature, ProjectionTreeNode};
-use expr_operators::{Bool, Operator, ScalarValue};
+use expr_operators::{Bool, Operand, ScalarValue};
 use meta_def::ColumnDefinition;
 use types::SqlType;
 
@@ -72,11 +72,11 @@ impl ProjectionTreeBuilder {
     fn ident(ident: &sql_ast::Ident, table_columns: &[ColumnDefinition]) -> AnalysisResult<ProjectionTreeNode> {
         let sql_ast::Ident { value, .. } = ident;
         match parse_param_index(value.as_str()) {
-            Some(index) => Ok(ProjectionTreeNode::Item(Operator::Param(index))),
+            Some(index) => Ok(ProjectionTreeNode::Item(Operand::Param(index))),
             None => {
                 for (index, table_column) in table_columns.iter().enumerate() {
                     if table_column.has_name(value.as_str()) {
-                        return Ok(ProjectionTreeNode::Item(Operator::Column {
+                        return Ok(ProjectionTreeNode::Item(Operand::Column {
                             sql_type: table_column.sql_type(),
                             index,
                         }));
@@ -89,21 +89,21 @@ impl ProjectionTreeBuilder {
 
     fn value(value: &sql_ast::Value) -> AnalysisResult<ProjectionTreeNode> {
         match value {
-            sql_ast::Value::Number(num) => Ok(ProjectionTreeNode::Item(Operator::Const(ScalarValue::Number(
+            sql_ast::Value::Number(num) => Ok(ProjectionTreeNode::Item(Operand::Const(ScalarValue::Number(
                 num.clone(),
             )))),
-            sql_ast::Value::SingleQuotedString(string) => Ok(ProjectionTreeNode::Item(Operator::Const(
+            sql_ast::Value::SingleQuotedString(string) => Ok(ProjectionTreeNode::Item(Operand::Const(
                 ScalarValue::String(string.clone()),
             ))),
             sql_ast::Value::NationalStringLiteral(_) => {
                 Err(AnalysisError::feature_not_supported(Feature::NationalStringLiteral))
             }
             sql_ast::Value::HexStringLiteral(_) => Err(AnalysisError::feature_not_supported(Feature::HexStringLiteral)),
-            sql_ast::Value::Boolean(boolean) => Ok(ProjectionTreeNode::Item(Operator::Const(ScalarValue::Bool(Bool(
+            sql_ast::Value::Boolean(boolean) => Ok(ProjectionTreeNode::Item(Operand::Const(ScalarValue::Bool(Bool(
                 *boolean,
             ))))),
             sql_ast::Value::Interval { .. } => Err(AnalysisError::feature_not_supported(Feature::TimeInterval)),
-            sql_ast::Value::Null => Ok(ProjectionTreeNode::Item(Operator::Const(ScalarValue::Null))),
+            sql_ast::Value::Null => Ok(ProjectionTreeNode::Item(Operand::Const(ScalarValue::Null))),
         }
     }
 }
