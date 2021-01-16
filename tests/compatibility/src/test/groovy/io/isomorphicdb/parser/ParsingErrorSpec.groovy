@@ -1,6 +1,6 @@
-package io.database.parser
+package io.isomorphicdb.parser
 
-import io.database.SetupEnvironment
+import io.isomorphicdb.SetupEnvironment
 
 import java.sql.SQLException
 

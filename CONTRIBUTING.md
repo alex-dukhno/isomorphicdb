@@ -14,8 +14,8 @@ It is our main point of discussing issues, ideas and current development areas.
 
 Don't know where to start to contribute the code?
 You can:
- 1. peek up issue with [help wanted](https://github.com/alex-dukhno/database/labels/help%20wanted)
-or [good first issue](https://github.com/alex-dukhno/database/labels/good%20first%20issue)
+ 1. peek up issue with [help wanted](https://github.com/alex-dukhno/isomorphicdb/labels/help%20wanted)
+or [good first issue](https://github.com/alex-dukhno/isomorphicdb/labels/good%20first%20issue)
 labels.
  1. submit an issue with proposal to work on interested area for you
  1. ask question on discord server which issue to pick up

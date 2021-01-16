@@ -1,7 +1,6 @@
-package io.database.schemas
+package io.isomorphicdb.schemas
 
-import groovy.sql.Sql
-import io.database.SetupEnvironment
+import io.isomorphicdb.SetupEnvironment
 import spock.lang.Ignore
 
 import java.sql.SQLException

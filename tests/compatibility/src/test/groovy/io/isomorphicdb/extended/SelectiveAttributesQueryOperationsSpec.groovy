@@ -1,7 +1,7 @@
-package io.database.extended
+package io.isomorphicdb.extended
 
 import groovy.sql.GroovyRowResult
-import io.database.ThreeSmallIntColumnTable
+import io.isomorphicdb.ThreeSmallIntColumnTable
 import spock.lang.Ignore
 
 class SelectiveAttributesQueryOperationsSpec extends ThreeSmallIntColumnTable {

@@ -1,10 +1,8 @@
-# Database
+# IsomorphicDB
 
-![Merge](https://github.com/alex-dukhno/database/workflows/Merge/badge.svg)
-[![Coverage Status](https://coveralls.io/repos/github/alex-dukhno/database/badge.svg?branch=master)](https://coveralls.io/github/alex-dukhno/database?branch=master)
+![Merge](https://github.com/alex-dukhno/isomorphicdb/workflows/Merge/badge.svg)
+[![Coverage Status](https://coveralls.io/repos/github/alex-dukhno/isomorphicdb/badge.svg?branch=master)](https://coveralls.io/github/alex-dukhno/isomorphicdb?branch=master)
 <a href="https://discord.gg/PUcTcfU"><img src="https://img.shields.io/discord/509773073294295082.svg?logo=discord"></a>
-
-The project doesn't have any name so let it be `database` for now.
 
 ## TODO List
 
@@ -78,7 +76,7 @@ on a local machine and queries result has to be checked visually.
     ```shell script
     brew install postgresql
     ```
-1. Start the `database` instance with the command:
+1. Start the `isomorphicdb` instance with the command:
     ```shell script
     cargo run
     ```
@@ -108,7 +106,7 @@ on a local machine and queries result has to be checked visually.
 install specified version of Erlang via [asdf](https://github.com/asdf-vm/asdf).
 1. Install [rebar3](https://github.com/erlang/rebar3) to run Erlang Common Test.
 1. Run `./ci/erlang_client.sh`.
-1. Kill `database` process manually for running the tests again.
+1. Kill `isomorphicdb` process manually for running the tests again.
 
 ### Running Functional tests
 

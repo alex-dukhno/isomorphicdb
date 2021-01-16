@@ -13,6 +13,7 @@ dashmap = "4.0.1"
 fail = { version = "0.4.0", features = ["failpoints"] }
 log = "0.4.11"
 sled = { version = "0.34.6", features = ["default"] }
+smallvec = "1.6.1"
 
 [dev-dependencies]
 backtrace = "0.3.55"

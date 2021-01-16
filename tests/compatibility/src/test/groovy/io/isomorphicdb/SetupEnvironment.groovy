@@ -1,4 +1,4 @@
-package io.database
+package io.isomorphicdb
 
 import groovy.sql.Sql
 import org.testcontainers.containers.JdbcDatabaseContainer

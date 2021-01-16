@@ -1,8 +1,8 @@
-package io.database.types
+package io.isomorphicdb.types
 
 import groovy.sql.GroovyRowResult
 import groovy.sql.Sql
-import io.database.SetupEnvironment
+import io.isomorphicdb.SetupEnvironment
 import spock.lang.Ignore
 import spock.lang.Unroll
 
@@ -45,7 +45,7 @@ class StringsConstraintsChecksSpec extends SetupEnvironment {
     db.close()
   }
 
-  @Ignore("database treats defaults and whitespace strings differently")
+  @Ignore("isomorphicdb treats defaults and whitespace strings differently")
   def 'insert all spaces'() {
     given:
       String insertQuery = "insert into SCHEMA_NAME.TABLE_NAME values ('${' '*255}', ' ', '${' '*5}', '${' '*32768}', ' ', '${' '*5}')"
@@ -63,7 +63,7 @@ class StringsConstraintsChecksSpec extends SetupEnvironment {
       pgSelect == dbSelect
   }
 
-  @Ignore("database treats defaults and whitespace strings differently")
+  @Ignore("isomorphicdb treats defaults and whitespace strings differently")
   @Unroll
   def '#type too long value'() {
     given:

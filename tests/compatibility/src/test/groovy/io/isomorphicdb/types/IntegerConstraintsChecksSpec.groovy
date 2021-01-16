@@ -1,8 +1,8 @@
-package io.database.types
+package io.isomorphicdb.types
 
 import groovy.sql.GroovyRowResult
 import groovy.sql.Sql
-import io.database.SetupEnvironment
+import io.isomorphicdb.SetupEnvironment
 import spock.lang.Unroll
 
 import java.sql.SQLException

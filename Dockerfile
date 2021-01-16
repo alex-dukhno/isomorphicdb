@@ -6,7 +6,7 @@ RUN cargo build --release
 
 RUN mkdir -p /build-out
 
-RUN cp target/release/database /build-out/
+RUN cp target/release/isomorphicdb /build-out/
 
 FROM ubuntu:20.04
 
@@ -19,6 +19,6 @@ ENV PERSISTENT=1
 
 EXPOSE 5432
 
-COPY --from=build /build-out/database /
+COPY --from=build /build-out/isomorphicdb /
 
-CMD /database
+CMD /isomorphicdb
