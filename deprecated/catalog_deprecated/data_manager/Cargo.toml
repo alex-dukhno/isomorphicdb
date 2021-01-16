@@ -14,7 +14,7 @@ sql_model = { path = "../../sql_model" }
 storage = { path = "../storage" }
 types = { path = "../../../entities/types" }
 
-dashmap = "4.0.1"
+dashmap = "4.0.2"
 log = "0.4.13"
 
 [dev-dependencies]
