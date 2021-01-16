@@ -1,7 +1,7 @@
-package io.database.simple
+package io.isomorphicdb.simple
 
 import groovy.sql.GroovyRowResult
-import io.database.ThreeSmallIntColumnTable
+import io.isomorphicdb.ThreeSmallIntColumnTable
 import java.sql.SQLException
 
 class PreparedStatementOperationsSpec extends ThreeSmallIntColumnTable {

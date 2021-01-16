@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# This script is used for Github Action. It starts database service in backgound
+# This script is used for Github Action. It starts database service in background
 # and runs Erlang tests.
 # The second invocation of `cargo build` is tricky. It is blocked unless the
 # first `cargo build` finishes. And `sleep 1` is used to wait for `cargo run`.

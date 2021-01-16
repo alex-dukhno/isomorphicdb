@@ -22,7 +22,7 @@ jobs:
 #          username: ${{ github.actor }}
 #          password: ${{ secrets.GITHUB_TOKEN }}
 #          registry: docker.pkg.github.com
-#          repository: alex-dukhno/database/database
+#          repository: alex-dukhno/isomorphicdb/isomorphicdb
 #          tags: latest
 
   coverage:

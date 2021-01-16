@@ -1,6 +1,6 @@
-package io.database.tables
+package io.isomorphicdb.tables
 
-import io.database.SetupEnvironment
+import io.isomorphicdb.SetupEnvironment
 import spock.lang.Ignore
 
 import java.sql.SQLException

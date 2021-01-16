@@ -9,7 +9,7 @@ publish = false
 name = "node"
 
 [[bin]]
-name = "database"
+name = "isomorphicdb"
 path = "src/bin.rs"
 
 [dependencies]
