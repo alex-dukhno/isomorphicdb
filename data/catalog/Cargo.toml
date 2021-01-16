@@ -13,7 +13,7 @@ repr = { path = "../../entities/repr" }
 types = { path = "../../entities/types" }
 
 dashmap = "4.0.1"
-log = "0.4.11"
+log = "0.4.13"
 sled = { version = "0.34.6", features = ["default"] }
 smallvec = "1.6.1"
 

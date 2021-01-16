@@ -15,7 +15,7 @@ types = { path = "../../../entities/types" }
 sql_ast = { path = "../../../query_parsing/sql-ast" }
 
 bigdecimal = { version = "0.2.0", features = ["string-only"] }
-log = "0.4.11"
+log = "0.4.13"
 
 [dev-dependencies]
 

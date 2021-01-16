@@ -21,7 +21,7 @@ sql_model = { path = "../../sql_model" }
 
 bigdecimal = { version = "0.2.0", features = ["string-only"] }
 futures-lite = "1.11.3"
-log = "0.4.11"
+log = "0.4.13"
 sql_ast = { path = "../../../query_parsing/sql-ast" }
 
 [dev-dependencies]
