@@ -16,8 +16,12 @@ use super::*;
 
 #[test]
 fn update_number() {
-    let (data_definition, schema_id, table_id) = with_table(&[DeprecatedColumnDefinition::new("col", SqlType::small_int())]);
-    let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
+    let database = InMemoryDatabase::new();
+    database.execute(create_schema_ops(SCHEMA)).unwrap();
+    database
+        .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
+        .unwrap();
+    let analyzer = Analyzer::new(database);
 
     assert_eq!(
         analyzer.analyze(update_statement(
@@ -25,7 +29,7 @@ fn update_number() {
             vec![("col", sql_ast::Expr::Value(number(1)))]
         )),
         Ok(QueryAnalysis::Write(Write::Update(UpdateQuery {
-            full_table_id: FullTableId::from((schema_id, table_id)),
+            full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             sql_types: vec![SqlType::small_int()],
             assignments: vec![DynamicEvaluationTree::Item(DynamicItem::Const(ScalarValue::Number(
                 BigDecimal::from(1)
@@ -36,13 +40,17 @@ fn update_number() {
 
 #[test]
 fn update_string() {
-    let (data_definition, schema_id, table_id) = with_table(&[DeprecatedColumnDefinition::new("col", SqlType::char(5))]);
-    let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
+    let database = InMemoryDatabase::new();
+    database.execute(create_schema_ops(SCHEMA)).unwrap();
+    database
+        .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::char(5))]))
+        .unwrap();
+    let analyzer = Analyzer::new(database);
 
     assert_eq!(
         analyzer.analyze(update_statement(vec![SCHEMA, TABLE], vec![("col", string("str"))])),
         Ok(QueryAnalysis::Write(Write::Update(UpdateQuery {
-            full_table_id: FullTableId::from((schema_id, table_id)),
+            full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             sql_types: vec![SqlType::char(5)],
             assignments: vec![DynamicEvaluationTree::Item(DynamicItem::Const(ScalarValue::String(
                 "str".to_owned()
@@ -53,28 +61,38 @@ fn update_string() {
 
 #[test]
 fn update_boolean() {
-    let (data_definition, schema_id, table_id) = with_table(&[DeprecatedColumnDefinition::new("col", SqlType::bool())]);
-    let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
+    let database = InMemoryDatabase::new();
+    database.execute(create_schema_ops(SCHEMA)).unwrap();
+    database
+        .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
+        .unwrap();
+    let analyzer = Analyzer::new(database);
 
     assert_eq!(
         analyzer.analyze(update_statement(vec![SCHEMA, TABLE], vec![("col", boolean(true))])),
         Ok(QueryAnalysis::Write(Write::Update(UpdateQuery {
-            full_table_id: FullTableId::from((schema_id, table_id)),
+            full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             sql_types: vec![SqlType::bool()],
-            assignments: vec![DynamicEvaluationTree::Item(DynamicItem::Const(ScalarValue::Bool(Bool(true))))],
+            assignments: vec![DynamicEvaluationTree::Item(DynamicItem::Const(ScalarValue::Bool(
+                Bool(true)
+            )))],
         })))
     );
 }
 
 #[test]
 fn update_null() {
-    let (data_definition, schema_id, table_id) = with_table(&[DeprecatedColumnDefinition::new("col", SqlType::bool())]);
-    let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
+    let database = InMemoryDatabase::new();
+    database.execute(create_schema_ops(SCHEMA)).unwrap();
+    database
+        .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
+        .unwrap();
+    let analyzer = Analyzer::new(database);
 
     assert_eq!(
         analyzer.analyze(update_statement(vec![SCHEMA, TABLE], vec![("col", null())])),
         Ok(QueryAnalysis::Write(Write::Update(UpdateQuery {
-            full_table_id: FullTableId::from((schema_id, table_id)),
+            full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             sql_types: vec![SqlType::bool()],
             assignments: vec![DynamicEvaluationTree::Item(DynamicItem::Const(ScalarValue::Null))],
         })))
@@ -83,11 +101,16 @@ fn update_null() {
 
 #[test]
 fn update_with_column_value() {
-    let (data_definition, schema_id, table_id) = with_table(&[
-        DeprecatedColumnDefinition::new("col_1", SqlType::small_int()),
-        DeprecatedColumnDefinition::new("col_2", SqlType::small_int()),
-    ]);
-    let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
+    let database = InMemoryDatabase::new();
+    database.execute(create_schema_ops(SCHEMA)).unwrap();
+    database
+        .execute(create_table_ops(
+            SCHEMA,
+            TABLE,
+            vec![("col_1", SqlType::small_int()), ("col_2", SqlType::small_int())],
+        ))
+        .unwrap();
+    let analyzer = Analyzer::new(database);
 
     assert_eq!(
         analyzer.analyze(update_statement(
@@ -95,7 +118,7 @@ fn update_with_column_value() {
             vec![("col_1", sql_ast::Expr::Identifier(ident("col_2")))]
         )),
         Ok(QueryAnalysis::Write(Write::Update(UpdateQuery {
-            full_table_id: FullTableId::from((schema_id, table_id)),
+            full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             sql_types: vec![SqlType::small_int()],
             assignments: vec![DynamicEvaluationTree::Item(DynamicItem::Column {
                 sql_type: SqlType::small_int(),
@@ -107,11 +130,16 @@ fn update_with_column_value() {
 
 #[test]
 fn update_with_column_value_that_does_not_exists() {
-    let (data_definition, _schema_id, _table_id) = with_table(&[
-        DeprecatedColumnDefinition::new("col_1", SqlType::small_int()),
-        DeprecatedColumnDefinition::new("col_2", SqlType::small_int()),
-    ]);
-    let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
+    let database = InMemoryDatabase::new();
+    database.execute(create_schema_ops(SCHEMA)).unwrap();
+    database
+        .execute(create_table_ops(
+            SCHEMA,
+            TABLE,
+            vec![("col_1", SqlType::small_int()), ("col_2", SqlType::small_int())],
+        ))
+        .unwrap();
+    let analyzer = Analyzer::new(database);
 
     assert_eq!(
         analyzer.analyze(update_statement(
@@ -124,16 +152,21 @@ fn update_with_column_value_that_does_not_exists() {
 
 #[test]
 fn update_table_with_parameters() {
-    let (data_definition, schema_id, table_id) = with_table(&[
-        DeprecatedColumnDefinition::new("col_1", SqlType::small_int()),
-        DeprecatedColumnDefinition::new("col_2", SqlType::integer()),
-    ]);
-    let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
+    let database = InMemoryDatabase::new();
+    database.execute(create_schema_ops(SCHEMA)).unwrap();
+    database
+        .execute(create_table_ops(
+            SCHEMA,
+            TABLE,
+            vec![("col_1", SqlType::small_int()), ("col_2", SqlType::integer())],
+        ))
+        .unwrap();
+    let analyzer = Analyzer::new(database);
 
     assert_eq!(
         analyzer.analyze(update_stmt_with_parameters(vec![SCHEMA, TABLE])),
         Ok(QueryAnalysis::Write(Write::Update(UpdateQuery {
-            full_table_id: FullTableId::from((schema_id, table_id)),
+            full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             sql_types: vec![SqlType::integer()],
             assignments: vec![DynamicEvaluationTree::Item(DynamicItem::Param(0))]
         })))
@@ -164,8 +197,12 @@ mod multiple_values {
 
     #[test]
     fn arithmetic() {
-        let (data_definition, schema_id, table_id) = with_table(&[DeprecatedColumnDefinition::new("col", SqlType::small_int())]);
-        let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
+        let database = InMemoryDatabase::new();
+        database.execute(create_schema_ops(SCHEMA)).unwrap();
+        database
+            .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
+            .unwrap();
+        let analyzer = Analyzer::new(database);
 
         assert_eq!(
             analyzer.analyze(update_value_as_expression_with_operation(
@@ -174,7 +211,7 @@ mod multiple_values {
                 sql_ast::Expr::Value(number(1))
             )),
             Ok(QueryAnalysis::Write(Write::Update(UpdateQuery {
-                full_table_id: FullTableId::from((schema_id, table_id)),
+                full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 sql_types: vec![SqlType::small_int()],
                 assignments: vec![DynamicEvaluationTree::Operation {
                     left: Box::new(DynamicEvaluationTree::Item(DynamicItem::Const(ScalarValue::Number(
@@ -191,9 +228,12 @@ mod multiple_values {
 
     #[test]
     fn string_operation() {
-        let (data_definition, schema_id, table_id) =
-            with_table(&[DeprecatedColumnDefinition::new("col", SqlType::var_char(255))]);
-        let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
+        let database = InMemoryDatabase::new();
+        database.execute(create_schema_ops(SCHEMA)).unwrap();
+        database
+            .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::var_char(255))]))
+            .unwrap();
+        let analyzer = Analyzer::new(database);
 
         assert_eq!(
             analyzer.analyze(update_value_as_expression_with_operation(
@@ -202,7 +242,7 @@ mod multiple_values {
                 string("str")
             )),
             Ok(QueryAnalysis::Write(Write::Update(UpdateQuery {
-                full_table_id: FullTableId::from((schema_id, table_id)),
+                full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 sql_types: vec![SqlType::var_char(255)],
                 assignments: vec![DynamicEvaluationTree::Operation {
                     left: Box::new(DynamicEvaluationTree::Item(DynamicItem::Const(ScalarValue::String(
@@ -219,8 +259,12 @@ mod multiple_values {
 
     #[test]
     fn comparison() {
-        let (data_definition, schema_id, table_id) = with_table(&[DeprecatedColumnDefinition::new("col", SqlType::bool())]);
-        let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
+        let database = InMemoryDatabase::new();
+        database.execute(create_schema_ops(SCHEMA)).unwrap();
+        database
+            .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
+            .unwrap();
+        let analyzer = Analyzer::new(database);
 
         assert_eq!(
             analyzer.analyze(update_value_as_expression_with_operation(
@@ -229,7 +273,7 @@ mod multiple_values {
                 sql_ast::Expr::Value(number(1))
             )),
             Ok(QueryAnalysis::Write(Write::Update(UpdateQuery {
-                full_table_id: FullTableId::from((schema_id, table_id)),
+                full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 sql_types: vec![SqlType::bool()],
                 assignments: vec![DynamicEvaluationTree::Operation {
                     left: Box::new(DynamicEvaluationTree::Item(DynamicItem::Const(ScalarValue::Number(
@@ -246,8 +290,12 @@ mod multiple_values {
 
     #[test]
     fn logical() {
-        let (data_definition, schema_id, table_id) = with_table(&[DeprecatedColumnDefinition::new("col", SqlType::bool())]);
-        let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
+        let database = InMemoryDatabase::new();
+        database.execute(create_schema_ops(SCHEMA)).unwrap();
+        database
+            .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
+            .unwrap();
+        let analyzer = Analyzer::new(database);
 
         assert_eq!(
             analyzer.analyze(update_value_as_expression_with_operation(
@@ -256,12 +304,16 @@ mod multiple_values {
                 sql_ast::Expr::Value(sql_ast::Value::Boolean(true)),
             )),
             Ok(QueryAnalysis::Write(Write::Update(UpdateQuery {
-                full_table_id: FullTableId::from((schema_id, table_id)),
+                full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 sql_types: vec![SqlType::bool()],
                 assignments: vec![DynamicEvaluationTree::Operation {
-                    left: Box::new(DynamicEvaluationTree::Item(DynamicItem::Const(ScalarValue::Bool(Bool(true))))),
+                    left: Box::new(DynamicEvaluationTree::Item(DynamicItem::Const(ScalarValue::Bool(
+                        Bool(true)
+                    )))),
                     op: Operation::Logical(Logical::And),
-                    right: Box::new(DynamicEvaluationTree::Item(DynamicItem::Const(ScalarValue::Bool(Bool(true))))),
+                    right: Box::new(DynamicEvaluationTree::Item(DynamicItem::Const(ScalarValue::Bool(
+                        Bool(true)
+                    )))),
                 }],
             })))
         );
@@ -269,8 +321,12 @@ mod multiple_values {
 
     #[test]
     fn bitwise() {
-        let (data_definition, schema_id, table_id) = with_table(&[DeprecatedColumnDefinition::new("col", SqlType::small_int())]);
-        let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
+        let database = InMemoryDatabase::new();
+        database.execute(create_schema_ops(SCHEMA)).unwrap();
+        database
+            .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
+            .unwrap();
+        let analyzer = Analyzer::new(database);
 
         assert_eq!(
             analyzer.analyze(update_value_as_expression_with_operation(
@@ -279,7 +335,7 @@ mod multiple_values {
                 sql_ast::Expr::Value(number(1))
             )),
             Ok(QueryAnalysis::Write(Write::Update(UpdateQuery {
-                full_table_id: FullTableId::from((schema_id, table_id)),
+                full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 sql_types: vec![SqlType::small_int()],
                 assignments: vec![DynamicEvaluationTree::Operation {
                     left: Box::new(DynamicEvaluationTree::Item(DynamicItem::Const(ScalarValue::Number(
@@ -296,8 +352,12 @@ mod multiple_values {
 
     #[test]
     fn pattern_matching() {
-        let (data_definition, schema_id, table_id) = with_table(&[DeprecatedColumnDefinition::new("col", SqlType::bool())]);
-        let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
+        let database = InMemoryDatabase::new();
+        database.execute(create_schema_ops(SCHEMA)).unwrap();
+        database
+            .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
+            .unwrap();
+        let analyzer = Analyzer::new(database);
 
         assert_eq!(
             analyzer.analyze(update_value_as_expression_with_operation(
@@ -306,7 +366,7 @@ mod multiple_values {
                 string("str")
             )),
             Ok(QueryAnalysis::Write(Write::Update(UpdateQuery {
-                full_table_id: FullTableId::from((schema_id, table_id)),
+                full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 sql_types: vec![SqlType::bool()],
                 assignments: vec![DynamicEvaluationTree::Operation {
                     left: Box::new(DynamicEvaluationTree::Item(DynamicItem::Const(ScalarValue::String(
@@ -328,9 +388,12 @@ mod not_supported_values {
 
     #[test]
     fn national_strings() {
-        let (data_definition, _schema_id, _table_id) =
-            with_table(&[DeprecatedColumnDefinition::new("col", SqlType::small_int())]);
-        let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
+        let database = InMemoryDatabase::new();
+        database.execute(create_schema_ops(SCHEMA)).unwrap();
+        database
+            .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
+            .unwrap();
+        let analyzer = Analyzer::new(database);
 
         assert_eq!(
             analyzer.analyze(update_statement(
@@ -346,9 +409,12 @@ mod not_supported_values {
 
     #[test]
     fn hex_strings() {
-        let (data_definition, _schema_id, _table_id) =
-            with_table(&[DeprecatedColumnDefinition::new("col", SqlType::small_int())]);
-        let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
+        let database = InMemoryDatabase::new();
+        database.execute(create_schema_ops(SCHEMA)).unwrap();
+        database
+            .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
+            .unwrap();
+        let analyzer = Analyzer::new(database);
 
         assert_eq!(
             analyzer.analyze(update_statement(
@@ -364,9 +430,12 @@ mod not_supported_values {
 
     #[test]
     fn time_intervals() {
-        let (data_definition, _schema_id, _table_id) =
-            with_table(&[DeprecatedColumnDefinition::new("col", SqlType::small_int())]);
-        let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
+        let database = InMemoryDatabase::new();
+        database.execute(create_schema_ops(SCHEMA)).unwrap();
+        database
+            .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
+            .unwrap();
+        let analyzer = Analyzer::new(database);
 
         assert_eq!(
             analyzer.analyze(update_statement(

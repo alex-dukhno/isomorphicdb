@@ -7,7 +7,6 @@ publish = false
 
 [dependencies]
 expr_operators = { path = "../query_analysis/expr_operators" }
-meta_def = { path = "../meta_def" }
 types = { path = "../entities/types" }
 definition = { path = "../entities/definition" }
 sql_ast = { path = "../query_parsing/sql-ast" }

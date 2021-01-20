@@ -157,7 +157,6 @@ pub enum ExecutionError {
 mod tests {
     use super::*;
     use analysis_tree::{CreateSchemaQuery, CreateTableQuery, DropSchemasQuery, DropTablesQuery, TableInfo};
-    use data_manager::{DEFAULT_CATALOG, DEFINITION_SCHEMA, SCHEMATA_TABLE, TABLES_TABLE};
     use definition::SchemaName;
     use definition_operations::{Kind, Record, Step, SystemObject};
 
@@ -186,10 +185,7 @@ mod tests {
                             name: SCHEMA.to_owned(),
                         },
                         Step::CreateRecord {
-                            system_schema: DEFINITION_SCHEMA.to_owned(),
-                            system_table: SCHEMATA_TABLE.to_owned(),
                             record: Record::Schema {
-                                catalog_name: DEFAULT_CATALOG.to_owned(),
                                 schema_name: SCHEMA.to_owned(),
                             },
                         },
@@ -217,10 +213,7 @@ mod tests {
                             name: SCHEMA.to_owned(),
                         },
                         Step::CreateRecord {
-                            system_schema: DEFINITION_SCHEMA.to_owned(),
-                            system_table: SCHEMATA_TABLE.to_owned(),
                             record: Record::Schema {
-                                catalog_name: DEFAULT_CATALOG.to_owned(),
                                 schema_name: SCHEMA.to_owned(),
                             },
                         },
@@ -256,10 +249,7 @@ mod tests {
                             object_name: vec![SCHEMA.to_owned()],
                         },
                         Step::RemoveRecord {
-                            system_schema: DEFINITION_SCHEMA.to_owned(),
-                            system_table: SCHEMATA_TABLE.to_owned(),
                             record: Record::Schema {
-                                catalog_name: DEFAULT_CATALOG.to_owned(),
                                 schema_name: SCHEMA.to_owned()
                             }
                         },
@@ -281,7 +271,7 @@ mod tests {
         assert_eq!(
             executor.execute(
                 &SchemaChange::CreateTable(CreateTableQuery {
-                    table_info: TableInfo::new(0, &SCHEMA, &TABLE),
+                    table_info: TableInfo::new(&SCHEMA, &TABLE),
                     column_defs: vec![],
                     if_not_exists: false,
                 }),
@@ -302,10 +292,7 @@ mod tests {
                             name: TABLE.to_owned()
                         },
                         Step::CreateRecord {
-                            system_schema: DEFINITION_SCHEMA.to_owned(),
-                            system_table: TABLES_TABLE.to_owned(),
                             record: Record::Table {
-                                catalog_name: DEFAULT_CATALOG.to_owned(),
                                 schema_name: SCHEMA.to_owned(),
                                 table_name: TABLE.to_owned(),
                             }
@@ -340,10 +327,7 @@ mod tests {
                             name: SCHEMA.to_owned(),
                         },
                         Step::CreateRecord {
-                            system_schema: DEFINITION_SCHEMA.to_owned(),
-                            system_table: SCHEMATA_TABLE.to_owned(),
                             record: Record::Schema {
-                                catalog_name: DEFAULT_CATALOG.to_owned(),
                                 schema_name: SCHEMA.to_owned(),
                             },
                         },
@@ -356,7 +340,7 @@ mod tests {
         assert_eq!(
             executor.execute(
                 &SchemaChange::CreateTable(CreateTableQuery {
-                    table_info: TableInfo::new(0, &SCHEMA, &TABLE),
+                    table_info: TableInfo::new(&SCHEMA, &TABLE),
                     column_defs: vec![],
                     if_not_exists: false,
                 }),
@@ -377,10 +361,7 @@ mod tests {
                             name: TABLE.to_owned()
                         },
                         Step::CreateRecord {
-                            system_schema: DEFINITION_SCHEMA.to_owned(),
-                            system_table: TABLES_TABLE.to_owned(),
                             record: Record::Table {
-                                catalog_name: DEFAULT_CATALOG.to_owned(),
                                 schema_name: SCHEMA.to_owned(),
                                 table_name: TABLE.to_owned(),
                             }
@@ -394,7 +375,7 @@ mod tests {
         assert_eq!(
             executor.execute(
                 &SchemaChange::CreateTable(CreateTableQuery {
-                    table_info: TableInfo::new(0, &SCHEMA, &TABLE),
+                    table_info: TableInfo::new(&SCHEMA, &TABLE),
                     column_defs: vec![],
                     if_not_exists: false,
                 }),
@@ -415,10 +396,7 @@ mod tests {
                             name: TABLE.to_owned()
                         },
                         Step::CreateRecord {
-                            system_schema: DEFINITION_SCHEMA.to_owned(),
-                            system_table: TABLES_TABLE.to_owned(),
                             record: Record::Table {
-                                catalog_name: DEFAULT_CATALOG.to_owned(),
                                 schema_name: SCHEMA.to_owned(),
                                 table_name: TABLE.to_owned(),
                             }
@@ -438,7 +416,7 @@ mod tests {
         assert_eq!(
             executor.execute(
                 &SchemaChange::DropTables(DropTablesQuery {
-                    table_infos: vec![TableInfo::new(0, &SCHEMA, &TABLE),],
+                    table_infos: vec![TableInfo::new(&SCHEMA, &TABLE),],
                     cascade: false,
                     if_exists: false
                 }),
@@ -463,10 +441,7 @@ mod tests {
                             table_name: TABLE.to_owned()
                         },
                         Step::RemoveRecord {
-                            system_schema: DEFINITION_SCHEMA.to_owned(),
-                            system_table: TABLES_TABLE.to_owned(),
                             record: Record::Table {
-                                catalog_name: DEFAULT_CATALOG.to_owned(),
                                 schema_name: SCHEMA.to_owned(),
                                 table_name: TABLE.to_owned(),
                             }
@@ -505,10 +480,7 @@ mod tests {
                             name: SCHEMA.to_owned(),
                         },
                         Step::CreateRecord {
-                            system_schema: DEFINITION_SCHEMA.to_owned(),
-                            system_table: SCHEMATA_TABLE.to_owned(),
                             record: Record::Schema {
-                                catalog_name: DEFAULT_CATALOG.to_owned(),
                                 schema_name: SCHEMA.to_owned(),
                             },
                         },
@@ -521,7 +493,7 @@ mod tests {
         assert_eq!(
             executor.execute(
                 &SchemaChange::DropTables(DropTablesQuery {
-                    table_infos: vec![TableInfo::new(0, &SCHEMA, &TABLE),],
+                    table_infos: vec![TableInfo::new(&SCHEMA, &TABLE),],
                     cascade: false,
                     if_exists: false
                 }),
@@ -546,10 +518,7 @@ mod tests {
                             table_name: TABLE.to_owned()
                         },
                         Step::RemoveRecord {
-                            system_schema: DEFINITION_SCHEMA.to_owned(),
-                            system_table: TABLES_TABLE.to_owned(),
                             record: Record::Table {
-                                catalog_name: DEFAULT_CATALOG.to_owned(),
                                 schema_name: SCHEMA.to_owned(),
                                 table_name: TABLE.to_owned(),
                             }

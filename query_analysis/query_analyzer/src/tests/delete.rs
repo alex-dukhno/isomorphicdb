@@ -23,7 +23,7 @@ fn delete_statement(table_name: Vec<&'static str>) -> sql_ast::Statement {
 
 #[test]
 fn delete_from_table_that_in_nonexistent_schema() {
-    let analyzer = Analyzer::new(Arc::new(DatabaseHandle::in_memory()), InMemoryDatabase::new());
+    let analyzer = Analyzer::new(InMemoryDatabase::new());
 
     assert_eq!(
         analyzer.analyze(delete_statement(vec!["non_existent_schema", TABLE])),
@@ -33,9 +33,9 @@ fn delete_from_table_that_in_nonexistent_schema() {
 
 #[test]
 fn delete_from_nonexistent_table() {
-    let data_definition = Arc::new(DatabaseHandle::in_memory());
-    data_definition.create_schema(SCHEMA).expect("schema created");
-    let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
+    let database = InMemoryDatabase::new();
+    database.execute(create_schema_ops(SCHEMA)).unwrap();
+    let analyzer = Analyzer::new(database);
 
     assert_eq!(
         analyzer.analyze(delete_statement(vec![SCHEMA, "non_existent_table"])),
@@ -48,7 +48,7 @@ fn delete_from_nonexistent_table() {
 
 #[test]
 fn delete_from_table_with_unqualified_name() {
-    let analyzer = Analyzer::new(Arc::new(DatabaseHandle::in_memory()), InMemoryDatabase::new());
+    let analyzer = Analyzer::new(InMemoryDatabase::new());
     assert_eq!(
         analyzer.analyze(delete_statement(vec!["only_schema_in_the_name"])),
         Err(AnalysisError::table_naming_error(
@@ -59,7 +59,7 @@ fn delete_from_table_with_unqualified_name() {
 
 #[test]
 fn delete_from_table_with_unsupported_name() {
-    let analyzer = Analyzer::new(Arc::new(DatabaseHandle::in_memory()), InMemoryDatabase::new());
+    let analyzer = Analyzer::new(InMemoryDatabase::new());
     assert_eq!(
         analyzer.analyze(delete_statement(vec![
             "first_part",
@@ -75,15 +75,19 @@ fn delete_from_table_with_unsupported_name() {
 
 #[test]
 fn delete_all_from_table() {
-    let (data_definition, schema_id, table_id) = with_table(&[DeprecatedColumnDefinition::new("col1", SqlType::integer())]);
-    let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
+    let database = InMemoryDatabase::new();
+    database.execute(create_schema_ops(SCHEMA)).unwrap();
+    database
+        .execute(create_table_ops(SCHEMA, TABLE, vec![("col1", SqlType::integer())]))
+        .unwrap();
+    let analyzer = Analyzer::new(database);
     assert_eq!(
         analyzer.analyze(sql_ast::Statement::Delete {
             table_name: sql_ast::ObjectName(vec![ident(SCHEMA), ident(TABLE)]),
             selection: None
         }),
         Ok(QueryAnalysis::Write(Write::Delete(DeleteQuery {
-            full_table_id: FullTableId::from((schema_id, table_id))
+            full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
         })))
     );
 }

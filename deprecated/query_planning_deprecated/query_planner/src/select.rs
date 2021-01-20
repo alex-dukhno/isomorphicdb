@@ -15,7 +15,7 @@
 use crate::{PlanError, Planner, Result};
 use ast::predicates::{PredicateOp, PredicateValue};
 use data_manager::DataDefReader;
-use plan::{DeprecatedFullTableId, DeprecatedPlanFullTableName, DeprecatedPlan, DeprecatedSelectInput};
+use plan::{DeprecatedFullTableId, DeprecatedPlan, DeprecatedPlanFullTableName, DeprecatedSelectInput};
 use sql_ast::{BinaryOperator, Expr, Ident, Query, Select, SelectItem, SetExpr, TableFactor, TableWithJoins, Value};
 use std::{convert::TryFrom, ops::Deref, sync::Arc};
 

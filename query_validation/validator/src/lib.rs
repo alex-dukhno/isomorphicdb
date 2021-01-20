@@ -13,10 +13,9 @@
 // limitations under the License.
 
 use analysis_tree::StaticEvaluationTree;
-use expr_operators::{Operation};
-use expr_operators::{ImplicitCastError, StaticItem};
+use expr_operators::{ImplicitCastError, Operation, StaticItem};
 use std::collections::HashMap;
-use types::{SqlType, SqlFamilyType};
+use types::{SqlFamilyType, SqlType};
 
 #[derive(Debug, PartialEq)]
 pub enum ValidationError {
@@ -74,7 +73,11 @@ impl ValidationError {
         }
     }
 
-    pub fn undefined_function(left: Option<SqlFamilyType>, op: Operation, right: Option<SqlFamilyType>) -> ValidationError {
+    pub fn undefined_function(
+        left: Option<SqlFamilyType>,
+        op: Operation,
+        right: Option<SqlFamilyType>,
+    ) -> ValidationError {
         ValidationError::UndefinedFunction { left, op, right }
     }
 }
@@ -88,13 +91,15 @@ impl InsertValueValidator {
         target_type: SqlType,
     ) -> Result<HashMap<usize, Option<SqlType>>, ValidationError> {
         match tree {
-            StaticEvaluationTree::Item(StaticItem::Const(constant)) => match (&constant).implicit_cast_to(target_type) {
-                Ok(casted) => {
-                    *constant = casted;
-                    Ok(HashMap::new())
+            StaticEvaluationTree::Item(StaticItem::Const(constant)) => {
+                match (&constant).implicit_cast_to(target_type) {
+                    Ok(casted) => {
+                        *constant = casted;
+                        Ok(HashMap::new())
+                    }
+                    Err(error) => Err(error.into()),
                 }
-                Err(error) => Err(error.into()),
-            },
+            }
             StaticEvaluationTree::Item(StaticItem::Param(index)) => {
                 let mut params = HashMap::new();
                 params.insert(*index, Some(target_type));
@@ -122,7 +127,11 @@ impl InsertValueValidator {
         }
     }
 
-    fn find_parent_family_type(&self, left: Option<SqlFamilyType>, right: Option<SqlFamilyType>) -> Option<SqlFamilyType> {
+    fn find_parent_family_type(
+        &self,
+        left: Option<SqlFamilyType>,
+        right: Option<SqlFamilyType>,
+    ) -> Option<SqlFamilyType> {
         if left == right {
             left
         } else {
@@ -139,7 +148,7 @@ impl InsertValueValidator {
                 (Some(SqlFamilyType::Bool), Some(SqlFamilyType::Float)) => None,
                 (Some(SqlFamilyType::Integer), Some(SqlFamilyType::Bool)) => None,
                 (Some(SqlFamilyType::Bool), Some(SqlFamilyType::Integer)) => None,
-                _ => None
+                _ => None,
             }
         }
     }
@@ -152,13 +161,15 @@ impl InsertValueValidator {
         params: &mut HashMap<usize, Option<SqlType>>,
     ) -> Result<(), ValidationError> {
         match tree {
-            StaticEvaluationTree::Item(StaticItem::Const(constant)) => match (&constant).implicit_cast_to(column_type) {
-                Ok(casted) => {
-                    *constant = casted;
-                    Ok(())
+            StaticEvaluationTree::Item(StaticItem::Const(constant)) => {
+                match (&constant).implicit_cast_to(column_type) {
+                    Ok(casted) => {
+                        *constant = casted;
+                        Ok(())
+                    }
+                    Err(error) => Err(error.into()),
                 }
-                Err(error) => Err(error.into()),
-            },
+            }
             StaticEvaluationTree::Item(StaticItem::Param(index)) => {
                 params.insert(*index, None);
                 Ok(())
@@ -184,9 +195,8 @@ impl InsertValueValidator {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use expr_operators::ScalarValue;
-    use expr_operators::Bool;
     use bigdecimal::BigDecimal;
+    use expr_operators::{Bool, ScalarValue};
 
     #[cfg(test)]
     mod strict_type_validation_of_constants {
@@ -271,7 +281,10 @@ mod tests {
 
             assert_eq!(
                 validator.validate(&mut tree, SqlType::Bool),
-                Err(ValidationError::datatype_mismatch(SqlType::Bool, Some(SqlType::integer().family())))
+                Err(ValidationError::datatype_mismatch(
+                    SqlType::Bool,
+                    Some(SqlType::integer().family())
+                ))
             );
         }
 
@@ -297,7 +310,10 @@ mod tests {
 
             assert_eq!(
                 validator.validate(&mut tree, SqlType::small_int()),
-                Err(ValidationError::datatype_mismatch(SqlType::small_int(), Some(SqlType::Bool.family())))
+                Err(ValidationError::datatype_mismatch(
+                    SqlType::small_int(),
+                    Some(SqlType::Bool.family())
+                ))
             );
         }
     }
@@ -345,9 +361,13 @@ mod tests {
                 let validator = InsertValueValidator;
 
                 let mut tree = StaticEvaluationTree::Operation {
-                    left: Box::new(StaticEvaluationTree::Item(StaticItem::Const(ScalarValue::Bool(Bool(true))))),
+                    left: Box::new(StaticEvaluationTree::Item(StaticItem::Const(ScalarValue::Bool(Bool(
+                        true,
+                    ))))),
                     op: Operation::Arithmetic(Arithmetic::Add),
-                    right: Box::new(StaticEvaluationTree::Item(StaticItem::Const(ScalarValue::Bool(Bool(false))))),
+                    right: Box::new(StaticEvaluationTree::Item(StaticItem::Const(ScalarValue::Bool(Bool(
+                        false,
+                    ))))),
                 };
 
                 assert_eq!(
@@ -372,7 +392,11 @@ mod tests {
 
                 assert_eq!(
                     validator.validate(&mut tree, SqlType::integer()),
-                    Err(ValidationError::undefined_function(None, Operation::Arithmetic(Arithmetic::Add), None))
+                    Err(ValidationError::undefined_function(
+                        None,
+                        Operation::Arithmetic(Arithmetic::Add),
+                        None
+                    ))
                 );
 
                 // TODO: Better type inference. Preferable output:
@@ -411,9 +435,13 @@ mod tests {
                 let validator = InsertValueValidator;
 
                 let mut tree = StaticEvaluationTree::Operation {
-                    left: Box::new(StaticEvaluationTree::Item(StaticItem::Const(ScalarValue::Bool(Bool(true))))),
+                    left: Box::new(StaticEvaluationTree::Item(StaticItem::Const(ScalarValue::Bool(Bool(
+                        true,
+                    ))))),
                     op: Operation::Comparison(Comparison::Eq),
-                    right: Box::new(StaticEvaluationTree::Item(StaticItem::Const(ScalarValue::Bool(Bool(false))))),
+                    right: Box::new(StaticEvaluationTree::Item(StaticItem::Const(ScalarValue::Bool(Bool(
+                        false,
+                    ))))),
                 };
 
                 assert_eq!(validator.validate(&mut tree, SqlType::bool()), Ok(HashMap::new()));

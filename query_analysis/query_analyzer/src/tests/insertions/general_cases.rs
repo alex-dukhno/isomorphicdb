@@ -20,7 +20,7 @@ fn insert_statement(full_name: Vec<&'static str>) -> sql_ast::Statement {
 
 #[test]
 fn schema_does_not_exist() {
-    let analyzer = Analyzer::new(Arc::new(DatabaseHandle::in_memory()), InMemoryDatabase::new());
+    let analyzer = Analyzer::new(InMemoryDatabase::new());
 
     assert_eq!(
         analyzer.analyze(insert_statement(vec![SCHEMA, TABLE])),
@@ -32,7 +32,7 @@ fn schema_does_not_exist() {
 fn table_does_not_exist() {
     let database = InMemoryDatabase::new();
     database.execute(create_schema(SCHEMA)).unwrap();
-    let analyzer = Analyzer::new(Arc::new(DatabaseHandle::in_memory()), database);
+    let analyzer = Analyzer::new(database);
 
     assert_eq!(
         analyzer.analyze(insert_statement(vec![SCHEMA, TABLE])),
@@ -42,7 +42,7 @@ fn table_does_not_exist() {
 
 #[test]
 fn table_with_unqualified_name() {
-    let analyzer = Analyzer::new(Arc::new(DatabaseHandle::in_memory()), InMemoryDatabase::new());
+    let analyzer = Analyzer::new(InMemoryDatabase::new());
     assert_eq!(
         analyzer.analyze(insert_statement(vec!["only_schema_in_the_name"])),
         Err(AnalysisError::table_naming_error(
@@ -53,7 +53,7 @@ fn table_with_unqualified_name() {
 
 #[test]
 fn table_with_unsupported_name() {
-    let analyzer = Analyzer::new(Arc::new(DatabaseHandle::in_memory()), InMemoryDatabase::new());
+    let analyzer = Analyzer::new(InMemoryDatabase::new());
     assert_eq!(
         analyzer.analyze(insert_statement(vec![
             "first_part",
@@ -74,16 +74,16 @@ fn with_column_names() {
     database
         .execute(create_table(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
         .unwrap();
-    let analyzer = Analyzer::new(Arc::new(DatabaseHandle::in_memory()), database);
+    let analyzer = Analyzer::new(database);
 
     assert_eq!(
         analyzer.analyze(inner_insert(vec![SCHEMA, TABLE], vec![vec![small_int(1)]], vec!["col"])),
         Ok(QueryAnalysis::Write(Write::Insert(InsertQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             column_types: vec![SqlType::small_int()],
-            values: vec![vec![StaticEvaluationTree::Item(StaticItem::Const(ScalarValue::Number(
-                BigDecimal::from(1)
-            )))]],
+            values: vec![vec![StaticEvaluationTree::Item(StaticItem::Const(
+                ScalarValue::Number(BigDecimal::from(1))
+            ))]],
         })))
     );
 }
@@ -95,7 +95,7 @@ fn column_not_found() {
     database
         .execute(create_table(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
         .unwrap();
-    let analyzer = Analyzer::new(Arc::new(DatabaseHandle::in_memory()), database);
+    let analyzer = Analyzer::new(database);
 
     assert_eq!(
         analyzer.analyze(inner_insert(

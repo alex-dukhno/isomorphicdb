@@ -26,15 +26,18 @@ mod arithmetic {
             true
         );
         assert_eq!(
-            Operation::Arithmetic(Arithmetic::Add).supported_type_family(Some(SqlFamilyType::Float), Some(SqlFamilyType::Integer)),
+            Operation::Arithmetic(Arithmetic::Add)
+                .supported_type_family(Some(SqlFamilyType::Float), Some(SqlFamilyType::Integer)),
             true
         );
         assert_eq!(
-            Operation::Arithmetic(Arithmetic::Add).supported_type_family(Some(SqlFamilyType::Integer), Some(SqlFamilyType::Float)),
+            Operation::Arithmetic(Arithmetic::Add)
+                .supported_type_family(Some(SqlFamilyType::Integer), Some(SqlFamilyType::Float)),
             true
         );
         assert_eq!(
-            Operation::Arithmetic(Arithmetic::Add).supported_type_family(Some(SqlFamilyType::Float), Some(SqlFamilyType::Float)),
+            Operation::Arithmetic(Arithmetic::Add)
+                .supported_type_family(Some(SqlFamilyType::Float), Some(SqlFamilyType::Float)),
             true
         );
     }
@@ -42,11 +45,13 @@ mod arithmetic {
     #[test]
     fn number_and_string() {
         assert_eq!(
-            Operation::Arithmetic(Arithmetic::Add).supported_type_family(Some(SqlFamilyType::Integer), Some(SqlFamilyType::String)),
+            Operation::Arithmetic(Arithmetic::Add)
+                .supported_type_family(Some(SqlFamilyType::Integer), Some(SqlFamilyType::String)),
             false
         );
         assert_eq!(
-            Operation::Arithmetic(Arithmetic::Add).supported_type_family(Some(SqlFamilyType::String), Some(SqlFamilyType::Integer)),
+            Operation::Arithmetic(Arithmetic::Add)
+                .supported_type_family(Some(SqlFamilyType::String), Some(SqlFamilyType::Integer)),
             false
         );
     }
@@ -54,11 +59,13 @@ mod arithmetic {
     #[test]
     fn number_and_bool() {
         assert_eq!(
-            Operation::Arithmetic(Arithmetic::Add).supported_type_family(Some(SqlFamilyType::Integer), Some(SqlFamilyType::Bool)),
+            Operation::Arithmetic(Arithmetic::Add)
+                .supported_type_family(Some(SqlFamilyType::Integer), Some(SqlFamilyType::Bool)),
             false
         );
         assert_eq!(
-            Operation::Arithmetic(Arithmetic::Add).supported_type_family(Some(SqlFamilyType::Bool), Some(SqlFamilyType::Integer)),
+            Operation::Arithmetic(Arithmetic::Add)
+                .supported_type_family(Some(SqlFamilyType::Bool), Some(SqlFamilyType::Integer)),
             false
         );
     }

@@ -144,6 +144,10 @@ impl ColumnDef {
     pub fn sql_type(&self) -> SqlType {
         self.sql_type
     }
+
+    pub fn has_name(&self, name: &str) -> bool {
+        self.name == name
+    }
 }
 
 #[derive(Debug)]

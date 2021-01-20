@@ -147,7 +147,9 @@ impl Display for DeprecatedTableNamingError {
                 "unsupported table name '{}'. All table names must be qualified",
                 table_name
             ),
-            DeprecatedTableNamingError::NotProcessed(table_name) => write!(f, "unable to process table name '{}'", table_name),
+            DeprecatedTableNamingError::NotProcessed(table_name) => {
+                write!(f, "unable to process table name '{}'", table_name)
+            }
         }
     }
 }
@@ -186,7 +188,11 @@ pub struct DeprecatedTableCreationInfo {
 }
 
 impl DeprecatedTableCreationInfo {
-    pub fn new<S: ToString>(schema_id: Id, table_name: S, columns: Vec<DeprecatedColumnDefinition>) -> DeprecatedTableCreationInfo {
+    pub fn new<S: ToString>(
+        schema_id: Id,
+        table_name: S,
+        columns: Vec<DeprecatedColumnDefinition>,
+    ) -> DeprecatedTableCreationInfo {
         DeprecatedTableCreationInfo {
             schema_id,
             table_name: table_name.to_string(),

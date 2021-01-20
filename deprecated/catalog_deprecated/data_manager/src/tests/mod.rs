@@ -46,10 +46,7 @@ fn create_table(schema_name: &str, table_name: &str, columns: &[(&str, SqlType)]
             name: table_name.to_owned(),
         },
         Step::CreateRecord {
-            system_schema: DEFINITION_SCHEMA.to_owned(),
-            system_table: TABLES_TABLE.to_owned(),
             record: Record::Table {
-                catalog_name: DEFAULT_CATALOG.to_owned(),
                 schema_name: schema_name.to_owned(),
                 table_name: table_name.to_owned(),
             },
@@ -59,10 +56,7 @@ fn create_table(schema_name: &str, table_name: &str, columns: &[(&str, SqlType)]
     let columns_ops = columns
         .iter()
         .map(|(column_name, column_type)| Step::CreateRecord {
-            system_schema: DEFINITION_SCHEMA.to_owned(),
-            system_table: COLUMNS_TABLE.to_owned(),
             record: Record::Column {
-                catalog_name: DEFAULT_CATALOG.to_owned(),
                 schema_name: schema_name.to_owned(),
                 table_name: table_name.to_owned(),
                 column_name: column_name.to_string(),
@@ -85,10 +79,7 @@ fn create_schema_ops(schema_name: &str) -> Vec<Step> {
             name: schema_name.to_owned(),
         },
         Step::CreateRecord {
-            system_schema: DEFINITION_SCHEMA.to_owned(),
-            system_table: SCHEMATA_TABLE.to_owned(),
             record: Record::Schema {
-                catalog_name: DEFAULT_CATALOG.to_owned(),
                 schema_name: schema_name.to_owned(),
             },
         },
@@ -110,19 +101,13 @@ fn create_table_ops(schema_name: &str, table_name: &str, column_name: &str, colu
             name: table_name.to_owned(),
         },
         Step::CreateRecord {
-            system_schema: DEFINITION_SCHEMA.to_owned(),
-            system_table: TABLES_TABLE.to_owned(),
             record: Record::Table {
-                catalog_name: DEFAULT_CATALOG.to_owned(),
                 schema_name: schema_name.to_owned(),
                 table_name: table_name.to_owned(),
             },
         },
         Step::CreateRecord {
-            system_schema: DEFINITION_SCHEMA.to_owned(),
-            system_table: COLUMNS_TABLE.to_owned(),
             record: Record::Column {
-                catalog_name: DEFAULT_CATALOG.to_owned(),
                 schema_name: schema_name.to_owned(),
                 table_name: table_name.to_owned(),
                 column_name: column_name.to_owned(),

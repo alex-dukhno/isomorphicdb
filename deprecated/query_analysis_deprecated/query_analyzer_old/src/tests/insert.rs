@@ -68,7 +68,9 @@ fn insert_into_table_under_non_existing_schema() {
 
     assert_eq!(
         description,
-        Err(DescriptionError::schema_does_not_exist(&"non_existent_schema"))
+        Err(DeprecatedDescriptionError::schema_does_not_exist(
+            &"non_existent_schema"
+        ))
     )
 }
 
@@ -81,7 +83,7 @@ fn insert_into_non_existing_table() {
 
     assert_eq!(
         description,
-        Err(DescriptionError::table_does_not_exist(&format!(
+        Err(DeprecatedDescriptionError::table_does_not_exist(&format!(
             "{}.{}",
             SCHEMA, "non_existent"
         )))
@@ -98,8 +100,8 @@ fn insert_into_existing_table_without_columns() {
 
     assert_eq!(
         description,
-        Ok(Description::Insert(InsertStatement {
-            table_id: FullTableId::from((schema_id, table_id)),
+        Ok(DeprecatedDescription::Insert(DeprecatedInsertStatement {
+            table_id: DeprecatedFullTableId::from((schema_id, table_id)),
             param_count: 0,
             param_types: ParamTypes::new(),
         }))
@@ -111,15 +113,19 @@ fn insert_into_existing_table_with_column() {
     let metadata = Arc::new(DatabaseHandle::in_memory());
     let schema_id = metadata.create_schema(SCHEMA).expect("schema created");
     let table_id = metadata
-        .create_table(schema_id, TABLE, &[DeprecatedColumnDefinition::new("col", SqlType::small_int())])
+        .create_table(
+            schema_id,
+            TABLE,
+            &[DeprecatedColumnDefinition::new("col", SqlType::small_int())],
+        )
         .expect("table created");
     let analyzer = Analyzer::new(metadata);
     let description = analyzer.describe(&insert_stmt_with_values(SCHEMA, TABLE, vec!["1"]));
 
     assert_eq!(
         description,
-        Ok(Description::Insert(InsertStatement {
-            table_id: FullTableId::from((schema_id, table_id)),
+        Ok(DeprecatedDescription::Insert(DeprecatedInsertStatement {
+            table_id: DeprecatedFullTableId::from((schema_id, table_id)),
             param_count: 0,
             param_types: ParamTypes::new(),
         }))
@@ -148,8 +154,8 @@ fn insert_into_table_with_parameters() {
 
     assert_eq!(
         description,
-        Ok(Description::Insert(InsertStatement {
-            table_id: FullTableId::from((schema_id, table_id)),
+        Ok(DeprecatedDescription::Insert(DeprecatedInsertStatement {
+            table_id: DeprecatedFullTableId::from((schema_id, table_id)),
             param_count: 10,
             param_types,
         }))

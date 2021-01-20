@@ -13,38 +13,20 @@
 // limitations under the License.
 
 use definition::{FullTableName, SchemaName};
-use expr_operators::{StaticItem, DynamicItem, Operation};
-use meta_def::Id;
+use expr_operators::{DynamicItem, Operation, StaticItem};
 use types::{SqlFamilyType, SqlType};
 
 pub type AnalysisResult<A> = Result<A, AnalysisError>;
 
 #[derive(Debug, PartialEq)]
-pub struct FullTableId((Id, Id));
-
-impl From<(Id, Id)> for FullTableId {
-    fn from(tuple: (Id, Id)) -> FullTableId {
-        FullTableId(tuple)
-    }
-}
-
-impl AsRef<(Id, Id)> for FullTableId {
-    fn as_ref(&self) -> &(Id, Id) {
-        &self.0
-    }
-}
-
-#[derive(Debug, PartialEq)]
 pub struct TableInfo {
-    pub schema_id: Id,
     pub schema_name: String,
     pub table_name: String,
 }
 
 impl TableInfo {
-    pub fn new<S: ToString, T: ToString>(schema_id: Id, schema_name: &S, table_name: &T) -> TableInfo {
+    pub fn new<S: ToString, T: ToString>(schema_name: &S, table_name: &T) -> TableInfo {
         TableInfo {
-            schema_id,
             schema_name: schema_name.to_string(),
             table_name: table_name.to_string(),
         }
@@ -131,7 +113,7 @@ impl StaticEvaluationTree {
 
 #[derive(Debug, PartialEq)]
 pub struct UpdateQuery {
-    pub full_table_id: FullTableId,
+    pub full_table_name: FullTableName,
     pub sql_types: Vec<SqlType>,
     pub assignments: Vec<DynamicEvaluationTree>,
 }
@@ -148,13 +130,13 @@ pub enum DynamicEvaluationTree {
 
 #[derive(Debug, PartialEq)]
 pub struct SelectQuery {
-    pub full_table_id: FullTableId,
+    pub full_table_name: FullTableName,
     pub projection_items: Vec<DynamicEvaluationTree>,
 }
 
 #[derive(Debug, PartialEq)]
 pub struct DeleteQuery {
-    pub full_table_id: FullTableId,
+    pub full_table_name: FullTableName,
 }
 
 #[derive(Debug, PartialEq)]

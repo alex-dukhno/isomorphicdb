@@ -14,7 +14,7 @@
 
 use crate::{PlanError, Planner, Result};
 use data_manager::DataDefReader;
-use plan::{DeprecatedFullTableId, DeprecatedPlanFullTableName, DeprecatedPlan, DeprecatedTableDeletes};
+use plan::{DeprecatedFullTableId, DeprecatedPlan, DeprecatedPlanFullTableName, DeprecatedTableDeletes};
 use sql_ast::ObjectName;
 use std::{convert::TryFrom, sync::Arc};
 

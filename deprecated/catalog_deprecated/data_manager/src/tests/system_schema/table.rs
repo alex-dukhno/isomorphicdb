@@ -64,12 +64,18 @@ fn create_table_with_the_same_name_in_different_schemas(data_manager: InMemory) 
 
     assert_eq!(
         data_manager.table_columns(&(schema_1_id, table_1_id)),
-        Ok(vec![(0, DeprecatedColumnDefinition::new("column_test", SqlType::small_int()))])
+        Ok(vec![(
+            0,
+            DeprecatedColumnDefinition::new("column_test", SqlType::small_int())
+        )])
     );
 
     assert_eq!(
         data_manager.table_columns(&(schema_2_id, table_2_id)),
-        Ok(vec![(0, DeprecatedColumnDefinition::new("column_test", SqlType::small_int()))])
+        Ok(vec![(
+            0,
+            DeprecatedColumnDefinition::new("column_test", SqlType::small_int())
+        )])
     );
 
     Ok(())
@@ -101,10 +107,7 @@ fn drop_table(data_manager_with_schema: InMemory) -> Result<(), ()> {
         table_name: TABLE.to_owned(),
     })?;
     data_manager_with_schema.execute(&Step::RemoveRecord {
-        system_schema: DEFINITION_SCHEMA.to_owned(),
-        system_table: TABLES_TABLE.to_owned(),
         record: Record::Table {
-            catalog_name: DEFAULT_CATALOG.to_owned(),
             schema_name: SCHEMA.to_owned(),
             table_name: TABLE.to_owned(),
         },

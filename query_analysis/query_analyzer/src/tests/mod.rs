@@ -26,15 +26,14 @@ mod selects;
 mod updates;
 
 use super::*;
-use analysis_tree::{StaticEvaluationTree, DynamicEvaluationTree};
+use analysis_tree::{DynamicEvaluationTree, StaticEvaluationTree};
 use bigdecimal::BigDecimal;
 use catalog::{Database, InMemoryDatabase};
-use data_manager::DatabaseHandle;
+use definition_operations::{Kind, Record, Step, SystemObject, SystemOperation};
 use expr_operators::{
-    Arithmetic, Bitwise, Bool, Comparison, StaticItem, Logical, DynamicItem, Operation, PatternMatching, ScalarValue,
+    Arithmetic, Bitwise, Bool, Comparison, DynamicItem, Logical, Operation, PatternMatching, ScalarValue, StaticItem,
     StringOp,
 };
-use meta_def::{DeprecatedColumnDefinition, Id};
 
 const SCHEMA: &str = "schema_name";
 const TABLE: &str = "table_name";
@@ -62,11 +61,63 @@ fn number(value: i16) -> sql_ast::Value {
     sql_ast::Value::Number(BigDecimal::from(value))
 }
 
-fn with_table(columns: &[DeprecatedColumnDefinition]) -> (Arc<DatabaseHandle>, Id, Id) {
-    let data_manager = Arc::new(DatabaseHandle::in_memory());
-    let schema_id = data_manager.create_schema(SCHEMA).expect("schema created");
-    let table_id = data_manager
-        .create_table(schema_id, TABLE, columns)
-        .expect("table created");
-    (data_manager, schema_id, table_id)
+fn create_schema_ops(schema_name: &str) -> SystemOperation {
+    SystemOperation {
+        kind: Kind::Create(SystemObject::Schema),
+        skip_steps_if: None,
+        steps: vec![vec![
+            Step::CheckExistence {
+                system_object: SystemObject::Schema,
+                object_name: vec![schema_name.to_owned()],
+            },
+            Step::CreateFolder {
+                name: schema_name.to_owned(),
+            },
+            Step::CreateRecord {
+                record: Record::Schema {
+                    schema_name: schema_name.to_owned(),
+                },
+            },
+        ]],
+    }
+}
+
+fn create_table_ops(schema_name: &str, table_name: &str, columns: Vec<(&str, SqlType)>) -> SystemOperation {
+    let column_steps: Vec<Step> = columns
+        .into_iter()
+        .map(|(column_name, column_type)| Step::CreateRecord {
+            record: Record::Column {
+                schema_name: schema_name.to_owned(),
+                table_name: table_name.to_owned(),
+                column_name: column_name.to_owned(),
+                sql_type: column_type,
+            },
+        })
+        .collect();
+    let mut all_steps: Vec<Step> = vec![
+        Step::CheckExistence {
+            system_object: SystemObject::Schema,
+            object_name: vec![schema_name.to_owned()],
+        },
+        Step::CheckExistence {
+            system_object: SystemObject::Table,
+            object_name: vec![schema_name.to_owned(), table_name.to_owned()],
+        },
+        Step::CreateFile {
+            folder_name: schema_name.to_owned(),
+            name: table_name.to_owned(),
+        },
+        Step::CreateRecord {
+            record: Record::Table {
+                schema_name: schema_name.to_owned(),
+                table_name: table_name.to_owned(),
+            },
+        },
+    ];
+    all_steps.extend(column_steps);
+    SystemOperation {
+        kind: Kind::Create(SystemObject::Table),
+        skip_steps_if: None,
+        steps: vec![all_steps],
+    }
 }

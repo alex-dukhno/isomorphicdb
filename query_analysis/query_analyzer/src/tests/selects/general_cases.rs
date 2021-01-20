@@ -16,8 +16,7 @@ use super::*;
 
 #[test]
 fn schema_does_not_exist() {
-    let data_definition = Arc::new(DatabaseHandle::in_memory());
-    let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
+    let analyzer = Analyzer::new(InMemoryDatabase::new());
     assert_eq!(
         analyzer.analyze(select(vec!["non_existent_schema", TABLE,])),
         Err(AnalysisError::schema_does_not_exist(&"non_existent_schema"))
@@ -26,9 +25,9 @@ fn schema_does_not_exist() {
 
 #[test]
 fn table_does_not_exist() {
-    let data_definition = Arc::new(DatabaseHandle::in_memory());
-    data_definition.create_schema(SCHEMA).expect("schema created");
-    let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
+    let database = InMemoryDatabase::new();
+    database.execute(create_schema_ops(SCHEMA)).unwrap();
+    let analyzer = Analyzer::new(database);
     assert_eq!(
         analyzer.analyze(select(vec![SCHEMA, "non_existent_table"])),
         Err(AnalysisError::table_does_not_exist(&format!(
@@ -40,7 +39,7 @@ fn table_does_not_exist() {
 
 #[test]
 fn table_with_unqualified_name() {
-    let analyzer = Analyzer::new(Arc::new(DatabaseHandle::in_memory()), InMemoryDatabase::new());
+    let analyzer = Analyzer::new(InMemoryDatabase::new());
     assert_eq!(
         analyzer.analyze(select(vec!["only_schema_in_the_name"])),
         Err(AnalysisError::table_naming_error(
@@ -51,7 +50,7 @@ fn table_with_unqualified_name() {
 
 #[test]
 fn table_with_unsupported_name() {
-    let analyzer = Analyzer::new(Arc::new(DatabaseHandle::in_memory()), InMemoryDatabase::new());
+    let analyzer = Analyzer::new(InMemoryDatabase::new());
     assert_eq!(
         analyzer.analyze(select(vec!["first_part", "second_part", "third_part", "fourth_part",])),
         Err(AnalysisError::table_naming_error(

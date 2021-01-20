@@ -12,34 +12,29 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{
-    insert_tree_builder::InsertTreeBuilder, projection_tree_builder::ProjectionTreeBuilder,
-    update_tree_builder::UpdateTreeBuilder,
+use crate::{dynamic_tree_builder::DynamicTreeBuilder, static_tree_builder::StaticTreeBuilder};
+use analysis_tree::{
+    AnalysisError, ColumnInfo, CreateSchemaQuery, CreateTableQuery, DeleteQuery, DropSchemasQuery, DropTablesQuery,
+    DynamicEvaluationTree, Feature, InsertQuery, QueryAnalysis, SchemaChange, SelectQuery, TableInfo, UpdateQuery,
+    Write,
 };
-use analysis_tree::{AnalysisError, ColumnInfo, CreateSchemaQuery, CreateTableQuery, DeleteQuery, DropSchemasQuery, DropTablesQuery, Feature, FullTableId, InsertQuery, QueryAnalysis, SchemaChange, SelectQuery, TableInfo, UpdateQuery, Write, DynamicEvaluationTree};
 use catalog::CatalogDefinition;
-use data_manager::DataDefReader;
 use definition::{FullTableName, SchemaName};
 use expr_operators::DynamicItem;
 use std::{convert::TryFrom, sync::Arc};
 use types::SqlType;
 
-mod insert_tree_builder;
+mod dynamic_tree_builder;
 mod operation_mapper;
-mod projection_tree_builder;
-mod update_tree_builder;
+mod static_tree_builder;
 
 pub struct Analyzer<CD: CatalogDefinition> {
-    data_definition: Arc<dyn DataDefReader>,
     database: Arc<CD>,
 }
 
 impl<CD: CatalogDefinition> Analyzer<CD> {
-    pub fn new(data_definition: Arc<dyn DataDefReader>, database: Arc<CD>) -> Analyzer<CD> {
-        Analyzer {
-            data_definition,
-            database,
-        }
+    pub fn new(database: Arc<CD>) -> Analyzer<CD> {
+        Analyzer { database }
     }
 
     pub fn analyze(&self, statement: sql_ast::Statement) -> Result<QueryAnalysis, AnalysisError> {
@@ -69,7 +64,7 @@ impl<CD: CatalogDefinition> Analyzer<CD> {
                                     let mut row = vec![];
                                     for (index, value) in insert_row.iter().enumerate() {
                                         let sql_type = column_types[index];
-                                        row.push(InsertTreeBuilder::build_from(value, &statement, &sql_type)?);
+                                        row.push(StaticTreeBuilder::build_from(value, &statement, &sql_type)?);
                                     }
                                     values.push(row)
                                 }
@@ -96,17 +91,18 @@ impl<CD: CatalogDefinition> Analyzer<CD> {
                 ..
             } => match FullTableName::try_from(table_name) {
                 Err(error) => Err(AnalysisError::table_naming_error(error)),
-                Ok(full_table_name) => match self.data_definition.table_desc((&full_table_name).into()) {
+                Ok(full_table_name) => match self.database.table_definition(&full_table_name) {
                     None => Err(AnalysisError::schema_does_not_exist(full_table_name.schema())),
-                    Some((_schema_id, None)) => Err(AnalysisError::table_does_not_exist(full_table_name)),
-                    Some((schema_id, Some((table_id, table_columns)))) => {
+                    Some(None) => Err(AnalysisError::table_does_not_exist(full_table_name)),
+                    Some(Some(table_info)) => {
+                        let table_columns = table_info.columns();
                         let mut sql_types = vec![];
                         let mut assignments = vec![];
                         for assignment in stmt_assignments {
                             let sql_ast::Assignment { id, value } = assignment;
                             let name = id.to_string();
                             let mut found = None;
-                            for table_column in &table_columns {
+                            for table_column in table_columns {
                                 if table_column.has_name(&name) {
                                     found = Some(table_column.sql_type());
                                     break;
@@ -115,7 +111,7 @@ impl<CD: CatalogDefinition> Analyzer<CD> {
                             match found {
                                 None => unimplemented!("Column not found is not covered yet"),
                                 Some(sql_type) => {
-                                    assignments.push(UpdateTreeBuilder::build_from(
+                                    assignments.push(DynamicTreeBuilder::build_from(
                                         &value,
                                         &statement,
                                         &sql_type,
@@ -126,7 +122,7 @@ impl<CD: CatalogDefinition> Analyzer<CD> {
                             }
                         }
                         Ok(QueryAnalysis::Write(Write::Update(UpdateQuery {
-                            full_table_id: FullTableId::from((schema_id, table_id)),
+                            full_table_name,
                             sql_types,
                             assignments,
                         })))
@@ -163,24 +159,27 @@ impl<CD: CatalogDefinition> Analyzer<CD> {
                             }
                         };
                         match FullTableName::try_from(name) {
-                            Ok(full_table_name) => match self.data_definition.table_desc((&full_table_name).into()) {
+                            Err(error) => Err(AnalysisError::table_naming_error(error)),
+                            Ok(full_table_name) => match self.database.table_definition(&full_table_name) {
                                 None => Err(AnalysisError::schema_does_not_exist(full_table_name.schema())),
-                                Some((_schema_id, None)) => Err(AnalysisError::table_does_not_exist(&full_table_name)),
-                                Some((schema_id, Some((table_id, table_columns)))) => {
-                                    let full_table_id = FullTableId::from((schema_id, table_id));
+                                Some(None) => Err(AnalysisError::table_does_not_exist(full_table_name)),
+                                Some(Some(table_info)) => {
+                                    let table_columns = table_info.columns();
                                     let mut projection_items = vec![];
                                     for item in projection {
                                         match item {
                                             sql_ast::SelectItem::Wildcard => {
                                                 for (index, table_column) in table_columns.iter().enumerate() {
-                                                    projection_items.push(DynamicEvaluationTree::Item(DynamicItem::Column {
-                                                        index,
-                                                        sql_type: table_column.sql_type(),
-                                                    }));
+                                                    projection_items.push(DynamicEvaluationTree::Item(
+                                                        DynamicItem::Column {
+                                                            index,
+                                                            sql_type: table_column.sql_type(),
+                                                        },
+                                                    ));
                                                 }
                                             }
                                             sql_ast::SelectItem::UnnamedExpr(expr) => {
-                                                projection_items.push(ProjectionTreeBuilder::build_from(
+                                                projection_items.push(DynamicTreeBuilder::build_from(
                                                     &expr,
                                                     &statement,
                                                     &SqlType::small_int(),
@@ -198,25 +197,22 @@ impl<CD: CatalogDefinition> Analyzer<CD> {
                                         }
                                     }
                                     Ok(QueryAnalysis::Read(SelectQuery {
-                                        full_table_id,
+                                        full_table_name,
                                         projection_items,
                                     }))
                                 }
                             },
-                            Err(error) => Err(AnalysisError::table_naming_error(&error)),
                         }
                     }
                 }
             }
             sql_ast::Statement::Delete { table_name, .. } => match FullTableName::try_from(table_name) {
-                Ok(full_table_name) => match self.data_definition.table_exists_tuple((&full_table_name).into()) {
-                    None => Err(AnalysisError::schema_does_not_exist(full_table_name.schema())),
-                    Some((_schema_id, None)) => Err(AnalysisError::table_does_not_exist(&full_table_name)),
-                    Some((schema_id, Some(table_id))) => Ok(QueryAnalysis::Write(Write::Delete(DeleteQuery {
-                        full_table_id: FullTableId::from((schema_id, table_id)),
-                    }))),
-                },
                 Err(error) => Err(AnalysisError::table_naming_error(error)),
+                Ok(full_table_name) => match self.database.table_definition(&full_table_name) {
+                    None => Err(AnalysisError::schema_does_not_exist(full_table_name.schema())),
+                    Some(None) => Err(AnalysisError::table_does_not_exist(full_table_name)),
+                    Some(Some(_table_info)) => Ok(QueryAnalysis::Write(Write::Delete(DeleteQuery { full_table_name }))),
+                },
             },
             sql_ast::Statement::CreateTable {
                 name,
@@ -224,9 +220,11 @@ impl<CD: CatalogDefinition> Analyzer<CD> {
                 if_not_exists,
                 ..
             } => match FullTableName::try_from(name) {
-                Ok(full_table_name) => match self.data_definition.schema_exists(full_table_name.schema()) {
-                    None => Err(AnalysisError::schema_does_not_exist(full_table_name.schema())),
-                    Some(schema_id) => {
+                Ok(full_table_name) => {
+                    if self
+                        .database
+                        .schema_exists(&SchemaName::from(&full_table_name.schema()))
+                    {
                         let mut column_defs = Vec::new();
                         for column in columns {
                             match SqlType::try_from(&column.data_type) {
@@ -241,17 +239,15 @@ impl<CD: CatalogDefinition> Analyzer<CD> {
                         }
                         Ok(QueryAnalysis::DataDefinition(SchemaChange::CreateTable(
                             CreateTableQuery {
-                                table_info: TableInfo::new(
-                                    schema_id,
-                                    &full_table_name.schema(),
-                                    &full_table_name.table(),
-                                ),
+                                table_info: TableInfo::new(&full_table_name.schema(), &full_table_name.table()),
                                 column_defs,
                                 if_not_exists: *if_not_exists,
                             },
                         )))
+                    } else {
+                        Err(AnalysisError::schema_does_not_exist(full_table_name.schema()))
                     }
-                },
+                }
                 Err(error) => Err(AnalysisError::table_naming_error(&error)),
             },
             sql_ast::Statement::CreateSchema {
@@ -294,13 +290,14 @@ impl<CD: CatalogDefinition> Analyzer<CD> {
                     for name in names {
                         match FullTableName::try_from(name) {
                             Ok(full_table_name) => {
-                                match self.data_definition.table_exists_tuple((&full_table_name).into()) {
-                                    None => return Err(AnalysisError::schema_does_not_exist(full_table_name.schema())),
-                                    Some((schema_id, _)) => table_infos.push(TableInfo::new(
-                                        schema_id,
-                                        &full_table_name.schema(),
-                                        &full_table_name.table(),
-                                    )),
+                                if self
+                                    .database
+                                    .schema_exists(&SchemaName::from(&full_table_name.schema()))
+                                {
+                                    table_infos
+                                        .push(TableInfo::new(&full_table_name.schema(), &full_table_name.table()))
+                                } else {
+                                    return Err(AnalysisError::schema_does_not_exist(full_table_name.schema()));
                                 }
                             }
                             Err(error) => return Err(AnalysisError::table_naming_error(&error)),

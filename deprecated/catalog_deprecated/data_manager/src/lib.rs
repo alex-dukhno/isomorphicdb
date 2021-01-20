@@ -885,56 +885,54 @@ impl DataDefOperationExecutor for DatabaseHandle {
                     .unwrap();
                 Ok(())
             }
-            Step::RemoveRecord {
-                system_schema,
-                system_table,
-                record,
-            } => {
-                let binary_record = match record {
-                    Record::Schema {
-                        catalog_name,
-                        schema_name,
-                    } => self
-                        .inner
-                        .read(DEFINITION_SCHEMA, SCHEMATA_TABLE)
-                        .expect("no io error")
-                        .expect("no platform error")
-                        .expect("to have SCHEMATA table")
-                        .map(Result::unwrap)
-                        .map(Result::unwrap)
-                        .map(|(record_id, columns)| {
-                            let data = columns.unpack();
-                            let catalog = data[0].as_str().to_owned();
-                            let schema = data[1].as_str().to_owned();
-                            (record_id, catalog, schema)
-                        })
-                        .find(|(_record, catalog, schema)| catalog == catalog_name && schema == schema_name)
-                        .map(|(record, _catalog, _schema)| record)
-                        .unwrap(),
+            Step::RemoveRecord { record } => {
+                let (system_schema, system_table, binary_record) = match record {
+                    Record::Schema { schema_name } => (
+                        DEFINITION_SCHEMA,
+                        SCHEMATA_TABLE,
+                        self.inner
+                            .read(DEFINITION_SCHEMA, SCHEMATA_TABLE)
+                            .expect("no io error")
+                            .expect("no platform error")
+                            .expect("to have SCHEMATA table")
+                            .map(Result::unwrap)
+                            .map(Result::unwrap)
+                            .map(|(record_id, columns)| {
+                                let data = columns.unpack();
+                                let catalog = data[0].as_str().to_owned();
+                                let schema = data[1].as_str().to_owned();
+                                (record_id, catalog, schema)
+                            })
+                            .find(|(_record, catalog, schema)| catalog == DEFAULT_CATALOG && schema == schema_name)
+                            .map(|(record, _catalog, _schema)| record)
+                            .unwrap(),
+                    ),
                     Record::Table {
-                        catalog_name,
                         schema_name,
                         table_name,
-                    } => self
-                        .inner
-                        .read(DEFINITION_SCHEMA, TABLES_TABLE)
-                        .expect("no io error")
-                        .expect("no platform error")
-                        .expect("to have SCHEMATA table")
-                        .map(Result::unwrap)
-                        .map(Result::unwrap)
-                        .map(|(record_id, columns)| {
-                            let data = columns.unpack();
-                            let catalog = data[0].as_str().to_owned();
-                            let schema = data[1].as_str().to_owned();
-                            let table = data[2].as_str().to_owned();
-                            (record_id, catalog, schema, table)
-                        })
-                        .find(|(_record, catalog, schema, table)| {
-                            catalog == catalog_name && schema == schema_name && table == table_name
-                        })
-                        .map(|(record, _catalog, _schema, _table)| record)
-                        .unwrap(),
+                    } => (
+                        DEFINITION_SCHEMA,
+                        TABLES_TABLE,
+                        self.inner
+                            .read(DEFINITION_SCHEMA, TABLES_TABLE)
+                            .expect("no io error")
+                            .expect("no platform error")
+                            .expect("to have SCHEMATA table")
+                            .map(Result::unwrap)
+                            .map(Result::unwrap)
+                            .map(|(record_id, columns)| {
+                                let data = columns.unpack();
+                                let catalog = data[0].as_str().to_owned();
+                                let schema = data[1].as_str().to_owned();
+                                let table = data[2].as_str().to_owned();
+                                (record_id, catalog, schema, table)
+                            })
+                            .find(|(_record, catalog, schema, table)| {
+                                catalog == DEFAULT_CATALOG && schema == schema_name && table == table_name
+                            })
+                            .map(|(record, _catalog, _schema, _table)| record)
+                            .unwrap(),
+                    ),
                     Record::Column { .. } => unreachable!(),
                 };
                 self.inner
@@ -944,29 +942,25 @@ impl DataDefOperationExecutor for DatabaseHandle {
                     .expect("to remove object");
                 Ok(())
             }
-            Step::CreateRecord {
-                system_schema,
-                system_table,
-                record,
-            } => {
+            Step::CreateRecord { record } => {
                 log::debug!("{:?}", record);
-                let binary_record = match record {
-                    Record::Schema {
-                        catalog_name,
-                        schema_name,
-                    } => {
+                let (system_schema, system_table, binary_record) = match record {
+                    Record::Schema { schema_name } => {
                         let schema_id = self
                             .inner
                             .get_sequence(DEFINITION_SCHEMA, &(SCHEMATA_TABLE.to_owned() + ".records"))
                             .unwrap()
                             .next();
-                        vec![(
-                            Binary::pack(&[DEFAULT_CATALOG_ID, Datum::from_u64(schema_id)]),
-                            Binary::pack(&[Datum::from_str(&catalog_name), Datum::from_str(&schema_name)]),
-                        )]
+                        (
+                            DEFINITION_SCHEMA,
+                            SCHEMATA_TABLE,
+                            vec![(
+                                Binary::pack(&[DEFAULT_CATALOG_ID, Datum::from_u64(schema_id)]),
+                                Binary::pack(&[Datum::from_str(DEFAULT_CATALOG), Datum::from_str(&schema_name)]),
+                            )],
+                        )
                     }
                     Record::Table {
-                        catalog_name,
                         schema_name,
                         table_name,
                     } => {
@@ -1002,21 +996,24 @@ impl DataDefOperationExecutor for DatabaseHandle {
                                     + ".column.ids"),
                             )
                             .expect("column id sequence is created");
-                        vec![(
-                            Binary::pack(&[
-                                DEFAULT_CATALOG_ID,
-                                Datum::from_u64(schema_id),
-                                Datum::from_u64(table_id),
-                            ]),
-                            Binary::pack(&[
-                                Datum::from_str(&catalog_name),
-                                Datum::from_str(&schema_name),
-                                Datum::from_str(&table_name),
-                            ]),
-                        )]
+                        (
+                            DEFINITION_SCHEMA,
+                            TABLES_TABLE,
+                            vec![(
+                                Binary::pack(&[
+                                    DEFAULT_CATALOG_ID,
+                                    Datum::from_u64(schema_id),
+                                    Datum::from_u64(table_id),
+                                ]),
+                                Binary::pack(&[
+                                    Datum::from_str(DEFAULT_CATALOG),
+                                    Datum::from_str(&schema_name),
+                                    Datum::from_str(&table_name),
+                                ]),
+                            )],
+                        )
                     }
                     Record::Column {
-                        catalog_name,
                         schema_name,
                         table_name,
                         column_name,
@@ -1059,23 +1056,27 @@ impl DataDefOperationExecutor for DatabaseHandle {
                             SqlType::Str { len, .. } => Datum::from_u64(*len),
                             _ => Datum::from_null(),
                         };
-                        vec![(
-                            Binary::pack(&[
-                                DEFAULT_CATALOG_ID,
-                                Datum::from_u64(schema_id),
-                                Datum::from_u64(table_id),
-                                Datum::from_u64(column_id),
-                            ]),
-                            Binary::pack(&[
-                                Datum::from_str(&catalog_name),
-                                Datum::from_str(&schema_name),
-                                Datum::from_str(&table_name),
-                                Datum::from_u64(column_id),
-                                Datum::from_str(&column_name),
-                                Datum::from_u64(sql_type.type_id()),
-                                chars_len,
-                            ]),
-                        )]
+                        (
+                            DEFINITION_SCHEMA,
+                            COLUMNS_TABLE,
+                            vec![(
+                                Binary::pack(&[
+                                    DEFAULT_CATALOG_ID,
+                                    Datum::from_u64(schema_id),
+                                    Datum::from_u64(table_id),
+                                    Datum::from_u64(column_id),
+                                ]),
+                                Binary::pack(&[
+                                    Datum::from_str(&DEFAULT_CATALOG),
+                                    Datum::from_str(&schema_name),
+                                    Datum::from_str(&table_name),
+                                    Datum::from_u64(column_id),
+                                    Datum::from_str(&column_name),
+                                    Datum::from_u64(sql_type.type_id()),
+                                    chars_len,
+                                ]),
+                            )],
+                        )
                     }
                 };
                 self.inner
@@ -1183,7 +1184,9 @@ impl DataDefReader for DatabaseHandle {
                 ((schema_id, table_id), column_id, name, sql_type)
             })
             .filter(|(full_table_id, _column_id, _name, _sql_type)| full_table_id == table_id)
-            .map(|(_full_table_id, column_id, name, sql_type)| (column_id, DeprecatedColumnDefinition::new(&name, sql_type)))
+            .map(|(_full_table_id, column_id, name, sql_type)| {
+                (column_id, DeprecatedColumnDefinition::new(&name, sql_type))
+            })
             .collect())
     }
 
@@ -1288,7 +1291,9 @@ impl DataDefReader for DatabaseHandle {
                 ((schema_id, table_id), column_id, name, sql_type)
             })
             .filter(|(full_table_id, _column_id, _name, _sql_type)| full_table_id == table_id)
-            .map(|(_full_table_id, column_id, name, sql_type)| (column_id, DeprecatedColumnDefinition::new(&name, sql_type)))
+            .map(|(_full_table_id, column_id, name, sql_type)| {
+                (column_id, DeprecatedColumnDefinition::new(&name, sql_type))
+            })
             .collect::<HashMap<_, _>>();
         log::debug!("COLUMNS IN TABLE: {:?}", columns);
         log::debug!("SELECTED COLUMN IDS {:?}", ids);

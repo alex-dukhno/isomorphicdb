@@ -16,13 +16,17 @@ use super::*;
 
 #[test]
 fn select_all_columns_from_table() {
-    let (data_definition, schema_id, table_id) = with_table(&[DeprecatedColumnDefinition::new("col1", SqlType::integer())]);
-    let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
+    let database = InMemoryDatabase::new();
+    database.execute(create_schema_ops(SCHEMA)).unwrap();
+    database
+        .execute(create_table_ops(SCHEMA, TABLE, vec![("col1", SqlType::integer())]))
+        .unwrap();
+    let analyzer = Analyzer::new(database);
 
     assert_eq!(
         analyzer.analyze(select(vec![SCHEMA, TABLE])),
         Ok(QueryAnalysis::Read(SelectQuery {
-            full_table_id: FullTableId::from((schema_id, table_id)),
+            full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             projection_items: vec![DynamicEvaluationTree::Item(DynamicItem::Column {
                 index: 0,
                 sql_type: SqlType::integer()
@@ -33,8 +37,12 @@ fn select_all_columns_from_table() {
 
 #[test]
 fn select_specified_column_from_table() {
-    let (data_definition, schema_id, table_id) = with_table(&[DeprecatedColumnDefinition::new("col1", SqlType::integer())]);
-    let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
+    let database = InMemoryDatabase::new();
+    database.execute(create_schema_ops(SCHEMA)).unwrap();
+    database
+        .execute(create_table_ops(SCHEMA, TABLE, vec![("col1", SqlType::integer())]))
+        .unwrap();
+    let analyzer = Analyzer::new(database);
 
     assert_eq!(
         analyzer.analyze(select_with_columns(
@@ -44,7 +52,7 @@ fn select_specified_column_from_table() {
             )))]
         )),
         Ok(QueryAnalysis::Read(SelectQuery {
-            full_table_id: FullTableId::from((schema_id, table_id)),
+            full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             projection_items: vec![DynamicEvaluationTree::Item(DynamicItem::Column {
                 index: 0,
                 sql_type: SqlType::integer()
@@ -55,8 +63,12 @@ fn select_specified_column_from_table() {
 
 #[test]
 fn select_column_that_is_not_in_table() {
-    let (data_definition, _schema_id, _table_id) = with_table(&[DeprecatedColumnDefinition::new("col1", SqlType::integer())]);
-    let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
+    let database = InMemoryDatabase::new();
+    database.execute(create_schema_ops(SCHEMA)).unwrap();
+    database
+        .execute(create_table_ops(SCHEMA, TABLE, vec![("col1", SqlType::integer())]))
+        .unwrap();
+    let analyzer = Analyzer::new(database);
 
     assert_eq!(
         analyzer.analyze(select_with_columns(
@@ -71,8 +83,12 @@ fn select_column_that_is_not_in_table() {
 
 #[test]
 fn select_from_table_with_constant() {
-    let (data_definition, schema_id, table_id) = with_table(&[DeprecatedColumnDefinition::new("col1", SqlType::integer())]);
-    let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
+    let database = InMemoryDatabase::new();
+    database.execute(create_schema_ops(SCHEMA)).unwrap();
+    database
+        .execute(create_table_ops(SCHEMA, TABLE, vec![("col1", SqlType::integer())]))
+        .unwrap();
+    let analyzer = Analyzer::new(database);
 
     assert_eq!(
         analyzer.analyze(select_with_columns(
@@ -80,7 +96,7 @@ fn select_from_table_with_constant() {
             vec![sql_ast::SelectItem::UnnamedExpr(sql_ast::Expr::Value(number(1)))],
         )),
         Ok(QueryAnalysis::Read(SelectQuery {
-            full_table_id: FullTableId::from((schema_id, table_id)),
+            full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             projection_items: vec![DynamicEvaluationTree::Item(DynamicItem::Const(ScalarValue::Number(
                 BigDecimal::from(1)
             )))],
@@ -90,8 +106,12 @@ fn select_from_table_with_constant() {
 
 #[test]
 fn select_parameters_from_a_table() {
-    let (data_definition, schema_id, table_id) = with_table(&[DeprecatedColumnDefinition::new("col1", SqlType::integer())]);
-    let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
+    let database = InMemoryDatabase::new();
+    database.execute(create_schema_ops(SCHEMA)).unwrap();
+    database
+        .execute(create_table_ops(SCHEMA, TABLE, vec![("col1", SqlType::integer())]))
+        .unwrap();
+    let analyzer = Analyzer::new(database);
 
     assert_eq!(
         analyzer.analyze(select_with_columns(
@@ -99,7 +119,7 @@ fn select_parameters_from_a_table() {
             vec![sql_ast::SelectItem::UnnamedExpr(sql_ast::Expr::Identifier(ident("$1")))],
         )),
         Ok(QueryAnalysis::Read(SelectQuery {
-            full_table_id: FullTableId::from((schema_id, table_id)),
+            full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             projection_items: vec![DynamicEvaluationTree::Item(DynamicItem::Param(0))],
         }))
     );
@@ -126,8 +146,12 @@ mod multiple_values {
 
     #[test]
     fn arithmetic() {
-        let (data_definition, schema_id, table_id) = with_table(&[DeprecatedColumnDefinition::new("col", SqlType::small_int())]);
-        let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
+        let database = InMemoryDatabase::new();
+        database.execute(create_schema_ops(SCHEMA)).unwrap();
+        database
+            .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
+            .unwrap();
+        let analyzer = Analyzer::new(database);
 
         assert_eq!(
             analyzer.analyze(select_value_as_expression_with_operation(
@@ -136,7 +160,7 @@ mod multiple_values {
                 sql_ast::Expr::Value(number(1))
             )),
             Ok(QueryAnalysis::Read(SelectQuery {
-                full_table_id: FullTableId::from((schema_id, table_id)),
+                full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 projection_items: vec![DynamicEvaluationTree::Operation {
                     left: Box::new(DynamicEvaluationTree::Item(DynamicItem::Const(ScalarValue::String(
                         "1".to_owned()
@@ -152,9 +176,12 @@ mod multiple_values {
 
     #[test]
     fn string_operation() {
-        let (data_definition, schema_id, table_id) =
-            with_table(&[DeprecatedColumnDefinition::new("col", SqlType::var_char(255))]);
-        let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
+        let database = InMemoryDatabase::new();
+        database.execute(create_schema_ops(SCHEMA)).unwrap();
+        database
+            .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::var_char(255))]))
+            .unwrap();
+        let analyzer = Analyzer::new(database);
 
         assert_eq!(
             analyzer.analyze(select_value_as_expression_with_operation(
@@ -163,7 +190,7 @@ mod multiple_values {
                 string("str")
             )),
             Ok(QueryAnalysis::Read(SelectQuery {
-                full_table_id: FullTableId::from((schema_id, table_id)),
+                full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 projection_items: vec![DynamicEvaluationTree::Operation {
                     left: Box::new(DynamicEvaluationTree::Item(DynamicItem::Const(ScalarValue::String(
                         "str".to_owned()
@@ -179,8 +206,12 @@ mod multiple_values {
 
     #[test]
     fn comparison() {
-        let (data_definition, schema_id, table_id) = with_table(&[DeprecatedColumnDefinition::new("col", SqlType::bool())]);
-        let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
+        let database = InMemoryDatabase::new();
+        database.execute(create_schema_ops(SCHEMA)).unwrap();
+        database
+            .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
+            .unwrap();
+        let analyzer = Analyzer::new(database);
 
         assert_eq!(
             analyzer.analyze(select_value_as_expression_with_operation(
@@ -189,7 +220,7 @@ mod multiple_values {
                 sql_ast::Expr::Value(number(1))
             )),
             Ok(QueryAnalysis::Read(SelectQuery {
-                full_table_id: FullTableId::from((schema_id, table_id)),
+                full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 projection_items: vec![DynamicEvaluationTree::Operation {
                     left: Box::new(DynamicEvaluationTree::Item(DynamicItem::Const(ScalarValue::String(
                         "1".to_owned()
@@ -205,8 +236,12 @@ mod multiple_values {
 
     #[test]
     fn logical() {
-        let (data_definition, schema_id, table_id) = with_table(&[DeprecatedColumnDefinition::new("col", SqlType::bool())]);
-        let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
+        let database = InMemoryDatabase::new();
+        database.execute(create_schema_ops(SCHEMA)).unwrap();
+        database
+            .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
+            .unwrap();
+        let analyzer = Analyzer::new(database);
 
         assert_eq!(
             analyzer.analyze(select_value_as_expression_with_operation(
@@ -215,11 +250,15 @@ mod multiple_values {
                 sql_ast::Expr::Value(sql_ast::Value::Boolean(true)),
             )),
             Ok(QueryAnalysis::Read(SelectQuery {
-                full_table_id: FullTableId::from((schema_id, table_id)),
+                full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 projection_items: vec![DynamicEvaluationTree::Operation {
-                    left: Box::new(DynamicEvaluationTree::Item(DynamicItem::Const(ScalarValue::Bool(Bool(true))))),
+                    left: Box::new(DynamicEvaluationTree::Item(DynamicItem::Const(ScalarValue::Bool(
+                        Bool(true)
+                    )))),
                     op: Operation::Logical(Logical::And),
-                    right: Box::new(DynamicEvaluationTree::Item(DynamicItem::Const(ScalarValue::Bool(Bool(true))))),
+                    right: Box::new(DynamicEvaluationTree::Item(DynamicItem::Const(ScalarValue::Bool(
+                        Bool(true)
+                    )))),
                 }],
             }))
         );
@@ -227,8 +266,12 @@ mod multiple_values {
 
     #[test]
     fn bitwise() {
-        let (data_definition, schema_id, table_id) = with_table(&[DeprecatedColumnDefinition::new("col", SqlType::small_int())]);
-        let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
+        let database = InMemoryDatabase::new();
+        database.execute(create_schema_ops(SCHEMA)).unwrap();
+        database
+            .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
+            .unwrap();
+        let analyzer = Analyzer::new(database);
 
         assert_eq!(
             analyzer.analyze(select_value_as_expression_with_operation(
@@ -237,7 +280,7 @@ mod multiple_values {
                 sql_ast::Expr::Value(number(1))
             )),
             Ok(QueryAnalysis::Read(SelectQuery {
-                full_table_id: FullTableId::from((schema_id, table_id)),
+                full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 projection_items: vec![DynamicEvaluationTree::Operation {
                     left: Box::new(DynamicEvaluationTree::Item(DynamicItem::Const(ScalarValue::Number(
                         BigDecimal::from(1)
@@ -253,8 +296,12 @@ mod multiple_values {
 
     #[test]
     fn pattern_matching() {
-        let (data_definition, schema_id, table_id) = with_table(&[DeprecatedColumnDefinition::new("col", SqlType::bool())]);
-        let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
+        let database = InMemoryDatabase::new();
+        database.execute(create_schema_ops(SCHEMA)).unwrap();
+        database
+            .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
+            .unwrap();
+        let analyzer = Analyzer::new(database);
 
         assert_eq!(
             analyzer.analyze(select_value_as_expression_with_operation(
@@ -263,7 +310,7 @@ mod multiple_values {
                 string("str")
             )),
             Ok(QueryAnalysis::Read(SelectQuery {
-                full_table_id: FullTableId::from((schema_id, table_id)),
+                full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 projection_items: vec![DynamicEvaluationTree::Operation {
                     left: Box::new(DynamicEvaluationTree::Item(DynamicItem::Const(ScalarValue::String(
                         "s".to_owned()

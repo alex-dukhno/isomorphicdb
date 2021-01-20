@@ -32,16 +32,16 @@ fn insert_number() {
     database
         .execute(create_table(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
         .unwrap();
-    let analyzer = Analyzer::new(Arc::new(DatabaseHandle::in_memory()), database);
+    let analyzer = Analyzer::new(database);
 
     assert_eq!(
         analyzer.analyze(insert_with_values(vec![SCHEMA, TABLE], vec![vec![small_int(1)]])),
         Ok(QueryAnalysis::Write(Write::Insert(InsertQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             column_types: vec![SqlType::small_int()],
-            values: vec![vec![StaticEvaluationTree::Item(StaticItem::Const(ScalarValue::Number(
-                BigDecimal::from(1)
-            )))]],
+            values: vec![vec![StaticEvaluationTree::Item(StaticItem::Const(
+                ScalarValue::Number(BigDecimal::from(1))
+            ))]],
         })))
     );
 }
@@ -53,16 +53,16 @@ fn insert_string() {
     database
         .execute(create_table(SCHEMA, TABLE, vec![("col", SqlType::char(5))]))
         .unwrap();
-    let analyzer = Analyzer::new(Arc::new(DatabaseHandle::in_memory()), database);
+    let analyzer = Analyzer::new(database);
 
     assert_eq!(
         analyzer.analyze(insert_with_values(vec![SCHEMA, TABLE], vec![vec![string("str")]])),
         Ok(QueryAnalysis::Write(Write::Insert(InsertQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             column_types: vec![SqlType::char(5)],
-            values: vec![vec![StaticEvaluationTree::Item(StaticItem::Const(ScalarValue::String(
-                "str".to_owned()
-            )))]],
+            values: vec![vec![StaticEvaluationTree::Item(StaticItem::Const(
+                ScalarValue::String("str".to_owned())
+            ))]],
         })))
     );
 }
@@ -74,16 +74,16 @@ fn insert_boolean() {
     database
         .execute(create_table(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
         .unwrap();
-    let analyzer = Analyzer::new(Arc::new(DatabaseHandle::in_memory()), database);
+    let analyzer = Analyzer::new(database);
 
     assert_eq!(
         analyzer.analyze(insert_with_values(vec![SCHEMA, TABLE], vec![vec![boolean(true)]])),
         Ok(QueryAnalysis::Write(Write::Insert(InsertQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             column_types: vec![SqlType::bool()],
-            values: vec![vec![StaticEvaluationTree::Item(StaticItem::Const(ScalarValue::Bool(Bool(
-                true
-            ))))]],
+            values: vec![vec![StaticEvaluationTree::Item(StaticItem::Const(ScalarValue::Bool(
+                Bool(true)
+            )))]],
         })))
     );
 }
@@ -95,7 +95,7 @@ fn insert_null() {
     database
         .execute(create_table(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
         .unwrap();
-    let analyzer = Analyzer::new(Arc::new(DatabaseHandle::in_memory()), database);
+    let analyzer = Analyzer::new(database);
 
     assert_eq!(
         analyzer.analyze(insert_with_values(vec![SCHEMA, TABLE], vec![vec![null()]])),
@@ -114,7 +114,7 @@ fn insert_identifier() {
     database
         .execute(create_table(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
         .unwrap();
-    let analyzer = Analyzer::new(Arc::new(DatabaseHandle::in_memory()), database);
+    let analyzer = Analyzer::new(database);
 
     assert_eq!(
         analyzer.analyze(insert_with_values(
@@ -136,7 +136,7 @@ fn insert_into_table_with_parameters() {
             vec![("col_1", SqlType::small_int()), ("col_2", SqlType::small_int())],
         ))
         .unwrap();
-    let analyzer = Analyzer::new(Arc::new(DatabaseHandle::in_memory()), database);
+    let analyzer = Analyzer::new(database);
 
     assert_eq!(
         analyzer.analyze(insert_with_parameters(vec![SCHEMA, TABLE], vec!["$1", "$2"])),
@@ -162,7 +162,7 @@ fn insert_into_table_with_parameters_and_values() {
             vec![("col_1", SqlType::small_int()), ("col_2", SqlType::small_int())],
         ))
         .unwrap();
-    let analyzer = Analyzer::new(Arc::new(DatabaseHandle::in_memory()), database);
+    let analyzer = Analyzer::new(database);
 
     assert_eq!(
         analyzer.analyze(insert_with_values(
@@ -209,7 +209,7 @@ mod multiple_values {
         database
             .execute(create_table(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
             .unwrap();
-        let analyzer = Analyzer::new(Arc::new(DatabaseHandle::in_memory()), database);
+        let analyzer = Analyzer::new(database);
 
         assert_eq!(
             analyzer.analyze(insert_value_as_expression_with_operation(
@@ -240,7 +240,7 @@ mod multiple_values {
         database
             .execute(create_table(SCHEMA, TABLE, vec![("col", SqlType::var_char(255))]))
             .unwrap();
-        let analyzer = Analyzer::new(Arc::new(DatabaseHandle::in_memory()), database);
+        let analyzer = Analyzer::new(database);
 
         assert_eq!(
             analyzer.analyze(insert_value_as_expression_with_operation(
@@ -271,7 +271,7 @@ mod multiple_values {
         database
             .execute(create_table(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
             .unwrap();
-        let analyzer = Analyzer::new(Arc::new(DatabaseHandle::in_memory()), database);
+        let analyzer = Analyzer::new(database);
 
         assert_eq!(
             analyzer.analyze(insert_value_as_expression_with_operation(
@@ -302,7 +302,7 @@ mod multiple_values {
         database
             .execute(create_table(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
             .unwrap();
-        let analyzer = Analyzer::new(Arc::new(DatabaseHandle::in_memory()), database);
+        let analyzer = Analyzer::new(database);
 
         assert_eq!(
             analyzer.analyze(insert_value_as_expression_with_operation(
@@ -314,9 +314,13 @@ mod multiple_values {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 column_types: vec![SqlType::bool()],
                 values: vec![vec![StaticEvaluationTree::Operation {
-                    left: Box::new(StaticEvaluationTree::Item(StaticItem::Const(ScalarValue::Bool(Bool(true))))),
+                    left: Box::new(StaticEvaluationTree::Item(StaticItem::Const(ScalarValue::Bool(Bool(
+                        true
+                    ))))),
                     op: Operation::Logical(Logical::And),
-                    right: Box::new(StaticEvaluationTree::Item(StaticItem::Const(ScalarValue::Bool(Bool(true))))),
+                    right: Box::new(StaticEvaluationTree::Item(StaticItem::Const(ScalarValue::Bool(Bool(
+                        true
+                    ))))),
                 }]],
             })))
         );
@@ -329,7 +333,7 @@ mod multiple_values {
         database
             .execute(create_table(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
             .unwrap();
-        let analyzer = Analyzer::new(Arc::new(DatabaseHandle::in_memory()), database);
+        let analyzer = Analyzer::new(database);
 
         assert_eq!(
             analyzer.analyze(insert_value_as_expression_with_operation(
@@ -360,7 +364,7 @@ mod multiple_values {
         database
             .execute(create_table(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
             .unwrap();
-        let analyzer = Analyzer::new(Arc::new(DatabaseHandle::in_memory()), database);
+        let analyzer = Analyzer::new(database);
 
         assert_eq!(
             analyzer.analyze(insert_value_as_expression_with_operation(
@@ -396,7 +400,7 @@ mod not_supported_values {
         database
             .execute(create_table(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
             .unwrap();
-        let analyzer = Analyzer::new(Arc::new(DatabaseHandle::in_memory()), database);
+        let analyzer = Analyzer::new(database);
 
         assert_eq!(
             analyzer.analyze(insert_with_values(
@@ -416,7 +420,7 @@ mod not_supported_values {
         database
             .execute(create_table(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
             .unwrap();
-        let analyzer = Analyzer::new(Arc::new(DatabaseHandle::in_memory()), database);
+        let analyzer = Analyzer::new(database);
 
         assert_eq!(
             analyzer.analyze(insert_with_values(
@@ -436,7 +440,7 @@ mod not_supported_values {
         database
             .execute(create_table(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
             .unwrap();
-        let analyzer = Analyzer::new(Arc::new(DatabaseHandle::in_memory()), database);
+        let analyzer = Analyzer::new(database);
 
         assert_eq!(
             analyzer.analyze(insert_with_values(

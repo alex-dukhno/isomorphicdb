@@ -19,7 +19,7 @@ use catalog::{CatalogDefinition, Database};
 use connection::Sender;
 use data_manager::{DataDefReader, DatabaseHandle};
 use definition_operations::{ExecutionError, ExecutionOutcome};
-use description::{Description, DescriptionError};
+use description::{DeprecatedDescription, DeprecatedDescriptionError};
 use itertools::izip;
 use pg_model::{
     results::{QueryError, QueryEvent},
@@ -66,7 +66,7 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
             data_manager: data_manager.clone(),
             param_binder: ParamBinder,
             old_query_analyzer: OldAnalyzer::new(data_manager.clone()),
-            query_analyzer: Analyzer::new(data_manager.clone(), database),
+            query_analyzer: Analyzer::new(database),
             system_planner: SystemSchemaPlanner::new(),
             schema_executor: SystemSchemaExecutor::new(data_manager.clone()),
             query_planner: QueryPlanner::new(data_manager.clone()),
@@ -439,7 +439,7 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                     Ok(())
                 }
                 DeprecatedPlan::Insert(_insert_table) => match self.old_query_analyzer.describe(&statement) {
-                    Ok(Description::Insert(insert_statement)) => {
+                    Ok(DeprecatedDescription::Insert(insert_statement)) => {
                         let mut new_param_types = vec![];
                         for index in 0..insert_statement.param_count {
                             let param_type = match param_types.get(index) {
@@ -460,16 +460,16 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                         self.session.set_prepared_statement(statement_name, statement);
                         Ok(())
                     }
-                    Err(DescriptionError::TableDoesNotExist(table_name)) => {
+                    Err(DeprecatedDescriptionError::TableDoesNotExist(table_name)) => {
                         Err(QueryError::table_does_not_exist(table_name))
                     }
-                    Err(DescriptionError::SchemaDoesNotExist(schema_name)) => {
+                    Err(DeprecatedDescriptionError::SchemaDoesNotExist(schema_name)) => {
                         Err(QueryError::table_does_not_exist(schema_name))
                     }
                     _ => unreachable!("this should not be reached during insertions"),
                 },
                 DeprecatedPlan::Update(_update_table) => match self.old_query_analyzer.describe(&statement) {
-                    Ok(Description::Update(update_statement)) => {
+                    Ok(DeprecatedDescription::Update(update_statement)) => {
                         let mut new_param_types = vec![];
                         for index in 0..update_statement.param_count {
                             let param_type = match param_types.get(index) {
@@ -490,10 +490,10 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                         self.session.set_prepared_statement(statement_name, statement);
                         Ok(())
                     }
-                    Err(DescriptionError::TableDoesNotExist(table_name)) => {
+                    Err(DeprecatedDescriptionError::TableDoesNotExist(table_name)) => {
                         Err(QueryError::table_does_not_exist(table_name))
                     }
-                    Err(DescriptionError::SchemaDoesNotExist(schema_name)) => {
+                    Err(DeprecatedDescriptionError::SchemaDoesNotExist(schema_name)) => {
                         Err(QueryError::table_does_not_exist(schema_name))
                     }
                     _ => unreachable!("this should not be reached during updates"),

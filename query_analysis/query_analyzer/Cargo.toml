@@ -14,9 +14,6 @@ definition = { path = "../../entities/definition" }
 types = { path = "../../entities/types" }
 sql_ast = { path = "../../query_parsing/sql-ast" }
 
-# deprecated module
-data_manager = { path = "../../deprecated/catalog_deprecated/data_manager" }
-
 bigdecimal = { version = "0.2.0", features = ["string-only"] }
 
 [dev-dependencies]

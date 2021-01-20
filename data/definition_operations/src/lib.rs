@@ -60,13 +60,9 @@ pub enum Step {
         name: String,
     },
     RemoveRecord {
-        system_schema: String,
-        system_table: String,
         record: Record,
     },
     CreateRecord {
-        system_schema: String,
-        system_table: String,
         record: Record,
     },
 }
@@ -86,16 +82,13 @@ pub enum ObjectState {
 #[derive(Debug, PartialEq, Clone)]
 pub enum Record {
     Schema {
-        catalog_name: String,
         schema_name: String,
     },
     Table {
-        catalog_name: String,
         schema_name: String,
         table_name: String,
     },
     Column {
-        catalog_name: String,
         schema_name: String,
         table_name: String,
         column_name: String,

@@ -9,9 +9,6 @@ publish = false
 analysis_tree = { path = "../../annotated_tree" }
 definition_operations = { path = "../definition_operations" }
 
-# deprecated module
-data_manager = { path = "../../deprecated/catalog_deprecated/data_manager" }
-
 [dev-dependencies]
 definition = { path = "../../entities/definition" }
 types = { path = "../../entities/types" }

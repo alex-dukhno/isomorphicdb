@@ -54,7 +54,9 @@ fn update_table_under_non_existing_schema() {
 
     assert_eq!(
         description,
-        Err(DescriptionError::schema_does_not_exist(&"non_existent_schema"))
+        Err(DeprecatedDescriptionError::schema_does_not_exist(
+            &"non_existent_schema"
+        ))
     )
 }
 
@@ -67,7 +69,7 @@ fn update_non_existing_table() {
 
     assert_eq!(
         description,
-        Err(DescriptionError::table_does_not_exist(&format!(
+        Err(DeprecatedDescriptionError::table_does_not_exist(&format!(
             "{}.{}",
             SCHEMA, "non_existent"
         )))
@@ -84,8 +86,8 @@ fn update_table_with_non_existing_columns() {
 
     assert_eq!(
         description,
-        Ok(Description::Update(UpdateStatement {
-            table_id: FullTableId::from((schema_id, table_id)),
+        Ok(DeprecatedDescription::Update(DeprecatedUpdateStatement {
+            table_id: DeprecatedFullTableId::from((schema_id, table_id)),
             param_count: 0,
             param_types: ParamTypes::new(),
         }))
@@ -97,15 +99,19 @@ fn update_table_with_specified_columns() {
     let metadata = Arc::new(DatabaseHandle::in_memory());
     let schema_id = metadata.create_schema(SCHEMA).expect("schema created");
     let table_id = metadata
-        .create_table(schema_id, TABLE, &[DeprecatedColumnDefinition::new("col", SqlType::small_int())])
+        .create_table(
+            schema_id,
+            TABLE,
+            &[DeprecatedColumnDefinition::new("col", SqlType::small_int())],
+        )
         .expect("table created");
     let analyzer = Analyzer::new(metadata);
     let description = analyzer.describe(&update_stmt(SCHEMA, TABLE));
 
     assert_eq!(
         description,
-        Ok(Description::Update(UpdateStatement {
-            table_id: FullTableId::from((schema_id, table_id)),
+        Ok(DeprecatedDescription::Update(DeprecatedUpdateStatement {
+            table_id: DeprecatedFullTableId::from((schema_id, table_id)),
             param_count: 0,
             param_types: ParamTypes::new(),
         }))
@@ -134,8 +140,8 @@ fn update_table_with_parameters() {
 
     assert_eq!(
         description,
-        Ok(Description::Update(UpdateStatement {
-            table_id: FullTableId::from((schema_id, table_id)),
+        Ok(DeprecatedDescription::Update(DeprecatedUpdateStatement {
+            table_id: DeprecatedFullTableId::from((schema_id, table_id)),
             param_count: 2,
             param_types,
         }))

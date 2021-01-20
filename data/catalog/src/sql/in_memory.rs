@@ -17,7 +17,7 @@ use crate::{
     COLUMNS_TABLE, DEFINITION_SCHEMA, SCHEMATA_TABLE, TABLES_TABLE,
 };
 use binary::Binary;
-use definition::{ColumnDef, FullTableName, TableDef};
+use definition::{ColumnDef, FullTableName, SchemaName, TableDef};
 use definition_operations::{
     ExecutionError, ExecutionOutcome, Kind, ObjectState, Record, Step, SystemObject, SystemOperation,
 };
@@ -40,10 +40,7 @@ fn create_public_schema() -> SystemOperation {
                 name: "public".to_owned(),
             },
             Step::CreateRecord {
-                system_schema: DEFINITION_SCHEMA.to_owned(),
-                system_table: SCHEMATA_TABLE.to_owned(),
                 record: Record::Schema {
-                    catalog_name: "".to_owned(),
                     schema_name: "public".to_owned(),
                 },
             },
@@ -135,6 +132,10 @@ impl CatalogDefinition for InMemoryDatabase {
         }
         let column_info = self.table_columns(full_table_name);
         Some(Some(TableDef::new(full_table_name, column_info)))
+    }
+
+    fn schema_exists(&self, schema_name: &SchemaName) -> bool {
+        self.schema_exists(schema_name.as_ref())
     }
 }
 
@@ -251,15 +252,8 @@ impl Database for InMemoryDatabase {
                         self.catalog.work_with(folder_name, |schema| schema.create_table(name));
                     }
                     Step::RemoveFile { .. } => {}
-                    Step::RemoveRecord {
-                        system_schema: _system_schema,
-                        system_table: _system_table,
-                        record,
-                    } => match record {
-                        Record::Schema {
-                            catalog_name: _catalog_name,
-                            schema_name,
-                        } => {
+                    Step::RemoveRecord { record } => match record {
+                        Record::Schema { schema_name } => {
                             let full_schema_name = Binary::pack(&[CATALOG, Datum::from_str(&schema_name)]);
                             self.catalog.work_with(DEFINITION_SCHEMA, |schema| {
                                 schema.work_with(SCHEMATA_TABLE, |table| {
@@ -279,7 +273,6 @@ impl Database for InMemoryDatabase {
                             });
                         }
                         Record::Table {
-                            catalog_name: _catalog_name,
                             schema_name,
                             table_name,
                         } => {
@@ -311,15 +304,8 @@ impl Database for InMemoryDatabase {
                         }
                         Record::Column { .. } => unimplemented!(),
                     },
-                    Step::CreateRecord {
-                        system_schema: _system_schema,
-                        system_table: _system_table,
-                        record,
-                    } => match record {
-                        Record::Schema {
-                            catalog_name: _catalog_name,
-                            schema_name,
-                        } => {
+                    Step::CreateRecord { record } => match record {
+                        Record::Schema { schema_name } => {
                             self.catalog.work_with(DEFINITION_SCHEMA, |schema| {
                                 schema.work_with(SCHEMATA_TABLE, |table| {
                                     table.insert(vec![Binary::pack(&[CATALOG, Datum::from_str(&schema_name)])])
@@ -328,7 +314,6 @@ impl Database for InMemoryDatabase {
                             return Ok(ExecutionOutcome::SchemaCreated);
                         }
                         Record::Table {
-                            catalog_name: _catalog_name,
                             schema_name,
                             table_name,
                         } => {
@@ -350,7 +335,6 @@ impl Database for InMemoryDatabase {
                             });
                         }
                         Record::Column {
-                            catalog_name: _catalog_name,
                             schema_name,
                             table_name,
                             column_name,
@@ -408,7 +392,6 @@ mod test {
     use super::*;
     use types::SqlType;
 
-    const DEFAULT_CATALOG: &str = "public";
     const SCHEMA: &str = "schema_name";
     const OTHER_SCHEMA: &str = "other_schema_name";
     const TABLE: &str = "table_name";
@@ -439,10 +422,7 @@ mod test {
                     name: schema_name.to_owned(),
                 },
                 Step::CreateRecord {
-                    system_schema: DEFINITION_SCHEMA.to_owned(),
-                    system_table: SCHEMATA_TABLE.to_owned(),
                     record: Record::Schema {
-                        catalog_name: DEFAULT_CATALOG.to_owned(),
                         schema_name: schema_name.to_owned(),
                     },
                 },
@@ -478,10 +458,7 @@ mod test {
                 object_name: vec![schema_name.to_owned()],
             },
             Step::RemoveRecord {
-                system_schema: DEFINITION_SCHEMA.to_owned(),
-                system_table: SCHEMATA_TABLE.to_owned(),
                 record: Record::Schema {
-                    catalog_name: DEFAULT_CATALOG.to_owned(),
                     schema_name: schema_name.to_owned(),
                 },
             },
@@ -517,19 +494,13 @@ mod test {
                     name: table_name.to_owned(),
                 },
                 Step::CreateRecord {
-                    system_schema: DEFINITION_SCHEMA.to_owned(),
-                    system_table: TABLES_TABLE.to_owned(),
                     record: Record::Table {
-                        catalog_name: DEFAULT_CATALOG.to_owned(),
                         schema_name: schema_name.to_owned(),
                         table_name: table_name.to_owned(),
                     },
                 },
                 Step::CreateRecord {
-                    system_schema: DEFINITION_SCHEMA.to_owned(),
-                    system_table: COLUMNS_TABLE.to_owned(),
                     record: Record::Column {
-                        catalog_name: DEFAULT_CATALOG.to_owned(),
                         schema_name: schema_name.to_owned(),
                         table_name: table_name.to_owned(),
                         column_name: "col_1".to_owned(),
@@ -537,10 +508,7 @@ mod test {
                     },
                 },
                 Step::CreateRecord {
-                    system_schema: DEFINITION_SCHEMA.to_owned(),
-                    system_table: COLUMNS_TABLE.to_owned(),
                     record: Record::Column {
-                        catalog_name: DEFAULT_CATALOG.to_owned(),
                         schema_name: schema_name.to_owned(),
                         table_name: table_name.to_owned(),
                         column_name: "col_2".to_owned(),
@@ -590,10 +558,7 @@ mod test {
                 table_name: table_name.to_owned(),
             },
             Step::RemoveRecord {
-                system_schema: DEFINITION_SCHEMA.to_owned(),
-                system_table: TABLES_TABLE.to_owned(),
                 record: Record::Table {
-                    catalog_name: DEFAULT_CATALOG.to_owned(),
                     schema_name: schema_name.to_owned(),
                     table_name: table_name.to_owned(),
                 },

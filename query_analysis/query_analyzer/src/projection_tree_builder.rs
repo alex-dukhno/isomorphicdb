@@ -15,8 +15,8 @@
 use crate::{operation_mapper::OperationMapper, parse_param_index};
 use analysis_tree::{AnalysisError, AnalysisResult, Feature, DynamicEvaluationTree};
 use expr_operators::{Bool, DynamicItem, ScalarValue};
-use meta_def::DeprecatedColumnDefinition;
 use types::SqlType;
+use definition::ColumnDef;
 
 pub(crate) struct ProjectionTreeBuilder;
 
@@ -25,7 +25,7 @@ impl ProjectionTreeBuilder {
         root_expr: &sql_ast::Expr,
         original: &sql_ast::Statement,
         column_type: &SqlType,
-        table_columns: &[DeprecatedColumnDefinition],
+        table_columns: &[ColumnDef],
     ) -> AnalysisResult<DynamicEvaluationTree> {
         Self::inner_build(root_expr, original, column_type, 0, table_columns)
     }
@@ -35,7 +35,7 @@ impl ProjectionTreeBuilder {
         original: &sql_ast::Statement,
         column_type: &SqlType,
         level: usize,
-        table_columns: &[DeprecatedColumnDefinition],
+        table_columns: &[ColumnDef],
     ) -> AnalysisResult<DynamicEvaluationTree> {
         match root_expr {
             sql_ast::Expr::Value(value) => Self::value(value),
@@ -57,7 +57,7 @@ impl ProjectionTreeBuilder {
         original: &sql_ast::Statement,
         column_type: &SqlType,
         level: usize,
-        table_columns: &[DeprecatedColumnDefinition],
+        table_columns: &[ColumnDef],
     ) -> AnalysisResult<DynamicEvaluationTree> {
         let operation = OperationMapper::binary_operation(op);
         let left_item = Self::inner_build(left, original, column_type, level + 1, table_columns)?;
@@ -69,7 +69,7 @@ impl ProjectionTreeBuilder {
         })
     }
 
-    fn ident(ident: &sql_ast::Ident, table_columns: &[DeprecatedColumnDefinition]) -> AnalysisResult<DynamicEvaluationTree> {
+    fn ident(ident: &sql_ast::Ident, table_columns: &[ColumnDef]) -> AnalysisResult<DynamicEvaluationTree> {
         let sql_ast::Ident { value, .. } = ident;
         match parse_param_index(value.as_str()) {
             Some(index) => Ok(DynamicEvaluationTree::Item(DynamicItem::Param(index))),
@@ -89,9 +89,7 @@ impl ProjectionTreeBuilder {
 
     fn value(value: &sql_ast::Value) -> AnalysisResult<DynamicEvaluationTree> {
         match value {
-            sql_ast::Value::Number(num) => Ok(DynamicEvaluationTree::Item(DynamicItem::Const(ScalarValue::Number(
-                num.clone(),
-            )))),
+            sql_ast::Value::Number(num) => Ok(DynamicEvaluationTree::Item(DynamicItem::Const(ScalarValue::Number(num.clone())))),
             sql_ast::Value::SingleQuotedString(string) => Ok(DynamicEvaluationTree::Item(DynamicItem::Const(
                 ScalarValue::String(string.clone()),
             ))),
@@ -99,9 +97,7 @@ impl ProjectionTreeBuilder {
                 Err(AnalysisError::feature_not_supported(Feature::NationalStringLiteral))
             }
             sql_ast::Value::HexStringLiteral(_) => Err(AnalysisError::feature_not_supported(Feature::HexStringLiteral)),
-            sql_ast::Value::Boolean(boolean) => Ok(DynamicEvaluationTree::Item(DynamicItem::Const(ScalarValue::Bool(Bool(
-                *boolean,
-            ))))),
+            sql_ast::Value::Boolean(boolean) => Ok(DynamicEvaluationTree::Item(DynamicItem::Const(ScalarValue::Bool(Bool(*boolean))))),
             sql_ast::Value::Interval { .. } => Err(AnalysisError::feature_not_supported(Feature::TimeInterval)),
             sql_ast::Value::Null => Ok(DynamicEvaluationTree::Item(DynamicItem::Const(ScalarValue::Null))),
         }

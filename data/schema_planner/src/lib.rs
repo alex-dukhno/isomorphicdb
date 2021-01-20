@@ -15,7 +15,6 @@
 use analysis_tree::{
     ColumnInfo, CreateSchemaQuery, CreateTableQuery, DropSchemasQuery, DropTablesQuery, SchemaChange, TableInfo,
 };
-use data_manager::{COLUMNS_TABLE, DEFAULT_CATALOG, DEFINITION_SCHEMA, SCHEMATA_TABLE, TABLES_TABLE};
 use definition_operations::{Kind, ObjectState, Record, Step, SystemObject, SystemOperation};
 
 pub struct SystemSchemaPlanner;
@@ -40,10 +39,7 @@ impl SystemSchemaPlanner {
                     name: schema_name.as_ref().to_string(),
                 });
                 steps.push(Step::CreateRecord {
-                    system_schema: DEFINITION_SCHEMA.to_owned(),
-                    system_table: SCHEMATA_TABLE.to_owned(),
                     record: Record::Schema {
-                        catalog_name: DEFAULT_CATALOG.to_owned(),
                         schema_name: schema_name.as_ref().to_string(),
                     },
                 });
@@ -81,10 +77,7 @@ impl SystemSchemaPlanner {
                         });
                     }
                     for_schema.push(Step::RemoveRecord {
-                        system_schema: DEFINITION_SCHEMA.to_owned(),
-                        system_table: SCHEMATA_TABLE.to_owned(),
                         record: Record::Schema {
-                            catalog_name: DEFAULT_CATALOG.to_owned(),
                             schema_name: schema_name.as_ref().to_string(),
                         },
                     });
@@ -102,7 +95,6 @@ impl SystemSchemaPlanner {
             SchemaChange::CreateTable(CreateTableQuery {
                 table_info:
                     TableInfo {
-                        schema_id: _schema_id,
                         schema_name,
                         table_name,
                     },
@@ -123,20 +115,14 @@ impl SystemSchemaPlanner {
                     name: table_name.clone(),
                 });
                 steps.push(Step::CreateRecord {
-                    system_schema: DEFINITION_SCHEMA.to_owned(),
-                    system_table: TABLES_TABLE.to_owned(),
                     record: Record::Table {
-                        catalog_name: DEFAULT_CATALOG.to_owned(),
                         schema_name: schema_name.clone(),
                         table_name: table_name.clone(),
                     },
                 });
                 for ColumnInfo { name, sql_type } in column_defs {
                     steps.push(Step::CreateRecord {
-                        system_schema: DEFINITION_SCHEMA.to_owned(),
-                        system_table: COLUMNS_TABLE.to_owned(),
                         record: Record::Column {
-                            catalog_name: DEFAULT_CATALOG.to_owned(),
                             schema_name: schema_name.clone(),
                             table_name: table_name.clone(),
                             column_name: name.clone(),
@@ -159,7 +145,6 @@ impl SystemSchemaPlanner {
             }) => {
                 let mut steps = vec![];
                 for TableInfo {
-                    schema_id: _schema_id,
                     schema_name,
                     table_name,
                 } in table_infos
@@ -178,10 +163,7 @@ impl SystemSchemaPlanner {
                         table_name: table_name.to_owned(),
                     });
                     for_table.push(Step::RemoveRecord {
-                        system_schema: DEFINITION_SCHEMA.to_owned(),
-                        system_table: TABLES_TABLE.to_owned(),
                         record: Record::Table {
-                            catalog_name: DEFAULT_CATALOG.to_owned(),
                             schema_name: schema_name.clone(),
                             table_name: table_name.clone(),
                         },
@@ -238,10 +220,7 @@ mod tests {
                             name: SCHEMA.to_owned()
                         },
                         Step::CreateRecord {
-                            system_schema: DEFINITION_SCHEMA.to_owned(),
-                            system_table: SCHEMATA_TABLE.to_owned(),
                             record: Record::Schema {
-                                catalog_name: DEFAULT_CATALOG.to_owned(),
                                 schema_name: SCHEMA.to_owned()
                             }
                         }
@@ -269,10 +248,7 @@ mod tests {
                             name: SCHEMA.to_owned()
                         },
                         Step::CreateRecord {
-                            system_schema: DEFINITION_SCHEMA.to_owned(),
-                            system_table: SCHEMATA_TABLE.to_owned(),
                             record: Record::Schema {
-                                catalog_name: DEFAULT_CATALOG.to_owned(),
                                 schema_name: SCHEMA.to_owned()
                             }
                         }
@@ -302,10 +278,7 @@ mod tests {
                             object_name: vec![SCHEMA.to_owned()],
                         },
                         Step::RemoveRecord {
-                            system_schema: DEFINITION_SCHEMA.to_owned(),
-                            system_table: SCHEMATA_TABLE.to_owned(),
                             record: Record::Schema {
-                                catalog_name: DEFAULT_CATALOG.to_owned(),
                                 schema_name: SCHEMA.to_owned()
                             }
                         },
@@ -339,10 +312,7 @@ mod tests {
                                 object_name: vec![SCHEMA.to_owned()],
                             },
                             Step::RemoveRecord {
-                                system_schema: DEFINITION_SCHEMA.to_owned(),
-                                system_table: SCHEMATA_TABLE.to_owned(),
                                 record: Record::Schema {
-                                    catalog_name: DEFAULT_CATALOG.to_owned(),
                                     schema_name: SCHEMA.to_owned()
                                 }
                             },
@@ -360,10 +330,7 @@ mod tests {
                                 object_name: vec![OTHER_SCHEMA.to_owned()]
                             },
                             Step::RemoveRecord {
-                                system_schema: DEFINITION_SCHEMA.to_owned(),
-                                system_table: SCHEMATA_TABLE.to_owned(),
                                 record: Record::Schema {
-                                    catalog_name: DEFAULT_CATALOG.to_owned(),
                                     schema_name: OTHER_SCHEMA.to_owned()
                                 }
                             },
@@ -398,10 +365,7 @@ mod tests {
                                 object_name: vec![SCHEMA.to_owned()]
                             },
                             Step::RemoveRecord {
-                                system_schema: DEFINITION_SCHEMA.to_owned(),
-                                system_table: SCHEMATA_TABLE.to_owned(),
                                 record: Record::Schema {
-                                    catalog_name: DEFAULT_CATALOG.to_owned(),
                                     schema_name: SCHEMA.to_owned()
                                 }
                             },
@@ -419,10 +383,7 @@ mod tests {
                                 object_name: vec![OTHER_SCHEMA.to_owned()],
                             },
                             Step::RemoveRecord {
-                                system_schema: DEFINITION_SCHEMA.to_owned(),
-                                system_table: SCHEMATA_TABLE.to_owned(),
                                 record: Record::Schema {
-                                    catalog_name: DEFAULT_CATALOG.to_owned(),
                                     schema_name: OTHER_SCHEMA.to_owned()
                                 }
                             },
@@ -457,10 +418,7 @@ mod tests {
                                 object_name: vec![SCHEMA.to_owned()],
                             },
                             Step::RemoveRecord {
-                                system_schema: DEFINITION_SCHEMA.to_owned(),
-                                system_table: SCHEMATA_TABLE.to_owned(),
                                 record: Record::Schema {
-                                    catalog_name: DEFAULT_CATALOG.to_owned(),
                                     schema_name: SCHEMA.to_owned()
                                 }
                             },
@@ -478,10 +436,7 @@ mod tests {
                                 object_name: vec![OTHER_SCHEMA.to_owned()],
                             },
                             Step::RemoveRecord {
-                                system_schema: DEFINITION_SCHEMA.to_owned(),
-                                system_table: SCHEMATA_TABLE.to_owned(),
                                 record: Record::Schema {
-                                    catalog_name: DEFAULT_CATALOG.to_owned(),
                                     schema_name: OTHER_SCHEMA.to_owned()
                                 }
                             },
@@ -503,7 +458,7 @@ mod tests {
         fn create_without_columns() {
             assert_eq!(
                 QUERY_PLANNER.schema_change_plan(&SchemaChange::CreateTable(CreateTableQuery {
-                    table_info: TableInfo::new(0, &SCHEMA, &TABLE),
+                    table_info: TableInfo::new(&SCHEMA, &TABLE),
                     column_defs: vec![],
                     if_not_exists: false,
                 })),
@@ -524,10 +479,7 @@ mod tests {
                             name: TABLE.to_owned()
                         },
                         Step::CreateRecord {
-                            system_schema: DEFINITION_SCHEMA.to_owned(),
-                            system_table: TABLES_TABLE.to_owned(),
                             record: Record::Table {
-                                catalog_name: DEFAULT_CATALOG.to_owned(),
                                 schema_name: SCHEMA.to_owned(),
                                 table_name: TABLE.to_owned(),
                             }
@@ -541,7 +493,7 @@ mod tests {
         fn create_if_not_exists() {
             assert_eq!(
                 QUERY_PLANNER.schema_change_plan(&SchemaChange::CreateTable(CreateTableQuery {
-                    table_info: TableInfo::new(0, &SCHEMA, &TABLE),
+                    table_info: TableInfo::new(&SCHEMA, &TABLE),
                     column_defs: vec![],
                     if_not_exists: true,
                 })),
@@ -562,10 +514,7 @@ mod tests {
                             name: TABLE.to_owned()
                         },
                         Step::CreateRecord {
-                            system_schema: DEFINITION_SCHEMA.to_owned(),
-                            system_table: TABLES_TABLE.to_owned(),
                             record: Record::Table {
-                                catalog_name: DEFAULT_CATALOG.to_owned(),
                                 schema_name: SCHEMA.to_owned(),
                                 table_name: TABLE.to_owned(),
                             }
@@ -579,7 +528,7 @@ mod tests {
         fn create_with_columns() {
             assert_eq!(
                 QUERY_PLANNER.schema_change_plan(&SchemaChange::CreateTable(CreateTableQuery {
-                    table_info: TableInfo::new(0, &SCHEMA, &TABLE),
+                    table_info: TableInfo::new(&SCHEMA, &TABLE),
                     column_defs: vec![
                         ColumnInfo {
                             name: "col_1".to_owned(),
@@ -609,19 +558,13 @@ mod tests {
                             name: TABLE.to_owned()
                         },
                         Step::CreateRecord {
-                            system_schema: DEFINITION_SCHEMA.to_owned(),
-                            system_table: TABLES_TABLE.to_owned(),
                             record: Record::Table {
-                                catalog_name: DEFAULT_CATALOG.to_owned(),
                                 schema_name: SCHEMA.to_owned(),
                                 table_name: TABLE.to_owned(),
                             }
                         },
                         Step::CreateRecord {
-                            system_schema: DEFINITION_SCHEMA.to_owned(),
-                            system_table: COLUMNS_TABLE.to_owned(),
                             record: Record::Column {
-                                catalog_name: DEFAULT_CATALOG.to_owned(),
                                 schema_name: SCHEMA.to_string(),
                                 table_name: TABLE.to_string(),
                                 column_name: "col_1".to_string(),
@@ -629,10 +572,7 @@ mod tests {
                             }
                         },
                         Step::CreateRecord {
-                            system_schema: DEFINITION_SCHEMA.to_owned(),
-                            system_table: COLUMNS_TABLE.to_owned(),
                             record: Record::Column {
-                                catalog_name: DEFAULT_CATALOG.to_owned(),
                                 schema_name: SCHEMA.to_string(),
                                 table_name: TABLE.to_string(),
                                 column_name: "col_2".to_string(),
@@ -648,10 +588,7 @@ mod tests {
         fn drop_many() {
             assert_eq!(
                 QUERY_PLANNER.schema_change_plan(&SchemaChange::DropTables(DropTablesQuery {
-                    table_infos: vec![
-                        TableInfo::new(0, &SCHEMA, &TABLE),
-                        TableInfo::new(0, &SCHEMA, &OTHER_TABLE)
-                    ],
+                    table_infos: vec![TableInfo::new(&SCHEMA, &TABLE), TableInfo::new(&SCHEMA, &OTHER_TABLE)],
                     cascade: false,
                     if_exists: false
                 })),
@@ -673,10 +610,7 @@ mod tests {
                                 table_name: TABLE.to_owned()
                             },
                             Step::RemoveRecord {
-                                system_schema: DEFINITION_SCHEMA.to_owned(),
-                                system_table: TABLES_TABLE.to_owned(),
                                 record: Record::Table {
-                                    catalog_name: DEFAULT_CATALOG.to_owned(),
                                     schema_name: SCHEMA.to_owned(),
                                     table_name: TABLE.to_owned(),
                                 }
@@ -700,10 +634,7 @@ mod tests {
                                 table_name: OTHER_TABLE.to_owned()
                             },
                             Step::RemoveRecord {
-                                system_schema: DEFINITION_SCHEMA.to_owned(),
-                                system_table: TABLES_TABLE.to_owned(),
                                 record: Record::Table {
-                                    catalog_name: DEFAULT_CATALOG.to_owned(),
                                     schema_name: SCHEMA.to_owned(),
                                     table_name: OTHER_TABLE.to_owned(),
                                 }
@@ -722,10 +653,7 @@ mod tests {
         fn drop_many_cascade() {
             assert_eq!(
                 QUERY_PLANNER.schema_change_plan(&SchemaChange::DropTables(DropTablesQuery {
-                    table_infos: vec![
-                        TableInfo::new(0, &SCHEMA, &TABLE),
-                        TableInfo::new(0, &SCHEMA, &OTHER_TABLE)
-                    ],
+                    table_infos: vec![TableInfo::new(&SCHEMA, &TABLE), TableInfo::new(&SCHEMA, &OTHER_TABLE)],
                     cascade: true,
                     if_exists: false
                 })),
@@ -747,10 +675,7 @@ mod tests {
                                 table_name: TABLE.to_owned()
                             },
                             Step::RemoveRecord {
-                                system_schema: DEFINITION_SCHEMA.to_owned(),
-                                system_table: TABLES_TABLE.to_owned(),
                                 record: Record::Table {
-                                    catalog_name: DEFAULT_CATALOG.to_owned(),
                                     schema_name: SCHEMA.to_owned(),
                                     table_name: TABLE.to_owned(),
                                 }
@@ -774,10 +699,7 @@ mod tests {
                                 table_name: OTHER_TABLE.to_owned()
                             },
                             Step::RemoveRecord {
-                                system_schema: DEFINITION_SCHEMA.to_owned(),
-                                system_table: TABLES_TABLE.to_owned(),
                                 record: Record::Table {
-                                    catalog_name: DEFAULT_CATALOG.to_owned(),
                                     schema_name: SCHEMA.to_owned(),
                                     table_name: OTHER_TABLE.to_owned(),
                                 }
@@ -796,10 +718,7 @@ mod tests {
         fn drop_many_if_exists() {
             assert_eq!(
                 QUERY_PLANNER.schema_change_plan(&SchemaChange::DropTables(DropTablesQuery {
-                    table_infos: vec![
-                        TableInfo::new(0, &SCHEMA, &TABLE),
-                        TableInfo::new(0, &SCHEMA, &OTHER_TABLE)
-                    ],
+                    table_infos: vec![TableInfo::new(&SCHEMA, &TABLE), TableInfo::new(&SCHEMA, &OTHER_TABLE)],
                     cascade: false,
                     if_exists: true
                 })),
@@ -821,10 +740,7 @@ mod tests {
                                 table_name: TABLE.to_owned(),
                             },
                             Step::RemoveRecord {
-                                system_schema: DEFINITION_SCHEMA.to_owned(),
-                                system_table: TABLES_TABLE.to_owned(),
                                 record: Record::Table {
-                                    catalog_name: DEFAULT_CATALOG.to_owned(),
                                     schema_name: SCHEMA.to_owned(),
                                     table_name: TABLE.to_owned(),
                                 }
@@ -848,10 +764,7 @@ mod tests {
                                 table_name: OTHER_TABLE.to_owned(),
                             },
                             Step::RemoveRecord {
-                                system_schema: DEFINITION_SCHEMA.to_owned(),
-                                system_table: TABLES_TABLE.to_owned(),
                                 record: Record::Table {
-                                    catalog_name: DEFAULT_CATALOG.to_owned(),
                                     schema_name: SCHEMA.to_owned(),
                                     table_name: OTHER_TABLE.to_owned(),
                                 }

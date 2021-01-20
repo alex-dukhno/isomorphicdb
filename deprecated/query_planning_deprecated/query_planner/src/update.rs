@@ -16,7 +16,7 @@ use crate::{PlanError, Planner, Result};
 use ast::operations::ScalarOp;
 use constraints::TypeConstraint;
 use data_manager::DataDefReader;
-use plan::{DeprecatedFullTableId, DeprecatedPlanFullTableName, DeprecatedPlan, DeprecatedTableUpdates};
+use plan::{DeprecatedFullTableId, DeprecatedPlan, DeprecatedPlanFullTableName, DeprecatedTableUpdates};
 use sql_ast::{Assignment, ObjectName};
 use std::{collections::HashSet, convert::TryFrom, sync::Arc};
 
