@@ -75,7 +75,7 @@ fn created_table_is_preserved_after_restart(persistent: (Persistent, TempDir)) {
         data_manager
             .table_columns(&(schema_id, table_id))
             .expect("to have a columns"),
-        vec![(0, ColumnDefinition::new("col_test", SqlType::Bool))]
+        vec![(0, DeprecatedColumnDefinition::new("col_test", SqlType::Bool))]
     )
 }
 

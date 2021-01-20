@@ -51,27 +51,27 @@ impl AsRef<(Id, Id)> for FullTableId {
 
 /// represents a table uniquely
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
-pub struct FullTableName((String, String));
+pub struct DeprecatedFullTableName((String, String));
 
-impl FullTableName {
+impl DeprecatedFullTableName {
     pub fn schema(&self) -> &str {
         &(self.0).0
     }
 }
 
-impl<'f> Into<(&'f str, &'f str)> for &'f FullTableName {
+impl<'f> Into<(&'f str, &'f str)> for &'f DeprecatedFullTableName {
     fn into(self) -> (&'f str, &'f str) {
         (&(self.0).0, &(self.0).1)
     }
 }
 
-impl Display for FullTableName {
+impl Display for DeprecatedFullTableName {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "{}.{}", self.0 .0, self.0 .1)
     }
 }
 
-impl TryFrom<&ObjectName> for FullTableName {
+impl TryFrom<&ObjectName> for DeprecatedFullTableName {
     type Error = TableNamingError;
 
     fn try_from(object: &ObjectName) -> Result<Self, Self::Error> {
@@ -82,7 +82,7 @@ impl TryFrom<&ObjectName> for FullTableName {
         } else {
             let table_name = object.0.last().unwrap().value.clone();
             let schema_name = object.0.first().unwrap().value.clone();
-            Ok(FullTableName((schema_name.to_lowercase(), table_name.to_lowercase())))
+            Ok(DeprecatedFullTableName((schema_name.to_lowercase(), table_name.to_lowercase())))
         }
     }
 }

@@ -16,7 +16,7 @@ use crate::{PlanError, Planner, Result};
 use ast::operations::ScalarOp;
 use constraints::TypeConstraint;
 use data_manager::DataDefReader;
-use plan::{FullTableId, FullTableName, Plan, TableInserts};
+use plan::{DeprecatedFullTableId, DeprecatedPlanFullTableName, DeprecatedPlan, DeprecatedTableInserts};
 use sql_ast::{Ident, ObjectName, Query, SetExpr};
 use std::{collections::HashSet, convert::TryFrom, sync::Arc};
 
@@ -37,8 +37,8 @@ impl<'ip> InsertPlanner<'ip> {
 }
 
 impl Planner for InsertPlanner<'_> {
-    fn plan(self, metadata: Arc<dyn DataDefReader>) -> Result<Plan> {
-        match FullTableName::try_from(self.table_name) {
+    fn plan(self, metadata: Arc<dyn DataDefReader>) -> Result<DeprecatedPlan> {
+        match DeprecatedPlanFullTableName::try_from(self.table_name) {
             Ok(full_table_name) => {
                 let (schema_name, table_name) = full_table_name.as_tuple();
                 match metadata.table_exists(&schema_name, &table_name) {
@@ -48,7 +48,7 @@ impl Planner for InsertPlanner<'_> {
                         let Query { body, .. } = &self.source;
                         match body {
                             SetExpr::Values(values) => {
-                                let table_id = FullTableId::from((schema_id, table_id));
+                                let table_id = DeprecatedFullTableId::from((schema_id, table_id));
                                 let mut input = vec![];
                                 for row in values.0.iter() {
                                     let mut scalar_values = vec![];
@@ -113,7 +113,7 @@ impl Planner for InsertPlanner<'_> {
 
                                     index_cols
                                 };
-                                Ok(Plan::Insert(TableInserts {
+                                Ok(DeprecatedPlan::Insert(DeprecatedTableInserts {
                                     table_id,
                                     column_indices,
                                     input,

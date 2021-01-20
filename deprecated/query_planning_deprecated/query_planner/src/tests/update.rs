@@ -15,7 +15,7 @@
 use super::*;
 use ast::{operations::ScalarOp, values::ScalarValue};
 use constraints::TypeConstraint;
-use plan::{FullTableId, Plan, TableUpdates};
+use plan::{DeprecatedFullTableId, DeprecatedPlan, DeprecatedTableUpdates};
 use sql_ast::{Assignment, Expr, ObjectName, Statement, Value};
 use types::SqlType;
 
@@ -96,8 +96,8 @@ fn update_table(planner_with_table: QueryPlanner) {
             }],
             selection: None
         }),
-        Ok(Plan::Update(TableUpdates {
-            table_id: FullTableId::from((0, 0)),
+        Ok(DeprecatedPlan::Update(DeprecatedTableUpdates {
+            table_id: DeprecatedFullTableId::from((0, 0)),
             column_indices: vec![(
                 0,
                 "small_int".to_owned(),

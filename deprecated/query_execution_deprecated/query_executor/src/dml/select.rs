@@ -22,17 +22,17 @@ use data_manager::{DataDefReader, DatabaseHandle};
 use meta_def::Id;
 use pg_model::results::QueryEvent;
 use pg_wire::{ColumnMetadata, PgType};
-use plan::{FullTableId, SelectInput};
+use plan::{DeprecatedFullTableId, DeprecatedSelectInput};
 use std::{convert::TryInto, sync::Arc};
 
 struct Source {
-    table_id: FullTableId,
+    table_id: DeprecatedFullTableId,
     cursor: Option<ReadCursor>,
     data_manager: Arc<DatabaseHandle>,
 }
 
 impl Source {
-    fn new(table_id: FullTableId, data_manager: Arc<DatabaseHandle>) -> Source {
+    fn new(table_id: DeprecatedFullTableId, data_manager: Arc<DatabaseHandle>) -> Source {
         Source {
             table_id,
             cursor: None,
@@ -133,14 +133,14 @@ impl<'f> Iterator for Filter<'f> {
 }
 
 pub(crate) struct SelectCommand {
-    select_input: SelectInput,
+    select_input: DeprecatedSelectInput,
     data_manager: Arc<DatabaseHandle>,
     sender: Arc<dyn Sender>,
 }
 
 impl SelectCommand {
     pub(crate) fn new(
-        select_input: SelectInput,
+        select_input: DeprecatedSelectInput,
         data_manager: Arc<DatabaseHandle>,
         sender: Arc<dyn Sender>,
     ) -> SelectCommand {

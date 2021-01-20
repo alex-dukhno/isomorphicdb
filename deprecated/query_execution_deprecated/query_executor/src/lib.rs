@@ -16,7 +16,7 @@ use crate::dml::{delete::DeleteCommand, insert::InsertCommand, select::SelectCom
 use connection::Sender;
 use data_manager::DatabaseHandle;
 use pg_model::results::{QueryError, QueryEvent};
-use plan::Plan;
+use plan::DeprecatedPlan;
 use sql_ast::Statement;
 use std::sync::Arc;
 
@@ -32,21 +32,21 @@ impl QueryExecutor {
         Self { data_manager, sender }
     }
 
-    pub fn execute(&self, plan: Plan) {
+    pub fn execute(&self, plan: DeprecatedPlan) {
         match plan {
-            Plan::Insert(table_insert) => {
+            DeprecatedPlan::Insert(table_insert) => {
                 InsertCommand::new(table_insert, self.data_manager.clone(), self.sender.clone()).execute()
             }
-            Plan::Update(table_update) => {
+            DeprecatedPlan::Update(table_update) => {
                 UpdateCommand::new(table_update, self.data_manager.clone(), self.sender.clone()).execute()
             }
-            Plan::Delete(table_delete) => {
+            DeprecatedPlan::Delete(table_delete) => {
                 DeleteCommand::new(table_delete, self.data_manager.clone(), self.sender.clone()).execute()
             }
-            Plan::Select(select_input) => {
+            DeprecatedPlan::Select(select_input) => {
                 SelectCommand::new(select_input, self.data_manager.clone(), self.sender.clone()).execute()
             }
-            Plan::NotProcessed(statement) => match *statement {
+            DeprecatedPlan::NotProcessed(statement) => match *statement {
                 Statement::StartTransaction { .. } => {
                     self.sender
                         .send(Ok(QueryEvent::TransactionStarted))

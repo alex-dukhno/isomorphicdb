@@ -17,7 +17,7 @@ use ast::{
     predicates::{PredicateOp, PredicateValue},
 };
 use constraints::TypeConstraint;
-use meta_def::{ColumnDefinition, Id};
+use meta_def::{DeprecatedColumnDefinition, Id};
 use sql_ast::{ObjectName, Statement};
 use std::{
     convert::TryFrom,
@@ -33,15 +33,15 @@ pub enum QueryPlan {
 
 /// represents a schema uniquely by its id
 #[derive(PartialEq, Debug, Clone)]
-pub struct SchemaId(Id);
+pub struct DeprecatedSchemaId(Id);
 
-impl From<Id> for SchemaId {
+impl From<Id> for DeprecatedSchemaId {
     fn from(id: Id) -> Self {
-        SchemaId(id)
+        DeprecatedSchemaId(id)
     }
 }
 
-impl Deref for SchemaId {
+impl Deref for DeprecatedSchemaId {
     type Target = Id;
 
     fn deref(&self) -> &Self::Target {
@@ -49,7 +49,7 @@ impl Deref for SchemaId {
     }
 }
 
-impl AsRef<Id> for SchemaId {
+impl AsRef<Id> for DeprecatedSchemaId {
     fn as_ref(&self) -> &Id {
         &self.0
     }
@@ -57,15 +57,15 @@ impl AsRef<Id> for SchemaId {
 
 /// represents a schema uniquely by its name
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
-pub struct SchemaName(String);
+pub struct DeprecatedSchemaName(String);
 
-impl AsRef<str> for SchemaName {
+impl AsRef<str> for DeprecatedSchemaName {
     fn as_ref(&self) -> &str {
         self.0.as_str()
     }
 }
 
-impl Deref for SchemaName {
+impl Deref for DeprecatedSchemaName {
     type Target = str;
 
     fn deref(&self) -> &Self::Target {
@@ -73,27 +73,27 @@ impl Deref for SchemaName {
     }
 }
 
-impl TryFrom<&ObjectName> for SchemaName {
-    type Error = SchemaNamingError;
+impl TryFrom<&ObjectName> for DeprecatedSchemaName {
+    type Error = DeprecatedSchemaNamingError;
 
     fn try_from(object: &ObjectName) -> Result<Self, Self::Error> {
         if object.0.len() != 1 {
-            Err(SchemaNamingError(object.to_string()))
+            Err(DeprecatedSchemaNamingError(object.to_string()))
         } else {
-            Ok(SchemaName(object.to_string().to_lowercase()))
+            Ok(DeprecatedSchemaName(object.to_string().to_lowercase()))
         }
     }
 }
 
-impl Display for SchemaName {
+impl Display for DeprecatedSchemaName {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0)
     }
 }
 
-pub struct SchemaNamingError(String);
+pub struct DeprecatedSchemaNamingError(String);
 
-impl Display for SchemaNamingError {
+impl Display for DeprecatedSchemaNamingError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "only unqualified schema names are supported, '{}'", self.0)
     }
@@ -101,60 +101,60 @@ impl Display for SchemaNamingError {
 
 /// represents a table uniquely
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
-pub struct FullTableName(SchemaName, String);
+pub struct DeprecatedPlanFullTableName(DeprecatedSchemaName, String);
 
-impl FullTableName {
+impl DeprecatedPlanFullTableName {
     pub fn as_tuple(&self) -> (&str, &str) {
         (&self.0.as_ref(), &self.1)
     }
 }
 
-impl Display for FullTableName {
+impl Display for DeprecatedPlanFullTableName {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "{}.{}", self.0.as_ref(), self.1)
     }
 }
 
-impl TryFrom<&ObjectName> for FullTableName {
-    type Error = TableNamingError;
+impl TryFrom<&ObjectName> for DeprecatedPlanFullTableName {
+    type Error = DeprecatedTableNamingError;
 
     fn try_from(object: &ObjectName) -> Result<Self, Self::Error> {
         if object.0.len() == 1 {
-            Err(TableNamingError::Unqualified(object.to_string()))
+            Err(DeprecatedTableNamingError::Unqualified(object.to_string()))
         } else if object.0.len() != 2 {
-            Err(TableNamingError::NotProcessed(object.to_string()))
+            Err(DeprecatedTableNamingError::NotProcessed(object.to_string()))
         } else {
             let table_name = object.0.last().unwrap().value.clone();
             let schema_name = object.0.first().unwrap().value.clone();
-            Ok(FullTableName(
-                SchemaName(schema_name.to_lowercase()),
+            Ok(DeprecatedPlanFullTableName(
+                DeprecatedSchemaName(schema_name.to_lowercase()),
                 table_name.to_lowercase(),
             ))
         }
     }
 }
 
-pub enum TableNamingError {
+pub enum DeprecatedTableNamingError {
     Unqualified(String),
     NotProcessed(String),
 }
 
-impl Display for TableNamingError {
+impl Display for DeprecatedTableNamingError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            TableNamingError::Unqualified(table_name) => write!(
+            DeprecatedTableNamingError::Unqualified(table_name) => write!(
                 f,
                 "unsupported table name '{}'. All table names must be qualified",
                 table_name
             ),
-            TableNamingError::NotProcessed(table_name) => write!(f, "unable to process table name '{}'", table_name),
+            DeprecatedTableNamingError::NotProcessed(table_name) => write!(f, "unable to process table name '{}'", table_name),
         }
     }
 }
 
 /// A type of a column
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ColumnType {
+pub struct DeprecatedColumnType {
     #[allow(dead_code)]
     nullable: bool,
     sql_type: SqlType,
@@ -162,15 +162,15 @@ pub struct ColumnType {
 
 /// represents a table uniquely
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
-pub struct FullTableId((Id, Id));
+pub struct DeprecatedFullTableId((Id, Id));
 
-impl From<(Id, Id)> for FullTableId {
-    fn from(tuple: (Id, Id)) -> FullTableId {
-        FullTableId(tuple)
+impl From<(Id, Id)> for DeprecatedFullTableId {
+    fn from(tuple: (Id, Id)) -> DeprecatedFullTableId {
+        DeprecatedFullTableId(tuple)
     }
 }
 
-impl Deref for FullTableId {
+impl Deref for DeprecatedFullTableId {
     type Target = (Id, Id);
 
     fn deref(&self) -> &Self::Target {
@@ -179,70 +179,70 @@ impl Deref for FullTableId {
 }
 
 #[derive(PartialEq, Debug, Clone)]
-pub struct TableCreationInfo {
+pub struct DeprecatedTableCreationInfo {
     pub schema_id: Id,
     pub table_name: String,
-    pub columns: Vec<ColumnDefinition>,
+    pub columns: Vec<DeprecatedColumnDefinition>,
 }
 
-impl TableCreationInfo {
-    pub fn new<S: ToString>(schema_id: Id, table_name: S, columns: Vec<ColumnDefinition>) -> TableCreationInfo {
-        TableCreationInfo {
+impl DeprecatedTableCreationInfo {
+    pub fn new<S: ToString>(schema_id: Id, table_name: S, columns: Vec<DeprecatedColumnDefinition>) -> DeprecatedTableCreationInfo {
+        DeprecatedTableCreationInfo {
             schema_id,
             table_name: table_name.to_string(),
             columns,
         }
     }
 
-    pub fn as_tuple(&self) -> (Id, &str, &[ColumnDefinition]) {
+    pub fn as_tuple(&self) -> (Id, &str, &[DeprecatedColumnDefinition]) {
         (self.schema_id, self.table_name.as_str(), self.columns.as_slice())
     }
 }
 
 #[derive(PartialEq, Debug, Clone)]
-pub struct SchemaCreationInfo {
+pub struct DeprecatedSchemaCreationInfo {
     pub schema_name: String,
 }
 
-impl SchemaCreationInfo {
-    pub fn new<S: ToString>(schema_name: S) -> SchemaCreationInfo {
-        SchemaCreationInfo {
+impl DeprecatedSchemaCreationInfo {
+    pub fn new<S: ToString>(schema_name: S) -> DeprecatedSchemaCreationInfo {
+        DeprecatedSchemaCreationInfo {
             schema_name: schema_name.to_string(),
         }
     }
 }
 
 #[derive(PartialEq, Debug, Clone)]
-pub struct TableInserts {
-    pub table_id: FullTableId,
+pub struct DeprecatedTableInserts {
+    pub table_id: DeprecatedFullTableId,
     pub column_indices: Vec<(usize, String, SqlType, TypeConstraint)>,
     pub input: Vec<Vec<ScalarOp>>,
 }
 
 #[derive(PartialEq, Debug, Clone)]
-pub struct TableUpdates {
-    pub table_id: FullTableId,
+pub struct DeprecatedTableUpdates {
+    pub table_id: DeprecatedFullTableId,
     pub column_indices: Vec<(usize, String, SqlType, TypeConstraint)>,
     pub input: Vec<ScalarOp>,
 }
 
 #[derive(PartialEq, Debug, Clone)]
-pub struct TableDeletes {
-    pub table_id: FullTableId,
+pub struct DeprecatedTableDeletes {
+    pub table_id: DeprecatedFullTableId,
 }
 
 #[derive(PartialEq, Debug, Clone)]
-pub struct SelectInput {
-    pub table_id: FullTableId,
+pub struct DeprecatedSelectInput {
+    pub table_id: DeprecatedFullTableId,
     pub selected_columns: Vec<Id>,
     pub predicate: Option<(PredicateValue, PredicateOp, PredicateValue)>,
 }
 
 #[derive(PartialEq, Debug, Clone)]
-pub enum Plan {
-    Select(SelectInput),
-    Update(TableUpdates),
-    Delete(TableDeletes),
-    Insert(TableInserts),
+pub enum DeprecatedPlan {
+    Select(DeprecatedSelectInput),
+    Update(DeprecatedTableUpdates),
+    Delete(DeprecatedTableDeletes),
+    Insert(DeprecatedTableInserts),
     NotProcessed(Box<Statement>),
 }

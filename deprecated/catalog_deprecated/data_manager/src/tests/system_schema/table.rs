@@ -64,12 +64,12 @@ fn create_table_with_the_same_name_in_different_schemas(data_manager: InMemory) 
 
     assert_eq!(
         data_manager.table_columns(&(schema_1_id, table_1_id)),
-        Ok(vec![(0, ColumnDefinition::new("column_test", SqlType::small_int()))])
+        Ok(vec![(0, DeprecatedColumnDefinition::new("column_test", SqlType::small_int()))])
     );
 
     assert_eq!(
         data_manager.table_columns(&(schema_2_id, table_2_id)),
-        Ok(vec![(0, ColumnDefinition::new("column_test", SqlType::small_int()))])
+        Ok(vec![(0, DeprecatedColumnDefinition::new("column_test", SqlType::small_int()))])
     );
 
     Ok(())

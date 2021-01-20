@@ -56,11 +56,11 @@ fn same_table_names_with_different_columns_in_different_schemas(data_manager: In
 
     assert_eq!(
         data_manager.table_columns(&(schema_1_id, table_1_id)),
-        Ok(vec![(0, ColumnDefinition::new("sn_1_column", SqlType::small_int()))])
+        Ok(vec![(0, DeprecatedColumnDefinition::new("sn_1_column", SqlType::small_int()))])
     );
     assert_eq!(
         data_manager.table_columns(&(schema_2_id, table_2_id)),
-        Ok(vec![(0, ColumnDefinition::new("sn_2_column", SqlType::big_int()))])
+        Ok(vec![(0, DeprecatedColumnDefinition::new("sn_2_column", SqlType::big_int()))])
     );
 
     Ok(())

@@ -14,11 +14,11 @@
 
 use data_manager::DataDefReader;
 use description::{
-    ColumnDesc, Description, DescriptionError, DropSchemasInfo, DropTablesInfo, FullTableId, FullTableName,
+    ColumnDesc, Description, DescriptionError, DropSchemasInfo, DropTablesInfo, FullTableId, DeprecatedFullTableName,
     InsertStatement, ParamIndex, ParamTypes, ProjectionItem, SchemaCreationInfo, SchemaId, SchemaName, SelectStatement,
     TableCreationInfo, UpdateStatement,
 };
-use meta_def::ColumnDefinition;
+use meta_def::DeprecatedColumnDefinition;
 use sql_ast::{
     Assignment, Expr, Ident, ObjectType, Query, Select, SelectItem, SetExpr, Statement, TableFactor, TableWithJoins,
 };
@@ -41,7 +41,7 @@ impl Analyzer {
                 source,
                 table_name,
                 ..
-            } => match FullTableName::try_from(table_name) {
+            } => match DeprecatedFullTableName::try_from(table_name) {
                 Ok(full_table_name) => match self.metadata.table_desc((&full_table_name).into()) {
                     Some((schema_id, Some((table_id, table_columns)))) => {
                         let source: &Query = source;
@@ -80,7 +80,7 @@ impl Analyzer {
                         let Select { projection, from, .. } = query.deref();
                         let TableWithJoins { relation, .. } = &from[0];
                         match relation {
-                            TableFactor::Table { name, .. } => match FullTableName::try_from(name) {
+                            TableFactor::Table { name, .. } => match DeprecatedFullTableName::try_from(name) {
                                 Ok(full_table_name) => {
                                     match self.metadata.table_exists_tuple((&full_table_name).into()) {
                                         None => Err(DescriptionError::schema_does_not_exist(&full_table_name.schema())),
@@ -150,7 +150,7 @@ impl Analyzer {
                 selection,
                 table_name,
                 ..
-            } => match FullTableName::try_from(table_name) {
+            } => match DeprecatedFullTableName::try_from(table_name) {
                 Ok(full_table_name) => match self.metadata.table_desc((&full_table_name).into()) {
                     Some((schema_id, Some((table_id, table_columns)))) => {
                         let mut param_types = ParamTypes::new();
@@ -198,7 +198,7 @@ impl Analyzer {
                 },
                 Err(error) => Err(DescriptionError::syntax_error(&error)),
             },
-            Statement::CreateTable { name, columns, .. } => match FullTableName::try_from(name) {
+            Statement::CreateTable { name, columns, .. } => match DeprecatedFullTableName::try_from(name) {
                 Ok(full_table_name) => {
                     let (schema_name, table_name) = (&full_table_name).into();
                     match self.metadata.table_exists(schema_name, table_name) {
@@ -265,7 +265,7 @@ impl Analyzer {
                 ObjectType::Table => {
                     let mut full_table_ids = vec![];
                     for name in names {
-                        match FullTableName::try_from(name) {
+                        match DeprecatedFullTableName::try_from(name) {
                             Ok(full_table_name) => match self.metadata.table_exists_tuple((&full_table_name).into()) {
                                 None => return Err(DescriptionError::schema_does_not_exist(&full_table_name.schema())),
                                 Some((_, None)) => {
@@ -339,7 +339,7 @@ fn parse_param_index(value: &str) -> Option<usize> {
 
 fn parse_param_type_by_column(
     param_types: &mut ParamTypes,
-    columns: &[ColumnDefinition],
+    columns: &[DeprecatedColumnDefinition],
     param_index: ParamIndex,
     col_name: &str,
 ) -> Result<(), DescriptionError> {

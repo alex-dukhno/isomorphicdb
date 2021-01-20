@@ -19,18 +19,18 @@ use constraints::{Constraint, ConstraintError};
 use data_manager::{DataDefReader, DatabaseHandle};
 use expr_eval::{DynamicExpressionEvaluation, EvalError, StaticExpressionEvaluation};
 use pg_model::results::{QueryError, QueryEvent};
-use plan::TableUpdates;
+use plan::DeprecatedTableUpdates;
 use std::{collections::HashMap, sync::Arc};
 
 pub(crate) struct UpdateCommand {
-    table_update: TableUpdates,
+    table_update: DeprecatedTableUpdates,
     data_manager: Arc<DatabaseHandle>,
     sender: Arc<dyn Sender>,
 }
 
 impl UpdateCommand {
     pub(crate) fn new(
-        table_update: TableUpdates,
+        table_update: DeprecatedTableUpdates,
         data_manager: Arc<DatabaseHandle>,
         sender: Arc<dyn Sender>,
     ) -> UpdateCommand {

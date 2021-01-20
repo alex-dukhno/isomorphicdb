@@ -75,7 +75,7 @@ fn delete_from_table_with_unsupported_name() {
 
 #[test]
 fn delete_all_from_table() {
-    let (data_definition, schema_id, table_id) = with_table(&[ColumnDefinition::new("col1", SqlType::integer())]);
+    let (data_definition, schema_id, table_id) = with_table(&[DeprecatedColumnDefinition::new("col1", SqlType::integer())]);
     let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
     assert_eq!(
         analyzer.analyze(sql_ast::Statement::Delete {

@@ -15,18 +15,18 @@
 use connection::Sender;
 use data_manager::DatabaseHandle;
 use pg_model::results::QueryEvent;
-use plan::TableDeletes;
+use plan::DeprecatedTableDeletes;
 use std::sync::Arc;
 
 pub(crate) struct DeleteCommand {
-    table_deletes: TableDeletes,
+    table_deletes: DeprecatedTableDeletes,
     data_manager: Arc<DatabaseHandle>,
     sender: Arc<dyn Sender>,
 }
 
 impl DeleteCommand {
     pub(crate) fn new(
-        table_deletes: TableDeletes,
+        table_deletes: DeprecatedTableDeletes,
         data_manager: Arc<DatabaseHandle>,
         sender: Arc<dyn Sender>,
     ) -> DeleteCommand {

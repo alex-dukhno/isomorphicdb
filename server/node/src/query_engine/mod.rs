@@ -28,7 +28,7 @@ use pg_model::{
     Command,
 };
 use pg_wire::{PgFormat, PgType};
-use plan::{Plan, SelectInput};
+use plan::{DeprecatedPlan, DeprecatedSelectInput};
 use query_analyzer::Analyzer;
 use query_analyzer_old::Analyzer as OldAnalyzer;
 use query_executor::QueryExecutor;
@@ -428,7 +428,7 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
     ) -> Result<(), QueryError> {
         match self.query_planner.plan(&statement) {
             Ok(plan) => match plan {
-                Plan::Select(select_input) => {
+                DeprecatedPlan::Select(select_input) => {
                     let description = self.describe(select_input);
                     let statement = PreparedStatement::new(
                         statement,
@@ -438,7 +438,7 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                     self.session.set_prepared_statement(statement_name, statement);
                     Ok(())
                 }
-                Plan::Insert(_insert_table) => match self.old_query_analyzer.describe(&statement) {
+                DeprecatedPlan::Insert(_insert_table) => match self.old_query_analyzer.describe(&statement) {
                     Ok(Description::Insert(insert_statement)) => {
                         let mut new_param_types = vec![];
                         for index in 0..insert_statement.param_count {
@@ -468,7 +468,7 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                     }
                     _ => unreachable!("this should not be reached during insertions"),
                 },
-                Plan::Update(_update_table) => match self.old_query_analyzer.describe(&statement) {
+                DeprecatedPlan::Update(_update_table) => match self.old_query_analyzer.describe(&statement) {
                     Ok(Description::Update(update_statement)) => {
                         let mut new_param_types = vec![];
                         for index in 0..update_statement.param_count {
@@ -498,7 +498,7 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                     }
                     _ => unreachable!("this should not be reached during updates"),
                 },
-                Plan::NotProcessed(statement) => match statement.deref() {
+                DeprecatedPlan::NotProcessed(statement) => match statement.deref() {
                     stmt @ Statement::SetVariable { .. } => {
                         let statement = PreparedStatement::new(
                             stmt.clone(),
@@ -529,7 +529,7 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
         }
     }
 
-    fn describe(&self, select_input: SelectInput) -> pg_model::results::Description {
+    fn describe(&self, select_input: DeprecatedSelectInput) -> pg_model::results::Description {
         self.data_manager
             .column_defs(&select_input.table_id, &select_input.selected_columns)
             .into_iter()

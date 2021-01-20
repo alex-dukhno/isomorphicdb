@@ -51,11 +51,11 @@ pub const TABLES_TABLE: &'_ str = "TABLES";
 /// NUMERIC_PRECISION           integer CHECK (VALUE >= 0),
 pub const COLUMNS_TABLE: &'_ str = "COLUMNS";
 
-use meta_def::{ColumnDefinition, Id};
+use meta_def::{DeprecatedColumnDefinition, Id};
 
 pub type OptionalSchemaId = Option<Id>;
 pub type OptionalTableId = Option<(Id, Option<Id>)>;
-pub type OptionalTableDesc = Option<(Id, Option<(Id, Vec<ColumnDefinition>)>)>;
+pub type OptionalTableDesc = Option<(Id, Option<(Id, Vec<DeprecatedColumnDefinition>)>)>;
 
 pub trait DataDefReader {
     fn schema_exists(&self, schema_name: &str) -> OptionalSchemaId;
@@ -73,7 +73,7 @@ pub trait DataDefReader {
                     .expect("table exists")
                     .into_iter()
                     .map(|(_column_id, column)| column)
-                    .collect::<Vec<ColumnDefinition>>();
+                    .collect::<Vec<DeprecatedColumnDefinition>>();
                 Some((schema_id, Some((table_id, columns))))
             }
             None => None,
@@ -84,12 +84,12 @@ pub trait DataDefReader {
     fn table_exists(&self, schema_name: &str, table_name: &str) -> OptionalTableId;
 
     #[allow(clippy::result_unit_err)]
-    fn table_columns(&self, table_id: &(Id, Id)) -> Result<Vec<(Id, ColumnDefinition)>, ()>;
+    fn table_columns(&self, table_id: &(Id, Id)) -> Result<Vec<(Id, DeprecatedColumnDefinition)>, ()>;
 
     #[allow(clippy::result_unit_err)]
     fn column_ids(&self, table_id: &(Id, Id), names: &[String]) -> Result<(Vec<Id>, Vec<String>), ()>;
 
-    fn column_defs(&self, table_id: &(Id, Id), ids: &[Id]) -> Vec<ColumnDefinition>;
+    fn column_defs(&self, table_id: &(Id, Id), ids: &[Id]) -> Vec<DeprecatedColumnDefinition>;
 }
 
 pub trait DataDefOperationExecutor {
@@ -398,7 +398,7 @@ impl DatabaseHandle {
         &self,
         schema_id: Id,
         table_name: &str,
-        column_definitions: &[ColumnDefinition],
+        column_definitions: &[DeprecatedColumnDefinition],
     ) -> Result<Id, ()> {
         let schema = self
             .inner
@@ -1137,7 +1137,7 @@ impl DataDefReader for DatabaseHandle {
         }
     }
 
-    fn table_columns(&self, table_id: &(Id, Id)) -> Result<Vec<(Id, ColumnDefinition)>, ()> {
+    fn table_columns(&self, table_id: &(Id, Id)) -> Result<Vec<(Id, DeprecatedColumnDefinition)>, ()> {
         log::debug!("FULL TABLE ID {:?}", table_id);
         match self
             .inner
@@ -1183,7 +1183,7 @@ impl DataDefReader for DatabaseHandle {
                 ((schema_id, table_id), column_id, name, sql_type)
             })
             .filter(|(full_table_id, _column_id, _name, _sql_type)| full_table_id == table_id)
-            .map(|(_full_table_id, column_id, name, sql_type)| (column_id, ColumnDefinition::new(&name, sql_type)))
+            .map(|(_full_table_id, column_id, name, sql_type)| (column_id, DeprecatedColumnDefinition::new(&name, sql_type)))
             .collect())
     }
 
@@ -1240,7 +1240,7 @@ impl DataDefReader for DatabaseHandle {
         Ok((idx, not_found))
     }
 
-    fn column_defs(&self, table_id: &(Id, Id), ids: &[Id]) -> Vec<ColumnDefinition> {
+    fn column_defs(&self, table_id: &(Id, Id), ids: &[Id]) -> Vec<DeprecatedColumnDefinition> {
         match self
             .inner
             .read(DEFINITION_SCHEMA, TABLES_TABLE)
@@ -1288,7 +1288,7 @@ impl DataDefReader for DatabaseHandle {
                 ((schema_id, table_id), column_id, name, sql_type)
             })
             .filter(|(full_table_id, _column_id, _name, _sql_type)| full_table_id == table_id)
-            .map(|(_full_table_id, column_id, name, sql_type)| (column_id, ColumnDefinition::new(&name, sql_type)))
+            .map(|(_full_table_id, column_id, name, sql_type)| (column_id, DeprecatedColumnDefinition::new(&name, sql_type)))
             .collect::<HashMap<_, _>>();
         log::debug!("COLUMNS IN TABLE: {:?}", columns);
         log::debug!("SELECTED COLUMN IDS {:?}", ids);

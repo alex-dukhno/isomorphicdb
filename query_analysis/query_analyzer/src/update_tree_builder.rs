@@ -15,7 +15,7 @@
 use crate::{operation_mapper::OperationMapper, parse_param_index};
 use analysis_tree::{AnalysisError, AnalysisResult, Feature, DynamicEvaluationTree};
 use expr_operators::{Bool, DynamicItem, ScalarValue};
-use meta_def::ColumnDefinition;
+use meta_def::DeprecatedColumnDefinition;
 use types::SqlType;
 
 pub(crate) struct UpdateTreeBuilder;
@@ -25,7 +25,7 @@ impl UpdateTreeBuilder {
         root_expr: &sql_ast::Expr,
         original: &sql_ast::Statement,
         column_type: &SqlType,
-        table_columns: &[ColumnDefinition],
+        table_columns: &[DeprecatedColumnDefinition],
     ) -> AnalysisResult<DynamicEvaluationTree> {
         Self::inner_build(root_expr, original, column_type, table_columns)
     }
@@ -34,7 +34,7 @@ impl UpdateTreeBuilder {
         root_expr: &sql_ast::Expr,
         original: &sql_ast::Statement,
         column_type: &SqlType,
-        table_columns: &[ColumnDefinition],
+        table_columns: &[DeprecatedColumnDefinition],
     ) -> AnalysisResult<DynamicEvaluationTree> {
         match root_expr {
             sql_ast::Expr::Value(value) => Self::value(value),
@@ -56,7 +56,7 @@ impl UpdateTreeBuilder {
         right: &sql_ast::Expr,
         original: &sql_ast::Statement,
         column_type: &SqlType,
-        table_columns: &[ColumnDefinition],
+        table_columns: &[DeprecatedColumnDefinition],
     ) -> AnalysisResult<DynamicEvaluationTree> {
         let operation = OperationMapper::binary_operation(op);
         match (
@@ -72,7 +72,7 @@ impl UpdateTreeBuilder {
         }
     }
 
-    fn ident(ident: &sql_ast::Ident, table_columns: &[ColumnDefinition]) -> AnalysisResult<DynamicEvaluationTree> {
+    fn ident(ident: &sql_ast::Ident, table_columns: &[DeprecatedColumnDefinition]) -> AnalysisResult<DynamicEvaluationTree> {
         let sql_ast::Ident { value, .. } = ident;
         match parse_param_index(value.as_str()) {
             Some(index) => Ok(DynamicEvaluationTree::Item(DynamicItem::Param(index))),

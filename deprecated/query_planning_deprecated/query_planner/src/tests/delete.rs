@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use super::*;
-use plan::{FullTableId, TableDeletes};
+use plan::{DeprecatedFullTableId, DeprecatedTableDeletes};
 use sql_ast::{ObjectName, Statement};
 
 #[rstest::rstest]
@@ -79,8 +79,8 @@ fn delete_from_table(planner_with_table: QueryPlanner) {
             table_name: ObjectName(vec![ident(SCHEMA), ident(TABLE)]),
             selection: None
         }),
-        Ok(Plan::Delete(TableDeletes {
-            table_id: FullTableId::from((0, 0))
+        Ok(DeprecatedPlan::Delete(DeprecatedTableDeletes {
+            table_id: DeprecatedFullTableId::from((0, 0))
         }))
     );
 }

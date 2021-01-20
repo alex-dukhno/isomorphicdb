@@ -16,7 +16,7 @@ use super::*;
 
 #[test]
 fn update_number() {
-    let (data_definition, schema_id, table_id) = with_table(&[ColumnDefinition::new("col", SqlType::small_int())]);
+    let (data_definition, schema_id, table_id) = with_table(&[DeprecatedColumnDefinition::new("col", SqlType::small_int())]);
     let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
 
     assert_eq!(
@@ -36,7 +36,7 @@ fn update_number() {
 
 #[test]
 fn update_string() {
-    let (data_definition, schema_id, table_id) = with_table(&[ColumnDefinition::new("col", SqlType::char(5))]);
+    let (data_definition, schema_id, table_id) = with_table(&[DeprecatedColumnDefinition::new("col", SqlType::char(5))]);
     let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
 
     assert_eq!(
@@ -53,7 +53,7 @@ fn update_string() {
 
 #[test]
 fn update_boolean() {
-    let (data_definition, schema_id, table_id) = with_table(&[ColumnDefinition::new("col", SqlType::bool())]);
+    let (data_definition, schema_id, table_id) = with_table(&[DeprecatedColumnDefinition::new("col", SqlType::bool())]);
     let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
 
     assert_eq!(
@@ -68,7 +68,7 @@ fn update_boolean() {
 
 #[test]
 fn update_null() {
-    let (data_definition, schema_id, table_id) = with_table(&[ColumnDefinition::new("col", SqlType::bool())]);
+    let (data_definition, schema_id, table_id) = with_table(&[DeprecatedColumnDefinition::new("col", SqlType::bool())]);
     let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
 
     assert_eq!(
@@ -84,8 +84,8 @@ fn update_null() {
 #[test]
 fn update_with_column_value() {
     let (data_definition, schema_id, table_id) = with_table(&[
-        ColumnDefinition::new("col_1", SqlType::small_int()),
-        ColumnDefinition::new("col_2", SqlType::small_int()),
+        DeprecatedColumnDefinition::new("col_1", SqlType::small_int()),
+        DeprecatedColumnDefinition::new("col_2", SqlType::small_int()),
     ]);
     let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
 
@@ -108,8 +108,8 @@ fn update_with_column_value() {
 #[test]
 fn update_with_column_value_that_does_not_exists() {
     let (data_definition, _schema_id, _table_id) = with_table(&[
-        ColumnDefinition::new("col_1", SqlType::small_int()),
-        ColumnDefinition::new("col_2", SqlType::small_int()),
+        DeprecatedColumnDefinition::new("col_1", SqlType::small_int()),
+        DeprecatedColumnDefinition::new("col_2", SqlType::small_int()),
     ]);
     let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
 
@@ -125,8 +125,8 @@ fn update_with_column_value_that_does_not_exists() {
 #[test]
 fn update_table_with_parameters() {
     let (data_definition, schema_id, table_id) = with_table(&[
-        ColumnDefinition::new("col_1", SqlType::small_int()),
-        ColumnDefinition::new("col_2", SqlType::integer()),
+        DeprecatedColumnDefinition::new("col_1", SqlType::small_int()),
+        DeprecatedColumnDefinition::new("col_2", SqlType::integer()),
     ]);
     let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
 
@@ -164,7 +164,7 @@ mod multiple_values {
 
     #[test]
     fn arithmetic() {
-        let (data_definition, schema_id, table_id) = with_table(&[ColumnDefinition::new("col", SqlType::small_int())]);
+        let (data_definition, schema_id, table_id) = with_table(&[DeprecatedColumnDefinition::new("col", SqlType::small_int())]);
         let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
 
         assert_eq!(
@@ -192,7 +192,7 @@ mod multiple_values {
     #[test]
     fn string_operation() {
         let (data_definition, schema_id, table_id) =
-            with_table(&[ColumnDefinition::new("col", SqlType::var_char(255))]);
+            with_table(&[DeprecatedColumnDefinition::new("col", SqlType::var_char(255))]);
         let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
 
         assert_eq!(
@@ -219,7 +219,7 @@ mod multiple_values {
 
     #[test]
     fn comparison() {
-        let (data_definition, schema_id, table_id) = with_table(&[ColumnDefinition::new("col", SqlType::bool())]);
+        let (data_definition, schema_id, table_id) = with_table(&[DeprecatedColumnDefinition::new("col", SqlType::bool())]);
         let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
 
         assert_eq!(
@@ -246,7 +246,7 @@ mod multiple_values {
 
     #[test]
     fn logical() {
-        let (data_definition, schema_id, table_id) = with_table(&[ColumnDefinition::new("col", SqlType::bool())]);
+        let (data_definition, schema_id, table_id) = with_table(&[DeprecatedColumnDefinition::new("col", SqlType::bool())]);
         let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
 
         assert_eq!(
@@ -269,7 +269,7 @@ mod multiple_values {
 
     #[test]
     fn bitwise() {
-        let (data_definition, schema_id, table_id) = with_table(&[ColumnDefinition::new("col", SqlType::small_int())]);
+        let (data_definition, schema_id, table_id) = with_table(&[DeprecatedColumnDefinition::new("col", SqlType::small_int())]);
         let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
 
         assert_eq!(
@@ -296,7 +296,7 @@ mod multiple_values {
 
     #[test]
     fn pattern_matching() {
-        let (data_definition, schema_id, table_id) = with_table(&[ColumnDefinition::new("col", SqlType::bool())]);
+        let (data_definition, schema_id, table_id) = with_table(&[DeprecatedColumnDefinition::new("col", SqlType::bool())]);
         let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
 
         assert_eq!(
@@ -329,7 +329,7 @@ mod not_supported_values {
     #[test]
     fn national_strings() {
         let (data_definition, _schema_id, _table_id) =
-            with_table(&[ColumnDefinition::new("col", SqlType::small_int())]);
+            with_table(&[DeprecatedColumnDefinition::new("col", SqlType::small_int())]);
         let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
 
         assert_eq!(
@@ -347,7 +347,7 @@ mod not_supported_values {
     #[test]
     fn hex_strings() {
         let (data_definition, _schema_id, _table_id) =
-            with_table(&[ColumnDefinition::new("col", SqlType::small_int())]);
+            with_table(&[DeprecatedColumnDefinition::new("col", SqlType::small_int())]);
         let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
 
         assert_eq!(
@@ -365,7 +365,7 @@ mod not_supported_values {
     #[test]
     fn time_intervals() {
         let (data_definition, _schema_id, _table_id) =
-            with_table(&[ColumnDefinition::new("col", SqlType::small_int())]);
+            with_table(&[DeprecatedColumnDefinition::new("col", SqlType::small_int())]);
         let analyzer = Analyzer::new(data_definition, InMemoryDatabase::new());
 
         assert_eq!(

@@ -34,7 +34,7 @@ use expr_operators::{
     Arithmetic, Bitwise, Bool, Comparison, StaticItem, Logical, DynamicItem, Operation, PatternMatching, ScalarValue,
     StringOp,
 };
-use meta_def::{ColumnDefinition, Id};
+use meta_def::{DeprecatedColumnDefinition, Id};
 
 const SCHEMA: &str = "schema_name";
 const TABLE: &str = "table_name";
@@ -62,7 +62,7 @@ fn number(value: i16) -> sql_ast::Value {
     sql_ast::Value::Number(BigDecimal::from(value))
 }
 
-fn with_table(columns: &[ColumnDefinition]) -> (Arc<DatabaseHandle>, Id, Id) {
+fn with_table(columns: &[DeprecatedColumnDefinition]) -> (Arc<DatabaseHandle>, Id, Id) {
     let data_manager = Arc::new(DatabaseHandle::in_memory());
     let schema_id = data_manager.create_schema(SCHEMA).expect("schema created");
     let table_id = data_manager

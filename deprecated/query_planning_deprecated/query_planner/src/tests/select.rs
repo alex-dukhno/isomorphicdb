@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use super::*;
-use plan::{FullTableId, SelectInput};
+use plan::{DeprecatedFullTableId, DeprecatedSelectInput};
 use sql_ast::{ObjectName, Query, Select, SelectItem, SetExpr, Statement, TableFactor, TableWithJoins};
 
 #[rstest::rstest]
@@ -179,8 +179,8 @@ fn select_from_table(planner_with_no_column_table: QueryPlanner) {
             offset: None,
             fetch: None,
         }))),
-        Ok(Plan::Select(SelectInput {
-            table_id: FullTableId::from((0, 0)),
+        Ok(DeprecatedPlan::Select(DeprecatedSelectInput {
+            table_id: DeprecatedFullTableId::from((0, 0)),
             selected_columns: vec![],
             predicate: None
         }))

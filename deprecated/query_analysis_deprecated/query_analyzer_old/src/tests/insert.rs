@@ -111,7 +111,7 @@ fn insert_into_existing_table_with_column() {
     let metadata = Arc::new(DatabaseHandle::in_memory());
     let schema_id = metadata.create_schema(SCHEMA).expect("schema created");
     let table_id = metadata
-        .create_table(schema_id, TABLE, &[ColumnDefinition::new("col", SqlType::small_int())])
+        .create_table(schema_id, TABLE, &[DeprecatedColumnDefinition::new("col", SqlType::small_int())])
         .expect("table created");
     let analyzer = Analyzer::new(metadata);
     let description = analyzer.describe(&insert_stmt_with_values(SCHEMA, TABLE, vec!["1"]));
@@ -135,8 +135,8 @@ fn insert_into_table_with_parameters() {
             schema_id,
             TABLE,
             &[
-                ColumnDefinition::new("col_1", SqlType::small_int()),
-                ColumnDefinition::new("col_2", SqlType::small_int()),
+                DeprecatedColumnDefinition::new("col_1", SqlType::small_int()),
+                DeprecatedColumnDefinition::new("col_2", SqlType::small_int()),
             ],
         )
         .expect("table created");

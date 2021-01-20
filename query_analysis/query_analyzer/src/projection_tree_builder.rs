@@ -15,7 +15,7 @@
 use crate::{operation_mapper::OperationMapper, parse_param_index};
 use analysis_tree::{AnalysisError, AnalysisResult, Feature, DynamicEvaluationTree};
 use expr_operators::{Bool, DynamicItem, ScalarValue};
-use meta_def::ColumnDefinition;
+use meta_def::DeprecatedColumnDefinition;
 use types::SqlType;
 
 pub(crate) struct ProjectionTreeBuilder;
@@ -25,7 +25,7 @@ impl ProjectionTreeBuilder {
         root_expr: &sql_ast::Expr,
         original: &sql_ast::Statement,
         column_type: &SqlType,
-        table_columns: &[ColumnDefinition],
+        table_columns: &[DeprecatedColumnDefinition],
     ) -> AnalysisResult<DynamicEvaluationTree> {
         Self::inner_build(root_expr, original, column_type, 0, table_columns)
     }
@@ -35,7 +35,7 @@ impl ProjectionTreeBuilder {
         original: &sql_ast::Statement,
         column_type: &SqlType,
         level: usize,
-        table_columns: &[ColumnDefinition],
+        table_columns: &[DeprecatedColumnDefinition],
     ) -> AnalysisResult<DynamicEvaluationTree> {
         match root_expr {
             sql_ast::Expr::Value(value) => Self::value(value),
@@ -57,7 +57,7 @@ impl ProjectionTreeBuilder {
         original: &sql_ast::Statement,
         column_type: &SqlType,
         level: usize,
-        table_columns: &[ColumnDefinition],
+        table_columns: &[DeprecatedColumnDefinition],
     ) -> AnalysisResult<DynamicEvaluationTree> {
         let operation = OperationMapper::binary_operation(op);
         let left_item = Self::inner_build(left, original, column_type, level + 1, table_columns)?;
@@ -69,7 +69,7 @@ impl ProjectionTreeBuilder {
         })
     }
 
-    fn ident(ident: &sql_ast::Ident, table_columns: &[ColumnDefinition]) -> AnalysisResult<DynamicEvaluationTree> {
+    fn ident(ident: &sql_ast::Ident, table_columns: &[DeprecatedColumnDefinition]) -> AnalysisResult<DynamicEvaluationTree> {
         let sql_ast::Ident { value, .. } = ident;
         match parse_param_index(value.as_str()) {
             Some(index) => Ok(DynamicEvaluationTree::Item(DynamicItem::Param(index))),

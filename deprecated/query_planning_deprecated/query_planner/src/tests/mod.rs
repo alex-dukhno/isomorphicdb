@@ -14,7 +14,7 @@
 
 use super::*;
 use data_manager::DatabaseHandle;
-use meta_def::ColumnDefinition;
+use meta_def::DeprecatedColumnDefinition;
 use sql_ast::Ident;
 use std::sync::Arc;
 use types::SqlType;
@@ -55,9 +55,9 @@ fn planner_with_table() -> QueryPlanner {
             schema_id,
             TABLE,
             &[
-                ColumnDefinition::new("small_int", SqlType::small_int()),
-                ColumnDefinition::new("integer", SqlType::integer()),
-                ColumnDefinition::new("big_int", SqlType::big_int()),
+                DeprecatedColumnDefinition::new("small_int", SqlType::small_int()),
+                DeprecatedColumnDefinition::new("integer", SqlType::integer()),
+                DeprecatedColumnDefinition::new("big_int", SqlType::big_int()),
             ],
         )
         .expect("table created");

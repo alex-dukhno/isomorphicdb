@@ -18,12 +18,12 @@ pub type Id = u64;
 pub type ParameterName = String;
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct ColumnDefinition {
+pub struct DeprecatedColumnDefinition {
     name: String,
     sql_type: SqlType,
 }
 
-impl ColumnDefinition {
+impl DeprecatedColumnDefinition {
     pub fn new(name: &str, sql_type: SqlType) -> Self {
         Self {
             name: name.to_lowercase(),

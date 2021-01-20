@@ -15,7 +15,7 @@
 use super::*;
 use bigdecimal::BigDecimal;
 use constraints::TypeConstraint;
-use plan::{FullTableId, TableInserts};
+use plan::{DeprecatedFullTableId, DeprecatedTableInserts};
 use sql_ast::{
     Expr, ObjectName, Query, Select, SelectItem, SetExpr, Statement, TableFactor, TableWithJoins, UnaryOperator, Value,
     Values,
@@ -121,8 +121,8 @@ fn insert_into_table(planner_with_table: QueryPlanner) {
             vec![ident("small_int"), ident("integer"), ident("big_int")],
             SetExpr::Values(Values(vec![]))
         )),
-        Ok(Plan::Insert(TableInserts {
-            table_id: FullTableId::from((0, 0)),
+        Ok(DeprecatedPlan::Insert(DeprecatedTableInserts {
+            table_id: DeprecatedFullTableId::from((0, 0)),
             column_indices: vec![
                 (
                     0,
@@ -146,8 +146,8 @@ fn insert_into_table(planner_with_table: QueryPlanner) {
 fn insert_into_table_without_columns(planner_with_no_column_table: QueryPlanner) {
     assert_eq!(
         planner_with_no_column_table.plan(&insert_into(ObjectName(vec![ident(SCHEMA), ident(TABLE)]), vec![])),
-        Ok(Plan::Insert(TableInserts {
-            table_id: FullTableId::from((0, 0)),
+        Ok(DeprecatedPlan::Insert(DeprecatedTableInserts {
+            table_id: DeprecatedFullTableId::from((0, 0)),
             column_indices: vec![],
             input: vec![]
         }))
