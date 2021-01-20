@@ -13,8 +13,8 @@
 // limitations under the License.
 
 use crate::{operation_mapper::OperationMapper, parse_param_index};
-use analysis_tree::{AnalysisError, AnalysisResult, Feature, InsertTreeNode};
-use expr_operators::{Bool, InsertItem, Operand, ScalarValue};
+use analysis_tree::{AnalysisError, AnalysisResult, Feature, StaticEvaluationTree};
+use expr_operators::{Bool, StaticItem, ScalarValue};
 use types::SqlType;
 
 pub(crate) struct InsertTreeBuilder;
@@ -24,7 +24,7 @@ impl InsertTreeBuilder {
         root_expr: &sql_ast::Expr,
         original: &sql_ast::Statement,
         column_type: &SqlType,
-    ) -> AnalysisResult<InsertTreeNode> {
+    ) -> AnalysisResult<StaticEvaluationTree> {
         Self::inner_build(root_expr, original, column_type)
     }
 
@@ -32,7 +32,7 @@ impl InsertTreeBuilder {
         root_expr: &sql_ast::Expr,
         original: &sql_ast::Statement,
         column_type: &SqlType,
-    ) -> AnalysisResult<InsertTreeNode> {
+    ) -> AnalysisResult<StaticEvaluationTree> {
         match root_expr {
             sql_ast::Expr::Value(value) => Self::value(value),
             sql_ast::Expr::Identifier(ident) => Self::ident(ident),
@@ -50,13 +50,13 @@ impl InsertTreeBuilder {
         right: &sql_ast::Expr,
         original: &sql_ast::Statement,
         column_type: &SqlType,
-    ) -> AnalysisResult<InsertTreeNode> {
+    ) -> AnalysisResult<StaticEvaluationTree> {
         let operation = OperationMapper::binary_operation(op);
         match (
             Self::inner_build(left, original, column_type),
             Self::inner_build(right, original, column_type),
         ) {
-            (Ok(left_item), Ok(right_item)) => Ok(InsertTreeNode::Operation {
+            (Ok(left_item), Ok(right_item)) => Ok(StaticEvaluationTree::Operation {
                 left: Box::new(left_item),
                 op: operation,
                 right: Box::new(right_item),
@@ -65,31 +65,31 @@ impl InsertTreeBuilder {
         }
     }
 
-    fn ident(ident: &sql_ast::Ident) -> AnalysisResult<InsertTreeNode> {
+    fn ident(ident: &sql_ast::Ident) -> AnalysisResult<StaticEvaluationTree> {
         let sql_ast::Ident { value, .. } = ident;
         match parse_param_index(value.as_str()) {
-            Some(index) => Ok(InsertTreeNode::Item(InsertItem::Param(index))),
+            Some(index) => Ok(StaticEvaluationTree::Item(StaticItem::Param(index))),
             None => Err(AnalysisError::column_cant_be_referenced(value)),
         }
     }
 
-    fn value(value: &sql_ast::Value) -> AnalysisResult<InsertTreeNode> {
+    fn value(value: &sql_ast::Value) -> AnalysisResult<StaticEvaluationTree> {
         match value {
-            sql_ast::Value::Number(num) => Ok(InsertTreeNode::Item(InsertItem::Const(ScalarValue::Number(
+            sql_ast::Value::Number(num) => Ok(StaticEvaluationTree::Item(StaticItem::Const(ScalarValue::Number(
                 num.clone(),
             )))),
-            sql_ast::Value::SingleQuotedString(string) => Ok(InsertTreeNode::Item(InsertItem::Const(
+            sql_ast::Value::SingleQuotedString(string) => Ok(StaticEvaluationTree::Item(StaticItem::Const(
                 ScalarValue::String(string.clone()),
             ))),
             sql_ast::Value::NationalStringLiteral(_) => {
                 Err(AnalysisError::feature_not_supported(Feature::NationalStringLiteral))
             }
             sql_ast::Value::HexStringLiteral(_) => Err(AnalysisError::feature_not_supported(Feature::HexStringLiteral)),
-            sql_ast::Value::Boolean(boolean) => Ok(InsertTreeNode::Item(InsertItem::Const(ScalarValue::Bool(Bool(
+            sql_ast::Value::Boolean(boolean) => Ok(StaticEvaluationTree::Item(StaticItem::Const(ScalarValue::Bool(Bool(
                 *boolean,
             ))))),
             sql_ast::Value::Interval { .. } => Err(AnalysisError::feature_not_supported(Feature::TimeInterval)),
-            sql_ast::Value::Null => Ok(InsertTreeNode::Item(InsertItem::Const(ScalarValue::Null))),
+            sql_ast::Value::Null => Ok(StaticEvaluationTree::Item(StaticItem::Const(ScalarValue::Null))),
         }
     }
 }

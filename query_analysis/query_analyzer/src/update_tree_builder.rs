@@ -13,11 +13,9 @@
 // limitations under the License.
 
 use crate::{operation_mapper::OperationMapper, parse_param_index};
-use analysis_tree::{AnalysisError, AnalysisResult, Feature, UpdateTreeNode};
-use bigdecimal::{BigDecimal, Zero};
-use expr_operators::{Bool, Operand, ScalarValue};
+use analysis_tree::{AnalysisError, AnalysisResult, Feature, DynamicEvaluationTree};
+use expr_operators::{Bool, DynamicItem, ScalarValue};
 use meta_def::ColumnDefinition;
-use std::str::FromStr;
 use types::SqlType;
 
 pub(crate) struct UpdateTreeBuilder;
@@ -28,7 +26,7 @@ impl UpdateTreeBuilder {
         original: &sql_ast::Statement,
         column_type: &SqlType,
         table_columns: &[ColumnDefinition],
-    ) -> AnalysisResult<UpdateTreeNode> {
+    ) -> AnalysisResult<DynamicEvaluationTree> {
         Self::inner_build(root_expr, original, column_type, table_columns)
     }
 
@@ -37,7 +35,7 @@ impl UpdateTreeBuilder {
         original: &sql_ast::Statement,
         column_type: &SqlType,
         table_columns: &[ColumnDefinition],
-    ) -> AnalysisResult<UpdateTreeNode> {
+    ) -> AnalysisResult<DynamicEvaluationTree> {
         match root_expr {
             sql_ast::Expr::Value(value) => Self::value(value),
             sql_ast::Expr::Identifier(ident) => Self::ident(ident, table_columns),
@@ -59,13 +57,13 @@ impl UpdateTreeBuilder {
         original: &sql_ast::Statement,
         column_type: &SqlType,
         table_columns: &[ColumnDefinition],
-    ) -> AnalysisResult<UpdateTreeNode> {
+    ) -> AnalysisResult<DynamicEvaluationTree> {
         let operation = OperationMapper::binary_operation(op);
         match (
             Self::inner_build(left, original, column_type, table_columns),
             Self::inner_build(right, original, column_type, table_columns),
         ) {
-            (Ok(left_item), Ok(right_item)) => Ok(UpdateTreeNode::Operation {
+            (Ok(left_item), Ok(right_item)) => Ok(DynamicEvaluationTree::Operation {
                 left: Box::new(left_item),
                 op: operation,
                 right: Box::new(right_item),
@@ -74,14 +72,14 @@ impl UpdateTreeBuilder {
         }
     }
 
-    fn ident(ident: &sql_ast::Ident, table_columns: &[ColumnDefinition]) -> AnalysisResult<UpdateTreeNode> {
+    fn ident(ident: &sql_ast::Ident, table_columns: &[ColumnDefinition]) -> AnalysisResult<DynamicEvaluationTree> {
         let sql_ast::Ident { value, .. } = ident;
         match parse_param_index(value.as_str()) {
-            Some(index) => Ok(UpdateTreeNode::Item(Operand::Param(index))),
+            Some(index) => Ok(DynamicEvaluationTree::Item(DynamicItem::Param(index))),
             None => {
                 for (index, table_column) in table_columns.iter().enumerate() {
                     if table_column.has_name(value.as_str()) {
-                        return Ok(UpdateTreeNode::Item(Operand::Column {
+                        return Ok(DynamicEvaluationTree::Item(DynamicItem::Column {
                             sql_type: table_column.sql_type(),
                             index,
                         }));
@@ -92,10 +90,10 @@ impl UpdateTreeBuilder {
         }
     }
 
-    fn value(value: &sql_ast::Value) -> AnalysisResult<UpdateTreeNode> {
+    fn value(value: &sql_ast::Value) -> AnalysisResult<DynamicEvaluationTree> {
         match value {
-            sql_ast::Value::Number(num) => Ok(UpdateTreeNode::Item(Operand::Const(ScalarValue::Number(num.clone())))),
-            sql_ast::Value::SingleQuotedString(string) => Ok(UpdateTreeNode::Item(Operand::Const(
+            sql_ast::Value::Number(num) => Ok(DynamicEvaluationTree::Item(DynamicItem::Const(ScalarValue::Number(num.clone())))),
+            sql_ast::Value::SingleQuotedString(string) => Ok(DynamicEvaluationTree::Item(DynamicItem::Const(
                 ScalarValue::String(string.clone()),
             ))),
             sql_ast::Value::NationalStringLiteral(_) => {
@@ -103,10 +101,10 @@ impl UpdateTreeBuilder {
             }
             sql_ast::Value::HexStringLiteral(_) => Err(AnalysisError::feature_not_supported(Feature::HexStringLiteral)),
             sql_ast::Value::Boolean(boolean) => {
-                Ok(UpdateTreeNode::Item(Operand::Const(ScalarValue::Bool(Bool(*boolean)))))
+                Ok(DynamicEvaluationTree::Item(DynamicItem::Const(ScalarValue::Bool(Bool(*boolean)))))
             }
             sql_ast::Value::Interval { .. } => Err(AnalysisError::feature_not_supported(Feature::TimeInterval)),
-            sql_ast::Value::Null => Ok(UpdateTreeNode::Item(Operand::Const(ScalarValue::Null))),
+            sql_ast::Value::Null => Ok(DynamicEvaluationTree::Item(DynamicItem::Const(ScalarValue::Null))),
         }
     }
 }

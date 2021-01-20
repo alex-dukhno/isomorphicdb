@@ -19,7 +19,7 @@ use std::{
     fmt::{self, Display, Formatter},
     str::FromStr,
 };
-use types::{Num, SqlType, Str};
+use types::{Num, SqlType};
 
 #[derive(PartialEq, Debug, Copy, Clone, Eq)]
 pub struct Bool(pub bool);

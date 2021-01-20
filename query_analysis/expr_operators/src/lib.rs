@@ -17,9 +17,9 @@ use std::{
     fmt::{self, Display, Formatter},
     str::FromStr,
 };
-use types::{Num, SqlFamilyType, SqlType, Str};
+use types::{SqlFamilyType, SqlType};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Copy, Clone)]
 pub enum Arithmetic {
     Add,
     Sub,
@@ -29,7 +29,7 @@ pub enum Arithmetic {
     Exp,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Copy, Clone)]
 pub enum Comparison {
     NotEq,
     Eq,
@@ -39,7 +39,7 @@ pub enum Comparison {
     Gt,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Copy, Clone)]
 pub enum Bitwise {
     ShiftRight,
     ShiftLeft,
@@ -48,24 +48,24 @@ pub enum Bitwise {
     Or,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Copy, Clone)]
 pub enum Logical {
     Or,
     And,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Copy, Clone)]
 pub enum PatternMatching {
     Like,
     NotLike,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Copy, Clone)]
 pub enum StringOp {
     Concat,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Copy, Clone)]
 pub enum Operation {
     Arithmetic(Arithmetic),
     Comparison(Comparison),
@@ -76,7 +76,7 @@ pub enum Operation {
 }
 
 impl Operation {
-    pub fn resulted_type(&self) -> Vec<SqlFamilyType> {
+    pub fn resulted_types(&self) -> Vec<SqlFamilyType> {
         match self {
             Operation::Arithmetic(_) => vec![SqlFamilyType::Integer, SqlFamilyType::Float],
             Operation::Comparison(_) => vec![SqlFamilyType::Bool],
@@ -87,19 +87,19 @@ impl Operation {
         }
     }
 
-    pub fn supported_type_family(&self, left: SqlFamilyType, right: SqlFamilyType) -> bool {
+    pub fn supported_type_family(&self, left: Option<SqlFamilyType>, right: Option<SqlFamilyType>) -> bool {
         match self {
             Operation::Arithmetic(_) => {
-                left == SqlFamilyType::Integer && right == SqlFamilyType::Integer
-                    || left == SqlFamilyType::Float && right == SqlFamilyType::Integer
-                    || left == SqlFamilyType::Integer && right == SqlFamilyType::Float
-                    || left == SqlFamilyType::Float && right == SqlFamilyType::Float
+                left == Some(SqlFamilyType::Integer) && right == Some(SqlFamilyType::Integer)
+                    || left == Some(SqlFamilyType::Float) && right == Some(SqlFamilyType::Integer)
+                    || left == Some(SqlFamilyType::Integer) && right == Some(SqlFamilyType::Float)
+                    || left == Some(SqlFamilyType::Float) && right == Some(SqlFamilyType::Float)
             }
-            Operation::Comparison(_) => left == right,
-            Operation::Bitwise(_) => left == SqlFamilyType::Integer && right == SqlFamilyType::Integer,
-            Operation::Logical(_) => left == SqlFamilyType::Bool && right == SqlFamilyType::Bool,
-            Operation::PatternMatching(_) => left == SqlFamilyType::String && right == SqlFamilyType::String,
-            Operation::StringOp(_) => left == SqlFamilyType::String && right == SqlFamilyType::String,
+            Operation::Comparison(_) => left.is_some() && left == right,
+            Operation::Bitwise(_) => left == Some(SqlFamilyType::Integer) && right == Some(SqlFamilyType::Integer),
+            Operation::Logical(_) => left == Some(SqlFamilyType::Bool) && right == Some(SqlFamilyType::Bool),
+            Operation::PatternMatching(_) => left == Some(SqlFamilyType::String) && right == Some(SqlFamilyType::String),
+            Operation::StringOp(_) => left == Some(SqlFamilyType::String) && right == Some(SqlFamilyType::String),
         }
     }
 }
@@ -108,13 +108,13 @@ impl Operation {
 pub struct OperationError;
 
 #[derive(Debug, PartialEq)]
-pub enum InsertItem {
+pub enum StaticItem {
     Const(ScalarValue),
     Param(usize),
 }
 
 #[derive(Debug, PartialEq)]
-pub enum Operand {
+pub enum DynamicItem {
     Const(ScalarValue),
     Param(usize),
     Column { sql_type: SqlType, index: usize },
@@ -232,8 +232,7 @@ impl ScalarValue {
                         } else {
                             unimplemented!("NUMERIC types are not implemented")
                         }
-                    } else {
-                        if &BigDecimal::from_str(&f32::MIN.to_string()).unwrap() <= num
+                    } else if &BigDecimal::from_str(&f32::MIN.to_string()).unwrap() <= num
                             && num <= &BigDecimal::from_str(&f32::MAX.to_string()).unwrap()
                         {
                             Err(ImplicitCastError::datatype_mismatch(target_type, SqlType::real()))
@@ -247,7 +246,6 @@ impl ScalarValue {
                         } else {
                             unimplemented!("NUMERIC types are not implemented")
                         }
-                    }
                 }
                 SqlType::Str { len, .. } => {
                     let r = num.to_string();

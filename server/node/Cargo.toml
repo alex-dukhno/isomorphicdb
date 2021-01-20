@@ -13,7 +13,7 @@ name = "isomorphicdb"
 path = "src/bin.rs"
 
 [dependencies]
-analysis_tree = { path = "../../query_analysis/tree" }
+analysis_tree = { path = "../../annotated_tree" }
 catalog = { path = "../../data/catalog" }
 connection = { path = "../connection" }
 definition_operations = { path = "../../data/definition_operations" }

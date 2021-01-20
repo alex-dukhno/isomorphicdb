@@ -6,7 +6,7 @@ edition = "2018"
 publish = false
 
 [dependencies]
-analysis_tree = { path = "../tree" }
+analysis_tree = { path = "../../annotated_tree" }
 catalog = { path = "../../data/catalog" }
 expr_operators = { path = "../expr_operators" }
 meta_def = { path = "../../meta_def" }

@@ -39,7 +39,7 @@ fn insert_number() {
         Ok(QueryAnalysis::Write(Write::Insert(InsertQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             column_types: vec![SqlType::small_int()],
-            values: vec![vec![InsertTreeNode::Item(InsertItem::Const(ScalarValue::Number(
+            values: vec![vec![StaticEvaluationTree::Item(StaticItem::Const(ScalarValue::Number(
                 BigDecimal::from(1)
             )))]],
         })))
@@ -60,7 +60,7 @@ fn insert_string() {
         Ok(QueryAnalysis::Write(Write::Insert(InsertQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             column_types: vec![SqlType::char(5)],
-            values: vec![vec![InsertTreeNode::Item(InsertItem::Const(ScalarValue::String(
+            values: vec![vec![StaticEvaluationTree::Item(StaticItem::Const(ScalarValue::String(
                 "str".to_owned()
             )))]],
         })))
@@ -81,7 +81,7 @@ fn insert_boolean() {
         Ok(QueryAnalysis::Write(Write::Insert(InsertQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             column_types: vec![SqlType::bool()],
-            values: vec![vec![InsertTreeNode::Item(InsertItem::Const(ScalarValue::Bool(Bool(
+            values: vec![vec![StaticEvaluationTree::Item(StaticItem::Const(ScalarValue::Bool(Bool(
                 true
             ))))]],
         })))
@@ -102,7 +102,7 @@ fn insert_null() {
         Ok(QueryAnalysis::Write(Write::Insert(InsertQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             column_types: vec![SqlType::bool()],
-            values: vec![vec![InsertTreeNode::Item(InsertItem::Const(ScalarValue::Null))]],
+            values: vec![vec![StaticEvaluationTree::Item(StaticItem::Const(ScalarValue::Null))]],
         })))
     );
 }
@@ -144,8 +144,8 @@ fn insert_into_table_with_parameters() {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             column_types: vec![SqlType::small_int(), SqlType::small_int()],
             values: vec![vec![
-                InsertTreeNode::Item(InsertItem::Param(0)),
-                InsertTreeNode::Item(InsertItem::Param(1))
+                StaticEvaluationTree::Item(StaticItem::Param(0)),
+                StaticEvaluationTree::Item(StaticItem::Param(1))
             ]],
         })))
     );
@@ -176,8 +176,8 @@ fn insert_into_table_with_parameters_and_values() {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             column_types: vec![SqlType::small_int(), SqlType::small_int()],
             values: vec![vec![
-                InsertTreeNode::Item(InsertItem::Param(0)),
-                InsertTreeNode::Item(InsertItem::Const(ScalarValue::Number(BigDecimal::from(1))))
+                StaticEvaluationTree::Item(StaticItem::Param(0)),
+                StaticEvaluationTree::Item(StaticItem::Const(ScalarValue::Number(BigDecimal::from(1))))
             ]],
         })))
     );
@@ -220,12 +220,12 @@ mod multiple_values {
             Ok(QueryAnalysis::Write(Write::Insert(InsertQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 column_types: vec![SqlType::small_int()],
-                values: vec![vec![InsertTreeNode::Operation {
-                    left: Box::new(InsertTreeNode::Item(InsertItem::Const(ScalarValue::Number(
+                values: vec![vec![StaticEvaluationTree::Operation {
+                    left: Box::new(StaticEvaluationTree::Item(StaticItem::Const(ScalarValue::Number(
                         BigDecimal::from(1)
                     )))),
                     op: Operation::Arithmetic(Arithmetic::Add),
-                    right: Box::new(InsertTreeNode::Item(InsertItem::Const(ScalarValue::Number(
+                    right: Box::new(StaticEvaluationTree::Item(StaticItem::Const(ScalarValue::Number(
                         BigDecimal::from(1)
                     ))))
                 }]],
@@ -251,12 +251,12 @@ mod multiple_values {
             Ok(QueryAnalysis::Write(Write::Insert(InsertQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 column_types: vec![SqlType::var_char(255)],
-                values: vec![vec![InsertTreeNode::Operation {
-                    left: Box::new(InsertTreeNode::Item(InsertItem::Const(ScalarValue::String(
+                values: vec![vec![StaticEvaluationTree::Operation {
+                    left: Box::new(StaticEvaluationTree::Item(StaticItem::Const(ScalarValue::String(
                         "str".to_owned()
                     )))),
                     op: Operation::StringOp(StringOp::Concat),
-                    right: Box::new(InsertTreeNode::Item(InsertItem::Const(ScalarValue::String(
+                    right: Box::new(StaticEvaluationTree::Item(StaticItem::Const(ScalarValue::String(
                         "str".to_owned()
                     ))))
                 }]],
@@ -282,12 +282,12 @@ mod multiple_values {
             Ok(QueryAnalysis::Write(Write::Insert(InsertQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 column_types: vec![SqlType::bool()],
-                values: vec![vec![InsertTreeNode::Operation {
-                    left: Box::new(InsertTreeNode::Item(InsertItem::Const(ScalarValue::Number(
+                values: vec![vec![StaticEvaluationTree::Operation {
+                    left: Box::new(StaticEvaluationTree::Item(StaticItem::Const(ScalarValue::Number(
                         BigDecimal::from(1)
                     )))),
                     op: Operation::Comparison(Comparison::Gt),
-                    right: Box::new(InsertTreeNode::Item(InsertItem::Const(ScalarValue::Number(
+                    right: Box::new(StaticEvaluationTree::Item(StaticItem::Const(ScalarValue::Number(
                         BigDecimal::from(1)
                     ))))
                 }]],
@@ -313,10 +313,10 @@ mod multiple_values {
             Ok(QueryAnalysis::Write(Write::Insert(InsertQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 column_types: vec![SqlType::bool()],
-                values: vec![vec![InsertTreeNode::Operation {
-                    left: Box::new(InsertTreeNode::Item(InsertItem::Const(ScalarValue::Bool(Bool(true))))),
+                values: vec![vec![StaticEvaluationTree::Operation {
+                    left: Box::new(StaticEvaluationTree::Item(StaticItem::Const(ScalarValue::Bool(Bool(true))))),
                     op: Operation::Logical(Logical::And),
-                    right: Box::new(InsertTreeNode::Item(InsertItem::Const(ScalarValue::Bool(Bool(true))))),
+                    right: Box::new(StaticEvaluationTree::Item(StaticItem::Const(ScalarValue::Bool(Bool(true))))),
                 }]],
             })))
         );
@@ -340,12 +340,12 @@ mod multiple_values {
             Ok(QueryAnalysis::Write(Write::Insert(InsertQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 column_types: vec![SqlType::small_int()],
-                values: vec![vec![InsertTreeNode::Operation {
-                    left: Box::new(InsertTreeNode::Item(InsertItem::Const(ScalarValue::Number(
+                values: vec![vec![StaticEvaluationTree::Operation {
+                    left: Box::new(StaticEvaluationTree::Item(StaticItem::Const(ScalarValue::Number(
                         BigDecimal::from(1)
                     )))),
                     op: Operation::Bitwise(Bitwise::Or),
-                    right: Box::new(InsertTreeNode::Item(InsertItem::Const(ScalarValue::Number(
+                    right: Box::new(StaticEvaluationTree::Item(StaticItem::Const(ScalarValue::Number(
                         BigDecimal::from(1)
                     ))))
                 }]],
@@ -371,12 +371,12 @@ mod multiple_values {
             Ok(QueryAnalysis::Write(Write::Insert(InsertQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 column_types: vec![SqlType::bool()],
-                values: vec![vec![InsertTreeNode::Operation {
-                    left: Box::new(InsertTreeNode::Item(InsertItem::Const(ScalarValue::String(
+                values: vec![vec![StaticEvaluationTree::Operation {
+                    left: Box::new(StaticEvaluationTree::Item(StaticItem::Const(ScalarValue::String(
                         "s".to_owned()
                     )))),
                     op: Operation::PatternMatching(PatternMatching::Like),
-                    right: Box::new(InsertTreeNode::Item(InsertItem::Const(ScalarValue::String(
+                    right: Box::new(StaticEvaluationTree::Item(StaticItem::Const(ScalarValue::String(
                         "str".to_owned()
                     ))))
                 }]],

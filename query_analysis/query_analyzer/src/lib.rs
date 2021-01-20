@@ -16,15 +16,11 @@ use crate::{
     insert_tree_builder::InsertTreeBuilder, projection_tree_builder::ProjectionTreeBuilder,
     update_tree_builder::UpdateTreeBuilder,
 };
-use analysis_tree::{
-    AnalysisError, ColumnInfo, CreateSchemaQuery, CreateTableQuery, DeleteQuery, DropSchemasQuery, DropTablesQuery,
-    Feature, FullTableId, InsertQuery, ProjectionTreeNode, QueryAnalysis, SchemaChange, SelectQuery, TableInfo,
-    UpdateQuery, Write,
-};
+use analysis_tree::{AnalysisError, ColumnInfo, CreateSchemaQuery, CreateTableQuery, DeleteQuery, DropSchemasQuery, DropTablesQuery, Feature, FullTableId, InsertQuery, QueryAnalysis, SchemaChange, SelectQuery, TableInfo, UpdateQuery, Write, DynamicEvaluationTree};
 use catalog::CatalogDefinition;
 use data_manager::DataDefReader;
 use definition::{FullTableName, SchemaName};
-use expr_operators::Operand;
+use expr_operators::DynamicItem;
 use std::{convert::TryFrom, sync::Arc};
 use types::SqlType;
 
@@ -177,7 +173,7 @@ impl<CD: CatalogDefinition> Analyzer<CD> {
                                         match item {
                                             sql_ast::SelectItem::Wildcard => {
                                                 for (index, table_column) in table_columns.iter().enumerate() {
-                                                    projection_items.push(ProjectionTreeNode::Item(Operand::Column {
+                                                    projection_items.push(DynamicEvaluationTree::Item(DynamicItem::Column {
                                                         index,
                                                         sql_type: table_column.sql_type(),
                                                     }));

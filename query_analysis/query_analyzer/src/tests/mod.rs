@@ -26,12 +26,12 @@ mod selects;
 mod updates;
 
 use super::*;
-use analysis_tree::{InsertTreeNode, UpdateTreeNode};
+use analysis_tree::{StaticEvaluationTree, DynamicEvaluationTree};
 use bigdecimal::BigDecimal;
 use catalog::{Database, InMemoryDatabase};
 use data_manager::DatabaseHandle;
 use expr_operators::{
-    Arithmetic, Bitwise, Bool, Comparison, InsertItem, Logical, Operand, Operation, PatternMatching, ScalarValue,
+    Arithmetic, Bitwise, Bool, Comparison, StaticItem, Logical, DynamicItem, Operation, PatternMatching, ScalarValue,
     StringOp,
 };
 use meta_def::{ColumnDefinition, Id};

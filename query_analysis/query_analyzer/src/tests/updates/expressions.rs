@@ -27,7 +27,7 @@ fn update_number() {
         Ok(QueryAnalysis::Write(Write::Update(UpdateQuery {
             full_table_id: FullTableId::from((schema_id, table_id)),
             sql_types: vec![SqlType::small_int()],
-            assignments: vec![UpdateTreeNode::Item(Operand::Const(ScalarValue::Number(
+            assignments: vec![DynamicEvaluationTree::Item(DynamicItem::Const(ScalarValue::Number(
                 BigDecimal::from(1)
             )))]
         })))
@@ -44,7 +44,7 @@ fn update_string() {
         Ok(QueryAnalysis::Write(Write::Update(UpdateQuery {
             full_table_id: FullTableId::from((schema_id, table_id)),
             sql_types: vec![SqlType::char(5)],
-            assignments: vec![UpdateTreeNode::Item(Operand::Const(ScalarValue::String(
+            assignments: vec![DynamicEvaluationTree::Item(DynamicItem::Const(ScalarValue::String(
                 "str".to_owned()
             )))]
         })))
@@ -61,7 +61,7 @@ fn update_boolean() {
         Ok(QueryAnalysis::Write(Write::Update(UpdateQuery {
             full_table_id: FullTableId::from((schema_id, table_id)),
             sql_types: vec![SqlType::bool()],
-            assignments: vec![UpdateTreeNode::Item(Operand::Const(ScalarValue::Bool(Bool(true))))],
+            assignments: vec![DynamicEvaluationTree::Item(DynamicItem::Const(ScalarValue::Bool(Bool(true))))],
         })))
     );
 }
@@ -76,7 +76,7 @@ fn update_null() {
         Ok(QueryAnalysis::Write(Write::Update(UpdateQuery {
             full_table_id: FullTableId::from((schema_id, table_id)),
             sql_types: vec![SqlType::bool()],
-            assignments: vec![UpdateTreeNode::Item(Operand::Const(ScalarValue::Null))],
+            assignments: vec![DynamicEvaluationTree::Item(DynamicItem::Const(ScalarValue::Null))],
         })))
     );
 }
@@ -97,7 +97,7 @@ fn update_with_column_value() {
         Ok(QueryAnalysis::Write(Write::Update(UpdateQuery {
             full_table_id: FullTableId::from((schema_id, table_id)),
             sql_types: vec![SqlType::small_int()],
-            assignments: vec![UpdateTreeNode::Item(Operand::Column {
+            assignments: vec![DynamicEvaluationTree::Item(DynamicItem::Column {
                 sql_type: SqlType::small_int(),
                 index: 1
             })],
@@ -135,7 +135,7 @@ fn update_table_with_parameters() {
         Ok(QueryAnalysis::Write(Write::Update(UpdateQuery {
             full_table_id: FullTableId::from((schema_id, table_id)),
             sql_types: vec![SqlType::integer()],
-            assignments: vec![UpdateTreeNode::Item(Operand::Param(0))]
+            assignments: vec![DynamicEvaluationTree::Item(DynamicItem::Param(0))]
         })))
     );
 }
@@ -176,12 +176,12 @@ mod multiple_values {
             Ok(QueryAnalysis::Write(Write::Update(UpdateQuery {
                 full_table_id: FullTableId::from((schema_id, table_id)),
                 sql_types: vec![SqlType::small_int()],
-                assignments: vec![UpdateTreeNode::Operation {
-                    left: Box::new(UpdateTreeNode::Item(Operand::Const(ScalarValue::Number(
+                assignments: vec![DynamicEvaluationTree::Operation {
+                    left: Box::new(DynamicEvaluationTree::Item(DynamicItem::Const(ScalarValue::Number(
                         BigDecimal::from(1)
                     )))),
                     op: Operation::Arithmetic(Arithmetic::Add),
-                    right: Box::new(UpdateTreeNode::Item(Operand::Const(ScalarValue::Number(
+                    right: Box::new(DynamicEvaluationTree::Item(DynamicItem::Const(ScalarValue::Number(
                         BigDecimal::from(1)
                     ))))
                 }],
@@ -204,12 +204,12 @@ mod multiple_values {
             Ok(QueryAnalysis::Write(Write::Update(UpdateQuery {
                 full_table_id: FullTableId::from((schema_id, table_id)),
                 sql_types: vec![SqlType::var_char(255)],
-                assignments: vec![UpdateTreeNode::Operation {
-                    left: Box::new(UpdateTreeNode::Item(Operand::Const(ScalarValue::String(
+                assignments: vec![DynamicEvaluationTree::Operation {
+                    left: Box::new(DynamicEvaluationTree::Item(DynamicItem::Const(ScalarValue::String(
                         "str".to_owned()
                     )))),
                     op: Operation::StringOp(StringOp::Concat),
-                    right: Box::new(UpdateTreeNode::Item(Operand::Const(ScalarValue::String(
+                    right: Box::new(DynamicEvaluationTree::Item(DynamicItem::Const(ScalarValue::String(
                         "str".to_owned()
                     ))))
                 }],
@@ -231,12 +231,12 @@ mod multiple_values {
             Ok(QueryAnalysis::Write(Write::Update(UpdateQuery {
                 full_table_id: FullTableId::from((schema_id, table_id)),
                 sql_types: vec![SqlType::bool()],
-                assignments: vec![UpdateTreeNode::Operation {
-                    left: Box::new(UpdateTreeNode::Item(Operand::Const(ScalarValue::Number(
+                assignments: vec![DynamicEvaluationTree::Operation {
+                    left: Box::new(DynamicEvaluationTree::Item(DynamicItem::Const(ScalarValue::Number(
                         BigDecimal::from(1)
                     )))),
                     op: Operation::Comparison(Comparison::Gt),
-                    right: Box::new(UpdateTreeNode::Item(Operand::Const(ScalarValue::Number(
+                    right: Box::new(DynamicEvaluationTree::Item(DynamicItem::Const(ScalarValue::Number(
                         BigDecimal::from(1)
                     ))))
                 }],
@@ -258,10 +258,10 @@ mod multiple_values {
             Ok(QueryAnalysis::Write(Write::Update(UpdateQuery {
                 full_table_id: FullTableId::from((schema_id, table_id)),
                 sql_types: vec![SqlType::bool()],
-                assignments: vec![UpdateTreeNode::Operation {
-                    left: Box::new(UpdateTreeNode::Item(Operand::Const(ScalarValue::Bool(Bool(true))))),
+                assignments: vec![DynamicEvaluationTree::Operation {
+                    left: Box::new(DynamicEvaluationTree::Item(DynamicItem::Const(ScalarValue::Bool(Bool(true))))),
                     op: Operation::Logical(Logical::And),
-                    right: Box::new(UpdateTreeNode::Item(Operand::Const(ScalarValue::Bool(Bool(true))))),
+                    right: Box::new(DynamicEvaluationTree::Item(DynamicItem::Const(ScalarValue::Bool(Bool(true))))),
                 }],
             })))
         );
@@ -281,12 +281,12 @@ mod multiple_values {
             Ok(QueryAnalysis::Write(Write::Update(UpdateQuery {
                 full_table_id: FullTableId::from((schema_id, table_id)),
                 sql_types: vec![SqlType::small_int()],
-                assignments: vec![UpdateTreeNode::Operation {
-                    left: Box::new(UpdateTreeNode::Item(Operand::Const(ScalarValue::Number(
+                assignments: vec![DynamicEvaluationTree::Operation {
+                    left: Box::new(DynamicEvaluationTree::Item(DynamicItem::Const(ScalarValue::Number(
                         BigDecimal::from(1)
                     )))),
                     op: Operation::Bitwise(Bitwise::Or),
-                    right: Box::new(UpdateTreeNode::Item(Operand::Const(ScalarValue::Number(
+                    right: Box::new(DynamicEvaluationTree::Item(DynamicItem::Const(ScalarValue::Number(
                         BigDecimal::from(1)
                     ))))
                 }],
@@ -308,12 +308,12 @@ mod multiple_values {
             Ok(QueryAnalysis::Write(Write::Update(UpdateQuery {
                 full_table_id: FullTableId::from((schema_id, table_id)),
                 sql_types: vec![SqlType::bool()],
-                assignments: vec![UpdateTreeNode::Operation {
-                    left: Box::new(UpdateTreeNode::Item(Operand::Const(ScalarValue::String(
+                assignments: vec![DynamicEvaluationTree::Operation {
+                    left: Box::new(DynamicEvaluationTree::Item(DynamicItem::Const(ScalarValue::String(
                         "s".to_owned()
                     )))),
                     op: Operation::PatternMatching(PatternMatching::Like),
-                    right: Box::new(UpdateTreeNode::Item(Operand::Const(ScalarValue::String(
+                    right: Box::new(DynamicEvaluationTree::Item(DynamicItem::Const(ScalarValue::String(
                         "str".to_owned()
                     ))))
                 }],

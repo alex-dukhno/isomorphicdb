@@ -22,7 +22,7 @@ members = [
     "meta_def",
     "query_analysis/expr_operators",
     "query_analysis/query_analyzer",
-    "query_analysis/tree",
+    "annotated_tree",
     "query_parsing/parser",
     "query_parsing/sql-ast",
     "query_validation/validator",

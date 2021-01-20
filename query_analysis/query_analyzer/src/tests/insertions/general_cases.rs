@@ -81,7 +81,7 @@ fn with_column_names() {
         Ok(QueryAnalysis::Write(Write::Insert(InsertQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             column_types: vec![SqlType::small_int()],
-            values: vec![vec![InsertTreeNode::Item(InsertItem::Const(ScalarValue::Number(
+            values: vec![vec![StaticEvaluationTree::Item(StaticItem::Const(ScalarValue::Number(
                 BigDecimal::from(1)
             )))]],
         })))

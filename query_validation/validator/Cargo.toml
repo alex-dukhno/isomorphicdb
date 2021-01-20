@@ -6,7 +6,7 @@ edition = "2018"
 publish = false
 
 [dependencies]
-analysis_tree = { path = "../../query_analysis/tree" }
+analysis_tree = { path = "../../annotated_tree" }
 expr_operators = { path = "../../query_analysis/expr_operators" }
 types = { path = "../../entities/types" }
 

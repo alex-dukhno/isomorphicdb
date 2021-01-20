@@ -12,28 +12,30 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use analysis_tree::InsertTreeNode;
-use bigdecimal::BigDecimal;
-use expr_operators::{Arithmetic, Operation};
-use expr_operators::{Bool, ImplicitCastError, InsertItem, ScalarValue};
+use analysis_tree::StaticEvaluationTree;
+use expr_operators::{Operation};
+use expr_operators::{ImplicitCastError, StaticItem};
 use std::collections::HashMap;
-use types::SqlType;
+use types::{SqlType, SqlFamilyType};
 
 #[derive(Debug, PartialEq)]
 pub enum ValidationError {
     InvalidInputSyntaxForType {
         sql_type: SqlType,
         value: String,
-    }, // Error code: 22P02
+    },
+    // Error code: 22P02
     DatatypeMismatch {
         column_type: SqlType,
-        source_type: SqlType,
-    }, // Error code: 42804
-    StringDataRightTruncation(SqlType), // Error code: 22001
+        source_type: Option<SqlFamilyType>,
+    },
+    // Error code: 42804
+    StringDataRightTruncation(SqlType),
+    // Error code: 22001
     UndefinedFunction {
-        left: SqlType,
+        left: Option<SqlFamilyType>,
         op: Operation,
-        right: SqlType,
+        right: Option<SqlFamilyType>,
     }, // Error code: 42883
 }
 
@@ -48,7 +50,7 @@ impl From<ImplicitCastError> for ValidationError {
                 source_type,
             } => ValidationError::DatatypeMismatch {
                 column_type,
-                source_type,
+                source_type: Some(source_type.family()),
             },
             ImplicitCastError::InvalidInputSyntaxForType { sql_type, value } => {
                 ValidationError::InvalidInputSyntaxForType { sql_type, value }
@@ -65,14 +67,14 @@ impl ValidationError {
         }
     }
 
-    pub fn datatype_mismatch(column_type: SqlType, source_type: SqlType) -> ValidationError {
+    pub fn datatype_mismatch(column_type: SqlType, source_type: Option<SqlFamilyType>) -> ValidationError {
         ValidationError::DatatypeMismatch {
             column_type,
             source_type,
         }
     }
 
-    pub fn undefined_function(left: SqlType, op: Operation, right: SqlType) -> ValidationError {
+    pub fn undefined_function(left: Option<SqlFamilyType>, op: Operation, right: Option<SqlFamilyType>) -> ValidationError {
         ValidationError::UndefinedFunction { left, op, right }
     }
 }
@@ -82,40 +84,97 @@ pub struct InsertValueValidator;
 impl InsertValueValidator {
     pub fn validate(
         &self,
-        tree: &mut InsertTreeNode,
+        tree: &mut StaticEvaluationTree,
         target_type: SqlType,
-    ) -> Result<HashMap<usize, SqlType>, ValidationError> {
-        let mut params = HashMap::new();
-        self.validate_inner(tree, target_type, &mut params)?;
-        Ok(params)
+    ) -> Result<HashMap<usize, Option<SqlType>>, ValidationError> {
+        match tree {
+            StaticEvaluationTree::Item(StaticItem::Const(constant)) => match (&constant).implicit_cast_to(target_type) {
+                Ok(casted) => {
+                    *constant = casted;
+                    Ok(HashMap::new())
+                }
+                Err(error) => Err(error.into()),
+            },
+            StaticEvaluationTree::Item(StaticItem::Param(index)) => {
+                let mut params = HashMap::new();
+                params.insert(*index, Some(target_type));
+                Ok(params)
+            }
+            StaticEvaluationTree::Operation { left, op, right } => {
+                if !op.supported_type_family(left.kind(), right.kind()) {
+                    Err(ValidationError::undefined_function(left.kind(), *op, right.kind()))
+                } else {
+                    match self.find_parent_family_type(left.kind(), right.kind()) {
+                        None => Err(ValidationError::undefined_function(left.kind(), *op, right.kind())),
+                        Some(family_type) => {
+                            if !op.resulted_types().contains(&target_type.family()) {
+                                Err(ValidationError::datatype_mismatch(target_type, Some(family_type)))
+                            } else {
+                                let mut params = HashMap::new();
+                                self.validate_inner(left, target_type, family_type, &mut params)?;
+                                self.validate_inner(right, target_type, family_type, &mut params)?;
+                                Ok(params)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    fn find_parent_family_type(&self, left: Option<SqlFamilyType>, right: Option<SqlFamilyType>) -> Option<SqlFamilyType> {
+        if left == right {
+            left
+        } else {
+            match (left, right) {
+                (Some(SqlFamilyType::Bool), Some(SqlFamilyType::String)) => Some(SqlFamilyType::String),
+                (Some(SqlFamilyType::String), Some(SqlFamilyType::Bool)) => Some(SqlFamilyType::String),
+                (Some(SqlFamilyType::Integer), Some(SqlFamilyType::String)) => Some(SqlFamilyType::String),
+                (Some(SqlFamilyType::String), Some(SqlFamilyType::Integer)) => Some(SqlFamilyType::String),
+                (Some(SqlFamilyType::Float), Some(SqlFamilyType::String)) => Some(SqlFamilyType::String),
+                (Some(SqlFamilyType::String), Some(SqlFamilyType::Float)) => Some(SqlFamilyType::String),
+                (Some(SqlFamilyType::Integer), Some(SqlFamilyType::Float)) => Some(SqlFamilyType::Float),
+                (Some(SqlFamilyType::Float), Some(SqlFamilyType::Integer)) => Some(SqlFamilyType::Float),
+                (Some(SqlFamilyType::Float), Some(SqlFamilyType::Bool)) => None,
+                (Some(SqlFamilyType::Bool), Some(SqlFamilyType::Float)) => None,
+                (Some(SqlFamilyType::Integer), Some(SqlFamilyType::Bool)) => None,
+                (Some(SqlFamilyType::Bool), Some(SqlFamilyType::Integer)) => None,
+                _ => None
+            }
+        }
     }
 
     fn validate_inner(
         &self,
-        tree: &mut InsertTreeNode,
-        target_type: SqlType,
-        params: &mut HashMap<usize, SqlType>,
+        tree: &mut StaticEvaluationTree,
+        column_type: SqlType,
+        target_type: SqlFamilyType,
+        params: &mut HashMap<usize, Option<SqlType>>,
     ) -> Result<(), ValidationError> {
         match tree {
-            InsertTreeNode::Item(InsertItem::Const(constant)) => match (&constant).implicit_cast_to(target_type) {
+            StaticEvaluationTree::Item(StaticItem::Const(constant)) => match (&constant).implicit_cast_to(column_type) {
                 Ok(casted) => {
                     *constant = casted;
                     Ok(())
                 }
                 Err(error) => Err(error.into()),
             },
-            InsertTreeNode::Item(InsertItem::Param(index)) => {
-                params.insert(*index, target_type);
+            StaticEvaluationTree::Item(StaticItem::Param(index)) => {
+                params.insert(*index, None);
                 Ok(())
             }
-            InsertTreeNode::Operation { left, op, right } => {
-                if op.supported_type_family(
-                    left.kind().unwrap_or(target_type.family()),
-                    right.kind().unwrap_or(target_type.family()),
-                ) {
-                    Ok(())
-                } else {
-                    unimplemented!()
+            StaticEvaluationTree::Operation { left, op, right } => {
+                match self.find_parent_family_type(left.kind(), right.kind()) {
+                    None => Err(ValidationError::undefined_function(left.kind(), *op, right.kind())),
+                    Some(family_type) => {
+                        if !op.resulted_types().contains(&target_type) {
+                            Err(ValidationError::datatype_mismatch(column_type, Some(family_type)))
+                        } else {
+                            self.validate_inner(left, column_type, family_type, params)?;
+                            self.validate_inner(right, column_type, family_type, params)?;
+                            Ok(())
+                        }
+                    }
                 }
             }
         }
@@ -125,6 +184,9 @@ impl InsertValueValidator {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use expr_operators::ScalarValue;
+    use expr_operators::Bool;
+    use bigdecimal::BigDecimal;
 
     #[cfg(test)]
     mod strict_type_validation_of_constants {
@@ -136,7 +198,7 @@ mod tests {
 
             assert_eq!(
                 validator.validate(
-                    &mut InsertTreeNode::Item(InsertItem::Const(ScalarValue::Bool(Bool(true)))),
+                    &mut StaticEvaluationTree::Item(StaticItem::Const(ScalarValue::Bool(Bool(true)))),
                     SqlType::Bool
                 ),
                 Ok(HashMap::new())
@@ -149,7 +211,7 @@ mod tests {
 
             assert_eq!(
                 validator.validate(
-                    &mut InsertTreeNode::Item(InsertItem::Const(ScalarValue::Number(BigDecimal::from(0)))),
+                    &mut StaticEvaluationTree::Item(StaticItem::Const(ScalarValue::Number(BigDecimal::from(0)))),
                     SqlType::small_int()
                 ),
                 Ok(HashMap::new())
@@ -162,7 +224,7 @@ mod tests {
 
             assert_eq!(
                 validator.validate(
-                    &mut InsertTreeNode::Item(InsertItem::Const(ScalarValue::String("string".to_owned()))),
+                    &mut StaticEvaluationTree::Item(StaticItem::Const(ScalarValue::String("string".to_owned()))),
                     SqlType::var_char(255)
                 ),
                 Ok(HashMap::new())
@@ -178,13 +240,13 @@ mod tests {
         fn string_to_bool_successful_cast() {
             let validator = InsertValueValidator;
 
-            let mut tree = InsertTreeNode::Item(InsertItem::Const(ScalarValue::String("t".to_owned())));
+            let mut tree = StaticEvaluationTree::Item(StaticItem::Const(ScalarValue::String("t".to_owned())));
 
             assert_eq!(validator.validate(&mut tree, SqlType::Bool), Ok(HashMap::new()));
 
             assert_eq!(
                 tree,
-                InsertTreeNode::Item(InsertItem::Const(ScalarValue::Bool(Bool(true))))
+                StaticEvaluationTree::Item(StaticItem::Const(ScalarValue::Bool(Bool(true))))
             );
         }
 
@@ -194,7 +256,7 @@ mod tests {
 
             assert_eq!(
                 validator.validate(
-                    &mut InsertTreeNode::Item(InsertItem::Const(ScalarValue::String("abc".to_owned()))),
+                    &mut StaticEvaluationTree::Item(StaticItem::Const(ScalarValue::String("abc".to_owned()))),
                     SqlType::Bool
                 ),
                 Err(ValidationError::invalid_input_syntax_for_type(SqlType::Bool, &"abc"))
@@ -205,11 +267,11 @@ mod tests {
         fn num_to_bool() {
             let validator = InsertValueValidator;
 
-            let mut tree = InsertTreeNode::Item(InsertItem::Const(ScalarValue::Number(BigDecimal::from(0))));
+            let mut tree = StaticEvaluationTree::Item(StaticItem::Const(ScalarValue::Number(BigDecimal::from(0))));
 
             assert_eq!(
                 validator.validate(&mut tree, SqlType::Bool),
-                Err(ValidationError::datatype_mismatch(SqlType::Bool, SqlType::integer()))
+                Err(ValidationError::datatype_mismatch(SqlType::Bool, Some(SqlType::integer().family())))
             );
         }
 
@@ -217,13 +279,13 @@ mod tests {
         fn string_to_num() {
             let validator = InsertValueValidator;
 
-            let mut tree = InsertTreeNode::Item(InsertItem::Const(ScalarValue::String("123".to_owned())));
+            let mut tree = StaticEvaluationTree::Item(StaticItem::Const(ScalarValue::String("123".to_owned())));
 
             assert_eq!(validator.validate(&mut tree, SqlType::small_int()), Ok(HashMap::new()));
 
             assert_eq!(
                 tree,
-                InsertTreeNode::Item(InsertItem::Const(ScalarValue::Number(BigDecimal::from(123))))
+                StaticEvaluationTree::Item(StaticItem::Const(ScalarValue::Number(BigDecimal::from(123))))
             );
         }
 
@@ -231,11 +293,11 @@ mod tests {
         fn boolean_to_number() {
             let validator = InsertValueValidator;
 
-            let mut tree = InsertTreeNode::Item(InsertItem::Const(ScalarValue::Bool(Bool(true))));
+            let mut tree = StaticEvaluationTree::Item(StaticItem::Const(ScalarValue::Bool(Bool(true))));
 
             assert_eq!(
                 validator.validate(&mut tree, SqlType::small_int()),
-                Err(ValidationError::datatype_mismatch(SqlType::small_int(), SqlType::Bool))
+                Err(ValidationError::datatype_mismatch(SqlType::small_int(), Some(SqlType::Bool.family())))
             );
         }
     }
@@ -244,10 +306,10 @@ mod tests {
     fn parameter() {
         let validator = InsertValueValidator;
 
-        let mut tree = InsertTreeNode::Item(InsertItem::Param(0));
+        let mut tree = StaticEvaluationTree::Item(StaticItem::Param(0));
 
         let mut params = HashMap::new();
-        params.insert(0, SqlType::small_int());
+        params.insert(0, Some(SqlType::small_int()));
 
         assert_eq!(validator.validate(&mut tree, SqlType::small_int()), Ok(params));
     }
@@ -259,17 +321,18 @@ mod tests {
         #[cfg(test)]
         mod arithmetic {
             use super::*;
+            use expr_operators::Arithmetic;
 
             #[test]
             fn numbers() {
                 let validator = InsertValueValidator;
 
-                let mut tree = InsertTreeNode::Operation {
-                    left: Box::new(InsertTreeNode::Item(InsertItem::Const(ScalarValue::Number(
+                let mut tree = StaticEvaluationTree::Operation {
+                    left: Box::new(StaticEvaluationTree::Item(StaticItem::Const(ScalarValue::Number(
                         BigDecimal::from(1),
                     )))),
                     op: Operation::Arithmetic(Arithmetic::Add),
-                    right: Box::new(InsertTreeNode::Item(InsertItem::Const(ScalarValue::Number(
+                    right: Box::new(StaticEvaluationTree::Item(StaticItem::Const(ScalarValue::Number(
                         BigDecimal::from(1),
                     )))),
                 };
@@ -281,20 +344,79 @@ mod tests {
             fn booleans() {
                 let validator = InsertValueValidator;
 
-                let mut tree = InsertTreeNode::Operation {
-                    left: Box::new(InsertTreeNode::Item(InsertItem::Const(ScalarValue::Bool(Bool(true))))),
+                let mut tree = StaticEvaluationTree::Operation {
+                    left: Box::new(StaticEvaluationTree::Item(StaticItem::Const(ScalarValue::Bool(Bool(true))))),
                     op: Operation::Arithmetic(Arithmetic::Add),
-                    right: Box::new(InsertTreeNode::Item(InsertItem::Const(ScalarValue::Bool(Bool(false))))),
+                    right: Box::new(StaticEvaluationTree::Item(StaticItem::Const(ScalarValue::Bool(Bool(false))))),
                 };
 
                 assert_eq!(
-                    validator.validate(&mut tree, SqlType::small_int()),
+                    validator.validate(&mut tree, SqlType::bool()),
                     Err(ValidationError::undefined_function(
-                        SqlType::Bool,
+                        Some(SqlFamilyType::Bool),
                         Operation::Arithmetic(Arithmetic::Add),
-                        SqlType::Bool
+                        Some(SqlFamilyType::Bool)
                     ))
                 );
+            }
+
+            #[test]
+            fn params() {
+                let validator = InsertValueValidator;
+
+                let mut tree = StaticEvaluationTree::Operation {
+                    left: Box::new(StaticEvaluationTree::Item(StaticItem::Param(1))),
+                    op: Operation::Arithmetic(Arithmetic::Add),
+                    right: Box::new(StaticEvaluationTree::Item(StaticItem::Param(2))),
+                };
+
+                assert_eq!(
+                    validator.validate(&mut tree, SqlType::integer()),
+                    Err(ValidationError::undefined_function(None, Operation::Arithmetic(Arithmetic::Add), None))
+                );
+
+                // TODO: Better type inference. Preferable output:
+                //     let mut params = HashMap::new();
+                //     params.insert(1, Some(SqlType::integer()));
+                //     params.insert(2, Some(SqlType::integer()));
+                //     assert_eq!(validator.validate(&mut tree, SqlType::integer()), Ok(params));
+            }
+        }
+
+        #[cfg(test)]
+        mod comparison {
+            use super::*;
+            use expr_operators::Comparison;
+
+            #[ignore]
+            #[test]
+            fn numbers() {
+                let validator = InsertValueValidator;
+
+                let mut tree = StaticEvaluationTree::Operation {
+                    left: Box::new(StaticEvaluationTree::Item(StaticItem::Const(ScalarValue::Number(
+                        BigDecimal::from(1),
+                    )))),
+                    op: Operation::Comparison(Comparison::Eq),
+                    right: Box::new(StaticEvaluationTree::Item(StaticItem::Const(ScalarValue::Number(
+                        BigDecimal::from(1),
+                    )))),
+                };
+
+                assert_eq!(validator.validate(&mut tree, SqlType::bool()), Ok(HashMap::new()));
+            }
+
+            #[test]
+            fn booleans() {
+                let validator = InsertValueValidator;
+
+                let mut tree = StaticEvaluationTree::Operation {
+                    left: Box::new(StaticEvaluationTree::Item(StaticItem::Const(ScalarValue::Bool(Bool(true))))),
+                    op: Operation::Comparison(Comparison::Eq),
+                    right: Box::new(StaticEvaluationTree::Item(StaticItem::Const(ScalarValue::Bool(Bool(false))))),
+                };
+
+                assert_eq!(validator.validate(&mut tree, SqlType::bool()), Ok(HashMap::new()));
             }
         }
     }

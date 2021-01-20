@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use definition::{FullTableName, SchemaName};
-use expr_operators::{InsertItem, Operand, Operation};
+use expr_operators::{StaticItem, DynamicItem, Operation};
 use meta_def::Id;
 use types::{SqlFamilyType, SqlType};
 
@@ -88,7 +88,7 @@ pub struct DropTablesQuery {
 pub struct InsertQuery {
     pub full_table_name: FullTableName,
     pub column_types: Vec<SqlType>,
-    pub values: Vec<Vec<InsertTreeNode>>,
+    pub values: Vec<Vec<StaticEvaluationTree>>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -110,21 +110,21 @@ impl From<(String, SqlType, usize)> for ColumnDesc {
 }
 
 #[derive(Debug, PartialEq)]
-pub enum InsertTreeNode {
+pub enum StaticEvaluationTree {
     Operation {
-        left: Box<InsertTreeNode>,
+        left: Box<StaticEvaluationTree>,
         op: Operation,
-        right: Box<InsertTreeNode>,
+        right: Box<StaticEvaluationTree>,
     },
-    Item(InsertItem),
+    Item(StaticItem),
 }
 
-impl InsertTreeNode {
+impl StaticEvaluationTree {
     pub fn kind(&self) -> Option<SqlFamilyType> {
         match self {
-            InsertTreeNode::Operation { .. } => None,
-            InsertTreeNode::Item(InsertItem::Const(value)) => value.kind(),
-            InsertTreeNode::Item(InsertItem::Param(_)) => None,
+            StaticEvaluationTree::Operation { .. } => None,
+            StaticEvaluationTree::Item(StaticItem::Const(value)) => value.kind(),
+            StaticEvaluationTree::Item(StaticItem::Param(_)) => None,
         }
     }
 }
@@ -133,33 +133,23 @@ impl InsertTreeNode {
 pub struct UpdateQuery {
     pub full_table_id: FullTableId,
     pub sql_types: Vec<SqlType>,
-    pub assignments: Vec<UpdateTreeNode>,
+    pub assignments: Vec<DynamicEvaluationTree>,
 }
 
 #[derive(Debug, PartialEq)]
-pub enum UpdateTreeNode {
+pub enum DynamicEvaluationTree {
     Operation {
-        left: Box<UpdateTreeNode>,
+        left: Box<DynamicEvaluationTree>,
         op: Operation,
-        right: Box<UpdateTreeNode>,
+        right: Box<DynamicEvaluationTree>,
     },
-    Item(Operand),
+    Item(DynamicItem),
 }
 
 #[derive(Debug, PartialEq)]
 pub struct SelectQuery {
     pub full_table_id: FullTableId,
-    pub projection_items: Vec<ProjectionTreeNode>,
-}
-
-#[derive(Debug, PartialEq)]
-pub enum ProjectionTreeNode {
-    Operation {
-        left: Box<ProjectionTreeNode>,
-        op: Operation,
-        right: Box<ProjectionTreeNode>,
-    },
-    Item(Operand),
+    pub projection_items: Vec<DynamicEvaluationTree>,
 }
 
 #[derive(Debug, PartialEq)]
