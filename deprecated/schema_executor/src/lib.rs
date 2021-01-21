@@ -12,10 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use analysis_tree::{CreateTableQuery, DropSchemasQuery, DropTablesQuery, SchemaChange, TableInfo};
-use data_manager::{DataDefOperationExecutor, DatabaseHandle};
-use definition_operations::{Step, SystemObject, SystemOperation};
 use std::sync::Arc;
+
+use data_definition_execution_plan::{CreateTableQuery, DropSchemasQuery, DropTablesQuery, TableInfo};
+use data_definition_execution_plan::SchemaChange;
+use data_definition_operations::{Step, SystemObject, SystemOperation};
+use data_manager::{DatabaseHandle, DataDefOperationExecutor};
 
 pub struct SystemSchemaExecutor {
     data_manager: Arc<DatabaseHandle>,
@@ -155,10 +157,11 @@ pub enum ExecutionError {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use analysis_tree::{CreateSchemaQuery, CreateTableQuery, DropSchemasQuery, DropTablesQuery, TableInfo};
+    use data_definition_execution_plan::{CreateSchemaQuery, CreateTableQuery, DropSchemasQuery, DropTablesQuery, SchemaChange, TableInfo};
+    use data_definition_operations::{Kind, Record, Step, SystemObject};
     use definition::SchemaName;
-    use definition_operations::{Kind, Record, Step, SystemObject};
+
+    use super::*;
 
     const SCHEMA: &str = "schema_name";
     const TABLE: &str = "table_name";

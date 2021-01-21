@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use data_definition_execution_plan::{ColumnInfo, CreateTableQuery, SchemaChange, TableInfo};
+
 use super::*;
 
 fn column(name: &str, data_type: sql_ast::DataType) -> sql_ast::ColumnDef {

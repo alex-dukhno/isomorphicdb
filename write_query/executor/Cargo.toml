@@ -6,7 +6,8 @@ edition = "2018"
 publish = false
 
 [dependencies]
-analysis_tree = {path = "../../annotated_tree" }
+annotated_tree = { path = "../../annotated_tree" }
+data_manipulation_query_plan = { path = "../../data_manipulation/query_plan" }
 catalog = { path = "../../data/catalog" }
 
 [dev-dependencies]

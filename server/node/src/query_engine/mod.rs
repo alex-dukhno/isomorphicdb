@@ -12,31 +12,32 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use analysis_tree::{AnalysisError, QueryAnalysis};
+use std::{convert::TryFrom, iter, ops::Deref, sync::Arc};
+
 use bigdecimal::BigDecimal;
+use itertools::izip;
+use pg_wire::{PgFormat, PgType};
+
 use binder::ParamBinder;
 use catalog::{CatalogDefinition, Database};
 use connection::Sender;
-use data_manager::{DataDefReader, DatabaseHandle};
-use definition_operations::{ExecutionError, ExecutionOutcome};
+use data_definition_operations::{ExecutionError, ExecutionOutcome};
+use data_manager::{DatabaseHandle, DataDefReader};
 use description::{DeprecatedDescription, DeprecatedDescriptionError};
-use itertools::izip;
 use pg_model::{
+    Command,
     results::{QueryError, QueryEvent},
     session::Session,
     statement::PreparedStatement,
-    Command,
 };
-use pg_wire::{PgFormat, PgType};
 use plan::{DeprecatedPlan, DeprecatedSelectInput};
-use query_analyzer::Analyzer;
+use query_analyzer::{AnalysisError, Analyzer, QueryAnalysis};
 use query_analyzer_old::Analyzer as OldAnalyzer;
 use query_executor::QueryExecutor;
 use query_planner::{PlanError, QueryPlanner};
 use schema_executor::SystemSchemaExecutor;
 use schema_planner::SystemSchemaPlanner;
 use sql_ast::{Expr, Ident, Statement, Value};
-use std::{convert::TryFrom, iter, ops::Deref, sync::Arc};
 use types::SqlType;
 
 unsafe impl<D: Database + CatalogDefinition> Send for QueryEngine<D> {}

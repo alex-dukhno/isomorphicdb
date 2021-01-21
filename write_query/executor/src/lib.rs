@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use analysis_tree::Write;
+use data_manipulation_query_plan::Write;
 use catalog::Database;
 use std::sync::Arc;
 
@@ -32,7 +32,7 @@ impl<D: Database> Executor<D> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use analysis_tree::{InsertQuery, Write};
+    use data_manipulation_query_plan::InsertQuery;
     use catalog::InMemoryDatabase;
     use definition::FullTableName;
 

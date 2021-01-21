@@ -26,10 +26,10 @@ mod selects;
 mod updates;
 
 use super::*;
-use analysis_tree::{DynamicEvaluationTree, StaticEvaluationTree};
+use annotated_tree::{DynamicEvaluationTree, StaticEvaluationTree};
 use bigdecimal::BigDecimal;
 use catalog::{Database, InMemoryDatabase};
-use definition_operations::{Kind, Record, Step, SystemObject, SystemOperation};
+use data_definition_operations::{Kind, Record, Step, SystemObject, SystemOperation};
 use expr_operators::{
     Arithmetic, Bitwise, Bool, Comparison, DynamicItem, Logical, Operation, PatternMatching, ScalarValue, StaticItem,
     StringOp,

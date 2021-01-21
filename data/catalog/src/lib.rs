@@ -23,7 +23,7 @@ use std::{
 };
 
 use definition::{FullTableName, SchemaName, TableDef};
-use definition_operations::{ExecutionError, ExecutionOutcome, SystemOperation};
+use data_definition_operations::{ExecutionError, ExecutionOutcome, SystemOperation};
 pub use in_memory::InMemoryCatalogHandle;
 pub use on_disk::OnDiskCatalogHandle;
 pub use sql::{in_memory::InMemoryDatabase, on_disk::OnDiskDatabase};

@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use binary::{Binary, Key, ReadCursor, Values};
-use definition_operations::{Record, Step, SystemObject};
+use data_definition_operations::{Record, Step, SystemObject};
 use repr::Datum;
 use sql_model::{DropSchemaError, DropStrategy};
 use std::{

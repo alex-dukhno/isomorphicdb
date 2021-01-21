@@ -12,11 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{operation_mapper::OperationMapper, parse_param_index};
-use analysis_tree::{AnalysisError, AnalysisResult, DynamicEvaluationTree, Feature};
+use annotated_tree::{DynamicEvaluationTree, Feature};
 use definition::ColumnDef;
 use expr_operators::{Bool, DynamicItem, ScalarValue};
 use types::SqlType;
+
+use crate::{AnalysisError, AnalysisResult, operation_mapper::OperationMapper, parse_param_index};
 
 pub(crate) struct DynamicTreeBuilder;
 

@@ -12,10 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{operation_mapper::OperationMapper, parse_param_index};
-use analysis_tree::{AnalysisError, AnalysisResult, Feature, StaticEvaluationTree};
+use annotated_tree::{Feature, StaticEvaluationTree};
 use expr_operators::{Bool, ScalarValue, StaticItem};
 use types::SqlType;
+
+use crate::{AnalysisError, AnalysisResult, operation_mapper::OperationMapper, parse_param_index};
 
 pub(crate) struct StaticTreeBuilder;
 

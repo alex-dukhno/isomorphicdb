@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use data_definition_execution_plan::{CreateSchemaQuery, SchemaChange};
+
 use super::*;
 
 fn create_schema(schema_name: Vec<&'static str>) -> sql_ast::Statement {

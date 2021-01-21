@@ -16,9 +16,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ee2a4ec343196209d6594e19543ae87a39f96d5534d7174822a3ad825dd6ed7e"
 
 [[package]]
-name = "analysis_tree"
+name = "annotated_tree"
 version = "0.1.0"
 dependencies = [
+ "data_definition_execution_plan",
  "definition",
  "expr_operators",
  "sql_ast",
@@ -235,8 +236,8 @@ dependencies = [
  "backtrace",
  "binary",
  "dashmap",
+ "data_definition_operations",
  "definition",
- "definition_operations",
  "log",
  "repr",
  "rstest",
@@ -395,13 +396,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "data_definition_execution_plan"
+version = "0.1.0"
+dependencies = [
+ "definition",
+ "types",
+]
+
+[[package]]
+name = "data_definition_operations"
+version = "0.1.0"
+dependencies = [
+ "types",
+]
+
+[[package]]
 name = "data_manager"
 version = "0.1.0"
 dependencies = [
  "backtrace",
  "binary",
  "dashmap",
- "definition_operations",
+ "data_definition_operations",
  "log",
  "meta_def",
  "repr",
@@ -413,18 +429,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "data_manipulation_query_plan"
+version = "0.1.0"
+dependencies = [
+ "annotated_tree",
+ "definition",
+ "types",
+]
+
+[[package]]
 name = "definition"
 version = "0.1.0"
 dependencies = [
  "repr",
  "sql_ast",
- "types",
-]
-
-[[package]]
-name = "definition_operations"
-version = "0.1.0"
-dependencies = [
  "types",
 ]
 
@@ -454,8 +472,9 @@ checksum = "f7531096570974c3a9dcf9e4b8e1cede1ec26cf5046219fb3b9d897503b9be59"
 name = "executor"
 version = "0.1.0"
 dependencies = [
- "analysis_tree",
+ "annotated_tree",
  "catalog",
+ "data_manipulation_query_plan",
  "definition",
 ]
 
@@ -762,7 +781,7 @@ dependencies = [
 name = "node"
 version = "0.1.0"
 dependencies = [
- "analysis_tree",
+ "annotated_tree",
  "async-dup",
  "async-executor",
  "async-io",
@@ -771,8 +790,8 @@ dependencies = [
  "blocking",
  "catalog",
  "connection",
+ "data_definition_operations",
  "data_manager",
- "definition_operations",
  "description",
  "futures-lite",
  "itertools",
@@ -1046,11 +1065,13 @@ dependencies = [
 name = "query_analyzer"
 version = "0.1.0"
 dependencies = [
- "analysis_tree",
+ "annotated_tree",
  "bigdecimal",
  "catalog",
+ "data_definition_execution_plan",
+ "data_definition_operations",
+ "data_manipulation_query_plan",
  "definition",
- "definition_operations",
  "expr_operators",
  "meta_def",
  "sql_ast",
@@ -1224,19 +1245,21 @@ dependencies = [
 name = "schema_executor"
 version = "0.1.0"
 dependencies = [
- "analysis_tree",
+ "annotated_tree",
+ "data_definition_execution_plan",
+ "data_definition_operations",
  "data_manager",
  "definition",
- "definition_operations",
 ]
 
 [[package]]
 name = "schema_planner"
 version = "0.1.0"
 dependencies = [
- "analysis_tree",
+ "annotated_tree",
+ "data_definition_execution_plan",
+ "data_definition_operations",
  "definition",
- "definition_operations",
  "types",
 ]
 
@@ -1454,6 +1477,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cda74da7e1a664f795bb1f8a87ec406fb89a02522cf6e50620d016add6dbbf5c"
 
 [[package]]
+name = "type_inference"
+version = "0.1.0"
+
+[[package]]
 name = "types"
 version = "0.1.0"
 dependencies = [
@@ -1502,7 +1529,7 @@ dependencies = [
 name = "validator"
 version = "0.1.0"
 dependencies = [
- "analysis_tree",
+ "annotated_tree",
  "bigdecimal",
  "expr_operators",
  "log",

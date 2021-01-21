@@ -12,10 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use analysis_tree::{
-    ColumnInfo, CreateSchemaQuery, CreateTableQuery, DropSchemasQuery, DropTablesQuery, SchemaChange, TableInfo,
-};
-use definition_operations::{Kind, ObjectState, Record, Step, SystemObject, SystemOperation};
+use data_definition_execution_plan::{ColumnInfo, CreateSchemaQuery, CreateTableQuery, DropSchemasQuery, DropTablesQuery, TableInfo};
+use data_definition_execution_plan::SchemaChange;
+use data_definition_operations::{Kind, ObjectState, Record, Step, SystemObject, SystemOperation};
 
 pub struct SystemSchemaPlanner;
 
@@ -186,9 +185,10 @@ impl SystemSchemaPlanner {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use definition::SchemaName;
     use types::SqlType;
+
+    use super::*;
 
     const SCHEMA: &str = "schema";
     const OTHER_SCHEMA: &str = "other_schema";
@@ -199,6 +199,8 @@ mod tests {
 
     #[cfg(test)]
     mod schema {
+        use data_definition_execution_plan::{CreateSchemaQuery, DropSchemasQuery, SchemaChange};
+
         use super::*;
 
         #[test]
@@ -452,6 +454,8 @@ mod tests {
 
     #[cfg(test)]
     mod table {
+        use data_definition_execution_plan::{ColumnInfo, CreateTableQuery, DropTablesQuery, SchemaChange, TableInfo};
+
         use super::*;
 
         #[test]

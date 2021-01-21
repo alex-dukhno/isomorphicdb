@@ -13,10 +13,10 @@ name = "isomorphicdb"
 path = "src/bin.rs"
 
 [dependencies]
-analysis_tree = { path = "../../annotated_tree" }
+annotated_tree = { path = "../../annotated_tree" }
 catalog = { path = "../../data/catalog" }
 connection = { path = "../connection" }
-definition_operations = { path = "../../data/definition_operations" }
+data_definition_operations = { path = "../../data_definition/operations" }
 parser = { path = "../../query_parsing/parser" }
 pg_model = { path = "../pg_model" }
 pg_wire = "0.5.0"

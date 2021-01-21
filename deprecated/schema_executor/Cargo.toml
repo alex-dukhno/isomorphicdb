@@ -6,8 +6,9 @@ edition = "2018"
 publish = false
 
 [dependencies]
-analysis_tree = { path = "../../annotated_tree" }
-definition_operations = { path = "../../data/definition_operations" }
+annotated_tree = { path = "../../annotated_tree" }
+data_definition_operations = { path = "../../data_definition/operations" }
+data_definition_execution_plan = { path = "../../data_definition/execution_plan" }
 
 # deprecated module
 data_manager = { path = "../catalog_deprecated/data_manager" }

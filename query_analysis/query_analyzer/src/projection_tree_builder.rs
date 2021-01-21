@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use crate::{operation_mapper::OperationMapper, parse_param_index};
-use analysis_tree::{AnalysisError, AnalysisResult, Feature, DynamicEvaluationTree};
+use annotated_tree::{AnalysisError, AnalysisResult, Feature, DynamicEvaluationTree};
 use expr_operators::{Bool, DynamicItem, ScalarValue};
 use types::SqlType;
 use definition::ColumnDef;

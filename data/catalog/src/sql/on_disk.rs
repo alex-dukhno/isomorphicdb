@@ -14,7 +14,7 @@
 
 use crate::{CatalogDefinition, Database, SqlSchema, SqlTable};
 use definition::{FullTableName, SchemaName, TableDef};
-use definition_operations::{ExecutionError, ExecutionOutcome, SystemOperation};
+use data_definition_operations::{ExecutionError, ExecutionOutcome, SystemOperation};
 use std::sync::Arc;
 
 pub struct OnDiskDatabase;

@@ -45,6 +45,8 @@ fn drop_cascade(names: Vec<Vec<&'static str>>, object_type: sql_ast::ObjectType)
 
 #[cfg(test)]
 mod schema {
+    use data_definition_execution_plan::{DropSchemasQuery, SchemaChange};
+
     use super::*;
 
     const SCHEMA_TYPE: sql_ast::ObjectType = sql_ast::ObjectType::Schema;
@@ -135,6 +137,8 @@ mod schema {
 
 #[cfg(test)]
 mod table {
+    use data_definition_execution_plan::{DropTablesQuery, SchemaChange, TableInfo};
+
     use super::*;
 
     const TABLE_TYPE: sql_ast::ObjectType = sql_ast::ObjectType::Table;

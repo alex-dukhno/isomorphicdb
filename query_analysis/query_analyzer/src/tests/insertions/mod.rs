@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use super::*;
-use definition_operations::{Kind, Record, Step, SystemObject, SystemOperation};
+use data_definition_operations::{Kind, Record, Step, SystemObject, SystemOperation};
 
 #[cfg(test)]
 mod expressions;

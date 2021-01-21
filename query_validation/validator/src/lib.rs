@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use analysis_tree::StaticEvaluationTree;
+use annotated_tree::StaticEvaluationTree;
 use expr_operators::{ImplicitCastError, Operation, StaticItem};
 use std::collections::HashMap;
 use types::{SqlFamilyType, SqlType};

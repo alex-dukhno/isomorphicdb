@@ -12,17 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{dynamic_tree_builder::DynamicTreeBuilder, static_tree_builder::StaticTreeBuilder};
-use analysis_tree::{
-    AnalysisError, ColumnInfo, CreateSchemaQuery, CreateTableQuery, DeleteQuery, DropSchemasQuery, DropTablesQuery,
-    DynamicEvaluationTree, Feature, InsertQuery, QueryAnalysis, SchemaChange, SelectQuery, TableInfo, UpdateQuery,
-    Write,
-};
-use catalog::CatalogDefinition;
-use definition::{FullTableName, SchemaName};
-use expr_operators::DynamicItem;
 use std::{convert::TryFrom, sync::Arc};
+
+use annotated_tree::{DynamicEvaluationTree, Feature};
+use data_manipulation_query_plan::{InsertQuery, SelectQuery, UpdateQuery, DeleteQuery, Write};
+use catalog::CatalogDefinition;
+use data_definition_execution_plan::{ColumnInfo, CreateSchemaQuery, CreateTableQuery, DropSchemasQuery, DropTablesQuery, SchemaChange, TableInfo};
+use definition::{FullTableName, SchemaName};
+use expr_operators::{DynamicItem, Operation};
 use types::SqlType;
+
+use crate::{dynamic_tree_builder::DynamicTreeBuilder, static_tree_builder::StaticTreeBuilder};
 
 mod dynamic_tree_builder;
 mod operation_mapper;
@@ -352,3 +352,96 @@ fn parse_param_index(value: &str) -> Option<usize> {
 
 #[cfg(test)]
 mod tests;
+
+pub type AnalysisResult<A> = Result<A, AnalysisError>;
+
+#[derive(Debug, PartialEq)]
+pub enum QueryAnalysis {
+    DataDefinition(SchemaChange),
+    Write(Write),
+    Read(SelectQuery),
+}
+
+#[derive(Debug, PartialEq)]
+pub enum AnalysisError {
+    SchemaNamingError(String),
+    SchemaDoesNotExist(String),
+    SchemaAlreadyExists(String),
+    TableNamingError(String),
+    TableDoesNotExist(String),
+    TableAlreadyExists(String),
+    TypeIsNotSupported(String),
+    SyntaxError(String),
+    ColumnNotFound(String),
+    ColumnCantBeReferenced(String),                                  // Error code: 42703
+    InvalidInputSyntaxForType { sql_type: SqlType, value: String },  // Error code: 22P02
+    StringDataRightTruncation(SqlType),                              // Error code: 22001
+    DatatypeMismatch { column_type: SqlType, source_type: SqlType }, // Error code: 42804
+    AmbiguousFunction(Operation),                                    // Error code: 42725
+    UndefinedFunction(Operation),                                    // Error code: 42883
+    FeatureNotSupported(Feature),
+}
+
+impl AnalysisError {
+    pub fn schema_naming_error<M: ToString>(message: M) -> AnalysisError {
+        AnalysisError::SchemaNamingError(message.to_string())
+    }
+
+    pub fn schema_does_not_exist<S: ToString>(schema_name: S) -> AnalysisError {
+        AnalysisError::SchemaDoesNotExist(schema_name.to_string())
+    }
+
+    pub fn schema_already_exists<S: ToString>(schema_name: S) -> AnalysisError {
+        AnalysisError::SchemaAlreadyExists(schema_name.to_string())
+    }
+
+    pub fn table_naming_error<M: ToString>(message: M) -> AnalysisError {
+        AnalysisError::TableNamingError(message.to_string())
+    }
+
+    pub fn table_does_not_exist<T: ToString>(table_name: T) -> AnalysisError {
+        AnalysisError::TableDoesNotExist(table_name.to_string())
+    }
+
+    pub fn table_already_exists<T: ToString>(table_name: T) -> AnalysisError {
+        AnalysisError::TableAlreadyExists(table_name.to_string())
+    }
+
+    pub fn type_is_not_supported<T: ToString>(type_name: T) -> AnalysisError {
+        AnalysisError::TypeIsNotSupported(type_name.to_string())
+    }
+
+    pub fn syntax_error(message: String) -> AnalysisError {
+        AnalysisError::SyntaxError(message)
+    }
+
+    pub fn column_not_found<C: ToString>(column_name: C) -> AnalysisError {
+        AnalysisError::ColumnNotFound(column_name.to_string())
+    }
+
+    pub fn column_cant_be_referenced<C: ToString>(column_name: C) -> AnalysisError {
+        AnalysisError::ColumnCantBeReferenced(column_name.to_string())
+    }
+
+    pub fn invalid_input_syntax_for_type<V: ToString>(sql_type: SqlType, value: V) -> AnalysisError {
+        AnalysisError::InvalidInputSyntaxForType {
+            sql_type,
+            value: value.to_string(),
+        }
+    }
+
+    pub fn string_data_right_truncation(sql_type: SqlType) -> AnalysisError {
+        AnalysisError::StringDataRightTruncation(sql_type)
+    }
+
+    pub fn datatype_mismatch(column_type: SqlType, source_type: SqlType) -> AnalysisError {
+        AnalysisError::DatatypeMismatch {
+            column_type,
+            source_type,
+        }
+    }
+
+    pub fn feature_not_supported(feature: Feature) -> AnalysisError {
+        AnalysisError::FeatureNotSupported(feature)
+    }
+}

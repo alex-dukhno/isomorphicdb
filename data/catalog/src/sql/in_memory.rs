@@ -18,7 +18,7 @@ use crate::{
 };
 use binary::Binary;
 use definition::{ColumnDef, FullTableName, SchemaName, TableDef};
-use definition_operations::{
+use data_definition_operations::{
     ExecutionError, ExecutionOutcome, Kind, ObjectState, Record, Step, SystemObject, SystemOperation,
 };
 use repr::Datum;
