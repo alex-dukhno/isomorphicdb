@@ -12,6 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use bigdecimal::BigDecimal;
+
+use catalog::{Database, InMemoryDatabase};
+use data_definition_operations::{Kind, Record, Step, SystemObject, SystemOperation};
+use data_manipulation_operators::{Arithmetic, Bitwise, Comparison, Logical, Operation, PatternMatching, StringOp};
+use data_manipulation_untyped_tree::{DynamicEvaluationTree, DynamicItem, ScalarValue, StaticEvaluationTree, StaticItem, Bool};
+
+use super::*;
+
 #[cfg(test)]
 mod ddl;
 #[cfg(test)]
@@ -24,16 +33,6 @@ mod operation_mapping;
 mod selects;
 #[cfg(test)]
 mod updates;
-
-use super::*;
-use annotated_tree::{DynamicEvaluationTree, StaticEvaluationTree};
-use bigdecimal::BigDecimal;
-use catalog::{Database, InMemoryDatabase};
-use data_definition_operations::{Kind, Record, Step, SystemObject, SystemOperation};
-use expr_operators::{
-    Arithmetic, Bitwise, Bool, Comparison, DynamicItem, Logical, Operation, PatternMatching, ScalarValue, StaticItem,
-    StringOp,
-};
 
 const SCHEMA: &str = "schema_name";
 const TABLE: &str = "table_name";

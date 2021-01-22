@@ -185,6 +185,8 @@ fn insert_into_table_with_parameters_and_values() {
 
 #[cfg(test)]
 mod multiple_values {
+    use data_manipulation_untyped_tree::{ScalarValue, StaticEvaluationTree, StaticItem};
+
     use super::*;
 
     fn insert_value_as_expression_with_operation(

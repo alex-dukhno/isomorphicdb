@@ -14,12 +14,13 @@
 
 use std::{convert::TryFrom, sync::Arc};
 
-use annotated_tree::{DynamicEvaluationTree, Feature};
-use data_manipulation_query_plan::{InsertQuery, SelectQuery, UpdateQuery, DeleteQuery, Write};
 use catalog::CatalogDefinition;
 use data_definition_execution_plan::{ColumnInfo, CreateSchemaQuery, CreateTableQuery, DropSchemasQuery, DropTablesQuery, SchemaChange, TableInfo};
+use data_manipulation_annotated_queries::{DeleteQuery, InsertQuery, SelectQuery, UpdateQuery, Write};
+use data_manipulation_operators::Operation;
+use data_manipulation_untyped_tree::DynamicEvaluationTree;
+use data_manipulation_untyped_tree::DynamicItem;
 use definition::{FullTableName, SchemaName};
-use expr_operators::{DynamicItem, Operation};
 use types::SqlType;
 
 use crate::{dynamic_tree_builder::DynamicTreeBuilder, static_tree_builder::StaticTreeBuilder};
@@ -444,4 +445,20 @@ impl AnalysisError {
     pub fn feature_not_supported(feature: Feature) -> AnalysisError {
         AnalysisError::FeatureNotSupported(feature)
     }
+}
+
+#[derive(Debug, PartialEq)]
+pub enum Feature {
+    SetOperations,
+    SubQueries,
+    NationalStringLiteral,
+    HexStringLiteral,
+    TimeInterval,
+    Joins,
+    NestedJoin,
+    FromSubQuery,
+    TableFunctions,
+    Aliases,
+    QualifiedAliases,
+    InsertIntoSelect,
 }

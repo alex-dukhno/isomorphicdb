@@ -15,8 +15,6 @@
 use super::*;
 
 #[cfg(test)]
-mod bool_parser;
-#[cfg(test)]
 mod implicit_type_casting;
 #[cfg(test)]
-mod supported_type_families;
+mod bool_parser;

@@ -16,17 +16,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ee2a4ec343196209d6594e19543ae87a39f96d5534d7174822a3ad825dd6ed7e"
 
 [[package]]
-name = "annotated_tree"
-version = "0.1.0"
-dependencies = [
- "data_definition_execution_plan",
- "definition",
- "expr_operators",
- "sql_ast",
- "types",
-]
-
-[[package]]
 name = "ast"
 version = "0.1.0"
 dependencies = [
@@ -429,11 +418,28 @@ dependencies = [
 ]
 
 [[package]]
-name = "data_manipulation_query_plan"
+name = "data_manipulation_annotated_queries"
 version = "0.1.0"
 dependencies = [
- "annotated_tree",
+ "data_manipulation_untyped_tree",
  "definition",
+ "types",
+]
+
+[[package]]
+name = "data_manipulation_operators"
+version = "0.1.0"
+dependencies = [
+ "types",
+]
+
+[[package]]
+name = "data_manipulation_untyped_tree"
+version = "0.1.0"
+dependencies = [
+ "bigdecimal",
+ "data_manipulation_operators",
+ "log",
  "types",
 ]
 
@@ -472,9 +478,8 @@ checksum = "f7531096570974c3a9dcf9e4b8e1cede1ec26cf5046219fb3b9d897503b9be59"
 name = "executor"
 version = "0.1.0"
 dependencies = [
- "annotated_tree",
  "catalog",
- "data_manipulation_query_plan",
+ "data_manipulation_annotated_queries",
  "definition",
 ]
 
@@ -486,15 +491,6 @@ dependencies = [
  "bigdecimal",
  "repr",
  "rstest",
-]
-
-[[package]]
-name = "expr_operators"
-version = "0.1.0"
-dependencies = [
- "bigdecimal",
- "log",
- "types",
 ]
 
 [[package]]
@@ -781,7 +777,6 @@ dependencies = [
 name = "node"
 version = "0.1.0"
 dependencies = [
- "annotated_tree",
  "async-dup",
  "async-executor",
  "async-io",
@@ -1065,14 +1060,14 @@ dependencies = [
 name = "query_analyzer"
 version = "0.1.0"
 dependencies = [
- "annotated_tree",
  "bigdecimal",
  "catalog",
  "data_definition_execution_plan",
  "data_definition_operations",
- "data_manipulation_query_plan",
+ "data_manipulation_annotated_queries",
+ "data_manipulation_operators",
+ "data_manipulation_untyped_tree",
  "definition",
- "expr_operators",
  "meta_def",
  "sql_ast",
  "types",
@@ -1245,7 +1240,6 @@ dependencies = [
 name = "schema_executor"
 version = "0.1.0"
 dependencies = [
- "annotated_tree",
  "data_definition_execution_plan",
  "data_definition_operations",
  "data_manager",
@@ -1256,7 +1250,6 @@ dependencies = [
 name = "schema_planner"
 version = "0.1.0"
 dependencies = [
- "annotated_tree",
  "data_definition_execution_plan",
  "data_definition_operations",
  "definition",
@@ -1529,9 +1522,9 @@ dependencies = [
 name = "validator"
 version = "0.1.0"
 dependencies = [
- "annotated_tree",
  "bigdecimal",
- "expr_operators",
+ "data_manipulation_operators",
+ "data_manipulation_untyped_tree",
  "log",
  "types",
 ]

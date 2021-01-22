@@ -12,9 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use annotated_tree::StaticEvaluationTree;
-use expr_operators::{ImplicitCastError, Operation, StaticItem};
 use std::collections::HashMap;
+
+use data_manipulation_operators::Operation;
+use data_manipulation_untyped_tree::StaticEvaluationTree;
+use data_manipulation_untyped_tree::StaticItem;
+use data_manipulation_untyped_tree::ImplicitCastError;
 use types::{SqlFamilyType, SqlType};
 
 #[derive(Debug, PartialEq)]
@@ -194,12 +197,17 @@ impl InsertValueValidator {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use bigdecimal::BigDecimal;
-    use expr_operators::{Bool, ScalarValue};
+
+    use data_manipulation_untyped_tree::{ScalarValue, StaticEvaluationTree, StaticItem};
+    use data_manipulation_untyped_tree::Bool;
+
+    use super::*;
 
     #[cfg(test)]
     mod strict_type_validation_of_constants {
+        use data_manipulation_untyped_tree::{ScalarValue, StaticEvaluationTree, StaticItem};
+
         use super::*;
 
         #[test]
@@ -244,6 +252,8 @@ mod tests {
 
     #[cfg(test)]
     mod implicit_cast {
+        use data_manipulation_untyped_tree::{ScalarValue, StaticEvaluationTree, StaticItem};
+
         use super::*;
 
         #[test]
@@ -336,8 +346,10 @@ mod tests {
 
         #[cfg(test)]
         mod arithmetic {
+            use data_manipulation_operators::Arithmetic;
+            use data_manipulation_untyped_tree::{ScalarValue, StaticEvaluationTree, StaticItem};
+
             use super::*;
-            use expr_operators::Arithmetic;
 
             #[test]
             fn numbers() {
@@ -409,8 +421,10 @@ mod tests {
 
         #[cfg(test)]
         mod comparison {
+            use data_manipulation_operators::Comparison;
+            use data_manipulation_untyped_tree::{ScalarValue, StaticEvaluationTree, StaticItem};
+
             use super::*;
-            use expr_operators::Comparison;
 
             #[ignore]
             #[test]

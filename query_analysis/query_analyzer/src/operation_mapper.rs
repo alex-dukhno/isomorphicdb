@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use expr_operators::{Arithmetic, Bitwise, Comparison, Logical, Operation, PatternMatching, StringOp};
+use data_manipulation_operators::{Arithmetic, Bitwise, Comparison, Logical, Operation, PatternMatching, StringOp};
 
 pub(crate) struct OperationMapper;
 

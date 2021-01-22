@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use data_manipulation_query_plan::Write;
+use data_manipulation_annotated_queries::Write;
 use catalog::Database;
 use std::sync::Arc;
 
@@ -32,7 +32,7 @@ impl<D: Database> Executor<D> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use data_manipulation_query_plan::InsertQuery;
+    use data_manipulation_annotated_queries::InsertQuery;
     use catalog::InMemoryDatabase;
     use definition::FullTableName;
 

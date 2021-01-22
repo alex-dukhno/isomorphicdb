@@ -1,12 +1,8 @@
 [package]
-name = "expr_operators"
+name = "data_manipulation_operators"
 version = "0.1.0"
 authors = ["Alex Dukhno <alex.dukhno@icloud.com>"]
 edition = "2018"
-publish = false
 
 [dependencies]
 types = { path = "../../entities/types" }
-
-bigdecimal = { version = "0.2.0", features = ["string-only"] }
-log = "0.4.11"

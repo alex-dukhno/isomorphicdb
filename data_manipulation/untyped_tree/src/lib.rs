@@ -12,115 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::fmt::{Display, Formatter};
+use std::fmt;
 use bigdecimal::BigDecimal;
-use std::{
-    fmt::{self, Display, Formatter},
-    str::FromStr,
-};
 use types::{SqlFamilyType, SqlType};
-
-#[derive(Debug, PartialEq, Copy, Clone)]
-pub enum Arithmetic {
-    Add,
-    Sub,
-    Mul,
-    Div,
-    Mod,
-    Exp,
-}
-
-#[derive(Debug, PartialEq, Copy, Clone)]
-pub enum Comparison {
-    NotEq,
-    Eq,
-    LtEq,
-    GtEq,
-    Lt,
-    Gt,
-}
-
-#[derive(Debug, PartialEq, Copy, Clone)]
-pub enum Bitwise {
-    ShiftRight,
-    ShiftLeft,
-    Xor,
-    And,
-    Or,
-}
-
-#[derive(Debug, PartialEq, Copy, Clone)]
-pub enum Logical {
-    Or,
-    And,
-}
-
-#[derive(Debug, PartialEq, Copy, Clone)]
-pub enum PatternMatching {
-    Like,
-    NotLike,
-}
-
-#[derive(Debug, PartialEq, Copy, Clone)]
-pub enum StringOp {
-    Concat,
-}
-
-#[derive(Debug, PartialEq, Copy, Clone)]
-pub enum Operation {
-    Arithmetic(Arithmetic),
-    Comparison(Comparison),
-    Bitwise(Bitwise),
-    Logical(Logical),
-    PatternMatching(PatternMatching),
-    StringOp(StringOp),
-}
-
-impl Operation {
-    pub fn resulted_types(&self) -> Vec<SqlFamilyType> {
-        match self {
-            Operation::Arithmetic(_) => vec![SqlFamilyType::Integer, SqlFamilyType::Float],
-            Operation::Comparison(_) => vec![SqlFamilyType::Bool],
-            Operation::Bitwise(_) => vec![SqlFamilyType::Integer],
-            Operation::Logical(_) => vec![SqlFamilyType::Bool],
-            Operation::PatternMatching(_) => vec![SqlFamilyType::Bool],
-            Operation::StringOp(_) => vec![SqlFamilyType::Bool],
-        }
-    }
-
-    pub fn supported_type_family(&self, left: Option<SqlFamilyType>, right: Option<SqlFamilyType>) -> bool {
-        match self {
-            Operation::Arithmetic(_) => {
-                left == Some(SqlFamilyType::Integer) && right == Some(SqlFamilyType::Integer)
-                    || left == Some(SqlFamilyType::Float) && right == Some(SqlFamilyType::Integer)
-                    || left == Some(SqlFamilyType::Integer) && right == Some(SqlFamilyType::Float)
-                    || left == Some(SqlFamilyType::Float) && right == Some(SqlFamilyType::Float)
-            }
-            Operation::Comparison(_) => left.is_some() && left == right,
-            Operation::Bitwise(_) => left == Some(SqlFamilyType::Integer) && right == Some(SqlFamilyType::Integer),
-            Operation::Logical(_) => left == Some(SqlFamilyType::Bool) && right == Some(SqlFamilyType::Bool),
-            Operation::PatternMatching(_) => {
-                left == Some(SqlFamilyType::String) && right == Some(SqlFamilyType::String)
-            }
-            Operation::StringOp(_) => left == Some(SqlFamilyType::String) && right == Some(SqlFamilyType::String),
-        }
-    }
-}
-
-#[derive(Debug, PartialEq)]
-pub struct OperationError;
-
-#[derive(Debug, PartialEq)]
-pub enum StaticItem {
-    Const(ScalarValue),
-    Param(usize),
-}
-
-#[derive(Debug, PartialEq)]
-pub enum DynamicItem {
-    Const(ScalarValue),
-    Param(usize),
-    Column { sql_type: SqlType, index: usize },
-}
+use std::str::FromStr;
+use data_manipulation_operators::Operation;
 
 #[derive(PartialEq, Debug, Copy, Clone, Eq)]
 pub struct Bool(pub bool);
@@ -172,6 +69,19 @@ impl ImplicitCastError {
             value: value.to_string(),
         }
     }
+}
+
+#[derive(Debug, PartialEq)]
+pub enum StaticItem {
+    Const(ScalarValue),
+    Param(usize),
+}
+
+#[derive(Debug, PartialEq)]
+pub enum DynamicItem {
+    Const(ScalarValue),
+    Param(usize),
+    Column { sql_type: SqlType, index: usize },
 }
 
 #[derive(Debug, PartialEq, Clone, Eq)]
@@ -282,6 +192,36 @@ impl Display for ScalarValue {
             ScalarValue::Null => write!(f, "NULL"),
         }
     }
+}
+
+#[derive(Debug, PartialEq)]
+pub enum StaticEvaluationTree {
+    Operation {
+        left: Box<StaticEvaluationTree>,
+        op: Operation,
+        right: Box<StaticEvaluationTree>,
+    },
+    Item(StaticItem),
+}
+
+impl StaticEvaluationTree {
+    pub fn kind(&self) -> Option<SqlFamilyType> {
+        match self {
+            StaticEvaluationTree::Operation { .. } => None,
+            StaticEvaluationTree::Item(StaticItem::Const(value)) => value.kind(),
+            StaticEvaluationTree::Item(StaticItem::Param(_)) => None,
+        }
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub enum DynamicEvaluationTree {
+    Operation {
+        left: Box<DynamicEvaluationTree>,
+        op: Operation,
+        right: Box<DynamicEvaluationTree>,
+    },
+    Item(DynamicItem),
 }
 
 #[cfg(test)]

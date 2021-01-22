@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use annotated_tree::{DynamicEvaluationTree, StaticEvaluationTree};
+use data_manipulation_untyped_tree::{DynamicEvaluationTree, StaticEvaluationTree};
 use definition::FullTableName;
 use types::SqlType;
 

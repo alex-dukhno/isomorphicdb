@@ -1,10 +1,10 @@
 [package]
-name = "data_manipulation_query_plan"
+name = "data_manipulation_annotated_queries"
 version = "0.1.0"
 authors = ["Alex Dukhno <alex.dukhno@icloud.com>"]
 edition = "2018"
 
 [dependencies]
-annotated_tree = { path = "../../annotated_tree" }
+data_manipulation_untyped_tree = { path = "../untyped_tree" }
 definition = { path = "../../entities/definition" }
 types = { path = "../../entities/types" }

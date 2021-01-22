@@ -13,11 +13,6 @@
 // limitations under the License.
 
 use super::*;
-use data_definition_execution_plan::{ColumnInfo, CreateTableQuery, SchemaChange, TableInfo, CreateSchemaQuery, DropSchemasQuery};
 
 #[cfg(test)]
-mod create_schema;
-#[cfg(test)]
-mod create_table;
-#[cfg(test)]
-mod drop_statements;
+mod supported_type_families;

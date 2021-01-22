@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use annotated_tree::{DynamicEvaluationTree, Feature};
+use data_manipulation_untyped_tree::{DynamicItem, ScalarValue, Bool};
+use data_manipulation_untyped_tree::DynamicEvaluationTree;
 use definition::ColumnDef;
-use expr_operators::{Bool, DynamicItem, ScalarValue};
 use types::SqlType;
 
-use crate::{AnalysisError, AnalysisResult, operation_mapper::OperationMapper, parse_param_index};
+use crate::{AnalysisError, AnalysisResult, Feature, operation_mapper::OperationMapper, parse_param_index};
 
 pub(crate) struct DynamicTreeBuilder;
 

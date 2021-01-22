@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use data_manipulation_untyped_tree::{DynamicEvaluationTree, DynamicItem, ScalarValue};
+
 use super::*;
 
 #[test]
@@ -127,6 +129,8 @@ fn select_parameters_from_a_table() {
 
 #[cfg(test)]
 mod multiple_values {
+    use data_manipulation_untyped_tree::{DynamicEvaluationTree, DynamicItem, ScalarValue};
+
     use super::*;
 
     fn select_value_as_expression_with_operation(
