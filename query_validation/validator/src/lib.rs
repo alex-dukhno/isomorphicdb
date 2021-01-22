@@ -15,9 +15,7 @@
 use std::collections::HashMap;
 
 use data_manipulation_operators::Operation;
-use data_manipulation_untyped_tree::StaticEvaluationTree;
-use data_manipulation_untyped_tree::StaticItem;
-use data_manipulation_untyped_tree::ImplicitCastError;
+use data_manipulation_untyped_tree::{ImplicitCastError, StaticEvaluationTree, StaticItem};
 use types::{SqlFamilyType, SqlType};
 
 #[derive(Debug, PartialEq)]
@@ -198,15 +196,12 @@ impl InsertValueValidator {
 #[cfg(test)]
 mod tests {
     use bigdecimal::BigDecimal;
-
-    use data_manipulation_untyped_tree::{ScalarValue, StaticEvaluationTree, StaticItem};
-    use data_manipulation_untyped_tree::Bool;
+    use data_manipulation_untyped_tree::{Bool, ScalarValue, StaticEvaluationTree, StaticItem};
 
     use super::*;
 
     #[cfg(test)]
     mod strict_type_validation_of_constants {
-        use data_manipulation_untyped_tree::{ScalarValue, StaticEvaluationTree, StaticItem};
 
         use super::*;
 
@@ -252,8 +247,6 @@ mod tests {
 
     #[cfg(test)]
     mod implicit_cast {
-        use data_manipulation_untyped_tree::{ScalarValue, StaticEvaluationTree, StaticItem};
-
         use super::*;
 
         #[test]
@@ -347,7 +340,6 @@ mod tests {
         #[cfg(test)]
         mod arithmetic {
             use data_manipulation_operators::Arithmetic;
-            use data_manipulation_untyped_tree::{ScalarValue, StaticEvaluationTree, StaticItem};
 
             use super::*;
 
@@ -422,7 +414,6 @@ mod tests {
         #[cfg(test)]
         mod comparison {
             use data_manipulation_operators::Comparison;
-            use data_manipulation_untyped_tree::{ScalarValue, StaticEvaluationTree, StaticItem};
 
             use super::*;
 

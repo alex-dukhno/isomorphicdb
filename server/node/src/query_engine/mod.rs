@@ -22,13 +22,13 @@ use binder::ParamBinder;
 use catalog::{CatalogDefinition, Database};
 use connection::Sender;
 use data_definition_operations::{ExecutionError, ExecutionOutcome};
-use data_manager::{DatabaseHandle, DataDefReader};
+use data_manager::{DataDefReader, DatabaseHandle};
 use description::{DeprecatedDescription, DeprecatedDescriptionError};
 use pg_model::{
-    Command,
     results::{QueryError, QueryEvent},
     session::Session,
     statement::PreparedStatement,
+    Command,
 };
 use plan::{DeprecatedPlan, DeprecatedSelectInput};
 use query_analyzer::{AnalysisError, Analyzer, QueryAnalysis};

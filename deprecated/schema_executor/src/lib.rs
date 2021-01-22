@@ -14,10 +14,9 @@
 
 use std::sync::Arc;
 
-use data_definition_execution_plan::{CreateTableQuery, DropSchemasQuery, DropTablesQuery, TableInfo};
-use data_definition_execution_plan::SchemaChange;
+use data_definition_execution_plan::{CreateTableQuery, DropSchemasQuery, DropTablesQuery, SchemaChange, TableInfo};
 use data_definition_operations::{Step, SystemObject, SystemOperation};
-use data_manager::{DatabaseHandle, DataDefOperationExecutor};
+use data_manager::{DataDefOperationExecutor, DatabaseHandle};
 
 pub struct SystemSchemaExecutor {
     data_manager: Arc<DatabaseHandle>,
@@ -157,7 +156,9 @@ pub enum ExecutionError {
 
 #[cfg(test)]
 mod tests {
-    use data_definition_execution_plan::{CreateSchemaQuery, CreateTableQuery, DropSchemasQuery, DropTablesQuery, SchemaChange, TableInfo};
+    use data_definition_execution_plan::{
+        CreateSchemaQuery, CreateTableQuery, DropSchemasQuery, DropTablesQuery, SchemaChange, TableInfo,
+    };
     use data_definition_operations::{Kind, Record, Step, SystemObject};
     use definition::SchemaName;
 

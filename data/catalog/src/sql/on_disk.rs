@@ -13,8 +13,8 @@
 // limitations under the License.
 
 use crate::{CatalogDefinition, Database, SqlSchema, SqlTable};
-use definition::{FullTableName, SchemaName, TableDef};
 use data_definition_operations::{ExecutionError, ExecutionOutcome, SystemOperation};
+use definition::{FullTableName, SchemaName, TableDef};
 use std::sync::Arc;
 
 pub struct OnDiskDatabase;

@@ -17,7 +17,7 @@ use bigdecimal::BigDecimal;
 use catalog::{Database, InMemoryDatabase};
 use data_definition_operations::{Kind, Record, Step, SystemObject, SystemOperation};
 use data_manipulation_operators::{Arithmetic, Bitwise, Comparison, Logical, Operation, PatternMatching, StringOp};
-use data_manipulation_untyped_tree::{DynamicEvaluationTree, DynamicItem, ScalarValue, StaticEvaluationTree, StaticItem, Bool};
+use data_manipulation_untyped_tree::Bool;
 
 use super::*;
 

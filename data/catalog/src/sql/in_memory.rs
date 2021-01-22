@@ -17,10 +17,10 @@ use crate::{
     COLUMNS_TABLE, DEFINITION_SCHEMA, SCHEMATA_TABLE, TABLES_TABLE,
 };
 use binary::Binary;
-use definition::{ColumnDef, FullTableName, SchemaName, TableDef};
 use data_definition_operations::{
     ExecutionError, ExecutionOutcome, Kind, ObjectState, Record, Step, SystemObject, SystemOperation,
 };
+use definition::{ColumnDef, FullTableName, SchemaName, TableDef};
 use repr::Datum;
 use std::sync::Arc;
 use types::SqlType;

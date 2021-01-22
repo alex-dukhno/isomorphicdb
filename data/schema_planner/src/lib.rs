@@ -12,8 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use data_definition_execution_plan::{ColumnInfo, CreateSchemaQuery, CreateTableQuery, DropSchemasQuery, DropTablesQuery, TableInfo};
-use data_definition_execution_plan::SchemaChange;
+use data_definition_execution_plan::{
+    ColumnInfo, CreateSchemaQuery, CreateTableQuery, DropSchemasQuery, DropTablesQuery, SchemaChange, TableInfo,
+};
 use data_definition_operations::{Kind, ObjectState, Record, Step, SystemObject, SystemOperation};
 
 pub struct SystemSchemaPlanner;

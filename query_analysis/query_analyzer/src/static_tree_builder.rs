@@ -12,11 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use data_manipulation_untyped_tree::{ScalarValue, StaticItem, Bool};
-use data_manipulation_untyped_tree::StaticEvaluationTree;
+use data_manipulation_untyped_tree::{Bool, ScalarValue, StaticEvaluationTree, StaticItem};
 use types::SqlType;
 
-use crate::{AnalysisError, AnalysisResult, Feature, operation_mapper::OperationMapper, parse_param_index};
+use crate::{operation_mapper::OperationMapper, parse_param_index, AnalysisError, AnalysisResult, Feature};
 
 pub(crate) struct StaticTreeBuilder;
 

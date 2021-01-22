@@ -12,12 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::fmt::{Display, Formatter};
-use std::fmt;
 use bigdecimal::BigDecimal;
-use types::{SqlFamilyType, SqlType};
-use std::str::FromStr;
 use data_manipulation_operators::Operation;
+use std::{
+    fmt,
+    fmt::{Display, Formatter},
+    str::FromStr,
+};
+use types::{SqlFamilyType, SqlType};
 
 #[derive(PartialEq, Debug, Copy, Clone, Eq)]
 pub struct Bool(pub bool);

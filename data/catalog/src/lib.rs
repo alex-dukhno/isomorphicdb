@@ -22,8 +22,8 @@ use std::{
     iter::FromIterator,
 };
 
-use definition::{FullTableName, SchemaName, TableDef};
 use data_definition_operations::{ExecutionError, ExecutionOutcome, SystemOperation};
+use definition::{FullTableName, SchemaName, TableDef};
 pub use in_memory::InMemoryCatalogHandle;
 pub use on_disk::OnDiskCatalogHandle;
 pub use sql::{in_memory::InMemoryDatabase, on_disk::OnDiskDatabase};

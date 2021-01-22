@@ -15,11 +15,12 @@
 use std::{convert::TryFrom, sync::Arc};
 
 use catalog::CatalogDefinition;
-use data_definition_execution_plan::{ColumnInfo, CreateSchemaQuery, CreateTableQuery, DropSchemasQuery, DropTablesQuery, SchemaChange, TableInfo};
+use data_definition_execution_plan::{
+    ColumnInfo, CreateSchemaQuery, CreateTableQuery, DropSchemasQuery, DropTablesQuery, SchemaChange, TableInfo,
+};
 use data_manipulation_annotated_queries::{DeleteQuery, InsertQuery, SelectQuery, UpdateQuery, Write};
 use data_manipulation_operators::Operation;
-use data_manipulation_untyped_tree::DynamicEvaluationTree;
-use data_manipulation_untyped_tree::DynamicItem;
+use data_manipulation_untyped_tree::{DynamicEvaluationTree, DynamicItem};
 use definition::{FullTableName, SchemaName};
 use types::SqlType;
 

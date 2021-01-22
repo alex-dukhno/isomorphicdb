@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use types::{SqlFamilyType};
+use types::SqlFamilyType;
 
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub enum Arithmetic {

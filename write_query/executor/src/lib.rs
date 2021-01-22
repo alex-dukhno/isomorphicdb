@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use data_manipulation_annotated_queries::Write;
 use catalog::Database;
+use data_manipulation_annotated_queries::Write;
 use std::sync::Arc;
 
 #[derive(Clone)]
@@ -32,8 +32,8 @@ impl<D: Database> Executor<D> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use data_manipulation_annotated_queries::InsertQuery;
     use catalog::InMemoryDatabase;
+    use data_manipulation_annotated_queries::InsertQuery;
     use definition::FullTableName;
 
     #[test]
