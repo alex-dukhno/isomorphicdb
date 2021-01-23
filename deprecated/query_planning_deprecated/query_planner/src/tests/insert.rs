@@ -49,7 +49,7 @@ fn insert_into_select(table_name: ObjectName, query: Query) -> Statement {
 /// insert into non_existent_schema.table_name values ();
 /// ```
 #[rstest::rstest]
-fn insert_into_table_that_in_nonexistent_schema(planner: QueryPlanner) {
+fn insert_into_table_that_in_nonexistent_schema(planner: OldDeprecatedQueryPlanner) {
     assert_eq!(
         planner.plan(&insert_into(
             ObjectName(vec![ident("non_existent_schema"), ident(TABLE)]),
@@ -63,7 +63,7 @@ fn insert_into_table_that_in_nonexistent_schema(planner: QueryPlanner) {
 /// insert into schema_name.non_existent_table values ();
 /// ```
 #[rstest::rstest]
-fn insert_into_nonexistent_table(planner_with_schema: QueryPlanner) {
+fn insert_into_nonexistent_table(planner_with_schema: OldDeprecatedQueryPlanner) {
     assert_eq!(
         planner_with_schema.plan(&insert_into(
             ObjectName(vec![ident(SCHEMA), ident("non_existent_table")]),
@@ -80,7 +80,7 @@ fn insert_into_nonexistent_table(planner_with_schema: QueryPlanner) {
 /// insert into only_schema_in_the_name values ();
 /// ```
 #[rstest::rstest]
-fn insert_into_table_with_unqualified_name(planner_with_schema: QueryPlanner) {
+fn insert_into_table_with_unqualified_name(planner_with_schema: OldDeprecatedQueryPlanner) {
     assert_eq!(
         planner_with_schema.plan(&insert_into(ObjectName(vec![ident("only_schema_in_the_name")]), vec![])),
         Err(PlanError::syntax_error(
@@ -93,7 +93,7 @@ fn insert_into_table_with_unqualified_name(planner_with_schema: QueryPlanner) {
 /// insert into first_part.second_part.third_part.fourth_part values ();
 /// ```
 #[rstest::rstest]
-fn insert_into_table_with_unsupported_name(planner_with_schema: QueryPlanner) {
+fn insert_into_table_with_unsupported_name(planner_with_schema: OldDeprecatedQueryPlanner) {
     assert_eq!(
         planner_with_schema.plan(&insert_into(
             ObjectName(vec![
@@ -114,7 +114,7 @@ fn insert_into_table_with_unsupported_name(planner_with_schema: QueryPlanner) {
 /// insert into schema_name.table_name (small_int, integer, big_int) values ();
 /// ```
 #[rstest::rstest]
-fn insert_into_table(planner_with_table: QueryPlanner) {
+fn insert_into_table(planner_with_table: OldDeprecatedQueryPlanner) {
     assert_eq!(
         planner_with_table.plan(&insert_into_with_columns(
             ObjectName(vec![ident(SCHEMA), ident(TABLE)]),
@@ -143,7 +143,7 @@ fn insert_into_table(planner_with_table: QueryPlanner) {
 /// insert into schema_name.table_name values ();
 /// ```
 #[rstest::rstest]
-fn insert_into_table_without_columns(planner_with_no_column_table: QueryPlanner) {
+fn insert_into_table_without_columns(planner_with_no_column_table: OldDeprecatedQueryPlanner) {
     assert_eq!(
         planner_with_no_column_table.plan(&insert_into(ObjectName(vec![ident(SCHEMA), ident(TABLE)]), vec![])),
         Ok(DeprecatedPlan::Insert(DeprecatedTableInserts {
@@ -158,7 +158,7 @@ fn insert_into_table_without_columns(planner_with_no_column_table: QueryPlanner)
 /// insert into schema_name.table_name values (not 1);
 /// ```
 #[rstest::rstest]
-fn insert_with_syntax_error(planner_with_table: QueryPlanner) {
+fn insert_with_syntax_error(planner_with_table: OldDeprecatedQueryPlanner) {
     assert_eq!(
         planner_with_table.plan(&insert_into(
             ObjectName(vec![ident(SCHEMA), ident(TABLE)]),
@@ -175,7 +175,7 @@ fn insert_with_syntax_error(planner_with_table: QueryPlanner) {
 /// insert into schema_name.table_name values (not 1);
 /// ```
 #[rstest::rstest]
-fn insert_with_not_supported_expression(planner_with_table: QueryPlanner) {
+fn insert_with_not_supported_expression(planner_with_table: OldDeprecatedQueryPlanner) {
     assert_eq!(
         planner_with_table.plan(&insert_into(
             ObjectName(vec![ident(SCHEMA), ident(TABLE)]),
@@ -192,7 +192,7 @@ fn insert_with_not_supported_expression(planner_with_table: QueryPlanner) {
 /// insert into schema_name.table_name values (not 1);
 /// ```
 #[rstest::rstest]
-fn insert_with_not_supported_feature(planner_with_table: QueryPlanner) {
+fn insert_with_not_supported_feature(planner_with_table: OldDeprecatedQueryPlanner) {
     assert_eq!(
         planner_with_table.plan(&insert_into_select(
             ObjectName(vec![ident(SCHEMA), ident(TABLE)]),

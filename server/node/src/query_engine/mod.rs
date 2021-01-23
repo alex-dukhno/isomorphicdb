@@ -34,7 +34,7 @@ use plan::{DeprecatedPlan, DeprecatedSelectInput};
 use query_analyzer::{AnalysisError, Analyzer, QueryAnalysis};
 use query_analyzer_old::Analyzer as OldAnalyzer;
 use query_executor::QueryExecutor;
-use query_planner::{PlanError, QueryPlanner};
+use deprecated_query_planner::{PlanError, OldDeprecatedQueryPlanner};
 use schema_executor::SystemSchemaExecutor;
 use schema_planner::SystemSchemaPlanner;
 use sql_ast::{Expr, Ident, Statement, Value};
@@ -54,7 +54,7 @@ pub(crate) struct QueryEngine<D: Database + CatalogDefinition> {
     system_planner: SystemSchemaPlanner,
     schema_executor: SystemSchemaExecutor,
     old_query_analyzer: OldAnalyzer,
-    query_planner: QueryPlanner,
+    old_deprecated_query_planner: OldDeprecatedQueryPlanner,
     query_executor: QueryExecutor,
 }
 
@@ -70,7 +70,7 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
             query_analyzer: Analyzer::new(database),
             system_planner: SystemSchemaPlanner::new(),
             schema_executor: SystemSchemaExecutor::new(data_manager.clone()),
-            query_planner: QueryPlanner::new(data_manager.clone()),
+            old_deprecated_query_planner: OldDeprecatedQueryPlanner::new(data_manager.clone()),
             query_executor: QueryExecutor::new(data_manager, sender),
         }
     }
@@ -174,7 +174,7 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
             } => {
                 match self.session.get_portal(&portal_name) {
                     Some(portal) => {
-                        if let Ok(plan) = self.query_planner.plan(portal.stmt()) {
+                        if let Ok(plan) = self.old_deprecated_query_planner.plan(portal.stmt()) {
                             self.query_executor.execute(plan);
                         }
                     }
@@ -272,7 +272,7 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                                     if let Err(error) = self.param_binder.bind(&mut new_stmt, &parameters) {
                                         log::error!("{:?}", error);
                                     }
-                                    match self.query_planner.plan(&new_stmt) {
+                                    match self.old_deprecated_query_planner.plan(&new_stmt) {
                                         Ok(plan) => self.query_executor.execute(plan),
                                         Err(error) => log::error!("{:?}", error),
                                     }
@@ -328,7 +328,7 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                                 .expect("To Send Result to Client"),
                             analysis => unreachable!("that couldn't happen {:?}", analysis),
                         },
-                        statement => match self.query_planner.plan(&statement) {
+                        statement => match self.old_deprecated_query_planner.plan(&statement) {
                             Ok(plan) => {
                                 self.query_executor.execute(plan);
                             }
@@ -427,7 +427,7 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
         statement: Statement,
         param_types: Vec<Option<PgType>>,
     ) -> Result<(), QueryError> {
-        match self.query_planner.plan(&statement) {
+        match self.old_deprecated_query_planner.plan(&statement) {
             Ok(plan) => match plan {
                 DeprecatedPlan::Select(select_input) => {
                     let description = self.describe(select_input);

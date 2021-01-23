@@ -470,6 +470,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "deprecated_query_planner"
+version = "0.1.0"
+dependencies = [
+ "ast",
+ "bigdecimal",
+ "constraints",
+ "data_manager",
+ "log",
+ "meta_def",
+ "plan",
+ "rstest",
+ "sql_ast",
+ "types",
+]
+
+[[package]]
 name = "description"
 version = "0.1.0"
 dependencies = [
@@ -804,6 +820,7 @@ dependencies = [
  "connection",
  "data_definition_operations",
  "data_manager",
+ "deprecated_query_planner",
  "description",
  "futures-lite",
  "itertools",
@@ -815,7 +832,6 @@ dependencies = [
  "query_analyzer",
  "query_analyzer_old",
  "query_executor",
- "query_planner",
  "rstest",
  "schema_executor",
  "schema_planner",
@@ -1130,16 +1146,22 @@ dependencies = [
 [[package]]
 name = "query_planner"
 version = "0.1.0"
+
+[[package]]
+name = "query_processing_type_check"
+version = "0.1.0"
 dependencies = [
- "ast",
- "bigdecimal",
- "constraints",
- "data_manager",
- "log",
- "meta_def",
- "plan",
- "rstest",
- "sql_ast",
+ "data_manipulation_operators",
+ "data_manipulation_typed_tree",
+ "types",
+]
+
+[[package]]
+name = "query_processing_type_coercion"
+version = "0.1.0"
+dependencies = [
+ "data_manipulation_operators",
+ "data_manipulation_typed_tree",
  "types",
 ]
 
@@ -1540,18 +1562,6 @@ dependencies = [
  "idna",
  "matches",
  "percent-encoding",
-]
-
-[[package]]
-name = "validator"
-version = "0.1.0"
-dependencies = [
- "bigdecimal",
- "data_manipulation_operators",
- "data_manipulation_typed_tree",
- "data_manipulation_untyped_tree",
- "log",
- "types",
 ]
 
 [[package]]

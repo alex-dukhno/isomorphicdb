@@ -17,7 +17,7 @@ use plan::{DeprecatedFullTableId, DeprecatedTableDeletes};
 use sql_ast::{ObjectName, Statement};
 
 #[rstest::rstest]
-fn delete_from_table_that_in_nonexistent_schema(planner: QueryPlanner) {
+fn delete_from_table_that_in_nonexistent_schema(planner: OldDeprecatedQueryPlanner) {
     assert_eq!(
         planner.plan(&Statement::Delete {
             table_name: ObjectName(vec![ident("non_existent_schema"), ident(TABLE)]),
@@ -28,7 +28,7 @@ fn delete_from_table_that_in_nonexistent_schema(planner: QueryPlanner) {
 }
 
 #[rstest::rstest]
-fn delete_from_nonexistent_table(planner_with_schema: QueryPlanner) {
+fn delete_from_nonexistent_table(planner_with_schema: OldDeprecatedQueryPlanner) {
     assert_eq!(
         planner_with_schema.plan(&Statement::Delete {
             table_name: ObjectName(vec![ident(SCHEMA), ident("non_existent_table")]),
@@ -42,7 +42,7 @@ fn delete_from_nonexistent_table(planner_with_schema: QueryPlanner) {
 }
 
 #[rstest::rstest]
-fn delete_from_table_with_unqualified_name(planner_with_schema: QueryPlanner) {
+fn delete_from_table_with_unqualified_name(planner_with_schema: OldDeprecatedQueryPlanner) {
     assert_eq!(
         planner_with_schema.plan(&Statement::Delete {
             table_name: ObjectName(vec![ident("only_schema_in_the_name")]),
@@ -55,7 +55,7 @@ fn delete_from_table_with_unqualified_name(planner_with_schema: QueryPlanner) {
 }
 
 #[rstest::rstest]
-fn c_table_with_unsupported_name(planner_with_schema: QueryPlanner) {
+fn c_table_with_unsupported_name(planner_with_schema: OldDeprecatedQueryPlanner) {
     assert_eq!(
         planner_with_schema.plan(&Statement::Delete {
             table_name: ObjectName(vec![
@@ -73,7 +73,7 @@ fn c_table_with_unsupported_name(planner_with_schema: QueryPlanner) {
 }
 
 #[rstest::rstest]
-fn delete_from_table(planner_with_table: QueryPlanner) {
+fn delete_from_table(planner_with_table: OldDeprecatedQueryPlanner) {
     assert_eq!(
         planner_with_table.plan(&Statement::Delete {
             table_name: ObjectName(vec![ident(SCHEMA), ident(TABLE)]),

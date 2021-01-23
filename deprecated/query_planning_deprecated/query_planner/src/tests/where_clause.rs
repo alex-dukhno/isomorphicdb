@@ -22,7 +22,7 @@ use sql_ast::{
 use std::convert::TryFrom;
 
 #[rstest::rstest]
-fn select_from_table(planner_with_table: QueryPlanner) {
+fn select_from_table(planner_with_table: OldDeprecatedQueryPlanner) {
     assert_eq!(
         planner_with_table.plan(&Statement::Query(Box::new(Query {
             with: None,

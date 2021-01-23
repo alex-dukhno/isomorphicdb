@@ -1,0 +1,22 @@
+[package]
+name = "query_analyzer"
+version = "0.1.0"
+authors = ["Alex Dukhno <alex.dukhno@icloud.com>"]
+edition = "2018"
+publish = false
+
+[dependencies]
+catalog = { path = "../data/catalog" }
+data_definition_execution_plan = { path = "../data_definition/execution_plan" }
+data_manipulation_untyped_queries = { path = "../data_manipulation/untyped_queries" }
+data_manipulation_operators = { path = "../data_manipulation/operators" }
+data_manipulation_untyped_tree = { path = "../data_manipulation/untyped_tree" }
+meta_def = { path = "../meta_def" }
+definition = { path = "../entities/definition" }
+types = { path = "../entities/types" }
+sql_ast = { path = "../query_parsing/sql-ast" }
+
+bigdecimal = { version = "0.2.0", features = ["string-only"] }
+
+[dev-dependencies]
+data_definition_operations = { path = "../data_definition/operations" }

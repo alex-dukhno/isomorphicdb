@@ -20,7 +20,7 @@ use sql_ast::{Assignment, Expr, ObjectName, Statement, Value};
 use types::SqlType;
 
 #[rstest::rstest]
-fn update_table_that_in_nonexistent_schema(planner: QueryPlanner) {
+fn update_table_that_in_nonexistent_schema(planner: OldDeprecatedQueryPlanner) {
     assert_eq!(
         planner.plan(&Statement::Update {
             table_name: ObjectName(vec![ident("non_existent_schema"), ident(TABLE)]),
@@ -32,7 +32,7 @@ fn update_table_that_in_nonexistent_schema(planner: QueryPlanner) {
 }
 
 #[rstest::rstest]
-fn update_nonexistent_table(planner_with_schema: QueryPlanner) {
+fn update_nonexistent_table(planner_with_schema: OldDeprecatedQueryPlanner) {
     assert_eq!(
         planner_with_schema.plan(&Statement::Update {
             table_name: ObjectName(vec![ident(SCHEMA), ident("non_existent_table")]),
@@ -47,7 +47,7 @@ fn update_nonexistent_table(planner_with_schema: QueryPlanner) {
 }
 
 #[rstest::rstest]
-fn update_table_with_unqualified_name(planner_with_schema: QueryPlanner) {
+fn update_table_with_unqualified_name(planner_with_schema: OldDeprecatedQueryPlanner) {
     assert_eq!(
         planner_with_schema.plan(&Statement::Update {
             table_name: ObjectName(vec![ident("only_schema_in_the_name")]),
@@ -64,7 +64,7 @@ fn update_table_with_unqualified_name(planner_with_schema: QueryPlanner) {
 }
 
 #[rstest::rstest]
-fn update_table_with_unsupported_name(planner_with_schema: QueryPlanner) {
+fn update_table_with_unsupported_name(planner_with_schema: OldDeprecatedQueryPlanner) {
     assert_eq!(
         planner_with_schema.plan(&Statement::Update {
             table_name: ObjectName(vec![
@@ -86,7 +86,7 @@ fn update_table_with_unsupported_name(planner_with_schema: QueryPlanner) {
 }
 
 #[rstest::rstest]
-fn update_table(planner_with_table: QueryPlanner) {
+fn update_table(planner_with_table: OldDeprecatedQueryPlanner) {
     assert_eq!(
         planner_with_table.plan(&Statement::Update {
             table_name: ObjectName(vec![ident(SCHEMA), ident(TABLE)]),

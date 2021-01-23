@@ -66,11 +66,11 @@ trait Planner {
     fn plan(self, data_manager: Arc<dyn DataDefReader>) -> Result<DeprecatedPlan>;
 }
 
-pub struct QueryPlanner {
+pub struct OldDeprecatedQueryPlanner {
     metadata: Arc<dyn DataDefReader>,
 }
 
-impl QueryPlanner {
+impl OldDeprecatedQueryPlanner {
     pub fn new(metadata: Arc<dyn DataDefReader>) -> Self {
         Self { metadata }
     }

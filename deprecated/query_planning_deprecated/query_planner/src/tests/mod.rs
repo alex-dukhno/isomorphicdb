@@ -34,20 +34,20 @@ const SCHEMA: &str = "schema_name";
 const TABLE: &str = "table_name";
 
 #[rstest::fixture]
-fn planner() -> QueryPlanner {
+fn planner() -> OldDeprecatedQueryPlanner {
     let manager = DatabaseHandle::in_memory();
-    QueryPlanner::new(Arc::new(manager))
+    OldDeprecatedQueryPlanner::new(Arc::new(manager))
 }
 
 #[rstest::fixture]
-fn planner_with_schema() -> QueryPlanner {
+fn planner_with_schema() -> OldDeprecatedQueryPlanner {
     let manager = DatabaseHandle::in_memory();
     manager.create_schema(SCHEMA).expect("schema created");
-    QueryPlanner::new(Arc::new(manager))
+    OldDeprecatedQueryPlanner::new(Arc::new(manager))
 }
 
 #[rstest::fixture]
-fn planner_with_table() -> QueryPlanner {
+fn planner_with_table() -> OldDeprecatedQueryPlanner {
     let manager = DatabaseHandle::in_memory();
     let schema_id = manager.create_schema(SCHEMA).expect("schema created");
     manager
@@ -61,15 +61,15 @@ fn planner_with_table() -> QueryPlanner {
             ],
         )
         .expect("table created");
-    QueryPlanner::new(Arc::new(manager))
+    OldDeprecatedQueryPlanner::new(Arc::new(manager))
 }
 
 #[rstest::fixture]
-fn planner_with_no_column_table() -> QueryPlanner {
+fn planner_with_no_column_table() -> OldDeprecatedQueryPlanner {
     let manager = DatabaseHandle::in_memory();
     let schema_id = manager.create_schema(SCHEMA).expect("schema created");
     manager.create_table(schema_id, TABLE, &[]).expect("table created");
-    QueryPlanner::new(Arc::new(manager))
+    OldDeprecatedQueryPlanner::new(Arc::new(manager))
 }
 
 fn ident<S: ToString>(name: S) -> Ident {
