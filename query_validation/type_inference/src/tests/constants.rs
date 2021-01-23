@@ -12,10 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::*;
 use bigdecimal::{BigDecimal, FromPrimitive};
+
 use data_manipulation_untyped_tree::{StaticUntypedItem, UntypedValue};
+use data_manipulation_typed_tree::{StaticTypedItem, StaticTypedTree, TypedValue};
 use types::SqlTypeFamily;
+
+use super::*;
 
 #[test]
 fn smallint() {

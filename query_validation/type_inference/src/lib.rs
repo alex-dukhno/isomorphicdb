@@ -12,10 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use bigdecimal::{BigDecimal, FromPrimitive, ToPrimitive};
-use data_manipulation_operators::Operation;
-use data_manipulation_untyped_tree::{StaticUntypedItem, StaticUntypedTree, UntypedValue};
 use std::ops::RangeInclusive;
+
+use bigdecimal::{BigDecimal, FromPrimitive, ToPrimitive};
+
+use data_manipulation_operators::Operation;
+use data_manipulation_untyped_tree::{StaticUntypedItem, StaticUntypedTree, UntypedValue, Bool};
+use data_manipulation_typed_tree::{StaticTypedItem, StaticTypedTree, TypedValue};
 use types::SqlTypeFamily;
 
 pub struct TypeInference {
@@ -42,12 +45,19 @@ impl TypeInference {
             StaticUntypedTree::Operation { left, op, right } => {
                 let left_tree = self.infer(*left);
                 let right_tree = self.infer(*right);
-                let op_type_family = match left_tree.type_family().cmp(&right_tree.type_family()) {
-                    Ok(type_family) => type_family,
-                    Err(_) => unimplemented!(),
+                let type_family = match (left_tree.type_family(), right_tree.type_family()) {
+                    (Some(left_type_family), Some(right_type_family)) => {
+                        match left_type_family.cmp(&right_type_family) {
+                            Ok(type_family) => Some(type_family),
+                            Err(_) => unimplemented!(),
+                        }
+                    }
+                    (Some(left_type_family), None) => Some(left_type_family),
+                    (None, Some(right_type_family)) => Some(right_type_family),
+                    (None, None) => None,
                 };
                 StaticTypedTree::Operation {
-                    type_family: op_type_family,
+                    type_family,
                     left: Box::new(left_tree),
                     op,
                     right: Box::new(right_tree),
@@ -77,63 +87,10 @@ impl TypeInference {
             StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::String(str))) => {
                 StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::String(str)))
             }
+            StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Bool(Bool(boolean)))) => {
+                StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Bool(boolean)))
+            },
             StaticUntypedTree::Item(_) => unimplemented!(),
-        }
-    }
-}
-
-#[derive(Debug, PartialEq)]
-pub enum StaticTypedTree {
-    Item(StaticTypedItem),
-    Operation {
-        type_family: SqlTypeFamily,
-        left: Box<StaticTypedTree>,
-        op: Operation,
-        right: Box<StaticTypedTree>,
-    },
-}
-
-impl StaticTypedTree {
-    pub fn type_family(&self) -> SqlTypeFamily {
-        match self {
-            StaticTypedTree::Item(item) => item.type_family(),
-            StaticTypedTree::Operation { type_family, .. } => *type_family,
-        }
-    }
-}
-
-#[derive(Debug, PartialEq)]
-pub enum StaticTypedItem {
-    Const(TypedValue),
-}
-
-impl StaticTypedItem {
-    fn type_family(&self) -> SqlTypeFamily {
-        match self {
-            StaticTypedItem::Const(typed_value) => typed_value.type_family(),
-        }
-    }
-}
-
-#[derive(Debug, PartialEq)]
-pub enum TypedValue {
-    SmallInt(i16),
-    Integer(i32),
-    BigInt(i64),
-    Real(f32),
-    String(String),
-    Double(f64),
-}
-
-impl TypedValue {
-    fn type_family(&self) -> SqlTypeFamily {
-        match self {
-            TypedValue::SmallInt(_) => SqlTypeFamily::SmallInt,
-            TypedValue::Integer(_) => SqlTypeFamily::Integer,
-            TypedValue::BigInt(_) => SqlTypeFamily::BigInt,
-            TypedValue::Real(_) => SqlTypeFamily::Real,
-            TypedValue::Double(_) => SqlTypeFamily::Double,
-            TypedValue::String(_) => SqlTypeFamily::String,
         }
     }
 }

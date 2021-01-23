@@ -13,6 +13,8 @@
 // limitations under the License.
 
 use data_manipulation_operators::Arithmetic;
+use data_manipulation_typed_tree::{StaticTypedItem, StaticTypedTree, TypedValue};
+
 use super::*;
 
 #[test]
@@ -27,7 +29,7 @@ fn add_same_types() {
     assert_eq!(
         type_inference.infer(untyped_tree),
         StaticTypedTree::Operation {
-            type_family: SqlTypeFamily::SmallInt,
+            type_family: Some(SqlTypeFamily::SmallInt),
             left: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::SmallInt(1)))),
             op: Operation::Arithmetic(Arithmetic::Add),
             right: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::SmallInt(2))))
@@ -47,7 +49,7 @@ fn add_different_types() {
     assert_eq!(
         type_inference.infer(untyped_tree),
         StaticTypedTree::Operation {
-            type_family: SqlTypeFamily::BigInt,
+            type_family: Some(SqlTypeFamily::BigInt),
             left: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::BigInt(
                 i64::MAX - i32::MAX as i64
             )))),
