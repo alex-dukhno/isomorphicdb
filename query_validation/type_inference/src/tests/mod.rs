@@ -12,9 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-fn main() {
-    simple_logger::SimpleLogger::from_env()
-        .init()
-        .expect("to initialize logger");
-    node::start();
+use super::*;
+
+#[cfg(test)]
+mod constants;
+#[cfg(test)]
+mod operations;
+
+fn untyped_number(num: BigDecimal) -> StaticUntypedTree {
+    StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(num)))
+}
+
+fn untyped_string(str: String) -> StaticUntypedTree {
+    StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::String(str)))
 }

@@ -19,12 +19,64 @@ use std::{
     fmt::{self, Display, Formatter},
 };
 
+#[derive(Debug, PartialEq)]
+pub struct IncomparableSqlTypeFamilies {
+    left: SqlTypeFamily,
+    right: SqlTypeFamily,
+}
+
 #[derive(Debug, PartialEq, Copy, Clone)]
-pub enum SqlFamilyType {
+pub enum SqlTypeFamily {
     Bool,
     String,
+    SmallInt,
     Integer,
-    Float,
+    BigInt,
+    Real,
+    Double,
+}
+
+impl SqlTypeFamily {
+    pub fn cmp(&self, other: &SqlTypeFamily) -> Result<SqlTypeFamily, IncomparableSqlTypeFamilies> {
+        if self.is_float() && other.is_float() {
+            if self == other {
+                Ok(*self)
+            } else if self == &SqlTypeFamily::Real && other == &SqlTypeFamily::Double {
+                Ok(*other)
+            } else {
+                Ok(*self)
+            }
+        } else if self.is_int() && other.is_int() {
+            if self == other {
+                Ok(*self)
+            } else if self == &SqlTypeFamily::SmallInt && other == &SqlTypeFamily::Integer {
+                Ok(*other)
+            } else if other == &SqlTypeFamily::BigInt {
+                Ok(*other)
+            } else {
+                Ok(*self)
+            }
+        } else if self.is_float() && other.is_int() {
+            Ok(*self)
+        } else if self.is_int() && other.is_float() {
+            Ok(*other)
+        } else if self != other {
+            Err(IncomparableSqlTypeFamilies {
+                left: *self,
+                right: *other,
+            })
+        } else {
+            Ok(*self)
+        }
+    }
+
+    fn is_float(&self) -> bool {
+        self == &SqlTypeFamily::Real || self == &SqlTypeFamily::Double
+    }
+
+    fn is_int(&self) -> bool {
+        self == &SqlTypeFamily::SmallInt || self == &SqlTypeFamily::Integer || self == &SqlTypeFamily::BigInt
+    }
 }
 
 #[derive(PartialEq, Eq, Debug, Copy, Clone, Hash, Ord, PartialOrd)]
@@ -40,7 +92,7 @@ pub enum Num {
     Integer,
     BigInt,
     Real,
-    DoublePrecision,
+    Double,
 }
 
 #[derive(PartialEq, Eq, Debug, Copy, Clone, Hash, Ord, PartialOrd)]
@@ -50,14 +102,14 @@ pub enum Str {
 }
 
 impl SqlType {
-    pub fn family(&self) -> SqlFamilyType {
+    pub fn family(&self) -> SqlTypeFamily {
         match self {
-            SqlType::Bool => SqlFamilyType::Bool,
-            SqlType::Str { .. } => SqlFamilyType::String,
+            SqlType::Bool => SqlTypeFamily::Bool,
+            SqlType::Str { .. } => SqlTypeFamily::String,
             SqlType::Num(Num::SmallInt) | SqlType::Num(Num::Integer) | SqlType::Num(Num::BigInt) => {
-                SqlFamilyType::Integer
+                SqlTypeFamily::Integer
             }
-            SqlType::Num(Num::Real) | SqlType::Num(Num::DoublePrecision) => SqlFamilyType::Float,
+            SqlType::Num(Num::Real) | SqlType::Num(Num::Double) => SqlTypeFamily::Real,
         }
     }
 
@@ -78,7 +130,7 @@ impl SqlType {
     }
 
     pub fn double_precision() -> SqlType {
-        SqlType::Num(Num::DoublePrecision)
+        SqlType::Num(Num::Double)
     }
 
     pub fn bool() -> SqlType {
@@ -102,7 +154,7 @@ impl SqlType {
             SqlType::Num(Num::Integer) => 4,
             SqlType::Num(Num::BigInt) => 5,
             SqlType::Num(Num::Real) => 6,
-            SqlType::Num(Num::DoublePrecision) => 7,
+            SqlType::Num(Num::Double) => 7,
         }
     }
 
@@ -156,7 +208,7 @@ impl Display for SqlType {
             SqlType::Num(Num::Integer) => write!(f, "integer"),
             SqlType::Num(Num::BigInt) => write!(f, "bigint"),
             SqlType::Num(Num::Real) => write!(f, "real"),
-            SqlType::Num(Num::DoublePrecision) => write!(f, "double precision"),
+            SqlType::Num(Num::Double) => write!(f, "double precision"),
         }
     }
 }
@@ -170,53 +222,10 @@ impl Into<PgType> for &SqlType {
             SqlType::Num(Num::SmallInt) => PgType::SmallInt,
             SqlType::Num(Num::Integer) => PgType::Integer,
             SqlType::Num(Num::BigInt) => PgType::BigInt,
-            SqlType::Num(Num::Real) | SqlType::Num(Num::DoublePrecision) => unreachable!(),
+            SqlType::Num(Num::Real) | SqlType::Num(Num::Double) => unreachable!(),
         }
     }
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[cfg(test)]
-    mod to_postgresql_type_conversion {
-        use super::*;
-
-        #[test]
-        fn boolean() {
-            let pg_type: PgType = (&SqlType::bool()).into();
-            assert_eq!(pg_type, PgType::Bool);
-        }
-
-        #[test]
-        fn small_int() {
-            let pg_type: PgType = (&SqlType::small_int()).into();
-            assert_eq!(pg_type, PgType::SmallInt);
-        }
-
-        #[test]
-        fn integer() {
-            let pg_type: PgType = (&SqlType::integer()).into();
-            assert_eq!(pg_type, PgType::Integer);
-        }
-
-        #[test]
-        fn big_int() {
-            let pg_type: PgType = (&SqlType::big_int()).into();
-            assert_eq!(pg_type, PgType::BigInt);
-        }
-
-        #[test]
-        fn char() {
-            let pg_type: PgType = (&SqlType::char(0)).into();
-            assert_eq!(pg_type, PgType::Char);
-        }
-
-        #[test]
-        fn var_char() {
-            let pg_type: PgType = (&SqlType::var_char(0)).into();
-            assert_eq!(pg_type, PgType::VarChar);
-        }
-    }
-}
+mod tests;

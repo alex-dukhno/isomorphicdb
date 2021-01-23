@@ -52,7 +52,7 @@ impl From<&SqlType> for TypeConstraint {
             SqlType::Num(Num::Integer) => TypeConstraint::Integer,
             SqlType::Num(Num::BigInt) => TypeConstraint::BigInt,
             SqlType::Num(Num::Real) => TypeConstraint::Real,
-            SqlType::Num(Num::DoublePrecision) => TypeConstraint::DoublePrecision,
+            SqlType::Num(Num::Double) => TypeConstraint::DoublePrecision,
         }
     }
 }

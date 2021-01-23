@@ -418,18 +418,18 @@ dependencies = [
 ]
 
 [[package]]
-name = "data_manipulation_annotated_queries"
+name = "data_manipulation_operators"
 version = "0.1.0"
 dependencies = [
- "data_manipulation_untyped_tree",
- "definition",
  "types",
 ]
 
 [[package]]
-name = "data_manipulation_operators"
+name = "data_manipulation_untyped_queries"
 version = "0.1.0"
 dependencies = [
+ "data_manipulation_untyped_tree",
+ "definition",
  "types",
 ]
 
@@ -479,7 +479,7 @@ name = "executor"
 version = "0.1.0"
 dependencies = [
  "catalog",
- "data_manipulation_annotated_queries",
+ "data_manipulation_untyped_queries",
  "definition",
 ]
 
@@ -1064,8 +1064,8 @@ dependencies = [
  "catalog",
  "data_definition_execution_plan",
  "data_definition_operations",
- "data_manipulation_annotated_queries",
  "data_manipulation_operators",
+ "data_manipulation_untyped_queries",
  "data_manipulation_untyped_tree",
  "definition",
  "meta_def",
@@ -1472,6 +1472,12 @@ checksum = "cda74da7e1a664f795bb1f8a87ec406fb89a02522cf6e50620d016add6dbbf5c"
 [[package]]
 name = "type_inference"
 version = "0.1.0"
+dependencies = [
+ "bigdecimal",
+ "data_manipulation_operators",
+ "data_manipulation_untyped_tree",
+ "types",
+]
 
 [[package]]
 name = "types"

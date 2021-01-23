@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use data_manipulation_untyped_tree::{DynamicEvaluationTree, DynamicItem, ScalarValue};
+use data_manipulation_untyped_tree::{DynamicUntypedItem, DynamicUntypedTree, UntypedValue};
 
 use super::*;
 
@@ -33,9 +33,9 @@ fn update_number() {
         Ok(QueryAnalysis::Write(Write::Update(UpdateQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             sql_types: vec![SqlType::small_int()],
-            assignments: vec![DynamicEvaluationTree::Item(DynamicItem::Const(ScalarValue::Number(
-                BigDecimal::from(1)
-            )))]
+            assignments: vec![DynamicUntypedTree::Item(DynamicUntypedItem::Const(
+                UntypedValue::Number(BigDecimal::from(1))
+            ))]
         })))
     );
 }
@@ -54,9 +54,9 @@ fn update_string() {
         Ok(QueryAnalysis::Write(Write::Update(UpdateQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             sql_types: vec![SqlType::char(5)],
-            assignments: vec![DynamicEvaluationTree::Item(DynamicItem::Const(ScalarValue::String(
-                "str".to_owned()
-            )))]
+            assignments: vec![DynamicUntypedTree::Item(DynamicUntypedItem::Const(
+                UntypedValue::String("str".to_owned())
+            ))]
         })))
     );
 }
@@ -75,7 +75,7 @@ fn update_boolean() {
         Ok(QueryAnalysis::Write(Write::Update(UpdateQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             sql_types: vec![SqlType::bool()],
-            assignments: vec![DynamicEvaluationTree::Item(DynamicItem::Const(ScalarValue::Bool(
+            assignments: vec![DynamicUntypedTree::Item(DynamicUntypedItem::Const(UntypedValue::Bool(
                 Bool(true)
             )))],
         })))
@@ -96,7 +96,7 @@ fn update_null() {
         Ok(QueryAnalysis::Write(Write::Update(UpdateQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             sql_types: vec![SqlType::bool()],
-            assignments: vec![DynamicEvaluationTree::Item(DynamicItem::Const(ScalarValue::Null))],
+            assignments: vec![DynamicUntypedTree::Item(DynamicUntypedItem::Const(UntypedValue::Null))],
         })))
     );
 }
@@ -122,7 +122,7 @@ fn update_with_column_value() {
         Ok(QueryAnalysis::Write(Write::Update(UpdateQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             sql_types: vec![SqlType::small_int()],
-            assignments: vec![DynamicEvaluationTree::Item(DynamicItem::Column {
+            assignments: vec![DynamicUntypedTree::Item(DynamicUntypedItem::Column {
                 sql_type: SqlType::small_int(),
                 index: 1
             })],
@@ -170,14 +170,14 @@ fn update_table_with_parameters() {
         Ok(QueryAnalysis::Write(Write::Update(UpdateQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             sql_types: vec![SqlType::integer()],
-            assignments: vec![DynamicEvaluationTree::Item(DynamicItem::Param(0))]
+            assignments: vec![DynamicUntypedTree::Item(DynamicUntypedItem::Param(0))]
         })))
     );
 }
 
 #[cfg(test)]
 mod multiple_values {
-    use data_manipulation_untyped_tree::{DynamicEvaluationTree, DynamicItem, ScalarValue};
+    use data_manipulation_untyped_tree::{DynamicUntypedItem, DynamicUntypedTree, UntypedValue};
 
     use super::*;
 
@@ -217,14 +217,14 @@ mod multiple_values {
             Ok(QueryAnalysis::Write(Write::Update(UpdateQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 sql_types: vec![SqlType::small_int()],
-                assignments: vec![DynamicEvaluationTree::Operation {
-                    left: Box::new(DynamicEvaluationTree::Item(DynamicItem::Const(ScalarValue::Number(
-                        BigDecimal::from(1)
-                    )))),
+                assignments: vec![DynamicUntypedTree::Operation {
+                    left: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
+                        UntypedValue::Number(BigDecimal::from(1))
+                    ))),
                     op: Operation::Arithmetic(Arithmetic::Add),
-                    right: Box::new(DynamicEvaluationTree::Item(DynamicItem::Const(ScalarValue::Number(
-                        BigDecimal::from(1)
-                    ))))
+                    right: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
+                        UntypedValue::Number(BigDecimal::from(1))
+                    )))
                 }],
             })))
         );
@@ -248,14 +248,14 @@ mod multiple_values {
             Ok(QueryAnalysis::Write(Write::Update(UpdateQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 sql_types: vec![SqlType::var_char(255)],
-                assignments: vec![DynamicEvaluationTree::Operation {
-                    left: Box::new(DynamicEvaluationTree::Item(DynamicItem::Const(ScalarValue::String(
-                        "str".to_owned()
-                    )))),
+                assignments: vec![DynamicUntypedTree::Operation {
+                    left: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
+                        UntypedValue::String("str".to_owned())
+                    ))),
                     op: Operation::StringOp(StringOp::Concat),
-                    right: Box::new(DynamicEvaluationTree::Item(DynamicItem::Const(ScalarValue::String(
-                        "str".to_owned()
-                    ))))
+                    right: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
+                        UntypedValue::String("str".to_owned())
+                    )))
                 }],
             })))
         );
@@ -279,14 +279,14 @@ mod multiple_values {
             Ok(QueryAnalysis::Write(Write::Update(UpdateQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 sql_types: vec![SqlType::bool()],
-                assignments: vec![DynamicEvaluationTree::Operation {
-                    left: Box::new(DynamicEvaluationTree::Item(DynamicItem::Const(ScalarValue::Number(
-                        BigDecimal::from(1)
-                    )))),
+                assignments: vec![DynamicUntypedTree::Operation {
+                    left: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
+                        UntypedValue::Number(BigDecimal::from(1))
+                    ))),
                     op: Operation::Comparison(Comparison::Gt),
-                    right: Box::new(DynamicEvaluationTree::Item(DynamicItem::Const(ScalarValue::Number(
-                        BigDecimal::from(1)
-                    ))))
+                    right: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
+                        UntypedValue::Number(BigDecimal::from(1))
+                    )))
                 }],
             })))
         );
@@ -310,12 +310,12 @@ mod multiple_values {
             Ok(QueryAnalysis::Write(Write::Update(UpdateQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 sql_types: vec![SqlType::bool()],
-                assignments: vec![DynamicEvaluationTree::Operation {
-                    left: Box::new(DynamicEvaluationTree::Item(DynamicItem::Const(ScalarValue::Bool(
+                assignments: vec![DynamicUntypedTree::Operation {
+                    left: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(UntypedValue::Bool(
                         Bool(true)
                     )))),
                     op: Operation::Logical(Logical::And),
-                    right: Box::new(DynamicEvaluationTree::Item(DynamicItem::Const(ScalarValue::Bool(
+                    right: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(UntypedValue::Bool(
                         Bool(true)
                     )))),
                 }],
@@ -341,14 +341,14 @@ mod multiple_values {
             Ok(QueryAnalysis::Write(Write::Update(UpdateQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 sql_types: vec![SqlType::small_int()],
-                assignments: vec![DynamicEvaluationTree::Operation {
-                    left: Box::new(DynamicEvaluationTree::Item(DynamicItem::Const(ScalarValue::Number(
-                        BigDecimal::from(1)
-                    )))),
+                assignments: vec![DynamicUntypedTree::Operation {
+                    left: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
+                        UntypedValue::Number(BigDecimal::from(1))
+                    ))),
                     op: Operation::Bitwise(Bitwise::Or),
-                    right: Box::new(DynamicEvaluationTree::Item(DynamicItem::Const(ScalarValue::Number(
-                        BigDecimal::from(1)
-                    ))))
+                    right: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
+                        UntypedValue::Number(BigDecimal::from(1))
+                    )))
                 }],
             })))
         );
@@ -372,14 +372,14 @@ mod multiple_values {
             Ok(QueryAnalysis::Write(Write::Update(UpdateQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 sql_types: vec![SqlType::bool()],
-                assignments: vec![DynamicEvaluationTree::Operation {
-                    left: Box::new(DynamicEvaluationTree::Item(DynamicItem::Const(ScalarValue::String(
-                        "s".to_owned()
-                    )))),
+                assignments: vec![DynamicUntypedTree::Operation {
+                    left: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
+                        UntypedValue::String("s".to_owned())
+                    ))),
                     op: Operation::PatternMatching(PatternMatching::Like),
-                    right: Box::new(DynamicEvaluationTree::Item(DynamicItem::Const(ScalarValue::String(
-                        "str".to_owned()
-                    ))))
+                    right: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
+                        UntypedValue::String("str".to_owned())
+                    )))
                 }],
             })))
         );

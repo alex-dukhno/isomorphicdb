@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use types::SqlFamilyType;
+use types::SqlTypeFamily;
 
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub enum Arithmetic {
@@ -71,32 +71,32 @@ pub enum Operation {
 }
 
 impl Operation {
-    pub fn resulted_types(&self) -> Vec<SqlFamilyType> {
+    pub fn resulted_types(&self) -> Vec<SqlTypeFamily> {
         match self {
-            Operation::Arithmetic(_) => vec![SqlFamilyType::Integer, SqlFamilyType::Float],
-            Operation::Comparison(_) => vec![SqlFamilyType::Bool],
-            Operation::Bitwise(_) => vec![SqlFamilyType::Integer],
-            Operation::Logical(_) => vec![SqlFamilyType::Bool],
-            Operation::PatternMatching(_) => vec![SqlFamilyType::Bool],
-            Operation::StringOp(_) => vec![SqlFamilyType::Bool],
+            Operation::Arithmetic(_) => vec![SqlTypeFamily::Integer, SqlTypeFamily::Real],
+            Operation::Comparison(_) => vec![SqlTypeFamily::Bool],
+            Operation::Bitwise(_) => vec![SqlTypeFamily::Integer],
+            Operation::Logical(_) => vec![SqlTypeFamily::Bool],
+            Operation::PatternMatching(_) => vec![SqlTypeFamily::Bool],
+            Operation::StringOp(_) => vec![SqlTypeFamily::Bool],
         }
     }
 
-    pub fn supported_type_family(&self, left: Option<SqlFamilyType>, right: Option<SqlFamilyType>) -> bool {
+    pub fn supported_type_family(&self, left: Option<SqlTypeFamily>, right: Option<SqlTypeFamily>) -> bool {
         match self {
             Operation::Arithmetic(_) => {
-                left == Some(SqlFamilyType::Integer) && right == Some(SqlFamilyType::Integer)
-                    || left == Some(SqlFamilyType::Float) && right == Some(SqlFamilyType::Integer)
-                    || left == Some(SqlFamilyType::Integer) && right == Some(SqlFamilyType::Float)
-                    || left == Some(SqlFamilyType::Float) && right == Some(SqlFamilyType::Float)
+                left == Some(SqlTypeFamily::Integer) && right == Some(SqlTypeFamily::Integer)
+                    || left == Some(SqlTypeFamily::Real) && right == Some(SqlTypeFamily::Integer)
+                    || left == Some(SqlTypeFamily::Integer) && right == Some(SqlTypeFamily::Real)
+                    || left == Some(SqlTypeFamily::Real) && right == Some(SqlTypeFamily::Real)
             }
             Operation::Comparison(_) => left.is_some() && left == right,
-            Operation::Bitwise(_) => left == Some(SqlFamilyType::Integer) && right == Some(SqlFamilyType::Integer),
-            Operation::Logical(_) => left == Some(SqlFamilyType::Bool) && right == Some(SqlFamilyType::Bool),
+            Operation::Bitwise(_) => left == Some(SqlTypeFamily::Integer) && right == Some(SqlTypeFamily::Integer),
+            Operation::Logical(_) => left == Some(SqlTypeFamily::Bool) && right == Some(SqlTypeFamily::Bool),
             Operation::PatternMatching(_) => {
-                left == Some(SqlFamilyType::String) && right == Some(SqlFamilyType::String)
+                left == Some(SqlTypeFamily::String) && right == Some(SqlTypeFamily::String)
             }
-            Operation::StringOp(_) => left == Some(SqlFamilyType::String) && right == Some(SqlFamilyType::String),
+            Operation::StringOp(_) => left == Some(SqlTypeFamily::String) && right == Some(SqlTypeFamily::String),
         }
     }
 }

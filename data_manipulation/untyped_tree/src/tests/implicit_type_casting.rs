@@ -21,15 +21,15 @@ mod booleans {
     #[test]
     fn to_string() {
         assert_eq!(
-            ScalarValue::Bool(Bool(true)).implicit_cast_to(SqlType::char(4)),
-            Ok(ScalarValue::String("true".to_owned()))
+            UntypedValue::Bool(Bool(true)).implicit_cast_to(SqlType::char(4)),
+            Ok(UntypedValue::String("true".to_owned()))
         );
     }
 
     #[test]
     fn to_string_not_enough_length() {
         assert_eq!(
-            ScalarValue::Bool(Bool(true)).implicit_cast_to(SqlType::char(1)),
+            UntypedValue::Bool(Bool(true)).implicit_cast_to(SqlType::char(1)),
             Err(ImplicitCastError::string_data_right_truncation(SqlType::char(1)))
         );
     }
@@ -37,7 +37,7 @@ mod booleans {
     #[test]
     fn to_number() {
         assert_eq!(
-            ScalarValue::Bool(Bool(true)).implicit_cast_to(SqlType::small_int()),
+            UntypedValue::Bool(Bool(true)).implicit_cast_to(SqlType::small_int()),
             Err(ImplicitCastError::datatype_mismatch(
                 SqlType::small_int(),
                 SqlType::bool()
@@ -53,15 +53,15 @@ mod strings {
     #[test]
     fn to_boolean() {
         assert_eq!(
-            ScalarValue::String("true".to_owned()).implicit_cast_to(SqlType::bool()),
-            Ok(ScalarValue::Bool(Bool(true)))
+            UntypedValue::String("true".to_owned()).implicit_cast_to(SqlType::bool()),
+            Ok(UntypedValue::Bool(Bool(true)))
         );
     }
 
     #[test]
     fn to_boolean_invalid() {
         assert_eq!(
-            ScalarValue::String("invalid".to_owned()).implicit_cast_to(SqlType::bool()),
+            UntypedValue::String("invalid".to_owned()).implicit_cast_to(SqlType::bool()),
             Err(ImplicitCastError::invalid_input_syntax_for_type(
                 SqlType::bool(),
                 &"invalid"
@@ -72,15 +72,15 @@ mod strings {
     #[test]
     fn to_number() {
         assert_eq!(
-            ScalarValue::String("123".to_owned()).implicit_cast_to(SqlType::small_int()),
-            Ok(ScalarValue::Number(BigDecimal::from(123)))
+            UntypedValue::String("123".to_owned()).implicit_cast_to(SqlType::small_int()),
+            Ok(UntypedValue::Number(BigDecimal::from(123)))
         );
     }
 
     #[test]
     fn to_number_invalid() {
         assert_eq!(
-            ScalarValue::String("invalid".to_owned()).implicit_cast_to(SqlType::small_int()),
+            UntypedValue::String("invalid".to_owned()).implicit_cast_to(SqlType::small_int()),
             Err(ImplicitCastError::invalid_input_syntax_for_type(
                 SqlType::small_int(),
                 &"invalid"
@@ -96,7 +96,7 @@ mod numbers {
     #[test]
     fn to_boolean() {
         assert_eq!(
-            ScalarValue::Number(BigDecimal::from(0)).implicit_cast_to(SqlType::bool()),
+            UntypedValue::Number(BigDecimal::from(0)).implicit_cast_to(SqlType::bool()),
             Err(ImplicitCastError::datatype_mismatch(
                 SqlType::bool(),
                 SqlType::integer()
@@ -104,7 +104,7 @@ mod numbers {
         );
 
         assert_eq!(
-            ScalarValue::Number(BigDecimal::from(i64::max_value())).implicit_cast_to(SqlType::bool()),
+            UntypedValue::Number(BigDecimal::from(i64::max_value())).implicit_cast_to(SqlType::bool()),
             Err(ImplicitCastError::datatype_mismatch(
                 SqlType::bool(),
                 SqlType::big_int()
@@ -112,12 +112,12 @@ mod numbers {
         );
 
         assert_eq!(
-            ScalarValue::Number(BigDecimal::from_str("-3.40").unwrap()).implicit_cast_to(SqlType::bool()),
+            UntypedValue::Number(BigDecimal::from_str("-3.40").unwrap()).implicit_cast_to(SqlType::bool()),
             Err(ImplicitCastError::datatype_mismatch(SqlType::bool(), SqlType::real()))
         );
 
         assert_eq!(
-            ScalarValue::Number(BigDecimal::from_str(&(f32::MAX.to_string() + "00.123")).unwrap())
+            UntypedValue::Number(BigDecimal::from_str(&(f32::MAX.to_string() + "00.123")).unwrap())
                 .implicit_cast_to(SqlType::bool()),
             Err(ImplicitCastError::datatype_mismatch(
                 SqlType::bool(),
@@ -129,15 +129,15 @@ mod numbers {
     #[test]
     fn to_string() {
         assert_eq!(
-            ScalarValue::Number(BigDecimal::from(0)).implicit_cast_to(SqlType::char(1)),
-            Ok(ScalarValue::String("0".to_owned()))
+            UntypedValue::Number(BigDecimal::from(0)).implicit_cast_to(SqlType::char(1)),
+            Ok(UntypedValue::String("0".to_owned()))
         );
     }
 
     #[test]
     fn to_string_too_long() {
         assert_eq!(
-            ScalarValue::Number(BigDecimal::from(10)).implicit_cast_to(SqlType::char(1)),
+            UntypedValue::Number(BigDecimal::from(10)).implicit_cast_to(SqlType::char(1)),
             Err(ImplicitCastError::string_data_right_truncation(SqlType::char(1)))
         );
     }

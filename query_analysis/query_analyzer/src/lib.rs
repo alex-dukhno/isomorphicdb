@@ -18,9 +18,9 @@ use catalog::CatalogDefinition;
 use data_definition_execution_plan::{
     ColumnInfo, CreateSchemaQuery, CreateTableQuery, DropSchemasQuery, DropTablesQuery, SchemaChange, TableInfo,
 };
-use data_manipulation_annotated_queries::{DeleteQuery, InsertQuery, SelectQuery, UpdateQuery, Write};
 use data_manipulation_operators::Operation;
-use data_manipulation_untyped_tree::{DynamicEvaluationTree, DynamicItem};
+use data_manipulation_untyped_queries::{DeleteQuery, InsertQuery, SelectQuery, UpdateQuery, Write};
+use data_manipulation_untyped_tree::{DynamicUntypedItem, DynamicUntypedTree};
 use definition::{FullTableName, SchemaName};
 use types::SqlType;
 
@@ -172,8 +172,8 @@ impl<CD: CatalogDefinition> Analyzer<CD> {
                                         match item {
                                             sql_ast::SelectItem::Wildcard => {
                                                 for (index, table_column) in table_columns.iter().enumerate() {
-                                                    projection_items.push(DynamicEvaluationTree::Item(
-                                                        DynamicItem::Column {
+                                                    projection_items.push(DynamicUntypedTree::Item(
+                                                        DynamicUntypedItem::Column {
                                                             index,
                                                             sql_type: table_column.sql_type(),
                                                         },

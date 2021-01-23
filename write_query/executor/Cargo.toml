@@ -6,7 +6,7 @@ edition = "2018"
 publish = false
 
 [dependencies]
-data_manipulation_annotated_queries = { path = "../../data_manipulation/annotated_queries" }
+data_manipulation_untyped_queries = { path = "../../data_manipulation/untyped_queries" }
 catalog = { path = "../../data/catalog" }
 
 [dev-dependencies]

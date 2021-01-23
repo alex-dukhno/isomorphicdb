@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-fn main() {
-    simple_logger::SimpleLogger::from_env()
-        .init()
-        .expect("to initialize logger");
-    node::start();
-}
+use super::*;
+
+#[cfg(test)]
+mod to_postgresql_type_conversion;
+#[cfg(test)]
+mod type_family_comparison;

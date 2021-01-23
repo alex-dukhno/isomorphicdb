@@ -14,7 +14,7 @@
 
 use super::*;
 use data_definition_operations::{Kind, Record, Step, SystemObject, SystemOperation};
-use data_manipulation_untyped_tree::{ScalarValue, StaticEvaluationTree, StaticItem};
+use data_manipulation_untyped_tree::{StaticUntypedItem, StaticUntypedTree, UntypedValue};
 
 #[cfg(test)]
 mod expressions;

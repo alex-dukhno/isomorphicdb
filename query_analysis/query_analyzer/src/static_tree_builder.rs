@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use data_manipulation_untyped_tree::{Bool, ScalarValue, StaticEvaluationTree, StaticItem};
+use data_manipulation_untyped_tree::{Bool, StaticUntypedItem, StaticUntypedTree, UntypedValue};
 use types::SqlType;
 
 use crate::{operation_mapper::OperationMapper, parse_param_index, AnalysisError, AnalysisResult, Feature};
@@ -24,7 +24,7 @@ impl StaticTreeBuilder {
         root_expr: &sql_ast::Expr,
         original: &sql_ast::Statement,
         column_type: &SqlType,
-    ) -> AnalysisResult<StaticEvaluationTree> {
+    ) -> AnalysisResult<StaticUntypedTree> {
         Self::inner_build(root_expr, original, column_type)
     }
 
@@ -32,7 +32,7 @@ impl StaticTreeBuilder {
         root_expr: &sql_ast::Expr,
         original: &sql_ast::Statement,
         column_type: &SqlType,
-    ) -> AnalysisResult<StaticEvaluationTree> {
+    ) -> AnalysisResult<StaticUntypedTree> {
         match root_expr {
             sql_ast::Expr::Value(value) => Self::value(value),
             sql_ast::Expr::Identifier(ident) => Self::ident(ident),
@@ -50,13 +50,13 @@ impl StaticTreeBuilder {
         right: &sql_ast::Expr,
         original: &sql_ast::Statement,
         column_type: &SqlType,
-    ) -> AnalysisResult<StaticEvaluationTree> {
+    ) -> AnalysisResult<StaticUntypedTree> {
         let operation = OperationMapper::binary_operation(op);
         match (
             Self::inner_build(left, original, column_type),
             Self::inner_build(right, original, column_type),
         ) {
-            (Ok(left_item), Ok(right_item)) => Ok(StaticEvaluationTree::Operation {
+            (Ok(left_item), Ok(right_item)) => Ok(StaticUntypedTree::Operation {
                 left: Box::new(left_item),
                 op: operation,
                 right: Box::new(right_item),
@@ -65,31 +65,31 @@ impl StaticTreeBuilder {
         }
     }
 
-    fn ident(ident: &sql_ast::Ident) -> AnalysisResult<StaticEvaluationTree> {
+    fn ident(ident: &sql_ast::Ident) -> AnalysisResult<StaticUntypedTree> {
         let sql_ast::Ident { value, .. } = ident;
         match parse_param_index(value.as_str()) {
-            Some(index) => Ok(StaticEvaluationTree::Item(StaticItem::Param(index))),
+            Some(index) => Ok(StaticUntypedTree::Item(StaticUntypedItem::Param(index))),
             None => Err(AnalysisError::column_cant_be_referenced(value)),
         }
     }
 
-    fn value(value: &sql_ast::Value) -> AnalysisResult<StaticEvaluationTree> {
+    fn value(value: &sql_ast::Value) -> AnalysisResult<StaticUntypedTree> {
         match value {
-            sql_ast::Value::Number(num) => Ok(StaticEvaluationTree::Item(StaticItem::Const(ScalarValue::Number(
+            sql_ast::Value::Number(num) => Ok(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(
                 num.clone(),
             )))),
-            sql_ast::Value::SingleQuotedString(string) => Ok(StaticEvaluationTree::Item(StaticItem::Const(
-                ScalarValue::String(string.clone()),
+            sql_ast::Value::SingleQuotedString(string) => Ok(StaticUntypedTree::Item(StaticUntypedItem::Const(
+                UntypedValue::String(string.clone()),
             ))),
             sql_ast::Value::NationalStringLiteral(_) => {
                 Err(AnalysisError::feature_not_supported(Feature::NationalStringLiteral))
             }
             sql_ast::Value::HexStringLiteral(_) => Err(AnalysisError::feature_not_supported(Feature::HexStringLiteral)),
-            sql_ast::Value::Boolean(boolean) => Ok(StaticEvaluationTree::Item(StaticItem::Const(ScalarValue::Bool(
-                Bool(*boolean),
-            )))),
+            sql_ast::Value::Boolean(boolean) => Ok(StaticUntypedTree::Item(StaticUntypedItem::Const(
+                UntypedValue::Bool(Bool(*boolean)),
+            ))),
             sql_ast::Value::Interval { .. } => Err(AnalysisError::feature_not_supported(Feature::TimeInterval)),
-            sql_ast::Value::Null => Ok(StaticEvaluationTree::Item(StaticItem::Const(ScalarValue::Null))),
+            sql_ast::Value::Null => Ok(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Null))),
         }
     }
 }

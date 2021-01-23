@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use data_manipulation_untyped_tree::{DynamicEvaluationTree, StaticEvaluationTree};
+use data_manipulation_untyped_tree::{DynamicUntypedTree, StaticUntypedTree};
 use definition::FullTableName;
 use types::SqlType;
 
@@ -20,20 +20,20 @@ use types::SqlType;
 pub struct InsertQuery {
     pub full_table_name: FullTableName,
     pub column_types: Vec<SqlType>,
-    pub values: Vec<Vec<StaticEvaluationTree>>,
+    pub values: Vec<Vec<StaticUntypedTree>>,
 }
 
 #[derive(Debug, PartialEq)]
 pub struct UpdateQuery {
     pub full_table_name: FullTableName,
     pub sql_types: Vec<SqlType>,
-    pub assignments: Vec<DynamicEvaluationTree>,
+    pub assignments: Vec<DynamicUntypedTree>,
 }
 
 #[derive(Debug, PartialEq)]
 pub struct SelectQuery {
     pub full_table_name: FullTableName,
-    pub projection_items: Vec<DynamicEvaluationTree>,
+    pub projection_items: Vec<DynamicUntypedTree>,
 }
 
 #[derive(Debug, PartialEq)]

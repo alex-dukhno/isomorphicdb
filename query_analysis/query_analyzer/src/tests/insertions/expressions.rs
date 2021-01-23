@@ -39,8 +39,8 @@ fn insert_number() {
         Ok(QueryAnalysis::Write(Write::Insert(InsertQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             column_types: vec![SqlType::small_int()],
-            values: vec![vec![StaticEvaluationTree::Item(StaticItem::Const(
-                ScalarValue::Number(BigDecimal::from(1))
+            values: vec![vec![StaticUntypedTree::Item(StaticUntypedItem::Const(
+                UntypedValue::Number(BigDecimal::from(1))
             ))]],
         })))
     );
@@ -60,8 +60,8 @@ fn insert_string() {
         Ok(QueryAnalysis::Write(Write::Insert(InsertQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             column_types: vec![SqlType::char(5)],
-            values: vec![vec![StaticEvaluationTree::Item(StaticItem::Const(
-                ScalarValue::String("str".to_owned())
+            values: vec![vec![StaticUntypedTree::Item(StaticUntypedItem::Const(
+                UntypedValue::String("str".to_owned())
             ))]],
         })))
     );
@@ -81,9 +81,9 @@ fn insert_boolean() {
         Ok(QueryAnalysis::Write(Write::Insert(InsertQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             column_types: vec![SqlType::bool()],
-            values: vec![vec![StaticEvaluationTree::Item(StaticItem::Const(ScalarValue::Bool(
-                Bool(true)
-            )))]],
+            values: vec![vec![StaticUntypedTree::Item(StaticUntypedItem::Const(
+                UntypedValue::Bool(Bool(true))
+            ))]],
         })))
     );
 }
@@ -102,7 +102,9 @@ fn insert_null() {
         Ok(QueryAnalysis::Write(Write::Insert(InsertQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             column_types: vec![SqlType::bool()],
-            values: vec![vec![StaticEvaluationTree::Item(StaticItem::Const(ScalarValue::Null))]],
+            values: vec![vec![StaticUntypedTree::Item(StaticUntypedItem::Const(
+                UntypedValue::Null
+            ))]],
         })))
     );
 }
@@ -144,8 +146,8 @@ fn insert_into_table_with_parameters() {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             column_types: vec![SqlType::small_int(), SqlType::small_int()],
             values: vec![vec![
-                StaticEvaluationTree::Item(StaticItem::Param(0)),
-                StaticEvaluationTree::Item(StaticItem::Param(1))
+                StaticUntypedTree::Item(StaticUntypedItem::Param(0)),
+                StaticUntypedTree::Item(StaticUntypedItem::Param(1))
             ]],
         })))
     );
@@ -176,8 +178,8 @@ fn insert_into_table_with_parameters_and_values() {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             column_types: vec![SqlType::small_int(), SqlType::small_int()],
             values: vec![vec![
-                StaticEvaluationTree::Item(StaticItem::Param(0)),
-                StaticEvaluationTree::Item(StaticItem::Const(ScalarValue::Number(BigDecimal::from(1))))
+                StaticUntypedTree::Item(StaticUntypedItem::Param(0)),
+                StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(BigDecimal::from(1))))
             ]],
         })))
     );
@@ -185,7 +187,7 @@ fn insert_into_table_with_parameters_and_values() {
 
 #[cfg(test)]
 mod multiple_values {
-    use data_manipulation_untyped_tree::{ScalarValue, StaticEvaluationTree, StaticItem};
+    use data_manipulation_untyped_tree::{StaticUntypedItem, StaticUntypedTree, UntypedValue};
 
     use super::*;
 
@@ -222,12 +224,12 @@ mod multiple_values {
             Ok(QueryAnalysis::Write(Write::Insert(InsertQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 column_types: vec![SqlType::small_int()],
-                values: vec![vec![StaticEvaluationTree::Operation {
-                    left: Box::new(StaticEvaluationTree::Item(StaticItem::Const(ScalarValue::Number(
+                values: vec![vec![StaticUntypedTree::Operation {
+                    left: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(
                         BigDecimal::from(1)
                     )))),
                     op: Operation::Arithmetic(Arithmetic::Add),
-                    right: Box::new(StaticEvaluationTree::Item(StaticItem::Const(ScalarValue::Number(
+                    right: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(
                         BigDecimal::from(1)
                     ))))
                 }]],
@@ -253,12 +255,12 @@ mod multiple_values {
             Ok(QueryAnalysis::Write(Write::Insert(InsertQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 column_types: vec![SqlType::var_char(255)],
-                values: vec![vec![StaticEvaluationTree::Operation {
-                    left: Box::new(StaticEvaluationTree::Item(StaticItem::Const(ScalarValue::String(
+                values: vec![vec![StaticUntypedTree::Operation {
+                    left: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::String(
                         "str".to_owned()
                     )))),
                     op: Operation::StringOp(StringOp::Concat),
-                    right: Box::new(StaticEvaluationTree::Item(StaticItem::Const(ScalarValue::String(
+                    right: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::String(
                         "str".to_owned()
                     ))))
                 }]],
@@ -284,12 +286,12 @@ mod multiple_values {
             Ok(QueryAnalysis::Write(Write::Insert(InsertQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 column_types: vec![SqlType::bool()],
-                values: vec![vec![StaticEvaluationTree::Operation {
-                    left: Box::new(StaticEvaluationTree::Item(StaticItem::Const(ScalarValue::Number(
+                values: vec![vec![StaticUntypedTree::Operation {
+                    left: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(
                         BigDecimal::from(1)
                     )))),
                     op: Operation::Comparison(Comparison::Gt),
-                    right: Box::new(StaticEvaluationTree::Item(StaticItem::Const(ScalarValue::Number(
+                    right: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(
                         BigDecimal::from(1)
                     ))))
                 }]],
@@ -315,14 +317,14 @@ mod multiple_values {
             Ok(QueryAnalysis::Write(Write::Insert(InsertQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 column_types: vec![SqlType::bool()],
-                values: vec![vec![StaticEvaluationTree::Operation {
-                    left: Box::new(StaticEvaluationTree::Item(StaticItem::Const(ScalarValue::Bool(Bool(
-                        true
-                    ))))),
+                values: vec![vec![StaticUntypedTree::Operation {
+                    left: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Bool(
+                        Bool(true)
+                    )))),
                     op: Operation::Logical(Logical::And),
-                    right: Box::new(StaticEvaluationTree::Item(StaticItem::Const(ScalarValue::Bool(Bool(
-                        true
-                    ))))),
+                    right: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Bool(
+                        Bool(true)
+                    )))),
                 }]],
             })))
         );
@@ -346,12 +348,12 @@ mod multiple_values {
             Ok(QueryAnalysis::Write(Write::Insert(InsertQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 column_types: vec![SqlType::small_int()],
-                values: vec![vec![StaticEvaluationTree::Operation {
-                    left: Box::new(StaticEvaluationTree::Item(StaticItem::Const(ScalarValue::Number(
+                values: vec![vec![StaticUntypedTree::Operation {
+                    left: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(
                         BigDecimal::from(1)
                     )))),
                     op: Operation::Bitwise(Bitwise::Or),
-                    right: Box::new(StaticEvaluationTree::Item(StaticItem::Const(ScalarValue::Number(
+                    right: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(
                         BigDecimal::from(1)
                     ))))
                 }]],
@@ -377,12 +379,12 @@ mod multiple_values {
             Ok(QueryAnalysis::Write(Write::Insert(InsertQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 column_types: vec![SqlType::bool()],
-                values: vec![vec![StaticEvaluationTree::Operation {
-                    left: Box::new(StaticEvaluationTree::Item(StaticItem::Const(ScalarValue::String(
+                values: vec![vec![StaticUntypedTree::Operation {
+                    left: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::String(
                         "s".to_owned()
                     )))),
                     op: Operation::PatternMatching(PatternMatching::Like),
-                    right: Box::new(StaticEvaluationTree::Item(StaticItem::Const(ScalarValue::String(
+                    right: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::String(
                         "str".to_owned()
                     ))))
                 }]],

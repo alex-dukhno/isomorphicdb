@@ -19,7 +19,7 @@ use std::{
     fmt::{Display, Formatter},
     str::FromStr,
 };
-use types::{SqlFamilyType, SqlType};
+use types::{SqlType, SqlTypeFamily};
 
 #[derive(PartialEq, Debug, Copy, Clone, Eq)]
 pub struct Bool(pub bool);
@@ -74,69 +74,69 @@ impl ImplicitCastError {
 }
 
 #[derive(Debug, PartialEq)]
-pub enum StaticItem {
-    Const(ScalarValue),
+pub enum StaticUntypedItem {
+    Const(UntypedValue),
     Param(usize),
 }
 
 #[derive(Debug, PartialEq)]
-pub enum DynamicItem {
-    Const(ScalarValue),
+pub enum DynamicUntypedItem {
+    Const(UntypedValue),
     Param(usize),
     Column { sql_type: SqlType, index: usize },
 }
 
 #[derive(Debug, PartialEq, Clone, Eq)]
-pub enum ScalarValue {
+pub enum UntypedValue {
     String(String),
     Number(BigDecimal),
     Bool(Bool),
     Null,
 }
 
-impl ScalarValue {
-    pub fn kind(&self) -> Option<SqlFamilyType> {
+impl UntypedValue {
+    pub fn kind(&self) -> Option<SqlTypeFamily> {
         match self {
-            ScalarValue::String(_) => Some(SqlFamilyType::String),
-            ScalarValue::Number(num) if num.is_integer() => Some(SqlFamilyType::Integer),
-            ScalarValue::Number(_) => Some(SqlFamilyType::Float),
-            ScalarValue::Bool(_) => Some(SqlFamilyType::Bool),
-            ScalarValue::Null => None,
+            UntypedValue::String(_) => Some(SqlTypeFamily::String),
+            UntypedValue::Number(num) if num.is_integer() => Some(SqlTypeFamily::Integer),
+            UntypedValue::Number(_) => Some(SqlTypeFamily::Real),
+            UntypedValue::Bool(_) => Some(SqlTypeFamily::Bool),
+            UntypedValue::Null => None,
         }
     }
 
-    pub fn implicit_cast_to(&self, target_type: SqlType) -> Result<ScalarValue, ImplicitCastError> {
+    pub fn implicit_cast_to(&self, target_type: SqlType) -> Result<UntypedValue, ImplicitCastError> {
         match self {
-            ScalarValue::Bool(boolean) => match target_type {
-                SqlType::Bool => Ok(ScalarValue::Bool(*boolean)),
+            UntypedValue::Bool(boolean) => match target_type {
+                SqlType::Bool => Ok(UntypedValue::Bool(*boolean)),
                 SqlType::Str { len, .. } => {
                     let r = boolean.0.to_string();
                     if r.len() as u64 > len {
                         Err(ImplicitCastError::string_data_right_truncation(target_type))
                     } else {
-                        Ok(ScalarValue::String(r))
+                        Ok(UntypedValue::String(r))
                     }
                 }
                 SqlType::Num(_) => Err(ImplicitCastError::datatype_mismatch(target_type, SqlType::bool())),
             },
-            ScalarValue::String(string) => match target_type {
+            UntypedValue::String(string) => match target_type {
                 SqlType::Bool => match Bool::from_str(&string) {
-                    Ok(bool) => Ok(ScalarValue::Bool(bool)),
+                    Ok(bool) => Ok(UntypedValue::Bool(bool)),
                     Err(parse_error) => {
                         log::debug!("Could not cast {:?} to bool due to {:?}", string, parse_error);
                         Err(ImplicitCastError::invalid_input_syntax_for_type(target_type, string))
                     }
                 },
-                SqlType::Str { .. } => Ok(ScalarValue::String(string.clone())),
+                SqlType::Str { .. } => Ok(UntypedValue::String(string.clone())),
                 SqlType::Num(_) => match BigDecimal::from_str(&string) {
-                    Ok(num) => Ok(ScalarValue::Number(num)),
+                    Ok(num) => Ok(UntypedValue::Number(num)),
                     Err(parse_error) => {
                         log::debug!("Could not cast {:?} to bool due to {:?}", string, parse_error);
                         Err(ImplicitCastError::invalid_input_syntax_for_type(target_type, string))
                     }
                 },
             },
-            ScalarValue::Number(num) => match target_type {
+            UntypedValue::Number(num) => match target_type {
                 SqlType::Bool => {
                     if num.is_integer() {
                         if &BigDecimal::from(i32::MIN) <= num && num <= &BigDecimal::from(i32::MAX) {
@@ -164,14 +164,14 @@ impl ScalarValue {
                 SqlType::Str { len, .. } => {
                     let r = num.to_string();
                     if r.len() as u64 <= len {
-                        Ok(ScalarValue::String(r))
+                        Ok(UntypedValue::String(r))
                     } else {
                         Err(ImplicitCastError::string_data_right_truncation(target_type))
                     }
                 }
-                SqlType::Num(_) => Ok(ScalarValue::Number(num.clone())),
+                SqlType::Num(_) => Ok(UntypedValue::Number(num.clone())),
             },
-            ScalarValue::Null => Ok(ScalarValue::Null),
+            UntypedValue::Null => Ok(UntypedValue::Null),
         }
     }
 
@@ -184,46 +184,46 @@ impl ScalarValue {
 // TODO it makes `ScalarValue` implement `ToString`
 //      find a better abstraction to return
 //      text representation of computed value
-impl Display for ScalarValue {
+impl Display for UntypedValue {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            ScalarValue::String(s) => write!(f, "{}", s),
-            ScalarValue::Number(n) => write!(f, "{}", n),
-            ScalarValue::Bool(Bool(true)) => write!(f, "t"),
-            ScalarValue::Bool(Bool(false)) => write!(f, "f"),
-            ScalarValue::Null => write!(f, "NULL"),
+            UntypedValue::String(s) => write!(f, "{}", s),
+            UntypedValue::Number(n) => write!(f, "{}", n),
+            UntypedValue::Bool(Bool(true)) => write!(f, "t"),
+            UntypedValue::Bool(Bool(false)) => write!(f, "f"),
+            UntypedValue::Null => write!(f, "NULL"),
         }
     }
 }
 
 #[derive(Debug, PartialEq)]
-pub enum StaticEvaluationTree {
+pub enum StaticUntypedTree {
     Operation {
-        left: Box<StaticEvaluationTree>,
+        left: Box<StaticUntypedTree>,
         op: Operation,
-        right: Box<StaticEvaluationTree>,
+        right: Box<StaticUntypedTree>,
     },
-    Item(StaticItem),
+    Item(StaticUntypedItem),
 }
 
-impl StaticEvaluationTree {
-    pub fn kind(&self) -> Option<SqlFamilyType> {
+impl StaticUntypedTree {
+    pub fn kind(&self) -> Option<SqlTypeFamily> {
         match self {
-            StaticEvaluationTree::Operation { .. } => None,
-            StaticEvaluationTree::Item(StaticItem::Const(value)) => value.kind(),
-            StaticEvaluationTree::Item(StaticItem::Param(_)) => None,
+            StaticUntypedTree::Operation { .. } => None,
+            StaticUntypedTree::Item(StaticUntypedItem::Const(value)) => value.kind(),
+            StaticUntypedTree::Item(StaticUntypedItem::Param(_)) => None,
         }
     }
 }
 
 #[derive(Debug, PartialEq)]
-pub enum DynamicEvaluationTree {
+pub enum DynamicUntypedTree {
     Operation {
-        left: Box<DynamicEvaluationTree>,
+        left: Box<DynamicUntypedTree>,
         op: Operation,
-        right: Box<DynamicEvaluationTree>,
+        right: Box<DynamicUntypedTree>,
     },
-    Item(DynamicItem),
+    Item(DynamicUntypedItem),
 }
 
 #[cfg(test)]

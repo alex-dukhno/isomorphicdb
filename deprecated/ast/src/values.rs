@@ -111,7 +111,7 @@ impl ScalarValue {
             | (ScalarValue::Bool(Bool(boolean)), SqlType::Num(Num::Integer))
             | (ScalarValue::Bool(Bool(boolean)), SqlType::Num(Num::BigInt))
             | (ScalarValue::Bool(Bool(boolean)), SqlType::Num(Num::Real))
-            | (ScalarValue::Bool(Bool(boolean)), SqlType::Num(Num::DoublePrecision)) => {
+            | (ScalarValue::Bool(Bool(boolean)), SqlType::Num(Num::Double)) => {
                 if *boolean {
                     Ok(ScalarValue::Number(BigDecimal::from(1)))
                 } else {

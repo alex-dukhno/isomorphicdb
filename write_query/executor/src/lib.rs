@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use catalog::Database;
-use data_manipulation_annotated_queries::Write;
+use data_manipulation_untyped_queries::Write;
 use std::sync::Arc;
 
 #[derive(Clone)]
@@ -33,7 +33,7 @@ impl<D: Database> Executor<D> {
 mod tests {
     use super::*;
     use catalog::InMemoryDatabase;
-    use data_manipulation_annotated_queries::InsertQuery;
+    use data_manipulation_untyped_queries::InsertQuery;
     use definition::FullTableName;
 
     #[test]

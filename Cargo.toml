@@ -5,7 +5,7 @@ members = [
     "data/schema_planner",
     "data_definition/operations",
     "data_definition/execution_plan",
-    "data_manipulation/annotated_queries",
+    "data_manipulation/untyped_queries",
     "data_manipulation/operators",
     "data_manipulation/untyped_tree",
     "deprecated/ast",
