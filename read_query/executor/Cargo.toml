@@ -3,6 +3,7 @@ name = "read_query_executor"
 version = "0.1.0"
 authors = ["Alex Dukhno <alex.dukhno@icloud.com>"]
 edition = "2018"
+publish = false
 
 [dependencies]
 data_manipulation_query_result = { path = "../../data_manipulation/query_result" }
