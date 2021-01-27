@@ -17,27 +17,33 @@ use super::*;
 #[test]
 fn same_types() {
     assert_eq!(
-        SqlTypeFamily::SmallInt.cmp(&SqlTypeFamily::SmallInt),
+        SqlTypeFamily::SmallInt.compare(&SqlTypeFamily::SmallInt),
         Ok(SqlTypeFamily::SmallInt)
     );
     assert_eq!(
-        SqlTypeFamily::Integer.cmp(&SqlTypeFamily::Integer),
+        SqlTypeFamily::Integer.compare(&SqlTypeFamily::Integer),
         Ok(SqlTypeFamily::Integer)
     );
     assert_eq!(
-        SqlTypeFamily::BigInt.cmp(&SqlTypeFamily::BigInt),
+        SqlTypeFamily::BigInt.compare(&SqlTypeFamily::BigInt),
         Ok(SqlTypeFamily::BigInt)
     );
-    assert_eq!(SqlTypeFamily::Real.cmp(&SqlTypeFamily::Real), Ok(SqlTypeFamily::Real));
     assert_eq!(
-        SqlTypeFamily::Double.cmp(&SqlTypeFamily::Double),
+        SqlTypeFamily::Real.compare(&SqlTypeFamily::Real),
+        Ok(SqlTypeFamily::Real)
+    );
+    assert_eq!(
+        SqlTypeFamily::Double.compare(&SqlTypeFamily::Double),
         Ok(SqlTypeFamily::Double)
     );
     assert_eq!(
-        SqlTypeFamily::String.cmp(&SqlTypeFamily::String),
+        SqlTypeFamily::String.compare(&SqlTypeFamily::String),
         Ok(SqlTypeFamily::String)
     );
-    assert_eq!(SqlTypeFamily::Bool.cmp(&SqlTypeFamily::Bool), Ok(SqlTypeFamily::Bool));
+    assert_eq!(
+        SqlTypeFamily::Bool.compare(&SqlTypeFamily::Bool),
+        Ok(SqlTypeFamily::Bool)
+    );
 }
 
 #[cfg(test)]
@@ -47,29 +53,29 @@ mod with_higher_in_same_type_group {
     #[test]
     fn integers() {
         assert_eq!(
-            SqlTypeFamily::SmallInt.cmp(&SqlTypeFamily::Integer),
+            SqlTypeFamily::SmallInt.compare(&SqlTypeFamily::Integer),
             Ok(SqlTypeFamily::Integer)
         );
         assert_eq!(
-            SqlTypeFamily::Integer.cmp(&SqlTypeFamily::SmallInt),
+            SqlTypeFamily::Integer.compare(&SqlTypeFamily::SmallInt),
             Ok(SqlTypeFamily::Integer)
         );
 
         assert_eq!(
-            SqlTypeFamily::SmallInt.cmp(&SqlTypeFamily::BigInt),
+            SqlTypeFamily::SmallInt.compare(&SqlTypeFamily::BigInt),
             Ok(SqlTypeFamily::BigInt)
         );
         assert_eq!(
-            SqlTypeFamily::BigInt.cmp(&SqlTypeFamily::SmallInt),
+            SqlTypeFamily::BigInt.compare(&SqlTypeFamily::SmallInt),
             Ok(SqlTypeFamily::BigInt)
         );
 
         assert_eq!(
-            SqlTypeFamily::Integer.cmp(&SqlTypeFamily::BigInt),
+            SqlTypeFamily::Integer.compare(&SqlTypeFamily::BigInt),
             Ok(SqlTypeFamily::BigInt)
         );
         assert_eq!(
-            SqlTypeFamily::BigInt.cmp(&SqlTypeFamily::Integer),
+            SqlTypeFamily::BigInt.compare(&SqlTypeFamily::Integer),
             Ok(SqlTypeFamily::BigInt)
         );
     }
@@ -77,11 +83,11 @@ mod with_higher_in_same_type_group {
     #[test]
     fn floats() {
         assert_eq!(
-            SqlTypeFamily::Real.cmp(&SqlTypeFamily::Double),
+            SqlTypeFamily::Real.compare(&SqlTypeFamily::Double),
             Ok(SqlTypeFamily::Double)
         );
         assert_eq!(
-            SqlTypeFamily::Double.cmp(&SqlTypeFamily::Real),
+            SqlTypeFamily::Double.compare(&SqlTypeFamily::Real),
             Ok(SqlTypeFamily::Double)
         );
     }
@@ -89,50 +95,56 @@ mod with_higher_in_same_type_group {
     #[test]
     fn float_and_integer() {
         assert_eq!(
-            SqlTypeFamily::SmallInt.cmp(&SqlTypeFamily::Real),
+            SqlTypeFamily::SmallInt.compare(&SqlTypeFamily::Real),
             Ok(SqlTypeFamily::Real)
         );
         assert_eq!(
-            SqlTypeFamily::Real.cmp(&SqlTypeFamily::SmallInt),
-            Ok(SqlTypeFamily::Real)
-        );
-
-        assert_eq!(
-            SqlTypeFamily::SmallInt.cmp(&SqlTypeFamily::Double),
-            Ok(SqlTypeFamily::Double)
-        );
-        assert_eq!(
-            SqlTypeFamily::Double.cmp(&SqlTypeFamily::SmallInt),
-            Ok(SqlTypeFamily::Double)
-        );
-
-        assert_eq!(
-            SqlTypeFamily::Integer.cmp(&SqlTypeFamily::Real),
-            Ok(SqlTypeFamily::Real)
-        );
-        assert_eq!(
-            SqlTypeFamily::Real.cmp(&SqlTypeFamily::Integer),
+            SqlTypeFamily::Real.compare(&SqlTypeFamily::SmallInt),
             Ok(SqlTypeFamily::Real)
         );
 
         assert_eq!(
-            SqlTypeFamily::Integer.cmp(&SqlTypeFamily::Double),
+            SqlTypeFamily::SmallInt.compare(&SqlTypeFamily::Double),
             Ok(SqlTypeFamily::Double)
         );
         assert_eq!(
-            SqlTypeFamily::Double.cmp(&SqlTypeFamily::Integer),
+            SqlTypeFamily::Double.compare(&SqlTypeFamily::SmallInt),
             Ok(SqlTypeFamily::Double)
         );
 
-        assert_eq!(SqlTypeFamily::BigInt.cmp(&SqlTypeFamily::Real), Ok(SqlTypeFamily::Real));
-        assert_eq!(SqlTypeFamily::Real.cmp(&SqlTypeFamily::BigInt), Ok(SqlTypeFamily::Real));
+        assert_eq!(
+            SqlTypeFamily::Integer.compare(&SqlTypeFamily::Real),
+            Ok(SqlTypeFamily::Real)
+        );
+        assert_eq!(
+            SqlTypeFamily::Real.compare(&SqlTypeFamily::Integer),
+            Ok(SqlTypeFamily::Real)
+        );
 
         assert_eq!(
-            SqlTypeFamily::BigInt.cmp(&SqlTypeFamily::Double),
+            SqlTypeFamily::Integer.compare(&SqlTypeFamily::Double),
             Ok(SqlTypeFamily::Double)
         );
         assert_eq!(
-            SqlTypeFamily::Double.cmp(&SqlTypeFamily::BigInt),
+            SqlTypeFamily::Double.compare(&SqlTypeFamily::Integer),
+            Ok(SqlTypeFamily::Double)
+        );
+
+        assert_eq!(
+            SqlTypeFamily::BigInt.compare(&SqlTypeFamily::Real),
+            Ok(SqlTypeFamily::Real)
+        );
+        assert_eq!(
+            SqlTypeFamily::Real.compare(&SqlTypeFamily::BigInt),
+            Ok(SqlTypeFamily::Real)
+        );
+
+        assert_eq!(
+            SqlTypeFamily::BigInt.compare(&SqlTypeFamily::Double),
+            Ok(SqlTypeFamily::Double)
+        );
+        assert_eq!(
+            SqlTypeFamily::Double.compare(&SqlTypeFamily::BigInt),
             Ok(SqlTypeFamily::Double)
         );
     }

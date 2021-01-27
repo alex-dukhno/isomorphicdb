@@ -12,12 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use data_manipulation_typed_tree::StaticTypedTree;
+use data_manipulation_typed_tree::{DynamicTypedTree, StaticTypedTree};
+use types::SqlType;
 
 pub struct TypeCoercion;
 
 impl TypeCoercion {
-    pub fn check(&self, tree: StaticTypedTree) -> StaticTypedTree {
+    pub fn coerce_dynamic(&self, tree: DynamicTypedTree) -> DynamicTypedTree {
+        tree
+    }
+
+    pub fn coerce_static(&self, tree: StaticTypedTree, _column_type: SqlType) -> StaticTypedTree {
         tree
     }
 }

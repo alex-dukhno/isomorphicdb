@@ -12,24 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use data_manipulation_typed_tree::{DynamicTypedTree, StaticTypedTree};
-use definition::FullTableName;
-use types::SqlType;
+use catalog::Database;
+use data_manipulation_typed_queries::TypedSelectQuery;
+use read_query_plan::SelectPlan;
+use std::sync::Arc;
 
-#[derive(Debug, PartialEq)]
-pub struct InsertQuery {
-    pub full_table_name: FullTableName,
-    pub column_types: Vec<SqlType>,
-    pub values: Vec<Vec<StaticTypedTree>>,
+pub struct ReadQueryPlanner<D: Database> {
+    #[allow(dead_code)]
+    database: Arc<D>,
 }
 
-#[derive(Debug, PartialEq)]
-pub enum TypedWrite {
-    Insert(InsertQuery),
-}
+impl<D: Database> ReadQueryPlanner<D> {
+    pub fn new(database: Arc<D>) -> ReadQueryPlanner<D> {
+        ReadQueryPlanner { database }
+    }
 
-#[derive(Debug, PartialEq)]
-pub struct TypedSelectQuery {
-    pub full_table_name: FullTableName,
-    pub projection_items: Vec<DynamicTypedTree>,
+    pub fn plan(&self, select: TypedSelectQuery) -> SelectPlan {
+        SelectPlan {
+            table: select.full_table_name,
+        }
+    }
 }

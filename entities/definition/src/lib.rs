@@ -31,8 +31,12 @@ impl FullTableName {
         &(self.0).1
     }
 
-    pub fn raw<'s>(&'s self, catalog: Datum<'s>) -> Vec<Datum<'s>> {
-        vec![catalog, Datum::from_str(&self.0 .0), Datum::from_str(&self.0 .1)]
+    pub fn raw(&self, catalog: Datum) -> Vec<Datum> {
+        vec![
+            catalog,
+            Datum::from_string(self.0 .0.clone()),
+            Datum::from_string(self.0 .1.clone()),
+        ]
     }
 }
 
@@ -125,7 +129,7 @@ impl Display for SchemaNamingError {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ColumnDef {
     name: String,
     sql_type: SqlType,
@@ -139,6 +143,10 @@ impl ColumnDef {
             sql_type,
             ord_num,
         }
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name
     }
 
     pub fn sql_type(&self) -> SqlType {

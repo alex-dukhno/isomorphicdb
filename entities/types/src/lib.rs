@@ -37,7 +37,7 @@ pub enum SqlTypeFamily {
 }
 
 impl SqlTypeFamily {
-    pub fn cmp(&self, other: &SqlTypeFamily) -> Result<SqlTypeFamily, IncomparableSqlTypeFamilies> {
+    pub fn compare(&self, other: &SqlTypeFamily) -> Result<SqlTypeFamily, IncomparableSqlTypeFamilies> {
         if self.is_float() && other.is_float() {
             if self == other {
                 Ok(*self)
@@ -49,9 +49,9 @@ impl SqlTypeFamily {
         } else if self.is_int() && other.is_int() {
             if self == other {
                 Ok(*self)
-            } else if self == &SqlTypeFamily::SmallInt && other == &SqlTypeFamily::Integer {
-                Ok(*other)
-            } else if other == &SqlTypeFamily::BigInt {
+            } else if self == &SqlTypeFamily::SmallInt && other == &SqlTypeFamily::Integer
+                || other == &SqlTypeFamily::BigInt
+            {
                 Ok(*other)
             } else {
                 Ok(*self)

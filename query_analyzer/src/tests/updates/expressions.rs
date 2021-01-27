@@ -30,7 +30,7 @@ fn update_number() {
             vec![SCHEMA, TABLE],
             vec![("col", sql_ast::Expr::Value(number(1)))]
         )),
-        Ok(QueryAnalysis::Write(Write::Update(UpdateQuery {
+        Ok(QueryAnalysis::Write(UntypedWrite::Update(UpdateQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             sql_types: vec![SqlType::small_int()],
             assignments: vec![DynamicUntypedTree::Item(DynamicUntypedItem::Const(
@@ -51,7 +51,7 @@ fn update_string() {
 
     assert_eq!(
         analyzer.analyze(update_statement(vec![SCHEMA, TABLE], vec![("col", string("str"))])),
-        Ok(QueryAnalysis::Write(Write::Update(UpdateQuery {
+        Ok(QueryAnalysis::Write(UntypedWrite::Update(UpdateQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             sql_types: vec![SqlType::char(5)],
             assignments: vec![DynamicUntypedTree::Item(DynamicUntypedItem::Const(
@@ -72,7 +72,7 @@ fn update_boolean() {
 
     assert_eq!(
         analyzer.analyze(update_statement(vec![SCHEMA, TABLE], vec![("col", boolean(true))])),
-        Ok(QueryAnalysis::Write(Write::Update(UpdateQuery {
+        Ok(QueryAnalysis::Write(UntypedWrite::Update(UpdateQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             sql_types: vec![SqlType::bool()],
             assignments: vec![DynamicUntypedTree::Item(DynamicUntypedItem::Const(UntypedValue::Bool(
@@ -93,7 +93,7 @@ fn update_null() {
 
     assert_eq!(
         analyzer.analyze(update_statement(vec![SCHEMA, TABLE], vec![("col", null())])),
-        Ok(QueryAnalysis::Write(Write::Update(UpdateQuery {
+        Ok(QueryAnalysis::Write(UntypedWrite::Update(UpdateQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             sql_types: vec![SqlType::bool()],
             assignments: vec![DynamicUntypedTree::Item(DynamicUntypedItem::Const(UntypedValue::Null))],
@@ -119,7 +119,7 @@ fn update_with_column_value() {
             vec![SCHEMA, TABLE],
             vec![("col_1", sql_ast::Expr::Identifier(ident("col_2")))]
         )),
-        Ok(QueryAnalysis::Write(Write::Update(UpdateQuery {
+        Ok(QueryAnalysis::Write(UntypedWrite::Update(UpdateQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             sql_types: vec![SqlType::small_int()],
             assignments: vec![DynamicUntypedTree::Item(DynamicUntypedItem::Column {
@@ -167,7 +167,7 @@ fn update_table_with_parameters() {
 
     assert_eq!(
         analyzer.analyze(update_stmt_with_parameters(vec![SCHEMA, TABLE])),
-        Ok(QueryAnalysis::Write(Write::Update(UpdateQuery {
+        Ok(QueryAnalysis::Write(UntypedWrite::Update(UpdateQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             sql_types: vec![SqlType::integer()],
             assignments: vec![DynamicUntypedTree::Item(DynamicUntypedItem::Param(0))]
@@ -214,7 +214,7 @@ mod multiple_values {
                 sql_ast::BinaryOperator::Plus,
                 sql_ast::Expr::Value(number(1))
             )),
-            Ok(QueryAnalysis::Write(Write::Update(UpdateQuery {
+            Ok(QueryAnalysis::Write(UntypedWrite::Update(UpdateQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 sql_types: vec![SqlType::small_int()],
                 assignments: vec![DynamicUntypedTree::Operation {
@@ -245,7 +245,7 @@ mod multiple_values {
                 sql_ast::BinaryOperator::StringConcat,
                 string("str")
             )),
-            Ok(QueryAnalysis::Write(Write::Update(UpdateQuery {
+            Ok(QueryAnalysis::Write(UntypedWrite::Update(UpdateQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 sql_types: vec![SqlType::var_char(255)],
                 assignments: vec![DynamicUntypedTree::Operation {
@@ -276,7 +276,7 @@ mod multiple_values {
                 sql_ast::BinaryOperator::Gt,
                 sql_ast::Expr::Value(number(1))
             )),
-            Ok(QueryAnalysis::Write(Write::Update(UpdateQuery {
+            Ok(QueryAnalysis::Write(UntypedWrite::Update(UpdateQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 sql_types: vec![SqlType::bool()],
                 assignments: vec![DynamicUntypedTree::Operation {
@@ -307,7 +307,7 @@ mod multiple_values {
                 sql_ast::BinaryOperator::And,
                 sql_ast::Expr::Value(sql_ast::Value::Boolean(true)),
             )),
-            Ok(QueryAnalysis::Write(Write::Update(UpdateQuery {
+            Ok(QueryAnalysis::Write(UntypedWrite::Update(UpdateQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 sql_types: vec![SqlType::bool()],
                 assignments: vec![DynamicUntypedTree::Operation {
@@ -338,7 +338,7 @@ mod multiple_values {
                 sql_ast::BinaryOperator::BitwiseOr,
                 sql_ast::Expr::Value(number(1))
             )),
-            Ok(QueryAnalysis::Write(Write::Update(UpdateQuery {
+            Ok(QueryAnalysis::Write(UntypedWrite::Update(UpdateQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 sql_types: vec![SqlType::small_int()],
                 assignments: vec![DynamicUntypedTree::Operation {
@@ -369,7 +369,7 @@ mod multiple_values {
                 sql_ast::BinaryOperator::Like,
                 string("str")
             )),
-            Ok(QueryAnalysis::Write(Write::Update(UpdateQuery {
+            Ok(QueryAnalysis::Write(UntypedWrite::Update(UpdateQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 sql_types: vec![SqlType::bool()],
                 assignments: vec![DynamicUntypedTree::Operation {

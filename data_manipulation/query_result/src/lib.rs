@@ -12,5 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-pub mod in_memory;
-pub mod on_disk;
+use definition::ColumnDef;
+use repr::Datum;
+
+#[derive(Debug, PartialEq)]
+pub enum QueryExecution {
+    Inserted(usize),
+    Selected((Vec<ColumnDef>, Vec<Vec<Datum>>)),
+}
+
+#[derive(Debug, PartialEq)]
+pub enum QueryExecutionError {
+    SchemaDoesNotExist(String),
+}

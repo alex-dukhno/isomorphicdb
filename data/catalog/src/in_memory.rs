@@ -12,556 +12,444 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{Cursor, DataCatalog, DataTable, Key, SchemaHandle, Value};
-use binary::Binary;
-use dashmap::DashMap;
-use repr::Datum;
-use std::{
-    collections::BTreeMap,
-    sync::{
-        atomic::{AtomicU64, Ordering},
-        RwLock,
-    },
+mod data_catalog;
+
+use crate::{
+    in_memory::data_catalog::{InMemoryCatalogHandle, InMemoryTableHandle},
+    CatalogDefinition, DataCatalog, DataTable, Database, SchemaHandle, SqlTable, COLUMNS_TABLE, DEFINITION_SCHEMA,
+    SCHEMATA_TABLE, TABLES_TABLE,
 };
+use binary::Binary;
+use data_definition_operations::{
+    ExecutionError, ExecutionOutcome, Kind, ObjectState, Record, Step, SystemObject, SystemOperation,
+};
+use data_manipulation_typed_tree::{StaticTypedItem, StaticTypedTree, TypedValue};
+use definition::{ColumnDef, FullTableName, SchemaName, TableDef};
+use repr::Datum;
+use std::sync::Arc;
+use types::SqlType;
 
-#[derive(Default, Debug)]
-pub struct InMemoryTableHandle {
-    records: RwLock<BTreeMap<Binary, Binary>>,
-    record_ids: AtomicU64,
-    column_ords: AtomicU64,
+fn create_public_schema() -> SystemOperation {
+    SystemOperation {
+        kind: Kind::Create(SystemObject::Schema),
+        skip_steps_if: None,
+        steps: vec![vec![
+            Step::CheckExistence {
+                system_object: SystemObject::Schema,
+                object_name: vec!["public".to_owned()],
+            },
+            Step::CreateFolder {
+                name: "public".to_owned(),
+            },
+            Step::CreateRecord {
+                record: Record::Schema {
+                    schema_name: "public".to_owned(),
+                },
+            },
+        ]],
+    }
 }
 
-impl DataTable for InMemoryTableHandle {
-    fn select(&self) -> Cursor {
-        self.records
-            .read()
+pub struct InMemoryDatabase {
+    catalog: InMemoryCatalogHandle,
+}
+
+impl InMemoryDatabase {
+    pub fn new() -> Arc<InMemoryDatabase> {
+        Arc::new(InMemoryDatabase::create().bootstrap())
+    }
+
+    fn create() -> InMemoryDatabase {
+        InMemoryDatabase {
+            catalog: InMemoryCatalogHandle::default(),
+        }
+    }
+
+    fn bootstrap(self) -> InMemoryDatabase {
+        self.catalog.create_schema(DEFINITION_SCHEMA);
+        self.catalog.work_with(DEFINITION_SCHEMA, |schema| {
+            schema.create_table(SCHEMATA_TABLE);
+            schema.create_table(TABLES_TABLE);
+            schema.create_table(COLUMNS_TABLE);
+        });
+        let public_schema = self.execute(create_public_schema());
+        debug_assert!(
+            matches!(public_schema, Ok(_)),
+            "Default `public` schema has to be created, but failed due to {:?}",
+            public_schema
+        );
+        self
+    }
+
+    fn schema_exists(&self, schema_name: &str) -> bool {
+        let full_schema_name = Binary::pack(&[
+            Datum::from_string("IN_MEMORY".to_owned()),
+            Datum::from_string(schema_name.to_owned()),
+        ]);
+        let schema = self.catalog.work_with(DEFINITION_SCHEMA, |schema| {
+            schema.work_with(SCHEMATA_TABLE, |table| {
+                table.select().any(|(_key, value)| value == full_schema_name)
+            })
+        });
+        schema == Some(Some(true))
+    }
+
+    fn table_exists(&self, full_table_name: &FullTableName) -> bool {
+        let full_table_name = Binary::pack(&full_table_name.raw(Datum::from_string("IN_MEMORY".to_owned())));
+        let table = self.catalog.work_with(DEFINITION_SCHEMA, |schema| {
+            schema.work_with(TABLES_TABLE, |table| {
+                table.select().any(|(_key, value)| value == full_table_name)
+            })
+        });
+        table == Some(Some(true))
+    }
+
+    fn table_columns(&self, full_table_name: &FullTableName) -> Vec<ColumnDef> {
+        let full_table_name = Binary::pack(&full_table_name.raw(Datum::from_string("IN_MEMORY".to_owned())));
+        self.catalog
+            .work_with(DEFINITION_SCHEMA, |schema| {
+                schema.work_with(COLUMNS_TABLE, |table| {
+                    table
+                        .select()
+                        .filter(|(_key, value)| value.start_with(&full_table_name))
+                        .map(|(_key, value)| {
+                            let row = value.unpack();
+                            let name = row[3].as_string();
+                            let sql_type = SqlType::from_type_id(row[4].as_u64(), row[5].as_u64());
+                            let ord_num = row[6].as_u64() as usize;
+                            ColumnDef::new(name, sql_type, ord_num)
+                        })
+                        .collect()
+                })
+            })
             .unwrap()
-            .iter()
-            .map(|(key, value)| (key.clone(), value.clone()))
-            .collect::<Cursor>()
-    }
-
-    fn insert(&self, data: Vec<Value>) -> usize {
-        let len = data.len();
-        let mut rw = self.records.write().unwrap();
-        for value in data {
-            let record_id = self.record_ids.fetch_add(1, Ordering::SeqCst);
-            let key = Binary::pack(&[Datum::from_u64(record_id)]);
-            debug_assert!(
-                matches!(rw.insert(key, value), None),
-                "insert operation should insert nonexistent key"
-            );
-        }
-        len
-    }
-
-    fn update(&self, data: Vec<(Key, Value)>) -> usize {
-        let len = data.len();
-        let mut rw = self.records.write().unwrap();
-        for (key, value) in data {
-            debug_assert!(
-                matches!(rw.insert(key, value), Some(_)),
-                "update operation should change already existed key"
-            );
-        }
-        len
-    }
-
-    fn delete(&self, data: Vec<Key>) -> usize {
-        let mut rw = self.records.write().unwrap();
-        let mut size = 0;
-        let keys = rw
-            .iter()
-            .filter(|(key, _value)| data.contains(key))
-            .map(|(key, _value)| key.clone())
-            .collect::<Vec<Binary>>();
-        for key in keys.iter() {
-            debug_assert!(matches!(rw.remove(key), Some(_)), "delete operation delete existed key");
-            size += 1;
-        }
-        size
-    }
-
-    fn next_column_ord(&self) -> u64 {
-        self.column_ords.fetch_add(1, Ordering::SeqCst)
+            .unwrap()
     }
 }
 
-#[derive(Default, Debug)]
-pub struct InMemorySchemaHandle {
-    tables: DashMap<String, InMemoryTableHandle>,
-}
-
-impl SchemaHandle for InMemorySchemaHandle {
-    type Table = InMemoryTableHandle;
-
-    fn create_table(&self, table_name: &str) -> bool {
-        if self.tables.contains_key(table_name) {
-            false
-        } else {
-            self.tables
-                .insert(table_name.to_owned(), InMemoryTableHandle::default());
-            true
+impl CatalogDefinition for InMemoryDatabase {
+    fn table_definition(&self, full_table_name: &FullTableName) -> Option<Option<TableDef>> {
+        if !(self.schema_exists(full_table_name.schema())) {
+            return None;
         }
+        if !(self.table_exists(full_table_name)) {
+            return Some(None);
+        }
+        let column_info = self.table_columns(full_table_name);
+        Some(Some(TableDef::new(full_table_name, column_info)))
     }
 
-    fn drop_table(&self, table_name: &str) -> bool {
-        if !self.tables.contains_key(table_name) {
-            false
-        } else {
-            self.tables.remove(table_name);
-            true
-        }
-    }
-
-    fn work_with<T, F: Fn(&Self::Table) -> T>(&self, table_name: &str, operation: F) -> Option<T> {
-        self.tables.get(table_name).map(|table| operation(&*table))
+    fn schema_exists(&self, schema_name: &SchemaName) -> bool {
+        self.schema_exists(schema_name.as_ref())
     }
 }
 
-#[derive(Default)]
-pub struct InMemoryCatalogHandle {
-    schemas: DashMap<String, InMemorySchemaHandle>,
+impl Database for InMemoryDatabase {
+    type Table = InMemoryTable;
+
+    fn execute(&self, operation: SystemOperation) -> Result<ExecutionOutcome, ExecutionError> {
+        let SystemOperation {
+            kind,
+            skip_steps_if,
+            steps,
+        } = operation;
+        let end = steps.len();
+        let mut index = 0;
+        while index < end {
+            let operations = &steps[index];
+            index += 1;
+            for operation in operations {
+                println!("{:?}", operation);
+                match operation {
+                    Step::CheckExistence {
+                        system_object,
+                        object_name,
+                    } => match system_object {
+                        SystemObject::Schema => {
+                            let result = self.catalog.work_with(DEFINITION_SCHEMA, |schema| {
+                                schema.work_with(SCHEMATA_TABLE, |table| {
+                                    table.select().any(|(_key, value)| {
+                                        value
+                                            == Binary::pack(&[
+                                                Datum::from_string("IN_MEMORY".to_owned()),
+                                                Datum::from_string(object_name[0].to_owned()),
+                                            ])
+                                    })
+                                })
+                            });
+                            match skip_steps_if {
+                                None => {
+                                    if let (&Kind::Create(SystemObject::Schema), Some(Some(true))) = (&kind, result) {
+                                        return Err(ExecutionError::SchemaAlreadyExists(object_name[0].to_owned()));
+                                    }
+                                    if let (&Kind::Drop(SystemObject::Schema), Some(Some(false))) = (&kind, result) {
+                                        return Err(ExecutionError::SchemaDoesNotExist(object_name[0].to_owned()));
+                                    }
+                                    if let (&Kind::Create(SystemObject::Table), Some(Some(false))) = (&kind, result) {
+                                        return Err(ExecutionError::SchemaDoesNotExist(object_name[0].to_owned()));
+                                    }
+                                    if let (&Kind::Drop(SystemObject::Table), Some(Some(false))) = (&kind, result) {
+                                        return Err(ExecutionError::SchemaDoesNotExist(object_name[0].to_owned()));
+                                    }
+                                }
+                                Some(ObjectState::NotExists) => break,
+                                Some(ObjectState::Exists) => {}
+                            }
+                        }
+                        SystemObject::Table => {
+                            let result = self.catalog.work_with(DEFINITION_SCHEMA, |schema| {
+                                schema.work_with(TABLES_TABLE, |table| {
+                                    table.select().any(|(_key, value)| {
+                                        value
+                                            == Binary::pack(&[
+                                                Datum::from_string("IN_MEMORY".to_owned()),
+                                                Datum::from_string(object_name[0].clone()),
+                                                Datum::from_string(object_name[1].clone()),
+                                            ])
+                                    })
+                                })
+                            });
+                            match skip_steps_if {
+                                None => {
+                                    if let (&Kind::Create(SystemObject::Table), Some(Some(true))) = (&kind, result) {
+                                        return Err(ExecutionError::TableAlreadyExists(
+                                            object_name[0].to_owned(),
+                                            object_name[1].to_owned(),
+                                        ));
+                                    }
+                                    if let (&Kind::Drop(SystemObject::Table), Some(Some(false))) = (&kind, result) {
+                                        return Err(ExecutionError::TableDoesNotExist(
+                                            object_name[0].to_owned(),
+                                            object_name[1].to_owned(),
+                                        ));
+                                    }
+                                }
+                                Some(ObjectState::NotExists) => unimplemented!(),
+                                Some(ObjectState::Exists) => break,
+                            }
+                        }
+                    },
+                    Step::CheckDependants {
+                        system_object,
+                        object_name,
+                    } => match system_object {
+                        SystemObject::Schema => {
+                            let result = self.catalog.work_with(DEFINITION_SCHEMA, |schema| {
+                                let schema_id = Binary::pack(&[
+                                    Datum::from_string("IN_MEMORY".to_owned()),
+                                    Datum::from_string(object_name[0].clone()),
+                                ]);
+                                schema.work_with(TABLES_TABLE, |table| {
+                                    table.select().any(|(_key, value)| value.start_with(&schema_id))
+                                })
+                            });
+
+                            if let Some(Some(true)) = result {
+                                return Err(ExecutionError::SchemaHasDependentObjects(object_name[0].to_owned()));
+                            }
+                        }
+                        SystemObject::Table => {}
+                    },
+                    Step::RemoveDependants { .. } => {}
+                    Step::RemoveColumns { .. } => {}
+                    Step::CreateFolder { name } => {
+                        self.catalog.create_schema(&name);
+                    }
+                    Step::RemoveFolder { name } => {
+                        self.catalog.drop_schema(&name);
+                        return Ok(ExecutionOutcome::SchemaDropped);
+                    }
+                    Step::CreateFile { folder_name, name } => {
+                        self.catalog.work_with(folder_name, |schema| schema.create_table(name));
+                    }
+                    Step::RemoveFile { .. } => {}
+                    Step::RemoveRecord { record } => match record {
+                        Record::Schema { schema_name } => {
+                            let full_schema_name = Binary::pack(&[
+                                Datum::from_string("IN_MEMORY".to_owned()),
+                                Datum::from_string(schema_name.clone()),
+                            ]);
+                            self.catalog.work_with(DEFINITION_SCHEMA, |schema| {
+                                schema.work_with(SCHEMATA_TABLE, |table| {
+                                    let schema_id = table
+                                        .select()
+                                        .find(|(_key, value)| value == &full_schema_name)
+                                        .map(|(key, _value)| key);
+                                    debug_assert!(
+                                        matches!(schema_id, Some(_)),
+                                        "record for {:?} schema had to be found in {:?} system table",
+                                        schema_name,
+                                        SCHEMATA_TABLE
+                                    );
+                                    let schema_id = schema_id.unwrap();
+                                    table.delete(vec![schema_id]);
+                                });
+                            });
+                        }
+                        Record::Table {
+                            schema_name,
+                            table_name,
+                        } => {
+                            let full_table_name = Binary::pack(&[
+                                Datum::from_string("IN_MEMORY".to_owned()),
+                                Datum::from_string(schema_name.to_owned()),
+                                Datum::from_string(table_name.to_owned()),
+                            ]);
+                            self.catalog.work_with(DEFINITION_SCHEMA, |schema| {
+                                schema.work_with(TABLES_TABLE, |table| {
+                                    let table_id = table
+                                        .select()
+                                        .find(|(_key, value)| value == &full_table_name)
+                                        .map(|(key, _value)| key);
+                                    debug_assert!(
+                                        matches!(table_id, Some(_)),
+                                        "record for {:?}.{:?} table had to be found in {:?} system table",
+                                        schema_name,
+                                        table_name,
+                                        TABLES_TABLE
+                                    );
+                                    println!("FOUND TABLE ID - {:?}", table_id);
+                                    let table_id = table_id.unwrap();
+                                    table.delete(vec![table_id]);
+                                    let table_id = table
+                                        .select()
+                                        .find(|(_key, value)| value == &full_table_name)
+                                        .map(|(key, _value)| key);
+                                    println!("TABLE ID AFTER DROP - {:?}", table_id);
+                                });
+                            });
+                        }
+                        Record::Column { .. } => unimplemented!(),
+                    },
+                    Step::CreateRecord { record } => match record {
+                        Record::Schema { schema_name } => {
+                            self.catalog.work_with(DEFINITION_SCHEMA, |schema| {
+                                schema.work_with(SCHEMATA_TABLE, |table| {
+                                    table.insert(vec![Binary::pack(&[
+                                        Datum::from_string("IN_MEMORY".to_owned()),
+                                        Datum::from_string(schema_name.clone()),
+                                    ])])
+                                })
+                            });
+                            return Ok(ExecutionOutcome::SchemaCreated);
+                        }
+                        Record::Table {
+                            schema_name,
+                            table_name,
+                        } => {
+                            let full_table_name = Binary::pack(&[
+                                Datum::from_string("IN_MEMORY".to_owned()),
+                                Datum::from_string(schema_name.clone()),
+                                Datum::from_string(table_name.clone()),
+                            ]);
+                            self.catalog.work_with(DEFINITION_SCHEMA, |schema| {
+                                schema.work_with(TABLES_TABLE, |table| {
+                                    table.insert(vec![Binary::pack(&[
+                                        Datum::from_string("IN_MEMORY".to_owned()),
+                                        Datum::from_string(schema_name.clone()),
+                                        Datum::from_string(table_name.clone()),
+                                    ])]);
+                                    let table_id = table
+                                        .select()
+                                        .find(|(_key, value)| value == &full_table_name)
+                                        .map(|(key, _value)| key);
+                                    println!("GENERATED TABLE ID - {:?}", table_id);
+                                })
+                            });
+                        }
+                        Record::Column {
+                            schema_name,
+                            table_name,
+                            column_name,
+                            sql_type,
+                        } => {
+                            let ord_num = self.catalog.work_with(schema_name, |schema| {
+                                schema.work_with(table_name, |table| table.next_column_ord())
+                            });
+                            debug_assert!(
+                                matches!(ord_num, Some(Some(_))),
+                                "column ord num has to be generated for {:?}.{:?} but value was {:?}",
+                                schema_name,
+                                table_name,
+                                ord_num
+                            );
+                            let ord_num = ord_num.unwrap().unwrap();
+
+                            let row = Binary::pack(&[
+                                Datum::from_string("IN_MEMORY".to_owned()),
+                                Datum::from_string(schema_name.clone()),
+                                Datum::from_string(table_name.clone()),
+                                Datum::from_string(column_name.clone()),
+                                Datum::from_u64(sql_type.type_id()),
+                                Datum::from_optional_u64(sql_type.chars_len()),
+                                Datum::from_u64(ord_num),
+                            ]);
+
+                            self.catalog.work_with(DEFINITION_SCHEMA, |schema| {
+                                schema.work_with(COLUMNS_TABLE, |table| table.insert(vec![row.clone()]))
+                            });
+                        }
+                    },
+                }
+            }
+        }
+        match kind {
+            Kind::Create(SystemObject::Schema) => Ok(ExecutionOutcome::SchemaCreated),
+            Kind::Drop(SystemObject::Schema) => Ok(ExecutionOutcome::SchemaDropped),
+            Kind::Create(SystemObject::Table) => Ok(ExecutionOutcome::TableCreated),
+            Kind::Drop(SystemObject::Table) => Ok(ExecutionOutcome::TableDropped),
+        }
+    }
+
+    fn work_with<R, F: Fn(&Self::Table) -> R>(&self, full_table_name: &FullTableName, operation: F) -> R {
+        operation(&InMemoryTable::new(
+            self.table_columns(full_table_name),
+            self.catalog.table(full_table_name),
+        ))
+    }
 }
 
-impl DataCatalog for InMemoryCatalogHandle {
-    type Schema = InMemorySchemaHandle;
+pub struct InMemoryTable {
+    data_table: InMemoryTableHandle,
+    columns: Vec<ColumnDef>,
+}
 
-    fn create_schema(&self, schema_name: &str) -> bool {
-        if self.schemas.contains_key(schema_name) {
-            false
-        } else {
-            self.schemas
-                .insert(schema_name.to_owned(), InMemorySchemaHandle::default());
-            true
-        }
+impl InMemoryTable {
+    fn new(columns: Vec<ColumnDef>, data_table: InMemoryTableHandle) -> InMemoryTable {
+        InMemoryTable { columns, data_table }
     }
 
-    fn drop_schema(&self, schema_name: &str) -> bool {
-        if !self.schemas.contains_key(schema_name) {
-            false
-        } else {
-            self.schemas.remove(schema_name);
-            true
+    fn eval(&self, tree: &StaticTypedTree) -> Datum {
+        match tree {
+            StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::SmallInt(value))) => Datum::from_i16(*value),
+            StaticTypedTree::Item(_) => unimplemented!(),
+            StaticTypedTree::Operation { .. } => unimplemented!(),
         }
     }
+}
 
-    fn work_with<T, F: Fn(&Self::Schema) -> T>(&self, schema_name: &str, operation: F) -> Option<T> {
-        self.schemas.get(schema_name).map(|schema| operation(&*schema))
+impl SqlTable for InMemoryTable {
+    fn insert(&self, rows: &[Vec<StaticTypedTree>]) -> usize {
+        self.data_table.insert(
+            rows.iter()
+                .map(|row| {
+                    let mut to_insert = vec![];
+                    for v in row {
+                        to_insert.push(self.eval(v));
+                    }
+                    Binary::pack(&to_insert)
+                })
+                .collect::<Vec<Binary>>(),
+        )
+    }
+
+    fn select(&self) -> (Vec<ColumnDef>, Vec<Vec<Datum>>) {
+        (
+            self.columns.clone(),
+            self.data_table.select().map(|(_key, value)| value.unpack()).collect(),
+        )
     }
 }
 
 #[cfg(test)]
-mod general_cases {
-    use super::*;
-
-    const SCHEMA: &str = "schema_name";
-    const SCHEMA_1: &str = "schema_name_1";
-    const SCHEMA_2: &str = "schema_name_2";
-    const TABLE: &str = "table_name";
-    const TABLE_1: &str = "table_name_1";
-    const TABLE_2: &str = "table_name_2";
-    const DOES_NOT_EXIST: &str = "does_not_exist";
-
-    fn catalog() -> InMemoryCatalogHandle {
-        InMemoryCatalogHandle::default()
-    }
-
-    #[cfg(test)]
-    mod schemas {
-        use super::*;
-
-        #[test]
-        fn create_schemas_with_different_names() {
-            let catalog_handle = catalog();
-
-            assert_eq!(catalog_handle.create_schema(SCHEMA_1), true);
-            assert_eq!(catalog_handle.work_with(SCHEMA_1, |_schema| 1), Some(1));
-            assert_eq!(catalog_handle.create_schema(SCHEMA_2), true);
-            assert_eq!(catalog_handle.work_with(SCHEMA_2, |_schema| 2), Some(2));
-        }
-
-        #[test]
-        fn drop_schema() {
-            let catalog_handle = catalog();
-
-            assert!(catalog_handle.create_schema(SCHEMA));
-            assert_eq!(catalog_handle.drop_schema(SCHEMA), true);
-            assert!(matches!(catalog_handle.work_with(SCHEMA, |_schema| 1), None));
-            assert_eq!(catalog_handle.create_schema(SCHEMA), true);
-            assert!(matches!(catalog_handle.work_with(SCHEMA, |_schema| 1), Some(1)));
-        }
-
-        #[test]
-        fn dropping_schema_drops_tables_in_it() {
-            let catalog_handle = catalog();
-
-            assert_eq!(catalog_handle.create_schema(SCHEMA), true);
-
-            assert_eq!(
-                catalog_handle.work_with(SCHEMA, |schema| schema.create_table(TABLE_1)),
-                Some(true)
-            );
-            assert_eq!(
-                catalog_handle.work_with(SCHEMA, |schema| schema.create_table(TABLE_2)),
-                Some(true)
-            );
-
-            assert_eq!(catalog_handle.drop_schema(SCHEMA), true);
-            assert_eq!(catalog_handle.create_schema(SCHEMA), true);
-            assert_eq!(
-                catalog_handle.work_with(SCHEMA, |schema| schema.create_table(TABLE_1)),
-                Some(true)
-            );
-            assert_eq!(
-                catalog_handle.work_with(SCHEMA, |schema| schema.create_table(TABLE_2)),
-                Some(true)
-            );
-        }
-
-        #[test]
-        fn create_schema_with_the_same_name() {
-            let catalog_handle = catalog();
-
-            assert_eq!(catalog_handle.create_schema(SCHEMA), true);
-            assert_eq!(catalog_handle.create_schema(SCHEMA), false);
-        }
-
-        #[test]
-        fn drop_schema_that_does_not_exist() {
-            let catalog_handle = catalog();
-
-            assert_eq!(catalog_handle.drop_schema(SCHEMA), false);
-        }
-    }
-
-    #[cfg(test)]
-    mod create_table {
-        use super::*;
-
-        #[test]
-        fn create_tables_with_different_names() {
-            let catalog_handle = catalog();
-
-            assert_eq!(catalog_handle.create_schema(SCHEMA), true);
-
-            assert_eq!(
-                catalog_handle.work_with(SCHEMA, |schema| schema.create_table(TABLE_1)),
-                Some(true)
-            );
-            assert_eq!(
-                catalog_handle.work_with(SCHEMA, |schema| schema.create_table(TABLE_2)),
-                Some(true)
-            );
-        }
-
-        #[test]
-        fn create_tables_with_the_same_name_in_the_same_schema() {
-            let catalog_handle = catalog();
-
-            assert_eq!(catalog_handle.create_schema(SCHEMA), true);
-            assert_eq!(
-                catalog_handle.work_with(SCHEMA, |schema| schema.create_table(TABLE)),
-                Some(true)
-            );
-            assert_eq!(
-                catalog_handle.work_with(SCHEMA, |schema| schema.create_table(TABLE)),
-                Some(false)
-            );
-        }
-
-        #[test]
-        fn create_tables_in_non_existent_schema() {
-            let catalog_handle = catalog();
-
-            assert_eq!(
-                catalog_handle.work_with(DOES_NOT_EXIST, |schema| schema.create_table(TABLE)),
-                None
-            );
-        }
-
-        #[test]
-        fn create_table_with_the_same_name_in_different_namespaces() {
-            let catalog_handle = catalog();
-
-            assert_eq!(catalog_handle.create_schema(SCHEMA_1), true);
-            assert_eq!(catalog_handle.create_schema(SCHEMA_2), true);
-
-            assert_eq!(
-                catalog_handle.work_with(SCHEMA_1, |schema| schema.create_table(TABLE)),
-                Some(true)
-            );
-            assert_eq!(
-                catalog_handle.work_with(SCHEMA_2, |schema| schema.create_table(TABLE)),
-                Some(true)
-            );
-        }
-    }
-
-    #[cfg(test)]
-    mod drop_table {
-        use super::*;
-
-        #[test]
-        fn drop_table() {
-            let catalog_handle = catalog();
-
-            assert_eq!(catalog_handle.create_schema(SCHEMA), true);
-
-            assert_eq!(
-                catalog_handle.work_with(SCHEMA, |schema| schema.create_table(TABLE)),
-                Some(true)
-            );
-            assert_eq!(
-                catalog_handle.work_with(SCHEMA, |schema| schema.drop_table(TABLE)),
-                Some(true)
-            );
-        }
-
-        #[test]
-        fn drop_table_from_schema_that_does_not_exist() {
-            let catalog_handle = catalog();
-
-            assert_eq!(
-                catalog_handle.work_with(DOES_NOT_EXIST, |schema| schema.drop_table(TABLE)),
-                None
-            );
-        }
-
-        #[test]
-        fn drop_table_that_does_not_exist() {
-            let catalog_handle = catalog();
-
-            assert_eq!(catalog_handle.create_schema(SCHEMA), true);
-            assert_eq!(
-                catalog_handle.work_with(SCHEMA, |s| s.drop_table(DOES_NOT_EXIST)),
-                Some(false)
-            );
-        }
-    }
-
-    #[cfg(test)]
-    mod operations_on_table {
-        use super::*;
-
-        #[test]
-        fn scan_table_that_in_schema_that_does_not_exist() {
-            let catalog_handle = catalog();
-
-            assert!(matches!(
-                catalog_handle.work_with(DOES_NOT_EXIST, |schema| schema.work_with(TABLE, |table| table.select())),
-                None
-            ));
-        }
-
-        #[test]
-        fn scan_table_that_does_not_exist() {
-            let catalog_handle = catalog();
-
-            assert_eq!(catalog_handle.create_schema(SCHEMA), true);
-            assert!(matches!(
-                catalog_handle.work_with(SCHEMA, |schema| schema
-                    .work_with(DOES_NOT_EXIST, |table| table.select())),
-                Some(None)
-            ));
-        }
-
-        #[test]
-        fn insert_a_row_into_table_in_schema_that_does_not_exist() {
-            let catalog_handle = catalog();
-
-            assert_eq!(
-                catalog_handle.work_with(SCHEMA, |schema| schema.work_with(TABLE, |table| table.insert(vec![]))),
-                None
-            );
-        }
-
-        #[test]
-        fn insert_a_row_into_table_that_does_not_exist() {
-            let catalog_handle = catalog();
-
-            assert_eq!(catalog_handle.create_schema(SCHEMA), true);
-
-            assert_eq!(
-                catalog_handle.work_with(SCHEMA, |schema| schema.work_with(TABLE, |table| table.insert(vec![]))),
-                Some(None)
-            );
-        }
-
-        #[test]
-        fn insert_row_into_table_and_scan() {
-            let catalog_handle = catalog();
-
-            assert_eq!(catalog_handle.create_schema(SCHEMA), true);
-            assert_eq!(
-                catalog_handle.work_with(SCHEMA, |schema| schema.create_table(TABLE)),
-                Some(true)
-            );
-
-            assert_eq!(
-                catalog_handle.work_with(SCHEMA, |schema| schema
-                    .work_with(TABLE, |table| table.insert(vec![Binary::pack(&[Datum::from_u64(1)])]))),
-                Some(Some(1))
-            );
-
-            assert_eq!(
-                catalog_handle
-                    .work_with(SCHEMA, |schema| schema.work_with(TABLE, |table| table.select()))
-                    .unwrap()
-                    .unwrap()
-                    .collect::<Vec<(Key, Value)>>(),
-                vec![(Binary::pack(&[Datum::from_u64(0)]), Binary::pack(&[Datum::from_u64(1)]))]
-            );
-        }
-
-        #[test]
-        fn insert_many_rows_into_table_and_scan() {
-            let catalog_handle = catalog();
-
-            assert_eq!(catalog_handle.create_schema(SCHEMA), true);
-            assert_eq!(
-                catalog_handle.work_with(SCHEMA, |schema| schema.create_table(TABLE)),
-                Some(true)
-            );
-
-            assert_eq!(
-                catalog_handle.work_with(SCHEMA, |schema| schema.work_with(TABLE, |table| table.insert(vec![
-                    Binary::pack(&[Datum::from_u64(1)]),
-                    Binary::pack(&[Datum::from_u64(2)])
-                ]))),
-                Some(Some(2))
-            );
-
-            assert_eq!(
-                catalog_handle
-                    .work_with(SCHEMA, |schema| schema.work_with(TABLE, |table| table.select()))
-                    .unwrap()
-                    .unwrap()
-                    .collect::<Vec<(Key, Value)>>(),
-                vec![
-                    (Binary::pack(&[Datum::from_u64(0)]), Binary::pack(&[Datum::from_u64(1)])),
-                    (Binary::pack(&[Datum::from_u64(1)]), Binary::pack(&[Datum::from_u64(2)]))
-                ]
-            );
-        }
-
-        #[test]
-        fn delete_from_table_that_in_schema_that_does_not_exist() {
-            let catalog_handle = catalog();
-
-            assert_eq!(
-                catalog_handle.work_with(DOES_NOT_EXIST, |schema| schema
-                    .work_with(TABLE, |table| table.delete(vec![]))),
-                None
-            );
-        }
-
-        #[test]
-        fn delete_from_table_that_does_not_exist() {
-            let catalog_handle = catalog();
-
-            assert_eq!(catalog_handle.create_schema(SCHEMA), true);
-            assert_eq!(
-                catalog_handle.work_with(SCHEMA, |schema| schema
-                    .work_with(DOES_NOT_EXIST, |table| table.delete(vec![]))),
-                Some(None)
-            );
-        }
-
-        #[test]
-        fn insert_delete_scan_records_from_table() {
-            let catalog_handle = catalog();
-
-            assert_eq!(catalog_handle.create_schema(SCHEMA), true);
-            assert_eq!(
-                catalog_handle.work_with(SCHEMA, |schema| schema.create_table(TABLE)),
-                Some(true)
-            );
-
-            assert_eq!(
-                catalog_handle.work_with(SCHEMA, |schema| schema.work_with(TABLE, |table| table.insert(vec![
-                    Binary::pack(&[Datum::from_u64(1)]),
-                    Binary::pack(&[Datum::from_u64(2)])
-                ]))),
-                Some(Some(2))
-            );
-
-            assert_eq!(
-                catalog_handle.work_with(SCHEMA, |schema| schema
-                    .work_with(TABLE, |table| table.delete(vec![Binary::pack(&[Datum::from_u64(1)])]))),
-                Some(Some(1))
-            );
-
-            assert_eq!(
-                catalog_handle
-                    .work_with(SCHEMA, |schema| schema.work_with(TABLE, |table| table.select()))
-                    .unwrap()
-                    .unwrap()
-                    .collect::<Vec<(Key, Value)>>(),
-                vec![(Binary::pack(&[Datum::from_u64(0)]), Binary::pack(&[Datum::from_u64(1)]))]
-            );
-        }
-
-        #[test]
-        fn update_table_that_in_schema_that_does_not_exist() {
-            let catalog_handle = catalog();
-
-            assert_eq!(
-                catalog_handle.work_with(DOES_NOT_EXIST, |schema| schema
-                    .work_with(TABLE, |table| table.update(vec![]))),
-                None
-            );
-        }
-
-        #[test]
-        fn update_table_that_does_not_exist() {
-            let catalog_handle = catalog();
-
-            assert_eq!(catalog_handle.create_schema(SCHEMA), true);
-            assert_eq!(
-                catalog_handle.work_with(SCHEMA, |schema| schema
-                    .work_with(DOES_NOT_EXIST, |table| table.update(vec![]))),
-                Some(None)
-            );
-        }
-
-        #[test]
-        fn insert_update_scan_records_from_table() {
-            let catalog_handle = catalog();
-
-            assert_eq!(catalog_handle.create_schema(SCHEMA), true);
-            assert_eq!(
-                catalog_handle.work_with(SCHEMA, |schema| schema.create_table(TABLE)),
-                Some(true)
-            );
-
-            assert_eq!(
-                catalog_handle.work_with(SCHEMA, |schema| schema.work_with(TABLE, |table| table.insert(vec![
-                    Binary::pack(&[Datum::from_u64(1)]),
-                    Binary::pack(&[Datum::from_u64(2)])
-                ]))),
-                Some(Some(2))
-            );
-
-            assert_eq!(
-                catalog_handle.work_with(SCHEMA, |schema| schema.work_with(TABLE, |table| table.update(vec![(
-                    Binary::pack(&[Datum::from_u64(1)]),
-                    Binary::pack(&[Datum::from_u64(4)])
-                )]))),
-                Some(Some(1))
-            );
-
-            assert_eq!(
-                catalog_handle
-                    .work_with(SCHEMA, |schema| schema.work_with(TABLE, |table| table.select()))
-                    .unwrap()
-                    .unwrap()
-                    .collect::<Vec<(Key, Value)>>(),
-                vec![
-                    (Binary::pack(&[Datum::from_u64(0)]), Binary::pack(&[Datum::from_u64(1)])),
-                    (Binary::pack(&[Datum::from_u64(1)]), Binary::pack(&[Datum::from_u64(4)])),
-                ]
-            );
-        }
-    }
-}
+mod tests;

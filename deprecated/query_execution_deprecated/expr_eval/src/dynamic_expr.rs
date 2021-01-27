@@ -33,11 +33,11 @@ impl<'a> DynamicExpressionEvaluation {
         Self { columns }
     }
 
-    pub fn eval<'b>(&self, row: &[Datum<'b>], eval: &ScalarOp) -> Result<ScalarOp, EvalError> {
+    pub fn eval(&self, row: &[Datum], eval: &ScalarOp) -> Result<ScalarOp, EvalError> {
         self.inner_eval(row, eval)
     }
 
-    fn inner_eval<'b>(&self, row: &[Datum<'b>], eval: &ScalarOp) -> Result<ScalarOp, EvalError> {
+    fn inner_eval(&self, row: &[Datum], eval: &ScalarOp) -> Result<ScalarOp, EvalError> {
         match eval {
             ScalarOp::Column(column_name) => {
                 let datum: &Datum = &(row[self.columns[column_name]]);

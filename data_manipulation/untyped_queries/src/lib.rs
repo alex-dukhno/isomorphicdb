@@ -42,7 +42,7 @@ pub struct DeleteQuery {
 }
 
 #[derive(Debug, PartialEq)]
-pub enum Write {
+pub enum UntypedWrite {
     Insert(InsertQuery),
     Update(UpdateQuery),
     Delete(DeleteQuery),

@@ -151,7 +151,7 @@ impl DatabaseHandle {
                 .map(Result::unwrap)
                 .map(|(record_id, columns)| {
                     let catalog_id = Datum::from_u64(record_id.unpack()[0].as_u64());
-                    let schema = columns.unpack()[1].as_str().to_owned();
+                    let schema = columns.unpack()[1].as_string();
                     (catalog_id, schema)
                 })
                 .filter(|(catalog_id, _schema)| catalog_id == &DEFAULT_CATALOG_ID)
@@ -194,8 +194,8 @@ impl DatabaseHandle {
                 let schema_id = ids[1].as_u64();
                 let table_id = ids[2].as_u64();
                 let data = columns.unpack();
-                let schema_name = data[1].as_str().to_owned();
-                let table_name = data[2].as_str().to_owned();
+                let schema_name = data[1].as_string();
+                let table_name = data[2].as_string();
                 (schema_id, table_id, schema_name, table_name)
             })
             .find(|(schema_id, table_id, _schema_name, _table_name)| &(*schema_id, *table_id) == full_table_id)
@@ -221,7 +221,10 @@ impl DatabaseHandle {
                 SCHEMATA_TABLE,
                 vec![(
                     Binary::pack(&[DEFAULT_CATALOG_ID, Datum::from_u64(schema_id)]),
-                    Binary::pack(&[Datum::from_str(DEFAULT_CATALOG), Datum::from_str(schema_name)]),
+                    Binary::pack(&[
+                        Datum::from_string(DEFAULT_CATALOG.to_owned()),
+                        Datum::from_string(schema_name.to_owned()),
+                    ]),
                 )],
             )
             .expect("no io error")
@@ -251,7 +254,7 @@ impl DatabaseHandle {
             .map(Result::unwrap)
             .map(|(record_id, columns)| {
                 let id = record_id.unpack()[1].as_u64();
-                let schema_name = columns.unpack()[1].as_str().to_owned();
+                let schema_name = columns.unpack()[1].as_string();
                 (id, schema_name)
             })
             .find(|(id, _schema)| id == schema_id)
@@ -303,7 +306,7 @@ impl DatabaseHandle {
                         .map(Result::unwrap)
                         .map(Result::unwrap)
                         .map(|(record_id, columns)| {
-                            let schema = columns.unpack()[1].as_str().to_owned();
+                            let schema = columns.unpack()[1].as_string();
                             (record_id, schema)
                         })
                         .find(|(_record_id, schema)| schema_name == schema)
@@ -333,7 +336,7 @@ impl DatabaseHandle {
                     .map(Result::unwrap)
                     .map(Result::unwrap)
                     .map(|(record_id, columns)| {
-                        let schema = columns.unpack()[1].as_str().to_owned();
+                        let schema = columns.unpack()[1].as_string();
                         (record_id, schema)
                     })
                     .find(|(_record_id, schema)| schema_name == schema)
@@ -410,7 +413,7 @@ impl DatabaseHandle {
             .map(Result::unwrap)
             .map(|(record_id, columns)| {
                 let id = record_id.unpack()[1].as_u64();
-                let schema = columns.unpack()[1].as_str().to_owned();
+                let schema = columns.unpack()[1].as_string();
                 (id, schema)
             })
             .find(|(id, _schema)| id == &schema_id)
@@ -434,9 +437,9 @@ impl DatabaseHandle {
                                 Datum::from_u64(table_id),
                             ]),
                             Binary::pack(&[
-                                Datum::from_str(DEFAULT_CATALOG),
-                                Datum::from_str(&schema_name),
-                                Datum::from_str(table_name),
+                                Datum::from_string(DEFAULT_CATALOG.to_owned()),
+                                Datum::from_string(schema_name.clone()),
+                                Datum::from_string(table_name.to_owned()),
                             ]),
                         )],
                     )
@@ -468,11 +471,11 @@ impl DatabaseHandle {
                                     Datum::from_u64(id),
                                 ]),
                                 Binary::pack(&[
-                                    Datum::from_str(DEFAULT_CATALOG),
-                                    Datum::from_str(&schema_name),
-                                    Datum::from_str(table_name),
+                                    Datum::from_string(DEFAULT_CATALOG.to_owned()),
+                                    Datum::from_string(schema_name.clone()),
+                                    Datum::from_string(table_name.to_owned()),
                                     Datum::from_u64(index as u64),
-                                    Datum::from_str(column.name().as_str()),
+                                    Datum::from_string(column.name()),
                                     Datum::from_u64(column.sql_type().type_id()),
                                     chars_len,
                                 ]),
@@ -517,8 +520,8 @@ impl DatabaseHandle {
                 let schema_id = ids[1].as_u64();
                 let table_id = ids[2].as_u64();
                 let data = columns.unpack();
-                let schema_name = data[1].as_str().to_owned();
-                let table_name = data[2].as_str().to_owned();
+                let schema_name = data[1].as_string();
+                let table_name = data[2].as_string();
                 (schema_id, table_id, schema_name, table_name)
             })
             .find(|(schema_id, table_id, _schema_name, _table_name)| full_table_id == &(*schema_id, *table_id))
@@ -571,8 +574,8 @@ impl DatabaseHandle {
                 let schema_id = ids[1].as_u64();
                 let table_id = ids[2].as_u64();
                 let data = columns.unpack();
-                let schema_name = data[1].as_str().to_owned();
-                let table_name = data[2].as_str().to_owned();
+                let schema_name = data[1].as_string();
+                let table_name = data[2].as_string();
                 (schema_id, table_id, schema_name, table_name)
             })
             .find(|(schema_id, table_id, _schema_name, _table_name)| full_table_id == &(*schema_id, *table_id))
@@ -612,8 +615,8 @@ impl DatabaseHandle {
                 let schema_id = ids[1].as_u64();
                 let table_id = ids[2].as_u64();
                 let data = columns.unpack();
-                let schema_name = data[1].as_str().to_owned();
-                let table_name = data[2].as_str().to_owned();
+                let schema_name = data[1].as_string();
+                let table_name = data[2].as_string();
                 (schema_id, table_id, schema_name, table_name)
             })
             .find(|(schema_id, table_id, _schema_name, _table_name)| full_table_id == &(*schema_id, *table_id))
@@ -650,8 +653,8 @@ impl DatabaseHandle {
                 let schema_id = ids[1].as_u64();
                 let table_id = ids[2].as_u64();
                 let data = columns.unpack();
-                let schema_name = data[1].as_str().to_owned();
-                let table_name = data[2].as_str().to_owned();
+                let schema_name = data[1].as_string();
+                let table_name = data[2].as_string();
                 (schema_id, table_id, schema_name, table_name)
             })
             .find(|(schema_id, table_id, _schema_name, _table_name)| full_table_id == &(*schema_id, *table_id))
@@ -690,7 +693,7 @@ impl DataDefOperationExecutor for DatabaseHandle {
                         .expect("to have COLUMNS table")
                         .map(Result::unwrap)
                         .map(Result::unwrap)
-                        .map(|(_record_id, columns)| columns.unpack()[1].as_str().to_owned())
+                        .map(|(_record_id, columns)| columns.unpack()[1].as_string())
                         .any(|name| name == object_name[0]);
                     if schema_exists {
                         Ok(())
@@ -707,7 +710,7 @@ impl DataDefOperationExecutor for DatabaseHandle {
                         .expect("to have COLUMNS table")
                         .map(Result::unwrap)
                         .map(Result::unwrap)
-                        .map(|(_record_id, columns)| columns.unpack()[2].as_str().to_owned())
+                        .map(|(_record_id, columns)| columns.unpack()[2].as_string())
                         .any(|name| name == object_name[0]);
                     if table_exists {
                         Ok(())
@@ -729,7 +732,7 @@ impl DataDefOperationExecutor for DatabaseHandle {
                         .expect("to have COLUMNS table")
                         .map(Result::unwrap)
                         .map(Result::unwrap)
-                        .map(|(_record_id, columns)| columns.unpack()[1].as_str().to_owned())
+                        .map(|(_record_id, columns)| columns.unpack()[1].as_string())
                         .any(|name| name == object_name[0]);
                     if has_dependants {
                         Err(())
@@ -754,7 +757,7 @@ impl DataDefOperationExecutor for DatabaseHandle {
                         .map(Result::unwrap)
                         .map(|(record_id, columns)| {
                             let schema_id = record_id.unpack()[1].as_u64();
-                            let schema = columns.unpack()[1].as_str().to_owned();
+                            let schema = columns.unpack()[1].as_string();
                             (schema_id, schema)
                         })
                         .find(|(_schema_id, schema)| schema == &object_name[0])
@@ -832,8 +835,8 @@ impl DataDefOperationExecutor for DatabaseHandle {
                         let schema_id = ids[1].as_u64();
                         let table_id = ids[2].as_u64();
                         let data = columns.unpack();
-                        let schema = data[1].as_str().to_owned();
-                        let table = data[2].as_str().to_owned();
+                        let schema = data[1].as_string();
+                        let table = data[2].as_string();
                         (schema_id, table_id, schema, table)
                     })
                     .find(|(_schema_id, _table_id, schema, table)| schema_name == schema && table_name == table)
@@ -899,8 +902,8 @@ impl DataDefOperationExecutor for DatabaseHandle {
                             .map(Result::unwrap)
                             .map(|(record_id, columns)| {
                                 let data = columns.unpack();
-                                let catalog = data[0].as_str().to_owned();
-                                let schema = data[1].as_str().to_owned();
+                                let catalog = data[0].as_string();
+                                let schema = data[1].as_string();
                                 (record_id, catalog, schema)
                             })
                             .find(|(_record, catalog, schema)| catalog == DEFAULT_CATALOG && schema == schema_name)
@@ -922,9 +925,9 @@ impl DataDefOperationExecutor for DatabaseHandle {
                             .map(Result::unwrap)
                             .map(|(record_id, columns)| {
                                 let data = columns.unpack();
-                                let catalog = data[0].as_str().to_owned();
-                                let schema = data[1].as_str().to_owned();
-                                let table = data[2].as_str().to_owned();
+                                let catalog = data[0].as_string();
+                                let schema = data[1].as_string();
+                                let table = data[2].as_string();
                                 (record_id, catalog, schema, table)
                             })
                             .find(|(_record, catalog, schema, table)| {
@@ -956,7 +959,10 @@ impl DataDefOperationExecutor for DatabaseHandle {
                             SCHEMATA_TABLE,
                             vec![(
                                 Binary::pack(&[DEFAULT_CATALOG_ID, Datum::from_u64(schema_id)]),
-                                Binary::pack(&[Datum::from_str(DEFAULT_CATALOG), Datum::from_str(&schema_name)]),
+                                Binary::pack(&[
+                                    Datum::from_string(DEFAULT_CATALOG.to_owned()),
+                                    Datum::from_string(schema_name.clone()),
+                                ]),
                             )],
                         )
                     }
@@ -974,7 +980,7 @@ impl DataDefOperationExecutor for DatabaseHandle {
                             .map(Result::unwrap)
                             .map(|(record_id, columns)| {
                                 let id = record_id.unpack()[1].as_u64();
-                                let schema = columns.unpack()[1].as_str().to_owned();
+                                let schema = columns.unpack()[1].as_string();
                                 (id, schema)
                             })
                             .find(|(_id, schema)| schema_name == schema)
@@ -1006,9 +1012,9 @@ impl DataDefOperationExecutor for DatabaseHandle {
                                     Datum::from_u64(table_id),
                                 ]),
                                 Binary::pack(&[
-                                    Datum::from_str(DEFAULT_CATALOG),
-                                    Datum::from_str(&schema_name),
-                                    Datum::from_str(&table_name),
+                                    Datum::from_string(DEFAULT_CATALOG.to_owned()),
+                                    Datum::from_string(schema_name.clone()),
+                                    Datum::from_string(table_name.clone()),
                                 ]),
                             )],
                         )
@@ -1032,8 +1038,8 @@ impl DataDefOperationExecutor for DatabaseHandle {
                                 let schema_id = ids[1].as_u64();
                                 let table_id = ids[2].as_u64();
                                 let data = columns.unpack();
-                                let schema = data[1].as_str().to_owned();
-                                let table = data[2].as_str().to_owned();
+                                let schema = data[1].as_string();
+                                let table = data[2].as_string();
                                 (schema_id, table_id, schema, table)
                             })
                             .find(|(_schema_id, _table_id, schema, table)| schema_name == schema && table_name == table)
@@ -1067,11 +1073,11 @@ impl DataDefOperationExecutor for DatabaseHandle {
                                     Datum::from_u64(column_id),
                                 ]),
                                 Binary::pack(&[
-                                    Datum::from_str(&DEFAULT_CATALOG),
-                                    Datum::from_str(&schema_name),
-                                    Datum::from_str(&table_name),
+                                    Datum::from_string(DEFAULT_CATALOG.to_owned()),
+                                    Datum::from_string(schema_name.clone()),
+                                    Datum::from_string(table_name.clone()),
                                     Datum::from_u64(column_id),
-                                    Datum::from_str(&column_name),
+                                    Datum::from_string(column_name.clone()),
                                     Datum::from_u64(sql_type.type_id()),
                                     chars_len,
                                 ]),
@@ -1102,8 +1108,8 @@ impl DataDefReader for DatabaseHandle {
             .map(|(record_id, columns)| {
                 let id = record_id.unpack()[1].as_u64();
                 let columns = columns.unpack();
-                let catalog = columns[0].as_str().to_owned();
-                let schema = columns[1].as_str().to_owned();
+                let catalog = columns[0].as_string();
+                let schema = columns[1].as_string();
                 (id, catalog, schema)
             })
             .filter(|(_id, catalog, schema)| catalog == DEFAULT_CATALOG && schema == schema_name)
@@ -1128,7 +1134,7 @@ impl DataDefReader for DatabaseHandle {
                         let schema_id = record[1].as_u64();
                         let table_id = record[2].as_u64();
                         let columns = columns.unpack();
-                        let table = columns[2].as_str().to_owned();
+                        let table = columns[2].as_string();
                         (schema_id, table_id, table)
                     })
                     .filter(|(schema, _id, name)| schema == &schema_id && name == table_name)
@@ -1173,7 +1179,7 @@ impl DataDefReader for DatabaseHandle {
                 let table_id = record[2].as_u64();
                 let column_id = record[3].as_u64();
                 let columns = columns.unpack();
-                let name = columns[4].as_str().to_owned();
+                let name = columns[4].as_string();
                 let type_id = columns[5].as_u64();
                 let chars_len = match columns[6] {
                     Datum::Int64(val) => val as u64,
@@ -1226,7 +1232,7 @@ impl DataDefReader for DatabaseHandle {
                 let table_id = record[2].as_u64();
                 let column_id = record[3].as_u64();
                 let columns = columns.unpack();
-                let name = columns[4].as_str().to_owned();
+                let name = columns[4].as_string();
                 ((schema_id, table_id), column_id, name)
             })
             .filter(|(full_table_id, _column_id, _name)| full_table_id == table_id)
@@ -1281,7 +1287,7 @@ impl DataDefReader for DatabaseHandle {
                 let table_id = record[2].as_u64();
                 let column_id = record[3].as_u64();
                 let columns = columns.unpack();
-                let name = columns[4].as_str().to_owned();
+                let name = columns[4].as_string();
                 let type_id = columns[5].as_u64();
                 let chars_len = match columns[6] {
                     Datum::Int64(val) => val as u64,

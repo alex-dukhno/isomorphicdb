@@ -12,24 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use data_manipulation_typed_tree::{DynamicTypedTree, StaticTypedTree};
 use definition::FullTableName;
-use types::SqlType;
 
-#[derive(Debug, PartialEq)]
-pub struct InsertQuery {
-    pub full_table_name: FullTableName,
-    pub column_types: Vec<SqlType>,
-    pub values: Vec<Vec<StaticTypedTree>>,
-}
-
-#[derive(Debug, PartialEq)]
-pub enum TypedWrite {
-    Insert(InsertQuery),
-}
-
-#[derive(Debug, PartialEq)]
-pub struct TypedSelectQuery {
-    pub full_table_name: FullTableName,
-    pub projection_items: Vec<DynamicTypedTree>,
+pub struct SelectPlan {
+    pub table: FullTableName,
 }

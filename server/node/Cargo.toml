@@ -23,6 +23,17 @@ query_analyzer = { path = "../../query_analyzer" }
 schema_planner = { path = "../../data/schema_planner" }
 sql_ast = { path = "../../query_parsing/sql-ast" }
 types = { path = "../../entities/types" }
+query_processing_type_check = { path = "../../query_processing/type_check" }
+query_processing_type_inference = { path = "../../query_processing/type_inference" }
+query_processing_type_coercion = { path = "../../query_processing/type_coercion" }
+data_manipulation_query_result = { path = "../../data_manipulation/query_result" }
+data_manipulation_untyped_queries = { path = "../../data_manipulation/untyped_queries" }
+data_manipulation_typed_tree = { path = "../../data_manipulation/typed_tree" }
+data_manipulation_typed_queries = { path = "../../data_manipulation/typed_queries" }
+data_manipulation_operators = { path = "../../data_manipulation/operators" }
+write_query_executor = { path = "../../write_query/executor" }
+read_query_executor = { path = "../../read_query/executor" }
+read_query_planner = { path = "../../read_query/planner" }
 
 # deprecated modules
 binder = { path = "../../deprecated/binder_deprecated" }

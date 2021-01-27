@@ -12,87 +12,62 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-mod data_catalog;
-
 use crate::{Cursor, DataCatalog, DataTable, Key, SchemaHandle, Value};
 use binary::Binary;
 use dashmap::DashMap;
+use definition::FullTableName;
 use repr::Datum;
-use std::{convert::TryInto, path::PathBuf};
+use std::{
+    collections::BTreeMap,
+    sync::{
+        atomic::{AtomicU64, Ordering},
+        Arc, RwLock,
+    },
+};
 
-const TABLE_RECORD_IDS_KEY: &str = "__record_counter";
-const STARTING_RECORD_ID: [u8; 8] = 0u64.to_be_bytes();
-
-#[derive(Debug)]
-pub struct OnDiskTableHandle {
-    metadata: sled::Tree,
-    data: sled::Tree,
+#[derive(Default, Debug)]
+struct InternalInMemoryTableHandle {
+    records: RwLock<BTreeMap<Binary, Binary>>,
+    record_ids: AtomicU64,
+    column_ords: AtomicU64,
 }
 
-impl OnDiskTableHandle {
-    fn new(metadata: sled::Tree, data: sled::Tree) -> OnDiskTableHandle {
-        debug_assert!(
-            matches!(metadata.insert(TABLE_RECORD_IDS_KEY, &STARTING_RECORD_ID), Ok(None)),
-            format!(
-                "system value {:?} should be used up to this point",
-                TABLE_RECORD_IDS_KEY
-            )
-        );
-        OnDiskTableHandle { metadata, data }
-    }
-
-    fn next_id(&self) -> u64 {
-        let current = match self.metadata.get(TABLE_RECORD_IDS_KEY) {
-            Ok(Some(current)) => u64::from_be_bytes(current[0..8].try_into().unwrap()),
-            Ok(None) => {
-                log::error!(
-                    "system value {:?} was not initialized until this point",
-                    TABLE_RECORD_IDS_KEY
-                );
-                unreachable!("Database is inconsistent state. Aborting...");
-            }
-            Err(error) => {
-                log::error!(
-                    "could not retrieve current record id from {:?} system key due to {:?}",
-                    TABLE_RECORD_IDS_KEY,
-                    error
-                );
-                unreachable!("Database is inconsistent state. Aborting...");
-            }
-        };
-        self.metadata
-            .insert(TABLE_RECORD_IDS_KEY, &((current + 1).to_be_bytes()))
-            .unwrap();
-        current
-    }
+#[derive(Default, Debug, Clone)]
+pub struct InMemoryTableHandle {
+    inner: Arc<InternalInMemoryTableHandle>,
 }
 
-impl DataTable for OnDiskTableHandle {
+impl DataTable for InMemoryTableHandle {
     fn select(&self) -> Cursor {
-        self.data
+        self.inner
+            .records
+            .read()
+            .unwrap()
             .iter()
-            .map(Result::unwrap)
-            .map(|(key, value)| (Binary::with_data(key.to_vec()), Binary::with_data(value.to_vec())))
+            .map(|(key, value)| (key.clone(), value.clone()))
             .collect::<Cursor>()
     }
 
     fn insert(&self, data: Vec<Value>) -> usize {
-        let mut size = 0;
+        let len = data.len();
+        let mut rw = self.inner.records.write().unwrap();
         for value in data {
-            let record_id = self.next_id();
+            let record_id = self.inner.record_ids.fetch_add(1, Ordering::SeqCst);
             let key = Binary::pack(&[Datum::from_u64(record_id)]);
-            if self.data.insert(key.to_bytes(), value.to_bytes()).is_ok() {
-                size += 1;
-            }
+            debug_assert!(
+                matches!(rw.insert(key, value), None),
+                "insert operation should insert nonexistent key"
+            );
         }
-        size
+        len
     }
 
     fn update(&self, data: Vec<(Key, Value)>) -> usize {
         let len = data.len();
+        let mut rw = self.inner.records.write().unwrap();
         for (key, value) in data {
             debug_assert!(
-                matches!(self.data.insert(key.to_bytes(), value.to_bytes()), Ok(Some(_))),
+                matches!(rw.insert(key, value), Some(_)),
                 "update operation should change already existed key"
             );
         }
@@ -100,58 +75,39 @@ impl DataTable for OnDiskTableHandle {
     }
 
     fn delete(&self, data: Vec<Key>) -> usize {
+        let mut rw = self.inner.records.write().unwrap();
         let mut size = 0;
-        let keys = self
-            .data
+        let keys = rw
             .iter()
-            .map(Result::unwrap)
-            .filter(|(_key, value)| data.contains(&Binary::with_data(value.to_vec())))
-            .map(|(key, _value)| key)
-            .collect::<Vec<sled::IVec>>();
+            .filter(|(key, _value)| data.contains(key))
+            .map(|(key, _value)| key.clone())
+            .collect::<Vec<Binary>>();
         for key in keys.iter() {
-            if self.data.remove(key).is_ok() {
-                size += 1;
-            }
+            debug_assert!(matches!(rw.remove(key), Some(_)), "delete operation delete existed key");
+            size += 1;
         }
         size
     }
 
     fn next_column_ord(&self) -> u64 {
-        unimplemented!()
+        self.inner.column_ords.fetch_add(1, Ordering::SeqCst)
     }
 }
 
-#[derive(Debug)]
-pub struct OnDiskSchemaHandle {
-    name: String,
-    sled_db: sled::Db,
-    tables: DashMap<String, OnDiskTableHandle>,
+#[derive(Default, Debug)]
+pub struct InMemorySchemaHandle {
+    tables: DashMap<String, InMemoryTableHandle>,
 }
 
-impl OnDiskSchemaHandle {
-    fn new(name: String, sled_db: sled::Db) -> OnDiskSchemaHandle {
-        OnDiskSchemaHandle {
-            name,
-            sled_db,
-            tables: DashMap::default(),
-        }
-    }
-}
-
-impl SchemaHandle for OnDiskSchemaHandle {
-    type Table = OnDiskTableHandle;
+impl SchemaHandle for InMemorySchemaHandle {
+    type Table = InMemoryTableHandle;
 
     fn create_table(&self, table_name: &str) -> bool {
-        if self.tables.contains_key(table_name) || self.sled_db.tree_names().contains(&sled::IVec::from(table_name)) {
+        if self.tables.contains_key(table_name) {
             false
         } else {
-            let data_tree = self.sled_db.open_tree(table_name).unwrap();
-            let metadata_tree = self
-                .sled_db
-                .open_tree("__system_metadata_".to_owned() + table_name)
-                .unwrap();
             self.tables
-                .insert(table_name.to_owned(), OnDiskTableHandle::new(metadata_tree, data_tree));
+                .insert(table_name.to_owned(), InMemoryTableHandle::default());
             true
         }
     }
@@ -161,14 +117,6 @@ impl SchemaHandle for OnDiskSchemaHandle {
             false
         } else {
             self.tables.remove(table_name);
-            if let Err(sled_error) = self.sled_db.drop_tree(table_name) {
-                log::error!(
-                    "Could not remove table {:?} from schema {:?} due to error {:?}",
-                    table_name,
-                    self.name,
-                    sled_error
-                );
-            }
             true
         }
     }
@@ -178,120 +126,47 @@ impl SchemaHandle for OnDiskSchemaHandle {
     }
 }
 
-pub struct OnDiskCatalogHandle {
-    path_to_catalog: PathBuf,
-    schemas: DashMap<String, OnDiskSchemaHandle>,
+#[derive(Default)]
+pub struct InMemoryCatalogHandle {
+    schemas: DashMap<String, InMemorySchemaHandle>,
 }
 
-impl OnDiskCatalogHandle {
-    #[allow(dead_code)]
-    fn new(path_to_catalog: PathBuf) -> OnDiskCatalogHandle {
-        OnDiskCatalogHandle {
-            path_to_catalog,
-            schemas: DashMap::default(),
-        }
-    }
-
-    fn path_to_schema(&self, schema_name: &str) -> PathBuf {
-        PathBuf::from(&self.path_to_catalog).join(&schema_name)
+impl InMemoryCatalogHandle {
+    pub(crate) fn table(&self, full_table_name: &FullTableName) -> InMemoryTableHandle {
+        self.schemas
+            .get(full_table_name.schema())
+            .unwrap()
+            .tables
+            .get(full_table_name.table())
+            .unwrap()
+            .clone()
     }
 }
 
-impl DataCatalog for OnDiskCatalogHandle {
-    type Schema = OnDiskSchemaHandle;
+impl DataCatalog for InMemoryCatalogHandle {
+    type Schema = InMemorySchemaHandle;
 
     fn create_schema(&self, schema_name: &str) -> bool {
         if self.schemas.contains_key(schema_name) {
             false
         } else {
-            let path_to_schema = self.path_to_schema(schema_name);
-            if path_to_schema.exists() {
-                false
-            } else {
-                let sled_db = sled::open(path_to_schema).unwrap();
-                self.schemas.insert(
-                    schema_name.to_owned(),
-                    OnDiskSchemaHandle::new(schema_name.to_owned(), sled_db),
-                );
-                true
-            }
+            self.schemas
+                .insert(schema_name.to_owned(), InMemorySchemaHandle::default());
+            true
         }
     }
 
     fn drop_schema(&self, schema_name: &str) -> bool {
-        let path_to_schema = self.path_to_schema(schema_name);
-        if !path_to_schema.exists() {
+        if !self.schemas.contains_key(schema_name) {
             false
         } else {
             self.schemas.remove(schema_name);
-            if let Err(io_error) = std::fs::remove_dir_all(&path_to_schema) {
-                log::error!(
-                    "Could not remove schema {:?} from file system located at {:?} due to error {:?}",
-                    schema_name,
-                    path_to_schema,
-                    io_error
-                );
-                false
-            } else {
-                true
-            }
+            true
         }
     }
 
     fn work_with<T, F: Fn(&Self::Schema) -> T>(&self, schema_name: &str, operation: F) -> Option<T> {
-        if !self.schemas.contains_key(schema_name) {
-            let path_to_schema = self.path_to_schema(schema_name);
-            if path_to_schema.exists() {
-                let sled_db = sled::open(path_to_schema).unwrap();
-                self.schemas.insert(
-                    schema_name.to_owned(),
-                    OnDiskSchemaHandle::new(schema_name.to_owned(), sled_db),
-                );
-            } else {
-                return None;
-            }
-        }
         self.schemas.get(schema_name).map(|schema| operation(&*schema))
-    }
-}
-
-#[cfg(test)]
-mod catalog_persistence_cases {
-    use super::*;
-
-    fn catalog_and_path() -> (OnDiskCatalogHandle, PathBuf) {
-        let temp_dir = tempfile::tempdir().expect("to create temporary folder");
-        let path_to_catalog = temp_dir.into_path();
-        (
-            OnDiskCatalogHandle::new(PathBuf::from(&path_to_catalog)),
-            path_to_catalog,
-        )
-    }
-
-    #[test]
-    fn schemas_should_exist_after_handle_recreation() {
-        let (catalog, path) = catalog_and_path();
-
-        assert_eq!(catalog.create_schema("schema_name"), true);
-
-        drop(catalog);
-
-        let catalog = OnDiskCatalogHandle::new(path);
-
-        assert_eq!(catalog.create_schema("schema_name"), false);
-    }
-
-    #[test]
-    fn it_is_possible_to_work_with_existent_schema_after_catalog_recreation() {
-        let (catalog, path) = catalog_and_path();
-
-        assert_eq!(catalog.create_schema("schema_name"), true);
-
-        drop(catalog);
-
-        let catalog = OnDiskCatalogHandle::new(path);
-
-        assert_eq!(catalog.work_with("schema_name", |_schema| 1), Some(1));
     }
 }
 
@@ -307,10 +182,8 @@ mod general_cases {
     const TABLE_2: &str = "table_name_2";
     const DOES_NOT_EXIST: &str = "does_not_exist";
 
-    fn catalog() -> OnDiskCatalogHandle {
-        let temp_dir = tempfile::tempdir().expect("to create temporary folder");
-        let path_to_catalog = temp_dir.into_path();
-        OnDiskCatalogHandle::new(path_to_catalog)
+    fn catalog() -> InMemoryCatalogHandle {
+        InMemoryCatalogHandle::default()
     }
 
     #[cfg(test)]
@@ -634,7 +507,7 @@ mod general_cases {
 
             assert_eq!(
                 catalog_handle.work_with(SCHEMA, |schema| schema
-                    .work_with(TABLE, |table| table.delete(vec![Binary::pack(&[Datum::from_u64(2)])]))),
+                    .work_with(TABLE, |table| table.delete(vec![Binary::pack(&[Datum::from_u64(1)])]))),
                 Some(Some(1))
             );
 
@@ -644,7 +517,7 @@ mod general_cases {
                     .unwrap()
                     .unwrap()
                     .collect::<Vec<(Key, Value)>>(),
-                vec![(Binary::pack(&[Datum::from_u64(0)]), Binary::pack(&[Datum::from_u64(1)])),]
+                vec![(Binary::pack(&[Datum::from_u64(0)]), Binary::pack(&[Datum::from_u64(1)]))]
             );
         }
 

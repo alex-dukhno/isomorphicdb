@@ -19,7 +19,7 @@ use data_definition_execution_plan::{
     ColumnInfo, CreateSchemaQuery, CreateTableQuery, DropSchemasQuery, DropTablesQuery, SchemaChange, TableInfo,
 };
 use data_manipulation_operators::Operation;
-use data_manipulation_untyped_queries::{DeleteQuery, InsertQuery, SelectQuery, UpdateQuery, Write};
+use data_manipulation_untyped_queries::{DeleteQuery, InsertQuery, SelectQuery, UntypedWrite, UpdateQuery};
 use data_manipulation_untyped_tree::{DynamicUntypedItem, DynamicUntypedTree};
 use definition::{FullTableName, SchemaName};
 use types::SqlType;
@@ -79,7 +79,7 @@ impl<CD: CatalogDefinition> Analyzer<CD> {
                                 return Err(AnalysisError::FeatureNotSupported(Feature::SetOperations))
                             }
                         };
-                        Ok(QueryAnalysis::Write(Write::Insert(InsertQuery {
+                        Ok(QueryAnalysis::Write(UntypedWrite::Insert(InsertQuery {
                             full_table_name,
                             column_types,
                             values,
@@ -123,7 +123,7 @@ impl<CD: CatalogDefinition> Analyzer<CD> {
                                 }
                             }
                         }
-                        Ok(QueryAnalysis::Write(Write::Update(UpdateQuery {
+                        Ok(QueryAnalysis::Write(UntypedWrite::Update(UpdateQuery {
                             full_table_name,
                             sql_types,
                             assignments,
@@ -213,7 +213,9 @@ impl<CD: CatalogDefinition> Analyzer<CD> {
                 Ok(full_table_name) => match self.database.table_definition(&full_table_name) {
                     None => Err(AnalysisError::schema_does_not_exist(full_table_name.schema())),
                     Some(None) => Err(AnalysisError::table_does_not_exist(full_table_name)),
-                    Some(Some(_table_info)) => Ok(QueryAnalysis::Write(Write::Delete(DeleteQuery { full_table_name }))),
+                    Some(Some(_table_info)) => Ok(QueryAnalysis::Write(UntypedWrite::Delete(DeleteQuery {
+                        full_table_name,
+                    }))),
                 },
             },
             sql_ast::Statement::CreateTable {
@@ -360,7 +362,7 @@ pub type AnalysisResult<A> = Result<A, AnalysisError>;
 #[derive(Debug, PartialEq)]
 pub enum QueryAnalysis {
     DataDefinition(SchemaChange),
-    Write(Write),
+    Write(UntypedWrite),
     Read(SelectQuery),
 }
 

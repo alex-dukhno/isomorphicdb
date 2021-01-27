@@ -12,38 +12,126 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use catalog::Database;
-use data_manipulation_untyped_queries::Write;
+use catalog::{Database, SqlTable};
+use data_manipulation_query_result::{QueryExecution, QueryExecutionError};
+use data_manipulation_typed_queries::{InsertQuery, TypedWrite};
 use std::sync::Arc;
 
 #[derive(Clone)]
-pub struct Executor<D: Database> {
+pub struct WriteQueryExecutor<D: Database> {
     database: Arc<D>,
 }
 
-impl<D: Database> Executor<D> {
-    pub fn new(database: Arc<D>) -> Executor<D> {
-        Executor { database }
+impl<D: Database> WriteQueryExecutor<D> {
+    pub fn new(database: Arc<D>) -> WriteQueryExecutor<D> {
+        WriteQueryExecutor { database }
     }
 
-    pub fn execute(&self, _write_query: Write) {}
+    pub fn execute(&self, write_query: TypedWrite) -> Result<QueryExecution, QueryExecutionError> {
+        match write_query {
+            TypedWrite::Insert(InsertQuery {
+                full_table_name,
+                column_types: _column_types,
+                values,
+            }) => {
+                let inserted = self.database.work_with(&full_table_name, |table| table.insert(&values));
+                Ok(QueryExecution::Inserted(inserted))
+            }
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use catalog::InMemoryDatabase;
-    use data_manipulation_untyped_queries::InsertQuery;
+    use data_definition_operations::{Kind, Record, Step, SystemObject, SystemOperation};
+    use data_manipulation_typed_queries::InsertQuery;
+    use data_manipulation_typed_tree::{StaticTypedItem, StaticTypedTree, TypedValue};
     use definition::FullTableName;
+    use types::SqlType;
+
+    fn create_schema_ops(schema_name: &str) -> SystemOperation {
+        SystemOperation {
+            kind: Kind::Create(SystemObject::Schema),
+            skip_steps_if: None,
+            steps: vec![vec![
+                Step::CheckExistence {
+                    system_object: SystemObject::Schema,
+                    object_name: vec![schema_name.to_owned()],
+                },
+                Step::CreateFolder {
+                    name: schema_name.to_owned(),
+                },
+                Step::CreateRecord {
+                    record: Record::Schema {
+                        schema_name: schema_name.to_owned(),
+                    },
+                },
+            ]],
+        }
+    }
+
+    fn create_table_ops(schema_name: &str, table_name: &str, columns: Vec<(&str, SqlType)>) -> SystemOperation {
+        let column_steps: Vec<Step> = columns
+            .into_iter()
+            .map(|(column_name, column_type)| Step::CreateRecord {
+                record: Record::Column {
+                    schema_name: schema_name.to_owned(),
+                    table_name: table_name.to_owned(),
+                    column_name: column_name.to_owned(),
+                    sql_type: column_type,
+                },
+            })
+            .collect();
+        let mut all_steps: Vec<Step> = vec![
+            Step::CheckExistence {
+                system_object: SystemObject::Schema,
+                object_name: vec![schema_name.to_owned()],
+            },
+            Step::CheckExistence {
+                system_object: SystemObject::Table,
+                object_name: vec![schema_name.to_owned(), table_name.to_owned()],
+            },
+            Step::CreateFile {
+                folder_name: schema_name.to_owned(),
+                name: table_name.to_owned(),
+            },
+            Step::CreateRecord {
+                record: Record::Table {
+                    schema_name: schema_name.to_owned(),
+                    table_name: table_name.to_owned(),
+                },
+            },
+        ];
+        all_steps.extend(column_steps);
+        SystemOperation {
+            kind: Kind::Create(SystemObject::Table),
+            skip_steps_if: None,
+            steps: vec![all_steps],
+        }
+    }
+
+    const SCHEMA: &str = "schema";
+    const TABLE: &str = "table";
 
     #[test]
-    fn it_works() {
-        let executor = Executor::new(InMemoryDatabase::new());
+    fn insert_single_value() {
+        let database = InMemoryDatabase::new();
+        database.execute(create_schema_ops(SCHEMA)).unwrap();
+        database
+            .execute(create_table_ops(SCHEMA, TABLE, vec![("col1", SqlType::small_int())]))
+            .unwrap();
+        let executor = WriteQueryExecutor::new(database);
 
-        executor.execute(Write::Insert(InsertQuery {
-            full_table_name: FullTableName::from((&"schema", &"table")),
-            column_types: vec![],
-            values: vec![],
-        }))
+        let r = executor.execute(TypedWrite::Insert(InsertQuery {
+            full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
+            column_types: vec![SqlType::small_int()],
+            values: vec![vec![StaticTypedTree::Item(StaticTypedItem::Const(
+                TypedValue::SmallInt(1),
+            ))]],
+        }));
+
+        assert_eq!(r, Ok(QueryExecution::Inserted(1)));
     }
 }
