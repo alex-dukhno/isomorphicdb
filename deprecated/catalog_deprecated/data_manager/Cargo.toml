@@ -15,7 +15,7 @@ storage = { path = "../storage" }
 types = { path = "../../../entities/types" }
 
 dashmap = "4.0.2"
-log = "0.4.13"
+log = "0.4.14"
 
 [dev-dependencies]
 backtrace = "0.3.55"
