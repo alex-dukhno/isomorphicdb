@@ -80,7 +80,7 @@ fn with_column_names() {
         analyzer.analyze(inner_insert(vec![SCHEMA, TABLE], vec![vec![small_int(1)]], vec!["col"])),
         Ok(QueryAnalysis::Write(UntypedWrite::Insert(InsertQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-            column_types: vec![SqlType::small_int()],
+            column_names: vec!["col".to_owned()],
             values: vec![vec![StaticUntypedTree::Item(StaticUntypedItem::Const(
                 UntypedValue::Number(BigDecimal::from(1))
             ))]],

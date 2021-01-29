@@ -14,7 +14,6 @@
 
 use data_manipulation_untyped_tree::{Bool, DynamicUntypedItem, DynamicUntypedTree, UntypedValue};
 use definition::ColumnDef;
-use types::SqlType;
 
 use crate::{operation_mapper::OperationMapper, parse_param_index, AnalysisError, AnalysisResult, Feature};
 
@@ -24,23 +23,21 @@ impl DynamicTreeBuilder {
     pub(crate) fn build_from(
         root_expr: &sql_ast::Expr,
         original: &sql_ast::Statement,
-        column_type: &SqlType,
         table_columns: &[ColumnDef],
     ) -> AnalysisResult<DynamicUntypedTree> {
-        Self::inner_build(root_expr, original, column_type, table_columns)
+        Self::inner_build(root_expr, original, table_columns)
     }
 
     fn inner_build(
         root_expr: &sql_ast::Expr,
         original: &sql_ast::Statement,
-        column_type: &SqlType,
         table_columns: &[ColumnDef],
     ) -> AnalysisResult<DynamicUntypedTree> {
         match root_expr {
             sql_ast::Expr::Value(value) => Self::value(value),
             sql_ast::Expr::Identifier(ident) => Self::ident(ident, table_columns),
             sql_ast::Expr::BinaryOp { left, op, right } => {
-                Self::op(op, &**left, &**right, original, column_type, table_columns)
+                Self::op(op, &**left, &**right, original, table_columns)
             }
             expr => Err(AnalysisError::syntax_error(format!(
                 "Syntax error in {}\naround {}",
@@ -55,13 +52,12 @@ impl DynamicTreeBuilder {
         left: &sql_ast::Expr,
         right: &sql_ast::Expr,
         original: &sql_ast::Statement,
-        column_type: &SqlType,
         table_columns: &[ColumnDef],
     ) -> AnalysisResult<DynamicUntypedTree> {
         let operation = OperationMapper::binary_operation(op);
         match (
-            Self::inner_build(left, original, column_type, table_columns),
-            Self::inner_build(right, original, column_type, table_columns),
+            Self::inner_build(left, original, table_columns),
+            Self::inner_build(right, original, table_columns),
         ) {
             (Ok(left_item), Ok(right_item)) => Ok(DynamicUntypedTree::Operation {
                 left: Box::new(left_item),
@@ -80,6 +76,7 @@ impl DynamicTreeBuilder {
                 for (index, table_column) in table_columns.iter().enumerate() {
                     if table_column.has_name(value.as_str()) {
                         return Ok(DynamicUntypedTree::Item(DynamicUntypedItem::Column {
+                            name: table_column.name().to_owned(),
                             sql_type: table_column.sql_type(),
                             index,
                         }));

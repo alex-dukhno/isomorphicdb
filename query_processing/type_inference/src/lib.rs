@@ -17,7 +17,7 @@ use std::ops::RangeInclusive;
 use bigdecimal::{BigDecimal, FromPrimitive, ToPrimitive};
 
 use data_manipulation_typed_tree::{DynamicTypedItem, DynamicTypedTree, StaticTypedItem, StaticTypedTree, TypedValue};
-use data_manipulation_untyped_tree::{Bool, DynamicUntypedTree, StaticUntypedItem, StaticUntypedTree, UntypedValue};
+use data_manipulation_untyped_tree::{Bool, DynamicUntypedTree, StaticUntypedItem, StaticUntypedTree, UntypedValue, DynamicUntypedItem};
 
 pub struct TypeInference {
     small_int_range: RangeInclusive<BigDecimal>,
@@ -40,8 +40,11 @@ impl Default for TypeInference {
 }
 
 impl TypeInference {
-    pub fn infer_dynamic(&self, _tree: DynamicUntypedTree) -> DynamicTypedTree {
-        DynamicTypedTree::Item(DynamicTypedItem::Const(TypedValue::Bool(false)))
+    pub fn infer_dynamic(&self, tree: DynamicUntypedTree) -> DynamicTypedTree {
+        match tree {
+            DynamicUntypedTree::Item(DynamicUntypedItem::Column { name, .. }) => DynamicTypedTree::Item(DynamicTypedItem::Column(name)),
+            _ => unimplemented!(),
+        }
     }
 
     pub fn infer_static(&self, tree: StaticUntypedTree) -> StaticTypedTree {

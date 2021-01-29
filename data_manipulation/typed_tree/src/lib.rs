@@ -15,7 +15,7 @@
 use data_manipulation_operators::Operation;
 use types::SqlTypeFamily;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum StaticTypedTree {
     Item(StaticTypedItem),
     Operation {
@@ -35,7 +35,7 @@ impl StaticTypedTree {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum StaticTypedItem {
     Const(TypedValue),
     Param {
@@ -55,7 +55,7 @@ impl StaticTypedItem {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum TypedValue {
     SmallInt(i16),
     Integer(i32),
@@ -93,4 +93,5 @@ pub enum DynamicTypedTree {
 #[derive(Debug, PartialEq)]
 pub enum DynamicTypedItem {
     Const(TypedValue),
+    Column(String),
 }

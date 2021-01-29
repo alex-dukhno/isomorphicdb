@@ -38,7 +38,7 @@ fn insert_number() {
         analyzer.analyze(insert_with_values(vec![SCHEMA, TABLE], vec![vec![small_int(1)]])),
         Ok(QueryAnalysis::Write(UntypedWrite::Insert(InsertQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-            column_types: vec![SqlType::small_int()],
+            column_names: vec![],
             values: vec![vec![StaticUntypedTree::Item(StaticUntypedItem::Const(
                 UntypedValue::Number(BigDecimal::from(1))
             ))]],
@@ -59,7 +59,7 @@ fn insert_string() {
         analyzer.analyze(insert_with_values(vec![SCHEMA, TABLE], vec![vec![string("str")]])),
         Ok(QueryAnalysis::Write(UntypedWrite::Insert(InsertQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-            column_types: vec![SqlType::char(5)],
+            column_names: vec![],
             values: vec![vec![StaticUntypedTree::Item(StaticUntypedItem::Const(
                 UntypedValue::String("str".to_owned())
             ))]],
@@ -80,7 +80,7 @@ fn insert_boolean() {
         analyzer.analyze(insert_with_values(vec![SCHEMA, TABLE], vec![vec![boolean(true)]])),
         Ok(QueryAnalysis::Write(UntypedWrite::Insert(InsertQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-            column_types: vec![SqlType::bool()],
+            column_names: vec![],
             values: vec![vec![StaticUntypedTree::Item(StaticUntypedItem::Const(
                 UntypedValue::Bool(Bool(true))
             ))]],
@@ -101,7 +101,7 @@ fn insert_null() {
         analyzer.analyze(insert_with_values(vec![SCHEMA, TABLE], vec![vec![null()]])),
         Ok(QueryAnalysis::Write(UntypedWrite::Insert(InsertQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-            column_types: vec![SqlType::bool()],
+            column_names: vec![],
             values: vec![vec![StaticUntypedTree::Item(StaticUntypedItem::Const(
                 UntypedValue::Null
             ))]],
@@ -144,7 +144,7 @@ fn insert_into_table_with_parameters() {
         analyzer.analyze(insert_with_parameters(vec![SCHEMA, TABLE], vec!["$1", "$2"])),
         Ok(QueryAnalysis::Write(UntypedWrite::Insert(InsertQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-            column_types: vec![SqlType::small_int(), SqlType::small_int()],
+            column_names: vec![],
             values: vec![vec![
                 StaticUntypedTree::Item(StaticUntypedItem::Param(0)),
                 StaticUntypedTree::Item(StaticUntypedItem::Param(1))
@@ -176,7 +176,7 @@ fn insert_into_table_with_parameters_and_values() {
         )),
         Ok(QueryAnalysis::Write(UntypedWrite::Insert(InsertQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-            column_types: vec![SqlType::small_int(), SqlType::small_int()],
+            column_names: vec![],
             values: vec![vec![
                 StaticUntypedTree::Item(StaticUntypedItem::Param(0)),
                 StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(BigDecimal::from(1))))
@@ -223,7 +223,7 @@ mod multiple_values {
             )),
             Ok(QueryAnalysis::Write(UntypedWrite::Insert(InsertQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                column_types: vec![SqlType::small_int()],
+                column_names: vec![],
                 values: vec![vec![StaticUntypedTree::Operation {
                     left: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(
                         BigDecimal::from(1)
@@ -254,7 +254,7 @@ mod multiple_values {
             )),
             Ok(QueryAnalysis::Write(UntypedWrite::Insert(InsertQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                column_types: vec![SqlType::var_char(255)],
+                column_names: vec![],
                 values: vec![vec![StaticUntypedTree::Operation {
                     left: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::String(
                         "str".to_owned()
@@ -285,7 +285,7 @@ mod multiple_values {
             )),
             Ok(QueryAnalysis::Write(UntypedWrite::Insert(InsertQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                column_types: vec![SqlType::bool()],
+                column_names: vec![],
                 values: vec![vec![StaticUntypedTree::Operation {
                     left: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(
                         BigDecimal::from(1)
@@ -316,7 +316,7 @@ mod multiple_values {
             )),
             Ok(QueryAnalysis::Write(UntypedWrite::Insert(InsertQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                column_types: vec![SqlType::bool()],
+                column_names: vec![],
                 values: vec![vec![StaticUntypedTree::Operation {
                     left: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Bool(
                         Bool(true)
@@ -347,7 +347,7 @@ mod multiple_values {
             )),
             Ok(QueryAnalysis::Write(UntypedWrite::Insert(InsertQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                column_types: vec![SqlType::small_int()],
+                column_names: vec![],
                 values: vec![vec![StaticUntypedTree::Operation {
                     left: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(
                         BigDecimal::from(1)
@@ -378,7 +378,7 @@ mod multiple_values {
             )),
             Ok(QueryAnalysis::Write(UntypedWrite::Insert(InsertQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                column_types: vec![SqlType::bool()],
+                column_names: vec![],
                 values: vec![vec![StaticUntypedTree::Operation {
                     left: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::String(
                         "s".to_owned()

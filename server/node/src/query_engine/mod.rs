@@ -395,7 +395,7 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                                     println!("TYPE COERCED VALUES {:?}", type_coerced);
                                     match self.write_query_executor.execute(TypedWrite::Insert(InsertQuery {
                                         full_table_name: insert.full_table_name,
-                                        column_types: insert.column_types,
+                                        column_names: insert.column_names,
                                         values: type_coerced,
                                     })) {
                                         Ok(QueryExecution::Inserted(inserted)) => {
@@ -407,6 +407,11 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                                         Err(QueryExecutionError::SchemaDoesNotExist(schema_name)) => {
                                             self.sender
                                                 .send(Err(QueryError::schema_does_not_exist(schema_name)))
+                                                .expect("To Send to client");
+                                        }
+                                        Err(QueryExecutionError::ColumnNotFound(column_name)) => {
+                                            self.sender
+                                                .send(Err(QueryError::column_does_not_exist(column_name)))
                                                 .expect("To Send to client");
                                         }
                                     }

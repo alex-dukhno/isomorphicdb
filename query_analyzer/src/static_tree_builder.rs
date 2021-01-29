@@ -13,7 +13,6 @@
 // limitations under the License.
 
 use data_manipulation_untyped_tree::{Bool, StaticUntypedItem, StaticUntypedTree, UntypedValue};
-use types::SqlType;
 
 use crate::{operation_mapper::OperationMapper, parse_param_index, AnalysisError, AnalysisResult, Feature};
 
@@ -23,20 +22,18 @@ impl StaticTreeBuilder {
     pub(crate) fn build_from(
         root_expr: &sql_ast::Expr,
         original: &sql_ast::Statement,
-        column_type: &SqlType,
     ) -> AnalysisResult<StaticUntypedTree> {
-        Self::inner_build(root_expr, original, column_type)
+        Self::inner_build(root_expr, original)
     }
 
     fn inner_build(
         root_expr: &sql_ast::Expr,
         original: &sql_ast::Statement,
-        column_type: &SqlType,
     ) -> AnalysisResult<StaticUntypedTree> {
         match root_expr {
             sql_ast::Expr::Value(value) => Self::value(value),
             sql_ast::Expr::Identifier(ident) => Self::ident(ident),
-            sql_ast::Expr::BinaryOp { left, op, right } => Self::op(op, &**left, &**right, original, column_type),
+            sql_ast::Expr::BinaryOp { left, op, right } => Self::op(op, &**left, &**right, original),
             expr => Err(AnalysisError::syntax_error(format!(
                 "Syntax error in {}\naround {}",
                 original, expr
@@ -49,12 +46,11 @@ impl StaticTreeBuilder {
         left: &sql_ast::Expr,
         right: &sql_ast::Expr,
         original: &sql_ast::Statement,
-        column_type: &SqlType,
     ) -> AnalysisResult<StaticUntypedTree> {
         let operation = OperationMapper::binary_operation(op);
         match (
-            Self::inner_build(left, original, column_type),
-            Self::inner_build(right, original, column_type),
+            Self::inner_build(left, original),
+            Self::inner_build(right, original),
         ) {
             (Ok(left_item), Ok(right_item)) => Ok(StaticUntypedTree::Operation {
                 left: Box::new(left_item),

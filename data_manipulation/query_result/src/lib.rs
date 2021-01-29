@@ -24,4 +24,5 @@ pub enum QueryExecution {
 #[derive(Debug, PartialEq)]
 pub enum QueryExecutionError {
     SchemaDoesNotExist(String),
+    ColumnNotFound(String)
 }

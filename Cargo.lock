@@ -1256,6 +1256,7 @@ version = "0.1.0"
 dependencies = [
  "catalog",
  "data_manipulation_typed_queries",
+ "data_manipulation_typed_tree",
  "read_query_plan",
 ]
 

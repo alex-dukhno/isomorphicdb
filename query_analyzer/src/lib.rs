@@ -51,22 +51,21 @@ impl<CD: CatalogDefinition> Analyzer<CD> {
                     None => Err(AnalysisError::schema_does_not_exist(full_table_name.schema())),
                     Some(None) => Err(AnalysisError::table_does_not_exist(full_table_name)),
                     Some(Some(table_info)) => {
-                        for column in columns.iter() {
-                            if !table_info.has_column(&column.to_string()) {
+                        let mut column_names = vec![];
+                        for column in columns {
+                            if !table_info.has_column(&column.value) {
                                 return Err(AnalysisError::column_not_found(column));
                             }
+                            column_names.push(column.value.clone());
                         }
-                        let column_types: Vec<SqlType> =
-                            table_info.columns().iter().map(|col| col.sql_type()).collect();
                         let sql_ast::Query { body, .. } = &**source;
                         let values = match body {
                             sql_ast::SetExpr::Values(sql_ast::Values(insert_rows)) => {
                                 let mut values = vec![];
                                 for insert_row in insert_rows {
                                     let mut row = vec![];
-                                    for (index, value) in insert_row.iter().enumerate() {
-                                        let sql_type = column_types[index];
-                                        row.push(StaticTreeBuilder::build_from(value, &statement, &sql_type)?);
+                                    for value in insert_row.iter() {
+                                        row.push(StaticTreeBuilder::build_from(value, &statement)?);
                                     }
                                     values.push(row)
                                 }
@@ -81,7 +80,7 @@ impl<CD: CatalogDefinition> Analyzer<CD> {
                         };
                         Ok(QueryAnalysis::Write(UntypedWrite::Insert(InsertQuery {
                             full_table_name,
-                            column_types,
+                            column_names,
                             values,
                         })))
                     }
@@ -116,7 +115,6 @@ impl<CD: CatalogDefinition> Analyzer<CD> {
                                     assignments.push(DynamicTreeBuilder::build_from(
                                         &value,
                                         &statement,
-                                        &sql_type,
                                         &table_columns,
                                     )?);
                                     sql_types.push(sql_type);
@@ -174,6 +172,7 @@ impl<CD: CatalogDefinition> Analyzer<CD> {
                                                 for (index, table_column) in table_columns.iter().enumerate() {
                                                     projection_items.push(DynamicUntypedTree::Item(
                                                         DynamicUntypedItem::Column {
+                                                            name: table_column.name().to_owned(),
                                                             index,
                                                             sql_type: table_column.sql_type(),
                                                         },
@@ -184,7 +183,6 @@ impl<CD: CatalogDefinition> Analyzer<CD> {
                                                 projection_items.push(DynamicTreeBuilder::build_from(
                                                     &expr,
                                                     &statement,
-                                                    &SqlType::small_int(),
                                                     &table_columns,
                                                 )?)
                                             }
@@ -354,9 +352,6 @@ fn parse_param_index(value: &str) -> Option<usize> {
     Some(index - 1)
 }
 
-#[cfg(test)]
-mod tests;
-
 pub type AnalysisResult<A> = Result<A, AnalysisError>;
 
 #[derive(Debug, PartialEq)]
@@ -465,3 +460,6 @@ pub enum Feature {
     QualifiedAliases,
     InsertIntoSelect,
 }
+
+#[cfg(test)]
+mod tests;

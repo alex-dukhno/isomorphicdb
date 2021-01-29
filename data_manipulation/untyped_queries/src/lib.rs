@@ -19,7 +19,7 @@ use types::SqlType;
 #[derive(Debug, PartialEq)]
 pub struct InsertQuery {
     pub full_table_name: FullTableName,
-    pub column_types: Vec<SqlType>,
+    pub column_names: Vec<String>,
     pub values: Vec<Vec<StaticUntypedTree>>,
 }
 

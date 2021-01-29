@@ -30,6 +30,7 @@ fn select_all_columns_from_table() {
         Ok(QueryAnalysis::Read(SelectQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             projection_items: vec![DynamicUntypedTree::Item(DynamicUntypedItem::Column {
+                name: "col1".to_owned(),
                 index: 0,
                 sql_type: SqlType::integer()
             })],
@@ -56,6 +57,7 @@ fn select_specified_column_from_table() {
         Ok(QueryAnalysis::Read(SelectQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             projection_items: vec![DynamicUntypedTree::Item(DynamicUntypedItem::Column {
+                name: "col1".to_owned(),
                 index: 0,
                 sql_type: SqlType::integer()
             })],

@@ -16,4 +16,5 @@ use definition::FullTableName;
 
 pub struct SelectPlan {
     pub table: FullTableName,
+    pub columns: Vec<String>,
 }
