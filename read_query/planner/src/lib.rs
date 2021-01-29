@@ -14,8 +14,7 @@
 
 use catalog::Database;
 use data_manipulation_typed_queries::TypedSelectQuery;
-use data_manipulation_typed_tree::DynamicTypedTree;
-use data_manipulation_typed_tree::DynamicTypedItem;
+use data_manipulation_typed_tree::{DynamicTypedItem, DynamicTypedTree};
 use read_query_plan::SelectPlan;
 use std::sync::Arc;
 
@@ -32,13 +31,14 @@ impl<D: Database> ReadQueryPlanner<D> {
     pub fn plan(&self, select: TypedSelectQuery) -> SelectPlan {
         SelectPlan {
             table: select.full_table_name,
-            columns: select.projection_items.into_iter().map(|item| {
-                let name = match item {
+            columns: select
+                .projection_items
+                .into_iter()
+                .map(|item| match item {
                     DynamicTypedTree::Item(DynamicTypedItem::Column(name)) => name,
                     _ => unimplemented!(),
-                };
-                name
-            }).collect()
+                })
+                .collect(),
         }
     }
 }

@@ -26,10 +26,7 @@ impl StaticTreeBuilder {
         Self::inner_build(root_expr, original)
     }
 
-    fn inner_build(
-        root_expr: &sql_ast::Expr,
-        original: &sql_ast::Statement,
-    ) -> AnalysisResult<StaticUntypedTree> {
+    fn inner_build(root_expr: &sql_ast::Expr, original: &sql_ast::Statement) -> AnalysisResult<StaticUntypedTree> {
         match root_expr {
             sql_ast::Expr::Value(value) => Self::value(value),
             sql_ast::Expr::Identifier(ident) => Self::ident(ident),
@@ -40,7 +37,7 @@ impl StaticTreeBuilder {
                     "Syntax error in '{}' around '{}'",
                     original, expr
                 )))
-            },
+            }
         }
     }
 
@@ -51,10 +48,7 @@ impl StaticTreeBuilder {
         original: &sql_ast::Statement,
     ) -> AnalysisResult<StaticUntypedTree> {
         let operation = OperationMapper::binary_operation(op);
-        match (
-            Self::inner_build(left, original),
-            Self::inner_build(right, original),
-        ) {
+        match (Self::inner_build(left, original), Self::inner_build(right, original)) {
             (Ok(left_item), Ok(right_item)) => Ok(StaticUntypedTree::Operation {
                 left: Box::new(left_item),
                 op: operation,

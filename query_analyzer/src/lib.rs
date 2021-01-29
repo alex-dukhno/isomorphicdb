@@ -179,13 +179,9 @@ impl<CD: CatalogDefinition> Analyzer<CD> {
                                                     ));
                                                 }
                                             }
-                                            sql_ast::SelectItem::UnnamedExpr(expr) => {
-                                                projection_items.push(DynamicTreeBuilder::build_from(
-                                                    &expr,
-                                                    &statement,
-                                                    &table_columns,
-                                                )?)
-                                            }
+                                            sql_ast::SelectItem::UnnamedExpr(expr) => projection_items.push(
+                                                DynamicTreeBuilder::build_from(&expr, &statement, &table_columns)?,
+                                            ),
                                             sql_ast::SelectItem::ExprWithAlias { .. } => {
                                                 return Err(AnalysisError::feature_not_supported(Feature::Aliases))
                                             }

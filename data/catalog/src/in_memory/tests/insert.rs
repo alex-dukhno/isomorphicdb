@@ -53,10 +53,7 @@ fn insert_first_column_of_a_row() {
         .execute(create_table_with_columns(
             SCHEMA,
             TABLE,
-            vec![
-                ("col_1", SqlType::small_int()),
-                ("col_2", SqlType::small_int())
-            ],
+            vec![("col_1", SqlType::small_int()), ("col_2", SqlType::small_int())],
         ))
         .unwrap();
 
@@ -64,7 +61,9 @@ fn insert_first_column_of_a_row() {
     database.work_with(&full_table_name, |table| {
         table.insert_with_columns(
             vec!["col_1".to_owned()],
-            vec![vec![Some(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::SmallInt(1))))]]
+            vec![vec![Some(StaticTypedTree::Item(StaticTypedItem::Const(
+                TypedValue::SmallInt(1),
+            )))]],
         )
     });
 
@@ -87,10 +86,7 @@ fn insert_last_column_of_a_row() {
         .execute(create_table_with_columns(
             SCHEMA,
             TABLE,
-            vec![
-                ("col_1", SqlType::small_int()),
-                ("col_2", SqlType::small_int())
-            ],
+            vec![("col_1", SqlType::small_int()), ("col_2", SqlType::small_int())],
         ))
         .unwrap();
 
@@ -98,7 +94,9 @@ fn insert_last_column_of_a_row() {
     database.work_with(&full_table_name, |table| {
         table.insert_with_columns(
             vec!["col_2".to_owned()],
-            vec![vec![Some(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::SmallInt(1))))]]
+            vec![vec![Some(StaticTypedTree::Item(StaticTypedItem::Const(
+                TypedValue::SmallInt(1),
+            )))]],
         )
     });
 

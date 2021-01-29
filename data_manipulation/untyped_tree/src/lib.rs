@@ -83,7 +83,11 @@ pub enum StaticUntypedItem {
 pub enum DynamicUntypedItem {
     Const(UntypedValue),
     Param(usize),
-    Column { name: String, sql_type: SqlType, index: usize },
+    Column {
+        name: String,
+        sql_type: SqlType,
+        index: usize,
+    },
 }
 
 #[derive(Debug, PartialEq, Clone, Eq)]

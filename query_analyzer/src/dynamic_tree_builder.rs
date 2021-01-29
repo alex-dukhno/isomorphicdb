@@ -36,9 +36,7 @@ impl DynamicTreeBuilder {
         match root_expr {
             sql_ast::Expr::Value(value) => Self::value(value),
             sql_ast::Expr::Identifier(ident) => Self::ident(ident, table_columns),
-            sql_ast::Expr::BinaryOp { left, op, right } => {
-                Self::op(op, &**left, &**right, original, table_columns)
-            }
+            sql_ast::Expr::BinaryOp { left, op, right } => Self::op(op, &**left, &**right, original, table_columns),
             expr => Err(AnalysisError::syntax_error(format!(
                 "Syntax error in '{}' around '{}'",
                 original, expr

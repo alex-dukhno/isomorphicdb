@@ -73,11 +73,13 @@ impl Collector {
         Arc::new(Collector(Mutex::new(vec![])))
     }
 
+    #[allow(dead_code)]
     fn assert_receive_till_this_moment(&self, expected: Vec<QueryResult>) {
         let result = self.0.lock().expect("locked").drain(0..).collect::<Vec<_>>();
         assert_eq!(result, expected)
     }
 
+    #[allow(dead_code)]
     fn assert_receive_intermediate(&self, expected: QueryResult) {
         let mut actual = self.0.lock().expect("locked");
         assert_eq!(actual.deref_mut().pop(), Some(expected));

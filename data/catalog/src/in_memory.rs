@@ -26,9 +26,8 @@ use data_definition_operations::{
 use data_manipulation_typed_tree::{StaticTypedItem, StaticTypedTree, TypedValue};
 use definition::{ColumnDef, FullTableName, SchemaName, TableDef};
 use repr::Datum;
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 use types::SqlType;
-use std::collections::HashMap;
 
 fn create_public_schema() -> SystemOperation {
     SystemOperation {
@@ -426,14 +425,19 @@ impl InMemoryTable {
             StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Integer(value))) => Datum::from_i32(*value),
             StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::BigInt(value))) => Datum::from_i64(*value),
             StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Bool(value))) => Datum::from_bool(*value),
-            StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::String(string))) => Datum::from_string(string.clone()),
+            StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::String(string))) => {
+                Datum::from_string(string.clone())
+            }
             StaticTypedTree::Item(_) => unimplemented!(),
             StaticTypedTree::Operation { .. } => unimplemented!(),
         }
     }
 
     fn has_column(&self, column_name: &str) -> Option<(usize, &ColumnDef)> {
-        self.columns.iter().enumerate().find(|(_index, col)| col.has_name(column_name))
+        self.columns
+            .iter()
+            .enumerate()
+            .find(|(_index, col)| col.has_name(column_name))
     }
 }
 
@@ -444,7 +448,7 @@ impl SqlTable for InMemoryTable {
                 .map(|row| {
                     let mut to_insert = vec![];
                     for v in row {
-                        to_insert.push(v.as_ref().map(|v| self.eval(&v)).unwrap_or(Datum::from_null()));
+                        to_insert.push(v.as_ref().map(|v| self.eval(&v)).unwrap_or_else(Datum::from_null));
                     }
                     println!("{:#?}", to_insert);
                     Binary::pack(&to_insert)
@@ -455,15 +459,22 @@ impl SqlTable for InMemoryTable {
 
     fn insert_with_columns(&self, column_names: Vec<String>, rows: Vec<Vec<Option<StaticTypedTree>>>) -> usize {
         println!("COLUMNS TO INSERT {:?}", column_names);
-        let columns_map = column_names.into_iter().enumerate().map(|(index, name)| (name, index)).collect::<HashMap<String, usize>>();
-        let data = rows.into_iter().map(|row| {
-            let mut value = vec![];
-            for name in self.columns.iter().map(ColumnDef::name) {
-                value.push(columns_map.get(name).map(|index| row[*index].clone()).unwrap_or(None))
-            }
-            println!("ROW TO INSERT {:#?}", value);
-            value
-        }).collect::<Vec<Vec<Option<StaticTypedTree>>>>();
+        let columns_map = column_names
+            .into_iter()
+            .enumerate()
+            .map(|(index, name)| (name, index))
+            .collect::<HashMap<String, usize>>();
+        let data = rows
+            .into_iter()
+            .map(|row| {
+                let mut value = vec![];
+                for name in self.columns.iter().map(ColumnDef::name) {
+                    value.push(columns_map.get(name).map(|index| row[*index].clone()).unwrap_or(None))
+                }
+                println!("ROW TO INSERT {:#?}", value);
+                value
+            })
+            .collect::<Vec<Vec<Option<StaticTypedTree>>>>();
         self.insert(&data)
     }
 
@@ -474,7 +485,7 @@ impl SqlTable for InMemoryTable {
         )
     }
 
-    fn select_with_columns(&self, column_names: Vec<String>)-> Result<(Vec<ColumnDef>, Vec<Vec<Datum>>), String> {
+    fn select_with_columns(&self, column_names: Vec<String>) -> Result<(Vec<ColumnDef>, Vec<Vec<Datum>>), String> {
         let mut columns = vec![];
         let mut indexes = vec![];
         for name in column_names {
@@ -483,19 +494,22 @@ impl SqlTable for InMemoryTable {
                 Some((index, col)) => {
                     columns.push(col.clone());
                     indexes.push(index);
-                },
+                }
             }
         }
         Ok((
             columns,
-            self.data_table.select().map(|(_key, value)| {
-                let row = value.unpack();
-                let mut data = vec![];
-                for index in &indexes {
-                    data.push(row[*index].clone())
-                }
-                data
-            }).collect(),
+            self.data_table
+                .select()
+                .map(|(_key, value)| {
+                    let row = value.unpack();
+                    let mut data = vec![];
+                    for index in &indexes {
+                        data.push(row[*index].clone())
+                    }
+                    data
+                })
+                .collect(),
         ))
     }
 }

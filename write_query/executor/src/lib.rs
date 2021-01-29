@@ -15,8 +15,8 @@
 use catalog::{Database, SqlTable};
 use data_manipulation_query_result::{QueryExecution, QueryExecutionError};
 use data_manipulation_typed_queries::{InsertQuery, TypedWrite};
-use std::sync::Arc;
 use data_manipulation_typed_tree::StaticTypedTree;
+use std::sync::Arc;
 
 #[derive(Clone)]
 pub struct WriteQueryExecutor<D: Database> {
@@ -28,6 +28,7 @@ impl<D: Database> WriteQueryExecutor<D> {
         WriteQueryExecutor { database }
     }
 
+    #[allow(clippy::needless_collect)]
     pub fn execute(&self, write_query: TypedWrite) -> Result<QueryExecution, QueryExecutionError> {
         match write_query {
             TypedWrite::Insert(InsertQuery {
@@ -35,11 +36,12 @@ impl<D: Database> WriteQueryExecutor<D> {
                 column_names,
                 values,
             }) => {
-                let values = values.into_iter().map(|v| v.into_iter().map(Some).collect::<Vec<Option<StaticTypedTree>>>()).collect::<Vec<Vec<Option<StaticTypedTree>>>>();
+                let values = values
+                    .into_iter()
+                    .map(|v| v.into_iter().map(Some).collect::<Vec<Option<StaticTypedTree>>>())
+                    .collect::<Vec<Vec<Option<StaticTypedTree>>>>();
                 let inserted = if column_names.is_empty() {
-                    self.database.work_with(&full_table_name, |table| {
-                        table.insert(&values)
-                    })
+                    self.database.work_with(&full_table_name, |table| table.insert(&values))
                 } else {
                     self.database.work_with(&full_table_name, |table| {
                         table.insert_with_columns(column_names.clone(), values.clone())
