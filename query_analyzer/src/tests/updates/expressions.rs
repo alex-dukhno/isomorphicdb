@@ -123,7 +123,7 @@ fn update_with_column_value() {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             sql_types: vec![SqlType::small_int()],
             assignments: vec![DynamicUntypedTree::Item(DynamicUntypedItem::Column {
-                name: "col_1".to_owned(),
+                name: "col_2".to_owned(),
                 sql_type: SqlType::small_int(),
                 index: 1
             })],

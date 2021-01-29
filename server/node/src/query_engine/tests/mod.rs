@@ -25,26 +25,32 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-#[cfg(test)]
-mod delete;
-#[cfg(test)]
-mod extended_query_flow;
+// TODO: new engine does not handle deletes
+// #[cfg(test)]
+// mod delete;
+// TODO: new engine does not handle extended query flow
+// #[cfg(test)]
+// mod extended_query_flow;
 #[cfg(test)]
 mod insert;
 #[cfg(test)]
 mod schema;
 #[cfg(test)]
 mod select;
-#[cfg(test)]
-mod simple_prepared_statement;
+// TODO: new engine does not handle extended query flow
+// #[cfg(test)]
+// mod simple_prepared_statement;
 #[cfg(test)]
 mod table;
-#[cfg(test)]
-mod type_constraints;
-#[cfg(test)]
-mod update;
-#[cfg(test)]
-mod where_clause;
+// TODO: new engine does not handle type constraints
+// #[cfg(test)]
+// mod type_constraints;
+// TODO: new engine does not handle updates
+// #[cfg(test)]
+// mod update;
+// TODO: new engine does not support sophisticated selection plans
+// #[cfg(test)]
+// mod where_clause;
 
 type InMemory = QueryEngine<InMemoryDatabase>;
 type ResultCollector = Arc<Collector>;

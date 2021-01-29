@@ -423,6 +423,10 @@ impl InMemoryTable {
     fn eval(&self, tree: &StaticTypedTree) -> Datum {
         match tree {
             StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::SmallInt(value))) => Datum::from_i16(*value),
+            StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Integer(value))) => Datum::from_i32(*value),
+            StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::BigInt(value))) => Datum::from_i64(*value),
+            StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Bool(value))) => Datum::from_bool(*value),
+            StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::String(string))) => Datum::from_string(string.clone()),
             StaticTypedTree::Item(_) => unimplemented!(),
             StaticTypedTree::Operation { .. } => unimplemented!(),
         }

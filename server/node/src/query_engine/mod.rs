@@ -476,6 +476,12 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                                         .send(Err(QueryError::column_does_not_exist(column_name)))
                                         .expect("To Send Error to Client");
                                 }
+                                Err(AnalysisError::SyntaxError(message)) => {
+                                    self.sender.send(Err(QueryError::syntax_error(message))).expect("To Send Error to Client");
+                                }
+                                Err(AnalysisError::SchemaDoesNotExist(schema_name)) => {
+                                    self.sender.send(Err(QueryError::schema_does_not_exist(schema_name))).expect("To Send Error to Client");
+                                }
                                 branch => unimplemented!("handling {:?} is not implemented", branch),
                             }
                         }

@@ -40,7 +40,7 @@ impl DynamicTreeBuilder {
                 Self::op(op, &**left, &**right, original, table_columns)
             }
             expr => Err(AnalysisError::syntax_error(format!(
-                "Syntax error in {}\naround {}",
+                "Syntax error in '{}' around '{}'",
                 original, expr
             ))),
         }
