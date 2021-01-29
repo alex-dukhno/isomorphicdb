@@ -14,7 +14,7 @@
 
 use super::*;
 use crate::tests::ident;
-use description::{DropSchemasInfo, DropTablesInfo, SchemaId};
+use description::{DeprecatedDropSchemasInfo, DeprecatedDropTablesInfo, DeprecatedSchemaId};
 use sql_ast::{ObjectName, ObjectType, Statement};
 
 fn drop(names: Vec<ObjectName>, object_type: ObjectType) -> Statement {
@@ -33,7 +33,7 @@ fn drop_non_existent_schema() {
     let description = analyzer.describe(&drop(vec![ObjectName(vec![ident("non_existent")])], ObjectType::Schema));
     assert_eq!(
         description,
-        Err(DescriptionError::schema_does_not_exist(&"non_existent"))
+        Err(DeprecatedDescriptionError::schema_does_not_exist(&"non_existent"))
     );
 }
 
@@ -52,7 +52,7 @@ fn drop_schema_with_unqualified_name() {
     ));
     assert_eq!(
         description,
-        Err(DescriptionError::syntax_error(
+        Err(DeprecatedDescriptionError::syntax_error(
             &"Only unqualified schema names are supported, 'first_part.second_part.third_part.fourth_part'"
         ))
     );
@@ -66,8 +66,8 @@ fn drop_schema() {
     let description = analyzer.describe(&drop(vec![ObjectName(vec![ident(SCHEMA)])], ObjectType::Schema));
     assert_eq!(
         description,
-        Ok(Description::DropSchemas(DropSchemasInfo {
-            schema_ids: vec![SchemaId::from(0)],
+        Ok(DeprecatedDescription::DropSchemas(DeprecatedDropSchemasInfo {
+            schema_ids: vec![DeprecatedSchemaId::from(0)],
             cascade: false,
             if_exists: false,
         }))
@@ -84,7 +84,9 @@ fn drop_table_from_nonexistent_schema() {
     ));
     assert_eq!(
         description,
-        Err(DescriptionError::schema_does_not_exist(&"non_existent_schema"))
+        Err(DeprecatedDescriptionError::schema_does_not_exist(
+            &"non_existent_schema"
+        ))
     );
 }
 
@@ -99,7 +101,7 @@ fn drop_nonexistent_table() {
     ));
     assert_eq!(
         description,
-        Err(DescriptionError::table_does_not_exist(&format!(
+        Err(DeprecatedDescriptionError::table_does_not_exist(&format!(
             "{}.{}",
             SCHEMA, "non_existent_table"
         )))
@@ -117,7 +119,7 @@ fn drop_table_with_unqualified_name() {
     ));
     assert_eq!(
         description,
-        Err(DescriptionError::syntax_error(
+        Err(DeprecatedDescriptionError::syntax_error(
             &"Unsupported table name 'only_schema_in_the_name'. All table names must be qualified",
         ))
     );
@@ -138,7 +140,7 @@ fn drop_table_with_unsupported_name() {
     ));
     assert_eq!(
         description,
-        Err(DescriptionError::syntax_error(
+        Err(DeprecatedDescriptionError::syntax_error(
             &"Unable to process table name 'first_part.second_part.third_part.fourth_part'",
         ))
     );
@@ -156,8 +158,8 @@ fn drop_table() {
     ));
     assert_eq!(
         description,
-        Ok(Description::DropTables(DropTablesInfo {
-            full_table_ids: vec![FullTableId::from((0, 0))],
+        Ok(DeprecatedDescription::DropTables(DeprecatedDropTablesInfo {
+            full_table_ids: vec![DeprecatedFullTableId::from((0, 0))],
             cascade: false,
             if_exists: false
         }))

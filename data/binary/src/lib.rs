@@ -93,49 +93,44 @@ impl Binary {
         Binary(data)
     }
 
-    pub fn pack<'a>(other: &[Datum<'a>]) -> Binary {
+    pub fn pack(other: &[Datum]) -> Binary {
         use std::ops::Deref;
         let size = other.iter().map(Datum::size).sum();
         let mut data = Vec::with_capacity(size);
         for datum in other {
             match datum {
-                Datum::<'a>::True => {
+                Datum::True => {
                     push_tag(&mut data, TypeTag::True);
                 }
-                Datum::<'a>::False => {
+                Datum::False => {
                     push_tag(&mut data, TypeTag::False);
                 }
-                Datum::<'a>::Int16(val) => {
+                Datum::Int16(val) => {
                     push_tag(&mut data, TypeTag::I16);
                     push_copy!(&mut data, *val, i16);
                 }
-                Datum::<'a>::Int32(val) => {
+                Datum::Int32(val) => {
                     push_tag(&mut data, TypeTag::I32);
                     push_copy!(&mut data, *val, i32);
                 }
-                Datum::<'a>::Int64(val) => {
+                Datum::Int64(val) => {
                     push_tag(&mut data, TypeTag::I64);
                     push_copy!(&mut data, *val, i64);
                 }
-                Datum::<'a>::Float32(val) => {
+                Datum::Float32(val) => {
                     push_tag(&mut data, TypeTag::F32);
                     push_copy!(&mut data, *val.deref(), f32)
                 }
-                Datum::<'a>::Float64(val) => {
+                Datum::Float64(val) => {
                     push_tag(&mut data, TypeTag::F64);
                     push_copy!(&mut data, *val.deref(), f64)
                 }
-                Datum::<'a>::String(val) => {
+                Datum::OwnedString(val) => {
                     push_tag(&mut data, TypeTag::Str);
                     push_copy!(&mut data, val.len(), usize);
                     data.extend_from_slice(val.as_bytes());
                 }
-                Datum::<'a>::OwnedString(val) => {
-                    push_tag(&mut data, TypeTag::Str);
-                    push_copy!(&mut data, val.len(), usize);
-                    data.extend_from_slice(val.as_bytes());
-                }
-                Datum::<'a>::Null => push_tag(&mut data, TypeTag::Null),
+                Datum::Null => push_tag(&mut data, TypeTag::Null),
             }
         }
 
@@ -162,7 +157,7 @@ fn unpack_raw(data: &[u8]) -> Vec<Datum> {
             TypeTag::False => Datum::from_bool(false),
             TypeTag::Str => {
                 let val = unsafe { read_string(data, &mut index) };
-                Datum::String(val)
+                Datum::OwnedString(val.to_owned())
             }
             TypeTag::I16 => {
                 let val = unsafe { read::<i16>(data, &mut index) };
@@ -235,9 +230,18 @@ mod tests {
 
         #[test]
         fn strings() {
-            let data = vec![Datum::from_string("string".to_owned()), Datum::from_str("hello")];
+            let data = vec![
+                Datum::from_string("string".to_owned()),
+                Datum::from_string("hello".to_owned()),
+            ];
             let row = Binary::pack(&data);
-            assert_eq!(vec![Datum::from_str("string"), Datum::from_str("hello")], row.unpack());
+            assert_eq!(
+                vec![
+                    Datum::from_string("string".to_owned()),
+                    Datum::from_string("hello".to_owned())
+                ],
+                row.unpack()
+            );
         }
     }
 }

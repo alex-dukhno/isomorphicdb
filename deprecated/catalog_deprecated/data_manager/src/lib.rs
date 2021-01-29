@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use binary::{Binary, Key, ReadCursor, Values};
-use definition_operations::{Record, Step, SystemObject};
+use data_definition_operations::{Record, Step, SystemObject};
 use repr::Datum;
 use sql_model::{DropSchemaError, DropStrategy};
 use std::{
@@ -51,11 +51,11 @@ pub const TABLES_TABLE: &'_ str = "TABLES";
 /// NUMERIC_PRECISION           integer CHECK (VALUE >= 0),
 pub const COLUMNS_TABLE: &'_ str = "COLUMNS";
 
-use meta_def::{ColumnDefinition, Id};
+use meta_def::{DeprecatedColumnDefinition, Id};
 
 pub type OptionalSchemaId = Option<Id>;
 pub type OptionalTableId = Option<(Id, Option<Id>)>;
-pub type OptionalTableDesc = Option<(Id, Option<(Id, Vec<ColumnDefinition>)>)>;
+pub type OptionalTableDesc = Option<(Id, Option<(Id, Vec<DeprecatedColumnDefinition>)>)>;
 
 pub trait DataDefReader {
     fn schema_exists(&self, schema_name: &str) -> OptionalSchemaId;
@@ -73,7 +73,7 @@ pub trait DataDefReader {
                     .expect("table exists")
                     .into_iter()
                     .map(|(_column_id, column)| column)
-                    .collect::<Vec<ColumnDefinition>>();
+                    .collect::<Vec<DeprecatedColumnDefinition>>();
                 Some((schema_id, Some((table_id, columns))))
             }
             None => None,
@@ -84,12 +84,12 @@ pub trait DataDefReader {
     fn table_exists(&self, schema_name: &str, table_name: &str) -> OptionalTableId;
 
     #[allow(clippy::result_unit_err)]
-    fn table_columns(&self, table_id: &(Id, Id)) -> Result<Vec<(Id, ColumnDefinition)>, ()>;
+    fn table_columns(&self, table_id: &(Id, Id)) -> Result<Vec<(Id, DeprecatedColumnDefinition)>, ()>;
 
     #[allow(clippy::result_unit_err)]
     fn column_ids(&self, table_id: &(Id, Id), names: &[String]) -> Result<(Vec<Id>, Vec<String>), ()>;
 
-    fn column_defs(&self, table_id: &(Id, Id), ids: &[Id]) -> Vec<ColumnDefinition>;
+    fn column_defs(&self, table_id: &(Id, Id), ids: &[Id]) -> Vec<DeprecatedColumnDefinition>;
 }
 
 pub trait DataDefOperationExecutor {
@@ -151,7 +151,7 @@ impl DatabaseHandle {
                 .map(Result::unwrap)
                 .map(|(record_id, columns)| {
                     let catalog_id = Datum::from_u64(record_id.unpack()[0].as_u64());
-                    let schema = columns.unpack()[1].as_str().to_owned();
+                    let schema = columns.unpack()[1].as_string();
                     (catalog_id, schema)
                 })
                 .filter(|(catalog_id, _schema)| catalog_id == &DEFAULT_CATALOG_ID)
@@ -194,8 +194,8 @@ impl DatabaseHandle {
                 let schema_id = ids[1].as_u64();
                 let table_id = ids[2].as_u64();
                 let data = columns.unpack();
-                let schema_name = data[1].as_str().to_owned();
-                let table_name = data[2].as_str().to_owned();
+                let schema_name = data[1].as_string();
+                let table_name = data[2].as_string();
                 (schema_id, table_id, schema_name, table_name)
             })
             .find(|(schema_id, table_id, _schema_name, _table_name)| &(*schema_id, *table_id) == full_table_id)
@@ -221,7 +221,10 @@ impl DatabaseHandle {
                 SCHEMATA_TABLE,
                 vec![(
                     Binary::pack(&[DEFAULT_CATALOG_ID, Datum::from_u64(schema_id)]),
-                    Binary::pack(&[Datum::from_str(DEFAULT_CATALOG), Datum::from_str(schema_name)]),
+                    Binary::pack(&[
+                        Datum::from_string(DEFAULT_CATALOG.to_owned()),
+                        Datum::from_string(schema_name.to_owned()),
+                    ]),
                 )],
             )
             .expect("no io error")
@@ -251,7 +254,7 @@ impl DatabaseHandle {
             .map(Result::unwrap)
             .map(|(record_id, columns)| {
                 let id = record_id.unpack()[1].as_u64();
-                let schema_name = columns.unpack()[1].as_str().to_owned();
+                let schema_name = columns.unpack()[1].as_string();
                 (id, schema_name)
             })
             .find(|(id, _schema)| id == schema_id)
@@ -303,7 +306,7 @@ impl DatabaseHandle {
                         .map(Result::unwrap)
                         .map(Result::unwrap)
                         .map(|(record_id, columns)| {
-                            let schema = columns.unpack()[1].as_str().to_owned();
+                            let schema = columns.unpack()[1].as_string();
                             (record_id, schema)
                         })
                         .find(|(_record_id, schema)| schema_name == schema)
@@ -333,7 +336,7 @@ impl DatabaseHandle {
                     .map(Result::unwrap)
                     .map(Result::unwrap)
                     .map(|(record_id, columns)| {
-                        let schema = columns.unpack()[1].as_str().to_owned();
+                        let schema = columns.unpack()[1].as_string();
                         (record_id, schema)
                     })
                     .find(|(_record_id, schema)| schema_name == schema)
@@ -398,7 +401,7 @@ impl DatabaseHandle {
         &self,
         schema_id: Id,
         table_name: &str,
-        column_definitions: &[ColumnDefinition],
+        column_definitions: &[DeprecatedColumnDefinition],
     ) -> Result<Id, ()> {
         let schema = self
             .inner
@@ -410,7 +413,7 @@ impl DatabaseHandle {
             .map(Result::unwrap)
             .map(|(record_id, columns)| {
                 let id = record_id.unpack()[1].as_u64();
-                let schema = columns.unpack()[1].as_str().to_owned();
+                let schema = columns.unpack()[1].as_string();
                 (id, schema)
             })
             .find(|(id, _schema)| id == &schema_id)
@@ -434,9 +437,9 @@ impl DatabaseHandle {
                                 Datum::from_u64(table_id),
                             ]),
                             Binary::pack(&[
-                                Datum::from_str(DEFAULT_CATALOG),
-                                Datum::from_str(&schema_name),
-                                Datum::from_str(table_name),
+                                Datum::from_string(DEFAULT_CATALOG.to_owned()),
+                                Datum::from_string(schema_name.clone()),
+                                Datum::from_string(table_name.to_owned()),
                             ]),
                         )],
                     )
@@ -452,7 +455,7 @@ impl DatabaseHandle {
                     .unwrap();
                 for (index, column) in column_definitions.iter().enumerate() {
                     let chars_len = match column.sql_type() {
-                        SqlType::Char(len) | SqlType::VarChar(len) => Datum::from_u64(len),
+                        SqlType::Str { len, .. } => Datum::from_u64(len),
                         _ => Datum::from_null(),
                     };
                     let id = column_ids_sequence.next();
@@ -468,11 +471,11 @@ impl DatabaseHandle {
                                     Datum::from_u64(id),
                                 ]),
                                 Binary::pack(&[
-                                    Datum::from_str(DEFAULT_CATALOG),
-                                    Datum::from_str(&schema_name),
-                                    Datum::from_str(table_name),
+                                    Datum::from_string(DEFAULT_CATALOG.to_owned()),
+                                    Datum::from_string(schema_name.clone()),
+                                    Datum::from_string(table_name.to_owned()),
                                     Datum::from_u64(index as u64),
-                                    Datum::from_str(column.name().as_str()),
+                                    Datum::from_string(column.name()),
                                     Datum::from_u64(column.sql_type().type_id()),
                                     chars_len,
                                 ]),
@@ -517,8 +520,8 @@ impl DatabaseHandle {
                 let schema_id = ids[1].as_u64();
                 let table_id = ids[2].as_u64();
                 let data = columns.unpack();
-                let schema_name = data[1].as_str().to_owned();
-                let table_name = data[2].as_str().to_owned();
+                let schema_name = data[1].as_string();
+                let table_name = data[2].as_string();
                 (schema_id, table_id, schema_name, table_name)
             })
             .find(|(schema_id, table_id, _schema_name, _table_name)| full_table_id == &(*schema_id, *table_id))
@@ -571,8 +574,8 @@ impl DatabaseHandle {
                 let schema_id = ids[1].as_u64();
                 let table_id = ids[2].as_u64();
                 let data = columns.unpack();
-                let schema_name = data[1].as_str().to_owned();
-                let table_name = data[2].as_str().to_owned();
+                let schema_name = data[1].as_string();
+                let table_name = data[2].as_string();
                 (schema_id, table_id, schema_name, table_name)
             })
             .find(|(schema_id, table_id, _schema_name, _table_name)| full_table_id == &(*schema_id, *table_id))
@@ -612,8 +615,8 @@ impl DatabaseHandle {
                 let schema_id = ids[1].as_u64();
                 let table_id = ids[2].as_u64();
                 let data = columns.unpack();
-                let schema_name = data[1].as_str().to_owned();
-                let table_name = data[2].as_str().to_owned();
+                let schema_name = data[1].as_string();
+                let table_name = data[2].as_string();
                 (schema_id, table_id, schema_name, table_name)
             })
             .find(|(schema_id, table_id, _schema_name, _table_name)| full_table_id == &(*schema_id, *table_id))
@@ -650,8 +653,8 @@ impl DatabaseHandle {
                 let schema_id = ids[1].as_u64();
                 let table_id = ids[2].as_u64();
                 let data = columns.unpack();
-                let schema_name = data[1].as_str().to_owned();
-                let table_name = data[2].as_str().to_owned();
+                let schema_name = data[1].as_string();
+                let table_name = data[2].as_string();
                 (schema_id, table_id, schema_name, table_name)
             })
             .find(|(schema_id, table_id, _schema_name, _table_name)| full_table_id == &(*schema_id, *table_id))
@@ -690,7 +693,7 @@ impl DataDefOperationExecutor for DatabaseHandle {
                         .expect("to have COLUMNS table")
                         .map(Result::unwrap)
                         .map(Result::unwrap)
-                        .map(|(_record_id, columns)| columns.unpack()[1].as_str().to_owned())
+                        .map(|(_record_id, columns)| columns.unpack()[1].as_string())
                         .any(|name| name == object_name[0]);
                     if schema_exists {
                         Ok(())
@@ -707,7 +710,7 @@ impl DataDefOperationExecutor for DatabaseHandle {
                         .expect("to have COLUMNS table")
                         .map(Result::unwrap)
                         .map(Result::unwrap)
-                        .map(|(_record_id, columns)| columns.unpack()[2].as_str().to_owned())
+                        .map(|(_record_id, columns)| columns.unpack()[2].as_string())
                         .any(|name| name == object_name[0]);
                     if table_exists {
                         Ok(())
@@ -729,7 +732,7 @@ impl DataDefOperationExecutor for DatabaseHandle {
                         .expect("to have COLUMNS table")
                         .map(Result::unwrap)
                         .map(Result::unwrap)
-                        .map(|(_record_id, columns)| columns.unpack()[1].as_str().to_owned())
+                        .map(|(_record_id, columns)| columns.unpack()[1].as_string())
                         .any(|name| name == object_name[0]);
                     if has_dependants {
                         Err(())
@@ -754,7 +757,7 @@ impl DataDefOperationExecutor for DatabaseHandle {
                         .map(Result::unwrap)
                         .map(|(record_id, columns)| {
                             let schema_id = record_id.unpack()[1].as_u64();
-                            let schema = columns.unpack()[1].as_str().to_owned();
+                            let schema = columns.unpack()[1].as_string();
                             (schema_id, schema)
                         })
                         .find(|(_schema_id, schema)| schema == &object_name[0])
@@ -832,8 +835,8 @@ impl DataDefOperationExecutor for DatabaseHandle {
                         let schema_id = ids[1].as_u64();
                         let table_id = ids[2].as_u64();
                         let data = columns.unpack();
-                        let schema = data[1].as_str().to_owned();
-                        let table = data[2].as_str().to_owned();
+                        let schema = data[1].as_string();
+                        let table = data[2].as_string();
                         (schema_id, table_id, schema, table)
                     })
                     .find(|(_schema_id, _table_id, schema, table)| schema_name == schema && table_name == table)
@@ -885,56 +888,54 @@ impl DataDefOperationExecutor for DatabaseHandle {
                     .unwrap();
                 Ok(())
             }
-            Step::RemoveRecord {
-                system_schema,
-                system_table,
-                record,
-            } => {
-                let binary_record = match record {
-                    Record::Schema {
-                        catalog_name,
-                        schema_name,
-                    } => self
-                        .inner
-                        .read(DEFINITION_SCHEMA, SCHEMATA_TABLE)
-                        .expect("no io error")
-                        .expect("no platform error")
-                        .expect("to have SCHEMATA table")
-                        .map(Result::unwrap)
-                        .map(Result::unwrap)
-                        .map(|(record_id, columns)| {
-                            let data = columns.unpack();
-                            let catalog = data[0].as_str().to_owned();
-                            let schema = data[1].as_str().to_owned();
-                            (record_id, catalog, schema)
-                        })
-                        .find(|(_record, catalog, schema)| catalog == catalog_name && schema == schema_name)
-                        .map(|(record, _catalog, _schema)| record)
-                        .unwrap(),
+            Step::RemoveRecord { record } => {
+                let (system_schema, system_table, binary_record) = match record {
+                    Record::Schema { schema_name } => (
+                        DEFINITION_SCHEMA,
+                        SCHEMATA_TABLE,
+                        self.inner
+                            .read(DEFINITION_SCHEMA, SCHEMATA_TABLE)
+                            .expect("no io error")
+                            .expect("no platform error")
+                            .expect("to have SCHEMATA table")
+                            .map(Result::unwrap)
+                            .map(Result::unwrap)
+                            .map(|(record_id, columns)| {
+                                let data = columns.unpack();
+                                let catalog = data[0].as_string();
+                                let schema = data[1].as_string();
+                                (record_id, catalog, schema)
+                            })
+                            .find(|(_record, catalog, schema)| catalog == DEFAULT_CATALOG && schema == schema_name)
+                            .map(|(record, _catalog, _schema)| record)
+                            .unwrap(),
+                    ),
                     Record::Table {
-                        catalog_name,
                         schema_name,
                         table_name,
-                    } => self
-                        .inner
-                        .read(DEFINITION_SCHEMA, TABLES_TABLE)
-                        .expect("no io error")
-                        .expect("no platform error")
-                        .expect("to have SCHEMATA table")
-                        .map(Result::unwrap)
-                        .map(Result::unwrap)
-                        .map(|(record_id, columns)| {
-                            let data = columns.unpack();
-                            let catalog = data[0].as_str().to_owned();
-                            let schema = data[1].as_str().to_owned();
-                            let table = data[2].as_str().to_owned();
-                            (record_id, catalog, schema, table)
-                        })
-                        .find(|(_record, catalog, schema, table)| {
-                            catalog == catalog_name && schema == schema_name && table == table_name
-                        })
-                        .map(|(record, _catalog, _schema, _table)| record)
-                        .unwrap(),
+                    } => (
+                        DEFINITION_SCHEMA,
+                        TABLES_TABLE,
+                        self.inner
+                            .read(DEFINITION_SCHEMA, TABLES_TABLE)
+                            .expect("no io error")
+                            .expect("no platform error")
+                            .expect("to have SCHEMATA table")
+                            .map(Result::unwrap)
+                            .map(Result::unwrap)
+                            .map(|(record_id, columns)| {
+                                let data = columns.unpack();
+                                let catalog = data[0].as_string();
+                                let schema = data[1].as_string();
+                                let table = data[2].as_string();
+                                (record_id, catalog, schema, table)
+                            })
+                            .find(|(_record, catalog, schema, table)| {
+                                catalog == DEFAULT_CATALOG && schema == schema_name && table == table_name
+                            })
+                            .map(|(record, _catalog, _schema, _table)| record)
+                            .unwrap(),
+                    ),
                     Record::Column { .. } => unreachable!(),
                 };
                 self.inner
@@ -944,29 +945,28 @@ impl DataDefOperationExecutor for DatabaseHandle {
                     .expect("to remove object");
                 Ok(())
             }
-            Step::CreateRecord {
-                system_schema,
-                system_table,
-                record,
-            } => {
+            Step::CreateRecord { record } => {
                 log::debug!("{:?}", record);
-                let binary_record = match record {
-                    Record::Schema {
-                        catalog_name,
-                        schema_name,
-                    } => {
+                let (system_schema, system_table, binary_record) = match record {
+                    Record::Schema { schema_name } => {
                         let schema_id = self
                             .inner
                             .get_sequence(DEFINITION_SCHEMA, &(SCHEMATA_TABLE.to_owned() + ".records"))
                             .unwrap()
                             .next();
-                        vec![(
-                            Binary::pack(&[DEFAULT_CATALOG_ID, Datum::from_u64(schema_id)]),
-                            Binary::pack(&[Datum::from_str(&catalog_name), Datum::from_str(&schema_name)]),
-                        )]
+                        (
+                            DEFINITION_SCHEMA,
+                            SCHEMATA_TABLE,
+                            vec![(
+                                Binary::pack(&[DEFAULT_CATALOG_ID, Datum::from_u64(schema_id)]),
+                                Binary::pack(&[
+                                    Datum::from_string(DEFAULT_CATALOG.to_owned()),
+                                    Datum::from_string(schema_name.clone()),
+                                ]),
+                            )],
+                        )
                     }
                     Record::Table {
-                        catalog_name,
                         schema_name,
                         table_name,
                     } => {
@@ -980,7 +980,7 @@ impl DataDefOperationExecutor for DatabaseHandle {
                             .map(Result::unwrap)
                             .map(|(record_id, columns)| {
                                 let id = record_id.unpack()[1].as_u64();
-                                let schema = columns.unpack()[1].as_str().to_owned();
+                                let schema = columns.unpack()[1].as_string();
                                 (id, schema)
                             })
                             .find(|(_id, schema)| schema_name == schema)
@@ -1002,21 +1002,24 @@ impl DataDefOperationExecutor for DatabaseHandle {
                                     + ".column.ids"),
                             )
                             .expect("column id sequence is created");
-                        vec![(
-                            Binary::pack(&[
-                                DEFAULT_CATALOG_ID,
-                                Datum::from_u64(schema_id),
-                                Datum::from_u64(table_id),
-                            ]),
-                            Binary::pack(&[
-                                Datum::from_str(&catalog_name),
-                                Datum::from_str(&schema_name),
-                                Datum::from_str(&table_name),
-                            ]),
-                        )]
+                        (
+                            DEFINITION_SCHEMA,
+                            TABLES_TABLE,
+                            vec![(
+                                Binary::pack(&[
+                                    DEFAULT_CATALOG_ID,
+                                    Datum::from_u64(schema_id),
+                                    Datum::from_u64(table_id),
+                                ]),
+                                Binary::pack(&[
+                                    Datum::from_string(DEFAULT_CATALOG.to_owned()),
+                                    Datum::from_string(schema_name.clone()),
+                                    Datum::from_string(table_name.clone()),
+                                ]),
+                            )],
+                        )
                     }
                     Record::Column {
-                        catalog_name,
                         schema_name,
                         table_name,
                         column_name,
@@ -1035,8 +1038,8 @@ impl DataDefOperationExecutor for DatabaseHandle {
                                 let schema_id = ids[1].as_u64();
                                 let table_id = ids[2].as_u64();
                                 let data = columns.unpack();
-                                let schema = data[1].as_str().to_owned();
-                                let table = data[2].as_str().to_owned();
+                                let schema = data[1].as_string();
+                                let table = data[2].as_string();
                                 (schema_id, table_id, schema, table)
                             })
                             .find(|(_schema_id, _table_id, schema, table)| schema_name == schema && table_name == table)
@@ -1056,26 +1059,30 @@ impl DataDefOperationExecutor for DatabaseHandle {
                             .unwrap()
                             .next();
                         let chars_len = match sql_type {
-                            SqlType::Char(len) | SqlType::VarChar(len) => Datum::from_u64(*len),
+                            SqlType::Str { len, .. } => Datum::from_u64(*len),
                             _ => Datum::from_null(),
                         };
-                        vec![(
-                            Binary::pack(&[
-                                DEFAULT_CATALOG_ID,
-                                Datum::from_u64(schema_id),
-                                Datum::from_u64(table_id),
-                                Datum::from_u64(column_id),
-                            ]),
-                            Binary::pack(&[
-                                Datum::from_str(&catalog_name),
-                                Datum::from_str(&schema_name),
-                                Datum::from_str(&table_name),
-                                Datum::from_u64(column_id),
-                                Datum::from_str(&column_name),
-                                Datum::from_u64(sql_type.type_id()),
-                                chars_len,
-                            ]),
-                        )]
+                        (
+                            DEFINITION_SCHEMA,
+                            COLUMNS_TABLE,
+                            vec![(
+                                Binary::pack(&[
+                                    DEFAULT_CATALOG_ID,
+                                    Datum::from_u64(schema_id),
+                                    Datum::from_u64(table_id),
+                                    Datum::from_u64(column_id),
+                                ]),
+                                Binary::pack(&[
+                                    Datum::from_string(DEFAULT_CATALOG.to_owned()),
+                                    Datum::from_string(schema_name.clone()),
+                                    Datum::from_string(table_name.clone()),
+                                    Datum::from_u64(column_id),
+                                    Datum::from_string(column_name.clone()),
+                                    Datum::from_u64(sql_type.type_id()),
+                                    chars_len,
+                                ]),
+                            )],
+                        )
                     }
                 };
                 self.inner
@@ -1101,8 +1108,8 @@ impl DataDefReader for DatabaseHandle {
             .map(|(record_id, columns)| {
                 let id = record_id.unpack()[1].as_u64();
                 let columns = columns.unpack();
-                let catalog = columns[0].as_str().to_owned();
-                let schema = columns[1].as_str().to_owned();
+                let catalog = columns[0].as_string();
+                let schema = columns[1].as_string();
                 (id, catalog, schema)
             })
             .filter(|(_id, catalog, schema)| catalog == DEFAULT_CATALOG && schema == schema_name)
@@ -1127,7 +1134,7 @@ impl DataDefReader for DatabaseHandle {
                         let schema_id = record[1].as_u64();
                         let table_id = record[2].as_u64();
                         let columns = columns.unpack();
-                        let table = columns[2].as_str().to_owned();
+                        let table = columns[2].as_string();
                         (schema_id, table_id, table)
                     })
                     .filter(|(schema, _id, name)| schema == &schema_id && name == table_name)
@@ -1137,7 +1144,7 @@ impl DataDefReader for DatabaseHandle {
         }
     }
 
-    fn table_columns(&self, table_id: &(Id, Id)) -> Result<Vec<(Id, ColumnDefinition)>, ()> {
+    fn table_columns(&self, table_id: &(Id, Id)) -> Result<Vec<(Id, DeprecatedColumnDefinition)>, ()> {
         log::debug!("FULL TABLE ID {:?}", table_id);
         match self
             .inner
@@ -1172,7 +1179,7 @@ impl DataDefReader for DatabaseHandle {
                 let table_id = record[2].as_u64();
                 let column_id = record[3].as_u64();
                 let columns = columns.unpack();
-                let name = columns[4].as_str().to_owned();
+                let name = columns[4].as_string();
                 let type_id = columns[5].as_u64();
                 let chars_len = match columns[6] {
                     Datum::Int64(val) => val as u64,
@@ -1183,7 +1190,9 @@ impl DataDefReader for DatabaseHandle {
                 ((schema_id, table_id), column_id, name, sql_type)
             })
             .filter(|(full_table_id, _column_id, _name, _sql_type)| full_table_id == table_id)
-            .map(|(_full_table_id, column_id, name, sql_type)| (column_id, ColumnDefinition::new(&name, sql_type)))
+            .map(|(_full_table_id, column_id, name, sql_type)| {
+                (column_id, DeprecatedColumnDefinition::new(&name, sql_type))
+            })
             .collect())
     }
 
@@ -1223,7 +1232,7 @@ impl DataDefReader for DatabaseHandle {
                 let table_id = record[2].as_u64();
                 let column_id = record[3].as_u64();
                 let columns = columns.unpack();
-                let name = columns[4].as_str().to_owned();
+                let name = columns[4].as_string();
                 ((schema_id, table_id), column_id, name)
             })
             .filter(|(full_table_id, _column_id, _name)| full_table_id == table_id)
@@ -1240,7 +1249,7 @@ impl DataDefReader for DatabaseHandle {
         Ok((idx, not_found))
     }
 
-    fn column_defs(&self, table_id: &(Id, Id), ids: &[Id]) -> Vec<ColumnDefinition> {
+    fn column_defs(&self, table_id: &(Id, Id), ids: &[Id]) -> Vec<DeprecatedColumnDefinition> {
         match self
             .inner
             .read(DEFINITION_SCHEMA, TABLES_TABLE)
@@ -1278,7 +1287,7 @@ impl DataDefReader for DatabaseHandle {
                 let table_id = record[2].as_u64();
                 let column_id = record[3].as_u64();
                 let columns = columns.unpack();
-                let name = columns[4].as_str().to_owned();
+                let name = columns[4].as_string();
                 let type_id = columns[5].as_u64();
                 let chars_len = match columns[6] {
                     Datum::Int64(val) => val as u64,
@@ -1288,7 +1297,9 @@ impl DataDefReader for DatabaseHandle {
                 ((schema_id, table_id), column_id, name, sql_type)
             })
             .filter(|(full_table_id, _column_id, _name, _sql_type)| full_table_id == table_id)
-            .map(|(_full_table_id, column_id, name, sql_type)| (column_id, ColumnDefinition::new(&name, sql_type)))
+            .map(|(_full_table_id, column_id, name, sql_type)| {
+                (column_id, DeprecatedColumnDefinition::new(&name, sql_type))
+            })
             .collect::<HashMap<_, _>>();
         log::debug!("COLUMNS IN TABLE: {:?}", columns);
         log::debug!("SELECTED COLUMN IDS {:?}", ids);

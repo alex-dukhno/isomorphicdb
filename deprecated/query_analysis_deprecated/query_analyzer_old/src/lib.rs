@@ -14,11 +14,12 @@
 
 use data_manager::DataDefReader;
 use description::{
-    ColumnDesc, Description, DescriptionError, DropSchemasInfo, DropTablesInfo, FullTableId, FullTableName,
-    InsertStatement, ParamIndex, ParamTypes, ProjectionItem, SchemaCreationInfo, SchemaId, SchemaName, SelectStatement,
-    TableCreationInfo, UpdateStatement,
+    DeprecatedColumnDesc, DeprecatedDescription, DeprecatedDescriptionError, DeprecatedDropSchemasInfo,
+    DeprecatedDropTablesInfo, DeprecatedFullTableId, DeprecatedFullTableName, DeprecatedInsertStatement,
+    DeprecatedProjectionItem, DeprecatedSchemaCreationInfo, DeprecatedSchemaId, DeprecatedSchemaName,
+    DeprecatedSelectStatement, DeprecatedTableCreationInfo, DeprecatedUpdateStatement, ParamIndex, ParamTypes,
 };
-use meta_def::ColumnDefinition;
+use meta_def::DeprecatedColumnDefinition;
 use sql_ast::{
     Assignment, Expr, Ident, ObjectType, Query, Select, SelectItem, SetExpr, Statement, TableFactor, TableWithJoins,
 };
@@ -34,14 +35,14 @@ impl Analyzer {
         Analyzer { metadata }
     }
 
-    pub fn describe(&self, statement: &Statement) -> Result<Description, DescriptionError> {
+    pub fn describe(&self, statement: &Statement) -> Result<DeprecatedDescription, DeprecatedDescriptionError> {
         match statement {
             Statement::Insert {
                 columns,
                 source,
                 table_name,
                 ..
-            } => match FullTableName::try_from(table_name) {
+            } => match DeprecatedFullTableName::try_from(table_name) {
                 Ok(full_table_name) => match self.metadata.table_desc((&full_table_name).into()) {
                     Some((schema_id, Some((table_id, table_columns)))) => {
                         let source: &Query = source;
@@ -55,23 +56,25 @@ impl Analyzer {
                                 let col_name = value.to_lowercase();
                                 match table_columns.iter().find(|col_def| col_def.has_name(&col_name)) {
                                     Some(col_def) => col_types.push(col_def.sql_type()),
-                                    None => return Err(DescriptionError::column_does_not_exist(&col_name)),
+                                    None => return Err(DeprecatedDescriptionError::column_does_not_exist(&col_name)),
                                 }
                             }
                             col_types
                         };
                         let param_types = parse_assign_param_types(body, &column_types)?;
                         let param_count = param_types.keys().max().map_or(0, |max_index| max_index + 1);
-                        Ok(Description::Insert(InsertStatement {
-                            table_id: FullTableId::from((schema_id, table_id)),
+                        Ok(DeprecatedDescription::Insert(DeprecatedInsertStatement {
+                            table_id: DeprecatedFullTableId::from((schema_id, table_id)),
                             param_count,
                             param_types,
                         }))
                     }
-                    Some((_schema_id, None)) => Err(DescriptionError::table_does_not_exist(&full_table_name)),
-                    None => Err(DescriptionError::schema_does_not_exist(&full_table_name.schema())),
+                    Some((_schema_id, None)) => Err(DeprecatedDescriptionError::table_does_not_exist(&full_table_name)),
+                    None => Err(DeprecatedDescriptionError::schema_does_not_exist(
+                        &full_table_name.schema(),
+                    )),
                 },
-                Err(error) => Err(DescriptionError::syntax_error(&error)),
+                Err(error) => Err(DeprecatedDescriptionError::syntax_error(&error)),
             },
             Statement::Query(query) => {
                 let Query { body, .. } = &**query;
@@ -80,15 +83,17 @@ impl Analyzer {
                         let Select { projection, from, .. } = query.deref();
                         let TableWithJoins { relation, .. } = &from[0];
                         match relation {
-                            TableFactor::Table { name, .. } => match FullTableName::try_from(name) {
+                            TableFactor::Table { name, .. } => match DeprecatedFullTableName::try_from(name) {
                                 Ok(full_table_name) => {
                                     match self.metadata.table_exists_tuple((&full_table_name).into()) {
-                                        None => Err(DescriptionError::schema_does_not_exist(&full_table_name.schema())),
+                                        None => Err(DeprecatedDescriptionError::schema_does_not_exist(
+                                            &full_table_name.schema(),
+                                        )),
                                         Some((_, None)) => {
-                                            Err(DescriptionError::table_does_not_exist(&full_table_name))
+                                            Err(DeprecatedDescriptionError::table_does_not_exist(&full_table_name))
                                         }
                                         Some((schema_id, Some(table_id))) => {
-                                            let full_table_id = FullTableId::from((schema_id, table_id));
+                                            let full_table_id = DeprecatedFullTableId::from((schema_id, table_id));
                                             let projection_items = {
                                                 let mut names: Vec<String> = vec![];
                                                 for item in projection {
@@ -122,24 +127,27 @@ impl Analyzer {
                                                     }
                                                     match found {
                                                         None => {
-                                                            return Err(DescriptionError::column_does_not_exist(name))
+                                                            return Err(
+                                                                DeprecatedDescriptionError::column_does_not_exist(name),
+                                                            )
                                                         }
-                                                        Some((column_id, sql_type)) => projection_items
-                                                            .push(ProjectionItem::Column(column_id, sql_type)),
+                                                        Some((column_id, sql_type)) => projection_items.push(
+                                                            DeprecatedProjectionItem::Column(column_id, sql_type),
+                                                        ),
                                                     }
                                                 }
                                                 projection_items
                                             };
-                                            Ok(Description::Select(SelectStatement {
+                                            Ok(DeprecatedDescription::Select(DeprecatedSelectStatement {
                                                 full_table_id,
                                                 projection_items,
                                             }))
                                         }
                                     }
                                 }
-                                Err(error) => Err(DescriptionError::syntax_error(&error)),
+                                Err(error) => Err(DeprecatedDescriptionError::syntax_error(&error)),
                             },
-                            _ => Err(DescriptionError::feature_not_supported(&*query)),
+                            _ => Err(DeprecatedDescriptionError::feature_not_supported(&*query)),
                         }
                     }
                     _ => unimplemented!(),
@@ -150,7 +158,7 @@ impl Analyzer {
                 selection,
                 table_name,
                 ..
-            } => match FullTableName::try_from(table_name) {
+            } => match DeprecatedFullTableName::try_from(table_name) {
                 Ok(full_table_name) => match self.metadata.table_desc((&full_table_name).into()) {
                     Some((schema_id, Some((table_id, table_columns)))) => {
                         let mut param_types = ParamTypes::new();
@@ -187,40 +195,44 @@ impl Analyzer {
                             }
                         }
                         let param_count = param_types.keys().max().map_or(0, |max_index| max_index + 1);
-                        Ok(Description::Update(UpdateStatement {
-                            table_id: FullTableId::from((schema_id, table_id)),
+                        Ok(DeprecatedDescription::Update(DeprecatedUpdateStatement {
+                            table_id: DeprecatedFullTableId::from((schema_id, table_id)),
                             param_count,
                             param_types,
                         }))
                     }
-                    Some((_schema_id, None)) => Err(DescriptionError::table_does_not_exist(&full_table_name)),
-                    None => Err(DescriptionError::schema_does_not_exist(&full_table_name.schema())),
+                    Some((_schema_id, None)) => Err(DeprecatedDescriptionError::table_does_not_exist(&full_table_name)),
+                    None => Err(DeprecatedDescriptionError::schema_does_not_exist(
+                        &full_table_name.schema(),
+                    )),
                 },
-                Err(error) => Err(DescriptionError::syntax_error(&error)),
+                Err(error) => Err(DeprecatedDescriptionError::syntax_error(&error)),
             },
-            Statement::CreateTable { name, columns, .. } => match FullTableName::try_from(name) {
+            Statement::CreateTable { name, columns, .. } => match DeprecatedFullTableName::try_from(name) {
                 Ok(full_table_name) => {
                     let (schema_name, table_name) = (&full_table_name).into();
                     match self.metadata.table_exists(schema_name, table_name) {
-                        Some((_, Some(_))) => Err(DescriptionError::table_already_exists(&full_table_name)),
-                        None => Err(DescriptionError::schema_does_not_exist(&full_table_name.schema())),
+                        Some((_, Some(_))) => Err(DeprecatedDescriptionError::table_already_exists(&full_table_name)),
+                        None => Err(DeprecatedDescriptionError::schema_does_not_exist(
+                            &full_table_name.schema(),
+                        )),
                         Some((schema_id, None)) => {
                             let mut column_defs = Vec::new();
                             for column in columns {
                                 match SqlType::try_from(&column.data_type) {
-                                    Ok(sql_type) => column_defs.push(ColumnDesc {
+                                    Ok(sql_type) => column_defs.push(DeprecatedColumnDesc {
                                         name: column.name.value.as_str().to_owned(),
                                         pg_type: (&sql_type).into(),
                                     }),
                                     Err(_error) => {
-                                        return Err(DescriptionError::feature_not_supported(&format!(
+                                        return Err(DeprecatedDescriptionError::feature_not_supported(&format!(
                                             "'{}' type is not supported",
                                             &column.data_type
                                         )));
                                     }
                                 }
                             }
-                            Ok(Description::CreateTable(TableCreationInfo {
+                            Ok(DeprecatedDescription::CreateTable(DeprecatedTableCreationInfo {
                                 schema_id,
                                 table_name: table_name.to_owned(),
                                 columns: column_defs,
@@ -228,16 +240,16 @@ impl Analyzer {
                         }
                     }
                 }
-                Err(error) => Err(DescriptionError::syntax_error(&error)),
+                Err(error) => Err(DeprecatedDescriptionError::syntax_error(&error)),
             },
-            Statement::CreateSchema { schema_name, .. } => match SchemaName::try_from(schema_name) {
+            Statement::CreateSchema { schema_name, .. } => match DeprecatedSchemaName::try_from(schema_name) {
                 Ok(schema_name) => match self.metadata.schema_exists(&schema_name) {
-                    Some(_) => Err(DescriptionError::schema_already_exists(&schema_name)),
-                    None => Ok(Description::CreateSchema(SchemaCreationInfo {
+                    Some(_) => Err(DeprecatedDescriptionError::schema_already_exists(&schema_name)),
+                    None => Ok(DeprecatedDescription::CreateSchema(DeprecatedSchemaCreationInfo {
                         schema_name: schema_name.to_string(),
                     })),
                 },
-                Err(error) => Err(DescriptionError::syntax_error(&error)),
+                Err(error) => Err(DeprecatedDescriptionError::syntax_error(&error)),
             },
             Statement::Drop {
                 names,
@@ -248,15 +260,15 @@ impl Analyzer {
                 ObjectType::Schema => {
                     let mut schema_ids = vec![];
                     for name in names {
-                        match SchemaName::try_from(name) {
+                        match DeprecatedSchemaName::try_from(name) {
                             Ok(schema_name) => match self.metadata.schema_exists(&schema_name) {
-                                None => return Err(DescriptionError::schema_does_not_exist(&schema_name)),
-                                Some(schema_id) => schema_ids.push(SchemaId::from(schema_id)),
+                                None => return Err(DeprecatedDescriptionError::schema_does_not_exist(&schema_name)),
+                                Some(schema_id) => schema_ids.push(DeprecatedSchemaId::from(schema_id)),
                             },
-                            Err(error) => return Err(DescriptionError::syntax_error(&error)),
+                            Err(error) => return Err(DeprecatedDescriptionError::syntax_error(&error)),
                         }
                     }
-                    Ok(Description::DropSchemas(DropSchemasInfo {
+                    Ok(DeprecatedDescription::DropSchemas(DeprecatedDropSchemasInfo {
                         schema_ids,
                         cascade: *cascade,
                         if_exists: *if_exists,
@@ -265,20 +277,24 @@ impl Analyzer {
                 ObjectType::Table => {
                     let mut full_table_ids = vec![];
                     for name in names {
-                        match FullTableName::try_from(name) {
+                        match DeprecatedFullTableName::try_from(name) {
                             Ok(full_table_name) => match self.metadata.table_exists_tuple((&full_table_name).into()) {
-                                None => return Err(DescriptionError::schema_does_not_exist(&full_table_name.schema())),
+                                None => {
+                                    return Err(DeprecatedDescriptionError::schema_does_not_exist(
+                                        &full_table_name.schema(),
+                                    ))
+                                }
                                 Some((_, None)) => {
-                                    return Err(DescriptionError::table_does_not_exist(&full_table_name))
+                                    return Err(DeprecatedDescriptionError::table_does_not_exist(&full_table_name))
                                 }
                                 Some((schema_id, Some(table_id))) => {
-                                    full_table_ids.push(FullTableId::from((schema_id, table_id)))
+                                    full_table_ids.push(DeprecatedFullTableId::from((schema_id, table_id)))
                                 }
                             },
-                            Err(error) => return Err(DescriptionError::syntax_error(&error)),
+                            Err(error) => return Err(DeprecatedDescriptionError::syntax_error(&error)),
                         }
                     }
-                    Ok(Description::DropTables(DropTablesInfo {
+                    Ok(DeprecatedDescription::DropTables(DeprecatedDropTablesInfo {
                         full_table_ids,
                         cascade: *cascade,
                         if_exists: *if_exists,
@@ -291,7 +307,10 @@ impl Analyzer {
     }
 }
 
-fn parse_assign_param_types(body: &SetExpr, column_types: &[SqlType]) -> Result<ParamTypes, DescriptionError> {
+fn parse_assign_param_types(
+    body: &SetExpr,
+    column_types: &[SqlType],
+) -> Result<ParamTypes, DeprecatedDescriptionError> {
     let rows = match body {
         SetExpr::Values(values) => &values.0,
         _ => return Ok(ParamTypes::new()),
@@ -305,7 +324,7 @@ fn parse_assign_param_types(body: &SetExpr, column_types: &[SqlType]) -> Result<
                     match param_types.get(&param_index) {
                         Some(col_type) => {
                             if col_type != &column_types[col_index] {
-                                return Err(DescriptionError::syntax_error(&format!(
+                                return Err(DeprecatedDescriptionError::syntax_error(&format!(
                                     "Parameter ${} cannot be bound to different SQL types",
                                     param_index
                                 )));
@@ -339,19 +358,19 @@ fn parse_param_index(value: &str) -> Option<usize> {
 
 fn parse_param_type_by_column(
     param_types: &mut ParamTypes,
-    columns: &[ColumnDefinition],
+    columns: &[DeprecatedColumnDefinition],
     param_index: ParamIndex,
     col_name: &str,
-) -> Result<(), DescriptionError> {
+) -> Result<(), DeprecatedDescriptionError> {
     let col_name = col_name.to_lowercase();
     let col_type = match columns.iter().find(|col_def| col_def.has_name(&col_name)) {
         Some(col_def) => col_def.sql_type(),
-        None => return Err(DescriptionError::column_does_not_exist(&col_name)),
+        None => return Err(DeprecatedDescriptionError::column_does_not_exist(&col_name)),
     };
     match param_types.get(&param_index) {
         Some(param_type) => {
             if param_type != &col_type {
-                return Err(DescriptionError::syntax_error(&format!(
+                return Err(DeprecatedDescriptionError::syntax_error(&format!(
                     "Parameter ${} cannot be bound to different SQL types",
                     param_index
                 )));

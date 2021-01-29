@@ -37,11 +37,11 @@ fn same_table_names_with_different_columns_in_different_schemas(data_manager: In
 
     let schema_2_id = create_schema(&data_manager, SCHEMA_2)?;
 
-    for op in create_table_ops(SCHEMA_1, TABLE, "sn_1_column", SqlType::SmallInt) {
+    for op in create_table_ops(SCHEMA_1, TABLE, "sn_1_column", SqlType::small_int()) {
         if data_manager.execute(&op).is_ok() {}
     }
 
-    for op in create_table_ops(SCHEMA_2, TABLE, "sn_2_column", SqlType::BigInt) {
+    for op in create_table_ops(SCHEMA_2, TABLE, "sn_2_column", SqlType::big_int()) {
         if data_manager.execute(&op).is_ok() {}
     }
 
@@ -56,11 +56,17 @@ fn same_table_names_with_different_columns_in_different_schemas(data_manager: In
 
     assert_eq!(
         data_manager.table_columns(&(schema_1_id, table_1_id)),
-        Ok(vec![(0, ColumnDefinition::new("sn_1_column", SqlType::SmallInt))])
+        Ok(vec![(
+            0,
+            DeprecatedColumnDefinition::new("sn_1_column", SqlType::small_int())
+        )])
     );
     assert_eq!(
         data_manager.table_columns(&(schema_2_id, table_2_id)),
-        Ok(vec![(0, ColumnDefinition::new("sn_2_column", SqlType::BigInt))])
+        Ok(vec![(
+            0,
+            DeprecatedColumnDefinition::new("sn_2_column", SqlType::big_int())
+        )])
     );
 
     Ok(())
@@ -77,10 +83,7 @@ fn drop_schema(data_manager_with_schema: InMemory) -> Result<(), ()> {
         object_name: vec![SCHEMA.to_owned()],
     })?;
     data_manager_with_schema.execute(&Step::RemoveRecord {
-        system_schema: DEFINITION_SCHEMA.to_owned(),
-        system_table: SCHEMATA_TABLE.to_owned(),
         record: Record::Schema {
-            catalog_name: DEFAULT_CATALOG.to_owned(),
             schema_name: SCHEMA.to_owned(),
         },
     })?;
@@ -95,7 +98,7 @@ fn drop_schema(data_manager_with_schema: InMemory) -> Result<(), ()> {
 
 #[rstest::rstest]
 fn restrict_drop_schema_does_not_drop_schema_with_table(data_manager_with_schema: InMemory) -> Result<(), ()> {
-    for op in create_table_ops(SCHEMA, TABLE, "sn_1_column", SqlType::SmallInt) {
+    for op in create_table_ops(SCHEMA, TABLE, "sn_1_column", SqlType::small_int()) {
         if data_manager_with_schema.execute(&op).is_ok() {}
     }
 
@@ -116,11 +119,11 @@ fn restrict_drop_schema_does_not_drop_schema_with_table(data_manager_with_schema
 
 #[rstest::rstest]
 fn cascade_drop_schema_drops_tables_in_it(data_manager_with_schema: InMemory) -> Result<(), ()> {
-    for op in create_table_ops(SCHEMA, TABLE_1, "column_test", SqlType::SmallInt) {
+    for op in create_table_ops(SCHEMA, TABLE_1, "column_test", SqlType::small_int()) {
         if data_manager_with_schema.execute(&op).is_ok() {}
     }
 
-    for op in create_table_ops(SCHEMA, TABLE_2, "column_test", SqlType::SmallInt) {
+    for op in create_table_ops(SCHEMA, TABLE_2, "column_test", SqlType::small_int()) {
         if data_manager_with_schema.execute(&op).is_ok() {}
     }
 
@@ -136,10 +139,7 @@ fn cascade_drop_schema_drops_tables_in_it(data_manager_with_schema: InMemory) ->
         object_name: vec![SCHEMA.to_owned()],
     })?;
     data_manager_with_schema.execute(&Step::RemoveRecord {
-        system_schema: DEFINITION_SCHEMA.to_owned(),
-        system_table: SCHEMATA_TABLE.to_owned(),
         record: Record::Schema {
-            catalog_name: DEFAULT_CATALOG.to_owned(),
             schema_name: SCHEMA.to_owned(),
         },
     })?;
@@ -149,11 +149,11 @@ fn cascade_drop_schema_drops_tables_in_it(data_manager_with_schema: InMemory) ->
 
     create_schema(&data_manager_with_schema, SCHEMA)?;
 
-    for op in create_table_ops(SCHEMA, TABLE_1, "column_test", SqlType::SmallInt) {
+    for op in create_table_ops(SCHEMA, TABLE_1, "column_test", SqlType::small_int()) {
         if data_manager_with_schema.execute(&op).is_ok() {}
     }
 
-    for op in create_table_ops(SCHEMA, TABLE_2, "column_test", SqlType::SmallInt) {
+    for op in create_table_ops(SCHEMA, TABLE_2, "column_test", SqlType::small_int()) {
         if data_manager_with_schema.execute(&op).is_ok() {}
     }
 

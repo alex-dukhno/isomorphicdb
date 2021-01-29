@@ -7,7 +7,8 @@ publish = false
 
 [dependencies]
 binary = { path = "../binary" }
-definition_operations = { path = "../definition_operations" }
+data_definition_operations = { path = "../../data_definition/operations" }
+data_manipulation_typed_tree = { path = "../../data_manipulation/typed_tree" }
 definition = { path = "../../entities/definition" }
 repr = { path = "../../entities/repr" }
 types = { path = "../../entities/types" }

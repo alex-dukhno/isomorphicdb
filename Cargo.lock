@@ -16,17 +16,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ee2a4ec343196209d6594e19543ae87a39f96d5534d7174822a3ad825dd6ed7e"
 
 [[package]]
-name = "analysis_tree"
-version = "0.1.0"
-dependencies = [
- "definition",
- "expr_operators",
- "meta_def",
- "sql_ast",
- "types",
-]
-
-[[package]]
 name = "ast"
 version = "0.1.0"
 dependencies = [
@@ -236,8 +225,9 @@ dependencies = [
  "backtrace",
  "binary",
  "dashmap",
+ "data_definition_operations",
+ "data_manipulation_typed_tree",
  "definition",
- "definition_operations",
  "log",
  "repr",
  "rstest",
@@ -396,13 +386,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "data_definition_execution_plan"
+version = "0.1.0"
+dependencies = [
+ "definition",
+ "types",
+]
+
+[[package]]
+name = "data_definition_operations"
+version = "0.1.0"
+dependencies = [
+ "types",
+]
+
+[[package]]
 name = "data_manager"
 version = "0.1.0"
 dependencies = [
  "backtrace",
  "binary",
  "dashmap",
- "definition_operations",
+ "data_definition_operations",
  "log",
  "meta_def",
  "repr",
@@ -410,6 +415,57 @@ dependencies = [
  "sql_model",
  "storage",
  "tempfile",
+ "types",
+]
+
+[[package]]
+name = "data_manipulation_operators"
+version = "0.1.0"
+dependencies = [
+ "types",
+]
+
+[[package]]
+name = "data_manipulation_query_result"
+version = "0.1.0"
+dependencies = [
+ "definition",
+ "repr",
+]
+
+[[package]]
+name = "data_manipulation_typed_queries"
+version = "0.1.0"
+dependencies = [
+ "data_manipulation_typed_tree",
+ "definition",
+ "types",
+]
+
+[[package]]
+name = "data_manipulation_typed_tree"
+version = "0.1.0"
+dependencies = [
+ "data_manipulation_operators",
+ "types",
+]
+
+[[package]]
+name = "data_manipulation_untyped_queries"
+version = "0.1.0"
+dependencies = [
+ "data_manipulation_untyped_tree",
+ "definition",
+ "types",
+]
+
+[[package]]
+name = "data_manipulation_untyped_tree"
+version = "0.1.0"
+dependencies = [
+ "bigdecimal",
+ "data_manipulation_operators",
+ "log",
  "types",
 ]
 
@@ -423,9 +479,18 @@ dependencies = [
 ]
 
 [[package]]
-name = "definition_operations"
+name = "deprecated_query_planner"
 version = "0.1.0"
 dependencies = [
+ "ast",
+ "bigdecimal",
+ "constraints",
+ "data_manager",
+ "log",
+ "meta_def",
+ "plan",
+ "rstest",
+ "sql_ast",
  "types",
 ]
 
@@ -452,15 +517,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f7531096570974c3a9dcf9e4b8e1cede1ec26cf5046219fb3b9d897503b9be59"
 
 [[package]]
-name = "executor"
-version = "0.1.0"
-dependencies = [
- "analysis_tree",
- "catalog",
- "definition",
-]
-
-[[package]]
 name = "expr_eval"
 version = "0.1.0"
 dependencies = [
@@ -468,14 +524,6 @@ dependencies = [
  "bigdecimal",
  "repr",
  "rstest",
-]
-
-[[package]]
-name = "expr_operators"
-version = "0.1.0"
-dependencies = [
- "bigdecimal",
- "types",
 ]
 
 [[package]]
@@ -762,7 +810,6 @@ dependencies = [
 name = "node"
 version = "0.1.0"
 dependencies = [
- "analysis_tree",
  "async-dup",
  "async-executor",
  "async-io",
@@ -771,8 +818,14 @@ dependencies = [
  "blocking",
  "catalog",
  "connection",
+ "data_definition_operations",
  "data_manager",
- "definition_operations",
+ "data_manipulation_operators",
+ "data_manipulation_query_result",
+ "data_manipulation_typed_queries",
+ "data_manipulation_typed_tree",
+ "data_manipulation_untyped_queries",
+ "deprecated_query_planner",
  "description",
  "futures-lite",
  "itertools",
@@ -784,13 +837,18 @@ dependencies = [
  "query_analyzer",
  "query_analyzer_old",
  "query_executor",
- "query_planner",
+ "query_processing_type_check",
+ "query_processing_type_coercion",
+ "query_processing_type_inference",
+ "read_query_executor",
+ "read_query_planner",
  "rstest",
  "schema_executor",
  "schema_planner",
  "simple_logger",
  "sql_ast",
  "types",
+ "write_query_executor",
 ]
 
 [[package]]
@@ -1046,13 +1104,14 @@ dependencies = [
 name = "query_analyzer"
 version = "0.1.0"
 dependencies = [
- "analysis_tree",
  "bigdecimal",
  "catalog",
- "data_manager",
+ "data_definition_execution_plan",
+ "data_definition_operations",
+ "data_manipulation_operators",
+ "data_manipulation_untyped_queries",
+ "data_manipulation_untyped_tree",
  "definition",
- "definition_operations",
- "expr_operators",
  "meta_def",
  "sql_ast",
  "types",
@@ -1096,18 +1155,31 @@ dependencies = [
 ]
 
 [[package]]
-name = "query_planner"
+name = "query_processing_type_check"
 version = "0.1.0"
 dependencies = [
- "ast",
+ "data_manipulation_operators",
+ "data_manipulation_typed_tree",
+ "types",
+]
+
+[[package]]
+name = "query_processing_type_coercion"
+version = "0.1.0"
+dependencies = [
+ "data_manipulation_operators",
+ "data_manipulation_typed_tree",
+ "types",
+]
+
+[[package]]
+name = "query_processing_type_inference"
+version = "0.1.0"
+dependencies = [
  "bigdecimal",
- "constraints",
- "data_manager",
- "log",
- "meta_def",
- "plan",
- "rstest",
- "sql_ast",
+ "data_manipulation_operators",
+ "data_manipulation_typed_tree",
+ "data_manipulation_untyped_tree",
  "types",
 ]
 
@@ -1159,6 +1231,33 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ca3129af7b92a17112d59ad498c6f81eaf463253766b90396d39ea7a39d6613c"
 dependencies = [
  "rand_core",
+]
+
+[[package]]
+name = "read_query_executor"
+version = "0.1.0"
+dependencies = [
+ "catalog",
+ "data_manipulation_query_result",
+ "data_manipulation_typed_queries",
+ "read_query_plan",
+]
+
+[[package]]
+name = "read_query_plan"
+version = "0.1.0"
+dependencies = [
+ "definition",
+]
+
+[[package]]
+name = "read_query_planner"
+version = "0.1.0"
+dependencies = [
+ "catalog",
+ "data_manipulation_typed_queries",
+ "data_manipulation_typed_tree",
+ "read_query_plan",
 ]
 
 [[package]]
@@ -1225,20 +1324,19 @@ dependencies = [
 name = "schema_executor"
 version = "0.1.0"
 dependencies = [
- "analysis_tree",
+ "data_definition_execution_plan",
+ "data_definition_operations",
  "data_manager",
  "definition",
- "definition_operations",
 ]
 
 [[package]]
 name = "schema_planner"
 version = "0.1.0"
 dependencies = [
- "analysis_tree",
- "data_manager",
+ "data_definition_execution_plan",
+ "data_definition_operations",
  "definition",
- "definition_operations",
  "types",
 ]
 
@@ -1560,3 +1658,16 @@ name = "winapi-x86_64-pc-windows-gnu"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
+
+[[package]]
+name = "write_query_executor"
+version = "0.1.0"
+dependencies = [
+ "catalog",
+ "data_definition_operations",
+ "data_manipulation_query_result",
+ "data_manipulation_typed_queries",
+ "data_manipulation_typed_tree",
+ "definition",
+ "types",
+]

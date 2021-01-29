@@ -14,7 +14,7 @@
 
 use crate::{PlanError, Planner, Result};
 use data_manager::DataDefReader;
-use plan::{FullTableId, FullTableName, Plan, TableDeletes};
+use plan::{DeprecatedFullTableId, DeprecatedPlan, DeprecatedPlanFullTableName, DeprecatedTableDeletes};
 use sql_ast::ObjectName;
 use std::{convert::TryFrom, sync::Arc};
 
@@ -29,15 +29,15 @@ impl DeletePlanner<'_> {
 }
 
 impl Planner for DeletePlanner<'_> {
-    fn plan(self, metadata: Arc<dyn DataDefReader>) -> Result<Plan> {
-        match FullTableName::try_from(self.table_name) {
+    fn plan(self, metadata: Arc<dyn DataDefReader>) -> Result<DeprecatedPlan> {
+        match DeprecatedPlanFullTableName::try_from(self.table_name) {
             Ok(full_table_name) => {
                 let (schema_name, table_name) = full_table_name.as_tuple();
                 match metadata.table_exists(&schema_name, &table_name) {
                     None => Err(PlanError::schema_does_not_exist(&schema_name)),
                     Some((_, None)) => Err(PlanError::table_does_not_exist(&full_table_name)),
-                    Some((schema_id, Some(table_id))) => Ok(Plan::Delete(TableDeletes {
-                        table_id: FullTableId::from((schema_id, table_id)),
+                    Some((schema_id, Some(table_id))) => Ok(DeprecatedPlan::Delete(DeprecatedTableDeletes {
+                        table_id: DeprecatedFullTableId::from((schema_id, table_id)),
                     })),
                 }
             }

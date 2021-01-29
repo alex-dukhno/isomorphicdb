@@ -23,9 +23,9 @@ fn with_small_ints_table(data_manager_with_schema: InMemory) -> InMemory {
         SCHEMA,
         TABLE,
         &[
-            ("column_1", SqlType::SmallInt),
-            ("column_2", SqlType::SmallInt),
-            ("column_3", SqlType::SmallInt),
+            ("column_1", SqlType::small_int()),
+            ("column_2", SqlType::small_int()),
+            ("column_3", SqlType::small_int()),
         ],
     ) {
         if data_manager_with_schema.execute(&op).is_ok() {}
@@ -36,7 +36,7 @@ fn with_small_ints_table(data_manager_with_schema: InMemory) -> InMemory {
 #[rstest::rstest]
 fn delete_all_from_table(data_manager_with_schema: InMemory) {
     let schema_id = data_manager_with_schema.schema_exists(SCHEMA).expect("schema exists");
-    for op in create_table(SCHEMA, TABLE, &[("column_test", SqlType::SmallInt)]) {
+    for op in create_table(SCHEMA, TABLE, &[("column_test", SqlType::small_int())]) {
         if data_manager_with_schema.execute(&op).is_ok() {}
     }
 

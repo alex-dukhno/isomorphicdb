@@ -1,0 +1,461 @@
+// Copyright 2020 - present Alex Dukhno
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+use std::{convert::TryFrom, sync::Arc};
+
+use catalog::CatalogDefinition;
+use data_definition_execution_plan::{
+    ColumnInfo, CreateSchemaQuery, CreateTableQuery, DropSchemasQuery, DropTablesQuery, SchemaChange, TableInfo,
+};
+use data_manipulation_operators::Operation;
+use data_manipulation_untyped_queries::{DeleteQuery, InsertQuery, SelectQuery, UntypedWrite, UpdateQuery};
+use data_manipulation_untyped_tree::{DynamicUntypedItem, DynamicUntypedTree};
+use definition::{FullTableName, SchemaName};
+use types::SqlType;
+
+use crate::{dynamic_tree_builder::DynamicTreeBuilder, static_tree_builder::StaticTreeBuilder};
+
+mod dynamic_tree_builder;
+mod operation_mapper;
+mod static_tree_builder;
+
+pub struct Analyzer<CD: CatalogDefinition> {
+    database: Arc<CD>,
+}
+
+impl<CD: CatalogDefinition> Analyzer<CD> {
+    pub fn new(database: Arc<CD>) -> Analyzer<CD> {
+        Analyzer { database }
+    }
+
+    pub fn analyze(&self, statement: sql_ast::Statement) -> Result<QueryAnalysis, AnalysisError> {
+        match &statement {
+            sql_ast::Statement::Insert {
+                table_name,
+                source,
+                columns,
+            } => match FullTableName::try_from(table_name) {
+                Err(error) => Err(AnalysisError::table_naming_error(error)),
+                Ok(full_table_name) => match self.database.table_definition(&full_table_name) {
+                    None => Err(AnalysisError::schema_does_not_exist(full_table_name.schema())),
+                    Some(None) => Err(AnalysisError::table_does_not_exist(full_table_name)),
+                    Some(Some(table_info)) => {
+                        let mut column_names = vec![];
+                        for column in columns {
+                            if !table_info.has_column(&column.value) {
+                                return Err(AnalysisError::column_not_found(column));
+                            }
+                            column_names.push(column.value.clone());
+                        }
+                        let sql_ast::Query { body, .. } = &**source;
+                        let values = match body {
+                            sql_ast::SetExpr::Values(sql_ast::Values(insert_rows)) => {
+                                let mut values = vec![];
+                                for insert_row in insert_rows {
+                                    let mut row = vec![];
+                                    for value in insert_row.iter() {
+                                        row.push(StaticTreeBuilder::build_from(value, &statement)?);
+                                    }
+                                    values.push(row)
+                                }
+                                values
+                            }
+                            sql_ast::SetExpr::Query(_) | sql_ast::SetExpr::Select(_) => {
+                                return Err(AnalysisError::FeatureNotSupported(Feature::InsertIntoSelect))
+                            }
+                            sql_ast::SetExpr::SetOperation { .. } => {
+                                return Err(AnalysisError::FeatureNotSupported(Feature::SetOperations))
+                            }
+                        };
+                        Ok(QueryAnalysis::Write(UntypedWrite::Insert(InsertQuery {
+                            full_table_name,
+                            column_names,
+                            values,
+                        })))
+                    }
+                },
+            },
+            sql_ast::Statement::Update {
+                table_name,
+                assignments: stmt_assignments,
+                ..
+            } => match FullTableName::try_from(table_name) {
+                Err(error) => Err(AnalysisError::table_naming_error(error)),
+                Ok(full_table_name) => match self.database.table_definition(&full_table_name) {
+                    None => Err(AnalysisError::schema_does_not_exist(full_table_name.schema())),
+                    Some(None) => Err(AnalysisError::table_does_not_exist(full_table_name)),
+                    Some(Some(table_info)) => {
+                        let table_columns = table_info.columns();
+                        let mut sql_types = vec![];
+                        let mut assignments = vec![];
+                        for assignment in stmt_assignments {
+                            let sql_ast::Assignment { id, value } = assignment;
+                            let name = id.to_string();
+                            let mut found = None;
+                            for table_column in table_columns {
+                                if table_column.has_name(&name) {
+                                    found = Some(table_column.sql_type());
+                                    break;
+                                }
+                            }
+                            match found {
+                                None => unimplemented!("Column not found is not covered yet"),
+                                Some(sql_type) => {
+                                    assignments.push(DynamicTreeBuilder::build_from(
+                                        &value,
+                                        &statement,
+                                        &table_columns,
+                                    )?);
+                                    sql_types.push(sql_type);
+                                }
+                            }
+                        }
+                        Ok(QueryAnalysis::Write(UntypedWrite::Update(UpdateQuery {
+                            full_table_name,
+                            sql_types,
+                            assignments,
+                        })))
+                    }
+                },
+            },
+            sql_ast::Statement::Query(query) => {
+                let sql_ast::Query { body, .. } = &**query;
+                match body {
+                    sql_ast::SetExpr::Query(_) => Err(AnalysisError::feature_not_supported(Feature::SubQueries)),
+                    sql_ast::SetExpr::SetOperation { .. } => {
+                        Err(AnalysisError::feature_not_supported(Feature::SetOperations))
+                    }
+                    value_expr @ sql_ast::SetExpr::Values(_) => Err(AnalysisError::syntax_error(format!(
+                        "Syntax error in {}\naround {}",
+                        statement, value_expr
+                    ))),
+                    sql_ast::SetExpr::Select(select) => {
+                        let sql_ast::Select { projection, from, .. } = &**select;
+                        if from.len() > 1 {
+                            return Err(AnalysisError::feature_not_supported(Feature::Joins));
+                        }
+                        let sql_ast::TableWithJoins { relation, .. } = &from[0];
+                        let name = match relation {
+                            sql_ast::TableFactor::Table { name, .. } => name,
+                            sql_ast::TableFactor::Derived { .. } => {
+                                return Err(AnalysisError::feature_not_supported(Feature::FromSubQuery))
+                            }
+                            sql_ast::TableFactor::TableFunction { .. } => {
+                                return Err(AnalysisError::feature_not_supported(Feature::TableFunctions))
+                            }
+                            sql_ast::TableFactor::NestedJoin(_) => {
+                                return Err(AnalysisError::feature_not_supported(Feature::NestedJoin))
+                            }
+                        };
+                        match FullTableName::try_from(name) {
+                            Err(error) => Err(AnalysisError::table_naming_error(error)),
+                            Ok(full_table_name) => match self.database.table_definition(&full_table_name) {
+                                None => Err(AnalysisError::schema_does_not_exist(full_table_name.schema())),
+                                Some(None) => Err(AnalysisError::table_does_not_exist(full_table_name)),
+                                Some(Some(table_info)) => {
+                                    let table_columns = table_info.columns();
+                                    let mut projection_items = vec![];
+                                    for item in projection {
+                                        match item {
+                                            sql_ast::SelectItem::Wildcard => {
+                                                for (index, table_column) in table_columns.iter().enumerate() {
+                                                    projection_items.push(DynamicUntypedTree::Item(
+                                                        DynamicUntypedItem::Column {
+                                                            name: table_column.name().to_owned(),
+                                                            index,
+                                                            sql_type: table_column.sql_type(),
+                                                        },
+                                                    ));
+                                                }
+                                            }
+                                            sql_ast::SelectItem::UnnamedExpr(expr) => projection_items.push(
+                                                DynamicTreeBuilder::build_from(&expr, &statement, &table_columns)?,
+                                            ),
+                                            sql_ast::SelectItem::ExprWithAlias { .. } => {
+                                                return Err(AnalysisError::feature_not_supported(Feature::Aliases))
+                                            }
+                                            sql_ast::SelectItem::QualifiedWildcard(_) => {
+                                                return Err(AnalysisError::feature_not_supported(
+                                                    Feature::QualifiedAliases,
+                                                ))
+                                            }
+                                        }
+                                    }
+                                    Ok(QueryAnalysis::Read(SelectQuery {
+                                        full_table_name,
+                                        projection_items,
+                                    }))
+                                }
+                            },
+                        }
+                    }
+                }
+            }
+            sql_ast::Statement::Delete { table_name, .. } => match FullTableName::try_from(table_name) {
+                Err(error) => Err(AnalysisError::table_naming_error(error)),
+                Ok(full_table_name) => match self.database.table_definition(&full_table_name) {
+                    None => Err(AnalysisError::schema_does_not_exist(full_table_name.schema())),
+                    Some(None) => Err(AnalysisError::table_does_not_exist(full_table_name)),
+                    Some(Some(_table_info)) => Ok(QueryAnalysis::Write(UntypedWrite::Delete(DeleteQuery {
+                        full_table_name,
+                    }))),
+                },
+            },
+            sql_ast::Statement::CreateTable {
+                name,
+                columns,
+                if_not_exists,
+                ..
+            } => match FullTableName::try_from(name) {
+                Ok(full_table_name) => {
+                    if self
+                        .database
+                        .schema_exists(&SchemaName::from(&full_table_name.schema()))
+                    {
+                        let mut column_defs = Vec::new();
+                        for column in columns {
+                            match SqlType::try_from(&column.data_type) {
+                                Ok(sql_type) => column_defs.push(ColumnInfo {
+                                    name: column.name.value.as_str().to_owned(),
+                                    sql_type,
+                                }),
+                                Err(_not_supported_type_error) => {
+                                    return Err(AnalysisError::type_is_not_supported(&column.data_type));
+                                }
+                            }
+                        }
+                        Ok(QueryAnalysis::DataDefinition(SchemaChange::CreateTable(
+                            CreateTableQuery {
+                                table_info: TableInfo::new(&full_table_name.schema(), &full_table_name.table()),
+                                column_defs,
+                                if_not_exists: *if_not_exists,
+                            },
+                        )))
+                    } else {
+                        Err(AnalysisError::schema_does_not_exist(full_table_name.schema()))
+                    }
+                }
+                Err(error) => Err(AnalysisError::table_naming_error(&error)),
+            },
+            sql_ast::Statement::CreateSchema {
+                schema_name,
+                if_not_exists,
+                ..
+            } => match SchemaName::try_from(schema_name) {
+                Ok(schema_name) => Ok(QueryAnalysis::DataDefinition(SchemaChange::CreateSchema(
+                    CreateSchemaQuery {
+                        schema_name,
+                        if_not_exists: *if_not_exists,
+                    },
+                ))),
+                Err(error) => Err(AnalysisError::schema_naming_error(&error)),
+            },
+            sql_ast::Statement::Drop {
+                names,
+                object_type,
+                cascade,
+                if_exists,
+            } => match object_type {
+                sql_ast::ObjectType::Schema => {
+                    let mut schema_names = vec![];
+                    for name in names {
+                        match SchemaName::try_from(name) {
+                            Ok(schema_name) => schema_names.push(schema_name),
+                            Err(error) => return Err(AnalysisError::schema_naming_error(&error)),
+                        }
+                    }
+                    Ok(QueryAnalysis::DataDefinition(SchemaChange::DropSchemas(
+                        DropSchemasQuery {
+                            schema_names,
+                            cascade: *cascade,
+                            if_exists: *if_exists,
+                        },
+                    )))
+                }
+                sql_ast::ObjectType::Table => {
+                    let mut table_infos = vec![];
+                    for name in names {
+                        match FullTableName::try_from(name) {
+                            Ok(full_table_name) => {
+                                if self
+                                    .database
+                                    .schema_exists(&SchemaName::from(&full_table_name.schema()))
+                                {
+                                    table_infos
+                                        .push(TableInfo::new(&full_table_name.schema(), &full_table_name.table()))
+                                } else {
+                                    return Err(AnalysisError::schema_does_not_exist(full_table_name.schema()));
+                                }
+                            }
+                            Err(error) => return Err(AnalysisError::table_naming_error(&error)),
+                        }
+                    }
+                    Ok(QueryAnalysis::DataDefinition(SchemaChange::DropTables(
+                        DropTablesQuery {
+                            table_infos,
+                            cascade: *cascade,
+                            if_exists: *if_exists,
+                        },
+                    )))
+                }
+                sql_ast::ObjectType::View => unimplemented!("VIEWs are not implemented yet"),
+                sql_ast::ObjectType::Index => unimplemented!("INDEXes are not implemented yet"),
+            },
+            sql_ast::Statement::Copy { .. } => unimplemented!(),
+            sql_ast::Statement::CreateView { .. } => unimplemented!(),
+            sql_ast::Statement::CreateVirtualTable { .. } => unimplemented!(),
+            sql_ast::Statement::CreateIndex { .. } => unimplemented!(),
+            sql_ast::Statement::AlterTable { .. } => unimplemented!(),
+            sql_ast::Statement::SetVariable { .. } => unimplemented!(),
+            sql_ast::Statement::ShowVariable { .. } => unimplemented!(),
+            sql_ast::Statement::ShowColumns { .. } => unimplemented!(),
+            sql_ast::Statement::StartTransaction { .. } => unimplemented!(),
+            sql_ast::Statement::SetTransaction { .. } => unimplemented!(),
+            sql_ast::Statement::Commit { .. } => unimplemented!(),
+            sql_ast::Statement::Rollback { .. } => unimplemented!(),
+            sql_ast::Statement::Assert { .. } => unimplemented!(),
+            sql_ast::Statement::Deallocate { .. } => unimplemented!(),
+            sql_ast::Statement::Execute { .. } => unimplemented!(),
+            sql_ast::Statement::Prepare { .. } => unimplemented!(),
+            sql_ast::Statement::Analyze { .. } => unimplemented!(),
+            sql_ast::Statement::Explain { .. } => unimplemented!(),
+        }
+    }
+}
+
+fn parse_param_index(value: &str) -> Option<usize> {
+    let mut chars = value.chars();
+    if chars.next() != Some('$') || !chars.all(|c| c.is_digit(10)) {
+        return None;
+    }
+
+    let index: usize = (&value[1..]).parse().unwrap();
+    if index == 0 {
+        return None;
+    }
+
+    Some(index - 1)
+}
+
+pub type AnalysisResult<A> = Result<A, AnalysisError>;
+
+#[derive(Debug, PartialEq)]
+pub enum QueryAnalysis {
+    DataDefinition(SchemaChange),
+    Write(UntypedWrite),
+    Read(SelectQuery),
+}
+
+#[derive(Debug, PartialEq)]
+pub enum AnalysisError {
+    SchemaNamingError(String),
+    SchemaDoesNotExist(String),
+    SchemaAlreadyExists(String),
+    TableNamingError(String),
+    TableDoesNotExist(String),
+    TableAlreadyExists(String),
+    TypeIsNotSupported(String),
+    SyntaxError(String),
+    ColumnNotFound(String),
+    ColumnCantBeReferenced(String),                                  // Error code: 42703
+    InvalidInputSyntaxForType { sql_type: SqlType, value: String },  // Error code: 22P02
+    StringDataRightTruncation(SqlType),                              // Error code: 22001
+    DatatypeMismatch { column_type: SqlType, source_type: SqlType }, // Error code: 42804
+    AmbiguousFunction(Operation),                                    // Error code: 42725
+    UndefinedFunction(Operation),                                    // Error code: 42883
+    FeatureNotSupported(Feature),
+}
+
+impl AnalysisError {
+    pub fn schema_naming_error<M: ToString>(message: M) -> AnalysisError {
+        AnalysisError::SchemaNamingError(message.to_string())
+    }
+
+    pub fn schema_does_not_exist<S: ToString>(schema_name: S) -> AnalysisError {
+        AnalysisError::SchemaDoesNotExist(schema_name.to_string())
+    }
+
+    pub fn schema_already_exists<S: ToString>(schema_name: S) -> AnalysisError {
+        AnalysisError::SchemaAlreadyExists(schema_name.to_string())
+    }
+
+    pub fn table_naming_error<M: ToString>(message: M) -> AnalysisError {
+        AnalysisError::TableNamingError(message.to_string())
+    }
+
+    pub fn table_does_not_exist<T: ToString>(table_name: T) -> AnalysisError {
+        AnalysisError::TableDoesNotExist(table_name.to_string())
+    }
+
+    pub fn table_already_exists<T: ToString>(table_name: T) -> AnalysisError {
+        AnalysisError::TableAlreadyExists(table_name.to_string())
+    }
+
+    pub fn type_is_not_supported<T: ToString>(type_name: T) -> AnalysisError {
+        AnalysisError::TypeIsNotSupported(type_name.to_string())
+    }
+
+    pub fn syntax_error(message: String) -> AnalysisError {
+        AnalysisError::SyntaxError(message)
+    }
+
+    pub fn column_not_found<C: ToString>(column_name: C) -> AnalysisError {
+        AnalysisError::ColumnNotFound(column_name.to_string())
+    }
+
+    pub fn column_cant_be_referenced<C: ToString>(column_name: C) -> AnalysisError {
+        AnalysisError::ColumnCantBeReferenced(column_name.to_string())
+    }
+
+    pub fn invalid_input_syntax_for_type<V: ToString>(sql_type: SqlType, value: V) -> AnalysisError {
+        AnalysisError::InvalidInputSyntaxForType {
+            sql_type,
+            value: value.to_string(),
+        }
+    }
+
+    pub fn string_data_right_truncation(sql_type: SqlType) -> AnalysisError {
+        AnalysisError::StringDataRightTruncation(sql_type)
+    }
+
+    pub fn datatype_mismatch(column_type: SqlType, source_type: SqlType) -> AnalysisError {
+        AnalysisError::DatatypeMismatch {
+            column_type,
+            source_type,
+        }
+    }
+
+    pub fn feature_not_supported(feature: Feature) -> AnalysisError {
+        AnalysisError::FeatureNotSupported(feature)
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub enum Feature {
+    SetOperations,
+    SubQueries,
+    NationalStringLiteral,
+    HexStringLiteral,
+    TimeInterval,
+    Joins,
+    NestedJoin,
+    FromSubQuery,
+    TableFunctions,
+    Aliases,
+    QualifiedAliases,
+    InsertIntoSelect,
+}
+
+#[cfg(test)]
+mod tests;

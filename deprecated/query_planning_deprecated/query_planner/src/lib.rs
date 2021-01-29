@@ -20,7 +20,7 @@ mod update;
 
 use crate::{delete::DeletePlanner, insert::InsertPlanner, select::SelectPlanner, update::UpdatePlanner};
 use data_manager::DataDefReader;
-use plan::Plan;
+use plan::DeprecatedPlan;
 use sql_ast::Statement;
 use std::sync::Arc;
 
@@ -63,19 +63,19 @@ impl PlanError {
 }
 
 trait Planner {
-    fn plan(self, data_manager: Arc<dyn DataDefReader>) -> Result<Plan>;
+    fn plan(self, data_manager: Arc<dyn DataDefReader>) -> Result<DeprecatedPlan>;
 }
 
-pub struct QueryPlanner {
+pub struct OldDeprecatedQueryPlanner {
     metadata: Arc<dyn DataDefReader>,
 }
 
-impl QueryPlanner {
+impl OldDeprecatedQueryPlanner {
     pub fn new(metadata: Arc<dyn DataDefReader>) -> Self {
         Self { metadata }
     }
 
-    pub fn plan(&self, statement: &Statement) -> Result<Plan> {
+    pub fn plan(&self, statement: &Statement) -> Result<DeprecatedPlan> {
         match statement {
             Statement::Insert {
                 table_name,
@@ -89,7 +89,7 @@ impl QueryPlanner {
             } => UpdatePlanner::new(table_name, assignments).plan(self.metadata.clone()),
             Statement::Delete { table_name, .. } => DeletePlanner::new(table_name).plan(self.metadata.clone()),
             Statement::Query(query) => SelectPlanner::new(query.clone()).plan(self.metadata.clone()),
-            _ => Ok(Plan::NotProcessed(Box::new(statement.clone()))),
+            _ => Ok(DeprecatedPlan::NotProcessed(Box::new(statement.clone()))),
         }
     }
 }

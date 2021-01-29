@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+mod data_catalog;
+
 use crate::{Cursor, DataCatalog, DataTable, Key, SchemaHandle, Value};
 use binary::Binary;
 use dashmap::DashMap;
@@ -182,7 +184,8 @@ pub struct OnDiskCatalogHandle {
 }
 
 impl OnDiskCatalogHandle {
-    pub fn new(path_to_catalog: PathBuf) -> OnDiskCatalogHandle {
+    #[allow(dead_code)]
+    fn new(path_to_catalog: PathBuf) -> OnDiskCatalogHandle {
         OnDiskCatalogHandle {
             path_to_catalog,
             schemas: DashMap::default(),

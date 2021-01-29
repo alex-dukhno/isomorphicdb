@@ -19,7 +19,7 @@ mod update;
 
 use super::*;
 use data_manager::DatabaseHandle;
-use meta_def::ColumnDefinition;
+use meta_def::DeprecatedColumnDefinition;
 use sql_ast::{Expr, Ident, ObjectName, Query, SetExpr, Value, Values};
 use std::sync::Arc;
 

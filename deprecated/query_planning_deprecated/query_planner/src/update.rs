@@ -16,7 +16,7 @@ use crate::{PlanError, Planner, Result};
 use ast::operations::ScalarOp;
 use constraints::TypeConstraint;
 use data_manager::DataDefReader;
-use plan::{FullTableId, FullTableName, Plan, TableUpdates};
+use plan::{DeprecatedFullTableId, DeprecatedPlan, DeprecatedPlanFullTableName, DeprecatedTableUpdates};
 use sql_ast::{Assignment, ObjectName};
 use std::{collections::HashSet, convert::TryFrom, sync::Arc};
 
@@ -35,15 +35,15 @@ impl<'up> UpdatePlanner<'up> {
 }
 
 impl Planner for UpdatePlanner<'_> {
-    fn plan(self, metadata: Arc<dyn DataDefReader>) -> Result<Plan> {
-        match FullTableName::try_from(self.table_name) {
+    fn plan(self, metadata: Arc<dyn DataDefReader>) -> Result<DeprecatedPlan> {
+        match DeprecatedPlanFullTableName::try_from(self.table_name) {
             Ok(full_table_name) => {
                 let (schema_name, table_name) = full_table_name.as_tuple();
                 match metadata.table_exists(&schema_name, &table_name) {
                     None => Err(PlanError::schema_does_not_exist(&schema_name)),
                     Some((_, None)) => Err(PlanError::table_does_not_exist(&full_table_name)),
                     Some((schema_id, Some(table_id))) => {
-                        let full_table_id = FullTableId::from((schema_id, table_id));
+                        let full_table_id = DeprecatedFullTableId::from((schema_id, table_id));
                         let all_columns = metadata.table_columns(&full_table_id).expect("table exists");
                         let mut column_indices = vec![];
                         let mut input = vec![];
@@ -87,7 +87,7 @@ impl Planner for UpdatePlanner<'_> {
                             }
                         }
 
-                        Ok(Plan::Update(TableUpdates {
+                        Ok(DeprecatedPlan::Update(DeprecatedTableUpdates {
                             table_id: full_table_id,
                             column_indices,
                             input,

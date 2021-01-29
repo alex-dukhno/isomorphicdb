@@ -18,21 +18,21 @@ use connection::Sender;
 use constraints::{Constraint, ConstraintError};
 use data_manager::DatabaseHandle;
 use expr_eval::{EvalError, StaticExpressionEvaluation};
-use meta_def::ColumnDefinition;
+use meta_def::DeprecatedColumnDefinition;
 use pg_model::results::{QueryError, QueryEvent};
-use plan::TableInserts;
+use plan::DeprecatedTableInserts;
 use repr::Datum;
 use std::sync::Arc;
 
 pub(crate) struct InsertCommand {
-    table_inserts: TableInserts,
+    table_inserts: DeprecatedTableInserts,
     data_manager: Arc<DatabaseHandle>,
     sender: Arc<dyn Sender>,
 }
 
 impl InsertCommand {
     pub(crate) fn new(
-        table_inserts: TableInserts,
+        table_inserts: DeprecatedTableInserts,
         data_manager: Arc<DatabaseHandle>,
         sender: Arc<dyn Sender>,
     ) -> InsertCommand {
@@ -104,7 +104,7 @@ impl InsertCommand {
                             record[*index] = datum;
                         }
                         Err(error) => {
-                            errors.push((error, ColumnDefinition::new(name, *sql_type)));
+                            errors.push((error, DeprecatedColumnDefinition::new(name, *sql_type)));
                         }
                     },
                     Err(_err) => {

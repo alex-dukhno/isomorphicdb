@@ -15,7 +15,7 @@
 use crate::{PlanError, Planner, Result};
 use ast::predicates::{PredicateOp, PredicateValue};
 use data_manager::DataDefReader;
-use plan::{FullTableId, FullTableName, Plan, SelectInput};
+use plan::{DeprecatedFullTableId, DeprecatedPlan, DeprecatedPlanFullTableName, DeprecatedSelectInput};
 use sql_ast::{BinaryOperator, Expr, Ident, Query, Select, SelectItem, SetExpr, TableFactor, TableWithJoins, Value};
 use std::{convert::TryFrom, ops::Deref, sync::Arc};
 
@@ -30,7 +30,7 @@ impl SelectPlanner {
 }
 
 impl Planner for SelectPlanner {
-    fn plan(self, metadata: Arc<dyn DataDefReader>) -> Result<Plan> {
+    fn plan(self, metadata: Arc<dyn DataDefReader>) -> Result<DeprecatedPlan> {
         let Query { body, .. } = &*self.query;
         let result = if let SetExpr::Select(query) = body {
             let Select {
@@ -47,7 +47,7 @@ impl Planner for SelectPlanner {
                 }
             };
 
-            match FullTableName::try_from(name) {
+            match DeprecatedPlanFullTableName::try_from(name) {
                 Ok(full_table_name) => {
                     let (schema_name, table_name) = full_table_name.as_tuple();
                     match metadata.table_exists(&schema_name, &table_name) {
@@ -58,7 +58,7 @@ impl Planner for SelectPlanner {
                             return Err(PlanError::table_does_not_exist(&full_table_name));
                         }
                         Some((schema_id, Some(table_id))) => {
-                            let full_table_id = FullTableId::from((schema_id, table_id));
+                            let full_table_id = DeprecatedFullTableId::from((schema_id, table_id));
                             let selected_columns = {
                                 let mut names: Vec<String> = vec![];
                                 for item in projection {
@@ -117,8 +117,8 @@ impl Planner for SelectPlanner {
                                 _ => None,
                             };
 
-                            SelectInput {
-                                table_id: FullTableId::from((schema_id, table_id)),
+                            DeprecatedSelectInput {
+                                table_id: DeprecatedFullTableId::from((schema_id, table_id)),
                                 selected_columns,
                                 predicate,
                             }
@@ -132,6 +132,6 @@ impl Planner for SelectPlanner {
         } else {
             return Err(PlanError::feature_not_supported(&*self.query));
         };
-        Ok(Plan::Select(result))
+        Ok(DeprecatedPlan::Select(result))
     }
 }

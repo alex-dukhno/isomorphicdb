@@ -37,10 +37,11 @@ See [docs](./docs/.)
 * `data/` - group of modules responsible for manipulating data, database structure
     * `data/binary/` - representing primitive types as a raw binary vector
     * `data/catalog/` - API for accessing data and its definition
-    * `data/definition_operations` - data structures responsible for representing 
-    operations of `Data Definition Language` part of `SQL`
     * `data/schema_planner` - module that transform `Data Definition Language` queries
-    analysis into `definition_operations`
+    analysis into `data_definition/operations`
+* `data_definition/` - group of modules responsible to represent `SQL DDL` queries
+    * `data_definition/operations` - data structures responsible for representing
+      operations of `Data Definition Language` part of `SQL`
 * `deprecated/` - modules that should be removed once new version will be developed
 * `docs/` - project documentation
 * `gradle/` - gradle wrapper to run `tests/compatibility` tests

@@ -12,9 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-extern crate node;
-extern crate simple_logger;
-
 fn main() {
     simple_logger::SimpleLogger::from_env()
         .init()

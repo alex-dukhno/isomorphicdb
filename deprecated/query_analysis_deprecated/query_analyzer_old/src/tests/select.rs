@@ -14,7 +14,7 @@
 
 use super::*;
 use bigdecimal::BigDecimal;
-use description::{ProjectionItem, SelectStatement};
+use description::{DeprecatedProjectionItem, DeprecatedSelectStatement};
 use sql_ast::{ObjectName, Query, Select, SelectItem, SetExpr, Statement, TableFactor, TableWithJoins};
 
 fn select_with_columns(name: ObjectName, projection: Vec<SelectItem>) -> Statement {
@@ -55,7 +55,9 @@ fn select_from_table_that_in_nonexistent_schema() {
     let description = analyzer.describe(&select(ObjectName(vec![ident("non_existent_schema"), ident(TABLE)])));
     assert_eq!(
         description,
-        Err(DescriptionError::schema_does_not_exist(&"non_existent_schema"))
+        Err(DeprecatedDescriptionError::schema_does_not_exist(
+            &"non_existent_schema"
+        ))
     );
 }
 
@@ -67,7 +69,7 @@ fn select_from_nonexistent_table() {
     let description = analyzer.describe(&select(ObjectName(vec![ident(SCHEMA), ident("non_existent_table")])));
     assert_eq!(
         description,
-        Err(DescriptionError::table_does_not_exist(&format!(
+        Err(DeprecatedDescriptionError::table_does_not_exist(&format!(
             "{}.{}",
             SCHEMA, "non_existent_table"
         )))
@@ -82,7 +84,7 @@ fn select_from_table_with_unqualified_name() {
     let description = analyzer.describe(&select(ObjectName(vec![ident("only_schema_in_the_name")])));
     assert_eq!(
         description,
-        Err(DescriptionError::syntax_error(
+        Err(DeprecatedDescriptionError::syntax_error(
             &"Unsupported table name 'only_schema_in_the_name'. All table names must be qualified",
         ))
     );
@@ -101,7 +103,7 @@ fn select_from_table_with_unsupported_name() {
     ])));
     assert_eq!(
         description,
-        Err(DescriptionError::syntax_error(
+        Err(DeprecatedDescriptionError::syntax_error(
             &"Unable to process table name 'first_part.second_part.third_part.fourth_part'",
         ))
     );
@@ -116,8 +118,8 @@ fn select_from_table() {
     let description = analyzer.describe(&select(ObjectName(vec![ident(SCHEMA), ident(TABLE)])));
     assert_eq!(
         description,
-        Ok(Description::Select(SelectStatement {
-            full_table_id: FullTableId::from((0, 0)),
+        Ok(DeprecatedDescription::Select(DeprecatedSelectStatement {
+            full_table_id: DeprecatedFullTableId::from((0, 0)),
             projection_items: vec![],
         }))
     );
@@ -128,7 +130,11 @@ fn select_from_table_with_column() {
     let metadata = Arc::new(DatabaseHandle::in_memory());
     let schema_id = metadata.create_schema(SCHEMA).expect("schema created");
     metadata
-        .create_table(schema_id, TABLE, &[ColumnDefinition::new("col1", SqlType::Integer)])
+        .create_table(
+            schema_id,
+            TABLE,
+            &[DeprecatedColumnDefinition::new("col1", SqlType::integer())],
+        )
         .expect("table created");
     let analyzer = Analyzer::new(metadata);
     let description = analyzer.describe(&select_with_columns(
@@ -137,9 +143,9 @@ fn select_from_table_with_column() {
     ));
     assert_eq!(
         description,
-        Ok(Description::Select(SelectStatement {
-            full_table_id: FullTableId::from((0, 0)),
-            projection_items: vec![ProjectionItem::Column(0, SqlType::Integer)],
+        Ok(DeprecatedDescription::Select(DeprecatedSelectStatement {
+            full_table_id: DeprecatedFullTableId::from((0, 0)),
+            projection_items: vec![DeprecatedProjectionItem::Column(0, SqlType::integer())],
         }))
     );
 }
@@ -150,7 +156,11 @@ fn select_from_table_with_constant() {
     let metadata = Arc::new(DatabaseHandle::in_memory());
     let schema_id = metadata.create_schema(SCHEMA).expect("schema created");
     metadata
-        .create_table(schema_id, TABLE, &[ColumnDefinition::new("col1", SqlType::Integer)])
+        .create_table(
+            schema_id,
+            TABLE,
+            &[DeprecatedColumnDefinition::new("col1", SqlType::integer())],
+        )
         .expect("schema created");
     let analyzer = Analyzer::new(metadata);
     let description = analyzer.describe(&select_with_columns(
@@ -159,9 +169,9 @@ fn select_from_table_with_constant() {
     ));
     assert_eq!(
         description,
-        Ok(Description::Select(SelectStatement {
-            full_table_id: FullTableId::from((0, 0)),
-            projection_items: vec![ProjectionItem::Const(1)],
+        Ok(DeprecatedDescription::Select(DeprecatedSelectStatement {
+            full_table_id: DeprecatedFullTableId::from((0, 0)),
+            projection_items: vec![DeprecatedProjectionItem::Const(1)],
         }))
     );
 }

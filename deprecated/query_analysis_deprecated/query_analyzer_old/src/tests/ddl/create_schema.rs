@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use super::*;
-use description::SchemaCreationInfo;
+use description::DeprecatedSchemaCreationInfo;
 use sql_ast::{ObjectName, Statement};
 
 fn create_schema(schema_name: ObjectName) -> Statement {
@@ -30,7 +30,7 @@ fn create_new_schema() {
     let description = analyzer.describe(&create_schema(ObjectName(vec![ident(SCHEMA)])));
     assert_eq!(
         description,
-        Ok(Description::CreateSchema(SchemaCreationInfo {
+        Ok(DeprecatedDescription::CreateSchema(DeprecatedSchemaCreationInfo {
             schema_name: SCHEMA.to_owned()
         }))
     );
@@ -42,7 +42,10 @@ fn create_schema_with_the_same_name() {
     metadata.create_schema(SCHEMA).expect("schema created");
     let analyzer = Analyzer::new(metadata);
     let description = analyzer.describe(&create_schema(ObjectName(vec![ident(SCHEMA)])));
-    assert_eq!(description, Err(DescriptionError::schema_already_exists(&SCHEMA)));
+    assert_eq!(
+        description,
+        Err(DeprecatedDescriptionError::schema_already_exists(&SCHEMA))
+    );
 }
 
 #[test]
@@ -57,7 +60,7 @@ fn create_schema_with_unqualified_name() {
     ])));
     assert_eq!(
         description,
-        Err(DescriptionError::syntax_error(
+        Err(DeprecatedDescriptionError::syntax_error(
             &"Only unqualified schema names are supported, 'first_part.second_part.third_part.fourth_part'"
         ))
     );

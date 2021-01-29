@@ -14,7 +14,7 @@
 
 use super::*;
 use data_manager::DatabaseHandle;
-use meta_def::ColumnDefinition;
+use meta_def::DeprecatedColumnDefinition;
 use sql_ast::Ident;
 use std::sync::Arc;
 use types::SqlType;
@@ -34,20 +34,20 @@ const SCHEMA: &str = "schema_name";
 const TABLE: &str = "table_name";
 
 #[rstest::fixture]
-fn planner() -> QueryPlanner {
+fn planner() -> OldDeprecatedQueryPlanner {
     let manager = DatabaseHandle::in_memory();
-    QueryPlanner::new(Arc::new(manager))
+    OldDeprecatedQueryPlanner::new(Arc::new(manager))
 }
 
 #[rstest::fixture]
-fn planner_with_schema() -> QueryPlanner {
+fn planner_with_schema() -> OldDeprecatedQueryPlanner {
     let manager = DatabaseHandle::in_memory();
     manager.create_schema(SCHEMA).expect("schema created");
-    QueryPlanner::new(Arc::new(manager))
+    OldDeprecatedQueryPlanner::new(Arc::new(manager))
 }
 
 #[rstest::fixture]
-fn planner_with_table() -> QueryPlanner {
+fn planner_with_table() -> OldDeprecatedQueryPlanner {
     let manager = DatabaseHandle::in_memory();
     let schema_id = manager.create_schema(SCHEMA).expect("schema created");
     manager
@@ -55,21 +55,21 @@ fn planner_with_table() -> QueryPlanner {
             schema_id,
             TABLE,
             &[
-                ColumnDefinition::new("small_int", SqlType::SmallInt),
-                ColumnDefinition::new("integer", SqlType::Integer),
-                ColumnDefinition::new("big_int", SqlType::BigInt),
+                DeprecatedColumnDefinition::new("small_int", SqlType::small_int()),
+                DeprecatedColumnDefinition::new("integer", SqlType::integer()),
+                DeprecatedColumnDefinition::new("big_int", SqlType::big_int()),
             ],
         )
         .expect("table created");
-    QueryPlanner::new(Arc::new(manager))
+    OldDeprecatedQueryPlanner::new(Arc::new(manager))
 }
 
 #[rstest::fixture]
-fn planner_with_no_column_table() -> QueryPlanner {
+fn planner_with_no_column_table() -> OldDeprecatedQueryPlanner {
     let manager = DatabaseHandle::in_memory();
     let schema_id = manager.create_schema(SCHEMA).expect("schema created");
     manager.create_table(schema_id, TABLE, &[]).expect("table created");
-    QueryPlanner::new(Arc::new(manager))
+    OldDeprecatedQueryPlanner::new(Arc::new(manager))
 }
 
 fn ident<S: ToString>(name: S) -> Ident {

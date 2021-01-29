@@ -13,11 +13,11 @@
 // limitations under the License.
 
 use super::*;
-use plan::{FullTableId, SelectInput};
+use plan::{DeprecatedFullTableId, DeprecatedSelectInput};
 use sql_ast::{ObjectName, Query, Select, SelectItem, SetExpr, Statement, TableFactor, TableWithJoins};
 
 #[rstest::rstest]
-fn select_from_table_that_in_nonexistent_schema(planner: QueryPlanner) {
+fn select_from_table_that_in_nonexistent_schema(planner: OldDeprecatedQueryPlanner) {
     assert_eq!(
         planner.plan(&Statement::Query(Box::new(Query {
             with: None,
@@ -48,7 +48,7 @@ fn select_from_table_that_in_nonexistent_schema(planner: QueryPlanner) {
 }
 
 #[rstest::rstest]
-fn select_from_nonexistent_table(planner_with_schema: QueryPlanner) {
+fn select_from_nonexistent_table(planner_with_schema: OldDeprecatedQueryPlanner) {
     assert_eq!(
         planner_with_schema.plan(&Statement::Query(Box::new(Query {
             with: None,
@@ -82,7 +82,7 @@ fn select_from_nonexistent_table(planner_with_schema: QueryPlanner) {
 }
 
 #[rstest::rstest]
-fn select_from_table_with_unqualified_name(planner_with_schema: QueryPlanner) {
+fn select_from_table_with_unqualified_name(planner_with_schema: OldDeprecatedQueryPlanner) {
     assert_eq!(
         planner_with_schema.plan(&Statement::Query(Box::new(Query {
             with: None,
@@ -115,7 +115,7 @@ fn select_from_table_with_unqualified_name(planner_with_schema: QueryPlanner) {
 }
 
 #[rstest::rstest]
-fn select_from_table_with_unsupported_name(planner_with_schema: QueryPlanner) {
+fn select_from_table_with_unsupported_name(planner_with_schema: OldDeprecatedQueryPlanner) {
     assert_eq!(
         planner_with_schema.plan(&Statement::Query(Box::new(Query {
             with: None,
@@ -153,7 +153,7 @@ fn select_from_table_with_unsupported_name(planner_with_schema: QueryPlanner) {
 }
 
 #[rstest::rstest]
-fn select_from_table(planner_with_no_column_table: QueryPlanner) {
+fn select_from_table(planner_with_no_column_table: OldDeprecatedQueryPlanner) {
     assert_eq!(
         planner_with_no_column_table.plan(&Statement::Query(Box::new(Query {
             with: None,
@@ -179,8 +179,8 @@ fn select_from_table(planner_with_no_column_table: QueryPlanner) {
             offset: None,
             fetch: None,
         }))),
-        Ok(Plan::Select(SelectInput {
-            table_id: FullTableId::from((0, 0)),
+        Ok(DeprecatedPlan::Select(DeprecatedSelectInput {
+            table_id: DeprecatedFullTableId::from((0, 0)),
             selected_columns: vec![],
             predicate: None
         }))

@@ -17,7 +17,7 @@ use bigdecimal::{BigDecimal, ToPrimitive};
 use num_bigint::BigInt;
 use repr::Datum;
 use std::convert::TryFrom;
-use types::SqlType;
+use types::{Num, SqlType, Str};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ConstraintError {
@@ -46,13 +46,13 @@ impl From<&SqlType> for TypeConstraint {
     fn from(sql_type: &SqlType) -> TypeConstraint {
         match sql_type {
             SqlType::Bool => TypeConstraint::Bool,
-            SqlType::Char(len) => TypeConstraint::Char(*len),
-            SqlType::VarChar(len) => TypeConstraint::VarChar(*len),
-            SqlType::SmallInt => TypeConstraint::SmallInt,
-            SqlType::Integer => TypeConstraint::Integer,
-            SqlType::BigInt => TypeConstraint::BigInt,
-            SqlType::Real => TypeConstraint::Real,
-            SqlType::DoublePrecision => TypeConstraint::DoublePrecision,
+            SqlType::Str { len, kind: Str::Const } => TypeConstraint::Char(*len),
+            SqlType::Str { len, kind: Str::Var } => TypeConstraint::VarChar(*len),
+            SqlType::Num(Num::SmallInt) => TypeConstraint::SmallInt,
+            SqlType::Num(Num::Integer) => TypeConstraint::Integer,
+            SqlType::Num(Num::BigInt) => TypeConstraint::BigInt,
+            SqlType::Num(Num::Real) => TypeConstraint::Real,
+            SqlType::Num(Num::Double) => TypeConstraint::DoublePrecision,
         }
     }
 }

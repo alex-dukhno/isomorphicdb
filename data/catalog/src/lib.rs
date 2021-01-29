@@ -14,27 +14,21 @@
 
 mod in_memory;
 mod on_disk;
-mod sql;
 
 use binary::Binary;
+use data_definition_operations::{ExecutionError, ExecutionOutcome, SystemOperation};
+use data_manipulation_typed_tree::StaticTypedTree;
+use definition::{ColumnDef, FullTableName, SchemaName, TableDef};
 use std::{
     fmt::{self, Debug, Formatter},
     iter::FromIterator,
 };
 
-use definition::{FullTableName, TableDef};
-use definition_operations::{ExecutionError, ExecutionOutcome, SystemOperation};
-pub use in_memory::InMemoryCatalogHandle;
-pub use on_disk::OnDiskCatalogHandle;
-pub use sql::{in_memory::InMemoryDatabase, on_disk::OnDiskDatabase};
+pub use in_memory::InMemoryDatabase;
+use repr::Datum;
 
 pub type Key = Binary;
 pub type Value = Binary;
-
-const DEFINITION_SCHEMA: &str = "DEFINITION_SCHEMA";
-const SCHEMATA_TABLE: &str = "SCHEMATA";
-const TABLES_TABLE: &str = "TABLES";
-const COLUMNS_TABLE: &str = "COLUMNS";
 
 #[derive(Debug, PartialEq)]
 pub struct StorageError;
@@ -65,7 +59,7 @@ impl Iterator for Cursor {
     }
 }
 
-pub trait DataTable {
+trait DataTable {
     fn select(&self) -> Cursor;
     fn insert(&self, data: Vec<Value>) -> usize;
     fn update(&self, data: Vec<(Key, Value)>) -> usize;
@@ -73,31 +67,43 @@ pub trait DataTable {
     fn next_column_ord(&self) -> u64;
 }
 
-pub trait SchemaHandle {
+trait SchemaHandle {
     type Table: DataTable;
     fn create_table(&self, table_name: &str) -> bool;
     fn drop_table(&self, table_name: &str) -> bool;
     fn work_with<T, F: Fn(&Self::Table) -> T>(&self, table_name: &str, operation: F) -> Option<T>;
 }
 
-pub trait DataCatalog {
+trait DataCatalog {
     type Schema: SchemaHandle;
     fn create_schema(&self, schema_name: &str) -> bool;
     fn drop_schema(&self, schema_name: &str) -> bool;
     fn work_with<T, F: Fn(&Self::Schema) -> T>(&self, schema_name: &str, operation: F) -> Option<T>;
 }
 
-pub trait SqlTable {}
+pub trait CatalogDefinition {
+    fn table_definition(&self, table_full_name: &FullTableName) -> Option<Option<TableDef>>;
 
-pub trait SqlSchema {}
+    fn schema_exists(&self, schema_name: &SchemaName) -> bool;
+}
+
+const DEFINITION_SCHEMA: &str = "DEFINITION_SCHEMA";
+const SCHEMATA_TABLE: &str = "SCHEMATA";
+const TABLES_TABLE: &str = "TABLES";
+const COLUMNS_TABLE: &str = "COLUMNS";
+
+pub trait SqlTable {
+    fn insert(&self, data: &[Vec<Option<StaticTypedTree>>]) -> usize;
+    fn insert_with_columns(&self, column_names: Vec<String>, rows: Vec<Vec<Option<StaticTypedTree>>>) -> usize;
+
+    fn select(&self) -> (Vec<ColumnDef>, Vec<Vec<Datum>>);
+    fn select_with_columns(&self, column_names: Vec<String>) -> Result<(Vec<ColumnDef>, Vec<Vec<Datum>>), String>;
+}
 
 pub trait Database {
-    type Schema: SqlSchema;
     type Table: SqlTable;
 
     fn execute(&self, operation: SystemOperation) -> Result<ExecutionOutcome, ExecutionError>;
-}
 
-pub trait CatalogDefinition {
-    fn table_definition(&self, table_full_name: &FullTableName) -> Option<Option<TableDef>>;
+    fn work_with<R, F: Fn(&Self::Table) -> R>(&self, full_table_name: &FullTableName, operation: F) -> R;
 }

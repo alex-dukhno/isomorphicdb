@@ -1,9 +1,0 @@
-[package]
-name = "definition_operations"
-version = "0.1.0"
-authors = ["Alex Dukhno <alex.dukhno@icloud.com>"]
-edition = "2018"
-publish = false
-
-[dependencies]
-types = { path = "../../entities/types" }

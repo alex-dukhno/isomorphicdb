@@ -16,7 +16,7 @@ use ordered_float::OrderedFloat;
 use std::fmt::{self, Display, Formatter};
 
 #[derive(Debug, Clone, PartialEq, Eq, Ord, PartialOrd, Hash)]
-pub enum Datum<'a> {
+pub enum Datum {
     Null,
     True,
     False,
@@ -25,11 +25,10 @@ pub enum Datum<'a> {
     Int64(i64),
     Float32(OrderedFloat<f32>),
     Float64(OrderedFloat<f64>),
-    String(&'a str),
     OwnedString(String),
 }
 
-impl<'a> Datum<'a> {
+impl Datum {
     pub fn size(&self) -> usize {
         match self {
             Self::Null => 1,
@@ -40,16 +39,15 @@ impl<'a> Datum<'a> {
             Self::Int64(_) => 1 + std::mem::size_of::<i64>(),
             Self::Float32(_) => 1 + std::mem::size_of::<f32>(),
             Self::Float64(_) => 1 + std::mem::size_of::<f64>(),
-            Self::String(val) => 1 + std::mem::size_of::<usize>() + val.len(),
             Self::OwnedString(val) => 1 + std::mem::size_of::<usize>() + val.len(),
         }
     }
 
-    pub fn from_null() -> Datum<'static> {
+    pub fn from_null() -> Datum {
         Datum::Null
     }
 
-    pub fn from_bool(val: bool) -> Datum<'static> {
+    pub fn from_bool(val: bool) -> Datum {
         if val {
             Datum::True
         } else {
@@ -57,27 +55,27 @@ impl<'a> Datum<'a> {
         }
     }
 
-    pub fn from_i16(val: i16) -> Datum<'static> {
+    pub fn from_i16(val: i16) -> Datum {
         Datum::Int16(val)
     }
 
-    pub fn from_i32(val: i32) -> Datum<'static> {
+    pub fn from_i32(val: i32) -> Datum {
         Datum::Int32(val)
     }
 
-    pub fn from_u32(val: u32) -> Datum<'static> {
+    pub fn from_u32(val: u32) -> Datum {
         Datum::from_i32(val as i32)
     }
 
-    pub const fn from_i64(val: i64) -> Datum<'static> {
+    pub const fn from_i64(val: i64) -> Datum {
         Datum::Int64(val)
     }
 
-    pub const fn from_u64(val: u64) -> Datum<'static> {
+    pub const fn from_u64(val: u64) -> Datum {
         Datum::from_i64(val as i64)
     }
 
-    pub fn from_optional_u64(val: Option<u64>) -> Datum<'static> {
+    pub fn from_optional_u64(val: Option<u64>) -> Datum {
         match val {
             // TODO: None should be translated into NULL but 0 for now
             None => Datum::from_u64(0),
@@ -85,20 +83,15 @@ impl<'a> Datum<'a> {
         }
     }
 
-    pub fn from_f32(val: f32) -> Datum<'static> {
+    pub fn from_f32(val: f32) -> Datum {
         Datum::Float32(OrderedFloat(val))
     }
 
-    pub fn from_f64(val: f64) -> Datum<'static> {
+    pub fn from_f64(val: f64) -> Datum {
         Datum::Float64(OrderedFloat(val))
     }
 
-    #[allow(clippy::should_implement_trait)]
-    pub const fn from_str(val: &'a str) -> Datum<'a> {
-        Datum::String(val)
-    }
-
-    pub fn from_string(val: String) -> Datum<'static> {
+    pub fn from_string(val: String) -> Datum {
         Datum::OwnedString(val)
     }
 
@@ -116,15 +109,15 @@ impl<'a> Datum<'a> {
         }
     }
 
-    pub fn as_str(&self) -> &str {
+    pub fn as_string(&self) -> String {
         match self {
-            Self::String(s) => s,
+            Self::OwnedString(s) => s.clone(),
             _ => panic!("invalid use of Datum::as_str"),
         }
     }
 }
 
-impl Display for Datum<'_> {
+impl Display for Datum {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             Self::Null => write!(f, "NULL"),
@@ -135,7 +128,6 @@ impl Display for Datum<'_> {
             Self::Int64(val) => write!(f, "{}", val),
             Self::Float32(val) => write!(f, "{}", val.into_inner()),
             Self::Float64(val) => write!(f, "{}", val.into_inner()),
-            Self::String(val) => write!(f, "{}", val),
             Self::OwnedString(val) => write!(f, "{}", val),
         }
     }

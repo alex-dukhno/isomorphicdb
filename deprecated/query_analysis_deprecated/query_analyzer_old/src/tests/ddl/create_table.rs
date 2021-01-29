@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use super::*;
-use description::ColumnDesc;
+use description::DeprecatedColumnDesc;
 use pg_wire::PgType;
 use sql_ast::{ColumnDef, DataType};
 
@@ -51,7 +51,9 @@ fn create_table_with_nonexistent_schema() {
 
     assert_eq!(
         description,
-        Err(DescriptionError::schema_does_not_exist(&"non_existent_schema"))
+        Err(DeprecatedDescriptionError::schema_does_not_exist(
+            &"non_existent_schema"
+        ))
     );
 }
 
@@ -65,7 +67,10 @@ fn create_table_with_the_same_name() {
 
     assert_eq!(
         description,
-        Err(DescriptionError::table_already_exists(&format!("{}.{}", SCHEMA, TABLE)))
+        Err(DeprecatedDescriptionError::table_already_exists(&format!(
+            "{}.{}",
+            SCHEMA, TABLE
+        )))
     );
 }
 
@@ -83,7 +88,7 @@ fn create_table_with_unsupported_column_type() {
     ));
     assert_eq!(
         description,
-        Err(DescriptionError::feature_not_supported(
+        Err(DeprecatedDescriptionError::feature_not_supported(
             &"'strange_type_name_whatever' type is not supported",
         ))
     );
@@ -100,7 +105,7 @@ fn create_table_with_unqualified_name() {
     ));
     assert_eq!(
         description,
-        Err(DescriptionError::syntax_error(
+        Err(DeprecatedDescriptionError::syntax_error(
             &"Unsupported table name 'only_schema_in_the_name'. All table names must be qualified",
         ))
     );
@@ -117,7 +122,7 @@ fn create_table_with_unsupported_name() {
     ));
     assert_eq!(
         description,
-        Err(DescriptionError::syntax_error(
+        Err(DeprecatedDescriptionError::syntax_error(
             &"Unable to process table name 'first_part.second_part.third_part.fourth_part'",
         ))
     );
@@ -134,10 +139,10 @@ fn successfully_create_table() {
     ));
     assert_eq!(
         description,
-        Ok(Description::CreateTable(TableCreationInfo {
+        Ok(DeprecatedDescription::CreateTable(DeprecatedTableCreationInfo {
             schema_id: 0,
             table_name: TABLE.to_owned(),
-            columns: vec![ColumnDesc {
+            columns: vec![DeprecatedColumnDesc {
                 name: "column_name".to_owned(),
                 pg_type: PgType::SmallInt
             }]

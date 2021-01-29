@@ -15,14 +15,14 @@
 use super::*;
 use ast::predicates::{PredicateOp, PredicateValue};
 use bigdecimal::BigDecimal;
-use plan::{FullTableId, SelectInput};
+use plan::{DeprecatedFullTableId, DeprecatedSelectInput};
 use sql_ast::{
     BinaryOperator, Expr, ObjectName, Query, Select, SelectItem, SetExpr, Statement, TableFactor, TableWithJoins, Value,
 };
 use std::convert::TryFrom;
 
 #[rstest::rstest]
-fn select_from_table(planner_with_table: QueryPlanner) {
+fn select_from_table(planner_with_table: OldDeprecatedQueryPlanner) {
     assert_eq!(
         planner_with_table.plan(&Statement::Query(Box::new(Query {
             with: None,
@@ -52,8 +52,8 @@ fn select_from_table(planner_with_table: QueryPlanner) {
             offset: None,
             fetch: None,
         }))),
-        Ok(Plan::Select(SelectInput {
-            table_id: FullTableId::from((0, 0)),
+        Ok(DeprecatedPlan::Select(DeprecatedSelectInput {
+            table_id: DeprecatedFullTableId::from((0, 0)),
             selected_columns: vec![0, 1, 2],
             predicate: Some((
                 PredicateValue::Column(0),

@@ -1,0 +1,11 @@
+[package]
+name = "query_processing_type_check"
+version = "0.1.0"
+authors = ["Alex Dukhno <alex.dukhno@icloud.com>"]
+edition = "2018"
+publish = false
+
+[dependencies]
+data_manipulation_typed_tree = { path = "../../data_manipulation/typed_tree" }
+data_manipulation_operators = { path = "../../data_manipulation/operators" }
+types = { path = "../../entities/types" }
