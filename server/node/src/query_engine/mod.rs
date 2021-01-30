@@ -12,39 +12,30 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::{convert::TryFrom, iter, ops::Deref, sync::Arc};
-
+use std::{convert::TryFrom, iter, sync::Arc};
 use bigdecimal::BigDecimal;
 use itertools::izip;
 use pg_wire::{ColumnMetadata, PgFormat, PgType};
 
-use binder::ParamBinder;
 use catalog::{CatalogDefinition, Database};
 use connection::Sender;
 use data_definition_operations::{ExecutionError, ExecutionOutcome};
-use data_manager::{DataDefReader, DatabaseHandle};
 use data_manipulation_query_result::{QueryExecution, QueryExecutionError};
 use data_manipulation_typed_queries::{DeleteQuery, InsertQuery, TypedSelectQuery, TypedWrite, UpdateQuery};
 use data_manipulation_typed_tree::{DynamicTypedTree, StaticTypedTree};
 use data_manipulation_untyped_queries::UntypedWrite;
-use deprecated_query_planner::{OldDeprecatedQueryPlanner, PlanError};
-use description::{DeprecatedDescription, DeprecatedDescriptionError};
 use pg_model::{
     results::{QueryError, QueryEvent},
     session::Session,
     statement::PreparedStatement,
     Command,
 };
-use plan::{DeprecatedPlan, DeprecatedSelectInput};
 use query_analyzer::{AnalysisError, Analyzer, QueryAnalysis};
-use query_analyzer_old::Analyzer as OldAnalyzer;
-use query_executor::QueryExecutor;
 use query_processing_type_check::TypeChecker;
 use query_processing_type_coercion::TypeCoercion;
 use query_processing_type_inference::TypeInference;
 use read_query_executor::ReadQueryExecutor;
 use read_query_planner::ReadQueryPlanner;
-use schema_executor::SystemSchemaExecutor;
 use schema_planner::SystemSchemaPlanner;
 use sql_ast::{Expr, Ident, Statement, Value};
 use types::SqlType;
@@ -57,12 +48,6 @@ unsafe impl<D: Database + CatalogDefinition> Sync for QueryEngine<D> {}
 pub(crate) struct QueryEngine<D: Database + CatalogDefinition> {
     session: Session<Statement>,
     sender: Arc<dyn Sender>,
-    data_manager: Arc<DatabaseHandle>,
-    param_binder: ParamBinder,
-    old_query_analyzer: OldAnalyzer,
-    old_deprecated_query_planner: OldDeprecatedQueryPlanner,
-    schema_executor: SystemSchemaExecutor,
-    query_executor: QueryExecutor,
     query_analyzer: Analyzer<D>,
     system_planner: SystemSchemaPlanner,
     type_inference: TypeInference,
@@ -75,16 +60,10 @@ pub(crate) struct QueryEngine<D: Database + CatalogDefinition> {
 }
 
 impl<D: Database + CatalogDefinition> QueryEngine<D> {
-    pub(crate) fn new(sender: Arc<dyn Sender>, data_manager: Arc<DatabaseHandle>, database: Arc<D>) -> QueryEngine<D> {
+    pub(crate) fn new(sender: Arc<dyn Sender>, database: Arc<D>) -> QueryEngine<D> {
         QueryEngine {
             session: Session::default(),
             sender: sender.clone(),
-            data_manager: data_manager.clone(),
-            param_binder: ParamBinder,
-            old_query_analyzer: OldAnalyzer::new(data_manager.clone()),
-            schema_executor: SystemSchemaExecutor::new(data_manager.clone()),
-            old_deprecated_query_planner: OldDeprecatedQueryPlanner::new(data_manager.clone()),
-            query_executor: QueryExecutor::new(data_manager, sender),
             query_analyzer: Analyzer::new(database.clone()),
             system_planner: SystemSchemaPlanner::new(),
             type_inference: TypeInference::default(),
@@ -196,9 +175,8 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
             } => {
                 match self.session.get_portal(&portal_name) {
                     Some(portal) => {
-                        if let Ok(plan) = self.old_deprecated_query_planner.plan(portal.stmt()) {
-                            self.query_executor.execute(plan);
-                        }
+                        self.sender.send(Err(QueryError::syntax_error(portal.stmt())))
+                            .expect("To Send Error to Client");
                     }
                     None => {
                         self.sender
@@ -290,14 +268,8 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                                             .send(Err(QueryError::protocol_violation(message)))
                                             .expect("To Send Error to Client");
                                     }
-                                    let mut new_stmt = prepared_statement.stmt().clone();
-                                    if let Err(error) = self.param_binder.bind(&mut new_stmt, &parameters) {
-                                        log::error!("{:?}", error);
-                                    }
-                                    match self.old_deprecated_query_planner.plan(&new_stmt) {
-                                        Ok(plan) => self.query_executor.execute(plan),
-                                        Err(error) => log::error!("{:?}", error),
-                                    }
+                                    self.sender.send(Err(QueryError::syntax_error(prepared_statement.stmt())))
+                                        .expect("To Send Error to Client");
                                 }
                                 None => {
                                     self.sender
@@ -317,8 +289,9 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                         | statement @ Statement::CreateTable { .. }
                         | statement @ Statement::Drop { .. } => match self.query_analyzer.analyze(statement) {
                             Ok(QueryAnalysis::DataDefinition(schema_change)) => {
+                                log::debug!("SCHEMA CHANGE - {:?}", schema_change);
                                 let operations = self.system_planner.schema_change_plan(&schema_change);
-                                let query_result = match self.database.execute(operations.clone()) {
+                                let query_result = match self.database.execute(operations) {
                                     Ok(ExecutionOutcome::SchemaCreated) => Ok(QueryEvent::SchemaCreated),
                                     Ok(ExecutionOutcome::SchemaDropped) => Ok(QueryEvent::SchemaDropped),
                                     Ok(ExecutionOutcome::TableCreated) => Ok(QueryEvent::TableCreated),
@@ -339,9 +312,6 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                                         Err(QueryError::schema_has_dependent_objects(schema_name))
                                     }
                                 };
-                                if query_result.is_ok() {
-                                    self.schema_executor.execute(&schema_change, &operations).unwrap();
-                                }
                                 self.sender.send(query_result).expect("To Send Result to Client");
                             }
                             Err(AnalysisError::SchemaDoesNotExist(schema_name)) => self
@@ -379,17 +349,17 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                                     .into_iter()
                                     .map(|value| self.type_inference.infer_dynamic(value))
                                     .collect::<Vec<DynamicTypedTree>>();
-                                println!("{:?}", typed_values);
+                                log::debug!("UPDATE TYPED VALUES - {:?}", typed_values);
                                 let type_checked = typed_values
                                     .into_iter()
                                     .map(|value| self.type_checker.check_dynamic(value))
                                     .collect::<Vec<DynamicTypedTree>>();
-                                println!("{:?}", type_checked);
+                                log::debug!("UPDATE TYPE CHECKED VALUES - {:?}", type_checked);
                                 let type_coerced = type_checked
                                     .into_iter()
                                     .map(|value| self.type_coercion.coerce_dynamic(value))
                                     .collect::<Vec<DynamicTypedTree>>();
-                                println!("{:?}", type_coerced);
+                                log::debug!("UPDATE TYPE COERCED VALUES - {:?}", type_coerced);
                                 match self.write_query_executor.execute(TypedWrite::Update(UpdateQuery {
                                     full_table_name: update.full_table_name,
                                     column_names: update.column_names,
@@ -410,7 +380,7 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                                 }
                             }
                             Ok(QueryAnalysis::Write(UntypedWrite::Insert(insert))) => {
-                                println!("UNTYPED VALUES {:?}", insert.values);
+                                log::debug!("INSERT UNTYPED VALUES {:?}", insert.values);
                                 let typed_values = insert
                                     .values
                                     .into_iter()
@@ -421,7 +391,7 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                                             .collect()
                                     })
                                     .collect::<Vec<Vec<StaticTypedTree>>>();
-                                println!("TYPED VALUES {:?}", typed_values);
+                                log::debug!("INSERT TYPED VALUES {:?}", typed_values);
                                 let type_checked = typed_values
                                     .into_iter()
                                     .map(|values| {
@@ -431,7 +401,7 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                                             .collect()
                                     })
                                     .collect::<Vec<Vec<StaticTypedTree>>>();
-                                println!("TYPE CHECKED VALUES {:?}", type_checked);
+                                log::debug!("INSERT TYPE CHECKED VALUES {:?}", type_checked);
                                 let table_info = self
                                     .database
                                     .table_definition(&insert.full_table_name)
@@ -446,7 +416,7 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                                     }
                                     type_coerced.push(row);
                                 }
-                                println!("TYPE COERCED VALUES {:?}", type_coerced);
+                                log::debug!("INSERT TYPE COERCED VALUES {:?}", type_coerced);
                                 match self.write_query_executor.execute(TypedWrite::Insert(InsertQuery {
                                     full_table_name: insert.full_table_name,
                                     column_names: insert.column_names,
@@ -471,23 +441,23 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                                 }
                             }
                             Ok(QueryAnalysis::Read(select)) => {
-                                println!("{:?}", select.projection_items);
+                                log::debug!("SELECT UNTYPED VALUES - {:?}", select.projection_items);
                                 let typed_values = select
                                     .projection_items
                                     .into_iter()
                                     .map(|value| self.type_inference.infer_dynamic(value))
                                     .collect::<Vec<DynamicTypedTree>>();
-                                println!("{:?}", typed_values);
+                                log::debug!("SELECT TYPED VALUES - {:?}", typed_values);
                                 let type_checked = typed_values
                                     .into_iter()
                                     .map(|value| self.type_checker.check_dynamic(value))
                                     .collect::<Vec<DynamicTypedTree>>();
-                                println!("{:?}", type_checked);
+                                log::debug!("SELECT TYPE CHECKED VALUES - {:?}", type_checked);
                                 let type_coerced = type_checked
                                     .into_iter()
                                     .map(|value| self.type_coercion.coerce_dynamic(value))
                                     .collect::<Vec<DynamicTypedTree>>();
-                                println!("{:?}", type_coerced);
+                                log::debug!("SELECT TYPE COERCED VALUES - {:?}", type_coerced);
                                 let plan = self.read_query_planner.plan(TypedSelectQuery {
                                     projection_items: type_coerced,
                                     full_table_name: select.full_table_name,
@@ -542,24 +512,24 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                             }
                             branch => unimplemented!("handling {:?} is not implemented", branch),
                         },
-                        statement => match self.old_deprecated_query_planner.plan(&statement) {
-                            Ok(plan) => {
-                                self.query_executor.execute(plan);
-                            }
-                            Err(error) => {
-                                let query_error = match error {
-                                    PlanError::SchemaDoesNotExist(schema) => QueryError::schema_does_not_exist(schema),
-                                    PlanError::TableDoesNotExist(table) => QueryError::table_does_not_exist(table),
-                                    PlanError::DuplicateColumn(column) => QueryError::duplicate_column(column),
-                                    PlanError::ColumnDoesNotExist(column) => QueryError::column_does_not_exist(column),
-                                    PlanError::SyntaxError(syntax_error) => QueryError::syntax_error(syntax_error),
-                                    PlanError::FeatureNotSupported(feature_desc) => {
-                                        QueryError::feature_not_supported(feature_desc)
-                                    }
-                                };
-                                self.sender.send(Err(query_error)).expect("To Send Error to Client");
-                            }
+                        sql_ast::Statement::SetVariable { .. } => {
+                            // sending ok to the client to proceed with other requests
+                            self.sender.send(Ok(QueryEvent::VariableSet)).expect("To Send Result to Client");
                         },
+                        sql_ast::Statement::Copy { .. } => unimplemented!(),
+                        sql_ast::Statement::CreateView { .. } => unimplemented!(),
+                        sql_ast::Statement::CreateVirtualTable { .. } => unimplemented!(),
+                        sql_ast::Statement::CreateIndex { .. } => unimplemented!(),
+                        sql_ast::Statement::AlterTable { .. } => unimplemented!(),
+                        sql_ast::Statement::ShowVariable { .. } => unimplemented!(),
+                        sql_ast::Statement::ShowColumns { .. } => unimplemented!(),
+                        sql_ast::Statement::StartTransaction { .. } => unimplemented!(),
+                        sql_ast::Statement::SetTransaction { .. } => unimplemented!(),
+                        sql_ast::Statement::Commit { .. } => unimplemented!(),
+                        sql_ast::Statement::Rollback { .. } => unimplemented!(),
+                        sql_ast::Statement::Assert { .. } => unimplemented!(),
+                        sql_ast::Statement::Analyze { .. } => unimplemented!(),
+                        sql_ast::Statement::Explain { .. } => unimplemented!(),
                     },
                     Err(parser_error) => {
                         self.sender
@@ -584,7 +554,7 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
         prepared_statement: &PreparedStatement<Statement>,
         param_formats: &[PgFormat],
         raw_params: &[Option<Vec<u8>>],
-        result_formats: &[PgFormat],
+        _result_formats: &[PgFormat],
     ) -> Result<(Statement, Vec<PgFormat>), ()> {
         log::debug!("prepared statement -  {:#?}", prepared_statement);
         let param_formats = match pad_formats(param_formats, raw_params.len()) {
@@ -616,140 +586,19 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
             }
         }
 
-        let mut new_stmt = prepared_statement.stmt().clone();
-        if self.param_binder.bind(&mut new_stmt, &params).is_err() {
-            return Err(());
-        }
+        self.sender.send(Err(QueryError::syntax_error(prepared_statement.stmt())))
+            .expect("To Send Error to Client");
 
-        let result_formats = match pad_formats(result_formats, prepared_statement.description().len()) {
-            Ok(result_formats) => result_formats,
-            Err(msg) => {
-                self.sender
-                    .send(Err(QueryError::protocol_violation(msg)))
-                    .expect("To Send Error to Client");
-                return Err(());
-            }
-        };
-
-        log::debug!("statement - {:?}, formats - {:?}", new_stmt, result_formats);
-        Ok((new_stmt, result_formats))
+        Err(())
     }
 
     fn create_prepared_statement(
         &mut self,
-        statement_name: String,
+        _statement_name: String,
         statement: Statement,
-        param_types: Vec<Option<PgType>>,
+        _param_types: Vec<Option<PgType>>,
     ) -> Result<(), QueryError> {
-        match self.old_deprecated_query_planner.plan(&statement) {
-            Ok(plan) => match plan {
-                DeprecatedPlan::Select(select_input) => {
-                    let description = self.describe(select_input);
-                    let statement = PreparedStatement::new(
-                        statement,
-                        param_types.iter().filter(|o| o.is_some()).map(|o| o.unwrap()).collect(),
-                        description,
-                    );
-                    self.session.set_prepared_statement(statement_name, statement);
-                    Ok(())
-                }
-                DeprecatedPlan::Insert(_insert_table) => match self.old_query_analyzer.describe(&statement) {
-                    Ok(DeprecatedDescription::Insert(insert_statement)) => {
-                        let mut new_param_types = vec![];
-                        for index in 0..insert_statement.param_count {
-                            let param_type = match param_types.get(index) {
-                                Some(t) => *t,
-                                None => None,
-                            };
-                            let param_type = match param_type {
-                                Some(t) => t,
-                                None => match insert_statement.param_types.get(&index) {
-                                    Some(sql_type) => sql_type.into(),
-                                    None => return Err(QueryError::indeterminate_parameter_data_type(index)),
-                                },
-                            };
-                            new_param_types.push(param_type);
-                        }
-
-                        let statement = PreparedStatement::new(statement, new_param_types, vec![]);
-                        self.session.set_prepared_statement(statement_name, statement);
-                        Ok(())
-                    }
-                    Err(DeprecatedDescriptionError::TableDoesNotExist(table_name)) => {
-                        Err(QueryError::table_does_not_exist(table_name))
-                    }
-                    Err(DeprecatedDescriptionError::SchemaDoesNotExist(schema_name)) => {
-                        Err(QueryError::table_does_not_exist(schema_name))
-                    }
-                    _ => unreachable!("this should not be reached during insertions"),
-                },
-                DeprecatedPlan::Update(_update_table) => match self.old_query_analyzer.describe(&statement) {
-                    Ok(DeprecatedDescription::Update(update_statement)) => {
-                        let mut new_param_types = vec![];
-                        for index in 0..update_statement.param_count {
-                            let param_type = match param_types.get(index) {
-                                Some(t) => *t,
-                                None => None,
-                            };
-                            let param_type = match param_type {
-                                Some(t) => t,
-                                None => match update_statement.param_types.get(&index) {
-                                    Some(sql_type) => sql_type.into(),
-                                    None => return Err(QueryError::indeterminate_parameter_data_type(index)),
-                                },
-                            };
-                            new_param_types.push(param_type);
-                        }
-
-                        let statement = PreparedStatement::new(statement, new_param_types, vec![]);
-                        self.session.set_prepared_statement(statement_name, statement);
-                        Ok(())
-                    }
-                    Err(DeprecatedDescriptionError::TableDoesNotExist(table_name)) => {
-                        Err(QueryError::table_does_not_exist(table_name))
-                    }
-                    Err(DeprecatedDescriptionError::SchemaDoesNotExist(schema_name)) => {
-                        Err(QueryError::table_does_not_exist(schema_name))
-                    }
-                    _ => unreachable!("this should not be reached during updates"),
-                },
-                DeprecatedPlan::NotProcessed(statement) => match statement.deref() {
-                    stmt @ Statement::SetVariable { .. } => {
-                        let statement = PreparedStatement::new(
-                            stmt.clone(),
-                            param_types.iter().filter(|o| o.is_some()).map(|o| o.unwrap()).collect(),
-                            vec![],
-                        );
-                        self.session.set_prepared_statement(statement_name, statement);
-                        Ok(())
-                    }
-                    stmt => {
-                        log::error!("Error while describing not supported extended query for {:?}", stmt);
-                        Ok(())
-                    }
-                },
-                plan => {
-                    log::error!("Error while planning not supported extended query for {:?}", plan);
-                    Ok(())
-                }
-            },
-            Err(error) => match error {
-                PlanError::SchemaDoesNotExist(schema) => Err(QueryError::schema_does_not_exist(schema)),
-                PlanError::TableDoesNotExist(table) => Err(QueryError::table_does_not_exist(table)),
-                PlanError::DuplicateColumn(column) => Err(QueryError::duplicate_column(column)),
-                PlanError::ColumnDoesNotExist(column) => Err(QueryError::column_does_not_exist(column)),
-                PlanError::SyntaxError(syntax_error) => Err(QueryError::syntax_error(syntax_error)),
-                PlanError::FeatureNotSupported(feature_desc) => Err(QueryError::feature_not_supported(feature_desc)),
-            },
-        }
-    }
-
-    fn describe(&self, select_input: DeprecatedSelectInput) -> pg_model::results::Description {
-        self.data_manager
-            .column_defs(&select_input.table_id, &select_input.selected_columns)
-            .into_iter()
-            .map(|column_definition| (column_definition.name(), (&column_definition.sql_type()).into()))
-            .collect()
+        Err(QueryError::syntax_error(statement))
     }
 }
 

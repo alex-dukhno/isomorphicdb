@@ -112,7 +112,6 @@ fn empty_database() -> (InMemory, ResultCollector) {
     (
         InMemory::new(
             collector.clone(),
-            Arc::new(DatabaseHandle::in_memory()),
             InMemoryDatabase::new(),
         ),
         collector,

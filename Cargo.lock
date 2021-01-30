@@ -16,18 +16,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ee2a4ec343196209d6594e19543ae87a39f96d5534d7174822a3ad825dd6ed7e"
 
 [[package]]
-name = "ast"
-version = "0.1.0"
-dependencies = [
- "bigdecimal",
- "log",
- "meta_def",
- "repr",
- "sql_ast",
- "types",
-]
-
-[[package]]
 name = "async-channel"
 version = "1.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -176,17 +164,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "binder"
-version = "0.1.0"
-dependencies = [
- "bigdecimal",
- "log",
- "pg_wire",
- "rstest",
- "sql_ast",
-]
-
-[[package]]
 name = "bitflags"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -314,18 +291,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cd51eab21ab4fd6a3bf889e2d0958c0a6e3a61ad04260325e919e652a2a62826"
 
 [[package]]
-name = "constraints"
-version = "0.1.0"
-dependencies = [
- "ast",
- "bigdecimal",
- "num-bigint",
- "repr",
- "rstest",
- "types",
-]
-
-[[package]]
 name = "core-foundation"
 version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -401,24 +366,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "data_manager"
-version = "0.1.0"
-dependencies = [
- "backtrace",
- "binary",
- "dashmap",
- "data_definition_operations",
- "log",
- "meta_def",
- "repr",
- "rstest",
- "sql_model",
- "storage",
- "tempfile",
- "types",
-]
-
-[[package]]
 name = "data_manipulation_operators"
 version = "0.1.0"
 dependencies = [
@@ -477,32 +424,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "deprecated_query_planner"
-version = "0.1.0"
-dependencies = [
- "ast",
- "bigdecimal",
- "constraints",
- "data_manager",
- "log",
- "meta_def",
- "plan",
- "rstest",
- "sql_ast",
- "types",
-]
-
-[[package]]
-name = "description"
-version = "0.1.0"
-dependencies = [
- "meta_def",
- "pg_wire",
- "sql_ast",
- "types",
-]
-
-[[package]]
 name = "either"
 version = "1.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -513,27 +434,6 @@ name = "event-listener"
 version = "2.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f7531096570974c3a9dcf9e4b8e1cede1ec26cf5046219fb3b9d897503b9be59"
-
-[[package]]
-name = "expr_eval"
-version = "0.1.0"
-dependencies = [
- "ast",
- "bigdecimal",
- "repr",
- "rstest",
-]
-
-[[package]]
-name = "fail"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3be3c61c59fdc91f5dbc3ea31ee8623122ce80057058be560654c5d410d181a6"
-dependencies = [
- "lazy_static",
- "log",
- "rand",
-]
 
 [[package]]
 name = "fastrand"
@@ -761,13 +661,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "meta_def"
-version = "0.1.0"
-dependencies = [
- "types",
-]
-
-[[package]]
 name = "miniz_oxide"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -812,36 +705,28 @@ dependencies = [
  "async-executor",
  "async-io",
  "bigdecimal",
- "binder",
  "blocking",
  "catalog",
  "connection",
  "data_definition_operations",
- "data_manager",
  "data_manipulation_operators",
  "data_manipulation_query_result",
  "data_manipulation_typed_queries",
  "data_manipulation_typed_tree",
  "data_manipulation_untyped_queries",
- "deprecated_query_planner",
- "description",
  "futures-lite",
  "itertools",
  "log",
  "parser",
  "pg_model",
  "pg_wire",
- "plan",
  "query_analyzer",
- "query_analyzer_old",
- "query_executor",
  "query_processing_type_check",
  "query_processing_type_coercion",
  "query_processing_type_inference",
  "read_query_executor",
  "read_query_planner",
  "rstest",
- "schema_executor",
  "schema_planner",
  "simple_logger",
  "sql_ast",
@@ -1046,19 +931,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3831453b3449ceb48b6d9c7ad7c96d5ea673e9b470a1dc578c2ce6521230884c"
 
 [[package]]
-name = "plan"
-version = "0.1.0"
-dependencies = [
- "ast",
- "constraints",
- "meta_def",
- "pg_wire",
- "sql_ast",
- "sql_model",
- "types",
-]
-
-[[package]]
 name = "polling"
 version = "2.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1110,46 +982,9 @@ dependencies = [
  "data_manipulation_untyped_queries",
  "data_manipulation_untyped_tree",
  "definition",
- "meta_def",
- "sql_ast",
- "types",
-]
-
-[[package]]
-name = "query_analyzer_old"
-version = "0.1.0"
-dependencies = [
- "bigdecimal",
- "data_manager",
- "description",
- "meta_def",
- "pg_wire",
- "sql_ast",
- "types",
-]
-
-[[package]]
-name = "query_executor"
-version = "0.1.0"
-dependencies = [
- "ast",
- "bigdecimal",
- "binary",
- "connection",
- "constraints",
- "data_manager",
- "expr_eval",
- "futures-lite",
  "log",
- "meta_def",
- "pg_model",
- "pg_wire",
- "plan",
- "repr",
- "rstest",
  "sql_ast",
- "sql_model",
- "tempfile",
+ "types",
 ]
 
 [[package]]
@@ -1319,16 +1154,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "schema_executor"
-version = "0.1.0"
-dependencies = [
- "data_definition_execution_plan",
- "data_definition_operations",
- "data_manager",
- "definition",
-]
-
-[[package]]
 name = "schema_planner"
 version = "0.1.0"
 dependencies = [
@@ -1446,38 +1271,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "sql_model"
-version = "0.1.0"
-dependencies = [
- "pg_model",
- "pg_wire",
- "rstest",
- "sql_ast",
-]
-
-[[package]]
 name = "sqlparser"
 version = "0.7.1-alpha.0"
 source = "git+https://github.com/ballista-compute/sqlparser-rs.git?branch=main#200ed5ecfcd2b84fb1c190c057cf0bb7a5770b8a"
 dependencies = [
  "bigdecimal",
  "log",
-]
-
-[[package]]
-name = "storage"
-version = "0.1.0"
-dependencies = [
- "backtrace",
- "binary",
- "dashmap",
- "fail",
- "log",
- "rstest",
- "sled",
- "smallvec",
- "sql_model",
- "tempfile",
 ]
 
 [[package]]

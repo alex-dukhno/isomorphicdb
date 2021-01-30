@@ -32,7 +32,7 @@ impl StaticTreeBuilder {
             sql_ast::Expr::Identifier(ident) => Self::ident(ident),
             sql_ast::Expr::BinaryOp { left, op, right } => Self::op(op, &**left, &**right, original),
             expr => {
-                println!("Syntax error in '{:#?}' around '{:?}'", original, expr);
+                log::warn!("Syntax error in '{:#?}' around '{:?}'", original, expr);
                 Err(AnalysisError::syntax_error(format!(
                     "Syntax error in '{}' around '{}'",
                     original, expr

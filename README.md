@@ -42,11 +42,9 @@ See [docs](./docs/.)
 * `data_definition/` - group of modules responsible to represent `SQL DDL` queries
     * `data_definition/operations` - data structures responsible for representing
       operations of `Data Definition Language` part of `SQL`
-* `deprecated/` - modules that should be removed once new version will be developed
 * `docs/` - project documentation
 * `gradle/` - gradle wrapper to run `tests/compatibility` tests
 * `local/` - helper scripts to fix `rustfmt` and `clippy` errors
-* `meta_def/` - columns definition
 * `query_analysis/` - modules responsible for *Analysis* phase in query execution pipeline
     * `query_analysis/expr_operators/` - expression operators of analysis tree
     * `query_analysis/query_analyzer/` - API to analyse parsed SQL query
