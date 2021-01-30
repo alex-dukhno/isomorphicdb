@@ -86,6 +86,7 @@ impl InMemoryDatabase {
             Datum::from_string("IN_MEMORY".to_owned()),
             Datum::from_string(schema_name.to_owned()),
         ]);
+        log::debug!("RECORD - {:?}", full_schema_name);
         let schema = self.catalog.work_with(DEFINITION_SCHEMA, |schema| {
             schema.work_with(SCHEMATA_TABLE, |table| {
                 table.select().any(|(_key, value)| value == full_schema_name)
@@ -159,7 +160,7 @@ impl Database for InMemoryDatabase {
             let operations = &steps[index];
             index += 1;
             for operation in operations {
-                println!("{:?}", operation);
+                log::debug!("OPERATION - {:?}", operation);
                 match operation {
                     Step::CheckExistence {
                         system_object,
@@ -308,14 +309,14 @@ impl Database for InMemoryDatabase {
                                         table_name,
                                         TABLES_TABLE
                                     );
-                                    println!("FOUND TABLE ID - {:?}", table_id);
+                                    log::debug!("FOUND TABLE ID - {:?}", table_id);
                                     let table_id = table_id.unwrap();
                                     table.delete(vec![table_id]);
                                     let table_id = table
                                         .select()
                                         .find(|(_key, value)| value == &full_table_name)
                                         .map(|(key, _value)| key);
-                                    println!("TABLE ID AFTER DROP - {:?}", table_id);
+                                    log::debug!("TABLE ID AFTER DROP - {:?}", table_id);
                                 });
                             });
                         }
@@ -353,7 +354,7 @@ impl Database for InMemoryDatabase {
                                         .select()
                                         .find(|(_key, value)| value == &full_table_name)
                                         .map(|(key, _value)| key);
-                                    println!("GENERATED TABLE ID - {:?}", table_id);
+                                    log::debug!("GENERATED TABLE ID - {:?}", table_id);
                                 })
                             });
                         }
@@ -468,7 +469,7 @@ impl SqlTable for InMemoryTable {
                                 .unwrap_or_else(Datum::from_null),
                         );
                     }
-                    println!("{:#?}", to_insert);
+                    log::debug!("{:#?}", to_insert);
                     Binary::pack(&to_insert)
                 })
                 .collect::<Vec<Binary>>(),
@@ -476,7 +477,7 @@ impl SqlTable for InMemoryTable {
     }
 
     fn insert_with_columns(&self, column_names: Vec<String>, rows: Vec<Vec<Option<StaticTypedTree>>>) -> usize {
-        println!("COLUMNS TO INSERT {:?}", column_names);
+        log::debug!("COLUMNS TO INSERT {:?}", column_names);
         let columns_map = column_names
             .into_iter()
             .enumerate()
@@ -489,7 +490,7 @@ impl SqlTable for InMemoryTable {
                 for name in self.columns.iter().map(ColumnDef::name) {
                     value.push(columns_map.get(name).map(|index| row[*index].clone()).unwrap_or(None))
                 }
-                println!("ROW TO INSERT {:#?}", value);
+                log::debug!("ROW TO INSERT {:#?}", value);
                 value
             })
             .collect::<Vec<Vec<Option<StaticTypedTree>>>>();
