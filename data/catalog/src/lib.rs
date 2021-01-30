@@ -98,6 +98,8 @@ pub trait SqlTable {
 
     fn select(&self) -> (Vec<ColumnDef>, Vec<Vec<Datum>>);
     fn select_with_columns(&self, column_names: Vec<String>) -> Result<(Vec<ColumnDef>, Vec<Vec<Datum>>), String>;
+
+    fn delete_all(&self) -> usize;
 }
 
 pub trait Database {

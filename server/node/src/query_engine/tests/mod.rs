@@ -26,8 +26,8 @@ use std::{
 };
 
 // TODO: new engine does not handle deletes
-// #[cfg(test)]
-// mod delete;
+#[cfg(test)]
+mod delete;
 // TODO: new engine does not handle extended query flow
 // #[cfg(test)]
 // mod extended_query_flow;

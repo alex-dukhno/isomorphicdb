@@ -23,8 +23,14 @@ pub struct InsertQuery {
 }
 
 #[derive(Debug, PartialEq)]
+pub struct DeleteQuery {
+    pub full_table_name: FullTableName,
+}
+
+#[derive(Debug, PartialEq)]
 pub enum TypedWrite {
     Insert(InsertQuery),
+    Delete(DeleteQuery),
 }
 
 #[derive(Debug, PartialEq)]

@@ -18,6 +18,7 @@ use repr::Datum;
 #[derive(Debug, PartialEq)]
 pub enum QueryExecution {
     Inserted(usize),
+    Deleted(usize),
     Selected((Vec<ColumnDef>, Vec<Vec<Datum>>)),
 }
 
