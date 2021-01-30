@@ -24,7 +24,7 @@ use connection::Sender;
 use data_definition_operations::{ExecutionError, ExecutionOutcome};
 use data_manager::{DataDefReader, DatabaseHandle};
 use data_manipulation_query_result::{QueryExecution, QueryExecutionError};
-use data_manipulation_typed_queries::{InsertQuery, TypedSelectQuery, TypedWrite, DeleteQuery};
+use data_manipulation_typed_queries::{DeleteQuery, InsertQuery, TypedSelectQuery, TypedWrite};
 use data_manipulation_typed_tree::{DynamicTypedTree, StaticTypedTree};
 use data_manipulation_untyped_queries::UntypedWrite;
 use deprecated_query_planner::{OldDeprecatedQueryPlanner, PlanError};
@@ -351,162 +351,160 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                             analysis => unreachable!("that couldn't happen {:?}", analysis),
                         },
 
-                        statement @ Statement::Insert { .. } | statement @ Statement::Delete { .. } | statement @ Statement::Query(_) => {
-                            match self.query_analyzer.analyze(statement) {
-                                Ok(QueryAnalysis::Write(UntypedWrite::Delete(delete))) => {
-                                    match self.write_query_executor.execute(TypedWrite::Delete(DeleteQuery {
-                                        full_table_name: delete.full_table_name,
-                                    })) {
-                                        Ok(QueryExecution::Deleted(deleted)) => {
-                                            self.sender
-                                                .send(Ok(QueryEvent::RecordsDeleted(deleted)))
-                                                .expect("To Send to client");
-                                        }
-                                        Ok(_) => unimplemented!(),
-                                        Err(QueryExecutionError::SchemaDoesNotExist(schema_name)) => {
-                                            self.sender
-                                                .send(Err(QueryError::schema_does_not_exist(schema_name)))
-                                                .expect("To Send to client");
-                                        }
-                                        Err(_) => unimplemented!(),
+                        statement @ Statement::Insert { .. }
+                        | statement @ Statement::Delete { .. }
+                        | statement @ Statement::Query(_) => match self.query_analyzer.analyze(statement) {
+                            Ok(QueryAnalysis::Write(UntypedWrite::Delete(delete))) => {
+                                match self.write_query_executor.execute(TypedWrite::Delete(DeleteQuery {
+                                    full_table_name: delete.full_table_name,
+                                })) {
+                                    Ok(QueryExecution::Deleted(deleted)) => {
+                                        self.sender
+                                            .send(Ok(QueryEvent::RecordsDeleted(deleted)))
+                                            .expect("To Send to client");
+                                    }
+                                    Ok(_) => unimplemented!(),
+                                    Err(QueryExecutionError::SchemaDoesNotExist(schema_name)) => {
+                                        self.sender
+                                            .send(Err(QueryError::schema_does_not_exist(schema_name)))
+                                            .expect("To Send to client");
+                                    }
+                                    Err(_) => unimplemented!(),
+                                }
+                            }
+                            Ok(QueryAnalysis::Write(UntypedWrite::Insert(insert))) => {
+                                println!("UNTYPED VALUES {:?}", insert.values);
+                                let typed_values = insert
+                                    .values
+                                    .into_iter()
+                                    .map(|values| {
+                                        values
+                                            .into_iter()
+                                            .map(|value| self.type_inference.infer_static(value))
+                                            .collect()
+                                    })
+                                    .collect::<Vec<Vec<StaticTypedTree>>>();
+                                println!("TYPED VALUES {:?}", typed_values);
+                                let type_checked = typed_values
+                                    .into_iter()
+                                    .map(|values| {
+                                        values
+                                            .into_iter()
+                                            .map(|value| self.type_checker.check_static(value))
+                                            .collect()
+                                    })
+                                    .collect::<Vec<Vec<StaticTypedTree>>>();
+                                println!("TYPE CHECKED VALUES {:?}", type_checked);
+                                let table_info = self
+                                    .database
+                                    .table_definition(&insert.full_table_name)
+                                    .unwrap()
+                                    .unwrap();
+                                let table_columns = table_info.columns();
+                                let mut type_coerced = vec![];
+                                for checked in type_checked {
+                                    let mut row = vec![];
+                                    for (index, c) in checked.into_iter().enumerate() {
+                                        row.push(self.type_coercion.coerce_static(c, table_columns[index].sql_type()))
+                                    }
+                                    type_coerced.push(row);
+                                }
+                                println!("TYPE COERCED VALUES {:?}", type_coerced);
+                                match self.write_query_executor.execute(TypedWrite::Insert(InsertQuery {
+                                    full_table_name: insert.full_table_name,
+                                    column_names: insert.column_names,
+                                    values: type_coerced,
+                                })) {
+                                    Ok(QueryExecution::Inserted(inserted)) => {
+                                        self.sender
+                                            .send(Ok(QueryEvent::RecordsInserted(inserted)))
+                                            .expect("To Send to client");
+                                    }
+                                    Ok(_) => unimplemented!(),
+                                    Err(QueryExecutionError::SchemaDoesNotExist(schema_name)) => {
+                                        self.sender
+                                            .send(Err(QueryError::schema_does_not_exist(schema_name)))
+                                            .expect("To Send to client");
+                                    }
+                                    Err(QueryExecutionError::ColumnNotFound(column_name)) => {
+                                        self.sender
+                                            .send(Err(QueryError::column_does_not_exist(column_name)))
+                                            .expect("To Send to client");
                                     }
                                 }
-                                Ok(QueryAnalysis::Write(UntypedWrite::Insert(insert))) => {
-                                    println!("UNTYPED VALUES {:?}", insert.values);
-                                    let typed_values = insert
-                                        .values
-                                        .into_iter()
-                                        .map(|values| {
-                                            values
-                                                .into_iter()
-                                                .map(|value| self.type_inference.infer_static(value))
-                                                .collect()
-                                        })
-                                        .collect::<Vec<Vec<StaticTypedTree>>>();
-                                    println!("TYPED VALUES {:?}", typed_values);
-                                    let type_checked = typed_values
-                                        .into_iter()
-                                        .map(|values| {
-                                            values
-                                                .into_iter()
-                                                .map(|value| self.type_checker.check_static(value))
-                                                .collect()
-                                        })
-                                        .collect::<Vec<Vec<StaticTypedTree>>>();
-                                    println!("TYPE CHECKED VALUES {:?}", type_checked);
-                                    let table_info = self
-                                        .database
-                                        .table_definition(&insert.full_table_name)
-                                        .unwrap()
-                                        .unwrap();
-                                    let table_columns = table_info.columns();
-                                    let mut type_coerced = vec![];
-                                    for checked in type_checked {
-                                        let mut row = vec![];
-                                        for (index, c) in checked.into_iter().enumerate() {
-                                            row.push(
-                                                self.type_coercion.coerce_static(c, table_columns[index].sql_type()),
-                                            )
-                                        }
-                                        type_coerced.push(row);
-                                    }
-                                    println!("TYPE COERCED VALUES {:?}", type_coerced);
-                                    match self.write_query_executor.execute(TypedWrite::Insert(InsertQuery {
-                                        full_table_name: insert.full_table_name,
-                                        column_names: insert.column_names,
-                                        values: type_coerced,
-                                    })) {
-                                        Ok(QueryExecution::Inserted(inserted)) => {
+                            }
+                            Ok(QueryAnalysis::Read(select)) => {
+                                println!("{:?}", select.projection_items);
+                                let typed_values = select
+                                    .projection_items
+                                    .into_iter()
+                                    .map(|value| self.type_inference.infer_dynamic(value))
+                                    .collect::<Vec<DynamicTypedTree>>();
+                                println!("{:?}", typed_values);
+                                let type_checked = typed_values
+                                    .into_iter()
+                                    .map(|value| self.type_checker.check_dynamic(value))
+                                    .collect::<Vec<DynamicTypedTree>>();
+                                println!("{:?}", type_checked);
+                                let type_coerced = type_checked
+                                    .into_iter()
+                                    .map(|value| self.type_coercion.coerce_dynamic(value))
+                                    .collect::<Vec<DynamicTypedTree>>();
+                                println!("{:?}", type_coerced);
+                                let plan = self.read_query_planner.plan(TypedSelectQuery {
+                                    projection_items: type_coerced,
+                                    full_table_name: select.full_table_name,
+                                });
+                                match self.read_query_executor.execute(plan) {
+                                    Ok(QueryExecution::Selected((desc, data))) => {
+                                        self.sender
+                                            .send(Ok(QueryEvent::RowDescription(
+                                                desc.into_iter()
+                                                    .map(|col_def| {
+                                                        let pg_type: PgType = (&col_def.sql_type()).into();
+                                                        ColumnMetadata::new(col_def.name(), pg_type)
+                                                    })
+                                                    .collect(),
+                                            )))
+                                            .expect("To Send to client");
+                                        let len = data.len();
+                                        for row in data {
                                             self.sender
-                                                .send(Ok(QueryEvent::RecordsInserted(inserted)))
-                                                .expect("To Send to client");
-                                        }
-                                        Ok(_) => unimplemented!(),
-                                        Err(QueryExecutionError::SchemaDoesNotExist(schema_name)) => {
-                                            self.sender
-                                                .send(Err(QueryError::schema_does_not_exist(schema_name)))
-                                                .expect("To Send to client");
-                                        }
-                                        Err(QueryExecutionError::ColumnNotFound(column_name)) => {
-                                            self.sender
-                                                .send(Err(QueryError::column_does_not_exist(column_name)))
-                                                .expect("To Send to client");
-                                        }
-                                    }
-                                }
-                                Ok(QueryAnalysis::Read(select)) => {
-                                    println!("{:?}", select.projection_items);
-                                    let typed_values = select
-                                        .projection_items
-                                        .into_iter()
-                                        .map(|value| self.type_inference.infer_dynamic(value))
-                                        .collect::<Vec<DynamicTypedTree>>();
-                                    println!("{:?}", typed_values);
-                                    let type_checked = typed_values
-                                        .into_iter()
-                                        .map(|value| self.type_checker.check_dynamic(value))
-                                        .collect::<Vec<DynamicTypedTree>>();
-                                    println!("{:?}", type_checked);
-                                    let type_coerced = type_checked
-                                        .into_iter()
-                                        .map(|value| self.type_coercion.coerce_dynamic(value))
-                                        .collect::<Vec<DynamicTypedTree>>();
-                                    println!("{:?}", type_coerced);
-                                    let plan = self.read_query_planner.plan(TypedSelectQuery {
-                                        projection_items: type_coerced,
-                                        full_table_name: select.full_table_name,
-                                    });
-                                    match self.read_query_executor.execute(plan) {
-                                        Ok(QueryExecution::Selected((desc, data))) => {
-                                            self.sender
-                                                .send(Ok(QueryEvent::RowDescription(
-                                                    desc.into_iter()
-                                                        .map(|col_def| {
-                                                            let pg_type: PgType = (&col_def.sql_type()).into();
-                                                            ColumnMetadata::new(col_def.name(), pg_type)
-                                                        })
-                                                        .collect(),
+                                                .send(Ok(QueryEvent::DataRow(
+                                                    row.into_iter().map(|d| d.to_string()).collect(),
                                                 )))
                                                 .expect("To Send to client");
-                                            let len = data.len();
-                                            for row in data {
-                                                self.sender
-                                                    .send(Ok(QueryEvent::DataRow(
-                                                        row.into_iter().map(|d| d.to_string()).collect(),
-                                                    )))
-                                                    .expect("To Send to client");
-                                            }
-                                            self.sender
-                                                .send(Ok(QueryEvent::RecordsSelected(len)))
-                                                .expect("To Send to client");
                                         }
-                                        Ok(_) => unimplemented!(),
-                                        Err(_) => unimplemented!(),
+                                        self.sender
+                                            .send(Ok(QueryEvent::RecordsSelected(len)))
+                                            .expect("To Send to client");
                                     }
+                                    Ok(_) => unimplemented!(),
+                                    Err(_) => unimplemented!(),
                                 }
-                                Err(AnalysisError::TableDoesNotExist(full_table_name)) => {
-                                    self.sender
-                                        .send(Err(QueryError::table_does_not_exist(full_table_name)))
-                                        .expect("To Send Error to Client");
-                                }
-                                Err(AnalysisError::ColumnNotFound(column_name)) => {
-                                    self.sender
-                                        .send(Err(QueryError::column_does_not_exist(column_name)))
-                                        .expect("To Send Error to Client");
-                                }
-                                Err(AnalysisError::SyntaxError(message)) => {
-                                    self.sender
-                                        .send(Err(QueryError::syntax_error(message)))
-                                        .expect("To Send Error to Client");
-                                }
-                                Err(AnalysisError::SchemaDoesNotExist(schema_name)) => {
-                                    self.sender
-                                        .send(Err(QueryError::schema_does_not_exist(schema_name)))
-                                        .expect("To Send Error to Client");
-                                }
-                                branch => unimplemented!("handling {:?} is not implemented", branch),
                             }
-                        }
+                            Err(AnalysisError::TableDoesNotExist(full_table_name)) => {
+                                self.sender
+                                    .send(Err(QueryError::table_does_not_exist(full_table_name)))
+                                    .expect("To Send Error to Client");
+                            }
+                            Err(AnalysisError::ColumnNotFound(column_name)) => {
+                                self.sender
+                                    .send(Err(QueryError::column_does_not_exist(column_name)))
+                                    .expect("To Send Error to Client");
+                            }
+                            Err(AnalysisError::SyntaxError(message)) => {
+                                self.sender
+                                    .send(Err(QueryError::syntax_error(message)))
+                                    .expect("To Send Error to Client");
+                            }
+                            Err(AnalysisError::SchemaDoesNotExist(schema_name)) => {
+                                self.sender
+                                    .send(Err(QueryError::schema_does_not_exist(schema_name)))
+                                    .expect("To Send Error to Client");
+                            }
+                            branch => unimplemented!("handling {:?} is not implemented", branch),
+                        },
                         statement => match self.old_deprecated_query_planner.plan(&statement) {
                             Ok(plan) => {
                                 self.query_executor.execute(plan);
