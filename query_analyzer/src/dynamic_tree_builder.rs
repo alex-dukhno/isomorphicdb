@@ -43,7 +43,7 @@ impl DynamicTreeBuilder {
                     "Syntax error in '{}' around '{}'",
                     original, expr
                 )))
-            },
+            }
         }
     }
 

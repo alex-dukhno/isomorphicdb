@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::{convert::TryFrom, iter, sync::Arc};
 use bigdecimal::BigDecimal;
 use itertools::izip;
 use pg_wire::{ColumnMetadata, PgFormat, PgType};
+use std::{convert::TryFrom, iter, sync::Arc};
 
 use catalog::{CatalogDefinition, Database};
 use connection::Sender;
@@ -175,7 +175,8 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
             } => {
                 match self.session.get_portal(&portal_name) {
                     Some(portal) => {
-                        self.sender.send(Err(QueryError::syntax_error(portal.stmt())))
+                        self.sender
+                            .send(Err(QueryError::syntax_error(portal.stmt())))
                             .expect("To Send Error to Client");
                     }
                     None => {
@@ -268,7 +269,8 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                                             .send(Err(QueryError::protocol_violation(message)))
                                             .expect("To Send Error to Client");
                                     }
-                                    self.sender.send(Err(QueryError::syntax_error(prepared_statement.stmt())))
+                                    self.sender
+                                        .send(Err(QueryError::syntax_error(prepared_statement.stmt())))
                                         .expect("To Send Error to Client");
                                 }
                                 None => {
@@ -514,8 +516,10 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                         },
                         sql_ast::Statement::SetVariable { .. } => {
                             // sending ok to the client to proceed with other requests
-                            self.sender.send(Ok(QueryEvent::VariableSet)).expect("To Send Result to Client");
-                        },
+                            self.sender
+                                .send(Ok(QueryEvent::VariableSet))
+                                .expect("To Send Result to Client");
+                        }
                         sql_ast::Statement::Copy { .. } => unimplemented!(),
                         sql_ast::Statement::CreateView { .. } => unimplemented!(),
                         sql_ast::Statement::CreateVirtualTable { .. } => unimplemented!(),
@@ -586,7 +590,8 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
             }
         }
 
-        self.sender.send(Err(QueryError::syntax_error(prepared_statement.stmt())))
+        self.sender
+            .send(Err(QueryError::syntax_error(prepared_statement.stmt())))
             .expect("To Send Error to Client");
 
         Err(())
