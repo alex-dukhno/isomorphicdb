@@ -80,7 +80,7 @@ impl TypedValue {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum DynamicTypedTree {
     Operation {
         left: Box<DynamicTypedTree>,
@@ -90,7 +90,7 @@ pub enum DynamicTypedTree {
     Item(DynamicTypedItem),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum DynamicTypedItem {
     Const(TypedValue),
     Column(String),

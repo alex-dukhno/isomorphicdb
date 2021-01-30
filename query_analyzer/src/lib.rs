@@ -97,7 +97,7 @@ impl<CD: CatalogDefinition> Analyzer<CD> {
                     Some(None) => Err(AnalysisError::table_does_not_exist(full_table_name)),
                     Some(Some(table_info)) => {
                         let table_columns = table_info.columns();
-                        let mut sql_types = vec![];
+                        let mut column_names = vec![];
                         let mut assignments = vec![];
                         for assignment in stmt_assignments {
                             let sql_ast::Assignment { id, value } = assignment;
@@ -105,25 +105,25 @@ impl<CD: CatalogDefinition> Analyzer<CD> {
                             let mut found = None;
                             for table_column in table_columns {
                                 if table_column.has_name(&name) {
-                                    found = Some(table_column.sql_type());
+                                    found = Some(name.clone());
                                     break;
                                 }
                             }
                             match found {
-                                None => unimplemented!("Column not found is not covered yet"),
-                                Some(sql_type) => {
+                                None => return Err(AnalysisError::ColumnNotFound(name)),
+                                Some(name) => {
                                     assignments.push(DynamicTreeBuilder::build_from(
                                         &value,
                                         &statement,
                                         &table_columns,
                                     )?);
-                                    sql_types.push(sql_type);
+                                    column_names.push(name);
                                 }
                             }
                         }
                         Ok(QueryAnalysis::Write(UntypedWrite::Update(UpdateQuery {
                             full_table_name,
-                            sql_types,
+                            column_names,
                             assignments,
                         })))
                     }

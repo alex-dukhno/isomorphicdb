@@ -23,7 +23,7 @@ use binary::Binary;
 use data_definition_operations::{
     ExecutionError, ExecutionOutcome, Kind, ObjectState, Record, Step, SystemObject, SystemOperation,
 };
-use data_manipulation_typed_tree::{StaticTypedItem, StaticTypedTree, TypedValue};
+use data_manipulation_typed_tree::{DynamicTypedItem, DynamicTypedTree, StaticTypedItem, StaticTypedTree, TypedValue};
 use definition::{ColumnDef, FullTableName, SchemaName, TableDef};
 use repr::Datum;
 use std::{collections::HashMap, sync::Arc};
@@ -419,7 +419,7 @@ impl InMemoryTable {
         InMemoryTable { columns, data_table }
     }
 
-    fn eval(&self, tree: &StaticTypedTree) -> Datum {
+    fn eval_static(&self, tree: &StaticTypedTree) -> Datum {
         match tree {
             StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::SmallInt(value))) => Datum::from_i16(*value),
             StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Integer(value))) => Datum::from_i32(*value),
@@ -430,6 +430,20 @@ impl InMemoryTable {
             }
             StaticTypedTree::Item(_) => unimplemented!(),
             StaticTypedTree::Operation { .. } => unimplemented!(),
+        }
+    }
+
+    fn eval_dynamic(&self, tree: &DynamicTypedTree) -> Datum {
+        match tree {
+            DynamicTypedTree::Item(DynamicTypedItem::Const(TypedValue::SmallInt(value))) => Datum::from_i16(*value),
+            DynamicTypedTree::Item(DynamicTypedItem::Const(TypedValue::Integer(value))) => Datum::from_i32(*value),
+            DynamicTypedTree::Item(DynamicTypedItem::Const(TypedValue::BigInt(value))) => Datum::from_i64(*value),
+            DynamicTypedTree::Item(DynamicTypedItem::Const(TypedValue::Bool(value))) => Datum::from_bool(*value),
+            DynamicTypedTree::Item(DynamicTypedItem::Const(TypedValue::String(string))) => {
+                Datum::from_string(string.clone())
+            }
+            DynamicTypedTree::Item(_) => unimplemented!(),
+            DynamicTypedTree::Operation { .. } => unimplemented!(),
         }
     }
 
@@ -448,7 +462,11 @@ impl SqlTable for InMemoryTable {
                 .map(|row| {
                     let mut to_insert = vec![];
                     for v in row {
-                        to_insert.push(v.as_ref().map(|v| self.eval(&v)).unwrap_or_else(Datum::from_null));
+                        to_insert.push(
+                            v.as_ref()
+                                .map(|v| self.eval_static(&v))
+                                .unwrap_or_else(Datum::from_null),
+                        );
                     }
                     println!("{:#?}", to_insert);
                     Binary::pack(&to_insert)
@@ -516,6 +534,25 @@ impl SqlTable for InMemoryTable {
     fn delete_all(&self) -> usize {
         let keys = self.data_table.select().map(|(key, _value)| key).collect();
         self.data_table.delete(keys)
+    }
+
+    fn update(&self, column_names: Vec<String>, assignments: Vec<DynamicTypedTree>) -> usize {
+        let delta = self
+            .data_table
+            .select()
+            .map(|(key, value)| {
+                let mut unpacked_row = value.unpack();
+                for (column_name, assignment) in column_names.iter().zip(assignments.iter()) {
+                    let new_value = match self.has_column(column_name) {
+                        None => unimplemented!(),
+                        Some((index, _)) => (index, self.eval_dynamic(assignment)),
+                    };
+                    unpacked_row[new_value.0] = new_value.1;
+                }
+                (key, Binary::pack(&unpacked_row))
+            })
+            .collect();
+        self.data_table.update(delta)
     }
 }
 

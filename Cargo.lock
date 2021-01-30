@@ -439,7 +439,6 @@ version = "0.1.0"
 dependencies = [
  "data_manipulation_typed_tree",
  "definition",
- "types",
 ]
 
 [[package]]
@@ -456,7 +455,6 @@ version = "0.1.0"
 dependencies = [
  "data_manipulation_untyped_tree",
  "definition",
- "types",
 ]
 
 [[package]]

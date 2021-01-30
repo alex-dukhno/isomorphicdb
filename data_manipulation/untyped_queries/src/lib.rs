@@ -14,7 +14,6 @@
 
 use data_manipulation_untyped_tree::{DynamicUntypedTree, StaticUntypedTree};
 use definition::FullTableName;
-use types::SqlType;
 
 #[derive(Debug, PartialEq)]
 pub struct InsertQuery {
@@ -26,7 +25,7 @@ pub struct InsertQuery {
 #[derive(Debug, PartialEq)]
 pub struct UpdateQuery {
     pub full_table_name: FullTableName,
-    pub sql_types: Vec<SqlType>,
+    pub column_names: Vec<String>,
     pub assignments: Vec<DynamicUntypedTree>,
 }
 

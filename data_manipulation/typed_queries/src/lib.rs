@@ -28,9 +28,17 @@ pub struct DeleteQuery {
 }
 
 #[derive(Debug, PartialEq)]
+pub struct UpdateQuery {
+    pub full_table_name: FullTableName,
+    pub column_names: Vec<String>,
+    pub assignments: Vec<DynamicTypedTree>,
+}
+
+#[derive(Debug, PartialEq)]
 pub enum TypedWrite {
     Insert(InsertQuery),
     Delete(DeleteQuery),
+    Update(UpdateQuery),
 }
 
 #[derive(Debug, PartialEq)]

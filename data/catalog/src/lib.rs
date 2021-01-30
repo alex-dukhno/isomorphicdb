@@ -17,7 +17,7 @@ mod on_disk;
 
 use binary::Binary;
 use data_definition_operations::{ExecutionError, ExecutionOutcome, SystemOperation};
-use data_manipulation_typed_tree::StaticTypedTree;
+use data_manipulation_typed_tree::{DynamicTypedTree, StaticTypedTree};
 use definition::{ColumnDef, FullTableName, SchemaName, TableDef};
 use std::{
     fmt::{self, Debug, Formatter},
@@ -100,6 +100,8 @@ pub trait SqlTable {
     fn select_with_columns(&self, column_names: Vec<String>) -> Result<(Vec<ColumnDef>, Vec<Vec<Datum>>), String>;
 
     fn delete_all(&self) -> usize;
+
+    fn update(&self, column_names: Vec<String>, assignments: Vec<DynamicTypedTree>) -> usize;
 }
 
 pub trait Database {
