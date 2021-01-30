@@ -47,6 +47,31 @@ impl TypeInference {
             DynamicUntypedTree::Item(DynamicUntypedItem::Column { name, .. }) => {
                 DynamicTypedTree::Item(DynamicTypedItem::Column(name))
             }
+            DynamicUntypedTree::Item(DynamicUntypedItem::Const(UntypedValue::Number(num))) => {
+                if num.is_integer() {
+                    if self.small_int_range.contains(&num) {
+                        DynamicTypedTree::Item(DynamicTypedItem::Const(TypedValue::SmallInt(num.to_i16().unwrap())))
+                    } else if self.integer_range.contains(&num) {
+                        DynamicTypedTree::Item(DynamicTypedItem::Const(TypedValue::Integer(num.to_i32().unwrap())))
+                    } else if self.big_int_range.contains(&num) {
+                        DynamicTypedTree::Item(DynamicTypedItem::Const(TypedValue::BigInt(num.to_i64().unwrap())))
+                    } else {
+                        unimplemented!()
+                    }
+                } else if self.real_range.contains(&num) {
+                    DynamicTypedTree::Item(DynamicTypedItem::Const(TypedValue::Real(num.to_f32().unwrap())))
+                } else if self.double_precision_range.contains(&num) {
+                    DynamicTypedTree::Item(DynamicTypedItem::Const(TypedValue::Double(num.to_f64().unwrap())))
+                } else {
+                    unimplemented!()
+                }
+            }
+            DynamicUntypedTree::Item(DynamicUntypedItem::Const(UntypedValue::String(str))) => {
+                DynamicTypedTree::Item(DynamicTypedItem::Const(TypedValue::String(str)))
+            }
+            DynamicUntypedTree::Item(DynamicUntypedItem::Const(UntypedValue::Bool(Bool(boolean)))) => {
+                DynamicTypedTree::Item(DynamicTypedItem::Const(TypedValue::Bool(boolean)))
+            }
             _ => unimplemented!(),
         }
     }

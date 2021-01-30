@@ -25,7 +25,6 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-// TODO: new engine does not handle deletes
 #[cfg(test)]
 mod delete;
 // TODO: new engine does not handle extended query flow
@@ -45,9 +44,8 @@ mod table;
 // TODO: new engine does not handle type constraints
 // #[cfg(test)]
 // mod type_constraints;
-// TODO: new engine does not handle updates
-// #[cfg(test)]
-// mod update;
+#[cfg(test)]
+mod update;
 // TODO: new engine does not support sophisticated selection plans
 // #[cfg(test)]
 // mod where_clause;

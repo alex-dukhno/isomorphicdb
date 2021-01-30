@@ -24,7 +24,7 @@ use connection::Sender;
 use data_definition_operations::{ExecutionError, ExecutionOutcome};
 use data_manager::{DataDefReader, DatabaseHandle};
 use data_manipulation_query_result::{QueryExecution, QueryExecutionError};
-use data_manipulation_typed_queries::{DeleteQuery, InsertQuery, TypedSelectQuery, TypedWrite};
+use data_manipulation_typed_queries::{DeleteQuery, InsertQuery, TypedSelectQuery, TypedWrite, UpdateQuery};
 use data_manipulation_typed_tree::{DynamicTypedTree, StaticTypedTree};
 use data_manipulation_untyped_queries::UntypedWrite;
 use deprecated_query_planner::{OldDeprecatedQueryPlanner, PlanError};
@@ -352,6 +352,7 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                         },
 
                         statement @ Statement::Insert { .. }
+                        | statement @ Statement::Update { .. }
                         | statement @ Statement::Delete { .. }
                         | statement @ Statement::Query(_) => match self.query_analyzer.analyze(statement) {
                             Ok(QueryAnalysis::Write(UntypedWrite::Delete(delete))) => {
@@ -361,6 +362,42 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                                     Ok(QueryExecution::Deleted(deleted)) => {
                                         self.sender
                                             .send(Ok(QueryEvent::RecordsDeleted(deleted)))
+                                            .expect("To Send to client");
+                                    }
+                                    Ok(_) => unimplemented!(),
+                                    Err(QueryExecutionError::SchemaDoesNotExist(schema_name)) => {
+                                        self.sender
+                                            .send(Err(QueryError::schema_does_not_exist(schema_name)))
+                                            .expect("To Send to client");
+                                    }
+                                    Err(_) => unimplemented!(),
+                                }
+                            }
+                            Ok(QueryAnalysis::Write(UntypedWrite::Update(update))) => {
+                                let typed_values = update
+                                    .assignments
+                                    .into_iter()
+                                    .map(|value| self.type_inference.infer_dynamic(value))
+                                    .collect::<Vec<DynamicTypedTree>>();
+                                println!("{:?}", typed_values);
+                                let type_checked = typed_values
+                                    .into_iter()
+                                    .map(|value| self.type_checker.check_dynamic(value))
+                                    .collect::<Vec<DynamicTypedTree>>();
+                                println!("{:?}", type_checked);
+                                let type_coerced = type_checked
+                                    .into_iter()
+                                    .map(|value| self.type_coercion.coerce_dynamic(value))
+                                    .collect::<Vec<DynamicTypedTree>>();
+                                println!("{:?}", type_coerced);
+                                match self.write_query_executor.execute(TypedWrite::Update(UpdateQuery {
+                                    full_table_name: update.full_table_name,
+                                    column_names: update.column_names,
+                                    assignments: type_coerced,
+                                })) {
+                                    Ok(QueryExecution::Updated(updated)) => {
+                                        self.sender
+                                            .send(Ok(QueryEvent::RecordsUpdated(updated)))
                                             .expect("To Send to client");
                                     }
                                     Ok(_) => unimplemented!(),
