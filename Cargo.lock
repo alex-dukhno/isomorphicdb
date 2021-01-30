@@ -1273,7 +1273,7 @@ dependencies = [
 [[package]]
 name = "sqlparser"
 version = "0.7.1-alpha.0"
-source = "git+https://github.com/ballista-compute/sqlparser-rs.git?branch=main#200ed5ecfcd2b84fb1c190c057cf0bb7a5770b8a"
+source = "git+https://github.com/ballista-compute/sqlparser-rs.git?branch=main#17f8eb9c5a7170aaee25b8dd92266a4d732ef2c5"
 dependencies = [
  "bigdecimal",
  "log",
