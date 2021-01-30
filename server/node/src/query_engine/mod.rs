@@ -24,7 +24,7 @@ use connection::Sender;
 use data_definition_operations::{ExecutionError, ExecutionOutcome};
 use data_manager::{DataDefReader, DatabaseHandle};
 use data_manipulation_query_result::{QueryExecution, QueryExecutionError};
-use data_manipulation_typed_queries::{InsertQuery, TypedSelectQuery, TypedWrite};
+use data_manipulation_typed_queries::{InsertQuery, TypedSelectQuery, TypedWrite, DeleteQuery};
 use data_manipulation_typed_tree::{DynamicTypedTree, StaticTypedTree};
 use data_manipulation_untyped_queries::UntypedWrite;
 use deprecated_query_planner::{OldDeprecatedQueryPlanner, PlanError};
@@ -351,8 +351,26 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                             analysis => unreachable!("that couldn't happen {:?}", analysis),
                         },
 
-                        statement @ Statement::Insert { .. } | statement @ Statement::Query(_) => {
+                        statement @ Statement::Insert { .. } | statement @ Statement::Delete { .. } | statement @ Statement::Query(_) => {
                             match self.query_analyzer.analyze(statement) {
+                                Ok(QueryAnalysis::Write(UntypedWrite::Delete(delete))) => {
+                                    match self.write_query_executor.execute(TypedWrite::Delete(DeleteQuery {
+                                        full_table_name: delete.full_table_name,
+                                    })) {
+                                        Ok(QueryExecution::Deleted(deleted)) => {
+                                            self.sender
+                                                .send(Ok(QueryEvent::RecordsDeleted(deleted)))
+                                                .expect("To Send to client");
+                                        }
+                                        Ok(_) => unimplemented!(),
+                                        Err(QueryExecutionError::SchemaDoesNotExist(schema_name)) => {
+                                            self.sender
+                                                .send(Err(QueryError::schema_does_not_exist(schema_name)))
+                                                .expect("To Send to client");
+                                        }
+                                        Err(_) => unimplemented!(),
+                                    }
+                                }
                                 Ok(QueryAnalysis::Write(UntypedWrite::Insert(insert))) => {
                                     println!("UNTYPED VALUES {:?}", insert.values);
                                     let typed_values = insert

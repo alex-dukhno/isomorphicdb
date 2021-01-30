@@ -512,6 +512,11 @@ impl SqlTable for InMemoryTable {
                 .collect(),
         ))
     }
+
+    fn delete_all(&self) -> usize {
+        let keys = self.data_table.select().map(|(key, _value)| key).collect();
+        self.data_table.delete(keys)
+    }
 }
 
 #[cfg(test)]

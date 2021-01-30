@@ -14,7 +14,7 @@
 
 use catalog::{Database, SqlTable};
 use data_manipulation_query_result::{QueryExecution, QueryExecutionError};
-use data_manipulation_typed_queries::{InsertQuery, TypedWrite};
+use data_manipulation_typed_queries::{InsertQuery, TypedWrite, DeleteQuery};
 use data_manipulation_typed_tree::StaticTypedTree;
 use std::sync::Arc;
 
@@ -48,6 +48,11 @@ impl<D: Database> WriteQueryExecutor<D> {
                     })
                 };
                 Ok(QueryExecution::Inserted(inserted))
+            },
+            TypedWrite::Delete(DeleteQuery {
+                full_table_name
+            }) => {
+                Ok(QueryExecution::Deleted(self.database.work_with(&full_table_name, |table| table.delete_all())))
             }
         }
     }
