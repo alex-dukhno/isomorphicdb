@@ -59,15 +59,17 @@ fn create_table_with_nonexistent_schema() {
 
 #[test]
 fn create_table_with_unqualified_name() {
-    let database = InMemoryDatabase::new();
-    database.execute(create_schema_ops(SCHEMA)).unwrap();
-    let analyzer = Analyzer::new(database);
+    let analyzer = Analyzer::new(InMemoryDatabase::new());
 
     assert_eq!(
-        analyzer.analyze(create_table(vec!["only_schema_in_the_name"], vec![])),
-        Err(AnalysisError::table_naming_error(
-            &"Unsupported table name 'only_schema_in_the_name'. All table names must be qualified",
-        ))
+        analyzer.analyze(create_table(vec!["only_table_in_the_name"], vec![])),
+        Ok(QueryAnalysis::DataDefinition(SchemaChange::CreateTable(
+            CreateTableQuery {
+                full_table_name: FullTableName::from((&"public", &"only_table_in_the_name")),
+                column_defs: vec![],
+                if_not_exists: false
+            }
+        )))
     );
 }
 

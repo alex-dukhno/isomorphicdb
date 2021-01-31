@@ -154,10 +154,14 @@ mod table {
         database.execute(create_schema_ops(SCHEMA)).unwrap();
         let analyzer = Analyzer::new(database);
         assert_eq!(
-            analyzer.analyze(drop_statement(vec![vec!["only_schema_in_the_name"]], TABLE_TYPE)),
-            Err(AnalysisError::table_naming_error(
-                &"Unsupported table name 'only_schema_in_the_name'. All table names must be qualified",
-            ))
+            analyzer.analyze(drop_statement(vec![vec!["only_table_in_the_name"]], TABLE_TYPE)),
+            Ok(QueryAnalysis::DataDefinition(SchemaChange::DropTables(
+                DropTablesQuery {
+                    full_table_names: vec![FullTableName::from((&"public", &"only_table_in_the_name"))],
+                    cascade: false,
+                    if_exists: false
+                }
+            )))
         );
     }
 

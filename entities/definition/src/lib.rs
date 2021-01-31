@@ -63,34 +63,28 @@ impl<'o> TryFrom<&'o sql_ast::ObjectName> for FullTableName {
     type Error = TableNamingError;
 
     fn try_from(object: &'o sql_ast::ObjectName) -> Result<Self, Self::Error> {
-        if object.0.len() == 1 {
-            Err(TableNamingError::Unqualified(object.to_string()))
-        } else if object.0.len() != 2 {
-            Err(TableNamingError::NotProcessed(object.to_string()))
+        if object.0.len() > 2 {
+            Err(TableNamingError(object.to_string()))
         } else {
-            let table_name = object.0.last().unwrap().value.clone();
-            let schema_name = object.0.first().unwrap().value.clone();
-            Ok(FullTableName((schema_name.to_lowercase(), table_name.to_lowercase())))
+            let (schema_name, table_name) = if object.0.len() == 1 {
+                ("public".to_lowercase(), object.0.first().unwrap().value.to_lowercase())
+            } else {
+                (
+                    object.0.first().unwrap().value.to_lowercase(),
+                    object.0.last().unwrap().value.to_lowercase(),
+                )
+            };
+            Ok(FullTableName((schema_name, table_name)))
         }
     }
 }
 
 #[derive(Debug, PartialEq)]
-pub enum TableNamingError {
-    Unqualified(String),
-    NotProcessed(String),
-}
+pub struct TableNamingError(String);
 
 impl Display for TableNamingError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        match self {
-            TableNamingError::Unqualified(table_name) => write!(
-                f,
-                "Unsupported table name '{}'. All table names must be qualified",
-                table_name
-            ),
-            TableNamingError::NotProcessed(table_name) => write!(f, "Unable to process table name '{}'", table_name),
-        }
+        write!(f, "Unable to process table name '{}'", self.0)
     }
 }
 
