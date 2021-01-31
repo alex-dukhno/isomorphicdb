@@ -44,10 +44,8 @@ fn table_does_not_exist() {
 fn table_with_unqualified_name() {
     let analyzer = Analyzer::new(InMemoryDatabase::new());
     assert_eq!(
-        analyzer.analyze(insert_statement(vec!["only_schema_in_the_name"])),
-        Err(AnalysisError::table_naming_error(
-            &"Unsupported table name 'only_schema_in_the_name'. All table names must be qualified",
-        ))
+        analyzer.analyze(insert_statement(vec!["only_table_in_the_name"])),
+        Err(AnalysisError::table_does_not_exist(&"public.only_table_in_the_name"))
     );
 }
 

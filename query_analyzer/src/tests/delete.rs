@@ -47,17 +47,6 @@ fn delete_from_nonexistent_table() {
 }
 
 #[test]
-fn delete_from_table_with_unqualified_name() {
-    let analyzer = Analyzer::new(InMemoryDatabase::new());
-    assert_eq!(
-        analyzer.analyze(delete_statement(vec!["only_schema_in_the_name"])),
-        Err(AnalysisError::table_naming_error(
-            &"Unsupported table name 'only_schema_in_the_name'. All table names must be qualified",
-        ))
-    );
-}
-
-#[test]
 fn delete_from_table_with_unsupported_name() {
     let analyzer = Analyzer::new(InMemoryDatabase::new());
     assert_eq!(
