@@ -1,7 +1,7 @@
 # IsomorphicDB
 
 ![Merge](https://github.com/alex-dukhno/isomorphicdb/workflows/Merge/badge.svg)
-[![Coverage Status](https://coveralls.io/repos/github/alex-dukhno/isomorphicdb/badge.svg?branch=master)](https://coveralls.io/github/alex-dukhno/isomorphicdb?branch=master)
+[![Coverage Status](https://coveralls.io/repos/github/alex-dukhno/isomorphicdb/badge.svg?branch=main)](https://coveralls.io/github/alex-dukhno/isomorphicdb?branch=main)
 <a href="https://discord.gg/PUcTcfU"><img src="https://img.shields.io/discord/509773073294295082.svg?logo=discord"></a>
 
 ## TODO List

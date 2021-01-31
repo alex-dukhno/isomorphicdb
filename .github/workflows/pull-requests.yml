@@ -2,7 +2,7 @@ name: Pull Requests
 
 on:
   pull_request:
-    branches: [ master ]
+    branches: [ main ]
 
 env:
   RUSTFLAGS: -Dwarnings
@@ -79,7 +79,7 @@ jobs:
         run: cargo tarpaulin -o Lcov --output-dir ./coverage
       - name: coveralls
         if: matrix.os == 'ubuntu'
-        uses: coverallsapp/github-action@master
+        uses: coverallsapp/github-action@main
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
