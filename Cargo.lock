@@ -128,13 +128,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "binary"
-version = "0.1.0"
-dependencies = [
- "repr",
-]
-
-[[package]]
 name = "bitflags"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -170,13 +163,13 @@ checksum = "631ae5198c9be5e753e5cc215e1bd73c2b466a3565173db433f52bb9d3e66dba"
 name = "catalog"
 version = "0.1.0"
 dependencies = [
- "binary",
  "dashmap",
  "data_definition_operations",
  "data_manipulation_typed_tree",
+ "data_scalar",
  "definition",
  "log",
- "repr",
+ "ordered-float",
  "rstest",
  "types",
 ]
@@ -303,8 +296,8 @@ dependencies = [
 name = "data_manipulation_query_result"
 version = "0.1.0"
 dependencies = [
+ "data_scalar",
  "definition",
- "repr",
 ]
 
 [[package]]
@@ -342,10 +335,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "data_scalar"
+version = "0.1.0"
+dependencies = [
+ "ordered-float",
+]
+
+[[package]]
 name = "definition"
 version = "0.1.0"
 dependencies = [
- "repr",
  "sql_ast",
  "types",
 ]
@@ -599,6 +598,7 @@ dependencies = [
  "data_manipulation_typed_queries",
  "data_manipulation_typed_tree",
  "data_manipulation_untyped_queries",
+ "data_scalar",
  "futures-lite",
  "itertools",
  "log",
@@ -944,6 +944,7 @@ version = "0.1.0"
 dependencies = [
  "catalog",
  "data_manipulation_query_result",
+ "log",
  "read_query_plan",
 ]
 
@@ -980,13 +981,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3acd125665422973a33ac9d3dd2df85edad0f4ae9b00dafb1a05e43a9f5ef8e7"
 dependencies = [
  "winapi",
-]
-
-[[package]]
-name = "repr"
-version = "0.1.0"
-dependencies = [
- "ordered-float",
 ]
 
 [[package]]

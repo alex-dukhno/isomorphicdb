@@ -12,22 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-mod data_catalog;
+use std::sync::Arc;
 
-use crate::{
-    in_memory::data_catalog::{InMemoryCatalogHandle, InMemoryTableHandle},
-    CatalogDefinition, DataCatalog, DataTable, Database, SchemaHandle, SqlTable, COLUMNS_TABLE, DEFINITION_SCHEMA,
-    SCHEMATA_TABLE, TABLES_TABLE,
-};
-use binary::Binary;
 use data_definition_operations::{
     ExecutionError, ExecutionOutcome, Kind, ObjectState, Record, Step, SystemObject, SystemOperation,
 };
 use data_manipulation_typed_tree::{DynamicTypedItem, DynamicTypedTree, StaticTypedItem, StaticTypedTree, TypedValue};
+use data_scalar::ScalarValue;
 use definition::{ColumnDef, FullTableName, SchemaName, TableDef};
-use repr::Datum;
-use std::sync::Arc;
 use types::SqlType;
+
+use crate::{
+    binary::Binary,
+    in_memory::data_catalog::{InMemoryCatalogHandle, InMemoryTableHandle},
+    repr::Datum,
+    CatalogDefinition, DataCatalog, DataTable, Database, SchemaHandle, SqlTable, COLUMNS_TABLE, DEFINITION_SCHEMA,
+    SCHEMATA_TABLE, TABLES_TABLE,
+};
+
+mod data_catalog;
 
 fn create_public_schema() -> SystemOperation {
     SystemOperation {
@@ -96,7 +99,11 @@ impl InMemoryDatabase {
     }
 
     fn table_exists(&self, full_table_name: &FullTableName) -> bool {
-        let full_table_name = Binary::pack(&full_table_name.raw(Datum::from_string("IN_MEMORY".to_owned())));
+        let full_table_name = Binary::pack(&[
+            Datum::from_string("IN_MEMORY".to_owned()),
+            Datum::from_string((&full_table_name).schema().to_owned()),
+            Datum::from_string((&full_table_name).table().to_owned()),
+        ]);
         let table = self.catalog.work_with(DEFINITION_SCHEMA, |schema| {
             schema.work_with(TABLES_TABLE, |table| {
                 table.select().any(|(_key, value)| value == full_table_name)
@@ -106,7 +113,11 @@ impl InMemoryDatabase {
     }
 
     fn table_columns(&self, full_table_name: &FullTableName) -> Vec<ColumnDef> {
-        let full_table_name = Binary::pack(&full_table_name.raw(Datum::from_string("IN_MEMORY".to_owned())));
+        let full_table_name = Binary::pack(&[
+            Datum::from_string("IN_MEMORY".to_owned()),
+            Datum::from_string((&full_table_name).schema().to_owned()),
+            Datum::from_string((&full_table_name).table().to_owned()),
+        ]);
         self.catalog
             .work_with(DEFINITION_SCHEMA, |schema| {
                 schema.work_with(COLUMNS_TABLE, |table| {
@@ -514,14 +525,36 @@ impl SqlTable for InMemoryTable {
         )
     }
 
-    fn select(&self) -> (Vec<ColumnDef>, Vec<Vec<Datum>>) {
+    fn select(&self) -> (Vec<ColumnDef>, Vec<Vec<ScalarValue>>) {
         (
             self.columns.clone(),
-            self.data_table.select().map(|(_key, value)| value.unpack()).collect(),
+            self.data_table
+                .select()
+                .map(|(_key, value)| {
+                    value
+                        .unpack()
+                        .into_iter()
+                        .map(|d| match d {
+                            Datum::Null => ScalarValue::Null,
+                            Datum::True => ScalarValue::True,
+                            Datum::False => ScalarValue::False,
+                            Datum::Int16(v) => ScalarValue::Int16(v),
+                            Datum::Int32(v) => ScalarValue::Int32(v),
+                            Datum::Int64(v) => ScalarValue::Int64(v),
+                            Datum::Float32(v) => ScalarValue::Float32(v),
+                            Datum::Float64(v) => ScalarValue::Float64(v),
+                            Datum::String(v) => ScalarValue::String(v),
+                        })
+                        .collect()
+                })
+                .collect(),
         )
     }
 
-    fn select_with_columns(&self, column_names: Vec<String>) -> Result<(Vec<ColumnDef>, Vec<Vec<Datum>>), String> {
+    fn select_with_columns(
+        &self,
+        column_names: Vec<String>,
+    ) -> Result<(Vec<ColumnDef>, Vec<Vec<ScalarValue>>), String> {
         let mut columns = vec![];
         let mut indexes = vec![];
         for name in column_names {
@@ -541,7 +574,18 @@ impl SqlTable for InMemoryTable {
                     let row = value.unpack();
                     let mut data = vec![];
                     for index in &indexes {
-                        data.push(row[*index].clone())
+                        let value = match &row[*index] {
+                            Datum::Null => ScalarValue::Null,
+                            Datum::True => ScalarValue::True,
+                            Datum::False => ScalarValue::False,
+                            Datum::Int16(v) => ScalarValue::Int16(*v),
+                            Datum::Int32(v) => ScalarValue::Int32(*v),
+                            Datum::Int64(v) => ScalarValue::Int64(*v),
+                            Datum::Float32(v) => ScalarValue::Float32(*v),
+                            Datum::Float64(v) => ScalarValue::Float64(*v),
+                            Datum::String(v) => ScalarValue::String(v.clone()),
+                        };
+                        data.push(value);
                     }
                     data
                 })

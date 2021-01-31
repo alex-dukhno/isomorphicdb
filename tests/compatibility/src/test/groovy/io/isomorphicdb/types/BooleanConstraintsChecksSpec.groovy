@@ -38,7 +38,7 @@ class BooleanConstraintsChecksSpec extends SetupEnvironment {
     db.close()
   }
 
-  @Ignore("column name is case sensitive")
+  @Ignore("type conversion is not implemented")
   @Unroll
   def 'inserting #value as boolean'() {
     given:
@@ -59,14 +59,14 @@ class BooleanConstraintsChecksSpec extends SetupEnvironment {
     where:
       value << [
           "TRUE",   "FALSE",
-//          "'true'", "'false'",
-//          "'t'",    "'f'",
-//          "'yes'",  "'no'",
-//          "'y'",    "'n'",
-//          "'on'",   "'off'",
-//          "'1'",    "'0'",
-//          "TRUE::boolean",  "FALSE::boolean",
-//          "'yes'::boolean", "'no'::boolean"
+          "'true'", "'false'",
+          "'t'",    "'f'",
+          "'yes'",  "'no'",
+          "'y'",    "'n'",
+          "'on'",   "'off'",
+          "'1'",    "'0'",
+          "TRUE::boolean",  "FALSE::boolean",
+          "'yes'::boolean", "'no'::boolean"
       ]
   }
 }

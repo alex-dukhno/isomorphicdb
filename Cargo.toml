@@ -1,7 +1,7 @@
 [workspace]
 members = [
-    "data/binary",
     "data/catalog",
+    "data/scalar",
     "data/schema_planner",
     "data_definition/operations",
     "data_definition/execution_plan",
@@ -22,7 +22,6 @@ members = [
     "read_query/executor",
     "read_query/plan",
     "read_query/planner",
-    "entities/repr",
     "server/connection",
     "server/pg_model",
     "server/node",

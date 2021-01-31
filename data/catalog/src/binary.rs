@@ -12,21 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use repr::Datum;
-use std::io;
-
-pub type Row = (Key, Values);
-pub type Key = Binary;
-pub type Values = Binary;
-pub type RowResult = io::Result<Result<Row, StorageError>>;
-pub type ReadCursor = Box<dyn Iterator<Item = RowResult>>;
-
-#[derive(Debug, PartialEq)]
-pub enum StorageError {
-    Io,
-    CascadeIo(Vec<String>),
-    Storage,
-}
+use crate::repr::Datum;
 
 #[repr(u8)]
 enum TypeTag {
@@ -94,7 +80,6 @@ impl Binary {
     }
 
     pub fn pack(other: &[Datum]) -> Binary {
-        use std::ops::Deref;
         let size = other.iter().map(Datum::size).sum();
         let mut data = Vec::with_capacity(size);
         for datum in other {
@@ -119,13 +104,13 @@ impl Binary {
                 }
                 Datum::Float32(val) => {
                     push_tag(&mut data, TypeTag::F32);
-                    push_copy!(&mut data, *val.deref(), f32)
+                    push_copy!(&mut data, **val, f32)
                 }
                 Datum::Float64(val) => {
                     push_tag(&mut data, TypeTag::F64);
-                    push_copy!(&mut data, *val.deref(), f64)
+                    push_copy!(&mut data, **val, f64)
                 }
-                Datum::OwnedString(val) => {
+                Datum::String(val) => {
                     push_tag(&mut data, TypeTag::Str);
                     push_copy!(&mut data, val.len(), usize);
                     data.extend_from_slice(val.as_bytes());
@@ -157,7 +142,7 @@ fn unpack_raw(data: &[u8]) -> Vec<Datum> {
             TypeTag::False => Datum::from_bool(false),
             TypeTag::Str => {
                 let val = unsafe { read_string(data, &mut index) };
-                Datum::OwnedString(val.to_owned())
+                Datum::String(val.to_owned())
             }
             TypeTag::I16 => {
                 let val = unsafe { read::<i16>(data, &mut index) };

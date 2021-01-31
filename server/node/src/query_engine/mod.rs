@@ -321,7 +321,6 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                                 .expect("To Send Result to Client"),
                             analysis => unreachable!("that couldn't happen {:?}", analysis),
                         },
-
                         statement @ Statement::Insert { .. }
                         | statement @ Statement::Update { .. }
                         | statement @ Statement::Delete { .. }
@@ -480,7 +479,7 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                                         for row in data {
                                             self.sender
                                                 .send(Ok(QueryEvent::DataRow(
-                                                    row.into_iter().map(|d| d.to_string()).collect(),
+                                                    row.into_iter().map(|scalar| scalar.as_text()).collect(),
                                                 )))
                                                 .expect("To Send to client");
                                         }

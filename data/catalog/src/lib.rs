@@ -12,19 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-mod in_memory;
-
-use binary::Binary;
-use data_definition_operations::{ExecutionError, ExecutionOutcome, SystemOperation};
-use data_manipulation_typed_tree::{DynamicTypedTree, StaticTypedTree};
-use definition::{ColumnDef, FullTableName, SchemaName, TableDef};
-use repr::Datum;
 use std::{
     fmt::{self, Debug, Formatter},
     iter::FromIterator,
 };
 
+use binary::Binary;
+use data_definition_operations::{ExecutionError, ExecutionOutcome, SystemOperation};
+use data_manipulation_typed_tree::{DynamicTypedTree, StaticTypedTree};
+use data_scalar::ScalarValue;
+use definition::{ColumnDef, FullTableName, SchemaName, TableDef};
 pub use in_memory::InMemoryDatabase;
+
+mod binary;
+mod in_memory;
+mod repr;
 
 pub type Key = Binary;
 pub type Value = Binary;
@@ -96,8 +98,9 @@ const COLUMNS_TABLE: &str = "COLUMNS";
 pub trait SqlTable {
     fn insert(&self, data: &[Vec<Option<StaticTypedTree>>]) -> usize;
 
-    fn select(&self) -> (Vec<ColumnDef>, Vec<Vec<Datum>>);
-    fn select_with_columns(&self, column_names: Vec<String>) -> Result<(Vec<ColumnDef>, Vec<Vec<Datum>>), String>;
+    fn select(&self) -> (Vec<ColumnDef>, Vec<Vec<ScalarValue>>);
+    fn select_with_columns(&self, column_names: Vec<String>)
+        -> Result<(Vec<ColumnDef>, Vec<Vec<ScalarValue>>), String>;
 
     fn delete_all(&self) -> usize;
 

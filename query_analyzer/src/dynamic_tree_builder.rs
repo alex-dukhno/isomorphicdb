@@ -75,7 +75,8 @@ impl DynamicTreeBuilder {
             Some(index) => Ok(DynamicUntypedTree::Item(DynamicUntypedItem::Param(index))),
             None => {
                 for (index, table_column) in table_columns.iter().enumerate() {
-                    if table_column.has_name(value.as_str()) {
+                    let column_name = value.to_lowercase();
+                    if table_column.has_name(column_name.as_str()) {
                         return Ok(DynamicUntypedTree::Item(DynamicUntypedItem::Column {
                             name: table_column.name().to_owned(),
                             sql_type: table_column.sql_type(),

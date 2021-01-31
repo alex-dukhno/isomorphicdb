@@ -14,6 +14,7 @@
 
 use definition::FullTableName;
 
+#[derive(Debug)]
 pub struct SelectPlan {
     pub table: FullTableName,
     pub columns: Vec<String>,
