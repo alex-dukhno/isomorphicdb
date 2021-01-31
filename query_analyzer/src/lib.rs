@@ -65,7 +65,10 @@ impl<CD: CatalogDefinition> Analyzer<CD> {
                             }
                             column_names.into_iter()
                         };
-                        let column_map = column_names.enumerate().map(|(index, name)| (name, index)).collect::<HashMap<&str, usize>>();
+                        let column_map = column_names
+                            .enumerate()
+                            .map(|(index, name)| (name, index))
+                            .collect::<HashMap<&str, usize>>();
 
                         let sql_ast::Query { body, .. } = &**source;
                         let values = match body {
@@ -76,7 +79,9 @@ impl<CD: CatalogDefinition> Analyzer<CD> {
                                     for table_column in table_columns.iter() {
                                         let value = match column_map.get(table_column) {
                                             None => None,
-                                            Some(index) => Some(StaticTreeBuilder::build_from(&insert_row[*index], &statement)?),
+                                            Some(index) => {
+                                                Some(StaticTreeBuilder::build_from(&insert_row[*index], &statement)?)
+                                            }
                                         };
                                         row.push(value);
                                     }

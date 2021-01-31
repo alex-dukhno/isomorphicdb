@@ -414,7 +414,9 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                                 for checked in type_checked {
                                     let mut row = vec![];
                                     for (index, c) in checked.into_iter().enumerate() {
-                                        row.push(c.map(|c| self.type_coercion.coerce_static(c, table_columns[index].sql_type())));
+                                        row.push(c.map(|c| {
+                                            self.type_coercion.coerce_static(c, table_columns[index].sql_type())
+                                        }));
                                     }
                                     type_coerced.push(row);
                                 }

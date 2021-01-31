@@ -173,7 +173,9 @@ fn insert_into_table_with_parameters_and_values() {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             values: vec![vec![
                 Some(StaticUntypedTree::Item(StaticUntypedItem::Param(0))),
-                Some(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(BigDecimal::from(1)))))
+                Some(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(
+                    BigDecimal::from(1)
+                ))))
             ]],
         })))
     );

@@ -77,7 +77,11 @@ fn with_column_names() {
     let analyzer = Analyzer::new(database);
 
     assert_eq!(
-        analyzer.analyze(inner_insert(vec![SCHEMA, TABLE], vec![vec![small_int(100)]], vec!["col"])),
+        analyzer.analyze(inner_insert(
+            vec![SCHEMA, TABLE],
+            vec![vec![small_int(100)]],
+            vec!["col"]
+        )),
         Ok(QueryAnalysis::Write(UntypedWrite::Insert(InsertQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             values: vec![vec![Some(StaticUntypedTree::Item(StaticUntypedItem::Const(

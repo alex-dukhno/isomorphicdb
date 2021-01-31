@@ -150,9 +150,13 @@ impl UntypedValue {
                         } else {
                             unimplemented!("NUMERIC types are not implemented")
                         }
-                    } else if &BigDecimal::from_str(&f32::MIN.to_string()).unwrap() <= num && num <= &BigDecimal::from_str(&f32::MAX.to_string()).unwrap() {
+                    } else if &BigDecimal::from_str(&f32::MIN.to_string()).unwrap() <= num
+                        && num <= &BigDecimal::from_str(&f32::MAX.to_string()).unwrap()
+                    {
                         Err(ImplicitCastError::datatype_mismatch(target_type, SqlType::real()))
-                    } else if &BigDecimal::from_str(&f64::MIN.to_string()).unwrap() <= num && num <= &BigDecimal::from_str(&f64::MAX.to_string()).unwrap() {
+                    } else if &BigDecimal::from_str(&f64::MIN.to_string()).unwrap() <= num
+                        && num <= &BigDecimal::from_str(&f64::MAX.to_string()).unwrap()
+                    {
                         Err(ImplicitCastError::datatype_mismatch(
                             target_type,
                             SqlType::double_precision(),

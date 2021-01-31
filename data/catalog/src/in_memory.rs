@@ -26,7 +26,7 @@ use data_definition_operations::{
 use data_manipulation_typed_tree::{DynamicTypedItem, DynamicTypedTree, StaticTypedItem, StaticTypedTree, TypedValue};
 use definition::{ColumnDef, FullTableName, SchemaName, TableDef};
 use repr::Datum;
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
 use types::SqlType;
 
 fn create_public_schema() -> SystemOperation {
@@ -499,6 +499,7 @@ impl SqlTable for InMemoryTable {
         self.data_table.insert(
             rows.iter()
                 .map(|row| {
+                    log::debug!("ROW to INSERT {:#?}", row);
                     let mut to_insert = vec![];
                     for v in row {
                         to_insert.push(
@@ -507,32 +508,10 @@ impl SqlTable for InMemoryTable {
                                 .unwrap_or_else(Datum::from_null),
                         );
                     }
-                    log::debug!("{:#?}", to_insert);
                     Binary::pack(&to_insert)
                 })
                 .collect::<Vec<Binary>>(),
         )
-    }
-
-    fn insert_with_columns(&self, column_names: Vec<String>, rows: Vec<Vec<Option<StaticTypedTree>>>) -> usize {
-        log::debug!("COLUMNS TO INSERT {:?}", column_names);
-        let columns_map = column_names
-            .into_iter()
-            .enumerate()
-            .map(|(index, name)| (name, index))
-            .collect::<HashMap<String, usize>>();
-        let data = rows
-            .into_iter()
-            .map(|row| {
-                let mut value = vec![];
-                for name in self.columns.iter().map(ColumnDef::name) {
-                    value.push(columns_map.get(name).map(|index| row[*index].clone()).unwrap_or(None))
-                }
-                log::debug!("ROW TO INSERT {:#?}", value);
-                value
-            })
-            .collect::<Vec<Vec<Option<StaticTypedTree>>>>();
-        self.insert(&data)
     }
 
     fn select(&self) -> (Vec<ColumnDef>, Vec<Vec<Datum>>) {
