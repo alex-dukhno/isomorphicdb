@@ -12,23 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use definition::SchemaName;
+use definition::{FullTableName, SchemaName};
 use types::SqlType;
-
-#[derive(Debug, PartialEq)]
-pub struct TableInfo {
-    pub schema_name: String,
-    pub table_name: String,
-}
-
-impl TableInfo {
-    pub fn new<S: ToString, T: ToString>(schema_name: &S, table_name: &T) -> TableInfo {
-        TableInfo {
-            schema_name: schema_name.to_string(),
-            table_name: table_name.to_string(),
-        }
-    }
-}
 
 #[derive(Debug, PartialEq)]
 pub struct CreateSchemaQuery {
@@ -51,14 +36,14 @@ pub struct ColumnInfo {
 
 #[derive(Debug, PartialEq)]
 pub struct CreateTableQuery {
-    pub table_info: TableInfo,
+    pub full_table_name: FullTableName,
     pub column_defs: Vec<ColumnInfo>,
     pub if_not_exists: bool,
 }
 
 #[derive(Debug, PartialEq)]
 pub struct DropTablesQuery {
-    pub table_infos: Vec<TableInfo>,
+    pub full_table_names: Vec<FullTableName>,
     pub cascade: bool,
     pub if_exists: bool,
 }

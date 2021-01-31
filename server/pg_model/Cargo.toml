@@ -8,8 +8,6 @@ publish = false
 [dependencies]
 pg_wire = "0.5.0"
 
-bigdecimal = { version = "0.2.0", features = ["string-only"] }
-byteorder = "1.4.2"
 rand = "0.7"
 
 [dev-dependencies]

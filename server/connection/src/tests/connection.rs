@@ -12,12 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::sync::{Arc, Mutex};
-
+use crate::{tests::async_io::TestCase, Channel, Command, ConnSupervisor, Receiver, RequestReceiver};
 use async_mutex::Mutex as AsyncMutex;
 use futures_lite::future::block_on;
-
-use crate::{tests::async_io::TestCase, Channel, Command, ConnSupervisor, Receiver, RequestReceiver};
+use std::sync::{Arc, Mutex};
 
 #[cfg(test)]
 mod read_query {
