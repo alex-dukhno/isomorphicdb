@@ -187,7 +187,7 @@ mod table {
             analyzer.analyze(drop_statement(vec![vec![SCHEMA, TABLE]], TABLE_TYPE)),
             Ok(QueryAnalysis::DataDefinition(SchemaChange::DropTables(
                 DropTablesQuery {
-                    table_infos: vec![TableInfo::new(&SCHEMA, &TABLE)],
+                    full_table_names: vec![FullTableName::from((&SCHEMA, &TABLE))],
                     cascade: false,
                     if_exists: false
                 }
@@ -204,7 +204,7 @@ mod table {
             analyzer.analyze(drop_statement(vec![vec![SCHEMA, "non_existent_table"]], TABLE_TYPE)),
             Ok(QueryAnalysis::DataDefinition(SchemaChange::DropTables(
                 DropTablesQuery {
-                    table_infos: vec![TableInfo::new(&SCHEMA, &"non_existent_table")],
+                    full_table_names: vec![FullTableName::from((&SCHEMA, &"non_existent_table"))],
                     cascade: false,
                     if_exists: false
                 }
@@ -230,7 +230,10 @@ mod table {
             )),
             Ok(QueryAnalysis::DataDefinition(SchemaChange::DropTables(
                 DropTablesQuery {
-                    table_infos: vec![TableInfo::new(&SCHEMA, &TABLE), TableInfo::new(&SCHEMA, &"table_1")],
+                    full_table_names: vec![
+                        FullTableName::from((&SCHEMA, &TABLE)),
+                        FullTableName::from((&SCHEMA, &"table_1"))
+                    ],
                     cascade: false,
                     if_exists: true
                 }
@@ -256,7 +259,10 @@ mod table {
             )),
             Ok(QueryAnalysis::DataDefinition(SchemaChange::DropTables(
                 DropTablesQuery {
-                    table_infos: vec![TableInfo::new(&SCHEMA, &TABLE), TableInfo::new(&SCHEMA, &"table_1")],
+                    full_table_names: vec![
+                        FullTableName::from((&SCHEMA, &TABLE)),
+                        FullTableName::from((&SCHEMA, &"table_1"))
+                    ],
                     cascade: true,
                     if_exists: false
                 }

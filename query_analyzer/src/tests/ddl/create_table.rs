@@ -117,7 +117,7 @@ fn create_table_with_the_same_name() {
         analyzer.analyze(create_table(vec![SCHEMA, TABLE], vec![])),
         Ok(QueryAnalysis::DataDefinition(SchemaChange::CreateTable(
             CreateTableQuery {
-                table_info: TableInfo::new(&SCHEMA, &TABLE),
+                full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 column_defs: vec![],
                 if_not_exists: false,
             }
@@ -138,7 +138,7 @@ fn create_new_table_if_not_exist() {
         )),
         Ok(QueryAnalysis::DataDefinition(SchemaChange::CreateTable(
             CreateTableQuery {
-                table_info: TableInfo::new(&SCHEMA, &TABLE),
+                full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 column_defs: vec![ColumnInfo {
                     name: "column_name".to_owned(),
                     sql_type: SqlType::small_int()
@@ -161,7 +161,7 @@ fn successfully_create_table() {
         )),
         Ok(QueryAnalysis::DataDefinition(SchemaChange::CreateTable(
             CreateTableQuery {
-                table_info: TableInfo::new(&SCHEMA, &TABLE),
+                full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 column_defs: vec![ColumnInfo {
                     name: "column_name".to_owned(),
                     sql_type: SqlType::small_int()

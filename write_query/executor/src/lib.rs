@@ -57,7 +57,6 @@ mod tests {
     use super::*;
     use catalog::InMemoryDatabase;
     use data_definition_operations::{Kind, Record, Step, SystemObject, SystemOperation};
-    use data_manipulation_typed_queries::InsertQuery;
     use data_manipulation_typed_tree::{StaticTypedItem, StaticTypedTree, TypedValue};
     use definition::FullTableName;
     use types::SqlType;

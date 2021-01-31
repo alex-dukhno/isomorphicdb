@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use data_definition_execution_plan::{
-    ColumnInfo, CreateSchemaQuery, CreateTableQuery, DropSchemasQuery, DropTablesQuery, SchemaChange, TableInfo,
+    ColumnInfo, CreateSchemaQuery, CreateTableQuery, DropSchemasQuery, DropTablesQuery, SchemaChange,
 };
 use data_definition_operations::{Kind, ObjectState, Record, Step, SystemObject, SystemOperation};
 
@@ -94,38 +94,34 @@ impl SystemSchemaPlanner {
                 }
             }
             SchemaChange::CreateTable(CreateTableQuery {
-                table_info:
-                    TableInfo {
-                        schema_name,
-                        table_name,
-                    },
+                full_table_name,
                 column_defs,
                 if_not_exists,
             }) => {
                 let mut steps = vec![];
                 steps.push(Step::CheckExistence {
                     system_object: SystemObject::Schema,
-                    object_name: vec![schema_name.clone()],
+                    object_name: vec![full_table_name.schema().to_owned()],
                 });
                 steps.push(Step::CheckExistence {
                     system_object: SystemObject::Table,
-                    object_name: vec![schema_name.clone(), table_name.clone()],
+                    object_name: vec![full_table_name.schema().to_owned(), full_table_name.table().to_owned()],
                 });
                 steps.push(Step::CreateFile {
-                    folder_name: schema_name.clone(),
-                    name: table_name.clone(),
+                    folder_name: full_table_name.schema().to_owned(),
+                    name: full_table_name.table().to_owned(),
                 });
                 steps.push(Step::CreateRecord {
                     record: Record::Table {
-                        schema_name: schema_name.clone(),
-                        table_name: table_name.clone(),
+                        schema_name: full_table_name.schema().to_owned(),
+                        table_name: full_table_name.table().to_owned(),
                     },
                 });
                 for ColumnInfo { name, sql_type } in column_defs {
                     steps.push(Step::CreateRecord {
                         record: Record::Column {
-                            schema_name: schema_name.clone(),
-                            table_name: table_name.clone(),
+                            schema_name: full_table_name.schema().to_owned(),
+                            table_name: full_table_name.table().to_owned(),
                             column_name: name.clone(),
                             sql_type: *sql_type,
                         },
@@ -142,36 +138,34 @@ impl SystemSchemaPlanner {
                 }
             }
             SchemaChange::DropTables(DropTablesQuery {
-                table_infos, if_exists, ..
+                full_table_names,
+                if_exists,
+                ..
             }) => {
                 let mut steps = vec![];
-                for TableInfo {
-                    schema_name,
-                    table_name,
-                } in table_infos
-                {
+                for full_table_name in full_table_names {
                     let mut for_table = vec![];
                     for_table.push(Step::CheckExistence {
                         system_object: SystemObject::Schema,
-                        object_name: vec![schema_name.clone()],
+                        object_name: vec![full_table_name.schema().to_owned()],
                     });
                     for_table.push(Step::CheckExistence {
                         system_object: SystemObject::Table,
-                        object_name: vec![schema_name.clone(), table_name.clone()],
+                        object_name: vec![full_table_name.schema().to_owned(), full_table_name.table().to_owned()],
                     });
                     for_table.push(Step::RemoveColumns {
-                        schema_name: schema_name.to_owned(),
-                        table_name: table_name.to_owned(),
+                        schema_name: full_table_name.schema().to_owned(),
+                        table_name: full_table_name.table().to_owned(),
                     });
                     for_table.push(Step::RemoveRecord {
                         record: Record::Table {
-                            schema_name: schema_name.clone(),
-                            table_name: table_name.clone(),
+                            schema_name: full_table_name.schema().to_owned(),
+                            table_name: full_table_name.table().to_owned(),
                         },
                     });
                     for_table.push(Step::RemoveFile {
-                        folder_name: schema_name.to_owned(),
-                        name: table_name.clone(),
+                        folder_name: full_table_name.schema().to_owned(),
+                        name: full_table_name.table().to_owned(),
                     });
                     steps.push(for_table);
                 }
@@ -187,10 +181,9 @@ impl SystemSchemaPlanner {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use definition::SchemaName;
     use types::SqlType;
-
-    use super::*;
 
     const SCHEMA: &str = "schema";
     const OTHER_SCHEMA: &str = "other_schema";
@@ -201,9 +194,8 @@ mod tests {
 
     #[cfg(test)]
     mod schema {
-        use data_definition_execution_plan::{CreateSchemaQuery, DropSchemasQuery, SchemaChange};
-
         use super::*;
+        use data_definition_execution_plan::{CreateSchemaQuery, DropSchemasQuery, SchemaChange};
 
         #[test]
         fn create() {
@@ -463,15 +455,16 @@ mod tests {
 
     #[cfg(test)]
     mod table {
-        use data_definition_execution_plan::{ColumnInfo, CreateTableQuery, DropTablesQuery, SchemaChange, TableInfo};
+        use data_definition_execution_plan::{ColumnInfo, CreateTableQuery, DropTablesQuery, SchemaChange};
 
         use super::*;
+        use definition::FullTableName;
 
         #[test]
         fn create_without_columns() {
             assert_eq!(
                 QUERY_PLANNER.schema_change_plan(&SchemaChange::CreateTable(CreateTableQuery {
-                    table_info: TableInfo::new(&SCHEMA, &TABLE),
+                    full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                     column_defs: vec![],
                     if_not_exists: false,
                 })),
@@ -506,7 +499,7 @@ mod tests {
         fn create_if_not_exists() {
             assert_eq!(
                 QUERY_PLANNER.schema_change_plan(&SchemaChange::CreateTable(CreateTableQuery {
-                    table_info: TableInfo::new(&SCHEMA, &TABLE),
+                    full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                     column_defs: vec![],
                     if_not_exists: true,
                 })),
@@ -541,7 +534,7 @@ mod tests {
         fn create_with_columns() {
             assert_eq!(
                 QUERY_PLANNER.schema_change_plan(&SchemaChange::CreateTable(CreateTableQuery {
-                    table_info: TableInfo::new(&SCHEMA, &TABLE),
+                    full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                     column_defs: vec![
                         ColumnInfo {
                             name: "col_1".to_owned(),
@@ -601,7 +594,10 @@ mod tests {
         fn drop_many() {
             assert_eq!(
                 QUERY_PLANNER.schema_change_plan(&SchemaChange::DropTables(DropTablesQuery {
-                    table_infos: vec![TableInfo::new(&SCHEMA, &TABLE), TableInfo::new(&SCHEMA, &OTHER_TABLE)],
+                    full_table_names: vec![
+                        FullTableName::from((&SCHEMA, &TABLE)),
+                        FullTableName::from((&SCHEMA, &OTHER_TABLE))
+                    ],
                     cascade: false,
                     if_exists: false
                 })),
@@ -666,7 +662,10 @@ mod tests {
         fn drop_many_cascade() {
             assert_eq!(
                 QUERY_PLANNER.schema_change_plan(&SchemaChange::DropTables(DropTablesQuery {
-                    table_infos: vec![TableInfo::new(&SCHEMA, &TABLE), TableInfo::new(&SCHEMA, &OTHER_TABLE)],
+                    full_table_names: vec![
+                        FullTableName::from((&SCHEMA, &TABLE)),
+                        FullTableName::from((&SCHEMA, &OTHER_TABLE))
+                    ],
                     cascade: true,
                     if_exists: false
                 })),
@@ -731,7 +730,10 @@ mod tests {
         fn drop_many_if_exists() {
             assert_eq!(
                 QUERY_PLANNER.schema_change_plan(&SchemaChange::DropTables(DropTablesQuery {
-                    table_infos: vec![TableInfo::new(&SCHEMA, &TABLE), TableInfo::new(&SCHEMA, &OTHER_TABLE)],
+                    full_table_names: vec![
+                        FullTableName::from((&SCHEMA, &TABLE)),
+                        FullTableName::from((&SCHEMA, &OTHER_TABLE))
+                    ],
                     cascade: false,
                     if_exists: true
                 })),

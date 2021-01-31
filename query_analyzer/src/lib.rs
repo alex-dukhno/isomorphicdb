@@ -16,7 +16,7 @@ use std::{convert::TryFrom, sync::Arc};
 
 use catalog::CatalogDefinition;
 use data_definition_execution_plan::{
-    ColumnInfo, CreateSchemaQuery, CreateTableQuery, DropSchemasQuery, DropTablesQuery, SchemaChange, TableInfo,
+    ColumnInfo, CreateSchemaQuery, CreateTableQuery, DropSchemasQuery, DropTablesQuery, SchemaChange,
 };
 use data_manipulation_operators::Operation;
 use data_manipulation_untyped_queries::{DeleteQuery, InsertQuery, SelectQuery, UntypedWrite, UpdateQuery};
@@ -254,7 +254,7 @@ impl<CD: CatalogDefinition> Analyzer<CD> {
                         }
                         Ok(QueryAnalysis::DataDefinition(SchemaChange::CreateTable(
                             CreateTableQuery {
-                                table_info: TableInfo::new(&full_table_name.schema(), &full_table_name.table()),
+                                full_table_name,
                                 column_defs,
                                 if_not_exists: *if_not_exists,
                             },
@@ -309,8 +309,7 @@ impl<CD: CatalogDefinition> Analyzer<CD> {
                                     .database
                                     .schema_exists(&SchemaName::from(&full_table_name.schema()))
                                 {
-                                    table_infos
-                                        .push(TableInfo::new(&full_table_name.schema(), &full_table_name.table()))
+                                    table_infos.push(full_table_name)
                                 } else {
                                     return Err(AnalysisError::schema_does_not_exist(full_table_name.schema()));
                                 }
@@ -320,7 +319,7 @@ impl<CD: CatalogDefinition> Analyzer<CD> {
                     }
                     Ok(QueryAnalysis::DataDefinition(SchemaChange::DropTables(
                         DropTablesQuery {
-                            table_infos,
+                            full_table_names: table_infos,
                             cascade: *cascade,
                             if_exists: *if_exists,
                         },

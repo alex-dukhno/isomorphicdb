@@ -13,10 +13,6 @@
 // limitations under the License.
 
 use bigdecimal::BigDecimal;
-use itertools::izip;
-use pg_wire::{ColumnMetadata, PgFormat, PgType};
-use std::{convert::TryFrom, iter, sync::Arc};
-
 use catalog::{CatalogDefinition, Database};
 use connection::Sender;
 use data_definition_operations::{ExecutionError, ExecutionOutcome};
@@ -24,12 +20,14 @@ use data_manipulation_query_result::{QueryExecution, QueryExecutionError};
 use data_manipulation_typed_queries::{DeleteQuery, InsertQuery, TypedSelectQuery, TypedWrite, UpdateQuery};
 use data_manipulation_typed_tree::{DynamicTypedTree, StaticTypedTree};
 use data_manipulation_untyped_queries::UntypedWrite;
+use itertools::izip;
 use pg_model::{
     results::{QueryError, QueryEvent},
     session::Session,
     statement::PreparedStatement,
     Command,
 };
+use pg_wire::{ColumnMetadata, PgFormat, PgType};
 use query_analyzer::{AnalysisError, Analyzer, QueryAnalysis};
 use query_processing_type_check::TypeChecker;
 use query_processing_type_coercion::TypeCoercion;
@@ -38,6 +36,7 @@ use read_query_executor::ReadQueryExecutor;
 use read_query_planner::ReadQueryPlanner;
 use schema_planner::SystemSchemaPlanner;
 use sql_ast::{Expr, Ident, Statement, Value};
+use std::{convert::TryFrom, iter, sync::Arc};
 use types::SqlType;
 use write_query_executor::WriteQueryExecutor;
 
