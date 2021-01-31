@@ -7,11 +7,7 @@ import java.sql.SQLException
 
 class WorkingWithSchemasSpec extends SetupEnvironment {
   def cleanupSpec() {
-    try {
-      dbExecute 'drop schema if exists CREATE_SCHEMA_TEST'
-    } catch (SQLException e) {
-      e.printStackTrace()
-    }
+    dbExecute 'drop schema if exists CREATE_SCHEMA_TEST'
     dbExecute 'drop schema if exists CREATE_SCHEMA_IF_NOT_EXIST'
     dbExecute 'drop schema if exists WITH_THE_SAME_NAME'
   }
