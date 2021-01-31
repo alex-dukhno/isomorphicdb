@@ -13,19 +13,18 @@
 // limitations under the License.
 
 mod in_memory;
-mod on_disk;
 
 use binary::Binary;
 use data_definition_operations::{ExecutionError, ExecutionOutcome, SystemOperation};
 use data_manipulation_typed_tree::{DynamicTypedTree, StaticTypedTree};
 use definition::{ColumnDef, FullTableName, SchemaName, TableDef};
+use repr::Datum;
 use std::{
     fmt::{self, Debug, Formatter},
     iter::FromIterator,
 };
 
 pub use in_memory::InMemoryDatabase;
-use repr::Datum;
 
 pub type Key = Binary;
 pub type Value = Binary;
@@ -71,6 +70,8 @@ trait SchemaHandle {
     type Table: DataTable;
     fn create_table(&self, table_name: &str) -> bool;
     fn drop_table(&self, table_name: &str) -> bool;
+    fn empty(&self) -> bool;
+    fn all_tables(&self) -> Vec<String>;
     fn work_with<T, F: Fn(&Self::Table) -> T>(&self, table_name: &str, operation: F) -> Option<T>;
 }
 

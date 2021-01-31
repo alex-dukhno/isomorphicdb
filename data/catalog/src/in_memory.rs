@@ -256,8 +256,46 @@ impl Database for InMemoryDatabase {
                     Step::CreateFolder { name } => {
                         self.catalog.create_schema(&name);
                     }
-                    Step::RemoveFolder { name } => {
-                        self.catalog.drop_schema(&name);
+                    Step::RemoveFolder { name, only_if_empty } => {
+                        match self.catalog.work_with(&name, |schema| schema.empty()) {
+                            Some(true) if *only_if_empty => {
+                                self.catalog.drop_schema(&name);
+                            }
+                            Some(_) if !*only_if_empty => {
+                                let all_tables = self.catalog.work_with(&name, |schema| schema.all_tables()).unwrap();
+                                log::debug!("tables to remove {:?}", all_tables);
+                                self.catalog.work_with(DEFINITION_SCHEMA, |schema| {
+                                    schema.work_with(TABLES_TABLE, |table| {
+                                        let table_ids = table
+                                            .select()
+                                            .map(|(key, value)| (key, value.unpack()))
+                                            .filter(|(_key, value)| {
+                                                &value[1].as_string() == name
+                                                    && all_tables.contains(&value[2].as_string())
+                                            })
+                                            .map(|(key, _value)| key)
+                                            .collect();
+                                        log::debug!("table IDs {:?}", table_ids);
+                                        table.delete(table_ids);
+                                    });
+                                    schema.work_with(COLUMNS_TABLE, |table| {
+                                        let columns_ids = table
+                                            .select()
+                                            .map(|(key, value)| (key, value.unpack()))
+                                            .filter(|(_key, value)| {
+                                                &value[1].as_string() == name
+                                                    && all_tables.contains(&value[2].as_string())
+                                            })
+                                            .map(|(key, _value)| key)
+                                            .collect();
+                                        log::debug!("column IDs {:?}", columns_ids);
+                                        table.delete(columns_ids);
+                                    });
+                                });
+                                self.catalog.drop_schema(&name);
+                            }
+                            _ => {}
+                        }
                         return Ok(ExecutionOutcome::SchemaDropped);
                     }
                     Step::CreateFile { folder_name, name } => {

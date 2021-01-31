@@ -104,21 +104,33 @@ impl SchemaHandle for InMemorySchemaHandle {
 
     fn create_table(&self, table_name: &str) -> bool {
         if self.tables.contains_key(table_name) {
+            log::error!("TABLE {:?} is already exist", table_name);
             false
         } else {
             self.tables
                 .insert(table_name.to_owned(), InMemoryTableHandle::default());
+            log::warn!("TABLE {:?} was created", table_name);
             true
         }
     }
 
     fn drop_table(&self, table_name: &str) -> bool {
         if !self.tables.contains_key(table_name) {
+            log::warn!("TABLE {:?} does not exist", table_name);
             false
         } else {
             self.tables.remove(table_name);
+            log::warn!("TABLE {:?} was removed", table_name);
             true
         }
+    }
+
+    fn empty(&self) -> bool {
+        self.tables.is_empty()
+    }
+
+    fn all_tables(&self) -> Vec<String> {
+        self.tables.iter().map(|entry| entry.key().clone()).collect()
     }
 
     fn work_with<T, F: Fn(&Self::Table) -> T>(&self, table_name: &str, operation: F) -> Option<T> {

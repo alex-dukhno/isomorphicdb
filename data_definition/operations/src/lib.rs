@@ -50,6 +50,7 @@ pub enum Step {
     },
     RemoveFolder {
         name: String,
+        only_if_empty: bool,
     },
     CreateFile {
         folder_name: String,
