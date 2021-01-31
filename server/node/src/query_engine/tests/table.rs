@@ -126,7 +126,10 @@ fn drop_if_exists_non_existent_table(database_with_schema: (InMemory, ResultColl
 fn drop_if_exists_existent_and_non_existent_table(database_with_schema: (InMemory, ResultCollector)) {
     let (mut engine, collector) = database_with_schema;
 
-    engine.execute(Command::Query { sql: "create table schema_name.existent_table;".to_owned() })
+    engine
+        .execute(Command::Query {
+            sql: "create table schema_name.existent_table;".to_owned(),
+        })
         .expect("query executed");
     collector.assert_receive_single(Ok(QueryEvent::TableCreated));
 
@@ -137,7 +140,10 @@ fn drop_if_exists_existent_and_non_existent_table(database_with_schema: (InMemor
         .expect("query executed");
     collector.assert_receive_single(Ok(QueryEvent::TableDropped));
 
-    engine.execute(Command::Query { sql: "create table schema_name.existent_table;".to_owned() })
+    engine
+        .execute(Command::Query {
+            sql: "create table schema_name.existent_table;".to_owned(),
+        })
         .expect("query executed");
     collector.assert_receive_single(Ok(QueryEvent::TableCreated));
 }

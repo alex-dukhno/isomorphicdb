@@ -93,7 +93,10 @@ fn drop_if_exists_non_existent_schema(empty_database: (InMemory, ResultCollector
 fn drop_if_exists_existent_and_non_existent_schema(empty_database: (InMemory, ResultCollector)) {
     let (mut engine, collector) = empty_database;
 
-    engine.execute(Command::Query { sql: "create schema existent_schema;".to_owned() })
+    engine
+        .execute(Command::Query {
+            sql: "create schema existent_schema;".to_owned(),
+        })
         .expect("query executed");
     collector.assert_receive_single(Ok(QueryEvent::SchemaCreated));
 
@@ -104,7 +107,10 @@ fn drop_if_exists_existent_and_non_existent_schema(empty_database: (InMemory, Re
         .expect("query executed");
     collector.assert_receive_single(Ok(QueryEvent::SchemaDropped));
 
-    engine.execute(Command::Query { sql: "create schema existent_schema;".to_owned() })
+    engine
+        .execute(Command::Query {
+            sql: "create schema existent_schema;".to_owned(),
+        })
         .expect("query executed");
     collector.assert_receive_single(Ok(QueryEvent::SchemaCreated));
 }
