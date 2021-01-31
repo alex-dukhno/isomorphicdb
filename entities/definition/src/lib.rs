@@ -178,6 +178,10 @@ impl TableDef {
         &self.columns
     }
 
+    pub fn column_names(&self) -> Vec<&str> {
+        self.columns.iter().map(|col| col.name.as_str()).collect()
+    }
+
     pub fn has_column(&self, column_name: &str) -> bool {
         self.columns.iter().any(|col| col.name == column_name)
     }

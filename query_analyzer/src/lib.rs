@@ -25,6 +25,7 @@ use definition::{FullTableName, SchemaName};
 use types::SqlType;
 
 use crate::{dynamic_tree_builder::DynamicTreeBuilder, static_tree_builder::StaticTreeBuilder};
+use std::collections::HashMap;
 
 mod dynamic_tree_builder;
 mod operation_mapper;
@@ -51,21 +52,38 @@ impl<CD: CatalogDefinition> Analyzer<CD> {
                     None => Err(AnalysisError::schema_does_not_exist(full_table_name.schema())),
                     Some(None) => Err(AnalysisError::table_does_not_exist(full_table_name)),
                     Some(Some(table_info)) => {
-                        let mut column_names = vec![];
-                        for column in columns {
-                            if !table_info.has_column(&column.value) {
-                                return Err(AnalysisError::column_not_found(column));
+                        let table_columns = table_info.column_names();
+                        let column_names = if columns.is_empty() {
+                            table_info.column_names().into_iter()
+                        } else {
+                            let mut column_names = vec![];
+                            for column in columns {
+                                if !table_info.has_column(&column.value) {
+                                    return Err(AnalysisError::column_not_found(column));
+                                }
+                                column_names.push(column.value.as_str());
                             }
-                            column_names.push(column.value.clone());
-                        }
+                            column_names.into_iter()
+                        };
+                        let column_map = column_names
+                            .enumerate()
+                            .map(|(index, name)| (name, index))
+                            .collect::<HashMap<&str, usize>>();
+
                         let sql_ast::Query { body, .. } = &**source;
                         let values = match body {
                             sql_ast::SetExpr::Values(sql_ast::Values(insert_rows)) => {
                                 let mut values = vec![];
                                 for insert_row in insert_rows {
                                     let mut row = vec![];
-                                    for value in insert_row.iter() {
-                                        row.push(StaticTreeBuilder::build_from(value, &statement)?);
+                                    for table_column in table_columns.iter() {
+                                        let value = match column_map.get(table_column) {
+                                            None => None,
+                                            Some(index) => {
+                                                Some(StaticTreeBuilder::build_from(&insert_row[*index], &statement)?)
+                                            }
+                                        };
+                                        row.push(value);
                                     }
                                     values.push(row)
                                 }
@@ -80,7 +98,6 @@ impl<CD: CatalogDefinition> Analyzer<CD> {
                         };
                         Ok(QueryAnalysis::Write(UntypedWrite::Insert(InsertQuery {
                             full_table_name,
-                            column_names,
                             values,
                         })))
                     }

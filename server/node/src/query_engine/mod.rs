@@ -389,20 +389,20 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                                     .map(|values| {
                                         values
                                             .into_iter()
-                                            .map(|value| self.type_inference.infer_static(value))
+                                            .map(|value| value.map(|v| self.type_inference.infer_static(v)))
                                             .collect()
                                     })
-                                    .collect::<Vec<Vec<StaticTypedTree>>>();
+                                    .collect::<Vec<Vec<Option<StaticTypedTree>>>>();
                                 log::debug!("INSERT TYPED VALUES {:?}", typed_values);
                                 let type_checked = typed_values
                                     .into_iter()
                                     .map(|values| {
                                         values
                                             .into_iter()
-                                            .map(|value| self.type_checker.check_static(value))
+                                            .map(|value| value.map(|v| self.type_checker.check_static(v)))
                                             .collect()
                                     })
-                                    .collect::<Vec<Vec<StaticTypedTree>>>();
+                                    .collect::<Vec<Vec<Option<StaticTypedTree>>>>();
                                 log::debug!("INSERT TYPE CHECKED VALUES {:?}", type_checked);
                                 let table_info = self
                                     .database
@@ -414,14 +414,15 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                                 for checked in type_checked {
                                     let mut row = vec![];
                                     for (index, c) in checked.into_iter().enumerate() {
-                                        row.push(self.type_coercion.coerce_static(c, table_columns[index].sql_type()))
+                                        row.push(c.map(|c| {
+                                            self.type_coercion.coerce_static(c, table_columns[index].sql_type())
+                                        }));
                                     }
                                     type_coerced.push(row);
                                 }
                                 log::debug!("INSERT TYPE COERCED VALUES {:?}", type_coerced);
                                 match self.write_query_executor.execute(TypedWrite::Insert(InsertQuery {
                                     full_table_name: insert.full_table_name,
-                                    column_names: insert.column_names,
                                     values: type_coerced,
                                 })) {
                                     Ok(QueryExecution::Inserted(inserted)) => {

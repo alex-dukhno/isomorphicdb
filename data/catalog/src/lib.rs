@@ -95,7 +95,6 @@ const COLUMNS_TABLE: &str = "COLUMNS";
 
 pub trait SqlTable {
     fn insert(&self, data: &[Vec<Option<StaticTypedTree>>]) -> usize;
-    fn insert_with_columns(&self, column_names: Vec<String>, rows: Vec<Vec<Option<StaticTypedTree>>>) -> usize;
 
     fn select(&self) -> (Vec<ColumnDef>, Vec<Vec<Datum>>);
     fn select_with_columns(&self, column_names: Vec<String>) -> Result<(Vec<ColumnDef>, Vec<Vec<Datum>>), String>;

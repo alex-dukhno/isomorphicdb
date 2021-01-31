@@ -178,16 +178,8 @@ impl UntypedValue {
             UntypedValue::Null => Ok(UntypedValue::Null),
         }
     }
-
-    // when user does `<value>::<sql_type>` or `cast <value> as <sql_type>` operations
-    // pub fn strict_cast_to(self, target_type: &SqlType) -> Result<ScalarValue, CastError> {
-    //     Err(CastError)
-    // }
 }
 
-// TODO it makes `ScalarValue` implement `ToString`
-//      find a better abstraction to return
-//      text representation of computed value
 impl Display for UntypedValue {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {

@@ -15,7 +15,6 @@
 use catalog::{Database, SqlTable};
 use data_manipulation_query_result::{QueryExecution, QueryExecutionError};
 use data_manipulation_typed_queries::{DeleteQuery, InsertQuery, TypedWrite, UpdateQuery};
-use data_manipulation_typed_tree::StaticTypedTree;
 use std::sync::Arc;
 
 #[derive(Clone)]
@@ -33,22 +32,10 @@ impl<D: Database> WriteQueryExecutor<D> {
         match write_query {
             TypedWrite::Insert(InsertQuery {
                 full_table_name,
-                column_names,
                 values,
-            }) => {
-                let values = values
-                    .into_iter()
-                    .map(|v| v.into_iter().map(Some).collect::<Vec<Option<StaticTypedTree>>>())
-                    .collect::<Vec<Vec<Option<StaticTypedTree>>>>();
-                let inserted = if column_names.is_empty() {
-                    self.database.work_with(&full_table_name, |table| table.insert(&values))
-                } else {
-                    self.database.work_with(&full_table_name, |table| {
-                        table.insert_with_columns(column_names.clone(), values.clone())
-                    })
-                };
-                Ok(QueryExecution::Inserted(inserted))
-            }
+            }) => Ok(QueryExecution::Inserted(
+                self.database.work_with(&full_table_name, |table| table.insert(&values)),
+            )),
             TypedWrite::Delete(DeleteQuery { full_table_name }) => Ok(QueryExecution::Deleted(
                 self.database.work_with(&full_table_name, |table| table.delete_all()),
             )),
@@ -150,10 +137,9 @@ mod tests {
 
         let r = executor.execute(TypedWrite::Insert(InsertQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-            column_names: vec![],
-            values: vec![vec![StaticTypedTree::Item(StaticTypedItem::Const(
+            values: vec![vec![Some(StaticTypedTree::Item(StaticTypedItem::Const(
                 TypedValue::SmallInt(1),
-            ))]],
+            )))]],
         }));
 
         assert_eq!(r, Ok(QueryExecution::Inserted(1)));
