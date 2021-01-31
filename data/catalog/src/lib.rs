@@ -18,11 +18,11 @@ use binary::Binary;
 use data_definition_operations::{ExecutionError, ExecutionOutcome, SystemOperation};
 use data_manipulation_typed_tree::{DynamicTypedTree, StaticTypedTree};
 use definition::{ColumnDef, FullTableName, SchemaName, TableDef};
+use repr::Datum;
 use std::{
     fmt::{self, Debug, Formatter},
     iter::FromIterator,
 };
-use repr::Datum;
 
 pub use in_memory::InMemoryDatabase;
 

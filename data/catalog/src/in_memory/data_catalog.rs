@@ -133,7 +133,6 @@ impl SchemaHandle for InMemorySchemaHandle {
         self.tables.iter().map(|entry| entry.key().clone()).collect()
     }
 
-
     fn work_with<T, F: Fn(&Self::Table) -> T>(&self, table_name: &str, operation: F) -> Option<T> {
         self.tables.get(table_name).map(|table| operation(&*table))
     }

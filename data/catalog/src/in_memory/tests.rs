@@ -94,7 +94,7 @@ fn drop_schema_op(schema_name: &str) -> Vec<Step> {
         },
         Step::RemoveFolder {
             name: schema_name.to_owned(),
-            only_if_empty: true
+            only_if_empty: true,
         },
     ]
 }
