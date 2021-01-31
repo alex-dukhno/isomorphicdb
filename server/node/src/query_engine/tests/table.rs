@@ -75,7 +75,6 @@ fn create_same_table(database_with_schema: (InMemory, ResultCollector)) {
 }
 
 #[rstest::rstest]
-#[ignore] //TODO: fix test after completing DDL redesign
 fn drop_table(database_with_schema: (InMemory, ResultCollector)) {
     let (mut engine, collector) = database_with_schema;
     engine
@@ -121,6 +120,26 @@ fn drop_if_exists_non_existent_table(database_with_schema: (InMemory, ResultColl
         })
         .expect("query executed");
     collector.assert_receive_single(Ok(QueryEvent::TableDropped));
+}
+
+#[rstest::rstest]
+fn drop_if_exists_existent_and_non_existent_table(database_with_schema: (InMemory, ResultCollector)) {
+    let (mut engine, collector) = database_with_schema;
+
+    engine.execute(Command::Query { sql: "create table schema_name.existent_table;".to_owned() })
+        .expect("query executed");
+    collector.assert_receive_single(Ok(QueryEvent::TableCreated));
+
+    engine
+        .execute(Command::Query {
+            sql: "drop table if exists schema_name.non_existent, schema_name.existent_table;".to_owned(),
+        })
+        .expect("query executed");
+    collector.assert_receive_single(Ok(QueryEvent::TableDropped));
+
+    engine.execute(Command::Query { sql: "create table schema_name.existent_table;".to_owned() })
+        .expect("query executed");
+    collector.assert_receive_single(Ok(QueryEvent::TableCreated));
 }
 
 #[cfg(test)]

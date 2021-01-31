@@ -189,6 +189,7 @@ impl Database for InMemoryDatabase {
                                     })
                                 })
                             });
+                            log::debug!("check existence for {:?} is {:?}", object_name, result);
                             match skip_steps_if {
                                 None => {
                                     if let (&Kind::Create(SystemObject::Schema), Some(Some(true))) = (&kind, result) {
@@ -204,7 +205,10 @@ impl Database for InMemoryDatabase {
                                         return Err(ExecutionError::SchemaDoesNotExist(object_name[0].to_owned()));
                                     }
                                 }
-                                Some(ObjectState::NotExists) => break,
+                                Some(ObjectState::NotExists) if result == Some(Some(false)) => {
+                                    break
+                                },
+                                Some(ObjectState::NotExists) => {}
                                 Some(ObjectState::Exists) => {}
                             }
                         }
@@ -236,7 +240,10 @@ impl Database for InMemoryDatabase {
                                         ));
                                     }
                                 }
-                                Some(ObjectState::NotExists) => unimplemented!(),
+                                Some(ObjectState::NotExists) if result == Some(Some(false)) => {
+                                    break
+                                },
+                                Some(ObjectState::NotExists) => {},
                                 Some(ObjectState::Exists) => break,
                             }
                         }
