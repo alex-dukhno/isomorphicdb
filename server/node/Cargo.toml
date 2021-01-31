@@ -15,6 +15,7 @@ path = "src/bin.rs"
 [dependencies]
 catalog = { path = "../../data/catalog" }
 connection = { path = "../connection" }
+data_scalar = { path = "../../data/scalar" }
 data_definition_operations = { path = "../../data_definition/operations" }
 parser = { path = "../../query_parsing/parser" }
 pg_model = { path = "../pg_model" }

@@ -6,6 +6,5 @@ edition = "2018"
 publish = false
 
 [dependencies]
-repr = { path = "../repr" }
 types = { path = "../types" }
 sql_ast = { path = "../../query_parsing/sql-ast" }

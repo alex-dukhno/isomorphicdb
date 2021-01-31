@@ -25,7 +25,7 @@ pub enum Datum {
     Int64(i64),
     Float32(OrderedFloat<f32>),
     Float64(OrderedFloat<f64>),
-    OwnedString(String),
+    String(String),
 }
 
 impl Datum {
@@ -39,7 +39,7 @@ impl Datum {
             Self::Int64(_) => 1 + std::mem::size_of::<i64>(),
             Self::Float32(_) => 1 + std::mem::size_of::<f32>(),
             Self::Float64(_) => 1 + std::mem::size_of::<f64>(),
-            Self::OwnedString(val) => 1 + std::mem::size_of::<usize>() + val.len(),
+            Self::String(val) => 1 + std::mem::size_of::<usize>() + val.len(),
         }
     }
 
@@ -92,7 +92,7 @@ impl Datum {
     }
 
     pub fn from_string(val: String) -> Datum {
-        Datum::OwnedString(val)
+        Datum::String(val)
     }
 
     pub fn as_u32(&self) -> u32 {
@@ -111,7 +111,7 @@ impl Datum {
 
     pub fn as_string(&self) -> String {
         match self {
-            Self::OwnedString(s) => s.clone(),
+            Self::String(s) => s.clone(),
             _ => panic!("invalid use of Datum::as_str"),
         }
     }
@@ -128,7 +128,7 @@ impl Display for Datum {
             Self::Int64(val) => write!(f, "{}", val),
             Self::Float32(val) => write!(f, "{}", val.into_inner()),
             Self::Float64(val) => write!(f, "{}", val.into_inner()),
-            Self::OwnedString(val) => write!(f, "{}", val),
+            Self::String(val) => write!(f, "{}", val),
         }
     }
 }

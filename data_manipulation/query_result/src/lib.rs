@@ -12,15 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use data_scalar::ScalarValue;
 use definition::ColumnDef;
-use repr::Datum;
 
 #[derive(Debug, PartialEq)]
 pub enum QueryExecution {
     Inserted(usize),
     Deleted(usize),
     Updated(usize),
-    Selected((Vec<ColumnDef>, Vec<Vec<Datum>>)),
+    Selected((Vec<ColumnDef>, Vec<Vec<ScalarValue>>)),
 }
 
 #[derive(Debug, PartialEq)]

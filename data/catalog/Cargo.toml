@@ -6,15 +6,15 @@ edition = "2018"
 publish = false
 
 [dependencies]
-binary = { path = "../binary" }
 data_definition_operations = { path = "../../data_definition/operations" }
 data_manipulation_typed_tree = { path = "../../data_manipulation/typed_tree" }
 definition = { path = "../../entities/definition" }
-repr = { path = "../../entities/repr" }
 types = { path = "../../entities/types" }
+data_scalar = { path = "../scalar" }
 
 dashmap = "4.0.2"
 log = "0.4.14"
+ordered-float = "2.0.1"
 
 [dev-dependencies]
 rstest = "0.6.4"

@@ -12,11 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{Cursor, DataCatalog, DataTable, Key, SchemaHandle, Value};
-use binary::Binary;
+use crate::{binary::Binary, repr::Datum, Cursor, DataCatalog, DataTable, Key, SchemaHandle, Value};
 use dashmap::DashMap;
 use definition::FullTableName;
-use repr::Datum;
 use std::{
     collections::BTreeMap,
     sync::{

@@ -27,7 +27,6 @@ impl<D: Database> WriteQueryExecutor<D> {
         WriteQueryExecutor { database }
     }
 
-    #[allow(clippy::needless_collect)]
     pub fn execute(&self, write_query: TypedWrite) -> Result<QueryExecution, QueryExecutionError> {
         match write_query {
             TypedWrite::Insert(InsertQuery {

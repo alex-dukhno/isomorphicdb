@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use repr::Datum;
 use std::{
     convert::TryFrom,
     fmt::{self, Display, Formatter},
@@ -29,14 +28,6 @@ impl FullTableName {
 
     pub fn table(&self) -> &str {
         &(self.0).1
-    }
-
-    pub fn raw(&self, catalog: Datum) -> Vec<Datum> {
-        vec![
-            catalog,
-            Datum::from_string(self.0 .0.clone()),
-            Datum::from_string(self.0 .1.clone()),
-        ]
     }
 }
 
@@ -172,8 +163,8 @@ impl TableDef {
         &self.columns
     }
 
-    pub fn column_names(&self) -> Vec<&str> {
-        self.columns.iter().map(|col| col.name.as_str()).collect()
+    pub fn column_names(&self) -> Vec<String> {
+        self.columns.iter().map(|col| col.name.clone()).collect()
     }
 
     pub fn has_column(&self, column_name: &str) -> bool {

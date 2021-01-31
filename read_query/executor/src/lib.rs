@@ -27,6 +27,7 @@ impl<D: Database> ReadQueryExecutor<D> {
     }
 
     pub fn execute(&self, select: SelectPlan) -> Result<QueryExecution, QueryExecutionError> {
+        log::debug!("PLAN {:?}", select);
         if select.columns.is_empty() {
             Ok(QueryExecution::Selected(
                 self.database.work_with(&select.table, |table| table.select()),

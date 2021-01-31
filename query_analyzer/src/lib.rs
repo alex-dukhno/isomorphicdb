@@ -58,17 +58,18 @@ impl<CD: CatalogDefinition> Analyzer<CD> {
                         } else {
                             let mut column_names = vec![];
                             for column in columns {
-                                if !table_info.has_column(&column.value) {
+                                let column = column.value.to_lowercase();
+                                if !table_info.has_column(&column) {
                                     return Err(AnalysisError::column_not_found(column));
                                 }
-                                column_names.push(column.value.as_str());
+                                column_names.push(column);
                             }
                             column_names.into_iter()
                         };
                         let column_map = column_names
                             .enumerate()
                             .map(|(index, name)| (name, index))
-                            .collect::<HashMap<&str, usize>>();
+                            .collect::<HashMap<String, usize>>();
 
                         let sql_ast::Query { body, .. } = &**source;
                         let values = match body {
@@ -76,7 +77,7 @@ impl<CD: CatalogDefinition> Analyzer<CD> {
                                 let mut values = vec![];
                                 for insert_row in insert_rows {
                                     let mut row = vec![];
-                                    for table_column in table_columns.iter() {
+                                    for table_column in &table_columns {
                                         let value = match column_map.get(table_column) {
                                             None => None,
                                             Some(index) => {
@@ -118,7 +119,7 @@ impl<CD: CatalogDefinition> Analyzer<CD> {
                         let mut assignments = vec![];
                         for assignment in stmt_assignments {
                             let sql_ast::Assignment { id, value } = assignment;
-                            let name = id.to_string();
+                            let name = id.to_string().to_lowercase();
                             let mut found = None;
                             for table_column in table_columns {
                                 if table_column.has_name(&name) {
@@ -189,7 +190,7 @@ impl<CD: CatalogDefinition> Analyzer<CD> {
                                                 for (index, table_column) in table_columns.iter().enumerate() {
                                                     projection_items.push(DynamicUntypedTree::Item(
                                                         DynamicUntypedItem::Column {
-                                                            name: table_column.name().to_owned(),
+                                                            name: table_column.name().to_lowercase(),
                                                             index,
                                                             sql_type: table_column.sql_type(),
                                                         },
@@ -244,7 +245,7 @@ impl<CD: CatalogDefinition> Analyzer<CD> {
                         for column in columns {
                             match SqlType::try_from(&column.data_type) {
                                 Ok(sql_type) => column_defs.push(ColumnInfo {
-                                    name: column.name.value.as_str().to_owned(),
+                                    name: column.name.value.as_str().to_lowercase(),
                                     sql_type,
                                 }),
                                 Err(_not_supported_type_error) => {
