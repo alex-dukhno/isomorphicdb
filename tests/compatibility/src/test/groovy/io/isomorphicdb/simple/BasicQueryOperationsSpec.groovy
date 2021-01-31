@@ -2,8 +2,10 @@ package io.isomorphicdb.simple
 
 import groovy.sql.GroovyRowResult
 import io.isomorphicdb.ThreeSmallIntColumnTable
+import spock.lang.Ignore
 
 class BasicQueryOperationsSpec extends ThreeSmallIntColumnTable {
+  @Ignore("column names are case sensitive")
   def 'insert select{all}'() {
     given:
       String insertQuery = 'insert into SCHEMA_NAME.TABLE_NAME values (1, 2, 3), (4, 5, 6), (7, 8, 9)'
@@ -23,6 +25,7 @@ class BasicQueryOperationsSpec extends ThreeSmallIntColumnTable {
       pgSelect == dbSelect
   }
 
+  @Ignore("column names are case sensitive")
   def 'insert select{listed column}'() {
     given:
       String insertQuery = 'insert into SCHEMA_NAME.TABLE_NAME values (1, 2, 3), (4, 5, 6), (7, 8, 9)'
@@ -43,6 +46,7 @@ class BasicQueryOperationsSpec extends ThreeSmallIntColumnTable {
       pgSelect == dbSelect
   }
 
+  @Ignore("column names are case sensitive")
   def 'insert update{all} select{all}'() {
     given:
       String insertQuery = 'insert into SCHEMA_NAME.TABLE_NAME values (1, 2, 3), (4, 5, 6), (7, 8, 9)'

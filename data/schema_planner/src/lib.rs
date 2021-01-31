@@ -83,6 +83,7 @@ impl SystemSchemaPlanner {
                     });
                     for_schema.push(Step::RemoveFolder {
                         name: schema_name.as_ref().to_string(),
+                        only_if_empty: !*cascade,
                     });
                     steps.push(for_schema);
                 }
@@ -286,7 +287,8 @@ mod tests {
                             }
                         },
                         Step::RemoveFolder {
-                            name: SCHEMA.to_owned()
+                            name: SCHEMA.to_owned(),
+                            only_if_empty: true,
                         }
                     ]]
                 }
@@ -320,7 +322,8 @@ mod tests {
                                 }
                             },
                             Step::RemoveFolder {
-                                name: SCHEMA.to_owned()
+                                name: SCHEMA.to_owned(),
+                                only_if_empty: true,
                             }
                         ],
                         vec![
@@ -338,7 +341,8 @@ mod tests {
                                 }
                             },
                             Step::RemoveFolder {
-                                name: OTHER_SCHEMA.to_owned()
+                                name: OTHER_SCHEMA.to_owned(),
+                                only_if_empty: true,
                             }
                         ]
                     ]
@@ -373,7 +377,8 @@ mod tests {
                                 }
                             },
                             Step::RemoveFolder {
-                                name: SCHEMA.to_owned()
+                                name: SCHEMA.to_owned(),
+                                only_if_empty: false,
                             }
                         ],
                         vec![
@@ -391,7 +396,8 @@ mod tests {
                                 }
                             },
                             Step::RemoveFolder {
-                                name: OTHER_SCHEMA.to_owned()
+                                name: OTHER_SCHEMA.to_owned(),
+                                only_if_empty: false,
                             }
                         ]
                     ]
@@ -426,7 +432,8 @@ mod tests {
                                 }
                             },
                             Step::RemoveFolder {
-                                name: SCHEMA.to_owned()
+                                name: SCHEMA.to_owned(),
+                                only_if_empty: true,
                             }
                         ],
                         vec![
@@ -444,7 +451,8 @@ mod tests {
                                 }
                             },
                             Step::RemoveFolder {
-                                name: OTHER_SCHEMA.to_owned()
+                                name: OTHER_SCHEMA.to_owned(),
+                                only_if_empty: true,
                             }
                         ]
                     ]
