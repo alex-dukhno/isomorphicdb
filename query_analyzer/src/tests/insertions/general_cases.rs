@@ -77,13 +77,12 @@ fn with_column_names() {
     let analyzer = Analyzer::new(database);
 
     assert_eq!(
-        analyzer.analyze(inner_insert(vec![SCHEMA, TABLE], vec![vec![small_int(1)]], vec!["col"])),
+        analyzer.analyze(inner_insert(vec![SCHEMA, TABLE], vec![vec![small_int(100)]], vec!["col"])),
         Ok(QueryAnalysis::Write(UntypedWrite::Insert(InsertQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-            column_names: vec!["col".to_owned()],
-            values: vec![vec![StaticUntypedTree::Item(StaticUntypedItem::Const(
-                UntypedValue::Number(BigDecimal::from(1))
-            ))]],
+            values: vec![vec![Some(StaticUntypedTree::Item(StaticUntypedItem::Const(
+                UntypedValue::Number(BigDecimal::from(100))
+            )))]],
         })))
     );
 }

@@ -18,8 +18,7 @@ use definition::FullTableName;
 #[derive(Debug, PartialEq)]
 pub struct InsertQuery {
     pub full_table_name: FullTableName,
-    pub column_names: Vec<String>,
-    pub values: Vec<Vec<StaticTypedTree>>,
+    pub values: Vec<Vec<Option<StaticTypedTree>>>,
 }
 
 #[derive(Debug, PartialEq)]
