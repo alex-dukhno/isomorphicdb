@@ -99,8 +99,7 @@ const COLUMNS_TABLE: &str = "COLUMNS";
 pub trait SqlTable {
     fn insert(&self, data: &[Vec<Option<StaticTypedTree>>]) -> usize;
 
-    fn select(&self) -> (Vec<ColumnDef>, Vec<Vec<ScalarValue>>);
-    fn select_with_columns(&self, column_names: Vec<String>)
+    fn select(&self, column_names: Vec<String>)
         -> Result<(Vec<ColumnDef>, Vec<Vec<ScalarValue>>), String>;
 
     fn delete_all(&self) -> usize;
@@ -111,7 +110,7 @@ pub trait SqlTable {
 pub trait Database {
     type Table: SqlTable;
 
-    fn execute_new(&self, schema_change: SchemaChange) -> Result<ExecutionOutcome, ExecutionError>;
+    fn execute(&self, schema_change: SchemaChange) -> Result<ExecutionOutcome, ExecutionError>;
 
     fn work_with<R, F: Fn(&Self::Table) -> R>(&self, full_table_name: &FullTableName, operation: F) -> R;
 }

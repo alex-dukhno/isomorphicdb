@@ -19,9 +19,9 @@ use super::*;
 #[test]
 fn select_all_columns_from_table() {
     let database = InMemoryDatabase::new();
-    database.execute_new(create_schema_ops(SCHEMA)).unwrap();
+    database.execute(create_schema_ops(SCHEMA)).unwrap();
     database
-        .execute_new(create_table_ops(SCHEMA, TABLE, vec![("col1", SqlType::integer())]))
+        .execute(create_table_ops(SCHEMA, TABLE, vec![("col1", SqlType::integer())]))
         .unwrap();
     let analyzer = Analyzer::new(database);
 
@@ -41,9 +41,9 @@ fn select_all_columns_from_table() {
 #[test]
 fn select_specified_column_from_table() {
     let database = InMemoryDatabase::new();
-    database.execute_new(create_schema_ops(SCHEMA)).unwrap();
+    database.execute(create_schema_ops(SCHEMA)).unwrap();
     database
-        .execute_new(create_table_ops(SCHEMA, TABLE, vec![("col1", SqlType::integer())]))
+        .execute(create_table_ops(SCHEMA, TABLE, vec![("col1", SqlType::integer())]))
         .unwrap();
     let analyzer = Analyzer::new(database);
 
@@ -68,9 +68,9 @@ fn select_specified_column_from_table() {
 #[test]
 fn select_column_that_is_not_in_table() {
     let database = InMemoryDatabase::new();
-    database.execute_new(create_schema_ops(SCHEMA)).unwrap();
+    database.execute(create_schema_ops(SCHEMA)).unwrap();
     database
-        .execute_new(create_table_ops(SCHEMA, TABLE, vec![("col1", SqlType::integer())]))
+        .execute(create_table_ops(SCHEMA, TABLE, vec![("col1", SqlType::integer())]))
         .unwrap();
     let analyzer = Analyzer::new(database);
 
@@ -88,9 +88,9 @@ fn select_column_that_is_not_in_table() {
 #[test]
 fn select_from_table_with_constant() {
     let database = InMemoryDatabase::new();
-    database.execute_new(create_schema_ops(SCHEMA)).unwrap();
+    database.execute(create_schema_ops(SCHEMA)).unwrap();
     database
-        .execute_new(create_table_ops(SCHEMA, TABLE, vec![("col1", SqlType::integer())]))
+        .execute(create_table_ops(SCHEMA, TABLE, vec![("col1", SqlType::integer())]))
         .unwrap();
     let analyzer = Analyzer::new(database);
 
@@ -111,9 +111,9 @@ fn select_from_table_with_constant() {
 #[test]
 fn select_parameters_from_a_table() {
     let database = InMemoryDatabase::new();
-    database.execute_new(create_schema_ops(SCHEMA)).unwrap();
+    database.execute(create_schema_ops(SCHEMA)).unwrap();
     database
-        .execute_new(create_table_ops(SCHEMA, TABLE, vec![("col1", SqlType::integer())]))
+        .execute(create_table_ops(SCHEMA, TABLE, vec![("col1", SqlType::integer())]))
         .unwrap();
     let analyzer = Analyzer::new(database);
 
@@ -153,9 +153,9 @@ mod multiple_values {
     #[test]
     fn arithmetic() {
         let database = InMemoryDatabase::new();
-        database.execute_new(create_schema_ops(SCHEMA)).unwrap();
+        database.execute(create_schema_ops(SCHEMA)).unwrap();
         database
-            .execute_new(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
+            .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
             .unwrap();
         let analyzer = Analyzer::new(database);
 
@@ -183,9 +183,9 @@ mod multiple_values {
     #[test]
     fn string_operation() {
         let database = InMemoryDatabase::new();
-        database.execute_new(create_schema_ops(SCHEMA)).unwrap();
+        database.execute(create_schema_ops(SCHEMA)).unwrap();
         database
-            .execute_new(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::var_char(255))]))
+            .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::var_char(255))]))
             .unwrap();
         let analyzer = Analyzer::new(database);
 
@@ -213,9 +213,9 @@ mod multiple_values {
     #[test]
     fn comparison() {
         let database = InMemoryDatabase::new();
-        database.execute_new(create_schema_ops(SCHEMA)).unwrap();
+        database.execute(create_schema_ops(SCHEMA)).unwrap();
         database
-            .execute_new(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
+            .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
             .unwrap();
         let analyzer = Analyzer::new(database);
 
@@ -243,9 +243,9 @@ mod multiple_values {
     #[test]
     fn logical() {
         let database = InMemoryDatabase::new();
-        database.execute_new(create_schema_ops(SCHEMA)).unwrap();
+        database.execute(create_schema_ops(SCHEMA)).unwrap();
         database
-            .execute_new(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
+            .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
             .unwrap();
         let analyzer = Analyzer::new(database);
 
@@ -273,9 +273,9 @@ mod multiple_values {
     #[test]
     fn bitwise() {
         let database = InMemoryDatabase::new();
-        database.execute_new(create_schema_ops(SCHEMA)).unwrap();
+        database.execute(create_schema_ops(SCHEMA)).unwrap();
         database
-            .execute_new(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
+            .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
             .unwrap();
         let analyzer = Analyzer::new(database);
 
@@ -303,9 +303,9 @@ mod multiple_values {
     #[test]
     fn pattern_matching() {
         let database = InMemoryDatabase::new();
-        database.execute_new(create_schema_ops(SCHEMA)).unwrap();
+        database.execute(create_schema_ops(SCHEMA)).unwrap();
         database
-            .execute_new(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
+            .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
             .unwrap();
         let analyzer = Analyzer::new(database);
 

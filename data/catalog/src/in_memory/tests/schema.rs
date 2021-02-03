@@ -19,7 +19,7 @@ use data_definition_execution_plan::{CreateSchemaQuery, DropSchemasQuery, Create
 fn create_schema() {
     let database = database();
     assert_eq!(
-        database.execute_new(SchemaChange::CreateSchema(CreateSchemaQuery {
+        database.execute(SchemaChange::CreateSchema(CreateSchemaQuery {
             schema_name: SchemaName::from(&SCHEMA),
             if_not_exists: false,
         })),
@@ -34,7 +34,7 @@ fn create_if_not_exists() {
     let database = database();
 
     assert_eq!(
-        database.execute_new(SchemaChange::CreateSchema(CreateSchemaQuery {
+        database.execute(SchemaChange::CreateSchema(CreateSchemaQuery {
             schema_name: SchemaName::from(&SCHEMA),
             if_not_exists: true,
         })),
@@ -42,7 +42,7 @@ fn create_if_not_exists() {
     );
 
     assert_eq!(
-        database.execute_new(SchemaChange::CreateSchema(CreateSchemaQuery {
+        database.execute(SchemaChange::CreateSchema(CreateSchemaQuery {
             schema_name: SchemaName::from(&SCHEMA),
             if_not_exists: true,
         })),
@@ -54,7 +54,7 @@ fn create_if_not_exists() {
 fn create_schema_with_the_same_name() {
     let database = database();
     assert_eq!(
-        database.execute_new(SchemaChange::CreateSchema(CreateSchemaQuery {
+        database.execute(SchemaChange::CreateSchema(CreateSchemaQuery {
             schema_name: SchemaName::from(&SCHEMA),
             if_not_exists: false,
         })),
@@ -62,7 +62,7 @@ fn create_schema_with_the_same_name() {
     );
 
     assert_eq!(
-        database.execute_new(SchemaChange::CreateSchema(CreateSchemaQuery {
+        database.execute(SchemaChange::CreateSchema(CreateSchemaQuery {
             schema_name: SchemaName::from(&SCHEMA),
             if_not_exists: false,
         })),
@@ -75,7 +75,7 @@ fn drop_nonexistent_schema() {
     let database = database();
 
     assert_eq!(
-        database.execute_new(SchemaChange::DropSchemas(DropSchemasQuery {
+        database.execute(SchemaChange::DropSchemas(DropSchemasQuery {
             schema_names: vec![SchemaName::from(&SCHEMA)],
             cascade: false,
             if_exists: false
@@ -89,7 +89,7 @@ fn drop_single_schema() {
     let database = database();
 
     assert_eq!(
-        database.execute_new(SchemaChange::CreateSchema(CreateSchemaQuery {
+        database.execute(SchemaChange::CreateSchema(CreateSchemaQuery {
             schema_name: SchemaName::from(&SCHEMA),
             if_not_exists: false,
         })),
@@ -97,7 +97,7 @@ fn drop_single_schema() {
     );
 
     assert_eq!(
-        database.execute_new(SchemaChange::DropSchemas(DropSchemasQuery {
+        database.execute(SchemaChange::DropSchemas(DropSchemasQuery {
             schema_names: vec![SchemaName::from(&SCHEMA)],
             cascade: false,
             if_exists: false
@@ -113,14 +113,14 @@ fn drop_many_schemas() {
     let database = database();
 
     assert_eq!(
-        database.execute_new(SchemaChange::CreateSchema(CreateSchemaQuery {
+        database.execute(SchemaChange::CreateSchema(CreateSchemaQuery {
             schema_name: SchemaName::from(&SCHEMA),
             if_not_exists: false,
         })),
         Ok(ExecutionOutcome::SchemaCreated)
     );
     assert_eq!(
-        database.execute_new(SchemaChange::CreateSchema(CreateSchemaQuery {
+        database.execute(SchemaChange::CreateSchema(CreateSchemaQuery {
             schema_name: SchemaName::from(&OTHER_SCHEMA),
             if_not_exists: false,
         })),
@@ -128,7 +128,7 @@ fn drop_many_schemas() {
     );
 
     assert_eq!(
-        database.execute_new(SchemaChange::DropSchemas(DropSchemasQuery {
+        database.execute(SchemaChange::DropSchemas(DropSchemasQuery {
             schema_names: vec![SchemaName::from(&SCHEMA), SchemaName::from(&OTHER_SCHEMA)],
             cascade: false,
             if_exists: false
@@ -145,14 +145,14 @@ fn drop_schema_with_table() {
     let database = database();
 
     assert_eq!(
-        database.execute_new(SchemaChange::CreateSchema(CreateSchemaQuery {
+        database.execute(SchemaChange::CreateSchema(CreateSchemaQuery {
             schema_name: SchemaName::from(&SCHEMA),
             if_not_exists: false,
         })),
         Ok(ExecutionOutcome::SchemaCreated)
     );
     assert_eq!(
-        database.execute_new(SchemaChange::CreateTable(CreateTableQuery {
+        database.execute(SchemaChange::CreateTable(CreateTableQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             column_defs: vec![],
             if_not_exists: false,
@@ -161,7 +161,7 @@ fn drop_schema_with_table() {
     );
 
     assert_eq!(
-        database.execute_new(SchemaChange::DropSchemas(DropSchemasQuery {
+        database.execute(SchemaChange::DropSchemas(DropSchemasQuery {
             schema_names: vec![SchemaName::from(&SCHEMA)],
             cascade: false,
             if_exists: false
@@ -178,14 +178,14 @@ fn drop_many_cascade() {
     let database = database();
 
     assert_eq!(
-        database.execute_new(SchemaChange::CreateSchema(CreateSchemaQuery {
+        database.execute(SchemaChange::CreateSchema(CreateSchemaQuery {
             schema_name: SchemaName::from(&SCHEMA),
             if_not_exists: false,
         })),
         Ok(ExecutionOutcome::SchemaCreated)
     );
     assert_eq!(
-        database.execute_new(SchemaChange::CreateTable(CreateTableQuery {
+        database.execute(SchemaChange::CreateTable(CreateTableQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             column_defs: vec![ColumnInfo { name: "col_1".to_owned(), sql_type: SqlType::small_int() }, ColumnInfo { name: "col_2".to_owned(), sql_type: SqlType::big_int() }],
             if_not_exists: false,
@@ -194,14 +194,14 @@ fn drop_many_cascade() {
     );
 
     assert_eq!(
-        database.execute_new(SchemaChange::CreateSchema(CreateSchemaQuery {
+        database.execute(SchemaChange::CreateSchema(CreateSchemaQuery {
             schema_name: SchemaName::from(&OTHER_SCHEMA),
             if_not_exists: false,
         })),
         Ok(ExecutionOutcome::SchemaCreated)
     );
     assert_eq!(
-        database.execute_new(SchemaChange::CreateTable(CreateTableQuery {
+        database.execute(SchemaChange::CreateTable(CreateTableQuery {
             full_table_name: FullTableName::from((&OTHER_SCHEMA, &TABLE)),
             column_defs: vec![ColumnInfo { name: "col_1".to_owned(), sql_type: SqlType::small_int() }, ColumnInfo { name: "col_2".to_owned(), sql_type: SqlType::big_int() }],
             if_not_exists: false,
@@ -210,7 +210,7 @@ fn drop_many_cascade() {
     );
 
     assert_eq!(
-        database.execute_new(SchemaChange::DropSchemas(DropSchemasQuery {
+        database.execute(SchemaChange::DropSchemas(DropSchemasQuery {
             schema_names: vec![SchemaName::from(&SCHEMA), SchemaName::from(&OTHER_SCHEMA)],
             cascade: true,
             if_exists: false
@@ -231,7 +231,7 @@ fn drop_many_if_exists_first() {
     let database = database();
 
     assert_eq!(
-        database.execute_new(SchemaChange::CreateSchema(CreateSchemaQuery {
+        database.execute(SchemaChange::CreateSchema(CreateSchemaQuery {
             schema_name: SchemaName::from(&SCHEMA),
             if_not_exists: false,
         })),
@@ -239,7 +239,7 @@ fn drop_many_if_exists_first() {
     );
 
     assert_eq!(
-        database.execute_new(SchemaChange::DropSchemas(DropSchemasQuery {
+        database.execute(SchemaChange::DropSchemas(DropSchemasQuery {
             schema_names: vec![SchemaName::from(&SCHEMA), SchemaName::from(&OTHER_SCHEMA)],
             cascade: false,
             if_exists: true
@@ -255,7 +255,7 @@ fn drop_many_if_exists_last() {
     let database = database();
 
     assert_eq!(
-        database.execute_new(SchemaChange::CreateSchema(CreateSchemaQuery {
+        database.execute(SchemaChange::CreateSchema(CreateSchemaQuery {
             schema_name: SchemaName::from(&OTHER_SCHEMA),
             if_not_exists: false,
         })),
@@ -263,7 +263,7 @@ fn drop_many_if_exists_last() {
     );
 
     assert_eq!(
-        database.execute_new(SchemaChange::DropSchemas(DropSchemasQuery {
+        database.execute(SchemaChange::DropSchemas(DropSchemasQuery {
             schema_names: vec![SchemaName::from(&SCHEMA), SchemaName::from(&OTHER_SCHEMA)],
             cascade: false,
             if_exists: true

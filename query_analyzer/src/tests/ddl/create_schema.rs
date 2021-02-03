@@ -56,7 +56,7 @@ fn create_new_schema_if_not_exists() {
 #[test]
 fn create_schema_with_the_same_name() {
     let database = InMemoryDatabase::new();
-    database.execute_new(create_schema_ops(SCHEMA)).unwrap();
+    database.execute(create_schema_ops(SCHEMA)).unwrap();
     let analyzer = Analyzer::new(database);
     assert_eq!(
         analyzer.analyze(create_schema(vec![SCHEMA])),

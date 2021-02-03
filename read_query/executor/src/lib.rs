@@ -34,7 +34,7 @@ impl<D: Database> ReadQueryExecutor<D> {
         //     ))
         // } else {
             self.database.work_with(&select.table, |table| {
-                match table.select_with_columns(select.columns.clone()) {
+                match table.select(select.columns.clone()) {
                     Ok(data) => Ok(QueryExecution::Selected(data)),
                     Err(column_name) => Err(QueryExecutionError::SchemaDoesNotExist(column_name)),
                 }

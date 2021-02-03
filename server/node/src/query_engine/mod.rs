@@ -288,7 +288,7 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                         | statement @ Statement::Drop { .. } => match self.query_analyzer.analyze(statement) {
                             Ok(QueryAnalysis::DataDefinition(schema_change)) => {
                                 log::debug!("SCHEMA CHANGE - {:?}", schema_change);
-                                let query_result = match self.database.execute_new(schema_change) {
+                                let query_result = match self.database.execute(schema_change) {
                                     Ok(ExecutionOutcome::SchemaCreated) => Ok(QueryEvent::SchemaCreated),
                                     Ok(ExecutionOutcome::SchemaDropped) => Ok(QueryEvent::SchemaDropped),
                                     Ok(ExecutionOutcome::TableCreated) => Ok(QueryEvent::TableCreated),

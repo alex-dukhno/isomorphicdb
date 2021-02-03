@@ -70,14 +70,14 @@ mod tests {
 
 
         assert_eq!(
-            database.execute_new(SchemaChange::CreateSchema(CreateSchemaQuery {
+            database.execute(SchemaChange::CreateSchema(CreateSchemaQuery {
                 schema_name: SchemaName::from(&SCHEMA),
                 if_not_exists: false,
             })),
             Ok(ExecutionOutcome::SchemaCreated)
         );
         assert_eq!(
-            database.execute_new(SchemaChange::CreateTable(CreateTableQuery {
+            database.execute(SchemaChange::CreateTable(CreateTableQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 column_defs: vec![ColumnInfo { name: "col_1".to_owned(), sql_type: SqlType::small_int() }],
                 if_not_exists: false,

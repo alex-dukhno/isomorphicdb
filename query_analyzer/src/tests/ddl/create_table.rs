@@ -76,7 +76,7 @@ fn create_table_with_unqualified_name() {
 #[test]
 fn create_table_with_unsupported_name() {
     let database = InMemoryDatabase::new();
-    database.execute_new(create_schema_ops(SCHEMA)).unwrap();
+    database.execute(create_schema_ops(SCHEMA)).unwrap();
     let analyzer = Analyzer::new(database);
 
     assert_eq!(
@@ -93,7 +93,7 @@ fn create_table_with_unsupported_name() {
 #[test]
 fn create_table_with_unsupported_column_type() {
     let database = InMemoryDatabase::new();
-    database.execute_new(create_schema_ops(SCHEMA)).unwrap();
+    database.execute(create_schema_ops(SCHEMA)).unwrap();
     let analyzer = Analyzer::new(database);
 
     assert_eq!(
@@ -111,8 +111,8 @@ fn create_table_with_unsupported_column_type() {
 #[test]
 fn create_table_with_the_same_name() {
     let database = InMemoryDatabase::new();
-    database.execute_new(create_schema_ops(SCHEMA)).unwrap();
-    database.execute_new(create_table_ops(SCHEMA, TABLE, vec![])).unwrap();
+    database.execute(create_schema_ops(SCHEMA)).unwrap();
+    database.execute(create_table_ops(SCHEMA, TABLE, vec![])).unwrap();
     let analyzer = Analyzer::new(database);
 
     assert_eq!(
@@ -130,7 +130,7 @@ fn create_table_with_the_same_name() {
 #[test]
 fn create_new_table_if_not_exist() {
     let database = InMemoryDatabase::new();
-    database.execute_new(create_schema_ops(SCHEMA)).unwrap();
+    database.execute(create_schema_ops(SCHEMA)).unwrap();
     let analyzer = Analyzer::new(database);
     assert_eq!(
         analyzer.analyze(create_table_if_not_exists(
@@ -154,7 +154,7 @@ fn create_new_table_if_not_exist() {
 #[test]
 fn successfully_create_table() {
     let database = InMemoryDatabase::new();
-    database.execute_new(create_schema_ops(SCHEMA)).unwrap();
+    database.execute(create_schema_ops(SCHEMA)).unwrap();
     let analyzer = Analyzer::new(database);
     assert_eq!(
         analyzer.analyze(create_table(

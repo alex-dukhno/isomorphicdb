@@ -60,7 +60,7 @@ impl InMemoryDatabase {
             schema.create_table(TABLES_TABLE);
             schema.create_table(COLUMNS_TABLE);
         });
-        let public_schema = self.execute_new(create_public_schema());
+        let public_schema = self.execute(create_public_schema());
         debug_assert!(
             matches!(public_schema, Ok(_)),
             "Default `public` schema has to be created, but failed due to {:?}",
@@ -144,7 +144,7 @@ impl CatalogDefinition for InMemoryDatabase {
 impl Database for InMemoryDatabase {
     type Table = InMemoryTable;
 
-    fn execute_new(&self, schema_change: SchemaChange) -> Result<ExecutionOutcome, ExecutionError> {
+    fn execute(&self, schema_change: SchemaChange) -> Result<ExecutionOutcome, ExecutionError> {
         match schema_change {
             SchemaChange::CreateSchema(CreateSchemaQuery {
                 schema_name, if_not_exists
@@ -383,33 +383,7 @@ impl SqlTable for InMemoryTable {
         )
     }
 
-    fn select(&self) -> (Vec<ColumnDef>, Vec<Vec<ScalarValue>>) {
-        (
-            self.columns.clone(),
-            self.data_table
-                .select()
-                .map(|(_key, value)| {
-                    value
-                        .unpack()
-                        .into_iter()
-                        .map(|d| match d {
-                            Datum::Null => ScalarValue::Null,
-                            Datum::True => ScalarValue::True,
-                            Datum::False => ScalarValue::False,
-                            Datum::Int16(v) => ScalarValue::Int16(v),
-                            Datum::Int32(v) => ScalarValue::Int32(v),
-                            Datum::Int64(v) => ScalarValue::Int64(v),
-                            Datum::Float32(v) => ScalarValue::Float32(v),
-                            Datum::Float64(v) => ScalarValue::Float64(v),
-                            Datum::String(v) => ScalarValue::String(v),
-                        })
-                        .collect()
-                })
-                .collect(),
-        )
-    }
-
-    fn select_with_columns(
+    fn select(
         &self,
         column_names: Vec<String>,
     ) -> Result<(Vec<ColumnDef>, Vec<Vec<ScalarValue>>), String> {
