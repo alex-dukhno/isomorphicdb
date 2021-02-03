@@ -2,8 +2,6 @@
 members = [
     "data/catalog",
     "data/scalar",
-    "data/schema_planner",
-    "data_definition/operations",
     "data_definition/execution_plan",
     "data_manipulation/operators",
     "data_manipulation/query_result",

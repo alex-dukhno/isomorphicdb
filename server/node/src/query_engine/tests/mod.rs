@@ -108,6 +108,7 @@ impl Collector {
 
 #[rstest::fixture]
 fn empty_database() -> (InMemory, ResultCollector) {
+    setup_logger();
     let collector = Collector::new();
     (InMemory::new(collector.clone(), InMemoryDatabase::new()), collector)
 }
@@ -136,4 +137,11 @@ fn database_with_table(database_with_schema: (InMemory, ResultCollector)) -> (In
     collector.assert_receive_single(Ok(QueryEvent::TableCreated));
 
     (engine, collector)
+}
+
+fn setup_logger() {
+    match simple_logger::SimpleLogger::new().init() {
+        Ok(()) => {},
+        Err(_) => {},
+    };
 }

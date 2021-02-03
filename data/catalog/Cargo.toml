@@ -6,7 +6,7 @@ edition = "2018"
 publish = false
 
 [dependencies]
-data_definition_operations = { path = "../../data_definition/operations" }
+data_definition_execution_plan = { path = "../../data_definition/execution_plan" }
 data_manipulation_typed_tree = { path = "../../data_manipulation/typed_tree" }
 definition = { path = "../../entities/definition" }
 types = { path = "../../entities/types" }

@@ -26,7 +26,7 @@ fn schema_does_not_exist() {
 #[test]
 fn table_does_not_exist() {
     let database = InMemoryDatabase::new();
-    database.execute(create_schema_ops(SCHEMA)).unwrap();
+    database.execute_new(create_schema_ops(SCHEMA)).unwrap();
     let analyzer = Analyzer::new(database);
     assert_eq!(
         analyzer.analyze(select(vec![SCHEMA, "non_existent_table"])),

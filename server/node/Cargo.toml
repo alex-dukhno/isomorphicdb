@@ -16,12 +16,11 @@ path = "src/bin.rs"
 catalog = { path = "../../data/catalog" }
 connection = { path = "../connection" }
 data_scalar = { path = "../../data/scalar" }
-data_definition_operations = { path = "../../data_definition/operations" }
+data_definition_execution_plan = { path = "../../data_definition/execution_plan" }
 parser = { path = "../../query_parsing/parser" }
 pg_model = { path = "../pg_model" }
 pg_wire = "0.5.0"
 query_analyzer = { path = "../../query_analyzer" }
-schema_planner = { path = "../../data/schema_planner" }
 sql_ast = { path = "../../query_parsing/sql-ast" }
 types = { path = "../../entities/types" }
 query_processing_type_check = { path = "../../query_processing/type_check" }

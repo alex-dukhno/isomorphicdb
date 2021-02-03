@@ -34,7 +34,7 @@ fn delete_from_table_that_in_nonexistent_schema() {
 #[test]
 fn delete_from_nonexistent_table() {
     let database = InMemoryDatabase::new();
-    database.execute(create_schema_ops(SCHEMA)).unwrap();
+    database.execute_new(create_schema_ops(SCHEMA)).unwrap();
     let analyzer = Analyzer::new(database);
 
     assert_eq!(
@@ -65,9 +65,9 @@ fn delete_from_table_with_unsupported_name() {
 #[test]
 fn delete_all_from_table() {
     let database = InMemoryDatabase::new();
-    database.execute(create_schema_ops(SCHEMA)).unwrap();
+    database.execute_new(create_schema_ops(SCHEMA)).unwrap();
     database
-        .execute(create_table_ops(SCHEMA, TABLE, vec![("col1", SqlType::integer())]))
+        .execute_new(create_table_ops(SCHEMA, TABLE, vec![("col1", SqlType::integer())]))
         .unwrap();
     let analyzer = Analyzer::new(database);
     assert_eq!(

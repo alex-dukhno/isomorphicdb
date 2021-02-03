@@ -73,3 +73,20 @@ pub enum SchemaChange {
     CreateTable(CreateTableQuery),
     DropTables(DropTablesQuery),
 }
+
+#[derive(Debug, PartialEq)]
+pub enum ExecutionOutcome {
+    SchemaCreated,
+    SchemaDropped,
+    TableCreated,
+    TableDropped,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum ExecutionError {
+    SchemaAlreadyExists(String),
+    SchemaDoesNotExist(String),
+    TableAlreadyExists(String, String),
+    TableDoesNotExist(String, String),
+    SchemaHasDependentObjects(String),
+}

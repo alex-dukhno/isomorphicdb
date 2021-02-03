@@ -81,7 +81,7 @@ mod schema {
     #[test]
     fn drop_schema() {
         let database = InMemoryDatabase::new();
-        database.execute(create_schema_ops(SCHEMA)).unwrap();
+        database.execute_new(create_schema_ops(SCHEMA)).unwrap();
         let analyzer = Analyzer::new(database);
 
         assert_eq!(
@@ -99,7 +99,7 @@ mod schema {
     #[test]
     fn drop_schema_cascade() {
         let database = InMemoryDatabase::new();
-        database.execute(create_schema_ops(SCHEMA)).unwrap();
+        database.execute_new(create_schema_ops(SCHEMA)).unwrap();
         let analyzer = Analyzer::new(database);
 
         assert_eq!(
@@ -117,7 +117,7 @@ mod schema {
     #[test]
     fn drop_schema_if_exists() {
         let database = InMemoryDatabase::new();
-        database.execute(create_schema_ops(SCHEMA)).unwrap();
+        database.execute_new(create_schema_ops(SCHEMA)).unwrap();
         let analyzer = Analyzer::new(database);
 
         assert_eq!(
@@ -151,7 +151,7 @@ mod table {
     #[test]
     fn drop_table_with_unqualified_name() {
         let database = InMemoryDatabase::new();
-        database.execute(create_schema_ops(SCHEMA)).unwrap();
+        database.execute_new(create_schema_ops(SCHEMA)).unwrap();
         let analyzer = Analyzer::new(database);
         assert_eq!(
             analyzer.analyze(drop_statement(vec![vec!["only_table_in_the_name"]], TABLE_TYPE)),
@@ -182,9 +182,9 @@ mod table {
     #[test]
     fn drop_table() {
         let database = InMemoryDatabase::new();
-        database.execute(create_schema_ops(SCHEMA)).unwrap();
+        database.execute_new(create_schema_ops(SCHEMA)).unwrap();
         database
-            .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
+            .execute_new(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
             .unwrap();
         let analyzer = Analyzer::new(database);
         assert_eq!(
@@ -202,7 +202,7 @@ mod table {
     #[test]
     fn drop_nonexistent_table() {
         let database = InMemoryDatabase::new();
-        database.execute(create_schema_ops(SCHEMA)).unwrap();
+        database.execute_new(create_schema_ops(SCHEMA)).unwrap();
         let analyzer = Analyzer::new(database);
         assert_eq!(
             analyzer.analyze(drop_statement(vec![vec![SCHEMA, "non_existent_table"]], TABLE_TYPE)),
@@ -219,12 +219,12 @@ mod table {
     #[test]
     fn drop_table_if_exists() {
         let database = InMemoryDatabase::new();
-        database.execute(create_schema_ops(SCHEMA)).unwrap();
+        database.execute_new(create_schema_ops(SCHEMA)).unwrap();
         database
-            .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
+            .execute_new(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
             .unwrap();
         database
-            .execute(create_table_ops(SCHEMA, "table_1", vec![("col", SqlType::bool())]))
+            .execute_new(create_table_ops(SCHEMA, "table_1", vec![("col", SqlType::bool())]))
             .unwrap();
         let analyzer = Analyzer::new(database);
         assert_eq!(
@@ -248,12 +248,12 @@ mod table {
     #[test]
     fn drop_table_cascade() {
         let database = InMemoryDatabase::new();
-        database.execute(create_schema_ops(SCHEMA)).unwrap();
+        database.execute_new(create_schema_ops(SCHEMA)).unwrap();
         database
-            .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
+            .execute_new(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
             .unwrap();
         database
-            .execute(create_table_ops(SCHEMA, "table_1", vec![("col", SqlType::bool())]))
+            .execute_new(create_table_ops(SCHEMA, "table_1", vec![("col", SqlType::bool())]))
             .unwrap();
         let analyzer = Analyzer::new(database);
         assert_eq!(

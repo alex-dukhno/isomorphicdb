@@ -15,7 +15,7 @@
 use bigdecimal::BigDecimal;
 use catalog::{CatalogDefinition, Database};
 use connection::Sender;
-use data_definition_operations::{ExecutionError, ExecutionOutcome};
+use data_definition_execution_plan::{ExecutionError, ExecutionOutcome};
 use data_manipulation_query_result::{QueryExecution, QueryExecutionError};
 use data_manipulation_typed_queries::{DeleteQuery, InsertQuery, TypedSelectQuery, TypedWrite, UpdateQuery};
 use data_manipulation_typed_tree::{DynamicTypedTree, StaticTypedTree};
@@ -34,7 +34,6 @@ use query_processing_type_coercion::TypeCoercion;
 use query_processing_type_inference::TypeInference;
 use read_query_executor::ReadQueryExecutor;
 use read_query_planner::ReadQueryPlanner;
-use schema_planner::SystemSchemaPlanner;
 use sql_ast::{Expr, Ident, Statement, Value};
 use std::{convert::TryFrom, iter, sync::Arc};
 use types::SqlType;
@@ -48,7 +47,6 @@ pub(crate) struct QueryEngine<D: Database + CatalogDefinition> {
     session: Session<Statement>,
     sender: Arc<dyn Sender>,
     query_analyzer: Analyzer<D>,
-    system_planner: SystemSchemaPlanner,
     type_inference: TypeInference,
     type_checker: TypeChecker,
     type_coercion: TypeCoercion,
@@ -64,7 +62,6 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
             session: Session::default(),
             sender: sender.clone(),
             query_analyzer: Analyzer::new(database.clone()),
-            system_planner: SystemSchemaPlanner::new(),
             type_inference: TypeInference::default(),
             type_checker: TypeChecker,
             type_coercion: TypeCoercion,
@@ -291,8 +288,7 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                         | statement @ Statement::Drop { .. } => match self.query_analyzer.analyze(statement) {
                             Ok(QueryAnalysis::DataDefinition(schema_change)) => {
                                 log::debug!("SCHEMA CHANGE - {:?}", schema_change);
-                                let operations = self.system_planner.schema_change_plan(&schema_change);
-                                let query_result = match self.database.execute(operations) {
+                                let query_result = match self.database.execute_new(schema_change) {
                                     Ok(ExecutionOutcome::SchemaCreated) => Ok(QueryEvent::SchemaCreated),
                                     Ok(ExecutionOutcome::SchemaDropped) => Ok(QueryEvent::SchemaDropped),
                                     Ok(ExecutionOutcome::TableCreated) => Ok(QueryEvent::TableCreated),

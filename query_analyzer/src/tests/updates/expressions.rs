@@ -19,9 +19,9 @@ use super::*;
 #[test]
 fn update_number() {
     let database = InMemoryDatabase::new();
-    database.execute(create_schema_ops(SCHEMA)).unwrap();
+    database.execute_new(create_schema_ops(SCHEMA)).unwrap();
     database
-        .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
+        .execute_new(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
         .unwrap();
     let analyzer = Analyzer::new(database);
 
@@ -43,9 +43,9 @@ fn update_number() {
 #[test]
 fn update_string() {
     let database = InMemoryDatabase::new();
-    database.execute(create_schema_ops(SCHEMA)).unwrap();
+    database.execute_new(create_schema_ops(SCHEMA)).unwrap();
     database
-        .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::char(5))]))
+        .execute_new(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::char(5))]))
         .unwrap();
     let analyzer = Analyzer::new(database);
 
@@ -64,9 +64,9 @@ fn update_string() {
 #[test]
 fn update_boolean() {
     let database = InMemoryDatabase::new();
-    database.execute(create_schema_ops(SCHEMA)).unwrap();
+    database.execute_new(create_schema_ops(SCHEMA)).unwrap();
     database
-        .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
+        .execute_new(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
         .unwrap();
     let analyzer = Analyzer::new(database);
 
@@ -85,9 +85,9 @@ fn update_boolean() {
 #[test]
 fn update_null() {
     let database = InMemoryDatabase::new();
-    database.execute(create_schema_ops(SCHEMA)).unwrap();
+    database.execute_new(create_schema_ops(SCHEMA)).unwrap();
     database
-        .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
+        .execute_new(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
         .unwrap();
     let analyzer = Analyzer::new(database);
 
@@ -104,9 +104,9 @@ fn update_null() {
 #[test]
 fn update_with_column_value() {
     let database = InMemoryDatabase::new();
-    database.execute(create_schema_ops(SCHEMA)).unwrap();
+    database.execute_new(create_schema_ops(SCHEMA)).unwrap();
     database
-        .execute(create_table_ops(
+        .execute_new(create_table_ops(
             SCHEMA,
             TABLE,
             vec![("col_1", SqlType::small_int()), ("col_2", SqlType::small_int())],
@@ -134,9 +134,9 @@ fn update_with_column_value() {
 #[test]
 fn update_with_column_value_that_does_not_exists() {
     let database = InMemoryDatabase::new();
-    database.execute(create_schema_ops(SCHEMA)).unwrap();
+    database.execute_new(create_schema_ops(SCHEMA)).unwrap();
     database
-        .execute(create_table_ops(
+        .execute_new(create_table_ops(
             SCHEMA,
             TABLE,
             vec![("col_1", SqlType::small_int()), ("col_2", SqlType::small_int())],
@@ -156,9 +156,9 @@ fn update_with_column_value_that_does_not_exists() {
 #[test]
 fn update_table_with_parameters() {
     let database = InMemoryDatabase::new();
-    database.execute(create_schema_ops(SCHEMA)).unwrap();
+    database.execute_new(create_schema_ops(SCHEMA)).unwrap();
     database
-        .execute(create_table_ops(
+        .execute_new(create_table_ops(
             SCHEMA,
             TABLE,
             vec![("col_1", SqlType::small_int()), ("col_2", SqlType::integer())],
@@ -203,9 +203,9 @@ mod multiple_values {
     #[test]
     fn arithmetic() {
         let database = InMemoryDatabase::new();
-        database.execute(create_schema_ops(SCHEMA)).unwrap();
+        database.execute_new(create_schema_ops(SCHEMA)).unwrap();
         database
-            .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
+            .execute_new(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
             .unwrap();
         let analyzer = Analyzer::new(database);
 
@@ -234,9 +234,9 @@ mod multiple_values {
     #[test]
     fn string_operation() {
         let database = InMemoryDatabase::new();
-        database.execute(create_schema_ops(SCHEMA)).unwrap();
+        database.execute_new(create_schema_ops(SCHEMA)).unwrap();
         database
-            .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::var_char(255))]))
+            .execute_new(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::var_char(255))]))
             .unwrap();
         let analyzer = Analyzer::new(database);
 
@@ -265,9 +265,9 @@ mod multiple_values {
     #[test]
     fn comparison() {
         let database = InMemoryDatabase::new();
-        database.execute(create_schema_ops(SCHEMA)).unwrap();
+        database.execute_new(create_schema_ops(SCHEMA)).unwrap();
         database
-            .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
+            .execute_new(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
             .unwrap();
         let analyzer = Analyzer::new(database);
 
@@ -296,9 +296,9 @@ mod multiple_values {
     #[test]
     fn logical() {
         let database = InMemoryDatabase::new();
-        database.execute(create_schema_ops(SCHEMA)).unwrap();
+        database.execute_new(create_schema_ops(SCHEMA)).unwrap();
         database
-            .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
+            .execute_new(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
             .unwrap();
         let analyzer = Analyzer::new(database);
 
@@ -327,9 +327,9 @@ mod multiple_values {
     #[test]
     fn bitwise() {
         let database = InMemoryDatabase::new();
-        database.execute(create_schema_ops(SCHEMA)).unwrap();
+        database.execute_new(create_schema_ops(SCHEMA)).unwrap();
         database
-            .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
+            .execute_new(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
             .unwrap();
         let analyzer = Analyzer::new(database);
 
@@ -358,9 +358,9 @@ mod multiple_values {
     #[test]
     fn pattern_matching() {
         let database = InMemoryDatabase::new();
-        database.execute(create_schema_ops(SCHEMA)).unwrap();
+        database.execute_new(create_schema_ops(SCHEMA)).unwrap();
         database
-            .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
+            .execute_new(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
             .unwrap();
         let analyzer = Analyzer::new(database);
 
@@ -394,9 +394,9 @@ mod not_supported_values {
     #[test]
     fn national_strings() {
         let database = InMemoryDatabase::new();
-        database.execute(create_schema_ops(SCHEMA)).unwrap();
+        database.execute_new(create_schema_ops(SCHEMA)).unwrap();
         database
-            .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
+            .execute_new(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
             .unwrap();
         let analyzer = Analyzer::new(database);
 
@@ -415,9 +415,9 @@ mod not_supported_values {
     #[test]
     fn hex_strings() {
         let database = InMemoryDatabase::new();
-        database.execute(create_schema_ops(SCHEMA)).unwrap();
+        database.execute_new(create_schema_ops(SCHEMA)).unwrap();
         database
-            .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
+            .execute_new(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
             .unwrap();
         let analyzer = Analyzer::new(database);
 
@@ -436,9 +436,9 @@ mod not_supported_values {
     #[test]
     fn time_intervals() {
         let database = InMemoryDatabase::new();
-        database.execute(create_schema_ops(SCHEMA)).unwrap();
+        database.execute_new(create_schema_ops(SCHEMA)).unwrap();
         database
-            .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
+            .execute_new(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
             .unwrap();
         let analyzer = Analyzer::new(database);
 

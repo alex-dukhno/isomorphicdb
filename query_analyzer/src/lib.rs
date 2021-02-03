@@ -75,7 +75,9 @@ impl<CD: CatalogDefinition> Analyzer<CD> {
                         let values = match body {
                             sql_ast::SetExpr::Values(sql_ast::Values(insert_rows)) => {
                                 let mut values = vec![];
+                                log::debug!("column map {:?}", column_map);
                                 for insert_row in insert_rows {
+                                    log::debug!("building static tree for {:?} row", insert_row);
                                     let mut row = vec![];
                                     for table_column in &table_columns {
                                         let value = match column_map.get(table_column) {

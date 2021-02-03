@@ -12,6 +12,6 @@ data_manipulation_query_result = { path = "../../data_manipulation/query_result"
 catalog = { path = "../../data/catalog" }
 
 [dev-dependencies]
-data_definition_operations = { path = "../../data_definition/operations" }
+data_definition_execution_plan = { path = "../../data_definition/execution_plan" }
 definition = { path = "../../entities/definition" }
 types = { path = "../../entities/types" }

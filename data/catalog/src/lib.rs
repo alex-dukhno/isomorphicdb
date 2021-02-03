@@ -16,12 +16,13 @@ use std::{
     fmt::{self, Debug, Formatter},
     iter::FromIterator,
 };
-
 use binary::Binary;
-use data_definition_operations::{ExecutionError, ExecutionOutcome, SystemOperation};
+use data_definition_execution_plan::SchemaChange;
+use data_definition_execution_plan::{ExecutionError, ExecutionOutcome};
 use data_manipulation_typed_tree::{DynamicTypedTree, StaticTypedTree};
 use data_scalar::ScalarValue;
 use definition::{ColumnDef, FullTableName, SchemaName, TableDef};
+
 pub use in_memory::InMemoryDatabase;
 
 mod binary;
@@ -110,7 +111,7 @@ pub trait SqlTable {
 pub trait Database {
     type Table: SqlTable;
 
-    fn execute(&self, operation: SystemOperation) -> Result<ExecutionOutcome, ExecutionError>;
+    fn execute_new(&self, schema_change: SchemaChange) -> Result<ExecutionOutcome, ExecutionError>;
 
     fn work_with<R, F: Fn(&Self::Table) -> R>(&self, full_table_name: &FullTableName, operation: F) -> R;
 }
