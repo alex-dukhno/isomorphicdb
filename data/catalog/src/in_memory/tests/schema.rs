@@ -26,7 +26,7 @@ fn create_schema() {
         Ok(ExecutionOutcome::SchemaCreated)
     );
 
-    assert_eq!(database.schema_exists(SCHEMA), true);
+    assert_eq!(database.schema_exists(&SchemaName::from(&SCHEMA)), true);
 }
 
 #[test]
@@ -105,7 +105,7 @@ fn drop_single_schema() {
         Ok(ExecutionOutcome::SchemaDropped)
     );
 
-    assert_eq!(database.schema_exists(SCHEMA), false);
+    assert_eq!(database.schema_exists(&SchemaName::from(&SCHEMA)), false);
 }
 
 #[test]
@@ -136,8 +136,8 @@ fn drop_many_schemas() {
         Ok(ExecutionOutcome::SchemaDropped)
     );
 
-    assert_eq!(database.schema_exists(SCHEMA), false);
-    assert_eq!(database.schema_exists(OTHER_SCHEMA), false);
+    assert_eq!(database.schema_exists(&SchemaName::from(&SCHEMA)), false);
+    assert_eq!(database.schema_exists(&SchemaName::from(&OTHER_SCHEMA)), false);
 }
 
 #[test]
@@ -169,7 +169,7 @@ fn drop_schema_with_table() {
         Err(ExecutionError::SchemaHasDependentObjects(SCHEMA.to_owned()))
     );
 
-    assert_eq!(database.schema_exists(SCHEMA), true);
+    assert_eq!(database.schema_exists(&SchemaName::from(&SCHEMA)), true);
     assert_eq!(database.table_exists(&FullTableName::from((&SCHEMA, &TABLE))), true);
 }
 
@@ -218,8 +218,8 @@ fn drop_many_cascade() {
         Ok(ExecutionOutcome::SchemaDropped)
     );
 
-    assert_eq!(database.schema_exists(SCHEMA), false);
-    assert_eq!(database.schema_exists(OTHER_SCHEMA), false);
+    assert_eq!(database.schema_exists(&SchemaName::from(&SCHEMA)), false);
+    assert_eq!(database.schema_exists(&SchemaName::from(&OTHER_SCHEMA)), false);
     assert_eq!(database.table_exists(&FullTableName::from((&SCHEMA, &TABLE))), false);
     assert_eq!(database.table_columns(&FullTableName::from((&SCHEMA, &TABLE))), vec![]);
     assert_eq!(database.table_exists(&FullTableName::from((&OTHER_SCHEMA, &TABLE))), false);
@@ -247,7 +247,7 @@ fn drop_many_if_exists_first() {
         Ok(ExecutionOutcome::SchemaDropped)
     );
 
-    assert_eq!(database.schema_exists(SCHEMA), false);
+    assert_eq!(database.schema_exists(&SchemaName::from(&SCHEMA)), false);
 }
 
 #[test]
@@ -271,5 +271,5 @@ fn drop_many_if_exists_last() {
         Ok(ExecutionOutcome::SchemaDropped)
     );
 
-    assert_eq!(database.schema_exists(OTHER_SCHEMA), false);
+    assert_eq!(database.schema_exists(&SchemaName::from(&OTHER_SCHEMA)), false);
 }

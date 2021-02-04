@@ -69,10 +69,10 @@ impl InMemoryDatabase {
         self
     }
 
-    fn schema_exists(&self, schema_name: &str) -> bool {
+    fn schema_exists(&self, schema_name: &SchemaName) -> bool {
         let full_schema_name = Binary::pack(&[
             Datum::from_string("IN_MEMORY".to_owned()),
-            Datum::from_string(schema_name.to_owned()),
+            Datum::from_string(schema_name.as_ref().to_owned()),
         ]);
         log::debug!("RECORD - {:?}", full_schema_name);
         let schema = self.catalog.work_with(DEFINITION_SCHEMA, |schema| {
@@ -126,10 +126,10 @@ impl InMemoryDatabase {
 
 impl CatalogDefinition for InMemoryDatabase {
     fn table_definition(&self, full_table_name: &FullTableName) -> Option<Option<TableDef>> {
-        if !(self.schema_exists(full_table_name.schema())) {
+        if !self.schema_exists(&SchemaName::from(&full_table_name.schema())) {
             return None;
         }
-        if !(self.table_exists(full_table_name)) {
+        if !self.table_exists(full_table_name) {
             return Some(None);
         }
         let column_info = self.table_columns(full_table_name);
@@ -137,7 +137,7 @@ impl CatalogDefinition for InMemoryDatabase {
     }
 
     fn schema_exists(&self, schema_name: &SchemaName) -> bool {
-        self.schema_exists(schema_name.as_ref())
+        self.schema_exists(schema_name)
     }
 }
 
@@ -149,7 +149,7 @@ impl Database for InMemoryDatabase {
             SchemaChange::CreateSchema(CreateSchemaQuery {
                 schema_name, if_not_exists
             }) => {
-                if self.schema_exists(schema_name.as_ref()) {
+                if self.schema_exists(&SchemaName::from(&schema_name.as_ref())) {
                     if if_not_exists {
                         Ok(ExecutionOutcome::SchemaCreated)
                     } else {
@@ -170,7 +170,7 @@ impl Database for InMemoryDatabase {
             }
             SchemaChange::DropSchemas(DropSchemasQuery { schema_names, cascade, if_exists }) => {
                 for schema_name in schema_names {
-                    if self.schema_exists(schema_name.as_ref()) {
+                    if self.schema_exists(&SchemaName::from(&schema_name.as_ref())) {
                         if !cascade && self.catalog.work_with(schema_name.as_ref(), |schema| schema.empty()) == Some(false) {
                             return Err(ExecutionError::SchemaHasDependentObjects(schema_name.as_ref().to_owned()));
                         }
@@ -216,7 +216,7 @@ impl Database for InMemoryDatabase {
                 Ok(ExecutionOutcome::SchemaDropped)
             },
             SchemaChange::CreateTable(CreateTableQuery { full_table_name, column_defs, if_not_exists }) => {
-                if self.schema_exists(full_table_name.schema()) {
+                if self.schema_exists(&SchemaName::from(&full_table_name.schema())) {
                     if self.table_exists(&full_table_name) {
                         if if_not_exists {
                             Ok(ExecutionOutcome::TableCreated)
@@ -266,7 +266,7 @@ impl Database for InMemoryDatabase {
             // cascade does not make sense for now, but when `FOREIGN KEY`s will be introduce it will become relevant
             SchemaChange::DropTables(DropTablesQuery { full_table_names, cascade: _cascade, if_exists }) => {
                 for full_table_name in full_table_names {
-                    if self.schema_exists(full_table_name.schema()) {
+                    if self.schema_exists(&SchemaName::from(&full_table_name.schema())) {
                         if self.table_exists(&full_table_name) {
                             self.catalog.work_with(DEFINITION_SCHEMA, |schema| {
                                 schema.work_with(TABLES_TABLE, |table| {
