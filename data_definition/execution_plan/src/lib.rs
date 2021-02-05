@@ -67,9 +67,36 @@ impl From<(String, SqlType, usize)> for ColumnDesc {
 }
 
 #[derive(Debug, PartialEq)]
+pub struct CreateIndexQuery {
+    pub name: String,
+    pub full_table_name: FullTableName,
+    pub column_names: Vec<String>,
+}
+
+#[derive(Debug, PartialEq)]
 pub enum SchemaChange {
     CreateSchema(CreateSchemaQuery),
     DropSchemas(DropSchemasQuery),
     CreateTable(CreateTableQuery),
     DropTables(DropTablesQuery),
+    CreateIndex(CreateIndexQuery),
+}
+
+#[derive(Debug, PartialEq)]
+pub enum ExecutionOutcome {
+    SchemaCreated,
+    SchemaDropped,
+    TableCreated,
+    TableDropped,
+    IndexCreated,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum ExecutionError {
+    SchemaAlreadyExists(String),
+    SchemaDoesNotExist(String),
+    TableAlreadyExists(String, String),
+    TableDoesNotExist(String, String),
+    SchemaHasDependentObjects(String),
+    ColumnNotFound(String),
 }

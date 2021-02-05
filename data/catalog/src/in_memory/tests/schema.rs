@@ -16,150 +16,283 @@ use super::*;
 
 #[test]
 fn create_schema() {
-    let executor = database();
+    let database = database();
     assert_eq!(
-        executor.execute(create_schema_ops(SCHEMA)),
+        database.execute(SchemaChange::CreateSchema(CreateSchemaQuery {
+            schema_name: SchemaName::from(&SCHEMA),
+            if_not_exists: false,
+        })),
         Ok(ExecutionOutcome::SchemaCreated)
     );
+
+    assert_eq!(database.schema_exists(&SchemaName::from(&SCHEMA)), true);
 }
 
 #[test]
 fn create_if_not_exists() {
-    let executor = database();
+    let database = database();
 
     assert_eq!(
-        executor.execute(create_schema_if_not_exists_ops(SCHEMA)),
+        database.execute(SchemaChange::CreateSchema(CreateSchemaQuery {
+            schema_name: SchemaName::from(&SCHEMA),
+            if_not_exists: true,
+        })),
         Ok(ExecutionOutcome::SchemaCreated)
     );
 
     assert_eq!(
-        executor.execute(create_schema_if_not_exists_ops(SCHEMA)),
+        database.execute(SchemaChange::CreateSchema(CreateSchemaQuery {
+            schema_name: SchemaName::from(&SCHEMA),
+            if_not_exists: true,
+        })),
         Ok(ExecutionOutcome::SchemaCreated)
     );
 }
 
 #[test]
 fn create_schema_with_the_same_name() {
-    let executor = database();
+    let database = database();
     assert_eq!(
-        executor.execute(create_schema_ops(SCHEMA)),
+        database.execute(SchemaChange::CreateSchema(CreateSchemaQuery {
+            schema_name: SchemaName::from(&SCHEMA),
+            if_not_exists: false,
+        })),
         Ok(ExecutionOutcome::SchemaCreated)
     );
 
     assert_eq!(
-        executor.execute(create_schema_ops(SCHEMA)),
+        database.execute(SchemaChange::CreateSchema(CreateSchemaQuery {
+            schema_name: SchemaName::from(&SCHEMA),
+            if_not_exists: false,
+        })),
         Err(ExecutionError::SchemaAlreadyExists(SCHEMA.to_owned()))
     );
 }
 
 #[test]
 fn drop_nonexistent_schema() {
-    let executor = database();
+    let database = database();
 
     assert_eq!(
-        executor.execute(drop_schemas_ops(vec![SCHEMA])),
+        database.execute(SchemaChange::DropSchemas(DropSchemasQuery {
+            schema_names: vec![SchemaName::from(&SCHEMA)],
+            cascade: false,
+            if_exists: false
+        })),
         Err(ExecutionError::SchemaDoesNotExist(SCHEMA.to_owned()))
     );
 }
 
 #[test]
 fn drop_single_schema() {
-    let executor = database();
+    let database = database();
 
     assert_eq!(
-        executor.execute(create_schema_ops(SCHEMA)),
+        database.execute(SchemaChange::CreateSchema(CreateSchemaQuery {
+            schema_name: SchemaName::from(&SCHEMA),
+            if_not_exists: false,
+        })),
         Ok(ExecutionOutcome::SchemaCreated)
     );
 
     assert_eq!(
-        executor.execute(drop_schemas_ops(vec![SCHEMA])),
+        database.execute(SchemaChange::DropSchemas(DropSchemasQuery {
+            schema_names: vec![SchemaName::from(&SCHEMA)],
+            cascade: false,
+            if_exists: false
+        })),
         Ok(ExecutionOutcome::SchemaDropped)
     );
+
+    assert_eq!(database.schema_exists(&SchemaName::from(&SCHEMA)), false);
 }
 
 #[test]
 fn drop_many_schemas() {
-    let executor = database();
+    let database = database();
 
     assert_eq!(
-        executor.execute(create_schema_ops(SCHEMA)),
+        database.execute(SchemaChange::CreateSchema(CreateSchemaQuery {
+            schema_name: SchemaName::from(&SCHEMA),
+            if_not_exists: false,
+        })),
         Ok(ExecutionOutcome::SchemaCreated)
     );
     assert_eq!(
-        executor.execute(create_schema_ops(OTHER_SCHEMA)),
+        database.execute(SchemaChange::CreateSchema(CreateSchemaQuery {
+            schema_name: SchemaName::from(&OTHER_SCHEMA),
+            if_not_exists: false,
+        })),
         Ok(ExecutionOutcome::SchemaCreated)
     );
 
     assert_eq!(
-        executor.execute(drop_schemas_ops(vec![SCHEMA, OTHER_SCHEMA])),
+        database.execute(SchemaChange::DropSchemas(DropSchemasQuery {
+            schema_names: vec![SchemaName::from(&SCHEMA), SchemaName::from(&OTHER_SCHEMA)],
+            cascade: false,
+            if_exists: false
+        })),
         Ok(ExecutionOutcome::SchemaDropped)
     );
+
+    assert_eq!(database.schema_exists(&SchemaName::from(&SCHEMA)), false);
+    assert_eq!(database.schema_exists(&SchemaName::from(&OTHER_SCHEMA)), false);
 }
 
 #[test]
 fn drop_schema_with_table() {
-    let executor = database();
+    let database = database();
 
     assert_eq!(
-        executor.execute(create_schema_ops(SCHEMA)),
+        database.execute(SchemaChange::CreateSchema(CreateSchemaQuery {
+            schema_name: SchemaName::from(&SCHEMA),
+            if_not_exists: false,
+        })),
         Ok(ExecutionOutcome::SchemaCreated)
     );
     assert_eq!(
-        executor.execute(create_table_ops(SCHEMA, TABLE)),
+        database.execute(SchemaChange::CreateTable(CreateTableQuery {
+            full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
+            column_defs: vec![],
+            if_not_exists: false,
+        })),
         Ok(ExecutionOutcome::TableCreated)
     );
 
     assert_eq!(
-        executor.execute(drop_schemas_ops(vec![SCHEMA])),
+        database.execute(SchemaChange::DropSchemas(DropSchemasQuery {
+            schema_names: vec![SchemaName::from(&SCHEMA)],
+            cascade: false,
+            if_exists: false
+        })),
         Err(ExecutionError::SchemaHasDependentObjects(SCHEMA.to_owned()))
     );
+
+    assert_eq!(database.schema_exists(&SchemaName::from(&SCHEMA)), true);
+    assert_eq!(database.table_exists(&FullTableName::from((&SCHEMA, &TABLE))), true);
 }
 
 #[test]
 fn drop_many_cascade() {
-    let executor = database();
+    let database = database();
 
     assert_eq!(
-        executor.execute(create_schema_ops(SCHEMA)),
+        database.execute(SchemaChange::CreateSchema(CreateSchemaQuery {
+            schema_name: SchemaName::from(&SCHEMA),
+            if_not_exists: false,
+        })),
         Ok(ExecutionOutcome::SchemaCreated)
     );
     assert_eq!(
-        executor.execute(create_schema_ops(OTHER_SCHEMA)),
-        Ok(ExecutionOutcome::SchemaCreated)
+        database.execute(SchemaChange::CreateTable(CreateTableQuery {
+            full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
+            column_defs: vec![
+                ColumnInfo {
+                    name: "col_1".to_owned(),
+                    sql_type: SqlType::small_int()
+                },
+                ColumnInfo {
+                    name: "col_2".to_owned(),
+                    sql_type: SqlType::big_int()
+                }
+            ],
+            if_not_exists: false,
+        })),
+        Ok(ExecutionOutcome::TableCreated)
     );
 
     assert_eq!(
-        executor.execute(drop_schemas_ops(vec![SCHEMA, OTHER_SCHEMA])),
+        database.execute(SchemaChange::CreateSchema(CreateSchemaQuery {
+            schema_name: SchemaName::from(&OTHER_SCHEMA),
+            if_not_exists: false,
+        })),
+        Ok(ExecutionOutcome::SchemaCreated)
+    );
+    assert_eq!(
+        database.execute(SchemaChange::CreateTable(CreateTableQuery {
+            full_table_name: FullTableName::from((&OTHER_SCHEMA, &TABLE)),
+            column_defs: vec![
+                ColumnInfo {
+                    name: "col_1".to_owned(),
+                    sql_type: SqlType::small_int()
+                },
+                ColumnInfo {
+                    name: "col_2".to_owned(),
+                    sql_type: SqlType::big_int()
+                }
+            ],
+            if_not_exists: false,
+        })),
+        Ok(ExecutionOutcome::TableCreated)
+    );
+
+    assert_eq!(
+        database.execute(SchemaChange::DropSchemas(DropSchemasQuery {
+            schema_names: vec![SchemaName::from(&SCHEMA), SchemaName::from(&OTHER_SCHEMA)],
+            cascade: true,
+            if_exists: false
+        })),
         Ok(ExecutionOutcome::SchemaDropped)
+    );
+
+    assert_eq!(database.schema_exists(&SchemaName::from(&SCHEMA)), false);
+    assert_eq!(database.schema_exists(&SchemaName::from(&OTHER_SCHEMA)), false);
+    assert_eq!(database.table_exists(&FullTableName::from((&SCHEMA, &TABLE))), false);
+    assert_eq!(database.table_columns(&FullTableName::from((&SCHEMA, &TABLE))), vec![]);
+    assert_eq!(
+        database.table_exists(&FullTableName::from((&OTHER_SCHEMA, &TABLE))),
+        false
+    );
+    assert_eq!(
+        database.table_columns(&FullTableName::from((&OTHER_SCHEMA, &TABLE))),
+        vec![]
     );
 }
 
 #[test]
 fn drop_many_if_exists_first() {
-    let executor = database();
+    let database = database();
 
     assert_eq!(
-        executor.execute(create_schema_ops(SCHEMA)),
+        database.execute(SchemaChange::CreateSchema(CreateSchemaQuery {
+            schema_name: SchemaName::from(&SCHEMA),
+            if_not_exists: false,
+        })),
         Ok(ExecutionOutcome::SchemaCreated)
     );
 
     assert_eq!(
-        executor.execute(drop_schemas_if_exists_ops(vec![SCHEMA, OTHER_SCHEMA])),
+        database.execute(SchemaChange::DropSchemas(DropSchemasQuery {
+            schema_names: vec![SchemaName::from(&SCHEMA), SchemaName::from(&OTHER_SCHEMA)],
+            cascade: false,
+            if_exists: true
+        })),
         Ok(ExecutionOutcome::SchemaDropped)
     );
+
+    assert_eq!(database.schema_exists(&SchemaName::from(&SCHEMA)), false);
 }
 
 #[test]
 fn drop_many_if_exists_last() {
-    let executor = database();
+    let database = database();
 
     assert_eq!(
-        executor.execute(create_schema_ops(OTHER_SCHEMA)),
+        database.execute(SchemaChange::CreateSchema(CreateSchemaQuery {
+            schema_name: SchemaName::from(&OTHER_SCHEMA),
+            if_not_exists: false,
+        })),
         Ok(ExecutionOutcome::SchemaCreated)
     );
 
     assert_eq!(
-        executor.execute(drop_schemas_if_exists_ops(vec![SCHEMA, OTHER_SCHEMA])),
+        database.execute(SchemaChange::DropSchemas(DropSchemasQuery {
+            schema_names: vec![SchemaName::from(&SCHEMA), SchemaName::from(&OTHER_SCHEMA)],
+            cascade: false,
+            if_exists: true
+        })),
         Ok(ExecutionOutcome::SchemaDropped)
     );
+
+    assert_eq!(database.schema_exists(&SchemaName::from(&OTHER_SCHEMA)), false);
 }

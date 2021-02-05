@@ -164,7 +164,7 @@ name = "catalog"
 version = "0.1.0"
 dependencies = [
  "dashmap",
- "data_definition_operations",
+ "data_definition_execution_plan",
  "data_manipulation_typed_tree",
  "data_scalar",
  "definition",
@@ -275,13 +275,6 @@ name = "data_definition_execution_plan"
 version = "0.1.0"
 dependencies = [
  "definition",
- "types",
-]
-
-[[package]]
-name = "data_definition_operations"
-version = "0.1.0"
-dependencies = [
  "types",
 ]
 
@@ -592,7 +585,7 @@ dependencies = [
  "blocking",
  "catalog",
  "connection",
- "data_definition_operations",
+ "data_definition_execution_plan",
  "data_manipulation_operators",
  "data_manipulation_query_result",
  "data_manipulation_typed_queries",
@@ -612,7 +605,6 @@ dependencies = [
  "read_query_executor",
  "read_query_planner",
  "rstest",
- "schema_planner",
  "simple_logger",
  "sql_ast",
  "types",
@@ -809,7 +801,6 @@ dependencies = [
  "bigdecimal",
  "catalog",
  "data_definition_execution_plan",
- "data_definition_operations",
  "data_manipulation_operators",
  "data_manipulation_untyped_queries",
  "data_manipulation_untyped_tree",
@@ -1013,16 +1004,6 @@ checksum = "8f05ba609c234e60bee0d547fe94a4c7e9da733d1c962cf6e59efa4cd9c8bc75"
 dependencies = [
  "lazy_static",
  "winapi",
-]
-
-[[package]]
-name = "schema_planner"
-version = "0.1.0"
-dependencies = [
- "data_definition_execution_plan",
- "data_definition_operations",
- "definition",
- "types",
 ]
 
 [[package]]
@@ -1294,7 +1275,7 @@ name = "write_query_executor"
 version = "0.1.0"
 dependencies = [
  "catalog",
- "data_definition_operations",
+ "data_definition_execution_plan",
  "data_manipulation_query_result",
  "data_manipulation_typed_queries",
  "data_manipulation_typed_tree",

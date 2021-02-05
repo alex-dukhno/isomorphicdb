@@ -18,14 +18,25 @@ use data_manipulation_typed_tree::{StaticTypedItem, TypedValue};
 #[test]
 fn insert_single_column() {
     let database = database();
-    database.execute(create_schema_ops(SCHEMA)).unwrap();
-    database
-        .execute(create_table_with_columns(
-            SCHEMA,
-            TABLE,
-            vec![("col_1", SqlType::small_int())],
-        ))
-        .unwrap();
+
+    assert_eq!(
+        database.execute(SchemaChange::CreateSchema(CreateSchemaQuery {
+            schema_name: SchemaName::from(&SCHEMA),
+            if_not_exists: false,
+        })),
+        Ok(ExecutionOutcome::SchemaCreated)
+    );
+    assert_eq!(
+        database.execute(SchemaChange::CreateTable(CreateTableQuery {
+            full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
+            column_defs: vec![ColumnInfo {
+                name: "col_1".to_owned(),
+                sql_type: SqlType::small_int()
+            }],
+            if_not_exists: false,
+        })),
+        Ok(ExecutionOutcome::TableCreated)
+    );
 
     let full_table_name = FullTableName::from((&SCHEMA, &TABLE));
     database.work_with(&full_table_name, |table| {

@@ -16,140 +16,342 @@ use super::*;
 
 #[test]
 fn create_table_where_schema_not_found() {
-    let executor = database();
+    let database = database();
 
     assert_eq!(
-        executor.execute(create_table_ops(SCHEMA, TABLE)),
+        database.execute(SchemaChange::CreateTable(CreateTableQuery {
+            full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
+            column_defs: vec![
+                ColumnInfo {
+                    name: "col_1".to_owned(),
+                    sql_type: SqlType::small_int()
+                },
+                ColumnInfo {
+                    name: "col_2".to_owned(),
+                    sql_type: SqlType::big_int()
+                }
+            ],
+            if_not_exists: false,
+        })),
         Err(ExecutionError::SchemaDoesNotExist(SCHEMA.to_owned()))
     );
 }
 
 #[test]
 fn create_table_with_the_same_name() {
-    let executor = database();
+    let database = database();
 
     assert_eq!(
-        executor.execute(create_schema_ops(SCHEMA)),
+        database.execute(SchemaChange::CreateSchema(CreateSchemaQuery {
+            schema_name: SchemaName::from(&SCHEMA),
+            if_not_exists: false,
+        })),
         Ok(ExecutionOutcome::SchemaCreated)
     );
 
     assert_eq!(
-        executor.execute(create_table_ops(SCHEMA, TABLE)),
+        database.execute(SchemaChange::CreateTable(CreateTableQuery {
+            full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
+            column_defs: vec![
+                ColumnInfo {
+                    name: "col_1".to_owned(),
+                    sql_type: SqlType::small_int()
+                },
+                ColumnInfo {
+                    name: "col_2".to_owned(),
+                    sql_type: SqlType::big_int()
+                }
+            ],
+            if_not_exists: false,
+        })),
         Ok(ExecutionOutcome::TableCreated)
+    );
+    assert_eq!(database.table_exists(&FullTableName::from((&SCHEMA, &TABLE))), true);
+    assert_eq!(
+        database.table_columns(&FullTableName::from((&SCHEMA, &TABLE))),
+        vec![
+            ColumnDef::new("col_1".to_owned(), SqlType::small_int(), 0),
+            ColumnDef::new("col_2".to_owned(), SqlType::big_int(), 1)
+        ]
     );
 
     assert_eq!(
-        executor.execute(create_table_ops(SCHEMA, TABLE)),
+        database.execute(SchemaChange::CreateTable(CreateTableQuery {
+            full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
+            column_defs: vec![
+                ColumnInfo {
+                    name: "col_1".to_owned(),
+                    sql_type: SqlType::small_int()
+                },
+                ColumnInfo {
+                    name: "col_2".to_owned(),
+                    sql_type: SqlType::big_int()
+                }
+            ],
+            if_not_exists: false,
+        })),
         Err(ExecutionError::TableAlreadyExists(SCHEMA.to_owned(), TABLE.to_owned()))
     );
 }
 
 #[test]
 fn create_if_not_exists() {
-    let executor = database();
+    let database = database();
 
     assert_eq!(
-        executor.execute(create_schema_ops(SCHEMA)),
+        database.execute(SchemaChange::CreateSchema(CreateSchemaQuery {
+            schema_name: SchemaName::from(&SCHEMA),
+            if_not_exists: false,
+        })),
         Ok(ExecutionOutcome::SchemaCreated)
     );
 
     assert_eq!(
-        executor.execute(create_table_ops(SCHEMA, TABLE)),
+        database.execute(SchemaChange::CreateTable(CreateTableQuery {
+            full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
+            column_defs: vec![
+                ColumnInfo {
+                    name: "col_1".to_owned(),
+                    sql_type: SqlType::small_int()
+                },
+                ColumnInfo {
+                    name: "col_2".to_owned(),
+                    sql_type: SqlType::big_int()
+                }
+            ],
+            if_not_exists: false,
+        })),
         Ok(ExecutionOutcome::TableCreated)
     );
 
     assert_eq!(
-        executor.execute(create_table_if_not_exists_ops(SCHEMA, TABLE)),
+        database.execute(SchemaChange::CreateTable(CreateTableQuery {
+            full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
+            column_defs: vec![
+                ColumnInfo {
+                    name: "col_1".to_owned(),
+                    sql_type: SqlType::small_int()
+                },
+                ColumnInfo {
+                    name: "col_2".to_owned(),
+                    sql_type: SqlType::big_int()
+                }
+            ],
+            if_not_exists: true,
+        })),
         Ok(ExecutionOutcome::TableCreated)
+    );
+    assert_eq!(
+        database.table_columns(&FullTableName::from((&SCHEMA, &TABLE))),
+        vec![
+            ColumnDef::new("col_1".to_owned(), SqlType::small_int(), 0),
+            ColumnDef::new("col_2".to_owned(), SqlType::big_int(), 1)
+        ]
     );
 }
 
 #[test]
 fn drop_table_where_schema_not_found() {
-    let executor = database();
+    let database = database();
 
     assert_eq!(
-        executor.execute(drop_tables_ops(SCHEMA, vec![TABLE])),
+        database.execute(SchemaChange::DropTables(DropTablesQuery {
+            full_table_names: vec![FullTableName::from((&SCHEMA, &TABLE))],
+            cascade: false,
+            if_exists: false
+        })),
         Err(ExecutionError::SchemaDoesNotExist(SCHEMA.to_owned()))
     );
 }
 
 #[test]
 fn drop_nonexistent_table() {
-    let executor = database();
+    let database = database();
 
     assert_eq!(
-        executor.execute(create_schema_ops(SCHEMA)),
+        database.execute(SchemaChange::CreateSchema(CreateSchemaQuery {
+            schema_name: SchemaName::from(&SCHEMA),
+            if_not_exists: false,
+        })),
         Ok(ExecutionOutcome::SchemaCreated)
     );
 
     assert_eq!(
-        executor.execute(drop_tables_ops(SCHEMA, vec![TABLE])),
+        database.execute(SchemaChange::DropTables(DropTablesQuery {
+            full_table_names: vec![FullTableName::from((&SCHEMA, &TABLE))],
+            cascade: false,
+            if_exists: false
+        })),
         Err(ExecutionError::TableDoesNotExist(SCHEMA.to_owned(), TABLE.to_owned()))
     );
 }
 
 #[test]
 fn drop_many() {
-    let executor = database();
+    let database = database();
 
     assert_eq!(
-        executor.execute(create_schema_ops(SCHEMA)),
+        database.execute(SchemaChange::CreateSchema(CreateSchemaQuery {
+            schema_name: SchemaName::from(&SCHEMA),
+            if_not_exists: false,
+        })),
         Ok(ExecutionOutcome::SchemaCreated)
     );
 
     assert_eq!(
-        executor.execute(create_table_ops(SCHEMA, TABLE)),
+        database.execute(SchemaChange::CreateTable(CreateTableQuery {
+            full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
+            column_defs: vec![
+                ColumnInfo {
+                    name: "col_1".to_owned(),
+                    sql_type: SqlType::small_int()
+                },
+                ColumnInfo {
+                    name: "col_2".to_owned(),
+                    sql_type: SqlType::big_int()
+                }
+            ],
+            if_not_exists: true,
+        })),
         Ok(ExecutionOutcome::TableCreated)
     );
 
     assert_eq!(
-        executor.execute(create_table_ops(SCHEMA, OTHER_TABLE)),
+        database.execute(SchemaChange::CreateTable(CreateTableQuery {
+            full_table_name: FullTableName::from((&SCHEMA, &OTHER_TABLE)),
+            column_defs: vec![
+                ColumnInfo {
+                    name: "col_1".to_owned(),
+                    sql_type: SqlType::small_int()
+                },
+                ColumnInfo {
+                    name: "col_2".to_owned(),
+                    sql_type: SqlType::big_int()
+                }
+            ],
+            if_not_exists: true,
+        })),
         Ok(ExecutionOutcome::TableCreated)
     );
 
     assert_eq!(
-        executor.execute(drop_tables_ops(SCHEMA, vec![TABLE, OTHER_TABLE])),
+        database.execute(SchemaChange::DropTables(DropTablesQuery {
+            full_table_names: vec![
+                FullTableName::from((&SCHEMA, &TABLE)),
+                FullTableName::from((&SCHEMA, &OTHER_TABLE))
+            ],
+            cascade: false,
+            if_exists: false
+        })),
         Ok(ExecutionOutcome::TableDropped)
+    );
+    assert_eq!(database.table_exists(&FullTableName::from((&SCHEMA, &TABLE))), false);
+    assert_eq!(database.table_columns(&FullTableName::from((&SCHEMA, &TABLE))), vec![]);
+
+    assert_eq!(
+        database.table_exists(&FullTableName::from((&SCHEMA, &OTHER_TABLE))),
+        false
+    );
+    assert_eq!(
+        database.table_columns(&FullTableName::from((&SCHEMA, &OTHER_TABLE))),
+        vec![]
     );
 }
 
 #[test]
 fn drop_if_exists_first() {
-    let executor = database();
+    let database = database();
 
     assert_eq!(
-        executor.execute(create_schema_ops(SCHEMA)),
+        database.execute(SchemaChange::CreateSchema(CreateSchemaQuery {
+            schema_name: SchemaName::from(&SCHEMA),
+            if_not_exists: false,
+        })),
         Ok(ExecutionOutcome::SchemaCreated)
     );
 
     assert_eq!(
-        executor.execute(create_table_ops(SCHEMA, TABLE)),
+        database.execute(SchemaChange::CreateTable(CreateTableQuery {
+            full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
+            column_defs: vec![
+                ColumnInfo {
+                    name: "col_1".to_owned(),
+                    sql_type: SqlType::small_int()
+                },
+                ColumnInfo {
+                    name: "col_2".to_owned(),
+                    sql_type: SqlType::big_int()
+                }
+            ],
+            if_not_exists: true,
+        })),
         Ok(ExecutionOutcome::TableCreated)
     );
 
     assert_eq!(
-        executor.execute(drop_tables_if_exists_ops(SCHEMA, vec![TABLE, OTHER_TABLE])),
+        database.execute(SchemaChange::DropTables(DropTablesQuery {
+            full_table_names: vec![
+                FullTableName::from((&SCHEMA, &TABLE)),
+                FullTableName::from((&SCHEMA, &OTHER_TABLE))
+            ],
+            cascade: false,
+            if_exists: true
+        })),
         Ok(ExecutionOutcome::TableDropped)
+    );
+
+    assert_eq!(database.table_exists(&FullTableName::from((&SCHEMA, &TABLE))), false);
+    assert_eq!(
+        database.table_exists(&FullTableName::from((&SCHEMA, &OTHER_TABLE))),
+        false
     );
 }
 
 #[test]
 fn drop_if_exists_last() {
-    let executor = database();
+    let database = database();
 
     assert_eq!(
-        executor.execute(create_schema_ops(SCHEMA)),
+        database.execute(SchemaChange::CreateSchema(CreateSchemaQuery {
+            schema_name: SchemaName::from(&SCHEMA),
+            if_not_exists: false,
+        })),
         Ok(ExecutionOutcome::SchemaCreated)
     );
 
     assert_eq!(
-        executor.execute(create_table_ops(SCHEMA, OTHER_TABLE)),
+        database.execute(SchemaChange::CreateTable(CreateTableQuery {
+            full_table_name: FullTableName::from((&SCHEMA, &OTHER_TABLE)),
+            column_defs: vec![
+                ColumnInfo {
+                    name: "col_1".to_owned(),
+                    sql_type: SqlType::small_int()
+                },
+                ColumnInfo {
+                    name: "col_2".to_owned(),
+                    sql_type: SqlType::big_int()
+                }
+            ],
+            if_not_exists: true,
+        })),
         Ok(ExecutionOutcome::TableCreated)
     );
 
     assert_eq!(
-        executor.execute(drop_tables_if_exists_ops(SCHEMA, vec![TABLE, OTHER_TABLE])),
+        database.execute(SchemaChange::DropTables(DropTablesQuery {
+            full_table_names: vec![
+                FullTableName::from((&SCHEMA, &TABLE)),
+                FullTableName::from((&SCHEMA, &OTHER_TABLE))
+            ],
+            cascade: false,
+            if_exists: true
+        })),
         Ok(ExecutionOutcome::TableDropped)
+    );
+
+    assert_eq!(database.table_exists(&FullTableName::from((&SCHEMA, &TABLE))), false);
+    assert_eq!(
+        database.table_exists(&FullTableName::from((&SCHEMA, &OTHER_TABLE))),
+        false
     );
 }

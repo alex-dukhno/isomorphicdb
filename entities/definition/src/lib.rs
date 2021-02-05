@@ -19,34 +19,72 @@ use std::{
 use types::SqlType;
 
 #[derive(Debug, PartialEq)]
-pub struct FullTableName((String, String));
+pub struct FullIndexName {
+    full_table_name: FullTableName,
+    index: String,
+}
+
+impl FullIndexName {
+    pub fn table(&self) -> &FullTableName {
+        &self.full_table_name
+    }
+
+    pub fn index(&self) -> &str {
+        &self.index
+    }
+}
+
+impl<S: ToString, T: ToString, I: ToString> From<(&S, &T, &I)> for FullIndexName {
+    fn from(tuple: (&S, &T, &I)) -> FullIndexName {
+        let (schema, table, index) = tuple;
+        FullIndexName {
+            full_table_name: FullTableName::from((schema, table)),
+            index: index.to_string(),
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct FullTableName {
+    schema: Option<String>,
+    table: String,
+}
 
 impl FullTableName {
     pub fn schema(&self) -> &str {
-        &(self.0).0
+        self.schema.as_deref().unwrap_or("public")
     }
 
     pub fn table(&self) -> &str {
-        &(self.0).1
+        &self.table
     }
 }
 
-impl<'f> Into<(&'f str, &'f str)> for &'f FullTableName {
-    fn into(self) -> (&'f str, &'f str) {
-        (&(self.0).0, &(self.0).1)
-    }
-}
-
-impl<S: ToString> From<(&S, &S)> for FullTableName {
-    fn from(tuple: (&S, &S)) -> Self {
+impl<S: ToString, T: ToString> From<(&S, &T)> for FullTableName {
+    fn from(tuple: (&S, &T)) -> Self {
         let (schema, table) = tuple;
-        FullTableName((schema.to_string(), table.to_string()))
+        FullTableName {
+            schema: Some(schema.to_string()),
+            table: table.to_string(),
+        }
+    }
+}
+
+impl From<&str> for FullTableName {
+    fn from(table: &str) -> Self {
+        FullTableName {
+            schema: None,
+            table: table.to_owned(),
+        }
     }
 }
 
 impl Display for FullTableName {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}.{}", self.0 .0, self.0 .1)
+        match self.schema.as_ref() {
+            None => write!(f, "{}", self.table),
+            Some(schema_name) => write!(f, "{}.{}", schema_name, self.table),
+        }
     }
 }
 
@@ -57,15 +95,13 @@ impl<'o> TryFrom<&'o sql_ast::ObjectName> for FullTableName {
         if object.0.len() > 2 {
             Err(TableNamingError(object.to_string()))
         } else {
-            let (schema_name, table_name) = if object.0.len() == 1 {
-                ("public".to_lowercase(), object.0.first().unwrap().value.to_lowercase())
+            let schema = if object.0.len() == 1 {
+                None
             } else {
-                (
-                    object.0.first().unwrap().value.to_lowercase(),
-                    object.0.last().unwrap().value.to_lowercase(),
-                )
+                Some(object.0.first().unwrap().value.to_lowercase())
             };
-            Ok(FullTableName((schema_name, table_name)))
+            let table = object.0.last().unwrap().value.to_lowercase();
+            Ok(FullTableName { schema, table })
         }
     }
 }
@@ -141,20 +177,22 @@ impl ColumnDef {
     pub fn has_name(&self, name: &str) -> bool {
         self.name == name
     }
+
+    pub fn index(&self) -> usize {
+        self.ord_num as usize
+    }
 }
 
 #[derive(Debug)]
 pub struct TableDef {
-    schema: String,
-    name: String,
+    full_table_name: FullTableName,
     columns: Vec<ColumnDef>,
 }
 
 impl TableDef {
-    pub fn new(full_table_name: &FullTableName, columns: Vec<ColumnDef>) -> TableDef {
+    pub fn new(full_table_name: FullTableName, columns: Vec<ColumnDef>) -> TableDef {
         TableDef {
-            schema: full_table_name.schema().to_owned(),
-            name: full_table_name.table().to_owned(),
+            full_table_name,
             columns,
         }
     }

@@ -31,7 +31,7 @@ fn schema_does_not_exist() {
 #[test]
 fn table_does_not_exist() {
     let database = InMemoryDatabase::new();
-    database.execute(create_schema(SCHEMA)).unwrap();
+    database.execute(create_schema_ops(SCHEMA)).unwrap();
     let analyzer = Analyzer::new(database);
 
     assert_eq!(
@@ -45,7 +45,7 @@ fn table_with_unqualified_name() {
     let analyzer = Analyzer::new(InMemoryDatabase::new());
     assert_eq!(
         analyzer.analyze(insert_statement(vec!["only_table_in_the_name"])),
-        Err(AnalysisError::table_does_not_exist(&"public.only_table_in_the_name"))
+        Err(AnalysisError::table_does_not_exist(&"only_table_in_the_name"))
     );
 }
 
@@ -68,9 +68,9 @@ fn table_with_unsupported_name() {
 #[test]
 fn with_column_names() {
     let database = InMemoryDatabase::new();
-    database.execute(create_schema(SCHEMA)).unwrap();
+    database.execute(create_schema_ops(SCHEMA)).unwrap();
     database
-        .execute(create_table(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
+        .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
         .unwrap();
     let analyzer = Analyzer::new(database);
 
@@ -92,9 +92,9 @@ fn with_column_names() {
 #[test]
 fn column_not_found() {
     let database = InMemoryDatabase::new();
-    database.execute(create_schema(SCHEMA)).unwrap();
+    database.execute(create_schema_ops(SCHEMA)).unwrap();
     database
-        .execute(create_table(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
+        .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
         .unwrap();
     let analyzer = Analyzer::new(database);
 

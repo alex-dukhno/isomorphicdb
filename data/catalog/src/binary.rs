@@ -126,7 +126,7 @@ impl Binary {
         unpack_raw(self.0.as_slice())
     }
 
-    pub fn start_with(&self, other: &Binary) -> bool {
+    pub fn starts_with(&self, other: &Binary) -> bool {
         self.0.starts_with(&other.0)
     }
 }
