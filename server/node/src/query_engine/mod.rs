@@ -310,7 +310,9 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                                     Err(ExecutionError::SchemaHasDependentObjects(schema_name)) => {
                                         Err(QueryError::schema_has_dependent_objects(schema_name))
                                     }
-                                    Err(ExecutionError::ColumnNotFound(column_name)) => {Err(QueryError::column_does_not_exist(column_name))}
+                                    Err(ExecutionError::ColumnNotFound(column_name)) => {
+                                        Err(QueryError::column_does_not_exist(column_name))
+                                    }
                                 };
                                 self.sender.send(query_result).expect("To Send Result to Client");
                             }
@@ -403,7 +405,7 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                                 log::debug!("INSERT TYPE CHECKED VALUES {:?}", type_checked);
                                 let table_info = self
                                     .database
-                                    .table_definition(&insert.full_table_name)
+                                    .table_definition(insert.full_table_name.clone())
                                     .unwrap()
                                     .unwrap();
                                 let table_columns = table_info.columns();

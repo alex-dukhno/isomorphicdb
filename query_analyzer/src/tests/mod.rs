@@ -69,7 +69,13 @@ fn create_schema_ops(schema_name: &str) -> SchemaChange {
 fn create_table_ops(schema_name: &str, table_name: &str, columns: Vec<(&str, SqlType)>) -> SchemaChange {
     SchemaChange::CreateTable(CreateTableQuery {
         full_table_name: FullTableName::from((&schema_name, &table_name)),
-        column_defs: columns.into_iter().map(|(name, sql_type)| ColumnInfo { name: name.to_owned(), sql_type }).collect(),
+        column_defs: columns
+            .into_iter()
+            .map(|(name, sql_type)| ColumnInfo {
+                name: name.to_owned(),
+                sql_type,
+            })
+            .collect(),
         if_not_exists: true,
     })
 }

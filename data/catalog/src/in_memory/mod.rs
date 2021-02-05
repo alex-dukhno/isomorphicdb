@@ -12,14 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::sync::Arc;
-use data_definition_execution_plan::{ExecutionError, ExecutionOutcome, CreateIndexQuery};
+use crate::{
+    binary::Binary,
+    in_memory::data_catalog::{InMemoryCatalogHandle, InMemoryTableHandle},
+    repr::Datum,
+    CatalogDefinition, DataCatalog, DataTable, Database, SchemaHandle, SqlTable, COLUMNS_TABLE, DEFINITION_SCHEMA,
+    INDEXES_TABLE, SCHEMATA_TABLE, TABLES_TABLE,
+};
+use data_definition_execution_plan::{
+    CreateIndexQuery, CreateSchemaQuery, CreateTableQuery, DropSchemasQuery, DropTablesQuery, ExecutionError,
+    ExecutionOutcome, SchemaChange,
+};
 use data_manipulation_typed_tree::{DynamicTypedItem, DynamicTypedTree, StaticTypedItem, StaticTypedTree, TypedValue};
 use data_scalar::ScalarValue;
-use definition::{ColumnDef, FullTableName, SchemaName, TableDef};
+use definition::{ColumnDef, FullIndexName, FullTableName, SchemaName, TableDef};
+use std::sync::Arc;
 use types::SqlType;
-use crate::{binary::Binary, in_memory::data_catalog::{InMemoryCatalogHandle, InMemoryTableHandle}, repr::Datum, CatalogDefinition, DataCatalog, DataTable, Database, SchemaHandle, SqlTable, COLUMNS_TABLE, DEFINITION_SCHEMA, SCHEMATA_TABLE, TABLES_TABLE, INDEXES_TABLE};
-use data_definition_execution_plan::{SchemaChange, CreateSchemaQuery, DropSchemasQuery, CreateTableQuery, DropTablesQuery};
 
 mod data_catalog;
 
@@ -32,6 +40,7 @@ fn create_public_schema() -> SchemaChange {
 
 pub struct InMemoryDatabase {
     catalog: InMemoryCatalogHandle,
+    name: String,
 }
 
 impl InMemoryDatabase {
@@ -42,6 +51,7 @@ impl InMemoryDatabase {
     fn create() -> InMemoryDatabase {
         InMemoryDatabase {
             catalog: InMemoryCatalogHandle::default(),
+            name: "IN_MEMORY".to_owned(),
         }
     }
 
@@ -61,61 +71,65 @@ impl InMemoryDatabase {
         self
     }
 
-    fn schema_exists(&self, schema_name: &SchemaName) -> bool {
-        let full_schema_name = Binary::pack(&[
-            Datum::from_string("IN_MEMORY".to_owned()),
+    fn schema_name_record(&self, schema_name: &SchemaName) -> Binary {
+        Binary::pack(&[
+            Datum::from_string(self.name.clone()),
             Datum::from_string(schema_name.as_ref().to_owned()),
-        ]);
-        log::debug!("RECORD - {:?}", full_schema_name);
-        let schema = self.catalog.work_with(DEFINITION_SCHEMA, |schema| {
-            schema.work_with(SCHEMATA_TABLE, |table| {
-                table.select().any(|(_key, value)| value == full_schema_name)
-            })
-        });
-        schema == Some(Some(true))
+        ])
+    }
+
+    fn find_in_system_table<P: Fn((Binary, Binary)) -> bool>(
+        &self,
+        table_name: &str,
+        predicate: P,
+    ) -> Option<Option<bool>> {
+        self.catalog.work_with(DEFINITION_SCHEMA, |schema| {
+            schema.work_with(table_name, |table| table.select().any(&predicate))
+        })
+    }
+
+    fn schema_exists(&self, schema_name: &SchemaName) -> bool {
+        let schema_name_record = self.schema_name_record(schema_name);
+        self.find_in_system_table(SCHEMATA_TABLE, |(_key, value)| value == schema_name_record) == Some(Some(true))
+    }
+
+    fn table_name_record(&self, full_table_name: &FullTableName) -> Binary {
+        Binary::pack(&[
+            Datum::from_string(self.name.clone()),
+            Datum::from_string((&full_table_name).schema().to_owned()),
+            Datum::from_string((&full_table_name).table().to_owned()),
+        ])
     }
 
     fn table_exists(&self, full_table_name: &FullTableName) -> bool {
-        let full_table_name = Binary::pack(&[
-            Datum::from_string("IN_MEMORY".to_owned()),
-            Datum::from_string((&full_table_name).schema().to_owned()),
-            Datum::from_string((&full_table_name).table().to_owned()),
-        ]);
-        let table = self.catalog.work_with(DEFINITION_SCHEMA, |schema| {
-            schema.work_with(TABLES_TABLE, |table| {
-                table.select().any(|(_key, value)| value == full_table_name)
-            })
-        });
-        table == Some(Some(true))
+        let table_name_record = self.table_name_record(full_table_name);
+        self.find_in_system_table(TABLES_TABLE, |(_key, value)| value == table_name_record) == Some(Some(true))
     }
 
-    fn index_exists(&self, full_table_name: &FullTableName, index_name: &str) -> bool {
-        let full_index_name = Binary::pack(&[
-            Datum::from_string("IN_MEMORY".to_owned()),
-            Datum::from_string((&full_table_name).schema().to_owned()),
-            Datum::from_string((&full_table_name).table().to_owned()),
-            Datum::from_string(index_name.to_owned())
-        ]);
-        let index = self.catalog.work_with(DEFINITION_SCHEMA, |schema| {
-            schema.work_with(INDEXES_TABLE, |table| {
-                table.select().any(|(_key, value)| value.starts_with(&full_index_name))
-            })
-        });
-        index == Some(Some(true))
+    fn index_name_record(&self, full_index_name: &FullIndexName) -> Binary {
+        Binary::pack(&[
+            Datum::from_string(self.name.clone()),
+            Datum::from_string((&full_index_name.table()).schema().to_owned()),
+            Datum::from_string((&full_index_name.table()).table().to_owned()),
+            Datum::from_string(full_index_name.index().to_owned()),
+        ])
+    }
+
+    #[allow(dead_code)]
+    fn index_exists(&self, full_index_name: &FullIndexName) -> bool {
+        let index_name_record = self.index_name_record(full_index_name);
+        self.find_in_system_table(INDEXES_TABLE, |(_key, value)| value.starts_with(&index_name_record))
+            == Some(Some(true))
     }
 
     fn table_columns(&self, full_table_name: &FullTableName) -> Vec<ColumnDef> {
-        let full_table_name = Binary::pack(&[
-            Datum::from_string("IN_MEMORY".to_owned()),
-            Datum::from_string((&full_table_name).schema().to_owned()),
-            Datum::from_string((&full_table_name).table().to_owned()),
-        ]);
+        let table_name_record = self.table_name_record(full_table_name);
         self.catalog
             .work_with(DEFINITION_SCHEMA, |schema| {
                 schema.work_with(COLUMNS_TABLE, |table| {
                     table
                         .select()
-                        .filter(|(_key, value)| value.starts_with(&full_table_name))
+                        .filter(|(_key, value)| value.starts_with(&table_name_record))
                         .map(|(_key, value)| {
                             let row = value.unpack();
                             let name = row[3].as_string();
@@ -132,15 +146,15 @@ impl InMemoryDatabase {
 }
 
 impl CatalogDefinition for InMemoryDatabase {
-    fn table_definition(&self, full_table_name: &FullTableName) -> Option<Option<TableDef>> {
+    fn table_definition(&self, full_table_name: FullTableName) -> Option<Option<TableDef>> {
         if !self.schema_exists(&SchemaName::from(&full_table_name.schema())) {
-            return None;
+            None
+        } else if !self.table_exists(&full_table_name) {
+            Some(None)
+        } else {
+            let column_info = self.table_columns(&full_table_name);
+            Some(Some(TableDef::new(full_table_name, column_info)))
         }
-        if !self.table_exists(full_table_name) {
-            return Some(None);
-        }
-        let column_info = self.table_columns(full_table_name);
-        Some(Some(TableDef::new(full_table_name, column_info)))
     }
 
     fn schema_exists(&self, schema_name: &SchemaName) -> bool {
@@ -155,7 +169,8 @@ impl Database for InMemoryDatabase {
     fn execute(&self, schema_change: SchemaChange) -> Result<ExecutionOutcome, ExecutionError> {
         match schema_change {
             SchemaChange::CreateSchema(CreateSchemaQuery {
-                schema_name, if_not_exists
+                schema_name,
+                if_not_exists,
             }) => {
                 if self.schema_exists(&SchemaName::from(&schema_name.as_ref())) {
                     if if_not_exists {
@@ -176,11 +191,19 @@ impl Database for InMemoryDatabase {
                     Ok(ExecutionOutcome::SchemaCreated)
                 }
             }
-            SchemaChange::DropSchemas(DropSchemasQuery { schema_names, cascade, if_exists }) => {
+            SchemaChange::DropSchemas(DropSchemasQuery {
+                schema_names,
+                cascade,
+                if_exists,
+            }) => {
                 for schema_name in schema_names {
                     if self.schema_exists(&SchemaName::from(&schema_name.as_ref())) {
-                        if !cascade && self.catalog.work_with(schema_name.as_ref(), |schema| schema.empty()) == Some(false) {
-                            return Err(ExecutionError::SchemaHasDependentObjects(schema_name.as_ref().to_owned()));
+                        if !cascade
+                            && self.catalog.work_with(schema_name.as_ref(), |schema| schema.empty()) == Some(false)
+                        {
+                            return Err(ExecutionError::SchemaHasDependentObjects(
+                                schema_name.as_ref().to_owned(),
+                            ));
                         }
                         let full_schema_name = Binary::pack(&[
                             Datum::from_string("IN_MEMORY".to_owned()),
@@ -198,7 +221,11 @@ impl Database for InMemoryDatabase {
                                 table.delete(columns_ids);
                             });
                             schema.work_with(TABLES_TABLE, |table| {
-                                let keys = table.select().filter(|(_key, value)| value.starts_with(&full_schema_name)).map(|(key, _value)| key).collect();
+                                let keys = table
+                                    .select()
+                                    .filter(|(_key, value)| value.starts_with(&full_schema_name))
+                                    .map(|(key, _value)| key)
+                                    .collect();
                                 table.delete(keys);
                             });
                             schema.work_with(SCHEMATA_TABLE, |table| {
@@ -218,18 +245,25 @@ impl Database for InMemoryDatabase {
                         });
                         self.catalog.drop_schema(schema_name.as_ref());
                     } else if !if_exists {
-                        return Err(ExecutionError::SchemaDoesNotExist(schema_name.as_ref().to_owned()))
+                        return Err(ExecutionError::SchemaDoesNotExist(schema_name.as_ref().to_owned()));
                     }
                 }
                 Ok(ExecutionOutcome::SchemaDropped)
-            },
-            SchemaChange::CreateTable(CreateTableQuery { full_table_name, column_defs, if_not_exists }) => {
+            }
+            SchemaChange::CreateTable(CreateTableQuery {
+                full_table_name,
+                column_defs,
+                if_not_exists,
+            }) => {
                 if self.schema_exists(&SchemaName::from(&full_table_name.schema())) {
                     if self.table_exists(&full_table_name) {
                         if if_not_exists {
                             Ok(ExecutionOutcome::TableCreated)
                         } else {
-                            Err(ExecutionError::TableAlreadyExists(full_table_name.schema().to_owned(), full_table_name.table().to_owned()))
+                            Err(ExecutionError::TableAlreadyExists(
+                                full_table_name.schema().to_owned(),
+                                full_table_name.table().to_owned(),
+                            ))
                         }
                     } else {
                         let full_table_name_record = Binary::pack(&[
@@ -251,28 +285,40 @@ impl Database for InMemoryDatabase {
                                 log::debug!("GENERATED TABLE ID - {:?}", table_id);
                             });
                             schema.work_with(COLUMNS_TABLE, |table| {
-                                table.insert(column_defs.iter().enumerate().map(|(index, def)| {
-                                    Binary::pack(&[
-                                        Datum::from_string("IN_MEMORY".to_owned()),
-                                        Datum::from_string(full_table_name.schema().to_owned()),
-                                        Datum::from_string(full_table_name.table().to_owned()),
-                                        Datum::from_string(def.name.clone()),
-                                        Datum::from_u64(def.sql_type.type_id()),
-                                        Datum::from_optional_u64(def.sql_type.chars_len()),
-                                        Datum::from_u64(index as u64),
-                                    ])
-                                }).collect());
+                                table.insert(
+                                    column_defs
+                                        .iter()
+                                        .enumerate()
+                                        .map(|(index, def)| {
+                                            Binary::pack(&[
+                                                Datum::from_string("IN_MEMORY".to_owned()),
+                                                Datum::from_string(full_table_name.schema().to_owned()),
+                                                Datum::from_string(full_table_name.table().to_owned()),
+                                                Datum::from_string(def.name.clone()),
+                                                Datum::from_u64(def.sql_type.type_id()),
+                                                Datum::from_optional_u64(def.sql_type.chars_len()),
+                                                Datum::from_u64(index as u64),
+                                            ])
+                                        })
+                                        .collect(),
+                                );
                             })
                         });
-                        self.catalog.work_with(full_table_name.schema(), |schema| schema.create_table(full_table_name.table()));
+                        self.catalog.work_with(full_table_name.schema(), |schema| {
+                            schema.create_table(full_table_name.table())
+                        });
                         Ok(ExecutionOutcome::TableCreated)
                     }
                 } else {
                     Err(ExecutionError::SchemaDoesNotExist(full_table_name.schema().to_owned()))
                 }
-            },
+            }
             // cascade does not make sense for now, but when `FOREIGN KEY`s will be introduce it will become relevant
-            SchemaChange::DropTables(DropTablesQuery { full_table_names, cascade: _cascade, if_exists }) => {
+            SchemaChange::DropTables(DropTablesQuery {
+                full_table_names,
+                cascade: _cascade,
+                if_exists,
+            }) => {
                 for full_table_name in full_table_names {
                     if self.schema_exists(&SchemaName::from(&full_table_name.schema())) {
                         if self.table_exists(&full_table_name) {
@@ -282,8 +328,8 @@ impl Database for InMemoryDatabase {
                                         .select()
                                         .map(|(key, value)| (key, value.unpack()))
                                         .filter(|(_key, value)| {
-                                            &value[1].as_string() == full_table_name.schema()
-                                                && &value[2].as_string() == full_table_name.table()
+                                            value[1].as_string() == full_table_name.schema()
+                                                && value[2].as_string() == full_table_name.table()
                                         })
                                         .map(|(key, _value)| key)
                                         .collect();
@@ -295,8 +341,8 @@ impl Database for InMemoryDatabase {
                                         .select()
                                         .map(|(key, value)| (key, value.unpack()))
                                         .filter(|(_key, value)| {
-                                            &value[1].as_string() == full_table_name.schema()
-                                                && &value[2].as_string() == full_table_name.table()
+                                            value[1].as_string() == full_table_name.schema()
+                                                && value[2].as_string() == full_table_name.table()
                                         })
                                         .map(|(key, _value)| key)
                                         .collect();
@@ -304,21 +350,33 @@ impl Database for InMemoryDatabase {
                                     table.delete(columns_ids);
                                 });
                             });
-                            self.catalog.work_with(full_table_name.schema(), |schema| schema.drop_table(full_table_name.table()));
+                            self.catalog.work_with(full_table_name.schema(), |schema| {
+                                schema.drop_table(full_table_name.table())
+                            });
                         } else if !if_exists {
-                            return Err(ExecutionError::TableDoesNotExist(full_table_name.schema().to_owned(), full_table_name.table().to_owned()))
+                            return Err(ExecutionError::TableDoesNotExist(
+                                full_table_name.schema().to_owned(),
+                                full_table_name.table().to_owned(),
+                            ));
                         }
                     } else {
-                        return Err(ExecutionError::SchemaDoesNotExist(full_table_name.schema().to_owned()))
+                        return Err(ExecutionError::SchemaDoesNotExist(full_table_name.schema().to_owned()));
                     }
                 }
                 Ok(ExecutionOutcome::TableDropped)
-            },
-            SchemaChange::CreateIndex(CreateIndexQuery { name, full_table_name, column_names }) => {
+            }
+            SchemaChange::CreateIndex(CreateIndexQuery {
+                name,
+                full_table_name,
+                column_names,
+            }) => {
                 if !self.schema_exists(&SchemaName::from(&full_table_name.schema())) {
                     Err(ExecutionError::SchemaDoesNotExist(full_table_name.schema().to_owned()))
                 } else if !self.table_exists(&full_table_name) {
-                    Err(ExecutionError::TableDoesNotExist(full_table_name.schema().to_owned(), full_table_name.table().to_owned()))
+                    Err(ExecutionError::TableDoesNotExist(
+                        full_table_name.schema().to_owned(),
+                        full_table_name.table().to_owned(),
+                    ))
                 } else {
                     let table_columns = self.table_columns(&full_table_name);
                     let mut column_indexes = vec![];
@@ -336,14 +394,16 @@ impl Database for InMemoryDatabase {
                                 Datum::from_string(full_table_name.schema().to_owned()),
                                 Datum::from_string(full_table_name.table().to_owned()),
                                 Datum::from_string(name.clone()),
-                                Datum::from_string(column_names.join(", "))
+                                Datum::from_string(column_names.join(", ")),
                             ])])
                         })
                     });
-                    self.catalog.work_with(full_table_name.schema(), |schema| schema.create_index(full_table_name.table(), name.as_str(), column_indexes[0]));
+                    self.catalog.work_with(full_table_name.schema(), |schema| {
+                        schema.create_index(full_table_name.table(), name.as_str(), column_indexes[0])
+                    });
                     Ok(ExecutionOutcome::IndexCreated)
                 }
-            },
+            }
         }
     }
 
@@ -354,9 +414,13 @@ impl Database for InMemoryDatabase {
         ))
     }
 
-    fn work_with_index<R, F: Fn(&Self::Index) -> R>(&self, full_index_name: (String, String, String), operation: F) -> R {
-        let (schema, table, index) = full_index_name;
-        operation(&*self.catalog.table(&FullTableName::from((&schema, &table))).index(index))
+    fn work_with_index<R, F: Fn(&Self::Index) -> R>(&self, full_index_name: FullIndexName, operation: F) -> R {
+        operation(
+            &*self
+                .catalog
+                .table(full_index_name.table())
+                .index(full_index_name.index()),
+        )
     }
 }
 
@@ -408,7 +472,8 @@ impl InMemoryTable {
 
 impl SqlTable for InMemoryTable {
     fn insert(&self, rows: &[Vec<Option<StaticTypedTree>>]) -> usize {
-        let values = rows.iter()
+        let values = rows
+            .iter()
             .map(|row| {
                 log::debug!("ROW to INSERT {:#?}", row);
                 let mut to_insert = vec![];
@@ -429,9 +494,9 @@ impl SqlTable for InMemoryTable {
             for i in 0..inserted {
                 let mut val = vec![];
                 let values_i = values[i].unpack();
-                for j in 0..values_i.len() {
+                for (j, value_i) in values_i.iter().enumerate() {
                     if index.over(j) {
-                        val.push(values_i[j].clone());
+                        val.push(value_i.clone());
                     }
                 }
                 index.insert(Binary::pack(&val), record_ids[i].clone());
@@ -440,10 +505,7 @@ impl SqlTable for InMemoryTable {
         inserted
     }
 
-    fn select(
-        &self,
-        column_names: Vec<String>,
-    ) -> Result<(Vec<ColumnDef>, Vec<Vec<ScalarValue>>), String> {
+    fn select(&self, column_names: Vec<String>) -> Result<(Vec<ColumnDef>, Vec<Vec<ScalarValue>>), String> {
         let mut columns = vec![];
         let mut indexes = vec![];
         for name in column_names {

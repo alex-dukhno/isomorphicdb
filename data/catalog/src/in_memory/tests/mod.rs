@@ -13,13 +13,13 @@
 // limitations under the License.
 
 #[cfg(test)]
+mod index;
+#[cfg(test)]
 mod insert;
 #[cfg(test)]
 mod schema;
 #[cfg(test)]
 mod table;
-#[cfg(test)]
-mod index;
 
 use super::*;
 use data_definition_execution_plan::ColumnInfo;
@@ -33,4 +33,3 @@ const OTHER_TABLE: &str = "other_table_name";
 fn database() -> Arc<InMemoryDatabase> {
     InMemoryDatabase::new()
 }
-

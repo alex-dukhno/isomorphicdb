@@ -55,8 +55,9 @@ impl<D: Database> WriteQueryExecutor<D> {
 mod tests {
     use super::*;
     use catalog::InMemoryDatabase;
-    use data_definition_execution_plan::{SchemaChange, CreateSchemaQuery, CreateTableQuery, ColumnInfo};
-    use data_definition_execution_plan::{ExecutionOutcome};
+    use data_definition_execution_plan::{
+        ColumnInfo, CreateSchemaQuery, CreateTableQuery, ExecutionOutcome, SchemaChange,
+    };
     use data_manipulation_typed_tree::{StaticTypedItem, StaticTypedTree, TypedValue};
     use definition::{FullTableName, SchemaName};
     use types::SqlType;
@@ -68,7 +69,6 @@ mod tests {
     fn insert_single_value() {
         let database = InMemoryDatabase::new();
 
-
         assert_eq!(
             database.execute(SchemaChange::CreateSchema(CreateSchemaQuery {
                 schema_name: SchemaName::from(&SCHEMA),
@@ -79,7 +79,10 @@ mod tests {
         assert_eq!(
             database.execute(SchemaChange::CreateTable(CreateTableQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                column_defs: vec![ColumnInfo { name: "col_1".to_owned(), sql_type: SqlType::small_int() }],
+                column_defs: vec![ColumnInfo {
+                    name: "col_1".to_owned(),
+                    sql_type: SqlType::small_int()
+                }],
                 if_not_exists: false,
             })),
             Ok(ExecutionOutcome::TableCreated)
@@ -87,11 +90,14 @@ mod tests {
 
         let executor = WriteQueryExecutor::new(database);
 
-        assert_eq!(executor.execute(TypedWrite::Insert(InsertQuery {
-            full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-            values: vec![vec![Some(StaticTypedTree::Item(StaticTypedItem::Const(
-                TypedValue::SmallInt(1),
-            )))]],
-        })), Ok(QueryExecution::Inserted(1)));
+        assert_eq!(
+            executor.execute(TypedWrite::Insert(InsertQuery {
+                full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
+                values: vec![vec![Some(StaticTypedTree::Item(StaticTypedItem::Const(
+                    TypedValue::SmallInt(1),
+                )))]],
+            })),
+            Ok(QueryExecution::Inserted(1))
+        );
     }
 }

@@ -12,16 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use binary::Binary;
+use data_definition_execution_plan::{ExecutionError, ExecutionOutcome, SchemaChange};
+use data_manipulation_typed_tree::{DynamicTypedTree, StaticTypedTree};
+use data_scalar::ScalarValue;
+use definition::{ColumnDef, FullIndexName, FullTableName, SchemaName, TableDef};
 use std::{
     fmt::{self, Debug, Formatter},
     iter::FromIterator,
 };
-use binary::Binary;
-use data_definition_execution_plan::SchemaChange;
-use data_definition_execution_plan::{ExecutionError, ExecutionOutcome};
-use data_manipulation_typed_tree::{DynamicTypedTree, StaticTypedTree};
-use data_scalar::ScalarValue;
-use definition::{ColumnDef, FullTableName, SchemaName, TableDef};
 
 pub use in_memory::InMemoryDatabase;
 
@@ -88,7 +87,7 @@ trait DataCatalog {
 }
 
 pub trait CatalogDefinition {
-    fn table_definition(&self, table_full_name: &FullTableName) -> Option<Option<TableDef>>;
+    fn table_definition(&self, table_full_name: FullTableName) -> Option<Option<TableDef>>;
 
     fn schema_exists(&self, schema_name: &SchemaName) -> bool;
 }
@@ -102,8 +101,7 @@ const COLUMNS_TABLE: &str = "COLUMNS";
 pub trait SqlTable {
     fn insert(&self, data: &[Vec<Option<StaticTypedTree>>]) -> usize;
 
-    fn select(&self, column_names: Vec<String>)
-        -> Result<(Vec<ColumnDef>, Vec<Vec<ScalarValue>>), String>;
+    fn select(&self, column_names: Vec<String>) -> Result<(Vec<ColumnDef>, Vec<Vec<ScalarValue>>), String>;
 
     fn delete_all(&self) -> usize;
 
@@ -117,5 +115,5 @@ pub trait Database {
     fn execute(&self, schema_change: SchemaChange) -> Result<ExecutionOutcome, ExecutionError>;
 
     fn work_with<R, F: Fn(&Self::Table) -> R>(&self, full_table_name: &FullTableName, operation: F) -> R;
-    fn work_with_index<R, F: Fn(&Self::Index) -> R>(&self, full_index_name: (String, String, String), operation: F) -> R;
+    fn work_with_index<R, F: Fn(&Self::Index) -> R>(&self, full_index_name: FullIndexName, operation: F) -> R;
 }

@@ -88,7 +88,7 @@ pub enum ExecutionOutcome {
     SchemaDropped,
     TableCreated,
     TableDropped,
-    IndexCreated
+    IndexCreated,
 }
 
 #[derive(Debug, PartialEq)]

@@ -37,13 +37,14 @@ pub struct InMemoryIndex {
 }
 
 impl InMemoryIndex {
-    pub (crate) fn new(column: usize) -> InMemoryIndex {
+    pub(crate) fn new(column: usize) -> InMemoryIndex {
         InMemoryIndex {
             records: RwLock::default(),
-            column
+            column,
         }
     }
 
+    #[allow(dead_code)]
     pub(crate) fn select(&self) -> Cursor {
         self.records
             .read()
@@ -69,8 +70,8 @@ pub struct InMemoryTableHandle {
 }
 
 impl InMemoryTableHandle {
-    pub(crate) fn index(&self, index: String) -> Arc<InMemoryIndex> {
-        self.indexes.get(&index).unwrap().clone()
+    pub(crate) fn index(&self, index: &str) -> Arc<InMemoryIndex> {
+        self.indexes.get(index).unwrap().clone()
     }
 
     pub(crate) fn indexes(&self) -> Vec<Arc<InMemoryIndex>> {
@@ -137,7 +138,8 @@ impl DataTable for InMemoryTableHandle {
     }
 
     fn create_index(&self, index_name: &str, over_column: usize) {
-        self.indexes.insert(index_name.to_owned(), Arc::new(InMemoryIndex::new(over_column)));
+        self.indexes
+            .insert(index_name.to_owned(), Arc::new(InMemoryIndex::new(over_column)));
     }
 }
 
@@ -193,7 +195,6 @@ impl SchemaHandle for InMemorySchemaHandle {
             }
         }
     }
-
 
     fn work_with<T, F: Fn(&Self::Table) -> T>(&self, table_name: &str, operation: F) -> Option<T> {
         self.tables.get(table_name).map(|table| operation(&*table))
@@ -522,7 +523,10 @@ mod general_cases {
                     Binary::pack(&[Datum::from_u64(1)]),
                     Binary::pack(&[Datum::from_u64(2)])
                 ]))),
-                Some(Some(vec![Binary::pack(&[Datum::from_u64(0)]), Binary::pack(&[Datum::from_u64(1)])]))
+                Some(Some(vec![
+                    Binary::pack(&[Datum::from_u64(0)]),
+                    Binary::pack(&[Datum::from_u64(1)])
+                ]))
             );
 
             assert_eq!(
@@ -576,7 +580,10 @@ mod general_cases {
                     Binary::pack(&[Datum::from_u64(1)]),
                     Binary::pack(&[Datum::from_u64(2)])
                 ]))),
-                Some(Some(vec![Binary::pack(&[Datum::from_u64(0)]), Binary::pack(&[Datum::from_u64(1)])]))
+                Some(Some(vec![
+                    Binary::pack(&[Datum::from_u64(0)]),
+                    Binary::pack(&[Datum::from_u64(1)])
+                ]))
             );
 
             assert_eq!(
@@ -633,7 +640,10 @@ mod general_cases {
                     Binary::pack(&[Datum::from_u64(1)]),
                     Binary::pack(&[Datum::from_u64(2)])
                 ]))),
-                Some(Some(vec![Binary::pack(&[Datum::from_u64(0)]), Binary::pack(&[Datum::from_u64(1)])]))
+                Some(Some(vec![
+                    Binary::pack(&[Datum::from_u64(0)]),
+                    Binary::pack(&[Datum::from_u64(1)])
+                ]))
             );
 
             assert_eq!(

@@ -140,8 +140,5 @@ fn database_with_table(database_with_schema: (InMemory, ResultCollector)) -> (In
 }
 
 fn setup_logger() {
-    match simple_logger::SimpleLogger::new().init() {
-        Ok(()) => {},
-        Err(_) => {},
-    };
+    if let Ok(()) = simple_logger::SimpleLogger::new().init() {};
 }

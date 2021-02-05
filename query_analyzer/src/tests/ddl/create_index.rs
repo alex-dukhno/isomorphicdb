@@ -19,7 +19,14 @@ fn create_index(index_name: &str, table_name: Vec<&str>, columns: Vec<&str>) -> 
     sql_ast::Statement::CreateIndex {
         name: sql_ast::ObjectName(vec![ident(index_name)]),
         table_name: sql_ast::ObjectName(table_name.into_iter().map(ident).collect()),
-        columns: columns.into_iter().map(|name| sql_ast::OrderByExpr { expr: sql_ast::Expr::Identifier(ident(name)), asc: None, nulls_first: None }).collect(),
+        columns: columns
+            .into_iter()
+            .map(|name| sql_ast::OrderByExpr {
+                expr: sql_ast::Expr::Identifier(ident(name)),
+                asc: None,
+                nulls_first: None,
+            })
+            .collect(),
         unique: true,
         if_not_exists: false,
     }
@@ -61,7 +68,13 @@ fn create_index_for_table_with_unsupported_name() {
 #[test]
 fn create_index_over_column_that_does_not_exists_in_table() {
     let database = InMemoryDatabase::new();
-    database.execute(create_table_ops("public", TABLE, vec![("column", SqlType::small_int())])).unwrap();
+    database
+        .execute(create_table_ops(
+            "public",
+            TABLE,
+            vec![("column", SqlType::small_int())],
+        ))
+        .unwrap();
     let analyzer = Analyzer::new(database);
     assert_eq!(
         analyzer.analyze(create_index("index_name", vec![TABLE], vec!["non_existent_column"])),
@@ -72,14 +85,26 @@ fn create_index_over_column_that_does_not_exists_in_table() {
 #[test]
 fn create_index_over_multiple_columns() {
     let database = InMemoryDatabase::new();
-    database.execute(create_table_ops("public", TABLE, vec![("col_1", SqlType::small_int()), ("col_2", SqlType::small_int()), ("col_3", SqlType::small_int())])).unwrap();
+    database
+        .execute(create_table_ops(
+            "public",
+            TABLE,
+            vec![
+                ("col_1", SqlType::small_int()),
+                ("col_2", SqlType::small_int()),
+                ("col_3", SqlType::small_int()),
+            ],
+        ))
+        .unwrap();
     let analyzer = Analyzer::new(database);
     assert_eq!(
         analyzer.analyze(create_index("index_name", vec![TABLE], vec!["col_1", "col_2", "col_3"])),
-        Ok(QueryAnalysis::DataDefinition(SchemaChange::CreateIndex(CreateIndexQuery {
-            name: "index_name".to_owned(),
-            full_table_name: FullTableName::from(TABLE),
-            column_names: vec!["col_1".to_owned(), "col_2".to_owned(), "col_3".to_owned()]
-        })))
+        Ok(QueryAnalysis::DataDefinition(SchemaChange::CreateIndex(
+            CreateIndexQuery {
+                name: "index_name".to_owned(),
+                full_table_name: FullTableName::from(TABLE),
+                column_names: vec!["col_1".to_owned(), "col_2".to_owned(), "col_3".to_owned()]
+            }
+        )))
     );
 }

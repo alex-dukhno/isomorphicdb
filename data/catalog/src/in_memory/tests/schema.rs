@@ -186,7 +186,16 @@ fn drop_many_cascade() {
     assert_eq!(
         database.execute(SchemaChange::CreateTable(CreateTableQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-            column_defs: vec![ColumnInfo { name: "col_1".to_owned(), sql_type: SqlType::small_int() }, ColumnInfo { name: "col_2".to_owned(), sql_type: SqlType::big_int() }],
+            column_defs: vec![
+                ColumnInfo {
+                    name: "col_1".to_owned(),
+                    sql_type: SqlType::small_int()
+                },
+                ColumnInfo {
+                    name: "col_2".to_owned(),
+                    sql_type: SqlType::big_int()
+                }
+            ],
             if_not_exists: false,
         })),
         Ok(ExecutionOutcome::TableCreated)
@@ -202,7 +211,16 @@ fn drop_many_cascade() {
     assert_eq!(
         database.execute(SchemaChange::CreateTable(CreateTableQuery {
             full_table_name: FullTableName::from((&OTHER_SCHEMA, &TABLE)),
-            column_defs: vec![ColumnInfo { name: "col_1".to_owned(), sql_type: SqlType::small_int() }, ColumnInfo { name: "col_2".to_owned(), sql_type: SqlType::big_int() }],
+            column_defs: vec![
+                ColumnInfo {
+                    name: "col_1".to_owned(),
+                    sql_type: SqlType::small_int()
+                },
+                ColumnInfo {
+                    name: "col_2".to_owned(),
+                    sql_type: SqlType::big_int()
+                }
+            ],
             if_not_exists: false,
         })),
         Ok(ExecutionOutcome::TableCreated)
@@ -221,8 +239,14 @@ fn drop_many_cascade() {
     assert_eq!(database.schema_exists(&SchemaName::from(&OTHER_SCHEMA)), false);
     assert_eq!(database.table_exists(&FullTableName::from((&SCHEMA, &TABLE))), false);
     assert_eq!(database.table_columns(&FullTableName::from((&SCHEMA, &TABLE))), vec![]);
-    assert_eq!(database.table_exists(&FullTableName::from((&OTHER_SCHEMA, &TABLE))), false);
-    assert_eq!(database.table_columns(&FullTableName::from((&OTHER_SCHEMA, &TABLE))), vec![]);
+    assert_eq!(
+        database.table_exists(&FullTableName::from((&OTHER_SCHEMA, &TABLE))),
+        false
+    );
+    assert_eq!(
+        database.table_columns(&FullTableName::from((&OTHER_SCHEMA, &TABLE))),
+        vec![]
+    );
 }
 
 #[test]

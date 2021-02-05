@@ -16,13 +16,13 @@ use super::*;
 use data_definition_execution_plan::{ColumnInfo, CreateSchemaQuery, CreateTableQuery, DropSchemasQuery, SchemaChange};
 
 #[cfg(test)]
+mod create_index;
+#[cfg(test)]
 mod create_schema;
 #[cfg(test)]
 mod create_table;
 #[cfg(test)]
 mod drop_statements;
-#[cfg(test)]
-mod create_index;
 
 fn create_table_if_not_exists(
     name: Vec<&str>,

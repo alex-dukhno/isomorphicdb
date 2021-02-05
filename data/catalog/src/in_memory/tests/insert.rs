@@ -29,7 +29,10 @@ fn insert_single_column() {
     assert_eq!(
         database.execute(SchemaChange::CreateTable(CreateTableQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-            column_defs: vec![ColumnInfo { name: "col_1".to_owned(), sql_type: SqlType::small_int() }],
+            column_defs: vec![ColumnInfo {
+                name: "col_1".to_owned(),
+                sql_type: SqlType::small_int()
+            }],
             if_not_exists: false,
         })),
         Ok(ExecutionOutcome::TableCreated)
