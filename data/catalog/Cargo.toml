@@ -14,7 +14,7 @@ data_scalar = { path = "../scalar" }
 
 dashmap = "4.0.2"
 log = "0.4.14"
-ordered-float = "2.0.1"
+ordered-float = "2.1.0"
 
 [dev-dependencies]
 rstest = "0.6.4"
