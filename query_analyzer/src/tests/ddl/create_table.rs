@@ -23,30 +23,6 @@ fn column(name: &str, data_type: sql_ast::DataType) -> sql_ast::ColumnDef {
     }
 }
 
-fn create_table_if_not_exists(
-    name: Vec<&str>,
-    columns: Vec<sql_ast::ColumnDef>,
-    if_not_exists: bool,
-) -> sql_ast::Statement {
-    sql_ast::Statement::CreateTable {
-        or_replace: false,
-        name: sql_ast::ObjectName(name.into_iter().map(ident).collect()),
-        columns,
-        constraints: vec![],
-        with_options: vec![],
-        if_not_exists,
-        external: false,
-        file_format: None,
-        location: None,
-        query: None,
-        without_rowid: false,
-    }
-}
-
-fn create_table(name: Vec<&str>, columns: Vec<sql_ast::ColumnDef>) -> sql_ast::Statement {
-    create_table_if_not_exists(name, columns, false)
-}
-
 #[test]
 fn create_table_with_nonexistent_schema() {
     let analyzer = Analyzer::new(InMemoryDatabase::new());
@@ -65,7 +41,7 @@ fn create_table_with_unqualified_name() {
         analyzer.analyze(create_table(vec!["only_table_in_the_name"], vec![])),
         Ok(QueryAnalysis::DataDefinition(SchemaChange::CreateTable(
             CreateTableQuery {
-                full_table_name: FullTableName::from((&"public", &"only_table_in_the_name")),
+                full_table_name: FullTableName::from("only_table_in_the_name"),
                 column_defs: vec![],
                 if_not_exists: false
             }

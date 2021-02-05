@@ -19,11 +19,11 @@ use std::{
 use types::SqlType;
 
 #[derive(Debug, PartialEq)]
-pub struct FullTableName((String, String));
+pub struct FullTableName((Option<String>, String));
 
 impl FullTableName {
     pub fn schema(&self) -> &str {
-        &(self.0).0
+        self.0.0.as_ref().map(String::as_str).unwrap_or("public")
     }
 
     pub fn table(&self) -> &str {
@@ -31,22 +31,25 @@ impl FullTableName {
     }
 }
 
-impl<'f> Into<(&'f str, &'f str)> for &'f FullTableName {
-    fn into(self) -> (&'f str, &'f str) {
-        (&(self.0).0, &(self.0).1)
-    }
-}
-
 impl<S: ToString> From<(&S, &S)> for FullTableName {
     fn from(tuple: (&S, &S)) -> Self {
         let (schema, table) = tuple;
-        FullTableName((schema.to_string(), table.to_string()))
+        FullTableName((Some(schema.to_string()), table.to_string()))
+    }
+}
+
+impl From<&str> for FullTableName {
+    fn from(table: &str) -> Self {
+        FullTableName((None, table.to_owned()))
     }
 }
 
 impl Display for FullTableName {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}.{}", self.0 .0, self.0 .1)
+        match self.0.0.as_ref() {
+            None => write!(f, "{}", self.0.1),
+            Some(schema_name) => write!(f, "{}.{}", schema_name, self.0.1),
+        }
     }
 }
 
@@ -57,14 +60,20 @@ impl<'o> TryFrom<&'o sql_ast::ObjectName> for FullTableName {
         if object.0.len() > 2 {
             Err(TableNamingError(object.to_string()))
         } else {
-            let (schema_name, table_name) = if object.0.len() == 1 {
-                ("public".to_lowercase(), object.0.first().unwrap().value.to_lowercase())
+            let schema_name = if object.0.len() == 1 {
+                None
             } else {
-                (
-                    object.0.first().unwrap().value.to_lowercase(),
-                    object.0.last().unwrap().value.to_lowercase(),
-                )
+                Some(object.0.first().unwrap().value.to_lowercase())
             };
+            let table_name = object.0.last().unwrap().value.to_lowercase();
+            // let (schema_name, table_name) = if object.0.len() == 1 {
+            //     ("public".to_lowercase(), object.0.first().unwrap().value.to_lowercase())
+            // } else {
+            //     (
+            //         object.0.first().unwrap().value.to_lowercase(),
+            //         object.0.last().unwrap().value.to_lowercase(),
+            //     )
+            // };
             Ok(FullTableName((schema_name, table_name)))
         }
     }
@@ -140,6 +149,10 @@ impl ColumnDef {
 
     pub fn has_name(&self, name: &str) -> bool {
         self.name == name
+    }
+
+    pub fn index(&self) -> usize {
+        self.ord_num as usize
     }
 }
 

@@ -15,9 +15,7 @@
 use std::{convert::TryFrom, sync::Arc};
 
 use catalog::CatalogDefinition;
-use data_definition_execution_plan::{
-    ColumnInfo, CreateSchemaQuery, CreateTableQuery, DropSchemasQuery, DropTablesQuery, SchemaChange,
-};
+use data_definition_execution_plan::{ColumnInfo, CreateSchemaQuery, CreateTableQuery, DropSchemasQuery, DropTablesQuery, SchemaChange, CreateIndexQuery};
 use data_manipulation_operators::Operation;
 use data_manipulation_untyped_queries::{DeleteQuery, InsertQuery, SelectQuery, UntypedWrite, UpdateQuery};
 use data_manipulation_untyped_tree::{DynamicUntypedItem, DynamicUntypedTree};
@@ -281,6 +279,38 @@ impl<CD: CatalogDefinition> Analyzer<CD> {
                 ))),
                 Err(error) => Err(AnalysisError::schema_naming_error(&error)),
             },
+            sql_ast::Statement::CreateIndex { name, table_name, columns, unique: _unique, if_not_exists: _if_not_exists } => {
+                match FullTableName::try_from(table_name) {
+                    Ok(full_table_name) => {
+                        match self.database.table_definition(&full_table_name) {
+                            None => Err(AnalysisError::schema_does_not_exist(full_table_name.schema())),
+                            Some(None) => Err(AnalysisError::table_does_not_exist(full_table_name)),
+                            Some(Some(table_info)) => {
+                                let mut column_names = vec![];
+                                let table_columns = table_info.column_names();
+                                for column in columns {
+                                    match &column.expr {
+                                        sql_ast::Expr::Identifier(name) => {
+                                            if table_columns.contains(&name.value) {
+                                                column_names.push(name.value.clone());
+                                            } else {
+                                                return Err(AnalysisError::column_not_found(&name.value));
+                                            }
+                                        }
+                                        _ => unimplemented!(),
+                                    }
+                                }
+                                Ok(QueryAnalysis::DataDefinition(SchemaChange::CreateIndex(CreateIndexQuery {
+                                    name: name.to_string(),
+                                    full_table_name,
+                                    column_names
+                                })))
+                            },
+                        }
+                    }
+                    Err(error) => Err(AnalysisError::table_naming_error(error)),
+                }
+            },
             sql_ast::Statement::Drop {
                 names,
                 object_type,
@@ -334,7 +364,6 @@ impl<CD: CatalogDefinition> Analyzer<CD> {
             sql_ast::Statement::Copy { .. } => unimplemented!(),
             sql_ast::Statement::CreateView { .. } => unimplemented!(),
             sql_ast::Statement::CreateVirtualTable { .. } => unimplemented!(),
-            sql_ast::Statement::CreateIndex { .. } => unimplemented!(),
             sql_ast::Statement::AlterTable { .. } => unimplemented!(),
             sql_ast::Statement::SetVariable { .. } => unimplemented!(),
             sql_ast::Statement::ShowVariable { .. } => unimplemented!(),

@@ -13,7 +13,6 @@
 // limitations under the License.
 
 use super::*;
-use data_definition_execution_plan::DropTablesQuery;
 
 #[test]
 fn create_table_where_schema_not_found() {

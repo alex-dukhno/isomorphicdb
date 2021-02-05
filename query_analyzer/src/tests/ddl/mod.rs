@@ -21,3 +21,29 @@ mod create_schema;
 mod create_table;
 #[cfg(test)]
 mod drop_statements;
+#[cfg(test)]
+mod create_index;
+
+fn create_table_if_not_exists(
+    name: Vec<&str>,
+    columns: Vec<sql_ast::ColumnDef>,
+    if_not_exists: bool,
+) -> sql_ast::Statement {
+    sql_ast::Statement::CreateTable {
+        or_replace: false,
+        name: sql_ast::ObjectName(name.into_iter().map(ident).collect()),
+        columns,
+        constraints: vec![],
+        with_options: vec![],
+        if_not_exists,
+        external: false,
+        file_format: None,
+        location: None,
+        query: None,
+        without_rowid: false,
+    }
+}
+
+fn create_table(name: Vec<&str>, columns: Vec<sql_ast::ColumnDef>) -> sql_ast::Statement {
+    create_table_if_not_exists(name, columns, false)
+}

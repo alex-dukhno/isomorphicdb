@@ -31,6 +31,8 @@ pub enum QueryEvent {
     TableCreated,
     /// Table successfully dropped
     TableDropped,
+    /// Index successfully created
+    IndexCreated,
     /// Variable successfully set
     VariableSet,
     /// Transaction is started
@@ -70,6 +72,7 @@ impl Into<BackendMessage> for QueryEvent {
             QueryEvent::SchemaDropped => BackendMessage::CommandComplete("DROP SCHEMA".to_owned()),
             QueryEvent::TableCreated => BackendMessage::CommandComplete("CREATE TABLE".to_owned()),
             QueryEvent::TableDropped => BackendMessage::CommandComplete("DROP TABLE".to_owned()),
+            QueryEvent::IndexCreated => BackendMessage::CommandComplete("CREATE INDEX".to_owned()),
             QueryEvent::VariableSet => BackendMessage::CommandComplete("SET".to_owned()),
             QueryEvent::TransactionStarted => BackendMessage::CommandComplete("BEGIN".to_owned()),
             QueryEvent::RecordsInserted(records) => BackendMessage::CommandComplete(format!("INSERT 0 {}", records)),

@@ -45,7 +45,7 @@ fn table_with_unqualified_name() {
     let analyzer = Analyzer::new(InMemoryDatabase::new());
     assert_eq!(
         analyzer.analyze(insert_statement(vec!["only_table_in_the_name"])),
-        Err(AnalysisError::table_does_not_exist(&"public.only_table_in_the_name"))
+        Err(AnalysisError::table_does_not_exist(&"only_table_in_the_name"))
     );
 }
 

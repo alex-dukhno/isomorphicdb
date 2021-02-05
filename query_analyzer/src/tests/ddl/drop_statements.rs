@@ -157,7 +157,7 @@ mod table {
             analyzer.analyze(drop_statement(vec![vec!["only_table_in_the_name"]], TABLE_TYPE)),
             Ok(QueryAnalysis::DataDefinition(SchemaChange::DropTables(
                 DropTablesQuery {
-                    full_table_names: vec![FullTableName::from((&"public", &"only_table_in_the_name"))],
+                    full_table_names: vec![FullTableName::from("only_table_in_the_name")],
                     cascade: false,
                     if_exists: false
                 }

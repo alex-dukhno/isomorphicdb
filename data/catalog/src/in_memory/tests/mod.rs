@@ -18,6 +18,8 @@ mod insert;
 mod schema;
 #[cfg(test)]
 mod table;
+#[cfg(test)]
+mod index;
 
 use super::*;
 use data_definition_execution_plan::ColumnInfo;

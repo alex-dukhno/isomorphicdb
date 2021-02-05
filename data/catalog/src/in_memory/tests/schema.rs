@@ -13,7 +13,6 @@
 // limitations under the License.
 
 use super::*;
-use data_definition_execution_plan::{CreateSchemaQuery, DropSchemasQuery, CreateTableQuery};
 
 #[test]
 fn create_schema() {

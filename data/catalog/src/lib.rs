@@ -63,10 +63,11 @@ impl Iterator for Cursor {
 
 trait DataTable {
     fn select(&self) -> Cursor;
-    fn insert(&self, data: Vec<Value>) -> usize;
+    fn insert(&self, data: Vec<Value>) -> Vec<Key>;
     fn update(&self, data: Vec<(Key, Value)>) -> usize;
     fn delete(&self, data: Vec<Key>) -> usize;
     fn next_column_ord(&self) -> u64;
+    fn create_index(&self, index_name: &str, over_column: usize);
 }
 
 trait SchemaHandle {
@@ -75,6 +76,7 @@ trait SchemaHandle {
     fn drop_table(&self, table_name: &str) -> bool;
     fn empty(&self) -> bool;
     fn all_tables(&self) -> Vec<String>;
+    fn create_index(&self, table_name: &str, index_name: &str, column_index: usize) -> bool;
     fn work_with<T, F: Fn(&Self::Table) -> T>(&self, table_name: &str, operation: F) -> Option<T>;
 }
 
@@ -94,6 +96,7 @@ pub trait CatalogDefinition {
 const DEFINITION_SCHEMA: &str = "DEFINITION_SCHEMA";
 const SCHEMATA_TABLE: &str = "SCHEMATA";
 const TABLES_TABLE: &str = "TABLES";
+const INDEXES_TABLE: &str = "TABLES";
 const COLUMNS_TABLE: &str = "COLUMNS";
 
 pub trait SqlTable {
@@ -109,8 +112,10 @@ pub trait SqlTable {
 
 pub trait Database {
     type Table: SqlTable;
+    type Index;
 
     fn execute(&self, schema_change: SchemaChange) -> Result<ExecutionOutcome, ExecutionError>;
 
     fn work_with<R, F: Fn(&Self::Table) -> R>(&self, full_table_name: &FullTableName, operation: F) -> R;
+    fn work_with_index<R, F: Fn(&Self::Index) -> R>(&self, full_index_name: (String, String, String), operation: F) -> R;
 }

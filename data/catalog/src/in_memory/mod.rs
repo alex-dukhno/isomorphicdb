@@ -13,20 +13,12 @@
 // limitations under the License.
 
 use std::sync::Arc;
-use data_definition_execution_plan::{
-    ExecutionError, ExecutionOutcome
-};
+use data_definition_execution_plan::{ExecutionError, ExecutionOutcome, CreateIndexQuery};
 use data_manipulation_typed_tree::{DynamicTypedItem, DynamicTypedTree, StaticTypedItem, StaticTypedTree, TypedValue};
 use data_scalar::ScalarValue;
 use definition::{ColumnDef, FullTableName, SchemaName, TableDef};
 use types::SqlType;
-use crate::{
-    binary::Binary,
-    in_memory::data_catalog::{InMemoryCatalogHandle, InMemoryTableHandle},
-    repr::Datum,
-    CatalogDefinition, DataCatalog, DataTable, Database, SchemaHandle, SqlTable, COLUMNS_TABLE, DEFINITION_SCHEMA,
-    SCHEMATA_TABLE, TABLES_TABLE,
-};
+use crate::{binary::Binary, in_memory::data_catalog::{InMemoryCatalogHandle, InMemoryTableHandle}, repr::Datum, CatalogDefinition, DataCatalog, DataTable, Database, SchemaHandle, SqlTable, COLUMNS_TABLE, DEFINITION_SCHEMA, SCHEMATA_TABLE, TABLES_TABLE, INDEXES_TABLE};
 use data_definition_execution_plan::{SchemaChange, CreateSchemaQuery, DropSchemasQuery, CreateTableQuery, DropTablesQuery};
 
 mod data_catalog;
@@ -97,6 +89,21 @@ impl InMemoryDatabase {
         table == Some(Some(true))
     }
 
+    fn index_exists(&self, full_table_name: &FullTableName, index_name: &str) -> bool {
+        let full_index_name = Binary::pack(&[
+            Datum::from_string("IN_MEMORY".to_owned()),
+            Datum::from_string((&full_table_name).schema().to_owned()),
+            Datum::from_string((&full_table_name).table().to_owned()),
+            Datum::from_string(index_name.to_owned())
+        ]);
+        let index = self.catalog.work_with(DEFINITION_SCHEMA, |schema| {
+            schema.work_with(INDEXES_TABLE, |table| {
+                table.select().any(|(_key, value)| value.starts_with(&full_index_name))
+            })
+        });
+        index == Some(Some(true))
+    }
+
     fn table_columns(&self, full_table_name: &FullTableName) -> Vec<ColumnDef> {
         let full_table_name = Binary::pack(&[
             Datum::from_string("IN_MEMORY".to_owned()),
@@ -143,6 +150,7 @@ impl CatalogDefinition for InMemoryDatabase {
 
 impl Database for InMemoryDatabase {
     type Table = InMemoryTable;
+    type Index = data_catalog::InMemoryIndex;
 
     fn execute(&self, schema_change: SchemaChange) -> Result<ExecutionOutcome, ExecutionError> {
         match schema_change {
@@ -306,6 +314,36 @@ impl Database for InMemoryDatabase {
                 }
                 Ok(ExecutionOutcome::TableDropped)
             },
+            SchemaChange::CreateIndex(CreateIndexQuery { name, full_table_name, column_names }) => {
+                if !self.schema_exists(&SchemaName::from(&full_table_name.schema())) {
+                    Err(ExecutionError::SchemaDoesNotExist(full_table_name.schema().to_owned()))
+                } else if !self.table_exists(&full_table_name) {
+                    Err(ExecutionError::TableDoesNotExist(full_table_name.schema().to_owned(), full_table_name.table().to_owned()))
+                } else {
+                    let table_columns = self.table_columns(&full_table_name);
+                    let mut column_indexes = vec![];
+                    for column_name in column_names.iter() {
+                        if let Some(col_def) = table_columns.iter().find(|col| col.has_name(column_name)) {
+                            column_indexes.push(col_def.index());
+                        } else {
+                            return Err(ExecutionError::ColumnNotFound(column_names[0].to_owned()));
+                        }
+                    }
+                    self.catalog.work_with(DEFINITION_SCHEMA, |schema| {
+                        schema.work_with(INDEXES_TABLE, |table| {
+                            table.insert(vec![Binary::pack(&[
+                                Datum::from_string("IN_MEMORY".to_owned()),
+                                Datum::from_string(full_table_name.schema().to_owned()),
+                                Datum::from_string(full_table_name.table().to_owned()),
+                                Datum::from_string(name.clone()),
+                                Datum::from_string(column_names.join(", "))
+                            ])])
+                        })
+                    });
+                    self.catalog.work_with(full_table_name.schema(), |schema| schema.create_index(full_table_name.table(), name.as_str(), column_indexes[0]));
+                    Ok(ExecutionOutcome::IndexCreated)
+                }
+            },
         }
     }
 
@@ -314,6 +352,11 @@ impl Database for InMemoryDatabase {
             self.table_columns(full_table_name),
             self.catalog.table(full_table_name),
         ))
+    }
+
+    fn work_with_index<R, F: Fn(&Self::Index) -> R>(&self, full_index_name: (String, String, String), operation: F) -> R {
+        let (schema, table, index) = full_index_name;
+        operation(&*self.catalog.table(&FullTableName::from((&schema, &table))).index(index))
     }
 }
 
@@ -365,22 +408,36 @@ impl InMemoryTable {
 
 impl SqlTable for InMemoryTable {
     fn insert(&self, rows: &[Vec<Option<StaticTypedTree>>]) -> usize {
-        self.data_table.insert(
-            rows.iter()
-                .map(|row| {
-                    log::debug!("ROW to INSERT {:#?}", row);
-                    let mut to_insert = vec![];
-                    for v in row {
-                        to_insert.push(
-                            v.as_ref()
-                                .map(|v| self.eval_static(&v))
-                                .unwrap_or_else(Datum::from_null),
-                        );
+        let values = rows.iter()
+            .map(|row| {
+                log::debug!("ROW to INSERT {:#?}", row);
+                let mut to_insert = vec![];
+                for v in row {
+                    to_insert.push(
+                        v.as_ref()
+                            .map(|v| self.eval_static(&v))
+                            .unwrap_or_else(Datum::from_null),
+                    );
+                }
+                Binary::pack(&to_insert)
+            })
+            .collect::<Vec<Binary>>();
+        let inserted = values.len();
+        let record_ids = self.data_table.insert(values.clone());
+        let indexes = self.data_table.indexes();
+        for index in indexes {
+            for i in 0..inserted {
+                let mut val = vec![];
+                let values_i = values[i].unpack();
+                for j in 0..values_i.len() {
+                    if index.over(j) {
+                        val.push(values_i[j].clone());
                     }
-                    Binary::pack(&to_insert)
-                })
-                .collect::<Vec<Binary>>(),
-        )
+                }
+                index.insert(Binary::pack(&val), record_ids[i].clone());
+            }
+        }
+        inserted
     }
 
     fn select(

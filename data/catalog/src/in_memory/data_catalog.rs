@@ -30,9 +30,52 @@ struct InternalInMemoryTableHandle {
     column_ords: AtomicU64,
 }
 
+#[derive(Debug)]
+pub struct InMemoryIndex {
+    records: RwLock<BTreeMap<Binary, Binary>>,
+    column: usize,
+}
+
+impl InMemoryIndex {
+    pub (crate) fn new(column: usize) -> InMemoryIndex {
+        InMemoryIndex {
+            records: RwLock::default(),
+            column
+        }
+    }
+
+    pub(crate) fn select(&self) -> Cursor {
+        self.records
+            .read()
+            .unwrap()
+            .iter()
+            .map(|(key, value)| (key.clone(), value.clone()))
+            .collect::<Cursor>()
+    }
+
+    pub(crate) fn insert(&self, value: Value, key: Key) {
+        self.records.write().unwrap().insert(value, key);
+    }
+
+    pub(crate) fn over(&self, column_index: usize) -> bool {
+        self.column == column_index
+    }
+}
+
 #[derive(Default, Debug, Clone)]
 pub struct InMemoryTableHandle {
     inner: Arc<InternalInMemoryTableHandle>,
+    indexes: Arc<DashMap<String, Arc<InMemoryIndex>>>,
+}
+
+impl InMemoryTableHandle {
+    pub(crate) fn index(&self, index: String) -> Arc<InMemoryIndex> {
+        self.indexes.get(&index).unwrap().clone()
+    }
+
+    pub(crate) fn indexes(&self) -> Vec<Arc<InMemoryIndex>> {
+        self.indexes.iter().map(|entry| entry.value().clone()).collect()
+    }
 }
 
 impl DataTable for InMemoryTableHandle {
@@ -46,18 +89,20 @@ impl DataTable for InMemoryTableHandle {
             .collect::<Cursor>()
     }
 
-    fn insert(&self, data: Vec<Value>) -> usize {
-        let len = data.len();
+    fn insert(&self, data: Vec<Value>) -> Vec<Key> {
         let mut rw = self.inner.records.write().unwrap();
+        let mut keys = vec![];
         for value in data {
             let record_id = self.inner.record_ids.fetch_add(1, Ordering::SeqCst);
             let key = Binary::pack(&[Datum::from_u64(record_id)]);
             debug_assert!(
-                matches!(rw.insert(key, value), None),
+                matches!(rw.insert(key.clone(), value), None),
                 "insert operation should insert nonexistent key"
             );
+            keys.push(key);
         }
-        len
+
+        keys
     }
 
     fn update(&self, data: Vec<(Key, Value)>) -> usize {
@@ -89,6 +134,10 @@ impl DataTable for InMemoryTableHandle {
 
     fn next_column_ord(&self) -> u64 {
         self.inner.column_ords.fetch_add(1, Ordering::SeqCst)
+    }
+
+    fn create_index(&self, index_name: &str, over_column: usize) {
+        self.indexes.insert(index_name.to_owned(), Arc::new(InMemoryIndex::new(over_column)));
     }
 }
 
@@ -130,6 +179,21 @@ impl SchemaHandle for InMemorySchemaHandle {
     fn all_tables(&self) -> Vec<String> {
         self.tables.iter().map(|entry| entry.key().clone()).collect()
     }
+
+    fn create_index(&self, table_name: &str, index_name: &str, column_index: usize) -> bool {
+        match self.tables.get(table_name) {
+            None => {
+                log::warn!("TABLE {:?} does not exist", table_name);
+                false
+            }
+            Some(table) => {
+                table.create_index(index_name, column_index);
+                log::warn!("INDEX {:?} on TABLE {:?} was created", index_name, table_name);
+                true
+            }
+        }
+    }
+
 
     fn work_with<T, F: Fn(&Self::Table) -> T>(&self, table_name: &str, operation: F) -> Option<T> {
         self.tables.get(table_name).map(|table| operation(&*table))
@@ -430,7 +494,7 @@ mod general_cases {
             assert_eq!(
                 catalog_handle.work_with(SCHEMA, |schema| schema
                     .work_with(TABLE, |table| table.insert(vec![Binary::pack(&[Datum::from_u64(1)])]))),
-                Some(Some(1))
+                Some(Some(vec![Binary::pack(&[Datum::from_u64(0)])]))
             );
 
             assert_eq!(
@@ -458,7 +522,7 @@ mod general_cases {
                     Binary::pack(&[Datum::from_u64(1)]),
                     Binary::pack(&[Datum::from_u64(2)])
                 ]))),
-                Some(Some(2))
+                Some(Some(vec![Binary::pack(&[Datum::from_u64(0)]), Binary::pack(&[Datum::from_u64(1)])]))
             );
 
             assert_eq!(
@@ -512,7 +576,7 @@ mod general_cases {
                     Binary::pack(&[Datum::from_u64(1)]),
                     Binary::pack(&[Datum::from_u64(2)])
                 ]))),
-                Some(Some(2))
+                Some(Some(vec![Binary::pack(&[Datum::from_u64(0)]), Binary::pack(&[Datum::from_u64(1)])]))
             );
 
             assert_eq!(
@@ -569,7 +633,7 @@ mod general_cases {
                     Binary::pack(&[Datum::from_u64(1)]),
                     Binary::pack(&[Datum::from_u64(2)])
                 ]))),
-                Some(Some(2))
+                Some(Some(vec![Binary::pack(&[Datum::from_u64(0)]), Binary::pack(&[Datum::from_u64(1)])]))
             );
 
             assert_eq!(

@@ -285,6 +285,7 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                         }
                         statement @ Statement::CreateSchema { .. }
                         | statement @ Statement::CreateTable { .. }
+                        | statement @ Statement::CreateIndex { .. }
                         | statement @ Statement::Drop { .. } => match self.query_analyzer.analyze(statement) {
                             Ok(QueryAnalysis::DataDefinition(schema_change)) => {
                                 log::debug!("SCHEMA CHANGE - {:?}", schema_change);
@@ -293,6 +294,7 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                                     Ok(ExecutionOutcome::SchemaDropped) => Ok(QueryEvent::SchemaDropped),
                                     Ok(ExecutionOutcome::TableCreated) => Ok(QueryEvent::TableCreated),
                                     Ok(ExecutionOutcome::TableDropped) => Ok(QueryEvent::TableDropped),
+                                    Ok(ExecutionOutcome::IndexCreated) => Ok(QueryEvent::IndexCreated),
                                     Err(ExecutionError::SchemaAlreadyExists(schema_name)) => {
                                         Err(QueryError::schema_already_exists(schema_name))
                                     }
@@ -308,6 +310,7 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                                     Err(ExecutionError::SchemaHasDependentObjects(schema_name)) => {
                                         Err(QueryError::schema_has_dependent_objects(schema_name))
                                     }
+                                    Err(ExecutionError::ColumnNotFound(column_name)) => {Err(QueryError::column_does_not_exist(column_name))}
                                 };
                                 self.sender.send(query_result).expect("To Send Result to Client");
                             }
@@ -518,7 +521,6 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                         sql_ast::Statement::Copy { .. } => unimplemented!(),
                         sql_ast::Statement::CreateView { .. } => unimplemented!(),
                         sql_ast::Statement::CreateVirtualTable { .. } => unimplemented!(),
-                        sql_ast::Statement::CreateIndex { .. } => unimplemented!(),
                         sql_ast::Statement::AlterTable { .. } => unimplemented!(),
                         sql_ast::Statement::ShowVariable { .. } => unimplemented!(),
                         sql_ast::Statement::ShowColumns { .. } => unimplemented!(),
