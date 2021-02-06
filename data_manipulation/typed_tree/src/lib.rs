@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use bigdecimal::BigDecimal;
 use data_manipulation_operators::{BiOperation, UnOperation};
 use types::SqlTypeFamily;
 
@@ -62,23 +63,18 @@ impl StaticTypedItem {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum TypedValue {
-    SmallInt(u16),
-    Integer(u32),
-    BigInt(u64),
-    Real(f32),
+    Num {
+        value: BigDecimal,
+        type_family: SqlTypeFamily,
+    },
     String(String),
-    Double(f64),
     Bool(bool),
 }
 
 impl TypedValue {
     fn type_family(&self) -> Option<SqlTypeFamily> {
         match self {
-            TypedValue::SmallInt(_) => Some(SqlTypeFamily::SmallInt),
-            TypedValue::Integer(_) => Some(SqlTypeFamily::Integer),
-            TypedValue::BigInt(_) => Some(SqlTypeFamily::BigInt),
-            TypedValue::Real(_) => Some(SqlTypeFamily::Real),
-            TypedValue::Double(_) => Some(SqlTypeFamily::Double),
+            TypedValue::Num { type_family, .. } => Some(*type_family),
             TypedValue::String(_) => Some(SqlTypeFamily::String),
             TypedValue::Bool(_) => Some(SqlTypeFamily::Bool),
         }

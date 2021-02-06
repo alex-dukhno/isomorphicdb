@@ -54,13 +54,14 @@ impl<D: Database> WriteQueryExecutor<D> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bigdecimal::BigDecimal;
     use catalog::InMemoryDatabase;
     use data_definition_execution_plan::{
         ColumnInfo, CreateSchemaQuery, CreateTableQuery, ExecutionOutcome, SchemaChange,
     };
     use data_manipulation_typed_tree::{StaticTypedItem, StaticTypedTree, TypedValue};
     use definition::{FullTableName, SchemaName};
-    use types::SqlType;
+    use types::{SqlType, SqlTypeFamily};
 
     const SCHEMA: &str = "schema";
     const TABLE: &str = "table";
@@ -94,7 +95,10 @@ mod tests {
             executor.execute(TypedWrite::Insert(InsertQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 values: vec![vec![Some(StaticTypedTree::Item(StaticTypedItem::Const(
-                    TypedValue::SmallInt(1),
+                    TypedValue::Num {
+                        value: BigDecimal::from(1),
+                        type_family: SqlTypeFamily::SmallInt
+                    },
                 )))]],
             })),
             Ok(QueryExecution::Inserted(1))

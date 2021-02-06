@@ -12,10 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{
-    in_memory::{data_catalog::InMemoryTableHandle, InMemoryTable},
-    repr::Datum,
-};
+use super::*;
 use data_manipulation_typed_tree::{StaticTypedItem, StaticTypedTree, TypedValue};
 use definition::ColumnDef;
 use types::SqlType;
@@ -27,8 +24,17 @@ fn small_int() {
 
     let table = InMemoryTable::new(columns, handle);
 
-    let tree = StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::SmallInt(0)));
-    assert_eq!(table.eval_static(&tree), Datum::from_i16(0));
+    let tree = StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
+        value: BigDecimal::from(0),
+        type_family: SqlTypeFamily::SmallInt,
+    }));
+    assert_eq!(
+        table.eval_static(&tree),
+        TypedValue::Num {
+            value: BigDecimal::from(0),
+            type_family: SqlTypeFamily::SmallInt
+        }
+    );
 }
 
 #[test]
@@ -38,8 +44,17 @@ fn integer() {
 
     let table = InMemoryTable::new(columns, handle);
 
-    let tree = StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Integer(0)));
-    assert_eq!(table.eval_static(&tree), Datum::from_i32(0));
+    let tree = StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
+        value: BigDecimal::from(0),
+        type_family: SqlTypeFamily::Integer,
+    }));
+    assert_eq!(
+        table.eval_static(&tree),
+        TypedValue::Num {
+            value: BigDecimal::from(0),
+            type_family: SqlTypeFamily::Integer
+        }
+    );
 }
 
 #[test]
@@ -49,8 +64,17 @@ fn big_int() {
 
     let table = InMemoryTable::new(columns, handle);
 
-    let tree = StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::BigInt(0)));
-    assert_eq!(table.eval_static(&tree), Datum::from_i64(0));
+    let tree = StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
+        value: BigDecimal::from(0),
+        type_family: SqlTypeFamily::BigInt,
+    }));
+    assert_eq!(
+        table.eval_static(&tree),
+        TypedValue::Num {
+            value: BigDecimal::from(0),
+            type_family: SqlTypeFamily::BigInt
+        }
+    );
 }
 
 #[test]
@@ -61,7 +85,7 @@ fn bool() {
     let table = InMemoryTable::new(columns, handle);
 
     let tree = StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Bool(true)));
-    assert_eq!(table.eval_static(&tree), Datum::from_bool(true));
+    assert_eq!(table.eval_static(&tree), TypedValue::Bool(true));
 }
 
 #[test]
@@ -72,5 +96,5 @@ fn string() {
     let table = InMemoryTable::new(columns, handle);
 
     let tree = StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::String("str".to_owned())));
-    assert_eq!(table.eval_static(&tree), Datum::from_string("str".to_owned()));
+    assert_eq!(table.eval_static(&tree), TypedValue::String("str".to_owned()));
 }

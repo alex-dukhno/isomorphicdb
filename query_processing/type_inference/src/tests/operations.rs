@@ -29,7 +29,10 @@ fn negate_number() {
         type_inference.infer_static(untyped_tree),
         StaticTypedTree::UnOp {
             op: UnOperation::Arithmetic(UnArithmetic::Neg),
-            item: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::SmallInt(2))))
+            item: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
+                value: BigDecimal::from(2),
+                type_family: SqlTypeFamily::SmallInt
+            })))
         }
     );
 }
@@ -47,9 +50,15 @@ fn add_same_types() {
         type_inference.infer_static(untyped_tree),
         StaticTypedTree::BiOp {
             type_family: Some(SqlTypeFamily::SmallInt),
-            left: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::SmallInt(1)))),
+            left: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
+                value: BigDecimal::from(1),
+                type_family: SqlTypeFamily::SmallInt
+            }))),
             op: BiOperation::Arithmetic(BiArithmetic::Add),
-            right: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::SmallInt(2))))
+            right: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
+                value: BigDecimal::from(2),
+                type_family: SqlTypeFamily::SmallInt
+            })))
         }
     );
 }
@@ -67,11 +76,15 @@ fn add_different_types() {
         type_inference.infer_static(untyped_tree),
         StaticTypedTree::BiOp {
             type_family: Some(SqlTypeFamily::BigInt),
-            left: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::BigInt(
-                (i64::MAX - i32::MAX as i64) as u64
-            )))),
+            left: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
+                value: BigDecimal::from((i64::MAX - i32::MAX as i64) as u64),
+                type_family: SqlTypeFamily::BigInt
+            }))),
             op: BiOperation::Arithmetic(BiArithmetic::Add),
-            right: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::SmallInt(2))))
+            right: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
+                value: BigDecimal::from(2),
+                type_family: SqlTypeFamily::SmallInt
+            })))
         }
     )
 }

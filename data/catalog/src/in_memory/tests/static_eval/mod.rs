@@ -12,27 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#[cfg(test)]
-mod index;
-#[cfg(test)]
-mod insert;
-#[cfg(test)]
-mod schema;
-#[cfg(test)]
-mod static_eval;
-#[cfg(test)]
-mod table;
-
 use super::*;
-use bigdecimal::BigDecimal;
-use data_definition_execution_plan::ColumnInfo;
-use types::SqlType;
 
-const SCHEMA: &str = "schema_name";
-const OTHER_SCHEMA: &str = "other_schema_name";
-const TABLE: &str = "table_name";
-const OTHER_TABLE: &str = "other_table_name";
-
-fn database() -> Arc<InMemoryDatabase> {
-    InMemoryDatabase::new()
-}
+#[cfg(test)]
+mod constants;
+#[cfg(test)]
+mod unary_op;

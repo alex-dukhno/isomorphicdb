@@ -15,3 +15,5 @@ catalog = { path = "../../data/catalog" }
 data_definition_execution_plan = { path = "../../data_definition/execution_plan" }
 definition = { path = "../../entities/definition" }
 types = { path = "../../entities/types" }
+
+bigdecimal = { version = "0.2.0", features = ["string-only"] }

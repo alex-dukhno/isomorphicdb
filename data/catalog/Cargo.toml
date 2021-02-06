@@ -13,6 +13,7 @@ definition = { path = "../../entities/definition" }
 types = { path = "../../entities/types" }
 data_scalar = { path = "../scalar" }
 
+bigdecimal = { version = "0.2.0", features = ["string-only"] }
 dashmap = "4.0.2"
 log = "0.4.14"
 ordered-float = "2.1.0"
