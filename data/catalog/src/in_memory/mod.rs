@@ -464,6 +464,12 @@ impl InMemoryTable {
                         TypedValue::BigInt(val) => Datum::from_i64((val as i64).wrapping_neg()),
                         _ => unimplemented!(),
                     },
+                    UnOperation::Arithmetic(UnArithmetic::Pos) => match value {
+                        TypedValue::SmallInt(val) => Datum::from_i16(val as i16),
+                        TypedValue::Integer(val) => Datum::from_i32(val as i32),
+                        TypedValue::BigInt(val) => Datum::from_i64(val as i64),
+                        _ => unimplemented!(),
+                    },
                     UnOperation::Arithmetic(_) => unimplemented!(),
                     UnOperation::Logical(_) => unimplemented!(),
                     UnOperation::Bitwise(_) => unimplemented!(),
