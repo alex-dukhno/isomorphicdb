@@ -13,9 +13,11 @@
 // limitations under the License.
 
 use bigdecimal::BigDecimal;
-
 use catalog::{Database, InMemoryDatabase};
-use data_manipulation_operators::{Arithmetic, Bitwise, Comparison, Logical, Operation, PatternMatching, StringOp};
+use data_manipulation_operators::{
+    BiArithmetic, BiLogical, BiOperation, Bitwise, Comparison, PatternMatching, StringOp, UnArithmetic, UnBitwise,
+    UnLogical, UnOperation,
+};
 use data_manipulation_untyped_tree::Bool;
 
 use super::*;

@@ -15,178 +15,256 @@
 use super::*;
 use crate::operation_mapper::OperationMapper;
 
-#[test]
-fn addition() {
-    assert_eq!(
-        OperationMapper::binary_operation(&sql_ast::BinaryOperator::Plus),
-        Operation::Arithmetic(Arithmetic::Add)
-    );
+#[cfg(test)]
+mod unary_op {
+    use super::*;
+
+    #[test]
+    fn minus() {
+        assert_eq!(
+            OperationMapper::unary_operation(&sql_ast::UnaryOperator::Minus),
+            UnOperation::Arithmetic(UnArithmetic::Neg)
+        );
+    }
+
+    #[test]
+    fn plus() {
+        assert_eq!(
+            OperationMapper::unary_operation(&sql_ast::UnaryOperator::Plus),
+            UnOperation::Arithmetic(UnArithmetic::Pos)
+        );
+    }
+
+    #[test]
+    fn square_root() {
+        assert_eq!(
+            OperationMapper::unary_operation(&sql_ast::UnaryOperator::PGSquareRoot),
+            UnOperation::Arithmetic(UnArithmetic::SquareRoot)
+        );
+    }
+
+    #[test]
+    fn cube_root() {
+        assert_eq!(
+            OperationMapper::unary_operation(&sql_ast::UnaryOperator::PGCubeRoot),
+            UnOperation::Arithmetic(UnArithmetic::CubeRoot)
+        );
+    }
+
+    #[test]
+    fn factorial() {
+        assert_eq!(
+            OperationMapper::unary_operation(&sql_ast::UnaryOperator::PGPostfixFactorial),
+            UnOperation::Arithmetic(UnArithmetic::Factorial)
+        );
+        assert_eq!(
+            OperationMapper::unary_operation(&sql_ast::UnaryOperator::PGPrefixFactorial),
+            UnOperation::Arithmetic(UnArithmetic::Factorial)
+        );
+    }
+
+    #[test]
+    fn abs() {
+        assert_eq!(
+            OperationMapper::unary_operation(&sql_ast::UnaryOperator::PGAbs),
+            UnOperation::Arithmetic(UnArithmetic::Abs)
+        );
+    }
+
+    #[test]
+    fn not() {
+        assert_eq!(
+            OperationMapper::unary_operation(&sql_ast::UnaryOperator::Not),
+            UnOperation::Logical(UnLogical::Not)
+        );
+    }
+
+    #[test]
+    fn bitwise_not() {
+        assert_eq!(
+            OperationMapper::unary_operation(&sql_ast::UnaryOperator::PGBitwiseNot),
+            UnOperation::Bitwise(UnBitwise::Not)
+        );
+    }
 }
 
-#[test]
-fn subtraction() {
-    assert_eq!(
-        OperationMapper::binary_operation(&sql_ast::BinaryOperator::Minus),
-        Operation::Arithmetic(Arithmetic::Sub)
-    );
-}
+#[cfg(test)]
+mod binary_op {
+    use super::*;
 
-#[test]
-fn multiplication() {
-    assert_eq!(
-        OperationMapper::binary_operation(&sql_ast::BinaryOperator::Multiply),
-        Operation::Arithmetic(Arithmetic::Mul)
-    );
-}
+    #[test]
+    fn addition() {
+        assert_eq!(
+            OperationMapper::binary_operation(&sql_ast::BinaryOperator::Plus),
+            BiOperation::Arithmetic(BiArithmetic::Add)
+        );
+    }
 
-#[test]
-fn division() {
-    assert_eq!(
-        OperationMapper::binary_operation(&sql_ast::BinaryOperator::Divide),
-        Operation::Arithmetic(Arithmetic::Div)
-    );
-}
+    #[test]
+    fn subtraction() {
+        assert_eq!(
+            OperationMapper::binary_operation(&sql_ast::BinaryOperator::Minus),
+            BiOperation::Arithmetic(BiArithmetic::Sub)
+        );
+    }
 
-#[test]
-fn exponent() {
-    assert_eq!(
-        OperationMapper::binary_operation(&sql_ast::BinaryOperator::BitwiseXor),
-        Operation::Arithmetic(Arithmetic::Exp)
-    );
-}
+    #[test]
+    fn multiplication() {
+        assert_eq!(
+            OperationMapper::binary_operation(&sql_ast::BinaryOperator::Multiply),
+            BiOperation::Arithmetic(BiArithmetic::Mul)
+        );
+    }
 
-#[test]
-fn modulus() {
-    assert_eq!(
-        OperationMapper::binary_operation(&sql_ast::BinaryOperator::Modulus),
-        Operation::Arithmetic(Arithmetic::Mod)
-    );
-}
+    #[test]
+    fn division() {
+        assert_eq!(
+            OperationMapper::binary_operation(&sql_ast::BinaryOperator::Divide),
+            BiOperation::Arithmetic(BiArithmetic::Div)
+        );
+    }
 
-#[test]
-fn string_concat() {
-    assert_eq!(
-        OperationMapper::binary_operation(&sql_ast::BinaryOperator::StringConcat),
-        Operation::StringOp(StringOp::Concat)
-    );
-}
+    #[test]
+    fn exponent() {
+        assert_eq!(
+            OperationMapper::binary_operation(&sql_ast::BinaryOperator::BitwiseXor),
+            BiOperation::Arithmetic(BiArithmetic::Exp)
+        );
+    }
 
-#[test]
-fn greater_than() {
-    assert_eq!(
-        OperationMapper::binary_operation(&sql_ast::BinaryOperator::Gt),
-        Operation::Comparison(Comparison::Gt)
-    );
-}
+    #[test]
+    fn modulus() {
+        assert_eq!(
+            OperationMapper::binary_operation(&sql_ast::BinaryOperator::Modulus),
+            BiOperation::Arithmetic(BiArithmetic::Mod)
+        );
+    }
 
-#[test]
-fn greater_than_or_equals() {
-    assert_eq!(
-        OperationMapper::binary_operation(&sql_ast::BinaryOperator::GtEq),
-        Operation::Comparison(Comparison::GtEq)
-    );
-}
+    #[test]
+    fn string_concat() {
+        assert_eq!(
+            OperationMapper::binary_operation(&sql_ast::BinaryOperator::StringConcat),
+            BiOperation::StringOp(StringOp::Concat)
+        );
+    }
 
-#[test]
-fn less_than() {
-    assert_eq!(
-        OperationMapper::binary_operation(&sql_ast::BinaryOperator::Lt),
-        Operation::Comparison(Comparison::Lt)
-    );
-}
+    #[test]
+    fn greater_than() {
+        assert_eq!(
+            OperationMapper::binary_operation(&sql_ast::BinaryOperator::Gt),
+            BiOperation::Comparison(Comparison::Gt)
+        );
+    }
 
-#[test]
-fn less_than_or_equals() {
-    assert_eq!(
-        OperationMapper::binary_operation(&sql_ast::BinaryOperator::LtEq),
-        Operation::Comparison(Comparison::LtEq)
-    );
-}
+    #[test]
+    fn greater_than_or_equals() {
+        assert_eq!(
+            OperationMapper::binary_operation(&sql_ast::BinaryOperator::GtEq),
+            BiOperation::Comparison(Comparison::GtEq)
+        );
+    }
 
-#[test]
-fn equals() {
-    assert_eq!(
-        OperationMapper::binary_operation(&sql_ast::BinaryOperator::Eq),
-        Operation::Comparison(Comparison::Eq)
-    );
-}
+    #[test]
+    fn less_than() {
+        assert_eq!(
+            OperationMapper::binary_operation(&sql_ast::BinaryOperator::Lt),
+            BiOperation::Comparison(Comparison::Lt)
+        );
+    }
 
-#[test]
-fn not_equals() {
-    assert_eq!(
-        OperationMapper::binary_operation(&sql_ast::BinaryOperator::NotEq),
-        Operation::Comparison(Comparison::NotEq)
-    );
-}
+    #[test]
+    fn less_than_or_equals() {
+        assert_eq!(
+            OperationMapper::binary_operation(&sql_ast::BinaryOperator::LtEq),
+            BiOperation::Comparison(Comparison::LtEq)
+        );
+    }
 
-#[test]
-fn logical_or() {
-    assert_eq!(
-        OperationMapper::binary_operation(&sql_ast::BinaryOperator::Or),
-        Operation::Logical(Logical::Or)
-    );
-}
+    #[test]
+    fn equals() {
+        assert_eq!(
+            OperationMapper::binary_operation(&sql_ast::BinaryOperator::Eq),
+            BiOperation::Comparison(Comparison::Eq)
+        );
+    }
 
-#[test]
-fn logical_and() {
-    assert_eq!(
-        OperationMapper::binary_operation(&sql_ast::BinaryOperator::And),
-        Operation::Logical(Logical::And)
-    );
-}
+    #[test]
+    fn not_equals() {
+        assert_eq!(
+            OperationMapper::binary_operation(&sql_ast::BinaryOperator::NotEq),
+            BiOperation::Comparison(Comparison::NotEq)
+        );
+    }
 
-#[test]
-fn like() {
-    assert_eq!(
-        OperationMapper::binary_operation(&sql_ast::BinaryOperator::Like),
-        Operation::PatternMatching(PatternMatching::Like)
-    );
-}
+    #[test]
+    fn logical_or() {
+        assert_eq!(
+            OperationMapper::binary_operation(&sql_ast::BinaryOperator::Or),
+            BiOperation::Logical(BiLogical::Or)
+        );
+    }
 
-#[test]
-fn not_like() {
-    assert_eq!(
-        OperationMapper::binary_operation(&sql_ast::BinaryOperator::NotLike),
-        Operation::PatternMatching(PatternMatching::NotLike)
-    );
-}
+    #[test]
+    fn logical_and() {
+        assert_eq!(
+            OperationMapper::binary_operation(&sql_ast::BinaryOperator::And),
+            BiOperation::Logical(BiLogical::And)
+        );
+    }
 
-#[test]
-fn bitwise_and() {
-    assert_eq!(
-        OperationMapper::binary_operation(&sql_ast::BinaryOperator::BitwiseAnd),
-        Operation::Bitwise(Bitwise::And)
-    );
-}
+    #[test]
+    fn like() {
+        assert_eq!(
+            OperationMapper::binary_operation(&sql_ast::BinaryOperator::Like),
+            BiOperation::PatternMatching(PatternMatching::Like)
+        );
+    }
 
-#[test]
-fn bitwise_or() {
-    assert_eq!(
-        OperationMapper::binary_operation(&sql_ast::BinaryOperator::BitwiseOr),
-        Operation::Bitwise(Bitwise::Or)
-    );
-}
+    #[test]
+    fn not_like() {
+        assert_eq!(
+            OperationMapper::binary_operation(&sql_ast::BinaryOperator::NotLike),
+            BiOperation::PatternMatching(PatternMatching::NotLike)
+        );
+    }
 
-#[test]
-fn bitwise_xor() {
-    assert_eq!(
-        OperationMapper::binary_operation(&sql_ast::BinaryOperator::PGBitwiseXor),
-        Operation::Bitwise(Bitwise::Xor)
-    );
-}
+    #[test]
+    fn bitwise_and() {
+        assert_eq!(
+            OperationMapper::binary_operation(&sql_ast::BinaryOperator::BitwiseAnd),
+            BiOperation::Bitwise(Bitwise::And)
+        );
+    }
 
-#[test]
-fn bitwise_shift_left() {
-    assert_eq!(
-        OperationMapper::binary_operation(&sql_ast::BinaryOperator::PGBitwiseShiftLeft),
-        Operation::Bitwise(Bitwise::ShiftLeft)
-    );
-}
+    #[test]
+    fn bitwise_or() {
+        assert_eq!(
+            OperationMapper::binary_operation(&sql_ast::BinaryOperator::BitwiseOr),
+            BiOperation::Bitwise(Bitwise::Or)
+        );
+    }
 
-#[test]
-fn bitwise_shift_right() {
-    assert_eq!(
-        OperationMapper::binary_operation(&sql_ast::BinaryOperator::PGBitwiseShiftRight),
-        Operation::Bitwise(Bitwise::ShiftRight)
-    );
+    #[test]
+    fn bitwise_xor() {
+        assert_eq!(
+            OperationMapper::binary_operation(&sql_ast::BinaryOperator::PGBitwiseXor),
+            BiOperation::Bitwise(Bitwise::Xor)
+        );
+    }
+
+    #[test]
+    fn bitwise_shift_left() {
+        assert_eq!(
+            OperationMapper::binary_operation(&sql_ast::BinaryOperator::PGBitwiseShiftLeft),
+            BiOperation::Bitwise(Bitwise::ShiftLeft)
+        );
+    }
+
+    #[test]
+    fn bitwise_shift_right() {
+        assert_eq!(
+            OperationMapper::binary_operation(&sql_ast::BinaryOperator::PGBitwiseShiftRight),
+            BiOperation::Bitwise(Bitwise::ShiftRight)
+        );
+    }
 }

@@ -228,13 +228,12 @@ fn insert_and_select_different_integer_types(database_with_schema: (InMemory, Re
         .expect("query executed");
     collector.assert_receive_single(Ok(QueryEvent::TableCreated));
 
-    // TODO: unary operators is not supported
-    // engine
-    //     .execute(Command::Query {
-    //         sql: "insert into schema_name.table_name values(-32768, -2147483648, -9223372036854775808);".to_owned(),
-    //     })
-    //     .expect("query executed");
-    // collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+    engine
+        .execute(Command::Query {
+            sql: "insert into schema_name.table_name values(-32768, -2147483648, -9223372036854775808);".to_owned(),
+        })
+        .expect("query executed");
+    collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
     engine
         .execute(Command::Query {
@@ -254,18 +253,17 @@ fn insert_and_select_different_integer_types(database_with_schema: (InMemory, Re
             ColumnMetadata::new("column_i", PgType::Integer),
             ColumnMetadata::new("column_bi", PgType::BigInt),
         ])),
-        // TODO: unary operators is not supported
-        // Ok(QueryEvent::DataRow(vec![
-        //     "-32768".to_owned(),
-        //     "-2147483648".to_owned(),
-        //     "-9223372036854775808".to_owned(),
-        // ])),
+        Ok(QueryEvent::DataRow(vec![
+            "-32768".to_owned(),
+            "-2147483648".to_owned(),
+            "-9223372036854775808".to_owned(),
+        ])),
         Ok(QueryEvent::DataRow(vec![
             "32767".to_owned(),
             "2147483647".to_owned(),
             "9223372036854775807".to_owned(),
         ])),
-        Ok(QueryEvent::RecordsSelected(1)),
+        Ok(QueryEvent::RecordsSelected(2)),
     ]);
 }
 

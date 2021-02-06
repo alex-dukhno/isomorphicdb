@@ -30,9 +30,9 @@ pub struct TypeInference {
 impl Default for TypeInference {
     fn default() -> Self {
         TypeInference {
-            small_int_range: BigDecimal::from(i16::MIN)..=BigDecimal::from(i16::MAX),
-            integer_range: BigDecimal::from(i32::MIN)..=BigDecimal::from(i32::MAX),
-            big_int_range: BigDecimal::from(i64::MIN)..=BigDecimal::from(i64::MAX),
+            small_int_range: BigDecimal::from(u16::MIN)..=BigDecimal::from(u16::MAX / 2 + 1),
+            integer_range: BigDecimal::from(u32::MIN)..=BigDecimal::from(u32::MAX / 2 + 1),
+            big_int_range: BigDecimal::from(u64::MIN)..=BigDecimal::from(u64::MAX / 2 + 1),
             real_range: BigDecimal::from_f32(f32::MIN).unwrap()..=BigDecimal::from_f32(f32::MAX).unwrap(),
             double_precision_range: BigDecimal::from_f64(f64::MIN).unwrap()..=BigDecimal::from_f64(f64::MAX).unwrap(),
         }
@@ -48,11 +48,11 @@ impl TypeInference {
             DynamicUntypedTree::Item(DynamicUntypedItem::Const(UntypedValue::Number(num))) => {
                 if num.is_integer() {
                     if self.small_int_range.contains(&num) {
-                        DynamicTypedTree::Item(DynamicTypedItem::Const(TypedValue::SmallInt(num.to_i16().unwrap())))
+                        DynamicTypedTree::Item(DynamicTypedItem::Const(TypedValue::SmallInt(num.to_u16().unwrap())))
                     } else if self.integer_range.contains(&num) {
-                        DynamicTypedTree::Item(DynamicTypedItem::Const(TypedValue::Integer(num.to_i32().unwrap())))
+                        DynamicTypedTree::Item(DynamicTypedItem::Const(TypedValue::Integer(num.to_u32().unwrap())))
                     } else if self.big_int_range.contains(&num) {
-                        DynamicTypedTree::Item(DynamicTypedItem::Const(TypedValue::BigInt(num.to_i64().unwrap())))
+                        DynamicTypedTree::Item(DynamicTypedItem::Const(TypedValue::BigInt(num.to_u64().unwrap())))
                     } else {
                         unimplemented!()
                     }
@@ -76,7 +76,7 @@ impl TypeInference {
 
     pub fn infer_static(&self, tree: StaticUntypedTree) -> StaticTypedTree {
         match tree {
-            StaticUntypedTree::Operation { left, op, right } => {
+            StaticUntypedTree::BiOp { left, op, right } => {
                 let left_tree = self.infer_static(*left);
                 let right_tree = self.infer_static(*right);
                 let type_family = match (left_tree.type_family(), right_tree.type_family()) {
@@ -90,7 +90,7 @@ impl TypeInference {
                     (None, Some(right_type_family)) => Some(right_type_family),
                     (None, None) => None,
                 };
-                StaticTypedTree::Operation {
+                StaticTypedTree::BiOp {
                     type_family,
                     left: Box::new(left_tree),
                     op,
@@ -98,13 +98,14 @@ impl TypeInference {
                 }
             }
             StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(num))) => {
+                println!("{:?}", num);
                 if num.is_integer() {
                     if self.small_int_range.contains(&num) {
-                        StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::SmallInt(num.to_i16().unwrap())))
+                        StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::SmallInt(num.to_u16().unwrap())))
                     } else if self.integer_range.contains(&num) {
-                        StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Integer(num.to_i32().unwrap())))
+                        StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Integer(num.to_u32().unwrap())))
                     } else if self.big_int_range.contains(&num) {
-                        StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::BigInt(num.to_i64().unwrap())))
+                        StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::BigInt(num.to_u64().unwrap())))
                     } else {
                         unimplemented!()
                     }
@@ -123,6 +124,10 @@ impl TypeInference {
                 StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Bool(boolean)))
             }
             StaticUntypedTree::Item(_) => unimplemented!(),
+            StaticUntypedTree::UnOp { op, item } => StaticTypedTree::UnOp {
+                op,
+                item: Box::new(self.infer_static(*item)),
+            },
         }
     }
 }

@@ -181,6 +181,34 @@ fn insert_into_table_with_parameters_and_values() {
     );
 }
 
+fn setup_logger() {
+    if let Ok(()) = simple_logger::SimpleLogger::new().init() {};
+}
+
+#[test]
+fn insert_into_table_negative_number() {
+    setup_logger();
+    let database = InMemoryDatabase::new();
+    database.execute(create_schema_ops(SCHEMA)).unwrap();
+    database
+        .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
+        .unwrap();
+    let analyzer = Analyzer::new(database);
+
+    assert_eq!(
+        analyzer.analyze(insert_with_values(vec![SCHEMA, TABLE], vec![vec![small_int(-32768)]])),
+        Ok(QueryAnalysis::Write(UntypedWrite::Insert(InsertQuery {
+            full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
+            values: vec![vec![Some(StaticUntypedTree::UnOp {
+                op: UnOperation::Arithmetic(UnArithmetic::Neg),
+                item: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(
+                    BigDecimal::from(32768)
+                ))))
+            })]],
+        })))
+    );
+}
+
 #[cfg(test)]
 mod multiple_values {
     use data_manipulation_untyped_tree::{StaticUntypedItem, StaticUntypedTree, UntypedValue};
@@ -219,11 +247,11 @@ mod multiple_values {
             )),
             Ok(QueryAnalysis::Write(UntypedWrite::Insert(InsertQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                values: vec![vec![Some(StaticUntypedTree::Operation {
+                values: vec![vec![Some(StaticUntypedTree::BiOp {
                     left: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(
                         BigDecimal::from(1)
                     )))),
-                    op: Operation::Arithmetic(Arithmetic::Add),
+                    op: BiOperation::Arithmetic(BiArithmetic::Add),
                     right: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(
                         BigDecimal::from(1)
                     ))))
@@ -249,11 +277,11 @@ mod multiple_values {
             )),
             Ok(QueryAnalysis::Write(UntypedWrite::Insert(InsertQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                values: vec![vec![Some(StaticUntypedTree::Operation {
+                values: vec![vec![Some(StaticUntypedTree::BiOp {
                     left: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::String(
                         "str".to_owned()
                     )))),
-                    op: Operation::StringOp(StringOp::Concat),
+                    op: BiOperation::StringOp(StringOp::Concat),
                     right: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::String(
                         "str".to_owned()
                     ))))
@@ -279,11 +307,11 @@ mod multiple_values {
             )),
             Ok(QueryAnalysis::Write(UntypedWrite::Insert(InsertQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                values: vec![vec![Some(StaticUntypedTree::Operation {
+                values: vec![vec![Some(StaticUntypedTree::BiOp {
                     left: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(
                         BigDecimal::from(1)
                     )))),
-                    op: Operation::Comparison(Comparison::Gt),
+                    op: BiOperation::Comparison(Comparison::Gt),
                     right: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(
                         BigDecimal::from(1)
                     ))))
@@ -309,11 +337,11 @@ mod multiple_values {
             )),
             Ok(QueryAnalysis::Write(UntypedWrite::Insert(InsertQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                values: vec![vec![Some(StaticUntypedTree::Operation {
+                values: vec![vec![Some(StaticUntypedTree::BiOp {
                     left: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Bool(
                         Bool(true)
                     )))),
-                    op: Operation::Logical(Logical::And),
+                    op: BiOperation::Logical(BiLogical::And),
                     right: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Bool(
                         Bool(true)
                     )))),
@@ -339,11 +367,11 @@ mod multiple_values {
             )),
             Ok(QueryAnalysis::Write(UntypedWrite::Insert(InsertQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                values: vec![vec![Some(StaticUntypedTree::Operation {
+                values: vec![vec![Some(StaticUntypedTree::BiOp {
                     left: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(
                         BigDecimal::from(1)
                     )))),
-                    op: Operation::Bitwise(Bitwise::Or),
+                    op: BiOperation::Bitwise(Bitwise::Or),
                     right: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(
                         BigDecimal::from(1)
                     ))))
@@ -369,11 +397,11 @@ mod multiple_values {
             )),
             Ok(QueryAnalysis::Write(UntypedWrite::Insert(InsertQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                values: vec![vec![Some(StaticUntypedTree::Operation {
+                values: vec![vec![Some(StaticUntypedTree::BiOp {
                     left: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::String(
                         "s".to_owned()
                     )))),
-                    op: Operation::PatternMatching(PatternMatching::Like),
+                    op: BiOperation::PatternMatching(PatternMatching::Like),
                     right: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::String(
                         "str".to_owned()
                     ))))

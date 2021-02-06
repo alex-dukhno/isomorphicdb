@@ -34,7 +34,7 @@ fn integer() {
 
     assert_eq!(
         type_inference.infer_static(untyped_tree),
-        StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Integer(i32::MAX - i16::MAX as i32)))
+        StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Integer((i32::MAX - i16::MAX as i32) as u32)))
     );
 }
 
@@ -45,7 +45,7 @@ fn bigint() {
 
     assert_eq!(
         type_inference.infer_static(tree),
-        StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::BigInt(i64::MAX - i32::MAX as i64)))
+        StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::BigInt((i64::MAX - i32::MAX as i64) as u64)))
     );
 }
 

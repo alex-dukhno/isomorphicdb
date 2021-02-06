@@ -21,22 +21,22 @@ mod arithmetic {
     #[test]
     fn number_and_number() {
         assert_eq!(
-            Operation::Arithmetic(Arithmetic::Add)
+            BiOperation::Arithmetic(BiArithmetic::Add)
                 .supported_type_family(Some(SqlTypeFamily::Integer), Some(SqlTypeFamily::Integer)),
             true
         );
         assert_eq!(
-            Operation::Arithmetic(Arithmetic::Add)
+            BiOperation::Arithmetic(BiArithmetic::Add)
                 .supported_type_family(Some(SqlTypeFamily::Real), Some(SqlTypeFamily::Integer)),
             true
         );
         assert_eq!(
-            Operation::Arithmetic(Arithmetic::Add)
+            BiOperation::Arithmetic(BiArithmetic::Add)
                 .supported_type_family(Some(SqlTypeFamily::Integer), Some(SqlTypeFamily::Real)),
             true
         );
         assert_eq!(
-            Operation::Arithmetic(Arithmetic::Add)
+            BiOperation::Arithmetic(BiArithmetic::Add)
                 .supported_type_family(Some(SqlTypeFamily::Real), Some(SqlTypeFamily::Real)),
             true
         );
@@ -45,12 +45,12 @@ mod arithmetic {
     #[test]
     fn number_and_string() {
         assert_eq!(
-            Operation::Arithmetic(Arithmetic::Add)
+            BiOperation::Arithmetic(BiArithmetic::Add)
                 .supported_type_family(Some(SqlTypeFamily::Integer), Some(SqlTypeFamily::String)),
             false
         );
         assert_eq!(
-            Operation::Arithmetic(Arithmetic::Add)
+            BiOperation::Arithmetic(BiArithmetic::Add)
                 .supported_type_family(Some(SqlTypeFamily::String), Some(SqlTypeFamily::Integer)),
             false
         );
@@ -59,12 +59,12 @@ mod arithmetic {
     #[test]
     fn number_and_bool() {
         assert_eq!(
-            Operation::Arithmetic(Arithmetic::Add)
+            BiOperation::Arithmetic(BiArithmetic::Add)
                 .supported_type_family(Some(SqlTypeFamily::Integer), Some(SqlTypeFamily::Bool)),
             false
         );
         assert_eq!(
-            Operation::Arithmetic(Arithmetic::Add)
+            BiOperation::Arithmetic(BiArithmetic::Add)
                 .supported_type_family(Some(SqlTypeFamily::Bool), Some(SqlTypeFamily::Integer)),
             false
         );

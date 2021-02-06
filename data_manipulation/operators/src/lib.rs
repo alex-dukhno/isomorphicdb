@@ -15,7 +15,7 @@
 use types::SqlTypeFamily;
 
 #[derive(Debug, PartialEq, Copy, Clone)]
-pub enum Arithmetic {
+pub enum BiArithmetic {
     Add,
     Sub,
     Mul,
@@ -44,7 +44,7 @@ pub enum Bitwise {
 }
 
 #[derive(Debug, PartialEq, Copy, Clone)]
-pub enum Logical {
+pub enum BiLogical {
     Or,
     And,
 }
@@ -61,44 +61,71 @@ pub enum StringOp {
 }
 
 #[derive(Debug, PartialEq, Copy, Clone)]
-pub enum Operation {
-    Arithmetic(Arithmetic),
+pub enum BiOperation {
+    Arithmetic(BiArithmetic),
     Comparison(Comparison),
     Bitwise(Bitwise),
-    Logical(Logical),
+    Logical(BiLogical),
     PatternMatching(PatternMatching),
     StringOp(StringOp),
 }
 
-impl Operation {
+impl BiOperation {
     pub fn resulted_types(&self) -> Vec<SqlTypeFamily> {
         match self {
-            Operation::Arithmetic(_) => vec![SqlTypeFamily::Integer, SqlTypeFamily::Real],
-            Operation::Comparison(_) => vec![SqlTypeFamily::Bool],
-            Operation::Bitwise(_) => vec![SqlTypeFamily::Integer],
-            Operation::Logical(_) => vec![SqlTypeFamily::Bool],
-            Operation::PatternMatching(_) => vec![SqlTypeFamily::Bool],
-            Operation::StringOp(_) => vec![SqlTypeFamily::Bool],
+            BiOperation::Arithmetic(_) => vec![SqlTypeFamily::Integer, SqlTypeFamily::Real],
+            BiOperation::Comparison(_) => vec![SqlTypeFamily::Bool],
+            BiOperation::Bitwise(_) => vec![SqlTypeFamily::Integer],
+            BiOperation::Logical(_) => vec![SqlTypeFamily::Bool],
+            BiOperation::PatternMatching(_) => vec![SqlTypeFamily::Bool],
+            BiOperation::StringOp(_) => vec![SqlTypeFamily::Bool],
         }
     }
 
     pub fn supported_type_family(&self, left: Option<SqlTypeFamily>, right: Option<SqlTypeFamily>) -> bool {
         match self {
-            Operation::Arithmetic(_) => {
+            BiOperation::Arithmetic(_) => {
                 left == Some(SqlTypeFamily::Integer) && right == Some(SqlTypeFamily::Integer)
                     || left == Some(SqlTypeFamily::Real) && right == Some(SqlTypeFamily::Integer)
                     || left == Some(SqlTypeFamily::Integer) && right == Some(SqlTypeFamily::Real)
                     || left == Some(SqlTypeFamily::Real) && right == Some(SqlTypeFamily::Real)
             }
-            Operation::Comparison(_) => left.is_some() && left == right,
-            Operation::Bitwise(_) => left == Some(SqlTypeFamily::Integer) && right == Some(SqlTypeFamily::Integer),
-            Operation::Logical(_) => left == Some(SqlTypeFamily::Bool) && right == Some(SqlTypeFamily::Bool),
-            Operation::PatternMatching(_) => {
+            BiOperation::Comparison(_) => left.is_some() && left == right,
+            BiOperation::Bitwise(_) => left == Some(SqlTypeFamily::Integer) && right == Some(SqlTypeFamily::Integer),
+            BiOperation::Logical(_) => left == Some(SqlTypeFamily::Bool) && right == Some(SqlTypeFamily::Bool),
+            BiOperation::PatternMatching(_) => {
                 left == Some(SqlTypeFamily::String) && right == Some(SqlTypeFamily::String)
             }
-            Operation::StringOp(_) => left == Some(SqlTypeFamily::String) && right == Some(SqlTypeFamily::String),
+            BiOperation::StringOp(_) => left == Some(SqlTypeFamily::String) && right == Some(SqlTypeFamily::String),
         }
     }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum UnOperation {
+    Arithmetic(UnArithmetic),
+    Logical(UnLogical),
+    Bitwise(UnBitwise),
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum UnArithmetic {
+    Neg,
+    Pos,
+    SquareRoot,
+    CubeRoot,
+    Factorial,
+    Abs,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum UnLogical {
+    Not,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum UnBitwise {
+    Not,
 }
 
 #[cfg(test)]

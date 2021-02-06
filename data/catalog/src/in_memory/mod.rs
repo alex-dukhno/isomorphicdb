@@ -23,6 +23,7 @@ use data_definition_execution_plan::{
     CreateIndexQuery, CreateSchemaQuery, CreateTableQuery, DropSchemasQuery, DropTablesQuery, ExecutionError,
     ExecutionOutcome, SchemaChange,
 };
+use data_manipulation_operators::{UnArithmetic, UnOperation};
 use data_manipulation_typed_tree::{DynamicTypedItem, DynamicTypedTree, StaticTypedItem, StaticTypedTree, TypedValue};
 use data_scalar::ScalarValue;
 use definition::{ColumnDef, FullIndexName, FullTableName, SchemaName, TableDef};
@@ -434,25 +435,54 @@ impl InMemoryTable {
         InMemoryTable { columns, data_table }
     }
 
+    fn eval_static_inner(&self, tree: &StaticTypedTree) -> TypedValue {
+        match tree {
+            StaticTypedTree::Item(StaticTypedItem::Const(value)) => value.clone(),
+            _ => unimplemented!(),
+        }
+    }
+
     fn eval_static(&self, tree: &StaticTypedTree) -> Datum {
         match tree {
-            StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::SmallInt(value))) => Datum::from_i16(*value),
-            StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Integer(value))) => Datum::from_i32(*value),
-            StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::BigInt(value))) => Datum::from_i64(*value),
-            StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Bool(value))) => Datum::from_bool(*value),
-            StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::String(string))) => {
-                Datum::from_string(string.clone())
-            }
+            StaticTypedTree::Item(StaticTypedItem::Const(value)) => match value {
+                TypedValue::SmallInt(val) => Datum::from_i16(*val as i16),
+                TypedValue::Integer(val) => Datum::from_i32(*val as i32),
+                TypedValue::BigInt(val) => Datum::from_i64(*val as i64),
+                TypedValue::Real(val) => Datum::from_f32(*val),
+                TypedValue::Double(val) => Datum::from_f64(*val),
+                TypedValue::Bool(val) => Datum::from_bool(*val),
+                TypedValue::String(val) => Datum::from_string(val.clone()),
+            },
             StaticTypedTree::Item(_) => unimplemented!(),
-            StaticTypedTree::Operation { .. } => unimplemented!(),
+            StaticTypedTree::BiOp { .. } => unimplemented!(),
+            StaticTypedTree::UnOp { op, item } => {
+                let value = self.eval_static_inner(item);
+                match op {
+                    UnOperation::Arithmetic(UnArithmetic::Neg) => match value {
+                        TypedValue::SmallInt(val) => Datum::from_i16((val as i16).wrapping_neg()),
+                        TypedValue::Integer(val) => Datum::from_i32((val as i32).wrapping_neg()),
+                        TypedValue::BigInt(val) => Datum::from_i64((val as i64).wrapping_neg()),
+                        _ => unimplemented!(),
+                    },
+                    UnOperation::Arithmetic(_) => unimplemented!(),
+                    UnOperation::Logical(_) => unimplemented!(),
+                    UnOperation::Bitwise(_) => unimplemented!(),
+                }
+            }
         }
     }
 
     fn eval_dynamic(&self, tree: &DynamicTypedTree) -> Datum {
         match tree {
-            DynamicTypedTree::Item(DynamicTypedItem::Const(TypedValue::SmallInt(value))) => Datum::from_i16(*value),
-            DynamicTypedTree::Item(DynamicTypedItem::Const(TypedValue::Integer(value))) => Datum::from_i32(*value),
-            DynamicTypedTree::Item(DynamicTypedItem::Const(TypedValue::BigInt(value))) => Datum::from_i64(*value),
+            DynamicTypedTree::Item(DynamicTypedItem::Const(TypedValue::SmallInt(value))) => {
+                Datum::from_i16(*value as i16)
+            }
+            DynamicTypedTree::Item(DynamicTypedItem::Const(TypedValue::Integer(value))) => {
+                Datum::from_i32(*value as i32)
+            }
+            DynamicTypedTree::Item(DynamicTypedItem::Const(TypedValue::BigInt(value))) => {
+                Datum::from_i64(*value as i64)
+            }
             DynamicTypedTree::Item(DynamicTypedItem::Const(TypedValue::Bool(value))) => Datum::from_bool(*value),
             DynamicTypedTree::Item(DynamicTypedItem::Const(TypedValue::String(string))) => {
                 Datum::from_string(string.clone())

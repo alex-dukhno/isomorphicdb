@@ -19,6 +19,8 @@ mod insert;
 #[cfg(test)]
 mod schema;
 #[cfg(test)]
+mod static_evaluation;
+#[cfg(test)]
 mod table;
 
 use super::*;

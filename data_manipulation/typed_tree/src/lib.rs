@@ -12,17 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use data_manipulation_operators::Operation;
+use data_manipulation_operators::{BiOperation, UnOperation};
 use types::SqlTypeFamily;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum StaticTypedTree {
     Item(StaticTypedItem),
-    Operation {
+    BiOp {
         type_family: Option<SqlTypeFamily>,
         left: Box<StaticTypedTree>,
-        op: Operation,
+        op: BiOperation,
         right: Box<StaticTypedTree>,
+    },
+    UnOp {
+        op: UnOperation,
+        item: Box<StaticTypedTree>,
     },
 }
 
@@ -30,7 +34,8 @@ impl StaticTypedTree {
     pub fn type_family(&self) -> Option<SqlTypeFamily> {
         match self {
             StaticTypedTree::Item(item) => item.type_family(),
-            StaticTypedTree::Operation { type_family, .. } => *type_family,
+            StaticTypedTree::BiOp { type_family, .. } => *type_family,
+            StaticTypedTree::UnOp { item, .. } => item.type_family(),
         }
     }
 }
@@ -57,9 +62,9 @@ impl StaticTypedItem {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum TypedValue {
-    SmallInt(i16),
-    Integer(i32),
-    BigInt(i64),
+    SmallInt(u16),
+    Integer(u32),
+    BigInt(u64),
     Real(f32),
     String(String),
     Double(f64),
@@ -84,7 +89,7 @@ impl TypedValue {
 pub enum DynamicTypedTree {
     Operation {
         left: Box<DynamicTypedTree>,
-        op: Operation,
+        op: BiOperation,
         right: Box<DynamicTypedTree>,
     },
     Item(DynamicTypedItem),

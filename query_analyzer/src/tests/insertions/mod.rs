@@ -21,7 +21,16 @@ mod expressions;
 mod general_cases;
 
 fn small_int(value: i16) -> sql_ast::Expr {
-    sql_ast::Expr::Value(number(value))
+    if value > -1 {
+        sql_ast::Expr::Value(number(value))
+    } else {
+        sql_ast::Expr::UnaryOp {
+            op: sql_ast::UnaryOperator::Minus,
+            expr: Box::new(sql_ast::Expr::Value(sql_ast::Value::Number(BigDecimal::from(
+                -(value as i32),
+            )))),
+        }
+    }
 }
 
 fn inner_insert(

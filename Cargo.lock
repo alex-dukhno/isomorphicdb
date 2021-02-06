@@ -165,6 +165,7 @@ version = "0.1.0"
 dependencies = [
  "dashmap",
  "data_definition_execution_plan",
+ "data_manipulation_operators",
  "data_manipulation_typed_tree",
  "data_scalar",
  "definition",
@@ -305,6 +306,7 @@ dependencies = [
 name = "data_manipulation_typed_tree"
 version = "0.1.0"
 dependencies = [
+ "bigdecimal",
  "data_manipulation_operators",
  "types",
 ]
@@ -806,6 +808,7 @@ dependencies = [
  "data_manipulation_untyped_tree",
  "definition",
  "log",
+ "simple_logger",
  "sql_ast",
  "types",
 ]
