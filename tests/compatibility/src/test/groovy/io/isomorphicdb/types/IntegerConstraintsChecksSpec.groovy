@@ -42,7 +42,6 @@ class IntegerConstraintsChecksSpec extends SetupEnvironment {
     db.close()
   }
 
-  @Ignore("-<int> is treated like UnaryMinus operation")
   def 'integer types min max limits'() {
     given:
       String insertMaxValues = 'insert into SCHEMA_NAME.TABLE_NAME values ( 32767,  2147483647,  9223372036854775807)'

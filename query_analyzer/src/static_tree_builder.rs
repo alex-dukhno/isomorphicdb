@@ -31,6 +31,14 @@ impl StaticTreeBuilder {
             sql_ast::Expr::Value(value) => Self::value(value),
             sql_ast::Expr::Identifier(ident) => Self::ident(ident),
             sql_ast::Expr::BinaryOp { left, op, right } => Self::op(op, &**left, &**right, original),
+            sql_ast::Expr::UnaryOp { op, expr } => {
+                let op = OperationMapper::unary_operation(op);
+                let item = Self::inner_build(expr, original)?;
+                Ok(StaticUntypedTree::UnOp {
+                    op,
+                    item: Box::new(item),
+                })
+            }
             expr => {
                 log::warn!("Syntax error in '{:#?}' around '{:?}'", original, expr);
                 Err(AnalysisError::syntax_error(format!(
@@ -49,7 +57,7 @@ impl StaticTreeBuilder {
     ) -> AnalysisResult<StaticUntypedTree> {
         let operation = OperationMapper::binary_operation(op);
         match (Self::inner_build(left, original), Self::inner_build(right, original)) {
-            (Ok(left_item), Ok(right_item)) => Ok(StaticUntypedTree::Operation {
+            (Ok(left_item), Ok(right_item)) => Ok(StaticUntypedTree::BiOp {
                 left: Box::new(left_item),
                 op: operation,
                 right: Box::new(right_item),

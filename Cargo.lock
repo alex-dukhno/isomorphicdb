@@ -163,8 +163,10 @@ checksum = "631ae5198c9be5e753e5cc215e1bd73c2b466a3565173db433f52bb9d3e66dba"
 name = "catalog"
 version = "0.1.0"
 dependencies = [
+ "bigdecimal",
  "dashmap",
  "data_definition_execution_plan",
+ "data_manipulation_operators",
  "data_manipulation_typed_tree",
  "data_scalar",
  "definition",
@@ -305,6 +307,7 @@ dependencies = [
 name = "data_manipulation_typed_tree"
 version = "0.1.0"
 dependencies = [
+ "bigdecimal",
  "data_manipulation_operators",
  "types",
 ]
@@ -806,6 +809,7 @@ dependencies = [
  "data_manipulation_untyped_tree",
  "definition",
  "log",
+ "simple_logger",
  "sql_ast",
  "types",
 ]
@@ -836,6 +840,7 @@ dependencies = [
  "data_manipulation_operators",
  "data_manipulation_typed_tree",
  "data_manipulation_untyped_tree",
+ "num-bigint",
  "types",
 ]
 
@@ -1274,6 +1279,7 @@ checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
 name = "write_query_executor"
 version = "0.1.0"
 dependencies = [
+ "bigdecimal",
  "catalog",
  "data_definition_execution_plan",
  "data_manipulation_query_result",

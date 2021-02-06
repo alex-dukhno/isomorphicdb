@@ -15,6 +15,7 @@
 use super::*;
 use bigdecimal::{BigDecimal, FromPrimitive};
 use data_manipulation_typed_tree::{StaticTypedItem, StaticTypedTree, TypedValue};
+use num_bigint::BigInt;
 
 #[test]
 fn smallint() {
@@ -23,7 +24,10 @@ fn smallint() {
 
     assert_eq!(
         type_inference.infer_static(untyped_tree),
-        StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::SmallInt(0)))
+        StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
+            value: BigDecimal::from(0),
+            type_family: SqlTypeFamily::SmallInt
+        }))
     );
 }
 
@@ -34,7 +38,10 @@ fn integer() {
 
     assert_eq!(
         type_inference.infer_static(untyped_tree),
-        StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Integer(i32::MAX - i16::MAX as i32)))
+        StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
+            value: BigDecimal::from(i32::MAX - i16::MAX as i32),
+            type_family: SqlTypeFamily::Integer
+        }))
     );
 }
 
@@ -45,7 +52,10 @@ fn bigint() {
 
     assert_eq!(
         type_inference.infer_static(tree),
-        StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::BigInt(i64::MAX - i32::MAX as i64)))
+        StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
+            value: BigDecimal::from(i64::MAX - i32::MAX as i64),
+            type_family: SqlTypeFamily::BigInt
+        }))
     );
 }
 
@@ -56,7 +66,10 @@ fn real() {
 
     assert_eq!(
         type_inference.infer_static(tree),
-        StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Real(3.8)))
+        StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
+            value: BigDecimal::from((BigInt::from(38), 1)),
+            type_family: SqlTypeFamily::Real
+        }))
     );
 }
 

@@ -12,12 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use bigdecimal::{BigDecimal, FromPrimitive, ToPrimitive};
+use bigdecimal::{BigDecimal, FromPrimitive};
 use data_manipulation_typed_tree::{DynamicTypedItem, DynamicTypedTree, StaticTypedItem, StaticTypedTree, TypedValue};
 use data_manipulation_untyped_tree::{
     Bool, DynamicUntypedItem, DynamicUntypedTree, StaticUntypedItem, StaticUntypedTree, UntypedValue,
 };
 use std::ops::RangeInclusive;
+use types::SqlTypeFamily;
 
 pub struct TypeInference {
     small_int_range: RangeInclusive<BigDecimal>,
@@ -30,9 +31,9 @@ pub struct TypeInference {
 impl Default for TypeInference {
     fn default() -> Self {
         TypeInference {
-            small_int_range: BigDecimal::from(i16::MIN)..=BigDecimal::from(i16::MAX),
-            integer_range: BigDecimal::from(i32::MIN)..=BigDecimal::from(i32::MAX),
-            big_int_range: BigDecimal::from(i64::MIN)..=BigDecimal::from(i64::MAX),
+            small_int_range: BigDecimal::from(u16::MIN)..=BigDecimal::from(u16::MAX / 2 + 1),
+            integer_range: BigDecimal::from(u32::MIN)..=BigDecimal::from(u32::MAX / 2 + 1),
+            big_int_range: BigDecimal::from(u64::MIN)..=BigDecimal::from(u64::MAX / 2 + 1),
             real_range: BigDecimal::from_f32(f32::MIN).unwrap()..=BigDecimal::from_f32(f32::MAX).unwrap(),
             double_precision_range: BigDecimal::from_f64(f64::MIN).unwrap()..=BigDecimal::from_f64(f64::MAX).unwrap(),
         }
@@ -48,18 +49,33 @@ impl TypeInference {
             DynamicUntypedTree::Item(DynamicUntypedItem::Const(UntypedValue::Number(num))) => {
                 if num.is_integer() {
                     if self.small_int_range.contains(&num) {
-                        DynamicTypedTree::Item(DynamicTypedItem::Const(TypedValue::SmallInt(num.to_i16().unwrap())))
+                        DynamicTypedTree::Item(DynamicTypedItem::Const(TypedValue::Num {
+                            value: num,
+                            type_family: SqlTypeFamily::SmallInt,
+                        }))
                     } else if self.integer_range.contains(&num) {
-                        DynamicTypedTree::Item(DynamicTypedItem::Const(TypedValue::Integer(num.to_i32().unwrap())))
+                        DynamicTypedTree::Item(DynamicTypedItem::Const(TypedValue::Num {
+                            value: num,
+                            type_family: SqlTypeFamily::Integer,
+                        }))
                     } else if self.big_int_range.contains(&num) {
-                        DynamicTypedTree::Item(DynamicTypedItem::Const(TypedValue::BigInt(num.to_i64().unwrap())))
+                        DynamicTypedTree::Item(DynamicTypedItem::Const(TypedValue::Num {
+                            value: num,
+                            type_family: SqlTypeFamily::BigInt,
+                        }))
                     } else {
                         unimplemented!()
                     }
                 } else if self.real_range.contains(&num) {
-                    DynamicTypedTree::Item(DynamicTypedItem::Const(TypedValue::Real(num.to_f32().unwrap())))
+                    DynamicTypedTree::Item(DynamicTypedItem::Const(TypedValue::Num {
+                        value: num,
+                        type_family: SqlTypeFamily::Real,
+                    }))
                 } else if self.double_precision_range.contains(&num) {
-                    DynamicTypedTree::Item(DynamicTypedItem::Const(TypedValue::Double(num.to_f64().unwrap())))
+                    DynamicTypedTree::Item(DynamicTypedItem::Const(TypedValue::Num {
+                        value: num,
+                        type_family: SqlTypeFamily::Double,
+                    }))
                 } else {
                     unimplemented!()
                 }
@@ -76,7 +92,7 @@ impl TypeInference {
 
     pub fn infer_static(&self, tree: StaticUntypedTree) -> StaticTypedTree {
         match tree {
-            StaticUntypedTree::Operation { left, op, right } => {
+            StaticUntypedTree::BiOp { left, op, right } => {
                 let left_tree = self.infer_static(*left);
                 let right_tree = self.infer_static(*right);
                 let type_family = match (left_tree.type_family(), right_tree.type_family()) {
@@ -90,7 +106,7 @@ impl TypeInference {
                     (None, Some(right_type_family)) => Some(right_type_family),
                     (None, None) => None,
                 };
-                StaticTypedTree::Operation {
+                StaticTypedTree::BiOp {
                     type_family,
                     left: Box::new(left_tree),
                     op,
@@ -98,20 +114,36 @@ impl TypeInference {
                 }
             }
             StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(num))) => {
+                println!("{:?}", num);
                 if num.is_integer() {
                     if self.small_int_range.contains(&num) {
-                        StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::SmallInt(num.to_i16().unwrap())))
+                        StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
+                            value: num,
+                            type_family: SqlTypeFamily::SmallInt,
+                        }))
                     } else if self.integer_range.contains(&num) {
-                        StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Integer(num.to_i32().unwrap())))
+                        StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
+                            value: num,
+                            type_family: SqlTypeFamily::Integer,
+                        }))
                     } else if self.big_int_range.contains(&num) {
-                        StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::BigInt(num.to_i64().unwrap())))
+                        StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
+                            value: num,
+                            type_family: SqlTypeFamily::BigInt,
+                        }))
                     } else {
                         unimplemented!()
                     }
                 } else if self.real_range.contains(&num) {
-                    StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Real(num.to_f32().unwrap())))
+                    StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
+                        value: num,
+                        type_family: SqlTypeFamily::Real,
+                    }))
                 } else if self.double_precision_range.contains(&num) {
-                    StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Double(num.to_f64().unwrap())))
+                    StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
+                        value: num,
+                        type_family: SqlTypeFamily::Double,
+                    }))
                 } else {
                     unimplemented!()
                 }
@@ -123,6 +155,10 @@ impl TypeInference {
                 StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Bool(boolean)))
             }
             StaticUntypedTree::Item(_) => unimplemented!(),
+            StaticUntypedTree::UnOp { op, item } => StaticTypedTree::UnOp {
+                op,
+                item: Box::new(self.infer_static(*item)),
+            },
         }
     }
 }

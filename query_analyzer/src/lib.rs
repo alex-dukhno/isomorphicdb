@@ -18,7 +18,7 @@ use catalog::CatalogDefinition;
 use data_definition_execution_plan::{
     ColumnInfo, CreateIndexQuery, CreateSchemaQuery, CreateTableQuery, DropSchemasQuery, DropTablesQuery, SchemaChange,
 };
-use data_manipulation_operators::Operation;
+use data_manipulation_operators::BiOperation;
 use data_manipulation_untyped_queries::{DeleteQuery, InsertQuery, SelectQuery, UntypedWrite, UpdateQuery};
 use data_manipulation_untyped_tree::{DynamicUntypedItem, DynamicUntypedTree};
 use definition::{FullTableName, SchemaName};
@@ -415,19 +415,19 @@ pub enum QueryAnalysis {
 pub enum AnalysisError {
     SchemaNamingError(String),
     SchemaDoesNotExist(String),
-    SchemaAlreadyExists(String),
+    // SchemaAlreadyExists(String),
     TableNamingError(String),
     TableDoesNotExist(String),
-    TableAlreadyExists(String),
+    // TableAlreadyExists(String),
     TypeIsNotSupported(String),
     SyntaxError(String),
     ColumnNotFound(String),
-    ColumnCantBeReferenced(String),                                  // Error code: 42703
-    InvalidInputSyntaxForType { sql_type: SqlType, value: String },  // Error code: 22P02
-    StringDataRightTruncation(SqlType),                              // Error code: 22001
-    DatatypeMismatch { column_type: SqlType, source_type: SqlType }, // Error code: 42804
-    AmbiguousFunction(Operation),                                    // Error code: 42725
-    UndefinedFunction(Operation),                                    // Error code: 42883
+    ColumnCantBeReferenced(String), // Error code: 42703
+    // InvalidInputSyntaxForType { sql_type: SqlType, value: String },  // Error code: 22P02
+    // StringDataRightTruncation(SqlType),                              // Error code: 22001
+    // DatatypeMismatch { column_type: SqlType, source_type: SqlType }, // Error code: 42804
+    // AmbiguousFunction(BiOperation),                                    // Error code: 42725
+    UndefinedFunction(BiOperation), // Error code: 42883
     FeatureNotSupported(Feature),
 }
 
@@ -440,20 +440,12 @@ impl AnalysisError {
         AnalysisError::SchemaDoesNotExist(schema_name.to_string())
     }
 
-    pub fn schema_already_exists<S: ToString>(schema_name: S) -> AnalysisError {
-        AnalysisError::SchemaAlreadyExists(schema_name.to_string())
-    }
-
     pub fn table_naming_error<M: ToString>(message: M) -> AnalysisError {
         AnalysisError::TableNamingError(message.to_string())
     }
 
     pub fn table_does_not_exist<T: ToString>(table_name: T) -> AnalysisError {
         AnalysisError::TableDoesNotExist(table_name.to_string())
-    }
-
-    pub fn table_already_exists<T: ToString>(table_name: T) -> AnalysisError {
-        AnalysisError::TableAlreadyExists(table_name.to_string())
     }
 
     pub fn type_is_not_supported<T: ToString>(type_name: T) -> AnalysisError {
@@ -470,24 +462,6 @@ impl AnalysisError {
 
     pub fn column_cant_be_referenced<C: ToString>(column_name: C) -> AnalysisError {
         AnalysisError::ColumnCantBeReferenced(column_name.to_string())
-    }
-
-    pub fn invalid_input_syntax_for_type<V: ToString>(sql_type: SqlType, value: V) -> AnalysisError {
-        AnalysisError::InvalidInputSyntaxForType {
-            sql_type,
-            value: value.to_string(),
-        }
-    }
-
-    pub fn string_data_right_truncation(sql_type: SqlType) -> AnalysisError {
-        AnalysisError::StringDataRightTruncation(sql_type)
-    }
-
-    pub fn datatype_mismatch(column_type: SqlType, source_type: SqlType) -> AnalysisError {
-        AnalysisError::DatatypeMismatch {
-            column_type,
-            source_type,
-        }
     }
 
     pub fn feature_not_supported(feature: Feature) -> AnalysisError {

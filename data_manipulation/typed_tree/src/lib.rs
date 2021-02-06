@@ -12,17 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use data_manipulation_operators::Operation;
+use bigdecimal::BigDecimal;
+use data_manipulation_operators::{BiOperation, UnOperation};
 use types::SqlTypeFamily;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum StaticTypedTree {
     Item(StaticTypedItem),
-    Operation {
+    BiOp {
         type_family: Option<SqlTypeFamily>,
         left: Box<StaticTypedTree>,
-        op: Operation,
+        op: BiOperation,
         right: Box<StaticTypedTree>,
+    },
+    UnOp {
+        op: UnOperation,
+        item: Box<StaticTypedTree>,
     },
 }
 
@@ -30,7 +35,8 @@ impl StaticTypedTree {
     pub fn type_family(&self) -> Option<SqlTypeFamily> {
         match self {
             StaticTypedTree::Item(item) => item.type_family(),
-            StaticTypedTree::Operation { type_family, .. } => *type_family,
+            StaticTypedTree::BiOp { type_family, .. } => *type_family,
+            StaticTypedTree::UnOp { item, .. } => item.type_family(),
         }
     }
 }
@@ -57,23 +63,18 @@ impl StaticTypedItem {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum TypedValue {
-    SmallInt(i16),
-    Integer(i32),
-    BigInt(i64),
-    Real(f32),
+    Num {
+        value: BigDecimal,
+        type_family: SqlTypeFamily,
+    },
     String(String),
-    Double(f64),
     Bool(bool),
 }
 
 impl TypedValue {
     fn type_family(&self) -> Option<SqlTypeFamily> {
         match self {
-            TypedValue::SmallInt(_) => Some(SqlTypeFamily::SmallInt),
-            TypedValue::Integer(_) => Some(SqlTypeFamily::Integer),
-            TypedValue::BigInt(_) => Some(SqlTypeFamily::BigInt),
-            TypedValue::Real(_) => Some(SqlTypeFamily::Real),
-            TypedValue::Double(_) => Some(SqlTypeFamily::Double),
+            TypedValue::Num { type_family, .. } => Some(*type_family),
             TypedValue::String(_) => Some(SqlTypeFamily::String),
             TypedValue::Bool(_) => Some(SqlTypeFamily::Bool),
         }
@@ -84,7 +85,7 @@ impl TypedValue {
 pub enum DynamicTypedTree {
     Operation {
         left: Box<DynamicTypedTree>,
-        op: Operation,
+        op: BiOperation,
         right: Box<DynamicTypedTree>,
     },
     Item(DynamicTypedItem),

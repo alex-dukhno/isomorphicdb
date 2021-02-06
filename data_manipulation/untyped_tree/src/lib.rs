@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use bigdecimal::BigDecimal;
-use data_manipulation_operators::Operation;
+use data_manipulation_operators::{BiOperation, UnOperation};
 use std::{
     fmt,
     fmt::{Display, Formatter},
@@ -194,9 +194,13 @@ impl Display for UntypedValue {
 
 #[derive(Debug, PartialEq)]
 pub enum StaticUntypedTree {
-    Operation {
+    UnOp {
+        op: UnOperation,
+        item: Box<StaticUntypedTree>,
+    },
+    BiOp {
         left: Box<StaticUntypedTree>,
-        op: Operation,
+        op: BiOperation,
         right: Box<StaticUntypedTree>,
     },
     Item(StaticUntypedItem),
@@ -205,7 +209,8 @@ pub enum StaticUntypedTree {
 impl StaticUntypedTree {
     pub fn kind(&self) -> Option<SqlTypeFamily> {
         match self {
-            StaticUntypedTree::Operation { .. } => None,
+            StaticUntypedTree::UnOp { .. } => None,
+            StaticUntypedTree::BiOp { .. } => None,
             StaticUntypedTree::Item(StaticUntypedItem::Const(value)) => value.kind(),
             StaticUntypedTree::Item(StaticUntypedItem::Param(_)) => None,
         }
@@ -216,7 +221,7 @@ impl StaticUntypedTree {
 pub enum DynamicUntypedTree {
     Operation {
         left: Box<DynamicUntypedTree>,
-        op: Operation,
+        op: BiOperation,
         right: Box<DynamicUntypedTree>,
     },
     Item(DynamicUntypedItem),

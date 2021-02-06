@@ -12,3 +12,4 @@ data_manipulation_operators = { path = "../../data_manipulation/operators" }
 types = { path = "../../entities/types" }
 
 bigdecimal = { version = "0.2.0", features = ["string-only"] }
+num-bigint = "0.3.1"

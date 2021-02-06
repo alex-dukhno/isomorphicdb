@@ -19,15 +19,17 @@ use crate::{
     CatalogDefinition, DataCatalog, DataTable, Database, SchemaHandle, SqlTable, COLUMNS_TABLE, DEFINITION_SCHEMA,
     INDEXES_TABLE, SCHEMATA_TABLE, TABLES_TABLE,
 };
+use bigdecimal::ToPrimitive;
 use data_definition_execution_plan::{
     CreateIndexQuery, CreateSchemaQuery, CreateTableQuery, DropSchemasQuery, DropTablesQuery, ExecutionError,
     ExecutionOutcome, SchemaChange,
 };
+use data_manipulation_operators::{UnArithmetic, UnOperation};
 use data_manipulation_typed_tree::{DynamicTypedItem, DynamicTypedTree, StaticTypedItem, StaticTypedTree, TypedValue};
 use data_scalar::ScalarValue;
 use definition::{ColumnDef, FullIndexName, FullTableName, SchemaName, TableDef};
 use std::sync::Arc;
-use types::SqlType;
+use types::{Num, SqlType, SqlTypeFamily};
 
 mod data_catalog;
 
@@ -434,25 +436,50 @@ impl InMemoryTable {
         InMemoryTable { columns, data_table }
     }
 
-    fn eval_static(&self, tree: &StaticTypedTree) -> Datum {
+    fn eval_static_inner(&self, tree: &StaticTypedTree) -> TypedValue {
         match tree {
-            StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::SmallInt(value))) => Datum::from_i16(*value),
-            StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Integer(value))) => Datum::from_i32(*value),
-            StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::BigInt(value))) => Datum::from_i64(*value),
-            StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Bool(value))) => Datum::from_bool(*value),
-            StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::String(string))) => {
-                Datum::from_string(string.clone())
+            StaticTypedTree::Item(StaticTypedItem::Const(value)) => value.clone(),
+            StaticTypedTree::UnOp { op, item } => {
+                let value = self.eval_static_inner(item);
+                match op {
+                    UnOperation::Arithmetic(UnArithmetic::Neg) => match value {
+                        TypedValue::Num { value, type_family } => TypedValue::Num {
+                            value: -value,
+                            type_family,
+                        },
+                        _ => unimplemented!(),
+                    },
+                    UnOperation::Arithmetic(UnArithmetic::Pos) => match value {
+                        TypedValue::Num { value, type_family } => TypedValue::Num { value, type_family },
+                        _ => unimplemented!(),
+                    },
+                    UnOperation::Arithmetic(_) => unimplemented!(),
+                    UnOperation::Logical(_) => unimplemented!(),
+                    UnOperation::Bitwise(_) => unimplemented!(),
+                }
             }
-            StaticTypedTree::Item(_) => unimplemented!(),
-            StaticTypedTree::Operation { .. } => unimplemented!(),
+            _ => unimplemented!(),
         }
+    }
+
+    fn eval_static(&self, tree: &StaticTypedTree) -> TypedValue {
+        log::debug!("expr {:?}", tree);
+        self.eval_static_inner(tree)
     }
 
     fn eval_dynamic(&self, tree: &DynamicTypedTree) -> Datum {
         match tree {
-            DynamicTypedTree::Item(DynamicTypedItem::Const(TypedValue::SmallInt(value))) => Datum::from_i16(*value),
-            DynamicTypedTree::Item(DynamicTypedItem::Const(TypedValue::Integer(value))) => Datum::from_i32(*value),
-            DynamicTypedTree::Item(DynamicTypedItem::Const(TypedValue::BigInt(value))) => Datum::from_i64(*value),
+            DynamicTypedTree::Item(DynamicTypedItem::Const(TypedValue::Num { value, type_family })) => {
+                match type_family {
+                    SqlTypeFamily::Bool => unimplemented!(),
+                    SqlTypeFamily::String => unimplemented!(),
+                    SqlTypeFamily::SmallInt => Datum::from_i16(value.to_i16().unwrap()),
+                    SqlTypeFamily::Integer => unimplemented!(),
+                    SqlTypeFamily::BigInt => unimplemented!(),
+                    SqlTypeFamily::Real => unimplemented!(),
+                    SqlTypeFamily::Double => unimplemented!(),
+                }
+            }
             DynamicTypedTree::Item(DynamicTypedItem::Const(TypedValue::Bool(value))) => Datum::from_bool(*value),
             DynamicTypedTree::Item(DynamicTypedItem::Const(TypedValue::String(string))) => {
                 Datum::from_string(string.clone())
@@ -470,6 +497,36 @@ impl InMemoryTable {
     }
 }
 
+fn convert(sql_type: SqlType, value: TypedValue) -> Datum {
+    log::debug!("type {:?} value {:?}", sql_type, value);
+    match (sql_type, value) {
+        (
+            SqlType::Num(Num::SmallInt),
+            TypedValue::Num {
+                value,
+                type_family: SqlTypeFamily::SmallInt,
+            },
+        ) => Datum::from_i16(value.to_i16().unwrap()),
+        (
+            SqlType::Num(Num::Integer),
+            TypedValue::Num {
+                value,
+                type_family: SqlTypeFamily::Integer,
+            },
+        ) => Datum::from_i32(value.to_i32().unwrap()),
+        (
+            SqlType::Num(Num::BigInt),
+            TypedValue::Num {
+                value,
+                type_family: SqlTypeFamily::BigInt,
+            },
+        ) => Datum::from_i64(value.to_i64().unwrap()),
+        (SqlType::Bool, TypedValue::Bool(value)) => Datum::from_bool(value),
+        (SqlType::Str { .. }, TypedValue::String(value)) => Datum::from_string(value),
+        _ => unimplemented!(),
+    }
+}
+
 impl SqlTable for InMemoryTable {
     fn insert(&self, rows: &[Vec<Option<StaticTypedTree>>]) -> usize {
         let values = rows
@@ -477,10 +534,14 @@ impl SqlTable for InMemoryTable {
             .map(|row| {
                 log::debug!("ROW to INSERT {:#?}", row);
                 let mut to_insert = vec![];
-                for v in row {
+                for (index, v) in row.iter().enumerate() {
                     to_insert.push(
                         v.as_ref()
-                            .map(|v| self.eval_static(&v))
+                            .map(|v| {
+                                let value = self.eval_static(&v);
+                                log::debug!("value {:?}", value);
+                                convert(self.columns[index].sql_type(), value)
+                            })
                             .unwrap_or_else(Datum::from_null),
                     );
                 }
