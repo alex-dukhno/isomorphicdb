@@ -36,6 +36,20 @@ pub enum SqlTypeFamily {
     Double,
 }
 
+impl Display for SqlTypeFamily {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            SqlTypeFamily::Bool => write!(f, "bool"),
+            SqlTypeFamily::String => write!(f, "string"),
+            SqlTypeFamily::SmallInt => write!(f, "smallint"),
+            SqlTypeFamily::Integer => write!(f, "integer"),
+            SqlTypeFamily::BigInt => write!(f, "bigint"),
+            SqlTypeFamily::Real => write!(f, "real"),
+            SqlTypeFamily::Double => write!(f, "double precision"),
+        }
+    }
+}
+
 impl SqlTypeFamily {
     pub fn compare(&self, other: &SqlTypeFamily) -> Result<SqlTypeFamily, IncomparableSqlTypeFamilies> {
         if self.is_float() && other.is_float() {

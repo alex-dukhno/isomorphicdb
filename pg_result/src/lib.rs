@@ -319,6 +319,7 @@ impl Into<BackendMessage> for QueryError {
     }
 }
 
+
 impl QueryError {
     /// schema already exists error constructor
     pub fn schema_already_exists<S: ToString>(schema_name: S) -> QueryError {
@@ -583,7 +584,7 @@ mod tests {
                 ColumnMetadata::new("column_name_1", PgType::SmallInt),
                 ColumnMetadata::new("column_name_2", PgType::SmallInt),
             ])
-            .into();
+                .into();
 
             assert_eq!(
                 message,

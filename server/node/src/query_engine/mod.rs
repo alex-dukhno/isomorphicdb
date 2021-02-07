@@ -21,8 +21,8 @@ use data_manipulation_typed_queries::{DeleteQuery, InsertQuery, TypedSelectQuery
 use data_manipulation_typed_tree::{DynamicTypedTree, StaticTypedTree};
 use data_manipulation_untyped_queries::UntypedWrite;
 use itertools::izip;
+use pg_result::{QueryError, QueryEvent};
 use pg_model::{
-    results::{QueryError, QueryEvent},
     session::Session,
     statement::PreparedStatement,
     Command,
@@ -430,14 +430,9 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                                             .expect("To Send to client");
                                     }
                                     Ok(_) => unimplemented!(),
-                                    Err(QueryExecutionError::SchemaDoesNotExist(schema_name)) => {
+                                    Err(error) => {
                                         self.sender
-                                            .send(Err(QueryError::schema_does_not_exist(schema_name)))
-                                            .expect("To Send to client");
-                                    }
-                                    Err(QueryExecutionError::ColumnNotFound(column_name)) => {
-                                        self.sender
-                                            .send(Err(QueryError::column_does_not_exist(column_name)))
+                                            .send(Err(error.into()))
                                             .expect("To Send to client");
                                     }
                                 }

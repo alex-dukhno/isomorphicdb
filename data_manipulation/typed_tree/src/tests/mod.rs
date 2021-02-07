@@ -14,3 +14,7 @@
 
 use super::*;
 
+#[cfg(test)]
+mod unary_op;
+#[cfg(test)]
+mod constants;

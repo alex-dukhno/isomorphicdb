@@ -19,8 +19,6 @@ use std::{
     path::PathBuf,
 };
 
-/// Module contains functionality to represent query result
-pub mod results;
 /// Module contains functionality to represent server side client session
 pub mod session;
 /// Module contains functionality to hold data about `PreparedStatement`

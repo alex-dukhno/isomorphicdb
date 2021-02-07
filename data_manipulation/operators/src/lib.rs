@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use types::SqlTypeFamily;
+use std::fmt::{self, Display, Formatter};
 
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub enum BiArithmetic {
@@ -108,6 +109,16 @@ pub enum UnOperation {
     Bitwise(UnBitwise),
 }
 
+impl Display for UnOperation {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            UnOperation::Arithmetic(op) => write!(f, "{}", op),
+            UnOperation::Logical(op) => unimplemented!(),
+            UnOperation::Bitwise(op) => unimplemented!(),
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Clone)]
 pub enum UnArithmetic {
     Neg,
@@ -116,6 +127,12 @@ pub enum UnArithmetic {
     CubeRoot,
     Factorial,
     Abs,
+}
+
+impl Display for UnArithmetic {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "-")
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]

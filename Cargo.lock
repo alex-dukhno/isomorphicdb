@@ -167,6 +167,7 @@ dependencies = [
  "dashmap",
  "data_definition_execution_plan",
  "data_manipulation_operators",
+ "data_manipulation_query_result",
  "data_manipulation_typed_tree",
  "data_scalar",
  "definition",
@@ -241,6 +242,7 @@ dependencies = [
  "futures-lite",
  "log",
  "pg_model",
+ "pg_result",
  "pg_wire",
  "rand 0.7.3",
  "tempfile",
@@ -293,6 +295,7 @@ version = "0.1.0"
 dependencies = [
  "data_scalar",
  "definition",
+ "pg_result",
 ]
 
 [[package]]
@@ -309,6 +312,7 @@ version = "0.1.0"
 dependencies = [
  "bigdecimal",
  "data_manipulation_operators",
+ "data_manipulation_query_result",
  "types",
 ]
 
@@ -600,6 +604,7 @@ dependencies = [
  "log",
  "parser",
  "pg_model",
+ "pg_result",
  "pg_wire",
  "query_analyzer",
  "query_processing_type_check",
@@ -725,9 +730,17 @@ checksum = "d4fd5641d01c8f18a23da7b6fe29298ff4b55afcccdf78973b24cf3175fee32e"
 name = "pg_model"
 version = "0.1.0"
 dependencies = [
+ "pg_result",
  "pg_wire",
  "rand 0.7.3",
  "rstest",
+]
+
+[[package]]
+name = "pg_result"
+version = "0.1.0"
+dependencies = [
+ "pg_wire",
 ]
 
 [[package]]

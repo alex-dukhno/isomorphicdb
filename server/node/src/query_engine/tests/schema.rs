@@ -13,10 +13,6 @@
 // limitations under the License.
 
 use super::*;
-use pg_model::{
-    results::{QueryError, QueryEvent},
-    Command,
-};
 
 #[rstest::rstest]
 fn create_schema(empty_database: (InMemory, ResultCollector)) {

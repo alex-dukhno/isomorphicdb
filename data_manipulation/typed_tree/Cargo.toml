@@ -7,6 +7,7 @@ publish = false
 
 [dependencies]
 data_manipulation_operators = { path = "../operators" }
+data_manipulation_query_result = { path = "../query_result" }
 types = { path = "../../entities/types" }
 
 bigdecimal = { version = "0.2.0", features = ["string-only"] }

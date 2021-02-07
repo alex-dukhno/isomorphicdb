@@ -13,8 +13,9 @@
 // limitations under the License.
 
 use bigdecimal::BigDecimal;
-use data_manipulation_operators::{BiOperation, UnOperation};
+use data_manipulation_operators::{BiOperation, UnOperation, UnArithmetic, UnLogical};
 use types::SqlTypeFamily;
+use data_manipulation_query_result::QueryExecutionError;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum StaticTypedTree {
@@ -37,6 +38,35 @@ impl StaticTypedTree {
             StaticTypedTree::Item(item) => item.type_family(),
             StaticTypedTree::BiOp { type_family, .. } => *type_family,
             StaticTypedTree::UnOp { item, .. } => item.type_family(),
+        }
+    }
+
+    pub fn eval(&self) -> Result<TypedValue, QueryExecutionError> {
+        match self {
+            StaticTypedTree::Item(StaticTypedItem::Const(value)) => Ok(value.clone()),
+            StaticTypedTree::UnOp { op, item } => {
+                let value = item.eval()?;
+                match op {
+                    UnOperation::Arithmetic(UnArithmetic::Neg) => match value {
+                        TypedValue::Num { value, type_family } => Ok(TypedValue::Num {
+                            value: -value,
+                            type_family,
+                        }),
+                        other => Err(QueryExecutionError::undefined_function(op, other.type_family().map(|ty| ty.to_string()).unwrap_or("unknown".to_owned()))),
+                    },
+                    UnOperation::Arithmetic(UnArithmetic::Pos) => match value {
+                        TypedValue::Num { value, type_family } => Ok(TypedValue::Num { value, type_family }),
+                        _ => unimplemented!(),
+                    },
+                    UnOperation::Arithmetic(_) => unimplemented!(),
+                    UnOperation::Logical(UnLogical::Not) => match value {
+                        TypedValue::Bool(value) => Ok(TypedValue::Bool(!value)),
+                        _ => unimplemented!(),
+                    },
+                    UnOperation::Bitwise(_) => unimplemented!(),
+                }
+            }
+            _ => unimplemented!(),
         }
     }
 }
@@ -96,3 +126,6 @@ pub enum DynamicTypedItem {
     Const(TypedValue),
     Column(String),
 }
+
+#[cfg(test)]
+mod tests;

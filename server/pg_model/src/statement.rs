@@ -34,7 +34,7 @@
 //! 4. The client issues an `Execute` message with the name of a portal, causing
 //!    that portal to actually start scanning and returning results.
 
-use crate::results::Description;
+use pg_result::Description;
 use pg_wire::{PgFormat, PgType};
 
 /// A prepared statement.

@@ -24,12 +24,13 @@ use data_definition_execution_plan::{
     CreateIndexQuery, CreateSchemaQuery, CreateTableQuery, DropSchemasQuery, DropTablesQuery, ExecutionError,
     ExecutionOutcome, SchemaChange,
 };
-use data_manipulation_operators::{UnArithmetic, UnOperation};
+use data_manipulation_operators::{UnArithmetic, UnOperation, UnLogical};
 use data_manipulation_typed_tree::{DynamicTypedItem, DynamicTypedTree, StaticTypedItem, StaticTypedTree, TypedValue};
 use data_scalar::ScalarValue;
 use definition::{ColumnDef, FullIndexName, FullTableName, SchemaName, TableDef};
 use std::sync::Arc;
 use types::{Num, SqlType, SqlTypeFamily};
+use data_manipulation_query_result::QueryExecutionError;
 
 mod data_catalog;
 
@@ -436,37 +437,6 @@ impl InMemoryTable {
         InMemoryTable { columns, data_table }
     }
 
-    fn eval_static_inner(&self, tree: &StaticTypedTree) -> TypedValue {
-        match tree {
-            StaticTypedTree::Item(StaticTypedItem::Const(value)) => value.clone(),
-            StaticTypedTree::UnOp { op, item } => {
-                let value = self.eval_static_inner(item);
-                match op {
-                    UnOperation::Arithmetic(UnArithmetic::Neg) => match value {
-                        TypedValue::Num { value, type_family } => TypedValue::Num {
-                            value: -value,
-                            type_family,
-                        },
-                        _ => unimplemented!(),
-                    },
-                    UnOperation::Arithmetic(UnArithmetic::Pos) => match value {
-                        TypedValue::Num { value, type_family } => TypedValue::Num { value, type_family },
-                        _ => unimplemented!(),
-                    },
-                    UnOperation::Arithmetic(_) => unimplemented!(),
-                    UnOperation::Logical(_) => unimplemented!(),
-                    UnOperation::Bitwise(_) => unimplemented!(),
-                }
-            }
-            _ => unimplemented!(),
-        }
-    }
-
-    fn eval_static(&self, tree: &StaticTypedTree) -> TypedValue {
-        log::debug!("expr {:?}", tree);
-        self.eval_static_inner(tree)
-    }
-
     fn eval_dynamic(&self, tree: &DynamicTypedTree) -> Datum {
         match tree {
             DynamicTypedTree::Item(DynamicTypedItem::Const(TypedValue::Num { value, type_family })) => {
@@ -528,26 +498,24 @@ fn convert(sql_type: SqlType, value: TypedValue) -> Datum {
 }
 
 impl SqlTable for InMemoryTable {
-    fn insert(&self, rows: &[Vec<Option<StaticTypedTree>>]) -> usize {
-        let values = rows
-            .iter()
-            .map(|row| {
-                log::debug!("ROW to INSERT {:#?}", row);
-                let mut to_insert = vec![];
-                for (index, v) in row.iter().enumerate() {
-                    to_insert.push(
-                        v.as_ref()
-                            .map(|v| {
-                                let value = self.eval_static(&v);
-                                log::debug!("value {:?}", value);
-                                convert(self.columns[index].sql_type(), value)
-                            })
-                            .unwrap_or_else(Datum::from_null),
-                    );
-                }
-                Binary::pack(&to_insert)
-            })
-            .collect::<Vec<Binary>>();
+    fn insert(&self, rows: &[Vec<Option<StaticTypedTree>>]) -> Result<usize, QueryExecutionError> {
+        let mut values = vec![];
+        for row in rows {
+            log::debug!("ROW to INSERT {:#?}", row);
+            let mut to_insert = vec![];
+            for (index, value) in row.into_iter().enumerate() {
+                let datum = match value {
+                    None => Datum::from_null(),
+                    Some(v) => {
+                        let value = v.eval()?;
+                        log::debug!("value {:?}", value);
+                        convert(self.columns[index].sql_type(), value)
+                    }
+                };
+                to_insert.push(datum);
+            }
+            values.push(Binary::pack(&to_insert))
+        }
         let inserted = values.len();
         let record_ids = self.data_table.insert(values.clone());
         let indexes = self.data_table.indexes();
@@ -563,7 +531,7 @@ impl SqlTable for InMemoryTable {
                 index.insert(Binary::pack(&val), record_ids[i].clone());
             }
         }
-        inserted
+        Ok(inserted)
     }
 
     fn select(&self, column_names: Vec<String>) -> Result<(Vec<ColumnDef>, Vec<Vec<ScalarValue>>), String> {
