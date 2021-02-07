@@ -21,12 +21,8 @@ use data_manipulation_typed_queries::{DeleteQuery, InsertQuery, TypedSelectQuery
 use data_manipulation_typed_tree::{DynamicTypedTree, StaticTypedTree};
 use data_manipulation_untyped_queries::UntypedWrite;
 use itertools::izip;
+use pg_model::{session::Session, statement::PreparedStatement, Command};
 use pg_result::{QueryError, QueryEvent};
-use pg_model::{
-    session::Session,
-    statement::PreparedStatement,
-    Command,
-};
 use pg_wire::{ColumnMetadata, PgFormat, PgType};
 use query_analyzer::{AnalysisError, Analyzer, QueryAnalysis};
 use query_processing_type_check::TypeChecker;
@@ -431,9 +427,7 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                                     }
                                     Ok(_) => unimplemented!(),
                                     Err(error) => {
-                                        self.sender
-                                            .send(Err(error.into()))
-                                            .expect("To Send to client");
+                                        self.sender.send(Err(error.into())).expect("To Send to client");
                                     }
                                 }
                             }

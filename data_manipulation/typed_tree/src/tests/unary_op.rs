@@ -13,7 +13,6 @@
 // limitations under the License.
 
 use super::*;
-use data_manipulation_operators::UnLogical;
 
 #[cfg(test)]
 mod unary_minus {
@@ -28,7 +27,8 @@ mod unary_minus {
                     value: BigDecimal::from(32767),
                     type_family: SqlTypeFamily::Integer
                 }))),
-            }.eval(),
+            }
+            .eval(),
             Ok(TypedValue::Num {
                 value: BigDecimal::from(-32767),
                 type_family: SqlTypeFamily::Integer
@@ -42,7 +42,8 @@ mod unary_minus {
                     value: BigDecimal::from(32768),
                     type_family: SqlTypeFamily::Integer
                 }))),
-            }.eval(),
+            }
+            .eval(),
             Ok(TypedValue::Num {
                 value: BigDecimal::from(-32768),
                 type_family: SqlTypeFamily::Integer
@@ -62,7 +63,8 @@ mod unary_minus {
                         type_family: SqlTypeFamily::Integer
                     }))),
                 })
-            }.eval(),
+            }
+            .eval(),
             Ok(TypedValue::Num {
                 value: BigDecimal::from(32767),
                 type_family: SqlTypeFamily::Integer
@@ -79,7 +81,8 @@ mod unary_minus {
                         type_family: SqlTypeFamily::Integer
                     }))),
                 })
-            }.eval(),
+            }
+            .eval(),
             Ok(TypedValue::Num {
                 value: BigDecimal::from(32768),
                 type_family: SqlTypeFamily::Integer
@@ -92,9 +95,15 @@ mod unary_minus {
         assert_eq!(
             StaticTypedTree::UnOp {
                 op: UnOperation::Arithmetic(UnArithmetic::Neg),
-                item: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::String("str".to_owned()))))
-            }.eval(),
-            Err(QueryExecutionError::undefined_function(UnOperation::Arithmetic(UnArithmetic::Neg), SqlTypeFamily::String))
+                item: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::String(
+                    "str".to_owned()
+                ))))
+            }
+            .eval(),
+            Err(QueryExecutionError::undefined_function(
+                UnOperation::Arithmetic(UnArithmetic::Neg),
+                SqlTypeFamily::String
+            ))
         );
     }
 
@@ -104,19 +113,175 @@ mod unary_minus {
             StaticTypedTree::UnOp {
                 op: UnOperation::Arithmetic(UnArithmetic::Neg),
                 item: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Bool(true))))
-            }.eval(),
-            Err(QueryExecutionError::undefined_function(UnOperation::Arithmetic(UnArithmetic::Neg), SqlTypeFamily::Bool))
+            }
+            .eval(),
+            Err(QueryExecutionError::undefined_function(
+                UnOperation::Arithmetic(UnArithmetic::Neg),
+                SqlTypeFamily::Bool
+            ))
         );
     }
 }
 
-#[test]
-fn unary_not() {
-    assert_eq!(
-        StaticTypedTree::UnOp {
-            op: UnOperation::Logical(UnLogical::Not),
-            item: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Bool(true)))),
-        }.eval(),
-        Ok(TypedValue::Bool(false))
-    );
+#[cfg(test)]
+mod unary_plus {
+    use super::*;
+
+    #[test]
+    fn with_numbers() {
+        assert_eq!(
+            StaticTypedTree::UnOp {
+                op: UnOperation::Arithmetic(UnArithmetic::Pos),
+                item: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
+                    value: BigDecimal::from(32767),
+                    type_family: SqlTypeFamily::Integer
+                }))),
+            }
+            .eval(),
+            Ok(TypedValue::Num {
+                value: BigDecimal::from(32767),
+                type_family: SqlTypeFamily::Integer
+            })
+        );
+
+        assert_eq!(
+            StaticTypedTree::UnOp {
+                op: UnOperation::Arithmetic(UnArithmetic::Pos),
+                item: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
+                    value: BigDecimal::from(32768),
+                    type_family: SqlTypeFamily::Integer
+                }))),
+            }
+            .eval(),
+            Ok(TypedValue::Num {
+                value: BigDecimal::from(32768),
+                type_family: SqlTypeFamily::Integer
+            })
+        );
+    }
+
+    #[test]
+    fn doubly_applied() {
+        assert_eq!(
+            StaticTypedTree::UnOp {
+                op: UnOperation::Arithmetic(UnArithmetic::Pos),
+                item: Box::new(StaticTypedTree::UnOp {
+                    op: UnOperation::Arithmetic(UnArithmetic::Pos),
+                    item: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
+                        value: BigDecimal::from(32767),
+                        type_family: SqlTypeFamily::Integer
+                    }))),
+                })
+            }
+            .eval(),
+            Ok(TypedValue::Num {
+                value: BigDecimal::from(32767),
+                type_family: SqlTypeFamily::Integer
+            })
+        );
+
+        assert_eq!(
+            StaticTypedTree::UnOp {
+                op: UnOperation::Arithmetic(UnArithmetic::Pos),
+                item: Box::new(StaticTypedTree::UnOp {
+                    op: UnOperation::Arithmetic(UnArithmetic::Pos),
+                    item: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
+                        value: BigDecimal::from(32768),
+                        type_family: SqlTypeFamily::Integer
+                    }))),
+                })
+            }
+            .eval(),
+            Ok(TypedValue::Num {
+                value: BigDecimal::from(32768),
+                type_family: SqlTypeFamily::Integer
+            })
+        );
+    }
+
+    #[test]
+    fn with_string() {
+        assert_eq!(
+            StaticTypedTree::UnOp {
+                op: UnOperation::Arithmetic(UnArithmetic::Pos),
+                item: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::String(
+                    "str".to_owned()
+                ))))
+            }
+            .eval(),
+            Err(QueryExecutionError::undefined_function(
+                UnOperation::Arithmetic(UnArithmetic::Pos),
+                SqlTypeFamily::String
+            ))
+        );
+    }
+
+    #[test]
+    fn with_boolean() {
+        assert_eq!(
+            StaticTypedTree::UnOp {
+                op: UnOperation::Arithmetic(UnArithmetic::Pos),
+                item: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Bool(true))))
+            }
+            .eval(),
+            Err(QueryExecutionError::undefined_function(
+                UnOperation::Arithmetic(UnArithmetic::Pos),
+                SqlTypeFamily::Bool
+            ))
+        );
+    }
+}
+
+#[cfg(test)]
+mod unary_not {
+    use super::*;
+
+    #[test]
+    fn with_bool() {
+        assert_eq!(
+            StaticTypedTree::UnOp {
+                op: UnOperation::Logical(UnLogical::Not),
+                item: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Bool(true)))),
+            }
+            .eval(),
+            Ok(TypedValue::Bool(false))
+        );
+    }
+
+    #[test]
+    fn with_number() {
+        assert_eq!(
+            StaticTypedTree::UnOp {
+                op: UnOperation::Logical(UnLogical::Not),
+                item: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
+                    value: BigDecimal::from(0),
+                    type_family: SqlTypeFamily::SmallInt
+                }))),
+            }
+            .eval(),
+            Err(QueryExecutionError::datatype_mismatch(
+                UnOperation::Logical(UnLogical::Not),
+                SqlTypeFamily::Bool,
+                SqlTypeFamily::SmallInt
+            ))
+        );
+    }
+
+    #[test]
+    fn with_string() {
+        assert_eq!(
+            StaticTypedTree::UnOp {
+                op: UnOperation::Logical(UnLogical::Not),
+                item: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::String(
+                    "str".to_owned()
+                )))),
+            }
+            .eval(),
+            Err(QueryExecutionError::datatype_mismatch(
+                UnOperation::Logical(UnLogical::Not),
+                SqlTypeFamily::Bool,
+                SqlTypeFamily::String
+            ))
+        );
+    }
 }

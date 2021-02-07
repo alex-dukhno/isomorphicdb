@@ -13,7 +13,6 @@
 // limitations under the License.
 
 use super::*;
-use types::SqlType;
 
 #[test]
 fn small_int() {
@@ -21,7 +20,8 @@ fn small_int() {
         StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
             value: BigDecimal::from(0),
             type_family: SqlTypeFamily::SmallInt,
-        })).eval(),
+        }))
+        .eval(),
         Ok(TypedValue::Num {
             value: BigDecimal::from(0),
             type_family: SqlTypeFamily::SmallInt
@@ -35,7 +35,8 @@ fn integer() {
         StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
             value: BigDecimal::from(0),
             type_family: SqlTypeFamily::Integer,
-        })).eval(),
+        }))
+        .eval(),
         Ok(TypedValue::Num {
             value: BigDecimal::from(0),
             type_family: SqlTypeFamily::Integer
@@ -49,7 +50,8 @@ fn big_int() {
         StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
             value: BigDecimal::from(0),
             type_family: SqlTypeFamily::BigInt,
-        })).eval(),
+        }))
+        .eval(),
         Ok(TypedValue::Num {
             value: BigDecimal::from(0),
             type_family: SqlTypeFamily::BigInt
@@ -59,10 +61,16 @@ fn big_int() {
 
 #[test]
 fn bool() {
-    assert_eq!(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Bool(true))).eval(), Ok(TypedValue::Bool(true)));
+    assert_eq!(
+        StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Bool(true))).eval(),
+        Ok(TypedValue::Bool(true))
+    );
 }
 
 #[test]
 fn string() {
-    assert_eq!(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::String("str".to_owned()))).eval(), Ok(TypedValue::String("str".to_owned())));
+    assert_eq!(
+        StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::String("str".to_owned()))).eval(),
+        Ok(TypedValue::String("str".to_owned()))
+    );
 }

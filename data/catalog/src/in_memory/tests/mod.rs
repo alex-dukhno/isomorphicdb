@@ -19,13 +19,12 @@ mod insert;
 #[cfg(test)]
 mod schema;
 #[cfg(test)]
-mod static_eval;
-#[cfg(test)]
 mod table;
 
 use super::*;
 use bigdecimal::BigDecimal;
 use data_definition_execution_plan::ColumnInfo;
+use data_manipulation_typed_tree::StaticTypedItem;
 use types::SqlType;
 
 const SCHEMA: &str = "schema_name";

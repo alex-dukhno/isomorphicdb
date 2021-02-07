@@ -29,11 +29,20 @@ pub enum QueryExecutionError {
     SchemaDoesNotExist(String),
     ColumnNotFound(String),
     UndefinedFunction(String, String),
+    DatatypeMismatch(String, String, String),
 }
 
 impl QueryExecutionError {
     pub fn undefined_function<Op: ToString, Ty: ToString>(operator: Op, type_family: Ty) -> QueryExecutionError {
         QueryExecutionError::UndefinedFunction(operator.to_string(), type_family.to_string())
+    }
+
+    pub fn datatype_mismatch<Op: ToString, TT: ToString, AT: ToString>(
+        operator: Op,
+        target_type: TT,
+        actual_type: AT,
+    ) -> QueryExecutionError {
+        QueryExecutionError::DatatypeMismatch(operator.to_string(), target_type.to_string(), actual_type.to_string())
     }
 }
 
@@ -42,7 +51,12 @@ impl From<QueryExecutionError> for pg_result::QueryError {
         match error {
             QueryExecutionError::SchemaDoesNotExist(schema) => QueryError::schema_does_not_exist(schema),
             QueryExecutionError::ColumnNotFound(column) => QueryError::column_does_not_exist(column),
-            QueryExecutionError::UndefinedFunction(func, sql_type) => QueryError::undefined_function(func, sql_type.as_str(), ""),
+            QueryExecutionError::UndefinedFunction(func, sql_type) => {
+                QueryError::undefined_function(func, sql_type.as_str(), "")
+            }
+            QueryExecutionError::DatatypeMismatch(op, target_type, actual_type) => {
+                QueryError::datatype_mismatch(op, target_type, actual_type)
+            }
         }
     }
 }

@@ -24,13 +24,12 @@ use data_definition_execution_plan::{
     CreateIndexQuery, CreateSchemaQuery, CreateTableQuery, DropSchemasQuery, DropTablesQuery, ExecutionError,
     ExecutionOutcome, SchemaChange,
 };
-use data_manipulation_operators::{UnArithmetic, UnOperation, UnLogical};
-use data_manipulation_typed_tree::{DynamicTypedItem, DynamicTypedTree, StaticTypedItem, StaticTypedTree, TypedValue};
+use data_manipulation_query_result::QueryExecutionError;
+use data_manipulation_typed_tree::{DynamicTypedItem, DynamicTypedTree, StaticTypedTree, TypedValue};
 use data_scalar::ScalarValue;
 use definition::{ColumnDef, FullIndexName, FullTableName, SchemaName, TableDef};
 use std::sync::Arc;
 use types::{Num, SqlType, SqlTypeFamily};
-use data_manipulation_query_result::QueryExecutionError;
 
 mod data_catalog;
 
@@ -498,7 +497,7 @@ fn convert(sql_type: SqlType, value: TypedValue) -> Datum {
 }
 
 impl SqlTable for InMemoryTable {
-    fn insert(&self, rows: &[Vec<Option<StaticTypedTree>>]) -> Result<usize, QueryExecutionError> {
+    fn insert(&self, rows: Vec<Vec<Option<StaticTypedTree>>>) -> Result<usize, QueryExecutionError> {
         let mut values = vec![];
         for row in rows {
             log::debug!("ROW to INSERT {:#?}", row);
