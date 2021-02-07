@@ -54,14 +54,20 @@ impl StaticTypedTree {
                         }),
                         other => Err(QueryExecutionError::undefined_function(
                             op,
-                            other.type_family().map(|ty| ty.to_string()).unwrap_or_else(|| "unknown".to_owned()),
+                            other
+                                .type_family()
+                                .map(|ty| ty.to_string())
+                                .unwrap_or_else(|| "unknown".to_owned()),
                         )),
                     },
                     UnOperator::Arithmetic(UnArithmetic::Pos) => match value {
                         TypedValue::Num { value, type_family } => Ok(TypedValue::Num { value, type_family }),
                         other => Err(QueryExecutionError::undefined_function(
                             op,
-                            other.type_family().map(|ty| ty.to_string()).unwrap_or_else(|| "unknown".to_owned()),
+                            other
+                                .type_family()
+                                .map(|ty| ty.to_string())
+                                .unwrap_or_else(|| "unknown".to_owned()),
                         )),
                     },
                     UnOperator::Arithmetic(_) => unimplemented!(),
@@ -70,14 +76,41 @@ impl StaticTypedTree {
                         other => Err(QueryExecutionError::datatype_mismatch(
                             op,
                             SqlTypeFamily::Bool,
-                            other.type_family().map(|ty| ty.to_string()).unwrap_or_else(|| "unknown".to_owned()),
+                            other
+                                .type_family()
+                                .map(|ty| ty.to_string())
+                                .unwrap_or_else(|| "unknown".to_owned()),
                         )),
                     },
                     UnOperator::BitwiseNot => match value {
-                        TypedValue::Num { value, type_family: SqlTypeFamily::SmallInt } => Ok(TypedValue::Num { value: BigDecimal::from(!value.to_i16().unwrap()), type_family: SqlTypeFamily::SmallInt }),
-                        TypedValue::Num { value, type_family: SqlTypeFamily::Integer } => Ok(TypedValue::Num { value: BigDecimal::from(!value.to_i32().unwrap()), type_family: SqlTypeFamily::Integer }),
-                        TypedValue::Num { value, type_family: SqlTypeFamily::BigInt } => Ok(TypedValue::Num { value: BigDecimal::from(!value.to_i64().unwrap()), type_family: SqlTypeFamily::BigInt }),
-                        other => Err(QueryExecutionError::undefined_function(op, other.type_family().map(|ty| ty.to_string()).unwrap_or_else(|| "unknown".to_owned()),)),
+                        TypedValue::Num {
+                            value,
+                            type_family: SqlTypeFamily::SmallInt,
+                        } => Ok(TypedValue::Num {
+                            value: BigDecimal::from(!value.to_i16().unwrap()),
+                            type_family: SqlTypeFamily::SmallInt,
+                        }),
+                        TypedValue::Num {
+                            value,
+                            type_family: SqlTypeFamily::Integer,
+                        } => Ok(TypedValue::Num {
+                            value: BigDecimal::from(!value.to_i32().unwrap()),
+                            type_family: SqlTypeFamily::Integer,
+                        }),
+                        TypedValue::Num {
+                            value,
+                            type_family: SqlTypeFamily::BigInt,
+                        } => Ok(TypedValue::Num {
+                            value: BigDecimal::from(!value.to_i64().unwrap()),
+                            type_family: SqlTypeFamily::BigInt,
+                        }),
+                        other => Err(QueryExecutionError::undefined_function(
+                            op,
+                            other
+                                .type_family()
+                                .map(|ty| ty.to_string())
+                                .unwrap_or_else(|| "unknown".to_owned()),
+                        )),
                     },
                 }
             }

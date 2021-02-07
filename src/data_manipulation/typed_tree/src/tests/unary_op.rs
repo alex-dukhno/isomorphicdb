@@ -300,7 +300,7 @@ mod unary_bitwise_not {
                     type_family: SqlTypeFamily::SmallInt
                 }))),
             }
-                .eval(),
+            .eval(),
             Ok(TypedValue::Num {
                 value: BigDecimal::from(!1),
                 type_family: SqlTypeFamily::SmallInt
@@ -315,7 +315,7 @@ mod unary_bitwise_not {
                     type_family: SqlTypeFamily::Integer
                 }))),
             }
-                .eval(),
+            .eval(),
             Ok(TypedValue::Num {
                 value: BigDecimal::from(!(i32::MAX - i16::MAX as i32)),
                 type_family: SqlTypeFamily::Integer
@@ -330,7 +330,7 @@ mod unary_bitwise_not {
                     type_family: SqlTypeFamily::BigInt
                 }))),
             }
-                .eval(),
+            .eval(),
             Ok(TypedValue::Num {
                 value: BigDecimal::from(!(i64::MAX - i32::MAX as i64)),
                 type_family: SqlTypeFamily::BigInt
@@ -348,8 +348,11 @@ mod unary_bitwise_not {
                     type_family: SqlTypeFamily::Real
                 }))),
             }
-                .eval(),
-            Err(QueryExecutionError::undefined_function(UnOperator::BitwiseNot, SqlTypeFamily::Real))
+            .eval(),
+            Err(QueryExecutionError::undefined_function(
+                UnOperator::BitwiseNot,
+                SqlTypeFamily::Real
+            ))
         );
 
         assert_eq!(
@@ -360,8 +363,11 @@ mod unary_bitwise_not {
                     type_family: SqlTypeFamily::Double
                 }))),
             }
-                .eval(),
-            Err(QueryExecutionError::undefined_function(UnOperator::BitwiseNot, SqlTypeFamily::Double))
+            .eval(),
+            Err(QueryExecutionError::undefined_function(
+                UnOperator::BitwiseNot,
+                SqlTypeFamily::Double
+            ))
         );
     }
 
@@ -374,7 +380,7 @@ mod unary_bitwise_not {
                     "str".to_owned()
                 )))),
             }
-                .eval(),
+            .eval(),
             Err(QueryExecutionError::undefined_function(
                 UnOperator::BitwiseNot,
                 SqlTypeFamily::String
@@ -389,7 +395,7 @@ mod unary_bitwise_not {
                 op: UnOperator::BitwiseNot,
                 item: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Bool(true))))
             }
-                .eval(),
+            .eval(),
             Err(QueryExecutionError::undefined_function(
                 UnOperator::BitwiseNot,
                 SqlTypeFamily::Bool
