@@ -489,3 +489,182 @@ mod cube_root {
         );
     }
 }
+
+#[cfg(test)]
+mod factorial {
+    use super::*;
+
+    #[test]
+    fn with_numbers() {
+        assert_eq!(
+            StaticTypedTree::UnOp {
+                op: UnOperator::Arithmetic(UnArithmetic::Factorial),
+                item: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
+                    value: BigDecimal::from(3),
+                    type_family: SqlTypeFamily::Integer
+                }))),
+            }
+            .eval(),
+            Ok(TypedValue::Num {
+                value: BigDecimal::from(6),
+                type_family: SqlTypeFamily::BigInt
+            })
+        );
+    }
+
+    #[test]
+    fn with_negative_numbers() {
+        assert_eq!(
+            StaticTypedTree::UnOp {
+                op: UnOperator::Arithmetic(UnArithmetic::Factorial),
+                item: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
+                    value: BigDecimal::from(-3),
+                    type_family: SqlTypeFamily::Integer
+                }))),
+            }
+            .eval(),
+            Ok(TypedValue::Num {
+                value: BigDecimal::from(1),
+                type_family: SqlTypeFamily::BigInt
+            })
+        );
+    }
+
+    #[test]
+    fn with_float_numbers() {
+        assert_eq!(
+            StaticTypedTree::UnOp {
+                op: UnOperator::Arithmetic(UnArithmetic::Factorial),
+                item: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
+                    value: BigDecimal::from(1),
+                    type_family: SqlTypeFamily::Real
+                }))),
+            }
+            .eval(),
+            Err(QueryExecutionError::undefined_function(
+                UnOperator::Arithmetic(UnArithmetic::Factorial),
+                SqlTypeFamily::Real
+            ))
+        );
+
+        assert_eq!(
+            StaticTypedTree::UnOp {
+                op: UnOperator::Arithmetic(UnArithmetic::Factorial),
+                item: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
+                    value: BigDecimal::from(i32::MAX - i16::MAX as i32),
+                    type_family: SqlTypeFamily::Double
+                }))),
+            }
+            .eval(),
+            Err(QueryExecutionError::undefined_function(
+                UnOperator::Arithmetic(UnArithmetic::Factorial),
+                SqlTypeFamily::Double
+            ))
+        );
+    }
+
+    #[test]
+    fn with_string() {
+        assert_eq!(
+            StaticTypedTree::UnOp {
+                op: UnOperator::Arithmetic(UnArithmetic::Factorial),
+                item: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::String(
+                    "str".to_owned()
+                ))))
+            }
+            .eval(),
+            Err(QueryExecutionError::undefined_function(
+                UnOperator::Arithmetic(UnArithmetic::Factorial),
+                SqlTypeFamily::String
+            ))
+        );
+    }
+
+    #[test]
+    fn with_boolean() {
+        assert_eq!(
+            StaticTypedTree::UnOp {
+                op: UnOperator::Arithmetic(UnArithmetic::Factorial),
+                item: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Bool(true))))
+            }
+            .eval(),
+            Err(QueryExecutionError::undefined_function(
+                UnOperator::Arithmetic(UnArithmetic::Factorial),
+                SqlTypeFamily::Bool
+            ))
+        );
+    }
+}
+
+#[cfg(test)]
+mod absolute_value {
+    use super::*;
+
+    #[test]
+    fn with_positive_numbers() {
+        assert_eq!(
+            StaticTypedTree::UnOp {
+                op: UnOperator::Arithmetic(UnArithmetic::Abs),
+                item: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
+                    value: BigDecimal::from(3),
+                    type_family: SqlTypeFamily::Integer
+                }))),
+            }
+            .eval(),
+            Ok(TypedValue::Num {
+                value: BigDecimal::from(3),
+                type_family: SqlTypeFamily::Integer
+            })
+        );
+    }
+
+    #[test]
+    fn with_negative_numbers() {
+        assert_eq!(
+            StaticTypedTree::UnOp {
+                op: UnOperator::Arithmetic(UnArithmetic::Abs),
+                item: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
+                    value: BigDecimal::from(-3),
+                    type_family: SqlTypeFamily::Integer
+                }))),
+            }
+            .eval(),
+            Ok(TypedValue::Num {
+                value: BigDecimal::from(3),
+                type_family: SqlTypeFamily::Integer
+            })
+        );
+    }
+
+    #[test]
+    fn with_string() {
+        assert_eq!(
+            StaticTypedTree::UnOp {
+                op: UnOperator::Arithmetic(UnArithmetic::Abs),
+                item: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::String(
+                    "str".to_owned()
+                ))))
+            }
+            .eval(),
+            Err(QueryExecutionError::undefined_function(
+                UnOperator::Arithmetic(UnArithmetic::Abs),
+                SqlTypeFamily::String
+            ))
+        );
+    }
+
+    #[test]
+    fn with_boolean() {
+        assert_eq!(
+            StaticTypedTree::UnOp {
+                op: UnOperator::Arithmetic(UnArithmetic::Abs),
+                item: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Bool(true))))
+            }
+            .eval(),
+            Err(QueryExecutionError::undefined_function(
+                UnOperator::Arithmetic(UnArithmetic::Abs),
+                SqlTypeFamily::Bool
+            ))
+        );
+    }
+}
