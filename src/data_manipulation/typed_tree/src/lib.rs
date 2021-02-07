@@ -99,7 +99,51 @@ impl StaticTypedTree {
                                 .unwrap_or_else(|| "unknown".to_owned()),
                         )),
                     },
-                    UnOperator::Arithmetic(_) => unimplemented!(),
+                    UnOperator::Arithmetic(UnArithmetic::Factorial) => match value {
+                        TypedValue::Num {
+                            value,
+                            type_family: SqlTypeFamily::SmallInt,
+                        }
+                        | TypedValue::Num {
+                            value,
+                            type_family: SqlTypeFamily::Integer,
+                        }
+                        | TypedValue::Num {
+                            value,
+                            type_family: SqlTypeFamily::BigInt,
+                        } => {
+                            let mut result = BigDecimal::from(1);
+                            let mut n = BigDecimal::from(1);
+                            while n <= value {
+                                result *= n.clone();
+                                n += BigDecimal::from(1);
+                            }
+                            Ok(TypedValue::Num {
+                                value: result,
+                                type_family: SqlTypeFamily::BigInt,
+                            })
+                        }
+                        other => Err(QueryExecutionError::undefined_function(
+                            op,
+                            other
+                                .type_family()
+                                .map(|ty| ty.to_string())
+                                .unwrap_or_else(|| "unknown".to_owned()),
+                        )),
+                    },
+                    UnOperator::Arithmetic(UnArithmetic::Abs) => match value {
+                        TypedValue::Num { value, type_family } => Ok(TypedValue::Num {
+                            value: value.abs(),
+                            type_family,
+                        }),
+                        other => Err(QueryExecutionError::undefined_function(
+                            op,
+                            other
+                                .type_family()
+                                .map(|ty| ty.to_string())
+                                .unwrap_or_else(|| "unknown".to_owned()),
+                        )),
+                    },
                     UnOperator::LogicalNot => match value {
                         TypedValue::Bool(value) => Ok(TypedValue::Bool(!value)),
                         other => Err(QueryExecutionError::datatype_mismatch(

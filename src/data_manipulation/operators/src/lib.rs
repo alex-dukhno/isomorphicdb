@@ -136,8 +136,8 @@ impl Display for UnArithmetic {
             UnArithmetic::Pos => write!(f, "+"),
             UnArithmetic::SquareRoot => write!(f, "|/"),
             UnArithmetic::CubeRoot => write!(f, "||/"),
-            UnArithmetic::Factorial => unimplemented!(),
-            UnArithmetic::Abs => unimplemented!(),
+            UnArithmetic::Factorial => write!(f, "!"),
+            UnArithmetic::Abs => write!(f, "@"),
         }
     }
 }
