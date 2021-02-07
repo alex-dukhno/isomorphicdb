@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use bigdecimal::BigDecimal;
-use data_manipulation_operators::{BiOperation, UnArithmetic, UnLogical, UnOperation};
+use bigdecimal::{BigDecimal, ToPrimitive};
+use data_manipulation_operators::{BiOperation, UnArithmetic, UnOperator};
 use data_manipulation_query_result::QueryExecutionError;
 use types::SqlTypeFamily;
 
@@ -27,7 +27,7 @@ pub enum StaticTypedTree {
         right: Box<StaticTypedTree>,
     },
     UnOp {
-        op: UnOperation,
+        op: UnOperator,
         item: Box<StaticTypedTree>,
     },
 }
@@ -47,7 +47,7 @@ impl StaticTypedTree {
             StaticTypedTree::UnOp { op, item } => {
                 let value = item.eval()?;
                 match op {
-                    UnOperation::Arithmetic(UnArithmetic::Neg) => match value {
+                    UnOperator::Arithmetic(UnArithmetic::Neg) => match value {
                         TypedValue::Num { value, type_family } => Ok(TypedValue::Num {
                             value: -value,
                             type_family,
@@ -60,7 +60,7 @@ impl StaticTypedTree {
                                 .unwrap_or_else(|| "unknown".to_owned()),
                         )),
                     },
-                    UnOperation::Arithmetic(UnArithmetic::Pos) => match value {
+                    UnOperator::Arithmetic(UnArithmetic::Pos) => match value {
                         TypedValue::Num { value, type_family } => Ok(TypedValue::Num { value, type_family }),
                         other => Err(QueryExecutionError::undefined_function(
                             op,
@@ -70,8 +70,8 @@ impl StaticTypedTree {
                                 .unwrap_or_else(|| "unknown".to_owned()),
                         )),
                     },
-                    UnOperation::Arithmetic(_) => unimplemented!(),
-                    UnOperation::Logical(UnLogical::Not) => match value {
+                    UnOperator::Arithmetic(_) => unimplemented!(),
+                    UnOperator::LogicalNot => match value {
                         TypedValue::Bool(value) => Ok(TypedValue::Bool(!value)),
                         other => Err(QueryExecutionError::datatype_mismatch(
                             op,
@@ -82,7 +82,36 @@ impl StaticTypedTree {
                                 .unwrap_or_else(|| "unknown".to_owned()),
                         )),
                     },
-                    UnOperation::Bitwise(_) => unimplemented!(),
+                    UnOperator::BitwiseNot => match value {
+                        TypedValue::Num {
+                            value,
+                            type_family: SqlTypeFamily::SmallInt,
+                        } => Ok(TypedValue::Num {
+                            value: BigDecimal::from(!value.to_i16().unwrap()),
+                            type_family: SqlTypeFamily::SmallInt,
+                        }),
+                        TypedValue::Num {
+                            value,
+                            type_family: SqlTypeFamily::Integer,
+                        } => Ok(TypedValue::Num {
+                            value: BigDecimal::from(!value.to_i32().unwrap()),
+                            type_family: SqlTypeFamily::Integer,
+                        }),
+                        TypedValue::Num {
+                            value,
+                            type_family: SqlTypeFamily::BigInt,
+                        } => Ok(TypedValue::Num {
+                            value: BigDecimal::from(!value.to_i64().unwrap()),
+                            type_family: SqlTypeFamily::BigInt,
+                        }),
+                        other => Err(QueryExecutionError::undefined_function(
+                            op,
+                            other
+                                .type_family()
+                                .map(|ty| ty.to_string())
+                                .unwrap_or_else(|| "unknown".to_owned()),
+                        )),
+                    },
                 }
             }
             _ => unimplemented!(),

@@ -23,7 +23,7 @@ mod unary_op {
     fn minus() {
         assert_eq!(
             OperationMapper::unary_operation(&sql_ast::UnaryOperator::Minus),
-            UnOperation::Arithmetic(UnArithmetic::Neg)
+            UnOperator::Arithmetic(UnArithmetic::Neg)
         );
     }
 
@@ -31,7 +31,7 @@ mod unary_op {
     fn plus() {
         assert_eq!(
             OperationMapper::unary_operation(&sql_ast::UnaryOperator::Plus),
-            UnOperation::Arithmetic(UnArithmetic::Pos)
+            UnOperator::Arithmetic(UnArithmetic::Pos)
         );
     }
 
@@ -39,7 +39,7 @@ mod unary_op {
     fn square_root() {
         assert_eq!(
             OperationMapper::unary_operation(&sql_ast::UnaryOperator::PGSquareRoot),
-            UnOperation::Arithmetic(UnArithmetic::SquareRoot)
+            UnOperator::Arithmetic(UnArithmetic::SquareRoot)
         );
     }
 
@@ -47,7 +47,7 @@ mod unary_op {
     fn cube_root() {
         assert_eq!(
             OperationMapper::unary_operation(&sql_ast::UnaryOperator::PGCubeRoot),
-            UnOperation::Arithmetic(UnArithmetic::CubeRoot)
+            UnOperator::Arithmetic(UnArithmetic::CubeRoot)
         );
     }
 
@@ -55,11 +55,11 @@ mod unary_op {
     fn factorial() {
         assert_eq!(
             OperationMapper::unary_operation(&sql_ast::UnaryOperator::PGPostfixFactorial),
-            UnOperation::Arithmetic(UnArithmetic::Factorial)
+            UnOperator::Arithmetic(UnArithmetic::Factorial)
         );
         assert_eq!(
             OperationMapper::unary_operation(&sql_ast::UnaryOperator::PGPrefixFactorial),
-            UnOperation::Arithmetic(UnArithmetic::Factorial)
+            UnOperator::Arithmetic(UnArithmetic::Factorial)
         );
     }
 
@@ -67,7 +67,7 @@ mod unary_op {
     fn abs() {
         assert_eq!(
             OperationMapper::unary_operation(&sql_ast::UnaryOperator::PGAbs),
-            UnOperation::Arithmetic(UnArithmetic::Abs)
+            UnOperator::Arithmetic(UnArithmetic::Abs)
         );
     }
 
@@ -75,7 +75,7 @@ mod unary_op {
     fn not() {
         assert_eq!(
             OperationMapper::unary_operation(&sql_ast::UnaryOperator::Not),
-            UnOperation::Logical(UnLogical::Not)
+            UnOperator::LogicalNot
         );
     }
 
@@ -83,7 +83,7 @@ mod unary_op {
     fn bitwise_not() {
         assert_eq!(
             OperationMapper::unary_operation(&sql_ast::UnaryOperator::PGBitwiseNot),
-            UnOperation::Bitwise(UnBitwise::Not)
+            UnOperator::BitwiseNot
         );
     }
 }

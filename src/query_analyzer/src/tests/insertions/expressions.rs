@@ -200,7 +200,7 @@ fn insert_into_table_negative_number() {
         Ok(QueryAnalysis::Write(UntypedWrite::Insert(InsertQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             values: vec![vec![Some(StaticUntypedTree::UnOp {
-                op: UnOperation::Arithmetic(UnArithmetic::Neg),
+                op: UnOperator::Arithmetic(UnArithmetic::Neg),
                 item: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(
                     BigDecimal::from(32768)
                 ))))
