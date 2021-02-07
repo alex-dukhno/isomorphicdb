@@ -13,17 +13,18 @@
 // limitations under the License.
 
 use bigdecimal::{BigDecimal, ToPrimitive};
-use data_manipulation_operators::{BiOperation, UnArithmetic, UnOperator};
+use data_manipulation_operators::{BiOperator, BiArithmetic, UnArithmetic, UnOperator};
 use data_manipulation_query_result::QueryExecutionError;
 use types::SqlTypeFamily;
+use data_manipulation_typed_values::TypedValue;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum StaticTypedTree {
     Item(StaticTypedItem),
     BiOp {
-        type_family: Option<SqlTypeFamily>,
+        type_family: SqlTypeFamily,
         left: Box<StaticTypedTree>,
-        op: BiOperation,
+        op: BiOperator,
         right: Box<StaticTypedTree>,
     },
     UnOp {
@@ -36,7 +37,7 @@ impl StaticTypedTree {
     pub fn type_family(&self) -> Option<SqlTypeFamily> {
         match self {
             StaticTypedTree::Item(item) => item.type_family(),
-            StaticTypedTree::BiOp { type_family, .. } => *type_family,
+            StaticTypedTree::BiOp { type_family, .. } => Some(*type_family),
             StaticTypedTree::UnOp { item, .. } => item.type_family(),
         }
     }
@@ -44,150 +45,27 @@ impl StaticTypedTree {
     pub fn eval(self) -> Result<TypedValue, QueryExecutionError> {
         match self {
             StaticTypedTree::Item(StaticTypedItem::Const(value)) => Ok(value),
+            StaticTypedTree::Item(StaticTypedItem::Null(_)) => unimplemented!(),
+            StaticTypedTree::Item(StaticTypedItem::Param { .. }) => unimplemented!(),
             StaticTypedTree::UnOp { op, item } => {
                 let value = item.eval()?;
+                op.eval(value)
+            },
+            StaticTypedTree::BiOp {
+                left, op, right, type_family
+            } => {
+                let left_value = left.eval()?;
+                let right_value = right.eval()?;
                 match op {
-                    UnOperator::Arithmetic(UnArithmetic::Neg) => match value {
-                        TypedValue::Num { value, type_family } => Ok(TypedValue::Num {
-                            value: -value,
-                            type_family,
-                        }),
-                        other => Err(QueryExecutionError::undefined_function(
-                            op,
-                            other
-                                .type_family()
-                                .map(|ty| ty.to_string())
-                                .unwrap_or_else(|| "unknown".to_owned()),
-                        )),
-                    },
-                    UnOperator::Arithmetic(UnArithmetic::Pos) => match value {
-                        TypedValue::Num { value, type_family } => Ok(TypedValue::Num { value, type_family }),
-                        other => Err(QueryExecutionError::undefined_function(
-                            op,
-                            other
-                                .type_family()
-                                .map(|ty| ty.to_string())
-                                .unwrap_or_else(|| "unknown".to_owned()),
-                        )),
-                    },
-                    UnOperator::Arithmetic(UnArithmetic::SquareRoot) => match value {
-                        TypedValue::Num { value, .. } => match value.sqrt() {
-                            None => Err(QueryExecutionError::InvalidArgumentForPowerFunction),
-                            Some(value) => Ok(TypedValue::Num {
-                                value,
-                                type_family: SqlTypeFamily::Double,
-                            }),
-                        },
-                        other => Err(QueryExecutionError::undefined_function(
-                            op,
-                            other
-                                .type_family()
-                                .map(|ty| ty.to_string())
-                                .unwrap_or_else(|| "unknown".to_owned()),
-                        )),
-                    },
-                    UnOperator::Arithmetic(UnArithmetic::CubeRoot) => match value {
-                        TypedValue::Num { value, .. } => Ok(TypedValue::Num {
-                            value: value.cbrt(),
-                            type_family: SqlTypeFamily::Double,
-                        }),
-                        other => Err(QueryExecutionError::undefined_function(
-                            op,
-                            other
-                                .type_family()
-                                .map(|ty| ty.to_string())
-                                .unwrap_or_else(|| "unknown".to_owned()),
-                        )),
-                    },
-                    UnOperator::Arithmetic(UnArithmetic::Factorial) => match value {
-                        TypedValue::Num {
-                            value,
-                            type_family: SqlTypeFamily::SmallInt,
-                        }
-                        | TypedValue::Num {
-                            value,
-                            type_family: SqlTypeFamily::Integer,
-                        }
-                        | TypedValue::Num {
-                            value,
-                            type_family: SqlTypeFamily::BigInt,
-                        } => {
-                            let mut result = BigDecimal::from(1);
-                            let mut n = BigDecimal::from(1);
-                            while n <= value {
-                                result *= n.clone();
-                                n += BigDecimal::from(1);
-                            }
-                            Ok(TypedValue::Num {
-                                value: result,
-                                type_family: SqlTypeFamily::BigInt,
-                            })
-                        }
-                        other => Err(QueryExecutionError::undefined_function(
-                            op,
-                            other
-                                .type_family()
-                                .map(|ty| ty.to_string())
-                                .unwrap_or_else(|| "unknown".to_owned()),
-                        )),
-                    },
-                    UnOperator::Arithmetic(UnArithmetic::Abs) => match value {
-                        TypedValue::Num { value, type_family } => Ok(TypedValue::Num {
-                            value: value.abs(),
-                            type_family,
-                        }),
-                        other => Err(QueryExecutionError::undefined_function(
-                            op,
-                            other
-                                .type_family()
-                                .map(|ty| ty.to_string())
-                                .unwrap_or_else(|| "unknown".to_owned()),
-                        )),
-                    },
-                    UnOperator::LogicalNot => match value {
-                        TypedValue::Bool(value) => Ok(TypedValue::Bool(!value)),
-                        other => Err(QueryExecutionError::datatype_mismatch(
-                            op,
-                            SqlTypeFamily::Bool,
-                            other
-                                .type_family()
-                                .map(|ty| ty.to_string())
-                                .unwrap_or_else(|| "unknown".to_owned()),
-                        )),
-                    },
-                    UnOperator::BitwiseNot => match value {
-                        TypedValue::Num {
-                            value,
-                            type_family: SqlTypeFamily::SmallInt,
-                        } => Ok(TypedValue::Num {
-                            value: BigDecimal::from(!value.to_i16().unwrap()),
-                            type_family: SqlTypeFamily::SmallInt,
-                        }),
-                        TypedValue::Num {
-                            value,
-                            type_family: SqlTypeFamily::Integer,
-                        } => Ok(TypedValue::Num {
-                            value: BigDecimal::from(!value.to_i32().unwrap()),
-                            type_family: SqlTypeFamily::Integer,
-                        }),
-                        TypedValue::Num {
-                            value,
-                            type_family: SqlTypeFamily::BigInt,
-                        } => Ok(TypedValue::Num {
-                            value: BigDecimal::from(!value.to_i64().unwrap()),
-                            type_family: SqlTypeFamily::BigInt,
-                        }),
-                        other => Err(QueryExecutionError::undefined_function(
-                            op,
-                            other
-                                .type_family()
-                                .map(|ty| ty.to_string())
-                                .unwrap_or_else(|| "unknown".to_owned()),
-                        )),
-                    },
+                    BiOperator::Arithmetic(BiArithmetic::Add) => unimplemented!(),
+                    BiOperator::Arithmetic(_) => unimplemented!(),
+                    BiOperator::Comparison(_) => unimplemented!(),
+                    BiOperator::Bitwise(_) => unimplemented!(),
+                    BiOperator::Logical(_) => unimplemented!(),
+                    BiOperator::PatternMatching(_) => unimplemented!(),
+                    BiOperator::StringOp(_) => unimplemented!(),
                 }
             }
-            _ => unimplemented!(),
         }
     }
 }
@@ -213,30 +91,10 @@ impl StaticTypedItem {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub enum TypedValue {
-    Num {
-        value: BigDecimal,
-        type_family: SqlTypeFamily,
-    },
-    String(String),
-    Bool(bool),
-}
-
-impl TypedValue {
-    fn type_family(&self) -> Option<SqlTypeFamily> {
-        match self {
-            TypedValue::Num { type_family, .. } => Some(*type_family),
-            TypedValue::String(_) => Some(SqlTypeFamily::String),
-            TypedValue::Bool(_) => Some(SqlTypeFamily::Bool),
-        }
-    }
-}
-
-#[derive(Debug, PartialEq, Clone)]
 pub enum DynamicTypedTree {
     Operation {
         left: Box<DynamicTypedTree>,
-        op: BiOperation,
+        op: BiOperator,
         right: Box<DynamicTypedTree>,
     },
     Item(DynamicTypedItem),

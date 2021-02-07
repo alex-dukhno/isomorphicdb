@@ -13,12 +13,13 @@
 // limitations under the License.
 
 use bigdecimal::{BigDecimal, FromPrimitive};
-use data_manipulation_typed_tree::{DynamicTypedItem, DynamicTypedTree, StaticTypedItem, StaticTypedTree, TypedValue};
+use data_manipulation_typed_tree::{DynamicTypedItem, DynamicTypedTree, StaticTypedItem, StaticTypedTree};
 use data_manipulation_untyped_tree::{
     Bool, DynamicUntypedItem, DynamicUntypedTree, StaticUntypedItem, StaticUntypedTree, UntypedValue,
 };
 use std::ops::RangeInclusive;
 use types::SqlTypeFamily;
+use data_manipulation_typed_values::TypedValue;
 
 pub struct TypeInference {
     small_int_range: RangeInclusive<BigDecimal>,
@@ -98,13 +99,13 @@ impl TypeInference {
                 let type_family = match (left_tree.type_family(), right_tree.type_family()) {
                     (Some(left_type_family), Some(right_type_family)) => {
                         match left_type_family.compare(&right_type_family) {
-                            Ok(type_family) => Some(type_family),
+                            Ok(type_family) => type_family,
                             Err(_) => unimplemented!(),
                         }
                     }
-                    (Some(left_type_family), None) => Some(left_type_family),
-                    (None, Some(right_type_family)) => Some(right_type_family),
-                    (None, None) => None,
+                    (Some(left_type_family), None) => left_type_family,
+                    (None, Some(right_type_family)) => right_type_family,
+                    (None, None) => unimplemented!(),
                 };
                 StaticTypedTree::BiOp {
                     type_family,

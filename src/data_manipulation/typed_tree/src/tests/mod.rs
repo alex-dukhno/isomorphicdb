@@ -18,3 +18,5 @@ use super::*;
 mod constants;
 #[cfg(test)]
 mod unary_op;
+#[cfg(test)]
+mod binary_op;

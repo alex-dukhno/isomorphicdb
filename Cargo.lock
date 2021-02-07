@@ -169,6 +169,7 @@ dependencies = [
  "data_manipulation_operators",
  "data_manipulation_query_result",
  "data_manipulation_typed_tree",
+ "data_manipulation_typed_values",
  "data_scalar",
  "definition",
  "log",
@@ -286,6 +287,9 @@ dependencies = [
 name = "data_manipulation_operators"
 version = "0.1.0"
 dependencies = [
+ "bigdecimal",
+ "data_manipulation_query_result",
+ "data_manipulation_typed_values",
  "types",
 ]
 
@@ -313,6 +317,15 @@ dependencies = [
  "bigdecimal",
  "data_manipulation_operators",
  "data_manipulation_query_result",
+ "data_manipulation_typed_values",
+ "types",
+]
+
+[[package]]
+name = "data_manipulation_typed_values"
+version = "0.1.0"
+dependencies = [
+ "bigdecimal",
  "types",
 ]
 
@@ -852,8 +865,8 @@ dependencies = [
  "bigdecimal",
  "data_manipulation_operators",
  "data_manipulation_typed_tree",
+ "data_manipulation_typed_values",
  "data_manipulation_untyped_tree",
- "num-bigint",
  "types",
 ]
 
@@ -1298,6 +1311,7 @@ dependencies = [
  "data_manipulation_query_result",
  "data_manipulation_typed_queries",
  "data_manipulation_typed_tree",
+ "data_manipulation_typed_values",
  "definition",
  "types",
 ]

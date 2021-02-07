@@ -13,9 +13,7 @@
 // limitations under the License.
 
 use super::*;
-use data_manipulation_operators::{BiArithmetic, BiOperation, UnArithmetic, UnOperator};
-use data_manipulation_typed_tree::{StaticTypedItem, StaticTypedTree, TypedValue};
-use types::SqlTypeFamily;
+use data_manipulation_operators::{BiArithmetic, BiOperator, UnArithmetic, UnOperator};
 
 #[test]
 fn negate_number() {
@@ -42,19 +40,19 @@ fn add_same_types() {
     let type_inference = TypeInference::default();
     let untyped_tree = StaticUntypedTree::BiOp {
         left: Box::new(untyped_number(BigDecimal::from(1))),
-        op: BiOperation::Arithmetic(BiArithmetic::Add),
+        op: BiOperator::Arithmetic(BiArithmetic::Add),
         right: Box::new(untyped_number(BigDecimal::from(2))),
     };
 
     assert_eq!(
         type_inference.infer_static(untyped_tree),
         StaticTypedTree::BiOp {
-            type_family: Some(SqlTypeFamily::SmallInt),
+            type_family: SqlTypeFamily::SmallInt,
             left: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
                 value: BigDecimal::from(1),
                 type_family: SqlTypeFamily::SmallInt
             }))),
-            op: BiOperation::Arithmetic(BiArithmetic::Add),
+            op: BiOperator::Arithmetic(BiArithmetic::Add),
             right: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
                 value: BigDecimal::from(2),
                 type_family: SqlTypeFamily::SmallInt
@@ -68,19 +66,19 @@ fn add_different_types() {
     let type_inference = TypeInference::default();
     let untyped_tree = StaticUntypedTree::BiOp {
         left: Box::new(untyped_number(BigDecimal::from(i64::MAX - i32::MAX as i64))),
-        op: BiOperation::Arithmetic(BiArithmetic::Add),
+        op: BiOperator::Arithmetic(BiArithmetic::Add),
         right: Box::new(untyped_number(BigDecimal::from(2))),
     };
 
     assert_eq!(
         type_inference.infer_static(untyped_tree),
         StaticTypedTree::BiOp {
-            type_family: Some(SqlTypeFamily::BigInt),
+            type_family: SqlTypeFamily::BigInt,
             left: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
                 value: BigDecimal::from((i64::MAX - i32::MAX as i64) as u64),
                 type_family: SqlTypeFamily::BigInt
             }))),
-            op: BiOperation::Arithmetic(BiArithmetic::Add),
+            op: BiOperator::Arithmetic(BiArithmetic::Add),
             right: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
                 value: BigDecimal::from(2),
                 type_family: SqlTypeFamily::SmallInt

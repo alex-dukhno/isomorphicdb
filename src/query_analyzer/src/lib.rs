@@ -18,7 +18,7 @@ use catalog::CatalogDefinition;
 use data_definition_execution_plan::{
     ColumnInfo, CreateIndexQuery, CreateSchemaQuery, CreateTableQuery, DropSchemasQuery, DropTablesQuery, SchemaChange,
 };
-use data_manipulation_operators::BiOperation;
+use data_manipulation_operators::BiOperator;
 use data_manipulation_untyped_queries::{DeleteQuery, InsertQuery, SelectQuery, UntypedWrite, UpdateQuery};
 use data_manipulation_untyped_tree::{DynamicUntypedItem, DynamicUntypedTree};
 use definition::{FullTableName, SchemaName};
@@ -427,7 +427,7 @@ pub enum AnalysisError {
     // StringDataRightTruncation(SqlType),                              // Error code: 22001
     // DatatypeMismatch { column_type: SqlType, source_type: SqlType }, // Error code: 42804
     // AmbiguousFunction(BiOperation),                                    // Error code: 42725
-    UndefinedFunction(BiOperation), // Error code: 42883
+    UndefinedFunction(BiOperator), // Error code: 42883
     FeatureNotSupported(Feature),
 }
 

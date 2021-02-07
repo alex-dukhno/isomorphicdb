@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use bigdecimal::BigDecimal;
-use data_manipulation_operators::{BiOperation, UnOperator};
+use data_manipulation_operators::{BiOperator, UnOperator};
 use std::{
     fmt,
     fmt::{Display, Formatter},
@@ -200,7 +200,7 @@ pub enum StaticUntypedTree {
     },
     BiOp {
         left: Box<StaticUntypedTree>,
-        op: BiOperation,
+        op: BiOperator,
         right: Box<StaticUntypedTree>,
     },
     Item(StaticUntypedItem),
@@ -221,7 +221,7 @@ impl StaticUntypedTree {
 pub enum DynamicUntypedTree {
     Operation {
         left: Box<DynamicUntypedTree>,
-        op: BiOperation,
+        op: BiOperator,
         right: Box<DynamicUntypedTree>,
     },
     Item(DynamicUntypedItem),

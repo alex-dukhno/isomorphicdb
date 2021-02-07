@@ -13,9 +13,7 @@
 // limitations under the License.
 
 use super::*;
-use bigdecimal::{BigDecimal, FromPrimitive};
-use data_manipulation_typed_tree::{StaticTypedItem, StaticTypedTree, TypedValue};
-use num_bigint::BigInt;
+use std::str::FromStr;
 
 #[test]
 fn smallint() {
@@ -67,7 +65,7 @@ fn real() {
     assert_eq!(
         type_inference.infer_static(tree),
         StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
-            value: BigDecimal::from((BigInt::from(38), 1)),
+            value: BigDecimal::from_str("3.8").unwrap(),
             type_family: SqlTypeFamily::Real
         }))
     );

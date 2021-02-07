@@ -8,8 +8,8 @@ publish = false
 [dependencies]
 data_manipulation_untyped_tree = { path = "../../data_manipulation/untyped_tree" }
 data_manipulation_typed_tree = { path = "../../data_manipulation/typed_tree" }
+data_manipulation_typed_values = { path = "../../data_manipulation/typed_values" }
 data_manipulation_operators = { path = "../../data_manipulation/operators" }
 types = { path = "../../entities/types" }
 
 bigdecimal = { version = "0.2.0", features = ["string-only"] }
-num-bigint = "0.3.1"

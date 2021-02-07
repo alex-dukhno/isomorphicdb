@@ -12,7 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::*;
+use types::SqlTypeFamily;
+use bigdecimal::BigDecimal;
 
-#[cfg(test)]
-mod supported_type_families;
+#[derive(Debug, PartialEq, Clone)]
+pub enum TypedValue {
+    Num {
+        value: BigDecimal,
+        type_family: SqlTypeFamily,
+    },
+    String(String),
+    Bool(bool),
+}
+
+impl TypedValue {
+    pub fn type_family(&self) -> Option<SqlTypeFamily> {
+        match self {
+            TypedValue::Num { type_family, .. } => Some(*type_family),
+            TypedValue::String(_) => Some(SqlTypeFamily::String),
+            TypedValue::Bool(_) => Some(SqlTypeFamily::Bool),
+        }
+    }
+}

@@ -13,7 +13,6 @@
 // limitations under the License.
 
 use super::*;
-use data_manipulation_typed_tree::{StaticTypedItem, TypedValue};
 
 #[test]
 fn insert_single_column() {
