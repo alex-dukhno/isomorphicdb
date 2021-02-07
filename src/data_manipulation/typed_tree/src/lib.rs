@@ -70,6 +70,35 @@ impl StaticTypedTree {
                                 .unwrap_or_else(|| "unknown".to_owned()),
                         )),
                     },
+                    UnOperator::Arithmetic(UnArithmetic::SquareRoot) => match value {
+                        TypedValue::Num { value, .. } => match value.sqrt() {
+                            None => Err(QueryExecutionError::InvalidArgumentForPowerFunction),
+                            Some(value) => Ok(TypedValue::Num {
+                                value,
+                                type_family: SqlTypeFamily::Double,
+                            }),
+                        },
+                        other => Err(QueryExecutionError::undefined_function(
+                            op,
+                            other
+                                .type_family()
+                                .map(|ty| ty.to_string())
+                                .unwrap_or_else(|| "unknown".to_owned()),
+                        )),
+                    },
+                    UnOperator::Arithmetic(UnArithmetic::CubeRoot) => match value {
+                        TypedValue::Num { value, .. } => Ok(TypedValue::Num {
+                            value: value.cbrt(),
+                            type_family: SqlTypeFamily::Double,
+                        }),
+                        other => Err(QueryExecutionError::undefined_function(
+                            op,
+                            other
+                                .type_family()
+                                .map(|ty| ty.to_string())
+                                .unwrap_or_else(|| "unknown".to_owned()),
+                        )),
+                    },
                     UnOperator::Arithmetic(_) => unimplemented!(),
                     UnOperator::LogicalNot => match value {
                         TypedValue::Bool(value) => Ok(TypedValue::Bool(!value)),

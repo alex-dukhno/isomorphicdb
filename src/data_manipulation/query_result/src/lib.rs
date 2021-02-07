@@ -30,6 +30,7 @@ pub enum QueryExecutionError {
     ColumnNotFound(String),
     UndefinedFunction(String, String),
     DatatypeMismatch(String, String, String),
+    InvalidArgumentForPowerFunction,
 }
 
 impl QueryExecutionError {
@@ -57,6 +58,7 @@ impl From<QueryExecutionError> for pg_result::QueryError {
             QueryExecutionError::DatatypeMismatch(op, target_type, actual_type) => {
                 QueryError::datatype_mismatch(op, target_type, actual_type)
             }
+            QueryExecutionError::InvalidArgumentForPowerFunction => QueryError::invalid_argument_for_power_function(),
         }
     }
 }

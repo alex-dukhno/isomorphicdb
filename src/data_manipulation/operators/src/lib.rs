@@ -134,8 +134,8 @@ impl Display for UnArithmetic {
         match self {
             UnArithmetic::Neg => write!(f, "-"),
             UnArithmetic::Pos => write!(f, "+"),
-            UnArithmetic::SquareRoot => unimplemented!(),
-            UnArithmetic::CubeRoot => unimplemented!(),
+            UnArithmetic::SquareRoot => write!(f, "|/"),
+            UnArithmetic::CubeRoot => write!(f, "||/"),
             UnArithmetic::Factorial => unimplemented!(),
             UnArithmetic::Abs => unimplemented!(),
         }

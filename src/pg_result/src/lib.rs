@@ -191,6 +191,7 @@ pub(crate) enum QueryErrorKind {
         target_type: String,
         actual_type: String,
     },
+    InvalidArgumentForPowerFunction,
 }
 
 impl QueryErrorKind {
@@ -220,6 +221,7 @@ impl QueryErrorKind {
             Self::InvalidTextRepresentation { .. } => "22P02",
             Self::DuplicateColumn(_) => "42701",
             Self::DatatypeMismatch { .. } => "42804",
+            Self::InvalidArgumentForPowerFunction => "2201F",
         }
     }
 }
@@ -303,6 +305,7 @@ impl Display for QueryErrorKind {
                 "argument of {} must be type {}, not type {}",
                 op, target_type, actual_type
             ),
+            Self::InvalidArgumentForPowerFunction => write!(f, "cannot take square root of a negative number"),
         }
     }
 }
@@ -563,6 +566,13 @@ impl QueryError {
         QueryError {
             severity: Severity::Error,
             kind: QueryErrorKind::DuplicateColumn(column.to_string()),
+        }
+    }
+
+    pub fn invalid_argument_for_power_function() -> QueryError {
+        QueryError {
+            severity: Severity::Error,
+            kind: QueryErrorKind::InvalidArgumentForPowerFunction,
         }
     }
 }
