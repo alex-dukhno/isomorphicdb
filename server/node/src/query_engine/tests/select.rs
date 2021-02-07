@@ -13,10 +13,6 @@
 // limitations under the License.
 
 use super::*;
-use pg_model::{
-    results::{QueryError, QueryEvent},
-    Command,
-};
 
 #[rstest::rstest]
 fn select_from_not_existed_table(database_with_schema: (InMemory, ResultCollector)) {

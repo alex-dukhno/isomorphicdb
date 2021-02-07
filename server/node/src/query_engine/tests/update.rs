@@ -13,10 +13,6 @@
 // limitations under the License.
 
 use super::*;
-use pg_model::{
-    results::{QueryError, QueryEvent},
-    Command,
-};
 
 #[rstest::rstest]
 fn update_all_records(database_with_schema: (InMemory, ResultCollector)) {
@@ -1021,7 +1017,7 @@ fn test_update_with_dynamic_expression(database_with_schema: (InMemory, ResultCo
 //                     sql: "update schema_name.table_name set strings = 1 || 2;".to_owned(),
 //                 })
 //                 .expect("query executed");
-//             collector.assert_receive_single(Err(QueryError::undefined_function(
+//             collector.assert_receive_single(Err(QueryError::UndefinedFunction(
 //                 "||".to_owned(),
 //                 "NUMBER".to_owned(),
 //                 "NUMBER".to_owned(),

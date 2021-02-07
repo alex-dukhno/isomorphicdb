@@ -13,10 +13,6 @@
 // limitations under the License.
 
 use super::*;
-use pg_model::{
-    results::{QueryError, QueryEvent},
-    Command,
-};
 
 #[rstest::rstest]
 fn insert_into_nonexistent_table(database_with_schema: (InMemory, ResultCollector)) {
@@ -922,7 +918,7 @@ fn insert_booleans(database_with_schema: (InMemory, ResultCollector)) {
 //                     sql: "insert into schema_name.table_name values (1 || 2);".to_owned(),
 //                 })
 //                 .expect("query executed");
-//             collector.assert_receive_single(Err(QueryError::undefined_function(
+//             collector.assert_receive_single(Err(QueryError::UndefinedFunction(
 //                 "||".to_owned(),
 //                 "NUMBER".to_owned(),
 //                 "NUMBER".to_owned(),

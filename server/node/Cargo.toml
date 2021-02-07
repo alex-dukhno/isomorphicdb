@@ -19,6 +19,7 @@ data_scalar = { path = "../../data/scalar" }
 data_definition_execution_plan = { path = "../../data_definition/execution_plan" }
 parser = { path = "../../query_parsing/parser" }
 pg_model = { path = "../pg_model" }
+pg_result = { path = "../../pg_result" }
 pg_wire = "0.5.0"
 query_analyzer = { path = "../../query_analyzer" }
 sql_ast = { path = "../../query_parsing/sql-ast" }

@@ -156,7 +156,7 @@ pub(crate) enum QueryErrorKind {
         column_name: String,
         row_index: usize, // TODO make it optional - does not make sense for update query
     },
-    DataTypeMismatch {
+    MostSpecificTypeMismatch {
         pg_type: PgType,
         value: String,
         column_name: String,
@@ -185,6 +185,12 @@ pub(crate) enum QueryErrorKind {
         value: String,
     },
     DuplicateColumn(String),
+    DatatypeMismatch {
+        op: String,
+        // TODO: make it PgType
+        target_type: String,
+        actual_type: String,
+    },
 }
 
 impl QueryErrorKind {
@@ -205,7 +211,7 @@ impl QueryErrorKind {
             Self::FeatureNotSupported(_) => "0A000",
             Self::TooManyInsertExpressions => "42601",
             Self::NumericTypeOutOfRange { .. } => "22003",
-            Self::DataTypeMismatch { .. } => "2200G",
+            Self::MostSpecificTypeMismatch { .. } => "2200G",
             Self::StringTypeLengthMismatch { .. } => "22026",
             Self::UndefinedFunction { .. } => "42883",
             Self::AmbiguousColumnName { .. } => "42702",
@@ -213,6 +219,7 @@ impl QueryErrorKind {
             Self::SyntaxError(_) => "42601",
             Self::InvalidTextRepresentation { .. } => "22P02",
             Self::DuplicateColumn(_) => "42701",
+            Self::DatatypeMismatch { .. } => "42804",
         }
     }
 }
@@ -251,7 +258,7 @@ impl Display for QueryErrorKind {
                 "{} is out of range for column '{}' at row {}",
                 pg_type, column_name, row_index
             ),
-            Self::DataTypeMismatch {
+            Self::MostSpecificTypeMismatch {
                 pg_type,
                 value,
                 column_name,
@@ -287,6 +294,15 @@ impl Display for QueryErrorKind {
                 write!(f, "invalid input syntax for type {}: \"{}\"", pg_type, value)
             }
             Self::DuplicateColumn(name) => write!(f, "column \"{}\" specified more than once", name),
+            Self::DatatypeMismatch {
+                op,
+                target_type,
+                actual_type,
+            } => write!(
+                f,
+                "argument of {} must be type {}, not type {}",
+                op, target_type, actual_type
+            ),
         }
     }
 }
@@ -484,11 +500,27 @@ impl QueryError {
         }
     }
 
-    /// type mismatch constructor
-    pub fn type_mismatch<S: ToString>(value: S, pg_type: PgType, column_name: S, row_index: usize) -> QueryError {
+    pub fn datatype_mismatch(op: String, target_type: String, actual_type: String) -> QueryError {
         QueryError {
             severity: Severity::Error,
-            kind: QueryErrorKind::DataTypeMismatch {
+            kind: QueryErrorKind::DatatypeMismatch {
+                op,
+                target_type,
+                actual_type,
+            },
+        }
+    }
+
+    /// type mismatch constructor
+    pub fn most_specific_type_mismatch<S: ToString>(
+        value: S,
+        pg_type: PgType,
+        column_name: S,
+        row_index: usize,
+    ) -> QueryError {
+        QueryError {
+            severity: Severity::Error,
+            kind: QueryErrorKind::MostSpecificTypeMismatch {
                 pg_type,
                 value: value.to_string(),
                 column_name: column_name.to_string(),
@@ -858,7 +890,8 @@ mod tests {
 
         #[test]
         fn type_mismatch_constraint_violation() {
-            let message: BackendMessage = QueryError::type_mismatch("abc", PgType::SmallInt, "col1", 1).into();
+            let message: BackendMessage =
+                QueryError::most_specific_type_mismatch("abc", PgType::SmallInt, "col1", 1).into();
             assert_eq!(
                 message,
                 BackendMessage::ErrorResponse(

@@ -32,9 +32,10 @@ impl<D: Database> WriteQueryExecutor<D> {
             TypedWrite::Insert(InsertQuery {
                 full_table_name,
                 values,
-            }) => Ok(QueryExecution::Inserted(
-                self.database.work_with(&full_table_name, |table| table.insert(&values)),
-            )),
+            }) => self
+                .database
+                .work_with(&full_table_name, |table| table.insert(values.clone()))
+                .map(QueryExecution::Inserted),
             TypedWrite::Delete(DeleteQuery { full_table_name }) => Ok(QueryExecution::Deleted(
                 self.database.work_with(&full_table_name, |table| table.delete_all()),
             )),

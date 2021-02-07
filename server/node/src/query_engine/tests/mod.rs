@@ -14,10 +14,8 @@
 
 use super::*;
 use catalog::InMemoryDatabase;
-use pg_model::{
-    results::{QueryEvent, QueryResult},
-    Command,
-};
+use pg_model::Command;
+use pg_result::{QueryEvent, QueryResult};
 use pg_wire::ColumnMetadata;
 use std::{
     io,

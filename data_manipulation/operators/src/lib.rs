@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::fmt::{self, Display, Formatter};
 use types::SqlTypeFamily;
 
 #[derive(Debug, PartialEq, Copy, Clone)]
@@ -108,6 +109,16 @@ pub enum UnOperation {
     Bitwise(UnBitwise),
 }
 
+impl Display for UnOperation {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            UnOperation::Arithmetic(op) => write!(f, "{}", op),
+            UnOperation::Logical(op) => write!(f, "{}", op),
+            UnOperation::Bitwise(_op) => unimplemented!(),
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Clone)]
 pub enum UnArithmetic {
     Neg,
@@ -118,9 +129,28 @@ pub enum UnArithmetic {
     Abs,
 }
 
+impl Display for UnArithmetic {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            UnArithmetic::Neg => write!(f, "-"),
+            UnArithmetic::Pos => write!(f, "+"),
+            UnArithmetic::SquareRoot => unimplemented!(),
+            UnArithmetic::CubeRoot => unimplemented!(),
+            UnArithmetic::Factorial => unimplemented!(),
+            UnArithmetic::Abs => unimplemented!(),
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Clone)]
 pub enum UnLogical {
     Not,
+}
+
+impl Display for UnLogical {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "NOT")
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]

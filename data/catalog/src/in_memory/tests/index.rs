@@ -139,14 +139,16 @@ fn index_data_is_populated_when_insert_data_into_table_with_single_column() {
             column_names: vec!["col_1".to_owned()],
         }))
         .unwrap();
-    database.work_with(&FullTableName::from((&SCHEMA, &TABLE)), |table| {
-        table.insert(&[vec![Some(StaticTypedTree::Item(StaticTypedItem::Const(
-            TypedValue::Num {
-                value: BigDecimal::from(1),
-                type_family: SqlTypeFamily::SmallInt,
-            },
-        )))]])
-    });
+    database
+        .work_with(&FullTableName::from((&SCHEMA, &TABLE)), |table| {
+            table.insert(vec![vec![Some(StaticTypedTree::Item(StaticTypedItem::Const(
+                TypedValue::Num {
+                    value: BigDecimal::from(1),
+                    type_family: SqlTypeFamily::SmallInt,
+                },
+            )))]])
+        })
+        .unwrap();
 
     assert_eq!(
         database.work_with_index(FullIndexName::from((&SCHEMA, &TABLE, &"index_name")), |index| index
@@ -194,52 +196,54 @@ fn index_of_single_column_data_is_populated_when_insert_data_into_table_with_man
         }))
         .unwrap();
 
-    database.work_with(&FullTableName::from((&SCHEMA, &TABLE)), |table| {
-        table.insert(&[
-            vec![
-                Some(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
-                    value: BigDecimal::from(1),
-                    type_family: SqlTypeFamily::SmallInt,
-                }))),
-                Some(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
-                    value: BigDecimal::from(2),
-                    type_family: SqlTypeFamily::SmallInt,
-                }))),
-                Some(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
-                    value: BigDecimal::from(3),
-                    type_family: SqlTypeFamily::SmallInt,
-                }))),
-            ],
-            vec![
-                Some(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
-                    value: BigDecimal::from(4),
-                    type_family: SqlTypeFamily::SmallInt,
-                }))),
-                Some(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
-                    value: BigDecimal::from(5),
-                    type_family: SqlTypeFamily::SmallInt,
-                }))),
-                Some(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
-                    value: BigDecimal::from(6),
-                    type_family: SqlTypeFamily::SmallInt,
-                }))),
-            ],
-            vec![
-                Some(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
-                    value: BigDecimal::from(7),
-                    type_family: SqlTypeFamily::SmallInt,
-                }))),
-                Some(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
-                    value: BigDecimal::from(8),
-                    type_family: SqlTypeFamily::SmallInt,
-                }))),
-                Some(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
-                    value: BigDecimal::from(9),
-                    type_family: SqlTypeFamily::SmallInt,
-                }))),
-            ],
-        ])
-    });
+    database
+        .work_with(&FullTableName::from((&SCHEMA, &TABLE)), |table| {
+            table.insert(vec![
+                vec![
+                    Some(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
+                        value: BigDecimal::from(1),
+                        type_family: SqlTypeFamily::SmallInt,
+                    }))),
+                    Some(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
+                        value: BigDecimal::from(2),
+                        type_family: SqlTypeFamily::SmallInt,
+                    }))),
+                    Some(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
+                        value: BigDecimal::from(3),
+                        type_family: SqlTypeFamily::SmallInt,
+                    }))),
+                ],
+                vec![
+                    Some(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
+                        value: BigDecimal::from(4),
+                        type_family: SqlTypeFamily::SmallInt,
+                    }))),
+                    Some(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
+                        value: BigDecimal::from(5),
+                        type_family: SqlTypeFamily::SmallInt,
+                    }))),
+                    Some(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
+                        value: BigDecimal::from(6),
+                        type_family: SqlTypeFamily::SmallInt,
+                    }))),
+                ],
+                vec![
+                    Some(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
+                        value: BigDecimal::from(7),
+                        type_family: SqlTypeFamily::SmallInt,
+                    }))),
+                    Some(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
+                        value: BigDecimal::from(8),
+                        type_family: SqlTypeFamily::SmallInt,
+                    }))),
+                    Some(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
+                        value: BigDecimal::from(9),
+                        type_family: SqlTypeFamily::SmallInt,
+                    }))),
+                ],
+            ])
+        })
+        .unwrap();
 
     assert_eq!(
         database.work_with_index(FullIndexName::from((&SCHEMA, &TABLE, &"index_name")), |index| index
@@ -298,52 +302,54 @@ fn all_indexes_are_populated_when_insert_data_into_table_with_many_columns() {
         }))
         .unwrap();
 
-    database.work_with(&FullTableName::from((&SCHEMA, &TABLE)), |table| {
-        table.insert(&[
-            vec![
-                Some(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
-                    value: BigDecimal::from(1),
-                    type_family: SqlTypeFamily::SmallInt,
-                }))),
-                Some(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
-                    value: BigDecimal::from(2),
-                    type_family: SqlTypeFamily::SmallInt,
-                }))),
-                Some(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
-                    value: BigDecimal::from(3),
-                    type_family: SqlTypeFamily::SmallInt,
-                }))),
-            ],
-            vec![
-                Some(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
-                    value: BigDecimal::from(4),
-                    type_family: SqlTypeFamily::SmallInt,
-                }))),
-                Some(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
-                    value: BigDecimal::from(5),
-                    type_family: SqlTypeFamily::SmallInt,
-                }))),
-                Some(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
-                    value: BigDecimal::from(6),
-                    type_family: SqlTypeFamily::SmallInt,
-                }))),
-            ],
-            vec![
-                Some(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
-                    value: BigDecimal::from(7),
-                    type_family: SqlTypeFamily::SmallInt,
-                }))),
-                Some(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
-                    value: BigDecimal::from(8),
-                    type_family: SqlTypeFamily::SmallInt,
-                }))),
-                Some(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
-                    value: BigDecimal::from(9),
-                    type_family: SqlTypeFamily::SmallInt,
-                }))),
-            ],
-        ])
-    });
+    database
+        .work_with(&FullTableName::from((&SCHEMA, &TABLE)), |table| {
+            table.insert(vec![
+                vec![
+                    Some(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
+                        value: BigDecimal::from(1),
+                        type_family: SqlTypeFamily::SmallInt,
+                    }))),
+                    Some(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
+                        value: BigDecimal::from(2),
+                        type_family: SqlTypeFamily::SmallInt,
+                    }))),
+                    Some(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
+                        value: BigDecimal::from(3),
+                        type_family: SqlTypeFamily::SmallInt,
+                    }))),
+                ],
+                vec![
+                    Some(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
+                        value: BigDecimal::from(4),
+                        type_family: SqlTypeFamily::SmallInt,
+                    }))),
+                    Some(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
+                        value: BigDecimal::from(5),
+                        type_family: SqlTypeFamily::SmallInt,
+                    }))),
+                    Some(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
+                        value: BigDecimal::from(6),
+                        type_family: SqlTypeFamily::SmallInt,
+                    }))),
+                ],
+                vec![
+                    Some(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
+                        value: BigDecimal::from(7),
+                        type_family: SqlTypeFamily::SmallInt,
+                    }))),
+                    Some(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
+                        value: BigDecimal::from(8),
+                        type_family: SqlTypeFamily::SmallInt,
+                    }))),
+                    Some(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
+                        value: BigDecimal::from(9),
+                        type_family: SqlTypeFamily::SmallInt,
+                    }))),
+                ],
+            ])
+        })
+        .unwrap();
 
     assert_eq!(
         database.work_with_index(FullIndexName::from((&SCHEMA, &TABLE, &"index_name_1")), |index| index

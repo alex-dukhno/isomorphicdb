@@ -24,4 +24,6 @@ members = [
     "server/pg_model",
     "server/node",
     "write_query/executor",
+#     TODO: to be extracted
+    "pg_result",
 ]

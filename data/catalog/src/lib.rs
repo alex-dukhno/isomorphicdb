@@ -22,6 +22,7 @@ use std::{
     iter::FromIterator,
 };
 
+use data_manipulation_query_result::QueryExecutionError;
 pub use in_memory::InMemoryDatabase;
 
 mod binary;
@@ -99,7 +100,7 @@ const INDEXES_TABLE: &str = "TABLES";
 const COLUMNS_TABLE: &str = "COLUMNS";
 
 pub trait SqlTable {
-    fn insert(&self, data: &[Vec<Option<StaticTypedTree>>]) -> usize;
+    fn insert(&self, data: Vec<Vec<Option<StaticTypedTree>>>) -> Result<usize, QueryExecutionError>;
 
     fn select(&self, column_names: Vec<String>) -> Result<(Vec<ColumnDef>, Vec<Vec<ScalarValue>>), String>;
 

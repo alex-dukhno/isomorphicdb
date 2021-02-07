@@ -17,7 +17,8 @@ use async_native_tls::TlsStream;
 use blocking::Unblock;
 use byteorder::{ByteOrder, NetworkEndian};
 use futures_lite::{future::block_on, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-use pg_model::{results::QueryResult, Command, ConnSupervisor, Encryption, ProtocolConfiguration};
+use pg_model::{Command, ConnSupervisor, Encryption, ProtocolConfiguration};
+use pg_result::QueryResult;
 use pg_wire::{
     BackendMessage, ConnId, Error, FrontendMessage, HandShakeProcess, HandShakeRequest, HandShakeStatus,
     MessageDecoder, MessageDecoderStatus, Result,

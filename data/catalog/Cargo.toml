@@ -8,6 +8,7 @@ publish = false
 [dependencies]
 data_definition_execution_plan = { path = "../../data_definition/execution_plan" }
 data_manipulation_operators = { path = "../../data_manipulation/operators" }
+data_manipulation_query_result = { path = "../../data_manipulation/query_result" }
 data_manipulation_typed_tree = { path = "../../data_manipulation/typed_tree" }
 definition = { path = "../../entities/definition" }
 types = { path = "../../entities/types" }

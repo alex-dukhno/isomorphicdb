@@ -39,14 +39,16 @@ fn insert_single_column() {
     );
 
     let full_table_name = FullTableName::from((&SCHEMA, &TABLE));
-    database.work_with(&full_table_name, |table| {
-        table.insert(&[vec![Some(StaticTypedTree::Item(StaticTypedItem::Const(
-            TypedValue::Num {
-                value: BigDecimal::from(1),
-                type_family: SqlTypeFamily::SmallInt,
-            },
-        )))]])
-    });
+    database
+        .work_with(&full_table_name, |table| {
+            table.insert(vec![vec![Some(StaticTypedTree::Item(StaticTypedItem::Const(
+                TypedValue::Num {
+                    value: BigDecimal::from(1),
+                    type_family: SqlTypeFamily::SmallInt,
+                },
+            )))]])
+        })
+        .unwrap();
 
     assert_eq!(
         database
