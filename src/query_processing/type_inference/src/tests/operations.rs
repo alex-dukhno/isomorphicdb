@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use super::*;
-use data_manipulation_operators::{BiArithmetic, BiOperation, UnArithmetic, UnOperation};
+use data_manipulation_operators::{BiArithmetic, BiOperation, UnArithmetic, UnOperator};
 use data_manipulation_typed_tree::{StaticTypedItem, StaticTypedTree, TypedValue};
 use types::SqlTypeFamily;
 
@@ -21,14 +21,14 @@ use types::SqlTypeFamily;
 fn negate_number() {
     let type_inference = TypeInference::default();
     let untyped_tree = StaticUntypedTree::UnOp {
-        op: UnOperation::Arithmetic(UnArithmetic::Neg),
+        op: UnOperator::Arithmetic(UnArithmetic::Neg),
         item: Box::new(untyped_number(BigDecimal::from(2))),
     };
 
     assert_eq!(
         type_inference.infer_static(untyped_tree),
         StaticTypedTree::UnOp {
-            op: UnOperation::Arithmetic(UnArithmetic::Neg),
+            op: UnOperator::Arithmetic(UnArithmetic::Neg),
             item: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
                 value: BigDecimal::from(2),
                 type_family: SqlTypeFamily::SmallInt

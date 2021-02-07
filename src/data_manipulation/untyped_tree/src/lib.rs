@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use bigdecimal::BigDecimal;
-use data_manipulation_operators::{BiOperation, UnOperation};
+use data_manipulation_operators::{BiOperation, UnOperator};
 use std::{
     fmt,
     fmt::{Display, Formatter},
@@ -195,7 +195,7 @@ impl Display for UntypedValue {
 #[derive(Debug, PartialEq)]
 pub enum StaticUntypedTree {
     UnOp {
-        op: UnOperation,
+        op: UnOperator,
         item: Box<StaticUntypedTree>,
     },
     BiOp {

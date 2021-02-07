@@ -15,8 +15,7 @@
 use bigdecimal::BigDecimal;
 use catalog::{Database, InMemoryDatabase};
 use data_manipulation_operators::{
-    BiArithmetic, BiLogical, BiOperation, Bitwise, Comparison, PatternMatching, StringOp, UnArithmetic, UnBitwise,
-    UnLogical, UnOperation,
+    BiArithmetic, BiLogical, BiOperation, Bitwise, Comparison, PatternMatching, StringOp, UnArithmetic, UnOperator,
 };
 use data_manipulation_untyped_tree::Bool;
 

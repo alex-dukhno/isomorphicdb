@@ -13,25 +13,24 @@
 // limitations under the License.
 
 use data_manipulation_operators::{
-    BiArithmetic, BiLogical, BiOperation, Bitwise, Comparison, PatternMatching, StringOp, UnArithmetic, UnBitwise,
-    UnLogical, UnOperation,
+    BiArithmetic, BiLogical, BiOperation, Bitwise, Comparison, PatternMatching, StringOp, UnArithmetic, UnOperator,
 };
 use sql_ast::UnaryOperator;
 
 pub(crate) struct OperationMapper;
 
 impl OperationMapper {
-    pub(crate) fn unary_operation(unary_op: &sql_ast::UnaryOperator) -> UnOperation {
+    pub(crate) fn unary_operation(unary_op: &sql_ast::UnaryOperator) -> UnOperator {
         match unary_op {
-            UnaryOperator::Minus => UnOperation::Arithmetic(UnArithmetic::Neg),
-            UnaryOperator::Plus => UnOperation::Arithmetic(UnArithmetic::Pos),
-            UnaryOperator::Not => UnOperation::Logical(UnLogical::Not),
-            UnaryOperator::PGBitwiseNot => UnOperation::Bitwise(UnBitwise::Not),
-            UnaryOperator::PGSquareRoot => UnOperation::Arithmetic(UnArithmetic::SquareRoot),
-            UnaryOperator::PGCubeRoot => UnOperation::Arithmetic(UnArithmetic::CubeRoot),
-            UnaryOperator::PGPostfixFactorial => UnOperation::Arithmetic(UnArithmetic::Factorial),
-            UnaryOperator::PGPrefixFactorial => UnOperation::Arithmetic(UnArithmetic::Factorial),
-            UnaryOperator::PGAbs => UnOperation::Arithmetic(UnArithmetic::Abs),
+            UnaryOperator::Minus => UnOperator::Arithmetic(UnArithmetic::Neg),
+            UnaryOperator::Plus => UnOperator::Arithmetic(UnArithmetic::Pos),
+            UnaryOperator::Not => UnOperator::LogicalNot,
+            UnaryOperator::PGBitwiseNot => UnOperator::BitwiseNot,
+            UnaryOperator::PGSquareRoot => UnOperator::Arithmetic(UnArithmetic::SquareRoot),
+            UnaryOperator::PGCubeRoot => UnOperator::Arithmetic(UnArithmetic::CubeRoot),
+            UnaryOperator::PGPostfixFactorial => UnOperator::Arithmetic(UnArithmetic::Factorial),
+            UnaryOperator::PGPrefixFactorial => UnOperator::Arithmetic(UnArithmetic::Factorial),
+            UnaryOperator::PGAbs => UnOperator::Arithmetic(UnArithmetic::Abs),
         }
     }
 

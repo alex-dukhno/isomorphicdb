@@ -103,18 +103,18 @@ impl BiOperation {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub enum UnOperation {
+pub enum UnOperator {
     Arithmetic(UnArithmetic),
-    Logical(UnLogical),
-    Bitwise(UnBitwise),
+    LogicalNot,
+    BitwiseNot,
 }
 
-impl Display for UnOperation {
+impl Display for UnOperator {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            UnOperation::Arithmetic(op) => write!(f, "{}", op),
-            UnOperation::Logical(op) => write!(f, "{}", op),
-            UnOperation::Bitwise(_op) => unimplemented!(),
+            UnOperator::Arithmetic(op) => write!(f, "{}", op),
+            UnOperator::LogicalNot => write!(f, "NOT"),
+            UnOperator::BitwiseNot => write!(f, "~"),
         }
     }
 }
@@ -140,22 +140,6 @@ impl Display for UnArithmetic {
             UnArithmetic::Abs => unimplemented!(),
         }
     }
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub enum UnLogical {
-    Not,
-}
-
-impl Display for UnLogical {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "NOT")
-    }
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub enum UnBitwise {
-    Not,
 }
 
 #[cfg(test)]
