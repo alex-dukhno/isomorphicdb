@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use types::SqlTypeFamily;
 use bigdecimal::BigDecimal;
+use types::SqlTypeFamily;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum TypedValue {

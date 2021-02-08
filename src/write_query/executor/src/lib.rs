@@ -61,9 +61,9 @@ mod tests {
         ColumnInfo, CreateSchemaQuery, CreateTableQuery, ExecutionOutcome, SchemaChange,
     };
     use data_manipulation_typed_tree::{StaticTypedItem, StaticTypedTree};
+    use data_manipulation_typed_values::TypedValue;
     use definition::{FullTableName, SchemaName};
     use types::{SqlType, SqlTypeFamily};
-    use data_manipulation_typed_values::TypedValue;
 
     const SCHEMA: &str = "schema";
     const TABLE: &str = "table";

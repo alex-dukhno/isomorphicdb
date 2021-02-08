@@ -12,11 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use bigdecimal::{BigDecimal, ToPrimitive};
-use data_manipulation_operators::{BiOperator, BiArithmetic, UnArithmetic, UnOperator};
+use data_manipulation_operators::{BiOperator, UnOperator};
 use data_manipulation_query_result::QueryExecutionError;
-use types::SqlTypeFamily;
 use data_manipulation_typed_values::TypedValue;
+use types::SqlTypeFamily;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum StaticTypedTree {
@@ -47,25 +46,8 @@ impl StaticTypedTree {
             StaticTypedTree::Item(StaticTypedItem::Const(value)) => Ok(value),
             StaticTypedTree::Item(StaticTypedItem::Null(_)) => unimplemented!(),
             StaticTypedTree::Item(StaticTypedItem::Param { .. }) => unimplemented!(),
-            StaticTypedTree::UnOp { op, item } => {
-                let value = item.eval()?;
-                op.eval(value)
-            },
-            StaticTypedTree::BiOp {
-                left, op, right, type_family
-            } => {
-                let left_value = left.eval()?;
-                let right_value = right.eval()?;
-                match op {
-                    BiOperator::Arithmetic(BiArithmetic::Add) => unimplemented!(),
-                    BiOperator::Arithmetic(_) => unimplemented!(),
-                    BiOperator::Comparison(_) => unimplemented!(),
-                    BiOperator::Bitwise(_) => unimplemented!(),
-                    BiOperator::Logical(_) => unimplemented!(),
-                    BiOperator::PatternMatching(_) => unimplemented!(),
-                    BiOperator::StringOp(_) => unimplemented!(),
-                }
-            }
+            StaticTypedTree::UnOp { op, item } => op.eval(item.eval()?),
+            StaticTypedTree::BiOp { left, op, right, .. } => op.eval(left.eval()?, right.eval()?),
         }
     }
 }
