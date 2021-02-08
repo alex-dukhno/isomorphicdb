@@ -13,12 +13,6 @@
 // limitations under the License.
 
 use super::*;
-use bigdecimal::BigDecimal;
-use data_manipulation_operators::{BiArithmetic, UnArithmetic};
 
 #[cfg(test)]
-mod binary_ops;
-#[cfg(test)]
-mod constants;
-#[cfg(test)]
-mod unary_op;
+mod arithmetic;
