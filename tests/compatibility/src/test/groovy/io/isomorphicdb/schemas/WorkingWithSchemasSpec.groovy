@@ -104,7 +104,6 @@ class WorkingWithSchemasSpec extends SetupEnvironment {
       pgError.errorCode == dbError.errorCode
   }
 
-  @Ignore("Schema definition language execution were changed so it broken for now")
   def 'drop multiple schemas if exists'() {
     given:
       String createSchemaQuery = 'create schema SCHEMA_TO_DROP'
