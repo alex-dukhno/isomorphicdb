@@ -60,7 +60,8 @@ mod tests {
     use data_definition_execution_plan::{
         ColumnInfo, CreateSchemaQuery, CreateTableQuery, ExecutionOutcome, SchemaChange,
     };
-    use data_manipulation_typed_tree::{StaticTypedItem, StaticTypedTree, TypedValue};
+    use data_manipulation_typed_tree::{StaticTypedItem, StaticTypedTree};
+    use data_manipulation_typed_values::TypedValue;
     use definition::{FullTableName, SchemaName};
     use types::{SqlType, SqlTypeFamily};
 

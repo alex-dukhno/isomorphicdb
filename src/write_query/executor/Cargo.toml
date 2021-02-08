@@ -8,6 +8,7 @@ publish = false
 [dependencies]
 data_manipulation_typed_queries = { path = "../../data_manipulation/typed_queries" }
 data_manipulation_typed_tree = { path = "../../data_manipulation/typed_tree" }
+data_manipulation_typed_values = { path = "../../data_manipulation/typed_values" }
 data_manipulation_query_result = { path = "../../data_manipulation/query_result" }
 catalog = { path = "../../data/catalog" }
 

@@ -192,6 +192,7 @@ pub(crate) enum QueryErrorKind {
         actual_type: String,
     },
     InvalidArgumentForPowerFunction,
+    InvalidTextRepresentation2(String, String),
 }
 
 impl QueryErrorKind {
@@ -222,6 +223,7 @@ impl QueryErrorKind {
             Self::DuplicateColumn(_) => "42701",
             Self::DatatypeMismatch { .. } => "42804",
             Self::InvalidArgumentForPowerFunction => "2201F",
+            Self::InvalidTextRepresentation2(_, _) => "22P02",
         }
     }
 }
@@ -306,6 +308,9 @@ impl Display for QueryErrorKind {
                 op, target_type, actual_type
             ),
             Self::InvalidArgumentForPowerFunction => write!(f, "cannot take square root of a negative number"),
+            Self::InvalidTextRepresentation2(sql_type, value) => {
+                write!(f, "invalid input syntax for type {}: \"{}\"", sql_type, value)
+            }
         }
     }
 }
@@ -558,6 +563,14 @@ impl QueryError {
                 pg_type,
                 value: value.to_string(),
             },
+        }
+    }
+
+    /// invalid text representation
+    pub fn invalid_text_representation_2(sql_type: String, value: String) -> QueryError {
+        QueryError {
+            severity: Severity::Error,
+            kind: QueryErrorKind::InvalidTextRepresentation2(sql_type, value),
         }
     }
 

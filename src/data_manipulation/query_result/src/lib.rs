@@ -29,13 +29,27 @@ pub enum QueryExecutionError {
     SchemaDoesNotExist(String),
     ColumnNotFound(String),
     UndefinedFunction(String, String),
+    UndefinedBiFunction(String, String, String),
     DatatypeMismatch(String, String, String),
     InvalidArgumentForPowerFunction,
+    InvalidTextRepresentation(String, String),
 }
 
 impl QueryExecutionError {
     pub fn undefined_function<Op: ToString, Ty: ToString>(operator: Op, type_family: Ty) -> QueryExecutionError {
         QueryExecutionError::UndefinedFunction(operator.to_string(), type_family.to_string())
+    }
+
+    pub fn undefined_bi_function<Op: ToString, LeftTy: ToString, RightTy: ToString>(
+        operator: Op,
+        left_type_family: LeftTy,
+        right_type_family: RightTy,
+    ) -> QueryExecutionError {
+        QueryExecutionError::UndefinedBiFunction(
+            operator.to_string(),
+            left_type_family.to_string(),
+            right_type_family.to_string(),
+        )
     }
 
     pub fn datatype_mismatch<Op: ToString, TT: ToString, AT: ToString>(
@@ -44,6 +58,10 @@ impl QueryExecutionError {
         actual_type: AT,
     ) -> QueryExecutionError {
         QueryExecutionError::DatatypeMismatch(operator.to_string(), target_type.to_string(), actual_type.to_string())
+    }
+
+    pub fn invalid_text_representation<T: ToString, V: ToString>(sql_type: T, value: V) -> QueryExecutionError {
+        QueryExecutionError::InvalidTextRepresentation(sql_type.to_string(), value.to_string())
     }
 }
 
@@ -55,10 +73,16 @@ impl From<QueryExecutionError> for pg_result::QueryError {
             QueryExecutionError::UndefinedFunction(func, sql_type) => {
                 QueryError::undefined_function(func, sql_type.as_str(), "")
             }
+            QueryExecutionError::UndefinedBiFunction(func, left_type, right_type) => {
+                QueryError::undefined_function(func, left_type, right_type)
+            }
             QueryExecutionError::DatatypeMismatch(op, target_type, actual_type) => {
                 QueryError::datatype_mismatch(op, target_type, actual_type)
             }
             QueryExecutionError::InvalidArgumentForPowerFunction => QueryError::invalid_argument_for_power_function(),
+            QueryExecutionError::InvalidTextRepresentation(sql_type, value) => {
+                QueryError::invalid_text_representation_2(sql_type, value)
+            }
         }
     }
 }

@@ -6,4 +6,8 @@ edition = "2018"
 publish = false
 
 [dependencies]
+data_manipulation_typed_values = { path = "../../data_manipulation/typed_values" }
+data_manipulation_query_result = { path = "../../data_manipulation/query_result" }
 types = { path = "../../entities/types" }
+
+bigdecimal = { version = "0.2.0", features = ["string-only"] }

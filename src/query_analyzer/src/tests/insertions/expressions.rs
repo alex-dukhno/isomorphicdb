@@ -251,7 +251,7 @@ mod multiple_values {
                     left: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(
                         BigDecimal::from(1)
                     )))),
-                    op: BiOperation::Arithmetic(BiArithmetic::Add),
+                    op: BiOperator::Arithmetic(BiArithmetic::Add),
                     right: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(
                         BigDecimal::from(1)
                     ))))
@@ -281,7 +281,7 @@ mod multiple_values {
                     left: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::String(
                         "str".to_owned()
                     )))),
-                    op: BiOperation::StringOp(StringOp::Concat),
+                    op: BiOperator::StringOp(StringOp::Concat),
                     right: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::String(
                         "str".to_owned()
                     ))))
@@ -311,7 +311,7 @@ mod multiple_values {
                     left: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(
                         BigDecimal::from(1)
                     )))),
-                    op: BiOperation::Comparison(Comparison::Gt),
+                    op: BiOperator::Comparison(Comparison::Gt),
                     right: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(
                         BigDecimal::from(1)
                     ))))
@@ -341,7 +341,7 @@ mod multiple_values {
                     left: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Bool(
                         Bool(true)
                     )))),
-                    op: BiOperation::Logical(BiLogical::And),
+                    op: BiOperator::Logical(BiLogical::And),
                     right: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Bool(
                         Bool(true)
                     )))),
@@ -371,7 +371,7 @@ mod multiple_values {
                     left: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(
                         BigDecimal::from(1)
                     )))),
-                    op: BiOperation::Bitwise(Bitwise::Or),
+                    op: BiOperator::Bitwise(Bitwise::Or),
                     right: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(
                         BigDecimal::from(1)
                     ))))
@@ -401,7 +401,7 @@ mod multiple_values {
                     left: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::String(
                         "s".to_owned()
                     )))),
-                    op: BiOperation::PatternMatching(PatternMatching::Like),
+                    op: BiOperator::PatternMatching(PatternMatching::Like),
                     right: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::String(
                         "str".to_owned()
                     ))))

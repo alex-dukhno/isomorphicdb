@@ -25,7 +25,8 @@ use data_definition_execution_plan::{
     ExecutionOutcome, SchemaChange,
 };
 use data_manipulation_query_result::QueryExecutionError;
-use data_manipulation_typed_tree::{DynamicTypedItem, DynamicTypedTree, StaticTypedTree, TypedValue};
+use data_manipulation_typed_tree::{DynamicTypedItem, DynamicTypedTree, StaticTypedTree};
+use data_manipulation_typed_values::TypedValue;
 use data_scalar::ScalarValue;
 use definition::{ColumnDef, FullIndexName, FullTableName, SchemaName, TableDef};
 use std::sync::Arc;

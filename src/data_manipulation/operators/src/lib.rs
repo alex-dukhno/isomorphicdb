@@ -12,6 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use bigdecimal::{BigDecimal, ToPrimitive};
+use data_manipulation_query_result::QueryExecutionError;
+use data_manipulation_typed_values::TypedValue;
 use std::fmt::{self, Display, Formatter};
 use types::SqlTypeFamily;
 
@@ -23,6 +26,32 @@ pub enum BiArithmetic {
     Div,
     Mod,
     Exp,
+}
+
+impl BiArithmetic {
+    fn eval(&self, left: BigDecimal, right: BigDecimal) -> BigDecimal {
+        match self {
+            BiArithmetic::Add => left + right,
+            BiArithmetic::Sub => unimplemented!(),
+            BiArithmetic::Mul => unimplemented!(),
+            BiArithmetic::Div => unimplemented!(),
+            BiArithmetic::Mod => unimplemented!(),
+            BiArithmetic::Exp => unimplemented!(),
+        }
+    }
+}
+
+impl Display for BiArithmetic {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            BiArithmetic::Add => write!(f, "+"),
+            BiArithmetic::Sub => unimplemented!(),
+            BiArithmetic::Mul => unimplemented!(),
+            BiArithmetic::Div => unimplemented!(),
+            BiArithmetic::Mod => unimplemented!(),
+            BiArithmetic::Exp => unimplemented!(),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Copy, Clone)]
@@ -62,7 +91,7 @@ pub enum StringOp {
 }
 
 #[derive(Debug, PartialEq, Copy, Clone)]
-pub enum BiOperation {
+pub enum BiOperator {
     Arithmetic(BiArithmetic),
     Comparison(Comparison),
     Bitwise(Bitwise),
@@ -71,42 +100,135 @@ pub enum BiOperation {
     StringOp(StringOp),
 }
 
-impl BiOperation {
-    pub fn resulted_types(&self) -> Vec<SqlTypeFamily> {
+impl BiOperator {
+    pub fn eval(self, left: TypedValue, right: TypedValue) -> Result<TypedValue, QueryExecutionError> {
         match self {
-            BiOperation::Arithmetic(_) => vec![SqlTypeFamily::Integer, SqlTypeFamily::Real],
-            BiOperation::Comparison(_) => vec![SqlTypeFamily::Bool],
-            BiOperation::Bitwise(_) => vec![SqlTypeFamily::Integer],
-            BiOperation::Logical(_) => vec![SqlTypeFamily::Bool],
-            BiOperation::PatternMatching(_) => vec![SqlTypeFamily::Bool],
-            BiOperation::StringOp(_) => vec![SqlTypeFamily::Bool],
-        }
-    }
-
-    pub fn supported_type_family(&self, left: Option<SqlTypeFamily>, right: Option<SqlTypeFamily>) -> bool {
-        match self {
-            BiOperation::Arithmetic(_) => {
-                left == Some(SqlTypeFamily::Integer) && right == Some(SqlTypeFamily::Integer)
-                    || left == Some(SqlTypeFamily::Real) && right == Some(SqlTypeFamily::Integer)
-                    || left == Some(SqlTypeFamily::Integer) && right == Some(SqlTypeFamily::Real)
-                    || left == Some(SqlTypeFamily::Real) && right == Some(SqlTypeFamily::Real)
-            }
-            BiOperation::Comparison(_) => left.is_some() && left == right,
-            BiOperation::Bitwise(_) => left == Some(SqlTypeFamily::Integer) && right == Some(SqlTypeFamily::Integer),
-            BiOperation::Logical(_) => left == Some(SqlTypeFamily::Bool) && right == Some(SqlTypeFamily::Bool),
-            BiOperation::PatternMatching(_) => {
-                left == Some(SqlTypeFamily::String) && right == Some(SqlTypeFamily::String)
-            }
-            BiOperation::StringOp(_) => left == Some(SqlTypeFamily::String) && right == Some(SqlTypeFamily::String),
+            BiOperator::Arithmetic(op) => match (left, right) {
+                (TypedValue::Num { value: left_value, .. }, TypedValue::Num { value: right_value, .. }) => {
+                    Ok(TypedValue::Num {
+                        value: op.eval(left_value, right_value),
+                        type_family: SqlTypeFamily::BigInt,
+                    })
+                }
+                (TypedValue::Num { type_family, .. }, TypedValue::String(value)) => {
+                    Err(QueryExecutionError::invalid_text_representation(type_family, value))
+                }
+                (TypedValue::Num { type_family, .. }, other) => Err(QueryExecutionError::undefined_bi_function(
+                    self,
+                    type_family,
+                    other
+                        .type_family()
+                        .map(|ty| ty.to_string())
+                        .unwrap_or_else(|| "unknown".to_owned()),
+                )),
+                (TypedValue::String(value), TypedValue::Num { type_family, .. }) => {
+                    Err(QueryExecutionError::invalid_text_representation(type_family, value))
+                }
+                (other, TypedValue::Num { type_family, .. }) => Err(QueryExecutionError::undefined_bi_function(
+                    self,
+                    other
+                        .type_family()
+                        .map(|ty| ty.to_string())
+                        .unwrap_or_else(|| "unknown".to_owned()),
+                    type_family,
+                )),
+                (other_left, other_right) => Err(QueryExecutionError::undefined_bi_function(
+                    self,
+                    other_left
+                        .type_family()
+                        .map(|ty| ty.to_string())
+                        .unwrap_or_else(|| "unknown".to_owned()),
+                    other_right
+                        .type_family()
+                        .map(|ty| ty.to_string())
+                        .unwrap_or_else(|| "unknown".to_owned()),
+                )),
+            },
+            BiOperator::Comparison(_) => unimplemented!(),
+            BiOperator::Bitwise(_) => unimplemented!(),
+            BiOperator::Logical(_) => unimplemented!(),
+            BiOperator::PatternMatching(_) => unimplemented!(),
+            BiOperator::StringOp(_) => unimplemented!(),
         }
     }
 }
 
-#[derive(Debug, PartialEq, Clone)]
+impl Display for BiOperator {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            BiOperator::Arithmetic(op) => write!(f, "{}", op),
+            BiOperator::Comparison(_) => unimplemented!(),
+            BiOperator::Bitwise(_) => unimplemented!(),
+            BiOperator::Logical(_) => unimplemented!(),
+            BiOperator::PatternMatching(_) => unimplemented!(),
+            BiOperator::StringOp(_) => unimplemented!(),
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum UnOperator {
     Arithmetic(UnArithmetic),
     LogicalNot,
     BitwiseNot,
+}
+
+impl UnOperator {
+    pub fn eval(self, value: TypedValue) -> Result<TypedValue, QueryExecutionError> {
+        match self {
+            UnOperator::Arithmetic(operator) => match value {
+                TypedValue::Num { value, type_family } => operator.eval(value, type_family),
+                other => Err(QueryExecutionError::undefined_function(
+                    self,
+                    other
+                        .type_family()
+                        .map(|ty| ty.to_string())
+                        .unwrap_or_else(|| "unknown".to_owned()),
+                )),
+            },
+            UnOperator::LogicalNot => match value {
+                TypedValue::Bool(value) => Ok(TypedValue::Bool(!value)),
+                other => Err(QueryExecutionError::datatype_mismatch(
+                    self,
+                    SqlTypeFamily::Bool,
+                    other
+                        .type_family()
+                        .map(|ty| ty.to_string())
+                        .unwrap_or_else(|| "unknown".to_owned()),
+                )),
+            },
+            UnOperator::BitwiseNot => match value {
+                TypedValue::Num {
+                    value,
+                    type_family: SqlTypeFamily::SmallInt,
+                } => Ok(TypedValue::Num {
+                    value: BigDecimal::from(!value.to_i16().unwrap()),
+                    type_family: SqlTypeFamily::SmallInt,
+                }),
+                TypedValue::Num {
+                    value,
+                    type_family: SqlTypeFamily::Integer,
+                } => Ok(TypedValue::Num {
+                    value: BigDecimal::from(!value.to_i32().unwrap()),
+                    type_family: SqlTypeFamily::Integer,
+                }),
+                TypedValue::Num {
+                    value,
+                    type_family: SqlTypeFamily::BigInt,
+                } => Ok(TypedValue::Num {
+                    value: BigDecimal::from(!value.to_i64().unwrap()),
+                    type_family: SqlTypeFamily::BigInt,
+                }),
+                other => Err(QueryExecutionError::undefined_function(
+                    self,
+                    other
+                        .type_family()
+                        .map(|ty| ty.to_string())
+                        .unwrap_or_else(|| "unknown".to_owned()),
+                )),
+            },
+        }
+    }
 }
 
 impl Display for UnOperator {
@@ -119,7 +241,7 @@ impl Display for UnOperator {
     }
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum UnArithmetic {
     Neg,
     Pos,
@@ -127,6 +249,48 @@ pub enum UnArithmetic {
     CubeRoot,
     Factorial,
     Abs,
+}
+
+impl UnArithmetic {
+    fn eval(&self, value: BigDecimal, type_family: SqlTypeFamily) -> Result<TypedValue, QueryExecutionError> {
+        match self {
+            UnArithmetic::Neg => Ok(TypedValue::Num {
+                value: -value,
+                type_family,
+            }),
+            UnArithmetic::Pos => Ok(TypedValue::Num { value, type_family }),
+            UnArithmetic::SquareRoot => Ok(TypedValue::Num {
+                value: value
+                    .sqrt()
+                    .ok_or(QueryExecutionError::InvalidArgumentForPowerFunction)?,
+                type_family: SqlTypeFamily::Double,
+            }),
+            UnArithmetic::CubeRoot => Ok(TypedValue::Num {
+                value: value.cbrt(),
+                type_family: SqlTypeFamily::Double,
+            }),
+            UnArithmetic::Factorial => {
+                if vec![SqlTypeFamily::SmallInt, SqlTypeFamily::Integer, SqlTypeFamily::BigInt].contains(&type_family) {
+                    let mut result = BigDecimal::from(1);
+                    let mut n = BigDecimal::from(1);
+                    while n <= value {
+                        result *= n.clone();
+                        n += BigDecimal::from(1);
+                    }
+                    Ok(TypedValue::Num {
+                        value: result,
+                        type_family: SqlTypeFamily::BigInt,
+                    })
+                } else {
+                    Err(QueryExecutionError::undefined_function(self, type_family))
+                }
+            }
+            UnArithmetic::Abs => Ok(TypedValue::Num {
+                value: value.abs(),
+                type_family,
+            }),
+        }
+    }
 }
 
 impl Display for UnArithmetic {
@@ -141,6 +305,3 @@ impl Display for UnArithmetic {
         }
     }
 }
-
-#[cfg(test)]
-mod tests;

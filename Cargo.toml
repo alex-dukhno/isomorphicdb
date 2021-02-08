@@ -7,6 +7,7 @@ members = [
     "src/data_manipulation/query_result",
     "src/data_manipulation/typed_queries",
     "src/data_manipulation/typed_tree",
+    "src/data_manipulation/typed_values",
     "src/data_manipulation/untyped_queries",
     "src/data_manipulation/untyped_tree",
     "src/entities/types",

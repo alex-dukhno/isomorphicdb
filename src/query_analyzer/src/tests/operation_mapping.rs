@@ -96,7 +96,7 @@ mod binary_op {
     fn addition() {
         assert_eq!(
             OperationMapper::binary_operation(&sql_ast::BinaryOperator::Plus),
-            BiOperation::Arithmetic(BiArithmetic::Add)
+            BiOperator::Arithmetic(BiArithmetic::Add)
         );
     }
 
@@ -104,7 +104,7 @@ mod binary_op {
     fn subtraction() {
         assert_eq!(
             OperationMapper::binary_operation(&sql_ast::BinaryOperator::Minus),
-            BiOperation::Arithmetic(BiArithmetic::Sub)
+            BiOperator::Arithmetic(BiArithmetic::Sub)
         );
     }
 
@@ -112,7 +112,7 @@ mod binary_op {
     fn multiplication() {
         assert_eq!(
             OperationMapper::binary_operation(&sql_ast::BinaryOperator::Multiply),
-            BiOperation::Arithmetic(BiArithmetic::Mul)
+            BiOperator::Arithmetic(BiArithmetic::Mul)
         );
     }
 
@@ -120,7 +120,7 @@ mod binary_op {
     fn division() {
         assert_eq!(
             OperationMapper::binary_operation(&sql_ast::BinaryOperator::Divide),
-            BiOperation::Arithmetic(BiArithmetic::Div)
+            BiOperator::Arithmetic(BiArithmetic::Div)
         );
     }
 
@@ -128,7 +128,7 @@ mod binary_op {
     fn exponent() {
         assert_eq!(
             OperationMapper::binary_operation(&sql_ast::BinaryOperator::BitwiseXor),
-            BiOperation::Arithmetic(BiArithmetic::Exp)
+            BiOperator::Arithmetic(BiArithmetic::Exp)
         );
     }
 
@@ -136,7 +136,7 @@ mod binary_op {
     fn modulus() {
         assert_eq!(
             OperationMapper::binary_operation(&sql_ast::BinaryOperator::Modulus),
-            BiOperation::Arithmetic(BiArithmetic::Mod)
+            BiOperator::Arithmetic(BiArithmetic::Mod)
         );
     }
 
@@ -144,7 +144,7 @@ mod binary_op {
     fn string_concat() {
         assert_eq!(
             OperationMapper::binary_operation(&sql_ast::BinaryOperator::StringConcat),
-            BiOperation::StringOp(StringOp::Concat)
+            BiOperator::StringOp(StringOp::Concat)
         );
     }
 
@@ -152,7 +152,7 @@ mod binary_op {
     fn greater_than() {
         assert_eq!(
             OperationMapper::binary_operation(&sql_ast::BinaryOperator::Gt),
-            BiOperation::Comparison(Comparison::Gt)
+            BiOperator::Comparison(Comparison::Gt)
         );
     }
 
@@ -160,7 +160,7 @@ mod binary_op {
     fn greater_than_or_equals() {
         assert_eq!(
             OperationMapper::binary_operation(&sql_ast::BinaryOperator::GtEq),
-            BiOperation::Comparison(Comparison::GtEq)
+            BiOperator::Comparison(Comparison::GtEq)
         );
     }
 
@@ -168,7 +168,7 @@ mod binary_op {
     fn less_than() {
         assert_eq!(
             OperationMapper::binary_operation(&sql_ast::BinaryOperator::Lt),
-            BiOperation::Comparison(Comparison::Lt)
+            BiOperator::Comparison(Comparison::Lt)
         );
     }
 
@@ -176,7 +176,7 @@ mod binary_op {
     fn less_than_or_equals() {
         assert_eq!(
             OperationMapper::binary_operation(&sql_ast::BinaryOperator::LtEq),
-            BiOperation::Comparison(Comparison::LtEq)
+            BiOperator::Comparison(Comparison::LtEq)
         );
     }
 
@@ -184,7 +184,7 @@ mod binary_op {
     fn equals() {
         assert_eq!(
             OperationMapper::binary_operation(&sql_ast::BinaryOperator::Eq),
-            BiOperation::Comparison(Comparison::Eq)
+            BiOperator::Comparison(Comparison::Eq)
         );
     }
 
@@ -192,7 +192,7 @@ mod binary_op {
     fn not_equals() {
         assert_eq!(
             OperationMapper::binary_operation(&sql_ast::BinaryOperator::NotEq),
-            BiOperation::Comparison(Comparison::NotEq)
+            BiOperator::Comparison(Comparison::NotEq)
         );
     }
 
@@ -200,7 +200,7 @@ mod binary_op {
     fn logical_or() {
         assert_eq!(
             OperationMapper::binary_operation(&sql_ast::BinaryOperator::Or),
-            BiOperation::Logical(BiLogical::Or)
+            BiOperator::Logical(BiLogical::Or)
         );
     }
 
@@ -208,7 +208,7 @@ mod binary_op {
     fn logical_and() {
         assert_eq!(
             OperationMapper::binary_operation(&sql_ast::BinaryOperator::And),
-            BiOperation::Logical(BiLogical::And)
+            BiOperator::Logical(BiLogical::And)
         );
     }
 
@@ -216,7 +216,7 @@ mod binary_op {
     fn like() {
         assert_eq!(
             OperationMapper::binary_operation(&sql_ast::BinaryOperator::Like),
-            BiOperation::PatternMatching(PatternMatching::Like)
+            BiOperator::PatternMatching(PatternMatching::Like)
         );
     }
 
@@ -224,7 +224,7 @@ mod binary_op {
     fn not_like() {
         assert_eq!(
             OperationMapper::binary_operation(&sql_ast::BinaryOperator::NotLike),
-            BiOperation::PatternMatching(PatternMatching::NotLike)
+            BiOperator::PatternMatching(PatternMatching::NotLike)
         );
     }
 
@@ -232,7 +232,7 @@ mod binary_op {
     fn bitwise_and() {
         assert_eq!(
             OperationMapper::binary_operation(&sql_ast::BinaryOperator::BitwiseAnd),
-            BiOperation::Bitwise(Bitwise::And)
+            BiOperator::Bitwise(Bitwise::And)
         );
     }
 
@@ -240,7 +240,7 @@ mod binary_op {
     fn bitwise_or() {
         assert_eq!(
             OperationMapper::binary_operation(&sql_ast::BinaryOperator::BitwiseOr),
-            BiOperation::Bitwise(Bitwise::Or)
+            BiOperator::Bitwise(Bitwise::Or)
         );
     }
 
@@ -248,7 +248,7 @@ mod binary_op {
     fn bitwise_xor() {
         assert_eq!(
             OperationMapper::binary_operation(&sql_ast::BinaryOperator::PGBitwiseXor),
-            BiOperation::Bitwise(Bitwise::Xor)
+            BiOperator::Bitwise(Bitwise::Xor)
         );
     }
 
@@ -256,7 +256,7 @@ mod binary_op {
     fn bitwise_shift_left() {
         assert_eq!(
             OperationMapper::binary_operation(&sql_ast::BinaryOperator::PGBitwiseShiftLeft),
-            BiOperation::Bitwise(Bitwise::ShiftLeft)
+            BiOperator::Bitwise(Bitwise::ShiftLeft)
         );
     }
 
@@ -264,7 +264,7 @@ mod binary_op {
     fn bitwise_shift_right() {
         assert_eq!(
             OperationMapper::binary_operation(&sql_ast::BinaryOperator::PGBitwiseShiftRight),
-            BiOperation::Bitwise(Bitwise::ShiftRight)
+            BiOperator::Bitwise(Bitwise::ShiftRight)
         );
     }
 }
