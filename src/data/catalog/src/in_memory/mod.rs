@@ -470,27 +470,9 @@ impl InMemoryTable {
 fn convert(sql_type: SqlType, value: TypedValue) -> Datum {
     log::debug!("type {:?} value {:?}", sql_type, value);
     match (sql_type, value) {
-        (
-            SqlType::Num(Num::SmallInt),
-            TypedValue::Num {
-                value,
-                type_family: SqlTypeFamily::SmallInt,
-            },
-        ) => Datum::from_i16(value.to_i16().unwrap()),
-        (
-            SqlType::Num(Num::Integer),
-            TypedValue::Num {
-                value,
-                type_family: SqlTypeFamily::Integer,
-            },
-        ) => Datum::from_i32(value.to_i32().unwrap()),
-        (
-            SqlType::Num(Num::BigInt),
-            TypedValue::Num {
-                value,
-                type_family: SqlTypeFamily::BigInt,
-            },
-        ) => Datum::from_i64(value.to_i64().unwrap()),
+        (SqlType::Num(Num::SmallInt), TypedValue::Num { value, .. }) => Datum::from_i16(value.to_i16().unwrap()),
+        (SqlType::Num(Num::Integer), TypedValue::Num { value, .. }) => Datum::from_i32(value.to_i32().unwrap()),
+        (SqlType::Num(Num::BigInt), TypedValue::Num { value, .. }) => Datum::from_i64(value.to_i64().unwrap()),
         (SqlType::Bool, TypedValue::Bool(value)) => Datum::from_bool(value),
         (SqlType::Str { .. }, TypedValue::String(value)) => Datum::from_string(value),
         _ => unimplemented!(),

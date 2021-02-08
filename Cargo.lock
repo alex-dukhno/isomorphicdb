@@ -318,6 +318,7 @@ dependencies = [
  "data_manipulation_operators",
  "data_manipulation_query_result",
  "data_manipulation_typed_values",
+ "rstest",
  "types",
 ]
 

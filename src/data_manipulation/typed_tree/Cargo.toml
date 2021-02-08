@@ -12,3 +12,6 @@ data_manipulation_typed_values = { path = "../typed_values" }
 types = { path = "../../entities/types" }
 
 bigdecimal = { version = "0.2.0", features = ["string-only"] }
+
+[dev-dependencies]
+rstest = "0.6.4"

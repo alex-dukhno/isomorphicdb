@@ -32,11 +32,27 @@ impl BiArithmetic {
     fn eval(&self, left: BigDecimal, right: BigDecimal) -> BigDecimal {
         match self {
             BiArithmetic::Add => left + right,
-            BiArithmetic::Sub => unimplemented!(),
-            BiArithmetic::Mul => unimplemented!(),
-            BiArithmetic::Div => unimplemented!(),
-            BiArithmetic::Mod => unimplemented!(),
-            BiArithmetic::Exp => unimplemented!(),
+            BiArithmetic::Sub => left - right,
+            BiArithmetic::Mul => left * right,
+            BiArithmetic::Div => left / right,
+            BiArithmetic::Mod => left % right,
+            BiArithmetic::Exp => {
+                fn exp(x: &BigDecimal, n: &BigDecimal) -> BigDecimal {
+                    if n < &BigDecimal::from(0) {
+                        exp(&(1 / x), &-n)
+                    } else if n == &BigDecimal::from(0) {
+                        BigDecimal::from(1)
+                    } else if n == &BigDecimal::from(1) {
+                        x.clone()
+                    } else if n % &BigDecimal::from(2) == BigDecimal::from(0) {
+                        exp(&(x * x), &(n.clone() / 2))
+                    } else {
+                        x * exp(&(x * x), &((n - &BigDecimal::from(1)) / 2))
+                    }
+                }
+
+                exp(&left, &right)
+            }
         }
     }
 }
@@ -45,11 +61,11 @@ impl Display for BiArithmetic {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             BiArithmetic::Add => write!(f, "+"),
-            BiArithmetic::Sub => unimplemented!(),
-            BiArithmetic::Mul => unimplemented!(),
-            BiArithmetic::Div => unimplemented!(),
-            BiArithmetic::Mod => unimplemented!(),
-            BiArithmetic::Exp => unimplemented!(),
+            BiArithmetic::Sub => write!(f, "-"),
+            BiArithmetic::Mul => write!(f, "*"),
+            BiArithmetic::Div => write!(f, "/"),
+            BiArithmetic::Mod => write!(f, "%"),
+            BiArithmetic::Exp => write!(f, "^"),
         }
     }
 }
