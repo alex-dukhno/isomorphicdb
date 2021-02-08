@@ -184,7 +184,7 @@ Having a look at queries:
 * `delete`s: `delete from foo where bar > 3`
 
 Every position with expression: return columns value, insert values, set values, predicates in `where` clause - can be 
-seen as `OPERATOR tree`s. These trees should be instantiated in runtime and executed to gain needed computation results.
+seen as `operator tree`s. These trees should be instantiated in runtime and executed to gain needed computation results.
 
 Query execution has the following stages:
 * **Parsing**
@@ -203,7 +203,7 @@ During Simple Query Protocol message flow SQL statement goes through all stages 
 
 When server received **Parse** message from a client that contains a query, SQL statement goes through **Parsing** -> 
 **Analyzing** stages. After **Analyzing** stage client session should contain statement name mapped to internal 
-structure that has built `OPERATOR tree`s and knows what accepting or resulting type of `OPERATOR tree`s are.
+structure that has built `operator tree`s and knows what accepting or resulting type of `operator tree`s are.
 
 When server received **Describe** message it should be able to send all needed information about types to a client.
 
