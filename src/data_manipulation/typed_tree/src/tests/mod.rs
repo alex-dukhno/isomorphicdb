@@ -14,7 +14,7 @@
 
 use super::*;
 use bigdecimal::BigDecimal;
-use data_manipulation_operators::{UnArithmetic, BiArithmetic};
+use data_manipulation_operators::{BiArithmetic, UnArithmetic};
 
 #[cfg(test)]
 mod binary_op;
