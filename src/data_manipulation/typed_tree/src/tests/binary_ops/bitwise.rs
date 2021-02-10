@@ -16,15 +16,15 @@ use super::*;
 use data_manipulation_operators::Bitwise;
 
 #[rstest::rstest(
-operator,
-left,
-right,
-result,
-case::shift_right(BiOperator::Bitwise(Bitwise::ShiftRight), 4, 1, 2),
-case::shift_left(BiOperator::Bitwise(Bitwise::ShiftLeft), 4, 1, 8),
-case::and(BiOperator::Bitwise(Bitwise::And), 5, 4, 4),
-case::or(BiOperator::Bitwise(Bitwise::Or), 5, 4, 5),
-case::xor(BiOperator::Bitwise(Bitwise::Xor), 5, 4, 1),
+    operator,
+    left,
+    right,
+    result,
+    case::shift_right(BiOperator::Bitwise(Bitwise::ShiftRight), 4, 1, 2),
+    case::shift_left(BiOperator::Bitwise(Bitwise::ShiftLeft), 4, 1, 8),
+    case::and(BiOperator::Bitwise(Bitwise::And), 5, 4, 4),
+    case::or(BiOperator::Bitwise(Bitwise::Or), 5, 4, 5),
+    case::xor(BiOperator::Bitwise(Bitwise::Xor), 5, 4, 1)
 )]
 fn integer_and_integer(operator: BiOperator, left: u32, right: u32, result: u32) {
     assert_eq!(
@@ -40,19 +40,20 @@ fn integer_and_integer(operator: BiOperator, left: u32, right: u32, result: u32)
                 type_family: SqlTypeFamily::SmallInt
             }))),
         }
-            .eval(),
+        .eval(),
         Ok(TypedValue::Num {
             value: BigDecimal::from(result),
             type_family: SqlTypeFamily::BigInt
         })
     );
-}#[rstest::rstest(
-operator,
-case::shift_right(BiOperator::Bitwise(Bitwise::ShiftRight)),
-case::shift_left(BiOperator::Bitwise(Bitwise::ShiftLeft)),
-case::and(BiOperator::Bitwise(Bitwise::And)),
-case::or(BiOperator::Bitwise(Bitwise::Or)),
-case::xor(BiOperator::Bitwise(Bitwise::Xor))
+}
+#[rstest::rstest(
+    operator,
+    case::shift_right(BiOperator::Bitwise(Bitwise::ShiftRight)),
+    case::shift_left(BiOperator::Bitwise(Bitwise::ShiftLeft)),
+    case::and(BiOperator::Bitwise(Bitwise::And)),
+    case::or(BiOperator::Bitwise(Bitwise::Or)),
+    case::xor(BiOperator::Bitwise(Bitwise::Xor))
 )]
 fn integer_and_float(operator: BiOperator) {
     assert_eq!(
@@ -68,18 +69,22 @@ fn integer_and_float(operator: BiOperator) {
                 type_family: SqlTypeFamily::Real
             }))),
         }
-            .eval(),
-        Err(QueryExecutionError::undefined_bi_function(operator, SqlTypeFamily::SmallInt, SqlTypeFamily::Real))
+        .eval(),
+        Err(QueryExecutionError::undefined_bi_function(
+            operator,
+            SqlTypeFamily::SmallInt,
+            SqlTypeFamily::Real
+        ))
     );
 }
 
 #[rstest::rstest(
-operator,
-case::shift_right(BiOperator::Bitwise(Bitwise::ShiftRight)),
-case::shift_left(BiOperator::Bitwise(Bitwise::ShiftLeft)),
-case::and(BiOperator::Bitwise(Bitwise::And)),
-case::or(BiOperator::Bitwise(Bitwise::Or)),
-case::xor(BiOperator::Bitwise(Bitwise::Xor))
+    operator,
+    case::shift_right(BiOperator::Bitwise(Bitwise::ShiftRight)),
+    case::shift_left(BiOperator::Bitwise(Bitwise::ShiftLeft)),
+    case::and(BiOperator::Bitwise(Bitwise::And)),
+    case::or(BiOperator::Bitwise(Bitwise::Or)),
+    case::xor(BiOperator::Bitwise(Bitwise::Xor))
 )]
 fn integer_and_boolean(operator: BiOperator) {
     assert_eq!(
@@ -92,7 +97,7 @@ fn integer_and_boolean(operator: BiOperator) {
             op: operator,
             right: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Bool(true)))),
         }
-            .eval(),
+        .eval(),
         Err(QueryExecutionError::undefined_bi_function(
             operator,
             SqlTypeFamily::Integer,
@@ -110,7 +115,7 @@ fn integer_and_boolean(operator: BiOperator) {
                 type_family: SqlTypeFamily::Integer
             }))),
         }
-            .eval(),
+        .eval(),
         Err(QueryExecutionError::undefined_bi_function(
             operator,
             SqlTypeFamily::Bool,
@@ -120,12 +125,12 @@ fn integer_and_boolean(operator: BiOperator) {
 }
 
 #[rstest::rstest(
-operator,
-case::shift_right(BiOperator::Bitwise(Bitwise::ShiftRight)),
-case::shift_left(BiOperator::Bitwise(Bitwise::ShiftLeft)),
-case::and(BiOperator::Bitwise(Bitwise::And)),
-case::or(BiOperator::Bitwise(Bitwise::Or)),
-case::xor(BiOperator::Bitwise(Bitwise::Xor))
+    operator,
+    case::shift_right(BiOperator::Bitwise(Bitwise::ShiftRight)),
+    case::shift_left(BiOperator::Bitwise(Bitwise::ShiftLeft)),
+    case::and(BiOperator::Bitwise(Bitwise::And)),
+    case::or(BiOperator::Bitwise(Bitwise::Or)),
+    case::xor(BiOperator::Bitwise(Bitwise::Xor))
 )]
 fn integer_and_string(operator: BiOperator) {
     assert_eq!(
@@ -140,7 +145,7 @@ fn integer_and_string(operator: BiOperator) {
                 "abc".to_owned()
             )))),
         }
-            .eval(),
+        .eval(),
         Err(QueryExecutionError::invalid_text_representation(
             SqlTypeFamily::Integer,
             &"abc"
@@ -159,7 +164,7 @@ fn integer_and_string(operator: BiOperator) {
                 type_family: SqlTypeFamily::Integer
             }))),
         }
-            .eval(),
+        .eval(),
         Err(QueryExecutionError::invalid_text_representation(
             SqlTypeFamily::Integer,
             &"abc"
@@ -168,12 +173,12 @@ fn integer_and_string(operator: BiOperator) {
 }
 
 #[rstest::rstest(
-operator,
-case::shift_right(BiOperator::Bitwise(Bitwise::ShiftRight)),
-case::shift_left(BiOperator::Bitwise(Bitwise::ShiftLeft)),
-case::and(BiOperator::Bitwise(Bitwise::And)),
-case::or(BiOperator::Bitwise(Bitwise::Or)),
-case::xor(BiOperator::Bitwise(Bitwise::Xor))
+    operator,
+    case::shift_right(BiOperator::Bitwise(Bitwise::ShiftRight)),
+    case::shift_left(BiOperator::Bitwise(Bitwise::ShiftLeft)),
+    case::and(BiOperator::Bitwise(Bitwise::And)),
+    case::or(BiOperator::Bitwise(Bitwise::Or)),
+    case::xor(BiOperator::Bitwise(Bitwise::Xor))
 )]
 fn others(operator: BiOperator) {
     assert_eq!(
@@ -185,7 +190,7 @@ fn others(operator: BiOperator) {
             op: operator,
             right: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Bool(true)))),
         }
-            .eval(),
+        .eval(),
         Err(QueryExecutionError::undefined_bi_function(
             operator,
             SqlTypeFamily::String,
@@ -202,7 +207,7 @@ fn others(operator: BiOperator) {
                 "abc".to_owned()
             )))),
         }
-            .eval(),
+        .eval(),
         Err(QueryExecutionError::undefined_bi_function(
             operator,
             SqlTypeFamily::Bool,
@@ -223,7 +228,11 @@ fn others(operator: BiOperator) {
                 type_family: SqlTypeFamily::Real
             }))),
         }
-            .eval(),
-        Err(QueryExecutionError::undefined_bi_function(operator, SqlTypeFamily::Real, SqlTypeFamily::Real))
+        .eval(),
+        Err(QueryExecutionError::undefined_bi_function(
+            operator,
+            SqlTypeFamily::Real,
+            SqlTypeFamily::Real
+        ))
     );
 }

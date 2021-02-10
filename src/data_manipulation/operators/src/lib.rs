@@ -108,7 +108,7 @@ impl Display for Bitwise {
             Bitwise::ShiftLeft => write!(f, "<<"),
             Bitwise::Xor => write!(f, "#"),
             Bitwise::And => write!(f, "&"),
-            Bitwise::Or => write!(f, "|")
+            Bitwise::Or => write!(f, "|"),
         }
     }
 }
@@ -186,20 +186,99 @@ impl BiOperator {
             },
             BiOperator::Comparison(_) => unimplemented!(),
             BiOperator::Bitwise(op) => match (left, right) {
-                (TypedValue::Num { value: left_value, type_family: SqlTypeFamily::SmallInt }, TypedValue::Num { value: right_value, type_family: SqlTypeFamily::SmallInt }) |
-                (TypedValue::Num { value: left_value, type_family: SqlTypeFamily::Integer }, TypedValue::Num { value: right_value, type_family: SqlTypeFamily::Integer }) |
-                (TypedValue::Num { value: left_value, type_family: SqlTypeFamily::BigInt }, TypedValue::Num { value: right_value, type_family: SqlTypeFamily::BigInt }) |
-                (TypedValue::Num { value: left_value, type_family: SqlTypeFamily::SmallInt }, TypedValue::Num { value: right_value, type_family: SqlTypeFamily::Integer }) |
-                (TypedValue::Num { value: left_value, type_family: SqlTypeFamily::SmallInt }, TypedValue::Num { value: right_value, type_family: SqlTypeFamily::BigInt }) |
-                (TypedValue::Num { value: left_value, type_family: SqlTypeFamily::Integer }, TypedValue::Num { value: right_value, type_family: SqlTypeFamily::SmallInt }) |
-                (TypedValue::Num { value: left_value, type_family: SqlTypeFamily::Integer }, TypedValue::Num { value: right_value, type_family: SqlTypeFamily::BigInt }) |
-                (TypedValue::Num { value: left_value, type_family: SqlTypeFamily::BigInt }, TypedValue::Num { value: right_value, type_family: SqlTypeFamily::SmallInt }) |
-                (TypedValue::Num { value: left_value, type_family: SqlTypeFamily::BigInt }, TypedValue::Num { value: right_value, type_family: SqlTypeFamily::Integer }) => {
-                    Ok(TypedValue::Num {
-                        value: op.eval(left_value, right_value),
+                (
+                    TypedValue::Num {
+                        value: left_value,
+                        type_family: SqlTypeFamily::SmallInt,
+                    },
+                    TypedValue::Num {
+                        value: right_value,
+                        type_family: SqlTypeFamily::SmallInt,
+                    },
+                )
+                | (
+                    TypedValue::Num {
+                        value: left_value,
+                        type_family: SqlTypeFamily::Integer,
+                    },
+                    TypedValue::Num {
+                        value: right_value,
+                        type_family: SqlTypeFamily::Integer,
+                    },
+                )
+                | (
+                    TypedValue::Num {
+                        value: left_value,
                         type_family: SqlTypeFamily::BigInt,
-                    })
-                }
+                    },
+                    TypedValue::Num {
+                        value: right_value,
+                        type_family: SqlTypeFamily::BigInt,
+                    },
+                )
+                | (
+                    TypedValue::Num {
+                        value: left_value,
+                        type_family: SqlTypeFamily::SmallInt,
+                    },
+                    TypedValue::Num {
+                        value: right_value,
+                        type_family: SqlTypeFamily::Integer,
+                    },
+                )
+                | (
+                    TypedValue::Num {
+                        value: left_value,
+                        type_family: SqlTypeFamily::SmallInt,
+                    },
+                    TypedValue::Num {
+                        value: right_value,
+                        type_family: SqlTypeFamily::BigInt,
+                    },
+                )
+                | (
+                    TypedValue::Num {
+                        value: left_value,
+                        type_family: SqlTypeFamily::Integer,
+                    },
+                    TypedValue::Num {
+                        value: right_value,
+                        type_family: SqlTypeFamily::SmallInt,
+                    },
+                )
+                | (
+                    TypedValue::Num {
+                        value: left_value,
+                        type_family: SqlTypeFamily::Integer,
+                    },
+                    TypedValue::Num {
+                        value: right_value,
+                        type_family: SqlTypeFamily::BigInt,
+                    },
+                )
+                | (
+                    TypedValue::Num {
+                        value: left_value,
+                        type_family: SqlTypeFamily::BigInt,
+                    },
+                    TypedValue::Num {
+                        value: right_value,
+                        type_family: SqlTypeFamily::SmallInt,
+                    },
+                )
+                | (
+                    TypedValue::Num {
+                        value: left_value,
+                        type_family: SqlTypeFamily::BigInt,
+                    },
+                    TypedValue::Num {
+                        value: right_value,
+                        type_family: SqlTypeFamily::Integer,
+                    },
+                ) => Ok(TypedValue::Num {
+                    value: op.eval(left_value, right_value),
+                    type_family: SqlTypeFamily::BigInt,
+                }),
                 (TypedValue::Num { type_family, .. }, TypedValue::String(value)) => {
                     Err(QueryExecutionError::invalid_text_representation(type_family, value))
                 }
