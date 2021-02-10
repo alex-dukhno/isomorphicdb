@@ -89,6 +89,30 @@ pub enum Bitwise {
     Or,
 }
 
+impl Bitwise {
+    fn eval(&self, left: BigDecimal, right: BigDecimal) -> BigDecimal {
+        match self {
+            Bitwise::ShiftRight => BigDecimal::from(left.to_u64().unwrap() >> right.to_u64().unwrap()),
+            Bitwise::ShiftLeft => BigDecimal::from(left.to_u64().unwrap() << right.to_u64().unwrap()),
+            Bitwise::Xor => BigDecimal::from(left.to_u64().unwrap() ^ right.to_u64().unwrap()),
+            Bitwise::And => BigDecimal::from(left.to_u64().unwrap() & right.to_u64().unwrap()),
+            Bitwise::Or => BigDecimal::from(left.to_u64().unwrap() | right.to_u64().unwrap()),
+        }
+    }
+}
+
+impl Display for Bitwise {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Bitwise::ShiftRight => write!(f, ">>"),
+            Bitwise::ShiftLeft => write!(f, "<<"),
+            Bitwise::Xor => write!(f, "#"),
+            Bitwise::And => write!(f, "&"),
+            Bitwise::Or => write!(f, "|"),
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub enum BiLogical {
     Or,
@@ -161,7 +185,134 @@ impl BiOperator {
                 )),
             },
             BiOperator::Comparison(_) => unimplemented!(),
-            BiOperator::Bitwise(_) => unimplemented!(),
+            BiOperator::Bitwise(op) => match (left, right) {
+                (
+                    TypedValue::Num {
+                        value: left_value,
+                        type_family: SqlTypeFamily::SmallInt,
+                    },
+                    TypedValue::Num {
+                        value: right_value,
+                        type_family: SqlTypeFamily::SmallInt,
+                    },
+                )
+                | (
+                    TypedValue::Num {
+                        value: left_value,
+                        type_family: SqlTypeFamily::Integer,
+                    },
+                    TypedValue::Num {
+                        value: right_value,
+                        type_family: SqlTypeFamily::Integer,
+                    },
+                )
+                | (
+                    TypedValue::Num {
+                        value: left_value,
+                        type_family: SqlTypeFamily::BigInt,
+                    },
+                    TypedValue::Num {
+                        value: right_value,
+                        type_family: SqlTypeFamily::BigInt,
+                    },
+                )
+                | (
+                    TypedValue::Num {
+                        value: left_value,
+                        type_family: SqlTypeFamily::SmallInt,
+                    },
+                    TypedValue::Num {
+                        value: right_value,
+                        type_family: SqlTypeFamily::Integer,
+                    },
+                )
+                | (
+                    TypedValue::Num {
+                        value: left_value,
+                        type_family: SqlTypeFamily::SmallInt,
+                    },
+                    TypedValue::Num {
+                        value: right_value,
+                        type_family: SqlTypeFamily::BigInt,
+                    },
+                )
+                | (
+                    TypedValue::Num {
+                        value: left_value,
+                        type_family: SqlTypeFamily::Integer,
+                    },
+                    TypedValue::Num {
+                        value: right_value,
+                        type_family: SqlTypeFamily::SmallInt,
+                    },
+                )
+                | (
+                    TypedValue::Num {
+                        value: left_value,
+                        type_family: SqlTypeFamily::Integer,
+                    },
+                    TypedValue::Num {
+                        value: right_value,
+                        type_family: SqlTypeFamily::BigInt,
+                    },
+                )
+                | (
+                    TypedValue::Num {
+                        value: left_value,
+                        type_family: SqlTypeFamily::BigInt,
+                    },
+                    TypedValue::Num {
+                        value: right_value,
+                        type_family: SqlTypeFamily::SmallInt,
+                    },
+                )
+                | (
+                    TypedValue::Num {
+                        value: left_value,
+                        type_family: SqlTypeFamily::BigInt,
+                    },
+                    TypedValue::Num {
+                        value: right_value,
+                        type_family: SqlTypeFamily::Integer,
+                    },
+                ) => Ok(TypedValue::Num {
+                    value: op.eval(left_value, right_value),
+                    type_family: SqlTypeFamily::BigInt,
+                }),
+                (TypedValue::Num { type_family, .. }, TypedValue::String(value)) => {
+                    Err(QueryExecutionError::invalid_text_representation(type_family, value))
+                }
+                (TypedValue::Num { type_family, .. }, other) => Err(QueryExecutionError::undefined_bi_function(
+                    self,
+                    type_family,
+                    other
+                        .type_family()
+                        .map(|ty| ty.to_string())
+                        .unwrap_or_else(|| "unknown".to_owned()),
+                )),
+                (TypedValue::String(value), TypedValue::Num { type_family, .. }) => {
+                    Err(QueryExecutionError::invalid_text_representation(type_family, value))
+                }
+                (other, TypedValue::Num { type_family, .. }) => Err(QueryExecutionError::undefined_bi_function(
+                    self,
+                    other
+                        .type_family()
+                        .map(|ty| ty.to_string())
+                        .unwrap_or_else(|| "unknown".to_owned()),
+                    type_family,
+                )),
+                (other_left, other_right) => Err(QueryExecutionError::undefined_bi_function(
+                    self,
+                    other_left
+                        .type_family()
+                        .map(|ty| ty.to_string())
+                        .unwrap_or_else(|| "unknown".to_owned()),
+                    other_right
+                        .type_family()
+                        .map(|ty| ty.to_string())
+                        .unwrap_or_else(|| "unknown".to_owned()),
+                )),
+            },
             BiOperator::Logical(_) => unimplemented!(),
             BiOperator::PatternMatching(_) => unimplemented!(),
             BiOperator::StringOp(_) => unimplemented!(),
@@ -174,7 +325,7 @@ impl Display for BiOperator {
         match self {
             BiOperator::Arithmetic(op) => write!(f, "{}", op),
             BiOperator::Comparison(_) => unimplemented!(),
-            BiOperator::Bitwise(_) => unimplemented!(),
+            BiOperator::Bitwise(op) => write!(f, "{}", op),
             BiOperator::Logical(_) => unimplemented!(),
             BiOperator::PatternMatching(_) => unimplemented!(),
             BiOperator::StringOp(_) => unimplemented!(),

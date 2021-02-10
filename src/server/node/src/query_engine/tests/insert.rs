@@ -661,58 +661,58 @@ mod operators {
             ]);
         }
 
-        //             #[rstest::rstest]
-        //             fn bitwise_and(with_table: (InMemory, ResultCollector)) {
-        //                 let (mut engine, collector) = with_table;
-        //
-        //                 engine
-        //                     .execute(Command::Query {
-        //                         sql: "insert into schema_name.table_name values (5 & 1);".to_owned(),
-        //                     })
-        //                     .expect("query executed");
-        //                 collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
-        //
-        //                 engine
-        //                     .execute(Command::Query {
-        //                         sql: "select * from schema_name.table_name;".to_owned(),
-        //                     })
-        //                     .expect("query executed");
-        //                 collector.assert_receive_many(vec![
-        //                     Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
-        //                         "column_si",
-        //                         PgType::SmallInt,
-        //                     )])),
-        //                     Ok(QueryEvent::DataRow(vec!["1".to_owned()])),
-        //                     Ok(QueryEvent::RecordsSelected(1)),
-        //                 ]);
-        //             }
-        //
-        //             #[rstest::rstest]
-        //             fn bitwise_or(with_table: (InMemory, ResultCollector)) {
-        //                 let (mut engine, collector) = with_table;
-        //
-        //                 engine
-        //                     .execute(Command::Query {
-        //                         sql: "insert into schema_name.table_name values (5 | 2);".to_owned(),
-        //                     })
-        //                     .expect("query executed");
-        //                 collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
-        //
-        //                 engine
-        //                     .execute(Command::Query {
-        //                         sql: "select * from schema_name.table_name;".to_owned(),
-        //                     })
-        //                     .expect("query executed");
-        //                 collector.assert_receive_many(vec![
-        //                     Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
-        //                         "column_si",
-        //                         PgType::SmallInt,
-        //                     )])),
-        //                     Ok(QueryEvent::DataRow(vec!["7".to_owned()])),
-        //                     Ok(QueryEvent::RecordsSelected(1)),
-        //                 ]);
-        //             }
-        //
+        #[rstest::rstest]
+        fn bitwise_and(with_table: (InMemory, ResultCollector)) {
+            let (mut engine, collector) = with_table;
+
+            engine
+                .execute(Command::Query {
+                    sql: "insert into schema_name.table_name values (5 & 1);".to_owned(),
+                })
+                .expect("query executed");
+            collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+
+            engine
+                .execute(Command::Query {
+                    sql: "select * from schema_name.table_name;".to_owned(),
+                })
+                .expect("query executed");
+            collector.assert_receive_many(vec![
+                Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
+                    "column_si",
+                    PgType::SmallInt,
+                )])),
+                Ok(QueryEvent::DataRow(vec!["1".to_owned()])),
+                Ok(QueryEvent::RecordsSelected(1)),
+            ]);
+        }
+
+        #[rstest::rstest]
+        fn bitwise_or(with_table: (InMemory, ResultCollector)) {
+            let (mut engine, collector) = with_table;
+
+            engine
+                .execute(Command::Query {
+                    sql: "insert into schema_name.table_name values (5 | 2);".to_owned(),
+                })
+                .expect("query executed");
+            collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+
+            engine
+                .execute(Command::Query {
+                    sql: "select * from schema_name.table_name;".to_owned(),
+                })
+                .expect("query executed");
+            collector.assert_receive_many(vec![
+                Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
+                    "column_si",
+                    PgType::SmallInt,
+                )])),
+                Ok(QueryEvent::DataRow(vec!["7".to_owned()])),
+                Ok(QueryEvent::RecordsSelected(1)),
+            ]);
+        }
+
         #[rstest::rstest]
         #[ignore]
         // TODO ~ <n> is bitwise NOT in PostgreSQL and it does not supported in sqlparser-rs
@@ -741,182 +741,181 @@ mod operators {
             ]);
         }
 
-        //             #[rstest::rstest]
-        //             #[ignore]
-        //             // TODO <n> << <m> is bitwise SHIFT LEFT in PostgreSQL and it does not supported in sqlparser-rs
-        //             fn bitwise_shift_left(with_table: (InMemory, ResultCollector)) {
-        //                 let (mut engine, collector) = with_table;
-        //
-        //                 engine
-        //                     .execute(Command::Query {
-        //                         sql: "insert into schema_name.table_name values (1 << 4);".to_owned(),
-        //                     })
-        //                     .expect("query executed");
-        //                 collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
-        //
-        //                 engine
-        //                     .execute(Command::Query {
-        //                         sql: "select * from schema_name.table_name;".to_owned(),
-        //                     })
-        //                     .expect("query executed");
-        //                 collector.assert_receive_many(vec![
-        //                     Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
-        //                         "column_si",
-        //                         PgType::SmallInt,
-        //                     )])),
-        //                     Ok(QueryEvent::DataRow(vec!["16".to_owned()])),
-        //                     Ok(QueryEvent::RecordsSelected(1)),
-        //                 ]);
-        //             }
-        //
-        //             #[rstest::rstest]
-        //             #[ignore]
-        //             // TODO <n> >> <m> is bitwise SHIFT RIGHT in PostgreSQL and it does not supported in sqlparser-rs
-        //             fn bitwise_right_left(with_table: (InMemory, ResultCollector)) {
-        //                 let (mut engine, collector) = with_table;
-        //
-        //                 engine
-        //                     .execute(Command::Query {
-        //                         sql: "insert into schema_name.table_name values (8 >> 2);".to_owned(),
-        //                     })
-        //                     .expect("query executed");
-        //                 collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
-        //
-        //                 engine
-        //                     .execute(Command::Query {
-        //                         sql: "select * from schema_name.table_name;".to_owned(),
-        //                     })
-        //                     .expect("query executed");
-        //                 collector.assert_receive_many(vec![
-        //                     Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
-        //                         "column_si",
-        //                         PgType::SmallInt,
-        //                     )])),
-        //                     Ok(QueryEvent::DataRow(vec!["2".to_owned()])),
-        //                     Ok(QueryEvent::RecordsSelected(1)),
-        //                 ]);
-        //             }
-        //
-        //             #[rstest::rstest]
-        //             fn evaluate_many_operations(with_table: (InMemory, ResultCollector)) {
-        //                 let (mut engine, collector) = with_table;
-        //
-        //                 engine
-        //                     .execute(Command::Query {
-        //                         sql: "insert into schema_name.table_name values (5 & 13 % 10 + 1 * 20 - 40 / 4);".to_owned(),
-        //                     })
-        //                     .expect("query executed");
-        //                 collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
-        //
-        //                 engine
-        //                     .execute(Command::Query {
-        //                         sql: "select * from schema_name.table_name;".to_owned(),
-        //                     })
-        //                     .expect("query executed");
-        //                 collector.assert_receive_many(vec![
-        //                     Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
-        //                         "column_si",
-        //                         PgType::SmallInt,
-        //                     )])),
-        //                     Ok(QueryEvent::DataRow(vec!["5".to_owned()])),
-        //                     Ok(QueryEvent::RecordsSelected(1)),
-        //                 ]);
-        //             }
-        //         }
-    }
+        #[rstest::rstest]
+        #[ignore]
+        // TODO <n> << <m> is bitwise SHIFT LEFT in PostgreSQL and it does not supported in sqlparser-rs
+        fn bitwise_shift_left(with_table: (InMemory, ResultCollector)) {
+            let (mut engine, collector) = with_table;
 
-    //     #[cfg(test)]
-    //     mod string {
-    //         use super::*;
-    //
-    //         #[rstest::fixture]
-    //         fn with_table(database_with_schema: (InMemory, ResultCollector)) -> (InMemory, ResultCollector) {
-    //             let (mut engine, collector) = database_with_schema;
-    //
-    //             engine
-    //                 .execute(Command::Query {
-    //                     sql: "create table schema_name.table_name(strings char(5));".to_owned(),
-    //                 })
-    //                 .expect("query executed");
-    //             collector
-    //                 .assert_receive_till_this_moment(vec![Ok(QueryEvent::TableCreated), Ok(QueryEvent::QueryComplete)]);
-    //
-    //             (engine, collector)
-    //         }
-    //
-    //         #[rstest::rstest]
-    //         fn concatenation(with_table: (InMemory, ResultCollector)) {
-    //             let (mut engine, collector) = with_table;
-    //
-    //             engine
-    //                 .execute(Command::Query {
-    //                     sql: "insert into schema_name.table_name values ('123' || '45');".to_owned(),
-    //                 })
-    //                 .expect("query executed");
-    //             collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
-    //
-    //             engine
-    //                 .execute(Command::Query {
-    //                     sql: "select * from schema_name.table_name;".to_owned(),
-    //                 })
-    //                 .expect("query executed");
-    //             collector.assert_receive_many(vec![
-    //                 Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
-    //                     "strings",
-    //                     PgType::Char,
-    //                 )])),
-    //                 Ok(QueryEvent::DataRow(vec!["12345".to_owned()])),
-    //                 Ok(QueryEvent::RecordsSelected(1)),
-    //             ]);
-    //         }
-    //
-    //         #[rstest::rstest]
-    //         fn concatenation_with_number(with_table: (InMemory, ResultCollector)) {
-    //             let (mut engine, collector) = with_table;
-    //
-    //             engine
-    //                 .execute(Command::Query {
-    //                     sql: "insert into schema_name.table_name values (1 || '45');".to_owned(),
-    //                 })
-    //                 .expect("query executed");
-    //             collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
-    //
-    //             engine
-    //                 .execute(Command::Query {
-    //                     sql: "insert into schema_name.table_name values ('45' || 1);".to_owned(),
-    //                 })
-    //                 .expect("query executed");
-    //             collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
-    //
-    //             engine
-    //                 .execute(Command::Query {
-    //                     sql: "select * from schema_name.table_name;".to_owned(),
-    //                 })
-    //                 .expect("query executed");
-    //             collector.assert_receive_many(vec![
-    //                 Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
-    //                     "strings",
-    //                     PgType::Char,
-    //                 )])),
-    //                 Ok(QueryEvent::DataRow(vec!["145".to_owned()])),
-    //                 Ok(QueryEvent::DataRow(vec!["451".to_owned()])),
-    //                 Ok(QueryEvent::RecordsSelected(2)),
-    //             ]);
-    //         }
-    //
-    //         #[rstest::rstest]
-    //         fn non_string_concatenation_not_supported(with_table: (InMemory, ResultCollector)) {
-    //             let (mut engine, collector) = with_table;
-    //
-    //             engine
-    //                 .execute(Command::Query {
-    //                     sql: "insert into schema_name.table_name values (1 || 2);".to_owned(),
-    //                 })
-    //                 .expect("query executed");
-    //             collector.assert_receive_single(Err(QueryError::UndefinedFunction(
-    //                 "||".to_owned(),
-    //                 "NUMBER".to_owned(),
-    //                 "NUMBER".to_owned(),
-    //             )));
-    //         }
+            engine
+                .execute(Command::Query {
+                    sql: "insert into schema_name.table_name values (1 << 4);".to_owned(),
+                })
+                .expect("query executed");
+            collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+
+            engine
+                .execute(Command::Query {
+                    sql: "select * from schema_name.table_name;".to_owned(),
+                })
+                .expect("query executed");
+            collector.assert_receive_many(vec![
+                Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
+                    "column_si",
+                    PgType::SmallInt,
+                )])),
+                Ok(QueryEvent::DataRow(vec!["16".to_owned()])),
+                Ok(QueryEvent::RecordsSelected(1)),
+            ]);
+        }
+
+        #[rstest::rstest]
+        #[ignore]
+        // TODO <n> >> <m> is bitwise SHIFT RIGHT in PostgreSQL and it does not supported in sqlparser-rs
+        fn bitwise_right_left(with_table: (InMemory, ResultCollector)) {
+            let (mut engine, collector) = with_table;
+
+            engine
+                .execute(Command::Query {
+                    sql: "insert into schema_name.table_name values (8 >> 2);".to_owned(),
+                })
+                .expect("query executed");
+            collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+
+            engine
+                .execute(Command::Query {
+                    sql: "select * from schema_name.table_name;".to_owned(),
+                })
+                .expect("query executed");
+            collector.assert_receive_many(vec![
+                Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
+                    "column_si",
+                    PgType::SmallInt,
+                )])),
+                Ok(QueryEvent::DataRow(vec!["2".to_owned()])),
+                Ok(QueryEvent::RecordsSelected(1)),
+            ]);
+        }
+
+        #[rstest::rstest]
+        fn evaluate_many_operations(with_table: (InMemory, ResultCollector)) {
+            let (mut engine, collector) = with_table;
+
+            engine
+                .execute(Command::Query {
+                    sql: "insert into schema_name.table_name values (5 & 13 % 10 + 1 * 20 - 40 / 4);".to_owned(),
+                })
+                .expect("query executed");
+            collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+
+            engine
+                .execute(Command::Query {
+                    sql: "select * from schema_name.table_name;".to_owned(),
+                })
+                .expect("query executed");
+            collector.assert_receive_many(vec![
+                Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
+                    "column_si",
+                    PgType::SmallInt,
+                )])),
+                Ok(QueryEvent::DataRow(vec!["5".to_owned()])),
+                Ok(QueryEvent::RecordsSelected(1)),
+            ]);
+        }
+    }
 }
+
+//     #[cfg(test)]
+//     mod string {
+//         use super::*;
+//
+//         #[rstest::fixture]
+//         fn with_table(database_with_schema: (InMemory, ResultCollector)) -> (InMemory, ResultCollector) {
+//             let (mut engine, collector) = database_with_schema;
+//
+//             engine
+//                 .execute(Command::Query {
+//                     sql: "create table schema_name.table_name(strings char(5));".to_owned(),
+//                 })
+//                 .expect("query executed");
+//             collector
+//                 .assert_receive_till_this_moment(vec![Ok(QueryEvent::TableCreated), Ok(QueryEvent::QueryComplete)]);
+//
+//             (engine, collector)
+//         }
+//
+//         #[rstest::rstest]
+//         fn concatenation(with_table: (InMemory, ResultCollector)) {
+//             let (mut engine, collector) = with_table;
+//
+//             engine
+//                 .execute(Command::Query {
+//                     sql: "insert into schema_name.table_name values ('123' || '45');".to_owned(),
+//                 })
+//                 .expect("query executed");
+//             collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+//
+//             engine
+//                 .execute(Command::Query {
+//                     sql: "select * from schema_name.table_name;".to_owned(),
+//                 })
+//                 .expect("query executed");
+//             collector.assert_receive_many(vec![
+//                 Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
+//                     "strings",
+//                     PgType::Char,
+//                 )])),
+//                 Ok(QueryEvent::DataRow(vec!["12345".to_owned()])),
+//                 Ok(QueryEvent::RecordsSelected(1)),
+//             ]);
+//         }
+//
+//         #[rstest::rstest]
+//         fn concatenation_with_number(with_table: (InMemory, ResultCollector)) {
+//             let (mut engine, collector) = with_table;
+//
+//             engine
+//                 .execute(Command::Query {
+//                     sql: "insert into schema_name.table_name values (1 || '45');".to_owned(),
+//                 })
+//                 .expect("query executed");
+//             collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+//
+//             engine
+//                 .execute(Command::Query {
+//                     sql: "insert into schema_name.table_name values ('45' || 1);".to_owned(),
+//                 })
+//                 .expect("query executed");
+//             collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+//
+//             engine
+//                 .execute(Command::Query {
+//                     sql: "select * from schema_name.table_name;".to_owned(),
+//                 })
+//                 .expect("query executed");
+//             collector.assert_receive_many(vec![
+//                 Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
+//                     "strings",
+//                     PgType::Char,
+//                 )])),
+//                 Ok(QueryEvent::DataRow(vec!["145".to_owned()])),
+//                 Ok(QueryEvent::DataRow(vec!["451".to_owned()])),
+//                 Ok(QueryEvent::RecordsSelected(2)),
+//             ]);
+//         }
+//
+//         #[rstest::rstest]
+//         fn non_string_concatenation_not_supported(with_table: (InMemory, ResultCollector)) {
+//             let (mut engine, collector) = with_table;
+//
+//             engine
+//                 .execute(Command::Query {
+//                     sql: "insert into schema_name.table_name values (1 || 2);".to_owned(),
+//                 })
+//                 .expect("query executed");
+//             collector.assert_receive_single(Err(QueryError::UndefinedFunction(
+//                 "||".to_owned(),
+//                 "NUMBER".to_owned(),
+//                 "NUMBER".to_owned(),
+//             )));
+//         }

@@ -13,21 +13,20 @@
 // limitations under the License.
 
 use super::*;
-use data_manipulation_operators::BiArithmetic;
+use data_manipulation_operators::Bitwise;
 
 #[rstest::rstest(
     operator,
     left,
     right,
     result,
-    case::add(BiOperator::Arithmetic(BiArithmetic::Add), 10, 10, 20),
-    case::sub(BiOperator::Arithmetic(BiArithmetic::Sub), 20, 10, 10),
-    case::mul(BiOperator::Arithmetic(BiArithmetic::Mul), 5, 4, 20),
-    case::div(BiOperator::Arithmetic(BiArithmetic::Div), 20, 4, 5),
-    case::div(BiOperator::Arithmetic(BiArithmetic::Mod), 5, 2, 1),
-    case::div(BiOperator::Arithmetic(BiArithmetic::Exp), 5, 2, 25)
+    case::shift_right(BiOperator::Bitwise(Bitwise::ShiftRight), 4, 1, 2),
+    case::shift_left(BiOperator::Bitwise(Bitwise::ShiftLeft), 4, 1, 8),
+    case::and(BiOperator::Bitwise(Bitwise::And), 5, 4, 4),
+    case::or(BiOperator::Bitwise(Bitwise::Or), 5, 4, 5),
+    case::xor(BiOperator::Bitwise(Bitwise::Xor), 5, 4, 1)
 )]
-fn number_and_number(operator: BiOperator, left: u32, right: u32, result: u32) {
+fn integer_and_integer(operator: BiOperator, left: u32, right: u32, result: u32) {
     assert_eq!(
         StaticTypedTree::BiOp {
             type_family: SqlTypeFamily::SmallInt,
@@ -48,17 +47,46 @@ fn number_and_number(operator: BiOperator, left: u32, right: u32, result: u32) {
         })
     );
 }
+#[rstest::rstest(
+    operator,
+    case::shift_right(BiOperator::Bitwise(Bitwise::ShiftRight)),
+    case::shift_left(BiOperator::Bitwise(Bitwise::ShiftLeft)),
+    case::and(BiOperator::Bitwise(Bitwise::And)),
+    case::or(BiOperator::Bitwise(Bitwise::Or)),
+    case::xor(BiOperator::Bitwise(Bitwise::Xor))
+)]
+fn integer_and_float(operator: BiOperator) {
+    assert_eq!(
+        StaticTypedTree::BiOp {
+            type_family: SqlTypeFamily::Real,
+            left: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
+                value: BigDecimal::from(0),
+                type_family: SqlTypeFamily::SmallInt
+            }))),
+            op: operator,
+            right: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
+                value: BigDecimal::from(0),
+                type_family: SqlTypeFamily::Real
+            }))),
+        }
+        .eval(),
+        Err(QueryExecutionError::undefined_bi_function(
+            operator,
+            SqlTypeFamily::SmallInt,
+            SqlTypeFamily::Real
+        ))
+    );
+}
 
 #[rstest::rstest(
     operator,
-    case::add(BiOperator::Arithmetic(BiArithmetic::Add)),
-    case::sub(BiOperator::Arithmetic(BiArithmetic::Sub)),
-    case::mul(BiOperator::Arithmetic(BiArithmetic::Mul)),
-    case::div(BiOperator::Arithmetic(BiArithmetic::Div)),
-    case::div(BiOperator::Arithmetic(BiArithmetic::Mod)),
-    case::div(BiOperator::Arithmetic(BiArithmetic::Exp))
+    case::shift_right(BiOperator::Bitwise(Bitwise::ShiftRight)),
+    case::shift_left(BiOperator::Bitwise(Bitwise::ShiftLeft)),
+    case::and(BiOperator::Bitwise(Bitwise::And)),
+    case::or(BiOperator::Bitwise(Bitwise::Or)),
+    case::xor(BiOperator::Bitwise(Bitwise::Xor))
 )]
-fn number_and_boolean(operator: BiOperator) {
+fn integer_and_boolean(operator: BiOperator) {
     assert_eq!(
         StaticTypedTree::BiOp {
             type_family: SqlTypeFamily::Integer,
@@ -98,14 +126,13 @@ fn number_and_boolean(operator: BiOperator) {
 
 #[rstest::rstest(
     operator,
-    case::add(BiOperator::Arithmetic(BiArithmetic::Add)),
-    case::sub(BiOperator::Arithmetic(BiArithmetic::Sub)),
-    case::mul(BiOperator::Arithmetic(BiArithmetic::Mul)),
-    case::div(BiOperator::Arithmetic(BiArithmetic::Div)),
-    case::div(BiOperator::Arithmetic(BiArithmetic::Mod)),
-    case::div(BiOperator::Arithmetic(BiArithmetic::Exp))
+    case::shift_right(BiOperator::Bitwise(Bitwise::ShiftRight)),
+    case::shift_left(BiOperator::Bitwise(Bitwise::ShiftLeft)),
+    case::and(BiOperator::Bitwise(Bitwise::And)),
+    case::or(BiOperator::Bitwise(Bitwise::Or)),
+    case::xor(BiOperator::Bitwise(Bitwise::Xor))
 )]
-fn number_and_string(operator: BiOperator) {
+fn integer_and_string(operator: BiOperator) {
     assert_eq!(
         StaticTypedTree::BiOp {
             type_family: SqlTypeFamily::Integer,
@@ -147,12 +174,11 @@ fn number_and_string(operator: BiOperator) {
 
 #[rstest::rstest(
     operator,
-    case::add(BiOperator::Arithmetic(BiArithmetic::Add)),
-    case::sub(BiOperator::Arithmetic(BiArithmetic::Sub)),
-    case::mul(BiOperator::Arithmetic(BiArithmetic::Mul)),
-    case::div(BiOperator::Arithmetic(BiArithmetic::Div)),
-    case::div(BiOperator::Arithmetic(BiArithmetic::Mod)),
-    case::div(BiOperator::Arithmetic(BiArithmetic::Exp))
+    case::shift_right(BiOperator::Bitwise(Bitwise::ShiftRight)),
+    case::shift_left(BiOperator::Bitwise(Bitwise::ShiftLeft)),
+    case::and(BiOperator::Bitwise(Bitwise::And)),
+    case::or(BiOperator::Bitwise(Bitwise::Or)),
+    case::xor(BiOperator::Bitwise(Bitwise::Xor))
 )]
 fn others(operator: BiOperator) {
     assert_eq!(
@@ -186,6 +212,27 @@ fn others(operator: BiOperator) {
             operator,
             SqlTypeFamily::Bool,
             SqlTypeFamily::String
+        ))
+    );
+
+    assert_eq!(
+        StaticTypedTree::BiOp {
+            type_family: SqlTypeFamily::Real,
+            left: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
+                value: BigDecimal::from(0),
+                type_family: SqlTypeFamily::Real
+            }))),
+            op: operator,
+            right: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
+                value: BigDecimal::from(0),
+                type_family: SqlTypeFamily::Real
+            }))),
+        }
+        .eval(),
+        Err(QueryExecutionError::undefined_bi_function(
+            operator,
+            SqlTypeFamily::Real,
+            SqlTypeFamily::Real
         ))
     );
 }
