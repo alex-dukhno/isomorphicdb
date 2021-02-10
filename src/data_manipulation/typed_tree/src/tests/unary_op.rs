@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use super::*;
+use data_manipulation_operators::{UnArithmetic};
 
 #[cfg(test)]
 mod unary_minus {

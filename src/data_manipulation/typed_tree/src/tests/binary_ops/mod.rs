@@ -16,3 +16,5 @@ use super::*;
 
 #[cfg(test)]
 mod arithmetic;
+#[cfg(test)]
+mod bitwise;
