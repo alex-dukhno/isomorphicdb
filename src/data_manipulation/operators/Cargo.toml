@@ -11,3 +11,4 @@ data_manipulation_query_result = { path = "../../data_manipulation/query_result"
 types = { path = "../../entities/types" }
 
 bigdecimal = { version = "0.2.0", features = ["string-only"] }
+regex = "1.4.3"

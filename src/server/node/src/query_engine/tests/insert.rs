@@ -823,99 +823,101 @@ mod operators {
             ]);
         }
     }
-}
 
-//     #[cfg(test)]
-//     mod string {
-//         use super::*;
-//
-//         #[rstest::fixture]
-//         fn with_table(database_with_schema: (InMemory, ResultCollector)) -> (InMemory, ResultCollector) {
-//             let (mut engine, collector) = database_with_schema;
-//
-//             engine
-//                 .execute(Command::Query {
-//                     sql: "create table schema_name.table_name(strings char(5));".to_owned(),
-//                 })
-//                 .expect("query executed");
-//             collector
-//                 .assert_receive_till_this_moment(vec![Ok(QueryEvent::TableCreated), Ok(QueryEvent::QueryComplete)]);
-//
-//             (engine, collector)
-//         }
-//
-//         #[rstest::rstest]
-//         fn concatenation(with_table: (InMemory, ResultCollector)) {
-//             let (mut engine, collector) = with_table;
-//
-//             engine
-//                 .execute(Command::Query {
-//                     sql: "insert into schema_name.table_name values ('123' || '45');".to_owned(),
-//                 })
-//                 .expect("query executed");
-//             collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
-//
-//             engine
-//                 .execute(Command::Query {
-//                     sql: "select * from schema_name.table_name;".to_owned(),
-//                 })
-//                 .expect("query executed");
-//             collector.assert_receive_many(vec![
-//                 Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
-//                     "strings",
-//                     PgType::Char,
-//                 )])),
-//                 Ok(QueryEvent::DataRow(vec!["12345".to_owned()])),
-//                 Ok(QueryEvent::RecordsSelected(1)),
-//             ]);
-//         }
-//
-//         #[rstest::rstest]
-//         fn concatenation_with_number(with_table: (InMemory, ResultCollector)) {
-//             let (mut engine, collector) = with_table;
-//
-//             engine
-//                 .execute(Command::Query {
-//                     sql: "insert into schema_name.table_name values (1 || '45');".to_owned(),
-//                 })
-//                 .expect("query executed");
-//             collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
-//
-//             engine
-//                 .execute(Command::Query {
-//                     sql: "insert into schema_name.table_name values ('45' || 1);".to_owned(),
-//                 })
-//                 .expect("query executed");
-//             collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
-//
-//             engine
-//                 .execute(Command::Query {
-//                     sql: "select * from schema_name.table_name;".to_owned(),
-//                 })
-//                 .expect("query executed");
-//             collector.assert_receive_many(vec![
-//                 Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
-//                     "strings",
-//                     PgType::Char,
-//                 )])),
-//                 Ok(QueryEvent::DataRow(vec!["145".to_owned()])),
-//                 Ok(QueryEvent::DataRow(vec!["451".to_owned()])),
-//                 Ok(QueryEvent::RecordsSelected(2)),
-//             ]);
-//         }
-//
-//         #[rstest::rstest]
-//         fn non_string_concatenation_not_supported(with_table: (InMemory, ResultCollector)) {
-//             let (mut engine, collector) = with_table;
-//
-//             engine
-//                 .execute(Command::Query {
-//                     sql: "insert into schema_name.table_name values (1 || 2);".to_owned(),
-//                 })
-//                 .expect("query executed");
-//             collector.assert_receive_single(Err(QueryError::UndefinedFunction(
-//                 "||".to_owned(),
-//                 "NUMBER".to_owned(),
-//                 "NUMBER".to_owned(),
-//             )));
-//         }
+    #[cfg(test)]
+    mod string {
+        use super::*;
+
+        #[rstest::fixture]
+        fn with_table(database_with_schema: (InMemory, ResultCollector)) -> (InMemory, ResultCollector) {
+            let (mut engine, collector) = database_with_schema;
+
+            engine
+                .execute(Command::Query {
+                    sql: "create table schema_name.table_name(strings char(5));".to_owned(),
+                })
+                .expect("query executed");
+            collector
+                .assert_receive_till_this_moment(vec![Ok(QueryEvent::TableCreated), Ok(QueryEvent::QueryComplete)]);
+
+            (engine, collector)
+        }
+
+        #[rstest::rstest]
+        fn concatenation(with_table: (InMemory, ResultCollector)) {
+            let (mut engine, collector) = with_table;
+
+            engine
+                .execute(Command::Query {
+                    sql: "insert into schema_name.table_name values ('123' || '45');".to_owned(),
+                })
+                .expect("query executed");
+            collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+
+            engine
+                .execute(Command::Query {
+                    sql: "select * from schema_name.table_name;".to_owned(),
+                })
+                .expect("query executed");
+            collector.assert_receive_many(vec![
+                Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
+                    "strings",
+                    PgType::Char,
+                )])),
+                Ok(QueryEvent::DataRow(vec!["12345".to_owned()])),
+                Ok(QueryEvent::RecordsSelected(1)),
+            ]);
+        }
+
+        #[rstest::rstest]
+        #[ignore] //TODO: TypeInference#infer_static is not implemented
+        fn concatenation_with_number(with_table: (InMemory, ResultCollector)) {
+            let (mut engine, collector) = with_table;
+
+            engine
+                .execute(Command::Query {
+                    sql: "insert into schema_name.table_name values (1 || '45');".to_owned(),
+                })
+                .expect("query executed");
+            collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+
+            engine
+                .execute(Command::Query {
+                    sql: "insert into schema_name.table_name values ('45' || 1);".to_owned(),
+                })
+                .expect("query executed");
+            collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+
+            engine
+                .execute(Command::Query {
+                    sql: "select * from schema_name.table_name;".to_owned(),
+                })
+                .expect("query executed");
+            collector.assert_receive_many(vec![
+                Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
+                    "strings",
+                    PgType::Char,
+                )])),
+                Ok(QueryEvent::DataRow(vec!["145".to_owned()])),
+                Ok(QueryEvent::DataRow(vec!["451".to_owned()])),
+                Ok(QueryEvent::RecordsSelected(2)),
+            ]);
+        }
+
+        #[rstest::rstest]
+        fn non_string_concatenation_not_supported(with_table: (InMemory, ResultCollector)) {
+            let (mut engine, collector) = with_table;
+
+            engine
+                .execute(Command::Query {
+                    sql: "insert into schema_name.table_name values (1 || 2);".to_owned(),
+                })
+                .expect("query executed");
+            collector.assert_receive_single(Err(QueryError::undefined_function(
+                "||".to_owned(),
+                "smallint".to_owned(),
+                "smallint".to_owned(),
+            )));
+        }
+    }
+}

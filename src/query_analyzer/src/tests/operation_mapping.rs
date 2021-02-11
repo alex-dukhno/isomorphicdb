@@ -144,7 +144,7 @@ mod binary_op {
     fn string_concat() {
         assert_eq!(
             OperationMapper::binary_operation(&sql_ast::BinaryOperator::StringConcat),
-            BiOperator::StringOp(StringOp::Concat)
+            BiOperator::StringOp(Concat)
         );
     }
 
@@ -216,7 +216,7 @@ mod binary_op {
     fn like() {
         assert_eq!(
             OperationMapper::binary_operation(&sql_ast::BinaryOperator::Like),
-            BiOperator::PatternMatching(PatternMatching::Like)
+            BiOperator::Matching(Matching::Like)
         );
     }
 
@@ -224,7 +224,7 @@ mod binary_op {
     fn not_like() {
         assert_eq!(
             OperationMapper::binary_operation(&sql_ast::BinaryOperator::NotLike),
-            BiOperator::PatternMatching(PatternMatching::NotLike)
+            BiOperator::Matching(Matching::NotLike)
         );
     }
 

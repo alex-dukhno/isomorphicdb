@@ -47,6 +47,7 @@ fn integer_and_integer(operator: BiOperator, left: u32, right: u32, result: u32)
         })
     );
 }
+
 #[rstest::rstest(
     operator,
     case::shift_right(BiOperator::Bitwise(Bitwise::ShiftRight)),
