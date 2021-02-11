@@ -15,6 +15,7 @@
 use bigdecimal::{BigDecimal, ToPrimitive};
 use data_manipulation_query_result::QueryExecutionError;
 use data_manipulation_typed_values::TypedValue;
+use regex::Regex;
 use std::fmt::{self, Display, Formatter};
 use types::SqlTypeFamily;
 
@@ -119,15 +120,64 @@ pub enum BiLogical {
     And,
 }
 
+impl BiLogical {
+    fn eval(&self, left_value: bool, right_value: bool) -> bool {
+        match self {
+            BiLogical::Or => left_value || right_value,
+            BiLogical::And => left_value && right_value,
+        }
+    }
+}
+
+impl Display for BiLogical {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            BiLogical::Or => write!(f, "OR"),
+            BiLogical::And => write!(f, "AND"),
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Copy, Clone)]
-pub enum PatternMatching {
+pub enum Matching {
     Like,
     NotLike,
 }
 
+impl Matching {
+    fn eval(&self, left: String, right: String) -> bool {
+        let matches = Regex::new(left.replace("%", ".*").replace("_", ".+").as_str())
+            .unwrap()
+            .is_match(right.as_str());
+        match self {
+            Matching::Like => matches,
+            Matching::NotLike => !matches,
+        }
+    }
+}
+
+impl Display for Matching {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Matching::Like => write!(f, "LIKE"),
+            Matching::NotLike => write!(f, "NOT LIKE"),
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Copy, Clone)]
-pub enum StringOp {
-    Concat,
+pub struct Concat;
+
+impl Concat {
+    fn eval(&self, left: String, right: String) -> String {
+        left + right.as_str()
+    }
+}
+
+impl Display for Concat {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "||")
+    }
 }
 
 #[derive(Debug, PartialEq, Copy, Clone)]
@@ -136,8 +186,8 @@ pub enum BiOperator {
     Comparison(Comparison),
     Bitwise(Bitwise),
     Logical(BiLogical),
-    PatternMatching(PatternMatching),
-    StringOp(StringOp),
+    Matching(Matching),
+    StringOp(Concat),
 }
 
 impl BiOperator {
@@ -313,9 +363,54 @@ impl BiOperator {
                         .unwrap_or_else(|| "unknown".to_owned()),
                 )),
             },
-            BiOperator::Logical(_) => unimplemented!(),
-            BiOperator::PatternMatching(_) => unimplemented!(),
-            BiOperator::StringOp(_) => unimplemented!(),
+            BiOperator::Logical(op) => match (left, right) {
+                (TypedValue::Bool(left_value), TypedValue::Bool(right_value)) => {
+                    Ok(TypedValue::Bool(op.eval(left_value, right_value)))
+                }
+                (other_left, other_right) => Err(QueryExecutionError::undefined_bi_function(
+                    self,
+                    other_left
+                        .type_family()
+                        .map(|ty| ty.to_string())
+                        .unwrap_or_else(|| "unknown".to_owned()),
+                    other_right
+                        .type_family()
+                        .map(|ty| ty.to_string())
+                        .unwrap_or_else(|| "unknown".to_owned()),
+                )),
+            },
+            BiOperator::Matching(op) => match (left, right) {
+                (TypedValue::String(left_value), TypedValue::String(right_value)) => {
+                    Ok(TypedValue::Bool(op.eval(left_value, right_value)))
+                }
+                (other_left, other_right) => Err(QueryExecutionError::undefined_bi_function(
+                    self,
+                    other_left
+                        .type_family()
+                        .map(|ty| ty.to_string())
+                        .unwrap_or_else(|| "unknown".to_owned()),
+                    other_right
+                        .type_family()
+                        .map(|ty| ty.to_string())
+                        .unwrap_or_else(|| "unknown".to_owned()),
+                )),
+            },
+            BiOperator::StringOp(op) => match (left, right) {
+                (TypedValue::String(left_value), TypedValue::String(right_value)) => {
+                    Ok(TypedValue::String(op.eval(left_value, right_value)))
+                }
+                (other_left, other_right) => Err(QueryExecutionError::undefined_bi_function(
+                    self,
+                    other_left
+                        .type_family()
+                        .map(|ty| ty.to_string())
+                        .unwrap_or_else(|| "unknown".to_owned()),
+                    other_right
+                        .type_family()
+                        .map(|ty| ty.to_string())
+                        .unwrap_or_else(|| "unknown".to_owned()),
+                )),
+            },
         }
     }
 }
@@ -326,9 +421,9 @@ impl Display for BiOperator {
             BiOperator::Arithmetic(op) => write!(f, "{}", op),
             BiOperator::Comparison(_) => unimplemented!(),
             BiOperator::Bitwise(op) => write!(f, "{}", op),
-            BiOperator::Logical(_) => unimplemented!(),
-            BiOperator::PatternMatching(_) => unimplemented!(),
-            BiOperator::StringOp(_) => unimplemented!(),
+            BiOperator::Logical(op) => write!(f, "{}", op),
+            BiOperator::Matching(op) => write!(f, "{}", op),
+            BiOperator::StringOp(op) => write!(f, "{}", op),
         }
     }
 }

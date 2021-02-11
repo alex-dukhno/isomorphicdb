@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use data_manipulation_operators::{
-    BiArithmetic, BiLogical, BiOperator, Bitwise, Comparison, PatternMatching, StringOp, UnArithmetic, UnOperator,
+    BiArithmetic, BiLogical, BiOperator, Bitwise, Comparison, Concat, Matching, UnArithmetic, UnOperator,
 };
 use sql_ast::UnaryOperator;
 
@@ -42,7 +42,7 @@ impl OperationMapper {
             sql_ast::BinaryOperator::Divide => BiOperator::Arithmetic(BiArithmetic::Div),
             sql_ast::BinaryOperator::Modulus => BiOperator::Arithmetic(BiArithmetic::Mod),
             sql_ast::BinaryOperator::BitwiseXor => BiOperator::Arithmetic(BiArithmetic::Exp),
-            sql_ast::BinaryOperator::StringConcat => BiOperator::StringOp(StringOp::Concat),
+            sql_ast::BinaryOperator::StringConcat => BiOperator::StringOp(Concat),
             sql_ast::BinaryOperator::Gt => BiOperator::Comparison(Comparison::Gt),
             sql_ast::BinaryOperator::Lt => BiOperator::Comparison(Comparison::Lt),
             sql_ast::BinaryOperator::GtEq => BiOperator::Comparison(Comparison::GtEq),
@@ -51,8 +51,8 @@ impl OperationMapper {
             sql_ast::BinaryOperator::NotEq => BiOperator::Comparison(Comparison::NotEq),
             sql_ast::BinaryOperator::And => BiOperator::Logical(BiLogical::And),
             sql_ast::BinaryOperator::Or => BiOperator::Logical(BiLogical::Or),
-            sql_ast::BinaryOperator::Like => BiOperator::PatternMatching(PatternMatching::Like),
-            sql_ast::BinaryOperator::NotLike => BiOperator::PatternMatching(PatternMatching::NotLike),
+            sql_ast::BinaryOperator::Like => BiOperator::Matching(Matching::Like),
+            sql_ast::BinaryOperator::NotLike => BiOperator::Matching(Matching::NotLike),
             sql_ast::BinaryOperator::BitwiseOr => BiOperator::Bitwise(Bitwise::Or),
             sql_ast::BinaryOperator::BitwiseAnd => BiOperator::Bitwise(Bitwise::And),
             sql_ast::BinaryOperator::PGBitwiseXor => BiOperator::Bitwise(Bitwise::Xor),

@@ -18,3 +18,9 @@ use super::*;
 mod arithmetic;
 #[cfg(test)]
 mod bitwise;
+#[cfg(test)]
+mod logical;
+#[cfg(test)]
+mod matching;
+#[cfg(test)]
+mod string_concat;

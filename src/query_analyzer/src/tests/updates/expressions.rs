@@ -253,7 +253,7 @@ mod multiple_values {
                     left: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
                         UntypedValue::String("str".to_owned())
                     ))),
-                    op: BiOperator::StringOp(StringOp::Concat),
+                    op: BiOperator::StringOp(Concat),
                     right: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
                         UntypedValue::String("str".to_owned())
                     )))
@@ -377,7 +377,7 @@ mod multiple_values {
                     left: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
                         UntypedValue::String("s".to_owned())
                     ))),
-                    op: BiOperator::PatternMatching(PatternMatching::Like),
+                    op: BiOperator::Matching(Matching::Like),
                     right: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
                         UntypedValue::String("str".to_owned())
                     )))
