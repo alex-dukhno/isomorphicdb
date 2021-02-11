@@ -25,12 +25,12 @@ use data_definition_execution_plan::{
     ExecutionOutcome, SchemaChange,
 };
 use data_manipulation_query_result::QueryExecutionError;
-use data_manipulation_typed_tree::{DynamicTypedItem, DynamicTypedTree, StaticTypedTree};
+use data_manipulation_typed_tree::{DynamicTypedTree, StaticTypedTree};
 use data_manipulation_typed_values::TypedValue;
 use data_scalar::ScalarValue;
 use definition::{ColumnDef, FullIndexName, FullTableName, SchemaName, TableDef};
 use std::sync::Arc;
-use types::{Num, SqlType, SqlTypeFamily};
+use types::{Num, SqlType};
 
 mod data_catalog;
 
@@ -437,28 +437,6 @@ impl InMemoryTable {
         InMemoryTable { columns, data_table }
     }
 
-    fn eval_dynamic(&self, tree: &DynamicTypedTree) -> Datum {
-        match tree {
-            DynamicTypedTree::Item(DynamicTypedItem::Const(TypedValue::Num { value, type_family })) => {
-                match type_family {
-                    SqlTypeFamily::Bool => unimplemented!(),
-                    SqlTypeFamily::String => unimplemented!(),
-                    SqlTypeFamily::SmallInt => Datum::from_i16(value.to_i16().unwrap()),
-                    SqlTypeFamily::Integer => unimplemented!(),
-                    SqlTypeFamily::BigInt => unimplemented!(),
-                    SqlTypeFamily::Real => unimplemented!(),
-                    SqlTypeFamily::Double => unimplemented!(),
-                }
-            }
-            DynamicTypedTree::Item(DynamicTypedItem::Const(TypedValue::Bool(value))) => Datum::from_bool(*value),
-            DynamicTypedTree::Item(DynamicTypedItem::Const(TypedValue::String(string))) => {
-                Datum::from_string(string.clone())
-            }
-            DynamicTypedTree::Item(_) => unimplemented!(),
-            DynamicTypedTree::Operation { .. } => unimplemented!(),
-        }
-    }
-
     fn has_column(&self, column_name: &str) -> Option<(usize, &ColumnDef)> {
         self.columns
             .iter()
@@ -560,23 +538,47 @@ impl SqlTable for InMemoryTable {
         self.data_table.delete(keys)
     }
 
-    fn update(&self, column_names: Vec<String>, assignments: Vec<DynamicTypedTree>) -> usize {
-        let delta = self
+    fn update(
+        &self,
+        column_names: Vec<String>,
+        assignments: Vec<DynamicTypedTree>,
+    ) -> Result<usize, QueryExecutionError> {
+        let to_update = self
             .data_table
             .select()
-            .map(|(key, value)| {
-                let mut unpacked_row = value.unpack();
-                for (column_name, assignment) in column_names.iter().zip(assignments.iter()) {
-                    let new_value = match self.has_column(column_name) {
-                        None => unimplemented!(),
-                        Some((index, _)) => (index, self.eval_dynamic(assignment)),
-                    };
-                    unpacked_row[new_value.0] = new_value.1;
-                }
-                (key, Binary::pack(&unpacked_row))
-            })
-            .collect();
-        self.data_table.update(delta)
+            .map(|(key, value)| (key, value.unpack()))
+            .collect::<Vec<(Binary, Vec<Datum>)>>();
+
+        let mut values = vec![];
+        for (key, mut unpacked_row) in to_update {
+            for (column_name, assignment) in column_names.iter().zip(assignments.iter()) {
+                let new_value = match self.has_column(column_name) {
+                    None => unimplemented!(),
+                    Some((index, _)) => (index, convert(self.columns[index].sql_type(), assignment.eval()?)),
+                };
+                unpacked_row[new_value.0] = new_value.1;
+            }
+            values.push((key, Binary::pack(&unpacked_row)))
+        }
+
+        // let to_update = self
+        //     .data_table
+        //     .select()
+        //     .map(|(key, value)| {
+        //         let mut unpacked_row = value.unpack();
+        //         for (column_name, assignment) in column_names.iter().zip(assignments.iter()) {
+        //             let new_value = match self.has_column(column_name) {
+        //                 None => unimplemented!(),
+        //                 Some((index, _)) => {
+        //                     (index, convert(self.columns[index].sql_type(), assignment.eval()?))
+        //                 },
+        //             };
+        //             unpacked_row[new_value.0] = new_value.1;
+        //         }
+        //         (key, Binary::pack(&unpacked_row))
+        //     })
+        //     .collect();
+        Ok(self.data_table.update(values))
     }
 }
 

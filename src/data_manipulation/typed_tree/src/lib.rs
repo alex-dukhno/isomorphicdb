@@ -74,18 +74,51 @@ impl StaticTypedItem {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum DynamicTypedTree {
-    Operation {
+    BiOp {
+        type_family: SqlTypeFamily,
         left: Box<DynamicTypedTree>,
         op: BiOperator,
         right: Box<DynamicTypedTree>,
     },
+    UnOp {
+        op: UnOperator,
+        item: Box<DynamicTypedTree>,
+    },
     Item(DynamicTypedItem),
+}
+
+impl DynamicTypedTree {
+    pub fn type_family(&self) -> Option<SqlTypeFamily> {
+        match self {
+            DynamicTypedTree::Item(item) => item.type_family(),
+            DynamicTypedTree::BiOp { type_family, .. } => Some(*type_family),
+            DynamicTypedTree::UnOp { item, .. } => item.type_family(),
+        }
+    }
+
+    pub fn eval(&self) -> Result<TypedValue, QueryExecutionError> {
+        match self {
+            DynamicTypedTree::Item(DynamicTypedItem::Const(value)) => Ok(value.clone()),
+            DynamicTypedTree::Item(DynamicTypedItem::Column(_)) => unimplemented!(),
+            DynamicTypedTree::UnOp { op, item } => op.eval(item.eval()?),
+            DynamicTypedTree::BiOp { left, op, right, .. } => op.eval(left.eval()?, right.eval()?),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum DynamicTypedItem {
     Const(TypedValue),
     Column(String),
+}
+
+impl DynamicTypedItem {
+    fn type_family(&self) -> Option<SqlTypeFamily> {
+        match self {
+            DynamicTypedItem::Const(typed_value) => typed_value.type_family(),
+            DynamicTypedItem::Column(_typed_value) => None,
+        }
+    }
 }
 
 #[cfg(test)]

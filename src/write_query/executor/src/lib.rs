@@ -43,11 +43,12 @@ impl<D: Database> WriteQueryExecutor<D> {
                 full_table_name,
                 column_names,
                 assignments,
-            }) => Ok(QueryExecution::Updated(
-                self.database.work_with(&full_table_name, |table| {
+            }) => self
+                .database
+                .work_with(&full_table_name, |table| {
                     table.update(column_names.clone(), assignments.clone())
-                }),
-            )),
+                })
+                .map(QueryExecution::Updated),
         }
     }
 }

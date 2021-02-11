@@ -25,7 +25,7 @@ use super::*;
 use bigdecimal::BigDecimal;
 use data_definition_execution_plan::ColumnInfo;
 use data_manipulation_typed_tree::StaticTypedItem;
-use types::SqlType;
+use types::{SqlType, SqlTypeFamily};
 
 const SCHEMA: &str = "schema_name";
 const OTHER_SCHEMA: &str = "other_schema_name";

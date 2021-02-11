@@ -167,7 +167,7 @@ mod multiple_values {
             )),
             Ok(QueryAnalysis::Read(SelectQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                projection_items: vec![DynamicUntypedTree::Operation {
+                projection_items: vec![DynamicUntypedTree::BiOp {
                     left: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
                         UntypedValue::String("1".to_owned())
                     ))),
@@ -197,7 +197,7 @@ mod multiple_values {
             )),
             Ok(QueryAnalysis::Read(SelectQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                projection_items: vec![DynamicUntypedTree::Operation {
+                projection_items: vec![DynamicUntypedTree::BiOp {
                     left: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
                         UntypedValue::String("str".to_owned())
                     ))),
@@ -227,7 +227,7 @@ mod multiple_values {
             )),
             Ok(QueryAnalysis::Read(SelectQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                projection_items: vec![DynamicUntypedTree::Operation {
+                projection_items: vec![DynamicUntypedTree::BiOp {
                     left: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
                         UntypedValue::String("1".to_owned())
                     ))),
@@ -257,7 +257,7 @@ mod multiple_values {
             )),
             Ok(QueryAnalysis::Read(SelectQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                projection_items: vec![DynamicUntypedTree::Operation {
+                projection_items: vec![DynamicUntypedTree::BiOp {
                     left: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(UntypedValue::Bool(
                         Bool(true)
                     )))),
@@ -287,7 +287,7 @@ mod multiple_values {
             )),
             Ok(QueryAnalysis::Read(SelectQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                projection_items: vec![DynamicUntypedTree::Operation {
+                projection_items: vec![DynamicUntypedTree::BiOp {
                     left: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
                         UntypedValue::Number(BigDecimal::from(1))
                     ))),
@@ -317,7 +317,7 @@ mod multiple_values {
             )),
             Ok(QueryAnalysis::Read(SelectQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                projection_items: vec![DynamicUntypedTree::Operation {
+                projection_items: vec![DynamicUntypedTree::BiOp {
                     left: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
                         UntypedValue::String("s".to_owned())
                     ))),

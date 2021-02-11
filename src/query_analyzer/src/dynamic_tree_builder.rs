@@ -60,7 +60,7 @@ impl DynamicTreeBuilder {
             Self::inner_build(left, original, table_columns),
             Self::inner_build(right, original, table_columns),
         ) {
-            (Ok(left_item), Ok(right_item)) => Ok(DynamicUntypedTree::Operation {
+            (Ok(left_item), Ok(right_item)) => Ok(DynamicUntypedTree::BiOp {
                 left: Box::new(left_item),
                 op: operation,
                 right: Box::new(right_item),

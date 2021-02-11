@@ -219,10 +219,14 @@ impl StaticUntypedTree {
 
 #[derive(Debug, PartialEq)]
 pub enum DynamicUntypedTree {
-    Operation {
+    BiOp {
         left: Box<DynamicUntypedTree>,
         op: BiOperator,
         right: Box<DynamicUntypedTree>,
+    },
+    UnOp {
+        op: UnOperator,
+        item: Box<DynamicUntypedTree>,
     },
     Item(DynamicUntypedItem),
 }
