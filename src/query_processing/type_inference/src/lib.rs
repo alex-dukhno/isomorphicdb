@@ -87,6 +87,31 @@ impl TypeInference {
             DynamicUntypedTree::Item(DynamicUntypedItem::Const(UntypedValue::Bool(Bool(boolean)))) => {
                 DynamicTypedTree::Item(DynamicTypedItem::Const(TypedValue::Bool(boolean)))
             }
+            DynamicUntypedTree::BiOp { left, op, right } => {
+                let left_tree = self.infer_dynamic(*left);
+                let right_tree = self.infer_dynamic(*right);
+                let type_family = match (left_tree.type_family(), right_tree.type_family()) {
+                    (Some(left_type_family), Some(right_type_family)) => {
+                        match left_type_family.compare(&right_type_family) {
+                            Ok(type_family) => type_family,
+                            Err(_) => unimplemented!(),
+                        }
+                    }
+                    (Some(left_type_family), None) => left_type_family,
+                    (None, Some(right_type_family)) => right_type_family,
+                    (None, None) => unimplemented!(),
+                };
+                DynamicTypedTree::BiOp {
+                    type_family,
+                    left: Box::new(left_tree),
+                    op,
+                    right: Box::new(right_tree),
+                }
+            }
+            DynamicUntypedTree::UnOp { op, item } => DynamicTypedTree::UnOp {
+                op,
+                item: Box::new(self.infer_dynamic(*item)),
+            },
             _ => unimplemented!(),
         }
     }

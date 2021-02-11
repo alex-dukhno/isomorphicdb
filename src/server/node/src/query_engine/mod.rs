@@ -368,12 +368,7 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                                             .expect("To Send to client");
                                     }
                                     Ok(_) => unimplemented!(),
-                                    Err(QueryExecutionError::SchemaDoesNotExist(schema_name)) => {
-                                        self.sender
-                                            .send(Err(QueryError::schema_does_not_exist(schema_name)))
-                                            .expect("To Send to client");
-                                    }
-                                    Err(_) => unimplemented!(),
+                                    Err(error) => self.sender.send(Err(error.into())).expect("To Send to client"),
                                 }
                             }
                             Ok(QueryAnalysis::Write(UntypedWrite::Insert(insert))) => {
