@@ -323,23 +323,23 @@ pub struct QueryError {
 }
 
 impl QueryError {
-    fn code(&self) -> Option<&'static str> {
-        Some(self.kind.code())
+    fn code(&self) -> &'static str {
+        self.kind.code()
     }
 
-    fn severity(&self) -> Option<&'static str> {
+    fn severity(&self) -> &'static str {
         let severity: &'static str = self.severity.into();
-        Some(severity)
+        severity
     }
 
-    fn message(&self) -> Option<String> {
-        Some(format!("{}", self.kind))
+    fn message(&self) -> String {
+        format!("{}", self.kind)
     }
 }
 
 impl Into<BackendMessage> for QueryError {
     fn into(self) -> BackendMessage {
-        BackendMessage::ErrorResponse(self.severity(), self.code(), self.message())
+        BackendMessage::ErrorResponse(Some(self.severity()), Some(self.code()), Some(self.message()))
     }
 }
 
