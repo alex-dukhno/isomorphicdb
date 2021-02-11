@@ -19,6 +19,8 @@ mod arithmetic;
 #[cfg(test)]
 mod bitwise;
 #[cfg(test)]
+mod comparison;
+#[cfg(test)]
 mod logical;
 #[cfg(test)]
 mod matching;

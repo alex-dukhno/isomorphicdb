@@ -81,6 +81,32 @@ pub enum Comparison {
     Gt,
 }
 
+impl Comparison {
+    fn eval<E: PartialEq + PartialOrd>(&self, left_value: E, right_value: E) -> bool {
+        match self {
+            Comparison::NotEq => left_value != right_value,
+            Comparison::Eq => left_value == right_value,
+            Comparison::LtEq => left_value <= right_value,
+            Comparison::GtEq => left_value >= right_value,
+            Comparison::Lt => left_value < right_value,
+            Comparison::Gt => left_value > right_value,
+        }
+    }
+}
+
+impl Display for Comparison {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Comparison::NotEq => write!(f, "<>"),
+            Comparison::Eq => write!(f, "="),
+            Comparison::LtEq => write!(f, "<="),
+            Comparison::GtEq => write!(f, ">="),
+            Comparison::Lt => write!(f, "<"),
+            Comparison::Gt => write!(f, ">"),
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub enum Bitwise {
     ShiftRight,
@@ -234,7 +260,28 @@ impl BiOperator {
                         .unwrap_or_else(|| "unknown".to_owned()),
                 )),
             },
-            BiOperator::Comparison(_) => unimplemented!(),
+            BiOperator::Comparison(op) => match (left, right) {
+                (TypedValue::Bool(left_value), TypedValue::Bool(right_value)) => {
+                    Ok(TypedValue::Bool(op.eval(left_value, right_value)))
+                }
+                (TypedValue::String(left_value), TypedValue::String(right_value)) => {
+                    Ok(TypedValue::Bool(op.eval(left_value, right_value)))
+                }
+                (TypedValue::Num { value: left_value, .. }, TypedValue::Num { value: right_value, .. }) => {
+                    Ok(TypedValue::Bool(op.eval(left_value, right_value)))
+                }
+                (other_left, other_right) => Err(QueryExecutionError::undefined_bi_function(
+                    self,
+                    other_left
+                        .type_family()
+                        .map(|ty| ty.to_string())
+                        .unwrap_or_else(|| "unknown".to_owned()),
+                    other_right
+                        .type_family()
+                        .map(|ty| ty.to_string())
+                        .unwrap_or_else(|| "unknown".to_owned()),
+                )),
+            },
             BiOperator::Bitwise(op) => match (left, right) {
                 (
                     TypedValue::Num {
@@ -419,7 +466,7 @@ impl Display for BiOperator {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             BiOperator::Arithmetic(op) => write!(f, "{}", op),
-            BiOperator::Comparison(_) => unimplemented!(),
+            BiOperator::Comparison(op) => write!(f, "{}", op),
             BiOperator::Bitwise(op) => write!(f, "{}", op),
             BiOperator::Logical(op) => write!(f, "{}", op),
             BiOperator::Matching(op) => write!(f, "{}", op),
