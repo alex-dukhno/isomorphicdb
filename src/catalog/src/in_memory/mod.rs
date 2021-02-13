@@ -13,13 +13,12 @@
 // limitations under the License.
 
 use crate::{
-    binary::Binary,
     in_memory::data_catalog::{InMemoryCatalogHandle, InMemoryTableHandle},
-    repr::Datum,
     CatalogDefinition, DataCatalog, DataTable, Database, SchemaHandle, SqlTable, COLUMNS_TABLE, DEFINITION_SCHEMA,
     INDEXES_TABLE, SCHEMATA_TABLE, TABLES_TABLE,
 };
 use bigdecimal::ToPrimitive;
+use data_binary::{repr::Datum, Binary};
 use data_definition_execution_plan::{
     CreateIndexQuery, CreateSchemaQuery, CreateTableQuery, DropSchemasQuery, DropTablesQuery, ExecutionError,
     ExecutionOutcome, SchemaChange,
@@ -29,7 +28,7 @@ use data_manipulation_typed_tree::{DynamicTypedTree, StaticTypedTree};
 use data_manipulation_typed_values::TypedValue;
 use data_scalar::ScalarValue;
 use definition::{ColumnDef, FullIndexName, FullTableName, SchemaName, TableDef};
-use std::sync::Arc;
+use std::{fmt::Debug, sync::Arc};
 use types::{Num, SqlType};
 
 mod data_catalog;
@@ -81,19 +80,17 @@ impl InMemoryDatabase {
         ])
     }
 
-    fn find_in_system_table<P: Fn((Binary, Binary)) -> bool>(
-        &self,
-        table_name: &str,
-        predicate: P,
-    ) -> Option<Option<bool>> {
+    fn find_in_system_table<P: Fn(Binary) -> bool>(&self, table_name: &str, predicate: P) -> Option<Option<bool>> {
         self.catalog.work_with(DEFINITION_SCHEMA, |schema| {
-            schema.work_with(table_name, |table| table.select().any(&predicate))
+            schema.work_with(table_name, |table| {
+                table.select().map(|(_key, value)| value).any(&predicate)
+            })
         })
     }
 
     fn schema_exists(&self, schema_name: &SchemaName) -> bool {
         let schema_name_record = self.schema_name_record(schema_name);
-        self.find_in_system_table(SCHEMATA_TABLE, |(_key, value)| value == schema_name_record) == Some(Some(true))
+        self.find_in_system_table(SCHEMATA_TABLE, |value| value == schema_name_record) == Some(Some(true))
     }
 
     fn table_name_record(&self, full_table_name: &FullTableName) -> Binary {
@@ -106,7 +103,7 @@ impl InMemoryDatabase {
 
     fn table_exists(&self, full_table_name: &FullTableName) -> bool {
         let table_name_record = self.table_name_record(full_table_name);
-        self.find_in_system_table(TABLES_TABLE, |(_key, value)| value == table_name_record) == Some(Some(true))
+        self.find_in_system_table(TABLES_TABLE, |value| value == table_name_record) == Some(Some(true))
     }
 
     fn index_name_record(&self, full_index_name: &FullIndexName) -> Binary {
@@ -121,8 +118,7 @@ impl InMemoryDatabase {
     #[allow(dead_code)]
     fn index_exists(&self, full_index_name: &FullIndexName) -> bool {
         let index_name_record = self.index_name_record(full_index_name);
-        self.find_in_system_table(INDEXES_TABLE, |(_key, value)| value.starts_with(&index_name_record))
-            == Some(Some(true))
+        self.find_in_system_table(INDEXES_TABLE, |value| value.starts_with(&index_name_record)) == Some(Some(true))
     }
 
     fn table_columns(&self, full_table_name: &FullTableName) -> Vec<ColumnDef> {
@@ -410,6 +406,13 @@ impl Database for InMemoryDatabase {
         }
     }
 
+    fn table(&self, full_table_name: &FullTableName) -> Box<dyn SqlTable> {
+        Box::new(InMemoryTable::new(
+            self.table_columns(full_table_name),
+            self.catalog.table(full_table_name),
+        ))
+    }
+
     fn work_with<R, F: Fn(&Self::Table) -> R>(&self, full_table_name: &FullTableName, operation: F) -> R {
         operation(&InMemoryTable::new(
             self.table_columns(full_table_name),
@@ -427,6 +430,7 @@ impl Database for InMemoryDatabase {
     }
 }
 
+#[derive(Debug, PartialEq)]
 pub struct InMemoryTable {
     data_table: InMemoryTableHandle,
     columns: Vec<ColumnDef>,
@@ -458,6 +462,10 @@ fn convert(sql_type: SqlType, value: TypedValue) -> Datum {
 }
 
 impl SqlTable for InMemoryTable {
+    fn write(&self, row: Binary) {
+        self.data_table.insert(vec![row]);
+    }
+
     fn insert(&self, rows: Vec<Vec<Option<StaticTypedTree>>>) -> Result<usize, QueryExecutionError> {
         let mut values = vec![];
         for row in rows {
@@ -494,12 +502,15 @@ impl SqlTable for InMemoryTable {
         Ok(inserted)
     }
 
-    fn select(&self, column_names: Vec<String>) -> Result<(Vec<ColumnDef>, Vec<Vec<ScalarValue>>), String> {
+    fn select(
+        &self,
+        column_names: Vec<String>,
+    ) -> Result<(Vec<ColumnDef>, Vec<Vec<ScalarValue>>), QueryExecutionError> {
         let mut columns = vec![];
         let mut indexes = vec![];
         for name in column_names {
             match self.has_column(&name) {
-                None => return Err(name),
+                None => return Err(QueryExecutionError::ColumnNotFound(name)),
                 Some((index, col)) => {
                     columns.push(col.clone());
                     indexes.push(index);

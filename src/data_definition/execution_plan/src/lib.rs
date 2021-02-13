@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use definition::{FullTableName, SchemaName};
+use pg_result::QueryError;
 use types::SqlType;
 
 #[derive(Debug, PartialEq)]
@@ -99,4 +100,21 @@ pub enum ExecutionError {
     TableDoesNotExist(String, String),
     SchemaHasDependentObjects(String),
     ColumnNotFound(String),
+}
+
+impl From<ExecutionError> for QueryError {
+    fn from(error: ExecutionError) -> QueryError {
+        match error {
+            ExecutionError::SchemaAlreadyExists(schema) => QueryError::schema_already_exists(schema),
+            ExecutionError::SchemaDoesNotExist(schema) => QueryError::schema_does_not_exist(schema),
+            ExecutionError::TableAlreadyExists(schema, table) => {
+                QueryError::table_already_exists(schema + "." + table.as_str())
+            }
+            ExecutionError::TableDoesNotExist(schema, table) => {
+                QueryError::table_does_not_exist(schema + "." + table.as_str())
+            }
+            ExecutionError::SchemaHasDependentObjects(schema) => QueryError::schema_has_dependent_objects(schema),
+            ExecutionError::ColumnNotFound(column) => QueryError::column_does_not_exist(column),
+        }
+    }
 }

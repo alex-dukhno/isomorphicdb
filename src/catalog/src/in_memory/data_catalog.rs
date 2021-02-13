@@ -12,9 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{binary::Binary, repr::Datum, Cursor, DataCatalog, DataTable, Key, SchemaHandle, Value};
-use dashmap::DashMap;
-use definition::FullTableName;
 use std::{
     collections::BTreeMap,
     sync::{
@@ -22,6 +19,13 @@ use std::{
         Arc, RwLock,
     },
 };
+
+use dashmap::DashMap;
+
+use data_binary::{repr::Datum, Binary};
+use definition::FullTableName;
+
+use crate::{Cursor, DataCatalog, DataTable, Key, SchemaHandle, Value};
 
 #[derive(Default, Debug)]
 struct InternalInMemoryTableHandle {
@@ -65,17 +69,32 @@ impl InMemoryIndex {
 
 #[derive(Default, Debug, Clone)]
 pub struct InMemoryTableHandle {
+    name: String,
     inner: Arc<InternalInMemoryTableHandle>,
     indexes: Arc<DashMap<String, Arc<InMemoryIndex>>>,
 }
 
 impl InMemoryTableHandle {
+    pub(crate) fn with_name(name: String) -> InMemoryTableHandle {
+        InMemoryTableHandle {
+            name,
+            inner: Arc::new(InternalInMemoryTableHandle::default()),
+            indexes: Arc::new(DashMap::default()),
+        }
+    }
+
     pub(crate) fn index(&self, index: &str) -> Arc<InMemoryIndex> {
         self.indexes.get(index).unwrap().clone()
     }
 
     pub(crate) fn indexes(&self) -> Vec<Arc<InMemoryIndex>> {
         self.indexes.iter().map(|entry| entry.value().clone()).collect()
+    }
+}
+
+impl PartialEq for InMemoryTableHandle {
+    fn eq(&self, other: &InMemoryTableHandle) -> bool {
+        self.name == other.name
     }
 }
 
@@ -156,8 +175,10 @@ impl SchemaHandle for InMemorySchemaHandle {
             log::error!("TABLE {:?} is already exist", table_name);
             false
         } else {
-            self.tables
-                .insert(table_name.to_owned(), InMemoryTableHandle::default());
+            self.tables.insert(
+                table_name.to_owned(),
+                InMemoryTableHandle::with_name(table_name.to_owned()),
+            );
             log::warn!("TABLE {:?} was created", table_name);
             true
         }

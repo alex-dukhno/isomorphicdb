@@ -8,3 +8,5 @@ publish = false
 [dependencies]
 definition = { path = "../../entities/definition" }
 types = { path = "../../entities/types" }
+
+pg_result = { path = "../../pg_result" }

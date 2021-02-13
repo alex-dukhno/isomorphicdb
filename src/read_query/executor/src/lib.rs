@@ -28,10 +28,8 @@ impl<D: Database> ReadQueryExecutor<D> {
 
     pub fn execute(&self, select: SelectPlan) -> Result<QueryExecution, QueryExecutionError> {
         log::debug!("PLAN {:?}", select);
-        self.database
-            .work_with(&select.table, |table| match table.select(select.columns.clone()) {
-                Ok(data) => Ok(QueryExecution::Selected(data)),
-                Err(column_name) => Err(QueryExecutionError::SchemaDoesNotExist(column_name)),
-            })
+        self.database.work_with(&select.table, |table| {
+            table.select(select.columns.clone()).map(QueryExecution::Selected)
+        })
     }
 }

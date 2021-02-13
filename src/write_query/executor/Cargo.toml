@@ -10,7 +10,7 @@ data_manipulation_typed_queries = { path = "../../data_manipulation/typed_querie
 data_manipulation_typed_tree = { path = "../../data_manipulation/typed_tree" }
 data_manipulation_typed_values = { path = "../../data_manipulation/typed_values" }
 data_manipulation_query_result = { path = "../../data_manipulation/query_result" }
-catalog = { path = "../../data/catalog" }
+catalog = { path = "../../catalog" }
 
 [dev-dependencies]
 data_definition_execution_plan = { path = "../../data_definition/execution_plan" }

@@ -9,4 +9,4 @@ publish = false
 read_query_plan = { path = "../plan" }
 data_manipulation_typed_queries = { path = "../../data_manipulation/typed_queries" }
 data_manipulation_typed_tree = { path = "../../data_manipulation/typed_tree" }
-catalog = { path = "../../data/catalog" }
+catalog = { path = "../../catalog" }

@@ -15,7 +15,7 @@
 use bigdecimal::BigDecimal;
 use catalog::{CatalogDefinition, Database};
 use connection::Sender;
-use data_definition_execution_plan::{ExecutionError, ExecutionOutcome};
+use data_definition_execution_plan::ExecutionOutcome;
 use data_manipulation_query_result::{QueryExecution, QueryExecutionError};
 use data_manipulation_typed_queries::{DeleteQuery, InsertQuery, TypedSelectQuery, TypedWrite, UpdateQuery};
 use data_manipulation_typed_tree::{DynamicTypedTree, StaticTypedTree};
@@ -25,6 +25,7 @@ use pg_model::{session::Session, statement::PreparedStatement, Command};
 use pg_result::{QueryError, QueryEvent};
 use pg_wire::{ColumnMetadata, PgFormat, PgType};
 use query_analyzer::{AnalysisError, Analyzer, QueryAnalysis};
+use query_planner::QueryPlanner;
 use query_processing_type_check::TypeChecker;
 use query_processing_type_coercion::TypeCoercion;
 use query_processing_type_inference::TypeInference;
@@ -46,6 +47,7 @@ pub(crate) struct QueryEngine<D: Database + CatalogDefinition> {
     type_inference: TypeInference,
     type_checker: TypeChecker,
     type_coercion: TypeCoercion,
+    query_planner: QueryPlanner<D>,
     write_query_executor: WriteQueryExecutor<D>,
     read_query_planner: ReadQueryPlanner<D>,
     read_query_executor: ReadQueryExecutor<D>,
@@ -61,6 +63,7 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
             type_inference: TypeInference::default(),
             type_checker: TypeChecker,
             type_coercion: TypeCoercion,
+            query_planner: QueryPlanner::new(database.clone()),
             write_query_executor: WriteQueryExecutor::new(database.clone()),
             read_query_planner: ReadQueryPlanner::new(database.clone()),
             read_query_executor: ReadQueryExecutor::new(database.clone()),
@@ -291,24 +294,7 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                                     Ok(ExecutionOutcome::TableCreated) => Ok(QueryEvent::TableCreated),
                                     Ok(ExecutionOutcome::TableDropped) => Ok(QueryEvent::TableDropped),
                                     Ok(ExecutionOutcome::IndexCreated) => Ok(QueryEvent::IndexCreated),
-                                    Err(ExecutionError::SchemaAlreadyExists(schema_name)) => {
-                                        Err(QueryError::schema_already_exists(schema_name))
-                                    }
-                                    Err(ExecutionError::SchemaDoesNotExist(schema_name)) => {
-                                        Err(QueryError::schema_does_not_exist(schema_name))
-                                    }
-                                    Err(ExecutionError::TableAlreadyExists(schema_name, table_name)) => Err(
-                                        QueryError::table_already_exists(format!("{}.{}", schema_name, table_name)),
-                                    ),
-                                    Err(ExecutionError::TableDoesNotExist(schema_name, table_name)) => Err(
-                                        QueryError::table_does_not_exist(format!("{}.{}", schema_name, table_name)),
-                                    ),
-                                    Err(ExecutionError::SchemaHasDependentObjects(schema_name)) => {
-                                        Err(QueryError::schema_has_dependent_objects(schema_name))
-                                    }
-                                    Err(ExecutionError::ColumnNotFound(column_name)) => {
-                                        Err(QueryError::column_does_not_exist(column_name))
-                                    }
+                                    Err(error) => Err(error.into()),
                                 };
                                 self.sender.send(query_result).expect("To Send Result to Client");
                             }
@@ -411,16 +397,19 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                                     type_coerced.push(row);
                                 }
                                 log::debug!("INSERT TYPE COERCED VALUES {:?}", type_coerced);
-                                match self.write_query_executor.execute(TypedWrite::Insert(InsertQuery {
-                                    full_table_name: insert.full_table_name,
-                                    values: type_coerced,
-                                })) {
-                                    Ok(QueryExecution::Inserted(inserted)) => {
+                                match self
+                                    .query_planner
+                                    .plan(TypedWrite::Insert(InsertQuery {
+                                        full_table_name: insert.full_table_name,
+                                        values: type_coerced,
+                                    }))
+                                    .execute()
+                                {
+                                    Ok(inserted) => {
                                         self.sender
                                             .send(Ok(QueryEvent::RecordsInserted(inserted)))
                                             .expect("To Send to client");
                                     }
-                                    Ok(_) => unimplemented!(),
                                     Err(error) => {
                                         self.sender.send(Err(error.into())).expect("To Send to client");
                                     }

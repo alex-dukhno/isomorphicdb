@@ -12,8 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use binary::Binary;
+use data_binary::Binary;
 use data_definition_execution_plan::{ExecutionError, ExecutionOutcome, SchemaChange};
+use data_manipulation_query_result::QueryExecutionError;
 use data_manipulation_typed_tree::{DynamicTypedTree, StaticTypedTree};
 use data_scalar::ScalarValue;
 use definition::{ColumnDef, FullIndexName, FullTableName, SchemaName, TableDef};
@@ -22,12 +23,9 @@ use std::{
     iter::FromIterator,
 };
 
-use data_manipulation_query_result::QueryExecutionError;
-pub use in_memory::InMemoryDatabase;
+pub use in_memory::{InMemoryDatabase, InMemoryTable};
 
-mod binary;
 mod in_memory;
-mod repr;
 
 pub type Key = Binary;
 pub type Value = Binary;
@@ -100,9 +98,11 @@ const INDEXES_TABLE: &str = "TABLES";
 const COLUMNS_TABLE: &str = "COLUMNS";
 
 pub trait SqlTable {
+    fn write(&self, row: Binary);
     fn insert(&self, data: Vec<Vec<Option<StaticTypedTree>>>) -> Result<usize, QueryExecutionError>;
 
-    fn select(&self, column_names: Vec<String>) -> Result<(Vec<ColumnDef>, Vec<Vec<ScalarValue>>), String>;
+    fn select(&self, column_names: Vec<String>)
+        -> Result<(Vec<ColumnDef>, Vec<Vec<ScalarValue>>), QueryExecutionError>;
 
     fn delete_all(&self) -> usize;
 
@@ -119,6 +119,7 @@ pub trait Database {
 
     fn execute(&self, schema_change: SchemaChange) -> Result<ExecutionOutcome, ExecutionError>;
 
+    fn table(&self, full_table_name: &FullTableName) -> Box<dyn SqlTable>;
     fn work_with<R, F: Fn(&Self::Table) -> R>(&self, full_table_name: &FullTableName, operation: F) -> R;
     fn work_with_index<R, F: Fn(&Self::Index) -> R>(&self, full_index_name: FullIndexName, operation: F) -> R;
 }
