@@ -321,6 +321,7 @@ dependencies = [
  "data_manipulation_query_result",
  "data_manipulation_typed_tree",
  "data_manipulation_typed_values",
+ "log",
  "types",
 ]
 
@@ -358,6 +359,7 @@ name = "data_manipulation_typed_values"
 version = "0.1.0"
 dependencies = [
  "bigdecimal",
+ "data_binary",
  "types",
 ]
 
@@ -877,15 +879,10 @@ dependencies = [
 name = "query_planner"
 version = "0.1.0"
 dependencies = [
- "bigdecimal",
  "catalog",
- "data_definition_execution_plan",
+ "data_binary",
  "data_manipulation_query_plan",
  "data_manipulation_typed_queries",
- "data_manipulation_typed_tree",
- "data_manipulation_typed_values",
- "definition",
- "types",
 ]
 
 [[package]]

@@ -162,6 +162,12 @@ pub(crate) enum QueryErrorKind {
         column_name: String,
         row_index: usize, // TODO make it optional - does not make sense for update query
     },
+    MostSpecificTypeMismatch2 {
+        pg_type: String,
+        value: String,
+        column_name: String,
+        row_index: usize, // TODO make it optional - does not make sense for update query
+    },
     StringTypeLengthMismatch {
         pg_type: PgType,
         len: u64,
@@ -214,16 +220,17 @@ impl QueryErrorKind {
             Self::TooManyInsertExpressions => "42601",
             Self::NumericTypeOutOfRange { .. } => "22003",
             Self::MostSpecificTypeMismatch { .. } => "2200G",
+            Self::MostSpecificTypeMismatch2 { .. } => "2200G",
             Self::StringTypeLengthMismatch { .. } => "22026",
             Self::UndefinedFunction { .. } => "42883",
             Self::AmbiguousColumnName { .. } => "42702",
             Self::UndefinedColumn { .. } => "42883",
             Self::SyntaxError(_) => "42601",
             Self::InvalidTextRepresentation { .. } => "22P02",
+            Self::InvalidTextRepresentation2(_, _) => "22P02",
             Self::DuplicateColumn(_) => "42701",
             Self::DatatypeMismatch { .. } => "42804",
             Self::InvalidArgumentForPowerFunction => "2201F",
-            Self::InvalidTextRepresentation2(_, _) => "22P02",
         }
     }
 }
@@ -272,6 +279,16 @@ impl Display for QueryErrorKind {
                 "invalid input syntax for type {} for column '{}' at row {}: \"{}\"",
                 pg_type, column_name, row_index, value
             ),
+            Self::MostSpecificTypeMismatch2 {
+                pg_type,
+                value,
+                column_name,
+                row_index,
+            } => write!(
+                f,
+                "invalid input syntax for type {} for column '{}' at row {}: \"{}\"",
+                pg_type, column_name, row_index, value
+            ),
             Self::StringTypeLengthMismatch {
                 pg_type,
                 len,
@@ -297,6 +314,9 @@ impl Display for QueryErrorKind {
             Self::InvalidTextRepresentation { pg_type, value } => {
                 write!(f, "invalid input syntax for type {}: \"{}\"", pg_type, value)
             }
+            Self::InvalidTextRepresentation2(sql_type, value) => {
+                write!(f, "invalid input syntax for type {}: \"{}\"", sql_type, value)
+            }
             Self::DuplicateColumn(name) => write!(f, "column \"{}\" specified more than once", name),
             Self::DatatypeMismatch {
                 op,
@@ -308,9 +328,6 @@ impl Display for QueryErrorKind {
                 op, target_type, actual_type
             ),
             Self::InvalidArgumentForPowerFunction => write!(f, "cannot take square root of a negative number"),
-            Self::InvalidTextRepresentation2(sql_type, value) => {
-                write!(f, "invalid input syntax for type {}: \"{}\"", sql_type, value)
-            }
         }
     }
 }
@@ -532,6 +549,24 @@ impl QueryError {
                 pg_type,
                 value: value.to_string(),
                 column_name: column_name.to_string(),
+                row_index,
+            },
+        }
+    }
+
+    /// type mismatch constructor
+    pub fn most_specific_type_mismatch2(
+        value: String,
+        pg_type: String,
+        column_name: String,
+        row_index: usize,
+    ) -> QueryError {
+        QueryError {
+            severity: Severity::Error,
+            kind: QueryErrorKind::MostSpecificTypeMismatch2 {
+                pg_type,
+                value,
+                column_name,
                 row_index,
             },
         }

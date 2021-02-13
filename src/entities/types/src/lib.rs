@@ -120,9 +120,9 @@ impl SqlType {
         match self {
             SqlType::Bool => SqlTypeFamily::Bool,
             SqlType::Str { .. } => SqlTypeFamily::String,
-            SqlType::Num(Num::SmallInt) | SqlType::Num(Num::Integer) | SqlType::Num(Num::BigInt) => {
-                SqlTypeFamily::Integer
-            }
+            SqlType::Num(Num::SmallInt) => SqlTypeFamily::SmallInt,
+            SqlType::Num(Num::Integer) => SqlTypeFamily::Integer,
+            SqlType::Num(Num::BigInt) => SqlTypeFamily::BigInt,
             SqlType::Num(Num::Real) | SqlType::Num(Num::Double) => SqlTypeFamily::Real,
         }
     }

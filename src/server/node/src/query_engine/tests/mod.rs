@@ -39,7 +39,8 @@ mod select;
 // mod simple_prepared_statement;
 #[cfg(test)]
 mod table;
-// TODO: new engine does not handle type constraints
+// TODO: new engine does not handle type constraints for update queries
+// TODO: type coercion does not work properly
 // #[cfg(test)]
 // mod type_constraints;
 #[cfg(test)]

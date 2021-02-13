@@ -24,6 +24,7 @@ use std::{
 };
 
 pub use in_memory::{InMemoryDatabase, InMemoryTable};
+use types::SqlTypeFamily;
 
 mod in_memory;
 
@@ -98,6 +99,7 @@ const INDEXES_TABLE: &str = "TABLES";
 const COLUMNS_TABLE: &str = "COLUMNS";
 
 pub trait SqlTable {
+    fn columns(&self) -> Vec<(String, SqlTypeFamily)>;
     fn write(&self, row: Binary);
     fn insert(&self, data: Vec<Vec<Option<StaticTypedTree>>>) -> Result<usize, QueryExecutionError>;
 

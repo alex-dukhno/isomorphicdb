@@ -29,7 +29,7 @@ use data_manipulation_typed_values::TypedValue;
 use data_scalar::ScalarValue;
 use definition::{ColumnDef, FullIndexName, FullTableName, SchemaName, TableDef};
 use std::{fmt::Debug, sync::Arc};
-use types::{Num, SqlType};
+use types::{Num, SqlType, SqlTypeFamily};
 
 mod data_catalog;
 
@@ -462,6 +462,13 @@ fn convert(sql_type: SqlType, value: TypedValue) -> Datum {
 }
 
 impl SqlTable for InMemoryTable {
+    fn columns(&self) -> Vec<(String, SqlTypeFamily)> {
+        self.columns
+            .iter()
+            .map(|col_def| (col_def.name().to_owned(), col_def.sql_type().family()))
+            .collect()
+    }
+
     fn write(&self, row: Binary) {
         self.data_table.insert(vec![row]);
     }
