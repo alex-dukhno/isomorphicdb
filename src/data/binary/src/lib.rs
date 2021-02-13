@@ -14,6 +14,8 @@
 
 use crate::repr::Datum;
 
+pub mod repr;
+
 #[repr(u8)]
 enum TypeTag {
     Null = 0,

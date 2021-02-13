@@ -7,7 +7,7 @@ publish = false
 
 [dependencies]
 data_manipulation_query_result = { path = "../../data_manipulation/query_result" }
-catalog = { path = "../../data/catalog" }
+catalog = { path = "../../catalog" }
 read_query_plan = { path = "../plan" }
 
 log = "0.4.14"
