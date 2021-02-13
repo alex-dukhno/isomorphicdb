@@ -14,3 +14,4 @@ catalog = { path = "../../catalog" }
 types = { path = "../../entities/types" }
 
 bigdecimal = { version = "0.2.0", features = ["string-only"] }
+log = "0.4.14"

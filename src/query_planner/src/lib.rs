@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use catalog::Database;
-use data_manipulation_query_plan::{StaticValues, TableInPlan};
+use data_manipulation_query_plan::{ConstraintValidator, StaticExpressionEval, StaticValues, TableInPlan};
 use data_manipulation_typed_queries::TypedWrite;
 use std::sync::Arc;
 
@@ -28,10 +28,16 @@ impl<D: Database> QueryPlanner<D> {
 
     pub fn plan(&self, query: TypedWrite) -> TableInPlan {
         match query {
-            TypedWrite::Insert(insert) => TableInPlan::new(
-                StaticValues::from(insert.values),
-                self.database.table(&insert.full_table_name),
-            ),
+            TypedWrite::Insert(insert) => {
+                let table = self.database.table(&insert.full_table_name);
+                TableInPlan::new(
+                    ConstraintValidator::new(
+                        StaticExpressionEval::new(StaticValues::from(insert.values)),
+                        table.columns(),
+                    ),
+                    table,
+                )
+            }
             TypedWrite::Delete(_) => unimplemented!(),
             TypedWrite::Update(_) => unimplemented!(),
         }

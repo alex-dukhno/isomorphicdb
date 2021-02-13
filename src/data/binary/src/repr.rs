@@ -15,6 +15,10 @@
 use ordered_float::OrderedFloat;
 use std::fmt::{self, Display, Formatter};
 
+pub trait ToDatum {
+    fn convert(&self) -> Datum;
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Ord, PartialOrd, Hash)]
 pub enum Datum {
     Null,

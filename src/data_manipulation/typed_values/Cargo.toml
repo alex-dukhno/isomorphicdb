@@ -7,5 +7,6 @@ publish = false
 
 [dependencies]
 types = { path = "../../entities/types" }
+data_binary = { path = "../../data/binary" }
 
 bigdecimal = { version = "0.2.0", features = ["string-only"] }

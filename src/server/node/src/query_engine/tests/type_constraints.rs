@@ -13,10 +13,8 @@
 // limitations under the License.
 
 use super::*;
-use pg_model::{
-    results::{QueryError, QueryEvent},
-    Command,
-};
+use pg_model::Command;
+use pg_result::{QueryError, QueryEvent};
 
 #[rstest::fixture]
 fn int_table(database_with_schema: (InMemory, ResultCollector)) -> (InMemory, ResultCollector) {
@@ -109,7 +107,6 @@ mod insert {
     }
 
     #[rstest::rstest]
-    // #[ignore] // TODO constraints is going to be reworked
     fn value_too_long(str_table: (InMemory, ResultCollector)) {
         let (mut engine, collector) = str_table;
         engine

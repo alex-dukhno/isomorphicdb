@@ -33,6 +33,7 @@ pub enum QueryExecutionError {
     DatatypeMismatch(String, String, String),
     InvalidArgumentForPowerFunction,
     InvalidTextRepresentation(String, String),
+    MostSpecificTypeMismatch(String, String, String, usize),
 }
 
 impl QueryExecutionError {
@@ -63,6 +64,20 @@ impl QueryExecutionError {
     pub fn invalid_text_representation<T: ToString, V: ToString>(sql_type: T, value: V) -> QueryExecutionError {
         QueryExecutionError::InvalidTextRepresentation(sql_type.to_string(), value.to_string())
     }
+
+    pub fn most_specific_type_mismatch<V: ToString, Ty: ToString, C: ToString>(
+        value: V,
+        sql_type: Ty,
+        column_name: C,
+        index: usize,
+    ) -> QueryExecutionError {
+        QueryExecutionError::MostSpecificTypeMismatch(
+            value.to_string(),
+            sql_type.to_string(),
+            column_name.to_string(),
+            index,
+        )
+    }
 }
 
 impl From<QueryExecutionError> for pg_result::QueryError {
@@ -82,6 +97,9 @@ impl From<QueryExecutionError> for pg_result::QueryError {
             QueryExecutionError::InvalidArgumentForPowerFunction => QueryError::invalid_argument_for_power_function(),
             QueryExecutionError::InvalidTextRepresentation(sql_type, value) => {
                 QueryError::invalid_text_representation_2(sql_type, value)
+            }
+            QueryExecutionError::MostSpecificTypeMismatch(value, sql_type, column_name, index) => {
+                QueryError::most_specific_type_mismatch2(value, sql_type, column_name, index)
             }
         }
     }
