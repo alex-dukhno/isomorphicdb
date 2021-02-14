@@ -12,15 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::connection::Sender;
-use crate::pg_model::{session::Session, statement::PreparedStatement, Command};
+use crate::{
+    connection::Sender,
+    pg_model::{session::Session, statement::PreparedStatement, Command},
+};
 use bigdecimal::BigDecimal;
 use catalog::{CatalogDefinition, Database};
 use data_definition::ExecutionOutcome;
-use data_manipulation::{DynamicTypedTree, StaticTypedTree, TypedUpdateQuery};
-use data_manipulation::{QueryPlanResult, TypedDeleteQuery};
-use data_manipulation::{TypedInsertQuery, UntypedQuery};
-use data_manipulation::{TypedQuery, TypedSelectQuery};
+use data_manipulation::{
+    DynamicTypedTree, QueryPlanResult, StaticTypedTree, TypedDeleteQuery, TypedInsertQuery, TypedQuery,
+    TypedSelectQuery, TypedUpdateQuery, UntypedQuery,
+};
 use entities::SqlType;
 use itertools::izip;
 use pg_result::{QueryError, QueryEvent};
@@ -28,9 +30,7 @@ use pg_wire::{ColumnMetadata, PgFormat, PgType};
 use query_analyzer::{AnalysisError, Analyzer, QueryAnalysis};
 use query_parsing::{Expr, Ident, Parser, PreparedStatementDialect, Statement, Value};
 use query_planner::QueryPlanner;
-use query_processing::TypeChecker;
-use query_processing::TypeCoercion;
-use query_processing::TypeInference;
+use query_processing::{TypeChecker, TypeCoercion, TypeInference};
 use std::{convert::TryFrom, iter, sync::Arc};
 
 unsafe impl<D: Database + CatalogDefinition> Send for QueryEngine<D> {}

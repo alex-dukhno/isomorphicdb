@@ -16,9 +16,9 @@ use super::{
     async_io::{empty_file_named, TestCase},
     certificate_content, pg_frontend,
 };
-use crate::connection::accept_client_request;
-use crate::pg_model::Encryption;
-use crate::{ClientRequest, ConnSupervisor, ProtocolConfiguration};
+use crate::{
+    connection::accept_client_request, pg_model::Encryption, ClientRequest, ConnSupervisor, ProtocolConfiguration,
+};
 use futures_lite::future::block_on;
 use pg_wire::{BackendMessage, Error};
 use std::{

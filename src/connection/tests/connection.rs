@@ -12,11 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::connection::tests::async_io::TestCase;
-use crate::connection::Receiver;
-use crate::connection::{Channel, RequestReceiver};
-use crate::pg_model::Command;
-use crate::pg_model::ConnSupervisor;
+use crate::{
+    connection::{tests::async_io::TestCase, Channel, Receiver, RequestReceiver},
+    pg_model::{Command, ConnSupervisor},
+};
 use async_mutex::Mutex as AsyncMutex;
 use futures_lite::future::block_on;
 use std::sync::{Arc, Mutex};

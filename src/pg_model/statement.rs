@@ -50,6 +50,7 @@ pub struct PreparedStatement<S> {
 
 impl<S> PreparedStatement<S> {
     /// Constructs a new `PreparedStatement`.
+    #[allow(dead_code)]
     pub fn new(stmt: S, param_types: Vec<PgType>, description: Description) -> PreparedStatement<S> {
         PreparedStatement {
             stmt,
@@ -100,6 +101,7 @@ impl<S> Portal<S> {
         &self.stmt
     }
 
+    #[allow(dead_code)]
     pub fn stmt_name(&self) -> &str {
         self.statement_name.as_str()
     }

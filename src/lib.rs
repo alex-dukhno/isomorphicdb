@@ -12,9 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::connection::ClientRequest;
-use crate::pg_model::{ConnSupervisor, ProtocolConfiguration};
-use crate::query_engine::QueryEngine;
+use crate::{
+    connection::ClientRequest,
+    pg_model::{ConnSupervisor, ProtocolConfiguration},
+    query_engine::QueryEngine,
+};
 use async_dup::Arc as AsyncArc;
 use async_executor::Executor;
 use async_io::Async;

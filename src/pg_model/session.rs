@@ -41,6 +41,7 @@ impl<S> Session<S> {
     }
 
     /// save `PreparedStatement` associated with a name
+    #[allow(dead_code)]
     pub fn set_prepared_statement(&mut self, name: String, statement: PreparedStatement<S>) {
         self.prepared_statements.insert(name, statement);
     }
