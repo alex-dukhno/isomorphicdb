@@ -91,19 +91,12 @@ impl InMemoryTableHandle {
         self.indexes.iter().map(|entry| entry.value().clone()).collect()
     }
 
-    pub(crate) fn remove(&self, key: Binary) {
-        let result = self.inner.records.write().unwrap().remove(&key);
-        debug_assert!(matches!(result, Some(_)), "nothing were found for {:?} key", key);
+    pub(crate) fn remove(&self, key: &Binary) -> Option<Binary> {
+        self.inner.records.write().unwrap().remove(&key)
     }
 
-    pub(crate) fn insert_key(&self, key: Binary, row: Binary) {
-        let result = self.inner.records.write().unwrap().insert(key.clone(), row);
-        debug_assert!(
-            matches!(result, None),
-            "{:?} value were found for {:?} key",
-            result,
-            key
-        );
+    pub(crate) fn insert_key(&self, key: Binary, row: Binary) -> Option<Binary> {
+        self.inner.records.write().unwrap().insert(key, row)
     }
 }
 

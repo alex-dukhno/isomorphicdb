@@ -27,7 +27,6 @@ members = [
     "src/server/connection",
     "src/server/pg_model",
     "src/server/node",
-    "src/write_query/executor",
 #     TODO: to be extracted
     "src/pg_result",
 ]
