@@ -14,8 +14,8 @@
 
 use crate::{
     in_memory::data_catalog::{InMemoryCatalogHandle, InMemoryTableHandle},
-    CatalogDefinition, DataCatalog, DataTable, Database, SchemaHandle, SqlTable, COLUMNS_TABLE, DEFINITION_SCHEMA,
-    INDEXES_TABLE, SCHEMATA_TABLE, TABLES_TABLE,
+    CatalogDefinition, Cursor, DataCatalog, DataTable, Database, SchemaHandle, SqlTable, COLUMNS_TABLE,
+    DEFINITION_SCHEMA, INDEXES_TABLE, SCHEMATA_TABLE, TABLES_TABLE,
 };
 use bigdecimal::ToPrimitive;
 use data_binary::{repr::Datum, Binary};
@@ -473,6 +473,17 @@ impl SqlTable for InMemoryTable {
         self.data_table.insert(vec![row]);
     }
 
+    fn write_key(&self, key: Binary, row: Option<Binary>) {
+        match row {
+            None => self.data_table.remove(key),
+            Some(row) => self.data_table.insert_key(key, row),
+        }
+    }
+
+    fn scan(&self) -> Cursor {
+        self.data_table.select()
+    }
+
     fn insert(&self, rows: Vec<Vec<Option<StaticTypedTree>>>) -> Result<usize, QueryExecutionError> {
         let mut values = vec![];
         for row in rows {
@@ -579,23 +590,6 @@ impl SqlTable for InMemoryTable {
             values.push((key, Binary::pack(&unpacked_row)))
         }
 
-        // let to_update = self
-        //     .data_table
-        //     .select()
-        //     .map(|(key, value)| {
-        //         let mut unpacked_row = value.unpack();
-        //         for (column_name, assignment) in column_names.iter().zip(assignments.iter()) {
-        //             let new_value = match self.has_column(column_name) {
-        //                 None => unimplemented!(),
-        //                 Some((index, _)) => {
-        //                     (index, convert(self.columns[index].sql_type(), assignment.eval()?))
-        //                 },
-        //             };
-        //             unpacked_row[new_value.0] = new_value.1;
-        //         }
-        //         (key, Binary::pack(&unpacked_row))
-        //     })
-        //     .collect();
         Ok(self.data_table.update(values))
     }
 }

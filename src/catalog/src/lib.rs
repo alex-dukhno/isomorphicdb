@@ -101,6 +101,9 @@ const COLUMNS_TABLE: &str = "COLUMNS";
 pub trait SqlTable {
     fn columns(&self) -> Vec<(String, SqlTypeFamily)>;
     fn write(&self, row: Binary);
+    fn write_key(&self, key: Binary, row: Option<Binary>);
+    fn scan(&self) -> Cursor;
+
     fn insert(&self, data: Vec<Vec<Option<StaticTypedTree>>>) -> Result<usize, QueryExecutionError>;
 
     fn select(&self, column_names: Vec<String>)
