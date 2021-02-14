@@ -18,7 +18,7 @@ use data_definition_execution_plan::{
     ColumnInfo, CreateIndexQuery, CreateSchemaQuery, CreateTableQuery, DropSchemasQuery, DropTablesQuery, SchemaChange,
 };
 use data_manipulation_operators::BiOperator;
-use data_manipulation_untyped_queries::{DeleteQuery, InsertQuery, SelectQuery, UntypedWrite, UpdateQuery};
+use data_manipulation_untyped_queries::{DeleteQuery, InsertQuery, SelectQuery, UntypedQuery, UpdateQuery};
 use data_manipulation_untyped_tree::{DynamicUntypedItem, DynamicUntypedTree};
 use definition::{FullTableName, SchemaName};
 use std::{collections::HashMap, convert::TryFrom, sync::Arc};
@@ -96,7 +96,7 @@ impl<CD: CatalogDefinition> Analyzer<CD> {
                                 return Err(AnalysisError::FeatureNotSupported(Feature::SetOperations))
                             }
                         };
-                        Ok(QueryAnalysis::Write(UntypedWrite::Insert(InsertQuery {
+                        Ok(QueryAnalysis::DML(UntypedQuery::Insert(InsertQuery {
                             full_table_name,
                             values,
                         })))
@@ -156,7 +156,7 @@ impl<CD: CatalogDefinition> Analyzer<CD> {
                                 }
                             }
                         }
-                        Ok(QueryAnalysis::Write(UntypedWrite::Update(UpdateQuery {
+                        Ok(QueryAnalysis::DML(UntypedQuery::Update(UpdateQuery {
                             full_table_name,
                             assignments,
                         })))
@@ -226,10 +226,10 @@ impl<CD: CatalogDefinition> Analyzer<CD> {
                                             }
                                         }
                                     }
-                                    Ok(QueryAnalysis::Read(SelectQuery {
+                                    Ok(QueryAnalysis::DML(UntypedQuery::Select(SelectQuery {
                                         full_table_name,
                                         projection_items,
-                                    }))
+                                    })))
                                 }
                             },
                         }
@@ -241,7 +241,7 @@ impl<CD: CatalogDefinition> Analyzer<CD> {
                 Ok(full_table_name) => match self.database.table_definition(full_table_name.clone()) {
                     None => Err(AnalysisError::schema_does_not_exist(full_table_name.schema())),
                     Some(None) => Err(AnalysisError::table_does_not_exist(full_table_name)),
-                    Some(Some(_table_info)) => Ok(QueryAnalysis::Write(UntypedWrite::Delete(DeleteQuery {
+                    Some(Some(_table_info)) => Ok(QueryAnalysis::DML(UntypedQuery::Delete(DeleteQuery {
                         full_table_name,
                     }))),
                 },
@@ -269,13 +269,11 @@ impl<CD: CatalogDefinition> Analyzer<CD> {
                                 }
                             }
                         }
-                        Ok(QueryAnalysis::DataDefinition(SchemaChange::CreateTable(
-                            CreateTableQuery {
-                                full_table_name,
-                                column_defs,
-                                if_not_exists: *if_not_exists,
-                            },
-                        )))
+                        Ok(QueryAnalysis::DDL(SchemaChange::CreateTable(CreateTableQuery {
+                            full_table_name,
+                            column_defs,
+                            if_not_exists: *if_not_exists,
+                        })))
                     } else {
                         Err(AnalysisError::schema_does_not_exist(full_table_name.schema()))
                     }
@@ -287,12 +285,10 @@ impl<CD: CatalogDefinition> Analyzer<CD> {
                 if_not_exists,
                 ..
             } => match SchemaName::try_from(schema_name) {
-                Ok(schema_name) => Ok(QueryAnalysis::DataDefinition(SchemaChange::CreateSchema(
-                    CreateSchemaQuery {
-                        schema_name,
-                        if_not_exists: *if_not_exists,
-                    },
-                ))),
+                Ok(schema_name) => Ok(QueryAnalysis::DDL(SchemaChange::CreateSchema(CreateSchemaQuery {
+                    schema_name,
+                    if_not_exists: *if_not_exists,
+                }))),
                 Err(error) => Err(AnalysisError::schema_naming_error(&error)),
             },
             sql_ast::Statement::CreateIndex {
@@ -320,13 +316,11 @@ impl<CD: CatalogDefinition> Analyzer<CD> {
                                 _ => unimplemented!(),
                             }
                         }
-                        Ok(QueryAnalysis::DataDefinition(SchemaChange::CreateIndex(
-                            CreateIndexQuery {
-                                name: name.to_string(),
-                                full_table_name,
-                                column_names,
-                            },
-                        )))
+                        Ok(QueryAnalysis::DDL(SchemaChange::CreateIndex(CreateIndexQuery {
+                            name: name.to_string(),
+                            full_table_name,
+                            column_names,
+                        })))
                     }
                 },
                 Err(error) => Err(AnalysisError::table_naming_error(error)),
@@ -345,13 +339,11 @@ impl<CD: CatalogDefinition> Analyzer<CD> {
                             Err(error) => return Err(AnalysisError::schema_naming_error(&error)),
                         }
                     }
-                    Ok(QueryAnalysis::DataDefinition(SchemaChange::DropSchemas(
-                        DropSchemasQuery {
-                            schema_names,
-                            cascade: *cascade,
-                            if_exists: *if_exists,
-                        },
-                    )))
+                    Ok(QueryAnalysis::DDL(SchemaChange::DropSchemas(DropSchemasQuery {
+                        schema_names,
+                        cascade: *cascade,
+                        if_exists: *if_exists,
+                    })))
                 }
                 sql_ast::ObjectType::Table => {
                     let mut table_infos = vec![];
@@ -370,13 +362,11 @@ impl<CD: CatalogDefinition> Analyzer<CD> {
                             Err(error) => return Err(AnalysisError::table_naming_error(&error)),
                         }
                     }
-                    Ok(QueryAnalysis::DataDefinition(SchemaChange::DropTables(
-                        DropTablesQuery {
-                            full_table_names: table_infos,
-                            cascade: *cascade,
-                            if_exists: *if_exists,
-                        },
-                    )))
+                    Ok(QueryAnalysis::DDL(SchemaChange::DropTables(DropTablesQuery {
+                        full_table_names: table_infos,
+                        cascade: *cascade,
+                        if_exists: *if_exists,
+                    })))
                 }
                 sql_ast::ObjectType::View => unimplemented!("VIEWs are not implemented yet"),
                 sql_ast::ObjectType::Index => unimplemented!("INDEXes are not implemented yet"),
@@ -420,9 +410,8 @@ pub type AnalysisResult<A> = Result<A, AnalysisError>;
 
 #[derive(Debug, PartialEq)]
 pub enum QueryAnalysis {
-    DataDefinition(SchemaChange),
-    Write(UntypedWrite),
-    Read(SelectQuery),
+    DDL(SchemaChange),
+    DML(UntypedQuery),
 }
 
 #[derive(Debug, PartialEq)]

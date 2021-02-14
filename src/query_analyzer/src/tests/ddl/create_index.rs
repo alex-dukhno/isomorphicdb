@@ -99,12 +99,10 @@ fn create_index_over_multiple_columns() {
     let analyzer = Analyzer::new(database);
     assert_eq!(
         analyzer.analyze(create_index("index_name", vec![TABLE], vec!["col_1", "col_2", "col_3"])),
-        Ok(QueryAnalysis::DataDefinition(SchemaChange::CreateIndex(
-            CreateIndexQuery {
-                name: "index_name".to_owned(),
-                full_table_name: FullTableName::from(TABLE),
-                column_names: vec!["col_1".to_owned(), "col_2".to_owned(), "col_3".to_owned()]
-            }
-        )))
+        Ok(QueryAnalysis::DDL(SchemaChange::CreateIndex(CreateIndexQuery {
+            name: "index_name".to_owned(),
+            full_table_name: FullTableName::from(TABLE),
+            column_names: vec!["col_1".to_owned(), "col_2".to_owned(), "col_3".to_owned()]
+        })))
     );
 }

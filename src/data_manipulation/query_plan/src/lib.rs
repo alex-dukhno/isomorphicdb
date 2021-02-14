@@ -21,21 +21,26 @@ use data_binary::{
 use data_manipulation_query_result::QueryExecutionError;
 use data_manipulation_typed_tree::{DynamicTypedTree, StaticTypedTree};
 use data_manipulation_typed_values::TypedValue;
+use data_scalar::ScalarValue;
+use definition::ColumnDef;
 use pg_result::QueryEvent;
-use types::SqlTypeFamily;
+use std::collections::HashMap;
+use types::{SqlType, SqlTypeFamily};
 
 pub enum QueryPlanResult {
     Inserted(usize),
     Deleted(usize),
     Updated(usize),
+    Selected((Vec<ColumnDef>, Vec<Vec<ScalarValue>>)),
 }
 
 impl From<QueryPlanResult> for QueryEvent {
-    fn from(plan_result: QueryPlanResult) -> Self {
+    fn from(plan_result: QueryPlanResult) -> QueryEvent {
         match plan_result {
             QueryPlanResult::Inserted(inserted) => QueryEvent::RecordsInserted(inserted),
             QueryPlanResult::Deleted(inserted) => QueryEvent::RecordsDeleted(inserted),
             QueryPlanResult::Updated(inserted) => QueryEvent::RecordsUpdated(inserted),
+            _ => unreachable!(),
         }
     }
 }
@@ -44,6 +49,7 @@ pub enum QueryPlan {
     Insert(InsertQueryPlan),
     Delete(DeleteQueryPlan),
     Update(UpdateQueryPlan),
+    Select(SelectQueryPlan),
 }
 
 impl QueryPlan {
@@ -52,6 +58,7 @@ impl QueryPlan {
             QueryPlan::Insert(insert_query_plan) => insert_query_plan.execute().map(QueryPlanResult::Inserted),
             QueryPlan::Delete(delete_query_plan) => delete_query_plan.execute().map(QueryPlanResult::Deleted),
             QueryPlan::Update(update_query_plan) => update_query_plan.execute().map(QueryPlanResult::Updated),
+            QueryPlan::Select(select_query_plan) => select_query_plan.execute().map(QueryPlanResult::Selected),
         }
     }
 }
@@ -371,5 +378,62 @@ impl UpdateQueryPlan {
             len += 1;
         }
         Ok(len)
+    }
+}
+
+pub struct SelectQueryPlan {
+    source: Box<dyn Flow<Output = (Binary, Binary)>>,
+    columns: Vec<String>,
+    column_types: Vec<(String, SqlType)>,
+}
+
+impl SelectQueryPlan {
+    pub fn new(
+        source: Box<dyn Flow<Output = (Binary, Binary)>>,
+        columns: Vec<String>,
+        column_types: Vec<(String, SqlType)>,
+    ) -> SelectQueryPlan {
+        SelectQueryPlan {
+            source,
+            columns,
+            column_types,
+        }
+    }
+
+    pub fn execute(mut self) -> Result<(Vec<ColumnDef>, Vec<Vec<ScalarValue>>), QueryExecutionError> {
+        log::debug!("COLUMNS TO SELECT {:?}", self.columns);
+        let mut column_defs = vec![];
+        let columns = self
+            .column_types
+            .iter()
+            .enumerate()
+            .map(|(index, (name, sql_type))| (name.clone(), ColumnDef::new(name.clone(), *sql_type, index)))
+            .collect::<HashMap<String, ColumnDef>>();
+        for name in self.columns.iter() {
+            column_defs.push(columns.get(name).unwrap().clone());
+        }
+        log::debug!("COLUMNS METADATA {:?}", column_defs);
+        let mut set = vec![];
+        while let Some(row) = self.source.next_tuple()? {
+            let unpacked = row.1.unpack();
+            let mut data = vec![];
+            for name in self.columns.iter() {
+                let index = columns.get(name).unwrap().index();
+                let value = match &unpacked[index] {
+                    Datum::Null => ScalarValue::Null,
+                    Datum::True => ScalarValue::True,
+                    Datum::False => ScalarValue::False,
+                    Datum::Int16(value) => ScalarValue::Int16(*value),
+                    Datum::Int32(value) => ScalarValue::Int32(*value),
+                    Datum::Int64(value) => ScalarValue::Int64(*value),
+                    Datum::Float32(value) => ScalarValue::Float32(*value),
+                    Datum::Float64(value) => ScalarValue::Float64(*value),
+                    Datum::String(value) => ScalarValue::String(value.clone()),
+                };
+                data.push(value);
+            }
+            set.push(data);
+        }
+        Ok((column_defs, set))
     }
 }

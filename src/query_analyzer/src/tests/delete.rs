@@ -75,7 +75,7 @@ fn delete_all_from_table() {
             table_name: sql_ast::ObjectName(vec![ident(SCHEMA), ident(TABLE)]),
             selection: None
         }),
-        Ok(QueryAnalysis::Write(UntypedWrite::Delete(DeleteQuery {
+        Ok(QueryAnalysis::DML(UntypedQuery::Delete(DeleteQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
         })))
     );

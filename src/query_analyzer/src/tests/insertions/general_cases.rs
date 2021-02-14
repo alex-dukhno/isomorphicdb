@@ -80,7 +80,7 @@ fn with_column_names() {
             vec![vec![small_int(100)]],
             vec!["col"]
         )),
-        Ok(QueryAnalysis::Write(UntypedWrite::Insert(InsertQuery {
+        Ok(QueryAnalysis::DML(UntypedQuery::Insert(InsertQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             values: vec![vec![Some(StaticUntypedTree::Item(StaticUntypedItem::Const(
                 UntypedValue::Number(BigDecimal::from(100))

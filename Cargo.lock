@@ -321,6 +321,8 @@ dependencies = [
  "data_manipulation_query_result",
  "data_manipulation_typed_tree",
  "data_manipulation_typed_values",
+ "data_scalar",
+ "definition",
  "log",
  "pg_result",
  "types",
@@ -642,6 +644,7 @@ dependencies = [
  "connection",
  "data_definition_execution_plan",
  "data_manipulation_operators",
+ "data_manipulation_query_plan",
  "data_manipulation_query_result",
  "data_manipulation_typed_queries",
  "data_manipulation_typed_tree",
@@ -659,8 +662,6 @@ dependencies = [
  "query_processing_type_check",
  "query_processing_type_coercion",
  "query_processing_type_inference",
- "read_query_executor",
- "read_query_planner",
  "rstest",
  "simple_logger",
  "sql_ast",
@@ -883,6 +884,7 @@ dependencies = [
  "data_binary",
  "data_manipulation_query_plan",
  "data_manipulation_typed_queries",
+ "data_manipulation_typed_tree",
 ]
 
 [[package]]
@@ -1003,33 +1005,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3190ef7066a446f2e7f42e239d161e905420ccab01eb967c9eb27d21b2322a73"
 dependencies = [
  "rand_core 0.6.1",
-]
-
-[[package]]
-name = "read_query_executor"
-version = "0.1.0"
-dependencies = [
- "catalog",
- "data_manipulation_query_result",
- "log",
- "read_query_plan",
-]
-
-[[package]]
-name = "read_query_plan"
-version = "0.1.0"
-dependencies = [
- "definition",
-]
-
-[[package]]
-name = "read_query_planner"
-version = "0.1.0"
-dependencies = [
- "catalog",
- "data_manipulation_typed_queries",
- "data_manipulation_typed_tree",
- "read_query_plan",
 ]
 
 [[package]]

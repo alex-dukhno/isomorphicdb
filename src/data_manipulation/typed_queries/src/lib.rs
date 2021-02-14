@@ -33,14 +33,15 @@ pub struct UpdateQuery {
 }
 
 #[derive(Debug, PartialEq)]
-pub enum TypedWrite {
+pub enum TypedQuery {
     Insert(InsertQuery),
     Delete(DeleteQuery),
     Update(UpdateQuery),
+    Select(SelectQuery),
 }
 
 #[derive(Debug, PartialEq)]
-pub struct TypedSelectQuery {
+pub struct SelectQuery {
     pub full_table_name: FullTableName,
     pub projection_items: Vec<DynamicTypedTree>,
 }

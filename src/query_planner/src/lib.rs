@@ -15,9 +15,10 @@
 use catalog::Database;
 use data_manipulation_query_plan::{
     ConstraintValidator, DeleteQueryPlan, DynamicValues, FullTableScan, InsertQueryPlan, QueryPlan, Repeater,
-    StaticExpressionEval, StaticValues, TableRecordKeys, UpdateQueryPlan,
+    SelectQueryPlan, StaticExpressionEval, StaticValues, TableRecordKeys, UpdateQueryPlan,
 };
-use data_manipulation_typed_queries::TypedWrite;
+use data_manipulation_typed_queries::TypedQuery;
+use data_manipulation_typed_tree::{DynamicTypedItem, DynamicTypedTree};
 use std::sync::Arc;
 
 pub struct QueryPlanner<D> {
@@ -29,9 +30,9 @@ impl<D: Database> QueryPlanner<D> {
         QueryPlanner { database }
     }
 
-    pub fn plan(&self, query: TypedWrite) -> QueryPlan {
+    pub fn plan(&self, query: TypedQuery) -> QueryPlan {
         match query {
-            TypedWrite::Insert(insert) => {
+            TypedQuery::Insert(insert) => {
                 let table = self.database.table(&insert.full_table_name);
                 QueryPlan::Insert(InsertQueryPlan::new(
                     ConstraintValidator::new(
@@ -41,19 +42,34 @@ impl<D: Database> QueryPlanner<D> {
                     table,
                 ))
             }
-            TypedWrite::Delete(delete) => {
+            TypedQuery::Delete(delete) => {
                 let table = self.database.table(&delete.full_table_name);
                 QueryPlan::Delete(DeleteQueryPlan::new(
                     TableRecordKeys::new(FullTableScan::new(&*table)),
                     table,
                 ))
             }
-            TypedWrite::Update(update) => {
+            TypedQuery::Update(update) => {
                 let table = self.database.table(&update.full_table_name);
                 QueryPlan::Update(UpdateQueryPlan::new(
                     ConstraintValidator::new(DynamicValues::new(Repeater::new(update.assignments)), table.columns()),
                     FullTableScan::new(&*table),
                     table,
+                ))
+            }
+            TypedQuery::Select(select) => {
+                let table = self.database.table(&select.full_table_name);
+                QueryPlan::Select(SelectQueryPlan::new(
+                    FullTableScan::new(&*table),
+                    select
+                        .projection_items
+                        .into_iter()
+                        .map(|item| match item {
+                            DynamicTypedTree::Item(DynamicTypedItem::Column(name)) => name,
+                            _ => unimplemented!(),
+                        })
+                        .collect(),
+                    table.columns_short(),
                 ))
             }
         }

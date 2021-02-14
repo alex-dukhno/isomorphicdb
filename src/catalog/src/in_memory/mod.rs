@@ -469,6 +469,13 @@ impl SqlTable for InMemoryTable {
             .collect()
     }
 
+    fn columns_short(&self) -> Vec<(String, SqlType)> {
+        self.columns
+            .iter()
+            .map(|col_def| (col_def.name().to_owned(), col_def.sql_type()))
+            .collect()
+    }
+
     fn write(&self, row: Binary) {
         self.data_table.insert(vec![row]);
     }
