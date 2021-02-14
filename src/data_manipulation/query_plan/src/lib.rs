@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use bigdecimal::BigDecimal;
-use catalog::SqlTable;
+use catalog::{Cursor, SqlTable};
 use data_binary::{
     repr::{Datum, ToDatum},
     Binary,
@@ -21,7 +21,36 @@ use data_binary::{
 use data_manipulation_query_result::QueryExecutionError;
 use data_manipulation_typed_tree::StaticTypedTree;
 use data_manipulation_typed_values::TypedValue;
+use pg_result::QueryEvent;
 use types::SqlTypeFamily;
+
+pub enum QueryPlanResult {
+    Inserted(usize),
+    Deleted(usize),
+}
+
+impl From<QueryPlanResult> for QueryEvent {
+    fn from(plan_result: QueryPlanResult) -> Self {
+        match plan_result {
+            QueryPlanResult::Inserted(inserted) => QueryEvent::RecordsInserted(inserted),
+            QueryPlanResult::Deleted(inserted) => QueryEvent::RecordsDeleted(inserted),
+        }
+    }
+}
+
+pub enum QueryPlan {
+    Insert(InsertQueryPlan),
+    Delete(DeleteQueryPlan),
+}
+
+impl QueryPlan {
+    pub fn execute(self) -> Result<QueryPlanResult, QueryExecutionError> {
+        match self {
+            QueryPlan::Insert(insert_query_plan) => insert_query_plan.execute().map(QueryPlanResult::Inserted),
+            QueryPlan::Delete(delete_query_plan) => delete_query_plan.execute().map(QueryPlanResult::Deleted),
+        }
+    }
+}
 
 pub trait Flow {
     type Output;
@@ -163,14 +192,17 @@ impl Flow for ConstraintValidator {
     }
 }
 
-pub struct TableInPlan {
+pub struct InsertQueryPlan {
     source: Box<dyn Flow<Output = Vec<Option<Box<dyn ToDatum>>>>>,
     table: Box<dyn SqlTable>,
 }
 
-impl TableInPlan {
-    pub fn new(source: Box<dyn Flow<Output = Vec<Option<Box<dyn ToDatum>>>>>, table: Box<dyn SqlTable>) -> TableInPlan {
-        TableInPlan { source, table }
+impl InsertQueryPlan {
+    pub fn new(
+        source: Box<dyn Flow<Output = Vec<Option<Box<dyn ToDatum>>>>>,
+        table: Box<dyn SqlTable>,
+    ) -> InsertQueryPlan {
+        InsertQueryPlan { source, table }
     }
 
     pub fn execute(mut self) -> Result<usize, QueryExecutionError> {
@@ -183,6 +215,68 @@ impl TableInPlan {
                     .collect::<Vec<Datum>>()
                     .as_slice(),
             ));
+            len += 1;
+        }
+        Ok(len)
+    }
+}
+
+pub struct FullTableScan {
+    source: Cursor,
+}
+
+impl FullTableScan {
+    pub fn new(source: &dyn SqlTable) -> Box<FullTableScan> {
+        Box::new(FullTableScan { source: source.scan() })
+    }
+}
+
+impl Flow for FullTableScan {
+    type Output = (Binary, Binary);
+
+    fn next_tuple(&mut self) -> Result<Option<Self::Output>, QueryExecutionError> {
+        let record = self.source.next();
+        log::debug!("TABLE RECORD {:?}", record);
+        Ok(record)
+    }
+}
+
+pub struct TableRecordKeys {
+    source: Box<dyn Flow<Output = (Binary, Binary)>>,
+}
+
+impl TableRecordKeys {
+    pub fn new(source: Box<dyn Flow<Output = (Binary, Binary)>>) -> Box<TableRecordKeys> {
+        Box::new(TableRecordKeys { source })
+    }
+}
+
+impl Flow for TableRecordKeys {
+    type Output = Binary;
+
+    fn next_tuple(&mut self) -> Result<Option<Self::Output>, QueryExecutionError> {
+        if let Some((key, _value)) = self.source.next_tuple()? {
+            Ok(Some(key))
+        } else {
+            Ok(None)
+        }
+    }
+}
+
+pub struct DeleteQueryPlan {
+    source: Box<dyn Flow<Output = Binary>>,
+    table: Box<dyn SqlTable>,
+}
+
+impl DeleteQueryPlan {
+    pub fn new(source: Box<dyn Flow<Output = Binary>>, table: Box<dyn SqlTable>) -> DeleteQueryPlan {
+        DeleteQueryPlan { source, table }
+    }
+
+    pub fn execute(mut self) -> Result<usize, QueryExecutionError> {
+        let mut len = 0;
+        while let Some(key) = self.source.next_tuple()? {
+            self.table.write_key(key, None);
             len += 1;
         }
         Ok(len)

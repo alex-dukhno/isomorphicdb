@@ -309,22 +309,15 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                         | statement @ Statement::Delete { .. }
                         | statement @ Statement::Query(_) => match self.query_analyzer.analyze(statement) {
                             Ok(QueryAnalysis::Write(UntypedWrite::Delete(delete))) => {
-                                match self.write_query_executor.execute(TypedWrite::Delete(DeleteQuery {
-                                    full_table_name: delete.full_table_name,
-                                })) {
-                                    Ok(QueryExecution::Deleted(deleted)) => {
-                                        self.sender
-                                            .send(Ok(QueryEvent::RecordsDeleted(deleted)))
-                                            .expect("To Send to client");
-                                    }
-                                    Ok(_) => unimplemented!(),
-                                    Err(QueryExecutionError::SchemaDoesNotExist(schema_name)) => {
-                                        self.sender
-                                            .send(Err(QueryError::schema_does_not_exist(schema_name)))
-                                            .expect("To Send to client");
-                                    }
-                                    Err(_) => unimplemented!(),
-                                }
+                                let query_result = self
+                                    .query_planner
+                                    .plan(TypedWrite::Delete(DeleteQuery {
+                                        full_table_name: delete.full_table_name,
+                                    }))
+                                    .execute()
+                                    .map(Into::into)
+                                    .map_err(Into::into);
+                                self.sender.send(query_result).expect("To Send to client");
                             }
                             Ok(QueryAnalysis::Write(UntypedWrite::Update(update))) => {
                                 let typed_values = update
@@ -397,23 +390,16 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                                     type_coerced.push(row);
                                 }
                                 log::debug!("INSERT TYPE COERCED VALUES {:?}", type_coerced);
-                                match self
+                                let query_result = self
                                     .query_planner
                                     .plan(TypedWrite::Insert(InsertQuery {
                                         full_table_name: insert.full_table_name,
                                         values: type_coerced,
                                     }))
                                     .execute()
-                                {
-                                    Ok(inserted) => {
-                                        self.sender
-                                            .send(Ok(QueryEvent::RecordsInserted(inserted)))
-                                            .expect("To Send to client");
-                                    }
-                                    Err(error) => {
-                                        self.sender.send(Err(error.into())).expect("To Send to client");
-                                    }
-                                }
+                                    .map(Into::into)
+                                    .map_err(Into::into);
+                                self.sender.send(query_result).expect("To Send to client");
                             }
                             Ok(QueryAnalysis::Read(select)) => {
                                 log::debug!("SELECT UNTYPED VALUES - {:?}", select.projection_items);

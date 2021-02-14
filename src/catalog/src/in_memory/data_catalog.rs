@@ -90,6 +90,21 @@ impl InMemoryTableHandle {
     pub(crate) fn indexes(&self) -> Vec<Arc<InMemoryIndex>> {
         self.indexes.iter().map(|entry| entry.value().clone()).collect()
     }
+
+    pub(crate) fn remove(&self, key: Binary) {
+        let result = self.inner.records.write().unwrap().remove(&key);
+        debug_assert!(matches!(result, Some(_)), "nothing were found for {:?} key", key);
+    }
+
+    pub(crate) fn insert_key(&self, key: Binary, row: Binary) {
+        let result = self.inner.records.write().unwrap().insert(key.clone(), row);
+        debug_assert!(
+            matches!(result, None),
+            "{:?} value were found for {:?} key",
+            result,
+            key
+        );
+    }
 }
 
 impl PartialEq for InMemoryTableHandle {
@@ -100,12 +115,16 @@ impl PartialEq for InMemoryTableHandle {
 
 impl DataTable for InMemoryTableHandle {
     fn select(&self) -> Cursor {
+        log::debug!("[SCAN] TABLE NAME {:?}", self.name);
         self.inner
             .records
             .read()
             .unwrap()
             .iter()
-            .map(|(key, value)| (key.clone(), value.clone()))
+            .map(|(key, value)| {
+                log::debug!("[SCAN] TABLE RECORD - ({:?}, {:?})", key, value);
+                (key.clone(), value.clone())
+            })
             .collect::<Cursor>()
     }
 

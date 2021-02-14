@@ -322,6 +322,7 @@ dependencies = [
  "data_manipulation_typed_tree",
  "data_manipulation_typed_values",
  "log",
+ "pg_result",
  "types",
 ]
 
