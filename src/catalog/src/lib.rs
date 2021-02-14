@@ -24,7 +24,7 @@ use std::{
 };
 
 pub use in_memory::{InMemoryDatabase, InMemoryTable};
-use types::SqlTypeFamily;
+use types::{SqlType, SqlTypeFamily};
 
 mod in_memory;
 
@@ -100,6 +100,7 @@ const COLUMNS_TABLE: &str = "COLUMNS";
 
 pub trait SqlTable {
     fn columns(&self) -> Vec<(String, SqlTypeFamily)>;
+    fn columns_short(&self) -> Vec<(String, SqlType)>;
     fn write(&self, row: Binary);
     fn write_key(&self, key: Binary, row: Option<Binary>);
     fn scan(&self) -> Cursor;

@@ -16,10 +16,10 @@ use bigdecimal::BigDecimal;
 use catalog::{CatalogDefinition, Database};
 use connection::Sender;
 use data_definition_execution_plan::ExecutionOutcome;
-use data_manipulation_query_result::QueryExecution;
-use data_manipulation_typed_queries::{DeleteQuery, InsertQuery, TypedSelectQuery, TypedWrite, UpdateQuery};
+use data_manipulation_query_plan::QueryPlanResult;
+use data_manipulation_typed_queries::{DeleteQuery, InsertQuery, SelectQuery, TypedQuery, UpdateQuery};
 use data_manipulation_typed_tree::{DynamicTypedTree, StaticTypedTree};
-use data_manipulation_untyped_queries::UntypedWrite;
+use data_manipulation_untyped_queries::UntypedQuery;
 use itertools::izip;
 use pg_model::{session::Session, statement::PreparedStatement, Command};
 use pg_result::{QueryError, QueryEvent};
@@ -29,8 +29,6 @@ use query_planner::QueryPlanner;
 use query_processing_type_check::TypeChecker;
 use query_processing_type_coercion::TypeCoercion;
 use query_processing_type_inference::TypeInference;
-use read_query_executor::ReadQueryExecutor;
-use read_query_planner::ReadQueryPlanner;
 use sql_ast::{Expr, Ident, Statement, Value};
 use std::{convert::TryFrom, iter, sync::Arc};
 use types::SqlType;
@@ -47,8 +45,6 @@ pub(crate) struct QueryEngine<D: Database + CatalogDefinition> {
     type_checker: TypeChecker,
     type_coercion: TypeCoercion,
     query_planner: QueryPlanner<D>,
-    read_query_planner: ReadQueryPlanner<D>,
-    read_query_executor: ReadQueryExecutor<D>,
     database: Arc<D>,
 }
 
@@ -62,8 +58,6 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
             type_checker: TypeChecker,
             type_coercion: TypeCoercion,
             query_planner: QueryPlanner::new(database.clone()),
-            read_query_planner: ReadQueryPlanner::new(database.clone()),
-            read_query_executor: ReadQueryExecutor::new(database.clone()),
             database,
         }
     }
@@ -283,7 +277,7 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                         | statement @ Statement::CreateTable { .. }
                         | statement @ Statement::CreateIndex { .. }
                         | statement @ Statement::Drop { .. } => match self.query_analyzer.analyze(statement) {
-                            Ok(QueryAnalysis::DataDefinition(schema_change)) => {
+                            Ok(QueryAnalysis::DDL(schema_change)) => {
                                 log::debug!("SCHEMA CHANGE - {:?}", schema_change);
                                 let query_result = match self.database.execute(schema_change) {
                                     Ok(ExecutionOutcome::SchemaCreated) => Ok(QueryEvent::SchemaCreated),
@@ -305,10 +299,10 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                         | statement @ Statement::Update { .. }
                         | statement @ Statement::Delete { .. }
                         | statement @ Statement::Query(_) => match self.query_analyzer.analyze(statement) {
-                            Ok(QueryAnalysis::Write(UntypedWrite::Delete(delete))) => {
+                            Ok(QueryAnalysis::DML(UntypedQuery::Delete(delete))) => {
                                 let query_result = self
                                     .query_planner
-                                    .plan(TypedWrite::Delete(DeleteQuery {
+                                    .plan(TypedQuery::Delete(DeleteQuery {
                                         full_table_name: delete.full_table_name,
                                     }))
                                     .execute()
@@ -316,7 +310,7 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                                     .map_err(Into::into);
                                 self.sender.send(query_result).expect("To Send to client");
                             }
-                            Ok(QueryAnalysis::Write(UntypedWrite::Update(update))) => {
+                            Ok(QueryAnalysis::DML(UntypedQuery::Update(update))) => {
                                 let typed_values = update
                                     .assignments
                                     .into_iter()
@@ -335,7 +329,7 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                                 log::debug!("UPDATE TYPE COERCED VALUES - {:?}", type_coerced);
                                 let query_result = self
                                     .query_planner
-                                    .plan(TypedWrite::Update(UpdateQuery {
+                                    .plan(TypedQuery::Update(UpdateQuery {
                                         full_table_name: update.full_table_name,
                                         assignments: type_coerced,
                                     }))
@@ -344,7 +338,7 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                                     .map_err(Into::into);
                                 self.sender.send(query_result).expect("To Send to client");
                             }
-                            Ok(QueryAnalysis::Write(UntypedWrite::Insert(insert))) => {
+                            Ok(QueryAnalysis::DML(UntypedQuery::Insert(insert))) => {
                                 log::debug!("INSERT UNTYPED VALUES {:?}", insert.values);
                                 let typed_values = insert
                                     .values
@@ -386,7 +380,7 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                                 log::debug!("INSERT TYPE COERCED VALUES {:?}", type_coerced);
                                 let query_result = self
                                     .query_planner
-                                    .plan(TypedWrite::Insert(InsertQuery {
+                                    .plan(TypedQuery::Insert(InsertQuery {
                                         full_table_name: insert.full_table_name,
                                         values: type_coerced,
                                     }))
@@ -395,7 +389,7 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                                     .map_err(Into::into);
                                 self.sender.send(query_result).expect("To Send to client");
                             }
-                            Ok(QueryAnalysis::Read(select)) => {
+                            Ok(QueryAnalysis::DML(UntypedQuery::Select(select))) => {
                                 log::debug!("SELECT UNTYPED VALUES - {:?}", select.projection_items);
                                 let typed_values = select
                                     .projection_items
@@ -413,12 +407,16 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                                     .map(|value| self.type_coercion.coerce_dynamic(value))
                                     .collect::<Vec<DynamicTypedTree>>();
                                 log::debug!("SELECT TYPE COERCED VALUES - {:?}", type_coerced);
-                                let plan = self.read_query_planner.plan(TypedSelectQuery {
-                                    projection_items: type_coerced,
-                                    full_table_name: select.full_table_name,
-                                });
-                                match self.read_query_executor.execute(plan) {
-                                    Ok(QueryExecution::Selected((desc, data))) => {
+                                let query_result = self
+                                    .query_planner
+                                    .plan(TypedQuery::Select(SelectQuery {
+                                        projection_items: type_coerced,
+                                        full_table_name: select.full_table_name,
+                                    }))
+                                    .execute()
+                                    .map_err(Into::into);
+                                match query_result {
+                                    Ok(QueryPlanResult::Selected((desc, data))) => {
                                         self.sender
                                             .send(Ok(QueryEvent::RowDescription(
                                                 desc.into_iter()
@@ -441,8 +439,10 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                                             .send(Ok(QueryEvent::RecordsSelected(len)))
                                             .expect("To Send to client");
                                     }
-                                    Ok(_) => unimplemented!(),
-                                    Err(_) => unimplemented!(),
+                                    Ok(_) => unreachable!(),
+                                    Err(error) => {
+                                        self.sender.send(Err(error)).expect("To Send to client");
+                                    }
                                 }
                             }
                             Err(AnalysisError::TableDoesNotExist(full_table_name)) => {

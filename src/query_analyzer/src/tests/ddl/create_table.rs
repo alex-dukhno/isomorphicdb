@@ -39,13 +39,11 @@ fn create_table_with_unqualified_name() {
 
     assert_eq!(
         analyzer.analyze(create_table(vec!["only_table_in_the_name"], vec![])),
-        Ok(QueryAnalysis::DataDefinition(SchemaChange::CreateTable(
-            CreateTableQuery {
-                full_table_name: FullTableName::from("only_table_in_the_name"),
-                column_defs: vec![],
-                if_not_exists: false
-            }
-        )))
+        Ok(QueryAnalysis::DDL(SchemaChange::CreateTable(CreateTableQuery {
+            full_table_name: FullTableName::from("only_table_in_the_name"),
+            column_defs: vec![],
+            if_not_exists: false
+        })))
     );
 }
 
@@ -93,13 +91,11 @@ fn create_table_with_the_same_name() {
 
     assert_eq!(
         analyzer.analyze(create_table(vec![SCHEMA, TABLE], vec![])),
-        Ok(QueryAnalysis::DataDefinition(SchemaChange::CreateTable(
-            CreateTableQuery {
-                full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                column_defs: vec![],
-                if_not_exists: false,
-            }
-        )))
+        Ok(QueryAnalysis::DDL(SchemaChange::CreateTable(CreateTableQuery {
+            full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
+            column_defs: vec![],
+            if_not_exists: false,
+        })))
     );
 }
 
@@ -114,16 +110,14 @@ fn create_new_table_if_not_exist() {
             vec![column("column_name", sql_ast::DataType::SmallInt)],
             true
         )),
-        Ok(QueryAnalysis::DataDefinition(SchemaChange::CreateTable(
-            CreateTableQuery {
-                full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                column_defs: vec![ColumnInfo {
-                    name: "column_name".to_owned(),
-                    sql_type: SqlType::small_int()
-                }],
-                if_not_exists: true,
-            }
-        )))
+        Ok(QueryAnalysis::DDL(SchemaChange::CreateTable(CreateTableQuery {
+            full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
+            column_defs: vec![ColumnInfo {
+                name: "column_name".to_owned(),
+                sql_type: SqlType::small_int()
+            }],
+            if_not_exists: true,
+        })))
     );
 }
 
@@ -137,15 +131,13 @@ fn successfully_create_table() {
             vec![SCHEMA, TABLE],
             vec![column("column_name", sql_ast::DataType::SmallInt)],
         )),
-        Ok(QueryAnalysis::DataDefinition(SchemaChange::CreateTable(
-            CreateTableQuery {
-                full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                column_defs: vec![ColumnInfo {
-                    name: "column_name".to_owned(),
-                    sql_type: SqlType::small_int()
-                }],
-                if_not_exists: false,
-            }
-        )))
+        Ok(QueryAnalysis::DDL(SchemaChange::CreateTable(CreateTableQuery {
+            full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
+            column_defs: vec![ColumnInfo {
+                name: "column_name".to_owned(),
+                sql_type: SqlType::small_int()
+            }],
+            if_not_exists: false,
+        })))
     );
 }

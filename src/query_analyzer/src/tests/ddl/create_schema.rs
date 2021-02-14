@@ -30,12 +30,10 @@ fn create_new_schema() {
     let analyzer = Analyzer::new(InMemoryDatabase::new());
     assert_eq!(
         analyzer.analyze(create_schema(vec![SCHEMA])),
-        Ok(QueryAnalysis::DataDefinition(SchemaChange::CreateSchema(
-            CreateSchemaQuery {
-                schema_name: SchemaName::from(&SCHEMA),
-                if_not_exists: false,
-            }
-        )))
+        Ok(QueryAnalysis::DDL(SchemaChange::CreateSchema(CreateSchemaQuery {
+            schema_name: SchemaName::from(&SCHEMA),
+            if_not_exists: false,
+        })))
     );
 }
 
@@ -44,12 +42,10 @@ fn create_new_schema_if_not_exists() {
     let analyzer = Analyzer::new(InMemoryDatabase::new());
     assert_eq!(
         analyzer.analyze(create_schema_if_not_exists(vec![SCHEMA], true)),
-        Ok(QueryAnalysis::DataDefinition(SchemaChange::CreateSchema(
-            CreateSchemaQuery {
-                schema_name: SchemaName::from(&SCHEMA),
-                if_not_exists: true,
-            }
-        )))
+        Ok(QueryAnalysis::DDL(SchemaChange::CreateSchema(CreateSchemaQuery {
+            schema_name: SchemaName::from(&SCHEMA),
+            if_not_exists: true,
+        })))
     );
 }
 
@@ -60,12 +56,10 @@ fn create_schema_with_the_same_name() {
     let analyzer = Analyzer::new(database);
     assert_eq!(
         analyzer.analyze(create_schema(vec![SCHEMA])),
-        Ok(QueryAnalysis::DataDefinition(SchemaChange::CreateSchema(
-            CreateSchemaQuery {
-                schema_name: SchemaName::from(&SCHEMA),
-                if_not_exists: false,
-            }
-        )))
+        Ok(QueryAnalysis::DDL(SchemaChange::CreateSchema(CreateSchemaQuery {
+            schema_name: SchemaName::from(&SCHEMA),
+            if_not_exists: false,
+        })))
     );
 }
 

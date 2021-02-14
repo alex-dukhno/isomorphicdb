@@ -27,14 +27,14 @@ fn select_all_columns_from_table() {
 
     assert_eq!(
         analyzer.analyze(select(vec![SCHEMA, TABLE])),
-        Ok(QueryAnalysis::Read(SelectQuery {
+        Ok(QueryAnalysis::DML(UntypedQuery::Select(SelectQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             projection_items: vec![DynamicUntypedTree::Item(DynamicUntypedItem::Column {
                 name: "col1".to_owned(),
                 index: 0,
                 sql_type: SqlType::integer()
             })],
-        }))
+        })))
     );
 }
 
@@ -54,14 +54,14 @@ fn select_specified_column_from_table() {
                 "col1"
             )))]
         )),
-        Ok(QueryAnalysis::Read(SelectQuery {
+        Ok(QueryAnalysis::DML(UntypedQuery::Select(SelectQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             projection_items: vec![DynamicUntypedTree::Item(DynamicUntypedItem::Column {
                 name: "col1".to_owned(),
                 index: 0,
                 sql_type: SqlType::integer()
             })],
-        }))
+        })))
     );
 }
 
@@ -99,12 +99,12 @@ fn select_from_table_with_constant() {
             vec![SCHEMA, TABLE],
             vec![sql_ast::SelectItem::UnnamedExpr(sql_ast::Expr::Value(number(1)))],
         )),
-        Ok(QueryAnalysis::Read(SelectQuery {
+        Ok(QueryAnalysis::DML(UntypedQuery::Select(SelectQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             projection_items: vec![DynamicUntypedTree::Item(DynamicUntypedItem::Const(
                 UntypedValue::Number(BigDecimal::from(1))
             ))],
-        }))
+        })))
     );
 }
 
@@ -122,10 +122,10 @@ fn select_parameters_from_a_table() {
             vec![SCHEMA, TABLE],
             vec![sql_ast::SelectItem::UnnamedExpr(sql_ast::Expr::Identifier(ident("$1")))],
         )),
-        Ok(QueryAnalysis::Read(SelectQuery {
+        Ok(QueryAnalysis::DML(UntypedQuery::Select(SelectQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             projection_items: vec![DynamicUntypedTree::Item(DynamicUntypedItem::Param(0))],
-        }))
+        })))
     );
 }
 
@@ -165,7 +165,7 @@ mod multiple_values {
                 sql_ast::BinaryOperator::Plus,
                 sql_ast::Expr::Value(number(1))
             )),
-            Ok(QueryAnalysis::Read(SelectQuery {
+            Ok(QueryAnalysis::DML(UntypedQuery::Select(SelectQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 projection_items: vec![DynamicUntypedTree::BiOp {
                     left: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
@@ -176,7 +176,7 @@ mod multiple_values {
                         UntypedValue::Number(BigDecimal::from(1))
                     )))
                 }],
-            }))
+            })))
         );
     }
 
@@ -195,7 +195,7 @@ mod multiple_values {
                 sql_ast::BinaryOperator::StringConcat,
                 string("str")
             )),
-            Ok(QueryAnalysis::Read(SelectQuery {
+            Ok(QueryAnalysis::DML(UntypedQuery::Select(SelectQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 projection_items: vec![DynamicUntypedTree::BiOp {
                     left: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
@@ -206,7 +206,7 @@ mod multiple_values {
                         UntypedValue::String("str".to_owned())
                     )))
                 }],
-            }))
+            })))
         );
     }
 
@@ -225,7 +225,7 @@ mod multiple_values {
                 sql_ast::BinaryOperator::Gt,
                 sql_ast::Expr::Value(number(1))
             )),
-            Ok(QueryAnalysis::Read(SelectQuery {
+            Ok(QueryAnalysis::DML(UntypedQuery::Select(SelectQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 projection_items: vec![DynamicUntypedTree::BiOp {
                     left: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
@@ -236,7 +236,7 @@ mod multiple_values {
                         UntypedValue::Number(BigDecimal::from(1))
                     )))
                 }],
-            }))
+            })))
         );
     }
 
@@ -255,7 +255,7 @@ mod multiple_values {
                 sql_ast::BinaryOperator::And,
                 sql_ast::Expr::Value(sql_ast::Value::Boolean(true)),
             )),
-            Ok(QueryAnalysis::Read(SelectQuery {
+            Ok(QueryAnalysis::DML(UntypedQuery::Select(SelectQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 projection_items: vec![DynamicUntypedTree::BiOp {
                     left: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(UntypedValue::Bool(
@@ -266,7 +266,7 @@ mod multiple_values {
                         Bool(true)
                     )))),
                 }],
-            }))
+            })))
         );
     }
 
@@ -285,7 +285,7 @@ mod multiple_values {
                 sql_ast::BinaryOperator::BitwiseOr,
                 sql_ast::Expr::Value(number(1))
             )),
-            Ok(QueryAnalysis::Read(SelectQuery {
+            Ok(QueryAnalysis::DML(UntypedQuery::Select(SelectQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 projection_items: vec![DynamicUntypedTree::BiOp {
                     left: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
@@ -296,7 +296,7 @@ mod multiple_values {
                         UntypedValue::Number(BigDecimal::from(1))
                     )))
                 }],
-            }))
+            })))
         );
     }
 
@@ -315,7 +315,7 @@ mod multiple_values {
                 sql_ast::BinaryOperator::Like,
                 string("str")
             )),
-            Ok(QueryAnalysis::Read(SelectQuery {
+            Ok(QueryAnalysis::DML(UntypedQuery::Select(SelectQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 projection_items: vec![DynamicUntypedTree::BiOp {
                     left: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
@@ -326,7 +326,7 @@ mod multiple_values {
                         UntypedValue::String("str".to_owned())
                     )))
                 }],
-            }))
+            })))
         );
     }
 }

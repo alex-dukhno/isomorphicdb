@@ -33,8 +33,7 @@ data_manipulation_untyped_queries = { path = "../../data_manipulation/untyped_qu
 data_manipulation_typed_tree = { path = "../../data_manipulation/typed_tree" }
 data_manipulation_typed_queries = { path = "../../data_manipulation/typed_queries" }
 data_manipulation_operators = { path = "../../data_manipulation/operators" }
-read_query_executor = { path = "../../read_query/executor" }
-read_query_planner = { path = "../../read_query/planner" }
+data_manipulation_query_plan = { path = "../../data_manipulation/query_plan" }
 
 async-executor = "1.4.0"
 async-dup = "1.2.1"

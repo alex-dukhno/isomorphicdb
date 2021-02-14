@@ -36,7 +36,7 @@ fn insert_number() {
 
     assert_eq!(
         analyzer.analyze(insert_with_values(vec![SCHEMA, TABLE], vec![vec![small_int(1)]])),
-        Ok(QueryAnalysis::Write(UntypedWrite::Insert(InsertQuery {
+        Ok(QueryAnalysis::DML(UntypedQuery::Insert(InsertQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             values: vec![vec![Some(StaticUntypedTree::Item(StaticUntypedItem::Const(
                 UntypedValue::Number(BigDecimal::from(1))
@@ -56,7 +56,7 @@ fn insert_string() {
 
     assert_eq!(
         analyzer.analyze(insert_with_values(vec![SCHEMA, TABLE], vec![vec![string("str")]])),
-        Ok(QueryAnalysis::Write(UntypedWrite::Insert(InsertQuery {
+        Ok(QueryAnalysis::DML(UntypedQuery::Insert(InsertQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             values: vec![vec![Some(StaticUntypedTree::Item(StaticUntypedItem::Const(
                 UntypedValue::String("str".to_owned())
@@ -76,7 +76,7 @@ fn insert_boolean() {
 
     assert_eq!(
         analyzer.analyze(insert_with_values(vec![SCHEMA, TABLE], vec![vec![boolean(true)]])),
-        Ok(QueryAnalysis::Write(UntypedWrite::Insert(InsertQuery {
+        Ok(QueryAnalysis::DML(UntypedQuery::Insert(InsertQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             values: vec![vec![Some(StaticUntypedTree::Item(StaticUntypedItem::Const(
                 UntypedValue::Bool(Bool(true))
@@ -96,7 +96,7 @@ fn insert_null() {
 
     assert_eq!(
         analyzer.analyze(insert_with_values(vec![SCHEMA, TABLE], vec![vec![null()]])),
-        Ok(QueryAnalysis::Write(UntypedWrite::Insert(InsertQuery {
+        Ok(QueryAnalysis::DML(UntypedQuery::Insert(InsertQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             values: vec![vec![Some(StaticUntypedTree::Item(StaticUntypedItem::Const(
                 UntypedValue::Null
@@ -138,7 +138,7 @@ fn insert_into_table_with_parameters() {
 
     assert_eq!(
         analyzer.analyze(insert_with_parameters(vec![SCHEMA, TABLE], vec!["$1", "$2"])),
-        Ok(QueryAnalysis::Write(UntypedWrite::Insert(InsertQuery {
+        Ok(QueryAnalysis::DML(UntypedQuery::Insert(InsertQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             values: vec![vec![
                 Some(StaticUntypedTree::Item(StaticUntypedItem::Param(0))),
@@ -169,7 +169,7 @@ fn insert_into_table_with_parameters_and_values() {
                 sql_ast::Expr::Value(number(1))
             ]]
         )),
-        Ok(QueryAnalysis::Write(UntypedWrite::Insert(InsertQuery {
+        Ok(QueryAnalysis::DML(UntypedQuery::Insert(InsertQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             values: vec![vec![
                 Some(StaticUntypedTree::Item(StaticUntypedItem::Param(0))),
@@ -197,7 +197,7 @@ fn insert_into_table_negative_number() {
 
     assert_eq!(
         analyzer.analyze(insert_with_values(vec![SCHEMA, TABLE], vec![vec![small_int(-32768)]])),
-        Ok(QueryAnalysis::Write(UntypedWrite::Insert(InsertQuery {
+        Ok(QueryAnalysis::DML(UntypedQuery::Insert(InsertQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             values: vec![vec![Some(StaticUntypedTree::UnOp {
                 op: UnOperator::Arithmetic(UnArithmetic::Neg),
@@ -245,7 +245,7 @@ mod multiple_values {
                 sql_ast::BinaryOperator::Plus,
                 sql_ast::Expr::Value(number(1))
             )),
-            Ok(QueryAnalysis::Write(UntypedWrite::Insert(InsertQuery {
+            Ok(QueryAnalysis::DML(UntypedQuery::Insert(InsertQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 values: vec![vec![Some(StaticUntypedTree::BiOp {
                     left: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(
@@ -275,7 +275,7 @@ mod multiple_values {
                 sql_ast::BinaryOperator::StringConcat,
                 string("str")
             )),
-            Ok(QueryAnalysis::Write(UntypedWrite::Insert(InsertQuery {
+            Ok(QueryAnalysis::DML(UntypedQuery::Insert(InsertQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 values: vec![vec![Some(StaticUntypedTree::BiOp {
                     left: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::String(
@@ -305,7 +305,7 @@ mod multiple_values {
                 sql_ast::BinaryOperator::Gt,
                 sql_ast::Expr::Value(number(1))
             )),
-            Ok(QueryAnalysis::Write(UntypedWrite::Insert(InsertQuery {
+            Ok(QueryAnalysis::DML(UntypedQuery::Insert(InsertQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 values: vec![vec![Some(StaticUntypedTree::BiOp {
                     left: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(
@@ -335,7 +335,7 @@ mod multiple_values {
                 sql_ast::BinaryOperator::And,
                 sql_ast::Expr::Value(sql_ast::Value::Boolean(true)),
             )),
-            Ok(QueryAnalysis::Write(UntypedWrite::Insert(InsertQuery {
+            Ok(QueryAnalysis::DML(UntypedQuery::Insert(InsertQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 values: vec![vec![Some(StaticUntypedTree::BiOp {
                     left: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Bool(
@@ -365,7 +365,7 @@ mod multiple_values {
                 sql_ast::BinaryOperator::BitwiseOr,
                 sql_ast::Expr::Value(number(1))
             )),
-            Ok(QueryAnalysis::Write(UntypedWrite::Insert(InsertQuery {
+            Ok(QueryAnalysis::DML(UntypedQuery::Insert(InsertQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 values: vec![vec![Some(StaticUntypedTree::BiOp {
                     left: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(
@@ -395,7 +395,7 @@ mod multiple_values {
                 sql_ast::BinaryOperator::Like,
                 string("str")
             )),
-            Ok(QueryAnalysis::Write(UntypedWrite::Insert(InsertQuery {
+            Ok(QueryAnalysis::DML(UntypedQuery::Insert(InsertQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 values: vec![vec![Some(StaticUntypedTree::BiOp {
                     left: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::String(

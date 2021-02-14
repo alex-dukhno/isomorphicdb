@@ -54,13 +54,11 @@ mod schema {
         let analyzer = Analyzer::new(InMemoryDatabase::new());
         assert_eq!(
             analyzer.analyze(drop_statement(vec![vec!["non_existent"]], SCHEMA_TYPE)),
-            Ok(QueryAnalysis::DataDefinition(SchemaChange::DropSchemas(
-                DropSchemasQuery {
-                    schema_names: vec![SchemaName::from(&"non_existent")],
-                    cascade: false,
-                    if_exists: false,
-                }
-            )))
+            Ok(QueryAnalysis::DDL(SchemaChange::DropSchemas(DropSchemasQuery {
+                schema_names: vec![SchemaName::from(&"non_existent")],
+                cascade: false,
+                if_exists: false,
+            })))
         );
     }
 
@@ -86,13 +84,11 @@ mod schema {
 
         assert_eq!(
             analyzer.analyze(drop_statement(vec![vec![SCHEMA]], SCHEMA_TYPE)),
-            Ok(QueryAnalysis::DataDefinition(SchemaChange::DropSchemas(
-                DropSchemasQuery {
-                    schema_names: vec![SchemaName::from(&SCHEMA)],
-                    cascade: false,
-                    if_exists: false,
-                }
-            )))
+            Ok(QueryAnalysis::DDL(SchemaChange::DropSchemas(DropSchemasQuery {
+                schema_names: vec![SchemaName::from(&SCHEMA)],
+                cascade: false,
+                if_exists: false,
+            })))
         );
     }
 
@@ -104,13 +100,11 @@ mod schema {
 
         assert_eq!(
             analyzer.analyze(drop_cascade(vec![vec![SCHEMA]], SCHEMA_TYPE)),
-            Ok(QueryAnalysis::DataDefinition(SchemaChange::DropSchemas(
-                DropSchemasQuery {
-                    schema_names: vec![SchemaName::from(&SCHEMA)],
-                    cascade: true,
-                    if_exists: false,
-                }
-            )))
+            Ok(QueryAnalysis::DDL(SchemaChange::DropSchemas(DropSchemasQuery {
+                schema_names: vec![SchemaName::from(&SCHEMA)],
+                cascade: true,
+                if_exists: false,
+            })))
         );
     }
 
@@ -122,13 +116,11 @@ mod schema {
 
         assert_eq!(
             analyzer.analyze(drop_if_exists(vec![vec![SCHEMA], vec!["schema_1"]], SCHEMA_TYPE)),
-            Ok(QueryAnalysis::DataDefinition(SchemaChange::DropSchemas(
-                DropSchemasQuery {
-                    schema_names: vec![SchemaName::from(&SCHEMA), SchemaName::from(&"schema_1")],
-                    cascade: false,
-                    if_exists: true,
-                }
-            )))
+            Ok(QueryAnalysis::DDL(SchemaChange::DropSchemas(DropSchemasQuery {
+                schema_names: vec![SchemaName::from(&SCHEMA), SchemaName::from(&"schema_1")],
+                cascade: false,
+                if_exists: true,
+            })))
         );
     }
 }
@@ -155,13 +147,11 @@ mod table {
         let analyzer = Analyzer::new(database);
         assert_eq!(
             analyzer.analyze(drop_statement(vec![vec!["only_table_in_the_name"]], TABLE_TYPE)),
-            Ok(QueryAnalysis::DataDefinition(SchemaChange::DropTables(
-                DropTablesQuery {
-                    full_table_names: vec![FullTableName::from("only_table_in_the_name")],
-                    cascade: false,
-                    if_exists: false
-                }
-            )))
+            Ok(QueryAnalysis::DDL(SchemaChange::DropTables(DropTablesQuery {
+                full_table_names: vec![FullTableName::from("only_table_in_the_name")],
+                cascade: false,
+                if_exists: false
+            })))
         );
     }
 
@@ -189,13 +179,11 @@ mod table {
         let analyzer = Analyzer::new(database);
         assert_eq!(
             analyzer.analyze(drop_statement(vec![vec![SCHEMA, TABLE]], TABLE_TYPE)),
-            Ok(QueryAnalysis::DataDefinition(SchemaChange::DropTables(
-                DropTablesQuery {
-                    full_table_names: vec![FullTableName::from((&SCHEMA, &TABLE))],
-                    cascade: false,
-                    if_exists: false
-                }
-            )))
+            Ok(QueryAnalysis::DDL(SchemaChange::DropTables(DropTablesQuery {
+                full_table_names: vec![FullTableName::from((&SCHEMA, &TABLE))],
+                cascade: false,
+                if_exists: false
+            })))
         );
     }
 
@@ -206,13 +194,11 @@ mod table {
         let analyzer = Analyzer::new(database);
         assert_eq!(
             analyzer.analyze(drop_statement(vec![vec![SCHEMA, "non_existent_table"]], TABLE_TYPE)),
-            Ok(QueryAnalysis::DataDefinition(SchemaChange::DropTables(
-                DropTablesQuery {
-                    full_table_names: vec![FullTableName::from((&SCHEMA, &"non_existent_table"))],
-                    cascade: false,
-                    if_exists: false
-                }
-            )))
+            Ok(QueryAnalysis::DDL(SchemaChange::DropTables(DropTablesQuery {
+                full_table_names: vec![FullTableName::from((&SCHEMA, &"non_existent_table"))],
+                cascade: false,
+                if_exists: false
+            })))
         );
     }
 
@@ -232,16 +218,14 @@ mod table {
                 vec![vec![SCHEMA, TABLE], vec![SCHEMA, "table_1"]],
                 TABLE_TYPE,
             )),
-            Ok(QueryAnalysis::DataDefinition(SchemaChange::DropTables(
-                DropTablesQuery {
-                    full_table_names: vec![
-                        FullTableName::from((&SCHEMA, &TABLE)),
-                        FullTableName::from((&SCHEMA, &"table_1"))
-                    ],
-                    cascade: false,
-                    if_exists: true
-                }
-            )))
+            Ok(QueryAnalysis::DDL(SchemaChange::DropTables(DropTablesQuery {
+                full_table_names: vec![
+                    FullTableName::from((&SCHEMA, &TABLE)),
+                    FullTableName::from((&SCHEMA, &"table_1"))
+                ],
+                cascade: false,
+                if_exists: true
+            })))
         );
     }
 
@@ -261,16 +245,14 @@ mod table {
                 vec![vec![SCHEMA, TABLE], vec![SCHEMA, "table_1"]],
                 TABLE_TYPE,
             )),
-            Ok(QueryAnalysis::DataDefinition(SchemaChange::DropTables(
-                DropTablesQuery {
-                    full_table_names: vec![
-                        FullTableName::from((&SCHEMA, &TABLE)),
-                        FullTableName::from((&SCHEMA, &"table_1"))
-                    ],
-                    cascade: true,
-                    if_exists: false
-                }
-            )))
+            Ok(QueryAnalysis::DDL(SchemaChange::DropTables(DropTablesQuery {
+                full_table_names: vec![
+                    FullTableName::from((&SCHEMA, &TABLE)),
+                    FullTableName::from((&SCHEMA, &"table_1"))
+                ],
+                cascade: true,
+                if_exists: false
+            })))
         );
     }
 }
