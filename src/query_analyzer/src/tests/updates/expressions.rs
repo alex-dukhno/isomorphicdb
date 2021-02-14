@@ -32,10 +32,9 @@ fn update_number() {
         )),
         Ok(QueryAnalysis::Write(UntypedWrite::Update(UpdateQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-            column_names: vec!["col".to_owned()],
-            assignments: vec![DynamicUntypedTree::Item(DynamicUntypedItem::Const(
+            assignments: vec![Some(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
                 UntypedValue::Number(BigDecimal::from(1))
-            ))]
+            )))]
         })))
     );
 }
@@ -53,10 +52,9 @@ fn update_string() {
         analyzer.analyze(update_statement(vec![SCHEMA, TABLE], vec![("col", string("str"))])),
         Ok(QueryAnalysis::Write(UntypedWrite::Update(UpdateQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-            column_names: vec!["col".to_owned()],
-            assignments: vec![DynamicUntypedTree::Item(DynamicUntypedItem::Const(
+            assignments: vec![Some(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
                 UntypedValue::String("str".to_owned())
-            ))]
+            )))]
         })))
     );
 }
@@ -74,9 +72,8 @@ fn update_boolean() {
         analyzer.analyze(update_statement(vec![SCHEMA, TABLE], vec![("col", boolean(true))])),
         Ok(QueryAnalysis::Write(UntypedWrite::Update(UpdateQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-            column_names: vec!["col".to_owned()],
-            assignments: vec![DynamicUntypedTree::Item(DynamicUntypedItem::Const(UntypedValue::Bool(
-                Bool(true)
+            assignments: vec![Some(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
+                UntypedValue::Bool(Bool(true))
             )))],
         })))
     );
@@ -95,8 +92,9 @@ fn update_null() {
         analyzer.analyze(update_statement(vec![SCHEMA, TABLE], vec![("col", null())])),
         Ok(QueryAnalysis::Write(UntypedWrite::Update(UpdateQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-            column_names: vec!["col".to_owned()],
-            assignments: vec![DynamicUntypedTree::Item(DynamicUntypedItem::Const(UntypedValue::Null))],
+            assignments: vec![Some(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
+                UntypedValue::Null
+            )))],
         })))
     );
 }
@@ -121,12 +119,14 @@ fn update_with_column_value() {
         )),
         Ok(QueryAnalysis::Write(UntypedWrite::Update(UpdateQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-            column_names: vec!["col_1".to_owned()],
-            assignments: vec![DynamicUntypedTree::Item(DynamicUntypedItem::Column {
-                name: "col_2".to_owned(),
-                sql_type: SqlType::small_int(),
-                index: 1
-            })],
+            assignments: vec![
+                Some(DynamicUntypedTree::Item(DynamicUntypedItem::Column {
+                    name: "col_2".to_owned(),
+                    sql_type: SqlType::small_int(),
+                    index: 1
+                })),
+                None
+            ],
         })))
     );
 }
@@ -170,8 +170,7 @@ fn update_table_with_parameters() {
         analyzer.analyze(update_stmt_with_parameters(vec![SCHEMA, TABLE])),
         Ok(QueryAnalysis::Write(UntypedWrite::Update(UpdateQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-            column_names: vec!["col_2".to_owned()],
-            assignments: vec![DynamicUntypedTree::Item(DynamicUntypedItem::Param(0))]
+            assignments: vec![None, Some(DynamicUntypedTree::Item(DynamicUntypedItem::Param(0)))]
         })))
     );
 }
@@ -217,8 +216,7 @@ mod multiple_values {
             )),
             Ok(QueryAnalysis::Write(UntypedWrite::Update(UpdateQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                column_names: vec!["col".to_owned()],
-                assignments: vec![DynamicUntypedTree::BiOp {
+                assignments: vec![Some(DynamicUntypedTree::BiOp {
                     left: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
                         UntypedValue::Number(BigDecimal::from(1))
                     ))),
@@ -226,7 +224,7 @@ mod multiple_values {
                     right: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
                         UntypedValue::Number(BigDecimal::from(1))
                     )))
-                }],
+                })],
             })))
         );
     }
@@ -248,8 +246,7 @@ mod multiple_values {
             )),
             Ok(QueryAnalysis::Write(UntypedWrite::Update(UpdateQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                column_names: vec!["col".to_owned()],
-                assignments: vec![DynamicUntypedTree::BiOp {
+                assignments: vec![Some(DynamicUntypedTree::BiOp {
                     left: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
                         UntypedValue::String("str".to_owned())
                     ))),
@@ -257,7 +254,7 @@ mod multiple_values {
                     right: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
                         UntypedValue::String("str".to_owned())
                     )))
-                }],
+                })],
             })))
         );
     }
@@ -279,8 +276,7 @@ mod multiple_values {
             )),
             Ok(QueryAnalysis::Write(UntypedWrite::Update(UpdateQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                column_names: vec!["col".to_owned()],
-                assignments: vec![DynamicUntypedTree::BiOp {
+                assignments: vec![Some(DynamicUntypedTree::BiOp {
                     left: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
                         UntypedValue::Number(BigDecimal::from(1))
                     ))),
@@ -288,7 +284,7 @@ mod multiple_values {
                     right: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
                         UntypedValue::Number(BigDecimal::from(1))
                     )))
-                }],
+                })],
             })))
         );
     }
@@ -310,8 +306,7 @@ mod multiple_values {
             )),
             Ok(QueryAnalysis::Write(UntypedWrite::Update(UpdateQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                column_names: vec!["col".to_owned()],
-                assignments: vec![DynamicUntypedTree::BiOp {
+                assignments: vec![Some(DynamicUntypedTree::BiOp {
                     left: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(UntypedValue::Bool(
                         Bool(true)
                     )))),
@@ -319,7 +314,7 @@ mod multiple_values {
                     right: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(UntypedValue::Bool(
                         Bool(true)
                     )))),
-                }],
+                })],
             })))
         );
     }
@@ -341,8 +336,7 @@ mod multiple_values {
             )),
             Ok(QueryAnalysis::Write(UntypedWrite::Update(UpdateQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                column_names: vec!["col".to_owned()],
-                assignments: vec![DynamicUntypedTree::BiOp {
+                assignments: vec![Some(DynamicUntypedTree::BiOp {
                     left: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
                         UntypedValue::Number(BigDecimal::from(1))
                     ))),
@@ -350,7 +344,7 @@ mod multiple_values {
                     right: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
                         UntypedValue::Number(BigDecimal::from(1))
                     )))
-                }],
+                })],
             })))
         );
     }
@@ -372,8 +366,7 @@ mod multiple_values {
             )),
             Ok(QueryAnalysis::Write(UntypedWrite::Update(UpdateQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                column_names: vec!["col".to_owned()],
-                assignments: vec![DynamicUntypedTree::BiOp {
+                assignments: vec![Some(DynamicUntypedTree::BiOp {
                     left: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
                         UntypedValue::String("s".to_owned())
                     ))),
@@ -381,7 +374,7 @@ mod multiple_values {
                     right: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
                         UntypedValue::String("str".to_owned())
                     )))
-                }],
+                })],
             })))
         );
     }

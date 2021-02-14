@@ -475,8 +475,20 @@ impl SqlTable for InMemoryTable {
 
     fn write_key(&self, key: Binary, row: Option<Binary>) {
         match row {
-            None => self.data_table.remove(key),
-            Some(row) => self.data_table.insert_key(key, row),
+            None => {
+                let result = self.data_table.remove(&key);
+                debug_assert!(matches!(result, Some(_)), "nothing were found for {:?} key", key);
+            }
+            Some(row) => {
+                let _result = self.data_table.insert_key(key, row);
+                // TODO: that is for DELETE, what to do with update?
+                // debug_assert!(
+                //     matches!(result, None),
+                //     "{:?} value were found for {:?} key",
+                //     result,
+                //     key
+                // );
+            }
         }
     }
 
@@ -567,11 +579,7 @@ impl SqlTable for InMemoryTable {
         self.data_table.delete(keys)
     }
 
-    fn update(
-        &self,
-        column_names: Vec<String>,
-        assignments: Vec<DynamicTypedTree>,
-    ) -> Result<usize, QueryExecutionError> {
+    fn update(&self, assignments: Vec<Option<DynamicTypedTree>>) -> Result<usize, QueryExecutionError> {
         let to_update = self
             .data_table
             .select()
@@ -580,10 +588,10 @@ impl SqlTable for InMemoryTable {
 
         let mut values = vec![];
         for (key, mut unpacked_row) in to_update {
-            for (column_name, assignment) in column_names.iter().zip(assignments.iter()) {
-                let new_value = match self.has_column(column_name) {
-                    None => unimplemented!(),
-                    Some((index, _)) => (index, convert(self.columns[index].sql_type(), assignment.eval()?)),
+            for (index, assignment) in assignments.iter().enumerate() {
+                let new_value = match assignment {
+                    None => (index, unpacked_row[index].clone()),
+                    Some(assignment) => (index, convert(self.columns[index].sql_type(), assignment.eval()?)),
                 };
                 unpacked_row[new_value.0] = new_value.1;
             }

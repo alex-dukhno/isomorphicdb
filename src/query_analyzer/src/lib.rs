@@ -12,8 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::{convert::TryFrom, sync::Arc};
-
+use crate::{dynamic_tree_builder::DynamicTreeBuilder, static_tree_builder::StaticTreeBuilder};
 use catalog::CatalogDefinition;
 use data_definition_execution_plan::{
     ColumnInfo, CreateIndexQuery, CreateSchemaQuery, CreateTableQuery, DropSchemasQuery, DropTablesQuery, SchemaChange,
@@ -22,10 +21,8 @@ use data_manipulation_operators::BiOperator;
 use data_manipulation_untyped_queries::{DeleteQuery, InsertQuery, SelectQuery, UntypedWrite, UpdateQuery};
 use data_manipulation_untyped_tree::{DynamicUntypedItem, DynamicUntypedTree};
 use definition::{FullTableName, SchemaName};
+use std::{collections::HashMap, convert::TryFrom, sync::Arc};
 use types::SqlType;
-
-use crate::{dynamic_tree_builder::DynamicTreeBuilder, static_tree_builder::StaticTreeBuilder};
-use std::collections::HashMap;
 
 mod dynamic_tree_builder;
 mod operation_mapper;
@@ -117,10 +114,22 @@ impl<CD: CatalogDefinition> Analyzer<CD> {
                     Some(None) => Err(AnalysisError::table_does_not_exist(full_table_name)),
                     Some(Some(table_info)) => {
                         let table_columns = table_info.columns();
-                        let mut column_names = vec![];
-                        let mut assignments = vec![];
+                        let mut temp_column_names = vec![];
+                        for table_column in table_columns {
+                            let mut found = false;
+                            for stmt_assignment in stmt_assignments.iter() {
+                                if table_column.name() == stmt_assignment.id.value.to_lowercase().as_str() {
+                                    temp_column_names.push(Some(stmt_assignment.value.clone()));
+                                    found = true;
+                                    break;
+                                }
+                            }
+                            if !found {
+                                temp_column_names.push(None);
+                            }
+                        }
                         for assignment in stmt_assignments {
-                            let sql_ast::Assignment { id, value } = assignment;
+                            let sql_ast::Assignment { id, .. } = assignment;
                             let name = id.to_string().to_lowercase();
                             let mut found = None;
                             for table_column in table_columns {
@@ -131,19 +140,24 @@ impl<CD: CatalogDefinition> Analyzer<CD> {
                             }
                             match found {
                                 None => return Err(AnalysisError::ColumnNotFound(name)),
-                                Some(name) => {
-                                    assignments.push(DynamicTreeBuilder::build_from(
+                                Some(_) => {}
+                            }
+                        }
+                        let mut assignments = vec![];
+                        for temp_column_name in temp_column_names {
+                            match temp_column_name {
+                                None => assignments.push(None),
+                                Some(value) => {
+                                    assignments.push(Some(DynamicTreeBuilder::build_from(
                                         &value,
                                         &statement,
                                         &table_columns,
-                                    )?);
-                                    column_names.push(name);
+                                    )?));
                                 }
                             }
                         }
                         Ok(QueryAnalysis::Write(UntypedWrite::Update(UpdateQuery {
                             full_table_name,
-                            column_names,
                             assignments,
                         })))
                     }

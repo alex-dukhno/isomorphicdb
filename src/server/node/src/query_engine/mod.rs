@@ -34,7 +34,6 @@ use read_query_planner::ReadQueryPlanner;
 use sql_ast::{Expr, Ident, Statement, Value};
 use std::{convert::TryFrom, iter, sync::Arc};
 use types::SqlType;
-use write_query_executor::WriteQueryExecutor;
 
 unsafe impl<D: Database + CatalogDefinition> Send for QueryEngine<D> {}
 
@@ -48,7 +47,6 @@ pub(crate) struct QueryEngine<D: Database + CatalogDefinition> {
     type_checker: TypeChecker,
     type_coercion: TypeCoercion,
     query_planner: QueryPlanner<D>,
-    write_query_executor: WriteQueryExecutor<D>,
     read_query_planner: ReadQueryPlanner<D>,
     read_query_executor: ReadQueryExecutor<D>,
     database: Arc<D>,
@@ -64,7 +62,6 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
             type_checker: TypeChecker,
             type_coercion: TypeCoercion,
             query_planner: QueryPlanner::new(database.clone()),
-            write_query_executor: WriteQueryExecutor::new(database.clone()),
             read_query_planner: ReadQueryPlanner::new(database.clone()),
             read_query_executor: ReadQueryExecutor::new(database.clone()),
             database,
@@ -323,32 +320,29 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                                 let typed_values = update
                                     .assignments
                                     .into_iter()
-                                    .map(|value| self.type_inference.infer_dynamic(value))
-                                    .collect::<Vec<DynamicTypedTree>>();
+                                    .map(|value| value.map(|value| self.type_inference.infer_dynamic(value)))
+                                    .collect::<Vec<Option<DynamicTypedTree>>>();
                                 log::debug!("UPDATE TYPED VALUES - {:?}", typed_values);
                                 let type_checked = typed_values
                                     .into_iter()
-                                    .map(|value| self.type_checker.check_dynamic(value))
-                                    .collect::<Vec<DynamicTypedTree>>();
+                                    .map(|value| value.map(|value| self.type_checker.check_dynamic(value)))
+                                    .collect::<Vec<Option<DynamicTypedTree>>>();
                                 log::debug!("UPDATE TYPE CHECKED VALUES - {:?}", type_checked);
                                 let type_coerced = type_checked
                                     .into_iter()
-                                    .map(|value| self.type_coercion.coerce_dynamic(value))
-                                    .collect::<Vec<DynamicTypedTree>>();
+                                    .map(|value| value.map(|value| self.type_coercion.coerce_dynamic(value)))
+                                    .collect::<Vec<Option<DynamicTypedTree>>>();
                                 log::debug!("UPDATE TYPE COERCED VALUES - {:?}", type_coerced);
-                                match self.write_query_executor.execute(TypedWrite::Update(UpdateQuery {
-                                    full_table_name: update.full_table_name,
-                                    column_names: update.column_names,
-                                    assignments: type_coerced,
-                                })) {
-                                    Ok(QueryExecution::Updated(updated)) => {
-                                        self.sender
-                                            .send(Ok(QueryEvent::RecordsUpdated(updated)))
-                                            .expect("To Send to client");
-                                    }
-                                    Ok(_) => unimplemented!(),
-                                    Err(error) => self.sender.send(Err(error.into())).expect("To Send to client"),
-                                }
+                                let query_result = self
+                                    .query_planner
+                                    .plan(TypedWrite::Update(UpdateQuery {
+                                        full_table_name: update.full_table_name,
+                                        assignments: type_coerced,
+                                    }))
+                                    .execute()
+                                    .map(Into::into)
+                                    .map_err(Into::into);
+                                self.sender.send(query_result).expect("To Send to client");
                             }
                             Ok(QueryAnalysis::Write(UntypedWrite::Insert(insert))) => {
                                 log::debug!("INSERT UNTYPED VALUES {:?}", insert.values);

@@ -14,8 +14,8 @@
 
 use catalog::Database;
 use data_manipulation_query_plan::{
-    ConstraintValidator, DeleteQueryPlan, FullTableScan, InsertQueryPlan, QueryPlan, StaticExpressionEval,
-    StaticValues, TableRecordKeys,
+    ConstraintValidator, DeleteQueryPlan, DynamicValues, FullTableScan, InsertQueryPlan, QueryPlan, Repeater,
+    StaticExpressionEval, StaticValues, TableRecordKeys, UpdateQueryPlan,
 };
 use data_manipulation_typed_queries::TypedWrite;
 use std::sync::Arc;
@@ -48,7 +48,14 @@ impl<D: Database> QueryPlanner<D> {
                     table,
                 ))
             }
-            TypedWrite::Update(_) => unimplemented!(),
+            TypedWrite::Update(update) => {
+                let table = self.database.table(&update.full_table_name);
+                QueryPlan::Update(UpdateQueryPlan::new(
+                    ConstraintValidator::new(DynamicValues::new(Repeater::new(update.assignments)), table.columns()),
+                    FullTableScan::new(&*table),
+                    table,
+                ))
+            }
         }
     }
 }

@@ -111,11 +111,7 @@ pub trait SqlTable {
 
     fn delete_all(&self) -> usize;
 
-    fn update(
-        &self,
-        column_names: Vec<String>,
-        assignments: Vec<DynamicTypedTree>,
-    ) -> Result<usize, QueryExecutionError>;
+    fn update(&self, assignments: Vec<Option<DynamicTypedTree>>) -> Result<usize, QueryExecutionError>;
 }
 
 pub trait Database {

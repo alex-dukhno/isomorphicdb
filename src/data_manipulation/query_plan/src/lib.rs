@@ -19,7 +19,7 @@ use data_binary::{
     Binary,
 };
 use data_manipulation_query_result::QueryExecutionError;
-use data_manipulation_typed_tree::StaticTypedTree;
+use data_manipulation_typed_tree::{DynamicTypedTree, StaticTypedTree};
 use data_manipulation_typed_values::TypedValue;
 use pg_result::QueryEvent;
 use types::SqlTypeFamily;
@@ -27,6 +27,7 @@ use types::SqlTypeFamily;
 pub enum QueryPlanResult {
     Inserted(usize),
     Deleted(usize),
+    Updated(usize),
 }
 
 impl From<QueryPlanResult> for QueryEvent {
@@ -34,6 +35,7 @@ impl From<QueryPlanResult> for QueryEvent {
         match plan_result {
             QueryPlanResult::Inserted(inserted) => QueryEvent::RecordsInserted(inserted),
             QueryPlanResult::Deleted(inserted) => QueryEvent::RecordsDeleted(inserted),
+            QueryPlanResult::Updated(inserted) => QueryEvent::RecordsUpdated(inserted),
         }
     }
 }
@@ -41,6 +43,7 @@ impl From<QueryPlanResult> for QueryEvent {
 pub enum QueryPlan {
     Insert(InsertQueryPlan),
     Delete(DeleteQueryPlan),
+    Update(UpdateQueryPlan),
 }
 
 impl QueryPlan {
@@ -48,6 +51,7 @@ impl QueryPlan {
         match self {
             QueryPlan::Insert(insert_query_plan) => insert_query_plan.execute().map(QueryPlanResult::Inserted),
             QueryPlan::Delete(delete_query_plan) => delete_query_plan.execute().map(QueryPlanResult::Deleted),
+            QueryPlan::Update(update_query_plan) => update_query_plan.execute().map(QueryPlanResult::Updated),
         }
     }
 }
@@ -277,6 +281,93 @@ impl DeleteQueryPlan {
         let mut len = 0;
         while let Some(key) = self.source.next_tuple()? {
             self.table.write_key(key, None);
+            len += 1;
+        }
+        Ok(len)
+    }
+}
+
+pub struct Repeater {
+    source: Vec<Option<DynamicTypedTree>>,
+}
+
+impl Repeater {
+    pub fn new(source: Vec<Option<DynamicTypedTree>>) -> Box<Repeater> {
+        Box::new(Repeater { source })
+    }
+}
+
+impl Flow for Repeater {
+    type Output = Vec<Option<DynamicTypedTree>>;
+
+    fn next_tuple(&mut self) -> Result<Option<Self::Output>, QueryExecutionError> {
+        Ok(Some(self.source.clone()))
+    }
+}
+
+pub struct DynamicValues {
+    source: Box<dyn Flow<Output = Vec<Option<DynamicTypedTree>>>>,
+}
+
+impl DynamicValues {
+    pub fn new(source: Box<dyn Flow<Output = Vec<Option<DynamicTypedTree>>>>) -> Box<DynamicValues> {
+        Box::new(DynamicValues { source })
+    }
+}
+
+impl Flow for DynamicValues {
+    type Output = Vec<Option<TypedValue>>;
+
+    fn next_tuple(&mut self) -> Result<Option<Self::Output>, QueryExecutionError> {
+        if let Some(tuple) = self.source.next_tuple()? {
+            let mut next_tuple = vec![];
+            for value in tuple {
+                let value = match value {
+                    None => None,
+                    Some(tree) => match tree.eval() {
+                        Err(error) => return Err(error),
+                        Ok(value) => Some(value),
+                    },
+                };
+                next_tuple.push(value);
+            }
+            Ok(Some(next_tuple))
+        } else {
+            Ok(None)
+        }
+    }
+}
+
+pub struct UpdateQueryPlan {
+    values: Box<dyn Flow<Output = Vec<Option<Box<dyn ToDatum>>>>>,
+    records: Box<dyn Flow<Output = (Binary, Binary)>>,
+    table: Box<dyn SqlTable>,
+}
+
+impl UpdateQueryPlan {
+    pub fn new(
+        values: Box<dyn Flow<Output = Vec<Option<Box<dyn ToDatum>>>>>,
+        records: Box<dyn Flow<Output = (Binary, Binary)>>,
+        table: Box<dyn SqlTable>,
+    ) -> UpdateQueryPlan {
+        UpdateQueryPlan { values, records, table }
+    }
+
+    pub fn execute(mut self) -> Result<usize, QueryExecutionError> {
+        let mut len = 0;
+        while let Some((key, row)) = self.records.next_tuple()? {
+            let mut unpacked = row.unpack();
+            if let Some(values) = self.values.next_tuple()? {
+                for (index, value) in values.into_iter().enumerate() {
+                    let new_value = match value {
+                        None => unpacked[index].clone(),
+                        Some(value) => value.convert(),
+                    };
+                    unpacked[index] = new_value;
+                }
+            }
+            let new_row = Binary::pack(&unpacked);
+            self.table.write_key(key, Some(new_row));
             len += 1;
         }
         Ok(len)

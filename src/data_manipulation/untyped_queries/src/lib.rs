@@ -24,8 +24,7 @@ pub struct InsertQuery {
 #[derive(Debug, PartialEq)]
 pub struct UpdateQuery {
     pub full_table_name: FullTableName,
-    pub column_names: Vec<String>,
-    pub assignments: Vec<DynamicUntypedTree>,
+    pub assignments: Vec<Option<DynamicUntypedTree>>,
 }
 
 #[derive(Debug, PartialEq)]
