@@ -30,7 +30,7 @@ jobs:
           components: rustfmt
           rust-version: nightly
       - uses: actions/checkout@v2
-      - run: ./ci/rustfmt.sh
+      - run: ./etc/ci/rustfmt.sh
 
   clippy:
     needs:
@@ -45,7 +45,7 @@ jobs:
           components: clippy
           rust-version: stable
       - uses: actions/checkout@v2
-      - run: ./ci/clippy.sh
+      - run: ./etc/ci/clippy.sh
 
   tests:
     needs:
@@ -139,7 +139,7 @@ jobs:
       - name: checkout
         uses: actions/checkout@v2
       - name: run-tests
-        run: ./ci/erlang_client.sh
+        run: ./etc/ci/erlang_client.sh
 
   ci-success:
     name: ci
