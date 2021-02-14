@@ -73,9 +73,9 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: >
+          args: >-
             -p pg_result
-#            -p catalog
+            -p catalog
             -p data_binary
             -p data_scalar
             -p data_definition_execution_plan
