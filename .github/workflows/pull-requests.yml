@@ -119,7 +119,7 @@ jobs:
       - name: run-tests
         uses: eskatos/gradle-command-action@v1
         with:
-          wrapper-directory: etc/gradle/wrapper
+          wrapper-directory: etc
           arguments: test -Dci=true
 
   erlang-client-compatibility:
