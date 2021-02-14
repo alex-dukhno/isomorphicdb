@@ -1,3 +1,3 @@
 #!/bin/bash
 
-./gradlew clean test
+./etc/compatibility/gradlew clean test

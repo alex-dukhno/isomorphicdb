@@ -12,7 +12,6 @@ data_manipulation_operators = { path = "../data_manipulation/operators" }
 data_manipulation_query_result = { path = "../data_manipulation/query_result" }
 data_manipulation_typed_tree = { path = "../data_manipulation/typed_tree" }
 data_manipulation_typed_values = { path = "../data_manipulation/typed_values" }
-#data_manipulation_query_plan = { path = "../data_manipulation/query_plan" }
 definition = { path = "../entities/definition" }
 types = { path = "../entities/types" }
 data_binary = { path = "../data/binary" }
