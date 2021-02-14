@@ -183,7 +183,6 @@ dependencies = [
  "data_scalar",
  "definition",
  "log",
- "rstest",
  "types",
 ]
 
@@ -239,26 +238,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "connection"
-version = "0.1.0"
-dependencies = [
- "async-dup",
- "async-mutex",
- "async-native-tls",
- "async-trait",
- "bigdecimal",
- "blocking",
- "byteorder",
- "futures-lite",
- "log",
- "pg_model",
- "pg_result",
- "pg_wire",
- "rand 0.7.3",
- "tempfile",
-]
-
-[[package]]
 name = "core-foundation"
 version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -292,12 +271,33 @@ dependencies = [
 ]
 
 [[package]]
+name = "data_definition"
+version = "0.1.0"
+dependencies = [
+ "data_definition_execution_plan",
+]
+
+[[package]]
 name = "data_definition_execution_plan"
 version = "0.1.0"
 dependencies = [
  "definition",
  "pg_result",
  "types",
+]
+
+[[package]]
+name = "data_manipulation"
+version = "0.1.0"
+dependencies = [
+ "data_manipulation_operators",
+ "data_manipulation_query_plan",
+ "data_manipulation_query_result",
+ "data_manipulation_typed_queries",
+ "data_manipulation_typed_tree",
+ "data_manipulation_typed_values",
+ "data_manipulation_untyped_queries",
+ "data_manipulation_untyped_tree",
 ]
 
 [[package]]
@@ -353,7 +353,6 @@ dependencies = [
  "data_manipulation_operators",
  "data_manipulation_query_result",
  "data_manipulation_typed_values",
- "rstest",
  "types",
 ]
 
@@ -404,6 +403,14 @@ name = "either"
 version = "1.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e78d4f1cc4ae33bbfc157ed5d5a5ef3bc29227303d595861deb238fcec4e9457"
+
+[[package]]
+name = "entities"
+version = "0.1.0"
+dependencies = [
+ "definition",
+ "types",
+]
 
 [[package]]
 name = "event-listener"
@@ -563,6 +570,38 @@ dependencies = [
 ]
 
 [[package]]
+name = "isomorphicdb"
+version = "0.1.0"
+dependencies = [
+ "async-dup",
+ "async-executor",
+ "async-io",
+ "async-mutex",
+ "async-native-tls",
+ "async-trait",
+ "bigdecimal",
+ "blocking",
+ "byteorder",
+ "catalog",
+ "data_definition",
+ "data_manipulation",
+ "entities",
+ "futures-lite",
+ "itertools",
+ "log",
+ "pg_result",
+ "pg_wire",
+ "query_analyzer",
+ "query_parsing",
+ "query_planner",
+ "query_processing",
+ "rand 0.7.3",
+ "rstest",
+ "simple_logger",
+ "tempfile",
+]
+
+[[package]]
 name = "itertools"
 version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -623,49 +662,12 @@ dependencies = [
 
 [[package]]
 name = "nb-connect"
-version = "1.0.2"
+version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8123a81538e457d44b933a02faf885d3fe8408806b23fa700e8f01c6c3a98998"
+checksum = "670361df1bc2399ee1ff50406a0d422587dd3bb0da596e1978fe8e05dabddf4f"
 dependencies = [
  "libc",
- "winapi",
-]
-
-[[package]]
-name = "node"
-version = "0.1.0"
-dependencies = [
- "async-dup",
- "async-executor",
- "async-io",
- "bigdecimal",
- "blocking",
- "catalog",
- "connection",
- "data_definition_execution_plan",
- "data_manipulation_operators",
- "data_manipulation_query_plan",
- "data_manipulation_query_result",
- "data_manipulation_typed_queries",
- "data_manipulation_typed_tree",
- "data_manipulation_untyped_queries",
- "data_scalar",
- "futures-lite",
- "itertools",
- "log",
- "parser",
- "pg_model",
- "pg_result",
- "pg_wire",
- "query_analyzer",
- "query_planner",
- "query_processing_type_check",
- "query_processing_type_coercion",
- "query_processing_type_inference",
- "rstest",
- "simple_logger",
- "sql_ast",
- "types",
+ "socket2",
 ]
 
 [[package]]
@@ -776,16 +778,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d4fd5641d01c8f18a23da7b6fe29298ff4b55afcccdf78973b24cf3175fee32e"
 
 [[package]]
-name = "pg_model"
-version = "0.1.0"
-dependencies = [
- "pg_result",
- "pg_wire",
- "rand 0.7.3",
- "rstest",
-]
-
-[[package]]
 name = "pg_result"
 version = "0.1.0"
 dependencies = [
@@ -871,9 +863,16 @@ dependencies = [
  "data_manipulation_untyped_tree",
  "definition",
  "log",
- "simple_logger",
  "sql_ast",
  "types",
+]
+
+[[package]]
+name = "query_parsing"
+version = "0.1.0"
+dependencies = [
+ "parser",
+ "sql_ast",
 ]
 
 [[package]]
@@ -885,6 +884,15 @@ dependencies = [
  "data_manipulation_query_plan",
  "data_manipulation_typed_queries",
  "data_manipulation_typed_tree",
+]
+
+[[package]]
+name = "query_processing"
+version = "0.1.0"
+dependencies = [
+ "query_processing_type_check",
+ "query_processing_type_coercion",
+ "query_processing_type_inference",
 ]
 
 [[package]]
@@ -1148,6 +1156,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c111b5bd5695e56cffe5129854aa230b39c93a305372fdbb2668ca2394eea9f8"
 
 [[package]]
+name = "socket2"
+version = "0.3.19"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "122e570113d28d773067fab24266b66753f6ea915758651696b6e35e49f88d6e"
+dependencies = [
+ "cfg-if 1.0.0",
+ "libc",
+ "winapi",
+]
+
+[[package]]
 name = "sql_ast"
 version = "0.1.0"
 dependencies = [
@@ -1156,8 +1175,9 @@ dependencies = [
 
 [[package]]
 name = "sqlparser"
-version = "0.7.1-alpha.0"
-source = "git+https://github.com/ballista-compute/sqlparser-rs.git?branch=main#17f8eb9c5a7170aaee25b8dd92266a4d732ef2c5"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8b929a9577d01ee7cddb820696ed536868d81557d3c14363a7514d71add1d058"
 dependencies = [
  "bigdecimal",
  "log",
@@ -1247,7 +1267,6 @@ name = "types"
 version = "0.1.0"
 dependencies = [
  "pg_wire",
- "rstest",
  "sql_ast",
 ]
 

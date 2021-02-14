@@ -1,0 +1,9 @@
+[package]
+name = "data_definition"
+version = "0.1.0"
+authors = ["Alex Dukhno <alex.dukhno@icloud.com>"]
+edition = "2018"
+publish = false
+
+[dependencies]
+data_definition_execution_plan = { path = "execution_plan" }
