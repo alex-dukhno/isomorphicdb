@@ -16,7 +16,7 @@ use bigdecimal::BigDecimal;
 use catalog::{CatalogDefinition, Database};
 use connection::Sender;
 use data_definition_execution_plan::ExecutionOutcome;
-use data_manipulation_query_result::{QueryExecution, QueryExecutionError};
+use data_manipulation_query_result::QueryExecution;
 use data_manipulation_typed_queries::{DeleteQuery, InsertQuery, TypedSelectQuery, TypedWrite, UpdateQuery};
 use data_manipulation_typed_tree::{DynamicTypedTree, StaticTypedTree};
 use data_manipulation_untyped_queries::UntypedWrite;
