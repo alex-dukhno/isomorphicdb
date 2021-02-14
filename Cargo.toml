@@ -39,36 +39,3 @@ rand = "0.7"
 [dev-dependencies]
 rstest = "0.6.4"
 tempfile = "3.1.0"
-
-#[workspace]
-#exclude = ["sql_engine", "postgres", "etc", "docs"]
-
-#[workspace]
-#members = [
-#    "src/catalog",
-#    "src/data/binary",
-#    "src/data/scalar",
-#    "src/data_definition/execution_plan",
-#    "src/data_manipulation/operators",
-#    "src/data_manipulation/query_result",
-#    "src/data_manipulation/query_plan",
-#    "src/data_manipulation/typed_queries",
-#    "src/data_manipulation/typed_tree",
-#    "src/data_manipulation/typed_values",
-#    "src/data_manipulation/untyped_queries",
-#    "src/data_manipulation/untyped_tree",
-#    "src/entities/types",
-#    "src/entities/definition",
-#    "src/query_analyzer",
-#    "src/query_parsing/parser",
-#    "src/query_parsing/sql-ast",
-#    "src/query_planner",
-#    "src/query_processing/type_check",
-#    "src/query_processing/type_inference",
-#    "src/query_processing/type_coercion",
-#    "src/server/connection",
-#    "src/server/pg_model",
-#    "src/server/node",
-##     TODO: to be extracted
-#    "src/pg_result",
-#]
