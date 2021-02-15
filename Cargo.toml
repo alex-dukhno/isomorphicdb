@@ -34,6 +34,7 @@ byteorder = "1.4.2"
 futures-lite = "1.11.3"
 log = "0.4.14"
 simple_logger = { version = "1.10.0" }
+rand_core = "0.6.2"
 rand = "0.7"
 
 [dev-dependencies]
