@@ -28,6 +28,7 @@ fn inner_drop(
             .map(|name| sql_ast::ObjectName(name.into_iter().map(ident).collect()))
             .collect(),
         cascade,
+        purge: false,
     }
 }
 

@@ -34,16 +34,11 @@ jobs:
         uses: actions-rs/install@v0.1
         with:
           crate: cargo-tarpaulin
-          version: 0.14.0
+          version: 0.16.0
           use-tool-cache: true
-      - name: unit-tests
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --all
-      - name: code-coverage
-        run: cargo tarpaulin -o Lcov --output-dir ./coverage
-      - name: coveralls
+      - name: run code coverage
+        run: cargo tarpaulin --ignore-tests -o Lcov --output-dir ./coverage
+      - name: upload to coveralls
         uses: coverallsapp/github-action@master
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}

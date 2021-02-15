@@ -63,7 +63,32 @@ jobs:
       - name: checkout
         uses: actions/checkout@v2
       - name: unit-tests
-        run: ./etc/ci/all-tests.sh
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --all --lib
+
+  code-coverage:
+    needs:
+      - cargo-deny
+      - rustfmt
+      - clippy
+    runs-on: ubuntu-latest
+    steps:
+    - name: checkout
+      uses: actions/checkout@v2
+    - name: install tarpaulin
+      uses: actions-rs/install@v0.1
+      with:
+        crate: cargo-tarpaulin
+        version: 0.16.0
+        use-tool-cache: true
+    - name: run code coverage
+      run: cargo tarpaulin --ignore-tests -o Lcov --output-dir ./coverage
+    - name: upload to coveralls
+      uses: coverallsapp/github-action@master
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
 
   compatibility-test:
     needs:
@@ -123,36 +148,6 @@ jobs:
       - name: run-tests
         run: ./etc/ci/erlang_client.sh
 
-  code-coverage:
-    needs:
-      - cargo-deny
-      - rustfmt
-      - clippy
-      - tests
-      - compatibility-test
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v1
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: nightly
-          override: true
-      - uses: actions-rs/cargo@v1
-        with:
-          command: clean
-      - name: run all tests
-        run: ./etc/ci/all-tests.sh
-        env:
-          CARGO_INCREMENTAL: '0'
-          RUSTFLAGS: '-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
-          RUSTDOCFLAGS: '-Cpanic=abort'
-      - uses: actions-rs/grcov@v0.1
-      - name: upload code coverage
-        uses: coverallsapp/github-action@master
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          path-to-lcov: ${{ steps.coverage.outputs.report }}
-
   ci-success:
     name: ci
     if: github.event_name == 'push' && success()
@@ -160,7 +155,6 @@ jobs:
       - tests
       - rustfmt
       - clippy
-      - code-coverage
     runs-on: ubuntu-latest
     steps:
       - name: Mark the job as a success
@@ -173,7 +167,6 @@ jobs:
       - tests
       - rustfmt
       - clippy
-      - code-coverage
     runs-on: ubuntu-latest
     steps:
       - name: Mark the job as a failure

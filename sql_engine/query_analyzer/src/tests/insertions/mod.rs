@@ -26,9 +26,10 @@ fn small_int(value: i16) -> sql_ast::Expr {
     } else {
         sql_ast::Expr::UnaryOp {
             op: sql_ast::UnaryOperator::Minus,
-            expr: Box::new(sql_ast::Expr::Value(sql_ast::Value::Number(BigDecimal::from(
-                -(value as i32),
-            )))),
+            expr: Box::new(sql_ast::Expr::Value(sql_ast::Value::Number(
+                BigDecimal::from(-(value as i32)),
+                false,
+            ))),
         }
     }
 }
@@ -39,8 +40,10 @@ fn inner_insert(
     columns: Vec<&'static str>,
 ) -> sql_ast::Statement {
     sql_ast::Statement::Insert {
+        or: None,
         table_name: sql_ast::ObjectName(full_name.into_iter().map(ident).collect()),
         columns: columns.into_iter().map(ident).collect(),
+        overwrite: false,
         source: Box::new(sql_ast::Query {
             with: None,
             body: sql_ast::SetExpr::Values(sql_ast::Values(multiple_values)),
@@ -49,6 +52,9 @@ fn inner_insert(
             offset: None,
             fetch: None,
         }),
+        partitioned: None,
+        after_columns: vec![],
+        table: false,
     }
 }
 

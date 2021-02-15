@@ -40,3 +40,16 @@ rand = "0.7"
 [dev-dependencies]
 rstest = "0.6.4"
 tempfile = "3.1.0"
+
+[workspace]
+members = [
+    "postgres/pg_result",
+    "sql_engine/catalog",
+    "sql_engine/data_definition",
+    "sql_engine/data_manipulation",
+    "sql_engine/entities",
+    "sql_engine/query_analyzer",
+    "sql_engine/query_parsing",
+    "sql_engine/query_planner",
+    "sql_engine/query_processing",
+]

@@ -183,6 +183,7 @@ dependencies = [
  "data_scalar",
  "definition",
  "log",
+ "rstest",
  "types",
 ]
 
@@ -353,6 +354,7 @@ dependencies = [
  "data_manipulation_operators",
  "data_manipulation_query_result",
  "data_manipulation_typed_values",
+ "rstest",
  "types",
 ]
 
@@ -551,9 +553,9 @@ dependencies = [
 
 [[package]]
 name = "idna"
-version = "0.2.0"
+version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "02e2673c30ee86b5b96a9cb52ad15718aa1f966f5ab9ad54a8b95d5ca33120a9"
+checksum = "de910d521f7cc3135c4de8db1cb910e0b5ed1dc6f57c381cd07e8e661ce10094"
 dependencies = [
  "matches",
  "unicode-bidi",
@@ -864,6 +866,7 @@ dependencies = [
  "data_manipulation_untyped_tree",
  "definition",
  "log",
+ "simple_logger",
  "sql_ast",
  "types",
 ]
@@ -1268,6 +1271,7 @@ name = "types"
 version = "0.1.0"
 dependencies = [
  "pg_wire",
+ "rstest",
  "sql_ast",
 ]
 
@@ -1282,9 +1286,9 @@ dependencies = [
 
 [[package]]
 name = "unicode-normalization"
-version = "0.1.16"
+version = "0.1.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a13e63ab62dbe32aeee58d1c5408d35c36c392bba5d9d3142287219721afe606"
+checksum = "07fbfce1c8a97d547e8b5334978438d9d6ec8c20e38f56d4a4374d181493eaef"
 dependencies = [
  "tinyvec",
 ]

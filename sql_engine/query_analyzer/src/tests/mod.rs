@@ -57,7 +57,7 @@ fn boolean(value: bool) -> sql_ast::Expr {
 }
 
 fn number(value: i16) -> sql_ast::Value {
-    sql_ast::Value::Number(BigDecimal::from(value))
+    sql_ast::Value::Number(BigDecimal::from(value), false)
 }
 
 fn create_schema_ops(schema_name: &str) -> SchemaChange {

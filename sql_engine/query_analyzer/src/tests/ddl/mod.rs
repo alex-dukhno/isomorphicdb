@@ -34,6 +34,9 @@ fn create_table_if_not_exists(
         name: sql_ast::ObjectName(name.into_iter().map(ident).collect()),
         columns,
         constraints: vec![],
+        hive_distribution: sql_ast::HiveDistributionStyle::NONE,
+        hive_formats: None,
+        table_properties: vec![],
         with_options: vec![],
         if_not_exists,
         external: false,
@@ -41,6 +44,8 @@ fn create_table_if_not_exists(
         location: None,
         query: None,
         without_rowid: false,
+        temporary: false,
+        like: None,
     }
 }
 
