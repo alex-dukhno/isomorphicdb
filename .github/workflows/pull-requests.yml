@@ -62,47 +62,8 @@ jobs:
     steps:
       - name: checkout
         uses: actions/checkout@v2
-      - name: install tarpaulin
-        if: matrix.os == 'ubuntu'
-        uses: actions-rs/install@v0.1
-        with:
-          crate: cargo-tarpaulin
-          version: 0.14.0
-          use-tool-cache: true
       - name: unit-tests
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: >-
-            -p pg_result
-            -p catalog
-            -p data_binary
-            -p data_scalar
-            -p data_definition_execution_plan
-            -p data_manipulation_operators
-            -p data_manipulation_query_plan
-            -p data_manipulation_query_result
-            -p data_manipulation_typed_queries
-            -p data_manipulation_typed_tree
-            -p data_manipulation_typed_values
-            -p data_manipulation_untyped_queries
-            -p data_manipulation_untyped_tree
-            -p definition
-            -p types
-            -p query_analyzer
-            -p query_planner
-            -p query_processing_type_check
-            -p query_processing_type_coercion
-            -p query_processing_type_inference
-            -p isomorphicdb
-      - name: code-coverage
-        if: matrix.os == 'ubuntu'
-        run: cargo tarpaulin -o Lcov --output-dir ./coverage
-      - name: coveralls
-        if: matrix.os == 'ubuntu'
-        uses: coverallsapp/github-action@master
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+        run: ./etc/ci/all-tests.sh
 
   compatibility-test:
     needs:
@@ -140,7 +101,6 @@ jobs:
       - name: run-tests
         uses: eskatos/gradle-command-action@v1
         with:
-          wrapper-directory: etc/compatibility
           arguments: test -Dci=true
 
   erlang-client-compatibility:
@@ -163,6 +123,36 @@ jobs:
       - name: run-tests
         run: ./etc/ci/erlang_client.sh
 
+  code-coverage:
+    needs:
+      - cargo-deny
+      - rustfmt
+      - clippy
+      - tests
+      - compatibility-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          override: true
+      - uses: actions-rs/cargo@v1
+        with:
+          command: clean
+      - name: run all tests
+        run: ./etc/ci/all-tests.sh
+        env:
+          CARGO_INCREMENTAL: '0'
+          RUSTFLAGS: '-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
+          RUSTDOCFLAGS: '-Cpanic=abort'
+      - uses: actions-rs/grcov@v0.1
+      - name: upload code coverage
+        uses: coverallsapp/github-action@master
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path-to-lcov: ${{ steps.coverage.outputs.report }}
+
   ci-success:
     name: ci
     if: github.event_name == 'push' && success()
@@ -170,6 +160,7 @@ jobs:
       - tests
       - rustfmt
       - clippy
+      - code-coverage
     runs-on: ubuntu-latest
     steps:
       - name: Mark the job as a success
@@ -182,6 +173,7 @@ jobs:
       - tests
       - rustfmt
       - clippy
+      - code-coverage
     runs-on: ubuntu-latest
     steps:
       - name: Mark the job as a failure
