@@ -1,5 +1,7 @@
 #!/bin/bash
 
+echo `pwd`
+
 # POSTGRES
 ./etc/ci/test_module.sh postgres/pg_result
 
