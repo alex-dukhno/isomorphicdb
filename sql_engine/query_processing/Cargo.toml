@@ -1,0 +1,11 @@
+[package]
+name = "query_processing"
+version = "0.1.0"
+authors = ["Alex Dukhno <alex.dukhno@icloud.com>"]
+edition = "2018"
+publish = false
+
+[dependencies]
+query_processing_type_check = { path = "type_check" }
+query_processing_type_coercion = { path = "type_coercion" }
+query_processing_type_inference = { path = "type_inference" }

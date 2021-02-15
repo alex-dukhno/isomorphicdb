@@ -1,0 +1,14 @@
+[package]
+name = "data_manipulation_operators"
+version = "0.1.0"
+authors = ["Alex Dukhno <alex.dukhno@icloud.com>"]
+edition = "2018"
+publish = false
+
+[dependencies]
+data_manipulation_typed_values = { path = "../typed_values" }
+data_manipulation_query_result = { path = "../query_result" }
+types = { path = "../../entities/types" }
+
+bigdecimal = { version = "0.2.0", features = ["string-only"] }
+regex = "1.4.3"

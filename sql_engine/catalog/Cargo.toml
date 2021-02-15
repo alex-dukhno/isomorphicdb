@@ -1,0 +1,24 @@
+[package]
+name = "catalog"
+version = "0.1.0"
+authors = ["Alex Dukhno <alex.dukhno@icloud.com>"]
+edition = "2018"
+publish = false
+
+[dependencies]
+data_definition_execution_plan = { path = "../data_definition/execution_plan" }
+data_manipulation_operators = { path = "../data_manipulation/operators" }
+data_manipulation_query_result = { path = "../data_manipulation/query_result" }
+data_manipulation_typed_tree = { path = "../data_manipulation/typed_tree" }
+data_manipulation_typed_values = { path = "../data_manipulation/typed_values" }
+definition = { path = "../entities/definition" }
+types = { path = "../entities/types" }
+data_binary = { path = "../data/binary" }
+data_scalar = { path = "../data/scalar" }
+
+bigdecimal = { version = "0.2.0", features = ["string-only"] }
+dashmap = "4.0.2"
+log = "0.4.14"
+
+[dev-dependencies]
+rstest = "0.6.4"

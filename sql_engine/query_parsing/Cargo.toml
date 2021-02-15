@@ -1,0 +1,10 @@
+[package]
+name = "query_parsing"
+version = "0.1.0"
+authors = ["Alex Dukhno <alex.dukhno@icloud.com>"]
+edition = "2018"
+publish = false
+
+[dependencies]
+parser = { path = "parser" }
+sql_ast = { path = "sql-ast" }

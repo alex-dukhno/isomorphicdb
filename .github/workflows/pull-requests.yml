@@ -30,7 +30,7 @@ jobs:
           components: rustfmt
           rust-version: nightly
       - uses: actions/checkout@v2
-      - run: ./ci/rustfmt.sh
+      - run: ./etc/ci/rustfmt.sh
 
   clippy:
     needs:
@@ -45,7 +45,7 @@ jobs:
           components: clippy
           rust-version: stable
       - uses: actions/checkout@v2
-      - run: ./ci/clippy.sh
+      - run: ./etc/ci/clippy.sh
 
   tests:
     needs:
@@ -62,26 +62,33 @@ jobs:
     steps:
       - name: checkout
         uses: actions/checkout@v2
-      - name: install tarpaulin
-        if: matrix.os == 'ubuntu'
-        uses: actions-rs/install@v0.1
-        with:
-          crate: cargo-tarpaulin
-          version: 0.14.0
-          use-tool-cache: true
       - name: unit-tests
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --all
-      - name: code-coverage
-        if: matrix.os == 'ubuntu'
-        run: cargo tarpaulin -o Lcov --output-dir ./coverage
-      - name: coveralls
-        if: matrix.os == 'ubuntu'
-        uses: coverallsapp/github-action@master
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          args: --all --lib
+
+  code-coverage:
+    needs:
+      - cargo-deny
+      - rustfmt
+      - clippy
+    runs-on: ubuntu-latest
+    steps:
+    - name: checkout
+      uses: actions/checkout@v2
+    - name: install tarpaulin
+      uses: actions-rs/install@v0.1
+      with:
+        crate: cargo-tarpaulin
+        version: 0.16.0
+        use-tool-cache: true
+    - name: run code coverage
+      run: cargo tarpaulin --ignore-tests -o Lcov --output-dir ./coverage
+    - name: upload to coveralls
+      uses: coverallsapp/github-action@master
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
 
   compatibility-test:
     needs:
@@ -139,7 +146,7 @@ jobs:
       - name: checkout
         uses: actions/checkout@v2
       - name: run-tests
-        run: ./ci/erlang_client.sh
+        run: ./etc/ci/erlang_client.sh
 
   ci-success:
     name: ci
