@@ -17,19 +17,14 @@ use crate::{
     CatalogDefinition, Cursor, DataCatalog, DataTable, Database, SchemaHandle, SqlTable, COLUMNS_TABLE,
     DEFINITION_SCHEMA, INDEXES_TABLE, SCHEMATA_TABLE, TABLES_TABLE,
 };
-use bigdecimal::ToPrimitive;
 use data_binary::{repr::Datum, Binary};
 use data_definition_execution_plan::{
     CreateIndexQuery, CreateSchemaQuery, CreateTableQuery, DropSchemasQuery, DropTablesQuery, ExecutionError,
     ExecutionOutcome, SchemaChange,
 };
-use data_manipulation_query_result::QueryExecutionError;
-use data_manipulation_typed_tree::{DynamicTypedTree, StaticTypedTree};
-use data_manipulation_typed_values::TypedValue;
-use data_scalar::ScalarValue;
 use definition::{ColumnDef, FullIndexName, FullTableName, SchemaName, TableDef};
 use std::{fmt::Debug, sync::Arc};
-use types::{Num, SqlType, SqlTypeFamily};
+use types::{SqlType, SqlTypeFamily};
 
 mod data_catalog;
 
@@ -440,25 +435,6 @@ impl InMemoryTable {
     fn new(columns: Vec<ColumnDef>, data_table: InMemoryTableHandle) -> InMemoryTable {
         InMemoryTable { columns, data_table }
     }
-
-    fn has_column(&self, column_name: &str) -> Option<(usize, &ColumnDef)> {
-        self.columns
-            .iter()
-            .enumerate()
-            .find(|(_index, col)| col.has_name(column_name))
-    }
-}
-
-fn convert(sql_type: SqlType, value: TypedValue) -> Datum {
-    log::debug!("type {:?} value {:?}", sql_type, value);
-    match (sql_type, value) {
-        (SqlType::Num(Num::SmallInt), TypedValue::Num { value, .. }) => Datum::from_i16(value.to_i16().unwrap()),
-        (SqlType::Num(Num::Integer), TypedValue::Num { value, .. }) => Datum::from_i32(value.to_i32().unwrap()),
-        (SqlType::Num(Num::BigInt), TypedValue::Num { value, .. }) => Datum::from_i64(value.to_i64().unwrap()),
-        (SqlType::Bool, TypedValue::Bool(value)) => Datum::from_bool(value),
-        (SqlType::Str { .. }, TypedValue::String(value)) => Datum::from_string(value),
-        _ => unimplemented!(),
-    }
 }
 
 impl SqlTable for InMemoryTable {
@@ -501,111 +477,6 @@ impl SqlTable for InMemoryTable {
 
     fn scan(&self) -> Cursor {
         self.data_table.select()
-    }
-
-    fn insert(&self, rows: Vec<Vec<Option<StaticTypedTree>>>) -> Result<usize, QueryExecutionError> {
-        let mut values = vec![];
-        for row in rows {
-            log::debug!("ROW to INSERT {:#?}", row);
-            let mut to_insert = vec![];
-            for (index, value) in row.into_iter().enumerate() {
-                let datum = match value {
-                    None => Datum::from_null(),
-                    Some(v) => {
-                        let value = v.eval()?;
-                        log::debug!("value {:?}", value);
-                        convert(self.columns[index].sql_type(), value)
-                    }
-                };
-                to_insert.push(datum);
-            }
-            values.push(Binary::pack(&to_insert))
-        }
-        let inserted = values.len();
-        let record_ids = self.data_table.insert(values.clone());
-        let indexes = self.data_table.indexes();
-        for index in indexes {
-            for i in 0..inserted {
-                let mut val = vec![];
-                let values_i = values[i].unpack();
-                for (j, value_i) in values_i.iter().enumerate() {
-                    if index.over(j) {
-                        val.push(value_i.clone());
-                    }
-                }
-                index.insert(Binary::pack(&val), record_ids[i].clone());
-            }
-        }
-        Ok(inserted)
-    }
-
-    fn select(
-        &self,
-        column_names: Vec<String>,
-    ) -> Result<(Vec<ColumnDef>, Vec<Vec<ScalarValue>>), QueryExecutionError> {
-        let mut columns = vec![];
-        let mut indexes = vec![];
-        for name in column_names {
-            match self.has_column(&name) {
-                None => return Err(QueryExecutionError::ColumnNotFound(name)),
-                Some((index, col)) => {
-                    columns.push(col.clone());
-                    indexes.push(index);
-                }
-            }
-        }
-        Ok((
-            columns,
-            self.data_table
-                .select()
-                .map(|(_key, value)| {
-                    let row = value.unpack();
-                    let mut data = vec![];
-                    for index in &indexes {
-                        let value = match &row[*index] {
-                            Datum::Null => ScalarValue::Null,
-                            Datum::True => ScalarValue::True,
-                            Datum::False => ScalarValue::False,
-                            Datum::Int16(v) => ScalarValue::Int16(*v),
-                            Datum::Int32(v) => ScalarValue::Int32(*v),
-                            Datum::Int64(v) => ScalarValue::Int64(*v),
-                            Datum::Float32(v) => ScalarValue::Float32(*v),
-                            Datum::Float64(v) => ScalarValue::Float64(*v),
-                            Datum::String(v) => ScalarValue::String(v.clone()),
-                        };
-                        data.push(value);
-                    }
-                    data
-                })
-                .collect(),
-        ))
-    }
-
-    fn delete_all(&self) -> usize {
-        let keys = self.data_table.select().map(|(key, _value)| key).collect();
-        self.data_table.delete(keys)
-    }
-
-    fn update(&self, assignments: Vec<Option<DynamicTypedTree>>) -> Result<usize, QueryExecutionError> {
-        let to_update = self
-            .data_table
-            .select()
-            .map(|(key, value)| (key, value.unpack()))
-            .collect::<Vec<(Binary, Vec<Datum>)>>();
-
-        let mut values = vec![];
-        for (key, mut unpacked_row) in to_update {
-            for (index, assignment) in assignments.iter().enumerate() {
-                let new_value = match assignment {
-                    None => (index, unpacked_row[index].clone()),
-                    Some(assignment) => (index, convert(self.columns[index].sql_type(), assignment.eval()?)),
-                };
-                unpacked_row[new_value.0] = new_value.1;
-            }
-            values.push((key, Binary::pack(&unpacked_row)))
-        }
-
-        Ok(self.data_table.update(values))
     }
 }
 

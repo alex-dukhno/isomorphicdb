@@ -15,17 +15,13 @@
 #[cfg(test)]
 mod index;
 #[cfg(test)]
-mod insert;
-#[cfg(test)]
 mod schema;
 #[cfg(test)]
 mod table;
 
 use super::*;
-use bigdecimal::BigDecimal;
 use data_definition_execution_plan::ColumnInfo;
-use data_manipulation_typed_tree::StaticTypedItem;
-use types::{SqlType, SqlTypeFamily};
+use types::SqlType;
 
 const SCHEMA: &str = "schema_name";
 const OTHER_SCHEMA: &str = "other_schema_name";

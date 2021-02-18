@@ -47,24 +47,6 @@ impl InMemoryIndex {
             column,
         }
     }
-
-    #[allow(dead_code)]
-    pub(crate) fn select(&self) -> Cursor {
-        self.records
-            .read()
-            .unwrap()
-            .iter()
-            .map(|(key, value)| (key.clone(), value.clone()))
-            .collect::<Cursor>()
-    }
-
-    pub(crate) fn insert(&self, value: Value, key: Key) {
-        self.records.write().unwrap().insert(value, key);
-    }
-
-    pub(crate) fn over(&self, column_index: usize) -> bool {
-        self.column == column_index
-    }
 }
 
 #[derive(Default, Debug, Clone)]
@@ -85,10 +67,6 @@ impl InMemoryTableHandle {
 
     pub(crate) fn index(&self, index: &str) -> Arc<InMemoryIndex> {
         self.indexes.get(index).unwrap().clone()
-    }
-
-    pub(crate) fn indexes(&self) -> Vec<Arc<InMemoryIndex>> {
-        self.indexes.iter().map(|entry| entry.value().clone()).collect()
     }
 
     pub(crate) fn remove(&self, key: &Binary) -> Option<Binary> {
