@@ -14,7 +14,7 @@ data_scalar = { path = "../../data/scalar" }
 catalog = { path = "../../catalog" }
 types = { path = "../../entities/types" }
 definition = { path = "../../entities/definition" }
-pg_result = { path = "../../../postgres/pg_result" }
+query_response = { path = "../../../postgres/query_response" }
 
 bigdecimal = { version = "0.2.0", features = ["string-only"] }
 log = "0.4.14"

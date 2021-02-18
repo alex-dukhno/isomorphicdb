@@ -20,7 +20,7 @@ use crate::{
     connection::accept_client_request, pg_model::Encryption, ClientRequest, ConnSupervisor, ProtocolConfiguration,
 };
 use futures_lite::future::block_on;
-use pg_wire::{BackendMessage, Error};
+use postgres::wire_protocol::{BackendMessage, Error};
 use std::{
     io::Write,
     net::{Ipv4Addr, SocketAddr, SocketAddrV4},

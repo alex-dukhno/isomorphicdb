@@ -25,8 +25,10 @@ use data_manipulation::{
 };
 use entities::SqlType;
 use itertools::izip;
-use pg_result::{QueryError, QueryEvent};
-use pg_wire::{ColumnMetadata, PgFormat, PgType};
+use postgres::{
+    query_response::{QueryError, QueryEvent},
+    wire_protocol::{ColumnMetadata, PgFormat, PgType},
+};
 use query_analyzer::{AnalysisError, Analyzer, QueryAnalysis};
 use query_parsing::{Expr, Ident, Parser, PreparedStatementDialect, Statement, Value};
 use query_planner::QueryPlanner;
@@ -572,15 +574,15 @@ fn pad_formats(formats: &[PgFormat], param_len: usize) -> Result<Vec<PgFormat>, 
     }
 }
 
-fn value_to_expr(value: pg_wire::Value) -> Expr {
+fn value_to_expr(value: postgres::wire_protocol::Value) -> Expr {
     match value {
-        pg_wire::Value::Null => Expr::Value(Value::Null),
-        pg_wire::Value::True => Expr::Value(Value::Boolean(true)),
-        pg_wire::Value::False => Expr::Value(Value::Boolean(false)),
-        pg_wire::Value::Int16(i) => Expr::Value(Value::Number(BigDecimal::from(i), false)),
-        pg_wire::Value::Int32(i) => Expr::Value(Value::Number(BigDecimal::from(i), false)),
-        pg_wire::Value::Int64(i) => Expr::Value(Value::Number(BigDecimal::from(i), false)),
-        pg_wire::Value::String(s) => Expr::Value(Value::SingleQuotedString(s)),
+        postgres::wire_protocol::Value::Null => Expr::Value(Value::Null),
+        postgres::wire_protocol::Value::True => Expr::Value(Value::Boolean(true)),
+        postgres::wire_protocol::Value::False => Expr::Value(Value::Boolean(false)),
+        postgres::wire_protocol::Value::Int16(i) => Expr::Value(Value::Number(BigDecimal::from(i), false)),
+        postgres::wire_protocol::Value::Int32(i) => Expr::Value(Value::Number(BigDecimal::from(i), false)),
+        postgres::wire_protocol::Value::Int64(i) => Expr::Value(Value::Number(BigDecimal::from(i), false)),
+        postgres::wire_protocol::Value::String(s) => Expr::Value(Value::SingleQuotedString(s)),
     }
 }
 

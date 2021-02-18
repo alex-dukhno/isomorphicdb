@@ -14,7 +14,7 @@
 
 use super::*;
 use pg_model::Command;
-use pg_result::{QueryError, QueryEvent};
+use query_response::{QueryError, QueryEvent};
 
 #[rstest::fixture]
 fn int_table(database_with_schema: (InMemory, ResultCollector)) -> (InMemory, ResultCollector) {

@@ -6,8 +6,7 @@ edition = "2018"
 
 [dependencies]
 # POSTGRES
-pg_result = { path = "postgres/pg_result" }
-pg_wire = "0.5.0"
+postgres = { path = "postgres" }
 
 #SQL-ENGINE
 catalog = { path = "sql_engine/catalog" }
@@ -42,7 +41,7 @@ tempfile = "3.1.0"
 
 [workspace]
 members = [
-    "postgres/pg_result",
+    "postgres",
     "sql_engine/catalog",
     "sql_engine/data_definition",
     "sql_engine/data_manipulation",

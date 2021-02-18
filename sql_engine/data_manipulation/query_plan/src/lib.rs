@@ -23,7 +23,7 @@ use data_manipulation_typed_tree::{DynamicTypedTree, StaticTypedTree};
 use data_manipulation_typed_values::TypedValue;
 use data_scalar::ScalarValue;
 use definition::ColumnDef;
-use pg_result::QueryEvent;
+use query_response::QueryEvent;
 use std::collections::HashMap;
 use types::{SqlType, SqlTypeFamily};
 

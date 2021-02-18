@@ -15,8 +15,10 @@
 use super::*;
 use crate::pg_model::Command;
 use catalog::InMemoryDatabase;
-use pg_result::{QueryEvent, QueryResult};
-use pg_wire::ColumnMetadata;
+use postgres::{
+    query_response::{QueryEvent, QueryResult},
+    wire_protocol::ColumnMetadata,
+};
 use std::{
     io,
     ops::DerefMut,
