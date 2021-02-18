@@ -172,15 +172,9 @@ checksum = "631ae5198c9be5e753e5cc215e1bd73c2b466a3565173db433f52bb9d3e66dba"
 name = "catalog"
 version = "0.1.0"
 dependencies = [
- "bigdecimal",
  "dashmap",
  "data_binary",
  "data_definition_execution_plan",
- "data_manipulation_operators",
- "data_manipulation_query_result",
- "data_manipulation_typed_tree",
- "data_manipulation_typed_values",
- "data_scalar",
  "definition",
  "log",
  "rstest",

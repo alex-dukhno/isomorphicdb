@@ -14,10 +14,7 @@
 
 use data_binary::Binary;
 use data_definition_execution_plan::{ExecutionError, ExecutionOutcome, SchemaChange};
-use data_manipulation_query_result::QueryExecutionError;
-use data_manipulation_typed_tree::{DynamicTypedTree, StaticTypedTree};
-use data_scalar::ScalarValue;
-use definition::{ColumnDef, FullIndexName, FullTableName, SchemaName, TableDef};
+use definition::{FullIndexName, FullTableName, SchemaName, TableDef};
 use std::{
     fmt::{self, Debug, Formatter},
     iter::FromIterator,
@@ -104,15 +101,6 @@ pub trait SqlTable {
     fn write(&self, row: Binary);
     fn write_key(&self, key: Binary, row: Option<Binary>);
     fn scan(&self) -> Cursor;
-
-    fn insert(&self, data: Vec<Vec<Option<StaticTypedTree>>>) -> Result<usize, QueryExecutionError>;
-
-    fn select(&self, column_names: Vec<String>)
-        -> Result<(Vec<ColumnDef>, Vec<Vec<ScalarValue>>), QueryExecutionError>;
-
-    fn delete_all(&self) -> usize;
-
-    fn update(&self, assignments: Vec<Option<DynamicTypedTree>>) -> Result<usize, QueryExecutionError>;
 }
 
 pub trait Database {
