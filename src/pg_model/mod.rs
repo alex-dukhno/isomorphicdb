@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use pg_wire::{Error, PgFormat, PgType, Result};
+use postgres::wire_protocol::{Error, PgFormat, PgType, Result};
 use rand::Rng;
 use std::{
     collections::{HashMap, VecDeque},

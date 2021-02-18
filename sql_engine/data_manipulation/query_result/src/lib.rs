@@ -14,7 +14,7 @@
 
 use data_scalar::ScalarValue;
 use definition::ColumnDef;
-use pg_result::QueryError;
+use query_response::QueryError;
 
 #[derive(Debug, PartialEq)]
 pub enum QueryExecution {
@@ -80,7 +80,7 @@ impl QueryExecutionError {
     }
 }
 
-impl From<QueryExecutionError> for pg_result::QueryError {
+impl From<QueryExecutionError> for query_response::QueryError {
     fn from(error: QueryExecutionError) -> Self {
         match error {
             QueryExecutionError::SchemaDoesNotExist(schema) => QueryError::schema_does_not_exist(schema),

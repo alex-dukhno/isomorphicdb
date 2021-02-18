@@ -6,6 +6,6 @@ edition = "2018"
 publish = false
 
 [dependencies]
-pg_result = { path = "../../../postgres/pg_result" }
+query_response = { path = "../../../postgres/query_response" }
 data_scalar = { path = "../../data/scalar" }
 definition = { path = "../../entities/definition" }

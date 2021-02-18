@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use definition::{FullTableName, SchemaName};
-use pg_result::QueryError;
+use query_response::QueryError;
 use types::SqlType;
 
 #[derive(Debug, PartialEq)]

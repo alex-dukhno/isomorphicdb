@@ -283,7 +283,7 @@ name = "data_definition_execution_plan"
 version = "0.1.0"
 dependencies = [
  "definition",
- "pg_result",
+ "query_response",
  "types",
 ]
 
@@ -325,7 +325,7 @@ dependencies = [
  "data_scalar",
  "definition",
  "log",
- "pg_result",
+ "query_response",
  "types",
 ]
 
@@ -335,7 +335,7 @@ version = "0.1.0"
 dependencies = [
  "data_scalar",
  "definition",
- "pg_result",
+ "query_response",
 ]
 
 [[package]]
@@ -591,8 +591,7 @@ dependencies = [
  "futures-lite",
  "itertools",
  "log",
- "pg_result",
- "pg_wire",
+ "postgres",
  "query_analyzer",
  "query_parsing",
  "query_planner",
@@ -781,13 +780,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d4fd5641d01c8f18a23da7b6fe29298ff4b55afcccdf78973b24cf3175fee32e"
 
 [[package]]
-name = "pg_result"
-version = "0.1.0"
-dependencies = [
- "pg_wire",
-]
-
-[[package]]
 name = "pg_wire"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -825,6 +817,14 @@ dependencies = [
  "log",
  "wepoll-sys",
  "winapi",
+]
+
+[[package]]
+name = "postgres"
+version = "0.1.0"
+dependencies = [
+ "pg_wire",
+ "query_response",
 ]
 
 [[package]]
@@ -927,6 +927,13 @@ dependencies = [
  "data_manipulation_typed_values",
  "data_manipulation_untyped_tree",
  "types",
+]
+
+[[package]]
+name = "query_response"
+version = "0.1.0"
+dependencies = [
+ "pg_wire",
 ]
 
 [[package]]

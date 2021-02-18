@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use crate::pg_model::statement::{Portal, PreparedStatement};
-use pg_wire::PgFormat;
+use postgres::wire_protocol::PgFormat;
 use std::collections::HashMap;
 
 /// A `Session` holds SQL state that is attached to a session.
