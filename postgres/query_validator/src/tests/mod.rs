@@ -12,9 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-pub use query_response;
-pub use query_validator;
+use super::*;
 
-pub mod wire_protocol {
-    pub use pg_wire::*;
-}
+mod index;
+#[cfg(test)]
+mod schema;
+#[cfg(test)]
+mod table;

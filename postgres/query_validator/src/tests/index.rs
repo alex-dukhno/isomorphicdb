@@ -12,9 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-pub use query_response;
-pub use query_validator;
+use super::*;
 
-pub mod wire_protocol {
-    pub use pg_wire::*;
+#[test]
+fn create_index() {
+    let scanner = SqlStatementScanner::new("create index index_name on table_name (col_1, col_2);");
+    let processor = QueryValidator::new();
+    let statement = processor.validate(scanner);
+
+    assert_eq!(
+        statement,
+        Ok(Statement::DDL(Definition::CreateIndex {
+            name: "index_name".to_owned(),
+            table_name: ("public".to_owned(), "table_name".to_owned()),
+            column_names: vec!["col_1".to_owned(), "col_2".to_owned()]
+        }))
+    );
 }
