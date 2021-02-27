@@ -1,0 +1,137 @@
+// Copyright 2020 - present Alex Dukhno
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+use super::*;
+
+#[test]
+fn insert_int() {
+    let statement = QUERY_PARSER.parse("insert into schema_name.table_name values (123);");
+
+    assert_eq!(
+        statement,
+        Ok(Statement::DML(Manipulation::Insert(InsertStatement {
+            schema_name: "schema_name".to_owned(),
+            table_name: "table_name".to_owned(),
+            columns: vec![],
+            source: Box::new(Query {
+                body: SetExpr::Values(Values(vec![vec![Expr::Value(Value::Number(123))]]))
+            })
+        })))
+    );
+}
+
+#[test]
+fn insert_string() {
+    let statement = QUERY_PARSER.parse("insert into schema_name.table_name values ('abc');");
+
+    assert_eq!(
+        statement,
+        Ok(Statement::DML(Manipulation::Insert(InsertStatement {
+            schema_name: "schema_name".to_owned(),
+            table_name: "table_name".to_owned(),
+            columns: vec![],
+            source: Box::new(Query {
+                body: SetExpr::Values(Values(vec![vec![Expr::Value(Value::SingleQuotedString(
+                    "abc".to_owned()
+                ))]]))
+            })
+        })))
+    );
+}
+
+#[cfg(test)]
+mod bi_ops {
+    use super::*;
+
+    #[rstest::rstest(
+        expected,
+        tested,
+        case::plus(BinaryOperator::Plus, "+"),
+        case::minus(BinaryOperator::Minus, "-"),
+        case::multiply(BinaryOperator::Multiply, "*"),
+        case::divide(BinaryOperator::Divide, "/"),
+        case::modulus(BinaryOperator::Modulus, "%"),
+        case::exp(BinaryOperator::Exp, "^"),
+        case::string_concat(BinaryOperator::StringConcat, "||"),
+        case::gt(BinaryOperator::Gt, ">"),
+        case::lt(BinaryOperator::Lt, "<"),
+        case::gt_eq(BinaryOperator::GtEq, ">="),
+        case::lt_eq(BinaryOperator::LtEq, "<="),
+        case::eq(BinaryOperator::Eq, "="),
+        case::not_eq(BinaryOperator::NotEq, "<>"),
+        case::and(BinaryOperator::And, "AND"),
+        case::or(BinaryOperator::Or, "OR"),
+        case::like(BinaryOperator::Like, "LIKE"),
+        case::not_like(BinaryOperator::NotLike, "NOT LIKE"),
+        case::bitwise_or(BinaryOperator::BitwiseOr, "|"),
+        case::bitwise_and(BinaryOperator::BitwiseAnd, "&"),
+        case::bitwise_xor(BinaryOperator::BitwiseXor, "#"),
+        case::bitwise_shift_left(BinaryOperator::BitwiseShiftLeft, "<<"),
+        case::bitwise_shift_right(BinaryOperator::BitwiseShiftRight, ">>")
+    )]
+    fn insert_with_op(expected: BinaryOperator, tested: &str) {
+        let statement =
+            QUERY_PARSER.parse(format!("insert into schema_name.table_name values (123 {} 456);", tested).as_str());
+
+        assert_eq!(
+            statement,
+            Ok(Statement::DML(Manipulation::Insert(InsertStatement {
+                schema_name: "schema_name".to_owned(),
+                table_name: "table_name".to_owned(),
+                columns: vec![],
+                source: Box::new(Query {
+                    body: SetExpr::Values(Values(vec![vec![Expr::BinaryOp {
+                        left: Box::new(Expr::Value(Value::Number(123))),
+                        op: expected,
+                        right: Box::new(Expr::Value(Value::Number(456)))
+                    }]]))
+                })
+            })))
+        );
+    }
+}
+
+#[test]
+fn insert_with_columns() {
+    let statement = QUERY_PARSER.parse("insert into schema_name.table_name (col1) values (123);");
+
+    assert_eq!(
+        statement,
+        Ok(Statement::DML(Manipulation::Insert(InsertStatement {
+            schema_name: "schema_name".to_owned(),
+            table_name: "table_name".to_owned(),
+            columns: vec!["col1".to_owned()],
+            source: Box::new(Query {
+                body: SetExpr::Values(Values(vec![vec![Expr::Value(Value::Number(123))]]))
+            })
+        })))
+    );
+}
+
+#[test]
+fn insert_params() {
+    let statement = QUERY_PARSER.parse("insert into schema_name.table_name (col1) values ($1);");
+
+    assert_eq!(
+        statement,
+        Ok(Statement::DML(Manipulation::Insert(InsertStatement {
+            schema_name: "schema_name".to_owned(),
+            table_name: "table_name".to_owned(),
+            columns: vec!["col1".to_owned()],
+            source: Box::new(Query {
+                body: SetExpr::Values(Values(vec![vec![Expr::Value(Value::Param(1))]]))
+            })
+        })))
+    );
+}

@@ -12,9 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-pub use query_parser;
-pub use query_response;
+use super::*;
 
-pub mod wire_protocol {
-    pub use pg_wire::*;
+#[test]
+fn delete_from_table() {
+    let statement = QUERY_PARSER.parse("delete from schema_name.table_name;");
+
+    assert_eq!(
+        statement,
+        Ok(Statement::DML(Manipulation::Delete(DeleteStatement {
+            schema_name: "schema_name".to_owned(),
+            table_name: "table_name".to_owned(),
+            where_clause: None,
+        })))
+    );
 }

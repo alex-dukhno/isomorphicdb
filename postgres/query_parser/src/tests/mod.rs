@@ -14,8 +14,19 @@
 
 use super::*;
 
+#[cfg(test)]
+mod delete;
+#[cfg(test)]
 mod index;
+#[cfg(test)]
+mod insert;
 #[cfg(test)]
 mod schema;
 #[cfg(test)]
+mod select;
+#[cfg(test)]
 mod table;
+#[cfg(test)]
+mod update;
+
+const QUERY_PARSER: QueryParser = QueryParser::new();

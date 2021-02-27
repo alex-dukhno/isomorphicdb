@@ -1,9 +1,12 @@
 [package]
-name = "query_validator"
+name = "query_parser"
 version = "0.1.0"
 authors = ["Alex Dukhno <alex.dukhno@icloud.com>"]
 edition = "2018"
 
 [dependencies]
 postgres-parser = "0.2"
-ast = { path = "../ast" }
+query_ast = { path = "../query_ast" }
+
+[dev-dependencies]
+rstest = "0.6.4"

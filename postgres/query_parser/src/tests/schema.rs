@@ -16,9 +16,7 @@ use super::*;
 
 #[test]
 fn create_schema() {
-    let scanner = SqlStatementScanner::new("create schema schema_name;");
-    let processor = QueryValidator::new();
-    let statement = processor.validate(scanner);
+    let statement = QUERY_PARSER.parse("create schema schema_name;");
 
     assert_eq!(
         statement,
@@ -31,9 +29,7 @@ fn create_schema() {
 
 #[test]
 fn create_schema_if_not_exists() {
-    let scanner = SqlStatementScanner::new("create schema if not exists schema_name;");
-    let processor = QueryValidator::new();
-    let statement = processor.validate(scanner);
+    let statement = QUERY_PARSER.parse("create schema if not exists schema_name;");
 
     assert_eq!(
         statement,
@@ -46,9 +42,7 @@ fn create_schema_if_not_exists() {
 
 #[test]
 fn drop_schema() {
-    let scanner = SqlStatementScanner::new("drop schema schema_name;");
-    let processor = QueryValidator::new();
-    let statement = processor.validate(scanner);
+    let statement = QUERY_PARSER.parse("drop schema schema_name;");
 
     assert_eq!(
         statement,
@@ -62,9 +56,7 @@ fn drop_schema() {
 
 #[test]
 fn drop_schemas() {
-    let scanner = SqlStatementScanner::new("drop schema schema_name_1, schema_name_2;");
-    let processor = QueryValidator::new();
-    let statement = processor.validate(scanner);
+    let statement = QUERY_PARSER.parse("drop schema schema_name_1, schema_name_2;");
 
     assert_eq!(
         statement,
@@ -78,9 +70,7 @@ fn drop_schemas() {
 
 #[test]
 fn drop_schemas_cascade() {
-    let scanner = SqlStatementScanner::new("drop schema schema_name_1, schema_name_2 cascade;");
-    let processor = QueryValidator::new();
-    let statement = processor.validate(scanner);
+    let statement = QUERY_PARSER.parse("drop schema schema_name_1, schema_name_2 cascade;");
 
     assert_eq!(
         statement,
@@ -94,9 +84,7 @@ fn drop_schemas_cascade() {
 
 #[test]
 fn drop_schema_if_exists() {
-    let scanner = SqlStatementScanner::new("drop schema if exists schema_name;");
-    let processor = QueryValidator::new();
-    let statement = processor.validate(scanner);
+    let statement = QUERY_PARSER.parse("drop schema if exists schema_name;");
 
     assert_eq!(
         statement,

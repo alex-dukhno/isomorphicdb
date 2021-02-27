@@ -15,17 +15,16 @@
 use super::*;
 
 #[test]
-fn create_index() {
-    let scanner = SqlStatementScanner::new("create index index_name on table_name (col_1, col_2);");
-    let processor = QueryValidator::new();
-    let statement = processor.validate(scanner);
+fn select_all_from_table() {
+    let statement = QUERY_PARSER.parse("select * from schema_name.table_name;");
 
     assert_eq!(
         statement,
-        Ok(Statement::DDL(Definition::CreateIndex {
-            name: "index_name".to_owned(),
-            table_name: ("public".to_owned(), "table_name".to_owned()),
-            column_names: vec!["col_1".to_owned(), "col_2".to_owned()]
-        }))
+        Ok(Statement::DML(Manipulation::Select(SelectStatement {
+            select_items: vec![SelectItem::Wildcard],
+            schema_name: "schema_name".to_owned(),
+            table_name: "table_name".to_owned(),
+            where_clause: None,
+        })))
     );
 }

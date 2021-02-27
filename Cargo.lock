@@ -19,10 +19,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ast"
-version = "0.1.0"
-
-[[package]]
 name = "async-channel"
 version = "1.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -945,10 +941,10 @@ dependencies = [
 name = "postgres"
 version = "0.1.0"
 dependencies = [
- "ast",
  "pg_wire",
+ "query_ast",
+ "query_parser",
  "query_response",
- "query_validator",
 ]
 
 [[package]]
@@ -1008,6 +1004,19 @@ dependencies = [
  "simple_logger",
  "sql_ast",
  "types",
+]
+
+[[package]]
+name = "query_ast"
+version = "0.1.0"
+
+[[package]]
+name = "query_parser"
+version = "0.1.0"
+dependencies = [
+ "postgres-parser",
+ "query_ast",
+ "rstest",
 ]
 
 [[package]]
@@ -1073,14 +1082,6 @@ name = "query_response"
 version = "0.1.0"
 dependencies = [
  "pg_wire",
-]
-
-[[package]]
-name = "query_validator"
-version = "0.1.0"
-dependencies = [
- "ast",
- "postgres-parser",
 ]
 
 [[package]]

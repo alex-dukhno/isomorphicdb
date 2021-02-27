@@ -16,9 +16,7 @@ use super::*;
 
 #[test]
 fn create_ints_table() {
-    let scanner = SqlStatementScanner::new("create table table_name (col_si smallint, col_i int, col_bi bigint);");
-    let processor = QueryValidator::new();
-    let statement = processor.validate(scanner);
+    let statement = QUERY_PARSER.parse("create table table_name (col_si smallint, col_i int, col_bi bigint);");
 
     assert_eq!(
         statement,
@@ -46,7 +44,7 @@ fn create_ints_table() {
 
 #[test]
 fn create_strings_table() {
-    let scanner = SqlStatementScanner::new(
+    let statement = QUERY_PARSER.parse(
         "\
             create table schema_name.table_name (\
                 col_c char,\
@@ -60,8 +58,6 @@ fn create_strings_table() {
             );\
             ",
     );
-    let processor = QueryValidator::new();
-    let statement = processor.validate(scanner);
 
     assert_eq!(
         statement,
@@ -109,9 +105,7 @@ fn create_strings_table() {
 
 #[test]
 fn create_float_table() {
-    let scanner = SqlStatementScanner::new("create table table_name (col_r real, col_d double precision);");
-    let processor = QueryValidator::new();
-    let statement = processor.validate(scanner);
+    let statement = QUERY_PARSER.parse("create table table_name (col_r real, col_d double precision);");
 
     assert_eq!(
         statement,
@@ -135,9 +129,7 @@ fn create_float_table() {
 
 #[test]
 fn create_boolean_table() {
-    let scanner = SqlStatementScanner::new("create table table_name (col_b boolean);");
-    let processor = QueryValidator::new();
-    let statement = processor.validate(scanner);
+    let statement = QUERY_PARSER.parse("create table table_name (col_b boolean);");
 
     assert_eq!(
         statement,
@@ -155,9 +147,7 @@ fn create_boolean_table() {
 
 #[test]
 fn drop_table() {
-    let scanner = SqlStatementScanner::new("drop table table_name;");
-    let processor = QueryValidator::new();
-    let statement = processor.validate(scanner);
+    let statement = QUERY_PARSER.parse("drop table table_name;");
 
     assert_eq!(
         statement,
@@ -171,9 +161,7 @@ fn drop_table() {
 
 #[test]
 fn drop_tables() {
-    let scanner = SqlStatementScanner::new("drop table table_name_1, table_name_2;");
-    let processor = QueryValidator::new();
-    let statement = processor.validate(scanner);
+    let statement = QUERY_PARSER.parse("drop table table_name_1, table_name_2;");
 
     assert_eq!(
         statement,
@@ -190,9 +178,7 @@ fn drop_tables() {
 
 #[test]
 fn drop_table_cascade() {
-    let scanner = SqlStatementScanner::new("drop table table_name_1, table_name_2 cascade;");
-    let processor = QueryValidator::new();
-    let statement = processor.validate(scanner);
+    let statement = QUERY_PARSER.parse("drop table table_name_1, table_name_2 cascade;");
 
     assert_eq!(
         statement,
@@ -209,9 +195,7 @@ fn drop_table_cascade() {
 
 #[test]
 fn drop_table_if_exists() {
-    let scanner = SqlStatementScanner::new("drop table if exists table_name;");
-    let processor = QueryValidator::new();
-    let statement = processor.validate(scanner);
+    let statement = QUERY_PARSER.parse("drop table if exists table_name;");
 
     assert_eq!(
         statement,
