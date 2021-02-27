@@ -12,9 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use postgres_parser::sys::{LimitOption, SetOperation};
-use postgres_parser::{nodes, sys};
-use postgres_parser::{Node, SqlStatementScanner};
+use postgres_parser::{
+    nodes, sys,
+    sys::{LimitOption, SetOperation},
+    Node, SqlStatementScanner,
+};
 use query_ast::{
     Assignment, BinaryOperator, ColumnDef, DataType, Definition, DeleteStatement, Expr, InsertStatement, Manipulation,
     Query, SelectItem, SelectStatement, SetExpr, Statement, UpdateStatement, Value, Values,
@@ -27,6 +29,7 @@ impl QueryParser {
         QueryParser
     }
 
+    #[allow(clippy::result_unit_err)]
     pub fn parse(&self, sql: &str) -> Result<Statement, ()> {
         for scanned_query in SqlStatementScanner::new(sql).into_iter() {
             match scanned_query.parsetree.unwrap().unwrap() {
@@ -177,17 +180,17 @@ impl QueryParser {
                 Node::InsertStmt(nodes::InsertStmt {
                     relation,
                     cols,
-                    selectStmt,
-                    onConflictClause,
-                    returningList,
-                    withClause,
-                    override_,
+                    selectStmt: select_statement,
+                    onConflictClause: _on_conflict_clause,
+                    returningList: _return_list,
+                    withClause: _with_clause,
+                    override_: _override,
                 }) => {
                     let relation = relation.unwrap();
                     let schema_name = relation.schemaname.unwrap_or_else(|| "public".to_owned());
                     let table_name = relation.relname.unwrap();
                     let mut columns = vec![];
-                    for col in cols.unwrap_or_else(|| vec![]) {
+                    for col in cols.unwrap_or_else(Vec::new) {
                         println!("COL {:?}", col);
                         match col {
                             Node::ResTarget(nodes::ResTarget {
@@ -198,9 +201,9 @@ impl QueryParser {
                             _ => unimplemented!(),
                         }
                     }
-                    println!("SELECT STMT - {:?}", selectStmt);
+                    println!("SELECT STMT - {:?}", select_statement);
                     let mut values = vec![];
-                    if let Some(stmt) = selectStmt {
+                    if let Some(stmt) = select_statement {
                         if let Node::SelectStmt(nodes::SelectStmt {
                             valuesLists: Some(lists),
                             ..
@@ -299,12 +302,10 @@ impl QueryParser {
                     for target in target_list.unwrap() {
                         println!("{:?}", target);
                         match target {
-                            Node::ResTarget(nodes::ResTarget { name, indirection, val }) => {
-                                assignments.push(Assignment {
-                                    column: name.unwrap(),
-                                    value: self.parse_expr(*val.unwrap()),
-                                })
-                            }
+                            Node::ResTarget(nodes::ResTarget { name, val, .. }) => assignments.push(Assignment {
+                                column: name.unwrap(),
+                                value: self.parse_expr(*val.unwrap()),
+                            }),
                             _ => unimplemented!(),
                         }
                     }
