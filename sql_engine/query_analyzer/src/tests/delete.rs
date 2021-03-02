@@ -14,19 +14,20 @@
 
 use super::*;
 
-fn delete_statement(table_name: Vec<&'static str>) -> sql_ast::Statement {
-    sql_ast::Statement::Delete {
-        table_name: sql_ast::ObjectName(table_name.into_iter().map(ident).collect()),
-        selection: None,
-    }
+fn delete_statement(schema_name: &str, table_name: &str) -> Query {
+    Query::Delete(DeleteStatement {
+        schema_name: schema_name.to_owned(),
+        table_name: table_name.to_owned(),
+        where_clause: None,
+    })
 }
 
 #[test]
 fn delete_from_table_that_in_nonexistent_schema() {
-    let analyzer = Analyzer::new(InMemoryDatabase::new());
+    let analyzer = QueryAnalyzer::new(InMemoryDatabase::new());
 
     assert_eq!(
-        analyzer.analyze(delete_statement(vec!["non_existent_schema", TABLE])),
+        analyzer.analyze(delete_statement("non_existent_schema", TABLE)),
         Err(AnalysisError::schema_does_not_exist(&"non_existent_schema"))
     );
 }
@@ -35,30 +36,14 @@ fn delete_from_table_that_in_nonexistent_schema() {
 fn delete_from_nonexistent_table() {
     let database = InMemoryDatabase::new();
     database.execute(create_schema_ops(SCHEMA)).unwrap();
-    let analyzer = Analyzer::new(database);
+    let analyzer = QueryAnalyzer::new(database);
 
     assert_eq!(
-        analyzer.analyze(delete_statement(vec![SCHEMA, "non_existent_table"])),
+        analyzer.analyze(delete_statement(SCHEMA, "non_existent_table")),
         Err(AnalysisError::table_does_not_exist(format!(
             "{}.{}",
             SCHEMA, "non_existent_table"
         )))
-    );
-}
-
-#[test]
-fn delete_from_table_with_unsupported_name() {
-    let analyzer = Analyzer::new(InMemoryDatabase::new());
-    assert_eq!(
-        analyzer.analyze(delete_statement(vec![
-            "first_part",
-            "second_part",
-            "third_part",
-            "fourth_part"
-        ])),
-        Err(AnalysisError::table_naming_error(
-            &"Unable to process table name 'first_part.second_part.third_part.fourth_part'",
-        ))
     );
 }
 
@@ -69,14 +54,11 @@ fn delete_all_from_table() {
     database
         .execute(create_table_ops(SCHEMA, TABLE, vec![("col1", SqlType::integer())]))
         .unwrap();
-    let analyzer = Analyzer::new(database);
+    let analyzer = QueryAnalyzer::new(database);
     assert_eq!(
-        analyzer.analyze(sql_ast::Statement::Delete {
-            table_name: sql_ast::ObjectName(vec![ident(SCHEMA), ident(TABLE)]),
-            selection: None
-        }),
-        Ok(QueryAnalysis::DML(UntypedQuery::Delete(UntypedDeleteQuery {
+        analyzer.analyze(delete_statement(SCHEMA, TABLE)),
+        Ok(UntypedQuery::Delete(UntypedDeleteQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-        })))
+        }))
     );
 }

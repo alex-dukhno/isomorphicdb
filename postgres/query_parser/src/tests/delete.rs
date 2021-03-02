@@ -16,14 +16,14 @@ use super::*;
 
 #[test]
 fn delete_from_table() {
-    let statement = QUERY_PARSER.parse("delete from schema_name.table_name;");
+    let statements = QUERY_PARSER.parse("delete from schema_name.table_name;");
 
     assert_eq!(
-        statement,
-        Ok(Statement::DML(Manipulation::Delete(DeleteStatement {
+        statements,
+        Ok(vec![Statement::DML(Query::Delete(DeleteStatement {
             schema_name: "schema_name".to_owned(),
             table_name: "table_name".to_owned(),
             where_clause: None,
-        })))
+        }))])
     );
 }

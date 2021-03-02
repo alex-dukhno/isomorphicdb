@@ -669,3 +669,22 @@ mod absolute_value {
         );
     }
 }
+
+#[cfg(test)]
+mod cast {
+    use super::*;
+
+    #[test]
+    fn string_to_boolean() {
+        assert_eq!(
+            StaticTypedTree::UnOp {
+                op: UnOperator::Cast(SqlTypeFamily::Bool),
+                item: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::String(
+                    "true".to_owned()
+                ))))
+            }
+            .eval(),
+            Ok(TypedValue::Bool(true))
+        );
+    }
+}

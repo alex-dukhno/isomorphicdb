@@ -3,10 +3,13 @@ name = "query_parser"
 version = "0.1.0"
 authors = ["Alex Dukhno <alex.dukhno@icloud.com>"]
 edition = "2018"
+publish = false
 
 [dependencies]
-postgres-parser = "0.2"
 query_ast = { path = "../query_ast" }
+query_response = { path = "../query_response" }
+
+postgres-parser = "0.2"
 
 [dev-dependencies]
 rstest = "0.6.4"

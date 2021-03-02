@@ -14,13 +14,13 @@
 
 use super::*;
 
-fn insert_statement(full_name: Vec<&'static str>) -> sql_ast::Statement {
-    insert_with_values(full_name, vec![])
+fn insert_statement(schema_name: &str, table_name: &str) -> Query {
+    insert_with_values(schema_name, table_name, vec![])
 }
 
 #[test]
 fn schema_does_not_exist() {
-    let analyzer = Analyzer::new(InMemoryDatabase::new());
+    let analyzer = QueryAnalyzer::new(InMemoryDatabase::new());
 
     assert_eq!(
         analyzer.analyze(insert_statement(vec![SCHEMA, TABLE])),
@@ -32,7 +32,7 @@ fn schema_does_not_exist() {
 fn table_does_not_exist() {
     let database = InMemoryDatabase::new();
     database.execute(create_schema_ops(SCHEMA)).unwrap();
-    let analyzer = Analyzer::new(database);
+    let analyzer = QueryAnalyzer::new(database);
 
     assert_eq!(
         analyzer.analyze(insert_statement(vec![SCHEMA, TABLE])),
@@ -42,7 +42,7 @@ fn table_does_not_exist() {
 
 #[test]
 fn table_with_unqualified_name() {
-    let analyzer = Analyzer::new(InMemoryDatabase::new());
+    let analyzer = QueryAnalyzer::new(InMemoryDatabase::new());
     assert_eq!(
         analyzer.analyze(insert_statement(vec!["only_table_in_the_name"])),
         Err(AnalysisError::table_does_not_exist(&"only_table_in_the_name"))
@@ -51,7 +51,7 @@ fn table_with_unqualified_name() {
 
 #[test]
 fn table_with_unsupported_name() {
-    let analyzer = Analyzer::new(InMemoryDatabase::new());
+    let analyzer = QueryAnalyzer::new(InMemoryDatabase::new());
     assert_eq!(
         analyzer.analyze(insert_statement(vec![
             "first_part",
@@ -72,7 +72,7 @@ fn with_column_names() {
     database
         .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
         .unwrap();
-    let analyzer = Analyzer::new(database);
+    let analyzer = QueryAnalyzer::new(database);
 
     assert_eq!(
         analyzer.analyze(inner_insert(
@@ -96,7 +96,7 @@ fn column_not_found() {
     database
         .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
         .unwrap();
-    let analyzer = Analyzer::new(database);
+    let analyzer = QueryAnalyzer::new(database);
 
     assert_eq!(
         analyzer.analyze(inner_insert(

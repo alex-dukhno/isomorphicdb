@@ -16,11 +16,11 @@ use super::*;
 
 #[test]
 fn create_ints_table() {
-    let statement = QUERY_PARSER.parse("create table table_name (col_si smallint, col_i int, col_bi bigint);");
+    let statements = QUERY_PARSER.parse("create table table_name (col_si smallint, col_i int, col_bi bigint);");
 
     assert_eq!(
-        statement,
-        Ok(Statement::DDL(Definition::CreateTable {
+        statements,
+        Ok(vec![Statement::DDL(Definition::CreateTable {
             if_not_exists: false,
             schema_name: "public".to_owned(),
             table_name: "table_name".to_owned(),
@@ -38,13 +38,13 @@ fn create_ints_table() {
                     data_type: DataType::BigInt,
                 }
             ],
-        }))
+        })])
     );
 }
 
 #[test]
 fn create_strings_table() {
-    let statement = QUERY_PARSER.parse(
+    let statements = QUERY_PARSER.parse(
         "\
             create table schema_name.table_name (\
                 col_c char,\
@@ -60,8 +60,8 @@ fn create_strings_table() {
     );
 
     assert_eq!(
-        statement,
-        Ok(Statement::DDL(Definition::CreateTable {
+        statements,
+        Ok(vec![Statement::DDL(Definition::CreateTable {
             if_not_exists: false,
             schema_name: "schema_name".to_owned(),
             table_name: "table_name".to_owned(),
@@ -99,17 +99,17 @@ fn create_strings_table() {
                     data_type: DataType::VarChar(Some(255)),
                 }
             ],
-        }))
+        })])
     );
 }
 
 #[test]
 fn create_float_table() {
-    let statement = QUERY_PARSER.parse("create table table_name (col_r real, col_d double precision);");
+    let statements = QUERY_PARSER.parse("create table table_name (col_r real, col_d double precision);");
 
     assert_eq!(
-        statement,
-        Ok(Statement::DDL(Definition::CreateTable {
+        statements,
+        Ok(vec![Statement::DDL(Definition::CreateTable {
             if_not_exists: false,
             schema_name: "public".to_owned(),
             table_name: "table_name".to_owned(),
@@ -123,17 +123,17 @@ fn create_float_table() {
                     data_type: DataType::Double,
                 }
             ],
-        }))
+        })])
     );
 }
 
 #[test]
 fn create_boolean_table() {
-    let statement = QUERY_PARSER.parse("create table table_name (col_b boolean);");
+    let statements = QUERY_PARSER.parse("create table table_name (col_b boolean);");
 
     assert_eq!(
-        statement,
-        Ok(Statement::DDL(Definition::CreateTable {
+        statements,
+        Ok(vec![Statement::DDL(Definition::CreateTable {
             if_not_exists: false,
             schema_name: "public".to_owned(),
             table_name: "table_name".to_owned(),
@@ -141,68 +141,68 @@ fn create_boolean_table() {
                 name: "col_b".to_owned(),
                 data_type: DataType::Bool,
             }],
-        }))
+        })])
     );
 }
 
 #[test]
 fn drop_table() {
-    let statement = QUERY_PARSER.parse("drop table table_name;");
+    let statements = QUERY_PARSER.parse("drop table table_name;");
 
     assert_eq!(
-        statement,
-        Ok(Statement::DDL(Definition::DropTables {
+        statements,
+        Ok(vec![Statement::DDL(Definition::DropTables {
             names: vec![("public".to_owned(), "table_name".to_owned())],
             if_exists: false,
             cascade: false
-        }))
+        })])
     );
 }
 
 #[test]
 fn drop_tables() {
-    let statement = QUERY_PARSER.parse("drop table table_name_1, table_name_2;");
+    let statements = QUERY_PARSER.parse("drop table table_name_1, table_name_2;");
 
     assert_eq!(
-        statement,
-        Ok(Statement::DDL(Definition::DropTables {
+        statements,
+        Ok(vec![Statement::DDL(Definition::DropTables {
             names: vec![
                 ("public".to_owned(), "table_name_1".to_owned()),
                 ("public".to_owned(), "table_name_2".to_owned())
             ],
             if_exists: false,
             cascade: false
-        }))
+        })])
     );
 }
 
 #[test]
 fn drop_table_cascade() {
-    let statement = QUERY_PARSER.parse("drop table table_name_1, table_name_2 cascade;");
+    let statements = QUERY_PARSER.parse("drop table table_name_1, table_name_2 cascade;");
 
     assert_eq!(
-        statement,
-        Ok(Statement::DDL(Definition::DropTables {
+        statements,
+        Ok(vec![Statement::DDL(Definition::DropTables {
             names: vec![
                 ("public".to_owned(), "table_name_1".to_owned()),
                 ("public".to_owned(), "table_name_2".to_owned())
             ],
             if_exists: false,
             cascade: true
-        }))
+        })])
     );
 }
 
 #[test]
 fn drop_table_if_exists() {
-    let statement = QUERY_PARSER.parse("drop table if exists table_name;");
+    let statements = QUERY_PARSER.parse("drop table if exists table_name;");
 
     assert_eq!(
-        statement,
-        Ok(Statement::DDL(Definition::DropTables {
+        statements,
+        Ok(vec![Statement::DDL(Definition::DropTables {
             names: vec![("public".to_owned(), "table_name".to_owned())],
             if_exists: true,
             cascade: false
-        }))
+        })])
     );
 }

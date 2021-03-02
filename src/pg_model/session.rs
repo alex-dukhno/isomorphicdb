@@ -47,6 +47,7 @@ impl<S> Session<S> {
     }
 
     /// remove `PreparedStatement` by its name
+    #[allow(dead_code)]
     pub fn remove_prepared_statement(&mut self, name: &str) {
         self.prepared_statements.remove(name);
     }

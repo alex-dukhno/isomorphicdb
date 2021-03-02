@@ -12,15 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use postgres_parser::{
-    nodes, sys,
-    sys::{LimitOption, SetOperation},
-    Node, SqlStatementScanner,
-};
+use postgres_parser::{nodes, sys, Node, PgParserError, SqlStatementScanner};
 use query_ast::{
-    Assignment, BinaryOperator, ColumnDef, DataType, Definition, DeleteStatement, Expr, InsertStatement, Manipulation,
-    Query, SelectItem, SelectStatement, SetExpr, Statement, UpdateStatement, Value, Values,
+    Assignment, BinaryOperator, ColumnDef, DataType, Definition, DeleteStatement, Expr, InsertSource, InsertStatement,
+    Query, SelectItem, SelectStatement, Set, Statement, UpdateStatement, Value, Values,
 };
+use query_response::QueryError;
+use std::fmt::{self, Display, Formatter};
 
 pub struct QueryParser;
 
@@ -29,24 +27,22 @@ impl QueryParser {
         QueryParser
     }
 
-    #[allow(clippy::result_unit_err)]
-    pub fn parse(&self, sql: &str) -> Result<Statement, ()> {
+    pub fn parse(&self, sql: &str) -> Result<Vec<Statement>, ParserError> {
+        let mut statements = vec![];
         for scanned_query in SqlStatementScanner::new(sql).into_iter() {
-            match scanned_query.parsetree.unwrap().unwrap() {
-                Node::CreateSchemaStmt(nodes::CreateSchemaStmt {
+            match scanned_query.parsetree {
+                Err(error) => return Err(ParserError::from(error)),
+                Ok(None) => unimplemented!(),
+                Ok(Some(Node::CreateSchemaStmt(nodes::CreateSchemaStmt {
                     schemaname: schema_name,
                     authrole: _auth_role,
                     schemaElts: _schema_elements,
                     if_not_exists,
-                }) => {
-                    return Ok(Statement::DDL(Definition::CreateSchema {
-                        schema_name: schema_name.unwrap(),
-                        if_not_exists,
-                    }))
-                }
-                Node::CreateSeqStmt(_) => {}
-                Node::CreateStatsStmt(_) => {}
-                Node::CreateStmt(nodes::CreateStmt {
+                }))) => statements.push(Statement::DDL(Definition::CreateSchema {
+                    schema_name: schema_name.unwrap(),
+                    if_not_exists,
+                })),
+                Ok(Some(Node::CreateStmt(nodes::CreateStmt {
                     relation: table_name,
                     tableElts: table_elements,
                     inhRelations: _inheritance_tables,
@@ -59,26 +55,26 @@ impl QueryParser {
                     tablespacename: _table_space_name,
                     accessMethod: _access_method,
                     if_not_exists,
-                }) => {
+                }))) => {
                     let mut columns = vec![];
-                    for table_element in table_elements.unwrap() {
-                        columns.push(self.process_column(table_element)?);
+                    for table_element in table_elements.unwrap_or_else(Vec::new) {
+                        columns.push(self.process_column(table_element));
                     }
                     let table_name = table_name.unwrap();
-                    return Ok(Statement::DDL(Definition::CreateTable {
+                    statements.push(Statement::DDL(Definition::CreateTable {
                         if_not_exists,
                         schema_name: table_name.schemaname.unwrap_or_else(|| "public".to_owned()),
                         table_name: table_name.relname.unwrap(),
                         columns,
                     }));
                 }
-                Node::DropStmt(nodes::DropStmt {
+                Ok(Some(Node::DropStmt(nodes::DropStmt {
                     objects,
                     removeType: remove_type,
                     behavior,
                     missing_ok,
                     concurrent: _concurrent,
-                }) => {
+                }))) => {
                     match remove_type {
                         sys::ObjectType::OBJECT_SCHEMA => {
                             let mut names = vec![];
@@ -89,7 +85,7 @@ impl QueryParser {
                                     _ => unimplemented!(),
                                 }
                             }
-                            return Ok(Statement::DDL(Definition::DropSchemas {
+                            statements.push(Statement::DDL(Definition::DropSchemas {
                                 names,
                                 if_exists: missing_ok,
                                 cascade: behavior == sys::DropBehavior::DROP_CASCADE,
@@ -125,7 +121,7 @@ impl QueryParser {
                                     _ => unimplemented!(),
                                 }
                             }
-                            return Ok(Statement::DDL(Definition::DropTables {
+                            statements.push(Statement::DDL(Definition::DropTables {
                                 names,
                                 if_exists: missing_ok,
                                 cascade: behavior == sys::DropBehavior::DROP_CASCADE,
@@ -134,7 +130,7 @@ impl QueryParser {
                         _ => unimplemented!(),
                     };
                 }
-                Node::IndexStmt(nodes::IndexStmt {
+                Ok(Some(Node::IndexStmt(nodes::IndexStmt {
                     idxname: index_name,
                     relation: table_name,
                     accessMethod: _access_method,
@@ -158,26 +154,26 @@ impl QueryParser {
                     concurrent: _concurrent,
                     if_not_exists: _if_not_exists,
                     reset_default_tblspc: _reset_default_table_space,
-                }) => {
+                }))) => {
                     let mut column_names = vec![];
                     for index_param in index_params.unwrap() {
                         println!("INDEX PARAM - {:?}", index_param);
                         match index_param {
-                            Node::IndexElem(nodes::IndexElem { name: Some(name), .. }) => column_names.push(name),
+                            Node::IndexElem(nodes::IndexElem { name: Some(name), .. }) => {
+                                column_names.push(name.to_lowercase())
+                            }
                             _ => unimplemented!(),
                         }
                     }
                     let table_name = table_name.unwrap();
-                    return Ok(Statement::DDL(Definition::CreateIndex {
+                    statements.push(Statement::DDL(Definition::CreateIndex {
                         name: index_name.unwrap(),
-                        table_name: (
-                            table_name.schemaname.unwrap_or_else(|| "public".to_owned()),
-                            table_name.relname.unwrap(),
-                        ),
+                        schema_name: table_name.schemaname.unwrap_or_else(|| "public".to_owned()),
+                        table_name: table_name.relname.unwrap(),
                         column_names,
                     }));
                 }
-                Node::InsertStmt(nodes::InsertStmt {
+                Ok(Some(Node::InsertStmt(nodes::InsertStmt {
                     relation,
                     cols,
                     selectStmt: select_statement,
@@ -185,7 +181,7 @@ impl QueryParser {
                     returningList: _return_list,
                     withClause: _with_clause,
                     override_: _override,
-                }) => {
+                }))) => {
                     let relation = relation.unwrap();
                     let schema_name = relation.schemaname.unwrap_or_else(|| "public".to_owned());
                     let table_name = relation.relname.unwrap();
@@ -222,16 +218,14 @@ impl QueryParser {
                             unimplemented!()
                         }
                     }
-                    return Ok(Statement::DML(Manipulation::Insert(InsertStatement {
+                    statements.push(Statement::DML(Query::Insert(InsertStatement {
                         schema_name,
                         table_name,
                         columns,
-                        source: Box::new(Query {
-                            body: SetExpr::Values(Values(values)),
-                        }),
+                        source: InsertSource::Values(Values(values)),
                     })));
                 }
-                Node::SelectStmt(nodes::SelectStmt {
+                Ok(Some(Node::SelectStmt(nodes::SelectStmt {
                     distinctClause: None,
                     intoClause: None,
                     targetList: target_list,
@@ -244,14 +238,14 @@ impl QueryParser {
                     sortClause: None,
                     limitOffset: None,
                     limitCount: None,
-                    limitOption: LimitOption::LIMIT_OPTION_COUNT,
+                    limitOption: sys::LimitOption::LIMIT_OPTION_COUNT,
                     lockingClause: None,
                     withClause: None,
-                    op: SetOperation::SETOP_NONE,
+                    op: sys::SetOperation::SETOP_NONE,
                     all: false,
                     larg: None,
                     rarg: None,
-                }) => {
+                }))) => {
                     println!("TARGET LIST {:?}", target_list);
                     let mut select_items = vec![];
                     for target in target_list.unwrap() {
@@ -263,6 +257,9 @@ impl QueryParser {
                                     for field in fields {
                                         match field {
                                             Node::A_Star(_) => select_items.push(SelectItem::Wildcard),
+                                            Node::Value(nodes::Value {
+                                                string: Some(col_name), ..
+                                            }) => select_items.push(SelectItem::UnnamedExpr(Expr::Column(col_name))),
                                             _ => unimplemented!(),
                                         }
                                     }
@@ -280,21 +277,21 @@ impl QueryParser {
                         })) => (schema_name.unwrap(), table_name.unwrap()),
                         _ => unimplemented!(),
                     };
-                    return Ok(Statement::DML(Manipulation::Select(SelectStatement {
+                    statements.push(Statement::DML(Query::Select(SelectStatement {
                         select_items,
                         schema_name,
                         table_name,
                         where_clause: None,
                     })));
                 }
-                Node::UpdateStmt(nodes::UpdateStmt {
+                Ok(Some(Node::UpdateStmt(nodes::UpdateStmt {
                     relation,
                     targetList: target_list,
                     whereClause: None,
                     fromClause: None,
                     returningList: None,
                     withClause: None,
-                }) => {
+                }))) => {
                     let relation = relation.unwrap();
                     let schema_name = relation.schemaname.unwrap_or_else(|| "public".to_owned());
                     let table_name = relation.relname.unwrap();
@@ -303,81 +300,87 @@ impl QueryParser {
                         println!("{:?}", target);
                         match target {
                             Node::ResTarget(nodes::ResTarget { name, val, .. }) => assignments.push(Assignment {
-                                column: name.unwrap(),
+                                column: name.unwrap().to_lowercase(),
                                 value: self.parse_expr(*val.unwrap()),
                             }),
                             _ => unimplemented!(),
                         }
                     }
-                    return Ok(Statement::DML(Manipulation::Update(UpdateStatement {
+                    statements.push(Statement::DML(Query::Update(UpdateStatement {
                         schema_name,
                         table_name,
                         assignments,
                         where_clause: None,
                     })));
                 }
-                Node::DeleteStmt(nodes::DeleteStmt {
+                Ok(Some(Node::DeleteStmt(nodes::DeleteStmt {
                     relation,
                     usingClause: None,
                     whereClause: None,
                     returningList: None,
                     withClause: None,
-                }) => {
+                }))) => {
                     let relation = relation.unwrap();
                     let schema_name = relation.schemaname.unwrap_or_else(|| "public".to_owned());
                     let table_name = relation.relname.unwrap();
-                    return Ok(Statement::DML(Manipulation::Delete(DeleteStatement {
+                    statements.push(Statement::DML(Query::Delete(DeleteStatement {
                         schema_name,
                         table_name,
                         where_clause: None,
                     })));
                 }
-                node => unimplemented!("NODE is not processed {:?}", node),
+                Ok(Some(Node::VariableSetStmt(nodes::VariableSetStmt { name, .. }))) => {
+                    statements.push(Statement::Config(Set {
+                        variable: name.unwrap(),
+                        value: "value".to_owned(),
+                    }))
+                }
+                Ok(Some(node)) => unimplemented!("NODE is not processed {:?}", node),
             }
         }
-        Err(())
+        Ok(statements)
     }
 
-    fn process_column(&self, node: Node) -> Result<ColumnDef, ()> {
+    fn process_column(&self, node: Node) -> ColumnDef {
         if let Node::ColumnDef(column_def) = node {
-            let data_type = self.process_type(*column_def.typeName.unwrap())?;
-            Ok(ColumnDef {
-                name: column_def.colname.unwrap(),
+            let data_type = self.process_type(*column_def.typeName.unwrap());
+            ColumnDef {
+                name: column_def.colname.unwrap().to_lowercase(),
                 data_type,
-            })
+            }
         } else {
-            Err(())
+            unimplemented!()
         }
     }
 
-    fn process_type(&self, type_name: nodes::TypeName) -> Result<DataType, ()> {
+    fn process_type(&self, type_name: nodes::TypeName) -> DataType {
         println!("TYPE NAME {:#?}", type_name);
         let name = type_name.names.unwrap();
         let mode = type_name.typmods;
         match &name[1] {
-            Node::Value(nodes::Value { string, .. }) if string.as_deref() == Some("int2") => Ok(DataType::SmallInt),
-            Node::Value(nodes::Value { string, .. }) if string.as_deref() == Some("int4") => Ok(DataType::Int),
-            Node::Value(nodes::Value { string, .. }) if string.as_deref() == Some("int8") => Ok(DataType::BigInt),
-            Node::Value(nodes::Value { string, .. }) if string.as_deref() == Some("float4") => Ok(DataType::Real),
-            Node::Value(nodes::Value { string, .. }) if string.as_deref() == Some("float8") => Ok(DataType::Double),
-            Node::Value(nodes::Value { string, .. }) if string.as_deref() == Some("bool") => Ok(DataType::Bool),
+            Node::Value(nodes::Value { string, .. }) if string.as_deref() == Some("int2") => DataType::SmallInt,
+            Node::Value(nodes::Value { string, .. }) if string.as_deref() == Some("int4") => DataType::Int,
+            Node::Value(nodes::Value { string, .. }) if string.as_deref() == Some("int8") => DataType::BigInt,
+            Node::Value(nodes::Value { string, .. }) if string.as_deref() == Some("float4") => DataType::Real,
+            Node::Value(nodes::Value { string, .. }) if string.as_deref() == Some("float8") => DataType::Double,
+            Node::Value(nodes::Value { string, .. }) if string.as_deref() == Some("bool") => DataType::Bool,
             Node::Value(nodes::Value { string, .. }) if string.as_deref() == Some("bpchar") => {
                 match mode.as_ref().map(|inner| &inner[0]) {
                     Some(&Node::A_Const(nodes::A_Const {
                         val: nodes::Value { int: None, .. },
-                    })) => Ok(DataType::Char(1)),
+                    })) => DataType::Char(1),
                     Some(&Node::A_Const(nodes::A_Const {
                         val: nodes::Value { int: Some(len), .. },
-                    })) => Ok(DataType::Char(len as u32)),
+                    })) => DataType::Char(len as u32),
                     _ => unimplemented!(),
                 }
             }
             Node::Value(nodes::Value { string, .. }) if string.as_deref() == Some("varchar") => {
                 match mode.as_ref().map(|inner| &inner[0]) {
-                    None => Ok(DataType::VarChar(None)),
+                    None => DataType::VarChar(None),
                     Some(&Node::A_Const(nodes::A_Const {
                         val: nodes::Value { int: Some(len), .. },
-                    })) => Ok(DataType::VarChar(Some(len as u32))),
+                    })) => DataType::VarChar(Some(len as u32)),
                     _ => unimplemented!(),
                 }
             }
@@ -479,14 +482,30 @@ impl QueryParser {
                 }
             }
             Node::A_Const(nodes::A_Const {
-                val: nodes::Value { int: Some(num), .. },
+                val: nodes::Value { int: Some(int), .. },
+            }) => Expr::Value(Value::Int(int)),
+            Node::A_Const(nodes::A_Const {
+                val: nodes::Value { float: Some(num), .. },
             }) => Expr::Value(Value::Number(num)),
             Node::A_Const(nodes::A_Const {
                 val: nodes::Value {
                     string: Some(value), ..
                 },
-            }) => Expr::Value(Value::SingleQuotedString(value)),
+            }) => Expr::Value(Value::String(value)),
             Node::ParamRef(nodes::ParamRef { number }) => Expr::Value(Value::Param(number as u32)),
+            Node::ColumnRef(nodes::ColumnRef {
+                fields: Some(mut values),
+            }) => match values.pop() {
+                Some(Node::Value(nodes::Value { string: Some(name), .. })) => Expr::Column(name.to_lowercase()),
+                _ => unimplemented!(),
+            },
+            Node::TypeCast(nodes::TypeCast {
+                arg: Some(expr),
+                typeName: Some(type_name),
+            }) => Expr::Cast {
+                expr: Box::new(self.parse_expr(*expr)),
+                data_type: self.process_type(*type_name),
+            },
             _ => unimplemented!(),
         }
     }
@@ -497,12 +516,35 @@ impl QueryParser {
                 val: nodes::Value {
                     string: Some(value), ..
                 },
-            } => Expr::Value(Value::SingleQuotedString(value)),
+            } => Expr::Value(Value::String(value)),
             nodes::A_Const {
                 val: nodes::Value { int: Some(value), .. },
-            } => Expr::Value(Value::Number(value)),
+            } => Expr::Value(Value::Int(value)),
             _ => unimplemented!(),
         }
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct ParserError {
+    error: PgParserError,
+}
+
+impl From<PgParserError> for ParserError {
+    fn from(error: PgParserError) -> ParserError {
+        ParserError { error }
+    }
+}
+
+impl From<ParserError> for QueryError {
+    fn from(error: ParserError) -> QueryError {
+        QueryError::syntax_error(error)
+    }
+}
+
+impl Display for ParserError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{:?}", self.error)
     }
 }
 

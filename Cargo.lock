@@ -462,6 +462,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "definition_planner"
+version = "0.1.0"
+dependencies = [
+ "catalog",
+ "data_definition_execution_plan",
+ "definition",
+ "query_ast",
+ "query_response",
+ "types",
+]
+
+[[package]]
 name = "either"
 version = "1.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -673,6 +685,7 @@ dependencies = [
  "catalog",
  "data_definition",
  "data_manipulation",
+ "definition_planner",
  "entities",
  "futures-lite",
  "itertools",
@@ -1001,8 +1014,9 @@ dependencies = [
  "data_manipulation_untyped_tree",
  "definition",
  "log",
+ "query_ast",
+ "query_response",
  "simple_logger",
- "sql_ast",
  "types",
 ]
 
@@ -1016,6 +1030,7 @@ version = "0.1.0"
 dependencies = [
  "postgres-parser",
  "query_ast",
+ "query_response",
  "rstest",
 ]
 
@@ -1476,8 +1491,8 @@ name = "types"
 version = "0.1.0"
 dependencies = [
  "pg_wire",
+ "query_ast",
  "rstest",
- "sql_ast",
 ]
 
 [[package]]

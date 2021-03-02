@@ -16,82 +16,82 @@ use super::*;
 
 #[test]
 fn create_schema() {
-    let statement = QUERY_PARSER.parse("create schema schema_name;");
+    let statements = QUERY_PARSER.parse("create schema schema_name;");
 
     assert_eq!(
-        statement,
-        Ok(Statement::DDL(Definition::CreateSchema {
+        statements,
+        Ok(vec![Statement::DDL(Definition::CreateSchema {
             schema_name: "schema_name".to_owned(),
             if_not_exists: false
-        }))
+        })])
     );
 }
 
 #[test]
 fn create_schema_if_not_exists() {
-    let statement = QUERY_PARSER.parse("create schema if not exists schema_name;");
+    let statements = QUERY_PARSER.parse("create schema if not exists schema_name;");
 
     assert_eq!(
-        statement,
-        Ok(Statement::DDL(Definition::CreateSchema {
+        statements,
+        Ok(vec![Statement::DDL(Definition::CreateSchema {
             schema_name: "schema_name".to_owned(),
             if_not_exists: true
-        }))
+        })])
     );
 }
 
 #[test]
 fn drop_schema() {
-    let statement = QUERY_PARSER.parse("drop schema schema_name;");
+    let statements = QUERY_PARSER.parse("drop schema schema_name;");
 
     assert_eq!(
-        statement,
-        Ok(Statement::DDL(Definition::DropSchemas {
+        statements,
+        Ok(vec![Statement::DDL(Definition::DropSchemas {
             names: vec!["schema_name".to_owned()],
             if_exists: false,
             cascade: false
-        }))
+        })])
     );
 }
 
 #[test]
 fn drop_schemas() {
-    let statement = QUERY_PARSER.parse("drop schema schema_name_1, schema_name_2;");
+    let statements = QUERY_PARSER.parse("drop schema schema_name_1, schema_name_2;");
 
     assert_eq!(
-        statement,
-        Ok(Statement::DDL(Definition::DropSchemas {
+        statements,
+        Ok(vec![Statement::DDL(Definition::DropSchemas {
             names: vec!["schema_name_1".to_owned(), "schema_name_2".to_owned()],
             if_exists: false,
             cascade: false
-        }))
+        })])
     );
 }
 
 #[test]
 fn drop_schemas_cascade() {
-    let statement = QUERY_PARSER.parse("drop schema schema_name_1, schema_name_2 cascade;");
+    let statements = QUERY_PARSER.parse("drop schema schema_name_1, schema_name_2 cascade;");
 
     assert_eq!(
-        statement,
-        Ok(Statement::DDL(Definition::DropSchemas {
+        statements,
+        Ok(vec![Statement::DDL(Definition::DropSchemas {
             names: vec!["schema_name_1".to_owned(), "schema_name_2".to_owned()],
             if_exists: false,
             cascade: true
-        }))
+        })])
     );
 }
 
 #[test]
 fn drop_schema_if_exists() {
-    let statement = QUERY_PARSER.parse("drop schema if exists schema_name;");
+    let statements = QUERY_PARSER.parse("drop schema if exists schema_name;");
 
     assert_eq!(
-        statement,
-        Ok(Statement::DDL(Definition::DropSchemas {
+        statements,
+        Ok(vec![Statement::DDL(Definition::DropSchemas {
             names: vec!["schema_name".to_owned()],
             if_exists: true,
             cascade: false
-        }))
+        })])
     );
 }

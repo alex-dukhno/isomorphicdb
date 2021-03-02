@@ -16,44 +16,43 @@ use super::*;
 
 #[test]
 fn update_int() {
-    let statement = QUERY_PARSER.parse("update schema_name.table_name set col1 = 123;");
+    let statements = QUERY_PARSER.parse("update schema_name.table_name set col1 = 123;");
 
     assert_eq!(
-        statement,
-        Ok(Statement::DML(Manipulation::Update(UpdateStatement {
+        statements,
+        Ok(vec![Statement::DML(Query::Update(UpdateStatement {
             schema_name: "schema_name".to_owned(),
             table_name: "table_name".to_owned(),
             assignments: vec![Assignment {
                 column: "col1".to_owned(),
-                value: Expr::Value(Value::Number(123))
+                value: Expr::Value(Value::Int(123))
             }],
             where_clause: None
-        })))
+        }))])
     );
 }
 
 #[test]
 fn update_string() {
-    let statement = QUERY_PARSER.parse("update schema_name.table_name set col1 = 'abc';");
+    let statements = QUERY_PARSER.parse("update schema_name.table_name set col1 = 'abc';");
 
     assert_eq!(
-        statement,
-        Ok(Statement::DML(Manipulation::Update(UpdateStatement {
+        statements,
+        Ok(vec![Statement::DML(Query::Update(UpdateStatement {
             schema_name: "schema_name".to_owned(),
             table_name: "table_name".to_owned(),
             assignments: vec![Assignment {
                 column: "col1".to_owned(),
-                value: Expr::Value(Value::SingleQuotedString("abc".to_owned()))
+                value: Expr::Value(Value::String("abc".to_owned()))
             }],
             where_clause: None
-        })))
+        }))])
     );
 }
 
 #[cfg(test)]
 mod bi_ops {
     use super::*;
-    use std::borrow::Borrow;
 
     #[rstest::rstest(
         expected,
@@ -82,35 +81,35 @@ mod bi_ops {
         case::bitwise_shift_right(BinaryOperator::BitwiseShiftRight, ">>")
     )]
     fn update_with_op(expected: BinaryOperator, tested: &str) {
-        let statement =
+        let statements =
             QUERY_PARSER.parse(format!("update schema_name.table_name set col1 = 123 {} 456;", tested).as_str());
 
         assert_eq!(
-            statement,
-            Ok(Statement::DML(Manipulation::Update(UpdateStatement {
+            statements,
+            Ok(vec![Statement::DML(Query::Update(UpdateStatement {
                 schema_name: "schema_name".to_owned(),
                 table_name: "table_name".to_owned(),
                 assignments: vec![Assignment {
                     column: "col1".to_owned(),
                     value: Expr::BinaryOp {
-                        left: Box::new(Expr::Value(Value::Number(123))),
+                        left: Box::new(Expr::Value(Value::Int(123))),
                         op: expected,
-                        right: Box::new(Expr::Value(Value::Number(456)))
+                        right: Box::new(Expr::Value(Value::Int(456)))
                     }
                 }],
                 where_clause: None
-            })))
+            }))])
         );
     }
 }
 
 #[test]
 fn update_params() {
-    let statement = QUERY_PARSER.parse("update schema_name.table_name set col1 = $1;");
+    let statements = QUERY_PARSER.parse("update schema_name.table_name set col1 = $1;");
 
     assert_eq!(
-        statement,
-        Ok(Statement::DML(Manipulation::Update(UpdateStatement {
+        statements,
+        Ok(vec![Statement::DML(Query::Update(UpdateStatement {
             schema_name: "schema_name".to_owned(),
             table_name: "table_name".to_owned(),
             assignments: vec![Assignment {
@@ -118,6 +117,28 @@ fn update_params() {
                 value: Expr::Value(Value::Param(1))
             }],
             where_clause: None,
-        })))
+        }))])
+    );
+}
+
+#[test]
+fn update_columns() {
+    let statements = QUERY_PARSER.parse("update schema_name.table_name set col1 = col1 + 1;");
+
+    assert_eq!(
+        statements,
+        Ok(vec![Statement::DML(Query::Update(UpdateStatement {
+            schema_name: "schema_name".to_owned(),
+            table_name: "table_name".to_owned(),
+            assignments: vec![Assignment {
+                column: "col1".to_owned(),
+                value: Expr::BinaryOp {
+                    left: Box::new(Expr::Column("col1".to_owned())),
+                    op: BinaryOperator::Plus,
+                    right: Box::new(Expr::Value(Value::Int(1)))
+                }
+            }],
+            where_clause: None,
+        }))])
     );
 }

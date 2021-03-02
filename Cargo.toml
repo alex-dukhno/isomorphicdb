@@ -13,6 +13,7 @@ catalog = { path = "sql_engine/catalog" }
 entities = { path = "sql_engine/entities" }
 data_definition = { path = "sql_engine/data_definition" }
 data_manipulation = { path = "sql_engine/data_manipulation" }
+definition_planner = { path = "sql_engine/definition_planner" }
 query_parsing = { path = "sql_engine/query_parsing" }
 query_processing = { path = "sql_engine/query_processing" }
 query_analyzer = { path = "sql_engine/query_analyzer" }

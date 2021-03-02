@@ -1,0 +1,14 @@
+[package]
+name = "definition_planner"
+version = "0.1.0"
+authors = ["Alex Dukhno <alex.dukhno@icloud.com>"]
+edition = "2018"
+publish = false
+
+[dependencies]
+catalog = { path = "../catalog" }
+data_definition_execution_plan = { path = "../data_definition/execution_plan" }
+definition = { path = "../entities/definition" }
+query_ast = { path = "../../postgres/query_ast" }
+query_response = { path = "../../postgres/query_response" }
+types = { path = "../entities/types" }

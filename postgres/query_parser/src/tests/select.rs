@@ -16,15 +16,15 @@ use super::*;
 
 #[test]
 fn select_all_from_table() {
-    let statement = QUERY_PARSER.parse("select * from schema_name.table_name;");
+    let statements = QUERY_PARSER.parse("select * from schema_name.table_name;");
 
     assert_eq!(
-        statement,
-        Ok(Statement::DML(Manipulation::Select(SelectStatement {
+        statements,
+        Ok(vec![Statement::DML(Query::Select(SelectStatement {
             select_items: vec![SelectItem::Wildcard],
             schema_name: "schema_name".to_owned(),
             table_name: "table_name".to_owned(),
             where_clause: None,
-        })))
+        }))])
     );
 }

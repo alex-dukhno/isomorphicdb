@@ -30,3 +30,16 @@ mod table;
 mod update;
 
 const QUERY_PARSER: QueryParser = QueryParser::new();
+
+#[test]
+fn set_variable() {
+    let statements = QUERY_PARSER.parse("set variable=value;");
+
+    assert_eq!(
+        statements,
+        Ok(vec![Statement::Config(Set {
+            variable: "variable".to_owned(),
+            value: "value".to_owned()
+        })])
+    );
+}

@@ -7,7 +7,7 @@ publish = false
 
 [dependencies]
 pg_wire = "0.5.0"
-sql_ast = { path = "../../query_parsing/sql-ast" }
+query_ast = { path = "../../../postgres/query_ast" }
 
 [dev-dependencies]
 rstest = "0.6.4"

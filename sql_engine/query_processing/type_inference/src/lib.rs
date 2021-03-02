@@ -32,9 +32,9 @@ pub struct TypeInference {
 impl Default for TypeInference {
     fn default() -> Self {
         TypeInference {
-            small_int_range: BigDecimal::from(u16::MIN)..=BigDecimal::from(u16::MAX / 2 + 1),
-            integer_range: BigDecimal::from(u32::MIN)..=BigDecimal::from(u32::MAX / 2 + 1),
-            big_int_range: BigDecimal::from(u64::MIN)..=BigDecimal::from(u64::MAX / 2 + 1),
+            small_int_range: BigDecimal::from(i16::MIN)..=BigDecimal::from(i16::MAX),
+            integer_range: BigDecimal::from(i32::MIN)..=BigDecimal::from(i32::MAX),
+            big_int_range: BigDecimal::from(i64::MIN)..=BigDecimal::from(i64::MAX),
             real_range: BigDecimal::from_f32(f32::MIN).unwrap()..=BigDecimal::from_f32(f32::MAX).unwrap(),
             double_precision_range: BigDecimal::from_f64(f64::MIN).unwrap()..=BigDecimal::from_f64(f64::MAX).unwrap(),
         }
@@ -140,7 +140,7 @@ impl TypeInference {
                 }
             }
             StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(num))) => {
-                println!("{:?}", num);
+                println!("NUM {:?}", num);
                 if num.is_integer() {
                     if self.small_int_range.contains(&num) {
                         StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {

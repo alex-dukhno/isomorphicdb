@@ -16,14 +16,15 @@ use super::*;
 
 #[test]
 fn create_index() {
-    let statement = QUERY_PARSER.parse("create index index_name on table_name (col_1, col_2);");
+    let statements = QUERY_PARSER.parse("create index index_name on table_name (col_1, col_2);");
 
     assert_eq!(
-        statement,
-        Ok(Statement::DDL(Definition::CreateIndex {
+        statements,
+        Ok(vec![Statement::DDL(Definition::CreateIndex {
             name: "index_name".to_owned(),
-            table_name: ("public".to_owned(), "table_name".to_owned()),
+            schema_name: "public".to_owned(),
+            table_name: "table_name".to_owned(),
             column_names: vec!["col_1".to_owned(), "col_2".to_owned()]
-        }))
+        })])
     );
 }

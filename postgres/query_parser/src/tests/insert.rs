@@ -16,37 +16,31 @@ use super::*;
 
 #[test]
 fn insert_int() {
-    let statement = QUERY_PARSER.parse("insert into schema_name.table_name values (123);");
+    let statements = QUERY_PARSER.parse("insert into schema_name.table_name values (123);");
 
     assert_eq!(
-        statement,
-        Ok(Statement::DML(Manipulation::Insert(InsertStatement {
+        statements,
+        Ok(vec![Statement::DML(Query::Insert(InsertStatement {
             schema_name: "schema_name".to_owned(),
             table_name: "table_name".to_owned(),
             columns: vec![],
-            source: Box::new(Query {
-                body: SetExpr::Values(Values(vec![vec![Expr::Value(Value::Number(123))]]))
-            })
-        })))
+            source: InsertSource::Values(Values(vec![vec![Expr::Value(Value::Int(123))]]))
+        }))])
     );
 }
 
 #[test]
 fn insert_string() {
-    let statement = QUERY_PARSER.parse("insert into schema_name.table_name values ('abc');");
+    let statements = QUERY_PARSER.parse("insert into schema_name.table_name values ('abc');");
 
     assert_eq!(
-        statement,
-        Ok(Statement::DML(Manipulation::Insert(InsertStatement {
+        statements,
+        Ok(vec![Statement::DML(Query::Insert(InsertStatement {
             schema_name: "schema_name".to_owned(),
             table_name: "table_name".to_owned(),
             columns: vec![],
-            source: Box::new(Query {
-                body: SetExpr::Values(Values(vec![vec![Expr::Value(Value::SingleQuotedString(
-                    "abc".to_owned()
-                ))]]))
-            })
-        })))
+            source: InsertSource::Values(Values(vec![vec![Expr::Value(Value::String("abc".to_owned()))]]))
+        }))])
     );
 }
 
@@ -81,57 +75,109 @@ mod bi_ops {
         case::bitwise_shift_right(BinaryOperator::BitwiseShiftRight, ">>")
     )]
     fn insert_with_op(expected: BinaryOperator, tested: &str) {
-        let statement =
+        let statements =
             QUERY_PARSER.parse(format!("insert into schema_name.table_name values (123 {} 456);", tested).as_str());
 
         assert_eq!(
-            statement,
-            Ok(Statement::DML(Manipulation::Insert(InsertStatement {
+            statements,
+            Ok(vec![Statement::DML(Query::Insert(InsertStatement {
                 schema_name: "schema_name".to_owned(),
                 table_name: "table_name".to_owned(),
                 columns: vec![],
-                source: Box::new(Query {
-                    body: SetExpr::Values(Values(vec![vec![Expr::BinaryOp {
-                        left: Box::new(Expr::Value(Value::Number(123))),
-                        op: expected,
-                        right: Box::new(Expr::Value(Value::Number(456)))
-                    }]]))
-                })
-            })))
+                source: InsertSource::Values(Values(vec![vec![Expr::BinaryOp {
+                    left: Box::new(Expr::Value(Value::Int(123))),
+                    op: expected,
+                    right: Box::new(Expr::Value(Value::Int(456)))
+                }]]))
+            }))])
         );
     }
 }
 
 #[test]
 fn insert_with_columns() {
-    let statement = QUERY_PARSER.parse("insert into schema_name.table_name (col1) values (123);");
+    let statements = QUERY_PARSER.parse("insert into schema_name.table_name (col1) values (123);");
 
     assert_eq!(
-        statement,
-        Ok(Statement::DML(Manipulation::Insert(InsertStatement {
+        statements,
+        Ok(vec![Statement::DML(Query::Insert(InsertStatement {
             schema_name: "schema_name".to_owned(),
             table_name: "table_name".to_owned(),
             columns: vec!["col1".to_owned()],
-            source: Box::new(Query {
-                body: SetExpr::Values(Values(vec![vec![Expr::Value(Value::Number(123))]]))
-            })
-        })))
+            source: InsertSource::Values(Values(vec![vec![Expr::Value(Value::Int(123))]]))
+        }))])
     );
 }
 
 #[test]
 fn insert_params() {
-    let statement = QUERY_PARSER.parse("insert into schema_name.table_name (col1) values ($1);");
+    let statements = QUERY_PARSER.parse("insert into schema_name.table_name (col1) values ($1);");
 
     assert_eq!(
-        statement,
-        Ok(Statement::DML(Manipulation::Insert(InsertStatement {
+        statements,
+        Ok(vec![Statement::DML(Query::Insert(InsertStatement {
             schema_name: "schema_name".to_owned(),
             table_name: "table_name".to_owned(),
             columns: vec!["col1".to_owned()],
-            source: Box::new(Query {
-                body: SetExpr::Values(Values(vec![vec![Expr::Value(Value::Param(1))]]))
-            })
-        })))
+            source: InsertSource::Values(Values(vec![vec![Expr::Value(Value::Param(1))]]))
+        }))])
+    );
+}
+
+#[test]
+fn insert_column() {
+    let statements = QUERY_PARSER.parse("insert into schema_name.table_name (col1) values (col2);");
+
+    assert_eq!(
+        statements,
+        Ok(vec![Statement::DML(Query::Insert(InsertStatement {
+            schema_name: "schema_name".to_owned(),
+            table_name: "table_name".to_owned(),
+            columns: vec!["col1".to_owned()],
+            source: InsertSource::Values(Values(vec![vec![Expr::Column("col2".to_owned())]]))
+        }))])
+    );
+}
+
+#[test]
+fn insert_int_max() {
+    let statements = QUERY_PARSER.parse(
+        "insert into schema_name.table_name \
+    values (32767, -32768, 2147483647, -2147483648, 9223372036854775807, -9223372036854775808);",
+    );
+
+    assert_eq!(
+        statements,
+        Ok(vec![Statement::DML(Query::Insert(InsertStatement {
+            schema_name: "schema_name".to_owned(),
+            table_name: "table_name".to_owned(),
+            columns: vec![],
+            source: InsertSource::Values(Values(vec![vec![
+                Expr::Value(Value::Int(32767)),
+                Expr::Value(Value::Int(-32768)),
+                Expr::Value(Value::Int(2147483647)),
+                Expr::Value(Value::Number("-2147483648".to_owned())),
+                Expr::Value(Value::Number("9223372036854775807".to_owned())),
+                Expr::Value(Value::Number("-9223372036854775808".to_owned())),
+            ]]))
+        }))])
+    );
+}
+
+#[test]
+fn cast() {
+    let statements = QUERY_PARSER.parse("insert into schema_name.table_name values('true'::boolean);");
+
+    assert_eq!(
+        statements,
+        Ok(vec![Statement::DML(Query::Insert(InsertStatement {
+            schema_name: "schema_name".to_owned(),
+            table_name: "table_name".to_owned(),
+            columns: vec![],
+            source: InsertSource::Values(Values(vec![vec![Expr::Cast {
+                expr: Box::new(Expr::Value(Value::String("true".to_owned()))),
+                data_type: DataType::Bool
+            }]]))
+        }))])
     );
 }

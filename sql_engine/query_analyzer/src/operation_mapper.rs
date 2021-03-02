@@ -12,52 +12,50 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use data_manipulation_operators::{
-    BiArithmetic, BiLogical, BiOperator, Bitwise, Comparison, Concat, Matching, UnArithmetic, UnOperator,
-};
+use data_manipulation_operators::{BiArithmetic, BiLogical, BiOperator, Bitwise, Comparison, Concat, Matching};
+use query_ast::BinaryOperator;
 
 pub(crate) struct OperationMapper;
 
 impl OperationMapper {
-    pub(crate) fn unary_operation(unary_op: &sql_ast::UnaryOperator) -> UnOperator {
-        match unary_op {
-            sql_ast::UnaryOperator::Minus => UnOperator::Arithmetic(UnArithmetic::Neg),
-            sql_ast::UnaryOperator::Plus => UnOperator::Arithmetic(UnArithmetic::Pos),
-            sql_ast::UnaryOperator::Not => UnOperator::LogicalNot,
-            sql_ast::UnaryOperator::PGBitwiseNot => UnOperator::BitwiseNot,
-            sql_ast::UnaryOperator::PGSquareRoot => UnOperator::Arithmetic(UnArithmetic::SquareRoot),
-            sql_ast::UnaryOperator::PGCubeRoot => UnOperator::Arithmetic(UnArithmetic::CubeRoot),
-            sql_ast::UnaryOperator::PGPostfixFactorial => UnOperator::Arithmetic(UnArithmetic::Factorial),
-            sql_ast::UnaryOperator::PGPrefixFactorial => UnOperator::Arithmetic(UnArithmetic::Factorial),
-            sql_ast::UnaryOperator::PGAbs => UnOperator::Arithmetic(UnArithmetic::Abs),
-        }
-    }
+    // pub(crate) fn unary_operation(unary_op: &sql_ast::UnaryOperator) -> UnOperator {
+    //     match unary_op {
+    //         sql_ast::UnaryOperator::Minus => UnOperator::Arithmetic(UnArithmetic::Neg),
+    //         sql_ast::UnaryOperator::Plus => UnOperator::Arithmetic(UnArithmetic::Pos),
+    //         sql_ast::UnaryOperator::Not => UnOperator::LogicalNot,
+    //         sql_ast::UnaryOperator::PGBitwiseNot => UnOperator::BitwiseNot,
+    //         sql_ast::UnaryOperator::PGSquareRoot => UnOperator::Arithmetic(UnArithmetic::SquareRoot),
+    //         sql_ast::UnaryOperator::PGCubeRoot => UnOperator::Arithmetic(UnArithmetic::CubeRoot),
+    //         sql_ast::UnaryOperator::PGPostfixFactorial => UnOperator::Arithmetic(UnArithmetic::Factorial),
+    //         sql_ast::UnaryOperator::PGPrefixFactorial => UnOperator::Arithmetic(UnArithmetic::Factorial),
+    //         sql_ast::UnaryOperator::PGAbs => UnOperator::Arithmetic(UnArithmetic::Abs),
+    //     }
+    // }
 
-    pub(crate) fn binary_operation(binary_op: &sql_ast::BinaryOperator) -> BiOperator {
+    pub(crate) fn binary_operation(binary_op: BinaryOperator) -> BiOperator {
         match binary_op {
-            sql_ast::BinaryOperator::Plus => BiOperator::Arithmetic(BiArithmetic::Add),
-            sql_ast::BinaryOperator::Minus => BiOperator::Arithmetic(BiArithmetic::Sub),
-            sql_ast::BinaryOperator::Multiply => BiOperator::Arithmetic(BiArithmetic::Mul),
-            sql_ast::BinaryOperator::Divide => BiOperator::Arithmetic(BiArithmetic::Div),
-            sql_ast::BinaryOperator::Modulus => BiOperator::Arithmetic(BiArithmetic::Mod),
-            sql_ast::BinaryOperator::BitwiseXor => BiOperator::Arithmetic(BiArithmetic::Exp),
-            sql_ast::BinaryOperator::StringConcat => BiOperator::StringOp(Concat),
-            sql_ast::BinaryOperator::Gt => BiOperator::Comparison(Comparison::Gt),
-            sql_ast::BinaryOperator::Lt => BiOperator::Comparison(Comparison::Lt),
-            sql_ast::BinaryOperator::GtEq => BiOperator::Comparison(Comparison::GtEq),
-            sql_ast::BinaryOperator::LtEq => BiOperator::Comparison(Comparison::LtEq),
-            sql_ast::BinaryOperator::Eq => BiOperator::Comparison(Comparison::Eq),
-            sql_ast::BinaryOperator::NotEq => BiOperator::Comparison(Comparison::NotEq),
-            sql_ast::BinaryOperator::And => BiOperator::Logical(BiLogical::And),
-            sql_ast::BinaryOperator::Or => BiOperator::Logical(BiLogical::Or),
-            sql_ast::BinaryOperator::Like => BiOperator::Matching(Matching::Like),
-            sql_ast::BinaryOperator::NotLike => BiOperator::Matching(Matching::NotLike),
-            sql_ast::BinaryOperator::BitwiseOr => BiOperator::Bitwise(Bitwise::Or),
-            sql_ast::BinaryOperator::BitwiseAnd => BiOperator::Bitwise(Bitwise::And),
-            sql_ast::BinaryOperator::PGBitwiseXor => BiOperator::Bitwise(Bitwise::Xor),
-            sql_ast::BinaryOperator::PGBitwiseShiftLeft => BiOperator::Bitwise(Bitwise::ShiftLeft),
-            sql_ast::BinaryOperator::PGBitwiseShiftRight => BiOperator::Bitwise(Bitwise::ShiftRight),
-            sql_ast::BinaryOperator::Spaceship => unimplemented!(),
+            BinaryOperator::Plus => BiOperator::Arithmetic(BiArithmetic::Add),
+            BinaryOperator::Minus => BiOperator::Arithmetic(BiArithmetic::Sub),
+            BinaryOperator::Multiply => BiOperator::Arithmetic(BiArithmetic::Mul),
+            BinaryOperator::Divide => BiOperator::Arithmetic(BiArithmetic::Div),
+            BinaryOperator::Modulus => BiOperator::Arithmetic(BiArithmetic::Mod),
+            BinaryOperator::Exp => BiOperator::Arithmetic(BiArithmetic::Exp),
+            BinaryOperator::StringConcat => BiOperator::StringOp(Concat),
+            BinaryOperator::Gt => BiOperator::Comparison(Comparison::Gt),
+            BinaryOperator::Lt => BiOperator::Comparison(Comparison::Lt),
+            BinaryOperator::GtEq => BiOperator::Comparison(Comparison::GtEq),
+            BinaryOperator::LtEq => BiOperator::Comparison(Comparison::LtEq),
+            BinaryOperator::Eq => BiOperator::Comparison(Comparison::Eq),
+            BinaryOperator::NotEq => BiOperator::Comparison(Comparison::NotEq),
+            BinaryOperator::And => BiOperator::Logical(BiLogical::And),
+            BinaryOperator::Or => BiOperator::Logical(BiLogical::Or),
+            BinaryOperator::Like => BiOperator::Matching(Matching::Like),
+            BinaryOperator::NotLike => BiOperator::Matching(Matching::NotLike),
+            BinaryOperator::BitwiseOr => BiOperator::Bitwise(Bitwise::Or),
+            BinaryOperator::BitwiseAnd => BiOperator::Bitwise(Bitwise::And),
+            BinaryOperator::BitwiseXor => BiOperator::Bitwise(Bitwise::Xor),
+            BinaryOperator::BitwiseShiftLeft => BiOperator::Bitwise(Bitwise::ShiftLeft),
+            BinaryOperator::BitwiseShiftRight => BiOperator::Bitwise(Bitwise::ShiftRight),
         }
     }
 }

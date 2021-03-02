@@ -16,9 +16,9 @@ use super::*;
 
 #[test]
 fn schema_does_not_exist() {
-    let analyzer = Analyzer::new(InMemoryDatabase::new());
+    let analyzer = QueryAnalyzer::new(InMemoryDatabase::new());
     assert_eq!(
-        analyzer.analyze(select(vec!["non_existent_schema", TABLE,])),
+        analyzer.analyze(select("non_existent_schema", TABLE)),
         Err(AnalysisError::schema_does_not_exist(&"non_existent_schema"))
     );
 }
@@ -27,32 +27,12 @@ fn schema_does_not_exist() {
 fn table_does_not_exist() {
     let database = InMemoryDatabase::new();
     database.execute(create_schema_ops(SCHEMA)).unwrap();
-    let analyzer = Analyzer::new(database);
+    let analyzer = QueryAnalyzer::new(database);
     assert_eq!(
-        analyzer.analyze(select(vec![SCHEMA, "non_existent_table"])),
+        analyzer.analyze(select(SCHEMA, "non_existent_table")),
         Err(AnalysisError::table_does_not_exist(&format!(
             "{}.{}",
             SCHEMA, "non_existent_table"
         )))
-    );
-}
-
-#[test]
-fn table_with_unqualified_name() {
-    let analyzer = Analyzer::new(InMemoryDatabase::new());
-    assert_eq!(
-        analyzer.analyze(select(vec!["only_table_in_the_name"])),
-        Err(AnalysisError::table_does_not_exist(&"only_table_in_the_name"))
-    );
-}
-
-#[test]
-fn table_with_unsupported_name() {
-    let analyzer = Analyzer::new(InMemoryDatabase::new());
-    assert_eq!(
-        analyzer.analyze(select(vec!["first_part", "second_part", "third_part", "fourth_part",])),
-        Err(AnalysisError::table_naming_error(
-            &"Unable to process table name 'first_part.second_part.third_part.fourth_part'",
-        ))
     );
 }

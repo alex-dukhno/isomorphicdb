@@ -12,12 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::fmt::Debug;
+use std::fmt::{self, Display, Formatter};
 
 #[derive(Debug, PartialEq)]
 pub enum Statement {
     DDL(Definition),
-    DML(Manipulation),
+    DML(Query),
+    Config(Set),
+}
+
+impl Display for Statement {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -34,7 +41,8 @@ pub enum Definition {
     },
     CreateIndex {
         name: String,
-        table_name: (String, String),
+        schema_name: String,
+        table_name: String,
         column_names: Vec<String>,
     },
     DropSchemas {
@@ -55,7 +63,7 @@ pub struct ColumnDef {
     pub data_type: DataType,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum DataType {
     SmallInt,
     Int,
@@ -74,7 +82,7 @@ pub enum ObjectType {
 }
 
 #[derive(Debug, PartialEq)]
-pub enum Manipulation {
+pub enum Query {
     Insert(InsertStatement),
     Update(UpdateStatement),
     Delete(DeleteStatement),
@@ -86,7 +94,7 @@ pub struct InsertStatement {
     pub schema_name: String,
     pub table_name: String,
     pub columns: Vec<String>,
-    pub source: Box<Query>,
+    pub source: InsertSource,
 }
 
 #[derive(Debug, PartialEq)]
@@ -121,59 +129,33 @@ pub struct SelectStatement {
 #[derive(Debug, PartialEq)]
 pub enum SelectItem {
     Wildcard,
+    UnnamedExpr(Expr),
 }
 
 #[derive(Debug, PartialEq)]
-pub struct Query {
-    //// WITH (common table expressions, or CTEs)
-    // pub ctes: Vec<Cte>,
-    //// SELECT or UNION / EXCEPT / INTECEPT
-    pub body: SetExpr,
-    //// ORDER BY
-    // pub order_by: Vec<OrderByExpr>,
-    //// `LIMIT { <N> | ALL }`
-    // pub limit: Option<Expr>,
-    //// `OFFSET <N> [ { ROW | ROWS } ]`
-    // pub offset: Option<Offset>,
-    //// `FETCH { FIRST | NEXT } <N> [ PERCENT ] { ROW | ROWS } | { ONLY | WITH TIES }`
-    // pub fetch: Option<Fetch>,
-}
-
-/// A node in a tree, representing a "query body" expression, roughly:
-/// `SELECT ... [ {UNION|EXCEPT|INTERSECT} SELECT ...]`
-#[derive(Debug, PartialEq)]
-pub enum SetExpr {
-    // /// Restricted SELECT .. FROM .. HAVING (no ORDER BY or set operations)
-    // Select(Box<Select>),
-    // /// Parenthesized SELECT subquery, which may include more set operations
-    // /// in its body and an optional ORDER BY / LIMIT.
-    // Query(Box<Query>),
-    // /// UNION/EXCEPT/INTERSECT of two queries
-    // SetOperation {
-    //     op: SetOperator,
-    //     all: bool,
-    //     left: Box<SetExpr>,
-    //     right: Box<SetExpr>,
-    // },
+pub enum InsertSource {
     Values(Values),
 }
 
 #[derive(Debug, PartialEq)]
 pub struct Values(pub Vec<Vec<Expr>>);
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Expr {
-    /// A literal value, such as string, number, date or NULL
     Value(Value),
-    /// Binary operation e.g. `1 + 1` or `foo > bar`
     BinaryOp {
         left: Box<Expr>,
         op: BinaryOperator,
         right: Box<Expr>,
     },
+    Column(String),
+    Cast {
+        expr: Box<Expr>,
+        data_type: DataType,
+    },
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum BinaryOperator {
     Plus,
     Minus,
@@ -199,9 +181,18 @@ pub enum BinaryOperator {
     BitwiseShiftRight,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Value {
-    Number(i32),
-    SingleQuotedString(String),
+    Int(i32),
+    Number(String),
+    String(String),
     Param(u32),
+    Boolean(bool),
+    Null,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct Set {
+    pub variable: String,
+    pub value: String,
 }
