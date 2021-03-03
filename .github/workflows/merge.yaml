@@ -42,6 +42,8 @@ jobs:
           version: "10.0"
           directory: ${{ runner.temp }}/llvm
           cached: ${{ steps.cache-llvm.outputs.cache-hit }}
+      - name: adjust PATH
+        run: echo "${{ runner.temp }}/llvm" >> $GITHUB_PATH
       - name: install tarpaulin
         uses: actions-rs/install@v0.1
         with:

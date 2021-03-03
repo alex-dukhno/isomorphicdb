@@ -60,6 +60,8 @@ jobs:
           version: "10.0"
           directory: ${{ runner.temp }}/llvm
           cached: ${{ steps.cache-llvm.outputs.cache-hit }}
+      - name: adjust PATH
+        run: echo "${{ runner.temp }}/llvm" >> $GITHUB_PATH
       - name: check code style
         run: cargo clippy --all-targets --all-features --all -- -D warnings
 
@@ -84,6 +86,8 @@ jobs:
           version: "10.0"
           directory: ${{ runner.temp }}/llvm
           cached: ${{ steps.cache-llvm.outputs.cache-hit }}
+      - name: adjust PATH
+        run: echo "${{ runner.temp }}/llvm" >> $GITHUB_PATH
       - name: run unit tests
         uses: actions-rs/cargo@v1
         with:
@@ -97,32 +101,34 @@ jobs:
       - clippy
     runs-on: ubuntu-latest
     steps:
-    - name: checkout
-      uses: actions/checkout@v2
-    - name: Cache LLVM and Clang
-      id: cache-llvm
-      uses: actions/cache@v2
-      with:
-        path: ${{ runner.temp }}/llvm
-        key: llvm-10.0
-    - name: install LLVM and Clang build dependencies for pg-sql-parser
-      uses: KyleMayes/install-llvm-action@v1
-      with:
-        version: "10.0"
-        directory: ${{ runner.temp }}/llvm
-        cached: ${{ steps.cache-llvm.outputs.cache-hit }}
-    - name: install tarpaulin
-      uses: actions-rs/install@v0.1
-      with:
-        crate: cargo-tarpaulin
-        version: 0.16.0
-        use-tool-cache: true
-    - name: run code coverage
-      run: cargo tarpaulin --ignore-tests -o Lcov --output-dir ./coverage
-    - name: upload to coveralls
-      uses: coverallsapp/github-action@master
-      with:
-        github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: checkout
+        uses: actions/checkout@v2
+      - name: Cache LLVM and Clang
+        id: cache-llvm
+        uses: actions/cache@v2
+        with:
+          path: ${{ runner.temp }}/llvm
+          key: llvm-10.0
+      - name: install LLVM and Clang build dependencies for pg-sql-parser
+        uses: KyleMayes/install-llvm-action@v1
+        with:
+          version: "10.0"
+          directory: ${{ runner.temp }}/llvm
+          cached: ${{ steps.cache-llvm.outputs.cache-hit }}
+      - name: adjust PATH
+        run: echo "${{ runner.temp }}/llvm" >> $GITHUB_PATH
+      - name: install tarpaulin
+        uses: actions-rs/install@v0.1
+        with:
+          crate: cargo-tarpaulin
+          version: 0.16.0
+          use-tool-cache: true
+      - name: run code coverage
+        run: cargo tarpaulin --ignore-tests -o Lcov --output-dir ./coverage
+      - name: upload to coveralls
+        uses: coverallsapp/github-action@master
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
   compatibility-test:
     needs:
@@ -167,6 +173,8 @@ jobs:
           version: "10.0"
           directory: ${{ runner.temp }}/llvm
           cached: ${{ steps.cache-llvm.outputs.cache-hit }}
+      - name: adjust PATH
+        run: echo "${{ runner.temp }}/llvm" >> $GITHUB_PATH
       - name: start-database
         run: cargo run & cargo build && sleep 1
       - name: run-tests
@@ -203,6 +211,8 @@ jobs:
           version: "10.0"
           directory: ${{ runner.temp }}/llvm
           cached: ${{ steps.cache-llvm.outputs.cache-hit }}
+      - name: adjust PATH
+        run: echo "${{ runner.temp }}/llvm" >> $GITHUB_PATH
       - name: run-tests
         run: ./etc/ci/erlang_client.sh
 
