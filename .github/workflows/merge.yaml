@@ -30,6 +30,12 @@ jobs:
     steps:
       - name: checkout
         uses: actions/checkout@v2
+      - name: Cache LLVM and Clang
+        id: cache-llvm
+        uses: actions/cache@v2
+        with:
+          path: ${{ runner.temp }}/llvm
+          key: llvm-10.0
       - name: install LLVM and Clang build dependencies for pg-sql-parser
         uses: KyleMayes/install-llvm-action@v1
         with:
