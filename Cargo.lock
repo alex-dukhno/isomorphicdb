@@ -142,7 +142,6 @@ dependencies = [
  "num-bigint",
  "num-integer",
  "num-traits",
- "serde",
 ]
 
 [[package]]
@@ -457,7 +456,6 @@ dependencies = [
 name = "definition"
 version = "0.1.0"
 dependencies = [
- "sql_ast",
  "types",
 ]
 
@@ -692,7 +690,6 @@ dependencies = [
  "log",
  "postgres",
  "query_analyzer",
- "query_parsing",
  "query_planner",
  "query_processing",
  "rand 0.7.3",
@@ -892,13 +889,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "427c3892f9e783d91cc128285287e70a59e206ca452770ece88a76f7a3eddd72"
 
 [[package]]
-name = "parser"
-version = "0.1.0"
-dependencies = [
- "sqlparser",
-]
-
-[[package]]
 name = "peeking_take_while"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1032,14 +1022,6 @@ dependencies = [
  "query_ast",
  "query_response",
  "rstest",
-]
-
-[[package]]
-name = "query_parsing"
-version = "0.1.0"
-dependencies = [
- "parser",
- "sql_ast",
 ]
 
 [[package]]
@@ -1364,23 +1346,6 @@ dependencies = [
  "cfg-if 1.0.0",
  "libc",
  "winapi",
-]
-
-[[package]]
-name = "sql_ast"
-version = "0.1.0"
-dependencies = [
- "sqlparser",
-]
-
-[[package]]
-name = "sqlparser"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8b929a9577d01ee7cddb820696ed536868d81557d3c14363a7514d71add1d058"
-dependencies = [
- "bigdecimal",
- "log",
 ]
 
 [[package]]

@@ -25,8 +25,8 @@ PR, to be merged, has to pass `formatting`, `clippy` and `unit tests` checks.
 To help you pass CI we have `clippy.sh` and `rustfmt.sh` in `local` folder.
 All you need is to run following commands and see that there are no errors:
 ```shell script
-./local/rustfmt.sh
-./local/clippy.sh
+./etc/local/rustfmt.sh
+./etc/local/clippy.sh
 cargo test
 ```
 

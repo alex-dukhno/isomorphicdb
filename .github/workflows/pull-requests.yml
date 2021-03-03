@@ -24,13 +24,15 @@ jobs:
     name: rustfmt
     runs-on: ubuntu-latest
     steps:
-      - name: set-up-rust
+      - name: set up rust toolchain
         uses: hecrj/setup-rust-action@v1
         with:
           components: rustfmt
           rust-version: nightly
-      - uses: actions/checkout@v2
-      - run: ./etc/ci/rustfmt.sh
+      - name: checkout code
+        uses: actions/checkout@v2
+      - name: check code formatting
+        run: cargo fmt --all -- --check
 
   clippy:
     needs:
@@ -39,13 +41,17 @@ jobs:
     name: clippy
     runs-on: ubuntu-latest
     steps:
-      - name: set-up-rust
+      - name: set up rust toolchain
         uses: hecrj/setup-rust-action@v1
         with:
           components: clippy
           rust-version: stable
-      - uses: actions/checkout@v2
-      - run: ./etc/ci/clippy.sh
+      - name: checkout code
+        uses: actions/checkout@v2
+      - name: install dependencies for pg-sql-parser
+        run: sudo apt install -y llvm
+      - name: check code style
+        run: cargo clippy --all-targets --all-features -- -D warnings
 
   tests:
     needs:

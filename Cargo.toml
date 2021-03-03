@@ -14,7 +14,6 @@ entities = { path = "sql_engine/entities" }
 data_definition = { path = "sql_engine/data_definition" }
 data_manipulation = { path = "sql_engine/data_manipulation" }
 definition_planner = { path = "sql_engine/definition_planner" }
-query_parsing = { path = "sql_engine/query_parsing" }
 query_processing = { path = "sql_engine/query_processing" }
 query_analyzer = { path = "sql_engine/query_analyzer" }
 query_planner = { path = "sql_engine/query_planner" }
@@ -48,7 +47,6 @@ members = [
     "sql_engine/data_manipulation",
     "sql_engine/entities",
     "sql_engine/query_analyzer",
-    "sql_engine/query_parsing",
     "sql_engine/query_planner",
     "sql_engine/query_processing",
 ]

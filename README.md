@@ -47,9 +47,6 @@ See [docs](./docs/.)
     * `query_analysis/expr_operators/` - expression operators of analysis tree
     * `query_analysis/query_analyzer/` - API to analyse parsed SQL query
     * `query_analysis/tree/` - structured representation of analyzed SQL query
-* `query_parsing/` - modules responsible for *Parsing* phase in query execution pipeline
-    * `query_parsing/parser/` - query parser
-    * `query_parsing/sql-ast/` - structured representation of parsed SQL query
 * `repr/` - building blocks to how transform binary representation into values
 * `server/` - database server
     * `server/node/` - entry point that starts database application
