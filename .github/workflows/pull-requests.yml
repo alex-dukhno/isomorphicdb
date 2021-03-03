@@ -57,26 +57,7 @@ jobs:
       - name: check code style
         run: cargo clippy --all-targets --all-features --all -- -D warnings
 
-#  mac_os_tests:
-#    needs:
-#      - cargo-deny
-#      - rustfmt
-#      - clippy
-#    runs-on: macos-latest
-#    steps:
-#      - name: checkout code
-#        uses: actions/checkout@v2
-#      - name: install build dependencies for pg-sql-parser
-#        run: brew install llvm
-#      - name: adjust macos PATH
-#        run: echo "$(brew --prefix llvm)/bin" >> $GITHUB_PATH
-#      - name: run unit tests
-#        uses: actions-rs/cargo@v1
-#        with:
-#          command: test
-#          args: --all --lib
-
-  ubuntu_tests:
+  tests:
     needs:
       - cargo-deny
       - rustfmt
