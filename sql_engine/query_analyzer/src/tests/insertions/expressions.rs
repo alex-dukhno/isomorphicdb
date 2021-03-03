@@ -32,13 +32,13 @@ fn insert_number() {
     let analyzer = QueryAnalyzer::new(database);
 
     assert_eq!(
-        analyzer.analyze(insert_with_values(CHEMA, TABLE, vec![vec![small_int(1)]])),
-        Ok(QueryAnalysis::DML(UntypedQuery::Insert(UntypedInsertQuery {
+        analyzer.analyze(insert_with_values(SCHEMA, TABLE, vec![vec![small_int(1)]])),
+        Ok(UntypedQuery::Insert(UntypedInsertQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             values: vec![vec![Some(StaticUntypedTree::Item(StaticUntypedItem::Const(
                 UntypedValue::Number(BigDecimal::from(1))
             )))]],
-        })))
+        }))
     );
 }
 
@@ -53,12 +53,12 @@ fn insert_string() {
 
     assert_eq!(
         analyzer.analyze(insert_with_values(SCHEMA, TABLE, vec![vec![string("str")]])),
-        Ok(QueryAnalysis::DML(UntypedQuery::Insert(UntypedInsertQuery {
+        Ok(UntypedQuery::Insert(UntypedInsertQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             values: vec![vec![Some(StaticUntypedTree::Item(StaticUntypedItem::Const(
                 UntypedValue::String("str".to_owned())
             )))]],
-        })))
+        }))
     );
 }
 
@@ -73,12 +73,12 @@ fn insert_boolean() {
 
     assert_eq!(
         analyzer.analyze(insert_with_values(SCHEMA, TABLE, vec![vec![boolean(true)]])),
-        Ok(QueryAnalysis::DML(UntypedQuery::Insert(UntypedInsertQuery {
+        Ok(UntypedQuery::Insert(UntypedInsertQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             values: vec![vec![Some(StaticUntypedTree::Item(StaticUntypedItem::Const(
                 UntypedValue::Bool(Bool(true))
             )))]],
-        })))
+        }))
     );
 }
 
@@ -93,12 +93,12 @@ fn insert_null() {
 
     assert_eq!(
         analyzer.analyze(insert_with_values(SCHEMA, TABLE, vec![vec![null()]])),
-        Ok(QueryAnalysis::DML(UntypedQuery::Insert(UntypedInsertQuery {
+        Ok(UntypedQuery::Insert(UntypedInsertQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             values: vec![vec![Some(StaticUntypedTree::Item(StaticUntypedItem::Const(
                 UntypedValue::Null
             )))]],
-        })))
+        }))
     );
 }
 
@@ -115,7 +115,7 @@ fn insert_identifier() {
         analyzer.analyze(insert_with_values(
             SCHEMA,
             TABLE,
-            vec![vec![Expr::Identifier(ident("col"))]]
+            vec![vec![Expr::Column("col".to_owned())]]
         )),
         Err(AnalysisError::column_cant_be_referenced(&"col"))
     );
@@ -136,13 +136,13 @@ fn insert_into_table_with_parameters() {
 
     assert_eq!(
         analyzer.analyze(insert_with_parameters(SCHEMA, TABLE, vec![1, 2])),
-        Ok(QueryAnalysis::DML(UntypedQuery::Insert(UntypedInsertQuery {
+        Ok(UntypedQuery::Insert(UntypedInsertQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             values: vec![vec![
                 Some(StaticUntypedTree::Item(StaticUntypedItem::Param(0))),
                 Some(StaticUntypedTree::Item(StaticUntypedItem::Param(1)))
             ]],
-        })))
+        }))
     );
 }
 
@@ -165,7 +165,7 @@ fn insert_into_table_with_parameters_and_values() {
             TABLE,
             vec![vec![Expr::Value(Value::Param(1)), Expr::Value(number(1))]]
         )),
-        Ok(QueryAnalysis::DML(UntypedQuery::Insert(UntypedInsertQuery {
+        Ok(UntypedQuery::Insert(UntypedInsertQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             values: vec![vec![
                 Some(StaticUntypedTree::Item(StaticUntypedItem::Param(0))),
@@ -173,7 +173,7 @@ fn insert_into_table_with_parameters_and_values() {
                     BigDecimal::from(1)
                 ))))
             ]],
-        })))
+        }))
     );
 }
 
@@ -193,15 +193,12 @@ fn insert_into_table_negative_number() {
 
     assert_eq!(
         analyzer.analyze(insert_with_values(SCHEMA, TABLE, vec![vec![small_int(-32768)]])),
-        Ok(QueryAnalysis::DML(UntypedQuery::Insert(UntypedInsertQuery {
+        Ok(UntypedQuery::Insert(UntypedInsertQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-            values: vec![vec![Some(StaticUntypedTree::UnOp {
-                op: UnOperator::Arithmetic(UnArithmetic::Neg),
-                item: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(
-                    BigDecimal::from(32768)
-                ))))
-            })]],
-        })))
+            values: vec![vec![Some(StaticUntypedTree::Item(StaticUntypedItem::Const(
+                UntypedValue::Number(BigDecimal::from(-32768))
+            )))]],
+        }))
     );
 }
 
@@ -238,7 +235,7 @@ mod multiple_values {
                 BinaryOperator::Plus,
                 Expr::Value(number(1))
             )),
-            Ok(QueryAnalysis::DML(UntypedQuery::Insert(UntypedInsertQuery {
+            Ok(UntypedQuery::Insert(UntypedInsertQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 values: vec![vec![Some(StaticUntypedTree::BiOp {
                     left: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(
@@ -249,7 +246,7 @@ mod multiple_values {
                         BigDecimal::from(1)
                     ))))
                 })]],
-            })))
+            }))
         );
     }
 
@@ -268,7 +265,7 @@ mod multiple_values {
                 BinaryOperator::StringConcat,
                 string("str")
             )),
-            Ok(QueryAnalysis::DML(UntypedQuery::Insert(UntypedInsertQuery {
+            Ok(UntypedQuery::Insert(UntypedInsertQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 values: vec![vec![Some(StaticUntypedTree::BiOp {
                     left: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::String(
@@ -279,7 +276,7 @@ mod multiple_values {
                         "str".to_owned()
                     ))))
                 })]],
-            })))
+            }))
         );
     }
 
@@ -298,7 +295,7 @@ mod multiple_values {
                 BinaryOperator::Gt,
                 Expr::Value(number(1))
             )),
-            Ok(QueryAnalysis::DML(UntypedQuery::Insert(UntypedInsertQuery {
+            Ok(UntypedQuery::Insert(UntypedInsertQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 values: vec![vec![Some(StaticUntypedTree::BiOp {
                     left: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(
@@ -309,7 +306,7 @@ mod multiple_values {
                         BigDecimal::from(1)
                     ))))
                 })]],
-            })))
+            }))
         );
     }
 
@@ -328,7 +325,7 @@ mod multiple_values {
                 BinaryOperator::And,
                 Expr::Value(Value::Boolean(true)),
             )),
-            Ok(QueryAnalysis::DML(UntypedQuery::Insert(UntypedInsertQuery {
+            Ok(UntypedQuery::Insert(UntypedInsertQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 values: vec![vec![Some(StaticUntypedTree::BiOp {
                     left: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Bool(
@@ -339,7 +336,7 @@ mod multiple_values {
                         Bool(true)
                     )))),
                 })]],
-            })))
+            }))
         );
     }
 
@@ -358,7 +355,7 @@ mod multiple_values {
                 BinaryOperator::BitwiseOr,
                 Expr::Value(number(1))
             )),
-            Ok(QueryAnalysis::DML(UntypedQuery::Insert(UntypedInsertQuery {
+            Ok(UntypedQuery::Insert(UntypedInsertQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 values: vec![vec![Some(StaticUntypedTree::BiOp {
                     left: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(
@@ -369,7 +366,7 @@ mod multiple_values {
                         BigDecimal::from(1)
                     ))))
                 })]],
-            })))
+            }))
         );
     }
 
@@ -388,7 +385,7 @@ mod multiple_values {
                 BinaryOperator::Like,
                 string("str")
             )),
-            Ok(QueryAnalysis::DML(UntypedQuery::Insert(UntypedInsertQuery {
+            Ok(UntypedQuery::Insert(UntypedInsertQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 values: vec![vec![Some(StaticUntypedTree::BiOp {
                     left: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::String(
@@ -399,75 +396,7 @@ mod multiple_values {
                         "str".to_owned()
                     ))))
                 })]],
-            })))
-        );
-    }
-}
-
-#[cfg(test)]
-mod not_supported_values {
-    use super::*;
-
-    #[test]
-    fn national_strings() {
-        let database = InMemoryDatabase::new();
-        database.execute(create_schema_ops(SCHEMA)).unwrap();
-        database
-            .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
-            .unwrap();
-        let analyzer = QueryAnalyzer::new(database);
-
-        assert_eq!(
-            analyzer.analyze(insert_with_values(
-                SCHEMA,
-                TABLE,
-                vec![vec![Expr::Value(Value::NationalStringLiteral("str".to_owned()))]]
-            )),
-            Err(AnalysisError::FeatureNotSupported(Feature::NationalStringLiteral))
-        );
-    }
-
-    #[test]
-    fn hex_strings() {
-        let database = InMemoryDatabase::new();
-        database.execute(create_schema_ops(SCHEMA)).unwrap();
-        database
-            .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
-            .unwrap();
-        let analyzer = QueryAnalyzer::new(database);
-
-        assert_eq!(
-            analyzer.analyze(insert_with_values(
-                SCHEMA,
-                TABLE,
-                vec![vec![Expr::Value(Value::HexStringLiteral("str".to_owned()))]]
-            )),
-            Err(AnalysisError::FeatureNotSupported(Feature::HexStringLiteral))
-        );
-    }
-
-    #[test]
-    fn time_intervals() {
-        let database = InMemoryDatabase::new();
-        database.execute(create_schema_ops(SCHEMA)).unwrap();
-        database
-            .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
-            .unwrap();
-        let analyzer = QueryAnalyzer::new(database);
-
-        assert_eq!(
-            analyzer.analyze(insert_with_values(
-                SCHEMA,
-                TABLE,
-                vec![vec![Expr::Value(Value::Interval {
-                    value: "value".to_owned(),
-                    leading_field: None,
-                    leading_precision: None,
-                    last_field: None,
-                    fractional_seconds_precision: None
-                })]]
-            )),
-            Err(AnalysisError::FeatureNotSupported(Feature::TimeInterval))
+            }))
         );
     }
 }

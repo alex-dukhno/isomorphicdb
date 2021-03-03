@@ -78,7 +78,7 @@ impl DynamicTreeBuilder {
                 DynamicUntypedTree::Item(DynamicUntypedItem::Const(UntypedValue::Bool(Bool(boolean))))
             }
             Value::Null => DynamicUntypedTree::Item(DynamicUntypedItem::Const(UntypedValue::Null)),
-            Value::Param(index) => DynamicUntypedTree::Item(DynamicUntypedItem::Param(index as usize)),
+            Value::Param(index) => DynamicUntypedTree::Item(DynamicUntypedItem::Param((index - 1) as usize)),
             Value::Number(num) => DynamicUntypedTree::Item(DynamicUntypedItem::Const(UntypedValue::Number(
                 BigDecimal::from_str(&num).unwrap(),
             ))),

@@ -45,7 +45,10 @@ fn create_index_for_not_existent_table() {
             "non_existent",
             vec!["column"]
         )),
-        Err(SchemaPlanError::table_does_not_exist(&"non_existent"))
+        Err(SchemaPlanError::table_does_not_exist(&format!(
+            "{}.{}",
+            DEFAULT_SCHEMA, "non_existent"
+        )))
     );
 }
 
@@ -95,7 +98,7 @@ fn create_index_over_multiple_columns() {
         )),
         Ok(SchemaChange::CreateIndex(CreateIndexQuery {
             name: "index_name".to_owned(),
-            full_table_name: FullTableName::from(TABLE),
+            full_table_name: FullTableName::from((&DEFAULT_SCHEMA, &TABLE)),
             column_names: vec!["col_1".to_owned(), "col_2".to_owned(), "col_3".to_owned()]
         }))
     );

@@ -56,11 +56,11 @@ fn drop_table() {
     let analyzer = DefinitionPlanner::new(database);
     assert_eq!(
         analyzer.plan(drop_table_stmt(vec![(SCHEMA, TABLE)])),
-        Ok(QueryAnalysis::DDL(SchemaChange::DropTables(DropTablesQuery {
+        Ok(SchemaChange::DropTables(DropTablesQuery {
             full_table_names: vec![FullTableName::from((&SCHEMA, &TABLE))],
             cascade: false,
             if_exists: false
-        })))
+        }))
     );
 }
 
@@ -71,11 +71,11 @@ fn drop_nonexistent_table() {
     let analyzer = DefinitionPlanner::new(database);
     assert_eq!(
         analyzer.plan(drop_table_stmt(vec![(SCHEMA, "non_existent_table")])),
-        Ok(QueryAnalysis::DDL(SchemaChange::DropTables(DropTablesQuery {
+        Ok(SchemaChange::DropTables(DropTablesQuery {
             full_table_names: vec![FullTableName::from((&SCHEMA, &"non_existent_table"))],
             cascade: false,
             if_exists: false
-        })))
+        }))
     );
 }
 

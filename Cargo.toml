@@ -23,8 +23,7 @@ async-dup = "1.2.1"
 itertools = "0.10.0"
 async-io = "1.3.1"
 async-mutex = "1.4.0"
-#TODO temporal to have ability to run ./local/code_coverage.sh
-async-native-tls = { git = "https://github.com/alex-dukhno/async-native-tls.git", branch = "new-native-tls" }
+async-native-tls = "0.3.3"
 async-trait = "0.1.42"
 blocking = "1.0.0"
 bigdecimal = { version = "0.2.0", features = ["string-only"] }

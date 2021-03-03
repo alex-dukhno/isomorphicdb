@@ -127,7 +127,7 @@ mod binary_op {
     #[test]
     fn exponent() {
         assert_eq!(
-            OperationMapper::binary_operation(BinaryOperator::BitwiseXor),
+            OperationMapper::binary_operation(BinaryOperator::Exp),
             BiOperator::Arithmetic(BiArithmetic::Exp)
         );
     }
@@ -247,7 +247,7 @@ mod binary_op {
     #[test]
     fn bitwise_xor() {
         assert_eq!(
-            OperationMapper::binary_operation(BinaryOperator::PGBitwiseXor),
+            OperationMapper::binary_operation(BinaryOperator::BitwiseXor),
             BiOperator::Bitwise(Bitwise::Xor)
         );
     }
@@ -255,7 +255,7 @@ mod binary_op {
     #[test]
     fn bitwise_shift_left() {
         assert_eq!(
-            OperationMapper::binary_operation(BinaryOperator::PGBitwiseShiftLeft),
+            OperationMapper::binary_operation(BinaryOperator::BitwiseShiftLeft),
             BiOperator::Bitwise(Bitwise::ShiftLeft)
         );
     }
@@ -263,7 +263,7 @@ mod binary_op {
     #[test]
     fn bitwise_shift_right() {
         assert_eq!(
-            OperationMapper::binary_operation(BinaryOperator::PGBitwiseShiftRight),
+            OperationMapper::binary_operation(BinaryOperator::BitwiseShiftRight),
             BiOperator::Bitwise(Bitwise::ShiftRight)
         );
     }

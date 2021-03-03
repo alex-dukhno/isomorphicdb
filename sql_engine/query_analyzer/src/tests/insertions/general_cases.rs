@@ -23,7 +23,7 @@ fn schema_does_not_exist() {
     let analyzer = QueryAnalyzer::new(InMemoryDatabase::new());
 
     assert_eq!(
-        analyzer.analyze(insert_statement(vec![SCHEMA, TABLE])),
+        analyzer.analyze(insert_statement(SCHEMA, TABLE)),
         Err(AnalysisError::schema_does_not_exist(&SCHEMA))
     );
 }
@@ -35,33 +35,8 @@ fn table_does_not_exist() {
     let analyzer = QueryAnalyzer::new(database);
 
     assert_eq!(
-        analyzer.analyze(insert_statement(vec![SCHEMA, TABLE])),
+        analyzer.analyze(insert_statement(SCHEMA, TABLE)),
         Err(AnalysisError::table_does_not_exist(format!("{}.{}", SCHEMA, TABLE)))
-    );
-}
-
-#[test]
-fn table_with_unqualified_name() {
-    let analyzer = QueryAnalyzer::new(InMemoryDatabase::new());
-    assert_eq!(
-        analyzer.analyze(insert_statement(vec!["only_table_in_the_name"])),
-        Err(AnalysisError::table_does_not_exist(&"only_table_in_the_name"))
-    );
-}
-
-#[test]
-fn table_with_unsupported_name() {
-    let analyzer = QueryAnalyzer::new(InMemoryDatabase::new());
-    assert_eq!(
-        analyzer.analyze(insert_statement(vec![
-            "first_part",
-            "second_part",
-            "third_part",
-            "fourth_part",
-        ])),
-        Err(AnalysisError::table_naming_error(
-            &"Unable to process table name 'first_part.second_part.third_part.fourth_part'",
-        ))
     );
 }
 
@@ -75,17 +50,13 @@ fn with_column_names() {
     let analyzer = QueryAnalyzer::new(database);
 
     assert_eq!(
-        analyzer.analyze(inner_insert(
-            vec![SCHEMA, TABLE],
-            vec![vec![small_int(100)]],
-            vec!["col"]
-        )),
-        Ok(QueryAnalysis::DML(UntypedQuery::Insert(UntypedInsertQuery {
+        analyzer.analyze(inner_insert(SCHEMA, TABLE, vec![vec![small_int(100)]], vec!["col"])),
+        Ok(UntypedQuery::Insert(UntypedInsertQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             values: vec![vec![Some(StaticUntypedTree::Item(StaticUntypedItem::Const(
                 UntypedValue::Number(BigDecimal::from(100))
             )))]],
-        })))
+        }))
     );
 }
 
@@ -99,11 +70,7 @@ fn column_not_found() {
     let analyzer = QueryAnalyzer::new(database);
 
     assert_eq!(
-        analyzer.analyze(inner_insert(
-            vec![SCHEMA, TABLE],
-            vec![vec![small_int(1)]],
-            vec!["not_found"]
-        )),
+        analyzer.analyze(inner_insert(SCHEMA, TABLE, vec![vec![small_int(1)]], vec!["not_found"])),
         Err(AnalysisError::column_not_found(&"not_found"))
     );
 }
