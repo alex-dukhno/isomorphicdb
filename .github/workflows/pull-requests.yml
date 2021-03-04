@@ -60,7 +60,7 @@ jobs:
       - clippy
     runs-on: ubuntu-latest
     steps:
-      - name: checkout
+      - name: checkout code
         uses: actions/checkout@v2
       - name: install LLVM and Clang build dependencies for pg-sql-parser
         run: sudo apt install -y llvm
@@ -77,7 +77,7 @@ jobs:
       - clippy
     runs-on: ubuntu-latest
     steps:
-      - name: checkout
+      - name: checkout code
         uses: actions/checkout@v2
       - name: install LLVM and Clang build dependencies for pg-sql-parser
         run: sudo apt install -y llvm
@@ -123,7 +123,7 @@ jobs:
         uses: actions/setup-java@v1
         with:
           java-version: 8
-      - name: checkout
+      - name: checkout code
         uses: actions/checkout@v2
       - name: install LLVM and Clang build dependencies for pg-sql-parser
         run: sudo apt install -y llvm
@@ -141,7 +141,7 @@ jobs:
       - clippy
     runs-on: ubuntu-18.04
     steps:
-      - name: set up rust
+      - name: set up rust toolchain
         uses: hecrj/setup-rust-action@v1
         with:
           rust-version: stable
@@ -149,12 +149,12 @@ jobs:
         uses: gleam-lang/setup-erlang@v1.1.0
         with:
             otp-version: 23.1
-      - name: checkout
+      - name: checkout code
         uses: actions/checkout@v2
       - name: install LLVM and Clang build dependencies for pg-sql-parser
         run: sudo apt install -y llvm
       - name: run-tests
-        run: ./etc/ci/erlang_client.sh
+        run: cargo build && cargo run & cargo build && sleep 1 && rebar3 ct --dir tests/erlang_client/ --logdir erlang_client_logs/ -v
 
   ci-success:
     name: ci
