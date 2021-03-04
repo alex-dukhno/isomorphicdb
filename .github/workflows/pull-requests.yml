@@ -139,13 +139,13 @@ jobs:
       - cargo-deny
       - rustfmt
       - clippy
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-18.04
     steps:
-      - name: set-up-rust
+      - name: set up rust
         uses: hecrj/setup-rust-action@v1
         with:
           rust-version: stable
-      - name: set-up-erlang
+      - name: set up erlang
         uses: gleam-lang/setup-erlang@v1.1.0
         with:
             otp-version: 23.1

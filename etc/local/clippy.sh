@@ -3,4 +3,4 @@
 cd "$(dirname "$0")"/../..
 set -ex
 
-cargo clippy --all-targets --all-features -- -D warnings
+cargo clippy --all-targets --all-features --all -- -D warnings
