@@ -480,6 +480,7 @@ pub enum UnOperator {
     Arithmetic(UnArithmetic),
     LogicalNot,
     BitwiseNot,
+    Cast(SqlTypeFamily),
 }
 
 impl UnOperator {
@@ -536,6 +537,7 @@ impl UnOperator {
                         .unwrap_or_else(|| "unknown".to_owned()),
                 )),
             },
+            UnOperator::Cast(_type_family) => unimplemented!(),
         }
     }
 }
@@ -546,6 +548,7 @@ impl Display for UnOperator {
             UnOperator::Arithmetic(op) => write!(f, "{}", op),
             UnOperator::LogicalNot => write!(f, "NOT"),
             UnOperator::BitwiseNot => write!(f, "~"),
+            UnOperator::Cast(type_family) => write!(f, "::{}", type_family),
         }
     }
 }

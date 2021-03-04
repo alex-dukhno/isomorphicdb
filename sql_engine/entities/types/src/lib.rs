@@ -13,11 +13,8 @@
 // limitations under the License.
 
 use pg_wire::PgType;
-use sql_ast::DataType;
-use std::{
-    convert::TryFrom,
-    fmt::{self, Display, Formatter},
-};
+use query_ast::DataType;
+use std::fmt::{self, Display, Formatter};
 
 #[derive(Debug, PartialEq)]
 pub struct IncomparableSqlTypeFamilies {
@@ -194,23 +191,20 @@ impl SqlType {
     }
 }
 
-impl TryFrom<&DataType> for SqlType {
-    type Error = NotSupportedType;
-
-    fn try_from(data_type: &DataType) -> Result<Self, Self::Error> {
+impl From<DataType> for SqlType {
+    fn from(data_type: DataType) -> SqlType {
         match data_type {
-            DataType::SmallInt => Ok(SqlType::small_int()),
-            DataType::Int => Ok(SqlType::integer()),
-            DataType::BigInt => Ok(SqlType::big_int()),
-            DataType::Char(len) => Ok(SqlType::char(len.unwrap_or(255))),
-            DataType::Varchar(len) => Ok(SqlType::var_char(len.unwrap_or(255))),
-            DataType::Boolean => Ok(SqlType::Bool),
-            _other_type => Err(NotSupportedType),
+            DataType::SmallInt => SqlType::small_int(),
+            DataType::Int => SqlType::integer(),
+            DataType::BigInt => SqlType::big_int(),
+            DataType::Char(len) => SqlType::char(len as u64),
+            DataType::VarChar(len) => SqlType::var_char(len.unwrap_or(255) as u64),
+            DataType::Bool => SqlType::Bool,
+            DataType::Real => SqlType::real(),
+            DataType::Double => SqlType::double_precision(),
         }
     }
 }
-
-pub struct NotSupportedType;
 
 impl Display for SqlType {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {

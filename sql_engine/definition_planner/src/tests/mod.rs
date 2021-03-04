@@ -13,50 +13,39 @@
 // limitations under the License.
 
 use super::*;
-use bigdecimal::BigDecimal;
 use catalog::{Database, InMemoryDatabase};
-use data_definition_execution_plan::{ColumnInfo, CreateSchemaQuery, CreateTableQuery, SchemaChange};
-use data_manipulation_operators::{BiArithmetic, BiLogical, BiOperator, Bitwise, Comparison, Concat, Matching};
-use data_manipulation_untyped_tree::Bool;
-use definition::SchemaName;
-use query_ast::{Assignment, BinaryOperator, Expr, Value};
-use types::SqlType;
+use data_definition_execution_plan::{ColumnInfo, CreateSchemaQuery, CreateTableQuery, DropSchemasQuery, SchemaChange};
 
 #[cfg(test)]
-mod delete;
+mod create_index;
 #[cfg(test)]
-mod insertions;
+mod create_schema;
 #[cfg(test)]
-mod operation_mapping;
+mod create_table;
 #[cfg(test)]
-mod selects;
+mod drop_schema;
 #[cfg(test)]
-mod updates;
+mod drop_table;
 
 const SCHEMA: &str = "schema_name";
 const TABLE: &str = "table_name";
 
-fn string(value: &'static str) -> Expr {
-    Expr::Value(Value::String(value.to_owned()))
+fn create_table_if_not_exists(
+    schema_name: &str,
+    table_name: &str,
+    columns: Vec<ColumnDef>,
+    if_not_exists: bool,
+) -> Definition {
+    Definition::CreateTable {
+        schema_name: schema_name.to_owned(),
+        table_name: table_name.to_owned(),
+        columns,
+        if_not_exists,
+    }
 }
 
-fn null() -> Expr {
-    Expr::Value(Value::Null)
-}
-
-fn boolean(value: bool) -> Expr {
-    Expr::Value(Value::Boolean(value))
-}
-
-fn number(value: i16) -> Value {
-    Value::Int(value as i32)
-}
-
-fn create_schema_ops(schema_name: &str) -> SchemaChange {
-    SchemaChange::CreateSchema(CreateSchemaQuery {
-        schema_name: SchemaName::from(&schema_name),
-        if_not_exists: false,
-    })
+fn create_table(schema_name: &str, table_name: &str, columns: Vec<ColumnDef>) -> Definition {
+    create_table_if_not_exists(schema_name, table_name, columns, false)
 }
 
 fn create_table_ops(schema_name: &str, table_name: &str, columns: Vec<(&str, SqlType)>) -> SchemaChange {
@@ -70,5 +59,12 @@ fn create_table_ops(schema_name: &str, table_name: &str, columns: Vec<(&str, Sql
             })
             .collect(),
         if_not_exists: true,
+    })
+}
+
+fn create_schema_ops(schema_name: &str) -> SchemaChange {
+    SchemaChange::CreateSchema(CreateSchemaQuery {
+        schema_name: SchemaName::from(&schema_name),
+        if_not_exists: false,
     })
 }

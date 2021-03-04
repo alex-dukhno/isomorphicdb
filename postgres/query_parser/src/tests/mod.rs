@@ -12,5 +12,34 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-pub use parser::*;
-pub use sql_ast::*;
+use super::*;
+
+#[cfg(test)]
+mod delete;
+#[cfg(test)]
+mod index;
+#[cfg(test)]
+mod insert;
+#[cfg(test)]
+mod schema;
+#[cfg(test)]
+mod select;
+#[cfg(test)]
+mod table;
+#[cfg(test)]
+mod update;
+
+const QUERY_PARSER: QueryParser = QueryParser::new();
+
+#[test]
+fn set_variable() {
+    let statements = QUERY_PARSER.parse("set variable=value;");
+
+    assert_eq!(
+        statements,
+        Ok(vec![Statement::Config(Set {
+            variable: "variable".to_owned(),
+            value: "value".to_owned()
+        })])
+    );
+}

@@ -12,10 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::{
-    convert::TryFrom,
-    fmt::{self, Display, Formatter},
-};
+use std::fmt::{self, Display, Formatter};
 use types::SqlType;
 
 #[derive(Debug, PartialEq)]
@@ -88,33 +85,6 @@ impl Display for FullTableName {
     }
 }
 
-impl<'o> TryFrom<&'o sql_ast::ObjectName> for FullTableName {
-    type Error = TableNamingError;
-
-    fn try_from(object: &'o sql_ast::ObjectName) -> Result<Self, Self::Error> {
-        if object.0.len() > 2 {
-            Err(TableNamingError(object.to_string()))
-        } else {
-            let schema = if object.0.len() == 1 {
-                None
-            } else {
-                Some(object.0.first().unwrap().value.to_lowercase())
-            };
-            let table = object.0.last().unwrap().value.to_lowercase();
-            Ok(FullTableName { schema, table })
-        }
-    }
-}
-
-#[derive(Debug, PartialEq)]
-pub struct TableNamingError(String);
-
-impl Display for TableNamingError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "Unable to process table name '{}'", self.0)
-    }
-}
-
 #[derive(Debug, PartialEq)]
 pub struct SchemaName(String);
 
@@ -124,29 +94,9 @@ impl AsRef<str> for SchemaName {
     }
 }
 
-impl<'o> TryFrom<&'o sql_ast::ObjectName> for SchemaName {
-    type Error = SchemaNamingError;
-
-    fn try_from(object: &'o sql_ast::ObjectName) -> Result<Self, Self::Error> {
-        if object.0.len() != 1 {
-            Err(SchemaNamingError(object.to_string()))
-        } else {
-            Ok(SchemaName(object.to_string().to_lowercase()))
-        }
-    }
-}
-
 impl SchemaName {
     pub fn from<S: ToString>(schema_name: &S) -> SchemaName {
         SchemaName(schema_name.to_string())
-    }
-}
-
-pub struct SchemaNamingError(String);
-
-impl Display for SchemaNamingError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "Only unqualified schema names are supported, '{}'", self.0)
     }
 }
 

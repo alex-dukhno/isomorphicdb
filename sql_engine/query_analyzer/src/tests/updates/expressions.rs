@@ -23,19 +23,16 @@ fn update_number() {
     database
         .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
         .unwrap();
-    let analyzer = Analyzer::new(database);
+    let analyzer = QueryAnalyzer::new(database);
 
     assert_eq!(
-        analyzer.analyze(update_statement(
-            vec![SCHEMA, TABLE],
-            vec![("col", sql_ast::Expr::Value(number(1)))]
-        )),
-        Ok(QueryAnalysis::DML(UntypedQuery::Update(UntypedUpdateQuery {
+        analyzer.analyze(update_statement(SCHEMA, TABLE, vec![("col", Expr::Value(number(1)))])),
+        Ok(UntypedQuery::Update(UntypedUpdateQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             assignments: vec![Some(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
                 UntypedValue::Number(BigDecimal::from(1))
             )))]
-        })))
+        }))
     );
 }
 
@@ -46,16 +43,16 @@ fn update_string() {
     database
         .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::char(5))]))
         .unwrap();
-    let analyzer = Analyzer::new(database);
+    let analyzer = QueryAnalyzer::new(database);
 
     assert_eq!(
-        analyzer.analyze(update_statement(vec![SCHEMA, TABLE], vec![("col", string("str"))])),
-        Ok(QueryAnalysis::DML(UntypedQuery::Update(UntypedUpdateQuery {
+        analyzer.analyze(update_statement(SCHEMA, TABLE, vec![("col", string("str"))])),
+        Ok(UntypedQuery::Update(UntypedUpdateQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             assignments: vec![Some(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
                 UntypedValue::String("str".to_owned())
             )))]
-        })))
+        }))
     );
 }
 
@@ -66,16 +63,16 @@ fn update_boolean() {
     database
         .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
         .unwrap();
-    let analyzer = Analyzer::new(database);
+    let analyzer = QueryAnalyzer::new(database);
 
     assert_eq!(
-        analyzer.analyze(update_statement(vec![SCHEMA, TABLE], vec![("col", boolean(true))])),
-        Ok(QueryAnalysis::DML(UntypedQuery::Update(UntypedUpdateQuery {
+        analyzer.analyze(update_statement(SCHEMA, TABLE, vec![("col", boolean(true))])),
+        Ok(UntypedQuery::Update(UntypedUpdateQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             assignments: vec![Some(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
                 UntypedValue::Bool(Bool(true))
             )))],
-        })))
+        }))
     );
 }
 
@@ -86,16 +83,16 @@ fn update_null() {
     database
         .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
         .unwrap();
-    let analyzer = Analyzer::new(database);
+    let analyzer = QueryAnalyzer::new(database);
 
     assert_eq!(
-        analyzer.analyze(update_statement(vec![SCHEMA, TABLE], vec![("col", null())])),
-        Ok(QueryAnalysis::DML(UntypedQuery::Update(UntypedUpdateQuery {
+        analyzer.analyze(update_statement(SCHEMA, TABLE, vec![("col", null())])),
+        Ok(UntypedQuery::Update(UntypedUpdateQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             assignments: vec![Some(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
                 UntypedValue::Null
             )))],
-        })))
+        }))
     );
 }
 
@@ -110,14 +107,15 @@ fn update_with_column_value() {
             vec![("col_1", SqlType::small_int()), ("col_2", SqlType::small_int())],
         ))
         .unwrap();
-    let analyzer = Analyzer::new(database);
+    let analyzer = QueryAnalyzer::new(database);
 
     assert_eq!(
         analyzer.analyze(update_statement(
-            vec![SCHEMA, TABLE],
-            vec![("col_1", sql_ast::Expr::Identifier(ident("col_2")))]
+            SCHEMA,
+            TABLE,
+            vec![("col_1", Expr::Column("col_2".to_owned()))]
         )),
-        Ok(QueryAnalysis::DML(UntypedQuery::Update(UntypedUpdateQuery {
+        Ok(UntypedQuery::Update(UntypedUpdateQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             assignments: vec![
                 Some(DynamicUntypedTree::Item(DynamicUntypedItem::Column {
@@ -127,7 +125,7 @@ fn update_with_column_value() {
                 })),
                 None
             ],
-        })))
+        }))
     );
 }
 
@@ -142,12 +140,13 @@ fn update_with_column_value_that_does_not_exists() {
             vec![("col_1", SqlType::small_int()), ("col_2", SqlType::small_int())],
         ))
         .unwrap();
-    let analyzer = Analyzer::new(database);
+    let analyzer = QueryAnalyzer::new(database);
 
     assert_eq!(
         analyzer.analyze(update_statement(
-            vec![SCHEMA, TABLE],
-            vec![("col_1", sql_ast::Expr::Identifier(ident("col_3")))]
+            SCHEMA,
+            TABLE,
+            vec![("col_1", Expr::Column("col_3".to_owned()))]
         )),
         Err(AnalysisError::column_not_found(&"col_3"))
     );
@@ -164,14 +163,14 @@ fn update_table_with_parameters() {
             vec![("col_1", SqlType::small_int()), ("col_2", SqlType::integer())],
         ))
         .unwrap();
-    let analyzer = Analyzer::new(database);
+    let analyzer = QueryAnalyzer::new(database);
 
     assert_eq!(
-        analyzer.analyze(update_stmt_with_parameters(vec![SCHEMA, TABLE])),
-        Ok(QueryAnalysis::DML(UntypedQuery::Update(UntypedUpdateQuery {
+        analyzer.analyze(update_stmt_with_parameters(SCHEMA, TABLE)),
+        Ok(UntypedQuery::Update(UntypedUpdateQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             assignments: vec![None, Some(DynamicUntypedTree::Item(DynamicUntypedItem::Param(0)))]
-        })))
+        }))
     );
 }
 
@@ -181,16 +180,13 @@ mod multiple_values {
 
     use super::*;
 
-    fn update_value_as_expression_with_operation(
-        left: sql_ast::Expr,
-        op: sql_ast::BinaryOperator,
-        right: sql_ast::Expr,
-    ) -> sql_ast::Statement {
+    fn update_value_as_expression_with_operation(left: Expr, op: BinaryOperator, right: Expr) -> Query {
         update_statement(
-            vec![SCHEMA, TABLE],
+            SCHEMA,
+            TABLE,
             vec![(
                 "col",
-                sql_ast::Expr::BinaryOp {
+                Expr::BinaryOp {
                     left: Box::new(left),
                     op,
                     right: Box::new(right),
@@ -206,15 +202,15 @@ mod multiple_values {
         database
             .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
             .unwrap();
-        let analyzer = Analyzer::new(database);
+        let analyzer = QueryAnalyzer::new(database);
 
         assert_eq!(
             analyzer.analyze(update_value_as_expression_with_operation(
-                sql_ast::Expr::Value(number(1)),
-                sql_ast::BinaryOperator::Plus,
-                sql_ast::Expr::Value(number(1))
+                Expr::Value(number(1)),
+                BinaryOperator::Plus,
+                Expr::Value(number(1))
             )),
-            Ok(QueryAnalysis::DML(UntypedQuery::Update(UntypedUpdateQuery {
+            Ok(UntypedQuery::Update(UntypedUpdateQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 assignments: vec![Some(DynamicUntypedTree::BiOp {
                     left: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
@@ -225,7 +221,7 @@ mod multiple_values {
                         UntypedValue::Number(BigDecimal::from(1))
                     )))
                 })],
-            })))
+            }))
         );
     }
 
@@ -236,15 +232,15 @@ mod multiple_values {
         database
             .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::var_char(255))]))
             .unwrap();
-        let analyzer = Analyzer::new(database);
+        let analyzer = QueryAnalyzer::new(database);
 
         assert_eq!(
             analyzer.analyze(update_value_as_expression_with_operation(
                 string("str"),
-                sql_ast::BinaryOperator::StringConcat,
+                BinaryOperator::StringConcat,
                 string("str")
             )),
-            Ok(QueryAnalysis::DML(UntypedQuery::Update(UntypedUpdateQuery {
+            Ok(UntypedQuery::Update(UntypedUpdateQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 assignments: vec![Some(DynamicUntypedTree::BiOp {
                     left: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
@@ -255,7 +251,7 @@ mod multiple_values {
                         UntypedValue::String("str".to_owned())
                     )))
                 })],
-            })))
+            }))
         );
     }
 
@@ -266,15 +262,15 @@ mod multiple_values {
         database
             .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
             .unwrap();
-        let analyzer = Analyzer::new(database);
+        let analyzer = QueryAnalyzer::new(database);
 
         assert_eq!(
             analyzer.analyze(update_value_as_expression_with_operation(
-                sql_ast::Expr::Value(number(1)),
-                sql_ast::BinaryOperator::Gt,
-                sql_ast::Expr::Value(number(1))
+                Expr::Value(number(1)),
+                BinaryOperator::Gt,
+                Expr::Value(number(1))
             )),
-            Ok(QueryAnalysis::DML(UntypedQuery::Update(UntypedUpdateQuery {
+            Ok(UntypedQuery::Update(UntypedUpdateQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 assignments: vec![Some(DynamicUntypedTree::BiOp {
                     left: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
@@ -285,7 +281,7 @@ mod multiple_values {
                         UntypedValue::Number(BigDecimal::from(1))
                     )))
                 })],
-            })))
+            }))
         );
     }
 
@@ -296,15 +292,15 @@ mod multiple_values {
         database
             .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
             .unwrap();
-        let analyzer = Analyzer::new(database);
+        let analyzer = QueryAnalyzer::new(database);
 
         assert_eq!(
             analyzer.analyze(update_value_as_expression_with_operation(
-                sql_ast::Expr::Value(sql_ast::Value::Boolean(true)),
-                sql_ast::BinaryOperator::And,
-                sql_ast::Expr::Value(sql_ast::Value::Boolean(true)),
+                Expr::Value(Value::Boolean(true)),
+                BinaryOperator::And,
+                Expr::Value(Value::Boolean(true)),
             )),
-            Ok(QueryAnalysis::DML(UntypedQuery::Update(UntypedUpdateQuery {
+            Ok(UntypedQuery::Update(UntypedUpdateQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 assignments: vec![Some(DynamicUntypedTree::BiOp {
                     left: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(UntypedValue::Bool(
@@ -315,7 +311,7 @@ mod multiple_values {
                         Bool(true)
                     )))),
                 })],
-            })))
+            }))
         );
     }
 
@@ -326,15 +322,15 @@ mod multiple_values {
         database
             .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
             .unwrap();
-        let analyzer = Analyzer::new(database);
+        let analyzer = QueryAnalyzer::new(database);
 
         assert_eq!(
             analyzer.analyze(update_value_as_expression_with_operation(
-                sql_ast::Expr::Value(number(1)),
-                sql_ast::BinaryOperator::BitwiseOr,
-                sql_ast::Expr::Value(number(1))
+                Expr::Value(number(1)),
+                BinaryOperator::BitwiseOr,
+                Expr::Value(number(1))
             )),
-            Ok(QueryAnalysis::DML(UntypedQuery::Update(UntypedUpdateQuery {
+            Ok(UntypedQuery::Update(UntypedUpdateQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 assignments: vec![Some(DynamicUntypedTree::BiOp {
                     left: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
@@ -345,7 +341,7 @@ mod multiple_values {
                         UntypedValue::Number(BigDecimal::from(1))
                     )))
                 })],
-            })))
+            }))
         );
     }
 
@@ -356,15 +352,15 @@ mod multiple_values {
         database
             .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
             .unwrap();
-        let analyzer = Analyzer::new(database);
+        let analyzer = QueryAnalyzer::new(database);
 
         assert_eq!(
             analyzer.analyze(update_value_as_expression_with_operation(
                 string("s"),
-                sql_ast::BinaryOperator::Like,
+                BinaryOperator::Like,
                 string("str")
             )),
-            Ok(QueryAnalysis::DML(UntypedQuery::Update(UntypedUpdateQuery {
+            Ok(UntypedQuery::Update(UntypedUpdateQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 assignments: vec![Some(DynamicUntypedTree::BiOp {
                     left: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
@@ -375,81 +371,7 @@ mod multiple_values {
                         UntypedValue::String("str".to_owned())
                     )))
                 })],
-            })))
-        );
-    }
-}
-
-#[cfg(test)]
-mod not_supported_values {
-    use super::*;
-
-    #[test]
-    fn national_strings() {
-        let database = InMemoryDatabase::new();
-        database.execute(create_schema_ops(SCHEMA)).unwrap();
-        database
-            .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
-            .unwrap();
-        let analyzer = Analyzer::new(database);
-
-        assert_eq!(
-            analyzer.analyze(update_statement(
-                vec![SCHEMA, TABLE],
-                vec![(
-                    "col",
-                    sql_ast::Expr::Value(sql_ast::Value::NationalStringLiteral("str".to_owned()))
-                )]
-            )),
-            Err(AnalysisError::FeatureNotSupported(Feature::NationalStringLiteral))
-        );
-    }
-
-    #[test]
-    fn hex_strings() {
-        let database = InMemoryDatabase::new();
-        database.execute(create_schema_ops(SCHEMA)).unwrap();
-        database
-            .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
-            .unwrap();
-        let analyzer = Analyzer::new(database);
-
-        assert_eq!(
-            analyzer.analyze(update_statement(
-                vec![SCHEMA, TABLE],
-                vec![(
-                    "col",
-                    sql_ast::Expr::Value(sql_ast::Value::HexStringLiteral("str".to_owned()))
-                )]
-            )),
-            Err(AnalysisError::FeatureNotSupported(Feature::HexStringLiteral))
-        );
-    }
-
-    #[test]
-    fn time_intervals() {
-        let database = InMemoryDatabase::new();
-        database.execute(create_schema_ops(SCHEMA)).unwrap();
-        database
-            .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
-            .unwrap();
-        let analyzer = Analyzer::new(database);
-
-        assert_eq!(
-            analyzer.analyze(update_statement(
-                vec![SCHEMA, TABLE],
-                vec![(
-                    "col",
-                    sql_ast::Expr::Value(sql_ast::Value::Interval {
-                        value: "value".to_owned(),
-                        leading_field: None,
-                        leading_precision: None,
-                        last_field: None,
-                        fractional_seconds_precision: None
-                    })
-                )]
-            )),
-            Err(AnalysisError::FeatureNotSupported(Feature::TimeInterval))
+            }))
         );
     }
 }

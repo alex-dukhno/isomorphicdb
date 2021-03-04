@@ -14,14 +14,11 @@
 
 use super::*;
 
-fn insert_with_parameters(full_name: Vec<&'static str>, parameters: Vec<&'static str>) -> sql_ast::Statement {
+fn insert_with_parameters(schema_name: &str, table_name: &str, parameters: Vec<u32>) -> Query {
     insert_with_values(
-        full_name,
-        vec![parameters
-            .into_iter()
-            .map(ident)
-            .map(sql_ast::Expr::Identifier)
-            .collect()],
+        schema_name,
+        table_name,
+        vec![parameters.into_iter().map(Value::Param).map(Expr::Value).collect()],
     )
 }
 
@@ -32,16 +29,16 @@ fn insert_number() {
     database
         .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
         .unwrap();
-    let analyzer = Analyzer::new(database);
+    let analyzer = QueryAnalyzer::new(database);
 
     assert_eq!(
-        analyzer.analyze(insert_with_values(vec![SCHEMA, TABLE], vec![vec![small_int(1)]])),
-        Ok(QueryAnalysis::DML(UntypedQuery::Insert(UntypedInsertQuery {
+        analyzer.analyze(insert_with_values(SCHEMA, TABLE, vec![vec![small_int(1)]])),
+        Ok(UntypedQuery::Insert(UntypedInsertQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             values: vec![vec![Some(StaticUntypedTree::Item(StaticUntypedItem::Const(
                 UntypedValue::Number(BigDecimal::from(1))
             )))]],
-        })))
+        }))
     );
 }
 
@@ -52,16 +49,16 @@ fn insert_string() {
     database
         .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::char(5))]))
         .unwrap();
-    let analyzer = Analyzer::new(database);
+    let analyzer = QueryAnalyzer::new(database);
 
     assert_eq!(
-        analyzer.analyze(insert_with_values(vec![SCHEMA, TABLE], vec![vec![string("str")]])),
-        Ok(QueryAnalysis::DML(UntypedQuery::Insert(UntypedInsertQuery {
+        analyzer.analyze(insert_with_values(SCHEMA, TABLE, vec![vec![string("str")]])),
+        Ok(UntypedQuery::Insert(UntypedInsertQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             values: vec![vec![Some(StaticUntypedTree::Item(StaticUntypedItem::Const(
                 UntypedValue::String("str".to_owned())
             )))]],
-        })))
+        }))
     );
 }
 
@@ -72,16 +69,16 @@ fn insert_boolean() {
     database
         .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
         .unwrap();
-    let analyzer = Analyzer::new(database);
+    let analyzer = QueryAnalyzer::new(database);
 
     assert_eq!(
-        analyzer.analyze(insert_with_values(vec![SCHEMA, TABLE], vec![vec![boolean(true)]])),
-        Ok(QueryAnalysis::DML(UntypedQuery::Insert(UntypedInsertQuery {
+        analyzer.analyze(insert_with_values(SCHEMA, TABLE, vec![vec![boolean(true)]])),
+        Ok(UntypedQuery::Insert(UntypedInsertQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             values: vec![vec![Some(StaticUntypedTree::Item(StaticUntypedItem::Const(
                 UntypedValue::Bool(Bool(true))
             )))]],
-        })))
+        }))
     );
 }
 
@@ -92,16 +89,16 @@ fn insert_null() {
     database
         .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
         .unwrap();
-    let analyzer = Analyzer::new(database);
+    let analyzer = QueryAnalyzer::new(database);
 
     assert_eq!(
-        analyzer.analyze(insert_with_values(vec![SCHEMA, TABLE], vec![vec![null()]])),
-        Ok(QueryAnalysis::DML(UntypedQuery::Insert(UntypedInsertQuery {
+        analyzer.analyze(insert_with_values(SCHEMA, TABLE, vec![vec![null()]])),
+        Ok(UntypedQuery::Insert(UntypedInsertQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             values: vec![vec![Some(StaticUntypedTree::Item(StaticUntypedItem::Const(
                 UntypedValue::Null
             )))]],
-        })))
+        }))
     );
 }
 
@@ -112,12 +109,13 @@ fn insert_identifier() {
     database
         .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
         .unwrap();
-    let analyzer = Analyzer::new(database);
+    let analyzer = QueryAnalyzer::new(database);
 
     assert_eq!(
         analyzer.analyze(insert_with_values(
-            vec![SCHEMA, TABLE],
-            vec![vec![sql_ast::Expr::Identifier(ident("col"))]]
+            SCHEMA,
+            TABLE,
+            vec![vec![Expr::Column("col".to_owned())]]
         )),
         Err(AnalysisError::column_cant_be_referenced(&"col"))
     );
@@ -134,17 +132,17 @@ fn insert_into_table_with_parameters() {
             vec![("col_1", SqlType::small_int()), ("col_2", SqlType::small_int())],
         ))
         .unwrap();
-    let analyzer = Analyzer::new(database);
+    let analyzer = QueryAnalyzer::new(database);
 
     assert_eq!(
-        analyzer.analyze(insert_with_parameters(vec![SCHEMA, TABLE], vec!["$1", "$2"])),
-        Ok(QueryAnalysis::DML(UntypedQuery::Insert(UntypedInsertQuery {
+        analyzer.analyze(insert_with_parameters(SCHEMA, TABLE, vec![1, 2])),
+        Ok(UntypedQuery::Insert(UntypedInsertQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             values: vec![vec![
                 Some(StaticUntypedTree::Item(StaticUntypedItem::Param(0))),
                 Some(StaticUntypedTree::Item(StaticUntypedItem::Param(1)))
             ]],
-        })))
+        }))
     );
 }
 
@@ -159,17 +157,15 @@ fn insert_into_table_with_parameters_and_values() {
             vec![("col_1", SqlType::small_int()), ("col_2", SqlType::small_int())],
         ))
         .unwrap();
-    let analyzer = Analyzer::new(database);
+    let analyzer = QueryAnalyzer::new(database);
 
     assert_eq!(
         analyzer.analyze(insert_with_values(
-            vec![SCHEMA, TABLE],
-            vec![vec![
-                sql_ast::Expr::Identifier(ident("$1")),
-                sql_ast::Expr::Value(number(1))
-            ]]
+            SCHEMA,
+            TABLE,
+            vec![vec![Expr::Value(Value::Param(1)), Expr::Value(number(1))]]
         )),
-        Ok(QueryAnalysis::DML(UntypedQuery::Insert(UntypedInsertQuery {
+        Ok(UntypedQuery::Insert(UntypedInsertQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             values: vec![vec![
                 Some(StaticUntypedTree::Item(StaticUntypedItem::Param(0))),
@@ -177,7 +173,7 @@ fn insert_into_table_with_parameters_and_values() {
                     BigDecimal::from(1)
                 ))))
             ]],
-        })))
+        }))
     );
 }
 
@@ -193,19 +189,16 @@ fn insert_into_table_negative_number() {
     database
         .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
         .unwrap();
-    let analyzer = Analyzer::new(database);
+    let analyzer = QueryAnalyzer::new(database);
 
     assert_eq!(
-        analyzer.analyze(insert_with_values(vec![SCHEMA, TABLE], vec![vec![small_int(-32768)]])),
-        Ok(QueryAnalysis::DML(UntypedQuery::Insert(UntypedInsertQuery {
+        analyzer.analyze(insert_with_values(SCHEMA, TABLE, vec![vec![small_int(-32768)]])),
+        Ok(UntypedQuery::Insert(UntypedInsertQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-            values: vec![vec![Some(StaticUntypedTree::UnOp {
-                op: UnOperator::Arithmetic(UnArithmetic::Neg),
-                item: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(
-                    BigDecimal::from(32768)
-                ))))
-            })]],
-        })))
+            values: vec![vec![Some(StaticUntypedTree::Item(StaticUntypedItem::Const(
+                UntypedValue::Number(BigDecimal::from(-32768))
+            )))]],
+        }))
     );
 }
 
@@ -215,14 +208,11 @@ mod multiple_values {
 
     use super::*;
 
-    fn insert_value_as_expression_with_operation(
-        left: sql_ast::Expr,
-        op: sql_ast::BinaryOperator,
-        right: sql_ast::Expr,
-    ) -> sql_ast::Statement {
+    fn insert_value_as_expression_with_operation(left: Expr, op: BinaryOperator, right: Expr) -> Query {
         insert_with_values(
-            vec![SCHEMA, TABLE],
-            vec![vec![sql_ast::Expr::BinaryOp {
+            SCHEMA,
+            TABLE,
+            vec![vec![Expr::BinaryOp {
                 left: Box::new(left),
                 op,
                 right: Box::new(right),
@@ -237,15 +227,15 @@ mod multiple_values {
         database
             .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
             .unwrap();
-        let analyzer = Analyzer::new(database);
+        let analyzer = QueryAnalyzer::new(database);
 
         assert_eq!(
             analyzer.analyze(insert_value_as_expression_with_operation(
-                sql_ast::Expr::Value(number(1)),
-                sql_ast::BinaryOperator::Plus,
-                sql_ast::Expr::Value(number(1))
+                Expr::Value(number(1)),
+                BinaryOperator::Plus,
+                Expr::Value(number(1))
             )),
-            Ok(QueryAnalysis::DML(UntypedQuery::Insert(UntypedInsertQuery {
+            Ok(UntypedQuery::Insert(UntypedInsertQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 values: vec![vec![Some(StaticUntypedTree::BiOp {
                     left: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(
@@ -256,7 +246,7 @@ mod multiple_values {
                         BigDecimal::from(1)
                     ))))
                 })]],
-            })))
+            }))
         );
     }
 
@@ -267,15 +257,15 @@ mod multiple_values {
         database
             .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::var_char(255))]))
             .unwrap();
-        let analyzer = Analyzer::new(database);
+        let analyzer = QueryAnalyzer::new(database);
 
         assert_eq!(
             analyzer.analyze(insert_value_as_expression_with_operation(
                 string("str"),
-                sql_ast::BinaryOperator::StringConcat,
+                BinaryOperator::StringConcat,
                 string("str")
             )),
-            Ok(QueryAnalysis::DML(UntypedQuery::Insert(UntypedInsertQuery {
+            Ok(UntypedQuery::Insert(UntypedInsertQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 values: vec![vec![Some(StaticUntypedTree::BiOp {
                     left: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::String(
@@ -286,7 +276,7 @@ mod multiple_values {
                         "str".to_owned()
                     ))))
                 })]],
-            })))
+            }))
         );
     }
 
@@ -297,15 +287,15 @@ mod multiple_values {
         database
             .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
             .unwrap();
-        let analyzer = Analyzer::new(database);
+        let analyzer = QueryAnalyzer::new(database);
 
         assert_eq!(
             analyzer.analyze(insert_value_as_expression_with_operation(
-                sql_ast::Expr::Value(number(1)),
-                sql_ast::BinaryOperator::Gt,
-                sql_ast::Expr::Value(number(1))
+                Expr::Value(number(1)),
+                BinaryOperator::Gt,
+                Expr::Value(number(1))
             )),
-            Ok(QueryAnalysis::DML(UntypedQuery::Insert(UntypedInsertQuery {
+            Ok(UntypedQuery::Insert(UntypedInsertQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 values: vec![vec![Some(StaticUntypedTree::BiOp {
                     left: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(
@@ -316,7 +306,7 @@ mod multiple_values {
                         BigDecimal::from(1)
                     ))))
                 })]],
-            })))
+            }))
         );
     }
 
@@ -327,15 +317,15 @@ mod multiple_values {
         database
             .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
             .unwrap();
-        let analyzer = Analyzer::new(database);
+        let analyzer = QueryAnalyzer::new(database);
 
         assert_eq!(
             analyzer.analyze(insert_value_as_expression_with_operation(
-                sql_ast::Expr::Value(sql_ast::Value::Boolean(true)),
-                sql_ast::BinaryOperator::And,
-                sql_ast::Expr::Value(sql_ast::Value::Boolean(true)),
+                Expr::Value(Value::Boolean(true)),
+                BinaryOperator::And,
+                Expr::Value(Value::Boolean(true)),
             )),
-            Ok(QueryAnalysis::DML(UntypedQuery::Insert(UntypedInsertQuery {
+            Ok(UntypedQuery::Insert(UntypedInsertQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 values: vec![vec![Some(StaticUntypedTree::BiOp {
                     left: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Bool(
@@ -346,7 +336,7 @@ mod multiple_values {
                         Bool(true)
                     )))),
                 })]],
-            })))
+            }))
         );
     }
 
@@ -357,15 +347,15 @@ mod multiple_values {
         database
             .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
             .unwrap();
-        let analyzer = Analyzer::new(database);
+        let analyzer = QueryAnalyzer::new(database);
 
         assert_eq!(
             analyzer.analyze(insert_value_as_expression_with_operation(
-                sql_ast::Expr::Value(number(1)),
-                sql_ast::BinaryOperator::BitwiseOr,
-                sql_ast::Expr::Value(number(1))
+                Expr::Value(number(1)),
+                BinaryOperator::BitwiseOr,
+                Expr::Value(number(1))
             )),
-            Ok(QueryAnalysis::DML(UntypedQuery::Insert(UntypedInsertQuery {
+            Ok(UntypedQuery::Insert(UntypedInsertQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 values: vec![vec![Some(StaticUntypedTree::BiOp {
                     left: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(
@@ -376,7 +366,7 @@ mod multiple_values {
                         BigDecimal::from(1)
                     ))))
                 })]],
-            })))
+            }))
         );
     }
 
@@ -387,15 +377,15 @@ mod multiple_values {
         database
             .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
             .unwrap();
-        let analyzer = Analyzer::new(database);
+        let analyzer = QueryAnalyzer::new(database);
 
         assert_eq!(
             analyzer.analyze(insert_value_as_expression_with_operation(
                 string("s"),
-                sql_ast::BinaryOperator::Like,
+                BinaryOperator::Like,
                 string("str")
             )),
-            Ok(QueryAnalysis::DML(UntypedQuery::Insert(UntypedInsertQuery {
+            Ok(UntypedQuery::Insert(UntypedInsertQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 values: vec![vec![Some(StaticUntypedTree::BiOp {
                     left: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::String(
@@ -406,76 +396,7 @@ mod multiple_values {
                         "str".to_owned()
                     ))))
                 })]],
-            })))
-        );
-    }
-}
-
-#[cfg(test)]
-mod not_supported_values {
-    use super::*;
-
-    #[test]
-    fn national_strings() {
-        let database = InMemoryDatabase::new();
-        database.execute(create_schema_ops(SCHEMA)).unwrap();
-        database
-            .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
-            .unwrap();
-        let analyzer = Analyzer::new(database);
-
-        assert_eq!(
-            analyzer.analyze(insert_with_values(
-                vec![SCHEMA, TABLE],
-                vec![vec![sql_ast::Expr::Value(sql_ast::Value::NationalStringLiteral(
-                    "str".to_owned()
-                ))]]
-            )),
-            Err(AnalysisError::FeatureNotSupported(Feature::NationalStringLiteral))
-        );
-    }
-
-    #[test]
-    fn hex_strings() {
-        let database = InMemoryDatabase::new();
-        database.execute(create_schema_ops(SCHEMA)).unwrap();
-        database
-            .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
-            .unwrap();
-        let analyzer = Analyzer::new(database);
-
-        assert_eq!(
-            analyzer.analyze(insert_with_values(
-                vec![SCHEMA, TABLE],
-                vec![vec![sql_ast::Expr::Value(sql_ast::Value::HexStringLiteral(
-                    "str".to_owned()
-                ))]]
-            )),
-            Err(AnalysisError::FeatureNotSupported(Feature::HexStringLiteral))
-        );
-    }
-
-    #[test]
-    fn time_intervals() {
-        let database = InMemoryDatabase::new();
-        database.execute(create_schema_ops(SCHEMA)).unwrap();
-        database
-            .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
-            .unwrap();
-        let analyzer = Analyzer::new(database);
-
-        assert_eq!(
-            analyzer.analyze(insert_with_values(
-                vec![SCHEMA, TABLE],
-                vec![vec![sql_ast::Expr::Value(sql_ast::Value::Interval {
-                    value: "value".to_owned(),
-                    leading_field: None,
-                    leading_precision: None,
-                    last_field: None,
-                    fractional_seconds_precision: None
-                })]]
-            )),
-            Err(AnalysisError::FeatureNotSupported(Feature::TimeInterval))
+            }))
         );
     }
 }

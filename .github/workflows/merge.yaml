@@ -30,6 +30,8 @@ jobs:
     steps:
       - name: checkout
         uses: actions/checkout@v2
+      - name: install LLVM and Clang build dependencies for pg-sql-parser
+        run: sudo apt install -y llvm
       - name: install tarpaulin
         uses: actions-rs/install@v0.1
         with:

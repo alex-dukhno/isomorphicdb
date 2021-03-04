@@ -20,44 +20,19 @@ mod expressions;
 #[cfg(test)]
 mod general_cases;
 
-fn small_int(value: i16) -> sql_ast::Expr {
-    if value > -1 {
-        sql_ast::Expr::Value(number(value))
-    } else {
-        sql_ast::Expr::UnaryOp {
-            op: sql_ast::UnaryOperator::Minus,
-            expr: Box::new(sql_ast::Expr::Value(sql_ast::Value::Number(
-                BigDecimal::from(-(value as i32)),
-                false,
-            ))),
-        }
-    }
+fn small_int(value: i16) -> Expr {
+    Expr::Value(number(value))
 }
 
-fn inner_insert(
-    full_name: Vec<&'static str>,
-    multiple_values: Vec<Vec<sql_ast::Expr>>,
-    columns: Vec<&'static str>,
-) -> sql_ast::Statement {
-    sql_ast::Statement::Insert {
-        or: None,
-        table_name: sql_ast::ObjectName(full_name.into_iter().map(ident).collect()),
-        columns: columns.into_iter().map(ident).collect(),
-        overwrite: false,
-        source: Box::new(sql_ast::Query {
-            with: None,
-            body: sql_ast::SetExpr::Values(sql_ast::Values(multiple_values)),
-            order_by: vec![],
-            limit: None,
-            offset: None,
-            fetch: None,
-        }),
-        partitioned: None,
-        after_columns: vec![],
-        table: false,
-    }
+fn inner_insert(schema_name: &str, table_name: &str, multiple_values: Vec<Vec<Expr>>, columns: Vec<&str>) -> Query {
+    Query::Insert(InsertStatement {
+        schema_name: schema_name.to_owned(),
+        table_name: table_name.to_owned(),
+        columns: columns.into_iter().map(ToOwned::to_owned).collect(),
+        source: InsertSource::Values(Values(multiple_values)),
+    })
 }
 
-fn insert_with_values(full_name: Vec<&'static str>, values: Vec<Vec<sql_ast::Expr>>) -> sql_ast::Statement {
-    inner_insert(full_name, values, vec![])
+fn insert_with_values(schema_name: &str, table_name: &str, values: Vec<Vec<Expr>>) -> Query {
+    inner_insert(schema_name, table_name, values, vec![])
 }

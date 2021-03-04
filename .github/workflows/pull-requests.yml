@@ -24,13 +24,15 @@ jobs:
     name: rustfmt
     runs-on: ubuntu-latest
     steps:
-      - name: set-up-rust
+      - name: set up rust toolchain
         uses: hecrj/setup-rust-action@v1
         with:
           components: rustfmt
           rust-version: nightly
-      - uses: actions/checkout@v2
-      - run: ./etc/ci/rustfmt.sh
+      - name: checkout code
+        uses: actions/checkout@v2
+      - name: check code formatting
+        run: cargo fmt --all -- --check
 
   clippy:
     needs:
@@ -39,30 +41,30 @@ jobs:
     name: clippy
     runs-on: ubuntu-latest
     steps:
-      - name: set-up-rust
+      - name: set up rust toolchain
         uses: hecrj/setup-rust-action@v1
         with:
           components: clippy
           rust-version: stable
-      - uses: actions/checkout@v2
-      - run: ./etc/ci/clippy.sh
+      - name: checkout code
+        uses: actions/checkout@v2
+      - name: install LLVM and Clang build dependencies for pg-sql-parser
+        run: sudo apt install -y llvm
+      - name: check code style
+        run: cargo clippy --all-targets --all-features --all -- -D warnings
 
   tests:
     needs:
       - cargo-deny
       - rustfmt
       - clippy
-    strategy:
-      matrix:
-        os:
-          - ubuntu
-          - windows
-          - macos
-    runs-on: ${{ matrix.os }}-latest
+    runs-on: ubuntu-latest
     steps:
-      - name: checkout
+      - name: checkout code
         uses: actions/checkout@v2
-      - name: unit-tests
+      - name: install LLVM and Clang build dependencies for pg-sql-parser
+        run: sudo apt install -y llvm
+      - name: run unit tests
         uses: actions-rs/cargo@v1
         with:
           command: test
@@ -75,20 +77,22 @@ jobs:
       - clippy
     runs-on: ubuntu-latest
     steps:
-    - name: checkout
-      uses: actions/checkout@v2
-    - name: install tarpaulin
-      uses: actions-rs/install@v0.1
-      with:
-        crate: cargo-tarpaulin
-        version: 0.16.0
-        use-tool-cache: true
-    - name: run code coverage
-      run: cargo tarpaulin --ignore-tests -o Lcov --output-dir ./coverage
-    - name: upload to coveralls
-      uses: coverallsapp/github-action@master
-      with:
-        github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: checkout code
+        uses: actions/checkout@v2
+      - name: install LLVM and Clang build dependencies for pg-sql-parser
+        run: sudo apt install -y llvm
+      - name: install tarpaulin
+        uses: actions-rs/install@v0.1
+        with:
+          crate: cargo-tarpaulin
+          version: 0.16.0
+          use-tool-cache: true
+      - name: run code coverage
+        run: cargo tarpaulin --ignore-tests -o Lcov --output-dir ./coverage
+      - name: upload to coveralls
+        uses: coverallsapp/github-action@master
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
   compatibility-test:
     needs:
@@ -119,34 +123,16 @@ jobs:
         uses: actions/setup-java@v1
         with:
           java-version: 8
-      - name: checkout
+      - name: checkout code
         uses: actions/checkout@v2
+      - name: install LLVM and Clang build dependencies for pg-sql-parser
+        run: sudo apt install -y llvm
       - name: start-database
         run: cargo run & cargo build && sleep 1
       - name: run-tests
         uses: eskatos/gradle-command-action@v1
         with:
           arguments: test -Dci=true
-
-  erlang-client-compatibility:
-    needs:
-      - cargo-deny
-      - rustfmt
-      - clippy
-    runs-on: ubuntu-latest
-    steps:
-      - name: set-up-rust
-        uses: hecrj/setup-rust-action@v1
-        with:
-          rust-version: stable
-      - name: set-up-erlang
-        uses: gleam-lang/setup-erlang@v1.1.0
-        with:
-            otp-version: 23.1
-      - name: checkout
-        uses: actions/checkout@v2
-      - name: run-tests
-        run: ./etc/ci/erlang_client.sh
 
   ci-success:
     name: ci

@@ -23,18 +23,18 @@ fn select_all_columns_from_table() {
     database
         .execute(create_table_ops(SCHEMA, TABLE, vec![("col1", SqlType::integer())]))
         .unwrap();
-    let analyzer = Analyzer::new(database);
+    let analyzer = QueryAnalyzer::new(database);
 
     assert_eq!(
-        analyzer.analyze(select(vec![SCHEMA, TABLE])),
-        Ok(QueryAnalysis::DML(UntypedQuery::Select(UntypedSelectQuery {
+        analyzer.analyze(select(SCHEMA, TABLE)),
+        Ok(UntypedQuery::Select(UntypedSelectQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             projection_items: vec![DynamicUntypedTree::Item(DynamicUntypedItem::Column {
                 name: "col1".to_owned(),
                 index: 0,
                 sql_type: SqlType::integer()
             })],
-        })))
+        }))
     );
 }
 
@@ -45,23 +45,22 @@ fn select_specified_column_from_table() {
     database
         .execute(create_table_ops(SCHEMA, TABLE, vec![("col1", SqlType::integer())]))
         .unwrap();
-    let analyzer = Analyzer::new(database);
+    let analyzer = QueryAnalyzer::new(database);
 
     assert_eq!(
         analyzer.analyze(select_with_columns(
-            vec![SCHEMA, TABLE],
-            vec![sql_ast::SelectItem::UnnamedExpr(sql_ast::Expr::Identifier(ident(
-                "col1"
-            )))]
+            SCHEMA,
+            TABLE,
+            vec![SelectItem::UnnamedExpr(Expr::Column("col1".to_owned()))]
         )),
-        Ok(QueryAnalysis::DML(UntypedQuery::Select(UntypedSelectQuery {
+        Ok(UntypedQuery::Select(UntypedSelectQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             projection_items: vec![DynamicUntypedTree::Item(DynamicUntypedItem::Column {
                 name: "col1".to_owned(),
                 index: 0,
                 sql_type: SqlType::integer()
             })],
-        })))
+        }))
     );
 }
 
@@ -72,14 +71,13 @@ fn select_column_that_is_not_in_table() {
     database
         .execute(create_table_ops(SCHEMA, TABLE, vec![("col1", SqlType::integer())]))
         .unwrap();
-    let analyzer = Analyzer::new(database);
+    let analyzer = QueryAnalyzer::new(database);
 
     assert_eq!(
         analyzer.analyze(select_with_columns(
-            vec![SCHEMA, TABLE],
-            vec![sql_ast::SelectItem::UnnamedExpr(sql_ast::Expr::Identifier(ident(
-                "col2"
-            )))]
+            SCHEMA,
+            TABLE,
+            vec![SelectItem::UnnamedExpr(Expr::Column("col2".to_owned()))]
         )),
         Err(AnalysisError::column_not_found(&"col2"))
     );
@@ -92,19 +90,20 @@ fn select_from_table_with_constant() {
     database
         .execute(create_table_ops(SCHEMA, TABLE, vec![("col1", SqlType::integer())]))
         .unwrap();
-    let analyzer = Analyzer::new(database);
+    let analyzer = QueryAnalyzer::new(database);
 
     assert_eq!(
         analyzer.analyze(select_with_columns(
-            vec![SCHEMA, TABLE],
-            vec![sql_ast::SelectItem::UnnamedExpr(sql_ast::Expr::Value(number(1)))],
+            SCHEMA,
+            TABLE,
+            vec![SelectItem::UnnamedExpr(Expr::Value(number(1)))],
         )),
-        Ok(QueryAnalysis::DML(UntypedQuery::Select(UntypedSelectQuery {
+        Ok(UntypedQuery::Select(UntypedSelectQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             projection_items: vec![DynamicUntypedTree::Item(DynamicUntypedItem::Const(
                 UntypedValue::Number(BigDecimal::from(1))
             ))],
-        })))
+        }))
     );
 }
 
@@ -115,17 +114,18 @@ fn select_parameters_from_a_table() {
     database
         .execute(create_table_ops(SCHEMA, TABLE, vec![("col1", SqlType::integer())]))
         .unwrap();
-    let analyzer = Analyzer::new(database);
+    let analyzer = QueryAnalyzer::new(database);
 
     assert_eq!(
         analyzer.analyze(select_with_columns(
-            vec![SCHEMA, TABLE],
-            vec![sql_ast::SelectItem::UnnamedExpr(sql_ast::Expr::Identifier(ident("$1")))],
+            SCHEMA,
+            TABLE,
+            vec![SelectItem::UnnamedExpr(Expr::Value(Value::Param(1)))],
         )),
-        Ok(QueryAnalysis::DML(UntypedQuery::Select(UntypedSelectQuery {
+        Ok(UntypedQuery::Select(UntypedSelectQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             projection_items: vec![DynamicUntypedTree::Item(DynamicUntypedItem::Param(0))],
-        })))
+        }))
     );
 }
 
@@ -135,14 +135,11 @@ mod multiple_values {
 
     use super::*;
 
-    fn select_value_as_expression_with_operation(
-        left: sql_ast::Expr,
-        op: sql_ast::BinaryOperator,
-        right: sql_ast::Expr,
-    ) -> sql_ast::Statement {
+    fn select_value_as_expression_with_operation(left: Expr, op: BinaryOperator, right: Expr) -> Query {
         select_with_columns(
-            vec![SCHEMA, TABLE],
-            vec![sql_ast::SelectItem::UnnamedExpr(sql_ast::Expr::BinaryOp {
+            SCHEMA,
+            TABLE,
+            vec![SelectItem::UnnamedExpr(Expr::BinaryOp {
                 left: Box::new(left),
                 op,
                 right: Box::new(right),
@@ -157,15 +154,15 @@ mod multiple_values {
         database
             .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
             .unwrap();
-        let analyzer = Analyzer::new(database);
+        let analyzer = QueryAnalyzer::new(database);
 
         assert_eq!(
             analyzer.analyze(select_value_as_expression_with_operation(
                 string("1"),
-                sql_ast::BinaryOperator::Plus,
-                sql_ast::Expr::Value(number(1))
+                BinaryOperator::Plus,
+                Expr::Value(number(1))
             )),
-            Ok(QueryAnalysis::DML(UntypedQuery::Select(UntypedSelectQuery {
+            Ok(UntypedQuery::Select(UntypedSelectQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 projection_items: vec![DynamicUntypedTree::BiOp {
                     left: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
@@ -176,7 +173,7 @@ mod multiple_values {
                         UntypedValue::Number(BigDecimal::from(1))
                     )))
                 }],
-            })))
+            }))
         );
     }
 
@@ -187,15 +184,15 @@ mod multiple_values {
         database
             .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::var_char(255))]))
             .unwrap();
-        let analyzer = Analyzer::new(database);
+        let analyzer = QueryAnalyzer::new(database);
 
         assert_eq!(
             analyzer.analyze(select_value_as_expression_with_operation(
                 string("str"),
-                sql_ast::BinaryOperator::StringConcat,
+                BinaryOperator::StringConcat,
                 string("str")
             )),
-            Ok(QueryAnalysis::DML(UntypedQuery::Select(UntypedSelectQuery {
+            Ok(UntypedQuery::Select(UntypedSelectQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 projection_items: vec![DynamicUntypedTree::BiOp {
                     left: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
@@ -206,7 +203,7 @@ mod multiple_values {
                         UntypedValue::String("str".to_owned())
                     )))
                 }],
-            })))
+            }))
         );
     }
 
@@ -217,15 +214,15 @@ mod multiple_values {
         database
             .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
             .unwrap();
-        let analyzer = Analyzer::new(database);
+        let analyzer = QueryAnalyzer::new(database);
 
         assert_eq!(
             analyzer.analyze(select_value_as_expression_with_operation(
                 string("1"),
-                sql_ast::BinaryOperator::Gt,
-                sql_ast::Expr::Value(number(1))
+                BinaryOperator::Gt,
+                Expr::Value(number(1))
             )),
-            Ok(QueryAnalysis::DML(UntypedQuery::Select(UntypedSelectQuery {
+            Ok(UntypedQuery::Select(UntypedSelectQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 projection_items: vec![DynamicUntypedTree::BiOp {
                     left: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
@@ -236,7 +233,7 @@ mod multiple_values {
                         UntypedValue::Number(BigDecimal::from(1))
                     )))
                 }],
-            })))
+            }))
         );
     }
 
@@ -247,15 +244,15 @@ mod multiple_values {
         database
             .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
             .unwrap();
-        let analyzer = Analyzer::new(database);
+        let analyzer = QueryAnalyzer::new(database);
 
         assert_eq!(
             analyzer.analyze(select_value_as_expression_with_operation(
-                sql_ast::Expr::Value(sql_ast::Value::Boolean(true)),
-                sql_ast::BinaryOperator::And,
-                sql_ast::Expr::Value(sql_ast::Value::Boolean(true)),
+                Expr::Value(Value::Boolean(true)),
+                BinaryOperator::And,
+                Expr::Value(Value::Boolean(true)),
             )),
-            Ok(QueryAnalysis::DML(UntypedQuery::Select(UntypedSelectQuery {
+            Ok(UntypedQuery::Select(UntypedSelectQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 projection_items: vec![DynamicUntypedTree::BiOp {
                     left: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(UntypedValue::Bool(
@@ -266,7 +263,7 @@ mod multiple_values {
                         Bool(true)
                     )))),
                 }],
-            })))
+            }))
         );
     }
 
@@ -277,15 +274,15 @@ mod multiple_values {
         database
             .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
             .unwrap();
-        let analyzer = Analyzer::new(database);
+        let analyzer = QueryAnalyzer::new(database);
 
         assert_eq!(
             analyzer.analyze(select_value_as_expression_with_operation(
-                sql_ast::Expr::Value(number(1)),
-                sql_ast::BinaryOperator::BitwiseOr,
-                sql_ast::Expr::Value(number(1))
+                Expr::Value(number(1)),
+                BinaryOperator::BitwiseOr,
+                Expr::Value(number(1))
             )),
-            Ok(QueryAnalysis::DML(UntypedQuery::Select(UntypedSelectQuery {
+            Ok(UntypedQuery::Select(UntypedSelectQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 projection_items: vec![DynamicUntypedTree::BiOp {
                     left: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
@@ -296,7 +293,7 @@ mod multiple_values {
                         UntypedValue::Number(BigDecimal::from(1))
                     )))
                 }],
-            })))
+            }))
         );
     }
 
@@ -307,15 +304,15 @@ mod multiple_values {
         database
             .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
             .unwrap();
-        let analyzer = Analyzer::new(database);
+        let analyzer = QueryAnalyzer::new(database);
 
         assert_eq!(
             analyzer.analyze(select_value_as_expression_with_operation(
                 string("s"),
-                sql_ast::BinaryOperator::Like,
+                BinaryOperator::Like,
                 string("str")
             )),
-            Ok(QueryAnalysis::DML(UntypedQuery::Select(UntypedSelectQuery {
+            Ok(UntypedQuery::Select(UntypedSelectQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 projection_items: vec![DynamicUntypedTree::BiOp {
                     left: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
@@ -326,7 +323,7 @@ mod multiple_values {
                         UntypedValue::String("str".to_owned())
                     )))
                 }],
-            })))
+            }))
         );
     }
 }

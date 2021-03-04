@@ -12,17 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-pub use sqlparser::{dialect::Dialect, parser::*};
+use super::*;
 
-#[derive(Debug, Default)]
-pub struct PreparedStatementDialect;
+#[test]
+fn delete_from_table() {
+    let statements = QUERY_PARSER.parse("delete from schema_name.table_name;");
 
-impl Dialect for PreparedStatementDialect {
-    fn is_identifier_start(&self, ch: char) -> bool {
-        ('a'..='z').contains(&ch) || ('A'..='Z').contains(&ch) || ch == '$' || ch == '_'
-    }
-
-    fn is_identifier_part(&self, ch: char) -> bool {
-        ('a'..='z').contains(&ch) || ('A'..='Z').contains(&ch) || ('0'..='9').contains(&ch) || ch == '$' || ch == '_'
-    }
+    assert_eq!(
+        statements,
+        Ok(vec![Statement::DML(Query::Delete(DeleteStatement {
+            schema_name: "schema_name".to_owned(),
+            table_name: "table_name".to_owned(),
+            where_clause: None,
+        }))])
+    );
 }

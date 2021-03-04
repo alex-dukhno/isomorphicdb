@@ -13,7 +13,7 @@ catalog = { path = "sql_engine/catalog" }
 entities = { path = "sql_engine/entities" }
 data_definition = { path = "sql_engine/data_definition" }
 data_manipulation = { path = "sql_engine/data_manipulation" }
-query_parsing = { path = "sql_engine/query_parsing" }
+definition_planner = { path = "sql_engine/definition_planner" }
 query_processing = { path = "sql_engine/query_processing" }
 query_analyzer = { path = "sql_engine/query_analyzer" }
 query_planner = { path = "sql_engine/query_planner" }
@@ -23,8 +23,7 @@ async-dup = "1.2.1"
 itertools = "0.10.0"
 async-io = "1.3.1"
 async-mutex = "1.4.0"
-#TODO temporal to have ability to run ./local/code_coverage.sh
-async-native-tls = { git = "https://github.com/alex-dukhno/async-native-tls.git", branch = "new-native-tls" }
+async-native-tls = "0.3.3"
 async-trait = "0.1.42"
 blocking = "1.0.0"
 bigdecimal = { version = "0.2.0", features = ["string-only"] }
@@ -47,7 +46,6 @@ members = [
     "sql_engine/data_manipulation",
     "sql_engine/entities",
     "sql_engine/query_analyzer",
-    "sql_engine/query_parsing",
     "sql_engine/query_planner",
     "sql_engine/query_processing",
 ]

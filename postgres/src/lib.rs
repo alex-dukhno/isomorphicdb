@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+pub use query_ast;
+pub use query_parser;
 pub use query_response;
 
 pub mod wire_protocol {

@@ -1,13 +1,15 @@
 [package]
-name = "types"
+name = "query_parser"
 version = "0.1.0"
 authors = ["Alex Dukhno <alex.dukhno@icloud.com>"]
 edition = "2018"
 publish = false
 
 [dependencies]
-pg_wire = "0.5.0"
-query_ast = { path = "../../../postgres/query_ast" }
+query_ast = { path = "../query_ast" }
+query_response = { path = "../query_response" }
+
+postgres-parser = "0.2"
 
 [dev-dependencies]
 rstest = "0.6.4"

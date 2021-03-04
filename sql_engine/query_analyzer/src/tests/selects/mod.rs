@@ -19,37 +19,15 @@ mod expressions;
 #[cfg(test)]
 mod general_cases;
 
-fn select_with_columns(name: Vec<&'static str>, projection: Vec<sql_ast::SelectItem>) -> sql_ast::Statement {
-    sql_ast::Statement::Query(Box::new(sql_ast::Query {
-        with: None,
-        body: sql_ast::SetExpr::Select(Box::new(sql_ast::Select {
-            distinct: false,
-            top: None,
-            projection,
-            from: vec![sql_ast::TableWithJoins {
-                relation: sql_ast::TableFactor::Table {
-                    name: sql_ast::ObjectName(name.into_iter().map(ident).collect()),
-                    alias: None,
-                    args: vec![],
-                    with_hints: vec![],
-                },
-                joins: vec![],
-            }],
-            lateral_views: vec![],
-            selection: None,
-            group_by: vec![],
-            cluster_by: vec![],
-            distribute_by: vec![],
-            sort_by: vec![],
-            having: None,
-        })),
-        order_by: vec![],
-        limit: None,
-        offset: None,
-        fetch: None,
-    }))
+fn select_with_columns(schema_name: &str, table_name: &str, select_items: Vec<SelectItem>) -> Query {
+    Query::Select(SelectStatement {
+        select_items,
+        schema_name: schema_name.to_owned(),
+        table_name: table_name.to_owned(),
+        where_clause: None,
+    })
 }
 
-fn select(name: Vec<&'static str>) -> sql_ast::Statement {
-    select_with_columns(name, vec![sql_ast::SelectItem::Wildcard])
+fn select(schema_name: &str, table_name: &str) -> Query {
+    select_with_columns(schema_name, table_name, vec![SelectItem::Wildcard])
 }

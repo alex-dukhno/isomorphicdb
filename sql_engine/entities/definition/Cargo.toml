@@ -7,4 +7,3 @@ publish = false
 
 [dependencies]
 types = { path = "../types" }
-sql_ast = { path = "../../query_parsing/sql-ast" }

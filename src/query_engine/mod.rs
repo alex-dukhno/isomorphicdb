@@ -16,24 +16,24 @@ use crate::{
     connection::Sender,
     pg_model::{session::Session, statement::PreparedStatement, Command},
 };
-use bigdecimal::BigDecimal;
 use catalog::{CatalogDefinition, Database};
 use data_definition::ExecutionOutcome;
 use data_manipulation::{
     DynamicTypedTree, QueryPlanResult, StaticTypedTree, TypedDeleteQuery, TypedInsertQuery, TypedQuery,
     TypedSelectQuery, TypedUpdateQuery, UntypedQuery,
 };
-use entities::SqlType;
+use definition_planner::DefinitionPlanner;
 use itertools::izip;
 use postgres::{
+    query_ast::{Expr, Statement, Value},
+    query_parser::QueryParser,
     query_response::{QueryError, QueryEvent},
     wire_protocol::{ColumnMetadata, PgFormat, PgType},
 };
-use query_analyzer::{AnalysisError, Analyzer, QueryAnalysis};
-use query_parsing::{Expr, Ident, Parser, PreparedStatementDialect, Statement, Value};
+use query_analyzer::QueryAnalyzer;
 use query_planner::QueryPlanner;
 use query_processing::{TypeChecker, TypeCoercion, TypeInference};
-use std::{convert::TryFrom, iter, sync::Arc};
+use std::{iter, sync::Arc};
 
 unsafe impl<D: Database + CatalogDefinition> Send for QueryEngine<D> {}
 
@@ -42,7 +42,9 @@ unsafe impl<D: Database + CatalogDefinition> Sync for QueryEngine<D> {}
 pub(crate) struct QueryEngine<D: Database + CatalogDefinition> {
     session: Session<Statement>,
     sender: Arc<dyn Sender>,
-    query_analyzer: Analyzer<D>,
+    query_parser: QueryParser,
+    definition_planner: DefinitionPlanner<D>,
+    query_analyzer: QueryAnalyzer<D>,
     type_inference: TypeInference,
     type_checker: TypeChecker,
     type_coercion: TypeCoercion,
@@ -55,7 +57,9 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
         QueryEngine {
             session: Session::default(),
             sender: sender.clone(),
-            query_analyzer: Analyzer::new(database.clone()),
+            query_parser: QueryParser,
+            definition_planner: DefinitionPlanner::new(database.clone()),
+            query_analyzer: QueryAnalyzer::new(database.clone()),
             type_inference: TypeInference::default(),
             type_checker: TypeChecker,
             type_coercion: TypeCoercion,
@@ -184,7 +188,7 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                 sql,
                 param_types,
             } => {
-                match Parser::parse_sql(&PreparedStatementDialect, &sql) {
+                match self.query_parser.parse(&sql) {
                     Ok(mut statements) => {
                         let statement = statements.pop().expect("single statement");
                         match self.create_prepared_statement(statement_name, statement, param_types) {
@@ -203,87 +207,80 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                 Ok(())
             }
             Command::Query { sql } => {
-                match Parser::parse_sql(&PreparedStatementDialect, &sql) {
+                match self.query_parser.parse(&sql) {
                     Ok(mut statements) => match statements.pop().expect("single query") {
-                        Statement::CreateDatabase { .. } => unimplemented!(),
-                        Statement::Truncate { .. } => unimplemented!(),
-                        Statement::Msck { .. } => unimplemented!(),
-                        Statement::Directory { .. } => unimplemented!(),
-                        Statement::Prepare {
-                            name,
-                            data_types,
-                            statement,
-                        } => {
-                            let Ident { value: name, .. } = name;
-                            let mut pg_types = vec![];
-                            for data_type in data_types {
-                                match SqlType::try_from(&data_type) {
-                                    Ok(sql_type) => pg_types.push(Some((&sql_type).into())),
-                                    Err(_) => {
-                                        self.sender
-                                            .send(Err(QueryError::type_does_not_exist(data_type)))
-                                            .expect("To Send Error to Client");
-                                        self.sender
-                                            .send(Ok(QueryEvent::QueryComplete))
-                                            .expect("To Send Error to Client");
-                                        return Ok(());
-                                    }
-                                }
-                            }
-                            match self.create_prepared_statement(name, *statement, pg_types) {
-                                Ok(()) => {
-                                    self.sender
-                                        .send(Ok(QueryEvent::StatementPrepared))
-                                        .expect("To Send Result");
-                                }
-                                Err(error) => {
-                                    self.sender.send(Err(error)).expect("To Send Result");
-                                    self.sender
-                                        .send(Ok(QueryEvent::QueryComplete))
-                                        .expect("To Send Error to Client");
-                                    return Ok(());
-                                }
-                            }
-                        }
-                        Statement::Execute { name, parameters } => {
-                            let Ident { value: name, .. } = name;
-                            match self.session.get_prepared_statement(&name) {
-                                Some(prepared_statement) => {
-                                    let param_types = prepared_statement.param_types();
-                                    if param_types.len() != parameters.len() {
-                                        let message = format!(
-                                            "Bind message supplies {actual} parameters, but prepared statement \"{name}\" requires {expected}",
-                                            name = name,
-                                            actual = parameters.len(),
-                                            expected = param_types.len()
-                                        );
-                                        self.sender
-                                            .send(Err(QueryError::protocol_violation(message)))
-                                            .expect("To Send Error to Client");
-                                    }
-                                    self.sender
-                                        .send(Err(QueryError::syntax_error(prepared_statement.stmt())))
-                                        .expect("To Send Error to Client");
-                                }
-                                None => {
-                                    self.sender
-                                        .send(Err(QueryError::prepared_statement_does_not_exist(name)))
-                                        .expect("To Send Error to Client");
-                                }
-                            }
-                        }
-                        Statement::Deallocate { name, .. } => {
-                            let Ident { value: name, .. } = name;
-                            self.session.remove_prepared_statement(&name);
-                            self.sender
-                                .send(Ok(QueryEvent::StatementDeallocated))
-                                .expect("To Send Statement Deallocated Event");
-                        }
-                        statement @ Statement::CreateSchema { .. }
-                        | statement @ Statement::CreateTable { .. }
-                        | statement @ Statement::CreateIndex { .. }
-                        | statement @ Statement::Drop { .. } => match self.query_analyzer.analyze(statement) {
-                            Ok(QueryAnalysis::DDL(schema_change)) => {
+                        // Statement::Prepare {
+                        //     name,
+                        //     data_types,
+                        //     statement,
+                        // } => {
+                        //     let Ident { value: name, .. } = name;
+                        //     let mut pg_types = vec![];
+                        //     for data_type in data_types {
+                        //         match SqlType::try_from(&data_type) {
+                        //             Ok(sql_type) => pg_types.push(Some((&sql_type).into())),
+                        //             Err(_) => {
+                        //                 self.sender
+                        //                     .send(Err(QueryError::type_does_not_exist(data_type)))
+                        //                     .expect("To Send Error to Client");
+                        //                 self.sender
+                        //                     .send(Ok(QueryEvent::QueryComplete))
+                        //                     .expect("To Send Error to Client");
+                        //                 return Ok(());
+                        //             }
+                        //         }
+                        //     }
+                        //     match self.create_prepared_statement(name, *statement, pg_types) {
+                        //         Ok(()) => {
+                        //             self.sender
+                        //                 .send(Ok(QueryEvent::StatementPrepared))
+                        //                 .expect("To Send Result");
+                        //         }
+                        //         Err(error) => {
+                        //             self.sender.send(Err(error)).expect("To Send Result");
+                        //             self.sender
+                        //                 .send(Ok(QueryEvent::QueryComplete))
+                        //                 .expect("To Send Error to Client");
+                        //             return Ok(());
+                        //         }
+                        //     }
+                        // }
+                        // Statement::Execute { name, parameters } => {
+                        //     let Ident { value: name, .. } = name;
+                        //     match self.session.get_prepared_statement(&name) {
+                        //         Some(prepared_statement) => {
+                        //             let param_types = prepared_statement.param_types();
+                        //             if param_types.len() != parameters.len() {
+                        //                 let message = format!(
+                        //                     "Bind message supplies {actual} parameters, but prepared statement \"{name}\" requires {expected}",
+                        //                     name = name,
+                        //                     actual = parameters.len(),
+                        //                     expected = param_types.len()
+                        //                 );
+                        //                 self.sender
+                        //                     .send(Err(QueryError::protocol_violation(message)))
+                        //                     .expect("To Send Error to Client");
+                        //             }
+                        //             self.sender
+                        //                 .send(Err(QueryError::syntax_error(prepared_statement.stmt())))
+                        //                 .expect("To Send Error to Client");
+                        //         }
+                        //         None => {
+                        //             self.sender
+                        //                 .send(Err(QueryError::prepared_statement_does_not_exist(name)))
+                        //                 .expect("To Send Error to Client");
+                        //         }
+                        //     }
+                        // }
+                        // Statement::Deallocate { name, .. } => {
+                        //     let Ident { value: name, .. } = name;
+                        //     self.session.remove_prepared_statement(&name);
+                        //     self.sender
+                        //         .send(Ok(QueryEvent::StatementDeallocated))
+                        //         .expect("To Send Statement Deallocated Event");
+                        // }
+                        Statement::DDL(definition) => match self.definition_planner.plan(definition) {
+                            Ok(schema_change) => {
                                 log::debug!("SCHEMA CHANGE - {:?}", schema_change);
                                 let query_result = match self.database.execute(schema_change) {
                                     Ok(ExecutionOutcome::SchemaCreated) => Ok(QueryEvent::SchemaCreated),
@@ -295,17 +292,10 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                                 };
                                 self.sender.send(query_result).expect("To Send Result to Client");
                             }
-                            Err(AnalysisError::SchemaDoesNotExist(schema_name)) => self
-                                .sender
-                                .send(Err(QueryError::schema_does_not_exist(schema_name)))
-                                .expect("To Send Result to Client"),
-                            analysis => unreachable!("that couldn't happen {:?}", analysis),
+                            Err(error) => self.sender.send(Err(error.into())).expect("To Send Result to Client"),
                         },
-                        statement @ Statement::Insert { .. }
-                        | statement @ Statement::Update { .. }
-                        | statement @ Statement::Delete { .. }
-                        | statement @ Statement::Query(_) => match self.query_analyzer.analyze(statement) {
-                            Ok(QueryAnalysis::DML(UntypedQuery::Delete(delete))) => {
+                        Statement::DML(manipulation) => match self.query_analyzer.analyze(manipulation) {
+                            Ok(UntypedQuery::Delete(delete)) => {
                                 let query_result = self
                                     .query_planner
                                     .plan(TypedQuery::Delete(TypedDeleteQuery {
@@ -316,7 +306,7 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                                     .map_err(Into::into);
                                 self.sender.send(query_result).expect("To Send to client");
                             }
-                            Ok(QueryAnalysis::DML(UntypedQuery::Update(update))) => {
+                            Ok(UntypedQuery::Update(update)) => {
                                 let typed_values = update
                                     .assignments
                                     .into_iter()
@@ -344,7 +334,7 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                                     .map_err(Into::into);
                                 self.sender.send(query_result).expect("To Send to client");
                             }
-                            Ok(QueryAnalysis::DML(UntypedQuery::Insert(insert))) => {
+                            Ok(UntypedQuery::Insert(insert)) => {
                                 log::debug!("INSERT UNTYPED VALUES {:?}", insert.values);
                                 let typed_values = insert
                                     .values
@@ -395,7 +385,7 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                                     .map_err(Into::into);
                                 self.sender.send(query_result).expect("To Send to client");
                             }
-                            Ok(QueryAnalysis::DML(UntypedQuery::Select(select))) => {
+                            Ok(UntypedQuery::Select(select)) => {
                                 log::debug!("SELECT UNTYPED VALUES - {:?}", select.projection_items);
                                 let typed_values = select
                                     .projection_items
@@ -451,47 +441,16 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                                     }
                                 }
                             }
-                            Err(AnalysisError::TableDoesNotExist(full_table_name)) => {
-                                self.sender
-                                    .send(Err(QueryError::table_does_not_exist(full_table_name)))
-                                    .expect("To Send Error to Client");
+                            Err(error) => {
+                                self.sender.send(Err(error.into())).expect("To Send Error to Client");
                             }
-                            Err(AnalysisError::ColumnNotFound(column_name)) => {
-                                self.sender
-                                    .send(Err(QueryError::column_does_not_exist(column_name)))
-                                    .expect("To Send Error to Client");
-                            }
-                            Err(AnalysisError::SyntaxError(message)) => {
-                                self.sender
-                                    .send(Err(QueryError::syntax_error(message)))
-                                    .expect("To Send Error to Client");
-                            }
-                            Err(AnalysisError::SchemaDoesNotExist(schema_name)) => {
-                                self.sender
-                                    .send(Err(QueryError::schema_does_not_exist(schema_name)))
-                                    .expect("To Send Error to Client");
-                            }
-                            branch => unimplemented!("handling {:?} is not implemented", branch),
                         },
-                        Statement::SetVariable { .. } => {
+                        Statement::Config(_) => {
                             // sending ok to the client to proceed with other requests
                             self.sender
                                 .send(Ok(QueryEvent::VariableSet))
                                 .expect("To Send Result to Client");
                         }
-                        Statement::Copy { .. } => unimplemented!(),
-                        Statement::CreateView { .. } => unimplemented!(),
-                        Statement::CreateVirtualTable { .. } => unimplemented!(),
-                        Statement::AlterTable { .. } => unimplemented!(),
-                        Statement::ShowVariable { .. } => unimplemented!(),
-                        Statement::ShowColumns { .. } => unimplemented!(),
-                        Statement::StartTransaction { .. } => unimplemented!(),
-                        Statement::SetTransaction { .. } => unimplemented!(),
-                        Statement::Commit { .. } => unimplemented!(),
-                        Statement::Rollback { .. } => unimplemented!(),
-                        Statement::Assert { .. } => unimplemented!(),
-                        Statement::Analyze { .. } => unimplemented!(),
-                        Statement::Explain { .. } => unimplemented!(),
                     },
                     Err(parser_error) => {
                         self.sender
@@ -579,10 +538,10 @@ fn value_to_expr(value: postgres::wire_protocol::Value) -> Expr {
         postgres::wire_protocol::Value::Null => Expr::Value(Value::Null),
         postgres::wire_protocol::Value::True => Expr::Value(Value::Boolean(true)),
         postgres::wire_protocol::Value::False => Expr::Value(Value::Boolean(false)),
-        postgres::wire_protocol::Value::Int16(i) => Expr::Value(Value::Number(BigDecimal::from(i), false)),
-        postgres::wire_protocol::Value::Int32(i) => Expr::Value(Value::Number(BigDecimal::from(i), false)),
-        postgres::wire_protocol::Value::Int64(i) => Expr::Value(Value::Number(BigDecimal::from(i), false)),
-        postgres::wire_protocol::Value::String(s) => Expr::Value(Value::SingleQuotedString(s)),
+        postgres::wire_protocol::Value::Int16(i) => Expr::Value(Value::Int(i as i32)),
+        postgres::wire_protocol::Value::Int32(i) => Expr::Value(Value::Int(i)),
+        postgres::wire_protocol::Value::Int64(i) => Expr::Value(Value::Int(i as i32)),
+        postgres::wire_protocol::Value::String(s) => Expr::Value(Value::String(s)),
     }
 }
 

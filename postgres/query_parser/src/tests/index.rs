@@ -12,4 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-pub use sqlparser::ast::*;
+use super::*;
+
+#[test]
+fn create_index() {
+    let statements = QUERY_PARSER.parse("create index index_name on table_name (col_1, col_2);");
+
+    assert_eq!(
+        statements,
+        Ok(vec![Statement::DDL(Definition::CreateIndex {
+            name: "index_name".to_owned(),
+            schema_name: "public".to_owned(),
+            table_name: "table_name".to_owned(),
+            column_names: vec!["col_1".to_owned(), "col_2".to_owned()]
+        })])
+    );
+}

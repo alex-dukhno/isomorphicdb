@@ -7,5 +7,7 @@ publish = false
 
 [dependencies]
 query_response = { path = "query_response" }
+query_ast = { path = "query_ast" }
+query_parser = { path = "query_parser" }
 
 pg_wire = "0.5.0"

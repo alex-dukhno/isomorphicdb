@@ -13,33 +13,36 @@
 // limitations under the License.
 
 use super::*;
+use query_ast::Value;
 
 #[cfg(test)]
 mod expressions;
 #[cfg(test)]
 mod general_cases;
 
-fn update_statement(
-    table_name: Vec<&'static str>,
-    assignments: Vec<(&'static str, sql_ast::Expr)>,
-) -> sql_ast::Statement {
-    sql_ast::Statement::Update {
-        table_name: sql_ast::ObjectName(table_name.into_iter().map(ident).collect()),
+fn update_statement(schema_name: &str, table_name: &str, assignments: Vec<(&str, Expr)>) -> Query {
+    Query::Update(UpdateStatement {
+        schema_name: schema_name.to_owned(),
+        table_name: table_name.to_owned(),
         assignments: assignments
             .into_iter()
-            .map(|(id, value)| sql_ast::Assignment { id: ident(id), value })
+            .map(|(column, value)| Assignment {
+                column: column.to_owned(),
+                value,
+            })
             .collect(),
-        selection: None,
-    }
+        where_clause: None,
+    })
 }
 
-fn update_stmt_with_parameters(table_name: Vec<&'static str>) -> sql_ast::Statement {
-    sql_ast::Statement::Update {
-        table_name: sql_ast::ObjectName(table_name.into_iter().map(ident).collect()),
-        assignments: vec![sql_ast::Assignment {
-            id: ident("col_2"),
-            value: sql_ast::Expr::Identifier(ident("$1")),
+fn update_stmt_with_parameters(schema_name: &str, table_name: &str) -> Query {
+    Query::Update(UpdateStatement {
+        schema_name: schema_name.to_owned(),
+        table_name: table_name.to_owned(),
+        assignments: vec![Assignment {
+            column: "col_2".to_owned(),
+            value: Expr::Value(Value::Param(1)),
         }],
-        selection: None,
-    }
+        where_clause: None,
+    })
 }

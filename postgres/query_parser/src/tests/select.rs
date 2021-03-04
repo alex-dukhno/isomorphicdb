@@ -15,24 +15,16 @@
 use super::*;
 
 #[test]
-fn schema_does_not_exist() {
-    let analyzer = QueryAnalyzer::new(InMemoryDatabase::new());
-    assert_eq!(
-        analyzer.analyze(select("non_existent_schema", TABLE)),
-        Err(AnalysisError::schema_does_not_exist(&"non_existent_schema"))
-    );
-}
+fn select_all_from_table() {
+    let statements = QUERY_PARSER.parse("select * from schema_name.table_name;");
 
-#[test]
-fn table_does_not_exist() {
-    let database = InMemoryDatabase::new();
-    database.execute(create_schema_ops(SCHEMA)).unwrap();
-    let analyzer = QueryAnalyzer::new(database);
     assert_eq!(
-        analyzer.analyze(select(SCHEMA, "non_existent_table")),
-        Err(AnalysisError::table_does_not_exist(&format!(
-            "{}.{}",
-            SCHEMA, "non_existent_table"
-        )))
+        statements,
+        Ok(vec![Statement::DML(Query::Select(SelectStatement {
+            select_items: vec![SelectItem::Wildcard],
+            schema_name: "schema_name".to_owned(),
+            table_name: "table_name".to_owned(),
+            where_clause: None,
+        }))])
     );
 }
