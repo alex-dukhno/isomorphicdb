@@ -30,20 +30,8 @@ jobs:
     steps:
       - name: checkout
         uses: actions/checkout@v2
-      - name: Cache LLVM and Clang
-        id: cache-llvm
-        uses: actions/cache@v2
-        with:
-          path: ${{ runner.temp }}/llvm
-          key: llvm-10.0
       - name: install LLVM and Clang build dependencies for pg-sql-parser
-        uses: KyleMayes/install-llvm-action@v1
-        with:
-          version: "10.0"
-          directory: ${{ runner.temp }}/llvm
-          cached: ${{ steps.cache-llvm.outputs.cache-hit }}
-      - name: adjust PATH
-        run: echo "${{ runner.temp }}/llvm" >> $GITHUB_PATH
+        run: sudo apt install -y llvm
       - name: install tarpaulin
         uses: actions-rs/install@v0.1
         with:

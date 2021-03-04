@@ -48,20 +48,8 @@ jobs:
           rust-version: stable
       - name: checkout code
         uses: actions/checkout@v2
-      - name: Cache LLVM and Clang
-        id: cache-llvm
-        uses: actions/cache@v2
-        with:
-          path: ${{ runner.temp }}/llvm
-          key: llvm-10.0
       - name: install LLVM and Clang build dependencies for pg-sql-parser
-        uses: KyleMayes/install-llvm-action@v1
-        with:
-          version: "10.0"
-          directory: ${{ runner.temp }}/llvm
-          cached: ${{ steps.cache-llvm.outputs.cache-hit }}
-      - name: adjust PATH
-        run: echo "${{ runner.temp }}/llvm" >> $GITHUB_PATH
+        run: sudo apt install -y llvm
       - name: check code style
         run: cargo clippy --all-targets --all-features --all -- -D warnings
 
@@ -74,20 +62,8 @@ jobs:
     steps:
       - name: checkout
         uses: actions/checkout@v2
-      - name: Cache LLVM and Clang
-        id: cache-llvm
-        uses: actions/cache@v2
-        with:
-          path: ${{ runner.temp }}/llvm
-          key: llvm-10.0
       - name: install LLVM and Clang build dependencies for pg-sql-parser
-        uses: KyleMayes/install-llvm-action@v1
-        with:
-          version: "10.0"
-          directory: ${{ runner.temp }}/llvm
-          cached: ${{ steps.cache-llvm.outputs.cache-hit }}
-      - name: adjust PATH
-        run: echo "${{ runner.temp }}/llvm" >> $GITHUB_PATH
+        run: sudo apt install -y llvm
       - name: run unit tests
         uses: actions-rs/cargo@v1
         with:
@@ -103,20 +79,8 @@ jobs:
     steps:
       - name: checkout
         uses: actions/checkout@v2
-      - name: Cache LLVM and Clang
-        id: cache-llvm
-        uses: actions/cache@v2
-        with:
-          path: ${{ runner.temp }}/llvm
-          key: llvm-10.0
       - name: install LLVM and Clang build dependencies for pg-sql-parser
-        uses: KyleMayes/install-llvm-action@v1
-        with:
-          version: "10.0"
-          directory: ${{ runner.temp }}/llvm
-          cached: ${{ steps.cache-llvm.outputs.cache-hit }}
-      - name: adjust PATH
-        run: echo "${{ runner.temp }}/llvm" >> $GITHUB_PATH
+        run: sudo apt install -y llvm
       - name: install tarpaulin
         uses: actions-rs/install@v0.1
         with:
@@ -161,20 +125,8 @@ jobs:
           java-version: 8
       - name: checkout
         uses: actions/checkout@v2
-      - name: Cache LLVM and Clang
-        id: cache-llvm
-        uses: actions/cache@v2
-        with:
-          path: ${{ runner.temp }}/llvm
-          key: llvm-10.0
       - name: install LLVM and Clang build dependencies for pg-sql-parser
-        uses: KyleMayes/install-llvm-action@v1
-        with:
-          version: "10.0"
-          directory: ${{ runner.temp }}/llvm
-          cached: ${{ steps.cache-llvm.outputs.cache-hit }}
-      - name: adjust PATH
-        run: echo "${{ runner.temp }}/llvm" >> $GITHUB_PATH
+        run: sudo apt install -y llvm
       - name: start-database
         run: cargo run & cargo build && sleep 1
       - name: run-tests
@@ -199,20 +151,8 @@ jobs:
             otp-version: 23.1
       - name: checkout
         uses: actions/checkout@v2
-      - name: Cache LLVM and Clang
-        id: cache-llvm
-        uses: actions/cache@v2
-        with:
-          path: ${{ runner.temp }}/llvm
-          key: llvm-10.0
       - name: install LLVM and Clang build dependencies for pg-sql-parser
-        uses: KyleMayes/install-llvm-action@v1
-        with:
-          version: "10.0"
-          directory: ${{ runner.temp }}/llvm
-          cached: ${{ steps.cache-llvm.outputs.cache-hit }}
-      - name: adjust PATH
-        run: echo "${{ runner.temp }}/llvm" >> $GITHUB_PATH
+        run: sudo apt install -y llvm
       - name: run-tests
         run: ./etc/ci/erlang_client.sh
 
