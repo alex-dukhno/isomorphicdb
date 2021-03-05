@@ -45,7 +45,7 @@ fn insert_string() {
 }
 
 #[cfg(test)]
-mod bi_ops {
+mod operators {
     use super::*;
 
     #[rstest::rstest(
@@ -74,7 +74,7 @@ mod bi_ops {
         case::bitwise_shift_left(BinaryOperator::BitwiseShiftLeft, "<<"),
         case::bitwise_shift_right(BinaryOperator::BitwiseShiftRight, ">>")
     )]
-    fn insert_with_op(expected: BinaryOperator, tested: &str) {
+    fn binary(expected: BinaryOperator, tested: &str) {
         let statements =
             QUERY_PARSER.parse(format!("insert into schema_name.table_name values (123 {} 456);", tested).as_str());
 
@@ -88,6 +88,58 @@ mod bi_ops {
                     left: Box::new(Expr::Value(Value::Int(123))),
                     op: expected,
                     right: Box::new(Expr::Value(Value::Int(456)))
+                }]]))
+            }))])
+        );
+    }
+
+    #[rstest::rstest(
+        expected,
+        tested,
+        case::plus(UnaryOperator::Plus, "+"),
+        case::minus(UnaryOperator::Minus, "-"),
+        case::not(UnaryOperator::Not, "!"),
+        case::bitwise_not(UnaryOperator::BitwiseNot, "~"),
+        case::square_root(UnaryOperator::SquareRoot, "|/"),
+        case::cube_root(UnaryOperator::CubeRoot, "||/"),
+        case::prefix_factorial(UnaryOperator::PrefixFactorial, "!!"),
+        case::abs(UnaryOperator::Abs, "@")
+    )]
+    fn prefix_unary(expected: UnaryOperator, tested: &str) {
+        let statements =
+            QUERY_PARSER.parse(format!("insert into schema_name.table_name values ({}(123 + 456));", tested).as_str());
+
+        assert_eq!(
+            statements,
+            Ok(vec![Statement::DML(Query::Insert(InsertStatement {
+                schema_name: "schema_name".to_owned(),
+                table_name: "table_name".to_owned(),
+                columns: vec![],
+                source: InsertSource::Values(Values(vec![vec![Expr::UnaryOp {
+                    op: expected,
+                    expr: Box::new(Expr::BinaryOp {
+                        left: Box::new(Expr::Value(Value::Int(123))),
+                        op: BinaryOperator::Plus,
+                        right: Box::new(Expr::Value(Value::Int(456)))
+                    })
+                }]]))
+            }))])
+        );
+    }
+
+    #[test]
+    fn postfix_factorial_unary() {
+        let statements = QUERY_PARSER.parse("insert into schema_name.table_name values (456!);");
+
+        assert_eq!(
+            statements,
+            Ok(vec![Statement::DML(Query::Insert(InsertStatement {
+                schema_name: "schema_name".to_owned(),
+                table_name: "table_name".to_owned(),
+                columns: vec![],
+                source: InsertSource::Values(Values(vec![vec![Expr::UnaryOp {
+                    op: UnaryOperator::PostfixFactorial,
+                    expr: Box::new(Expr::Value(Value::Int(456)))
                 }]]))
             }))])
         );

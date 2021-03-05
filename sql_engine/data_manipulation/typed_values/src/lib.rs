@@ -65,6 +65,14 @@ impl ToDatum for TypedValue {
             } => Datum::from_i32(value.to_i32().unwrap()),
             TypedValue::Num {
                 value,
+                type_family: SqlTypeFamily::Real,
+            } => Datum::from_f32(value.to_f32().unwrap()),
+            TypedValue::Num {
+                value,
+                type_family: SqlTypeFamily::Double,
+            } => Datum::from_f64(value.to_f64().unwrap()),
+            TypedValue::Num {
+                value,
                 type_family: SqlTypeFamily::BigInt,
             } => Datum::from_i64(value.to_i64().unwrap()),
             TypedValue::String(str) => Datum::from_string(str.clone()),
