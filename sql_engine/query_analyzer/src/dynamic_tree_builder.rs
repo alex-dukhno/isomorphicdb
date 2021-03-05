@@ -12,12 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{operation_mapper::OperationMapper, AnalysisError};
+use crate::AnalysisError;
 use bigdecimal::BigDecimal;
+use data_manipulation_operators::{BiOperator, UnOperator};
 use data_manipulation_untyped_tree::{Bool, DynamicUntypedItem, DynamicUntypedTree, UntypedValue};
 use definition::ColumnDef;
 use query_ast::{BinaryOperator, Expr, Value};
 use std::str::FromStr;
+use types::SqlType;
 
 pub(crate) struct DynamicTreeBuilder;
 
@@ -35,10 +37,13 @@ impl DynamicTreeBuilder {
             Expr::Column(ident) => Self::ident(ident, table_columns),
             Expr::BinaryOp { left, op, right } => Self::binary_op(op, *left, *right, table_columns),
             Expr::UnaryOp { op, expr } => Ok(DynamicUntypedTree::UnOp {
-                op: OperationMapper::unary_operation(op),
+                op: UnOperator::from(op),
                 item: Box::new(Self::inner_build(*expr, table_columns)?),
             }),
-            Expr::Cast { .. } => unimplemented!(),
+            Expr::Cast { expr, data_type } => Ok(DynamicUntypedTree::UnOp {
+                op: UnOperator::Cast(SqlType::from(data_type).family()),
+                item: Box::new(Self::inner_build(*expr, table_columns)?),
+            }),
         }
     }
 
@@ -48,12 +53,11 @@ impl DynamicTreeBuilder {
         right: Expr,
         table_columns: &[ColumnDef],
     ) -> Result<DynamicUntypedTree, AnalysisError> {
-        let operation = OperationMapper::binary_operation(op);
         let left = Self::inner_build(left, table_columns)?;
         let right = Self::inner_build(right, table_columns)?;
         Ok(DynamicUntypedTree::BiOp {
             left: Box::new(left),
-            op: operation,
+            op: BiOperator::from(op),
             right: Box::new(right),
         })
     }

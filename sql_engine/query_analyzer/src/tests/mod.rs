@@ -27,8 +27,6 @@ mod delete;
 #[cfg(test)]
 mod insertions;
 #[cfg(test)]
-mod operation_mapping;
-#[cfg(test)]
 mod selects;
 #[cfg(test)]
 mod updates;
