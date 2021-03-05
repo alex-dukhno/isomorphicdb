@@ -27,7 +27,6 @@ use query_response::QueryError;
 use std::{collections::HashMap, sync::Arc};
 
 mod dynamic_tree_builder;
-mod operation_mapper;
 mod static_tree_builder;
 
 pub struct QueryAnalyzer<CD: CatalogDefinition> {

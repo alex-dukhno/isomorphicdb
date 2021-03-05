@@ -58,5 +58,5 @@ fn unary_op(ast_operator: UnaryOperator, expected: UnOperator) {
     case::bitwise_shift_right(BinaryOperator::BitwiseShiftRight, BiOperator::Bitwise(Bitwise::ShiftRight))
 )]
 fn binary_op(ast_operator: BinaryOperator, expected: BiOperator) {
-    assert_eq!(BinaryOperator::from(ast_operator), expected);
+    assert_eq!(BiOperator::from(ast_operator), expected);
 }
