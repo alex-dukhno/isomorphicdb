@@ -12,11 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use data_manipulation_untyped_tree::{Bool, StaticUntypedItem, StaticUntypedTree, UntypedValue};
-
-use crate::{operation_mapper::OperationMapper, AnalysisError};
+use crate::AnalysisError;
 use bigdecimal::BigDecimal;
-use data_manipulation_operators::UnOperator;
+use data_manipulation_operators::{BiOperator, UnOperator};
+use data_manipulation_untyped_tree::{Bool, StaticUntypedItem, StaticUntypedTree, UntypedValue};
 use query_ast::{BinaryOperator, Expr, Value};
 use std::str::FromStr;
 use types::SqlType;
@@ -38,19 +37,18 @@ impl StaticTreeBuilder {
                 item: Box::new(Self::inner_build(*expr)?),
             }),
             Expr::UnaryOp { op, expr } => Ok(StaticUntypedTree::UnOp {
-                op: OperationMapper::unary_operation(op),
+                op: UnOperator::from(op),
                 item: Box::new(Self::inner_build(*expr)?),
             }),
         }
     }
 
     fn binary_op(operator: BinaryOperator, left: Expr, right: Expr) -> Result<StaticUntypedTree, AnalysisError> {
-        let op = OperationMapper::binary_operation(operator);
         let left = Self::inner_build(left)?;
         let right = Self::inner_build(right)?;
         Ok(StaticUntypedTree::BiOp {
             left: Box::new(left),
-            op,
+            op: BiOperator::from(operator),
             right: Box::new(right),
         })
     }

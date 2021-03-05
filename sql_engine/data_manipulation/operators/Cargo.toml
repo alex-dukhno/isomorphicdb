@@ -9,6 +9,10 @@ publish = false
 data_manipulation_typed_values = { path = "../typed_values" }
 data_manipulation_query_result = { path = "../query_result" }
 types = { path = "../../entities/types" }
+query_ast = { path = "../../../postgres/query_ast" }
 
 bigdecimal = { version = "0.2.0", features = ["string-only"] }
 regex = "1.4.3"
+
+[dev-dependencies]
+rstest = "0.6.4"

@@ -15,6 +15,7 @@
 use bigdecimal::{BigDecimal, ToPrimitive};
 use data_manipulation_query_result::QueryExecutionError;
 use data_manipulation_typed_values::TypedValue;
+use query_ast::{BinaryOperator, UnaryOperator};
 use regex::Regex;
 use std::fmt::{self, Display, Formatter};
 use types::SqlTypeFamily;
@@ -462,6 +463,35 @@ impl BiOperator {
     }
 }
 
+impl From<BinaryOperator> for BiOperator {
+    fn from(operator: BinaryOperator) -> Self {
+        match operator {
+            BinaryOperator::Plus => BiOperator::Arithmetic(BiArithmetic::Add),
+            BinaryOperator::Minus => BiOperator::Arithmetic(BiArithmetic::Sub),
+            BinaryOperator::Multiply => BiOperator::Arithmetic(BiArithmetic::Mul),
+            BinaryOperator::Divide => BiOperator::Arithmetic(BiArithmetic::Div),
+            BinaryOperator::Modulus => BiOperator::Arithmetic(BiArithmetic::Mod),
+            BinaryOperator::Exp => BiOperator::Arithmetic(BiArithmetic::Exp),
+            BinaryOperator::StringConcat => BiOperator::StringOp(Concat),
+            BinaryOperator::Gt => BiOperator::Comparison(Comparison::Gt),
+            BinaryOperator::Lt => BiOperator::Comparison(Comparison::Lt),
+            BinaryOperator::GtEq => BiOperator::Comparison(Comparison::GtEq),
+            BinaryOperator::LtEq => BiOperator::Comparison(Comparison::LtEq),
+            BinaryOperator::Eq => BiOperator::Comparison(Comparison::Eq),
+            BinaryOperator::NotEq => BiOperator::Comparison(Comparison::NotEq),
+            BinaryOperator::And => BiOperator::Logical(BiLogical::And),
+            BinaryOperator::Or => BiOperator::Logical(BiLogical::Or),
+            BinaryOperator::Like => BiOperator::Matching(Matching::Like),
+            BinaryOperator::NotLike => BiOperator::Matching(Matching::NotLike),
+            BinaryOperator::BitwiseOr => BiOperator::Bitwise(Bitwise::Or),
+            BinaryOperator::BitwiseAnd => BiOperator::Bitwise(Bitwise::And),
+            BinaryOperator::BitwiseXor => BiOperator::Bitwise(Bitwise::Xor),
+            BinaryOperator::BitwiseShiftLeft => BiOperator::Bitwise(Bitwise::ShiftLeft),
+            BinaryOperator::BitwiseShiftRight => BiOperator::Bitwise(Bitwise::ShiftRight),
+        }
+    }
+}
+
 impl Display for BiOperator {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
@@ -542,6 +572,22 @@ impl UnOperator {
     }
 }
 
+impl From<UnaryOperator> for UnOperator {
+    fn from(operator: UnaryOperator) -> UnOperator {
+        match operator {
+            UnaryOperator::Minus => UnOperator::Arithmetic(UnArithmetic::Neg),
+            UnaryOperator::Plus => UnOperator::Arithmetic(UnArithmetic::Pos),
+            UnaryOperator::Not => UnOperator::LogicalNot,
+            UnaryOperator::BitwiseNot => UnOperator::BitwiseNot,
+            UnaryOperator::SquareRoot => UnOperator::Arithmetic(UnArithmetic::SquareRoot),
+            UnaryOperator::CubeRoot => UnOperator::Arithmetic(UnArithmetic::CubeRoot),
+            UnaryOperator::PostfixFactorial => UnOperator::Arithmetic(UnArithmetic::Factorial),
+            UnaryOperator::PrefixFactorial => UnOperator::Arithmetic(UnArithmetic::Factorial),
+            UnaryOperator::Abs => UnOperator::Arithmetic(UnArithmetic::Abs),
+        }
+    }
+}
+
 impl Display for UnOperator {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
@@ -617,3 +663,6 @@ impl Display for UnArithmetic {
         }
     }
 }
+
+#[cfg(test)]
+mod tests;

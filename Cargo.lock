@@ -415,7 +415,9 @@ dependencies = [
  "bigdecimal",
  "data_manipulation_query_result",
  "data_manipulation_typed_values",
+ "query_ast",
  "regex",
+ "rstest",
  "types",
 ]
 
