@@ -64,23 +64,6 @@ jobs:
         uses: actions/checkout@v2
       - name: install LLVM and Clang build dependencies for pg-sql-parser
         run: sudo apt install -y llvm
-      - name: run unit tests
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --all --lib
-
-  code-coverage:
-    needs:
-      - cargo-deny
-      - rustfmt
-      - clippy
-    runs-on: ubuntu-latest
-    steps:
-      - name: checkout code
-        uses: actions/checkout@v2
-      - name: install LLVM and Clang build dependencies for pg-sql-parser
-        run: sudo apt install -y llvm
       - name: install tarpaulin
         uses: actions-rs/install@v0.1
         with:
@@ -88,7 +71,7 @@ jobs:
           version: 0.16.0
           use-tool-cache: true
       - name: run code coverage
-        run: cargo tarpaulin --ignore-tests -o Lcov --output-dir ./coverage
+        run: cargo tarpaulin --all --ignore-tests -o Lcov --output-dir ./coverage
       - name: upload to coveralls
         uses: coverallsapp/github-action@master
         with:

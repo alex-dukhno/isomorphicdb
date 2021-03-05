@@ -39,7 +39,7 @@ jobs:
           version: 0.16.0
           use-tool-cache: true
       - name: run code coverage
-        run: cargo tarpaulin --ignore-tests -o Lcov --output-dir ./coverage
+        run: cargo tarpaulin --all --ignore-tests -o Lcov --output-dir ./coverage
       - name: upload to coveralls
         uses: coverallsapp/github-action@master
         with:
