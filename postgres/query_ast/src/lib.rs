@@ -148,6 +148,10 @@ pub enum Expr {
         op: BinaryOperator,
         right: Box<Expr>,
     },
+    UnaryOp {
+        op: UnaryOperator,
+        expr: Box<Expr>,
+    },
     Column(String),
     Cast {
         expr: Box<Expr>,
@@ -179,6 +183,19 @@ pub enum BinaryOperator {
     BitwiseXor,
     BitwiseShiftLeft,
     BitwiseShiftRight,
+}
+
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub enum UnaryOperator {
+    Minus,
+    Plus,
+    Not,
+    BitwiseNot,
+    SquareRoot,
+    CubeRoot,
+    PostfixFactorial,
+    PrefixFactorial,
+    Abs,
 }
 
 #[derive(Debug, PartialEq, Clone)]

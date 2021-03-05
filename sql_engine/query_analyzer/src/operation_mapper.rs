@@ -12,25 +12,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use data_manipulation_operators::{BiArithmetic, BiLogical, BiOperator, Bitwise, Comparison, Concat, Matching};
-use query_ast::BinaryOperator;
+use data_manipulation_operators::{
+    BiArithmetic, BiLogical, BiOperator, Bitwise, Comparison, Concat, Matching, UnArithmetic, UnOperator,
+};
+use query_ast::{BinaryOperator, UnaryOperator};
 
 pub(crate) struct OperationMapper;
 
 impl OperationMapper {
-    // pub(crate) fn unary_operation(unary_op: &sql_ast::UnaryOperator) -> UnOperator {
-    //     match unary_op {
-    //         sql_ast::UnaryOperator::Minus => UnOperator::Arithmetic(UnArithmetic::Neg),
-    //         sql_ast::UnaryOperator::Plus => UnOperator::Arithmetic(UnArithmetic::Pos),
-    //         sql_ast::UnaryOperator::Not => UnOperator::LogicalNot,
-    //         sql_ast::UnaryOperator::PGBitwiseNot => UnOperator::BitwiseNot,
-    //         sql_ast::UnaryOperator::PGSquareRoot => UnOperator::Arithmetic(UnArithmetic::SquareRoot),
-    //         sql_ast::UnaryOperator::PGCubeRoot => UnOperator::Arithmetic(UnArithmetic::CubeRoot),
-    //         sql_ast::UnaryOperator::PGPostfixFactorial => UnOperator::Arithmetic(UnArithmetic::Factorial),
-    //         sql_ast::UnaryOperator::PGPrefixFactorial => UnOperator::Arithmetic(UnArithmetic::Factorial),
-    //         sql_ast::UnaryOperator::PGAbs => UnOperator::Arithmetic(UnArithmetic::Abs),
-    //     }
-    // }
+    pub(crate) fn unary_operation(unary_op: UnaryOperator) -> UnOperator {
+        match unary_op {
+            UnaryOperator::Minus => UnOperator::Arithmetic(UnArithmetic::Neg),
+            UnaryOperator::Plus => UnOperator::Arithmetic(UnArithmetic::Pos),
+            UnaryOperator::Not => UnOperator::LogicalNot,
+            UnaryOperator::BitwiseNot => UnOperator::BitwiseNot,
+            UnaryOperator::SquareRoot => UnOperator::Arithmetic(UnArithmetic::SquareRoot),
+            UnaryOperator::CubeRoot => UnOperator::Arithmetic(UnArithmetic::CubeRoot),
+            UnaryOperator::PostfixFactorial => UnOperator::Arithmetic(UnArithmetic::Factorial),
+            UnaryOperator::PrefixFactorial => UnOperator::Arithmetic(UnArithmetic::Factorial),
+            UnaryOperator::Abs => UnOperator::Arithmetic(UnArithmetic::Abs),
+        }
+    }
 
     pub(crate) fn binary_operation(binary_op: BinaryOperator) -> BiOperator {
         match binary_op {

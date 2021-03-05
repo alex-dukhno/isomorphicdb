@@ -15,7 +15,7 @@
 use postgres_parser::{nodes, sys, Node, PgParserError, SqlStatementScanner};
 use query_ast::{
     Assignment, BinaryOperator, ColumnDef, DataType, Definition, DeleteStatement, Expr, InsertSource, InsertStatement,
-    Query, SelectItem, SelectStatement, Set, Statement, UpdateStatement, Value, Values,
+    Query, SelectItem, SelectStatement, Set, Statement, UnaryOperator, UpdateStatement, Value, Values,
 };
 use query_response::QueryError;
 use std::fmt::{self, Display, Formatter};
@@ -442,43 +442,84 @@ impl QueryParser {
             }
             Node::A_Expr(nodes::A_Expr {
                 kind: sys::A_Expr_Kind::AEXPR_OP,
-                name,
-                lexpr: left_expr,
-                rexpr: right_expr,
+                name: Some(values),
+                lexpr: None,
+                rexpr: Some(right_expr),
             }) => {
-                if let Some(values) = name {
-                    let op = if let Node::Value(nodes::Value { string: Some(op), .. }) = &values[0] {
-                        match op.as_str() {
-                            "+" => BinaryOperator::Plus,
-                            "-" => BinaryOperator::Minus,
-                            "*" => BinaryOperator::Multiply,
-                            "/" => BinaryOperator::Divide,
-                            "%" => BinaryOperator::Modulus,
-                            "^" => BinaryOperator::Exp,
-                            "||" => BinaryOperator::StringConcat,
-                            ">" => BinaryOperator::Gt,
-                            "<" => BinaryOperator::Lt,
-                            ">=" => BinaryOperator::GtEq,
-                            "<=" => BinaryOperator::LtEq,
-                            "=" => BinaryOperator::Eq,
-                            "<>" => BinaryOperator::NotEq,
-                            "|" => BinaryOperator::BitwiseOr,
-                            "&" => BinaryOperator::BitwiseAnd,
-                            "#" => BinaryOperator::BitwiseXor,
-                            "<<" => BinaryOperator::BitwiseShiftLeft,
-                            ">>" => BinaryOperator::BitwiseShiftRight,
-                            _ => unimplemented!(),
-                        }
-                    } else {
-                        unimplemented!()
-                    };
-                    Expr::BinaryOp {
-                        left: Box::new(self.parse_expr(*left_expr.unwrap())),
-                        op,
-                        right: Box::new(self.parse_expr(*right_expr.unwrap())),
+                let op = if let Node::Value(nodes::Value { string: Some(op), .. }) = &values[0] {
+                    match op.as_str() {
+                        "+" => UnaryOperator::Plus,
+                        "-" => UnaryOperator::Minus,
+                        "!" => UnaryOperator::Not,
+                        "~" => UnaryOperator::BitwiseNot,
+                        "|/" => UnaryOperator::SquareRoot,
+                        "||/" => UnaryOperator::CubeRoot,
+                        "!!" => UnaryOperator::PrefixFactorial,
+                        "@" => UnaryOperator::Abs,
+                        _ => unimplemented!(),
                     }
                 } else {
                     unimplemented!()
+                };
+                Expr::UnaryOp {
+                    op,
+                    expr: Box::new(self.parse_expr(*right_expr)),
+                }
+            }
+            Node::A_Expr(nodes::A_Expr {
+                kind: sys::A_Expr_Kind::AEXPR_OP,
+                name: Some(values),
+                lexpr: Some(left_expr),
+                rexpr: None,
+            }) => {
+                let op = if let Node::Value(nodes::Value { string: Some(op), .. }) = &values[0] {
+                    match op.as_str() {
+                        "!" => UnaryOperator::PostfixFactorial,
+                        _ => unimplemented!(),
+                    }
+                } else {
+                    unimplemented!()
+                };
+                Expr::UnaryOp {
+                    op,
+                    expr: Box::new(self.parse_expr(*left_expr)),
+                }
+            }
+            Node::A_Expr(nodes::A_Expr {
+                kind: sys::A_Expr_Kind::AEXPR_OP,
+                name: Some(values),
+                lexpr: Some(left_expr),
+                rexpr: Some(right_expr),
+            }) => {
+                let op = if let Node::Value(nodes::Value { string: Some(op), .. }) = &values[0] {
+                    match op.as_str() {
+                        "+" => BinaryOperator::Plus,
+                        "-" => BinaryOperator::Minus,
+                        "*" => BinaryOperator::Multiply,
+                        "/" => BinaryOperator::Divide,
+                        "%" => BinaryOperator::Modulus,
+                        "^" => BinaryOperator::Exp,
+                        "||" => BinaryOperator::StringConcat,
+                        ">" => BinaryOperator::Gt,
+                        "<" => BinaryOperator::Lt,
+                        ">=" => BinaryOperator::GtEq,
+                        "<=" => BinaryOperator::LtEq,
+                        "=" => BinaryOperator::Eq,
+                        "<>" => BinaryOperator::NotEq,
+                        "|" => BinaryOperator::BitwiseOr,
+                        "&" => BinaryOperator::BitwiseAnd,
+                        "#" => BinaryOperator::BitwiseXor,
+                        "<<" => BinaryOperator::BitwiseShiftLeft,
+                        ">>" => BinaryOperator::BitwiseShiftRight,
+                        _ => unimplemented!(),
+                    }
+                } else {
+                    unimplemented!()
+                };
+                Expr::BinaryOp {
+                    left: Box::new(self.parse_expr(*left_expr)),
+                    op,
+                    right: Box::new(self.parse_expr(*right_expr)),
                 }
             }
             Node::A_Const(nodes::A_Const {

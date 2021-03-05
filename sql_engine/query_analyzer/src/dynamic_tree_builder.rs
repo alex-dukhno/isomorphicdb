@@ -34,6 +34,10 @@ impl DynamicTreeBuilder {
             Expr::Value(value) => Ok(Self::value(value)),
             Expr::Column(ident) => Self::ident(ident, table_columns),
             Expr::BinaryOp { left, op, right } => Self::binary_op(op, *left, *right, table_columns),
+            Expr::UnaryOp { op, expr } => Ok(DynamicUntypedTree::UnOp {
+                op: OperationMapper::unary_operation(op),
+                item: Box::new(Self::inner_build(*expr, table_columns)?),
+            }),
             Expr::Cast { .. } => unimplemented!(),
         }
     }

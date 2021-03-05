@@ -493,9 +493,6 @@ mod operators {
         }
 
         #[rstest::rstest]
-        #[ignore]
-        // TODO ^ is bitwise in SQL standard
-        //      # is bitwise in PostgreSQL and it does not supported in sqlparser-rs
         fn exponentiation(with_table: (InMemory, ResultCollector)) {
             let (mut engine, collector) = with_table;
 
@@ -522,8 +519,7 @@ mod operators {
         }
 
         #[rstest::rstest]
-        #[ignore]
-        // TODO |/<n> is square root in PostgreSQL and it does not supported in sqlparser-rs
+        #[ignore] //TODO: TypeInference#infer_static is not implemented
         fn square_root(with_table: (InMemory, ResultCollector)) {
             let (mut engine, collector) = with_table;
 
@@ -550,8 +546,7 @@ mod operators {
         }
 
         #[rstest::rstest]
-        #[ignore]
-        // TODO ||/<n> is cube root in PostgreSQL and it does not supported in sqlparser-rs
+        #[ignore] //TODO: TypeInference#infer_static is not implemented
         fn cube_root(with_table: (InMemory, ResultCollector)) {
             let (mut engine, collector) = with_table;
 
@@ -578,8 +573,6 @@ mod operators {
         }
 
         #[rstest::rstest]
-        #[ignore]
-        // TODO <n>! is factorial in PostgreSQL and it does not supported in sqlparser-rs
         fn factorial(with_table: (InMemory, ResultCollector)) {
             let (mut engine, collector) = with_table;
 
@@ -606,8 +599,6 @@ mod operators {
         }
 
         #[rstest::rstest]
-        #[ignore]
-        // TODO !!<n> is prefix factorial in PostgreSQL and it does not supported in sqlparser-rs
         fn prefix_factorial(with_table: (InMemory, ResultCollector)) {
             let (mut engine, collector) = with_table;
 
@@ -634,14 +625,12 @@ mod operators {
         }
 
         #[rstest::rstest]
-        #[ignore]
-        // TODO @<n> is absolute value in PostgreSQL and it does not supported in sqlparser-rs
         fn absolute_value(with_table: (InMemory, ResultCollector)) {
             let (mut engine, collector) = with_table;
 
             engine
                 .execute(Command::Query {
-                    sql: "insert into schema_name.table_name values (@-5);".to_owned(),
+                    sql: "insert into schema_name.table_name values (@ -5);".to_owned(),
                 })
                 .expect("query executed");
             collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
@@ -714,8 +703,6 @@ mod operators {
         }
 
         #[rstest::rstest]
-        #[ignore]
-        // TODO ~ <n> is bitwise NOT in PostgreSQL and it does not supported in sqlparser-rs
         fn bitwise_not(with_table: (InMemory, ResultCollector)) {
             let (mut engine, collector) = with_table;
 
@@ -742,8 +729,6 @@ mod operators {
         }
 
         #[rstest::rstest]
-        #[ignore]
-        // TODO <n> << <m> is bitwise SHIFT LEFT in PostgreSQL and it does not supported in sqlparser-rs
         fn bitwise_shift_left(with_table: (InMemory, ResultCollector)) {
             let (mut engine, collector) = with_table;
 
@@ -770,8 +755,6 @@ mod operators {
         }
 
         #[rstest::rstest]
-        #[ignore]
-        // TODO <n> >> <m> is bitwise SHIFT RIGHT in PostgreSQL and it does not supported in sqlparser-rs
         fn bitwise_right_left(with_table: (InMemory, ResultCollector)) {
             let (mut engine, collector) = with_table;
 

@@ -15,78 +15,80 @@
 use super::*;
 use crate::operation_mapper::OperationMapper;
 
-// #[cfg(test)]
-// mod unary_op {
-//     use super::*;
-//
-//     #[test]
-//     fn minus() {
-//         assert_eq!(
-//             OperationMapper::unary_operation(UnaryOperator::Minus),
-//             UnOperator::Arithmetic(UnArithmetic::Neg)
-//         );
-//     }
-//
-//     #[test]
-//     fn plus() {
-//         assert_eq!(
-//             OperationMapper::unary_operation(UnaryOperator::Plus),
-//             UnOperator::Arithmetic(UnArithmetic::Pos)
-//         );
-//     }
-//
-//     #[test]
-//     fn square_root() {
-//         assert_eq!(
-//             OperationMapper::unary_operation(UnaryOperator::PGSquareRoot),
-//             UnOperator::Arithmetic(UnArithmetic::SquareRoot)
-//         );
-//     }
-//
-//     #[test]
-//     fn cube_root() {
-//         assert_eq!(
-//             OperationMapper::unary_operation(UnaryOperator::PGCubeRoot),
-//             UnOperator::Arithmetic(UnArithmetic::CubeRoot)
-//         );
-//     }
-//
-//     #[test]
-//     fn factorial() {
-//         assert_eq!(
-//             OperationMapper::unary_operation(UnaryOperator::PGPostfixFactorial),
-//             UnOperator::Arithmetic(UnArithmetic::Factorial)
-//         );
-//         assert_eq!(
-//             OperationMapper::unary_operation(UnaryOperator::PGPrefixFactorial),
-//             UnOperator::Arithmetic(UnArithmetic::Factorial)
-//         );
-//     }
-//
-//     #[test]
-//     fn abs() {
-//         assert_eq!(
-//             OperationMapper::unary_operation(UnaryOperator::PGAbs),
-//             UnOperator::Arithmetic(UnArithmetic::Abs)
-//         );
-//     }
-//
-//     #[test]
-//     fn not() {
-//         assert_eq!(
-//             OperationMapper::unary_operation(UnaryOperator::Not),
-//             UnOperator::LogicalNot
-//         );
-//     }
-//
-//     #[test]
-//     fn bitwise_not() {
-//         assert_eq!(
-//             OperationMapper::unary_operation(UnaryOperator::PGBitwiseNot),
-//             UnOperator::BitwiseNot
-//         );
-//     }
-// }
+#[cfg(test)]
+mod unary_op {
+    use super::*;
+    use data_manipulation_operators::{UnArithmetic, UnOperator};
+    use query_ast::UnaryOperator;
+
+    #[test]
+    fn minus() {
+        assert_eq!(
+            OperationMapper::unary_operation(UnaryOperator::Minus),
+            UnOperator::Arithmetic(UnArithmetic::Neg)
+        );
+    }
+
+    #[test]
+    fn plus() {
+        assert_eq!(
+            OperationMapper::unary_operation(UnaryOperator::Plus),
+            UnOperator::Arithmetic(UnArithmetic::Pos)
+        );
+    }
+
+    #[test]
+    fn square_root() {
+        assert_eq!(
+            OperationMapper::unary_operation(UnaryOperator::SquareRoot),
+            UnOperator::Arithmetic(UnArithmetic::SquareRoot)
+        );
+    }
+
+    #[test]
+    fn cube_root() {
+        assert_eq!(
+            OperationMapper::unary_operation(UnaryOperator::CubeRoot),
+            UnOperator::Arithmetic(UnArithmetic::CubeRoot)
+        );
+    }
+
+    #[test]
+    fn factorial() {
+        assert_eq!(
+            OperationMapper::unary_operation(UnaryOperator::PostfixFactorial),
+            UnOperator::Arithmetic(UnArithmetic::Factorial)
+        );
+        assert_eq!(
+            OperationMapper::unary_operation(UnaryOperator::PrefixFactorial),
+            UnOperator::Arithmetic(UnArithmetic::Factorial)
+        );
+    }
+
+    #[test]
+    fn abs() {
+        assert_eq!(
+            OperationMapper::unary_operation(UnaryOperator::Abs),
+            UnOperator::Arithmetic(UnArithmetic::Abs)
+        );
+    }
+
+    #[test]
+    fn not() {
+        assert_eq!(
+            OperationMapper::unary_operation(UnaryOperator::Not),
+            UnOperator::LogicalNot
+        );
+    }
+
+    #[test]
+    fn bitwise_not() {
+        assert_eq!(
+            OperationMapper::unary_operation(UnaryOperator::BitwiseNot),
+            UnOperator::BitwiseNot
+        );
+    }
+}
 
 #[cfg(test)]
 mod binary_op {

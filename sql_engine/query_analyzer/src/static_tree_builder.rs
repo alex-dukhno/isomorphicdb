@@ -37,14 +37,10 @@ impl StaticTreeBuilder {
                 op: UnOperator::Cast(SqlType::from(data_type).family()),
                 item: Box::new(Self::inner_build(*expr)?),
             }),
-            // Expr::UnaryOp { op, expr } => {
-            //     let op = OperationMapper::unary_operation(op);
-            //     let item = Self::inner_build(expr, original)?;
-            //     Ok(StaticUntypedTree::UnOp {
-            //         op,
-            //         item: Box::new(item),
-            //     })
-            // }
+            Expr::UnaryOp { op, expr } => Ok(StaticUntypedTree::UnOp {
+                op: OperationMapper::unary_operation(op),
+                item: Box::new(Self::inner_build(*expr)?),
+            }),
         }
     }
 
