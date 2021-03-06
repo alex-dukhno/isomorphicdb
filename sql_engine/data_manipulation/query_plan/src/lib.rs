@@ -313,11 +313,15 @@ impl Flow for Repeater {
 
 pub struct DynamicValues {
     source: Box<dyn Flow<Output = Vec<Option<DynamicTypedTree>>>>,
+    records: Box<dyn Flow<Output = (Binary, Binary)>>,
 }
 
 impl DynamicValues {
-    pub fn new(source: Box<dyn Flow<Output = Vec<Option<DynamicTypedTree>>>>) -> Box<DynamicValues> {
-        Box::new(DynamicValues { source })
+    pub fn new(
+        source: Box<dyn Flow<Output = Vec<Option<DynamicTypedTree>>>>,
+        records: Box<dyn Flow<Output = (Binary, Binary)>>,
+    ) -> Box<DynamicValues> {
+        Box::new(DynamicValues { source, records })
     }
 }
 
@@ -325,19 +329,53 @@ impl Flow for DynamicValues {
     type Output = Vec<Option<ScalarValue>>;
 
     fn next_tuple(&mut self) -> Result<Option<Self::Output>, QueryExecutionError> {
-        if let Some(tuple) = self.source.next_tuple()? {
-            let mut next_tuple = vec![];
-            for value in tuple {
-                let value = match value {
-                    None => None,
-                    Some(tree) => match tree.eval() {
-                        Err(error) => return Err(error),
-                        Ok(value) => Some(value),
+        if let Some((_key, value)) = self.records.next_tuple()? {
+            let table_row = value
+                .unpack()
+                .into_iter()
+                .map(|datum| match datum {
+                    Datum::Null => ScalarValue::Null,
+                    Datum::True => ScalarValue::Bool(true),
+                    Datum::False => ScalarValue::Bool(false),
+                    Datum::Int16(value) => ScalarValue::Num {
+                        value: BigDecimal::from(value),
+                        type_family: SqlTypeFamily::SmallInt,
                     },
-                };
-                next_tuple.push(value);
+                    Datum::Int32(value) => ScalarValue::Num {
+                        value: BigDecimal::from(value),
+                        type_family: SqlTypeFamily::Integer,
+                    },
+                    Datum::Int64(value) => ScalarValue::Num {
+                        value: BigDecimal::from(value),
+                        type_family: SqlTypeFamily::BigInt,
+                    },
+                    Datum::Float32(value) => ScalarValue::Num {
+                        value: BigDecimal::from_f32(*value).unwrap(),
+                        type_family: SqlTypeFamily::Real,
+                    },
+                    Datum::Float64(value) => ScalarValue::Num {
+                        value: BigDecimal::from_f64(*value).unwrap(),
+                        type_family: SqlTypeFamily::Double,
+                    },
+                    Datum::String(value) => ScalarValue::String(value),
+                })
+                .collect::<Vec<_>>();
+            if let Some(tuple) = self.source.next_tuple()? {
+                let mut next_tuple = vec![];
+                for value in tuple {
+                    let value = match value {
+                        None => None,
+                        Some(tree) => match tree.eval(&table_row) {
+                            Err(error) => return Err(error),
+                            Ok(value) => Some(value),
+                        },
+                    };
+                    next_tuple.push(value);
+                }
+                Ok(Some(next_tuple))
+            } else {
+                Ok(None)
             }
-            Ok(Some(next_tuple))
         } else {
             Ok(None)
         }

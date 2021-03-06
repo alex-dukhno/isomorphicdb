@@ -43,8 +43,12 @@ impl Default for TypeInference {
 impl TypeInference {
     pub fn infer_dynamic(&self, tree: DynamicUntypedTree) -> DynamicTypedTree {
         match tree {
-            DynamicUntypedTree::Item(DynamicUntypedItem::Column { name, .. }) => {
-                DynamicTypedTree::Item(DynamicTypedItem::Column(name))
+            DynamicUntypedTree::Item(DynamicUntypedItem::Column { name, sql_type, index }) => {
+                DynamicTypedTree::Item(DynamicTypedItem::Column {
+                    name,
+                    sql_type: sql_type.family(),
+                    index,
+                })
             }
             DynamicUntypedTree::Item(DynamicUntypedItem::Const(UntypedValue::Number(num))) => {
                 if num.is_integer() {
@@ -87,6 +91,8 @@ impl TypeInference {
                 DynamicTypedTree::Item(DynamicTypedItem::Const(TypedValue::Bool(boolean)))
             }
             DynamicUntypedTree::BiOp { left, op, right } => {
+                log::debug!("LEFT TREE {:#?}", left);
+                log::debug!("RIGHT TREE {:#?}", right);
                 let left_tree = self.infer_dynamic(*left);
                 let right_tree = self.infer_dynamic(*right);
                 let type_family = match (left_tree.type_family(), right_tree.type_family()) {

@@ -129,7 +129,6 @@ class IntegerConstraintsChecksSpec extends SetupEnvironment {
       others << [['I__COL', 'BI_COL'], ['SI_COL', 'BI_COL'], ['SI_COL', 'I__COL']]
   }
 
-  @Ignore("binary operations and column names in ops are not supported")
   def 'update with columns of different types'() {
     given:
       String insertData = 'insert into SCHEMA_NAME.TABLE_NAME values (1000, 2000, 50000), (2000, 50000, 100000)'
