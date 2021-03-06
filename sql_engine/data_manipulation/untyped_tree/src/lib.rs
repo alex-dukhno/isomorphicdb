@@ -19,32 +19,7 @@ use std::{
     fmt::{Display, Formatter},
     str::FromStr,
 };
-use types::{SqlType, SqlTypeFamily};
-
-#[derive(PartialEq, Debug, Copy, Clone, Eq)]
-pub struct Bool(pub bool);
-
-impl FromStr for Bool {
-    type Err = ParseBoolError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let val = s.to_lowercase();
-        match val.as_str() {
-            "t" | "true" | "on" | "yes" | "y" | "1" => Ok(Bool(true)),
-            "f" | "false" | "off" | "no" | "n" | "0" => Ok(Bool(false)),
-            _ => Err(ParseBoolError(val)),
-        }
-    }
-}
-
-#[derive(PartialEq, Debug)]
-pub struct ParseBoolError(String);
-
-impl Display for ParseBoolError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        writeln!(f, "error to parse {:?} into boolean", self.0)
-    }
-}
+use types::{Bool, SqlType, SqlTypeFamily};
 
 #[derive(Debug, PartialEq)]
 pub enum ImplicitCastError {

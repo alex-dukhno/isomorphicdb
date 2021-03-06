@@ -307,7 +307,6 @@ fn insert_and_select_different_character_types(database_with_schema: (InMemory, 
 }
 
 #[rstest::rstest]
-#[ignore] // TODO: PG parser treats boolean as string casted to boolean and cast is not implemented
 fn insert_booleans(database_with_schema: (InMemory, ResultCollector)) {
     let (mut engine, collector) = database_with_schema;
     engine

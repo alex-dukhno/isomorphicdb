@@ -15,10 +15,10 @@
 use crate::AnalysisError;
 use bigdecimal::BigDecimal;
 use data_manipulation_operators::{BiOperator, UnOperator};
-use data_manipulation_untyped_tree::{Bool, StaticUntypedItem, StaticUntypedTree, UntypedValue};
+use data_manipulation_untyped_tree::{StaticUntypedItem, StaticUntypedTree, UntypedValue};
 use query_ast::{BinaryOperator, Expr, Value};
 use std::str::FromStr;
-use types::SqlType;
+use types::{Bool, SqlType};
 
 pub(crate) struct StaticTreeBuilder;
 

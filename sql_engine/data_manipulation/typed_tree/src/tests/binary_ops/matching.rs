@@ -36,7 +36,7 @@ fn string_and_string(operator: BiOperator, left: &str, right: &str, result: bool
             )))),
         }
         .eval(),
-        Ok(TypedValue::Bool(result))
+        Ok(ScalarValue::Bool(result))
     );
 }
 

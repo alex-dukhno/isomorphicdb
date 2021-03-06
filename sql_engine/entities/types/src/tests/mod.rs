@@ -15,6 +15,8 @@
 use super::*;
 
 #[cfg(test)]
+mod bool_parser;
+#[cfg(test)]
 mod to_postgresql_type_conversion;
 #[cfg(test)]
 mod type_family_comparison;

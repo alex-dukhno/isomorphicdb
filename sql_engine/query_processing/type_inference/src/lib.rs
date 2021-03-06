@@ -13,13 +13,12 @@
 // limitations under the License.
 
 use bigdecimal::{BigDecimal, FromPrimitive};
-use data_manipulation_typed_tree::{DynamicTypedItem, DynamicTypedTree, StaticTypedItem, StaticTypedTree};
-use data_manipulation_typed_values::TypedValue;
+use data_manipulation_typed_tree::{DynamicTypedItem, DynamicTypedTree, StaticTypedItem, StaticTypedTree, TypedValue};
 use data_manipulation_untyped_tree::{
-    Bool, DynamicUntypedItem, DynamicUntypedTree, StaticUntypedItem, StaticUntypedTree, UntypedValue,
+    DynamicUntypedItem, DynamicUntypedTree, StaticUntypedItem, StaticUntypedTree, UntypedValue,
 };
 use std::ops::RangeInclusive;
-use types::SqlTypeFamily;
+use types::{Bool, SqlTypeFamily};
 
 pub struct TypeInference {
     small_int_range: RangeInclusive<BigDecimal>,

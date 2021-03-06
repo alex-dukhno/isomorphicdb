@@ -403,7 +403,6 @@ dependencies = [
  "data_manipulation_query_result",
  "data_manipulation_typed_queries",
  "data_manipulation_typed_tree",
- "data_manipulation_typed_values",
  "data_manipulation_untyped_queries",
  "data_manipulation_untyped_tree",
 ]
@@ -414,7 +413,7 @@ version = "0.1.0"
 dependencies = [
  "bigdecimal",
  "data_manipulation_query_result",
- "data_manipulation_typed_values",
+ "data_scalar",
  "query_ast",
  "regex",
  "rstest",
@@ -430,7 +429,6 @@ dependencies = [
  "data_binary",
  "data_manipulation_query_result",
  "data_manipulation_typed_tree",
- "data_manipulation_typed_values",
  "data_scalar",
  "definition",
  "log",
@@ -460,19 +458,12 @@ name = "data_manipulation_typed_tree"
 version = "0.1.0"
 dependencies = [
  "bigdecimal",
+ "data_binary",
  "data_manipulation_operators",
  "data_manipulation_query_result",
- "data_manipulation_typed_values",
+ "data_scalar",
+ "ordered-float",
  "rstest",
- "types",
-]
-
-[[package]]
-name = "data_manipulation_typed_values"
-version = "0.1.0"
-dependencies = [
- "bigdecimal",
- "data_binary",
  "types",
 ]
 
@@ -498,7 +489,9 @@ dependencies = [
 name = "data_scalar"
 version = "0.1.0"
 dependencies = [
- "ordered-float",
+ "bigdecimal",
+ "data_binary",
+ "types",
 ]
 
 [[package]]
@@ -1086,7 +1079,6 @@ dependencies = [
  "bigdecimal",
  "data_manipulation_operators",
  "data_manipulation_typed_tree",
- "data_manipulation_typed_values",
  "data_manipulation_untyped_tree",
  "types",
 ]

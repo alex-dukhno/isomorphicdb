@@ -8,10 +8,12 @@ publish = false
 [dependencies]
 data_manipulation_operators = { path = "../operators" }
 data_manipulation_query_result = { path = "../query_result" }
-data_manipulation_typed_values = { path = "../typed_values" }
+data_binary = { path = "../../data/binary" }
+data_scalar = { path = "../../data/scalar" }
 types = { path = "../../entities/types" }
 
 bigdecimal = { version = "0.2.0", features = ["string-only"] }
+ordered-float = "2.1.1"
 
 [dev-dependencies]
 rstest = "0.6.4"

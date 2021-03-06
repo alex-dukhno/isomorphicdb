@@ -30,7 +30,7 @@ mod unary_minus {
                 }))),
             }
             .eval(),
-            Ok(TypedValue::Num {
+            Ok(ScalarValue::Num {
                 value: BigDecimal::from(-32767),
                 type_family: SqlTypeFamily::Integer
             })
@@ -45,7 +45,7 @@ mod unary_minus {
                 }))),
             }
             .eval(),
-            Ok(TypedValue::Num {
+            Ok(ScalarValue::Num {
                 value: BigDecimal::from(-32768),
                 type_family: SqlTypeFamily::Integer
             })
@@ -66,7 +66,7 @@ mod unary_minus {
                 })
             }
             .eval(),
-            Ok(TypedValue::Num {
+            Ok(ScalarValue::Num {
                 value: BigDecimal::from(32767),
                 type_family: SqlTypeFamily::Integer
             })
@@ -84,7 +84,7 @@ mod unary_minus {
                 })
             }
             .eval(),
-            Ok(TypedValue::Num {
+            Ok(ScalarValue::Num {
                 value: BigDecimal::from(32768),
                 type_family: SqlTypeFamily::Integer
             })
@@ -139,7 +139,7 @@ mod unary_plus {
                 }))),
             }
             .eval(),
-            Ok(TypedValue::Num {
+            Ok(ScalarValue::Num {
                 value: BigDecimal::from(32767),
                 type_family: SqlTypeFamily::Integer
             })
@@ -154,7 +154,7 @@ mod unary_plus {
                 }))),
             }
             .eval(),
-            Ok(TypedValue::Num {
+            Ok(ScalarValue::Num {
                 value: BigDecimal::from(32768),
                 type_family: SqlTypeFamily::Integer
             })
@@ -206,7 +206,7 @@ mod unary_not {
                 item: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Bool(true)))),
             }
             .eval(),
-            Ok(TypedValue::Bool(false))
+            Ok(ScalarValue::Bool(false))
         );
     }
 
@@ -263,7 +263,7 @@ mod unary_bitwise_not {
                 }))),
             }
             .eval(),
-            Ok(TypedValue::Num {
+            Ok(ScalarValue::Num {
                 value: BigDecimal::from(!1),
                 type_family: SqlTypeFamily::SmallInt
             })
@@ -278,7 +278,7 @@ mod unary_bitwise_not {
                 }))),
             }
             .eval(),
-            Ok(TypedValue::Num {
+            Ok(ScalarValue::Num {
                 value: BigDecimal::from(!(i32::MAX - i16::MAX as i32)),
                 type_family: SqlTypeFamily::Integer
             })
@@ -293,7 +293,7 @@ mod unary_bitwise_not {
                 }))),
             }
             .eval(),
-            Ok(TypedValue::Num {
+            Ok(ScalarValue::Num {
                 value: BigDecimal::from(!(i64::MAX - i32::MAX as i64)),
                 type_family: SqlTypeFamily::BigInt
             })
@@ -381,7 +381,7 @@ mod square_root {
                 }))),
             }
             .eval(),
-            Ok(TypedValue::Num {
+            Ok(ScalarValue::Num {
                 value: BigDecimal::from(32768).sqrt().unwrap(),
                 type_family: SqlTypeFamily::Double
             })
@@ -451,7 +451,7 @@ mod cube_root {
                 }))),
             }
             .eval(),
-            Ok(TypedValue::Num {
+            Ok(ScalarValue::Num {
                 value: BigDecimal::from(32768).cbrt(),
                 type_family: SqlTypeFamily::Double
             })
@@ -506,7 +506,7 @@ mod factorial {
                 }))),
             }
             .eval(),
-            Ok(TypedValue::Num {
+            Ok(ScalarValue::Num {
                 value: BigDecimal::from(6),
                 type_family: SqlTypeFamily::BigInt
             })
@@ -524,7 +524,7 @@ mod factorial {
                 }))),
             }
             .eval(),
-            Ok(TypedValue::Num {
+            Ok(ScalarValue::Num {
                 value: BigDecimal::from(1),
                 type_family: SqlTypeFamily::BigInt
             })
@@ -612,7 +612,7 @@ mod absolute_value {
                 }))),
             }
             .eval(),
-            Ok(TypedValue::Num {
+            Ok(ScalarValue::Num {
                 value: BigDecimal::from(3),
                 type_family: SqlTypeFamily::Integer
             })
@@ -630,7 +630,7 @@ mod absolute_value {
                 }))),
             }
             .eval(),
-            Ok(TypedValue::Num {
+            Ok(ScalarValue::Num {
                 value: BigDecimal::from(3),
                 type_family: SqlTypeFamily::Integer
             })

@@ -29,7 +29,7 @@ fn string_and_string() {
             )))),
         }
         .eval(),
-        Ok(TypedValue::String("12".to_owned()))
+        Ok(ScalarValue::String("12".to_owned()))
     );
 }
 
