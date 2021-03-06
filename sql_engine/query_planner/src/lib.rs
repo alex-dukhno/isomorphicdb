@@ -52,7 +52,10 @@ impl<D: Database> QueryPlanner<D> {
             TypedQuery::Update(update) => {
                 let table = self.database.table(&update.full_table_name);
                 QueryPlan::Update(UpdateQueryPlan::new(
-                    ConstraintValidator::new(DynamicValues::new(Repeater::new(update.assignments)), table.columns()),
+                    ConstraintValidator::new(
+                        DynamicValues::new(Repeater::new(update.assignments), FullTableScan::new(&*table)),
+                        table.columns(),
+                    ),
                     FullTableScan::new(&*table),
                     table,
                 ))
@@ -65,7 +68,7 @@ impl<D: Database> QueryPlanner<D> {
                         .projection_items
                         .into_iter()
                         .map(|item| match item {
-                            DynamicTypedTree::Item(DynamicTypedItem::Column(name)) => name,
+                            DynamicTypedTree::Item(DynamicTypedItem::Column { name, .. }) => name,
                             _ => unimplemented!(),
                         })
                         .collect(),

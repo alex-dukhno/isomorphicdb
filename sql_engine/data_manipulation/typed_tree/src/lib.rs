@@ -99,12 +99,12 @@ impl DynamicTypedTree {
         }
     }
 
-    pub fn eval(self) -> Result<ScalarValue, QueryExecutionError> {
+    pub fn eval(self, table_row: &[ScalarValue]) -> Result<ScalarValue, QueryExecutionError> {
         match self {
             DynamicTypedTree::Item(DynamicTypedItem::Const(value)) => Ok(value.eval()),
-            DynamicTypedTree::Item(DynamicTypedItem::Column(_)) => unimplemented!(),
-            DynamicTypedTree::UnOp { op, item } => op.eval(item.eval()?),
-            DynamicTypedTree::BiOp { left, op, right, .. } => op.eval(left.eval()?, right.eval()?),
+            DynamicTypedTree::Item(DynamicTypedItem::Column { index, .. }) => Ok(table_row[index].clone()),
+            DynamicTypedTree::UnOp { op, item } => op.eval(item.eval(table_row)?),
+            DynamicTypedTree::BiOp { left, op, right, .. } => op.eval(left.eval(table_row)?, right.eval(table_row)?),
         }
     }
 }
@@ -112,14 +112,18 @@ impl DynamicTypedTree {
 #[derive(Debug, PartialEq, Clone)]
 pub enum DynamicTypedItem {
     Const(TypedValue),
-    Column(String),
+    Column {
+        name: String,
+        sql_type: SqlTypeFamily,
+        index: usize,
+    },
 }
 
 impl DynamicTypedItem {
     fn type_family(&self) -> Option<SqlTypeFamily> {
         match self {
             DynamicTypedItem::Const(typed_value) => typed_value.type_family(),
-            DynamicTypedItem::Column(_typed_value) => None,
+            DynamicTypedItem::Column { sql_type, .. } => Some(*sql_type),
         }
     }
 }

@@ -65,7 +65,6 @@ class SelectiveAttributesQueryOperationsSpec extends ThreeSmallIntColumnTable {
       pgSelect == dbSelect
   }
 
-  @Ignore("binary operations are not supported")
   def 'update{with dynamic expression}'() {
     given:
       String updateQueryWithDynamicExpression =

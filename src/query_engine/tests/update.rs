@@ -333,7 +333,6 @@ fn update_non_existent_columns_of_records(database_with_schema: (InMemory, Resul
     collector.assert_receive_many(vec![Err(QueryError::column_does_not_exist("col1"))]);
 }
 
-#[ignore] // TODO: Column values in binary operations is not supported
 #[rstest::rstest]
 fn test_update_with_dynamic_expression(database_with_schema: (InMemory, ResultCollector)) {
     let (mut engine, collector) = database_with_schema;
