@@ -41,7 +41,7 @@ fn integer_and_integer(operator: BiOperator, left: u32, right: u32, result: u32)
             }))),
         }
         .eval(),
-        Ok(TypedValue::Num {
+        Ok(ScalarValue::Num {
             value: BigDecimal::from(result),
             type_family: SqlTypeFamily::BigInt
         })

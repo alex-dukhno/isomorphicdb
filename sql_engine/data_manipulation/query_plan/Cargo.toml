@@ -7,7 +7,6 @@ publish = false
 
 [dependencies]
 data_manipulation_typed_tree = { path = "../typed_tree" }
-data_manipulation_typed_values = { path = "../typed_values" }
 data_manipulation_query_result = { path = "../query_result" }
 data_binary = { path = "../../data/binary" }
 data_scalar = { path = "../../data/scalar" }

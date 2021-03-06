@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use bigdecimal::BigDecimal;
+use bigdecimal::{BigDecimal, FromPrimitive};
 use catalog::{Cursor, SqlTable};
 use data_binary::{
     repr::{Datum, ToDatum},
@@ -20,7 +20,6 @@ use data_binary::{
 };
 use data_manipulation_query_result::QueryExecutionError;
 use data_manipulation_typed_tree::{DynamicTypedTree, StaticTypedTree};
-use data_manipulation_typed_values::TypedValue;
 use data_scalar::ScalarValue;
 use definition::ColumnDef;
 use query_response::QueryEvent;
@@ -96,7 +95,7 @@ impl StaticExpressionEval {
 }
 
 impl Flow for StaticExpressionEval {
-    type Output = Vec<Option<TypedValue>>;
+    type Output = Vec<Option<ScalarValue>>;
 
     fn next_tuple(&mut self) -> Result<Option<Self::Output>, QueryExecutionError> {
         if let Ok(Some(tuple)) = self.source.next_tuple() {
@@ -119,13 +118,13 @@ impl Flow for StaticExpressionEval {
 }
 
 pub struct ConstraintValidator {
-    source: Box<dyn Flow<Output = Vec<Option<TypedValue>>>>,
+    source: Box<dyn Flow<Output = Vec<Option<ScalarValue>>>>,
     column_types: Vec<(String, SqlTypeFamily)>,
 }
 
 impl ConstraintValidator {
     pub fn new(
-        source: Box<dyn Flow<Output = Vec<Option<TypedValue>>>>,
+        source: Box<dyn Flow<Output = Vec<Option<ScalarValue>>>>,
         column_types: Vec<(String, SqlTypeFamily)>,
     ) -> Box<ConstraintValidator> {
         Box::new(ConstraintValidator { source, column_types })
@@ -147,7 +146,7 @@ impl Flow for ConstraintValidator {
                             Ok(wide_type_family) => {
                                 log::debug!("{:?} {:?} {:?}", value, wide_type_family, type_family);
                                 match (value.clone(), type_family) {
-                                    (TypedValue::Num { value, .. }, SqlTypeFamily::SmallInt) => {
+                                    (ScalarValue::Num { value, .. }, SqlTypeFamily::SmallInt) => {
                                         if !(BigDecimal::from(i16::MIN)..=BigDecimal::from(i16::MAX)).contains(&value) {
                                             return Err(QueryExecutionError::most_specific_type_mismatch(
                                                 value,
@@ -157,7 +156,7 @@ impl Flow for ConstraintValidator {
                                             ));
                                         }
                                     }
-                                    (TypedValue::Num { value, .. }, SqlTypeFamily::Integer) => {
+                                    (ScalarValue::Num { value, .. }, SqlTypeFamily::Integer) => {
                                         if !(BigDecimal::from(i32::MIN)..=BigDecimal::from(i32::MAX)).contains(&value) {
                                             return Err(QueryExecutionError::most_specific_type_mismatch(
                                                 value,
@@ -167,7 +166,7 @@ impl Flow for ConstraintValidator {
                                             ));
                                         }
                                     }
-                                    (TypedValue::Num { value, .. }, SqlTypeFamily::BigInt) => {
+                                    (ScalarValue::Num { value, .. }, SqlTypeFamily::BigInt) => {
                                         if !(BigDecimal::from(i64::MIN)..=BigDecimal::from(i64::MAX)).contains(&value) {
                                             return Err(QueryExecutionError::most_specific_type_mismatch(
                                                 value,
@@ -177,8 +176,8 @@ impl Flow for ConstraintValidator {
                                             ));
                                         }
                                     }
-                                    (TypedValue::String(_), _) => {}
-                                    (TypedValue::Bool(_), _) => {}
+                                    (ScalarValue::String(_), _) => {}
+                                    (ScalarValue::Bool(_), _) => {}
                                     _ => unimplemented!(),
                                 }
                                 Some(value.as_to_datum())
@@ -323,7 +322,7 @@ impl DynamicValues {
 }
 
 impl Flow for DynamicValues {
-    type Output = Vec<Option<TypedValue>>;
+    type Output = Vec<Option<ScalarValue>>;
 
     fn next_tuple(&mut self) -> Result<Option<Self::Output>, QueryExecutionError> {
         if let Some(tuple) = self.source.next_tuple()? {
@@ -421,13 +420,28 @@ impl SelectQueryPlan {
                 let index = columns.get(name).unwrap().index();
                 let value = match &unpacked[index] {
                     Datum::Null => ScalarValue::Null,
-                    Datum::True => ScalarValue::True,
-                    Datum::False => ScalarValue::False,
-                    Datum::Int16(value) => ScalarValue::Int16(*value),
-                    Datum::Int32(value) => ScalarValue::Int32(*value),
-                    Datum::Int64(value) => ScalarValue::Int64(*value),
-                    Datum::Float32(value) => ScalarValue::Float32(*value),
-                    Datum::Float64(value) => ScalarValue::Float64(*value),
+                    Datum::True => ScalarValue::Bool(true),
+                    Datum::False => ScalarValue::Bool(false),
+                    Datum::Int16(value) => ScalarValue::Num {
+                        value: BigDecimal::from(*value),
+                        type_family: SqlTypeFamily::SmallInt,
+                    },
+                    Datum::Int32(value) => ScalarValue::Num {
+                        value: BigDecimal::from(*value),
+                        type_family: SqlTypeFamily::Integer,
+                    },
+                    Datum::Int64(value) => ScalarValue::Num {
+                        value: BigDecimal::from(*value),
+                        type_family: SqlTypeFamily::BigInt,
+                    },
+                    Datum::Float32(value) => ScalarValue::Num {
+                        value: BigDecimal::from_f32(**value).unwrap(),
+                        type_family: SqlTypeFamily::Real,
+                    },
+                    Datum::Float64(value) => ScalarValue::Num {
+                        value: BigDecimal::from_f64(**value).unwrap(),
+                        type_family: SqlTypeFamily::Double,
+                    },
                     Datum::String(value) => ScalarValue::String(value.clone()),
                 };
                 data.push(value);

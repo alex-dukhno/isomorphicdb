@@ -32,7 +32,7 @@ fn boolean_and_boolean(operator: BiOperator, left: bool, right: bool, result: bo
             right: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Bool(right)))),
         }
         .eval(),
-        Ok(TypedValue::Bool(result))
+        Ok(ScalarValue::Bool(result))
     );
 }
 

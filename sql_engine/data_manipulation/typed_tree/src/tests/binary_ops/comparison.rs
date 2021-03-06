@@ -42,7 +42,7 @@ fn number_and_number(operator: BiOperator, left: u32, right: u32, result: bool) 
             }))),
         }
         .eval(),
-        Ok(TypedValue::Bool(result))
+        Ok(ScalarValue::Bool(result))
     );
 }
 
@@ -71,7 +71,7 @@ fn string_and_string(operator: BiOperator, left: &str, right: &str, result: bool
             )))),
         }
         .eval(),
-        Ok(TypedValue::Bool(result))
+        Ok(ScalarValue::Bool(result))
     );
 }
 
@@ -96,7 +96,7 @@ fn boolean_and_boolean(operator: BiOperator, left: bool, right: bool, result: bo
             right: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Bool(right)))),
         }
         .eval(),
-        Ok(TypedValue::Bool(result))
+        Ok(ScalarValue::Bool(result))
     );
 }
 

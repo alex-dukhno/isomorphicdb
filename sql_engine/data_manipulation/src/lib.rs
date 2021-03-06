@@ -17,6 +17,5 @@ pub use data_manipulation_query_plan::*;
 pub use data_manipulation_query_result::*;
 pub use data_manipulation_typed_queries::*;
 pub use data_manipulation_typed_tree::*;
-pub use data_manipulation_typed_values::*;
 pub use data_manipulation_untyped_queries::*;
 pub use data_manipulation_untyped_tree::*;

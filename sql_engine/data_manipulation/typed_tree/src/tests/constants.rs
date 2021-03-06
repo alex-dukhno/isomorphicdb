@@ -22,7 +22,7 @@ fn small_int() {
             type_family: SqlTypeFamily::SmallInt,
         }))
         .eval(),
-        Ok(TypedValue::Num {
+        Ok(ScalarValue::Num {
             value: BigDecimal::from(0),
             type_family: SqlTypeFamily::SmallInt
         })
@@ -37,7 +37,7 @@ fn integer() {
             type_family: SqlTypeFamily::Integer,
         }))
         .eval(),
-        Ok(TypedValue::Num {
+        Ok(ScalarValue::Num {
             value: BigDecimal::from(0),
             type_family: SqlTypeFamily::Integer
         })
@@ -52,7 +52,7 @@ fn big_int() {
             type_family: SqlTypeFamily::BigInt,
         }))
         .eval(),
-        Ok(TypedValue::Num {
+        Ok(ScalarValue::Num {
             value: BigDecimal::from(0),
             type_family: SqlTypeFamily::BigInt
         })
@@ -63,7 +63,7 @@ fn big_int() {
 fn bool() {
     assert_eq!(
         StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Bool(true))).eval(),
-        Ok(TypedValue::Bool(true))
+        Ok(ScalarValue::Bool(true))
     );
 }
 
@@ -71,6 +71,6 @@ fn bool() {
 fn string() {
     assert_eq!(
         StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::String("str".to_owned()))).eval(),
-        Ok(TypedValue::String("str".to_owned()))
+        Ok(ScalarValue::String("str".to_owned()))
     );
 }

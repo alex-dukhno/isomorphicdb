@@ -12,9 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use bigdecimal::{BigDecimal, ToPrimitive};
+use data_binary::repr::{Datum, ToDatum};
 use data_manipulation_operators::{BiOperator, UnOperator};
 use data_manipulation_query_result::QueryExecutionError;
-use data_manipulation_typed_values::TypedValue;
+use data_scalar::ScalarValue;
+use std::fmt::{self, Display, Formatter};
 use types::SqlTypeFamily;
 
 #[derive(Debug, PartialEq, Clone)]
@@ -41,9 +44,9 @@ impl StaticTypedTree {
         }
     }
 
-    pub fn eval(self) -> Result<TypedValue, QueryExecutionError> {
+    pub fn eval(self) -> Result<ScalarValue, QueryExecutionError> {
         match self {
-            StaticTypedTree::Item(StaticTypedItem::Const(value)) => Ok(value),
+            StaticTypedTree::Item(StaticTypedItem::Const(value)) => Ok(value.eval()),
             StaticTypedTree::Item(StaticTypedItem::Null(_)) => unimplemented!(),
             StaticTypedTree::Item(StaticTypedItem::Param { .. }) => unimplemented!(),
             StaticTypedTree::UnOp { op, item } => op.eval(item.eval()?),
@@ -96,9 +99,9 @@ impl DynamicTypedTree {
         }
     }
 
-    pub fn eval(&self) -> Result<TypedValue, QueryExecutionError> {
+    pub fn eval(self) -> Result<ScalarValue, QueryExecutionError> {
         match self {
-            DynamicTypedTree::Item(DynamicTypedItem::Const(value)) => Ok(value.clone()),
+            DynamicTypedTree::Item(DynamicTypedItem::Const(value)) => Ok(value.eval()),
             DynamicTypedTree::Item(DynamicTypedItem::Column(_)) => unimplemented!(),
             DynamicTypedTree::UnOp { op, item } => op.eval(item.eval()?),
             DynamicTypedTree::BiOp { left, op, right, .. } => op.eval(left.eval()?, right.eval()?),
@@ -117,6 +120,109 @@ impl DynamicTypedItem {
         match self {
             DynamicTypedItem::Const(typed_value) => typed_value.type_family(),
             DynamicTypedItem::Column(_typed_value) => None,
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum TypedValue {
+    Num {
+        value: BigDecimal,
+        type_family: SqlTypeFamily,
+    },
+    String(String),
+    Bool(bool),
+}
+
+impl TypedValue {
+    pub fn type_family(&self) -> Option<SqlTypeFamily> {
+        match self {
+            TypedValue::Num { type_family, .. } => Some(*type_family),
+            TypedValue::String(_) => Some(SqlTypeFamily::String),
+            TypedValue::Bool(_) => Some(SqlTypeFamily::Bool),
+        }
+    }
+
+    pub fn eval(self) -> ScalarValue {
+        match self {
+            TypedValue::Num {
+                value,
+                type_family: SqlTypeFamily::SmallInt,
+            } => ScalarValue::Num {
+                value,
+                type_family: SqlTypeFamily::SmallInt,
+            },
+            TypedValue::Num {
+                value,
+                type_family: SqlTypeFamily::Integer,
+            } => ScalarValue::Num {
+                value,
+                type_family: SqlTypeFamily::Integer,
+            },
+            TypedValue::Num {
+                value,
+                type_family: SqlTypeFamily::Real,
+            } => ScalarValue::Num {
+                value,
+                type_family: SqlTypeFamily::Real,
+            },
+            TypedValue::Num {
+                value,
+                type_family: SqlTypeFamily::Double,
+            } => ScalarValue::Num {
+                value,
+                type_family: SqlTypeFamily::Double,
+            },
+            TypedValue::Num {
+                value,
+                type_family: SqlTypeFamily::BigInt,
+            } => ScalarValue::Num {
+                value,
+                type_family: SqlTypeFamily::BigInt,
+            },
+            TypedValue::String(str) => ScalarValue::String(str),
+            TypedValue::Bool(boolean) => ScalarValue::Bool(boolean),
+            _ => unreachable!(),
+        }
+    }
+}
+
+impl Display for TypedValue {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            TypedValue::Num { value, .. } => write!(f, "{}", value),
+            TypedValue::String(value) => write!(f, "{}", value),
+            TypedValue::Bool(value) => write!(f, "{}", value),
+        }
+    }
+}
+
+impl ToDatum for TypedValue {
+    fn convert(&self) -> Datum {
+        match self {
+            TypedValue::Num {
+                value,
+                type_family: SqlTypeFamily::SmallInt,
+            } => Datum::from_i16(value.to_i16().unwrap()),
+            TypedValue::Num {
+                value,
+                type_family: SqlTypeFamily::Integer,
+            } => Datum::from_i32(value.to_i32().unwrap()),
+            TypedValue::Num {
+                value,
+                type_family: SqlTypeFamily::Real,
+            } => Datum::from_f32(value.to_f32().unwrap()),
+            TypedValue::Num {
+                value,
+                type_family: SqlTypeFamily::Double,
+            } => Datum::from_f64(value.to_f64().unwrap()),
+            TypedValue::Num {
+                value,
+                type_family: SqlTypeFamily::BigInt,
+            } => Datum::from_i64(value.to_i64().unwrap()),
+            TypedValue::String(str) => Datum::from_string(str.clone()),
+            TypedValue::Bool(boolean) => Datum::from_bool(*boolean),
+            _ => unreachable!(),
         }
     }
 }

@@ -14,7 +14,7 @@
 
 use bigdecimal::{BigDecimal, ToPrimitive};
 use data_manipulation_query_result::QueryExecutionError;
-use data_manipulation_typed_values::TypedValue;
+use data_scalar::ScalarValue;
 use query_ast::{BinaryOperator, UnaryOperator};
 use regex::Regex;
 use std::fmt::{self, Display, Formatter};
@@ -218,19 +218,19 @@ pub enum BiOperator {
 }
 
 impl BiOperator {
-    pub fn eval(self, left: TypedValue, right: TypedValue) -> Result<TypedValue, QueryExecutionError> {
+    pub fn eval(self, left: ScalarValue, right: ScalarValue) -> Result<ScalarValue, QueryExecutionError> {
         match self {
             BiOperator::Arithmetic(op) => match (left, right) {
-                (TypedValue::Num { value: left_value, .. }, TypedValue::Num { value: right_value, .. }) => {
-                    Ok(TypedValue::Num {
+                (ScalarValue::Num { value: left_value, .. }, ScalarValue::Num { value: right_value, .. }) => {
+                    Ok(ScalarValue::Num {
                         value: op.eval(left_value, right_value),
                         type_family: SqlTypeFamily::BigInt,
                     })
                 }
-                (TypedValue::Num { type_family, .. }, TypedValue::String(value)) => {
+                (ScalarValue::Num { type_family, .. }, ScalarValue::String(value)) => {
                     Err(QueryExecutionError::invalid_text_representation(type_family, value))
                 }
-                (TypedValue::Num { type_family, .. }, other) => Err(QueryExecutionError::undefined_bi_function(
+                (ScalarValue::Num { type_family, .. }, other) => Err(QueryExecutionError::undefined_bi_function(
                     self,
                     type_family,
                     other
@@ -238,10 +238,10 @@ impl BiOperator {
                         .map(|ty| ty.to_string())
                         .unwrap_or_else(|| "unknown".to_owned()),
                 )),
-                (TypedValue::String(value), TypedValue::Num { type_family, .. }) => {
+                (ScalarValue::String(value), ScalarValue::Num { type_family, .. }) => {
                     Err(QueryExecutionError::invalid_text_representation(type_family, value))
                 }
-                (other, TypedValue::Num { type_family, .. }) => Err(QueryExecutionError::undefined_bi_function(
+                (other, ScalarValue::Num { type_family, .. }) => Err(QueryExecutionError::undefined_bi_function(
                     self,
                     other
                         .type_family()
@@ -262,14 +262,14 @@ impl BiOperator {
                 )),
             },
             BiOperator::Comparison(op) => match (left, right) {
-                (TypedValue::Bool(left_value), TypedValue::Bool(right_value)) => {
-                    Ok(TypedValue::Bool(op.eval(left_value, right_value)))
+                (ScalarValue::Bool(left_value), ScalarValue::Bool(right_value)) => {
+                    Ok(ScalarValue::Bool(op.eval(left_value, right_value)))
                 }
-                (TypedValue::String(left_value), TypedValue::String(right_value)) => {
-                    Ok(TypedValue::Bool(op.eval(left_value, right_value)))
+                (ScalarValue::String(left_value), ScalarValue::String(right_value)) => {
+                    Ok(ScalarValue::Bool(op.eval(left_value, right_value)))
                 }
-                (TypedValue::Num { value: left_value, .. }, TypedValue::Num { value: right_value, .. }) => {
-                    Ok(TypedValue::Bool(op.eval(left_value, right_value)))
+                (ScalarValue::Num { value: left_value, .. }, ScalarValue::Num { value: right_value, .. }) => {
+                    Ok(ScalarValue::Bool(op.eval(left_value, right_value)))
                 }
                 (other_left, other_right) => Err(QueryExecutionError::undefined_bi_function(
                     self,
@@ -285,102 +285,102 @@ impl BiOperator {
             },
             BiOperator::Bitwise(op) => match (left, right) {
                 (
-                    TypedValue::Num {
+                    ScalarValue::Num {
                         value: left_value,
                         type_family: SqlTypeFamily::SmallInt,
                     },
-                    TypedValue::Num {
-                        value: right_value,
-                        type_family: SqlTypeFamily::SmallInt,
-                    },
-                )
-                | (
-                    TypedValue::Num {
-                        value: left_value,
-                        type_family: SqlTypeFamily::Integer,
-                    },
-                    TypedValue::Num {
-                        value: right_value,
-                        type_family: SqlTypeFamily::Integer,
-                    },
-                )
-                | (
-                    TypedValue::Num {
-                        value: left_value,
-                        type_family: SqlTypeFamily::BigInt,
-                    },
-                    TypedValue::Num {
-                        value: right_value,
-                        type_family: SqlTypeFamily::BigInt,
-                    },
-                )
-                | (
-                    TypedValue::Num {
-                        value: left_value,
-                        type_family: SqlTypeFamily::SmallInt,
-                    },
-                    TypedValue::Num {
-                        value: right_value,
-                        type_family: SqlTypeFamily::Integer,
-                    },
-                )
-                | (
-                    TypedValue::Num {
-                        value: left_value,
-                        type_family: SqlTypeFamily::SmallInt,
-                    },
-                    TypedValue::Num {
-                        value: right_value,
-                        type_family: SqlTypeFamily::BigInt,
-                    },
-                )
-                | (
-                    TypedValue::Num {
-                        value: left_value,
-                        type_family: SqlTypeFamily::Integer,
-                    },
-                    TypedValue::Num {
+                    ScalarValue::Num {
                         value: right_value,
                         type_family: SqlTypeFamily::SmallInt,
                     },
                 )
                 | (
-                    TypedValue::Num {
+                    ScalarValue::Num {
                         value: left_value,
                         type_family: SqlTypeFamily::Integer,
                     },
-                    TypedValue::Num {
+                    ScalarValue::Num {
+                        value: right_value,
+                        type_family: SqlTypeFamily::Integer,
+                    },
+                )
+                | (
+                    ScalarValue::Num {
+                        value: left_value,
+                        type_family: SqlTypeFamily::BigInt,
+                    },
+                    ScalarValue::Num {
                         value: right_value,
                         type_family: SqlTypeFamily::BigInt,
                     },
                 )
                 | (
-                    TypedValue::Num {
+                    ScalarValue::Num {
                         value: left_value,
+                        type_family: SqlTypeFamily::SmallInt,
+                    },
+                    ScalarValue::Num {
+                        value: right_value,
+                        type_family: SqlTypeFamily::Integer,
+                    },
+                )
+                | (
+                    ScalarValue::Num {
+                        value: left_value,
+                        type_family: SqlTypeFamily::SmallInt,
+                    },
+                    ScalarValue::Num {
+                        value: right_value,
                         type_family: SqlTypeFamily::BigInt,
                     },
-                    TypedValue::Num {
+                )
+                | (
+                    ScalarValue::Num {
+                        value: left_value,
+                        type_family: SqlTypeFamily::Integer,
+                    },
+                    ScalarValue::Num {
                         value: right_value,
                         type_family: SqlTypeFamily::SmallInt,
                     },
                 )
                 | (
-                    TypedValue::Num {
+                    ScalarValue::Num {
+                        value: left_value,
+                        type_family: SqlTypeFamily::Integer,
+                    },
+                    ScalarValue::Num {
+                        value: right_value,
+                        type_family: SqlTypeFamily::BigInt,
+                    },
+                )
+                | (
+                    ScalarValue::Num {
                         value: left_value,
                         type_family: SqlTypeFamily::BigInt,
                     },
-                    TypedValue::Num {
+                    ScalarValue::Num {
+                        value: right_value,
+                        type_family: SqlTypeFamily::SmallInt,
+                    },
+                )
+                | (
+                    ScalarValue::Num {
+                        value: left_value,
+                        type_family: SqlTypeFamily::BigInt,
+                    },
+                    ScalarValue::Num {
                         value: right_value,
                         type_family: SqlTypeFamily::Integer,
                     },
-                ) => Ok(TypedValue::Num {
+                ) => Ok(ScalarValue::Num {
                     value: op.eval(left_value, right_value),
                     type_family: SqlTypeFamily::BigInt,
                 }),
-                (TypedValue::Num { type_family, .. }, TypedValue::String(value)) => {
+                (ScalarValue::Num { type_family, .. }, ScalarValue::String(value)) => {
                     Err(QueryExecutionError::invalid_text_representation(type_family, value))
                 }
-                (TypedValue::Num { type_family, .. }, other) => Err(QueryExecutionError::undefined_bi_function(
+                (ScalarValue::Num { type_family, .. }, other) => Err(QueryExecutionError::undefined_bi_function(
                     self,
                     type_family,
                     other
@@ -388,10 +388,10 @@ impl BiOperator {
                         .map(|ty| ty.to_string())
                         .unwrap_or_else(|| "unknown".to_owned()),
                 )),
-                (TypedValue::String(value), TypedValue::Num { type_family, .. }) => {
+                (ScalarValue::String(value), ScalarValue::Num { type_family, .. }) => {
                     Err(QueryExecutionError::invalid_text_representation(type_family, value))
                 }
-                (other, TypedValue::Num { type_family, .. }) => Err(QueryExecutionError::undefined_bi_function(
+                (other, ScalarValue::Num { type_family, .. }) => Err(QueryExecutionError::undefined_bi_function(
                     self,
                     other
                         .type_family()
@@ -412,8 +412,8 @@ impl BiOperator {
                 )),
             },
             BiOperator::Logical(op) => match (left, right) {
-                (TypedValue::Bool(left_value), TypedValue::Bool(right_value)) => {
-                    Ok(TypedValue::Bool(op.eval(left_value, right_value)))
+                (ScalarValue::Bool(left_value), ScalarValue::Bool(right_value)) => {
+                    Ok(ScalarValue::Bool(op.eval(left_value, right_value)))
                 }
                 (other_left, other_right) => Err(QueryExecutionError::undefined_bi_function(
                     self,
@@ -428,8 +428,8 @@ impl BiOperator {
                 )),
             },
             BiOperator::Matching(op) => match (left, right) {
-                (TypedValue::String(left_value), TypedValue::String(right_value)) => {
-                    Ok(TypedValue::Bool(op.eval(left_value, right_value)))
+                (ScalarValue::String(left_value), ScalarValue::String(right_value)) => {
+                    Ok(ScalarValue::Bool(op.eval(left_value, right_value)))
                 }
                 (other_left, other_right) => Err(QueryExecutionError::undefined_bi_function(
                     self,
@@ -444,8 +444,8 @@ impl BiOperator {
                 )),
             },
             BiOperator::StringOp(op) => match (left, right) {
-                (TypedValue::String(left_value), TypedValue::String(right_value)) => {
-                    Ok(TypedValue::String(op.eval(left_value, right_value)))
+                (ScalarValue::String(left_value), ScalarValue::String(right_value)) => {
+                    Ok(ScalarValue::String(op.eval(left_value, right_value)))
                 }
                 (other_left, other_right) => Err(QueryExecutionError::undefined_bi_function(
                     self,
@@ -514,10 +514,10 @@ pub enum UnOperator {
 }
 
 impl UnOperator {
-    pub fn eval(self, value: TypedValue) -> Result<TypedValue, QueryExecutionError> {
+    pub fn eval(self, value: ScalarValue) -> Result<ScalarValue, QueryExecutionError> {
         match self {
             UnOperator::Arithmetic(operator) => match value {
-                TypedValue::Num { value, type_family } => operator.eval(value, type_family),
+                ScalarValue::Num { value, type_family } => operator.eval(value, type_family),
                 other => Err(QueryExecutionError::undefined_function(
                     self,
                     other
@@ -527,7 +527,7 @@ impl UnOperator {
                 )),
             },
             UnOperator::LogicalNot => match value {
-                TypedValue::Bool(value) => Ok(TypedValue::Bool(!value)),
+                ScalarValue::Bool(value) => Ok(ScalarValue::Bool(!value)),
                 other => Err(QueryExecutionError::datatype_mismatch(
                     self,
                     SqlTypeFamily::Bool,
@@ -538,24 +538,24 @@ impl UnOperator {
                 )),
             },
             UnOperator::BitwiseNot => match value {
-                TypedValue::Num {
+                ScalarValue::Num {
                     value,
                     type_family: SqlTypeFamily::SmallInt,
-                } => Ok(TypedValue::Num {
+                } => Ok(ScalarValue::Num {
                     value: BigDecimal::from(!value.to_i16().unwrap()),
                     type_family: SqlTypeFamily::SmallInt,
                 }),
-                TypedValue::Num {
+                ScalarValue::Num {
                     value,
                     type_family: SqlTypeFamily::Integer,
-                } => Ok(TypedValue::Num {
+                } => Ok(ScalarValue::Num {
                     value: BigDecimal::from(!value.to_i32().unwrap()),
                     type_family: SqlTypeFamily::Integer,
                 }),
-                TypedValue::Num {
+                ScalarValue::Num {
                     value,
                     type_family: SqlTypeFamily::BigInt,
-                } => Ok(TypedValue::Num {
+                } => Ok(ScalarValue::Num {
                     value: BigDecimal::from(!value.to_i64().unwrap()),
                     type_family: SqlTypeFamily::BigInt,
                 }),
@@ -567,7 +567,10 @@ impl UnOperator {
                         .unwrap_or_else(|| "unknown".to_owned()),
                 )),
             },
-            UnOperator::Cast(_type_family) => unimplemented!(),
+            UnOperator::Cast(_type_family) => {
+                unimplemented!()
+                // value.cast_to(type_family)
+            }
         }
     }
 }
@@ -610,20 +613,20 @@ pub enum UnArithmetic {
 }
 
 impl UnArithmetic {
-    fn eval(&self, value: BigDecimal, type_family: SqlTypeFamily) -> Result<TypedValue, QueryExecutionError> {
+    fn eval(&self, value: BigDecimal, type_family: SqlTypeFamily) -> Result<ScalarValue, QueryExecutionError> {
         match self {
-            UnArithmetic::Neg => Ok(TypedValue::Num {
+            UnArithmetic::Neg => Ok(ScalarValue::Num {
                 value: -value,
                 type_family,
             }),
-            UnArithmetic::Pos => Ok(TypedValue::Num { value, type_family }),
-            UnArithmetic::SquareRoot => Ok(TypedValue::Num {
+            UnArithmetic::Pos => Ok(ScalarValue::Num { value, type_family }),
+            UnArithmetic::SquareRoot => Ok(ScalarValue::Num {
                 value: value
                     .sqrt()
                     .ok_or(QueryExecutionError::InvalidArgumentForPowerFunction)?,
                 type_family: SqlTypeFamily::Double,
             }),
-            UnArithmetic::CubeRoot => Ok(TypedValue::Num {
+            UnArithmetic::CubeRoot => Ok(ScalarValue::Num {
                 value: value.cbrt(),
                 type_family: SqlTypeFamily::Double,
             }),
@@ -635,7 +638,7 @@ impl UnArithmetic {
                         result *= n.clone();
                         n += BigDecimal::from(1);
                     }
-                    Ok(TypedValue::Num {
+                    Ok(ScalarValue::Num {
                         value: result,
                         type_family: SqlTypeFamily::BigInt,
                     })
@@ -643,7 +646,7 @@ impl UnArithmetic {
                     Err(QueryExecutionError::undefined_function(self, type_family))
                 }
             }
-            UnArithmetic::Abs => Ok(TypedValue::Num {
+            UnArithmetic::Abs => Ok(ScalarValue::Num {
                 value: value.abs(),
                 type_family,
             }),
