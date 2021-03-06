@@ -199,6 +199,7 @@ pub(crate) enum QueryErrorKind {
     },
     InvalidArgumentForPowerFunction,
     InvalidTextRepresentation2(String, String),
+    CannotCoerce(String, String),
 }
 
 impl QueryErrorKind {
@@ -231,6 +232,7 @@ impl QueryErrorKind {
             Self::DuplicateColumn(_) => "42701",
             Self::DatatypeMismatch { .. } => "42804",
             Self::InvalidArgumentForPowerFunction => "2201F",
+            Self::CannotCoerce(_, _) => "42846",
         }
     }
 }
@@ -328,6 +330,7 @@ impl Display for QueryErrorKind {
                 op, target_type, actual_type
             ),
             Self::InvalidArgumentForPowerFunction => write!(f, "cannot take square root of a negative number"),
+            Self::CannotCoerce(from_type, to_type) => write!(f, "cannot cast type {} to {}", from_type, to_type),
         }
     }
 }
@@ -621,6 +624,13 @@ impl QueryError {
         QueryError {
             severity: Severity::Error,
             kind: QueryErrorKind::InvalidArgumentForPowerFunction,
+        }
+    }
+
+    pub fn cannot_coerce<FT: ToString, TT: ToString>(from_type: FT, to_type: TT) -> QueryError {
+        QueryError {
+            severity: Severity::Error,
+            kind: QueryErrorKind::CannotCoerce(from_type.to_string(), to_type.to_string()),
         }
     }
 }

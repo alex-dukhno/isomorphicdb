@@ -12,13 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use bigdecimal::{BigDecimal, ToPrimitive};
+use bigdecimal::{BigDecimal, ToPrimitive, Zero};
 use data_manipulation_query_result::QueryExecutionError;
 use data_scalar::ScalarValue;
 use query_ast::{BinaryOperator, UnaryOperator};
 use regex::Regex;
 use std::fmt::{self, Display, Formatter};
-use types::SqlTypeFamily;
+use std::str::FromStr;
+use types::{Bool, SqlTypeFamily};
 
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub enum BiArithmetic {
@@ -567,10 +568,39 @@ impl UnOperator {
                         .unwrap_or_else(|| "unknown".to_owned()),
                 )),
             },
-            UnOperator::Cast(_type_family) => {
-                unimplemented!()
-                // value.cast_to(type_family)
-            }
+            UnOperator::Cast(type_family) => match value {
+                ScalarValue::Null => Ok(ScalarValue::Null),
+                ScalarValue::Bool(value) => match type_family {
+                    SqlTypeFamily::Bool => Ok(ScalarValue::Bool(value)),
+                    SqlTypeFamily::String => Ok(ScalarValue::String(value.to_string())),
+                    other => Err(QueryExecutionError::cannot_coerce(SqlTypeFamily::Bool, other)),
+                },
+                ScalarValue::Num { value, .. } => match type_family {
+                    SqlTypeFamily::Bool => Ok(ScalarValue::Bool(!value.is_zero())),
+                    SqlTypeFamily::String => Ok(ScalarValue::String(value.to_string())),
+                    other => Ok(ScalarValue::Num {
+                        value,
+                        type_family: other,
+                    }),
+                },
+                ScalarValue::String(value) => match type_family {
+                    SqlTypeFamily::String => Ok(ScalarValue::String(value)),
+                    SqlTypeFamily::Bool => match Bool::from_str(value.as_str()) {
+                        Ok(Bool(boolean)) => Ok(ScalarValue::Bool(boolean)),
+                        Err(_) => Err(QueryExecutionError::invalid_text_representation(
+                            SqlTypeFamily::Bool,
+                            value,
+                        )),
+                    },
+                    other => match BigDecimal::from_str(value.as_str()) {
+                        Ok(value) => Ok(ScalarValue::Num {
+                            value,
+                            type_family: other,
+                        }),
+                        Err(_) => Err(QueryExecutionError::invalid_text_representation(other, value)),
+                    },
+                },
+            },
         }
     }
 }

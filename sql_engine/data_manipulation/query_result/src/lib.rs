@@ -34,6 +34,7 @@ pub enum QueryExecutionError {
     InvalidArgumentForPowerFunction,
     InvalidTextRepresentation(String, String),
     MostSpecificTypeMismatch(String, String, String, usize),
+    CannotCoerce(String, String),
 }
 
 impl QueryExecutionError {
@@ -78,6 +79,10 @@ impl QueryExecutionError {
             index,
         )
     }
+
+    pub fn cannot_coerce<FT: ToString, TT: ToString>(from_type: FT, to_type: TT) -> QueryExecutionError {
+        QueryExecutionError::CannotCoerce(from_type.to_string(), to_type.to_string())
+    }
 }
 
 impl From<QueryExecutionError> for query_response::QueryError {
@@ -101,6 +106,7 @@ impl From<QueryExecutionError> for query_response::QueryError {
             QueryExecutionError::MostSpecificTypeMismatch(value, sql_type, column_name, index) => {
                 QueryError::most_specific_type_mismatch2(value, sql_type, column_name, index)
             }
+            QueryExecutionError::CannotCoerce(from_type, to_type) => QueryError::cannot_coerce(from_type, to_type),
         }
     }
 }

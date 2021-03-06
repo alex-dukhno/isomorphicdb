@@ -15,6 +15,4 @@
 use super::*;
 
 #[cfg(test)]
-mod bool_parser;
-#[cfg(test)]
 mod implicit_type_casting;

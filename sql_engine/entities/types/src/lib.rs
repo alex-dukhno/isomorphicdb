@@ -15,6 +15,7 @@
 use pg_wire::PgType;
 use query_ast::DataType;
 use std::fmt::{self, Display, Formatter};
+use std::str::FromStr;
 
 #[derive(Debug, PartialEq)]
 pub struct IncomparableSqlTypeFamilies {
@@ -232,6 +233,31 @@ impl Into<PgType> for &SqlType {
             SqlType::Num(Num::BigInt) => PgType::BigInt,
             SqlType::Num(Num::Real) | SqlType::Num(Num::Double) => unreachable!(),
         }
+    }
+}
+
+#[derive(PartialEq, Debug, Copy, Clone, Eq)]
+pub struct Bool(pub bool);
+
+impl FromStr for Bool {
+    type Err = ParseBoolError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let val = s.to_lowercase();
+        match val.as_str() {
+            "t" | "true" | "on" | "yes" | "y" | "1" => Ok(Bool(true)),
+            "f" | "false" | "off" | "no" | "n" | "0" => Ok(Bool(false)),
+            _ => Err(ParseBoolError(val)),
+        }
+    }
+}
+
+#[derive(PartialEq, Debug)]
+pub struct ParseBoolError(String);
+
+impl Display for ParseBoolError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        writeln!(f, "error to parse {:?} into boolean", self.0)
     }
 }
 
