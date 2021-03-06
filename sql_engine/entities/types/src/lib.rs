@@ -14,8 +14,10 @@
 
 use pg_wire::PgType;
 use query_ast::DataType;
-use std::fmt::{self, Display, Formatter};
-use std::str::FromStr;
+use std::{
+    fmt::{self, Display, Formatter},
+    str::FromStr,
+};
 
 #[derive(Debug, PartialEq)]
 pub struct IncomparableSqlTypeFamilies {

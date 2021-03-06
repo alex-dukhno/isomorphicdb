@@ -17,8 +17,10 @@ use data_manipulation_query_result::QueryExecutionError;
 use data_scalar::ScalarValue;
 use query_ast::{BinaryOperator, UnaryOperator};
 use regex::Regex;
-use std::fmt::{self, Display, Formatter};
-use std::str::FromStr;
+use std::{
+    fmt::{self, Display, Formatter},
+    str::FromStr,
+};
 use types::{Bool, SqlTypeFamily};
 
 #[derive(Debug, PartialEq, Copy, Clone)]

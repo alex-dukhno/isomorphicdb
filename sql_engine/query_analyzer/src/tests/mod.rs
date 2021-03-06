@@ -17,10 +17,9 @@ use bigdecimal::BigDecimal;
 use catalog::{Database, InMemoryDatabase};
 use data_definition_execution_plan::{ColumnInfo, CreateSchemaQuery, CreateTableQuery, SchemaChange};
 use data_manipulation_operators::{BiArithmetic, BiLogical, BiOperator, Bitwise, Comparison, Concat, Matching};
-use data_manipulation_untyped_tree::Bool;
 use definition::SchemaName;
 use query_ast::{Assignment, BinaryOperator, Expr, Value};
-use types::SqlType;
+use types::{Bool, SqlType};
 
 #[cfg(test)]
 mod delete;
