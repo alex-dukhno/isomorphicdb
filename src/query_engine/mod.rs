@@ -167,6 +167,23 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                                     .expect("To Send Statement Parameters to Client");
                                 statement.described(UntypedQuery::Insert(insert), param_types);
                             }
+                            Ok(UntypedQuery::Update(update)) => {
+                                let table_definition = self
+                                    .database
+                                    .table_definition(update.full_table_name.clone())
+                                    .unwrap()
+                                    .unwrap();
+                                let param_types = table_definition
+                                    .columns()
+                                    .iter()
+                                    .map(ColumnDef::sql_type)
+                                    .map(|sql_type| (&sql_type).into())
+                                    .collect::<Vec<PgType>>();
+                                self.sender
+                                    .send(Ok(QueryEvent::StatementParameters(param_types.to_vec())))
+                                    .expect("To Send Statement Parameters to Client");
+                                statement.described(UntypedQuery::Update(update), param_types);
+                            }
                             _ => {
                                 self.sender
                                     .send(Err(QueryError::prepared_statement_does_not_exist(name)))
