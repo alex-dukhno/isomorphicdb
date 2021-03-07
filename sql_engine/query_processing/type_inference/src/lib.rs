@@ -41,8 +41,14 @@ impl Default for TypeInference {
 }
 
 impl TypeInference {
-    pub fn infer_dynamic(&self, tree: DynamicUntypedTree) -> DynamicTypedTree {
+    pub fn infer_dynamic(&self, tree: DynamicUntypedTree, param_types: &[SqlTypeFamily]) -> DynamicTypedTree {
         match tree {
+            DynamicUntypedTree::Item(DynamicUntypedItem::Param(index)) => {
+                DynamicTypedTree::Item(DynamicTypedItem::Param {
+                    index,
+                    type_family: Some(param_types[index]),
+                })
+            }
             DynamicUntypedTree::Item(DynamicUntypedItem::Column { name, sql_type, index }) => {
                 DynamicTypedTree::Item(DynamicTypedItem::Column {
                     name,
@@ -93,8 +99,8 @@ impl TypeInference {
             DynamicUntypedTree::BiOp { left, op, right } => {
                 log::debug!("LEFT TREE {:#?}", left);
                 log::debug!("RIGHT TREE {:#?}", right);
-                let left_tree = self.infer_dynamic(*left);
-                let right_tree = self.infer_dynamic(*right);
+                let left_tree = self.infer_dynamic(*left, param_types);
+                let right_tree = self.infer_dynamic(*right, param_types);
                 let type_family = match (left_tree.type_family(), right_tree.type_family()) {
                     (Some(left_type_family), Some(right_type_family)) => {
                         match left_type_family.compare(&right_type_family) {
@@ -115,7 +121,7 @@ impl TypeInference {
             }
             DynamicUntypedTree::UnOp { op, item } => DynamicTypedTree::UnOp {
                 op,
-                item: Box::new(self.infer_dynamic(*item)),
+                item: Box::new(self.infer_dynamic(*item, param_types)),
             },
             _ => unimplemented!(),
         }

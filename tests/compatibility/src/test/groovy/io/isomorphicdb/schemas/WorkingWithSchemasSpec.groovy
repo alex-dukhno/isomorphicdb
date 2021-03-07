@@ -1,7 +1,6 @@
 package io.isomorphicdb.schemas
 
 import io.isomorphicdb.SetupEnvironment
-import spock.lang.Ignore
 
 import java.sql.SQLException
 

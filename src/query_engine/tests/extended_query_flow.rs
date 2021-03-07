@@ -68,6 +68,9 @@ mod jdbc_flow {
             .expect("portal executed");
         collector.assert_receive_intermediate(Ok(QueryEvent::RecordsInserted(1)));
     }
+
+    #[rstest::rstest]
+    fn update() {}
 }
 
 #[cfg(test)]

@@ -57,9 +57,15 @@ impl QueryPlan {
             QueryPlan::Insert(insert_query_plan) => {
                 insert_query_plan.execute(param_values).map(QueryPlanResult::Inserted)
             }
-            QueryPlan::Delete(delete_query_plan) => delete_query_plan.execute().map(QueryPlanResult::Deleted),
-            QueryPlan::Update(update_query_plan) => update_query_plan.execute().map(QueryPlanResult::Updated),
-            QueryPlan::Select(select_query_plan) => select_query_plan.execute().map(QueryPlanResult::Selected),
+            QueryPlan::Delete(delete_query_plan) => {
+                delete_query_plan.execute(param_values).map(QueryPlanResult::Deleted)
+            }
+            QueryPlan::Update(update_query_plan) => {
+                update_query_plan.execute(param_values).map(QueryPlanResult::Updated)
+            }
+            QueryPlan::Select(select_query_plan) => {
+                select_query_plan.execute(param_values).map(QueryPlanResult::Selected)
+            }
         }
     }
 }
@@ -285,9 +291,9 @@ impl DeleteQueryPlan {
         DeleteQueryPlan { source, table }
     }
 
-    pub fn execute(mut self) -> Result<usize, QueryExecutionError> {
+    pub fn execute(mut self, param_values: Vec<ScalarValue>) -> Result<usize, QueryExecutionError> {
         let mut len = 0;
-        while let Some(key) = self.source.next_tuple(&[])? {
+        while let Some(key) = self.source.next_tuple(&param_values)? {
             self.table.write_key(key, None);
             len += 1;
         }
@@ -367,7 +373,7 @@ impl Flow for DynamicValues {
                 for value in tuple {
                     let value = match value {
                         None => None,
-                        Some(tree) => match tree.eval(&table_row) {
+                        Some(tree) => match tree.eval(param_values, &table_row) {
                             Err(error) => return Err(error),
                             Ok(value) => Some(value),
                         },
@@ -399,11 +405,11 @@ impl UpdateQueryPlan {
         UpdateQueryPlan { values, records, table }
     }
 
-    pub fn execute(mut self) -> Result<usize, QueryExecutionError> {
+    pub fn execute(mut self, param_values: Vec<ScalarValue>) -> Result<usize, QueryExecutionError> {
         let mut len = 0;
-        while let Some((key, row)) = self.records.next_tuple(&[])? {
+        while let Some((key, row)) = self.records.next_tuple(&param_values)? {
             let mut unpacked = row.unpack();
-            if let Some(values) = self.values.next_tuple(&[])? {
+            if let Some(values) = self.values.next_tuple(&param_values)? {
                 for (index, value) in values.into_iter().enumerate() {
                     let new_value = match value {
                         None => unpacked[index].clone(),
@@ -439,7 +445,10 @@ impl SelectQueryPlan {
         }
     }
 
-    pub fn execute(mut self) -> Result<(Vec<ColumnDef>, Vec<Vec<ScalarValue>>), QueryExecutionError> {
+    pub fn execute(
+        mut self,
+        param_values: Vec<ScalarValue>,
+    ) -> Result<(Vec<ColumnDef>, Vec<Vec<ScalarValue>>), QueryExecutionError> {
         log::debug!("COLUMNS TO SELECT {:?}", self.columns);
         let mut column_defs = vec![];
         let columns = self
@@ -453,7 +462,7 @@ impl SelectQueryPlan {
         }
         log::debug!("COLUMNS METADATA {:?}", column_defs);
         let mut set = vec![];
-        while let Some(row) = self.source.next_tuple(&[])? {
+        while let Some(row) = self.source.next_tuple(&param_values)? {
             let unpacked = row.1.unpack();
             let mut data = vec![];
             for name in self.columns.iter() {

@@ -3,7 +3,6 @@ package io.isomorphicdb.types
 import groovy.sql.GroovyRowResult
 import groovy.sql.Sql
 import io.isomorphicdb.SetupEnvironment
-import spock.lang.Ignore
 import spock.lang.Unroll
 
 import java.sql.SQLException
@@ -63,7 +62,6 @@ class IntegerConstraintsChecksSpec extends SetupEnvironment {
       pgSelect == dbSelect
   }
 
-  @Ignore("type constraints are not supported")
   @Unroll
   def '#type out of range error'() {
     given:
@@ -97,7 +95,6 @@ class IntegerConstraintsChecksSpec extends SetupEnvironment {
       value << [32768, 2147483648, 9223372036854775808]
   }
 
-  @Ignore("type constraints are not supported")
   @Unroll
   def '#type type mismatch'() {
     given:

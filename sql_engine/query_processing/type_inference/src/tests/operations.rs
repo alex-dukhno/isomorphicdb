@@ -24,7 +24,7 @@ fn negate_number() {
     };
 
     assert_eq!(
-        type_inference.infer_static(untyped_tree),
+        type_inference.infer_static(untyped_tree, &[]),
         StaticTypedTree::UnOp {
             op: UnOperator::Arithmetic(UnArithmetic::Neg),
             item: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
@@ -45,7 +45,7 @@ fn add_same_types() {
     };
 
     assert_eq!(
-        type_inference.infer_static(untyped_tree),
+        type_inference.infer_static(untyped_tree, &[]),
         StaticTypedTree::BiOp {
             type_family: SqlTypeFamily::SmallInt,
             left: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
@@ -71,7 +71,7 @@ fn add_different_types() {
     };
 
     assert_eq!(
-        type_inference.infer_static(untyped_tree),
+        type_inference.infer_static(untyped_tree, &[]),
         StaticTypedTree::BiOp {
             type_family: SqlTypeFamily::BigInt,
             left: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {

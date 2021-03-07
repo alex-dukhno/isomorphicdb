@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::pg_model::statement::{Portal, PreparedStatement, PreparedStatementEnum};
+use crate::pg_model::statement::{Portal, PreparedStatement};
 use data_manipulation::UntypedQuery;
 use data_scalar::ScalarValue;
 use entities::SqlTypeFamily;
@@ -23,7 +23,7 @@ use std::collections::HashMap;
 #[derive(Clone, Debug)]
 pub struct Session {
     /// A map from statement names to parameterized statements
-    prepared_statements: HashMap<String, PreparedStatementEnum>,
+    prepared_statements: HashMap<String, PreparedStatement>,
     /// A map from statement names to bound statements
     portals: HashMap<String, Portal>,
 }
@@ -39,17 +39,16 @@ impl Default for Session {
 
 impl Session {
     /// get `PreparedStatement` by its name
-    pub fn get_prepared_statement(&self, name: &str) -> Option<&PreparedStatementEnum> {
-        self.prepared_statements.get(name)
+    pub fn get_prepared_statement(&mut self, name: &str) -> Option<&mut PreparedStatement> {
+        self.prepared_statements.get_mut(name)
     }
 
     /// save `PreparedStatement` associated with a name
-    pub fn set_prepared_statement(&mut self, name: String, statement: PreparedStatementEnum) {
+    pub fn set_prepared_statement(&mut self, name: String, statement: PreparedStatement) {
         self.prepared_statements.insert(name, statement);
     }
 
     /// remove `PreparedStatement` by its name
-    #[allow(dead_code)]
     pub fn remove_prepared_statement(&mut self, name: &str) {
         self.prepared_statements.remove(name);
     }
