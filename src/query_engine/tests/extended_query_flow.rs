@@ -15,6 +15,62 @@
 use super::*;
 
 #[cfg(test)]
+mod jdbc_flow {
+    use super::*;
+
+    #[rstest::rstest]
+    fn insert(database_with_table: (InMemory, ResultCollector)) {
+        let (mut engine, collector) = database_with_table;
+
+        engine
+            .execute(Command::Parse {
+                statement_name: "".to_owned(),
+                sql: "insert into schema_name.table_name values ($1, $2, $3)".to_owned(),
+                param_types: vec![None, None, None],
+            })
+            .expect("statement parsed");
+        collector.assert_receive_intermediate(Ok(QueryEvent::ParseComplete));
+
+        engine
+            .execute(Command::DescribeStatement { name: "".to_owned() })
+            .expect("statement described");
+        collector.assert_receive_intermediate(Ok(QueryEvent::StatementParameters(vec![
+            PgType::SmallInt,
+            PgType::SmallInt,
+            PgType::SmallInt,
+        ])));
+
+        engine
+            .execute(Command::Parse {
+                statement_name: "".to_owned(),
+                sql: "insert into schema_name.table_name values ($1, $2, $3)".to_owned(),
+                param_types: vec![Some(PgType::SmallInt), Some(PgType::SmallInt), Some(PgType::SmallInt)],
+            })
+            .expect("statement parsed");
+        collector.assert_receive_intermediate(Ok(QueryEvent::ParseComplete));
+
+        engine
+            .execute(Command::Bind {
+                portal_name: "".to_owned(),
+                statement_name: "".to_owned(),
+                param_formats: vec![PgFormat::Binary, PgFormat::Binary, PgFormat::Binary],
+                raw_params: vec![Some(vec![0, 0, 0, 1]), Some(vec![0, 0, 0, 2]), Some(vec![0, 0, 0, 3])],
+                result_formats: vec![],
+            })
+            .expect("portal bound");
+        collector.assert_receive_intermediate(Ok(QueryEvent::BindComplete));
+
+        engine
+            .execute(Command::Execute {
+                portal_name: "".to_owned(),
+                max_rows: 1,
+            })
+            .expect("portal executed");
+        collector.assert_receive_intermediate(Ok(QueryEvent::RecordsInserted(1)));
+    }
+}
+
+#[cfg(test)]
 mod statement_description {
     use super::*;
 
