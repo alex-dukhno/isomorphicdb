@@ -13,12 +13,10 @@
 // limitations under the License.
 
 use super::*;
-use pg_model::{results::QueryEvent, Command};
 
 #[cfg(test)]
 mod statement_description {
     use super::*;
-    use pg_model::results::QueryError;
 
     #[rstest::rstest]
     fn statement_description(database_with_table: (InMemory, ResultCollector)) {

@@ -28,8 +28,8 @@ use std::{
 #[cfg(test)]
 mod delete;
 // TODO: new engine does not handle extended query flow
-// #[cfg(test)]
-// mod extended_query_flow;
+#[cfg(test)]
+mod extended_query_flow;
 #[cfg(test)]
 mod insert;
 #[cfg(test)]

@@ -34,10 +34,31 @@
 //! 4. The client issues an `Execute` message with the name of a portal, causing
 //!    that portal to actually start scanning and returning results.
 
+use data_manipulation::UntypedQuery;
+use data_scalar::ScalarValue;
+use entities::SqlTypeFamily;
+use postgres::query_ast::Query;
 use postgres::{
     query_response::Description,
     wire_protocol::{PgFormat, PgType},
 };
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum PreparedStatementEnum {
+    Parsed(Query),
+    Described {
+        query: UntypedQuery,
+        param_types: Vec<PgType>,
+    },
+    ParsedWithParams {
+        query: Query,
+        param_types: Vec<PgType>,
+    },
+    Bound {
+        query: Query,
+        params: Vec<ScalarValue>,
+    },
+}
 
 /// A prepared statement.
 #[derive(Clone, Debug, PartialEq)]
@@ -79,32 +100,50 @@ impl<S> PreparedStatement<S> {
 
 /// A portal represents the execution state of a running or runnable query.
 #[derive(Clone, Debug)]
-pub struct Portal<S> {
+pub struct Portal {
     /// The name of the prepared statement that is bound to this portal.
     statement_name: String,
     /// The bound SQL statement from the prepared statement.
-    stmt: S,
+    stmt: UntypedQuery,
     /// The desired output format for each column in the result set.
     result_formats: Vec<PgFormat>,
+    param_values: Vec<ScalarValue>,
+    param_types: Vec<SqlTypeFamily>,
 }
 
-impl<S> Portal<S> {
+impl Portal {
     /// Constructs a new `Portal`.
-    pub fn new(statement_name: String, stmt: S, result_formats: Vec<PgFormat>) -> Self {
-        Self {
+    pub fn new(
+        statement_name: String,
+        stmt: UntypedQuery,
+        result_formats: Vec<PgFormat>,
+        param_values: Vec<ScalarValue>,
+        param_types: Vec<SqlTypeFamily>,
+    ) -> Portal {
+        Portal {
             statement_name,
             stmt,
             result_formats,
+            param_values,
+            param_types,
         }
     }
 
     /// Returns the bound SQL statement.
-    pub fn stmt(&self) -> &S {
-        &self.stmt
+    pub fn stmt(&self) -> UntypedQuery {
+        self.stmt.clone()
     }
 
     #[allow(dead_code)]
     pub fn stmt_name(&self) -> &str {
         self.statement_name.as_str()
+    }
+
+    pub fn param_values(&self) -> Vec<ScalarValue> {
+        self.param_values.clone()
+    }
+
+    pub fn param_types(&self) -> &[SqlTypeFamily] {
+        &self.param_types
     }
 }

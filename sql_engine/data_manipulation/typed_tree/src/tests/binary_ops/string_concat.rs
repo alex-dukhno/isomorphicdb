@@ -28,7 +28,7 @@ fn string_and_string() {
                 "2".to_owned()
             )))),
         }
-        .eval(),
+        .eval(&[]),
         Ok(ScalarValue::String("12".to_owned()))
     );
 }
@@ -44,7 +44,7 @@ fn string_and_boolean() {
             op: BiOperator::StringOp(Concat),
             right: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Bool(true)))),
         }
-        .eval(),
+        .eval(&[]),
         Err(QueryExecutionError::undefined_bi_function(
             BiOperator::StringOp(Concat),
             SqlTypeFamily::String,
@@ -61,7 +61,7 @@ fn string_and_boolean() {
                 "abc".to_owned()
             )))),
         }
-        .eval(),
+        .eval(&[]),
         Err(QueryExecutionError::undefined_bi_function(
             BiOperator::StringOp(Concat),
             SqlTypeFamily::Bool,
@@ -84,7 +84,7 @@ fn string_and_number() {
                 "abc".to_owned()
             )))),
         }
-        .eval(),
+        .eval(&[]),
         Err(QueryExecutionError::undefined_bi_function(
             BiOperator::StringOp(Concat),
             SqlTypeFamily::Integer,
@@ -104,7 +104,7 @@ fn string_and_number() {
                 type_family: SqlTypeFamily::Integer
             }))),
         }
-        .eval(),
+        .eval(&[]),
         Err(QueryExecutionError::undefined_bi_function(
             BiOperator::StringOp(Concat),
             SqlTypeFamily::String,
@@ -122,7 +122,7 @@ fn others() {
             op: BiOperator::StringOp(Concat),
             right: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Bool(false)))),
         }
-        .eval(),
+        .eval(&[]),
         Err(QueryExecutionError::undefined_bi_function(
             BiOperator::StringOp(Concat),
             SqlTypeFamily::Bool,
@@ -139,7 +139,7 @@ fn others() {
             op: BiOperator::StringOp(Concat),
             right: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Bool(false)))),
         }
-        .eval(),
+        .eval(&[]),
         Err(QueryExecutionError::undefined_bi_function(
             BiOperator::StringOp(Concat),
             SqlTypeFamily::Integer,
@@ -156,7 +156,7 @@ fn others() {
                 type_family: SqlTypeFamily::Integer
             })))
         }
-        .eval(),
+        .eval(&[]),
         Err(QueryExecutionError::undefined_bi_function(
             BiOperator::StringOp(Concat),
             SqlTypeFamily::Bool,
@@ -177,7 +177,7 @@ fn others() {
                 type_family: SqlTypeFamily::Integer
             }))),
         }
-        .eval(),
+        .eval(&[]),
         Err(QueryExecutionError::undefined_bi_function(
             BiOperator::StringOp(Concat),
             SqlTypeFamily::Integer,

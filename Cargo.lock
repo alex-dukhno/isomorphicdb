@@ -695,6 +695,7 @@ dependencies = [
  "catalog",
  "data_definition",
  "data_manipulation",
+ "data_scalar",
  "definition_planner",
  "entities",
  "futures-lite",

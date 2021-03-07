@@ -12,21 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::pg_model::statement::{Portal, PreparedStatement};
-use postgres::wire_protocol::PgFormat;
+use crate::pg_model::statement::{Portal, PreparedStatement, PreparedStatementEnum};
+use data_manipulation::UntypedQuery;
+use data_scalar::ScalarValue;
+use entities::SqlTypeFamily;
+use postgres::wire_protocol::{PgFormat, PgType};
 use std::collections::HashMap;
 
 /// A `Session` holds SQL state that is attached to a session.
 #[derive(Clone, Debug)]
-pub struct Session<S> {
+pub struct Session {
     /// A map from statement names to parameterized statements
-    prepared_statements: HashMap<String, PreparedStatement<S>>,
+    prepared_statements: HashMap<String, PreparedStatementEnum>,
     /// A map from statement names to bound statements
-    portals: HashMap<String, Portal<S>>,
+    portals: HashMap<String, Portal>,
 }
 
-impl<S> Default for Session<S> {
-    fn default() -> Session<S> {
+impl Default for Session {
+    fn default() -> Session {
         Session {
             prepared_statements: HashMap::default(),
             portals: HashMap::default(),
@@ -34,15 +37,14 @@ impl<S> Default for Session<S> {
     }
 }
 
-impl<S> Session<S> {
+impl Session {
     /// get `PreparedStatement` by its name
-    pub fn get_prepared_statement(&self, name: &str) -> Option<&PreparedStatement<S>> {
+    pub fn get_prepared_statement(&self, name: &str) -> Option<&PreparedStatementEnum> {
         self.prepared_statements.get(name)
     }
 
     /// save `PreparedStatement` associated with a name
-    #[allow(dead_code)]
-    pub fn set_prepared_statement(&mut self, name: String, statement: PreparedStatement<S>) {
+    pub fn set_prepared_statement(&mut self, name: String, statement: PreparedStatementEnum) {
         self.prepared_statements.insert(name, statement);
     }
 
@@ -53,13 +55,12 @@ impl<S> Session<S> {
     }
 
     /// get `Portal` by its name
-    pub fn get_portal(&self, name: &str) -> Option<&Portal<S>> {
+    pub fn get_portal(&self, name: &str) -> Option<&Portal> {
         self.portals.get(name)
     }
 
     /// save `Portal` associated with a name
-    pub fn set_portal(&mut self, portal_name: String, statement_name: String, stmt: S, result_formats: Vec<PgFormat>) {
-        let new_portal = Portal::new(statement_name, stmt, result_formats);
-        self.portals.insert(portal_name, new_portal);
+    pub fn set_portal(&mut self, portal_name: String, portal: Portal) {
+        self.portals.insert(portal_name, portal);
     }
 }

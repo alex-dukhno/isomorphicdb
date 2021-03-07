@@ -81,7 +81,7 @@ pub enum ObjectType {
     Table,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Query {
     Insert(InsertStatement),
     Update(UpdateStatement),
@@ -89,7 +89,7 @@ pub enum Query {
     Select(SelectStatement),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct InsertStatement {
     pub schema_name: String,
     pub table_name: String,
@@ -97,7 +97,7 @@ pub struct InsertStatement {
     pub source: InsertSource,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct UpdateStatement {
     pub schema_name: String,
     pub table_name: String,
@@ -105,20 +105,20 @@ pub struct UpdateStatement {
     pub where_clause: Option<Expr>,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Assignment {
     pub column: String,
     pub value: Expr,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct DeleteStatement {
     pub schema_name: String,
     pub table_name: String,
     pub where_clause: Option<Expr>,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct SelectStatement {
     pub select_items: Vec<SelectItem>,
     pub schema_name: String,
@@ -126,18 +126,18 @@ pub struct SelectStatement {
     pub where_clause: Option<Expr>,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum SelectItem {
     Wildcard,
     UnnamedExpr(Expr),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum InsertSource {
     Values(Values),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Values(pub Vec<Vec<Expr>>);
 
 #[derive(Debug, PartialEq, Clone)]

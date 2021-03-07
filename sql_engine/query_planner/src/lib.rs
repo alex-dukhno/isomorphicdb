@@ -36,7 +36,7 @@ impl<D: Database> QueryPlanner<D> {
                 let table = self.database.table(&insert.full_table_name);
                 QueryPlan::Insert(InsertQueryPlan::new(
                     ConstraintValidator::new(
-                        StaticExpressionEval::new(StaticValues::from(insert.values)),
+                        StaticExpressionEval::new(StaticValues::new(insert.values)),
                         table.columns(),
                     ),
                     table,

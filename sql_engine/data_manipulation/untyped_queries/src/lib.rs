@@ -15,30 +15,30 @@
 use data_manipulation_untyped_tree::{DynamicUntypedTree, StaticUntypedTree};
 use definition::FullTableName;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct UntypedInsertQuery {
     pub full_table_name: FullTableName,
     pub values: Vec<Vec<Option<StaticUntypedTree>>>,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct UntypedUpdateQuery {
     pub full_table_name: FullTableName,
     pub assignments: Vec<Option<DynamicUntypedTree>>,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct UntypedSelectQuery {
     pub full_table_name: FullTableName,
     pub projection_items: Vec<DynamicUntypedTree>,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct UntypedDeleteQuery {
     pub full_table_name: FullTableName,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum UntypedQuery {
     Insert(UntypedInsertQuery),
     Update(UntypedUpdateQuery),

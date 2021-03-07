@@ -4,7 +4,6 @@ import groovy.sql.GroovyRowResult
 import io.isomorphicdb.ThreeSmallIntColumnTable
 import spock.lang.Ignore
 
-@Ignore("prepared statement are not supported")
 class BasicQueryOperationsSpec extends ThreeSmallIntColumnTable {
   private static String INSERT_QUERY = 'insert into SCHEMA_NAME.TABLE_NAME values (?, ?, ?)'
 
@@ -50,6 +49,7 @@ class BasicQueryOperationsSpec extends ThreeSmallIntColumnTable {
       pgSelect == dbSelect
   }
 
+  @Ignore("prepared statement are not supported")
   def 'insert update{all} select{all}'() {
     given:
       String updateQuery = 'update SCHEMA_NAME.TABLE_NAME set col1 = ?, col2 = ?, col3 = ?'

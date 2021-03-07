@@ -121,11 +121,11 @@ impl TypeInference {
         }
     }
 
-    pub fn infer_static(&self, tree: StaticUntypedTree) -> StaticTypedTree {
+    pub fn infer_static(&self, tree: StaticUntypedTree, param_types: &[SqlTypeFamily]) -> StaticTypedTree {
         match tree {
             StaticUntypedTree::BiOp { left, op, right } => {
-                let left_tree = self.infer_static(*left);
-                let right_tree = self.infer_static(*right);
+                let left_tree = self.infer_static(*left, param_types);
+                let right_tree = self.infer_static(*right, param_types);
                 let type_family = match (left_tree.type_family(), right_tree.type_family()) {
                     (Some(left_type_family), Some(right_type_family)) => {
                         match left_type_family.compare(&right_type_family) {
@@ -185,10 +185,14 @@ impl TypeInference {
             StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Bool(Bool(boolean)))) => {
                 StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Bool(boolean)))
             }
+            StaticUntypedTree::Item(StaticUntypedItem::Param(index)) => StaticTypedTree::Item(StaticTypedItem::Param {
+                index,
+                type_family: Some(param_types[index]),
+            }),
             StaticUntypedTree::Item(_) => unimplemented!(),
             StaticUntypedTree::UnOp { op, item } => StaticTypedTree::UnOp {
                 op,
-                item: Box::new(self.infer_static(*item)),
+                item: Box::new(self.infer_static(*item, param_types)),
             },
         }
     }

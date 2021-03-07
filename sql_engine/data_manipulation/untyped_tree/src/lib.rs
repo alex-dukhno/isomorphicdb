@@ -48,13 +48,13 @@ impl ImplicitCastError {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum StaticUntypedItem {
     Const(UntypedValue),
     Param(usize),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum DynamicUntypedItem {
     Const(UntypedValue),
     Param(usize),
@@ -167,7 +167,7 @@ impl Display for UntypedValue {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum StaticUntypedTree {
     UnOp {
         op: UnOperator,
@@ -192,7 +192,7 @@ impl StaticUntypedTree {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum DynamicUntypedTree {
     BiOp {
         left: Box<DynamicUntypedTree>,

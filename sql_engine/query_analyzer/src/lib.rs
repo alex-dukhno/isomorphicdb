@@ -78,10 +78,10 @@ impl<CD: CatalogDefinition> QueryAnalyzer<CD> {
                                     let mut row = vec![];
                                     for table_column in &table_columns {
                                         let value = match column_map.get(table_column) {
-                                            None => None,
-                                            Some(index) => {
+                                            Some(index) if index < &insert_row.len() => {
                                                 Some(StaticTreeBuilder::build_from(insert_row[*index].clone())?)
                                             }
+                                            _ => None,
                                         };
                                         row.push(value);
                                     }

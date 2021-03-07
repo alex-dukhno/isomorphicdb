@@ -44,13 +44,15 @@ impl StaticTypedTree {
         }
     }
 
-    pub fn eval(self) -> Result<ScalarValue, QueryExecutionError> {
+    pub fn eval(self, param_values: &[ScalarValue]) -> Result<ScalarValue, QueryExecutionError> {
         match self {
             StaticTypedTree::Item(StaticTypedItem::Const(value)) => Ok(value.eval()),
-            StaticTypedTree::Item(StaticTypedItem::Null(_)) => unimplemented!(),
-            StaticTypedTree::Item(StaticTypedItem::Param { .. }) => unimplemented!(),
-            StaticTypedTree::UnOp { op, item } => op.eval(item.eval()?),
-            StaticTypedTree::BiOp { left, op, right, .. } => op.eval(left.eval()?, right.eval()?),
+            StaticTypedTree::Item(StaticTypedItem::Null(_)) => Ok(ScalarValue::Null),
+            StaticTypedTree::Item(StaticTypedItem::Param { index, .. }) => Ok(param_values[index].clone()),
+            StaticTypedTree::UnOp { op, item } => op.eval(item.eval(param_values)?),
+            StaticTypedTree::BiOp { left, op, right, .. } => {
+                op.eval(left.eval(param_values)?, right.eval(param_values)?)
+            }
         }
     }
 }
