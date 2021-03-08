@@ -156,6 +156,11 @@ pub(crate) enum QueryErrorKind {
         column_name: String,
         row_index: usize, // TODO make it optional - does not make sense for update query
     },
+    NumericTypeOutOfRange2 {
+        pg_type: String,
+        column_name: String,
+        row_index: usize, // TODO make it optional - does not make sense for update query
+    },
     MostSpecificTypeMismatch {
         pg_type: PgType,
         value: String,
@@ -220,6 +225,7 @@ impl QueryErrorKind {
             Self::FeatureNotSupported(_) => "0A000",
             Self::TooManyInsertExpressions => "42601",
             Self::NumericTypeOutOfRange { .. } => "22003",
+            Self::NumericTypeOutOfRange2 { .. } => "22003",
             Self::MostSpecificTypeMismatch { .. } => "2200G",
             Self::MostSpecificTypeMismatch2 { .. } => "2200G",
             Self::StringTypeLengthMismatch { .. } => "22026",
@@ -263,6 +269,15 @@ impl Display for QueryErrorKind {
             }
             Self::TooManyInsertExpressions => write!(f, "INSERT has more expressions than target columns"),
             Self::NumericTypeOutOfRange {
+                pg_type,
+                column_name,
+                row_index,
+            } => write!(
+                f,
+                "{} is out of range for column '{}' at row {}",
+                pg_type, column_name, row_index
+            ),
+            Self::NumericTypeOutOfRange2 {
                 pg_type,
                 column_name,
                 row_index,
@@ -522,6 +537,18 @@ impl QueryError {
             severity: Severity::Error,
             kind: QueryErrorKind::NumericTypeOutOfRange {
                 pg_type,
+                column_name: column_name.to_string(),
+                row_index,
+            },
+        }
+    }
+
+    /// numeric out of range constructor
+    pub fn out_of_range_2<T: ToString, S: ToString>(pg_type: T, column_name: S, row_index: usize) -> QueryError {
+        QueryError {
+            severity: Severity::Error,
+            kind: QueryErrorKind::NumericTypeOutOfRange2 {
+                pg_type: pg_type.to_string(),
                 column_name: column_name.to_string(),
                 row_index,
             },

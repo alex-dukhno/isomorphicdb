@@ -156,31 +156,28 @@ impl Flow for ConstraintValidator {
                                 match (value.clone(), type_family) {
                                     (ScalarValue::Num { value, .. }, SqlTypeFamily::SmallInt) => {
                                         if !(BigDecimal::from(i16::MIN)..=BigDecimal::from(i16::MAX)).contains(&value) {
-                                            return Err(QueryExecutionError::most_specific_type_mismatch(
-                                                value,
+                                            return Err(QueryExecutionError::out_of_range(
                                                 type_family,
                                                 self.column_types[index].0.as_str(),
-                                                index,
+                                                index + 1,
                                             ));
                                         }
                                     }
                                     (ScalarValue::Num { value, .. }, SqlTypeFamily::Integer) => {
                                         if !(BigDecimal::from(i32::MIN)..=BigDecimal::from(i32::MAX)).contains(&value) {
-                                            return Err(QueryExecutionError::most_specific_type_mismatch(
-                                                value,
+                                            return Err(QueryExecutionError::out_of_range(
                                                 type_family,
                                                 self.column_types[index].0.as_str(),
-                                                index,
+                                                index + 1,
                                             ));
                                         }
                                     }
                                     (ScalarValue::Num { value, .. }, SqlTypeFamily::BigInt) => {
                                         if !(BigDecimal::from(i64::MIN)..=BigDecimal::from(i64::MAX)).contains(&value) {
-                                            return Err(QueryExecutionError::most_specific_type_mismatch(
-                                                value,
+                                            return Err(QueryExecutionError::out_of_range(
                                                 type_family,
                                                 self.column_types[index].0.as_str(),
-                                                index,
+                                                index + 1,
                                             ));
                                         }
                                     }
@@ -191,12 +188,7 @@ impl Flow for ConstraintValidator {
                                 Some(value.as_to_datum())
                             }
                             Err(_) => {
-                                return Err(QueryExecutionError::most_specific_type_mismatch(
-                                    value,
-                                    type_family,
-                                    self.column_types[index].0.as_str(),
-                                    index,
-                                ))
+                                return Err(QueryExecutionError::invalid_text_representation(type_family, value));
                             }
                         },
                     },
