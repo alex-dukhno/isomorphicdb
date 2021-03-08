@@ -13,8 +13,6 @@
 // limitations under the License.
 
 use super::*;
-use pg_model::Command;
-use query_response::{QueryError, QueryEvent};
 
 #[rstest::fixture]
 fn int_table(database_with_schema: (InMemory, ResultCollector)) -> (InMemory, ResultCollector) {

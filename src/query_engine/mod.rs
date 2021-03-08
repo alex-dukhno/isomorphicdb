@@ -26,8 +26,9 @@ use data_manipulation::{
 };
 use data_scalar::ScalarValue;
 use definition_planner::DefinitionPlanner;
-use entities::{ColumnDef, SqlTypeFamily};
+use entities::{ColumnDef, SqlType, SqlTypeFamily};
 use itertools::izip;
+use postgres::query_ast::Extended;
 use postgres::query_ast::UnaryOperator::PrefixFactorial;
 use postgres::{
     query_ast::{Expr, Statement, Value},
@@ -38,6 +39,8 @@ use postgres::{
 use query_analyzer::{AnalysisError, QueryAnalyzer};
 use query_planner::QueryPlanner;
 use query_processing::{TypeChecker, TypeCoercion, TypeInference};
+use std::collections::HashMap;
+use std::str::FromStr;
 use std::{iter, sync::Arc};
 
 unsafe impl<D: Database + CatalogDefinition> Send for QueryEngine<D> {}
@@ -84,44 +87,47 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
             } => {
                 let portal = match self.session.get_prepared_statement(&statement_name) {
                     Some(statement) => {
-                        let param_types = statement.param_types().unwrap();
-                        if param_types.len() != raw_params.len() {
-                            let message = format!(
+                        if let Some(param_types) = statement.param_types() {
+                            if param_types.len() != raw_params.len() {
+                                let message = format!(
                                 "Bind message supplies {actual} parameters, but prepared statement \"{name}\" requires {expected}",
                                 name = statement_name,
                                 actual = raw_params.len(),
                                 expected = param_types.len()
                             );
-                            self.sender
-                                .send(Err(QueryError::protocol_violation(message)))
-                                .expect("To Send Error to Client");
-                        }
+                                self.sender
+                                    .send(Err(QueryError::protocol_violation(message)))
+                                    .expect("To Send Error to Client");
+                            }
 
-                        let mut param_values: Vec<ScalarValue> = vec![];
-                        for (raw_param, typ, format) in izip!(raw_params, param_types, param_formats.clone()) {
-                            match raw_param {
-                                None => param_values.push(ScalarValue::Null),
-                                Some(bytes) => {
-                                    log::debug!("PG Type {:?}", typ);
-                                    match typ.decode(&format, &bytes) {
-                                        Ok(param) => param_values.push(value_to_expr(param)),
-                                        Err(msg) => {
-                                            self.sender
-                                                .send(Err(QueryError::invalid_parameter_value(msg)))
-                                                .expect("To Send Error to Client");
-                                            return Err(());
+                            let mut param_values: Vec<ScalarValue> = vec![];
+                            for (raw_param, typ, format) in izip!(raw_params, param_types, param_formats.clone()) {
+                                match raw_param {
+                                    None => param_values.push(ScalarValue::Null),
+                                    Some(bytes) => {
+                                        log::debug!("PG Type {:?}", typ);
+                                        match typ.decode(&format, &bytes) {
+                                            Ok(param) => param_values.push(value_to_expr(param)),
+                                            Err(msg) => {
+                                                self.sender
+                                                    .send(Err(QueryError::invalid_parameter_value(msg)))
+                                                    .expect("To Send Error to Client");
+                                                return Err(());
+                                            }
                                         }
                                     }
                                 }
                             }
+                            Some(Portal::new(
+                                statement_name.clone(),
+                                self.query_analyzer.analyze(statement.query().unwrap()).unwrap(),
+                                result_formats,
+                                param_values,
+                                param_types.into_iter().map(From::from).collect::<Vec<SqlTypeFamily>>(),
+                            ))
+                        } else {
+                            None
                         }
-                        Some(Portal::new(
-                            statement_name.clone(),
-                            self.query_analyzer.analyze(statement.query().unwrap()).unwrap(),
-                            result_formats,
-                            param_values,
-                            param_types.into_iter().map(From::from).collect::<Vec<SqlTypeFamily>>(),
-                        ))
                     }
                     _ => None,
                 };
@@ -147,6 +153,7 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                 Ok(())
             }
             Command::DescribeStatement { name } => {
+                log::debug!("SESSION - {:?}", self.session);
                 match self.session.get_prepared_statement(&name) {
                     Some(mut statement) => match statement.param_types() {
                         None => match self.query_analyzer.analyze(statement.query().unwrap()) {
@@ -165,6 +172,9 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                                 self.sender
                                     .send(Ok(QueryEvent::StatementParameters(param_types.to_vec())))
                                     .expect("To Send Statement Parameters to Client");
+                                self.sender
+                                    .send(Ok(QueryEvent::StatementDescription(vec![])))
+                                    .expect("To Send Statement Description to Client");
                                 statement.described(UntypedQuery::Insert(insert), param_types);
                             }
                             Ok(UntypedQuery::Update(update)) => {
@@ -182,7 +192,30 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                                 self.sender
                                     .send(Ok(QueryEvent::StatementParameters(param_types.to_vec())))
                                     .expect("To Send Statement Parameters to Client");
+                                self.sender
+                                    .send(Ok(QueryEvent::StatementDescription(vec![])))
+                                    .expect("To Send Statement Description to Client");
                                 statement.described(UntypedQuery::Update(update), param_types);
+                            }
+                            Ok(UntypedQuery::Select(select)) => {
+                                let table_definition = self
+                                    .database
+                                    .table_definition(select.full_table_name.clone())
+                                    .unwrap()
+                                    .unwrap();
+                                let return_types = table_definition
+                                    .columns()
+                                    .iter()
+                                    .map(|col_def| (col_def.name().to_owned(), col_def.sql_type()))
+                                    .map(|(name, sql_type)| (name, (&sql_type).into()))
+                                    .collect::<Vec<(String, PgType)>>();
+                                self.sender
+                                    .send(Ok(QueryEvent::StatementParameters(vec![])))
+                                    .expect("To Send Statement Parameters to Client");
+                                self.sender
+                                    .send(Ok(QueryEvent::StatementDescription(return_types)))
+                                    .expect("To Send Statement Description to Client");
+                                statement.described(UntypedQuery::Select(select), vec![]);
                             }
                             _ => {
                                 self.sender
@@ -190,11 +223,48 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                                     .expect("To Send Error to Client");
                             }
                         },
-                        Some(param_types) => {
-                            self.sender
-                                .send(Ok(QueryEvent::StatementParameters(param_types.to_vec())))
-                                .expect("To Send Statement Parameters to Client");
-                        }
+                        Some(param_types) => match self.query_analyzer.analyze(statement.query().unwrap()) {
+                            Ok(UntypedQuery::Insert(insert)) => {
+                                self.sender
+                                    .send(Ok(QueryEvent::StatementParameters(param_types.to_vec())))
+                                    .expect("To Send Statement Parameters to Client");
+                                self.sender
+                                    .send(Ok(QueryEvent::StatementDescription(vec![])))
+                                    .expect("To Send Statement Description to Client");
+                            }
+                            Ok(UntypedQuery::Update(update)) => {
+                                self.sender
+                                    .send(Ok(QueryEvent::StatementParameters(param_types.to_vec())))
+                                    .expect("To Send Statement Parameters to Client");
+                                self.sender
+                                    .send(Ok(QueryEvent::StatementDescription(vec![])))
+                                    .expect("To Send Statement Description to Client");
+                            }
+                            Ok(UntypedQuery::Select(select)) => {
+                                let table_definition = self
+                                    .database
+                                    .table_definition(select.full_table_name.clone())
+                                    .unwrap()
+                                    .unwrap();
+                                let return_types = table_definition
+                                    .columns()
+                                    .iter()
+                                    .map(|col_def| (col_def.name().to_owned(), col_def.sql_type()))
+                                    .map(|(name, sql_type)| (name, (&sql_type).into()))
+                                    .collect::<Vec<(String, PgType)>>();
+                                self.sender
+                                    .send(Ok(QueryEvent::StatementParameters(param_types.to_vec())))
+                                    .expect("To Send Statement Parameters to Client");
+                                self.sender
+                                    .send(Ok(QueryEvent::StatementDescription(return_types)))
+                                    .expect("To Send Statement Description to Client");
+                            }
+                            _ => {
+                                self.sender
+                                    .send(Err(QueryError::prepared_statement_does_not_exist(name)))
+                                    .expect("To Send Error to Client");
+                            }
+                        },
                     },
                     other => {
                         log::debug!("STMT {:?} associated with {:?} key", other, name);
@@ -311,10 +381,72 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                                 .map_err(Into::into);
                             self.sender.send(query_result).expect("To Send to client");
                         }
-                        _ => {
-                            self.sender
-                                .send(Err(QueryError::syntax_error(format!("{:?}", portal.stmt()))))
-                                .expect("To Send Error to Client");
+                        UntypedQuery::Select(select) => {
+                            log::debug!("SELECT UNTYPED VALUES - {:?}", select.projection_items);
+                            let typed_values = select
+                                .projection_items
+                                .into_iter()
+                                .map(|value| self.type_inference.infer_dynamic(value, &[]))
+                                .collect::<Vec<DynamicTypedTree>>();
+                            log::debug!("SELECT TYPED VALUES - {:?}", typed_values);
+                            let type_checked = typed_values
+                                .into_iter()
+                                .map(|value| self.type_checker.check_dynamic(value))
+                                .collect::<Vec<DynamicTypedTree>>();
+                            log::debug!("SELECT TYPE CHECKED VALUES - {:?}", type_checked);
+                            let type_coerced = type_checked
+                                .into_iter()
+                                .map(|value| self.type_coercion.coerce_dynamic(value))
+                                .collect::<Vec<DynamicTypedTree>>();
+                            log::debug!("SELECT TYPE COERCED VALUES - {:?}", type_coerced);
+                            let query_result = self
+                                .query_planner
+                                .plan(TypedQuery::Select(TypedSelectQuery {
+                                    projection_items: type_coerced,
+                                    full_table_name: select.full_table_name,
+                                }))
+                                .execute(vec![])
+                                .map_err(Into::into);
+                            match query_result {
+                                Ok(QueryPlanResult::Selected((desc, data))) => {
+                                    self.sender
+                                        .send(Ok(QueryEvent::RowDescription(
+                                            desc.into_iter()
+                                                .map(|col_def| {
+                                                    let pg_type: PgType = (&col_def.sql_type()).into();
+                                                    ColumnMetadata::new(col_def.name(), pg_type)
+                                                })
+                                                .collect(),
+                                        )))
+                                        .expect("To Send to client");
+                                    let len = data.len();
+                                    for row in data {
+                                        self.sender
+                                            .send(Ok(QueryEvent::DataRow(
+                                                row.into_iter().map(|scalar| scalar.as_text()).collect(),
+                                            )))
+                                            .expect("To Send to client");
+                                    }
+                                    self.sender
+                                        .send(Ok(QueryEvent::RecordsSelected(len)))
+                                        .expect("To Send to client");
+                                }
+                                Ok(_) => unreachable!(),
+                                Err(error) => {
+                                    self.sender.send(Err(error)).expect("To Send to client");
+                                }
+                            }
+                        }
+                        UntypedQuery::Delete(delete) => {
+                            let query_result = self
+                                .query_planner
+                                .plan(TypedQuery::Delete(TypedDeleteQuery {
+                                    full_table_name: delete.full_table_name,
+                                }))
+                                .execute(vec![])
+                                .map(Into::into)
+                                .map_err(Into::into);
+                            self.sender.send(query_result).expect("To Send to client");
                         }
                     },
                     None => {
@@ -335,37 +467,46 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                 param_types,
             } => {
                 match self.session.get_prepared_statement(&statement_name) {
-                    Some(mut stmt) if stmt.raw_query() == &sql => {
-                        match self.query_parser.parse(&sql) {
-                            Ok(mut statements) => match statements.pop() {
-                                Some(Statement::DML(query)) => stmt.parsed_with_params(
+                    Some(mut stmt) if stmt.raw_query() == &sql => match self.query_parser.parse(&sql) {
+                        Ok(mut statements) => match statements.pop() {
+                            Some(Statement::DML(query)) => {
+                                stmt.parsed_with_params(
                                     query,
                                     param_types
                                         .into_iter()
                                         .filter(Option::is_some)
                                         .map(Option::unwrap)
                                         .collect(),
-                                ),
-                                other => self
-                                    .sender
-                                    .send(Err(QueryError::syntax_error(format!("{:?}", other))))
-                                    .expect("To Send Result"),
-                            },
-                            Err(parser_error) => {
-                                self.sender
-                                    .send(Err(QueryError::syntax_error(parser_error)))
-                                    .expect("To Send Syntax Error Event");
+                                );
+                                self.sender.send(Ok(QueryEvent::ParseComplete)).expect("To Send Result");
                             }
+                            other => self
+                                .sender
+                                .send(Err(QueryError::syntax_error(format!("{:?}", other))))
+                                .expect("To Send Result"),
+                        },
+                        Err(parser_error) => {
+                            self.sender
+                                .send(Err(QueryError::syntax_error(parser_error)))
+                                .expect("To Send Syntax Error Event");
                         }
-                        self.sender.send(Ok(QueryEvent::ParseComplete)).expect("To Send Result");
-                    }
+                    },
                     _ => match self.query_parser.parse(&sql) {
                         Ok(mut statements) => match statements.pop() {
                             Some(Statement::DML(query)) => {
-                                self.session.set_prepared_statement(
-                                    statement_name,
-                                    PreparedStatement::parsed(sql.clone(), query),
-                                );
+                                if param_types.is_empty() || param_types.iter().all(Option::is_some) {
+                                    let mut prep = PreparedStatement::parsed(sql.clone(), query.clone());
+                                    prep.parsed_with_params(
+                                        query,
+                                        param_types.into_iter().map(Option::unwrap).collect(),
+                                    );
+                                    self.session.set_prepared_statement(statement_name, prep);
+                                } else {
+                                    self.session.set_prepared_statement(
+                                        statement_name,
+                                        PreparedStatement::parsed(sql.clone(), query),
+                                    );
+                                }
                                 self.sender.send(Ok(QueryEvent::ParseComplete)).expect("To Send Result");
                             }
                             other => self
@@ -455,6 +596,208 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                         //         .send(Ok(QueryEvent::StatementDeallocated))
                         //         .expect("To Send Statement Deallocated Event");
                         // }
+                        Statement::Extended(extended_query) => match extended_query {
+                            Extended::Prepare {
+                                query,
+                                name,
+                                param_types,
+                            } => {
+                                self.session.set_portal(
+                                    name.clone(),
+                                    Portal::new(
+                                        name,
+                                        self.query_analyzer.analyze(query).unwrap(),
+                                        vec![],
+                                        vec![],
+                                        param_types
+                                            .into_iter()
+                                            .map(|data_type| SqlType::from(data_type).family())
+                                            .collect(),
+                                    ),
+                                );
+                                self.sender
+                                    .send(Ok(QueryEvent::StatementPrepared))
+                                    .expect("To Send Result");
+                            }
+                            Extended::Execute { name, param_values } => {
+                                let param_values = param_values.into_iter().map(ast_value_to_expr).collect();
+                                match self.session.get_portal(&name) {
+                                    Some(portal) => match portal.stmt() {
+                                        UntypedQuery::Insert(insert) => {
+                                            log::debug!("INSERT UNTYPED VALUES {:?}", insert.values);
+                                            let typed_values = insert
+                                                .values
+                                                .into_iter()
+                                                .map(|values| {
+                                                    values
+                                                        .into_iter()
+                                                        .map(|value| {
+                                                            value.map(|v| {
+                                                                self.type_inference
+                                                                    .infer_static(v, portal.param_types())
+                                                            })
+                                                        })
+                                                        .collect()
+                                                })
+                                                .collect::<Vec<Vec<Option<StaticTypedTree>>>>();
+                                            log::debug!("INSERT TYPED VALUES {:?}", typed_values);
+                                            let type_checked = typed_values
+                                                .into_iter()
+                                                .map(|values| {
+                                                    values
+                                                        .into_iter()
+                                                        .map(|value| value.map(|v| self.type_checker.check_static(v)))
+                                                        .collect()
+                                                })
+                                                .collect::<Vec<Vec<Option<StaticTypedTree>>>>();
+                                            log::debug!("INSERT TYPE CHECKED VALUES {:?}", type_checked);
+                                            let table_info = self
+                                                .database
+                                                .table_definition(insert.full_table_name.clone())
+                                                .unwrap()
+                                                .unwrap();
+                                            let table_columns = table_info.columns();
+                                            let mut type_coerced = vec![];
+                                            for checked in type_checked {
+                                                let mut row = vec![];
+                                                for (index, c) in checked.into_iter().enumerate() {
+                                                    row.push(c.map(|c| {
+                                                        self.type_coercion
+                                                            .coerce_static(c, table_columns[index].sql_type())
+                                                    }));
+                                                }
+                                                type_coerced.push(row);
+                                            }
+                                            log::debug!("INSERT TYPE COERCED VALUES {:?}", type_coerced);
+                                            let query_result = self
+                                                .query_planner
+                                                .plan(TypedQuery::Insert(TypedInsertQuery {
+                                                    full_table_name: insert.full_table_name,
+                                                    values: type_coerced,
+                                                }))
+                                                .execute(param_values)
+                                                .map(Into::into)
+                                                .map_err(Into::into);
+                                            self.sender.send(query_result).expect("To Send to client");
+                                        }
+                                        UntypedQuery::Update(update) => {
+                                            let typed_values = update
+                                                .assignments
+                                                .into_iter()
+                                                .map(|value| {
+                                                    value.map(|value| {
+                                                        self.type_inference.infer_dynamic(value, portal.param_types())
+                                                    })
+                                                })
+                                                .collect::<Vec<Option<DynamicTypedTree>>>();
+                                            log::debug!("UPDATE TYPED VALUES - {:?}", typed_values);
+                                            let type_checked = typed_values
+                                                .into_iter()
+                                                .map(|value| value.map(|value| self.type_checker.check_dynamic(value)))
+                                                .collect::<Vec<Option<DynamicTypedTree>>>();
+                                            log::debug!("UPDATE TYPE CHECKED VALUES - {:?}", type_checked);
+                                            let type_coerced = type_checked
+                                                .into_iter()
+                                                .map(|value| {
+                                                    value.map(|value| self.type_coercion.coerce_dynamic(value))
+                                                })
+                                                .collect::<Vec<Option<DynamicTypedTree>>>();
+                                            log::debug!("UPDATE TYPE COERCED VALUES - {:?}", type_coerced);
+                                            let query_result = self
+                                                .query_planner
+                                                .plan(TypedQuery::Update(TypedUpdateQuery {
+                                                    full_table_name: update.full_table_name,
+                                                    assignments: type_coerced,
+                                                }))
+                                                .execute(param_values)
+                                                .map(Into::into)
+                                                .map_err(Into::into);
+                                            self.sender.send(query_result).expect("To Send to client");
+                                        }
+                                        UntypedQuery::Select(select) => {
+                                            log::debug!("SELECT UNTYPED VALUES - {:?}", select.projection_items);
+                                            let typed_values = select
+                                                .projection_items
+                                                .into_iter()
+                                                .map(|value| self.type_inference.infer_dynamic(value, &[]))
+                                                .collect::<Vec<DynamicTypedTree>>();
+                                            log::debug!("SELECT TYPED VALUES - {:?}", typed_values);
+                                            let type_checked = typed_values
+                                                .into_iter()
+                                                .map(|value| self.type_checker.check_dynamic(value))
+                                                .collect::<Vec<DynamicTypedTree>>();
+                                            log::debug!("SELECT TYPE CHECKED VALUES - {:?}", type_checked);
+                                            let type_coerced = type_checked
+                                                .into_iter()
+                                                .map(|value| self.type_coercion.coerce_dynamic(value))
+                                                .collect::<Vec<DynamicTypedTree>>();
+                                            log::debug!("SELECT TYPE COERCED VALUES - {:?}", type_coerced);
+                                            let query_result = self
+                                                .query_planner
+                                                .plan(TypedQuery::Select(TypedSelectQuery {
+                                                    projection_items: type_coerced,
+                                                    full_table_name: select.full_table_name,
+                                                }))
+                                                .execute(param_values)
+                                                .map_err(Into::into);
+                                            match query_result {
+                                                Ok(QueryPlanResult::Selected((desc, data))) => {
+                                                    self.sender
+                                                        .send(Ok(QueryEvent::RowDescription(
+                                                            desc.into_iter()
+                                                                .map(|col_def| {
+                                                                    let pg_type: PgType = (&col_def.sql_type()).into();
+                                                                    ColumnMetadata::new(col_def.name(), pg_type)
+                                                                })
+                                                                .collect(),
+                                                        )))
+                                                        .expect("To Send to client");
+                                                    let len = data.len();
+                                                    for row in data {
+                                                        self.sender
+                                                            .send(Ok(QueryEvent::DataRow(
+                                                                row.into_iter()
+                                                                    .map(|scalar| scalar.as_text())
+                                                                    .collect(),
+                                                            )))
+                                                            .expect("To Send to client");
+                                                    }
+                                                    self.sender
+                                                        .send(Ok(QueryEvent::RecordsSelected(len)))
+                                                        .expect("To Send to client");
+                                                }
+                                                Ok(_) => unreachable!(),
+                                                Err(error) => {
+                                                    self.sender.send(Err(error)).expect("To Send to client");
+                                                }
+                                            }
+                                        }
+                                        UntypedQuery::Delete(delete) => {
+                                            let query_result = self
+                                                .query_planner
+                                                .plan(TypedQuery::Delete(TypedDeleteQuery {
+                                                    full_table_name: delete.full_table_name,
+                                                }))
+                                                .execute(param_values)
+                                                .map(Into::into)
+                                                .map_err(Into::into);
+                                            self.sender.send(query_result).expect("To Send to client");
+                                        }
+                                    },
+                                    None => {
+                                        self.sender
+                                            .send(Err(QueryError::prepared_statement_does_not_exist(name)))
+                                            .expect("To Send Error to Client");
+                                    }
+                                }
+                            }
+                            Extended::Deallocate { name } => {
+                                self.session.remove_portal(&name);
+                                self.sender
+                                    .send(Ok(QueryEvent::StatementDeallocated))
+                                    .expect("To Send Statement Deallocated Event");
+                            }
+                        },
                         Statement::DDL(definition) => match self.definition_planner.plan(definition) {
                             Ok(schema_change) => {
                                 log::debug!("SCHEMA CHANGE - {:?}", schema_change);
@@ -647,12 +990,20 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
     }
 }
 
-fn pad_formats(formats: &[PgFormat], param_len: usize) -> Result<Vec<PgFormat>, String> {
-    match (formats.len(), param_len) {
-        (0, n) => Ok(vec![PgFormat::Text; n]),
-        (1, n) => Ok(iter::repeat(formats[0]).take(n).collect()),
-        (m, n) if m == n => Ok(formats.to_vec()),
-        (m, n) => Err(format!("expected {} field format specifiers, but got {}", m, n)),
+fn ast_value_to_expr(value: Value) -> ScalarValue {
+    match value {
+        Value::Null => ScalarValue::Null,
+        Value::Boolean(boolean) => ScalarValue::Bool(boolean),
+        Value::Int(i) => ScalarValue::Num {
+            value: BigDecimal::from(i),
+            type_family: SqlTypeFamily::Integer,
+        },
+        Value::Number(number) => ScalarValue::Num {
+            value: BigDecimal::from_str(&number).unwrap(),
+            type_family: SqlTypeFamily::BigInt,
+        },
+        Value::String(s) => ScalarValue::String(s),
+        Value::Param(_) => unreachable!(),
     }
 }
 

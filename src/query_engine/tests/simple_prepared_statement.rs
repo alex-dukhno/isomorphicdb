@@ -13,10 +13,6 @@
 // limitations under the License.
 
 use super::*;
-use pg_model::{
-    results::{QueryError, QueryEvent},
-    Command,
-};
 
 #[rstest::rstest]
 fn prepare_execute_and_deallocate(database_with_schema: (InMemory, ResultCollector)) {
@@ -31,7 +27,7 @@ fn prepare_execute_and_deallocate(database_with_schema: (InMemory, ResultCollect
 
     engine
         .execute(Command::Query {
-            sql: "prepare fooplan (smallint, smallint) as insert into schema_name.table_name values ($1, 456, $2)"
+            sql: "prepare foo_plan (smallint, smallint) as insert into schema_name.table_name values ($1, 456, $2)"
                 .to_owned(),
         })
         .expect("query executed");
@@ -39,14 +35,14 @@ fn prepare_execute_and_deallocate(database_with_schema: (InMemory, ResultCollect
 
     engine
         .execute(Command::Query {
-            sql: "execute fooplan(123, 789)".to_owned(),
+            sql: "execute foo_plan(123, 789)".to_owned(),
         })
         .expect("query executed");
     collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
     engine
         .execute(Command::Query {
-            sql: "deallocate fooplan".to_owned(),
+            sql: "deallocate foo_plan".to_owned(),
         })
         .expect("query executed");
     collector.assert_receive_single(Ok(QueryEvent::StatementDeallocated));
@@ -83,68 +79,76 @@ fn execute_deallocated_prepared_statement(database_with_schema: (InMemory, Resul
 
     engine
         .execute(Command::Query {
-            sql: "prepare fooplan (smallint) as insert into schema_name.table_name values ($1)".to_owned(),
+            sql: "prepare foo_plan (smallint) as insert into schema_name.table_name values ($1)".to_owned(),
         })
         .expect("query executed");
     collector.assert_receive_single(Ok(QueryEvent::StatementPrepared));
 
     engine
         .execute(Command::Query {
-            sql: "deallocate fooplan".to_owned(),
+            sql: "deallocate foo_plan".to_owned(),
         })
         .expect("query executed");
     collector.assert_receive_single(Ok(QueryEvent::StatementDeallocated));
 
     engine
         .execute(Command::Query {
-            sql: "execute fooplan(123)".to_owned(),
+            sql: "execute foo_plan(123)".to_owned(),
         })
         .expect("query executed");
-    collector.assert_receive_single(Err(QueryError::prepared_statement_does_not_exist("fooplan")));
+    collector.assert_receive_single(Err(QueryError::prepared_statement_does_not_exist("foo_plan")));
 }
 
 #[rstest::rstest]
+#[ignore] // TODO: custom/unsupported types is not supported on parser level
 fn prepare_with_wrong_type(database_with_table: (InMemory, ResultCollector)) {
     let (mut engine, collector) = database_with_table;
     engine
         .execute(Command::Query {
-            sql: "prepare fooplan (i, j, k) as insert into schema_name.table_name values ($1, $2, $3)".to_owned(),
+            sql: "prepare foo_plan (i, j, k) as insert into schema_name.table_name values ($1, $2, $3)".to_owned(),
         })
         .expect("query executed");
     collector.assert_receive_single(Err(QueryError::type_does_not_exist("i")));
 }
 
 #[rstest::rstest]
+#[ignore]
+// TODO: number of parameters is not counter
+// TODO: correctness of param indexes is not checked
 fn prepare_with_indeterminate_type(database_with_table: (InMemory, ResultCollector)) {
     let (mut engine, collector) = database_with_table;
     engine
         .execute(Command::Query {
-            sql: "prepare fooplan (smallint, smallint) as insert into schema_name.table_name values (1, $9)".to_owned(),
+            sql: "prepare foo_plan (smallint, smallint) as insert into schema_name.table_name values (1, $9)"
+                .to_owned(),
         })
         .expect("query executed");
     collector.assert_receive_single(Err(QueryError::indeterminate_parameter_data_type(2)));
 }
 
 #[rstest::rstest]
+#[ignore]
+// TODO: no parameter types is not supported
+// TODO: type inference is not properly implemented
 fn prepare_assign_operation_for_all_columns_analysis(database_with_table: (InMemory, ResultCollector)) {
     let (mut engine, collector) = database_with_table;
     engine
         .execute(Command::Query {
-            sql: "prepare fooplan as insert into schema_name.table_name values ($2, $3, $1)".to_owned(),
+            sql: "prepare foo_plan as insert into schema_name.table_name values ($2, $3, $1)".to_owned(),
         })
         .expect("query executed");
     collector.assert_receive_single(Ok(QueryEvent::StatementPrepared));
 
     engine
         .execute(Command::Query {
-            sql: "execute fooplan(123, 456, 789)".to_owned(),
+            sql: "execute foo_plan(123, 456, 789)".to_owned(),
         })
         .expect("query executed");
     collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
     engine
         .execute(Command::Query {
-            sql: "deallocate fooplan".to_owned(),
+            sql: "deallocate foo_plan".to_owned(),
         })
         .expect("query executed");
     collector.assert_receive_single(Ok(QueryEvent::StatementDeallocated));
@@ -170,11 +174,14 @@ fn prepare_assign_operation_for_all_columns_analysis(database_with_table: (InMem
 }
 
 #[rstest::rstest]
+#[ignore]
+// TODO: no parameter types is not supported
+// TODO: type inference is not properly implemented
 fn prepare_assign_operation_for_specified_columns_analysis(database_with_table: (InMemory, ResultCollector)) {
     let (mut engine, collector) = database_with_table;
     engine
         .execute(Command::Query {
-            sql: "prepare fooplan as insert into schema_name.table_name (COL3, COL2, col1) values ($1, $2, $3)"
+            sql: "prepare foo_plan as insert into schema_name.table_name (COL3, COL2, col1) values ($1, $2, $3)"
                 .to_owned(),
         })
         .expect("query executed");
@@ -182,14 +189,14 @@ fn prepare_assign_operation_for_specified_columns_analysis(database_with_table: 
 
     engine
         .execute(Command::Query {
-            sql: "execute fooplan(123, 456, 789)".to_owned(),
+            sql: "execute foo_plan(123, 456, 789)".to_owned(),
         })
         .expect("query executed");
     collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
     engine
         .execute(Command::Query {
-            sql: "deallocate fooplan".to_owned(),
+            sql: "deallocate foo_plan".to_owned(),
         })
         .expect("query executed");
     collector.assert_receive_single(Ok(QueryEvent::StatementDeallocated));
@@ -215,6 +222,9 @@ fn prepare_assign_operation_for_specified_columns_analysis(database_with_table: 
 }
 
 #[rstest::rstest]
+#[ignore]
+// TODO: no parameter types is not supported
+// TODO: type inference is not properly implemented
 fn prepare_reassign_operation_for_all_rows(database_with_table: (InMemory, ResultCollector)) {
     let (mut engine, collector) = database_with_table;
 
@@ -227,21 +237,21 @@ fn prepare_reassign_operation_for_all_rows(database_with_table: (InMemory, Resul
 
     engine
         .execute(Command::Query {
-            sql: "prepare fooplan as update schema_name.table_name set col3 = $1, COL1 = $2".to_owned(),
+            sql: "prepare foo_plan as update schema_name.table_name set col3 = $1, COL1 = $2".to_owned(),
         })
         .expect("query executed");
     collector.assert_receive_single(Ok(QueryEvent::StatementPrepared));
 
     engine
         .execute(Command::Query {
-            sql: "execute fooplan(777, 999)".to_owned(),
+            sql: "execute foo_plan(777, 999)".to_owned(),
         })
         .expect("query executed");
     collector.assert_receive_single(Ok(QueryEvent::RecordsUpdated(2)));
 
     engine
         .execute(Command::Query {
-            sql: "deallocate fooplan".to_owned(),
+            sql: "deallocate foo_plan".to_owned(),
         })
         .expect("query executed");
     collector.assert_receive_single(Ok(QueryEvent::StatementDeallocated));
@@ -272,6 +282,9 @@ fn prepare_reassign_operation_for_all_rows(database_with_table: (InMemory, Resul
 }
 
 #[rstest::rstest]
+#[ignore]
+// TODO: no parameter types is not supported
+// TODO: type inference is not properly implemented
 fn prepare_reassign_operation_for_specified_rows(database_with_table: (InMemory, ResultCollector)) {
     let (mut engine, collector) = database_with_table;
 
@@ -284,23 +297,21 @@ fn prepare_reassign_operation_for_specified_rows(database_with_table: (InMemory,
 
     engine
         .execute(Command::Query {
-            sql: "prepare fooplan as update schema_name.table_name set col2 = $1 where COL3 = $2".to_owned(),
+            sql: "prepare foo_plan as update schema_name.table_name set col2 = $1 where COL3 = $2".to_owned(),
         })
         .expect("query executed");
     collector.assert_receive_single(Ok(QueryEvent::StatementPrepared));
 
     engine
         .execute(Command::Query {
-            sql: "execute fooplan(999, 6)".to_owned(),
+            sql: "execute foo_plan(999, 6)".to_owned(),
         })
         .expect("query executed");
-
-    // TODO: `where` clause needs to be handled in `query_planner`.
     collector.assert_receive_single(Ok(QueryEvent::RecordsUpdated(2)));
 
     engine
         .execute(Command::Query {
-            sql: "deallocate fooplan".to_owned(),
+            sql: "deallocate foo_plan".to_owned(),
         })
         .expect("query executed");
     collector.assert_receive_single(Ok(QueryEvent::StatementDeallocated));
@@ -310,8 +321,6 @@ fn prepare_reassign_operation_for_specified_rows(database_with_table: (InMemory,
             sql: "select * from schema_name.table_name".to_owned(),
         })
         .expect("query executed");
-
-    // TODO: `where` clause needs to be handled in `query_planner`.
     collector.assert_receive_many(vec![
         Ok(QueryEvent::RowDescription(vec![
             ColumnMetadata::new("col1", PgType::SmallInt),

@@ -19,6 +19,7 @@ pub enum Statement {
     DDL(Definition),
     DML(Query),
     Config(Set),
+    Extended(Extended),
 }
 
 impl Display for Statement {
@@ -212,4 +213,20 @@ pub enum Value {
 pub struct Set {
     pub variable: String,
     pub value: String,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum Extended {
+    Prepare {
+        query: Query,
+        name: String,
+        param_types: Vec<DataType>,
+    },
+    Execute {
+        name: String,
+        param_values: Vec<Value>,
+    },
+    Deallocate {
+        name: String,
+    },
 }

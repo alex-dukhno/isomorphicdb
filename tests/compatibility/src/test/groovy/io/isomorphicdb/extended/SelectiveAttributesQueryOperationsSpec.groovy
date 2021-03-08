@@ -62,6 +62,7 @@ class SelectiveAttributesQueryOperationsSpec extends ThreeSmallIntColumnTable {
       pgSelect == dbSelect
   }
 
+  @Ignore("type inference for single col update is not implemented")
   def 'update {specified column}'() {
     given:
       String updateQuery = 'update SCHEMA_NAME.TABLE_NAME set COL2 = ?'

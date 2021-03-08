@@ -62,4 +62,8 @@ impl Session {
     pub fn set_portal(&mut self, portal_name: String, portal: Portal) {
         self.portals.insert(portal_name, portal);
     }
+
+    pub fn remove_portal(&mut self, portal_name: &str) {
+        self.portals.remove(portal_name);
+    }
 }

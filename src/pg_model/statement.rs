@@ -54,10 +54,6 @@ pub enum PreparedStatementState {
         query: Query,
         param_types: Vec<PgType>,
     },
-    Bound {
-        query: Query,
-        params: Vec<ScalarValue>,
-    },
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -79,7 +75,6 @@ impl PreparedStatement {
             PreparedStatementState::Parsed(_) => None,
             PreparedStatementState::Described { param_types, .. } => Some(&param_types),
             PreparedStatementState::ParsedWithParams { param_types, .. } => Some(&param_types),
-            PreparedStatementState::Bound { .. } => None,
         }
     }
 
@@ -88,7 +83,6 @@ impl PreparedStatement {
             PreparedStatementState::Parsed(query) => Some(query.clone()),
             PreparedStatementState::Described { .. } => None,
             PreparedStatementState::ParsedWithParams { query, .. } => Some(query.clone()),
-            PreparedStatementState::Bound { query, .. } => Some(query.clone()),
         }
     }
 

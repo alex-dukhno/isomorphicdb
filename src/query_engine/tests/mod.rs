@@ -36,11 +36,10 @@ mod schema;
 #[cfg(test)]
 mod select;
 // TODO: new engine does not handle extended query flow
-// #[cfg(test)]
-// mod simple_prepared_statement;
+#[cfg(test)]
+mod simple_prepared_statement;
 #[cfg(test)]
 mod table;
-// TODO: new engine does not handle type constraints for update queries
 // TODO: type coercion does not work properly
 // #[cfg(test)]
 // mod type_constraints;
