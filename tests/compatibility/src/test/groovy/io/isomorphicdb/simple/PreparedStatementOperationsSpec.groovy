@@ -6,7 +6,6 @@ import spock.lang.Ignore
 
 import java.sql.SQLException
 
-@Ignore("prepare statements are not supported")
 class PreparedStatementOperationsSpec extends ThreeSmallIntColumnTable {
   private static final String PREPARE_QUERY = '''
         prepare fooplan (smallint, smallint, smallint) as

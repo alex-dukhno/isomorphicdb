@@ -44,13 +44,15 @@ impl StaticTypedTree {
         }
     }
 
-    pub fn eval(self) -> Result<ScalarValue, QueryExecutionError> {
+    pub fn eval(self, param_values: &[ScalarValue]) -> Result<ScalarValue, QueryExecutionError> {
         match self {
             StaticTypedTree::Item(StaticTypedItem::Const(value)) => Ok(value.eval()),
-            StaticTypedTree::Item(StaticTypedItem::Null(_)) => unimplemented!(),
-            StaticTypedTree::Item(StaticTypedItem::Param { .. }) => unimplemented!(),
-            StaticTypedTree::UnOp { op, item } => op.eval(item.eval()?),
-            StaticTypedTree::BiOp { left, op, right, .. } => op.eval(left.eval()?, right.eval()?),
+            StaticTypedTree::Item(StaticTypedItem::Null(_)) => Ok(ScalarValue::Null),
+            StaticTypedTree::Item(StaticTypedItem::Param { index, .. }) => Ok(param_values[index].clone()),
+            StaticTypedTree::UnOp { op, item } => op.eval(item.eval(param_values)?),
+            StaticTypedTree::BiOp { left, op, right, .. } => {
+                op.eval(left.eval(param_values)?, right.eval(param_values)?)
+            }
         }
     }
 }
@@ -99,12 +101,21 @@ impl DynamicTypedTree {
         }
     }
 
-    pub fn eval(self, table_row: &[ScalarValue]) -> Result<ScalarValue, QueryExecutionError> {
+    pub fn eval(
+        self,
+        param_values: &[ScalarValue],
+        table_row: &[ScalarValue],
+    ) -> Result<ScalarValue, QueryExecutionError> {
         match self {
             DynamicTypedTree::Item(DynamicTypedItem::Const(value)) => Ok(value.eval()),
             DynamicTypedTree::Item(DynamicTypedItem::Column { index, .. }) => Ok(table_row[index].clone()),
-            DynamicTypedTree::UnOp { op, item } => op.eval(item.eval(table_row)?),
-            DynamicTypedTree::BiOp { left, op, right, .. } => op.eval(left.eval(table_row)?, right.eval(table_row)?),
+            DynamicTypedTree::Item(DynamicTypedItem::Param { index, .. }) => Ok(param_values[index].clone()),
+            DynamicTypedTree::Item(DynamicTypedItem::Null(_)) => Ok(ScalarValue::Null),
+            DynamicTypedTree::UnOp { op, item } => op.eval(item.eval(param_values, table_row)?),
+            DynamicTypedTree::BiOp { left, op, right, .. } => op.eval(
+                left.eval(param_values, table_row)?,
+                right.eval(param_values, table_row)?,
+            ),
         }
     }
 }
@@ -112,6 +123,11 @@ impl DynamicTypedTree {
 #[derive(Debug, PartialEq, Clone)]
 pub enum DynamicTypedItem {
     Const(TypedValue),
+    Param {
+        index: usize,
+        type_family: Option<SqlTypeFamily>,
+    },
+    Null(Option<SqlTypeFamily>),
     Column {
         name: String,
         sql_type: SqlTypeFamily,
@@ -124,6 +140,8 @@ impl DynamicTypedItem {
         match self {
             DynamicTypedItem::Const(typed_value) => typed_value.type_family(),
             DynamicTypedItem::Column { sql_type, .. } => Some(*sql_type),
+            DynamicTypedItem::Param { type_family, .. } => *type_family,
+            DynamicTypedItem::Null(type_family) => *type_family,
         }
     }
 }

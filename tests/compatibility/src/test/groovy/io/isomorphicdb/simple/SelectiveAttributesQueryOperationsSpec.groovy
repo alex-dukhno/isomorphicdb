@@ -2,7 +2,6 @@ package io.isomorphicdb.simple
 
 import groovy.sql.GroovyRowResult
 import io.isomorphicdb.ThreeSmallIntColumnTable
-import spock.lang.Ignore
 
 class SelectiveAttributesQueryOperationsSpec extends ThreeSmallIntColumnTable {
   private static final String INSERT_QUERY = '''

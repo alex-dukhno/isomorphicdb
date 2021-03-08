@@ -224,6 +224,18 @@ impl Display for SqlType {
     }
 }
 
+impl From<&PgType> for SqlTypeFamily {
+    fn from(pg_type: &PgType) -> SqlTypeFamily {
+        match pg_type {
+            PgType::SmallInt => SqlTypeFamily::SmallInt,
+            PgType::Integer => SqlTypeFamily::Integer,
+            PgType::BigInt => SqlTypeFamily::BigInt,
+            PgType::Char | PgType::VarChar => SqlTypeFamily::String,
+            PgType::Bool => SqlTypeFamily::Bool,
+        }
+    }
+}
+
 impl Into<PgType> for &SqlType {
     fn into(self) -> PgType {
         match self {

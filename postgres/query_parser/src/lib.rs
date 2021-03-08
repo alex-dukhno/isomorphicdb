@@ -14,8 +14,8 @@
 
 use postgres_parser::{nodes, sys, Node, PgParserError, SqlStatementScanner};
 use query_ast::{
-    Assignment, BinaryOperator, ColumnDef, DataType, Definition, DeleteStatement, Expr, InsertSource, InsertStatement,
-    Query, SelectItem, SelectStatement, Set, Statement, UnaryOperator, UpdateStatement, Value, Values,
+    Assignment, BinaryOperator, ColumnDef, DataType, Definition, DeleteStatement, Expr, Extended, InsertSource,
+    InsertStatement, Query, SelectItem, SelectStatement, Set, Statement, UnaryOperator, UpdateStatement, Value, Values,
 };
 use query_response::QueryError;
 use std::fmt::{self, Display, Formatter};
@@ -173,161 +173,17 @@ impl QueryParser {
                         column_names,
                     }));
                 }
-                Ok(Some(Node::InsertStmt(nodes::InsertStmt {
-                    relation,
-                    cols,
-                    selectStmt: select_statement,
-                    onConflictClause: _on_conflict_clause,
-                    returningList: _return_list,
-                    withClause: _with_clause,
-                    override_: _override,
-                }))) => {
-                    let relation = relation.unwrap();
-                    let schema_name = relation.schemaname.unwrap_or_else(|| "public".to_owned());
-                    let table_name = relation.relname.unwrap();
-                    let mut columns = vec![];
-                    for col in cols.unwrap_or_else(Vec::new) {
-                        println!("COL {:?}", col);
-                        match col {
-                            Node::ResTarget(nodes::ResTarget {
-                                name: Some(col_name), ..
-                            }) => {
-                                columns.push(col_name);
-                            }
-                            _ => unimplemented!(),
-                        }
-                    }
-                    println!("SELECT STMT - {:?}", select_statement);
-                    let mut values = vec![];
-                    if let Some(stmt) = select_statement {
-                        if let Node::SelectStmt(nodes::SelectStmt {
-                            valuesLists: Some(lists),
-                            ..
-                        }) = *stmt
-                        {
-                            for list in lists {
-                                if let Node::List(list) = list {
-                                    let mut row = vec![];
-                                    for raw_value in list {
-                                        row.push(self.parse_expr(raw_value));
-                                    }
-                                    values.push(row);
-                                }
-                            }
-                        } else {
-                            unimplemented!()
-                        }
-                    }
-                    statements.push(Statement::DML(Query::Insert(InsertStatement {
-                        schema_name,
-                        table_name,
-                        columns,
-                        source: InsertSource::Values(Values(values)),
-                    })));
+                Ok(Some(insert @ Node::InsertStmt(_))) => {
+                    statements.push(Statement::DML(self.process_query(insert)));
                 }
-                Ok(Some(Node::SelectStmt(nodes::SelectStmt {
-                    distinctClause: None,
-                    intoClause: None,
-                    targetList: target_list,
-                    fromClause: from_clause,
-                    whereClause: None,
-                    groupClause: None,
-                    havingClause: None,
-                    windowClause: None,
-                    valuesLists: None,
-                    sortClause: None,
-                    limitOffset: None,
-                    limitCount: None,
-                    limitOption: sys::LimitOption::LIMIT_OPTION_COUNT,
-                    lockingClause: None,
-                    withClause: None,
-                    op: sys::SetOperation::SETOP_NONE,
-                    all: false,
-                    larg: None,
-                    rarg: None,
-                }))) => {
-                    println!("TARGET LIST {:?}", target_list);
-                    let mut select_items = vec![];
-                    for target in target_list.unwrap() {
-                        match target {
-                            Node::ResTarget(nodes::ResTarget { val: Some(ident), .. }) => match *ident {
-                                Node::ColumnRef(nodes::ColumnRef {
-                                    fields: Some(fields), ..
-                                }) => {
-                                    for field in fields {
-                                        match field {
-                                            Node::A_Star(_) => select_items.push(SelectItem::Wildcard),
-                                            Node::Value(nodes::Value {
-                                                string: Some(col_name), ..
-                                            }) => select_items.push(SelectItem::UnnamedExpr(Expr::Column(col_name))),
-                                            _ => unimplemented!(),
-                                        }
-                                    }
-                                }
-                                _ => unimplemented!(),
-                            },
-                            _ => unimplemented!(),
-                        }
-                    }
-                    let (schema_name, table_name) = match from_clause.unwrap().pop() {
-                        Some(Node::RangeVar(nodes::RangeVar {
-                            schemaname: schema_name,
-                            relname: table_name,
-                            ..
-                        })) => (schema_name.unwrap(), table_name.unwrap()),
-                        _ => unimplemented!(),
-                    };
-                    statements.push(Statement::DML(Query::Select(SelectStatement {
-                        select_items,
-                        schema_name,
-                        table_name,
-                        where_clause: None,
-                    })));
+                Ok(Some(select @ Node::SelectStmt(_))) => {
+                    statements.push(Statement::DML(self.process_query(select)));
                 }
-                Ok(Some(Node::UpdateStmt(nodes::UpdateStmt {
-                    relation,
-                    targetList: target_list,
-                    whereClause: None,
-                    fromClause: None,
-                    returningList: None,
-                    withClause: None,
-                }))) => {
-                    let relation = relation.unwrap();
-                    let schema_name = relation.schemaname.unwrap_or_else(|| "public".to_owned());
-                    let table_name = relation.relname.unwrap();
-                    let mut assignments = vec![];
-                    for target in target_list.unwrap() {
-                        println!("{:?}", target);
-                        match target {
-                            Node::ResTarget(nodes::ResTarget { name, val, .. }) => assignments.push(Assignment {
-                                column: name.unwrap().to_lowercase(),
-                                value: self.parse_expr(*val.unwrap()),
-                            }),
-                            _ => unimplemented!(),
-                        }
-                    }
-                    statements.push(Statement::DML(Query::Update(UpdateStatement {
-                        schema_name,
-                        table_name,
-                        assignments,
-                        where_clause: None,
-                    })));
+                Ok(Some(update @ Node::UpdateStmt(_))) => {
+                    statements.push(Statement::DML(self.process_query(update)));
                 }
-                Ok(Some(Node::DeleteStmt(nodes::DeleteStmt {
-                    relation,
-                    usingClause: None,
-                    whereClause: None,
-                    returningList: None,
-                    withClause: None,
-                }))) => {
-                    let relation = relation.unwrap();
-                    let schema_name = relation.schemaname.unwrap_or_else(|| "public".to_owned());
-                    let table_name = relation.relname.unwrap();
-                    statements.push(Statement::DML(Query::Delete(DeleteStatement {
-                        schema_name,
-                        table_name,
-                        where_clause: None,
-                    })));
+                Ok(Some(delete @ Node::DeleteStmt(_))) => {
+                    statements.push(Statement::DML(self.process_query(delete)));
                 }
                 Ok(Some(Node::VariableSetStmt(nodes::VariableSetStmt { name, .. }))) => {
                     statements.push(Statement::Config(Set {
@@ -335,10 +191,206 @@ impl QueryParser {
                         value: "value".to_owned(),
                     }))
                 }
+                Ok(Some(Node::PrepareStmt(nodes::PrepareStmt {
+                    name: Some(name),
+                    argtypes: Some(arg_types),
+                    query: Some(query),
+                }))) => {
+                    let mut param_types = vec![];
+                    for arg_type in arg_types {
+                        match arg_type {
+                            Node::TypeName(type_name) => param_types.push(self.process_type(type_name)),
+                            _ => unimplemented!(),
+                        }
+                    }
+                    statements.push(Statement::Extended(Extended::Prepare {
+                        name,
+                        param_types,
+                        query: self.process_query(*query),
+                    }))
+                }
+                Ok(Some(Node::ExecuteStmt(nodes::ExecuteStmt {
+                    name: Some(name),
+                    params: Some(params),
+                }))) => {
+                    let mut param_values = vec![];
+                    for param in params {
+                        match self.parse_expr(param) {
+                            Expr::Value(value) => param_values.push(value),
+                            other => unreachable!("{:?} could not be used as parameter", other),
+                        }
+                    }
+                    statements.push(Statement::Extended(Extended::Execute { name, param_values }))
+                }
+                Ok(Some(Node::DeallocateStmt(nodes::DeallocateStmt { name: Some(name) }))) => {
+                    statements.push(Statement::Extended(Extended::Deallocate { name }))
+                }
                 Ok(Some(node)) => unimplemented!("NODE is not processed {:?}", node),
             }
         }
         Ok(statements)
+    }
+
+    fn process_query(&self, node: Node) -> Query {
+        match node {
+            Node::InsertStmt(nodes::InsertStmt {
+                relation,
+                cols,
+                selectStmt: select_statement,
+                onConflictClause: _on_conflict_clause,
+                returningList: _return_list,
+                withClause: _with_clause,
+                override_: _override,
+            }) => {
+                let relation = relation.unwrap();
+                let schema_name = relation.schemaname.unwrap_or_else(|| "public".to_owned());
+                let table_name = relation.relname.unwrap();
+                let mut columns = vec![];
+                for col in cols.unwrap_or_else(Vec::new) {
+                    println!("COL {:?}", col);
+                    match col {
+                        Node::ResTarget(nodes::ResTarget {
+                            name: Some(col_name), ..
+                        }) => {
+                            columns.push(col_name);
+                        }
+                        _ => unimplemented!(),
+                    }
+                }
+                println!("SELECT STMT - {:?}", select_statement);
+                let mut values = vec![];
+                if let Some(stmt) = select_statement {
+                    if let Node::SelectStmt(nodes::SelectStmt {
+                        valuesLists: Some(lists),
+                        ..
+                    }) = *stmt
+                    {
+                        for list in lists {
+                            if let Node::List(list) = list {
+                                let mut row = vec![];
+                                for raw_value in list {
+                                    row.push(self.parse_expr(raw_value));
+                                }
+                                values.push(row);
+                            }
+                        }
+                    } else {
+                        unimplemented!()
+                    }
+                }
+                Query::Insert(InsertStatement {
+                    schema_name,
+                    table_name,
+                    columns,
+                    source: InsertSource::Values(Values(values)),
+                })
+            }
+            Node::SelectStmt(nodes::SelectStmt {
+                distinctClause: None,
+                intoClause: None,
+                targetList: target_list,
+                fromClause: from_clause,
+                whereClause: where_clause,
+                groupClause: None,
+                havingClause: None,
+                windowClause: None,
+                valuesLists: None,
+                sortClause: None,
+                limitOffset: None,
+                limitCount: None,
+                limitOption: sys::LimitOption::LIMIT_OPTION_COUNT,
+                lockingClause: None,
+                withClause: None,
+                op: sys::SetOperation::SETOP_NONE,
+                all: false,
+                larg: None,
+                rarg: None,
+            }) => {
+                println!("TARGET LIST {:?}", target_list);
+                let mut select_items = vec![];
+                for target in target_list.unwrap() {
+                    match target {
+                        Node::ResTarget(nodes::ResTarget { val: Some(ident), .. }) => match *ident {
+                            Node::ColumnRef(nodes::ColumnRef {
+                                fields: Some(fields), ..
+                            }) => {
+                                for field in fields {
+                                    match field {
+                                        Node::A_Star(_) => select_items.push(SelectItem::Wildcard),
+                                        Node::Value(nodes::Value {
+                                            string: Some(col_name), ..
+                                        }) => select_items.push(SelectItem::UnnamedExpr(Expr::Column(col_name))),
+                                        _ => unimplemented!(),
+                                    }
+                                }
+                            }
+                            _ => unimplemented!(),
+                        },
+                        _ => unimplemented!(),
+                    }
+                }
+                let (schema_name, table_name) = match from_clause.unwrap().pop() {
+                    Some(Node::RangeVar(nodes::RangeVar {
+                        schemaname: schema_name,
+                        relname: table_name,
+                        ..
+                    })) => (schema_name.unwrap(), table_name.unwrap()),
+                    _ => unimplemented!(),
+                };
+                Query::Select(SelectStatement {
+                    select_items,
+                    schema_name,
+                    table_name,
+                    where_clause: where_clause.map(|expr| self.parse_expr(*expr)),
+                })
+            }
+            Node::UpdateStmt(nodes::UpdateStmt {
+                relation,
+                targetList: target_list,
+                whereClause: where_clause,
+                fromClause: None,
+                returningList: None,
+                withClause: None,
+            }) => {
+                let relation = relation.unwrap();
+                let schema_name = relation.schemaname.unwrap_or_else(|| "public".to_owned());
+                let table_name = relation.relname.unwrap();
+                let mut assignments = vec![];
+                for target in target_list.unwrap() {
+                    println!("{:?}", target);
+                    match target {
+                        Node::ResTarget(nodes::ResTarget { name, val, .. }) => assignments.push(Assignment {
+                            column: name.unwrap().to_lowercase(),
+                            value: self.parse_expr(*val.unwrap()),
+                        }),
+                        _ => unimplemented!(),
+                    }
+                }
+                Query::Update(UpdateStatement {
+                    schema_name,
+                    table_name,
+                    assignments,
+                    where_clause: where_clause.map(|expr| self.parse_expr(*expr)),
+                })
+            }
+            Node::DeleteStmt(nodes::DeleteStmt {
+                relation,
+                usingClause: None,
+                whereClause: where_clause,
+                returningList: None,
+                withClause: None,
+            }) => {
+                let relation = relation.unwrap();
+                let schema_name = relation.schemaname.unwrap_or_else(|| "public".to_owned());
+                let table_name = relation.relname.unwrap();
+                Query::Delete(DeleteStatement {
+                    schema_name,
+                    table_name,
+                    where_clause: where_clause.map(|expr| self.parse_expr(*expr)),
+                })
+            }
+            other => unimplemented!("NOT IMPL: {:?}", other),
+        }
     }
 
     fn process_column(&self, node: Node) -> ColumnDef {

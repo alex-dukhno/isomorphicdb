@@ -35,7 +35,7 @@ fn string_and_string(operator: BiOperator, left: &str, right: &str, result: bool
                 right.to_owned()
             )))),
         }
-        .eval(),
+        .eval(&[]),
         Ok(ScalarValue::Bool(result))
     );
 }
@@ -55,7 +55,7 @@ fn string_and_boolean(operator: BiOperator) {
             op: operator,
             right: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Bool(true)))),
         }
-        .eval(),
+        .eval(&[]),
         Err(QueryExecutionError::undefined_bi_function(
             operator,
             SqlTypeFamily::String,
@@ -72,7 +72,7 @@ fn string_and_boolean(operator: BiOperator) {
                 "abc".to_owned()
             )))),
         }
-        .eval(),
+        .eval(&[]),
         Err(QueryExecutionError::undefined_bi_function(
             operator,
             SqlTypeFamily::Bool,
@@ -99,7 +99,7 @@ fn string_and_number(operator: BiOperator) {
                 "abc".to_owned()
             )))),
         }
-        .eval(),
+        .eval(&[]),
         Err(QueryExecutionError::undefined_bi_function(
             operator,
             SqlTypeFamily::Integer,
@@ -119,7 +119,7 @@ fn string_and_number(operator: BiOperator) {
                 type_family: SqlTypeFamily::Integer
             }))),
         }
-        .eval(),
+        .eval(&[]),
         Err(QueryExecutionError::undefined_bi_function(
             operator,
             SqlTypeFamily::String,
@@ -141,7 +141,7 @@ fn others(operator: BiOperator) {
             op: operator,
             right: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Bool(false)))),
         }
-        .eval(),
+        .eval(&[]),
         Err(QueryExecutionError::undefined_bi_function(
             operator,
             SqlTypeFamily::Bool,
@@ -158,7 +158,7 @@ fn others(operator: BiOperator) {
             op: operator,
             right: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Bool(false)))),
         }
-        .eval(),
+        .eval(&[]),
         Err(QueryExecutionError::undefined_bi_function(
             operator,
             SqlTypeFamily::Integer,
@@ -175,7 +175,7 @@ fn others(operator: BiOperator) {
                 type_family: SqlTypeFamily::Integer
             })))
         }
-        .eval(),
+        .eval(&[]),
         Err(QueryExecutionError::undefined_bi_function(
             operator,
             SqlTypeFamily::Bool,
@@ -196,7 +196,7 @@ fn others(operator: BiOperator) {
                 type_family: SqlTypeFamily::Integer
             }))),
         }
-        .eval(),
+        .eval(&[]),
         Err(QueryExecutionError::undefined_bi_function(
             operator,
             SqlTypeFamily::Integer,

@@ -52,12 +52,20 @@ pub enum QueryPlan {
 }
 
 impl QueryPlan {
-    pub fn execute(self) -> Result<QueryPlanResult, QueryExecutionError> {
+    pub fn execute(self, param_values: Vec<ScalarValue>) -> Result<QueryPlanResult, QueryExecutionError> {
         match self {
-            QueryPlan::Insert(insert_query_plan) => insert_query_plan.execute().map(QueryPlanResult::Inserted),
-            QueryPlan::Delete(delete_query_plan) => delete_query_plan.execute().map(QueryPlanResult::Deleted),
-            QueryPlan::Update(update_query_plan) => update_query_plan.execute().map(QueryPlanResult::Updated),
-            QueryPlan::Select(select_query_plan) => select_query_plan.execute().map(QueryPlanResult::Selected),
+            QueryPlan::Insert(insert_query_plan) => {
+                insert_query_plan.execute(param_values).map(QueryPlanResult::Inserted)
+            }
+            QueryPlan::Delete(delete_query_plan) => {
+                delete_query_plan.execute(param_values).map(QueryPlanResult::Deleted)
+            }
+            QueryPlan::Update(update_query_plan) => {
+                update_query_plan.execute(param_values).map(QueryPlanResult::Updated)
+            }
+            QueryPlan::Select(select_query_plan) => {
+                select_query_plan.execute(param_values).map(QueryPlanResult::Selected)
+            }
         }
     }
 }
@@ -65,13 +73,13 @@ impl QueryPlan {
 pub trait Flow {
     type Output;
 
-    fn next_tuple(&mut self) -> Result<Option<Self::Output>, QueryExecutionError>;
+    fn next_tuple(&mut self, param_values: &[ScalarValue]) -> Result<Option<Self::Output>, QueryExecutionError>;
 }
 
 pub struct StaticValues(Box<dyn Iterator<Item = Vec<Option<StaticTypedTree>>>>);
 
 impl StaticValues {
-    pub fn from(values: Vec<Vec<Option<StaticTypedTree>>>) -> Box<StaticValues> {
+    pub fn new(values: Vec<Vec<Option<StaticTypedTree>>>) -> Box<StaticValues> {
         Box::new(StaticValues(Box::new(values.into_iter())))
     }
 }
@@ -79,7 +87,7 @@ impl StaticValues {
 impl Flow for StaticValues {
     type Output = Vec<Option<StaticTypedTree>>;
 
-    fn next_tuple(&mut self) -> Result<Option<Self::Output>, QueryExecutionError> {
+    fn next_tuple(&mut self, _param_values: &[ScalarValue]) -> Result<Option<Self::Output>, QueryExecutionError> {
         Ok(self.0.next())
     }
 }
@@ -97,13 +105,13 @@ impl StaticExpressionEval {
 impl Flow for StaticExpressionEval {
     type Output = Vec<Option<ScalarValue>>;
 
-    fn next_tuple(&mut self) -> Result<Option<Self::Output>, QueryExecutionError> {
-        if let Ok(Some(tuple)) = self.source.next_tuple() {
+    fn next_tuple(&mut self, param_values: &[ScalarValue]) -> Result<Option<Self::Output>, QueryExecutionError> {
+        if let Ok(Some(tuple)) = self.source.next_tuple(param_values) {
             let mut next_tuple = vec![];
             for value in tuple {
                 let typed_value = match value {
                     None => None,
-                    Some(value) => match value.eval() {
+                    Some(value) => match value.eval(param_values) {
                         Err(error) => return Err(error),
                         Ok(value) => Some(value),
                     },
@@ -134,8 +142,8 @@ impl ConstraintValidator {
 impl Flow for ConstraintValidator {
     type Output = Vec<Option<Box<dyn ToDatum>>>;
 
-    fn next_tuple(&mut self) -> Result<Option<Self::Output>, QueryExecutionError> {
-        if let Some(tuple) = self.source.next_tuple()? {
+    fn next_tuple(&mut self, param_values: &[ScalarValue]) -> Result<Option<Self::Output>, QueryExecutionError> {
+        if let Some(tuple) = self.source.next_tuple(param_values)? {
             let mut data = vec![];
             for (index, value) in tuple.into_iter().enumerate() {
                 let value = match (value, self.column_types[index].1) {
@@ -215,9 +223,9 @@ impl InsertQueryPlan {
         InsertQueryPlan { source, table }
     }
 
-    pub fn execute(mut self) -> Result<usize, QueryExecutionError> {
+    pub fn execute(mut self, param_values: Vec<ScalarValue>) -> Result<usize, QueryExecutionError> {
         let mut len = 0;
-        while let Some(data) = self.source.next_tuple()? {
+        while let Some(data) = self.source.next_tuple(&param_values)? {
             self.table.write(Binary::pack(
                 &data
                     .into_iter()
@@ -244,7 +252,7 @@ impl FullTableScan {
 impl Flow for FullTableScan {
     type Output = (Binary, Binary);
 
-    fn next_tuple(&mut self) -> Result<Option<Self::Output>, QueryExecutionError> {
+    fn next_tuple(&mut self, _param_values: &[ScalarValue]) -> Result<Option<Self::Output>, QueryExecutionError> {
         let record = self.source.next();
         log::debug!("TABLE RECORD {:?}", record);
         Ok(record)
@@ -264,8 +272,8 @@ impl TableRecordKeys {
 impl Flow for TableRecordKeys {
     type Output = Binary;
 
-    fn next_tuple(&mut self) -> Result<Option<Self::Output>, QueryExecutionError> {
-        if let Some((key, _value)) = self.source.next_tuple()? {
+    fn next_tuple(&mut self, param_values: &[ScalarValue]) -> Result<Option<Self::Output>, QueryExecutionError> {
+        if let Some((key, _value)) = self.source.next_tuple(param_values)? {
             Ok(Some(key))
         } else {
             Ok(None)
@@ -283,9 +291,9 @@ impl DeleteQueryPlan {
         DeleteQueryPlan { source, table }
     }
 
-    pub fn execute(mut self) -> Result<usize, QueryExecutionError> {
+    pub fn execute(mut self, param_values: Vec<ScalarValue>) -> Result<usize, QueryExecutionError> {
         let mut len = 0;
-        while let Some(key) = self.source.next_tuple()? {
+        while let Some(key) = self.source.next_tuple(&param_values)? {
             self.table.write_key(key, None);
             len += 1;
         }
@@ -306,7 +314,7 @@ impl Repeater {
 impl Flow for Repeater {
     type Output = Vec<Option<DynamicTypedTree>>;
 
-    fn next_tuple(&mut self) -> Result<Option<Self::Output>, QueryExecutionError> {
+    fn next_tuple(&mut self, _param_values: &[ScalarValue]) -> Result<Option<Self::Output>, QueryExecutionError> {
         Ok(Some(self.source.clone()))
     }
 }
@@ -328,8 +336,8 @@ impl DynamicValues {
 impl Flow for DynamicValues {
     type Output = Vec<Option<ScalarValue>>;
 
-    fn next_tuple(&mut self) -> Result<Option<Self::Output>, QueryExecutionError> {
-        if let Some((_key, value)) = self.records.next_tuple()? {
+    fn next_tuple(&mut self, param_values: &[ScalarValue]) -> Result<Option<Self::Output>, QueryExecutionError> {
+        if let Some((_key, value)) = self.records.next_tuple(param_values)? {
             let table_row = value
                 .unpack()
                 .into_iter()
@@ -360,12 +368,12 @@ impl Flow for DynamicValues {
                     Datum::String(value) => ScalarValue::String(value),
                 })
                 .collect::<Vec<_>>();
-            if let Some(tuple) = self.source.next_tuple()? {
+            if let Some(tuple) = self.source.next_tuple(param_values)? {
                 let mut next_tuple = vec![];
                 for value in tuple {
                     let value = match value {
                         None => None,
-                        Some(tree) => match tree.eval(&table_row) {
+                        Some(tree) => match tree.eval(param_values, &table_row) {
                             Err(error) => return Err(error),
                             Ok(value) => Some(value),
                         },
@@ -397,11 +405,11 @@ impl UpdateQueryPlan {
         UpdateQueryPlan { values, records, table }
     }
 
-    pub fn execute(mut self) -> Result<usize, QueryExecutionError> {
+    pub fn execute(mut self, param_values: Vec<ScalarValue>) -> Result<usize, QueryExecutionError> {
         let mut len = 0;
-        while let Some((key, row)) = self.records.next_tuple()? {
+        while let Some((key, row)) = self.records.next_tuple(&param_values)? {
             let mut unpacked = row.unpack();
-            if let Some(values) = self.values.next_tuple()? {
+            if let Some(values) = self.values.next_tuple(&param_values)? {
                 for (index, value) in values.into_iter().enumerate() {
                     let new_value = match value {
                         None => unpacked[index].clone(),
@@ -437,7 +445,10 @@ impl SelectQueryPlan {
         }
     }
 
-    pub fn execute(mut self) -> Result<(Vec<ColumnDef>, Vec<Vec<ScalarValue>>), QueryExecutionError> {
+    pub fn execute(
+        mut self,
+        param_values: Vec<ScalarValue>,
+    ) -> Result<(Vec<ColumnDef>, Vec<Vec<ScalarValue>>), QueryExecutionError> {
         log::debug!("COLUMNS TO SELECT {:?}", self.columns);
         let mut column_defs = vec![];
         let columns = self
@@ -451,7 +462,7 @@ impl SelectQueryPlan {
         }
         log::debug!("COLUMNS METADATA {:?}", column_defs);
         let mut set = vec![];
-        while let Some(row) = self.source.next_tuple()? {
+        while let Some(row) = self.source.next_tuple(&param_values)? {
             let unpacked = row.1.unpack();
             let mut data = vec![];
             for name in self.columns.iter() {

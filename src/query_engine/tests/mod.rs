@@ -17,7 +17,7 @@ use crate::pg_model::Command;
 use catalog::InMemoryDatabase;
 use postgres::{
     query_response::{QueryEvent, QueryResult},
-    wire_protocol::ColumnMetadata,
+    wire_protocol::{ColumnMetadata, PgFormat},
 };
 use std::{
     io,
@@ -27,9 +27,8 @@ use std::{
 
 #[cfg(test)]
 mod delete;
-// TODO: new engine does not handle extended query flow
-// #[cfg(test)]
-// mod extended_query_flow;
+#[cfg(test)]
+mod extended_query_flow;
 #[cfg(test)]
 mod insert;
 #[cfg(test)]
@@ -37,11 +36,10 @@ mod schema;
 #[cfg(test)]
 mod select;
 // TODO: new engine does not handle extended query flow
-// #[cfg(test)]
-// mod simple_prepared_statement;
+#[cfg(test)]
+mod simple_prepared_statement;
 #[cfg(test)]
 mod table;
-// TODO: new engine does not handle type constraints for update queries
 // TODO: type coercion does not work properly
 // #[cfg(test)]
 // mod type_constraints;

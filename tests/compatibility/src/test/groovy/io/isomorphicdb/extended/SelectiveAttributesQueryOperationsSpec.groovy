@@ -4,7 +4,6 @@ import groovy.sql.GroovyRowResult
 import io.isomorphicdb.ThreeSmallIntColumnTable
 import spock.lang.Ignore
 
-@Ignore("prepared statements are not supported")
 class SelectiveAttributesQueryOperationsSpec extends ThreeSmallIntColumnTable {
   private static final String INSERT_QUERY = '''
     insert into SCHEMA_NAME.TABLE_NAME (COL2, COL3, COL1)
@@ -63,6 +62,7 @@ class SelectiveAttributesQueryOperationsSpec extends ThreeSmallIntColumnTable {
       pgSelect == dbSelect
   }
 
+  @Ignore("type inference for single col update is not implemented")
   def 'update {specified column}'() {
     given:
       String updateQuery = 'update SCHEMA_NAME.TABLE_NAME set COL2 = ?'
@@ -83,7 +83,6 @@ class SelectiveAttributesQueryOperationsSpec extends ThreeSmallIntColumnTable {
       pgSelect == dbSelect
   }
 
-  @Ignore('[An I/O error occurred while sending to the backend.] happens when query sent to database')
   def 'update{with dynamic expression}'() {
     given:
       String updateQueryWithDynamicExpression =

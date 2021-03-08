@@ -17,6 +17,8 @@ use super::*;
 #[cfg(test)]
 mod delete;
 #[cfg(test)]
+mod extended;
+#[cfg(test)]
 mod index;
 #[cfg(test)]
 mod insert;

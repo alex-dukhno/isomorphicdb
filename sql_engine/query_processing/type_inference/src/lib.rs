@@ -41,8 +41,14 @@ impl Default for TypeInference {
 }
 
 impl TypeInference {
-    pub fn infer_dynamic(&self, tree: DynamicUntypedTree) -> DynamicTypedTree {
+    pub fn infer_dynamic(&self, tree: DynamicUntypedTree, param_types: &[SqlTypeFamily]) -> DynamicTypedTree {
         match tree {
+            DynamicUntypedTree::Item(DynamicUntypedItem::Param(index)) => {
+                DynamicTypedTree::Item(DynamicTypedItem::Param {
+                    index,
+                    type_family: Some(param_types[index]),
+                })
+            }
             DynamicUntypedTree::Item(DynamicUntypedItem::Column { name, sql_type, index }) => {
                 DynamicTypedTree::Item(DynamicTypedItem::Column {
                     name,
@@ -93,8 +99,8 @@ impl TypeInference {
             DynamicUntypedTree::BiOp { left, op, right } => {
                 log::debug!("LEFT TREE {:#?}", left);
                 log::debug!("RIGHT TREE {:#?}", right);
-                let left_tree = self.infer_dynamic(*left);
-                let right_tree = self.infer_dynamic(*right);
+                let left_tree = self.infer_dynamic(*left, param_types);
+                let right_tree = self.infer_dynamic(*right, param_types);
                 let type_family = match (left_tree.type_family(), right_tree.type_family()) {
                     (Some(left_type_family), Some(right_type_family)) => {
                         match left_type_family.compare(&right_type_family) {
@@ -115,17 +121,17 @@ impl TypeInference {
             }
             DynamicUntypedTree::UnOp { op, item } => DynamicTypedTree::UnOp {
                 op,
-                item: Box::new(self.infer_dynamic(*item)),
+                item: Box::new(self.infer_dynamic(*item, param_types)),
             },
             _ => unimplemented!(),
         }
     }
 
-    pub fn infer_static(&self, tree: StaticUntypedTree) -> StaticTypedTree {
+    pub fn infer_static(&self, tree: StaticUntypedTree, param_types: &[SqlTypeFamily]) -> StaticTypedTree {
         match tree {
             StaticUntypedTree::BiOp { left, op, right } => {
-                let left_tree = self.infer_static(*left);
-                let right_tree = self.infer_static(*right);
+                let left_tree = self.infer_static(*left, param_types);
+                let right_tree = self.infer_static(*right, param_types);
                 let type_family = match (left_tree.type_family(), right_tree.type_family()) {
                     (Some(left_type_family), Some(right_type_family)) => {
                         match left_type_family.compare(&right_type_family) {
@@ -157,13 +163,11 @@ impl TypeInference {
                             value: num,
                             type_family: SqlTypeFamily::Integer,
                         }))
-                    } else if self.big_int_range.contains(&num) {
+                    } else {
                         StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
                             value: num,
                             type_family: SqlTypeFamily::BigInt,
                         }))
-                    } else {
-                        unimplemented!()
                     }
                 } else if self.real_range.contains(&num) {
                     StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
@@ -185,10 +189,14 @@ impl TypeInference {
             StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Bool(Bool(boolean)))) => {
                 StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Bool(boolean)))
             }
+            StaticUntypedTree::Item(StaticUntypedItem::Param(index)) => StaticTypedTree::Item(StaticTypedItem::Param {
+                index,
+                type_family: Some(param_types[index]),
+            }),
             StaticUntypedTree::Item(_) => unimplemented!(),
             StaticUntypedTree::UnOp { op, item } => StaticTypedTree::UnOp {
                 op,
-                item: Box::new(self.infer_static(*item)),
+                item: Box::new(self.infer_static(*item, param_types)),
             },
         }
     }

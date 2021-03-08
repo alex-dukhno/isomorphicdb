@@ -34,77 +34,116 @@
 //! 4. The client issues an `Execute` message with the name of a portal, causing
 //!    that portal to actually start scanning and returning results.
 
+use data_manipulation::UntypedQuery;
+use data_scalar::ScalarValue;
+use entities::SqlTypeFamily;
 use postgres::{
-    query_response::Description,
+    query_ast::Query,
     wire_protocol::{PgFormat, PgType},
 };
 
-/// A prepared statement.
 #[derive(Clone, Debug, PartialEq)]
-pub struct PreparedStatement<S> {
-    /// The raw prepared SQL statement will be bound to a portal.
-    stmt: S,
-    /// The types of any bound parameters.
-    param_types: Vec<PgType>,
-    /// The type of the rows that will be returned.
-    description: Description,
+pub enum PreparedStatementState {
+    Parsed(Query),
+    Described {
+        query: UntypedQuery,
+        param_types: Vec<PgType>,
+    },
+    ParsedWithParams {
+        query: Query,
+        param_types: Vec<PgType>,
+    },
 }
 
-impl<S> PreparedStatement<S> {
-    /// Constructs a new `PreparedStatement`.
-    #[allow(dead_code)]
-    pub fn new(stmt: S, param_types: Vec<PgType>, description: Description) -> PreparedStatement<S> {
+#[derive(Clone, Debug, PartialEq)]
+pub struct PreparedStatement {
+    state: PreparedStatementState,
+    sql: String,
+}
+
+impl PreparedStatement {
+    pub fn parsed(sql: String, query: Query) -> PreparedStatement {
         PreparedStatement {
-            stmt,
-            param_types,
-            description,
+            state: PreparedStatementState::Parsed(query),
+            sql,
         }
     }
 
-    /// Returns the raw prepared SQL statement.
-    pub fn stmt(&self) -> &S {
-        &self.stmt
+    pub fn param_types(&self) -> Option<&[PgType]> {
+        match &self.state {
+            PreparedStatementState::Parsed(_) => None,
+            PreparedStatementState::Described { param_types, .. } => Some(&param_types),
+            PreparedStatementState::ParsedWithParams { param_types, .. } => Some(&param_types),
+        }
     }
 
-    /// Returns the types of any bound parameters.
-    pub fn param_types(&self) -> &[PgType] {
-        &self.param_types
+    pub fn query(&self) -> Option<Query> {
+        match &self.state {
+            PreparedStatementState::Parsed(query) => Some(query.clone()),
+            PreparedStatementState::Described { .. } => None,
+            PreparedStatementState::ParsedWithParams { query, .. } => Some(query.clone()),
+        }
     }
 
-    /// Returns the type of the rows that will be returned.
-    pub fn description(&self) -> &[(String, PgType)] {
-        self.description.as_slice()
+    pub fn described(&mut self, query: UntypedQuery, param_types: Vec<PgType>) {
+        self.state = PreparedStatementState::Described { query, param_types };
+    }
+
+    pub fn parsed_with_params(&mut self, query: Query, param_types: Vec<PgType>) {
+        self.state = PreparedStatementState::ParsedWithParams { query, param_types };
+    }
+
+    pub fn raw_query(&self) -> &str {
+        self.sql.as_str()
     }
 }
 
 /// A portal represents the execution state of a running or runnable query.
 #[derive(Clone, Debug)]
-pub struct Portal<S> {
+pub struct Portal {
     /// The name of the prepared statement that is bound to this portal.
     statement_name: String,
     /// The bound SQL statement from the prepared statement.
-    stmt: S,
+    stmt: UntypedQuery,
     /// The desired output format for each column in the result set.
     result_formats: Vec<PgFormat>,
+    param_values: Vec<ScalarValue>,
+    param_types: Vec<SqlTypeFamily>,
 }
 
-impl<S> Portal<S> {
+impl Portal {
     /// Constructs a new `Portal`.
-    pub fn new(statement_name: String, stmt: S, result_formats: Vec<PgFormat>) -> Self {
-        Self {
+    pub fn new(
+        statement_name: String,
+        stmt: UntypedQuery,
+        result_formats: Vec<PgFormat>,
+        param_values: Vec<ScalarValue>,
+        param_types: Vec<SqlTypeFamily>,
+    ) -> Portal {
+        Portal {
             statement_name,
             stmt,
             result_formats,
+            param_values,
+            param_types,
         }
     }
 
     /// Returns the bound SQL statement.
-    pub fn stmt(&self) -> &S {
-        &self.stmt
+    pub fn stmt(&self) -> UntypedQuery {
+        self.stmt.clone()
     }
 
     #[allow(dead_code)]
     pub fn stmt_name(&self) -> &str {
         self.statement_name.as_str()
+    }
+
+    pub fn param_values(&self) -> Vec<ScalarValue> {
+        self.param_values.clone()
+    }
+
+    pub fn param_types(&self) -> &[SqlTypeFamily] {
+        &self.param_types
     }
 }

@@ -29,7 +29,7 @@ mod unary_minus {
                     type_family: SqlTypeFamily::Integer
                 }))),
             }
-            .eval(),
+            .eval(&[]),
             Ok(ScalarValue::Num {
                 value: BigDecimal::from(-32767),
                 type_family: SqlTypeFamily::Integer
@@ -44,7 +44,7 @@ mod unary_minus {
                     type_family: SqlTypeFamily::Integer
                 }))),
             }
-            .eval(),
+            .eval(&[]),
             Ok(ScalarValue::Num {
                 value: BigDecimal::from(-32768),
                 type_family: SqlTypeFamily::Integer
@@ -65,7 +65,7 @@ mod unary_minus {
                     }))),
                 })
             }
-            .eval(),
+            .eval(&[]),
             Ok(ScalarValue::Num {
                 value: BigDecimal::from(32767),
                 type_family: SqlTypeFamily::Integer
@@ -83,7 +83,7 @@ mod unary_minus {
                     }))),
                 })
             }
-            .eval(),
+            .eval(&[]),
             Ok(ScalarValue::Num {
                 value: BigDecimal::from(32768),
                 type_family: SqlTypeFamily::Integer
@@ -100,7 +100,7 @@ mod unary_minus {
                     "str".to_owned()
                 ))))
             }
-            .eval(),
+            .eval(&[]),
             Err(QueryExecutionError::undefined_function(
                 UnOperator::Arithmetic(UnArithmetic::Neg),
                 SqlTypeFamily::String
@@ -115,7 +115,7 @@ mod unary_minus {
                 op: UnOperator::Arithmetic(UnArithmetic::Neg),
                 item: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Bool(true))))
             }
-            .eval(),
+            .eval(&[]),
             Err(QueryExecutionError::undefined_function(
                 UnOperator::Arithmetic(UnArithmetic::Neg),
                 SqlTypeFamily::Bool
@@ -138,7 +138,7 @@ mod unary_plus {
                     type_family: SqlTypeFamily::Integer
                 }))),
             }
-            .eval(),
+            .eval(&[]),
             Ok(ScalarValue::Num {
                 value: BigDecimal::from(32767),
                 type_family: SqlTypeFamily::Integer
@@ -153,7 +153,7 @@ mod unary_plus {
                     type_family: SqlTypeFamily::Integer
                 }))),
             }
-            .eval(),
+            .eval(&[]),
             Ok(ScalarValue::Num {
                 value: BigDecimal::from(32768),
                 type_family: SqlTypeFamily::Integer
@@ -170,7 +170,7 @@ mod unary_plus {
                     "str".to_owned()
                 ))))
             }
-            .eval(),
+            .eval(&[]),
             Err(QueryExecutionError::undefined_function(
                 UnOperator::Arithmetic(UnArithmetic::Pos),
                 SqlTypeFamily::String
@@ -185,7 +185,7 @@ mod unary_plus {
                 op: UnOperator::Arithmetic(UnArithmetic::Pos),
                 item: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Bool(true))))
             }
-            .eval(),
+            .eval(&[]),
             Err(QueryExecutionError::undefined_function(
                 UnOperator::Arithmetic(UnArithmetic::Pos),
                 SqlTypeFamily::Bool
@@ -205,7 +205,7 @@ mod unary_not {
                 op: UnOperator::LogicalNot,
                 item: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Bool(true)))),
             }
-            .eval(),
+            .eval(&[]),
             Ok(ScalarValue::Bool(false))
         );
     }
@@ -220,7 +220,7 @@ mod unary_not {
                     type_family: SqlTypeFamily::SmallInt
                 }))),
             }
-            .eval(),
+            .eval(&[]),
             Err(QueryExecutionError::datatype_mismatch(
                 UnOperator::LogicalNot,
                 SqlTypeFamily::Bool,
@@ -238,7 +238,7 @@ mod unary_not {
                     "str".to_owned()
                 )))),
             }
-            .eval(),
+            .eval(&[]),
             Err(QueryExecutionError::datatype_mismatch(
                 UnOperator::LogicalNot,
                 SqlTypeFamily::Bool,
@@ -262,7 +262,7 @@ mod unary_bitwise_not {
                     type_family: SqlTypeFamily::SmallInt
                 }))),
             }
-            .eval(),
+            .eval(&[]),
             Ok(ScalarValue::Num {
                 value: BigDecimal::from(!1),
                 type_family: SqlTypeFamily::SmallInt
@@ -277,7 +277,7 @@ mod unary_bitwise_not {
                     type_family: SqlTypeFamily::Integer
                 }))),
             }
-            .eval(),
+            .eval(&[]),
             Ok(ScalarValue::Num {
                 value: BigDecimal::from(!(i32::MAX - i16::MAX as i32)),
                 type_family: SqlTypeFamily::Integer
@@ -292,7 +292,7 @@ mod unary_bitwise_not {
                     type_family: SqlTypeFamily::BigInt
                 }))),
             }
-            .eval(),
+            .eval(&[]),
             Ok(ScalarValue::Num {
                 value: BigDecimal::from(!(i64::MAX - i32::MAX as i64)),
                 type_family: SqlTypeFamily::BigInt
@@ -310,7 +310,7 @@ mod unary_bitwise_not {
                     type_family: SqlTypeFamily::Real
                 }))),
             }
-            .eval(),
+            .eval(&[]),
             Err(QueryExecutionError::undefined_function(
                 UnOperator::BitwiseNot,
                 SqlTypeFamily::Real
@@ -325,7 +325,7 @@ mod unary_bitwise_not {
                     type_family: SqlTypeFamily::Double
                 }))),
             }
-            .eval(),
+            .eval(&[]),
             Err(QueryExecutionError::undefined_function(
                 UnOperator::BitwiseNot,
                 SqlTypeFamily::Double
@@ -342,7 +342,7 @@ mod unary_bitwise_not {
                     "str".to_owned()
                 )))),
             }
-            .eval(),
+            .eval(&[]),
             Err(QueryExecutionError::undefined_function(
                 UnOperator::BitwiseNot,
                 SqlTypeFamily::String
@@ -357,7 +357,7 @@ mod unary_bitwise_not {
                 op: UnOperator::BitwiseNot,
                 item: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Bool(true))))
             }
-            .eval(),
+            .eval(&[]),
             Err(QueryExecutionError::undefined_function(
                 UnOperator::BitwiseNot,
                 SqlTypeFamily::Bool
@@ -380,7 +380,7 @@ mod square_root {
                     type_family: SqlTypeFamily::Integer
                 }))),
             }
-            .eval(),
+            .eval(&[]),
             Ok(ScalarValue::Num {
                 value: BigDecimal::from(32768).sqrt().unwrap(),
                 type_family: SqlTypeFamily::Double
@@ -398,7 +398,7 @@ mod square_root {
                     type_family: SqlTypeFamily::Integer
                 }))),
             }
-            .eval(),
+            .eval(&[]),
             Err(QueryExecutionError::InvalidArgumentForPowerFunction)
         );
     }
@@ -412,7 +412,7 @@ mod square_root {
                     "str".to_owned()
                 ))))
             }
-            .eval(),
+            .eval(&[]),
             Err(QueryExecutionError::undefined_function(
                 UnOperator::Arithmetic(UnArithmetic::SquareRoot),
                 SqlTypeFamily::String
@@ -427,7 +427,7 @@ mod square_root {
                 op: UnOperator::Arithmetic(UnArithmetic::SquareRoot),
                 item: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Bool(true))))
             }
-            .eval(),
+            .eval(&[]),
             Err(QueryExecutionError::undefined_function(
                 UnOperator::Arithmetic(UnArithmetic::SquareRoot),
                 SqlTypeFamily::Bool
@@ -450,7 +450,7 @@ mod cube_root {
                     type_family: SqlTypeFamily::Integer
                 }))),
             }
-            .eval(),
+            .eval(&[]),
             Ok(ScalarValue::Num {
                 value: BigDecimal::from(32768).cbrt(),
                 type_family: SqlTypeFamily::Double
@@ -467,7 +467,7 @@ mod cube_root {
                     "str".to_owned()
                 ))))
             }
-            .eval(),
+            .eval(&[]),
             Err(QueryExecutionError::undefined_function(
                 UnOperator::Arithmetic(UnArithmetic::CubeRoot),
                 SqlTypeFamily::String
@@ -482,7 +482,7 @@ mod cube_root {
                 op: UnOperator::Arithmetic(UnArithmetic::CubeRoot),
                 item: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Bool(true))))
             }
-            .eval(),
+            .eval(&[]),
             Err(QueryExecutionError::undefined_function(
                 UnOperator::Arithmetic(UnArithmetic::CubeRoot),
                 SqlTypeFamily::Bool
@@ -505,7 +505,7 @@ mod factorial {
                     type_family: SqlTypeFamily::Integer
                 }))),
             }
-            .eval(),
+            .eval(&[]),
             Ok(ScalarValue::Num {
                 value: BigDecimal::from(6),
                 type_family: SqlTypeFamily::BigInt
@@ -523,7 +523,7 @@ mod factorial {
                     type_family: SqlTypeFamily::Integer
                 }))),
             }
-            .eval(),
+            .eval(&[]),
             Ok(ScalarValue::Num {
                 value: BigDecimal::from(1),
                 type_family: SqlTypeFamily::BigInt
@@ -541,7 +541,7 @@ mod factorial {
                     type_family: SqlTypeFamily::Real
                 }))),
             }
-            .eval(),
+            .eval(&[]),
             Err(QueryExecutionError::undefined_function(
                 UnOperator::Arithmetic(UnArithmetic::Factorial),
                 SqlTypeFamily::Real
@@ -556,7 +556,7 @@ mod factorial {
                     type_family: SqlTypeFamily::Double
                 }))),
             }
-            .eval(),
+            .eval(&[]),
             Err(QueryExecutionError::undefined_function(
                 UnOperator::Arithmetic(UnArithmetic::Factorial),
                 SqlTypeFamily::Double
@@ -573,7 +573,7 @@ mod factorial {
                     "str".to_owned()
                 ))))
             }
-            .eval(),
+            .eval(&[]),
             Err(QueryExecutionError::undefined_function(
                 UnOperator::Arithmetic(UnArithmetic::Factorial),
                 SqlTypeFamily::String
@@ -588,7 +588,7 @@ mod factorial {
                 op: UnOperator::Arithmetic(UnArithmetic::Factorial),
                 item: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Bool(true))))
             }
-            .eval(),
+            .eval(&[]),
             Err(QueryExecutionError::undefined_function(
                 UnOperator::Arithmetic(UnArithmetic::Factorial),
                 SqlTypeFamily::Bool
@@ -611,7 +611,7 @@ mod absolute_value {
                     type_family: SqlTypeFamily::Integer
                 }))),
             }
-            .eval(),
+            .eval(&[]),
             Ok(ScalarValue::Num {
                 value: BigDecimal::from(3),
                 type_family: SqlTypeFamily::Integer
@@ -629,7 +629,7 @@ mod absolute_value {
                     type_family: SqlTypeFamily::Integer
                 }))),
             }
-            .eval(),
+            .eval(&[]),
             Ok(ScalarValue::Num {
                 value: BigDecimal::from(3),
                 type_family: SqlTypeFamily::Integer
@@ -646,7 +646,7 @@ mod absolute_value {
                     "str".to_owned()
                 ))))
             }
-            .eval(),
+            .eval(&[]),
             Err(QueryExecutionError::undefined_function(
                 UnOperator::Arithmetic(UnArithmetic::Abs),
                 SqlTypeFamily::String
@@ -661,7 +661,7 @@ mod absolute_value {
                 op: UnOperator::Arithmetic(UnArithmetic::Abs),
                 item: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Bool(true))))
             }
-            .eval(),
+            .eval(&[]),
             Err(QueryExecutionError::undefined_function(
                 UnOperator::Arithmetic(UnArithmetic::Abs),
                 SqlTypeFamily::Bool
