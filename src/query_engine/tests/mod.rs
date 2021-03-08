@@ -17,7 +17,7 @@ use crate::pg_model::Command;
 use catalog::InMemoryDatabase;
 use postgres::{
     query_response::{QueryEvent, QueryResult},
-    wire_protocol::ColumnMetadata,
+    wire_protocol::{ColumnMetadata, PgFormat},
 };
 use std::{
     io,

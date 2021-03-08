@@ -12,36 +12,35 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::pg_model::statement::{Portal, PreparedStatementState};
 use crate::{
     connection::Sender,
-    pg_model::{session::Session, statement::PreparedStatement, Command},
+    pg_model::{
+        session::Session,
+        statement::{Portal, PreparedStatement},
+        Command,
+    },
 };
 use bigdecimal::BigDecimal;
 use catalog::{CatalogDefinition, Database};
 use data_definition::ExecutionOutcome;
 use data_manipulation::{
-    DynamicTypedTree, QueryPlanResult, StaticTypedTree, StaticUntypedItem, StaticUntypedTree, TypedDeleteQuery,
-    TypedInsertQuery, TypedQuery, TypedSelectQuery, TypedUpdateQuery, UntypedQuery,
+    DynamicTypedTree, QueryPlanResult, StaticTypedTree, TypedDeleteQuery, TypedInsertQuery, TypedQuery,
+    TypedSelectQuery, TypedUpdateQuery, UntypedQuery,
 };
 use data_scalar::ScalarValue;
 use definition_planner::DefinitionPlanner;
 use entities::{ColumnDef, SqlType, SqlTypeFamily};
 use itertools::izip;
-use postgres::query_ast::Extended;
-use postgres::query_ast::UnaryOperator::PrefixFactorial;
 use postgres::{
-    query_ast::{Expr, Statement, Value},
+    query_ast::{Extended, Statement, Value},
     query_parser::QueryParser,
     query_response::{QueryError, QueryEvent},
-    wire_protocol::{ColumnMetadata, PgFormat, PgType},
+    wire_protocol::{ColumnMetadata, PgType},
 };
-use query_analyzer::{AnalysisError, QueryAnalyzer};
+use query_analyzer::QueryAnalyzer;
 use query_planner::QueryPlanner;
 use query_processing::{TypeChecker, TypeCoercion, TypeInference};
-use std::collections::HashMap;
-use std::str::FromStr;
-use std::{iter, sync::Arc};
+use std::{str::FromStr, sync::Arc};
 
 unsafe impl<D: Database + CatalogDefinition> Send for QueryEngine<D> {}
 
@@ -101,7 +100,7 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                             }
 
                             let mut param_values: Vec<ScalarValue> = vec![];
-                            for (raw_param, typ, format) in izip!(raw_params, param_types, param_formats.clone()) {
+                            for (raw_param, typ, format) in izip!(raw_params, param_types, param_formats) {
                                 match raw_param {
                                     None => param_values.push(ScalarValue::Null),
                                     Some(bytes) => {
@@ -123,7 +122,7 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                                 self.query_analyzer.analyze(statement.query().unwrap()).unwrap(),
                                 result_formats,
                                 param_values,
-                                param_types.into_iter().map(From::from).collect::<Vec<SqlTypeFamily>>(),
+                                param_types.iter().map(From::from).collect::<Vec<SqlTypeFamily>>(),
                             ))
                         } else {
                             None
@@ -155,7 +154,7 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
             Command::DescribeStatement { name } => {
                 log::debug!("SESSION - {:?}", self.session);
                 match self.session.get_prepared_statement(&name) {
-                    Some(mut statement) => match statement.param_types() {
+                    Some(statement) => match statement.param_types() {
                         None => match self.query_analyzer.analyze(statement.query().unwrap()) {
                             Ok(UntypedQuery::Insert(insert)) => {
                                 let table_definition = self
@@ -224,7 +223,7 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                             }
                         },
                         Some(param_types) => match self.query_analyzer.analyze(statement.query().unwrap()) {
-                            Ok(UntypedQuery::Insert(insert)) => {
+                            Ok(UntypedQuery::Insert(_insert)) => {
                                 self.sender
                                     .send(Ok(QueryEvent::StatementParameters(param_types.to_vec())))
                                     .expect("To Send Statement Parameters to Client");
@@ -232,7 +231,7 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                                     .send(Ok(QueryEvent::StatementDescription(vec![])))
                                     .expect("To Send Statement Description to Client");
                             }
-                            Ok(UntypedQuery::Update(update)) => {
+                            Ok(UntypedQuery::Update(_update)) => {
                                 self.sender
                                     .send(Ok(QueryEvent::StatementParameters(param_types.to_vec())))
                                     .expect("To Send Statement Parameters to Client");
@@ -241,11 +240,8 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                                     .expect("To Send Statement Description to Client");
                             }
                             Ok(UntypedQuery::Select(select)) => {
-                                let table_definition = self
-                                    .database
-                                    .table_definition(select.full_table_name.clone())
-                                    .unwrap()
-                                    .unwrap();
+                                let table_definition =
+                                    self.database.table_definition(select.full_table_name).unwrap().unwrap();
                                 let return_types = table_definition
                                     .columns()
                                     .iter()
@@ -467,7 +463,7 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                 param_types,
             } => {
                 match self.session.get_prepared_statement(&statement_name) {
-                    Some(mut stmt) if stmt.raw_query() == &sql => match self.query_parser.parse(&sql) {
+                    Some(stmt) if stmt.raw_query() == sql => match self.query_parser.parse(&sql) {
                         Ok(mut statements) => match statements.pop() {
                             Some(Statement::DML(query)) => {
                                 stmt.parsed_with_params(

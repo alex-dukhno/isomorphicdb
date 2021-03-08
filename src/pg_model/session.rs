@@ -13,10 +13,6 @@
 // limitations under the License.
 
 use crate::pg_model::statement::{Portal, PreparedStatement};
-use data_manipulation::UntypedQuery;
-use data_scalar::ScalarValue;
-use entities::SqlTypeFamily;
-use postgres::wire_protocol::{PgFormat, PgType};
 use std::collections::HashMap;
 
 /// A `Session` holds SQL state that is attached to a session.
@@ -46,11 +42,6 @@ impl Session {
     /// save `PreparedStatement` associated with a name
     pub fn set_prepared_statement(&mut self, name: String, statement: PreparedStatement) {
         self.prepared_statements.insert(name, statement);
-    }
-
-    /// remove `PreparedStatement` by its name
-    pub fn remove_prepared_statement(&mut self, name: &str) {
-        self.prepared_statements.remove(name);
     }
 
     /// get `Portal` by its name

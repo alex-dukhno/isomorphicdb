@@ -163,11 +163,6 @@ impl TypeInference {
                             value: num,
                             type_family: SqlTypeFamily::Integer,
                         }))
-                    } else if self.big_int_range.contains(&num) {
-                        StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
-                            value: num,
-                            type_family: SqlTypeFamily::BigInt,
-                        }))
                     } else {
                         StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
                             value: num,
