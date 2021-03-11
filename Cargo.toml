@@ -28,7 +28,7 @@ async-native-tls = "0.3.3"
 async-trait = "0.1.42"
 blocking = "1.0.0"
 bigdecimal = { version = "0.2.0", features = ["string-only"] }
-byteorder = "1.4.2"
+byteorder = "1.4.3"
 futures-lite = "1.11.3"
 log = "0.4.14"
 simple_logger = { version = "1.10.0" }
