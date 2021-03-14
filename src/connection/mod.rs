@@ -254,7 +254,7 @@ impl<RW: AsyncRead + AsyncWrite + Unpin> Receiver for RequestReceiver<RW> {
     async fn receive(&mut self) -> io::Result<Result<Command, ()>> {
         let message = match self.read_frontend_message().await {
             Ok(Ok(message)) => message,
-            Ok(Err(err)) => return Ok(Err(err)),
+            Ok(Err(_err)) => return Ok(Err(())),
             Err(err) if err.kind() == io::ErrorKind::UnexpectedEof => {
                 // Client disconnected the socket immediately without sending a
                 // Terminate message. Considers it as a client Terminate to save

@@ -14,8 +14,10 @@
 
 use bigdecimal::{BigDecimal, ToPrimitive};
 use data_binary::repr::{Datum, ToDatum};
-use std::fmt::{self, Display, Formatter};
-use std::str::FromStr;
+use std::{
+    fmt::{self, Display, Formatter},
+    str::FromStr,
+};
 use types::SqlTypeFamily;
 
 #[derive(Debug, PartialEq, Clone)]
