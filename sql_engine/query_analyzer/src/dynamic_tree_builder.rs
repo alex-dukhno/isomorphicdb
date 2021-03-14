@@ -44,6 +44,9 @@ impl DynamicTreeBuilder {
                 op: UnOperator::Cast(SqlType::from(data_type).family()),
                 item: Box::new(Self::inner_build(*expr, table_columns)?),
             }),
+            Expr::Param(index) => Ok(DynamicUntypedTree::Item(DynamicUntypedItem::Param(
+                (index - 1) as usize,
+            ))),
         }
     }
 
@@ -86,7 +89,6 @@ impl DynamicTreeBuilder {
                 DynamicUntypedTree::Item(DynamicUntypedItem::Const(UntypedValue::Bool(Bool(boolean))))
             }
             Value::Null => DynamicUntypedTree::Item(DynamicUntypedItem::Const(UntypedValue::Null)),
-            Value::Param(index) => DynamicUntypedTree::Item(DynamicUntypedItem::Param((index - 1) as usize)),
             Value::Number(num) => DynamicUntypedTree::Item(DynamicUntypedItem::Const(UntypedValue::Number(
                 BigDecimal::from_str(&num).unwrap(),
             ))),

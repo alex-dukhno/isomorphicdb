@@ -171,7 +171,7 @@ fn insert_params() {
             schema_name: "schema_name".to_owned(),
             table_name: "table_name".to_owned(),
             columns: vec!["col1".to_owned()],
-            source: InsertSource::Values(Values(vec![vec![Expr::Value(Value::Param(1))]]))
+            source: InsertSource::Values(Values(vec![vec![Expr::Param(1)]]))
         }))])
     );
 }

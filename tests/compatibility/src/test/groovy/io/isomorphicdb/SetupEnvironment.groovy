@@ -41,6 +41,7 @@ class SetupEnvironment extends Specification {
 
   static Map<String, String> dbConf() {
     [
+            //TODO: sslmode as parameter to test both encrypted and not traffic on CI
         url: "jdbc:postgresql://localhost:5432/test?gssEncMode=disable&sslmode=disable&preferQueryMode=extendedForPrepared",
         user: USER,
         password: PASSWORD,

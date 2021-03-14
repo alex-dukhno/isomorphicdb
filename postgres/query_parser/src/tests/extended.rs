@@ -27,7 +27,7 @@ fn prepare() {
                 schema_name: "schema_name".to_owned(),
                 table_name: "table_name".to_owned(),
                 columns: vec![],
-                source: InsertSource::Values(Values(vec![vec![Expr::Value(Value::Param(1))]]))
+                source: InsertSource::Values(Values(vec![vec![Expr::Param(1)]]))
             }),
             name: "foo_plan".to_owned(),
             param_types: vec![DataType::SmallInt]

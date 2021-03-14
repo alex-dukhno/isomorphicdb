@@ -120,7 +120,7 @@ fn select_parameters_from_a_table() {
         analyzer.analyze(select_with_columns(
             SCHEMA,
             TABLE,
-            vec![SelectItem::UnnamedExpr(Expr::Value(Value::Param(1)))],
+            vec![SelectItem::UnnamedExpr(Expr::Param(1))],
         )),
         Ok(UntypedQuery::Select(UntypedSelectQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),

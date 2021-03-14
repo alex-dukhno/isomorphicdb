@@ -18,7 +18,7 @@ fn insert_with_parameters(schema_name: &str, table_name: &str, parameters: Vec<u
     insert_with_values(
         schema_name,
         table_name,
-        vec![parameters.into_iter().map(Value::Param).map(Expr::Value).collect()],
+        vec![parameters.into_iter().map(Expr::Param).collect()],
     )
 }
 
@@ -163,7 +163,7 @@ fn insert_into_table_with_parameters_and_values() {
         analyzer.analyze(insert_with_values(
             SCHEMA,
             TABLE,
-            vec![vec![Expr::Value(Value::Param(1)), Expr::Value(number(1))]]
+            vec![vec![Expr::Param(1), Expr::Value(number(1))]]
         )),
         Ok(UntypedQuery::Insert(UntypedInsertQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),

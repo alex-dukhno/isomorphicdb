@@ -40,6 +40,7 @@ impl StaticTreeBuilder {
                 op: UnOperator::from(op),
                 item: Box::new(Self::inner_build(*expr)?),
             }),
+            Expr::Param(index) => Ok(StaticUntypedTree::Item(StaticUntypedItem::Param((index - 1) as usize))),
         }
     }
 
@@ -63,7 +64,6 @@ impl StaticTreeBuilder {
                 StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Bool(Bool(boolean))))
             }
             Value::Null => StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Null)),
-            Value::Param(index) => StaticUntypedTree::Item(StaticUntypedItem::Param((index - 1) as usize)),
             Value::Number(num) => StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(
                 BigDecimal::from_str(&num).unwrap(),
             ))),

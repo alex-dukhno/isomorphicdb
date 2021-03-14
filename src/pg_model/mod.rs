@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use postgres::wire_protocol::{Error, PgFormat, PgType, Result};
+use postgres::wire_protocol::{ConnId, ConnSecretKey, PgFormat, PgType};
 use rand::Rng;
 use std::{
     collections::{HashMap, VecDeque},
@@ -23,11 +23,6 @@ use std::{
 pub mod session;
 /// Module contains functionality to hold data about `PreparedStatement`
 pub mod statement;
-
-/// Connection ID
-pub type ConnId = i32;
-/// Connection secret key
-pub type ConnSecretKey = i32;
 
 /// Manages allocation of Connection IDs and secret keys.
 pub struct ConnSupervisor {
@@ -49,7 +44,7 @@ impl ConnSupervisor {
     }
 
     /// Allocates a new Connection ID and secret key.
-    pub fn alloc(&mut self) -> Result<(ConnId, ConnSecretKey)> {
+    pub fn alloc(&mut self) -> Result<(ConnId, ConnSecretKey), ()> {
         let conn_id = self.generate_conn_id()?;
         let secret_key = rand::thread_rng().gen();
         self.current_mapping.insert(conn_id, secret_key);
@@ -71,13 +66,13 @@ impl ConnSupervisor {
         }
     }
 
-    pub fn generate_conn_id(&mut self) -> Result<ConnId> {
+    pub fn generate_conn_id(&mut self) -> Result<ConnId, ()> {
         match self.free_ids.pop_front() {
             Some(id) => Ok(id),
             None => {
                 let id = self.next_id;
                 if id > self.max_id {
-                    return Err(Error::ConnectionIdExhausted);
+                    return Err(());
                 }
 
                 self.next_id += 1;
@@ -180,6 +175,7 @@ impl ProtocolConfiguration {
 
     /// Creates configuration that support only `ssl`
     pub fn with_ssl(cert: PathBuf, password: String) -> Self {
+        log::debug!("ALEX SSL!!!");
         Self {
             ssl_conf: Some((cert, password)),
         }

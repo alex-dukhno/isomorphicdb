@@ -114,7 +114,7 @@ fn update_params() {
             table_name: "table_name".to_owned(),
             assignments: vec![Assignment {
                 column: "col1".to_owned(),
-                value: Expr::Value(Value::Param(1))
+                value: Expr::Param(1)
             }],
             where_clause: None,
         }))])
