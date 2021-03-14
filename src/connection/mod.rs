@@ -33,6 +33,8 @@ use std::{
     task::{Context, Poll},
 };
 
+mod async_native_tls;
+
 type Props = Vec<(String, String)>;
 
 /// Client request accepted from a client
