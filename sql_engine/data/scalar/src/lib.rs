@@ -14,7 +14,10 @@
 
 use bigdecimal::{BigDecimal, ToPrimitive};
 use data_binary::repr::{Datum, ToDatum};
-use std::fmt::{self, Display, Formatter};
+use std::{
+    fmt::{self, Display, Formatter},
+    str::FromStr,
+};
 use types::SqlTypeFamily;
 
 #[derive(Debug, PartialEq, Clone)]
@@ -51,6 +54,46 @@ impl ScalarValue {
             ScalarValue::Bool(false) => "f".to_owned(),
             ScalarValue::Num { value, .. } => value.to_string(),
             ScalarValue::String(val) => val,
+        }
+    }
+}
+
+impl From<pg_wire::Value> for ScalarValue {
+    fn from(value: pg_wire::Value) -> ScalarValue {
+        match value {
+            pg_wire::Value::Null => ScalarValue::Null,
+            pg_wire::Value::Bool(value) => ScalarValue::Bool(value),
+            pg_wire::Value::Int16(value) => ScalarValue::Num {
+                value: BigDecimal::from(value),
+                type_family: SqlTypeFamily::SmallInt,
+            },
+            pg_wire::Value::Int32(value) => ScalarValue::Num {
+                value: BigDecimal::from(value),
+                type_family: SqlTypeFamily::Integer,
+            },
+            pg_wire::Value::Int64(value) => ScalarValue::Num {
+                value: BigDecimal::from(value),
+                type_family: SqlTypeFamily::BigInt,
+            },
+            pg_wire::Value::String(value) => ScalarValue::String(value),
+        }
+    }
+}
+
+impl From<query_ast::Value> for ScalarValue {
+    fn from(value: query_ast::Value) -> Self {
+        match value {
+            query_ast::Value::Int(value) => ScalarValue::Num {
+                value: BigDecimal::from(value),
+                type_family: SqlTypeFamily::Integer,
+            },
+            query_ast::Value::Number(value) => ScalarValue::Num {
+                value: BigDecimal::from_str(&value).unwrap(),
+                type_family: SqlTypeFamily::Double,
+            },
+            query_ast::Value::String(value) => ScalarValue::String(value),
+            query_ast::Value::Boolean(value) => ScalarValue::Bool(value),
+            query_ast::Value::Null => ScalarValue::Null,
         }
     }
 }

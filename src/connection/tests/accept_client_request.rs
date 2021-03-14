@@ -20,7 +20,7 @@ use crate::{
     connection::accept_client_request, pg_model::Encryption, ClientRequest, ConnSupervisor, ProtocolConfiguration,
 };
 use futures_lite::future::block_on;
-use postgres::wire_protocol::{BackendMessage, Error};
+use postgres::wire_protocol::BackendMessage;
 use std::{
     io::Write,
     net::{Ipv4Addr, SocketAddr, SocketAddrV4},
@@ -287,6 +287,6 @@ fn verification_failed_cancel_request_connection() {
         )
         .await;
 
-        assert!(matches!(result, Ok(Err(Error::VerificationFailed))));
+        assert!(matches!(result, Ok(Err(()))));
     });
 }

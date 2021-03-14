@@ -144,6 +144,7 @@ pub struct Values(pub Vec<Vec<Expr>>);
 #[derive(Debug, PartialEq, Clone)]
 pub enum Expr {
     Value(Value),
+    Param(u32),
     BinaryOp {
         left: Box<Expr>,
         op: BinaryOperator,
@@ -204,7 +205,6 @@ pub enum Value {
     Int(i32),
     Number(String),
     String(String),
-    Param(u32),
     Boolean(bool),
     Null,
 }

@@ -20,7 +20,6 @@ use crate::{
         Command,
     },
 };
-use bigdecimal::BigDecimal;
 use catalog::{CatalogDefinition, Database};
 use data_definition::ExecutionOutcome;
 use data_manipulation::{
@@ -30,9 +29,8 @@ use data_manipulation::{
 use data_scalar::ScalarValue;
 use definition_planner::DefinitionPlanner;
 use entities::{ColumnDef, SqlType, SqlTypeFamily};
-use itertools::izip;
 use postgres::{
-    query_ast::{Extended, Statement, Value},
+    query_ast::{Extended, Statement},
     query_parser::QueryParser,
     query_response::{QueryError, QueryEvent},
     wire_protocol::{ColumnMetadata, PgType},
@@ -40,7 +38,7 @@ use postgres::{
 use query_analyzer::QueryAnalyzer;
 use query_planner::QueryPlanner;
 use query_processing::{TypeChecker, TypeCoercion, TypeInference};
-use std::{str::FromStr, sync::Arc};
+use std::sync::Arc;
 
 unsafe impl<D: Database + CatalogDefinition> Send for QueryEngine<D> {}
 
@@ -100,16 +98,23 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                             }
 
                             let mut param_values: Vec<ScalarValue> = vec![];
-                            for (raw_param, typ, format) in izip!(raw_params, param_types, param_formats) {
+                            debug_assert!(
+                                raw_params.len() == param_types.len() && raw_params.len() == param_formats.len(),
+                                "encoded parameter values, their types and formats have to have same length"
+                            );
+                            for i in 0..raw_params.len() {
+                                let raw_param = &raw_params[i];
+                                let typ = param_types[i];
+                                let format = param_formats[i];
                                 match raw_param {
                                     None => param_values.push(ScalarValue::Null),
                                     Some(bytes) => {
                                         log::debug!("PG Type {:?}", typ);
                                         match typ.decode(&format, &bytes) {
-                                            Ok(param) => param_values.push(value_to_expr(param)),
-                                            Err(msg) => {
+                                            Ok(param) => param_values.push(From::from(param)),
+                                            Err(error) => {
                                                 self.sender
-                                                    .send(Err(QueryError::invalid_parameter_value(msg)))
+                                                    .send(Err(QueryError::invalid_parameter_value(error)))
                                                     .expect("To Send Error to Client");
                                                 return Err(());
                                             }
@@ -522,76 +527,6 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
             Command::Query { sql } => {
                 match self.query_parser.parse(&sql) {
                     Ok(mut statements) => match statements.pop().expect("single query") {
-                        // Statement::Prepare {
-                        //     name,
-                        //     data_types,
-                        //     statement,
-                        // } => {
-                        //     let Ident { value: name, .. } = name;
-                        //     let mut pg_types = vec![];
-                        //     for data_type in data_types {
-                        //         match SqlType::try_from(&data_type) {
-                        //             Ok(sql_type) => pg_types.push(Some((&sql_type).into())),
-                        //             Err(_) => {
-                        //                 self.sender
-                        //                     .send(Err(QueryError::type_does_not_exist(data_type)))
-                        //                     .expect("To Send Error to Client");
-                        //                 self.sender
-                        //                     .send(Ok(QueryEvent::QueryComplete))
-                        //                     .expect("To Send Error to Client");
-                        //                 return Ok(());
-                        //             }
-                        //         }
-                        //     }
-                        //     match self.create_prepared_statement(name, *statement, pg_types) {
-                        //         Ok(()) => {
-                        //             self.sender
-                        //                 .send(Ok(QueryEvent::StatementPrepared))
-                        //                 .expect("To Send Result");
-                        //         }
-                        //         Err(error) => {
-                        //             self.sender.send(Err(error)).expect("To Send Result");
-                        //             self.sender
-                        //                 .send(Ok(QueryEvent::QueryComplete))
-                        //                 .expect("To Send Error to Client");
-                        //             return Ok(());
-                        //         }
-                        //     }
-                        // }
-                        // Statement::Execute { name, parameters } => {
-                        //     let Ident { value: name, .. } = name;
-                        //     match self.session.get_prepared_statement(&name) {
-                        //         Some(prepared_statement) => {
-                        //             let param_types = prepared_statement.param_types();
-                        //             if param_types.len() != parameters.len() {
-                        //                 let message = format!(
-                        //                     "Bind message supplies {actual} parameters, but prepared statement \"{name}\" requires {expected}",
-                        //                     name = name,
-                        //                     actual = parameters.len(),
-                        //                     expected = param_types.len()
-                        //                 );
-                        //                 self.sender
-                        //                     .send(Err(QueryError::protocol_violation(message)))
-                        //                     .expect("To Send Error to Client");
-                        //             }
-                        //             self.sender
-                        //                 .send(Err(QueryError::syntax_error(prepared_statement.stmt())))
-                        //                 .expect("To Send Error to Client");
-                        //         }
-                        //         None => {
-                        //             self.sender
-                        //                 .send(Err(QueryError::prepared_statement_does_not_exist(name)))
-                        //                 .expect("To Send Error to Client");
-                        //         }
-                        //     }
-                        // }
-                        // Statement::Deallocate { name, .. } => {
-                        //     let Ident { value: name, .. } = name;
-                        //     self.session.remove_prepared_statement(&name);
-                        //     self.sender
-                        //         .send(Ok(QueryEvent::StatementDeallocated))
-                        //         .expect("To Send Statement Deallocated Event");
-                        // }
                         Statement::Extended(extended_query) => match extended_query {
                             Extended::Prepare {
                                 query,
@@ -616,7 +551,7 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                                     .expect("To Send Result");
                             }
                             Extended::Execute { name, param_values } => {
-                                let param_values = param_values.into_iter().map(ast_value_to_expr).collect();
+                                let param_values = param_values.into_iter().map(From::from).collect();
                                 match self.session.get_portal(&name) {
                                     Some(portal) => match portal.stmt() {
                                         UntypedQuery::Insert(insert) => {
@@ -983,44 +918,6 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
                 Err(())
             }
         }
-    }
-}
-
-fn ast_value_to_expr(value: Value) -> ScalarValue {
-    match value {
-        Value::Null => ScalarValue::Null,
-        Value::Boolean(boolean) => ScalarValue::Bool(boolean),
-        Value::Int(i) => ScalarValue::Num {
-            value: BigDecimal::from(i),
-            type_family: SqlTypeFamily::Integer,
-        },
-        Value::Number(number) => ScalarValue::Num {
-            value: BigDecimal::from_str(&number).unwrap(),
-            type_family: SqlTypeFamily::BigInt,
-        },
-        Value::String(s) => ScalarValue::String(s),
-        Value::Param(_) => unreachable!(),
-    }
-}
-
-fn value_to_expr(value: postgres::wire_protocol::Value) -> ScalarValue {
-    match value {
-        postgres::wire_protocol::Value::Null => ScalarValue::Null,
-        postgres::wire_protocol::Value::True => ScalarValue::Bool(true),
-        postgres::wire_protocol::Value::False => ScalarValue::Bool(false),
-        postgres::wire_protocol::Value::Int16(i) => ScalarValue::Num {
-            value: BigDecimal::from(i),
-            type_family: SqlTypeFamily::SmallInt,
-        },
-        postgres::wire_protocol::Value::Int32(i) => ScalarValue::Num {
-            value: BigDecimal::from(i),
-            type_family: SqlTypeFamily::Integer,
-        },
-        postgres::wire_protocol::Value::Int64(i) => ScalarValue::Num {
-            value: BigDecimal::from(i),
-            type_family: SqlTypeFamily::BigInt,
-        },
-        postgres::wire_protocol::Value::String(s) => ScalarValue::String(s),
     }
 }
 

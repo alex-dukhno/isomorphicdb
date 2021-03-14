@@ -16,13 +16,12 @@ use crate::pg_model::{Command, ConnSupervisor, Encryption, ProtocolConfiguration
 use async_mutex::Mutex as AsyncMutex;
 use async_native_tls::TlsStream;
 use blocking::Unblock;
-use byteorder::{ByteOrder, NetworkEndian};
 use futures_lite::{future::block_on, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use postgres::{
     query_response::QueryResult,
     wire_protocol::{
-        BackendMessage, ConnId, Error, FrontendMessage, HandShakeProcess, HandShakeRequest, HandShakeStatus,
-        MessageDecoder, MessageDecoderStatus, Result,
+        BackendMessage, ConnId, FrontendMessage, HandShakeProcess, HandShakeStatus, MessageDecoder,
+        MessageDecoderStatus,
     },
 };
 use std::{
@@ -54,7 +53,7 @@ pub async fn accept_client_request<RW: 'static>(
     address: SocketAddr,
     config: &ProtocolConfiguration,
     conn_supervisor: Arc<Mutex<ConnSupervisor>>,
-) -> io::Result<Result<ClientRequest>>
+) -> io::Result<Result<ClientRequest, ()>>
 where
     RW: AsyncRead + AsyncWrite + Unpin,
 {
@@ -65,14 +64,15 @@ where
     let mut current: Option<Vec<u8>> = None;
     loop {
         match process.next_stage(current.as_deref()) {
-            Ok(HandShakeStatus::Requesting(HandShakeRequest::Buffer(len))) => {
+            Ok(HandShakeStatus::RequestingBytes(len)) => {
                 let mut local = vec![b'0'; len];
                 local = channel.read_exact(&mut local).await.map(|_| local)?;
                 current = Some(local);
             }
-            Ok(HandShakeStatus::Requesting(HandShakeRequest::UpgradeToSsl)) => {
+            Ok(HandShakeStatus::UpdatingToSecureWithReadingBytes(len)) => {
                 channel = match channel {
                     Channel::Plain(mut channel) if config.ssl_support() => {
+                        log::warn!("ALEX SECURE CHANNEL");
                         channel.write_all(Encryption::AcceptSsl.into()).await?;
                         Channel::Secure(tls_channel(channel, config).await?)
                     }
@@ -81,13 +81,16 @@ where
                         channel
                     }
                 };
-                current = None
+                let mut local = vec![b'0'; len];
+                local = channel.read_exact(&mut local).await.map(|_| local)?;
+                log::warn!("ALEX SECURE CHANNEL READ");
+                current = Some(local);
             }
             Ok(HandShakeStatus::Cancel(conn_id, secret_key)) => {
                 return if conn_supervisor.lock().unwrap().verify(conn_id, secret_key) {
                     Ok(Ok(ClientRequest::QueryCancellation(conn_id)))
                 } else {
-                    Ok(Err(Error::VerificationFailed))
+                    Ok(Err(()))
                 }
             }
             Ok(HandShakeStatus::Done(props)) => {
@@ -103,7 +106,7 @@ where
                 let len = channel
                     .read_exact(&mut len_buffer)
                     .await
-                    .map(|_| NetworkEndian::read_u32(&len_buffer) as usize)?;
+                    .map(|_| u32::from_be_bytes(len_buffer) as usize)?;
                 let len = len - 4;
                 let mut message_buffer = Vec::with_capacity(len);
                 message_buffer.resize(len, b'0');
@@ -146,7 +149,10 @@ where
 
                 let (conn_id, secret_key) = match conn_supervisor.lock().unwrap().alloc() {
                     Ok((c, s)) => (c, s),
-                    Err(e) => return Ok(Err(e)),
+                    Err(_error) => {
+                        log::error!("ERROR");
+                        return Ok(Err(()));
+                    }
                 };
 
                 log::debug!("start service on connection-{}", conn_id);
@@ -170,7 +176,10 @@ where
                     Arc::new(ResponseSender::new(props, channel)),
                 )));
             }
-            Err(error) => return Ok(Err(error)),
+            Err(error) => {
+                log::error!("{}", error);
+                return Ok(Err(()));
+            }
         }
     }
 }
@@ -195,7 +204,6 @@ struct RequestReceiver<RW: AsyncRead + AsyncWrite + Unpin> {
     properties: Props,
     channel: Arc<AsyncMutex<Channel<RW>>>,
     conn_supervisor: Arc<Mutex<ConnSupervisor>>,
-    message_decoder: MessageDecoder,
 }
 
 impl<RW: AsyncRead + AsyncWrite + Unpin> RequestReceiver<RW> {
@@ -211,7 +219,6 @@ impl<RW: AsyncRead + AsyncWrite + Unpin> RequestReceiver<RW> {
             properties,
             channel,
             conn_supervisor,
-            message_decoder: MessageDecoder::new(),
         }
     }
 
@@ -220,19 +227,22 @@ impl<RW: AsyncRead + AsyncWrite + Unpin> RequestReceiver<RW> {
         &self.properties
     }
 
-    async fn read_frontend_message(&mut self) -> io::Result<Result<FrontendMessage>> {
+    async fn read_frontend_message(&mut self) -> io::Result<Result<FrontendMessage, ()>> {
         let mut current: Option<Vec<u8>> = None;
+        let mut message_decoder = MessageDecoder::default();
         loop {
             log::debug!("Read bytes from connection {:?}", current);
-            match self.message_decoder.next_stage(current.take().as_deref()) {
+            match message_decoder.next_stage(current.take().as_deref()) {
                 Ok(MessageDecoderStatus::Requesting(len)) => {
                     let mut buffer = vec![b'0'; len];
                     self.channel.lock().await.read_exact(&mut buffer).await?;
                     current = Some(buffer);
                 }
-                Ok(MessageDecoderStatus::Decoding) => {}
                 Ok(MessageDecoderStatus::Done(message)) => return Ok(Ok(message)),
-                Err(error) => return Ok(Err(error)),
+                Err(error) => {
+                    log::error!("{}", error);
+                    return Ok(Err(()));
+                }
             }
         }
     }
@@ -241,10 +251,10 @@ impl<RW: AsyncRead + AsyncWrite + Unpin> RequestReceiver<RW> {
 #[async_trait::async_trait]
 impl<RW: AsyncRead + AsyncWrite + Unpin> Receiver for RequestReceiver<RW> {
     // TODO: currently it uses protocol::Result
-    async fn receive(&mut self) -> io::Result<Result<Command>> {
+    async fn receive(&mut self) -> io::Result<Result<Command, ()>> {
         let message = match self.read_frontend_message().await {
             Ok(Ok(message)) => message,
-            Ok(Err(err)) => return Ok(Err(err)),
+            Ok(Err(_err)) => return Ok(Err(())),
             Err(err) if err.kind() == io::ErrorKind::UnexpectedEof => {
                 // Client disconnected the socket immediately without sending a
                 // Terminate message. Considers it as a client Terminate to save
@@ -306,7 +316,7 @@ impl<RW: AsyncRead + AsyncWrite + Unpin> Drop for RequestReceiver<RW> {
 #[async_trait::async_trait]
 pub trait Receiver: Send + Sync {
     /// receives and decodes a command from remote client
-    async fn receive(&mut self) -> io::Result<Result<Command>>;
+    async fn receive(&mut self) -> io::Result<Result<Command, ()>>;
 }
 
 struct ResponseSender<RW: AsyncRead + AsyncWrite + Unpin> {

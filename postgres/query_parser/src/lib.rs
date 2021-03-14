@@ -585,7 +585,7 @@ impl QueryParser {
                     string: Some(value), ..
                 },
             }) => Expr::Value(Value::String(value)),
-            Node::ParamRef(nodes::ParamRef { number }) => Expr::Value(Value::Param(number as u32)),
+            Node::ParamRef(nodes::ParamRef { number }) => Expr::Param(number as u32),
             Node::ColumnRef(nodes::ColumnRef {
                 fields: Some(mut values),
             }) => match values.pop() {

@@ -113,7 +113,6 @@ on a local machine and queries result has to be checked visually.
 
 ### Compute code coverage locally
 
-1. Install `grcov`
 1. Run `./etc/local/code_coverage.sh`
 1. Open `./target/debug/coverage/index.html` in your browser
 
