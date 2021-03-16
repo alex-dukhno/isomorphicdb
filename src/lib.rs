@@ -13,19 +13,20 @@
 // limitations under the License.
 
 use crate::{
-    connection::ClientRequest,
+    connection::{manager::ConnectionManager, network::Network, ClientRequest, Connection},
     pg_model::{ConnSupervisor, ProtocolConfiguration},
     query_engine::QueryEngine,
 };
-use async_dup::Arc as AsyncArc;
 use async_executor::Executor;
 use async_io::Async;
 use catalog::InMemoryDatabase;
+use futures_lite::future;
 use std::{
     env,
     net::TcpListener,
+    panic,
     path::{Path, PathBuf},
-    sync::{Arc, Mutex},
+    thread,
 };
 
 mod connection;
@@ -41,31 +42,42 @@ const MAX_CONN_ID: i32 = 1 << 16;
 pub fn start() {
     let _root_path = env::var("ROOT_PATH").map(PathBuf::from).unwrap_or_default();
 
-    static GLOBAL: Executor<'_> = Executor::new();
+    static NETWORK: Executor<'_> = Executor::new();
 
-    std::thread::Builder::new()
-        .name("main-executor".to_owned())
+    thread::Builder::new()
+        .name("network-thread".into())
         .spawn(|| loop {
-            std::panic::catch_unwind(|| async_io::block_on(GLOBAL.run(futures_lite::future::pending::<()>()))).ok();
+            panic::catch_unwind(|| future::block_on(NETWORK.run(future::pending::<()>()))).ok();
         })
         .expect("cannot spawn executor thread");
+
+    static WORKER: Executor<'_> = Executor::new();
+    for thread_id in 0..8 {
+        thread::Builder::new()
+            .name(format!("worker-{}-thread", thread_id))
+            .spawn(|| loop {
+                panic::catch_unwind(|| future::block_on(WORKER.run(future::pending::<()>()))).ok();
+            })
+            .expect("cannot spawn executor thread");
+    }
 
     async_io::block_on(async {
         let database = InMemoryDatabase::new();
         let listener = Async::<TcpListener>::bind((HOST, PORT)).expect("OK");
 
         let config = protocol_configuration();
-        let conn_supervisor = Arc::new(Mutex::new(ConnSupervisor::new(MIN_CONN_ID, MAX_CONN_ID)));
+        let conn_supervisor = ConnSupervisor::new(MIN_CONN_ID, MAX_CONN_ID);
+        let connection_manager = ConnectionManager::new(Network::from(listener), config, conn_supervisor);
 
-        while let Ok((tcp_stream, address)) = listener.accept().await {
-            let tcp_stream = AsyncArc::new(tcp_stream);
-            match connection::accept_client_request(tcp_stream, address, &config, conn_supervisor.clone()).await {
+        loop {
+            let client_request = connection_manager.accept().await;
+            match client_request {
                 Err(io_error) => log::error!("IO error {:?}", io_error),
                 Ok(Err(protocol_error)) => log::error!("protocol error {:?}", protocol_error),
-                Ok(Ok(ClientRequest::Connection(mut receiver, sender))) => {
+                Ok(Ok(ClientRequest::Connect(Connection { mut receiver, sender }))) => {
                     let mut query_engine = QueryEngine::new(sender, database.clone());
                     log::debug!("ready to handle query");
-                    GLOBAL
+                    WORKER
                         .spawn(async move {
                             loop {
                                 match receiver.receive().await {

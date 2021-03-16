@@ -17,6 +17,7 @@ use rand::Rng;
 use std::{
     collections::{HashMap, VecDeque},
     path::PathBuf,
+    sync::{Arc, Mutex},
 };
 
 /// Module contains functionality to represent server side client session
@@ -25,17 +26,46 @@ pub mod session;
 pub mod statement;
 
 /// Manages allocation of Connection IDs and secret keys.
+#[derive(Clone)]
 pub struct ConnSupervisor {
+    inner: Arc<Mutex<ConnSupervisorInner>>,
+}
+
+impl ConnSupervisor {
+    /// Creates a new Connection Supervisor.
+    pub fn new(min_id: ConnId, max_id: ConnId) -> ConnSupervisor {
+        ConnSupervisor {
+            inner: Arc::new(Mutex::new(ConnSupervisorInner::new(min_id, max_id))),
+        }
+    }
+
+    /// Allocates a new Connection ID and secret key.
+    pub fn alloc(&self) -> Result<(ConnId, ConnSecretKey), ()> {
+        self.inner.lock().unwrap().alloc()
+    }
+
+    /// Releases a Connection ID back to the pool.
+    pub fn free(&self, conn_id: ConnId) {
+        self.inner.lock().unwrap().free(conn_id);
+    }
+
+    /// Validates whether the secret key matches the specified Connection ID.
+    pub fn verify(&self, conn_id: ConnId, secret_key: ConnSecretKey) -> bool {
+        self.inner.lock().unwrap().verify(conn_id, secret_key)
+    }
+}
+
+struct ConnSupervisorInner {
     next_id: ConnId,
     max_id: ConnId,
     free_ids: VecDeque<ConnId>,
     current_mapping: HashMap<ConnId, ConnSecretKey>,
 }
 
-impl ConnSupervisor {
+impl ConnSupervisorInner {
     /// Creates a new Connection Supervisor.
-    pub fn new(min_id: ConnId, max_id: ConnId) -> Self {
-        Self {
+    pub fn new(min_id: ConnId, max_id: ConnId) -> ConnSupervisorInner {
+        ConnSupervisorInner {
             next_id: min_id,
             max_id,
             free_ids: VecDeque::new(),
@@ -44,7 +74,7 @@ impl ConnSupervisor {
     }
 
     /// Allocates a new Connection ID and secret key.
-    pub fn alloc(&mut self) -> Result<(ConnId, ConnSecretKey), ()> {
+    fn alloc(&mut self) -> Result<(ConnId, ConnSecretKey), ()> {
         let conn_id = self.generate_conn_id()?;
         let secret_key = rand::thread_rng().gen();
         self.current_mapping.insert(conn_id, secret_key);
@@ -52,21 +82,21 @@ impl ConnSupervisor {
     }
 
     /// Releases a Connection ID back to the pool.
-    pub fn free(&mut self, conn_id: ConnId) {
+    fn free(&mut self, conn_id: ConnId) {
         if self.current_mapping.remove(&conn_id).is_some() {
             self.free_ids.push_back(conn_id);
         }
     }
 
     /// Validates whether the secret key matches the specified Connection ID.
-    pub fn verify(&self, conn_id: ConnId, secret_key: ConnSecretKey) -> bool {
+    fn verify(&self, conn_id: ConnId, secret_key: ConnSecretKey) -> bool {
         match self.current_mapping.get(&conn_id) {
             Some(s) => *s == secret_key,
             None => false,
         }
     }
 
-    pub fn generate_conn_id(&mut self) -> Result<ConnId, ()> {
+    fn generate_conn_id(&mut self) -> Result<ConnId, ()> {
         match self.free_ids.pop_front() {
             Some(id) => Ok(id),
             None => {

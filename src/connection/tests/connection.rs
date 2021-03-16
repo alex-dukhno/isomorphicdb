@@ -13,12 +13,15 @@
 // limitations under the License.
 
 use crate::{
-    connection::{tests::async_io::TestCase, Channel, Receiver, RequestReceiver},
+    connection::{
+        network::{Stream, TestCase},
+        Channel, RequestReceiver,
+    },
     pg_model::{Command, ConnSupervisor},
 };
 use async_mutex::Mutex as AsyncMutex;
 use futures_lite::future::block_on;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 #[cfg(test)]
 mod read_query {
@@ -27,10 +30,10 @@ mod read_query {
     #[test]
     fn read_termination_command() {
         block_on(async {
-            let test_case = TestCase::with_content(vec![&[88], &[0, 0, 0, 4]]);
-            let channel = Arc::new(AsyncMutex::new(Channel::Plain(test_case)));
-            let conn_supervisor = Arc::new(Mutex::new(ConnSupervisor::new(1, 2)));
-            let (conn_id, _) = conn_supervisor.lock().unwrap().alloc().unwrap();
+            let stream = Stream::from(TestCase::new(vec![&[88], &[0, 0, 0, 4]]));
+            let channel = Arc::new(AsyncMutex::new(Channel::Plain(stream)));
+            let conn_supervisor = ConnSupervisor::new(1, 2);
+            let (conn_id, _) = conn_supervisor.alloc().unwrap();
             let mut receiver = RequestReceiver::new(conn_id, vec![], channel, conn_supervisor);
 
             let query = receiver.receive().await.expect("no io errors");
@@ -41,10 +44,10 @@ mod read_query {
     #[test]
     fn read_query_successfully() {
         block_on(async {
-            let test_case = TestCase::with_content(vec![&[81], &[0, 0, 0, 14], b"select 1;\0"]);
-            let channel = Arc::new(AsyncMutex::new(Channel::Plain(test_case.clone())));
-            let conn_supervisor = Arc::new(Mutex::new(ConnSupervisor::new(1, 2)));
-            let (conn_id, _) = conn_supervisor.lock().unwrap().alloc().unwrap();
+            let stream = Stream::from(TestCase::new(vec![&[81], &[0, 0, 0, 14], b"select 1;\0"]));
+            let channel = Arc::new(AsyncMutex::new(Channel::Plain(stream)));
+            let conn_supervisor = ConnSupervisor::new(1, 2);
+            let (conn_id, _) = conn_supervisor.alloc().unwrap();
             let mut receiver = RequestReceiver::new(conn_id, vec![], channel, conn_supervisor);
 
             let query = receiver.receive().await.expect("no io errors");
@@ -60,10 +63,10 @@ mod read_query {
     #[test]
     fn client_disconnected_immediately() {
         block_on(async {
-            let test_case = TestCase::with_content(vec![]);
-            let channel = Arc::new(AsyncMutex::new(Channel::Plain(test_case)));
-            let conn_supervisor = Arc::new(Mutex::new(ConnSupervisor::new(1, 2)));
-            let (conn_id, _) = conn_supervisor.lock().unwrap().alloc().unwrap();
+            let stream = Stream::from(TestCase::new(vec![]));
+            let channel = Arc::new(AsyncMutex::new(Channel::Plain(stream)));
+            let conn_supervisor = ConnSupervisor::new(1, 2);
+            let (conn_id, _) = conn_supervisor.alloc().unwrap();
             let mut receiver = RequestReceiver::new(conn_id, vec![], channel, conn_supervisor);
 
             let query = receiver.receive().await.expect("no io errors");

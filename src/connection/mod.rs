@@ -12,210 +12,66 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::pg_model::{Command, ConnSupervisor, Encryption, ProtocolConfiguration};
+use crate::pg_model::{Command, ConnSupervisor};
 use async_mutex::Mutex as AsyncMutex;
 use async_native_tls::TlsStream;
-use blocking::Unblock;
 use futures_lite::{future::block_on, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use postgres::{
     query_response::QueryResult,
-    wire_protocol::{
-        BackendMessage, ConnId, FrontendMessage, HandShakeProcess, HandShakeStatus, MessageDecoder,
-        MessageDecoderStatus,
-    },
+    wire_protocol::{BackendMessage, ConnId, FrontendMessage, MessageDecoder, MessageDecoderStatus},
 };
 use std::{
-    fs::File,
+    fmt,
+    fmt::Formatter,
     io,
-    net::SocketAddr,
     pin::Pin,
-    sync::{Arc, Mutex},
+    sync::Arc,
     task::{Context, Poll},
 };
 
 mod async_native_tls;
+pub mod manager;
+pub mod network;
 
 type Props = Vec<(String, String)>;
+
+pub struct Connection {
+    pub receiver: Box<RequestReceiver>,
+    pub sender: Arc<ResponseSender>,
+}
 
 /// Client request accepted from a client
 pub enum ClientRequest {
     /// Connection to perform queries
-    Connection(Box<dyn Receiver>, Arc<dyn Sender>),
+    Connect(Connection),
     /// Connection to cancel queries of another client
     QueryCancellation(ConnId),
 }
 
-/// Perform `PostgreSql` wire protocol to accept request and establish
-/// connection with a client based on `config` parameters and using `stream` as
-/// a medium to communicate
-/// As a result of operation returns tuple of `Receiver` and `Sender`
-/// that have to be used to communicate with the client on performing commands
-pub async fn accept_client_request<RW: 'static>(
-    stream: RW,
-    address: SocketAddr,
-    config: &ProtocolConfiguration,
-    conn_supervisor: Arc<Mutex<ConnSupervisor>>,
-) -> io::Result<Result<ClientRequest, ()>>
-where
-    RW: AsyncRead + AsyncWrite + Unpin,
-{
-    log::debug!("address {:?}", address);
-
-    let mut channel = Channel::Plain(stream);
-    let mut process = HandShakeProcess::start();
-    let mut current: Option<Vec<u8>> = None;
-    loop {
-        match process.next_stage(current.as_deref()) {
-            Ok(HandShakeStatus::RequestingBytes(len)) => {
-                let mut local = vec![b'0'; len];
-                local = channel.read_exact(&mut local).await.map(|_| local)?;
-                current = Some(local);
-            }
-            Ok(HandShakeStatus::UpdatingToSecureWithReadingBytes(len)) => {
-                channel = match channel {
-                    Channel::Plain(mut channel) if config.ssl_support() => {
-                        log::warn!("ALEX SECURE CHANNEL");
-                        channel.write_all(Encryption::AcceptSsl.into()).await?;
-                        Channel::Secure(tls_channel(channel, config).await?)
-                    }
-                    _ => {
-                        channel.write_all(Encryption::RejectSsl.into()).await?;
-                        channel
-                    }
-                };
-                let mut local = vec![b'0'; len];
-                local = channel.read_exact(&mut local).await.map(|_| local)?;
-                log::warn!("ALEX SECURE CHANNEL READ");
-                current = Some(local);
-            }
-            Ok(HandShakeStatus::Cancel(conn_id, secret_key)) => {
-                return if conn_supervisor.lock().unwrap().verify(conn_id, secret_key) {
-                    Ok(Ok(ClientRequest::QueryCancellation(conn_id)))
-                } else {
-                    Ok(Err(()))
-                }
-            }
-            Ok(HandShakeStatus::Done(props)) => {
-                channel
-                    .write_all(BackendMessage::AuthenticationCleartextPassword.as_vec().as_slice())
-                    .await?;
-                channel.flush().await?;
-                let mut tag_buffer = [0u8; 1];
-                let tag = channel.read_exact(&mut tag_buffer).await.map(|_| tag_buffer[0]);
-                log::debug!("client message response tag {:?}", tag);
-                log::debug!("waiting for authentication response");
-                let mut len_buffer = [0u8; 4];
-                let len = channel
-                    .read_exact(&mut len_buffer)
-                    .await
-                    .map(|_| u32::from_be_bytes(len_buffer) as usize)?;
-                let len = len - 4;
-                let mut message_buffer = Vec::with_capacity(len);
-                message_buffer.resize(len, b'0');
-                let _message = channel.read_exact(&mut message_buffer).await.map(|_| message_buffer)?;
-                channel
-                    .write_all(BackendMessage::AuthenticationOk.as_vec().as_slice())
-                    .await?;
-
-                channel
-                    .write_all(
-                        BackendMessage::ParameterStatus("client_encoding".to_owned(), "UTF8".to_owned())
-                            .as_vec()
-                            .as_slice(),
-                    )
-                    .await?;
-
-                channel
-                    .write_all(
-                        BackendMessage::ParameterStatus("DateStyle".to_owned(), "ISO".to_owned())
-                            .as_vec()
-                            .as_slice(),
-                    )
-                    .await?;
-
-                channel
-                    .write_all(
-                        BackendMessage::ParameterStatus("integer_datetimes".to_owned(), "off".to_owned())
-                            .as_vec()
-                            .as_slice(),
-                    )
-                    .await?;
-
-                channel
-                    .write_all(
-                        BackendMessage::ParameterStatus("server_version".to_owned(), "12.4".to_owned())
-                            .as_vec()
-                            .as_slice(),
-                    )
-                    .await?;
-
-                let (conn_id, secret_key) = match conn_supervisor.lock().unwrap().alloc() {
-                    Ok((c, s)) => (c, s),
-                    Err(_error) => {
-                        log::error!("ERROR");
-                        return Ok(Err(()));
-                    }
-                };
-
-                log::debug!("start service on connection-{}", conn_id);
-                channel
-                    .write_all(BackendMessage::BackendKeyData(conn_id, secret_key).as_vec().as_slice())
-                    .await?;
-
-                log::debug!("send ready_for_query message");
-                channel
-                    .write_all(BackendMessage::ReadyForQuery.as_vec().as_slice())
-                    .await?;
-
-                let channel = Arc::new(AsyncMutex::new(channel));
-                return Ok(Ok(ClientRequest::Connection(
-                    Box::new(RequestReceiver::new(
-                        conn_id,
-                        props.clone(),
-                        channel.clone(),
-                        conn_supervisor,
-                    )),
-                    Arc::new(ResponseSender::new(props, channel)),
-                )));
-            }
-            Err(error) => {
-                log::error!("{}", error);
-                return Ok(Err(()));
-            }
+impl fmt::Debug for ClientRequest {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            ClientRequest::Connect(_) => write!(f, "CONNECTION"),
+            ClientRequest::QueryCancellation(_) => write!(f, "QUERY CANCELLATION"),
         }
     }
 }
 
-async fn tls_channel<RW>(tcp_channel: RW, config: &ProtocolConfiguration) -> io::Result<TlsStream<RW>>
-where
-    RW: AsyncRead + AsyncWrite + Unpin,
-{
-    match config.ssl_config() {
-        Some((path, password)) => {
-            match async_native_tls::accept(Unblock::new(File::open(path)?), password, tcp_channel).await {
-                Ok(socket) => Ok(socket),
-                Err(_err) => Err(io::Error::from(io::ErrorKind::ConnectionAborted)),
-            }
-        }
-        None => Err(io::Error::from(io::ErrorKind::ConnectionAborted)),
-    }
-}
-
-struct RequestReceiver<RW: AsyncRead + AsyncWrite + Unpin> {
+pub struct RequestReceiver {
     conn_id: ConnId,
     properties: Props,
-    channel: Arc<AsyncMutex<Channel<RW>>>,
-    conn_supervisor: Arc<Mutex<ConnSupervisor>>,
+    channel: Arc<AsyncMutex<Channel>>,
+    conn_supervisor: ConnSupervisor,
 }
 
-impl<RW: AsyncRead + AsyncWrite + Unpin> RequestReceiver<RW> {
+impl RequestReceiver {
     /// Creates a new connection
     pub(crate) fn new(
         conn_id: ConnId,
         properties: Props,
-        channel: Arc<AsyncMutex<Channel<RW>>>,
-        conn_supervisor: Arc<Mutex<ConnSupervisor>>,
-    ) -> RequestReceiver<RW> {
+        channel: Arc<AsyncMutex<Channel>>,
+        conn_supervisor: ConnSupervisor,
+    ) -> RequestReceiver {
         RequestReceiver {
             conn_id,
             properties,
@@ -250,10 +106,9 @@ impl<RW: AsyncRead + AsyncWrite + Unpin> RequestReceiver<RW> {
     }
 }
 
-#[async_trait::async_trait]
-impl<RW: AsyncRead + AsyncWrite + Unpin> Receiver for RequestReceiver<RW> {
+impl RequestReceiver {
     // TODO: currently it uses protocol::Result
-    async fn receive(&mut self) -> io::Result<Result<Command, ()>> {
+    pub async fn receive(&mut self) -> io::Result<Result<Command, ()>> {
         let message = match self.read_frontend_message().await {
             Ok(Ok(message)) => message,
             Ok(Err(_err)) => return Ok(Err(())),
@@ -307,34 +162,27 @@ impl<RW: AsyncRead + AsyncWrite + Unpin> Receiver for RequestReceiver<RW> {
     }
 }
 
-impl<RW: AsyncRead + AsyncWrite + Unpin> Drop for RequestReceiver<RW> {
+impl Drop for RequestReceiver {
     fn drop(&mut self) {
-        self.conn_supervisor.lock().unwrap().free(self.conn_id);
+        self.conn_supervisor.free(self.conn_id);
         log::debug!("stop service of connection-{}", self.conn_id);
     }
 }
 
-/// Trait to handle client to server commands for PostgreSQL Wire Protocol connection
-#[async_trait::async_trait]
-pub trait Receiver: Send + Sync {
-    /// receives and decodes a command from remote client
-    async fn receive(&mut self) -> io::Result<Result<Command, ()>>;
-}
-
-struct ResponseSender<RW: AsyncRead + AsyncWrite + Unpin> {
+pub struct ResponseSender {
     #[allow(dead_code)]
     properties: Props,
-    channel: Arc<AsyncMutex<Channel<RW>>>,
+    channel: Arc<AsyncMutex<Channel>>,
 }
 
-impl<RW: AsyncRead + AsyncWrite + Unpin> ResponseSender<RW> {
+impl ResponseSender {
     /// Creates new Connection with properties and read-write socket
-    pub(crate) fn new(properties: Props, channel: Arc<AsyncMutex<Channel<RW>>>) -> ResponseSender<RW> {
+    pub(crate) fn new(properties: Props, channel: Arc<AsyncMutex<Channel>>) -> ResponseSender {
         ResponseSender { properties, channel }
     }
 }
 
-impl<RW: AsyncRead + AsyncWrite + Unpin> Sender for ResponseSender<RW> {
+impl Sender for ResponseSender {
     fn flush(&self) -> io::Result<()> {
         block_on(async {
             self.channel.lock().await.flush().await.expect("OK");
@@ -373,22 +221,22 @@ pub trait Sender: Send + Sync {
     fn send(&self, query_result: QueryResult) -> io::Result<()>;
 }
 
-impl<RW: AsyncRead + AsyncWrite + Unpin> PartialEq for RequestReceiver<RW> {
+impl PartialEq for RequestReceiver {
     fn eq(&self, other: &Self) -> bool {
         self.properties().eq(other.properties())
     }
 }
 
-pub(crate) enum Channel<RW: AsyncRead + AsyncWrite + Unpin> {
-    Plain(RW),
-    Secure(TlsStream<RW>),
+pub(crate) enum Channel {
+    Plain(network::Stream),
+    Secure(TlsStream<network::Stream>),
 }
 
-unsafe impl<RW: AsyncRead + AsyncWrite + Unpin> Send for Channel<RW> {}
+unsafe impl Send for Channel {}
 
-unsafe impl<RW: AsyncRead + AsyncWrite + Unpin> Sync for Channel<RW> {}
+unsafe impl Sync for Channel {}
 
-impl<RW: AsyncRead + AsyncWrite + Unpin> AsyncRead for Channel<RW> {
+impl AsyncRead for Channel {
     fn poll_read(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut [u8]) -> Poll<io::Result<usize>> {
         match self.get_mut() {
             Channel::Plain(tcp) => Pin::new(tcp).poll_read(cx, buf),
@@ -397,7 +245,7 @@ impl<RW: AsyncRead + AsyncWrite + Unpin> AsyncRead for Channel<RW> {
     }
 }
 
-impl<RW: AsyncRead + AsyncWrite + Unpin> AsyncWrite for Channel<RW> {
+impl AsyncWrite for Channel {
     fn poll_write(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<io::Result<usize>> {
         match self.get_mut() {
             Channel::Plain(tcp) => Pin::new(tcp).poll_write(cx, buf),
