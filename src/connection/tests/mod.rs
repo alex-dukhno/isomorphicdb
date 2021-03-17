@@ -14,7 +14,6 @@
 
 #[cfg(test)]
 mod accept_client_request;
-mod async_io;
 #[cfg(test)]
 mod connection;
 #[cfg(test)]
