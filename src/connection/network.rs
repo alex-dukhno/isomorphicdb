@@ -12,13 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::connection::async_native_tls::{self, AcceptError, TlsStream};
 use async_io::Async;
+use blocking::Unblock;
 use futures_lite::io::{AsyncRead, AsyncWrite};
 #[cfg(test)]
 use std::sync::{Arc, Mutex};
 use std::{
+    fs::File,
     io,
     net::{SocketAddr, TcpListener, TcpStream},
+    path::PathBuf,
     pin::Pin,
     task::{Context, Poll},
 };
@@ -30,6 +34,15 @@ pub struct Network {
 impl Network {
     pub async fn accept(&self) -> io::Result<(Stream, SocketAddr)> {
         self.inner.accept().await
+    }
+
+    pub async fn tls_accept(
+        &self,
+        certificate_path: &PathBuf,
+        password: &str,
+        stream: Stream,
+    ) -> Result<SecureStream, AcceptError> {
+        self.inner.tls_accept(certificate_path, password, stream).await
     }
 }
 
@@ -70,6 +83,84 @@ impl NetworkInner {
             }
         }
     }
+
+    async fn tls_accept(
+        &self,
+        certificate_path: &PathBuf,
+        password: &str,
+        stream: Stream,
+    ) -> Result<SecureStream, AcceptError> {
+        match self {
+            NetworkInner::Tcp(_) => Ok(SecureStream::from(
+                async_native_tls::accept(Unblock::new(File::open(certificate_path)?), password, stream).await?,
+            )),
+            #[cfg(test)]
+            NetworkInner::Mock(data) => Ok(SecureStream::from(data.clone())),
+        }
+    }
+}
+
+pub struct SecureStream {
+    inner: SecureStreamInner,
+}
+
+impl From<TlsStream<Stream>> for SecureStream {
+    fn from(stream: TlsStream<Stream>) -> SecureStream {
+        SecureStream {
+            inner: SecureStreamInner::Tls(stream),
+        }
+    }
+}
+
+#[cfg(test)]
+impl From<TestCase> for SecureStream {
+    fn from(test_case: TestCase) -> SecureStream {
+        SecureStream {
+            inner: SecureStreamInner::Mock(test_case),
+        }
+    }
+}
+
+enum SecureStreamInner {
+    Tls(TlsStream<Stream>),
+    #[cfg(test)]
+    Mock(TestCase),
+}
+
+impl AsyncRead for SecureStream {
+    fn poll_read(self: Pin<&mut SecureStream>, cx: &mut Context<'_>, buf: &mut [u8]) -> Poll<io::Result<usize>> {
+        match &mut self.get_mut().inner {
+            SecureStreamInner::Tls(tls) => Pin::new(tls).poll_read(cx, buf),
+            #[cfg(test)]
+            SecureStreamInner::Mock(data) => Pin::new(data).poll_read(cx, buf),
+        }
+    }
+}
+
+impl AsyncWrite for SecureStream {
+    fn poll_write(self: Pin<&mut SecureStream>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<io::Result<usize>> {
+        match &mut self.get_mut().inner {
+            SecureStreamInner::Tls(tls) => Pin::new(tls).poll_write(cx, buf),
+            #[cfg(test)]
+            SecureStreamInner::Mock(data) => Pin::new(data).poll_write(cx, buf),
+        }
+    }
+
+    fn poll_flush(self: Pin<&mut SecureStream>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        match &mut self.get_mut().inner {
+            SecureStreamInner::Tls(tls) => Pin::new(tls).poll_flush(cx),
+            #[cfg(test)]
+            SecureStreamInner::Mock(data) => Pin::new(data).poll_flush(cx),
+        }
+    }
+
+    fn poll_close(self: Pin<&mut SecureStream>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        match &mut self.get_mut().inner {
+            SecureStreamInner::Tls(tls) => Pin::new(tls).poll_close(cx),
+            #[cfg(test)]
+            SecureStreamInner::Mock(data) => Pin::new(data).poll_close(cx),
+        }
+    }
 }
 
 pub struct Stream {
@@ -77,7 +168,7 @@ pub struct Stream {
 }
 
 impl From<Async<TcpStream>> for Stream {
-    fn from(tcp: Async<TcpStream>) -> Self {
+    fn from(tcp: Async<TcpStream>) -> Stream {
         Stream {
             inner: StreamInner::Tcp(tcp),
         }
@@ -86,7 +177,7 @@ impl From<Async<TcpStream>> for Stream {
 
 #[cfg(test)]
 impl From<TestCase> for Stream {
-    fn from(test_case: TestCase) -> Self {
+    fn from(test_case: TestCase) -> Stream {
         Stream {
             inner: StreamInner::Mock(test_case),
         }
@@ -100,7 +191,7 @@ enum StreamInner {
 }
 
 impl AsyncRead for Stream {
-    fn poll_read(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut [u8]) -> Poll<io::Result<usize>> {
+    fn poll_read(self: Pin<&mut Stream>, cx: &mut Context<'_>, buf: &mut [u8]) -> Poll<io::Result<usize>> {
         match &mut self.get_mut().inner {
             StreamInner::Tcp(tcp) => Pin::new(tcp).poll_read(cx, buf),
             #[cfg(test)]
@@ -110,7 +201,7 @@ impl AsyncRead for Stream {
 }
 
 impl AsyncWrite for Stream {
-    fn poll_write(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<io::Result<usize>> {
+    fn poll_write(self: Pin<&mut Stream>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<io::Result<usize>> {
         match &mut self.get_mut().inner {
             StreamInner::Tcp(tcp) => Pin::new(tcp).poll_write(cx, buf),
             #[cfg(test)]
@@ -118,7 +209,7 @@ impl AsyncWrite for Stream {
         }
     }
 
-    fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+    fn poll_flush(self: Pin<&mut Stream>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         match &mut self.get_mut().inner {
             StreamInner::Tcp(tcp) => Pin::new(tcp).poll_flush(cx),
             #[cfg(test)]
@@ -126,7 +217,7 @@ impl AsyncWrite for Stream {
         }
     }
 
-    fn poll_close(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+    fn poll_close(self: Pin<&mut Stream>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         match &mut self.get_mut().inner {
             StreamInner::Tcp(tcp) => Pin::new(tcp).poll_close(cx),
             #[cfg(test)]

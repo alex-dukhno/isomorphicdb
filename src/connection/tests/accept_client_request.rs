@@ -23,15 +23,15 @@ use crate::{
 };
 use futures_lite::future::block_on;
 use postgres::wire_protocol::BackendMessage;
-use std::{io::Write, path::PathBuf};
+use std::io::Write;
 use tempfile::NamedTempFile;
 
-fn path_to_temp_certificate() -> PathBuf {
+fn path_to_temp_certificate() -> NamedTempFile {
     let named_temp_file = NamedTempFile::new().expect("Failed to create temporal file");
     let mut file = named_temp_file.reopen().expect("file with content");
     file.write_all(&certificate_content())
         .expect("write certificate content to temp file");
-    named_temp_file.path().to_path_buf()
+    named_temp_file
 }
 
 #[test]
@@ -92,9 +92,10 @@ fn sending_accept_notification_for_ssl_only_secure() {
     block_on(async {
         let test_case = TestCase::new(vec![pg_frontend::Message::SslRequired.as_vec().as_slice(), &[]]);
 
+        let file = path_to_temp_certificate();
         let connection_manager = ConnectionManager::new(
             Network::from(test_case.clone()),
-            ProtocolConfiguration::with_ssl(path_to_temp_certificate(), "password".to_owned()),
+            ProtocolConfiguration::with_ssl(file.path().to_path_buf(), "password".to_owned()),
             ConnSupervisor::new(1, 2),
         );
 
@@ -177,7 +178,6 @@ fn successful_connection_handshake_for_none_secure() {
 }
 
 #[test]
-#[ignore] //TODO find work around not to do real SSL handshake
 fn successful_connection_handshake_for_ssl_only_secure() {
     block_on(async {
         let test_case = TestCase::new(vec![
@@ -193,9 +193,10 @@ fn successful_connection_handshake_for_ssl_only_secure() {
             pg_frontend::Message::Password("123").as_vec().as_slice(),
         ]);
 
+        let file = path_to_temp_certificate();
         let connection_manager = ConnectionManager::new(
             Network::from(test_case.clone()),
-            ProtocolConfiguration::with_ssl(path_to_temp_certificate(), "password".to_owned()),
+            ProtocolConfiguration::with_ssl(file.path().to_path_buf(), "password".to_owned()),
             ConnSupervisor::new(1, 2),
         );
 
@@ -218,6 +219,27 @@ fn successful_connection_handshake_for_ssl_only_secure() {
                 .as_vec()
                 .as_slice(),
         );
+        expected_content.extend_from_slice(
+            BackendMessage::ParameterStatus("integer_datetimes".to_owned(), "off".to_owned())
+                .as_vec()
+                .as_slice(),
+        );
+        expected_content.extend_from_slice(
+            BackendMessage::ParameterStatus("server_version".to_owned(), "12.4".to_owned())
+                .as_vec()
+                .as_slice(),
+        );
+
+        expected_content.extend_from_slice(BackendMessage::BackendKeyData(1, 0).as_vec().as_slice());
+        expected_content.extend_from_slice(BackendMessage::ReadyForQuery.as_vec().as_slice());
+
+        // The random Connection secret key needs to be ignored (set to zero).
+        let len = actual_content.len();
+        let mut tail = actual_content[len - 6..].to_vec();
+        let mut actual_content = actual_content[..len - 10].to_vec();
+        actual_content.append(&mut vec![0, 0, 0, 0]);
+        actual_content.append(&mut tail);
+
         assert_eq!(actual_content, expected_content);
     });
 }

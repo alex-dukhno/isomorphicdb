@@ -14,7 +14,6 @@
 
 use crate::pg_model::{Command, ConnSupervisor};
 use async_mutex::Mutex as AsyncMutex;
-use async_native_tls::TlsStream;
 use futures_lite::{future::block_on, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use postgres::{
     query_response::QueryResult,
@@ -229,7 +228,7 @@ impl PartialEq for RequestReceiver {
 
 pub(crate) enum Channel {
     Plain(network::Stream),
-    Secure(TlsStream<network::Stream>),
+    Secure(network::SecureStream),
 }
 
 unsafe impl Send for Channel {}
