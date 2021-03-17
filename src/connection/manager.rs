@@ -64,24 +64,10 @@ impl ConnectionManager {
                                             match self.network.tls_accept(path, password, channel).await {
                                                 Ok(socket) => Channel::Secure(socket),
                                                 Err(err) => {
-                                                    println!("ERROR {:?}", err);
+                                                    log::error!("{:?}", err);
                                                     return Err(io::Error::from(io::ErrorKind::ConnectionAborted));
                                                 }
                                             }
-
-                                            // match super::async_native_tls::accept(
-                                            //     Unblock::new(File::open(path)?),
-                                            //     password,
-                                            //     channel,
-                                            // )
-                                            // .await
-                                            // {
-                                            //     Ok(socket) => Channel::Secure(SecureStream::from(socket)),
-                                            //     Err(err) => {
-                                            //         println!("ERROR {:?}", err);
-                                            //         return Err(io::Error::from(io::ErrorKind::ConnectionAborted));
-                                            //     }
-                                            // }
                                         }
                                         None => return Err(io::Error::from(io::ErrorKind::ConnectionAborted)),
                                     }
@@ -93,7 +79,6 @@ impl ConnectionManager {
                             };
                             let mut local = vec![b'0'; len];
                             local = channel.read_exact(&mut local).await.map(|_| local)?;
-                            log::warn!("ALEX SECURE CHANNEL READ");
                             current = Some(local);
                         }
                         Ok(HandShakeStatus::Cancel(conn_id, secret_key)) => {
@@ -159,10 +144,7 @@ impl ConnectionManager {
 
                             let (conn_id, secret_key) = match self.conn_supervisor.alloc() {
                                 Ok((c, s)) => (c, s),
-                                Err(_error) => {
-                                    log::error!("ERROR");
-                                    return Ok(Err(()));
-                                }
+                                Err(()) => return Ok(Err(())),
                             };
 
                             log::debug!("start service on connection-{}", conn_id);

@@ -20,8 +20,6 @@ use postgres::{
     wire_protocol::{BackendMessage, ConnId, FrontendMessage, MessageDecoder, MessageDecoderStatus},
 };
 use std::{
-    fmt,
-    fmt::Formatter,
     io,
     pin::Pin,
     sync::Arc,
@@ -45,15 +43,6 @@ pub enum ClientRequest {
     Connect(Connection),
     /// Connection to cancel queries of another client
     QueryCancellation(ConnId),
-}
-
-impl fmt::Debug for ClientRequest {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        match self {
-            ClientRequest::Connect(_) => write!(f, "CONNECTION"),
-            ClientRequest::QueryCancellation(_) => write!(f, "QUERY CANCELLATION"),
-        }
-    }
 }
 
 pub struct RequestReceiver {
