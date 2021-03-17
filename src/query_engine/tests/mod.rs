@@ -1,4 +1,4 @@
-// Copyright 2020 - present Alex Dukhno
+// Copyright 2020 - 2021 Alex Dukhno
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use super::*;
-use crate::pg_model::Command;
+use crate::session::Command;
 use catalog::InMemoryDatabase;
 use postgres::{
     query_response::{QueryEvent, QueryResult},

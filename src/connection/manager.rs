@@ -1,4 +1,4 @@
-// Copyright 2020 - present Alex Dukhno
+// Copyright 2020 - 2021 Alex Dukhno
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,14 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{
-    connection::{network::Network, Channel, ClientRequest, Connection, RequestReceiver, ResponseSender},
-    pg_model::{ConnSupervisor, Encryption, ProtocolConfiguration},
-};
+use std::{io, sync::Arc};
+
 use async_mutex::Mutex as AsyncMutex;
 use futures_lite::{AsyncReadExt, AsyncWriteExt};
+
 use postgres::wire_protocol::{BackendMessage, HandShakeProcess, HandShakeStatus};
-use std::{io, sync::Arc};
+
+use crate::connection::{network::Network, Channel, ClientRequest, Connection, RequestReceiver, ResponseSender};
+use crate::connection::{ConnSupervisor, Encryption, ProtocolConfiguration};
 
 pub struct ConnectionManager {
     network: Network,

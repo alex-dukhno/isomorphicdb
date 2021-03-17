@@ -1,4 +1,4 @@
-// Copyright 2020 - present Alex Dukhno
+// Copyright 2020 - 2021 Alex Dukhno
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,14 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{
-    connection::Sender,
-    pg_model::{
-        session::Session,
-        statement::{Portal, PreparedStatement},
-        Command,
-    },
-};
+use std::sync::Arc;
+
 use catalog::{CatalogDefinition, Database};
 use data_definition::ExecutionOutcome;
 use data_manipulation::{
@@ -38,7 +32,15 @@ use postgres::{
 use query_analyzer::QueryAnalyzer;
 use query_planner::QueryPlanner;
 use query_processing::{TypeChecker, TypeCoercion, TypeInference};
-use std::sync::Arc;
+
+use crate::session::Session;
+use crate::{
+    connection::Sender,
+    session::{
+        statement::{Portal, PreparedStatement},
+        Command,
+    },
+};
 
 unsafe impl<D: Database + CatalogDefinition> Send for QueryEngine<D> {}
 

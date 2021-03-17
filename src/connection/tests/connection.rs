@@ -1,4 +1,4 @@
-// Copyright 2020 - present Alex Dukhno
+// Copyright 2020 - 2021 Alex Dukhno
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,16 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::sync::Arc;
+
+use async_mutex::Mutex as AsyncMutex;
+use futures_lite::future::block_on;
+
+use crate::connection::ConnSupervisor;
 use crate::{
     connection::{
         network::{Stream, TestCase},
         Channel, RequestReceiver,
     },
-    pg_model::{Command, ConnSupervisor},
+    session::Command,
 };
-use async_mutex::Mutex as AsyncMutex;
-use futures_lite::future::block_on;
-use std::sync::Arc;
 
 #[cfg(test)]
 mod read_query {

@@ -1,4 +1,4 @@
-// Copyright 2020 - present Alex Dukhno
+// Copyright 2020 - 2021 Alex Dukhno
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,19 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::{certificate_content, pg_frontend};
+use std::io::Write;
+
+use futures_lite::future::block_on;
+use tempfile::NamedTempFile;
+
+use postgres::wire_protocol::BackendMessage;
+
+use crate::connection::{ConnSupervisor, Encryption, ProtocolConfiguration};
 use crate::{
     connection::{
         manager::ConnectionManager,
         network::{Network, TestCase},
     },
-    pg_model::Encryption,
-    ClientRequest, ConnSupervisor, ProtocolConfiguration,
+    ClientRequest,
 };
-use futures_lite::future::block_on;
-use postgres::wire_protocol::BackendMessage;
-use std::io::Write;
-use tempfile::NamedTempFile;
+
+use super::{certificate_content, pg_frontend};
 
 fn path_to_temp_certificate() -> NamedTempFile {
     let named_temp_file = NamedTempFile::new().expect("Failed to create temporal file");
