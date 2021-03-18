@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use crate::{
-    connection::{manager::ConnectionManager, network::Network, ClientRequest, Connection},
+    connection::{manager::ConnectionManager, network::Network, ClientRequest},
     query_engine::QueryEngine,
 };
 use async_executor::Executor;
@@ -74,13 +74,13 @@ pub fn start() {
             match client_request {
                 Err(io_error) => log::error!("IO error {:?}", io_error),
                 Ok(Err(protocol_error)) => log::error!("protocol error {:?}", protocol_error),
-                Ok(Ok(ClientRequest::Connect(Connection { mut receiver, sender }))) => {
-                    let mut query_engine = QueryEngine::new(sender, database.clone());
+                Ok(Ok(ClientRequest::Connect(mut connection))) => {
+                    let mut query_engine = QueryEngine::new(connection.sender(), database.clone());
                     log::debug!("ready to handle query");
                     WORKER
                         .spawn(async move {
                             loop {
-                                match receiver.receive().await {
+                                match connection.receive().await {
                                     Err(e) => {
                                         log::error!("UNEXPECTED ERROR: {:?}", e);
                                         return;

@@ -597,7 +597,6 @@ dependencies = [
  "rand_core 0.6.2",
  "rstest",
  "simple_logger",
- "tempfile",
 ]
 
 [[package]]

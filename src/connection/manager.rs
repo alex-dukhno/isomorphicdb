@@ -12,15 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::{io, sync::Arc};
-
+use crate::connection::{
+    network::Network, Channel, ClientRequest, ConnSupervisor, Connection, Encryption, ProtocolConfiguration,
+};
 use async_mutex::Mutex as AsyncMutex;
 use futures_lite::{AsyncReadExt, AsyncWriteExt};
-
 use postgres::wire_protocol::{BackendMessage, HandShakeProcess, HandShakeStatus};
-
-use crate::connection::{network::Network, Channel, ClientRequest, Connection, RequestReceiver, ResponseSender};
-use crate::connection::{ConnSupervisor, Encryption, ProtocolConfiguration};
+use std::{io, sync::Arc};
 
 pub struct ConnectionManager {
     network: Network,
@@ -159,15 +157,13 @@ impl ConnectionManager {
                                 .await?;
 
                             let channel = Arc::new(AsyncMutex::new(channel));
-                            return Ok(Ok(ClientRequest::Connect(Connection {
-                                receiver: Box::new(RequestReceiver::new(
-                                    conn_id,
-                                    props.clone(),
-                                    channel.clone(),
-                                    self.conn_supervisor.clone(),
-                                )),
-                                sender: Arc::new(ResponseSender::new(props, channel)),
-                            })));
+                            return Ok(Ok(ClientRequest::Connect(Connection::new(
+                                conn_id,
+                                props,
+                                address,
+                                channel.clone(),
+                                self.conn_supervisor.clone(),
+                            ))));
                         }
                         Err(error) => {
                             log::error!("{}", error);

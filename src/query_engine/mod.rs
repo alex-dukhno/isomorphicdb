@@ -33,18 +33,13 @@ use query_analyzer::QueryAnalyzer;
 use query_planner::QueryPlanner;
 use query_processing::{TypeChecker, TypeCoercion, TypeInference};
 
-use crate::session::Session;
 use crate::{
     connection::Sender,
     session::{
         statement::{Portal, PreparedStatement},
-        Command,
+        Command, Session,
     },
 };
-
-unsafe impl<D: Database + CatalogDefinition> Send for QueryEngine<D> {}
-
-unsafe impl<D: Database + CatalogDefinition> Sync for QueryEngine<D> {}
 
 pub(crate) struct QueryEngine<D: Database + CatalogDefinition> {
     session: Session,

@@ -12,27 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::collections::{HashMap, VecDeque};
-use std::path::PathBuf;
-use std::sync::Mutex;
-use std::{
-    io,
-    pin::Pin,
-    sync::Arc,
-    task::{Context, Poll},
-};
-
+use crate::session::Command;
 use async_mutex::Mutex as AsyncMutex;
 use futures_lite::{future::block_on, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-use rand::Rng;
-
-use postgres::wire_protocol::ConnSecretKey;
 use postgres::{
     query_response::QueryResult,
-    wire_protocol::{BackendMessage, ConnId, FrontendMessage, MessageDecoder, MessageDecoderStatus},
+    wire_protocol::{BackendMessage, ConnId, ConnSecretKey, FrontendMessage, MessageDecoder, MessageDecoderStatus},
 };
-
-use crate::session::Command;
+use rand::Rng;
+use std::{
+    collections::{HashMap, VecDeque},
+    io,
+    net::SocketAddr,
+    path::PathBuf,
+    pin::Pin,
+    sync::{Arc, Mutex},
+    task::{Context, Poll},
+};
 
 mod async_native_tls;
 pub mod manager;
@@ -41,44 +37,37 @@ pub mod network;
 type Props = Vec<(String, String)>;
 
 pub struct Connection {
-    pub receiver: Box<RequestReceiver>,
-    pub sender: Arc<ResponseSender>,
-}
-
-/// Client request accepted from a client
-pub enum ClientRequest {
-    /// Connection to perform queries
-    Connect(Connection),
-    /// Connection to cancel queries of another client
-    QueryCancellation(ConnId),
-}
-
-pub struct RequestReceiver {
-    conn_id: ConnId,
-    properties: Props,
+    id: ConnId,
+    #[allow(dead_code)]
+    client_props: Props,
+    #[allow(dead_code)]
+    address: SocketAddr,
     channel: Arc<AsyncMutex<Channel>>,
-    conn_supervisor: ConnSupervisor,
+    supervisor: ConnSupervisor,
+    sender: Arc<ResponseSender>,
 }
 
-impl RequestReceiver {
-    /// Creates a new connection
-    pub(crate) fn new(
-        conn_id: ConnId,
-        properties: Props,
+impl Connection {
+    pub fn new(
+        id: ConnId,
+        client_props: Props,
+        address: SocketAddr,
         channel: Arc<AsyncMutex<Channel>>,
-        conn_supervisor: ConnSupervisor,
-    ) -> RequestReceiver {
-        RequestReceiver {
-            conn_id,
-            properties,
+        supervisor: ConnSupervisor,
+    ) -> Connection {
+        let sender = Arc::new(ResponseSender::new(channel.clone()));
+        Connection {
+            id,
+            client_props,
+            address,
             channel,
-            conn_supervisor,
+            supervisor,
+            sender,
         }
     }
 
-    /// connection properties tuple
-    pub fn properties(&self) -> &Props {
-        &self.properties
+    pub fn sender(&self) -> Arc<ResponseSender> {
+        self.sender.clone()
     }
 
     async fn read_frontend_message(&mut self) -> io::Result<Result<FrontendMessage, ()>> {
@@ -100,10 +89,7 @@ impl RequestReceiver {
             }
         }
     }
-}
 
-impl RequestReceiver {
-    // TODO: currently it uses protocol::Result
     pub async fn receive(&mut self) -> io::Result<Result<Command, ()>> {
         let message = match self.read_frontend_message().await {
             Ok(Ok(message)) => message,
@@ -158,23 +144,28 @@ impl RequestReceiver {
     }
 }
 
-impl Drop for RequestReceiver {
+impl Drop for Connection {
     fn drop(&mut self) {
-        self.conn_supervisor.free(self.conn_id);
-        log::debug!("stop service of connection-{}", self.conn_id);
+        self.supervisor.free(self.id);
+        log::debug!("stop service of connection-{}", self.id);
     }
 }
 
+/// Client request accepted from a client
+pub enum ClientRequest {
+    /// Connection to perform queries
+    Connect(Connection),
+    /// Connection to cancel queries of another client
+    QueryCancellation(ConnId),
+}
+
 pub struct ResponseSender {
-    #[allow(dead_code)]
-    properties: Props,
     channel: Arc<AsyncMutex<Channel>>,
 }
 
 impl ResponseSender {
-    /// Creates new Connection with properties and read-write socket
-    pub(crate) fn new(properties: Props, channel: Arc<AsyncMutex<Channel>>) -> ResponseSender {
-        ResponseSender { properties, channel }
+    pub(crate) fn new(channel: Arc<AsyncMutex<Channel>>) -> ResponseSender {
+        ResponseSender { channel }
     }
 }
 
@@ -217,20 +208,10 @@ pub trait Sender: Send + Sync {
     fn send(&self, query_result: QueryResult) -> io::Result<()>;
 }
 
-impl PartialEq for RequestReceiver {
-    fn eq(&self, other: &Self) -> bool {
-        self.properties().eq(other.properties())
-    }
-}
-
-pub(crate) enum Channel {
+pub enum Channel {
     Plain(network::Stream),
     Secure(network::SecureStream),
 }
-
-unsafe impl Send for Channel {}
-
-unsafe impl Sync for Channel {}
 
 impl AsyncRead for Channel {
     fn poll_read(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut [u8]) -> Poll<io::Result<usize>> {
