@@ -12,15 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{
-    connection::{
-        network::{Stream, TestCase},
-        Channel, ConnSupervisor, Connection,
-    },
-    session::Command,
+use crate::connection::{
+    network::{Stream, TestCase},
+    Channel, ConnSupervisor, Connection,
 };
 use async_mutex::Mutex as AsyncMutex;
 use futures_lite::future::block_on;
+use postgres::wire_protocol::CommandMessage;
 use std::{
     net::{IpAddr, Ipv4Addr, SocketAddr},
     sync::Arc,
@@ -42,7 +40,7 @@ fn read_termination_command() {
         );
 
         let query = connection.receive().await.expect("no io errors");
-        assert_eq!(query, Ok(Command::Terminate));
+        assert_eq!(query, Ok(CommandMessage::Terminate));
     });
 }
 
@@ -64,7 +62,7 @@ fn read_query_successfully() {
         let query = connection.receive().await.expect("no io errors");
         assert_eq!(
             query,
-            Ok(Command::Query {
+            Ok(CommandMessage::Query {
                 sql: "select 1;".to_owned()
             })
         );
@@ -87,6 +85,6 @@ fn client_disconnected_immediately() {
         );
 
         let query = connection.receive().await.expect("no io errors");
-        assert_eq!(query, Ok(Command::Terminate));
+        assert_eq!(query, Ok(CommandMessage::Terminate));
     });
 }

@@ -13,7 +13,6 @@
 // limitations under the License.
 
 use super::*;
-use crate::session::Command;
 use catalog::InMemoryDatabase;
 use postgres::{
     query_response::{QueryEvent, QueryResult},
@@ -111,7 +110,7 @@ fn empty_database() -> (InMemory, ResultCollector) {
 fn database_with_schema(empty_database: (InMemory, ResultCollector)) -> (InMemory, ResultCollector) {
     let (mut engine, collector) = empty_database;
     engine
-        .execute(Command::Query {
+        .execute(CommandMessage::Query {
             sql: "create schema schema_name;".to_string(),
         })
         .expect("query expected");
@@ -124,7 +123,7 @@ fn database_with_schema(empty_database: (InMemory, ResultCollector)) -> (InMemor
 fn database_with_table(database_with_schema: (InMemory, ResultCollector)) -> (InMemory, ResultCollector) {
     let (mut engine, collector) = database_with_schema;
     engine
-        .execute(Command::Query {
+        .execute(CommandMessage::Query {
             sql: "create table schema_name.table_name (col1 smallint, col2 smallint, col3 smallint);".to_string(),
         })
         .expect("query expected");

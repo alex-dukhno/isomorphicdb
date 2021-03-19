@@ -18,7 +18,7 @@ use super::*;
 fn create_schema(empty_database: (InMemory, ResultCollector)) {
     let (mut engine, collector) = empty_database;
     engine
-        .execute(Command::Query {
+        .execute(CommandMessage::Query {
             sql: "create schema schema_name;".to_owned(),
         })
         .expect("query executed");
@@ -29,14 +29,14 @@ fn create_schema(empty_database: (InMemory, ResultCollector)) {
 fn create_same_schema(empty_database: (InMemory, ResultCollector)) {
     let (mut engine, collector) = empty_database;
     engine
-        .execute(Command::Query {
+        .execute(CommandMessage::Query {
             sql: "create schema schema_name;".to_owned(),
         })
         .expect("query executed");
     collector.assert_receive_single(Ok(QueryEvent::SchemaCreated));
 
     engine
-        .execute(Command::Query {
+        .execute(CommandMessage::Query {
             sql: "create schema schema_name;".to_owned(),
         })
         .expect("query executed");
@@ -47,14 +47,14 @@ fn create_same_schema(empty_database: (InMemory, ResultCollector)) {
 fn drop_schema(empty_database: (InMemory, ResultCollector)) {
     let (mut engine, collector) = empty_database;
     engine
-        .execute(Command::Query {
+        .execute(CommandMessage::Query {
             sql: "create schema schema_name;".to_owned(),
         })
         .expect("query executed");
     collector.assert_receive_single(Ok(QueryEvent::SchemaCreated));
 
     engine
-        .execute(Command::Query {
+        .execute(CommandMessage::Query {
             sql: "drop schema schema_name;".to_owned(),
         })
         .expect("query executed");
@@ -66,7 +66,7 @@ fn drop_non_existent_schema(empty_database: (InMemory, ResultCollector)) {
     let (mut engine, collector) = empty_database;
 
     engine
-        .execute(Command::Query {
+        .execute(CommandMessage::Query {
             sql: "drop schema non_existent;".to_owned(),
         })
         .expect("query executed");
@@ -78,7 +78,7 @@ fn drop_if_exists_non_existent_schema(empty_database: (InMemory, ResultCollector
     let (mut engine, collector) = empty_database;
 
     engine
-        .execute(Command::Query {
+        .execute(CommandMessage::Query {
             sql: "drop schema if exists non_existent;".to_owned(),
         })
         .expect("query executed");
@@ -90,21 +90,21 @@ fn drop_if_exists_existent_and_non_existent_schema(empty_database: (InMemory, Re
     let (mut engine, collector) = empty_database;
 
     engine
-        .execute(Command::Query {
+        .execute(CommandMessage::Query {
             sql: "create schema existent_schema;".to_owned(),
         })
         .expect("query executed");
     collector.assert_receive_single(Ok(QueryEvent::SchemaCreated));
 
     engine
-        .execute(Command::Query {
+        .execute(CommandMessage::Query {
             sql: "drop schema if exists non_existent, existent_schema;".to_owned(),
         })
         .expect("query executed");
     collector.assert_receive_single(Ok(QueryEvent::SchemaDropped));
 
     engine
-        .execute(Command::Query {
+        .execute(CommandMessage::Query {
             sql: "create schema existent_schema;".to_owned(),
         })
         .expect("query executed");
@@ -116,7 +116,7 @@ fn select_from_nonexistent_schema(empty_database: (InMemory, ResultCollector)) {
     let (mut engine, collector) = empty_database;
 
     engine
-        .execute(Command::Query {
+        .execute(CommandMessage::Query {
             sql: "select * from non_existent.some_table;".to_owned(),
         })
         .expect("query executed");
@@ -127,7 +127,7 @@ fn select_from_nonexistent_schema(empty_database: (InMemory, ResultCollector)) {
 fn select_named_columns_from_nonexistent_schema(empty_database: (InMemory, ResultCollector)) {
     let (mut engine, collector) = empty_database;
     engine
-        .execute(Command::Query {
+        .execute(CommandMessage::Query {
             sql: "select column_1 from schema_name.table_name;".to_owned(),
         })
         .expect("query executed");
@@ -139,7 +139,7 @@ fn select_named_columns_from_nonexistent_schema(empty_database: (InMemory, Resul
 fn insert_into_table_in_nonexistent_schema(empty_database: (InMemory, ResultCollector)) {
     let (mut engine, collector) = empty_database;
     engine
-        .execute(Command::Query {
+        .execute(CommandMessage::Query {
             sql: "insert into schema_name.table_name values (123);".to_owned(),
         })
         .expect("query executed");
@@ -151,7 +151,7 @@ fn insert_into_table_in_nonexistent_schema(empty_database: (InMemory, ResultColl
 fn update_records_in_table_from_non_existent_schema(empty_database: (InMemory, ResultCollector)) {
     let (mut engine, collector) = empty_database;
     engine
-        .execute(Command::Query {
+        .execute(CommandMessage::Query {
             sql: "update schema_name.table_name set column_test=789;".to_owned(),
         })
         .expect("query executed");
@@ -163,7 +163,7 @@ fn update_records_in_table_from_non_existent_schema(empty_database: (InMemory, R
 fn delete_from_table_in_nonexistent_schema(empty_database: (InMemory, ResultCollector)) {
     let (mut engine, collector) = empty_database;
     engine
-        .execute(Command::Query {
+        .execute(CommandMessage::Query {
             sql: "delete from schema_name.table_name;".to_owned(),
         })
         .expect("query executed");

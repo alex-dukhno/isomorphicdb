@@ -53,7 +53,7 @@ impl ConnectionManager {
                             local = channel.read_exact(&mut local).await.map(|_| local)?;
                             current = Some(local);
                         }
-                        Ok(HandShakeStatus::UpdatingToSecureWithReadingBytes(len)) => {
+                        Ok(HandShakeStatus::UpdatingToSecureWithReadingBytes(_len)) => {
                             channel = match channel {
                                 Channel::Plain(mut channel) if self.protocol_config.ssl_support() => {
                                     log::info!("SSL is supported");
@@ -76,7 +76,7 @@ impl ConnectionManager {
                                     channel
                                 }
                             };
-                            let mut local = vec![b'0'; len];
+                            let mut local = vec![b'0'; 4];
                             local = channel.read_exact(&mut local).await.map(|_| local)?;
                             current = Some(local);
                         }

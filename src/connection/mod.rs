@@ -12,12 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::session::Command;
 use async_mutex::Mutex as AsyncMutex;
 use futures_lite::{future::block_on, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use postgres::{
     query_response::QueryResult,
-    wire_protocol::{BackendMessage, ConnId, ConnSecretKey, FrontendMessage, MessageDecoder, MessageDecoderStatus},
+    wire_protocol::{BackendMessage, CommandMessage, ConnId, ConnSecretKey, MessageDecoder, MessageDecoderStatus},
 };
 use rand::Rng;
 use std::{
@@ -70,7 +69,7 @@ impl Connection {
         self.sender.clone()
     }
 
-    async fn read_frontend_message(&mut self) -> io::Result<Result<FrontendMessage, ()>> {
+    async fn read_frontend_message(&mut self) -> io::Result<Result<CommandMessage, ()>> {
         let mut current: Option<Vec<u8>> = None;
         let mut message_decoder = MessageDecoder::default();
         loop {
@@ -90,7 +89,7 @@ impl Connection {
         }
     }
 
-    pub async fn receive(&mut self) -> io::Result<Result<Command, ()>> {
+    pub async fn receive(&mut self) -> io::Result<Result<CommandMessage, ()>> {
         let message = match self.read_frontend_message().await {
             Ok(Ok(message)) => message,
             Ok(Err(_err)) => return Ok(Err(())),
@@ -99,48 +98,12 @@ impl Connection {
                 // Terminate message. Considers it as a client Terminate to save
                 // resource and exit smoothly.
                 log::debug!("client disconnected immediately");
-                FrontendMessage::Terminate
+                CommandMessage::Terminate
             }
             Err(err) => return Err(err),
         };
         log::debug!("client request message {:?}", message);
-
-        match message {
-            FrontendMessage::Bind {
-                portal_name,
-                statement_name,
-                param_formats,
-                raw_params,
-                result_formats,
-            } => Ok(Ok(Command::Bind {
-                portal_name,
-                statement_name,
-                param_formats,
-                raw_params,
-                result_formats,
-            })),
-            FrontendMessage::DescribeStatement { name } => Ok(Ok(Command::DescribeStatement { name })),
-            FrontendMessage::Execute { portal_name, max_rows } => Ok(Ok(Command::Execute { portal_name, max_rows })),
-            FrontendMessage::Flush => Ok(Ok(Command::Flush)),
-            FrontendMessage::Parse {
-                statement_name,
-                sql,
-                param_types,
-            } => Ok(Ok(Command::Parse {
-                statement_name,
-                sql,
-                param_types,
-            })),
-            FrontendMessage::Query { sql } => Ok(Ok(Command::Query { sql })),
-            FrontendMessage::Terminate => Ok(Ok(Command::Terminate)),
-            FrontendMessage::Sync => Ok(Ok(Command::Continue)),
-            FrontendMessage::DescribePortal { name } => Ok(Ok(Command::DescribePortal { name })),
-            FrontendMessage::CloseStatement { name: _ } => Ok(Ok(Command::Continue)),
-            FrontendMessage::ClosePortal { name: _ } => Ok(Ok(Command::Continue)),
-            FrontendMessage::Setup { .. } => Ok(Ok(Command::Continue)),
-            FrontendMessage::SslRequest => Ok(Ok(Command::Continue)),
-            FrontendMessage::GssencRequest => Ok(Ok(Command::Continue)),
-        }
+        Ok(Ok(message))
     }
 }
 
