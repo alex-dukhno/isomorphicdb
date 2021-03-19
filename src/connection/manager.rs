@@ -161,7 +161,7 @@ impl ConnectionManager {
                                 conn_id,
                                 props,
                                 address,
-                                channel.clone(),
+                                channel,
                                 self.conn_supervisor.clone(),
                             ))));
                         }
