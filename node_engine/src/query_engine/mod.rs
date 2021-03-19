@@ -70,6 +70,7 @@ impl<D: Database + CatalogDefinition> QueryEngine<D> {
     }
 
     pub(crate) fn execute(&mut self, command: CommandMessage) -> Result<(), ()> {
+        storage::test_feature();
         match command {
             CommandMessage::Query { sql } => {
                 match self.query_parser.parse(&sql) {

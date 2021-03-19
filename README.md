@@ -37,6 +37,7 @@ See [docs](./docs/.)
     * `ci/` - script helpers to run commands on `GitHub Actions`
     * `local/` - scripts for local usage
 * `gradle/` - gradle wrapper to run `tests/compatibility` tests
+* `node_engine/` - module that glues all other together to handle incoming network request and execute it across other modules
 * `postgres/` - crate to consolidate PostgreSQL functionality
     * `query_ast/` - abstract syntax tree of parsed SQL query
     * `query_parser/` - parser that produce AST from SQL string
@@ -65,6 +66,9 @@ See [docs](./docs/.)
         * `type_check/`
         * `type_coercion/`
         * `type_inference/`
+* `storage/` - database transactional storage
+    * `in_memory/` - in memory only storage
+    * `persistent/` - persistent storage
 * `tests/`
     * `compatibility/` - groovy based tests to check compatibility with [PostgreSQL](https://www.postgresql.org/)
     * `erlang_client/` - erlang based tests

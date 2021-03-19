@@ -562,6 +562,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9a3a5bfb195931eeb336b2a7b4d761daec841b97f947d34394601737a7bba5e4"
 
 [[package]]
+name = "in_memory"
+version = "0.1.0"
+
+[[package]]
 name = "instant"
 version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -574,28 +578,7 @@ dependencies = [
 name = "isomorphicdb"
 version = "0.1.0"
 dependencies = [
- "async-dup",
- "async-executor",
- "async-io",
- "async-mutex",
- "bigdecimal",
- "blocking",
- "catalog",
- "data_definition",
- "data_manipulation",
- "data_scalar",
- "definition_planner",
- "entities",
- "futures-lite",
- "log",
- "native-tls",
- "postgres",
- "query_analyzer",
- "query_planner",
- "query_processing",
- "rand 0.7.3",
- "rand_core 0.6.2",
- "rstest",
+ "node_engine",
  "simple_logger",
 ]
 
@@ -668,6 +651,36 @@ checksum = "670361df1bc2399ee1ff50406a0d422587dd3bb0da596e1978fe8e05dabddf4f"
 dependencies = [
  "libc",
  "socket2",
+]
+
+[[package]]
+name = "node_engine"
+version = "0.1.0"
+dependencies = [
+ "async-dup",
+ "async-executor",
+ "async-io",
+ "async-mutex",
+ "bigdecimal",
+ "blocking",
+ "catalog",
+ "data_definition",
+ "data_manipulation",
+ "data_scalar",
+ "definition_planner",
+ "entities",
+ "futures-lite",
+ "log",
+ "native-tls",
+ "postgres",
+ "query_analyzer",
+ "query_planner",
+ "query_processing",
+ "rand 0.7.3",
+ "rand_core 0.6.2",
+ "rstest",
+ "simple_logger",
+ "storage",
 ]
 
 [[package]]
@@ -779,6 +792,10 @@ name = "peeking_take_while"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "19b17cddbe7ec3f8bc800887bab5e717348c95ea2ca0b1bf0837fb964dc67099"
+
+[[package]]
+name = "persistent"
+version = "0.1.0"
 
 [[package]]
 name = "pg_wire"
@@ -1198,6 +1215,14 @@ dependencies = [
  "cfg-if 1.0.0",
  "libc",
  "winapi",
+]
+
+[[package]]
+name = "storage"
+version = "0.1.0"
+dependencies = [
+ "in_memory",
+ "persistent",
 ]
 
 [[package]]

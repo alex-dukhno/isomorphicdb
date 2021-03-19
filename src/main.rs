@@ -16,5 +16,5 @@ fn main() {
     simple_logger::SimpleLogger::from_env()
         .init()
         .expect("to initialize logger");
-    isomorphicdb::start();
+    node_engine::start();
 }

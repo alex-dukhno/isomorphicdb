@@ -1,0 +1,13 @@
+[package]
+name = "storage"
+version = "0.1.0"
+authors = ["Alex Dukhno <alex.dukhno@icloud.com>"]
+edition = "2018"
+
+[features]
+persist = ["persistent"]
+in-memory = ["in_memory"]
+
+[dependencies]
+in_memory = { path = "in_memory", optional = true }
+persistent = { path = "persistent", optional = true }

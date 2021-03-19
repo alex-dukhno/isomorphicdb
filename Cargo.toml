@@ -4,36 +4,13 @@ version = "0.1.0"
 authors = ["Alex Dukhno <alex.dukhno@icloud.com>"]
 edition = "2018"
 
+[dependencies.node_engine]
+path = "node_engine"
+features = ["persist"]
+default_features = false
+
 [dependencies]
-# POSTGRES
-postgres = { path = "postgres" }
-
-#SQL-ENGINE
-catalog = { path = "sql_engine/catalog" }
-entities = { path = "sql_engine/entities" }
-data_definition = { path = "sql_engine/data_definition" }
-data_manipulation = { path = "sql_engine/data_manipulation" }
-data_scalar = { path = "sql_engine/data/scalar" }
-definition_planner = { path = "sql_engine/definition_planner" }
-query_processing = { path = "sql_engine/query_processing" }
-query_analyzer = { path = "sql_engine/query_analyzer" }
-query_planner = { path = "sql_engine/query_planner" }
-
-async-executor = "1.4.0"
-async-io = "1.3.1"
-async-mutex = "1.4.0"
-blocking = "1.0.0"
-bigdecimal = { version = "0.2.0", features = ["string-only"] }
-futures-lite = "1.11.3"
-log = "0.4.14"
-simple_logger = { version = "1.10.0" }
-rand_core = "0.6.2"
-rand = "0.7"
-native-tls = "0.2.7"
-
-[dev-dependencies]
-rstest = "0.6.4"
-async-dup = "1.2.1"
+simple_logger = "1.10.0"
 
 [workspace]
 members = [
@@ -45,4 +22,6 @@ members = [
     "sql_engine/query_analyzer",
     "sql_engine/query_planner",
     "sql_engine/query_processing",
+    "storage",
+    "node_engine"
 ]
