@@ -1,4 +1,4 @@
-// Copyright 2020 - present Alex Dukhno
+// Copyright 2020 - 2021 Alex Dukhno
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,9 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{
-    connection::{network::Network, Channel, ClientRequest, Connection, RequestReceiver, ResponseSender},
-    pg_model::{ConnSupervisor, Encryption, ProtocolConfiguration},
+use crate::connection::{
+    network::Network, Channel, ClientRequest, ConnSupervisor, Connection, Encryption, ProtocolConfiguration,
 };
 use async_mutex::Mutex as AsyncMutex;
 use futures_lite::{AsyncReadExt, AsyncWriteExt};
@@ -54,7 +53,7 @@ impl ConnectionManager {
                             local = channel.read_exact(&mut local).await.map(|_| local)?;
                             current = Some(local);
                         }
-                        Ok(HandShakeStatus::UpdatingToSecureWithReadingBytes(len)) => {
+                        Ok(HandShakeStatus::UpdatingToSecureWithReadingBytes(_len)) => {
                             channel = match channel {
                                 Channel::Plain(mut channel) if self.protocol_config.ssl_support() => {
                                     log::info!("SSL is supported");
@@ -77,7 +76,7 @@ impl ConnectionManager {
                                     channel
                                 }
                             };
-                            let mut local = vec![b'0'; len];
+                            let mut local = vec![b'0'; 4];
                             local = channel.read_exact(&mut local).await.map(|_| local)?;
                             current = Some(local);
                         }
@@ -158,15 +157,13 @@ impl ConnectionManager {
                                 .await?;
 
                             let channel = Arc::new(AsyncMutex::new(channel));
-                            return Ok(Ok(ClientRequest::Connect(Connection {
-                                receiver: Box::new(RequestReceiver::new(
-                                    conn_id,
-                                    props.clone(),
-                                    channel.clone(),
-                                    self.conn_supervisor.clone(),
-                                )),
-                                sender: Arc::new(ResponseSender::new(props, channel)),
-                            })));
+                            return Ok(Ok(ClientRequest::Connect(Connection::new(
+                                conn_id,
+                                props,
+                                address,
+                                channel,
+                                self.conn_supervisor.clone(),
+                            ))));
                         }
                         Err(error) => {
                             log::error!("{}", error);

@@ -10,4 +10,4 @@ query_response = { path = "query_response" }
 query_ast = { path = "query_ast" }
 query_parser = { path = "query_parser" }
 
-pg_wire = "0.6.0"
+pg_wire = "0.7.0"

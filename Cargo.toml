@@ -33,7 +33,6 @@ native-tls = "0.2.7"
 
 [dev-dependencies]
 rstest = "0.6.4"
-tempfile = "3.1.0"
 async-dup = "1.2.1"
 
 [workspace]

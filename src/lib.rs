@@ -1,4 +1,4 @@
-// Copyright 2020 - present Alex Dukhno
+// Copyright 2020 - 2021 Alex Dukhno
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,13 +13,13 @@
 // limitations under the License.
 
 use crate::{
-    connection::{manager::ConnectionManager, network::Network, ClientRequest, Connection},
-    pg_model::{ConnSupervisor, ProtocolConfiguration},
+    connection::{manager::ConnectionManager, network::Network, ClientRequest},
     query_engine::QueryEngine,
 };
 use async_executor::Executor;
 use async_io::Async;
 use catalog::InMemoryDatabase;
+use connection::{ConnSupervisor, ProtocolConfiguration};
 use futures_lite::future;
 use std::{
     env,
@@ -30,8 +30,8 @@ use std::{
 };
 
 mod connection;
-mod pg_model;
 mod query_engine;
+mod session;
 
 const PORT: u16 = 5432;
 const HOST: [u8; 4] = [0, 0, 0, 0];
@@ -74,13 +74,13 @@ pub fn start() {
             match client_request {
                 Err(io_error) => log::error!("IO error {:?}", io_error),
                 Ok(Err(protocol_error)) => log::error!("protocol error {:?}", protocol_error),
-                Ok(Ok(ClientRequest::Connect(Connection { mut receiver, sender }))) => {
-                    let mut query_engine = QueryEngine::new(sender, database.clone());
+                Ok(Ok(ClientRequest::Connect(mut connection))) => {
+                    let mut query_engine = QueryEngine::new(connection.sender(), database.clone());
                     log::debug!("ready to handle query");
                     WORKER
                         .spawn(async move {
                             loop {
-                                match receiver.receive().await {
+                                match connection.receive().await {
                                     Err(e) => {
                                         log::error!("UNEXPECTED ERROR: {:?}", e);
                                         return;

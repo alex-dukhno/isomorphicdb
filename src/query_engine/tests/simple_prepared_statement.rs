@@ -1,4 +1,4 @@
-// Copyright 2020 - present Alex Dukhno
+// Copyright 2020 - 2021 Alex Dukhno
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@ use super::*;
 fn prepare_execute_and_deallocate(database_with_schema: (InMemory, ResultCollector)) {
     let (mut engine, collector) = database_with_schema;
     engine
-        .execute(Command::Query {
+        .execute(CommandMessage::Query {
             sql: "create table schema_name.table_name (column_1 smallint, column_2 smallint, column_3 smallint)"
                 .to_owned(),
         })
@@ -26,7 +26,7 @@ fn prepare_execute_and_deallocate(database_with_schema: (InMemory, ResultCollect
     collector.assert_receive_single(Ok(QueryEvent::TableCreated));
 
     engine
-        .execute(Command::Query {
+        .execute(CommandMessage::Query {
             sql: "prepare foo_plan (smallint, smallint) as insert into schema_name.table_name values ($1, 456, $2)"
                 .to_owned(),
         })
@@ -34,21 +34,21 @@ fn prepare_execute_and_deallocate(database_with_schema: (InMemory, ResultCollect
     collector.assert_receive_single(Ok(QueryEvent::StatementPrepared));
 
     engine
-        .execute(Command::Query {
+        .execute(CommandMessage::Query {
             sql: "execute foo_plan(123, 789)".to_owned(),
         })
         .expect("query executed");
     collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
     engine
-        .execute(Command::Query {
+        .execute(CommandMessage::Query {
             sql: "deallocate foo_plan".to_owned(),
         })
         .expect("query executed");
     collector.assert_receive_single(Ok(QueryEvent::StatementDeallocated));
 
     engine
-        .execute(Command::Query {
+        .execute(CommandMessage::Query {
             sql: "select * from schema_name.table_name".to_owned(),
         })
         .expect("query executed");
@@ -71,28 +71,28 @@ fn prepare_execute_and_deallocate(database_with_schema: (InMemory, ResultCollect
 fn execute_deallocated_prepared_statement(database_with_schema: (InMemory, ResultCollector)) {
     let (mut engine, collector) = database_with_schema;
     engine
-        .execute(Command::Query {
+        .execute(CommandMessage::Query {
             sql: "create table schema_name.table_name (column_1 smallint)".to_owned(),
         })
         .expect("query executed");
     collector.assert_receive_single(Ok(QueryEvent::TableCreated));
 
     engine
-        .execute(Command::Query {
+        .execute(CommandMessage::Query {
             sql: "prepare foo_plan (smallint) as insert into schema_name.table_name values ($1)".to_owned(),
         })
         .expect("query executed");
     collector.assert_receive_single(Ok(QueryEvent::StatementPrepared));
 
     engine
-        .execute(Command::Query {
+        .execute(CommandMessage::Query {
             sql: "deallocate foo_plan".to_owned(),
         })
         .expect("query executed");
     collector.assert_receive_single(Ok(QueryEvent::StatementDeallocated));
 
     engine
-        .execute(Command::Query {
+        .execute(CommandMessage::Query {
             sql: "execute foo_plan(123)".to_owned(),
         })
         .expect("query executed");
@@ -104,7 +104,7 @@ fn execute_deallocated_prepared_statement(database_with_schema: (InMemory, Resul
 fn prepare_with_wrong_type(database_with_table: (InMemory, ResultCollector)) {
     let (mut engine, collector) = database_with_table;
     engine
-        .execute(Command::Query {
+        .execute(CommandMessage::Query {
             sql: "prepare foo_plan (i, j, k) as insert into schema_name.table_name values ($1, $2, $3)".to_owned(),
         })
         .expect("query executed");
@@ -118,7 +118,7 @@ fn prepare_with_wrong_type(database_with_table: (InMemory, ResultCollector)) {
 fn prepare_with_indeterminate_type(database_with_table: (InMemory, ResultCollector)) {
     let (mut engine, collector) = database_with_table;
     engine
-        .execute(Command::Query {
+        .execute(CommandMessage::Query {
             sql: "prepare foo_plan (smallint, smallint) as insert into schema_name.table_name values (1, $9)"
                 .to_owned(),
         })
@@ -133,28 +133,28 @@ fn prepare_with_indeterminate_type(database_with_table: (InMemory, ResultCollect
 fn prepare_assign_operation_for_all_columns_analysis(database_with_table: (InMemory, ResultCollector)) {
     let (mut engine, collector) = database_with_table;
     engine
-        .execute(Command::Query {
+        .execute(CommandMessage::Query {
             sql: "prepare foo_plan as insert into schema_name.table_name values ($2, $3, $1)".to_owned(),
         })
         .expect("query executed");
     collector.assert_receive_single(Ok(QueryEvent::StatementPrepared));
 
     engine
-        .execute(Command::Query {
+        .execute(CommandMessage::Query {
             sql: "execute foo_plan(123, 456, 789)".to_owned(),
         })
         .expect("query executed");
     collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
     engine
-        .execute(Command::Query {
+        .execute(CommandMessage::Query {
             sql: "deallocate foo_plan".to_owned(),
         })
         .expect("query executed");
     collector.assert_receive_single(Ok(QueryEvent::StatementDeallocated));
 
     engine
-        .execute(Command::Query {
+        .execute(CommandMessage::Query {
             sql: "select * from schema_name.table_name".to_owned(),
         })
         .expect("query executed");
@@ -180,7 +180,7 @@ fn prepare_assign_operation_for_all_columns_analysis(database_with_table: (InMem
 fn prepare_assign_operation_for_specified_columns_analysis(database_with_table: (InMemory, ResultCollector)) {
     let (mut engine, collector) = database_with_table;
     engine
-        .execute(Command::Query {
+        .execute(CommandMessage::Query {
             sql: "prepare foo_plan as insert into schema_name.table_name (COL3, COL2, col1) values ($1, $2, $3)"
                 .to_owned(),
         })
@@ -188,21 +188,21 @@ fn prepare_assign_operation_for_specified_columns_analysis(database_with_table: 
     collector.assert_receive_single(Ok(QueryEvent::StatementPrepared));
 
     engine
-        .execute(Command::Query {
+        .execute(CommandMessage::Query {
             sql: "execute foo_plan(123, 456, 789)".to_owned(),
         })
         .expect("query executed");
     collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
     engine
-        .execute(Command::Query {
+        .execute(CommandMessage::Query {
             sql: "deallocate foo_plan".to_owned(),
         })
         .expect("query executed");
     collector.assert_receive_single(Ok(QueryEvent::StatementDeallocated));
 
     engine
-        .execute(Command::Query {
+        .execute(CommandMessage::Query {
             sql: "select * from schema_name.table_name".to_owned(),
         })
         .expect("query executed");
@@ -229,35 +229,35 @@ fn prepare_reassign_operation_for_all_rows(database_with_table: (InMemory, Resul
     let (mut engine, collector) = database_with_table;
 
     engine
-        .execute(Command::Query {
+        .execute(CommandMessage::Query {
             sql: "insert into schema_name.table_name values (1, 2, 3), (4, 5, 6)".to_owned(),
         })
         .expect("query executed");
     collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(2)));
 
     engine
-        .execute(Command::Query {
+        .execute(CommandMessage::Query {
             sql: "prepare foo_plan as update schema_name.table_name set col3 = $1, COL1 = $2".to_owned(),
         })
         .expect("query executed");
     collector.assert_receive_single(Ok(QueryEvent::StatementPrepared));
 
     engine
-        .execute(Command::Query {
+        .execute(CommandMessage::Query {
             sql: "execute foo_plan(777, 999)".to_owned(),
         })
         .expect("query executed");
     collector.assert_receive_single(Ok(QueryEvent::RecordsUpdated(2)));
 
     engine
-        .execute(Command::Query {
+        .execute(CommandMessage::Query {
             sql: "deallocate foo_plan".to_owned(),
         })
         .expect("query executed");
     collector.assert_receive_single(Ok(QueryEvent::StatementDeallocated));
 
     engine
-        .execute(Command::Query {
+        .execute(CommandMessage::Query {
             sql: "select * from schema_name.table_name".to_owned(),
         })
         .expect("query executed");
@@ -289,35 +289,35 @@ fn prepare_reassign_operation_for_specified_rows(database_with_table: (InMemory,
     let (mut engine, collector) = database_with_table;
 
     engine
-        .execute(Command::Query {
+        .execute(CommandMessage::Query {
             sql: "insert into schema_name.table_name values (1, 2, 3), (4, 5, 6)".to_owned(),
         })
         .expect("query executed");
     collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(2)));
 
     engine
-        .execute(Command::Query {
+        .execute(CommandMessage::Query {
             sql: "prepare foo_plan as update schema_name.table_name set col2 = $1 where COL3 = $2".to_owned(),
         })
         .expect("query executed");
     collector.assert_receive_single(Ok(QueryEvent::StatementPrepared));
 
     engine
-        .execute(Command::Query {
+        .execute(CommandMessage::Query {
             sql: "execute foo_plan(999, 6)".to_owned(),
         })
         .expect("query executed");
     collector.assert_receive_single(Ok(QueryEvent::RecordsUpdated(2)));
 
     engine
-        .execute(Command::Query {
+        .execute(CommandMessage::Query {
             sql: "deallocate foo_plan".to_owned(),
         })
         .expect("query executed");
     collector.assert_receive_single(Ok(QueryEvent::StatementDeallocated));
 
     engine
-        .execute(Command::Query {
+        .execute(CommandMessage::Query {
             sql: "select * from schema_name.table_name".to_owned(),
         })
         .expect("query executed");

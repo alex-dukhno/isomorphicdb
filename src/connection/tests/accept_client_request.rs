@@ -1,4 +1,4 @@
-// Copyright 2020 - present Alex Dukhno
+// Copyright 2020 - 2021 Alex Dukhno
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,27 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::{certificate_content, pg_frontend};
+use super::pg_frontend;
 use crate::{
     connection::{
         manager::ConnectionManager,
         network::{Network, TestCase},
+        ConnSupervisor, Encryption, ProtocolConfiguration,
     },
-    pg_model::Encryption,
-    ClientRequest, ConnSupervisor, ProtocolConfiguration,
+    ClientRequest,
 };
 use futures_lite::future::block_on;
 use postgres::wire_protocol::BackendMessage;
-use std::io::Write;
-use tempfile::NamedTempFile;
-
-fn path_to_temp_certificate() -> NamedTempFile {
-    let named_temp_file = NamedTempFile::new().expect("Failed to create temporal file");
-    let mut file = named_temp_file.reopen().expect("file with content");
-    file.write_all(&certificate_content())
-        .expect("write certificate content to temp file");
-    named_temp_file
-}
+use std::path::PathBuf;
 
 #[test]
 fn trying_read_from_empty_stream() {
@@ -92,10 +83,9 @@ fn sending_accept_notification_for_ssl_only_secure() {
     block_on(async {
         let test_case = TestCase::new(vec![pg_frontend::Message::SslRequired.as_vec().as_slice(), &[]]);
 
-        let file = path_to_temp_certificate();
         let connection_manager = ConnectionManager::new(
             Network::from(test_case.clone()),
-            ProtocolConfiguration::with_ssl(file.path().to_path_buf(), "password".to_owned()),
+            ProtocolConfiguration::with_ssl(PathBuf::new(), "password".to_owned()),
             ConnSupervisor::new(1, 2),
         );
 
@@ -193,10 +183,9 @@ fn successful_connection_handshake_for_ssl_only_secure() {
             pg_frontend::Message::Password("123").as_vec().as_slice(),
         ]);
 
-        let file = path_to_temp_certificate();
         let connection_manager = ConnectionManager::new(
             Network::from(test_case.clone()),
-            ProtocolConfiguration::with_ssl(file.path().to_path_buf(), "password".to_owned()),
+            ProtocolConfiguration::with_ssl(PathBuf::new(), "password".to_owned()),
             ConnSupervisor::new(1, 2),
         );
 

@@ -1,4 +1,4 @@
-// Copyright 2020 - present Alex Dukhno
+// Copyright 2020 - 2021 Alex Dukhno
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,8 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::pg_model::statement::{Portal, PreparedStatement};
+use crate::session::statement::{Portal, PreparedStatement};
 use std::collections::HashMap;
+
+/// Module contains functionality to hold data about `PreparedStatement`
+pub mod statement;
 
 /// A `Session` holds SQL state that is attached to a session.
 #[derive(Clone, Debug)]
