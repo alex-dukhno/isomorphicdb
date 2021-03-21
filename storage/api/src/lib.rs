@@ -74,10 +74,6 @@ pub trait Tree {
     fn update(&self, data: Vec<(Key, Value)>) -> usize;
 
     fn delete(&self, data: Vec<Key>) -> usize;
-
-    fn next_column_ord(&self) -> u64;
-
-    fn create_index(&self, index_name: &str, over_column: usize);
 }
 
 pub trait Storage {

@@ -71,21 +71,6 @@ impl Storage for InMemoryDatabase {
         let name = table.into();
         self.trees.insert(name.clone(), InMemoryTree::with_name(name));
     }
-
-    // fn scan<T: Into<String>>(&self, table: T) -> Cursor {
-    //     let table = table.into();
-    //     self.trees.get(&table).unwrap().select()
-    // }
-    //
-    // fn insert<T: Into<String>>(&self, table: T, key: Key, row: Value) -> Option<Value> {
-    //     let table = table.into();
-    //     self.trees.get(&table).unwrap().insert_key(key, row)
-    // }
-    //
-    // fn delete<T: Into<String>>(&self, table: T, data: Vec<Key>) -> usize {
-    //     let table = table.into();
-    //     self.trees.get(&table).unwrap().delete(data)
-    // }
 }
 
 #[derive(Default, Debug, Clone)]
@@ -175,15 +160,6 @@ impl Tree for InMemoryTree {
         }
         size
     }
-
-    fn next_column_ord(&self) -> u64 {
-        self.inner.column_ords.fetch_add(1, Ordering::SeqCst)
-    }
-
-    fn create_index(&self, index_name: &str, over_column: usize) {
-        self.indexes
-            .insert(index_name.to_owned(), Arc::new(InMemoryIndex::new(over_column)));
-    }
 }
 
 #[derive(Default, Debug)]
@@ -200,6 +176,7 @@ pub struct InMemoryIndex {
 }
 
 impl InMemoryIndex {
+    #[allow(dead_code)]
     pub(crate) fn new(column: usize) -> InMemoryIndex {
         InMemoryIndex {
             records: RwLock::default(),

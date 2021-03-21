@@ -166,12 +166,4 @@ impl Tree for PersistentTable {
         }
         size
     }
-
-    fn next_column_ord(&self) -> u64 {
-        unimplemented!()
-    }
-
-    fn create_index(&self, _index_name: &str, _over_column: usize) {
-        unimplemented!()
-    }
 }
