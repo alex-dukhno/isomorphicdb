@@ -13,7 +13,6 @@
 // limitations under the License.
 
 use super::*;
-use catalog::InMemoryDatabase;
 use postgres::{
     query_response::{QueryEvent, QueryResult},
     wire_protocol::{ColumnMetadata, PgFormat},
@@ -43,7 +42,7 @@ mod type_constraints;
 #[cfg(test)]
 mod update;
 
-type InMemory = QueryEngine<InMemoryDatabase>;
+type InMemory = QueryEngine;
 type ResultCollector = Arc<Collector>;
 
 pub struct Collector(Mutex<Vec<QueryResult>>);
@@ -103,7 +102,7 @@ impl Collector {
 fn empty_database() -> (InMemory, ResultCollector) {
     setup_logger();
     let collector = Collector::new();
-    (InMemory::new(collector.clone(), InMemoryDatabase::new()), collector)
+    (InMemory::new(collector.clone(), Database::in_memory("")), collector)
 }
 
 #[rstest::fixture]

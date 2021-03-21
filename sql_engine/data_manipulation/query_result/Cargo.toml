@@ -7,5 +7,5 @@ publish = false
 
 [dependencies]
 query_response = { path = "../../../postgres/query_response" }
-data_scalar = { path = "../../data/scalar" }
+scalar = { path = "../../scalar" }
 definition = { path = "../../entities/definition" }

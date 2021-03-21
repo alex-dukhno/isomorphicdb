@@ -14,9 +14,9 @@
 
 use bigdecimal::{BigDecimal, ToPrimitive, Zero};
 use data_manipulation_query_result::QueryExecutionError;
-use data_scalar::ScalarValue;
 use query_ast::{BinaryOperator, UnaryOperator};
 use regex::Regex;
+use scalar::ScalarValue;
 use std::{
     fmt::{self, Display, Formatter},
     str::FromStr,

@@ -136,3 +136,12 @@ impl Display for Datum {
         }
     }
 }
+
+impl PartialEq<&str> for Datum {
+    fn eq(&self, other: &&str) -> bool {
+        match self {
+            Datum::String(this) => this == other,
+            _ => false,
+        }
+    }
+}

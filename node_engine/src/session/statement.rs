@@ -35,12 +35,12 @@
 //!    that portal to actually start scanning and returning results.
 
 use data_manipulation::UntypedQuery;
-use data_scalar::ScalarValue;
 use entities::SqlTypeFamily;
 use postgres::{
     query_ast::Query,
     wire_protocol::{PgFormat, PgType},
 };
+use scalar::ScalarValue;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum PreparedStatementState {

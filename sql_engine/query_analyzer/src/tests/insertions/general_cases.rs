@@ -19,58 +19,70 @@ fn insert_statement(schema_name: &str, table_name: &str) -> Query {
 }
 
 #[test]
-fn schema_does_not_exist() {
-    let analyzer = QueryAnalyzer::new(InMemoryDatabase::new());
+fn schema_does_not_exist() -> TransactionResult<()> {
+    Database::in_memory("").transaction(|db| {
+        let analyzer = QueryAnalyzer::from(db);
 
-    assert_eq!(
-        analyzer.analyze(insert_statement(SCHEMA, TABLE)),
-        Err(AnalysisError::schema_does_not_exist(&SCHEMA))
-    );
+        assert_eq!(
+            analyzer.analyze(insert_statement(SCHEMA, TABLE)),
+            Err(AnalysisError::schema_does_not_exist(&SCHEMA))
+        );
+        Ok(())
+    })
 }
 
 #[test]
-fn table_does_not_exist() {
-    let database = InMemoryDatabase::new();
-    database.execute(create_schema_ops(SCHEMA)).unwrap();
-    let analyzer = QueryAnalyzer::new(database);
+fn table_does_not_exist() -> TransactionResult<()> {
+    Database::in_memory("").transaction(|db| {
+        let catalog = CatalogHandler::from(db.clone());
+        catalog.apply(create_schema_ops(SCHEMA)).unwrap();
+        let analyzer = QueryAnalyzer::from(db);
 
-    assert_eq!(
-        analyzer.analyze(insert_statement(SCHEMA, TABLE)),
-        Err(AnalysisError::table_does_not_exist(format!("{}.{}", SCHEMA, TABLE)))
-    );
+        assert_eq!(
+            analyzer.analyze(insert_statement(SCHEMA, TABLE)),
+            Err(AnalysisError::table_does_not_exist(format!("{}.{}", SCHEMA, TABLE)))
+        );
+        Ok(())
+    })
 }
 
 #[test]
-fn with_column_names() {
-    let database = InMemoryDatabase::new();
-    database.execute(create_schema_ops(SCHEMA)).unwrap();
-    database
-        .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
-        .unwrap();
-    let analyzer = QueryAnalyzer::new(database);
+fn with_column_names() -> TransactionResult<()> {
+    Database::in_memory("").transaction(|db| {
+        let catalog = CatalogHandler::from(db.clone());
+        catalog.apply(create_schema_ops(SCHEMA)).unwrap();
+        catalog
+            .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
+            .unwrap();
+        let analyzer = QueryAnalyzer::from(db);
 
-    assert_eq!(
-        analyzer.analyze(inner_insert(SCHEMA, TABLE, vec![vec![small_int(100)]], vec!["col"])),
-        Ok(UntypedQuery::Insert(UntypedInsertQuery {
-            full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-            values: vec![vec![Some(StaticUntypedTree::Item(StaticUntypedItem::Const(
-                UntypedValue::Number(BigDecimal::from(100))
-            )))]],
-        }))
-    );
+        assert_eq!(
+            analyzer.analyze(inner_insert(SCHEMA, TABLE, vec![vec![small_int(100)]], vec!["col"])),
+            Ok(UntypedQuery::Insert(UntypedInsertQuery {
+                full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
+                values: vec![vec![Some(StaticUntypedTree::Item(StaticUntypedItem::Const(
+                    UntypedValue::Number(BigDecimal::from(100))
+                )))]],
+            }))
+        );
+        Ok(())
+    })
 }
 
 #[test]
-fn column_not_found() {
-    let database = InMemoryDatabase::new();
-    database.execute(create_schema_ops(SCHEMA)).unwrap();
-    database
-        .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
-        .unwrap();
-    let analyzer = QueryAnalyzer::new(database);
+fn column_not_found() -> TransactionResult<()> {
+    Database::in_memory("").transaction(|db| {
+        let catalog = CatalogHandler::from(db.clone());
+        catalog.apply(create_schema_ops(SCHEMA)).unwrap();
+        catalog
+            .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
+            .unwrap();
+        let analyzer = QueryAnalyzer::from(db);
 
-    assert_eq!(
-        analyzer.analyze(inner_insert(SCHEMA, TABLE, vec![vec![small_int(1)]], vec!["not_found"])),
-        Err(AnalysisError::column_not_found(&"not_found"))
-    );
+        assert_eq!(
+            analyzer.analyze(inner_insert(SCHEMA, TABLE, vec![vec![small_int(1)]], vec!["not_found"])),
+            Err(AnalysisError::column_not_found(&"not_found"))
+        );
+        Ok(())
+    })
 }

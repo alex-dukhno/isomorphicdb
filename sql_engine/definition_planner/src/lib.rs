@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use catalog::CatalogDefinition;
+use catalog::CatalogHandler;
 use data_definition_execution_plan::{
     ColumnInfo, CreateIndexQuery, CreateSchemaQuery, CreateTableQuery, DropSchemasQuery, DropTablesQuery, SchemaChange,
 };
@@ -20,17 +20,22 @@ use definition::{FullTableName, SchemaName};
 use query_ast::{ColumnDef, Definition};
 use query_response::QueryError;
 use std::sync::Arc;
+use storage::TransactionalDatabase;
 use types::SqlType;
 
-pub struct DefinitionPlanner<CD: CatalogDefinition> {
-    database: Arc<CD>,
+pub struct DefinitionPlanner<'p> {
+    catalog: CatalogHandler<'p>,
 }
 
-impl<CD: CatalogDefinition> DefinitionPlanner<CD> {
-    pub fn new(database: Arc<CD>) -> DefinitionPlanner<CD> {
-        DefinitionPlanner { database }
+impl<'p> From<TransactionalDatabase<'p>> for DefinitionPlanner<'p> {
+    fn from(database: TransactionalDatabase<'p>) -> Self {
+        DefinitionPlanner {
+            catalog: CatalogHandler::from(database),
+        }
     }
+}
 
+impl<'p> DefinitionPlanner<'p> {
     pub fn plan(&self, statement: Definition) -> Result<SchemaChange, SchemaPlanError> {
         match statement {
             Definition::CreateTable {
@@ -39,7 +44,7 @@ impl<CD: CatalogDefinition> DefinitionPlanner<CD> {
                 columns,
                 if_not_exists,
             } => {
-                if !(self.database.schema_exists(&SchemaName::from(&schema_name))) {
+                if !(self.catalog.schema_exists(&SchemaName::from(&schema_name))) {
                     Err(SchemaPlanError::schema_does_not_exist(&schema_name))
                 } else {
                     let full_table_name = FullTableName::from((&schema_name, &table_name));
@@ -71,7 +76,7 @@ impl<CD: CatalogDefinition> DefinitionPlanner<CD> {
                 column_names,
             } => {
                 let full_table_name = FullTableName::from((&schema_name, &table_name));
-                match self.database.table_definition(full_table_name.clone()) {
+                match self.catalog.table_definition(full_table_name.clone()) {
                     None => Err(SchemaPlanError::schema_does_not_exist(full_table_name.schema())),
                     Some(None) => Err(SchemaPlanError::table_does_not_exist(full_table_name)),
                     Some(Some(table_info)) => {
@@ -97,7 +102,7 @@ impl<CD: CatalogDefinition> DefinitionPlanner<CD> {
                 let mut full_table_names = vec![];
                 for (schema_name, table_name) in names {
                     let full_table_name = FullTableName::from((&schema_name, &table_name));
-                    if self.database.schema_exists(&SchemaName::from(&schema_name)) {
+                    if self.catalog.schema_exists(&SchemaName::from(&schema_name)) {
                         full_table_names.push(full_table_name)
                     } else {
                         return Err(SchemaPlanError::schema_does_not_exist(&schema_name));

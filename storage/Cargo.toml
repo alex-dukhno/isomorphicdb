@@ -9,5 +9,8 @@ persist = ["persistent"]
 in-memory = ["in_memory"]
 
 [dependencies]
+binary = { path = "binary" }
+storage_api = { path = "api" }
+
 in_memory = { path = "in_memory", optional = true }
 persistent = { path = "persistent", optional = true }

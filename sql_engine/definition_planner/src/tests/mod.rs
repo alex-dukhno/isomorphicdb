@@ -13,8 +13,8 @@
 // limitations under the License.
 
 use super::*;
-use catalog::{Database, InMemoryDatabase};
 use data_definition_execution_plan::{ColumnInfo, CreateSchemaQuery, CreateTableQuery, DropSchemasQuery, SchemaChange};
+use storage::{Database, TransactionResult};
 
 #[cfg(test)]
 mod create_index;

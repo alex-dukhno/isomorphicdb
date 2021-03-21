@@ -4,18 +4,17 @@ version = "0.1.0"
 authors = ["Alex Dukhno <alex.dukhno@icloud.com>"]
 edition = "2018"
 
-[dependencies.node_engine]
-path = "node_engine"
-features = ["persist"]
-default_features = false
-
 [dependencies]
+node_engine = { path = "node_engine" }
+storage = { path = "storage", features = ["persistent"] }
+
 simple_logger = "1.10.0"
 
 [workspace]
 members = [
     "postgres",
     "sql_engine/catalog",
+    "sql_engine/definition_planner",
     "sql_engine/data_definition",
     "sql_engine/data_manipulation",
     "sql_engine/entities",

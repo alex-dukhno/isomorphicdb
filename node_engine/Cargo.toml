@@ -4,10 +4,6 @@ version = "0.1.0"
 authors = ["Alex Dukhno <alex.dukhno@icloud.com>"]
 edition = "2018"
 
-[features]
-default = ["storage/in-memory"]
-persist = ["storage/persist"]
-
 [dependencies]
 # STORAGE
 storage = { path = "../storage" }
@@ -19,7 +15,7 @@ catalog = { path = "../sql_engine/catalog" }
 entities = { path = "../sql_engine/entities" }
 data_definition = { path = "../sql_engine/data_definition" }
 data_manipulation = { path = "../sql_engine/data_manipulation" }
-data_scalar = { path = "../sql_engine/data/scalar" }
+scalar = { path = "../sql_engine/scalar" }
 definition_planner = { path = "../sql_engine/definition_planner" }
 query_processing = { path = "../sql_engine/query_processing" }
 query_analyzer = { path = "../sql_engine/query_analyzer" }

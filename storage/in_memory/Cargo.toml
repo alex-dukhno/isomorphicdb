@@ -5,3 +5,8 @@ authors = ["Alex Dukhno <alex.dukhno@icloud.com>"]
 edition = "2018"
 
 [dependencies]
+binary = { path = "../binary" }
+storage_api = { path = "../api" }
+
+dashmap = "4.0.2"
+log = "0.4.14"

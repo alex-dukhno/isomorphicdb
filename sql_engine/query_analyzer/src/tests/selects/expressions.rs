@@ -17,116 +17,131 @@ use data_manipulation_untyped_tree::{DynamicUntypedItem, DynamicUntypedTree, Unt
 use super::*;
 
 #[test]
-fn select_all_columns_from_table() {
-    let database = InMemoryDatabase::new();
-    database.execute(create_schema_ops(SCHEMA)).unwrap();
-    database
-        .execute(create_table_ops(SCHEMA, TABLE, vec![("col1", SqlType::integer())]))
-        .unwrap();
-    let analyzer = QueryAnalyzer::new(database);
+fn select_all_columns_from_table() -> TransactionResult<()> {
+    Database::in_memory("").transaction(|db| {
+        let catalog = CatalogHandler::from(db.clone());
+        catalog.apply(create_schema_ops(SCHEMA)).unwrap();
+        catalog
+            .apply(create_table_ops(SCHEMA, TABLE, vec![("col1", SqlType::integer())]))
+            .unwrap();
+        let analyzer = QueryAnalyzer::from(db);
 
-    assert_eq!(
-        analyzer.analyze(select(SCHEMA, TABLE)),
-        Ok(UntypedQuery::Select(UntypedSelectQuery {
-            full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-            projection_items: vec![DynamicUntypedTree::Item(DynamicUntypedItem::Column {
-                name: "col1".to_owned(),
-                index: 0,
-                sql_type: SqlType::integer()
-            })],
-        }))
-    );
+        assert_eq!(
+            analyzer.analyze(select(SCHEMA, TABLE)),
+            Ok(UntypedQuery::Select(UntypedSelectQuery {
+                full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
+                projection_items: vec![DynamicUntypedTree::Item(DynamicUntypedItem::Column {
+                    name: "col1".to_owned(),
+                    index: 0,
+                    sql_type: SqlType::integer()
+                })],
+            }))
+        );
+        Ok(())
+    })
 }
 
 #[test]
-fn select_specified_column_from_table() {
-    let database = InMemoryDatabase::new();
-    database.execute(create_schema_ops(SCHEMA)).unwrap();
-    database
-        .execute(create_table_ops(SCHEMA, TABLE, vec![("col1", SqlType::integer())]))
-        .unwrap();
-    let analyzer = QueryAnalyzer::new(database);
+fn select_specified_column_from_table() -> TransactionResult<()> {
+    Database::in_memory("").transaction(|db| {
+        let catalog = CatalogHandler::from(db.clone());
+        catalog.apply(create_schema_ops(SCHEMA)).unwrap();
+        catalog
+            .apply(create_table_ops(SCHEMA, TABLE, vec![("col1", SqlType::integer())]))
+            .unwrap();
+        let analyzer = QueryAnalyzer::from(db);
 
-    assert_eq!(
-        analyzer.analyze(select_with_columns(
-            SCHEMA,
-            TABLE,
-            vec![SelectItem::UnnamedExpr(Expr::Column("col1".to_owned()))]
-        )),
-        Ok(UntypedQuery::Select(UntypedSelectQuery {
-            full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-            projection_items: vec![DynamicUntypedTree::Item(DynamicUntypedItem::Column {
-                name: "col1".to_owned(),
-                index: 0,
-                sql_type: SqlType::integer()
-            })],
-        }))
-    );
+        assert_eq!(
+            analyzer.analyze(select_with_columns(
+                SCHEMA,
+                TABLE,
+                vec![SelectItem::UnnamedExpr(Expr::Column("col1".to_owned()))]
+            )),
+            Ok(UntypedQuery::Select(UntypedSelectQuery {
+                full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
+                projection_items: vec![DynamicUntypedTree::Item(DynamicUntypedItem::Column {
+                    name: "col1".to_owned(),
+                    index: 0,
+                    sql_type: SqlType::integer()
+                })],
+            }))
+        );
+        Ok(())
+    })
 }
 
 #[test]
-fn select_column_that_is_not_in_table() {
-    let database = InMemoryDatabase::new();
-    database.execute(create_schema_ops(SCHEMA)).unwrap();
-    database
-        .execute(create_table_ops(SCHEMA, TABLE, vec![("col1", SqlType::integer())]))
-        .unwrap();
-    let analyzer = QueryAnalyzer::new(database);
+fn select_column_that_is_not_in_table() -> TransactionResult<()> {
+    Database::in_memory("").transaction(|db| {
+        let catalog = CatalogHandler::from(db.clone());
+        catalog.apply(create_schema_ops(SCHEMA)).unwrap();
+        catalog
+            .apply(create_table_ops(SCHEMA, TABLE, vec![("col1", SqlType::integer())]))
+            .unwrap();
+        let analyzer = QueryAnalyzer::from(db);
 
-    assert_eq!(
-        analyzer.analyze(select_with_columns(
-            SCHEMA,
-            TABLE,
-            vec![SelectItem::UnnamedExpr(Expr::Column("col2".to_owned()))]
-        )),
-        Err(AnalysisError::column_not_found(&"col2"))
-    );
+        assert_eq!(
+            analyzer.analyze(select_with_columns(
+                SCHEMA,
+                TABLE,
+                vec![SelectItem::UnnamedExpr(Expr::Column("col2".to_owned()))]
+            )),
+            Err(AnalysisError::column_not_found(&"col2"))
+        );
+        Ok(())
+    })
 }
 
 #[test]
-fn select_from_table_with_constant() {
-    let database = InMemoryDatabase::new();
-    database.execute(create_schema_ops(SCHEMA)).unwrap();
-    database
-        .execute(create_table_ops(SCHEMA, TABLE, vec![("col1", SqlType::integer())]))
-        .unwrap();
-    let analyzer = QueryAnalyzer::new(database);
+fn select_from_table_with_constant() -> TransactionResult<()> {
+    Database::in_memory("").transaction(|db| {
+        let catalog = CatalogHandler::from(db.clone());
+        catalog.apply(create_schema_ops(SCHEMA)).unwrap();
+        catalog
+            .apply(create_table_ops(SCHEMA, TABLE, vec![("col1", SqlType::integer())]))
+            .unwrap();
+        let analyzer = QueryAnalyzer::from(db);
 
-    assert_eq!(
-        analyzer.analyze(select_with_columns(
-            SCHEMA,
-            TABLE,
-            vec![SelectItem::UnnamedExpr(Expr::Value(number(1)))],
-        )),
-        Ok(UntypedQuery::Select(UntypedSelectQuery {
-            full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-            projection_items: vec![DynamicUntypedTree::Item(DynamicUntypedItem::Const(
-                UntypedValue::Number(BigDecimal::from(1))
-            ))],
-        }))
-    );
+        assert_eq!(
+            analyzer.analyze(select_with_columns(
+                SCHEMA,
+                TABLE,
+                vec![SelectItem::UnnamedExpr(Expr::Value(number(1)))],
+            )),
+            Ok(UntypedQuery::Select(UntypedSelectQuery {
+                full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
+                projection_items: vec![DynamicUntypedTree::Item(DynamicUntypedItem::Const(
+                    UntypedValue::Number(BigDecimal::from(1))
+                ))],
+            }))
+        );
+        Ok(())
+    })
 }
 
 #[test]
-fn select_parameters_from_a_table() {
-    let database = InMemoryDatabase::new();
-    database.execute(create_schema_ops(SCHEMA)).unwrap();
-    database
-        .execute(create_table_ops(SCHEMA, TABLE, vec![("col1", SqlType::integer())]))
-        .unwrap();
-    let analyzer = QueryAnalyzer::new(database);
+fn select_parameters_from_a_table() -> TransactionResult<()> {
+    Database::in_memory("").transaction(|db| {
+        let catalog = CatalogHandler::from(db.clone());
+        catalog.apply(create_schema_ops(SCHEMA)).unwrap();
+        catalog
+            .apply(create_table_ops(SCHEMA, TABLE, vec![("col1", SqlType::integer())]))
+            .unwrap();
+        let analyzer = QueryAnalyzer::from(db);
 
-    assert_eq!(
-        analyzer.analyze(select_with_columns(
-            SCHEMA,
-            TABLE,
-            vec![SelectItem::UnnamedExpr(Expr::Param(1))],
-        )),
-        Ok(UntypedQuery::Select(UntypedSelectQuery {
-            full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-            projection_items: vec![DynamicUntypedTree::Item(DynamicUntypedItem::Param(0))],
-        }))
-    );
+        assert_eq!(
+            analyzer.analyze(select_with_columns(
+                SCHEMA,
+                TABLE,
+                vec![SelectItem::UnnamedExpr(Expr::Param(1))],
+            )),
+            Ok(UntypedQuery::Select(UntypedSelectQuery {
+                full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
+                projection_items: vec![DynamicUntypedTree::Item(DynamicUntypedItem::Param(0))],
+            }))
+        );
+        Ok(())
+    })
 }
 
 #[cfg(test)]
@@ -148,182 +163,200 @@ mod multiple_values {
     }
 
     #[test]
-    fn arithmetic() {
-        let database = InMemoryDatabase::new();
-        database.execute(create_schema_ops(SCHEMA)).unwrap();
-        database
-            .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
-            .unwrap();
-        let analyzer = QueryAnalyzer::new(database);
+    fn arithmetic() -> TransactionResult<()> {
+        Database::in_memory("").transaction(|db| {
+            let catalog = CatalogHandler::from(db.clone());
+            catalog.apply(create_schema_ops(SCHEMA)).unwrap();
+            catalog
+                .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
+                .unwrap();
+            let analyzer = QueryAnalyzer::from(db);
 
-        assert_eq!(
-            analyzer.analyze(select_value_as_expression_with_operation(
-                string("1"),
-                BinaryOperator::Plus,
-                Expr::Value(number(1))
-            )),
-            Ok(UntypedQuery::Select(UntypedSelectQuery {
-                full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                projection_items: vec![DynamicUntypedTree::BiOp {
-                    left: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
-                        UntypedValue::String("1".to_owned())
-                    ))),
-                    op: BiOperator::Arithmetic(BiArithmetic::Add),
-                    right: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
-                        UntypedValue::Number(BigDecimal::from(1))
-                    )))
-                }],
-            }))
-        );
+            assert_eq!(
+                analyzer.analyze(select_value_as_expression_with_operation(
+                    string("1"),
+                    BinaryOperator::Plus,
+                    Expr::Value(number(1))
+                )),
+                Ok(UntypedQuery::Select(UntypedSelectQuery {
+                    full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
+                    projection_items: vec![DynamicUntypedTree::BiOp {
+                        left: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
+                            UntypedValue::String("1".to_owned())
+                        ))),
+                        op: BiOperator::Arithmetic(BiArithmetic::Add),
+                        right: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
+                            UntypedValue::Number(BigDecimal::from(1))
+                        )))
+                    }],
+                }))
+            );
+            Ok(())
+        })
     }
 
     #[test]
-    fn string_operation() {
-        let database = InMemoryDatabase::new();
-        database.execute(create_schema_ops(SCHEMA)).unwrap();
-        database
-            .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::var_char(255))]))
-            .unwrap();
-        let analyzer = QueryAnalyzer::new(database);
+    fn string_operation() -> TransactionResult<()> {
+        Database::in_memory("").transaction(|db| {
+            let catalog = CatalogHandler::from(db.clone());
+            catalog.apply(create_schema_ops(SCHEMA)).unwrap();
+            catalog
+                .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::var_char(255))]))
+                .unwrap();
+            let analyzer = QueryAnalyzer::from(db);
 
-        assert_eq!(
-            analyzer.analyze(select_value_as_expression_with_operation(
-                string("str"),
-                BinaryOperator::StringConcat,
-                string("str")
-            )),
-            Ok(UntypedQuery::Select(UntypedSelectQuery {
-                full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                projection_items: vec![DynamicUntypedTree::BiOp {
-                    left: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
-                        UntypedValue::String("str".to_owned())
-                    ))),
-                    op: BiOperator::StringOp(Concat),
-                    right: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
-                        UntypedValue::String("str".to_owned())
-                    )))
-                }],
-            }))
-        );
+            assert_eq!(
+                analyzer.analyze(select_value_as_expression_with_operation(
+                    string("str"),
+                    BinaryOperator::StringConcat,
+                    string("str")
+                )),
+                Ok(UntypedQuery::Select(UntypedSelectQuery {
+                    full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
+                    projection_items: vec![DynamicUntypedTree::BiOp {
+                        left: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
+                            UntypedValue::String("str".to_owned())
+                        ))),
+                        op: BiOperator::StringOp(Concat),
+                        right: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
+                            UntypedValue::String("str".to_owned())
+                        )))
+                    }],
+                }))
+            );
+            Ok(())
+        })
     }
 
     #[test]
-    fn comparison() {
-        let database = InMemoryDatabase::new();
-        database.execute(create_schema_ops(SCHEMA)).unwrap();
-        database
-            .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
-            .unwrap();
-        let analyzer = QueryAnalyzer::new(database);
+    fn comparison() -> TransactionResult<()> {
+        Database::in_memory("").transaction(|db| {
+            let catalog = CatalogHandler::from(db.clone());
+            catalog.apply(create_schema_ops(SCHEMA)).unwrap();
+            catalog
+                .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
+                .unwrap();
+            let analyzer = QueryAnalyzer::from(db);
 
-        assert_eq!(
-            analyzer.analyze(select_value_as_expression_with_operation(
-                string("1"),
-                BinaryOperator::Gt,
-                Expr::Value(number(1))
-            )),
-            Ok(UntypedQuery::Select(UntypedSelectQuery {
-                full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                projection_items: vec![DynamicUntypedTree::BiOp {
-                    left: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
-                        UntypedValue::String("1".to_owned())
-                    ))),
-                    op: BiOperator::Comparison(Comparison::Gt),
-                    right: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
-                        UntypedValue::Number(BigDecimal::from(1))
-                    )))
-                }],
-            }))
-        );
+            assert_eq!(
+                analyzer.analyze(select_value_as_expression_with_operation(
+                    string("1"),
+                    BinaryOperator::Gt,
+                    Expr::Value(number(1))
+                )),
+                Ok(UntypedQuery::Select(UntypedSelectQuery {
+                    full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
+                    projection_items: vec![DynamicUntypedTree::BiOp {
+                        left: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
+                            UntypedValue::String("1".to_owned())
+                        ))),
+                        op: BiOperator::Comparison(Comparison::Gt),
+                        right: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
+                            UntypedValue::Number(BigDecimal::from(1))
+                        )))
+                    }],
+                }))
+            );
+            Ok(())
+        })
     }
 
     #[test]
-    fn logical() {
-        let database = InMemoryDatabase::new();
-        database.execute(create_schema_ops(SCHEMA)).unwrap();
-        database
-            .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
-            .unwrap();
-        let analyzer = QueryAnalyzer::new(database);
+    fn logical() -> TransactionResult<()> {
+        Database::in_memory("").transaction(|db| {
+            let catalog = CatalogHandler::from(db.clone());
+            catalog.apply(create_schema_ops(SCHEMA)).unwrap();
+            catalog
+                .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
+                .unwrap();
+            let analyzer = QueryAnalyzer::from(db);
 
-        assert_eq!(
-            analyzer.analyze(select_value_as_expression_with_operation(
-                Expr::Value(Value::Boolean(true)),
-                BinaryOperator::And,
-                Expr::Value(Value::Boolean(true)),
-            )),
-            Ok(UntypedQuery::Select(UntypedSelectQuery {
-                full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                projection_items: vec![DynamicUntypedTree::BiOp {
-                    left: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(UntypedValue::Bool(
-                        Bool(true)
-                    )))),
-                    op: BiOperator::Logical(BiLogical::And),
-                    right: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(UntypedValue::Bool(
-                        Bool(true)
-                    )))),
-                }],
-            }))
-        );
+            assert_eq!(
+                analyzer.analyze(select_value_as_expression_with_operation(
+                    Expr::Value(Value::Boolean(true)),
+                    BinaryOperator::And,
+                    Expr::Value(Value::Boolean(true)),
+                )),
+                Ok(UntypedQuery::Select(UntypedSelectQuery {
+                    full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
+                    projection_items: vec![DynamicUntypedTree::BiOp {
+                        left: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(UntypedValue::Bool(
+                            Bool(true)
+                        )))),
+                        op: BiOperator::Logical(BiLogical::And),
+                        right: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(UntypedValue::Bool(
+                            Bool(true)
+                        )))),
+                    }],
+                }))
+            );
+            Ok(())
+        })
     }
 
     #[test]
-    fn bitwise() {
-        let database = InMemoryDatabase::new();
-        database.execute(create_schema_ops(SCHEMA)).unwrap();
-        database
-            .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
-            .unwrap();
-        let analyzer = QueryAnalyzer::new(database);
+    fn bitwise() -> TransactionResult<()> {
+        Database::in_memory("").transaction(|db| {
+            let catalog = CatalogHandler::from(db.clone());
+            catalog.apply(create_schema_ops(SCHEMA)).unwrap();
+            catalog
+                .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
+                .unwrap();
+            let analyzer = QueryAnalyzer::from(db);
 
-        assert_eq!(
-            analyzer.analyze(select_value_as_expression_with_operation(
-                Expr::Value(number(1)),
-                BinaryOperator::BitwiseOr,
-                Expr::Value(number(1))
-            )),
-            Ok(UntypedQuery::Select(UntypedSelectQuery {
-                full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                projection_items: vec![DynamicUntypedTree::BiOp {
-                    left: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
-                        UntypedValue::Number(BigDecimal::from(1))
-                    ))),
-                    op: BiOperator::Bitwise(Bitwise::Or),
-                    right: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
-                        UntypedValue::Number(BigDecimal::from(1))
-                    )))
-                }],
-            }))
-        );
+            assert_eq!(
+                analyzer.analyze(select_value_as_expression_with_operation(
+                    Expr::Value(number(1)),
+                    BinaryOperator::BitwiseOr,
+                    Expr::Value(number(1))
+                )),
+                Ok(UntypedQuery::Select(UntypedSelectQuery {
+                    full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
+                    projection_items: vec![DynamicUntypedTree::BiOp {
+                        left: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
+                            UntypedValue::Number(BigDecimal::from(1))
+                        ))),
+                        op: BiOperator::Bitwise(Bitwise::Or),
+                        right: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
+                            UntypedValue::Number(BigDecimal::from(1))
+                        )))
+                    }],
+                }))
+            );
+            Ok(())
+        })
     }
 
     #[test]
-    fn pattern_matching() {
-        let database = InMemoryDatabase::new();
-        database.execute(create_schema_ops(SCHEMA)).unwrap();
-        database
-            .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
-            .unwrap();
-        let analyzer = QueryAnalyzer::new(database);
+    fn pattern_matching() -> TransactionResult<()> {
+        Database::in_memory("").transaction(|db| {
+            let catalog = CatalogHandler::from(db.clone());
+            catalog.apply(create_schema_ops(SCHEMA)).unwrap();
+            catalog
+                .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
+                .unwrap();
+            let analyzer = QueryAnalyzer::from(db);
 
-        assert_eq!(
-            analyzer.analyze(select_value_as_expression_with_operation(
-                string("s"),
-                BinaryOperator::Like,
-                string("str")
-            )),
-            Ok(UntypedQuery::Select(UntypedSelectQuery {
-                full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                projection_items: vec![DynamicUntypedTree::BiOp {
-                    left: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
-                        UntypedValue::String("s".to_owned())
-                    ))),
-                    op: BiOperator::Matching(Matching::Like),
-                    right: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
-                        UntypedValue::String("str".to_owned())
-                    )))
-                }],
-            }))
-        );
+            assert_eq!(
+                analyzer.analyze(select_value_as_expression_with_operation(
+                    string("s"),
+                    BinaryOperator::Like,
+                    string("str")
+                )),
+                Ok(UntypedQuery::Select(UntypedSelectQuery {
+                    full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
+                    projection_items: vec![DynamicUntypedTree::BiOp {
+                        left: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
+                            UntypedValue::String("s".to_owned())
+                        ))),
+                        op: BiOperator::Matching(Matching::Like),
+                        right: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
+                            UntypedValue::String("str".to_owned())
+                        )))
+                    }],
+                }))
+            );
+            Ok(())
+        })
     }
 }

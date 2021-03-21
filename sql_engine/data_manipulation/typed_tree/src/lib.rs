@@ -13,10 +13,10 @@
 // limitations under the License.
 
 use bigdecimal::{BigDecimal, ToPrimitive};
-use data_binary::repr::{Datum, ToDatum};
+use binary::repr::{Datum, ToDatum};
 use data_manipulation_operators::{BiOperator, UnOperator};
 use data_manipulation_query_result::QueryExecutionError;
-use data_scalar::ScalarValue;
+use scalar::ScalarValue;
 use std::fmt::{self, Display, Formatter};
 use types::SqlTypeFamily;
 

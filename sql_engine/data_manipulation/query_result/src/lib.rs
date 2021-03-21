@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use data_scalar::ScalarValue;
 use definition::ColumnDef;
 use query_response::QueryError;
+use scalar::ScalarValue;
 
 #[derive(Debug, PartialEq)]
 pub enum QueryExecution {

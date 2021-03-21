@@ -12,24 +12,30 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use catalog::Database;
+use catalog::CatalogHandler;
 use data_manipulation_query_plan::{
     ConstraintValidator, DeleteQueryPlan, DynamicValues, FullTableScan, InsertQueryPlan, QueryPlan, Repeater,
     SelectQueryPlan, StaticExpressionEval, StaticValues, TableRecordKeys, UpdateQueryPlan,
 };
 use data_manipulation_typed_queries::TypedQuery;
 use data_manipulation_typed_tree::{DynamicTypedItem, DynamicTypedTree};
-use std::sync::Arc;
+use storage::TransactionalDatabase;
 
-pub struct QueryPlanner<D> {
-    database: Arc<D>,
+pub struct QueryPlanner<'p> {
+    database: TransactionalDatabase<'p>,
+    catalog: CatalogHandler<'p>,
 }
 
-impl<D: Database> QueryPlanner<D> {
-    pub fn new(database: Arc<D>) -> QueryPlanner<D> {
-        QueryPlanner { database }
+impl<'p> From<TransactionalDatabase<'p>> for QueryPlanner<'p> {
+    fn from(database: TransactionalDatabase<'p>) -> QueryPlanner<'p> {
+        QueryPlanner {
+            database: database.clone(),
+            catalog: CatalogHandler::from(database),
+        }
     }
+}
 
+impl<'p> QueryPlanner<'p> {
     pub fn plan(&self, query: TypedQuery) -> QueryPlan {
         match query {
             TypedQuery::Insert(insert) => {
@@ -37,7 +43,7 @@ impl<D: Database> QueryPlanner<D> {
                 QueryPlan::Insert(InsertQueryPlan::new(
                     ConstraintValidator::new(
                         StaticExpressionEval::new(StaticValues::new(insert.values)),
-                        table.columns(),
+                        self.catalog.columns(&insert.full_table_name),
                     ),
                     table,
                 ))
@@ -45,7 +51,7 @@ impl<D: Database> QueryPlanner<D> {
             TypedQuery::Delete(delete) => {
                 let table = self.database.table(&delete.full_table_name);
                 QueryPlan::Delete(DeleteQueryPlan::new(
-                    TableRecordKeys::new(FullTableScan::new(&*table)),
+                    TableRecordKeys::new(FullTableScan::new(&table)),
                     table,
                 ))
             }
@@ -53,17 +59,17 @@ impl<D: Database> QueryPlanner<D> {
                 let table = self.database.table(&update.full_table_name);
                 QueryPlan::Update(UpdateQueryPlan::new(
                     ConstraintValidator::new(
-                        DynamicValues::new(Repeater::new(update.assignments), FullTableScan::new(&*table)),
-                        table.columns(),
+                        DynamicValues::new(Repeater::new(update.assignments), FullTableScan::new(&table)),
+                        self.catalog.columns(&update.full_table_name),
                     ),
-                    FullTableScan::new(&*table),
+                    FullTableScan::new(&table),
                     table,
                 ))
             }
             TypedQuery::Select(select) => {
                 let table = self.database.table(&select.full_table_name);
                 QueryPlan::Select(SelectQueryPlan::new(
-                    FullTableScan::new(&*table),
+                    FullTableScan::new(&table),
                     select
                         .projection_items
                         .into_iter()
@@ -72,7 +78,7 @@ impl<D: Database> QueryPlanner<D> {
                             _ => unimplemented!(),
                         })
                         .collect(),
-                    table.columns_short(),
+                    self.catalog.columns_short(&select.full_table_name),
                 ))
             }
         }

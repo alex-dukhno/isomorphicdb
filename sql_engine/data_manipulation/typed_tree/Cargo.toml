@@ -8,8 +8,8 @@ publish = false
 [dependencies]
 data_manipulation_operators = { path = "../operators" }
 data_manipulation_query_result = { path = "../query_result" }
-data_binary = { path = "../../data/binary" }
-data_scalar = { path = "../../data/scalar" }
+binary = { path = "../../../storage/binary" }
+scalar = { path = "../../scalar" }
 types = { path = "../../entities/types" }
 
 bigdecimal = { version = "0.2.0", features = ["string-only"] }

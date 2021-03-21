@@ -11,4 +11,5 @@ data_definition_execution_plan = { path = "../data_definition/execution_plan" }
 definition = { path = "../entities/definition" }
 query_ast = { path = "../../postgres/query_ast" }
 query_response = { path = "../../postgres/query_response" }
+storage = { path = "../../storage", features = ["in-memory"] }
 types = { path = "../entities/types" }

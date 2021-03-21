@@ -12,6 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use binary::{repr::Datum, Binary};
+use dashmap::DashMap;
+use definition::FullTableName;
 use std::{
     collections::BTreeMap,
     sync::{
@@ -19,13 +22,7 @@ use std::{
         Arc, RwLock,
     },
 };
-
-use dashmap::DashMap;
-
-use data_binary::{repr::Datum, Binary};
-use definition::FullTableName;
-
-use crate::{Cursor, DataCatalog, DataTable, Key, SchemaHandle, Value};
+use storage_api::{Cursor, Key, Value};
 
 #[derive(Default, Debug)]
 struct InternalInMemoryTableHandle {
@@ -76,16 +73,8 @@ impl InMemoryTableHandle {
     pub(crate) fn insert_key(&self, key: Binary, row: Binary) -> Option<Binary> {
         self.inner.records.write().unwrap().insert(key, row)
     }
-}
 
-impl PartialEq for InMemoryTableHandle {
-    fn eq(&self, other: &InMemoryTableHandle) -> bool {
-        self.name == other.name
-    }
-}
-
-impl DataTable for InMemoryTableHandle {
-    fn select(&self) -> Cursor {
+    pub fn select(&self) -> Cursor {
         log::debug!("[SCAN] TABLE NAME {:?}", self.name);
         self.inner
             .records
@@ -99,7 +88,7 @@ impl DataTable for InMemoryTableHandle {
             .collect::<Cursor>()
     }
 
-    fn insert(&self, data: Vec<Value>) -> Vec<Key> {
+    pub fn insert(&self, data: Vec<Value>) -> Vec<Key> {
         let mut rw = self.inner.records.write().unwrap();
         let mut keys = vec![];
         for value in data {
@@ -115,19 +104,7 @@ impl DataTable for InMemoryTableHandle {
         keys
     }
 
-    fn update(&self, data: Vec<(Key, Value)>) -> usize {
-        let len = data.len();
-        let mut rw = self.inner.records.write().unwrap();
-        for (key, value) in data {
-            debug_assert!(
-                matches!(rw.insert(key, value), Some(_)),
-                "update operation should change already existed key"
-            );
-        }
-        len
-    }
-
-    fn delete(&self, data: Vec<Key>) -> usize {
+    pub fn delete(&self, data: Vec<Key>) -> usize {
         let mut rw = self.inner.records.write().unwrap();
         let mut size = 0;
         let keys = rw
@@ -142,13 +119,15 @@ impl DataTable for InMemoryTableHandle {
         size
     }
 
-    fn next_column_ord(&self) -> u64 {
-        self.inner.column_ords.fetch_add(1, Ordering::SeqCst)
-    }
-
-    fn create_index(&self, index_name: &str, over_column: usize) {
+    pub fn create_index(&self, index_name: &str, over_column: usize) {
         self.indexes
             .insert(index_name.to_owned(), Arc::new(InMemoryIndex::new(over_column)));
+    }
+}
+
+impl PartialEq for InMemoryTableHandle {
+    fn eq(&self, other: &InMemoryTableHandle) -> bool {
+        self.name == other.name
     }
 }
 
@@ -157,10 +136,8 @@ pub struct InMemorySchemaHandle {
     tables: DashMap<String, InMemoryTableHandle>,
 }
 
-impl SchemaHandle for InMemorySchemaHandle {
-    type Table = InMemoryTableHandle;
-
-    fn create_table(&self, table_name: &str) -> bool {
+impl InMemorySchemaHandle {
+    pub fn create_table(&self, table_name: &str) -> bool {
         if self.tables.contains_key(table_name) {
             log::error!("TABLE {:?} is already exist", table_name);
             false
@@ -174,7 +151,7 @@ impl SchemaHandle for InMemorySchemaHandle {
         }
     }
 
-    fn drop_table(&self, table_name: &str) -> bool {
+    pub fn drop_table(&self, table_name: &str) -> bool {
         if !self.tables.contains_key(table_name) {
             log::warn!("TABLE {:?} does not exist", table_name);
             false
@@ -185,15 +162,11 @@ impl SchemaHandle for InMemorySchemaHandle {
         }
     }
 
-    fn empty(&self) -> bool {
+    pub fn empty(&self) -> bool {
         self.tables.is_empty()
     }
 
-    fn all_tables(&self) -> Vec<String> {
-        self.tables.iter().map(|entry| entry.key().clone()).collect()
-    }
-
-    fn create_index(&self, table_name: &str, index_name: &str, column_index: usize) -> bool {
+    pub fn create_index(&self, table_name: &str, index_name: &str, column_index: usize) -> bool {
         match self.tables.get(table_name) {
             None => {
                 log::warn!("TABLE {:?} does not exist", table_name);
@@ -207,7 +180,7 @@ impl SchemaHandle for InMemorySchemaHandle {
         }
     }
 
-    fn work_with<T, F: Fn(&Self::Table) -> T>(&self, table_name: &str, operation: F) -> Option<T> {
+    pub fn work_with<T, F: Fn(&InMemoryTableHandle) -> T>(&self, table_name: &str, operation: F) -> Option<T> {
         self.tables.get(table_name).map(|table| operation(&*table))
     }
 }
@@ -227,12 +200,8 @@ impl InMemoryCatalogHandle {
             .unwrap()
             .clone()
     }
-}
 
-impl DataCatalog for InMemoryCatalogHandle {
-    type Schema = InMemorySchemaHandle;
-
-    fn create_schema(&self, schema_name: &str) -> bool {
+    pub fn create_schema(&self, schema_name: &str) -> bool {
         if self.schemas.contains_key(schema_name) {
             false
         } else {
@@ -242,7 +211,7 @@ impl DataCatalog for InMemoryCatalogHandle {
         }
     }
 
-    fn drop_schema(&self, schema_name: &str) -> bool {
+    pub fn drop_schema(&self, schema_name: &str) -> bool {
         if !self.schemas.contains_key(schema_name) {
             false
         } else {
@@ -251,7 +220,7 @@ impl DataCatalog for InMemoryCatalogHandle {
         }
     }
 
-    fn work_with<T, F: Fn(&Self::Schema) -> T>(&self, schema_name: &str, operation: F) -> Option<T> {
+    pub fn work_with<T, F: Fn(&InMemorySchemaHandle) -> T>(&self, schema_name: &str, operation: F) -> Option<T> {
         self.schemas.get(schema_name).map(|schema| operation(&*schema))
     }
 }
@@ -610,71 +579,6 @@ mod general_cases {
                     .unwrap()
                     .collect::<Vec<(Key, Value)>>(),
                 vec![(Binary::pack(&[Datum::from_u64(0)]), Binary::pack(&[Datum::from_u64(1)]))]
-            );
-        }
-
-        #[test]
-        fn update_table_that_in_schema_that_does_not_exist() {
-            let catalog_handle = catalog();
-
-            assert_eq!(
-                catalog_handle.work_with(DOES_NOT_EXIST, |schema| schema
-                    .work_with(TABLE, |table| table.update(vec![]))),
-                None
-            );
-        }
-
-        #[test]
-        fn update_table_that_does_not_exist() {
-            let catalog_handle = catalog();
-
-            assert_eq!(catalog_handle.create_schema(SCHEMA), true);
-            assert_eq!(
-                catalog_handle.work_with(SCHEMA, |schema| schema
-                    .work_with(DOES_NOT_EXIST, |table| table.update(vec![]))),
-                Some(None)
-            );
-        }
-
-        #[test]
-        fn insert_update_scan_records_from_table() {
-            let catalog_handle = catalog();
-
-            assert_eq!(catalog_handle.create_schema(SCHEMA), true);
-            assert_eq!(
-                catalog_handle.work_with(SCHEMA, |schema| schema.create_table(TABLE)),
-                Some(true)
-            );
-
-            assert_eq!(
-                catalog_handle.work_with(SCHEMA, |schema| schema.work_with(TABLE, |table| table.insert(vec![
-                    Binary::pack(&[Datum::from_u64(1)]),
-                    Binary::pack(&[Datum::from_u64(2)])
-                ]))),
-                Some(Some(vec![
-                    Binary::pack(&[Datum::from_u64(0)]),
-                    Binary::pack(&[Datum::from_u64(1)])
-                ]))
-            );
-
-            assert_eq!(
-                catalog_handle.work_with(SCHEMA, |schema| schema.work_with(TABLE, |table| table.update(vec![(
-                    Binary::pack(&[Datum::from_u64(1)]),
-                    Binary::pack(&[Datum::from_u64(4)])
-                )]))),
-                Some(Some(1))
-            );
-
-            assert_eq!(
-                catalog_handle
-                    .work_with(SCHEMA, |schema| schema.work_with(TABLE, |table| table.select()))
-                    .unwrap()
-                    .unwrap()
-                    .collect::<Vec<(Key, Value)>>(),
-                vec![
-                    (Binary::pack(&[Datum::from_u64(0)]), Binary::pack(&[Datum::from_u64(1)])),
-                    (Binary::pack(&[Datum::from_u64(1)]), Binary::pack(&[Datum::from_u64(4)])),
-                ]
             );
         }
     }

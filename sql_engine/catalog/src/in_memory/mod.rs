@@ -12,18 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::in_memory::data_catalog::InMemoryIndex;
 use crate::{
     in_memory::data_catalog::{InMemoryCatalogHandle, InMemoryTableHandle},
-    CatalogDefinition, Cursor, DataCatalog, DataTable, Database, SchemaHandle, SqlTable, COLUMNS_TABLE,
-    DEFINITION_SCHEMA, INDEXES_TABLE, SCHEMATA_TABLE, TABLES_TABLE,
+    COLUMNS_TABLE, DEFINITION_SCHEMA, INDEXES_TABLE, SCHEMATA_TABLE, TABLES_TABLE,
 };
-use data_binary::{repr::Datum, Binary};
+use binary::{repr::Datum, Binary};
 use data_definition_execution_plan::{
     CreateIndexQuery, CreateSchemaQuery, CreateTableQuery, DropSchemasQuery, DropTablesQuery, ExecutionError,
     ExecutionOutcome, SchemaChange,
 };
 use definition::{ColumnDef, FullIndexName, FullTableName, SchemaName, TableDef};
 use std::{fmt::Debug, sync::Arc};
+use storage_api::Cursor;
 use types::{SqlType, SqlTypeFamily};
 
 mod data_catalog;
@@ -83,7 +84,7 @@ impl InMemoryDatabase {
         })
     }
 
-    fn schema_exists(&self, schema_name: &SchemaName) -> bool {
+    fn schema_exists_inner(&self, schema_name: &SchemaName) -> bool {
         let schema_name_record = self.schema_name_record(schema_name);
         self.find_in_system_table(SCHEMATA_TABLE, |value| value == schema_name_record) == Some(Some(true))
     }
@@ -137,11 +138,9 @@ impl InMemoryDatabase {
             .unwrap()
             .unwrap()
     }
-}
 
-impl CatalogDefinition for InMemoryDatabase {
-    fn table_definition(&self, full_table_name: FullTableName) -> Option<Option<TableDef>> {
-        if !self.schema_exists(&SchemaName::from(&full_table_name.schema())) {
+    pub fn table_definition(&self, full_table_name: FullTableName) -> Option<Option<TableDef>> {
+        if !self.schema_exists_inner(&SchemaName::from(&full_table_name.schema())) {
             None
         } else if !self.table_exists(&full_table_name) {
             Some(None)
@@ -151,22 +150,17 @@ impl CatalogDefinition for InMemoryDatabase {
         }
     }
 
-    fn schema_exists(&self, schema_name: &SchemaName) -> bool {
-        self.schema_exists(schema_name)
+    pub fn schema_exists(&self, schema_name: &SchemaName) -> bool {
+        self.schema_exists_inner(schema_name)
     }
-}
 
-impl Database for InMemoryDatabase {
-    type Table = InMemoryTable;
-    type Index = data_catalog::InMemoryIndex;
-
-    fn execute(&self, schema_change: SchemaChange) -> Result<ExecutionOutcome, ExecutionError> {
+    pub fn execute(&self, schema_change: SchemaChange) -> Result<ExecutionOutcome, ExecutionError> {
         match schema_change {
             SchemaChange::CreateSchema(CreateSchemaQuery {
                 schema_name,
                 if_not_exists,
             }) => {
-                if self.schema_exists(&SchemaName::from(&schema_name.as_ref())) {
+                if self.schema_exists_inner(&SchemaName::from(&schema_name.as_ref())) {
                     if if_not_exists {
                         Ok(ExecutionOutcome::SchemaCreated)
                     } else {
@@ -191,7 +185,7 @@ impl Database for InMemoryDatabase {
                 if_exists,
             }) => {
                 for schema_name in schema_names {
-                    if self.schema_exists(&SchemaName::from(&schema_name.as_ref())) {
+                    if self.schema_exists_inner(&SchemaName::from(&schema_name.as_ref())) {
                         if !cascade
                             && self.catalog.work_with(schema_name.as_ref(), |schema| schema.empty()) == Some(false)
                         {
@@ -249,7 +243,7 @@ impl Database for InMemoryDatabase {
                 column_defs,
                 if_not_exists,
             }) => {
-                if self.schema_exists(&SchemaName::from(&full_table_name.schema())) {
+                if self.schema_exists_inner(&SchemaName::from(&full_table_name.schema())) {
                     if self.table_exists(&full_table_name) {
                         if if_not_exists {
                             Ok(ExecutionOutcome::TableCreated)
@@ -314,7 +308,7 @@ impl Database for InMemoryDatabase {
                 if_exists,
             }) => {
                 for full_table_name in full_table_names {
-                    if self.schema_exists(&SchemaName::from(&full_table_name.schema())) {
+                    if self.schema_exists_inner(&SchemaName::from(&full_table_name.schema())) {
                         if self.table_exists(&full_table_name) {
                             self.catalog.work_with(DEFINITION_SCHEMA, |schema| {
                                 schema.work_with(TABLES_TABLE, |table| {
@@ -364,7 +358,7 @@ impl Database for InMemoryDatabase {
                 full_table_name,
                 column_names,
             }) => {
-                if !self.schema_exists(&SchemaName::from(&full_table_name.schema())) {
+                if !self.schema_exists_inner(&SchemaName::from(&full_table_name.schema())) {
                     Err(ExecutionError::SchemaDoesNotExist(full_table_name.schema().to_owned()))
                 } else if !self.table_exists(&full_table_name) {
                     Err(ExecutionError::TableDoesNotExist(
@@ -401,21 +395,21 @@ impl Database for InMemoryDatabase {
         }
     }
 
-    fn table(&self, full_table_name: &FullTableName) -> Box<dyn SqlTable> {
+    pub fn table(&self, full_table_name: &FullTableName) -> Box<InMemoryTable> {
         Box::new(InMemoryTable::new(
             self.table_columns(full_table_name),
             self.catalog.table(full_table_name),
         ))
     }
 
-    fn work_with<R, F: Fn(&Self::Table) -> R>(&self, full_table_name: &FullTableName, operation: F) -> R {
+    pub fn work_with<R, F: Fn(&InMemoryTable) -> R>(&self, full_table_name: &FullTableName, operation: F) -> R {
         operation(&InMemoryTable::new(
             self.table_columns(full_table_name),
             self.catalog.table(full_table_name),
         ))
     }
 
-    fn work_with_index<R, F: Fn(&Self::Index) -> R>(&self, full_index_name: FullIndexName, operation: F) -> R {
+    pub fn work_with_index<R, F: Fn(&InMemoryIndex) -> R>(&self, full_index_name: FullIndexName, operation: F) -> R {
         operation(
             &*self
                 .catalog
@@ -435,28 +429,26 @@ impl InMemoryTable {
     fn new(columns: Vec<ColumnDef>, data_table: InMemoryTableHandle) -> InMemoryTable {
         InMemoryTable { columns, data_table }
     }
-}
 
-impl SqlTable for InMemoryTable {
-    fn columns(&self) -> Vec<(String, SqlTypeFamily)> {
+    pub fn columns(&self) -> Vec<(String, SqlTypeFamily)> {
         self.columns
             .iter()
             .map(|col_def| (col_def.name().to_owned(), col_def.sql_type().family()))
             .collect()
     }
 
-    fn columns_short(&self) -> Vec<(String, SqlType)> {
+    pub fn columns_short(&self) -> Vec<(String, SqlType)> {
         self.columns
             .iter()
             .map(|col_def| (col_def.name().to_owned(), col_def.sql_type()))
             .collect()
     }
 
-    fn write(&self, row: Binary) {
+    pub fn write(&self, row: Binary) {
         self.data_table.insert(vec![row]);
     }
 
-    fn write_key(&self, key: Binary, row: Option<Binary>) {
+    pub fn write_key(&self, key: Binary, row: Option<Binary>) {
         match row {
             None => {
                 let result = self.data_table.remove(&key);
@@ -464,18 +456,11 @@ impl SqlTable for InMemoryTable {
             }
             Some(row) => {
                 let _result = self.data_table.insert_key(key, row);
-                // TODO: that is for DELETE, what to do with update?
-                // debug_assert!(
-                //     matches!(result, None),
-                //     "{:?} value were found for {:?} key",
-                //     result,
-                //     key
-                // );
             }
         }
     }
 
-    fn scan(&self) -> Cursor {
+    pub fn scan(&self) -> Cursor {
         self.data_table.select()
     }
 }

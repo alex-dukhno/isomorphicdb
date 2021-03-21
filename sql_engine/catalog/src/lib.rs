@@ -12,82 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use data_binary::Binary;
-use data_definition_execution_plan::{ExecutionError, ExecutionOutcome, SchemaChange};
-use definition::{FullIndexName, FullTableName, SchemaName, TableDef};
-use std::{
-    fmt::{self, Debug, Formatter},
-    iter::FromIterator,
+use data_definition_execution_plan::{
+    CreateIndexQuery, CreateSchemaQuery, CreateTableQuery, DropSchemasQuery, DropTablesQuery, ExecutionError,
+    ExecutionOutcome, SchemaChange,
 };
-
-pub use in_memory::{InMemoryDatabase, InMemoryTable};
+use definition::{ColumnDef, FullTableName, SchemaName, TableDef};
+use storage::repr::Datum;
+use storage::{Binary, Database, TransactionalDatabase};
 use types::{SqlType, SqlTypeFamily};
-
-mod in_memory;
-
-pub type Key = Binary;
-pub type Value = Binary;
-
-#[derive(Debug, PartialEq)]
-pub struct StorageError;
-
-pub struct Cursor {
-    source: Box<dyn Iterator<Item = (Binary, Binary)>>,
-}
-
-impl Debug for Cursor {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "Data Cursor")
-    }
-}
-
-impl FromIterator<(Binary, Binary)> for Cursor {
-    fn from_iter<T: IntoIterator<Item = (Binary, Binary)>>(iter: T) -> Self {
-        Self {
-            source: Box::new(iter.into_iter().collect::<Vec<(Binary, Binary)>>().into_iter()),
-        }
-    }
-}
-
-impl Iterator for Cursor {
-    type Item = (Binary, Binary);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.source.next()
-    }
-}
-
-trait DataTable {
-    fn select(&self) -> Cursor;
-    fn insert(&self, data: Vec<Value>) -> Vec<Key>;
-    fn update(&self, data: Vec<(Key, Value)>) -> usize;
-    fn delete(&self, data: Vec<Key>) -> usize;
-    fn next_column_ord(&self) -> u64;
-    fn create_index(&self, index_name: &str, over_column: usize);
-}
-
-trait SchemaHandle {
-    type Table: DataTable;
-    fn create_table(&self, table_name: &str) -> bool;
-    fn drop_table(&self, table_name: &str) -> bool;
-    fn empty(&self) -> bool;
-    fn all_tables(&self) -> Vec<String>;
-    fn create_index(&self, table_name: &str, index_name: &str, column_index: usize) -> bool;
-    fn work_with<T, F: Fn(&Self::Table) -> T>(&self, table_name: &str, operation: F) -> Option<T>;
-}
-
-trait DataCatalog {
-    type Schema: SchemaHandle;
-    fn create_schema(&self, schema_name: &str) -> bool;
-    fn drop_schema(&self, schema_name: &str) -> bool;
-    fn work_with<T, F: Fn(&Self::Schema) -> T>(&self, schema_name: &str, operation: F) -> Option<T>;
-}
-
-pub trait CatalogDefinition {
-    fn table_definition(&self, table_full_name: FullTableName) -> Option<Option<TableDef>>;
-
-    fn schema_exists(&self, schema_name: &SchemaName) -> bool;
-}
 
 const DEFINITION_SCHEMA: &str = "DEFINITION_SCHEMA";
 const SCHEMATA_TABLE: &str = "SCHEMATA";
@@ -95,21 +27,389 @@ const TABLES_TABLE: &str = "TABLES";
 const INDEXES_TABLE: &str = "TABLES";
 const COLUMNS_TABLE: &str = "COLUMNS";
 
-pub trait SqlTable {
-    fn columns(&self) -> Vec<(String, SqlTypeFamily)>;
-    fn columns_short(&self) -> Vec<(String, SqlType)>;
-    fn write(&self, row: Binary);
-    fn write_key(&self, key: Binary, row: Option<Binary>);
-    fn scan(&self) -> Cursor;
+pub struct CatalogHandler<'c> {
+    database: TransactionalDatabase<'c>,
 }
 
-pub trait Database {
-    type Table: SqlTable;
-    type Index;
+impl<'c> From<TransactionalDatabase<'c>> for CatalogHandler<'c> {
+    fn from(database: TransactionalDatabase<'c>) -> CatalogHandler {
+        CatalogHandler { database }
+    }
+}
 
-    fn execute(&self, schema_change: SchemaChange) -> Result<ExecutionOutcome, ExecutionError>;
+impl<'c> CatalogHandler<'c> {
+    pub fn schema_exists(&self, schema_name: &SchemaName) -> bool {
+        self.database
+            .table(format!("{}.{}", DEFINITION_SCHEMA, SCHEMATA_TABLE))
+            .scan()
+            .find(|(_key, value)| {
+                let value = value.unpack();
+                value[1] == schema_name.as_ref()
+            })
+            .is_some()
+    }
 
-    fn table(&self, full_table_name: &FullTableName) -> Box<dyn SqlTable>;
-    fn work_with<R, F: Fn(&Self::Table) -> R>(&self, full_table_name: &FullTableName, operation: F) -> R;
-    fn work_with_index<R, F: Fn(&Self::Index) -> R>(&self, full_index_name: FullIndexName, operation: F) -> R;
+    pub fn table_definition(&self, full_table_name: FullTableName) -> Option<Option<TableDef>> {
+        if !self.schema_exists(&SchemaName::from(&full_table_name.schema())) {
+            None
+        } else {
+            match self
+                .database
+                .table(format!("{}.{}", DEFINITION_SCHEMA, TABLES_TABLE))
+                .scan()
+                .find(|(_key, value)| {
+                    let value = value.unpack();
+                    value[1] == full_table_name.schema() && value[2] == full_table_name.table()
+                })
+                .map(|(key, _value)| key)
+            {
+                Some(full_table_id) => {
+                    let columns = self
+                        .database
+                        .table(format!("{}.{}", DEFINITION_SCHEMA, COLUMNS_TABLE))
+                        .scan()
+                        .filter(|(key, _value)| key.starts_with(&full_table_id))
+                        .map(|(_key, value)| {
+                            let row = value.unpack();
+                            let name = row[3].as_string();
+                            let sql_type = SqlType::from_type_id(row[4].as_u64(), row[5].as_u64());
+                            let ord_num = row[6].as_u64() as usize;
+                            ColumnDef::new(name, sql_type, ord_num)
+                        })
+                        .collect();
+
+                    Some(Some(TableDef::new(full_table_name, columns)))
+                }
+                None => Some(None),
+            }
+        }
+    }
+
+    pub fn columns(&self, full_table_name: &FullTableName) -> Vec<(String, SqlTypeFamily)> {
+        self.columns_short(full_table_name)
+            .into_iter()
+            .map(|(name, sql_type)| (name, sql_type.family()))
+            .collect()
+    }
+
+    pub fn columns_short(&self, full_table_name: &FullTableName) -> Vec<(String, SqlType)> {
+        let full_table_id = self
+            .database
+            .table(format!("{}.{}", DEFINITION_SCHEMA, TABLES_TABLE))
+            .scan()
+            .find(|(_key, value)| {
+                let value = value.unpack();
+                value[1] == full_table_name.schema() && value[2] == full_table_name.table()
+            })
+            .map(|(key, _value)| key)
+            .unwrap();
+
+        self.database
+            .table(format!("{}.{}", DEFINITION_SCHEMA, COLUMNS_TABLE))
+            .scan()
+            .filter(|(key, _value)| key.starts_with(&full_table_id))
+            .map(|(_key, value)| {
+                let row = value.unpack();
+                let name = row[3].as_string();
+                let sql_type = SqlType::from_type_id(row[4].as_u64(), row[5].as_u64());
+                (name, sql_type)
+            })
+            .collect()
+    }
+
+    pub fn apply(&self, schema_change: SchemaChange) -> Result<ExecutionOutcome, ExecutionError> {
+        match schema_change {
+            SchemaChange::CreateSchema(CreateSchemaQuery {
+                schema_name,
+                if_not_exists,
+            }) => {
+                if self.schema_exists(&SchemaName::from(&schema_name.as_ref())) {
+                    if if_not_exists {
+                        Ok(ExecutionOutcome::SchemaCreated)
+                    } else {
+                        Err(ExecutionError::SchemaAlreadyExists(schema_name.as_ref().to_owned()))
+                    }
+                } else {
+                    self.database
+                        .table(format!("{}.{}", DEFINITION_SCHEMA, SCHEMATA_TABLE))
+                        .write(Binary::pack(&[
+                            Datum::from_string("IN_MEMORY".to_owned()),
+                            Datum::from_string(schema_name.as_ref().to_owned()),
+                        ]));
+                    Ok(ExecutionOutcome::SchemaCreated)
+                }
+            }
+            SchemaChange::DropSchemas(DropSchemasQuery {
+                schema_names,
+                cascade,
+                if_exists,
+            }) => {
+                let schemas_table = self.database.table(format!("{}.{}", DEFINITION_SCHEMA, SCHEMATA_TABLE));
+                let tables_table = self.database.table(format!("{}.{}", DEFINITION_SCHEMA, TABLES_TABLE));
+                for schema_name in schema_names {
+                    let full_schema_name = Binary::pack(&[
+                        Datum::from_string("IN_MEMORY".to_owned()),
+                        Datum::from_string(schema_name.as_ref().to_owned()),
+                    ]);
+
+                    let schema_id = schemas_table
+                        .scan()
+                        .find(|(_key, value)| value.starts_with(&full_schema_name))
+                        .map(|(key, _value)| key);
+
+                    match schema_id {
+                        None => {
+                            if !if_exists {
+                                return Err(ExecutionError::SchemaDoesNotExist(schema_name.as_ref().to_owned()));
+                            }
+                        }
+                        Some(schema_id) => {
+                            let is_empty = tables_table
+                                .scan()
+                                .find(|(_key, value)| {
+                                    let value = value.unpack();
+                                    value[0] == "IN_MEMORY" && value[1] == schema_name.as_ref()
+                                })
+                                .is_none();
+                            if !is_empty && !cascade {
+                                return Err(ExecutionError::SchemaHasDependentObjects(
+                                    schema_name.as_ref().to_owned(),
+                                ));
+                            } else {
+                                let columns_table =
+                                    self.database.table(format!("{}.{}", DEFINITION_SCHEMA, COLUMNS_TABLE));
+                                for column_key in columns_table
+                                    .scan()
+                                    .map(|(key, _value)| key)
+                                    .filter(|key| key.starts_with(&schema_id))
+                                {
+                                    columns_table.write_key(column_key, None);
+                                }
+
+                                for (table_key, table_name) in tables_table
+                                    .scan()
+                                    .map(|(key, value)| {
+                                        let value = value.unpack();
+                                        (key, format!("{}.{}", value[1], value[2]))
+                                    })
+                                    .filter(|(key, _value)| key.starts_with(&schema_id))
+                                {
+                                    tables_table.write_key(table_key, None);
+                                    self.database.drop_tree(table_name);
+                                }
+
+                                schemas_table.write_key(schema_id, None);
+                            }
+                        }
+                    }
+                }
+                Ok(ExecutionOutcome::SchemaDropped)
+            }
+            SchemaChange::CreateTable(CreateTableQuery {
+                full_table_name,
+                column_defs,
+                if_not_exists,
+            }) => {
+                let schemas_table = self.database.table(format!("{}.{}", DEFINITION_SCHEMA, SCHEMATA_TABLE));
+                let full_schema_name = Binary::pack(&[
+                    Datum::from_string("IN_MEMORY".to_owned()),
+                    Datum::from_string(full_table_name.schema().to_owned()),
+                ]);
+
+                let schema_id = schemas_table
+                    .scan()
+                    .find(|(_key, value)| value.starts_with(&full_schema_name))
+                    .map(|(key, _value)| key);
+
+                match schema_id {
+                    None => Err(ExecutionError::SchemaDoesNotExist(full_table_name.schema().to_owned())),
+                    Some(full_schema_id) => {
+                        let tables_table = self.database.table(format!("{}.{}", DEFINITION_SCHEMA, TABLES_TABLE));
+                        let table_id = tables_table.scan().find(|(key, value)| {
+                            let value = value.unpack();
+                            value[0] == "IN_MEMORY"
+                                && value[1] == full_table_name.schema()
+                                && value[2] == full_table_name.table()
+                        });
+                        println!("DEBUG {:?}", table_id);
+                        match table_id {
+                            Some(_table_id) => {
+                                if if_not_exists {
+                                    Ok(ExecutionOutcome::TableCreated)
+                                } else {
+                                    Err(ExecutionError::TableAlreadyExists(
+                                        full_table_name.schema().to_owned(),
+                                        full_table_name.table().to_owned(),
+                                    ))
+                                }
+                            }
+                            None => {
+                                let full_table_name_record = Binary::pack(&[
+                                    Datum::from_string("IN_MEMORY".to_owned()),
+                                    Datum::from_string(full_table_name.schema().to_owned()),
+                                    Datum::from_string(full_table_name.table().to_owned()),
+                                ]);
+                                let full_table_id = tables_table.write(full_table_name_record).unpack();
+
+                                let columns_table =
+                                    self.database.table(format!("{}.{}", DEFINITION_SCHEMA, COLUMNS_TABLE));
+
+                                for (index, def) in column_defs.iter().enumerate() {
+                                    let record = Binary::pack(&[
+                                        Datum::from_string("IN_MEMORY".to_owned()),
+                                        Datum::from_string(full_table_name.schema().to_owned()),
+                                        Datum::from_string(full_table_name.table().to_owned()),
+                                        Datum::from_string(def.name.clone()),
+                                        Datum::from_u64(def.sql_type.type_id()),
+                                        Datum::from_optional_u64(def.sql_type.chars_len()),
+                                        Datum::from_u64(index as u64),
+                                    ]);
+                                    let mut key = full_table_id.clone();
+                                    key.push(Datum::from_u64(index as u64));
+                                    let key = Binary::pack(&key);
+                                    columns_table.write_key(key, Some(record));
+                                }
+
+                                self.database.create_tree(&full_table_name);
+
+                                Ok(ExecutionOutcome::TableCreated)
+                            }
+                        }
+                    }
+                }
+            }
+            // cascade does not make sense for now, but when `FOREIGN KEY`s will be introduce it will become relevant
+            SchemaChange::DropTables(DropTablesQuery {
+                full_table_names,
+                cascade: _cascade,
+                if_exists,
+            }) => {
+                let schemas_table = self.database.table(format!("{}.{}", DEFINITION_SCHEMA, SCHEMATA_TABLE));
+                let tables_table = self.database.table(format!("{}.{}", DEFINITION_SCHEMA, TABLES_TABLE));
+                let columns_table = self.database.table(format!("{}.{}", DEFINITION_SCHEMA, COLUMNS_TABLE));
+
+                for full_table_name in full_table_names {
+                    let full_schema_name = Binary::pack(&[
+                        Datum::from_string("IN_MEMORY".to_owned()),
+                        Datum::from_string(full_table_name.schema().to_owned()),
+                    ]);
+
+                    let schema_id = schemas_table
+                        .scan()
+                        .find(|(_key, value)| value.starts_with(&full_schema_name))
+                        .map(|(key, _value)| key);
+
+                    match schema_id {
+                        None => return Err(ExecutionError::SchemaDoesNotExist(full_table_name.schema().to_owned())),
+                        Some(full_schema_id) => {
+                            let table_id = tables_table
+                                .scan()
+                                .find(|(key, value)| {
+                                    let value = value.unpack();
+                                    value[1] == full_table_name.schema() && value[2] == full_table_name.table()
+                                })
+                                .map(|(key, value)| key);
+                            match table_id {
+                                None => {
+                                    if !if_exists {
+                                        return Err(ExecutionError::TableDoesNotExist(
+                                            full_table_name.schema().to_owned(),
+                                            full_table_name.table().to_owned(),
+                                        ));
+                                    }
+                                }
+                                Some(full_table_id) => {
+                                    for column_key in columns_table
+                                        .scan()
+                                        .filter(|(key, _value)| key.starts_with(&full_table_id))
+                                        .map(|(key, _value)| key)
+                                    {
+                                        columns_table.write_key(column_key, None);
+                                    }
+                                    tables_table.write_key(full_table_id, None);
+                                    self.database.drop_tree(&full_table_name);
+                                }
+                            }
+                        }
+                    }
+                }
+                Ok(ExecutionOutcome::TableDropped)
+            }
+            SchemaChange::CreateIndex(CreateIndexQuery {
+                name,
+                full_table_name,
+                column_names,
+            }) => {
+                let schemas_table = self.database.table(format!("{}.{}", DEFINITION_SCHEMA, SCHEMATA_TABLE));
+                let tables_table = self.database.table(format!("{}.{}", DEFINITION_SCHEMA, TABLES_TABLE));
+                let columns_table = self.database.table(format!("{}.{}", DEFINITION_SCHEMA, COLUMNS_TABLE));
+                let indexes_table = self.database.table(format!("{}.{}", DEFINITION_SCHEMA, INDEXES_TABLE));
+
+                let full_schema_name = Binary::pack(&[
+                    Datum::from_string("IN_MEMORY".to_owned()),
+                    Datum::from_string(full_table_name.schema().to_owned()),
+                ]);
+
+                let schema_id = schemas_table
+                    .scan()
+                    .find(|(_key, value)| value.starts_with(&full_schema_name))
+                    .map(|(key, _value)| key);
+
+                match schema_id {
+                    None => Err(ExecutionError::SchemaDoesNotExist(full_table_name.schema().to_owned())),
+                    Some(full_schema_id) => {
+                        let table_id = tables_table
+                            .scan()
+                            .find(|(key, value)| {
+                                let value = value.unpack();
+                                key.starts_with(&full_schema_id) && value[2] == full_table_name.table()
+                            })
+                            .map(|(key, value)| key);
+                        match table_id {
+                            None => Err(ExecutionError::TableDoesNotExist(
+                                full_table_name.schema().to_owned(),
+                                full_table_name.table().to_owned(),
+                            )),
+                            Some(full_table_id) => {
+                                let table_columns = columns_table
+                                    .scan()
+                                    .filter(|(key, _value)| key.starts_with(&full_table_id))
+                                    .map(|(_key, value)| {
+                                        let row = value.unpack();
+                                        let name = row[3].as_string();
+                                        let sql_type = SqlType::from_type_id(row[4].as_u64(), row[5].as_u64());
+                                        let ord_num = row[6].as_u64() as usize;
+                                        ColumnDef::new(name, sql_type, ord_num)
+                                    })
+                                    .collect::<Vec<_>>();
+                                let mut column_indexes = vec![];
+                                for column_name in column_names.iter() {
+                                    if let Some(col_def) = table_columns.iter().find(|col| col.has_name(column_name)) {
+                                        column_indexes.push(col_def.index());
+                                    } else {
+                                        return Err(ExecutionError::ColumnNotFound(column_names[0].to_owned()));
+                                    }
+                                }
+                                indexes_table.write(Binary::pack(&[
+                                    Datum::from_string("IN_MEMORY".to_owned()),
+                                    Datum::from_string(full_table_name.schema().to_owned()),
+                                    Datum::from_string(full_table_name.table().to_owned()),
+                                    Datum::from_string(name.clone()),
+                                    Datum::from_string(column_names.join(", ")),
+                                ]));
+
+                                self.database.create_tree(format!(
+                                    "{}.{}.{}",
+                                    full_table_name.schema(),
+                                    full_table_name.table(),
+                                    name
+                                ));
+                                Ok(ExecutionOutcome::IndexCreated)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 }

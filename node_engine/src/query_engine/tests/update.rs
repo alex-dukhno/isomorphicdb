@@ -16,7 +16,6 @@ use super::*;
 
 #[rstest::rstest]
 fn update_all_records(database_with_schema: (InMemory, ResultCollector)) {
-    storage::test_feature();
     let (mut engine, collector) = database_with_schema;
     engine
         .execute(CommandMessage::Query {

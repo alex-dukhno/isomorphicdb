@@ -123,6 +123,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "binary"
+version = "0.1.0"
+dependencies = [
+ "ordered-float",
+]
+
+[[package]]
 name = "bindgen"
 version = "0.57.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -175,12 +182,14 @@ checksum = "631ae5198c9be5e753e5cc215e1bd73c2b466a3565173db433f52bb9d3e66dba"
 name = "catalog"
 version = "0.1.0"
 dependencies = [
+ "binary",
  "dashmap",
- "data_binary",
  "data_definition_execution_plan",
  "definition",
  "log",
  "rstest",
+ "storage",
+ "storage_api",
  "types",
 ]
 
@@ -297,13 +306,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "data_binary"
-version = "0.1.0"
-dependencies = [
- "ordered-float",
-]
-
-[[package]]
 name = "data_definition"
 version = "0.1.0"
 dependencies = [
@@ -338,10 +340,10 @@ version = "0.1.0"
 dependencies = [
  "bigdecimal",
  "data_manipulation_query_result",
- "data_scalar",
  "query_ast",
  "regex",
  "rstest",
+ "scalar",
  "types",
 ]
 
@@ -350,14 +352,16 @@ name = "data_manipulation_query_plan"
 version = "0.1.0"
 dependencies = [
  "bigdecimal",
+ "binary",
  "catalog",
- "data_binary",
  "data_manipulation_query_result",
  "data_manipulation_typed_tree",
- "data_scalar",
  "definition",
  "log",
  "query_response",
+ "scalar",
+ "storage",
+ "storage_api",
  "types",
 ]
 
@@ -365,9 +369,9 @@ dependencies = [
 name = "data_manipulation_query_result"
 version = "0.1.0"
 dependencies = [
- "data_scalar",
  "definition",
  "query_response",
+ "scalar",
 ]
 
 [[package]]
@@ -383,12 +387,12 @@ name = "data_manipulation_typed_tree"
 version = "0.1.0"
 dependencies = [
  "bigdecimal",
- "data_binary",
+ "binary",
  "data_manipulation_operators",
  "data_manipulation_query_result",
- "data_scalar",
  "ordered-float",
  "rstest",
+ "scalar",
  "types",
 ]
 
@@ -411,17 +415,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "data_scalar"
-version = "0.1.0"
-dependencies = [
- "bigdecimal",
- "data_binary",
- "pg_wire",
- "query_ast",
- "types",
-]
-
-[[package]]
 name = "definition"
 version = "0.1.0"
 dependencies = [
@@ -437,6 +430,7 @@ dependencies = [
  "definition",
  "query_ast",
  "query_response",
+ "storage",
  "types",
 ]
 
@@ -564,6 +558,12 @@ checksum = "9a3a5bfb195931eeb336b2a7b4d761daec841b97f947d34394601737a7bba5e4"
 [[package]]
 name = "in_memory"
 version = "0.1.0"
+dependencies = [
+ "binary",
+ "dashmap",
+ "log",
+ "storage_api",
+]
 
 [[package]]
 name = "instant"
@@ -580,6 +580,7 @@ version = "0.1.0"
 dependencies = [
  "node_engine",
  "simple_logger",
+ "storage",
 ]
 
 [[package]]
@@ -666,7 +667,6 @@ dependencies = [
  "catalog",
  "data_definition",
  "data_manipulation",
- "data_scalar",
  "definition_planner",
  "entities",
  "futures-lite",
@@ -679,6 +679,7 @@ dependencies = [
  "rand 0.7.3",
  "rand_core 0.6.2",
  "rstest",
+ "scalar",
  "simple_logger",
  "storage",
 ]
@@ -796,6 +797,9 @@ checksum = "19b17cddbe7ec3f8bc800887bab5e717348c95ea2ca0b1bf0837fb964dc67099"
 [[package]]
 name = "persistent"
 version = "0.1.0"
+dependencies = [
+ "storage_api",
+]
 
 [[package]]
 name = "pg_wire"
@@ -883,6 +887,7 @@ dependencies = [
  "query_ast",
  "query_response",
  "simple_logger",
+ "storage",
  "types",
 ]
 
@@ -904,11 +909,12 @@ dependencies = [
 name = "query_planner"
 version = "0.1.0"
 dependencies = [
+ "binary",
  "catalog",
- "data_binary",
  "data_manipulation_query_plan",
  "data_manipulation_typed_queries",
  "data_manipulation_typed_tree",
+ "storage",
 ]
 
 [[package]]
@@ -1111,6 +1117,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "scalar"
+version = "0.1.0"
+dependencies = [
+ "bigdecimal",
+ "binary",
+ "pg_wire",
+ "query_ast",
+ "types",
+]
+
+[[package]]
 name = "schannel"
 version = "0.1.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1221,8 +1238,17 @@ dependencies = [
 name = "storage"
 version = "0.1.0"
 dependencies = [
+ "binary",
  "in_memory",
  "persistent",
+ "storage_api",
+]
+
+[[package]]
+name = "storage_api"
+version = "0.1.0"
+dependencies = [
+ "binary",
 ]
 
 [[package]]

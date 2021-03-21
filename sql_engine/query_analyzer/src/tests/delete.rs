@@ -23,42 +23,52 @@ fn delete_statement(schema_name: &str, table_name: &str) -> Query {
 }
 
 #[test]
-fn delete_from_table_that_in_nonexistent_schema() {
-    let analyzer = QueryAnalyzer::new(InMemoryDatabase::new());
+fn delete_from_table_that_in_nonexistent_schema() -> TransactionResult<()> {
+    Database::in_memory("").transaction(|db| {
+        let analyzer = QueryAnalyzer::from(db);
 
-    assert_eq!(
-        analyzer.analyze(delete_statement("non_existent_schema", TABLE)),
-        Err(AnalysisError::schema_does_not_exist(&"non_existent_schema"))
-    );
+        assert_eq!(
+            analyzer.analyze(delete_statement("non_existent_schema", TABLE)),
+            Err(AnalysisError::schema_does_not_exist(&"non_existent_schema"))
+        );
+
+        Ok(())
+    })
 }
 
 #[test]
-fn delete_from_nonexistent_table() {
-    let database = InMemoryDatabase::new();
-    database.execute(create_schema_ops(SCHEMA)).unwrap();
-    let analyzer = QueryAnalyzer::new(database);
+fn delete_from_nonexistent_table() -> TransactionResult<()> {
+    Database::in_memory("").transaction(|db| {
+        let catalog = CatalogHandler::from(db.clone());
+        catalog.apply(create_schema_ops(SCHEMA)).unwrap();
+        let analyzer = QueryAnalyzer::from(db);
 
-    assert_eq!(
-        analyzer.analyze(delete_statement(SCHEMA, "non_existent_table")),
-        Err(AnalysisError::table_does_not_exist(format!(
-            "{}.{}",
-            SCHEMA, "non_existent_table"
-        )))
-    );
+        assert_eq!(
+            analyzer.analyze(delete_statement(SCHEMA, "non_existent_table")),
+            Err(AnalysisError::table_does_not_exist(format!(
+                "{}.{}",
+                SCHEMA, "non_existent_table"
+            )))
+        );
+        Ok(())
+    })
 }
 
 #[test]
-fn delete_all_from_table() {
-    let database = InMemoryDatabase::new();
-    database.execute(create_schema_ops(SCHEMA)).unwrap();
-    database
-        .execute(create_table_ops(SCHEMA, TABLE, vec![("col1", SqlType::integer())]))
-        .unwrap();
-    let analyzer = QueryAnalyzer::new(database);
-    assert_eq!(
-        analyzer.analyze(delete_statement(SCHEMA, TABLE)),
-        Ok(UntypedQuery::Delete(UntypedDeleteQuery {
-            full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-        }))
-    );
+fn delete_all_from_table() -> TransactionResult<()> {
+    Database::in_memory("").transaction(|db| {
+        let catalog = CatalogHandler::from(db.clone());
+        catalog.apply(create_schema_ops(SCHEMA)).unwrap();
+        catalog
+            .apply(create_table_ops(SCHEMA, TABLE, vec![("col1", SqlType::integer())]))
+            .unwrap();
+        let analyzer = QueryAnalyzer::from(db);
+        assert_eq!(
+            analyzer.analyze(delete_statement(SCHEMA, TABLE)),
+            Ok(UntypedQuery::Delete(UntypedDeleteQuery {
+                full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
+            }))
+        );
+        Ok(())
+    })
 }

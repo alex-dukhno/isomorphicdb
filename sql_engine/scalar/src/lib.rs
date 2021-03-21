@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use bigdecimal::{BigDecimal, ToPrimitive};
-use data_binary::repr::{Datum, ToDatum};
+use binary::repr::{Datum, ToDatum};
 use std::{
     fmt::{self, Display, Formatter},
     str::FromStr,
