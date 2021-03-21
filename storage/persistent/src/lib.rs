@@ -16,7 +16,6 @@ use binary::repr::Datum;
 use binary::Binary;
 use sled::{Db as SledDb, Tree as SledTree};
 use std::convert::TryInto;
-use std::iter::FromIterator;
 use std::sync::atomic::{AtomicU64, Ordering};
 use storage_api::{Cursor, Key, Storage, Tree, Value};
 
@@ -61,11 +60,11 @@ impl Storage for PersistentDatabase {
     }
 
     fn drop_tree<T: Into<String>>(&self, table: T) {
-        self.sled_db.drop_tree(table.into());
+        self.sled_db.drop_tree(table.into()).unwrap();
     }
 
     fn create_tree<T: Into<String>>(&self, table: T) {
-        self.sled_db.open_tree(table.into());
+        self.sled_db.open_tree(table.into()).unwrap();
     }
 }
 
@@ -116,12 +115,11 @@ impl Tree for PersistentTable {
     }
 
     fn select(&self) -> Cursor {
-        Cursor::from_iter(
-            self.sled_tree
-                .iter()
-                .map(Result::unwrap)
-                .map(|(key, value)| (Binary::with_data(key.to_vec()), Binary::with_data(value.to_vec()))),
-        )
+        self.sled_tree
+            .iter()
+            .map(Result::unwrap)
+            .map(|(key, value)| (Binary::with_data(key.to_vec()), Binary::with_data(value.to_vec())))
+            .collect()
     }
 
     fn insert(&self, data: Vec<Value>) -> Vec<Key> {
@@ -134,7 +132,7 @@ impl Tree for PersistentTable {
                 key_index
             );
             let key = Binary::pack(&[Datum::from_u64(key_index)]);
-            self.sled_tree.insert(key.clone().as_ref(), datum.as_ref());
+            self.sled_tree.insert(key.clone().as_ref(), datum.as_ref()).unwrap();
             keys.push(key);
         }
         keys
@@ -156,7 +154,7 @@ impl Tree for PersistentTable {
         let keys = self
             .select()
             .filter(|(key, _value)| data.contains(key))
-            .map(|(key, _value)| key.clone())
+            .map(|(key, _value)| key)
             .collect::<Vec<Binary>>();
         for key in keys.iter() {
             debug_assert!(
@@ -172,7 +170,7 @@ impl Tree for PersistentTable {
         unimplemented!()
     }
 
-    fn create_index(&self, index_name: &str, over_column: usize) {
+    fn create_index(&self, _index_name: &str, _over_column: usize) {
         unimplemented!()
     }
 }

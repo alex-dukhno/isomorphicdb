@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use bigdecimal::{BigDecimal, ToPrimitive};
+use bigdecimal::BigDecimal;
 use data_manipulation_operators::{BiOperator, UnOperator};
 use data_manipulation_query_result::QueryExecutionError;
 use scalar::ScalarValue;

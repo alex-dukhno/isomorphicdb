@@ -64,8 +64,7 @@ impl QueryEngine {
     }
 
     pub(crate) fn execute(&mut self, command: CommandMessage) -> TransactionResult<()> {
-        let c = Rc::new(command);
-        let inner = c.clone();
+        let inner = Rc::new(command);
         let mut session = self.session.lock().unwrap();
         self.database.transaction(|db| {
             println!("TRANSACTION START");
@@ -467,7 +466,7 @@ impl QueryEngine {
                                     stmt.parsed_with_params(
                                         query,
                                         param_types
-                                            .into_iter()
+                                            .iter()
                                             .filter(|o| o.is_some())
                                             .map(|o| o.unwrap())
                                             .collect(),
@@ -492,7 +491,7 @@ impl QueryEngine {
                                         let mut prep = PreparedStatement::parsed(sql.clone(), query.clone());
                                         prep.parsed_with_params(
                                             query,
-                                            param_types.into_iter().map(|o| o.unwrap()).collect(),
+                                            param_types.iter().map(|o| o.unwrap()).collect(),
                                         );
                                         session.set_prepared_statement(statement_name.clone(), prep);
                                     } else {

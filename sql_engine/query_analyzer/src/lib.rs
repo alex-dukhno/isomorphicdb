@@ -24,7 +24,7 @@ use query_ast::{
     Values,
 };
 use query_response::QueryError;
-use std::{collections::HashMap, sync::Arc};
+use std::collections::HashMap;
 use storage::TransactionalDatabase;
 
 mod dynamic_tree_builder;

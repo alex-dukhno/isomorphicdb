@@ -183,13 +183,7 @@ impl Table {
                     debug_assert!(matches!(result, Some(_)), "nothing were found for {:?} key", key);
                 }
                 Some(row) => {
-                    let _result = table.insert_key(key.clone(), row);
-                    // debug_assert!(
-                    //     matches!(result, None),
-                    //     "old record {:?} was found for {:?} key",
-                    //     result,
-                    //     key
-                    // );
+                    let _result = table.insert_key(key, row);
                 }
             },
             #[cfg(feature = "persistent")]
@@ -199,13 +193,7 @@ impl Table {
                     debug_assert!(matches!(result, Some(_)), "nothing were found for {:?} key", key);
                 }
                 Some(row) => {
-                    let _result = table.insert_key(key.clone(), row);
-                    // debug_assert!(
-                    //     matches!(result, None),
-                    //     "old record {:?} was found for {:?} key",
-                    //     result,
-                    //     key
-                    // );
+                    let _result = table.insert_key(key, row);
                 }
             },
         }

@@ -59,7 +59,6 @@ pub fn start(database: Database) {
             .expect("cannot spawn executor thread");
     }
 
-    let inner_database = database.clone();
     async_io::block_on(async {
         let listener = Async::<TcpListener>::bind((HOST, PORT)).expect("OK");
 
@@ -73,7 +72,7 @@ pub fn start(database: Database) {
                 Err(io_error) => log::error!("IO error {:?}", io_error),
                 Ok(Err(protocol_error)) => log::error!("protocol error {:?}", protocol_error),
                 Ok(Ok(ClientRequest::Connect(mut connection))) => {
-                    let mut query_engine = QueryEngine::new(connection.sender(), inner_database.clone());
+                    let mut query_engine = QueryEngine::new(connection.sender(), database.clone());
                     log::debug!("ready to handle query");
                     WORKER
                         .spawn(async move {

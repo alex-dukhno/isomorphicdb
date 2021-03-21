@@ -100,6 +100,7 @@ impl InMemoryTree {
         }
     }
 
+    #[allow(dead_code)]
     pub(crate) fn index(&self, index: &str) -> Arc<InMemoryIndex> {
         self.indexes.get(index).unwrap().clone()
     }

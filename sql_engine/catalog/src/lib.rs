@@ -18,7 +18,7 @@ use data_definition_execution_plan::{
 };
 use definition::{ColumnDef, FullTableName, SchemaName, TableDef};
 use storage::repr::Datum;
-use storage::{Binary, Database, TransactionalDatabase};
+use storage::{Binary, TransactionalDatabase};
 use types::{SqlType, SqlTypeFamily};
 
 const DEFINITION_SCHEMA: &str = "DEFINITION_SCHEMA";
@@ -42,11 +42,10 @@ impl<'c> CatalogHandler<'c> {
         self.database
             .table(format!("{}.{}", DEFINITION_SCHEMA, SCHEMATA_TABLE))
             .scan()
-            .find(|(_key, value)| {
+            .any(|(_key, value)| {
                 let value = value.unpack();
                 value[1] == schema_name.as_ref()
             })
-            .is_some()
     }
 
     pub fn table_definition(&self, full_table_name: FullTableName) -> Option<Option<TableDef>> {
@@ -229,9 +228,9 @@ impl<'c> CatalogHandler<'c> {
 
                 match schema_id {
                     None => Err(ExecutionError::SchemaDoesNotExist(full_table_name.schema().to_owned())),
-                    Some(full_schema_id) => {
+                    Some(_full_schema_id) => {
                         let tables_table = self.database.table(format!("{}.{}", DEFINITION_SCHEMA, TABLES_TABLE));
-                        let table_id = tables_table.scan().find(|(key, value)| {
+                        let table_id = tables_table.scan().find(|(_key, value)| {
                             let value = value.unpack();
                             value[0] == "IN_MEMORY"
                                 && value[1] == full_table_name.schema()
@@ -307,14 +306,14 @@ impl<'c> CatalogHandler<'c> {
 
                     match schema_id {
                         None => return Err(ExecutionError::SchemaDoesNotExist(full_table_name.schema().to_owned())),
-                        Some(full_schema_id) => {
+                        Some(_full_schema_id) => {
                             let table_id = tables_table
                                 .scan()
-                                .find(|(key, value)| {
+                                .find(|(_key, value)| {
                                     let value = value.unpack();
                                     value[1] == full_table_name.schema() && value[2] == full_table_name.table()
                                 })
-                                .map(|(key, value)| key);
+                                .map(|(key, _value)| key);
                             match table_id {
                                 None => {
                                     if !if_exists {
@@ -370,7 +369,7 @@ impl<'c> CatalogHandler<'c> {
                                 let value = value.unpack();
                                 key.starts_with(&full_schema_id) && value[2] == full_table_name.table()
                             })
-                            .map(|(key, value)| key);
+                            .map(|(key, _value)| key);
                         match table_id {
                             None => Err(ExecutionError::TableDoesNotExist(
                                 full_table_name.schema().to_owned(),

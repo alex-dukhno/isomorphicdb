@@ -19,7 +19,6 @@ use data_definition_execution_plan::{
 use definition::{FullTableName, SchemaName};
 use query_ast::{ColumnDef, Definition};
 use query_response::QueryError;
-use std::sync::Arc;
 use storage::TransactionalDatabase;
 use types::SqlType;
 
