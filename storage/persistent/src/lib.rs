@@ -12,11 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use binary::repr::Datum;
-use binary::Binary;
+use binary::{repr::Datum, Binary};
 use sled::{Db as SledDb, Tree as SledTree};
-use std::convert::TryInto;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::{
+    convert::TryInto,
+    sync::atomic::{AtomicU64, Ordering},
+};
 use storage_api::{Cursor, Key, Storage, Tree, Value};
 
 const DEFINITION_SCHEMA: &str = "DEFINITION_SCHEMA";

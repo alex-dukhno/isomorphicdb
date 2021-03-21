@@ -17,8 +17,7 @@ use data_definition_execution_plan::{
     ExecutionOutcome, SchemaChange,
 };
 use definition::{ColumnDef, FullTableName, SchemaName, TableDef};
-use storage::repr::Datum;
-use storage::{Binary, TransactionalDatabase};
+use storage::{repr::Datum, Binary, TransactionalDatabase};
 use types::{SqlType, SqlTypeFamily};
 
 const DEFINITION_SCHEMA: &str = "DEFINITION_SCHEMA";

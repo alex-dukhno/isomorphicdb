@@ -13,8 +13,10 @@
 // limitations under the License.
 
 use binary::Binary;
-use std::fmt::{self, Debug, Formatter};
-use std::iter::FromIterator;
+use std::{
+    fmt::{self, Debug, Formatter},
+    iter::FromIterator,
+};
 
 pub type Key = Binary;
 pub type Value = Binary;

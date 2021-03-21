@@ -14,9 +14,13 @@
 
 use binary::{repr::Datum, Binary};
 use dashmap::DashMap;
-use std::collections::BTreeMap;
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, RwLock};
+use std::{
+    collections::BTreeMap,
+    sync::{
+        atomic::{AtomicU64, Ordering},
+        Arc, RwLock,
+    },
+};
 use storage_api::*;
 
 const DEFINITION_SCHEMA: &str = "DEFINITION_SCHEMA";

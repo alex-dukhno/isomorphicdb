@@ -27,19 +27,20 @@ use data_manipulation::{
 };
 use definition_planner::DefinitionPlanner;
 use entities::{ColumnDef, SqlType, SqlTypeFamily};
-use postgres::wire_protocol::CommandMessage;
 use postgres::{
     query_ast::{Extended, Statement},
     query_parser::QueryParser,
     query_response::{QueryError, QueryEvent},
-    wire_protocol::{ColumnMetadata, PgType},
+    wire_protocol::{ColumnMetadata, CommandMessage, PgType},
 };
 use query_analyzer::QueryAnalyzer;
 use query_planner::QueryPlanner;
 use query_processing::{TypeChecker, TypeCoercion, TypeInference};
 use scalar::ScalarValue;
-use std::rc::Rc;
-use std::sync::{Arc, Mutex};
+use std::{
+    rc::Rc,
+    sync::{Arc, Mutex},
+};
 use storage::{ConflictableTransactionError, Database, TransactionResult};
 
 pub(crate) struct QueryEngine {

@@ -17,8 +17,10 @@ pub use binary::*;
 pub use in_memory::*;
 #[cfg(feature = "persistent")]
 pub use persistent::*;
-use std::rc::Rc;
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::{
+    rc::Rc,
+    sync::{Arc, Mutex, MutexGuard},
+};
 pub use storage_api::*;
 
 #[derive(Clone)]
