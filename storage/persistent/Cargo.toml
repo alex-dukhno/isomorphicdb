@@ -9,3 +9,4 @@ binary = { path = "../binary" }
 storage_api = { path = "../api" }
 
 sled = "0.34.6"
+log = "0.4.14"

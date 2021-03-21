@@ -896,6 +896,7 @@ name = "persistent"
 version = "0.1.0"
 dependencies = [
  "binary",
+ "log",
  "sled",
  "storage_api",
 ]

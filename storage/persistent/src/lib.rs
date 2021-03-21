@@ -77,15 +77,22 @@ pub struct PersistentTable {
 
 impl From<SledTree> for PersistentTable {
     fn from(sled_tree: SledTree) -> PersistentTable {
-        let key_index = sled_tree
-            .last()
+        let key_index = sled_tree.last();
+
+        let key_index = key_index
             .map(|option| {
                 option
-                    .map(|(key, _value)| u64::from_be_bytes((&key[0..8]).try_into().unwrap()))
+                    .map(|(key, _value)| u64::from_be_bytes((&key[1..9]).try_into().unwrap()))
                     .unwrap_or_default()
+                    + 1
             })
             .ok()
             .unwrap_or_default();
+        log::debug!(
+            "{:?} KEY INDEX INIT WITH {:?}",
+            String::from_utf8(sled_tree.name().to_vec()).unwrap(),
+            key_index
+        );
         PersistentTable {
             sled_tree,
             key_index: AtomicU64::from(key_index),
@@ -120,7 +127,13 @@ impl Tree for PersistentTable {
     fn insert(&self, data: Vec<Value>) -> Vec<Key> {
         let mut keys = vec![];
         for datum in data {
-            let key = Binary::pack(&[Datum::from_u64(self.key_index.fetch_add(1, Ordering::SeqCst))]);
+            let key_index = self.key_index.fetch_add(1, Ordering::SeqCst);
+            log::debug!(
+                "{:?} NEXT KEY ID {:?}",
+                String::from_utf8(self.sled_tree.name().to_vec()).unwrap(),
+                key_index
+            );
+            let key = Binary::pack(&[Datum::from_u64(key_index)]);
             self.sled_tree.insert(key.clone().as_ref(), datum.as_ref());
             keys.push(key);
         }

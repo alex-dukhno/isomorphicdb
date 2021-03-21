@@ -180,19 +180,25 @@ impl<'c> CatalogHandler<'c> {
                                     self.database.table(format!("{}.{}", DEFINITION_SCHEMA, COLUMNS_TABLE));
                                 for column_key in columns_table
                                     .scan()
+                                    .filter(|(_key, value)| {
+                                        let value = value.unpack();
+                                        value[1] == schema_name.as_ref()
+                                    })
                                     .map(|(key, _value)| key)
-                                    .filter(|key| key.starts_with(&schema_id))
                                 {
                                     columns_table.write_key(column_key, None);
                                 }
 
                                 for (table_key, table_name) in tables_table
                                     .scan()
+                                    .filter(|(_key, value)| {
+                                        let value = value.unpack();
+                                        value[1] == schema_name.as_ref()
+                                    })
                                     .map(|(key, value)| {
                                         let value = value.unpack();
                                         (key, format!("{}.{}", value[1], value[2]))
                                     })
-                                    .filter(|(key, _value)| key.starts_with(&schema_id))
                                 {
                                     tables_table.write_key(table_key, None);
                                     self.database.drop_tree(table_name);
