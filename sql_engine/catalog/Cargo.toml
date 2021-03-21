@@ -6,8 +6,6 @@ edition = "2018"
 publish = false
 
 [dependencies]
-binary = { path = "../../storage/binary" }
-storage_api = { path = "../../storage/api" }
 storage = { path = "../../storage/" }
 
 data_definition_execution_plan = { path = "../data_definition/execution_plan" }

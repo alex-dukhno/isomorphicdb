@@ -17,15 +17,13 @@ use binary::{
     repr::{Datum, ToDatum},
     Binary,
 };
-// use catalog::InMemoryTable;
 use data_manipulation_query_result::QueryExecutionError;
 use data_manipulation_typed_tree::{DynamicTypedTree, StaticTypedTree};
 use definition::ColumnDef;
 use query_response::QueryEvent;
 use scalar::ScalarValue;
 use std::collections::HashMap;
-use storage::Table;
-use storage_api::Cursor;
+use storage::{Cursor, Table};
 use types::{SqlType, SqlTypeFamily};
 
 pub enum QueryPlanResult {

@@ -8,7 +8,6 @@ publish = false
 [dependencies]
 data_manipulation_operators = { path = "../operators" }
 data_manipulation_query_result = { path = "../query_result" }
-binary = { path = "../../../storage/binary" }
 scalar = { path = "../../scalar" }
 types = { path = "../../entities/types" }
 

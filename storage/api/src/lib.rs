@@ -45,8 +45,8 @@ impl Debug for Cursor {
 }
 
 impl FromIterator<(Binary, Binary)> for Cursor {
-    fn from_iter<T: IntoIterator<Item = (Binary, Binary)>>(iter: T) -> Self {
-        Self {
+    fn from_iter<T: IntoIterator<Item = (Binary, Binary)>>(iter: T) -> Cursor {
+        Cursor {
             source: Box::new(iter.into_iter().collect::<Vec<(Binary, Binary)>>().into_iter()),
         }
     }
@@ -58,4 +58,32 @@ impl Iterator for Cursor {
     fn next(&mut self) -> Option<Self::Item> {
         self.source.next()
     }
+}
+
+pub trait Tree {
+    fn remove(&self, key: &Binary) -> Option<Value>;
+
+    fn insert_key(&self, key: Binary, row: Binary) -> Option<Value>;
+
+    fn select(&self) -> Cursor;
+
+    fn insert(&self, data: Vec<Value>) -> Vec<Key>;
+
+    fn update(&self, data: Vec<(Key, Value)>) -> usize;
+
+    fn delete(&self, data: Vec<Key>) -> usize;
+
+    fn next_column_ord(&self) -> u64;
+
+    fn create_index(&self, index_name: &str, over_column: usize);
+}
+
+pub trait Storage {
+    type Tree: Tree;
+
+    fn lookup_tree<T: Into<String>>(&self, table: T) -> Self::Tree;
+
+    fn drop_tree<T: Into<String>>(&self, table: T);
+
+    fn create_tree<T: Into<String>>(&self, table: T);
 }

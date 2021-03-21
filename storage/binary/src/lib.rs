@@ -67,6 +67,12 @@ fn read_tag(data: &[u8], idx: &mut usize) -> TypeTag {
 #[derive(Debug, Clone, PartialEq, Eq, Default, PartialOrd, Ord)]
 pub struct Binary(Vec<u8>);
 
+impl AsRef<[u8]> for Binary {
+    fn as_ref(&self) -> &[u8] {
+        self.0.as_slice()
+    }
+}
+
 impl Binary {
     pub fn new() -> Binary {
         Binary::default()

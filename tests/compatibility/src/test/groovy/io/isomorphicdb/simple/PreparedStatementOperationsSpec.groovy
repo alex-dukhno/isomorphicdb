@@ -37,6 +37,7 @@ class PreparedStatementOperationsSpec extends ThreeSmallIntColumnTable {
       pgSelect == dbSelect
   }
 
+  @Ignore("wrong type names/UDT not supported")
   def 'prepare with wrong parameter types'() {
     given:
       String prepareWithWrongParamType = '''

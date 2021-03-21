@@ -13,7 +13,6 @@
 // limitations under the License.
 
 use bigdecimal::{BigDecimal, ToPrimitive};
-use binary::repr::{Datum, ToDatum};
 use data_manipulation_operators::{BiOperator, UnOperator};
 use data_manipulation_query_result::QueryExecutionError;
 use scalar::ScalarValue;
@@ -215,36 +214,6 @@ impl Display for TypedValue {
             TypedValue::Num { value, .. } => write!(f, "{}", value),
             TypedValue::String(value) => write!(f, "{}", value),
             TypedValue::Bool(value) => write!(f, "{}", value),
-        }
-    }
-}
-
-impl ToDatum for TypedValue {
-    fn convert(&self) -> Datum {
-        match self {
-            TypedValue::Num {
-                value,
-                type_family: SqlTypeFamily::SmallInt,
-            } => Datum::from_i16(value.to_i16().unwrap()),
-            TypedValue::Num {
-                value,
-                type_family: SqlTypeFamily::Integer,
-            } => Datum::from_i32(value.to_i32().unwrap()),
-            TypedValue::Num {
-                value,
-                type_family: SqlTypeFamily::Real,
-            } => Datum::from_f32(value.to_f32().unwrap()),
-            TypedValue::Num {
-                value,
-                type_family: SqlTypeFamily::Double,
-            } => Datum::from_f64(value.to_f64().unwrap()),
-            TypedValue::Num {
-                value,
-                type_family: SqlTypeFamily::BigInt,
-            } => Datum::from_i64(value.to_i64().unwrap()),
-            TypedValue::String(str) => Datum::from_string(str.clone()),
-            TypedValue::Bool(boolean) => Datum::from_bool(*boolean),
-            _ => unreachable!(),
         }
     }
 }

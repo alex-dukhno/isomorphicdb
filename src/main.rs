@@ -17,6 +17,6 @@ fn main() {
         .init()
         .expect("to initialize logger");
 
-    let root_path = std::env::var("ROOT_PATH").unwrap_or_default();
+    let root_path = std::env::var("ROOT_PATH").unwrap_or("./root_directory".to_owned());
     node_engine::start(storage::Database::persistent(root_path.as_str()));
 }

@@ -48,36 +48,40 @@ impl InMemoryDatabase {
 
         this
     }
+}
 
-    pub fn lookup_tree<T: Into<String>>(&self, table: T) -> InMemoryTree {
+impl Storage for InMemoryDatabase {
+    type Tree = InMemoryTree;
+
+    fn lookup_tree<T: Into<String>>(&self, table: T) -> InMemoryTree {
         let table = table.into();
         println!("LOOKUP {:?}", table);
         self.trees.get(&table).unwrap().clone()
     }
 
-    pub fn drop_tree<T: Into<String>>(&self, table: T) {
+    fn drop_tree<T: Into<String>>(&self, table: T) {
         self.trees.remove(&table.into());
     }
 
-    pub fn create_tree<T: Into<String>>(&self, table: T) {
+    fn create_tree<T: Into<String>>(&self, table: T) {
         let name = table.into();
         self.trees.insert(name.clone(), InMemoryTree::with_name(name));
     }
 
-    pub fn scan<T: Into<String>>(&self, table: T) -> Cursor {
-        let table = table.into();
-        self.trees.get(&table).unwrap().select()
-    }
-
-    pub fn insert<T: Into<String>>(&self, table: T, key: Key, row: Value) -> Option<Binary> {
-        let table = table.into();
-        self.trees.get(&table).unwrap().insert_key(key, row)
-    }
-
-    pub fn delete<T: Into<String>>(&self, table: T, data: Vec<Key>) -> usize {
-        let table = table.into();
-        self.trees.get(&table).unwrap().delete(data)
-    }
+    // fn scan<T: Into<String>>(&self, table: T) -> Cursor {
+    //     let table = table.into();
+    //     self.trees.get(&table).unwrap().select()
+    // }
+    //
+    // fn insert<T: Into<String>>(&self, table: T, key: Key, row: Value) -> Option<Value> {
+    //     let table = table.into();
+    //     self.trees.get(&table).unwrap().insert_key(key, row)
+    // }
+    //
+    // fn delete<T: Into<String>>(&self, table: T, data: Vec<Key>) -> usize {
+    //     let table = table.into();
+    //     self.trees.get(&table).unwrap().delete(data)
+    // }
 }
 
 #[derive(Default, Debug, Clone)]
@@ -99,16 +103,18 @@ impl InMemoryTree {
     pub(crate) fn index(&self, index: &str) -> Arc<InMemoryIndex> {
         self.indexes.get(index).unwrap().clone()
     }
+}
 
-    pub fn remove(&self, key: &Binary) -> Option<Binary> {
+impl Tree for InMemoryTree {
+    fn remove(&self, key: &Binary) -> Option<Binary> {
         self.inner.records.write().unwrap().remove(&key)
     }
 
-    pub fn insert_key(&self, key: Binary, row: Binary) -> Option<Binary> {
+    fn insert_key(&self, key: Binary, row: Binary) -> Option<Binary> {
         self.inner.records.write().unwrap().insert(key, row)
     }
 
-    pub fn select(&self) -> Cursor {
+    fn select(&self) -> Cursor {
         log::debug!("[SCAN] TABLE NAME {:?}", self.name);
         self.inner
             .records
@@ -122,7 +128,7 @@ impl InMemoryTree {
             .collect::<Cursor>()
     }
 
-    pub fn insert(&self, data: Vec<Value>) -> Vec<Key> {
+    fn insert(&self, data: Vec<Value>) -> Vec<Key> {
         let mut rw = self.inner.records.write().unwrap();
         let mut keys = vec![];
         for value in data {
@@ -138,7 +144,7 @@ impl InMemoryTree {
         keys
     }
 
-    pub fn update(&self, data: Vec<(Key, Value)>) -> usize {
+    fn update(&self, data: Vec<(Key, Value)>) -> usize {
         let len = data.len();
         let mut rw = self.inner.records.write().unwrap();
         for (key, value) in data {
@@ -150,7 +156,7 @@ impl InMemoryTree {
         len
     }
 
-    pub fn delete(&self, data: Vec<Key>) -> usize {
+    fn delete(&self, data: Vec<Key>) -> usize {
         let mut rw = self.inner.records.write().unwrap();
         let mut size = 0;
         let keys = rw
@@ -165,11 +171,11 @@ impl InMemoryTree {
         size
     }
 
-    pub fn next_column_ord(&self) -> u64 {
+    fn next_column_ord(&self) -> u64 {
         self.inner.column_ords.fetch_add(1, Ordering::SeqCst)
     }
 
-    pub fn create_index(&self, index_name: &str, over_column: usize) {
+    fn create_index(&self, index_name: &str, over_column: usize) {
         self.indexes
             .insert(index_name.to_owned(), Arc::new(InMemoryIndex::new(over_column)));
     }

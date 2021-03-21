@@ -35,9 +35,9 @@ impl Database {
     }
 
     #[cfg(feature = "persistent")]
-    pub fn persistent(_path: &str) -> Database {
+    pub fn persistent(path: &str) -> Database {
         Database {
-            inner: DatabaseInner::Persistent(Arc::new(Mutex::new(PersistentDatabase))),
+            inner: DatabaseInner::Persistent(Arc::new(Mutex::new(PersistentDatabase::new(path)))),
         }
     }
 
@@ -85,7 +85,7 @@ impl<'t> TransactionalDatabase<'t> {
             #[cfg(feature = "in_memory")]
             TransactionalDatabaseInner::InMemory(database) => Table::from(database.lookup_tree(full_table_name)),
             #[cfg(feature = "persistent")]
-            TransactionalDatabaseInner::Persistent(_) => unimplemented!(),
+            TransactionalDatabaseInner::Persistent(database) => Table::from(database.lookup_tree(full_table_name)),
         }
     }
 
@@ -94,7 +94,7 @@ impl<'t> TransactionalDatabase<'t> {
             #[cfg(feature = "in_memory")]
             TransactionalDatabaseInner::InMemory(database) => database.drop_tree(full_table_name),
             #[cfg(feature = "persistent")]
-            TransactionalDatabaseInner::Persistent(_) => unimplemented!(),
+            TransactionalDatabaseInner::Persistent(database) => database.drop_tree(full_table_name),
         }
     }
 
@@ -103,7 +103,7 @@ impl<'t> TransactionalDatabase<'t> {
             #[cfg(feature = "in_memory")]
             TransactionalDatabaseInner::InMemory(database) => database.create_tree(full_table_name),
             #[cfg(feature = "persistent")]
-            TransactionalDatabaseInner::Persistent(_) => unimplemented!(),
+            TransactionalDatabaseInner::Persistent(database) => database.create_tree(full_table_name),
         }
     }
 }
@@ -170,7 +170,7 @@ impl Table {
             #[cfg(feature = "in_memory")]
             TableInner::InMemory(table) => table.insert(vec![row]).remove(0),
             #[cfg(feature = "persistent")]
-            TableInner::Persistent(_) => unimplemented!(),
+            TableInner::Persistent(table) => table.insert(vec![row]).remove(0),
         }
     }
 
@@ -193,7 +193,21 @@ impl Table {
                 }
             },
             #[cfg(feature = "persistent")]
-            TableInner::Persistent(_) => unimplemented!(),
+            TableInner::Persistent(table) => match row {
+                None => {
+                    let result = table.remove(&key);
+                    debug_assert!(matches!(result, Some(_)), "nothing were found for {:?} key", key);
+                }
+                Some(row) => {
+                    let _result = table.insert_key(key.clone(), row);
+                    // debug_assert!(
+                    //     matches!(result, None),
+                    //     "old record {:?} was found for {:?} key",
+                    //     result,
+                    //     key
+                    // );
+                }
+            },
         }
     }
 
@@ -202,7 +216,7 @@ impl Table {
             #[cfg(feature = "in_memory")]
             TableInner::InMemory(table) => table.select(),
             #[cfg(feature = "persistent")]
-            TableInner::Persistent(_) => unimplemented!(),
+            TableInner::Persistent(table) => table.select(),
         }
     }
 }
