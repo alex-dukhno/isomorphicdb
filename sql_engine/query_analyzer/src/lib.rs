@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use crate::{dynamic_tree_builder::DynamicTreeBuilder, static_tree_builder::StaticTreeBuilder};
-use catalog::CatalogDefinition;
+use catalog::CatalogHandler;
 use data_manipulation_untyped_queries::{
     UntypedDeleteQuery, UntypedInsertQuery, UntypedQuery, UntypedSelectQuery, UntypedUpdateQuery,
 };
@@ -24,20 +24,25 @@ use query_ast::{
     Values,
 };
 use query_response::QueryError;
-use std::{collections::HashMap, sync::Arc};
+use std::collections::HashMap;
+use storage::TransactionalDatabase;
 
 mod dynamic_tree_builder;
 mod static_tree_builder;
 
-pub struct QueryAnalyzer<CD: CatalogDefinition> {
-    database: Arc<CD>,
+pub struct QueryAnalyzer<'a> {
+    catalog: CatalogHandler<'a>,
 }
 
-impl<CD: CatalogDefinition> QueryAnalyzer<CD> {
-    pub fn new(database: Arc<CD>) -> QueryAnalyzer<CD> {
-        QueryAnalyzer { database }
+impl<'a> From<TransactionalDatabase<'a>> for QueryAnalyzer<'a> {
+    fn from(database: TransactionalDatabase<'a>) -> QueryAnalyzer<'a> {
+        QueryAnalyzer {
+            catalog: CatalogHandler::from(database),
+        }
     }
+}
 
+impl<'a> QueryAnalyzer<'a> {
     pub fn analyze(&self, statement: Query) -> Result<UntypedQuery, AnalysisError> {
         match statement {
             Query::Insert(InsertStatement {
@@ -47,7 +52,7 @@ impl<CD: CatalogDefinition> QueryAnalyzer<CD> {
                 columns,
             }) => {
                 let full_table_name = FullTableName::from((&schema_name, &table_name));
-                match self.database.table_definition(full_table_name.clone()) {
+                match self.catalog.table_definition(full_table_name.clone()) {
                     None => Err(AnalysisError::schema_does_not_exist(full_table_name.schema())),
                     Some(None) => Err(AnalysisError::table_does_not_exist(full_table_name)),
                     Some(Some(table_info)) => {
@@ -104,7 +109,7 @@ impl<CD: CatalogDefinition> QueryAnalyzer<CD> {
                 where_clause: _where_clause,
             }) => {
                 let full_table_name = FullTableName::from((&schema_name, &table_name));
-                match self.database.table_definition(full_table_name.clone()) {
+                match self.catalog.table_definition(full_table_name.clone()) {
                     None => Err(AnalysisError::schema_does_not_exist(full_table_name.schema())),
                     Some(None) => Err(AnalysisError::table_does_not_exist(full_table_name)),
                     Some(Some(table_info)) => {
@@ -152,7 +157,7 @@ impl<CD: CatalogDefinition> QueryAnalyzer<CD> {
                 where_clause: _where_clause,
             }) => {
                 let full_table_name = FullTableName::from((&schema_name, &table_name));
-                match self.database.table_definition(full_table_name.clone()) {
+                match self.catalog.table_definition(full_table_name.clone()) {
                     None => Err(AnalysisError::schema_does_not_exist(full_table_name.schema())),
                     Some(None) => Err(AnalysisError::table_does_not_exist(full_table_name)),
                     Some(Some(table_info)) => {
@@ -187,7 +192,7 @@ impl<CD: CatalogDefinition> QueryAnalyzer<CD> {
                 where_clause: _where_clause,
             }) => {
                 let full_table_name = FullTableName::from((&schema_name, &table_name));
-                match self.database.table_definition(full_table_name.clone()) {
+                match self.catalog.table_definition(full_table_name.clone()) {
                     None => Err(AnalysisError::schema_does_not_exist(full_table_name.schema())),
                     Some(None) => Err(AnalysisError::table_does_not_exist(full_table_name)),
                     Some(Some(_table_info)) => Ok(UntypedQuery::Delete(UntypedDeleteQuery { full_table_name })),

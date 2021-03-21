@@ -16,5 +16,7 @@ fn main() {
     simple_logger::SimpleLogger::from_env()
         .init()
         .expect("to initialize logger");
-    isomorphicdb::start();
+
+    let root_path = std::env::var("ROOT_PATH").unwrap_or_else(|_| "./root_directory".to_owned());
+    node_engine::start(storage::Database::persistent(root_path.as_str()));
 }

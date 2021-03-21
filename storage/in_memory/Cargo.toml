@@ -1,9 +1,13 @@
 [package]
-name = "data_binary"
+name = "in_memory"
 version = "0.1.0"
 authors = ["Alex Dukhno <alex.dukhno@icloud.com>"]
 edition = "2018"
 publish = false
 
 [dependencies]
-ordered-float = "2.1.1"
+binary = { path = "../binary" }
+storage_api = { path = "../api" }
+
+dashmap = "4.0.2"
+log = "0.4.14"

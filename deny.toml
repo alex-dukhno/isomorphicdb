@@ -12,7 +12,6 @@ allow = [
     "Apache-2.0",
     "BSD-3-Clause",
     "MIT",
-    "Zlib",
     "ISC",
     "PostgreSQL"
 ]
@@ -25,7 +24,3 @@ exceptions = [
 [sources]
 unknown-git = "deny"
 unknown-registry = "deny"
-allow-git = [
-    "https://github.com/alex-dukhno/async-native-tls.git",
-    "https://github.com/sfackler/rust-native-tls.git",
-]

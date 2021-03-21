@@ -13,17 +13,17 @@
 // limitations under the License.
 
 use bigdecimal::{BigDecimal, FromPrimitive};
-use catalog::{Cursor, SqlTable};
-use data_binary::{
+use binary::{
     repr::{Datum, ToDatum},
     Binary,
 };
 use data_manipulation_query_result::QueryExecutionError;
 use data_manipulation_typed_tree::{DynamicTypedTree, StaticTypedTree};
-use data_scalar::ScalarValue;
 use definition::ColumnDef;
 use query_response::QueryEvent;
+use scalar::ScalarValue;
 use std::collections::HashMap;
+use storage::{Cursor, Table};
 use types::{SqlType, SqlTypeFamily};
 
 pub enum QueryPlanResult {
@@ -44,6 +44,7 @@ impl From<QueryPlanResult> for QueryEvent {
     }
 }
 
+// TODO: ReadOnly, ReadWrite plan
 pub enum QueryPlan {
     Insert(InsertQueryPlan),
     Delete(DeleteQueryPlan),
@@ -204,14 +205,11 @@ impl Flow for ConstraintValidator {
 
 pub struct InsertQueryPlan {
     source: Box<dyn Flow<Output = Vec<Option<Box<dyn ToDatum>>>>>,
-    table: Box<dyn SqlTable>,
+    table: Table,
 }
 
 impl InsertQueryPlan {
-    pub fn new(
-        source: Box<dyn Flow<Output = Vec<Option<Box<dyn ToDatum>>>>>,
-        table: Box<dyn SqlTable>,
-    ) -> InsertQueryPlan {
+    pub fn new(source: Box<dyn Flow<Output = Vec<Option<Box<dyn ToDatum>>>>>, table: Table) -> InsertQueryPlan {
         InsertQueryPlan { source, table }
     }
 
@@ -236,7 +234,7 @@ pub struct FullTableScan {
 }
 
 impl FullTableScan {
-    pub fn new(source: &dyn SqlTable) -> Box<FullTableScan> {
+    pub fn new(source: &Table) -> Box<FullTableScan> {
         Box::new(FullTableScan { source: source.scan() })
     }
 }
@@ -275,11 +273,11 @@ impl Flow for TableRecordKeys {
 
 pub struct DeleteQueryPlan {
     source: Box<dyn Flow<Output = Binary>>,
-    table: Box<dyn SqlTable>,
+    table: Table,
 }
 
 impl DeleteQueryPlan {
-    pub fn new(source: Box<dyn Flow<Output = Binary>>, table: Box<dyn SqlTable>) -> DeleteQueryPlan {
+    pub fn new(source: Box<dyn Flow<Output = Binary>>, table: Table) -> DeleteQueryPlan {
         DeleteQueryPlan { source, table }
     }
 
@@ -385,14 +383,14 @@ impl Flow for DynamicValues {
 pub struct UpdateQueryPlan {
     values: Box<dyn Flow<Output = Vec<Option<Box<dyn ToDatum>>>>>,
     records: Box<dyn Flow<Output = (Binary, Binary)>>,
-    table: Box<dyn SqlTable>,
+    table: Table,
 }
 
 impl UpdateQueryPlan {
     pub fn new(
         values: Box<dyn Flow<Output = Vec<Option<Box<dyn ToDatum>>>>>,
         records: Box<dyn Flow<Output = (Binary, Binary)>>,
-        table: Box<dyn SqlTable>,
+        table: Table,
     ) -> UpdateQueryPlan {
         UpdateQueryPlan { values, records, table }
     }

@@ -38,91 +38,107 @@ fn drop_cascade(names: Vec<(&str, &str)>) -> Definition {
 }
 
 #[test]
-fn drop_table_from_nonexistent_schema() {
-    let analyzer = DefinitionPlanner::new(InMemoryDatabase::new());
-    assert_eq!(
-        analyzer.plan(drop_table_stmt(vec![("non_existent_schema", TABLE)])),
-        Err(SchemaPlanError::schema_does_not_exist(&"non_existent_schema"))
-    );
+fn drop_table_from_nonexistent_schema() -> TransactionResult<()> {
+    Database::in_memory("").transaction(|db| {
+        let planner = DefinitionPlanner::from(db);
+        assert_eq!(
+            planner.plan(drop_table_stmt(vec![("non_existent_schema", TABLE)])),
+            Err(SchemaPlanError::schema_does_not_exist(&"non_existent_schema"))
+        );
+        Ok(())
+    })
 }
 
 #[test]
-fn drop_table() {
-    let database = InMemoryDatabase::new();
-    database.execute(create_schema_ops(SCHEMA)).unwrap();
-    database
-        .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
-        .unwrap();
-    let analyzer = DefinitionPlanner::new(database);
-    assert_eq!(
-        analyzer.plan(drop_table_stmt(vec![(SCHEMA, TABLE)])),
-        Ok(SchemaChange::DropTables(DropTablesQuery {
-            full_table_names: vec![FullTableName::from((&SCHEMA, &TABLE))],
-            cascade: false,
-            if_exists: false
-        }))
-    );
+fn drop_table() -> TransactionResult<()> {
+    Database::in_memory("").transaction(|db| {
+        let catalog = CatalogHandler::from(db.clone());
+        catalog.apply(create_schema_ops(SCHEMA)).unwrap();
+        catalog
+            .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
+            .unwrap();
+
+        let planner = DefinitionPlanner::from(db);
+        assert_eq!(
+            planner.plan(drop_table_stmt(vec![(SCHEMA, TABLE)])),
+            Ok(SchemaChange::DropTables(DropTablesQuery {
+                full_table_names: vec![FullTableName::from((&SCHEMA, &TABLE))],
+                cascade: false,
+                if_exists: false
+            }))
+        );
+        Ok(())
+    })
 }
 
 #[test]
-fn drop_nonexistent_table() {
-    let database = InMemoryDatabase::new();
-    database.execute(create_schema_ops(SCHEMA)).unwrap();
-    let analyzer = DefinitionPlanner::new(database);
-    assert_eq!(
-        analyzer.plan(drop_table_stmt(vec![(SCHEMA, "non_existent_table")])),
-        Ok(SchemaChange::DropTables(DropTablesQuery {
-            full_table_names: vec![FullTableName::from((&SCHEMA, &"non_existent_table"))],
-            cascade: false,
-            if_exists: false
-        }))
-    );
+fn drop_nonexistent_table() -> TransactionResult<()> {
+    Database::in_memory("").transaction(|db| {
+        let catalog = CatalogHandler::from(db.clone());
+        catalog.apply(create_schema_ops(SCHEMA)).unwrap();
+        let planner = DefinitionPlanner::from(db);
+        assert_eq!(
+            planner.plan(drop_table_stmt(vec![(SCHEMA, "non_existent_table")])),
+            Ok(SchemaChange::DropTables(DropTablesQuery {
+                full_table_names: vec![FullTableName::from((&SCHEMA, &"non_existent_table"))],
+                cascade: false,
+                if_exists: false
+            }))
+        );
+        Ok(())
+    })
 }
 
 #[test]
-fn drop_table_if_exists() {
-    let database = InMemoryDatabase::new();
-    database.execute(create_schema_ops(SCHEMA)).unwrap();
-    database
-        .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
-        .unwrap();
-    database
-        .execute(create_table_ops(SCHEMA, "table_1", vec![("col", SqlType::bool())]))
-        .unwrap();
-    let analyzer = DefinitionPlanner::new(database);
-    assert_eq!(
-        analyzer.plan(drop_if_exists(vec![(SCHEMA, TABLE), (SCHEMA, "table_1")],)),
-        Ok(SchemaChange::DropTables(DropTablesQuery {
-            full_table_names: vec![
-                FullTableName::from((&SCHEMA, &TABLE)),
-                FullTableName::from((&SCHEMA, &"table_1"))
-            ],
-            cascade: false,
-            if_exists: true
-        }))
-    );
+fn drop_table_if_exists() -> TransactionResult<()> {
+    Database::in_memory("").transaction(|db| {
+        let catalog = CatalogHandler::from(db.clone());
+        catalog.apply(create_schema_ops(SCHEMA)).unwrap();
+        catalog
+            .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
+            .unwrap();
+        catalog
+            .apply(create_table_ops(SCHEMA, "table_1", vec![("col", SqlType::bool())]))
+            .unwrap();
+        let planner = DefinitionPlanner::from(db);
+        assert_eq!(
+            planner.plan(drop_if_exists(vec![(SCHEMA, TABLE), (SCHEMA, "table_1")],)),
+            Ok(SchemaChange::DropTables(DropTablesQuery {
+                full_table_names: vec![
+                    FullTableName::from((&SCHEMA, &TABLE)),
+                    FullTableName::from((&SCHEMA, &"table_1"))
+                ],
+                cascade: false,
+                if_exists: true
+            }))
+        );
+        Ok(())
+    })
 }
 
 #[test]
-fn drop_table_cascade() {
-    let database = InMemoryDatabase::new();
-    database.execute(create_schema_ops(SCHEMA)).unwrap();
-    database
-        .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
-        .unwrap();
-    database
-        .execute(create_table_ops(SCHEMA, "table_1", vec![("col", SqlType::bool())]))
-        .unwrap();
-    let analyzer = DefinitionPlanner::new(database);
-    assert_eq!(
-        analyzer.plan(drop_cascade(vec![(SCHEMA, TABLE), (SCHEMA, "table_1")],)),
-        Ok(SchemaChange::DropTables(DropTablesQuery {
-            full_table_names: vec![
-                FullTableName::from((&SCHEMA, &TABLE)),
-                FullTableName::from((&SCHEMA, &"table_1"))
-            ],
-            cascade: true,
-            if_exists: false
-        }))
-    );
+fn drop_table_cascade() -> TransactionResult<()> {
+    Database::in_memory("").transaction(|db| {
+        let catalog = CatalogHandler::from(db.clone());
+        catalog.apply(create_schema_ops(SCHEMA)).unwrap();
+        catalog
+            .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
+            .unwrap();
+        catalog
+            .apply(create_table_ops(SCHEMA, "table_1", vec![("col", SqlType::bool())]))
+            .unwrap();
+        let planner = DefinitionPlanner::from(db);
+        assert_eq!(
+            planner.plan(drop_cascade(vec![(SCHEMA, TABLE), (SCHEMA, "table_1")],)),
+            Ok(SchemaChange::DropTables(DropTablesQuery {
+                full_table_names: vec![
+                    FullTableName::from((&SCHEMA, &TABLE)),
+                    FullTableName::from((&SCHEMA, &"table_1"))
+                ],
+                cascade: true,
+                if_exists: false
+            }))
+        );
+        Ok(())
+    })
 }

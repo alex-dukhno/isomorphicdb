@@ -35,62 +35,74 @@ fn drop_cascade(names: Vec<&str>) -> Definition {
 }
 
 #[test]
-fn drop_non_existent_schema() {
-    let analyzer = DefinitionPlanner::new(InMemoryDatabase::new());
-    assert_eq!(
-        analyzer.plan(drop_schema_stmt(vec!["non_existent"])),
-        Ok(SchemaChange::DropSchemas(DropSchemasQuery {
-            schema_names: vec![SchemaName::from(&"non_existent")],
-            cascade: false,
-            if_exists: false,
-        }))
-    );
+fn drop_non_existent_schema() -> TransactionResult<()> {
+    Database::in_memory("").transaction(|db| {
+        let planner = DefinitionPlanner::from(db);
+        assert_eq!(
+            planner.plan(drop_schema_stmt(vec!["non_existent"])),
+            Ok(SchemaChange::DropSchemas(DropSchemasQuery {
+                schema_names: vec![SchemaName::from(&"non_existent")],
+                cascade: false,
+                if_exists: false,
+            }))
+        );
+        Ok(())
+    })
 }
 
 #[test]
-fn drop_schema() {
-    let database = InMemoryDatabase::new();
-    database.execute(create_schema_ops(SCHEMA)).unwrap();
-    let analyzer = DefinitionPlanner::new(database);
+fn drop_schema() -> TransactionResult<()> {
+    Database::in_memory("").transaction(|db| {
+        let catalog = CatalogHandler::from(db.clone());
+        catalog.apply(create_schema_ops(SCHEMA)).unwrap();
+        let planner = DefinitionPlanner::from(db);
 
-    assert_eq!(
-        analyzer.plan(drop_schema_stmt(vec![SCHEMA])),
-        Ok(SchemaChange::DropSchemas(DropSchemasQuery {
-            schema_names: vec![SchemaName::from(&SCHEMA)],
-            cascade: false,
-            if_exists: false,
-        }))
-    );
+        assert_eq!(
+            planner.plan(drop_schema_stmt(vec![SCHEMA])),
+            Ok(SchemaChange::DropSchemas(DropSchemasQuery {
+                schema_names: vec![SchemaName::from(&SCHEMA)],
+                cascade: false,
+                if_exists: false,
+            }))
+        );
+        Ok(())
+    })
 }
 
 #[test]
-fn drop_schema_cascade() {
-    let database = InMemoryDatabase::new();
-    database.execute(create_schema_ops(SCHEMA)).unwrap();
-    let analyzer = DefinitionPlanner::new(database);
+fn drop_schema_cascade() -> TransactionResult<()> {
+    Database::in_memory("").transaction(|db| {
+        let catalog = CatalogHandler::from(db.clone());
+        catalog.apply(create_schema_ops(SCHEMA)).unwrap();
+        let analyzer = DefinitionPlanner::from(db);
 
-    assert_eq!(
-        analyzer.plan(drop_cascade(vec![SCHEMA])),
-        Ok(SchemaChange::DropSchemas(DropSchemasQuery {
-            schema_names: vec![SchemaName::from(&SCHEMA)],
-            cascade: true,
-            if_exists: false,
-        }))
-    );
+        assert_eq!(
+            analyzer.plan(drop_cascade(vec![SCHEMA])),
+            Ok(SchemaChange::DropSchemas(DropSchemasQuery {
+                schema_names: vec![SchemaName::from(&SCHEMA)],
+                cascade: true,
+                if_exists: false,
+            }))
+        );
+        Ok(())
+    })
 }
 
 #[test]
-fn drop_schema_if_exists() {
-    let database = InMemoryDatabase::new();
-    database.execute(create_schema_ops(SCHEMA)).unwrap();
-    let analyzer = DefinitionPlanner::new(database);
+fn drop_schema_if_exists() -> TransactionResult<()> {
+    Database::in_memory("").transaction(|db| {
+        let catalog = CatalogHandler::from(db.clone());
+        catalog.apply(create_schema_ops(SCHEMA)).unwrap();
+        let planner = DefinitionPlanner::from(db);
 
-    assert_eq!(
-        analyzer.plan(drop_if_exists(vec![SCHEMA, "schema_1"])),
-        Ok(SchemaChange::DropSchemas(DropSchemasQuery {
-            schema_names: vec![SchemaName::from(&SCHEMA), SchemaName::from(&"schema_1")],
-            cascade: false,
-            if_exists: true,
-        }))
-    );
+        assert_eq!(
+            planner.plan(drop_if_exists(vec![SCHEMA, "schema_1"])),
+            Ok(SchemaChange::DropSchemas(DropSchemasQuery {
+                schema_names: vec![SchemaName::from(&SCHEMA), SchemaName::from(&"schema_1")],
+                cascade: false,
+                if_exists: true,
+            }))
+        );
+        Ok(())
+    })
 }

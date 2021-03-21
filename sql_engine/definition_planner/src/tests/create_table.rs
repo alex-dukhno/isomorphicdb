@@ -23,73 +23,84 @@ fn column(name: &str, data_type: DataType) -> ColumnDef {
 }
 
 #[test]
-fn create_table_with_nonexistent_schema() {
-    let analyzer = DefinitionPlanner::new(InMemoryDatabase::new());
-
-    assert_eq!(
-        analyzer.plan(create_table("non_existent_schema", "non_existent_table", vec![])),
-        Err(SchemaPlanError::schema_does_not_exist(&"non_existent_schema"))
-    );
+fn create_table_with_nonexistent_schema() -> TransactionResult<()> {
+    Database::in_memory("").transaction(|db| {
+        let planner = DefinitionPlanner::from(db);
+        assert_eq!(
+            planner.plan(create_table("non_existent_schema", "non_existent_table", vec![])),
+            Err(SchemaPlanError::schema_does_not_exist(&"non_existent_schema"))
+        );
+        Ok(())
+    })
 }
 
 #[test]
-fn create_table_with_the_same_name() {
-    let database = InMemoryDatabase::new();
-    database.execute(create_schema_ops(SCHEMA)).unwrap();
-    database.execute(create_table_ops(SCHEMA, TABLE, vec![])).unwrap();
-    let analyzer = DefinitionPlanner::new(database);
+fn create_table_with_the_same_name() -> TransactionResult<()> {
+    Database::in_memory("").transaction(|db| {
+        let catalog = CatalogHandler::from(db.clone());
+        catalog.apply(create_schema_ops(SCHEMA)).unwrap();
+        catalog.apply(create_table_ops(SCHEMA, TABLE, vec![])).unwrap();
+        let planner = DefinitionPlanner::from(db);
 
-    assert_eq!(
-        analyzer.plan(create_table(SCHEMA, TABLE, vec![])),
-        Ok(SchemaChange::CreateTable(CreateTableQuery {
-            full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-            column_defs: vec![],
-            if_not_exists: false,
-        }))
-    );
+        assert_eq!(
+            planner.plan(create_table(SCHEMA, TABLE, vec![])),
+            Ok(SchemaChange::CreateTable(CreateTableQuery {
+                full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
+                column_defs: vec![],
+                if_not_exists: false,
+            }))
+        );
+        Ok(())
+    })
 }
 
 #[test]
-fn create_new_table_if_not_exist() {
-    let database = InMemoryDatabase::new();
-    database.execute(create_schema_ops(SCHEMA)).unwrap();
-    let analyzer = DefinitionPlanner::new(database);
-    assert_eq!(
-        analyzer.plan(create_table_if_not_exists(
-            SCHEMA,
-            TABLE,
-            vec![column("column_name", DataType::SmallInt)],
-            true
-        )),
-        Ok(SchemaChange::CreateTable(CreateTableQuery {
-            full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-            column_defs: vec![ColumnInfo {
-                name: "column_name".to_owned(),
-                sql_type: SqlType::small_int()
-            }],
-            if_not_exists: true,
-        }))
-    );
+fn create_new_table_if_not_exist() -> TransactionResult<()> {
+    Database::in_memory("").transaction(|db| {
+        let catalog = CatalogHandler::from(db.clone());
+        catalog.apply(create_schema_ops(SCHEMA)).unwrap();
+        let planner = DefinitionPlanner::from(db);
+        assert_eq!(
+            planner.plan(create_table_if_not_exists(
+                SCHEMA,
+                TABLE,
+                vec![column("column_name", DataType::SmallInt)],
+                true
+            )),
+            Ok(SchemaChange::CreateTable(CreateTableQuery {
+                full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
+                column_defs: vec![ColumnInfo {
+                    name: "column_name".to_owned(),
+                    sql_type: SqlType::small_int()
+                }],
+                if_not_exists: true,
+            }))
+        );
+        Ok(())
+    })
 }
 
 #[test]
-fn successfully_create_table() {
-    let database = InMemoryDatabase::new();
-    database.execute(create_schema_ops(SCHEMA)).unwrap();
-    let analyzer = DefinitionPlanner::new(database);
-    assert_eq!(
-        analyzer.plan(create_table(
-            SCHEMA,
-            TABLE,
-            vec![column("column_name", DataType::SmallInt)],
-        )),
-        Ok(SchemaChange::CreateTable(CreateTableQuery {
-            full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-            column_defs: vec![ColumnInfo {
-                name: "column_name".to_owned(),
-                sql_type: SqlType::small_int()
-            }],
-            if_not_exists: false,
-        }))
-    );
+fn successfully_create_table() -> TransactionResult<()> {
+    Database::in_memory("").transaction(|db| {
+        let catalog = CatalogHandler::from(db.clone());
+        catalog.apply(create_schema_ops(SCHEMA)).unwrap();
+        let planner = DefinitionPlanner::from(db);
+        assert_eq!(
+            planner.plan(create_table(
+                SCHEMA,
+                TABLE,
+                vec![column("column_name", DataType::SmallInt)],
+            )),
+            Ok(SchemaChange::CreateTable(CreateTableQuery {
+                full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
+                column_defs: vec![ColumnInfo {
+                    name: "column_name".to_owned(),
+                    sql_type: SqlType::small_int()
+                }],
+                if_not_exists: false,
+            }))
+        );
+        Ok(())
+    })
 }

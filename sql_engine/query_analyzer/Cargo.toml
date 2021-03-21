@@ -15,6 +15,7 @@ definition = { path = "../entities/definition" }
 query_ast = { path = "../../postgres/query_ast" }
 query_response = { path = "../../postgres/query_response" }
 types = { path = "../entities/types" }
+storage = { path = "../../storage" }
 
 bigdecimal = { version = "0.2.0", features = ["string-only"] }
 log = "0.4.14"

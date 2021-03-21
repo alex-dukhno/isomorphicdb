@@ -26,39 +26,49 @@ fn create_schema_if_not_exists(schema_name: &str, if_not_exists: bool) -> Defini
 }
 
 #[test]
-fn create_new_schema() {
-    let analyzer = DefinitionPlanner::new(InMemoryDatabase::new());
-    assert_eq!(
-        analyzer.plan(create_schema(SCHEMA)),
-        Ok(SchemaChange::CreateSchema(CreateSchemaQuery {
-            schema_name: SchemaName::from(&SCHEMA),
-            if_not_exists: false,
-        }))
-    );
+fn create_new_schema() -> TransactionResult<()> {
+    Database::in_memory("").transaction(|db| {
+        let planner = DefinitionPlanner::from(db);
+        assert_eq!(
+            planner.plan(create_schema(SCHEMA)),
+            Ok(SchemaChange::CreateSchema(CreateSchemaQuery {
+                schema_name: SchemaName::from(&SCHEMA),
+                if_not_exists: false,
+            }))
+        );
+        Ok(())
+    })
 }
 
 #[test]
-fn create_new_schema_if_not_exists() {
-    let analyzer = DefinitionPlanner::new(InMemoryDatabase::new());
-    assert_eq!(
-        analyzer.plan(create_schema_if_not_exists(SCHEMA, true)),
-        Ok(SchemaChange::CreateSchema(CreateSchemaQuery {
-            schema_name: SchemaName::from(&SCHEMA),
-            if_not_exists: true,
-        }))
-    );
+fn create_new_schema_if_not_exists() -> TransactionResult<()> {
+    Database::in_memory("").transaction(|db| {
+        let planner = DefinitionPlanner::from(db);
+        assert_eq!(
+            planner.plan(create_schema_if_not_exists(SCHEMA, true)),
+            Ok(SchemaChange::CreateSchema(CreateSchemaQuery {
+                schema_name: SchemaName::from(&SCHEMA),
+                if_not_exists: true,
+            }))
+        );
+        Ok(())
+    })
 }
 
 #[test]
-fn create_schema_with_the_same_name() {
-    let database = InMemoryDatabase::new();
-    database.execute(create_schema_ops(SCHEMA)).unwrap();
-    let analyzer = DefinitionPlanner::new(database);
-    assert_eq!(
-        analyzer.plan(create_schema(SCHEMA)),
-        Ok(SchemaChange::CreateSchema(CreateSchemaQuery {
-            schema_name: SchemaName::from(&SCHEMA),
-            if_not_exists: false,
-        }))
-    );
+fn create_schema_with_the_same_name() -> TransactionResult<()> {
+    Database::in_memory("").transaction(|db| {
+        let catalog = CatalogHandler::from(db.clone());
+        catalog.apply(create_schema_ops(SCHEMA)).unwrap();
+
+        let planner = DefinitionPlanner::from(db);
+        assert_eq!(
+            planner.plan(create_schema(SCHEMA)),
+            Ok(SchemaChange::CreateSchema(CreateSchemaQuery {
+                schema_name: SchemaName::from(&SCHEMA),
+                if_not_exists: false,
+            }))
+        );
+        Ok(())
+    })
 }

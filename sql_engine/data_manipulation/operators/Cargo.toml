@@ -9,7 +9,7 @@ publish = false
 data_manipulation_query_result = { path = "../query_result" }
 types = { path = "../../entities/types" }
 query_ast = { path = "../../../postgres/query_ast" }
-data_scalar = { path = "../../data/scalar" }
+scalar = { path = "../../scalar" }
 
 bigdecimal = { version = "0.2.0", features = ["string-only"] }
 regex = "1.4.3"

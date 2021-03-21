@@ -13,6 +13,7 @@ subprojects {
   dependencies {
     implementation group: 'org.codehaus.groovy', name: 'groovy-all', version: '2.5.13', ext: 'pom'
     implementation group: 'org.postgresql', name: 'postgresql', version: '42.2.16'
+    implementation group: 'com.zaxxer', name: 'HikariCP', version: '4.0.3'
 
     testImplementation group: 'org.spockframework', name: 'spock-core', version: '1.2-groovy-2.5'
 

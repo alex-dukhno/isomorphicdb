@@ -37,15 +37,13 @@ See [docs](./docs/.)
     * `ci/` - script helpers to run commands on `GitHub Actions`
     * `local/` - scripts for local usage
 * `gradle/` - gradle wrapper to run `tests/compatibility` tests
+* `node_engine/` - module that glues all other together to handle incoming network request and execute it across other modules
 * `postgres/` - crate to consolidate PostgreSQL functionality
     * `query_ast/` - abstract syntax tree of parsed SQL query
     * `query_parser/` - parser that produce AST from SQL string
     * `query_response/` - module to represent successful or error response after query execution to a client
 * `sql_engine/` - crate to consolidate SQL query engine functionality
     * `catalog/` - API for accessing data and its definition
-    * `data/` - group of modules responsible for manipulating data, database structure
-        * `binary/` - representing primitive types as a raw binary vector
-        * `scalar/` - representing primitive types as a scalar value that can be use as intermediate computational result
     * `data_definition/` - group of modules responsible to represent `SQL DDL` queries
         * `execution_plan` - data structures responsible for representing operations of `Data Definition Language` part of `SQL`
     * `data_manipulation/` - group of modules responsible to represent `SQL DML` queries
@@ -56,6 +54,7 @@ See [docs](./docs/.)
         * `typed_tree/` - typed binary tree of SQL operators
         * `untyped_queries/` - represents query structure that is ready for type resolution
         * `untyped_tree/` - untyped binary tree of SQL operators
+    * `definition_planner/` - API to create execution plan for a DDL query
     * `entities/` - database entities
         * `definition/` - database object names and its definitions
         * `types/` - SQL types
@@ -65,6 +64,12 @@ See [docs](./docs/.)
         * `type_check/`
         * `type_coercion/`
         * `type_inference/`
+    * `scalar/` - representing primitive types as a scalar value that can be use as intermediate computational result
+* `storage/` - database transactional storage
+    * `api/` - type aliases and traits that defines api for `in_memory` and `persistent` storage
+    * `binary/` - representing primitive types as a raw binary vector
+    * `in_memory/` - in memory only storage
+    * `persistent/` - persistent storage
 * `tests/`
     * `compatibility/` - groovy based tests to check compatibility with [PostgreSQL](https://www.postgresql.org/)
     * `erlang_client/` - erlang based tests

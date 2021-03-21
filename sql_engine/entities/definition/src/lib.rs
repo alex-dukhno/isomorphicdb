@@ -47,6 +47,12 @@ pub struct FullTableName {
     table: String,
 }
 
+impl<'f> From<&'f FullTableName> for String {
+    fn from(full_table_name: &'f FullTableName) -> String {
+        full_table_name.to_string()
+    }
+}
+
 impl FullTableName {
     pub fn schema(&self) -> &str {
         self.schema.as_deref().unwrap_or("public")

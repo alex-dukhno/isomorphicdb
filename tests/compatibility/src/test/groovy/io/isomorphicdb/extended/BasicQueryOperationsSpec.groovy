@@ -2,6 +2,7 @@ package io.isomorphicdb.extended
 
 import groovy.sql.GroovyRowResult
 import io.isomorphicdb.ThreeSmallIntColumnTable
+import spock.lang.Ignore
 
 class BasicQueryOperationsSpec extends ThreeSmallIntColumnTable {
   private static String INSERT_QUERY = 'insert into SCHEMA_NAME.TABLE_NAME values (?, ?, ?)'

@@ -9,21 +9,19 @@ defaults:
     shell: bash
 
 jobs:
-#  TODO: database is under massive rewrite. skipping building latest image as it
-#        will contain broken engine
-#  publish-docker:
-#    runs-on: ubuntu-latest
-#    steps:
-#      - name: checkout
-#        uses: actions/checkout@v2
-#      - name: build-&-push-docker-image
-#        uses: docker/build-push-action@v1
-#        with:
-#          username: ${{ github.actor }}
-#          password: ${{ secrets.GITHUB_TOKEN }}
-#          registry: docker.pkg.github.com
-#          repository: alex-dukhno/isomorphicdb/isomorphicdb
-#          tags: latest
+  publish-docker:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v2
+      - name: build-&-push-docker-image
+        uses: docker/build-push-action@v1
+        with:
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          registry: docker.pkg.github.com
+          repository: alex-dukhno/isomorphicdb/isomorphicdb
+          tags: latest
 
   coverage:
     runs-on: ubuntu-latest

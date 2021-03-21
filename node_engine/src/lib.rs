@@ -18,7 +18,6 @@ use crate::{
 };
 use async_executor::Executor;
 use async_io::Async;
-use catalog::InMemoryDatabase;
 use connection::{ConnSupervisor, ProtocolConfiguration};
 use futures_lite::future;
 use std::{
@@ -28,6 +27,7 @@ use std::{
     path::{Path, PathBuf},
     thread,
 };
+use storage::Database;
 
 mod connection;
 mod query_engine;
@@ -39,9 +39,7 @@ const HOST: [u8; 4] = [0, 0, 0, 0];
 const MIN_CONN_ID: i32 = 1;
 const MAX_CONN_ID: i32 = 1 << 16;
 
-pub fn start() {
-    let _root_path = env::var("ROOT_PATH").map(PathBuf::from).unwrap_or_default();
-
+pub fn start(database: Database) {
     static NETWORK: Executor<'_> = Executor::new();
 
     thread::Builder::new()
@@ -62,7 +60,6 @@ pub fn start() {
     }
 
     async_io::block_on(async {
-        let database = InMemoryDatabase::new();
         let listener = Async::<TcpListener>::bind((HOST, PORT)).expect("OK");
 
         let config = protocol_configuration();
@@ -91,7 +88,7 @@ pub fn start() {
                                     }
                                     Ok(Ok(command)) => match query_engine.execute(command) {
                                         Ok(()) => {}
-                                        Err(()) => {
+                                        Err(_) => {
                                             break;
                                         }
                                     },

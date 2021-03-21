@@ -23,183 +23,202 @@ fn insert_with_parameters(schema_name: &str, table_name: &str, parameters: Vec<u
 }
 
 #[test]
-fn insert_number() {
-    let database = InMemoryDatabase::new();
-    database.execute(create_schema_ops(SCHEMA)).unwrap();
-    database
-        .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
-        .unwrap();
-    let analyzer = QueryAnalyzer::new(database);
+fn insert_number() -> TransactionResult<()> {
+    Database::in_memory("").transaction(|db| {
+        let catalog = CatalogHandler::from(db.clone());
+        catalog.apply(create_schema_ops(SCHEMA)).unwrap();
+        catalog
+            .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
+            .unwrap();
+        let analyzer = QueryAnalyzer::from(db);
 
-    assert_eq!(
-        analyzer.analyze(insert_with_values(SCHEMA, TABLE, vec![vec![small_int(1)]])),
-        Ok(UntypedQuery::Insert(UntypedInsertQuery {
-            full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-            values: vec![vec![Some(StaticUntypedTree::Item(StaticUntypedItem::Const(
-                UntypedValue::Number(BigDecimal::from(1))
-            )))]],
-        }))
-    );
+        assert_eq!(
+            analyzer.analyze(insert_with_values(SCHEMA, TABLE, vec![vec![small_int(1)]])),
+            Ok(UntypedQuery::Insert(UntypedInsertQuery {
+                full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
+                values: vec![vec![Some(StaticUntypedTree::Item(StaticUntypedItem::Const(
+                    UntypedValue::Number(BigDecimal::from(1))
+                )))]],
+            }))
+        );
+        Ok(())
+    })
 }
 
 #[test]
-fn insert_string() {
-    let database = InMemoryDatabase::new();
-    database.execute(create_schema_ops(SCHEMA)).unwrap();
-    database
-        .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::char(5))]))
-        .unwrap();
-    let analyzer = QueryAnalyzer::new(database);
+fn insert_string() -> TransactionResult<()> {
+    Database::in_memory("").transaction(|db| {
+        let catalog = CatalogHandler::from(db.clone());
+        catalog.apply(create_schema_ops(SCHEMA)).unwrap();
+        catalog
+            .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::char(5))]))
+            .unwrap();
+        let analyzer = QueryAnalyzer::from(db);
 
-    assert_eq!(
-        analyzer.analyze(insert_with_values(SCHEMA, TABLE, vec![vec![string("str")]])),
-        Ok(UntypedQuery::Insert(UntypedInsertQuery {
-            full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-            values: vec![vec![Some(StaticUntypedTree::Item(StaticUntypedItem::Const(
-                UntypedValue::String("str".to_owned())
-            )))]],
-        }))
-    );
+        assert_eq!(
+            analyzer.analyze(insert_with_values(SCHEMA, TABLE, vec![vec![string("str")]])),
+            Ok(UntypedQuery::Insert(UntypedInsertQuery {
+                full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
+                values: vec![vec![Some(StaticUntypedTree::Item(StaticUntypedItem::Const(
+                    UntypedValue::String("str".to_owned())
+                )))]],
+            }))
+        );
+        Ok(())
+    })
 }
 
 #[test]
-fn insert_boolean() {
-    let database = InMemoryDatabase::new();
-    database.execute(create_schema_ops(SCHEMA)).unwrap();
-    database
-        .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
-        .unwrap();
-    let analyzer = QueryAnalyzer::new(database);
+fn insert_boolean() -> TransactionResult<()> {
+    Database::in_memory("").transaction(|db| {
+        let catalog = CatalogHandler::from(db.clone());
+        catalog.apply(create_schema_ops(SCHEMA)).unwrap();
+        catalog
+            .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
+            .unwrap();
+        let analyzer = QueryAnalyzer::from(db);
 
-    assert_eq!(
-        analyzer.analyze(insert_with_values(SCHEMA, TABLE, vec![vec![boolean(true)]])),
-        Ok(UntypedQuery::Insert(UntypedInsertQuery {
-            full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-            values: vec![vec![Some(StaticUntypedTree::Item(StaticUntypedItem::Const(
-                UntypedValue::Bool(Bool(true))
-            )))]],
-        }))
-    );
+        assert_eq!(
+            analyzer.analyze(insert_with_values(SCHEMA, TABLE, vec![vec![boolean(true)]])),
+            Ok(UntypedQuery::Insert(UntypedInsertQuery {
+                full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
+                values: vec![vec![Some(StaticUntypedTree::Item(StaticUntypedItem::Const(
+                    UntypedValue::Bool(Bool(true))
+                )))]],
+            }))
+        );
+        Ok(())
+    })
 }
 
 #[test]
-fn insert_null() {
-    let database = InMemoryDatabase::new();
-    database.execute(create_schema_ops(SCHEMA)).unwrap();
-    database
-        .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
-        .unwrap();
-    let analyzer = QueryAnalyzer::new(database);
+fn insert_null() -> TransactionResult<()> {
+    Database::in_memory("").transaction(|db| {
+        let catalog = CatalogHandler::from(db.clone());
+        catalog.apply(create_schema_ops(SCHEMA)).unwrap();
+        catalog
+            .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
+            .unwrap();
+        let analyzer = QueryAnalyzer::from(db);
 
-    assert_eq!(
-        analyzer.analyze(insert_with_values(SCHEMA, TABLE, vec![vec![null()]])),
-        Ok(UntypedQuery::Insert(UntypedInsertQuery {
-            full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-            values: vec![vec![Some(StaticUntypedTree::Item(StaticUntypedItem::Const(
-                UntypedValue::Null
-            )))]],
-        }))
-    );
+        assert_eq!(
+            analyzer.analyze(insert_with_values(SCHEMA, TABLE, vec![vec![null()]])),
+            Ok(UntypedQuery::Insert(UntypedInsertQuery {
+                full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
+                values: vec![vec![Some(StaticUntypedTree::Item(StaticUntypedItem::Const(
+                    UntypedValue::Null
+                )))]],
+            }))
+        );
+        Ok(())
+    })
 }
 
 #[test]
-fn insert_identifier() {
-    let database = InMemoryDatabase::new();
-    database.execute(create_schema_ops(SCHEMA)).unwrap();
-    database
-        .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
-        .unwrap();
-    let analyzer = QueryAnalyzer::new(database);
+fn insert_identifier() -> TransactionResult<()> {
+    Database::in_memory("").transaction(|db| {
+        let catalog = CatalogHandler::from(db.clone());
+        catalog.apply(create_schema_ops(SCHEMA)).unwrap();
+        catalog
+            .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
+            .unwrap();
+        let analyzer = QueryAnalyzer::from(db);
 
-    assert_eq!(
-        analyzer.analyze(insert_with_values(
-            SCHEMA,
-            TABLE,
-            vec![vec![Expr::Column("col".to_owned())]]
-        )),
-        Err(AnalysisError::column_cant_be_referenced(&"col"))
-    );
+        assert_eq!(
+            analyzer.analyze(insert_with_values(
+                SCHEMA,
+                TABLE,
+                vec![vec![Expr::Column("col".to_owned())]]
+            )),
+            Err(AnalysisError::column_cant_be_referenced(&"col"))
+        );
+        Ok(())
+    })
 }
 
 #[test]
-fn insert_into_table_with_parameters() {
-    let database = InMemoryDatabase::new();
-    database.execute(create_schema_ops(SCHEMA)).unwrap();
-    database
-        .execute(create_table_ops(
-            SCHEMA,
-            TABLE,
-            vec![("col_1", SqlType::small_int()), ("col_2", SqlType::small_int())],
-        ))
-        .unwrap();
-    let analyzer = QueryAnalyzer::new(database);
+fn insert_into_table_with_parameters() -> TransactionResult<()> {
+    Database::in_memory("").transaction(|db| {
+        let catalog = CatalogHandler::from(db.clone());
+        catalog.apply(create_schema_ops(SCHEMA)).unwrap();
+        catalog
+            .apply(create_table_ops(
+                SCHEMA,
+                TABLE,
+                vec![("col_1", SqlType::small_int()), ("col_2", SqlType::small_int())],
+            ))
+            .unwrap();
+        let analyzer = QueryAnalyzer::from(db);
 
-    assert_eq!(
-        analyzer.analyze(insert_with_parameters(SCHEMA, TABLE, vec![1, 2])),
-        Ok(UntypedQuery::Insert(UntypedInsertQuery {
-            full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-            values: vec![vec![
-                Some(StaticUntypedTree::Item(StaticUntypedItem::Param(0))),
-                Some(StaticUntypedTree::Item(StaticUntypedItem::Param(1)))
-            ]],
-        }))
-    );
+        assert_eq!(
+            analyzer.analyze(insert_with_parameters(SCHEMA, TABLE, vec![1, 2])),
+            Ok(UntypedQuery::Insert(UntypedInsertQuery {
+                full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
+                values: vec![vec![
+                    Some(StaticUntypedTree::Item(StaticUntypedItem::Param(0))),
+                    Some(StaticUntypedTree::Item(StaticUntypedItem::Param(1)))
+                ]],
+            }))
+        );
+        Ok(())
+    })
 }
 
 #[test]
-fn insert_into_table_with_parameters_and_values() {
-    let database = InMemoryDatabase::new();
-    database.execute(create_schema_ops(SCHEMA)).unwrap();
-    database
-        .execute(create_table_ops(
-            SCHEMA,
-            TABLE,
-            vec![("col_1", SqlType::small_int()), ("col_2", SqlType::small_int())],
-        ))
-        .unwrap();
-    let analyzer = QueryAnalyzer::new(database);
+fn insert_into_table_with_parameters_and_values() -> TransactionResult<()> {
+    Database::in_memory("").transaction(|db| {
+        let catalog = CatalogHandler::from(db.clone());
+        catalog.apply(create_schema_ops(SCHEMA)).unwrap();
+        catalog
+            .apply(create_table_ops(
+                SCHEMA,
+                TABLE,
+                vec![("col_1", SqlType::small_int()), ("col_2", SqlType::small_int())],
+            ))
+            .unwrap();
+        let analyzer = QueryAnalyzer::from(db);
 
-    assert_eq!(
-        analyzer.analyze(insert_with_values(
-            SCHEMA,
-            TABLE,
-            vec![vec![Expr::Param(1), Expr::Value(number(1))]]
-        )),
-        Ok(UntypedQuery::Insert(UntypedInsertQuery {
-            full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-            values: vec![vec![
-                Some(StaticUntypedTree::Item(StaticUntypedItem::Param(0))),
-                Some(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(
-                    BigDecimal::from(1)
-                ))))
-            ]],
-        }))
-    );
-}
-
-fn setup_logger() {
-    if let Ok(()) = simple_logger::SimpleLogger::new().init() {};
+        assert_eq!(
+            analyzer.analyze(insert_with_values(
+                SCHEMA,
+                TABLE,
+                vec![vec![Expr::Param(1), Expr::Value(number(1))]]
+            )),
+            Ok(UntypedQuery::Insert(UntypedInsertQuery {
+                full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
+                values: vec![vec![
+                    Some(StaticUntypedTree::Item(StaticUntypedItem::Param(0))),
+                    Some(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(
+                        BigDecimal::from(1)
+                    ))))
+                ]],
+            }))
+        );
+        Ok(())
+    })
 }
 
 #[test]
-fn insert_into_table_negative_number() {
-    setup_logger();
-    let database = InMemoryDatabase::new();
-    database.execute(create_schema_ops(SCHEMA)).unwrap();
-    database
-        .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
-        .unwrap();
-    let analyzer = QueryAnalyzer::new(database);
+fn insert_into_table_negative_number() -> TransactionResult<()> {
+    Database::in_memory("").transaction(|db| {
+        let catalog = CatalogHandler::from(db.clone());
+        catalog.apply(create_schema_ops(SCHEMA)).unwrap();
+        catalog
+            .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
+            .unwrap();
+        let analyzer = QueryAnalyzer::from(db);
 
-    assert_eq!(
-        analyzer.analyze(insert_with_values(SCHEMA, TABLE, vec![vec![small_int(-32768)]])),
-        Ok(UntypedQuery::Insert(UntypedInsertQuery {
-            full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-            values: vec![vec![Some(StaticUntypedTree::Item(StaticUntypedItem::Const(
-                UntypedValue::Number(BigDecimal::from(-32768))
-            )))]],
-        }))
-    );
+        assert_eq!(
+            analyzer.analyze(insert_with_values(SCHEMA, TABLE, vec![vec![small_int(-32768)]])),
+            Ok(UntypedQuery::Insert(UntypedInsertQuery {
+                full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
+                values: vec![vec![Some(StaticUntypedTree::Item(StaticUntypedItem::Const(
+                    UntypedValue::Number(BigDecimal::from(-32768))
+                )))]],
+            }))
+        );
+        Ok(())
+    })
 }
 
 #[cfg(test)]
@@ -221,182 +240,200 @@ mod multiple_values {
     }
 
     #[test]
-    fn arithmetic() {
-        let database = InMemoryDatabase::new();
-        database.execute(create_schema_ops(SCHEMA)).unwrap();
-        database
-            .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
-            .unwrap();
-        let analyzer = QueryAnalyzer::new(database);
+    fn arithmetic() -> TransactionResult<()> {
+        Database::in_memory("").transaction(|db| {
+            let catalog = CatalogHandler::from(db.clone());
+            catalog.apply(create_schema_ops(SCHEMA)).unwrap();
+            catalog
+                .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
+                .unwrap();
+            let analyzer = QueryAnalyzer::from(db);
 
-        assert_eq!(
-            analyzer.analyze(insert_value_as_expression_with_operation(
-                Expr::Value(number(1)),
-                BinaryOperator::Plus,
-                Expr::Value(number(1))
-            )),
-            Ok(UntypedQuery::Insert(UntypedInsertQuery {
-                full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                values: vec![vec![Some(StaticUntypedTree::BiOp {
-                    left: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(
-                        BigDecimal::from(1)
-                    )))),
-                    op: BiOperator::Arithmetic(BiArithmetic::Add),
-                    right: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(
-                        BigDecimal::from(1)
-                    ))))
-                })]],
-            }))
-        );
+            assert_eq!(
+                analyzer.analyze(insert_value_as_expression_with_operation(
+                    Expr::Value(number(1)),
+                    BinaryOperator::Plus,
+                    Expr::Value(number(1))
+                )),
+                Ok(UntypedQuery::Insert(UntypedInsertQuery {
+                    full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
+                    values: vec![vec![Some(StaticUntypedTree::BiOp {
+                        left: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(
+                            BigDecimal::from(1)
+                        )))),
+                        op: BiOperator::Arithmetic(BiArithmetic::Add),
+                        right: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(
+                            BigDecimal::from(1)
+                        ))))
+                    })]],
+                }))
+            );
+            Ok(())
+        })
     }
 
     #[test]
-    fn string_operation() {
-        let database = InMemoryDatabase::new();
-        database.execute(create_schema_ops(SCHEMA)).unwrap();
-        database
-            .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::var_char(255))]))
-            .unwrap();
-        let analyzer = QueryAnalyzer::new(database);
+    fn string_operation() -> TransactionResult<()> {
+        Database::in_memory("").transaction(|db| {
+            let catalog = CatalogHandler::from(db.clone());
+            catalog.apply(create_schema_ops(SCHEMA)).unwrap();
+            catalog
+                .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::var_char(255))]))
+                .unwrap();
+            let analyzer = QueryAnalyzer::from(db);
 
-        assert_eq!(
-            analyzer.analyze(insert_value_as_expression_with_operation(
-                string("str"),
-                BinaryOperator::StringConcat,
-                string("str")
-            )),
-            Ok(UntypedQuery::Insert(UntypedInsertQuery {
-                full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                values: vec![vec![Some(StaticUntypedTree::BiOp {
-                    left: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::String(
-                        "str".to_owned()
-                    )))),
-                    op: BiOperator::StringOp(Concat),
-                    right: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::String(
-                        "str".to_owned()
-                    ))))
-                })]],
-            }))
-        );
+            assert_eq!(
+                analyzer.analyze(insert_value_as_expression_with_operation(
+                    string("str"),
+                    BinaryOperator::StringConcat,
+                    string("str")
+                )),
+                Ok(UntypedQuery::Insert(UntypedInsertQuery {
+                    full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
+                    values: vec![vec![Some(StaticUntypedTree::BiOp {
+                        left: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::String(
+                            "str".to_owned()
+                        )))),
+                        op: BiOperator::StringOp(Concat),
+                        right: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::String(
+                            "str".to_owned()
+                        ))))
+                    })]],
+                }))
+            );
+            Ok(())
+        })
     }
 
     #[test]
-    fn comparison() {
-        let database = InMemoryDatabase::new();
-        database.execute(create_schema_ops(SCHEMA)).unwrap();
-        database
-            .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
-            .unwrap();
-        let analyzer = QueryAnalyzer::new(database);
+    fn comparison() -> TransactionResult<()> {
+        Database::in_memory("").transaction(|db| {
+            let catalog = CatalogHandler::from(db.clone());
+            catalog.apply(create_schema_ops(SCHEMA)).unwrap();
+            catalog
+                .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
+                .unwrap();
+            let analyzer = QueryAnalyzer::from(db);
 
-        assert_eq!(
-            analyzer.analyze(insert_value_as_expression_with_operation(
-                Expr::Value(number(1)),
-                BinaryOperator::Gt,
-                Expr::Value(number(1))
-            )),
-            Ok(UntypedQuery::Insert(UntypedInsertQuery {
-                full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                values: vec![vec![Some(StaticUntypedTree::BiOp {
-                    left: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(
-                        BigDecimal::from(1)
-                    )))),
-                    op: BiOperator::Comparison(Comparison::Gt),
-                    right: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(
-                        BigDecimal::from(1)
-                    ))))
-                })]],
-            }))
-        );
+            assert_eq!(
+                analyzer.analyze(insert_value_as_expression_with_operation(
+                    Expr::Value(number(1)),
+                    BinaryOperator::Gt,
+                    Expr::Value(number(1))
+                )),
+                Ok(UntypedQuery::Insert(UntypedInsertQuery {
+                    full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
+                    values: vec![vec![Some(StaticUntypedTree::BiOp {
+                        left: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(
+                            BigDecimal::from(1)
+                        )))),
+                        op: BiOperator::Comparison(Comparison::Gt),
+                        right: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(
+                            BigDecimal::from(1)
+                        ))))
+                    })]],
+                }))
+            );
+            Ok(())
+        })
     }
 
     #[test]
-    fn logical() {
-        let database = InMemoryDatabase::new();
-        database.execute(create_schema_ops(SCHEMA)).unwrap();
-        database
-            .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
-            .unwrap();
-        let analyzer = QueryAnalyzer::new(database);
+    fn logical() -> TransactionResult<()> {
+        Database::in_memory("").transaction(|db| {
+            let catalog = CatalogHandler::from(db.clone());
+            catalog.apply(create_schema_ops(SCHEMA)).unwrap();
+            catalog
+                .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
+                .unwrap();
+            let analyzer = QueryAnalyzer::from(db);
 
-        assert_eq!(
-            analyzer.analyze(insert_value_as_expression_with_operation(
-                Expr::Value(Value::Boolean(true)),
-                BinaryOperator::And,
-                Expr::Value(Value::Boolean(true)),
-            )),
-            Ok(UntypedQuery::Insert(UntypedInsertQuery {
-                full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                values: vec![vec![Some(StaticUntypedTree::BiOp {
-                    left: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Bool(
-                        Bool(true)
-                    )))),
-                    op: BiOperator::Logical(BiLogical::And),
-                    right: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Bool(
-                        Bool(true)
-                    )))),
-                })]],
-            }))
-        );
+            assert_eq!(
+                analyzer.analyze(insert_value_as_expression_with_operation(
+                    Expr::Value(Value::Boolean(true)),
+                    BinaryOperator::And,
+                    Expr::Value(Value::Boolean(true)),
+                )),
+                Ok(UntypedQuery::Insert(UntypedInsertQuery {
+                    full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
+                    values: vec![vec![Some(StaticUntypedTree::BiOp {
+                        left: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Bool(
+                            Bool(true)
+                        )))),
+                        op: BiOperator::Logical(BiLogical::And),
+                        right: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Bool(
+                            Bool(true)
+                        )))),
+                    })]],
+                }))
+            );
+            Ok(())
+        })
     }
 
     #[test]
-    fn bitwise() {
-        let database = InMemoryDatabase::new();
-        database.execute(create_schema_ops(SCHEMA)).unwrap();
-        database
-            .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
-            .unwrap();
-        let analyzer = QueryAnalyzer::new(database);
+    fn bitwise() -> TransactionResult<()> {
+        Database::in_memory("").transaction(|db| {
+            let catalog = CatalogHandler::from(db.clone());
+            catalog.apply(create_schema_ops(SCHEMA)).unwrap();
+            catalog
+                .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
+                .unwrap();
+            let analyzer = QueryAnalyzer::from(db);
 
-        assert_eq!(
-            analyzer.analyze(insert_value_as_expression_with_operation(
-                Expr::Value(number(1)),
-                BinaryOperator::BitwiseOr,
-                Expr::Value(number(1))
-            )),
-            Ok(UntypedQuery::Insert(UntypedInsertQuery {
-                full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                values: vec![vec![Some(StaticUntypedTree::BiOp {
-                    left: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(
-                        BigDecimal::from(1)
-                    )))),
-                    op: BiOperator::Bitwise(Bitwise::Or),
-                    right: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(
-                        BigDecimal::from(1)
-                    ))))
-                })]],
-            }))
-        );
+            assert_eq!(
+                analyzer.analyze(insert_value_as_expression_with_operation(
+                    Expr::Value(number(1)),
+                    BinaryOperator::BitwiseOr,
+                    Expr::Value(number(1))
+                )),
+                Ok(UntypedQuery::Insert(UntypedInsertQuery {
+                    full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
+                    values: vec![vec![Some(StaticUntypedTree::BiOp {
+                        left: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(
+                            BigDecimal::from(1)
+                        )))),
+                        op: BiOperator::Bitwise(Bitwise::Or),
+                        right: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(
+                            BigDecimal::from(1)
+                        ))))
+                    })]],
+                }))
+            );
+            Ok(())
+        })
     }
 
     #[test]
-    fn pattern_matching() {
-        let database = InMemoryDatabase::new();
-        database.execute(create_schema_ops(SCHEMA)).unwrap();
-        database
-            .execute(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
-            .unwrap();
-        let analyzer = QueryAnalyzer::new(database);
+    fn pattern_matching() -> TransactionResult<()> {
+        Database::in_memory("").transaction(|db| {
+            let catalog = CatalogHandler::from(db.clone());
+            catalog.apply(create_schema_ops(SCHEMA)).unwrap();
+            catalog
+                .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
+                .unwrap();
+            let analyzer = QueryAnalyzer::from(db);
 
-        assert_eq!(
-            analyzer.analyze(insert_value_as_expression_with_operation(
-                string("s"),
-                BinaryOperator::Like,
-                string("str")
-            )),
-            Ok(UntypedQuery::Insert(UntypedInsertQuery {
-                full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                values: vec![vec![Some(StaticUntypedTree::BiOp {
-                    left: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::String(
-                        "s".to_owned()
-                    )))),
-                    op: BiOperator::Matching(Matching::Like),
-                    right: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::String(
-                        "str".to_owned()
-                    ))))
-                })]],
-            }))
-        );
+            assert_eq!(
+                analyzer.analyze(insert_value_as_expression_with_operation(
+                    string("s"),
+                    BinaryOperator::Like,
+                    string("str")
+                )),
+                Ok(UntypedQuery::Insert(UntypedInsertQuery {
+                    full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
+                    values: vec![vec![Some(StaticUntypedTree::BiOp {
+                        left: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::String(
+                            "s".to_owned()
+                        )))),
+                        op: BiOperator::Matching(Matching::Like),
+                        right: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::String(
+                            "str".to_owned()
+                        ))))
+                    })]],
+                }))
+            );
+            Ok(())
+        })
     }
 }
