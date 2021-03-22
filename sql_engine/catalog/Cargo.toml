@@ -16,4 +16,4 @@ dashmap = "4.0.2"
 log = "0.4.14"
 
 [dev-dependencies]
-rstest = "0.6.4"
+rstest = "0.7.0"
