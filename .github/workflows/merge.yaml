@@ -36,7 +36,7 @@ jobs:
           push: true
           tags: |
             alexdukhno/isomorphicdb:latest
-            alex-dukhno/isomorphicdb/isomorphicdb:latest
+            ghcr.io/alex-dukhno/isomorphicdb:latest
 
   coverage:
     runs-on: ubuntu-latest
