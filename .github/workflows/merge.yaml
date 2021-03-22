@@ -14,14 +14,29 @@ jobs:
     steps:
       - name: checkout
         uses: actions/checkout@v2
-      - name: build-&-push-docker-image
-        uses: docker/build-push-action@v1
+      - name: set up QEMU
+        uses: docker/setup-qemu-action@v1
+      - name: set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+      - name: login to DockerHub
+        uses: docker/login-action@v1
         with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: login to GitHub Container Registry
+        uses: docker/login-action@v1
+        with:
+          registry: docker.pkg.github.com
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-          registry: docker.pkg.github.com
-          repository: alex-dukhno/isomorphicdb/isomorphicdb
-          tags: latest
+      - name: build and push docker image
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          push: true
+          tags: |
+            alexdukhno/isomorphicdb:latest
+            alex-dukhno/isomorphicdb/isomorphicdb:latest
 
   coverage:
     runs-on: ubuntu-latest
