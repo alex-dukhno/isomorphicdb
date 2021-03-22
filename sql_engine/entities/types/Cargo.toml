@@ -10,4 +10,4 @@ pg_wire = "0.7.0"
 query_ast = { path = "../../../postgres/query_ast" }
 
 [dev-dependencies]
-rstest = "0.6.4"
+rstest = "0.7.0"

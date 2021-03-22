@@ -12,4 +12,4 @@ query_response = { path = "../query_response" }
 postgres-parser = "0.2"
 
 [dev-dependencies]
-rstest = "0.6.4"
+rstest = "0.7.0"
