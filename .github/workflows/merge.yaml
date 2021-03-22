@@ -29,7 +29,7 @@ jobs:
         with:
           context: .
           push: true
-          tags: alex-dukhno/isomorphicdb/isomorphicdb:latest
+          tags: ghcr.io/alex-dukhno/isomorphicdb:latest
 
   coverage:
     runs-on: ubuntu-latest
