@@ -1,31 +1,18 @@
 # Getting Started
 
 Currently, `isomorphicdb` is not distributed in a binary format. Experimentally, we
-support docker image. So you have to have Docker installed on your machine.
-Before pooling it from `GitHub` registry you have to perform the following steps:
+support a docker image. So you have to have Docker installed on your machine.
 
-1. Generate and save `GitHub` token.
-2. Go to `Settings` -> `Developer Settings` -> `Personal access tokens`.
-3. Click `Generate new token`.
-4. Choose `read:packages` scope (you can choose others but this one is required).
-5. Click `Generate token`.
-6. It will be shown only once so save it to the file on your machine.
-7. Run the following command to login to `GitHub` docker registry.
+You can pool the image with the following command:
 
 ```shell script
-cat /path/to/file/with/token | docker login https://docker.pkg.github.com -u <your github username> --password-stdin
-```
-
-After that you can pool image with the following command:
-
-```shell script
-docker pull docker.pkg.github.com/alex-dukhno/isomorphicdb/isomorphicdb:latest
+docker pull ghcr.io/alex-dukhno/isomorphicdb:latest
 ```
 
 To start up application you need to invoke the following command:
 
 ```shell script
-docker run -it -d -p 5432:5432 docker.pkg.github.com/alex-dukhno/isomorphicdb/isomorphicdb
+docker run -it -d -p 5432:5432 ghcr.io/alex-dukhno/isomorphicdb
 ```
 
 If you crashed the database docker instance we highly appreciated if you rerun
