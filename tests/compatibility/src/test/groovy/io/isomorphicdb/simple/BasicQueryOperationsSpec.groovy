@@ -89,7 +89,7 @@ class BasicQueryOperationsSpec extends ThreeSmallIntColumnTable {
   def 'insert update{some} select{all}'() {
     given:
       String insertQuery = 'insert into SCHEMA_NAME.TABLE_NAME values (1, 2, 3), (4, 5, 6), (7, 8, 9)'
-      String updateQuery = 'update SCHEMA_NAME.TABLE_NAME set col1 = 10, col2 = 11, col3 = 12 where col1 = 1'
+      String updateQuery = 'update SCHEMA_NAME.TABLE_NAME set col1 = 10, col2 = 11, col3 = 12 where col1 = 2'
     and:
       pg.executeUpdate insertQuery
       db.executeUpdate insertQuery

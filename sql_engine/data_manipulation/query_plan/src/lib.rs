@@ -145,6 +145,7 @@ impl Flow for ConstraintValidator {
 
     fn next_tuple(&mut self, param_values: &[ScalarValue]) -> Result<Option<Self::Output>, QueryExecutionError> {
         if let Some((key, tuple)) = self.source.next_tuple(param_values)? {
+            log::debug!("ConstraintValidator key - {:?}", key);
             let mut data = vec![];
             for (index, value) in tuple.into_iter().enumerate() {
                 let value = match (value, self.column_types[index].1) {
@@ -153,7 +154,12 @@ impl Flow for ConstraintValidator {
                         None => unimplemented!(),
                         Some(value_type) => match value_type.compare(&type_family) {
                             Ok(wide_type_family) => {
-                                log::debug!("{:?} {:?} {:?}", value, wide_type_family, type_family);
+                                log::debug!(
+                                    "ConstraintValidator {:?} {:?} {:?}",
+                                    value,
+                                    wide_type_family,
+                                    type_family
+                                );
                                 match (value.clone(), type_family) {
                                     (ScalarValue::Num { value, .. }, SqlTypeFamily::SmallInt) => {
                                         if !(BigDecimal::from(i16::MIN)..=BigDecimal::from(i16::MAX)).contains(&value) {
@@ -254,7 +260,11 @@ impl Flow for Filter {
             match &self.predicate {
                 None => return Ok(Some((key.clone(), value.clone()))),
                 Some(predicate) => {
-                    if let Ok(ScalarValue::Bool(true)) = predicate.clone().eval(param_values, &value) {
+                    log::debug!("Filter before: {:?}, {:?}", key, value);
+                    let result = predicate.clone().eval(param_values, &value);
+                    log::debug!("Filter after: {:?}", result);
+                    if let Ok(ScalarValue::Bool(true)) = result {
+                        log::debug!("Filter filtered key - {:?}", key);
                         return Ok(Some((key.clone(), value.clone())));
                     }
                 }
@@ -494,12 +504,17 @@ impl UpdateQueryPlan {
         }
 
         let mut len = 0;
+        let mut values = HashMap::new();
+        while let Some((updated_key, value)) = self.values.next_tuple(&param_values)? {
+            values.insert(updated_key, value);
+        }
         while let Some((key, row)) = self.records.next_tuple(&param_values)? {
             let mut unpacked = row.unpack();
             let unpacked_key = key.unpack();
-            if let Some((updated_key, values)) = self.values.next_tuple(&param_values)? {
-                if updated_key == unpacked_key.iter().map(mapper).collect::<Vec<ScalarValue>>() {
-                    for (index, value) in values.into_iter().enumerate() {
+            let unpacked_key = unpacked_key.iter().map(mapper).collect::<Vec<ScalarValue>>();
+            match values.remove(&unpacked_key) {
+                Some(value) => {
+                    for (index, value) in value.iter().enumerate() {
                         let new_value = match value {
                             None => unpacked[index].clone(),
                             Some(value) => value.convert(),
@@ -510,6 +525,7 @@ impl UpdateQueryPlan {
                     self.table.write_key(key, Some(new_row));
                     len += 1;
                 }
+                None => {}
             }
         }
         Ok(len)

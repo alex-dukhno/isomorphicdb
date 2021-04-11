@@ -66,21 +66,21 @@ fn update_value_by_predicate_on_single_field(database_with_schema: (InMemory, Re
 
     engine
         .execute(CommandMessage::Query {
-            sql: "insert into schema_name.table_name values (1, 2, 3), (4, 5, 6);".to_owned(),
+            sql: "insert into schema_name.table_name values (1, 2, 3), (4, 5, 6), (7, 8, 9);".to_owned(),
         })
         .expect("query executed");
-    collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(2)));
+    collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(3)));
 
     engine
         .execute(CommandMessage::Query {
-            sql: "update schema_name.table_name set col1 = 7 where col1 = 1;".to_owned(),
+            sql: "update schema_name.table_name set col1 = 7 where col1 = 4;".to_owned(),
         })
         .expect("query executed");
     collector.assert_receive_single(Ok(QueryEvent::RecordsUpdated(1)));
 
     engine
         .execute(CommandMessage::Query {
-            sql: "select * from schema_name.table_name where col1 = 1".to_owned(),
+            sql: "select * from schema_name.table_name where col1 = 4".to_owned(),
         })
         .expect("query executed");
 
@@ -106,10 +106,15 @@ fn update_value_by_predicate_on_single_field(database_with_schema: (InMemory, Re
         ])),
         Ok(QueryEvent::DataRow(vec![
             "7".to_owned(),
-            "2".to_owned(),
-            "3".to_owned(),
+            "5".to_owned(),
+            "6".to_owned(),
         ])),
-        Ok(QueryEvent::RecordsSelected(1)),
+        Ok(QueryEvent::DataRow(vec![
+            "7".to_owned(),
+            "8".to_owned(),
+            "9".to_owned(),
+        ])),
+        Ok(QueryEvent::RecordsSelected(2)),
     ]);
 }
 
@@ -126,14 +131,14 @@ fn delete_value_by_predicate_on_single_field(database_with_schema: (InMemory, Re
 
     engine
         .execute(CommandMessage::Query {
-            sql: "insert into schema_name.table_name values (1, 2, 3), (4, 5, 6);".to_owned(),
+            sql: "insert into schema_name.table_name values (1, 2, 3), (4, 5, 6), (7, 8, 9);".to_owned(),
         })
         .expect("query executed");
-    collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(2)));
+    collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(3)));
 
     engine
         .execute(CommandMessage::Query {
-            sql: "delete from schema_name.table_name where col1 = 1;".to_owned(),
+            sql: "delete from schema_name.table_name where col2 = 5;".to_owned(),
         })
         .expect("query executed");
     collector.assert_receive_single(Ok(QueryEvent::RecordsDeleted(1)));
@@ -151,10 +156,15 @@ fn delete_value_by_predicate_on_single_field(database_with_schema: (InMemory, Re
             ColumnMetadata::new("col3", PgType::SmallInt),
         ])),
         Ok(QueryEvent::DataRow(vec![
-            "4".to_owned(),
-            "5".to_owned(),
-            "6".to_owned(),
+            "1".to_owned(),
+            "2".to_owned(),
+            "3".to_owned(),
         ])),
-        Ok(QueryEvent::RecordsSelected(1)),
+        Ok(QueryEvent::DataRow(vec![
+            "7".to_owned(),
+            "8".to_owned(),
+            "9".to_owned(),
+        ])),
+        Ok(QueryEvent::RecordsSelected(2)),
     ]);
 }

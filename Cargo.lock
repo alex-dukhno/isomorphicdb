@@ -371,6 +371,7 @@ version = "0.1.0"
 dependencies = [
  "bigdecimal",
  "data_manipulation_query_result",
+ "log",
  "query_ast",
  "regex",
  "rstest",
