@@ -59,7 +59,10 @@ impl<'p> QueryPlanner<'p> {
                 let table = self.database.table(&update.full_table_name);
                 QueryPlan::Update(UpdateQueryPlan::new(
                     ConstraintValidator::new(
-                        DynamicValues::new(Repeater::new(update.assignments), FullTableScan::new(&table)),
+                        DynamicValues::new(
+                            Repeater::new(update.assignments),
+                            Filter::new(Projection::new(FullTableScan::new(&table)), update.filter),
+                        ),
                         self.catalog.columns(&update.full_table_name),
                     ),
                     FullTableScan::new(&table),

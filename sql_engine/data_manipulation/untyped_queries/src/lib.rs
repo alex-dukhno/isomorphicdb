@@ -25,6 +25,7 @@ pub struct UntypedInsertQuery {
 pub struct UntypedUpdateQuery {
     pub full_table_name: FullTableName,
     pub assignments: Vec<Option<DynamicUntypedTree>>,
+    pub filter: Option<DynamicUntypedTree>,
 }
 
 #[derive(Debug, PartialEq, Clone)]

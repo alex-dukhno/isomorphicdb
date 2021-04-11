@@ -30,6 +30,7 @@ pub struct TypedDeleteQuery {
 pub struct TypedUpdateQuery {
     pub full_table_name: FullTableName,
     pub assignments: Vec<Option<DynamicTypedTree>>,
+    pub filter: Option<DynamicTypedTree>,
 }
 
 #[derive(Debug, PartialEq)]

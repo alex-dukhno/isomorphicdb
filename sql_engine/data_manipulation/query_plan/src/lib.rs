@@ -104,7 +104,7 @@ impl StaticExpressionEval {
 }
 
 impl Flow for StaticExpressionEval {
-    type Output = Vec<Option<ScalarValue>>;
+    type Output = (Vec<ScalarValue>, Vec<Option<ScalarValue>>);
 
     fn next_tuple(&mut self, param_values: &[ScalarValue]) -> Result<Option<Self::Output>, QueryExecutionError> {
         if let Ok(Some(tuple)) = self.source.next_tuple(param_values) {
@@ -119,7 +119,7 @@ impl Flow for StaticExpressionEval {
                 };
                 next_tuple.push(typed_value);
             }
-            Ok(Some(next_tuple))
+            Ok(Some((vec![ScalarValue::Null], next_tuple)))
         } else {
             Ok(None)
         }
@@ -127,13 +127,13 @@ impl Flow for StaticExpressionEval {
 }
 
 pub struct ConstraintValidator {
-    source: Box<dyn Flow<Output = Vec<Option<ScalarValue>>>>,
+    source: Box<dyn Flow<Output = (Vec<ScalarValue>, Vec<Option<ScalarValue>>)>>,
     column_types: Vec<(String, SqlTypeFamily)>,
 }
 
 impl ConstraintValidator {
     pub fn new(
-        source: Box<dyn Flow<Output = Vec<Option<ScalarValue>>>>,
+        source: Box<dyn Flow<Output = (Vec<ScalarValue>, Vec<Option<ScalarValue>>)>>,
         column_types: Vec<(String, SqlTypeFamily)>,
     ) -> Box<ConstraintValidator> {
         Box::new(ConstraintValidator { source, column_types })
@@ -141,10 +141,10 @@ impl ConstraintValidator {
 }
 
 impl Flow for ConstraintValidator {
-    type Output = Vec<Option<Box<dyn ToDatum>>>;
+    type Output = (Vec<ScalarValue>, Vec<Option<Box<dyn ToDatum>>>);
 
     fn next_tuple(&mut self, param_values: &[ScalarValue]) -> Result<Option<Self::Output>, QueryExecutionError> {
-        if let Some(tuple) = self.source.next_tuple(param_values)? {
+        if let Some((key, tuple)) = self.source.next_tuple(param_values)? {
             let mut data = vec![];
             for (index, value) in tuple.into_iter().enumerate() {
                 let value = match (value, self.column_types[index].1) {
@@ -196,7 +196,7 @@ impl Flow for ConstraintValidator {
                 };
                 data.push(value);
             }
-            Ok(Some(data))
+            Ok(Some((key, data)))
         } else {
             Ok(None)
         }
@@ -204,18 +204,21 @@ impl Flow for ConstraintValidator {
 }
 
 pub struct InsertQueryPlan {
-    source: Box<dyn Flow<Output = Vec<Option<Box<dyn ToDatum>>>>>,
+    source: Box<dyn Flow<Output = (Vec<ScalarValue>, Vec<Option<Box<dyn ToDatum>>>)>>,
     table: Table,
 }
 
 impl InsertQueryPlan {
-    pub fn new(source: Box<dyn Flow<Output = Vec<Option<Box<dyn ToDatum>>>>>, table: Table) -> InsertQueryPlan {
+    pub fn new(
+        source: Box<dyn Flow<Output = (Vec<ScalarValue>, Vec<Option<Box<dyn ToDatum>>>)>>,
+        table: Table,
+    ) -> InsertQueryPlan {
         InsertQueryPlan { source, table }
     }
 
     pub fn execute(mut self, param_values: Vec<ScalarValue>) -> Result<usize, QueryExecutionError> {
         let mut len = 0;
-        while let Some(data) = self.source.next_tuple(&param_values)? {
+        while let Some((_, data)) = self.source.next_tuple(&param_values)? {
             self.table.write(Binary::pack(
                 &data
                     .into_iter()
@@ -399,53 +402,25 @@ impl Flow for Repeater {
 
 pub struct DynamicValues {
     source: Box<dyn Flow<Output = Vec<Option<DynamicTypedTree>>>>,
-    records: Box<dyn Flow<Output = (Binary, Binary)>>,
+    records: Box<dyn Flow<Output = (Vec<ScalarValue>, Vec<ScalarValue>)>>,
 }
 
 impl DynamicValues {
     pub fn new(
         source: Box<dyn Flow<Output = Vec<Option<DynamicTypedTree>>>>,
-        records: Box<dyn Flow<Output = (Binary, Binary)>>,
+        records: Box<dyn Flow<Output = (Vec<ScalarValue>, Vec<ScalarValue>)>>,
     ) -> Box<DynamicValues> {
         Box::new(DynamicValues { source, records })
     }
 }
 
 impl Flow for DynamicValues {
-    type Output = Vec<Option<ScalarValue>>;
+    type Output = (Vec<ScalarValue>, Vec<Option<ScalarValue>>);
 
     fn next_tuple(&mut self, param_values: &[ScalarValue]) -> Result<Option<Self::Output>, QueryExecutionError> {
-        if let Some((_key, value)) = self.records.next_tuple(param_values)? {
-            let table_row = value
-                .unpack()
-                .into_iter()
-                .map(|datum| match datum {
-                    Datum::Null => ScalarValue::Null,
-                    Datum::True => ScalarValue::Bool(true),
-                    Datum::False => ScalarValue::Bool(false),
-                    Datum::Int16(value) => ScalarValue::Num {
-                        value: BigDecimal::from(value),
-                        type_family: SqlTypeFamily::SmallInt,
-                    },
-                    Datum::Int32(value) => ScalarValue::Num {
-                        value: BigDecimal::from(value),
-                        type_family: SqlTypeFamily::Integer,
-                    },
-                    Datum::Int64(value) => ScalarValue::Num {
-                        value: BigDecimal::from(value),
-                        type_family: SqlTypeFamily::BigInt,
-                    },
-                    Datum::Float32(value) => ScalarValue::Num {
-                        value: BigDecimal::from_f32(*value).unwrap(),
-                        type_family: SqlTypeFamily::Real,
-                    },
-                    Datum::Float64(value) => ScalarValue::Num {
-                        value: BigDecimal::from_f64(*value).unwrap(),
-                        type_family: SqlTypeFamily::Double,
-                    },
-                    Datum::String(value) => ScalarValue::String(value),
-                })
-                .collect::<Vec<_>>();
+        if let Some((key, value)) = self.records.next_tuple(param_values)? {
+            let table_row = value;
+            log::trace!("[DynamicValues] VALUES - {:?}", table_row);
             if let Some(tuple) = self.source.next_tuple(param_values)? {
                 let mut next_tuple = vec![];
                 for value in tuple {
@@ -458,7 +433,7 @@ impl Flow for DynamicValues {
                     };
                     next_tuple.push(value);
                 }
-                Ok(Some(next_tuple))
+                Ok(Some((key, next_tuple)))
             } else {
                 Ok(None)
             }
@@ -469,14 +444,14 @@ impl Flow for DynamicValues {
 }
 
 pub struct UpdateQueryPlan {
-    values: Box<dyn Flow<Output = Vec<Option<Box<dyn ToDatum>>>>>,
+    values: Box<dyn Flow<Output = (Vec<ScalarValue>, Vec<Option<Box<dyn ToDatum>>>)>>,
     records: Box<dyn Flow<Output = (Binary, Binary)>>,
     table: Table,
 }
 
 impl UpdateQueryPlan {
     pub fn new(
-        values: Box<dyn Flow<Output = Vec<Option<Box<dyn ToDatum>>>>>,
+        values: Box<dyn Flow<Output = (Vec<ScalarValue>, Vec<Option<Box<dyn ToDatum>>>)>>,
         records: Box<dyn Flow<Output = (Binary, Binary)>>,
         table: Table,
     ) -> UpdateQueryPlan {
@@ -484,21 +459,53 @@ impl UpdateQueryPlan {
     }
 
     pub fn execute(mut self, param_values: Vec<ScalarValue>) -> Result<usize, QueryExecutionError> {
+        fn mapper(datum: &Datum) -> ScalarValue {
+            match datum {
+                Datum::Null => ScalarValue::Null,
+                Datum::True => ScalarValue::Bool(true),
+                Datum::False => ScalarValue::Bool(false),
+                Datum::Int16(value) => ScalarValue::Num {
+                    value: BigDecimal::from(*value),
+                    type_family: SqlTypeFamily::SmallInt,
+                },
+                Datum::Int32(value) => ScalarValue::Num {
+                    value: BigDecimal::from(*value),
+                    type_family: SqlTypeFamily::Integer,
+                },
+                Datum::Int64(value) => ScalarValue::Num {
+                    value: BigDecimal::from(*value),
+                    type_family: SqlTypeFamily::BigInt,
+                },
+                Datum::Float32(value) => ScalarValue::Num {
+                    value: BigDecimal::from_f32(**value).unwrap(),
+                    type_family: SqlTypeFamily::Real,
+                },
+                Datum::Float64(value) => ScalarValue::Num {
+                    value: BigDecimal::from_f64(**value).unwrap(),
+                    type_family: SqlTypeFamily::Double,
+                },
+                Datum::String(value) => ScalarValue::String(value.clone()),
+            }
+        }
+
         let mut len = 0;
         while let Some((key, row)) = self.records.next_tuple(&param_values)? {
             let mut unpacked = row.unpack();
-            if let Some(values) = self.values.next_tuple(&param_values)? {
-                for (index, value) in values.into_iter().enumerate() {
-                    let new_value = match value {
-                        None => unpacked[index].clone(),
-                        Some(value) => value.convert(),
-                    };
-                    unpacked[index] = new_value;
+            let unpacked_key = key.unpack();
+            if let Some((updated_key, values)) = self.values.next_tuple(&param_values)? {
+                if updated_key == unpacked_key.iter().map(mapper).collect::<Vec<ScalarValue>>() {
+                    for (index, value) in values.into_iter().enumerate() {
+                        let new_value = match value {
+                            None => unpacked[index].clone(),
+                            Some(value) => value.convert(),
+                        };
+                        unpacked[index] = new_value;
+                    }
+                    let new_row = Binary::pack(&unpacked);
+                    self.table.write_key(key, Some(new_row));
+                    len += 1;
                 }
             }
-            let new_row = Binary::pack(&unpacked);
-            self.table.write_key(key, Some(new_row));
-            len += 1;
         }
         Ok(len)
     }

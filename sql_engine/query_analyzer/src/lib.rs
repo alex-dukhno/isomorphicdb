@@ -106,7 +106,7 @@ impl<'a> QueryAnalyzer<'a> {
                 schema_name,
                 table_name,
                 assignments: stmt_assignments,
-                where_clause: _where_clause,
+                where_clause,
             }) => {
                 let full_table_name = FullTableName::from((&schema_name, &table_name));
                 match self.catalog.table_definition(full_table_name.clone()) {
@@ -143,9 +143,14 @@ impl<'a> QueryAnalyzer<'a> {
                                 }
                             }
                         }
+                        let filter = match where_clause {
+                            Some(expr) => Some(DynamicTreeBuilder::build_from(expr, &table_columns)?),
+                            None => None,
+                        };
                         Ok(UntypedQuery::Update(UntypedUpdateQuery {
                             full_table_name,
                             assignments,
+                            filter,
                         }))
                     }
                 }

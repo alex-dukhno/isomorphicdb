@@ -52,3 +52,63 @@ fn select_value_by_predicate_on_single_field(database_with_schema: (InMemory, Re
         Ok(QueryEvent::RecordsSelected(1)),
     ]);
 }
+
+#[rstest::rstest]
+fn update_value_by_predicate_on_single_field(database_with_schema: (InMemory, ResultCollector)) {
+    let (mut engine, collector) = database_with_schema;
+
+    engine
+        .execute(CommandMessage::Query {
+            sql: "create table schema_name.table_name (col1 smallint, col2 smallint, col3 smallint);".to_owned(),
+        })
+        .expect("query executed");
+    collector.assert_receive_single(Ok(QueryEvent::TableCreated));
+
+    engine
+        .execute(CommandMessage::Query {
+            sql: "insert into schema_name.table_name values (1, 2, 3), (4, 5, 6);".to_owned(),
+        })
+        .expect("query executed");
+    collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(2)));
+
+    engine
+        .execute(CommandMessage::Query {
+            sql: "update schema_name.table_name set col1 = 7 where col1 = 1;".to_owned(),
+        })
+        .expect("query executed");
+    collector.assert_receive_single(Ok(QueryEvent::RecordsUpdated(1)));
+
+    engine
+        .execute(CommandMessage::Query {
+            sql: "select * from schema_name.table_name where col1 = 1".to_owned(),
+        })
+        .expect("query executed");
+
+    collector.assert_receive_many(vec![
+        Ok(QueryEvent::RowDescription(vec![
+            ColumnMetadata::new("col1", PgType::SmallInt),
+            ColumnMetadata::new("col2", PgType::SmallInt),
+            ColumnMetadata::new("col3", PgType::SmallInt),
+        ])),
+        Ok(QueryEvent::RecordsSelected(0)),
+    ]);
+
+    engine
+        .execute(CommandMessage::Query {
+            sql: "select * from schema_name.table_name where col1 = 7".to_owned(),
+        })
+        .expect("query executed");
+    collector.assert_receive_many(vec![
+        Ok(QueryEvent::RowDescription(vec![
+            ColumnMetadata::new("col1", PgType::SmallInt),
+            ColumnMetadata::new("col2", PgType::SmallInt),
+            ColumnMetadata::new("col3", PgType::SmallInt),
+        ])),
+        Ok(QueryEvent::DataRow(vec![
+            "7".to_owned(),
+            "2".to_owned(),
+            "3".to_owned(),
+        ])),
+        Ok(QueryEvent::RecordsSelected(1)),
+    ]);
+}

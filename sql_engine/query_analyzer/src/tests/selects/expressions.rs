@@ -35,6 +35,7 @@ fn select_all_columns_from_table() -> TransactionResult<()> {
                     index: 0,
                     sql_type: SqlType::integer()
                 })],
+                filter: None
             }))
         );
         Ok(())
@@ -64,6 +65,7 @@ fn select_specified_column_from_table() -> TransactionResult<()> {
                     index: 0,
                     sql_type: SqlType::integer()
                 })],
+                filter: None
             }))
         );
         Ok(())
@@ -113,6 +115,7 @@ fn select_from_table_with_constant() -> TransactionResult<()> {
                 projection_items: vec![DynamicUntypedTree::Item(DynamicUntypedItem::Const(
                     UntypedValue::Number(BigDecimal::from(1))
                 ))],
+                filter: None
             }))
         );
         Ok(())
@@ -138,6 +141,7 @@ fn select_parameters_from_a_table() -> TransactionResult<()> {
             Ok(UntypedQuery::Select(UntypedSelectQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 projection_items: vec![DynamicUntypedTree::Item(DynamicUntypedItem::Param(0))],
+                filter: None
             }))
         );
         Ok(())
@@ -189,6 +193,7 @@ mod multiple_values {
                             UntypedValue::Number(BigDecimal::from(1))
                         )))
                     }],
+                    filter: None
                 }))
             );
             Ok(())
@@ -222,6 +227,7 @@ mod multiple_values {
                             UntypedValue::String("str".to_owned())
                         )))
                     }],
+                    filter: None
                 }))
             );
             Ok(())
@@ -255,6 +261,7 @@ mod multiple_values {
                             UntypedValue::Number(BigDecimal::from(1))
                         )))
                     }],
+                    filter: None
                 }))
             );
             Ok(())
@@ -288,6 +295,7 @@ mod multiple_values {
                             Bool(true)
                         )))),
                     }],
+                    filter: None
                 }))
             );
             Ok(())
@@ -321,6 +329,7 @@ mod multiple_values {
                             UntypedValue::Number(BigDecimal::from(1))
                         )))
                     }],
+                    filter: None
                 }))
             );
             Ok(())
@@ -354,6 +363,7 @@ mod multiple_values {
                             UntypedValue::String("str".to_owned())
                         )))
                     }],
+                    filter: None
                 }))
             );
             Ok(())

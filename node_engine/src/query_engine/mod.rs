@@ -189,10 +189,24 @@ impl QueryEngine {
                                                     })
                                                     .collect::<Vec<Option<DynamicTypedTree>>>();
                                                 log::debug!("UPDATE TYPE COERCED VALUES - {:?}", type_coerced);
+
+                                                log::debug!("UPDATE UNTYPED FILTER - {:?}", update.filter);
+                                                let typed_filter = update
+                                                    .filter
+                                                    .map(|value| self.type_inference.infer_dynamic(value, &[]));
+                                                log::debug!("UPDATE TYPED FILTER - {:?}", typed_filter);
+                                                let type_checked_filter = typed_filter
+                                                    .map(|value| self.type_checker.check_dynamic(value));
+                                                log::debug!("UPDATE TYPE CHECKED FILTER - {:?}", type_checked_filter);
+                                                let type_coerced_filter = type_checked_filter
+                                                    .map(|value| self.type_coercion.coerce_dynamic(value));
+                                                log::debug!("UPDATE TYPE COERCED FILTER - {:?}", type_coerced_filter);
+
                                                 let query_result = match query_planner
                                                     .plan(TypedQuery::Update(TypedUpdateQuery {
                                                         full_table_name: update.full_table_name,
                                                         assignments: type_coerced,
+                                                        filter: type_coerced_filter
                                                     }))
                                                     .execute(param_values)
                                                     .map(|r| { let r: QueryEvent = r.into(); r })
@@ -222,11 +236,24 @@ impl QueryEngine {
                                                     .map(|value| self.type_coercion.coerce_dynamic(value))
                                                     .collect::<Vec<DynamicTypedTree>>();
                                                 log::debug!("SELECT TYPE COERCED VALUES - {:?}", type_coerced);
+
+                                                log::debug!("SELECT UNTYPED FILTER - {:?}", select.filter);
+                                                let typed_filter = select
+                                                    .filter
+                                                    .map(|value| self.type_inference.infer_dynamic(value, &[]));
+                                                log::debug!("SELECT TYPED FILTER - {:?}", typed_filter);
+                                                let type_checked_filter = typed_filter
+                                                    .map(|value| self.type_checker.check_dynamic(value));
+                                                log::debug!("SELECT TYPE CHECKED FILTER - {:?}", type_checked_filter);
+                                                let type_coerced_filter = type_checked_filter
+                                                    .map(|value| self.type_coercion.coerce_dynamic(value));
+                                                log::debug!("SELECT TYPE COERCED FILTER - {:?}", type_coerced_filter);
+
                                                 let query_result = query_planner
                                                     .plan(TypedQuery::Select(TypedSelectQuery {
                                                         projection_items: type_coerced,
                                                         full_table_name: select.full_table_name,
-                                                        filter: None
+                                                        filter: type_coerced_filter
                                                     }))
                                                     .execute(param_values)
                                                     .map_err(|e| { let e: QueryError = e.into(); e })
@@ -347,10 +374,24 @@ impl QueryEngine {
                                         .map(|value| value.map(|value| self.type_coercion.coerce_dynamic(value)))
                                         .collect::<Vec<Option<DynamicTypedTree>>>();
                                     log::debug!("UPDATE TYPE COERCED VALUES - {:?}", type_coerced);
+
+                                    log::debug!("UPDATE UNTYPED FILTER - {:?}", update.filter);
+                                    let typed_filter = update
+                                        .filter
+                                        .map(|value| self.type_inference.infer_dynamic(value, &[]));
+                                    log::debug!("UPDATE TYPED FILTER - {:?}", typed_filter);
+                                    let type_checked_filter = typed_filter
+                                        .map(|value| self.type_checker.check_dynamic(value));
+                                    log::debug!("UPDATE TYPE CHECKED FILTER - {:?}", type_checked_filter);
+                                    let type_coerced_filter = type_checked_filter
+                                        .map(|value| self.type_coercion.coerce_dynamic(value));
+                                    log::debug!("UPDATE TYPE COERCED FILTER - {:?}", type_coerced_filter);
+
                                     let query_result = match query_planner
                                         .plan(TypedQuery::Update(TypedUpdateQuery {
                                             full_table_name: update.full_table_name,
                                             assignments: type_coerced,
+                                            filter: type_coerced_filter
                                         }))
                                         .execute(vec![])
                                         .map(|r| { let r: QueryEvent = r.into(); r })
@@ -861,10 +902,24 @@ impl QueryEngine {
                                     .map(|value| value.map(|value| self.type_coercion.coerce_dynamic(value)))
                                     .collect::<Vec<Option<DynamicTypedTree>>>();
                                 log::debug!("UPDATE TYPE COERCED VALUES - {:?}", type_coerced);
+
+                                log::debug!("UPDATE UNTYPED FILTER - {:?}", update.filter);
+                                let typed_filter = update
+                                    .filter
+                                    .map(|value| self.type_inference.infer_dynamic(value, &[]));
+                                log::debug!("UPDATE TYPED FILTER - {:?}", typed_filter);
+                                let type_checked_filter = typed_filter
+                                    .map(|value| self.type_checker.check_dynamic(value));
+                                log::debug!("UPDATE TYPE CHECKED FILTER - {:?}", type_checked_filter);
+                                let type_coerced_filter = type_checked_filter
+                                    .map(|value| self.type_coercion.coerce_dynamic(value));
+                                log::debug!("UPDATE TYPE COERCED FILTER - {:?}", type_coerced_filter);
+
                                 let query_result = match query_planner
                                     .plan(TypedQuery::Update(TypedUpdateQuery {
                                         full_table_name: update.full_table_name,
                                         assignments: type_coerced,
+                                        filter: type_coerced_filter
                                     }))
                                     .execute(portal.param_values())
                                     .map(|r| { let r: QueryEvent = r.into(); r })
@@ -894,11 +949,24 @@ impl QueryEngine {
                                     .map(|value| self.type_coercion.coerce_dynamic(value))
                                     .collect::<Vec<DynamicTypedTree>>();
                                 log::debug!("SELECT TYPE COERCED VALUES - {:?}", type_coerced);
+
+                                log::debug!("SELECT UNTYPED FILTER - {:?}", select.filter);
+                                let typed_filter = select
+                                    .filter
+                                    .map(|value| self.type_inference.infer_dynamic(value, &[]));
+                                log::debug!("SELECT TYPED FILTER - {:?}", typed_filter);
+                                let type_checked_filter = typed_filter
+                                    .map(|value| self.type_checker.check_dynamic(value));
+                                log::debug!("SELECT TYPE CHECKED FILTER - {:?}", type_checked_filter);
+                                let type_coerced_filter = type_checked_filter
+                                    .map(|value| self.type_coercion.coerce_dynamic(value));
+                                log::debug!("SELECT TYPE COERCED FILTER - {:?}", type_coerced_filter);
+
                                 let query_result = query_planner
                                     .plan(TypedQuery::Select(TypedSelectQuery {
                                         projection_items: type_coerced,
                                         full_table_name: select.full_table_name,
-                                        filter: None
+                                        filter: type_coerced_filter
                                     }))
                                     .execute(vec![])
                                     .map_err(|e| { let e: QueryError = e.into(); e })
