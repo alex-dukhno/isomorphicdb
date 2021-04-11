@@ -20,7 +20,7 @@ fn update_int() {
 
     assert_eq!(
         statements,
-        Ok(vec![Statement::DML(Query::Update(UpdateStatement {
+        Ok(vec![Statement::Query(Query::Update(UpdateStatement {
             schema_name: "schema_name".to_owned(),
             table_name: "table_name".to_owned(),
             assignments: vec![Assignment {
@@ -38,7 +38,7 @@ fn update_string() {
 
     assert_eq!(
         statements,
-        Ok(vec![Statement::DML(Query::Update(UpdateStatement {
+        Ok(vec![Statement::Query(Query::Update(UpdateStatement {
             schema_name: "schema_name".to_owned(),
             table_name: "table_name".to_owned(),
             assignments: vec![Assignment {
@@ -86,7 +86,7 @@ mod bi_ops {
 
         assert_eq!(
             statements,
-            Ok(vec![Statement::DML(Query::Update(UpdateStatement {
+            Ok(vec![Statement::Query(Query::Update(UpdateStatement {
                 schema_name: "schema_name".to_owned(),
                 table_name: "table_name".to_owned(),
                 assignments: vec![Assignment {
@@ -109,7 +109,7 @@ fn update_params() {
 
     assert_eq!(
         statements,
-        Ok(vec![Statement::DML(Query::Update(UpdateStatement {
+        Ok(vec![Statement::Query(Query::Update(UpdateStatement {
             schema_name: "schema_name".to_owned(),
             table_name: "table_name".to_owned(),
             assignments: vec![Assignment {
@@ -127,7 +127,7 @@ fn update_columns() {
 
     assert_eq!(
         statements,
-        Ok(vec![Statement::DML(Query::Update(UpdateStatement {
+        Ok(vec![Statement::Query(Query::Update(UpdateStatement {
             schema_name: "schema_name".to_owned(),
             table_name: "table_name".to_owned(),
             assignments: vec![Assignment {

@@ -20,7 +20,7 @@ fn select_all_from_table() {
 
     assert_eq!(
         statements,
-        Ok(vec![Statement::DML(Query::Select(SelectStatement {
+        Ok(vec![Statement::Query(Query::Select(SelectStatement {
             select_items: vec![SelectItem::Wildcard],
             schema_name: "schema_name".to_owned(),
             table_name: "table_name".to_owned(),

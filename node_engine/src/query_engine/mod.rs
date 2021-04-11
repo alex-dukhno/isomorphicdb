@@ -19,19 +19,19 @@ use crate::session::{
 use catalog::CatalogHandler;
 use data_definition::ExecutionOutcome;
 use data_manipulation::{
-    DynamicTypedTree, QueryExecutionError, QueryPlanResult, StaticTypedTree, TypedDeleteQuery, TypedInsertQuery,
-    TypedQuery, TypedSelectQuery, TypedUpdateQuery, UntypedQuery,
+    DynamicTypedTree, QueryPlanResult, StaticTypedTree, TypedDeleteQuery, TypedInsertQuery, TypedQuery,
+    TypedSelectQuery, TypedUpdateQuery, UntypedQuery,
 };
 use definition_planner::DefinitionPlanner;
 use entities::{ColumnDef, SqlType, SqlTypeFamily};
-use postgres::wire_protocol::payload::BackendMessage;
-use postgres::wire_protocol::payload::{ColumnMetadata, PgType};
-use postgres::wire_protocol::{ResponseSender, Sender};
 use postgres::{
     query_ast::{Extended, Statement},
     query_parser::QueryParser,
     query_response::{QueryError, QueryEvent},
-    wire_protocol::CommandMessage,
+    wire_protocol::{
+        payload::{BackendMessage, ColumnMetadata, PgType},
+        CommandMessage, Sender,
+    },
 };
 use query_analyzer::QueryAnalyzer;
 use query_planner::QueryPlanner;
@@ -292,7 +292,7 @@ impl QueryEngine {
                                         .expect("To Send Statement Deallocated Event");
                                 }
                             },
-                            Statement::DDL(definition) => match definition_planner.plan(definition) {
+                            Statement::Definition(definition) => match definition_planner.plan(definition) {
                                 Ok(schema_change) => {
                                     log::debug!("SCHEMA CHANGE - {:?}", schema_change);
                                     let query_result = match catalog.apply(schema_change) {
@@ -313,7 +313,7 @@ impl QueryEngine {
                                     self.sender.send(error.into()).expect("To Send Result to Client")
                                 },
                             },
-                            Statement::DML(query) => match query_analyzer.analyze(query) {
+                            Statement::Query(query) => match query_analyzer.analyze(query) {
                                 Ok(UntypedQuery::Delete(delete)) => {
                                     let query_result = match query_planner
                                         .plan(TypedQuery::Delete(TypedDeleteQuery {
@@ -502,7 +502,7 @@ impl QueryEngine {
                     match session.get_prepared_statement(&statement_name) {
                         Some(stmt) if stmt.raw_query() == sql => match query_parser.parse(&sql) {
                             Ok(mut statements) => match statements.pop() {
-                                Some(Statement::DML(query)) => {
+                                Some(Statement::Query(query)) => {
                                     stmt.parsed_with_params(
                                         query,
                                         param_types
@@ -526,7 +526,7 @@ impl QueryEngine {
                         },
                         _ => match query_parser.parse(&sql) {
                             Ok(mut statements) => match statements.pop() {
-                                Some(Statement::DML(query)) => {
+                                Some(Statement::Query(query)) => {
                                     if param_types.is_empty() || param_types.iter().all(Option::is_some) {
                                         let mut prep = PreparedStatement::parsed(sql.clone(), query.clone());
                                         prep.parsed_with_params(

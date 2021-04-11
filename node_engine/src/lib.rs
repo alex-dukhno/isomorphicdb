@@ -17,14 +17,15 @@ use async_executor::Executor;
 use async_io::Async;
 use async_mutex::Mutex as AsyncMutex;
 use futures_lite::{future, AsyncReadExt, AsyncWriteExt};
-use postgres::wire_protocol::payload::BackendMessage;
-use postgres::wire_protocol::{ClientRequest, ConnSupervisor, Connection, PgWireListener, ProtocolConfiguration};
-use std::sync::Arc;
+use postgres::wire_protocol::{
+    payload::BackendMessage, ClientRequest, ConnSupervisor, Connection, PgWireListener, ProtocolConfiguration,
+};
 use std::{
     env,
     net::TcpListener,
     panic,
     path::{Path, PathBuf},
+    sync::Arc,
     thread,
 };
 use storage::Database;

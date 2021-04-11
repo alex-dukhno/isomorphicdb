@@ -236,9 +236,9 @@ impl From<&PgType> for SqlTypeFamily {
     }
 }
 
-impl Into<PgType> for &SqlType {
-    fn into(self) -> PgType {
-        match self {
+impl From<&SqlType> for PgType {
+    fn from(sql_type: &SqlType) -> PgType {
+        match sql_type {
             SqlType::Bool => PgType::Bool,
             SqlType::Str { kind: Str::Const, .. } => PgType::Char,
             SqlType::Str { kind: Str::Var, .. } => PgType::VarChar,

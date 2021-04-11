@@ -38,7 +38,7 @@ impl QueryParser {
                     authrole: _auth_role,
                     schemaElts: _schema_elements,
                     if_not_exists,
-                }))) => statements.push(Statement::DDL(Definition::CreateSchema {
+                }))) => statements.push(Statement::Definition(Definition::CreateSchema {
                     schema_name: schema_name.unwrap(),
                     if_not_exists,
                 })),
@@ -61,7 +61,7 @@ impl QueryParser {
                         columns.push(self.process_column(table_element));
                     }
                     let table_name = table_name.unwrap();
-                    statements.push(Statement::DDL(Definition::CreateTable {
+                    statements.push(Statement::Definition(Definition::CreateTable {
                         if_not_exists,
                         schema_name: table_name.schemaname.unwrap_or_else(|| "public".to_owned()),
                         table_name: table_name.relname.unwrap(),
@@ -85,7 +85,7 @@ impl QueryParser {
                                     _ => unimplemented!(),
                                 }
                             }
-                            statements.push(Statement::DDL(Definition::DropSchemas {
+                            statements.push(Statement::Definition(Definition::DropSchemas {
                                 names,
                                 if_exists: missing_ok,
                                 cascade: behavior == sys::DropBehavior::DROP_CASCADE,
@@ -121,7 +121,7 @@ impl QueryParser {
                                     _ => unimplemented!(),
                                 }
                             }
-                            statements.push(Statement::DDL(Definition::DropTables {
+                            statements.push(Statement::Definition(Definition::DropTables {
                                 names,
                                 if_exists: missing_ok,
                                 cascade: behavior == sys::DropBehavior::DROP_CASCADE,
@@ -166,7 +166,7 @@ impl QueryParser {
                         }
                     }
                     let table_name = table_name.unwrap();
-                    statements.push(Statement::DDL(Definition::CreateIndex {
+                    statements.push(Statement::Definition(Definition::CreateIndex {
                         name: index_name.unwrap(),
                         schema_name: table_name.schemaname.unwrap_or_else(|| "public".to_owned()),
                         table_name: table_name.relname.unwrap(),
@@ -174,16 +174,16 @@ impl QueryParser {
                     }));
                 }
                 Ok(Some(insert @ Node::InsertStmt(_))) => {
-                    statements.push(Statement::DML(self.process_query(insert)));
+                    statements.push(Statement::Query(self.process_query(insert)));
                 }
                 Ok(Some(select @ Node::SelectStmt(_))) => {
-                    statements.push(Statement::DML(self.process_query(select)));
+                    statements.push(Statement::Query(self.process_query(select)));
                 }
                 Ok(Some(update @ Node::UpdateStmt(_))) => {
-                    statements.push(Statement::DML(self.process_query(update)));
+                    statements.push(Statement::Query(self.process_query(update)));
                 }
                 Ok(Some(delete @ Node::DeleteStmt(_))) => {
-                    statements.push(Statement::DML(self.process_query(delete)));
+                    statements.push(Statement::Query(self.process_query(delete)));
                 }
                 Ok(Some(Node::VariableSetStmt(nodes::VariableSetStmt { name, .. }))) => {
                     statements.push(Statement::Config(Set {

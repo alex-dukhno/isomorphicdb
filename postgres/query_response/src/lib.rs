@@ -15,8 +15,6 @@
 use pg_wire_payload::{BackendMessage, ColumnMetadata, PgType};
 use std::fmt::{self, Display, Formatter};
 
-/// Represents result of SQL query execution
-pub type QueryResult = std::result::Result<QueryEvent, QueryError>;
 /// Represents selected columns from tables
 pub type Description = Vec<(String, PgType)>;
 
@@ -65,9 +63,9 @@ pub enum QueryEvent {
     BindComplete,
 }
 
-impl Into<BackendMessage> for QueryEvent {
-    fn into(self) -> BackendMessage {
-        match self {
+impl From<QueryEvent> for BackendMessage {
+    fn from(event: QueryEvent) -> BackendMessage {
+        match event {
             QueryEvent::SchemaCreated => BackendMessage::CommandComplete("CREATE SCHEMA".to_owned()),
             QueryEvent::SchemaDropped => BackendMessage::CommandComplete("DROP SCHEMA".to_owned()),
             QueryEvent::TableCreated => BackendMessage::CommandComplete("CREATE TABLE".to_owned()),
@@ -106,6 +104,7 @@ impl Into<BackendMessage> for QueryEvent {
 /// Message severities
 /// Reference: defined in https://www.postgresql.org/docs/12/protocol-error-fields.html
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[allow(dead_code)]
 pub(crate) enum Severity {
     Error,
     Fatal,
@@ -118,17 +117,17 @@ pub(crate) enum Severity {
 }
 
 // easy conversion into a string.
-impl Into<&'static str> for Severity {
-    fn into(self) -> &'static str {
-        match self {
-            Self::Error => "ERROR",
-            Self::Fatal => "FATAL",
-            Self::Panic => "PANIC",
-            Self::Warning => "WARNING",
-            Self::Notice => "NOTICE",
-            Self::Debug => "DEBUG",
-            Self::Info => "INFO",
-            Self::Log => "LOG",
+impl From<Severity> for &'static str {
+    fn from(severity: Severity) -> &'static str {
+        match severity {
+            Severity::Error => "ERROR",
+            Severity::Fatal => "FATAL",
+            Severity::Panic => "PANIC",
+            Severity::Warning => "WARNING",
+            Severity::Notice => "NOTICE",
+            Severity::Debug => "DEBUG",
+            Severity::Info => "INFO",
+            Severity::Log => "LOG",
         }
     }
 }
@@ -372,9 +371,9 @@ impl QueryError {
     }
 }
 
-impl Into<BackendMessage> for QueryError {
-    fn into(self) -> BackendMessage {
-        BackendMessage::ErrorResponse(Some(self.severity()), Some(self.code()), Some(self.message()))
+impl From<QueryError> for BackendMessage {
+    fn from(error: QueryError) -> BackendMessage {
+        BackendMessage::ErrorResponse(Some(error.severity()), Some(error.code()), Some(error.message()))
     }
 }
 

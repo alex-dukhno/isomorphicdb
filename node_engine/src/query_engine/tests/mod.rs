@@ -14,7 +14,7 @@
 
 use super::*;
 use postgres::{
-    query_response::{QueryEvent, QueryResult},
+    query_response::QueryEvent,
     wire_protocol::payload::{BackendMessage, ColumnMetadata, PgFormat},
 };
 use std::{
@@ -144,7 +144,7 @@ fn database_with_schema(empty_database: (InMemory, ResultCollector)) -> (InMemor
             sql: "create schema schema_name;".to_string(),
         })
         .expect("query expected");
-    collector.assert_receive_single(Ok(QueryEvent::SchemaCreated.into()));
+    collector.assert_receive_single(Ok(QueryEvent::SchemaCreated));
 
     (engine, collector)
 }
