@@ -154,7 +154,7 @@ impl<'a> QueryAnalyzer<'a> {
                 select_items,
                 schema_name,
                 table_name,
-                where_clause: _where_clause,
+                where_clause,
             }) => {
                 let full_table_name = FullTableName::from((&schema_name, &table_name));
                 match self.catalog.table_definition(full_table_name.clone()) {
@@ -179,9 +179,14 @@ impl<'a> QueryAnalyzer<'a> {
                                 }
                             }
                         }
+                        let filter = match where_clause {
+                            Some(expr) => Some(DynamicTreeBuilder::build_from(expr, &table_columns)?),
+                            None => None,
+                        };
                         Ok(UntypedQuery::Select(UntypedSelectQuery {
                             full_table_name,
                             projection_items,
+                            filter,
                         }))
                     }
                 }

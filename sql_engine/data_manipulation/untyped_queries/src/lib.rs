@@ -31,6 +31,7 @@ pub struct UntypedUpdateQuery {
 pub struct UntypedSelectQuery {
     pub full_table_name: FullTableName,
     pub projection_items: Vec<DynamicUntypedTree>,
+    pub filter: Option<DynamicUntypedTree>,
 }
 
 #[derive(Debug, PartialEq, Clone)]

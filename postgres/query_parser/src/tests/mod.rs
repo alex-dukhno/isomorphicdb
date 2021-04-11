@@ -23,6 +23,8 @@ mod index;
 #[cfg(test)]
 mod insert;
 #[cfg(test)]
+mod predicate;
+#[cfg(test)]
 mod schema;
 #[cfg(test)]
 mod select;

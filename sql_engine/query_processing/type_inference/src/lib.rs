@@ -151,7 +151,7 @@ impl TypeInference {
                 }
             }
             StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(num))) => {
-                println!("NUM {:?}", num);
+                log::trace!("NUM {:?}", num);
                 if num.is_integer() {
                     if self.small_int_range.contains(&num) {
                         StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {

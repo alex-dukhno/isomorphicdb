@@ -14,8 +14,8 @@
 
 use catalog::CatalogHandler;
 use data_manipulation_query_plan::{
-    ConstraintValidator, DeleteQueryPlan, DynamicValues, FullTableScan, InsertQueryPlan, QueryPlan, Repeater,
-    SelectQueryPlan, StaticExpressionEval, StaticValues, TableRecordKeys, UpdateQueryPlan,
+    ConstraintValidator, DeleteQueryPlan, DynamicValues, Filter, FullTableScan, InsertQueryPlan, Projection, QueryPlan,
+    Repeater, SelectQueryPlan, StaticExpressionEval, StaticValues, TableRecordKeys, UpdateQueryPlan,
 };
 use data_manipulation_typed_queries::TypedQuery;
 use data_manipulation_typed_tree::{DynamicTypedItem, DynamicTypedTree};
@@ -69,7 +69,7 @@ impl<'p> QueryPlanner<'p> {
             TypedQuery::Select(select) => {
                 let table = self.database.table(&select.full_table_name);
                 QueryPlan::Select(SelectQueryPlan::new(
-                    FullTableScan::new(&table),
+                    Filter::new(Projection::new(FullTableScan::new(&table)), select.filter),
                     select
                         .projection_items
                         .into_iter()

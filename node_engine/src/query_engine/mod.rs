@@ -68,8 +68,8 @@ impl QueryEngine {
         let inner = Rc::new(command);
         let mut session = self.session.lock().unwrap();
         self.database.transaction(|db| {
-            println!("TRANSACTION START");
-            println!("{:?}", db.table("DEFINITION_SCHEMA.TABLES"));
+            log::trace!("TRANSACTION START");
+            log::trace!("{:?}", db.table("DEFINITION_SCHEMA.TABLES"));
             let query_analyzer = QueryAnalyzer::from(db.clone());
             let definition_planner = DefinitionPlanner::from(db.clone());
             let query_planner = QueryPlanner::from(db.clone());
@@ -226,6 +226,7 @@ impl QueryEngine {
                                                     .plan(TypedQuery::Select(TypedSelectQuery {
                                                         projection_items: type_coerced,
                                                         full_table_name: select.full_table_name,
+                                                        filter: None
                                                     }))
                                                     .execute(param_values)
                                                     .map_err(|e| { let e: QueryError = e.into(); e })
@@ -423,20 +424,34 @@ impl QueryEngine {
                                         .map(|value| self.type_inference.infer_dynamic(value, &[]))
                                         .collect::<Vec<DynamicTypedTree>>();
                                     log::debug!("SELECT TYPED VALUES - {:?}", typed_values);
-                                    let type_checked = typed_values
+                                    let type_checked_values = typed_values
                                         .into_iter()
                                         .map(|value| self.type_checker.check_dynamic(value))
                                         .collect::<Vec<DynamicTypedTree>>();
-                                    log::debug!("SELECT TYPE CHECKED VALUES - {:?}", type_checked);
-                                    let type_coerced = type_checked
+                                    log::debug!("SELECT TYPE CHECKED VALUES - {:?}", type_checked_values);
+                                    let type_coerced_values = type_checked_values
                                         .into_iter()
                                         .map(|value| self.type_coercion.coerce_dynamic(value))
                                         .collect::<Vec<DynamicTypedTree>>();
-                                    log::debug!("SELECT TYPE COERCED VALUES - {:?}", type_coerced);
+                                    log::debug!("SELECT TYPE COERCED VALUES - {:?}", type_coerced_values);
+
+                                    log::debug!("SELECT UNTYPED FILTER - {:?}", select.filter);
+                                    let typed_filter = select
+                                        .filter
+                                        .map(|value| self.type_inference.infer_dynamic(value, &[]));
+                                    log::debug!("SELECT TYPED FILTER - {:?}", typed_filter);
+                                    let type_checked_filter = typed_filter
+                                        .map(|value| self.type_checker.check_dynamic(value));
+                                    log::debug!("SELECT TYPE CHECKED FILTER - {:?}", type_checked_filter);
+                                    let type_coerced_filter = type_checked_filter
+                                        .map(|value| self.type_coercion.coerce_dynamic(value));
+                                    log::debug!("SELECT TYPE COERCED FILTER - {:?}", type_coerced_filter);
+
                                     let query_result = query_planner
                                         .plan(TypedQuery::Select(TypedSelectQuery {
-                                            projection_items: type_coerced,
+                                            projection_items: type_coerced_values,
                                             full_table_name: select.full_table_name,
+                                            filter: type_coerced_filter
                                         }))
                                         .execute(vec![])
                                         .map_err(|e| { let e: QueryError = e.into(); e })
@@ -883,6 +898,7 @@ impl QueryEngine {
                                     .plan(TypedQuery::Select(TypedSelectQuery {
                                         projection_items: type_coerced,
                                         full_table_name: select.full_table_name,
+                                        filter: None
                                     }))
                                     .execute(vec![])
                                     .map_err(|e| { let e: QueryError = e.into(); e })
@@ -968,7 +984,7 @@ impl QueryEngine {
                     Err(ConflictableTransactionError::Abort)
                 }
             };
-            println!("TRANSACTION END");
+            log::trace!("TRANSACTION END");
             result
         })
     }

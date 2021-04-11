@@ -235,7 +235,7 @@ impl<'c> CatalogHandler<'c> {
                                 && value[1] == full_table_name.schema()
                                 && value[2] == full_table_name.table()
                         });
-                        println!("DEBUG {:?}", table_id);
+                        log::trace!("DEBUG {:?}", table_id);
                         match table_id {
                             Some(_table_id) => {
                                 if if_not_exists {

@@ -44,4 +44,5 @@ pub enum TypedQuery {
 pub struct TypedSelectQuery {
     pub full_table_name: FullTableName,
     pub projection_items: Vec<DynamicTypedTree>,
+    pub filter: Option<DynamicTypedTree>,
 }

@@ -115,7 +115,7 @@ pub fn start(database: Database) {
                     let (conn_id, secret_key) = match conn_supervisor.alloc() {
                         Ok((c, s)) => (c, s),
                         Err(()) => {
-                            eprintln!("Cannot allocate connection and its secret key");
+                            log::error!("Cannot allocate connection and its secret key");
                             return;
                         }
                     };

@@ -59,7 +59,7 @@ impl Storage for InMemoryDatabase {
 
     fn lookup_tree<T: Into<String>>(&self, table: T) -> InMemoryTree {
         let table = table.into();
-        println!("LOOKUP {:?}", table);
+        log::trace!("LOOKUP {:?}", table);
         self.trees.get(&table).unwrap().clone()
     }
 

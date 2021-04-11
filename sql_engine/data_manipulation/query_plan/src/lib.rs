@@ -229,6 +229,94 @@ impl InsertQueryPlan {
     }
 }
 
+pub struct Filter {
+    source: Box<dyn Flow<Output = (Vec<ScalarValue>, Vec<ScalarValue>)>>,
+    predicate: Option<DynamicTypedTree>,
+}
+
+impl Filter {
+    pub fn new(
+        source: Box<dyn Flow<Output = (Vec<ScalarValue>, Vec<ScalarValue>)>>,
+        predicate: Option<DynamicTypedTree>,
+    ) -> Box<Filter> {
+        Box::new(Filter { source, predicate })
+    }
+}
+
+impl Flow for Filter {
+    type Output = (Vec<ScalarValue>, Vec<ScalarValue>);
+
+    fn next_tuple(&mut self, param_values: &[ScalarValue]) -> Result<Option<Self::Output>, QueryExecutionError> {
+        while let Some((key, value)) = self.source.next_tuple(param_values)? {
+            match &self.predicate {
+                None => return Ok(Some((key.clone(), value.clone()))),
+                Some(predicate) => {
+                    if let Ok(ScalarValue::Bool(true)) = predicate.clone().eval(param_values, &value) {
+                        return Ok(Some((key.clone(), value.clone())));
+                    }
+                }
+            }
+        }
+        Ok(None)
+    }
+}
+
+pub struct Projection {
+    source: Box<dyn Flow<Output = (Binary, Binary)>>,
+}
+
+impl Projection {
+    pub fn new(source: Box<dyn Flow<Output = (Binary, Binary)>>) -> Box<Projection> {
+        Box::new(Projection { source })
+    }
+}
+
+impl Flow for Projection {
+    type Output = (Vec<ScalarValue>, Vec<ScalarValue>);
+
+    fn next_tuple(&mut self, param_values: &[ScalarValue]) -> Result<Option<Self::Output>, QueryExecutionError> {
+        fn mapper(datum: &Datum) -> ScalarValue {
+            match datum {
+                Datum::Null => ScalarValue::Null,
+                Datum::True => ScalarValue::Bool(true),
+                Datum::False => ScalarValue::Bool(false),
+                Datum::Int16(value) => ScalarValue::Num {
+                    value: BigDecimal::from(*value),
+                    type_family: SqlTypeFamily::SmallInt,
+                },
+                Datum::Int32(value) => ScalarValue::Num {
+                    value: BigDecimal::from(*value),
+                    type_family: SqlTypeFamily::Integer,
+                },
+                Datum::Int64(value) => ScalarValue::Num {
+                    value: BigDecimal::from(*value),
+                    type_family: SqlTypeFamily::BigInt,
+                },
+                Datum::Float32(value) => ScalarValue::Num {
+                    value: BigDecimal::from_f32(**value).unwrap(),
+                    type_family: SqlTypeFamily::Real,
+                },
+                Datum::Float64(value) => ScalarValue::Num {
+                    value: BigDecimal::from_f64(**value).unwrap(),
+                    type_family: SqlTypeFamily::Double,
+                },
+                Datum::String(value) => ScalarValue::String(value.clone()),
+            }
+        }
+
+        if let Some(row) = self.source.next_tuple(&param_values)? {
+            let key = row.0.unpack();
+            let value = row.1.unpack();
+            Ok(Some((
+                key.iter().map(mapper).collect::<Vec<ScalarValue>>(),
+                value.iter().map(mapper).collect::<Vec<ScalarValue>>(),
+            )))
+        } else {
+            Ok(None)
+        }
+    }
+}
+
 pub struct FullTableScan {
     source: Cursor,
 }
@@ -417,14 +505,14 @@ impl UpdateQueryPlan {
 }
 
 pub struct SelectQueryPlan {
-    source: Box<dyn Flow<Output = (Binary, Binary)>>,
+    source: Box<dyn Flow<Output = (Vec<ScalarValue>, Vec<ScalarValue>)>>,
     columns: Vec<String>,
     column_types: Vec<(String, SqlType)>,
 }
 
 impl SelectQueryPlan {
     pub fn new(
-        source: Box<dyn Flow<Output = (Binary, Binary)>>,
+        source: Box<dyn Flow<Output = (Vec<ScalarValue>, Vec<ScalarValue>)>>,
         columns: Vec<String>,
         column_types: Vec<(String, SqlType)>,
     ) -> SelectQueryPlan {
@@ -452,37 +540,11 @@ impl SelectQueryPlan {
         }
         log::debug!("COLUMNS METADATA {:?}", column_defs);
         let mut set = vec![];
-        while let Some(row) = self.source.next_tuple(&param_values)? {
-            let unpacked = row.1.unpack();
+        while let Some((_key, value)) = self.source.next_tuple(&param_values)? {
             let mut data = vec![];
             for name in self.columns.iter() {
                 let index = columns.get(name).unwrap().index();
-                let value = match &unpacked[index] {
-                    Datum::Null => ScalarValue::Null,
-                    Datum::True => ScalarValue::Bool(true),
-                    Datum::False => ScalarValue::Bool(false),
-                    Datum::Int16(value) => ScalarValue::Num {
-                        value: BigDecimal::from(*value),
-                        type_family: SqlTypeFamily::SmallInt,
-                    },
-                    Datum::Int32(value) => ScalarValue::Num {
-                        value: BigDecimal::from(*value),
-                        type_family: SqlTypeFamily::Integer,
-                    },
-                    Datum::Int64(value) => ScalarValue::Num {
-                        value: BigDecimal::from(*value),
-                        type_family: SqlTypeFamily::BigInt,
-                    },
-                    Datum::Float32(value) => ScalarValue::Num {
-                        value: BigDecimal::from_f32(**value).unwrap(),
-                        type_family: SqlTypeFamily::Real,
-                    },
-                    Datum::Float64(value) => ScalarValue::Num {
-                        value: BigDecimal::from_f64(**value).unwrap(),
-                        type_family: SqlTypeFamily::Double,
-                    },
-                    Datum::String(value) => ScalarValue::String(value.clone()),
-                };
+                let value = value[index].clone();
                 data.push(value);
             }
             set.push(data);
