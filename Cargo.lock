@@ -371,6 +371,7 @@ version = "0.1.0"
 dependencies = [
  "bigdecimal",
  "data_manipulation_query_result",
+ "log",
  "query_ast",
  "regex",
  "rstest",
@@ -1020,6 +1021,7 @@ version = "0.1.0"
 name = "query_parser"
 version = "0.1.0"
 dependencies = [
+ "log",
  "postgres-parser",
  "query_ast",
  "query_response",

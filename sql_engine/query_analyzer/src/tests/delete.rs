@@ -67,6 +67,7 @@ fn delete_all_from_table() -> TransactionResult<()> {
             analyzer.analyze(delete_statement(SCHEMA, TABLE)),
             Ok(UntypedQuery::Delete(UntypedDeleteQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
+                filter: None
             }))
         );
         Ok(())

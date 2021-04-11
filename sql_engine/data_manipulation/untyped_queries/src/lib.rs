@@ -25,17 +25,20 @@ pub struct UntypedInsertQuery {
 pub struct UntypedUpdateQuery {
     pub full_table_name: FullTableName,
     pub assignments: Vec<Option<DynamicUntypedTree>>,
+    pub filter: Option<DynamicUntypedTree>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct UntypedSelectQuery {
     pub full_table_name: FullTableName,
     pub projection_items: Vec<DynamicUntypedTree>,
+    pub filter: Option<DynamicUntypedTree>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct UntypedDeleteQuery {
     pub full_table_name: FullTableName,
+    pub filter: Option<DynamicUntypedTree>,
 }
 
 #[derive(Debug, PartialEq, Clone)]

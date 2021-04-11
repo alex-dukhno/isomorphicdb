@@ -18,7 +18,7 @@ use query_ast::{BinaryOperator, UnaryOperator};
 use regex::Regex;
 use scalar::ScalarValue;
 use std::{
-    fmt::{self, Display, Formatter},
+    fmt::{self, Debug, Display, Formatter},
     str::FromStr,
 };
 use types::{Bool, SqlTypeFamily};
@@ -86,7 +86,8 @@ pub enum Comparison {
 }
 
 impl Comparison {
-    fn eval<E: PartialEq + PartialOrd>(&self, left_value: E, right_value: E) -> bool {
+    fn eval<E: PartialEq + PartialOrd + Debug>(&self, left_value: E, right_value: E) -> bool {
+        log::debug!("Comparison {:?} {:?} {:?}", left_value, self, right_value);
         match self {
             Comparison::NotEq => left_value != right_value,
             Comparison::Eq => left_value == right_value,

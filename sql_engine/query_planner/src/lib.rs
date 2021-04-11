@@ -14,8 +14,8 @@
 
 use catalog::CatalogHandler;
 use data_manipulation_query_plan::{
-    ConstraintValidator, DeleteQueryPlan, DynamicValues, FullTableScan, InsertQueryPlan, QueryPlan, Repeater,
-    SelectQueryPlan, StaticExpressionEval, StaticValues, TableRecordKeys, UpdateQueryPlan,
+    ConstraintValidator, DeleteQueryPlan, DynamicValues, Filter, FullTableScan, InsertQueryPlan, Projection, QueryPlan,
+    Repeater, SelectQueryPlan, StaticExpressionEval, StaticValues, TableRecordKeys, UpdateQueryPlan,
 };
 use data_manipulation_typed_queries::TypedQuery;
 use data_manipulation_typed_tree::{DynamicTypedItem, DynamicTypedTree};
@@ -51,7 +51,7 @@ impl<'p> QueryPlanner<'p> {
             TypedQuery::Delete(delete) => {
                 let table = self.database.table(&delete.full_table_name);
                 QueryPlan::Delete(DeleteQueryPlan::new(
-                    TableRecordKeys::new(FullTableScan::new(&table)),
+                    TableRecordKeys::new(Filter::new(Projection::new(FullTableScan::new(&table)), delete.filter)),
                     table,
                 ))
             }
@@ -59,7 +59,10 @@ impl<'p> QueryPlanner<'p> {
                 let table = self.database.table(&update.full_table_name);
                 QueryPlan::Update(UpdateQueryPlan::new(
                     ConstraintValidator::new(
-                        DynamicValues::new(Repeater::new(update.assignments), FullTableScan::new(&table)),
+                        DynamicValues::new(
+                            Repeater::new(update.assignments),
+                            Filter::new(Projection::new(FullTableScan::new(&table)), update.filter),
+                        ),
                         self.catalog.columns(&update.full_table_name),
                     ),
                     FullTableScan::new(&table),
@@ -69,7 +72,7 @@ impl<'p> QueryPlanner<'p> {
             TypedQuery::Select(select) => {
                 let table = self.database.table(&select.full_table_name);
                 QueryPlan::Select(SelectQueryPlan::new(
-                    FullTableScan::new(&table),
+                    Filter::new(Projection::new(FullTableScan::new(&table)), select.filter),
                     select
                         .projection_items
                         .into_iter()

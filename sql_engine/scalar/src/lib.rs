@@ -20,7 +20,7 @@ use std::{
 };
 use types::SqlTypeFamily;
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub enum ScalarValue {
     Num {
         value: BigDecimal,

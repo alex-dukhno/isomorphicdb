@@ -24,12 +24,14 @@ pub struct TypedInsertQuery {
 #[derive(Debug, PartialEq)]
 pub struct TypedDeleteQuery {
     pub full_table_name: FullTableName,
+    pub filter: Option<DynamicTypedTree>,
 }
 
 #[derive(Debug, PartialEq)]
 pub struct TypedUpdateQuery {
     pub full_table_name: FullTableName,
     pub assignments: Vec<Option<DynamicTypedTree>>,
+    pub filter: Option<DynamicTypedTree>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -44,4 +46,5 @@ pub enum TypedQuery {
 pub struct TypedSelectQuery {
     pub full_table_name: FullTableName,
     pub projection_items: Vec<DynamicTypedTree>,
+    pub filter: Option<DynamicTypedTree>,
 }

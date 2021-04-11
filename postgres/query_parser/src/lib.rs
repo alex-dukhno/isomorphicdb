@@ -79,7 +79,7 @@ impl QueryParser {
                         sys::ObjectType::OBJECT_SCHEMA => {
                             let mut names = vec![];
                             for object in objects.unwrap() {
-                                println!("OBJECT - {:?}", object);
+                                log::trace!("OBJECT - {:?}", object);
                                 match object {
                                     Node::Value(nodes::Value { string: Some(name), .. }) => names.push(name),
                                     _ => unimplemented!(),
@@ -94,7 +94,7 @@ impl QueryParser {
                         sys::ObjectType::OBJECT_TABLE => {
                             let mut names = vec![];
                             for object in objects.unwrap() {
-                                println!("OBJECT - {:?}", object);
+                                log::trace!("OBJECT - {:?}", object);
                                 match object {
                                     Node::List(mut values) => {
                                         if values.len() == 1 {
@@ -157,7 +157,7 @@ impl QueryParser {
                 }))) => {
                     let mut column_names = vec![];
                     for index_param in index_params.unwrap() {
-                        println!("INDEX PARAM - {:?}", index_param);
+                        log::trace!("INDEX PARAM - {:?}", index_param);
                         match index_param {
                             Node::IndexElem(nodes::IndexElem { name: Some(name), .. }) => {
                                 column_names.push(name.to_lowercase())
@@ -247,7 +247,7 @@ impl QueryParser {
                 let table_name = relation.relname.unwrap();
                 let mut columns = vec![];
                 for col in cols.unwrap_or_else(Vec::new) {
-                    println!("COL {:?}", col);
+                    log::trace!("COL {:?}", col);
                     match col {
                         Node::ResTarget(nodes::ResTarget {
                             name: Some(col_name), ..
@@ -257,7 +257,7 @@ impl QueryParser {
                         _ => unimplemented!(),
                     }
                 }
-                println!("SELECT STMT - {:?}", select_statement);
+                log::trace!("SELECT STMT - {:?}", select_statement);
                 let mut values = vec![];
                 if let Some(stmt) = select_statement {
                     if let Node::SelectStmt(nodes::SelectStmt {
@@ -306,7 +306,7 @@ impl QueryParser {
                 larg: None,
                 rarg: None,
             }) => {
-                println!("TARGET LIST {:?}", target_list);
+                log::trace!("TARGET LIST {:?}", target_list);
                 let mut select_items = vec![];
                 for target in target_list.unwrap() {
                     match target {
@@ -357,7 +357,7 @@ impl QueryParser {
                 let table_name = relation.relname.unwrap();
                 let mut assignments = vec![];
                 for target in target_list.unwrap() {
-                    println!("{:?}", target);
+                    log::trace!("{:?}", target);
                     match target {
                         Node::ResTarget(nodes::ResTarget { name, val, .. }) => assignments.push(Assignment {
                             column: name.unwrap().to_lowercase(),
@@ -406,7 +406,7 @@ impl QueryParser {
     }
 
     fn process_type(&self, type_name: nodes::TypeName) -> DataType {
-        println!("TYPE NAME {:#?}", type_name);
+        log::trace!("TYPE NAME {:#?}", type_name);
         let name = type_name.names.unwrap();
         let mode = type_name.typmods;
         match &name[1] {
@@ -441,7 +441,7 @@ impl QueryParser {
     }
 
     fn parse_expr(&self, node: Node) -> Expr {
-        println!("NODE {:?}", node);
+        log::trace!("NODE {:?}", node);
         match node {
             Node::BoolExpr(nodes::BoolExpr { boolop: bool_op, args }) => {
                 let op = match bool_op {

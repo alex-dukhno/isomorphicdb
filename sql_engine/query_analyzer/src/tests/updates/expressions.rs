@@ -32,7 +32,8 @@ fn update_number() -> TransactionResult<()> {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 assignments: vec![Some(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
                     UntypedValue::Number(BigDecimal::from(1))
-                )))]
+                )))],
+                filter: None
             }))
         );
         Ok(())
@@ -55,7 +56,8 @@ fn update_string() -> TransactionResult<()> {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 assignments: vec![Some(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
                     UntypedValue::String("str".to_owned())
-                )))]
+                )))],
+                filter: None
             }))
         );
         Ok(())
@@ -79,6 +81,7 @@ fn update_boolean() -> TransactionResult<()> {
                 assignments: vec![Some(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
                     UntypedValue::Bool(Bool(true))
                 )))],
+                filter: None
             }))
         );
         Ok(())
@@ -102,6 +105,7 @@ fn update_null() -> TransactionResult<()> {
                 assignments: vec![Some(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
                     UntypedValue::Null
                 )))],
+                filter: None
             }))
         );
         Ok(())
@@ -138,6 +142,7 @@ fn update_with_column_value() -> TransactionResult<()> {
                     })),
                     None
                 ],
+                filter: None
             }))
         );
         Ok(())
@@ -188,7 +193,8 @@ fn update_table_with_parameters() -> TransactionResult<()> {
             analyzer.analyze(update_stmt_with_parameters(SCHEMA, TABLE)),
             Ok(UntypedQuery::Update(UntypedUpdateQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                assignments: vec![None, Some(DynamicUntypedTree::Item(DynamicUntypedItem::Param(0)))]
+                assignments: vec![None, Some(DynamicUntypedTree::Item(DynamicUntypedItem::Param(0)))],
+                filter: None
             }))
         );
         Ok(())
@@ -243,6 +249,7 @@ mod multiple_values {
                             UntypedValue::Number(BigDecimal::from(1))
                         )))
                     })],
+                    filter: None
                 }))
             );
             Ok(())
@@ -276,6 +283,7 @@ mod multiple_values {
                             UntypedValue::String("str".to_owned())
                         )))
                     })],
+                    filter: None
                 }))
             );
             Ok(())
@@ -309,6 +317,7 @@ mod multiple_values {
                             UntypedValue::Number(BigDecimal::from(1))
                         )))
                     })],
+                    filter: None
                 }))
             );
             Ok(())
@@ -342,6 +351,7 @@ mod multiple_values {
                             Bool(true)
                         )))),
                     })],
+                    filter: None
                 }))
             );
             Ok(())
@@ -375,6 +385,7 @@ mod multiple_values {
                             UntypedValue::Number(BigDecimal::from(1))
                         )))
                     })],
+                    filter: None
                 }))
             );
             Ok(())
@@ -408,6 +419,7 @@ mod multiple_values {
                             UntypedValue::String("str".to_owned())
                         )))
                     })],
+                    filter: None
                 }))
             );
             Ok(())
