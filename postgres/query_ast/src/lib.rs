@@ -16,8 +16,8 @@ use std::fmt::{self, Display, Formatter};
 
 #[derive(Debug, PartialEq)]
 pub enum Statement {
-    DDL(Definition),
-    DML(Query),
+    Definition(Definition),
+    Query(Query),
     Config(Set),
     Extended(Extended),
 }

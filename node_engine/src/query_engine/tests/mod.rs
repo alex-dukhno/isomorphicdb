@@ -14,8 +14,8 @@
 
 use super::*;
 use postgres::{
-    query_response::{QueryEvent, QueryResult},
-    wire_protocol::{ColumnMetadata, PgFormat},
+    query_response::QueryEvent,
+    wire_protocol::payload::{BackendMessage, ColumnMetadata, PgFormat},
 };
 use std::{
     io,
@@ -45,56 +45,87 @@ mod update;
 type InMemory = QueryEngine;
 type ResultCollector = Arc<Collector>;
 
-pub struct Collector(Mutex<Vec<QueryResult>>);
+#[derive(Clone)]
+pub struct Collector(Arc<Mutex<Vec<BackendMessage>>>);
 
 impl Sender for Collector {
     fn flush(&self) -> io::Result<()> {
         Ok(())
     }
 
-    fn send(&self, query_result: QueryResult) -> io::Result<()> {
-        self.0.lock().expect("locked").push(query_result);
+    fn send(&self, message: BackendMessage) -> io::Result<()> {
+        self.0.lock().expect("locked").push(message);
         Ok(())
     }
 }
 
 impl Collector {
     fn new() -> ResultCollector {
-        Arc::new(Collector(Mutex::new(vec![])))
+        Arc::new(Collector(Arc::new(Mutex::new(vec![]))))
     }
 
     #[allow(dead_code)]
-    fn assert_receive_till_this_moment(&self, expected: Vec<QueryResult>) {
+    fn assert_receive_till_this_moment(&self, expected: Vec<Result<QueryEvent, QueryError>>) {
         let result = self.0.lock().expect("locked").drain(0..).collect::<Vec<_>>();
-        assert_eq!(result, expected)
+        assert_eq!(
+            result,
+            expected
+                .into_iter()
+                .map(|r| match r {
+                    Ok(ok) => ok.into(),
+                    Err(err) => err.into(),
+                })
+                .collect::<Vec<BackendMessage>>()
+        )
     }
 
     #[allow(dead_code)]
-    fn assert_receive_intermediate(&self, expected: QueryResult) {
+    fn assert_receive_intermediate(&self, expected: Result<QueryEvent, QueryError>) {
         let mut actual = self.0.lock().expect("locked");
-        assert_eq!(actual.deref_mut().pop(), Some(expected));
+        assert_eq!(
+            actual.deref_mut().pop(),
+            Some(expected).map(|r| match r {
+                Ok(ok) => ok.into(),
+                Err(err) => err.into(),
+            })
+        );
     }
 
-    fn assert_receive_single(&self, expected: QueryResult) {
+    fn assert_receive_single(&self, expected: Result<QueryEvent, QueryError>) {
         self.assert_query_complete();
         let mut actual = self.0.lock().expect("locked");
-        assert_eq!(actual.deref_mut().pop(), Some(expected));
+        assert_eq!(
+            actual.deref_mut().pop(),
+            Some(expected).map(|r| match r {
+                Ok(ok) => ok.into(),
+                Err(err) => err.into(),
+            })
+        );
     }
 
-    fn assert_receive_many(&self, expected: Vec<QueryResult>) {
+    fn assert_receive_many(&self, expected: Vec<Result<QueryEvent, QueryError>>) {
         let actual = self
             .0
             .lock()
             .expect("locked")
             .drain(0..expected.len())
             .collect::<Vec<_>>();
-        assert_eq!(actual, expected);
+        assert_eq!(
+            actual,
+            expected
+                .into_iter()
+                .map(|r| match r {
+                    Ok(ok) => ok.into(),
+                    Err(err) => err.into(),
+                })
+                .collect::<Vec<BackendMessage>>()
+        );
         self.assert_query_complete();
     }
 
     fn assert_query_complete(&self) {
         let mut actual = self.0.lock().expect("locked");
-        assert_eq!(actual.deref_mut().pop(), Some(Ok(QueryEvent::QueryComplete)));
+        assert_eq!(actual.deref_mut().pop(), Some(QueryEvent::QueryComplete.into()));
     }
 }
 

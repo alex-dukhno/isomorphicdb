@@ -18,4 +18,8 @@ pub use query_response;
 
 pub mod wire_protocol {
     pub use pg_wire::*;
+
+    pub mod payload {
+        pub use pg_wire_payload::*;
+    }
 }

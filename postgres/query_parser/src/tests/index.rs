@@ -20,7 +20,7 @@ fn create_index() {
 
     assert_eq!(
         statements,
-        Ok(vec![Statement::DDL(Definition::CreateIndex {
+        Ok(vec![Statement::Definition(Definition::CreateIndex {
             name: "index_name".to_owned(),
             schema_name: "public".to_owned(),
             table_name: "table_name".to_owned(),

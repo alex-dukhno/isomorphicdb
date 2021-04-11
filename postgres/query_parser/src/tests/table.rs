@@ -20,7 +20,7 @@ fn create_ints_table() {
 
     assert_eq!(
         statements,
-        Ok(vec![Statement::DDL(Definition::CreateTable {
+        Ok(vec![Statement::Definition(Definition::CreateTable {
             if_not_exists: false,
             schema_name: "public".to_owned(),
             table_name: "table_name".to_owned(),
@@ -61,7 +61,7 @@ fn create_strings_table() {
 
     assert_eq!(
         statements,
-        Ok(vec![Statement::DDL(Definition::CreateTable {
+        Ok(vec![Statement::Definition(Definition::CreateTable {
             if_not_exists: false,
             schema_name: "schema_name".to_owned(),
             table_name: "table_name".to_owned(),
@@ -109,7 +109,7 @@ fn create_float_table() {
 
     assert_eq!(
         statements,
-        Ok(vec![Statement::DDL(Definition::CreateTable {
+        Ok(vec![Statement::Definition(Definition::CreateTable {
             if_not_exists: false,
             schema_name: "public".to_owned(),
             table_name: "table_name".to_owned(),
@@ -133,7 +133,7 @@ fn create_boolean_table() {
 
     assert_eq!(
         statements,
-        Ok(vec![Statement::DDL(Definition::CreateTable {
+        Ok(vec![Statement::Definition(Definition::CreateTable {
             if_not_exists: false,
             schema_name: "public".to_owned(),
             table_name: "table_name".to_owned(),
@@ -151,7 +151,7 @@ fn drop_table() {
 
     assert_eq!(
         statements,
-        Ok(vec![Statement::DDL(Definition::DropTables {
+        Ok(vec![Statement::Definition(Definition::DropTables {
             names: vec![("public".to_owned(), "table_name".to_owned())],
             if_exists: false,
             cascade: false
@@ -165,7 +165,7 @@ fn drop_tables() {
 
     assert_eq!(
         statements,
-        Ok(vec![Statement::DDL(Definition::DropTables {
+        Ok(vec![Statement::Definition(Definition::DropTables {
             names: vec![
                 ("public".to_owned(), "table_name_1".to_owned()),
                 ("public".to_owned(), "table_name_2".to_owned())
@@ -182,7 +182,7 @@ fn drop_table_cascade() {
 
     assert_eq!(
         statements,
-        Ok(vec![Statement::DDL(Definition::DropTables {
+        Ok(vec![Statement::Definition(Definition::DropTables {
             names: vec![
                 ("public".to_owned(), "table_name_1".to_owned()),
                 ("public".to_owned(), "table_name_2".to_owned())
@@ -199,7 +199,7 @@ fn drop_table_if_exists() {
 
     assert_eq!(
         statements,
-        Ok(vec![Statement::DDL(Definition::DropTables {
+        Ok(vec![Statement::Definition(Definition::DropTables {
             names: vec![("public".to_owned(), "table_name".to_owned())],
             if_exists: true,
             cascade: false

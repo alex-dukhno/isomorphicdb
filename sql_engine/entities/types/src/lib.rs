@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use pg_wire::PgType;
+use pg_wire_payload::PgType;
 use query_ast::DataType;
 use std::{
     fmt::{self, Display, Formatter},
@@ -236,9 +236,9 @@ impl From<&PgType> for SqlTypeFamily {
     }
 }
 
-impl Into<PgType> for &SqlType {
-    fn into(self) -> PgType {
-        match self {
+impl From<&SqlType> for PgType {
+    fn from(sql_type: &SqlType) -> PgType {
+        match sql_type {
             SqlType::Bool => PgType::Bool,
             SqlType::Str { kind: Str::Const, .. } => PgType::Char,
             SqlType::Str { kind: Str::Var, .. } => PgType::VarChar,

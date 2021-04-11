@@ -58,24 +58,24 @@ impl ScalarValue {
     }
 }
 
-impl From<pg_wire::Value> for ScalarValue {
-    fn from(value: pg_wire::Value) -> ScalarValue {
+impl From<pg_wire_payload::Value> for ScalarValue {
+    fn from(value: pg_wire_payload::Value) -> ScalarValue {
         match value {
-            pg_wire::Value::Null => ScalarValue::Null,
-            pg_wire::Value::Bool(value) => ScalarValue::Bool(value),
-            pg_wire::Value::Int16(value) => ScalarValue::Num {
+            pg_wire_payload::Value::Null => ScalarValue::Null,
+            pg_wire_payload::Value::Bool(value) => ScalarValue::Bool(value),
+            pg_wire_payload::Value::Int16(value) => ScalarValue::Num {
                 value: BigDecimal::from(value),
                 type_family: SqlTypeFamily::SmallInt,
             },
-            pg_wire::Value::Int32(value) => ScalarValue::Num {
+            pg_wire_payload::Value::Int32(value) => ScalarValue::Num {
                 value: BigDecimal::from(value),
                 type_family: SqlTypeFamily::Integer,
             },
-            pg_wire::Value::Int64(value) => ScalarValue::Num {
+            pg_wire_payload::Value::Int64(value) => ScalarValue::Num {
                 value: BigDecimal::from(value),
                 type_family: SqlTypeFamily::BigInt,
             },
-            pg_wire::Value::String(value) => ScalarValue::String(value),
+            pg_wire_payload::Value::String(value) => ScalarValue::String(value),
         }
     }
 }

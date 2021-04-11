@@ -10,6 +10,6 @@ binary = { path = "../../storage/binary" }
 query_ast = { path = "../../postgres/query_ast" }
 types = { path = "../entities/types" }
 
-pg_wire = "0.7.0"
+pg_wire_payload = "0.1.0"
 
 bigdecimal = { version = "0.2.0", features = ["string-only"] }
