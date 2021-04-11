@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#![allow(clippy::type_complexity)]
+
 use bigdecimal::{BigDecimal, FromPrimitive};
 use binary::{
     repr::{Datum, ToDatum},
@@ -258,14 +260,14 @@ impl Flow for Filter {
     fn next_tuple(&mut self, param_values: &[ScalarValue]) -> Result<Option<Self::Output>, QueryExecutionError> {
         while let Some((key, value)) = self.source.next_tuple(param_values)? {
             match &self.predicate {
-                None => return Ok(Some((key.clone(), value.clone()))),
+                None => return Ok(Some((key, value))),
                 Some(predicate) => {
                     log::debug!("Filter before: {:?}, {:?}", key, value);
                     let result = predicate.clone().eval(param_values, &value);
                     log::debug!("Filter after: {:?}", result);
                     if let Ok(ScalarValue::Bool(true)) = result {
                         log::debug!("Filter filtered key - {:?}", key);
-                        return Ok(Some((key.clone(), value.clone())));
+                        return Ok(Some((key, value)));
                     }
                 }
             }
@@ -512,20 +514,17 @@ impl UpdateQueryPlan {
             let mut unpacked = row.unpack();
             let unpacked_key = key.unpack();
             let unpacked_key = unpacked_key.iter().map(mapper).collect::<Vec<ScalarValue>>();
-            match values.remove(&unpacked_key) {
-                Some(value) => {
-                    for (index, value) in value.iter().enumerate() {
-                        let new_value = match value {
-                            None => unpacked[index].clone(),
-                            Some(value) => value.convert(),
-                        };
-                        unpacked[index] = new_value;
-                    }
-                    let new_row = Binary::pack(&unpacked);
-                    self.table.write_key(key, Some(new_row));
-                    len += 1;
+            if let Some(value) = values.remove(&unpacked_key) {
+                for (index, value) in value.iter().enumerate() {
+                    let new_value = match value {
+                        None => unpacked[index].clone(),
+                        Some(value) => value.convert(),
+                    };
+                    unpacked[index] = new_value;
                 }
-                None => {}
+                let new_row = Binary::pack(&unpacked);
+                self.table.write_key(key, Some(new_row));
+                len += 1;
             }
         }
         Ok(len)
