@@ -51,7 +51,7 @@ impl<'p> QueryPlanner<'p> {
             TypedQuery::Delete(delete) => {
                 let table = self.database.table(&delete.full_table_name);
                 QueryPlan::Delete(DeleteQueryPlan::new(
-                    TableRecordKeys::new(FullTableScan::new(&table)),
+                    TableRecordKeys::new(Filter::new(Projection::new(FullTableScan::new(&table)), delete.filter)),
                     table,
                 ))
             }

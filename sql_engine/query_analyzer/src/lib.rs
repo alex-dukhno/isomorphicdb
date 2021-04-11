@@ -199,13 +199,23 @@ impl<'a> QueryAnalyzer<'a> {
             Query::Delete(DeleteStatement {
                 schema_name,
                 table_name,
-                where_clause: _where_clause,
+                where_clause,
             }) => {
                 let full_table_name = FullTableName::from((&schema_name, &table_name));
                 match self.catalog.table_definition(full_table_name.clone()) {
                     None => Err(AnalysisError::schema_does_not_exist(full_table_name.schema())),
                     Some(None) => Err(AnalysisError::table_does_not_exist(full_table_name)),
-                    Some(Some(_table_info)) => Ok(UntypedQuery::Delete(UntypedDeleteQuery { full_table_name })),
+                    Some(Some(table_info)) => {
+                        let table_columns = table_info.columns();
+                        let filter = match where_clause {
+                            Some(expr) => Some(DynamicTreeBuilder::build_from(expr, &table_columns)?),
+                            None => None,
+                        };
+                        Ok(UntypedQuery::Delete(UntypedDeleteQuery {
+                            full_table_name,
+                            filter,
+                        }))
+                    }
                 }
             }
         }

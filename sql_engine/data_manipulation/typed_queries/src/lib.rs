@@ -24,6 +24,7 @@ pub struct TypedInsertQuery {
 #[derive(Debug, PartialEq)]
 pub struct TypedDeleteQuery {
     pub full_table_name: FullTableName,
+    pub filter: Option<DynamicTypedTree>,
 }
 
 #[derive(Debug, PartialEq)]

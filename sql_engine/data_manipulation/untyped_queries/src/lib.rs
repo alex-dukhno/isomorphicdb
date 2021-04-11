@@ -38,6 +38,7 @@ pub struct UntypedSelectQuery {
 #[derive(Debug, PartialEq, Clone)]
 pub struct UntypedDeleteQuery {
     pub full_table_name: FullTableName,
+    pub filter: Option<DynamicUntypedTree>,
 }
 
 #[derive(Debug, PartialEq, Clone)]

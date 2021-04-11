@@ -341,11 +341,11 @@ impl Flow for FullTableScan {
 }
 
 pub struct TableRecordKeys {
-    source: Box<dyn Flow<Output = (Binary, Binary)>>,
+    source: Box<dyn Flow<Output = (Vec<ScalarValue>, Vec<ScalarValue>)>>,
 }
 
 impl TableRecordKeys {
-    pub fn new(source: Box<dyn Flow<Output = (Binary, Binary)>>) -> Box<TableRecordKeys> {
+    pub fn new(source: Box<dyn Flow<Output = (Vec<ScalarValue>, Vec<ScalarValue>)>>) -> Box<TableRecordKeys> {
         Box::new(TableRecordKeys { source })
     }
 }
@@ -355,7 +355,12 @@ impl Flow for TableRecordKeys {
 
     fn next_tuple(&mut self, param_values: &[ScalarValue]) -> Result<Option<Self::Output>, QueryExecutionError> {
         if let Some((key, _value)) = self.source.next_tuple(param_values)? {
-            Ok(Some(key))
+            Ok(Some(Binary::pack(
+                key.into_iter()
+                    .map(|v| v.as_to_datum().convert())
+                    .collect::<Vec<Datum>>()
+                    .as_slice(),
+            )))
         } else {
             Ok(None)
         }

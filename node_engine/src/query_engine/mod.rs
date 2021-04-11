@@ -291,9 +291,23 @@ impl QueryEngine {
                                                 }
                                             }
                                             UntypedQuery::Delete(delete) => {
+
+                                                log::debug!("DELETE UNTYPED FILTER - {:?}", delete.filter);
+                                                let typed_filter = delete
+                                                    .filter
+                                                    .map(|value| self.type_inference.infer_dynamic(value, &[]));
+                                                log::debug!("DELETE TYPED FILTER - {:?}", typed_filter);
+                                                let type_checked_filter = typed_filter
+                                                    .map(|value| self.type_checker.check_dynamic(value));
+                                                log::debug!("DELETE TYPE CHECKED FILTER - {:?}", type_checked_filter);
+                                                let type_coerced_filter = type_checked_filter
+                                                    .map(|value| self.type_coercion.coerce_dynamic(value));
+                                                log::debug!("DELETE TYPE COERCED FILTER - {:?}", type_coerced_filter);
+
                                                 let query_result = match query_planner
                                                     .plan(TypedQuery::Delete(TypedDeleteQuery {
                                                         full_table_name: delete.full_table_name,
+                                                        filter: type_coerced_filter
                                                     }))
                                                     .execute(param_values)
                                                     .map(|r| { let r: QueryEvent = r.into(); r })
@@ -343,9 +357,23 @@ impl QueryEngine {
                             },
                             Statement::Query(query) => match query_analyzer.analyze(query) {
                                 Ok(UntypedQuery::Delete(delete)) => {
+
+                                    log::debug!("DELETE UNTYPED FILTER - {:?}", delete.filter);
+                                    let typed_filter = delete
+                                        .filter
+                                        .map(|value| self.type_inference.infer_dynamic(value, &[]));
+                                    log::debug!("DELETE TYPED FILTER - {:?}", typed_filter);
+                                    let type_checked_filter = typed_filter
+                                        .map(|value| self.type_checker.check_dynamic(value));
+                                    log::debug!("DELETE TYPE CHECKED FILTER - {:?}", type_checked_filter);
+                                    let type_coerced_filter = type_checked_filter
+                                        .map(|value| self.type_coercion.coerce_dynamic(value));
+                                    log::debug!("DELETE TYPE COERCED FILTER - {:?}", type_coerced_filter);
+
                                     let query_result = match query_planner
                                         .plan(TypedQuery::Delete(TypedDeleteQuery {
                                             full_table_name: delete.full_table_name,
+                                            filter: type_coerced_filter
                                         }))
                                         .execute(vec![])
                                         .map(|r| { let r: QueryEvent = r.into(); r })
@@ -1002,9 +1030,23 @@ impl QueryEngine {
                                 }
                             }
                             UntypedQuery::Delete(delete) => {
+
+                                log::debug!("DELETE UNTYPED FILTER - {:?}", delete.filter);
+                                let typed_filter = delete
+                                    .filter
+                                    .map(|value| self.type_inference.infer_dynamic(value, &[]));
+                                log::debug!("DELETE TYPED FILTER - {:?}", typed_filter);
+                                let type_checked_filter = typed_filter
+                                    .map(|value| self.type_checker.check_dynamic(value));
+                                log::debug!("DELETE TYPE CHECKED FILTER - {:?}", type_checked_filter);
+                                let type_coerced_filter = type_checked_filter
+                                    .map(|value| self.type_coercion.coerce_dynamic(value));
+                                log::debug!("DELETE TYPE COERCED FILTER - {:?}", type_coerced_filter);
+
                                 let query_result = match query_planner
                                     .plan(TypedQuery::Delete(TypedDeleteQuery {
                                         full_table_name: delete.full_table_name,
+                                        filter: type_coerced_filter
                                     }))
                                     .execute(vec![])
                                     .map(|r| { let r: QueryEvent = r.into(); r })
