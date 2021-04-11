@@ -12,26 +12,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{
-    connection::Sender,
-    session::{
-        statement::{Portal, PreparedStatement},
-        Session,
-    },
+use crate::session::{
+    statement::{Portal, PreparedStatement},
+    Session,
 };
 use catalog::CatalogHandler;
 use data_definition::ExecutionOutcome;
 use data_manipulation::{
-    DynamicTypedTree, QueryPlanResult, StaticTypedTree, TypedDeleteQuery, TypedInsertQuery, TypedQuery,
-    TypedSelectQuery, TypedUpdateQuery, UntypedQuery,
+    DynamicTypedTree, QueryExecutionError, QueryPlanResult, StaticTypedTree, TypedDeleteQuery, TypedInsertQuery,
+    TypedQuery, TypedSelectQuery, TypedUpdateQuery, UntypedQuery,
 };
 use definition_planner::DefinitionPlanner;
 use entities::{ColumnDef, SqlType, SqlTypeFamily};
+use postgres::wire_protocol::payload::BackendMessage;
+use postgres::wire_protocol::payload::{ColumnMetadata, PgType};
+use postgres::wire_protocol::{ResponseSender, Sender};
 use postgres::{
     query_ast::{Extended, Statement},
     query_parser::QueryParser,
     query_response::{QueryError, QueryEvent},
-    wire_protocol::{ColumnMetadata, CommandMessage, PgType},
+    wire_protocol::CommandMessage,
 };
 use query_analyzer::QueryAnalyzer;
 use query_planner::QueryPlanner;
@@ -99,7 +99,7 @@ impl QueryEngine {
                                         ),
                                     );
                                     self.sender
-                                        .send(Ok(QueryEvent::StatementPrepared))
+                                        .send(QueryEvent::StatementPrepared.into())
                                         .expect("To Send Result");
                                 }
                                 Extended::Execute { name, param_values } => {
@@ -151,14 +151,19 @@ impl QueryEngine {
                                                     type_coerced.push(row);
                                                 }
                                                 log::debug!("INSERT TYPE COERCED VALUES {:?}", type_coerced);
-                                                let query_result = query_planner
+                                                let query_result = match query_planner
                                                     .plan(TypedQuery::Insert(TypedInsertQuery {
                                                         full_table_name: insert.full_table_name,
                                                         values: type_coerced,
                                                     }))
                                                     .execute(param_values)
-                                                    .map(Into::into)
-                                                    .map_err(Into::into);
+                                                    .map(|r| { let r: QueryEvent = r.into(); r })
+                                                    .map(|r| { let r: BackendMessage = r.into(); r })
+                                                    .map_err(|e| { let e: QueryError = e.into(); e })
+                                                    .map_err(|e| { let e: BackendMessage = e.into(); e }) {
+                                                    Ok(ok) => ok,
+                                                    Err(err) => err,
+                                                };
                                                 self.sender.send(query_result).expect("To Send to client");
                                             }
                                             UntypedQuery::Update(update) => {
@@ -184,14 +189,19 @@ impl QueryEngine {
                                                     })
                                                     .collect::<Vec<Option<DynamicTypedTree>>>();
                                                 log::debug!("UPDATE TYPE COERCED VALUES - {:?}", type_coerced);
-                                                let query_result = query_planner
+                                                let query_result = match query_planner
                                                     .plan(TypedQuery::Update(TypedUpdateQuery {
                                                         full_table_name: update.full_table_name,
                                                         assignments: type_coerced,
                                                     }))
                                                     .execute(param_values)
-                                                    .map(Into::into)
-                                                    .map_err(Into::into);
+                                                    .map(|r| { let r: QueryEvent = r.into(); r })
+                                                    .map(|r| { let r: BackendMessage = r.into(); r })
+                                                    .map_err(|e| { let e: QueryError = e.into(); e })
+                                                    .map_err(|e| { let e: BackendMessage = e.into(); e }) {
+                                                    Ok(ok) => ok,
+                                                    Err(err) => err,
+                                                };
                                                 self.sender.send(query_result).expect("To Send to client");
                                             }
                                             UntypedQuery::Select(select) => {
@@ -218,53 +228,59 @@ impl QueryEngine {
                                                         full_table_name: select.full_table_name,
                                                     }))
                                                     .execute(param_values)
-                                                    .map_err(Into::into);
+                                                    .map_err(|e| { let e: QueryError = e.into(); e })
+                                                    .map_err(|e| { let e: BackendMessage = e.into(); e });
                                                 match query_result {
                                                     Ok(QueryPlanResult::Selected((desc, data))) => {
                                                         self.sender
-                                                            .send(Ok(QueryEvent::RowDescription(
+                                                            .send(QueryEvent::RowDescription(
                                                                 desc.into_iter()
                                                                     .map(|col_def| {
                                                                         let pg_type: PgType = (&col_def.sql_type()).into();
                                                                         ColumnMetadata::new(col_def.name(), pg_type)
                                                                     })
                                                                     .collect(),
-                                                            )))
+                                                            ).into())
                                                             .expect("To Send to client");
                                                         let len = data.len();
                                                         for row in data {
                                                             self.sender
-                                                                .send(Ok(QueryEvent::DataRow(
+                                                                .send(QueryEvent::DataRow(
                                                                     row.into_iter()
                                                                         .map(|scalar| scalar.as_text())
                                                                         .collect(),
-                                                                )))
+                                                                ).into())
                                                                 .expect("To Send to client");
                                                         }
                                                         self.sender
-                                                            .send(Ok(QueryEvent::RecordsSelected(len)))
+                                                            .send(QueryEvent::RecordsSelected(len).into())
                                                             .expect("To Send to client");
                                                     }
                                                     Ok(_) => unreachable!(),
                                                     Err(error) => {
-                                                        self.sender.send(Err(error)).expect("To Send to client");
+                                                        self.sender.send(error).expect("To Send to client");
                                                     }
                                                 }
                                             }
                                             UntypedQuery::Delete(delete) => {
-                                                let query_result = query_planner
+                                                let query_result = match query_planner
                                                     .plan(TypedQuery::Delete(TypedDeleteQuery {
                                                         full_table_name: delete.full_table_name,
                                                     }))
                                                     .execute(param_values)
-                                                    .map(Into::into)
-                                                    .map_err(Into::into);
+                                                    .map(|r| { let r: QueryEvent = r.into(); r })
+                                                    .map(|r| { let r: BackendMessage = r.into(); r })
+                                                    .map_err(|e| { let e: QueryError = e.into(); e })
+                                                    .map_err(|e| { let e: BackendMessage = e.into(); e }) {
+                                                    Ok(ok) => ok,
+                                                    Err(err) => err,
+                                                };
                                                 self.sender.send(query_result).expect("To Send to client");
                                             }
                                         },
                                         None => {
                                             self.sender
-                                                .send(Err(QueryError::prepared_statement_does_not_exist(name)))
+                                                .send(QueryError::prepared_statement_does_not_exist(name).into())
                                                 .expect("To Send Error to Client");
                                         }
                                     }
@@ -272,7 +288,7 @@ impl QueryEngine {
                                 Extended::Deallocate { name } => {
                                     session.remove_portal(&name);
                                     self.sender
-                                        .send(Ok(QueryEvent::StatementDeallocated))
+                                        .send(QueryEvent::StatementDeallocated.into())
                                         .expect("To Send Statement Deallocated Event");
                                 }
                             },
@@ -280,26 +296,37 @@ impl QueryEngine {
                                 Ok(schema_change) => {
                                     log::debug!("SCHEMA CHANGE - {:?}", schema_change);
                                     let query_result = match catalog.apply(schema_change) {
-                                        Ok(ExecutionOutcome::SchemaCreated) => Ok(QueryEvent::SchemaCreated),
-                                        Ok(ExecutionOutcome::SchemaDropped) => Ok(QueryEvent::SchemaDropped),
-                                        Ok(ExecutionOutcome::TableCreated) => Ok(QueryEvent::TableCreated),
-                                        Ok(ExecutionOutcome::TableDropped) => Ok(QueryEvent::TableDropped),
-                                        Ok(ExecutionOutcome::IndexCreated) => Ok(QueryEvent::IndexCreated),
-                                        Err(error) => Err(error.into()),
+                                        Ok(ExecutionOutcome::SchemaCreated) => QueryEvent::SchemaCreated.into(),
+                                        Ok(ExecutionOutcome::SchemaDropped) => QueryEvent::SchemaDropped.into(),
+                                        Ok(ExecutionOutcome::TableCreated) => QueryEvent::TableCreated.into(),
+                                        Ok(ExecutionOutcome::TableDropped) => QueryEvent::TableDropped.into(),
+                                        Ok(ExecutionOutcome::IndexCreated) => QueryEvent::IndexCreated.into(),
+                                        Err(error) => {
+                                            let error: QueryError = error.into();
+                                            error.into()
+                                        },
                                     };
                                     self.sender.send(query_result).expect("To Send Result to Client");
                                 }
-                                Err(error) => self.sender.send(Err(error.into())).expect("To Send Result to Client"),
+                                Err(error) => {
+                                    let error: QueryError = error.into();
+                                    self.sender.send(error.into()).expect("To Send Result to Client")
+                                },
                             },
                             Statement::DML(query) => match query_analyzer.analyze(query) {
                                 Ok(UntypedQuery::Delete(delete)) => {
-                                    let query_result = query_planner
+                                    let query_result = match query_planner
                                         .plan(TypedQuery::Delete(TypedDeleteQuery {
                                             full_table_name: delete.full_table_name,
                                         }))
                                         .execute(vec![])
-                                        .map(Into::into)
-                                        .map_err(Into::into);
+                                        .map(|r| { let r: QueryEvent = r.into(); r })
+                                        .map(|r| { let r: BackendMessage = r.into(); r })
+                                        .map_err(|e| { let e: QueryError = e.into(); e })
+                                        .map_err(|e| { let e: BackendMessage = e.into(); e }) {
+                                        Ok(ok) => ok,
+                                        Err(err) => err,
+                                    };
                                     self.sender.send(query_result).expect("To Send to client");
                                 }
                                 Ok(UntypedQuery::Update(update)) => {
@@ -319,14 +346,19 @@ impl QueryEngine {
                                         .map(|value| value.map(|value| self.type_coercion.coerce_dynamic(value)))
                                         .collect::<Vec<Option<DynamicTypedTree>>>();
                                     log::debug!("UPDATE TYPE COERCED VALUES - {:?}", type_coerced);
-                                    let query_result = query_planner
+                                    let query_result = match query_planner
                                         .plan(TypedQuery::Update(TypedUpdateQuery {
                                             full_table_name: update.full_table_name,
                                             assignments: type_coerced,
                                         }))
                                         .execute(vec![])
-                                        .map(Into::into)
-                                        .map_err(Into::into);
+                                        .map(|r| { let r: QueryEvent = r.into(); r })
+                                        .map(|r| { let r: BackendMessage = r.into(); r })
+                                        .map_err(|e| { let e: QueryError = e.into(); e })
+                                        .map_err(|e| { let e: BackendMessage = e.into(); e }) {
+                                        Ok(ok) => ok,
+                                        Err(err) => err,
+                                    };
                                     self.sender.send(query_result).expect("To Send to client");
                                 }
                                 Ok(UntypedQuery::Insert(insert)) => {
@@ -368,14 +400,19 @@ impl QueryEngine {
                                         type_coerced.push(row);
                                     }
                                     log::debug!("INSERT TYPE COERCED VALUES {:?}", type_coerced);
-                                    let query_result = query_planner
+                                    let query_result = match query_planner
                                         .plan(TypedQuery::Insert(TypedInsertQuery {
                                             full_table_name: insert.full_table_name,
                                             values: type_coerced,
                                         }))
                                         .execute(vec![])
-                                        .map(Into::into)
-                                        .map_err(Into::into);
+                                        .map(|r| { let r: QueryEvent = r.into(); r })
+                                        .map(|r| { let r: BackendMessage = r.into(); r })
+                                        .map_err(|e| { let e: QueryError = e.into(); e })
+                                        .map_err(|e| { let e: BackendMessage = e.into(); e }) {
+                                        Ok(ok) => ok,
+                                        Err(err) => err,
+                                    };
                                     self.sender.send(query_result).expect("To Send to client");
                                 }
                                 Ok(UntypedQuery::Select(select)) => {
@@ -402,56 +439,58 @@ impl QueryEngine {
                                             full_table_name: select.full_table_name,
                                         }))
                                         .execute(vec![])
-                                        .map_err(Into::into);
+                                        .map_err(|e| { let e: QueryError = e.into(); e })
+                                        .map_err(|e| { let e: BackendMessage = e.into(); e });
                                     match query_result {
                                         Ok(QueryPlanResult::Selected((desc, data))) => {
                                             self.sender
-                                                .send(Ok(QueryEvent::RowDescription(
+                                                .send(QueryEvent::RowDescription(
                                                     desc.into_iter()
                                                         .map(|col_def| {
                                                             let pg_type: PgType = (&col_def.sql_type()).into();
                                                             ColumnMetadata::new(col_def.name(), pg_type)
                                                         })
                                                         .collect(),
-                                                )))
+                                                ).into())
                                                 .expect("To Send to client");
                                             let len = data.len();
                                             for row in data {
                                                 self.sender
-                                                    .send(Ok(QueryEvent::DataRow(
+                                                    .send(QueryEvent::DataRow(
                                                         row.into_iter().map(|scalar| scalar.as_text()).collect(),
-                                                    )))
+                                                    ).into())
                                                     .expect("To Send to client");
                                             }
                                             self.sender
-                                                .send(Ok(QueryEvent::RecordsSelected(len)))
+                                                .send(QueryEvent::RecordsSelected(len).into())
                                                 .expect("To Send to client");
                                         }
                                         Ok(_) => unreachable!(),
                                         Err(error) => {
-                                            self.sender.send(Err(error)).expect("To Send to client");
+                                            self.sender.send(error).expect("To Send to client");
                                         }
                                     }
                                 }
                                 Err(error) => {
-                                    self.sender.send(Err(error.into())).expect("To Send Error to Client");
+                                    let error: QueryError = error.into();
+                                    self.sender.send(error.into()).expect("To Send Error to Client");
                                 }
                             },
                             Statement::Config(_) => {
                                 // sending ok to the client to proceed with other requests
                                 self.sender
-                                    .send(Ok(QueryEvent::VariableSet))
+                                    .send(QueryEvent::VariableSet.into())
                                     .expect("To Send Result to Client");
                             }
                         },
                         Err(parser_error) => {
                             self.sender
-                                .send(Err(QueryError::syntax_error(parser_error)))
+                                .send(QueryError::syntax_error(parser_error).into())
                                 .expect("To Send ParseComplete Event");
                         }
                     }
                     self.sender
-                        .send(Ok(QueryEvent::QueryComplete))
+                        .send(QueryEvent::QueryComplete.into())
                         .expect("To Send Query Complete to Client");
                     Ok(())
                 }
@@ -472,16 +511,16 @@ impl QueryEngine {
                                             .map(|o| o.unwrap())
                                             .collect(),
                                     );
-                                    self.sender.send(Ok(QueryEvent::ParseComplete)).expect("To Send Result");
+                                    self.sender.send(QueryEvent::ParseComplete.into()).expect("To Send Result");
                                 }
                                 other => self
                                     .sender
-                                    .send(Err(QueryError::syntax_error(format!("{:?}", other))))
+                                    .send(QueryError::syntax_error(format!("{:?}", other)).into())
                                     .expect("To Send Result"),
                             },
                             Err(parser_error) => {
                                 self.sender
-                                    .send(Err(QueryError::syntax_error(parser_error)))
+                                    .send(QueryError::syntax_error(parser_error).into())
                                     .expect("To Send Syntax Error Event");
                             }
                         },
@@ -501,16 +540,16 @@ impl QueryEngine {
                                             PreparedStatement::parsed(sql.clone(), query),
                                         );
                                     }
-                                    self.sender.send(Ok(QueryEvent::ParseComplete)).expect("To Send Result");
+                                    self.sender.send(QueryEvent::ParseComplete.into()).expect("To Send Result");
                                 }
                                 other => self
                                     .sender
-                                    .send(Err(QueryError::syntax_error(format!("{:?}", other))))
+                                    .send(QueryError::syntax_error(format!("{:?}", other)).into())
                                     .expect("To Send Result"),
                             },
                             Err(parser_error) => {
                                 self.sender
-                                    .send(Err(QueryError::syntax_error(parser_error)))
+                                    .send(QueryError::syntax_error(parser_error).into())
                                     .expect("To Send Syntax Error Event");
                             }
                         },
@@ -534,10 +573,10 @@ impl QueryEngine {
                                         .map(|sql_type| (&sql_type).into())
                                         .collect::<Vec<PgType>>();
                                     self.sender
-                                        .send(Ok(QueryEvent::StatementParameters(param_types.to_vec())))
+                                        .send(QueryEvent::StatementParameters(param_types.to_vec()).into())
                                         .expect("To Send Statement Parameters to Client");
                                     self.sender
-                                        .send(Ok(QueryEvent::StatementDescription(vec![])))
+                                        .send(QueryEvent::StatementDescription(vec![]).into())
                                         .expect("To Send Statement Description to Client");
                                     statement.described(UntypedQuery::Insert(insert), param_types);
                                 }
@@ -553,10 +592,10 @@ impl QueryEngine {
                                         .map(|sql_type| (&sql_type).into())
                                         .collect::<Vec<PgType>>();
                                     self.sender
-                                        .send(Ok(QueryEvent::StatementParameters(param_types.to_vec())))
+                                        .send(QueryEvent::StatementParameters(param_types.to_vec()).into())
                                         .expect("To Send Statement Parameters to Client");
                                     self.sender
-                                        .send(Ok(QueryEvent::StatementDescription(vec![])))
+                                        .send(QueryEvent::StatementDescription(vec![]).into())
                                         .expect("To Send Statement Description to Client");
                                     statement.described(UntypedQuery::Update(update), param_types);
                                 }
@@ -572,34 +611,34 @@ impl QueryEngine {
                                         .map(|(name, sql_type)| (name, (&sql_type).into()))
                                         .collect::<Vec<(String, PgType)>>();
                                     self.sender
-                                        .send(Ok(QueryEvent::StatementParameters(vec![])))
+                                        .send(QueryEvent::StatementParameters(vec![]).into())
                                         .expect("To Send Statement Parameters to Client");
                                     self.sender
-                                        .send(Ok(QueryEvent::StatementDescription(return_types)))
+                                        .send(QueryEvent::StatementDescription(return_types).into())
                                         .expect("To Send Statement Description to Client");
                                     statement.described(UntypedQuery::Select(select), vec![]);
                                 }
                                 _ => {
                                     self.sender
-                                        .send(Err(QueryError::prepared_statement_does_not_exist(name)))
+                                        .send(QueryError::prepared_statement_does_not_exist(name).into())
                                         .expect("To Send Error to Client");
                                 }
                             },
                             Some(param_types) => match query_analyzer.analyze(statement.query().unwrap()) {
                                 Ok(UntypedQuery::Insert(_insert)) => {
                                     self.sender
-                                        .send(Ok(QueryEvent::StatementParameters(param_types.to_vec())))
+                                        .send(QueryEvent::StatementParameters(param_types.to_vec()).into())
                                         .expect("To Send Statement Parameters to Client");
                                     self.sender
-                                        .send(Ok(QueryEvent::StatementDescription(vec![])))
+                                        .send(QueryEvent::StatementDescription(vec![]).into())
                                         .expect("To Send Statement Description to Client");
                                 }
                                 Ok(UntypedQuery::Update(_update)) => {
                                     self.sender
-                                        .send(Ok(QueryEvent::StatementParameters(param_types.to_vec())))
+                                        .send(QueryEvent::StatementParameters(param_types.to_vec()).into())
                                         .expect("To Send Statement Parameters to Client");
                                     self.sender
-                                        .send(Ok(QueryEvent::StatementDescription(vec![])))
+                                        .send(QueryEvent::StatementDescription(vec![]).into())
                                         .expect("To Send Statement Description to Client");
                                 }
                                 Ok(UntypedQuery::Select(select)) => {
@@ -612,15 +651,15 @@ impl QueryEngine {
                                         .map(|(name, sql_type)| (name, (&sql_type).into()))
                                         .collect::<Vec<(String, PgType)>>();
                                     self.sender
-                                        .send(Ok(QueryEvent::StatementParameters(param_types.to_vec())))
+                                        .send(QueryEvent::StatementParameters(param_types.to_vec()).into())
                                         .expect("To Send Statement Parameters to Client");
                                     self.sender
-                                        .send(Ok(QueryEvent::StatementDescription(return_types)))
+                                        .send(QueryEvent::StatementDescription(return_types).into())
                                         .expect("To Send Statement Description to Client");
                                 }
                                 _ => {
                                     self.sender
-                                        .send(Err(QueryError::prepared_statement_does_not_exist(name)))
+                                        .send(QueryError::prepared_statement_does_not_exist(name).into())
                                         .expect("To Send Error to Client");
                                 }
                             },
@@ -628,7 +667,7 @@ impl QueryEngine {
                         other => {
                             log::debug!("STMT {:?} associated with {:?} key", other, name);
                             self.sender
-                                .send(Err(QueryError::prepared_statement_does_not_exist(name)))
+                                .send(QueryError::prepared_statement_does_not_exist(name).into())
                                 .expect("To Send Error to Client");
                         }
                     }
@@ -652,7 +691,7 @@ impl QueryEngine {
                                         expected = param_types.len()
                                     );
                                     self.sender
-                                        .send(Err(QueryError::protocol_violation(message)))
+                                        .send(QueryError::protocol_violation(message).into())
                                         .expect("To Send Error to Client");
                                 }
 
@@ -673,7 +712,7 @@ impl QueryEngine {
                                                 Ok(param) => param_values.push(From::from(param)),
                                                 Err(error) => {
                                                     self.sender
-                                                        .send(Err(QueryError::invalid_parameter_value(error)))
+                                                        .send(QueryError::invalid_parameter_value(error).into())
                                                         .expect("To Send Error to Client");
                                                     return Err(ConflictableTransactionError::Abort);
                                                 }
@@ -698,12 +737,12 @@ impl QueryEngine {
                         Some(portal) => {
                             session.set_portal(portal_name.clone(), portal);
                             self.sender
-                                .send(Ok(QueryEvent::BindComplete))
+                                .send(QueryEvent::BindComplete.into())
                                 .expect("To Send Bind Complete Event");
                         }
                         None => {
                             self.sender
-                                .send(Err(QueryError::prepared_statement_does_not_exist(statement_name)))
+                                .send(QueryError::prepared_statement_does_not_exist(statement_name).into())
                                 .expect("To Send Error to Client");
                         }
                     }
@@ -713,13 +752,13 @@ impl QueryEngine {
                     match session.get_portal(&name) {
                         None => {
                             self.sender
-                                .send(Err(QueryError::portal_does_not_exist(name)))
+                                .send(QueryError::portal_does_not_exist(name).into())
                                 .expect("To Send Error to Client");
                         }
                         Some(_portal) => {
                             log::debug!("DESCRIBING PORTAL START");
                             self.sender
-                                .send(Ok(QueryEvent::StatementDescription(vec![])))
+                                .send(QueryEvent::StatementDescription(vec![]).into())
                                 .expect("To Send Statement Description to Client");
                             log::debug!("DESCRIBING PORTAL END");
                         }
@@ -773,14 +812,19 @@ impl QueryEngine {
                                     type_coerced.push(row);
                                 }
                                 log::debug!("INSERT TYPE COERCED VALUES {:?}", type_coerced);
-                                let query_result = query_planner
+                                let query_result = match query_planner
                                     .plan(TypedQuery::Insert(TypedInsertQuery {
                                         full_table_name: insert.full_table_name,
                                         values: type_coerced,
                                     }))
                                     .execute(portal.param_values())
-                                    .map(Into::into)
-                                    .map_err(Into::into);
+                                    .map(|r| { let r: QueryEvent = r.into(); r })
+                                    .map(|r| { let r: BackendMessage = r.into(); r })
+                                    .map_err(|e| { let e: QueryError = e.into(); e })
+                                    .map_err(|e| { let e: BackendMessage = e.into(); e }) {
+                                    Ok(ok) => ok,
+                                    Err(err) => err,
+                                };
                                 self.sender.send(query_result).expect("To Send to client");
                             }
                             UntypedQuery::Update(update) => {
@@ -802,14 +846,19 @@ impl QueryEngine {
                                     .map(|value| value.map(|value| self.type_coercion.coerce_dynamic(value)))
                                     .collect::<Vec<Option<DynamicTypedTree>>>();
                                 log::debug!("UPDATE TYPE COERCED VALUES - {:?}", type_coerced);
-                                let query_result = query_planner
+                                let query_result = match query_planner
                                     .plan(TypedQuery::Update(TypedUpdateQuery {
                                         full_table_name: update.full_table_name,
                                         assignments: type_coerced,
                                     }))
                                     .execute(portal.param_values())
-                                    .map(Into::into)
-                                    .map_err(Into::into);
+                                    .map(|r| { let r: QueryEvent = r.into(); r })
+                                    .map(|r| { let r: BackendMessage = r.into(); r })
+                                    .map_err(|e| { let e: QueryError = e.into(); e })
+                                    .map_err(|e| { let e: BackendMessage = e.into(); e }) {
+                                    Ok(ok) => ok,
+                                    Err(err) => err,
+                                };
                                 self.sender.send(query_result).expect("To Send to client");
                             }
                             UntypedQuery::Select(select) => {
@@ -836,51 +885,57 @@ impl QueryEngine {
                                         full_table_name: select.full_table_name,
                                     }))
                                     .execute(vec![])
-                                    .map_err(Into::into);
+                                    .map_err(|e| { let e: QueryError = e.into(); e })
+                                    .map_err(|e| { let e: BackendMessage = e.into(); e });
                                 match query_result {
                                     Ok(QueryPlanResult::Selected((desc, data))) => {
                                         self.sender
-                                            .send(Ok(QueryEvent::RowDescription(
+                                            .send(QueryEvent::RowDescription(
                                                 desc.into_iter()
                                                     .map(|col_def| {
                                                         let pg_type: PgType = (&col_def.sql_type()).into();
                                                         ColumnMetadata::new(col_def.name(), pg_type)
                                                     })
                                                     .collect(),
-                                            )))
+                                            ).into())
                                             .expect("To Send to client");
                                         let len = data.len();
                                         for row in data {
                                             self.sender
-                                                .send(Ok(QueryEvent::DataRow(
+                                                .send(QueryEvent::DataRow(
                                                     row.into_iter().map(|scalar| scalar.as_text()).collect(),
-                                                )))
+                                                ).into())
                                                 .expect("To Send to client");
                                         }
                                         self.sender
-                                            .send(Ok(QueryEvent::RecordsSelected(len)))
+                                            .send(QueryEvent::RecordsSelected(len).into())
                                             .expect("To Send to client");
                                     }
                                     Ok(_) => unreachable!(),
                                     Err(error) => {
-                                        self.sender.send(Err(error)).expect("To Send to client");
+                                        self.sender.send(error).expect("To Send to client");
                                     }
                                 }
                             }
                             UntypedQuery::Delete(delete) => {
-                                let query_result = query_planner
+                                let query_result = match query_planner
                                     .plan(TypedQuery::Delete(TypedDeleteQuery {
                                         full_table_name: delete.full_table_name,
                                     }))
                                     .execute(vec![])
-                                    .map(Into::into)
-                                    .map_err(Into::into);
+                                    .map(|r| { let r: QueryEvent = r.into(); r })
+                                    .map(|r| { let r: BackendMessage = r.into(); r })
+                                    .map_err(|e| { let e: QueryError = e.into(); e })
+                                    .map_err(|e| { let e: BackendMessage = e.into(); e }) {
+                                    Ok(ok) => ok,
+                                    Err(err) => err,
+                                };
                                 self.sender.send(query_result).expect("To Send to client");
                             }
                         },
                         None => {
                             self.sender
-                                .send(Err(QueryError::portal_does_not_exist(portal_name)))
+                                .send(QueryError::portal_does_not_exist(portal_name).into())
                                 .expect("To Send Error to Client");
                         }
                     }
@@ -888,19 +943,19 @@ impl QueryEngine {
                 }
                 CommandMessage::CloseStatement { .. } => {
                     self.sender
-                        .send(Ok(QueryEvent::QueryComplete))
+                        .send(QueryEvent::QueryComplete.into())
                         .expect("To Send Query Complete to Client");
                     Ok(())
                 }
                 CommandMessage::ClosePortal { .. } => {
                     self.sender
-                        .send(Ok(QueryEvent::QueryComplete))
+                        .send(QueryEvent::QueryComplete.into())
                         .expect("To Send Query Complete to Client");
                     Ok(())
                 }
                 CommandMessage::Sync => {
                     self.sender
-                        .send(Ok(QueryEvent::QueryComplete))
+                        .send(QueryEvent::QueryComplete.into())
                         .expect("To Send Query Complete to Client");
                     Ok(())
                 }

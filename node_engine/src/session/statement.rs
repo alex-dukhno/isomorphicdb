@@ -38,7 +38,7 @@ use data_manipulation::UntypedQuery;
 use entities::SqlTypeFamily;
 use postgres::{
     query_ast::Query,
-    wire_protocol::{PgFormat, PgType},
+    wire_protocol::payload::{PgFormat, PgType},
 };
 use scalar::ScalarValue;
 

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use pg_wire::PgType;
+use pg_wire_payload::PgType;
 use query_ast::DataType;
 use std::{
     fmt::{self, Display, Formatter},
