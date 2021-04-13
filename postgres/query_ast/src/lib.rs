@@ -121,10 +121,15 @@ pub struct DeleteStatement {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct SelectStatement {
-    pub select_items: Vec<SelectItem>,
-    pub schema_name: String,
-    pub table_name: String,
+    pub projection_items: Vec<SelectItem>,
+    pub relations: Option<Vec<Relation>>,
     pub where_clause: Option<Expr>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Relation {
+    pub schema: String,
+    pub table: String,
 }
 
 #[derive(Debug, PartialEq, Clone)]

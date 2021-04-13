@@ -20,8 +20,8 @@ use data_manipulation_untyped_queries::{
 use data_manipulation_untyped_tree::{DynamicUntypedItem, DynamicUntypedTree};
 use definition::FullTableName;
 use query_ast::{
-    Assignment, DeleteStatement, InsertSource, InsertStatement, Query, SelectItem, SelectStatement, UpdateStatement,
-    Values,
+    Assignment, DeleteStatement, InsertSource, InsertStatement, Query, Relation, SelectItem, SelectStatement,
+    UpdateStatement, Values,
 };
 use query_response::QueryError;
 use std::collections::HashMap;
@@ -156,9 +156,12 @@ impl<'a> QueryAnalyzer<'a> {
                 }
             }
             Query::Select(SelectStatement {
-                select_items,
-                schema_name,
-                table_name,
+                projection_items: select_items,
+                relations:
+                    Relation {
+                        schema: schema_name,
+                        table: table_name,
+                    },
                 where_clause,
             }) => {
                 let full_table_name = FullTableName::from((&schema_name, &table_name));

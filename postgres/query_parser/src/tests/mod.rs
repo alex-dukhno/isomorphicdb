@@ -23,6 +23,8 @@ mod index;
 #[cfg(test)]
 mod insert;
 #[cfg(test)]
+mod joins;
+#[cfg(test)]
 mod predicate;
 #[cfg(test)]
 mod schema;
@@ -41,9 +43,43 @@ fn set_variable() {
 
     assert_eq!(
         statements,
-        Ok(vec![Statement::Config(Set {
+        Ok(vec![Some(Statement::Config(Set {
             variable: "variable".to_owned(),
             value: "value".to_owned()
-        })])
+        }))])
     );
+}
+
+#[test]
+fn semi_colon() {
+    assert_eq!(QUERY_PARSER.parse(";"), Ok(vec![None]));
+}
+
+#[test]
+fn empty_string() {
+    assert_eq!(QUERY_PARSER.parse(" "), Ok(vec![]));
+}
+
+#[test]
+fn many_empty_queries() {
+    assert_eq!(QUERY_PARSER.parse(";;"), Ok(vec![None, None]));
+}
+
+#[test]
+fn many_statements() {
+    assert_eq!(
+        QUERY_PARSER.parse("select 1; select 2;"),
+        Ok(vec![
+            Some(Statement::Query(Query::Select(SelectStatement {
+                projection_items: vec![SelectItem::UnnamedExpr(Expr::Value(Value::Int(1)))],
+                relations: None,
+                where_clause: None
+            }))),
+            Some(Statement::Query(Query::Select(SelectStatement {
+                projection_items: vec![SelectItem::UnnamedExpr(Expr::Value(Value::Int(2)))],
+                relations: None,
+                where_clause: None
+            })))
+        ])
+    )
 }

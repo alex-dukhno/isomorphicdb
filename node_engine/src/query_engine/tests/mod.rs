@@ -30,6 +30,8 @@ mod extended_query_flow;
 #[cfg(test)]
 mod insert;
 #[cfg(test)]
+mod joins;
+#[cfg(test)]
 mod predicate;
 #[cfg(test)]
 mod schema;

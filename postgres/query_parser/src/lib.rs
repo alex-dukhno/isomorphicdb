@@ -15,7 +15,8 @@
 use postgres_parser::{nodes, sys, Node, PgParserError, SqlStatementScanner};
 use query_ast::{
     Assignment, BinaryOperator, ColumnDef, DataType, Definition, DeleteStatement, Expr, Extended, InsertSource,
-    InsertStatement, Query, SelectItem, SelectStatement, Set, Statement, UnaryOperator, UpdateStatement, Value, Values,
+    InsertStatement, Query, Relation, SelectItem, SelectStatement, Set, Statement, UnaryOperator, UpdateStatement,
+    Value, Values,
 };
 use query_response::QueryError;
 use std::fmt::{self, Display, Formatter};
@@ -27,22 +28,21 @@ impl QueryParser {
         QueryParser
     }
 
-    pub fn parse(&self, sql: &str) -> Result<Vec<Statement>, ParserError> {
+    pub fn parse(&self, sql: &str) -> Result<Vec<Option<Statement>>, ParserError> {
         let mut statements = vec![];
         for scanned_query in SqlStatementScanner::new(sql).into_iter() {
-            match scanned_query.parsetree {
-                Err(error) => return Err(ParserError::from(error)),
-                Ok(None) => unimplemented!(),
-                Ok(Some(Node::CreateSchemaStmt(nodes::CreateSchemaStmt {
+            match scanned_query.parsetree? {
+                None => statements.push(None),
+                Some(Node::CreateSchemaStmt(nodes::CreateSchemaStmt {
                     schemaname: schema_name,
                     authrole: _auth_role,
                     schemaElts: _schema_elements,
                     if_not_exists,
-                }))) => statements.push(Statement::Definition(Definition::CreateSchema {
+                })) => statements.push(Some(Statement::Definition(Definition::CreateSchema {
                     schema_name: schema_name.unwrap(),
                     if_not_exists,
-                })),
-                Ok(Some(Node::CreateStmt(nodes::CreateStmt {
+                }))),
+                Some(Node::CreateStmt(nodes::CreateStmt {
                     relation: table_name,
                     tableElts: table_elements,
                     inhRelations: _inheritance_tables,
@@ -55,26 +55,26 @@ impl QueryParser {
                     tablespacename: _table_space_name,
                     accessMethod: _access_method,
                     if_not_exists,
-                }))) => {
+                })) => {
                     let mut columns = vec![];
                     for table_element in table_elements.unwrap_or_else(Vec::new) {
                         columns.push(self.process_column(table_element));
                     }
                     let table_name = table_name.unwrap();
-                    statements.push(Statement::Definition(Definition::CreateTable {
+                    statements.push(Some(Statement::Definition(Definition::CreateTable {
                         if_not_exists,
                         schema_name: table_name.schemaname.unwrap_or_else(|| "public".to_owned()),
                         table_name: table_name.relname.unwrap(),
                         columns,
-                    }));
+                    })));
                 }
-                Ok(Some(Node::DropStmt(nodes::DropStmt {
+                Some(Node::DropStmt(nodes::DropStmt {
                     objects,
                     removeType: remove_type,
                     behavior,
                     missing_ok,
                     concurrent: _concurrent,
-                }))) => {
+                })) => {
                     match remove_type {
                         sys::ObjectType::OBJECT_SCHEMA => {
                             let mut names = vec![];
@@ -85,11 +85,11 @@ impl QueryParser {
                                     _ => unimplemented!(),
                                 }
                             }
-                            statements.push(Statement::Definition(Definition::DropSchemas {
+                            statements.push(Some(Statement::Definition(Definition::DropSchemas {
                                 names,
                                 if_exists: missing_ok,
                                 cascade: behavior == sys::DropBehavior::DROP_CASCADE,
-                            }));
+                            })));
                         }
                         sys::ObjectType::OBJECT_TABLE => {
                             let mut names = vec![];
@@ -121,16 +121,16 @@ impl QueryParser {
                                     _ => unimplemented!(),
                                 }
                             }
-                            statements.push(Statement::Definition(Definition::DropTables {
+                            statements.push(Some(Statement::Definition(Definition::DropTables {
                                 names,
                                 if_exists: missing_ok,
                                 cascade: behavior == sys::DropBehavior::DROP_CASCADE,
-                            }));
+                            })));
                         }
                         _ => unimplemented!(),
                     };
                 }
-                Ok(Some(Node::IndexStmt(nodes::IndexStmt {
+                Some(Node::IndexStmt(nodes::IndexStmt {
                     idxname: index_name,
                     relation: table_name,
                     accessMethod: _access_method,
@@ -154,7 +154,7 @@ impl QueryParser {
                     concurrent: _concurrent,
                     if_not_exists: _if_not_exists,
                     reset_default_tblspc: _reset_default_table_space,
-                }))) => {
+                })) => {
                     let mut column_names = vec![];
                     for index_param in index_params.unwrap() {
                         log::trace!("INDEX PARAM - {:?}", index_param);
@@ -166,36 +166,36 @@ impl QueryParser {
                         }
                     }
                     let table_name = table_name.unwrap();
-                    statements.push(Statement::Definition(Definition::CreateIndex {
+                    statements.push(Some(Statement::Definition(Definition::CreateIndex {
                         name: index_name.unwrap(),
                         schema_name: table_name.schemaname.unwrap_or_else(|| "public".to_owned()),
                         table_name: table_name.relname.unwrap(),
                         column_names,
-                    }));
+                    })));
                 }
-                Ok(Some(insert @ Node::InsertStmt(_))) => {
-                    statements.push(Statement::Query(self.process_query(insert)));
+                Some(insert @ Node::InsertStmt(_)) => {
+                    statements.push(Some(Statement::Query(self.process_query(insert))));
                 }
-                Ok(Some(select @ Node::SelectStmt(_))) => {
-                    statements.push(Statement::Query(self.process_query(select)));
+                Some(select @ Node::SelectStmt(_)) => {
+                    statements.push(Some(Statement::Query(self.process_query(select))));
                 }
-                Ok(Some(update @ Node::UpdateStmt(_))) => {
-                    statements.push(Statement::Query(self.process_query(update)));
+                Some(update @ Node::UpdateStmt(_)) => {
+                    statements.push(Some(Statement::Query(self.process_query(update))));
                 }
-                Ok(Some(delete @ Node::DeleteStmt(_))) => {
-                    statements.push(Statement::Query(self.process_query(delete)));
+                Some(delete @ Node::DeleteStmt(_)) => {
+                    statements.push(Some(Statement::Query(self.process_query(delete))));
                 }
-                Ok(Some(Node::VariableSetStmt(nodes::VariableSetStmt { name, .. }))) => {
-                    statements.push(Statement::Config(Set {
+                Some(Node::VariableSetStmt(nodes::VariableSetStmt { name, .. })) => {
+                    statements.push(Some(Statement::Config(Set {
                         variable: name.unwrap(),
                         value: "value".to_owned(),
-                    }))
+                    })))
                 }
-                Ok(Some(Node::PrepareStmt(nodes::PrepareStmt {
+                Some(Node::PrepareStmt(nodes::PrepareStmt {
                     name: Some(name),
                     argtypes: Some(arg_types),
                     query: Some(query),
-                }))) => {
+                })) => {
                     let mut param_types = vec![];
                     for arg_type in arg_types {
                         match arg_type {
@@ -203,16 +203,16 @@ impl QueryParser {
                             _ => unimplemented!(),
                         }
                     }
-                    statements.push(Statement::Extended(Extended::Prepare {
+                    statements.push(Some(Statement::Extended(Extended::Prepare {
                         name,
                         param_types,
                         query: self.process_query(*query),
-                    }))
+                    })))
                 }
-                Ok(Some(Node::ExecuteStmt(nodes::ExecuteStmt {
+                Some(Node::ExecuteStmt(nodes::ExecuteStmt {
                     name: Some(name),
                     params: Some(params),
-                }))) => {
+                })) => {
                     let mut param_values = vec![];
                     for param in params {
                         match self.parse_expr(param) {
@@ -220,12 +220,12 @@ impl QueryParser {
                             other => unreachable!("{:?} could not be used as parameter", other),
                         }
                     }
-                    statements.push(Statement::Extended(Extended::Execute { name, param_values }))
+                    statements.push(Some(Statement::Extended(Extended::Execute { name, param_values })))
                 }
-                Ok(Some(Node::DeallocateStmt(nodes::DeallocateStmt { name: Some(name) }))) => {
-                    statements.push(Statement::Extended(Extended::Deallocate { name }))
+                Some(Node::DeallocateStmt(nodes::DeallocateStmt { name: Some(name) })) => {
+                    statements.push(Some(Statement::Extended(Extended::Deallocate { name })))
                 }
-                Ok(Some(node)) => unimplemented!("NODE is not processed {:?}", node),
+                Some(node) => unimplemented!("NODE is not processed {:?}", node),
             }
         }
         Ok(statements)
@@ -324,23 +324,48 @@ impl QueryParser {
                                     }
                                 }
                             }
-                            _ => unimplemented!(),
+                            Node::A_Const(expr) => {
+                                select_items.push(SelectItem::UnnamedExpr(self.parse_expr(Node::A_Const(expr))))
+                            }
+                            node => unimplemented!("{:?}", node),
                         },
                         _ => unimplemented!(),
                     }
                 }
-                let (schema_name, table_name) = match from_clause.unwrap().pop() {
-                    Some(Node::RangeVar(nodes::RangeVar {
-                        schemaname: schema_name,
-                        relname: table_name,
-                        ..
-                    })) => (schema_name.unwrap(), table_name.unwrap()),
-                    _ => unimplemented!(),
+                log::trace!("FROM CLAUSE {:#?}", from_clause);
+                let relations = match from_clause {
+                    Some(from_clause) => {
+                        let mut relations = vec![];
+                        for node in from_clause {
+                            match node {
+                                Node::RangeVar(nodes::RangeVar {
+                                    schemaname: schema_name,
+                                    relname: table_name,
+                                    ..
+                                }) => relations.push(Relation {
+                                    schema: schema_name.unwrap(),
+                                    table: table_name.unwrap(),
+                                }),
+                                Node::JoinExpr(nodes::JoinExpr {
+                                    jointype: join_type,
+                                    isNatural: is_natural,
+                                    larg: left_arg,
+                                    rarg: right_arg,
+                                    usingClause: _using_clause,
+                                    quals: expr,
+                                    alias: None,
+                                    rtindex: runtime_index,
+                                }) => unimplemented!(),
+                                _ => unimplemented!(),
+                            }
+                        }
+                        Some(relations)
+                    }
+                    None => None,
                 };
                 Query::Select(SelectStatement {
-                    select_items,
-                    schema_name,
-                    table_name,
+                    projection_items: select_items,
+                    relations,
                     where_clause: where_clause.map(|expr| self.parse_expr(*expr)),
                 })
             }

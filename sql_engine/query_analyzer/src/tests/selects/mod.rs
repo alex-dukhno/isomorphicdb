@@ -21,7 +21,7 @@ mod general_cases;
 
 fn select_with_columns(schema_name: &str, table_name: &str, select_items: Vec<SelectItem>) -> Query {
     Query::Select(SelectStatement {
-        select_items,
+        projection_items: select_items,
         schema_name: schema_name.to_owned(),
         table_name: table_name.to_owned(),
         where_clause: None,

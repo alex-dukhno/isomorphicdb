@@ -20,7 +20,7 @@ fn update_int() {
 
     assert_eq!(
         statements,
-        Ok(vec![Statement::Query(Query::Update(UpdateStatement {
+        Ok(vec![Some(Statement::Query(Query::Update(UpdateStatement {
             schema_name: "schema_name".to_owned(),
             table_name: "table_name".to_owned(),
             assignments: vec![Assignment {
@@ -28,7 +28,7 @@ fn update_int() {
                 value: Expr::Value(Value::Int(123))
             }],
             where_clause: None
-        }))])
+        })))])
     );
 }
 
@@ -38,7 +38,7 @@ fn update_string() {
 
     assert_eq!(
         statements,
-        Ok(vec![Statement::Query(Query::Update(UpdateStatement {
+        Ok(vec![Some(Statement::Query(Query::Update(UpdateStatement {
             schema_name: "schema_name".to_owned(),
             table_name: "table_name".to_owned(),
             assignments: vec![Assignment {
@@ -46,7 +46,7 @@ fn update_string() {
                 value: Expr::Value(Value::String("abc".to_owned()))
             }],
             where_clause: None
-        }))])
+        })))])
     );
 }
 
@@ -86,7 +86,7 @@ mod bi_ops {
 
         assert_eq!(
             statements,
-            Ok(vec![Statement::Query(Query::Update(UpdateStatement {
+            Ok(vec![Some(Statement::Query(Query::Update(UpdateStatement {
                 schema_name: "schema_name".to_owned(),
                 table_name: "table_name".to_owned(),
                 assignments: vec![Assignment {
@@ -98,7 +98,7 @@ mod bi_ops {
                     }
                 }],
                 where_clause: None
-            }))])
+            })))])
         );
     }
 }
@@ -109,7 +109,7 @@ fn update_params() {
 
     assert_eq!(
         statements,
-        Ok(vec![Statement::Query(Query::Update(UpdateStatement {
+        Ok(vec![Some(Statement::Query(Query::Update(UpdateStatement {
             schema_name: "schema_name".to_owned(),
             table_name: "table_name".to_owned(),
             assignments: vec![Assignment {
@@ -117,7 +117,7 @@ fn update_params() {
                 value: Expr::Param(1)
             }],
             where_clause: None,
-        }))])
+        })))])
     );
 }
 
@@ -127,7 +127,7 @@ fn update_columns() {
 
     assert_eq!(
         statements,
-        Ok(vec![Statement::Query(Query::Update(UpdateStatement {
+        Ok(vec![Some(Statement::Query(Query::Update(UpdateStatement {
             schema_name: "schema_name".to_owned(),
             table_name: "table_name".to_owned(),
             assignments: vec![Assignment {
@@ -139,6 +139,6 @@ fn update_columns() {
                 }
             }],
             where_clause: None,
-        }))])
+        })))])
     );
 }

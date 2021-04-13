@@ -20,16 +20,18 @@ fn select() {
 
     assert_eq!(
         statements,
-        Ok(vec![Statement::Query(Query::Select(SelectStatement {
-            select_items: vec![SelectItem::Wildcard],
-            schema_name: "schema_name".to_owned(),
-            table_name: "table_name".to_owned(),
+        Ok(vec![Some(Statement::Query(Query::Select(SelectStatement {
+            projection_items: vec![SelectItem::Wildcard],
+            relations: Some(vec![Relation {
+                schema: "schema_name".to_owned(),
+                table: "table_name".to_owned(),
+            }]),
             where_clause: Some(Expr::BinaryOp {
                 left: Box::new(Expr::Column("col1".to_owned())),
                 op: BinaryOperator::Eq,
                 right: Box::new(Expr::Value(Value::Int(1)))
             }),
-        }))])
+        })))])
     );
 }
 
@@ -39,7 +41,7 @@ fn update() {
 
     assert_eq!(
         statements,
-        Ok(vec![Statement::Query(Query::Update(UpdateStatement {
+        Ok(vec![Some(Statement::Query(Query::Update(UpdateStatement {
             schema_name: "schema_name".to_owned(),
             table_name: "table_name".to_owned(),
             assignments: vec![Assignment {
@@ -51,7 +53,7 @@ fn update() {
                 op: BinaryOperator::Eq,
                 right: Box::new(Expr::Value(Value::Int(2)))
             }),
-        }))])
+        })))])
     );
 }
 
@@ -61,7 +63,7 @@ fn delete() {
 
     assert_eq!(
         statements,
-        Ok(vec![Statement::Query(Query::Delete(DeleteStatement {
+        Ok(vec![Some(Statement::Query(Query::Delete(DeleteStatement {
             schema_name: "schema_name".to_owned(),
             table_name: "table_name".to_owned(),
             where_clause: Some(Expr::BinaryOp {
@@ -69,6 +71,6 @@ fn delete() {
                 op: BinaryOperator::Eq,
                 right: Box::new(Expr::Value(Value::Int(1)))
             }),
-        }))])
+        })))])
     );
 }

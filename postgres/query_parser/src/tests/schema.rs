@@ -20,10 +20,10 @@ fn create_schema() {
 
     assert_eq!(
         statements,
-        Ok(vec![Statement::Definition(Definition::CreateSchema {
+        Ok(vec![Some(Statement::Definition(Definition::CreateSchema {
             schema_name: "schema_name".to_owned(),
             if_not_exists: false
-        })])
+        }))])
     );
 }
 
@@ -33,10 +33,10 @@ fn create_schema_if_not_exists() {
 
     assert_eq!(
         statements,
-        Ok(vec![Statement::Definition(Definition::CreateSchema {
+        Ok(vec![Some(Statement::Definition(Definition::CreateSchema {
             schema_name: "schema_name".to_owned(),
             if_not_exists: true
-        })])
+        }))])
     );
 }
 
@@ -46,11 +46,11 @@ fn drop_schema() {
 
     assert_eq!(
         statements,
-        Ok(vec![Statement::Definition(Definition::DropSchemas {
+        Ok(vec![Some(Statement::Definition(Definition::DropSchemas {
             names: vec!["schema_name".to_owned()],
             if_exists: false,
             cascade: false
-        })])
+        }))])
     );
 }
 
@@ -60,11 +60,11 @@ fn drop_schemas() {
 
     assert_eq!(
         statements,
-        Ok(vec![Statement::Definition(Definition::DropSchemas {
+        Ok(vec![Some(Statement::Definition(Definition::DropSchemas {
             names: vec!["schema_name_1".to_owned(), "schema_name_2".to_owned()],
             if_exists: false,
             cascade: false
-        })])
+        }))])
     );
 }
 
@@ -74,11 +74,11 @@ fn drop_schemas_cascade() {
 
     assert_eq!(
         statements,
-        Ok(vec![Statement::Definition(Definition::DropSchemas {
+        Ok(vec![Some(Statement::Definition(Definition::DropSchemas {
             names: vec!["schema_name_1".to_owned(), "schema_name_2".to_owned()],
             if_exists: false,
             cascade: true
-        })])
+        }))])
     );
 }
 
@@ -88,10 +88,10 @@ fn drop_schema_if_exists() {
 
     assert_eq!(
         statements,
-        Ok(vec![Statement::Definition(Definition::DropSchemas {
+        Ok(vec![Some(Statement::Definition(Definition::DropSchemas {
             names: vec!["schema_name".to_owned()],
             if_exists: true,
             cascade: false
-        })])
+        }))])
     );
 }
