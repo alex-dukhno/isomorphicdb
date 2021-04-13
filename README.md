@@ -2,6 +2,7 @@
 
 ![Merge](https://github.com/alex-dukhno/isomorphicdb/workflows/Merge/badge.svg)
 [![Coverage Status](https://coveralls.io/repos/github/alex-dukhno/isomorphicdb/badge.svg?branch=main)](https://coveralls.io/github/alex-dukhno/isomorphicdb?branch=main)
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Falex-dukhno%2Fisomorphicdb.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Falex-dukhno%2Fisomorphicdb?ref=badge_shield)
 <a href="https://discord.gg/PUcTcfU"><img src="https://img.shields.io/discord/509773073294295082.svg?logo=discord"></a>
 
 ## TODO List
@@ -136,3 +137,7 @@ install a specified version of Erlang via [asdf](https://github.com/asdf-vm/asdf
 1. Run `./etc/ci/erlang_client.sh`.
 1. Kill `isomorphicdb` process manually for running the tests again.
 
+
+
+## License
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Falex-dukhno%2Fisomorphicdb.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2Falex-dukhno%2Fisomorphicdb?ref=badge_large)
