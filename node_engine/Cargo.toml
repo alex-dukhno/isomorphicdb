@@ -33,4 +33,3 @@ native-tls = "0.2.7"
 [dev-dependencies]
 simple_logger = "1.10.0"
 rstest = "0.7.0"
-async-dup = "1.2.1"
