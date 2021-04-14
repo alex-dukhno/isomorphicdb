@@ -13,17 +13,15 @@
 // limitations under the License.
 
 use crate::query_engine::QueryEngine;
-use async_executor::Executor;
-use async_io::Async;
-use async_mutex::Mutex as AsyncMutex;
-use futures_lite::{future, AsyncReadExt, AsyncWriteExt};
-use postgres::wire_protocol::{
-    payload::BackendMessage, ClientRequest, ConnSupervisor, Connection, PgWireListener, ProtocolConfiguration,
-};
+use byteorder::{BigEndian, ReadBytesExt};
+use postgres::wire_protocol::Connection;
+use std::convert::TryInto;
+use std::io::{Read, Write};
+use std::str;
+use std::sync::Mutex;
 use std::{
-    env,
+    env, io,
     net::TcpListener,
-    panic,
     path::{Path, PathBuf},
     sync::Arc,
     thread,
@@ -33,141 +31,180 @@ use storage::Database;
 mod query_engine;
 mod session;
 
-const PORT: u16 = 5432;
-const HOST: [u8; 4] = [0, 0, 0, 0];
+// const PORT: u16 = 5432;
+// const HOST: [u8; 4] = [0, 0, 0, 0];
 
-const MIN_CONN_ID: i32 = 1;
-const MAX_CONN_ID: i32 = 1 << 16;
+// const MIN_CONN_ID: i32 = 1;
+// const MAX_CONN_ID: i32 = 1 << 16;
+
+const AUTHENTICATION: u8 = b'R';
+const PARAMETER_STATUS: u8 = b'S';
+const READY_FOR_QUERY: u8 = b'Z';
+const EMPTY_QUERY_RESPONSE: u8 = b'I';
+const BACKEND_KEY_DATA: u8 = b'K';
 
 pub fn start(database: Database) {
-    static NETWORK: Executor<'_> = Executor::new();
+    let listener = TcpListener::bind("0.0.0.0:5432").expect("create listener");
 
-    thread::Builder::new()
-        .name("network-thread".into())
-        .spawn(|| loop {
-            panic::catch_unwind(|| future::block_on(NETWORK.run(future::pending::<()>()))).ok();
-        })
-        .expect("cannot spawn executor thread");
-
-    static WORKER: Executor<'_> = Executor::new();
-    for thread_id in 0..8 {
-        thread::Builder::new()
-            .name(format!("worker-{}-thread", thread_id))
-            .spawn(|| loop {
-                panic::catch_unwind(|| future::block_on(WORKER.run(future::pending::<()>()))).ok();
-            })
-            .expect("cannot spawn executor thread");
-    }
-
-    async_io::block_on(async {
-        let listener = Async::<TcpListener>::bind((HOST, PORT)).expect("OK");
-
-        let config = protocol_configuration();
-        let conn_supervisor = ConnSupervisor::new(MIN_CONN_ID, MAX_CONN_ID);
-        let connection_manager = PgWireListener::new(listener, config, conn_supervisor);
-
-        loop {
-            let client_request = connection_manager.accept().await;
-            match client_request {
-                Err(io_error) => log::error!("IO error {:?}", io_error),
-                Ok(Err(protocol_error)) => log::error!("protocol error {:?}", protocol_error),
-                Ok(Ok(ClientRequest::Connect((mut channel, props, conn_supervisor, address)))) => {
-                    channel
-                        .write_all(BackendMessage::AuthenticationCleartextPassword.as_vec().as_slice())
-                        .await
-                        .expect("to ask for password in clear text format");
-                    channel.flush().await.expect("to flush the buffer");
-
-                    //TODO: use message decoder for Auth messages
-                    let mut tag_buffer = [0u8; 1];
-                    let _tag = channel.read_exact(&mut tag_buffer).await.map(|_| tag_buffer[0]);
-                    let mut len_buffer = [0u8; 4];
-                    let len = channel
-                        .read_exact(&mut len_buffer)
-                        .await
-                        .map(|_| u32::from_be_bytes(len_buffer) as usize)
-                        .expect("to read message length");
-                    let len = len - 4;
-                    let mut message_buffer = Vec::with_capacity(len);
-                    message_buffer.resize(len, b'0');
-                    let _message = channel
-                        .read_exact(&mut message_buffer)
-                        .await
-                        .map(|_| message_buffer)
-                        .expect("to read message body");
-
-                    // we are ok with any password that user sent
-                    channel
-                        .write_all(BackendMessage::AuthenticationOk.as_vec().as_slice())
-                        .await
-                        .expect("Auth Ok");
-
-                    // pretend to be a PostgreSQL version 12.4
-                    channel
-                        .write_all(
-                            BackendMessage::ParameterStatus("server_version".to_owned(), "12.4".to_owned())
-                                .as_vec()
-                                .as_slice(),
-                        )
-                        .await
-                        .expect("send server version");
-
-                    let (conn_id, secret_key) = match conn_supervisor.alloc() {
-                        Ok((c, s)) => (c, s),
-                        Err(()) => {
-                            log::error!("Cannot allocate connection and its secret key");
-                            return;
-                        }
+    while let Ok((mut socket, _address)) = listener.accept() {
+        let db = database.clone();
+        thread::spawn(move || -> io::Result<()> {
+            // connection hand shake
+            let len = (socket.read_i32::<BigEndian>()? - 4) as usize;
+            log::debug!("LEN {:?}", len);
+            let mut request = vec![0; len];
+            socket.read_exact(&mut request)?;
+            let version = i32::from_be_bytes(request[0..4].try_into().unwrap());
+            log::debug!("VERSION {:x?}", version);
+            log::debug!("VERSION {:?}", version);
+            log::debug!("request {:#?}", request);
+            let mut message = &request[4..];
+            let props = if version == 0x00_03_00_00 {
+                let mut props = vec![];
+                loop {
+                    let key = if let Some(pos) = message.iter().position(|b| *b == 0) {
+                        let key = str::from_utf8(&message[0..pos]).unwrap().to_owned();
+                        message = &message[pos + 1..];
+                        key
+                    } else {
+                        return Err(io::ErrorKind::InvalidInput.into());
                     };
-
-                    // sending connection id and its secret key if client wanted to cancel query
-                    channel
-                        .write_all(BackendMessage::BackendKeyData(conn_id, secret_key).as_vec().as_slice())
-                        .await
-                        .expect("to send connection id and secret key");
-
-                    channel
-                        .write_all(BackendMessage::ReadyForQuery.as_vec().as_slice())
-                        .await
-                        .expect("to notify that we ready to handle query");
-
-                    let channel = Arc::new(AsyncMutex::new(channel));
-                    let mut connection = Connection::new(conn_id, props, address, channel, conn_supervisor);
-
-                    let mut query_engine = QueryEngine::new(Arc::new(connection.sender()), database.clone());
-                    log::debug!("ready to handle query");
-                    WORKER
-                        .spawn(async move {
-                            loop {
-                                match connection.receive().await {
-                                    Err(e) => {
-                                        log::error!("UNEXPECTED ERROR: {:?}", e);
-                                        return;
-                                    }
-                                    Ok(Err(e)) => {
-                                        log::error!("UNEXPECTED ERROR: {:?}", e);
-                                        return;
-                                    }
-                                    Ok(Ok(command)) => match query_engine.execute(command) {
-                                        Ok(()) => {}
-                                        Err(_) => {
-                                            break;
-                                        }
-                                    },
-                                }
-                            }
-                        })
-                        .detach();
+                    if key.is_empty() {
+                        break;
+                    }
+                    let value = if let Some(pos) = message.iter().position(|b| *b == 0) {
+                        let value = str::from_utf8(&message[0..pos]).unwrap().to_owned();
+                        message = &message[pos + 1..];
+                        value
+                    } else {
+                        return Err(io::ErrorKind::InvalidInput.into());
+                    };
+                    props.push((key, value));
                 }
-                Ok(Ok(ClientRequest::QueryCancellation(conn_id))) => {
-                    // TODO: Needs to handle Cancel Request here.
-                    log::debug!("cancel request of connection-{}", conn_id);
+                props
+            } else if version == 80_877_103 {
+                socket.write_all(&[b'N'])?;
+                log::debug!("reject ssl");
+                socket.flush()?;
+                log::debug!("reject ssl FLUSH");
+                let len = (socket.read_i32::<BigEndian>()? - 4) as usize;
+                log::debug!("len {:?}", len);
+                let mut request = vec![0; len];
+                socket.read_exact(&mut request)?;
+                let version = i32::from_be_bytes(request[0..4].try_into().unwrap());
+                log::debug!("VERSION {:x?}", version);
+                log::debug!("VERSION {:?}", version);
+                log::debug!("request {:#?}", request);
+                let mut message = &request[4..];
+                if version == 0x00_03_00_00 {
+                    let mut props = vec![];
+                    loop {
+                        let key = if let Some(pos) = message.iter().position(|b| *b == 0) {
+                            let key = str::from_utf8(&message[0..pos]).unwrap().to_owned();
+                            message = &message[pos + 1..];
+                            key
+                        } else {
+                            return Err(io::ErrorKind::InvalidInput.into());
+                        };
+                        if key.is_empty() {
+                            break;
+                        }
+                        let value = if let Some(pos) = message.iter().position(|b| *b == 0) {
+                            let value = str::from_utf8(&message[0..pos]).unwrap().to_owned();
+                            message = &message[pos + 1..];
+                            value
+                        } else {
+                            return Err(io::ErrorKind::InvalidInput.into());
+                        };
+                        log::debug!("{:?} {:?}", key, value);
+                        props.push((key, value));
+                    }
+                    props
+                } else {
+                    return Err(io::ErrorKind::InvalidInput.into());
+                }
+            } else {
+                return Err(io::ErrorKind::InvalidInput.into());
+            };
+            log::debug!("PROPS {:?}", props);
+
+            // authentication
+            socket.write_all(&[AUTHENTICATION, 0, 0, 0, 8, 0, 0, 0, 3])?;
+            socket.flush()?;
+            let _tag = socket.read_u8()?;
+            let len = (socket.read_i32::<BigEndian>()? - 4) as usize;
+            let mut password = vec![0; len];
+            socket.read_exact(&mut password)?;
+            log::debug!("{:#?}", password);
+
+            socket.write_all(&[AUTHENTICATION, 0, 0, 0, 8, 0, 0, 0, 0])?;
+            socket.flush()?;
+
+            fn create_param(key: &str, value: &str) -> Vec<u8> {
+                let mut parameter_status_buff = Vec::new();
+                parameter_status_buff.extend_from_slice(&[PARAMETER_STATUS]);
+                let mut parameters = Vec::new();
+                parameters.extend_from_slice(key.as_bytes());
+                parameters.extend_from_slice(&[0]);
+                parameters.extend_from_slice(value.as_bytes());
+                parameters.extend_from_slice(&[0]);
+                parameter_status_buff.extend_from_slice(&(4 + parameters.len() as u32).to_be_bytes());
+                parameter_status_buff.extend_from_slice(parameters.as_ref());
+                parameter_status_buff
+            }
+
+            socket.write_all(&create_param("client_encoding", "UTF8"))?;
+            socket.write_all(&create_param("DateStyle", "ISO"))?;
+            socket.write_all(&create_param("integer_datetimes", "off"))?;
+            socket.write_all(&create_param("server_version", "12.4"))?;
+            socket.flush()?;
+
+            // sending connection id and its secret key if client wanted to cancel query
+            let conn_id: i32 = 1;
+            let secret_key: i32 = 1;
+            let mut backend_key_data = vec![BACKEND_KEY_DATA, 0, 0, 0, 12];
+            backend_key_data.extend_from_slice(&conn_id.to_be_bytes());
+            backend_key_data.extend_from_slice(&secret_key.to_be_bytes());
+            socket.write_all(&backend_key_data)?;
+            socket.flush()?;
+
+            socket.write_all(&[READY_FOR_QUERY, 0, 0, 0, 5, EMPTY_QUERY_RESPONSE])?;
+            socket.flush()?;
+            log::debug!("send ready for query");
+
+            let connection = Connection::new(socket);
+
+            let arc = Arc::new(Mutex::new(connection));
+            let mut query_engine = QueryEngine::new(arc.clone(), db);
+            log::debug!("ready to handle query");
+
+            loop {
+                let mut guard = arc.lock().unwrap();
+                let result = guard.receive();
+                drop(guard);
+                log::debug!("{:?}", result);
+                match result {
+                    Err(e) => {
+                        log::error!("UNEXPECTED ERROR: {:?}", e);
+                        return Err(e);
+                    }
+                    Ok(Err(e)) => {
+                        log::error!("UNEXPECTED ERROR: {:?}", e);
+                        return Err(io::ErrorKind::InvalidInput.into());
+                    }
+                    Ok(Ok(client_request)) => match query_engine.execute(client_request) {
+                        Ok(()) => {}
+                        Err(_) => {
+                            break Ok(());
+                        }
+                    },
                 }
             }
-        }
-    });
+        });
+    }
 }
 
+#[allow(dead_code)]
 fn pfx_certificate_path() -> PathBuf {
     let file = env::var("PFX_CERTIFICATE_FILE").unwrap();
     let path = Path::new(&file);
@@ -179,16 +216,7 @@ fn pfx_certificate_path() -> PathBuf {
     current_dir.as_path().join(path)
 }
 
+#[allow(dead_code)]
 fn pfx_certificate_password() -> String {
     env::var("PFX_CERTIFICATE_PASSWORD").unwrap()
-}
-
-fn protocol_configuration() -> ProtocolConfiguration {
-    match env::var("SECURE") {
-        Ok(s) => match s.to_lowercase().as_str() {
-            "ssl_only" => ProtocolConfiguration::with_ssl(pfx_certificate_path(), pfx_certificate_password()),
-            _ => ProtocolConfiguration::not_secure(),
-        },
-        _ => ProtocolConfiguration::not_secure(),
-    }
 }

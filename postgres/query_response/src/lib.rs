@@ -12,11 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use pg_wire_payload::{BackendMessage, ColumnMetadata, PgType};
 use std::fmt::{self, Display, Formatter};
+use wire_protocol_payload::*;
 
 /// Represents selected columns from tables
-pub type Description = Vec<(String, PgType)>;
+pub type Description = Vec<(String, u32)>;
 
 /// Represents successful events that can happen in server backend
 #[derive(Clone, Debug, PartialEq)]
@@ -38,7 +38,7 @@ pub enum QueryEvent {
     /// Number of records inserted into a table
     RecordsInserted(usize),
     /// Row description information
-    RowDescription(Vec<ColumnMetadata>),
+    RowDescription(Vec<(String, u32)>),
     /// Row data
     DataRow(Vec<String>),
     /// Records selected from database
@@ -52,7 +52,7 @@ pub enum QueryEvent {
     /// Prepared statement successfully deallocated
     StatementDeallocated,
     /// Prepared statement parameters
-    StatementParameters(Vec<PgType>),
+    StatementParameters(Vec<u32>),
     /// Prepare statement description
     StatementDescription(Description),
     /// Processing of the query is complete
@@ -63,40 +63,116 @@ pub enum QueryEvent {
     BindComplete,
 }
 
-impl From<QueryEvent> for BackendMessage {
-    fn from(event: QueryEvent) -> BackendMessage {
+impl From<QueryEvent> for Vec<u8> {
+    fn from(event: QueryEvent) -> Vec<u8> {
+        fn command_complete(command: &str) -> Vec<u8> {
+            let mut command_buff = Vec::new();
+            command_buff.extend_from_slice(&[COMMAND_COMPLETE]);
+            command_buff.extend_from_slice(&(4 + command.len() as i32 + 1).to_be_bytes());
+            command_buff.extend_from_slice(command.as_bytes());
+            command_buff.extend_from_slice(&[0]);
+            command_buff
+        }
+
+        /// Returns PostgreSQL type length
+        pub fn type_len(oid: u32) -> i16 {
+            match oid {
+                BOOL => 1,
+                CHAR => 1,
+                BIGINT => 8,
+                SMALLINT => 2,
+                INT => 4,
+                VARCHAR => -1,
+                _ => unimplemented!(),
+            }
+        }
+
         match event {
-            QueryEvent::SchemaCreated => BackendMessage::CommandComplete("CREATE SCHEMA".to_owned()),
-            QueryEvent::SchemaDropped => BackendMessage::CommandComplete("DROP SCHEMA".to_owned()),
-            QueryEvent::TableCreated => BackendMessage::CommandComplete("CREATE TABLE".to_owned()),
-            QueryEvent::TableDropped => BackendMessage::CommandComplete("DROP TABLE".to_owned()),
-            QueryEvent::IndexCreated => BackendMessage::CommandComplete("CREATE INDEX".to_owned()),
-            QueryEvent::VariableSet => BackendMessage::CommandComplete("SET".to_owned()),
-            QueryEvent::TransactionStarted => BackendMessage::CommandComplete("BEGIN".to_owned()),
-            QueryEvent::RecordsInserted(records) => BackendMessage::CommandComplete(format!("INSERT 0 {}", records)),
-            QueryEvent::RowDescription(description) => BackendMessage::RowDescription(description),
-            QueryEvent::DataRow(data) => BackendMessage::DataRow(data),
-            QueryEvent::RecordsSelected(records) => BackendMessage::CommandComplete(format!("SELECT {}", records)),
-            QueryEvent::RecordsUpdated(records) => BackendMessage::CommandComplete(format!("UPDATE {}", records)),
-            QueryEvent::RecordsDeleted(records) => BackendMessage::CommandComplete(format!("DELETE {}", records)),
-            QueryEvent::StatementPrepared => BackendMessage::CommandComplete("PREPARE".to_owned()),
-            QueryEvent::StatementDeallocated => BackendMessage::CommandComplete("DEALLOCATE".to_owned()),
-            QueryEvent::StatementParameters(param_types) => BackendMessage::ParameterDescription(param_types),
+            QueryEvent::SchemaCreated => command_complete("CREATE SCHEMA"),
+            QueryEvent::SchemaDropped => command_complete("DROP SCHEMA"),
+            QueryEvent::TableCreated => command_complete("CREATE TABLE"),
+            QueryEvent::TableDropped => command_complete("DROP TABLE"),
+            QueryEvent::IndexCreated => command_complete("CREATE INDEX"),
+            QueryEvent::VariableSet => command_complete("SET"),
+            QueryEvent::TransactionStarted => command_complete("BEGIN"),
+            QueryEvent::RecordsInserted(records) => command_complete(format!("INSERT 0 {}", records).as_str()),
+            QueryEvent::RowDescription(description) => {
+                let mut buff = Vec::new();
+                let len = description.len();
+                for (name, oid) in description {
+                    buff.extend_from_slice(name.as_bytes());
+                    buff.extend_from_slice(&[0]); // end of c string
+                    buff.extend_from_slice(&(0i32).to_be_bytes()); // table id
+                    buff.extend_from_slice(&(0i16).to_be_bytes()); // column id
+                    buff.extend_from_slice(&oid.to_be_bytes());
+                    buff.extend_from_slice(&(type_len(oid)).to_be_bytes());
+                    buff.extend_from_slice(&(-1i32).to_be_bytes()); // type modifier
+                    buff.extend_from_slice(&0i16.to_be_bytes());
+                }
+                let mut len_buff = Vec::new();
+                len_buff.extend_from_slice(&[ROW_DESCRIPTION]);
+                len_buff.extend_from_slice(&(6 + buff.len() as i32).to_be_bytes());
+                len_buff.extend_from_slice(&(len as i16).to_be_bytes());
+                len_buff.extend_from_slice(&buff);
+                len_buff
+            }
+            QueryEvent::DataRow(row) => {
+                let mut row_buff = Vec::new();
+                for field in row.iter() {
+                    row_buff.extend_from_slice(&(field.len() as i32).to_be_bytes());
+                    row_buff.extend_from_slice(field.as_str().as_bytes());
+                }
+                let mut len_buff = Vec::new();
+                len_buff.extend_from_slice(&[DATA_ROW]);
+                len_buff.extend_from_slice(&(6 + row_buff.len() as i32).to_be_bytes());
+                len_buff.extend_from_slice(&(row.len() as i16).to_be_bytes());
+                len_buff.extend_from_slice(&row_buff);
+                len_buff
+            }
+            QueryEvent::RecordsSelected(records) => command_complete(format!("SELECT {}", records).as_str()),
+            QueryEvent::RecordsUpdated(records) => command_complete(format!("UPDATE {}", records).as_str()),
+            QueryEvent::RecordsDeleted(records) => command_complete(format!("DELETE {}", records).as_str()),
+            QueryEvent::StatementPrepared => command_complete("PREPARE"),
+            QueryEvent::StatementDeallocated => command_complete("DEALLOCATE"),
+            QueryEvent::StatementParameters(param_types) => {
+                let mut type_id_buff = Vec::new();
+                for oid in param_types.iter() {
+                    type_id_buff.extend_from_slice(&oid.to_be_bytes());
+                }
+                let mut buff = Vec::new();
+                buff.extend_from_slice(&[PARAMETER_DESCRIPTION]);
+                buff.extend_from_slice(&(6 + type_id_buff.len() as i32).to_be_bytes());
+                buff.extend_from_slice(&(param_types.len() as i16).to_be_bytes());
+                buff.extend_from_slice(&type_id_buff);
+                buff
+            }
             QueryEvent::StatementDescription(description) => {
                 if description.is_empty() {
-                    BackendMessage::NoData
+                    vec![NO_DATA, 0, 0, 0, 4]
                 } else {
-                    BackendMessage::RowDescription(
-                        description
-                            .into_iter()
-                            .map(|(name, pg_type)| ColumnMetadata::new(name, pg_type))
-                            .collect(),
-                    )
+                    let mut buff = Vec::new();
+                    let len = description.len();
+                    for (name, oid) in description {
+                        buff.extend_from_slice(name.as_bytes());
+                        buff.extend_from_slice(&[0]); // end of c string
+                        buff.extend_from_slice(&(0i32).to_be_bytes()); // table id
+                        buff.extend_from_slice(&(0i16).to_be_bytes()); // column id
+                        buff.extend_from_slice(&oid.to_be_bytes());
+                        buff.extend_from_slice(&(type_len(oid)).to_be_bytes());
+                        buff.extend_from_slice(&(-1i32).to_be_bytes()); // type modifier
+                        buff.extend_from_slice(&0i16.to_be_bytes());
+                    }
+                    let mut len_buff = Vec::new();
+                    len_buff.extend_from_slice(&[ROW_DESCRIPTION]);
+                    len_buff.extend_from_slice(&(6 + buff.len() as i32).to_be_bytes());
+                    len_buff.extend_from_slice(&(len as i16).to_be_bytes());
+                    len_buff.extend_from_slice(&buff);
+                    len_buff
                 }
             }
-            QueryEvent::QueryComplete => BackendMessage::ReadyForQuery,
-            QueryEvent::ParseComplete => BackendMessage::ParseComplete,
-            QueryEvent::BindComplete => BackendMessage::BindComplete,
+            QueryEvent::QueryComplete => vec![READY_FOR_QUERY, 0, 0, 0, 5, EMPTY_QUERY_RESPONSE],
+            QueryEvent::ParseComplete => vec![PARSE_COMPLETE, 0, 0, 0, 4],
+            QueryEvent::BindComplete => vec![BIND_COMPLETE, 0, 0, 0, 4],
         }
     }
 }
@@ -151,7 +227,7 @@ pub(crate) enum QueryErrorKind {
     FeatureNotSupported(String),
     TooManyInsertExpressions,
     NumericTypeOutOfRange {
-        pg_type: PgType,
+        pg_type: u32,
         column_name: String,
         row_index: usize, // TODO make it optional - does not make sense for update query
     },
@@ -161,7 +237,7 @@ pub(crate) enum QueryErrorKind {
         row_index: usize, // TODO make it optional - does not make sense for update query
     },
     MostSpecificTypeMismatch {
-        pg_type: PgType,
+        pg_type: u32,
         value: String,
         column_name: String,
         row_index: usize, // TODO make it optional - does not make sense for update query
@@ -173,7 +249,7 @@ pub(crate) enum QueryErrorKind {
         row_index: usize, // TODO make it optional - does not make sense for update query
     },
     StringTypeLengthMismatch {
-        pg_type: PgType,
+        pg_type: u32,
         len: u64,
         column_name: String,
         row_index: usize, // TODO make it optional - does not make sense for update query
@@ -191,13 +267,13 @@ pub(crate) enum QueryErrorKind {
     },
     SyntaxError(String),
     InvalidTextRepresentation {
-        pg_type: PgType,
+        pg_type: u32,
         value: String,
     },
     DuplicateColumn(String),
     DatatypeMismatch {
         op: String,
-        // TODO: make it PgType
+        // TODO: make them not Strings
         target_type: String,
         actual_type: String,
     },
@@ -371,9 +447,24 @@ impl QueryError {
     }
 }
 
-impl From<QueryError> for BackendMessage {
-    fn from(error: QueryError) -> BackendMessage {
-        BackendMessage::ErrorResponse(Some(error.severity()), Some(error.code()), Some(error.message()))
+impl From<QueryError> for Vec<u8> {
+    fn from(error: QueryError) -> Vec<u8> {
+        let mut error_response_buff = Vec::new();
+        error_response_buff.extend_from_slice(&[ERROR_RESPONSE]);
+        let mut message_buff = Vec::new();
+        message_buff.extend_from_slice(&[SEVERITY]);
+        message_buff.extend_from_slice(error.severity().as_bytes());
+        message_buff.extend_from_slice(&[0]);
+        message_buff.extend_from_slice(&[CODE]);
+        message_buff.extend_from_slice(error.code().as_bytes());
+        message_buff.extend_from_slice(&[0]);
+        message_buff.extend_from_slice(&[MESSAGE]);
+        message_buff.extend_from_slice(error.message().as_bytes());
+        message_buff.extend_from_slice(&[0]);
+        error_response_buff.extend_from_slice(&(message_buff.len() as i32 + 4 + 1).to_be_bytes());
+        error_response_buff.extend_from_slice(message_buff.as_ref());
+        error_response_buff.extend_from_slice(&[0]);
+        error_response_buff.to_vec()
     }
 }
 
@@ -531,7 +622,7 @@ impl QueryError {
     }
 
     /// numeric out of range constructor
-    pub fn out_of_range<S: ToString>(pg_type: PgType, column_name: S, row_index: usize) -> QueryError {
+    pub fn out_of_range<S: ToString>(pg_type: u32, column_name: S, row_index: usize) -> QueryError {
         QueryError {
             severity: Severity::Error,
             kind: QueryErrorKind::NumericTypeOutOfRange {
@@ -568,7 +659,7 @@ impl QueryError {
     /// type mismatch constructor
     pub fn most_specific_type_mismatch<S: ToString>(
         value: S,
-        pg_type: PgType,
+        pg_type: u32,
         column_name: S,
         row_index: usize,
     ) -> QueryError {
@@ -602,12 +693,7 @@ impl QueryError {
     }
 
     /// length of string types do not match constructor
-    pub fn string_length_mismatch<S: ToString>(
-        pg_type: PgType,
-        len: u64,
-        column_name: S,
-        row_index: usize,
-    ) -> QueryError {
+    pub fn string_length_mismatch<S: ToString>(pg_type: u32, len: u64, column_name: S, row_index: usize) -> QueryError {
         QueryError {
             severity: Severity::Error,
             kind: QueryErrorKind::StringTypeLengthMismatch {
@@ -620,7 +706,7 @@ impl QueryError {
     }
 
     /// invalid text representation
-    pub fn invalid_text_representation<S: ToString>(pg_type: PgType, value: S) -> QueryError {
+    pub fn invalid_text_representation<S: ToString>(pg_type: u32, value: S) -> QueryError {
         QueryError {
             severity: Severity::Error,
             kind: QueryErrorKind::InvalidTextRepresentation {
@@ -664,392 +750,6 @@ impl QueryError {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[cfg(test)]
-    mod query_event {
-        use super::*;
-
-        #[test]
-        fn create_schema() {
-            let message: BackendMessage = QueryEvent::SchemaCreated.into();
-            assert_eq!(message, BackendMessage::CommandComplete("CREATE SCHEMA".to_owned()))
-        }
-
-        #[test]
-        fn drop_schema() {
-            let message: BackendMessage = QueryEvent::SchemaDropped.into();
-            assert_eq!(message, BackendMessage::CommandComplete("DROP SCHEMA".to_owned()))
-        }
-
-        #[test]
-        fn create_table() {
-            let message: BackendMessage = QueryEvent::TableCreated.into();
-            assert_eq!(message, BackendMessage::CommandComplete("CREATE TABLE".to_owned()));
-        }
-
-        #[test]
-        fn drop_table() {
-            let message: BackendMessage = QueryEvent::TableDropped.into();
-            assert_eq!(message, BackendMessage::CommandComplete("DROP TABLE".to_owned()));
-        }
-
-        #[test]
-        fn insert_record() {
-            let records_number = 3;
-            let message: BackendMessage = QueryEvent::RecordsInserted(records_number).into();
-            assert_eq!(
-                message,
-                BackendMessage::CommandComplete(format!("INSERT 0 {}", records_number))
-            )
-        }
-
-        #[test]
-        fn row_description() {
-            let message: BackendMessage = QueryEvent::RowDescription(vec![
-                ColumnMetadata::new("column_name_1", PgType::SmallInt),
-                ColumnMetadata::new("column_name_2", PgType::SmallInt),
-            ])
-            .into();
-
-            assert_eq!(
-                message,
-                BackendMessage::RowDescription(vec![
-                    ColumnMetadata::new("column_name_1", PgType::SmallInt),
-                    ColumnMetadata::new("column_name_2", PgType::SmallInt),
-                ])
-            )
-        }
-
-        #[test]
-        fn data_row() {
-            let message: BackendMessage = QueryEvent::DataRow(vec!["1".to_owned(), "2".to_owned()]).into();
-            assert_eq!(message, BackendMessage::DataRow(vec!["1".to_owned(), "2".to_owned()]))
-        }
-
-        #[test]
-        fn select_records() {
-            let message: BackendMessage = QueryEvent::RecordsSelected(2).into();
-            assert_eq!(message, BackendMessage::CommandComplete("SELECT 2".to_owned()));
-        }
-
-        #[test]
-        fn update_records() {
-            let records_number = 3;
-            let message: BackendMessage = QueryEvent::RecordsUpdated(records_number).into();
-            assert_eq!(
-                message,
-                BackendMessage::CommandComplete(format!("UPDATE {}", records_number))
-            );
-        }
-
-        #[test]
-        fn delete_records() {
-            let records_number = 3;
-            let message: BackendMessage = QueryEvent::RecordsDeleted(records_number).into();
-            assert_eq!(
-                message,
-                BackendMessage::CommandComplete(format!("DELETE {}", records_number))
-            )
-        }
-
-        #[test]
-        fn prepare_statement() {
-            let message: BackendMessage = QueryEvent::StatementPrepared.into();
-            assert_eq!(message, BackendMessage::CommandComplete("PREPARE".to_owned()))
-        }
-
-        #[test]
-        fn deallocate_statement() {
-            let message: BackendMessage = QueryEvent::StatementDeallocated.into();
-            assert_eq!(message, BackendMessage::CommandComplete("DEALLOCATE".to_owned()))
-        }
-
-        #[test]
-        fn statement_description() {
-            let message: BackendMessage =
-                QueryEvent::StatementDescription(vec![("si_column".to_owned(), PgType::SmallInt)]).into();
-            assert_eq!(
-                message,
-                BackendMessage::RowDescription(vec![ColumnMetadata::new("si_column", PgType::SmallInt)])
-            )
-        }
-
-        #[test]
-        fn statement_parameters() {
-            let message: BackendMessage = QueryEvent::StatementParameters(vec![PgType::SmallInt]).into();
-            assert_eq!(message, BackendMessage::ParameterDescription(vec![PgType::SmallInt]))
-        }
-
-        #[test]
-        fn complete_query() {
-            let message: BackendMessage = QueryEvent::QueryComplete.into();
-            assert_eq!(message, BackendMessage::ReadyForQuery)
-        }
-
-        #[test]
-        fn complete_parse() {
-            let message: BackendMessage = QueryEvent::ParseComplete.into();
-            assert_eq!(message, BackendMessage::ParseComplete)
-        }
-
-        #[test]
-        fn complete_bind() {
-            let message: BackendMessage = QueryEvent::BindComplete.into();
-            assert_eq!(message, BackendMessage::BindComplete)
-        }
-    }
-
-    #[cfg(test)]
-    mod query_error {
-        use super::*;
-
-        #[test]
-        fn schema_already_exists() {
-            let schema_name = "some_table_name";
-            let message: BackendMessage = QueryError::schema_already_exists(schema_name).into();
-            assert_eq!(
-                message,
-                BackendMessage::ErrorResponse(
-                    Some("ERROR"),
-                    Some("42P06"),
-                    Some(format!("schema \"{}\" already exists", schema_name)),
-                )
-            )
-        }
-
-        #[test]
-        fn schema_does_not_exists() {
-            let schema_name = "some_table_name";
-            let message: BackendMessage = QueryError::schema_does_not_exist(schema_name).into();
-            assert_eq!(
-                message,
-                BackendMessage::ErrorResponse(
-                    Some("ERROR"),
-                    Some("3F000"),
-                    Some(format!("schema \"{}\" does not exist", schema_name)),
-                )
-            )
-        }
-
-        #[test]
-        fn table_already_exists() {
-            let table_name = "some_table_name";
-            let message: BackendMessage = QueryError::table_already_exists(table_name).into();
-            assert_eq!(
-                message,
-                BackendMessage::ErrorResponse(
-                    Some("ERROR"),
-                    Some("42P07"),
-                    Some(format!("table \"{}\" already exists", table_name)),
-                )
-            )
-        }
-
-        #[test]
-        fn table_does_not_exists() {
-            let table_name = "some_table_name";
-            let message: BackendMessage = QueryError::table_does_not_exist(table_name).into();
-            assert_eq!(
-                message,
-                BackendMessage::ErrorResponse(
-                    Some("ERROR"),
-                    Some("42P01"),
-                    Some(format!("table \"{}\" does not exist", table_name)),
-                )
-            )
-        }
-
-        #[test]
-        fn one_column_does_not_exists() {
-            let message: BackendMessage = QueryError::column_does_not_exist("column_not_in_table").into();
-            assert_eq!(
-                message,
-                BackendMessage::ErrorResponse(
-                    Some("ERROR"),
-                    Some("42703"),
-                    Some("column column_not_in_table does not exist".to_owned()),
-                )
-            )
-        }
-
-        #[test]
-        fn indeterminate_parameter_data_type() {
-            let message: BackendMessage = QueryError::indeterminate_parameter_data_type(8).into();
-            assert_eq!(
-                message,
-                BackendMessage::ErrorResponse(
-                    Some("ERROR"),
-                    Some("42P18"),
-                    Some("could not determine data type of parameter $9".to_owned())
-                ),
-            )
-        }
-
-        #[test]
-        fn invalid_parameter_value() {
-            let message: BackendMessage = QueryError::invalid_parameter_value("Wrong parameter value").into();
-            assert_eq!(
-                message,
-                BackendMessage::ErrorResponse(Some("ERROR"), Some("22023"), Some("Wrong parameter value".to_owned()))
-            )
-        }
-
-        #[test]
-        fn prepared_statement_does_not_exists() {
-            let message: BackendMessage = QueryError::prepared_statement_does_not_exist("statement_name").into();
-            assert_eq!(
-                message,
-                BackendMessage::ErrorResponse(
-                    Some("ERROR"),
-                    Some("26000"),
-                    Some("prepared statement statement_name does not exist".to_owned()),
-                )
-            )
-        }
-
-        #[test]
-        fn portal_does_not_exists() {
-            let message: BackendMessage = QueryError::portal_does_not_exist("portal_name").into();
-            assert_eq!(
-                message,
-                BackendMessage::ErrorResponse(
-                    Some("ERROR"),
-                    Some("26000"),
-                    Some("portal portal_name does not exist".to_owned()),
-                )
-            )
-        }
-
-        #[test]
-        fn type_does_not_exists() {
-            let message: BackendMessage = QueryError::type_does_not_exist("type_name").into();
-            assert_eq!(
-                message,
-                BackendMessage::ErrorResponse(
-                    Some("ERROR"),
-                    Some("42704"),
-                    Some("type \"type_name\" does not exist".to_owned()),
-                )
-            )
-        }
-
-        #[test]
-        fn protocol_violation() {
-            let message: BackendMessage = QueryError::protocol_violation("Wrong protocol data").into();
-            assert_eq!(
-                message,
-                BackendMessage::ErrorResponse(Some("ERROR"), Some("08P01"), Some("Wrong protocol data".to_owned()))
-            )
-        }
-
-        #[test]
-        fn feature_not_supported() {
-            let raw_sql_query = "some SQL query";
-            let message: BackendMessage = QueryError::feature_not_supported(raw_sql_query).into();
-            assert_eq!(
-                message,
-                BackendMessage::ErrorResponse(
-                    Some("ERROR"),
-                    Some("0A000"),
-                    Some(format!("Currently, Query '{}' can't be executed", raw_sql_query)),
-                )
-            )
-        }
-
-        #[test]
-        fn too_many_insert_expressions() {
-            let message: BackendMessage = QueryError::too_many_insert_expressions().into();
-            assert_eq!(
-                message,
-                BackendMessage::ErrorResponse(
-                    Some("ERROR"),
-                    Some("42601"),
-                    Some("INSERT has more expressions than target columns".to_owned()),
-                )
-            )
-        }
-
-        #[test]
-        fn out_of_range_constraint_violation() {
-            let message: BackendMessage = QueryError::out_of_range(PgType::SmallInt, "col1".to_string(), 1).into();
-            assert_eq!(
-                message,
-                BackendMessage::ErrorResponse(
-                    Some("ERROR"),
-                    Some("22003"),
-                    Some("smallint is out of range for column 'col1' at row 1".to_owned()),
-                )
-            )
-        }
-
-        #[test]
-        fn type_mismatch_constraint_violation() {
-            let message: BackendMessage =
-                QueryError::most_specific_type_mismatch("abc", PgType::SmallInt, "col1", 1).into();
-            assert_eq!(
-                message,
-                BackendMessage::ErrorResponse(
-                    Some("ERROR"),
-                    Some("2200G"),
-                    Some("invalid input syntax for type smallint for column 'col1' at row 1: \"abc\"".to_owned()),
-                )
-            )
-        }
-
-        #[test]
-        fn string_length_mismatch_constraint_violation() {
-            let message: BackendMessage =
-                QueryError::string_length_mismatch(PgType::Char, 5, "col1".to_string(), 1).into();
-            assert_eq!(
-                message,
-                BackendMessage::ErrorResponse(
-                    Some("ERROR"),
-                    Some("22026"),
-                    Some("value too long for type character(5) for column 'col1' at row 1".to_owned()),
-                )
-            )
-        }
-
-        #[test]
-        fn undefined_function() {
-            let message: BackendMessage =
-                QueryError::undefined_function("||".to_owned(), "NUMBER".to_owned(), "NUMBER".to_owned()).into();
-            assert_eq!(
-                message,
-                BackendMessage::ErrorResponse(
-                    Some("ERROR"),
-                    Some("42883"),
-                    Some("operator does not exist: (NUMBER || NUMBER)".to_owned()),
-                )
-            )
-        }
-
-        #[test]
-        fn syntax_error() {
-            let message: BackendMessage = QueryError::syntax_error("expression").into();
-            assert_eq!(
-                message,
-                BackendMessage::ErrorResponse(
-                    Some("ERROR"),
-                    Some("42601"),
-                    Some("syntax error: expression".to_owned()),
-                )
-            )
-        }
-
-        #[test]
-        fn duplicate_column() {
-            let message: BackendMessage = QueryError::duplicate_column("col").into();
-            assert_eq!(
-                message,
-                BackendMessage::ErrorResponse(
-                    Some("ERROR"),
-                    Some("42701"),
-                    Some("column \"col\" specified more than once".to_owned()),
-                )
-            )
-        }
-    }
 
     #[cfg(test)]
     mod severity {

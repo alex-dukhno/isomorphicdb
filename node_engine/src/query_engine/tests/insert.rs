@@ -19,12 +19,15 @@ fn insert_into_nonexistent_table(database_with_schema: (InMemory, ResultCollecto
     let (mut engine, collector) = database_with_schema;
 
     engine
-        .execute(CommandMessage::Query {
+        .execute(Request::Query {
             sql: "insert into schema_name.table_name values (123);".to_owned(),
         })
         .expect("query executed");
 
-    collector.assert_receive_single(Err(QueryError::table_does_not_exist("schema_name.table_name")));
+    collector
+        .lock()
+        .unwrap()
+        .assert_receive_single(Err(QueryError::table_does_not_exist("schema_name.table_name")));
 }
 
 #[rstest::rstest]
@@ -32,18 +35,24 @@ fn insert_value_in_non_existent_column(database_with_schema: (InMemory, ResultCo
     let (mut engine, collector) = database_with_schema;
 
     engine
-        .execute(CommandMessage::Query {
+        .execute(Request::Query {
             sql: "create table schema_name.table_name (column_test smallint);".to_owned(),
         })
         .expect("query executed");
-    collector.assert_receive_single(Ok(QueryEvent::TableCreated));
+    collector
+        .lock()
+        .unwrap()
+        .assert_receive_single(Ok(QueryEvent::TableCreated));
 
     engine
-        .execute(CommandMessage::Query {
+        .execute(Request::Query {
             sql: "insert into schema_name.table_name (non_existent) values (123);".to_owned(),
         })
         .expect("query executed");
-    collector.assert_receive_single(Err(QueryError::column_does_not_exist("non_existent")));
+    collector
+        .lock()
+        .unwrap()
+        .assert_receive_single(Err(QueryError::column_does_not_exist("non_existent")));
 }
 
 #[rstest::rstest]
@@ -51,29 +60,32 @@ fn insert_and_select_single_row(database_with_schema: (InMemory, ResultCollector
     let (mut engine, collector) = database_with_schema;
 
     engine
-        .execute(CommandMessage::Query {
+        .execute(Request::Query {
             sql: "create table schema_name.table_name (column_test smallint);".to_owned(),
         })
         .expect("query executed");
-    collector.assert_receive_single(Ok(QueryEvent::TableCreated));
+    collector
+        .lock()
+        .unwrap()
+        .assert_receive_single(Ok(QueryEvent::TableCreated));
 
     engine
-        .execute(CommandMessage::Query {
+        .execute(Request::Query {
             sql: "insert into schema_name.table_name values (123);".to_owned(),
         })
         .expect("query executed");
-    collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+    collector
+        .lock()
+        .unwrap()
+        .assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
     engine
-        .execute(CommandMessage::Query {
+        .execute(Request::Query {
             sql: "select * from schema_name.table_name;".to_owned(),
         })
         .expect("query executed");
-    collector.assert_receive_many(vec![
-        Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
-            "column_test",
-            PgType::SmallInt,
-        )])),
+    collector.lock().unwrap().assert_receive_many(vec![
+        Ok(QueryEvent::RowDescription(vec![("column_test".to_owned(), SMALLINT)])),
         Ok(QueryEvent::DataRow(vec!["123".to_owned()])),
         Ok(QueryEvent::RecordsSelected(1)),
     ]);
@@ -84,36 +96,42 @@ fn insert_and_select_multiple_rows(database_with_schema: (InMemory, ResultCollec
     let (mut engine, collector) = database_with_schema;
 
     engine
-        .execute(CommandMessage::Query {
+        .execute(Request::Query {
             sql: "create table schema_name.table_name (column_test smallint);".to_owned(),
         })
         .expect("query executed");
-    collector.assert_receive_single(Ok(QueryEvent::TableCreated));
+    collector
+        .lock()
+        .unwrap()
+        .assert_receive_single(Ok(QueryEvent::TableCreated));
 
     engine
-        .execute(CommandMessage::Query {
+        .execute(Request::Query {
             sql: "insert into schema_name.table_name values (123);".to_owned(),
         })
         .expect("query executed");
-    collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+    collector
+        .lock()
+        .unwrap()
+        .assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
     engine
-        .execute(CommandMessage::Query {
+        .execute(Request::Query {
             sql: "insert into schema_name.table_name values (456);".to_owned(),
         })
         .expect("query executed");
-    collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+    collector
+        .lock()
+        .unwrap()
+        .assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
     engine
-        .execute(CommandMessage::Query {
+        .execute(Request::Query {
             sql: "select * from schema_name.table_name;".to_owned(),
         })
         .expect("query executed");
-    collector.assert_receive_many(vec![
-        Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
-            "column_test",
-            PgType::SmallInt,
-        )])),
+    collector.lock().unwrap().assert_receive_many(vec![
+        Ok(QueryEvent::RowDescription(vec![("column_test".to_owned(), SMALLINT)])),
         Ok(QueryEvent::DataRow(vec!["123".to_owned()])),
         Ok(QueryEvent::DataRow(vec!["456".to_owned()])),
         Ok(QueryEvent::RecordsSelected(2)),
@@ -125,29 +143,35 @@ fn insert_and_select_named_columns(database_with_schema: (InMemory, ResultCollec
     let (mut engine, collector) = database_with_schema;
 
     engine
-        .execute(CommandMessage::Query {
+        .execute(Request::Query {
             sql: "create table schema_name.table_name (col1 smallint, col2 smallint, col3 smallint);".to_owned(),
         })
         .expect("query executed");
-    collector.assert_receive_single(Ok(QueryEvent::TableCreated));
+    collector
+        .lock()
+        .unwrap()
+        .assert_receive_single(Ok(QueryEvent::TableCreated));
 
     engine
-        .execute(CommandMessage::Query {
+        .execute(Request::Query {
             sql: "insert into schema_name.table_name (col2, col3, col1) values (1, 2, 3), (4, 5, 6);".to_owned(),
         })
         .expect("query executed");
-    collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(2)));
+    collector
+        .lock()
+        .unwrap()
+        .assert_receive_single(Ok(QueryEvent::RecordsInserted(2)));
 
     engine
-        .execute(CommandMessage::Query {
+        .execute(Request::Query {
             sql: "select * from schema_name.table_name;".to_owned(),
         })
         .expect("query executed");
-    collector.assert_receive_many(vec![
+    collector.lock().unwrap().assert_receive_many(vec![
         Ok(QueryEvent::RowDescription(vec![
-            ColumnMetadata::new("col1", PgType::SmallInt),
-            ColumnMetadata::new("col2", PgType::SmallInt),
-            ColumnMetadata::new("col3", PgType::SmallInt),
+            ("col1".to_owned(), SMALLINT),
+            ("col2".to_owned(), SMALLINT),
+            ("col3".to_owned(), SMALLINT),
         ])),
         Ok(QueryEvent::DataRow(vec![
             "3".to_owned(),
@@ -168,31 +192,37 @@ fn insert_multiple_rows(database_with_schema: (InMemory, ResultCollector)) {
     let (mut engine, collector) = database_with_schema;
 
     engine
-        .execute(CommandMessage::Query {
+        .execute(Request::Query {
             sql: "create table schema_name.table_name (column_1 smallint, column_2 smallint, column_3 smallint);"
                 .to_owned(),
         })
         .expect("query executed");
-    collector.assert_receive_single(Ok(QueryEvent::TableCreated));
+    collector
+        .lock()
+        .unwrap()
+        .assert_receive_single(Ok(QueryEvent::TableCreated));
 
     engine
-        .execute(CommandMessage::Query {
+        .execute(Request::Query {
             sql: "insert into schema_name.table_name values (1, 4, 7), (2, 5, 8), (3, 6, 9);".to_owned(),
         })
         .expect("query executed");
-    collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(3)));
+    collector
+        .lock()
+        .unwrap()
+        .assert_receive_single(Ok(QueryEvent::RecordsInserted(3)));
 
     engine
-        .execute(CommandMessage::Query {
+        .execute(Request::Query {
             sql: "select * from schema_name.table_name;".to_owned(),
         })
         .expect("query executed");
 
-    collector.assert_receive_many(vec![
+    collector.lock().unwrap().assert_receive_many(vec![
         Ok(QueryEvent::RowDescription(vec![
-            ColumnMetadata::new("column_1", PgType::SmallInt),
-            ColumnMetadata::new("column_2", PgType::SmallInt),
-            ColumnMetadata::new("column_3", PgType::SmallInt),
+            ("column_1".to_owned(), SMALLINT),
+            ("column_2".to_owned(), SMALLINT),
+            ("column_3".to_owned(), SMALLINT),
         ])),
         Ok(QueryEvent::DataRow(vec![
             "1".to_owned(),
@@ -217,37 +247,46 @@ fn insert_multiple_rows(database_with_schema: (InMemory, ResultCollector)) {
 fn insert_and_select_different_integer_types(database_with_schema: (InMemory, ResultCollector)) {
     let (mut engine, collector) = database_with_schema;
     engine
-        .execute(CommandMessage::Query {
+        .execute(Request::Query {
             sql: "create table schema_name.table_name (column_si smallint, column_i integer, column_bi bigint);"
                 .to_owned(),
         })
         .expect("query executed");
-    collector.assert_receive_single(Ok(QueryEvent::TableCreated));
+    collector
+        .lock()
+        .unwrap()
+        .assert_receive_single(Ok(QueryEvent::TableCreated));
 
     engine
-        .execute(CommandMessage::Query {
+        .execute(Request::Query {
             sql: "insert into schema_name.table_name values(-32768, -2147483648, -9223372036854775808);".to_owned(),
         })
         .expect("query executed");
-    collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+    collector
+        .lock()
+        .unwrap()
+        .assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
     engine
-        .execute(CommandMessage::Query {
+        .execute(Request::Query {
             sql: "insert into schema_name.table_name values(32767, 2147483647, 9223372036854775807);".to_owned(),
         })
         .expect("query executed");
-    collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+    collector
+        .lock()
+        .unwrap()
+        .assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
     engine
-        .execute(CommandMessage::Query {
+        .execute(Request::Query {
             sql: "select * from schema_name.table_name;".to_owned(),
         })
         .expect("query executed");
-    collector.assert_receive_many(vec![
+    collector.lock().unwrap().assert_receive_many(vec![
         Ok(QueryEvent::RowDescription(vec![
-            ColumnMetadata::new("column_si", PgType::SmallInt),
-            ColumnMetadata::new("column_i", PgType::Integer),
-            ColumnMetadata::new("column_bi", PgType::BigInt),
+            ("column_si".to_owned(), SMALLINT),
+            ("column_i".to_owned(), INT),
+            ("column_bi".to_owned(), BIGINT),
         ])),
         Ok(QueryEvent::DataRow(vec![
             "-32768".to_owned(),
@@ -267,35 +306,44 @@ fn insert_and_select_different_integer_types(database_with_schema: (InMemory, Re
 fn insert_and_select_different_character_types(database_with_schema: (InMemory, ResultCollector)) {
     let (mut engine, collector) = database_with_schema;
     engine
-        .execute(CommandMessage::Query {
+        .execute(Request::Query {
             sql: "create table schema_name.table_name (column_c char(10), column_vc varchar(10));".to_owned(),
         })
         .expect("query executed");
-    collector.assert_receive_single(Ok(QueryEvent::TableCreated));
+    collector
+        .lock()
+        .unwrap()
+        .assert_receive_single(Ok(QueryEvent::TableCreated));
 
     engine
-        .execute(CommandMessage::Query {
+        .execute(Request::Query {
             sql: "insert into schema_name.table_name values('12345abcde', '12345abcde');".to_owned(),
         })
         .expect("query executed");
-    collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+    collector
+        .lock()
+        .unwrap()
+        .assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
     engine
-        .execute(CommandMessage::Query {
+        .execute(Request::Query {
             sql: "insert into schema_name.table_name values('12345abcde', 'abcde');".to_owned(),
         })
         .expect("query executed");
-    collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+    collector
+        .lock()
+        .unwrap()
+        .assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
     engine
-        .execute(CommandMessage::Query {
+        .execute(Request::Query {
             sql: "select * from schema_name.table_name;".to_owned(),
         })
         .expect("query executed");
-    collector.assert_receive_many(vec![
+    collector.lock().unwrap().assert_receive_many(vec![
         Ok(QueryEvent::RowDescription(vec![
-            ColumnMetadata::new("column_c", PgType::Char),
-            ColumnMetadata::new("column_vc", PgType::VarChar),
+            ("column_c".to_owned(), CHAR),
+            ("column_vc".to_owned(), VARCHAR),
         ])),
         Ok(QueryEvent::DataRow(vec![
             "12345abcde".to_owned(),
@@ -310,32 +358,44 @@ fn insert_and_select_different_character_types(database_with_schema: (InMemory, 
 fn insert_booleans(database_with_schema: (InMemory, ResultCollector)) {
     let (mut engine, collector) = database_with_schema;
     engine
-        .execute(CommandMessage::Query {
+        .execute(Request::Query {
             sql: "create table schema_name.table_name (b boolean);".to_owned(),
         })
         .expect("query executed");
-    collector.assert_receive_single(Ok(QueryEvent::TableCreated));
+    collector
+        .lock()
+        .unwrap()
+        .assert_receive_single(Ok(QueryEvent::TableCreated));
 
     engine
-        .execute(CommandMessage::Query {
+        .execute(Request::Query {
             sql: "insert into schema_name.table_name values(true);".to_owned(),
         })
         .expect("query executed");
-    collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+    collector
+        .lock()
+        .unwrap()
+        .assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
     engine
-        .execute(CommandMessage::Query {
+        .execute(Request::Query {
             sql: "insert into schema_name.table_name values(TRUE::boolean);".to_owned(),
         })
         .expect("query executed");
-    collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+    collector
+        .lock()
+        .unwrap()
+        .assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
     engine
-        .execute(CommandMessage::Query {
+        .execute(Request::Query {
             sql: "insert into schema_name.table_name values('true'::boolean);".to_owned(),
         })
         .expect("query executed");
-    collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+    collector
+        .lock()
+        .unwrap()
+        .assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 }
 
 #[cfg(test)]
@@ -351,11 +411,13 @@ mod operators {
             let (mut engine, collector) = database_with_schema;
 
             engine
-                .execute(CommandMessage::Query {
+                .execute(Request::Query {
                     sql: "create table schema_name.table_name(column_si smallint);".to_owned(),
                 })
                 .expect("query executed");
             collector
+                .lock()
+                .unwrap()
                 .assert_receive_till_this_moment(vec![Ok(QueryEvent::TableCreated), Ok(QueryEvent::QueryComplete)]);
 
             (engine, collector)
@@ -366,22 +428,22 @@ mod operators {
             let (mut engine, collector) = with_table;
 
             engine
-                .execute(CommandMessage::Query {
+                .execute(Request::Query {
                     sql: "insert into schema_name.table_name values (1 + 2);".to_owned(),
                 })
                 .expect("query executed");
-            collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+            collector
+                .lock()
+                .unwrap()
+                .assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
             engine
-                .execute(CommandMessage::Query {
+                .execute(Request::Query {
                     sql: "select * from schema_name.table_name;".to_owned(),
                 })
                 .expect("query executed");
-            collector.assert_receive_many(vec![
-                Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
-                    "column_si",
-                    PgType::SmallInt,
-                )])),
+            collector.lock().unwrap().assert_receive_many(vec![
+                Ok(QueryEvent::RowDescription(vec![("column_si".to_owned(), SMALLINT)])),
                 Ok(QueryEvent::DataRow(vec!["3".to_owned()])),
                 Ok(QueryEvent::RecordsSelected(1)),
             ]);
@@ -392,22 +454,22 @@ mod operators {
             let (mut engine, collector) = with_table;
 
             engine
-                .execute(CommandMessage::Query {
+                .execute(Request::Query {
                     sql: "insert into schema_name.table_name values (1 - 2);".to_owned(),
                 })
                 .expect("query executed");
-            collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+            collector
+                .lock()
+                .unwrap()
+                .assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
             engine
-                .execute(CommandMessage::Query {
+                .execute(Request::Query {
                     sql: "select * from schema_name.table_name;".to_owned(),
                 })
                 .expect("query executed");
-            collector.assert_receive_many(vec![
-                Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
-                    "column_si",
-                    PgType::SmallInt,
-                )])),
+            collector.lock().unwrap().assert_receive_many(vec![
+                Ok(QueryEvent::RowDescription(vec![("column_si".to_owned(), SMALLINT)])),
                 Ok(QueryEvent::DataRow(vec!["-1".to_owned()])),
                 Ok(QueryEvent::RecordsSelected(1)),
             ]);
@@ -418,22 +480,22 @@ mod operators {
             let (mut engine, collector) = with_table;
 
             engine
-                .execute(CommandMessage::Query {
+                .execute(Request::Query {
                     sql: "insert into schema_name.table_name values (3 * 2);".to_owned(),
                 })
                 .expect("query executed");
-            collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+            collector
+                .lock()
+                .unwrap()
+                .assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
             engine
-                .execute(CommandMessage::Query {
+                .execute(Request::Query {
                     sql: "select * from schema_name.table_name;".to_owned(),
                 })
                 .expect("query executed");
-            collector.assert_receive_many(vec![
-                Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
-                    "column_si",
-                    PgType::SmallInt,
-                )])),
+            collector.lock().unwrap().assert_receive_many(vec![
+                Ok(QueryEvent::RowDescription(vec![("column_si".to_owned(), SMALLINT)])),
                 Ok(QueryEvent::DataRow(vec!["6".to_owned()])),
                 Ok(QueryEvent::RecordsSelected(1)),
             ]);
@@ -444,22 +506,22 @@ mod operators {
             let (mut engine, collector) = with_table;
 
             engine
-                .execute(CommandMessage::Query {
+                .execute(Request::Query {
                     sql: "insert into schema_name.table_name values (8 / 2);".to_owned(),
                 })
                 .expect("query executed");
-            collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+            collector
+                .lock()
+                .unwrap()
+                .assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
             engine
-                .execute(CommandMessage::Query {
+                .execute(Request::Query {
                     sql: "select * from schema_name.table_name;".to_owned(),
                 })
                 .expect("query executed");
-            collector.assert_receive_many(vec![
-                Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
-                    "column_si",
-                    PgType::SmallInt,
-                )])),
+            collector.lock().unwrap().assert_receive_many(vec![
+                Ok(QueryEvent::RowDescription(vec![("column_si".to_owned(), SMALLINT)])),
                 Ok(QueryEvent::DataRow(vec!["4".to_owned()])),
                 Ok(QueryEvent::RecordsSelected(1)),
             ]);
@@ -470,22 +532,22 @@ mod operators {
             let (mut engine, collector) = with_table;
 
             engine
-                .execute(CommandMessage::Query {
+                .execute(Request::Query {
                     sql: "insert into schema_name.table_name values (8 % 2);".to_owned(),
                 })
                 .expect("query executed");
-            collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+            collector
+                .lock()
+                .unwrap()
+                .assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
             engine
-                .execute(CommandMessage::Query {
+                .execute(Request::Query {
                     sql: "select * from schema_name.table_name;".to_owned(),
                 })
                 .expect("query executed");
-            collector.assert_receive_many(vec![
-                Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
-                    "column_si",
-                    PgType::SmallInt,
-                )])),
+            collector.lock().unwrap().assert_receive_many(vec![
+                Ok(QueryEvent::RowDescription(vec![("column_si".to_owned(), SMALLINT)])),
                 Ok(QueryEvent::DataRow(vec!["0".to_owned()])),
                 Ok(QueryEvent::RecordsSelected(1)),
             ]);
@@ -496,22 +558,22 @@ mod operators {
             let (mut engine, collector) = with_table;
 
             engine
-                .execute(CommandMessage::Query {
+                .execute(Request::Query {
                     sql: "insert into schema_name.table_name values (8 ^ 2);".to_owned(),
                 })
                 .expect("query executed");
-            collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+            collector
+                .lock()
+                .unwrap()
+                .assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
             engine
-                .execute(CommandMessage::Query {
+                .execute(Request::Query {
                     sql: "select * from schema_name.table_name;".to_owned(),
                 })
                 .expect("query executed");
-            collector.assert_receive_many(vec![
-                Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
-                    "column_si",
-                    PgType::SmallInt,
-                )])),
+            collector.lock().unwrap().assert_receive_many(vec![
+                Ok(QueryEvent::RowDescription(vec![("column_si".to_owned(), SMALLINT)])),
                 Ok(QueryEvent::DataRow(vec!["64".to_owned()])),
                 Ok(QueryEvent::RecordsSelected(1)),
             ]);
@@ -523,22 +585,22 @@ mod operators {
             let (mut engine, collector) = with_table;
 
             engine
-                .execute(CommandMessage::Query {
+                .execute(Request::Query {
                     sql: "insert into schema_name.table_name values (|/ 16);".to_owned(),
                 })
                 .expect("query executed");
-            collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+            collector
+                .lock()
+                .unwrap()
+                .assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
             engine
-                .execute(CommandMessage::Query {
+                .execute(Request::Query {
                     sql: "select * from schema_name.table_name;".to_owned(),
                 })
                 .expect("query executed");
-            collector.assert_receive_many(vec![
-                Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
-                    "column_si",
-                    PgType::SmallInt,
-                )])),
+            collector.lock().unwrap().assert_receive_many(vec![
+                Ok(QueryEvent::RowDescription(vec![("column_si".to_owned(), SMALLINT)])),
                 Ok(QueryEvent::DataRow(vec!["4".to_owned()])),
                 Ok(QueryEvent::RecordsSelected(1)),
             ]);
@@ -550,22 +612,22 @@ mod operators {
             let (mut engine, collector) = with_table;
 
             engine
-                .execute(CommandMessage::Query {
+                .execute(Request::Query {
                     sql: "insert into schema_name.table_name values (||/ 8);".to_owned(),
                 })
                 .expect("query executed");
-            collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+            collector
+                .lock()
+                .unwrap()
+                .assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
             engine
-                .execute(CommandMessage::Query {
+                .execute(Request::Query {
                     sql: "select * from schema_name.table_name;".to_owned(),
                 })
                 .expect("query executed");
-            collector.assert_receive_many(vec![
-                Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
-                    "column_si",
-                    PgType::SmallInt,
-                )])),
+            collector.lock().unwrap().assert_receive_many(vec![
+                Ok(QueryEvent::RowDescription(vec![("column_si".to_owned(), SMALLINT)])),
                 Ok(QueryEvent::DataRow(vec!["2".to_owned()])),
                 Ok(QueryEvent::RecordsSelected(1)),
             ]);
@@ -576,22 +638,22 @@ mod operators {
             let (mut engine, collector) = with_table;
 
             engine
-                .execute(CommandMessage::Query {
+                .execute(Request::Query {
                     sql: "insert into schema_name.table_name values (5!);".to_owned(),
                 })
                 .expect("query executed");
-            collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+            collector
+                .lock()
+                .unwrap()
+                .assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
             engine
-                .execute(CommandMessage::Query {
+                .execute(Request::Query {
                     sql: "select * from schema_name.table_name;".to_owned(),
                 })
                 .expect("query executed");
-            collector.assert_receive_many(vec![
-                Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
-                    "column_si",
-                    PgType::SmallInt,
-                )])),
+            collector.lock().unwrap().assert_receive_many(vec![
+                Ok(QueryEvent::RowDescription(vec![("column_si".to_owned(), SMALLINT)])),
                 Ok(QueryEvent::DataRow(vec!["120".to_owned()])),
                 Ok(QueryEvent::RecordsSelected(1)),
             ]);
@@ -602,22 +664,22 @@ mod operators {
             let (mut engine, collector) = with_table;
 
             engine
-                .execute(CommandMessage::Query {
+                .execute(Request::Query {
                     sql: "insert into schema_name.table_name values (!!5);".to_owned(),
                 })
                 .expect("query executed");
-            collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+            collector
+                .lock()
+                .unwrap()
+                .assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
             engine
-                .execute(CommandMessage::Query {
+                .execute(Request::Query {
                     sql: "select * from schema_name.table_name;".to_owned(),
                 })
                 .expect("query executed");
-            collector.assert_receive_many(vec![
-                Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
-                    "column_si",
-                    PgType::SmallInt,
-                )])),
+            collector.lock().unwrap().assert_receive_many(vec![
+                Ok(QueryEvent::RowDescription(vec![("column_si".to_owned(), SMALLINT)])),
                 Ok(QueryEvent::DataRow(vec!["120".to_owned()])),
                 Ok(QueryEvent::RecordsSelected(1)),
             ]);
@@ -628,22 +690,22 @@ mod operators {
             let (mut engine, collector) = with_table;
 
             engine
-                .execute(CommandMessage::Query {
+                .execute(Request::Query {
                     sql: "insert into schema_name.table_name values (@ -5);".to_owned(),
                 })
                 .expect("query executed");
-            collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+            collector
+                .lock()
+                .unwrap()
+                .assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
             engine
-                .execute(CommandMessage::Query {
+                .execute(Request::Query {
                     sql: "select * from schema_name.table_name;".to_owned(),
                 })
                 .expect("query executed");
-            collector.assert_receive_many(vec![
-                Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
-                    "column_si",
-                    PgType::SmallInt,
-                )])),
+            collector.lock().unwrap().assert_receive_many(vec![
+                Ok(QueryEvent::RowDescription(vec![("column_si".to_owned(), SMALLINT)])),
                 Ok(QueryEvent::DataRow(vec!["5".to_owned()])),
                 Ok(QueryEvent::RecordsSelected(1)),
             ]);
@@ -654,22 +716,22 @@ mod operators {
             let (mut engine, collector) = with_table;
 
             engine
-                .execute(CommandMessage::Query {
+                .execute(Request::Query {
                     sql: "insert into schema_name.table_name values (5 & 1);".to_owned(),
                 })
                 .expect("query executed");
-            collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+            collector
+                .lock()
+                .unwrap()
+                .assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
             engine
-                .execute(CommandMessage::Query {
+                .execute(Request::Query {
                     sql: "select * from schema_name.table_name;".to_owned(),
                 })
                 .expect("query executed");
-            collector.assert_receive_many(vec![
-                Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
-                    "column_si",
-                    PgType::SmallInt,
-                )])),
+            collector.lock().unwrap().assert_receive_many(vec![
+                Ok(QueryEvent::RowDescription(vec![("column_si".to_owned(), SMALLINT)])),
                 Ok(QueryEvent::DataRow(vec!["1".to_owned()])),
                 Ok(QueryEvent::RecordsSelected(1)),
             ]);
@@ -680,22 +742,22 @@ mod operators {
             let (mut engine, collector) = with_table;
 
             engine
-                .execute(CommandMessage::Query {
+                .execute(Request::Query {
                     sql: "insert into schema_name.table_name values (5 | 2);".to_owned(),
                 })
                 .expect("query executed");
-            collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+            collector
+                .lock()
+                .unwrap()
+                .assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
             engine
-                .execute(CommandMessage::Query {
+                .execute(Request::Query {
                     sql: "select * from schema_name.table_name;".to_owned(),
                 })
                 .expect("query executed");
-            collector.assert_receive_many(vec![
-                Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
-                    "column_si",
-                    PgType::SmallInt,
-                )])),
+            collector.lock().unwrap().assert_receive_many(vec![
+                Ok(QueryEvent::RowDescription(vec![("column_si".to_owned(), SMALLINT)])),
                 Ok(QueryEvent::DataRow(vec!["7".to_owned()])),
                 Ok(QueryEvent::RecordsSelected(1)),
             ]);
@@ -706,22 +768,22 @@ mod operators {
             let (mut engine, collector) = with_table;
 
             engine
-                .execute(CommandMessage::Query {
+                .execute(Request::Query {
                     sql: "insert into schema_name.table_name values (~1);".to_owned(),
                 })
                 .expect("query executed");
-            collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+            collector
+                .lock()
+                .unwrap()
+                .assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
             engine
-                .execute(CommandMessage::Query {
+                .execute(Request::Query {
                     sql: "select * from schema_name.table_name;".to_owned(),
                 })
                 .expect("query executed");
-            collector.assert_receive_many(vec![
-                Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
-                    "column_si",
-                    PgType::SmallInt,
-                )])),
+            collector.lock().unwrap().assert_receive_many(vec![
+                Ok(QueryEvent::RowDescription(vec![("column_si".to_owned(), SMALLINT)])),
                 Ok(QueryEvent::DataRow(vec!["-2".to_owned()])),
                 Ok(QueryEvent::RecordsSelected(1)),
             ]);
@@ -732,22 +794,22 @@ mod operators {
             let (mut engine, collector) = with_table;
 
             engine
-                .execute(CommandMessage::Query {
+                .execute(Request::Query {
                     sql: "insert into schema_name.table_name values (1 << 4);".to_owned(),
                 })
                 .expect("query executed");
-            collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+            collector
+                .lock()
+                .unwrap()
+                .assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
             engine
-                .execute(CommandMessage::Query {
+                .execute(Request::Query {
                     sql: "select * from schema_name.table_name;".to_owned(),
                 })
                 .expect("query executed");
-            collector.assert_receive_many(vec![
-                Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
-                    "column_si",
-                    PgType::SmallInt,
-                )])),
+            collector.lock().unwrap().assert_receive_many(vec![
+                Ok(QueryEvent::RowDescription(vec![("column_si".to_owned(), SMALLINT)])),
                 Ok(QueryEvent::DataRow(vec!["16".to_owned()])),
                 Ok(QueryEvent::RecordsSelected(1)),
             ]);
@@ -758,22 +820,22 @@ mod operators {
             let (mut engine, collector) = with_table;
 
             engine
-                .execute(CommandMessage::Query {
+                .execute(Request::Query {
                     sql: "insert into schema_name.table_name values (8 >> 2);".to_owned(),
                 })
                 .expect("query executed");
-            collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+            collector
+                .lock()
+                .unwrap()
+                .assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
             engine
-                .execute(CommandMessage::Query {
+                .execute(Request::Query {
                     sql: "select * from schema_name.table_name;".to_owned(),
                 })
                 .expect("query executed");
-            collector.assert_receive_many(vec![
-                Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
-                    "column_si",
-                    PgType::SmallInt,
-                )])),
+            collector.lock().unwrap().assert_receive_many(vec![
+                Ok(QueryEvent::RowDescription(vec![("column_si".to_owned(), SMALLINT)])),
                 Ok(QueryEvent::DataRow(vec!["2".to_owned()])),
                 Ok(QueryEvent::RecordsSelected(1)),
             ]);
@@ -784,22 +846,22 @@ mod operators {
             let (mut engine, collector) = with_table;
 
             engine
-                .execute(CommandMessage::Query {
+                .execute(Request::Query {
                     sql: "insert into schema_name.table_name values (5 & 13 % 10 + 1 * 20 - 40 / 4);".to_owned(),
                 })
                 .expect("query executed");
-            collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+            collector
+                .lock()
+                .unwrap()
+                .assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
             engine
-                .execute(CommandMessage::Query {
+                .execute(Request::Query {
                     sql: "select * from schema_name.table_name;".to_owned(),
                 })
                 .expect("query executed");
-            collector.assert_receive_many(vec![
-                Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
-                    "column_si",
-                    PgType::SmallInt,
-                )])),
+            collector.lock().unwrap().assert_receive_many(vec![
+                Ok(QueryEvent::RowDescription(vec![("column_si".to_owned(), SMALLINT)])),
                 Ok(QueryEvent::DataRow(vec!["5".to_owned()])),
                 Ok(QueryEvent::RecordsSelected(1)),
             ]);
@@ -815,11 +877,13 @@ mod operators {
             let (mut engine, collector) = database_with_schema;
 
             engine
-                .execute(CommandMessage::Query {
+                .execute(Request::Query {
                     sql: "create table schema_name.table_name(strings char(5));".to_owned(),
                 })
                 .expect("query executed");
             collector
+                .lock()
+                .unwrap()
                 .assert_receive_till_this_moment(vec![Ok(QueryEvent::TableCreated), Ok(QueryEvent::QueryComplete)]);
 
             (engine, collector)
@@ -830,22 +894,22 @@ mod operators {
             let (mut engine, collector) = with_table;
 
             engine
-                .execute(CommandMessage::Query {
+                .execute(Request::Query {
                     sql: "insert into schema_name.table_name values ('123' || '45');".to_owned(),
                 })
                 .expect("query executed");
-            collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+            collector
+                .lock()
+                .unwrap()
+                .assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
             engine
-                .execute(CommandMessage::Query {
+                .execute(Request::Query {
                     sql: "select * from schema_name.table_name;".to_owned(),
                 })
                 .expect("query executed");
-            collector.assert_receive_many(vec![
-                Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
-                    "strings",
-                    PgType::Char,
-                )])),
+            collector.lock().unwrap().assert_receive_many(vec![
+                Ok(QueryEvent::RowDescription(vec![("strings".to_owned(), CHAR)])),
                 Ok(QueryEvent::DataRow(vec!["12345".to_owned()])),
                 Ok(QueryEvent::RecordsSelected(1)),
             ]);
@@ -857,29 +921,32 @@ mod operators {
             let (mut engine, collector) = with_table;
 
             engine
-                .execute(CommandMessage::Query {
+                .execute(Request::Query {
                     sql: "insert into schema_name.table_name values (1 || '45');".to_owned(),
                 })
                 .expect("query executed");
-            collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+            collector
+                .lock()
+                .unwrap()
+                .assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
             engine
-                .execute(CommandMessage::Query {
+                .execute(Request::Query {
                     sql: "insert into schema_name.table_name values ('45' || 1);".to_owned(),
                 })
                 .expect("query executed");
-            collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+            collector
+                .lock()
+                .unwrap()
+                .assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
             engine
-                .execute(CommandMessage::Query {
+                .execute(Request::Query {
                     sql: "select * from schema_name.table_name;".to_owned(),
                 })
                 .expect("query executed");
-            collector.assert_receive_many(vec![
-                Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
-                    "strings",
-                    PgType::Char,
-                )])),
+            collector.lock().unwrap().assert_receive_many(vec![
+                Ok(QueryEvent::RowDescription(vec![("strings".to_owned(), CHAR)])),
                 Ok(QueryEvent::DataRow(vec!["145".to_owned()])),
                 Ok(QueryEvent::DataRow(vec!["451".to_owned()])),
                 Ok(QueryEvent::RecordsSelected(2)),
@@ -891,15 +958,18 @@ mod operators {
             let (mut engine, collector) = with_table;
 
             engine
-                .execute(CommandMessage::Query {
+                .execute(Request::Query {
                     sql: "insert into schema_name.table_name values (1 || 2);".to_owned(),
                 })
                 .expect("query executed");
-            collector.assert_receive_single(Err(QueryError::undefined_function(
-                "||".to_owned(),
-                "smallint".to_owned(),
-                "smallint".to_owned(),
-            )));
+            collector
+                .lock()
+                .unwrap()
+                .assert_receive_single(Err(QueryError::undefined_function(
+                    "||".to_owned(),
+                    "smallint".to_owned(),
+                    "smallint".to_owned(),
+                )));
         }
     }
 }

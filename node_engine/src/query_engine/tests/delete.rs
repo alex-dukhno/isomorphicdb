@@ -19,11 +19,14 @@ fn delete_from_nonexistent_table(database_with_schema: (InMemory, ResultCollecto
     let (mut engine, collector) = database_with_schema;
 
     engine
-        .execute(CommandMessage::Query {
+        .execute(Request::Query {
             sql: "delete from schema_name.table_name;".to_owned(),
         })
         .expect("query executed");
-    collector.assert_receive_single(Err(QueryError::table_does_not_exist("schema_name.table_name")));
+    collector
+        .lock()
+        .unwrap()
+        .assert_receive_single(Err(QueryError::table_does_not_exist("schema_name.table_name")));
 }
 
 #[rstest::rstest]
@@ -31,58 +34,64 @@ fn delete_all_records(database_with_schema: (InMemory, ResultCollector)) {
     let (mut engine, collector) = database_with_schema;
 
     engine
-        .execute(CommandMessage::Query {
+        .execute(Request::Query {
             sql: "create table schema_name.table_name (column_test smallint);".to_owned(),
         })
         .expect("query executed");
-    collector.assert_receive_single(Ok(QueryEvent::TableCreated));
+    collector
+        .lock()
+        .unwrap()
+        .assert_receive_single(Ok(QueryEvent::TableCreated));
 
     engine
-        .execute(CommandMessage::Query {
+        .execute(Request::Query {
             sql: "insert into schema_name.table_name values (123);".to_owned(),
         })
         .expect("query executed");
-    collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+    collector
+        .lock()
+        .unwrap()
+        .assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
     engine
-        .execute(CommandMessage::Query {
+        .execute(Request::Query {
             sql: "insert into schema_name.table_name values (456);".to_owned(),
         })
         .expect("query executed");
-    collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+    collector
+        .lock()
+        .unwrap()
+        .assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
     engine
-        .execute(CommandMessage::Query {
+        .execute(Request::Query {
             sql: "select * from schema_name.table_name;".to_owned(),
         })
         .expect("query executed");
-    collector.assert_receive_many(vec![
-        Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
-            "column_test",
-            PgType::SmallInt,
-        )])),
+    collector.lock().unwrap().assert_receive_many(vec![
+        Ok(QueryEvent::RowDescription(vec![("column_test".to_owned(), SMALLINT)])),
         Ok(QueryEvent::DataRow(vec!["123".to_owned()])),
         Ok(QueryEvent::DataRow(vec!["456".to_owned()])),
         Ok(QueryEvent::RecordsSelected(2)),
     ]);
 
     engine
-        .execute(CommandMessage::Query {
+        .execute(Request::Query {
             sql: "delete from schema_name.table_name;".to_owned(),
         })
         .expect("query executed");
-    collector.assert_receive_single(Ok(QueryEvent::RecordsDeleted(2)));
+    collector
+        .lock()
+        .unwrap()
+        .assert_receive_single(Ok(QueryEvent::RecordsDeleted(2)));
 
     engine
-        .execute(CommandMessage::Query {
+        .execute(Request::Query {
             sql: "select * from schema_name.table_name;".to_owned(),
         })
         .expect("query executed");
-    collector.assert_receive_many(vec![
-        Ok(QueryEvent::RowDescription(vec![ColumnMetadata::new(
-            "column_test",
-            PgType::SmallInt,
-        )])),
+    collector.lock().unwrap().assert_receive_many(vec![
+        Ok(QueryEvent::RowDescription(vec![("column_test".to_owned(), SMALLINT)])),
         Ok(QueryEvent::RecordsSelected(0)),
     ]);
 }

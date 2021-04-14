@@ -1,9 +1,8 @@
 [package]
-name = "query_response"
+name = "wire_protocol"
 version = "0.1.0"
 authors = ["Alex Dukhno <alex.dukhno@icloud.com>"]
 edition = "2018"
-publish = false
 
 [dependencies]
-wire_protocol_payload = { path = "../wire_protocol/payload" }
+byteorder = "1.4.3"

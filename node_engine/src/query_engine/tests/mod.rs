@@ -13,10 +13,7 @@
 // limitations under the License.
 
 use super::*;
-use postgres::{
-    query_response::QueryEvent,
-    wire_protocol::payload::{BackendMessage, ColumnMetadata, PgFormat},
-};
+use postgres::query_response::QueryEvent;
 use std::{
     io,
     ops::DerefMut,
@@ -45,25 +42,25 @@ mod type_constraints;
 mod update;
 
 type InMemory = QueryEngine;
-type ResultCollector = Arc<Collector>;
+type ResultCollector = Arc<Mutex<Collector>>;
 
 #[derive(Clone)]
-pub struct Collector(Arc<Mutex<Vec<BackendMessage>>>);
+pub struct Collector(Arc<Mutex<Vec<Vec<u8>>>>);
 
 impl Sender for Collector {
-    fn flush(&self) -> io::Result<()> {
+    fn flush(&mut self) -> io::Result<()> {
         Ok(())
     }
 
-    fn send(&self, message: BackendMessage) -> io::Result<()> {
-        self.0.lock().expect("locked").push(message);
+    fn send(&mut self, message: &[u8]) -> io::Result<()> {
+        self.0.lock().unwrap().push(message.to_vec());
         Ok(())
     }
 }
 
 impl Collector {
     fn new() -> ResultCollector {
-        Arc::new(Collector(Arc::new(Mutex::new(vec![]))))
+        Arc::new(Mutex::new(Collector(Arc::new(Mutex::new(vec![])))))
     }
 
     #[allow(dead_code)]
@@ -77,7 +74,7 @@ impl Collector {
                     Ok(ok) => ok.into(),
                     Err(err) => err.into(),
                 })
-                .collect::<Vec<BackendMessage>>()
+                .collect::<Vec<Vec<u8>>>()
         )
     }
 
@@ -120,7 +117,7 @@ impl Collector {
                     Ok(ok) => ok.into(),
                     Err(err) => err.into(),
                 })
-                .collect::<Vec<BackendMessage>>()
+                .collect::<Vec<Vec<u8>>>()
         );
         self.assert_query_complete();
     }
@@ -142,11 +139,14 @@ fn empty_database() -> (InMemory, ResultCollector) {
 fn database_with_schema(empty_database: (InMemory, ResultCollector)) -> (InMemory, ResultCollector) {
     let (mut engine, collector) = empty_database;
     engine
-        .execute(CommandMessage::Query {
+        .execute(Request::Query {
             sql: "create schema schema_name;".to_string(),
         })
         .expect("query expected");
-    collector.assert_receive_single(Ok(QueryEvent::SchemaCreated));
+    collector
+        .lock()
+        .unwrap()
+        .assert_receive_single(Ok(QueryEvent::SchemaCreated));
 
     (engine, collector)
 }
@@ -155,11 +155,14 @@ fn database_with_schema(empty_database: (InMemory, ResultCollector)) -> (InMemor
 fn database_with_table(database_with_schema: (InMemory, ResultCollector)) -> (InMemory, ResultCollector) {
     let (mut engine, collector) = database_with_schema;
     engine
-        .execute(CommandMessage::Query {
+        .execute(Request::Query {
             sql: "create table schema_name.table_name (col1 smallint, col2 smallint, col3 smallint);".to_string(),
         })
         .expect("query expected");
-    collector.assert_receive_single(Ok(QueryEvent::TableCreated));
+    collector
+        .lock()
+        .unwrap()
+        .assert_receive_single(Ok(QueryEvent::TableCreated));
 
     (engine, collector)
 }

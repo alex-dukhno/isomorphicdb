@@ -1,8 +1,5 @@
 [bans]
 multiple-versions = "deny"
-skip-tree = [
-    { name = "rand" },
-]
 
 [licenses]
 private = { ignore = true }

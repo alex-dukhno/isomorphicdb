@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use pg_wire_payload::PgType;
 use query_ast::DataType;
 use std::{
     fmt::{self, Display, Formatter},
     str::FromStr,
 };
+use wire_protocol_payload::*;
 
 #[derive(Debug, PartialEq)]
 pub struct IncomparableSqlTypeFamilies {
@@ -224,27 +224,28 @@ impl Display for SqlType {
     }
 }
 
-impl From<&PgType> for SqlTypeFamily {
-    fn from(pg_type: &PgType) -> SqlTypeFamily {
+impl From<&u32> for SqlTypeFamily {
+    fn from(pg_type: &u32) -> SqlTypeFamily {
         match pg_type {
-            PgType::SmallInt => SqlTypeFamily::SmallInt,
-            PgType::Integer => SqlTypeFamily::Integer,
-            PgType::BigInt => SqlTypeFamily::BigInt,
-            PgType::Char | PgType::VarChar => SqlTypeFamily::String,
-            PgType::Bool => SqlTypeFamily::Bool,
+            &SMALLINT => SqlTypeFamily::SmallInt,
+            &INT => SqlTypeFamily::Integer,
+            &BIGINT => SqlTypeFamily::BigInt,
+            &CHAR | &VARCHAR => SqlTypeFamily::String,
+            &BOOL => SqlTypeFamily::Bool,
+            _ => unimplemented!(),
         }
     }
 }
 
-impl From<&SqlType> for PgType {
-    fn from(sql_type: &SqlType) -> PgType {
+impl From<&SqlType> for u32 {
+    fn from(sql_type: &SqlType) -> u32 {
         match sql_type {
-            SqlType::Bool => PgType::Bool,
-            SqlType::Str { kind: Str::Const, .. } => PgType::Char,
-            SqlType::Str { kind: Str::Var, .. } => PgType::VarChar,
-            SqlType::Num(Num::SmallInt) => PgType::SmallInt,
-            SqlType::Num(Num::Integer) => PgType::Integer,
-            SqlType::Num(Num::BigInt) => PgType::BigInt,
+            SqlType::Bool => BOOL,
+            SqlType::Str { kind: Str::Const, .. } => CHAR,
+            SqlType::Str { kind: Str::Var, .. } => VARCHAR,
+            SqlType::Num(Num::SmallInt) => SMALLINT,
+            SqlType::Num(Num::Integer) => INT,
+            SqlType::Num(Num::BigInt) => BIGINT,
             SqlType::Num(Num::Real) | SqlType::Num(Num::Double) => unreachable!(),
         }
     }

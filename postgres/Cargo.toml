@@ -9,6 +9,5 @@ publish = false
 query_response = { path = "query_response" }
 query_ast = { path = "query_ast" }
 query_parser = { path = "query_parser" }
-
-pg_wire = { version = "0.8.1", features = ["async_io"] }
-pg_wire_payload = "0.1.0"
+wire_protocol = { path = "wire_protocol" }
+wire_protocol_payload = { path = "wire_protocol/payload" }
