@@ -28,10 +28,7 @@ use postgres::{
     query_ast::{Extended, Statement},
     query_parser::QueryParser,
     query_response::{QueryError, QueryEvent},
-    wire_protocol::{
-        payload::{BackendMessage, ColumnMetadata, PgType},
-        CommandMessage, Sender,
-    },
+    wire_protocol::{payload::*, Request, Sender},
 };
 use query_analyzer::QueryAnalyzer;
 use query_planner::QueryPlanner;
@@ -39,21 +36,98 @@ use query_processing::{TypeChecker, TypeCoercion, TypeInference};
 use scalar::ScalarValue;
 use std::{
     rc::Rc,
+    str,
     sync::{Arc, Mutex},
 };
 use storage::{ConflictableTransactionError, Database, TransactionResult};
 
 pub(crate) struct QueryEngine {
     session: Arc<Mutex<Session>>,
-    sender: Arc<dyn Sender>,
+    sender: Arc<Mutex<dyn Sender>>,
     type_inference: TypeInference,
     type_checker: TypeChecker,
     type_coercion: TypeCoercion,
     database: Database,
 }
 
+pub fn decode(ty: u32, format: i16, raw: &[u8]) -> Result<Value, ()> {
+    match format {
+        1 => decode_binary(ty, raw),
+        0 => decode_text(ty, raw),
+        _ => unimplemented!(),
+    }
+}
+
+fn decode_binary(ty: u32, raw: &[u8]) -> Result<Value, ()> {
+    match ty {
+        BOOL => {
+            if raw.is_empty() {
+                Err(())
+            } else {
+                Ok(Value::Bool(raw[0] != 0))
+            }
+        }
+        CHAR | VARCHAR => str::from_utf8(raw)
+            .map(|s| Value::String(s.into()))
+            .map_err(|_cause| ()),
+        SMALLINT => {
+            if raw.len() < 4 {
+                Err(())
+            } else {
+                Ok(Value::Int16(i32::from_be_bytes([raw[0], raw[1], raw[2], raw[3]]) as i16))
+            }
+        }
+        INT => {
+            if raw.len() < 4 {
+                Err(())
+            } else {
+                Ok(Value::Int32(i32::from_be_bytes([raw[0], raw[1], raw[2], raw[3]])))
+            }
+        }
+        BIGINT => {
+            if raw.len() < 8 {
+                Err(())
+            } else {
+                Ok(Value::Int64(i64::from_be_bytes([
+                    raw[0], raw[1], raw[2], raw[3], raw[4], raw[5], raw[6], raw[7],
+                ])))
+            }
+        }
+        _ => unimplemented!(),
+    }
+}
+
+const BOOL_TRUE: &[&str] = &["t", "tr", "tru", "true", "y", "ye", "yes", "on", "1"];
+const BOOL_FALSE: &[&str] = &["f", "fa", "fal", "fals", "false", "n", "no", "of", "off", "0"];
+
+fn decode_text(ty: u32, raw: &[u8]) -> Result<Value, ()> {
+    let s = match str::from_utf8(raw) {
+        Ok(s) => s,
+        Err(_cause) => return Err(()),
+    };
+
+    match ty {
+        BOOL => {
+            let v = s.trim().to_lowercase();
+            if BOOL_TRUE.contains(&v.as_str()) {
+                Ok(Value::Bool(true))
+            } else if BOOL_FALSE.contains(&v.as_str()) {
+                Ok(Value::Bool(false))
+            } else {
+                Err(())
+            }
+        }
+        CHAR => Ok(Value::String(s.into())),
+        VARCHAR => Ok(Value::String(s.into())),
+        SMALLINT => s.trim().parse().map(Value::Int16).map_err(|_cause| ()),
+        INT => s.trim().parse().map(Value::Int32).map_err(|_cause| ()),
+        BIGINT => s.trim().parse().map(Value::Int64).map_err(|_cause| ()),
+        _ => unimplemented!(),
+    }
+}
+
 impl QueryEngine {
-    pub(crate) fn new(sender: Arc<dyn Sender>, database: Database) -> QueryEngine {
+    pub(crate) fn new(sender: Arc<Mutex<dyn Sender>>, database: Database) -> QueryEngine {
         QueryEngine {
             session: Arc::default(),
             sender,
@@ -64,9 +138,11 @@ impl QueryEngine {
         }
     }
 
-    pub(crate) fn execute(&mut self, command: CommandMessage) -> TransactionResult<()> {
-        let inner = Rc::new(command);
+    pub(crate) fn execute(&mut self, request: Request) -> TransactionResult<()> {
+        let inner = Rc::new(request);
+        log::trace!("We are here!");
         let mut session = self.session.lock().unwrap();
+        log::trace!("and here!");
         self.database.transaction(|db| {
             log::trace!("TRANSACTION START");
             log::trace!("{:?}", db.table("DEFINITION_SCHEMA.TABLES"));
@@ -76,7 +152,7 @@ impl QueryEngine {
             let catalog = CatalogHandler::from(db.clone());
             let query_parser = QueryParser;
             let result = match &*inner {
-                CommandMessage::Query { sql } => {
+                Request::Query { sql } => {
                     match query_parser.parse(&sql) {
                         Ok(mut statements) => match statements.pop().expect("single query") {
                             Statement::Extended(extended_query) => match extended_query {
@@ -98,8 +174,9 @@ impl QueryEngine {
                                                 .collect(),
                                         ),
                                     );
-                                    self.sender
-                                        .send(QueryEvent::StatementPrepared.into())
+                                    let x46: Vec<u8> = QueryEvent::StatementPrepared.into();
+                                    self.sender.lock().unwrap()
+                                        .send(&x46)
                                         .expect("To Send Result");
                                 }
                                 Extended::Execute { name, param_values } => {
@@ -158,13 +235,13 @@ impl QueryEngine {
                                                     }))
                                                     .execute(param_values)
                                                     .map(|r| { let r: QueryEvent = r.into(); r })
-                                                    .map(|r| { let r: BackendMessage = r.into(); r })
+                                                    .map(|r| { let r: Vec<u8> = r.into(); r })
                                                     .map_err(|e| { let e: QueryError = e.into(); e })
-                                                    .map_err(|e| { let e: BackendMessage = e.into(); e }) {
+                                                    .map_err(|e| { let e: Vec<u8> = e.into(); e }) {
                                                     Ok(ok) => ok,
                                                     Err(err) => err,
                                                 };
-                                                self.sender.send(query_result).expect("To Send to client");
+                                                self.sender.lock().unwrap().send(&query_result).expect("To Send to client");
                                             }
                                             UntypedQuery::Update(update) => {
                                                 let typed_values = update
@@ -210,13 +287,13 @@ impl QueryEngine {
                                                     }))
                                                     .execute(param_values)
                                                     .map(|r| { let r: QueryEvent = r.into(); r })
-                                                    .map(|r| { let r: BackendMessage = r.into(); r })
+                                                    .map(|r| { let r: Vec<u8> = r.into(); r })
                                                     .map_err(|e| { let e: QueryError = e.into(); e })
-                                                    .map_err(|e| { let e: BackendMessage = e.into(); e }) {
+                                                    .map_err(|e| { let e: Vec<u8> = e.into(); e }) {
                                                     Ok(ok) => ok,
                                                     Err(err) => err,
                                                 };
-                                                self.sender.send(query_result).expect("To Send to client");
+                                                self.sender.lock().unwrap().send(&query_result).expect("To Send to client");
                                             }
                                             UntypedQuery::Select(select) => {
                                                 log::debug!("SELECT UNTYPED VALUES - {:?}", select.projection_items);
@@ -257,36 +334,39 @@ impl QueryEngine {
                                                     }))
                                                     .execute(param_values)
                                                     .map_err(|e| { let e: QueryError = e.into(); e })
-                                                    .map_err(|e| { let e: BackendMessage = e.into(); e });
+                                                    .map_err(|e| { let e: Vec<u8> = e.into(); e });
                                                 match query_result {
                                                     Ok(QueryPlanResult::Selected((desc, data))) => {
-                                                        self.sender
-                                                            .send(QueryEvent::RowDescription(
-                                                                desc.into_iter()
-                                                                    .map(|col_def| {
-                                                                        let pg_type: PgType = (&col_def.sql_type()).into();
-                                                                        ColumnMetadata::new(col_def.name(), pg_type)
-                                                                    })
-                                                                    .collect(),
-                                                            ).into())
+                                                        let x45: Vec<u8> = QueryEvent::RowDescription(
+                                                            desc.into_iter()
+                                                                .map(|col_def| {
+                                                                    let pg_type: u32 = (&col_def.sql_type()).into();
+                                                                    (col_def.name().to_owned(), pg_type)
+                                                                })
+                                                                .collect(),
+                                                        ).into();
+                                                        self.sender.lock().unwrap()
+                                                            .send(&x45)
                                                             .expect("To Send to client");
                                                         let len = data.len();
                                                         for row in data {
-                                                            self.sender
-                                                                .send(QueryEvent::DataRow(
-                                                                    row.into_iter()
-                                                                        .map(|scalar| scalar.as_text())
-                                                                        .collect(),
-                                                                ).into())
+                                                            let x44: Vec<u8> = QueryEvent::DataRow(
+                                                                row.into_iter()
+                                                                    .map(|scalar| scalar.as_text())
+                                                                    .collect(),
+                                                            ).into();
+                                                            self.sender.lock().unwrap()
+                                                                .send(&x44)
                                                                 .expect("To Send to client");
                                                         }
-                                                        self.sender
-                                                            .send(QueryEvent::RecordsSelected(len).into())
+                                                        let x43: Vec<u8> = QueryEvent::RecordsSelected(len).into();
+                                                        self.sender.lock().unwrap()
+                                                            .send(&x43)
                                                             .expect("To Send to client");
                                                     }
                                                     Ok(_) => unreachable!(),
                                                     Err(error) => {
-                                                        self.sender.send(error).expect("To Send to client");
+                                                        self.sender.lock().unwrap().send(&error).expect("To Send to client");
                                                     }
                                                 }
                                             }
@@ -311,33 +391,35 @@ impl QueryEngine {
                                                     }))
                                                     .execute(param_values)
                                                     .map(|r| { let r: QueryEvent = r.into(); r })
-                                                    .map(|r| { let r: BackendMessage = r.into(); r })
+                                                    .map(|r| { let r: Vec<u8> = r.into(); r })
                                                     .map_err(|e| { let e: QueryError = e.into(); e })
-                                                    .map_err(|e| { let e: BackendMessage = e.into(); e }) {
+                                                    .map_err(|e| { let e: Vec<u8> = e.into(); e }) {
                                                     Ok(ok) => ok,
                                                     Err(err) => err,
                                                 };
-                                                self.sender.send(query_result).expect("To Send to client");
+                                                self.sender.lock().unwrap().send(&query_result).expect("To Send to client");
                                             }
                                         },
                                         None => {
-                                            self.sender
-                                                .send(QueryError::prepared_statement_does_not_exist(name).into())
+                                            let x42: Vec<u8> = QueryError::prepared_statement_does_not_exist(name).into();
+                                            self.sender.lock().unwrap()
+                                                .send(&x42)
                                                 .expect("To Send Error to Client");
                                         }
                                     }
                                 }
                                 Extended::Deallocate { name } => {
                                     session.remove_portal(&name);
-                                    self.sender
-                                        .send(QueryEvent::StatementDeallocated.into())
+                                    let x41: Vec<u8> = QueryEvent::StatementDeallocated.into();
+                                    self.sender.lock().unwrap()
+                                        .send(&x41)
                                         .expect("To Send Statement Deallocated Event");
                                 }
                             },
                             Statement::Definition(definition) => match definition_planner.plan(definition) {
                                 Ok(schema_change) => {
                                     log::debug!("SCHEMA CHANGE - {:?}", schema_change);
-                                    let query_result = match catalog.apply(schema_change) {
+                                    let query_result: Vec<u8> = match catalog.apply(schema_change) {
                                         Ok(ExecutionOutcome::SchemaCreated) => QueryEvent::SchemaCreated.into(),
                                         Ok(ExecutionOutcome::SchemaDropped) => QueryEvent::SchemaDropped.into(),
                                         Ok(ExecutionOutcome::TableCreated) => QueryEvent::TableCreated.into(),
@@ -348,11 +430,12 @@ impl QueryEngine {
                                             error.into()
                                         },
                                     };
-                                    self.sender.send(query_result).expect("To Send Result to Client");
+                                    self.sender.lock().unwrap().send(&query_result).expect("To Send Result to Client");
                                 }
                                 Err(error) => {
                                     let error: QueryError = error.into();
-                                    self.sender.send(error.into()).expect("To Send Result to Client")
+                                    let x40: Vec<u8> = error.into();
+                                    self.sender.lock().unwrap().send(&x40).expect("To Send Result to Client")
                                 },
                             },
                             Statement::Query(query) => match query_analyzer.analyze(query) {
@@ -377,13 +460,13 @@ impl QueryEngine {
                                         }))
                                         .execute(vec![])
                                         .map(|r| { let r: QueryEvent = r.into(); r })
-                                        .map(|r| { let r: BackendMessage = r.into(); r })
+                                        .map(|r| { let r: Vec<u8> = r.into(); r })
                                         .map_err(|e| { let e: QueryError = e.into(); e })
-                                        .map_err(|e| { let e: BackendMessage = e.into(); e }) {
+                                        .map_err(|e| { let e: Vec<u8> = e.into(); e }) {
                                         Ok(ok) => ok,
                                         Err(err) => err,
                                     };
-                                    self.sender.send(query_result).expect("To Send to client");
+                                    self.sender.lock().unwrap().send(&query_result).expect("To Send to client");
                                 }
                                 Ok(UntypedQuery::Update(update)) => {
                                     let typed_values = update
@@ -423,13 +506,13 @@ impl QueryEngine {
                                         }))
                                         .execute(vec![])
                                         .map(|r| { let r: QueryEvent = r.into(); r })
-                                        .map(|r| { let r: BackendMessage = r.into(); r })
+                                        .map(|r| { let r: Vec<u8> = r.into(); r })
                                         .map_err(|e| { let e: QueryError = e.into(); e })
-                                        .map_err(|e| { let e: BackendMessage = e.into(); e }) {
+                                        .map_err(|e| { let e: Vec<u8> = e.into(); e }) {
                                         Ok(ok) => ok,
                                         Err(err) => err,
                                     };
-                                    self.sender.send(query_result).expect("To Send to client");
+                                    self.sender.lock().unwrap().send(&query_result).expect("To Send to client");
                                 }
                                 Ok(UntypedQuery::Insert(insert)) => {
                                     log::debug!("INSERT UNTYPED VALUES {:?}", insert.values);
@@ -477,13 +560,13 @@ impl QueryEngine {
                                         }))
                                         .execute(vec![])
                                         .map(|r| { let r: QueryEvent = r.into(); r })
-                                        .map(|r| { let r: BackendMessage = r.into(); r })
+                                        .map(|r| { let r: Vec<u8> = r.into(); r })
                                         .map_err(|e| { let e: QueryError = e.into(); e })
-                                        .map_err(|e| { let e: BackendMessage = e.into(); e }) {
+                                        .map_err(|e| { let e: Vec<u8> = e.into(); e }) {
                                         Ok(ok) => ok,
                                         Err(err) => err,
                                     };
-                                    self.sender.send(query_result).expect("To Send to client");
+                                    self.sender.lock().unwrap().send(&query_result).expect("To Send to client");
                                 }
                                 Ok(UntypedQuery::Select(select)) => {
                                     log::debug!("SELECT UNTYPED VALUES - {:?}", select.projection_items);
@@ -524,61 +607,68 @@ impl QueryEngine {
                                         }))
                                         .execute(vec![])
                                         .map_err(|e| { let e: QueryError = e.into(); e })
-                                        .map_err(|e| { let e: BackendMessage = e.into(); e });
+                                        .map_err(|e| { let e: Vec<u8> = e.into(); e });
                                     match query_result {
                                         Ok(QueryPlanResult::Selected((desc, data))) => {
-                                            self.sender
-                                                .send(QueryEvent::RowDescription(
-                                                    desc.into_iter()
-                                                        .map(|col_def| {
-                                                            let pg_type: PgType = (&col_def.sql_type()).into();
-                                                            ColumnMetadata::new(col_def.name(), pg_type)
-                                                        })
-                                                        .collect(),
-                                                ).into())
+                                            let x38: Vec<u8> = QueryEvent::RowDescription(
+                                                desc.into_iter()
+                                                    .map(|col_def| {
+                                                        let pg_type: u32 = (&col_def.sql_type()).into();
+                                                        (col_def.name().to_owned(), pg_type)
+                                                    })
+                                                    .collect(),
+                                            ).into();
+                                            self.sender.lock().unwrap()
+                                                .send(&x38)
                                                 .expect("To Send to client");
                                             let len = data.len();
                                             for row in data {
-                                                self.sender
-                                                    .send(QueryEvent::DataRow(
-                                                        row.into_iter().map(|scalar| scalar.as_text()).collect(),
-                                                    ).into())
+                                                let x37: Vec<u8> = QueryEvent::DataRow(
+                                                    row.into_iter().map(|scalar| scalar.as_text()).collect(),
+                                                ).into();
+                                                self.sender.lock().unwrap()
+                                                    .send(&x37)
                                                     .expect("To Send to client");
                                             }
-                                            self.sender
-                                                .send(QueryEvent::RecordsSelected(len).into())
+                                            let x36: Vec<u8> = QueryEvent::RecordsSelected(len).into();
+                                            self.sender.lock().unwrap()
+                                                .send(&x36)
                                                 .expect("To Send to client");
                                         }
                                         Ok(_) => unreachable!(),
                                         Err(error) => {
-                                            self.sender.send(error).expect("To Send to client");
+                                            self.sender.lock().unwrap().send(&error).expect("To Send to client");
                                         }
                                     }
                                 }
                                 Err(error) => {
                                     let error: QueryError = error.into();
-                                    self.sender.send(error.into()).expect("To Send Error to Client");
+                                    let x35: Vec<u8> = error.into();
+                                    self.sender.lock().unwrap().send(&x35).expect("To Send Error to Client");
                                 }
                             },
                             Statement::Config(_) => {
                                 // sending ok to the client to proceed with other requests
-                                self.sender
-                                    .send(QueryEvent::VariableSet.into())
+                                let x34: Vec<u8> = QueryEvent::VariableSet.into();
+                                self.sender.lock().unwrap()
+                                    .send(&x34)
                                     .expect("To Send Result to Client");
                             }
                         },
                         Err(parser_error) => {
-                            self.sender
-                                .send(QueryError::syntax_error(parser_error).into())
+                            let x33: Vec<u8> = QueryError::syntax_error(parser_error).into();
+                            self.sender.lock().unwrap()
+                                .send(&x33)
                                 .expect("To Send ParseComplete Event");
                         }
                     }
-                    self.sender
-                        .send(QueryEvent::QueryComplete.into())
+                    let x32: Vec<u8> = QueryEvent::QueryComplete.into();
+                    self.sender.lock().unwrap()
+                        .send(&x32)
                         .expect("To Send Query Complete to Client");
                     Ok(())
                 }
-                CommandMessage::Parse {
+                Request::Parse {
                     statement_name,
                     sql,
                     param_types,
@@ -591,31 +681,36 @@ impl QueryEngine {
                                         query,
                                         param_types
                                             .iter()
-                                            .filter(|o| o.is_some())
-                                            .map(|o| o.unwrap())
+                                            .filter(|o| **o != 0)
+                                            .copied()
                                             .collect(),
                                     );
-                                    self.sender.send(QueryEvent::ParseComplete.into()).expect("To Send Result");
+                                    let x31: Vec<u8> = QueryEvent::ParseComplete.into();
+                                    self.sender.lock().unwrap().send(&x31).expect("To Send Result");
                                 }
-                                other => self
-                                    .sender
-                                    .send(QueryError::syntax_error(format!("{:?}", other)).into())
-                                    .expect("To Send Result"),
+                                other => {
+                                    let x30: Vec<u8> = QueryError::syntax_error(format!("{:?}", other)).into();
+                                    self
+                                        .sender.lock().unwrap()
+                                        .send(&x30)
+                                        .expect("To Send Result")
+                                },
                             },
                             Err(parser_error) => {
-                                self.sender
-                                    .send(QueryError::syntax_error(parser_error).into())
+                                let x29: Vec<u8> = QueryError::syntax_error(parser_error).into();
+                                self.sender.lock().unwrap()
+                                    .send(&x29)
                                     .expect("To Send Syntax Error Event");
                             }
                         },
                         _ => match query_parser.parse(&sql) {
                             Ok(mut statements) => match statements.pop() {
                                 Some(Statement::Query(query)) => {
-                                    if param_types.is_empty() || param_types.iter().all(Option::is_some) {
+                                    if param_types.is_empty() || param_types.iter().all(|o| *o != 0) {
                                         let mut prep = PreparedStatement::parsed(sql.clone(), query.clone());
                                         prep.parsed_with_params(
                                             query,
-                                            param_types.iter().map(|o| o.unwrap()).collect(),
+                                            param_types.iter().copied().collect(),
                                         );
                                         session.set_prepared_statement(statement_name.clone(), prep);
                                     } else {
@@ -624,23 +719,28 @@ impl QueryEngine {
                                             PreparedStatement::parsed(sql.clone(), query),
                                         );
                                     }
-                                    self.sender.send(QueryEvent::ParseComplete.into()).expect("To Send Result");
+                                    let x28: Vec<u8> = QueryEvent::ParseComplete.into();
+                                    self.sender.lock().unwrap().send(&x28).expect("To Send Result");
                                 }
-                                other => self
-                                    .sender
-                                    .send(QueryError::syntax_error(format!("{:?}", other)).into())
-                                    .expect("To Send Result"),
+                                other => {
+                                    let x27: Vec<u8> = QueryError::syntax_error(format!("{:?}", other)).into();
+                                    self
+                                        .sender.lock().unwrap()
+                                        .send(&x27)
+                                        .expect("To Send Result")
+                                },
                             },
                             Err(parser_error) => {
-                                self.sender
-                                    .send(QueryError::syntax_error(parser_error).into())
+                                let x26: Vec<u8> = QueryError::syntax_error(parser_error).into();
+                                self.sender.lock().unwrap()
+                                    .send(&x26)
                                     .expect("To Send Syntax Error Event");
                             }
                         },
                     }
                     Ok(())
                 }
-                CommandMessage::DescribeStatement { name } => {
+                Request::DescribeStatement { name } => {
                     log::debug!("SESSION - {:?}", session);
                     match session.get_prepared_statement(&name) {
                         Some(statement) => match statement.param_types() {
@@ -655,12 +755,14 @@ impl QueryEngine {
                                         .iter()
                                         .map(ColumnDef::sql_type)
                                         .map(|sql_type| (&sql_type).into())
-                                        .collect::<Vec<PgType>>();
-                                    self.sender
-                                        .send(QueryEvent::StatementParameters(param_types.to_vec()).into())
+                                        .collect::<Vec<u32>>();
+                                    let x25: Vec<u8> = QueryEvent::StatementParameters(param_types.to_vec()).into();
+                                    self.sender.lock().unwrap()
+                                        .send(&x25)
                                         .expect("To Send Statement Parameters to Client");
-                                    self.sender
-                                        .send(QueryEvent::StatementDescription(vec![]).into())
+                                    let x24: Vec<u8> = QueryEvent::StatementDescription(vec![]).into();
+                                    self.sender.lock().unwrap()
+                                        .send(&x24)
                                         .expect("To Send Statement Description to Client");
                                     statement.described(UntypedQuery::Insert(insert), param_types);
                                 }
@@ -674,12 +776,14 @@ impl QueryEngine {
                                         .iter()
                                         .map(ColumnDef::sql_type)
                                         .map(|sql_type| (&sql_type).into())
-                                        .collect::<Vec<PgType>>();
-                                    self.sender
-                                        .send(QueryEvent::StatementParameters(param_types.to_vec()).into())
+                                        .collect::<Vec<u32>>();
+                                    let x23: Vec<u8> = QueryEvent::StatementParameters(param_types.to_vec()).into();
+                                    self.sender.lock().unwrap()
+                                        .send(&x23)
                                         .expect("To Send Statement Parameters to Client");
-                                    self.sender
-                                        .send(QueryEvent::StatementDescription(vec![]).into())
+                                    let x22: Vec<u8> = QueryEvent::StatementDescription(vec![]).into();
+                                    self.sender.lock().unwrap()
+                                        .send(&x22)
                                         .expect("To Send Statement Description to Client");
                                     statement.described(UntypedQuery::Update(update), param_types);
                                 }
@@ -693,36 +797,43 @@ impl QueryEngine {
                                         .iter()
                                         .map(|col_def| (col_def.name().to_owned(), col_def.sql_type()))
                                         .map(|(name, sql_type)| (name, (&sql_type).into()))
-                                        .collect::<Vec<(String, PgType)>>();
-                                    self.sender
-                                        .send(QueryEvent::StatementParameters(vec![]).into())
+                                        .collect::<Vec<(String, u32)>>();
+                                    let x21: Vec<u8> = QueryEvent::StatementParameters(vec![]).into();
+                                    self.sender.lock().unwrap()
+                                        .send(&x21)
                                         .expect("To Send Statement Parameters to Client");
-                                    self.sender
-                                        .send(QueryEvent::StatementDescription(return_types).into())
+                                    let x20: Vec<u8> = QueryEvent::StatementDescription(return_types).into();
+                                    self.sender.lock().unwrap()
+                                        .send(&x20)
                                         .expect("To Send Statement Description to Client");
                                     statement.described(UntypedQuery::Select(select), vec![]);
                                 }
                                 _ => {
-                                    self.sender
-                                        .send(QueryError::prepared_statement_does_not_exist(name).into())
+                                    let x19: Vec<u8> = QueryError::prepared_statement_does_not_exist(name).into();
+                                    self.sender.lock().unwrap()
+                                        .send(&x19)
                                         .expect("To Send Error to Client");
                                 }
                             },
                             Some(param_types) => match query_analyzer.analyze(statement.query().unwrap()) {
                                 Ok(UntypedQuery::Insert(_insert)) => {
-                                    self.sender
-                                        .send(QueryEvent::StatementParameters(param_types.to_vec()).into())
+                                    let x18: Vec<u8> = QueryEvent::StatementParameters(param_types.to_vec()).into();
+                                    self.sender.lock().unwrap()
+                                        .send(&x18)
                                         .expect("To Send Statement Parameters to Client");
-                                    self.sender
-                                        .send(QueryEvent::StatementDescription(vec![]).into())
+                                    let x17: Vec<u8> = QueryEvent::StatementDescription(vec![]).into();
+                                    self.sender.lock().unwrap()
+                                        .send(&x17)
                                         .expect("To Send Statement Description to Client");
                                 }
                                 Ok(UntypedQuery::Update(_update)) => {
-                                    self.sender
-                                        .send(QueryEvent::StatementParameters(param_types.to_vec()).into())
+                                    let x16: Vec<u8> = QueryEvent::StatementParameters(param_types.to_vec()).into();
+                                    self.sender.lock().unwrap()
+                                        .send(&x16)
                                         .expect("To Send Statement Parameters to Client");
-                                    self.sender
-                                        .send(QueryEvent::StatementDescription(vec![]).into())
+                                    let x15: Vec<u8> = QueryEvent::StatementDescription(vec![]).into();
+                                    self.sender.lock().unwrap()
+                                        .send(&x15)
                                         .expect("To Send Statement Description to Client");
                                 }
                                 Ok(UntypedQuery::Select(select)) => {
@@ -733,70 +844,76 @@ impl QueryEngine {
                                         .iter()
                                         .map(|col_def| (col_def.name().to_owned(), col_def.sql_type()))
                                         .map(|(name, sql_type)| (name, (&sql_type).into()))
-                                        .collect::<Vec<(String, PgType)>>();
-                                    self.sender
-                                        .send(QueryEvent::StatementParameters(param_types.to_vec()).into())
+                                        .collect::<Vec<(String, u32)>>();
+                                    let x14: Vec<u8> = QueryEvent::StatementParameters(param_types.to_vec()).into();
+                                    self.sender.lock().unwrap()
+                                        .send(&x14)
                                         .expect("To Send Statement Parameters to Client");
-                                    self.sender
-                                        .send(QueryEvent::StatementDescription(return_types).into())
+                                    let x13: Vec<u8> = QueryEvent::StatementDescription(return_types).into();
+                                    self.sender.lock().unwrap()
+                                        .send(&x13)
                                         .expect("To Send Statement Description to Client");
                                 }
                                 _ => {
-                                    self.sender
-                                        .send(QueryError::prepared_statement_does_not_exist(name).into())
+                                    let bytes: Vec<u8> = QueryError::prepared_statement_does_not_exist(name).into();
+                                    self.sender.lock().unwrap()
+                                        .send(&bytes)
                                         .expect("To Send Error to Client");
                                 }
                             },
                         },
                         other => {
                             log::debug!("STMT {:?} associated with {:?} key", other, name);
-                            self.sender
-                                .send(QueryError::prepared_statement_does_not_exist(name).into())
+                            let x12: Vec<u8> = QueryError::prepared_statement_does_not_exist(name).into();
+                            self.sender.lock().unwrap()
+                                .send(&x12)
                                 .expect("To Send Error to Client");
                         }
                     }
                     Ok(())
                 }
-                CommandMessage::Bind {
+                Request::Bind {
                     portal_name,
                     statement_name,
-                    param_formats,
-                    raw_params,
-                    result_formats,
+                    query_param_formats,
+                    query_params,
+                    result_value_formats,
                 } => {
                     let portal = match session.get_prepared_statement(&statement_name) {
                         Some(statement) => {
                             if let Some(param_types) = statement.param_types() {
-                                if param_types.len() != raw_params.len() {
+                                if param_types.len() != query_params.len() {
                                     let message = format!(
                                         "Bind message supplies {actual} parameters, but prepared statement \"{name}\" requires {expected}",
                                         name = statement_name,
-                                        actual = raw_params.len(),
+                                        actual = query_params.len(),
                                         expected = param_types.len()
                                     );
-                                    self.sender
-                                        .send(QueryError::protocol_violation(message).into())
+                                    let x11: Vec<u8> = QueryError::protocol_violation(message).into();
+                                    self.sender.lock().unwrap()
+                                        .send(&x11)
                                         .expect("To Send Error to Client");
                                 }
 
                                 let mut param_values: Vec<ScalarValue> = vec![];
                                 debug_assert!(
-                                    raw_params.len() == param_types.len() && raw_params.len() == param_formats.len(),
+                                    query_params.len() == param_types.len() && query_params.len() == query_param_formats.len(),
                                     "encoded parameter values, their types and formats have to have same length"
                                 );
-                                for i in 0..raw_params.len() {
-                                    let raw_param = &raw_params[i];
+                                for i in 0..query_params.len() {
+                                    let raw_param = &query_params[i];
                                     let typ = param_types[i];
-                                    let format = param_formats[i];
+                                    let format = query_param_formats[i];
                                     match raw_param {
                                         None => param_values.push(ScalarValue::Null),
                                         Some(bytes) => {
                                             log::debug!("PG Type {:?}", typ);
-                                            match typ.decode(&format, &bytes) {
+                                            match decode(typ, format, &bytes) {
                                                 Ok(param) => param_values.push(From::from(param)),
-                                                Err(error) => {
-                                                    self.sender
-                                                        .send(QueryError::invalid_parameter_value(error).into())
+                                                Err(_error) => {
+                                                    let x39: Vec<u8> = QueryError::invalid_parameter_value("").into();
+                                                    self.sender.lock().unwrap()
+                                                        .send(&x39)
                                                         .expect("To Send Error to Client");
                                                     return Err(ConflictableTransactionError::Abort);
                                                 }
@@ -807,7 +924,7 @@ impl QueryEngine {
                                 Some(Portal::new(
                                     statement_name.clone(),
                                     query_analyzer.analyze(statement.query().unwrap()).unwrap(),
-                                    result_formats.clone(),
+                                    result_value_formats.clone(),
                                     param_values,
                                     param_types.iter().map(From::from).collect::<Vec<SqlTypeFamily>>(),
                                 ))
@@ -820,36 +937,40 @@ impl QueryEngine {
                     match portal {
                         Some(portal) => {
                             session.set_portal(portal_name.clone(), portal);
-                            self.sender
-                                .send(QueryEvent::BindComplete.into())
+                            let x10: Vec<u8> = QueryEvent::BindComplete.into();
+                            self.sender.lock().unwrap()
+                                .send(&x10)
                                 .expect("To Send Bind Complete Event");
                         }
                         None => {
-                            self.sender
-                                .send(QueryError::prepared_statement_does_not_exist(statement_name).into())
+                            let x9: Vec<u8> = QueryError::prepared_statement_does_not_exist(statement_name).into();
+                            self.sender.lock().unwrap()
+                                .send(&x9)
                                 .expect("To Send Error to Client");
                         }
                     }
                     Ok(())
                 }
-                CommandMessage::DescribePortal { name } => {
+                Request::DescribePortal { name } => {
                     match session.get_portal(&name) {
                         None => {
-                            self.sender
-                                .send(QueryError::portal_does_not_exist(name).into())
+                            let x8: Vec<u8> = QueryError::portal_does_not_exist(name).into();
+                            self.sender.lock().unwrap()
+                                .send(&x8)
                                 .expect("To Send Error to Client");
                         }
                         Some(_portal) => {
                             log::debug!("DESCRIBING PORTAL START");
-                            self.sender
-                                .send(QueryEvent::StatementDescription(vec![]).into())
+                            let x7: Vec<u8> = QueryEvent::StatementDescription(vec![]).into();
+                            self.sender.lock().unwrap()
+                                .send(&x7)
                                 .expect("To Send Statement Description to Client");
                             log::debug!("DESCRIBING PORTAL END");
                         }
                     }
                     Ok(())
                 }
-                CommandMessage::Execute {
+                Request::Execute {
                     portal_name,
                     max_rows: _max_rows,
                 } => {
@@ -903,13 +1024,13 @@ impl QueryEngine {
                                     }))
                                     .execute(portal.param_values())
                                     .map(|r| { let r: QueryEvent = r.into(); r })
-                                    .map(|r| { let r: BackendMessage = r.into(); r })
+                                    .map(|r| { let r: Vec<u8> = r.into(); r })
                                     .map_err(|e| { let e: QueryError = e.into(); e })
-                                    .map_err(|e| { let e: BackendMessage = e.into(); e }) {
+                                    .map_err(|e| { let e: Vec<u8> = e.into(); e }) {
                                     Ok(ok) => ok,
                                     Err(err) => err,
                                 };
-                                self.sender.send(query_result).expect("To Send to client");
+                                self.sender.lock().unwrap().send(&query_result).expect("To Send to client");
                             }
                             UntypedQuery::Update(update) => {
                                 let typed_values = update
@@ -951,13 +1072,13 @@ impl QueryEngine {
                                     }))
                                     .execute(portal.param_values())
                                     .map(|r| { let r: QueryEvent = r.into(); r })
-                                    .map(|r| { let r: BackendMessage = r.into(); r })
+                                    .map(|r| { let r: Vec<u8> = r.into(); r })
                                     .map_err(|e| { let e: QueryError = e.into(); e })
-                                    .map_err(|e| { let e: BackendMessage = e.into(); e }) {
+                                    .map_err(|e| { let e: Vec<u8> = e.into(); e }) {
                                     Ok(ok) => ok,
                                     Err(err) => err,
                                 };
-                                self.sender.send(query_result).expect("To Send to client");
+                                self.sender.lock().unwrap().send(&query_result).expect("To Send to client");
                             }
                             UntypedQuery::Select(select) => {
                                 log::debug!("SELECT UNTYPED VALUES - {:?}", select.projection_items);
@@ -998,34 +1119,37 @@ impl QueryEngine {
                                     }))
                                     .execute(vec![])
                                     .map_err(|e| { let e: QueryError = e.into(); e })
-                                    .map_err(|e| { let e: BackendMessage = e.into(); e });
+                                    .map_err(|e| { let e: Vec<u8> = e.into(); e });
                                 match query_result {
                                     Ok(QueryPlanResult::Selected((desc, data))) => {
-                                        self.sender
-                                            .send(QueryEvent::RowDescription(
-                                                desc.into_iter()
-                                                    .map(|col_def| {
-                                                        let pg_type: PgType = (&col_def.sql_type()).into();
-                                                        ColumnMetadata::new(col_def.name(), pg_type)
-                                                    })
-                                                    .collect(),
-                                            ).into())
+                                        let x5: Vec<u8> = QueryEvent::RowDescription(
+                                            desc.into_iter()
+                                                .map(|col_def| {
+                                                    let pg_type: u32 = (&col_def.sql_type()).into();
+                                                    (col_def.name().to_owned(), pg_type)
+                                                })
+                                                .collect(),
+                                        ).into();
+                                        self.sender.lock().unwrap()
+                                            .send(&x5)
                                             .expect("To Send to client");
                                         let len = data.len();
                                         for row in data {
-                                            self.sender
-                                                .send(QueryEvent::DataRow(
-                                                    row.into_iter().map(|scalar| scalar.as_text()).collect(),
-                                                ).into())
+                                            let x6: Vec<u8> = QueryEvent::DataRow(
+                                                row.into_iter().map(|scalar| scalar.as_text()).collect(),
+                                            ).into();
+                                            self.sender.lock().unwrap()
+                                                .send(&x6)
                                                 .expect("To Send to client");
                                         }
-                                        self.sender
-                                            .send(QueryEvent::RecordsSelected(len).into())
+                                        let x4: Vec<u8> = QueryEvent::RecordsSelected(len).into();
+                                        self.sender.lock().unwrap()
+                                            .send(&x4)
                                             .expect("To Send to client");
                                     }
                                     Ok(_) => unreachable!(),
                                     Err(error) => {
-                                        self.sender.send(error).expect("To Send to client");
+                                        self.sender.lock().unwrap().send(&error).expect("To Send to client");
                                     }
                                 }
                             }
@@ -1050,46 +1174,50 @@ impl QueryEngine {
                                     }))
                                     .execute(vec![])
                                     .map(|r| { let r: QueryEvent = r.into(); r })
-                                    .map(|r| { let r: BackendMessage = r.into(); r })
+                                    .map(|r| { let r: Vec<u8> = r.into(); r })
                                     .map_err(|e| { let e: QueryError = e.into(); e })
-                                    .map_err(|e| { let e: BackendMessage = e.into(); e }) {
+                                    .map_err(|e| { let e: Vec<u8> = e.into(); e }) {
                                     Ok(ok) => ok,
                                     Err(err) => err,
                                 };
-                                self.sender.send(query_result).expect("To Send to client");
+                                self.sender.lock().unwrap().send(&query_result).expect("To Send to client");
                             }
                         },
                         None => {
-                            self.sender
-                                .send(QueryError::portal_does_not_exist(portal_name).into())
+                            let x3: Vec<u8> = QueryError::portal_does_not_exist(portal_name).into();
+                            self.sender.lock().unwrap()
+                                .send(&x3)
                                 .expect("To Send Error to Client");
                         }
                     }
                     Ok(())
                 }
-                CommandMessage::CloseStatement { .. } => {
-                    self.sender
-                        .send(QueryEvent::QueryComplete.into())
+                Request::CloseStatement { .. } => {
+                    let x2: Vec<u8> = QueryEvent::QueryComplete.into();
+                    self.sender.lock().unwrap()
+                        .send(&x2)
                         .expect("To Send Query Complete to Client");
                     Ok(())
                 }
-                CommandMessage::ClosePortal { .. } => {
-                    self.sender
-                        .send(QueryEvent::QueryComplete.into())
+                Request::ClosePortal { .. } => {
+                    let x1: Vec<u8> = QueryEvent::QueryComplete.into();
+                    self.sender.lock().unwrap()
+                        .send(&x1)
                         .expect("To Send Query Complete to Client");
                     Ok(())
                 }
-                CommandMessage::Sync => {
-                    self.sender
-                        .send(QueryEvent::QueryComplete.into())
+                Request::Sync => {
+                    let x: Vec<u8> = QueryEvent::QueryComplete.into();
+                    self.sender.lock().unwrap()
+                        .send(&x)
                         .expect("To Send Query Complete to Client");
                     Ok(())
                 }
-                CommandMessage::Flush => {
-                    self.sender.flush().expect("Send All Buffered Messages to Client");
+                Request::Flush => {
+                    self.sender.lock().unwrap().flush().expect("Send All Buffered Messages to Client");
                     Ok(())
                 }
-                CommandMessage::Terminate => {
+                Request::Terminate => {
                     log::debug!("closing connection with client");
                     Err(ConflictableTransactionError::Abort)
                 }

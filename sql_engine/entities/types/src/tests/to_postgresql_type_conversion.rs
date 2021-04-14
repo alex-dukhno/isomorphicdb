@@ -16,36 +16,36 @@ use super::*;
 
 #[test]
 fn boolean() {
-    let pg_type: PgType = (&SqlType::bool()).into();
-    assert_eq!(pg_type, PgType::Bool);
+    let oid: u32 = (&SqlType::bool()).into();
+    assert_eq!(oid, BOOL);
 }
 
 #[test]
 fn small_int() {
-    let pg_type: PgType = (&SqlType::small_int()).into();
-    assert_eq!(pg_type, PgType::SmallInt);
+    let oid: u32 = (&SqlType::small_int()).into();
+    assert_eq!(oid, SMALLINT);
 }
 
 #[test]
 fn integer() {
-    let pg_type: PgType = (&SqlType::integer()).into();
-    assert_eq!(pg_type, PgType::Integer);
+    let oid: u32 = (&SqlType::integer()).into();
+    assert_eq!(oid, INT);
 }
 
 #[test]
 fn big_int() {
-    let pg_type: PgType = (&SqlType::big_int()).into();
-    assert_eq!(pg_type, PgType::BigInt);
+    let oid: u32 = (&SqlType::big_int()).into();
+    assert_eq!(oid, BIGINT);
 }
 
 #[test]
 fn char() {
-    let pg_type: PgType = (&SqlType::char(0)).into();
-    assert_eq!(pg_type, PgType::Char);
+    let oid: u32 = (&SqlType::char(0)).into();
+    assert_eq!(oid, CHAR);
 }
 
 #[test]
 fn var_char() {
-    let pg_type: PgType = (&SqlType::var_char(0)).into();
-    assert_eq!(pg_type, PgType::VarChar);
+    let oid: u32 = (&SqlType::var_char(0)).into();
+    assert_eq!(oid, VARCHAR);
 }

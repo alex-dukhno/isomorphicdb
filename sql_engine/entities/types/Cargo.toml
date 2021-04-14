@@ -6,8 +6,8 @@ edition = "2018"
 publish = false
 
 [dependencies]
-pg_wire_payload = "0.1.0"
 query_ast = { path = "../../../postgres/query_ast" }
+wire_protocol_payload = { path = "../../../postgres/wire_protocol/payload" }
 
 [dev-dependencies]
 rstest = "0.7.0"

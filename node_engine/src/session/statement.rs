@@ -12,47 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Prepared statements maintain in-progress state during a session.
-//!
-//! In PostgreSQL there are two ways to construct prepared statements:
-//!
-//! * Via an explicit, user-provided `PREPARE <name> AS <sql>` sql statement.
-//! * As part of the PostgreSQL Frontend/Backend protocol, where prepared
-//!   statements are created implicitly by client libraries on behalf of users.
-//!
-//! For Frontend/Backend protocol, there are multiple steps to use prepared
-//! statements:
-//!
-//! 1. Receive a `Parse` message. `Parse` messages included a name for the
-//!    prepared statement, in addition to some other possible metadata.
-//! 2. After validation, we stash the statement in the `Session` associated with
-//!    the current user's session.
-//! 3. The client issues a `Bind` message, which provides a name for a portal,
-//!    and associates that name with a previously-named prepared statement. This
-//!    is the point at which all possible parameters are associated with the
-//!    statement, there are no longer any free variables permitted.
-//! 4. The client issues an `Execute` message with the name of a portal, causing
-//!    that portal to actually start scanning and returning results.
-
 use data_manipulation::UntypedQuery;
 use entities::SqlTypeFamily;
-use postgres::{
-    query_ast::Query,
-    wire_protocol::payload::{PgFormat, PgType},
-};
+use postgres::query_ast::Query;
 use scalar::ScalarValue;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum PreparedStatementState {
     Parsed(Query),
-    Described {
-        query: UntypedQuery,
-        param_types: Vec<PgType>,
-    },
-    ParsedWithParams {
-        query: Query,
-        param_types: Vec<PgType>,
-    },
+    Described { query: UntypedQuery, param_types: Vec<u32> },
+    ParsedWithParams { query: Query, param_types: Vec<u32> },
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -69,7 +38,7 @@ impl PreparedStatement {
         }
     }
 
-    pub fn param_types(&self) -> Option<&[PgType]> {
+    pub fn param_types(&self) -> Option<&[u32]> {
         match &self.state {
             PreparedStatementState::Parsed(_) => None,
             PreparedStatementState::Described { param_types, .. } => Some(&param_types),
@@ -85,11 +54,11 @@ impl PreparedStatement {
         }
     }
 
-    pub fn described(&mut self, query: UntypedQuery, param_types: Vec<PgType>) {
+    pub fn described(&mut self, query: UntypedQuery, param_types: Vec<u32>) {
         self.state = PreparedStatementState::Described { query, param_types };
     }
 
-    pub fn parsed_with_params(&mut self, query: Query, param_types: Vec<PgType>) {
+    pub fn parsed_with_params(&mut self, query: Query, param_types: Vec<u32>) {
         self.state = PreparedStatementState::ParsedWithParams { query, param_types };
     }
 
@@ -106,7 +75,7 @@ pub struct Portal {
     /// The bound SQL statement from the prepared statement.
     stmt: UntypedQuery,
     /// The desired output format for each column in the result set.
-    result_formats: Vec<PgFormat>,
+    result_formats: Vec<i16>,
     param_values: Vec<ScalarValue>,
     param_types: Vec<SqlTypeFamily>,
 }
@@ -116,7 +85,7 @@ impl Portal {
     pub fn new(
         statement_name: String,
         stmt: UntypedQuery,
-        result_formats: Vec<PgFormat>,
+        result_formats: Vec<i16>,
         param_values: Vec<ScalarValue>,
         param_types: Vec<SqlTypeFamily>,
     ) -> Portal {

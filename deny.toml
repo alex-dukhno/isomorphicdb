@@ -1,8 +1,5 @@
 [bans]
 multiple-versions = "deny"
-skip-tree = [
-    { name = "rand" },
-]
 
 [licenses]
 private = { ignore = true }
@@ -16,8 +13,7 @@ allow = [
     "PostgreSQL"
 ]
 exceptions = [
-    # smol use wepoll
-    { allow = ["MPL-2.0"], name = "wepoll-sys" },
+    # used by simple_logger
     { allow = ["MPL-2.0"], name = "colored" },
 ]
 

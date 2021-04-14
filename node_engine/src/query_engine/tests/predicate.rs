@@ -19,30 +19,36 @@ fn select_value_by_predicate_on_single_field(database_with_schema: (InMemory, Re
     let (mut engine, collector) = database_with_schema;
 
     engine
-        .execute(CommandMessage::Query {
+        .execute(Request::Query {
             sql: "create table schema_name.table_name (col1 smallint, col2 smallint, col3 smallint);".to_owned(),
         })
         .expect("query executed");
-    collector.assert_receive_single(Ok(QueryEvent::TableCreated));
+    collector
+        .lock()
+        .unwrap()
+        .assert_receive_single(Ok(QueryEvent::TableCreated));
 
     engine
-        .execute(CommandMessage::Query {
+        .execute(Request::Query {
             sql: "insert into schema_name.table_name values (1, 2, 3), (4, 5, 6);".to_owned(),
         })
         .expect("query executed");
-    collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(2)));
+    collector
+        .lock()
+        .unwrap()
+        .assert_receive_single(Ok(QueryEvent::RecordsInserted(2)));
 
     engine
-        .execute(CommandMessage::Query {
+        .execute(Request::Query {
             sql: "select * from schema_name.table_name where col1 = 1".to_owned(),
         })
         .expect("query executed");
 
-    collector.assert_receive_many(vec![
+    collector.lock().unwrap().assert_receive_many(vec![
         Ok(QueryEvent::RowDescription(vec![
-            ColumnMetadata::new("col1", PgType::SmallInt),
-            ColumnMetadata::new("col2", PgType::SmallInt),
-            ColumnMetadata::new("col3", PgType::SmallInt),
+            ("col1".to_owned(), SMALLINT),
+            ("col2".to_owned(), SMALLINT),
+            ("col3".to_owned(), SMALLINT),
         ])),
         Ok(QueryEvent::DataRow(vec![
             "1".to_owned(),
@@ -58,51 +64,60 @@ fn update_value_by_predicate_on_single_field(database_with_schema: (InMemory, Re
     let (mut engine, collector) = database_with_schema;
 
     engine
-        .execute(CommandMessage::Query {
+        .execute(Request::Query {
             sql: "create table schema_name.table_name (col1 smallint, col2 smallint, col3 smallint);".to_owned(),
         })
         .expect("query executed");
-    collector.assert_receive_single(Ok(QueryEvent::TableCreated));
+    collector
+        .lock()
+        .unwrap()
+        .assert_receive_single(Ok(QueryEvent::TableCreated));
 
     engine
-        .execute(CommandMessage::Query {
+        .execute(Request::Query {
             sql: "insert into schema_name.table_name values (1, 2, 3), (4, 5, 6), (7, 8, 9);".to_owned(),
         })
         .expect("query executed");
-    collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(3)));
+    collector
+        .lock()
+        .unwrap()
+        .assert_receive_single(Ok(QueryEvent::RecordsInserted(3)));
 
     engine
-        .execute(CommandMessage::Query {
+        .execute(Request::Query {
             sql: "update schema_name.table_name set col1 = 7 where col1 = 4;".to_owned(),
         })
         .expect("query executed");
-    collector.assert_receive_single(Ok(QueryEvent::RecordsUpdated(1)));
+    collector
+        .lock()
+        .unwrap()
+        .assert_receive_single(Ok(QueryEvent::RecordsUpdated(1)));
 
     engine
-        .execute(CommandMessage::Query {
+        .execute(Request::Query {
             sql: "select * from schema_name.table_name where col1 = 4".to_owned(),
         })
         .expect("query executed");
 
-    collector.assert_receive_many(vec![
+    collector.lock().unwrap().assert_receive_many(vec![
         Ok(QueryEvent::RowDescription(vec![
-            ColumnMetadata::new("col1", PgType::SmallInt),
-            ColumnMetadata::new("col2", PgType::SmallInt),
-            ColumnMetadata::new("col3", PgType::SmallInt),
+            ("col1".to_owned(), SMALLINT),
+            ("col2".to_owned(), SMALLINT),
+            ("col3".to_owned(), SMALLINT),
         ])),
         Ok(QueryEvent::RecordsSelected(0)),
     ]);
 
     engine
-        .execute(CommandMessage::Query {
+        .execute(Request::Query {
             sql: "select * from schema_name.table_name where col1 = 7".to_owned(),
         })
         .expect("query executed");
-    collector.assert_receive_many(vec![
+    collector.lock().unwrap().assert_receive_many(vec![
         Ok(QueryEvent::RowDescription(vec![
-            ColumnMetadata::new("col1", PgType::SmallInt),
-            ColumnMetadata::new("col2", PgType::SmallInt),
-            ColumnMetadata::new("col3", PgType::SmallInt),
+            ("col1".to_owned(), SMALLINT),
+            ("col2".to_owned(), SMALLINT),
+            ("col3".to_owned(), SMALLINT),
         ])),
         Ok(QueryEvent::DataRow(vec![
             "7".to_owned(),
@@ -123,37 +138,46 @@ fn delete_value_by_predicate_on_single_field(database_with_schema: (InMemory, Re
     let (mut engine, collector) = database_with_schema;
 
     engine
-        .execute(CommandMessage::Query {
+        .execute(Request::Query {
             sql: "create table schema_name.table_name (col1 smallint, col2 smallint, col3 smallint);".to_owned(),
         })
         .expect("query executed");
-    collector.assert_receive_single(Ok(QueryEvent::TableCreated));
+    collector
+        .lock()
+        .unwrap()
+        .assert_receive_single(Ok(QueryEvent::TableCreated));
 
     engine
-        .execute(CommandMessage::Query {
+        .execute(Request::Query {
             sql: "insert into schema_name.table_name values (1, 2, 3), (4, 5, 6), (7, 8, 9);".to_owned(),
         })
         .expect("query executed");
-    collector.assert_receive_single(Ok(QueryEvent::RecordsInserted(3)));
+    collector
+        .lock()
+        .unwrap()
+        .assert_receive_single(Ok(QueryEvent::RecordsInserted(3)));
 
     engine
-        .execute(CommandMessage::Query {
+        .execute(Request::Query {
             sql: "delete from schema_name.table_name where col2 = 5;".to_owned(),
         })
         .expect("query executed");
-    collector.assert_receive_single(Ok(QueryEvent::RecordsDeleted(1)));
+    collector
+        .lock()
+        .unwrap()
+        .assert_receive_single(Ok(QueryEvent::RecordsDeleted(1)));
 
     engine
-        .execute(CommandMessage::Query {
+        .execute(Request::Query {
             sql: "select * from schema_name.table_name".to_owned(),
         })
         .expect("query executed");
 
-    collector.assert_receive_many(vec![
+    collector.lock().unwrap().assert_receive_many(vec![
         Ok(QueryEvent::RowDescription(vec![
-            ColumnMetadata::new("col1", PgType::SmallInt),
-            ColumnMetadata::new("col2", PgType::SmallInt),
-            ColumnMetadata::new("col3", PgType::SmallInt),
+            ("col1".to_owned(), SMALLINT),
+            ("col2".to_owned(), SMALLINT),
+            ("col3".to_owned(), SMALLINT),
         ])),
         Ok(QueryEvent::DataRow(vec![
             "1".to_owned(),
