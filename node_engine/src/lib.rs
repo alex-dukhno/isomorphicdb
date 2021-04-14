@@ -15,15 +15,14 @@
 use crate::query_engine::QueryEngine;
 use byteorder::{BigEndian, ReadBytesExt};
 use postgres::wire_protocol::Connection;
-use std::convert::TryInto;
-use std::io::{Read, Write};
-use std::str;
-use std::sync::Mutex;
 use std::{
+    convert::TryInto,
     env, io,
+    io::{Read, Write},
     net::TcpListener,
     path::{Path, PathBuf},
-    sync::Arc,
+    str,
+    sync::{Arc, Mutex},
     thread,
 };
 use storage::Database;

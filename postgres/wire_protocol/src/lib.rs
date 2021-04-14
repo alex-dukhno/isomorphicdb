@@ -13,11 +13,13 @@
 // limitations under the License.
 
 use byteorder::{BigEndian, ReadBytesExt};
-use std::convert::TryInto;
-use std::io;
-use std::io::{Read, Write};
-use std::net::TcpStream;
-use std::str;
+use std::{
+    convert::TryInto,
+    io,
+    io::{Read, Write},
+    net::TcpStream,
+    str,
+};
 
 const QUERY: u8 = b'Q';
 const BIND: u8 = b'B';

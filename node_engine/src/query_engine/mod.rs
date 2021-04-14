@@ -24,20 +24,19 @@ use data_manipulation::{
 };
 use definition_planner::DefinitionPlanner;
 use entities::{ColumnDef, SqlType, SqlTypeFamily};
-use postgres::wire_protocol::payload::*;
 use postgres::{
     query_ast::{Extended, Statement},
     query_parser::QueryParser,
     query_response::{QueryError, QueryEvent},
-    wire_protocol::{Request, Sender},
+    wire_protocol::{payload::*, Request, Sender},
 };
 use query_analyzer::QueryAnalyzer;
 use query_planner::QueryPlanner;
 use query_processing::{TypeChecker, TypeCoercion, TypeInference};
 use scalar::ScalarValue;
-use std::str;
 use std::{
     rc::Rc,
+    str,
     sync::{Arc, Mutex},
 };
 use storage::{ConflictableTransactionError, Database, TransactionResult};
