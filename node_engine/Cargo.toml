@@ -27,7 +27,7 @@ bigdecimal = { version = "0.2.0", features = ["string-only"] }
 byteorder = "1.4.3"
 log = "0.4.14"
 rand_core = "0.6.2"
-rand = "0.7"
+rand = "0.8.3"
 native-tls = "0.2.7"
 
 [dev-dependencies]
