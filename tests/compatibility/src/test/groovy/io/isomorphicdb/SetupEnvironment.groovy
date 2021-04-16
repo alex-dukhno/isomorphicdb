@@ -10,7 +10,7 @@ import java.sql.SQLException
 
 class SetupEnvironment extends Specification {
   private static final boolean CI = Boolean.parseBoolean(System.getProperty("ci"))
-  static final String VERSION = '12.4'
+  static final String VERSION = '13.0'
   static final String USER = 'postgres'
   static final String PASSWORD = 'postgres'
   static final String DRIVER_CLASS = 'org.postgresql.Driver'
