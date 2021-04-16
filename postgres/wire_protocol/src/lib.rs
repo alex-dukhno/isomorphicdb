@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use byteorder::{BigEndian, ReadBytesExt};
+pub mod connection;
+
 use std::{
     convert::TryInto,
     io,
     io::{Read, Write},
-    net::TcpStream,
     str,
 };
 
@@ -69,21 +69,21 @@ pub enum Request {
     Terminate,
 }
 
-pub struct Connection {
-    socket: TcpStream,
+pub struct ConnectionOld {
+    socket: connection::Channel,
 }
 
-impl Connection {
-    /// Create new Connection
-    pub fn new(socket: TcpStream) -> Connection {
-        Connection { socket }
+impl From<connection::Channel> for ConnectionOld {
+    fn from(socket: connection::Channel) -> ConnectionOld {
+        ConnectionOld { socket }
     }
+}
 
+impl ConnectionOld {
     fn parse_client_request(&mut self) -> io::Result<Result<Request, ()>> {
-        let tag = self.socket.read_u8()?;
-        let len = (self.socket.read_i32::<BigEndian>()? - 4) as usize;
-        let mut message = vec![0; len];
-        self.socket.read_exact(&mut message)?;
+        let tag = self.read_tag()?;
+        let len = self.read_message_len()?;
+        let mut message = self.read_message(len)?;
         match tag {
             // Simple query flow.
             QUERY => {
@@ -217,6 +217,24 @@ impl Connection {
         }
     }
 
+    fn read_tag(&mut self) -> io::Result<u8> {
+        let buff = &mut [0u8; 1];
+        self.socket.read_exact(buff.as_mut())?;
+        Ok(buff[0])
+    }
+
+    fn read_message_len(&mut self) -> io::Result<usize> {
+        let buff = &mut [0u8; 4];
+        self.socket.read_exact(buff.as_mut())?;
+        Ok((i32::from_be_bytes(*buff) as usize) - 4)
+    }
+
+    fn read_message(&mut self, len: usize) -> io::Result<Vec<u8>> {
+        let mut message = vec![0; len];
+        self.socket.read_exact(&mut message)?;
+        Ok(message)
+    }
+
     /// Receive client messages
     pub fn receive(&mut self) -> io::Result<Result<Request, ()>> {
         let request = match self.parse_client_request() {
@@ -234,7 +252,7 @@ impl Connection {
     }
 }
 
-impl Sender for Connection {
+impl Sender for ConnectionOld {
     fn flush(&mut self) -> io::Result<()> {
         self.socket.flush()
     }

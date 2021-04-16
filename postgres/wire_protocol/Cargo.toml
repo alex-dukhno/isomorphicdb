@@ -6,4 +6,5 @@ edition = "2018"
 publish = false
 
 [dependencies]
-byteorder = "1.4.3"
+log = "0.4.14"
+native-tls = "0.2.7"
