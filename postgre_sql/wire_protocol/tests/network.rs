@@ -23,7 +23,7 @@ use wire_protocol::{
 
 #[test]
 fn non_secure() {
-    const PORT: &str = "2000";
+    const PORT: &str = "5432";
 
     let handle = std::thread::spawn(move || {
         let listener = TcpListener::bind(format!("127.0.0.1:{}", PORT)).unwrap();
@@ -46,7 +46,7 @@ fn non_secure() {
 
 #[test]
 fn secure() {
-    const PORT: &str = "3000";
+    const PORT: &str = "5433";
 
     let handle = std::thread::spawn(move || {
         let listener = TcpListener::bind(format!("127.0.0.1:{}", PORT)).unwrap();
