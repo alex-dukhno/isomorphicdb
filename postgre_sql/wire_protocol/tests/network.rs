@@ -15,9 +15,11 @@
 use native_tls::{Certificate, Identity, TlsConnector, TlsStream};
 use postgres::{Client, NoTls};
 use postgres_native_tls::MakeTlsConnector;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
-use std::{env::current_dir, fs, net::TcpListener};
+use std::{
+    fs,
+    net::TcpListener,
+    sync::{Arc, Condvar, Mutex},
+};
 use wire_protocol::{
     connection::{SecureSocket, Socket},
     PgWireAcceptor,
@@ -27,19 +29,27 @@ use wire_protocol::{
 fn non_secure() {
     const PORT: &str = "5432";
 
-    let ready = Arc::new(AtomicBool::new(false));
+    let ready = Arc::new((Mutex::new(false), Condvar::new()));
     let inner_ready = ready.clone();
 
     let handle = std::thread::spawn(move || {
         let listener = TcpListener::bind(format!("0.0.0.0:{}", PORT)).unwrap();
-        inner_ready.store(true, Ordering::Release);
+        let (lock, cond) = &*inner_ready;
+        let mut started = lock.lock().unwrap();
+        *started = true;
+        cond.notify_one();
+        drop(started);
         let (socket, _) = listener.accept().unwrap();
 
         let acceptor: PgWireAcceptor<Socket, Identity> = PgWireAcceptor::new(None);
         acceptor.accept(socket)
     });
 
-    while !ready.load(Ordering::Acquire) {}
+    let (lock, cond) = &*ready;
+    let mut started = lock.lock().unwrap();
+    while !*started {
+        started = cond.wait(started).unwrap();
+    }
 
     let client = Client::connect(
         format!("host=0.0.0.0 port={} user=postgre_sql password=123", PORT).as_str(),
@@ -56,12 +66,16 @@ fn non_secure() {
 fn secure() {
     const PORT: &str = "5433";
 
-    let ready = Arc::new(AtomicBool::new(false));
+    let ready = Arc::new((Mutex::new(false), Condvar::new()));
     let inner_ready = ready.clone();
 
     let handle = std::thread::spawn(move || {
         let listener = TcpListener::bind(format!("0.0.0.0:{}", PORT)).unwrap();
-        inner_ready.store(true, Ordering::Release);
+        let (lock, cond) = &*inner_ready;
+        let mut started = lock.lock().unwrap();
+        *started = true;
+        cond.notify_one();
+        drop(started);
         let (socket, _) = listener.accept().unwrap();
 
         let cert = fs::read("../../tests/fixtures/identity.pfx").unwrap();
@@ -71,9 +85,6 @@ fn secure() {
         acceptor.accept(socket)
     });
 
-    while !ready.load(Ordering::Acquire) {}
-
-    println!("{:?}", current_dir());
     let cert = fs::read("../../tests/fixtures/certificate.crt").unwrap();
     let cert = Certificate::from_pem(&cert).unwrap();
     let connector = TlsConnector::builder()
@@ -82,6 +93,12 @@ fn secure() {
         .build()
         .unwrap();
     let connector = MakeTlsConnector::new(connector);
+
+    let (lock, cond) = &*ready;
+    let mut started = lock.lock().unwrap();
+    while !*started {
+        started = cond.wait(started).unwrap();
+    }
 
     let client = postgres::Client::connect(
         format!(
