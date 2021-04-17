@@ -26,7 +26,7 @@ fn non_secure() {
     const PORT: &str = "5432";
 
     let handle = std::thread::spawn(move || {
-        let listener = TcpListener::bind(format!("127.0.0.1:{}", PORT)).unwrap();
+        let listener = TcpListener::bind(format!("localhost:{}", PORT)).unwrap();
         let (socket, _) = listener.accept().unwrap();
 
         let acceptor: PgWireAcceptor<Socket, Identity> = PgWireAcceptor::new(None);
@@ -34,7 +34,7 @@ fn non_secure() {
     });
 
     let client = Client::connect(
-        format!("host=127.0.0.1 port={} user=postgre_sql password=123", PORT).as_str(),
+        format!("host=localhost port={} user=postgre_sql password=123", PORT).as_str(),
         NoTls,
     )
     .unwrap();
@@ -49,7 +49,7 @@ fn secure() {
     const PORT: &str = "5433";
 
     let handle = std::thread::spawn(move || {
-        let listener = TcpListener::bind(format!("127.0.0.1:{}", PORT)).unwrap();
+        let listener = TcpListener::bind(format!("localhost:{}", PORT)).unwrap();
         let (socket, _) = listener.accept().unwrap();
 
         let cert = fs::read("../../tests/fixtures/identity.pfx").unwrap();
@@ -71,7 +71,7 @@ fn secure() {
 
     let client = postgres::Client::connect(
         format!(
-            "host=127.0.0.1 port={} user=postgre_sql password=123 sslmode=require",
+            "host=localhost port={} user=postgre_sql password=123 sslmode=require",
             PORT
         )
         .as_str(),
