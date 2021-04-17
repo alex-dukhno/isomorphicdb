@@ -46,6 +46,7 @@ fn non_secure() {
         acceptor.accept(socket)
     });
 
+    std::thread::yield_now();
     let (lock, cond) = &*ready;
     let mut started = lock.lock().unwrap();
     while !*started {
@@ -96,6 +97,7 @@ fn secure() {
         .unwrap();
     let connector = MakeTlsConnector::new(connector);
 
+    std::thread::yield_now();
     let (lock, cond) = &*ready;
     let mut started = lock.lock().unwrap();
     while !*started {
