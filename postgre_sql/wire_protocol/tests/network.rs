@@ -26,6 +26,7 @@ use wire_protocol::{
 };
 
 #[test]
+#[allow(clippy::mutex_atomic)]
 fn non_secure() {
     const PORT: &str = "5432";
 
@@ -63,6 +64,7 @@ fn non_secure() {
 }
 
 #[test]
+#[allow(clippy::mutex_atomic)]
 fn secure() {
     const PORT: &str = "5433";
 
