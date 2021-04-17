@@ -14,16 +14,11 @@
 
 use crate::query_engine::QueryEngine;
 use native_tls::{Identity, TlsStream};
-use postgre_sql::wire_protocol::connection::{Authenticated, New, SecureSocket};
-use postgre_sql::wire_protocol::{ConnectionOld, PgWireAcceptor};
-use std::env::VarError;
-use std::io::Read;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::mpsc::{self, Sender, TryRecvError};
-use std::thread::{JoinHandle, Thread};
+use postgre_sql::wire_protocol::{connection::SecureSocket, PgWireAcceptor};
 use std::{
     env,
-    io::{self, Write},
+    env::VarError,
+    io::{self, Read},
     net::TcpListener,
     path::{Path, PathBuf},
     sync::{Arc, Mutex},
@@ -33,9 +28,6 @@ use storage::Database;
 
 mod query_engine;
 mod session;
-
-const READY_FOR_QUERY: u8 = b'Z';
-const EMPTY_QUERY_RESPONSE: u8 = b'I';
 
 #[derive(Default, Clone)]
 pub struct NodeEngine;
@@ -50,13 +42,13 @@ impl NodeEngine {
                 Ok(socket) => {
                     let db = database.clone();
                     thread::spawn(move || -> io::Result<()> {
-                        use postgre_sql::wire_protocol::connection::{Connection, Socket};
+                        use postgre_sql::wire_protocol::connection::Socket;
 
                         match (pfx_certificate_path(), pfx_certificate_password()) {
                             (Ok(path), Ok(pass)) => {
                                 let mut buff = vec![];
                                 let mut file = std::fs::File::open(path).unwrap();
-                                file.read_to_end(&mut buff);
+                                file.read_to_end(&mut buff)?;
                                 let acceptor: PgWireAcceptor<SecureSocket<TlsStream<Socket>>, Identity> =
                                     PgWireAcceptor::new(Some(Identity::from_pkcs12(&buff, &pass).unwrap()));
                                 let connection = acceptor.accept(socket).unwrap();

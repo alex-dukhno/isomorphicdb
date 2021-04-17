@@ -16,12 +16,12 @@ pub mod connection;
 
 use crate::connection::{Connection, New, Secure, SecureSocket, Socket};
 use native_tls::{Identity, TlsStream};
-use std::marker::PhantomData;
-use std::net::TcpStream;
 use std::{
     convert::TryInto,
     io,
     io::{Read, Write},
+    marker::PhantomData,
+    net::TcpStream,
     str,
 };
 

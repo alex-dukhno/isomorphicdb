@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use super::*;
-use postgres::query_response::QueryEvent;
+use postgre_sql::query_response::QueryEvent;
 use std::{
     io,
     ops::DerefMut,

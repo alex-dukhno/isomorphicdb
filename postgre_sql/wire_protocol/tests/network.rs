@@ -15,22 +15,22 @@
 use native_tls::{Certificate, Identity, TlsConnector, TlsStream};
 use postgres::{Client, NoTls};
 use postgres_native_tls::MakeTlsConnector;
-use std::env::current_dir;
-use std::fs;
-use std::net::TcpListener;
-use wire_protocol::connection::{SecureSocket, Socket};
-use wire_protocol::PgWireAcceptor;
+use std::{env::current_dir, fs, net::TcpListener};
+use wire_protocol::{
+    connection::{SecureSocket, Socket},
+    PgWireAcceptor,
+};
 
 #[test]
 fn non_secure() {
     const PORT: &str = "2000";
 
-    std::thread::spawn(move || {
+    let handle = std::thread::spawn(move || {
         let listener = TcpListener::bind(format!("127.0.0.1:{}", PORT)).unwrap();
         let (socket, _) = listener.accept().unwrap();
 
         let acceptor: PgWireAcceptor<Socket, Identity> = PgWireAcceptor::new(None);
-        acceptor.accept(socket).unwrap();
+        acceptor.accept(socket)
     });
 
     let client = Client::connect(
@@ -39,14 +39,16 @@ fn non_secure() {
     )
     .unwrap();
 
-    client.close();
+    client.close().unwrap();
+
+    assert!(handle.join().is_ok());
 }
 
 #[test]
 fn secure() {
     const PORT: &str = "3000";
 
-    std::thread::spawn(move || {
+    let handle = std::thread::spawn(move || {
         let listener = TcpListener::bind(format!("127.0.0.1:{}", PORT)).unwrap();
         let (socket, _) = listener.accept().unwrap();
 
@@ -54,7 +56,7 @@ fn secure() {
         let cert = Identity::from_pkcs12(&cert, "password").unwrap();
 
         let acceptor: PgWireAcceptor<SecureSocket<TlsStream<Socket>>, Identity> = PgWireAcceptor::new(Some(cert));
-        acceptor.accept(socket).unwrap();
+        acceptor.accept(socket)
     });
 
     println!("{:?}", current_dir());
@@ -77,5 +79,7 @@ fn secure() {
     )
     .unwrap();
 
-    client.close();
+    client.close().unwrap();
+
+    assert!(handle.join().is_ok());
 }

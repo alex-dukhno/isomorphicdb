@@ -12,13 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use native_tls::{HandshakeError, Identity, TlsAcceptor, TlsStream};
-use std::collections::HashMap;
-use std::convert::TryInto;
-use std::fmt::{self, Debug, Formatter};
-use std::io::{self, Read, Write};
-use std::net::TcpStream;
-use std::str;
+use native_tls::{Identity, TlsAcceptor, TlsStream};
+use std::{
+    collections::HashMap,
+    convert::TryInto,
+    fmt::{self, Debug, Formatter},
+    io::{self, Read, Write},
+    net::TcpStream,
+    str,
+};
 
 const ACCEPT_SSL: u8 = b'S';
 const REJECT_SSL: u8 = b'N';
@@ -27,36 +29,15 @@ const PARAMETER_STATUS: u8 = b'S';
 const BACKEND_KEY_DATA: u8 = b'K';
 
 pub trait Secure<RW: Read + Write>: Clone {
+    #[allow(clippy::result_unit_err)]
     fn secure(self, socket: Socket) -> Result<RW, ()>;
 }
 
 impl Secure<SecureSocket<TlsStream<Socket>>> for Identity {
     fn secure(self, socket: Socket) -> Result<SecureSocket<TlsStream<Socket>>, ()> {
-        let acceptor = TlsAcceptor::new(self).unwrap();
-        let mut inter = socket;
-        let socket = match acceptor.accept(inter) {
-            Ok(socket) => socket,
-            Err(HandshakeError::WouldBlock(e)) => {
-                let mut inner = e;
-                loop {
-                    match inner.handshake() {
-                        Ok(socket) => break socket,
-                        Err(HandshakeError::WouldBlock(e)) => {
-                            inner = e;
-                        }
-                        Err(e) => {
-                            println!("2) {:?}", e);
-                            return Err(());
-                        }
-                    }
-                }
-            }
-            Err(e) => {
-                println!("3) {:?}", e);
-                return Err(());
-            }
-        };
-        Ok(SecureSocket::from(socket))
+        Ok(SecureSocket::from(
+            TlsAcceptor::new(self).unwrap().accept(socket).map_err(|_| ())?,
+        ))
     }
 }
 
