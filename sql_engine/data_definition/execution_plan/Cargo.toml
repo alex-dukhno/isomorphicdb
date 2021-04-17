@@ -9,4 +9,4 @@ publish = false
 definition = { path = "../../entities/definition" }
 types = { path = "../../entities/types" }
 
-query_response = { path = "../../../postgres/query_response" }
+query_response = { path = "../../../postgre_sql/query_response" }

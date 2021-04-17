@@ -14,6 +14,10 @@
 
 pub mod connection;
 
+use crate::connection::{Connection, New, Secure, SecureSocket, Socket};
+use native_tls::{Identity, TlsStream};
+use std::marker::PhantomData;
+use std::net::TcpStream;
 use std::{
     convert::TryInto,
     io,
@@ -30,6 +34,9 @@ const FLUSH: u8 = b'H';
 const PARSE: u8 = b'P';
 const SYNC: u8 = b'S';
 const TERMINATE: u8 = b'X';
+
+const READY_FOR_QUERY: u8 = b'Z';
+const EMPTY_QUERY_RESPONSE: u8 = b'I';
 
 #[derive(Debug)]
 pub enum Request {
@@ -69,17 +76,71 @@ pub enum Request {
     Terminate,
 }
 
-pub struct ConnectionOld {
-    socket: connection::Channel,
+pub struct PgWireAcceptor<RW: Read + Write, S: Secure<RW>> {
+    secured: Option<S>,
+    phantom: PhantomData<RW>,
 }
 
-impl From<connection::Channel> for ConnectionOld {
-    fn from(socket: connection::Channel) -> ConnectionOld {
+impl<RW: Read + Write, S: Secure<RW>> PgWireAcceptor<RW, S> {
+    pub fn new(secured: Option<S>) -> PgWireAcceptor<RW, S> {
+        PgWireAcceptor {
+            secured,
+            phantom: PhantomData,
+        }
+    }
+}
+
+impl<S: Secure<Socket>> PgWireAcceptor<Socket, S> {
+    pub fn accept(&self, socket: TcpStream) -> io::Result<ConnectionOld<Socket>> {
+        let connection: Connection<New, Socket> = Connection::new(Socket::from(socket));
+        let connection = connection.hand_shake::<native_tls::Identity>(None)?;
+        let connection = connection.authenticate("whatever")?;
+        let connection = connection.send_params(&[
+            ("client_encoding", "UTF8"),
+            ("DateStyle", "ISO"),
+            ("integer_datetimes", "off"),
+            ("server_version", "13.0"),
+        ])?;
+        let connection = connection.send_backend_keys(1, 1)?;
+        let mut channel = connection.channel();
+
+        channel.write_all(&[READY_FOR_QUERY, 0, 0, 0, 5, EMPTY_QUERY_RESPONSE])?;
+        channel.flush()?;
+        Ok(ConnectionOld::from(channel))
+    }
+}
+
+impl PgWireAcceptor<SecureSocket<TlsStream<Socket>>, Identity> {
+    pub fn accept(&self, socket: TcpStream) -> io::Result<ConnectionOld<SecureSocket<TlsStream<Socket>>>> {
+        let connection: Connection<New, SecureSocket<TlsStream<Socket>>> = Connection::new(Socket::from(socket));
+        let connection = connection.hand_shake::<native_tls::Identity>(self.secured.clone())?;
+        let connection = connection.authenticate("whatever")?;
+        let connection = connection.send_params(&[
+            ("client_encoding", "UTF8"),
+            ("DateStyle", "ISO"),
+            ("integer_datetimes", "off"),
+            ("server_version", "13.0"),
+        ])?;
+        let connection = connection.send_backend_keys(1, 1)?;
+        let mut channel = connection.channel();
+
+        channel.write_all(&[READY_FOR_QUERY, 0, 0, 0, 5, EMPTY_QUERY_RESPONSE])?;
+        channel.flush()?;
+        Ok(ConnectionOld::from(channel))
+    }
+}
+
+pub struct ConnectionOld<RW: Read + Write> {
+    socket: connection::Channel<RW>,
+}
+
+impl<RW: Read + Write> From<connection::Channel<RW>> for ConnectionOld<RW> {
+    fn from(socket: connection::Channel<RW>) -> ConnectionOld<RW> {
         ConnectionOld { socket }
     }
 }
 
-impl ConnectionOld {
+impl<RW: Read + Write> ConnectionOld<RW> {
     fn parse_client_request(&mut self) -> io::Result<Result<Request, ()>> {
         let tag = self.read_tag()?;
         let len = self.read_message_len()?;
@@ -252,7 +313,7 @@ impl ConnectionOld {
     }
 }
 
-impl Sender for ConnectionOld {
+impl<RW: Read + Write> Sender for ConnectionOld<RW> {
     fn flush(&mut self) -> io::Result<()> {
         self.socket.flush()
     }
@@ -265,7 +326,7 @@ impl Sender for ConnectionOld {
 
 /// Trait to handle server to client query results for PostgreSQL Wire Protocol
 /// connection
-pub trait Sender: Send + Sync {
+pub trait Sender {
     /// Flushes the output stream.
     fn flush(&mut self) -> io::Result<()>;
 

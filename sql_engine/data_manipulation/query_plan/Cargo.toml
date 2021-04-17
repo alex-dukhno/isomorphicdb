@@ -13,7 +13,7 @@ scalar = { path = "../../scalar" }
 catalog = { path = "../../catalog" }
 types = { path = "../../entities/types" }
 definition = { path = "../../entities/definition" }
-query_response = { path = "../../../postgres/query_response" }
+query_response = { path = "../../../postgre_sql/query_response" }
 storage = { path = "../../../storage" }
 
 bigdecimal = { version = "0.2.0", features = ["string-only"] }

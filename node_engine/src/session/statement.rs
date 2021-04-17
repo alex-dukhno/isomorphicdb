@@ -14,7 +14,7 @@
 
 use data_manipulation::UntypedQuery;
 use entities::SqlTypeFamily;
-use postgres::query_ast::Query;
+use postgre_sql::query_ast::Query;
 use scalar::ScalarValue;
 
 #[derive(Clone, Debug, PartialEq)]

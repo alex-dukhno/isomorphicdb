@@ -12,8 +12,8 @@ data_manipulation_untyped_queries = { path = "../data_manipulation/untyped_queri
 data_manipulation_operators = { path = "../data_manipulation/operators" }
 data_manipulation_untyped_tree = { path = "../data_manipulation/untyped_tree" }
 definition = { path = "../entities/definition" }
-query_ast = { path = "../../postgres/query_ast" }
-query_response = { path = "../../postgres/query_response" }
+query_ast = { path = "../../postgre_sql/query_ast" }
+query_response = { path = "../../postgre_sql/query_response" }
 types = { path = "../entities/types" }
 storage = { path = "../../storage" }
 

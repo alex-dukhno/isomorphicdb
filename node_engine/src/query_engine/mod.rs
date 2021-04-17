@@ -24,7 +24,7 @@ use data_manipulation::{
 };
 use definition_planner::DefinitionPlanner;
 use entities::{ColumnDef, SqlType, SqlTypeFamily};
-use postgres::{
+use postgre_sql::{
     query_ast::{Extended, Statement},
     query_parser::QueryParser,
     query_response::{QueryError, QueryEvent},
