@@ -72,8 +72,8 @@ jobs:
       - name: run cargo-tarpaulin
         uses: actions-rs/tarpaulin@v0.1
         with:
-          version: '0.17.0'
-          args: '--ignore-tests -- --test-threads 1'
+          version: '0.16.0'
+          args: '-- --test-threads 1'
       - name: upload to coveralls
         uses: coverallsapp/github-action@master
         with:
