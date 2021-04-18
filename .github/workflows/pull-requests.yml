@@ -62,16 +62,18 @@ jobs:
     steps:
       - name: checkout code
         uses: actions/checkout@v2
+      - name: install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
       - name: install LLVM and Clang build dependencies for pg-sql-parser
         run: sudo apt install -y llvm
-      - name: install tarpaulin
-        uses: actions-rs/install@v0.1
+      - name: run cargo-tarpaulin
+        uses: actions-rs/tarpaulin@v0.1
         with:
-          crate: cargo-tarpaulin
-          version: 0.16.0
-          use-tool-cache: true
-      - name: run code coverage
-        run: cargo tarpaulin --all --ignore-tests -o Lcov --output-dir ./coverage
+          version: '0.17.0'
+          args: '--ignore-tests -- --test-threads 1'
       - name: upload to coveralls
         uses: coverallsapp/github-action@master
         with:
