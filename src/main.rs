@@ -12,11 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use node_engine::NodeEngine;
+use storage::Database;
+
 fn main() {
     simple_logger::SimpleLogger::from_env()
         .init()
         .expect("to initialize logger");
 
     let root_path = std::env::var("ROOT_PATH").unwrap_or_else(|_| "./root_directory".to_owned());
-    node_engine::start(storage::Database::persistent(root_path.as_str()));
+    NodeEngine::default().start(Database::persistent(root_path.as_str()));
 }

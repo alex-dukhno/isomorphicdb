@@ -9,23 +9,16 @@ import spock.lang.Specification
 import java.sql.SQLException
 
 class SetupEnvironment extends Specification {
-  private static final boolean CI = Boolean.parseBoolean(System.getProperty("ci"))
-  static final String VERSION = '13.0'
-  static final String USER = 'postgres'
-  static final String PASSWORD = 'postgres'
-  static final String DRIVER_CLASS = 'org.postgresql.Driver'
   static final JdbcDatabaseContainer<PostgreSQLContainer> POSTGRE_SQL
-  static final HikariDataSource PG_SOURCE
-  static final HikariDataSource DB_SOURCE
 
   static {
-    Class.forName(DRIVER_CLASS);
+    Class.forName(Constants.DRIVER_CLASS);
 
-    if (!CI) {
+    if (!Constants.CI) {
       println("Make sure that you are running database locally")
-      POSTGRE_SQL = new PostgreSQLContainer("postgres:$VERSION")
-          .withUsername(USER)
-          .withPassword(PASSWORD)
+      POSTGRE_SQL = new PostgreSQLContainer("postgres:$Constants.VERSION")
+          .withUsername(Constants.USER)
+          .withPassword(Constants.PASSWORD)
           .withUrlParam('gssEncMode', 'disable')
           .withUrlParam('sslmode', 'disable')
           .withUrlParam('preferQueryMode', 'extendedForPrepared')
@@ -33,58 +26,32 @@ class SetupEnvironment extends Specification {
     } else {
       POSTGRE_SQL = null
     }
-
-    // TODO: make it work with connection pool
-    PG_SOURCE = pgPool();
-    DB_SOURCE = dbPool();
   }
 
   static Map<String, String> pgConf() {
     [
-        url: pgUrl(),
-        user: USER,
-        password: PASSWORD,
-        driver: DRIVER_CLASS
+        url     : pgUrl(),
+        user    : Constants.USER,
+        password: Constants.PASSWORD,
+        driver  : Constants.DRIVER_CLASS
     ]
-  }
-
-
-  static HikariDataSource pgPool() {
-    HikariDataSource ds = new HikariDataSource();
-    ds.setJdbcUrl(pgUrl());
-    ds.setUsername(USER);
-    ds.setPassword(PASSWORD);
-    ds.setDriverClassName(DRIVER_CLASS);
-    ds
   }
 
   static Map<String, String> dbConf() {
     [
-            //TODO: sslmode as parameter to test both encrypted and not traffic on CI
-        url: "jdbc:postgresql://localhost:5432/test?gssEncMode=disable&sslmode=disable&preferQueryMode=extendedForPrepared",
-        user: USER,
-        password: PASSWORD,
-        driver: DRIVER_CLASS,
+        url     : "jdbc:postgresql://localhost:5432/test?gssEncMode=disable&sslmode=disable&preferQueryMode=extendedForPrepared",
+        user    : Constants.USER,
+        password: Constants.PASSWORD,
+        driver  : Constants.DRIVER_CLASS,
     ]
-  }
-
-  static HikariDataSource dbPool() {
-    HikariDataSource ds = new HikariDataSource();
-    //TODO: sslmode as parameter to test both encrypted and not traffic on CI
-    ds.setJdbcUrl("jdbc:postgresql://localhost:5432/test?gssEncMode=disable&sslmode=disable&preferQueryMode=extendedForPrepared");
-    ds.setUsername(USER);
-    ds.setPassword(PASSWORD);
-    ds.setDriverClassName(DRIVER_CLASS);
-    ds
   }
 
 
   private static String pgUrl() {
-    if (CI) {
+    if (Constants.CI) {
       "jdbc:postgresql://localhost:5433/test?gssEncMode=disable&sslmode=disable&preferQueryMode=extendedForPrepared"
     } else {
       POSTGRE_SQL.jdbcUrl
-//      "jdbc:postgresql://192.168.56.101:5432/postgres"
     }
   }
 
@@ -112,18 +79,6 @@ class SetupEnvironment extends Specification {
 
   private static execute(Map<String, String> conf, String query, List<Object> params) {
     Sql.withInstance(conf) {
-      Sql sql -> sql.execute query, params
-    }
-  }
-
-  private static execute(HikariDataSource source, String query) {
-    withInstance(source) {
-      Sql sql -> sql.execute query
-    }
-  }
-
-  private static execute(HikariDataSource source, String query, List<Object> params) {
-    withInstance(source) {
       Sql sql -> sql.execute query, params
     }
   }

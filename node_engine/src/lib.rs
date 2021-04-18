@@ -13,10 +13,12 @@
 // limitations under the License.
 
 use crate::query_engine::QueryEngine;
-use postgres::wire_protocol::ConnectionOld;
+use native_tls::{Identity, TlsStream};
+use postgre_sql::wire_protocol::{connection::SecureSocket, PgWireAcceptor};
 use std::{
     env,
-    io::{self, Write},
+    env::VarError,
+    io::{self, Read},
     net::TcpListener,
     path::{Path, PathBuf},
     sync::{Arc, Mutex},
@@ -27,84 +29,107 @@ use storage::Database;
 mod query_engine;
 mod session;
 
-// const PORT: u16 = 5432;
-// const HOST: [u8; 4] = [0, 0, 0, 0];
+#[derive(Default, Clone)]
+pub struct NodeEngine;
 
-// const MIN_CONN_ID: i32 = 1;
-// const MAX_CONN_ID: i32 = 1 << 16;
+impl NodeEngine {
+    pub fn start(&self, database: Database) {
+        let listener = TcpListener::bind("0.0.0.0:5432").expect("create listener");
 
-const READY_FOR_QUERY: u8 = b'Z';
-const EMPTY_QUERY_RESPONSE: u8 = b'I';
+        for stream in listener.incoming() {
+            match stream {
+                Err(_) => break,
+                Ok(socket) => {
+                    let db = database.clone();
+                    thread::spawn(move || -> io::Result<()> {
+                        use postgre_sql::wire_protocol::connection::Socket;
 
-pub fn start(database: Database) {
-    let listener = TcpListener::bind("0.0.0.0:5432").expect("create listener");
+                        match (pfx_certificate_path(), pfx_certificate_password()) {
+                            (Ok(path), Ok(pass)) => {
+                                let mut buff = vec![];
+                                let mut file = std::fs::File::open(path).unwrap();
+                                file.read_to_end(&mut buff)?;
+                                let acceptor: PgWireAcceptor<SecureSocket<TlsStream<Socket>>, Identity> =
+                                    PgWireAcceptor::new(Some(Identity::from_pkcs12(&buff, &pass).unwrap()));
+                                let connection = acceptor.accept(socket).unwrap();
 
-    while let Ok((socket, _addr)) = listener.accept() {
-        let db = database.clone();
-        thread::spawn(move || -> io::Result<()> {
-            use postgres::wire_protocol::connection::{Connection, Socket};
+                                let arc = Arc::new(Mutex::new(connection));
+                                let mut query_engine = QueryEngine::new(arc.clone(), db);
+                                log::debug!("ready to handle query");
 
-            let connection = Connection::new(Socket::from(socket));
-            let connection = connection.hand_shake(None)?;
-            let connection = connection.authenticate("whatever")?;
-            let connection = connection.send_params(&[
-                ("client_encoding", "UTF8"),
-                ("DateStyle", "ISO"),
-                ("integer_datetimes", "off"),
-                ("server_version", "13.0"),
-            ])?;
-            let connection = connection.send_backend_keys(1, 1)?;
-            let mut socket = connection.channel();
+                                loop {
+                                    let mut guard = arc.lock().unwrap();
+                                    let result = guard.receive();
+                                    drop(guard);
+                                    log::debug!("{:?}", result);
+                                    match result {
+                                        Err(e) => {
+                                            log::error!("UNEXPECTED ERROR: {:?}", e);
+                                            return Err(e);
+                                        }
+                                        Ok(Err(e)) => {
+                                            log::error!("UNEXPECTED ERROR: {:?}", e);
+                                            return Err(io::ErrorKind::InvalidInput.into());
+                                        }
+                                        Ok(Ok(client_request)) => match query_engine.execute(client_request) {
+                                            Ok(()) => {}
+                                            Err(_) => {
+                                                break Ok(());
+                                            }
+                                        },
+                                    }
+                                }
+                            }
+                            _ => {
+                                let acceptor: PgWireAcceptor<Socket, Identity> = PgWireAcceptor::new(None);
+                                let connection = acceptor.accept(socket).unwrap();
 
-            socket.write_all(&[READY_FOR_QUERY, 0, 0, 0, 5, EMPTY_QUERY_RESPONSE])?;
-            socket.flush()?;
-            log::debug!("send ready for query");
+                                let arc = Arc::new(Mutex::new(connection));
+                                let mut query_engine = QueryEngine::new(arc.clone(), db);
+                                log::debug!("ready to handle query");
 
-            let connection = ConnectionOld::from(socket);
-
-            let arc = Arc::new(Mutex::new(connection));
-            let mut query_engine = QueryEngine::new(arc.clone(), db);
-            log::debug!("ready to handle query");
-
-            loop {
-                let mut guard = arc.lock().unwrap();
-                let result = guard.receive();
-                drop(guard);
-                log::debug!("{:?}", result);
-                match result {
-                    Err(e) => {
-                        log::error!("UNEXPECTED ERROR: {:?}", e);
-                        return Err(e);
-                    }
-                    Ok(Err(e)) => {
-                        log::error!("UNEXPECTED ERROR: {:?}", e);
-                        return Err(io::ErrorKind::InvalidInput.into());
-                    }
-                    Ok(Ok(client_request)) => match query_engine.execute(client_request) {
-                        Ok(()) => {}
-                        Err(_) => {
-                            break Ok(());
+                                loop {
+                                    let mut guard = arc.lock().unwrap();
+                                    let result = guard.receive();
+                                    drop(guard);
+                                    log::debug!("{:?}", result);
+                                    match result {
+                                        Err(e) => {
+                                            log::error!("UNEXPECTED ERROR: {:?}", e);
+                                            return Err(e);
+                                        }
+                                        Ok(Err(e)) => {
+                                            log::error!("UNEXPECTED ERROR: {:?}", e);
+                                            return Err(io::ErrorKind::InvalidInput.into());
+                                        }
+                                        Ok(Ok(client_request)) => match query_engine.execute(client_request) {
+                                            Ok(()) => {}
+                                            Err(_) => {
+                                                break Ok(());
+                                            }
+                                        },
+                                    }
+                                }
+                            }
                         }
-                    },
+                    });
                 }
             }
-        });
+        }
     }
 }
 
-#[allow(dead_code)]
-fn pfx_certificate_path() -> PathBuf {
-    let file = env::var("PFX_CERTIFICATE_FILE").unwrap();
+fn pfx_certificate_path() -> Result<PathBuf, VarError> {
+    let file = env::var("PFX_CERTIFICATE_FILE")?;
     let path = Path::new(&file);
     if path.is_absolute() {
-        return path.to_path_buf();
+        return Ok(path.to_path_buf());
     }
 
     let current_dir = env::current_dir().unwrap();
-    current_dir.as_path().join(path)
+    Ok(current_dir.as_path().join(path))
 }
 
-#[allow(dead_code)]
-fn pfx_certificate_password() -> String {
-    env::var("PFX_CERTIFICATE_PASSWORD").unwrap()
+fn pfx_certificate_password() -> Result<String, VarError> {
+    env::var("PFX_CERTIFICATE_PASSWORD")
 }

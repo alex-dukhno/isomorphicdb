@@ -10,4 +10,6 @@
 rootProject.name = 'isomorphicdb'
 
 include 'compatibility'
+include 'ssl_mode'
 project(':compatibility').projectDir = file('tests/compatibility')
+project(':ssl_mode').projectDir = file('tests/ssl_mode')

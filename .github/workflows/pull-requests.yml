@@ -71,7 +71,7 @@ jobs:
           version: 0.16.0
           use-tool-cache: true
       - name: run code coverage
-        run: cargo tarpaulin --all --ignore-tests -o Lcov --output-dir ./coverage
+        run: cargo tarpaulin --all --ignore-tests -o Lcov --output-dir ./coverage -- --test-threads 1
       - name: upload to coveralls
         uses: coverallsapp/github-action@master
         with:
@@ -85,7 +85,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:12.4
+        image: postgres:13.0
         env:
           POSTGRES_PASSWORD: postgres
           POSTGRES_USER: postgres
@@ -115,7 +115,36 @@ jobs:
       - name: run-tests
         uses: eskatos/gradle-command-action@v1
         with:
-          arguments: test -Dci=true
+          arguments: :compatibility:clean :compatibility:test -Dci=true
+
+  ssl-mode-test:
+    needs:
+      - cargo-deny
+      - rustfmt
+      - clippy
+    runs-on: ubuntu-latest
+    env:
+      PFX_CERTIFICATE_FILE: 'tests/fixtures/identity.pfx'
+      PFX_CERTIFICATE_PASSWORD: 'password'
+    steps:
+      - name: set-up-rust
+        uses: hecrj/setup-rust-action@v1
+        with:
+          rust-version: stable
+      - name: set-up-java
+        uses: actions/setup-java@v1
+        with:
+          java-version: 8
+      - name: checkout code
+        uses: actions/checkout@v2
+      - name: install LLVM and Clang build dependencies for pg-sql-parser
+        run: sudo apt install -y llvm
+      - name: start-database
+        run: cargo run & cargo build && sleep 1
+      - name: run-tests
+        uses: eskatos/gradle-command-action@v1
+        with:
+          arguments: :ssl_mode:clean :ssl_mode:test -Dci=true
 
   ci-success:
     name: ci

@@ -9,7 +9,7 @@ publish = false
 # STORAGE
 storage = { path = "../storage" }
 # POSTGRES
-postgres = { path = "../postgres" }
+postgre_sql = { path = "../postgre_sql" }
 
 #SQL-ENGINE
 catalog = { path = "../sql_engine/catalog" }
@@ -26,6 +26,7 @@ bigdecimal = { version = "0.2.0", features = ["string-only"] }
 log = "0.4.14"
 rand_core = "0.6.2"
 rand = "0.8.3"
+native-tls = "0.2.7"
 
 [dev-dependencies]
 simple_logger = "1.10.0"

@@ -12,7 +12,7 @@ simple_logger = "1.10.0"
 
 [workspace]
 members = [
-    "postgres",
+    "postgre_sql",
     "sql_engine/catalog",
     "sql_engine/definition_planner",
     "sql_engine/data_definition",

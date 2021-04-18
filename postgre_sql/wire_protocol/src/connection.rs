@@ -12,13 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use native_tls::{HandshakeError, Identity, TlsAcceptor, TlsStream};
-use std::collections::HashMap;
-use std::convert::TryInto;
-use std::fmt::{self, Debug, Formatter};
-use std::io::{self, Read, Write};
-use std::net::TcpStream;
-use std::str;
+use native_tls::{Identity, TlsAcceptor, TlsStream};
+use std::{
+    collections::HashMap,
+    convert::TryInto,
+    fmt::{self, Debug, Formatter},
+    io::{self, Read, Write},
+    net::TcpStream,
+    str,
+};
 
 const ACCEPT_SSL: u8 = b'S';
 const REJECT_SSL: u8 = b'N';
@@ -26,28 +28,39 @@ const AUTHENTICATION: u8 = b'R';
 const PARAMETER_STATUS: u8 = b'S';
 const BACKEND_KEY_DATA: u8 = b'K';
 
-pub enum Certificate {
-    Tls(Identity),
-    #[cfg(test)]
-    Static(TestData),
+pub trait Secure<RW: Read + Write>: Clone {
+    #[allow(clippy::result_unit_err)]
+    fn secure(self, socket: Socket) -> Result<RW, ()>;
 }
 
-impl Certificate {
-    fn secure(self, socket: Socket) -> Result<SecureSocket, HandshakeError<Socket>> {
-        match self {
-            Certificate::Tls(identity) => Ok(SecureSocket::from(TlsAcceptor::new(identity).unwrap().accept(socket)?)),
-            #[cfg(test)]
-            Certificate::Static(data) => Ok(SecureSocket::from(data)),
-        }
+impl Secure<SecureSocket<TlsStream<Socket>>> for Identity {
+    fn secure(self, socket: Socket) -> Result<SecureSocket<TlsStream<Socket>>, ()> {
+        Ok(SecureSocket::from(
+            TlsAcceptor::new(self).unwrap().accept(socket).map_err(|_| ())?,
+        ))
     }
 }
 
-pub enum Channel {
-    Plain(Socket),
-    Secure(SecureSocket),
+impl Secure<Socket> for Identity {
+    fn secure(self, _socket: Socket) -> Result<Socket, ()> {
+        println!("uups!!");
+        Err(())
+    }
 }
 
-impl Channel {
+#[cfg(test)]
+impl Secure<TestData> for TestData {
+    fn secure(self, _socket: Socket) -> Result<TestData, ()> {
+        Ok(self)
+    }
+}
+
+pub enum Channel<RW: Read + Write> {
+    Plain(Socket),
+    Secure(RW),
+}
+
+impl<RW: Read + Write> Channel<RW> {
     pub fn read_tag(&mut self) -> io::Result<u8> {
         let buff = &mut [0u8; 1];
         self.read_exact(buff.as_mut())?;
@@ -67,7 +80,7 @@ impl Channel {
     }
 }
 
-impl Read for Channel {
+impl<RW: Read + Write> Read for Channel<RW> {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         match self {
             Channel::Plain(socket) => socket.read(buf),
@@ -76,7 +89,7 @@ impl Read for Channel {
     }
 }
 
-impl Write for Channel {
+impl<RW: Read + Write> Write for Channel<RW> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         match self {
             Channel::Plain(socket) => socket.write(buf),
@@ -92,20 +105,20 @@ impl Write for Channel {
     }
 }
 
-pub struct Connection<S> {
-    channel: Channel,
+pub struct Connection<S, RW: Read + Write> {
+    channel: Channel<RW>,
     #[allow(dead_code)]
     state: S,
 }
 
-impl<S> Debug for Connection<S> {
+impl<S, RW: Read + Write> Debug for Connection<S, RW> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "Connection")
     }
 }
 
-impl Connection<New> {
-    pub fn new(socket: Socket) -> Connection<New> {
+impl<RW: Read + Write> Connection<New, RW> {
+    pub fn new(socket: Socket) -> Connection<New, RW> {
         Connection {
             channel: Channel::Plain(socket),
             state: New,
@@ -113,35 +126,40 @@ impl Connection<New> {
     }
 }
 
-impl Connection<New> {
-    pub fn hand_shake(mut self, identity: Option<Certificate>) -> io::Result<Connection<HandShake>> {
-        let len = self.channel.read_message_len()?;
-        let request = self.channel.read_message(len)?;
+impl<RW: Read + Write> Connection<New, RW> {
+    pub fn hand_shake<S: Secure<RW>>(self, identity: Option<S>) -> io::Result<Connection<HandShake, RW>> {
+        println!("hand shake started");
+        let mut channel = self.channel;
+        let len = channel.read_message_len()?;
+        let request = channel.read_message(len)?;
         let (version, message) = Self::parse_setup(&request);
         let props = match version {
             0x00_03_00_00 => Self::parse_props(&message)?,
             80_877_103 => {
-                self.channel = match (self.channel, identity) {
-                    (Channel::Plain(socket), Some(identity)) => {
+                channel = match (channel, identity) {
+                    (Channel::Plain(mut socket), Some(identity)) => {
+                        socket.write_all(&[ACCEPT_SSL])?;
+                        println!("accepting ssl!");
                         let secure_socket = match identity.secure(socket) {
                             Ok(socket) => socket,
-                            Err(_error) => {
+                            Err(()) => {
+                                println!("shrug!");
                                 return Err(io::ErrorKind::InvalidInput.into());
                             }
                         };
-                        let mut channel = Channel::Secure(secure_socket);
-                        channel.write_all(&[ACCEPT_SSL])?;
-                        channel
+                        Channel::Secure(secure_socket)
                     }
                     (mut channel, _) => {
                         channel.write_all(&[REJECT_SSL])?;
                         channel
                     }
                 };
-                self.channel.flush()?;
-                let len = self.channel.read_message_len()?;
-                let request = self.channel.read_message(len)?;
+                channel.flush()?;
+                let len = channel.read_message_len()?;
+                let request = channel.read_message(len)?;
                 let (version, message) = Self::parse_setup(&request);
+                println!("ver {:?}", version);
+                println!("ver {:x?}", version);
                 match version {
                     0x00_03_00_00 => Self::parse_props(&message)?,
                     _ => unimplemented!(),
@@ -150,10 +168,10 @@ impl Connection<New> {
             _ => unimplemented!(),
         };
 
-        log::debug!("hand shake complete");
+        println!("hand shake complete");
 
         Ok(Connection {
-            channel: self.channel,
+            channel,
             state: HandShake {
                 props: props.into_iter().collect(),
             },
@@ -193,8 +211,8 @@ impl Connection<New> {
     }
 }
 
-impl Connection<HandShake> {
-    pub fn authenticate(mut self, _password: &str) -> io::Result<Connection<Authenticated>> {
+impl<RW: Read + Write> Connection<HandShake, RW> {
+    pub fn authenticate(mut self, _password: &str) -> io::Result<Connection<Authenticated, RW>> {
         self.channel.write_all(&[AUTHENTICATION, 0, 0, 0, 8, 0, 0, 0, 3])?;
         self.channel.flush()?;
 
@@ -215,8 +233,8 @@ impl Connection<HandShake> {
     }
 }
 
-impl Connection<Authenticated> {
-    pub fn send_params(mut self, params: &[(&str, &str)]) -> io::Result<Connection<AllocateBackendKey>> {
+impl<RW: Read + Write> Connection<Authenticated, RW> {
+    pub fn send_params(mut self, params: &[(&str, &str)]) -> io::Result<Connection<AllocateBackendKey, RW>> {
         for (key, value) in params {
             let len: i32 = 4 + (key.len() as i32) + 1 + (value.len() as i32) + 1;
             let mut buff = vec![];
@@ -236,8 +254,8 @@ impl Connection<Authenticated> {
     }
 }
 
-impl Connection<AllocateBackendKey> {
-    pub fn send_backend_keys(mut self, conn_id: u32, conn_secret_key: u32) -> io::Result<Connection<Established>> {
+impl<RW: Read + Write> Connection<AllocateBackendKey, RW> {
+    pub fn send_backend_keys(mut self, conn_id: u32, conn_secret_key: u32) -> io::Result<Connection<Established, RW>> {
         self.channel.write_all(&[BACKEND_KEY_DATA])?;
         self.channel.write_all(&12i32.to_be_bytes())?;
         self.channel.write_all(&conn_id.to_be_bytes())?;
@@ -251,8 +269,8 @@ impl Connection<AllocateBackendKey> {
     }
 }
 
-impl Connection<Established> {
-    pub fn channel(self) -> Channel {
+impl<RW: Read + Write> Connection<Established, RW> {
+    pub fn channel(self) -> Channel<RW> {
         self.channel
     }
 }
@@ -274,59 +292,37 @@ pub struct AllocateBackendKey;
 #[derive(Debug)]
 pub struct Established;
 
-pub struct SecureSocket {
-    inner: SecureSocketInner,
+pub struct SecureSocket<RW: Read + Write> {
+    inner: RW,
 }
 
-impl Read for SecureSocket {
+impl<RW: Read + Write> Read for SecureSocket<RW> {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        match &mut self.inner {
-            SecureSocketInner::Tls(tls) => tls.read(buf),
-            #[cfg(test)]
-            SecureSocketInner::Static(data) => data.read(buf),
-        }
+        self.inner.read(buf)
     }
 }
 
-impl Write for SecureSocket {
+impl<RW: Read + Write> Write for SecureSocket<RW> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        match &mut self.inner {
-            SecureSocketInner::Tls(tls) => tls.write(buf),
-            #[cfg(test)]
-            SecureSocketInner::Static(data) => data.write(buf),
-        }
+        self.inner.write(buf)
     }
 
     fn flush(&mut self) -> io::Result<()> {
-        match &mut self.inner {
-            SecureSocketInner::Tls(tls) => tls.flush(),
-            #[cfg(test)]
-            SecureSocketInner::Static(data) => data.flush(),
-        }
+        self.inner.flush()
     }
 }
 
-impl From<TlsStream<Socket>> for SecureSocket {
-    fn from(socket: TlsStream<Socket>) -> SecureSocket {
-        SecureSocket {
-            inner: SecureSocketInner::Tls(socket),
-        }
+impl From<TlsStream<Socket>> for SecureSocket<TlsStream<Socket>> {
+    fn from(socket: TlsStream<Socket>) -> SecureSocket<TlsStream<Socket>> {
+        SecureSocket { inner: socket }
     }
 }
 
 #[cfg(test)]
-impl From<TestData> for SecureSocket {
-    fn from(data: TestData) -> SecureSocket {
-        SecureSocket {
-            inner: SecureSocketInner::Static(data),
-        }
+impl From<TestData> for SecureSocket<TestData> {
+    fn from(data: TestData) -> SecureSocket<TestData> {
+        SecureSocket { inner: data }
     }
-}
-
-enum SecureSocketInner {
-    Tls(native_tls::TlsStream<Socket>),
-    #[cfg(test)]
-    Static(TestData),
 }
 
 pub struct Socket {
@@ -474,17 +470,17 @@ mod tests {
 
     #[test]
     fn trying_read_from_empty_stream() {
-        let connection = Connection::new(Socket::from(TestData::new(vec![])));
+        let connection: Connection<New, TestData> = Connection::new(Socket::from(TestData::new(vec![])));
 
-        let connection = connection.hand_shake(None);
+        let connection = connection.hand_shake::<TestData>(None);
         assert!(matches!(connection, Err(_)));
     }
 
     #[test]
     fn trying_read_only_length_of_ssl_message() {
-        let connection = Connection::new(Socket::from(TestData::new(vec![&[0, 0, 0, 8]])));
+        let connection: Connection<New, TestData> = Connection::new(Socket::from(TestData::new(vec![&[0, 0, 0, 8]])));
 
-        let connection = connection.hand_shake(None);
+        let connection = connection.hand_shake::<TestData>(None);
         assert!(matches!(connection, Err(_)));
     }
 
@@ -508,8 +504,8 @@ mod tests {
             &[0],
         ]);
 
-        let connection = Connection::new(Socket::from(test_data.clone()));
-        let connection = connection.hand_shake(None);
+        let connection: Connection<New, TestData> = Connection::new(Socket::from(test_data.clone()));
+        let connection = connection.hand_shake::<TestData>(None);
 
         assert!(matches!(connection, Ok(_)));
 
@@ -539,8 +535,8 @@ mod tests {
             &[0],
         ]);
 
-        let connection = Connection::new(Socket::from(test_data.clone()));
-        let connection = connection.hand_shake(Some(Certificate::Static(test_data.clone())));
+        let connection: Connection<New, TestData> = Connection::new(Socket::from(test_data.clone()));
+        let connection = connection.hand_shake(Some(test_data.clone()));
 
         assert!(matches!(connection, Ok(_)));
 
@@ -573,8 +569,8 @@ mod tests {
             b"123\0",
         ]);
 
-        let connection = Connection::new(Socket::from(test_data.clone()));
-        let connection = connection.hand_shake(None).unwrap();
+        let connection: Connection<New, TestData> = Connection::new(Socket::from(test_data.clone()));
+        let connection = connection.hand_shake::<TestData>(None).unwrap();
         let connection = connection.authenticate("123");
 
         assert!(matches!(connection, Ok(_)));
@@ -610,8 +606,8 @@ mod tests {
             b"123\0",
         ]);
 
-        let connection = Connection::new(Socket::from(test_data.clone()));
-        let connection = connection.hand_shake(None).unwrap();
+        let connection: Connection<New, TestData> = Connection::new(Socket::from(test_data.clone()));
+        let connection = connection.hand_shake::<TestData>(None).unwrap();
         let connection = connection.authenticate("123").unwrap();
         let connection = connection.send_params(&[("key1", "value1"), ("key2", "value2")]);
 
@@ -659,8 +655,8 @@ mod tests {
         const CONNECTION_ID: u32 = 1;
         const CONNECTION_SECRET_KEY: u32 = 1;
 
-        let connection = Connection::new(Socket::from(test_data.clone()));
-        let connection = connection.hand_shake(None).unwrap();
+        let connection: Connection<New, TestData> = Connection::new(Socket::from(test_data.clone()));
+        let connection = connection.hand_shake::<TestData>(None).unwrap();
         let connection = connection.authenticate("123").unwrap();
         let connection = connection
             .send_params(&[("key1", "value1"), ("key2", "value2")])
