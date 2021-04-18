@@ -73,7 +73,7 @@ jobs:
         uses: actions-rs/tarpaulin@v0.1
         with:
           version: '0.16.0'
-          args: '--ignore-tests -o Lcov --output-dir ./coverage -- --test-threads 1'
+          args: '--all --ignore-tests -o Lcov --output-dir ./coverage -- --test-threads 1'
       - name: upload to coveralls
         uses: coverallsapp/github-action@master
         with:
