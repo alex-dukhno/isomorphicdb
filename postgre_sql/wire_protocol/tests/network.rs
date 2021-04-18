@@ -25,6 +25,7 @@ use wire_protocol::{
     PgWireAcceptor,
 };
 
+#[ignore]
 #[test]
 #[allow(clippy::mutex_atomic)]
 fn non_secure() {
@@ -64,6 +65,7 @@ fn non_secure() {
     assert!(handle.join().is_ok());
 }
 
+#[ignore]
 #[test]
 #[allow(clippy::mutex_atomic)]
 fn secure() {
