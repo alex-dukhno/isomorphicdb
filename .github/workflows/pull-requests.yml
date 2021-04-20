@@ -126,6 +126,20 @@ jobs:
     env:
       PFX_CERTIFICATE_FILE: 'tests/fixtures/identity.pfx'
       PFX_CERTIFICATE_PASSWORD: 'password'
+    services:
+      postgres:
+        image: postgres:13.0
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_DB: test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5433:5432
     steps:
       - name: set-up-rust
         uses: hecrj/setup-rust-action@v1
