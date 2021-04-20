@@ -145,10 +145,10 @@ jobs:
         uses: eskatos/gradle-command-action@v1
         with:
           arguments: :ssl_mode:clean :ssl_mode:test -Dci=true
-     - name: run tests without ssl mode
-       uses: eskatos/gradle-command-action@v1
-       with:
-         arguments: :compatibility:clean :compatibility:test -Dci=true
+      - name: run tests without ssl mode
+        uses: eskatos/gradle-command-action@v1
+        with:
+          arguments: :compatibility:clean :compatibility:test -Dci=true
 
   ci-success:
     name: ci
