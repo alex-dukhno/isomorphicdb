@@ -13,8 +13,8 @@
 // limitations under the License.
 
 use crate::query_engine::QueryEngine;
-use native_tls::{Identity, TlsStream};
-use postgre_sql::wire_protocol::{connection::SecureSocket, PgWireAcceptor};
+use native_tls::Identity;
+use postgre_sql::wire_protocol::PgWireAcceptor;
 use std::{
     env,
     env::VarError,
@@ -42,74 +42,43 @@ impl NodeEngine {
                 Ok(socket) => {
                     let db = database.clone();
                     thread::spawn(move || -> io::Result<()> {
-                        use postgre_sql::wire_protocol::connection::Socket;
-
-                        match (pfx_certificate_path(), pfx_certificate_password()) {
-                            (Ok(path), Ok(pass)) => {
-                                let mut buff = vec![];
-                                let mut file = std::fs::File::open(path).unwrap();
-                                file.read_to_end(&mut buff)?;
-                                let acceptor: PgWireAcceptor<SecureSocket<TlsStream<Socket>>, Identity> =
-                                    PgWireAcceptor::new(Some(Identity::from_pkcs12(&buff, &pass).unwrap()));
-                                let connection = acceptor.accept(socket).unwrap();
-
-                                let arc = Arc::new(Mutex::new(connection));
-                                let mut query_engine = QueryEngine::new(arc.clone(), db);
-                                log::debug!("ready to handle query");
-
-                                loop {
-                                    let mut guard = arc.lock().unwrap();
-                                    let result = guard.receive();
-                                    drop(guard);
-                                    log::debug!("{:?}", result);
-                                    match result {
-                                        Err(e) => {
-                                            log::error!("UNEXPECTED ERROR: {:?}", e);
-                                            return Err(e);
-                                        }
-                                        Ok(Err(e)) => {
-                                            log::error!("UNEXPECTED ERROR: {:?}", e);
-                                            return Err(io::ErrorKind::InvalidInput.into());
-                                        }
-                                        Ok(Ok(client_request)) => match query_engine.execute(client_request) {
-                                            Ok(()) => {}
-                                            Err(_) => {
-                                                break Ok(());
-                                            }
-                                        },
-                                    }
+                        let acceptor: PgWireAcceptor<Identity> =
+                            match (pfx_certificate_path(), pfx_certificate_password()) {
+                                (Ok(path), Ok(pass)) => {
+                                    let mut buff = vec![];
+                                    let mut file = std::fs::File::open(path).unwrap();
+                                    file.read_to_end(&mut buff)?;
+                                    PgWireAcceptor::new(Some(Identity::from_pkcs12(&buff, &pass).unwrap()))
                                 }
-                            }
-                            _ => {
-                                let acceptor: PgWireAcceptor<Socket, Identity> = PgWireAcceptor::new(None);
-                                let connection = acceptor.accept(socket).unwrap();
+                                _ => PgWireAcceptor::new(None),
+                            };
 
-                                let arc = Arc::new(Mutex::new(connection));
-                                let mut query_engine = QueryEngine::new(arc.clone(), db);
-                                log::debug!("ready to handle query");
+                        let connection = acceptor.accept(socket).unwrap();
 
-                                loop {
-                                    let mut guard = arc.lock().unwrap();
-                                    let result = guard.receive();
-                                    drop(guard);
-                                    log::debug!("{:?}", result);
-                                    match result {
-                                        Err(e) => {
-                                            log::error!("UNEXPECTED ERROR: {:?}", e);
-                                            return Err(e);
-                                        }
-                                        Ok(Err(e)) => {
-                                            log::error!("UNEXPECTED ERROR: {:?}", e);
-                                            return Err(io::ErrorKind::InvalidInput.into());
-                                        }
-                                        Ok(Ok(client_request)) => match query_engine.execute(client_request) {
-                                            Ok(()) => {}
-                                            Err(_) => {
-                                                break Ok(());
-                                            }
-                                        },
-                                    }
+                        let arc = Arc::new(Mutex::new(connection));
+                        let mut query_engine = QueryEngine::new(arc.clone(), db);
+                        log::debug!("ready to handle query");
+
+                        loop {
+                            let mut guard = arc.lock().unwrap();
+                            let result = guard.receive();
+                            drop(guard);
+                            log::debug!("{:?}", result);
+                            match result {
+                                Err(e) => {
+                                    log::error!("UNEXPECTED ERROR: {:?}", e);
+                                    return Err(e);
                                 }
+                                Ok(Err(e)) => {
+                                    log::error!("UNEXPECTED ERROR: {:?}", e);
+                                    return Err(io::ErrorKind::InvalidInput.into());
+                                }
+                                Ok(Ok(client_request)) => match query_engine.execute(client_request) {
+                                    Ok(()) => {}
+                                    Err(_) => {
+                                        break Ok(());
+                                    }
+                                },
                             }
                         }
                     });

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use native_tls::{Certificate, Identity, TlsConnector, TlsStream};
+use native_tls::{Certificate, Identity, TlsConnector};
 use postgres::{Client, NoTls};
 use postgres_native_tls::MakeTlsConnector;
 use std::{
@@ -20,10 +20,7 @@ use std::{
     net::TcpListener,
     sync::{Arc, Condvar, Mutex},
 };
-use wire_protocol::{
-    connection::{SecureSocket, Socket},
-    PgWireAcceptor,
-};
+use wire_protocol::PgWireAcceptor;
 
 #[ignore]
 #[test]
@@ -43,7 +40,7 @@ fn non_secure() {
         drop(started);
         let (socket, _) = listener.accept().unwrap();
 
-        let acceptor: PgWireAcceptor<Socket, Identity> = PgWireAcceptor::new(None);
+        let acceptor: PgWireAcceptor<Identity> = PgWireAcceptor::new(None);
         acceptor.accept(socket)
     });
 
@@ -86,7 +83,7 @@ fn secure() {
         let cert = fs::read("../../tests/fixtures/identity.pfx").unwrap();
         let cert = Identity::from_pkcs12(&cert, "password").unwrap();
 
-        let acceptor: PgWireAcceptor<SecureSocket<TlsStream<Socket>>, Identity> = PgWireAcceptor::new(Some(cert));
+        let acceptor: PgWireAcceptor<Identity> = PgWireAcceptor::new(Some(cert));
         acceptor.accept(socket)
     });
 
