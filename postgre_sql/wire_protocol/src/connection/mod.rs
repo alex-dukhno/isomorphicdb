@@ -39,13 +39,6 @@ impl Securing<TcpStream, TlsStream<TcpStream>> for Identity {
     }
 }
 
-impl Securing<TcpStream, TcpStream> for Identity {
-    fn secure(self, _socket: TcpStream) -> Result<TcpStream, ()> {
-        println!("uups!!");
-        Err(())
-    }
-}
-
 pub trait Plain: Read + Write {}
 
 pub trait Secure: Read + Write {}
@@ -292,7 +285,6 @@ pub struct AllocateBackendKey;
 pub struct Established;
 
 impl Plain for TcpStream {}
-impl Secure for TcpStream {}
 
 impl Secure for TlsStream<TcpStream> {}
 
