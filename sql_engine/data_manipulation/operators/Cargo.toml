@@ -7,9 +7,9 @@ publish = false
 
 [dependencies]
 data_manipulation_query_result = { path = "../query_result" }
-types = { path = "../../entities/types" }
+types = { path = "../../../types" }
 query_ast = { path = "../../../postgre_sql/query_ast" }
-scalar = { path = "../../scalar" }
+scalar = { path = "../../../data_repr/scalar" }
 
 bigdecimal = { version = "0.2.0", features = ["string-only"] }
 regex = "1.4.3"

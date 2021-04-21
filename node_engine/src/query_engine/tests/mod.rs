@@ -132,7 +132,7 @@ impl Collector {
 fn empty_database() -> (InMemory, ResultCollector) {
     setup_logger();
     let collector = Collector::new();
-    (InMemory::new(collector.clone(), Database::in_memory("")), collector)
+    (InMemory::new(collector.clone(), Database::new("")), collector)
 }
 
 #[rstest::fixture]

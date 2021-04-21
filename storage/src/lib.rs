@@ -12,34 +12,99 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-pub use binary::*;
-#[cfg(feature = "in_memory")]
-pub use in_memory::*;
-#[cfg(feature = "persistent")]
-pub use persistent::*;
+use crate::in_memory::{InMemoryDatabase, InMemoryTree};
+use binary::BinaryValue;
 use std::{
+    fmt::{self, Debug, Formatter},
+    iter::FromIterator,
     rc::Rc,
     sync::{Arc, Mutex, MutexGuard},
 };
-pub use storage_api::*;
+
+mod in_memory;
+
+pub type Key = Vec<BinaryValue>;
+pub type Value = Vec<BinaryValue>;
+pub type TransactionResult<R> = Result<R, TransactionError>;
+pub type ConflictableTransactionResult<R> = Result<R, ConflictableTransactionError>;
+
+#[derive(Debug, PartialEq)]
+pub enum TransactionError {
+    Abort,
+    Storage,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum ConflictableTransactionError {
+    Abort,
+    Storage,
+    Conflict,
+}
+
+pub struct Cursor {
+    source: Box<dyn Iterator<Item = (Vec<BinaryValue>, Vec<BinaryValue>)>>,
+}
+
+impl Debug for Cursor {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "Data Cursor")
+    }
+}
+
+impl FromIterator<(Vec<BinaryValue>, Vec<BinaryValue>)> for Cursor {
+    fn from_iter<T: IntoIterator<Item = (Vec<BinaryValue>, Vec<BinaryValue>)>>(iter: T) -> Cursor {
+        Cursor {
+            source: Box::new(
+                iter.into_iter()
+                    .collect::<Vec<(Vec<BinaryValue>, Vec<BinaryValue>)>>()
+                    .into_iter(),
+            ),
+        }
+    }
+}
+
+impl Iterator for Cursor {
+    type Item = (Key, Value);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.source.next()
+    }
+}
+
+pub trait Tree {
+    #[allow(clippy::ptr_arg)]
+    fn remove(&self, key: &Key) -> Option<Value>;
+
+    fn insert_key(&self, key: Key, row: Value) -> Option<Value>;
+
+    fn select(&self) -> Cursor;
+
+    fn insert(&self, data: Vec<Value>) -> Vec<Key>;
+
+    fn update(&self, data: Vec<(Key, Value)>) -> usize;
+
+    fn delete(&self, data: Vec<Key>) -> usize;
+}
+
+pub trait Storage {
+    type Tree: Tree;
+
+    fn lookup_tree<T: Into<String>>(&self, table: T) -> Self::Tree;
+
+    fn drop_tree<T: Into<String>>(&self, table: T);
+
+    fn create_tree<T: Into<String>>(&self, table: T);
+}
 
 #[derive(Clone)]
 pub struct Database {
-    inner: DatabaseInner,
+    inner: Arc<Mutex<InMemoryDatabase>>,
 }
 
 impl Database {
-    #[cfg(feature = "in_memory")]
-    pub fn in_memory(_path: &str) -> Database {
+    pub fn new(_path: &str) -> Database {
         Database {
-            inner: DatabaseInner::InMemory(Arc::new(Mutex::new(InMemoryDatabase::create()))),
-        }
-    }
-
-    #[cfg(feature = "persistent")]
-    pub fn persistent(path: &str) -> Database {
-        Database {
-            inner: DatabaseInner::Persistent(Arc::new(Mutex::new(PersistentDatabase::new(path)))),
+            inner: Arc::new(Mutex::new(InMemoryDatabase::create())),
         }
     }
 
@@ -59,154 +124,64 @@ impl Database {
     }
 
     fn transactional(&self) -> TransactionalDatabase {
-        match &self.inner {
-            #[cfg(feature = "in_memory")]
-            DatabaseInner::InMemory(db) => TransactionalDatabase::from(db.lock().unwrap()),
-            #[cfg(feature = "persistent")]
-            DatabaseInner::Persistent(db) => TransactionalDatabase::from(db.lock().unwrap()),
-        }
+        TransactionalDatabase::from(self.inner.lock().unwrap())
     }
-}
-
-#[derive(Clone)]
-enum DatabaseInner {
-    #[cfg(feature = "in_memory")]
-    InMemory(Arc<Mutex<InMemoryDatabase>>),
-    #[cfg(feature = "persistent")]
-    Persistent(Arc<Mutex<PersistentDatabase>>),
 }
 
 #[derive(Clone)]
 pub struct TransactionalDatabase<'t> {
-    inner: Rc<TransactionalDatabaseInner<'t>>,
+    inner: Rc<MutexGuard<'t, InMemoryDatabase>>,
 }
 
 impl<'t> TransactionalDatabase<'t> {
     pub fn table<T: Into<String>>(&self, full_table_name: T) -> Table {
-        match &*self.inner {
-            #[cfg(feature = "in_memory")]
-            TransactionalDatabaseInner::InMemory(database) => Table::from(database.lookup_tree(full_table_name)),
-            #[cfg(feature = "persistent")]
-            TransactionalDatabaseInner::Persistent(database) => Table::from(database.lookup_tree(full_table_name)),
-        }
+        Table::from(self.inner.lookup_tree(full_table_name))
     }
 
     pub fn drop_tree<T: Into<String>>(&self, full_table_name: T) {
-        match &*self.inner {
-            #[cfg(feature = "in_memory")]
-            TransactionalDatabaseInner::InMemory(database) => database.drop_tree(full_table_name),
-            #[cfg(feature = "persistent")]
-            TransactionalDatabaseInner::Persistent(database) => database.drop_tree(full_table_name),
-        }
+        self.inner.drop_tree(full_table_name)
     }
 
     pub fn create_tree<T: Into<String>>(&self, full_table_name: T) {
-        match &*self.inner {
-            #[cfg(feature = "in_memory")]
-            TransactionalDatabaseInner::InMemory(database) => database.create_tree(full_table_name),
-            #[cfg(feature = "persistent")]
-            TransactionalDatabaseInner::Persistent(database) => database.create_tree(full_table_name),
-        }
+        self.inner.create_tree(full_table_name)
     }
 }
 
-#[cfg(feature = "in_memory")]
 impl<'t> From<MutexGuard<'t, InMemoryDatabase>> for TransactionalDatabase<'t> {
     fn from(guard: MutexGuard<'t, InMemoryDatabase>) -> TransactionalDatabase {
-        TransactionalDatabase {
-            inner: Rc::new(TransactionalDatabaseInner::InMemory(guard)),
-        }
+        TransactionalDatabase { inner: Rc::new(guard) }
     }
-}
-
-#[cfg(feature = "persistent")]
-impl<'t> From<MutexGuard<'t, PersistentDatabase>> for TransactionalDatabase<'t> {
-    fn from(guard: MutexGuard<'t, PersistentDatabase>) -> TransactionalDatabase {
-        TransactionalDatabase {
-            inner: Rc::new(TransactionalDatabaseInner::Persistent(guard)),
-        }
-    }
-}
-
-enum TransactionalDatabaseInner<'t> {
-    #[cfg(feature = "in_memory")]
-    InMemory(MutexGuard<'t, InMemoryDatabase>),
-    #[cfg(feature = "persistent")]
-    Persistent(MutexGuard<'t, PersistentDatabase>),
 }
 
 #[derive(Debug)]
 pub struct Table {
-    inner: TableInner,
+    inner: InMemoryTree,
 }
 
-#[cfg(feature = "in_memory")]
 impl From<InMemoryTree> for Table {
     fn from(table: InMemoryTree) -> Table {
-        Table {
-            inner: TableInner::InMemory(table),
-        }
+        Table { inner: table }
     }
-}
-
-#[cfg(feature = "persistent")]
-impl From<PersistentTable> for Table {
-    fn from(table: PersistentTable) -> Table {
-        Table {
-            inner: TableInner::Persistent(table),
-        }
-    }
-}
-
-#[derive(Debug)]
-enum TableInner {
-    #[cfg(feature = "in_memory")]
-    InMemory(InMemoryTree),
-    #[cfg(feature = "persistent")]
-    Persistent(PersistentTable),
 }
 
 impl Table {
     pub fn write(&self, row: Value) -> Key {
-        match &self.inner {
-            #[cfg(feature = "in_memory")]
-            TableInner::InMemory(table) => table.insert(vec![row]).remove(0),
-            #[cfg(feature = "persistent")]
-            TableInner::Persistent(table) => table.insert(vec![row]).remove(0),
-        }
+        self.inner.insert(vec![row]).remove(0)
     }
 
-    pub fn write_key(&self, key: Binary, row: Option<Binary>) {
-        match &self.inner {
-            #[cfg(feature = "in_memory")]
-            TableInner::InMemory(table) => match row {
-                None => {
-                    let result = table.remove(&key);
-                    debug_assert!(matches!(result, Some(_)), "nothing were found for {:?} key", key);
-                }
-                Some(row) => {
-                    let _result = table.insert_key(key, row);
-                }
-            },
-            #[cfg(feature = "persistent")]
-            TableInner::Persistent(table) => match row {
-                None => {
-                    let result = table.remove(&key);
-                    debug_assert!(matches!(result, Some(_)), "nothing were found for {:?} key", key);
-                }
-                Some(row) => {
-                    let _result = table.insert_key(key, row);
-                }
-            },
+    pub fn write_key(&self, key: Vec<BinaryValue>, row: Option<Vec<BinaryValue>>) {
+        match row {
+            None => {
+                let result = self.inner.remove(&key);
+                debug_assert!(matches!(result, Some(_)), "nothing were found for {:?} key", key);
+            }
+            Some(row) => {
+                let _result = self.inner.insert_key(key, row);
+            }
         }
     }
 
     pub fn scan(&self) -> Cursor {
-        match &self.inner {
-            #[cfg(feature = "in_memory")]
-            TableInner::InMemory(table) => table.select(),
-            #[cfg(feature = "persistent")]
-            TableInner::Persistent(table) => table.select(),
-        }
+        self.inner.select()
     }
 }

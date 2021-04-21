@@ -7,4 +7,4 @@ publish = false
 
 [dependencies]
 data_manipulation_untyped_tree = { path = "../untyped_tree" }
-definition = { path = "../../entities/definition" }
+definition = { path = "../../../definition" }

@@ -39,7 +39,7 @@ fn drop_cascade(names: Vec<(&str, &str)>) -> Definition {
 
 #[test]
 fn drop_table_from_nonexistent_schema() -> TransactionResult<()> {
-    Database::in_memory("").transaction(|db| {
+    Database::new("").transaction(|db| {
         let planner = DefinitionPlanner::from(db);
         assert_eq!(
             planner.plan(drop_table_stmt(vec![("non_existent_schema", TABLE)])),
@@ -51,7 +51,7 @@ fn drop_table_from_nonexistent_schema() -> TransactionResult<()> {
 
 #[test]
 fn drop_table() -> TransactionResult<()> {
-    Database::in_memory("").transaction(|db| {
+    Database::new("").transaction(|db| {
         let catalog = CatalogHandler::from(db.clone());
         catalog.apply(create_schema_ops(SCHEMA)).unwrap();
         catalog
@@ -73,7 +73,7 @@ fn drop_table() -> TransactionResult<()> {
 
 #[test]
 fn drop_nonexistent_table() -> TransactionResult<()> {
-    Database::in_memory("").transaction(|db| {
+    Database::new("").transaction(|db| {
         let catalog = CatalogHandler::from(db.clone());
         catalog.apply(create_schema_ops(SCHEMA)).unwrap();
         let planner = DefinitionPlanner::from(db);
@@ -91,7 +91,7 @@ fn drop_nonexistent_table() -> TransactionResult<()> {
 
 #[test]
 fn drop_table_if_exists() -> TransactionResult<()> {
-    Database::in_memory("").transaction(|db| {
+    Database::new("").transaction(|db| {
         let catalog = CatalogHandler::from(db.clone());
         catalog.apply(create_schema_ops(SCHEMA)).unwrap();
         catalog
@@ -118,7 +118,7 @@ fn drop_table_if_exists() -> TransactionResult<()> {
 
 #[test]
 fn drop_table_cascade() -> TransactionResult<()> {
-    Database::in_memory("").transaction(|db| {
+    Database::new("").transaction(|db| {
         let catalog = CatalogHandler::from(db.clone());
         catalog.apply(create_schema_ops(SCHEMA)).unwrap();
         catalog

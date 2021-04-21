@@ -6,7 +6,7 @@ edition = "2018"
 
 [dependencies]
 node_engine = { path = "node_engine" }
-storage = { path = "storage", features = ["persistent"] }
+storage = { path = "storage" }
 
 simple_logger = "1.10.0"
 
@@ -17,10 +17,12 @@ members = [
     "sql_engine/definition_planner",
     "sql_engine/data_definition",
     "sql_engine/data_manipulation",
-    "sql_engine/entities",
     "sql_engine/query_analyzer",
     "sql_engine/query_planner",
     "sql_engine/query_processing",
     "storage",
-    "node_engine"
+    "node_engine",
+    "data_repr",
+    "types",
+    "definition",
 ]

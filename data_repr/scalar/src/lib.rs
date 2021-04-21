@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use bigdecimal::{BigDecimal, ToPrimitive};
-use binary::repr::{Datum, ToDatum};
+use binary::BinaryValue;
 use std::{
     fmt::{self, Display, Formatter},
     str::FromStr,
@@ -41,19 +41,42 @@ impl ScalarValue {
         }
     }
 
-    #[allow(clippy::wrong_self_convention)]
-    pub fn as_to_datum(self) -> Box<dyn ToDatum> {
-        Box::new(self)
-    }
-
-    #[allow(clippy::wrong_self_convention)]
-    pub fn as_text(self) -> String {
+    pub fn as_text(&self) -> String {
         match self {
             ScalarValue::Null => "NULL".to_owned(),
             ScalarValue::Bool(true) => "t".to_owned(),
             ScalarValue::Bool(false) => "f".to_owned(),
             ScalarValue::Num { value, .. } => value.to_string(),
-            ScalarValue::String(val) => val,
+            ScalarValue::String(val) => val.clone(),
+        }
+    }
+
+    pub fn convert(self) -> BinaryValue {
+        match self {
+            ScalarValue::Num {
+                value,
+                type_family: SqlTypeFamily::SmallInt,
+            } => BinaryValue::from(value.to_i16().unwrap()),
+            ScalarValue::Num {
+                value,
+                type_family: SqlTypeFamily::Integer,
+            } => BinaryValue::from(value.to_i32().unwrap()),
+            ScalarValue::Num {
+                value,
+                type_family: SqlTypeFamily::Real,
+            } => BinaryValue::from(value.to_f32().unwrap()),
+            ScalarValue::Num {
+                value,
+                type_family: SqlTypeFamily::Double,
+            } => BinaryValue::from(value.to_f64().unwrap()),
+            ScalarValue::Num {
+                value,
+                type_family: SqlTypeFamily::BigInt,
+            } => BinaryValue::from(value.to_i64().unwrap()),
+            ScalarValue::String(str) => BinaryValue::from(str),
+            ScalarValue::Bool(boolean) => BinaryValue::from(boolean),
+            ScalarValue::Null => BinaryValue::null(),
+            _ => unreachable!(),
         }
     }
 }
@@ -105,37 +128,6 @@ impl Display for ScalarValue {
             ScalarValue::String(value) => write!(f, "{}", value),
             ScalarValue::Bool(value) => write!(f, "{}", value),
             ScalarValue::Null => write!(f, "NULL"),
-        }
-    }
-}
-
-impl ToDatum for ScalarValue {
-    fn convert(&self) -> Datum {
-        match self {
-            ScalarValue::Num {
-                value,
-                type_family: SqlTypeFamily::SmallInt,
-            } => Datum::from_i16(value.to_i16().unwrap()),
-            ScalarValue::Num {
-                value,
-                type_family: SqlTypeFamily::Integer,
-            } => Datum::from_i32(value.to_i32().unwrap()),
-            ScalarValue::Num {
-                value,
-                type_family: SqlTypeFamily::Real,
-            } => Datum::from_f32(value.to_f32().unwrap()),
-            ScalarValue::Num {
-                value,
-                type_family: SqlTypeFamily::Double,
-            } => Datum::from_f64(value.to_f64().unwrap()),
-            ScalarValue::Num {
-                value,
-                type_family: SqlTypeFamily::BigInt,
-            } => Datum::from_i64(value.to_i64().unwrap()),
-            ScalarValue::String(str) => Datum::from_string(str.clone()),
-            ScalarValue::Bool(boolean) => Datum::from_bool(*boolean),
-            ScalarValue::Null => Datum::from_null(),
-            _ => unreachable!(),
         }
     }
 }

@@ -12,7 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use binary::{repr::Datum, Binary};
+use super::{Cursor, Key, Storage, Tree, Value};
+use binary::BinaryValue;
 use dashmap::DashMap;
 use std::{
     collections::BTreeMap,
@@ -21,7 +22,6 @@ use std::{
         Arc, RwLock,
     },
 };
-use storage_api::*;
 
 const DEFINITION_SCHEMA: &str = "DEFINITION_SCHEMA";
 const SCHEMATA_TABLE: &str = "SCHEMATA";
@@ -42,10 +42,7 @@ impl InMemoryDatabase {
         // database bootstrap
         this.create_tree(format!("{}.{}", DEFINITION_SCHEMA, SCHEMATA_TABLE));
         this.lookup_tree(format!("{}.{}", DEFINITION_SCHEMA, SCHEMATA_TABLE))
-            .insert(vec![Binary::pack(&[
-                Datum::from_string("IN_MEMORY".to_owned()),
-                Datum::from_string("public".to_owned()),
-            ])]);
+            .insert(vec![vec![BinaryValue::from("IN_MEMORY"), BinaryValue::from("public")]]);
         this.create_tree(format!("{}.{}", DEFINITION_SCHEMA, TABLES_TABLE));
         this.create_tree(format!("{}.{}", DEFINITION_SCHEMA, COLUMNS_TABLE));
         this.create_tree(format!("{}.{}", DEFINITION_SCHEMA, INDEXES_TABLE));
@@ -59,7 +56,6 @@ impl Storage for InMemoryDatabase {
 
     fn lookup_tree<T: Into<String>>(&self, table: T) -> InMemoryTree {
         let table = table.into();
-        log::trace!("LOOKUP {:?}", table);
         self.trees.get(&table).unwrap().clone()
     }
 
@@ -96,25 +92,21 @@ impl InMemoryTree {
 }
 
 impl Tree for InMemoryTree {
-    fn remove(&self, key: &Binary) -> Option<Binary> {
-        self.inner.records.write().unwrap().remove(&key)
+    fn remove(&self, key: &Vec<BinaryValue>) -> Option<Vec<BinaryValue>> {
+        self.inner.records.write().unwrap().remove(key)
     }
 
-    fn insert_key(&self, key: Binary, row: Binary) -> Option<Binary> {
+    fn insert_key(&self, key: Vec<BinaryValue>, row: Vec<BinaryValue>) -> Option<Vec<BinaryValue>> {
         self.inner.records.write().unwrap().insert(key, row)
     }
 
     fn select(&self) -> Cursor {
-        log::debug!("[SCAN] TABLE NAME {:?}", self.name);
         self.inner
             .records
             .read()
             .unwrap()
             .iter()
-            .map(|(key, value)| {
-                log::debug!("[SCAN] TABLE RECORD - ({:?}, {:?})", key, value);
-                (key.clone(), value.clone())
-            })
+            .map(|(key, value)| (key.clone(), value.clone()))
             .collect::<Cursor>()
     }
 
@@ -123,7 +115,7 @@ impl Tree for InMemoryTree {
         let mut keys = vec![];
         for value in data {
             let record_id = self.inner.record_ids.fetch_add(1, Ordering::SeqCst);
-            let key = Binary::pack(&[Datum::from_u64(record_id)]);
+            let key = vec![BinaryValue::from_u64(record_id)];
             debug_assert!(
                 matches!(rw.insert(key.clone(), value), None),
                 "insert operation should insert nonexistent key"
@@ -153,7 +145,7 @@ impl Tree for InMemoryTree {
             .iter()
             .filter(|(key, _value)| data.contains(key))
             .map(|(key, _value)| key.clone())
-            .collect::<Vec<Binary>>();
+            .collect::<Vec<Vec<BinaryValue>>>();
         for key in keys.iter() {
             debug_assert!(matches!(rw.remove(key), Some(_)), "delete operation delete existed key");
             size += 1;
@@ -164,14 +156,14 @@ impl Tree for InMemoryTree {
 
 #[derive(Default, Debug)]
 struct InMemoryTableHandleInner {
-    records: RwLock<BTreeMap<Binary, Binary>>,
+    records: RwLock<BTreeMap<Vec<BinaryValue>, Vec<BinaryValue>>>,
     record_ids: AtomicU64,
     column_ords: AtomicU64,
 }
 
 #[derive(Debug)]
 pub struct InMemoryIndex {
-    records: RwLock<BTreeMap<Binary, Binary>>,
+    records: RwLock<BTreeMap<Vec<BinaryValue>, Vec<BinaryValue>>>,
     column: usize,
 }
 

@@ -5,13 +5,12 @@ authors = ["Alex Dukhno <alex.dukhno@icloud.com>"]
 edition = "2018"
 publish = false
 
-[features]
-persist = ["persistent"]
-in-memory = ["in_memory"]
-
 [dependencies]
-binary = { path = "binary" }
-storage_api = { path = "api" }
+binary = { path = "../data_repr/binary" }
+scalar = { path = "../data_repr/scalar" }
+types = { path = "../types" }
 
-in_memory = { path = "in_memory", optional = true }
-persistent = { path = "persistent", optional = true }
+dashmap = "4.0.2"
+
+[dev-dependencies]
+bigdecimal = { version = "0.2.0", features = ["string-only"] }

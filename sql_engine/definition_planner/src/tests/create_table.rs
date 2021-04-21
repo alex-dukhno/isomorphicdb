@@ -24,7 +24,7 @@ fn column(name: &str, data_type: DataType) -> ColumnDef {
 
 #[test]
 fn create_table_with_nonexistent_schema() -> TransactionResult<()> {
-    Database::in_memory("").transaction(|db| {
+    Database::new("").transaction(|db| {
         let planner = DefinitionPlanner::from(db);
         assert_eq!(
             planner.plan(create_table("non_existent_schema", "non_existent_table", vec![])),
@@ -36,7 +36,7 @@ fn create_table_with_nonexistent_schema() -> TransactionResult<()> {
 
 #[test]
 fn create_table_with_the_same_name() -> TransactionResult<()> {
-    Database::in_memory("").transaction(|db| {
+    Database::new("").transaction(|db| {
         let catalog = CatalogHandler::from(db.clone());
         catalog.apply(create_schema_ops(SCHEMA)).unwrap();
         catalog.apply(create_table_ops(SCHEMA, TABLE, vec![])).unwrap();
@@ -56,7 +56,7 @@ fn create_table_with_the_same_name() -> TransactionResult<()> {
 
 #[test]
 fn create_new_table_if_not_exist() -> TransactionResult<()> {
-    Database::in_memory("").transaction(|db| {
+    Database::new("").transaction(|db| {
         let catalog = CatalogHandler::from(db.clone());
         catalog.apply(create_schema_ops(SCHEMA)).unwrap();
         let planner = DefinitionPlanner::from(db);
@@ -82,7 +82,7 @@ fn create_new_table_if_not_exist() -> TransactionResult<()> {
 
 #[test]
 fn successfully_create_table() -> TransactionResult<()> {
-    Database::in_memory("").transaction(|db| {
+    Database::new("").transaction(|db| {
         let catalog = CatalogHandler::from(db.clone());
         catalog.apply(create_schema_ops(SCHEMA)).unwrap();
         let planner = DefinitionPlanner::from(db);

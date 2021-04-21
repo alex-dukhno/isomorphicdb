@@ -16,7 +16,7 @@ use super::*;
 
 #[test]
 fn schema_does_not_exist() -> TransactionResult<()> {
-    Database::in_memory("").transaction(|db| {
+    Database::new("").transaction(|db| {
         let analyzer = QueryAnalyzer::from(db);
         assert_eq!(
             analyzer.analyze(select("non_existent_schema", TABLE)),
@@ -28,7 +28,7 @@ fn schema_does_not_exist() -> TransactionResult<()> {
 
 #[test]
 fn table_does_not_exist() -> TransactionResult<()> {
-    Database::in_memory("").transaction(|db| {
+    Database::new("").transaction(|db| {
         let catalog = CatalogHandler::from(db.clone());
         catalog.apply(create_schema_ops(SCHEMA)).unwrap();
         let analyzer = QueryAnalyzer::from(db);
