@@ -6,11 +6,11 @@ edition = "2018"
 publish = false
 
 [dependencies]
-storage = { path = "../../storage/" }
-
 data_definition_execution_plan = { path = "../data_definition/execution_plan" }
-definition = { path = "../entities/definition" }
-types = { path = "../entities/types" }
+binary = { path = "../../data_repr/binary" }
+definition = { path = "../../definition" }
+storage = { path = "../../storage/" }
+types = { path = "../../types" }
 
 dashmap = "4.0.2"
 log = "0.4.14"

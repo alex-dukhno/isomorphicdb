@@ -22,8 +22,9 @@ use data_manipulation::{
     DynamicTypedTree, QueryPlanResult, StaticTypedTree, TypedDeleteQuery, TypedInsertQuery, TypedQuery,
     TypedSelectQuery, TypedUpdateQuery, UntypedQuery,
 };
+use data_repr::scalar::ScalarValue;
+use definition::ColumnDef;
 use definition_planner::DefinitionPlanner;
-use entities::{ColumnDef, SqlType, SqlTypeFamily};
 use postgre_sql::{
     query_ast::{Extended, Statement},
     query_parser::QueryParser,
@@ -33,13 +34,13 @@ use postgre_sql::{
 use query_analyzer::QueryAnalyzer;
 use query_planner::QueryPlanner;
 use query_processing::{TypeChecker, TypeCoercion, TypeInference};
-use scalar::ScalarValue;
 use std::{
     rc::Rc,
     str,
     sync::{Arc, Mutex},
 };
 use storage::{ConflictableTransactionError, Database, TransactionResult};
+use types::{SqlType, SqlTypeFamily};
 
 pub(crate) struct QueryEngine {
     session: Arc<Mutex<Session>>,
@@ -140,9 +141,7 @@ impl QueryEngine {
 
     pub(crate) fn execute(&mut self, request: Request) -> TransactionResult<()> {
         let inner = Rc::new(request);
-        log::trace!("We are here!");
         let mut session = self.session.lock().unwrap();
-        log::trace!("and here!");
         self.database.transaction(|db| {
             log::trace!("TRANSACTION START");
             log::trace!("{:?}", db.table("DEFINITION_SCHEMA.TABLES"));

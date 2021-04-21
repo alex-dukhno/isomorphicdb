@@ -8,8 +8,8 @@ publish = false
 [dependencies]
 catalog = { path = "../catalog" }
 data_definition_execution_plan = { path = "../data_definition/execution_plan" }
-definition = { path = "../entities/definition" }
+definition = { path = "../../definition" }
 query_ast = { path = "../../postgre_sql/query_ast" }
 query_response = { path = "../../postgre_sql/query_response" }
-storage = { path = "../../storage", features = ["in-memory"] }
-types = { path = "../entities/types" }
+storage = { path = "../../storage" }
+types = { path = "../../types" }

@@ -9,7 +9,7 @@ publish = false
 data_manipulation_untyped_tree = { path = "../../data_manipulation/untyped_tree" }
 data_manipulation_typed_tree = { path = "../../data_manipulation/typed_tree" }
 data_manipulation_operators = { path = "../../data_manipulation/operators" }
-types = { path = "../../entities/types" }
+types = { path = "../../../types" }
 
 bigdecimal = { version = "0.2.0", features = ["string-only"] }
 log = "0.4.14"

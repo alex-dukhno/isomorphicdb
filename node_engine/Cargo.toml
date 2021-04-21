@@ -13,14 +13,15 @@ postgre_sql = { path = "../postgre_sql" }
 
 #SQL-ENGINE
 catalog = { path = "../sql_engine/catalog" }
-entities = { path = "../sql_engine/entities" }
 data_definition = { path = "../sql_engine/data_definition" }
 data_manipulation = { path = "../sql_engine/data_manipulation" }
-scalar = { path = "../sql_engine/scalar" }
+data_repr = { path = "../data_repr" }
+definition = { path = "../definition" }
 definition_planner = { path = "../sql_engine/definition_planner" }
 query_processing = { path = "../sql_engine/query_processing" }
 query_analyzer = { path = "../sql_engine/query_analyzer" }
 query_planner = { path = "../sql_engine/query_planner" }
+types = { path = "../types" }
 
 bigdecimal = { version = "0.2.0", features = ["string-only"] }
 log = "0.4.14"

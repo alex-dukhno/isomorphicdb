@@ -28,7 +28,7 @@ fn create_index(index_name: &str, schema_name: &str, table_name: &str, columns: 
 
 #[test]
 fn create_index_for_not_existent_schema() -> TransactionResult<()> {
-    Database::in_memory("").transaction(|db| {
+    Database::new("").transaction(|db| {
         let planner = DefinitionPlanner::from(db);
         assert_eq!(
             planner.plan(create_index("index_name", "non_existent", TABLE, vec!["column"])),
@@ -40,7 +40,7 @@ fn create_index_for_not_existent_schema() -> TransactionResult<()> {
 
 #[test]
 fn create_index_for_not_existent_table() -> TransactionResult<()> {
-    Database::in_memory("").transaction(|db| {
+    Database::new("").transaction(|db| {
         let planner = DefinitionPlanner::from(db);
         assert_eq!(
             planner.plan(create_index(
@@ -60,7 +60,7 @@ fn create_index_for_not_existent_table() -> TransactionResult<()> {
 
 #[test]
 fn create_index_over_column_that_does_not_exists_in_table() -> TransactionResult<()> {
-    Database::in_memory("").transaction(|db| {
+    Database::new("").transaction(|db| {
         let catalog = CatalogHandler::from(db.clone());
         catalog
             .apply(create_table_ops(
@@ -86,7 +86,7 @@ fn create_index_over_column_that_does_not_exists_in_table() -> TransactionResult
 
 #[test]
 fn create_index_over_multiple_columns() -> TransactionResult<()> {
-    Database::in_memory("").transaction(|db| {
+    Database::new("").transaction(|db| {
         let catalog = CatalogHandler::from(db.clone());
         catalog
             .apply(create_table_ops(

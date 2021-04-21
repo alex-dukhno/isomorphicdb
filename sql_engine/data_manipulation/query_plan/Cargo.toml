@@ -8,13 +8,13 @@ publish = false
 [dependencies]
 data_manipulation_typed_tree = { path = "../typed_tree" }
 data_manipulation_query_result = { path = "../query_result" }
-binary = { path = "../../../storage/binary" }
-scalar = { path = "../../scalar" }
+binary = { path = "../../../data_repr/binary" }
+definition = { path = "../../../definition" }
 catalog = { path = "../../catalog" }
-types = { path = "../../entities/types" }
-definition = { path = "../../entities/definition" }
 query_response = { path = "../../../postgre_sql/query_response" }
+scalar = { path = "../../../data_repr/scalar" }
 storage = { path = "../../../storage" }
+types = { path = "../../../types" }
 
 bigdecimal = { version = "0.2.0", features = ["string-only"] }
 log = "0.4.14"

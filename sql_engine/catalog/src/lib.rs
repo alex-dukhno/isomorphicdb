@@ -12,12 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use binary::BinaryValue;
 use data_definition_execution_plan::{
     CreateIndexQuery, CreateSchemaQuery, CreateTableQuery, DropSchemasQuery, DropTablesQuery, ExecutionError,
     ExecutionOutcome, SchemaChange,
 };
 use definition::{ColumnDef, FullTableName, SchemaName, TableDef};
-use storage::{repr::Datum, Binary, TransactionalDatabase};
+use storage::TransactionalDatabase;
 use types::{SqlType, SqlTypeFamily};
 
 const DEFINITION_SCHEMA: &str = "DEFINITION_SCHEMA";
@@ -42,7 +43,7 @@ impl<'c> CatalogHandler<'c> {
             .table(format!("{}.{}", DEFINITION_SCHEMA, SCHEMATA_TABLE))
             .scan()
             .any(|(_key, value)| {
-                let value = value.unpack();
+                let value = value;
                 value[1] == schema_name.as_ref()
             })
     }
@@ -56,7 +57,7 @@ impl<'c> CatalogHandler<'c> {
                 .table(format!("{}.{}", DEFINITION_SCHEMA, TABLES_TABLE))
                 .scan()
                 .find(|(_key, value)| {
-                    let value = value.unpack();
+                    let value = value;
                     value[1] == full_table_name.schema() && value[2] == full_table_name.table()
                 })
                 .map(|(key, _value)| key)
@@ -68,7 +69,7 @@ impl<'c> CatalogHandler<'c> {
                         .scan()
                         .filter(|(key, _value)| key.starts_with(&full_table_id))
                         .map(|(_key, value)| {
-                            let row = value.unpack();
+                            let row = value;
                             let name = row[3].as_string();
                             let sql_type = SqlType::from_type_id(row[4].as_u64(), row[5].as_u64());
                             let ord_num = row[6].as_u64() as usize;
@@ -96,7 +97,7 @@ impl<'c> CatalogHandler<'c> {
             .table(format!("{}.{}", DEFINITION_SCHEMA, TABLES_TABLE))
             .scan()
             .find(|(_key, value)| {
-                let value = value.unpack();
+                let value = value;
                 value[1] == full_table_name.schema() && value[2] == full_table_name.table()
             })
             .map(|(key, _value)| key)
@@ -107,7 +108,7 @@ impl<'c> CatalogHandler<'c> {
             .scan()
             .filter(|(key, _value)| key.starts_with(&full_table_id))
             .map(|(_key, value)| {
-                let row = value.unpack();
+                let row = value;
                 let name = row[3].as_string();
                 let sql_type = SqlType::from_type_id(row[4].as_u64(), row[5].as_u64());
                 (name, sql_type)
@@ -130,10 +131,10 @@ impl<'c> CatalogHandler<'c> {
                 } else {
                     self.database
                         .table(format!("{}.{}", DEFINITION_SCHEMA, SCHEMATA_TABLE))
-                        .write(Binary::pack(&[
-                            Datum::from_string("IN_MEMORY".to_owned()),
-                            Datum::from_string(schema_name.as_ref().to_owned()),
-                        ]));
+                        .write(vec![
+                            BinaryValue::from("IN_MEMORY"),
+                            BinaryValue::from(schema_name.as_ref()),
+                        ]);
                     Ok(ExecutionOutcome::SchemaCreated)
                 }
             }
@@ -145,10 +146,8 @@ impl<'c> CatalogHandler<'c> {
                 let schemas_table = self.database.table(format!("{}.{}", DEFINITION_SCHEMA, SCHEMATA_TABLE));
                 let tables_table = self.database.table(format!("{}.{}", DEFINITION_SCHEMA, TABLES_TABLE));
                 for schema_name in schema_names {
-                    let full_schema_name = Binary::pack(&[
-                        Datum::from_string("IN_MEMORY".to_owned()),
-                        Datum::from_string(schema_name.as_ref().to_owned()),
-                    ]);
+                    let full_schema_name =
+                        vec![BinaryValue::from("IN_MEMORY"), BinaryValue::from(schema_name.as_ref())];
 
                     let schema_id = schemas_table
                         .scan()
@@ -165,7 +164,7 @@ impl<'c> CatalogHandler<'c> {
                             let is_empty = tables_table
                                 .scan()
                                 .find(|(_key, value)| {
-                                    let value = value.unpack();
+                                    let value = value;
                                     value[0] == "IN_MEMORY" && value[1] == schema_name.as_ref()
                                 })
                                 .is_none();
@@ -179,7 +178,7 @@ impl<'c> CatalogHandler<'c> {
                                 for column_key in columns_table
                                     .scan()
                                     .filter(|(_key, value)| {
-                                        let value = value.unpack();
+                                        let value = value;
                                         value[1] == schema_name.as_ref()
                                     })
                                     .map(|(key, _value)| key)
@@ -190,11 +189,11 @@ impl<'c> CatalogHandler<'c> {
                                 for (table_key, table_name) in tables_table
                                     .scan()
                                     .filter(|(_key, value)| {
-                                        let value = value.unpack();
+                                        let value = value;
                                         value[1] == schema_name.as_ref()
                                     })
                                     .map(|(key, value)| {
-                                        let value = value.unpack();
+                                        let value = value;
                                         (key, format!("{}.{}", value[1], value[2]))
                                     })
                                 {
@@ -215,10 +214,10 @@ impl<'c> CatalogHandler<'c> {
                 if_not_exists,
             }) => {
                 let schemas_table = self.database.table(format!("{}.{}", DEFINITION_SCHEMA, SCHEMATA_TABLE));
-                let full_schema_name = Binary::pack(&[
-                    Datum::from_string("IN_MEMORY".to_owned()),
-                    Datum::from_string(full_table_name.schema().to_owned()),
-                ]);
+                let full_schema_name = vec![
+                    BinaryValue::from("IN_MEMORY"),
+                    BinaryValue::from(full_table_name.schema()),
+                ];
 
                 let schema_id = schemas_table
                     .scan()
@@ -230,7 +229,7 @@ impl<'c> CatalogHandler<'c> {
                     Some(_full_schema_id) => {
                         let tables_table = self.database.table(format!("{}.{}", DEFINITION_SCHEMA, TABLES_TABLE));
                         let table_id = tables_table.scan().find(|(_key, value)| {
-                            let value = value.unpack();
+                            let value = value;
                             value[0] == "IN_MEMORY"
                                 && value[1] == full_table_name.schema()
                                 && value[2] == full_table_name.table()
@@ -248,29 +247,28 @@ impl<'c> CatalogHandler<'c> {
                                 }
                             }
                             None => {
-                                let full_table_name_record = Binary::pack(&[
-                                    Datum::from_string("IN_MEMORY".to_owned()),
-                                    Datum::from_string(full_table_name.schema().to_owned()),
-                                    Datum::from_string(full_table_name.table().to_owned()),
-                                ]);
-                                let full_table_id = tables_table.write(full_table_name_record).unpack();
+                                let full_table_name_record = vec![
+                                    BinaryValue::from("IN_MEMORY"),
+                                    BinaryValue::from(full_table_name.schema()),
+                                    BinaryValue::from(full_table_name.table()),
+                                ];
+                                let full_table_id = tables_table.write(full_table_name_record);
 
                                 let columns_table =
                                     self.database.table(format!("{}.{}", DEFINITION_SCHEMA, COLUMNS_TABLE));
 
                                 for (index, def) in column_defs.iter().enumerate() {
-                                    let record = Binary::pack(&[
-                                        Datum::from_string("IN_MEMORY".to_owned()),
-                                        Datum::from_string(full_table_name.schema().to_owned()),
-                                        Datum::from_string(full_table_name.table().to_owned()),
-                                        Datum::from_string(def.name.clone()),
-                                        Datum::from_u64(def.sql_type.type_id()),
-                                        Datum::from_optional_u64(def.sql_type.chars_len()),
-                                        Datum::from_u64(index as u64),
-                                    ]);
+                                    let record = vec![
+                                        BinaryValue::from("IN_MEMORY"),
+                                        BinaryValue::from(full_table_name.schema()),
+                                        BinaryValue::from(full_table_name.table()),
+                                        BinaryValue::from(def.name.clone()),
+                                        BinaryValue::from_u64(def.sql_type.type_id()),
+                                        BinaryValue::from_u64(def.sql_type.chars_len().unwrap_or_default()),
+                                        BinaryValue::from_u64(index as u64),
+                                    ];
                                     let mut key = full_table_id.clone();
-                                    key.push(Datum::from_u64(index as u64));
-                                    let key = Binary::pack(&key);
+                                    key.push(BinaryValue::from_u64(index as u64));
                                     columns_table.write_key(key, Some(record));
                                 }
 
@@ -293,10 +291,10 @@ impl<'c> CatalogHandler<'c> {
                 let columns_table = self.database.table(format!("{}.{}", DEFINITION_SCHEMA, COLUMNS_TABLE));
 
                 for full_table_name in full_table_names {
-                    let full_schema_name = Binary::pack(&[
-                        Datum::from_string("IN_MEMORY".to_owned()),
-                        Datum::from_string(full_table_name.schema().to_owned()),
-                    ]);
+                    let full_schema_name = vec![
+                        BinaryValue::from("IN_MEMORY"),
+                        BinaryValue::from(full_table_name.schema()),
+                    ];
 
                     let schema_id = schemas_table
                         .scan()
@@ -309,7 +307,7 @@ impl<'c> CatalogHandler<'c> {
                             let table_id = tables_table
                                 .scan()
                                 .find(|(_key, value)| {
-                                    let value = value.unpack();
+                                    let value = value;
                                     value[1] == full_table_name.schema() && value[2] == full_table_name.table()
                                 })
                                 .map(|(key, _value)| key);
@@ -349,10 +347,10 @@ impl<'c> CatalogHandler<'c> {
                 let columns_table = self.database.table(format!("{}.{}", DEFINITION_SCHEMA, COLUMNS_TABLE));
                 let indexes_table = self.database.table(format!("{}.{}", DEFINITION_SCHEMA, INDEXES_TABLE));
 
-                let full_schema_name = Binary::pack(&[
-                    Datum::from_string("IN_MEMORY".to_owned()),
-                    Datum::from_string(full_table_name.schema().to_owned()),
-                ]);
+                let full_schema_name = vec![
+                    BinaryValue::from("IN_MEMORY"),
+                    BinaryValue::from(full_table_name.schema()),
+                ];
 
                 let schema_id = schemas_table
                     .scan()
@@ -365,7 +363,7 @@ impl<'c> CatalogHandler<'c> {
                         let table_id = tables_table
                             .scan()
                             .find(|(key, value)| {
-                                let value = value.unpack();
+                                let value = value;
                                 key.starts_with(&full_schema_id) && value[2] == full_table_name.table()
                             })
                             .map(|(key, _value)| key);
@@ -379,7 +377,7 @@ impl<'c> CatalogHandler<'c> {
                                     .scan()
                                     .filter(|(key, _value)| key.starts_with(&full_table_id))
                                     .map(|(_key, value)| {
-                                        let row = value.unpack();
+                                        let row = value;
                                         let name = row[3].as_string();
                                         let sql_type = SqlType::from_type_id(row[4].as_u64(), row[5].as_u64());
                                         let ord_num = row[6].as_u64() as usize;
@@ -394,13 +392,13 @@ impl<'c> CatalogHandler<'c> {
                                         return Err(ExecutionError::ColumnNotFound(column_names[0].to_owned()));
                                     }
                                 }
-                                indexes_table.write(Binary::pack(&[
-                                    Datum::from_string("IN_MEMORY".to_owned()),
-                                    Datum::from_string(full_table_name.schema().to_owned()),
-                                    Datum::from_string(full_table_name.table().to_owned()),
-                                    Datum::from_string(name.clone()),
-                                    Datum::from_string(column_names.join(", ")),
-                                ]));
+                                indexes_table.write(vec![
+                                    BinaryValue::from("IN_MEMORY"),
+                                    BinaryValue::from(full_table_name.schema()),
+                                    BinaryValue::from(full_table_name.table()),
+                                    BinaryValue::from(name.clone()),
+                                    BinaryValue::from(column_names.join(", ")),
+                                ]);
 
                                 self.database.create_tree(format!(
                                     "{}.{}.{}",

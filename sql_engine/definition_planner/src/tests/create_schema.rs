@@ -27,7 +27,7 @@ fn create_schema_if_not_exists(schema_name: &str, if_not_exists: bool) -> Defini
 
 #[test]
 fn create_new_schema() -> TransactionResult<()> {
-    Database::in_memory("").transaction(|db| {
+    Database::new("").transaction(|db| {
         let planner = DefinitionPlanner::from(db);
         assert_eq!(
             planner.plan(create_schema(SCHEMA)),
@@ -42,7 +42,7 @@ fn create_new_schema() -> TransactionResult<()> {
 
 #[test]
 fn create_new_schema_if_not_exists() -> TransactionResult<()> {
-    Database::in_memory("").transaction(|db| {
+    Database::new("").transaction(|db| {
         let planner = DefinitionPlanner::from(db);
         assert_eq!(
             planner.plan(create_schema_if_not_exists(SCHEMA, true)),
@@ -57,7 +57,7 @@ fn create_new_schema_if_not_exists() -> TransactionResult<()> {
 
 #[test]
 fn create_schema_with_the_same_name() -> TransactionResult<()> {
-    Database::in_memory("").transaction(|db| {
+    Database::new("").transaction(|db| {
         let catalog = CatalogHandler::from(db.clone());
         catalog.apply(create_schema_ops(SCHEMA)).unwrap();
 

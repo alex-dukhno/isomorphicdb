@@ -6,7 +6,7 @@ edition = "2018"
 publish = false
 
 [dependencies]
-definition = { path = "../../entities/definition" }
-types = { path = "../../entities/types" }
+definition = { path = "../../../definition" }
+types = { path = "../../../types" }
 
 query_response = { path = "../../../postgre_sql/query_response" }

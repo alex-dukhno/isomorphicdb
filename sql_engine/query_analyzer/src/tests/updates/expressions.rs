@@ -18,7 +18,7 @@ use super::*;
 
 #[test]
 fn update_number() -> TransactionResult<()> {
-    Database::in_memory("").transaction(|db| {
+    Database::new("").transaction(|db| {
         let catalog = CatalogHandler::from(db.clone());
         catalog.apply(create_schema_ops(SCHEMA)).unwrap();
         catalog
@@ -42,7 +42,7 @@ fn update_number() -> TransactionResult<()> {
 
 #[test]
 fn update_string() -> TransactionResult<()> {
-    Database::in_memory("").transaction(|db| {
+    Database::new("").transaction(|db| {
         let catalog = CatalogHandler::from(db.clone());
         catalog.apply(create_schema_ops(SCHEMA)).unwrap();
         catalog
@@ -66,7 +66,7 @@ fn update_string() -> TransactionResult<()> {
 
 #[test]
 fn update_boolean() -> TransactionResult<()> {
-    Database::in_memory("").transaction(|db| {
+    Database::new("").transaction(|db| {
         let catalog = CatalogHandler::from(db.clone());
         catalog.apply(create_schema_ops(SCHEMA)).unwrap();
         catalog
@@ -90,7 +90,7 @@ fn update_boolean() -> TransactionResult<()> {
 
 #[test]
 fn update_null() -> TransactionResult<()> {
-    Database::in_memory("").transaction(|db| {
+    Database::new("").transaction(|db| {
         let catalog = CatalogHandler::from(db.clone());
         catalog.apply(create_schema_ops(SCHEMA)).unwrap();
         catalog
@@ -114,7 +114,7 @@ fn update_null() -> TransactionResult<()> {
 
 #[test]
 fn update_with_column_value() -> TransactionResult<()> {
-    Database::in_memory("").transaction(|db| {
+    Database::new("").transaction(|db| {
         let catalog = CatalogHandler::from(db.clone());
         catalog.apply(create_schema_ops(SCHEMA)).unwrap();
         catalog
@@ -151,7 +151,7 @@ fn update_with_column_value() -> TransactionResult<()> {
 
 #[test]
 fn update_with_column_value_that_does_not_exists() -> TransactionResult<()> {
-    Database::in_memory("").transaction(|db| {
+    Database::new("").transaction(|db| {
         let catalog = CatalogHandler::from(db.clone());
         catalog.apply(create_schema_ops(SCHEMA)).unwrap();
         catalog
@@ -177,7 +177,7 @@ fn update_with_column_value_that_does_not_exists() -> TransactionResult<()> {
 
 #[test]
 fn update_table_with_parameters() -> TransactionResult<()> {
-    Database::in_memory("").transaction(|db| {
+    Database::new("").transaction(|db| {
         let catalog = CatalogHandler::from(db.clone());
         catalog.apply(create_schema_ops(SCHEMA)).unwrap();
         catalog
@@ -224,7 +224,7 @@ mod multiple_values {
 
     #[test]
     fn arithmetic() -> TransactionResult<()> {
-        Database::in_memory("").transaction(|db| {
+        Database::new("").transaction(|db| {
             let catalog = CatalogHandler::from(db.clone());
             catalog.apply(create_schema_ops(SCHEMA)).unwrap();
             catalog
@@ -258,7 +258,7 @@ mod multiple_values {
 
     #[test]
     fn string_operation() -> TransactionResult<()> {
-        Database::in_memory("").transaction(|db| {
+        Database::new("").transaction(|db| {
             let catalog = CatalogHandler::from(db.clone());
             catalog.apply(create_schema_ops(SCHEMA)).unwrap();
             catalog
@@ -292,7 +292,7 @@ mod multiple_values {
 
     #[test]
     fn comparison() -> TransactionResult<()> {
-        Database::in_memory("").transaction(|db| {
+        Database::new("").transaction(|db| {
             let catalog = CatalogHandler::from(db.clone());
             catalog.apply(create_schema_ops(SCHEMA)).unwrap();
             catalog
@@ -326,7 +326,7 @@ mod multiple_values {
 
     #[test]
     fn logical() -> TransactionResult<()> {
-        Database::in_memory("").transaction(|db| {
+        Database::new("").transaction(|db| {
             let catalog = CatalogHandler::from(db.clone());
             catalog.apply(create_schema_ops(SCHEMA)).unwrap();
             catalog
@@ -360,7 +360,7 @@ mod multiple_values {
 
     #[test]
     fn bitwise() -> TransactionResult<()> {
-        Database::in_memory("").transaction(|db| {
+        Database::new("").transaction(|db| {
             let catalog = CatalogHandler::from(db.clone());
             catalog.apply(create_schema_ops(SCHEMA)).unwrap();
             catalog
@@ -394,7 +394,7 @@ mod multiple_values {
 
     #[test]
     fn pattern_matching() -> TransactionResult<()> {
-        Database::in_memory("").transaction(|db| {
+        Database::new("").transaction(|db| {
             let catalog = CatalogHandler::from(db.clone());
             catalog.apply(create_schema_ops(SCHEMA)).unwrap();
             catalog

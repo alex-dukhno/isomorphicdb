@@ -24,7 +24,7 @@ fn delete_statement(schema_name: &str, table_name: &str) -> Query {
 
 #[test]
 fn delete_from_table_that_in_nonexistent_schema() -> TransactionResult<()> {
-    Database::in_memory("").transaction(|db| {
+    Database::new("").transaction(|db| {
         let analyzer = QueryAnalyzer::from(db);
 
         assert_eq!(
@@ -38,7 +38,7 @@ fn delete_from_table_that_in_nonexistent_schema() -> TransactionResult<()> {
 
 #[test]
 fn delete_from_nonexistent_table() -> TransactionResult<()> {
-    Database::in_memory("").transaction(|db| {
+    Database::new("").transaction(|db| {
         let catalog = CatalogHandler::from(db.clone());
         catalog.apply(create_schema_ops(SCHEMA)).unwrap();
         let analyzer = QueryAnalyzer::from(db);
@@ -56,7 +56,7 @@ fn delete_from_nonexistent_table() -> TransactionResult<()> {
 
 #[test]
 fn delete_all_from_table() -> TransactionResult<()> {
-    Database::in_memory("").transaction(|db| {
+    Database::new("").transaction(|db| {
         let catalog = CatalogHandler::from(db.clone());
         catalog.apply(create_schema_ops(SCHEMA)).unwrap();
         catalog

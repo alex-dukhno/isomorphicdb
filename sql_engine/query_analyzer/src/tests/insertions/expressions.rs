@@ -24,7 +24,7 @@ fn insert_with_parameters(schema_name: &str, table_name: &str, parameters: Vec<u
 
 #[test]
 fn insert_number() -> TransactionResult<()> {
-    Database::in_memory("").transaction(|db| {
+    Database::new("").transaction(|db| {
         let catalog = CatalogHandler::from(db.clone());
         catalog.apply(create_schema_ops(SCHEMA)).unwrap();
         catalog
@@ -47,7 +47,7 @@ fn insert_number() -> TransactionResult<()> {
 
 #[test]
 fn insert_string() -> TransactionResult<()> {
-    Database::in_memory("").transaction(|db| {
+    Database::new("").transaction(|db| {
         let catalog = CatalogHandler::from(db.clone());
         catalog.apply(create_schema_ops(SCHEMA)).unwrap();
         catalog
@@ -70,7 +70,7 @@ fn insert_string() -> TransactionResult<()> {
 
 #[test]
 fn insert_boolean() -> TransactionResult<()> {
-    Database::in_memory("").transaction(|db| {
+    Database::new("").transaction(|db| {
         let catalog = CatalogHandler::from(db.clone());
         catalog.apply(create_schema_ops(SCHEMA)).unwrap();
         catalog
@@ -93,7 +93,7 @@ fn insert_boolean() -> TransactionResult<()> {
 
 #[test]
 fn insert_null() -> TransactionResult<()> {
-    Database::in_memory("").transaction(|db| {
+    Database::new("").transaction(|db| {
         let catalog = CatalogHandler::from(db.clone());
         catalog.apply(create_schema_ops(SCHEMA)).unwrap();
         catalog
@@ -116,7 +116,7 @@ fn insert_null() -> TransactionResult<()> {
 
 #[test]
 fn insert_identifier() -> TransactionResult<()> {
-    Database::in_memory("").transaction(|db| {
+    Database::new("").transaction(|db| {
         let catalog = CatalogHandler::from(db.clone());
         catalog.apply(create_schema_ops(SCHEMA)).unwrap();
         catalog
@@ -138,7 +138,7 @@ fn insert_identifier() -> TransactionResult<()> {
 
 #[test]
 fn insert_into_table_with_parameters() -> TransactionResult<()> {
-    Database::in_memory("").transaction(|db| {
+    Database::new("").transaction(|db| {
         let catalog = CatalogHandler::from(db.clone());
         catalog.apply(create_schema_ops(SCHEMA)).unwrap();
         catalog
@@ -166,7 +166,7 @@ fn insert_into_table_with_parameters() -> TransactionResult<()> {
 
 #[test]
 fn insert_into_table_with_parameters_and_values() -> TransactionResult<()> {
-    Database::in_memory("").transaction(|db| {
+    Database::new("").transaction(|db| {
         let catalog = CatalogHandler::from(db.clone());
         catalog.apply(create_schema_ops(SCHEMA)).unwrap();
         catalog
@@ -200,7 +200,7 @@ fn insert_into_table_with_parameters_and_values() -> TransactionResult<()> {
 
 #[test]
 fn insert_into_table_negative_number() -> TransactionResult<()> {
-    Database::in_memory("").transaction(|db| {
+    Database::new("").transaction(|db| {
         let catalog = CatalogHandler::from(db.clone());
         catalog.apply(create_schema_ops(SCHEMA)).unwrap();
         catalog
@@ -241,7 +241,7 @@ mod multiple_values {
 
     #[test]
     fn arithmetic() -> TransactionResult<()> {
-        Database::in_memory("").transaction(|db| {
+        Database::new("").transaction(|db| {
             let catalog = CatalogHandler::from(db.clone());
             catalog.apply(create_schema_ops(SCHEMA)).unwrap();
             catalog
@@ -274,7 +274,7 @@ mod multiple_values {
 
     #[test]
     fn string_operation() -> TransactionResult<()> {
-        Database::in_memory("").transaction(|db| {
+        Database::new("").transaction(|db| {
             let catalog = CatalogHandler::from(db.clone());
             catalog.apply(create_schema_ops(SCHEMA)).unwrap();
             catalog
@@ -307,7 +307,7 @@ mod multiple_values {
 
     #[test]
     fn comparison() -> TransactionResult<()> {
-        Database::in_memory("").transaction(|db| {
+        Database::new("").transaction(|db| {
             let catalog = CatalogHandler::from(db.clone());
             catalog.apply(create_schema_ops(SCHEMA)).unwrap();
             catalog
@@ -340,7 +340,7 @@ mod multiple_values {
 
     #[test]
     fn logical() -> TransactionResult<()> {
-        Database::in_memory("").transaction(|db| {
+        Database::new("").transaction(|db| {
             let catalog = CatalogHandler::from(db.clone());
             catalog.apply(create_schema_ops(SCHEMA)).unwrap();
             catalog
@@ -373,7 +373,7 @@ mod multiple_values {
 
     #[test]
     fn bitwise() -> TransactionResult<()> {
-        Database::in_memory("").transaction(|db| {
+        Database::new("").transaction(|db| {
             let catalog = CatalogHandler::from(db.clone());
             catalog.apply(create_schema_ops(SCHEMA)).unwrap();
             catalog
@@ -406,7 +406,7 @@ mod multiple_values {
 
     #[test]
     fn pattern_matching() -> TransactionResult<()> {
-        Database::in_memory("").transaction(|db| {
+        Database::new("").transaction(|db| {
             let catalog = CatalogHandler::from(db.clone());
             catalog.apply(create_schema_ops(SCHEMA)).unwrap();
             catalog

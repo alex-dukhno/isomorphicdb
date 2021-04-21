@@ -13,9 +13,9 @@
 // limitations under the License.
 
 use data_manipulation::UntypedQuery;
-use entities::SqlTypeFamily;
+use data_repr::scalar::ScalarValue;
 use postgre_sql::query_ast::Query;
-use scalar::ScalarValue;
+use types::SqlTypeFamily;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum PreparedStatementState {

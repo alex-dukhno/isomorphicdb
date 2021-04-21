@@ -6,8 +6,8 @@ edition = "2018"
 publish = false
 
 [dependencies]
-query_ast = { path = "../../../postgre_sql/query_ast" }
-wire_protocol_payload = { path = "../../../postgre_sql/wire_protocol/payload" }
+query_ast = { path = "../postgre_sql/query_ast" }
+wire_protocol_payload = { path = "../postgre_sql/wire_protocol/payload" }
 
 [dev-dependencies]
 rstest = "0.7.0"

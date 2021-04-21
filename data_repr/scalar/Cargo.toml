@@ -6,9 +6,9 @@ edition = "2018"
 publish = false
 
 [dependencies]
-binary = { path = "../../storage/binary" }
+binary = { path = "../binary" }
 query_ast = { path = "../../postgre_sql/query_ast" }
-types = { path = "../entities/types" }
+types = { path = "../../types" }
 wire_protocol_payload = { path = "../../postgre_sql/wire_protocol/payload" }
 
 bigdecimal = { version = "0.2.0", features = ["string-only"] }
