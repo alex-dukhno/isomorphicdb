@@ -1,6 +1,7 @@
  * Feature Name:
  * Authors:
  * RFC PR: (PR # after acceptance of initial draft)
+ * RFC Tracking Issue: Issue # after merging of RFC
 
 **Remember, you can submit a PR and ask for initial feedback with your RFC before the text is complete.**
 
