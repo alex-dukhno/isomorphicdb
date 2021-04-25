@@ -27,8 +27,9 @@ This is here so that I won't forget what to do when someone (including myself) w
 1. Whenever you feel that RFC is ready for review move PR to 
    [Ready for Review state](https://docs.github.com/en/github/collaborating-with-issues-and-pull-requests/changing-the-stage-of-a-pull-request)
    or removing [WIP] from the PR title.
-1. When you get approval to merge 
-    - rename the RFC document to prefix it with the current date (`YYYY-MM-DD_`)
+1. When you get approval to merge
+    - create or ask maintainers to create tracking issue and update the `RFC Tracking Issue` field
+    - rename the RFC document to prefix it with the current date (`YYYY-MM-DD_`) if it was not done yet
     - update the `RFC PR` field
 1. If during RFC implementation process it appears that an RFC is obsolete or its need to be postponed. Issue a PR that
    adds description and links to PR(s) or another RFC(s) that make it obsolete or postponed.
