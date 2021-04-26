@@ -287,7 +287,9 @@ either is not implemented or out of scope of the RFC.
 
 # Drawbacks
 
-Not found yet. A working prototype could yield some information if there is other possible solutions.
+1. It is not possible to use current transaction `Database` API using closures and its API should be reworked.
+1. It is not possible to test with multiple clients connected to database and execute queries unless proper transactions
+are implemented
 
 # Alternatives
 
