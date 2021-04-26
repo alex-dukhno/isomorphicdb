@@ -302,8 +302,17 @@ and designed in a separate RFC.
 
 # Unresolved questions
 
-Semantics of `max_rows` in `Execute { portal_name, max_rows }` request is not defined in this RFC and what its relation 
-to `LIMIT` clause in a sql `select` query.
+~~Semantics of `max_rows` in `Execute { portal_name, max_rows }` request is not defined in this RFC and what its relation 
+to `LIMIT` clause in a sql `select` query.~~
+`LIMIT` and `max_rows` are not related. For example `max_rows` could be set by JDBC driver as the following:
+
+```java
+PreparedStatement jdbcSelect = conn.prepareStatement("select * from test where i2 > ? limit 3");
+PgStatement pgSelect = jdbcSelect.unwrap(PgStatement.class);
+pgSelect.setUseServerPrepare(true);
+pgSelect.setPrepareThreshold(1);
+pgSelect.setMaxRows(10);
+```
 
 # Future possibilities
 
