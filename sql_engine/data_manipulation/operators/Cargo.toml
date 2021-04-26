@@ -16,4 +16,4 @@ regex = "1.4.3"
 log = "0.4.14"
 
 [dev-dependencies]
-rstest = "0.7.0"
+rstest = "0.8.0"
