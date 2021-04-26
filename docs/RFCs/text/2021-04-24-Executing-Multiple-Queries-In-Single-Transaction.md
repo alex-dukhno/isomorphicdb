@@ -12,9 +12,8 @@ single stage of prepared query if used [extended query protocol][2]. This RFC ca
 
 This RFC does not contain information of how to handle query processing, e.g. how to handle dynamic parameters used with
 [extended query protocol][2] or what process of type inference or type coercion. These topics deserve their own RFCs.
-Also it is not a goal of this RFC how much of same behavior IsomorphicDB should have of handling prepared statements.
-This information can be taken from official PostgreSQL documentation. Transactions validation and conflict resolution is
-out of scope of the RFC. However, it might influence the process of execute multiple queries in a single transaction.
+Transactions validation and conflict resolution is out of scope of the RFC. This is the topic of future RFCs that might
+influence the process of execute multiple queries in a single transaction.
 
 # Motivation and background
 
@@ -48,11 +47,11 @@ The life-cycle of a query in this case could be described with the following ima
 ```
 
 There is an implicit `Deallocated` phase in this case. The database does not do anything but other cases have explicit 
-request from client to clean up resources on the database side.
+request from the client to clean up resources on the database side.
 
 ### Executing simple query using Prepare and Execute keywords
 
-PostgreSQL allows split execution [simple query into multiple stages][3] using `prepare` and `execute` keywords. Client 
+PostgreSQL allows split execution of [simple query into multiple stages][3] using `prepare` and `execute` keywords. Client 
 will send `prepare` query with dynamic parameters and their types and then send `execute` query with parameters' 
 arguments.
 In this case the process of executing a query would be the following:
@@ -176,6 +175,7 @@ The life-cycle of a query in this case could be described with the following ima
 # Technical design
 
 ## Overview
+
 On the network layer client sends messages as raw bytes that deserialized into `Query`, `Parse`, `Describe`, `Bind` or
 `Close` requests that influence the state of a query. Then request has to be dispatched either through all phases (in
 the case of `Query`) or some part of them. Phases like `Analyzed`, `Processed`, `Planned` and `Executed` requires access
@@ -183,26 +183,64 @@ to the database schema either for meta-information like: `table_name`, `column_n
 a query or correctly infer input and output types of the query.
 
 ## More detailed description
- 
-Here `QueryEngine` and `Session` represent two concepts to separate two different states. One is data stored in the 
-database - `QueryEngine`, the other is connection state of a client to handle its queries - `Session`. They are used to 
+
+Here `QueryEngine` and `Session` represent two concepts to separate two different states. One is data stored in the
+database - `QueryEngine`, the other is connection state of a client to handle its queries - `Session`. They are used to
 easing description of the design.
 
-On the network layer we can have a `Session` that is separated from `QueryEngine`. (On the time of writing there is 
-`QueryEngine` struct that contains `Session` struct as a field). Whenever client sends a request `Session` should start 
-a new transaction or use transaction that is in the progress. Transaction should be assigned with id (`txn-id`) and 
+On the network layer we can have a `Session` that is separated from `QueryEngine`. (On the time of writing there is
+`QueryEngine` struct that contains `Session` struct as a field). Whenever client sends a request `Session` should start
+a new transaction or use transaction that is in the progress. Transaction should be assigned with id (`txn-id`) and
 managed by `QueryEngine`. `Session` using `txn-id` should ask `QueryEngine` to further process query on its way to be
 executed.
+
+Client always starts transaction either with `Query` or `Parse` request.
+`QueryParser` has to parse the query string and depending on the query:
+
+1. if it is `Query { sql: "BEGIN" }` `QueryEngine` should start a transaction.
+1. if it is `Query { sql: "PREPARE ..." }` `Session` has to allocate memory for a query plan and analyze, process and 
+   plan the query using `QueryEngine` and save it with `""` (empty string) as `statement_name`, so-called unnamed 
+   statement
+1. if it is `Query { sql: "EXECUTE ..." }` `Session` has to check if there is an unnamed query plan and execute it using
+`QueryEngine`
+1. if it is `Parse` request `Session` has to allocate memory for a query and save parsed result as 
+   `StatementState::Parsed`
+1. if it is `DescribeStatement` `QueryEngine` has to be used to analyze, process and plan the query and 
+   stored as `StatementState::Described` in the `Session`
+1. if it is `Bind` `Session` allocates memory for a `Portal` and stores it
+1. if it is `DescribePortal` database sends client needed info described in the section above
+1. if it is `Execute` then `Session` lookups a `Portal` and executes the associated query_plan.
+1. if it is `Query { sql: "COMMIT" }` or `Parse { sql: "COMMIT", ... }` `QueryEngine` tries to commit the transaction.
+1. if it is `Query { sql: "ROLLBACK" }` or `Parse { sql: "ROLLBACK", ... }` `QueryEngine` tries to roll back 
+   the transaction.
 
 Code example:
 ```rust
 type StatementName = String;
 type PortalName = String;
 type TxnId = u32;
+type Oid = u32;
+type Format = i32;
+
+enum StatementState {
+   Parsed { ast: QueryAst },
+   Described { 
+      ast: QueryPlan,
+      return_types: Vec<Oid>,
+      // ... other needed fields
+   }
+}
+
+struct Portal {
+   query_plan: QueryPlan,
+   return_types: Vec<Oid>,
+   return_formats: Vec<Format>,
+   params_values: Vec<Value>,
+}
 
 struct Session {
-    statements: HashMap<StatementName, QueryPlan>,
-    portals: HashMap<StatementName, HashMap<PortalName, Vec<Value>>>,
+    statements: HashMap<StatementName, StatementState>,
+    portals: HashMap<StatementName, HashMap<PortalName, Portal>>,
     current_txn: Option<TxnId>
 }
 
@@ -253,8 +291,8 @@ Not found yet. A working prototype could yield some information if there is othe
 
 # Alternatives
 
-One of an alternative could be that `Session` and `QueryEngine` communicates not directly by `Session` invocation of 
-`QueryEngine` functions but using a task queue. However, it requires more detailed design and also influence on changes
+One of an alternative could be that `Session` and `QueryEngine` communicates not directly by invocation of `Session` and
+`QueryEngine` functions but using a task queues. However, it requires more detailed design and also influence on changes
 of current thread model - which is simple thread per connection model. More advanced Thread Model should be researched
 and designed in a separate RFC.
 
