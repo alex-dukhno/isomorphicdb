@@ -334,7 +334,7 @@ impl QueryParser {
                         schemaname: schema_name,
                         relname: table_name,
                         ..
-                    })) => (schema_name.unwrap(), table_name.unwrap()),
+                    })) => (schema_name.unwrap_or("public".to_owned()), table_name.unwrap()),
                     _ => unimplemented!(),
                 };
                 Query::Select(SelectStatement {
