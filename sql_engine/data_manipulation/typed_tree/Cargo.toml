@@ -15,4 +15,4 @@ bigdecimal = { version = "0.2.0", features = ["string-only"] }
 ordered-float = "2.1.1"
 
 [dev-dependencies]
-rstest = "0.7.0"
+rstest = "0.8.0"
