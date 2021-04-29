@@ -22,6 +22,7 @@ use std::{
 };
 
 mod in_memory;
+mod pages;
 
 pub type Key = Vec<BinaryValue>;
 pub type Value = Vec<BinaryValue>;
@@ -69,31 +70,6 @@ impl Iterator for Cursor {
     fn next(&mut self) -> Option<Self::Item> {
         self.source.next()
     }
-}
-
-pub trait Tree {
-    #[allow(clippy::ptr_arg)]
-    fn remove(&self, key: &Key) -> Option<Value>;
-
-    fn insert_key(&self, key: Key, row: Value) -> Option<Value>;
-
-    fn select(&self) -> Cursor;
-
-    fn insert(&self, data: Vec<Value>) -> Vec<Key>;
-
-    fn update(&self, data: Vec<(Key, Value)>) -> usize;
-
-    fn delete(&self, data: Vec<Key>) -> usize;
-}
-
-pub trait Storage {
-    type Tree: Tree;
-
-    fn lookup_tree<T: Into<String>>(&self, table: T) -> Self::Tree;
-
-    fn drop_tree<T: Into<String>>(&self, table: T);
-
-    fn create_tree<T: Into<String>>(&self, table: T);
 }
 
 #[derive(Clone)]

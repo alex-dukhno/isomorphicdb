@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::{Cursor, Key, Storage, Tree, Value};
+use super::{Cursor, Key, Value};
 use binary::BinaryValue;
 use dashmap::DashMap;
 use std::{
@@ -49,21 +49,17 @@ impl InMemoryDatabase {
 
         this
     }
-}
 
-impl Storage for InMemoryDatabase {
-    type Tree = InMemoryTree;
-
-    fn lookup_tree<T: Into<String>>(&self, table: T) -> InMemoryTree {
+    pub fn lookup_tree<T: Into<String>>(&self, table: T) -> InMemoryTree {
         let table = table.into();
         self.trees.get(&table).unwrap().clone()
     }
 
-    fn drop_tree<T: Into<String>>(&self, table: T) {
+    pub fn drop_tree<T: Into<String>>(&self, table: T) {
         self.trees.remove(&table.into());
     }
 
-    fn create_tree<T: Into<String>>(&self, table: T) {
+    pub fn create_tree<T: Into<String>>(&self, table: T) {
         let name = table.into();
         self.trees.insert(name.clone(), InMemoryTree::with_name(name));
     }
@@ -89,18 +85,16 @@ impl InMemoryTree {
     pub(crate) fn index(&self, index: &str) -> Arc<InMemoryIndex> {
         self.indexes.get(index).unwrap().clone()
     }
-}
 
-impl Tree for InMemoryTree {
-    fn remove(&self, key: &Vec<BinaryValue>) -> Option<Vec<BinaryValue>> {
+    pub fn remove(&self, key: &Vec<BinaryValue>) -> Option<Vec<BinaryValue>> {
         self.inner.records.write().unwrap().remove(key)
     }
 
-    fn insert_key(&self, key: Vec<BinaryValue>, row: Vec<BinaryValue>) -> Option<Vec<BinaryValue>> {
+    pub fn insert_key(&self, key: Vec<BinaryValue>, row: Vec<BinaryValue>) -> Option<Vec<BinaryValue>> {
         self.inner.records.write().unwrap().insert(key, row)
     }
 
-    fn select(&self) -> Cursor {
+    pub fn select(&self) -> Cursor {
         self.inner
             .records
             .read()
@@ -110,7 +104,7 @@ impl Tree for InMemoryTree {
             .collect::<Cursor>()
     }
 
-    fn insert(&self, data: Vec<Value>) -> Vec<Key> {
+    pub fn insert(&self, data: Vec<Value>) -> Vec<Key> {
         let mut rw = self.inner.records.write().unwrap();
         let mut keys = vec![];
         for value in data {
@@ -126,7 +120,7 @@ impl Tree for InMemoryTree {
         keys
     }
 
-    fn update(&self, data: Vec<(Key, Value)>) -> usize {
+    pub fn update(&self, data: Vec<(Key, Value)>) -> usize {
         let len = data.len();
         let mut rw = self.inner.records.write().unwrap();
         for (key, value) in data {
@@ -138,7 +132,7 @@ impl Tree for InMemoryTree {
         len
     }
 
-    fn delete(&self, data: Vec<Key>) -> usize {
+    pub fn delete(&self, data: Vec<Key>) -> usize {
         let mut rw = self.inner.records.write().unwrap();
         let mut size = 0;
         let keys = rw

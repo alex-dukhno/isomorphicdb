@@ -116,6 +116,18 @@ pub enum Str {
 }
 
 impl SqlType {
+    pub fn size(&self) -> usize {
+        match self {
+            SqlType::Bool => std::mem::size_of::<bool>(),
+            SqlType::Str { .. } => std::mem::size_of::<usize>(),
+            SqlType::Num(Num::SmallInt) => std::mem::size_of::<i16>(),
+            SqlType::Num(Num::Integer) => std::mem::size_of::<i32>(),
+            SqlType::Num(Num::BigInt) => std::mem::size_of::<i64>(),
+            SqlType::Num(Num::Real) => std::mem::size_of::<f32>(),
+            SqlType::Num(Num::Double) => std::mem::size_of::<f64>(),
+        }
+    }
+
     pub fn family(&self) -> SqlTypeFamily {
         match self {
             SqlType::Bool => SqlTypeFamily::Bool,
