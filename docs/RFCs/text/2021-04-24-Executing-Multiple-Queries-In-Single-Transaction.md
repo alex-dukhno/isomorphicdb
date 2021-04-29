@@ -241,9 +241,20 @@ struct Portal {
 struct Session {
     statements: HashMap<StatementName, StatementState>,
     portals: HashMap<StatementName, HashMap<PortalName, Portal>>,
-    current_txn: Option<TxnId>
+    current_txn: Option<TxnContext>
 }
 
+// struct holds what tables, columns and other
+// schema info that transaction is working on
+// it is collected during transaction execution
+// and used to quickly resolve table or column
+// if it was already used by the transaction
+struct TxnContext {
+    txn_id: u32,
+    tables: HashMap<String, TableId>,
+    columns: HashMap<String, ColumnId>,
+    // ... other fields
+}
 
 struct QueryEngine {
     parser: QueryParser,
@@ -253,7 +264,12 @@ struct QueryEngine {
 
 impl QueryEngine {
     fn start_transaction(&self) -> TxnId {
-        self.allocate_next_transaction_id()
+        let txn_id = self.allocate_next_transaction_id();
+        TxnContext {
+            txn_id,
+            tables: HashMap::default(),
+            columns: HashMap::defautl()
+        }
     }
 
     fn parse(&self, txn_id: TxnId, sql: &str) -> Result<query_ast::Query, Error> {
