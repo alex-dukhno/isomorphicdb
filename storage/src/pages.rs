@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use bigdecimal::{BigDecimal, FromPrimitive};
+use bigdecimal::{BigDecimal, FromPrimitive, ToPrimitive};
 use scalar::ScalarValue;
 use std::mem::MaybeUninit;
 use std::sync::atomic::AtomicU64;
@@ -24,14 +24,28 @@ struct TableMetadata {
 }
 
 impl TableMetadata {
+    fn column_number(&self) -> usize {
+        self.column_types.len()
+    }
+
     fn index_in_tuple(&self, col_index: usize) -> (usize, SqlType) {
         (
             self.column_types.iter().take(col_index).map(SqlType::size).sum(),
             self.column_types[col_index],
         )
     }
+
+    fn dynamic_value_indexes(&self) -> Vec<usize> {
+        self.column_types
+            .iter()
+            .enumerate()
+            .filter(|(_, sql_type)| sql_type.family() == SqlTypeFamily::String)
+            .map(|(index, _)| index)
+            .collect()
+    }
 }
 
+#[derive(Default)]
 struct Header {
     tx_id: AtomicU64,
     begin_ts: AtomicU64,
@@ -39,78 +53,143 @@ struct Header {
     pointer: Pointer,
 }
 
+#[derive(Default)]
 struct Pointer {
     index: usize,
     page: Option<Arc<Page>>,
 }
 
+struct BitSet {
+    bits: Vec<u8>,
+}
+
+impl BitSet {
+    fn new(capacity: usize) -> BitSet {
+        BitSet {
+            bits: vec![0; capacity],
+        }
+    }
+
+    fn is_set(&self, index: usize) -> bool {
+        self.bits[index] == 1
+    }
+
+    fn set(&mut self, index: usize) {
+        self.bits[index] = 1
+    }
+
+    fn unset(&mut self, index: usize) {
+        self.bits[index] = 0
+    }
+}
+
 struct Tuple {
     header: Header,
+    nullable: BitSet,
     data: Vec<u8>,
 }
 
-enum FixedLenValue {
-    Bool(bool),
-    Int16(i16),
-    Int32(i32),
-    Int64(i64),
-    Float32(f32),
-    Float64(f64),
-    Index(usize),
-}
-
 impl Tuple {
-    fn extract(&self, index: usize, meta_data: &TableMetadata) -> FixedLenValue {
-        let (data_at, sql_type) = meta_data.index_in_tuple(index);
-        let datum = data[data_at..sql_type.size()];
-        match sql_type {
-            SqlType::Bool => FixedLenValue::Bool(datum[0] != 0),
-            SqlType::Num(Num::SmallInt) => FixedLenValue::Int16(i16::from_be_bytes(datum.try_into().unwrap())),
-            SqlType::Num(Num::Integer) => FixedLenValue::Int32(i32::from_be_bytes(datum.try_into().unwrap())),
-            SqlType::Num(Num::BigInt) => FixedLenValue::Int64(i64::from_be_bytes(datum.try_into().unwrap())),
-            SqlType::Num(Num::Real) => FixedLenValue::Float32(f32::from_be_bytes(datum.try_into().unwrap())),
-            SqlType::Num(Num::Double) => FixedLenValue::Float64(f64::from_be_bytes(datum.try_into().unwrap())),
-            SqlType::Str { .. } => FixedLenValue::Index(usize::from_be_bytes(datum.try_into().unwrap())),
+    fn serialize(values: &[ScalarValue], meta_data: &TableMetadata) -> Tuple {
+        debug_assert_eq!(
+            values.len() == meta_data.column_number(),
+            "number of columns and number of values should be equal"
+        );
+        let header = Header::default();
+        let mut nullable = BitSet::new(values.len());
+        let mut data = vec![];
+        for (index, value) in values.iter().enumerate() {
+            match value {
+                ScalarValue::Null => {
+                    nullable.set(index);
+                    match meta_data.column_types[index] {
+                        SqlType::Bool => data.push(0),
+                        SqlType::Str { .. } => data.extend_from_slice(&0usize.to_be_bytes()),
+                        SqlType::Num(Num::SmallInt) => data.extend_from_slice(&0i16.to_be_bytes()),
+                        SqlType::Num(Num::Integer) => data.extend_from_slice(&0i32.to_be_bytes()),
+                        SqlType::Num(Num::BigInt) => data.extend_from_slice(&0i64.to_be_bytes()),
+                        SqlType::Num(Num::Real) => data.extend_from_slice(&0.0f32.to_be_bytes()),
+                        SqlType::Num(Num::Double) => data.extend_from_slice(&0.0f64.to_be_bytes()),
+                    }
+                }
+                ScalarValue::Num {
+                    value,
+                    type_family: SqlTypeFamily::SmallInt,
+                } => {
+                    data.extend_from_slice(&value.to_i16().unwrap().to_be_bytes());
+                }
+                ScalarValue::Num {
+                    value,
+                    type_family: SqlTypeFamily::Integer,
+                } => {
+                    data.extend_from_slice(&value.to_i32().unwrap().to_be_bytes());
+                }
+                ScalarValue::Num {
+                    value,
+                    type_family: SqlTypeFamily::BigInt,
+                } => {
+                    data.extend_from_slice(&value.to_i64().unwrap().to_be_bytes());
+                }
+                ScalarValue::Num {
+                    value,
+                    type_family: SqlTypeFamily::Real,
+                } => {
+                    data.extend_from_slice(&value.to_f32().unwrap().to_be_bytes());
+                }
+                ScalarValue::Num {
+                    value,
+                    type_family: SqlTypeFamily::Double,
+                } => {
+                    data.extend_from_slice(&value.to_f64().unwrap().to_be_bytes());
+                }
+                ScalarValue::String(_) => {}
+                ScalarValue::Bool(_) => {}
+                ScalarValue::Num { type_family, .. } => unreachable!("NUM with {:?} is impossible", type_family),
+            }
+        }
+        Tuple { header, nullable, data }
+    }
+
+    fn extract(&self, index: usize, meta_data: &TableMetadata) -> ScalarValue {
+        if self.nullable.is_set(index) {
+            ScalarValue::Null
+        } else {
+            let (data_at, sql_type) = meta_data.index_in_tuple(index);
+            let datum = data[data_at..sql_type.size()];
+            match sql_type {
+                SqlType::Bool => ScalarValue::Bool(datum[0] != 0),
+                SqlType::Num(Num::SmallInt) => ScalarValue::Num {
+                    value: BigDecimal::from(i16::from_be_bytes(datum.try_into().unwrap())),
+                    type_family: SqlTypeFamily::SmallInt,
+                },
+                SqlType::Num(Num::Integer) => ScalarValue::Num {
+                    value: BigDecimal::from(i32::from_be_bytes(datum.try_into().unwrap())),
+                    type_family: SqlTypeFamily::Integer,
+                },
+                SqlType::Num(Num::BigInt) => ScalarValue::Num {
+                    value: BigDecimal::from(i64::from_be_bytes(datum.try_into().unwrap())),
+                    type_family: SqlTypeFamily::BigInt,
+                },
+                SqlType::Num(Num::Real) => ScalarValue::Num {
+                    value: BigDecimal::from(f32::from_be_bytes(datum.try_into().unwrap())),
+                    type_family: SqlTypeFamily::Real,
+                },
+                SqlType::Num(Num::Double) => ScalarValue::Num {
+                    value: BigDecimal::from(f64::from_be_bytes(datum.try_into().unwrap())),
+                    type_family: SqlTypeFamily::Double,
+                },
+                SqlType::Str { len, .. } => {
+                    let index = usize::from_be_bytes(datum.try_into().unwrap());
+                    ScalarValue::String(std::str::from_utf8(&self.data[index..len]).unwrap().to_owned())
+                }
+            }
         }
     }
-}
-
-impl From<FixedLenValue> for ScalarValue {
-    fn from(value: FixedLenValue) -> ScalarValue {
-        match value {
-            FixedLenValue::Bool(v) => ScalarValue::Bool(v),
-            FixedLenValue::Int16(v) => ScalarValue::Num {
-                value: BigDecimal::from(v),
-                type_family: SqlTypeFamily::SmallInt,
-            },
-            FixedLenValue::Int32(v) => ScalarValue::Num {
-                value: BigDecimal::from(v),
-                type_family: SqlTypeFamily::Integer,
-            },
-            FixedLenValue::Int64(v) => ScalarValue::Num {
-                value: BigDecimal::from(v),
-                type_family: SqlTypeFamily::BigInt,
-            },
-            FixedLenValue::Float32(v) => ScalarValue::Num {
-                value: BigDecimal::from_f32(v).unwrap(),
-                type_family: SqlTypeFamily::Real,
-            },
-            FixedLenValue::Float64(v) => ScalarValue::Num {
-                value: BigDecimal::from_f64(v).unwrap(),
-                type_family: SqlTypeFamily::Double,
-            },
-            FixedLenValue::Index(_) => unreachable!(),
-        }
-    }
-}
-
-struct Records {
-    data: Vec<Option<String>>,
 }
 
 struct Page {
-    fixed_len_data: [Option<Tuple>; 4096],
-    dynamic_len_data: Records,
+    records: [Option<Tuple>; 4096],
+    current_index: usize,
 }
 
 impl Page {
@@ -124,23 +203,30 @@ impl Page {
     }
 
     fn read_at(&self, tuple_index: usize, columns: &[usize], meta_data: &TableMetadata) -> Option<Vec<ScalarValue>> {
-        match self.fixed_len_data[tuple_index].as_ref() {
+        match self.records[tuple_index].as_ref() {
             None => None,
             Some(data) => {
                 let mut tuple = vec![];
                 for col_index in columns {
-                    let fixed_len = self.fixed_len_data[tuple_index].extract(*col_index, meta_data);
-                    let value = match fixed_len {
-                        FixedLenValue::Index(index) => {
-                            ScalarValue::String(unsafe { (*self.dynamic_len_data.data[index].as_ptr()).clone() })
-                        }
-                        others => ScalarValue::from(others),
-                    };
+                    let value = data.extract(*col_index, meta_data);
                     tuple.push(value);
                 }
                 Some(tuple)
             }
         }
+    }
+
+    fn delete_at(&mut self, tuple_index: usize) -> bool {
+        match self.records[tuple_index].take() {
+            None => false,
+            Some(_) => true,
+        }
+    }
+
+    fn write_at(&mut self, _tuple_index: usize, values: &[ScalarValue], meta_data: &TableMetadata) -> bool {
+        self.records[self.current_index] = Some(Tuple::serialize(values, meta_data));
+        self.current_index += 1;
+        true
     }
 }
 
