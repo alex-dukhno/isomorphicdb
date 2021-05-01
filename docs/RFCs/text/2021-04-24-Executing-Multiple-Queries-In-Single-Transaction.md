@@ -1,7 +1,7 @@
  * Feature Name: Executing Multiple Queries In Single Transaction
  * Authors: Alex Dukhno (@alex-dukhno)
- * RFC PR: #570
- * RFC Tracking Issue: #574
+ * RFC PR: [isomorphicdb/#570](https://github.com/alex-dukhno/isomorphicdb/issues/570)
+ * RFC Tracking Issue: [isomorphicdb/#574](https://github.com/alex-dukhno/isomorphicdb/issues/574)
 
 # Summary
 
