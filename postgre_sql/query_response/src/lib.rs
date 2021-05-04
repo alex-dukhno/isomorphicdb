@@ -476,11 +476,7 @@ impl QueryError {
 
 impl From<QueryError> for Outbound {
     fn from(error: QueryError) -> Self {
-        Outbound::Error(
-            error.severity().to_owned(),
-            error.code().to_owned(),
-            error.message().to_owned(),
-        )
+        Outbound::Error(error.severity().to_owned(), error.code().to_owned(), error.message())
     }
 }
 

@@ -12,18 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::query_engine::{QueryEngine, TransactionContext};
 use data_manipulation::QueryPlan;
-use postgre_sql::query_ast::{Query, Statement};
-use postgre_sql::query_response::{QueryError, QueryEvent};
+use postgre_sql::query_ast::Query;
 use std::collections::HashMap;
 use types::SqlTypeFamily;
 
 #[derive(Default)]
+#[allow(dead_code)]
 pub struct Session {
     plans: HashMap<String, (Query, Vec<SqlTypeFamily>)>,
 }
 
+#[allow(dead_code)]
 impl Session {
     pub fn cache(&mut self, name: String, _query_plan: QueryPlan, query_ast: Query, params: Vec<SqlTypeFamily>) {
         self.plans.insert(name, (query_ast, params));

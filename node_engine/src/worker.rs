@@ -12,21 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::query_engine::QueryEngine;
-use crate::session::Session;
-use data_manipulation::{QueryExecutionError, QueryExecutionResult};
+use crate::{query_engine::QueryEngine, session::Session};
+use data_manipulation::QueryExecutionResult;
 use data_repr::scalar::ScalarValue;
-use postgre_sql::query_ast::{Extended, Statement, Transaction};
-use postgre_sql::query_response::{QueryError, QueryEvent};
-use postgre_sql::wire_protocol::payload::{Inbound, Outbound};
-use postgre_sql::wire_protocol::{WireConnection, WireError};
-use std::io::Error;
+use postgre_sql::{
+    query_ast::{Extended, Statement, Transaction},
+    wire_protocol::{
+        payload::{Inbound, Outbound},
+        WireConnection,
+    },
+};
 use storage::Database;
 use types::{SqlType, SqlTypeFamily};
 
+#[allow(dead_code)]
 pub struct Worker;
 
 impl Worker {
+    #[allow(dead_code)]
     fn process<C: WireConnection>(&self, connection: &mut C, db_name: &str) {
         let mut session = Session::default();
 
@@ -48,17 +51,17 @@ impl Worker {
                             match statement {
                                 Statement::Definition(ddl) => match txn.execute_ddl(ddl) {
                                     Ok(success) => {
-                                        connection.send(success.into());
+                                        connection.send(success.into()).unwrap();
                                     }
                                     Err(error) => {
-                                        connection.send(error.into());
+                                        connection.send(error.into()).unwrap();
                                     }
                                 },
                                 Statement::Transaction(txn_flow) => match txn_flow {
                                     Transaction::Begin => {
                                         end_txn = false;
                                         explicit_txn = true;
-                                        connection.send(Outbound::TransactionBegin);
+                                        connection.send(Outbound::TransactionBegin).unwrap();
                                     }
                                     Transaction::Commit => {
                                         end_txn = true;
@@ -75,7 +78,7 @@ impl Worker {
                                         let typed_query = txn.process(query.clone(), params.clone()).unwrap();
                                         let query_plan = txn.plan(typed_query);
                                         session.cache(name, query_plan, query, params);
-                                        connection.send(Outbound::StatementPrepared);
+                                        connection.send(Outbound::StatementPrepared).unwrap();
                                     }
                                     Extended::Execute { name, param_values } => match session.find(&name) {
                                         None => unimplemented!(),
@@ -87,7 +90,7 @@ impl Worker {
                                                 .execute(param_values.into_iter().map(ScalarValue::from).collect())
                                             {
                                                 Ok(QueryExecutionResult::Inserted(inserted)) => {
-                                                    connection.send(Outbound::RecordsInserted(inserted));
+                                                    connection.send(Outbound::RecordsInserted(inserted)).unwrap();
                                                 }
                                                 Ok(_) => {}
                                                 Err(_) => unimplemented!(),
@@ -101,14 +104,16 @@ impl Worker {
                                     let query_plan = txn.plan(typed_query);
                                     match query_plan.execute(vec![]) {
                                         Ok(QueryExecutionResult::Selected((desc, data))) => {
-                                            connection.send(Outbound::RowDescription(desc));
+                                            connection.send(Outbound::RowDescription(desc)).unwrap();
                                             let selected = data.len();
                                             for datum in data {
-                                                connection.send(Outbound::DataRow(
-                                                    datum.into_iter().map(|v| v.as_text()).collect(),
-                                                ));
+                                                connection
+                                                    .send(Outbound::DataRow(
+                                                        datum.into_iter().map(|v| v.as_text()).collect(),
+                                                    ))
+                                                    .unwrap();
                                             }
-                                            connection.send(Outbound::RecordsSelected(selected));
+                                            connection.send(Outbound::RecordsSelected(selected)).unwrap();
                                         }
                                         other => unimplemented!("branch {:?} is not implemented", other),
                                     }
@@ -119,13 +124,13 @@ impl Worker {
                         if end_txn {
                             txn.commit();
                             if explicit_txn {
-                                connection.send(Outbound::TransactionCommit);
+                                connection.send(Outbound::TransactionCommit).unwrap();
                                 // reset the state
                                 explicit_txn = false;
                                 end_txn = true;
                             }
                         }
-                        connection.send(Outbound::ReadyForQuery);
+                        connection.send(Outbound::ReadyForQuery).unwrap();
                     }
                     _ => unimplemented!(),
                 },
@@ -138,9 +143,10 @@ impl Worker {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use postgre_sql::query_ast::Statement;
-    use postgre_sql::wire_protocol::payload::{Outbound, SMALLINT};
-    use postgre_sql::wire_protocol::WireResult;
+    use postgre_sql::wire_protocol::{
+        payload::{Outbound, SMALLINT},
+        WireError, WireResult,
+    };
     use std::io;
 
     struct MockConnection {
