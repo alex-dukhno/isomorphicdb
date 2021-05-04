@@ -15,83 +15,79 @@
 use super::*;
 
 #[rstest::rstest]
-fn delete_from_nonexistent_table(database_with_schema: (InMemory, ResultCollector)) {
-    let (mut engine, collector) = database_with_schema;
+fn delete_all_records(with_schema: QueryEngine) {
+    let txn = with_schema.start_transaction();
 
-    engine
-        .execute(Request::Query {
-            sql: "delete from schema_name.table_name;".to_owned(),
-        })
-        .expect("query executed");
-    collector
-        .lock()
-        .unwrap()
-        .assert_receive_single(Err(QueryError::table_does_not_exist("schema_name.table_name")));
+    assert_definition(
+        &txn,
+        "create table schema_name.table_name (column_test smallint);",
+        Ok(QueryEvent::TableCreated),
+    );
+
+    assert_query(
+        &txn,
+        "insert into schema_name.table_name values (123), (456);",
+        Ok(QueryExecutionResult::Inserted(2)),
+    );
+    assert_query(
+        &txn,
+        "select * from schema_name.table_name",
+        Ok(QueryExecutionResult::Selected((
+            vec![("column_test".to_owned(), SMALLINT)],
+            vec![vec![small_int(123)], vec![small_int(456)]],
+        ))),
+    );
+
+    assert_query(
+        &txn,
+        "delete from schema_name.table_name;",
+        Ok(QueryExecutionResult::Deleted(2)),
+    );
+    assert_query(
+        &txn,
+        "select * from schema_name.table_name",
+        Ok(QueryExecutionResult::Selected((
+            vec![("column_test".to_owned(), SMALLINT)],
+            vec![],
+        ))),
+    );
+
+    txn.commit();
 }
 
 #[rstest::rstest]
-fn delete_all_records(database_with_schema: (InMemory, ResultCollector)) {
-    let (mut engine, collector) = database_with_schema;
+fn delete_value_by_predicate_on_single_field(with_schema: QueryEngine) {
+    let txn = with_schema.start_transaction();
 
-    engine
-        .execute(Request::Query {
-            sql: "create table schema_name.table_name (column_test smallint);".to_owned(),
-        })
-        .expect("query executed");
-    collector
-        .lock()
-        .unwrap()
-        .assert_receive_single(Ok(QueryEvent::TableCreated));
+    assert_definition(
+        &txn,
+        "create table schema_name.table_name (col1 smallint, col2 smallint, col3 smallint);",
+        Ok(QueryEvent::TableCreated),
+    );
 
-    engine
-        .execute(Request::Query {
-            sql: "insert into schema_name.table_name values (123);".to_owned(),
-        })
-        .expect("query executed");
-    collector
-        .lock()
-        .unwrap()
-        .assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
-
-    engine
-        .execute(Request::Query {
-            sql: "insert into schema_name.table_name values (456);".to_owned(),
-        })
-        .expect("query executed");
-    collector
-        .lock()
-        .unwrap()
-        .assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
-
-    engine
-        .execute(Request::Query {
-            sql: "select * from schema_name.table_name;".to_owned(),
-        })
-        .expect("query executed");
-    collector.lock().unwrap().assert_receive_many(vec![
-        Ok(QueryEvent::RowDescription(vec![("column_test".to_owned(), SMALLINT)])),
-        Ok(QueryEvent::DataRow(vec!["123".to_owned()])),
-        Ok(QueryEvent::DataRow(vec!["456".to_owned()])),
-        Ok(QueryEvent::RecordsSelected(2)),
-    ]);
-
-    engine
-        .execute(Request::Query {
-            sql: "delete from schema_name.table_name;".to_owned(),
-        })
-        .expect("query executed");
-    collector
-        .lock()
-        .unwrap()
-        .assert_receive_single(Ok(QueryEvent::RecordsDeleted(2)));
-
-    engine
-        .execute(Request::Query {
-            sql: "select * from schema_name.table_name;".to_owned(),
-        })
-        .expect("query executed");
-    collector.lock().unwrap().assert_receive_many(vec![
-        Ok(QueryEvent::RowDescription(vec![("column_test".to_owned(), SMALLINT)])),
-        Ok(QueryEvent::RecordsSelected(0)),
-    ]);
+    assert_query(
+        &txn,
+        "insert into schema_name.table_name values (1, 2, 3), (4, 5, 6), (7, 8, 9);",
+        Ok(QueryExecutionResult::Inserted(3)),
+    );
+    assert_query(
+        &txn,
+        "delete from schema_name.table_name where col2 = 5;",
+        Ok(QueryExecutionResult::Deleted(1)),
+    );
+    assert_query(
+        &txn,
+        "select * from schema_name.table_name",
+        Ok(QueryExecutionResult::Selected((
+            vec![
+                ("col1".to_owned(), SMALLINT),
+                ("col2".to_owned(), SMALLINT),
+                ("col3".to_owned(), SMALLINT),
+            ],
+            vec![
+                vec![small_int(1), small_int(2), small_int(3)],
+                vec![small_int(7), small_int(8), small_int(9)],
+            ],
+        ))),
+    );
 }

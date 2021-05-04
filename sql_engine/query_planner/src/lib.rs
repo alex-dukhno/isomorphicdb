@@ -12,25 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use catalog::CatalogHandler;
+use catalog::{CatalogHandler, CatalogHandlerOld};
 use data_manipulation_query_plan::{
     ConstraintValidator, DeleteQueryPlan, DynamicValues, Filter, FullTableScan, InsertQueryPlan, Projection, QueryPlan,
     Repeater, SelectQueryPlan, StaticExpressionEval, StaticValues, TableRecordKeys, UpdateQueryPlan,
 };
 use data_manipulation_typed_queries::TypedQuery;
 use data_manipulation_typed_tree::{DynamicTypedItem, DynamicTypedTree};
-use storage::TransactionalDatabase;
+use storage::{Transaction, TransactionalDatabase};
 
 pub struct QueryPlanner<'p> {
-    database: TransactionalDatabase<'p>,
+    transaction: Transaction<'p>,
     catalog: CatalogHandler<'p>,
 }
 
-impl<'p> From<TransactionalDatabase<'p>> for QueryPlanner<'p> {
-    fn from(database: TransactionalDatabase<'p>) -> QueryPlanner<'p> {
+impl<'p> From<Transaction<'p>> for QueryPlanner<'p> {
+    fn from(transaction: Transaction<'p>) -> QueryPlanner<'p> {
         QueryPlanner {
-            database: database.clone(),
-            catalog: CatalogHandler::from(database),
+            transaction: transaction.clone(),
+            catalog: CatalogHandler::from(transaction),
         }
     }
 }
@@ -39,7 +39,7 @@ impl<'p> QueryPlanner<'p> {
     pub fn plan(&self, query: TypedQuery) -> QueryPlan {
         match query {
             TypedQuery::Insert(insert) => {
-                let table = self.database.table(&insert.full_table_name);
+                let table = self.transaction.lookup_table_ref(&insert.full_table_name);
                 QueryPlan::Insert(InsertQueryPlan::new(
                     ConstraintValidator::new(
                         StaticExpressionEval::new(StaticValues::new(insert.values)),
@@ -49,14 +49,14 @@ impl<'p> QueryPlanner<'p> {
                 ))
             }
             TypedQuery::Delete(delete) => {
-                let table = self.database.table(&delete.full_table_name);
+                let table = self.transaction.lookup_table_ref(&delete.full_table_name);
                 QueryPlan::Delete(DeleteQueryPlan::new(
                     TableRecordKeys::new(Filter::new(Projection::new(FullTableScan::new(&table)), delete.filter)),
                     table,
                 ))
             }
             TypedQuery::Update(update) => {
-                let table = self.database.table(&update.full_table_name);
+                let table = self.transaction.lookup_table_ref(&update.full_table_name);
                 QueryPlan::Update(UpdateQueryPlan::new(
                     ConstraintValidator::new(
                         DynamicValues::new(
@@ -70,7 +70,74 @@ impl<'p> QueryPlanner<'p> {
                 ))
             }
             TypedQuery::Select(select) => {
-                let table = self.database.table(&select.full_table_name);
+                let table = self.transaction.lookup_table_ref(&select.full_table_name);
+                QueryPlan::Select(SelectQueryPlan::new(
+                    Filter::new(Projection::new(FullTableScan::new(&table)), select.filter),
+                    select
+                        .projection_items
+                        .into_iter()
+                        .map(|item| match item {
+                            DynamicTypedTree::Item(DynamicTypedItem::Column { name, .. }) => name,
+                            _ => unimplemented!(),
+                        })
+                        .collect(),
+                    self.catalog.columns_short(&select.full_table_name),
+                ))
+            }
+        }
+    }
+}
+
+pub struct QueryPlannerOld<'p> {
+    database: TransactionalDatabase<'p>,
+    catalog: CatalogHandlerOld<'p>,
+}
+
+impl<'p> From<TransactionalDatabase<'p>> for QueryPlannerOld<'p> {
+    fn from(database: TransactionalDatabase<'p>) -> QueryPlannerOld<'p> {
+        QueryPlannerOld {
+            database: database.clone(),
+            catalog: CatalogHandlerOld::from(database),
+        }
+    }
+}
+
+impl<'p> QueryPlannerOld<'p> {
+    pub fn plan(&self, query: TypedQuery) -> QueryPlan {
+        match query {
+            TypedQuery::Insert(insert) => {
+                let table = self.database.lookup_table_ref(&insert.full_table_name);
+                QueryPlan::Insert(InsertQueryPlan::new(
+                    ConstraintValidator::new(
+                        StaticExpressionEval::new(StaticValues::new(insert.values)),
+                        self.catalog.columns(&insert.full_table_name),
+                    ),
+                    table,
+                ))
+            }
+            TypedQuery::Delete(delete) => {
+                let table = self.database.lookup_table_ref(&delete.full_table_name);
+                QueryPlan::Delete(DeleteQueryPlan::new(
+                    TableRecordKeys::new(Filter::new(Projection::new(FullTableScan::new(&table)), delete.filter)),
+                    table,
+                ))
+            }
+            TypedQuery::Update(update) => {
+                let table = self.database.lookup_table_ref(&update.full_table_name);
+                QueryPlan::Update(UpdateQueryPlan::new(
+                    ConstraintValidator::new(
+                        DynamicValues::new(
+                            Repeater::new(update.assignments),
+                            Filter::new(Projection::new(FullTableScan::new(&table)), update.filter),
+                        ),
+                        self.catalog.columns(&update.full_table_name),
+                    ),
+                    FullTableScan::new(&table),
+                    table,
+                ))
+            }
+            TypedQuery::Select(select) => {
+                let table = self.database.lookup_table_ref(&select.full_table_name);
                 QueryPlan::Select(SelectQueryPlan::new(
                     Filter::new(Projection::new(FullTableScan::new(&table)), select.filter),
                     select

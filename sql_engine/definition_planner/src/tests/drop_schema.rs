@@ -36,8 +36,8 @@ fn drop_cascade(names: Vec<&str>) -> Definition {
 
 #[test]
 fn drop_non_existent_schema() -> TransactionResult<()> {
-    Database::new("").transaction(|db| {
-        let planner = DefinitionPlanner::from(db);
+    Database::new("").old_transaction(|db| {
+        let planner = DefinitionPlannerOld::from(db);
         assert_eq!(
             planner.plan(drop_schema_stmt(vec!["non_existent"])),
             Ok(SchemaChange::DropSchemas(DropSchemasQuery {
@@ -52,10 +52,10 @@ fn drop_non_existent_schema() -> TransactionResult<()> {
 
 #[test]
 fn drop_schema() -> TransactionResult<()> {
-    Database::new("").transaction(|db| {
-        let catalog = CatalogHandler::from(db.clone());
+    Database::new("").old_transaction(|db| {
+        let catalog = CatalogHandlerOld::from(db.clone());
         catalog.apply(create_schema_ops(SCHEMA)).unwrap();
-        let planner = DefinitionPlanner::from(db);
+        let planner = DefinitionPlannerOld::from(db);
 
         assert_eq!(
             planner.plan(drop_schema_stmt(vec![SCHEMA])),
@@ -71,10 +71,10 @@ fn drop_schema() -> TransactionResult<()> {
 
 #[test]
 fn drop_schema_cascade() -> TransactionResult<()> {
-    Database::new("").transaction(|db| {
-        let catalog = CatalogHandler::from(db.clone());
+    Database::new("").old_transaction(|db| {
+        let catalog = CatalogHandlerOld::from(db.clone());
         catalog.apply(create_schema_ops(SCHEMA)).unwrap();
-        let analyzer = DefinitionPlanner::from(db);
+        let analyzer = DefinitionPlannerOld::from(db);
 
         assert_eq!(
             analyzer.plan(drop_cascade(vec![SCHEMA])),
@@ -90,10 +90,10 @@ fn drop_schema_cascade() -> TransactionResult<()> {
 
 #[test]
 fn drop_schema_if_exists() -> TransactionResult<()> {
-    Database::new("").transaction(|db| {
-        let catalog = CatalogHandler::from(db.clone());
+    Database::new("").old_transaction(|db| {
+        let catalog = CatalogHandlerOld::from(db.clone());
         catalog.apply(create_schema_ops(SCHEMA)).unwrap();
-        let planner = DefinitionPlanner::from(db);
+        let planner = DefinitionPlannerOld::from(db);
 
         assert_eq!(
             planner.plan(drop_if_exists(vec![SCHEMA, "schema_1"])),

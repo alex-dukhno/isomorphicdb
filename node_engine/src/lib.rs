@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::query_engine::QueryEngine;
+use crate::query_engine_old::QueryEngineOld;
 use native_tls::Identity;
 use postgre_sql::wire_protocol::PgWireAcceptor;
 use std::{
@@ -27,6 +27,7 @@ use std::{
 use storage::Database;
 
 mod query_engine;
+mod query_engine_old;
 mod session;
 
 #[derive(Default, Clone)]
@@ -56,7 +57,7 @@ impl NodeEngine {
                         let connection = acceptor.accept(socket).unwrap();
 
                         let arc = Arc::new(Mutex::new(connection));
-                        let mut query_engine = QueryEngine::new(arc.clone(), db);
+                        let mut query_engine = QueryEngineOld::new(arc.clone(), db);
                         log::debug!("ready to handle query");
 
                         loop {

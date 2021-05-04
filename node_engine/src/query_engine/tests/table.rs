@@ -18,169 +18,183 @@ use super::*;
 mod schemaless {
     use super::*;
 
-    #[rstest::rstest]
-    fn create_table_in_non_existent_schema(empty_database: (InMemory, ResultCollector)) {
-        let (mut engine, collector) = empty_database;
-        engine
-            .execute(Request::Query {
-                sql: "create table schema_name.table_name (column_name smallint);".to_owned(),
-            })
-            .expect("query executed");
-        collector
-            .lock()
-            .unwrap()
-            .assert_receive_single(Err(QueryError::schema_does_not_exist("schema_name")));
+    #[test]
+    fn create_table_in_non_existent_schema() {
+        let database = Database::new("IN_MEMORY");
+        let query_engine = QueryEngine::new(database);
+
+        let txn = query_engine.start_transaction();
+        assert_definition(
+            &txn,
+            "create table schema_name.table_name (column_name smallint);",
+            Err(QueryError::schema_does_not_exist("schema_name")),
+        );
+        txn.commit();
     }
 
-    #[rstest::rstest]
-    fn drop_table_from_non_existent_schema(empty_database: (InMemory, ResultCollector)) {
-        let (mut engine, collector) = empty_database;
-        engine
-            .execute(Request::Query {
-                sql: "drop table schema_name.table_name;".to_owned(),
-            })
-            .expect("query executed");
-        collector
-            .lock()
-            .unwrap()
-            .assert_receive_single(Err(QueryError::schema_does_not_exist("schema_name")));
+    #[test]
+    fn drop_table_from_non_existent_schema() {
+        let database = Database::new("IN_MEMORY");
+        let query_engine = QueryEngine::new(database);
+
+        let txn = query_engine.start_transaction();
+        assert_definition(
+            &txn,
+            "drop table schema_name.table_name;",
+            Err(QueryError::schema_does_not_exist("schema_name")),
+        );
+        txn.commit();
     }
 }
 
 #[rstest::rstest]
-fn create_table(database_with_schema: (InMemory, ResultCollector)) {
-    let (mut engine, collector) = database_with_schema;
-    engine
-        .execute(Request::Query {
-            sql: "create table schema_name.table_name (column_name smallint);".to_owned(),
-        })
-        .expect("query executed");
-    collector
-        .lock()
-        .unwrap()
-        .assert_receive_single(Ok(QueryEvent::TableCreated));
+fn create_table(with_schema: QueryEngine) {
+    let txn = with_schema.start_transaction();
+
+    assert_definition(
+        &txn,
+        "create table schema_name.table_name (column_name smallint);",
+        Ok(QueryEvent::TableCreated),
+    );
+    txn.commit();
 }
 
 #[rstest::rstest]
-fn create_same_table(database_with_schema: (InMemory, ResultCollector)) {
-    let (mut engine, collector) = database_with_schema;
-    engine
-        .execute(Request::Query {
-            sql: "create table schema_name.table_name (column_name smallint);".to_owned(),
-        })
-        .expect("query executed");
-    collector
-        .lock()
-        .unwrap()
-        .assert_receive_single(Ok(QueryEvent::TableCreated));
+fn create_same_table(with_schema: QueryEngine) {
+    let txn = with_schema.start_transaction();
 
-    engine
-        .execute(Request::Query {
-            sql: "create table schema_name.table_name (column_name smallint);".to_owned(),
-        })
-        .expect("query executed");
-    collector
-        .lock()
-        .unwrap()
-        .assert_receive_single(Err(QueryError::table_already_exists("schema_name.table_name")));
+    assert_definition(
+        &txn,
+        "create table schema_name.table_name (column_name smallint);",
+        Ok(QueryEvent::TableCreated),
+    );
+    assert_definition(
+        &txn,
+        "create table schema_name.table_name (column_name smallint);",
+        Err(QueryError::table_already_exists("schema_name.table_name")),
+    );
+    txn.commit();
 }
 
 #[rstest::rstest]
-fn drop_table(database_with_schema: (InMemory, ResultCollector)) {
-    let (mut engine, collector) = database_with_schema;
-    engine
-        .execute(Request::Query {
-            sql: "create table schema_name.table_name (column_name smallint);".to_owned(),
-        })
-        .expect("query executed");
-    collector
-        .lock()
-        .unwrap()
-        .assert_receive_single(Ok(QueryEvent::TableCreated));
+fn drop_table(with_schema: QueryEngine) {
+    let txn = with_schema.start_transaction();
 
-    engine
-        .execute(Request::Query {
-            sql: "drop table schema_name.table_name;".to_owned(),
-        })
-        .expect("query executed");
-    collector
-        .lock()
-        .unwrap()
-        .assert_receive_single(Ok(QueryEvent::TableDropped));
-
-    engine
-        .execute(Request::Query {
-            sql: "create table schema_name.table_name (column_name smallint);".to_owned(),
-        })
-        .expect("query executed");
-    collector
-        .lock()
-        .unwrap()
-        .assert_receive_single(Ok(QueryEvent::TableCreated));
+    assert_definition(
+        &txn,
+        "create table schema_name.table_name (column_name smallint);",
+        Ok(QueryEvent::TableCreated),
+    );
+    assert_definition(&txn, "drop table schema_name.table_name;", Ok(QueryEvent::TableDropped));
+    assert_definition(
+        &txn,
+        "create table schema_name.table_name (column_name smallint);",
+        Ok(QueryEvent::TableCreated),
+    );
 }
 
 #[rstest::rstest]
-fn drop_non_existent_table(database_with_schema: (InMemory, ResultCollector)) {
-    let (mut engine, collector) = database_with_schema;
-    engine
-        .execute(Request::Query {
-            sql: "drop table schema_name.non_existent;".to_owned(),
-        })
-        .expect("query executed");
-    collector
-        .lock()
-        .unwrap()
-        .assert_receive_single(Err(QueryError::table_does_not_exist("schema_name.non_existent")));
+fn drop_non_existent_table(with_schema: QueryEngine) {
+    let txn = with_schema.start_transaction();
+
+    assert_definition(
+        &txn,
+        "drop table schema_name.non_existent;",
+        Err(QueryError::table_does_not_exist("schema_name.non_existent")),
+    );
+    txn.commit();
 }
 
 #[rstest::rstest]
-fn drop_if_exists_non_existent_table(database_with_schema: (InMemory, ResultCollector)) {
-    let (mut engine, collector) = database_with_schema;
+fn drop_if_exists_non_existent_table(with_schema: QueryEngine) {
+    let txn = with_schema.start_transaction();
 
-    engine
-        .execute(Request::Query {
-            sql: "drop table if exists schema_name.non_existent;".to_owned(),
-        })
-        .expect("query executed");
-    collector
-        .lock()
-        .unwrap()
-        .assert_receive_single(Ok(QueryEvent::TableDropped));
+    assert_definition(
+        &txn,
+        "drop table if exists schema_name.non_existent;",
+        Ok(QueryEvent::TableDropped),
+    );
+    txn.commit();
 }
 
 #[rstest::rstest]
-fn drop_if_exists_existent_and_non_existent_table(database_with_schema: (InMemory, ResultCollector)) {
-    let (mut engine, collector) = database_with_schema;
+fn drop_if_exists_existent_and_non_existent_table(with_schema: QueryEngine) {
+    let txn = with_schema.start_transaction();
 
-    engine
-        .execute(Request::Query {
-            sql: "create table schema_name.existent_table();".to_owned(),
-        })
-        .expect("query executed");
-    collector
-        .lock()
-        .unwrap()
-        .assert_receive_single(Ok(QueryEvent::TableCreated));
+    assert_definition(
+        &txn,
+        "create table schema_name.existent_table();",
+        Ok(QueryEvent::TableCreated),
+    );
+    assert_definition(
+        &txn,
+        "drop table if exists schema_name.non_existent, schema_name.existent_table;",
+        Ok(QueryEvent::TableDropped),
+    );
+    assert_definition(
+        &txn,
+        "create table schema_name.existent_table();",
+        Ok(QueryEvent::TableCreated),
+    );
+    txn.commit();
+}
 
-    engine
-        .execute(Request::Query {
-            sql: "drop table if exists schema_name.non_existent, schema_name.existent_table;".to_owned(),
-        })
-        .expect("query executed");
-    collector
-        .lock()
-        .unwrap()
-        .assert_receive_single(Ok(QueryEvent::TableDropped));
+#[rstest::rstest]
+fn delete_from_nonexistent_table(with_schema: QueryEngine) {
+    let txn = with_schema.start_transaction();
+    assert_query(
+        &txn,
+        "delete from schema_name.table_name;",
+        Err(QueryError::table_does_not_exist("schema_name.table_name")),
+    );
+    txn.commit();
+}
 
-    engine
-        .execute(Request::Query {
-            sql: "create table schema_name.existent_table();".to_owned(),
-        })
-        .expect("query executed");
-    collector
-        .lock()
-        .unwrap()
-        .assert_receive_single(Ok(QueryEvent::TableCreated));
+#[rstest::rstest]
+fn insert_into_nonexistent_table(with_schema: QueryEngine) {
+    let txn = with_schema.start_transaction();
+
+    assert_query(
+        &txn,
+        "insert into schema_name.table_name values (123);",
+        Err(QueryError::table_does_not_exist("schema_name.table_name")),
+    );
+    txn.commit();
+}
+
+#[rstest::rstest]
+fn select_from_not_existed_table(with_schema: QueryEngine) {
+    let txn = with_schema.start_transaction();
+
+    assert_query(
+        &txn,
+        "select * from schema_name.non_existent;",
+        Err(QueryError::table_does_not_exist("schema_name.non_existent")),
+    );
+    txn.commit();
+}
+
+#[rstest::rstest]
+fn select_named_columns_from_non_existent_table(with_schema: QueryEngine) {
+    let txn = with_schema.start_transaction();
+
+    assert_query(
+        &txn,
+        "select column_1 from schema_name.non_existent;",
+        Err(QueryError::table_does_not_exist("schema_name.non_existent")),
+    );
+    txn.commit();
+}
+
+#[rstest::rstest]
+fn update_records_in_nonexistent_table(with_schema: QueryEngine) {
+    let txn = with_schema.start_transaction();
+    assert_query(
+        &txn,
+        "update schema_name.table_name set column_test=789;",
+        Err(QueryError::table_does_not_exist("schema_name.table_name")),
+    );
+    txn.commit();
 }
 
 #[cfg(test)]
@@ -188,59 +202,47 @@ mod different_types {
     use super::*;
 
     #[rstest::rstest]
-    fn ints(database_with_schema: (InMemory, ResultCollector)) {
-        let (mut engine, collector) = database_with_schema;
-        engine
-            .execute(Request::Query {
-                sql: "create table schema_name.table_name (\
-            column_si smallint,\
-            column_i integer,\
-            column_bi bigint
-            );"
-                .to_owned(),
-            })
-            .expect("query executed");
+    fn ints(with_schema: QueryEngine) {
+        let txn = with_schema.start_transaction();
 
-        collector
-            .lock()
-            .unwrap()
-            .assert_receive_single(Ok(QueryEvent::TableCreated));
+        assert_definition(
+            &txn,
+            "create table schema_name.table_name (\
+                column_si smallint,\
+                column_i integer,\
+                column_bi bigint
+            );",
+            Ok(QueryEvent::TableCreated),
+        );
+        txn.commit();
     }
 
     #[rstest::rstest]
-    fn strings(database_with_schema: (InMemory, ResultCollector)) {
-        let (mut engine, collector) = database_with_schema;
-        engine
-            .execute(Request::Query {
-                sql: "create table schema_name.table_name (\
-            column_c char(10),\
-            column_vc varchar(10)\
-            );"
-                .to_owned(),
-            })
-            .expect("query executed");
+    fn strings(with_schema: QueryEngine) {
+        let txn = with_schema.start_transaction();
 
-        collector
-            .lock()
-            .unwrap()
-            .assert_receive_single(Ok(QueryEvent::TableCreated));
+        assert_definition(
+            &txn,
+            "create table schema_name.table_name (\
+                column_c char(10),\
+                column_vc varchar(10)\
+            );",
+            Ok(QueryEvent::TableCreated),
+        );
+        txn.commit();
     }
 
     #[rstest::rstest]
-    fn boolean(database_with_schema: (InMemory, ResultCollector)) {
-        let (mut engine, collector) = database_with_schema;
-        engine
-            .execute(Request::Query {
-                sql: "create table schema_name.table_name (\
-            column_b boolean\
-            );"
-                .to_owned(),
-            })
-            .expect("query executed");
+    fn boolean(with_schema: QueryEngine) {
+        let txn = with_schema.start_transaction();
 
-        collector
-            .lock()
-            .unwrap()
-            .assert_receive_single(Ok(QueryEvent::TableCreated));
+        assert_definition(
+            &txn,
+            "create table schema_name.table_name (\
+                column_b boolean\
+            );",
+            Ok(QueryEvent::TableCreated),
+        );
+        txn.commit();
     }
 }

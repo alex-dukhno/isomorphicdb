@@ -14,204 +14,152 @@
 
 use super::*;
 
-#[rstest::rstest]
-fn create_schema(empty_database: (InMemory, ResultCollector)) {
-    let (mut engine, collector) = empty_database;
-    engine
-        .execute(Request::Query {
-            sql: "create schema schema_name;".to_owned(),
-        })
-        .expect("query executed");
-    collector
-        .lock()
-        .unwrap()
-        .assert_receive_single(Ok(QueryEvent::SchemaCreated));
+#[test]
+fn create_schema() {
+    let database = Database::new("IN_MEMORY");
+    let query_engine = QueryEngine::new(database);
+
+    let txn = query_engine.start_transaction();
+    assert_definition(&txn, "create schema schema_name;", Ok(QueryEvent::SchemaCreated));
+    txn.commit();
 }
 
-#[rstest::rstest]
-fn create_same_schema(empty_database: (InMemory, ResultCollector)) {
-    let (mut engine, collector) = empty_database;
-    engine
-        .execute(Request::Query {
-            sql: "create schema schema_name;".to_owned(),
-        })
-        .expect("query executed");
-    collector
-        .lock()
-        .unwrap()
-        .assert_receive_single(Ok(QueryEvent::SchemaCreated));
+#[test]
+fn create_same_schema() {
+    let database = Database::new("IN_MEMORY");
+    let query_engine = QueryEngine::new(database);
 
-    engine
-        .execute(Request::Query {
-            sql: "create schema schema_name;".to_owned(),
-        })
-        .expect("query executed");
-    collector
-        .lock()
-        .unwrap()
-        .assert_receive_single(Err(QueryError::schema_already_exists("schema_name")));
+    let txn = query_engine.start_transaction();
+    assert_definition(&txn, "create schema schema_name;", Ok(QueryEvent::SchemaCreated));
+    assert_definition(
+        &txn,
+        "create schema schema_name;",
+        Err(QueryError::schema_already_exists("schema_name")),
+    );
+    txn.commit();
 }
 
-#[rstest::rstest]
-fn drop_schema(empty_database: (InMemory, ResultCollector)) {
-    let (mut engine, collector) = empty_database;
-    engine
-        .execute(Request::Query {
-            sql: "create schema schema_name;".to_owned(),
-        })
-        .expect("query executed");
-    collector
-        .lock()
-        .unwrap()
-        .assert_receive_single(Ok(QueryEvent::SchemaCreated));
+#[test]
+fn drop_schema() {
+    let database = Database::new("IN_MEMORY");
+    let query_engine = QueryEngine::new(database);
 
-    engine
-        .execute(Request::Query {
-            sql: "drop schema schema_name;".to_owned(),
-        })
-        .expect("query executed");
-    collector
-        .lock()
-        .unwrap()
-        .assert_receive_single(Ok(QueryEvent::SchemaDropped));
+    let txn = query_engine.start_transaction();
+    assert_definition(&txn, "create schema schema_name;", Ok(QueryEvent::SchemaCreated));
+    assert_definition(&txn, "drop schema schema_name;", Ok(QueryEvent::SchemaDropped));
+    txn.commit();
 }
 
-#[rstest::rstest]
-fn drop_non_existent_schema(empty_database: (InMemory, ResultCollector)) {
-    let (mut engine, collector) = empty_database;
+#[test]
+fn drop_non_existent_schema() {
+    let database = Database::new("IN_MEMORY");
+    let query_engine = QueryEngine::new(database);
 
-    engine
-        .execute(Request::Query {
-            sql: "drop schema non_existent;".to_owned(),
-        })
-        .expect("query executed");
-    collector
-        .lock()
-        .unwrap()
-        .assert_receive_single(Err(QueryError::schema_does_not_exist("non_existent")));
+    let txn = query_engine.start_transaction();
+    assert_definition(
+        &txn,
+        "drop schema non_existent;",
+        Err(QueryError::schema_does_not_exist("non_existent")),
+    );
+    txn.commit();
 }
 
-#[rstest::rstest]
-fn drop_if_exists_non_existent_schema(empty_database: (InMemory, ResultCollector)) {
-    let (mut engine, collector) = empty_database;
+#[test]
+fn drop_if_exists_non_existent_schema() {
+    let database = Database::new("IN_MEMORY");
+    let query_engine = QueryEngine::new(database);
 
-    engine
-        .execute(Request::Query {
-            sql: "drop schema if exists non_existent;".to_owned(),
-        })
-        .expect("query executed");
-    collector
-        .lock()
-        .unwrap()
-        .assert_receive_single(Ok(QueryEvent::SchemaDropped));
+    let txn = query_engine.start_transaction();
+    assert_definition(
+        &txn,
+        "drop schema if exists non_existent;",
+        Ok(QueryEvent::SchemaDropped),
+    );
+    txn.commit();
 }
 
-#[rstest::rstest]
-fn drop_if_exists_existent_and_non_existent_schema(empty_database: (InMemory, ResultCollector)) {
-    let (mut engine, collector) = empty_database;
+#[test]
+fn drop_if_exists_existent_and_non_existent_schema() {
+    let database = Database::new("IN_MEMORY");
+    let query_engine = QueryEngine::new(database);
 
-    engine
-        .execute(Request::Query {
-            sql: "create schema existent_schema;".to_owned(),
-        })
-        .expect("query executed");
-    collector
-        .lock()
-        .unwrap()
-        .assert_receive_single(Ok(QueryEvent::SchemaCreated));
-
-    engine
-        .execute(Request::Query {
-            sql: "drop schema if exists non_existent, existent_schema;".to_owned(),
-        })
-        .expect("query executed");
-    collector
-        .lock()
-        .unwrap()
-        .assert_receive_single(Ok(QueryEvent::SchemaDropped));
-
-    engine
-        .execute(Request::Query {
-            sql: "create schema existent_schema;".to_owned(),
-        })
-        .expect("query executed");
-    collector
-        .lock()
-        .unwrap()
-        .assert_receive_single(Ok(QueryEvent::SchemaCreated));
+    let txn = query_engine.start_transaction();
+    assert_definition(&txn, "create schema existent_schema;", Ok(QueryEvent::SchemaCreated));
+    assert_definition(
+        &txn,
+        "drop schema if exists non_existent, existent_schema;",
+        Ok(QueryEvent::SchemaDropped),
+    );
+    assert_definition(&txn, "create schema existent_schema;", Ok(QueryEvent::SchemaCreated));
+    txn.commit();
 }
 
-#[rstest::rstest]
-fn select_from_nonexistent_schema(empty_database: (InMemory, ResultCollector)) {
-    let (mut engine, collector) = empty_database;
+#[test]
+fn select_from_nonexistent_schema() {
+    let database = Database::new("IN_MEMORY");
+    let query_engine = QueryEngine::new(database);
 
-    engine
-        .execute(Request::Query {
-            sql: "select * from non_existent.some_table;".to_owned(),
-        })
-        .expect("query executed");
-    collector
-        .lock()
-        .unwrap()
-        .assert_receive_single(Err(QueryError::schema_does_not_exist("non_existent")));
+    let txn = query_engine.start_transaction();
+    assert_query(
+        &txn,
+        "select * from non_existent.some_table;",
+        Err(QueryError::schema_does_not_exist("non_existent")),
+    );
+    txn.commit();
 }
 
-#[rstest::rstest]
-fn select_named_columns_from_nonexistent_schema(empty_database: (InMemory, ResultCollector)) {
-    let (mut engine, collector) = empty_database;
-    engine
-        .execute(Request::Query {
-            sql: "select column_1 from schema_name.table_name;".to_owned(),
-        })
-        .expect("query executed");
+#[test]
+fn select_named_columns_from_nonexistent_schema() {
+    let database = Database::new("IN_MEMORY");
+    let query_engine = QueryEngine::new(database);
 
-    collector
-        .lock()
-        .unwrap()
-        .assert_receive_single(Err(QueryError::schema_does_not_exist("schema_name")));
+    let txn = query_engine.start_transaction();
+    assert_query(
+        &txn,
+        "select column_1 from schema_name.table_name;",
+        Err(QueryError::schema_does_not_exist("schema_name")),
+    );
+    txn.commit();
 }
 
-#[rstest::rstest]
-fn insert_into_table_in_nonexistent_schema(empty_database: (InMemory, ResultCollector)) {
-    let (mut engine, collector) = empty_database;
-    engine
-        .execute(Request::Query {
-            sql: "insert into schema_name.table_name values (123);".to_owned(),
-        })
-        .expect("query executed");
+#[test]
+fn insert_into_table_in_nonexistent_schema() {
+    let database = Database::new("IN_MEMORY");
+    let query_engine = QueryEngine::new(database);
 
-    collector
-        .lock()
-        .unwrap()
-        .assert_receive_single(Err(QueryError::schema_does_not_exist("schema_name")));
+    let txn = query_engine.start_transaction();
+    assert_query(
+        &txn,
+        "insert into schema_name.table_name values (123);",
+        Err(QueryError::schema_does_not_exist("schema_name")),
+    );
+    txn.commit();
 }
 
-#[rstest::rstest]
-fn update_records_in_table_from_non_existent_schema(empty_database: (InMemory, ResultCollector)) {
-    let (mut engine, collector) = empty_database;
-    engine
-        .execute(Request::Query {
-            sql: "update schema_name.table_name set column_test=789;".to_owned(),
-        })
-        .expect("query executed");
+#[test]
+fn update_records_in_table_from_non_existent_schema() {
+    let database = Database::new("IN_MEMORY");
+    let query_engine = QueryEngine::new(database);
 
-    collector
-        .lock()
-        .unwrap()
-        .assert_receive_single(Err(QueryError::schema_does_not_exist("schema_name")));
+    let txn = query_engine.start_transaction();
+    assert_query(
+        &txn,
+        "update schema_name.table_name set column_test=789;",
+        Err(QueryError::schema_does_not_exist("schema_name")),
+    );
+    txn.commit();
 }
 
-#[rstest::rstest]
-fn delete_from_table_in_nonexistent_schema(empty_database: (InMemory, ResultCollector)) {
-    let (mut engine, collector) = empty_database;
-    engine
-        .execute(Request::Query {
-            sql: "delete from schema_name.table_name;".to_owned(),
-        })
-        .expect("query executed");
+#[test]
+fn delete_from_table_in_nonexistent_schema() {
+    let database = Database::new("IN_MEMORY");
+    let query_engine = QueryEngine::new(database);
 
-    collector
-        .lock()
-        .unwrap()
-        .assert_receive_single(Err(QueryError::schema_does_not_exist("schema_name")));
+    let txn = query_engine.start_transaction();
+    assert_query(
+        &txn,
+        "delete from schema_name.table_name;",
+        Err(QueryError::schema_does_not_exist("schema_name")),
+    );
+    txn.commit();
 }

@@ -16,8 +16,8 @@ use super::*;
 
 #[test]
 fn schema_does_not_exist() -> TransactionResult<()> {
-    Database::new("").transaction(|db| {
-        let analyzer = QueryAnalyzer::from(db);
+    Database::new("").old_transaction(|db| {
+        let analyzer = QueryAnalyzerOld::from(db);
         assert_eq!(
             analyzer.analyze(select("non_existent_schema", TABLE)),
             Err(AnalysisError::schema_does_not_exist(&"non_existent_schema"))
@@ -28,10 +28,10 @@ fn schema_does_not_exist() -> TransactionResult<()> {
 
 #[test]
 fn table_does_not_exist() -> TransactionResult<()> {
-    Database::new("").transaction(|db| {
-        let catalog = CatalogHandler::from(db.clone());
+    Database::new("").old_transaction(|db| {
+        let catalog = CatalogHandlerOld::from(db.clone());
         catalog.apply(create_schema_ops(SCHEMA)).unwrap();
-        let analyzer = QueryAnalyzer::from(db);
+        let analyzer = QueryAnalyzerOld::from(db);
         assert_eq!(
             analyzer.analyze(select(SCHEMA, "non_existent_table")),
             Err(AnalysisError::table_does_not_exist(&format!(

@@ -20,8 +20,8 @@ fn insert_statement(schema_name: &str, table_name: &str) -> Query {
 
 #[test]
 fn schema_does_not_exist() -> TransactionResult<()> {
-    Database::new("").transaction(|db| {
-        let analyzer = QueryAnalyzer::from(db);
+    Database::new("").old_transaction(|db| {
+        let analyzer = QueryAnalyzerOld::from(db);
 
         assert_eq!(
             analyzer.analyze(insert_statement(SCHEMA, TABLE)),
@@ -33,10 +33,10 @@ fn schema_does_not_exist() -> TransactionResult<()> {
 
 #[test]
 fn table_does_not_exist() -> TransactionResult<()> {
-    Database::new("").transaction(|db| {
-        let catalog = CatalogHandler::from(db.clone());
+    Database::new("").old_transaction(|db| {
+        let catalog = CatalogHandlerOld::from(db.clone());
         catalog.apply(create_schema_ops(SCHEMA)).unwrap();
-        let analyzer = QueryAnalyzer::from(db);
+        let analyzer = QueryAnalyzerOld::from(db);
 
         assert_eq!(
             analyzer.analyze(insert_statement(SCHEMA, TABLE)),
@@ -48,13 +48,13 @@ fn table_does_not_exist() -> TransactionResult<()> {
 
 #[test]
 fn with_column_names() -> TransactionResult<()> {
-    Database::new("").transaction(|db| {
-        let catalog = CatalogHandler::from(db.clone());
+    Database::new("").old_transaction(|db| {
+        let catalog = CatalogHandlerOld::from(db.clone());
         catalog.apply(create_schema_ops(SCHEMA)).unwrap();
         catalog
             .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
             .unwrap();
-        let analyzer = QueryAnalyzer::from(db);
+        let analyzer = QueryAnalyzerOld::from(db);
 
         assert_eq!(
             analyzer.analyze(inner_insert(SCHEMA, TABLE, vec![vec![small_int(100)]], vec!["col"])),
@@ -71,13 +71,13 @@ fn with_column_names() -> TransactionResult<()> {
 
 #[test]
 fn column_not_found() -> TransactionResult<()> {
-    Database::new("").transaction(|db| {
-        let catalog = CatalogHandler::from(db.clone());
+    Database::new("").old_transaction(|db| {
+        let catalog = CatalogHandlerOld::from(db.clone());
         catalog.apply(create_schema_ops(SCHEMA)).unwrap();
         catalog
             .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
             .unwrap();
-        let analyzer = QueryAnalyzer::from(db);
+        let analyzer = QueryAnalyzerOld::from(db);
 
         assert_eq!(
             analyzer.analyze(inner_insert(SCHEMA, TABLE, vec![vec![small_int(1)]], vec!["not_found"])),

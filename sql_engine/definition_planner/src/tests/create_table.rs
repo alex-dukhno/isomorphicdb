@@ -24,8 +24,8 @@ fn column(name: &str, data_type: DataType) -> ColumnDef {
 
 #[test]
 fn create_table_with_nonexistent_schema() -> TransactionResult<()> {
-    Database::new("").transaction(|db| {
-        let planner = DefinitionPlanner::from(db);
+    Database::new("").old_transaction(|db| {
+        let planner = DefinitionPlannerOld::from(db);
         assert_eq!(
             planner.plan(create_table("non_existent_schema", "non_existent_table", vec![])),
             Err(SchemaPlanError::schema_does_not_exist(&"non_existent_schema"))
@@ -36,11 +36,11 @@ fn create_table_with_nonexistent_schema() -> TransactionResult<()> {
 
 #[test]
 fn create_table_with_the_same_name() -> TransactionResult<()> {
-    Database::new("").transaction(|db| {
-        let catalog = CatalogHandler::from(db.clone());
+    Database::new("").old_transaction(|db| {
+        let catalog = CatalogHandlerOld::from(db.clone());
         catalog.apply(create_schema_ops(SCHEMA)).unwrap();
         catalog.apply(create_table_ops(SCHEMA, TABLE, vec![])).unwrap();
-        let planner = DefinitionPlanner::from(db);
+        let planner = DefinitionPlannerOld::from(db);
 
         assert_eq!(
             planner.plan(create_table(SCHEMA, TABLE, vec![])),
@@ -56,10 +56,10 @@ fn create_table_with_the_same_name() -> TransactionResult<()> {
 
 #[test]
 fn create_new_table_if_not_exist() -> TransactionResult<()> {
-    Database::new("").transaction(|db| {
-        let catalog = CatalogHandler::from(db.clone());
+    Database::new("").old_transaction(|db| {
+        let catalog = CatalogHandlerOld::from(db.clone());
         catalog.apply(create_schema_ops(SCHEMA)).unwrap();
-        let planner = DefinitionPlanner::from(db);
+        let planner = DefinitionPlannerOld::from(db);
         assert_eq!(
             planner.plan(create_table_if_not_exists(
                 SCHEMA,
@@ -82,10 +82,10 @@ fn create_new_table_if_not_exist() -> TransactionResult<()> {
 
 #[test]
 fn successfully_create_table() -> TransactionResult<()> {
-    Database::new("").transaction(|db| {
-        let catalog = CatalogHandler::from(db.clone());
+    Database::new("").old_transaction(|db| {
+        let catalog = CatalogHandlerOld::from(db.clone());
         catalog.apply(create_schema_ops(SCHEMA)).unwrap();
-        let planner = DefinitionPlanner::from(db);
+        let planner = DefinitionPlannerOld::from(db);
         assert_eq!(
             planner.plan(create_table(
                 SCHEMA,

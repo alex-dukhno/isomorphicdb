@@ -12,16 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::in_memory::{InMemoryDatabase, InMemoryTree};
 use binary::BinaryValue;
+use dashmap::DashMap;
 use std::{
+    collections::BTreeMap,
     fmt::{self, Debug, Formatter},
     iter::FromIterator,
     rc::Rc,
-    sync::{Arc, Mutex, MutexGuard},
+    sync::{
+        atomic::{AtomicU64, Ordering},
+        Arc, Mutex, MutexGuard, RwLock,
+    },
 };
-
-mod in_memory;
 
 pub type Key = Vec<BinaryValue>;
 pub type Value = Vec<BinaryValue>;
@@ -71,44 +73,19 @@ impl Iterator for Cursor {
     }
 }
 
-pub trait Tree {
-    #[allow(clippy::ptr_arg)]
-    fn remove(&self, key: &Key) -> Option<Value>;
-
-    fn insert_key(&self, key: Key, row: Value) -> Option<Value>;
-
-    fn select(&self) -> Cursor;
-
-    fn insert(&self, data: Vec<Value>) -> Vec<Key>;
-
-    fn update(&self, data: Vec<(Key, Value)>) -> usize;
-
-    fn delete(&self, data: Vec<Key>) -> usize;
-}
-
-pub trait Storage {
-    type Tree: Tree;
-
-    fn lookup_tree<T: Into<String>>(&self, table: T) -> Self::Tree;
-
-    fn drop_tree<T: Into<String>>(&self, table: T);
-
-    fn create_tree<T: Into<String>>(&self, table: T);
-}
-
 #[derive(Clone)]
 pub struct Database {
-    inner: Arc<Mutex<InMemoryDatabase>>,
+    inner: Arc<Mutex<DatabaseInner>>,
 }
 
 impl Database {
     pub fn new(_path: &str) -> Database {
         Database {
-            inner: Arc::new(Mutex::new(InMemoryDatabase::create())),
+            inner: Arc::new(Mutex::new(DatabaseInner::create())),
         }
     }
 
-    pub fn transaction<F, R>(&self, mut f: F) -> TransactionResult<R>
+    pub fn old_transaction<F, R>(&self, mut f: F) -> TransactionResult<R>
     where
         // TODO: make it Fn otherwise it won't work with sled
         F: FnMut(TransactionalDatabase) -> ConflictableTransactionResult<R>,
@@ -126,16 +103,41 @@ impl Database {
     fn transactional(&self) -> TransactionalDatabase {
         TransactionalDatabase::from(self.inner.lock().unwrap())
     }
+
+    pub fn transaction(&self) -> Transaction {
+        Transaction {
+            guard: Rc::new(self.inner.lock().unwrap()),
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct Transaction<'t> {
+    guard: Rc<MutexGuard<'t, DatabaseInner>>,
+}
+
+impl<'t> Transaction<'t> {
+    pub fn lookup_table_ref<T: Into<String>>(&self, full_table_name: T) -> TableRef {
+        TableRef::from(self.guard.lookup_tree(full_table_name))
+    }
+
+    pub fn drop_tree<T: Into<String>>(&self, full_table_name: T) {
+        self.guard.drop_tree(full_table_name)
+    }
+
+    pub fn create_tree<T: Into<String>>(&self, full_table_name: T) {
+        self.guard.create_tree(full_table_name)
+    }
 }
 
 #[derive(Clone)]
 pub struct TransactionalDatabase<'t> {
-    inner: Rc<MutexGuard<'t, InMemoryDatabase>>,
+    inner: Rc<MutexGuard<'t, DatabaseInner>>,
 }
 
 impl<'t> TransactionalDatabase<'t> {
-    pub fn table<T: Into<String>>(&self, full_table_name: T) -> Table {
-        Table::from(self.inner.lookup_tree(full_table_name))
+    pub fn lookup_table_ref<T: Into<String>>(&self, full_table_name: T) -> TableRef {
+        TableRef::from(self.inner.lookup_tree(full_table_name))
     }
 
     pub fn drop_tree<T: Into<String>>(&self, full_table_name: T) {
@@ -147,24 +149,24 @@ impl<'t> TransactionalDatabase<'t> {
     }
 }
 
-impl<'t> From<MutexGuard<'t, InMemoryDatabase>> for TransactionalDatabase<'t> {
-    fn from(guard: MutexGuard<'t, InMemoryDatabase>) -> TransactionalDatabase {
+impl<'t> From<MutexGuard<'t, DatabaseInner>> for TransactionalDatabase<'t> {
+    fn from(guard: MutexGuard<'t, DatabaseInner>) -> TransactionalDatabase {
         TransactionalDatabase { inner: Rc::new(guard) }
     }
 }
 
 #[derive(Debug)]
-pub struct Table {
-    inner: InMemoryTree,
+pub struct TableRef {
+    inner: TableInner,
 }
 
-impl From<InMemoryTree> for Table {
-    fn from(table: InMemoryTree) -> Table {
-        Table { inner: table }
+impl From<TableInner> for TableRef {
+    fn from(table: TableInner) -> TableRef {
+        TableRef { inner: table }
     }
 }
 
-impl Table {
+impl TableRef {
     pub fn write(&self, row: Value) -> Key {
         self.inner.insert(vec![row]).remove(0)
     }
@@ -183,5 +185,152 @@ impl Table {
 
     pub fn scan(&self) -> Cursor {
         self.inner.select()
+    }
+}
+
+const DEFINITION_SCHEMA: &str = "DEFINITION_SCHEMA";
+const SCHEMATA_TABLE: &str = "SCHEMATA";
+const TABLES_TABLE: &str = "TABLES";
+const INDEXES_TABLE: &str = "TABLES";
+const COLUMNS_TABLE: &str = "COLUMNS";
+
+pub struct DatabaseInner {
+    trees: DashMap<String, TableInner>,
+}
+
+impl DatabaseInner {
+    pub fn create() -> DatabaseInner {
+        let this = DatabaseInner {
+            trees: DashMap::default(),
+        };
+
+        // database bootstrap
+        this.create_tree(format!("{}.{}", DEFINITION_SCHEMA, SCHEMATA_TABLE));
+        this.lookup_tree(format!("{}.{}", DEFINITION_SCHEMA, SCHEMATA_TABLE))
+            .insert(vec![vec![BinaryValue::from("IN_MEMORY"), BinaryValue::from("public")]]);
+        this.create_tree(format!("{}.{}", DEFINITION_SCHEMA, TABLES_TABLE));
+        this.create_tree(format!("{}.{}", DEFINITION_SCHEMA, COLUMNS_TABLE));
+        this.create_tree(format!("{}.{}", DEFINITION_SCHEMA, INDEXES_TABLE));
+
+        this
+    }
+
+    pub fn lookup_tree<T: Into<String>>(&self, table: T) -> TableInner {
+        let table = table.into();
+        self.trees.get(&table).unwrap().clone()
+    }
+
+    pub fn drop_tree<T: Into<String>>(&self, table: T) {
+        self.trees.remove(&table.into());
+    }
+
+    pub fn create_tree<T: Into<String>>(&self, table: T) {
+        let name = table.into();
+        self.trees.insert(name.clone(), TableInner::with_name(name));
+    }
+}
+
+#[derive(Default, Debug, Clone)]
+pub struct TableInner {
+    name: String,
+    inner: Arc<InMemoryTableHandleInner>,
+}
+
+impl TableInner {
+    pub(crate) fn with_name(name: String) -> TableInner {
+        TableInner {
+            name,
+            inner: Arc::new(InMemoryTableHandleInner::default()),
+        }
+    }
+
+    pub fn remove(&self, key: &[BinaryValue]) -> Option<Vec<BinaryValue>> {
+        self.inner.records.write().unwrap().remove(key)
+    }
+
+    pub fn insert_key(&self, key: Vec<BinaryValue>, row: Vec<BinaryValue>) -> Option<Vec<BinaryValue>> {
+        self.inner.records.write().unwrap().insert(key, row)
+    }
+
+    pub fn select(&self) -> Cursor {
+        self.inner
+            .records
+            .read()
+            .unwrap()
+            .iter()
+            .map(|(key, value)| (key.clone(), value.clone()))
+            .collect::<Cursor>()
+    }
+
+    pub fn insert(&self, data: Vec<Value>) -> Vec<Key> {
+        let mut rw = self.inner.records.write().unwrap();
+        let mut keys = vec![];
+        for value in data {
+            let record_id = self.inner.record_ids.fetch_add(1, Ordering::SeqCst);
+            let key = vec![BinaryValue::from_u64(record_id)];
+            debug_assert!(
+                matches!(rw.insert(key.clone(), value), None),
+                "insert operation should insert nonexistent key"
+            );
+            keys.push(key);
+        }
+
+        keys
+    }
+
+    pub fn update(&self, data: Vec<(Key, Value)>) -> usize {
+        let len = data.len();
+        let mut rw = self.inner.records.write().unwrap();
+        for (key, value) in data {
+            debug_assert!(
+                matches!(rw.insert(key, value), Some(_)),
+                "update operation should change already existed key"
+            );
+        }
+        len
+    }
+
+    pub fn delete(&self, data: Vec<Key>) -> usize {
+        let mut rw = self.inner.records.write().unwrap();
+        let mut size = 0;
+        let keys = rw
+            .iter()
+            .filter(|(key, _value)| data.contains(key))
+            .map(|(key, _value)| key.clone())
+            .collect::<Vec<Vec<BinaryValue>>>();
+        for key in keys.iter() {
+            debug_assert!(matches!(rw.remove(key), Some(_)), "delete operation delete existed key");
+            size += 1;
+        }
+        size
+    }
+}
+
+#[derive(Default, Debug)]
+struct InMemoryTableHandleInner {
+    records: RwLock<BTreeMap<Vec<BinaryValue>, Vec<BinaryValue>>>,
+    record_ids: AtomicU64,
+    column_ords: AtomicU64,
+}
+
+#[derive(Debug)]
+pub struct InMemoryIndex {
+    records: RwLock<BTreeMap<Vec<BinaryValue>, Vec<BinaryValue>>>,
+    column: usize,
+}
+
+impl InMemoryIndex {
+    #[allow(dead_code)]
+    pub(crate) fn new(column: usize) -> InMemoryIndex {
+        InMemoryIndex {
+            records: RwLock::default(),
+            column,
+        }
+    }
+}
+
+impl PartialEq for TableInner {
+    fn eq(&self, other: &TableInner) -> bool {
+        self.name == other.name
     }
 }

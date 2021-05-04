@@ -15,250 +15,198 @@
 use super::*;
 
 #[rstest::fixture]
-fn int_table(database_with_schema: (InMemory, ResultCollector)) -> (InMemory, ResultCollector) {
-    let (mut engine, collector) = database_with_schema;
-    engine
-        .execute(Request::Query {
-            sql: "create table schema_name.table_name(col smallint);".to_owned(),
-        })
-        .expect("query executed");
-    collector
-        .lock()
-        .unwrap()
-        .assert_receive_till_this_moment(vec![Ok(QueryEvent::TableCreated), Ok(QueryEvent::QueryComplete)]);
+fn int_table(with_schema: QueryEngine) -> QueryEngine {
+    let txn = with_schema.start_transaction();
 
-    (engine, collector)
+    assert_definition(
+        &txn,
+        "create table schema_name.table_name(col smallint);",
+        Ok(QueryEvent::TableCreated),
+    );
+    txn.commit();
+
+    with_schema
 }
 
 #[rstest::fixture]
-fn multiple_ints_table(database_with_schema: (InMemory, ResultCollector)) -> (InMemory, ResultCollector) {
-    let (mut engine, collector) = database_with_schema;
-    engine
-        .execute(Request::Query {
-            sql: "create table schema_name.table_name(column_si smallint, column_i integer, column_bi bigint);"
-                .to_owned(),
-        })
-        .expect("query executed");
-    collector
-        .lock()
-        .unwrap()
-        .assert_receive_till_this_moment(vec![Ok(QueryEvent::TableCreated), Ok(QueryEvent::QueryComplete)]);
+fn multiple_ints_table(with_schema: QueryEngine) -> QueryEngine {
+    let txn = with_schema.start_transaction();
 
-    (engine, collector)
+    assert_definition(
+        &txn,
+        "create table schema_name.table_name(column_si smallint, column_i integer, column_bi bigint);",
+        Ok(QueryEvent::TableCreated),
+    );
+    txn.commit();
+
+    with_schema
 }
 
 #[rstest::fixture]
-fn str_table(database_with_schema: (InMemory, ResultCollector)) -> (InMemory, ResultCollector) {
-    let (mut engine, collector) = database_with_schema;
-    engine
-        .execute(Request::Query {
-            sql: "create table schema_name.table_name(col varchar(5));".to_owned(),
-        })
-        .expect("query executed");
-    collector
-        .lock()
-        .unwrap()
-        .assert_receive_till_this_moment(vec![Ok(QueryEvent::TableCreated), Ok(QueryEvent::QueryComplete)]);
+fn str_table(with_schema: QueryEngine) -> QueryEngine {
+    let txn = with_schema.start_transaction();
 
-    (engine, collector)
+    assert_definition(
+        &txn,
+        "create table schema_name.table_name(col varchar(5));",
+        Ok(QueryEvent::TableCreated),
+    );
+    txn.commit();
+
+    with_schema
 }
 
 #[cfg(test)]
 mod insert {
     use super::*;
+    use types::SqlType;
 
     #[rstest::rstest]
-    #[ignore]
-    fn out_of_range(int_table: (InMemory, ResultCollector)) {
-        let (mut engine, collector) = int_table;
+    fn out_of_range(int_table: QueryEngine) {
+        let txn = int_table.start_transaction();
 
-        engine
-            .execute(Request::Query {
-                sql: "insert into schema_name.table_name values (32768);".to_owned(),
-            })
-            .expect("query executed");
-        collector
-            .lock()
-            .unwrap()
-            .assert_receive_single(Err(QueryError::out_of_range_2(SMALLINT, "col".to_string(), 1)));
+        assert_query(
+            &txn,
+            "insert into schema_name.table_name values (32768);",
+            Err(QueryError::out_of_range_2("smallint", "col".to_string(), 1)),
+        );
+        txn.commit();
     }
 
     #[rstest::rstest]
-    fn type_mismatch(int_table: (InMemory, ResultCollector)) {
-        let (mut engine, collector) = int_table;
+    fn type_mismatch(int_table: QueryEngine) {
+        let txn = int_table.start_transaction();
 
-        engine
-            .execute(Request::Query {
-                sql: "insert into schema_name.table_name values ('str');".to_owned(),
-            })
-            .expect("query executed");
-        collector
-            .lock()
-            .unwrap()
-            .assert_receive_single(Err(QueryError::invalid_text_representation_2(
-                "smallint".to_owned(),
-                "str".to_owned(),
-            )));
+        assert_query(
+            &txn,
+            "insert into schema_name.table_name values ('str');",
+            Err(QueryError::invalid_text_representation_2(SqlType::small_int(), &"str")),
+        );
+        txn.commit();
     }
 
     #[rstest::rstest]
-    #[ignore] // TODO: multiple error report is not supported
-    fn multiple_columns_multiple_row_violation(multiple_ints_table: (InMemory, ResultCollector)) {
-        let (mut engine, collector) = multiple_ints_table;
-        engine
-            .execute(Request::Query { sql: "insert into schema_name.table_name values (-32769, -2147483649, 100), (100, -2147483649, -9223372036854775809);".to_owned()}).expect("query executed");
-        collector.lock().unwrap().assert_receive_many(vec![
-            Err(QueryError::out_of_range(SMALLINT, "column_si", 1)),
-            Err(QueryError::out_of_range(INT, "column_i", 1)),
-        ]);
+    fn multiple_columns_multiple_row_violation(multiple_ints_table: QueryEngine) {
+        let txn = multiple_ints_table.start_transaction();
+
+        // assert_query(
+        //     &txn,
+        //     "insert into schema_name.table_name values (-32769, -2147483649, 100), (100, -2147483649, -9223372036854775809);",
+        //     Err(QueryError::out_of_range(SMALLINT, "column_si", 1)),
+        //     Err(QueryError::out_of_range(INT, "column_i", 1))
+        // );
+        assert_query(
+            &txn,
+            "insert into schema_name.table_name values (-32769, -2147483649, 100), (100, -2147483649, -9223372036854775809);",
+            Err(QueryError::out_of_range_2(SqlType::small_int(), "column_si", 1)),
+        );
+        txn.commit();
     }
 
     #[rstest::rstest]
-    #[ignore]
-    fn violation_in_the_second_row(multiple_ints_table: (InMemory, ResultCollector)) {
-        let (mut engine, collector) = multiple_ints_table;
-        engine
-            .execute(Request::Query { sql: "insert into schema_name.table_name values (-32768, -2147483648, 100), (100, -2147483649, -9223372036854775808);".to_owned()}).expect("query executed");
-        collector
-            .lock()
-            .unwrap()
-            .assert_receive_single(Err(QueryError::out_of_range_2(INT, "column_i".to_owned(), 2)));
+    fn violation_in_the_second_row(multiple_ints_table: QueryEngine) {
+        let txn = multiple_ints_table.start_transaction();
+
+        assert_query(
+            &txn,
+            "insert into schema_name.table_name values (-32768, -2147483648, 100), (100, -2147483649, -9223372036854775808);",
+            Err(QueryError::out_of_range_2(SqlType::integer(), "column_i".to_owned(), 2))
+        );
+        txn.commit();
     }
 
     #[rstest::rstest]
     #[ignore] // TODO: string length is not checked
-    fn value_too_long(str_table: (InMemory, ResultCollector)) {
-        let (mut engine, collector) = str_table;
-        engine
-            .execute(Request::Query {
-                sql: "insert into schema_name.table_name values ('123457890');".to_owned(),
-            })
-            .expect("query executed");
-        collector
-            .lock()
-            .unwrap()
-            .assert_receive_single(Err(QueryError::string_length_mismatch(
-                VARCHAR,
-                5,
-                "col".to_string(),
-                1,
-            )));
+    fn value_too_long(str_table: QueryEngine) {
+        let txn = str_table.start_transaction();
+
+        assert_query(
+            &txn,
+            "insert into schema_name.table_name values ('123457890');",
+            Err(QueryError::string_length_mismatch(VARCHAR, 5, "col".to_string(), 1)),
+        );
+        txn.commit();
     }
 }
 
 #[cfg(test)]
 mod update {
     use super::*;
+    use types::SqlType;
 
     #[rstest::rstest]
-    #[ignore]
-    fn out_of_range(int_table: (InMemory, ResultCollector)) {
-        let (mut engine, collector) = int_table;
-        engine
-            .execute(Request::Query {
-                sql: "insert into schema_name.table_name values (32767);".to_owned(),
-            })
-            .expect("query executed");
-        collector
-            .lock()
-            .unwrap()
-            .assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+    fn out_of_range(int_table: QueryEngine) {
+        let txn = int_table.start_transaction();
 
-        engine
-            .execute(Request::Query {
-                sql: "update schema_name.table_name set col = 32768;".to_owned(),
-            })
-            .expect("query executed");
-
-        collector
-            .lock()
-            .unwrap()
-            .assert_receive_single(Err(QueryError::out_of_range_2(SMALLINT, "col".to_string(), 1)));
+        assert_query(
+            &txn,
+            "insert into schema_name.table_name values (32767);",
+            Ok(QueryExecutionResult::Inserted(1)),
+        );
+        assert_query(
+            &txn,
+            "update schema_name.table_name set col = 32768;",
+            Err(QueryError::out_of_range_2(SqlType::small_int(), "col".to_string(), 1)),
+        );
+        txn.commit();
     }
 
     #[rstest::rstest]
-    fn type_mismatch(int_table: (InMemory, ResultCollector)) {
-        let (mut engine, collector) = int_table;
-        engine
-            .execute(Request::Query {
-                sql: "insert into schema_name.table_name values (32767);".to_owned(),
-            })
-            .expect("query executed");
-        collector
-            .lock()
-            .unwrap()
-            .assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
+    fn type_mismatch(int_table: QueryEngine) {
+        let txn = int_table.start_transaction();
 
-        engine
-            .execute(Request::Query {
-                sql: "update schema_name.table_name set col = 'str';".to_owned(),
-            })
-            .expect("query executed");
-
-        collector
-            .lock()
-            .unwrap()
-            .assert_receive_single(Err(QueryError::invalid_text_representation_2(
-                "smallint".to_owned(),
-                "str".to_owned(),
-            )));
+        assert_query(
+            &txn,
+            "insert into schema_name.table_name values (32767);",
+            Ok(QueryExecutionResult::Inserted(1)),
+        );
+        assert_query(
+            &txn,
+            "update schema_name.table_name set col = 'str';",
+            Err(QueryError::invalid_text_representation_2(SqlType::small_int(), &"str")),
+        );
+        txn.commit();
     }
 
     #[rstest::rstest]
     #[ignore] // TODO: string length is not checked
-    fn value_too_long(str_table: (InMemory, ResultCollector)) {
-        let (mut engine, collector) = str_table;
+    fn value_too_long(str_table: QueryEngine) {
+        let txn = str_table.start_transaction();
 
-        engine
-            .execute(Request::Query {
-                sql: "insert into schema_name.table_name values ('str');".to_owned(),
-            })
-            .expect("query executed");
-        collector
-            .lock()
-            .unwrap()
-            .assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
-
-        engine
-            .execute(Request::Query {
-                sql: "update schema_name.table_name set col = '123457890';".to_owned(),
-            })
-            .expect("query executed");
-        collector
-            .lock()
-            .unwrap()
-            .assert_receive_single(Err(QueryError::string_length_mismatch(
-                VARCHAR,
-                5,
-                "col".to_string(),
-                1,
-            )));
+        assert_query(
+            &txn,
+            "insert into schema_name.table_name values ('str');",
+            Ok(QueryExecutionResult::Inserted(1)),
+        );
+        assert_query(
+            &txn,
+            "update schema_name.table_name set col = '123457890';",
+            Err(QueryError::string_length_mismatch(VARCHAR, 5, "col".to_string(), 1)),
+        );
+        txn.commit();
     }
 
     #[rstest::rstest]
-    #[ignore] // TODO: multiple error report is not supported
-    fn multiple_columns_violation(multiple_ints_table: (InMemory, ResultCollector)) {
-        let (mut engine, collector) = multiple_ints_table;
+    fn multiple_columns_violation(multiple_ints_table: QueryEngine) {
+        let txn = multiple_ints_table.start_transaction();
 
-        engine
-            .execute(Request::Query {
-                sql: "insert into schema_name.table_name values (100, 100, 100), (100, 100, 100);".to_owned(),
-            })
-            .expect("query executed");
-        collector
-            .lock()
-            .unwrap()
-            .assert_receive_single(Ok(QueryEvent::RecordsInserted(2)));
-
-        engine
-            .execute(Request::Query {
-                sql: "update schema_name.table_name set column_si = -32769, column_i= -2147483649, column_bi=100;"
-                    .to_owned(),
-            })
-            .expect("query executed");
-        collector.lock().unwrap().assert_receive_many(vec![
-            Err(QueryError::out_of_range(SMALLINT, "column_si".to_owned(), 1)),
-            Err(QueryError::out_of_range(INT, "column_i".to_owned(), 1)),
-        ]);
+        assert_query(
+            &txn,
+            "insert into schema_name.table_name values (100, 100, 100), (100, 100, 100);",
+            Ok(QueryExecutionResult::Inserted(2)),
+        );
+        // assert_query(
+        //      &txn,
+        //      "update schema_name.table_name set column_si = -32769, column_i= -2147483649, column_bi=100;",
+        //      vec![
+        //          Err(QueryError::out_of_range(SMALLINT, "column_si".to_owned(), 1)),
+        //          Err(QueryError::out_of_range(INT, "column_i".to_owned(), 1)),
+        //      ]
+        // );
+        assert_query(
+            &txn,
+            "update schema_name.table_name set column_si = -32769, column_i= -2147483649, column_bi=100;",
+            Err(QueryError::out_of_range_2("smallint", "column_si".to_owned(), 1)),
+        );
     }
 }

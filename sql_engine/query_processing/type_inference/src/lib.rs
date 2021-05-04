@@ -29,7 +29,7 @@ pub struct TypeInference {
 }
 
 impl Default for TypeInference {
-    fn default() -> Self {
+    fn default() -> TypeInference {
         TypeInference {
             small_int_range: BigDecimal::from(i16::MIN)..=BigDecimal::from(i16::MAX),
             integer_range: BigDecimal::from(i32::MIN)..=BigDecimal::from(i32::MAX),
