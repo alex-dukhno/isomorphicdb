@@ -129,7 +129,7 @@ dependencies = [
  "data_definition_execution_plan",
  "definition",
  "log",
- "rstest 0.9.0",
+ "rstest",
  "storage",
  "types",
 ]
@@ -285,7 +285,7 @@ dependencies = [
  "log",
  "query_ast",
  "regex",
- "rstest 0.8.0",
+ "rstest",
  "scalar",
  "types",
 ]
@@ -332,7 +332,7 @@ dependencies = [
  "data_manipulation_operators",
  "data_manipulation_query_result",
  "ordered-float",
- "rstest 0.8.0",
+ "rstest",
  "scalar",
  "types",
 ]
@@ -716,7 +716,7 @@ dependencies = [
  "query_processing",
  "rand",
  "rand_core",
- "rstest 0.9.0",
+ "rstest",
  "simple_logger",
  "storage",
  "types",
@@ -1057,7 +1057,7 @@ dependencies = [
  "postgres-parser",
  "query_ast",
  "query_response",
- "rstest 0.8.0",
+ "rstest",
 ]
 
 [[package]]
@@ -1199,19 +1199,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3acd125665422973a33ac9d3dd2df85edad0f4ae9b00dafb1a05e43a9f5ef8e7"
 dependencies = [
  "winapi",
-]
-
-[[package]]
-name = "rstest"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b961ca336c5632e93880ee91b3ca879f1499b835daa74dd726809f6196320b7f"
-dependencies = [
- "cfg-if",
- "proc-macro2",
- "quote",
- "rustc_version",
- "syn",
 ]
 
 [[package]]
@@ -1563,7 +1550,7 @@ name = "types"
 version = "0.1.0"
 dependencies = [
  "query_ast",
- "rstest 0.9.0",
+ "rstest",
  "wire_protocol_payload",
 ]
 
