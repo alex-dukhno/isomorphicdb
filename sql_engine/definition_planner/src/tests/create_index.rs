@@ -28,8 +28,8 @@ fn create_index(index_name: &str, schema_name: &str, table_name: &str, columns: 
 
 #[test]
 fn create_index_for_not_existent_schema() -> TransactionResult<()> {
-    Database::new("").transaction(|db| {
-        let planner = DefinitionPlanner::from(db);
+    Database::new("").old_transaction(|db| {
+        let planner = DefinitionPlannerOld::from(db);
         assert_eq!(
             planner.plan(create_index("index_name", "non_existent", TABLE, vec!["column"])),
             Err(SchemaPlanError::schema_does_not_exist(&"non_existent"))
@@ -40,8 +40,8 @@ fn create_index_for_not_existent_schema() -> TransactionResult<()> {
 
 #[test]
 fn create_index_for_not_existent_table() -> TransactionResult<()> {
-    Database::new("").transaction(|db| {
-        let planner = DefinitionPlanner::from(db);
+    Database::new("").old_transaction(|db| {
+        let planner = DefinitionPlannerOld::from(db);
         assert_eq!(
             planner.plan(create_index(
                 "index_name",
@@ -60,8 +60,8 @@ fn create_index_for_not_existent_table() -> TransactionResult<()> {
 
 #[test]
 fn create_index_over_column_that_does_not_exists_in_table() -> TransactionResult<()> {
-    Database::new("").transaction(|db| {
-        let catalog = CatalogHandler::from(db.clone());
+    Database::new("").old_transaction(|db| {
+        let catalog = CatalogHandlerOld::from(db.clone());
         catalog
             .apply(create_table_ops(
                 "public",
@@ -70,7 +70,7 @@ fn create_index_over_column_that_does_not_exists_in_table() -> TransactionResult
             ))
             .unwrap();
 
-        let planner = DefinitionPlanner::from(db);
+        let planner = DefinitionPlannerOld::from(db);
         assert_eq!(
             planner.plan(create_index(
                 "index_name",
@@ -86,8 +86,8 @@ fn create_index_over_column_that_does_not_exists_in_table() -> TransactionResult
 
 #[test]
 fn create_index_over_multiple_columns() -> TransactionResult<()> {
-    Database::new("").transaction(|db| {
-        let catalog = CatalogHandler::from(db.clone());
+    Database::new("").old_transaction(|db| {
+        let catalog = CatalogHandlerOld::from(db.clone());
         catalog
             .apply(create_table_ops(
                 "public",
@@ -100,7 +100,7 @@ fn create_index_over_multiple_columns() -> TransactionResult<()> {
             ))
             .unwrap();
 
-        let planner = DefinitionPlanner::from(db);
+        let planner = DefinitionPlannerOld::from(db);
         assert_eq!(
             planner.plan(create_index(
                 "index_name",

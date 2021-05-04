@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use definition::{FullTableName, SchemaName};
-use query_response::QueryError;
+use query_response::{QueryError, QueryEvent};
 use types::SqlType;
 
 #[derive(Debug, PartialEq)]
@@ -90,6 +90,18 @@ pub enum ExecutionOutcome {
     TableCreated,
     TableDropped,
     IndexCreated,
+}
+
+impl From<ExecutionOutcome> for QueryEvent {
+    fn from(execution_outcome: ExecutionOutcome) -> QueryEvent {
+        match execution_outcome {
+            ExecutionOutcome::SchemaCreated => QueryEvent::SchemaCreated,
+            ExecutionOutcome::SchemaDropped => QueryEvent::SchemaDropped,
+            ExecutionOutcome::TableCreated => QueryEvent::TableCreated,
+            ExecutionOutcome::TableDropped => QueryEvent::TableDropped,
+            ExecutionOutcome::IndexCreated => QueryEvent::IndexCreated,
+        }
+    }
 }
 
 #[derive(Debug, PartialEq)]

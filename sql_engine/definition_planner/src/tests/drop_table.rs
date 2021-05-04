@@ -39,8 +39,8 @@ fn drop_cascade(names: Vec<(&str, &str)>) -> Definition {
 
 #[test]
 fn drop_table_from_nonexistent_schema() -> TransactionResult<()> {
-    Database::new("").transaction(|db| {
-        let planner = DefinitionPlanner::from(db);
+    Database::new("").old_transaction(|db| {
+        let planner = DefinitionPlannerOld::from(db);
         assert_eq!(
             planner.plan(drop_table_stmt(vec![("non_existent_schema", TABLE)])),
             Err(SchemaPlanError::schema_does_not_exist(&"non_existent_schema"))
@@ -51,14 +51,14 @@ fn drop_table_from_nonexistent_schema() -> TransactionResult<()> {
 
 #[test]
 fn drop_table() -> TransactionResult<()> {
-    Database::new("").transaction(|db| {
-        let catalog = CatalogHandler::from(db.clone());
+    Database::new("").old_transaction(|db| {
+        let catalog = CatalogHandlerOld::from(db.clone());
         catalog.apply(create_schema_ops(SCHEMA)).unwrap();
         catalog
             .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
             .unwrap();
 
-        let planner = DefinitionPlanner::from(db);
+        let planner = DefinitionPlannerOld::from(db);
         assert_eq!(
             planner.plan(drop_table_stmt(vec![(SCHEMA, TABLE)])),
             Ok(SchemaChange::DropTables(DropTablesQuery {
@@ -73,10 +73,10 @@ fn drop_table() -> TransactionResult<()> {
 
 #[test]
 fn drop_nonexistent_table() -> TransactionResult<()> {
-    Database::new("").transaction(|db| {
-        let catalog = CatalogHandler::from(db.clone());
+    Database::new("").old_transaction(|db| {
+        let catalog = CatalogHandlerOld::from(db.clone());
         catalog.apply(create_schema_ops(SCHEMA)).unwrap();
-        let planner = DefinitionPlanner::from(db);
+        let planner = DefinitionPlannerOld::from(db);
         assert_eq!(
             planner.plan(drop_table_stmt(vec![(SCHEMA, "non_existent_table")])),
             Ok(SchemaChange::DropTables(DropTablesQuery {
@@ -91,8 +91,8 @@ fn drop_nonexistent_table() -> TransactionResult<()> {
 
 #[test]
 fn drop_table_if_exists() -> TransactionResult<()> {
-    Database::new("").transaction(|db| {
-        let catalog = CatalogHandler::from(db.clone());
+    Database::new("").old_transaction(|db| {
+        let catalog = CatalogHandlerOld::from(db.clone());
         catalog.apply(create_schema_ops(SCHEMA)).unwrap();
         catalog
             .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
@@ -100,7 +100,7 @@ fn drop_table_if_exists() -> TransactionResult<()> {
         catalog
             .apply(create_table_ops(SCHEMA, "table_1", vec![("col", SqlType::bool())]))
             .unwrap();
-        let planner = DefinitionPlanner::from(db);
+        let planner = DefinitionPlannerOld::from(db);
         assert_eq!(
             planner.plan(drop_if_exists(vec![(SCHEMA, TABLE), (SCHEMA, "table_1")],)),
             Ok(SchemaChange::DropTables(DropTablesQuery {
@@ -118,8 +118,8 @@ fn drop_table_if_exists() -> TransactionResult<()> {
 
 #[test]
 fn drop_table_cascade() -> TransactionResult<()> {
-    Database::new("").transaction(|db| {
-        let catalog = CatalogHandler::from(db.clone());
+    Database::new("").old_transaction(|db| {
+        let catalog = CatalogHandlerOld::from(db.clone());
         catalog.apply(create_schema_ops(SCHEMA)).unwrap();
         catalog
             .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
@@ -127,7 +127,7 @@ fn drop_table_cascade() -> TransactionResult<()> {
         catalog
             .apply(create_table_ops(SCHEMA, "table_1", vec![("col", SqlType::bool())]))
             .unwrap();
-        let planner = DefinitionPlanner::from(db);
+        let planner = DefinitionPlannerOld::from(db);
         assert_eq!(
             planner.plan(drop_cascade(vec![(SCHEMA, TABLE), (SCHEMA, "table_1")],)),
             Ok(SchemaChange::DropTables(DropTablesQuery {

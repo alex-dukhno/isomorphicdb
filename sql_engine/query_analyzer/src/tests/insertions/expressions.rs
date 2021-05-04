@@ -24,13 +24,13 @@ fn insert_with_parameters(schema_name: &str, table_name: &str, parameters: Vec<u
 
 #[test]
 fn insert_number() -> TransactionResult<()> {
-    Database::new("").transaction(|db| {
-        let catalog = CatalogHandler::from(db.clone());
+    Database::new("").old_transaction(|db| {
+        let catalog = CatalogHandlerOld::from(db.clone());
         catalog.apply(create_schema_ops(SCHEMA)).unwrap();
         catalog
             .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
             .unwrap();
-        let analyzer = QueryAnalyzer::from(db);
+        let analyzer = QueryAnalyzerOld::from(db);
 
         assert_eq!(
             analyzer.analyze(insert_with_values(SCHEMA, TABLE, vec![vec![small_int(1)]])),
@@ -47,13 +47,13 @@ fn insert_number() -> TransactionResult<()> {
 
 #[test]
 fn insert_string() -> TransactionResult<()> {
-    Database::new("").transaction(|db| {
-        let catalog = CatalogHandler::from(db.clone());
+    Database::new("").old_transaction(|db| {
+        let catalog = CatalogHandlerOld::from(db.clone());
         catalog.apply(create_schema_ops(SCHEMA)).unwrap();
         catalog
             .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::char(5))]))
             .unwrap();
-        let analyzer = QueryAnalyzer::from(db);
+        let analyzer = QueryAnalyzerOld::from(db);
 
         assert_eq!(
             analyzer.analyze(insert_with_values(SCHEMA, TABLE, vec![vec![string("str")]])),
@@ -70,13 +70,13 @@ fn insert_string() -> TransactionResult<()> {
 
 #[test]
 fn insert_boolean() -> TransactionResult<()> {
-    Database::new("").transaction(|db| {
-        let catalog = CatalogHandler::from(db.clone());
+    Database::new("").old_transaction(|db| {
+        let catalog = CatalogHandlerOld::from(db.clone());
         catalog.apply(create_schema_ops(SCHEMA)).unwrap();
         catalog
             .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
             .unwrap();
-        let analyzer = QueryAnalyzer::from(db);
+        let analyzer = QueryAnalyzerOld::from(db);
 
         assert_eq!(
             analyzer.analyze(insert_with_values(SCHEMA, TABLE, vec![vec![boolean(true)]])),
@@ -93,13 +93,13 @@ fn insert_boolean() -> TransactionResult<()> {
 
 #[test]
 fn insert_null() -> TransactionResult<()> {
-    Database::new("").transaction(|db| {
-        let catalog = CatalogHandler::from(db.clone());
+    Database::new("").old_transaction(|db| {
+        let catalog = CatalogHandlerOld::from(db.clone());
         catalog.apply(create_schema_ops(SCHEMA)).unwrap();
         catalog
             .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
             .unwrap();
-        let analyzer = QueryAnalyzer::from(db);
+        let analyzer = QueryAnalyzerOld::from(db);
 
         assert_eq!(
             analyzer.analyze(insert_with_values(SCHEMA, TABLE, vec![vec![null()]])),
@@ -116,13 +116,13 @@ fn insert_null() -> TransactionResult<()> {
 
 #[test]
 fn insert_identifier() -> TransactionResult<()> {
-    Database::new("").transaction(|db| {
-        let catalog = CatalogHandler::from(db.clone());
+    Database::new("").old_transaction(|db| {
+        let catalog = CatalogHandlerOld::from(db.clone());
         catalog.apply(create_schema_ops(SCHEMA)).unwrap();
         catalog
             .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
             .unwrap();
-        let analyzer = QueryAnalyzer::from(db);
+        let analyzer = QueryAnalyzerOld::from(db);
 
         assert_eq!(
             analyzer.analyze(insert_with_values(
@@ -138,8 +138,8 @@ fn insert_identifier() -> TransactionResult<()> {
 
 #[test]
 fn insert_into_table_with_parameters() -> TransactionResult<()> {
-    Database::new("").transaction(|db| {
-        let catalog = CatalogHandler::from(db.clone());
+    Database::new("").old_transaction(|db| {
+        let catalog = CatalogHandlerOld::from(db.clone());
         catalog.apply(create_schema_ops(SCHEMA)).unwrap();
         catalog
             .apply(create_table_ops(
@@ -148,7 +148,7 @@ fn insert_into_table_with_parameters() -> TransactionResult<()> {
                 vec![("col_1", SqlType::small_int()), ("col_2", SqlType::small_int())],
             ))
             .unwrap();
-        let analyzer = QueryAnalyzer::from(db);
+        let analyzer = QueryAnalyzerOld::from(db);
 
         assert_eq!(
             analyzer.analyze(insert_with_parameters(SCHEMA, TABLE, vec![1, 2])),
@@ -166,8 +166,8 @@ fn insert_into_table_with_parameters() -> TransactionResult<()> {
 
 #[test]
 fn insert_into_table_with_parameters_and_values() -> TransactionResult<()> {
-    Database::new("").transaction(|db| {
-        let catalog = CatalogHandler::from(db.clone());
+    Database::new("").old_transaction(|db| {
+        let catalog = CatalogHandlerOld::from(db.clone());
         catalog.apply(create_schema_ops(SCHEMA)).unwrap();
         catalog
             .apply(create_table_ops(
@@ -176,7 +176,7 @@ fn insert_into_table_with_parameters_and_values() -> TransactionResult<()> {
                 vec![("col_1", SqlType::small_int()), ("col_2", SqlType::small_int())],
             ))
             .unwrap();
-        let analyzer = QueryAnalyzer::from(db);
+        let analyzer = QueryAnalyzerOld::from(db);
 
         assert_eq!(
             analyzer.analyze(insert_with_values(
@@ -200,13 +200,13 @@ fn insert_into_table_with_parameters_and_values() -> TransactionResult<()> {
 
 #[test]
 fn insert_into_table_negative_number() -> TransactionResult<()> {
-    Database::new("").transaction(|db| {
-        let catalog = CatalogHandler::from(db.clone());
+    Database::new("").old_transaction(|db| {
+        let catalog = CatalogHandlerOld::from(db.clone());
         catalog.apply(create_schema_ops(SCHEMA)).unwrap();
         catalog
             .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
             .unwrap();
-        let analyzer = QueryAnalyzer::from(db);
+        let analyzer = QueryAnalyzerOld::from(db);
 
         assert_eq!(
             analyzer.analyze(insert_with_values(SCHEMA, TABLE, vec![vec![small_int(-32768)]])),
@@ -241,13 +241,13 @@ mod multiple_values {
 
     #[test]
     fn arithmetic() -> TransactionResult<()> {
-        Database::new("").transaction(|db| {
-            let catalog = CatalogHandler::from(db.clone());
+        Database::new("").old_transaction(|db| {
+            let catalog = CatalogHandlerOld::from(db.clone());
             catalog.apply(create_schema_ops(SCHEMA)).unwrap();
             catalog
                 .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
                 .unwrap();
-            let analyzer = QueryAnalyzer::from(db);
+            let analyzer = QueryAnalyzerOld::from(db);
 
             assert_eq!(
                 analyzer.analyze(insert_value_as_expression_with_operation(
@@ -274,13 +274,13 @@ mod multiple_values {
 
     #[test]
     fn string_operation() -> TransactionResult<()> {
-        Database::new("").transaction(|db| {
-            let catalog = CatalogHandler::from(db.clone());
+        Database::new("").old_transaction(|db| {
+            let catalog = CatalogHandlerOld::from(db.clone());
             catalog.apply(create_schema_ops(SCHEMA)).unwrap();
             catalog
                 .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::var_char(255))]))
                 .unwrap();
-            let analyzer = QueryAnalyzer::from(db);
+            let analyzer = QueryAnalyzerOld::from(db);
 
             assert_eq!(
                 analyzer.analyze(insert_value_as_expression_with_operation(
@@ -307,13 +307,13 @@ mod multiple_values {
 
     #[test]
     fn comparison() -> TransactionResult<()> {
-        Database::new("").transaction(|db| {
-            let catalog = CatalogHandler::from(db.clone());
+        Database::new("").old_transaction(|db| {
+            let catalog = CatalogHandlerOld::from(db.clone());
             catalog.apply(create_schema_ops(SCHEMA)).unwrap();
             catalog
                 .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
                 .unwrap();
-            let analyzer = QueryAnalyzer::from(db);
+            let analyzer = QueryAnalyzerOld::from(db);
 
             assert_eq!(
                 analyzer.analyze(insert_value_as_expression_with_operation(
@@ -340,13 +340,13 @@ mod multiple_values {
 
     #[test]
     fn logical() -> TransactionResult<()> {
-        Database::new("").transaction(|db| {
-            let catalog = CatalogHandler::from(db.clone());
+        Database::new("").old_transaction(|db| {
+            let catalog = CatalogHandlerOld::from(db.clone());
             catalog.apply(create_schema_ops(SCHEMA)).unwrap();
             catalog
                 .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
                 .unwrap();
-            let analyzer = QueryAnalyzer::from(db);
+            let analyzer = QueryAnalyzerOld::from(db);
 
             assert_eq!(
                 analyzer.analyze(insert_value_as_expression_with_operation(
@@ -373,13 +373,13 @@ mod multiple_values {
 
     #[test]
     fn bitwise() -> TransactionResult<()> {
-        Database::new("").transaction(|db| {
-            let catalog = CatalogHandler::from(db.clone());
+        Database::new("").old_transaction(|db| {
+            let catalog = CatalogHandlerOld::from(db.clone());
             catalog.apply(create_schema_ops(SCHEMA)).unwrap();
             catalog
                 .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
                 .unwrap();
-            let analyzer = QueryAnalyzer::from(db);
+            let analyzer = QueryAnalyzerOld::from(db);
 
             assert_eq!(
                 analyzer.analyze(insert_value_as_expression_with_operation(
@@ -406,13 +406,13 @@ mod multiple_values {
 
     #[test]
     fn pattern_matching() -> TransactionResult<()> {
-        Database::new("").transaction(|db| {
-            let catalog = CatalogHandler::from(db.clone());
+        Database::new("").old_transaction(|db| {
+            let catalog = CatalogHandlerOld::from(db.clone());
             catalog.apply(create_schema_ops(SCHEMA)).unwrap();
             catalog
                 .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
                 .unwrap();
-            let analyzer = QueryAnalyzer::from(db);
+            let analyzer = QueryAnalyzerOld::from(db);
 
             assert_eq!(
                 analyzer.analyze(insert_value_as_expression_with_operation(

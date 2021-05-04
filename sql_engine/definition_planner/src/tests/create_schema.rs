@@ -27,8 +27,8 @@ fn create_schema_if_not_exists(schema_name: &str, if_not_exists: bool) -> Defini
 
 #[test]
 fn create_new_schema() -> TransactionResult<()> {
-    Database::new("").transaction(|db| {
-        let planner = DefinitionPlanner::from(db);
+    Database::new("").old_transaction(|db| {
+        let planner = DefinitionPlannerOld::from(db);
         assert_eq!(
             planner.plan(create_schema(SCHEMA)),
             Ok(SchemaChange::CreateSchema(CreateSchemaQuery {
@@ -42,8 +42,8 @@ fn create_new_schema() -> TransactionResult<()> {
 
 #[test]
 fn create_new_schema_if_not_exists() -> TransactionResult<()> {
-    Database::new("").transaction(|db| {
-        let planner = DefinitionPlanner::from(db);
+    Database::new("").old_transaction(|db| {
+        let planner = DefinitionPlannerOld::from(db);
         assert_eq!(
             planner.plan(create_schema_if_not_exists(SCHEMA, true)),
             Ok(SchemaChange::CreateSchema(CreateSchemaQuery {
@@ -57,11 +57,11 @@ fn create_new_schema_if_not_exists() -> TransactionResult<()> {
 
 #[test]
 fn create_schema_with_the_same_name() -> TransactionResult<()> {
-    Database::new("").transaction(|db| {
-        let catalog = CatalogHandler::from(db.clone());
+    Database::new("").old_transaction(|db| {
+        let catalog = CatalogHandlerOld::from(db.clone());
         catalog.apply(create_schema_ops(SCHEMA)).unwrap();
 
-        let planner = DefinitionPlanner::from(db);
+        let planner = DefinitionPlannerOld::from(db);
         assert_eq!(
             planner.plan(create_schema(SCHEMA)),
             Ok(SchemaChange::CreateSchema(CreateSchemaQuery {

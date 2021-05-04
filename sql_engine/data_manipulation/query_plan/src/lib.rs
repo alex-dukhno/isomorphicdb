@@ -22,22 +22,23 @@ use definition::ColumnDef;
 use query_response::QueryEvent;
 use scalar::ScalarValue;
 use std::collections::HashMap;
-use storage::{Cursor, Table};
+use storage::{Cursor, TableRef};
 use types::{SqlType, SqlTypeFamily};
 
-pub enum QueryPlanResult {
+#[derive(Debug, PartialEq)]
+pub enum QueryExecutionResult {
     Inserted(usize),
     Deleted(usize),
     Updated(usize),
-    Selected((Vec<ColumnDef>, Vec<Vec<ScalarValue>>)),
+    Selected((Vec<(String, u32)>, Vec<Vec<ScalarValue>>)),
 }
 
-impl From<QueryPlanResult> for QueryEvent {
-    fn from(plan_result: QueryPlanResult) -> QueryEvent {
+impl From<QueryExecutionResult> for QueryEvent {
+    fn from(plan_result: QueryExecutionResult) -> QueryEvent {
         match plan_result {
-            QueryPlanResult::Inserted(inserted) => QueryEvent::RecordsInserted(inserted),
-            QueryPlanResult::Deleted(inserted) => QueryEvent::RecordsDeleted(inserted),
-            QueryPlanResult::Updated(inserted) => QueryEvent::RecordsUpdated(inserted),
+            QueryExecutionResult::Inserted(inserted) => QueryEvent::RecordsInserted(inserted),
+            QueryExecutionResult::Deleted(inserted) => QueryEvent::RecordsDeleted(inserted),
+            QueryExecutionResult::Updated(inserted) => QueryEvent::RecordsUpdated(inserted),
             _ => unreachable!(),
         }
     }
@@ -52,20 +53,20 @@ pub enum QueryPlan {
 }
 
 impl QueryPlan {
-    pub fn execute(self, param_values: Vec<ScalarValue>) -> Result<QueryPlanResult, QueryExecutionError> {
+    pub fn execute(self, param_values: Vec<ScalarValue>) -> Result<QueryExecutionResult, QueryExecutionError> {
         match self {
-            QueryPlan::Insert(insert_query_plan) => {
-                insert_query_plan.execute(param_values).map(QueryPlanResult::Inserted)
-            }
-            QueryPlan::Delete(delete_query_plan) => {
-                delete_query_plan.execute(param_values).map(QueryPlanResult::Deleted)
-            }
-            QueryPlan::Update(update_query_plan) => {
-                update_query_plan.execute(param_values).map(QueryPlanResult::Updated)
-            }
-            QueryPlan::Select(select_query_plan) => {
-                select_query_plan.execute(param_values).map(QueryPlanResult::Selected)
-            }
+            QueryPlan::Insert(insert_query_plan) => insert_query_plan
+                .execute(param_values)
+                .map(QueryExecutionResult::Inserted),
+            QueryPlan::Delete(delete_query_plan) => delete_query_plan
+                .execute(param_values)
+                .map(QueryExecutionResult::Deleted),
+            QueryPlan::Update(update_query_plan) => update_query_plan
+                .execute(param_values)
+                .map(QueryExecutionResult::Updated),
+            QueryPlan::Select(select_query_plan) => select_query_plan
+                .execute(param_values)
+                .map(QueryExecutionResult::Selected),
         }
     }
 }
@@ -210,13 +211,13 @@ impl Flow for ConstraintValidator {
 
 pub struct InsertQueryPlan {
     source: Box<dyn Flow<Output = (Vec<ScalarValue>, Vec<Option<ScalarValue>>)>>,
-    table: Table,
+    table: TableRef,
 }
 
 impl InsertQueryPlan {
     pub fn new(
         source: Box<dyn Flow<Output = (Vec<ScalarValue>, Vec<Option<ScalarValue>>)>>,
-        table: Table,
+        table: TableRef,
     ) -> InsertQueryPlan {
         InsertQueryPlan { source, table }
     }
@@ -331,7 +332,7 @@ pub struct FullTableScan {
 }
 
 impl FullTableScan {
-    pub fn new(source: &Table) -> Box<FullTableScan> {
+    pub fn new(source: &TableRef) -> Box<FullTableScan> {
         Box::new(FullTableScan { source: source.scan() })
     }
 }
@@ -370,11 +371,11 @@ impl Flow for TableRecordKeys {
 
 pub struct DeleteQueryPlan {
     source: Box<dyn Flow<Output = Vec<BinaryValue>>>,
-    table: Table,
+    table: TableRef,
 }
 
 impl DeleteQueryPlan {
-    pub fn new(source: Box<dyn Flow<Output = Vec<BinaryValue>>>, table: Table) -> DeleteQueryPlan {
+    pub fn new(source: Box<dyn Flow<Output = Vec<BinaryValue>>>, table: TableRef) -> DeleteQueryPlan {
         DeleteQueryPlan { source, table }
     }
 
@@ -452,14 +453,14 @@ impl Flow for DynamicValues {
 pub struct UpdateQueryPlan {
     values: Box<dyn Flow<Output = (Vec<ScalarValue>, Vec<Option<ScalarValue>>)>>,
     records: Box<dyn Flow<Output = (Vec<BinaryValue>, Vec<BinaryValue>)>>,
-    table: Table,
+    table: TableRef,
 }
 
 impl UpdateQueryPlan {
     pub fn new(
         values: Box<dyn Flow<Output = (Vec<ScalarValue>, Vec<Option<ScalarValue>>)>>,
         records: Box<dyn Flow<Output = (Vec<BinaryValue>, Vec<BinaryValue>)>>,
-        table: Table,
+        table: TableRef,
     ) -> UpdateQueryPlan {
         UpdateQueryPlan { values, records, table }
     }
@@ -540,7 +541,7 @@ impl SelectQueryPlan {
     pub fn execute(
         mut self,
         param_values: Vec<ScalarValue>,
-    ) -> Result<(Vec<ColumnDef>, Vec<Vec<ScalarValue>>), QueryExecutionError> {
+    ) -> Result<(Vec<(String, u32)>, Vec<Vec<ScalarValue>>), QueryExecutionError> {
         log::debug!("COLUMNS TO SELECT {:?}", self.columns);
         let mut column_defs = vec![];
         let columns = self
@@ -550,7 +551,8 @@ impl SelectQueryPlan {
             .map(|(index, (name, sql_type))| (name.clone(), ColumnDef::new(name.clone(), *sql_type, index)))
             .collect::<HashMap<String, ColumnDef>>();
         for name in self.columns.iter() {
-            column_defs.push(columns.get(name).unwrap().clone());
+            let column = columns.get(name).unwrap();
+            column_defs.push((column.name().to_owned(), (&column.sql_type()).into()));
         }
         log::debug!("COLUMNS METADATA {:?}", column_defs);
         let mut set = vec![];

@@ -24,8 +24,8 @@ fn delete_statement(schema_name: &str, table_name: &str) -> Query {
 
 #[test]
 fn delete_from_table_that_in_nonexistent_schema() -> TransactionResult<()> {
-    Database::new("").transaction(|db| {
-        let analyzer = QueryAnalyzer::from(db);
+    Database::new("").old_transaction(|db| {
+        let analyzer = QueryAnalyzerOld::from(db);
 
         assert_eq!(
             analyzer.analyze(delete_statement("non_existent_schema", TABLE)),
@@ -38,10 +38,10 @@ fn delete_from_table_that_in_nonexistent_schema() -> TransactionResult<()> {
 
 #[test]
 fn delete_from_nonexistent_table() -> TransactionResult<()> {
-    Database::new("").transaction(|db| {
-        let catalog = CatalogHandler::from(db.clone());
+    Database::new("").old_transaction(|db| {
+        let catalog = CatalogHandlerOld::from(db.clone());
         catalog.apply(create_schema_ops(SCHEMA)).unwrap();
-        let analyzer = QueryAnalyzer::from(db);
+        let analyzer = QueryAnalyzerOld::from(db);
 
         assert_eq!(
             analyzer.analyze(delete_statement(SCHEMA, "non_existent_table")),
@@ -56,13 +56,13 @@ fn delete_from_nonexistent_table() -> TransactionResult<()> {
 
 #[test]
 fn delete_all_from_table() -> TransactionResult<()> {
-    Database::new("").transaction(|db| {
-        let catalog = CatalogHandler::from(db.clone());
+    Database::new("").old_transaction(|db| {
+        let catalog = CatalogHandlerOld::from(db.clone());
         catalog.apply(create_schema_ops(SCHEMA)).unwrap();
         catalog
             .apply(create_table_ops(SCHEMA, TABLE, vec![("col1", SqlType::integer())]))
             .unwrap();
-        let analyzer = QueryAnalyzer::from(db);
+        let analyzer = QueryAnalyzerOld::from(db);
         assert_eq!(
             analyzer.analyze(delete_statement(SCHEMA, TABLE)),
             Ok(UntypedQuery::Delete(UntypedDeleteQuery {

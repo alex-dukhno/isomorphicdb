@@ -717,10 +717,10 @@ impl QueryError {
     }
 
     /// invalid text representation
-    pub fn invalid_text_representation_2(sql_type: String, value: String) -> QueryError {
+    pub fn invalid_text_representation_2<T: ToString, V: ToString>(sql_type: T, value: V) -> QueryError {
         QueryError {
             severity: Severity::Error,
-            kind: QueryErrorKind::InvalidTextRepresentation2(sql_type, value),
+            kind: QueryErrorKind::InvalidTextRepresentation2(sql_type.to_string(), value.to_string()),
         }
     }
 
