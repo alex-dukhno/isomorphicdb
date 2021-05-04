@@ -15,7 +15,8 @@
 use postgres_parser::{nodes, sys, Node, PgParserError, SqlStatementScanner};
 use query_ast::{
     Assignment, BinaryOperator, ColumnDef, DataType, Definition, DeleteStatement, Expr, Extended, InsertSource,
-    InsertStatement, Query, SelectItem, SelectStatement, Set, Statement, UnaryOperator, UpdateStatement, Value, Values,
+    InsertStatement, Query, SelectItem, SelectStatement, Set, Statement, Transaction, UnaryOperator, UpdateStatement,
+    Value, Values,
 };
 use query_response::QueryError;
 use std::fmt::{self, Display, Formatter};
@@ -224,6 +225,14 @@ impl QueryParser {
                 }
                 Ok(Some(Node::DeallocateStmt(nodes::DeallocateStmt { name: Some(name) }))) => {
                     statements.push(Statement::Extended(Extended::Deallocate { name }))
+                }
+                Ok(Some(Node::TransactionStmt(nodes::TransactionStmt { kind, .. }))) => {
+                    let stmt = match kind {
+                        sys::TransactionStmtKind::TRANS_STMT_BEGIN => Statement::Transaction(Transaction::Begin),
+                        sys::TransactionStmtKind::TRANS_STMT_COMMIT => Statement::Transaction(Transaction::Commit),
+                        _ => unimplemented!(),
+                    };
+                    statements.push(stmt);
                 }
                 Ok(Some(node)) => unimplemented!("NODE is not processed {:?}", node),
             }

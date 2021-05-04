@@ -23,56 +23,19 @@ use std::{
     net::TcpStream,
     str,
 };
+use wire_protocol_payload::{
+    Inbound, Outbound, BIND, CLOSE, DESCRIBE, EMPTY_QUERY_RESPONSE, EXECUTE, FLUSH, PARSE, QUERY, READY_FOR_QUERY,
+    SYNC, TERMINATE,
+};
 
-const QUERY: u8 = b'Q';
-const BIND: u8 = b'B';
-const CLOSE: u8 = b'C';
-const DESCRIBE: u8 = b'D';
-const EXECUTE: u8 = b'E';
-const FLUSH: u8 = b'H';
-const PARSE: u8 = b'P';
-const SYNC: u8 = b'S';
-const TERMINATE: u8 = b'X';
+pub type WireResult = std::result::Result<Inbound, WireError>;
 
-const READY_FOR_QUERY: u8 = b'Z';
-const EMPTY_QUERY_RESPONSE: u8 = b'I';
+pub struct WireError;
 
-#[derive(Debug)]
-pub enum Request {
-    Query {
-        sql: String,
-    },
-    Bind {
-        portal_name: String,
-        statement_name: String,
-        query_param_formats: Vec<i16>,
-        query_params: Vec<Option<Vec<u8>>>,
-        result_value_formats: Vec<i16>,
-    },
-    ClosePortal {
-        name: String,
-    },
-    CloseStatement {
-        name: String,
-    },
-    DescribePortal {
-        name: String,
-    },
-    DescribeStatement {
-        name: String,
-    },
-    Execute {
-        portal_name: String,
-        max_rows: i32,
-    },
-    Flush,
-    Parse {
-        statement_name: String,
-        sql: String,
-        param_types: Vec<u32>,
-    },
-    Sync,
-    Terminate,
+pub trait WireConnection {
+    fn receive(&mut self) -> io::Result<WireResult>;
+
+    fn send(&mut self, outbound: Outbound) -> io::Result<()>;
 }
 
 pub struct PgWireAcceptor<S: Securing<TcpStream, TlsStream<TcpStream>>> {
@@ -116,7 +79,7 @@ impl From<connection::Channel<TcpStream, TlsStream<TcpStream>>> for ConnectionOl
 }
 
 impl ConnectionOld {
-    fn parse_client_request(&mut self) -> io::Result<Result<Request, ()>> {
+    fn parse_client_request(&mut self) -> io::Result<Result<Inbound, ()>> {
         let tag = self.read_tag()?;
         let len = self.read_message_len()?;
         let mut message = self.read_message(len)?;
@@ -124,7 +87,7 @@ impl ConnectionOld {
             // Simple query flow.
             QUERY => {
                 let sql = str::from_utf8(&message[0..message.len() - 1]).unwrap().to_owned();
-                Ok(Ok(Request::Query { sql }))
+                Ok(Ok(Inbound::Query { sql }))
             }
 
             // Extended query flow.
@@ -177,7 +140,7 @@ impl ConnectionOld {
                     message = message[2..].to_vec();
                 }
 
-                Ok(Ok(Request::Bind {
+                Ok(Ok(Inbound::Bind {
                     portal_name,
                     statement_name,
                     query_param_formats,
@@ -189,8 +152,8 @@ impl ConnectionOld {
                 let first_char = message[0];
                 let name = str::from_utf8(&message[1..message.len() - 1]).unwrap().to_owned();
                 match first_char {
-                    b'P' => Ok(Ok(Request::ClosePortal { name })),
-                    b'S' => Ok(Ok(Request::CloseStatement { name })),
+                    b'P' => Ok(Ok(Inbound::ClosePortal { name })),
+                    b'S' => Ok(Ok(Inbound::CloseStatement { name })),
                     _other => unimplemented!(),
                 }
             }
@@ -198,8 +161,8 @@ impl ConnectionOld {
                 let first_char = message[0];
                 let name = str::from_utf8(&message[1..message.len() - 1]).unwrap().to_owned();
                 match first_char {
-                    b'P' => Ok(Ok(Request::DescribePortal { name })),
-                    b'S' => Ok(Ok(Request::DescribeStatement { name })),
+                    b'P' => Ok(Ok(Inbound::DescribePortal { name })),
+                    b'S' => Ok(Ok(Inbound::DescribeStatement { name })),
                     _other => unimplemented!(),
                 }
             }
@@ -212,9 +175,9 @@ impl ConnectionOld {
                     unimplemented!()
                 };
                 let max_rows = i32::from_be_bytes(message[0..4].try_into().unwrap());
-                Ok(Ok(Request::Execute { portal_name, max_rows }))
+                Ok(Ok(Inbound::Execute { portal_name, max_rows }))
             }
-            FLUSH => Ok(Ok(Request::Flush)),
+            FLUSH => Ok(Ok(Inbound::Flush)),
             PARSE => {
                 let statement_name = if let Some(pos) = message.iter().position(|b| *b == 0) {
                     let statement_name = str::from_utf8(&message[0..pos]).unwrap().to_owned();
@@ -240,14 +203,14 @@ impl ConnectionOld {
                     message = message[4..].to_vec();
                 }
 
-                Ok(Ok(Request::Parse {
+                Ok(Ok(Inbound::Parse {
                     statement_name,
                     sql,
                     param_types,
                 }))
             }
-            SYNC => Ok(Ok(Request::Sync)),
-            TERMINATE => Ok(Ok(Request::Terminate)),
+            SYNC => Ok(Ok(Inbound::Sync)),
+            TERMINATE => Ok(Ok(Inbound::Terminate)),
 
             _ => Ok(Err(())),
         }
@@ -272,7 +235,7 @@ impl ConnectionOld {
     }
 
     /// Receive client messages
-    pub fn receive(&mut self) -> io::Result<Result<Request, ()>> {
+    pub fn receive(&mut self) -> io::Result<Result<Inbound, ()>> {
         let request = match self.parse_client_request() {
             Ok(Ok(request)) => request,
             Ok(Err(_err)) => return Ok(Err(())),
@@ -280,7 +243,7 @@ impl ConnectionOld {
                 // Client disconnected the socket immediately without sending a
                 // Terminate message. Considers it as a client Terminate to save
                 // resource and exit smoothly.
-                Request::Terminate
+                Inbound::Terminate
             }
             Err(err) => return Err(err),
         };

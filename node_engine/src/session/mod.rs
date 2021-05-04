@@ -12,52 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::session::statement::{Portal, PreparedStatement};
+use data_manipulation::QueryPlan;
+use postgre_sql::query_ast::Query;
 use std::collections::HashMap;
+use types::SqlTypeFamily;
 
-/// Module contains functionality to hold data about `PreparedStatement`
-pub mod statement;
-
-/// A `Session` holds SQL state that is attached to a session.
-#[derive(Clone, Debug)]
+#[derive(Default)]
+#[allow(dead_code)]
 pub struct Session {
-    /// A map from statement names to parameterized statements
-    prepared_statements: HashMap<String, PreparedStatement>,
-    /// A map from statement names to bound statements
-    portals: HashMap<String, Portal>,
+    plans: HashMap<String, (Query, Vec<SqlTypeFamily>)>,
 }
 
-impl Default for Session {
-    fn default() -> Session {
-        Session {
-            prepared_statements: HashMap::default(),
-            portals: HashMap::default(),
-        }
-    }
-}
-
+#[allow(dead_code)]
 impl Session {
-    /// get `PreparedStatement` by its name
-    pub fn get_prepared_statement(&mut self, name: &str) -> Option<&mut PreparedStatement> {
-        self.prepared_statements.get_mut(name)
+    pub fn cache(&mut self, name: String, _query_plan: QueryPlan, query_ast: Query, params: Vec<SqlTypeFamily>) {
+        self.plans.insert(name, (query_ast, params));
     }
 
-    /// save `PreparedStatement` associated with a name
-    pub fn set_prepared_statement(&mut self, name: String, statement: PreparedStatement) {
-        self.prepared_statements.insert(name, statement);
-    }
-
-    /// get `Portal` by its name
-    pub fn get_portal(&self, name: &str) -> Option<&Portal> {
-        self.portals.get(name)
-    }
-
-    /// save `Portal` associated with a name
-    pub fn set_portal(&mut self, portal_name: String, portal: Portal) {
-        self.portals.insert(portal_name, portal);
-    }
-
-    pub fn remove_portal(&mut self, portal_name: &str) {
-        self.portals.remove(portal_name);
+    pub fn find(&self, name: &str) -> Option<&(Query, Vec<SqlTypeFamily>)> {
+        self.plans.get(name)
     }
 }

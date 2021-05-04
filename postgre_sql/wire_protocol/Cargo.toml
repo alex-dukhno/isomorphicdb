@@ -6,6 +6,8 @@ edition = "2018"
 publish = false
 
 [dependencies]
+wire_protocol_payload = { path = "payload" }
+
 log = "0.4.14"
 native-tls = "0.2.7"
 

@@ -155,7 +155,7 @@ impl<'t> From<MutexGuard<'t, DatabaseInner>> for TransactionalDatabase<'t> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TableRef {
     inner: TableInner,
 }

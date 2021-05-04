@@ -63,6 +63,33 @@ pub enum QueryEvent {
     BindComplete,
 }
 
+impl From<QueryEvent> for Outbound {
+    fn from(event: QueryEvent) -> Outbound {
+        match event {
+            QueryEvent::SchemaCreated => Outbound::SchemaCreated,
+            QueryEvent::SchemaDropped => Outbound::SchemaDropped,
+            QueryEvent::TableCreated => Outbound::TableCreated,
+            QueryEvent::TableDropped => Outbound::TableDropped,
+            QueryEvent::IndexCreated => Outbound::IndexCreated,
+            QueryEvent::VariableSet => Outbound::VariableSet,
+            QueryEvent::TransactionStarted => Outbound::TransactionBegin,
+            QueryEvent::RecordsInserted(records) => Outbound::RecordsInserted(records),
+            QueryEvent::RowDescription(description) => Outbound::RowDescription(description),
+            QueryEvent::DataRow(row) => Outbound::DataRow(row),
+            QueryEvent::RecordsSelected(records) => Outbound::RecordsSelected(records),
+            QueryEvent::RecordsUpdated(records) => Outbound::RecordsUpdated(records),
+            QueryEvent::RecordsDeleted(records) => Outbound::RecordsDeleted(records),
+            QueryEvent::StatementPrepared => Outbound::StatementPrepared,
+            QueryEvent::StatementDeallocated => Outbound::StatementDeallocated,
+            QueryEvent::StatementParameters(param_types) => Outbound::StatementParameters(param_types),
+            QueryEvent::StatementDescription(description) => Outbound::StatementDescription(description),
+            QueryEvent::QueryComplete => Outbound::ReadyForQuery,
+            QueryEvent::ParseComplete => Outbound::ParseComplete,
+            QueryEvent::BindComplete => Outbound::BindComplete,
+        }
+    }
+}
+
 impl From<QueryEvent> for Vec<u8> {
     fn from(event: QueryEvent) -> Vec<u8> {
         fn command_complete(command: &str) -> Vec<u8> {
@@ -444,6 +471,12 @@ impl QueryError {
 
     fn message(&self) -> String {
         format!("{}", self.kind)
+    }
+}
+
+impl From<QueryError> for Outbound {
+    fn from(error: QueryError) -> Self {
+        Outbound::Error(error.severity().to_owned(), error.code().to_owned(), error.message())
     }
 }
 

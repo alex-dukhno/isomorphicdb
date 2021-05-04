@@ -80,7 +80,7 @@ fn assert_query(txn: &TransactionContext, sql: &str, expected: Result<QueryExecu
     match txn.parse(sql).expect("query parsed").pop() {
         Some(Statement::Query(query)) => {
             let query_result = txn
-                .process(query)
+                .process(query, vec![])
                 .map(|typed_query| txn.plan(typed_query))
                 .and_then(|plan| Ok(plan.execute(vec![])?));
             assert_eq!(query_result, expected);

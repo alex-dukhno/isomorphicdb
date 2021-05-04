@@ -19,7 +19,7 @@ fn select_value_by_predicate_on_single_field(database_with_schema: (InMemory, Re
     let (mut engine, collector) = database_with_schema;
 
     engine
-        .execute(Request::Query {
+        .execute(Inbound::Query {
             sql: "create table schema_name.table_name (col1 smallint, col2 smallint, col3 smallint);".to_owned(),
         })
         .expect("query executed");
@@ -29,7 +29,7 @@ fn select_value_by_predicate_on_single_field(database_with_schema: (InMemory, Re
         .assert_receive_single(Ok(QueryEvent::TableCreated));
 
     engine
-        .execute(Request::Query {
+        .execute(Inbound::Query {
             sql: "insert into schema_name.table_name values (1, 2, 3), (4, 5, 6);".to_owned(),
         })
         .expect("query executed");
@@ -39,7 +39,7 @@ fn select_value_by_predicate_on_single_field(database_with_schema: (InMemory, Re
         .assert_receive_single(Ok(QueryEvent::RecordsInserted(2)));
 
     engine
-        .execute(Request::Query {
+        .execute(Inbound::Query {
             sql: "select * from schema_name.table_name where col1 = 1".to_owned(),
         })
         .expect("query executed");
@@ -64,7 +64,7 @@ fn update_value_by_predicate_on_single_field(database_with_schema: (InMemory, Re
     let (mut engine, collector) = database_with_schema;
 
     engine
-        .execute(Request::Query {
+        .execute(Inbound::Query {
             sql: "create table schema_name.table_name (col1 smallint, col2 smallint, col3 smallint);".to_owned(),
         })
         .expect("query executed");
@@ -74,7 +74,7 @@ fn update_value_by_predicate_on_single_field(database_with_schema: (InMemory, Re
         .assert_receive_single(Ok(QueryEvent::TableCreated));
 
     engine
-        .execute(Request::Query {
+        .execute(Inbound::Query {
             sql: "insert into schema_name.table_name values (1, 2, 3), (4, 5, 6), (7, 8, 9);".to_owned(),
         })
         .expect("query executed");
@@ -84,7 +84,7 @@ fn update_value_by_predicate_on_single_field(database_with_schema: (InMemory, Re
         .assert_receive_single(Ok(QueryEvent::RecordsInserted(3)));
 
     engine
-        .execute(Request::Query {
+        .execute(Inbound::Query {
             sql: "update schema_name.table_name set col1 = 7 where col1 = 4;".to_owned(),
         })
         .expect("query executed");
@@ -94,7 +94,7 @@ fn update_value_by_predicate_on_single_field(database_with_schema: (InMemory, Re
         .assert_receive_single(Ok(QueryEvent::RecordsUpdated(1)));
 
     engine
-        .execute(Request::Query {
+        .execute(Inbound::Query {
             sql: "select * from schema_name.table_name where col1 = 4".to_owned(),
         })
         .expect("query executed");
@@ -109,7 +109,7 @@ fn update_value_by_predicate_on_single_field(database_with_schema: (InMemory, Re
     ]);
 
     engine
-        .execute(Request::Query {
+        .execute(Inbound::Query {
             sql: "select * from schema_name.table_name where col1 = 7".to_owned(),
         })
         .expect("query executed");
@@ -138,7 +138,7 @@ fn delete_value_by_predicate_on_single_field(database_with_schema: (InMemory, Re
     let (mut engine, collector) = database_with_schema;
 
     engine
-        .execute(Request::Query {
+        .execute(Inbound::Query {
             sql: "create table schema_name.table_name (col1 smallint, col2 smallint, col3 smallint);".to_owned(),
         })
         .expect("query executed");
@@ -148,7 +148,7 @@ fn delete_value_by_predicate_on_single_field(database_with_schema: (InMemory, Re
         .assert_receive_single(Ok(QueryEvent::TableCreated));
 
     engine
-        .execute(Request::Query {
+        .execute(Inbound::Query {
             sql: "insert into schema_name.table_name values (1, 2, 3), (4, 5, 6), (7, 8, 9);".to_owned(),
         })
         .expect("query executed");
@@ -158,7 +158,7 @@ fn delete_value_by_predicate_on_single_field(database_with_schema: (InMemory, Re
         .assert_receive_single(Ok(QueryEvent::RecordsInserted(3)));
 
     engine
-        .execute(Request::Query {
+        .execute(Inbound::Query {
             sql: "delete from schema_name.table_name where col2 = 5;".to_owned(),
         })
         .expect("query executed");
@@ -168,7 +168,7 @@ fn delete_value_by_predicate_on_single_field(database_with_schema: (InMemory, Re
         .assert_receive_single(Ok(QueryEvent::RecordsDeleted(1)));
 
     engine
-        .execute(Request::Query {
+        .execute(Inbound::Query {
             sql: "select * from schema_name.table_name".to_owned(),
         })
         .expect("query executed");

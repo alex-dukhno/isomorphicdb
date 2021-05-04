@@ -27,9 +27,9 @@ use query_analyzer::QueryAnalyzer;
 use query_planner::QueryPlanner;
 use query_processing::{TypeChecker, TypeCoercion, TypeInference};
 use storage::{Database, Transaction};
+use types::SqlTypeFamily;
 
-#[allow(dead_code)]
-struct TransactionContext<'t> {
+pub struct TransactionContext<'t> {
     parser: QueryParser,
     definition_planner: DefinitionPlanner<'t>,
     catalog: CatalogHandler<'t>,
@@ -40,7 +40,6 @@ struct TransactionContext<'t> {
     query_planner: QueryPlanner<'t>,
 }
 
-#[allow(dead_code)]
 impl<'t> TransactionContext<'t> {
     fn new(transaction: Transaction<'t>) -> TransactionContext<'t> {
         TransactionContext {
@@ -55,18 +54,18 @@ impl<'t> TransactionContext<'t> {
         }
     }
 
-    fn commit(self) {}
+    pub fn commit(self) {}
 
-    fn parse(&self, sql: &str) -> Result<Vec<Statement>, QueryError> {
+    pub fn parse(&self, sql: &str) -> Result<Vec<Statement>, QueryError> {
         Ok(self.parser.parse(sql)?)
     }
 
-    fn execute_ddl(&self, definition: Definition) -> Result<QueryEvent, QueryError> {
+    pub fn execute_ddl(&self, definition: Definition) -> Result<QueryEvent, QueryError> {
         let schema_change = self.definition_planner.plan(definition)?;
         Ok(self.catalog.apply(schema_change)?.into())
     }
 
-    fn process(&self, query: Query) -> Result<TypedQuery, QueryError> {
+    pub fn process(&self, query: Query, param_types: Vec<SqlTypeFamily>) -> Result<TypedQuery, QueryError> {
         match self.query_analyzer.analyze(query)? {
             UntypedQuery::Insert(insert) => {
                 let type_checked = insert
@@ -75,7 +74,7 @@ impl<'t> TransactionContext<'t> {
                     .map(|values| {
                         values
                             .into_iter()
-                            .map(|value| value.map(|v| self.type_inference.infer_static(v, &[])))
+                            .map(|value| value.map(|v| self.type_inference.infer_static(v, &param_types)))
                             .collect::<Vec<Option<StaticTypedTree>>>()
                     })
                     .map(|values| {
@@ -163,23 +162,22 @@ impl<'t> TransactionContext<'t> {
         }
     }
 
-    fn plan(&self, typed_query: TypedQuery) -> QueryPlan {
+    pub fn plan(&self, typed_query: TypedQuery) -> QueryPlan {
         self.query_planner.plan(typed_query)
     }
 }
 
-#[allow(dead_code)]
-struct QueryEngine {
+#[derive(Clone)]
+pub struct QueryEngine {
     database: Database,
 }
 
-#[allow(dead_code)]
 impl QueryEngine {
-    fn new(database: Database) -> QueryEngine {
+    pub fn new(database: Database) -> QueryEngine {
         QueryEngine { database }
     }
 
-    fn start_transaction(&self) -> TransactionContext {
+    pub fn start_transaction(&self) -> TransactionContext {
         TransactionContext::new(self.database.transaction())
     }
 }

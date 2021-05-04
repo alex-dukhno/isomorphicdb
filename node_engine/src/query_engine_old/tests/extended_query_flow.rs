@@ -23,7 +23,7 @@ mod jdbc_flow {
         let (mut engine, collector) = database_with_table;
 
         engine
-            .execute(Request::Parse {
+            .execute(Inbound::Parse {
                 statement_name: "".to_owned(),
                 sql: "insert into schema_name.table_name values ($1, $2, $3)".to_owned(),
                 param_types: vec![0, 0, 0],
@@ -35,7 +35,7 @@ mod jdbc_flow {
             .assert_receive_intermediate(Ok(QueryEvent::ParseComplete));
 
         engine
-            .execute(Request::DescribeStatement { name: "".to_owned() })
+            .execute(Inbound::DescribeStatement { name: "".to_owned() })
             .expect("statement described");
         collector
             .lock()
@@ -47,7 +47,7 @@ mod jdbc_flow {
             .assert_receive_intermediate(Ok(QueryEvent::StatementParameters(vec![SMALLINT, SMALLINT, SMALLINT])));
 
         engine
-            .execute(Request::Parse {
+            .execute(Inbound::Parse {
                 statement_name: "".to_owned(),
                 sql: "insert into schema_name.table_name values ($1, $2, $3)".to_owned(),
                 param_types: vec![SMALLINT, SMALLINT, SMALLINT],
@@ -59,7 +59,7 @@ mod jdbc_flow {
             .assert_receive_intermediate(Ok(QueryEvent::ParseComplete));
 
         engine
-            .execute(Request::Bind {
+            .execute(Inbound::Bind {
                 portal_name: "".to_owned(),
                 statement_name: "".to_owned(),
                 query_param_formats: vec![1; 3],
@@ -73,7 +73,7 @@ mod jdbc_flow {
             .assert_receive_intermediate(Ok(QueryEvent::BindComplete));
 
         engine
-            .execute(Request::DescribePortal { name: "".to_owned() })
+            .execute(Inbound::DescribePortal { name: "".to_owned() })
             .expect("statement parsed");
         collector
             .lock()
@@ -81,7 +81,7 @@ mod jdbc_flow {
             .assert_receive_intermediate(Ok(QueryEvent::StatementDescription(vec![])));
 
         engine
-            .execute(Request::Execute {
+            .execute(Inbound::Execute {
                 portal_name: "".to_owned(),
                 max_rows: 1,
             })
@@ -97,7 +97,7 @@ mod jdbc_flow {
         let (mut engine, collector) = database_with_table;
 
         engine
-            .execute(Request::Parse {
+            .execute(Inbound::Parse {
                 statement_name: "".to_owned(),
                 sql: "update schema_name.table_name set col1 = $1, col2 = $2, col3 = $3;".to_owned(),
                 param_types: vec![0, 0, 0],
@@ -109,7 +109,7 @@ mod jdbc_flow {
             .assert_receive_intermediate(Ok(QueryEvent::ParseComplete));
 
         engine
-            .execute(Request::DescribeStatement { name: "".to_owned() })
+            .execute(Inbound::DescribeStatement { name: "".to_owned() })
             .expect("statement described");
         collector
             .lock()
@@ -121,7 +121,7 @@ mod jdbc_flow {
             .assert_receive_intermediate(Ok(QueryEvent::StatementParameters(vec![SMALLINT, SMALLINT, SMALLINT])));
 
         engine
-            .execute(Request::Parse {
+            .execute(Inbound::Parse {
                 statement_name: "".to_owned(),
                 sql: "update schema_name.table_name set col1 = $1, col2 = $2, col3 = $3;".to_owned(),
                 param_types: vec![SMALLINT, SMALLINT, SMALLINT],
@@ -133,7 +133,7 @@ mod jdbc_flow {
             .assert_receive_intermediate(Ok(QueryEvent::ParseComplete));
 
         engine
-            .execute(Request::Bind {
+            .execute(Inbound::Bind {
                 portal_name: "".to_owned(),
                 statement_name: "".to_owned(),
                 query_param_formats: vec![1; 3],
@@ -147,7 +147,7 @@ mod jdbc_flow {
             .assert_receive_intermediate(Ok(QueryEvent::BindComplete));
 
         engine
-            .execute(Request::DescribePortal { name: "".to_owned() })
+            .execute(Inbound::DescribePortal { name: "".to_owned() })
             .expect("statement parsed");
         collector
             .lock()
@@ -155,7 +155,7 @@ mod jdbc_flow {
             .assert_receive_intermediate(Ok(QueryEvent::StatementDescription(vec![])));
 
         engine
-            .execute(Request::Execute {
+            .execute(Inbound::Execute {
                 portal_name: "".to_owned(),
                 max_rows: 1,
             })
@@ -176,7 +176,7 @@ mod statement_description {
         let (mut engine, collector) = database_with_table;
 
         engine
-            .execute(Request::Parse {
+            .execute(Inbound::Parse {
                 statement_name: "statement_name".to_owned(),
                 sql: "select * from schema_name.table_name;".to_owned(),
                 param_types: vec![],
@@ -188,7 +188,7 @@ mod statement_description {
             .assert_receive_intermediate(Ok(QueryEvent::ParseComplete));
 
         engine
-            .execute(Request::DescribeStatement {
+            .execute(Inbound::DescribeStatement {
                 name: "statement_name".to_owned(),
             })
             .expect("statement described");
@@ -211,7 +211,7 @@ mod statement_description {
         let (mut engine, collector) = database_with_table;
 
         engine
-            .execute(Request::Parse {
+            .execute(Inbound::Parse {
                 statement_name: "statement_name".to_owned(),
                 sql: "update schema_name.table_name set col1 = $1 where col2 = $2;".to_owned(),
                 param_types: vec![SMALLINT, SMALLINT],
@@ -223,7 +223,7 @@ mod statement_description {
             .assert_receive_intermediate(Ok(QueryEvent::ParseComplete));
 
         engine
-            .execute(Request::DescribeStatement {
+            .execute(Inbound::DescribeStatement {
                 name: "statement_name".to_owned(),
             })
             .expect("statement described");
@@ -242,7 +242,7 @@ mod statement_description {
         let (mut engine, collector) = database_with_table;
 
         engine
-            .execute(Request::DescribeStatement {
+            .execute(Inbound::DescribeStatement {
                 name: "non_existent".to_owned(),
             })
             .expect("no errors");
@@ -266,7 +266,7 @@ mod parse_bind_execute {
             let (mut engine, collector) = database_with_table;
 
             engine
-                .execute(Request::Parse {
+                .execute(Inbound::Parse {
                     statement_name: "statement_name".to_owned(),
                     sql: "insert into schema_name.table_name values ($1, $2);".to_owned(),
                     param_types: vec![SMALLINT, SMALLINT],
@@ -278,7 +278,7 @@ mod parse_bind_execute {
                 .assert_receive_intermediate(Ok(QueryEvent::ParseComplete));
 
             engine
-                .execute(Request::Bind {
+                .execute(Inbound::Bind {
                     statement_name: "statement_name".to_owned(),
                     portal_name: "portal_name".to_owned(),
                     query_param_formats: vec![1, 0],
@@ -292,7 +292,7 @@ mod parse_bind_execute {
                 .assert_receive_intermediate(Ok(QueryEvent::BindComplete));
 
             engine
-                .execute(Request::Execute {
+                .execute(Inbound::Execute {
                     portal_name: "portal_name".to_owned(),
                     max_rows: 0,
                 })
@@ -308,7 +308,7 @@ mod parse_bind_execute {
             let (mut engine, collector) = database_with_table;
 
             engine
-                .execute(Request::Query {
+                .execute(Inbound::Query {
                     sql: "insert into schema_name.table_name values (1, 2);".to_owned(),
                 })
                 .expect("query executed");
@@ -318,7 +318,7 @@ mod parse_bind_execute {
                 .assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
             engine
-                .execute(Request::Parse {
+                .execute(Inbound::Parse {
                     statement_name: "statement_name".to_owned(),
                     sql: "update schema_name.table_name set col1 = $1, col2 = $2".to_owned(),
                     param_types: vec![SMALLINT, SMALLINT],
@@ -330,7 +330,7 @@ mod parse_bind_execute {
                 .assert_receive_intermediate(Ok(QueryEvent::ParseComplete));
 
             engine
-                .execute(Request::Bind {
+                .execute(Inbound::Bind {
                     portal_name: "portal_name".to_owned(),
                     statement_name: "statement_name".to_owned(),
                     query_param_formats: vec![1, 0],
@@ -344,7 +344,7 @@ mod parse_bind_execute {
                 .assert_receive_intermediate(Ok(QueryEvent::BindComplete));
 
             engine
-                .execute(Request::Execute {
+                .execute(Inbound::Execute {
                     portal_name: "portal_name".to_owned(),
                     max_rows: 0,
                 })
@@ -360,7 +360,7 @@ mod parse_bind_execute {
             let (mut engine, collector) = database_with_table;
 
             engine
-                .execute(Request::Query {
+                .execute(Inbound::Query {
                     sql: "insert into schema_name.table_name values (1, 2);".to_owned(),
                 })
                 .expect("query executed");
@@ -370,7 +370,7 @@ mod parse_bind_execute {
                 .assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
             engine
-                .execute(Request::Parse {
+                .execute(Inbound::Parse {
                     statement_name: "statement_name".to_owned(),
                     sql: "select * from schema_name.table_name".to_owned(),
                     param_types: vec![],
@@ -382,7 +382,7 @@ mod parse_bind_execute {
                 .assert_receive_intermediate(Ok(QueryEvent::ParseComplete));
 
             engine
-                .execute(Request::Bind {
+                .execute(Inbound::Bind {
                     portal_name: "portal_name".to_owned(),
                     statement_name: "statement_name".to_owned(),
                     query_param_formats: vec![],
@@ -396,7 +396,7 @@ mod parse_bind_execute {
                 .assert_receive_intermediate(Ok(QueryEvent::BindComplete));
 
             engine
-                .execute(Request::Execute {
+                .execute(Inbound::Execute {
                     portal_name: "portal_name".to_owned(),
                     max_rows: 0,
                 })
@@ -418,7 +418,7 @@ mod parse_bind_execute {
             let (mut engine, collector) = database_with_table;
 
             engine
-                .execute(Request::Parse {
+                .execute(Inbound::Parse {
                     statement_name: "statement_name".to_owned(),
                     sql: "insert into schema_name.table_name values (1, $9)".to_owned(),
                     param_types: vec![SMALLINT; 4],
@@ -436,7 +436,7 @@ mod parse_bind_execute {
             let (mut engine, collector) = database_with_table;
 
             engine
-                .execute(Request::Parse {
+                .execute(Inbound::Parse {
                     statement_name: "statement_name".to_owned(),
                     sql: "insert into schema_name.table_name values ($3, $2, $1)".to_owned(),
                     param_types: vec![0],
@@ -448,7 +448,7 @@ mod parse_bind_execute {
                 .assert_receive_intermediate(Ok(QueryEvent::ParseComplete));
 
             engine
-                .execute(Request::Bind {
+                .execute(Inbound::Bind {
                     statement_name: "statement_name".to_owned(),
                     portal_name: "portal_name".to_owned(),
                     query_param_formats: vec![0; 3],
@@ -462,7 +462,7 @@ mod parse_bind_execute {
                 .assert_receive_intermediate(Ok(QueryEvent::BindComplete));
 
             engine
-                .execute(Request::Execute {
+                .execute(Inbound::Execute {
                     portal_name: "portal_name".to_owned(),
                     max_rows: 0,
                 })
@@ -479,7 +479,7 @@ mod parse_bind_execute {
             let (mut engine, collector) = database_with_table;
 
             engine
-                .execute(Request::Parse {
+                .execute(Inbound::Parse {
                     statement_name: "statement_name".to_owned(),
                     sql: "insert into schema_name.table_name (col3, COL2, COL1) values ($1, $2, $3)".to_owned(),
                     param_types: vec![0],
@@ -491,7 +491,7 @@ mod parse_bind_execute {
                 .assert_receive_intermediate(Ok(QueryEvent::ParseComplete));
 
             engine
-                .execute(Request::Bind {
+                .execute(Inbound::Bind {
                     statement_name: "statement_name".to_owned(),
                     portal_name: "portal_name".to_owned(),
                     query_param_formats: vec![0; 3],
@@ -505,7 +505,7 @@ mod parse_bind_execute {
                 .assert_receive_intermediate(Ok(QueryEvent::BindComplete));
 
             engine
-                .execute(Request::Execute {
+                .execute(Inbound::Execute {
                     portal_name: "portal_name".to_owned(),
                     max_rows: 0,
                 })
@@ -527,7 +527,7 @@ mod parse_bind_execute {
             let (mut engine, collector) = database_with_table;
 
             engine
-                .execute(Request::Parse {
+                .execute(Inbound::Parse {
                     statement_name: "statement_name".to_owned(),
                     sql: "update schema_name.table_name set COL2 = $9".to_owned(),
                     param_types: vec![SMALLINT; 4],
@@ -545,7 +545,7 @@ mod parse_bind_execute {
             let (mut engine, collector) = database_with_table;
 
             engine
-                .execute(Request::Query {
+                .execute(Inbound::Query {
                     sql: "insert into schema_name.table_name values (1, 2, 3), (4, 5, 6), (4, 8, 9)".to_owned(),
                 })
                 .expect("query executed");
@@ -555,7 +555,7 @@ mod parse_bind_execute {
                 .assert_receive_single(Ok(QueryEvent::RecordsInserted(3)));
 
             engine
-                .execute(Request::Parse {
+                .execute(Inbound::Parse {
                     statement_name: "statement_name".to_owned(),
                     sql: "update schema_name.table_name set col3 = $1, COL1 = $2".to_owned(),
                     param_types: vec![0],
@@ -567,7 +567,7 @@ mod parse_bind_execute {
                 .assert_receive_intermediate(Ok(QueryEvent::ParseComplete));
 
             engine
-                .execute(Request::Bind {
+                .execute(Inbound::Bind {
                     statement_name: "statement_name".to_owned(),
                     portal_name: "portal_name".to_owned(),
                     query_param_formats: vec![0; 2],
@@ -581,7 +581,7 @@ mod parse_bind_execute {
                 .assert_receive_intermediate(Ok(QueryEvent::BindComplete));
 
             engine
-                .execute(Request::Execute {
+                .execute(Inbound::Execute {
                     portal_name: "portal_name".to_owned(),
                     max_rows: 0,
                 })
@@ -598,7 +598,7 @@ mod parse_bind_execute {
             let (mut engine, collector) = database_with_table;
 
             engine
-                .execute(Request::Query {
+                .execute(Inbound::Query {
                     sql: "insert into schema_name.table_name values (1, 2, 3), (4, 5, 6), (4, 8, 9)".to_owned(),
                 })
                 .expect("query executed");
@@ -608,7 +608,7 @@ mod parse_bind_execute {
                 .assert_receive_single(Ok(QueryEvent::RecordsInserted(3)));
 
             engine
-                .execute(Request::Parse {
+                .execute(Inbound::Parse {
                     statement_name: "statement_name".to_owned(),
                     sql: "update schema_name.table_name set col2 = $1, col3 = $2 where COL1 = $3".to_owned(),
                     param_types: vec![0],
@@ -620,7 +620,7 @@ mod parse_bind_execute {
                 .assert_receive_intermediate(Ok(QueryEvent::ParseComplete));
 
             engine
-                .execute(Request::Bind {
+                .execute(Inbound::Bind {
                     statement_name: "statement_name".to_owned(),
                     portal_name: "portal_name".to_owned(),
                     query_param_formats: vec![0; 3],
@@ -634,7 +634,7 @@ mod parse_bind_execute {
                 .assert_receive_intermediate(Ok(QueryEvent::BindComplete));
 
             engine
-                .execute(Request::Execute {
+                .execute(Inbound::Execute {
                     portal_name: "portal_name".to_owned(),
                     max_rows: 0,
                 })
