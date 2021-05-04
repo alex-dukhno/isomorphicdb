@@ -139,7 +139,7 @@ impl ColumnDef {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct TableDef {
     full_table_name: FullTableName,
     columns: Vec<ColumnDef>,

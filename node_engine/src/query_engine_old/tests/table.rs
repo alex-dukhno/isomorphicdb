@@ -22,7 +22,7 @@ mod schemaless {
     fn create_table_in_non_existent_schema(empty_database: (InMemory, ResultCollector)) {
         let (mut engine, collector) = empty_database;
         engine
-            .execute(Request::Query {
+            .execute(Inbound::Query {
                 sql: "create table schema_name.table_name (column_name smallint);".to_owned(),
             })
             .expect("query executed");
@@ -36,7 +36,7 @@ mod schemaless {
     fn drop_table_from_non_existent_schema(empty_database: (InMemory, ResultCollector)) {
         let (mut engine, collector) = empty_database;
         engine
-            .execute(Request::Query {
+            .execute(Inbound::Query {
                 sql: "drop table schema_name.table_name;".to_owned(),
             })
             .expect("query executed");
@@ -51,7 +51,7 @@ mod schemaless {
 fn create_table(database_with_schema: (InMemory, ResultCollector)) {
     let (mut engine, collector) = database_with_schema;
     engine
-        .execute(Request::Query {
+        .execute(Inbound::Query {
             sql: "create table schema_name.table_name (column_name smallint);".to_owned(),
         })
         .expect("query executed");
@@ -65,7 +65,7 @@ fn create_table(database_with_schema: (InMemory, ResultCollector)) {
 fn create_same_table(database_with_schema: (InMemory, ResultCollector)) {
     let (mut engine, collector) = database_with_schema;
     engine
-        .execute(Request::Query {
+        .execute(Inbound::Query {
             sql: "create table schema_name.table_name (column_name smallint);".to_owned(),
         })
         .expect("query executed");
@@ -75,7 +75,7 @@ fn create_same_table(database_with_schema: (InMemory, ResultCollector)) {
         .assert_receive_single(Ok(QueryEvent::TableCreated));
 
     engine
-        .execute(Request::Query {
+        .execute(Inbound::Query {
             sql: "create table schema_name.table_name (column_name smallint);".to_owned(),
         })
         .expect("query executed");
@@ -89,7 +89,7 @@ fn create_same_table(database_with_schema: (InMemory, ResultCollector)) {
 fn drop_table(database_with_schema: (InMemory, ResultCollector)) {
     let (mut engine, collector) = database_with_schema;
     engine
-        .execute(Request::Query {
+        .execute(Inbound::Query {
             sql: "create table schema_name.table_name (column_name smallint);".to_owned(),
         })
         .expect("query executed");
@@ -99,7 +99,7 @@ fn drop_table(database_with_schema: (InMemory, ResultCollector)) {
         .assert_receive_single(Ok(QueryEvent::TableCreated));
 
     engine
-        .execute(Request::Query {
+        .execute(Inbound::Query {
             sql: "drop table schema_name.table_name;".to_owned(),
         })
         .expect("query executed");
@@ -109,7 +109,7 @@ fn drop_table(database_with_schema: (InMemory, ResultCollector)) {
         .assert_receive_single(Ok(QueryEvent::TableDropped));
 
     engine
-        .execute(Request::Query {
+        .execute(Inbound::Query {
             sql: "create table schema_name.table_name (column_name smallint);".to_owned(),
         })
         .expect("query executed");
@@ -123,7 +123,7 @@ fn drop_table(database_with_schema: (InMemory, ResultCollector)) {
 fn drop_non_existent_table(database_with_schema: (InMemory, ResultCollector)) {
     let (mut engine, collector) = database_with_schema;
     engine
-        .execute(Request::Query {
+        .execute(Inbound::Query {
             sql: "drop table schema_name.non_existent;".to_owned(),
         })
         .expect("query executed");
@@ -138,7 +138,7 @@ fn drop_if_exists_non_existent_table(database_with_schema: (InMemory, ResultColl
     let (mut engine, collector) = database_with_schema;
 
     engine
-        .execute(Request::Query {
+        .execute(Inbound::Query {
             sql: "drop table if exists schema_name.non_existent;".to_owned(),
         })
         .expect("query executed");
@@ -153,7 +153,7 @@ fn drop_if_exists_existent_and_non_existent_table(database_with_schema: (InMemor
     let (mut engine, collector) = database_with_schema;
 
     engine
-        .execute(Request::Query {
+        .execute(Inbound::Query {
             sql: "create table schema_name.existent_table();".to_owned(),
         })
         .expect("query executed");
@@ -163,7 +163,7 @@ fn drop_if_exists_existent_and_non_existent_table(database_with_schema: (InMemor
         .assert_receive_single(Ok(QueryEvent::TableCreated));
 
     engine
-        .execute(Request::Query {
+        .execute(Inbound::Query {
             sql: "drop table if exists schema_name.non_existent, schema_name.existent_table;".to_owned(),
         })
         .expect("query executed");
@@ -173,7 +173,7 @@ fn drop_if_exists_existent_and_non_existent_table(database_with_schema: (InMemor
         .assert_receive_single(Ok(QueryEvent::TableDropped));
 
     engine
-        .execute(Request::Query {
+        .execute(Inbound::Query {
             sql: "create table schema_name.existent_table();".to_owned(),
         })
         .expect("query executed");
@@ -191,7 +191,7 @@ mod different_types {
     fn ints(database_with_schema: (InMemory, ResultCollector)) {
         let (mut engine, collector) = database_with_schema;
         engine
-            .execute(Request::Query {
+            .execute(Inbound::Query {
                 sql: "create table schema_name.table_name (\
             column_si smallint,\
             column_i integer,\
@@ -211,7 +211,7 @@ mod different_types {
     fn strings(database_with_schema: (InMemory, ResultCollector)) {
         let (mut engine, collector) = database_with_schema;
         engine
-            .execute(Request::Query {
+            .execute(Inbound::Query {
                 sql: "create table schema_name.table_name (\
             column_c char(10),\
             column_vc varchar(10)\
@@ -230,7 +230,7 @@ mod different_types {
     fn boolean(database_with_schema: (InMemory, ResultCollector)) {
         let (mut engine, collector) = database_with_schema;
         engine
-            .execute(Request::Query {
+            .execute(Inbound::Query {
                 sql: "create table schema_name.table_name (\
             column_b boolean\
             );"

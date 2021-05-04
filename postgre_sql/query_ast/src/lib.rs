@@ -20,6 +20,7 @@ pub enum Statement {
     Query(Query),
     Config(Set),
     Extended(Extended),
+    Transaction(Transaction),
 }
 
 impl Display for Statement {
@@ -229,4 +230,10 @@ pub enum Extended {
     Deallocate {
         name: String,
     },
+}
+
+#[derive(Debug, PartialEq)]
+pub enum Transaction {
+    Begin,
+    Commit,
 }

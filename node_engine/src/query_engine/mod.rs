@@ -28,8 +28,7 @@ use query_planner::QueryPlanner;
 use query_processing::{TypeChecker, TypeCoercion, TypeInference};
 use storage::{Database, Transaction};
 
-#[allow(dead_code)]
-struct TransactionContext<'t> {
+pub struct TransactionContext<'t> {
     parser: QueryParser,
     definition_planner: DefinitionPlanner<'t>,
     catalog: CatalogHandler<'t>,
@@ -40,7 +39,6 @@ struct TransactionContext<'t> {
     query_planner: QueryPlanner<'t>,
 }
 
-#[allow(dead_code)]
 impl<'t> TransactionContext<'t> {
     fn new(transaction: Transaction<'t>) -> TransactionContext<'t> {
         TransactionContext {
@@ -55,13 +53,13 @@ impl<'t> TransactionContext<'t> {
         }
     }
 
-    fn commit(self) {}
+    pub fn commit(self) {}
 
-    fn parse(&self, sql: &str) -> Result<Vec<Statement>, QueryError> {
+    pub fn parse(&self, sql: &str) -> Result<Vec<Statement>, QueryError> {
         Ok(self.parser.parse(sql)?)
     }
 
-    fn execute_ddl(&self, definition: Definition) -> Result<QueryEvent, QueryError> {
+    pub fn execute_ddl(&self, definition: Definition) -> Result<QueryEvent, QueryError> {
         let schema_change = self.definition_planner.plan(definition)?;
         Ok(self.catalog.apply(schema_change)?.into())
     }
@@ -168,18 +166,17 @@ impl<'t> TransactionContext<'t> {
     }
 }
 
-#[allow(dead_code)]
-struct QueryEngine {
+#[derive(Clone)]
+pub struct QueryEngine {
     database: Database,
 }
 
-#[allow(dead_code)]
 impl QueryEngine {
-    fn new(database: Database) -> QueryEngine {
+    pub fn new(database: Database) -> QueryEngine {
         QueryEngine { database }
     }
 
-    fn start_transaction(&self) -> TransactionContext {
+    pub fn start_transaction(&self) -> TransactionContext {
         TransactionContext::new(self.database.transaction())
     }
 }
