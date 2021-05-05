@@ -33,13 +33,23 @@ pub enum QueryExecutionResult {
     Selected((Vec<(String, u32)>, Vec<Vec<ScalarValue>>)),
 }
 
-impl From<QueryExecutionResult> for QueryEvent {
-    fn from(plan_result: QueryExecutionResult) -> QueryEvent {
+impl From<QueryExecutionResult> for Vec<QueryEvent> {
+    fn from(plan_result: QueryExecutionResult) -> Vec<QueryEvent> {
         match plan_result {
-            QueryExecutionResult::Inserted(inserted) => QueryEvent::RecordsInserted(inserted),
-            QueryExecutionResult::Deleted(inserted) => QueryEvent::RecordsDeleted(inserted),
-            QueryExecutionResult::Updated(inserted) => QueryEvent::RecordsUpdated(inserted),
-            _ => unreachable!(),
+            QueryExecutionResult::Inserted(inserted) => vec![QueryEvent::RecordsInserted(inserted)],
+            QueryExecutionResult::Deleted(inserted) => vec![QueryEvent::RecordsDeleted(inserted)],
+            QueryExecutionResult::Updated(inserted) => vec![QueryEvent::RecordsUpdated(inserted)],
+            QueryExecutionResult::Selected((desc, data)) => {
+                let mut events = vec![QueryEvent::RowDescription(desc)];
+                let len = data.len();
+                for row in data {
+                    events.push(QueryEvent::DataRow(
+                        row.into_iter().map(|scalar| scalar.as_text()).collect(),
+                    ));
+                }
+                events.push(QueryEvent::RecordsSelected(len));
+                events
+            }
         }
     }
 }

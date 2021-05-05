@@ -20,11 +20,11 @@ fn create_index() {
 
     assert_eq!(
         statements,
-        Ok(vec![Statement::Definition(Definition::CreateIndex {
+        Ok(Request::Statement(Statement::Definition(Definition::CreateIndex {
             name: "index_name".to_owned(),
             schema_name: "public".to_owned(),
             table_name: "table_name".to_owned(),
             column_names: vec!["col_1".to_owned(), "col_2".to_owned()]
-        })])
+        })))
     );
 }

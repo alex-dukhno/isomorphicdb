@@ -22,7 +22,7 @@ fn prepare() {
 
     assert_eq!(
         statement,
-        Ok(vec![Statement::Extended(Extended::Prepare {
+        Ok(Request::Statement(Statement::Extended(Extended::Prepare {
             query: Query::Insert(InsertStatement {
                 schema_name: "schema_name".to_owned(),
                 table_name: "table_name".to_owned(),
@@ -31,7 +31,7 @@ fn prepare() {
             }),
             name: "foo_plan".to_owned(),
             param_types: vec![DataType::SmallInt]
-        })])
+        })))
     );
 }
 
@@ -41,9 +41,9 @@ fn deallocate() {
 
     assert_eq!(
         statement,
-        Ok(vec![Statement::Extended(Extended::Deallocate {
+        Ok(Request::Statement(Statement::Extended(Extended::Deallocate {
             name: "foo_plan".to_owned()
-        })])
+        })))
     );
 }
 
@@ -53,9 +53,9 @@ fn execute() {
 
     assert_eq!(
         statement,
-        Ok(vec![Statement::Extended(Extended::Execute {
+        Ok(Request::Statement(Statement::Extended(Extended::Execute {
             name: "foo_plan".to_owned(),
             param_values: vec![Value::Int(123)]
-        })])
+        })))
     )
 }

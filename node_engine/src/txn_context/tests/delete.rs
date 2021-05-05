@@ -15,7 +15,7 @@
 use super::*;
 
 #[rstest::rstest]
-fn delete_all_records(with_schema: QueryEngine) {
+fn delete_all_records(with_schema: TransactionManager) {
     let txn = with_schema.start_transaction();
 
     assert_definition(
@@ -56,7 +56,7 @@ fn delete_all_records(with_schema: QueryEngine) {
 }
 
 #[rstest::rstest]
-fn delete_value_by_predicate_on_single_field(with_schema: QueryEngine) {
+fn delete_value_by_predicate_on_single_field(with_schema: TransactionManager) {
     let txn = with_schema.start_transaction();
 
     assert_definition(

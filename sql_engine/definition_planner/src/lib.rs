@@ -22,6 +22,7 @@ use query_response::QueryError;
 use storage::{Transaction, TransactionalDatabase};
 use types::SqlType;
 
+#[derive(Clone)]
 pub struct DefinitionPlanner<'p> {
     catalog: CatalogHandler<'p>,
 }

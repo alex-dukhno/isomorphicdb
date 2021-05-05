@@ -30,6 +30,7 @@ use wire_protocol_payload::{
 
 pub type WireResult = std::result::Result<Inbound, WireError>;
 
+#[derive(Debug)]
 pub struct WireError;
 
 pub trait WireConnection {

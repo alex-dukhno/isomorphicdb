@@ -19,16 +19,17 @@ use data_manipulation::{
 };
 use definition_planner::DefinitionPlanner;
 use postgre_sql::{
-    query_ast::{Definition, Query, Statement},
-    query_parser::QueryParser,
+    query_ast::{Definition, Query},
     query_response::{QueryError, QueryEvent},
 };
 use query_analyzer::QueryAnalyzer;
 use query_planner::QueryPlanner;
 use query_processing::{TypeChecker, TypeCoercion, TypeInference};
-use storage::{Database, Transaction};
+use std::fmt::{self, Debug, Formatter};
+use storage::Transaction;
 use types::SqlTypeFamily;
 
+#[derive(Clone)]
 pub struct TransactionContext<'t> {
     definition_planner: DefinitionPlanner<'t>,
     catalog: CatalogHandler<'t>,
@@ -37,6 +38,12 @@ pub struct TransactionContext<'t> {
     type_checker: TypeChecker,
     type_coercion: TypeCoercion,
     query_planner: QueryPlanner<'t>,
+}
+
+impl<'t> Debug for TransactionContext<'t> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "txn")
+    }
 }
 
 impl<'t> TransactionContext<'t> {

@@ -13,14 +13,17 @@
 // limitations under the License.
 
 use super::*;
-use crate::query_engine::QueryEngine;
+use crate::transaction_manager::TransactionManager;
 use bigdecimal::BigDecimal;
 use data_manipulation::QueryExecutionResult;
 use data_repr::scalar::ScalarValue;
 use postgre_sql::{
+    query_ast::{Request, Statement},
+    query_parser::QueryParser,
     query_response::QueryEvent,
     wire_protocol::payload::{BIGINT, CHAR, INT, SMALLINT, VARCHAR},
 };
+use storage::Database;
 use types::SqlTypeFamily;
 
 #[cfg(test)]
@@ -69,8 +72,8 @@ fn string(value: &str) -> ScalarValue {
 }
 
 fn assert_definition(txn: &TransactionContext, sql: &str, expected: Result<QueryEvent, QueryError>) {
-    match QueryParser.parse(sql).expect("query parsed").pop() {
-        Some(Statement::Definition(definition)) => {
+    match QueryParser.parse(sql) {
+        Ok(Request::Statement(Statement::Definition(definition))) => {
             assert_eq!(txn.apply_schema_change(definition), expected);
         }
         other => panic!("expected DDL query but was {:?}", other),
@@ -78,8 +81,8 @@ fn assert_definition(txn: &TransactionContext, sql: &str, expected: Result<Query
 }
 
 fn assert_query(txn: &TransactionContext, sql: &str, expected: Result<QueryExecutionResult, QueryError>) {
-    match QueryParser.parse(sql).expect("query parsed").pop() {
-        Some(Statement::Query(query)) => {
+    match QueryParser.parse(sql) {
+        Ok(Request::Statement(Statement::Query(query))) => {
             let query_result = txn
                 .process(query, vec![])
                 .map(|typed_query| txn.plan(typed_query))
@@ -91,9 +94,9 @@ fn assert_query(txn: &TransactionContext, sql: &str, expected: Result<QueryExecu
 }
 
 #[rstest::fixture]
-fn with_schema() -> QueryEngine {
+fn with_schema() -> TransactionManager {
     let database = Database::new("IN_MEMORY");
-    let query_engine = QueryEngine::new(database);
+    let query_engine = TransactionManager::new(database);
 
     let txn = query_engine.start_transaction();
     assert_definition(&txn, "create schema schema_name", Ok(QueryEvent::SchemaCreated));

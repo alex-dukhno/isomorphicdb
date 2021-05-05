@@ -15,7 +15,7 @@
 use super::*;
 
 #[rstest::fixture]
-fn int_table(with_schema: QueryEngine) -> QueryEngine {
+fn int_table(with_schema: TransactionManager) -> TransactionManager {
     let txn = with_schema.start_transaction();
 
     assert_definition(
@@ -29,7 +29,7 @@ fn int_table(with_schema: QueryEngine) -> QueryEngine {
 }
 
 #[rstest::fixture]
-fn multiple_ints_table(with_schema: QueryEngine) -> QueryEngine {
+fn multiple_ints_table(with_schema: TransactionManager) -> TransactionManager {
     let txn = with_schema.start_transaction();
 
     assert_definition(
@@ -43,7 +43,7 @@ fn multiple_ints_table(with_schema: QueryEngine) -> QueryEngine {
 }
 
 #[rstest::fixture]
-fn str_table(with_schema: QueryEngine) -> QueryEngine {
+fn str_table(with_schema: TransactionManager) -> TransactionManager {
     let txn = with_schema.start_transaction();
 
     assert_definition(
@@ -62,7 +62,7 @@ mod insert {
     use types::SqlType;
 
     #[rstest::rstest]
-    fn out_of_range(int_table: QueryEngine) {
+    fn out_of_range(int_table: TransactionManager) {
         let txn = int_table.start_transaction();
 
         assert_query(
@@ -74,7 +74,7 @@ mod insert {
     }
 
     #[rstest::rstest]
-    fn type_mismatch(int_table: QueryEngine) {
+    fn type_mismatch(int_table: TransactionManager) {
         let txn = int_table.start_transaction();
 
         assert_query(
@@ -86,7 +86,7 @@ mod insert {
     }
 
     #[rstest::rstest]
-    fn multiple_columns_multiple_row_violation(multiple_ints_table: QueryEngine) {
+    fn multiple_columns_multiple_row_violation(multiple_ints_table: TransactionManager) {
         let txn = multiple_ints_table.start_transaction();
 
         // assert_query(
@@ -104,7 +104,7 @@ mod insert {
     }
 
     #[rstest::rstest]
-    fn violation_in_the_second_row(multiple_ints_table: QueryEngine) {
+    fn violation_in_the_second_row(multiple_ints_table: TransactionManager) {
         let txn = multiple_ints_table.start_transaction();
 
         assert_query(
@@ -117,7 +117,7 @@ mod insert {
 
     #[rstest::rstest]
     #[ignore] // TODO: string length is not checked
-    fn value_too_long(str_table: QueryEngine) {
+    fn value_too_long(str_table: TransactionManager) {
         let txn = str_table.start_transaction();
 
         assert_query(
@@ -135,7 +135,7 @@ mod update {
     use types::SqlType;
 
     #[rstest::rstest]
-    fn out_of_range(int_table: QueryEngine) {
+    fn out_of_range(int_table: TransactionManager) {
         let txn = int_table.start_transaction();
 
         assert_query(
@@ -152,7 +152,7 @@ mod update {
     }
 
     #[rstest::rstest]
-    fn type_mismatch(int_table: QueryEngine) {
+    fn type_mismatch(int_table: TransactionManager) {
         let txn = int_table.start_transaction();
 
         assert_query(
@@ -170,7 +170,7 @@ mod update {
 
     #[rstest::rstest]
     #[ignore] // TODO: string length is not checked
-    fn value_too_long(str_table: QueryEngine) {
+    fn value_too_long(str_table: TransactionManager) {
         let txn = str_table.start_transaction();
 
         assert_query(
@@ -187,7 +187,7 @@ mod update {
     }
 
     #[rstest::rstest]
-    fn multiple_columns_violation(multiple_ints_table: QueryEngine) {
+    fn multiple_columns_violation(multiple_ints_table: TransactionManager) {
         let txn = multiple_ints_table.start_transaction();
 
         assert_query(

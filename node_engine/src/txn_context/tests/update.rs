@@ -15,7 +15,7 @@
 use super::*;
 
 #[rstest::rstest]
-fn update_all_records(with_schema: QueryEngine) {
+fn update_all_records(with_schema: TransactionManager) {
     let txn = with_schema.start_transaction();
 
     assert_definition(
@@ -53,7 +53,7 @@ fn update_all_records(with_schema: QueryEngine) {
 }
 
 #[rstest::rstest]
-fn update_single_column_of_all_records(with_schema: QueryEngine) {
+fn update_single_column_of_all_records(with_schema: TransactionManager) {
     let txn = with_schema.start_transaction();
 
     assert_definition(
@@ -97,7 +97,7 @@ fn update_single_column_of_all_records(with_schema: QueryEngine) {
 }
 
 #[rstest::rstest]
-fn update_multiple_columns_of_all_records(with_schema: QueryEngine) {
+fn update_multiple_columns_of_all_records(with_schema: TransactionManager) {
     let txn = with_schema.start_transaction();
 
     assert_definition(
@@ -149,7 +149,7 @@ fn update_multiple_columns_of_all_records(with_schema: QueryEngine) {
 }
 
 #[rstest::rstest]
-fn update_all_records_in_multiple_columns(with_schema: QueryEngine) {
+fn update_all_records_in_multiple_columns(with_schema: TransactionManager) {
     let txn = with_schema.start_transaction();
 
     assert_definition(
@@ -202,7 +202,7 @@ fn update_all_records_in_multiple_columns(with_schema: QueryEngine) {
 }
 
 #[rstest::rstest]
-fn update_non_existent_columns_of_records(with_schema: QueryEngine) {
+fn update_non_existent_columns_of_records(with_schema: TransactionManager) {
     let txn = with_schema.start_transaction();
 
     assert_definition(
@@ -233,7 +233,7 @@ fn update_non_existent_columns_of_records(with_schema: QueryEngine) {
 
 #[rstest::rstest]
 #[ignore] // TODO: type coercion
-fn test_update_with_dynamic_expression(with_schema: QueryEngine) {
+fn test_update_with_dynamic_expression(with_schema: TransactionManager) {
     let txn = with_schema.start_transaction();
 
     assert_definition(
@@ -293,7 +293,7 @@ fn test_update_with_dynamic_expression(with_schema: QueryEngine) {
 }
 
 #[rstest::rstest]
-fn update_value_by_predicate_on_single_field(with_schema: QueryEngine) {
+fn update_value_by_predicate_on_single_field(with_schema: TransactionManager) {
     let txn = with_schema.start_transaction();
 
     assert_definition(
@@ -350,7 +350,7 @@ mod operators {
         use super::*;
 
         #[rstest::fixture]
-        fn with_table(with_schema: QueryEngine) -> QueryEngine {
+        fn with_table(with_schema: TransactionManager) -> TransactionManager {
             let txn = with_schema.start_transaction();
 
             assert_definition(
@@ -370,7 +370,7 @@ mod operators {
 
         #[rstest::rstest]
         #[ignore] // TODO: type coercion
-        fn addition(with_table: QueryEngine) {
+        fn addition(with_table: TransactionManager) {
             let txn = with_table.start_transaction();
 
             assert_query(
@@ -392,7 +392,7 @@ mod operators {
 
         #[rstest::rstest]
         #[ignore] // TODO: type coercion
-        fn subtraction(with_table: QueryEngine) {
+        fn subtraction(with_table: TransactionManager) {
             let txn = with_table.start_transaction();
 
             assert_query(
@@ -413,7 +413,7 @@ mod operators {
 
         #[rstest::rstest]
         #[ignore] // TODO: type coercion
-        fn multiplication(with_table: QueryEngine) {
+        fn multiplication(with_table: TransactionManager) {
             let txn = with_table.start_transaction();
 
             assert_query(
@@ -434,7 +434,7 @@ mod operators {
 
         #[rstest::rstest]
         #[ignore] // TODO: type coercion
-        fn division(with_table: QueryEngine) {
+        fn division(with_table: TransactionManager) {
             let txn = with_table.start_transaction();
 
             assert_query(
@@ -455,7 +455,7 @@ mod operators {
 
         #[rstest::rstest]
         #[ignore] // TODO: type coercion
-        fn modulo(with_table: QueryEngine) {
+        fn modulo(with_table: TransactionManager) {
             let txn = with_table.start_transaction();
 
             assert_query(
@@ -476,7 +476,7 @@ mod operators {
 
         #[rstest::rstest]
         #[ignore] // TODO: type coercion
-        fn exponentiation(with_table: QueryEngine) {
+        fn exponentiation(with_table: TransactionManager) {
             let txn = with_table.start_transaction();
 
             assert_query(
@@ -497,7 +497,7 @@ mod operators {
 
         #[rstest::rstest]
         #[ignore] //TODO: TypeInference#infer_static is not implemented
-        fn square_root(with_table: QueryEngine) {
+        fn square_root(with_table: TransactionManager) {
             let txn = with_table.start_transaction();
 
             assert_query(
@@ -518,7 +518,7 @@ mod operators {
 
         #[rstest::rstest]
         #[ignore] //TODO: TypeInference#infer_static is not implemented
-        fn cube_root(with_table: QueryEngine) {
+        fn cube_root(with_table: TransactionManager) {
             let txn = with_table.start_transaction();
 
             assert_query(
@@ -539,7 +539,7 @@ mod operators {
 
         #[rstest::rstest]
         #[ignore] // TODO: type coercion
-        fn factorial(with_table: QueryEngine) {
+        fn factorial(with_table: TransactionManager) {
             let txn = with_table.start_transaction();
 
             assert_query(
@@ -560,7 +560,7 @@ mod operators {
 
         #[rstest::rstest]
         #[ignore] // TODO: type coercion
-        fn prefix_factorial(with_table: QueryEngine) {
+        fn prefix_factorial(with_table: TransactionManager) {
             let txn = with_table.start_transaction();
 
             assert_query(
@@ -580,7 +580,7 @@ mod operators {
         }
 
         #[rstest::rstest]
-        fn absolute_value(with_table: QueryEngine) {
+        fn absolute_value(with_table: TransactionManager) {
             let txn = with_table.start_transaction();
 
             assert_query(
@@ -601,7 +601,7 @@ mod operators {
 
         #[rstest::rstest]
         #[ignore] // TODO: type coercion
-        fn bitwise_and(with_table: QueryEngine) {
+        fn bitwise_and(with_table: TransactionManager) {
             let txn = with_table.start_transaction();
 
             assert_query(
@@ -622,7 +622,7 @@ mod operators {
 
         #[rstest::rstest]
         #[ignore] // TODO: type coercion
-        fn bitwise_or(with_table: QueryEngine) {
+        fn bitwise_or(with_table: TransactionManager) {
             let txn = with_table.start_transaction();
 
             assert_query(
@@ -642,7 +642,7 @@ mod operators {
         }
 
         #[rstest::rstest]
-        fn bitwise_not(with_table: QueryEngine) {
+        fn bitwise_not(with_table: TransactionManager) {
             let txn = with_table.start_transaction();
 
             assert_query(
@@ -663,7 +663,7 @@ mod operators {
 
         #[rstest::rstest]
         #[ignore] // TODO: type coercion
-        fn bitwise_shift_left(with_table: QueryEngine) {
+        fn bitwise_shift_left(with_table: TransactionManager) {
             let txn = with_table.start_transaction();
 
             assert_query(
@@ -684,7 +684,7 @@ mod operators {
 
         #[rstest::rstest]
         #[ignore] // TODO: type coercion
-        fn bitwise_right_left(with_table: QueryEngine) {
+        fn bitwise_right_left(with_table: TransactionManager) {
             let txn = with_table.start_transaction();
 
             assert_query(
@@ -705,7 +705,7 @@ mod operators {
 
         #[rstest::rstest]
         #[ignore] // TODO: type coercion
-        fn evaluate_many_operations(with_table: QueryEngine) {
+        fn evaluate_many_operations(with_table: TransactionManager) {
             let txn = with_table.start_transaction();
 
             assert_query(
@@ -730,7 +730,7 @@ mod operators {
         use super::*;
 
         #[rstest::fixture]
-        fn with_table(with_schema: QueryEngine) -> QueryEngine {
+        fn with_table(with_schema: TransactionManager) -> TransactionManager {
             let txn = with_schema.start_transaction();
 
             assert_definition(
@@ -749,7 +749,7 @@ mod operators {
         }
 
         #[rstest::rstest]
-        fn concatenation(with_table: QueryEngine) {
+        fn concatenation(with_table: TransactionManager) {
             let txn = with_table.start_transaction();
 
             assert_query(
@@ -770,7 +770,7 @@ mod operators {
 
         #[rstest::rstest]
         #[ignore] //TODO: TypeInference#infer_static is not implemented
-        fn concatenation_with_number(with_table: QueryEngine) {
+        fn concatenation_with_number(with_table: TransactionManager) {
             let txn = with_table.start_transaction();
 
             assert_query(
@@ -803,7 +803,7 @@ mod operators {
         }
 
         #[rstest::rstest]
-        fn non_string_concatenation_not_supported(with_table: QueryEngine) {
+        fn non_string_concatenation_not_supported(with_table: TransactionManager) {
             let txn = with_table.start_transaction();
 
             assert_query(

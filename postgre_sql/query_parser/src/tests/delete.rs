@@ -20,10 +20,10 @@ fn delete_from_table() {
 
     assert_eq!(
         statements,
-        Ok(vec![Statement::Query(Query::Delete(DeleteStatement {
+        Ok(Request::Statement(Statement::Query(Query::Delete(DeleteStatement {
             schema_name: "schema_name".to_owned(),
             table_name: "table_name".to_owned(),
             where_clause: None,
-        }))])
+        }))))
     );
 }

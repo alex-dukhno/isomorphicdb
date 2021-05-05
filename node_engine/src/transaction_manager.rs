@@ -13,22 +13,15 @@
 // limitations under the License.
 
 use crate::txn_context::TransactionContext;
-use crate::QueryPlanCache;
-use data_manipulation::QueryExecutionResult;
-use data_repr::scalar::ScalarValue;
-use postgre_sql::query_ast::{Extended, Statement, Transaction};
-use postgre_sql::wire_protocol::payload::{Inbound, Outbound};
 use storage::Database;
-use types::SqlTypeFamily;
 
-#[derive(Clone)]
-pub struct QueryEngine {
+pub struct TransactionManager {
     database: Database,
 }
 
-impl QueryEngine {
-    pub fn new(database: Database) -> QueryEngine {
-        QueryEngine { database }
+impl TransactionManager {
+    pub fn new(database: Database) -> TransactionManager {
+        TransactionManager { database }
     }
 
     pub fn start_transaction(&self) -> TransactionContext {

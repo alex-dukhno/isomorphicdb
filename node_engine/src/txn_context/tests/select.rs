@@ -15,7 +15,7 @@
 use super::*;
 
 #[rstest::rstest]
-fn select_all_from_table_with_multiple_columns(with_schema: QueryEngine) {
+fn select_all_from_table_with_multiple_columns(with_schema: TransactionManager) {
     let txn = with_schema.start_transaction();
 
     assert_definition(
@@ -43,7 +43,7 @@ fn select_all_from_table_with_multiple_columns(with_schema: QueryEngine) {
 }
 
 #[rstest::rstest]
-fn select_not_all_columns(with_schema: QueryEngine) {
+fn select_not_all_columns(with_schema: TransactionManager) {
     let txn = with_schema.start_transaction();
 
     assert_definition(
@@ -72,7 +72,7 @@ fn select_not_all_columns(with_schema: QueryEngine) {
 }
 
 #[rstest::rstest]
-fn select_non_existing_columns_from_table(with_schema: QueryEngine) {
+fn select_non_existing_columns_from_table(with_schema: TransactionManager) {
     let txn = with_schema.start_transaction();
 
     assert_definition(
@@ -89,7 +89,7 @@ fn select_non_existing_columns_from_table(with_schema: QueryEngine) {
 }
 
 #[rstest::rstest]
-fn select_first_and_last_columns_from_table_with_multiple_columns(with_schema: QueryEngine) {
+fn select_first_and_last_columns_from_table_with_multiple_columns(with_schema: TransactionManager) {
     let txn = with_schema.start_transaction();
 
     assert_definition(
@@ -118,7 +118,7 @@ fn select_first_and_last_columns_from_table_with_multiple_columns(with_schema: Q
 }
 
 #[rstest::rstest]
-fn select_all_columns_reordered_from_table_with_multiple_columns(with_schema: QueryEngine) {
+fn select_all_columns_reordered_from_table_with_multiple_columns(with_schema: TransactionManager) {
     let txn = with_schema.start_transaction();
 
     assert_definition(
@@ -151,7 +151,7 @@ fn select_all_columns_reordered_from_table_with_multiple_columns(with_schema: Qu
 }
 
 #[rstest::rstest]
-fn select_with_column_name_duplication(with_schema: QueryEngine) {
+fn select_with_column_name_duplication(with_schema: TransactionManager) {
     let txn = with_schema.start_transaction();
 
     assert_definition(
@@ -186,7 +186,7 @@ fn select_with_column_name_duplication(with_schema: QueryEngine) {
 }
 
 #[rstest::rstest]
-fn select_different_integer_types(with_schema: QueryEngine) {
+fn select_different_integer_types(with_schema: TransactionManager) {
     let txn = with_schema.start_transaction();
 
     assert_definition(
@@ -215,7 +215,7 @@ fn select_different_integer_types(with_schema: QueryEngine) {
 }
 
 #[rstest::rstest]
-fn select_different_character_strings_types(with_schema: QueryEngine) {
+fn select_different_character_strings_types(with_schema: TransactionManager) {
     let txn = with_schema.start_transaction();
 
     assert_definition(
@@ -250,7 +250,7 @@ fn select_different_character_strings_types(with_schema: QueryEngine) {
 }
 
 #[rstest::rstest]
-fn select_value_by_predicate_on_single_field(with_schema: QueryEngine) {
+fn select_value_by_predicate_on_single_field(with_schema: TransactionManager) {
     let txn = with_schema.start_transaction();
 
     assert_definition(

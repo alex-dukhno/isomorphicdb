@@ -20,7 +20,7 @@ fn create_ints_table() {
 
     assert_eq!(
         statements,
-        Ok(vec![Statement::Definition(Definition::CreateTable {
+        Ok(Request::Statement(Statement::Definition(Definition::CreateTable {
             if_not_exists: false,
             schema_name: "public".to_owned(),
             table_name: "table_name".to_owned(),
@@ -38,7 +38,7 @@ fn create_ints_table() {
                     data_type: DataType::BigInt,
                 }
             ],
-        })])
+        })))
     );
 }
 
@@ -61,7 +61,7 @@ fn create_strings_table() {
 
     assert_eq!(
         statements,
-        Ok(vec![Statement::Definition(Definition::CreateTable {
+        Ok(Request::Statement(Statement::Definition(Definition::CreateTable {
             if_not_exists: false,
             schema_name: "schema_name".to_owned(),
             table_name: "table_name".to_owned(),
@@ -99,7 +99,7 @@ fn create_strings_table() {
                     data_type: DataType::VarChar(Some(255)),
                 }
             ],
-        })])
+        })))
     );
 }
 
@@ -109,7 +109,7 @@ fn create_float_table() {
 
     assert_eq!(
         statements,
-        Ok(vec![Statement::Definition(Definition::CreateTable {
+        Ok(Request::Statement(Statement::Definition(Definition::CreateTable {
             if_not_exists: false,
             schema_name: "public".to_owned(),
             table_name: "table_name".to_owned(),
@@ -123,7 +123,7 @@ fn create_float_table() {
                     data_type: DataType::Double,
                 }
             ],
-        })])
+        })))
     );
 }
 
@@ -133,7 +133,7 @@ fn create_boolean_table() {
 
     assert_eq!(
         statements,
-        Ok(vec![Statement::Definition(Definition::CreateTable {
+        Ok(Request::Statement(Statement::Definition(Definition::CreateTable {
             if_not_exists: false,
             schema_name: "public".to_owned(),
             table_name: "table_name".to_owned(),
@@ -141,7 +141,7 @@ fn create_boolean_table() {
                 name: "col_b".to_owned(),
                 data_type: DataType::Bool,
             }],
-        })])
+        })))
     );
 }
 
@@ -151,11 +151,11 @@ fn drop_table() {
 
     assert_eq!(
         statements,
-        Ok(vec![Statement::Definition(Definition::DropTables {
+        Ok(Request::Statement(Statement::Definition(Definition::DropTables {
             names: vec![("public".to_owned(), "table_name".to_owned())],
             if_exists: false,
             cascade: false
-        })])
+        })))
     );
 }
 
@@ -165,14 +165,14 @@ fn drop_tables() {
 
     assert_eq!(
         statements,
-        Ok(vec![Statement::Definition(Definition::DropTables {
+        Ok(Request::Statement(Statement::Definition(Definition::DropTables {
             names: vec![
                 ("public".to_owned(), "table_name_1".to_owned()),
                 ("public".to_owned(), "table_name_2".to_owned())
             ],
             if_exists: false,
             cascade: false
-        })])
+        })))
     );
 }
 
@@ -182,14 +182,14 @@ fn drop_table_cascade() {
 
     assert_eq!(
         statements,
-        Ok(vec![Statement::Definition(Definition::DropTables {
+        Ok(Request::Statement(Statement::Definition(Definition::DropTables {
             names: vec![
                 ("public".to_owned(), "table_name_1".to_owned()),
                 ("public".to_owned(), "table_name_2".to_owned())
             ],
             if_exists: false,
             cascade: true
-        })])
+        })))
     );
 }
 
@@ -199,10 +199,10 @@ fn drop_table_if_exists() {
 
     assert_eq!(
         statements,
-        Ok(vec![Statement::Definition(Definition::DropTables {
+        Ok(Request::Statement(Statement::Definition(Definition::DropTables {
             names: vec![("public".to_owned(), "table_name".to_owned())],
             if_exists: true,
             cascade: false
-        })])
+        })))
     );
 }
