@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{query_engine::QueryEngine, session::Session};
 use data_manipulation::QueryExecutionResult;
 use data_repr::scalar::ScalarValue;
 use postgre_sql::{
@@ -25,13 +24,17 @@ use postgre_sql::{
 use storage::Database;
 use types::{SqlType, SqlTypeFamily};
 
+use crate::query_engine::QueryEngine;
+use crate::QueryPlanCache;
+use postgre_sql::query_parser::QueryParser;
+
 #[allow(dead_code)]
 pub struct Worker;
 
 impl Worker {
     #[allow(dead_code)]
     fn process<C: WireConnection>(&self, connection: &mut C, db_name: &str) {
-        let mut session = Session::default();
+        let mut query_plan_cache = QueryPlanCache::default();
 
         let database = Database::new(db_name);
         let query_engine = QueryEngine::new(database);
@@ -43,13 +46,13 @@ impl Worker {
             match connection.receive() {
                 Ok(Ok(inbound_request)) => match inbound_request {
                     Inbound::Query { sql } => {
-                        let statements = match txn.parse(&sql) {
+                        let mut statements = match QueryParser.parse(&sql) {
                             Ok(parsed) => parsed,
                             _ => unimplemented!(),
                         };
                         for statement in statements {
                             match statement {
-                                Statement::Definition(ddl) => match txn.execute_ddl(ddl) {
+                                Statement::Definition(ddl) => match txn.apply_schema_change(ddl) {
                                     Ok(success) => {
                                         connection.send(success.into()).unwrap();
                                     }
@@ -77,10 +80,10 @@ impl Worker {
                                             param_types.into_iter().map(|dt| SqlType::from(dt).family()).collect();
                                         let typed_query = txn.process(query.clone(), params.clone()).unwrap();
                                         let query_plan = txn.plan(typed_query);
-                                        session.cache(name, query_plan, query, params);
+                                        query_plan_cache.store(name, query_plan, query, params);
                                         connection.send(Outbound::StatementPrepared).unwrap();
                                     }
-                                    Extended::Execute { name, param_values } => match session.find(&name) {
+                                    Extended::Execute { name, param_values } => match query_plan_cache.find(&name) {
                                         None => unimplemented!(),
                                         // TODO: workaround situate that QueryPlan is not clone ¯\_(ツ)_/¯
                                         Some((query, params)) => {
@@ -142,12 +145,14 @@ impl Worker {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use std::io;
+
     use postgre_sql::wire_protocol::{
         payload::{Outbound, SMALLINT},
         WireError, WireResult,
     };
-    use std::io;
+
+    use super::*;
 
     struct MockConnection {
         inbound: Vec<Inbound>,

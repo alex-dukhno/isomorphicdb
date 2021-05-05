@@ -30,7 +30,6 @@ use storage::{Database, Transaction};
 use types::SqlTypeFamily;
 
 pub struct TransactionContext<'t> {
-    parser: QueryParser,
     definition_planner: DefinitionPlanner<'t>,
     catalog: CatalogHandler<'t>,
     query_analyzer: QueryAnalyzer<'t>,
@@ -41,9 +40,8 @@ pub struct TransactionContext<'t> {
 }
 
 impl<'t> TransactionContext<'t> {
-    fn new(transaction: Transaction<'t>) -> TransactionContext<'t> {
+    pub fn new(transaction: Transaction<'t>) -> TransactionContext<'t> {
         TransactionContext {
-            parser: QueryParser,
             definition_planner: DefinitionPlanner::from(transaction.clone()),
             catalog: CatalogHandler::from(transaction.clone()),
             query_analyzer: QueryAnalyzer::from(transaction.clone()),
@@ -56,11 +54,7 @@ impl<'t> TransactionContext<'t> {
 
     pub fn commit(self) {}
 
-    pub fn parse(&self, sql: &str) -> Result<Vec<Statement>, QueryError> {
-        Ok(self.parser.parse(sql)?)
-    }
-
-    pub fn execute_ddl(&self, definition: Definition) -> Result<QueryEvent, QueryError> {
+    pub fn apply_schema_change(&self, definition: Definition) -> Result<QueryEvent, QueryError> {
         let schema_change = self.definition_planner.plan(definition)?;
         Ok(self.catalog.apply(schema_change)?.into())
     }
@@ -164,21 +158,6 @@ impl<'t> TransactionContext<'t> {
 
     pub fn plan(&self, typed_query: TypedQuery) -> QueryPlan {
         self.query_planner.plan(typed_query)
-    }
-}
-
-#[derive(Clone)]
-pub struct QueryEngine {
-    database: Database,
-}
-
-impl QueryEngine {
-    pub fn new(database: Database) -> QueryEngine {
-        QueryEngine { database }
-    }
-
-    pub fn start_transaction(&self) -> TransactionContext {
-        TransactionContext::new(self.database.transaction())
     }
 }
 

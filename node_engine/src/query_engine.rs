@@ -12,24 +12,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use data_manipulation::QueryPlan;
-use postgre_sql::query_ast::Query;
-use std::collections::HashMap;
+use crate::txn_context::TransactionContext;
+use crate::QueryPlanCache;
+use data_manipulation::QueryExecutionResult;
+use data_repr::scalar::ScalarValue;
+use postgre_sql::query_ast::{Extended, Statement, Transaction};
+use postgre_sql::wire_protocol::payload::{Inbound, Outbound};
+use storage::Database;
 use types::SqlTypeFamily;
 
-#[derive(Default)]
-#[allow(dead_code)]
-pub struct Session {
-    plans: HashMap<String, (Query, Vec<SqlTypeFamily>)>,
+#[derive(Clone)]
+pub struct QueryEngine {
+    database: Database,
 }
 
-#[allow(dead_code)]
-impl Session {
-    pub fn cache(&mut self, name: String, _query_plan: QueryPlan, query_ast: Query, params: Vec<SqlTypeFamily>) {
-        self.plans.insert(name, (query_ast, params));
+impl QueryEngine {
+    pub fn new(database: Database) -> QueryEngine {
+        QueryEngine { database }
     }
 
-    pub fn find(&self, name: &str) -> Option<&(Query, Vec<SqlTypeFamily>)> {
-        self.plans.get(name)
+    pub fn start_transaction(&self) -> TransactionContext {
+        TransactionContext::new(self.database.transaction())
     }
 }

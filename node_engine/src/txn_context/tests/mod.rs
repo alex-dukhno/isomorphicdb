@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use super::*;
+use crate::query_engine::QueryEngine;
 use bigdecimal::BigDecimal;
 use data_manipulation::QueryExecutionResult;
 use data_repr::scalar::ScalarValue;
@@ -68,16 +69,16 @@ fn string(value: &str) -> ScalarValue {
 }
 
 fn assert_definition(txn: &TransactionContext, sql: &str, expected: Result<QueryEvent, QueryError>) {
-    match txn.parse(sql).expect("query parsed").pop() {
+    match QueryParser.parse(sql).expect("query parsed").pop() {
         Some(Statement::Definition(definition)) => {
-            assert_eq!(txn.execute_ddl(definition), expected);
+            assert_eq!(txn.apply_schema_change(definition), expected);
         }
         other => panic!("expected DDL query but was {:?}", other),
     }
 }
 
 fn assert_query(txn: &TransactionContext, sql: &str, expected: Result<QueryExecutionResult, QueryError>) {
-    match txn.parse(sql).expect("query parsed").pop() {
+    match QueryParser.parse(sql).expect("query parsed").pop() {
         Some(Statement::Query(query)) => {
             let query_result = txn
                 .process(query, vec![])

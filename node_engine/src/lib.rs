@@ -12,11 +12,34 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::collections::HashMap;
+
+use data_manipulation::QueryPlan;
+pub use node_engine_old::NodeEngineOld;
+use postgre_sql::query_ast::Query;
+use storage::Database;
+use types::SqlTypeFamily;
+
 mod node_engine_old;
 mod query_engine;
 mod query_engine_old;
-mod session;
 mod session_old;
+mod txn_context;
 mod worker;
 
-pub use node_engine_old::NodeEngineOld;
+#[derive(Default)]
+#[allow(dead_code)]
+pub struct QueryPlanCache {
+    plans: HashMap<String, (Query, Vec<SqlTypeFamily>)>,
+}
+
+#[allow(dead_code)]
+impl QueryPlanCache {
+    pub fn store(&mut self, name: String, _query_plan: QueryPlan, query_ast: Query, params: Vec<SqlTypeFamily>) {
+        self.plans.insert(name, (query_ast, params));
+    }
+
+    pub fn find(&self, name: &str) -> Option<&(Query, Vec<SqlTypeFamily>)> {
+        self.plans.get(name)
+    }
+}
