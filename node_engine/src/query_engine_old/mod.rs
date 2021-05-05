@@ -19,14 +19,14 @@ use crate::session_old::{
 use catalog::CatalogHandlerOld;
 use data_definition::ExecutionOutcome;
 use data_manipulation::{
-    DynamicTypedTree, QueryExecutionResult, StaticTypedTree, TypedDeleteQuery, TypedInsertQuery, TypedQuery,
-    TypedSelectQuery, TypedUpdateQuery, UntypedQuery,
+    DynamicTypedTree, StaticTypedTree, TypedDeleteQuery, TypedInsertQuery, TypedQuery, TypedSelectQuery,
+    TypedUpdateQuery, UntypedQuery,
 };
 use data_repr::scalar::ScalarValue;
 use definition::ColumnDef;
 use definition_planner::DefinitionPlannerOld;
 use postgre_sql::{
-    query_ast::{Extended, Statement},
+    query_ast::{Extended, Request, Statement},
     query_parser::QueryParser,
     query_response::{QueryError, QueryEvent},
     wire_protocol::{payload::*, Sender},
@@ -153,7 +153,7 @@ impl QueryEngineOld {
             let result = match &*inner {
                 Inbound::Query { sql } => {
                     match query_parser.parse(&sql) {
-                        Ok(mut statements) => match statements.pop().expect("single query") {
+                        Ok(Request::Statement(statement)) => match statement {
                             Statement::Extended(extended_query) => match extended_query {
                                 Extended::Prepare {
                                     query,
@@ -233,14 +233,16 @@ impl QueryEngineOld {
                                                         values: type_coerced,
                                                     }))
                                                     .execute(param_values)
-                                                    .map(|r| { let r: QueryEvent = r.into(); r })
-                                                    .map(|r| { let r: Vec<u8> = r.into(); r })
+                                                    .map(|r| { let r: Vec<QueryEvent> = r.into(); r })
+                                                    .map(|r| { let r: Vec<Vec<u8>> = r.into_iter().map(|q| { let r: Vec<u8> = q.into(); r }).collect::<Vec<_>>(); r })
                                                     .map_err(|e| { let e: QueryError = e.into(); e })
-                                                    .map_err(|e| { let e: Vec<u8> = e.into(); e }) {
+                                                    .map_err(|e| { let e: Vec<u8> = e.into(); vec![e] }) {
                                                     Ok(ok) => ok,
                                                     Err(err) => err,
                                                 };
-                                                self.sender.lock().unwrap().send(&query_result).expect("To Send to client");
+                                                for result in query_result {
+                                                    self.sender.lock().unwrap().send(&result).expect("To Send to client");
+                                                }
                                             }
                                             UntypedQuery::Update(update) => {
                                                 let typed_values = update
@@ -285,14 +287,16 @@ impl QueryEngineOld {
                                                         filter: type_coerced_filter
                                                     }))
                                                     .execute(param_values)
-                                                    .map(|r| { let r: QueryEvent = r.into(); r })
-                                                    .map(|r| { let r: Vec<u8> = r.into(); r })
+                                                    .map(|r| { let r: Vec<QueryEvent> = r.into(); r })
+                                                    .map(|r| { let r: Vec<Vec<u8>> = r.into_iter().map(|q| { let r: Vec<u8> = q.into(); r }).collect::<Vec<_>>(); r })
                                                     .map_err(|e| { let e: QueryError = e.into(); e })
-                                                    .map_err(|e| { let e: Vec<u8> = e.into(); e }) {
+                                                    .map_err(|e| { let e: Vec<u8> = e.into(); vec![e] }) {
                                                     Ok(ok) => ok,
                                                     Err(err) => err,
                                                 };
-                                                self.sender.lock().unwrap().send(&query_result).expect("To Send to client");
+                                                for result in query_result {
+                                                    self.sender.lock().unwrap().send(&result).expect("To Send to client");
+                                                }
                                             }
                                             UntypedQuery::Select(select) => {
                                                 log::debug!("SELECT UNTYPED VALUES - {:?}", select.projection_items);
@@ -325,41 +329,22 @@ impl QueryEngineOld {
                                                     .map(|value| self.type_coercion.coerce_dynamic(value));
                                                 log::debug!("SELECT TYPE COERCED FILTER - {:?}", type_coerced_filter);
 
-                                                let query_result = query_planner
+                                                let query_result = match query_planner
                                                     .plan(TypedQuery::Select(TypedSelectQuery {
                                                         projection_items: type_coerced,
                                                         full_table_name: select.full_table_name,
                                                         filter: type_coerced_filter
                                                     }))
                                                     .execute(param_values)
+                                                    .map(|r| { let r: Vec<QueryEvent> = r.into(); r })
+                                                    .map(|r| { let r: Vec<Vec<u8>> = r.into_iter().map(|q| { let r: Vec<u8> = q.into(); r }).collect::<Vec<_>>(); r })
                                                     .map_err(|e| { let e: QueryError = e.into(); e })
-                                                    .map_err(|e| { let e: Vec<u8> = e.into(); e });
-                                                match query_result {
-                                                    Ok(QueryExecutionResult::Selected((desc, data))) => {
-                                                        let x45: Vec<u8> = QueryEvent::RowDescription(desc).into();
-                                                        self.sender.lock().unwrap()
-                                                            .send(&x45)
-                                                            .expect("To Send to client");
-                                                        let len = data.len();
-                                                        for row in data {
-                                                            let x44: Vec<u8> = QueryEvent::DataRow(
-                                                                row.into_iter()
-                                                                    .map(|scalar| scalar.as_text())
-                                                                    .collect(),
-                                                            ).into();
-                                                            self.sender.lock().unwrap()
-                                                                .send(&x44)
-                                                                .expect("To Send to client");
-                                                        }
-                                                        let x43: Vec<u8> = QueryEvent::RecordsSelected(len).into();
-                                                        self.sender.lock().unwrap()
-                                                            .send(&x43)
-                                                            .expect("To Send to client");
-                                                    }
-                                                    Ok(_) => unreachable!(),
-                                                    Err(error) => {
-                                                        self.sender.lock().unwrap().send(&error).expect("To Send to client");
-                                                    }
+                                                    .map_err(|e| { let e: Vec<u8> = e.into(); vec![e] }) {
+                                                    Ok(ok) => ok,
+                                                    Err(err) => err,
+                                                };
+                                                for result in query_result {
+                                                    self.sender.lock().unwrap().send(&result).expect("To Send to client");
                                                 }
                                             }
                                             UntypedQuery::Delete(delete) => {
@@ -382,14 +367,16 @@ impl QueryEngineOld {
                                                         filter: type_coerced_filter
                                                     }))
                                                     .execute(param_values)
-                                                    .map(|r| { let r: QueryEvent = r.into(); r })
-                                                    .map(|r| { let r: Vec<u8> = r.into(); r })
+                                                    .map(|r| { let r: Vec<QueryEvent> = r.into(); r })
+                                                    .map(|r| { let r: Vec<Vec<u8>> = r.into_iter().map(|q| { let r: Vec<u8> = q.into(); r }).collect::<Vec<_>>(); r })
                                                     .map_err(|e| { let e: QueryError = e.into(); e })
-                                                    .map_err(|e| { let e: Vec<u8> = e.into(); e }) {
+                                                    .map_err(|e| { let e: Vec<u8> = e.into(); vec![e] }) {
                                                     Ok(ok) => ok,
                                                     Err(err) => err,
                                                 };
-                                                self.sender.lock().unwrap().send(&query_result).expect("To Send to client");
+                                                for result in query_result {
+                                                    self.sender.lock().unwrap().send(&result).expect("To Send to client");
+                                                }
                                             }
                                         },
                                         None => {
@@ -451,14 +438,16 @@ impl QueryEngineOld {
                                             filter: type_coerced_filter
                                         }))
                                         .execute(vec![])
-                                        .map(|r| { let r: QueryEvent = r.into(); r })
-                                        .map(|r| { let r: Vec<u8> = r.into(); r })
+                                        .map(|r| { let r: Vec<QueryEvent> = r.into(); r })
+                                        .map(|r| { let r: Vec<Vec<u8>> = r.into_iter().map(|q| { let r: Vec<u8> = q.into(); r }).collect::<Vec<_>>(); r })
                                         .map_err(|e| { let e: QueryError = e.into(); e })
-                                        .map_err(|e| { let e: Vec<u8> = e.into(); e }) {
+                                        .map_err(|e| { let e: Vec<u8> = e.into(); vec![e] }) {
                                         Ok(ok) => ok,
                                         Err(err) => err,
                                     };
-                                    self.sender.lock().unwrap().send(&query_result).expect("To Send to client");
+                                    for result in query_result {
+                                        self.sender.lock().unwrap().send(&result).expect("To Send to client");
+                                    }
                                 }
                                 Ok(UntypedQuery::Update(update)) => {
                                     let typed_values = update
@@ -497,14 +486,16 @@ impl QueryEngineOld {
                                             filter: type_coerced_filter
                                         }))
                                         .execute(vec![])
-                                        .map(|r| { let r: QueryEvent = r.into(); r })
-                                        .map(|r| { let r: Vec<u8> = r.into(); r })
+                                        .map(|r| { let r: Vec<QueryEvent> = r.into(); r })
+                                        .map(|r| { let r: Vec<Vec<u8>> = r.into_iter().map(|q| { let r: Vec<u8> = q.into(); r }).collect::<Vec<_>>(); r })
                                         .map_err(|e| { let e: QueryError = e.into(); e })
-                                        .map_err(|e| { let e: Vec<u8> = e.into(); e }) {
+                                        .map_err(|e| { let e: Vec<u8> = e.into(); vec![e] }) {
                                         Ok(ok) => ok,
                                         Err(err) => err,
                                     };
-                                    self.sender.lock().unwrap().send(&query_result).expect("To Send to client");
+                                    for result in query_result {
+                                        self.sender.lock().unwrap().send(&result).expect("To Send to client");
+                                    }
                                 }
                                 Ok(UntypedQuery::Insert(insert)) => {
                                     log::debug!("INSERT UNTYPED VALUES {:?}", insert.values);
@@ -551,14 +542,16 @@ impl QueryEngineOld {
                                             values: type_coerced,
                                         }))
                                         .execute(vec![])
-                                        .map(|r| { let r: QueryEvent = r.into(); r })
-                                        .map(|r| { let r: Vec<u8> = r.into(); r })
+                                        .map(|r| { let r: Vec<QueryEvent> = r.into(); r })
+                                        .map(|r| { let r: Vec<Vec<u8>> = r.into_iter().map(|q| { let r: Vec<u8> = q.into(); r }).collect::<Vec<_>>(); r })
                                         .map_err(|e| { let e: QueryError = e.into(); e })
-                                        .map_err(|e| { let e: Vec<u8> = e.into(); e }) {
+                                        .map_err(|e| { let e: Vec<u8> = e.into(); vec![e] }) {
                                         Ok(ok) => ok,
                                         Err(err) => err,
                                     };
-                                    self.sender.lock().unwrap().send(&query_result).expect("To Send to client");
+                                    for result in query_result {
+                                        self.sender.lock().unwrap().send(&result).expect("To Send to client");
+                                    }
                                 }
                                 Ok(UntypedQuery::Select(select)) => {
                                     log::debug!("SELECT UNTYPED VALUES - {:?}", select.projection_items);
@@ -591,39 +584,22 @@ impl QueryEngineOld {
                                         .map(|value| self.type_coercion.coerce_dynamic(value));
                                     log::debug!("SELECT TYPE COERCED FILTER - {:?}", type_coerced_filter);
 
-                                    let query_result = query_planner
+                                    let query_result = match query_planner
                                         .plan(TypedQuery::Select(TypedSelectQuery {
                                             projection_items: type_coerced_values,
                                             full_table_name: select.full_table_name,
                                             filter: type_coerced_filter
                                         }))
                                         .execute(vec![])
+                                        .map(|r| { let r: Vec<QueryEvent> = r.into(); r })
+                                        .map(|r| { let r: Vec<Vec<u8>> = r.into_iter().map(|q| { let r: Vec<u8> = q.into(); r }).collect::<Vec<_>>(); r })
                                         .map_err(|e| { let e: QueryError = e.into(); e })
-                                        .map_err(|e| { let e: Vec<u8> = e.into(); e });
-                                    match query_result {
-                                        Ok(QueryExecutionResult::Selected((desc, data))) => {
-                                            let x38: Vec<u8> = QueryEvent::RowDescription(desc).into();
-                                            self.sender.lock().unwrap()
-                                                .send(&x38)
-                                                .expect("To Send to client");
-                                            let len = data.len();
-                                            for row in data {
-                                                let x37: Vec<u8> = QueryEvent::DataRow(
-                                                    row.into_iter().map(|scalar| scalar.as_text()).collect(),
-                                                ).into();
-                                                self.sender.lock().unwrap()
-                                                    .send(&x37)
-                                                    .expect("To Send to client");
-                                            }
-                                            let x36: Vec<u8> = QueryEvent::RecordsSelected(len).into();
-                                            self.sender.lock().unwrap()
-                                                .send(&x36)
-                                                .expect("To Send to client");
-                                        }
-                                        Ok(_) => unreachable!(),
-                                        Err(error) => {
-                                            self.sender.lock().unwrap().send(&error).expect("To Send to client");
-                                        }
+                                        .map_err(|e| { let e: Vec<u8> = e.into(); vec![e] }) {
+                                        Ok(ok) => ok,
+                                        Err(err) => err,
+                                    };
+                                    for result in query_result {
+                                        self.sender.lock().unwrap().send(&result).expect("To Send to client");
                                     }
                                 }
                                 Err(error) => {
@@ -632,21 +608,21 @@ impl QueryEngineOld {
                                     self.sender.lock().unwrap().send(&x35).expect("To Send Error to Client");
                                 }
                             },
-                            Statement::Config(_) => {
-                                // sending ok to the client to proceed with other requests
-                                let x34: Vec<u8> = QueryEvent::VariableSet.into();
-                                self.sender.lock().unwrap()
-                                    .send(&x34)
-                                    .expect("To Send Result to Client");
-                            }
-                            _ => unimplemented!(),
                         },
                         Err(parser_error) => {
                             let x33: Vec<u8> = QueryError::syntax_error(parser_error).into();
                             self.sender.lock().unwrap()
                                 .send(&x33)
                                 .expect("To Send ParseComplete Event");
+                        },
+                        Ok(Request::Config(_)) => {
+                            // sending ok to the client to proceed with other requests
+                            let x34: Vec<u8> = QueryEvent::VariableSet.into();
+                            self.sender.lock().unwrap()
+                                .send(&x34)
+                                .expect("To Send Result to Client");
                         }
+                        _ => unimplemented!(),
                     }
                     let x32: Vec<u8> = QueryEvent::QueryComplete.into();
                     self.sender.lock().unwrap()
@@ -661,8 +637,8 @@ impl QueryEngineOld {
                 } => {
                     match session.get_prepared_statement(&statement_name) {
                         Some(stmt) if stmt.raw_query() == sql => match query_parser.parse(&sql) {
-                            Ok(mut statements) => match statements.pop() {
-                                Some(Statement::Query(query)) => {
+                            Ok(Request::Statement(statement)) => match statement {
+                                Statement::Query(query) => {
                                     stmt.parsed_with_params(
                                         query,
                                         param_types
@@ -688,10 +664,11 @@ impl QueryEngineOld {
                                     .send(&x29)
                                     .expect("To Send Syntax Error Event");
                             }
+                            _ => unimplemented!(),
                         },
                         _ => match query_parser.parse(&sql) {
-                            Ok(mut statements) => match statements.pop() {
-                                Some(Statement::Query(query)) => {
+                            Ok(Request::Statement(statement)) => match statement {
+                                Statement::Query(query) => {
                                     if param_types.is_empty() || param_types.iter().all(|o| *o != 0) {
                                         let mut prep = PreparedStatement::parsed(sql.clone(), query.clone());
                                         prep.parsed_with_params(
@@ -722,6 +699,7 @@ impl QueryEngineOld {
                                     .send(&x26)
                                     .expect("To Send Syntax Error Event");
                             }
+                            _ => unimplemented!(),
                         },
                     }
                     Ok(())
@@ -1009,14 +987,16 @@ impl QueryEngineOld {
                                         values: type_coerced,
                                     }))
                                     .execute(portal.param_values())
-                                    .map(|r| { let r: QueryEvent = r.into(); r })
-                                    .map(|r| { let r: Vec<u8> = r.into(); r })
+                                    .map(|r| { let r: Vec<QueryEvent> = r.into(); r })
+                                    .map(|r| { let r: Vec<Vec<u8>> = r.into_iter().map(|q| { let r: Vec<u8> = q.into(); r }).collect::<Vec<_>>(); r })
                                     .map_err(|e| { let e: QueryError = e.into(); e })
-                                    .map_err(|e| { let e: Vec<u8> = e.into(); e }) {
+                                    .map_err(|e| { let e: Vec<u8> = e.into(); vec![e] }) {
                                     Ok(ok) => ok,
                                     Err(err) => err,
                                 };
-                                self.sender.lock().unwrap().send(&query_result).expect("To Send to client");
+                                for result in query_result {
+                                    self.sender.lock().unwrap().send(&result).expect("To Send to client");
+                                }
                             }
                             UntypedQuery::Update(update) => {
                                 let typed_values = update
@@ -1057,14 +1037,16 @@ impl QueryEngineOld {
                                         filter: type_coerced_filter
                                     }))
                                     .execute(portal.param_values())
-                                    .map(|r| { let r: QueryEvent = r.into(); r })
-                                    .map(|r| { let r: Vec<u8> = r.into(); r })
+                                    .map(|r| { let r: Vec<QueryEvent> = r.into(); r })
+                                    .map(|r| { let r: Vec<Vec<u8>> = r.into_iter().map(|q| { let r: Vec<u8> = q.into(); r }).collect::<Vec<_>>(); r })
                                     .map_err(|e| { let e: QueryError = e.into(); e })
-                                    .map_err(|e| { let e: Vec<u8> = e.into(); e }) {
+                                    .map_err(|e| { let e: Vec<u8> = e.into(); vec![e] }) {
                                     Ok(ok) => ok,
                                     Err(err) => err,
                                 };
-                                self.sender.lock().unwrap().send(&query_result).expect("To Send to client");
+                                for result in query_result {
+                                    self.sender.lock().unwrap().send(&result).expect("To Send to client");
+                                }
                             }
                             UntypedQuery::Select(select) => {
                                 log::debug!("SELECT UNTYPED VALUES - {:?}", select.projection_items);
@@ -1097,39 +1079,22 @@ impl QueryEngineOld {
                                     .map(|value| self.type_coercion.coerce_dynamic(value));
                                 log::debug!("SELECT TYPE COERCED FILTER - {:?}", type_coerced_filter);
 
-                                let query_result = query_planner
+                                let query_result = match query_planner
                                     .plan(TypedQuery::Select(TypedSelectQuery {
                                         projection_items: type_coerced,
                                         full_table_name: select.full_table_name,
                                         filter: type_coerced_filter
                                     }))
                                     .execute(vec![])
+                                    .map(|r| { let r: Vec<QueryEvent> = r.into(); r })
+                                    .map(|r| { let r: Vec<Vec<u8>> = r.into_iter().map(|q| { let r: Vec<u8> = q.into(); r }).collect::<Vec<_>>(); r })
                                     .map_err(|e| { let e: QueryError = e.into(); e })
-                                    .map_err(|e| { let e: Vec<u8> = e.into(); e });
-                                match query_result {
-                                    Ok(QueryExecutionResult::Selected((desc, data))) => {
-                                        let x5: Vec<u8> = QueryEvent::RowDescription(desc).into();
-                                        self.sender.lock().unwrap()
-                                            .send(&x5)
-                                            .expect("To Send to client");
-                                        let len = data.len();
-                                        for row in data {
-                                            let x6: Vec<u8> = QueryEvent::DataRow(
-                                                row.into_iter().map(|scalar| scalar.as_text()).collect(),
-                                            ).into();
-                                            self.sender.lock().unwrap()
-                                                .send(&x6)
-                                                .expect("To Send to client");
-                                        }
-                                        let x4: Vec<u8> = QueryEvent::RecordsSelected(len).into();
-                                        self.sender.lock().unwrap()
-                                            .send(&x4)
-                                            .expect("To Send to client");
-                                    }
-                                    Ok(_) => unreachable!(),
-                                    Err(error) => {
-                                        self.sender.lock().unwrap().send(&error).expect("To Send to client");
-                                    }
+                                    .map_err(|e| { let e: Vec<u8> = e.into(); vec![e] }) {
+                                    Ok(ok) => ok,
+                                    Err(err) => err,
+                                };
+                                for result in query_result {
+                                    self.sender.lock().unwrap().send(&result).expect("To Send to client");
                                 }
                             }
                             UntypedQuery::Delete(delete) => {
@@ -1152,14 +1117,16 @@ impl QueryEngineOld {
                                         filter: type_coerced_filter
                                     }))
                                     .execute(vec![])
-                                    .map(|r| { let r: QueryEvent = r.into(); r })
-                                    .map(|r| { let r: Vec<u8> = r.into(); r })
+                                    .map(|r| { let r: Vec<QueryEvent> = r.into(); r })
+                                    .map(|r| { let r: Vec<Vec<u8>> = r.into_iter().map(|q| { let r: Vec<u8> = q.into(); r }).collect::<Vec<_>>(); r })
                                     .map_err(|e| { let e: QueryError = e.into(); e })
-                                    .map_err(|e| { let e: Vec<u8> = e.into(); e }) {
+                                    .map_err(|e| { let e: Vec<u8> = e.into(); vec![e] }) {
                                     Ok(ok) => ok,
                                     Err(err) => err,
                                 };
-                                self.sender.lock().unwrap().send(&query_result).expect("To Send to client");
+                                for result in query_result {
+                                    self.sender.lock().unwrap().send(&result).expect("To Send to client");
+                                }
                             }
                         },
                         None => {

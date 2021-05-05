@@ -21,7 +21,7 @@ mod schemaless {
     #[test]
     fn create_table_in_non_existent_schema() {
         let database = Database::new("IN_MEMORY");
-        let query_engine = QueryEngine::new(database);
+        let query_engine = TransactionManager::new(database);
 
         let txn = query_engine.start_transaction();
         assert_definition(
@@ -35,7 +35,7 @@ mod schemaless {
     #[test]
     fn drop_table_from_non_existent_schema() {
         let database = Database::new("IN_MEMORY");
-        let query_engine = QueryEngine::new(database);
+        let query_engine = TransactionManager::new(database);
 
         let txn = query_engine.start_transaction();
         assert_definition(
@@ -48,7 +48,7 @@ mod schemaless {
 }
 
 #[rstest::rstest]
-fn create_table(with_schema: QueryEngine) {
+fn create_table(with_schema: TransactionManager) {
     let txn = with_schema.start_transaction();
 
     assert_definition(
@@ -60,7 +60,7 @@ fn create_table(with_schema: QueryEngine) {
 }
 
 #[rstest::rstest]
-fn create_same_table(with_schema: QueryEngine) {
+fn create_same_table(with_schema: TransactionManager) {
     let txn = with_schema.start_transaction();
 
     assert_definition(
@@ -77,7 +77,7 @@ fn create_same_table(with_schema: QueryEngine) {
 }
 
 #[rstest::rstest]
-fn drop_table(with_schema: QueryEngine) {
+fn drop_table(with_schema: TransactionManager) {
     let txn = with_schema.start_transaction();
 
     assert_definition(
@@ -94,7 +94,7 @@ fn drop_table(with_schema: QueryEngine) {
 }
 
 #[rstest::rstest]
-fn drop_non_existent_table(with_schema: QueryEngine) {
+fn drop_non_existent_table(with_schema: TransactionManager) {
     let txn = with_schema.start_transaction();
 
     assert_definition(
@@ -106,7 +106,7 @@ fn drop_non_existent_table(with_schema: QueryEngine) {
 }
 
 #[rstest::rstest]
-fn drop_if_exists_non_existent_table(with_schema: QueryEngine) {
+fn drop_if_exists_non_existent_table(with_schema: TransactionManager) {
     let txn = with_schema.start_transaction();
 
     assert_definition(
@@ -118,7 +118,7 @@ fn drop_if_exists_non_existent_table(with_schema: QueryEngine) {
 }
 
 #[rstest::rstest]
-fn drop_if_exists_existent_and_non_existent_table(with_schema: QueryEngine) {
+fn drop_if_exists_existent_and_non_existent_table(with_schema: TransactionManager) {
     let txn = with_schema.start_transaction();
 
     assert_definition(
@@ -140,7 +140,7 @@ fn drop_if_exists_existent_and_non_existent_table(with_schema: QueryEngine) {
 }
 
 #[rstest::rstest]
-fn delete_from_nonexistent_table(with_schema: QueryEngine) {
+fn delete_from_nonexistent_table(with_schema: TransactionManager) {
     let txn = with_schema.start_transaction();
     assert_query(
         &txn,
@@ -151,7 +151,7 @@ fn delete_from_nonexistent_table(with_schema: QueryEngine) {
 }
 
 #[rstest::rstest]
-fn insert_into_nonexistent_table(with_schema: QueryEngine) {
+fn insert_into_nonexistent_table(with_schema: TransactionManager) {
     let txn = with_schema.start_transaction();
 
     assert_query(
@@ -163,7 +163,7 @@ fn insert_into_nonexistent_table(with_schema: QueryEngine) {
 }
 
 #[rstest::rstest]
-fn select_from_not_existed_table(with_schema: QueryEngine) {
+fn select_from_not_existed_table(with_schema: TransactionManager) {
     let txn = with_schema.start_transaction();
 
     assert_query(
@@ -175,7 +175,7 @@ fn select_from_not_existed_table(with_schema: QueryEngine) {
 }
 
 #[rstest::rstest]
-fn select_named_columns_from_non_existent_table(with_schema: QueryEngine) {
+fn select_named_columns_from_non_existent_table(with_schema: TransactionManager) {
     let txn = with_schema.start_transaction();
 
     assert_query(
@@ -187,7 +187,7 @@ fn select_named_columns_from_non_existent_table(with_schema: QueryEngine) {
 }
 
 #[rstest::rstest]
-fn update_records_in_nonexistent_table(with_schema: QueryEngine) {
+fn update_records_in_nonexistent_table(with_schema: TransactionManager) {
     let txn = with_schema.start_transaction();
     assert_query(
         &txn,
@@ -202,7 +202,7 @@ mod different_types {
     use super::*;
 
     #[rstest::rstest]
-    fn ints(with_schema: QueryEngine) {
+    fn ints(with_schema: TransactionManager) {
         let txn = with_schema.start_transaction();
 
         assert_definition(
@@ -218,7 +218,7 @@ mod different_types {
     }
 
     #[rstest::rstest]
-    fn strings(with_schema: QueryEngine) {
+    fn strings(with_schema: TransactionManager) {
         let txn = with_schema.start_transaction();
 
         assert_definition(
@@ -233,7 +233,7 @@ mod different_types {
     }
 
     #[rstest::rstest]
-    fn boolean(with_schema: QueryEngine) {
+    fn boolean(with_schema: TransactionManager) {
         let txn = with_schema.start_transaction();
 
         assert_definition(

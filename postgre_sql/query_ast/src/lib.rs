@@ -15,12 +15,17 @@
 use std::fmt::{self, Display, Formatter};
 
 #[derive(Debug, PartialEq)]
+pub enum Request {
+    Transaction(Transaction),
+    Config(Set),
+    Statement(Statement),
+}
+
+#[derive(Debug, PartialEq)]
 pub enum Statement {
     Definition(Definition),
     Query(Query),
-    Config(Set),
     Extended(Extended),
-    Transaction(Transaction),
 }
 
 impl Display for Statement {

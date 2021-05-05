@@ -15,6 +15,7 @@
 use data_manipulation_typed_tree::{DynamicTypedTree, StaticTypedTree};
 use types::SqlType;
 
+#[derive(Clone)]
 pub struct TypeCoercion;
 
 impl TypeCoercion {

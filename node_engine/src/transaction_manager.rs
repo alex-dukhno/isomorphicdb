@@ -12,24 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use data_manipulation::QueryPlan;
-use postgre_sql::query_ast::Query;
-use std::collections::HashMap;
-use types::SqlTypeFamily;
+use crate::txn_context::TransactionContext;
+use storage::Database;
 
-#[derive(Default)]
-#[allow(dead_code)]
-pub struct Session {
-    plans: HashMap<String, (Query, Vec<SqlTypeFamily>)>,
+pub struct TransactionManager {
+    database: Database,
 }
 
-#[allow(dead_code)]
-impl Session {
-    pub fn cache(&mut self, name: String, _query_plan: QueryPlan, query_ast: Query, params: Vec<SqlTypeFamily>) {
-        self.plans.insert(name, (query_ast, params));
+impl TransactionManager {
+    pub fn new(database: Database) -> TransactionManager {
+        TransactionManager { database }
     }
 
-    pub fn find(&self, name: &str) -> Option<&(Query, Vec<SqlTypeFamily>)> {
-        self.plans.get(name)
+    pub fn start_transaction(&self) -> TransactionContext {
+        TransactionContext::new(self.database.transaction())
     }
 }

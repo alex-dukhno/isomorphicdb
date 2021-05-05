@@ -41,9 +41,9 @@ fn set_variable() {
 
     assert_eq!(
         statements,
-        Ok(vec![Statement::Config(Set {
+        Ok(Request::Config(Set {
             variable: "variable".to_owned(),
             value: "value".to_owned()
-        })])
+        }))
     );
 }

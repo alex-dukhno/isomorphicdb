@@ -27,6 +27,7 @@ const TABLES_TABLE: &str = "TABLES";
 const INDEXES_TABLE: &str = "TABLES";
 const COLUMNS_TABLE: &str = "COLUMNS";
 
+#[derive(Clone)]
 pub struct CatalogHandler<'c> {
     transaction: Transaction<'c>,
 }

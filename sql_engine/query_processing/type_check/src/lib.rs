@@ -14,6 +14,7 @@
 
 use data_manipulation_typed_tree::{DynamicTypedTree, StaticTypedTree};
 
+#[derive(Clone)]
 pub struct TypeChecker;
 
 impl TypeChecker {

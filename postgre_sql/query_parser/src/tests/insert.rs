@@ -20,12 +20,12 @@ fn insert_int() {
 
     assert_eq!(
         statements,
-        Ok(vec![Statement::Query(Query::Insert(InsertStatement {
+        Ok(Request::Statement(Statement::Query(Query::Insert(InsertStatement {
             schema_name: "schema_name".to_owned(),
             table_name: "table_name".to_owned(),
             columns: vec![],
             source: InsertSource::Values(Values(vec![vec![Expr::Value(Value::Int(123))]]))
-        }))])
+        }))))
     );
 }
 
@@ -35,12 +35,12 @@ fn insert_string() {
 
     assert_eq!(
         statements,
-        Ok(vec![Statement::Query(Query::Insert(InsertStatement {
+        Ok(Request::Statement(Statement::Query(Query::Insert(InsertStatement {
             schema_name: "schema_name".to_owned(),
             table_name: "table_name".to_owned(),
             columns: vec![],
             source: InsertSource::Values(Values(vec![vec![Expr::Value(Value::String("abc".to_owned()))]]))
-        }))])
+        }))))
     );
 }
 
@@ -80,7 +80,7 @@ mod operators {
 
         assert_eq!(
             statements,
-            Ok(vec![Statement::Query(Query::Insert(InsertStatement {
+            Ok(Request::Statement(Statement::Query(Query::Insert(InsertStatement {
                 schema_name: "schema_name".to_owned(),
                 table_name: "table_name".to_owned(),
                 columns: vec![],
@@ -89,7 +89,7 @@ mod operators {
                     op: expected,
                     right: Box::new(Expr::Value(Value::Int(456)))
                 }]]))
-            }))])
+            }))))
         );
     }
 
@@ -111,7 +111,7 @@ mod operators {
 
         assert_eq!(
             statements,
-            Ok(vec![Statement::Query(Query::Insert(InsertStatement {
+            Ok(Request::Statement(Statement::Query(Query::Insert(InsertStatement {
                 schema_name: "schema_name".to_owned(),
                 table_name: "table_name".to_owned(),
                 columns: vec![],
@@ -123,7 +123,7 @@ mod operators {
                         right: Box::new(Expr::Value(Value::Int(456)))
                     })
                 }]]))
-            }))])
+            }))))
         );
     }
 
@@ -133,7 +133,7 @@ mod operators {
 
         assert_eq!(
             statements,
-            Ok(vec![Statement::Query(Query::Insert(InsertStatement {
+            Ok(Request::Statement(Statement::Query(Query::Insert(InsertStatement {
                 schema_name: "schema_name".to_owned(),
                 table_name: "table_name".to_owned(),
                 columns: vec![],
@@ -141,7 +141,7 @@ mod operators {
                     op: UnaryOperator::PostfixFactorial,
                     expr: Box::new(Expr::Value(Value::Int(456)))
                 }]]))
-            }))])
+            }))))
         );
     }
 }
@@ -152,12 +152,12 @@ fn insert_with_columns() {
 
     assert_eq!(
         statements,
-        Ok(vec![Statement::Query(Query::Insert(InsertStatement {
+        Ok(Request::Statement(Statement::Query(Query::Insert(InsertStatement {
             schema_name: "schema_name".to_owned(),
             table_name: "table_name".to_owned(),
             columns: vec!["col1".to_owned()],
             source: InsertSource::Values(Values(vec![vec![Expr::Value(Value::Int(123))]]))
-        }))])
+        }))))
     );
 }
 
@@ -167,12 +167,12 @@ fn insert_params() {
 
     assert_eq!(
         statements,
-        Ok(vec![Statement::Query(Query::Insert(InsertStatement {
+        Ok(Request::Statement(Statement::Query(Query::Insert(InsertStatement {
             schema_name: "schema_name".to_owned(),
             table_name: "table_name".to_owned(),
             columns: vec!["col1".to_owned()],
             source: InsertSource::Values(Values(vec![vec![Expr::Param(1)]]))
-        }))])
+        }))))
     );
 }
 
@@ -182,12 +182,12 @@ fn insert_column() {
 
     assert_eq!(
         statements,
-        Ok(vec![Statement::Query(Query::Insert(InsertStatement {
+        Ok(Request::Statement(Statement::Query(Query::Insert(InsertStatement {
             schema_name: "schema_name".to_owned(),
             table_name: "table_name".to_owned(),
             columns: vec!["col1".to_owned()],
             source: InsertSource::Values(Values(vec![vec![Expr::Column("col2".to_owned())]]))
-        }))])
+        }))))
     );
 }
 
@@ -200,7 +200,7 @@ fn insert_int_max() {
 
     assert_eq!(
         statements,
-        Ok(vec![Statement::Query(Query::Insert(InsertStatement {
+        Ok(Request::Statement(Statement::Query(Query::Insert(InsertStatement {
             schema_name: "schema_name".to_owned(),
             table_name: "table_name".to_owned(),
             columns: vec![],
@@ -212,7 +212,7 @@ fn insert_int_max() {
                 Expr::Value(Value::Number("9223372036854775807".to_owned())),
                 Expr::Value(Value::Number("-9223372036854775808".to_owned())),
             ]]))
-        }))])
+        }))))
     );
 }
 
@@ -222,7 +222,7 @@ fn cast() {
 
     assert_eq!(
         statements,
-        Ok(vec![Statement::Query(Query::Insert(InsertStatement {
+        Ok(Request::Statement(Statement::Query(Query::Insert(InsertStatement {
             schema_name: "schema_name".to_owned(),
             table_name: "table_name".to_owned(),
             columns: vec![],
@@ -230,6 +230,6 @@ fn cast() {
                 expr: Box::new(Expr::Value(Value::String("true".to_owned()))),
                 data_type: DataType::Bool
             }]]))
-        }))])
+        }))))
     );
 }

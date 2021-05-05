@@ -17,7 +17,7 @@ use super::*;
 #[test]
 fn create_schema() {
     let database = Database::new("IN_MEMORY");
-    let query_engine = QueryEngine::new(database);
+    let query_engine = TransactionManager::new(database);
 
     let txn = query_engine.start_transaction();
     assert_definition(&txn, "create schema schema_name;", Ok(QueryEvent::SchemaCreated));
@@ -27,7 +27,7 @@ fn create_schema() {
 #[test]
 fn create_same_schema() {
     let database = Database::new("IN_MEMORY");
-    let query_engine = QueryEngine::new(database);
+    let query_engine = TransactionManager::new(database);
 
     let txn = query_engine.start_transaction();
     assert_definition(&txn, "create schema schema_name;", Ok(QueryEvent::SchemaCreated));
@@ -42,7 +42,7 @@ fn create_same_schema() {
 #[test]
 fn drop_schema() {
     let database = Database::new("IN_MEMORY");
-    let query_engine = QueryEngine::new(database);
+    let query_engine = TransactionManager::new(database);
 
     let txn = query_engine.start_transaction();
     assert_definition(&txn, "create schema schema_name;", Ok(QueryEvent::SchemaCreated));
@@ -53,7 +53,7 @@ fn drop_schema() {
 #[test]
 fn drop_non_existent_schema() {
     let database = Database::new("IN_MEMORY");
-    let query_engine = QueryEngine::new(database);
+    let query_engine = TransactionManager::new(database);
 
     let txn = query_engine.start_transaction();
     assert_definition(
@@ -67,7 +67,7 @@ fn drop_non_existent_schema() {
 #[test]
 fn drop_if_exists_non_existent_schema() {
     let database = Database::new("IN_MEMORY");
-    let query_engine = QueryEngine::new(database);
+    let query_engine = TransactionManager::new(database);
 
     let txn = query_engine.start_transaction();
     assert_definition(
@@ -81,7 +81,7 @@ fn drop_if_exists_non_existent_schema() {
 #[test]
 fn drop_if_exists_existent_and_non_existent_schema() {
     let database = Database::new("IN_MEMORY");
-    let query_engine = QueryEngine::new(database);
+    let query_engine = TransactionManager::new(database);
 
     let txn = query_engine.start_transaction();
     assert_definition(&txn, "create schema existent_schema;", Ok(QueryEvent::SchemaCreated));
@@ -97,7 +97,7 @@ fn drop_if_exists_existent_and_non_existent_schema() {
 #[test]
 fn select_from_nonexistent_schema() {
     let database = Database::new("IN_MEMORY");
-    let query_engine = QueryEngine::new(database);
+    let query_engine = TransactionManager::new(database);
 
     let txn = query_engine.start_transaction();
     assert_query(
@@ -111,7 +111,7 @@ fn select_from_nonexistent_schema() {
 #[test]
 fn select_named_columns_from_nonexistent_schema() {
     let database = Database::new("IN_MEMORY");
-    let query_engine = QueryEngine::new(database);
+    let query_engine = TransactionManager::new(database);
 
     let txn = query_engine.start_transaction();
     assert_query(
@@ -125,7 +125,7 @@ fn select_named_columns_from_nonexistent_schema() {
 #[test]
 fn insert_into_table_in_nonexistent_schema() {
     let database = Database::new("IN_MEMORY");
-    let query_engine = QueryEngine::new(database);
+    let query_engine = TransactionManager::new(database);
 
     let txn = query_engine.start_transaction();
     assert_query(
@@ -139,7 +139,7 @@ fn insert_into_table_in_nonexistent_schema() {
 #[test]
 fn update_records_in_table_from_non_existent_schema() {
     let database = Database::new("IN_MEMORY");
-    let query_engine = QueryEngine::new(database);
+    let query_engine = TransactionManager::new(database);
 
     let txn = query_engine.start_transaction();
     assert_query(
@@ -153,7 +153,7 @@ fn update_records_in_table_from_non_existent_schema() {
 #[test]
 fn delete_from_table_in_nonexistent_schema() {
     let database = Database::new("IN_MEMORY");
-    let query_engine = QueryEngine::new(database);
+    let query_engine = TransactionManager::new(database);
 
     let txn = query_engine.start_transaction();
     assert_query(
