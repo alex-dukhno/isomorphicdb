@@ -38,38 +38,15 @@ impl QueryExecutor {
                 responses.push(OutboundMessage::StatementParameters(param_types.to_vec()));
                 (UntypedQuery::Insert(insert), param_types)
             }
-            _ => unimplemented!(),
+            Ok(UntypedQuery::Update(update)) => {
+                let param_types = txn.describe_update(&update);
+                responses.push(OutboundMessage::StatementDescription(vec![]));
+                responses.push(OutboundMessage::StatementParameters(param_types.to_vec()));
+                (UntypedQuery::Update(update), param_types)
+            }
+            other => unimplemented!("{:?}", other),
         };
         (untyped_query, params, responses)
-        // match query_analyzer.analyze(statement.query().unwrap()) {
-        //     Ok(UntypedQuery::Insert(insert)) => {
-        //         let table_definition = catalog
-        //             .table_definition(insert.full_table_name.clone())
-        //             .unwrap()
-        //             .unwrap();
-        //         let param_types = table_definition
-        //             .columns()
-        //             .iter()
-        //             .map(ColumnDef::sql_type)
-        //             .map(|sql_type| (&sql_type).into())
-        //             .collect::<Vec<u32>>();
-        //         let x25: Vec<u8> = QueryEvent::StatementParameters(param_types.to_vec()).into();
-        //         self.sender.lock().unwrap()
-        //             .send(&x25)
-        //             .expect("To Send Statement Parameters to Client");
-        //         let x24: Vec<u8> = QueryEvent::StatementDescription(vec![]).into();
-        //         self.sender.lock().unwrap()
-        //             .send(&x24)
-        //             .expect("To Send Statement Description to Client");
-        //         statement.described(UntypedQuery::Insert(insert), param_types);
-        //     }
-        //     _ => {
-        //         let x19: Vec<u8> = QueryError::prepared_statement_does_not_exist(name).into();
-        //         self.sender.lock().unwrap()
-        //             .send(&x19)
-        //             .expect("To Send Error to Client");
-        //     }
-        // }
     }
 
     pub fn execute_portal(
@@ -84,8 +61,11 @@ impl QueryExecutor {
         let typed_query = txn.process_untyped_query(untyped_query, params).unwrap();
         let query_plan = txn.plan(typed_query);
         match query_plan.execute(arguments) {
-            Ok(QueryExecutionResult::Inserted(inserted)) => responses.push(OutboundMessage::RecordsInserted(inserted)),
-            Ok(_) => {}
+            Ok(success) => {
+                let events: Vec<QueryEvent> = success.into();
+                let messages: Vec<OutboundMessage> = events.into_iter().map(QueryEvent::into).collect();
+                responses.extend(messages);
+            }
             Err(_) => unimplemented!(),
         }
         responses

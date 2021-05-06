@@ -15,7 +15,7 @@
 use catalog::CatalogHandler;
 use data_manipulation::{
     DynamicTypedTree, QueryPlan, StaticTypedTree, TypedDeleteQuery, TypedInsertQuery, TypedQuery, TypedSelectQuery,
-    TypedUpdateQuery, UntypedInsertQuery, UntypedQuery,
+    TypedUpdateQuery, UntypedInsertQuery, UntypedQuery, UntypedUpdateQuery,
 };
 use definition::ColumnDef;
 use definition_planner::DefinitionPlanner;
@@ -88,6 +88,20 @@ impl<'t> TransactionContext<'t> {
             .collect::<Vec<u32>>()
     }
 
+    pub fn describe_update(&self, update: &UntypedUpdateQuery) -> Vec<u32> {
+        let table_definition = self
+            .catalog
+            .table_definition(update.full_table_name.clone())
+            .unwrap()
+            .unwrap();
+        table_definition
+            .columns()
+            .iter()
+            .map(ColumnDef::sql_type)
+            .map(|sql_type| (&sql_type).into())
+            .collect::<Vec<u32>>()
+    }
+
     pub fn analyze(&self, query: Query) -> Result<UntypedQuery, QueryError> {
         Ok(self.query_analyzer.analyze(query)?)
     }
@@ -138,7 +152,7 @@ impl<'t> TransactionContext<'t> {
                 let typed_values = select
                     .projection_items
                     .into_iter()
-                    .map(|value| self.type_inference.infer_dynamic(value, &[]));
+                    .map(|value| self.type_inference.infer_dynamic(value, &param_types));
                 let type_checked_values = typed_values
                     .into_iter()
                     .map(|value| self.type_checker.check_dynamic(value));
@@ -147,7 +161,9 @@ impl<'t> TransactionContext<'t> {
                     .map(|value| self.type_coercion.coerce_dynamic(value))
                     .collect::<Vec<DynamicTypedTree>>();
 
-                let typed_filter = select.filter.map(|value| self.type_inference.infer_dynamic(value, &[]));
+                let typed_filter = select
+                    .filter
+                    .map(|value| self.type_inference.infer_dynamic(value, &param_types));
                 let type_checked_filter = typed_filter.map(|value| self.type_checker.check_dynamic(value));
                 let type_coerced_filter = type_checked_filter.map(|value| self.type_coercion.coerce_dynamic(value));
 
@@ -161,7 +177,7 @@ impl<'t> TransactionContext<'t> {
                 let typed_values = update
                     .assignments
                     .into_iter()
-                    .map(|value| value.map(|value| self.type_inference.infer_dynamic(value, &[])));
+                    .map(|value| value.map(|value| self.type_inference.infer_dynamic(value, &param_types)));
                 let type_checked = typed_values
                     .into_iter()
                     .map(|value| value.map(|value| self.type_checker.check_dynamic(value)));
@@ -170,7 +186,9 @@ impl<'t> TransactionContext<'t> {
                     .map(|value| value.map(|value| self.type_coercion.coerce_dynamic(value)))
                     .collect::<Vec<Option<DynamicTypedTree>>>();
 
-                let typed_filter = update.filter.map(|value| self.type_inference.infer_dynamic(value, &[]));
+                let typed_filter = update
+                    .filter
+                    .map(|value| self.type_inference.infer_dynamic(value, &param_types));
                 let type_checked_filter = typed_filter.map(|value| self.type_checker.check_dynamic(value));
                 let type_coerced_filter = type_checked_filter.map(|value| self.type_coercion.coerce_dynamic(value));
 
@@ -181,7 +199,9 @@ impl<'t> TransactionContext<'t> {
                 }))
             }
             UntypedQuery::Delete(delete) => {
-                let typed_filter = delete.filter.map(|value| self.type_inference.infer_dynamic(value, &[]));
+                let typed_filter = delete
+                    .filter
+                    .map(|value| self.type_inference.infer_dynamic(value, &param_types));
                 let type_checked_filter = typed_filter.map(|value| self.type_checker.check_dynamic(value));
                 let type_coerced_filter = type_checked_filter.map(|value| self.type_coercion.coerce_dynamic(value));
 
