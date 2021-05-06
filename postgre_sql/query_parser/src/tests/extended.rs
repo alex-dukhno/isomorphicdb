@@ -23,7 +23,7 @@ fn prepare() {
     assert_eq!(
         statement,
         Ok(Request::Statement(Statement::Extended(Extended::Prepare {
-            query: Query::Insert(InsertStatement {
+            query: Query::Insert(InsertQuery {
                 schema_name: "schema_name".to_owned(),
                 table_name: "table_name".to_owned(),
                 columns: vec![],

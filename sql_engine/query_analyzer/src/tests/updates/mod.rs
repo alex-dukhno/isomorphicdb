@@ -21,7 +21,7 @@ mod expressions;
 mod general_cases;
 
 fn update_statement(schema_name: &str, table_name: &str, assignments: Vec<(&str, Expr)>) -> Query {
-    Query::Update(UpdateStatement {
+    Query::Update(UpdateQuery {
         schema_name: schema_name.to_owned(),
         table_name: table_name.to_owned(),
         assignments: assignments
@@ -36,7 +36,7 @@ fn update_statement(schema_name: &str, table_name: &str, assignments: Vec<(&str,
 }
 
 fn update_stmt_with_parameters(schema_name: &str, table_name: &str) -> Query {
-    Query::Update(UpdateStatement {
+    Query::Update(UpdateQuery {
         schema_name: schema_name.to_owned(),
         table_name: table_name.to_owned(),
         assignments: vec![Assignment {

@@ -23,7 +23,7 @@ fn create_schema() {
     assert_statement(
         &txn,
         "create schema schema_name;",
-        vec![Outbound::SchemaCreated, Outbound::ReadyForQuery],
+        vec![OutboundMessage::SchemaCreated, OutboundMessage::ReadyForQuery],
     );
     txn.commit();
 }
@@ -37,14 +37,14 @@ fn create_same_schema() {
     assert_statement(
         &txn,
         "create schema schema_name;",
-        vec![Outbound::SchemaCreated, Outbound::ReadyForQuery],
+        vec![OutboundMessage::SchemaCreated, OutboundMessage::ReadyForQuery],
     );
     assert_statement(
         &txn,
         "create schema schema_name;",
         vec![
             QueryError::schema_already_exists("schema_name").into(),
-            Outbound::ReadyForQuery,
+            OutboundMessage::ReadyForQuery,
         ],
     );
     txn.commit();
@@ -59,12 +59,12 @@ fn drop_schema() {
     assert_statement(
         &txn,
         "create schema schema_name;",
-        vec![Outbound::SchemaCreated, Outbound::ReadyForQuery],
+        vec![OutboundMessage::SchemaCreated, OutboundMessage::ReadyForQuery],
     );
     assert_statement(
         &txn,
         "drop schema schema_name;",
-        vec![Outbound::SchemaDropped, Outbound::ReadyForQuery],
+        vec![OutboundMessage::SchemaDropped, OutboundMessage::ReadyForQuery],
     );
     txn.commit();
 }
@@ -80,7 +80,7 @@ fn drop_non_existent_schema() {
         "drop schema non_existent;",
         vec![
             QueryError::schema_does_not_exist("non_existent").into(),
-            Outbound::ReadyForQuery,
+            OutboundMessage::ReadyForQuery,
         ],
     );
     txn.commit();
@@ -95,7 +95,7 @@ fn drop_if_exists_non_existent_schema() {
     assert_statement(
         &txn,
         "drop schema if exists non_existent;",
-        vec![Outbound::SchemaDropped, Outbound::ReadyForQuery],
+        vec![OutboundMessage::SchemaDropped, OutboundMessage::ReadyForQuery],
     );
     txn.commit();
 }
@@ -109,17 +109,17 @@ fn drop_if_exists_existent_and_non_existent_schema() {
     assert_statement(
         &txn,
         "create schema existent_schema;",
-        vec![Outbound::SchemaCreated, Outbound::ReadyForQuery],
+        vec![OutboundMessage::SchemaCreated, OutboundMessage::ReadyForQuery],
     );
     assert_statement(
         &txn,
         "drop schema if exists non_existent, existent_schema;",
-        vec![Outbound::SchemaDropped, Outbound::ReadyForQuery],
+        vec![OutboundMessage::SchemaDropped, OutboundMessage::ReadyForQuery],
     );
     assert_statement(
         &txn,
         "create schema existent_schema;",
-        vec![Outbound::SchemaCreated, Outbound::ReadyForQuery],
+        vec![OutboundMessage::SchemaCreated, OutboundMessage::ReadyForQuery],
     );
     txn.commit();
 }
@@ -135,7 +135,7 @@ fn select_from_nonexistent_schema() {
         "select * from non_existent.some_table;",
         vec![
             QueryError::schema_does_not_exist("non_existent").into(),
-            Outbound::ReadyForQuery,
+            OutboundMessage::ReadyForQuery,
         ],
     );
     txn.commit();
@@ -152,7 +152,7 @@ fn select_named_columns_from_nonexistent_schema() {
         "select column_1 from schema_name.table_name;",
         vec![
             QueryError::schema_does_not_exist("schema_name").into(),
-            Outbound::ReadyForQuery,
+            OutboundMessage::ReadyForQuery,
         ],
     );
     txn.commit();
@@ -169,7 +169,7 @@ fn insert_into_table_in_nonexistent_schema() {
         "insert into schema_name.table_name values (123);",
         vec![
             QueryError::schema_does_not_exist("schema_name").into(),
-            Outbound::ReadyForQuery,
+            OutboundMessage::ReadyForQuery,
         ],
     );
     txn.commit();
@@ -186,7 +186,7 @@ fn update_records_in_table_from_non_existent_schema() {
         "update schema_name.table_name set column_test=789;",
         vec![
             QueryError::schema_does_not_exist("schema_name").into(),
-            Outbound::ReadyForQuery,
+            OutboundMessage::ReadyForQuery,
         ],
     );
     txn.commit();
@@ -203,7 +203,7 @@ fn delete_from_table_in_nonexistent_schema() {
         "delete from schema_name.table_name;",
         vec![
             QueryError::schema_does_not_exist("schema_name").into(),
-            Outbound::ReadyForQuery,
+            OutboundMessage::ReadyForQuery,
         ],
     );
     txn.commit();

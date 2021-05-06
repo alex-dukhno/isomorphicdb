@@ -15,8 +15,9 @@
 use catalog::CatalogHandler;
 use data_manipulation::{
     DynamicTypedTree, QueryPlan, StaticTypedTree, TypedDeleteQuery, TypedInsertQuery, TypedQuery, TypedSelectQuery,
-    TypedUpdateQuery, UntypedQuery,
+    TypedUpdateQuery, UntypedInsertQuery, UntypedQuery,
 };
+use definition::ColumnDef;
 use definition_planner::DefinitionPlanner;
 use postgre_sql::{
     query_ast::{Definition, Query},
@@ -70,6 +71,125 @@ impl<'t> TransactionContext<'t> {
             type_checker: TypeChecker,
             type_coercion: TypeCoercion,
             query_planner: QueryPlanner::from(transaction.clone()),
+        }
+    }
+
+    pub fn describe_insert(&self, insert: &UntypedInsertQuery) -> Vec<u32> {
+        let table_definition = self
+            .catalog
+            .table_definition(insert.full_table_name.clone())
+            .unwrap()
+            .unwrap();
+        table_definition
+            .columns()
+            .iter()
+            .map(ColumnDef::sql_type)
+            .map(|sql_type| (&sql_type).into())
+            .collect::<Vec<u32>>()
+    }
+
+    pub fn analyze(&self, query: Query) -> Result<UntypedQuery, QueryError> {
+        Ok(self.query_analyzer.analyze(query)?)
+    }
+
+    pub fn process_untyped_query(
+        &self,
+        untyped_query: UntypedQuery,
+        param_types: Vec<SqlTypeFamily>,
+    ) -> Result<TypedQuery, QueryError> {
+        match untyped_query {
+            UntypedQuery::Insert(insert) => {
+                let type_checked = insert
+                    .values
+                    .into_iter()
+                    .map(|values| {
+                        values
+                            .into_iter()
+                            .map(|value| value.map(|v| self.type_inference.infer_static(v, &param_types)))
+                            .collect::<Vec<Option<StaticTypedTree>>>()
+                    })
+                    .map(|values| {
+                        values
+                            .into_iter()
+                            .map(|value| value.map(|v| self.type_checker.check_static(v)))
+                            .collect()
+                    })
+                    .collect::<Vec<Vec<Option<StaticTypedTree>>>>();
+                let table_info = self
+                    .catalog
+                    .table_definition(insert.full_table_name.clone())
+                    .unwrap()
+                    .unwrap();
+                let table_columns = table_info.columns();
+                let mut type_coerced = vec![];
+                for checked in type_checked {
+                    let mut row = vec![];
+                    for (index, c) in checked.into_iter().enumerate() {
+                        row.push(c.map(|c| self.type_coercion.coerce_static(c, table_columns[index].sql_type())));
+                    }
+                    type_coerced.push(row);
+                }
+                Ok(TypedQuery::Insert(TypedInsertQuery {
+                    full_table_name: insert.full_table_name,
+                    values: type_coerced,
+                }))
+            }
+            UntypedQuery::Select(select) => {
+                let typed_values = select
+                    .projection_items
+                    .into_iter()
+                    .map(|value| self.type_inference.infer_dynamic(value, &[]));
+                let type_checked_values = typed_values
+                    .into_iter()
+                    .map(|value| self.type_checker.check_dynamic(value));
+                let type_coerced_values = type_checked_values
+                    .into_iter()
+                    .map(|value| self.type_coercion.coerce_dynamic(value))
+                    .collect::<Vec<DynamicTypedTree>>();
+
+                let typed_filter = select.filter.map(|value| self.type_inference.infer_dynamic(value, &[]));
+                let type_checked_filter = typed_filter.map(|value| self.type_checker.check_dynamic(value));
+                let type_coerced_filter = type_checked_filter.map(|value| self.type_coercion.coerce_dynamic(value));
+
+                Ok(TypedQuery::Select(TypedSelectQuery {
+                    projection_items: type_coerced_values,
+                    full_table_name: select.full_table_name,
+                    filter: type_coerced_filter,
+                }))
+            }
+            UntypedQuery::Update(update) => {
+                let typed_values = update
+                    .assignments
+                    .into_iter()
+                    .map(|value| value.map(|value| self.type_inference.infer_dynamic(value, &[])));
+                let type_checked = typed_values
+                    .into_iter()
+                    .map(|value| value.map(|value| self.type_checker.check_dynamic(value)));
+                let type_coerced = type_checked
+                    .into_iter()
+                    .map(|value| value.map(|value| self.type_coercion.coerce_dynamic(value)))
+                    .collect::<Vec<Option<DynamicTypedTree>>>();
+
+                let typed_filter = update.filter.map(|value| self.type_inference.infer_dynamic(value, &[]));
+                let type_checked_filter = typed_filter.map(|value| self.type_checker.check_dynamic(value));
+                let type_coerced_filter = type_checked_filter.map(|value| self.type_coercion.coerce_dynamic(value));
+
+                Ok(TypedQuery::Update(TypedUpdateQuery {
+                    full_table_name: update.full_table_name,
+                    assignments: type_coerced,
+                    filter: type_coerced_filter,
+                }))
+            }
+            UntypedQuery::Delete(delete) => {
+                let typed_filter = delete.filter.map(|value| self.type_inference.infer_dynamic(value, &[]));
+                let type_checked_filter = typed_filter.map(|value| self.type_checker.check_dynamic(value));
+                let type_coerced_filter = type_checked_filter.map(|value| self.type_coercion.coerce_dynamic(value));
+
+                Ok(TypedQuery::Delete(TypedDeleteQuery {
+                    full_table_name: delete.full_table_name,
+                    filter: type_coerced_filter,
+                }))
+            }
         }
     }
 

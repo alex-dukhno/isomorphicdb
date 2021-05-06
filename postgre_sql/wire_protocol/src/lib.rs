@@ -24,11 +24,11 @@ use std::{
     str,
 };
 use wire_protocol_payload::{
-    Inbound, Outbound, BIND, CLOSE, DESCRIBE, EMPTY_QUERY_RESPONSE, EXECUTE, FLUSH, PARSE, QUERY, READY_FOR_QUERY,
-    SYNC, TERMINATE,
+    InboundMessage, OutboundMessage, BIND, CLOSE, DESCRIBE, EMPTY_QUERY_RESPONSE, EXECUTE, FLUSH, PARSE, QUERY,
+    READY_FOR_QUERY, SYNC, TERMINATE,
 };
 
-pub type WireResult = std::result::Result<Inbound, WireError>;
+pub type WireResult = std::result::Result<InboundMessage, WireError>;
 
 #[derive(Debug)]
 pub struct WireError;
@@ -36,7 +36,7 @@ pub struct WireError;
 pub trait WireConnection {
     fn receive(&mut self) -> io::Result<WireResult>;
 
-    fn send(&mut self, outbound: Outbound) -> io::Result<()>;
+    fn send(&mut self, outbound: OutboundMessage) -> io::Result<()>;
 }
 
 pub struct PgWireAcceptor<S: Securing<TcpStream, TlsStream<TcpStream>>> {
@@ -80,7 +80,7 @@ impl From<connection::Channel<TcpStream, TlsStream<TcpStream>>> for ConnectionOl
 }
 
 impl ConnectionOld {
-    fn parse_client_request(&mut self) -> io::Result<Result<Inbound, ()>> {
+    fn parse_client_request(&mut self) -> io::Result<Result<InboundMessage, ()>> {
         let tag = self.read_tag()?;
         let len = self.read_message_len()?;
         let mut message = self.read_message(len)?;
@@ -88,7 +88,7 @@ impl ConnectionOld {
             // Simple query flow.
             QUERY => {
                 let sql = str::from_utf8(&message[0..message.len() - 1]).unwrap().to_owned();
-                Ok(Ok(Inbound::Query { sql }))
+                Ok(Ok(InboundMessage::Query { sql }))
             }
 
             // Extended query flow.
@@ -141,7 +141,7 @@ impl ConnectionOld {
                     message = message[2..].to_vec();
                 }
 
-                Ok(Ok(Inbound::Bind {
+                Ok(Ok(InboundMessage::Bind {
                     portal_name,
                     statement_name,
                     query_param_formats,
@@ -153,8 +153,8 @@ impl ConnectionOld {
                 let first_char = message[0];
                 let name = str::from_utf8(&message[1..message.len() - 1]).unwrap().to_owned();
                 match first_char {
-                    b'P' => Ok(Ok(Inbound::ClosePortal { name })),
-                    b'S' => Ok(Ok(Inbound::CloseStatement { name })),
+                    b'P' => Ok(Ok(InboundMessage::ClosePortal { name })),
+                    b'S' => Ok(Ok(InboundMessage::CloseStatement { name })),
                     _other => unimplemented!(),
                 }
             }
@@ -162,8 +162,8 @@ impl ConnectionOld {
                 let first_char = message[0];
                 let name = str::from_utf8(&message[1..message.len() - 1]).unwrap().to_owned();
                 match first_char {
-                    b'P' => Ok(Ok(Inbound::DescribePortal { name })),
-                    b'S' => Ok(Ok(Inbound::DescribeStatement { name })),
+                    b'P' => Ok(Ok(InboundMessage::DescribePortal { name })),
+                    b'S' => Ok(Ok(InboundMessage::DescribeStatement { name })),
                     _other => unimplemented!(),
                 }
             }
@@ -176,9 +176,9 @@ impl ConnectionOld {
                     unimplemented!()
                 };
                 let max_rows = i32::from_be_bytes(message[0..4].try_into().unwrap());
-                Ok(Ok(Inbound::Execute { portal_name, max_rows }))
+                Ok(Ok(InboundMessage::Execute { portal_name, max_rows }))
             }
-            FLUSH => Ok(Ok(Inbound::Flush)),
+            FLUSH => Ok(Ok(InboundMessage::Flush)),
             PARSE => {
                 let statement_name = if let Some(pos) = message.iter().position(|b| *b == 0) {
                     let statement_name = str::from_utf8(&message[0..pos]).unwrap().to_owned();
@@ -204,14 +204,14 @@ impl ConnectionOld {
                     message = message[4..].to_vec();
                 }
 
-                Ok(Ok(Inbound::Parse {
+                Ok(Ok(InboundMessage::Parse {
                     statement_name,
                     sql,
                     param_types,
                 }))
             }
-            SYNC => Ok(Ok(Inbound::Sync)),
-            TERMINATE => Ok(Ok(Inbound::Terminate)),
+            SYNC => Ok(Ok(InboundMessage::Sync)),
+            TERMINATE => Ok(Ok(InboundMessage::Terminate)),
 
             _ => Ok(Err(())),
         }
@@ -236,7 +236,7 @@ impl ConnectionOld {
     }
 
     /// Receive client messages
-    pub fn receive(&mut self) -> io::Result<Result<Inbound, ()>> {
+    pub fn receive(&mut self) -> io::Result<Result<InboundMessage, ()>> {
         let request = match self.parse_client_request() {
             Ok(Ok(request)) => request,
             Ok(Err(_err)) => return Ok(Err(())),
@@ -244,7 +244,7 @@ impl ConnectionOld {
                 // Client disconnected the socket immediately without sending a
                 // Terminate message. Considers it as a client Terminate to save
                 // resource and exit smoothly.
-                Inbound::Terminate
+                InboundMessage::Terminate
             }
             Err(err) => return Err(err),
         };

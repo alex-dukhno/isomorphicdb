@@ -18,7 +18,7 @@ use super::*;
 fn int_table(database_with_schema: (InMemory, ResultCollector)) -> (InMemory, ResultCollector) {
     let (mut engine, collector) = database_with_schema;
     engine
-        .execute(Inbound::Query {
+        .execute(InboundMessage::Query {
             sql: "create table schema_name.table_name(col smallint);".to_owned(),
         })
         .expect("query executed");
@@ -34,7 +34,7 @@ fn int_table(database_with_schema: (InMemory, ResultCollector)) -> (InMemory, Re
 fn multiple_ints_table(database_with_schema: (InMemory, ResultCollector)) -> (InMemory, ResultCollector) {
     let (mut engine, collector) = database_with_schema;
     engine
-        .execute(Inbound::Query {
+        .execute(InboundMessage::Query {
             sql: "create table schema_name.table_name(column_si smallint, column_i integer, column_bi bigint);"
                 .to_owned(),
         })
@@ -51,7 +51,7 @@ fn multiple_ints_table(database_with_schema: (InMemory, ResultCollector)) -> (In
 fn str_table(database_with_schema: (InMemory, ResultCollector)) -> (InMemory, ResultCollector) {
     let (mut engine, collector) = database_with_schema;
     engine
-        .execute(Inbound::Query {
+        .execute(InboundMessage::Query {
             sql: "create table schema_name.table_name(col varchar(5));".to_owned(),
         })
         .expect("query executed");
@@ -73,7 +73,7 @@ mod insert {
         let (mut engine, collector) = int_table;
 
         engine
-            .execute(Inbound::Query {
+            .execute(InboundMessage::Query {
                 sql: "insert into schema_name.table_name values (32768);".to_owned(),
             })
             .expect("query executed");
@@ -88,7 +88,7 @@ mod insert {
         let (mut engine, collector) = int_table;
 
         engine
-            .execute(Inbound::Query {
+            .execute(InboundMessage::Query {
                 sql: "insert into schema_name.table_name values ('str');".to_owned(),
             })
             .expect("query executed");
@@ -106,7 +106,7 @@ mod insert {
     fn multiple_columns_multiple_row_violation(multiple_ints_table: (InMemory, ResultCollector)) {
         let (mut engine, collector) = multiple_ints_table;
         engine
-            .execute(Inbound::Query { sql: "insert into schema_name.table_name values (-32769, -2147483649, 100), (100, -2147483649, -9223372036854775809);".to_owned()}).expect("query executed");
+            .execute(InboundMessage::Query { sql: "insert into schema_name.table_name values (-32769, -2147483649, 100), (100, -2147483649, -9223372036854775809);".to_owned()}).expect("query executed");
         collector.lock().unwrap().assert_receive_many(vec![
             Err(QueryError::out_of_range(SMALLINT, "column_si", 1)),
             Err(QueryError::out_of_range(INT, "column_i", 1)),
@@ -118,7 +118,7 @@ mod insert {
     fn violation_in_the_second_row(multiple_ints_table: (InMemory, ResultCollector)) {
         let (mut engine, collector) = multiple_ints_table;
         engine
-            .execute(Inbound::Query { sql: "insert into schema_name.table_name values (-32768, -2147483648, 100), (100, -2147483649, -9223372036854775808);".to_owned()}).expect("query executed");
+            .execute(InboundMessage::Query { sql: "insert into schema_name.table_name values (-32768, -2147483648, 100), (100, -2147483649, -9223372036854775808);".to_owned()}).expect("query executed");
         collector
             .lock()
             .unwrap()
@@ -130,7 +130,7 @@ mod insert {
     fn value_too_long(str_table: (InMemory, ResultCollector)) {
         let (mut engine, collector) = str_table;
         engine
-            .execute(Inbound::Query {
+            .execute(InboundMessage::Query {
                 sql: "insert into schema_name.table_name values ('123457890');".to_owned(),
             })
             .expect("query executed");
@@ -155,7 +155,7 @@ mod update {
     fn out_of_range(int_table: (InMemory, ResultCollector)) {
         let (mut engine, collector) = int_table;
         engine
-            .execute(Inbound::Query {
+            .execute(InboundMessage::Query {
                 sql: "insert into schema_name.table_name values (32767);".to_owned(),
             })
             .expect("query executed");
@@ -165,7 +165,7 @@ mod update {
             .assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
         engine
-            .execute(Inbound::Query {
+            .execute(InboundMessage::Query {
                 sql: "update schema_name.table_name set col = 32768;".to_owned(),
             })
             .expect("query executed");
@@ -180,7 +180,7 @@ mod update {
     fn type_mismatch(int_table: (InMemory, ResultCollector)) {
         let (mut engine, collector) = int_table;
         engine
-            .execute(Inbound::Query {
+            .execute(InboundMessage::Query {
                 sql: "insert into schema_name.table_name values (32767);".to_owned(),
             })
             .expect("query executed");
@@ -190,7 +190,7 @@ mod update {
             .assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
         engine
-            .execute(Inbound::Query {
+            .execute(InboundMessage::Query {
                 sql: "update schema_name.table_name set col = 'str';".to_owned(),
             })
             .expect("query executed");
@@ -210,7 +210,7 @@ mod update {
         let (mut engine, collector) = str_table;
 
         engine
-            .execute(Inbound::Query {
+            .execute(InboundMessage::Query {
                 sql: "insert into schema_name.table_name values ('str');".to_owned(),
             })
             .expect("query executed");
@@ -220,7 +220,7 @@ mod update {
             .assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
         engine
-            .execute(Inbound::Query {
+            .execute(InboundMessage::Query {
                 sql: "update schema_name.table_name set col = '123457890';".to_owned(),
             })
             .expect("query executed");
@@ -241,7 +241,7 @@ mod update {
         let (mut engine, collector) = multiple_ints_table;
 
         engine
-            .execute(Inbound::Query {
+            .execute(InboundMessage::Query {
                 sql: "insert into schema_name.table_name values (100, 100, 100), (100, 100, 100);".to_owned(),
             })
             .expect("query executed");
@@ -251,7 +251,7 @@ mod update {
             .assert_receive_single(Ok(QueryEvent::RecordsInserted(2)));
 
         engine
-            .execute(Inbound::Query {
+            .execute(InboundMessage::Query {
                 sql: "update schema_name.table_name set column_si = -32769, column_i= -2147483649, column_bi=100;"
                     .to_owned(),
             })

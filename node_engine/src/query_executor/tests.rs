@@ -24,8 +24,12 @@ use storage::Database;
 
 #[cfg(test)]
 mod delete;
+// #[cfg(test)]
+// mod extended_query;
 #[cfg(test)]
 mod insert;
+#[cfg(test)]
+mod prepared_statement;
 #[cfg(test)]
 mod schema;
 #[cfg(test)]
@@ -53,12 +57,30 @@ fn string(value: &str) -> String {
     value.to_owned()
 }
 
-fn assert_statement(txn: &TransactionContext, sql: &str, expected: Vec<Outbound>) {
+fn assert_cached_statement(
+    query_plan_cache: &mut QueryPlanCache,
+    txn: &TransactionContext,
+    sql: &str,
+    expected: Vec<OutboundMessage>,
+) {
+    let executor = QueryExecutor;
+    match QueryParser.parse(sql) {
+        Ok(Request::Statement(statement)) => {
+            assert_eq!(executor.execute_statement(statement, txn, query_plan_cache), expected);
+        }
+        other => panic!("expected DDL query but was {:?}", other),
+    }
+}
+
+fn assert_statement(txn: &TransactionContext, sql: &str, expected: Vec<OutboundMessage>) {
     let executor = QueryExecutor;
     let mut query_plan_cache = QueryPlanCache::default();
     match QueryParser.parse(sql) {
         Ok(Request::Statement(statement)) => {
-            assert_eq!(executor.execute(statement, txn, &mut query_plan_cache), expected);
+            assert_eq!(
+                executor.execute_statement(statement, txn, &mut query_plan_cache),
+                expected
+            );
         }
         other => panic!("expected DDL query but was {:?}", other),
     }
@@ -67,14 +89,14 @@ fn assert_statement(txn: &TransactionContext, sql: &str, expected: Vec<Outbound>
 #[rstest::fixture]
 fn with_schema() -> TransactionManager {
     let database = Database::new("IN_MEMORY");
-    let query_engine = TransactionManager::new(database);
+    let transaction_manager = TransactionManager::new(database);
 
-    let txn = query_engine.start_transaction();
+    let txn = transaction_manager.start_transaction();
     assert_statement(
         &txn,
         "create schema schema_name",
-        vec![Outbound::SchemaCreated, Outbound::ReadyForQuery],
+        vec![OutboundMessage::SchemaCreated, OutboundMessage::ReadyForQuery],
     );
     txn.commit();
-    query_engine
+    transaction_manager
 }

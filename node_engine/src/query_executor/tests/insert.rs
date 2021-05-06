@@ -21,14 +21,14 @@ fn insert_value_in_non_existent_column(with_schema: TransactionManager) {
     assert_statement(
         &txn,
         "create table schema_name.table_name (column_test smallint);",
-        vec![Outbound::TableCreated, Outbound::ReadyForQuery],
+        vec![OutboundMessage::TableCreated, OutboundMessage::ReadyForQuery],
     );
     assert_statement(
         &txn,
         "insert into schema_name.table_name (non_existent) values (123);",
         vec![
             QueryError::column_does_not_exist("non_existent").into(),
-            Outbound::ReadyForQuery,
+            OutboundMessage::ReadyForQuery,
         ],
     );
 
@@ -42,22 +42,22 @@ fn insert_and_select_single_row(with_schema: TransactionManager) {
     assert_statement(
         &txn,
         "create table schema_name.table_name (column_test smallint);",
-        vec![Outbound::TableCreated, Outbound::ReadyForQuery],
+        vec![OutboundMessage::TableCreated, OutboundMessage::ReadyForQuery],
     );
 
     assert_statement(
         &txn,
         "insert into schema_name.table_name values (123);",
-        vec![Outbound::RecordsInserted(1), Outbound::ReadyForQuery],
+        vec![OutboundMessage::RecordsInserted(1), OutboundMessage::ReadyForQuery],
     );
     assert_statement(
         &txn,
         "select * from schema_name.table_name;",
         vec![
-            Outbound::RowDescription(vec![("column_test".to_owned(), SMALLINT)]),
-            Outbound::DataRow(vec![small_int(123)]),
-            Outbound::RecordsSelected(1),
-            Outbound::ReadyForQuery,
+            OutboundMessage::RowDescription(vec![("column_test".to_owned(), SMALLINT)]),
+            OutboundMessage::DataRow(vec![small_int(123)]),
+            OutboundMessage::RecordsSelected(1),
+            OutboundMessage::ReadyForQuery,
         ],
     );
 }
@@ -69,28 +69,28 @@ fn insert_and_select_multiple_rows(with_schema: TransactionManager) {
     assert_statement(
         &txn,
         "create table schema_name.table_name (column_test smallint);",
-        vec![Outbound::TableCreated, Outbound::ReadyForQuery],
+        vec![OutboundMessage::TableCreated, OutboundMessage::ReadyForQuery],
     );
 
     assert_statement(
         &txn,
         "insert into schema_name.table_name values (123);",
-        vec![Outbound::RecordsInserted(1), Outbound::ReadyForQuery],
+        vec![OutboundMessage::RecordsInserted(1), OutboundMessage::ReadyForQuery],
     );
     assert_statement(
         &txn,
         "insert into schema_name.table_name values (456);",
-        vec![Outbound::RecordsInserted(1), Outbound::ReadyForQuery],
+        vec![OutboundMessage::RecordsInserted(1), OutboundMessage::ReadyForQuery],
     );
     assert_statement(
         &txn,
         "select * from schema_name.table_name;",
         vec![
-            Outbound::RowDescription(vec![("column_test".to_owned(), SMALLINT)]),
-            Outbound::DataRow(vec![small_int(123)]),
-            Outbound::DataRow(vec![small_int(456)]),
-            Outbound::RecordsSelected(2),
-            Outbound::ReadyForQuery,
+            OutboundMessage::RowDescription(vec![("column_test".to_owned(), SMALLINT)]),
+            OutboundMessage::DataRow(vec![small_int(123)]),
+            OutboundMessage::DataRow(vec![small_int(456)]),
+            OutboundMessage::RecordsSelected(2),
+            OutboundMessage::ReadyForQuery,
         ],
     );
 
@@ -104,27 +104,27 @@ fn insert_and_select_named_columns(with_schema: TransactionManager) {
     assert_statement(
         &txn,
         "create table schema_name.table_name (col1 smallint, col2 smallint, col3 smallint);",
-        vec![Outbound::TableCreated, Outbound::ReadyForQuery],
+        vec![OutboundMessage::TableCreated, OutboundMessage::ReadyForQuery],
     );
 
     assert_statement(
         &txn,
         "insert into schema_name.table_name (col2, col3, col1) values (1, 2, 3), (4, 5, 6);",
-        vec![Outbound::RecordsInserted(2), Outbound::ReadyForQuery],
+        vec![OutboundMessage::RecordsInserted(2), OutboundMessage::ReadyForQuery],
     );
     assert_statement(
         &txn,
         "select * from schema_name.table_name;",
         vec![
-            Outbound::RowDescription(vec![
+            OutboundMessage::RowDescription(vec![
                 ("col1".to_owned(), SMALLINT),
                 ("col2".to_owned(), SMALLINT),
                 ("col3".to_owned(), SMALLINT),
             ]),
-            Outbound::DataRow(vec![small_int(3), small_int(1), small_int(2)]),
-            Outbound::DataRow(vec![small_int(6), small_int(4), small_int(5)]),
-            Outbound::RecordsSelected(2),
-            Outbound::ReadyForQuery,
+            OutboundMessage::DataRow(vec![small_int(3), small_int(1), small_int(2)]),
+            OutboundMessage::DataRow(vec![small_int(6), small_int(4), small_int(5)]),
+            OutboundMessage::RecordsSelected(2),
+            OutboundMessage::ReadyForQuery,
         ],
     );
     txn.commit();
@@ -137,28 +137,28 @@ fn insert_multiple_rows(with_schema: TransactionManager) {
     assert_statement(
         &txn,
         "create table schema_name.table_name (column_1 smallint, column_2 smallint, column_3 smallint);",
-        vec![Outbound::TableCreated, Outbound::ReadyForQuery],
+        vec![OutboundMessage::TableCreated, OutboundMessage::ReadyForQuery],
     );
 
     assert_statement(
         &txn,
         "insert into schema_name.table_name values (1, 4, 7), (2, 5, 8), (3, 6, 9);",
-        vec![Outbound::RecordsInserted(3), Outbound::ReadyForQuery],
+        vec![OutboundMessage::RecordsInserted(3), OutboundMessage::ReadyForQuery],
     );
     assert_statement(
         &txn,
         "select * from schema_name.table_name;",
         vec![
-            Outbound::RowDescription(vec![
+            OutboundMessage::RowDescription(vec![
                 ("column_1".to_owned(), SMALLINT),
                 ("column_2".to_owned(), SMALLINT),
                 ("column_3".to_owned(), SMALLINT),
             ]),
-            Outbound::DataRow(vec![small_int(1), small_int(4), small_int(7)]),
-            Outbound::DataRow(vec![small_int(2), small_int(5), small_int(8)]),
-            Outbound::DataRow(vec![small_int(3), small_int(6), small_int(9)]),
-            Outbound::RecordsSelected(3),
-            Outbound::ReadyForQuery,
+            OutboundMessage::DataRow(vec![small_int(1), small_int(4), small_int(7)]),
+            OutboundMessage::DataRow(vec![small_int(2), small_int(5), small_int(8)]),
+            OutboundMessage::DataRow(vec![small_int(3), small_int(6), small_int(9)]),
+            OutboundMessage::RecordsSelected(3),
+            OutboundMessage::ReadyForQuery,
         ],
     );
     txn.commit();
@@ -171,32 +171,32 @@ fn insert_and_select_different_integer_types(with_schema: TransactionManager) {
     assert_statement(
         &txn,
         "create table schema_name.table_name (column_si smallint, column_i integer, column_bi bigint);",
-        vec![Outbound::TableCreated, Outbound::ReadyForQuery],
+        vec![OutboundMessage::TableCreated, OutboundMessage::ReadyForQuery],
     );
 
     assert_statement(
         &txn,
         "insert into schema_name.table_name values(-32768, -2147483648, -9223372036854775808);",
-        vec![Outbound::RecordsInserted(1), Outbound::ReadyForQuery],
+        vec![OutboundMessage::RecordsInserted(1), OutboundMessage::ReadyForQuery],
     );
     assert_statement(
         &txn,
         "insert into schema_name.table_name values(32767, 2147483647, 9223372036854775807);",
-        vec![Outbound::RecordsInserted(1), Outbound::ReadyForQuery],
+        vec![OutboundMessage::RecordsInserted(1), OutboundMessage::ReadyForQuery],
     );
     assert_statement(
         &txn,
         "select * from schema_name.table_name;",
         vec![
-            Outbound::RowDescription(vec![
+            OutboundMessage::RowDescription(vec![
                 ("column_si".to_owned(), SMALLINT),
                 ("column_i".to_owned(), INT),
                 ("column_bi".to_owned(), BIGINT),
             ]),
-            Outbound::DataRow(vec![small_int(i16::MIN), integer(i32::MIN), big_int(i64::MIN)]),
-            Outbound::DataRow(vec![small_int(i16::MAX), integer(i32::MAX), big_int(i64::MAX)]),
-            Outbound::RecordsSelected(2),
-            Outbound::ReadyForQuery,
+            OutboundMessage::DataRow(vec![small_int(i16::MIN), integer(i32::MIN), big_int(i64::MIN)]),
+            OutboundMessage::DataRow(vec![small_int(i16::MAX), integer(i32::MAX), big_int(i64::MAX)]),
+            OutboundMessage::RecordsSelected(2),
+            OutboundMessage::ReadyForQuery,
         ],
     );
     txn.commit();
@@ -209,28 +209,28 @@ fn insert_and_select_different_character_types(with_schema: TransactionManager) 
     assert_statement(
         &txn,
         "create table schema_name.table_name (column_c char(10), column_vc varchar(10));",
-        vec![Outbound::TableCreated, Outbound::ReadyForQuery],
+        vec![OutboundMessage::TableCreated, OutboundMessage::ReadyForQuery],
     );
 
     assert_statement(
         &txn,
         "insert into schema_name.table_name values('12345abcde', '12345abcde');",
-        vec![Outbound::RecordsInserted(1), Outbound::ReadyForQuery],
+        vec![OutboundMessage::RecordsInserted(1), OutboundMessage::ReadyForQuery],
     );
     assert_statement(
         &txn,
         "insert into schema_name.table_name values('12345abcde', 'abcde');",
-        vec![Outbound::RecordsInserted(1), Outbound::ReadyForQuery],
+        vec![OutboundMessage::RecordsInserted(1), OutboundMessage::ReadyForQuery],
     );
     assert_statement(
         &txn,
         "select * from schema_name.table_name;",
         vec![
-            Outbound::RowDescription(vec![("column_c".to_owned(), CHAR), ("column_vc".to_owned(), VARCHAR)]),
-            Outbound::DataRow(vec![string("12345abcde"), string("12345abcde")]),
-            Outbound::DataRow(vec![string("12345abcde"), string("abcde")]),
-            Outbound::RecordsSelected(2),
-            Outbound::ReadyForQuery,
+            OutboundMessage::RowDescription(vec![("column_c".to_owned(), CHAR), ("column_vc".to_owned(), VARCHAR)]),
+            OutboundMessage::DataRow(vec![string("12345abcde"), string("12345abcde")]),
+            OutboundMessage::DataRow(vec![string("12345abcde"), string("abcde")]),
+            OutboundMessage::RecordsSelected(2),
+            OutboundMessage::ReadyForQuery,
         ],
     );
 }
@@ -242,23 +242,23 @@ fn insert_booleans(with_schema: TransactionManager) {
     assert_statement(
         &txn,
         "create table schema_name.table_name (b boolean);",
-        vec![Outbound::TableCreated, Outbound::ReadyForQuery],
+        vec![OutboundMessage::TableCreated, OutboundMessage::ReadyForQuery],
     );
 
     assert_statement(
         &txn,
         "insert into schema_name.table_name values(true);",
-        vec![Outbound::RecordsInserted(1), Outbound::ReadyForQuery],
+        vec![OutboundMessage::RecordsInserted(1), OutboundMessage::ReadyForQuery],
     );
     assert_statement(
         &txn,
         "insert into schema_name.table_name values(TRUE::boolean);",
-        vec![Outbound::RecordsInserted(1), Outbound::ReadyForQuery],
+        vec![OutboundMessage::RecordsInserted(1), OutboundMessage::ReadyForQuery],
     );
     assert_statement(
         &txn,
         "insert into schema_name.table_name values('true'::boolean);",
-        vec![Outbound::RecordsInserted(1), Outbound::ReadyForQuery],
+        vec![OutboundMessage::RecordsInserted(1), OutboundMessage::ReadyForQuery],
     );
 
     txn.commit();
@@ -279,7 +279,7 @@ mod operators {
             assert_statement(
                 &txn,
                 "create table schema_name.table_name(column_si smallint);",
-                vec![Outbound::TableCreated, Outbound::ReadyForQuery],
+                vec![OutboundMessage::TableCreated, OutboundMessage::ReadyForQuery],
             );
             txn.commit();
 
@@ -293,16 +293,16 @@ mod operators {
             assert_statement(
                 &txn,
                 "insert into schema_name.table_name values (1 + 2);",
-                vec![Outbound::RecordsInserted(1), Outbound::ReadyForQuery],
+                vec![OutboundMessage::RecordsInserted(1), OutboundMessage::ReadyForQuery],
             );
             assert_statement(
                 &txn,
                 "select * from schema_name.table_name;",
                 vec![
-                    Outbound::RowDescription(vec![("column_si".to_owned(), SMALLINT)]),
-                    Outbound::DataRow(vec![small_int(3)]),
-                    Outbound::RecordsSelected(1),
-                    Outbound::ReadyForQuery,
+                    OutboundMessage::RowDescription(vec![("column_si".to_owned(), SMALLINT)]),
+                    OutboundMessage::DataRow(vec![small_int(3)]),
+                    OutboundMessage::RecordsSelected(1),
+                    OutboundMessage::ReadyForQuery,
                 ],
             );
             txn.commit();
@@ -315,16 +315,16 @@ mod operators {
             assert_statement(
                 &txn,
                 "insert into schema_name.table_name values (1 - 2);",
-                vec![Outbound::RecordsInserted(1), Outbound::ReadyForQuery],
+                vec![OutboundMessage::RecordsInserted(1), OutboundMessage::ReadyForQuery],
             );
             assert_statement(
                 &txn,
                 "select * from schema_name.table_name;",
                 vec![
-                    Outbound::RowDescription(vec![("column_si".to_owned(), SMALLINT)]),
-                    Outbound::DataRow(vec![small_int(-1)]),
-                    Outbound::RecordsSelected(1),
-                    Outbound::ReadyForQuery,
+                    OutboundMessage::RowDescription(vec![("column_si".to_owned(), SMALLINT)]),
+                    OutboundMessage::DataRow(vec![small_int(-1)]),
+                    OutboundMessage::RecordsSelected(1),
+                    OutboundMessage::ReadyForQuery,
                 ],
             );
             txn.commit();
@@ -337,17 +337,17 @@ mod operators {
             assert_statement(
                 &txn,
                 "insert into schema_name.table_name values (3 * 2);",
-                vec![Outbound::RecordsInserted(1), Outbound::ReadyForQuery],
+                vec![OutboundMessage::RecordsInserted(1), OutboundMessage::ReadyForQuery],
             );
 
             assert_statement(
                 &txn,
                 "select * from schema_name.table_name;",
                 vec![
-                    Outbound::RowDescription(vec![("column_si".to_owned(), SMALLINT)]),
-                    Outbound::DataRow(vec![small_int(6)]),
-                    Outbound::RecordsSelected(1),
-                    Outbound::ReadyForQuery,
+                    OutboundMessage::RowDescription(vec![("column_si".to_owned(), SMALLINT)]),
+                    OutboundMessage::DataRow(vec![small_int(6)]),
+                    OutboundMessage::RecordsSelected(1),
+                    OutboundMessage::ReadyForQuery,
                 ],
             );
             txn.commit();
@@ -360,16 +360,16 @@ mod operators {
             assert_statement(
                 &txn,
                 "insert into schema_name.table_name values (8 / 2);",
-                vec![Outbound::RecordsInserted(1), Outbound::ReadyForQuery],
+                vec![OutboundMessage::RecordsInserted(1), OutboundMessage::ReadyForQuery],
             );
             assert_statement(
                 &txn,
                 "select * from schema_name.table_name;",
                 vec![
-                    Outbound::RowDescription(vec![("column_si".to_owned(), SMALLINT)]),
-                    Outbound::DataRow(vec![small_int(4)]),
-                    Outbound::RecordsSelected(1),
-                    Outbound::ReadyForQuery,
+                    OutboundMessage::RowDescription(vec![("column_si".to_owned(), SMALLINT)]),
+                    OutboundMessage::DataRow(vec![small_int(4)]),
+                    OutboundMessage::RecordsSelected(1),
+                    OutboundMessage::ReadyForQuery,
                 ],
             );
         }
@@ -381,16 +381,16 @@ mod operators {
             assert_statement(
                 &txn,
                 "insert into schema_name.table_name values (8 % 2);",
-                vec![Outbound::RecordsInserted(1), Outbound::ReadyForQuery],
+                vec![OutboundMessage::RecordsInserted(1), OutboundMessage::ReadyForQuery],
             );
             assert_statement(
                 &txn,
                 "select * from schema_name.table_name;",
                 vec![
-                    Outbound::RowDescription(vec![("column_si".to_owned(), SMALLINT)]),
-                    Outbound::DataRow(vec![small_int(0)]),
-                    Outbound::RecordsSelected(1),
-                    Outbound::ReadyForQuery,
+                    OutboundMessage::RowDescription(vec![("column_si".to_owned(), SMALLINT)]),
+                    OutboundMessage::DataRow(vec![small_int(0)]),
+                    OutboundMessage::RecordsSelected(1),
+                    OutboundMessage::ReadyForQuery,
                 ],
             );
         }
@@ -402,16 +402,16 @@ mod operators {
             assert_statement(
                 &txn,
                 "insert into schema_name.table_name values (8 ^ 2);",
-                vec![Outbound::RecordsInserted(1), Outbound::ReadyForQuery],
+                vec![OutboundMessage::RecordsInserted(1), OutboundMessage::ReadyForQuery],
             );
             assert_statement(
                 &txn,
                 "select * from schema_name.table_name;",
                 vec![
-                    Outbound::RowDescription(vec![("column_si".to_owned(), SMALLINT)]),
-                    Outbound::DataRow(vec![small_int(64)]),
-                    Outbound::RecordsSelected(1),
-                    Outbound::ReadyForQuery,
+                    OutboundMessage::RowDescription(vec![("column_si".to_owned(), SMALLINT)]),
+                    OutboundMessage::DataRow(vec![small_int(64)]),
+                    OutboundMessage::RecordsSelected(1),
+                    OutboundMessage::ReadyForQuery,
                 ],
             );
         }
@@ -424,16 +424,16 @@ mod operators {
             assert_statement(
                 &txn,
                 "insert into schema_name.table_name values (|/ 16);",
-                vec![Outbound::RecordsInserted(1), Outbound::ReadyForQuery],
+                vec![OutboundMessage::RecordsInserted(1), OutboundMessage::ReadyForQuery],
             );
             assert_statement(
                 &txn,
                 "select * from schema_name.table_name;",
                 vec![
-                    Outbound::RowDescription(vec![("column_si".to_owned(), SMALLINT)]),
-                    Outbound::DataRow(vec![small_int(4)]),
-                    Outbound::RecordsSelected(1),
-                    Outbound::ReadyForQuery,
+                    OutboundMessage::RowDescription(vec![("column_si".to_owned(), SMALLINT)]),
+                    OutboundMessage::DataRow(vec![small_int(4)]),
+                    OutboundMessage::RecordsSelected(1),
+                    OutboundMessage::ReadyForQuery,
                 ],
             );
         }
@@ -446,16 +446,16 @@ mod operators {
             assert_statement(
                 &txn,
                 "insert into schema_name.table_name values (||/ 8);",
-                vec![Outbound::RecordsInserted(1), Outbound::ReadyForQuery],
+                vec![OutboundMessage::RecordsInserted(1), OutboundMessage::ReadyForQuery],
             );
             assert_statement(
                 &txn,
                 "select * from schema_name.table_name;",
                 vec![
-                    Outbound::RowDescription(vec![("column_si".to_owned(), SMALLINT)]),
-                    Outbound::DataRow(vec![small_int(2)]),
-                    Outbound::RecordsSelected(1),
-                    Outbound::ReadyForQuery,
+                    OutboundMessage::RowDescription(vec![("column_si".to_owned(), SMALLINT)]),
+                    OutboundMessage::DataRow(vec![small_int(2)]),
+                    OutboundMessage::RecordsSelected(1),
+                    OutboundMessage::ReadyForQuery,
                 ],
             );
         }
@@ -467,16 +467,16 @@ mod operators {
             assert_statement(
                 &txn,
                 "insert into schema_name.table_name values (5!);",
-                vec![Outbound::RecordsInserted(1), Outbound::ReadyForQuery],
+                vec![OutboundMessage::RecordsInserted(1), OutboundMessage::ReadyForQuery],
             );
             assert_statement(
                 &txn,
                 "select * from schema_name.table_name;",
                 vec![
-                    Outbound::RowDescription(vec![("column_si".to_owned(), SMALLINT)]),
-                    Outbound::DataRow(vec![small_int(120)]),
-                    Outbound::RecordsSelected(1),
-                    Outbound::ReadyForQuery,
+                    OutboundMessage::RowDescription(vec![("column_si".to_owned(), SMALLINT)]),
+                    OutboundMessage::DataRow(vec![small_int(120)]),
+                    OutboundMessage::RecordsSelected(1),
+                    OutboundMessage::ReadyForQuery,
                 ],
             );
             txn.commit();
@@ -489,16 +489,16 @@ mod operators {
             assert_statement(
                 &txn,
                 "insert into schema_name.table_name values (!!5);",
-                vec![Outbound::RecordsInserted(1), Outbound::ReadyForQuery],
+                vec![OutboundMessage::RecordsInserted(1), OutboundMessage::ReadyForQuery],
             );
             assert_statement(
                 &txn,
                 "select * from schema_name.table_name;",
                 vec![
-                    Outbound::RowDescription(vec![("column_si".to_owned(), SMALLINT)]),
-                    Outbound::DataRow(vec![small_int(120)]),
-                    Outbound::RecordsSelected(1),
-                    Outbound::ReadyForQuery,
+                    OutboundMessage::RowDescription(vec![("column_si".to_owned(), SMALLINT)]),
+                    OutboundMessage::DataRow(vec![small_int(120)]),
+                    OutboundMessage::RecordsSelected(1),
+                    OutboundMessage::ReadyForQuery,
                 ],
             );
             txn.commit();
@@ -511,16 +511,16 @@ mod operators {
             assert_statement(
                 &txn,
                 "insert into schema_name.table_name values (@ -5);",
-                vec![Outbound::RecordsInserted(1), Outbound::ReadyForQuery],
+                vec![OutboundMessage::RecordsInserted(1), OutboundMessage::ReadyForQuery],
             );
             assert_statement(
                 &txn,
                 "select * from schema_name.table_name;",
                 vec![
-                    Outbound::RowDescription(vec![("column_si".to_owned(), SMALLINT)]),
-                    Outbound::DataRow(vec![small_int(5)]),
-                    Outbound::RecordsSelected(1),
-                    Outbound::ReadyForQuery,
+                    OutboundMessage::RowDescription(vec![("column_si".to_owned(), SMALLINT)]),
+                    OutboundMessage::DataRow(vec![small_int(5)]),
+                    OutboundMessage::RecordsSelected(1),
+                    OutboundMessage::ReadyForQuery,
                 ],
             );
             txn.commit();
@@ -533,16 +533,16 @@ mod operators {
             assert_statement(
                 &txn,
                 "insert into schema_name.table_name values (5 & 1);",
-                vec![Outbound::RecordsInserted(1), Outbound::ReadyForQuery],
+                vec![OutboundMessage::RecordsInserted(1), OutboundMessage::ReadyForQuery],
             );
             assert_statement(
                 &txn,
                 "select * from schema_name.table_name;",
                 vec![
-                    Outbound::RowDescription(vec![("column_si".to_owned(), SMALLINT)]),
-                    Outbound::DataRow(vec![small_int(1)]),
-                    Outbound::RecordsSelected(1),
-                    Outbound::ReadyForQuery,
+                    OutboundMessage::RowDescription(vec![("column_si".to_owned(), SMALLINT)]),
+                    OutboundMessage::DataRow(vec![small_int(1)]),
+                    OutboundMessage::RecordsSelected(1),
+                    OutboundMessage::ReadyForQuery,
                 ],
             );
             txn.commit();
@@ -555,16 +555,16 @@ mod operators {
             assert_statement(
                 &txn,
                 "insert into schema_name.table_name values (5 | 2);",
-                vec![Outbound::RecordsInserted(1), Outbound::ReadyForQuery],
+                vec![OutboundMessage::RecordsInserted(1), OutboundMessage::ReadyForQuery],
             );
             assert_statement(
                 &txn,
                 "select * from schema_name.table_name;",
                 vec![
-                    Outbound::RowDescription(vec![("column_si".to_owned(), SMALLINT)]),
-                    Outbound::DataRow(vec![small_int(7)]),
-                    Outbound::RecordsSelected(1),
-                    Outbound::ReadyForQuery,
+                    OutboundMessage::RowDescription(vec![("column_si".to_owned(), SMALLINT)]),
+                    OutboundMessage::DataRow(vec![small_int(7)]),
+                    OutboundMessage::RecordsSelected(1),
+                    OutboundMessage::ReadyForQuery,
                 ],
             );
             txn.commit();
@@ -577,16 +577,16 @@ mod operators {
             assert_statement(
                 &txn,
                 "insert into schema_name.table_name values (~1);",
-                vec![Outbound::RecordsInserted(1), Outbound::ReadyForQuery],
+                vec![OutboundMessage::RecordsInserted(1), OutboundMessage::ReadyForQuery],
             );
             assert_statement(
                 &txn,
                 "select * from schema_name.table_name;",
                 vec![
-                    Outbound::RowDescription(vec![("column_si".to_owned(), SMALLINT)]),
-                    Outbound::DataRow(vec![small_int(-2)]),
-                    Outbound::RecordsSelected(1),
-                    Outbound::ReadyForQuery,
+                    OutboundMessage::RowDescription(vec![("column_si".to_owned(), SMALLINT)]),
+                    OutboundMessage::DataRow(vec![small_int(-2)]),
+                    OutboundMessage::RecordsSelected(1),
+                    OutboundMessage::ReadyForQuery,
                 ],
             );
             txn.commit();
@@ -599,16 +599,16 @@ mod operators {
             assert_statement(
                 &txn,
                 "insert into schema_name.table_name values (1 << 4);",
-                vec![Outbound::RecordsInserted(1), Outbound::ReadyForQuery],
+                vec![OutboundMessage::RecordsInserted(1), OutboundMessage::ReadyForQuery],
             );
             assert_statement(
                 &txn,
                 "select * from schema_name.table_name;",
                 vec![
-                    Outbound::RowDescription(vec![("column_si".to_owned(), SMALLINT)]),
-                    Outbound::DataRow(vec![small_int(16)]),
-                    Outbound::RecordsSelected(1),
-                    Outbound::ReadyForQuery,
+                    OutboundMessage::RowDescription(vec![("column_si".to_owned(), SMALLINT)]),
+                    OutboundMessage::DataRow(vec![small_int(16)]),
+                    OutboundMessage::RecordsSelected(1),
+                    OutboundMessage::ReadyForQuery,
                 ],
             );
             txn.commit();
@@ -621,16 +621,16 @@ mod operators {
             assert_statement(
                 &txn,
                 "insert into schema_name.table_name values (8 >> 2);",
-                vec![Outbound::RecordsInserted(1), Outbound::ReadyForQuery],
+                vec![OutboundMessage::RecordsInserted(1), OutboundMessage::ReadyForQuery],
             );
             assert_statement(
                 &txn,
                 "select * from schema_name.table_name;",
                 vec![
-                    Outbound::RowDescription(vec![("column_si".to_owned(), SMALLINT)]),
-                    Outbound::DataRow(vec![small_int(2)]),
-                    Outbound::RecordsSelected(1),
-                    Outbound::ReadyForQuery,
+                    OutboundMessage::RowDescription(vec![("column_si".to_owned(), SMALLINT)]),
+                    OutboundMessage::DataRow(vec![small_int(2)]),
+                    OutboundMessage::RecordsSelected(1),
+                    OutboundMessage::ReadyForQuery,
                 ],
             );
             txn.commit();
@@ -643,16 +643,16 @@ mod operators {
             assert_statement(
                 &txn,
                 "insert into schema_name.table_name values (5 & 13 % 10 + 1 * 20 - 40 / 4);",
-                vec![Outbound::RecordsInserted(1), Outbound::ReadyForQuery],
+                vec![OutboundMessage::RecordsInserted(1), OutboundMessage::ReadyForQuery],
             );
             assert_statement(
                 &txn,
                 "select * from schema_name.table_name;",
                 vec![
-                    Outbound::RowDescription(vec![("column_si".to_owned(), SMALLINT)]),
-                    Outbound::DataRow(vec![small_int(5)]),
-                    Outbound::RecordsSelected(1),
-                    Outbound::ReadyForQuery,
+                    OutboundMessage::RowDescription(vec![("column_si".to_owned(), SMALLINT)]),
+                    OutboundMessage::DataRow(vec![small_int(5)]),
+                    OutboundMessage::RecordsSelected(1),
+                    OutboundMessage::ReadyForQuery,
                 ],
             );
             txn.commit();
@@ -670,7 +670,7 @@ mod operators {
             assert_statement(
                 &txn,
                 "create table schema_name.table_name(strings char(5));",
-                vec![Outbound::TableCreated, Outbound::ReadyForQuery],
+                vec![OutboundMessage::TableCreated, OutboundMessage::ReadyForQuery],
             );
             txn.commit();
 
@@ -684,16 +684,16 @@ mod operators {
             assert_statement(
                 &txn,
                 "insert into schema_name.table_name values ('123' || '45');",
-                vec![Outbound::RecordsInserted(1), Outbound::ReadyForQuery],
+                vec![OutboundMessage::RecordsInserted(1), OutboundMessage::ReadyForQuery],
             );
             assert_statement(
                 &txn,
                 "select * from schema_name.table_name;",
                 vec![
-                    Outbound::RowDescription(vec![("strings".to_owned(), CHAR)]),
-                    Outbound::DataRow(vec![string("12345")]),
-                    Outbound::RecordsSelected(1),
-                    Outbound::ReadyForQuery,
+                    OutboundMessage::RowDescription(vec![("strings".to_owned(), CHAR)]),
+                    OutboundMessage::DataRow(vec![string("12345")]),
+                    OutboundMessage::RecordsSelected(1),
+                    OutboundMessage::ReadyForQuery,
                 ],
             );
             txn.commit();
@@ -707,22 +707,22 @@ mod operators {
             assert_statement(
                 &txn,
                 "insert into schema_name.table_name values (1 || '45');",
-                vec![Outbound::RecordsInserted(1), Outbound::ReadyForQuery],
+                vec![OutboundMessage::RecordsInserted(1), OutboundMessage::ReadyForQuery],
             );
             assert_statement(
                 &txn,
                 "insert into schema_name.table_name values ('45' || 1);",
-                vec![Outbound::RecordsInserted(1), Outbound::ReadyForQuery],
+                vec![OutboundMessage::RecordsInserted(1), OutboundMessage::ReadyForQuery],
             );
             assert_statement(
                 &txn,
                 "select * from schema_name.table_name;",
                 vec![
-                    Outbound::RowDescription(vec![("strings".to_owned(), CHAR)]),
-                    Outbound::DataRow(vec![string("145")]),
-                    Outbound::DataRow(vec![string("451")]),
-                    Outbound::RecordsSelected(2),
-                    Outbound::ReadyForQuery,
+                    OutboundMessage::RowDescription(vec![("strings".to_owned(), CHAR)]),
+                    OutboundMessage::DataRow(vec![string("145")]),
+                    OutboundMessage::DataRow(vec![string("451")]),
+                    OutboundMessage::RecordsSelected(2),
+                    OutboundMessage::ReadyForQuery,
                 ],
             );
             txn.commit();
@@ -738,7 +738,7 @@ mod operators {
                 vec![
                     QueryError::undefined_function("||".to_owned(), "smallint".to_owned(), "smallint".to_owned())
                         .into(),
-                    Outbound::ReadyForQuery,
+                    OutboundMessage::ReadyForQuery,
                 ],
             );
             txn.commit();

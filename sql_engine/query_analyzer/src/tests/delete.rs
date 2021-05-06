@@ -15,7 +15,7 @@
 use super::*;
 
 fn delete_statement(schema_name: &str, table_name: &str) -> Query {
-    Query::Delete(DeleteStatement {
+    Query::Delete(DeleteQuery {
         schema_name: schema_name.to_owned(),
         table_name: table_name.to_owned(),
         where_clause: None,

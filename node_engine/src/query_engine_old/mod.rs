@@ -139,7 +139,7 @@ impl QueryEngineOld {
         }
     }
 
-    pub(crate) fn execute(&mut self, request: Inbound) -> TransactionResult<()> {
+    pub(crate) fn execute(&mut self, request: InboundMessage) -> TransactionResult<()> {
         let inner = Rc::new(request);
         let mut session = self.session.lock().unwrap();
         self.database.old_transaction(|db| {
@@ -151,7 +151,7 @@ impl QueryEngineOld {
             let catalog = CatalogHandlerOld::from(db.clone());
             let query_parser = QueryParser;
             let result = match &*inner {
-                Inbound::Query { sql } => {
+                InboundMessage::Query { sql } => {
                     match query_parser.parse(&sql) {
                         Ok(Request::Statement(statement)) => match statement {
                             Statement::Extended(extended_query) => match extended_query {
@@ -630,7 +630,7 @@ impl QueryEngineOld {
                         .expect("To Send Query Complete to Client");
                     Ok(())
                 }
-                Inbound::Parse {
+                InboundMessage::Parse {
                     statement_name,
                     sql,
                     param_types,
@@ -704,7 +704,7 @@ impl QueryEngineOld {
                     }
                     Ok(())
                 }
-                Inbound::DescribeStatement { name } => {
+                InboundMessage::DescribeStatement { name } => {
                     log::debug!("SESSION - {:?}", session);
                     match session.get_prepared_statement(&name) {
                         Some(statement) => match statement.param_types() {
@@ -836,7 +836,7 @@ impl QueryEngineOld {
                     }
                     Ok(())
                 }
-                Inbound::Bind {
+                InboundMessage::Bind {
                     portal_name,
                     statement_name,
                     query_param_formats,
@@ -915,7 +915,7 @@ impl QueryEngineOld {
                     }
                     Ok(())
                 }
-                Inbound::DescribePortal { name } => {
+                InboundMessage::DescribePortal { name } => {
                     match session.get_portal(&name) {
                         None => {
                             let x8: Vec<u8> = QueryError::portal_does_not_exist(name).into();
@@ -934,7 +934,7 @@ impl QueryEngineOld {
                     }
                     Ok(())
                 }
-                Inbound::Execute {
+                InboundMessage::Execute {
                     portal_name,
                     max_rows: _max_rows,
                 } => {
@@ -1138,32 +1138,32 @@ impl QueryEngineOld {
                     }
                     Ok(())
                 }
-                Inbound::CloseStatement { .. } => {
+                InboundMessage::CloseStatement { .. } => {
                     let x2: Vec<u8> = QueryEvent::QueryComplete.into();
                     self.sender.lock().unwrap()
                         .send(&x2)
                         .expect("To Send Query Complete to Client");
                     Ok(())
                 }
-                Inbound::ClosePortal { .. } => {
+                InboundMessage::ClosePortal { .. } => {
                     let x1: Vec<u8> = QueryEvent::QueryComplete.into();
                     self.sender.lock().unwrap()
                         .send(&x1)
                         .expect("To Send Query Complete to Client");
                     Ok(())
                 }
-                Inbound::Sync => {
+                InboundMessage::Sync => {
                     let x: Vec<u8> = QueryEvent::QueryComplete.into();
                     self.sender.lock().unwrap()
                         .send(&x)
                         .expect("To Send Query Complete to Client");
                     Ok(())
                 }
-                Inbound::Flush => {
+                InboundMessage::Flush => {
                     self.sender.lock().unwrap().flush().expect("Send All Buffered Messages to Client");
                     Ok(())
                 }
-                Inbound::Terminate => {
+                InboundMessage::Terminate => {
                     log::debug!("closing connection with client");
                     Err(ConflictableTransactionError::Abort)
                 }

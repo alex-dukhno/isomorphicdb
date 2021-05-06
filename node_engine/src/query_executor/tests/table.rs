@@ -29,7 +29,7 @@ mod schemaless {
             "create table schema_name.table_name (column_name smallint);",
             vec![
                 QueryError::schema_does_not_exist("schema_name").into(),
-                Outbound::ReadyForQuery,
+                OutboundMessage::ReadyForQuery,
             ],
         );
         txn.commit();
@@ -46,7 +46,7 @@ mod schemaless {
             "drop table schema_name.table_name;",
             vec![
                 QueryError::schema_does_not_exist("schema_name").into(),
-                Outbound::ReadyForQuery,
+                OutboundMessage::ReadyForQuery,
             ],
         );
         txn.commit();
@@ -60,7 +60,7 @@ fn create_table(with_schema: TransactionManager) {
     assert_statement(
         &txn,
         "create table schema_name.table_name (column_name smallint);",
-        vec![Outbound::TableCreated, Outbound::ReadyForQuery],
+        vec![OutboundMessage::TableCreated, OutboundMessage::ReadyForQuery],
     );
     txn.commit();
 }
@@ -72,14 +72,14 @@ fn create_same_table(with_schema: TransactionManager) {
     assert_statement(
         &txn,
         "create table schema_name.table_name (column_name smallint);",
-        vec![Outbound::TableCreated, Outbound::ReadyForQuery],
+        vec![OutboundMessage::TableCreated, OutboundMessage::ReadyForQuery],
     );
     assert_statement(
         &txn,
         "create table schema_name.table_name (column_name smallint);",
         vec![
             QueryError::table_already_exists("schema_name.table_name").into(),
-            Outbound::ReadyForQuery,
+            OutboundMessage::ReadyForQuery,
         ],
     );
     txn.commit();
@@ -92,17 +92,17 @@ fn drop_table(with_schema: TransactionManager) {
     assert_statement(
         &txn,
         "create table schema_name.table_name (column_name smallint);",
-        vec![Outbound::TableCreated, Outbound::ReadyForQuery],
+        vec![OutboundMessage::TableCreated, OutboundMessage::ReadyForQuery],
     );
     assert_statement(
         &txn,
         "drop table schema_name.table_name;",
-        vec![Outbound::TableDropped, Outbound::ReadyForQuery],
+        vec![OutboundMessage::TableDropped, OutboundMessage::ReadyForQuery],
     );
     assert_statement(
         &txn,
         "create table schema_name.table_name (column_name smallint);",
-        vec![Outbound::TableCreated, Outbound::ReadyForQuery],
+        vec![OutboundMessage::TableCreated, OutboundMessage::ReadyForQuery],
     );
 }
 
@@ -115,7 +115,7 @@ fn drop_non_existent_table(with_schema: TransactionManager) {
         "drop table schema_name.non_existent;",
         vec![
             QueryError::table_does_not_exist("schema_name.non_existent").into(),
-            Outbound::ReadyForQuery,
+            OutboundMessage::ReadyForQuery,
         ],
     );
     txn.commit();
@@ -128,7 +128,7 @@ fn drop_if_exists_non_existent_table(with_schema: TransactionManager) {
     assert_statement(
         &txn,
         "drop table if exists schema_name.non_existent;",
-        vec![Outbound::TableDropped, Outbound::ReadyForQuery],
+        vec![OutboundMessage::TableDropped, OutboundMessage::ReadyForQuery],
     );
     txn.commit();
 }
@@ -140,17 +140,17 @@ fn drop_if_exists_existent_and_non_existent_table(with_schema: TransactionManage
     assert_statement(
         &txn,
         "create table schema_name.existent_table();",
-        vec![Outbound::TableCreated, Outbound::ReadyForQuery],
+        vec![OutboundMessage::TableCreated, OutboundMessage::ReadyForQuery],
     );
     assert_statement(
         &txn,
         "drop table if exists schema_name.non_existent, schema_name.existent_table;",
-        vec![Outbound::TableDropped, Outbound::ReadyForQuery],
+        vec![OutboundMessage::TableDropped, OutboundMessage::ReadyForQuery],
     );
     assert_statement(
         &txn,
         "create table schema_name.existent_table();",
-        vec![Outbound::TableCreated, Outbound::ReadyForQuery],
+        vec![OutboundMessage::TableCreated, OutboundMessage::ReadyForQuery],
     );
     txn.commit();
 }
@@ -163,7 +163,7 @@ fn delete_from_nonexistent_table(with_schema: TransactionManager) {
         "delete from schema_name.table_name;",
         vec![
             QueryError::table_does_not_exist("schema_name.table_name").into(),
-            Outbound::ReadyForQuery,
+            OutboundMessage::ReadyForQuery,
         ],
     );
     txn.commit();
@@ -178,7 +178,7 @@ fn insert_into_nonexistent_table(with_schema: TransactionManager) {
         "insert into schema_name.table_name values (123);",
         vec![
             QueryError::table_does_not_exist("schema_name.table_name").into(),
-            Outbound::ReadyForQuery,
+            OutboundMessage::ReadyForQuery,
         ],
     );
     txn.commit();
@@ -193,7 +193,7 @@ fn select_from_not_existed_table(with_schema: TransactionManager) {
         "select * from schema_name.non_existent;",
         vec![
             QueryError::table_does_not_exist("schema_name.non_existent").into(),
-            Outbound::ReadyForQuery,
+            OutboundMessage::ReadyForQuery,
         ],
     );
     txn.commit();
@@ -208,7 +208,7 @@ fn select_named_columns_from_non_existent_table(with_schema: TransactionManager)
         "select column_1 from schema_name.non_existent;",
         vec![
             QueryError::table_does_not_exist("schema_name.non_existent").into(),
-            Outbound::ReadyForQuery,
+            OutboundMessage::ReadyForQuery,
         ],
     );
     txn.commit();
@@ -222,7 +222,7 @@ fn update_records_in_nonexistent_table(with_schema: TransactionManager) {
         "update schema_name.table_name set column_test=789;",
         vec![
             QueryError::table_does_not_exist("schema_name.table_name").into(),
-            Outbound::ReadyForQuery,
+            OutboundMessage::ReadyForQuery,
         ],
     );
     txn.commit();
@@ -243,7 +243,7 @@ mod different_types {
                 column_i integer,\
                 column_bi bigint
             );",
-            vec![Outbound::TableCreated, Outbound::ReadyForQuery],
+            vec![OutboundMessage::TableCreated, OutboundMessage::ReadyForQuery],
         );
         txn.commit();
     }
@@ -258,7 +258,7 @@ mod different_types {
                 column_c char(10),\
                 column_vc varchar(10)\
             );",
-            vec![Outbound::TableCreated, Outbound::ReadyForQuery],
+            vec![OutboundMessage::TableCreated, OutboundMessage::ReadyForQuery],
         );
         txn.commit();
     }
@@ -272,7 +272,7 @@ mod different_types {
             "create table schema_name.table_name (\
                 column_b boolean\
             );",
-            vec![Outbound::TableCreated, Outbound::ReadyForQuery],
+            vec![OutboundMessage::TableCreated, OutboundMessage::ReadyForQuery],
         );
         txn.commit();
     }

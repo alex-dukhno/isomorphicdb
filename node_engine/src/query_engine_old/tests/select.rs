@@ -18,7 +18,7 @@ use super::*;
 fn select_from_not_existed_table(database_with_schema: (InMemory, ResultCollector)) {
     let (mut engine, collector) = database_with_schema;
     engine
-        .execute(Inbound::Query {
+        .execute(InboundMessage::Query {
             sql: "select * from schema_name.non_existent;".to_owned(),
         })
         .expect("query executed");
@@ -32,7 +32,7 @@ fn select_from_not_existed_table(database_with_schema: (InMemory, ResultCollecto
 fn select_named_columns_from_non_existent_table(database_with_schema: (InMemory, ResultCollector)) {
     let (mut engine, collector) = database_with_schema;
     engine
-        .execute(Inbound::Query {
+        .execute(InboundMessage::Query {
             sql: "select column_1 from schema_name.non_existent;".to_owned(),
         })
         .expect("query executed");
@@ -46,7 +46,7 @@ fn select_named_columns_from_non_existent_table(database_with_schema: (InMemory,
 fn select_all_from_table_with_multiple_columns(database_with_schema: (InMemory, ResultCollector)) {
     let (mut engine, collector) = database_with_schema;
     engine
-        .execute(Inbound::Query {
+        .execute(InboundMessage::Query {
             sql: "create table schema_name.table_name (column_1 smallint, column_2 smallint, column_3 smallint);"
                 .to_owned(),
         })
@@ -57,7 +57,7 @@ fn select_all_from_table_with_multiple_columns(database_with_schema: (InMemory, 
         .assert_receive_single(Ok(QueryEvent::TableCreated));
 
     engine
-        .execute(Inbound::Query {
+        .execute(InboundMessage::Query {
             sql: "insert into schema_name.table_name values (123, 456, 789);".to_owned(),
         })
         .expect("query executed");
@@ -67,7 +67,7 @@ fn select_all_from_table_with_multiple_columns(database_with_schema: (InMemory, 
         .assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
     engine
-        .execute(Inbound::Query {
+        .execute(InboundMessage::Query {
             sql: "select * from schema_name.table_name;".to_owned(),
         })
         .expect("query executed");
@@ -90,7 +90,7 @@ fn select_all_from_table_with_multiple_columns(database_with_schema: (InMemory, 
 fn select_not_all_columns(database_with_schema: (InMemory, ResultCollector)) {
     let (mut engine, collector) = database_with_schema;
     engine
-        .execute(Inbound::Query {
+        .execute(InboundMessage::Query {
             sql: "create table schema_name.table_name (column_1 smallint, column_2 smallint, column_3 smallint);"
                 .to_owned(),
         })
@@ -101,7 +101,7 @@ fn select_not_all_columns(database_with_schema: (InMemory, ResultCollector)) {
         .assert_receive_single(Ok(QueryEvent::TableCreated));
 
     engine
-        .execute(Inbound::Query {
+        .execute(InboundMessage::Query {
             sql: "insert into schema_name.table_name values (1, 4, 7), (2, 5, 8), (3, 6, 9);".to_owned(),
         })
         .expect("query executed");
@@ -111,7 +111,7 @@ fn select_not_all_columns(database_with_schema: (InMemory, ResultCollector)) {
         .assert_receive_single(Ok(QueryEvent::RecordsInserted(3)));
 
     engine
-        .execute(Inbound::Query {
+        .execute(InboundMessage::Query {
             sql: "select column_3, column_2 from schema_name.table_name;".to_owned(),
         })
         .expect("query executed");
@@ -131,7 +131,7 @@ fn select_not_all_columns(database_with_schema: (InMemory, ResultCollector)) {
 fn select_non_existing_columns_from_table(database_with_schema: (InMemory, ResultCollector)) {
     let (mut engine, collector) = database_with_schema;
     engine
-        .execute(Inbound::Query {
+        .execute(InboundMessage::Query {
             sql: "create table schema_name.table_name (column_in_table smallint);".to_owned(),
         })
         .expect("query executed");
@@ -141,7 +141,7 @@ fn select_non_existing_columns_from_table(database_with_schema: (InMemory, Resul
         .assert_receive_single(Ok(QueryEvent::TableCreated));
 
     engine
-        .execute(Inbound::Query {
+        .execute(InboundMessage::Query {
             sql: "select column_not_in_table1, column_not_in_table2 from schema_name.table_name;".to_owned(),
         })
         .expect("query executed");
@@ -155,7 +155,7 @@ fn select_non_existing_columns_from_table(database_with_schema: (InMemory, Resul
 fn select_first_and_last_columns_from_table_with_multiple_columns(database_with_schema: (InMemory, ResultCollector)) {
     let (mut engine, collector) = database_with_schema;
     engine
-        .execute(Inbound::Query {
+        .execute(InboundMessage::Query {
             sql: "create table schema_name.table_name (column_1 smallint, column_2 smallint, column_3 smallint);"
                 .to_owned(),
         })
@@ -166,7 +166,7 @@ fn select_first_and_last_columns_from_table_with_multiple_columns(database_with_
         .assert_receive_single(Ok(QueryEvent::TableCreated));
 
     engine
-        .execute(Inbound::Query {
+        .execute(InboundMessage::Query {
             sql: "insert into schema_name.table_name values (1, 2, 3), (4, 5, 6), (7, 8, 9);".to_owned(),
         })
         .expect("query executed");
@@ -176,7 +176,7 @@ fn select_first_and_last_columns_from_table_with_multiple_columns(database_with_
         .assert_receive_single(Ok(QueryEvent::RecordsInserted(3)));
 
     engine
-        .execute(Inbound::Query {
+        .execute(InboundMessage::Query {
             sql: "select column_3, column_1 from schema_name.table_name;".to_owned(),
         })
         .expect("query executed");
@@ -196,7 +196,7 @@ fn select_first_and_last_columns_from_table_with_multiple_columns(database_with_
 fn select_all_columns_reordered_from_table_with_multiple_columns(database_with_schema: (InMemory, ResultCollector)) {
     let (mut engine, collector) = database_with_schema;
     engine
-        .execute(Inbound::Query {
+        .execute(InboundMessage::Query {
             sql: "create table schema_name.table_name (column_1 smallint, column_2 smallint, column_3 smallint);"
                 .to_owned(),
         })
@@ -207,7 +207,7 @@ fn select_all_columns_reordered_from_table_with_multiple_columns(database_with_s
         .assert_receive_single(Ok(QueryEvent::TableCreated));
 
     engine
-        .execute(Inbound::Query {
+        .execute(InboundMessage::Query {
             sql: "insert into schema_name.table_name values (1, 2, 3), (4, 5, 6), (7, 8, 9);".to_owned(),
         })
         .expect("query executed");
@@ -217,7 +217,7 @@ fn select_all_columns_reordered_from_table_with_multiple_columns(database_with_s
         .assert_receive_single(Ok(QueryEvent::RecordsInserted(3)));
 
     engine
-        .execute(Inbound::Query {
+        .execute(InboundMessage::Query {
             sql: "select column_3, column_1, column_2 from schema_name.table_name;".to_owned(),
         })
         .expect("query executed");
@@ -250,7 +250,7 @@ fn select_all_columns_reordered_from_table_with_multiple_columns(database_with_s
 fn select_with_column_name_duplication(database_with_schema: (InMemory, ResultCollector)) {
     let (mut engine, collector) = database_with_schema;
     engine
-        .execute(Inbound::Query {
+        .execute(InboundMessage::Query {
             sql: "create table schema_name.table_name (column_1 smallint, column_2 smallint, column_3 smallint);"
                 .to_owned(),
         })
@@ -261,7 +261,7 @@ fn select_with_column_name_duplication(database_with_schema: (InMemory, ResultCo
         .assert_receive_single(Ok(QueryEvent::TableCreated));
 
     engine
-        .execute(Inbound::Query {
+        .execute(InboundMessage::Query {
             sql: "insert into schema_name.table_name values (1, 2, 3), (4, 5, 6), (7, 8, 9);".to_owned(),
         })
         .expect("query executed");
@@ -271,7 +271,7 @@ fn select_with_column_name_duplication(database_with_schema: (InMemory, ResultCo
         .assert_receive_single(Ok(QueryEvent::RecordsInserted(3)));
 
     engine
-        .execute(Inbound::Query {
+        .execute(InboundMessage::Query {
             sql: "select column_3, column_2, column_1, column_3, column_2 from schema_name.table_name;".to_owned(),
         })
         .expect("query executed");
@@ -312,7 +312,7 @@ fn select_with_column_name_duplication(database_with_schema: (InMemory, ResultCo
 fn select_different_integer_types(database_with_schema: (InMemory, ResultCollector)) {
     let (mut engine, collector) = database_with_schema;
     engine
-        .execute(Inbound::Query {
+        .execute(InboundMessage::Query {
             sql: "create table schema_name.table_name (column_si smallint, column_i integer, column_bi bigint);"
                 .to_owned(),
         })
@@ -323,14 +323,14 @@ fn select_different_integer_types(database_with_schema: (InMemory, ResultCollect
         .assert_receive_single(Ok(QueryEvent::TableCreated));
 
     engine
-        .execute(Inbound::Query { sql: "insert into schema_name.table_name values (1000, 2000000, 3000000000), (4000, 5000000, 6000000000), (7000, 8000000, 9000000000);".to_owned()}).expect("query executed");
+        .execute(InboundMessage::Query { sql: "insert into schema_name.table_name values (1000, 2000000, 3000000000), (4000, 5000000, 6000000000), (7000, 8000000, 9000000000);".to_owned()}).expect("query executed");
     collector
         .lock()
         .unwrap()
         .assert_receive_single(Ok(QueryEvent::RecordsInserted(3)));
 
     engine
-        .execute(Inbound::Query {
+        .execute(InboundMessage::Query {
             sql: "select * from schema_name.table_name;".to_owned(),
         })
         .expect("query executed");
@@ -363,7 +363,7 @@ fn select_different_integer_types(database_with_schema: (InMemory, ResultCollect
 fn select_different_character_strings_types(database_with_schema: (InMemory, ResultCollector)) {
     let (mut engine, collector) = database_with_schema;
     engine
-        .execute(Inbound::Query {
+        .execute(InboundMessage::Query {
             sql: "create table schema_name.table_name (char_10 char(10), var_char_20 varchar(20));".to_owned(),
         })
         .expect("query executed");
@@ -373,7 +373,7 @@ fn select_different_character_strings_types(database_with_schema: (InMemory, Res
         .assert_receive_single(Ok(QueryEvent::TableCreated));
 
     engine
-        .execute(Inbound::Query { sql: "insert into schema_name.table_name values ('1234567890', '12345678901234567890'), ('12345', '1234567890');".to_owned()}).expect("query executed");
+        .execute(InboundMessage::Query { sql: "insert into schema_name.table_name values ('1234567890', '12345678901234567890'), ('12345', '1234567890');".to_owned()}).expect("query executed");
     collector
         .lock()
         .unwrap()
@@ -385,7 +385,7 @@ fn select_different_character_strings_types(database_with_schema: (InMemory, Res
     // collector.lock().unwrap().assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
     engine
-        .execute(Inbound::Query {
+        .execute(InboundMessage::Query {
             sql: "select * from schema_name.table_name;".to_owned(),
         })
         .expect("query executed");

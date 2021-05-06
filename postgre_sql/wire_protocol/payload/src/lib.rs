@@ -61,7 +61,7 @@ pub enum Value {
 }
 
 #[derive(Debug)]
-pub enum Inbound {
+pub enum InboundMessage {
     Query {
         sql: String,
     },
@@ -99,7 +99,7 @@ pub enum Inbound {
 }
 
 #[derive(Debug, PartialEq)]
-pub enum Outbound {
+pub enum OutboundMessage {
     SchemaCreated,
     SchemaDropped,
     TableCreated,
@@ -124,8 +124,8 @@ pub enum Outbound {
     TransactionCommit,
 }
 
-impl From<Outbound> for Vec<u8> {
-    fn from(event: Outbound) -> Vec<u8> {
+impl From<OutboundMessage> for Vec<u8> {
+    fn from(event: OutboundMessage) -> Vec<u8> {
         fn command_complete(command: &str) -> Vec<u8> {
             let mut command_buff = Vec::new();
             command_buff.extend_from_slice(&[COMMAND_COMPLETE]);
@@ -149,16 +149,16 @@ impl From<Outbound> for Vec<u8> {
         }
 
         match event {
-            Outbound::SchemaCreated => command_complete("CREATE SCHEMA"),
-            Outbound::SchemaDropped => command_complete("DROP SCHEMA"),
-            Outbound::TableCreated => command_complete("CREATE TABLE"),
-            Outbound::TableDropped => command_complete("DROP TABLE"),
-            Outbound::IndexCreated => command_complete("CREATE INDEX"),
-            Outbound::VariableSet => command_complete("SET"),
-            Outbound::TransactionBegin => command_complete("BEGIN"),
-            Outbound::TransactionCommit => command_complete("COMMIT"),
-            Outbound::RecordsInserted(records) => command_complete(format!("INSERT 0 {}", records).as_str()),
-            Outbound::RowDescription(description) => {
+            OutboundMessage::SchemaCreated => command_complete("CREATE SCHEMA"),
+            OutboundMessage::SchemaDropped => command_complete("DROP SCHEMA"),
+            OutboundMessage::TableCreated => command_complete("CREATE TABLE"),
+            OutboundMessage::TableDropped => command_complete("DROP TABLE"),
+            OutboundMessage::IndexCreated => command_complete("CREATE INDEX"),
+            OutboundMessage::VariableSet => command_complete("SET"),
+            OutboundMessage::TransactionBegin => command_complete("BEGIN"),
+            OutboundMessage::TransactionCommit => command_complete("COMMIT"),
+            OutboundMessage::RecordsInserted(records) => command_complete(format!("INSERT 0 {}", records).as_str()),
+            OutboundMessage::RowDescription(description) => {
                 let mut buff = Vec::new();
                 let len = description.len();
                 for (name, oid) in description {
@@ -178,7 +178,7 @@ impl From<Outbound> for Vec<u8> {
                 len_buff.extend_from_slice(&buff);
                 len_buff
             }
-            Outbound::DataRow(row) => {
+            OutboundMessage::DataRow(row) => {
                 let mut row_buff = Vec::new();
                 for field in row.iter() {
                     row_buff.extend_from_slice(&(field.len() as i32).to_be_bytes());
@@ -191,12 +191,12 @@ impl From<Outbound> for Vec<u8> {
                 len_buff.extend_from_slice(&row_buff);
                 len_buff
             }
-            Outbound::RecordsSelected(records) => command_complete(format!("SELECT {}", records).as_str()),
-            Outbound::RecordsUpdated(records) => command_complete(format!("UPDATE {}", records).as_str()),
-            Outbound::RecordsDeleted(records) => command_complete(format!("DELETE {}", records).as_str()),
-            Outbound::StatementPrepared => command_complete("PREPARE"),
-            Outbound::StatementDeallocated => command_complete("DEALLOCATE"),
-            Outbound::StatementParameters(param_types) => {
+            OutboundMessage::RecordsSelected(records) => command_complete(format!("SELECT {}", records).as_str()),
+            OutboundMessage::RecordsUpdated(records) => command_complete(format!("UPDATE {}", records).as_str()),
+            OutboundMessage::RecordsDeleted(records) => command_complete(format!("DELETE {}", records).as_str()),
+            OutboundMessage::StatementPrepared => command_complete("PREPARE"),
+            OutboundMessage::StatementDeallocated => command_complete("DEALLOCATE"),
+            OutboundMessage::StatementParameters(param_types) => {
                 let mut type_id_buff = Vec::new();
                 for oid in param_types.iter() {
                     type_id_buff.extend_from_slice(&oid.to_be_bytes());
@@ -208,7 +208,7 @@ impl From<Outbound> for Vec<u8> {
                 buff.extend_from_slice(&type_id_buff);
                 buff
             }
-            Outbound::StatementDescription(description) => {
+            OutboundMessage::StatementDescription(description) => {
                 if description.is_empty() {
                     vec![NO_DATA, 0, 0, 0, 4]
                 } else {
@@ -232,10 +232,10 @@ impl From<Outbound> for Vec<u8> {
                     len_buff
                 }
             }
-            Outbound::ReadyForQuery => vec![READY_FOR_QUERY, 0, 0, 0, 5, EMPTY_QUERY_RESPONSE],
-            Outbound::ParseComplete => vec![PARSE_COMPLETE, 0, 0, 0, 4],
-            Outbound::BindComplete => vec![BIND_COMPLETE, 0, 0, 0, 4],
-            Outbound::Error(severity, code, message) => {
+            OutboundMessage::ReadyForQuery => vec![READY_FOR_QUERY, 0, 0, 0, 5, EMPTY_QUERY_RESPONSE],
+            OutboundMessage::ParseComplete => vec![PARSE_COMPLETE, 0, 0, 0, 4],
+            OutboundMessage::BindComplete => vec![BIND_COMPLETE, 0, 0, 0, 4],
+            OutboundMessage::Error(severity, code, message) => {
                 let mut error_response_buff = Vec::new();
                 error_response_buff.extend_from_slice(&[ERROR_RESPONSE]);
                 let mut message_buff = Vec::new();

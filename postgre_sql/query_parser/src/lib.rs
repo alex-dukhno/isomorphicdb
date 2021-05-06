@@ -14,9 +14,9 @@
 
 use postgres_parser::{nodes, sys, Node, PgParserError, SqlStatementScanner};
 use query_ast::{
-    Assignment, BinaryOperator, ColumnDef, DataType, Definition, DeleteStatement, Expr, Extended, InsertSource,
-    InsertStatement, Query, Request, SelectItem, SelectStatement, Set, Statement, Transaction, UnaryOperator,
-    UpdateStatement, Value, Values,
+    Assignment, BinaryOperator, ColumnDef, DataType, Definition, DeleteQuery, Expr, Extended, InsertQuery,
+    InsertSource, Query, Request, SelectItem, SelectQuery, Set, Statement, Transaction, UnaryOperator, UpdateQuery,
+    Value, Values,
 };
 use query_response::QueryError;
 use std::fmt::{self, Display, Formatter};
@@ -291,7 +291,7 @@ impl QueryParser {
                         unimplemented!()
                     }
                 }
-                Query::Insert(InsertStatement {
+                Query::Insert(InsertQuery {
                     schema_name,
                     table_name,
                     columns,
@@ -350,7 +350,7 @@ impl QueryParser {
                     })) => (schema_name.unwrap_or_else(|| "public".to_owned()), table_name.unwrap()),
                     _ => unimplemented!(),
                 };
-                Query::Select(SelectStatement {
+                Query::Select(SelectQuery {
                     select_items,
                     schema_name,
                     table_name,
@@ -379,7 +379,7 @@ impl QueryParser {
                         _ => unimplemented!(),
                     }
                 }
-                Query::Update(UpdateStatement {
+                Query::Update(UpdateQuery {
                     schema_name,
                     table_name,
                     assignments,
@@ -396,7 +396,7 @@ impl QueryParser {
                 let relation = relation.unwrap();
                 let schema_name = relation.schemaname.unwrap_or_else(|| "public".to_owned());
                 let table_name = relation.relname.unwrap();
-                Query::Delete(DeleteStatement {
+                Query::Delete(DeleteQuery {
                     schema_name,
                     table_name,
                     where_clause: where_clause.map(|expr| self.parse_expr(*expr)),

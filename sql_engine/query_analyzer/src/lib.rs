@@ -20,8 +20,7 @@ use data_manipulation_untyped_queries::{
 use data_manipulation_untyped_tree::{DynamicUntypedItem, DynamicUntypedTree};
 use definition::FullTableName;
 use query_ast::{
-    Assignment, DeleteStatement, InsertSource, InsertStatement, Query, SelectItem, SelectStatement, UpdateStatement,
-    Values,
+    Assignment, DeleteQuery, InsertQuery, InsertSource, Query, SelectItem, SelectQuery, UpdateQuery, Values,
 };
 use query_response::QueryError;
 use std::collections::HashMap;
@@ -43,9 +42,9 @@ impl<'a> From<Transaction<'a>> for QueryAnalyzer<'a> {
 }
 
 impl<'a> QueryAnalyzer<'a> {
-    pub fn analyze(&self, statement: Query) -> Result<UntypedQuery, AnalysisError> {
-        match statement {
-            Query::Insert(InsertStatement {
+    pub fn analyze(&self, query: Query) -> Result<UntypedQuery, AnalysisError> {
+        match query {
+            Query::Insert(InsertQuery {
                 schema_name,
                 table_name,
                 source,
@@ -102,7 +101,7 @@ impl<'a> QueryAnalyzer<'a> {
                     }
                 }
             }
-            Query::Update(UpdateStatement {
+            Query::Update(UpdateQuery {
                 schema_name,
                 table_name,
                 assignments: stmt_assignments,
@@ -155,7 +154,7 @@ impl<'a> QueryAnalyzer<'a> {
                     }
                 }
             }
-            Query::Select(SelectStatement {
+            Query::Select(SelectQuery {
                 select_items,
                 schema_name,
                 table_name,
@@ -196,7 +195,7 @@ impl<'a> QueryAnalyzer<'a> {
                     }
                 }
             }
-            Query::Delete(DeleteStatement {
+            Query::Delete(DeleteQuery {
                 schema_name,
                 table_name,
                 where_clause,
@@ -237,7 +236,7 @@ impl<'a> From<TransactionalDatabase<'a>> for QueryAnalyzerOld<'a> {
 impl<'a> QueryAnalyzerOld<'a> {
     pub fn analyze(&self, statement: Query) -> Result<UntypedQuery, AnalysisError> {
         match statement {
-            Query::Insert(InsertStatement {
+            Query::Insert(InsertQuery {
                 schema_name,
                 table_name,
                 source,
@@ -294,7 +293,7 @@ impl<'a> QueryAnalyzerOld<'a> {
                     }
                 }
             }
-            Query::Update(UpdateStatement {
+            Query::Update(UpdateQuery {
                 schema_name,
                 table_name,
                 assignments: stmt_assignments,
@@ -347,7 +346,7 @@ impl<'a> QueryAnalyzerOld<'a> {
                     }
                 }
             }
-            Query::Select(SelectStatement {
+            Query::Select(SelectQuery {
                 select_items,
                 schema_name,
                 table_name,
@@ -388,7 +387,7 @@ impl<'a> QueryAnalyzerOld<'a> {
                     }
                 }
             }
-            Query::Delete(DeleteStatement {
+            Query::Delete(DeleteQuery {
                 schema_name,
                 table_name,
                 where_clause,

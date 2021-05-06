@@ -19,7 +19,7 @@ fn delete_from_nonexistent_table(database_with_schema: (InMemory, ResultCollecto
     let (mut engine, collector) = database_with_schema;
 
     engine
-        .execute(Inbound::Query {
+        .execute(InboundMessage::Query {
             sql: "delete from schema_name.table_name;".to_owned(),
         })
         .expect("query executed");
@@ -34,7 +34,7 @@ fn delete_all_records(database_with_schema: (InMemory, ResultCollector)) {
     let (mut engine, collector) = database_with_schema;
 
     engine
-        .execute(Inbound::Query {
+        .execute(InboundMessage::Query {
             sql: "create table schema_name.table_name (column_test smallint);".to_owned(),
         })
         .expect("query executed");
@@ -44,7 +44,7 @@ fn delete_all_records(database_with_schema: (InMemory, ResultCollector)) {
         .assert_receive_single(Ok(QueryEvent::TableCreated));
 
     engine
-        .execute(Inbound::Query {
+        .execute(InboundMessage::Query {
             sql: "insert into schema_name.table_name values (123);".to_owned(),
         })
         .expect("query executed");
@@ -54,7 +54,7 @@ fn delete_all_records(database_with_schema: (InMemory, ResultCollector)) {
         .assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
     engine
-        .execute(Inbound::Query {
+        .execute(InboundMessage::Query {
             sql: "insert into schema_name.table_name values (456);".to_owned(),
         })
         .expect("query executed");
@@ -64,7 +64,7 @@ fn delete_all_records(database_with_schema: (InMemory, ResultCollector)) {
         .assert_receive_single(Ok(QueryEvent::RecordsInserted(1)));
 
     engine
-        .execute(Inbound::Query {
+        .execute(InboundMessage::Query {
             sql: "select * from schema_name.table_name;".to_owned(),
         })
         .expect("query executed");
@@ -76,7 +76,7 @@ fn delete_all_records(database_with_schema: (InMemory, ResultCollector)) {
     ]);
 
     engine
-        .execute(Inbound::Query {
+        .execute(InboundMessage::Query {
             sql: "delete from schema_name.table_name;".to_owned(),
         })
         .expect("query executed");
@@ -86,7 +86,7 @@ fn delete_all_records(database_with_schema: (InMemory, ResultCollector)) {
         .assert_receive_single(Ok(QueryEvent::RecordsDeleted(2)));
 
     engine
-        .execute(Inbound::Query {
+        .execute(InboundMessage::Query {
             sql: "select * from schema_name.table_name;".to_owned(),
         })
         .expect("query executed");
