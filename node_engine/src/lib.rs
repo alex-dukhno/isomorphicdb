@@ -20,9 +20,9 @@ use types::SqlTypeFamily;
 
 mod node_engine_old;
 mod query_engine_old;
+mod query_executor;
 mod session_old;
 mod transaction_manager;
-mod txn_context;
 mod worker;
 
 #[derive(Default)]

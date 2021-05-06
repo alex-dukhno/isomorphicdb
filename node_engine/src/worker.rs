@@ -12,11 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{transaction_manager::TransactionManager, txn_context::TransactionContext, QueryPlanCache};
-use data_manipulation::QueryExecutionResult;
-use data_repr::scalar::ScalarValue;
+use crate::query_executor::QueryExecutor;
+use crate::{
+    transaction_manager::{TransactionContext, TransactionManager},
+    QueryPlanCache,
+};
 use postgre_sql::{
-    query_ast::{Extended, Request, Statement, Transaction},
+    query_ast::{Request, Transaction},
     query_parser::QueryParser,
     wire_protocol::{
         payload::{Inbound, Outbound},
@@ -24,80 +26,6 @@ use postgre_sql::{
     },
 };
 use storage::Database;
-use types::{SqlType, SqlTypeFamily};
-
-struct QueryExecutor;
-
-impl QueryExecutor {
-    fn execute(
-        &self,
-        statement: Statement,
-        txn: &TransactionContext,
-        query_plan_cache: &mut QueryPlanCache,
-    ) -> Vec<Outbound> {
-        let mut responses = vec![];
-        match statement {
-            Statement::Definition(definition) => match txn.apply_schema_change(definition) {
-                Ok(success) => responses.push(success.into()),
-                Err(failure) => responses.push(failure.into()),
-            },
-            Statement::Extended(extended) => match extended {
-                Extended::Prepare {
-                    query,
-                    name,
-                    param_types,
-                } => {
-                    let params: Vec<SqlTypeFamily> =
-                        param_types.into_iter().map(|dt| SqlType::from(dt).family()).collect();
-                    let typed_query = txn.process(query.clone(), params.clone()).unwrap();
-                    let query_plan = txn.plan(typed_query);
-                    query_plan_cache.allocate(name, query_plan, query, params);
-                    responses.push(Outbound::StatementPrepared);
-                }
-                Extended::Execute { name, param_values } => {
-                    match query_plan_cache.lookup(&name) {
-                        None => unimplemented!(),
-                        // TODO: workaround situate that QueryPlan is not clone ¯\_(ツ)_/¯
-                        Some((query, params)) => {
-                            let typed_query = txn.process(query.clone(), params.clone()).unwrap();
-                            let query_plan = txn.plan(typed_query);
-                            match query_plan.execute(param_values.into_iter().map(ScalarValue::from).collect()) {
-                                Ok(QueryExecutionResult::Inserted(inserted)) => {
-                                    responses.push(Outbound::RecordsInserted(inserted));
-                                }
-                                Ok(_) => {}
-                                Err(_) => unimplemented!(),
-                            }
-                        }
-                    }
-                }
-                Extended::Deallocate { name } => match query_plan_cache.deallocate(&name) {
-                    None => {}
-                    Some(_) => {}
-                },
-            },
-            Statement::Query(query) => {
-                let typed_query = txn.process(query, vec![]).unwrap();
-                let query_plan = txn.plan(typed_query);
-                match query_plan.execute(vec![]) {
-                    Ok(QueryExecutionResult::Selected((desc, data))) => {
-                        responses.push(Outbound::RowDescription(desc));
-                        let selected = data.len();
-                        for datum in data {
-                            responses.push(Outbound::DataRow(datum.into_iter().map(|v| v.as_text()).collect()));
-                        }
-                        responses.push(Outbound::RecordsSelected(selected));
-                    }
-                    other => {
-                        unimplemented!("branch {:?} is not implemented", other)
-                    }
-                }
-            }
-        }
-        responses.push(Outbound::ReadyForQuery);
-        responses
-    }
-}
 
 #[allow(dead_code)]
 pub struct Worker;
@@ -111,6 +39,7 @@ impl Worker {
         let database = Database::new(db_name);
         let query_engine = TransactionManager::new(database);
 
+        let executor = QueryExecutor;
         let mut txn_state: Option<TransactionContext> = None;
         loop {
             let inbound_request = connection.receive();
@@ -145,8 +74,7 @@ impl Worker {
                                     None => (query_engine.start_transaction(), true),
                                     Some(txn) => (txn, false),
                                 };
-                                let test = QueryExecutor;
-                                for outbound in test.execute(statement, &txn, &mut query_plan_cache) {
+                                for outbound in executor.execute(statement, &txn, &mut query_plan_cache) {
                                     connection.send(outbound).unwrap();
                                 }
                                 if finish_txn {

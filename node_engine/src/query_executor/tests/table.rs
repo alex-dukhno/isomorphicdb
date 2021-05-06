@@ -24,10 +24,13 @@ mod schemaless {
         let query_engine = TransactionManager::new(database);
 
         let txn = query_engine.start_transaction();
-        assert_definition(
+        assert_statement(
             &txn,
             "create table schema_name.table_name (column_name smallint);",
-            Err(QueryError::schema_does_not_exist("schema_name")),
+            vec![
+                QueryError::schema_does_not_exist("schema_name").into(),
+                Outbound::ReadyForQuery,
+            ],
         );
         txn.commit();
     }
@@ -38,10 +41,13 @@ mod schemaless {
         let query_engine = TransactionManager::new(database);
 
         let txn = query_engine.start_transaction();
-        assert_definition(
+        assert_statement(
             &txn,
             "drop table schema_name.table_name;",
-            Err(QueryError::schema_does_not_exist("schema_name")),
+            vec![
+                QueryError::schema_does_not_exist("schema_name").into(),
+                Outbound::ReadyForQuery,
+            ],
         );
         txn.commit();
     }
@@ -51,10 +57,10 @@ mod schemaless {
 fn create_table(with_schema: TransactionManager) {
     let txn = with_schema.start_transaction();
 
-    assert_definition(
+    assert_statement(
         &txn,
         "create table schema_name.table_name (column_name smallint);",
-        Ok(QueryEvent::TableCreated),
+        vec![Outbound::TableCreated, Outbound::ReadyForQuery],
     );
     txn.commit();
 }
@@ -63,15 +69,18 @@ fn create_table(with_schema: TransactionManager) {
 fn create_same_table(with_schema: TransactionManager) {
     let txn = with_schema.start_transaction();
 
-    assert_definition(
+    assert_statement(
         &txn,
         "create table schema_name.table_name (column_name smallint);",
-        Ok(QueryEvent::TableCreated),
+        vec![Outbound::TableCreated, Outbound::ReadyForQuery],
     );
-    assert_definition(
+    assert_statement(
         &txn,
         "create table schema_name.table_name (column_name smallint);",
-        Err(QueryError::table_already_exists("schema_name.table_name")),
+        vec![
+            QueryError::table_already_exists("schema_name.table_name").into(),
+            Outbound::ReadyForQuery,
+        ],
     );
     txn.commit();
 }
@@ -80,16 +89,20 @@ fn create_same_table(with_schema: TransactionManager) {
 fn drop_table(with_schema: TransactionManager) {
     let txn = with_schema.start_transaction();
 
-    assert_definition(
+    assert_statement(
         &txn,
         "create table schema_name.table_name (column_name smallint);",
-        Ok(QueryEvent::TableCreated),
+        vec![Outbound::TableCreated, Outbound::ReadyForQuery],
     );
-    assert_definition(&txn, "drop table schema_name.table_name;", Ok(QueryEvent::TableDropped));
-    assert_definition(
+    assert_statement(
+        &txn,
+        "drop table schema_name.table_name;",
+        vec![Outbound::TableDropped, Outbound::ReadyForQuery],
+    );
+    assert_statement(
         &txn,
         "create table schema_name.table_name (column_name smallint);",
-        Ok(QueryEvent::TableCreated),
+        vec![Outbound::TableCreated, Outbound::ReadyForQuery],
     );
 }
 
@@ -97,10 +110,13 @@ fn drop_table(with_schema: TransactionManager) {
 fn drop_non_existent_table(with_schema: TransactionManager) {
     let txn = with_schema.start_transaction();
 
-    assert_definition(
+    assert_statement(
         &txn,
         "drop table schema_name.non_existent;",
-        Err(QueryError::table_does_not_exist("schema_name.non_existent")),
+        vec![
+            QueryError::table_does_not_exist("schema_name.non_existent").into(),
+            Outbound::ReadyForQuery,
+        ],
     );
     txn.commit();
 }
@@ -109,10 +125,10 @@ fn drop_non_existent_table(with_schema: TransactionManager) {
 fn drop_if_exists_non_existent_table(with_schema: TransactionManager) {
     let txn = with_schema.start_transaction();
 
-    assert_definition(
+    assert_statement(
         &txn,
         "drop table if exists schema_name.non_existent;",
-        Ok(QueryEvent::TableDropped),
+        vec![Outbound::TableDropped, Outbound::ReadyForQuery],
     );
     txn.commit();
 }
@@ -121,20 +137,20 @@ fn drop_if_exists_non_existent_table(with_schema: TransactionManager) {
 fn drop_if_exists_existent_and_non_existent_table(with_schema: TransactionManager) {
     let txn = with_schema.start_transaction();
 
-    assert_definition(
+    assert_statement(
         &txn,
         "create table schema_name.existent_table();",
-        Ok(QueryEvent::TableCreated),
+        vec![Outbound::TableCreated, Outbound::ReadyForQuery],
     );
-    assert_definition(
+    assert_statement(
         &txn,
         "drop table if exists schema_name.non_existent, schema_name.existent_table;",
-        Ok(QueryEvent::TableDropped),
+        vec![Outbound::TableDropped, Outbound::ReadyForQuery],
     );
-    assert_definition(
+    assert_statement(
         &txn,
         "create table schema_name.existent_table();",
-        Ok(QueryEvent::TableCreated),
+        vec![Outbound::TableCreated, Outbound::ReadyForQuery],
     );
     txn.commit();
 }
@@ -142,10 +158,13 @@ fn drop_if_exists_existent_and_non_existent_table(with_schema: TransactionManage
 #[rstest::rstest]
 fn delete_from_nonexistent_table(with_schema: TransactionManager) {
     let txn = with_schema.start_transaction();
-    assert_query(
+    assert_statement(
         &txn,
         "delete from schema_name.table_name;",
-        Err(QueryError::table_does_not_exist("schema_name.table_name")),
+        vec![
+            QueryError::table_does_not_exist("schema_name.table_name").into(),
+            Outbound::ReadyForQuery,
+        ],
     );
     txn.commit();
 }
@@ -154,10 +173,13 @@ fn delete_from_nonexistent_table(with_schema: TransactionManager) {
 fn insert_into_nonexistent_table(with_schema: TransactionManager) {
     let txn = with_schema.start_transaction();
 
-    assert_query(
+    assert_statement(
         &txn,
         "insert into schema_name.table_name values (123);",
-        Err(QueryError::table_does_not_exist("schema_name.table_name")),
+        vec![
+            QueryError::table_does_not_exist("schema_name.table_name").into(),
+            Outbound::ReadyForQuery,
+        ],
     );
     txn.commit();
 }
@@ -166,10 +188,13 @@ fn insert_into_nonexistent_table(with_schema: TransactionManager) {
 fn select_from_not_existed_table(with_schema: TransactionManager) {
     let txn = with_schema.start_transaction();
 
-    assert_query(
+    assert_statement(
         &txn,
         "select * from schema_name.non_existent;",
-        Err(QueryError::table_does_not_exist("schema_name.non_existent")),
+        vec![
+            QueryError::table_does_not_exist("schema_name.non_existent").into(),
+            Outbound::ReadyForQuery,
+        ],
     );
     txn.commit();
 }
@@ -178,10 +203,13 @@ fn select_from_not_existed_table(with_schema: TransactionManager) {
 fn select_named_columns_from_non_existent_table(with_schema: TransactionManager) {
     let txn = with_schema.start_transaction();
 
-    assert_query(
+    assert_statement(
         &txn,
         "select column_1 from schema_name.non_existent;",
-        Err(QueryError::table_does_not_exist("schema_name.non_existent")),
+        vec![
+            QueryError::table_does_not_exist("schema_name.non_existent").into(),
+            Outbound::ReadyForQuery,
+        ],
     );
     txn.commit();
 }
@@ -189,10 +217,13 @@ fn select_named_columns_from_non_existent_table(with_schema: TransactionManager)
 #[rstest::rstest]
 fn update_records_in_nonexistent_table(with_schema: TransactionManager) {
     let txn = with_schema.start_transaction();
-    assert_query(
+    assert_statement(
         &txn,
         "update schema_name.table_name set column_test=789;",
-        Err(QueryError::table_does_not_exist("schema_name.table_name")),
+        vec![
+            QueryError::table_does_not_exist("schema_name.table_name").into(),
+            Outbound::ReadyForQuery,
+        ],
     );
     txn.commit();
 }
@@ -205,14 +236,14 @@ mod different_types {
     fn ints(with_schema: TransactionManager) {
         let txn = with_schema.start_transaction();
 
-        assert_definition(
+        assert_statement(
             &txn,
             "create table schema_name.table_name (\
                 column_si smallint,\
                 column_i integer,\
                 column_bi bigint
             );",
-            Ok(QueryEvent::TableCreated),
+            vec![Outbound::TableCreated, Outbound::ReadyForQuery],
         );
         txn.commit();
     }
@@ -221,13 +252,13 @@ mod different_types {
     fn strings(with_schema: TransactionManager) {
         let txn = with_schema.start_transaction();
 
-        assert_definition(
+        assert_statement(
             &txn,
             "create table schema_name.table_name (\
                 column_c char(10),\
                 column_vc varchar(10)\
             );",
-            Ok(QueryEvent::TableCreated),
+            vec![Outbound::TableCreated, Outbound::ReadyForQuery],
         );
         txn.commit();
     }
@@ -236,12 +267,12 @@ mod different_types {
     fn boolean(with_schema: TransactionManager) {
         let txn = with_schema.start_transaction();
 
-        assert_definition(
+        assert_statement(
             &txn,
             "create table schema_name.table_name (\
                 column_b boolean\
             );",
-            Ok(QueryEvent::TableCreated),
+            vec![Outbound::TableCreated, Outbound::ReadyForQuery],
         );
         txn.commit();
     }

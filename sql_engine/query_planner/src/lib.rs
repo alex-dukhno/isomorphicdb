@@ -21,7 +21,6 @@ use data_manipulation_typed_queries::TypedQuery;
 use data_manipulation_typed_tree::{DynamicTypedItem, DynamicTypedTree};
 use storage::{Transaction, TransactionalDatabase};
 
-#[derive(Clone)]
 pub struct QueryPlanner<'p> {
     transaction: Transaction<'p>,
     catalog: CatalogHandler<'p>,

@@ -18,15 +18,18 @@ use super::*;
 fn insert_value_in_non_existent_column(with_schema: TransactionManager) {
     let txn = with_schema.start_transaction();
 
-    assert_definition(
+    assert_statement(
         &txn,
         "create table schema_name.table_name (column_test smallint);",
-        Ok(QueryEvent::TableCreated),
+        vec![Outbound::TableCreated, Outbound::ReadyForQuery],
     );
-    assert_query(
+    assert_statement(
         &txn,
         "insert into schema_name.table_name (non_existent) values (123);",
-        Err(QueryError::column_does_not_exist("non_existent")),
+        vec![
+            QueryError::column_does_not_exist("non_existent").into(),
+            Outbound::ReadyForQuery,
+        ],
     );
 
     txn.commit();
@@ -36,24 +39,26 @@ fn insert_value_in_non_existent_column(with_schema: TransactionManager) {
 fn insert_and_select_single_row(with_schema: TransactionManager) {
     let txn = with_schema.start_transaction();
 
-    assert_definition(
+    assert_statement(
         &txn,
         "create table schema_name.table_name (column_test smallint);",
-        Ok(QueryEvent::TableCreated),
+        vec![Outbound::TableCreated, Outbound::ReadyForQuery],
     );
 
-    assert_query(
+    assert_statement(
         &txn,
         "insert into schema_name.table_name values (123);",
-        Ok(QueryExecutionResult::Inserted(1)),
+        vec![Outbound::RecordsInserted(1), Outbound::ReadyForQuery],
     );
-    assert_query(
+    assert_statement(
         &txn,
         "select * from schema_name.table_name;",
-        Ok(QueryExecutionResult::Selected((
-            vec![("column_test".to_owned(), SMALLINT)],
-            vec![vec![small_int(123)]],
-        ))),
+        vec![
+            Outbound::RowDescription(vec![("column_test".to_owned(), SMALLINT)]),
+            Outbound::DataRow(vec![small_int(123)]),
+            Outbound::RecordsSelected(1),
+            Outbound::ReadyForQuery,
+        ],
     );
 }
 
@@ -61,29 +66,32 @@ fn insert_and_select_single_row(with_schema: TransactionManager) {
 fn insert_and_select_multiple_rows(with_schema: TransactionManager) {
     let txn = with_schema.start_transaction();
 
-    assert_definition(
+    assert_statement(
         &txn,
         "create table schema_name.table_name (column_test smallint);",
-        Ok(QueryEvent::TableCreated),
+        vec![Outbound::TableCreated, Outbound::ReadyForQuery],
     );
 
-    assert_query(
+    assert_statement(
         &txn,
         "insert into schema_name.table_name values (123);",
-        Ok(QueryExecutionResult::Inserted(1)),
+        vec![Outbound::RecordsInserted(1), Outbound::ReadyForQuery],
     );
-    assert_query(
+    assert_statement(
         &txn,
         "insert into schema_name.table_name values (456);",
-        Ok(QueryExecutionResult::Inserted(1)),
+        vec![Outbound::RecordsInserted(1), Outbound::ReadyForQuery],
     );
-    assert_query(
+    assert_statement(
         &txn,
         "select * from schema_name.table_name;",
-        Ok(QueryExecutionResult::Selected((
-            vec![("column_test".to_owned(), SMALLINT)],
-            vec![vec![small_int(123)], vec![small_int(456)]],
-        ))),
+        vec![
+            Outbound::RowDescription(vec![("column_test".to_owned(), SMALLINT)]),
+            Outbound::DataRow(vec![small_int(123)]),
+            Outbound::DataRow(vec![small_int(456)]),
+            Outbound::RecordsSelected(2),
+            Outbound::ReadyForQuery,
+        ],
     );
 
     txn.commit();
@@ -93,31 +101,31 @@ fn insert_and_select_multiple_rows(with_schema: TransactionManager) {
 fn insert_and_select_named_columns(with_schema: TransactionManager) {
     let txn = with_schema.start_transaction();
 
-    assert_definition(
+    assert_statement(
         &txn,
         "create table schema_name.table_name (col1 smallint, col2 smallint, col3 smallint);",
-        Ok(QueryEvent::TableCreated),
+        vec![Outbound::TableCreated, Outbound::ReadyForQuery],
     );
 
-    assert_query(
+    assert_statement(
         &txn,
         "insert into schema_name.table_name (col2, col3, col1) values (1, 2, 3), (4, 5, 6);",
-        Ok(QueryExecutionResult::Inserted(2)),
+        vec![Outbound::RecordsInserted(2), Outbound::ReadyForQuery],
     );
-    assert_query(
+    assert_statement(
         &txn,
         "select * from schema_name.table_name;",
-        Ok(QueryExecutionResult::Selected((
-            vec![
+        vec![
+            Outbound::RowDescription(vec![
                 ("col1".to_owned(), SMALLINT),
                 ("col2".to_owned(), SMALLINT),
                 ("col3".to_owned(), SMALLINT),
-            ],
-            vec![
-                vec![small_int(3), small_int(1), small_int(2)],
-                vec![small_int(6), small_int(4), small_int(5)],
-            ],
-        ))),
+            ]),
+            Outbound::DataRow(vec![small_int(3), small_int(1), small_int(2)]),
+            Outbound::DataRow(vec![small_int(6), small_int(4), small_int(5)]),
+            Outbound::RecordsSelected(2),
+            Outbound::ReadyForQuery,
+        ],
     );
     txn.commit();
 }
@@ -126,32 +134,32 @@ fn insert_and_select_named_columns(with_schema: TransactionManager) {
 fn insert_multiple_rows(with_schema: TransactionManager) {
     let txn = with_schema.start_transaction();
 
-    assert_definition(
+    assert_statement(
         &txn,
         "create table schema_name.table_name (column_1 smallint, column_2 smallint, column_3 smallint);",
-        Ok(QueryEvent::TableCreated),
+        vec![Outbound::TableCreated, Outbound::ReadyForQuery],
     );
 
-    assert_query(
+    assert_statement(
         &txn,
         "insert into schema_name.table_name values (1, 4, 7), (2, 5, 8), (3, 6, 9);",
-        Ok(QueryExecutionResult::Inserted(3)),
+        vec![Outbound::RecordsInserted(3), Outbound::ReadyForQuery],
     );
-    assert_query(
+    assert_statement(
         &txn,
         "select * from schema_name.table_name;",
-        Ok(QueryExecutionResult::Selected((
-            vec![
+        vec![
+            Outbound::RowDescription(vec![
                 ("column_1".to_owned(), SMALLINT),
                 ("column_2".to_owned(), SMALLINT),
                 ("column_3".to_owned(), SMALLINT),
-            ],
-            vec![
-                vec![small_int(1), small_int(4), small_int(7)],
-                vec![small_int(2), small_int(5), small_int(8)],
-                vec![small_int(3), small_int(6), small_int(9)],
-            ],
-        ))),
+            ]),
+            Outbound::DataRow(vec![small_int(1), small_int(4), small_int(7)]),
+            Outbound::DataRow(vec![small_int(2), small_int(5), small_int(8)]),
+            Outbound::DataRow(vec![small_int(3), small_int(6), small_int(9)]),
+            Outbound::RecordsSelected(3),
+            Outbound::ReadyForQuery,
+        ],
     );
     txn.commit();
 }
@@ -160,36 +168,36 @@ fn insert_multiple_rows(with_schema: TransactionManager) {
 fn insert_and_select_different_integer_types(with_schema: TransactionManager) {
     let txn = with_schema.start_transaction();
 
-    assert_definition(
+    assert_statement(
         &txn,
         "create table schema_name.table_name (column_si smallint, column_i integer, column_bi bigint);",
-        Ok(QueryEvent::TableCreated),
+        vec![Outbound::TableCreated, Outbound::ReadyForQuery],
     );
 
-    assert_query(
+    assert_statement(
         &txn,
         "insert into schema_name.table_name values(-32768, -2147483648, -9223372036854775808);",
-        Ok(QueryExecutionResult::Inserted(1)),
+        vec![Outbound::RecordsInserted(1), Outbound::ReadyForQuery],
     );
-    assert_query(
+    assert_statement(
         &txn,
         "insert into schema_name.table_name values(32767, 2147483647, 9223372036854775807);",
-        Ok(QueryExecutionResult::Inserted(1)),
+        vec![Outbound::RecordsInserted(1), Outbound::ReadyForQuery],
     );
-    assert_query(
+    assert_statement(
         &txn,
         "select * from schema_name.table_name;",
-        Ok(QueryExecutionResult::Selected((
-            vec![
+        vec![
+            Outbound::RowDescription(vec![
                 ("column_si".to_owned(), SMALLINT),
                 ("column_i".to_owned(), INT),
                 ("column_bi".to_owned(), BIGINT),
-            ],
-            vec![
-                vec![small_int(i16::MIN), integer(i32::MIN), big_int(i64::MIN)],
-                vec![small_int(i16::MAX), integer(i32::MAX), big_int(i64::MAX)],
-            ],
-        ))),
+            ]),
+            Outbound::DataRow(vec![small_int(i16::MIN), integer(i32::MIN), big_int(i64::MIN)]),
+            Outbound::DataRow(vec![small_int(i16::MAX), integer(i32::MAX), big_int(i64::MAX)]),
+            Outbound::RecordsSelected(2),
+            Outbound::ReadyForQuery,
+        ],
     );
     txn.commit();
 }
@@ -198,32 +206,32 @@ fn insert_and_select_different_integer_types(with_schema: TransactionManager) {
 fn insert_and_select_different_character_types(with_schema: TransactionManager) {
     let txn = with_schema.start_transaction();
 
-    assert_definition(
+    assert_statement(
         &txn,
         "create table schema_name.table_name (column_c char(10), column_vc varchar(10));",
-        Ok(QueryEvent::TableCreated),
+        vec![Outbound::TableCreated, Outbound::ReadyForQuery],
     );
 
-    assert_query(
+    assert_statement(
         &txn,
         "insert into schema_name.table_name values('12345abcde', '12345abcde');",
-        Ok(QueryExecutionResult::Inserted(1)),
+        vec![Outbound::RecordsInserted(1), Outbound::ReadyForQuery],
     );
-    assert_query(
+    assert_statement(
         &txn,
         "insert into schema_name.table_name values('12345abcde', 'abcde');",
-        Ok(QueryExecutionResult::Inserted(1)),
+        vec![Outbound::RecordsInserted(1), Outbound::ReadyForQuery],
     );
-    assert_query(
+    assert_statement(
         &txn,
         "select * from schema_name.table_name;",
-        Ok(QueryExecutionResult::Selected((
-            vec![("column_c".to_owned(), CHAR), ("column_vc".to_owned(), VARCHAR)],
-            vec![
-                vec![string("12345abcde"), string("12345abcde")],
-                vec![string("12345abcde"), string("abcde")],
-            ],
-        ))),
+        vec![
+            Outbound::RowDescription(vec![("column_c".to_owned(), CHAR), ("column_vc".to_owned(), VARCHAR)]),
+            Outbound::DataRow(vec![string("12345abcde"), string("12345abcde")]),
+            Outbound::DataRow(vec![string("12345abcde"), string("abcde")]),
+            Outbound::RecordsSelected(2),
+            Outbound::ReadyForQuery,
+        ],
     );
 }
 
@@ -231,26 +239,26 @@ fn insert_and_select_different_character_types(with_schema: TransactionManager) 
 fn insert_booleans(with_schema: TransactionManager) {
     let txn = with_schema.start_transaction();
 
-    assert_definition(
+    assert_statement(
         &txn,
         "create table schema_name.table_name (b boolean);",
-        Ok(QueryEvent::TableCreated),
+        vec![Outbound::TableCreated, Outbound::ReadyForQuery],
     );
 
-    assert_query(
+    assert_statement(
         &txn,
         "insert into schema_name.table_name values(true);",
-        Ok(QueryExecutionResult::Inserted(1)),
+        vec![Outbound::RecordsInserted(1), Outbound::ReadyForQuery],
     );
-    assert_query(
+    assert_statement(
         &txn,
         "insert into schema_name.table_name values(TRUE::boolean);",
-        Ok(QueryExecutionResult::Inserted(1)),
+        vec![Outbound::RecordsInserted(1), Outbound::ReadyForQuery],
     );
-    assert_query(
+    assert_statement(
         &txn,
         "insert into schema_name.table_name values('true'::boolean);",
-        Ok(QueryExecutionResult::Inserted(1)),
+        vec![Outbound::RecordsInserted(1), Outbound::ReadyForQuery],
     );
 
     txn.commit();
@@ -268,10 +276,10 @@ mod operators {
         fn with_table(with_schema: TransactionManager) -> TransactionManager {
             let txn = with_schema.start_transaction();
 
-            assert_definition(
+            assert_statement(
                 &txn,
                 "create table schema_name.table_name(column_si smallint);",
-                Ok(QueryEvent::TableCreated),
+                vec![Outbound::TableCreated, Outbound::ReadyForQuery],
             );
             txn.commit();
 
@@ -279,126 +287,132 @@ mod operators {
         }
 
         #[rstest::rstest]
-        #[ignore] // TODO: type coercion
         fn addition(with_table: TransactionManager) {
             let txn = with_table.start_transaction();
 
-            assert_query(
+            assert_statement(
                 &txn,
                 "insert into schema_name.table_name values (1 + 2);",
-                Ok(QueryExecutionResult::Inserted(1)),
+                vec![Outbound::RecordsInserted(1), Outbound::ReadyForQuery],
             );
-            assert_query(
+            assert_statement(
                 &txn,
                 "select * from schema_name.table_name;",
-                Ok(QueryExecutionResult::Selected((
-                    vec![("column_si".to_owned(), SMALLINT)],
-                    vec![vec![small_int(3)]],
-                ))),
+                vec![
+                    Outbound::RowDescription(vec![("column_si".to_owned(), SMALLINT)]),
+                    Outbound::DataRow(vec![small_int(3)]),
+                    Outbound::RecordsSelected(1),
+                    Outbound::ReadyForQuery,
+                ],
             );
             txn.commit();
         }
 
         #[rstest::rstest]
-        #[ignore] // TODO: type coercion
         fn subtraction(with_table: TransactionManager) {
             let txn = with_table.start_transaction();
 
-            assert_query(
+            assert_statement(
                 &txn,
                 "insert into schema_name.table_name values (1 - 2);",
-                Ok(QueryExecutionResult::Inserted(1)),
+                vec![Outbound::RecordsInserted(1), Outbound::ReadyForQuery],
             );
-            assert_query(
+            assert_statement(
                 &txn,
                 "select * from schema_name.table_name;",
-                Ok(QueryExecutionResult::Selected((
-                    vec![("column_si".to_owned(), SMALLINT)],
-                    vec![vec![small_int(-1)]],
-                ))),
+                vec![
+                    Outbound::RowDescription(vec![("column_si".to_owned(), SMALLINT)]),
+                    Outbound::DataRow(vec![small_int(-1)]),
+                    Outbound::RecordsSelected(1),
+                    Outbound::ReadyForQuery,
+                ],
             );
             txn.commit();
         }
 
         #[rstest::rstest]
-        #[ignore] // TODO: type coercion
         fn multiplication(with_table: TransactionManager) {
             let txn = with_table.start_transaction();
 
-            assert_query(
+            assert_statement(
                 &txn,
                 "insert into schema_name.table_name values (3 * 2);",
-                Ok(QueryExecutionResult::Inserted(1)),
+                vec![Outbound::RecordsInserted(1), Outbound::ReadyForQuery],
             );
 
-            assert_query(
+            assert_statement(
                 &txn,
                 "select * from schema_name.table_name;",
-                Ok(QueryExecutionResult::Selected((
-                    vec![("column_si".to_owned(), SMALLINT)],
-                    vec![vec![small_int(6)]],
-                ))),
+                vec![
+                    Outbound::RowDescription(vec![("column_si".to_owned(), SMALLINT)]),
+                    Outbound::DataRow(vec![small_int(6)]),
+                    Outbound::RecordsSelected(1),
+                    Outbound::ReadyForQuery,
+                ],
             );
             txn.commit();
         }
 
         #[rstest::rstest]
-        #[ignore] // TODO: type coercion
         fn division(with_table: TransactionManager) {
             let txn = with_table.start_transaction();
 
-            assert_query(
+            assert_statement(
                 &txn,
                 "insert into schema_name.table_name values (8 / 2);",
-                Ok(QueryExecutionResult::Inserted(1)),
+                vec![Outbound::RecordsInserted(1), Outbound::ReadyForQuery],
             );
-            assert_query(
+            assert_statement(
                 &txn,
                 "select * from schema_name.table_name;",
-                Ok(QueryExecutionResult::Selected((
-                    vec![("column_si".to_owned(), SMALLINT)],
-                    vec![vec![small_int(4)]],
-                ))),
+                vec![
+                    Outbound::RowDescription(vec![("column_si".to_owned(), SMALLINT)]),
+                    Outbound::DataRow(vec![small_int(4)]),
+                    Outbound::RecordsSelected(1),
+                    Outbound::ReadyForQuery,
+                ],
             );
         }
 
         #[rstest::rstest]
-        #[ignore] // TODO: type coercion
         fn modulo(with_table: TransactionManager) {
             let txn = with_table.start_transaction();
 
-            assert_query(
+            assert_statement(
                 &txn,
                 "insert into schema_name.table_name values (8 % 2);",
-                Ok(QueryExecutionResult::Inserted(1)),
+                vec![Outbound::RecordsInserted(1), Outbound::ReadyForQuery],
             );
-            assert_query(
+            assert_statement(
                 &txn,
                 "select * from schema_name.table_name;",
-                Ok(QueryExecutionResult::Selected((
-                    vec![("column_si".to_owned(), SMALLINT)],
-                    vec![vec![small_int(0)]],
-                ))),
+                vec![
+                    Outbound::RowDescription(vec![("column_si".to_owned(), SMALLINT)]),
+                    Outbound::DataRow(vec![small_int(0)]),
+                    Outbound::RecordsSelected(1),
+                    Outbound::ReadyForQuery,
+                ],
             );
         }
 
         #[rstest::rstest]
-        #[ignore] // TODO: type coercion
         fn exponentiation(with_table: TransactionManager) {
             let txn = with_table.start_transaction();
 
-            assert_query(
+            assert_statement(
                 &txn,
                 "insert into schema_name.table_name values (8 ^ 2);",
-                Ok(QueryExecutionResult::Inserted(1)),
+                vec![Outbound::RecordsInserted(1), Outbound::ReadyForQuery],
             );
-            assert_query(
+            assert_statement(
                 &txn,
                 "select * from schema_name.table_name;",
-                Ok(QueryExecutionResult::Selected((
-                    vec![("column_si".to_owned(), SMALLINT)],
-                    vec![vec![small_int(64)]],
-                ))),
+                vec![
+                    Outbound::RowDescription(vec![("column_si".to_owned(), SMALLINT)]),
+                    Outbound::DataRow(vec![small_int(64)]),
+                    Outbound::RecordsSelected(1),
+                    Outbound::ReadyForQuery,
+                ],
             );
         }
 
@@ -407,18 +421,20 @@ mod operators {
         fn square_root(with_table: TransactionManager) {
             let txn = with_table.start_transaction();
 
-            assert_query(
+            assert_statement(
                 &txn,
                 "insert into schema_name.table_name values (|/ 16);",
-                Ok(QueryExecutionResult::Inserted(1)),
+                vec![Outbound::RecordsInserted(1), Outbound::ReadyForQuery],
             );
-            assert_query(
+            assert_statement(
                 &txn,
                 "select * from schema_name.table_name;",
-                Ok(QueryExecutionResult::Selected((
-                    vec![("column_si".to_owned(), SMALLINT)],
-                    vec![vec![small_int(4)]],
-                ))),
+                vec![
+                    Outbound::RowDescription(vec![("column_si".to_owned(), SMALLINT)]),
+                    Outbound::DataRow(vec![small_int(4)]),
+                    Outbound::RecordsSelected(1),
+                    Outbound::ReadyForQuery,
+                ],
             );
         }
 
@@ -427,59 +443,63 @@ mod operators {
         fn cube_root(with_table: TransactionManager) {
             let txn = with_table.start_transaction();
 
-            assert_query(
+            assert_statement(
                 &txn,
                 "insert into schema_name.table_name values (||/ 8);",
-                Ok(QueryExecutionResult::Inserted(1)),
+                vec![Outbound::RecordsInserted(1), Outbound::ReadyForQuery],
             );
-            assert_query(
+            assert_statement(
                 &txn,
                 "select * from schema_name.table_name;",
-                Ok(QueryExecutionResult::Selected((
-                    vec![("column_si".to_owned(), SMALLINT)],
-                    vec![vec![small_int(2)]],
-                ))),
+                vec![
+                    Outbound::RowDescription(vec![("column_si".to_owned(), SMALLINT)]),
+                    Outbound::DataRow(vec![small_int(2)]),
+                    Outbound::RecordsSelected(1),
+                    Outbound::ReadyForQuery,
+                ],
             );
         }
 
         #[rstest::rstest]
-        #[ignore] // TODO: type coercion
         fn factorial(with_table: TransactionManager) {
             let txn = with_table.start_transaction();
 
-            assert_query(
+            assert_statement(
                 &txn,
                 "insert into schema_name.table_name values (5!);",
-                Ok(QueryExecutionResult::Inserted(1)),
+                vec![Outbound::RecordsInserted(1), Outbound::ReadyForQuery],
             );
-            assert_query(
+            assert_statement(
                 &txn,
                 "select * from schema_name.table_name;",
-                Ok(QueryExecutionResult::Selected((
-                    vec![("column_si".to_owned(), SMALLINT)],
-                    vec![vec![small_int(120)]],
-                ))),
+                vec![
+                    Outbound::RowDescription(vec![("column_si".to_owned(), SMALLINT)]),
+                    Outbound::DataRow(vec![small_int(120)]),
+                    Outbound::RecordsSelected(1),
+                    Outbound::ReadyForQuery,
+                ],
             );
             txn.commit();
         }
 
         #[rstest::rstest]
-        #[ignore] // TODO: type coercion
         fn prefix_factorial(with_table: TransactionManager) {
             let txn = with_table.start_transaction();
 
-            assert_query(
+            assert_statement(
                 &txn,
                 "insert into schema_name.table_name values (!!5);",
-                Ok(QueryExecutionResult::Inserted(1)),
+                vec![Outbound::RecordsInserted(1), Outbound::ReadyForQuery],
             );
-            assert_query(
+            assert_statement(
                 &txn,
                 "select * from schema_name.table_name;",
-                Ok(QueryExecutionResult::Selected((
-                    vec![("column_si".to_owned(), SMALLINT)],
-                    vec![vec![small_int(120)]],
-                ))),
+                vec![
+                    Outbound::RowDescription(vec![("column_si".to_owned(), SMALLINT)]),
+                    Outbound::DataRow(vec![small_int(120)]),
+                    Outbound::RecordsSelected(1),
+                    Outbound::ReadyForQuery,
+                ],
             );
             txn.commit();
         }
@@ -488,60 +508,64 @@ mod operators {
         fn absolute_value(with_table: TransactionManager) {
             let txn = with_table.start_transaction();
 
-            assert_query(
+            assert_statement(
                 &txn,
                 "insert into schema_name.table_name values (@ -5);",
-                Ok(QueryExecutionResult::Inserted(1)),
+                vec![Outbound::RecordsInserted(1), Outbound::ReadyForQuery],
             );
-            assert_query(
+            assert_statement(
                 &txn,
                 "select * from schema_name.table_name;",
-                Ok(QueryExecutionResult::Selected((
-                    vec![("column_si".to_owned(), SMALLINT)],
-                    vec![vec![small_int(5)]],
-                ))),
+                vec![
+                    Outbound::RowDescription(vec![("column_si".to_owned(), SMALLINT)]),
+                    Outbound::DataRow(vec![small_int(5)]),
+                    Outbound::RecordsSelected(1),
+                    Outbound::ReadyForQuery,
+                ],
             );
             txn.commit();
         }
 
         #[rstest::rstest]
-        #[ignore] // TODO: type coercion
         fn bitwise_and(with_table: TransactionManager) {
             let txn = with_table.start_transaction();
 
-            assert_query(
+            assert_statement(
                 &txn,
                 "insert into schema_name.table_name values (5 & 1);",
-                Ok(QueryExecutionResult::Inserted(1)),
+                vec![Outbound::RecordsInserted(1), Outbound::ReadyForQuery],
             );
-            assert_query(
+            assert_statement(
                 &txn,
                 "select * from schema_name.table_name;",
-                Ok(QueryExecutionResult::Selected((
-                    vec![("column_si".to_owned(), SMALLINT)],
-                    vec![vec![small_int(1)]],
-                ))),
+                vec![
+                    Outbound::RowDescription(vec![("column_si".to_owned(), SMALLINT)]),
+                    Outbound::DataRow(vec![small_int(1)]),
+                    Outbound::RecordsSelected(1),
+                    Outbound::ReadyForQuery,
+                ],
             );
             txn.commit();
         }
 
         #[rstest::rstest]
-        #[ignore] // TODO: type coercion
         fn bitwise_or(with_table: TransactionManager) {
             let txn = with_table.start_transaction();
 
-            assert_query(
+            assert_statement(
                 &txn,
                 "insert into schema_name.table_name values (5 | 2);",
-                Ok(QueryExecutionResult::Inserted(1)),
+                vec![Outbound::RecordsInserted(1), Outbound::ReadyForQuery],
             );
-            assert_query(
+            assert_statement(
                 &txn,
                 "select * from schema_name.table_name;",
-                Ok(QueryExecutionResult::Selected((
-                    vec![("column_si".to_owned(), SMALLINT)],
-                    vec![vec![small_int(7)]],
-                ))),
+                vec![
+                    Outbound::RowDescription(vec![("column_si".to_owned(), SMALLINT)]),
+                    Outbound::DataRow(vec![small_int(7)]),
+                    Outbound::RecordsSelected(1),
+                    Outbound::ReadyForQuery,
+                ],
             );
             txn.commit();
         }
@@ -550,81 +574,86 @@ mod operators {
         fn bitwise_not(with_table: TransactionManager) {
             let txn = with_table.start_transaction();
 
-            assert_query(
+            assert_statement(
                 &txn,
                 "insert into schema_name.table_name values (~1);",
-                Ok(QueryExecutionResult::Inserted(1)),
+                vec![Outbound::RecordsInserted(1), Outbound::ReadyForQuery],
             );
-            assert_query(
+            assert_statement(
                 &txn,
                 "select * from schema_name.table_name;",
-                Ok(QueryExecutionResult::Selected((
-                    vec![("column_si".to_owned(), SMALLINT)],
-                    vec![vec![small_int(-2)]],
-                ))),
+                vec![
+                    Outbound::RowDescription(vec![("column_si".to_owned(), SMALLINT)]),
+                    Outbound::DataRow(vec![small_int(-2)]),
+                    Outbound::RecordsSelected(1),
+                    Outbound::ReadyForQuery,
+                ],
             );
             txn.commit();
         }
 
         #[rstest::rstest]
-        #[ignore] // TODO: type coercion
         fn bitwise_shift_left(with_table: TransactionManager) {
             let txn = with_table.start_transaction();
 
-            assert_query(
+            assert_statement(
                 &txn,
                 "insert into schema_name.table_name values (1 << 4);",
-                Ok(QueryExecutionResult::Inserted(1)),
+                vec![Outbound::RecordsInserted(1), Outbound::ReadyForQuery],
             );
-            assert_query(
+            assert_statement(
                 &txn,
                 "select * from schema_name.table_name;",
-                Ok(QueryExecutionResult::Selected((
-                    vec![("column_si".to_owned(), SMALLINT)],
-                    vec![vec![small_int(16)]],
-                ))),
+                vec![
+                    Outbound::RowDescription(vec![("column_si".to_owned(), SMALLINT)]),
+                    Outbound::DataRow(vec![small_int(16)]),
+                    Outbound::RecordsSelected(1),
+                    Outbound::ReadyForQuery,
+                ],
             );
             txn.commit();
         }
 
         #[rstest::rstest]
-        #[ignore] // TODO: type coercion
         fn bitwise_right_left(with_table: TransactionManager) {
             let txn = with_table.start_transaction();
 
-            assert_query(
+            assert_statement(
                 &txn,
                 "insert into schema_name.table_name values (8 >> 2);",
-                Ok(QueryExecutionResult::Inserted(1)),
+                vec![Outbound::RecordsInserted(1), Outbound::ReadyForQuery],
             );
-            assert_query(
+            assert_statement(
                 &txn,
                 "select * from schema_name.table_name;",
-                Ok(QueryExecutionResult::Selected((
-                    vec![("column_si".to_owned(), SMALLINT)],
-                    vec![vec![small_int(2)]],
-                ))),
+                vec![
+                    Outbound::RowDescription(vec![("column_si".to_owned(), SMALLINT)]),
+                    Outbound::DataRow(vec![small_int(2)]),
+                    Outbound::RecordsSelected(1),
+                    Outbound::ReadyForQuery,
+                ],
             );
             txn.commit();
         }
 
         #[rstest::rstest]
-        #[ignore] // TODO: type coercion
         fn evaluate_many_operations(with_table: TransactionManager) {
             let txn = with_table.start_transaction();
 
-            assert_query(
+            assert_statement(
                 &txn,
                 "insert into schema_name.table_name values (5 & 13 % 10 + 1 * 20 - 40 / 4);",
-                Ok(QueryExecutionResult::Inserted(1)),
+                vec![Outbound::RecordsInserted(1), Outbound::ReadyForQuery],
             );
-            assert_query(
+            assert_statement(
                 &txn,
                 "select * from schema_name.table_name;",
-                Ok(QueryExecutionResult::Selected((
-                    vec![("column_si".to_owned(), SMALLINT)],
-                    vec![vec![small_int(5)]],
-                ))),
+                vec![
+                    Outbound::RowDescription(vec![("column_si".to_owned(), SMALLINT)]),
+                    Outbound::DataRow(vec![small_int(5)]),
+                    Outbound::RecordsSelected(1),
+                    Outbound::ReadyForQuery,
+                ],
             );
             txn.commit();
         }
@@ -638,10 +667,10 @@ mod operators {
         fn with_table(with_schema: TransactionManager) -> TransactionManager {
             let txn = with_schema.start_transaction();
 
-            assert_definition(
+            assert_statement(
                 &txn,
                 "create table schema_name.table_name(strings char(5));",
-                Ok(QueryEvent::TableCreated),
+                vec![Outbound::TableCreated, Outbound::ReadyForQuery],
             );
             txn.commit();
 
@@ -652,18 +681,20 @@ mod operators {
         fn concatenation(with_table: TransactionManager) {
             let txn = with_table.start_transaction();
 
-            assert_query(
+            assert_statement(
                 &txn,
                 "insert into schema_name.table_name values ('123' || '45');",
-                Ok(QueryExecutionResult::Inserted(1)),
+                vec![Outbound::RecordsInserted(1), Outbound::ReadyForQuery],
             );
-            assert_query(
+            assert_statement(
                 &txn,
                 "select * from schema_name.table_name;",
-                Ok(QueryExecutionResult::Selected((
-                    vec![("strings".to_owned(), CHAR)],
-                    vec![vec![string("12345")]],
-                ))),
+                vec![
+                    Outbound::RowDescription(vec![("strings".to_owned(), CHAR)]),
+                    Outbound::DataRow(vec![string("12345")]),
+                    Outbound::RecordsSelected(1),
+                    Outbound::ReadyForQuery,
+                ],
             );
             txn.commit();
         }
@@ -673,23 +704,26 @@ mod operators {
         fn concatenation_with_number(with_table: TransactionManager) {
             let txn = with_table.start_transaction();
 
-            assert_query(
+            assert_statement(
                 &txn,
                 "insert into schema_name.table_name values (1 || '45');",
-                Ok(QueryExecutionResult::Inserted(1)),
+                vec![Outbound::RecordsInserted(1), Outbound::ReadyForQuery],
             );
-            assert_query(
+            assert_statement(
                 &txn,
                 "insert into schema_name.table_name values ('45' || 1);",
-                Ok(QueryExecutionResult::Inserted(1)),
+                vec![Outbound::RecordsInserted(1), Outbound::ReadyForQuery],
             );
-            assert_query(
+            assert_statement(
                 &txn,
                 "select * from schema_name.table_name;",
-                Ok(QueryExecutionResult::Selected((
-                    vec![("strings".to_owned(), CHAR)],
-                    vec![vec![string("145")], vec![string("451")]],
-                ))),
+                vec![
+                    Outbound::RowDescription(vec![("strings".to_owned(), CHAR)]),
+                    Outbound::DataRow(vec![string("145")]),
+                    Outbound::DataRow(vec![string("451")]),
+                    Outbound::RecordsSelected(2),
+                    Outbound::ReadyForQuery,
+                ],
             );
             txn.commit();
         }
@@ -698,14 +732,14 @@ mod operators {
         fn non_string_concatenation_not_supported(with_table: TransactionManager) {
             let txn = with_table.start_transaction();
 
-            assert_query(
+            assert_statement(
                 &txn,
                 "insert into schema_name.table_name values (1 || 2);",
-                Err(QueryError::undefined_function(
-                    "||".to_owned(),
-                    "smallint".to_owned(),
-                    "smallint".to_owned(),
-                )),
+                vec![
+                    QueryError::undefined_function("||".to_owned(), "smallint".to_owned(), "smallint".to_owned())
+                        .into(),
+                    Outbound::ReadyForQuery,
+                ],
             );
             txn.commit();
         }

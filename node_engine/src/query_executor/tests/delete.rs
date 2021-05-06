@@ -18,38 +18,42 @@ use super::*;
 fn delete_all_records(with_schema: TransactionManager) {
     let txn = with_schema.start_transaction();
 
-    assert_definition(
+    assert_statement(
         &txn,
         "create table schema_name.table_name (column_test smallint);",
-        Ok(QueryEvent::TableCreated),
+        vec![Outbound::TableCreated, Outbound::ReadyForQuery],
     );
 
-    assert_query(
+    assert_statement(
         &txn,
         "insert into schema_name.table_name values (123), (456);",
-        Ok(QueryExecutionResult::Inserted(2)),
+        vec![Outbound::RecordsInserted(2), Outbound::ReadyForQuery],
     );
-    assert_query(
+    assert_statement(
         &txn,
         "select * from schema_name.table_name",
-        Ok(QueryExecutionResult::Selected((
-            vec![("column_test".to_owned(), SMALLINT)],
-            vec![vec![small_int(123)], vec![small_int(456)]],
-        ))),
+        vec![
+            Outbound::RowDescription(vec![("column_test".to_owned(), SMALLINT)]),
+            Outbound::DataRow(vec![small_int(123)]),
+            Outbound::DataRow(vec![small_int(456)]),
+            Outbound::RecordsSelected(2),
+            Outbound::ReadyForQuery,
+        ],
     );
 
-    assert_query(
+    assert_statement(
         &txn,
         "delete from schema_name.table_name;",
-        Ok(QueryExecutionResult::Deleted(2)),
+        vec![Outbound::RecordsDeleted(2), Outbound::ReadyForQuery],
     );
-    assert_query(
+    assert_statement(
         &txn,
         "select * from schema_name.table_name",
-        Ok(QueryExecutionResult::Selected((
-            vec![("column_test".to_owned(), SMALLINT)],
-            vec![],
-        ))),
+        vec![
+            Outbound::RowDescription(vec![("column_test".to_owned(), SMALLINT)]),
+            Outbound::RecordsSelected(0),
+            Outbound::ReadyForQuery,
+        ],
     );
 
     txn.commit();
@@ -59,35 +63,35 @@ fn delete_all_records(with_schema: TransactionManager) {
 fn delete_value_by_predicate_on_single_field(with_schema: TransactionManager) {
     let txn = with_schema.start_transaction();
 
-    assert_definition(
+    assert_statement(
         &txn,
         "create table schema_name.table_name (col1 smallint, col2 smallint, col3 smallint);",
-        Ok(QueryEvent::TableCreated),
+        vec![Outbound::TableCreated, Outbound::ReadyForQuery],
     );
 
-    assert_query(
+    assert_statement(
         &txn,
         "insert into schema_name.table_name values (1, 2, 3), (4, 5, 6), (7, 8, 9);",
-        Ok(QueryExecutionResult::Inserted(3)),
+        vec![Outbound::RecordsInserted(3), Outbound::ReadyForQuery],
     );
-    assert_query(
+    assert_statement(
         &txn,
         "delete from schema_name.table_name where col2 = 5;",
-        Ok(QueryExecutionResult::Deleted(1)),
+        vec![Outbound::RecordsDeleted(1), Outbound::ReadyForQuery],
     );
-    assert_query(
+    assert_statement(
         &txn,
         "select * from schema_name.table_name",
-        Ok(QueryExecutionResult::Selected((
-            vec![
+        vec![
+            Outbound::RowDescription(vec![
                 ("col1".to_owned(), SMALLINT),
                 ("col2".to_owned(), SMALLINT),
                 ("col3".to_owned(), SMALLINT),
-            ],
-            vec![
-                vec![small_int(1), small_int(2), small_int(3)],
-                vec![small_int(7), small_int(8), small_int(9)],
-            ],
-        ))),
+            ]),
+            Outbound::DataRow(vec![small_int(1), small_int(2), small_int(3)]),
+            Outbound::DataRow(vec![small_int(7), small_int(8), small_int(9)]),
+            Outbound::RecordsSelected(2),
+            Outbound::ReadyForQuery,
+        ],
     );
 }

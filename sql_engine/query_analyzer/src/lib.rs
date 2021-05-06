@@ -30,7 +30,6 @@ use storage::{Transaction, TransactionalDatabase};
 mod dynamic_tree_builder;
 mod static_tree_builder;
 
-#[derive(Clone)]
 pub struct QueryAnalyzer<'a> {
     catalog: CatalogHandler<'a>,
 }

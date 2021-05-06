@@ -20,7 +20,6 @@ use data_manipulation_untyped_tree::{
 use std::ops::RangeInclusive;
 use types::{Bool, SqlTypeFamily};
 
-#[derive(Clone)]
 pub struct TypeInference {
     small_int_range: RangeInclusive<BigDecimal>,
     integer_range: RangeInclusive<BigDecimal>,
