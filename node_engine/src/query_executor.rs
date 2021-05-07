@@ -12,14 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::transaction_manager::TransactionContext;
-use crate::QueryPlanCache;
-use data_manipulation::{QueryExecutionError, QueryExecutionResult, TypedQuery, UntypedQuery};
+use crate::{transaction_manager::TransactionContext, QueryPlanCache};
+use data_manipulation::{QueryExecutionError, QueryExecutionResult, UntypedQuery};
 use data_repr::scalar::ScalarValue;
-use definition::ColumnDef;
-use postgre_sql::query_ast::{Extended, Query, Statement};
-use postgre_sql::query_response::{QueryError, QueryEvent};
-use postgre_sql::wire_protocol::payload::OutboundMessage;
+use postgre_sql::{
+    query_ast::{Extended, Query, Statement},
+    query_response::{QueryError, QueryEvent},
+    wire_protocol::payload::OutboundMessage,
+};
 use types::{SqlType, SqlTypeFamily};
 
 pub struct QueryExecutor;
@@ -55,7 +55,7 @@ impl QueryExecutor {
         params: Vec<SqlTypeFamily>,
         arguments: Vec<ScalarValue>,
         txn: &TransactionContext,
-        query_plan_cache: &mut QueryPlanCache,
+        _query_plan_cache: &mut QueryPlanCache,
     ) -> Vec<OutboundMessage> {
         let mut responses = vec![];
         let typed_query = txn.process_untyped_query(untyped_query, params).unwrap();

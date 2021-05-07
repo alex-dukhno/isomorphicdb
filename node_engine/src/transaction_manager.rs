@@ -27,8 +27,7 @@ use query_analyzer::QueryAnalyzer;
 use query_planner::QueryPlanner;
 use query_processing::{TypeChecker, TypeCoercion, TypeInference};
 use std::fmt::{self, Debug, Formatter};
-use storage::Database;
-use storage::Transaction;
+use storage::{Database, Transaction};
 use types::SqlTypeFamily;
 
 pub struct TransactionManager {

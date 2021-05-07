@@ -12,33 +12,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use data_manipulation::UntypedQuery;
-use postgre_sql::query_ast::{Query, Statement};
-use postgre_sql::query_response::{QueryError, QueryEvent};
-use postgre_sql::{
-    query_ast::{Request, Transaction},
-    query_parser::QueryParser,
-    wire_protocol::{
-        payload::{InboundMessage, OutboundMessage, BIGINT, BOOL, CHAR, INT, SMALLINT, VARCHAR},
-        WireConnection,
-    },
-};
-use storage::Database;
-
-use crate::query_executor::QueryExecutor;
 use crate::{
+    query_executor::QueryExecutor,
     transaction_manager::{TransactionContext, TransactionManager},
     QueryPlanCache,
 };
 use data_repr::scalar::ScalarValue;
-use postgre_sql::wire_protocol::payload::Value;
+use postgre_sql::{
+    query_ast::{Request, Statement, Transaction},
+    query_parser::QueryParser,
+    query_response::{QueryError, QueryEvent},
+    wire_protocol::{
+        payload::{InboundMessage, OutboundMessage, Value, BIGINT, BOOL, CHAR, INT, SMALLINT, VARCHAR},
+        WireConnection,
+    },
+};
+use storage::Database;
 use types::SqlTypeFamily;
 
-#[allow(dead_code)]
 pub struct Worker;
 
 impl Worker {
-    #[allow(dead_code)]
     pub fn process<C: WireConnection>(&self, connection: &mut C, database: Database) {
         let mut query_plan_cache = QueryPlanCache::default();
         let query_parser = QueryParser;
@@ -104,9 +98,9 @@ impl Worker {
                         sql,
                         param_types,
                     } => {
-                        let txn = match txn_state.take() {
-                            None => transaction_manager.start_transaction(),
-                            Some(txn) => txn,
+                        let (txn, finish_txn) = match txn_state.take() {
+                            None => (transaction_manager.start_transaction(), true),
+                            Some(txn) => (txn, false),
                         };
                         match query_plan_cache.find_described(&statement_name) {
                             Some((_, saved_sql, _)) if saved_sql == sql => {
@@ -129,6 +123,11 @@ impl Worker {
                                     connection.send(QueryError::syntax_error(parser_error).into()).unwrap();
                                 }
                             },
+                        }
+                        if finish_txn {
+                            txn.commit();
+                        } else {
+                            txn_state = Some(txn);
                         }
                     }
                     InboundMessage::DescribeStatement { name } => {

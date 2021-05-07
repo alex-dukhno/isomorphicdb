@@ -44,9 +44,9 @@ fn insert() {
         InboundMessage::Sync,
     ]);
 
-    let node_engine = Worker;
+    let worker = Worker;
 
-    node_engine.process(&mut connection, "IN_MEMORY");
+    worker.process(&mut connection, Database::new("IN_MEMORY"));
 
     assert_eq!(
         connection.outbound,
@@ -96,9 +96,9 @@ fn update() {
         InboundMessage::Sync,
     ]);
 
-    let node_engine = Worker;
+    let worker = Worker;
 
-    node_engine.process(&mut connection, "IN_MEMORY");
+    worker.process(&mut connection, Database::new("IN_MEMORY"));
 
     assert_eq!(
         connection.outbound,

@@ -12,17 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use data_manipulation::{QueryPlan, TypedQuery, UntypedQuery};
+use data_manipulation::{QueryPlan, UntypedQuery};
 use data_repr::scalar::ScalarValue;
-pub use node_engine_old::NodeEngineOld;
+pub use node_engine::NodeEngine;
 use postgre_sql::query_ast::Query;
 use std::collections::HashMap;
 use types::SqlTypeFamily;
 
-mod node_engine_old;
-mod query_engine_old;
+mod node_engine;
 mod query_executor;
-mod session_old;
 mod transaction_manager;
 mod worker;
 
@@ -55,7 +53,7 @@ impl QueryPlanCache {
                 query,
                 sql,
                 param_types,
-            }) => Some((query.clone(), sql.clone(), param_types.to_vec())),
+            }) => Some((query, sql, param_types.to_vec())),
             Some(_) => None,
         }
     }
@@ -86,7 +84,7 @@ impl QueryPlanCache {
     pub fn bind_portal(&mut self, statement_name: String, portal_name: String, portal: Portal) {
         self.portal_per_statement
             .entry(statement_name)
-            .or_insert_with(|| vec![])
+            .or_insert_with(Vec::new)
             .push(portal_name.clone());
         self.all_portals.insert(portal_name, portal);
     }

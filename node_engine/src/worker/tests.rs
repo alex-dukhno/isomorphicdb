@@ -60,9 +60,9 @@ fn single_create_schema_request() {
         sql: "create schema schema_name;".to_owned(),
     }]);
 
-    let node_engine = Worker;
+    let worker = Worker;
 
-    node_engine.process(&mut connection, "IN_MEMORY");
+    worker.process(&mut connection, Database::new("IN_MEMORY"));
 
     assert_eq!(
         connection.outbound,
@@ -81,9 +81,9 @@ fn transaction_per_query() {
         },
     ]);
 
-    let node_engine = Worker;
+    let worker = Worker;
 
-    node_engine.process(&mut connection, "IN_MEMORY");
+    worker.process(&mut connection, Database::new("IN_MEMORY"));
 
     assert_eq!(
         connection.outbound,
@@ -113,9 +113,9 @@ fn multiple_ddl_in_single_transaction() {
         },
     ]);
 
-    let node_engine = Worker;
+    let worker = Worker;
 
-    node_engine.process(&mut connection, "IN_MEMORY");
+    worker.process(&mut connection, Database::new("IN_MEMORY"));
 
     assert_eq!(
         connection.outbound,
@@ -175,7 +175,7 @@ fn prepare_and_execute_multiple_times_in_single_transaction() {
 
     let node_engine = Worker;
 
-    node_engine.process(&mut connection, "IN_MEMORY");
+    node_engine.process(&mut connection, Database::new("IN_MEMORY"));
 
     assert_eq!(
         connection.outbound,

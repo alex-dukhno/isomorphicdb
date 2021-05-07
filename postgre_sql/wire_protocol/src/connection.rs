@@ -23,8 +23,7 @@ use std::{
     str,
 };
 use wire_protocol_payload::{
-    InboundMessage, OutboundMessage, BIND, CLOSE, DESCRIBE, EMPTY_QUERY_RESPONSE, EXECUTE, FLUSH, PARSE, QUERY,
-    READY_FOR_QUERY, SYNC, TERMINATE,
+    InboundMessage, OutboundMessage, BIND, CLOSE, DESCRIBE, EXECUTE, FLUSH, PARSE, QUERY, SYNC, TERMINATE,
 };
 
 const ACCEPT_SSL: u8 = b'S';

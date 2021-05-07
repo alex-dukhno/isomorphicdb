@@ -14,18 +14,16 @@
 
 use super::*;
 use crate::transaction_manager::TransactionManager;
-use postgre_sql::query_response::QueryError;
 use postgre_sql::{
     query_ast::Request,
     query_parser::QueryParser,
+    query_response::QueryError,
     wire_protocol::payload::{BIGINT, CHAR, INT, SMALLINT, VARCHAR},
 };
 use storage::Database;
 
 #[cfg(test)]
 mod delete;
-// #[cfg(test)]
-// mod extended_query;
 #[cfg(test)]
 mod insert;
 #[cfg(test)]
