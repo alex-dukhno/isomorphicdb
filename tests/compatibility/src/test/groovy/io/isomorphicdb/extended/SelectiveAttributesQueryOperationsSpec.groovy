@@ -17,7 +17,10 @@ class SelectiveAttributesQueryOperationsSpec extends ThreeSmallIntColumnTable {
     db.executeUpdate INSERT_QUERY
   }
 
-  @Ignore('org.postgresql.util.PSQLException: This connection has been closed.')
+  @Ignore('''
+org.postgresql.util.PSQLException: This connection has been closed.
+should be fixed with extended query RFC implementation
+''')
   def 'select{where specified column > ?}'() {
     given:
       String selectQuery = 'select * from SCHEMA_NAME.TABLE_NAME where COL1 > ?'
@@ -32,7 +35,10 @@ class SelectiveAttributesQueryOperationsSpec extends ThreeSmallIntColumnTable {
       pgSelect == dbSelect
   }
 
-  @Ignore('org.postgresql.util.PSQLException: This connection has been closed.')
+  @Ignore('''
+org.postgresql.util.PSQLException: This connection has been closed.
+should be fixed with extended query RFC implementation
+''')
   def 'select{where specified ? > column}'() {
     given:
       String selectQuery = 'select * from SCHEMA_NAME.TABLE_NAME where ? > COL1'
@@ -47,7 +53,10 @@ class SelectiveAttributesQueryOperationsSpec extends ThreeSmallIntColumnTable {
       pgSelect == dbSelect
   }
 
-  @Ignore('org.postgresql.util.PSQLException: This connection has been closed.')
+  @Ignore('''
+org.postgresql.util.PSQLException: This connection has been closed.
+should be fixed with extended query RFC implementation
+''')
   def 'select{where specified ? > ?}'() {
     given:
       String selectQuery = 'select * from SCHEMA_NAME.TABLE_NAME where ? > ?'
@@ -62,7 +71,10 @@ class SelectiveAttributesQueryOperationsSpec extends ThreeSmallIntColumnTable {
       pgSelect == dbSelect
   }
 
-  @Ignore("type inference for single col update is not implemented")
+  @Ignore('''
+org.postgresql.util.PSQLException: This connection has been closed.
+should be fixed with extended query RFC implementation
+''')
   def 'update {specified column}'() {
     given:
       String updateQuery = 'update SCHEMA_NAME.TABLE_NAME set COL2 = ?'

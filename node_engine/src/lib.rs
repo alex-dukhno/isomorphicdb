@@ -37,36 +37,48 @@ pub struct QueryPlanCache {
 
 #[allow(dead_code)]
 impl QueryPlanCache {
-    pub fn save_parsed(&mut self, name: String, query: Query, param_types: Vec<u32>) {
-        self.extended_query
-            .insert(name, PreparedStatementState::Parsed { query, param_types });
-    }
-
-    pub fn find_parsed(&mut self, name: &str) -> Option<(Query, Vec<u32>)> {
-        match self.extended_query.remove(name) {
-            None => None,
-            Some(PreparedStatementState::Parsed { query, param_types }) => Some((query.clone(), param_types.to_vec())),
-            Some(_) => None,
-        }
-    }
-
-    pub fn save_described(&mut self, name: String, untyped_query: UntypedQuery, param_types: Vec<u32>) {
+    pub fn save_parsed(&mut self, name: String, sql: String, query: Query, param_types: Vec<u32>) {
         self.extended_query.insert(
             name,
-            PreparedStatementState::Described {
-                untyped_query,
+            PreparedStatementState::Parsed {
+                sql,
+                query,
                 param_types,
             },
         );
     }
 
-    pub fn find_described(&mut self, name: &str) -> Option<(&UntypedQuery, &Vec<u32>)> {
+    pub fn find_parsed(&mut self, name: &str) -> Option<(Query, String, Vec<u32>)> {
+        match self.extended_query.remove(name) {
+            None => None,
+            Some(PreparedStatementState::Parsed {
+                query,
+                sql,
+                param_types,
+            }) => Some((query.clone(), sql.clone(), param_types.to_vec())),
+            Some(_) => None,
+        }
+    }
+
+    pub fn save_described(&mut self, name: String, untyped_query: UntypedQuery, sql: String, param_types: Vec<u32>) {
+        self.extended_query.insert(
+            name,
+            PreparedStatementState::Described {
+                untyped_query,
+                sql,
+                param_types,
+            },
+        );
+    }
+
+    pub fn find_described(&mut self, name: &str) -> Option<(&UntypedQuery, &str, &Vec<u32>)> {
         match self.extended_query.get(name) {
             None => None,
             Some(PreparedStatementState::Described {
                 untyped_query,
+                sql,
                 param_types,
-            }) => Some((&untyped_query, &param_types)),
+            }) => Some((&untyped_query, &sql, &param_types)),
             Some(_) => None,
         }
     }
@@ -99,10 +111,12 @@ impl QueryPlanCache {
 #[derive(Clone, Debug, PartialEq)]
 pub enum PreparedStatementState {
     Parsed {
+        sql: String,
         query: Query,
         param_types: Vec<u32>,
     },
     Described {
+        sql: String,
         untyped_query: UntypedQuery,
         param_types: Vec<u32>,
     },

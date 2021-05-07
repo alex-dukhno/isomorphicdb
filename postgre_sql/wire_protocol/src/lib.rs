@@ -14,7 +14,7 @@
 
 pub mod connection;
 
-use crate::connection::{Connection, New, Securing};
+use crate::connection::{Connection, Established, New, Securing};
 use native_tls::{Identity, TlsStream};
 use std::{
     convert::TryInto,
@@ -23,10 +23,7 @@ use std::{
     net::TcpStream,
     str,
 };
-use wire_protocol_payload::{
-    InboundMessage, OutboundMessage, BIND, CLOSE, DESCRIBE, EMPTY_QUERY_RESPONSE, EXECUTE, FLUSH, PARSE, QUERY,
-    READY_FOR_QUERY, SYNC, TERMINATE,
-};
+use wire_protocol_payload::{InboundMessage, OutboundMessage};
 
 pub type WireResult = std::result::Result<InboundMessage, WireError>;
 
@@ -50,7 +47,7 @@ impl<S: Securing<TcpStream, TlsStream<TcpStream>>> PgWireAcceptor<S> {
 }
 
 impl PgWireAcceptor<Identity> {
-    pub fn accept(&self, socket: TcpStream) -> io::Result<ConnectionOld> {
+    pub fn accept(&self, socket: TcpStream) -> io::Result<Connection<Established, TcpStream, TlsStream<TcpStream>>> {
         let connection: Connection<New, TcpStream, TlsStream<TcpStream>> = Connection::new(socket);
         let connection = connection.hand_shake::<Identity>(self.secured.clone())?;
         let connection = connection.authenticate("whatever")?;
@@ -60,12 +57,9 @@ impl PgWireAcceptor<Identity> {
             ("integer_datetimes", "off"),
             ("server_version", "13.0"),
         ])?;
-        let connection = connection.send_backend_keys(1, 1)?;
-        let mut channel = connection.channel();
-
-        channel.write_all(&[READY_FOR_QUERY, 0, 0, 0, 5, EMPTY_QUERY_RESPONSE])?;
-        channel.flush()?;
-        Ok(ConnectionOld::from(channel))
+        let mut connection = connection.send_backend_keys(1, 1)?;
+        connection.send(OutboundMessage::ReadyForQuery)?;
+        Ok(connection)
     }
 }
 

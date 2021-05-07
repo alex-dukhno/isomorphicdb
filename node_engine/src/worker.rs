@@ -39,11 +39,10 @@ pub struct Worker;
 
 impl Worker {
     #[allow(dead_code)]
-    fn process<C: WireConnection>(&self, connection: &mut C, db_name: &str) {
+    pub fn process<C: WireConnection>(&self, connection: &mut C, database: Database) {
         let mut query_plan_cache = QueryPlanCache::default();
         let query_parser = QueryParser;
 
-        let database = Database::new(db_name);
         let transaction_manager = TransactionManager::new(database);
 
         let executor = QueryExecutor;
@@ -75,7 +74,10 @@ impl Worker {
                                 }
                                 connection.send(OutboundMessage::ReadyForQuery).unwrap();
                             }
-                            Request::Config(_) => unimplemented!(),
+                            Request::Config(_) => {
+                                connection.send(OutboundMessage::VariableSet).unwrap();
+                                connection.send(OutboundMessage::ReadyForQuery).unwrap();
+                            }
                             Request::Statement(statement) => {
                                 let (txn, finish_txn) = match txn_state.take() {
                                     None => (transaction_manager.start_transaction(), true),
@@ -91,7 +93,11 @@ impl Worker {
                                 }
                             }
                         },
-                        Err(_) => unimplemented!(),
+                        Err(parse_error) => {
+                            let query_error: QueryError = parse_error.into();
+                            connection.send(query_error.into()).unwrap();
+                            connection.send(OutboundMessage::ReadyForQuery).unwrap();
+                        }
                     },
                     InboundMessage::Parse {
                         statement_name,
@@ -102,22 +108,27 @@ impl Worker {
                             None => transaction_manager.start_transaction(),
                             Some(txn) => txn,
                         };
-                        match query_parser.parse(&sql) {
-                            Ok(Request::Statement(statement)) => match statement {
-                                Statement::Query(query) => {
-                                    query_plan_cache.save_parsed(statement_name, query, param_types);
-                                    connection.send(QueryEvent::ParseComplete.into()).unwrap();
-                                }
-                                other => {
-                                    connection
-                                        .send(QueryError::syntax_error(format!("{:?}", other)).into())
-                                        .unwrap();
+                        match query_plan_cache.find_described(&statement_name) {
+                            Some((_, saved_sql, _)) if saved_sql == sql => {
+                                connection.send(QueryEvent::ParseComplete.into()).unwrap();
+                            }
+                            _ => match query_parser.parse(&sql) {
+                                Ok(Request::Statement(statement)) => match statement {
+                                    Statement::Query(query) => {
+                                        query_plan_cache.save_parsed(statement_name, sql, query, param_types);
+                                        connection.send(QueryEvent::ParseComplete.into()).unwrap();
+                                    }
+                                    other => {
+                                        connection
+                                            .send(QueryError::syntax_error(format!("{:?}", other)).into())
+                                            .unwrap();
+                                    }
+                                },
+                                Ok(_) => unimplemented!(),
+                                Err(parser_error) => {
+                                    connection.send(QueryError::syntax_error(parser_error).into()).unwrap();
                                 }
                             },
-                            Ok(_) => unimplemented!(),
-                            Err(parser_error) => {
-                                connection.send(QueryError::syntax_error(parser_error).into()).unwrap();
-                            }
                         }
                     }
                     InboundMessage::DescribeStatement { name } => {
@@ -126,14 +137,16 @@ impl Worker {
                             Some(txn) => (txn, false),
                         };
                         match query_plan_cache.find_parsed(&name) {
-                            None => unimplemented!(),
-                            Some((query, _)) => {
+                            None => connection
+                                .send(QueryError::prepared_statement_does_not_exist(name).into())
+                                .unwrap(),
+                            Some((query, sql, _)) => {
                                 let (untyped_query, param_types, responses) =
                                     executor.describe_statement(query.clone(), &txn);
                                 for response in responses {
                                     connection.send(response).unwrap();
                                 }
-                                query_plan_cache.save_described(name, untyped_query, param_types);
+                                query_plan_cache.save_described(name, untyped_query, sql, param_types);
                             }
                         }
                         if finish_txn {
@@ -153,39 +166,44 @@ impl Worker {
                             None => (transaction_manager.start_transaction(), true),
                             Some(txn) => (txn, false),
                         };
-                        let (untyped_query, param_types) = match query_plan_cache.find_described(&statement_name) {
-                            Some((untyped_query, param_types)) => (untyped_query.clone(), param_types.to_vec()),
-                            _ => unimplemented!(),
-                        };
+                        match query_plan_cache.find_described(&statement_name) {
+                            Some((untyped_query, _, param_types)) => {
+                                let (untyped_query, param_types) = (untyped_query.clone(), param_types.to_vec());
 
-                        let mut arguments: Vec<ScalarValue> = vec![];
-                        debug_assert!(
-                            query_params.len() == param_types.len() && query_params.len() == query_param_formats.len(),
-                            "encoded parameter values, their types and formats have to have same length"
-                        );
-                        for i in 0..query_params.len() {
-                            let raw_param = &query_params[i];
-                            let typ = param_types[i];
-                            let format = query_param_formats[i];
-                            match raw_param {
-                                None => arguments.push(ScalarValue::Null),
-                                Some(bytes) => {
-                                    log::debug!("PG Type {:?}", typ);
-                                    match decode(typ, format, &bytes) {
-                                        Ok(param) => arguments.push(From::from(param)),
-                                        Err(_) => unimplemented!(),
+                                let mut arguments: Vec<ScalarValue> = vec![];
+                                debug_assert!(
+                                    query_params.len() == param_types.len()
+                                        && query_params.len() == query_param_formats.len(),
+                                    "encoded parameter values, their types and formats have to have same length"
+                                );
+                                for i in 0..query_params.len() {
+                                    let raw_param = &query_params[i];
+                                    let typ = param_types[i];
+                                    let format = query_param_formats[i];
+                                    match raw_param {
+                                        None => arguments.push(ScalarValue::Null),
+                                        Some(bytes) => {
+                                            log::debug!("PG Type {:?}", typ);
+                                            match decode(typ, format, &bytes) {
+                                                Ok(param) => arguments.push(From::from(param)),
+                                                Err(_) => unimplemented!(),
+                                            }
+                                        }
                                     }
                                 }
+                                let portal = crate::Portal {
+                                    untyped_query,
+                                    result_value_formats: result_value_formats.clone(),
+                                    arguments,
+                                    param_types: param_types.iter().map(From::from).collect::<Vec<SqlTypeFamily>>(),
+                                };
+                                query_plan_cache.bind_portal(statement_name, portal_name, portal);
+                                connection.send(OutboundMessage::BindComplete).unwrap();
                             }
+                            None => connection
+                                .send(QueryError::prepared_statement_does_not_exist(&statement_name).into())
+                                .unwrap(),
                         }
-                        let portal = crate::Portal {
-                            untyped_query,
-                            result_value_formats: result_value_formats.clone(),
-                            arguments,
-                            param_types: param_types.iter().map(From::from).collect::<Vec<SqlTypeFamily>>(),
-                        };
-                        query_plan_cache.bind_portal(statement_name, portal_name, portal);
-                        connection.send(OutboundMessage::BindComplete).unwrap();
                         if finish_txn {
                             txn.commit();
                         } else {
@@ -198,7 +216,9 @@ impl Worker {
                             Some(txn) => (txn, false),
                         };
                         match query_plan_cache.find_described(&name) {
-                            None => unimplemented!(),
+                            None => connection
+                                .send(QueryError::prepared_statement_does_not_exist(&name).into())
+                                .unwrap(),
                             Some(_) => {
                                 connection.send(OutboundMessage::StatementDescription(vec![])).unwrap();
                             }
@@ -218,7 +238,7 @@ impl Worker {
                             Some(txn) => (txn, false),
                         };
                         let responses = match query_plan_cache.find_portal(&portal_name) {
-                            None => unimplemented!(),
+                            None => vec![QueryError::prepared_statement_does_not_exist(portal_name).into()],
                             Some(crate::Portal {
                                 untyped_query,
                                 result_value_formats: _result_value_formats,
@@ -244,6 +264,7 @@ impl Worker {
                     InboundMessage::Sync => {
                         connection.send(OutboundMessage::ReadyForQuery).unwrap();
                     }
+                    InboundMessage::Terminate => break,
                     other => unimplemented!("other inbound request {:?} is not handled", other),
                 },
                 _ => break,
